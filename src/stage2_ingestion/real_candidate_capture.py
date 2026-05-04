@@ -282,13 +282,7 @@ def _engineering_lane_from_text(text: str, *, parse_state: str) -> dict[str, str
             "engineering_work_lane_parse_state": parse_state,
             "engineering_role_route": "project_manager_identity_chain",
         }
-    if "勘察设计" in text or ("勘察" in text and "设计" in text and "施工" not in text):
-        return {
-            "engineering_work_lane": "survey_design",
-            "engineering_work_lane_parse_state": parse_state,
-            "engineering_role_route": "survey_design_responsible_person_identity_chain",
-        }
-    if any(token in text for token in ("施工监理", "工程监理", "监理服务", "总监理工程师", "总监")):
+    if any(token in text for token in ("施工监理", "工程监理", "监理服务", "总监理工程师", "注册监理工程师", "总监")):
         return {
             "engineering_work_lane": "supervision",
             "engineering_work_lane_parse_state": parse_state,
@@ -299,6 +293,12 @@ def _engineering_lane_from_text(text: str, *, parse_state: str) -> dict[str, str
             "engineering_work_lane": "supplier_service",
             "engineering_work_lane_parse_state": parse_state,
             "engineering_role_route": "supplier_qualification_credit_chain",
+        }
+    if "勘察设计" in text or ("勘察" in text and "设计" in text and "施工" not in text):
+        return {
+            "engineering_work_lane": "survey_design",
+            "engineering_work_lane_parse_state": parse_state,
+            "engineering_role_route": "survey_design_responsible_person_identity_chain",
         }
     if "勘察" in text:
         return {
@@ -318,7 +318,7 @@ def _engineering_lane_from_text(text: str, *, parse_state: str) -> dict[str, str
             "engineering_work_lane_parse_state": parse_state,
             "engineering_role_route": "project_manager_identity_chain",
         }
-    if any(token in text for token in ("设备", "材料", "采购", "服务")):
+    if any(token in text for token in ("设备", "材料")):
         return {
             "engineering_work_lane": "supplier_service",
             "engineering_work_lane_parse_state": parse_state,
@@ -335,13 +335,28 @@ def _looks_like_supplier_or_service_lane(text: str) -> bool:
     supplier_tokens = (
         "造价咨询",
         "第三方监测",
+        "第三方检测",
         "检测服务",
+        "监测服务",
         "监测及检测",
         "咨询服务",
-        "设备采购",
-        "材料采购",
-        "货物采购",
+        "技术服务",
         "普通服务",
+        "保险采购",
+        "综合保险",
+        "年度综合保险",
+        "采购项目",
+        "设备采购",
+        "附属设备",
+        "实验室设备",
+        "材料采购",
+        "防水材料",
+        "甲供物资",
+        "建设单位管理甲供物资",
+        "桥梁伸缩装置",
+        "特殊桥梁支座",
+        "货物采购",
+        "电力电缆",
         "船舶",
         "海船",
         "集装箱船",
@@ -380,9 +395,9 @@ def _extract_candidate_table_responsible_person(text: str) -> dict[str, str]:
         rf"(?:项目总负责人姓名及资格证书\s*编号|项目总负责人姓名及资格证书编号|"
         rf"项目负责人姓名及资格证书\s*编号|项目负责人姓名及资格证书编号|项目负责人姓名/资格证书编号)"
         rf".{{0,260}}?{company_pattern}.{{0,260}}?"
-        rf"(?P<name>[\u4e00-\u9fff·]{{2,8}})\s*/\s*(?P<cert>[A-Za-z0-9\-]{{5,40}})",
+        rf"(?P<name>[\u4e00-\u9fff·]{{2,8}})\s*/\s*(?P<cert>[\u4e00-\u9fff]{{0,4}}[A-Za-z0-9][A-Za-z0-9\-]{{3,39}})",
         rf"(?:项目总负责人姓名|项目总负责人|项目负责人姓名|项目负责人).{{0,220}}?{company_pattern}.{{0,220}}?"
-        rf"(?P<name>[\u4e00-\u9fff·]{{2,8}})\s*/\s*(?P<cert>[A-Za-z0-9\-]{{5,40}})",
+        rf"(?P<name>[\u4e00-\u9fff·]{{2,8}})\s*/\s*(?P<cert>[\u4e00-\u9fff]{{0,4}}[A-Za-z0-9][A-Za-z0-9\-]{{3,39}})",
     )
     body_result = _extract_candidate_role_table_body(text)
     if body_result.get("primary_responsible_person_name"):
@@ -392,7 +407,7 @@ def _extract_candidate_table_responsible_person(text: str) -> dict[str, str]:
         if not match:
             continue
         name = _clean_text(match.group("name")).strip(" ：:，,；;。")
-        cert = _clean_text(match.group("cert")).strip(" ：:，,；;。")
+        cert = _clean_certificate_no_value(match.group("cert"))
         if not _looks_like_person_name(name):
             continue
         company = _clean_company_value(_clean_text(match.group(1))) if match.lastindex else ""
@@ -416,8 +431,8 @@ def _extract_candidate_role_table_body(text: str) -> dict[str, str]:
     body_pattern = (
         r"(?:项目总负责人姓名及资格证书\s*编号|项目总负责人姓名及资格证书编号|"
         r"项目负责人姓名及资格证书\s*编号|项目负责人姓名及资格证书编号|项目负责人姓名/资格证书编号|"
-        r"项目总负责人|项目负责人)"
-        r"(?P<body>.{0,800})"
+        r"拟派项目负责人|拟派项目经理姓名|项目负责人资质|项目负责人资格情况|项目总负责人|项目负责人)"
+        r"(?P<body>.{0,4500})"
     )
     for body_match in re.finditer(body_pattern, text):
         context_start = max(0, body_match.start() - 180)
@@ -438,12 +453,25 @@ def _extract_candidate_role_table_body(text: str) -> dict[str, str]:
             company = _clean_company_value(_clean_text(company_match.group("company")))
             if not _looks_like_table_candidate_company(company):
                 continue
+            structured_role = _extract_candidate_publicity_role_after_company(
+                body,
+                company_match=company_match,
+                company_matches=company_matches,
+            )
+            if structured_role.get("primary_responsible_person_name"):
+                return {
+                    "candidate_company": company,
+                    **structured_role,
+                    "parse_state": "DETAIL_TEXT_CANDIDATE_ROLE_CERT_TABLE"
+                    if structured_role.get("project_manager_certificate_no")
+                    else "DETAIL_TEXT_CANDIDATE_PUBLICITY_ROLE_TABLE",
+                }
             tail = body[company_match.end() : company_match.end() + 360]
             for role_match in re.finditer(_candidate_role_amount_person_pattern(), tail):
                 name = _clean_text(role_match.group("name")).strip(" ：:，,；;。")
                 if not _looks_like_person_name(name):
                     continue
-                cert = _clean_text(role_match.group("cert") or "").strip(" ：:，,；;。")
+                cert = _clean_certificate_no_value(role_match.group("cert") or "")
                 return {
                     "candidate_company": company,
                     "primary_responsible_person_name": name,
@@ -459,7 +487,7 @@ def _extract_candidate_role_table_body(text: str) -> dict[str, str]:
             name = _clean_text(match.group("name")).strip(" ：:，,；;。")
             if not _looks_like_person_name(name):
                 continue
-            cert = _clean_text(match.group("cert") or "").strip(" ：:，,；;。")
+            cert = _clean_certificate_no_value(match.group("cert") or "")
             company = _clean_company_value(_clean_text(match.group("company")))
             if not _looks_like_table_candidate_company(company):
                 continue
@@ -484,6 +512,132 @@ def _normalize_candidate_role_table_body(body: str) -> str:
     text = re.sub(r"(勘测|勘察|规划|设计)\s+(院)", r"\1\2", text)
     text = re.sub(r"(工程)\s+(技术有限公司)", r"\1\2", text)
     return text
+
+
+def _extract_candidate_publicity_role_after_company(
+    body: str,
+    *,
+    company_match: re.Match[str],
+    company_matches: list[re.Match[str]],
+) -> dict[str, str]:
+    next_company_start = min(
+        [match.start() for match in company_matches if match.start() > company_match.start()],
+        default=min(company_match.end() + 520, len(body)),
+    )
+    row_text = body[company_match.end() : next_company_start]
+    extended_row_text = body[company_match.end() : min(company_match.end() + 620, len(body))]
+    row_text_candidates = [row_text]
+    if extended_row_text and extended_row_text != row_text:
+        row_text_candidates.append(extended_row_text)
+    guangzhou_publicity_role = _extract_guangzhou_candidate_publicity_row_role(row_text)
+    if guangzhou_publicity_role.get("primary_responsible_person_name"):
+        return guangzhou_publicity_role
+    role_cert_patterns = (
+        r"(?P<name>[\u4e00-\u9fff·]{2,8})\s+"
+        r"(?P<cert_type>[\u4e00-\u9fffA-Za-z（）()]{0,30}(?:注册)?监理工程师|"
+        r"[\u4e00-\u9fffA-Za-z（）()]{0,30}(?:一级注册建造师|二级注册建造师|一级建造师|二级建造师|"
+        r"注册建筑师|注册结构工程师|注册土木工程师(?:[（(]岩土[）)])?|注册电气工程师|"
+        r"注册公用设备工程师|高级工程师|工程师))"
+        r"\s*[/／]\s*(?P<cert>[\u4e00-\u9fff]{0,4}[A-Za-z0-9][A-Za-z0-9\-]{3,39})",
+        r"(?P<name>[\u4e00-\u9fff·]{2,8})\s*[/／]\s*(?P<cert>[\u4e00-\u9fff]{0,4}[A-Za-z0-9][A-Za-z0-9\-]{3,39})",
+    )
+    for candidate_row_text in row_text_candidates:
+        for pattern in role_cert_patterns:
+            for match in re.finditer(pattern, candidate_row_text):
+                name = _clean_text(match.group("name")).strip(" ：:，,；;。")
+                if not _looks_like_person_name(name):
+                    continue
+                return {
+                    "primary_responsible_person_name": name,
+                    "project_manager_certificate_no": _clean_certificate_no_value(match.group("cert")),
+                }
+    role_only_patterns = (
+        r"(?:拟派项目负责人|项目负责人|总监理工程师|设计负责人|勘察负责人)\s*[:：]?\s*(?P<name>[\u4e00-\u9fff·]{2,8})",
+    )
+    for pattern in role_only_patterns:
+        for match in re.finditer(pattern, row_text):
+            name = _clean_text(match.group("name")).strip(" ：:，,；;。")
+            if _looks_like_person_name(name):
+                return {
+                    "primary_responsible_person_name": name,
+                    "project_manager_certificate_no": "",
+                }
+    return {
+        "primary_responsible_person_name": "",
+        "project_manager_certificate_no": "",
+    }
+
+
+def _extract_guangzhou_candidate_publicity_row_role(row_text: str) -> dict[str, str]:
+    text = _normalize_candidate_role_table_body(row_text)
+    text = re.sub(r"&nbsp;|\u00a0", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    if not text:
+        return {
+            "primary_responsible_person_name": "",
+            "project_manager_certificate_no": "",
+        }
+
+    cert_after_name_pattern = (
+        r"\s+(?P<cert_desc>[^/／。；;\n\r]{0,90}?"
+        r"(?:一级注册建造师|二级注册建造师|一级建造师|二级建造师|注册建造师|"
+        r"注册土木工程师(?:[（(][^）)]{1,20}[）)])?|注册监理工程师|监理工程师|"
+        r"一级注册建筑师|二级注册建筑师|注册建筑师|注册结构工程师|"
+        r"注册电气工程师|注册公用设备工程师|高级工程师|工程师)"
+        r"[^/／。；;\n\r]{0,70}?)"
+        r"(?:[/／]\s*|注册编号\s*[：:]\s*)"
+        r"(?P<cert>[\u4e00-\u9fff]{0,4}\s*[A-Za-z0-9][A-Za-z0-9\s\-]{3,49})"
+    )
+    parenthesized_cert_after_name_pattern = (
+        r"\s+[^。；;\n\r]{0,90}?（\s*注册编号\s*[：:]"
+        r"\s*(?P<cert>[\u4e00-\u9fff]{0,4}\s*[A-Za-z0-9][A-Za-z0-9\s\-]{3,49})\s*）"
+    )
+    for name_match in re.finditer(r"(?<![\u4e00-\u9fff])(?P<name>[\u4e00-\u9fff·]{2,4})(?![\u4e00-\u9fff])", text):
+        name = _clean_text(name_match.group("name")).strip(" ：:，,；;。")
+        if not _looks_like_person_name(name):
+            continue
+        tail = text[name_match.end() : name_match.end() + 180]
+        cert_match = re.match(cert_after_name_pattern, tail) or re.match(
+            parenthesized_cert_after_name_pattern,
+            tail,
+        )
+        if not cert_match:
+            continue
+        cert = _clean_certificate_no_value(cert_match.group("cert"))
+        if cert:
+            return {
+                "primary_responsible_person_name": name,
+                "project_manager_certificate_no": cert,
+            }
+
+    filler = (
+        r"(?:详见(?:投标文件公开|中标候选人公示|附件)|满足招标文件要求|完全响应|"
+        r"无业绩要求|按招标文件要求|/)"
+    )
+    role_only_pattern = (
+        rf"(?:{filler}[\s/；;，,、]*){{1,5}}"
+        rf"(?:[。.]?[\s/；;，,、]*)"
+        r"(?P<name>[\u4e00-\u9fff·]{2,4})"
+        r"(?=\s+(?:详见|满足|完全|/|一级|二级|注册|市政|机电|公路|水利|监理|高级|工程师|[（(]))"
+    )
+    for match in re.finditer(role_only_pattern, text):
+        name = _clean_text(match.group("name")).strip(" ：:，,；;。")
+        if _looks_like_person_name(name):
+            return {
+                "primary_responsible_person_name": name,
+                "project_manager_certificate_no": "",
+            }
+    return {
+        "primary_responsible_person_name": "",
+        "project_manager_certificate_no": "",
+    }
+
+
+def _clean_certificate_no_value(value: str) -> str:
+    cert = _clean_text(value).strip(" ：:，,；;。）》)")
+    cert = re.sub(r"\s+", "", cert)
+    cert = re.split(r"(?:详见|业绩|资格|资质|候选人|投标|质量|工期)", cert, maxsplit=1)[0]
+    return cert.strip(" ：:，,；;。）》)")
 
 
 def _candidate_role_company_pattern() -> str:
@@ -513,7 +667,7 @@ def _candidate_role_amount_person_pattern() -> str:
     return (
         r"(?:\d[\d,.]*\s*(?:元|%)?(?:[/／]\s*\d[\d,.]*\s*(?:元)?)?[\s，,、]*){1,6}"
         r"(?P<name>[\u4e00-\u9fff·]{2,8})"
-        r"(?:(?:\s*/\s*|\s+)(?P<cert>[A-Za-z0-9\-]{5,40}))?"
+        r"(?:(?:\s*/\s*|\s+)(?P<cert>[\u4e00-\u9fff]{0,4}[A-Za-z0-9][A-Za-z0-9\-]{3,39}))?"
     )
 
 
@@ -831,19 +985,39 @@ def _extract_candidate_summary_table(text: str) -> dict[str, str]:
 
 def _looks_like_person_name(value: str) -> bool:
     name = _clean_text(value).strip(" ：:，,；;。")
-    if not re.fullmatch(r"[\u4e00-\u9fff·]{2,8}", name):
+    if "·" in name:
+        if not re.fullmatch(r"[\u4e00-\u9fff·]{2,8}", name):
+            return False
+    elif not re.fullmatch(r"[\u4e00-\u9fff]{2,4}", name):
         return False
     non_name_tokens = (
         "项目",
         "负责人",
         "经理",
+        "中标",
+        "候选",
         "公示",
+        "公告",
         "结束",
         "时间",
+        "日历",
+        "日历天",
+        "日内",
+        "年度",
+        "年版",
+        "合格",
+        "书面",
+        "答复",
+        "答疑",
+        "澄清",
+        "详见",
         "可由",
         "联合体",
         "须无",
         "需具备",
+        "法律",
+        "法规",
+        "规定",
         "系统",
         "所报",
         "个月",
@@ -852,13 +1026,34 @@ def _looks_like_person_name(value: str) -> bool:
         "下浮",
         "报价",
         "投标",
+        "开标",
+        "评标",
+        "情况",
+        "采购",
+        "序号",
+        "招标",
+        "按招",
+        "联系",
+        "地址",
+        "广场",
+        "广州",
         "建造师",
         "工程师",
+        "文件",
+        "要求",
         "公司",
         "集团",
         "设计",
+        "勘测",
+        "勘察",
+        "规划",
+        "建工",
+        "招商",
+        "交通",
         "建设",
         "工程",
+        "建筑",
+        "装修",
         "咨询",
         "管理",
         "有限",
@@ -866,10 +1061,15 @@ def _looks_like_person_name(value: str) -> bool:
         "证书",
         "资格",
         "资质",
+        "业绩",
         "专业",
         "标段",
         "施工",
         "监理",
+        "千伏",
+        "电厂",
+        "号",
+        "号楼",
     )
     return not any(token in name for token in non_name_tokens)
 
@@ -888,13 +1088,13 @@ def _extract_project_manager_certificate_identity(text: str) -> dict[str, str]:
         (r"一级注册建造师|一级建造师", "一级建造师"),
         (r"二级注册建造师|二级建造师", "二级建造师"),
         (r"注册建造师", "注册建造师"),
-        (r"注册监理工程师|监理工程师注册证书", "注册监理工程师"),
+        (r"注册监理工程师|监理工程师注册证书|(?<!总)监理工程师(?=\s*[/／])", "注册监理工程师"),
         (r"一级注册建筑师|一级建筑师", "一级注册建筑师"),
         (r"二级注册建筑师|二级建筑师", "二级注册建筑师"),
         (r"注册建筑师", "注册建筑师"),
         (r"注册土木工程师[（(]岩土[）)]|注册岩土工程师", "注册土木工程师（岩土）"),
-        (r"注册电气工程师(?:（[^）]+）)?", None),
-        (r"注册(?:土木|结构|公用设备|造价|安全)工程师(?:（[^）]+）)?", None),
+        (r"注册电气工程师(?:[（(][^）)]+[）)])?", None),
+        (r"注册(?:土木|结构|公用设备|造价|安全)工程师(?:[（(][^）)]+[）)])?", None),
     )
     certificate_context = ""
     for pattern, canonical in certificate_type_patterns:
@@ -922,6 +1122,9 @@ def _extract_project_manager_certificate_identity(text: str) -> dict[str, str]:
         ("建筑", "建筑"),
         ("公路工程", "公路"),
         ("公路", "公路"),
+        ("道路工程", "道路"),
+        ("道路", "道路"),
+        ("路桥", "路桥"),
         ("水利水电工程", "水利"),
         ("水利", "水利"),
         ("岩土工程", "岩土"),
@@ -1088,8 +1291,8 @@ def _extract_project_manager(text: str, *, work_lane: str = "") -> dict[str, str
     certificate_no = ""
     certificate_state = "DETAIL_TEXT_NOT_FOUND"
     cert_patterns = (
-        r"(?:注册编号|注册编\s*号|注册证书编号|证书编号|注册号)\s*[:：]?\s*([A-Za-z0-9\-]{4,40})",
-        r"(?:证号)\s*[:：]\s*([A-Za-z0-9\-]{4,40})",
+        r"(?:注册编号|注册编\s*号|注册证书编号|证书编号|注册号)\s*[:：]?\s*([\u4e00-\u9fff]{0,4}[A-Za-z0-9][A-Za-z0-9\-]{3,39})",
+        r"(?:证号)\s*[:：]\s*([\u4e00-\u9fff]{0,4}[A-Za-z0-9][A-Za-z0-9\-]{3,39})",
     )
     certificate_search_text = search_text if primary_name or manager_name else _project_manager_certificate_context(search_text)
     for pattern in cert_patterns:
@@ -1097,7 +1300,7 @@ def _extract_project_manager(text: str, *, work_lane: str = "") -> dict[str, str
             break
         match = re.search(pattern, certificate_search_text)
         if match:
-            certificate_no = _clean_text(match.group(1)).strip(" ：:，,；;。")
+            certificate_no = _clean_certificate_no_value(match.group(1))
             certificate_state = "DETAIL_TEXT_CANDIDATE_TABLE"
             break
     if not certificate_no and "table_role_cert" in locals() and table_role_cert:
@@ -1753,6 +1956,10 @@ class RealCandidateStage2CaptureService:
                     "content_type": str(carrier.get("content_type") or ""),
                     "byte_size": _as_int(carrier.get("byte_size"), 0),
                     "attachment_degraded_reasons": list(carrier.get("degraded_reasons", []) or []),
+                    "attachment_blocker_class": str(carrier.get("attachment_blocker_class") or ""),
+                    "attachment_blocker_reason": str(carrier.get("attachment_blocker_reason") or ""),
+                    "attachment_resolution_route": str(carrier.get("attachment_resolution_route") or ""),
+                    "attachment_browser_replay_steps": list(carrier.get("attachment_browser_replay_steps") or []),
                     "review_required": bool(carrier.get("review_required")),
                 }
             )
@@ -1768,10 +1975,20 @@ class RealCandidateStage2CaptureService:
     ) -> dict[str, Any]:
         fields = _parser_fields_by_name(parser_carrier)
         text = _clean_text(readback_text)
+        parsed_title = _field_value(fields, "project_name", "announcement_title")
+        detail_title = str(detail_carrier.get("title") or "").strip()
+        generic_detail_titles = {"广州交易集团有限公司"}
+        source_profile_id = str(candidate.get("source_profile_id") or "")
         title = (
-            _field_value(fields, "project_name", "announcement_title")
-            or str(detail_carrier.get("title") or "")
-            or str(candidate.get("project_name") or "")
+            detail_title
+            if (
+                detail_title
+                and (
+                    parsed_title in generic_detail_titles
+                    or source_profile_id == "GUANGZHOU-YWTB-CONSTRUCTION-LIST"
+                )
+            )
+            else parsed_title or detail_title or str(candidate.get("project_name") or "")
         )
         amount, amount_state = _extract_amount(text)
         candidate_company, candidate_company_state = _extract_candidate_company(text)

@@ -94,6 +94,82 @@ def _repo(tmp_dir: str) -> ObjectStorageRepository:
     )
 
 
+def _capture_single_candidate_from_html(
+    *,
+    detail_url: str,
+    title: str,
+    html: bytes,
+    source_profile_id: str = "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
+) -> dict:
+    transport = FakeRealPublicFetchTransport(
+        {
+            detail_url: RealPublicFetchResponse(
+                url=detail_url,
+                status_code=200,
+                content=html,
+                content_type="text/html; charset=utf-8",
+                final_url=detail_url,
+            ),
+        }
+    )
+    candidate = {
+        "candidate_key": f"candidate-{abs(hash(detail_url))}",
+        "notice_id": f"NOTICE-{abs(hash(detail_url))}",
+        "project_id": f"PROJ-{abs(hash(detail_url))}",
+        "project_name": title,
+        "region_code": "CN-GD",
+        "project_type": "construction",
+        "notice_stage": "candidate_notice",
+        "source_url": detail_url,
+        "source_profile_id": source_profile_id,
+        "source_candidate_mode": "REAL_PUBLIC_SOURCE_CANDIDATES",
+        "key_fields_present": ["project_name", "notice_stage"],
+        "candidate_count": 0,
+    }
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        service = RealCandidateStage2CaptureService(
+            stage2_service=FakeStage2Service(transport),
+            object_repository=_repo(tmp_dir),
+            repository=RealCandidateStage2CaptureRepository(),
+        )
+        result = service.capture_candidates([candidate], now="2026-05-01T00:00:00+00:00")
+    return result["enriched_candidates"][0]
+
+
+def _classification_detail_html(title: str, *, body: str = "") -> bytes:
+    html = f"""
+    <html>
+      <head><title>{title}</title></head>
+      <body>
+        <h1>{title}</h1>
+        <p>中标候选人公示</p>
+        <p>第一中标候选人 广东测试工程有限公司 投标报价 1000.00 万元。</p>
+        <p>{body}</p>
+        <p>公开详情正文公开详情正文公开详情正文公开详情正文公开详情正文公开详情正文公开详情正文公开详情正文。</p>
+        <p>公开详情正文公开详情正文公开详情正文公开详情正文公开详情正文公开详情正文公开详情正文公开详情正文。</p>
+      </body>
+    </html>
+    """
+    return html.encode("utf-8")
+
+
+def _guangzhou_publicity_table_html(title: str, *, first_row: str) -> bytes:
+    html = f"""
+    <html>
+      <head><title>{title}</title></head>
+      <body>
+        <h1>{title}</h1>
+        <p>中标候选人公示</p>
+        <p>序号 中标候选人名称 候选人代码 排名 投标报价 质量承诺 工期（交货期） 候选人资格情况 候选人业绩情况 拟派项目负责人 项目负责人资质 项目负责人业绩</p>
+        <p>1 {first_row}</p>
+        <p>2 广州第二测试工程有限公司 914401010000000002 2 2000000.00元 按招标文件要求 按招标文件要求 详见投标文件公开 详见投标文件公开 周永兵 详见投标文件公开 详见投标文件公开</p>
+        <p>公示结束时间：2026年05月07日</p>
+      </body>
+    </html>
+    """
+    return html.encode("utf-8")
+
+
 def _ccgp_detail_html() -> bytes:
     html = """
     <html>
@@ -234,6 +310,23 @@ def _supervision_chief_engineer_detail_html() -> bytes:
         <p>第一中标候选人 广东省工程监理有限公司 投标报价 980000.00 元</p>
         <p>总监理工程师：李明 注册监理工程师 注册号: 44030186 职称：高级工程师</p>
         <p>公示结束时间：2026年05月08日</p>
+      </body>
+    </html>
+    """
+    return html.encode("utf-8")
+
+
+def _guangzhou_candidate_publicity_table_detail_html() -> bytes:
+    html = """
+    <html>
+      <head><title>广东警官学院嘉禾校区警体馆建设工程项目施工监理中标候选人公示</title></head>
+      <body>
+        <h1>广东警官学院嘉禾校区警体馆建设工程项目施工监理中标候选人公示</h1>
+        <p>中标候选人公示</p>
+        <p>序号 中标候选人名称 候选人代码 排名 投标报价 监理质量标准 监理服务期限 候选人资格情况 候选人业绩情况 拟派项目负责人 项目负责人资质 项目负责人业绩</p>
+        <p>1 广州珠江监理咨询集团有限公司 91440101190668588M 1 1974252.50元 按招标文件的要求 按招标文件的要求 详见投标文件公开 详见投标文件公开 张合力 监理工程师/44012765 详见投标文件公开</p>
+        <p>2 广州市市政工程监理有限公司 91440101716359393C 2 1963695.00元 按招标文件要求 按招标文件要求 详见投标文件公开 详见投标文件公开 钱超 监理工程师/44014267 详见投标文件公开</p>
+        <p>公示结束时间：2026年05月07日</p>
       </body>
     </html>
     """
@@ -1050,6 +1143,142 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
         self.assertEqual(enriched["project_manager_certificate_type"], "注册监理工程师")
         self.assertEqual(enriched["project_manager_professional_title"], "高级工程师")
 
+    def test_candidate_publicity_table_extracts_person_after_quality_columns(self) -> None:
+        detail_url = "https://ygp.gdzwfw.gov.cn/notice/guangzhou-candidate-publicity-001.html"
+        transport = FakeRealPublicFetchTransport(
+            {
+                detail_url: RealPublicFetchResponse(
+                    url=detail_url,
+                    status_code=200,
+                    content=_guangzhou_candidate_publicity_table_detail_html(),
+                    content_type="text/html; charset=utf-8",
+                    final_url=detail_url,
+                ),
+            }
+        )
+        candidate = {
+            "candidate_key": "gd-guangzhou-candidate-publicity-001",
+            "notice_id": "NOTICE-GD-GZ-CANDIDATE-PUBLICITY-001",
+            "project_id": "PROJ-GD-GZ-CANDIDATE-PUBLICITY-001",
+            "project_name": "广东警官学院嘉禾校区警体馆建设工程项目施工监理中标候选人公示",
+            "region_code": "CN-GD",
+            "project_type": "construction",
+            "notice_stage": "candidate_notice",
+            "source_url": detail_url,
+            "source_profile_id": "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
+            "source_candidate_mode": "REAL_PUBLIC_SOURCE_CANDIDATES",
+            "key_fields_present": ["project_name", "notice_stage"],
+            "candidate_count": 0,
+        }
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            service = RealCandidateStage2CaptureService(
+                stage2_service=FakeStage2Service(transport),
+                object_repository=_repo(tmp_dir),
+                repository=RealCandidateStage2CaptureRepository(),
+            )
+            result = service.capture_candidates([candidate], now="2026-05-01T00:00:00+00:00")
+
+        enriched = result["enriched_candidates"][0]
+        self.assertEqual(enriched["candidate_company"], "广州珠江监理咨询集团有限公司")
+        self.assertEqual(enriched["primary_responsible_person_name"], "张合力")
+        self.assertEqual(enriched["chief_supervision_engineer_name"], "张合力")
+        self.assertEqual(enriched["project_manager_name"], "张合力")
+        self.assertEqual(enriched["project_manager_certificate_no"], "44012765")
+        self.assertNotEqual(enriched["primary_responsible_person_name"], "按招标文件的要求")
+
+    def test_guangzhou_publicity_table_extracts_name_only_without_fabricating_certificate(self) -> None:
+        title = "2026-2027年度南沙区排水设施小修项目施工中标候选人公示"
+        enriched = _capture_single_candidate_from_html(
+            detail_url="https://ygp.gdzwfw.gov.cn/notice/gz-publicity-name-only-001.html",
+            title=title,
+            html=_guangzhou_publicity_table_html(
+                title,
+                first_row=(
+                    "广东浩禹建设有限公司 91440101MA59GY1G1R 1 39069868.25元 "
+                    "按招标文件的要求 按招标文件的要求 详见投标文件公开 "
+                    "详见投标文件公开 陈丽丽 详见投标文件公开 详见投标文件公开"
+                ),
+            ),
+        )
+
+        self.assertEqual(enriched["engineering_work_lane"], "construction_or_epc")
+        self.assertEqual(enriched["primary_responsible_person_name"], "陈丽丽")
+        self.assertEqual(enriched["project_manager_name"], "陈丽丽")
+        self.assertEqual(enriched.get("project_manager_certificate_no", ""), "")
+        self.assertFalse(enriched["responsible_role_gap_review_required"])
+        self.assertNotEqual(enriched["primary_responsible_person_name"], "按招标文件的要求")
+        self.assertNotEqual(enriched.get("project_manager_certificate_no", ""), "详见投标文件公开")
+
+    def test_guangzhou_publicity_table_extracts_construction_certificate_with_space(self) -> None:
+        title = "长安镇110kV东宝站10kV领阳线电力迁改工程施工中标候选人公示"
+        enriched = _capture_single_candidate_from_html(
+            detail_url="https://ygp.gdzwfw.gov.cn/notice/gz-publicity-builder-cert-001.html",
+            title=title,
+            html=_guangzhou_publicity_table_html(
+                title,
+                first_row=(
+                    "东莞市昌晖电气工程有限公司 91441900777836579R 1 2635697.38元 "
+                    "通过各级验收合格并完成启动投产。 83日历天 "
+                    "电力工程施工总承包二级 无业绩要求 莫福源 "
+                    "二级注册建造师（机电工程专业）/粤 2442021202125000 详见投标文件公开"
+                ),
+            ),
+        )
+
+        self.assertEqual(enriched["primary_responsible_person_name"], "莫福源")
+        self.assertEqual(enriched["project_manager_name"], "莫福源")
+        self.assertEqual(enriched["project_manager_certificate_no"], "粤2442021202125000")
+        self.assertEqual(enriched["project_manager_certificate_type"], "二级建造师")
+        self.assertEqual(enriched["project_manager_cert_specialty"], "机电")
+
+    def test_guangzhou_publicity_table_extracts_survey_design_registered_civil_certificate(self) -> None:
+        title = "绿色化工和氢能产业园基础设施建设－北区土方工程一期勘察设计中标候选人公示"
+        enriched = _capture_single_candidate_from_html(
+            detail_url="https://ygp.gdzwfw.gov.cn/notice/gz-publicity-survey-design-cert-001.html",
+            title=title,
+            html=_guangzhou_publicity_table_html(
+                title,
+                first_row=(
+                    "一方设计集团有限公司 914401010000000001 1 投标总报价3426871.63元 "
+                    "本工程验收达到合格标准。 60日历天 何勇均 "
+                    "注册土木工程师(道路工程)/AD244400169 详见投标文件公开"
+                ),
+            ),
+        )
+
+        self.assertEqual(enriched["engineering_work_lane"], "survey_design")
+        self.assertEqual(enriched["opportunity_priority_class"], "C_MEDIUM_DESIGN_SURVEY")
+        self.assertEqual(enriched["primary_responsible_role"], "survey_design_project_lead")
+        self.assertEqual(enriched["primary_responsible_person_name"], "何勇均")
+        self.assertEqual(enriched.get("project_manager_name", ""), "")
+        self.assertEqual(enriched["project_manager_certificate_no"], "AD244400169")
+        self.assertEqual(enriched["project_manager_certificate_type"], "注册土木工程师(道路工程)")
+        self.assertEqual(enriched["project_manager_cert_specialty"], "道路")
+
+    def test_guangzhou_publicity_table_extracts_supervision_engineer_slash_certificate(self) -> None:
+        title = "广州市黄埔区城中村改造项目工程监理服务中标候选人公示"
+        enriched = _capture_single_candidate_from_html(
+            detail_url="https://ygp.gdzwfw.gov.cn/notice/gz-publicity-supervision-cert-001.html",
+            title=title,
+            html=_guangzhou_publicity_table_html(
+                title,
+                first_row=(
+                    "广东重工建设监理有限公司 91440000707652977E 1 5831229.17元 "
+                    "按招标文件要求 按招标文件要求 详见投标文件公开 "
+                    "详见投标文件公开 黄坤 监理工程师/44012345 详见投标文件公开"
+                ),
+            ),
+        )
+
+        self.assertEqual(enriched["engineering_work_lane"], "supervision")
+        self.assertEqual(enriched["opportunity_priority_class"], "B_HIGH_SUPERVISION")
+        self.assertEqual(enriched["primary_responsible_role"], "chief_supervision_engineer")
+        self.assertEqual(enriched["chief_supervision_engineer_name"], "黄坤")
+        self.assertEqual(enriched["project_manager_name"], "黄坤")
+        self.assertEqual(enriched["project_manager_certificate_no"], "44012345")
+        self.assertEqual(enriched["project_manager_certificate_type"], "注册监理工程师")
+
     def test_design_lead_is_not_forced_into_construction_project_manager(self) -> None:
         detail_url = "https://ygp.gdzwfw.gov.cn/notice/design-lead-001.html"
         transport = FakeRealPublicFetchTransport(
@@ -1531,6 +1760,117 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
         self.assertEqual(enriched["opportunity_priority_class"], "D_LOW_SUPPLIER_SERVICE")
         self.assertFalse(enriched["responsible_role_gap_review_required"])
         self.assertEqual(enriched.get("project_manager_name", ""), "")
+
+    def test_abcd_priority_classification_rules_are_applied_after_detail_parse(self) -> None:
+        cases = (
+            (
+                "施工总承包",
+                "广州城市道路工程施工总承包中标候选人公示",
+                "项目负责人 建造师",
+                "construction_or_epc",
+                "A_HIGH_CONSTRUCTION_EPC",
+                True,
+            ),
+            (
+                "监理",
+                "华南快速路二期改扩建工程施工监理中标候选人公示",
+                "总监理工程师 注册监理工程师",
+                "supervision",
+                "B_HIGH_SUPERVISION",
+                True,
+            ),
+            (
+                "勘察设计",
+                "绿色化工和氢能产业园基础设施建设工程勘察设计中标候选人公示",
+                "设计负责人 勘察负责人 注册土木工程师",
+                "survey_design",
+                "C_MEDIUM_DESIGN_SURVEY",
+                True,
+            ),
+            (
+                "甲供物资",
+                "新建合浦至湛江铁路建设单位管理甲供物资防水材料采购中标候选人公示",
+                "供应商资格 业绩 参数 报价 信用记录",
+                "supplier_service",
+                "D_LOW_SUPPLIER_SERVICE",
+                False,
+            ),
+            (
+                "保险采购",
+                "佛开高速公路2026年度综合保险采购项目中标候选人公示",
+                "供应商资格 业绩 报价 信用记录",
+                "supplier_service",
+                "D_LOW_SUPPLIER_SERVICE",
+                False,
+            ),
+            (
+                "EPC例外",
+                "科技公司分布式光伏发电建设项目设计施工(EPC)总承包中标候选人公示",
+                "项目负责人 注册建造师",
+                "construction_or_epc",
+                "A_HIGH_CONSTRUCTION_EPC",
+                True,
+            ),
+            (
+                "站点服务词不误分D",
+                "广东省储备粮汕头直属库二期工程光伏发电项目中标候选人公示",
+                "广州公共资源交易服务平台 采购公告 变更澄清公告 公开详情",
+                "construction_or_epc",
+                "A_HIGH_CONSTRUCTION_EPC",
+                True,
+            ),
+        )
+        for index, (label, title, body, lane, priority, gap_required) in enumerate(cases, 1):
+            with self.subTest(label=label):
+                detail_url = f"https://ygp.gdzwfw.gov.cn/notice/abcd-classification-{index}.html"
+                transport = FakeRealPublicFetchTransport(
+                    {
+                        detail_url: RealPublicFetchResponse(
+                            url=detail_url,
+                            status_code=200,
+                            content=_classification_detail_html(title, body=body),
+                            content_type="text/html; charset=utf-8",
+                            final_url=detail_url,
+                        ),
+                    }
+                )
+                candidate = {
+                    "candidate_key": f"gd-abcd-classification-{index}",
+                    "notice_id": f"NOTICE-GD-ABCD-CLASSIFICATION-{index}",
+                    "project_id": f"PROJ-GD-ABCD-CLASSIFICATION-{index}",
+                    "project_name": title,
+                    "region_code": "CN-GD",
+                    "project_type": "construction",
+                    "notice_stage": "candidate_notice",
+                    "source_url": detail_url,
+                    "source_profile_id": "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
+                    "source_candidate_mode": "REAL_PUBLIC_SOURCE_CANDIDATES",
+                    "key_fields_present": ["project_name", "notice_stage"],
+                    "candidate_count": 0,
+                }
+
+                with tempfile.TemporaryDirectory() as tmp_dir:
+                    service = RealCandidateStage2CaptureService(
+                        stage2_service=FakeStage2Service(transport),
+                        object_repository=_repo(tmp_dir),
+                        repository=RealCandidateStage2CaptureRepository(),
+                    )
+                    result = service.capture_candidates(
+                        [candidate],
+                        now="2026-05-01T00:00:00+00:00",
+                    )
+
+                enriched = result["enriched_candidates"][0]
+                self.assertEqual(enriched["engineering_work_lane"], lane)
+                self.assertEqual(enriched["opportunity_priority_class"], priority)
+                self.assertEqual(enriched["responsible_role_gap_review_required"], gap_required)
+                if priority == "D_LOW_SUPPLIER_SERVICE":
+                    self.assertEqual(
+                        enriched["expected_responsible_role_field"],
+                        "not_required_for_supplier_service",
+                    )
+                    self.assertTrue(enriched["expected_responsible_role_present"])
+                    self.assertFalse(enriched["stage4_identity_completion_required"])
 
     def test_project_or_tender_number_is_not_project_manager_certificate(self) -> None:
         detail_url = "https://ygp.gdzwfw.gov.cn/notice/project-code-only-001.html"

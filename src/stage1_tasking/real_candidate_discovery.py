@@ -32,9 +32,15 @@ DEFAULT_DISCOVERY_PROFILE_LIMIT_PER_REGION = 3
 GUANGDONG_STAGE1_6_VALIDATION_CANDIDATE_LIMIT = 30
 GUANGDONG_DISCOVERY_PAGE_SIZE = 50
 MAX_GUANGDONG_DISCOVERY_PAGES = 1
-GUANGDONG_CANDIDATE_PUBLICITY_TRADING_PROCESS = "3C42"
+GUANGZHOU_YWTB_PROFILE_ID = "GUANGZHOU-YWTB-CONSTRUCTION-LIST"
+GUANGZHOU_YWTB_DISCOVERY_PAGE_SIZE = 50
+GUANGZHOU_YWTB_CONSTRUCTION_CATEGORY_NUM = "002001001"
+GUANGZHOU_YWTB_CANDIDATE_NOTICE_TYPE = "03"
+GUANGDONG_CANDIDATE_PUBLICITY_TRADING_PROCESS = "3C51"
+GUANGDONG_EVALUATION_REPORT_TRADING_PROCESS = "3C42"
 GUANGDONG_YGP_TRADING_PROCESS_PRIORITY = (
     ("candidate_publicity", GUANGDONG_CANDIDATE_PUBLICITY_TRADING_PROCESS),
+    ("evaluation_report_fallback", GUANGDONG_EVALUATION_REPORT_TRADING_PROCESS),
     ("recent_all_fallback", ""),
 )
 
@@ -57,10 +63,12 @@ _PROVINCE_ADMIN_CODE_TO_REGION = {
 }
 
 _BROWSER_RENDERED_REALTIME_PROFILE_IDS = {
+    GUANGZHOU_YWTB_PROFILE_ID,
     "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
 }
 
 _PROVINCE_REALTIME_PROFILE_IDS = {
+    GUANGZHOU_YWTB_PROFILE_ID,
     "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
     "JIANGSU-GGZY-HOME",
     "ZHEJIANG-GGZY-JYXXGK-LIST",
@@ -308,7 +316,7 @@ def _region_from_source_url(url: str) -> str:
     host = urlsplit(url).netloc.lower()
     if "beijing" in host or "bj" in host:
         return "CN-BJ"
-    if "gdzwfw" in host or "guangdong" in host:
+    if "gdzwfw" in host or "guangdong" in host or "gzggzy.cn" in host:
         return "CN-GD"
     if "jszwfw.gov.cn" in host:
         return "CN-JS"
@@ -420,6 +428,8 @@ def _is_published_within_discovery_window(value: Any, *, now: str, days: int = 3
 
 
 def _discover_profile_api_link_items(profile_id: str, *, now: str) -> dict[str, Any]:
+    if profile_id == GUANGZHOU_YWTB_PROFILE_ID:
+        return _discover_guangzhou_ywtb_api_link_items(now=now)
     if profile_id == "GUANGDONG-YGP-PROVINCE-TRADING-LIST":
         return _discover_guangdong_ygp_api_link_items(now=now)
     if profile_id == "JIANGSU-GGZY-HOME":
@@ -481,6 +491,139 @@ def _guangdong_ygp_signature_headers(payload: Mapping[str, Any]) -> dict[str, st
 def _url_decode_for_guangdong_signature(value: str) -> str:
     # 广东门户前端签名逻辑先按 & 排序，再对 query-string 做 decodeURIComponent。
     return unquote(value)
+
+
+def _discover_guangzhou_ywtb_api_link_items(*, now: str) -> dict[str, Any]:
+    endpoint = "https://ywtb.gzggzy.cn/inteligentsearch/rest/esinteligentsearch/getFullTextDataNew"
+    start_date, end_date = _date_window_from_now(now)
+    payload = {
+        "token": "",
+        "pn": 0,
+        "rn": GUANGZHOU_YWTB_DISCOVERY_PAGE_SIZE,
+        "sdt": "",
+        "edt": "",
+        "wd": "",
+        "inc_wd": "",
+        "exc_wd": "",
+        "fields": "title",
+        "cnum": "002",
+        "sort": json.dumps({"ordernum": "0", "webdate": "0"}, ensure_ascii=False),
+        "ssort": "title",
+        "cl": 500,
+        "terminal": "",
+        "condition": [
+            {
+                "fieldName": "categorynum",
+                "equal": GUANGZHOU_YWTB_CONSTRUCTION_CATEGORY_NUM,
+                "isLike": True,
+                "likeType": 2,
+            },
+            {
+                "fieldName": "jsgcggfl",
+                "equal": GUANGZHOU_YWTB_CANDIDATE_NOTICE_TYPE,
+                "isLike": False,
+                "likeType": 0,
+            },
+        ],
+        "time": None,
+        "highlights": "",
+        "statistics": None,
+        "unionCondition": None,
+        "accuracy": "",
+        "noParticiple": "0",
+        "searchRange": [],
+        "isBusiness": "1",
+    }
+    request = Request(
+        endpoint,
+        data=json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8"),
+        headers={
+            "User-Agent": "AX9S-RealPublicCandidateDiscovery/0.1 (+public-readonly-validation)",
+            "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+            "Accept": "application/json, text/javascript, */*; q=0.01",
+            "Referer": "https://ywtb.gzggzy.cn/jyfw/002001/002001001/trade_purchasetoplen6.html",
+            "X-Requested-With": "XMLHttpRequest",
+        },
+        method="POST",
+    )
+    try:
+        with urlopen(request, timeout=18) as response:
+            raw = response.read(2_500_000).decode("utf-8", "ignore")
+        outer = json.loads(raw)
+        content = outer.get("content")
+        data = json.loads(content) if isinstance(content, str) else dict(content or {})
+    except Exception as exc:  # pragma: no cover - public network failures vary
+        return {
+            "state": "FAILED",
+            "endpoint": endpoint,
+            "items": [],
+            "error_optional": str(exc),
+            "query_window": {"start_date": start_date, "end_date": end_date},
+            "api_time_filter_state": "guangzhou_ywtb_default_recent_candidate_notice_list",
+        }
+    records = list(((data.get("result") or {}).get("records") or []))
+    total = str((data.get("result") or {}).get("totalcount") or "")
+    return {
+        "state": "FETCHED" if records else "EMPTY",
+        "endpoint": endpoint,
+        "items": _link_items_from_guangzhou_ywtb_records(records),
+        "error_optional": "",
+        "query_window": {"start_date": start_date, "end_date": end_date},
+        "api_time_filter_state": "guangzhou_ywtb_default_recent_candidate_notice_list",
+        "trading_process_strategy": "guangzhou_ywtb_candidate_notice_only",
+        "primary_trading_process": GUANGZHOU_YWTB_CANDIDATE_NOTICE_TYPE,
+        "page_size": GUANGZHOU_YWTB_DISCOVERY_PAGE_SIZE,
+        "page_limit": 1,
+        "candidate_record_window_cap": GUANGZHOU_YWTB_DISCOVERY_PAGE_SIZE,
+        "attempted_pages": 1,
+        "record_count": len(records),
+        "total": total,
+        "process_attempts": [
+            {
+                "process_label": "candidate_publicity",
+                "trading_process": GUANGZHOU_YWTB_CANDIDATE_NOTICE_TYPE,
+                "attempted_pages": 1,
+                "record_count": len(records),
+                "total": total,
+            }
+        ],
+    }
+
+
+def _link_items_from_guangzhou_ywtb_records(records: list[Any]) -> list[dict[str, str]]:
+    items: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for record in records:
+        if not isinstance(record, Mapping):
+            continue
+        if str(record.get("jsgcggfl") or "") != GUANGZHOU_YWTB_CANDIDATE_NOTICE_TYPE:
+            continue
+        title = _normalize_public_title(record.get("title") or record.get("title2"))
+        link = str(record.get("linkurl") or record.get("visiturl") or record.get("infourl") or "").strip()
+        if not title or not link:
+            continue
+        full_url = urljoin("https://ywtb.gzggzy.cn/", link)
+        if full_url in seen:
+            continue
+        seen.add(full_url)
+        items.append(
+            {
+                "url": full_url,
+                "text": title,
+                "summary": _clean_text(record.get("content"))[:1500],
+                "published_at": str(record.get("webdate") or record.get("infodate") or ""),
+                "categorynum": str(record.get("categorynum") or ""),
+                "trading_process": GUANGZHOU_YWTB_CANDIDATE_NOTICE_TYPE,
+                "dataset_name": "中标候选人公示",
+                "notice_third_type_desc": "中标候选人公示",
+                "query_process_label": "candidate_publicity",
+                "source_api": "https://ywtb.gzggzy.cn/inteligentsearch/rest/esinteligentsearch/getFullTextDataNew",
+                "source_record_id": str(record.get("id") or record.get("xmbh") or ""),
+                "project_code": str(record.get("xmbh") or ""),
+                "source_region_code": "CN-GD",
+            }
+        )
+    return items
 
 
 def _discover_guangdong_ygp_api_link_items(*, now: str) -> dict[str, Any]:
@@ -560,7 +703,7 @@ def _discover_guangdong_ygp_api_link_items(*, now: str) -> dict[str, Any]:
         "items": items,
         "error_optional": ";".join(page_errors),
         "query_window": {"start_date": start_date, "end_date": end_date},
-        "api_time_filter_state": "candidate_publicity_process_first_then_recent_fallback",
+        "api_time_filter_state": "candidate_publicity_process_first_then_evaluation_report_then_recent_fallback",
         "trading_process_strategy": "candidate_publicity_first",
         "process_attempts": process_attempts,
         "primary_trading_process": GUANGDONG_CANDIDATE_PUBLICITY_TRADING_PROCESS,
@@ -905,6 +1048,8 @@ def _is_candidate_detail_url(url: str, title: str, profile_id: str) -> bool:
         )
     if profile_id in _PROVINCE_REALTIME_PROFILE_IDS:
         host = urlsplit(url).netloc.lower()
+        if profile_id == GUANGZHOU_YWTB_PROFILE_ID and "ywtb.gzggzy.cn" not in host:
+            return False
         if profile_id == "JIANGSU-GGZY-HOME" and "jszwfw.gov.cn" not in host:
             return False
         if profile_id == "ZHEJIANG-GGZY-JYXXGK-LIST" and "ggzy.zj.gov.cn" not in host:
@@ -1740,7 +1885,7 @@ class RealPublicCandidateDiscoveryService:
             if not _is_candidate_detail_url(source_url, title, profile_id):
                 reject("not_candidate_detail_url", item=item)
                 continue
-            source_region_code = _region_from_source_url(source_url)
+            source_region_code = str(item.get("source_region_code") or "").strip() or _region_from_source_url(source_url)
             region_code = source_region_code or str(region_adapter.get("region_code") or requested_region_code)
             region_parse_state = "SOURCE_URL_ADMIN_CODE" if source_region_code else "SEARCH_SCOPE_UNCONFIRMED"
             if requested_region_code != "CN-NATIONAL" and source_region_code and source_region_code != requested_region_code:

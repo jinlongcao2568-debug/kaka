@@ -101,6 +101,7 @@ REGION_SOURCE_ADAPTERS: tuple[RegionSourceAdapter, ...] = (
         region_name="广东",
         adapter_state="LOCAL_PROFILE_READY",
         entry_profile_ids=(
+            "GUANGZHOU-YWTB-CONSTRUCTION-LIST",
             "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
         ),
         verification_profile_ids=(
@@ -114,7 +115,7 @@ REGION_SOURCE_ADAPTERS: tuple[RegionSourceAdapter, ...] = (
         dedicated_local_profiles=True,
         commercial_pilot_region=True,
         coverage_gap_signals=("browser_rendered_realtime_list_required",),
-        notes="广东按广东省公共资源交易平台省主站交易公开页作为当前实战入口；浏览器已验真可见当日全省公告，后端需接浏览器渲染列表或合法公开数据接口。",
+        notes="广东优先按广州交易集团/广州公共资源交易中心建设工程项目信息源抓中标候选人公示，省公共资源交易平台 3C51 作为全省 fallback。",
     ),
     RegionSourceAdapter(
         region_code="CN-SC",

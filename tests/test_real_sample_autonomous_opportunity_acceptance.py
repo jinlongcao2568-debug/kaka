@@ -194,7 +194,9 @@ class _FakeReviewCandidateStage2CaptureService:
         now: str | None = None,
         detail_capture_limit: int = 5,
         attachment_capture_limit: int = 2,
+        detail_capture_time_budget_seconds: float | None = None,
     ) -> dict:
+        self.last_detail_capture_time_budget_seconds = detail_capture_time_budget_seconds
         enriched = []
         for candidate in candidates:
             row = dict(candidate)
@@ -213,6 +215,7 @@ class _FakeReviewCandidateStage2CaptureService:
             "attachment_link_count": 0,
             "attachment_capture_attempted_count": 0,
             "attachment_snapshot_count": 0,
+            "detail_capture_time_budget_seconds": detail_capture_time_budget_seconds,
             "captures": [],
             "enriched_candidates": enriched,
             "repository_backed_readback": True,
@@ -227,7 +230,9 @@ class _FakePartialCandidateStage2CaptureService:
         now: str | None = None,
         detail_capture_limit: int = 5,
         attachment_capture_limit: int = 2,
+        detail_capture_time_budget_seconds: float | None = None,
     ) -> dict:
+        self.last_detail_capture_time_budget_seconds = detail_capture_time_budget_seconds
         enriched = []
         for index, candidate in enumerate(candidates):
             row = dict(candidate)
@@ -251,6 +256,7 @@ class _FakePartialCandidateStage2CaptureService:
             "attachment_link_count": 0,
             "attachment_capture_attempted_count": 0,
             "attachment_snapshot_count": 0,
+            "detail_capture_time_budget_seconds": detail_capture_time_budget_seconds,
             "captures": [],
             "enriched_candidates": enriched,
             "repository_backed_readback": True,
@@ -814,6 +820,45 @@ class RealSampleAutonomousOpportunityAcceptanceTests(unittest.TestCase):
         self.assertEqual(payload["search_scope"]["stage2_detail_pending_for_stage1_6_count"], 1)
         self.assertEqual(payload["closed_loop_results"][1]["search_state"], "STAGE2_DETAIL_CAPTURE_PENDING")
         self.assertTrue(payload["candidate_options"][1]["stage2_detail_capture_pending"])
+
+    def test_operator_autonomous_search_forwards_stage2_detail_capture_time_budget(self) -> None:
+        client = TestClient(create_app())
+        fake_stage2 = _FakeReviewCandidateStage2CaptureService()
+
+        with (
+            patch(
+                "api.routes.operator_customer_access.RealPublicCandidateDiscoveryService",
+                return_value=_FakeAcceptedRealCandidateDiscoveryService(),
+            ),
+            patch(
+                "api.routes.operator_customer_access.RealCandidateStage2CaptureService",
+                return_value=fake_stage2,
+            ),
+            patch(
+                "api.routes.operator_customer_access._build_real_public_stage4_9_readback_from_candidate",
+                side_effect=_partial_real_public_stage4_9_readback,
+            ),
+        ):
+            response = client.request(
+                "POST",
+                "/operator-console/autonomous-opportunity-search",
+                json={
+                    "region_codes": ["CN-GD"],
+                    "query": "市政道路",
+                    "project_types": ["municipal"],
+                    "amount_min": 8000000,
+                    "amount_max": 30000000,
+                    "stage2_detail_capture_time_budget_seconds": 300,
+                    "now": "2026-05-01T00:00:00+00:00",
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(fake_stage2.last_detail_capture_time_budget_seconds, 300)
+        self.assertEqual(
+            response.json()["search_scope"]["stage2_detail_capture_time_budget_seconds"],
+            300,
+        )
 
     def test_operator_autonomous_search_runs_region_to_workbench_loop(self) -> None:
         client = TestClient(create_app())

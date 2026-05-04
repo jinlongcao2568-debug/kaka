@@ -45,6 +45,13 @@ GSXT_HOME_URL = "https://www.gsxt.gov.cn/index.html"
 BEIJING_HOME_URL = "https://ggzyfw.beijing.gov.cn/"
 BEIJING_GCJS_URL = "https://ggzyfw.beijing.gov.cn/tyrkgcjs/index.html"
 BEIJING_BDA_URL = "https://ggzyjy.bda.gov.cn/"
+GZ_YWTB_URL = "https://ywtb.gzggzy.cn/jyfw/002001/002001001/trade_purchasetoplen6.html"
+GZ_YWTB_DETAIL_URL = "https://ywtb.gzggzy.cn/jyfw/002001/002001001/20260501/587b9f32-8823-4577-97ff-e76e9c92a2d3.html"
+GZ_YWTB_ATTACHMENT_URL = (
+    "https://ywtb.gzggzy.cn/EpointWebBuilder/pages/webbuildermis/attach/downloadztbattach?"
+    "attachGuid=568108d4-62ef-4407-83dc-a35d11c5f0f2&appUrlFlag=f2025tp"
+    "&siteGuid=7eb5f7f1-9041-43ad-8e13-8fcb82ea831a"
+)
 GD_YGP_URL = "https://ygp.gdzwfw.gov.cn/#/44/jygg"
 JS_DETAIL_URL = "http://jsggzy.jszwfw.gov.cn/jyxx/003001/003001001/20260501/e40bba6b-3eda-4245-9d15-21b921f8db54.html"
 SD_DETAIL_URL = "http://ggzyjy.shandong.gov.cn:80/jsgczbgg/14229113.jhtml"
@@ -224,6 +231,25 @@ def _province_detail_html(title: str) -> bytes:
     return html.encode("utf-8")
 
 
+def _guangzhou_ywtb_detail_html_with_onclick_attachment() -> bytes:
+    html = """
+    <html>
+      <head>
+        <title>广州交易集团有限公司</title>
+        <meta name="ArticleTitle" content="南沙区龙穴岛孖沙四涌水闸泵站工程设计施工总承包中标候选人公示">
+      </head>
+      <body>
+        <h3 class="article-title" data-ggid="JG2026-11125" data-type="03">南沙区龙穴岛孖沙四涌水闸泵站工程设计施工总承包中标候选人公示</h3>
+        <div class="article-file" id="article-file">
+          <h4>相关附件：</h4>
+          <a class="article-file-item l" onclick="ztbfjyz('/EpointWebBuilder/pages/webbuildermis/attach/downloadztbattach?attachGuid=568108d4-62ef-4407-83dc-a35d11c5f0f2&appUrlFlag=f2025tp&siteGuid=7eb5f7f1-9041-43ad-8e13-8fcb82ea831a','1','1')">2合格中标候选人公示JG2026-11125.pdf</a>
+        </div>
+      </body>
+    </html>
+    """
+    return html.encode("utf-8")
+
+
 def _fake_guangdong_detail_api(endpoint: str, params: dict, *, user_agent: str) -> dict:
     if endpoint.endswith("/nodeList"):
         return {
@@ -312,7 +338,7 @@ class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
         entry_profile_ids = {profile.profile_id for profile in REAL_PUBLIC_ENTRY_PROFILES}
         attachment_profile_ids = set(PUBLIC_ATTACHMENT_PROFILE_IDS)
 
-        self.assertEqual(len(entry_profile_ids), 23)
+        self.assertEqual(len(entry_profile_ids), 24)
         self.assertEqual(len(attachment_profile_ids), 2)
         self.assertIn("GGZY-DEAL-LIST", entry_profile_ids)
         self.assertIn("CCGP-CENTRAL-NOTICES", entry_profile_ids)
@@ -321,6 +347,7 @@ class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
         self.assertIn("GSXT-HOME", entry_profile_ids)
         self.assertIn("BEIJING-PLATFORM-HOME", entry_profile_ids)
         for profile_id in (
+            "GUANGZHOU-YWTB-CONSTRUCTION-LIST",
             "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
             "GUANGDONG-GDCIC-HOME",
             "GUANGDONG-GDCIC-SKYPT-OPENPLATFORM",
@@ -593,6 +620,62 @@ class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
             self.assertEqual(repo.read_snapshot_bytes(attachment["snapshot_id_optional"]), pdf_bytes)
             self.assertEqual(transport.call_log[0]["url"], attachment_url)
 
+    def test_guangzhou_ywtb_onclick_download_attachment_is_discovered_and_allowlisted(self) -> None:
+        pdf_bytes = _pdf_like_bytes()
+        transport = FakeRealPublicFetchTransport(
+            {
+                GZ_YWTB_DETAIL_URL: RealPublicFetchResponse(
+                    url=GZ_YWTB_DETAIL_URL,
+                    status_code=200,
+                    content=_guangzhou_ywtb_detail_html_with_onclick_attachment(),
+                    content_type="text/html; charset=utf-8",
+                    final_url=GZ_YWTB_DETAIL_URL,
+                ),
+                GZ_YWTB_ATTACHMENT_URL: RealPublicFetchResponse(
+                    url=GZ_YWTB_ATTACHMENT_URL,
+                    status_code=200,
+                    content=pdf_bytes,
+                    content_type="application/pdf;charset=UTF-8",
+                    final_url=GZ_YWTB_ATTACHMENT_URL,
+                ),
+            }
+        )
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = _repo(tmp_dir)
+            fetcher = RealPublicEntryFetcher(
+                transport=transport,
+                repository=repo,
+                timeout_seconds=3,
+            )
+            carrier = fetcher.fetch_candidate_detail_url(
+                GZ_YWTB_DETAIL_URL,
+                profile_id="GUANGZHOU-YWTB-CONSTRUCTION-LIST",
+                lineage_refs={"candidate_key": "gz-candidate-001"},
+            )
+
+            self.assertEqual(carrier["status"], "FETCHED")
+            self.assertEqual(carrier["title"], "南沙区龙穴岛孖沙四涌水闸泵站工程设计施工总承包中标候选人公示")
+            self.assertEqual(carrier["same_site_attachment_link_items"][0]["url"], GZ_YWTB_ATTACHMENT_URL)
+            self.assertEqual(
+                carrier["same_site_attachment_link_items"][0]["text"],
+                "2合格中标候选人公示JG2026-11125.pdf",
+            )
+
+            attachment = fetcher.fetch_same_site_attachment_url(
+                GZ_YWTB_ATTACHMENT_URL,
+                parent_profile_id="GUANGZHOU-YWTB-CONSTRUCTION-LIST",
+                detail_page_url=GZ_YWTB_DETAIL_URL,
+                lineage_refs={"candidate_key": "gz-candidate-001"},
+            )
+
+            self.assertEqual(attachment["status"], "FETCHED")
+            self.assertEqual(repo.read_snapshot_bytes(attachment["snapshot_id_optional"]), pdf_bytes)
+            self.assertEqual(
+                [item["url"] for item in transport.call_log],
+                [GZ_YWTB_DETAIL_URL, GZ_YWTB_ATTACHMENT_URL],
+            )
+
     def test_province_detail_urls_allow_http_and_jspx_variants(self) -> None:
         transport = FakeRealPublicFetchTransport(
             {
@@ -769,6 +852,7 @@ class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
                 "BEIJING-PLATFORM-HOME",
                 "BEIJING-GCJS-LIST",
                 "BEIJING-BDA-HOME",
+                "GUANGZHOU-YWTB-CONSTRUCTION-LIST",
                 "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
                 "JIANGSU-GGZY-HOME",
                 "ZHEJIANG-GGZY-JYXXGK-LIST",
@@ -781,6 +865,7 @@ class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
         self.assertEqual(profiles_by_id["BEIJING-PLATFORM-HOME"].url, BEIJING_HOME_URL)
         self.assertEqual(profiles_by_id["BEIJING-GCJS-LIST"].url, BEIJING_GCJS_URL)
         self.assertEqual(profiles_by_id["BEIJING-BDA-HOME"].url, BEIJING_BDA_URL)
+        self.assertEqual(profiles_by_id["GUANGZHOU-YWTB-CONSTRUCTION-LIST"].url, GZ_YWTB_URL)
         self.assertEqual(profiles_by_id["GUANGDONG-YGP-PROVINCE-TRADING-LIST"].url, GD_YGP_URL)
         self.assertEqual(profiles_by_id["JIANGSU-GGZY-HOME"].url, "http://jsggzy.jszwfw.gov.cn/")
         self.assertEqual(profiles_by_id["ZHEJIANG-GGZY-JYXXGK-LIST"].url, "https://ggzy.zj.gov.cn/jyxxgk/list.html")
@@ -1003,6 +1088,42 @@ class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
         )
         self.assertEqual(carrier["status"], "DEGRADED")
         self.assertIn("html_body_not_attachment", carrier["degraded_reasons"])
+        self.assertIn("attachment_html_blocker:unknown_html", carrier["degraded_reasons"])
+        self.assertEqual(carrier["attachment_blocker_class"], "UNKNOWN_HTML_ATTACHMENT_RESPONSE")
+        self.assertEqual(carrier["attachment_resolution_route"], "browser_replay_required_before_manual_review")
+        self.assertIn("click_same_site_attachment_link", carrier["attachment_browser_replay_steps"])
+        self.assertTrue(carrier["fail_closed"])
+
+    def test_same_site_attachment_html_challenge_records_manual_replay_route(self) -> None:
+        challenge_body = (
+            "<html><title>安全验证</title><body>验证码 人机验证 后继续下载</body></html>"
+        ).encode("utf-8")
+        transport = FakeRealPublicFetchTransport(
+            {
+                GZ_YWTB_ATTACHMENT_URL: RealPublicFetchResponse(
+                    url=GZ_YWTB_ATTACHMENT_URL,
+                    status_code=200,
+                    content=challenge_body,
+                    content_type="text/html; charset=utf-8",
+                    final_url=GZ_YWTB_ATTACHMENT_URL,
+                )
+            }
+        )
+
+        carrier = RealPublicEntryFetcher(transport=transport, repository=None).fetch_same_site_attachment_url(
+            GZ_YWTB_ATTACHMENT_URL,
+            parent_profile_id="GUANGZHOU-YWTB-CONSTRUCTION-LIST",
+            detail_page_url=GZ_YWTB_DETAIL_URL,
+        )
+
+        self.assertEqual(carrier["status"], "DEGRADED")
+        self.assertIn("html_body_not_attachment", carrier["degraded_reasons"])
+        self.assertIn("attachment_html_blocker:captcha_or_manual_verification", carrier["degraded_reasons"])
+        self.assertEqual(carrier["attachment_blocker_class"], "CAPTCHA_MANUAL_REQUIRED")
+        self.assertEqual(
+            carrier["attachment_resolution_route"],
+            "open_detail_page_then_manual_challenge_download_and_snapshot",
+        )
         self.assertTrue(carrier["fail_closed"])
 
     def test_stage2_service_exposes_real_public_attachment_fetcher(self) -> None:

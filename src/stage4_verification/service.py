@@ -670,6 +670,134 @@ class Stage4Service:
             "no_name_only_final_proof": True,
         }
 
+    def run_jzsc_company_first_browser_execution(
+        self,
+        parsed_context: Mapping[str, Any] | StageBundle,
+        *,
+        target_company_name: str,
+        target_project_manager_name: str,
+        target_identifier: str | None = None,
+        repository: ObjectStorageRepository | None = None,
+        browser_runner: Any | None = None,
+        base_public_verification_carriers: list[Mapping[str, Any]] | None = None,
+        max_personnel_pages: int = 20,
+        max_project_pages: int = 20,
+        personnel_retry_attempts: int = 3,
+        project_retry_attempts: int = 3,
+        capture_personnel_project_records: bool = False,
+    ) -> Mapping[str, Any]:
+        from stage4_verification.jzsc_browser_executor import (
+            execute_jzsc_company_first_browser_capture,
+        )
+
+        return execute_jzsc_company_first_browser_capture(
+            parsed_context,
+            target_company_name=target_company_name,
+            target_project_manager_name=target_project_manager_name,
+            target_identifier=target_identifier,
+            repository=repository,
+            browser_runner=browser_runner,
+            base_public_verification_carriers=base_public_verification_carriers,
+            max_personnel_pages=max_personnel_pages,
+            max_project_pages=max_project_pages,
+            personnel_retry_attempts=personnel_retry_attempts,
+            project_retry_attempts=project_retry_attempts,
+            capture_personnel_project_records=capture_personnel_project_records,
+        )
+
+    def build_stage4_provider_plan(
+        self,
+        context: Mapping[str, Any] | StageBundle | None = None,
+        *,
+        opportunity_priority_class: str | None = None,
+        candidate_company_name: str | None = None,
+        responsible_person_name: str | None = None,
+        certificate_no: str | None = None,
+        person_public_id: str | None = None,
+        requested_provider_ids: list[str] | None = None,
+    ) -> Mapping[str, Any]:
+        from stage4_verification.provider_registry import build_stage4_provider_plan
+
+        payload = _record_mapping(context) if not isinstance(context, Mapping) else dict(context)
+        return build_stage4_provider_plan(
+            payload,
+            opportunity_priority_class=opportunity_priority_class,
+            candidate_company_name=candidate_company_name,
+            responsible_person_name=responsible_person_name,
+            certificate_no=certificate_no,
+            person_public_id=person_public_id,
+            requested_provider_ids=requested_provider_ids,
+        )
+
+    def enqueue_stage4_provider_plan_jobs(
+        self,
+        provider_plan: Mapping[str, Any],
+        *,
+        queue_path: str | None = None,
+        max_attempts: int = 3,
+    ) -> Mapping[str, Any]:
+        from stage4_verification.local_job_queue import (
+            Stage4LocalJobQueue,
+            enqueue_provider_plan_tasks,
+        )
+
+        queue = Stage4LocalJobQueue(queue_path)
+        jobs = enqueue_provider_plan_tasks(queue, provider_plan, max_attempts=max_attempts)
+        return {
+            "queue_path": str(queue.queue_path),
+            "enqueued_count": len(jobs),
+            "jobs": jobs,
+        }
+
+    def run_stage4_local_provider_jobs(
+        self,
+        *,
+        queue_path: str | None = None,
+        handlers: Mapping[str, Any] | None = None,
+        enable_live_gdcic: bool = False,
+        limit: int = 10,
+        lease_owner: str = "stage4-local-worker",
+        retry_delay_seconds: float = 30.0,
+    ) -> Mapping[str, Any]:
+        from stage4_verification.local_job_queue import Stage4LocalJobQueue
+        from stage4_verification.provider_handlers import build_stage4_provider_handlers
+
+        queue = Stage4LocalJobQueue(queue_path)
+        return queue.run_due_jobs(
+            handlers or build_stage4_provider_handlers(enable_live_gdcic=enable_live_gdcic),
+            limit=limit,
+            lease_owner=lease_owner,
+            retry_delay_seconds=retry_delay_seconds,
+        )
+
+    def build_stage4_provider_handlers(
+        self,
+        *,
+        enable_live_gdcic: bool = False,
+    ) -> Mapping[str, Any]:
+        from stage4_verification.provider_handlers import build_stage4_provider_handlers
+
+        return build_stage4_provider_handlers(enable_live_gdcic=enable_live_gdcic)
+
+    def extract_stage4_attachment_document(
+        self,
+        document_path: str,
+        *,
+        source_url: str,
+        detail_page_url: str = "",
+        opportunity_priority_class: str | None = None,
+        enable_ocr: bool = False,
+    ) -> Mapping[str, Any]:
+        from stage4_verification.document_extraction import build_attachment_document_evidence
+
+        return build_attachment_document_evidence(
+            document_path,
+            source_url=source_url,
+            detail_page_url=detail_page_url,
+            opportunity_priority_class=opportunity_priority_class,
+            enable_ocr=enable_ocr,
+        )
+
     def build_jzsc_project_manager_company_first_capture_plan(
         self,
         *,

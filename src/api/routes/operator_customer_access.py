@@ -43,6 +43,7 @@ from stage2_ingestion import (
 from stage2_ingestion.real_candidate_capture import (
     DEFAULT_ATTACHMENT_CAPTURE_LIMIT,
     DEFAULT_DETAIL_CAPTURE_LIMIT,
+    DEFAULT_DETAIL_CAPTURE_TIME_BUDGET_SECONDS,
     RealCandidateStage2CaptureService,
     list_real_candidate_stage2_captures,
 )
@@ -2798,6 +2799,14 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
                         payload.get("real_candidate_attachment_capture_limit"),
                     ),
                     DEFAULT_ATTACHMENT_CAPTURE_LIMIT,
+                ),
+                detail_capture_time_budget_seconds=_as_float(
+                    _first_present(
+                        payload.get("stage2_detail_capture_time_budget_seconds"),
+                        payload.get("detail_capture_time_budget_seconds"),
+                        payload.get("real_candidate_detail_capture_time_budget_seconds"),
+                    ),
+                    DEFAULT_DETAIL_CAPTURE_TIME_BUDGET_SECONDS,
                 ),
             )
             raw_candidates = [

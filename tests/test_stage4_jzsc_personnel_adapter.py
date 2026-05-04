@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -22,6 +23,9 @@ from stage4_verification.jzsc_personnel import (
     parse_jzsc_personnel_rows,
 )
 from stage4_verification.service import Stage4Service
+from shared.settings import Settings
+from storage.db import DatabaseSession
+from storage.repositories.object_storage_repo import ObjectStorageRepository
 
 
 RENDERED_PERSONNEL_ROWS = [
@@ -82,6 +86,64 @@ def _registered_unit_carrier() -> dict[str, object]:
             }
         ],
         "snapshot_refs": [{"snapshot_id": "SNAP-JZSC-UNIT", "replayable": True}],
+    }
+
+
+def _object_storage_repo(tmp_dir: str) -> ObjectStorageRepository:
+    settings = Settings(
+        storage_backend="json-file",
+        storage_path_optional=str(Path(tmp_dir) / "jzsc-browser-executor.json"),
+        storage_scope="shared",
+        storage_runtime_mode="explicit-path",
+        object_storage_path_optional=str(Path(tmp_dir) / "objects"),
+    )
+    return ObjectStorageRepository(
+        session=DatabaseSession(settings=settings),
+        settings=settings,
+    )
+
+
+def _parsed_jzsc_current_context() -> dict[str, object]:
+    return {
+        "parse_run_id": "PARSE-JZSC-BROWSER-EXECUTOR",
+        "snapshot_id": "SNAP-JZSC-BROWSER-CURRENT",
+        "source_url": "https://example.invalid/current-notice.html",
+        "lineage_status": "NORMALIZED",
+        "conflict_state": "CONSISTENT",
+        "current_project_time_window": {
+            "start_at": "2026-05-01",
+            "end_at": "2026-10-01",
+        },
+        "parsed_fields": [
+            {
+                "field_name": "current_project_id",
+                "field_value_optional": "PRJ-JZSC-CURRENT",
+                "source_file_ref": "SNAP-JZSC-BROWSER-CURRENT",
+                "source_slice_sha256": "SHA-JZSC-BROWSER-CURRENT",
+                "confidence": 0.91,
+            },
+            {
+                "field_name": "current_project_name",
+                "field_value_optional": "Current public project",
+                "source_file_ref": "SNAP-JZSC-BROWSER-CURRENT",
+                "source_slice_sha256": "SHA-JZSC-BROWSER-NAME",
+                "confidence": 0.91,
+            },
+            {
+                "field_name": "candidate_company_name",
+                "field_value_optional": "Alpha Construction Co",
+                "source_file_ref": "SNAP-JZSC-BROWSER-CURRENT",
+                "source_slice_sha256": "SHA-JZSC-BROWSER-COMPANY",
+                "confidence": 0.91,
+            },
+            {
+                "field_name": "project_manager_name",
+                "field_value_optional": "陈庆丽",
+                "source_file_ref": "SNAP-JZSC-BROWSER-CURRENT",
+                "source_slice_sha256": "SHA-JZSC-BROWSER-PM",
+                "confidence": 0.91,
+            },
+        ],
     }
 
 
@@ -634,6 +696,73 @@ class Stage4JzscPersonnelAdapterTests(unittest.TestCase):
         )
         self.assertFalse(result["customer_sellable_evidence_ready"])
         self.assertTrue(result["no_name_only_final_proof"])
+
+    def test_stage4_browser_executor_persists_rendered_rows_and_builds_readback(self) -> None:
+        def fake_browser_runner(capture_plan: dict[str, object]) -> dict[str, object]:
+            self.assertEqual(
+                capture_plan["capture_plan_type"],
+                "JZSC_COMPANY_FIRST_PROJECT_MANAGER_VERIFICATION",
+            )
+            return {
+                "browser_runner_id": "fake-jzsc-browser",
+                "live_browser_executed": True,
+                "company_personnel_source_url": "https://jzsc.mohurd.gov.cn/data/company/detail?id=alpha",
+                "personnel_project_source_url": "https://jzsc.mohurd.gov.cn/data/person/detail?id=person-chen-qingli",
+                "rendered_company_personnel_rows": RENDERED_COMPANY_PERSONNEL_ROWS,
+                "rendered_personnel_project_rows": RENDERED_PERSONNEL_PROJECT_ROWS,
+                "failure_reasons": [],
+            }
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = _object_storage_repo(tmp_dir)
+            result = Stage4Service().run_jzsc_company_first_browser_execution(
+                _parsed_jzsc_current_context(),
+                target_company_name="Alpha Construction Co",
+                target_project_manager_name="陈庆丽",
+                repository=repo,
+                browser_runner=fake_browser_runner,
+                base_public_verification_carriers=[_registered_unit_carrier()],
+            )
+            company_snapshot = result["company_personnel_source_snapshot_id"]
+            project_snapshot = result["personnel_project_source_snapshot_id"]
+            self.assertTrue(repo.replay_snapshot(company_snapshot)["replayable"])
+            self.assertTrue(repo.replay_snapshot(project_snapshot)["replayable"])
+
+        self.assertEqual(result["adapter_id"], "stage4.jzsc_company_first_browser_executor.v1")
+        self.assertEqual(result["executor_state"], "READBACK_READY")
+        self.assertEqual(result["identity_resolution_state"], "MATCHED")
+        self.assertEqual(result["personnel_carrier"]["verification_result"], "MATCHED")
+        self.assertEqual(
+            result["resolved_public_identifier_optional"],
+            "鲁1372017201820810",
+        )
+        self.assertEqual(result["rendered_company_personnel_row_count"], 1)
+        self.assertEqual(result["rendered_personnel_project_row_count"], 1)
+
+    def test_stage4_browser_executor_fails_closed_without_rendered_rows(self) -> None:
+        def fake_blocked_runner(capture_plan: dict[str, object]) -> dict[str, object]:
+            return {
+                "browser_runner_id": "fake-jzsc-browser",
+                "live_browser_executed": True,
+                "company_personnel_source_url": str(capture_plan.get("entry_url") or ""),
+                "rendered_company_personnel_rows": [],
+                "failure_reasons": ["challenge_unresolved_before_capture"],
+            }
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            result = Stage4Service().run_jzsc_company_first_browser_execution(
+                _parsed_jzsc_current_context(),
+                target_company_name="Alpha Construction Co",
+                target_project_manager_name="陈庆丽",
+                repository=_object_storage_repo(tmp_dir),
+                browser_runner=fake_blocked_runner,
+            )
+
+        self.assertEqual(result["executor_state"], "FAIL_CLOSED")
+        self.assertEqual(result["readback_state"], "REVIEW_REQUIRED")
+        self.assertFalse(result["customer_sellable_evidence_ready"])
+        self.assertIn("challenge_unresolved_before_capture", result["fail_closed_reasons"])
+        self.assertIn("rendered_company_personnel_rows_missing", result["fail_closed_reasons"])
 
     def test_stage4_rendered_adapter_fails_closed_when_personnel_rows_missing(self) -> None:
         result = Stage4Service().run_jzsc_company_first_rendered_readback(

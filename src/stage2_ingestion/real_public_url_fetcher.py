@@ -33,6 +33,7 @@ HTTP_PUBLIC_ENTRY_ALLOWLIST_PROFILE_IDS = {
     "JIANGSU-GGZY-HOME",
 }
 PROVINCE_REALTIME_DETAIL_PROFILE_IDS = {
+    "GUANGZHOU-YWTB-CONSTRUCTION-LIST",
     "JIANGSU-GGZY-HOME",
     "ZHEJIANG-GGZY-JYXXGK-LIST",
     "SHANDONG-GGZY-JYXXGK-LIST",
@@ -218,6 +219,21 @@ REAL_PUBLIC_ENTRY_PROFILES: tuple[RealPublicEntryProfile, ...] = (
         browser_verified_evidence="经开区分平台 runtime 直连返回 200，正文可见交易服务、公告和搜索。",
     ),
     RealPublicEntryProfile(
+        profile_id="GUANGZHOU-YWTB-CONSTRUCTION-LIST",
+        url="https://ywtb.gzggzy.cn/jyfw/002001/002001001/trade_purchasetoplen6.html",
+        site_name="广州交易集团有限公司（广州公共资源交易中心）",
+        source_family="local_public_resource_trading_center",
+        expected_title_contains="广州交易集团有限公司",
+        visible_entry_markers=("建设工程", "项目信息", "中标候选人公示", "工程类型"),
+        sample_detail_url="https://ywtb.gzggzy.cn/jyfw/002001/002001001/20260501/587b9f32-8823-4577-97ff-e76e9c92a2d3.html",
+        browser_verified_at="2026-05-03T14:35:00+08:00",
+        browser_verified_evidence=(
+            "浏览器打开广州交易集团建设工程项目信息页，列表接口返回 jsgcggfl=03 的中标候选人公示；"
+            "详情页 HTML 直接包含候选人、拟派项目负责人、项目负责人资质和相关附件。"
+        ),
+        lightweight_public_entry_markers=("广州交易集团有限公司", "广州公共资源交易中心"),
+    ),
+    RealPublicEntryProfile(
         profile_id="GUANGDONG-YGP-PROVINCE-TRADING-LIST",
         url="https://ygp.gdzwfw.gov.cn/#/44/jygg",
         site_name="广东省公共资源交易平台",
@@ -369,6 +385,7 @@ REPRESENTATIVE_LOCAL_PLATFORM_ENTRY_PROFILE_IDS = (
     "BEIJING-PLATFORM-HOME",
     "BEIJING-GCJS-LIST",
     "BEIJING-BDA-HOME",
+    "GUANGZHOU-YWTB-CONSTRUCTION-LIST",
     "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
     "JIANGSU-GGZY-HOME",
     "ZHEJIANG-GGZY-JYXXGK-LIST",
@@ -431,6 +448,67 @@ _CONTROLLED_CHALLENGE_BODY_PATTERNS = (
     "人机验证",
     "安全验证",
 )
+
+
+def _attachment_html_blocker_diagnostics(content: bytes, content_type: str) -> dict[str, Any]:
+    lowered_content_type = (content_type or "").lower()
+    body = ""
+    if "html" in lowered_content_type or content.lstrip().lower().startswith((b"<html", b"<!doctype html")):
+        body = content.decode("utf-8", errors="ignore")
+    if not body:
+        return {
+            "attachment_blocker_class": "",
+            "attachment_blocker_reason": "",
+            "attachment_resolution_route": "",
+            "attachment_browser_replay_steps": [],
+        }
+
+    lowered_body = body.lower()
+    if any(
+        marker.lower() in lowered_body
+        for marker in (
+            "验证码",
+            "captcha",
+            "人机验证",
+            "安全验证",
+            "verificationcode",
+            "verificationguid",
+            "pageverify",
+            "validateverificationcode",
+            "验证码验证失败",
+        )
+    ):
+        blocker_class = "CAPTCHA_MANUAL_REQUIRED"
+        blocker_reason = "attachment_html_blocker:captcha_or_manual_verification"
+        route = "open_detail_page_then_manual_challenge_download_and_snapshot"
+    elif any(marker.lower() in lowered_body for marker in ("请先登录", "请登录", "用户登录", "登录")):
+        blocker_class = "SESSION_OR_LOGIN_REQUIRED"
+        blocker_reason = "attachment_html_blocker:login_or_session_required"
+        route = "open_detail_page_with_valid_public_session_then_retry_attachment"
+    elif any(marker.lower() in lowered_body for marker in ("referer", "防盗链", "非法访问", "访问来源", "来源错误")):
+        blocker_class = "REFERER_OR_HOTLINK_REQUIRED"
+        blocker_reason = "attachment_html_blocker:referer_or_hotlink_required"
+        route = "open_detail_page_first_then_click_attachment_with_same_site_referer"
+    elif any(marker.lower() in lowered_body for marker in ("错误", "异常", "不存在", "404", "参数错误", "下载失败")):
+        blocker_class = "ATTACHMENT_INTERFACE_ERROR"
+        blocker_reason = "attachment_html_blocker:interface_error_or_expired_link"
+        route = "recapture_detail_page_and_refresh_attachment_link"
+    else:
+        blocker_class = "UNKNOWN_HTML_ATTACHMENT_RESPONSE"
+        blocker_reason = "attachment_html_blocker:unknown_html"
+        route = "browser_replay_required_before_manual_review"
+
+    return {
+        "attachment_blocker_class": blocker_class,
+        "attachment_blocker_reason": blocker_reason,
+        "attachment_resolution_route": route,
+        "attachment_browser_replay_steps": [
+            "open_detail_page_url_optional",
+            "click_same_site_attachment_link",
+            "save_downloaded_file_if_content_type_is_pdf_zip_or_office",
+            "record_captcha_or_session_blocker_without_bypassing_third_party_controls",
+        ],
+    }
 
 
 @dataclass(frozen=True)
@@ -885,7 +963,15 @@ class RealPublicEntryFetcher:
             parent.profile_id == "GUANGDONG-YGP-PROVINCE-TRADING-LIST"
             and "/ggzy-portal/base/sys-file/download/" in path
         )
-        if not guangdong_file_download and not path.endswith((".pdf", ".doc", ".docx", ".xls", ".xlsx", ".zip")):
+        guangzhou_ywtb_file_download = (
+            parent.profile_id == "GUANGZHOU-YWTB-CONSTRUCTION-LIST"
+            and "/epointwebbuilder/pages/webbuildermis/attach/downloadztbattach" in path
+        )
+        if (
+            not guangdong_file_download
+            and not guangzhou_ywtb_file_download
+            and not path.endswith((".pdf", ".doc", ".docx", ".xls", ".xlsx", ".zip"))
+        ):
             raise self._boundary_error(url, "same_site_attachment_url_not_supported_file")
         if detail_page_url:
             detail_parsed = urlsplit(str(detail_page_url).strip())
@@ -1391,6 +1477,9 @@ class RealPublicEntryFetcher:
         lowered_content_type = content_type.lower()
         if "html" in lowered_content_type:
             degraded_reasons.append("html_body_not_attachment")
+        attachment_blocker = _attachment_html_blocker_diagnostics(content, content_type)
+        if attachment_blocker["attachment_blocker_reason"]:
+            degraded_reasons.append(str(attachment_blocker["attachment_blocker_reason"]))
         if not (
             any(token in lowered_content_type for token in ("pdf", "zip", "msword", "officedocument", "excel", "octet-stream"))
             or filename.lower().endswith((".pdf", ".doc", ".docx", ".xls", ".xlsx", ".zip"))
@@ -1481,6 +1570,7 @@ class RealPublicEntryFetcher:
             "review_required": bool(degraded_reasons),
             "fail_closed": bool(degraded_reasons),
             "no_broad_fallback": True,
+            **attachment_blocker,
             "fetch_audit": fetch_audit,
             "transport": fetch_audit["transport"],
             "controlled_opening_requirements": _controlled_opening_requirements(),
@@ -1497,6 +1587,12 @@ class RealPublicEntryFetcher:
         detail_page_url: str | None,
         fetch_attempted: bool,
     ) -> dict[str, Any]:
+        attachment_blocker = {
+            "attachment_blocker_class": "",
+            "attachment_blocker_reason": "",
+            "attachment_resolution_route": "",
+            "attachment_browser_replay_steps": [],
+        }
         return {
             "attachment_fetch_id": f"REAL-ATTACH-{profile.profile_id}-DEGRADED",
             "status": "DEGRADED",
@@ -1511,6 +1607,7 @@ class RealPublicEntryFetcher:
             "review_required": True,
             "fail_closed": True,
             "no_broad_fallback": True,
+            **attachment_blocker,
             "lineage_refs": dict(lineage_refs or {}),
             "fetch_audit": {
                 "fetcher_id": REAL_PUBLIC_ENTRY_FETCHER_ID,
@@ -1771,6 +1868,19 @@ def _decode_html(content: bytes) -> str:
 
 
 def _extract_title(text: str) -> str:
+    meta_match = re.search(
+        r"<meta\b[^>]*(?:name|property)=['\"](?:ArticleTitle|og:title)['\"][^>]*content=['\"]([^'\"]+)['\"][^>]*>",
+        text,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    if not meta_match:
+        meta_match = re.search(
+            r"<meta\b[^>]*content=['\"]([^'\"]+)['\"][^>]*(?:name|property)=['\"](?:ArticleTitle|og:title)['\"][^>]*>",
+            text,
+            flags=re.IGNORECASE | re.DOTALL,
+        )
+    if meta_match:
+        return " ".join(unescape(meta_match.group(1)).split())
     match = re.search(r"<title[^>]*>(.*?)</title>", text, flags=re.IGNORECASE | re.DOTALL)
     if not match:
         return ""
@@ -1815,6 +1925,7 @@ def _discover_same_site_link_items(text: str, *, base_url: str, host: str) -> li
             or "/jyxx" in parsed.path.lower()
             or "/jyxxgk" in parsed.path.lower()
             or "/base/sys-file/download/" in parsed.path.lower()
+            or "/epointwebbuilder/pages/webbuildermis/attach/downloadztbattach" in parsed.path.lower()
             or "querycontent" in parsed.path.lower()
         ):
             continue
@@ -1871,6 +1982,35 @@ def _same_site_link_item_priority(item: Mapping[str, str]) -> int:
 def _discover_same_site_attachment_link_items(text: str, *, base_url: str, host: str) -> list[dict[str, str]]:
     items: list[dict[str, str]] = []
     seen: set[str] = set()
+    expected_host = host.split(":", 1)[0].lower()
+    ywtb_onclick_pattern = re.compile(
+        r"<a\b(?P<attrs>[^>]*)>(?P<body>.*?)</a>",
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    ywtb_download_pattern = re.compile(
+        r"onclick\s*=\s*['\"][^'\"]*ztbfjyz\(\s*['\"](?P<href>[^'\"]+)['\"]",
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    for match in ywtb_onclick_pattern.finditer(text):
+        onclick_match = ywtb_download_pattern.search(match.group("attrs") or "")
+        if not onclick_match:
+            continue
+        href = unescape(onclick_match.group("href")).strip()
+        full = urljoin(base_url, href)
+        parsed = urlsplit(full)
+        if (
+            parsed.scheme not in {"http", "https"}
+            or (parsed.hostname or "").lower() != expected_host
+            or "/epointwebbuilder/pages/webbuildermis/attach/downloadztbattach" not in parsed.path.lower()
+        ):
+            continue
+        clean = full.split("#", 1)[0]
+        if clean in seen:
+            continue
+        seen.add(clean)
+        items.append({"url": clean, "text": _clean_anchor_text(match.group("body") or "")})
+        if len(items) >= 10:
+            return items
     for item in _discover_same_site_link_items(text, base_url=base_url, host=host):
         url = item["url"]
         parsed = urlsplit(url)
