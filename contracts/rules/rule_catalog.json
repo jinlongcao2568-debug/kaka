@@ -1087,6 +1087,9 @@
       "release_layer": "INTERNAL_OPERABLE",
       "value_priority": "P0",
       "basis_refs": [
+        "REG-GSXT-SYSTEM-OPERATION",
+        "PUBLIC-COURT-EXECUTION-PUBLICITY",
+        "REG-BUILDING-MARKET-CREDIT",
         "PUBLIC-CREDIT-SOURCE-PENDING"
       ],
       "basis_verification_state": "BASIS_MISSING",
@@ -1102,7 +1105,7 @@
       "result_ceiling": "CLUE",
       "customer_visible_allowed": false,
       "no_legal_conclusion": true,
-      "basis_gate_policy": "FAIL_CLOSED_UNTIL_BASIS_VERIFIED"
+      "basis_gate_policy": "FAIL_CLOSED_UNTIL_MULTI_SOURCE_EVIDENCE_VERIFIED"
     },
     {
       "rule_code": "ATTACK-001",
@@ -1520,6 +1523,8 @@
       "release_layer": "INTERNAL_OPERABLE",
       "value_priority": "P1",
       "basis_refs": [
+        "REG-ENTERPRISE-INFO-PUBLICITY",
+        "REG-GSXT-SYSTEM-OPERATION",
         "PUBLIC-RELATION-SOURCE-PENDING"
       ],
       "basis_verification_state": "BASIS_MISSING",
@@ -1535,7 +1540,7 @@
       "result_ceiling": "CLUE",
       "customer_visible_allowed": false,
       "no_legal_conclusion": true,
-      "basis_gate_policy": "FAIL_CLOSED_UNTIL_BASIS_VERIFIED"
+      "basis_gate_policy": "FAIL_CLOSED_UNTIL_MULTI_SOURCE_EVIDENCE_VERIFIED"
     },
     {
       "rule_code": "ENG-001",
@@ -1573,6 +1578,7 @@
       "basis_refs": [
         "LAW-ARCHITECTURE-7",
         "REG-CONSTRUCTION-PERMIT",
+        "PUBLIC-JZSC-PROJECT-INFO-MANAGEMENT",
         "PUBLIC-ENGINEERING-SOURCE-PENDING"
       ],
       "basis_verification_state": "BASIS_MISSING",
@@ -1588,7 +1594,7 @@
       "result_ceiling": "CLUE",
       "customer_visible_allowed": false,
       "no_legal_conclusion": true,
-      "basis_gate_policy": "FAIL_CLOSED_UNTIL_BASIS_VERIFIED"
+      "basis_gate_policy": "FAIL_CLOSED_UNTIL_MULTI_SOURCE_EVIDENCE_VERIFIED"
     },
     {
       "rule_code": "ENG-002",
@@ -1625,6 +1631,7 @@
       "value_priority": "P1",
       "basis_refs": [
         "PROJECT-TENDER-DOCUMENT",
+        "PUBLIC-JZSC-PROJECT-INFO-MANAGEMENT",
         "PUBLIC-ENGINEERING-SOURCE-PENDING"
       ],
       "basis_verification_state": "BASIS_MISSING",
@@ -1640,7 +1647,7 @@
       "result_ceiling": "CLUE",
       "customer_visible_allowed": false,
       "no_legal_conclusion": true,
-      "basis_gate_policy": "FAIL_CLOSED_UNTIL_BASIS_VERIFIED"
+      "basis_gate_policy": "FAIL_CLOSED_UNTIL_MULTI_SOURCE_EVIDENCE_VERIFIED"
     },
     {
       "rule_code": "ATTACH-001",
@@ -1826,6 +1833,7 @@
       "release_layer": "INTERNAL_OPERABLE",
       "value_priority": "P1",
       "basis_refs": [
+        "PUBLIC-JZSC-PROJECT-INFO-MANAGEMENT",
         "PUBLIC-ENGINEERING-SOURCE-PENDING"
       ],
       "basis_verification_state": "BASIS_MISSING",
@@ -1841,7 +1849,7 @@
       "result_ceiling": "OBSERVATION",
       "customer_visible_allowed": false,
       "no_legal_conclusion": true,
-      "basis_gate_policy": "FAIL_CLOSED_UNTIL_BASIS_VERIFIED"
+      "basis_gate_policy": "FAIL_CLOSED_UNTIL_MULTI_SOURCE_EVIDENCE_VERIFIED"
     },
     {
       "rule_code": "GOV-001",

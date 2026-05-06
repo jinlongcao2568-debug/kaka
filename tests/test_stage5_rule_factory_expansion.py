@@ -35,6 +35,10 @@ def load_rule_catalog() -> dict[str, object]:
     return json.loads((ROOT / "contracts/rules/rule_catalog.json").read_text(encoding="utf-8"))
 
 
+def load_rule_basis_catalog() -> dict[str, object]:
+    return json.loads((ROOT / "contracts/rules/rule_basis_catalog.json").read_text(encoding="utf-8"))
+
+
 def stage4_bundle_with_inputs(extra_inputs: dict[str, object]) -> StageBundle:
     stage4 = run_internal_chain(load_fixture("internal_chain_happy.json"))["stage4"]
     return StageBundle(
@@ -188,6 +192,27 @@ class Stage5RuleFactoryExpansionTests(unittest.TestCase):
         self.assertFalse(credit["customer_visible_allowed"])
         self.assertEqual(attack["basis_verification_state"], "HEURISTIC_ONLY")
         self.assertFalse(attack["customer_visible_allowed"])
+        partially_bound_rules = {
+            "CREDIT-001": "PUBLIC-CREDIT-SOURCE-PENDING",
+            "REL-001": "PUBLIC-RELATION-SOURCE-PENDING",
+            "ENG-001": "PUBLIC-ENGINEERING-SOURCE-PENDING",
+            "ENG-002": "PUBLIC-ENGINEERING-SOURCE-PENDING",
+            "PERF-001": "PUBLIC-ENGINEERING-SOURCE-PENDING",
+        }
+        basis_catalog = load_rule_basis_catalog()
+        basis_by_id = {basis["basis_id"]: basis for basis in basis_catalog["basis"]}
+        for rule_code, pending_basis_id in partially_bound_rules.items():
+            rule = next(rule for rule in stage5_rules if rule["rule_code"] == rule_code)
+            self.assertEqual(rule["basis_verification_state"], "BASIS_MISSING")
+            self.assertIn(pending_basis_id, rule["basis_refs"])
+            self.assertFalse(rule["customer_visible_allowed"])
+            verified_source_refs = [
+                basis_ref
+                for basis_ref in rule["basis_refs"]
+                if basis_ref != pending_basis_id
+                and basis_by_id[basis_ref]["basis_status"] == "VERIFIED"
+            ]
+            self.assertTrue(verified_source_refs, rule_code)
         for rule_code in (
             "PROC-001",
             "PROC-002",

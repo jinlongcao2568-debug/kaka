@@ -295,9 +295,153 @@
       "basis_status": "VERIFIED"
     },
     {
+      "basis_id": "REG-ENTERPRISE-INFO-PUBLICITY",
+      "basis_type": "ADMIN_REGULATION",
+      "basis_name": "企业信息公示暂行条例",
+      "article_refs": [
+        "第六条",
+        "第七条",
+        "第九条",
+        "第十条"
+      ],
+      "official_url": "https://www.gov.cn/zhengce/2014-08/23/content_2739774.htm",
+      "applies_to": [
+        "企业登记、备案、行政许可、行政处罚等涉企信息公示",
+        "股东、出资、股权变更等企业关系公开信息核验"
+      ],
+      "does_not_apply_to": [
+        "非企业主体",
+        "缺统一社会信用代码的主体关系推断",
+        "第三方商业画像未回链到官方公示信息"
+      ],
+      "required_evidence": [
+        "统一社会信用代码",
+        "国家企业信用信息公示系统或政府部门公示记录",
+        "关系类型",
+        "信息公示时间或变更时间",
+        "官方 URL 和 snapshot hash"
+      ],
+      "result_ceiling": "CLUE",
+      "basis_status": "VERIFIED"
+    },
+    {
+      "basis_id": "REG-GSXT-SYSTEM-OPERATION",
+      "basis_type": "DEPARTMENT_NORMATIVE_DOCUMENT",
+      "basis_name": "国家企业信用信息公示系统使用运行管理办法（试行）",
+      "article_refs": [
+        "第一条",
+        "第三条",
+        "第十一条",
+        "第十四条",
+        "第十七条"
+      ],
+      "official_url": "https://www.samr.gov.cn/xyjgs/flfg/art/2023/art_f6972d9dbbf641168e71fab9de31cb7a.html",
+      "applies_to": [
+        "国家企业信用信息公示系统涉企信息归集、公示和使用",
+        "企业信用、行政处罚、经营异常、主体关系公开核验"
+      ],
+      "does_not_apply_to": [
+        "非官方公示系统抓取结果",
+        "无法证明主体唯一性的名称匹配"
+      ],
+      "required_evidence": [
+        "国家企业信用信息公示系统 URL",
+        "统一社会信用代码",
+        "公示信息类型",
+        "公示页面快照",
+        "hash"
+      ],
+      "result_ceiling": "CLUE",
+      "basis_status": "VERIFIED"
+    },
+    {
+      "basis_id": "PUBLIC-COURT-EXECUTION-PUBLICITY",
+      "basis_type": "OFFICIAL_PUBLIC_SOURCE",
+      "basis_name": "最高人民法院执行信息公开查询平台",
+      "article_refs": [
+        "最高人民法院执行信息公开查询指南"
+      ],
+      "official_url": "https://www.court.gov.cn/zixun/xiangqing/6568.html",
+      "applies_to": [
+        "被执行人信息公开查询",
+        "失信被执行人名单公开查询"
+      ],
+      "does_not_apply_to": [
+        "未消歧自然人或企业名称",
+        "已履行或已删除但未核验时效的历史记录"
+      ],
+      "required_evidence": [
+        "主体名称和统一社会信用代码或组织机构代码",
+        "执行法院",
+        "案号或执行依据文号",
+        "发布时间或立案时间",
+        "履行状态",
+        "官方查询快照和 hash"
+      ],
+      "result_ceiling": "CLUE",
+      "basis_status": "VERIFIED"
+    },
+    {
+      "basis_id": "REG-BUILDING-MARKET-CREDIT",
+      "basis_type": "DEPARTMENT_NORMATIVE_DOCUMENT",
+      "basis_name": "建筑市场信用管理暂行办法",
+      "article_refs": [
+        "建市〔2017〕241号：信用信息公开、黑名单和招标投标限制相关条款"
+      ],
+      "official_url": "https://www.gov.cn/xinwen/2017-12/18/content_5248131.htm",
+      "applies_to": [
+        "建筑市场各方主体信用信息公开线索",
+        "建筑市场主体黑名单或不良信用信息公开线索",
+        "住建领域信用约束和招投标限制公开核验"
+      ],
+      "does_not_apply_to": [
+        "非建筑市场主体",
+        "地方信用评价规则未绑定",
+        "信用修复或有效期未核验"
+      ],
+      "required_evidence": [
+        "住建或地方建筑市场信用公开源 URL",
+        "主体统一社会信用代码",
+        "处罚、黑名单或不良信用条目",
+        "有效期、修复状态或公开期限",
+        "官方快照和 hash"
+      ],
+      "result_ceiling": "CLUE",
+      "basis_status": "VERIFIED"
+    },
+    {
+      "basis_id": "PUBLIC-JZSC-PROJECT-INFO-MANAGEMENT",
+      "basis_type": "DEPARTMENT_NORMATIVE_DOCUMENT",
+      "basis_name": "全国建筑市场监管公共服务平台项目信息管理通知",
+      "article_refs": [
+        "建办市函〔2023〕391号 第二、三项",
+        "建办市函〔2025〕14号 第一、二项"
+      ],
+      "official_url": "https://www.mohurd.gov.cn/gongkai/zc/wjk/art/2024/art_17339_776100.html",
+      "applies_to": [
+        "全国建筑市场监管公共服务平台工程项目信息",
+        "施工许可、竣工验收备案、招投标、合同签订等项目监管信息核验",
+        "工程项目信息数据等级和审核确认状态"
+      ],
+      "does_not_apply_to": [
+        "非房建市政或平台覆盖外项目",
+        "项目身份无法消歧",
+        "只有企业自行填报且无主管部门审核确认的单源记录"
+      ],
+      "required_evidence": [
+        "全国建筑市场监管公共服务平台或省级一体化平台 URL",
+        "项目名称、建设单位、施工单位消歧",
+        "施工许可、合同、竣工或备案关键字段",
+        "数据等级或审核确认状态",
+        "官方快照和 hash"
+      ],
+      "result_ceiling": "CLUE",
+      "basis_status": "VERIFIED"
+    },
+    {
       "basis_id": "PUBLIC-CREDIT-SOURCE-PENDING",
       "basis_type": "PUBLIC_SOURCE_REQUIREMENT",
-      "basis_name": "信用中国、国家企业信用信息公示系统、JZSC 和地方住建信用公开源待绑定",
+      "basis_name": "信用中国、GSXT、法院执行、JZSC 和地方住建信用多源证据门待实现",
       "article_refs": [
         "pending"
       ],
@@ -311,8 +455,9 @@
       "required_evidence": [
         "信用源官方 URL",
         "主体统一社会信用代码",
-        "处罚或限制条目",
-        "时效和修复状态"
+        "处罚、限制、黑名单、经营异常或执行条目",
+        "时效、修复状态和当前有效性",
+        "至少一个官方源 snapshot hash；客户可见前需要多源或原始处罚决定佐证"
       ],
       "result_ceiling": "CLUE",
       "basis_status": "BASIS_MISSING"
@@ -320,7 +465,7 @@
     {
       "basis_id": "PUBLIC-RELATION-SOURCE-PENDING",
       "basis_type": "PUBLIC_SOURCE_REQUIREMENT",
-      "basis_name": "公开主体关系冲突来源待绑定",
+      "basis_name": "公开主体关系冲突多源证据门待实现",
       "article_refs": [
         "pending"
       ],
@@ -334,9 +479,10 @@
       ],
       "required_evidence": [
         "统一社会信用代码",
-        "GSXT 或公开登记信息",
-        "关系类型",
-        "关系生效时点"
+        "GSXT 或政府部门公开登记信息",
+        "关系类型和关系双方",
+        "关系生效、变更或注销时点",
+        "客户可见前需要第二公开源或项目文件关系条款佐证"
       ],
       "result_ceiling": "CLUE",
       "basis_status": "BASIS_MISSING"
@@ -344,7 +490,7 @@
     {
       "basis_id": "PUBLIC-ENGINEERING-SOURCE-PENDING",
       "basis_type": "PUBLIC_SOURCE_REQUIREMENT",
-      "basis_name": "工程许可、竣工、合同履约公开源待完成多源绑定",
+      "basis_name": "工程许可、竣工、合同履约多源证据门待实现",
       "article_refs": [
         "pending"
       ],
@@ -358,9 +504,10 @@
       ],
       "required_evidence": [
         "项目身份消歧",
-        "施工许可或竣工备案公开记录",
-        "合同或履约公开记录",
-        "多源交叉校验"
+        "施工许可、合同、竣工或履约公开记录",
+        "全国平台/省级平台/项目文件之间的交叉校验",
+        "数据等级或审核确认状态",
+        "异常字段 source slice 和 snapshot hash"
       ],
       "result_ceiling": "CLUE",
       "basis_status": "BASIS_MISSING"
