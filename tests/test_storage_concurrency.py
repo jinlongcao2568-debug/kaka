@@ -48,6 +48,10 @@ from storage.repositories.backup_restore_repo import BackupRestoreRepository
 from storage.repositories.object_storage_repo import ObjectStorageRepository
 from storage.object_storage import ObjectStorageMissingError
 from storage.backup_restore import compute_manifest_hash
+from storage.json_storage_migration import (
+    MIGRATION_MANIFEST_OBJECT_TYPE,
+    migrate_json_storage_to_database,
+)
 from shared.settings import Settings
 
 
@@ -1492,6 +1496,126 @@ class TestStorageConcurrency(unittest.TestCase):
         self.assertTrue(manifest["audit_required"])
         self.assertFalse(manifest["external_service_connection_enabled"])
         self.assertFalse(manifest["destructive_restore_enabled"])
+
+    def test_json_storage_migration_imports_envelopes_idempotently(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            source_path = Path(tmp_dir) / "source-store.json"
+            object_storage_path = Path(tmp_dir) / "objects"
+            target_path = Path(tmp_dir) / "target.sqlite"
+            database_url = sqlalchemy_sqlite_url(target_path)
+            now = "2026-05-07T01:00:00+00:00"
+            source_settings = Settings(
+                storage_backend="json-file",
+                storage_path_optional=str(source_path),
+                storage_scope="shared",
+                storage_runtime_mode="explicit-path",
+                object_storage_path_optional=str(object_storage_path),
+            )
+            source_session = DatabaseSession(settings=source_settings)
+            record, stage_state, work_item, action = build_envelope_entries(now)
+            source_session.upsert_record(record)
+            source_session.upsert_stage_state(stage_state)
+            source_session.upsert_work_item(work_item)
+            source_session.append_operator_action(action)
+            WorkerQueueRepository(session=source_session).enqueue(
+                queue_item_id="WQ-MIGRATE-1",
+                queue_name="storage-migration",
+                payload={"migration": "json-to-db"},
+                now=now,
+            )
+            source_session.close()
+
+            dry_run = migrate_json_storage_to_database(
+                source_path=source_path,
+                object_storage_path=object_storage_path,
+                database_url=database_url,
+                target_backend="sqlalchemy",
+                execute=False,
+                created_at=now,
+            )
+
+            self.assertTrue(dry_run["safe_to_execute"])
+            self.assertFalse(dry_run["execution"]["executed"])
+            self.assertEqual(dry_run["plan_counts"]["records"]["to_insert"], 1)
+            self.assertEqual(dry_run["plan_counts"]["stage_states"]["to_insert"], 1)
+            self.assertEqual(dry_run["plan_counts"]["work_items"]["to_insert"], 1)
+            self.assertEqual(dry_run["plan_counts"]["operator_actions"]["to_append"], 1)
+            self.assertEqual(dry_run["plan_counts"]["worker_queue_items"]["to_insert"], 1)
+            self.assertEqual(dry_run["plan_counts"]["worker_queue_events"]["to_append"], 1)
+            dry_target = DatabaseSession(
+                settings=Settings(
+                    storage_backend="sqlalchemy",
+                    storage_database_url_optional=database_url,
+                    storage_scope="shared",
+                    storage_runtime_mode="explicit-path",
+                )
+            )
+            try:
+                self.assertEqual(dry_target.list_all_records(), [])
+            finally:
+                dry_target.close()
+
+            executed = migrate_json_storage_to_database(
+                source_path=source_path,
+                object_storage_path=object_storage_path,
+                database_url=database_url,
+                target_backend="sqlalchemy",
+                execute=True,
+                created_at=now,
+            )
+
+            self.assertTrue(executed["execution"]["executed"])
+            self.assertEqual(executed["target_counts_before"]["records"], 0)
+            self.assertEqual(executed["target_counts_after"]["records"], 1)
+            self.assertEqual(executed["post_execute_plan_counts"]["records"]["unchanged"], 1)
+            target_session = DatabaseSession(
+                settings=Settings(
+                    storage_backend="sqlalchemy",
+                    storage_database_url_optional=database_url,
+                    storage_scope="shared",
+                    storage_runtime_mode="explicit-path",
+                )
+            )
+            try:
+                self.assertEqual(target_session.list_records("test_record"), [record])
+                self.assertEqual(target_session.list_stage_states(stage_scope=8), [stage_state])
+                self.assertEqual(target_session.list_work_items(stage_scope=8), [work_item])
+                self.assertEqual(target_session.list_operator_actions("WI-1"), [action])
+                self.assertEqual(len(target_session.list_worker_queue_items()), 1)
+                self.assertEqual(len(target_session.list_all_worker_queue_events()), 1)
+                migration_records = target_session.list_records(MIGRATION_MANIFEST_OBJECT_TYPE)
+                self.assertEqual(len(migration_records), 1)
+                self.assertEqual(
+                    migration_records[0].payload["safety"]["large_object_blob_database_import_enabled"],
+                    False,
+                )
+            finally:
+                target_session.close()
+
+            repeated = migrate_json_storage_to_database(
+                source_path=source_path,
+                object_storage_path=object_storage_path,
+                database_url=database_url,
+                target_backend="sqlalchemy",
+                execute=True,
+                created_at=now,
+            )
+            self.assertEqual(repeated["plan_counts"]["operator_actions"]["skipped_existing"], 1)
+            self.assertEqual(repeated["plan_counts"]["worker_queue_events"]["skipped_existing"], 1)
+            repeated_target = DatabaseSession(
+                settings=Settings(
+                    storage_backend="sqlalchemy",
+                    storage_database_url_optional=database_url,
+                    storage_scope="shared",
+                    storage_runtime_mode="explicit-path",
+                )
+            )
+            try:
+                self.assertEqual(len(repeated_target.list_operator_actions("WI-1")), 1)
+                self.assertEqual(len(repeated_target.list_all_worker_queue_events()), 1)
+                self.assertEqual(len(repeated_target.list_records(MIGRATION_MANIFEST_OBJECT_TYPE)), 1)
+            finally:
+                repeated_target.close()
 
     def test_restore_dry_run_marks_missing_object_refs_and_does_not_write_active_storage(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
