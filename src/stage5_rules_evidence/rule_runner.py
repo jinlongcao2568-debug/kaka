@@ -316,6 +316,13 @@ class RuleRunner:
         binding = bindings.get(rule_code, {})
         return binding if isinstance(binding, Mapping) else {}
 
+    def _rule_basis_entry(self, basis_id: str) -> Mapping[str, Any]:
+        basis_index = getattr(self.store, "rule_basis_index", {})
+        if not isinstance(basis_index, Mapping):
+            return {}
+        entry = basis_index.get(basis_id, {})
+        return entry if isinstance(entry, Mapping) else {}
+
     def _coerce_bool(self, value: Any, *, default: bool) -> bool:
         if value in (None, ""):
             return default
@@ -397,6 +404,65 @@ class RuleRunner:
             return str(pins.get(rule_code))
         return None
 
+    def _strict_basis_gate_required(self, inputs: Mapping[str, Any]) -> bool:
+        mode = str(inputs.get("stage5_basis_gate_mode") or "").upper()
+        if mode in {"STRICT", "CUSTOMER_VISIBLE", "REAL_PUBLIC"}:
+            return True
+        if self._coerce_bool(inputs.get("stage5_strict_basis_gate"), default=False):
+            return True
+        flags = inputs.get("flags")
+        if isinstance(flags, Mapping) and self._coerce_bool(flags.get("stage5_strict_basis_gate"), default=False):
+            return True
+        if str(inputs.get("source_candidate_mode") or "") == "REAL_PUBLIC_SOURCE_CANDIDATES":
+            return True
+        if inputs.get("stage4_public_verification_carrier") or inputs.get("stage4_public_verification_refs"):
+            return True
+        return any(
+            self._coerce_bool(inputs.get(key), default=False)
+            for key in (
+                "approved_customer_visible_unlock_requested",
+                "customer_visible_export_requested",
+                "customer_visible_publication_requested",
+            )
+        )
+
+    def _basis_gate_status(self, profile: Mapping[str, Any], *, inputs: Mapping[str, Any]) -> tuple[str, list[str]]:
+        rule_code = str(profile["rule_code"])
+        basis_state = str(profile.get("basis_verification_state") or "BASIS_MISSING")
+        strict_required = self._strict_basis_gate_required(inputs)
+        basis_refs = [str(value) for value in ensure_list(profile.get("basis_refs")) if value not in (None, "")]
+        basis_statuses = dict(profile.get("basis_statuses", {}))
+        reasons: list[str] = []
+
+        if not basis_refs:
+            reasons.append(f"{rule_code}: basis refs missing")
+        missing_basis_refs = [basis_ref for basis_ref in basis_refs if basis_statuses.get(basis_ref) == "MISSING"]
+        if missing_basis_refs:
+            reasons.append(f"{rule_code}: basis catalog refs missing {','.join(missing_basis_refs)}")
+
+        if basis_state == "VERIFIED":
+            non_verified_refs = [
+                f"{basis_ref}:{basis_statuses.get(basis_ref)}"
+                for basis_ref in basis_refs
+                if basis_statuses.get(basis_ref) != "VERIFIED"
+            ]
+            if non_verified_refs:
+                reasons.append(f"{rule_code}: non-verified basis refs {','.join(non_verified_refs)}")
+        elif basis_state == "INTERNAL_ONLY":
+            if strict_required:
+                reasons.append(f"{rule_code}: internal-only basis cannot support strict or customer-visible gate")
+        elif basis_state == "HEURISTIC_ONLY":
+            reasons.append(f"{rule_code}: heuristic-only rule is review-only")
+        elif basis_state in {"BASIS_MISSING", "DEPRECATED"}:
+            reasons.append(f"{rule_code}: basis verification state {basis_state}")
+        else:
+            reasons.append(f"{rule_code}: unsupported basis verification state {basis_state}")
+
+        if profile.get("customer_visible_allowed") is True and basis_state != "VERIFIED":
+            reasons.append(f"{rule_code}: customer-visible rule requires verified basis")
+
+        return ("PASS" if not reasons else "REVIEW"), list(dict.fromkeys(reasons))
+
     def _dependency_evidence_refs(
         self,
         *,
@@ -473,7 +539,16 @@ class RuleRunner:
         if priority in (None, ""):
             priority = self._priority_from_value(rule)
 
-        return {
+        basis_refs = [
+            str(value)
+            for value in ensure_list(binding.get("basis_refs") or rule.get("basis_refs"))
+            if value not in (None, "")
+        ]
+        basis_statuses = {
+            basis_ref: str(self._rule_basis_entry(basis_ref).get("basis_status") or "MISSING")
+            for basis_ref in basis_refs
+        }
+        profile = {
             "rule": rule,
             "rule_code": rule_code,
             "rule_name": str(rule.get("name", rule_code)),
@@ -505,7 +580,31 @@ class RuleRunner:
                 if value not in (None, "")
             ],
             "minimum_confidence": float(binding.get("minimum_confidence", factory.get("minimum_confidence", 0.6))),
+            "basis_refs": basis_refs,
+            "basis_statuses": basis_statuses,
+            "basis_verification_state": str(
+                binding.get("basis_verification_state")
+                or rule.get("basis_verification_state")
+                or "BASIS_MISSING"
+            ),
+            "applicability_scope": dict(rule.get("applicability_scope", {}))
+            if isinstance(rule.get("applicability_scope"), Mapping)
+            else {},
+            "result_ceiling": str(rule.get("result_ceiling") or rule.get("default_result") or "REVIEW_REQUEST"),
+            "customer_visible_allowed": self._coerce_bool(
+                rule.get("customer_visible_allowed"),
+                default=False,
+            ),
+            "no_legal_conclusion": self._coerce_bool(
+                rule.get("no_legal_conclusion"),
+                default=True,
+            ),
+            "basis_gate_policy": str(rule.get("basis_gate_policy") or "STRICT_FOR_REAL_PUBLIC_OR_CUSTOMER_VISIBLE"),
         }
+        basis_gate_status, basis_gate_reasons = self._basis_gate_status(profile, inputs=inputs)
+        profile["basis_gate_status"] = basis_gate_status
+        profile["basis_gate_reasons"] = basis_gate_reasons
+        return profile
 
     def _profile_fail_closed_reasons(self, profile: Mapping[str, Any]) -> list[str]:
         rule_code = str(profile["rule_code"])
@@ -525,6 +624,8 @@ class RuleRunner:
             reasons.append(
                 f"{rule_code}: version conflict expected {profile['expected_version']} actual {profile['version']}"
             )
+        if profile.get("basis_gate_status") != "PASS":
+            reasons.extend(str(reason) for reason in ensure_list(profile.get("basis_gate_reasons")))
         return reasons
 
     def _selection_reason(self, rule: Mapping[str, Any], *, selected_rule_codes: set[str]) -> str:
@@ -602,6 +703,10 @@ class RuleRunner:
         unsupported_count = 0
         missing_dependency_count = 0
         version_conflict_count = 0
+        basis_gate_review_count = 0
+        basis_missing_count = 0
+        basis_internal_only_count = 0
+        basis_heuristic_only_count = 0
         for profile in stage5_profiles:
             fail_closed_reasons = self._profile_fail_closed_reasons(profile)
             if not profile["enabled"] or profile["status"] not in active_statuses:
@@ -612,6 +717,14 @@ class RuleRunner:
                 missing_dependency_count += 1
             if profile["version_conflict"]:
                 version_conflict_count += 1
+            if profile.get("basis_gate_status") != "PASS":
+                basis_gate_review_count += 1
+            if profile.get("basis_verification_state") == "BASIS_MISSING":
+                basis_missing_count += 1
+            if profile.get("basis_verification_state") == "INTERNAL_ONLY":
+                basis_internal_only_count += 1
+            if profile.get("basis_verification_state") == "HEURISTIC_ONLY":
+                basis_heuristic_only_count += 1
 
             if profile["rule_code"] in selected_rule_codes:
                 reason = str(profile.get("selected_reason", "selected_catalog_priority"))
@@ -622,6 +735,8 @@ class RuleRunner:
                     reason = "catalog_disabled"
                 elif profile["version_conflict"]:
                     reason = "version_conflict"
+                elif profile.get("basis_gate_status") != "PASS":
+                    reason = "basis_gate_review"
                 elif profile["unsupported_upstream_objects"]:
                     reason = "unsupported_upstream_objects"
                 else:
@@ -651,6 +766,15 @@ class RuleRunner:
                     "input_contract": dict(profile["input_contract"]),
                     "output_contract": dict(profile["output_contract"]),
                     "document_term_refs": list(profile["document_term_refs"]),
+                    "basis_refs": list(profile["basis_refs"]),
+                    "basis_statuses": dict(profile["basis_statuses"]),
+                    "basis_verification_state": profile["basis_verification_state"],
+                    "basis_gate_status": profile["basis_gate_status"],
+                    "basis_gate_reasons": list(profile["basis_gate_reasons"]),
+                    "basis_gate_policy": profile["basis_gate_policy"],
+                    "customer_visible_allowed": bool(profile["customer_visible_allowed"]),
+                    "no_legal_conclusion": bool(profile["no_legal_conclusion"]),
+                    "result_ceiling": profile["result_ceiling"],
                     "fail_closed_reasons": list(fail_closed_reasons),
                 }
             )
@@ -673,6 +797,10 @@ class RuleRunner:
             "unsupported_count": unsupported_count,
             "missing_dependency_count": missing_dependency_count,
             "version_conflict_count": version_conflict_count,
+            "basis_gate_review_count": basis_gate_review_count,
+            "basis_missing_count": basis_missing_count,
+            "basis_internal_only_count": basis_internal_only_count,
+            "basis_heuristic_only_count": basis_heuristic_only_count,
             "selected_rule_codes": [profile["rule_code"] for profile in selected_profiles],
             "skipped_rule_codes": [
                 profile["rule_code"] for profile in stage5_profiles if profile["rule_code"] not in selected_rule_codes
@@ -932,6 +1060,7 @@ class RuleRunner:
                 f"dependency_fields={','.join(profile['dependency_fields'])}; "
                 f"verification={verification_state}; evidence_gate={evidence_artifacts.evidence_gate_status}; "
                 f"version_state={version_conflict_state}; clock={clock_conflict_state}; "
+                f"basis_gate={profile['basis_gate_status']}; basis_state={profile['basis_verification_state']}; "
                 f"confidence={confidence:.2f}; pseudo_signal={pseudo_competitor_signal_set.get('confidence_band')}"
             )
             if reasons:
@@ -971,6 +1100,15 @@ class RuleRunner:
                         "dependency_evidence": dependency_evidence_refs,
                         "dependency_evidence_fields": list(profile["dependency_evidence_fields"]),
                         "evidence_refs": [evidence_artifacts.evidence.get("evidence_id")],
+                        "basis_refs": list(profile["basis_refs"]),
+                        "basis_statuses": dict(profile["basis_statuses"]),
+                        "basis_verification_state": str(profile["basis_verification_state"]),
+                        "basis_gate_status": str(profile["basis_gate_status"]),
+                        "basis_gate_reasons": list(profile["basis_gate_reasons"]),
+                        "basis_gate_policy": str(profile["basis_gate_policy"]),
+                        "customer_visible_allowed": bool(profile["customer_visible_allowed"]),
+                        "no_legal_conclusion": bool(profile["no_legal_conclusion"]),
+                        "result_ceiling": str(profile["result_ceiling"]),
                         "confidence": confidence,
                         "rule_gate_status": rule_gate_status_for_hit,
                         "rule_hit_state": rule_hit_state_for_hit,

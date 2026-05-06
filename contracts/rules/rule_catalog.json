@@ -816,7 +816,27 @@
         "SALES_USAGE"
       ],
       "release_layer": "INTERNAL_OPERABLE",
-      "value_priority": "P0"
+      "value_priority": "P0",
+      "basis_refs": [
+        "REG-TENDER-IMPLEMENTATION-54",
+        "REG-TENDER-PUBLICATION-INFO",
+        "PROJECT-VERSION-CLOCK-CHAIN"
+      ],
+      "basis_verification_state": "VERIFIED",
+      "applicability_scope": {
+        "applies_to": [
+          "依法必须招标项目",
+          "公开公示版本链和动作窗口"
+        ],
+        "does_not_apply_to": [
+          "政府采购质疑窗口",
+          "无法识别采购制度的项目"
+        ]
+      },
+      "result_ceiling": "REVIEW_REQUEST",
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "basis_gate_policy": "STRICT_FOR_REAL_PUBLIC_OR_CUSTOMER_VISIBLE"
     },
     {
       "rule_code": "PROC-002",
@@ -850,7 +870,27 @@
         "SALES_USAGE"
       ],
       "release_layer": "INTERNAL_OPERABLE",
-      "value_priority": "P0"
+      "value_priority": "P0",
+      "basis_refs": [
+        "REG-TENDER-IMPLEMENTATION-54",
+        "REG-TENDER-PUBLICATION-INFO",
+        "PROJECT-VERSION-CLOCK-CHAIN"
+      ],
+      "basis_verification_state": "VERIFIED",
+      "applicability_scope": {
+        "applies_to": [
+          "依法必须招标项目",
+          "公开公示版本链和动作窗口"
+        ],
+        "does_not_apply_to": [
+          "政府采购质疑窗口",
+          "无法识别采购制度的项目"
+        ]
+      },
+      "result_ceiling": "REVIEW_REQUEST",
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "basis_gate_policy": "STRICT_FOR_REAL_PUBLIC_OR_CUSTOMER_VISIBLE"
     },
     {
       "rule_code": "PROC-003",
@@ -884,7 +924,27 @@
         "SALES_USAGE"
       ],
       "release_layer": "INTERNAL_OPERABLE",
-      "value_priority": "P0"
+      "value_priority": "P0",
+      "basis_refs": [
+        "REG-TENDER-IMPLEMENTATION-54",
+        "REG-TENDER-PUBLICATION-INFO",
+        "PROJECT-VERSION-CLOCK-CHAIN"
+      ],
+      "basis_verification_state": "VERIFIED",
+      "applicability_scope": {
+        "applies_to": [
+          "依法必须招标项目",
+          "公开公示版本链和动作窗口"
+        ],
+        "does_not_apply_to": [
+          "政府采购质疑窗口",
+          "无法识别采购制度的项目"
+        ]
+      },
+      "result_ceiling": "REVIEW_REQUEST",
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "basis_gate_policy": "STRICT_FOR_REAL_PUBLIC_OR_CUSTOMER_VISIBLE"
     },
     {
       "rule_code": "QUAL-001",
@@ -918,7 +978,27 @@
         "SALES_USAGE"
       ],
       "release_layer": "INTERNAL_OPERABLE",
-      "value_priority": "P0"
+      "value_priority": "P0",
+      "basis_refs": [
+        "LAW-TENDER-18",
+        "REG-BUILDING-QUALIFICATION-3",
+        "PROJECT-TENDER-DOCUMENT"
+      ],
+      "basis_verification_state": "VERIFIED",
+      "applicability_scope": {
+        "applies_to": [
+          "招标文件明确资格条款",
+          "建筑业企业资质要求"
+        ],
+        "does_not_apply_to": [
+          "未识别项目类型",
+          "招标文件未要求相应资质"
+        ]
+      },
+      "result_ceiling": "CLUE",
+      "customer_visible_allowed": true,
+      "no_legal_conclusion": true,
+      "basis_gate_policy": "STRICT_FOR_REAL_PUBLIC_OR_CUSTOMER_VISIBLE"
     },
     {
       "rule_code": "DOC-001",
@@ -952,7 +1032,26 @@
         "SALES_USAGE"
       ],
       "release_layer": "INTERNAL_OPERABLE",
-      "value_priority": "P0"
+      "value_priority": "P0",
+      "basis_refs": [
+        "PROJECT-TENDER-DOCUMENT",
+        "PROJECT-VERSION-CLOCK-CHAIN"
+      ],
+      "basis_verification_state": "VERIFIED",
+      "applicability_scope": {
+        "applies_to": [
+          "同一项目公开文件关键字段存在版本差异",
+          "字段血缘可回放"
+        ],
+        "does_not_apply_to": [
+          "单一不可回链文本",
+          "仅模型摘要"
+        ]
+      },
+      "result_ceiling": "CLUE",
+      "customer_visible_allowed": true,
+      "no_legal_conclusion": true,
+      "basis_gate_policy": "STRICT_FOR_REAL_PUBLIC_OR_CUSTOMER_VISIBLE"
     },
     {
       "rule_code": "CREDIT-001",
@@ -961,7 +1060,7 @@
       "status": "DRAFT",
       "stage": 5,
       "default_result": "AUTO_HIT",
-      "minimum_external_use_grade": "E4_EXTERNAL_ACTION_READY",
+      "minimum_external_use_grade": "E2_REVIEW_READY",
       "public_capability_tier": "A_PUBLIC_CORE",
       "capability_id": "A-07",
       "upstream_objects": [
@@ -986,7 +1085,24 @@
         "SALES_USAGE"
       ],
       "release_layer": "INTERNAL_OPERABLE",
-      "value_priority": "P0"
+      "value_priority": "P0",
+      "basis_refs": [
+        "PUBLIC-CREDIT-SOURCE-PENDING"
+      ],
+      "basis_verification_state": "BASIS_MISSING",
+      "applicability_scope": {
+        "applies_to": [
+          "信用限制或处罚公开线索"
+        ],
+        "does_not_apply_to": [
+          "信用源未绑定",
+          "主体未用统一社会信用代码消歧"
+        ]
+      },
+      "result_ceiling": "CLUE",
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "basis_gate_policy": "FAIL_CLOSED_UNTIL_BASIS_VERIFIED"
     },
     {
       "rule_code": "ATTACK-001",
@@ -1020,7 +1136,26 @@
         "SALES_USAGE"
       ],
       "release_layer": "INTERNAL_OPERABLE",
-      "value_priority": "P0"
+      "value_priority": "P0",
+      "basis_refs": [
+        "HEURISTIC-PUBLIC-ATTACK-SURFACE"
+      ],
+      "basis_verification_state": "HEURISTIC_ONLY",
+      "applicability_scope": {
+        "applies_to": [
+          "内部机会分析",
+          "候选集合优先级排序"
+        ],
+        "does_not_apply_to": [
+          "正式规则门禁",
+          "客户可见结论",
+          "外部行动依据"
+        ]
+      },
+      "result_ceiling": "OBSERVATION",
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "basis_gate_policy": "HEURISTIC_REVIEW_ONLY"
     },
     {
       "rule_code": "PM-001",
@@ -1054,7 +1189,27 @@
         "SALES_USAGE"
       ],
       "release_layer": "INTERNAL_OPERABLE",
-      "value_priority": "P1"
+      "value_priority": "P1",
+      "basis_refs": [
+        "REG-CONSTRUCTOR-21",
+        "REG-EPC-20",
+        "PROJECT-TENDER-DOCUMENT"
+      ],
+      "basis_verification_state": "VERIFIED",
+      "applicability_scope": {
+        "applies_to": [
+          "施工单位项目负责人或 EPC 项目经理",
+          "公开注册信息时间链"
+        ],
+        "does_not_apply_to": [
+          "设计/勘察/监理负责人",
+          "仅投标阶段未形成在建职责"
+        ]
+      },
+      "result_ceiling": "CLUE",
+      "customer_visible_allowed": true,
+      "no_legal_conclusion": true,
+      "basis_gate_policy": "STRICT_FOR_REAL_PUBLIC_OR_CUSTOMER_VISIBLE"
     },
     {
       "rule_code": "PM-002",
@@ -1088,7 +1243,28 @@
         "SALES_USAGE"
       ],
       "release_layer": "INTERNAL_OPERABLE",
-      "value_priority": "P1"
+      "value_priority": "P1",
+      "basis_refs": [
+        "REG-CONSTRUCTOR-21",
+        "REG-EPC-20",
+        "PROJECT-TENDER-DOCUMENT"
+      ],
+      "basis_verification_state": "VERIFIED",
+      "applicability_scope": {
+        "applies_to": [
+          "施工单位项目负责人或 EPC 项目经理",
+          "两个及以上工程项目时间链交叉"
+        ],
+        "does_not_apply_to": [
+          "仅同名人员",
+          "未完成身份消歧",
+          "缺竣工/变更释放证据"
+        ]
+      },
+      "result_ceiling": "CLUE",
+      "customer_visible_allowed": true,
+      "no_legal_conclusion": true,
+      "basis_gate_policy": "STRICT_FOR_REAL_PUBLIC_OR_CUSTOMER_VISIBLE"
     },
     {
       "rule_code": "QUAL-PM-001",
@@ -1121,7 +1297,29 @@
         "INTERNAL_ANALYSIS"
       ],
       "release_layer": "INTERNAL_OPERABLE",
-      "value_priority": "P1"
+      "value_priority": "P1",
+      "basis_refs": [
+        "LAW-TENDER-18",
+        "REG-CONSTRUCTOR-21",
+        "REG-EPC-20",
+        "PROJECT-TENDER-DOCUMENT"
+      ],
+      "basis_verification_state": "VERIFIED",
+      "applicability_scope": {
+        "applies_to": [
+          "招标文件明确项目负责人资格或证书要求",
+          "公开人员资格记录可回链"
+        ],
+        "does_not_apply_to": [
+          "非建造师资格要求",
+          "仅安全 B 证",
+          "未识别项目负责人角色"
+        ]
+      },
+      "result_ceiling": "REVIEW_REQUEST",
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "basis_gate_policy": "STRICT_FOR_REAL_PUBLIC_OR_CUSTOMER_VISIBLE"
     },
     {
       "rule_code": "QUAL-PM-002",
@@ -1154,7 +1352,29 @@
         "INTERNAL_ANALYSIS"
       ],
       "release_layer": "INTERNAL_OPERABLE",
-      "value_priority": "P1"
+      "value_priority": "P1",
+      "basis_refs": [
+        "LAW-TENDER-18",
+        "REG-CONSTRUCTOR-21",
+        "REG-EPC-20",
+        "PROJECT-TENDER-DOCUMENT"
+      ],
+      "basis_verification_state": "VERIFIED",
+      "applicability_scope": {
+        "applies_to": [
+          "招标文件明确项目负责人资格或证书要求",
+          "公开人员资格记录可回链"
+        ],
+        "does_not_apply_to": [
+          "非建造师资格要求",
+          "仅安全 B 证",
+          "未识别项目负责人角色"
+        ]
+      },
+      "result_ceiling": "REVIEW_REQUEST",
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "basis_gate_policy": "STRICT_FOR_REAL_PUBLIC_OR_CUSTOMER_VISIBLE"
     },
     {
       "rule_code": "QUAL-PM-003",
@@ -1187,7 +1407,29 @@
         "INTERNAL_ANALYSIS"
       ],
       "release_layer": "INTERNAL_OPERABLE",
-      "value_priority": "P1"
+      "value_priority": "P1",
+      "basis_refs": [
+        "LAW-TENDER-18",
+        "REG-CONSTRUCTOR-21",
+        "REG-EPC-20",
+        "PROJECT-TENDER-DOCUMENT"
+      ],
+      "basis_verification_state": "VERIFIED",
+      "applicability_scope": {
+        "applies_to": [
+          "招标文件明确项目负责人资格或证书要求",
+          "公开人员资格记录可回链"
+        ],
+        "does_not_apply_to": [
+          "非建造师资格要求",
+          "仅安全 B 证",
+          "未识别项目负责人角色"
+        ]
+      },
+      "result_ceiling": "REVIEW_REQUEST",
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "basis_gate_policy": "STRICT_FOR_REAL_PUBLIC_OR_CUSTOMER_VISIBLE"
     },
     {
       "rule_code": "QUAL-PM-004",
@@ -1220,7 +1462,29 @@
         "INTERNAL_ANALYSIS"
       ],
       "release_layer": "INTERNAL_OPERABLE",
-      "value_priority": "P1"
+      "value_priority": "P1",
+      "basis_refs": [
+        "LAW-TENDER-18",
+        "REG-CONSTRUCTOR-21",
+        "REG-EPC-20",
+        "PROJECT-TENDER-DOCUMENT"
+      ],
+      "basis_verification_state": "VERIFIED",
+      "applicability_scope": {
+        "applies_to": [
+          "招标文件明确项目负责人资格或证书要求",
+          "公开人员资格记录可回链"
+        ],
+        "does_not_apply_to": [
+          "非建造师资格要求",
+          "仅安全 B 证",
+          "未识别项目负责人角色"
+        ]
+      },
+      "result_ceiling": "REVIEW_REQUEST",
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "basis_gate_policy": "STRICT_FOR_REAL_PUBLIC_OR_CUSTOMER_VISIBLE"
     },
     {
       "rule_code": "REL-001",
@@ -1254,7 +1518,24 @@
         "SALES_USAGE"
       ],
       "release_layer": "INTERNAL_OPERABLE",
-      "value_priority": "P1"
+      "value_priority": "P1",
+      "basis_refs": [
+        "PUBLIC-RELATION-SOURCE-PENDING"
+      ],
+      "basis_verification_state": "BASIS_MISSING",
+      "applicability_scope": {
+        "applies_to": [
+          "公开主体关系冲突线索"
+        ],
+        "does_not_apply_to": [
+          "只有名称相似",
+          "无统一社会信用代码或公开关系证据"
+        ]
+      },
+      "result_ceiling": "CLUE",
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "basis_gate_policy": "FAIL_CLOSED_UNTIL_BASIS_VERIFIED"
     },
     {
       "rule_code": "ENG-001",
@@ -1288,7 +1569,26 @@
         "SALES_USAGE"
       ],
       "release_layer": "INTERNAL_OPERABLE",
-      "value_priority": "P1"
+      "value_priority": "P1",
+      "basis_refs": [
+        "LAW-ARCHITECTURE-7",
+        "REG-CONSTRUCTION-PERMIT",
+        "PUBLIC-ENGINEERING-SOURCE-PENDING"
+      ],
+      "basis_verification_state": "BASIS_MISSING",
+      "applicability_scope": {
+        "applies_to": [
+          "建筑工程施工许可或竣工备案公开异常线索"
+        ],
+        "does_not_apply_to": [
+          "限额以下小型工程",
+          "单源查无结果"
+        ]
+      },
+      "result_ceiling": "CLUE",
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "basis_gate_policy": "FAIL_CLOSED_UNTIL_BASIS_VERIFIED"
     },
     {
       "rule_code": "ENG-002",
@@ -1322,7 +1622,25 @@
         "SALES_USAGE"
       ],
       "release_layer": "INTERNAL_OPERABLE",
-      "value_priority": "P1"
+      "value_priority": "P1",
+      "basis_refs": [
+        "PROJECT-TENDER-DOCUMENT",
+        "PUBLIC-ENGINEERING-SOURCE-PENDING"
+      ],
+      "basis_verification_state": "BASIS_MISSING",
+      "applicability_scope": {
+        "applies_to": [
+          "合同订立或履约公开增强字段异常线索"
+        ],
+        "does_not_apply_to": [
+          "合同/履约公开源未绑定",
+          "无法识别项目身份"
+        ]
+      },
+      "result_ceiling": "CLUE",
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "basis_gate_policy": "FAIL_CLOSED_UNTIL_BASIS_VERIFIED"
     },
     {
       "rule_code": "ATTACH-001",
@@ -1355,7 +1673,25 @@
         "SALES_USAGE"
       ],
       "release_layer": "INTERNAL_OPERABLE",
-      "value_priority": "P1"
+      "value_priority": "P1",
+      "basis_refs": [
+        "PROJECT-TENDER-DOCUMENT"
+      ],
+      "basis_verification_state": "VERIFIED",
+      "applicability_scope": {
+        "applies_to": [
+          "公开附件已采集并可回链",
+          "附件字段与正文/公告字段可比对"
+        ],
+        "does_not_apply_to": [
+          "附件未下载",
+          "只有 OCR 或模型摘要"
+        ]
+      },
+      "result_ceiling": "CLUE",
+      "customer_visible_allowed": true,
+      "no_legal_conclusion": true,
+      "basis_gate_policy": "STRICT_FOR_REAL_PUBLIC_OR_CUSTOMER_VISIBLE"
     },
     {
       "rule_code": "SCORE-001",
@@ -1387,7 +1723,25 @@
         "SALES_USAGE"
       ],
       "release_layer": "INTERNAL_OPERABLE",
-      "value_priority": "P1"
+      "value_priority": "P1",
+      "basis_refs": [
+        "PROJECT-TENDER-DOCUMENT"
+      ],
+      "basis_verification_state": "VERIFIED",
+      "applicability_scope": {
+        "applies_to": [
+          "评标办法或评分细项公开可查",
+          "评分字段血缘可回放"
+        ],
+        "does_not_apply_to": [
+          "未采集评标办法",
+          "无法确认评分口径"
+        ]
+      },
+      "result_ceiling": "OBSERVATION",
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "basis_gate_policy": "STRICT_FOR_REAL_PUBLIC_OR_CUSTOMER_VISIBLE"
     },
     {
       "rule_code": "PERSONNEL-001",
@@ -1420,7 +1774,25 @@
         "SALES_USAGE"
       ],
       "release_layer": "INTERNAL_OPERABLE",
-      "value_priority": "P1"
+      "value_priority": "P1",
+      "basis_refs": [
+        "PROJECT-TENDER-DOCUMENT"
+      ],
+      "basis_verification_state": "VERIFIED",
+      "applicability_scope": {
+        "applies_to": [
+          "招标文件或附件列明关键人员配置",
+          "人员字段血缘可回放"
+        ],
+        "does_not_apply_to": [
+          "未列明关键人员配置",
+          "身份未消歧"
+        ]
+      },
+      "result_ceiling": "CLUE",
+      "customer_visible_allowed": true,
+      "no_legal_conclusion": true,
+      "basis_gate_policy": "STRICT_FOR_REAL_PUBLIC_OR_CUSTOMER_VISIBLE"
     },
     {
       "rule_code": "PERF-001",
@@ -1452,7 +1824,24 @@
         "SALES_USAGE"
       ],
       "release_layer": "INTERNAL_OPERABLE",
-      "value_priority": "P1"
+      "value_priority": "P1",
+      "basis_refs": [
+        "PUBLIC-ENGINEERING-SOURCE-PENDING"
+      ],
+      "basis_verification_state": "BASIS_MISSING",
+      "applicability_scope": {
+        "applies_to": [
+          "履约异常或合同变更公开观察"
+        ],
+        "does_not_apply_to": [
+          "缺多源履约公开证据",
+          "项目身份未消歧"
+        ]
+      },
+      "result_ceiling": "OBSERVATION",
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "basis_gate_policy": "FAIL_CLOSED_UNTIL_BASIS_VERIFIED"
     },
     {
       "rule_code": "GOV-001",
@@ -1485,7 +1874,24 @@
         "SALES_USAGE"
       ],
       "release_layer": "INTERNAL_OPERABLE",
-      "value_priority": "P2"
+      "value_priority": "P2",
+      "basis_refs": [
+        "INTERNAL-STAGE5-EVIDENCE-GATE"
+      ],
+      "basis_verification_state": "INTERNAL_ONLY",
+      "applicability_scope": {
+        "applies_to": [
+          "内部证据门和来源审计治理"
+        ],
+        "does_not_apply_to": [
+          "外部法律结论",
+          "客户可见法律定性"
+        ]
+      },
+      "result_ceiling": "REVIEW_REQUEST",
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "basis_gate_policy": "INTERNAL_ONLY"
     },
     {
       "rule_code": "GOV-002",
@@ -1518,7 +1924,24 @@
         "SALES_USAGE"
       ],
       "release_layer": "INTERNAL_OPERABLE",
-      "value_priority": "P2"
+      "value_priority": "P2",
+      "basis_refs": [
+        "INTERNAL-STAGE5-EVIDENCE-GATE"
+      ],
+      "basis_verification_state": "INTERNAL_ONLY",
+      "applicability_scope": {
+        "applies_to": [
+          "内部证据门和来源审计治理"
+        ],
+        "does_not_apply_to": [
+          "外部法律结论",
+          "客户可见法律定性"
+        ]
+      },
+      "result_ceiling": "REVIEW_REQUEST",
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "basis_gate_policy": "INTERNAL_ONLY"
     },
     {
       "rule_code": "GOV-003",
@@ -1552,7 +1975,24 @@
         "SALES_USAGE"
       ],
       "release_layer": "INTERNAL_OPERABLE",
-      "value_priority": "P2"
+      "value_priority": "P2",
+      "basis_refs": [
+        "INTERNAL-STAGE5-EVIDENCE-GATE"
+      ],
+      "basis_verification_state": "INTERNAL_ONLY",
+      "applicability_scope": {
+        "applies_to": [
+          "内部证据门和来源审计治理"
+        ],
+        "does_not_apply_to": [
+          "外部法律结论",
+          "客户可见法律定性"
+        ]
+      },
+      "result_ceiling": "REVIEW_REQUEST",
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "basis_gate_policy": "INTERNAL_ONLY"
     },
     {
       "rule_code": "SRC-001",
@@ -2253,7 +2693,24 @@
         "SALES_USAGE"
       ],
       "release_layer": "INTERNAL_OPERABLE",
-      "value_priority": "P2"
+      "value_priority": "P2",
+      "basis_refs": [
+        "INTERNAL-STAGE5-STATE-MACHINE"
+      ],
+      "basis_verification_state": "INTERNAL_ONLY",
+      "applicability_scope": {
+        "applies_to": [
+          "内部 rule/evidence gate 状态转换"
+        ],
+        "does_not_apply_to": [
+          "外部法律结论",
+          "客户可见法律定性"
+        ]
+      },
+      "result_ceiling": "REVIEW_REQUEST",
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "basis_gate_policy": "INTERNAL_ONLY"
     },
     {
       "rule_code": "STATE-502",
@@ -2290,7 +2747,24 @@
         "SALES_USAGE"
       ],
       "release_layer": "INTERNAL_OPERABLE",
-      "value_priority": "P2"
+      "value_priority": "P2",
+      "basis_refs": [
+        "INTERNAL-STAGE5-STATE-MACHINE"
+      ],
+      "basis_verification_state": "INTERNAL_ONLY",
+      "applicability_scope": {
+        "applies_to": [
+          "内部 rule/evidence gate 状态转换"
+        ],
+        "does_not_apply_to": [
+          "外部法律结论",
+          "客户可见法律定性"
+        ]
+      },
+      "result_ceiling": "REVIEW_REQUEST",
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "basis_gate_policy": "INTERNAL_ONLY"
     },
     {
       "rule_code": "STATE-503",
@@ -2327,7 +2801,24 @@
         "SALES_USAGE"
       ],
       "release_layer": "INTERNAL_OPERABLE",
-      "value_priority": "P2"
+      "value_priority": "P2",
+      "basis_refs": [
+        "INTERNAL-STAGE5-STATE-MACHINE"
+      ],
+      "basis_verification_state": "INTERNAL_ONLY",
+      "applicability_scope": {
+        "applies_to": [
+          "内部 rule/evidence gate 状态转换"
+        ],
+        "does_not_apply_to": [
+          "外部法律结论",
+          "客户可见法律定性"
+        ]
+      },
+      "result_ceiling": "REVIEW_REQUEST",
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "basis_gate_policy": "INTERNAL_ONLY"
     },
     {
       "rule_code": "STATE-504",
@@ -2362,7 +2853,24 @@
         "SALES_USAGE"
       ],
       "release_layer": "INTERNAL_OPERABLE",
-      "value_priority": "P2"
+      "value_priority": "P2",
+      "basis_refs": [
+        "INTERNAL-STAGE5-STATE-MACHINE"
+      ],
+      "basis_verification_state": "INTERNAL_ONLY",
+      "applicability_scope": {
+        "applies_to": [
+          "内部 rule/evidence gate 状态转换"
+        ],
+        "does_not_apply_to": [
+          "外部法律结论",
+          "客户可见法律定性"
+        ]
+      },
+      "result_ceiling": "REVIEW_REQUEST",
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "basis_gate_policy": "INTERNAL_ONLY"
     },
     {
       "rule_code": "STATE-505",
@@ -2400,7 +2908,24 @@
         "SALES_USAGE"
       ],
       "release_layer": "INTERNAL_OPERABLE",
-      "value_priority": "P2"
+      "value_priority": "P2",
+      "basis_refs": [
+        "INTERNAL-STAGE5-STATE-MACHINE"
+      ],
+      "basis_verification_state": "INTERNAL_ONLY",
+      "applicability_scope": {
+        "applies_to": [
+          "内部 rule/evidence gate 状态转换"
+        ],
+        "does_not_apply_to": [
+          "外部法律结论",
+          "客户可见法律定性"
+        ]
+      },
+      "result_ceiling": "OBSERVATION",
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "basis_gate_policy": "INTERNAL_ONLY"
     },
     {
       "rule_code": "STATE-506",
@@ -2439,7 +2964,24 @@
         "SALES_USAGE"
       ],
       "release_layer": "INTERNAL_OPERABLE",
-      "value_priority": "P2"
+      "value_priority": "P2",
+      "basis_refs": [
+        "INTERNAL-STAGE5-STATE-MACHINE"
+      ],
+      "basis_verification_state": "INTERNAL_ONLY",
+      "applicability_scope": {
+        "applies_to": [
+          "内部 rule/evidence gate 状态转换"
+        ],
+        "does_not_apply_to": [
+          "外部法律结论",
+          "客户可见法律定性"
+        ]
+      },
+      "result_ceiling": "OBSERVATION",
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "basis_gate_policy": "INTERNAL_ONLY"
     },
     {
       "rule_code": "STATE-507",
@@ -2477,7 +3019,24 @@
         "SALES_USAGE"
       ],
       "release_layer": "INTERNAL_OPERABLE",
-      "value_priority": "P2"
+      "value_priority": "P2",
+      "basis_refs": [
+        "INTERNAL-STAGE5-STATE-MACHINE"
+      ],
+      "basis_verification_state": "INTERNAL_ONLY",
+      "applicability_scope": {
+        "applies_to": [
+          "内部 rule/evidence gate 状态转换"
+        ],
+        "does_not_apply_to": [
+          "外部法律结论",
+          "客户可见法律定性"
+        ]
+      },
+      "result_ceiling": "OBSERVATION",
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "basis_gate_policy": "INTERNAL_ONLY"
     },
     {
       "rule_code": "STATE-508",
@@ -2512,7 +3071,24 @@
         "SALES_USAGE"
       ],
       "release_layer": "INTERNAL_OPERABLE",
-      "value_priority": "P2"
+      "value_priority": "P2",
+      "basis_refs": [
+        "INTERNAL-STAGE5-STATE-MACHINE"
+      ],
+      "basis_verification_state": "INTERNAL_ONLY",
+      "applicability_scope": {
+        "applies_to": [
+          "内部 rule/evidence gate 状态转换"
+        ],
+        "does_not_apply_to": [
+          "外部法律结论",
+          "客户可见法律定性"
+        ]
+      },
+      "result_ceiling": "OBSERVATION",
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "basis_gate_policy": "INTERNAL_ONLY"
     },
     {
       "rule_code": "STATE-601",
@@ -3380,7 +3956,27 @@
         "SALES_USAGE"
       ],
       "release_layer": "INTERNAL_OPERABLE",
-      "value_priority": "P0"
+      "value_priority": "P0",
+      "basis_refs": [
+        "REG-TENDER-IMPLEMENTATION-54",
+        "REG-TENDER-PUBLICATION-INFO",
+        "PROJECT-VERSION-CLOCK-CHAIN"
+      ],
+      "basis_verification_state": "VERIFIED",
+      "applicability_scope": {
+        "applies_to": [
+          "依法必须招标项目",
+          "公开公示版本链和动作窗口"
+        ],
+        "does_not_apply_to": [
+          "政府采购质疑窗口",
+          "无法识别采购制度的项目"
+        ]
+      },
+      "result_ceiling": "REVIEW_REQUEST",
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "basis_gate_policy": "STRICT_FOR_REAL_PUBLIC_OR_CUSTOMER_VISIBLE"
     },
     {
       "rule_code": "OUT-005",
@@ -3648,7 +4244,27 @@
         "SALES_USAGE"
       ],
       "release_layer": "INTERNAL_OPERABLE",
-      "value_priority": "P0"
+      "value_priority": "P0",
+      "basis_refs": [
+        "REG-TENDER-IMPLEMENTATION-54",
+        "REG-TENDER-PUBLICATION-INFO",
+        "PROJECT-VERSION-CLOCK-CHAIN"
+      ],
+      "basis_verification_state": "VERIFIED",
+      "applicability_scope": {
+        "applies_to": [
+          "依法必须招标项目",
+          "公开公示版本链和动作窗口"
+        ],
+        "does_not_apply_to": [
+          "政府采购质疑窗口",
+          "无法识别采购制度的项目"
+        ]
+      },
+      "result_ceiling": "REVIEW_REQUEST",
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "basis_gate_policy": "STRICT_FOR_REAL_PUBLIC_OR_CUSTOMER_VISIBLE"
     },
     {
       "rule_code": "VAL-001",

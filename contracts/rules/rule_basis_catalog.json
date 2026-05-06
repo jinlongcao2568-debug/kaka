@@ -1,0 +1,446 @@
+{
+  "catalog_id": "rule-basis-catalog",
+  "version": "0.1.0",
+  "metadata": {
+    "status": "INTERNAL_READY",
+    "machine_path": "contracts/rules/rule_basis_catalog.json",
+    "scope": "single source of Stage5 rule authority basis, applicability, evidence requirements, and result ceilings",
+    "basis_status_values": [
+      "VERIFIED",
+      "INTERNAL_ONLY",
+      "BASIS_MISSING",
+      "HEURISTIC_ONLY",
+      "DEPRECATED"
+    ]
+  },
+  "basis": [
+    {
+      "basis_id": "LAW-TENDER-18",
+      "basis_type": "LAW",
+      "basis_name": "中华人民共和国招标投标法",
+      "article_refs": [
+        "第十八条"
+      ],
+      "official_url": "https://www.npc.gov.cn/zgrdw/npc/xinwen/2018-01/04/content_2036284.htm",
+      "applies_to": [
+        "依法招标活动",
+        "招标公告或投标邀请书要求资质、业绩或资格审查"
+      ],
+      "does_not_apply_to": [
+        "非招投标采购程序",
+        "未能识别采购制度的项目"
+      ],
+      "required_evidence": [
+        "招标公告或投标邀请书",
+        "资格条件字段血缘",
+        "项目采购制度识别"
+      ],
+      "result_ceiling": "CLUE",
+      "basis_status": "VERIFIED"
+    },
+    {
+      "basis_id": "REG-TENDER-IMPLEMENTATION-54",
+      "basis_type": "ADMIN_REGULATION",
+      "basis_name": "中华人民共和国招标投标法实施条例",
+      "article_refs": [
+        "第五十四条"
+      ],
+      "official_url": "https://www.miit.gov.cn/jgsj/cws/zfcg/art/2020/art_3d8b785be6c6405f8194d4a230bb1b5b.html",
+      "applies_to": [
+        "依法必须招标项目",
+        "中标候选人公示",
+        "公示期与异议窗口判断"
+      ],
+      "does_not_apply_to": [
+        "政府采购质疑窗口",
+        "非依法必须招标项目的内部观察"
+      ],
+      "required_evidence": [
+        "评标结果或中标候选人公示",
+        "公示开始时间",
+        "公示结束时间或公示期",
+        "公告版本链"
+      ],
+      "result_ceiling": "REVIEW_REQUEST",
+      "basis_status": "VERIFIED"
+    },
+    {
+      "basis_id": "REG-TENDER-PUBLICATION-INFO",
+      "basis_type": "DEPARTMENT_RULE",
+      "basis_name": "招标公告和公示信息发布管理办法",
+      "article_refs": [
+        "第二条",
+        "第四条"
+      ],
+      "official_url": "https://www.gov.cn/gongbao/content/2018/content_5264881.htm",
+      "applies_to": [
+        "依法必须招标项目公告和公示信息发布",
+        "公开媒介可查性核验"
+      ],
+      "does_not_apply_to": [
+        "非公开来源",
+        "无法回链的转载文本"
+      ],
+      "required_evidence": [
+        "官方发布媒介 URL",
+        "详情页快照",
+        "来源平台标识",
+        "hash 固定"
+      ],
+      "result_ceiling": "REVIEW_REQUEST",
+      "basis_status": "VERIFIED"
+    },
+    {
+      "basis_id": "REG-CONSTRUCTOR-21",
+      "basis_type": "DEPARTMENT_RULE",
+      "basis_name": "注册建造师管理规定",
+      "article_refs": [
+        "第二十一条"
+      ],
+      "official_url": "https://www.gov.cn/zhengce/2022-01/25/content_5711984.htm",
+      "applies_to": [
+        "注册建造师",
+        "施工单位项目负责人",
+        "建设工程施工项目"
+      ],
+      "does_not_apply_to": [
+        "设计负责人",
+        "勘察负责人",
+        "监理总监",
+        "未签订施工合同前仅投标参与"
+      ],
+      "required_evidence": [
+        "项目经理身份消歧",
+        "注册证书或公开人员记录",
+        "当前项目时间链",
+        "疑似在建项目时间链",
+        "竣工或变更释放证据"
+      ],
+      "result_ceiling": "CLUE",
+      "basis_status": "VERIFIED"
+    },
+    {
+      "basis_id": "REG-EPC-20",
+      "basis_type": "DEPARTMENT_RULE",
+      "basis_name": "房屋建筑和市政基础设施项目工程总承包管理办法",
+      "article_refs": [
+        "第二十条"
+      ],
+      "official_url": "https://www.gov.cn/zhengce/zhengceku/2019-12/31/content_5465928.htm",
+      "applies_to": [
+        "房屋建筑和市政基础设施工程总承包",
+        "工程总承包项目经理资格和兼任约束"
+      ],
+      "does_not_apply_to": [
+        "非房建市政 EPC",
+        "未识别工程总承包模式的项目"
+      ],
+      "required_evidence": [
+        "项目承发包模式",
+        "项目经理资格要求",
+        "拟派负责人公开身份",
+        "兼任项目时间链"
+      ],
+      "result_ceiling": "CLUE",
+      "basis_status": "VERIFIED"
+    },
+    {
+      "basis_id": "REG-BUILDING-QUALIFICATION-3",
+      "basis_type": "DEPARTMENT_RULE",
+      "basis_name": "建筑业企业资质管理规定",
+      "article_refs": [
+        "第三条"
+      ],
+      "official_url": "https://www.gov.cn/zhengce/2022-01/25/content_5711953.htm",
+      "applies_to": [
+        "建筑施工活动",
+        "建筑业企业资质许可范围核验"
+      ],
+      "does_not_apply_to": [
+        "非建筑施工资质要求",
+        "招标文件未要求相应资质的项目"
+      ],
+      "required_evidence": [
+        "招标文件资质条款",
+        "企业公开资质记录",
+        "资质类别和等级",
+        "有效期或许可状态"
+      ],
+      "result_ceiling": "CLUE",
+      "basis_status": "VERIFIED"
+    },
+    {
+      "basis_id": "LAW-ARCHITECTURE-7",
+      "basis_type": "LAW",
+      "basis_name": "中华人民共和国建筑法",
+      "article_refs": [
+        "第七条"
+      ],
+      "official_url": "https://www.npc.gov.cn/zgrdw/npc/xinwen/2019-05/07/content_2086833.htm",
+      "applies_to": [
+        "建筑工程施工许可",
+        "开工前施工许可公开核验"
+      ],
+      "does_not_apply_to": [
+        "限额以下小型工程",
+        "非建筑工程"
+      ],
+      "required_evidence": [
+        "工程类型",
+        "施工许可公开记录",
+        "开工或合同时间链"
+      ],
+      "result_ceiling": "CLUE",
+      "basis_status": "VERIFIED"
+    },
+    {
+      "basis_id": "REG-CONSTRUCTION-PERMIT",
+      "basis_type": "DEPARTMENT_RULE",
+      "basis_name": "建筑工程施工许可管理办法",
+      "article_refs": [
+        "第二条",
+        "第三条",
+        "第十八条"
+      ],
+      "official_url": "https://www.gov.cn/zhengce/2022-01/25/content_5711956.htm",
+      "applies_to": [
+        "建筑工程施工许可管理",
+        "施工许可公开异常核验"
+      ],
+      "does_not_apply_to": [
+        "依法不需要施工许可的工程",
+        "非建筑工程"
+      ],
+      "required_evidence": [
+        "施工许可记录",
+        "项目名称和建设单位匹配",
+        "施工单位或项目负责人匹配"
+      ],
+      "result_ceiling": "CLUE",
+      "basis_status": "VERIFIED"
+    },
+    {
+      "basis_id": "REG-GOV-PROCUREMENT-QUESTION-10",
+      "basis_type": "DEPARTMENT_RULE",
+      "basis_name": "政府采购质疑和投诉办法",
+      "article_refs": [
+        "第十条"
+      ],
+      "official_url": "https://www.gov.cn/zhengce/2017-12/26/content_5717199.htm",
+      "applies_to": [
+        "政府采购项目",
+        "供应商质疑窗口"
+      ],
+      "does_not_apply_to": [
+        "招标投标法体系项目",
+        "未识别为政府采购的项目"
+      ],
+      "required_evidence": [
+        "政府采购制度识别",
+        "采购文件或中标成交结果",
+        "知道或应知日期"
+      ],
+      "result_ceiling": "REVIEW_REQUEST",
+      "basis_status": "VERIFIED"
+    },
+    {
+      "basis_id": "PROJECT-TENDER-DOCUMENT",
+      "basis_type": "PROJECT_PUBLIC_DOCUMENT",
+      "basis_name": "项目招标文件、资格审查文件、评标办法及公开附件",
+      "article_refs": [
+        "per-project"
+      ],
+      "official_url": "PROJECT_SOURCE_URL_REQUIRED",
+      "applies_to": [
+        "本项目公开文件已采集并 hash 固定",
+        "字段血缘可回链到原始附件或详情页"
+      ],
+      "does_not_apply_to": [
+        "未下载附件",
+        "只有 OCR 或模型摘要",
+        "无法回链的文本片段"
+      ],
+      "required_evidence": [
+        "原始公开文件 URL",
+        "附件或详情页 snapshot id",
+        "hash",
+        "source slice"
+      ],
+      "result_ceiling": "CLUE",
+      "basis_status": "VERIFIED"
+    },
+    {
+      "basis_id": "PROJECT-VERSION-CLOCK-CHAIN",
+      "basis_type": "PROJECT_PUBLIC_DOCUMENT",
+      "basis_name": "项目公告版本链和时钟链",
+      "article_refs": [
+        "per-project"
+      ],
+      "official_url": "PROJECT_SOURCE_URL_REQUIRED",
+      "applies_to": [
+        "同一项目存在多个公开版本或时间节点",
+        "版本链可回放"
+      ],
+      "does_not_apply_to": [
+        "单一转载页面",
+        "缺少发布时间或来源快照"
+      ],
+      "required_evidence": [
+        "版本集合",
+        "发布时间",
+        "来源优先级",
+        "source slice"
+      ],
+      "result_ceiling": "REVIEW_REQUEST",
+      "basis_status": "VERIFIED"
+    },
+    {
+      "basis_id": "PUBLIC-CREDIT-SOURCE-PENDING",
+      "basis_type": "PUBLIC_SOURCE_REQUIREMENT",
+      "basis_name": "信用中国、国家企业信用信息公示系统、JZSC 和地方住建信用公开源待绑定",
+      "article_refs": [
+        "pending"
+      ],
+      "official_url": "PUBLIC_CREDIT_SOURCE_URL_REQUIRED",
+      "applies_to": [
+        "信用限制或处罚公开线索"
+      ],
+      "does_not_apply_to": [
+        "未完成信用源归属和时效校验"
+      ],
+      "required_evidence": [
+        "信用源官方 URL",
+        "主体统一社会信用代码",
+        "处罚或限制条目",
+        "时效和修复状态"
+      ],
+      "result_ceiling": "CLUE",
+      "basis_status": "BASIS_MISSING"
+    },
+    {
+      "basis_id": "PUBLIC-RELATION-SOURCE-PENDING",
+      "basis_type": "PUBLIC_SOURCE_REQUIREMENT",
+      "basis_name": "公开主体关系冲突来源待绑定",
+      "article_refs": [
+        "pending"
+      ],
+      "official_url": "PUBLIC_RELATION_SOURCE_URL_REQUIRED",
+      "applies_to": [
+        "主体关系冲突线索"
+      ],
+      "does_not_apply_to": [
+        "只有名称相似",
+        "无统一社会信用代码或公开关系证据"
+      ],
+      "required_evidence": [
+        "统一社会信用代码",
+        "GSXT 或公开登记信息",
+        "关系类型",
+        "关系生效时点"
+      ],
+      "result_ceiling": "CLUE",
+      "basis_status": "BASIS_MISSING"
+    },
+    {
+      "basis_id": "PUBLIC-ENGINEERING-SOURCE-PENDING",
+      "basis_type": "PUBLIC_SOURCE_REQUIREMENT",
+      "basis_name": "工程许可、竣工、合同履约公开源待完成多源绑定",
+      "article_refs": [
+        "pending"
+      ],
+      "official_url": "PUBLIC_ENGINEERING_SOURCE_URL_REQUIRED",
+      "applies_to": [
+        "施工许可、竣工备案、合同履约公开异常线索"
+      ],
+      "does_not_apply_to": [
+        "缺少项目身份消歧",
+        "单源查无结果"
+      ],
+      "required_evidence": [
+        "项目身份消歧",
+        "施工许可或竣工备案公开记录",
+        "合同或履约公开记录",
+        "多源交叉校验"
+      ],
+      "result_ceiling": "CLUE",
+      "basis_status": "BASIS_MISSING"
+    },
+    {
+      "basis_id": "INTERNAL-STAGE5-EVIDENCE-GATE",
+      "basis_type": "INTERNAL_GOVERNANCE",
+      "basis_name": "Stage5 证据双闸门内部治理规则",
+      "article_refs": [
+        "D3-R-031",
+        "D13-R-022"
+      ],
+      "official_url": "INTERNAL_CONTRACT_ONLY",
+      "applies_to": [
+        "证据链完整性",
+        "来源可审计性",
+        "主证载体质量"
+      ],
+      "does_not_apply_to": [
+        "外部法律结论",
+        "客户可见法律定性"
+      ],
+      "required_evidence": [
+        "evidence",
+        "evidence_grade_profile",
+        "source refs",
+        "retrieval readiness"
+      ],
+      "result_ceiling": "REVIEW_REQUEST",
+      "basis_status": "INTERNAL_ONLY"
+    },
+    {
+      "basis_id": "INTERNAL-STAGE5-STATE-MACHINE",
+      "basis_type": "INTERNAL_GOVERNANCE",
+      "basis_name": "Stage5 状态机内部治理规则",
+      "article_refs": [
+        "D3-R-052",
+        "D11-R-047"
+      ],
+      "official_url": "INTERNAL_CONTRACT_ONLY",
+      "applies_to": [
+        "rule/evidence gate 状态转换",
+        "review request 生成"
+      ],
+      "does_not_apply_to": [
+        "外部法律结论",
+        "客户可见法律定性"
+      ],
+      "required_evidence": [
+        "rule_hit",
+        "rule_gate_decision",
+        "evidence_gate_decision"
+      ],
+      "result_ceiling": "OBSERVATION",
+      "basis_status": "INTERNAL_ONLY"
+    },
+    {
+      "basis_id": "HEURISTIC-PUBLIC-ATTACK-SURFACE",
+      "basis_type": "INTERNAL_HEURISTIC",
+      "basis_name": "公开候选集合攻击面内部启发式",
+      "article_refs": [
+        "D13-R-016"
+      ],
+      "official_url": "INTERNAL_HEURISTIC_ONLY",
+      "applies_to": [
+        "内部机会分析",
+        "候选集合优先级排序"
+      ],
+      "does_not_apply_to": [
+        "正式规则门禁",
+        "客户可见结论",
+        "外部行动依据"
+      ],
+      "required_evidence": [
+        "public_attack_surface",
+        "candidate collection",
+        "confidence trace"
+      ],
+      "result_ceiling": "OBSERVATION",
+      "basis_status": "HEURISTIC_ONLY"
+    }
+  ]
+}

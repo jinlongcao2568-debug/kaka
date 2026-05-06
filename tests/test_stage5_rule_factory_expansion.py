@@ -165,6 +165,7 @@ class Stage5RuleFactoryExpansionTests(unittest.TestCase):
         catalog = load_rule_catalog()
         factory = catalog["stage5_rule_factory"]
         bindings = factory["rule_bindings"]
+        stage5_rules = [rule for rule in catalog["rules"] if rule.get("stage") == 5]
 
         self.assertEqual(catalog["version"], "0.1.7")
         self.assertEqual(factory["state"], "INTERNAL_READY")
@@ -172,6 +173,21 @@ class Stage5RuleFactoryExpansionTests(unittest.TestCase):
         self.assertEqual(factory["runtime_components"], ["RuleRunner", "EvidenceBuilder", "GateEvaluator"])
         self.assertEqual(factory["selection_policy"]["stage"], 5)
         self.assertEqual(factory["selection_policy"]["default_selection_limit"], 3)
+        self.assertEqual(len(stage5_rules), 33)
+        for rule in stage5_rules:
+            self.assertTrue(rule["basis_refs"], rule["rule_code"])
+            self.assertIn(
+                rule["basis_verification_state"],
+                {"VERIFIED", "INTERNAL_ONLY", "BASIS_MISSING", "HEURISTIC_ONLY", "DEPRECATED"},
+            )
+            self.assertTrue(rule["no_legal_conclusion"], rule["rule_code"])
+        credit = next(rule for rule in stage5_rules if rule["rule_code"] == "CREDIT-001")
+        attack = next(rule for rule in stage5_rules if rule["rule_code"] == "ATTACK-001")
+        self.assertEqual(credit["basis_verification_state"], "BASIS_MISSING")
+        self.assertEqual(credit["minimum_external_use_grade"], "E2_REVIEW_READY")
+        self.assertFalse(credit["customer_visible_allowed"])
+        self.assertEqual(attack["basis_verification_state"], "HEURISTIC_ONLY")
+        self.assertFalse(attack["customer_visible_allowed"])
         for rule_code in (
             "PROC-001",
             "PROC-002",
@@ -190,6 +206,64 @@ class Stage5RuleFactoryExpansionTests(unittest.TestCase):
             self.assertTrue(binding["dependency_evidence"])
             self.assertTrue(binding["golden_case_refs"])
         self.assertTrue(factory["golden_cases"])
+
+    def test_strict_basis_gate_degrades_missing_basis_rule_to_review(self) -> None:
+        stage4 = stage4_bundle_with_inputs(
+            {
+                "stage5_requested_rule_codes": ["CREDIT-001"],
+                "stage5_basis_gate_mode": "STRICT",
+            }
+        )
+
+        stage5 = Stage5Service().run(stage4)
+        trace = stage5.inputs["stage5_rule_execution_trace"][0]
+
+        self.assertEqual(stage5.inputs["stage5_rule_codes"], ["CREDIT-001"])
+        self.assertEqual(trace["basis_verification_state"], "BASIS_MISSING")
+        self.assertEqual(trace["basis_gate_status"], "REVIEW")
+        self.assertTrue(any("basis verification state BASIS_MISSING" in reason for reason in trace["basis_gate_reasons"]))
+        self.assertEqual(stage5.record("rule_gate_decision").get("rule_gate_status"), "REVIEW")
+        self.assertIn("review_request", stage5.records)
+
+    def test_internal_only_rule_cannot_support_strict_customer_visible_gate(self) -> None:
+        stage4 = stage4_bundle_with_inputs(
+            {
+                "stage5_requested_rule_codes": ["GOV-001"],
+                "stage5_basis_gate_mode": "STRICT",
+            }
+        )
+
+        stage5 = Stage5Service().run(stage4)
+        trace = stage5.inputs["stage5_rule_execution_trace"][0]
+
+        self.assertEqual(trace["rule_code"], "GOV-001")
+        self.assertEqual(trace["basis_verification_state"], "INTERNAL_ONLY")
+        self.assertFalse(trace["customer_visible_allowed"])
+        self.assertTrue(trace["no_legal_conclusion"])
+        self.assertEqual(trace["basis_gate_status"], "REVIEW")
+        self.assertTrue(any("internal-only basis" in reason for reason in trace["basis_gate_reasons"]))
+        self.assertEqual(stage5.record("rule_gate_decision").get("rule_gate_status"), "REVIEW")
+
+    def test_heuristic_only_rule_is_review_only_even_when_requested(self) -> None:
+        stage4 = stage4_bundle_with_inputs(
+            {
+                "stage5_requested_rule_codes": ["ATTACK-001"],
+                "stage5_supported_upstream_objects": [
+                    "public_attack_surface",
+                    "bidder_candidate",
+                ],
+            }
+        )
+
+        stage5 = Stage5Service().run(stage4)
+        trace = stage5.inputs["stage5_rule_execution_trace"][0]
+
+        self.assertEqual(trace["rule_code"], "ATTACK-001")
+        self.assertEqual(trace["basis_verification_state"], "HEURISTIC_ONLY")
+        self.assertEqual(trace["basis_gate_status"], "REVIEW")
+        self.assertFalse(trace["customer_visible_allowed"])
+        self.assertTrue(any("heuristic-only rule is review-only" in reason for reason in trace["basis_gate_reasons"]))
+        self.assertEqual(stage5.record("rule_gate_decision").get("rule_gate_status"), "REVIEW")
 
     def test_project_manager_qualification_helper_keeps_b_certificate_as_review_only(self) -> None:
         readback = evaluate_project_manager_qualification_rules(

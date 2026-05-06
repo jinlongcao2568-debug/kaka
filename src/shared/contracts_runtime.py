@@ -38,12 +38,16 @@ class ContractStore:
         self.schema_catalog = self._load_json("contracts/schemas/schema_catalog.json")
         self.enum_catalog = self._load_json("contracts/enums/enum_catalog.json")
         self.rule_catalog = self._load_json("contracts/rules/rule_catalog.json")
+        self.rule_basis_catalog = self._load_json("contracts/rules/rule_basis_catalog.json")
         self.source_registry = self._load_json("contracts/governance/source_registry.json")
         self.route_policy_catalog = self._load_json("contracts/governance/route_policy_catalog.json")
         self.regression_manifest = self._load_json("contracts/testing/regression_manifest.json")
         self.schema_index = {entry["object"]: entry for entry in self.schema_catalog.get("schemas", [])}
         self.enum_index = {entry["enum_name"]: entry for entry in self.enum_catalog.get("enums", [])}
         self.rule_index = {entry["rule_code"]: entry for entry in self.rule_catalog.get("rules", [])}
+        self.rule_basis_index = {
+            entry["basis_id"]: entry for entry in self.rule_basis_catalog.get("basis", [])
+        }
         self.source_registry_index = {
             entry["source_registry_id"]: entry for entry in self.source_registry.get("entries", [])
         }

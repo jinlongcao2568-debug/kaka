@@ -161,6 +161,7 @@ foreach ($dir in $requiredDirs) {
 $schemaCatalog = Test-JsonFile -Path (Join-Path $root 'contracts/schemas/schema_catalog.json') -Issues ([ref]$issues) -RequiredTopLevelKeys @('catalog_id','version','schemas')
 $enumCatalog   = Test-JsonFile -Path (Join-Path $root 'contracts/enums/enum_catalog.json') -Issues ([ref]$issues) -RequiredTopLevelKeys @('catalog_id','version','enums')
 $ruleCatalog   = Test-JsonFile -Path (Join-Path $root 'contracts/rules/rule_catalog.json') -Issues ([ref]$issues) -RequiredTopLevelKeys @('catalog_id','version','rules')
+$ruleBasisCatalog = Test-JsonFile -Path (Join-Path $root 'contracts/rules/rule_basis_catalog.json') -Issues ([ref]$issues) -RequiredTopLevelKeys @('catalog_id','version','basis')
 $gatePolicies  = Test-JsonFile -Path (Join-Path $root 'contracts/gates/gate_policies.json') -Issues ([ref]$issues) -RequiredTopLevelKeys @('catalog_id','version','gate_objects','upgrade_matrix','degrade_matrix')
 $testingIndex  = Test-JsonFile -Path (Join-Path $root 'contracts/testing/regression_manifest.json') -Issues ([ref]$issues) -RequiredTopLevelKeys @('registry_id','version','suites')
 $sourceRegistry = Test-JsonFile -Path (Join-Path $root 'contracts/governance/source_registry.json') -Issues ([ref]$issues) -RequiredTopLevelKeys @('catalog_id','version','entries')
@@ -218,11 +219,77 @@ if ($enumCatalog -and $enumCatalog.enums) {
     }
 }
 
+$allowedRuleBasisStatuses = @('VERIFIED', 'INTERNAL_ONLY', 'BASIS_MISSING', 'HEURISTIC_ONLY', 'DEPRECATED')
+$resultTypeRank = @{
+    OBSERVATION = 1
+    REVIEW_REQUEST = 2
+    CLUE = 3
+    AUTO_HIT = 4
+}
+$ruleBasisIndex = @{}
+if ($ruleBasisCatalog -and $ruleBasisCatalog.basis) {
+    foreach ($basis in @($ruleBasisCatalog.basis)) {
+        foreach ($key in @('basis_id','basis_type','basis_name','article_refs','official_url','applies_to','does_not_apply_to','required_evidence','result_ceiling','basis_status')) {
+            if (-not ($basis.PSObject.Properties.Name -contains $key)) {
+                Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'RULE_BASIS_INCOMPLETE' -Message "Rule basis entry missing key: $key" -Path 'contracts/rules/rule_basis_catalog.json'
+            }
+        }
+        if ($basis.PSObject.Properties.Name -contains 'basis_id') {
+            $ruleBasisIndex[[string]$basis.basis_id] = $basis
+        }
+        if (($basis.PSObject.Properties.Name -contains 'basis_status') -and ($allowedRuleBasisStatuses -notcontains [string]$basis.basis_status)) {
+            Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'RULE_BASIS_STATUS_INVALID' -Message "Rule basis has invalid status: $($basis.basis_id) -> $($basis.basis_status)" -Path 'contracts/rules/rule_basis_catalog.json'
+        }
+    }
+}
+
 if ($ruleCatalog -and $ruleCatalog.rules) {
     foreach ($rule in $ruleCatalog.rules) {
         foreach ($key in @('rule_code','default_result','minimum_external_use_grade','public_capability_tier','capability_id')) {
             if (-not ($rule.PSObject.Properties.Name -contains $key)) {
                 Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'RULE_INCOMPLETE' -Message "Rule entry missing key: $key" -Path 'contracts/rules/rule_catalog.json'
+            }
+        }
+        if ($rule.PSObject.Properties.Name -contains 'stage' -and [int]$rule.stage -eq 5) {
+            foreach ($key in @('basis_refs','basis_verification_state','applicability_scope','result_ceiling','customer_visible_allowed','no_legal_conclusion','basis_gate_policy')) {
+                if (-not ($rule.PSObject.Properties.Name -contains $key)) {
+                    Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'STAGE5_RULE_BASIS_FIELD_MISSING' -Message "Stage5 rule $($rule.rule_code) missing basis field: $key" -Path 'contracts/rules/rule_catalog.json'
+                }
+            }
+            if ($rule.PSObject.Properties.Name -contains 'basis_verification_state') {
+                $basisState = [string]$rule.basis_verification_state
+                if ($allowedRuleBasisStatuses -notcontains $basisState) {
+                    Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'STAGE5_RULE_BASIS_STATE_INVALID' -Message "Stage5 rule $($rule.rule_code) has invalid basis state: $basisState" -Path 'contracts/rules/rule_catalog.json'
+                }
+            }
+            else {
+                $basisState = ''
+            }
+            if ($rule.PSObject.Properties.Name -contains 'basis_refs') {
+                $basisRefs = @($rule.basis_refs | ForEach-Object { [string]$_ } | Where-Object { $_ })
+                if ($basisRefs.Count -eq 0) {
+                    Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'STAGE5_RULE_BASIS_REFS_EMPTY' -Message "Stage5 rule $($rule.rule_code) must declare basis_refs." -Path 'contracts/rules/rule_catalog.json'
+                }
+                foreach ($basisRef in $basisRefs) {
+                    if (-not $ruleBasisIndex.ContainsKey($basisRef)) {
+                        Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'STAGE5_RULE_BASIS_REF_MISSING' -Message "Stage5 rule $($rule.rule_code) references missing basis: $basisRef" -Path 'contracts/rules/rule_catalog.json'
+                    }
+                    elseif ($basisState -eq 'VERIFIED' -and [string]$ruleBasisIndex[$basisRef].basis_status -ne 'VERIFIED') {
+                        Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'STAGE5_RULE_VERIFIED_BASIS_REF_NOT_VERIFIED' -Message "Stage5 rule $($rule.rule_code) is VERIFIED but basis $basisRef is $($ruleBasisIndex[$basisRef].basis_status)." -Path 'contracts/rules/rule_catalog.json'
+                    }
+                }
+            }
+            if (($rule.PSObject.Properties.Name -contains 'customer_visible_allowed') -and [bool]$rule.customer_visible_allowed) {
+                if ($basisState -ne 'VERIFIED') {
+                    Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'STAGE5_CUSTOMER_VISIBLE_BASIS_NOT_VERIFIED' -Message "Customer-visible Stage5 rule $($rule.rule_code) must have VERIFIED basis." -Path 'contracts/rules/rule_catalog.json'
+                }
+                $defaultResult = [string]$rule.default_result
+                $resultCeiling = [string]$rule.result_ceiling
+                if ($resultTypeRank.ContainsKey($defaultResult) -and $resultTypeRank.ContainsKey($resultCeiling)) {
+                    if ([int]$resultTypeRank[$resultCeiling] -gt [int]$resultTypeRank[$defaultResult]) {
+                        Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'STAGE5_RESULT_CEILING_EXCEEDS_DEFAULT' -Message "Stage5 rule $($rule.rule_code) result_ceiling $resultCeiling exceeds default_result $defaultResult." -Path 'contracts/rules/rule_catalog.json'
+                    }
+                }
             }
         }
     }
