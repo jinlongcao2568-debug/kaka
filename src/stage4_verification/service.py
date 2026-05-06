@@ -480,6 +480,8 @@ class Stage4Service:
         personnel_project_source_url: str | None = None,
         personnel_project_source_snapshot_id: str | None = None,
         target_identifier: str | None = None,
+        required_registration_category: str | None = None,
+        required_registration_profession_keywords: list[str] | None = None,
         base_public_verification_carriers: list[Mapping[str, Any]] | None = None,
     ) -> Mapping[str, Any]:
         capture_plan = self.build_jzsc_project_manager_company_first_capture_plan(
@@ -494,6 +496,8 @@ class Stage4Service:
             target_identifier=target_identifier,
             source_url=company_personnel_source_url,
             source_snapshot_id=company_personnel_source_snapshot_id,
+            required_registration_category=required_registration_category,
+            required_registration_profession_keywords=required_registration_profession_keywords,
         )
         public_verification_carriers = [
             *[dict(carrier) for carrier in ensure_list(base_public_verification_carriers)],
@@ -558,6 +562,8 @@ class Stage4Service:
         personnel_project_source_url: str | None = None,
         personnel_project_source_snapshot_id: str | None = None,
         target_identifier: str | None = None,
+        required_registration_category: str | None = None,
+        required_registration_profession_keywords: list[str] | None = None,
         base_public_verification_carriers: list[Mapping[str, Any]] | None = None,
     ) -> Mapping[str, Any]:
         company_name = str(target_company_name or "").strip()
@@ -625,6 +631,8 @@ class Stage4Service:
                     target_identifier=target_identifier,
                     source_url=company_source_url,
                     source_snapshot_id=company_snapshot_id,
+                    required_registration_category=required_registration_category,
+                    required_registration_profession_keywords=required_registration_profession_keywords,
                 )
             return {
                 **adapter_base,
@@ -652,6 +660,8 @@ class Stage4Service:
                 personnel_project_source_url=personnel_project_source_url,
                 personnel_project_source_snapshot_id=personnel_project_source_snapshot_id,
                 target_identifier=target_identifier,
+                required_registration_category=required_registration_category,
+                required_registration_profession_keywords=required_registration_profession_keywords,
                 base_public_verification_carriers=base_public_verification_carriers,
             )
         )
@@ -685,6 +695,8 @@ class Stage4Service:
         personnel_retry_attempts: int = 3,
         project_retry_attempts: int = 3,
         capture_personnel_project_records: bool = False,
+        required_registration_category: str | None = None,
+        required_registration_profession_keywords: list[str] | None = None,
     ) -> Mapping[str, Any]:
         from stage4_verification.jzsc_browser_executor import (
             execute_jzsc_company_first_browser_capture,
@@ -703,6 +715,8 @@ class Stage4Service:
             personnel_retry_attempts=personnel_retry_attempts,
             project_retry_attempts=project_retry_attempts,
             capture_personnel_project_records=capture_personnel_project_records,
+            required_registration_category=required_registration_category,
+            required_registration_profession_keywords=required_registration_profession_keywords,
         )
 
     def build_stage4_provider_plan(

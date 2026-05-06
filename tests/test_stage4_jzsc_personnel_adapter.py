@@ -13,7 +13,10 @@ if str(SRC) not in sys.path:
 
 from stage4_verification.jzsc_personnel import (
     AMBIGUOUS_PUBLIC_MATCH,
+    ANNOUNCED_CERTIFICATE_NOT_FOUND_IN_SAME_COMPANY_ROWS,
+    REQUIRED_REGISTRATION_PROFESSION_NOT_PUBLICLY_CONFIRMED,
     REGISTERED_UNIT_CONFLICT,
+    SAME_COMPANY_PERSON_FOUND_BUT_NOT_FIRST_CLASS_CONSTRUCTOR,
     SOURCE_SNAPSHOT_MISSING,
     build_jzsc_company_first_capture_plan,
     build_jzsc_company_personnel_resolution_carrier,
@@ -446,6 +449,63 @@ class Stage4JzscPersonnelAdapterTests(unittest.TestCase):
         self.assertEqual(
             target_by_type["performance_public_record"]["target_identifier"],
             "鲁1372017201820810",
+        )
+
+    def test_same_company_person_found_but_announced_constructor_cert_mismatch_is_specific(self) -> None:
+        personnel_carrier = build_jzsc_company_personnel_resolution_carrier(
+            [
+                {
+                    "row_text": "1 李文 430321**********11 一级注册造价工程师 B11245200008983",
+                    "registered_unit_name": "中铁五局集团有限公司",
+                    "person_public_id": "002303160131022125",
+                }
+            ],
+            target_company_name="中铁五局集团有限公司",
+            target_name="李文",
+            target_identifier="贵1442020202102750",
+            source_url="https://jzsc.mohurd.gov.cn/data/person",
+            source_snapshot_id="SNAP-JZSC-LIWEN-MISMATCH",
+        )
+
+        self.assertEqual(personnel_carrier["verification_result"], "NOT_MATCHED")
+        self.assertTrue(personnel_carrier["review_required"])
+        self.assertEqual(
+            personnel_carrier["failure_reason_optional"],
+            ANNOUNCED_CERTIFICATE_NOT_FOUND_IN_SAME_COMPANY_ROWS,
+        )
+        self.assertIn(
+            ANNOUNCED_CERTIFICATE_NOT_FOUND_IN_SAME_COMPANY_ROWS,
+            personnel_carrier["failure_reasons"],
+        )
+        self.assertIn(
+            SAME_COMPANY_PERSON_FOUND_BUT_NOT_FIRST_CLASS_CONSTRUCTOR,
+            personnel_carrier["failure_reasons"],
+        )
+        self.assertEqual(len(personnel_carrier["name_matched_personnel_rows"]), 1)
+        self.assertEqual(len(personnel_carrier["identifier_mismatch_personnel_rows"]), 1)
+        self.assertEqual(personnel_carrier["matched_personnel_rows"], [])
+
+    def test_required_profession_without_captured_profession_keeps_matched_constructor_in_review(self) -> None:
+        personnel_carrier = build_jzsc_company_personnel_resolution_carrier(
+            RENDERED_COMPANY_PERSONNEL_ROWS,
+            target_company_name="Alpha Construction Co",
+            target_name="陈庆丽",
+            target_identifier="鲁1372017201820810",
+            source_url="https://jzsc.mohurd.gov.cn/data/company/detail?id=alpha",
+            source_snapshot_id="SNAP-JZSC-COMPANY-PERSONNEL-PROFESSION",
+            required_registration_category="一级注册建造师",
+            required_registration_profession_keywords=["水利水电", "水利工程"],
+        )
+
+        self.assertEqual(personnel_carrier["verification_result"], "REVIEW_REQUIRED")
+        self.assertTrue(personnel_carrier["review_required"])
+        self.assertIn(
+            REQUIRED_REGISTRATION_PROFESSION_NOT_PUBLICLY_CONFIRMED,
+            personnel_carrier["failure_reasons"],
+        )
+        self.assertEqual(
+            personnel_carrier["requirement_check"]["captured_registration_categories"],
+            ["一级注册建造师"],
         )
 
     def test_personnel_project_rows_build_conflict_records_for_active_conflict(self) -> None:

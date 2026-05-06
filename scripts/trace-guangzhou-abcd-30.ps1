@@ -93,6 +93,8 @@ def attachment_items(row: Mapping[str, Any]) -> list[dict[str, Any]]:
             "snapshot_id": "",
             "blocker_class": "",
             "resolution_route": "",
+            "automated_challenge_resolution_state": "",
+            "challenge_resume_audit": {},
             "degraded_reasons": [],
         }
     for capture in list(row.get("stage2_attachment_captures") or []):
@@ -111,6 +113,8 @@ def attachment_items(row: Mapping[str, Any]) -> list[dict[str, Any]]:
                 "snapshot_id": "",
                 "blocker_class": "",
                 "resolution_route": "",
+                "automated_challenge_resolution_state": "",
+                "challenge_resume_audit": {},
                 "degraded_reasons": [],
             },
         )
@@ -120,6 +124,8 @@ def attachment_items(row: Mapping[str, Any]) -> list[dict[str, Any]]:
         item["snapshot_id"] = text(capture.get("attachment_snapshot_id_optional") or capture.get("snapshot_id_optional"))
         item["blocker_class"] = text(capture.get("attachment_blocker_class"))
         item["resolution_route"] = text(capture.get("attachment_resolution_route"))
+        item["automated_challenge_resolution_state"] = text(capture.get("automated_challenge_resolution_state"))
+        item["challenge_resume_audit"] = dict(capture.get("challenge_resume_audit") or {})
         item["degraded_reasons"] = [
             text(reason)
             for reason in list(capture.get("attachment_degraded_reasons") or capture.get("degraded_reasons") or [])
@@ -217,6 +223,12 @@ def row_record(index: int, row: Mapping[str, Any]) -> dict[str, Any]:
         "responsible_person": text(row.get("primary_responsible_person_name")),
         "responsible_role": text(row.get("primary_responsible_role")),
         "certificate_no": text(row.get("project_manager_certificate_no")),
+        "project_manager_certificate_type": text(row.get("project_manager_certificate_type")),
+        "project_manager_certificate_type_parse_state": text(row.get("project_manager_certificate_type_parse_state")),
+        "project_manager_cert_specialty": text(row.get("project_manager_cert_specialty")),
+        "project_manager_cert_specialty_parse_state": text(row.get("project_manager_cert_specialty_parse_state")),
+        "project_manager_professional_title": text(row.get("project_manager_professional_title")),
+        "project_manager_professional_title_parse_state": text(row.get("project_manager_professional_title_parse_state")),
         "responsible_role_required": role_required,
         "responsible_role_gap_review_required": bool(row.get("responsible_role_gap_review_required")),
         "expected_responsible_role_field": text(row.get("expected_responsible_role_field")),
@@ -226,6 +238,10 @@ def row_record(index: int, row: Mapping[str, Any]) -> dict[str, Any]:
         "attachment_snapshot_count": int(row.get("stage2_attachment_snapshot_count") or 0),
         "attachment_capture_statuses": att_statuses,
         "attachment_degraded_reasons": att_reasons,
+        "attachment_text_merge_state": text(row.get("attachment_text_merge_state")),
+        "attachment_text_parse_states": list(row.get("attachment_text_parse_states") or []),
+        "attachment_snapshot_refs": list(row.get("attachment_snapshot_refs") or []),
+        "qualification_text_candidate_blocks": list(row.get("qualification_text_candidate_blocks") or []),
         "attachment_items": attachment_items(row),
         "attachments": attachment_names(row),
         "responsible_source_visible": role_visible,
@@ -249,6 +265,8 @@ def summarize_by_type(rows: list[dict[str, Any]]) -> dict[str, dict[str, int]]:
             "company": sum(1 for row in group if row["company"]),
             "responsible_person": sum(1 for row in group if row["responsible_person"]),
             "certificate_no": sum(1 for row in group if row["certificate_no"]),
+            "certificate_type": sum(1 for row in group if row["project_manager_certificate_type"]),
+            "qualification_text": sum(1 for row in group if row["qualification_text_candidate_blocks"]),
             "attachment_link": sum(1 for row in group if row["attachment_link_count"] > 0),
             "attachment_snapshot": sum(1 for row in group if row["attachment_snapshot_count"] > 0),
             "role_required_count": len(role_required_group),

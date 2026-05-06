@@ -28,6 +28,7 @@ from stage4_verification.service import Stage4Service
 from storage.db import DatabaseSession
 from storage.repositories.object_storage_repo import ObjectStorageRepository
 from stage5_rules_evidence.service import Stage5Service
+from stage5_rules_evidence.rule_runner import evaluate_project_manager_qualification_rules
 
 
 def load_rule_catalog() -> dict[str, object]:
@@ -171,7 +172,17 @@ class Stage5RuleFactoryExpansionTests(unittest.TestCase):
         self.assertEqual(factory["runtime_components"], ["RuleRunner", "EvidenceBuilder", "GateEvaluator"])
         self.assertEqual(factory["selection_policy"]["stage"], 5)
         self.assertEqual(factory["selection_policy"]["default_selection_limit"], 3)
-        for rule_code in ("PROC-001", "PROC-002", "DOC-001", "PM-001", "PM-002"):
+        for rule_code in (
+            "PROC-001",
+            "PROC-002",
+            "DOC-001",
+            "PM-001",
+            "PM-002",
+            "QUAL-PM-001",
+            "QUAL-PM-002",
+            "QUAL-PM-003",
+            "QUAL-PM-004",
+        ):
             binding = bindings[rule_code]
             self.assertTrue(binding["enabled"])
             self.assertEqual(binding["version"], "stage5-factory-v1")
@@ -179,6 +190,52 @@ class Stage5RuleFactoryExpansionTests(unittest.TestCase):
             self.assertTrue(binding["dependency_evidence"])
             self.assertTrue(binding["golden_case_refs"])
         self.assertTrue(factory["golden_cases"])
+
+    def test_project_manager_qualification_helper_keeps_b_certificate_as_review_only(self) -> None:
+        readback = evaluate_project_manager_qualification_rules(
+            {
+                "qualification_run_id": "PMQ-JG2026-11125-LIWEN",
+                "announced_certificate_no": "贵1442020202102750",
+                "safety_b_certificate_no": "水安B20250001645",
+                "failure_reasons": [
+                    "announced_certificate_no_not_found_in_same_company_personnel_rows",
+                    "same_company_person_found_but_not_first_class_constructor",
+                    "required_registration_profession_not_publicly_confirmed_in_captured_rows",
+                ],
+                "public_only": True,
+                "customer_visible": False,
+                "no_legal_conclusion": True,
+            }
+        )
+
+        statuses = {entry["rule_code"]: entry["status"] for entry in readback["rule_results"]}
+        self.assertEqual(statuses["QUAL-PM-001"], "NOT_CONFIRMED")
+        self.assertEqual(statuses["QUAL-PM-002"], "NOT_CONFIRMED")
+        self.assertEqual(statuses["QUAL-PM-003"], "NOT_CONFIRMED")
+        self.assertEqual(statuses["QUAL-PM-004"], "REVIEW_REQUIRED")
+        self.assertEqual(readback["overall_status"], "REVIEW_REQUIRED")
+        self.assertTrue(readback["official_check_recommendations"])
+
+    def test_project_manager_qualification_helper_marks_constructor_rules_not_applicable_for_design_registration(self) -> None:
+        readback = evaluate_project_manager_qualification_rules(
+            {
+                "qualification_run_id": "PMQ-DESIGN-REGISTERED-ENGINEER",
+                "announced_certificate_no": "AY244400001",
+                "required_certificate_type": "注册土木工程师（岩土）",
+                "required_registration_profession_publicly_confirmed": False,
+                "announced_certificate_same_company_match": False,
+                "public_only": True,
+                "customer_visible": False,
+                "no_legal_conclusion": True,
+            }
+        )
+
+        statuses = {entry["rule_code"]: entry["status"] for entry in readback["rule_results"]}
+        self.assertEqual(statuses["QUAL-PM-001"], "NOT_CONFIRMED")
+        self.assertEqual(statuses["QUAL-PM-002"], "NOT_APPLICABLE")
+        self.assertEqual(statuses["QUAL-PM-003"], "NOT_CONFIRMED")
+        self.assertEqual(statuses["QUAL-PM-004"], "NOT_APPLICABLE")
+        self.assertEqual(readback["overall_status"], "NOT_CONFIRMED")
 
     def test_catalog_aware_selection_execution_trace_and_coverage(self) -> None:
         stage5 = Stage5Service().run(run_internal_chain(load_fixture("internal_chain_happy.json"))["stage4"])
@@ -382,6 +439,73 @@ class Stage5RuleFactoryExpansionTests(unittest.TestCase):
         self.assertIn("review_request", stage5.records)
         self.assertTrue(any("missing dependency fields" in reason for reason in pm_execution["blocking_reasons"]))
         self.assertGreaterEqual(stage5.inputs["stage5_rule_coverage_summary"]["missing_dependency_count"], 1)
+
+    def test_requested_project_manager_qualification_rules_degrade_to_review(self) -> None:
+        qualification_readback = {
+            "qualification_run_id": "PMQ-JG2026-11125-ZHANGYINGANG",
+            "announced_certificate_no": "云1532017201901042",
+            "required_registration_category": "一级注册建造师",
+            "required_registration_profession_keywords": ["水利水电工程", "水利工程"],
+            "announced_certificate_same_company_match": False,
+            "first_class_constructor_publicly_confirmed": False,
+            "required_registration_profession_publicly_confirmed": False,
+            "source_refs": [
+                "ST4JZSC-ZHANGYINGANG",
+                "GDGDCICPERSON-ZHANGYINGANG",
+            ],
+            "jzsc": {
+                "verification_run_id": "ST4JZSC-ZHANGYINGANG",
+                "failure_reasons": [
+                    "announced_certificate_no_not_found_in_same_company_personnel_rows",
+                    "required_registration_profession_not_publicly_confirmed_in_captured_rows",
+                ],
+            },
+            "guangdong_three_library_person_directory": {
+                "source_readback_id": "GDGDCICPERSON-ZHANGYINGANG",
+                "failure_reasons": [
+                    "gdcic_same_company_person_not_found",
+                    "announced_certificate_no_not_found_in_gdcic_person_directory_rows",
+                ],
+            },
+            "public_only": True,
+            "customer_visible": False,
+            "no_legal_conclusion": True,
+        }
+        stage4 = stage4_bundle_with_inputs(
+            {
+                "stage5_requested_rule_codes": [
+                    "QUAL-PM-001",
+                    "QUAL-PM-002",
+                    "QUAL-PM-003",
+                    "QUAL-PM-004",
+                ],
+                "stage5_supported_upstream_objects": [
+                    "project_manager",
+                    "focus_bidder_verification_profile",
+                ],
+                "project_manager_id_optional": "PM-ZHANGYINGANG",
+                "project_manager_qualification_readback": qualification_readback,
+            }
+        )
+
+        stage5 = Stage5Service().run(stage4)
+        execution_trace = stage5.inputs["stage5_rule_execution_trace"]
+
+        self.assertEqual(
+            stage5.inputs["stage5_rule_codes"],
+            ["QUAL-PM-001", "QUAL-PM-002", "QUAL-PM-003", "QUAL-PM-004"],
+        )
+        self.assertEqual(stage5.record("rule_gate_decision").get("rule_gate_status"), "REVIEW")
+        self.assertIn("review_request", stage5.records)
+        self.assertTrue(
+            any(
+                "announced_certificate_no_not_found_in_same_company_personnel_rows"
+                in reason
+                for reason in execution_trace[0]["blocking_reasons"]
+            )
+        )
+        self.assertIn("ST4JZSC-ZHANGYINGANG", execution_trace[0]["dependency_evidence"])
+        self.assertIn("GDGDCICPERSON-ZHANGYINGANG", execution_trace[0]["dependency_evidence"])
 
     def test_version_conflict_fails_closed_to_review(self) -> None:
         stage4 = stage4_bundle_with_inputs(

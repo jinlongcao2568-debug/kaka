@@ -6,7 +6,9 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import time
 from datetime import datetime, timezone
+from pathlib import Path
 from urllib.parse import quote
 from typing import Any, Callable, Mapping
 
@@ -17,8 +19,175 @@ from storage.repositories.object_storage_repo import ObjectStorageRepository
 JZSC_BROWSER_EXECUTOR_ID = "stage4.jzsc_company_first_browser_executor.v1"
 JZSC_RENDERED_COMPANY_PERSONNEL_SNAPSHOT_KIND = "jzsc_rendered_company_personnel_rows"
 JZSC_RENDERED_PERSONNEL_PROJECT_SNAPSHOT_KIND = "jzsc_rendered_personnel_project_rows"
+JZSC_COMPANY_SEARCH_PAGE_NOT_LOADED = "jzsc_company_search_page_not_loaded"
+JZSC_COMPANY_SEARCH_LOADED_BUT_NO_VUE_DATA = "jzsc_company_search_loaded_but_no_vue_data"
+JZSC_COMPANY_SEARCH_PARAMETER_INVALID_OR_NOT_APPLIED = (
+    "jzsc_company_search_parameter_invalid_or_not_applied"
+)
+JZSC_COMPANY_SEARCH_DOM_OR_API_STRUCTURE_CHANGED = (
+    "jzsc_company_search_dom_or_api_structure_changed"
+)
+JZSC_COMPANY_SEARCH_PUBLIC_PLATFORM_EMPTY_RESULT = (
+    "jzsc_company_search_public_platform_returned_empty_result"
+)
+JZSC_COMPANY_SEARCH_SUSPECTED_CAPTCHA_OR_ACCESS_BLOCK = (
+    "jzsc_company_search_suspected_captcha_or_access_block"
+)
+JZSC_COMPANY_SEARCH_ROWS_RETURNED_WITHOUT_TARGET_MATCH = (
+    "jzsc_company_search_rows_returned_without_target_match"
+)
+JZSC_COMPANY_SEARCH_OK_COMPANY_ROW_MATCHED = "jzsc_company_search_ok_company_row_matched"
 
 BrowserRunner = Callable[[Mapping[str, Any]], Mapping[str, Any]]
+
+
+def classify_jzsc_company_search_diagnostics(
+    *,
+    page_loaded: bool,
+    body_text: str,
+    target_company_name: str,
+    query_parameter_present: bool,
+    challenge_state: str = "",
+    vue_component_count: int = 0,
+    company_row_count: int = 0,
+    company_match_found: bool = False,
+    extraction_error: str = "",
+) -> dict[str, Any]:
+    body = str(body_text or "")
+    body_length = len(body)
+    reasons: list[str] = []
+    if challenge_state:
+        reasons.append(JZSC_COMPANY_SEARCH_SUSPECTED_CAPTCHA_OR_ACCESS_BLOCK)
+    if not page_loaded or body_length == 0:
+        reasons.append(JZSC_COMPANY_SEARCH_PAGE_NOT_LOADED)
+    if extraction_error:
+        reasons.append(JZSC_COMPANY_SEARCH_DOM_OR_API_STRUCTURE_CHANGED)
+    if page_loaded and body_length > 0 and vue_component_count == 0:
+        reasons.append(JZSC_COMPANY_SEARCH_LOADED_BUT_NO_VUE_DATA)
+    if not query_parameter_present:
+        reasons.append(JZSC_COMPANY_SEARCH_PARAMETER_INVALID_OR_NOT_APPLIED)
+    if company_row_count <= 0 and not reasons:
+        if _body_indicates_empty_result(body) or (
+            target_company_name and target_company_name in body
+        ):
+            reasons.append(JZSC_COMPANY_SEARCH_PUBLIC_PLATFORM_EMPTY_RESULT)
+        else:
+            reasons.append(JZSC_COMPANY_SEARCH_DOM_OR_API_STRUCTURE_CHANGED)
+    if company_row_count > 0 and not company_match_found:
+        reasons.append(JZSC_COMPANY_SEARCH_ROWS_RETURNED_WITHOUT_TARGET_MATCH)
+
+    reasons = _dedupe_strings(reasons)
+    if company_match_found:
+        state = "PASS"
+        status_code = JZSC_COMPANY_SEARCH_OK_COMPANY_ROW_MATCHED
+    elif challenge_state:
+        state = "BLOCKED_REVIEW_REQUIRED"
+        status_code = "SUSPECTED_CAPTCHA_OR_ACCESS_BLOCK"
+    elif reasons:
+        state = "FAIL_CLOSED_QUERY_ERROR"
+        status_code = reasons[0]
+    else:
+        state = "FAIL_CLOSED_QUERY_ERROR"
+        status_code = JZSC_COMPANY_SEARCH_DOM_OR_API_STRUCTURE_CHANGED
+    return {
+        "diagnostic_state": state,
+        "diagnostic_status_code": status_code,
+        "failure_reasons": reasons,
+        "body_length": body_length,
+        "challenge_state": challenge_state,
+        "vue_component_count": vue_component_count,
+        "company_row_count": company_row_count,
+        "company_match_found": company_match_found,
+    }
+
+
+def diagnose_jzsc_company_search_health(
+    company_names: list[str],
+    *,
+    entry_url: str = "https://jzsc.mohurd.gov.cn/data/company",
+    snapshot_dir: str | None = None,
+) -> dict[str, Any]:
+    try:
+        from playwright.sync_api import sync_playwright
+    except Exception as exc:
+        return {
+            "adapter_id": JZSC_BROWSER_EXECUTOR_ID,
+            "diagnostic_run_id": _stable_id("JZSC-SOURCE-HEALTH", company_names, entry_url),
+            "entry_url": entry_url,
+            "captured_at": utc_now_iso(),
+            "source_health_status": "UNTRUSTED_PLAYWRIGHT_UNAVAILABLE",
+            "failure_reasons": [f"playwright_unavailable:{exc}"],
+            "company_results": [],
+            "control_company_any_row": False,
+            "public_only": True,
+            "customer_visible": False,
+            "no_legal_conclusion": True,
+        }
+
+    names = _dedupe_strings(company_names)
+    run_id = _stable_id("JZSC-SOURCE-HEALTH", names, entry_url, utc_now_iso())
+    snapshot_root = Path(snapshot_dir) if snapshot_dir else None
+    if snapshot_root:
+        snapshot_root.mkdir(parents=True, exist_ok=True)
+    company_results: list[dict[str, Any]] = []
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        page = browser.new_page(
+            locale="zh-CN",
+            user_agent=(
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36"
+            ),
+        )
+        try:
+            for index, company_name in enumerate(names, start=1):
+                result = _search_company_diagnostic(
+                    page,
+                    entry_url=entry_url,
+                    company_name=company_name,
+                    snapshot_dir=snapshot_root,
+                    run_id=run_id,
+                    index=index,
+                )
+                company_results.append(result)
+        finally:
+            browser.close()
+
+    any_rows = any(int(item.get("company_row_count") or 0) > 0 for item in company_results)
+    any_match = any(bool(item.get("company_match_found")) for item in company_results)
+    blocked = any(
+        item.get("diagnostic_state") == "BLOCKED_REVIEW_REQUIRED"
+        for item in company_results
+    )
+    if any_match:
+        health_status = "HEALTHY_AT_LEAST_ONE_CONTROL_COMPANY_RETURNED"
+    elif any_rows:
+        health_status = "UNTRUSTED_ONLY_NON_MATCHING_DEFAULT_ROWS_RETURNED"
+    elif blocked:
+        health_status = "UNTRUSTED_BLOCKED_BY_CHALLENGE_OR_ACCESS_CONTROL"
+    else:
+        health_status = "UNTRUSTED_NO_CONTROL_COMPANY_ROWS"
+    return {
+        "adapter_id": JZSC_BROWSER_EXECUTOR_ID,
+        "diagnostic_run_id": run_id,
+        "entry_url": entry_url,
+        "captured_at": utc_now_iso(),
+        "company_count": len(company_results),
+        "source_health_status": health_status,
+        "control_company_any_row": any_rows,
+        "control_company_any_match": any_match,
+        "company_results": company_results,
+        "failure_reasons": _dedupe_strings(
+            [
+                reason
+                for item in company_results
+                for reason in list(item.get("failure_reasons") or [])
+            ]
+        ),
+        "public_only": True,
+        "customer_visible": False,
+        "no_legal_conclusion": True,
+    }
 
 
 def execute_jzsc_company_first_browser_capture(
@@ -35,6 +204,8 @@ def execute_jzsc_company_first_browser_capture(
     personnel_retry_attempts: int = 3,
     project_retry_attempts: int = 3,
     capture_personnel_project_records: bool = False,
+    required_registration_category: str | None = None,
+    required_registration_profession_keywords: list[str] | None = None,
 ) -> dict[str, Any]:
     from stage4_verification.service import Stage4Service
 
@@ -51,6 +222,10 @@ def execute_jzsc_company_first_browser_capture(
     capture_plan["project_retry_attempts"] = max(1, int(project_retry_attempts or 1))
     capture_plan["personnel_retry_attempts"] = max(1, int(personnel_retry_attempts or 1))
     capture_plan["capture_personnel_project_records"] = bool(capture_personnel_project_records)
+    capture_plan["required_registration_category_optional"] = required_registration_category
+    capture_plan["required_registration_profession_keywords"] = list(
+        required_registration_profession_keywords or []
+    )
     run_id = _stable_id(
         "JZSC-BROWSER-RUN",
         capture_plan.get("capture_plan_id"),
@@ -166,6 +341,8 @@ def execute_jzsc_company_first_browser_capture(
             personnel_project_source_url=project_source_url if project_rows else None,
             personnel_project_source_snapshot_id=project_snapshot_id if project_rows else None,
             target_identifier=target_identifier,
+            required_registration_category=required_registration_category,
+            required_registration_profession_keywords=required_registration_profession_keywords,
             base_public_verification_carriers=base_public_verification_carriers,
         )
     )
@@ -232,25 +409,44 @@ def _playwright_browser_runner(capture_plan: Mapping[str, Any]) -> dict[str, Any
         try:
             company_candidates = _candidate_company_names(company_name)
             company_match: dict[str, Any] | None = None
+            company_search_failure_reasons: list[str] = []
             for attempt_no, candidate_company in enumerate(company_candidates[:3], start=1):
-                rows = _search_company_rows_with_retry(
+                search_result = _search_company_diagnostic_with_retry(
                     page,
                     entry_url=entry_url,
                     company_name=candidate_company,
                     retry_attempts=personnel_retry_attempts,
                 )
+                rows = list(search_result.get("company_rows") or [])
+                attempt_failure_reasons = [
+                    str(reason)
+                    for reason in list(search_result.get("failure_reasons") or [])
+                    if str(reason).strip()
+                ]
+                company_search_failure_reasons.extend(attempt_failure_reasons)
                 browser_attempts.append(
                     {
                         "attempt_no": attempt_no,
                         "attempt_type": "company_search",
                         "query_company_name": candidate_company,
                         "result_count": len(rows),
+                        "diagnostic_state": search_result.get("diagnostic_state"),
+                        "diagnostic_status_code": search_result.get("diagnostic_status_code"),
+                        "failure_reasons": attempt_failure_reasons,
+                        "query_url": search_result.get("query_url"),
+                        "final_url": search_result.get("final_url"),
+                        "page_title": search_result.get("page_title"),
+                        "challenge_state": search_result.get("challenge_state"),
+                        "vue_component_count": search_result.get("vue_component_count"),
+                        "company_row_count": search_result.get("company_row_count"),
+                        "body_key_text": search_result.get("body_key_text"),
                     }
                 )
                 company_match = _pick_company_match(rows, candidate_company)
                 if company_match:
                     break
             if not company_match:
+                failure_reasons.extend(_dedupe_strings(company_search_failure_reasons))
                 failure_reasons.append("company_search_result_not_found_after_three_attempts")
 
             matched_company_name = str(
@@ -333,14 +529,166 @@ def _playwright_browser_runner(capture_plan: Mapping[str, Any]) -> dict[str, Any
 
 
 def _search_company_rows(page: Any, entry_url: str, company_name: str) -> list[dict[str, Any]]:
+    return list(
+        _search_company_diagnostic(
+            page,
+            entry_url=entry_url,
+            company_name=company_name,
+        ).get("company_rows")
+        or []
+    )
+
+
+def _search_company_diagnostic_with_retry(
+    page: Any,
+    *,
+    entry_url: str,
+    company_name: str,
+    retry_attempts: int,
+) -> dict[str, Any]:
+    last_result: dict[str, Any] = {}
+    for retry_no in range(1, max(1, retry_attempts) + 1):
+        result = _search_company_diagnostic(
+            page,
+            entry_url=entry_url,
+            company_name=company_name,
+        )
+        result["retry_no"] = retry_no
+        last_result = result
+        if result.get("company_rows"):
+            return result
+        page.wait_for_timeout(900 * retry_no)
+    return last_result
+
+
+def _search_company_diagnostic(
+    page: Any,
+    *,
+    entry_url: str,
+    company_name: str,
+    snapshot_dir: Path | None = None,
+    run_id: str = "",
+    index: int = 0,
+) -> dict[str, Any]:
+    query_url = f"{entry_url.split('?', 1)[0]}?complexname={quote(company_name or '')}"
+    final_url = ""
+    page_title = ""
+    body_text = ""
+    page_loaded = False
+    navigation_error = ""
+    extraction_error = ""
+    submission_state = ""
+    company_rows: list[dict[str, Any]] = []
+    vue_component_count = 0
     if not company_name:
-        return []
-    query_url = f"{entry_url.split('?', 1)[0]}?complexname={quote(company_name)}"
-    page.goto(query_url, wait_until="domcontentloaded", timeout=60000)
-    page.wait_for_timeout(3500)
-    _wait_for_body_or_timeout(page, company_name, timeout_ms=10000)
-    page.wait_for_timeout(1500)
-    return _extract_vue_company_rows(page)
+        diagnostic = classify_jzsc_company_search_diagnostics(
+            page_loaded=False,
+            body_text="",
+            target_company_name=company_name,
+            query_parameter_present=False,
+        )
+        return {
+            **diagnostic,
+            "query_company_name": company_name,
+            "query_url": query_url,
+            "final_url": final_url,
+            "page_title": page_title,
+            "body_key_text": "",
+            "company_rows": [],
+            "company_rows_preview": [],
+            "navigation_error": "company_name_missing",
+            "vue_data_extraction_state": "NOT_RUN_COMPANY_NAME_MISSING",
+        }
+    try:
+        page.goto(entry_url.split("?", 1)[0], wait_until="domcontentloaded", timeout=60000)
+        page_loaded = True
+        page.wait_for_timeout(2500)
+        submission_state = _submit_company_keyword_query(page, company_name)
+        company_rows = _extract_company_rows_until_target_or_default(
+            page,
+            company_name,
+            timeout_ms=8000,
+        )
+    except Exception as exc:
+        navigation_error = str(exc)
+    try:
+        final_url = str(page.url or "")
+    except Exception:
+        final_url = ""
+    try:
+        page_title = str(page.title() or "")
+    except Exception:
+        page_title = ""
+    body_text = _body_text(page)
+    challenge_state = _classify_page_challenge(body_text)
+    try:
+        vue_component_count = _count_vue_components(page)
+        latest_rows = _extract_vue_company_rows(page)
+        if not company_rows or (
+            latest_rows
+            and not _pick_company_match(company_rows, company_name)
+            and _pick_company_match(latest_rows, company_name)
+        ):
+            company_rows = latest_rows
+    except Exception as exc:
+        extraction_error = str(exc)
+        if not company_rows:
+            company_rows = []
+    company_match = _pick_company_match(company_rows, company_name)
+    diagnostic = classify_jzsc_company_search_diagnostics(
+        page_loaded=page_loaded,
+        body_text=body_text,
+        target_company_name=company_name,
+        query_parameter_present="complexname=" in final_url or "complexname=" in query_url,
+        challenge_state=challenge_state,
+        vue_component_count=vue_component_count,
+        company_row_count=len(company_rows),
+        company_match_found=bool(company_match),
+        extraction_error=extraction_error,
+    )
+    html_snapshot_path = ""
+    screenshot_path = ""
+    if snapshot_dir:
+        prefix = _safe_snapshot_prefix(run_id=run_id, index=index, company_name=company_name)
+        html_path = snapshot_dir / f"{prefix}.html"
+        png_path = snapshot_dir / f"{prefix}.png"
+        try:
+            html_path.write_text(page.content(), encoding="utf-8")
+            html_snapshot_path = str(html_path)
+        except Exception as exc:
+            diagnostic["failure_reasons"] = _dedupe_strings(
+                [*list(diagnostic.get("failure_reasons") or []), f"html_snapshot_write_failed:{exc}"]
+            )
+        try:
+            page.screenshot(path=str(png_path), full_page=True)
+            screenshot_path = str(png_path)
+        except Exception as exc:
+            diagnostic["failure_reasons"] = _dedupe_strings(
+                [*list(diagnostic.get("failure_reasons") or []), f"screenshot_write_failed:{exc}"]
+            )
+    return {
+        **diagnostic,
+        "query_company_name": company_name,
+        "query_url": query_url,
+        "final_url": final_url,
+        "page_title": page_title,
+        "body_key_text": _body_key_text(body_text, company_name),
+        "body_contains_company_name": bool(company_name and company_name in body_text),
+        "company_rows": company_rows,
+        "company_rows_preview": company_rows[:5],
+        "matched_company_name_optional": (company_match or {}).get("QY_NAME"),
+        "matched_company_public_id_optional": (company_match or {}).get("QY_ID"),
+        "navigation_error": navigation_error,
+        "extraction_error": extraction_error,
+        "company_search_submission_state": submission_state,
+        "vue_data_extraction_state": _vue_data_extraction_state(
+            vue_component_count=vue_component_count,
+            company_row_count=len(company_rows),
+            extraction_error=extraction_error,
+        ),
+        "html_snapshot_path": html_snapshot_path,
+        "screenshot_path": screenshot_path,
+    }
 
 
 def _search_company_rows_with_retry(
@@ -350,13 +698,15 @@ def _search_company_rows_with_retry(
     company_name: str,
     retry_attempts: int,
 ) -> list[dict[str, Any]]:
-    rows: list[dict[str, Any]] = []
-    for retry_no in range(1, max(1, retry_attempts) + 1):
-        rows = _search_company_rows(page, entry_url, company_name)
-        if rows:
-            return rows
-        page.wait_for_timeout(900 * retry_no)
-    return rows
+    return list(
+        _search_company_diagnostic_with_retry(
+            page,
+            entry_url=entry_url,
+            company_name=company_name,
+            retry_attempts=retry_attempts,
+        ).get("company_rows")
+        or []
+    )
 
 
 def _submit_company_query(page: Any, company_name: str) -> None:
@@ -381,6 +731,107 @@ def _submit_company_query(page: Any, company_name: str) -> None:
         page.keyboard.press("Enter")
     except Exception:
         return
+
+
+def _submit_company_keyword_query(page: Any, company_name: str) -> str:
+    if not company_name:
+        return "NOT_RUN_COMPANY_NAME_MISSING"
+    selector = 'input[placeholder="请输入关键词，例如企业名称、统一社会信用代码"]'
+    try:
+        page.locator(selector).fill(company_name, timeout=5000)
+        page.locator("#query-btn").click(timeout=5000)
+        return "HEADER_KEYWORD_SEARCH_CLICKED"
+    except Exception as exc:
+        if _set_company_query_via_vue(page, company_name):
+            return "COMPANY_QUERY_VIA_VUE"
+        _submit_company_query(page, company_name)
+        return f"COMPANY_QUERY_FALLBACK_ATTEMPTED:{exc}"
+
+
+def _set_company_query_via_vue(page: Any, company_name: str) -> bool:
+    try:
+        return bool(
+            page.evaluate(
+                """(companyName) => {
+                  const components = Array.from(document.querySelectorAll('*'))
+                    .map((el) => el.__vue__)
+                    .filter((vm) => vm && vm.query && Object.prototype.hasOwnProperty.call(vm.query, 'complexname'));
+                  const vm = components.find((item) => typeof item.queryHandler === 'function' || typeof item.getCompanyList === 'function');
+                  if (!vm) return false;
+                  vm.query.complexname = companyName || '';
+                  vm.query.pg = 1;
+                  vm.query.pgsz = vm.query.pgsz || 15;
+                  if (typeof vm.queryHandler === 'function') {
+                    vm.queryHandler();
+                  } else {
+                    vm.getCompanyList();
+                  }
+                  return true;
+                }""",
+                company_name,
+            )
+        )
+    except Exception:
+        return False
+
+
+def _wait_for_company_search_rows_or_idle(
+    page: Any,
+    company_name: str,
+    *,
+    timeout_ms: int,
+) -> None:
+    try:
+        page.wait_for_function(
+            """(companyName) => {
+              const normalizedTarget = String(companyName || '').replace(/[\\s;；,，、]/g, '');
+              const components = Array.from(document.querySelectorAll('*'))
+                .map((el) => el.__vue__)
+                .filter((vm) => !!vm);
+              for (const vm of components) {
+                if (!Array.isArray(vm.tableData)) continue;
+                const rows = vm.tableData.filter((row) => row && typeof row === 'object' && Object.prototype.hasOwnProperty.call(row, 'QY_ID'));
+                if (rows.some((row) => {
+                  const name = String(row.QY_NAME || '').replace(/[\\s;；,，、]/g, '');
+                  return normalizedTarget && (name === normalizedTarget || name.includes(normalizedTarget) || normalizedTarget.includes(name));
+                })) {
+                  return true;
+                }
+                if (vm.query && Object.prototype.hasOwnProperty.call(vm.query, 'complexname') && vm.loading === false && rows.length === 0) {
+                  return true;
+                }
+              }
+              return false;
+            }""",
+            company_name,
+            timeout=timeout_ms,
+        )
+    except Exception:
+        page.wait_for_timeout(500)
+
+
+def _extract_company_rows_until_target_or_default(
+    page: Any,
+    company_name: str,
+    *,
+    timeout_ms: int,
+) -> list[dict[str, Any]]:
+    deadline = time.monotonic() + max(1, timeout_ms) / 1000
+    last_rows: list[dict[str, Any]] = []
+    first_non_empty_rows: list[dict[str, Any]] = []
+    while time.monotonic() < deadline:
+        rows = _extract_vue_company_rows(page)
+        if rows:
+            last_rows = rows
+            if not first_non_empty_rows:
+                first_non_empty_rows = rows
+            if _pick_company_match(rows, company_name):
+                return rows
+        try:
+            page.wait_for_timeout(80)
+        except Exception:
+            break
+    return last_rows or first_non_empty_rows
 
 
 def _resolve_personnel_rows_by_company_first(
@@ -672,6 +1123,72 @@ def _body_text(page: Any) -> str:
         return ""
 
 
+def _count_vue_components(page: Any) -> int:
+    try:
+        return int(
+            page.evaluate(
+                """() => Array.from(document.querySelectorAll('*'))
+                  .map((el) => el.__vue__)
+                  .filter((vm) => !!vm).length"""
+            )
+            or 0
+        )
+    except Exception:
+        return 0
+
+
+def _body_key_text(body_text: str, company_name: str) -> str:
+    text = str(body_text or "")
+    normalized_lines = [" ".join(line.split()) for line in text.splitlines()]
+    tokens = [company_name, "验证码", "安全验证", "暂无", "未查询", "企业名称", "查询"]
+    selected = [
+        line
+        for line in normalized_lines
+        if line and any(token and token in line for token in tokens)
+    ]
+    if not selected:
+        selected = [line for line in normalized_lines if line][:8]
+    return "\n".join(selected[:12])[:1200]
+
+
+def _body_indicates_empty_result(body_text: str) -> bool:
+    text = str(body_text or "")
+    return any(
+        token in text
+        for token in (
+            "暂无数据",
+            "暂无结果",
+            "未查询到",
+            "无查询结果",
+            "没有查询到",
+            "没有相关",
+            "查询结果为空",
+        )
+    )
+
+
+def _vue_data_extraction_state(
+    *,
+    vue_component_count: int,
+    company_row_count: int,
+    extraction_error: str,
+) -> str:
+    if extraction_error:
+        return "EXTRACT_ERROR"
+    if vue_component_count <= 0:
+        return "NO_VUE_COMPONENTS"
+    if company_row_count <= 0:
+        return "VUE_COMPONENTS_FOUND_NO_COMPANY_ROWS"
+    return "VUE_COMPANY_ROWS_EXTRACTED"
+
+
+def _safe_snapshot_prefix(*, run_id: str, index: int, company_name: str) -> str:
+    digest = hashlib.sha1(f"{run_id}|{index}|{company_name}".encode("utf-8")).hexdigest()[:10]
+    safe_name = re.sub(r"[^\w\u4e00-\u9fff.-]+", "_", str(company_name or "").strip())
+    safe_name = safe_name[:48] or "company"
+    return f"{index:02d}_{safe_name}_{digest}"
+
+
 def _fill_if_possible(page: Any, selector: str, value: str) -> bool:
     try:
         page.locator(selector).fill(value or "", timeout=5000)
@@ -903,6 +1420,12 @@ def _person_search_row_to_rendered_row(row: Mapping[str, Any]) -> dict[str, Any]
         "detail_url": detail_url,
         "person_public_id": row.get("RY_ID"),
         "registered_unit_name": row.get("REG_QYMC"),
+        "registration_profession": _first_non_empty(
+            row.get("REG_PROF_NAME"),
+            row.get("REG_PROF"),
+            row.get("ZY_NAME"),
+            row.get("PROFESSION_NAME"),
+        ),
         "registration_at": _timestamp_ms_to_date(row.get("REG_SDATE")),
         "raw_source_row": dict(row),
     }

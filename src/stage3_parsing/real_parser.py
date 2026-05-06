@@ -55,6 +55,9 @@ FIELD_LABELS: dict[str, tuple[str, ...]] = {
         "总监理工程师",
     ),
     "project_manager_public_identifier_optional": ("注册编号", "注册证书编号", "证书编号", "注册号"),
+    "project_manager_certificate_type": ("证书类型", "资质资格", "项目负责人资质", "项目负责人资格"),
+    "project_manager_cert_specialty": ("注册专业", "证书专业", "专业"),
+    "project_manager_professional_title": ("职称", "技术职称", "职称证书"),
 }
 
 DATE_VALUE_RE = re.compile(

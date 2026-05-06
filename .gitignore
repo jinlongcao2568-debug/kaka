@@ -2,3 +2,7 @@
 __pycache__/
 *.pyc
 .pytest_cache/
+
+# Local research tool environments and generated outputs
+tools/research/.venv/
+tools/research/out/

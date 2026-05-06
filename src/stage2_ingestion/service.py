@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import os
 from typing import Any, Mapping
 
 from stage2_ingestion.contract_runtime import build_stage2_handoff, build_stage2_inputs
@@ -20,9 +21,20 @@ from stage2_ingestion.real_public_url_fetcher import (
     RealPublicEntryFetcher,
     RealPublicFetchTransport,
 )
+from stage2_ingestion.playwright_challenge_resolver import PlaywrightAttachmentChallengeResolver
 from shared.contracts_runtime import ContractStore, StageBundle
 from shared.utils import apply_rule, build_id, ensure_enum, get_flag, resolve_bundle, utc_now_iso
 from storage.repositories.object_storage_repo import ObjectStorageRepository
+
+
+def _automated_attachment_challenge_enabled() -> bool:
+    return (os.environ.get("KAKA_STAGE2_ENABLE_ATTACHMENT_CHALLENGE_RESOLVER") or "") == "1"
+
+
+def _attachment_challenge_resolver_from_environment() -> PlaywrightAttachmentChallengeResolver | None:
+    if not _automated_attachment_challenge_enabled():
+        return None
+    return PlaywrightAttachmentChallengeResolver.from_environment()
 
 
 class Stage2Service:
@@ -279,6 +291,8 @@ class Stage2Service:
         fetcher = RealPublicEntryFetcher(
             repository=repository or ObjectStorageRepository(settings=self.settings),
             transport=transport,
+            attachment_challenge_resolver=_attachment_challenge_resolver_from_environment(),
+            automated_challenge_resolution_enabled=_automated_attachment_challenge_enabled(),
         )
         return fetcher.fetch_attachment_original_link(
             url,
@@ -300,6 +314,8 @@ class Stage2Service:
         fetcher = RealPublicEntryFetcher(
             repository=repository or ObjectStorageRepository(settings=self.settings),
             transport=transport,
+            attachment_challenge_resolver=_attachment_challenge_resolver_from_environment(),
+            automated_challenge_resolution_enabled=_automated_attachment_challenge_enabled(),
         )
         return fetcher.fetch_same_site_attachment_url(
             url,

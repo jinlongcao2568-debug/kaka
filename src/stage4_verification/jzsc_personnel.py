@@ -19,6 +19,21 @@ AMBIGUOUS_PUBLIC_MATCH = "AMBIGUOUS_PUBLIC_MATCH"
 SOURCE_SNAPSHOT_MISSING = "source_snapshot_missing"
 SOURCE_URL_MISSING = "source_url_missing"
 REGISTERED_UNIT_CONFLICT = "registered_unit_name_conflicts_with_target_company"
+ANNOUNCED_CERTIFICATE_NOT_FOUND_IN_SAME_COMPANY_ROWS = (
+    "announced_certificate_no_not_found_in_same_company_personnel_rows"
+)
+SAME_COMPANY_PERSON_FOUND_BUT_NOT_FIRST_CLASS_CONSTRUCTOR = (
+    "same_company_person_found_but_not_first_class_constructor"
+)
+MATCHED_CERTIFICATE_CATEGORY_CONFLICTS_WITH_REQUIREMENT = (
+    "matched_certificate_category_conflicts_with_requirement"
+)
+REQUIRED_REGISTRATION_PROFESSION_NOT_PUBLICLY_CONFIRMED = (
+    "required_registration_profession_not_publicly_confirmed_in_captured_rows"
+)
+MATCHED_CERTIFICATE_PROFESSION_CONFLICTS_WITH_REQUIREMENT = (
+    "matched_certificate_profession_conflicts_with_requirement"
+)
 
 
 def build_jzsc_company_first_capture_plan(
@@ -190,6 +205,18 @@ def parse_jzsc_personnel_rows(rendered_rows: Iterable[Any]) -> list[dict[str, An
             value = row_payload.get(source_key)
             if value not in (None, ""):
                 row[target_key] = value
+        profession = _first_non_empty(
+            row_payload.get("registration_profession"),
+            row_payload.get("registration_profession_optional"),
+            row_payload.get("REG_PROF_NAME"),
+            row_payload.get("reg_prof_name"),
+            row_payload.get("注册专业"),
+            (row_payload.get("raw_source_row") or {}).get("REG_PROF_NAME")
+            if isinstance(row_payload.get("raw_source_row"), Mapping)
+            else None,
+        )
+        if profession not in (None, ""):
+            row["registration_profession_optional"] = profession
         rows.append(row)
     return rows
 
@@ -203,6 +230,8 @@ def build_jzsc_personnel_list_carrier(
     source_url: str,
     source_snapshot_id: str,
     page_no: int = 1,
+    required_registration_category: str | None = None,
+    required_registration_profession_keywords: Iterable[str] | None = None,
 ) -> dict[str, Any]:
     rows = parse_jzsc_personnel_rows(rendered_rows)
     normalized_target_name = _normalize(target_name)
@@ -231,11 +260,25 @@ def build_jzsc_personnel_list_carrier(
         target_company_name=target_company_name,
     )
     review_failures = source_failures + company_failures
+    identity_diagnostics = _identity_diagnostics(
+        name_matches=name_matches,
+        identifier_matches=identifier_matches,
+        normalized_identifier=normalized_identifier,
+    )
+    requirement_failures = _requirement_failures(
+        matched_rows=matched_rows,
+        required_registration_category=required_registration_category,
+        required_registration_profession_keywords=required_registration_profession_keywords,
+    )
+    review_failures = review_failures + requirement_failures
 
     failure_reason: str | None = None
     if not matched_rows:
         result = NOT_MATCHED
-        failure_reason = "personnel_public_record_not_found_in_rendered_rows"
+        if normalized_identifier and name_matches:
+            failure_reason = ANNOUNCED_CERTIFICATE_NOT_FOUND_IN_SAME_COMPANY_ROWS
+        else:
+            failure_reason = "personnel_public_record_not_found_in_rendered_rows"
     elif len(matched_rows) > 1 and not normalized_identifier:
         result = REVIEW_REQUIRED
         failure_reason = AMBIGUOUS_PUBLIC_MATCH
@@ -246,7 +289,11 @@ def build_jzsc_personnel_list_carrier(
         result = MATCHED
 
     review_required = result != MATCHED
-    failure_reasons = _dedupe_strings(review_failures + ([failure_reason] if failure_reason else []))
+    failure_reasons = _dedupe_strings(
+        review_failures
+        + identity_diagnostics
+        + ([failure_reason] if failure_reason else [])
+    )
     run_id = _stable_id(
         "ST4JZSC",
         source_snapshot_id,
@@ -279,6 +326,23 @@ def build_jzsc_personnel_list_carrier(
         "target_name": target_name,
         "target_company_name_optional": target_company_name,
         "target_identifier_optional": target_identifier,
+        "required_registration_category_optional": required_registration_category,
+        "required_registration_profession_keywords": _dedupe_strings(
+            required_registration_profession_keywords or []
+        ),
+        "requirement_check": {
+            "required_registration_category": required_registration_category,
+            "required_registration_profession_keywords": _dedupe_strings(
+                required_registration_profession_keywords or []
+            ),
+            "requirement_failures": requirement_failures,
+            "captured_registration_categories": _dedupe_strings(
+                row.get("registration_category") for row in matched_rows or name_matches
+            ),
+            "captured_registration_professions": _dedupe_strings(
+                row.get("registration_profession_optional") for row in matched_rows or name_matches
+            ),
+        },
         "resolved_public_identifier_optional": resolved_identifier,
         "project_manager_public_identifier_optional": resolved_identifier,
         "project_manager_certificate_no_optional": _first_non_empty(
@@ -306,6 +370,10 @@ def build_jzsc_personnel_list_carrier(
             "failure_reasons": failure_reasons,
         },
         "parsed_personnel_rows": rows,
+        "name_matched_personnel_rows": name_matches,
+        "identifier_mismatch_personnel_rows": (
+            name_matches if normalized_identifier and name_matches and not identifier_matches else []
+        ),
         "matched_personnel_rows": matched_rows,
         "source_refs": [
             {
@@ -334,6 +402,8 @@ def build_jzsc_company_personnel_resolution_carrier(
     source_url: str,
     source_snapshot_id: str,
     page_no: int = 1,
+    required_registration_category: str | None = None,
+    required_registration_profession_keywords: Iterable[str] | None = None,
 ) -> dict[str, Any]:
     return build_jzsc_personnel_list_carrier(
         rendered_rows,
@@ -343,6 +413,8 @@ def build_jzsc_company_personnel_resolution_carrier(
         source_url=source_url,
         source_snapshot_id=source_snapshot_id,
         page_no=page_no,
+        required_registration_category=required_registration_category,
+        required_registration_profession_keywords=required_registration_profession_keywords,
     )
 
 
@@ -593,6 +665,69 @@ def _resolved_identifier(rows: list[dict[str, Any]]) -> str | None:
         row.get("person_public_id_optional"),
         row.get("masked_identity_no"),
     )
+
+
+def _identity_diagnostics(
+    *,
+    name_matches: list[dict[str, Any]],
+    identifier_matches: list[dict[str, Any]],
+    normalized_identifier: str,
+) -> list[str]:
+    diagnostics: list[str] = []
+    if normalized_identifier and name_matches and not identifier_matches:
+        diagnostics.append(ANNOUNCED_CERTIFICATE_NOT_FOUND_IN_SAME_COMPANY_ROWS)
+        if _looks_like_first_class_constructor_registration_no(
+            normalized_identifier
+        ) and not any(_is_first_class_constructor_row(row) for row in name_matches):
+            diagnostics.append(SAME_COMPANY_PERSON_FOUND_BUT_NOT_FIRST_CLASS_CONSTRUCTOR)
+    return diagnostics
+
+
+def _requirement_failures(
+    *,
+    matched_rows: list[dict[str, Any]],
+    required_registration_category: str | None,
+    required_registration_profession_keywords: Iterable[str] | None,
+) -> list[str]:
+    failures: list[str] = []
+    if not matched_rows:
+        return failures
+    required_category = _clean_text(required_registration_category)
+    if required_category and not any(
+        required_category in _clean_text(row.get("registration_category"))
+        for row in matched_rows
+    ):
+        failures.append(MATCHED_CERTIFICATE_CATEGORY_CONFLICTS_WITH_REQUIREMENT)
+
+    keywords = [
+        _clean_text(value)
+        for value in list(required_registration_profession_keywords or [])
+        if _clean_text(value)
+    ]
+    if keywords:
+        professions = [
+            _clean_text(row.get("registration_profession_optional"))
+            for row in matched_rows
+            if _clean_text(row.get("registration_profession_optional"))
+        ]
+        if not professions:
+            failures.append(REQUIRED_REGISTRATION_PROFESSION_NOT_PUBLICLY_CONFIRMED)
+        elif not any(
+            any(keyword in profession for keyword in keywords)
+            for profession in professions
+        ):
+            failures.append(MATCHED_CERTIFICATE_PROFESSION_CONFLICTS_WITH_REQUIREMENT)
+    return failures
+
+
+def _looks_like_first_class_constructor_registration_no(value: Any) -> bool:
+    text = _normalize(value)
+    return bool(re.match(r"^[\u4e00-\u9fff]1\d{14,18}$", text))
+
+
+def _is_first_class_constructor_row(row: Mapping[str, Any]) -> bool:
+    category = _clean_text(row.get("registration_category"))
+    return "一级注册建造师" in category or "一级建造师" in category
 
 
 def _first_non_empty(*values: Any) -> Any:

@@ -82,6 +82,64 @@ def _extract_pdf_text(data: bytes) -> tuple[str, str]:
     return result.text, state
 
 
+def _attachment_parsed_field_text(parser_carrier: Mapping[str, Any]) -> str:
+    values: list[str] = []
+    for field in list(parser_carrier.get("parsed_fields") or []):
+        if not isinstance(field, Mapping):
+            continue
+        value = _clean_text(field.get("field_value_optional"))
+        if not value:
+            continue
+        name = _clean_text(field.get("field_name"))
+        values.append(f"{name}: {value}" if name else value)
+        raw_text = _clean_text(field.get("raw_text"))
+        if raw_text and raw_text != value:
+            values.append(raw_text)
+    return "\n".join(_dedupe_texts(values))
+
+
+def _attachment_snapshot_ref(
+    *,
+    attachment: Mapping[str, Any],
+    snapshot_id: str,
+    parse_state: str,
+    attachment_type: str,
+    parse_error_taxonomy: list[str] | None = None,
+) -> dict[str, Any]:
+    return {
+        "snapshot_id": snapshot_id,
+        "attachment_url": str(attachment.get("attachment_url") or ""),
+        "attachment_filename": str(attachment.get("attachment_filename") or ""),
+        "content_type": str(attachment.get("content_type") or ""),
+        "parse_state": parse_state,
+        "attachment_type": attachment_type,
+        "parse_error_taxonomy": list(parse_error_taxonomy or []),
+    }
+
+
+def _qualification_text_candidate_blocks(text: str) -> list[str]:
+    normalized = _clean_text(text)
+    if not normalized:
+        return []
+    pattern = re.compile(
+        r"[^。；;\n\r]{0,80}(?:项目负责人|施工负责人|勘察负责人|设计负责人|咨询负责人|拟派|资格|证书|注册|建造师|注册土木工程师|注册建筑师|注册结构工程师|高级工程师|安全生产考核|安全\s*B|B\s*类)[^。；;\n\r]{0,120}",
+        re.I,
+    )
+    return [_clean_text(match.group(0)) for match in pattern.finditer(normalized) if _clean_text(match.group(0))]
+
+
+def _dedupe_texts(values: list[str]) -> list[str]:
+    out: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        text = _clean_text(value)
+        if not text or text in seen:
+            continue
+        seen.add(text)
+        out.append(text)
+    return out
+
+
 def _parser_fields_by_name(parser_carrier: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
     fields: dict[str, dict[str, Any]] = {}
     for field in list(parser_carrier.get("parsed_fields", []) or []):
@@ -1092,7 +1150,7 @@ def _extract_project_manager_certificate_identity(text: str) -> dict[str, str]:
         (r"一级注册建筑师|一级建筑师", "一级注册建筑师"),
         (r"二级注册建筑师|二级建筑师", "二级注册建筑师"),
         (r"注册建筑师", "注册建筑师"),
-        (r"注册土木工程师[（(]岩土[）)]|注册岩土工程师", "注册土木工程师（岩土）"),
+        (r"注册土木工程师\s*[（(]\s*岩土\s*[）)]|注册岩土工程师", "注册土木工程师（岩土）"),
         (r"注册电气工程师(?:[（(][^）)]+[）)])?", None),
         (r"注册(?:土木|结构|公用设备|造价|安全)工程师(?:[（(][^）)]+[）)])?", None),
     )
@@ -1307,6 +1365,8 @@ def _extract_project_manager(text: str, *, work_lane: str = "") -> dict[str, str
         certificate_no = table_role_cert
         certificate_state = table_role_state
     identity = _extract_project_manager_certificate_identity(certificate_search_text or search_text)
+    if not identity.get("project_manager_certificate_type") and certificate_search_text and certificate_search_text != search_text:
+        identity = _extract_project_manager_certificate_identity(search_text)
     return {
         "primary_responsible_role": primary_role,
         "primary_responsible_person_name": primary_name,
@@ -1703,7 +1763,12 @@ class RealCandidateStage2CaptureService:
         except Exception:
             return dict(capture)
         refreshed = dict(capture)
-        attachment_text, attachment_text_states = self._attachment_text_bundle(
+        (
+            attachment_text,
+            attachment_text_states,
+            attachment_snapshot_refs,
+            qualification_text_candidate_blocks,
+        ) = self._attachment_text_bundle(
             list(capture.get("attachment_captures", []) or [])
         )
         combined_readback_text = "\n".join(
@@ -1723,6 +1788,8 @@ class RealCandidateStage2CaptureService:
             refreshed["detail_fields"]["attachment_text_merge_state"] = (
                 "ATTACHMENT_TEXT_MERGED" if attachment_text else "ATTACHMENT_TEXT_NOT_EXTRACTED"
             )
+            refreshed["detail_fields"]["attachment_snapshot_refs"] = attachment_snapshot_refs
+            refreshed["detail_fields"]["qualification_text_candidate_blocks"] = qualification_text_candidate_blocks
             refreshed["detail_fields"]["attachment_ocr_required_count"] = sum(
                 1 for state in attachment_text_states if "OCR_REQUIRED" in state
             )
@@ -1821,7 +1888,12 @@ class RealCandidateStage2CaptureService:
             detail_snapshot_id=snapshot_id,
             limit=attachment_capture_limit,
         )
-        attachment_text, attachment_text_states = self._attachment_text_bundle(attachment_captures)
+        (
+            attachment_text,
+            attachment_text_states,
+            attachment_snapshot_refs,
+            qualification_text_candidate_blocks,
+        ) = self._attachment_text_bundle(attachment_captures)
         combined_readback_text = "\n".join(
             part for part in (readback_text, attachment_text) if str(part or "").strip()
         )
@@ -1836,6 +1908,8 @@ class RealCandidateStage2CaptureService:
             detail_fields["attachment_text_merge_state"] = (
                 "ATTACHMENT_TEXT_MERGED" if attachment_text else "ATTACHMENT_TEXT_NOT_EXTRACTED"
             )
+            detail_fields["attachment_snapshot_refs"] = attachment_snapshot_refs
+            detail_fields["qualification_text_candidate_blocks"] = qualification_text_candidate_blocks
             detail_fields["attachment_ocr_required_count"] = sum(
                 1 for state in attachment_text_states if "OCR_REQUIRED" in state
             )
@@ -1865,12 +1939,20 @@ class RealCandidateStage2CaptureService:
         capture["capture_record"] = self.repository.persist_capture(candidate=candidate, capture=capture, now=captured_at)
         return capture
 
-    def _attachment_text_bundle(self, attachment_captures: list[Mapping[str, Any]]) -> tuple[str, list[str]]:
+    def _attachment_text_bundle(
+        self,
+        attachment_captures: list[Mapping[str, Any]],
+    ) -> tuple[str, list[str], list[dict[str, Any]], list[str]]:
         texts: list[str] = []
         states: list[str] = []
+        snapshot_refs: list[dict[str, Any]] = []
+        qualification_blocks: list[str] = []
         for attachment in attachment_captures:
             snapshot_id = str(attachment.get("attachment_snapshot_id_optional") or "").strip()
             if not snapshot_id:
+                status = str(attachment.get("attachment_capture_status") or "ATTACHMENT_CAPTURE_BLOCKED_REVIEW_REQUIRED")
+                blocker = str(attachment.get("attachment_blocker_class") or attachment.get("attachment_blocker_reason") or "")
+                states.append(":".join(part for part in ("NO_SNAPSHOT", status, blocker) if part))
                 continue
             try:
                 readback = self.object_repository.replay_snapshot(snapshot_id)
@@ -1891,15 +1973,65 @@ class RealCandidateStage2CaptureService:
             if "pdf" in content_type or blob.startswith(b"%PDF"):
                 text, state = _extract_pdf_text(blob)
                 states.append(f"{snapshot_id}:{state}")
+                snapshot_refs.append(
+                    _attachment_snapshot_ref(
+                        attachment=attachment,
+                        snapshot_id=snapshot_id,
+                        parse_state=state,
+                        attachment_type="PDF",
+                    )
+                )
                 if text:
                     texts.append(text)
+                    qualification_blocks.extend(_qualification_text_candidate_blocks(text))
                 continue
-            text = _decode_snapshot_text(readback)
-            state = "ATTACHMENT_TEXT_EXTRACTED" if text.strip() else "ATTACHMENT_TEXT_EMPTY"
-            states.append(f"{snapshot_id}:{state}")
-            if text.strip():
-                texts.append(text)
-        return "\n".join(texts), states
+            parser_carrier: dict[str, Any] = {}
+            try:
+                parser_carrier = dict(
+                    self.stage3_service.parse_raw_snapshot(snapshot_id, repository=self.object_repository)
+                )
+            except Exception as exc:  # pragma: no cover - parser failures are source dependent
+                states.append(f"{snapshot_id}:ATTACHMENT_CAPTURE_BLOCKED_REVIEW_REQUIRED:{type(exc).__name__}")
+                snapshot_refs.append(
+                    _attachment_snapshot_ref(
+                        attachment=attachment,
+                        snapshot_id=snapshot_id,
+                        parse_state="ATTACHMENT_CAPTURE_BLOCKED_REVIEW_REQUIRED",
+                        attachment_type="UNKNOWN_ATTACHMENT",
+                    )
+                )
+                continue
+            parsed_text = _attachment_parsed_field_text(parser_carrier)
+            parse_state = str(parser_carrier.get("parse_state") or "REVIEW_REQUIRED")
+            attachment_type = str(parser_carrier.get("attachment_type") or "")
+            taxonomy = [
+                str(item)
+                for item in list(parser_carrier.get("parse_error_taxonomy") or [])
+                if str(item or "").strip()
+            ]
+            state_parts = [snapshot_id, attachment_type or "ATTACHMENT", parse_state]
+            state_parts.extend(taxonomy[:4])
+            states.append(":".join(state_parts))
+            snapshot_refs.append(
+                _attachment_snapshot_ref(
+                    attachment=attachment,
+                    snapshot_id=snapshot_id,
+                    parse_state=parse_state,
+                    attachment_type=attachment_type,
+                    parse_error_taxonomy=taxonomy,
+                )
+            )
+            if parsed_text:
+                texts.append(parsed_text)
+                qualification_blocks.extend(_qualification_text_candidate_blocks(parsed_text))
+                continue
+            decoded_text = _decode_snapshot_text(readback)
+            decoded_state = "ATTACHMENT_TEXT_EXTRACTED" if decoded_text.strip() else "ATTACHMENT_TEXT_EMPTY"
+            states.append(f"{snapshot_id}:{decoded_state}")
+            if decoded_text.strip():
+                texts.append(decoded_text)
+                qualification_blocks.extend(_qualification_text_candidate_blocks(decoded_text))
+        return "\n".join(texts), states, snapshot_refs, _dedupe_texts(qualification_blocks)[:20]
 
     def _capture_same_site_attachments(
         self,
@@ -1960,6 +2092,15 @@ class RealCandidateStage2CaptureService:
                     "attachment_blocker_reason": str(carrier.get("attachment_blocker_reason") or ""),
                     "attachment_resolution_route": str(carrier.get("attachment_resolution_route") or ""),
                     "attachment_browser_replay_steps": list(carrier.get("attachment_browser_replay_steps") or []),
+                    "automated_challenge_resolution_attempted": bool(
+                        carrier.get("automated_challenge_resolution_attempted")
+                        or carrier.get("automated_challenge_resume_used")
+                    ),
+                    "automated_challenge_resolution_state": str(
+                        carrier.get("automated_challenge_resolution_state") or ""
+                    ),
+                    "challenge_resume_audit": dict(carrier.get("challenge_resume_audit") or {}),
+                    "first_attempt_carrier": dict(carrier.get("first_attempt_carrier") or {}),
                     "review_required": bool(carrier.get("review_required")),
                 }
             )
@@ -2001,6 +2142,21 @@ class RealCandidateStage2CaptureService:
             text,
             work_lane=str(work_lane.get("engineering_work_lane") or ""),
         )
+        fallback_certificate_identity = _extract_project_manager_certificate_identity(text)
+        for key in (
+            "project_manager_certificate_type",
+            "project_manager_certificate_type_parse_state",
+            "project_manager_cert_specialty",
+            "project_manager_cert_specialty_parse_state",
+            "project_manager_professional_title",
+            "project_manager_professional_title_parse_state",
+        ):
+            if key.endswith("_parse_state"):
+                base_key = key[: -len("_parse_state")]
+                if not project_manager_identity.get(base_key) and fallback_certificate_identity.get(base_key):
+                    project_manager_identity[key] = fallback_certificate_identity.get(key, project_manager_identity[key])
+            elif not project_manager_identity.get(key) and fallback_certificate_identity.get(key):
+                project_manager_identity[key] = fallback_certificate_identity[key]
         priority_profile = _verification_priority_profile(
             work_lane=str(work_lane.get("engineering_work_lane") or ""),
             identity=project_manager_identity,
@@ -2088,6 +2244,10 @@ class RealCandidateStage2CaptureService:
         row["stage2_attachment_snapshot_count"] = len(attachment_snapshot_ids)
         row["stage2_attachment_snapshot_ids"] = attachment_snapshot_ids
         row["stage2_attachment_captures"] = list(capture.get("attachment_captures", []) or [])
+        row["attachment_text_merge_state"] = str(fields.get("attachment_text_merge_state") or "")
+        row["attachment_text_parse_states"] = list(fields.get("attachment_text_parse_states") or [])
+        row["attachment_snapshot_refs"] = list(fields.get("attachment_snapshot_refs") or [])
+        row["qualification_text_candidate_blocks"] = list(fields.get("qualification_text_candidate_blocks") or [])
         row["attachment_ocr_required_count"] = _as_int(fields.get("attachment_ocr_required_count"), 0)
         row["attachment_ocr_extracted_count"] = _as_int(fields.get("attachment_ocr_extracted_count"), 0)
         if fields.get("project_name"):

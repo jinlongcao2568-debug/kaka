@@ -13,6 +13,202 @@ from shared.utils import apply_rule, build_id, ensure_enum, ensure_list, get_fla
 from stage5_rules_evidence.evidence_builder import EvidenceArtifacts
 
 
+QUAL_PM_RULE_CODES = ("QUAL-PM-001", "QUAL-PM-002", "QUAL-PM-003", "QUAL-PM-004")
+QUAL_PM_RULE_NAMES = {
+    "QUAL-PM-001": "公告项目负责人证书号同单位公开记录未确认",
+    "QUAL-PM-002": "同单位人员未公开确认为一级注册建造师",
+    "QUAL-PM-003": "注册专业未公开确认或与招标要求不一致",
+    "QUAL-PM-004": "安全B证不能替代注册建造师资格",
+}
+QUAL_PM_OFFICIAL_CHECKS = {
+    "QUAL-PM-001": "请交易中心或主管部门核查公告证书号是否属于该单位拟派项目负责人。",
+    "QUAL-PM-002": "请主管部门核查拟派项目负责人是否具备一级注册建造师资格。",
+    "QUAL-PM-003": "请主管部门核查拟派项目负责人的注册专业是否满足招标要求。",
+    "QUAL-PM-004": "请主管部门核查安全生产考核B证是否仅作为附加条件，不作为注册建造师资格替代。",
+}
+
+
+def evaluate_project_manager_qualification_rules(readback: Mapping[str, Any]) -> dict[str, Any]:
+    """Evaluate cautious Stage5 project-manager qualification rule states."""
+    carrier = dict(readback or {})
+    all_failure_reasons = _qualification_failure_reasons(carrier)
+    required_certificate_type = str(
+        carrier.get("required_certificate_type")
+        or carrier.get("required_registration_category")
+        or ""
+    )
+    required_title = str(carrier.get("required_title") or carrier.get("professional_title_requirement") or "")
+    non_constructor_requirement = _is_non_constructor_certificate_requirement(required_certificate_type)
+    title_only_requirement = bool(required_title and not required_certificate_type)
+    announced_certificate_same_company_match = bool(
+        carrier.get("announced_certificate_same_company_match")
+        or carrier.get("registration_certificate_publicly_confirmed")
+    )
+    first_class_constructor_confirmed = bool(
+        carrier.get("first_class_constructor_publicly_confirmed")
+        or carrier.get("required_registration_category_publicly_confirmed")
+    )
+    required_profession_confirmed = bool(
+        carrier.get("required_registration_profession_publicly_confirmed")
+    )
+    safety_b_certificate_present = bool(
+        carrier.get("safety_b_certificate_present")
+        or carrier.get("safety_b_certificate_no")
+        or carrier.get("safety_b_certificate_no_optional")
+    )
+
+    rule_results = []
+    rule_results.append(
+        _qualification_rule_result(
+            "QUAL-PM-001",
+            "PASS" if announced_certificate_same_company_match else "NOT_CONFIRMED",
+            all_failure_reasons,
+            fallback_reason="announced_certificate_no_not_confirmed_in_same_company_public_records",
+        )
+    )
+    rule_results.append(
+        _qualification_rule_result(
+            "QUAL-PM-002",
+            "NOT_APPLICABLE"
+            if non_constructor_requirement or title_only_requirement
+            else "PASS"
+            if first_class_constructor_confirmed
+            else "NOT_CONFIRMED",
+            all_failure_reasons,
+            fallback_reason=(
+                "first_class_constructor_rule_not_applicable_to_non_constructor_requirement"
+                if non_constructor_requirement or title_only_requirement
+                else "first_class_constructor_registration_not_publicly_confirmed"
+            ),
+        )
+    )
+    profession_conflict = any(
+        reason == "matched_certificate_profession_conflicts_with_requirement"
+        for reason in all_failure_reasons
+    )
+    rule_results.append(
+        _qualification_rule_result(
+            "QUAL-PM-003",
+            "PASS"
+            if required_profession_confirmed
+            else "REVIEW_REQUIRED"
+            if profession_conflict
+            else "NOT_CONFIRMED",
+            all_failure_reasons,
+            fallback_reason="required_registration_profession_not_publicly_confirmed",
+        )
+    )
+    safety_b_needs_review = safety_b_certificate_present and not announced_certificate_same_company_match
+    rule_results.append(
+        _qualification_rule_result(
+            "QUAL-PM-004",
+            "NOT_APPLICABLE"
+            if (non_constructor_requirement or title_only_requirement) and not safety_b_certificate_present
+            else "REVIEW_REQUIRED"
+            if safety_b_needs_review
+            else "PASS",
+            all_failure_reasons,
+            fallback_reason=(
+                "safety_b_rule_not_applicable_without_safety_b_requirement"
+                if (non_constructor_requirement or title_only_requirement) and not safety_b_certificate_present
+                else "safety_b_certificate_cannot_substitute_national_constructor_registration"
+            ),
+        )
+    )
+
+    overall_state = "PASS"
+    if any(result["status"] == "REVIEW_REQUIRED" for result in rule_results):
+        overall_state = "REVIEW_REQUIRED"
+    elif any(result["status"] == "NOT_CONFIRMED" for result in rule_results):
+        overall_state = "NOT_CONFIRMED"
+    elif all(result["status"] == "NOT_APPLICABLE" for result in rule_results):
+        overall_state = "NOT_APPLICABLE"
+    return {
+        "readback_state": carrier.get("readback_state", "READBACK_READY"),
+        "qualification_run_id": carrier.get("qualification_run_id"),
+        "overall_status": overall_state,
+        "rule_results": rule_results,
+        "failure_reasons": all_failure_reasons,
+        "official_check_recommendations": [
+            result["official_check_recommendation"]
+            for result in rule_results
+            if result["status"] not in {"PASS", "NOT_APPLICABLE"}
+        ],
+        "public_only": True,
+        "customer_visible": False,
+        "no_legal_conclusion": True,
+    }
+
+
+def _qualification_rule_result(
+    rule_code: str,
+    status: str,
+    failure_reasons: list[str],
+    *,
+    fallback_reason: str,
+) -> dict[str, Any]:
+    reasons = list(failure_reasons)
+    if status != "PASS" and fallback_reason not in reasons:
+        reasons.append(fallback_reason)
+    return {
+        "rule_code": rule_code,
+        "rule_name": QUAL_PM_RULE_NAMES[rule_code],
+        "status": status,
+        "failure_reasons": [] if status == "PASS" else reasons,
+        "official_check_recommendation": QUAL_PM_OFFICIAL_CHECKS[rule_code],
+        "no_legal_conclusion": True,
+    }
+
+
+def _qualification_failure_reasons(readback: Mapping[str, Any]) -> list[str]:
+    reasons: list[str] = []
+    for key in ("failure_reasons", "review_reasons"):
+        reasons.extend(str(value) for value in ensure_list(readback.get(key)) if value not in (None, ""))
+    for nested_key in (
+        "jzsc",
+        "jzsc_readback",
+        "jzsc_personnel_carrier",
+        "guangdong_three_library_person_directory",
+        "gdcic_person_directory",
+        "person_directory_readback",
+    ):
+        nested = readback.get(nested_key)
+        if not isinstance(nested, Mapping):
+            continue
+        for key in ("failure_reasons", "review_reasons"):
+            reasons.extend(str(value) for value in ensure_list(nested.get(key)) if value not in (None, ""))
+        for result in ensure_list(nested.get("source_results")):
+            if not isinstance(result, Mapping):
+                continue
+            reasons.extend(
+                str(value)
+                for value in ensure_list(result.get("failure_reasons"))
+                if value not in (None, "")
+            )
+    return list(dict.fromkeys(reasons))
+
+
+def _is_non_constructor_certificate_requirement(certificate_type: str) -> bool:
+    text = str(certificate_type or "")
+    if not text or "建造师" in text:
+        return False
+    return bool(
+        any(
+            token in text
+            for token in (
+                "注册土木工程师",
+                "注册建筑师",
+                "注册结构工程师",
+                "注册电气工程师",
+                "注册公用设备工程师",
+                "注册化工工程师",
+                "注册环保工程师",
+                "注册监理工程师",
+            )
+        )
+    )
+
+
 @dataclass(frozen=True)
 class RuleArtifacts:
     rule_hit: Any
@@ -74,6 +270,28 @@ class RuleRunner:
             "project_manager_active_conflict_readback.active_conflict_run_id",
             "project_manager_active_conflict_readback.project_timeline_evidence_refs",
             "project_manager_active_conflict_readback.risk_signal_evidence_refs",
+            "project_manager_id_optional",
+            "verification_profile_id",
+        ),
+        "QUAL-PM-001": (
+            "project_manager_qualification_readback.qualification_run_id",
+            "project_manager_qualification_readback.announced_certificate_no",
+            "project_manager_id_optional",
+            "verification_profile_id",
+        ),
+        "QUAL-PM-002": (
+            "project_manager_qualification_readback.qualification_run_id",
+            "project_manager_id_optional",
+            "verification_profile_id",
+        ),
+        "QUAL-PM-003": (
+            "project_manager_qualification_readback.qualification_run_id",
+            "project_manager_qualification_readback.required_registration_profession_keywords",
+            "project_manager_id_optional",
+            "verification_profile_id",
+        ),
+        "QUAL-PM-004": (
+            "project_manager_qualification_readback.qualification_run_id",
             "project_manager_id_optional",
             "verification_profile_id",
         ),
@@ -538,6 +756,11 @@ class RuleRunner:
         rule_code: str,
         inputs: Mapping[str, Any],
     ) -> list[str]:
+        if rule_code in QUAL_PM_RULE_CODES:
+            return self._project_manager_qualification_review_reasons(
+                rule_code=rule_code,
+                inputs=inputs,
+            )
         if rule_code not in {"PM-001", "PM-002"}:
             return []
         carrier = inputs.get("project_manager_active_conflict_readback") or inputs.get(
@@ -568,6 +791,35 @@ class RuleRunner:
                 for reason in timeline_reasons:
                     if reason not in (None, ""):
                         reasons.append(f"{rule_code}: registration timeline {reason}")
+        return reasons
+
+    def _project_manager_qualification_review_reasons(
+        self,
+        *,
+        rule_code: str,
+        inputs: Mapping[str, Any],
+    ) -> list[str]:
+        carrier = inputs.get("project_manager_qualification_readback")
+        if not isinstance(carrier, Mapping):
+            return []
+        readback = evaluate_project_manager_qualification_rules(carrier)
+        result = next(
+            (
+                item
+                for item in readback.get("rule_results", [])
+                if isinstance(item, Mapping) and item.get("rule_code") == rule_code
+            ),
+            None,
+        )
+        if not isinstance(result, Mapping) or result.get("status") == "PASS":
+            return []
+        reasons = [
+            f"{rule_code}: {result.get('status')} {reason}"
+            for reason in ensure_list(result.get("failure_reasons"))
+            if reason not in (None, "")
+        ]
+        if not reasons:
+            reasons.append(f"{rule_code}: {result.get('status')}")
         return reasons
 
     def _degrade_for_preflight(
@@ -801,4 +1053,9 @@ class RuleRunner:
         )
 
 
-__all__ = ["RuleArtifacts", "RuleRunner"]
+__all__ = [
+    "QUAL_PM_RULE_CODES",
+    "RuleArtifacts",
+    "RuleRunner",
+    "evaluate_project_manager_qualification_rules",
+]

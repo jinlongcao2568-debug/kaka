@@ -101,6 +101,11 @@
         "expected_rule_gate_status": "REVIEW"
       },
       {
+        "case_ref": "GC-STAGE5-QUAL-PM-REVIEW",
+        "rule_code": "QUAL-PM-001",
+        "expected_rule_gate_status": "REVIEW"
+      },
+      {
         "case_ref": "GC-STAGE5-MISSING-DEPENDENCY-REVIEW",
         "rule_code": "PM-002",
         "expected_rule_gate_status": "REVIEW"
@@ -398,6 +403,146 @@
         "golden_case_refs": [
           "GC-STAGE5-PM-002-REVIEW",
           "GC-STAGE5-MISSING-DEPENDENCY-REVIEW"
+        ],
+        "minimum_confidence": 0.6
+      },
+      "QUAL-PM-001": {
+        "enabled": true,
+        "version": "stage5-factory-v1",
+        "priority": 115,
+        "dependency_fields": [
+          "project_manager_id_optional",
+          "verification_profile_id",
+          "project_manager_qualification_readback.qualification_run_id",
+          "project_manager_qualification_readback.announced_certificate_no"
+        ],
+        "dependency_evidence": [
+          "verification_profile_id",
+          "project_manager_qualification_readback.qualification_run_id",
+          "project_manager_qualification_readback.source_refs",
+          "project_manager_qualification_readback.jzsc.verification_run_id",
+          "project_manager_qualification_readback.guangdong_three_library_person_directory.source_readback_id"
+        ],
+        "input_contract": {
+          "producer_handoff": "H-04-STAGE4-TO-STAGE5",
+          "optional_carrier": "project_manager_qualification_readback"
+        },
+        "output_contract": {
+          "objects": [
+            "rule_hit",
+            "rule_gate_decision",
+            "review_request"
+          ]
+        },
+        "document_term_refs": [
+          "D3-R-029",
+          "D13-R-028"
+        ],
+        "golden_case_refs": [
+          "GC-STAGE5-QUAL-PM-REVIEW"
+        ],
+        "minimum_confidence": 0.6
+      },
+      "QUAL-PM-002": {
+        "enabled": true,
+        "version": "stage5-factory-v1",
+        "priority": 116,
+        "dependency_fields": [
+          "project_manager_id_optional",
+          "verification_profile_id",
+          "project_manager_qualification_readback.qualification_run_id"
+        ],
+        "dependency_evidence": [
+          "verification_profile_id",
+          "project_manager_qualification_readback.qualification_run_id",
+          "project_manager_qualification_readback.source_refs"
+        ],
+        "input_contract": {
+          "producer_handoff": "H-04-STAGE4-TO-STAGE5",
+          "optional_carrier": "project_manager_qualification_readback"
+        },
+        "output_contract": {
+          "objects": [
+            "rule_hit",
+            "rule_gate_decision",
+            "review_request"
+          ]
+        },
+        "document_term_refs": [
+          "D3-R-029",
+          "D13-R-028"
+        ],
+        "golden_case_refs": [
+          "GC-STAGE5-QUAL-PM-REVIEW"
+        ],
+        "minimum_confidence": 0.6
+      },
+      "QUAL-PM-003": {
+        "enabled": true,
+        "version": "stage5-factory-v1",
+        "priority": 117,
+        "dependency_fields": [
+          "project_manager_id_optional",
+          "verification_profile_id",
+          "project_manager_qualification_readback.qualification_run_id",
+          "project_manager_qualification_readback.required_registration_profession_keywords"
+        ],
+        "dependency_evidence": [
+          "verification_profile_id",
+          "project_manager_qualification_readback.qualification_run_id",
+          "project_manager_qualification_readback.source_refs"
+        ],
+        "input_contract": {
+          "producer_handoff": "H-04-STAGE4-TO-STAGE5",
+          "optional_carrier": "project_manager_qualification_readback"
+        },
+        "output_contract": {
+          "objects": [
+            "rule_hit",
+            "rule_gate_decision",
+            "review_request"
+          ]
+        },
+        "document_term_refs": [
+          "D3-R-029",
+          "D13-R-028"
+        ],
+        "golden_case_refs": [
+          "GC-STAGE5-QUAL-PM-REVIEW"
+        ],
+        "minimum_confidence": 0.6
+      },
+      "QUAL-PM-004": {
+        "enabled": true,
+        "version": "stage5-factory-v1",
+        "priority": 118,
+        "dependency_fields": [
+          "project_manager_id_optional",
+          "verification_profile_id",
+          "project_manager_qualification_readback.qualification_run_id"
+        ],
+        "dependency_evidence": [
+          "verification_profile_id",
+          "project_manager_qualification_readback.qualification_run_id",
+          "project_manager_qualification_readback.source_refs"
+        ],
+        "input_contract": {
+          "producer_handoff": "H-04-STAGE4-TO-STAGE5",
+          "optional_carrier": "project_manager_qualification_readback"
+        },
+        "output_contract": {
+          "objects": [
+            "rule_hit",
+            "rule_gate_decision",
+            "review_request"
+          ]
+        },
+        "document_term_refs": [
+          "D3-R-029",
+          "D13-R-028"
+        ],
+        "golden_case_refs": [
+          "GC-STAGE5-QUAL-PM-REVIEW"
         ],
         "minimum_confidence": 0.6
       },
@@ -941,6 +1086,138 @@
       "consumer_surfaces": [
         "INTERNAL_ANALYSIS",
         "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P1"
+    },
+    {
+      "rule_code": "QUAL-PM-001",
+      "name": "公告项目负责人证书号同单位公开记录未确认",
+      "topic": "QUAL",
+      "status": "DRAFT",
+      "stage": 5,
+      "default_result": "REVIEW_REQUEST",
+      "minimum_external_use_grade": "E2_REVIEW_READY",
+      "public_capability_tier": "B_PUBLIC_ENHANCED",
+      "capability_id": "B-02",
+      "upstream_objects": [
+        "project_manager",
+        "focus_bidder_verification_profile"
+      ],
+      "downstream_objects": [
+        "rule_hit",
+        "review_request"
+      ],
+      "source_refs": [
+        "D3-R-029",
+        "D13-R-028"
+      ],
+      "blocked_by": [
+        "unresolved version or clock conflict",
+        "missing public qualification readback"
+      ],
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P1"
+    },
+    {
+      "rule_code": "QUAL-PM-002",
+      "name": "同单位人员未公开确认为一级注册建造师",
+      "topic": "QUAL",
+      "status": "DRAFT",
+      "stage": 5,
+      "default_result": "REVIEW_REQUEST",
+      "minimum_external_use_grade": "E2_REVIEW_READY",
+      "public_capability_tier": "B_PUBLIC_ENHANCED",
+      "capability_id": "B-02",
+      "upstream_objects": [
+        "project_manager",
+        "focus_bidder_verification_profile"
+      ],
+      "downstream_objects": [
+        "rule_hit",
+        "review_request"
+      ],
+      "source_refs": [
+        "D3-R-029",
+        "D13-R-028"
+      ],
+      "blocked_by": [
+        "unresolved version or clock conflict",
+        "missing public qualification readback"
+      ],
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P1"
+    },
+    {
+      "rule_code": "QUAL-PM-003",
+      "name": "注册专业未公开确认或与招标要求不一致",
+      "topic": "QUAL",
+      "status": "DRAFT",
+      "stage": 5,
+      "default_result": "REVIEW_REQUEST",
+      "minimum_external_use_grade": "E2_REVIEW_READY",
+      "public_capability_tier": "B_PUBLIC_ENHANCED",
+      "capability_id": "B-02",
+      "upstream_objects": [
+        "project_manager",
+        "focus_bidder_verification_profile"
+      ],
+      "downstream_objects": [
+        "rule_hit",
+        "review_request"
+      ],
+      "source_refs": [
+        "D3-R-029",
+        "D13-R-028"
+      ],
+      "blocked_by": [
+        "unresolved version or clock conflict",
+        "missing public qualification readback"
+      ],
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P1"
+    },
+    {
+      "rule_code": "QUAL-PM-004",
+      "name": "安全B证不能替代注册建造师资格",
+      "topic": "QUAL",
+      "status": "DRAFT",
+      "stage": 5,
+      "default_result": "REVIEW_REQUEST",
+      "minimum_external_use_grade": "E2_REVIEW_READY",
+      "public_capability_tier": "B_PUBLIC_ENHANCED",
+      "capability_id": "B-02",
+      "upstream_objects": [
+        "project_manager",
+        "focus_bidder_verification_profile"
+      ],
+      "downstream_objects": [
+        "rule_hit",
+        "review_request"
+      ],
+      "source_refs": [
+        "D3-R-029",
+        "D13-R-028"
+      ],
+      "blocked_by": [
+        "unresolved version or clock conflict",
+        "missing public qualification readback"
+      ],
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS"
       ],
       "release_layer": "INTERNAL_OPERABLE",
       "value_priority": "P1"

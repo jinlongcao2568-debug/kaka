@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from dataclasses import dataclass
 from typing import Any, Callable, Mapping
 from urllib.parse import parse_qs, urlencode, urlparse
@@ -16,6 +17,35 @@ API_BASE = "https://skypt.gdcic.net/api"
 REFERER = "https://skypt.gdcic.net/openplatform/"
 SNAPSHOT_KIND = "guangdong_gdcic_openplatform_api_json_snapshot"
 USER_AGENT = "AX9S-GuangdongGdcicOpenPlatform/0.1 (+public-readonly-validation)"
+MAX_PROJECT_NAME_QUERY_CANDIDATES = 6
+
+PROJECT_NAME_NOTICE_SUFFIXES = (
+    "中标候选人及中标结果公示",
+    "中标候选人公示",
+    "中标结果公示",
+    "中标结果公告",
+    "资格审查结果公示",
+    "资格审查报告",
+    "评标报告",
+    "定标报告",
+    "招标公告",
+    "招标文件",
+)
+
+PROJECT_NAME_ROLE_SUFFIXES = (
+    "勘察设计施工总承包（EPC）",
+    "勘察设计施工总承包(EPC)",
+    "设计施工总承包（EPC）",
+    "设计施工总承包(EPC)",
+    "工程总承包（EPC）",
+    "工程总承包(EPC)",
+    "施工总承包",
+    "设计施工总承包",
+    "勘察设计施工总承包",
+    "施工",
+    "勘察设计",
+    "设计",
+)
 
 
 JsonGetter = Callable[[str, Mapping[str, str]], Mapping[str, Any]]
@@ -102,6 +132,21 @@ COMPANY_SOURCE_SPECS = (
     ),
 )
 
+PERSON_INTO_GD_SPEC = QuerySpec(
+    source_type="local_person_directory",
+    query_role="person_into_gd_name_company_lookup",
+    endpoint="/openplatform/personIntoGd/list",
+    use_project_code=False,
+    use_company=True,
+)
+
+PERSON_IN_GD_SPEC = QuerySpec(
+    source_type="local_person_directory",
+    query_role="person_in_gd_name_lookup",
+    endpoint="/openplatform/personInGd/list",
+    use_project_code=False,
+)
+
 
 def query_guangdong_gdcic_openplatform_hard_defect_sources(
     candidate: Mapping[str, Any],
@@ -125,7 +170,7 @@ def query_guangdong_gdcic_openplatform_hard_defect_sources(
 
     getter = http_get_json or _default_http_get_json
     captured_at = now or utc_now_iso()
-    project_name = _clean_text(candidate.get("project_name"))
+    project_name = _clean_project_title(candidate.get("project_name"))
     company_name = _clean_text(
         candidate.get("candidate_company")
         or candidate.get("winner_name")
@@ -140,27 +185,48 @@ def query_guangdong_gdcic_openplatform_hard_defect_sources(
     source_results: list[dict[str, Any]] = []
     failure_reasons: list[str] = []
     project_codes: list[str] = _candidate_project_codes(candidate)
+    project_name_query_candidates = _project_name_query_candidates(project_name)
 
-    if project_name:
-        lookup = _execute_query(
-            spec=PROJECT_LOOKUP_SPEC,
-            params={"projectName": project_name, "pageNo": "1", "pageSize": str(page_size)},
-            candidate=candidate,
-            repository=repository,
-            getter=getter,
-            captured_at=captured_at,
-        )
-        source_results.append(lookup)
-        project_codes = [
-            *project_codes,
-            *_extract_project_codes(lookup.get("matched_records_preview") or lookup.get("rows") or []),
-        ]
+    if project_name_query_candidates:
+        for project_name_candidate in project_name_query_candidates:
+            lookup = _execute_query(
+                spec=PROJECT_LOOKUP_SPEC,
+                params={
+                    "projectName": project_name_candidate,
+                    "pageNo": "1",
+                    "pageSize": str(page_size),
+                },
+                candidate={**dict(candidate), "project_name": project_name_candidate},
+                repository=repository,
+                getter=getter,
+                captured_at=captured_at,
+            )
+            lookup["project_name_query_candidate"] = project_name_candidate
+            source_results.append(lookup)
+            project_codes = [
+                *project_codes,
+                *_extract_project_codes(
+                    [
+                        *list(lookup.get("matched_records_preview") or []),
+                        *list(lookup.get("rows") or []),
+                    ]
+                ),
+            ]
+            if project_codes:
+                break
     else:
         failure_reasons.append("project_name_missing_for_gdcic_project_lookup")
 
     project_codes = list(dict.fromkeys(project_codes))[: max(1, max_project_codes)]
     if not project_codes and project_name:
         failure_reasons.append("gdcic_project_code_not_resolved")
+        failure_reasons.extend(
+            _project_code_resolution_failure_reasons(
+                source_results,
+                original_project_name=project_name,
+                project_name_query_candidates=project_name_query_candidates,
+            )
+        )
 
     for spec in PROJECT_SOURCE_SPECS:
         if project_codes:
@@ -250,6 +316,7 @@ def query_guangdong_gdcic_openplatform_hard_defect_sources(
         "source_query_state": "QUERIED" if queried else "NO_REPLAYABLE_SOURCE_QUERY",
         "query_context": {
             "project_name": project_name,
+            "project_name_query_candidates": project_name_query_candidates,
             "candidate_company": company_name,
             "project_codes": project_codes,
         },
@@ -263,6 +330,187 @@ def query_guangdong_gdcic_openplatform_hard_defect_sources(
         "customer_visible": False,
         "no_legal_conclusion": True,
         "no_no-risk_inference_without_sources": True,
+    }
+
+
+def query_guangdong_gdcic_openplatform_person_directory(
+    candidate: Mapping[str, Any],
+    *,
+    repository: ObjectStorageRepository | None = None,
+    http_get_json: JsonGetter | None = None,
+    now: str | None = None,
+    page_size: int = 10,
+) -> dict[str, Any]:
+    """Cross-check Guangdong Three-Library person directories.
+
+    The public directory masks names and identifiers and does not publish enough
+    certificate detail to replace national constructor-registration verification.
+    """
+    region_code = str(candidate.get("region_code") or "").upper()
+    if region_code and region_code != "CN-GD":
+        return {
+            "adapter_id": ADAPTER_ID,
+            "readback_state": "NOT_APPLICABLE",
+            "region_code": region_code,
+            "source_results": [],
+            "failure_reasons": ["region_not_guangdong"],
+            "no_legal_conclusion": True,
+        }
+
+    getter = http_get_json or _default_http_get_json
+    captured_at = now or utc_now_iso()
+    person_name = _clean_text(
+        candidate.get("project_manager_name")
+        or candidate.get("person_name")
+        or candidate.get("primary_responsible_person_name")
+    )
+    company_name = _clean_text(
+        candidate.get("candidate_company")
+        or candidate.get("winner_name")
+        or candidate.get("first_rank_company")
+    )
+    announced_certificate_no = _clean_text(
+        candidate.get("project_manager_certificate_no")
+        or candidate.get("certificate_no")
+        or candidate.get("announced_certificate_no")
+    )
+    safety_b_certificate_no = _clean_text(
+        candidate.get("safety_b_certificate_no")
+        or candidate.get("safety_production_b_certificate_no")
+        or candidate.get("safety_b_certificate_no_optional")
+    )
+    run_id = build_id(
+        "GDGDCICPERSON",
+        candidate.get("project_id") or person_name or "UNKNOWN",
+        hashlib.sha1((person_name + company_name + announced_certificate_no).encode("utf-8")).hexdigest()[:12],
+    )
+
+    source_results: list[dict[str, Any]] = []
+    failure_reasons: list[str] = []
+    if not person_name:
+        failure_reasons.append("person_name_missing_for_gdcic_person_directory_lookup")
+    else:
+        if company_name:
+            source_results.append(
+                _execute_person_directory_query(
+                    spec=PERSON_INTO_GD_SPEC,
+                    params={
+                        "name": person_name,
+                        "entName": company_name,
+                        "pageNo": "1",
+                        "pageSize": str(page_size),
+                    },
+                    candidate=candidate,
+                    repository=repository,
+                    getter=getter,
+                    captured_at=captured_at,
+                    person_name=person_name,
+                    company_name=company_name,
+                )
+            )
+        else:
+            source_results.append(_skipped_result(PERSON_INTO_GD_SPEC, "candidate_company_missing"))
+        source_results.append(
+            _execute_person_directory_query(
+                spec=PERSON_IN_GD_SPEC,
+                params={"name": person_name, "pageNo": "1", "pageSize": str(page_size)},
+                candidate=candidate,
+                repository=repository,
+                getter=getter,
+                captured_at=captured_at,
+                person_name=person_name,
+                company_name=company_name,
+            )
+        )
+
+    same_company_rows = [
+        row
+        for result in source_results
+        for row in list(result.get("matched_records_preview") or [])
+        if result.get("coverage_state") == "COVERED"
+    ]
+    name_only_rows = [
+        row
+        for result in source_results
+        for row in list(result.get("rows_preview") or [])
+        if result.get("query_role") == "person_in_gd_name_lookup"
+        and _person_name_may_match(row.get("name"), person_name)
+    ]
+    certificate_no_found = bool(
+        announced_certificate_no
+        and _certificate_no_found_in_records(
+            announced_certificate_no,
+            [
+                row
+                for result in source_results
+                for row in [
+                    *list(result.get("matched_records_preview") or []),
+                    *list(result.get("rows_preview") or []),
+                ]
+            ],
+        )
+    )
+    if not same_company_rows and person_name and company_name:
+        failure_reasons.append("gdcic_same_company_person_not_found")
+    if not same_company_rows and name_only_rows:
+        failure_reasons.append("gdcic_name_only_different_company_rows_present")
+    if announced_certificate_no and not certificate_no_found:
+        failure_reasons.append("announced_certificate_no_not_found_in_gdcic_person_directory_rows")
+    if same_company_rows and not certificate_no_found:
+        failure_reasons.append("gdcic_person_directory_does_not_publicly_confirm_registration_certificate_no")
+    if safety_b_certificate_no and not certificate_no_found:
+        failure_reasons.append("safety_b_certificate_cannot_substitute_national_constructor_registration")
+
+    query_failures = [
+        reason
+        for result in source_results
+        for reason in list(result.get("failure_reasons") or [])
+        if reason
+    ]
+    failure_reasons = _dedupe([*failure_reasons, *query_failures])
+    queried = [
+        result
+        for result in source_results
+        if result.get("readback_state") == "READBACK_READY"
+    ]
+    identity_state = (
+        "LOCAL_DIRECTORY_SAME_COMPANY_PERSON_CANDIDATE_FOUND"
+        if same_company_rows
+        else "LOCAL_DIRECTORY_SAME_COMPANY_PERSON_NOT_FOUND"
+    )
+    return {
+        "source_readback_id": run_id,
+        "adapter_id": ADAPTER_ID,
+        "adapter_version": "v1",
+        "region_code": "CN-GD",
+        "source_name": "广东建设信息网三库一平台数据开放平台",
+        "source_url": REFERER,
+        "readback_state": "READBACK_READY" if queried else "REVIEW_REQUIRED",
+        "source_query_state": "QUERIED" if queried else "NO_REPLAYABLE_SOURCE_QUERY",
+        "query_context": {
+            "person_name": person_name,
+            "candidate_company": company_name,
+            "announced_certificate_no": announced_certificate_no,
+            "safety_b_certificate_no_optional": safety_b_certificate_no,
+        },
+        "identity_resolution_state": identity_state,
+        "same_company_candidate_count": len(same_company_rows),
+        "same_company_candidates": same_company_rows[:5],
+        "name_only_candidate_count": len(name_only_rows),
+        "name_only_candidates_preview": name_only_rows[:5],
+        "certificate_verification_state": (
+            "ANNOUNCED_CERTIFICATE_NO_FOUND_IN_GDCIC_PERSON_DIRECTORY_ROWS"
+            if certificate_no_found
+            else "NOT_VERIFIED_BY_GDCIC_PERSON_DIRECTORY"
+        ),
+        "source_results": source_results,
+        "failure_reasons": failure_reasons,
+        "public_only": True,
+        "customer_visible": False,
+        "no_legal_conclusion": True,
+        "no_national_constructor_registration_substitute": True,
+        "safety_b_certificate_no_optional": safety_b_certificate_no,
+        "safety_b_certificate_substitution_allowed": False,
     }
 
 
@@ -391,6 +639,71 @@ def _unique_identity_candidates(candidates: list[dict[str, Any]]) -> list[dict[s
     return list(unique.values())
 
 
+def _execute_person_directory_query(
+    *,
+    spec: QuerySpec,
+    params: Mapping[str, str],
+    candidate: Mapping[str, Any],
+    repository: ObjectStorageRepository | None,
+    getter: JsonGetter,
+    captured_at: str,
+    person_name: str,
+    company_name: str,
+) -> dict[str, Any]:
+    url = API_BASE + spec.endpoint
+    try:
+        payload = dict(getter(url, params))
+    except Exception as exc:
+        return {
+            "source_type": spec.source_type,
+            "query_role": spec.query_role,
+            "endpoint": spec.endpoint,
+            "source_url": _url_with_query(url, params),
+            "readback_state": "FAIL_CLOSED_QUERY_ERROR",
+            "coverage_state": "NOT_COVERED",
+            "row_count": 0,
+            "matched_count": 0,
+            "failure_reasons": [f"gdcic_person_directory_query_error:{type(exc).__name__}"],
+        }
+    rows = _rows(payload)
+    matched = _matched_person_directory_rows(rows, person_name=person_name, company_name=company_name)
+    snapshot_id = _save_query_snapshot(
+        payload,
+        spec=spec,
+        params=params,
+        candidate=candidate,
+        repository=repository,
+        captured_at=captured_at,
+    )
+    failure_reasons = []
+    if not matched:
+        failure_reasons.append(f"{spec.query_role}_same_company_no_match")
+    return {
+        "source_type": spec.source_type,
+        "query_role": spec.query_role,
+        "endpoint": spec.endpoint,
+        "source_url": _url_with_query(url, params),
+        "readback_state": "READBACK_READY",
+        "coverage_state": "COVERED" if matched else "QUERY_REPLAYABLE_NO_MATCH",
+        "api_code": payload.get("code"),
+        "api_message": payload.get("msg"),
+        "total": payload.get("total"),
+        "row_count": len(rows),
+        "matched_count": len(matched),
+        "snapshot_id": snapshot_id,
+        "snapshot_refs": [
+            {
+                "snapshot_id": snapshot_id,
+                "replayable": bool(repository),
+                "source_url": _url_with_query(url, params),
+            }
+        ],
+        "rows_preview": [_person_record_preview(row) for row in rows[:5]],
+        "matched_records_preview": [_person_record_preview(row) for row in matched[:5]],
+        "failure_reasons": failure_reasons,
+    }
+
+
 def _execute_query(
     *,
     spec: QuerySpec,
@@ -433,7 +746,10 @@ def _execute_query(
     )
     failure_reasons = []
     if not matched:
-        failure_reasons.append(f"{spec.source_type}_no_project_level_match")
+        if not rows:
+            failure_reasons.append(f"{spec.source_type}_empty_result")
+        else:
+            failure_reasons.append(f"{spec.source_type}_no_project_level_match")
     return {
         "source_type": spec.source_type,
         "query_role": spec.query_role,
@@ -455,6 +771,7 @@ def _execute_query(
             }
         ],
         "matched_records_preview": [_record_preview(row) for row in matched[:3]],
+        "rows": [_record_preview(row) for row in rows[:5]],
         "failure_reasons": failure_reasons,
     }
 
@@ -577,7 +894,17 @@ def _extract_project_codes(rows: Any) -> list[str]:
     for row in rows if isinstance(rows, list) else []:
         if not isinstance(row, Mapping):
             continue
-        for key in ("projectCode", "projectId", "prjNum"):
+        for key in (
+            "projectCode",
+            "projectId",
+            "prjNum",
+            "project_code",
+            "prjCode",
+            "projectNo",
+            "projectNum",
+            "tenderProjectCode",
+            "sectionCode",
+        ):
             value = str(row.get(key) or "").strip()
             if value:
                 codes.append(value)
@@ -618,8 +945,84 @@ def _record_preview(row: Mapping[str, Any]) -> dict[str, Any]:
         "personName",
         "orgName",
         "position",
+        "role",
+        "postName",
+        "changeType",
+        "changeDate",
+        "beforeProjectManager",
+        "afterProjectManager",
+        "oldProjectManager",
+        "newProjectManager",
+        "oldMemberName",
+        "newMemberName",
+        "changeReason",
     )
     return {key: row.get(key) for key in allowed if row.get(key) not in (None, "")}
+
+
+def _person_record_preview(row: Mapping[str, Any]) -> dict[str, Any]:
+    allowed = (
+        "id",
+        "idCard",
+        "name",
+        "idNum",
+        "gender",
+        "entName",
+        "entCode",
+        "diploma",
+        "title",
+        "certificate",
+        "regStatus",
+        "verifyStatus",
+    )
+    return {key: row.get(key) for key in allowed if row.get(key) not in (None, "")}
+
+
+def _matched_person_directory_rows(
+    rows: list[Mapping[str, Any]],
+    *,
+    person_name: str,
+    company_name: str,
+) -> list[Mapping[str, Any]]:
+    normalized_company = _normalize(company_name)
+    matched = []
+    for row in rows:
+        if not _person_name_may_match(row.get("name"), person_name):
+            continue
+        row_company = _normalize(row.get("entName") or row.get("corpName") or row.get("orgName"))
+        if normalized_company and row_company and (
+            normalized_company in row_company or row_company in normalized_company
+        ):
+            matched.append(row)
+    return matched
+
+
+def _person_name_may_match(masked_or_plain_name: Any, person_name: str) -> bool:
+    target = _clean_text(person_name)
+    candidate = _clean_text(masked_or_plain_name)
+    if not target or not candidate:
+        return False
+    if candidate == target:
+        return True
+    visible_chars = [
+        char
+        for char in candidate
+        if char not in {"*", "＊", "x", "X", "·", " ", "\t", "\n", "\r"}
+    ]
+    if not visible_chars:
+        return False
+    return all(char in target for char in visible_chars)
+
+
+def _certificate_no_found_in_records(certificate_no: str, rows: list[Mapping[str, Any]]) -> bool:
+    normalized_certificate_no = _normalize(certificate_no)
+    if not normalized_certificate_no:
+        return False
+    for row in rows:
+        for value in row.values():
+            if normalized_certificate_no and normalized_certificate_no in _normalize(value):
+                return True
+    return False
 
 
 def _skipped_result(spec: QuerySpec, reason: str) -> dict[str, Any]:
@@ -652,6 +1055,14 @@ def _candidate_project_codes(candidate: Mapping[str, Any]) -> list[str]:
         "source_project_code",
         "gdcic_project_code",
         "project_public_code",
+        "projectNo",
+        "project_no",
+        "projectNum",
+        "prjNum",
+        "prjCode",
+        "tenderProjectCode",
+        "sectionCode",
+        "bid_section_code",
     ):
         value = _clean_text(candidate.get(key))
         if value:
@@ -666,11 +1077,111 @@ def _candidate_project_codes(candidate: Mapping[str, Any]) -> list[str]:
         for query_text in query_texts:
             for key, values in parse_qs(query_text).items():
                 query.setdefault(key, []).extend(values)
-        for key in ("projectCode", "project_code", "prjNum", "projectId"):
+        for key in (
+            "projectCode",
+            "project_code",
+            "prjNum",
+            "projectId",
+            "projectNo",
+            "projectNum",
+            "prjCode",
+            "tenderProjectCode",
+            "sectionCode",
+        ):
             for value in query.get(key, []):
                 cleaned = _clean_text(value)
                 if cleaned:
                     codes.append(cleaned)
+    for value in (candidate.get("project_name"), candidate.get("source_url")):
+        codes.extend(_extract_codes_from_text(value))
+    return list(dict.fromkeys(codes))
+
+
+def _project_code_resolution_failure_reasons(
+    source_results: list[Mapping[str, Any]],
+    *,
+    original_project_name: str,
+    project_name_query_candidates: list[str],
+) -> list[str]:
+    lookups = [
+        result
+        for result in source_results
+        if result.get("query_role") == PROJECT_LOOKUP_SPEC.query_role
+    ]
+    reasons: list[str] = []
+    if project_name_query_candidates and project_name_query_candidates[0] != original_project_name:
+        reasons.append("gdcic_project_title_normalized_before_lookup")
+    if len(project_name_query_candidates) > 1:
+        reasons.append("gdcic_project_code_not_resolved_after_project_name_candidate_queries")
+    if lookups and all(int(result.get("row_count") or 0) == 0 for result in lookups):
+        reasons.append("gdcic_project_lookup_empty_result")
+    elif lookups:
+        reasons.append("gdcic_project_lookup_rows_without_project_code")
+    else:
+        reasons.append("gdcic_project_lookup_not_executed")
+    return reasons
+
+
+def _project_name_query_candidates(project_name: str) -> list[str]:
+    base = _clean_project_title(project_name)
+    if not base:
+        return []
+    candidates: list[str] = []
+
+    def add(value: str) -> None:
+        cleaned = _clean_project_title(value)
+        if cleaned and len(cleaned) >= 4:
+            candidates.append(cleaned)
+
+    add(base)
+    without_epc = re.sub(r"[（(]\s*EPC\s*[）)]", "", base, flags=re.IGNORECASE)
+    add(without_epc)
+    for suffix in PROJECT_NAME_ROLE_SUFFIXES:
+        if base.endswith(suffix):
+            add(base[: -len(suffix)])
+        if without_epc.endswith(suffix):
+            add(without_epc[: -len(suffix)])
+    for separator in ("—", "－"):
+        if separator in base:
+            parts = [part.strip() for part in base.split(separator) if part.strip()]
+            for part in parts:
+                add(part)
+            if len(parts) > 1:
+                add(parts[-1])
+    add(_strip_trailing_parenthetical(base))
+    return list(dict.fromkeys(candidates))[:MAX_PROJECT_NAME_QUERY_CANDIDATES]
+
+
+def _clean_project_title(value: Any) -> str:
+    text = _clean_text(value)
+    if not text:
+        return ""
+    text = re.sub(r"【[^】]{1,40}】$", "", text).strip()
+    for suffix in PROJECT_NAME_NOTICE_SUFFIXES:
+        if text.endswith(suffix):
+            text = text[: -len(suffix)].strip()
+    return text
+
+
+def _strip_trailing_parenthetical(value: str) -> str:
+    text = _clean_text(value)
+    # Keep meaningful route/phase brackets in the middle of a project name; only
+    # remove short trailing technical labels such as "(EPC)".
+    return re.sub(r"([（(][A-Za-z0-9\\-_/ ]{1,16}[）)])$", "", text).strip()
+
+
+def _extract_codes_from_text(value: Any) -> list[str]:
+    text = _clean_text(value)
+    if not text:
+        return []
+    patterns = (
+        r"\bE?\d{12,32}\b",
+        r"\bJG\d{4}-\d{3,8}\b",
+        r"\b[A-Z]\d{10,32}\b",
+    )
+    codes: list[str] = []
+    for pattern in patterns:
+        codes.extend(re.findall(pattern, text, flags=re.IGNORECASE))
     return list(dict.fromkeys(codes))
 
 
@@ -685,4 +1196,5 @@ def _dedupe(values: list[str]) -> list[str]:
 __all__ = [
     "ADAPTER_ID",
     "query_guangdong_gdcic_openplatform_hard_defect_sources",
+    "query_guangdong_gdcic_openplatform_person_directory",
 ]

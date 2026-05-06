@@ -111,6 +111,29 @@ class AlwaysFailTransport:
         raise self.error
 
 
+class FakeAttachmentChallengeResolver:
+    def __init__(self, content: bytes) -> None:
+        self.content = content
+        self.requests: list[dict[str, object]] = []
+
+    def resolve_same_site_attachment(self, request: dict[str, object]) -> dict[str, object]:
+        self.requests.append(dict(request))
+        return {
+            "url": request["attachment_url"],
+            "status_code": 200,
+            "content": self.content,
+            "content_type": "application/pdf",
+            "headers": {"x-ax9s-fetch-transport": "fake_challenge_resolver"},
+            "resolution_method": "controlled_test_ocr_browser_resume",
+            "resolution_capabilities_used": [
+                "captcha_recognition",
+                "ocr_recognition",
+                "same_session_capture_resume",
+                "browser_fingerprint_profile_reuse",
+            ],
+        }
+
+
 def _repo(tmp_dir: str) -> ObjectStorageRepository:
     settings = Settings(
         storage_backend="json-file",
@@ -675,6 +698,81 @@ class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
                 [item["url"] for item in transport.call_log],
                 [GZ_YWTB_DETAIL_URL, GZ_YWTB_ATTACHMENT_URL],
             )
+
+    def test_same_site_attachment_challenge_can_be_resolved_by_explicit_resolver(self) -> None:
+        pdf_bytes = _pdf_like_bytes()
+        captcha_html = "<html><body><p>验证码</p><p>安全验证</p></body></html>".encode("utf-8")
+        transport = FakeRealPublicFetchTransport(
+            {
+                GZ_YWTB_ATTACHMENT_URL: RealPublicFetchResponse(
+                    url=GZ_YWTB_ATTACHMENT_URL,
+                    status_code=200,
+                    content=captcha_html,
+                    content_type="text/html; charset=utf-8",
+                    final_url=GZ_YWTB_ATTACHMENT_URL,
+                ),
+            }
+        )
+        resolver = FakeAttachmentChallengeResolver(pdf_bytes)
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = _repo(tmp_dir)
+            fetcher = RealPublicEntryFetcher(
+                transport=transport,
+                repository=repo,
+                timeout_seconds=3,
+                attachment_challenge_resolver=resolver,
+                automated_challenge_resolution_enabled=True,
+            )
+            attachment = fetcher.fetch_same_site_attachment_url(
+                GZ_YWTB_ATTACHMENT_URL,
+                parent_profile_id="GUANGZHOU-YWTB-CONSTRUCTION-LIST",
+                detail_page_url=GZ_YWTB_DETAIL_URL,
+                lineage_refs={"candidate_key": "gz-candidate-001"},
+            )
+
+            self.assertEqual(attachment["status"], "FETCHED")
+            self.assertEqual(attachment["automated_challenge_resolution_state"], "RESOLVED_AND_SNAPSHOT_CAPTURED")
+            self.assertTrue(attachment["automated_challenge_resume_used"])
+            self.assertEqual(repo.read_snapshot_bytes(attachment["snapshot_id_optional"]), pdf_bytes)
+            self.assertEqual(len(resolver.requests), 1)
+            self.assertEqual(resolver.requests[0]["attachment_blocker_class"], "CAPTCHA_MANUAL_REQUIRED")
+            audit = attachment["challenge_resume_audit"]
+            self.assertEqual(audit["resolution_method"], "controlled_test_ocr_browser_resume")
+            self.assertIn("captcha_recognition", audit["resolution_capabilities_used"])
+            replay = repo.replay_snapshot(attachment["snapshot_id_optional"])
+            self.assertTrue(replay["manifest"]["fetch_audit"]["automated_challenge_resume_used"])
+
+    def test_same_site_attachment_challenge_stays_fail_closed_without_explicit_resolver(self) -> None:
+        captcha_html = b"<html><body><p>captcha</p><p>verificationCode</p></body></html>"
+        transport = FakeRealPublicFetchTransport(
+            {
+                GZ_YWTB_ATTACHMENT_URL: RealPublicFetchResponse(
+                    url=GZ_YWTB_ATTACHMENT_URL,
+                    status_code=200,
+                    content=captcha_html,
+                    content_type="text/html; charset=utf-8",
+                    final_url=GZ_YWTB_ATTACHMENT_URL,
+                ),
+            }
+        )
+        fetcher = RealPublicEntryFetcher(
+            transport=transport,
+            repository=None,
+            timeout_seconds=3,
+        )
+
+        attachment = fetcher.fetch_same_site_attachment_url(
+            GZ_YWTB_ATTACHMENT_URL,
+            parent_profile_id="GUANGZHOU-YWTB-CONSTRUCTION-LIST",
+            detail_page_url=GZ_YWTB_DETAIL_URL,
+            lineage_refs={"candidate_key": "gz-candidate-001"},
+        )
+
+        self.assertEqual(attachment["status"], "DEGRADED")
+        self.assertEqual(attachment["attachment_blocker_class"], "CAPTCHA_MANUAL_REQUIRED")
+        self.assertTrue(attachment["fail_closed"])
+        self.assertNotIn("automated_challenge_resolution_state", attachment)
 
     def test_province_detail_urls_allow_http_and_jspx_variants(self) -> None:
         transport = FakeRealPublicFetchTransport(

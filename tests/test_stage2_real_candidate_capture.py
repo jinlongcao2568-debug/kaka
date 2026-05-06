@@ -3,6 +3,8 @@ from __future__ import annotations
 import sys
 import tempfile
 import unittest
+import zipfile
+from io import BytesIO
 from pathlib import Path
 from unittest.mock import patch
 
@@ -242,6 +244,27 @@ def _unit_name_table_with_pdf_attachment_detail_html() -> bytes:
             </tbody>
           </table>
           <p><a href="https://www.ccgp.gov.cn/cggg/zygg/zbgg/202604/files/gd-manager.pdf">评标报告（隐去评标委员会姓名版）.pdf</a></p>
+        </section>
+      </body>
+    </html>
+    """
+    return html.encode("utf-8")
+
+
+def _unit_name_table_with_attachment_detail_html(attachment_url: str, label: str) -> bytes:
+    html = f"""
+    <html>
+      <head><title>广东附件资格要求评标报告</title></head>
+      <body>
+        <h1>广东附件资格要求评标报告</h1>
+        <section><h2>公告内容</h2>
+          <table>
+            <thead><tr><th>序号</th><th>单位名称</th><th>报价（元）</th></tr></thead>
+            <tbody>
+              <tr><td>1</td><td>广东附件测试有限公司</td><td>12000000.0</td></tr>
+            </tbody>
+          </table>
+          <p><a href="{attachment_url}">{label}</a></p>
         </section>
       </body>
     </html>
@@ -546,6 +569,73 @@ def _build_blank_pdf_bytes() -> bytes:
     writer.add_blank_page(width=200, height=200)
     writer.write(buffer)
     return buffer.getvalue()
+
+
+def _build_docx_qualification_bytes() -> bytes:
+    document_xml = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+      <w:body>
+        <w:p><w:r><w:t>第一中标候选人: 广东附件测试有限公司</w:t></w:r></w:p>
+        <w:tbl>
+          <w:tr>
+            <w:tc><w:p><w:r><w:t>项目负责人</w:t></w:r></w:p></w:tc>
+            <w:tc><w:p><w:r><w:t>何岩</w:t></w:r></w:p></w:tc>
+          </w:tr>
+          <w:tr>
+            <w:tc><w:p><w:r><w:t>注册编号</w:t></w:r></w:p></w:tc>
+            <w:tc><w:p><w:r><w:t>AY244400001</w:t></w:r></w:p></w:tc>
+          </w:tr>
+          <w:tr>
+            <w:tc><w:p><w:r><w:t>证书类型</w:t></w:r></w:p></w:tc>
+            <w:tc><w:p><w:r><w:t>注册土木工程师（岩土）</w:t></w:r></w:p></w:tc>
+          </w:tr>
+          <w:tr>
+            <w:tc><w:p><w:r><w:t>注册专业</w:t></w:r></w:p></w:tc>
+            <w:tc><w:p><w:r><w:t>岩土工程</w:t></w:r></w:p></w:tc>
+          </w:tr>
+        </w:tbl>
+      </w:body>
+    </w:document>
+    """
+    content_types = """<?xml version="1.0" encoding="UTF-8"?>
+    <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"></Types>
+    """
+    buffer = BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr("[Content_Types].xml", content_types)
+        archive.writestr("word/document.xml", document_xml)
+    return buffer.getvalue()
+
+
+def _build_xlsx_qualification_bytes() -> bytes:
+    worksheet_xml = """<?xml version="1.0" encoding="UTF-8"?>
+    <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+      <sheetData>
+        <row r="1">
+          <c r="A1" t="inlineStr"><is><t>项目负责人</t></is></c>
+          <c r="B1" t="inlineStr"><is><t>何路</t></is></c>
+        </row>
+        <row r="2">
+          <c r="A2" t="inlineStr"><is><t>证书类型</t></is></c>
+          <c r="B2" t="inlineStr"><is><t>注册土木工程师(道路工程)</t></is></c>
+        </row>
+      </sheetData>
+    </worksheet>
+    """
+    buffer = BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr("xl/worksheets/sheet1.xml", worksheet_xml)
+    return buffer.getvalue()
+
+
+def _build_html_qualification_bytes() -> bytes:
+    return (
+        "<html><body><table>"
+        "<tr><td>项目负责人</td><td>何建</td></tr>"
+        "<tr><td>证书类型</td><td>一级注册建筑师</td></tr>"
+        "<tr><td>职称</td><td>高级工程师</td></tr>"
+        "</table></body></html>"
+    ).encode("utf-8")
 
 
 class RealCandidateStage2CaptureTests(unittest.TestCase):
@@ -958,6 +1048,161 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
         self.assertEqual(fields["attachment_ocr_required_count"], 1)
         self.assertEqual(fields["attachment_ocr_extracted_count"], 1)
         self.assertTrue(any(PDF_TEXT_OCR_EXTRACTED in state for state in fields["attachment_text_parse_states"]))
+
+    def test_docx_attachment_text_feeds_certificate_type_and_qualification_blocks(self) -> None:
+        detail_url = "https://www.ccgp.gov.cn/cggg/zygg/zbgg/202604/t20260430_docx_manager.htm"
+        attachment_url = "https://www.ccgp.gov.cn/cggg/zygg/zbgg/202604/files/gd-manager.docx"
+        transport = FakeRealPublicFetchTransport(
+            {
+                detail_url: RealPublicFetchResponse(
+                    url=detail_url,
+                    status_code=200,
+                    content=_unit_name_table_with_attachment_detail_html(attachment_url, "资格要求.docx"),
+                    content_type="text/html; charset=utf-8",
+                    final_url=detail_url,
+                ),
+                attachment_url: RealPublicFetchResponse(
+                    url=attachment_url,
+                    status_code=200,
+                    content=_build_docx_qualification_bytes(),
+                    content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    final_url=attachment_url,
+                ),
+            }
+        )
+        candidate = {
+            "candidate_key": "gd-docx-manager-001",
+            "notice_id": "NOTICE-GD-DOCX-MANAGER-001",
+            "project_id": "PROJ-GD-DOCX-MANAGER-001",
+            "project_name": "广东附件资格工程评标报告",
+            "region_code": "CN-GD",
+            "project_type": "survey_design",
+            "notice_stage": "candidate_notice",
+            "source_url": detail_url,
+            "source_profile_id": "CCGP-CENTRAL-NOTICES",
+            "source_candidate_mode": "REAL_PUBLIC_SOURCE_CANDIDATES",
+            "key_fields_present": ["project_name", "notice_stage"],
+            "candidate_count": 0,
+        }
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            service = RealCandidateStage2CaptureService(
+                stage2_service=FakeStage2Service(transport),
+                object_repository=_repo(tmp_dir),
+                repository=RealCandidateStage2CaptureRepository(),
+            )
+            result = service.capture_candidates([candidate], now="2026-05-01T00:00:00+00:00")
+
+        enriched = result["enriched_candidates"][0]
+        self.assertEqual(enriched["project_manager_certificate_type"], "注册土木工程师（岩土）")
+        self.assertEqual(enriched["project_manager_cert_specialty"], "岩土")
+        self.assertEqual(enriched["attachment_text_merge_state"], "ATTACHMENT_TEXT_MERGED")
+        self.assertTrue(enriched["attachment_snapshot_refs"])
+        self.assertTrue(enriched["qualification_text_candidate_blocks"])
+        fields = result["captures"][0]["detail_fields"]
+        self.assertTrue(any("WORD_DOCX" in state for state in fields["attachment_text_parse_states"]))
+
+    def test_xlsx_attachment_text_feeds_qualification_blocks_without_negative_fact(self) -> None:
+        detail_url = "https://www.ccgp.gov.cn/cggg/zygg/zbgg/202604/t20260430_xlsx_manager.htm"
+        attachment_url = "https://www.ccgp.gov.cn/cggg/zygg/zbgg/202604/files/gd-manager.xlsx"
+        transport = FakeRealPublicFetchTransport(
+            {
+                detail_url: RealPublicFetchResponse(
+                    url=detail_url,
+                    status_code=200,
+                    content=_unit_name_table_with_attachment_detail_html(attachment_url, "资格要求.xlsx"),
+                    content_type="text/html; charset=utf-8",
+                    final_url=detail_url,
+                ),
+                attachment_url: RealPublicFetchResponse(
+                    url=attachment_url,
+                    status_code=200,
+                    content=_build_xlsx_qualification_bytes(),
+                    content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    final_url=attachment_url,
+                ),
+            }
+        )
+        candidate = {
+            "candidate_key": "gd-xlsx-manager-001",
+            "notice_id": "NOTICE-GD-XLSX-MANAGER-001",
+            "project_id": "PROJ-GD-XLSX-MANAGER-001",
+            "project_name": "广东附件表格资格工程评标报告",
+            "region_code": "CN-GD",
+            "project_type": "survey_design",
+            "notice_stage": "candidate_notice",
+            "source_url": detail_url,
+            "source_profile_id": "CCGP-CENTRAL-NOTICES",
+            "source_candidate_mode": "REAL_PUBLIC_SOURCE_CANDIDATES",
+            "key_fields_present": ["project_name", "notice_stage"],
+            "candidate_count": 0,
+        }
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            service = RealCandidateStage2CaptureService(
+                stage2_service=FakeStage2Service(transport),
+                object_repository=_repo(tmp_dir),
+                repository=RealCandidateStage2CaptureRepository(),
+            )
+            result = service.capture_candidates([candidate], now="2026-05-01T00:00:00+00:00")
+
+        enriched = result["enriched_candidates"][0]
+        self.assertEqual(enriched["project_manager_certificate_type"], "注册土木工程师(道路工程)")
+        self.assertEqual(enriched["project_manager_cert_specialty"], "道路")
+        self.assertEqual(enriched["attachment_text_merge_state"], "ATTACHMENT_TEXT_MERGED")
+        self.assertTrue(enriched["qualification_text_candidate_blocks"])
+        self.assertFalse(any("造假" in block for block in enriched["qualification_text_candidate_blocks"]))
+
+    def test_html_attachment_text_feeds_certificate_type_and_title(self) -> None:
+        detail_url = "https://www.ccgp.gov.cn/cggg/zygg/zbgg/202604/t20260430_html_manager.htm"
+        attachment_url = "https://www.ccgp.gov.cn/cggg/zygg/zbgg/202604/files/gd-manager.html"
+        transport = FakeRealPublicFetchTransport(
+            {
+                detail_url: RealPublicFetchResponse(
+                    url=detail_url,
+                    status_code=200,
+                    content=_unit_name_table_with_attachment_detail_html(attachment_url, "资格要求.html"),
+                    content_type="text/html; charset=utf-8",
+                    final_url=detail_url,
+                ),
+                attachment_url: RealPublicFetchResponse(
+                    url=attachment_url,
+                    status_code=200,
+                    content=_build_html_qualification_bytes(),
+                    content_type="text/html; charset=utf-8",
+                    final_url=attachment_url,
+                ),
+            }
+        )
+        candidate = {
+            "candidate_key": "gd-html-manager-001",
+            "notice_id": "NOTICE-GD-HTML-MANAGER-001",
+            "project_id": "PROJ-GD-HTML-MANAGER-001",
+            "project_name": "广东附件网页资格工程评标报告",
+            "region_code": "CN-GD",
+            "project_type": "survey_design",
+            "notice_stage": "candidate_notice",
+            "source_url": detail_url,
+            "source_profile_id": "CCGP-CENTRAL-NOTICES",
+            "source_candidate_mode": "REAL_PUBLIC_SOURCE_CANDIDATES",
+            "key_fields_present": ["project_name", "notice_stage"],
+            "candidate_count": 0,
+        }
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            service = RealCandidateStage2CaptureService(
+                stage2_service=FakeStage2Service(transport),
+                object_repository=_repo(tmp_dir),
+                repository=RealCandidateStage2CaptureRepository(),
+            )
+            result = service.capture_candidates([candidate], now="2026-05-01T00:00:00+00:00")
+
+        enriched = result["enriched_candidates"][0]
+        self.assertEqual(enriched["project_manager_certificate_type"], "一级注册建筑师")
+        self.assertEqual(enriched["project_manager_professional_title"], "高级工程师")
+        self.assertEqual(enriched["attachment_text_merge_state"], "ATTACHMENT_TEXT_MERGED")
+        fields = result["captures"][0]["detail_fields"]
+        self.assertTrue(any("HTML" in state for state in fields["attachment_text_parse_states"]))
 
     def test_candidate_summary_table_extracts_company_and_project_manager(self) -> None:
         detail_url = "https://www.ccgp.gov.cn/cggg/zygg/zbgg/202604/t20260430_summary_table.htm"
