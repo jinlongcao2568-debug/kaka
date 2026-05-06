@@ -27,6 +27,7 @@ from stage3_parsing.service import Stage3Service
 from stage4_verification.service import Stage4Service
 from storage.db import DatabaseSession
 from storage.repositories.object_storage_repo import ObjectStorageRepository
+from stage4_verification.public_evidence_readback import build_public_evidence_readback
 from stage5_rules_evidence.service import Stage5Service
 from stage5_rules_evidence.rule_runner import evaluate_project_manager_qualification_rules
 
@@ -47,6 +48,66 @@ def stage4_bundle_with_inputs(extra_inputs: dict[str, object]) -> StageBundle:
         handoff=dict(stage4.handoff),
         trace_rules=list(stage4.trace_rules),
         inputs={**stage4.inputs, **extra_inputs},
+    )
+
+
+def _public_evidence_readback(
+    *,
+    readback_id: str,
+    target_type: str,
+    source_family: str,
+    subject_identifier: str = "91440101MA5TEST001",
+    field_extracts: dict[str, object] | None = None,
+    validity_or_status: str = "ACTIVE",
+    repair_or_release_state: str = "NOT_REPAIRED",
+    data_grade_or_audit_state: str = "OFFICIAL_CONFIRMED",
+    review_required: bool = False,
+    failure_reasons: list[str] | None = None,
+) -> dict[str, object]:
+    return build_public_evidence_readback(
+        readback_id=readback_id,
+        verification_target_type=target_type,
+        source_family=source_family,
+        source_url=f"https://example.invalid/{readback_id}.html",
+        source_snapshot_id=f"SNAP-{readback_id}",
+        snapshot_hash=f"SHA-{readback_id}",
+        subject_identifier=subject_identifier,
+        field_extracts=field_extracts or {"source_slice_sha256": f"SLICE-{readback_id}"},
+        validity_or_status=validity_or_status,
+        repair_or_release_state=repair_or_release_state,
+        data_grade_or_audit_state=data_grade_or_audit_state,
+        review_required=review_required,
+        failure_reasons=failure_reasons or [],
+    )
+
+
+def _engineering_readback(
+    *,
+    readback_id: str,
+    target_type: str,
+    source_family: str,
+    supporting_source_families: list[str] | None = None,
+) -> dict[str, object]:
+    date_fields = {
+        "construction_permit": {"permit_date": "2026-04-28"},
+        "contract_public_info": {"contract_start_at": "2026-05-01", "contract_end_at": "2026-12-31"},
+        "completion_filing": {"completion_acceptance_at": "2026-12-31"},
+        "performance_public_record": {"performance_record_date": "2026-05-03"},
+    }[target_type]
+    return _public_evidence_readback(
+        readback_id=readback_id,
+        target_type=target_type,
+        source_family=source_family,
+        subject_identifier="PROJECT-GD-001",
+        repair_or_release_state="ACTIVE",
+        field_extracts={
+            "project_code": "4401002605010001",
+            "project_identity_resolved": True,
+            "candidate_company_match": True,
+            "supporting_source_families": supporting_source_families or [],
+            "source_slice_sha256": f"SLICE-{readback_id}",
+            **date_fields,
+        },
     )
 
 
@@ -187,32 +248,27 @@ class Stage5RuleFactoryExpansionTests(unittest.TestCase):
             self.assertTrue(rule["no_legal_conclusion"], rule["rule_code"])
         credit = next(rule for rule in stage5_rules if rule["rule_code"] == "CREDIT-001")
         attack = next(rule for rule in stage5_rules if rule["rule_code"] == "ATTACK-001")
-        self.assertEqual(credit["basis_verification_state"], "BASIS_MISSING")
+        self.assertEqual(credit["basis_verification_state"], "VERIFIED")
         self.assertEqual(credit["minimum_external_use_grade"], "E2_REVIEW_READY")
         self.assertFalse(credit["customer_visible_allowed"])
         self.assertEqual(attack["basis_verification_state"], "HEURISTIC_ONLY")
         self.assertFalse(attack["customer_visible_allowed"])
-        partially_bound_rules = {
-            "CREDIT-001": "PUBLIC-CREDIT-SOURCE-PENDING",
-            "REL-001": "PUBLIC-RELATION-SOURCE-PENDING",
-            "ENG-001": "PUBLIC-ENGINEERING-SOURCE-PENDING",
-            "ENG-002": "PUBLIC-ENGINEERING-SOURCE-PENDING",
-            "PERF-001": "PUBLIC-ENGINEERING-SOURCE-PENDING",
+        public_evidence_gate_rules = {
+            "CREDIT-001": "PUBLIC-CREDIT-SOURCE-GATE",
+            "REL-001": "PUBLIC-RELATION-MULTI-SOURCE-GATE",
+            "ENG-001": "PUBLIC-ENGINEERING-MULTI-SOURCE-GATE",
+            "ENG-002": "PUBLIC-ENGINEERING-MULTI-SOURCE-GATE",
+            "PERF-001": "PUBLIC-ENGINEERING-MULTI-SOURCE-GATE",
         }
         basis_catalog = load_rule_basis_catalog()
         basis_by_id = {basis["basis_id"]: basis for basis in basis_catalog["basis"]}
-        for rule_code, pending_basis_id in partially_bound_rules.items():
+        for rule_code, gate_basis_id in public_evidence_gate_rules.items():
             rule = next(rule for rule in stage5_rules if rule["rule_code"] == rule_code)
-            self.assertEqual(rule["basis_verification_state"], "BASIS_MISSING")
-            self.assertIn(pending_basis_id, rule["basis_refs"])
+            self.assertEqual(rule["basis_verification_state"], "VERIFIED")
+            self.assertIn(gate_basis_id, rule["basis_refs"])
             self.assertFalse(rule["customer_visible_allowed"])
-            verified_source_refs = [
-                basis_ref
-                for basis_ref in rule["basis_refs"]
-                if basis_ref != pending_basis_id
-                and basis_by_id[basis_ref]["basis_status"] == "VERIFIED"
-            ]
-            self.assertTrue(verified_source_refs, rule_code)
+            self.assertEqual(basis_by_id[gate_basis_id]["basis_status"], "VERIFIED")
+            self.assertEqual(rule["basis_gate_policy"], "STRICT_PUBLIC_EVIDENCE_GATE")
         for rule_code in (
             "PROC-001",
             "PROC-002",
@@ -232,7 +288,7 @@ class Stage5RuleFactoryExpansionTests(unittest.TestCase):
             self.assertTrue(binding["golden_case_refs"])
         self.assertTrue(factory["golden_cases"])
 
-    def test_strict_basis_gate_degrades_missing_basis_rule_to_review(self) -> None:
+    def test_public_evidence_gate_degrades_missing_readback_rule_to_review(self) -> None:
         stage4 = stage4_bundle_with_inputs(
             {
                 "stage5_requested_rule_codes": ["CREDIT-001"],
@@ -244,11 +300,193 @@ class Stage5RuleFactoryExpansionTests(unittest.TestCase):
         trace = stage5.inputs["stage5_rule_execution_trace"][0]
 
         self.assertEqual(stage5.inputs["stage5_rule_codes"], ["CREDIT-001"])
-        self.assertEqual(trace["basis_verification_state"], "BASIS_MISSING")
-        self.assertEqual(trace["basis_gate_status"], "REVIEW")
-        self.assertTrue(any("basis verification state BASIS_MISSING" in reason for reason in trace["basis_gate_reasons"]))
+        self.assertEqual(trace["basis_verification_state"], "VERIFIED")
+        self.assertEqual(trace["basis_gate_status"], "PASS")
+        self.assertEqual(trace["public_evidence_gate_status"], "REVIEW")
+        self.assertTrue(
+            any("public evidence readback missing" in reason for reason in trace["public_evidence_gate_reasons"])
+        )
         self.assertEqual(stage5.record("rule_gate_decision").get("rule_gate_status"), "REVIEW")
         self.assertIn("review_request", stage5.records)
+
+    def test_credit_rule_passes_only_with_active_official_public_credit_readback(self) -> None:
+        readback = _public_evidence_readback(
+            readback_id="CREDIT-ACTIVE-001",
+            target_type="credit_penalty_blacklist",
+            source_family="credit_china",
+            field_extracts={
+                "penalty_document_no": "粤建罚字001",
+                "source_slice_sha256": "SLICE-CREDIT-ACTIVE-001",
+            },
+        )
+        stage4 = stage4_bundle_with_inputs(
+            {
+                "stage5_requested_rule_codes": ["CREDIT-001"],
+                "stage4_public_evidence_readbacks": [readback],
+            }
+        )
+
+        stage5 = Stage5Service().run(stage4)
+        trace = stage5.inputs["stage5_rule_execution_trace"][0]
+
+        self.assertEqual(stage5.record("rule_gate_decision").get("rule_gate_status"), "PASS")
+        self.assertEqual(trace["public_evidence_gate_status"], "PASS")
+        self.assertEqual(trace["result_ceiling"], "CLUE")
+        self.assertEqual(stage5.record("rule_hit").get("result_type"), "CLUE")
+        self.assertIn("CREDIT-ACTIVE-001", trace["public_evidence_passed_readback_ids"])
+
+    def test_credit_rule_reviews_when_subject_or_repair_status_missing(self) -> None:
+        readback = _public_evidence_readback(
+            readback_id="CREDIT-INCOMPLETE-001",
+            target_type="credit_penalty_blacklist",
+            source_family="credit_china",
+            subject_identifier="",
+            repair_or_release_state="",
+        )
+        stage4 = stage4_bundle_with_inputs(
+            {
+                "stage5_requested_rule_codes": ["CREDIT-001"],
+                "stage4_public_evidence_readbacks": [readback],
+            }
+        )
+
+        stage5 = Stage5Service().run(stage4)
+        trace = stage5.inputs["stage5_rule_execution_trace"][0]
+
+        self.assertEqual(stage5.record("rule_gate_decision").get("rule_gate_status"), "REVIEW")
+        self.assertEqual(trace["public_evidence_gate_status"], "REVIEW")
+        self.assertTrue(any("subject_identifier missing" in reason for reason in trace["blocking_reasons"]))
+        self.assertTrue(any("repair" in reason for reason in trace["blocking_reasons"]))
+
+    def test_engineering_rules_require_project_identity_audit_state_and_cross_source(self) -> None:
+        cases = {
+            "ENG-001": ("construction_permit", "ENG-PERMIT-001"),
+            "ENG-002": ("contract_public_info", "ENG-CONTRACT-001"),
+            "PERF-001": ("performance_public_record", "ENG-PERF-001"),
+        }
+        for rule_code, (target_type, readback_id) in cases.items():
+            with self.subTest(rule_code=rule_code):
+                readback = _engineering_readback(
+                    readback_id=readback_id,
+                    target_type=target_type,
+                    source_family="construction_permit_public_source",
+                    supporting_source_families=["national_construction_market_platform"],
+                )
+                stage4 = stage4_bundle_with_inputs(
+                    {
+                        "stage5_requested_rule_codes": [rule_code],
+                        "stage5_supported_upstream_objects": [
+                            "coverage_registry",
+                            "focus_bidder_verification_profile",
+                        ],
+                        "stage4_public_evidence_readbacks": [readback],
+                    }
+                )
+
+                stage5 = Stage5Service().run(stage4)
+                trace = stage5.inputs["stage5_rule_execution_trace"][0]
+
+                self.assertEqual(stage5.record("rule_gate_decision").get("rule_gate_status"), "PASS")
+                self.assertEqual(trace["public_evidence_gate_status"], "PASS")
+                self.assertIn(readback_id, trace["public_evidence_passed_readback_ids"])
+
+    def test_engineering_rule_reviews_single_source_or_missing_audit_state(self) -> None:
+        readback = _engineering_readback(
+            readback_id="ENG-SINGLE-SOURCE-001",
+            target_type="construction_permit",
+            source_family="national_construction_market_platform",
+        )
+        readback["data_grade_or_audit_state"] = ""
+        stage4 = stage4_bundle_with_inputs(
+            {
+                "stage5_requested_rule_codes": ["ENG-001"],
+                "stage5_supported_upstream_objects": [
+                    "coverage_registry",
+                    "focus_bidder_verification_profile",
+                ],
+                "stage4_public_evidence_readbacks": [readback],
+            }
+        )
+
+        stage5 = Stage5Service().run(stage4)
+        trace = stage5.inputs["stage5_rule_execution_trace"][0]
+
+        self.assertEqual(stage5.record("rule_gate_decision").get("rule_gate_status"), "REVIEW")
+        self.assertEqual(trace["public_evidence_gate_status"], "REVIEW")
+        self.assertTrue(any("audit confirmation missing" in reason for reason in trace["blocking_reasons"]))
+        self.assertTrue(any("provincial/local engineering readback missing" in reason for reason in trace["blocking_reasons"]))
+
+    def test_relation_rule_requires_gsxt_plus_second_public_or_project_file_source(self) -> None:
+        gsxt = _public_evidence_readback(
+            readback_id="REL-GSXT-001",
+            target_type="enterprise_relation_public_record",
+            source_family="national_enterprise_credit_publicity_system",
+            field_extracts={
+                "relationship_type": "shareholder",
+                "counterparty_identifier": "91440101MA5REL002",
+                "source_slice_sha256": "SLICE-REL-GSXT-001",
+            },
+        )
+        project_file = _public_evidence_readback(
+            readback_id="REL-PROJECT-FILE-001",
+            target_type="enterprise_relation_public_record",
+            source_family="project_public_document",
+            field_extracts={
+                "relationship_type": "shareholder",
+                "counterparty_identifier": "91440101MA5REL002",
+                "project_file_relation_evidence": True,
+                "source_slice_sha256": "SLICE-REL-PROJECT-FILE-001",
+            },
+        )
+        stage4 = stage4_bundle_with_inputs(
+            {
+                "stage5_requested_rule_codes": ["REL-001"],
+                "stage5_supported_upstream_objects": [
+                    "project_base",
+                    "focus_bidder_verification_profile",
+                ],
+                "stage4_public_evidence_readbacks": [gsxt, project_file],
+            }
+        )
+
+        stage5 = Stage5Service().run(stage4)
+        trace = stage5.inputs["stage5_rule_execution_trace"][0]
+
+        self.assertEqual(stage5.record("rule_gate_decision").get("rule_gate_status"), "PASS")
+        self.assertEqual(trace["public_evidence_gate_status"], "PASS")
+        self.assertFalse(trace["customer_visible_allowed"])
+        self.assertTrue(trace["no_legal_conclusion"])
+
+    def test_relation_rule_reviews_name_similarity_or_gsxt_single_source(self) -> None:
+        gsxt = _public_evidence_readback(
+            readback_id="REL-GSXT-NAME-ONLY-001",
+            target_type="enterprise_relation_public_record",
+            source_family="national_enterprise_credit_publicity_system",
+            field_extracts={
+                "relationship_type": "suspected_name_similarity",
+                "counterparty_identifier": "similar-name-only",
+                "name_similarity_only": True,
+                "source_slice_sha256": "SLICE-REL-GSXT-NAME-ONLY-001",
+            },
+        )
+        stage4 = stage4_bundle_with_inputs(
+            {
+                "stage5_requested_rule_codes": ["REL-001"],
+                "stage5_supported_upstream_objects": [
+                    "project_base",
+                    "focus_bidder_verification_profile",
+                ],
+                "stage4_public_evidence_readbacks": [gsxt],
+            }
+        )
+
+        stage5 = Stage5Service().run(stage4)
+        trace = stage5.inputs["stage5_rule_execution_trace"][0]
+
+        self.assertEqual(stage5.record("rule_gate_decision").get("rule_gate_status"), "REVIEW")
+        self.assertEqual(trace["public_evidence_gate_status"], "REVIEW")
+        self.assertTrue(any("name similarity only" in reason for reason in trace["blocking_reasons"]))
+        self.assertTrue(any("second public source" in reason for reason in trace["blocking_reasons"]))
 
     def test_internal_only_rule_cannot_support_strict_customer_visible_gate(self) -> None:
         stage4 = stage4_bundle_with_inputs(

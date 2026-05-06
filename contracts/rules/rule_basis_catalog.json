@@ -439,18 +439,19 @@
       "basis_status": "VERIFIED"
     },
     {
-      "basis_id": "PUBLIC-CREDIT-SOURCE-PENDING",
+      "basis_id": "PUBLIC-CREDIT-SOURCE-GATE",
       "basis_type": "PUBLIC_SOURCE_REQUIREMENT",
-      "basis_name": "信用中国、GSXT、法院执行、JZSC 和地方住建信用多源证据门待实现",
+      "basis_name": "信用中国、GSXT、法院执行、JZSC 和地方住建信用公开证据门",
       "article_refs": [
-        "pending"
+        "Stage4 public evidence readback contract"
       ],
-      "official_url": "PUBLIC_CREDIT_SOURCE_URL_REQUIRED",
+      "official_url": "INTERNAL_CONTRACT_STAGE4_PUBLIC_EVIDENCE_READBACK",
       "applies_to": [
         "信用限制或处罚公开线索"
       ],
       "does_not_apply_to": [
-        "未完成信用源归属和时效校验"
+        "未完成信用源归属和时效校验",
+        "缺主体统一社会信用代码或等价消歧"
       ],
       "required_evidence": [
         "信用源官方 URL",
@@ -460,22 +461,23 @@
         "至少一个官方源 snapshot hash；客户可见前需要多源或原始处罚决定佐证"
       ],
       "result_ceiling": "CLUE",
-      "basis_status": "BASIS_MISSING"
+      "basis_status": "VERIFIED"
     },
     {
-      "basis_id": "PUBLIC-RELATION-SOURCE-PENDING",
+      "basis_id": "PUBLIC-RELATION-MULTI-SOURCE-GATE",
       "basis_type": "PUBLIC_SOURCE_REQUIREMENT",
-      "basis_name": "公开主体关系冲突多源证据门待实现",
+      "basis_name": "公开主体关系冲突 GSXT 与第二公开源证据门",
       "article_refs": [
-        "pending"
+        "Stage4 public evidence readback contract"
       ],
-      "official_url": "PUBLIC_RELATION_SOURCE_URL_REQUIRED",
+      "official_url": "INTERNAL_CONTRACT_STAGE4_PUBLIC_EVIDENCE_READBACK",
       "applies_to": [
         "主体关系冲突线索"
       ],
       "does_not_apply_to": [
         "只有名称相似",
-        "无统一社会信用代码或公开关系证据"
+        "无统一社会信用代码或公开关系证据",
+        "缺第二公开源或项目文件佐证"
       ],
       "required_evidence": [
         "统一社会信用代码",
@@ -485,16 +487,16 @@
         "客户可见前需要第二公开源或项目文件关系条款佐证"
       ],
       "result_ceiling": "CLUE",
-      "basis_status": "BASIS_MISSING"
+      "basis_status": "VERIFIED"
     },
     {
-      "basis_id": "PUBLIC-ENGINEERING-SOURCE-PENDING",
+      "basis_id": "PUBLIC-ENGINEERING-MULTI-SOURCE-GATE",
       "basis_type": "PUBLIC_SOURCE_REQUIREMENT",
-      "basis_name": "工程许可、竣工、合同履约多源证据门待实现",
+      "basis_name": "工程许可、竣工、合同履约 JZSC 与省级平台多源证据门",
       "article_refs": [
-        "pending"
+        "Stage4 public evidence readback contract"
       ],
-      "official_url": "PUBLIC_ENGINEERING_SOURCE_URL_REQUIRED",
+      "official_url": "INTERNAL_CONTRACT_STAGE4_PUBLIC_EVIDENCE_READBACK",
       "applies_to": [
         "施工许可、竣工备案、合同履约公开异常线索"
       ],
@@ -510,7 +512,7 @@
         "异常字段 source slice 和 snapshot hash"
       ],
       "result_ceiling": "CLUE",
-      "basis_status": "BASIS_MISSING"
+      "basis_status": "VERIFIED"
     },
     {
       "basis_id": "INTERNAL-STAGE5-EVIDENCE-GATE",

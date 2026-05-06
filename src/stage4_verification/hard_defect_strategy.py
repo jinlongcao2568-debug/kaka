@@ -8,6 +8,8 @@ import re
 from dataclasses import asdict, dataclass
 from typing import Any, Mapping
 
+from stage4_verification.public_evidence_readback import normalize_public_evidence_readbacks
+
 
 READY_FOR_PUBLIC_VERIFICATION = "READY_FOR_PUBLIC_VERIFICATION"
 REVIEW_REQUIRED = "REVIEW_REQUIRED"
@@ -231,6 +233,41 @@ STRATEGY_DEFINITIONS: tuple[dict[str, Any], ...] = (
         "selection_reason": "performance field exists; performance public readback is required",
     },
     {
+        "strategy_key": "enterprise_relation_conflict",
+        "hard_defect_family": "ENTERPRISE_RELATION_CONFLICT_CLUE",
+        "priority": 75,
+        "required_field_aliases": (
+            "enterprise_relation",
+            "subject_relation",
+            "shareholder_relation",
+            "director_or_manager_relation",
+            "same_controller_relation",
+            "related_party_relation",
+        ),
+        "required_public_verifications": ("enterprise_relation_public_record", "enterprise_public_record"),
+        "stage5_rule_codes": ("REL-001",),
+        "preferred_source_families": (
+            "national_enterprise_credit_publicity_system",
+            "project_public_document",
+            "public_resource_trading_platform",
+        ),
+        "verification_chain_roles": (
+            {
+                "role": "gsxt_relation_chain",
+                "source_family": "national_enterprise_credit_publicity_system",
+                "target_evidence": "shareholder_director_controller_or_filing_relation",
+                "gate_use": "disambiguates relationship by unified social credit code; no name-only conclusion",
+            },
+            {
+                "role": "second_public_or_project_file_chain",
+                "source_family": "project_public_document",
+                "target_evidence": "project_file_or_second_public_source_relation_evidence",
+                "gate_use": "supports relation clue; still no legal conclusion",
+            },
+        ),
+        "selection_reason": "relation field exists; GSXT plus second public source or project-file evidence is required",
+    },
+    {
         "strategy_key": "procedure_public_notice_timeline",
         "hard_defect_family": "PROCEDURAL_DEFECT",
         "priority": 80,
@@ -423,6 +460,7 @@ def build_evidence_risk_hard_defect_strategy_readback(carrier: Mapping[str, Any]
         ],
         "verification_target_count": len(_as_list(carrier.get("verification_targets"))),
         "strategy_target_count": len(_as_list(carrier.get("strategy_targets"))),
+        "public_evidence_readback_count": len(normalize_public_evidence_readbacks(carrier)),
     }
 
 
@@ -731,6 +769,8 @@ def _context_triggers_definition(context: Mapping[str, Any], definition: Mapping
         return bool(context.get("candidate_company_name"))
     if key in {"construction_permit", "contract_public_info", "completion_filing"}:
         return False
+    if key == "enterprise_relation_conflict":
+        return False
     if key == "procedure_public_notice_timeline":
         return context.get("conflict_state") not in (None, "", "CONSISTENT")
     return False
@@ -781,6 +821,18 @@ def _target_identifier(
         )
         or context.get("project_manager_public_identifier_optional")
         or context.get("project_manager_name")
+        or context.get("candidate_company_name"),
+        "enterprise_relation_public_record": _first_field_value(
+            parsed_fields,
+            (
+                "enterprise_relation",
+                "subject_relation",
+                "shareholder_relation",
+                "director_or_manager_relation",
+                "same_controller_relation",
+                "related_party_relation",
+            ),
+        )
         or context.get("candidate_company_name"),
         "public_notice_timeline": (
             context.get("project_id")

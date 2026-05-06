@@ -217,6 +217,7 @@ class RuleEvidenceEngine:
             "review_request_id": rule_coverage_summary.get("review_request_id"),
             "evidence_refs": list(rule_coverage_summary.get("evidence_refs", [])),
             "stage4_public_verification_refs": list(inputs.get("stage4_public_verification_refs", [])),
+            "stage4_public_evidence_refs": list(inputs.get("stage4_public_evidence_refs", [])),
             "source_object_refs": list(inputs.get("source_object_refs", [])),
         }
         model_assist = build_rule_model_assist(

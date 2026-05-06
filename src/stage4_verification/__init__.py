@@ -18,6 +18,11 @@ from stage4_verification.hard_defect_strategy import (
     build_evidence_risk_hard_defect_strategy,
     build_evidence_risk_hard_defect_strategy_readback,
 )
+from stage4_verification.public_evidence_readback import (
+    build_public_evidence_readback,
+    evaluate_public_evidence_gate,
+    normalize_public_evidence_readbacks,
+)
 
 __all__ = [
     "EvidenceRiskHardDefectStrategyCarrier",
@@ -27,6 +32,9 @@ __all__ = [
     "build_evidence_risk_hard_defect_strategy",
     "build_evidence_risk_hard_defect_strategy_readback",
     "build_project_manager_active_conflict_readback",
+    "build_public_evidence_readback",
     "build_public_verification_readback",
+    "evaluate_public_evidence_gate",
     "evaluate_project_manager_active_conflict",
+    "normalize_public_evidence_readbacks",
 ]

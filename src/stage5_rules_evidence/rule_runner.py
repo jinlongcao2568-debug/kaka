@@ -10,6 +10,11 @@ from typing import Any, Mapping
 
 from shared.contracts_runtime import ContractStore
 from shared.utils import apply_rule, build_id, ensure_enum, ensure_list, get_flag
+from stage4_verification.public_evidence_readback import (
+    PUBLIC_EVIDENCE_RULE_CODES,
+    evaluate_public_evidence_gate,
+    normalize_public_evidence_readbacks,
+)
 from stage5_rules_evidence.evidence_builder import EvidenceArtifacts
 
 
@@ -295,6 +300,35 @@ class RuleRunner:
             "project_manager_id_optional",
             "verification_profile_id",
         ),
+        "CREDIT-001": (
+            "stage4_public_evidence_readbacks",
+            "stage4_public_evidence_refs",
+            "verification_profile_id",
+            "evidence_grade_profile_id",
+        ),
+        "REL-001": (
+            "stage4_public_evidence_readbacks",
+            "stage4_public_evidence_refs",
+            "verification_profile_id",
+        ),
+        "ENG-001": (
+            "stage4_public_evidence_readbacks",
+            "stage4_public_evidence_refs",
+            "verification_profile_id",
+            "evidence_grade_profile_id",
+        ),
+        "ENG-002": (
+            "stage4_public_evidence_readbacks",
+            "stage4_public_evidence_refs",
+            "verification_profile_id",
+            "evidence_grade_profile_id",
+        ),
+        "PERF-001": (
+            "stage4_public_evidence_readbacks",
+            "stage4_public_evidence_refs",
+            "verification_profile_id",
+            "evidence_grade_profile_id",
+        ),
     }
     ACTIVE_RULE_STATUSES = frozenset({"DRAFT", "ACTIVE", "INTERNAL_READY"})
 
@@ -357,9 +391,13 @@ class RuleRunner:
                 continue
             if isinstance(value, Mapping):
                 for key in (
+                    "readback_id",
+                    "snapshot_hash",
                     "source_snapshot_id",
                     "source_url",
                     "verification_run_id",
+                    "verification_target_type",
+                    "subject_identifier",
                     "evidence_id",
                     "active_conflict_run_id",
                 ):
@@ -950,6 +988,63 @@ class RuleRunner:
             reasons.append(f"{rule_code}: {result.get('status')}")
         return reasons
 
+    def _public_evidence_gate(self, *, rule_code: str, inputs: Mapping[str, Any]) -> dict[str, Any]:
+        if rule_code not in PUBLIC_EVIDENCE_RULE_CODES:
+            return {
+                "gate_status": "PASS",
+                "review_required": False,
+                "reasons": [],
+                "readback_ids": [],
+                "passed_readback_ids": [],
+                "source_refs": [],
+                "no_legal_conclusion": True,
+                "customer_visible": False,
+            }
+        readbacks: list[dict[str, Any]] = []
+        for key in (
+            "stage4_public_evidence_readbacks",
+            "public_evidence_readbacks",
+            "credit_public_readbacks",
+            "engineering_public_readbacks",
+            "relation_public_readbacks",
+        ):
+            readbacks.extend(normalize_public_evidence_readbacks(inputs.get(key)))
+        return evaluate_public_evidence_gate(rule_code, readbacks)
+
+    def _public_evidence_rule_review_reasons(
+        self,
+        *,
+        rule_code: str,
+        public_evidence_gate: Mapping[str, Any],
+    ) -> list[str]:
+        if rule_code not in PUBLIC_EVIDENCE_RULE_CODES:
+            return []
+        if public_evidence_gate.get("gate_status") == "PASS":
+            return []
+        reasons = [
+            str(reason)
+            for reason in ensure_list(public_evidence_gate.get("reasons"))
+            if reason not in (None, "")
+        ]
+        if not reasons:
+            reasons.append(f"{rule_code}: public evidence gate review")
+        return reasons
+
+    def _result_type_for_rule(
+        self,
+        *,
+        rule_code: str,
+        rule: Mapping[str, Any],
+        profile: Mapping[str, Any],
+        inputs: Mapping[str, Any],
+    ) -> str:
+        result_type = str(inputs.get("result_type") or rule.get("default_result") or "REVIEW_REQUEST")
+        if rule_code in PUBLIC_EVIDENCE_RULE_CODES:
+            ceiling = str(profile.get("result_ceiling") or "")
+            if ceiling:
+                return ceiling
+        return result_type
+
     def _degrade_for_preflight(
         self,
         *,
@@ -1010,6 +1105,7 @@ class RuleRunner:
                 inputs=inputs,
                 pseudo_competitor_signal_set=pseudo_competitor_signal_set,
             )
+            public_evidence_gate = self._public_evidence_gate(rule_code=rule_code, inputs=inputs)
             preflight_reasons = list(profile.get("fail_closed_reasons", []))
             if confidence < float(profile["minimum_confidence"]):
                 preflight_reasons.append(
@@ -1019,6 +1115,12 @@ class RuleRunner:
                 self._project_manager_public_readback_review_reasons(
                     rule_code=rule_code,
                     inputs=inputs,
+                )
+            )
+            preflight_reasons.extend(
+                self._public_evidence_rule_review_reasons(
+                    rule_code=rule_code,
+                    public_evidence_gate=public_evidence_gate,
                 )
             )
             (
@@ -1044,6 +1146,12 @@ class RuleRunner:
                 focus_bidder_verification_profile=focus_bidder_verification_profile,
                 pseudo_competitor_signal_set=pseudo_competitor_signal_set,
             )
+            public_evidence_refs = [
+                str(ref)
+                for ref in ensure_list(public_evidence_gate.get("source_refs"))
+                if ref not in (None, "")
+            ]
+            dependency_evidence_refs = list(dict.fromkeys([*dependency_evidence_refs, *public_evidence_refs]))
             source_object_refs = ensure_list(inputs.get("source_object_refs"))
             if not source_object_refs:
                 source_object_refs = self._build_rule_source_object_refs(
@@ -1052,8 +1160,14 @@ class RuleRunner:
                     public_attack_surface=public_attack_surface,
                     focus_bidder_verification_profile=focus_bidder_verification_profile,
                     pseudo_competitor_signal_set=pseudo_competitor_signal_set,
-                )
+            )
             source_object_refs = list(dict.fromkeys([*dependency_evidence_refs, *[str(ref) for ref in source_object_refs]]))
+            result_type = self._result_type_for_rule(
+                rule_code=rule_code,
+                rule=rule,
+                profile=profile,
+                inputs=inputs,
+            )
             boundary_note = (
                 f"{rule.get('name')}; version={profile['version']}; priority={profile['priority']}; "
                 f"upstream={','.join(profile['upstream_objects'])}; "
@@ -1074,7 +1188,7 @@ class RuleRunner:
                     "result_type": ensure_enum(
                         self.store,
                         "result_type",
-                        inputs.get("result_type") or rule.get("default_result"),
+                        result_type,
                     ),
                     "rule_hit_state": rule_hit_state_for_hit,
                     "evidence_refs": [evidence_artifacts.evidence.get("evidence_id")],
@@ -1109,6 +1223,22 @@ class RuleRunner:
                         "customer_visible_allowed": bool(profile["customer_visible_allowed"]),
                         "no_legal_conclusion": bool(profile["no_legal_conclusion"]),
                         "result_ceiling": str(profile["result_ceiling"]),
+                        "public_evidence_gate_status": str(public_evidence_gate.get("gate_status")),
+                        "public_evidence_gate_reasons": [
+                            str(reason)
+                            for reason in ensure_list(public_evidence_gate.get("reasons"))
+                            if reason not in (None, "")
+                        ],
+                        "public_evidence_readback_ids": [
+                            str(readback_id)
+                            for readback_id in ensure_list(public_evidence_gate.get("readback_ids"))
+                            if readback_id not in (None, "")
+                        ],
+                        "public_evidence_passed_readback_ids": [
+                            str(readback_id)
+                            for readback_id in ensure_list(public_evidence_gate.get("passed_readback_ids"))
+                            if readback_id not in (None, "")
+                        ],
                         "confidence": confidence,
                         "rule_gate_status": rule_gate_status_for_hit,
                         "rule_hit_state": rule_hit_state_for_hit,

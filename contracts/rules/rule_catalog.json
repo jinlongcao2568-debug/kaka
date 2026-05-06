@@ -1090,9 +1090,9 @@
         "REG-GSXT-SYSTEM-OPERATION",
         "PUBLIC-COURT-EXECUTION-PUBLICITY",
         "REG-BUILDING-MARKET-CREDIT",
-        "PUBLIC-CREDIT-SOURCE-PENDING"
+        "PUBLIC-CREDIT-SOURCE-GATE"
       ],
-      "basis_verification_state": "BASIS_MISSING",
+      "basis_verification_state": "VERIFIED",
       "applicability_scope": {
         "applies_to": [
           "信用限制或处罚公开线索"
@@ -1105,7 +1105,7 @@
       "result_ceiling": "CLUE",
       "customer_visible_allowed": false,
       "no_legal_conclusion": true,
-      "basis_gate_policy": "FAIL_CLOSED_UNTIL_MULTI_SOURCE_EVIDENCE_VERIFIED"
+      "basis_gate_policy": "STRICT_PUBLIC_EVIDENCE_GATE"
     },
     {
       "rule_code": "ATTACK-001",
@@ -1525,9 +1525,9 @@
       "basis_refs": [
         "REG-ENTERPRISE-INFO-PUBLICITY",
         "REG-GSXT-SYSTEM-OPERATION",
-        "PUBLIC-RELATION-SOURCE-PENDING"
+        "PUBLIC-RELATION-MULTI-SOURCE-GATE"
       ],
-      "basis_verification_state": "BASIS_MISSING",
+      "basis_verification_state": "VERIFIED",
       "applicability_scope": {
         "applies_to": [
           "公开主体关系冲突线索"
@@ -1540,7 +1540,7 @@
       "result_ceiling": "CLUE",
       "customer_visible_allowed": false,
       "no_legal_conclusion": true,
-      "basis_gate_policy": "FAIL_CLOSED_UNTIL_MULTI_SOURCE_EVIDENCE_VERIFIED"
+      "basis_gate_policy": "STRICT_PUBLIC_EVIDENCE_GATE"
     },
     {
       "rule_code": "ENG-001",
@@ -1579,9 +1579,9 @@
         "LAW-ARCHITECTURE-7",
         "REG-CONSTRUCTION-PERMIT",
         "PUBLIC-JZSC-PROJECT-INFO-MANAGEMENT",
-        "PUBLIC-ENGINEERING-SOURCE-PENDING"
+        "PUBLIC-ENGINEERING-MULTI-SOURCE-GATE"
       ],
-      "basis_verification_state": "BASIS_MISSING",
+      "basis_verification_state": "VERIFIED",
       "applicability_scope": {
         "applies_to": [
           "建筑工程施工许可或竣工备案公开异常线索"
@@ -1594,7 +1594,7 @@
       "result_ceiling": "CLUE",
       "customer_visible_allowed": false,
       "no_legal_conclusion": true,
-      "basis_gate_policy": "FAIL_CLOSED_UNTIL_MULTI_SOURCE_EVIDENCE_VERIFIED"
+      "basis_gate_policy": "STRICT_PUBLIC_EVIDENCE_GATE"
     },
     {
       "rule_code": "ENG-002",
@@ -1632,9 +1632,9 @@
       "basis_refs": [
         "PROJECT-TENDER-DOCUMENT",
         "PUBLIC-JZSC-PROJECT-INFO-MANAGEMENT",
-        "PUBLIC-ENGINEERING-SOURCE-PENDING"
+        "PUBLIC-ENGINEERING-MULTI-SOURCE-GATE"
       ],
-      "basis_verification_state": "BASIS_MISSING",
+      "basis_verification_state": "VERIFIED",
       "applicability_scope": {
         "applies_to": [
           "合同订立或履约公开增强字段异常线索"
@@ -1647,7 +1647,7 @@
       "result_ceiling": "CLUE",
       "customer_visible_allowed": false,
       "no_legal_conclusion": true,
-      "basis_gate_policy": "FAIL_CLOSED_UNTIL_MULTI_SOURCE_EVIDENCE_VERIFIED"
+      "basis_gate_policy": "STRICT_PUBLIC_EVIDENCE_GATE"
     },
     {
       "rule_code": "ATTACH-001",
@@ -1834,9 +1834,9 @@
       "value_priority": "P1",
       "basis_refs": [
         "PUBLIC-JZSC-PROJECT-INFO-MANAGEMENT",
-        "PUBLIC-ENGINEERING-SOURCE-PENDING"
+        "PUBLIC-ENGINEERING-MULTI-SOURCE-GATE"
       ],
-      "basis_verification_state": "BASIS_MISSING",
+      "basis_verification_state": "VERIFIED",
       "applicability_scope": {
         "applies_to": [
           "履约异常或合同变更公开观察"
@@ -1849,7 +1849,7 @@
       "result_ceiling": "OBSERVATION",
       "customer_visible_allowed": false,
       "no_legal_conclusion": true,
-      "basis_gate_policy": "FAIL_CLOSED_UNTIL_MULTI_SOURCE_EVIDENCE_VERIFIED"
+      "basis_gate_policy": "STRICT_PUBLIC_EVIDENCE_GATE"
     },
     {
       "rule_code": "GOV-001",

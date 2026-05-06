@@ -14,6 +14,10 @@ from stage4_verification.hard_defect_strategy import (
     READY_FOR_PUBLIC_VERIFICATION,
     build_evidence_risk_hard_defect_strategy_readback,
 )
+from stage4_verification.public_evidence_readback import (
+    normalize_public_evidence_readbacks,
+    public_evidence_source_refs,
+)
 
 
 class Stage5Service:
@@ -221,6 +225,8 @@ class Stage5Service:
         )
 
         refs = self._hard_defect_strategy_source_refs(carrier)
+        public_evidence_readbacks = normalize_public_evidence_readbacks(carrier)
+        public_evidence_refs = public_evidence_source_refs(public_evidence_readbacks)
         requested_rule_codes = list(readback.get("stage5_requested_rule_codes") or [])
         supported_upstream = list(
             dict.fromkeys(
@@ -254,13 +260,17 @@ class Stage5Service:
                         [
                             *[str(value) for value in (inputs.get("source_object_refs") or []) if value],
                             *refs,
+                            *public_evidence_refs,
                         ]
                     )
                 ),
+                "stage4_public_evidence_readbacks": public_evidence_readbacks,
+                "stage4_public_evidence_refs": public_evidence_refs,
                 "visibility_reason_summary": (
                     "Stage4 evidence-risk hard-defect strategy readback consumed by Stage5; "
                     f"risk_state={readback.get('evidence_risk_state')}; "
                     f"fail_closed={readback.get('fail_closed')}; "
+                    f"public_evidence_readbacks={len(public_evidence_readbacks)}; "
                     f"reasons={','.join(readback.get('fail_closed_reasons') or [])}"
                 ),
                 "missing_condition_family": (
@@ -415,6 +425,7 @@ class Stage5Service:
                 value = target.get(key)
                 if value not in (None, ""):
                     refs.append(str(value))
+        refs.extend(public_evidence_source_refs(normalize_public_evidence_readbacks(carrier)))
         return list(dict.fromkeys(refs))
 
     def _close_h05_formal_handoff(self, result: StageBundle) -> StageBundle:
