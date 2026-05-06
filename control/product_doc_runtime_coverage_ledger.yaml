@@ -475,18 +475,24 @@ capabilities:
     runtime_refs:
       - src/shared/settings.py
       - src/storage/db.py
+      - src/storage/sqlalchemy_backend.py
+      - migrations/env.py
+      - scripts/run-storage-migrations.ps1
       - control/repo_status.md
     test_refs:
       - tests/test_api_transport_bootstrap.py::test_reserved_infra_backends_are_named_but_not_configured
       - tests/test_api_transport_bootstrap.py::test_app_bootstrap_fast_fails_unsupported_storage_backend
+      - tests/test_storage_concurrency.py::test_alembic_initial_migration_creates_storage_envelope_tables
+      - tests/test_storage_concurrency.py::test_sqlalchemy_backend_requires_migrated_schema_for_non_sqlite_session
     classification:
       - RESERVED_NOT_LIVE
       - MISSING_RUNTIME
       - TEST_COVERED
     evidence_summary: >
-      Non-JSON storage backends are explicitly named and fail closed, but real
-      Postgres, Redis, object storage, and Dockerized backend runtime are not
-      implemented in this phase.
+      PostgreSQL/SQLAlchemy is now an explicit opt-in storage path with Alembic
+      envelope-table migration and fail-closed schema validation. Redis,
+      MinIO/S3, and Dockerized runtime execution remain reserved-not-live, so
+      the broader production infrastructure capability is still incomplete.
     recommended_followup_packet: PTL-I100-110-platform-infra-real-backend-implementation
 
   - capability_id: STAGE7_9_API_TRANSPORT_BOOTSTRAP_INTERNAL_PREVIEW

@@ -7,10 +7,11 @@ from threading import RLock
 from typing import Any
 from urllib.parse import unquote, urlsplit
 
-from sqlalchemy import create_engine, delete, insert, select, update
+from sqlalchemy import create_engine, delete, inspect, insert, select, update
 from sqlalchemy.engine import Engine
 
 from storage.sqlalchemy_schema import (
+    ENVELOPE_TABLES,
     metadata,
     operator_actions,
     records,
@@ -246,13 +247,35 @@ class SQLAlchemyStorageBackend:
             if self.database_dialect == "sqlite":
                 metadata.create_all(self._engine)
                 return
-            with self._engine.begin():
-                return
+            self.validate_required_schema(self._engine, storage_backend=self.storage_backend)
+        except RuntimeError:
+            raise
         except Exception as exc:
             raise RuntimeError(
                 f"storage backend {self.storage_backend!r} failed to initialize SQLAlchemy storage seam; "
                 "check backend config and database connectivity; no_silent_fallback"
             ) from exc
+
+    @staticmethod
+    def required_table_names() -> tuple[str, ...]:
+        return tuple(sorted(ENVELOPE_TABLES))
+
+    @classmethod
+    def missing_required_tables(cls, engine: Engine) -> list[str]:
+        inspector = inspect(engine)
+        existing_tables = set(inspector.get_table_names())
+        return [table_name for table_name in cls.required_table_names() if table_name not in existing_tables]
+
+    @classmethod
+    def validate_required_schema(cls, engine: Engine, *, storage_backend: str) -> None:
+        missing_tables = cls.missing_required_tables(engine)
+        if missing_tables:
+            missing = ", ".join(missing_tables)
+            raise RuntimeError(
+                f"storage backend {storage_backend!r} is missing required storage tables: {missing}; "
+                "run scripts\\run-storage-migrations.ps1 with KAKA_STORAGE_DATABASE_URL before bootstrapping "
+                "a PostgreSQL/SQLAlchemy storage session; no_silent_fallback"
+            )
 
     def _upsert(self, *, table: Any, match_columns: dict[str, Any], values: dict[str, Any]) -> None:
         predicates = [getattr(table.c, name) == value for name, value in match_columns.items()]

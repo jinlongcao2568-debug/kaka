@@ -1,13 +1,20 @@
 from __future__ import annotations
 
+import argparse
 import os
 import sqlite3
 import sys
 import tempfile
 import unittest
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
+from importlib.util import find_spec
 from pathlib import Path
 from unittest.mock import patch
+
+from alembic import command
+from alembic.config import Config
+from sqlalchemy import create_engine
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -26,6 +33,12 @@ from storage.db import (
     PersistedWorkItem,
     build_persisted_at,
 )
+from storage.production_infra_readiness import (
+    is_postgresql_database_url,
+    storage_database_url_dialect,
+    storage_database_url_driver,
+)
+from storage.sqlalchemy_backend import SQLAlchemyStorageBackend
 from storage.repositories import (
     MonitoringAlertingRepository,
     ProductionSloIncidentRepository,
@@ -70,6 +83,13 @@ FORBIDDEN_REAL_SECRET_MARKERS = (
 
 def sqlalchemy_sqlite_url(path: Path) -> str:
     return f"sqlite:///{path.as_posix()}"
+
+
+def alembic_config(database_url: str) -> Config:
+    config = Config(str(ROOT / "alembic.ini"))
+    config.set_main_option("script_location", str(ROOT / "migrations"))
+    config.cmd_opts = argparse.Namespace(x=[f"database_url={database_url}"])
+    return config
 
 
 def build_envelope_entries(now: str) -> tuple[
@@ -158,6 +178,41 @@ def build_envelope_entries(now: str) -> tuple[
 
 
 class TestStorageConcurrency(unittest.TestCase):
+    def test_postgresql_psycopg_url_is_recognized_without_silent_fallback(self) -> None:
+        database_url = "postgresql+psycopg://kaka_local:placeholder@example.invalid:5432/kaka_local"
+
+        self.assertTrue(is_postgresql_database_url(database_url))
+        self.assertEqual(storage_database_url_dialect(database_url), "postgresql")
+        self.assertEqual(storage_database_url_driver(database_url), "psycopg")
+
+    def test_postgresql_readiness_uses_configured_database_url_and_driver(self) -> None:
+        if find_spec("psycopg") is not None:
+            driver = "psycopg"
+        elif find_spec("psycopg2") is not None:
+            driver = "psycopg2"
+        else:
+            self.skipTest("no PostgreSQL SQLAlchemy driver installed")
+        database_url = f"postgresql+{driver}://kaka_local:placeholder@example.invalid:5432/kaka_local"
+        settings = Settings(
+            storage_backend="postgresql",
+            storage_database_url_optional=database_url,
+            storage_scope="shared",
+            storage_runtime_mode="explicit-path",
+        )
+
+        readiness = settings.storage_bootstrap_payload()["platform_infra_readiness"]
+
+        self.assertEqual(readiness["active_backend"], "postgresql")
+        self.assertTrue(readiness["storage_database_url_configured"])
+        self.assertEqual(readiness["storage_database_url_dialect"], "postgresql")
+        self.assertEqual(readiness["postgresql_readiness"]["database_url_driver"], driver)
+        self.assertEqual(readiness["postgresql_readiness"]["readiness_state"], "EXECUTABLE")
+        self.assertTrue(readiness["postgresql_readiness"]["executable"])
+        self.assertTrue(readiness["postgresql_readiness"]["migration_required"])
+        self.assertTrue(readiness["migration_readiness"]["database_url_configured"])
+        self.assertTrue(readiness["migration_readiness"]["manual_migration_cli_available"])
+        self.assertFalse(readiness["migration_readiness"]["app_bootstrap_auto_migration_enabled"])
+
     def test_default_storage_path_is_stable_without_process_opt_in(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             with patch.dict(os.environ, {"LOCALAPPDATA": tmp_dir}, clear=False):
@@ -326,7 +381,9 @@ class TestStorageConcurrency(unittest.TestCase):
         self.assertFalse(readiness["sqlalchemy_readiness"]["executable"])
         self.assertFalse(readiness["sqlalchemy_readiness"]["configured"])
         self.assertFalse(readiness["sqlalchemy_readiness"]["database_url_configured"])
-        self.assertEqual(readiness["migration_readiness"]["readiness_state"], "NOT_CONFIGURED")
+        self.assertEqual(readiness["migration_readiness"]["readiness_state"], "CLI_AVAILABLE")
+        self.assertTrue(readiness["migration_readiness"]["manual_migration_cli_available"])
+        self.assertFalse(readiness["migration_readiness"]["app_bootstrap_auto_migration_enabled"])
         self.assertFalse(readiness["migration_readiness"]["migration_execution_enabled"])
         self.assertIn(readiness["queue_readiness"]["readiness_state"], RESERVED_OR_NOT_CONFIGURED)
         self.assertEqual(readiness["queue_readiness"]["internal_durable_queue"]["readiness_state"], "EXECUTABLE")
@@ -366,7 +423,10 @@ class TestStorageConcurrency(unittest.TestCase):
         self.assertFalse(readiness["compose_readiness"]["real_payment_delivery_enabled"])
         self.assertFalse(readiness["compose_readiness"]["automated_refund_enabled"])
         service_summary = readiness["compose_readiness"]["service_dependency_summary"]
-        self.assertEqual(set(service_summary), {"app", "postgres", "redis", "minio"})
+        self.assertEqual(set(service_summary), {"app", "app-postgres", "postgres", "redis", "minio"})
+        self.assertTrue(service_summary["app-postgres"]["migration_required_before_bootstrap"])
+        self.assertFalse(service_summary["app-postgres"]["external_service_connection_enabled"])
+        self.assertFalse(service_summary["app-postgres"]["container_execution_enabled"])
         for reserved_service in ("postgres", "redis", "minio"):
             self.assertEqual(service_summary[reserved_service]["readiness_state"], "RESERVED_NOT_LIVE")
             self.assertFalse(service_summary[reserved_service]["external_service_connection_enabled"])
@@ -532,16 +592,91 @@ class TestStorageConcurrency(unittest.TestCase):
             for marker in FORBIDDEN_REAL_SECRET_MARKERS:
                 self.assertNotIn(marker, content, relative_path)
 
+        dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
+        self.assertIn("requirements.txt", dockerfile)
+        self.assertIn("-r /app/requirements.txt", dockerfile)
+
         dockerignore = (ROOT / ".dockerignore").read_text(encoding="utf-8")
         for ignored_path in (".git", "__pycache__/", ".pytest_cache/", "object-storage/", "minio-data/"):
             self.assertIn(ignored_path, dockerignore)
 
         compose = (ROOT / "docker-compose.yml").read_text(encoding="utf-8")
         self.assertIn("reserved-local-deps", compose)
+        self.assertIn("local-postgres", compose)
+        self.assertIn("app-postgres", compose)
+        self.assertIn("postgresql+psycopg://kaka_local:local_dev_placeholder_not_secret@postgres:5432/kaka_local", compose)
         self.assertIn("local_dev_placeholder_not_secret", compose)
         self.assertIn("compose_runtime_enabled: false", compose)
         self.assertIn("container_execution_enabled: false", compose)
         self.assertIn("docker_compose_up_executed: false", compose)
+
+    def test_alembic_initial_migration_creates_storage_envelope_tables(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            database_path = Path(tmp_dir) / "storage-migration.sqlite"
+            command.upgrade(alembic_config(sqlalchemy_sqlite_url(database_path)), "head")
+            connection = sqlite3.connect(database_path)
+            try:
+                rows = connection.execute("select name from sqlite_master where type='table'").fetchall()
+            finally:
+                connection.close()
+
+        tables = {row[0] for row in rows}
+        self.assertTrue(set(SQLAlchemyStorageBackend.required_table_names()).issubset(tables))
+        self.assertIn("alembic_version", tables)
+
+    def test_sqlalchemy_backend_requires_migrated_schema_for_non_sqlite_session(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            database_path = Path(tmp_dir) / "schema-validation.sqlite"
+            database_url = sqlalchemy_sqlite_url(database_path)
+            engine = create_engine(database_url, future=True)
+            try:
+                with self.assertRaisesRegex(RuntimeError, r"run scripts\\run-storage-migrations\.ps1"):
+                    SQLAlchemyStorageBackend.validate_required_schema(
+                        engine,
+                        storage_backend="postgresql",
+                    )
+            finally:
+                engine.dispose()
+
+            command.upgrade(alembic_config(database_url), "head")
+            migrated_engine = create_engine(database_url, future=True)
+            try:
+                SQLAlchemyStorageBackend.validate_required_schema(
+                    migrated_engine,
+                    storage_backend="postgresql",
+                )
+            finally:
+                migrated_engine.dispose()
+
+    @unittest.skipUnless(
+        os.getenv("KAKA_TEST_POSTGRES_DATABASE_URL"),
+        "set KAKA_TEST_POSTGRES_DATABASE_URL to run the PostgreSQL migration integration test",
+    )
+    def test_optional_postgres_migration_and_repository_roundtrip(self) -> None:
+        database_url = os.environ["KAKA_TEST_POSTGRES_DATABASE_URL"]
+        command.upgrade(alembic_config(database_url), "head")
+        settings = Settings(
+            storage_backend="postgresql",
+            storage_database_url_optional=database_url,
+            storage_scope="shared",
+            storage_runtime_mode="explicit-path",
+        )
+        session = DatabaseSession(settings=settings)
+        now = build_persisted_at()
+        record, _, _, _ = build_envelope_entries(now)
+        record = replace(
+            record,
+            record_id="REC-POSTGRES-INTEGRATION",
+            payload={"record_id": "REC-POSTGRES-INTEGRATION", "project_id": "P-POSTGRES", "status": "READY"},
+        )
+        try:
+            session.upsert_record(record)
+            loaded = session.get_record("test_record", "REC-POSTGRES-INTEGRATION")
+        finally:
+            session.close()
+
+        self.assertIsNotNone(loaded)
+        self.assertEqual(loaded.payload["record_id"], "REC-POSTGRES-INTEGRATION")
 
     def test_object_storage_readiness_keeps_minio_s3_reserved_not_live(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

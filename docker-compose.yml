@@ -57,8 +57,50 @@ services:
       kaka.automated_refund_enabled: "false"
       kaka.external_release_enabled: "false"
 
+  app-postgres:
+    profiles:
+      - local-postgres
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: kaka-local-runtime:dev
+    depends_on:
+      - postgres
+    command:
+      - python
+      - -c
+      - "from api.main import create_app; create_app(); print('kaka local postgres runtime bootstrap ready')"
+    environment:
+      KAKA_STORAGE_BACKEND: postgresql
+      KAKA_STORAGE_DATABASE_URL: postgresql+psycopg://kaka_local:local_dev_placeholder_not_secret@postgres:5432/kaka_local
+      KAKA_STORAGE_SCOPE: process
+      KAKA_OBJECT_STORAGE_BACKEND: local-filesystem
+      KAKA_OBJECT_STORAGE_PATH: /app/.kaka-local/object-storage
+      KAKA_QUEUE_BACKEND: storage
+      KAKA_WORKER_RUNTIME: internal-storage-worker
+      KAKA_PROVIDER_MODE: SANDBOX_DRY_RUN_READBACK
+    volumes:
+      - kaka-local-storage:/app/.kaka-local
+    networks:
+      - kaka-local
+    restart: "no"
+    labels:
+      kaka.runtime_scope: local_postgres_opt_in_only
+      kaka.local_stack_only: "true"
+      kaka.migration_required_before_bootstrap: "true"
+      kaka.compose_runtime_enabled: "false"
+      kaka.container_execution_enabled: "false"
+      kaka.external_service_connection_enabled: "false"
+      kaka.real_provider_execution_enabled: "false"
+      kaka.real_payment_delivery_enabled: "false"
+      kaka.automated_refund_enabled: "false"
+      kaka.external_release_enabled: "false"
+
   postgres:
     <<: *kaka-reserved-service-defaults
+    profiles:
+      - reserved-local-deps
+      - local-postgres
     image: postgres:16-alpine
     environment:
       POSTGRES_DB: kaka_local

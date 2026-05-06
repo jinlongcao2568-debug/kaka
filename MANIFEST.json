@@ -85,7 +85,8 @@
     "run-governance-contracts.ps1",
     "check-release.ps1",
     "lint-drift.ps1",
-    "doctor.ps1"
+    "doctor.ps1",
+    "run-storage-migrations.ps1"
   ],
   "control": [
     "owners.yaml",

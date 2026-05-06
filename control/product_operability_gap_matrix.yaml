@@ -1603,7 +1603,7 @@ capability_assessments:
   - capability_id: POSTGRES_REDIS_OBJECT_STORAGE_DOCKER_BACKENDS
     operability_state: NEEDS_PRODUCT_IMPLEMENTATION
     owner_usable_now: false
-    product_gap: "Durable backend, queue/outbox, object storage, and deployment runtime are the only true MISSING_RUNTIME ledger item."
+    product_gap: "PostgreSQL/SQLAlchemy + Alembic now has an opt-in migration/runtime seam, but Redis/Dramatiq, MinIO/S3, and executable Dockerized runtime remain reserved-not-live."
     next_packet_ref: PTL-I100-112-production-platform-infrastructure
     ready_for_live_execution: false
   - capability_id: STAGE7_9_API_TRANSPORT_BOOTSTRAP_INTERNAL_PREVIEW

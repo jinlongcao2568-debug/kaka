@@ -28,6 +28,7 @@ READINESS_EXECUTABLE = "EXECUTABLE"
 READINESS_NOT_CONFIGURED = "NOT_CONFIGURED"
 READINESS_CONFIG_REQUIRED = "CONFIG_REQUIRED"
 READINESS_DRIVER_MISSING = "DRIVER_MISSING"
+READINESS_CLI_AVAILABLE = "CLI_AVAILABLE"
 READINESS_RESERVED_NOT_LIVE = "RESERVED_NOT_LIVE"
 
 _RESERVED_BACKEND_DEFINITIONS: tuple[dict[str, object], ...] = (
@@ -35,7 +36,7 @@ _RESERVED_BACKEND_DEFINITIONS: tuple[dict[str, object], ...] = (
         "backend": "alembic",
         "category": "migration",
         "configured_aliases": (),
-        "why_not_live": "reserved for future migration design; current packet must not create or run migrations",
+        "why_not_live": "manual migration CLI is explicit operator action only; app bootstrap must not auto-run migrations",
     },
     {
         "backend": "redis",
@@ -86,6 +87,15 @@ def storage_database_url_dialect(database_url: str | None) -> str | None:
     return scheme.split("+", 1)[0]
 
 
+def storage_database_url_driver(database_url: str | None) -> str | None:
+    if not database_url:
+        return None
+    scheme = urlsplit(database_url).scheme.strip().lower()
+    if "+" not in scheme:
+        return None
+    return scheme.split("+", 1)[1] or None
+
+
 def is_postgresql_database_url(database_url: str | None) -> bool:
     return storage_database_url_dialect(database_url) in POSTGRESQL_STORAGE_ALIASES
 
@@ -122,8 +132,10 @@ def build_platform_infra_readiness(
     active_backend = normalize_storage_backend_name(storage_backend)
     active_object_storage_backend = normalize_object_storage_backend_name(object_storage_backend)
     sqlalchemy_available = find_spec("sqlalchemy") is not None
+    alembic_available = find_spec("alembic") is not None
     database_url_configured = bool(storage_database_url_optional)
     database_url_dialect = storage_database_url_dialect(storage_database_url_optional)
+    database_url_driver = storage_database_url_driver(storage_database_url_optional)
     sqlalchemy_readiness = _sqlalchemy_readiness(
         active_backend=active_backend,
         sqlalchemy_available=sqlalchemy_available,
@@ -133,8 +145,10 @@ def build_platform_infra_readiness(
     postgresql_readiness = _postgresql_readiness(
         active_backend=active_backend,
         sqlalchemy_available=sqlalchemy_available,
+        postgresql_driver_available=_postgresql_driver_available(storage_database_url_optional),
         database_url_configured=database_url_configured,
         database_url_dialect=database_url_dialect,
+        database_url_driver=database_url_driver,
     )
     reserved_backends = _reserved_backend_readiness(
         active_backend,
@@ -191,15 +205,12 @@ def build_platform_infra_readiness(
         },
         "sqlalchemy_readiness": sqlalchemy_readiness,
         "postgresql_readiness": postgresql_readiness,
-        "migration_readiness": {
-            "backend": "alembic",
-            "readiness_state": reserved_by_backend["alembic"]["readiness_state"],
-            "executable": False,
-            "configured": reserved_by_backend["alembic"]["configured"],
-            "migration_execution_enabled": False,
-            "schema_metadata_defined": True,
-            "why_not_live": reserved_by_backend["alembic"]["why_not_live"],
-        },
+        "migration_readiness": _migration_readiness(
+            repo_root=repo_root,
+            active_backend=active_backend,
+            alembic_available=alembic_available,
+            database_url_configured=database_url_configured,
+        ),
         "queue_readiness": {
             "queue_backend": worker_queue_bootstrap["queue_backend"],
             "effective_queue_backend": worker_queue_bootstrap["effective_queue_backend"],
@@ -325,13 +336,15 @@ def _postgresql_readiness(
     *,
     active_backend: str,
     sqlalchemy_available: bool,
+    postgresql_driver_available: bool,
     database_url_configured: bool,
     database_url_dialect: str | None,
+    database_url_driver: str | None,
 ) -> dict[str, Any]:
     configured = active_backend == POSTGRESQL_STORAGE_BACKEND
     readiness_state = _sql_backend_state(
         configured=configured,
-        driver_available=sqlalchemy_available,
+        driver_available=sqlalchemy_available and postgresql_driver_available,
         database_url_configured=database_url_configured,
     )
     if configured and database_url_configured and database_url_dialect not in POSTGRESQL_STORAGE_ALIASES:
@@ -343,13 +356,18 @@ def _postgresql_readiness(
         "readiness_state": readiness_state,
         "executable": readiness_state == READINESS_EXECUTABLE,
         "configured": configured,
-        "driver_available": sqlalchemy_available,
+        "sqlalchemy_available": sqlalchemy_available,
+        "driver_available": sqlalchemy_available and postgresql_driver_available,
+        "postgresql_driver_available": postgresql_driver_available,
         "database_url_configured": database_url_configured,
         "database_url_dialect": database_url_dialect,
+        "database_url_driver": database_url_driver,
         "requires_database_url": True,
         "adapter": "sqlalchemy-core",
         "readback_level": "seam_config_and_repository_envelope",
+        "migration_required": configured,
         "migration_execution_enabled": False,
+        "app_bootstrap_auto_migration_enabled": False,
         "live_ready": False,
         "no_silent_fallback": True,
     }
@@ -363,11 +381,63 @@ def _sql_backend_state(
 ) -> str:
     if not configured:
         return READINESS_NOT_CONFIGURED
-    if not driver_available:
-        return READINESS_DRIVER_MISSING
     if not database_url_configured:
         return READINESS_CONFIG_REQUIRED
+    if not driver_available:
+        return READINESS_DRIVER_MISSING
     return READINESS_EXECUTABLE
+
+
+def _postgresql_driver_available(database_url: str | None) -> bool:
+    driver = storage_database_url_driver(database_url)
+    if driver == "psycopg":
+        return find_spec("psycopg") is not None
+    if driver == "psycopg2":
+        return find_spec("psycopg2") is not None
+    if driver == "asyncpg":
+        return find_spec("asyncpg") is not None
+    if driver:
+        return find_spec(driver) is not None
+    return find_spec("psycopg") is not None or find_spec("psycopg2") is not None
+
+
+def _migration_readiness(
+    *,
+    repo_root: str | None,
+    active_backend: str,
+    alembic_available: bool,
+    database_url_configured: bool,
+) -> dict[str, Any]:
+    root = _repo_root(repo_root)
+    alembic_ini_present = (root / "alembic.ini").is_file()
+    env_present = (root / "migrations" / "env.py").is_file()
+    versions_dir_present = (root / "migrations" / "versions").is_dir()
+    configured = alembic_ini_present and env_present and versions_dir_present
+    cli_available = configured and alembic_available
+    migration_required = active_backend in {SQLALCHEMY_STORAGE_BACKEND, POSTGRESQL_STORAGE_BACKEND}
+    readiness_state = READINESS_CLI_AVAILABLE if cli_available else READINESS_NOT_CONFIGURED
+    if migration_required and not database_url_configured:
+        readiness_state = READINESS_CONFIG_REQUIRED
+    if configured and not alembic_available:
+        readiness_state = READINESS_DRIVER_MISSING
+    return {
+        "backend": "alembic",
+        "readiness_state": readiness_state,
+        "executable": cli_available,
+        "configured": configured,
+        "alembic_available": alembic_available,
+        "alembic_ini_present": alembic_ini_present,
+        "migration_env_present": env_present,
+        "versions_dir_present": versions_dir_present,
+        "requires_database_url": True,
+        "database_url_configured": database_url_configured,
+        "migration_required": migration_required,
+        "manual_migration_cli_available": cli_available,
+        "migration_execution_enabled": False,
+        "app_bootstrap_auto_migration_enabled": False,
+        "schema_metadata_defined": True,
+        "why_not_live": "manual migration CLI is available for explicit operator action; app bootstrap never auto-runs migrations",
+    }
 
 
 def _reserved_backend_readiness(
@@ -552,9 +622,22 @@ def _compose_local_stack_readiness(
             "real_provider_execution_enabled": False,
         },
         {
+            "service": "app-postgres",
+            "role": "local_postgres_runtime_bootstrap",
+            "profile": "local-postgres",
+            "readiness_state": "CONFIG_PRESENT" if config_present else READINESS_NOT_CONFIGURED,
+            "configured": config_present,
+            "local_stack_only": True,
+            "storage_backend": POSTGRESQL_STORAGE_BACKEND,
+            "migration_required_before_bootstrap": True,
+            "container_execution_enabled": False,
+            "external_service_connection_enabled": False,
+            "real_provider_execution_enabled": False,
+        },
+        {
             "service": "postgres",
             "role": "reserved_local_database",
-            "profile": "reserved-local-deps",
+            "profile": "reserved-local-deps/local-postgres",
             "readiness_state": READINESS_RESERVED_NOT_LIVE,
             "configured": False,
             "local_stack_only": True,
@@ -597,11 +680,23 @@ def _compose_local_stack_readiness(
             "container_execution_enabled": False,
             "external_service_connection_enabled": False,
         },
+        "app-postgres": {
+            "depends_on": ["postgres", "manual-alembic-migration"],
+            "runtime_entry": "api.main:create_app bootstrap projection",
+            "storage_backend": POSTGRESQL_STORAGE_BACKEND,
+            "object_storage_backend": active_object_storage_backend,
+            "compose_service": "app-postgres",
+            "profile": "local-postgres",
+            "local_stack_only": True,
+            "migration_required_before_bootstrap": True,
+            "container_execution_enabled": False,
+            "external_service_connection_enabled": False,
+        },
         "postgres": {
             "compose_service": "postgres",
             "dependency_role": "reserved_local_postgres",
             "readiness_state": READINESS_RESERVED_NOT_LIVE,
-            "profile": "reserved-local-deps",
+            "profile": "reserved-local-deps/local-postgres",
             "external_service_connection_enabled": False,
             "container_execution_enabled": False,
             "migration_execution_enabled": False,
@@ -645,6 +740,7 @@ def _compose_local_stack_readiness(
         "reserved_profile": "reserved-local-deps",
         "local_stack_services": local_stack_services,
         "service_dependency_summary": service_dependency_summary,
+        "app_postgres": service_dependency_summary["app-postgres"],
         "postgres": service_dependency_summary["postgres"],
         "redis": service_dependency_summary["redis"],
         "minio": service_dependency_summary["minio"],
@@ -705,4 +801,5 @@ __all__ = [
     "build_platform_infra_readiness",
     "is_postgresql_database_url",
     "normalize_storage_backend_name",
+    "storage_database_url_driver",
 ]

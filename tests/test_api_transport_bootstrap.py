@@ -340,6 +340,9 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertFalse(readiness["postgresql_readiness"]["database_url_configured"])
         self.assertFalse(readiness["sqlalchemy_readiness"]["executable"])
         self.assertFalse(readiness["sqlalchemy_readiness"]["database_url_configured"])
+        self.assertEqual(readiness["migration_readiness"]["readiness_state"], "CLI_AVAILABLE")
+        self.assertTrue(readiness["migration_readiness"]["manual_migration_cli_available"])
+        self.assertFalse(readiness["migration_readiness"]["app_bootstrap_auto_migration_enabled"])
         self.assertFalse(readiness["migration_readiness"]["migration_execution_enabled"])
         self.assertEqual(readiness["queue_readiness"]["internal_durable_queue"]["readiness_state"], "EXECUTABLE")
         self.assertTrue(readiness["queue_readiness"]["internal_durable_queue"]["repository_backed"])
@@ -402,6 +405,16 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertEqual(
             readiness["compose_readiness"]["service_dependency_summary"]["postgres"]["readiness_state"],
             "RESERVED_NOT_LIVE",
+        )
+        self.assertTrue(
+            readiness["compose_readiness"]["service_dependency_summary"]["app-postgres"][
+                "migration_required_before_bootstrap"
+            ]
+        )
+        self.assertFalse(
+            readiness["compose_readiness"]["service_dependency_summary"]["app-postgres"][
+                "external_service_connection_enabled"
+            ]
         )
         self.assertFalse(
             readiness["compose_readiness"]["service_dependency_summary"]["redis"][

@@ -44,7 +44,7 @@ import sys
 import yaml
 with open(sys.argv[1], "r", encoding="utf-8") as handle:
     data = yaml.safe_load(handle)
-sys.stdout.buffer.write(json.dumps(data, ensure_ascii=False).encode("utf-8"))
+sys.stdout.write(json.dumps(data, ensure_ascii=True))
 '@ | & $python.Source - $Path
         if ($LASTEXITCODE -ne 0) { throw "python yaml parser failed for $Path" }
         return $json | ConvertFrom-Json -Depth 100
