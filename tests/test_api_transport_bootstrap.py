@@ -36,6 +36,7 @@ from shared.provider_adapter_config import (
 )
 from shared.pipeline import run_internal_chain
 from storage import persist_stage_bundle, reset_default_storage
+from storage.db import DatabaseSession
 
 
 RESERVED_ENTRY_PLAN_READBACK_KEYS = (
@@ -138,11 +139,33 @@ def expected_reserved_entry_plan(stage_scope: int) -> dict[str, object]:
 
 class TestApiTransportBootstrap(unittest.TestCase):
     def setUp(self) -> None:
+        self._storage_tmp = tempfile.TemporaryDirectory()
+        tmp_root = Path(self._storage_tmp.name)
+        self._storage_env = patch.dict(
+            os.environ,
+            {
+                "KAKA_STORAGE_BACKEND": "json-file",
+                "KAKA_STORAGE_PATH": str(tmp_root / "api-transport-default.json"),
+                "KAKA_OBJECT_STORAGE_PATH": str(tmp_root / "objects"),
+                "LOCALAPPDATA": str(tmp_root / "local-app-data"),
+            },
+            clear=False,
+        )
+        self._storage_env.start()
+        for key in (
+            "KAKA_STORAGE_DATABASE_URL",
+            "KAKA_STORAGE_SCOPE",
+            "KAKA_STORAGE_TEST_ISOLATION",
+        ):
+            os.environ.pop(key, None)
         get_settings.cache_clear()
         reset_default_storage()
 
     def tearDown(self) -> None:
         get_settings.cache_clear()
+        DatabaseSession.default().close()
+        self._storage_env.stop()
+        self._storage_tmp.cleanup()
 
     def test_get_settings_returns_formal_internal_settings(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

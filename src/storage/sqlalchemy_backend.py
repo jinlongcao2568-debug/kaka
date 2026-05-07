@@ -8,6 +8,8 @@ from typing import Any
 from urllib.parse import unquote, urlsplit
 
 from sqlalchemy import create_engine, delete, inspect, insert, select, update
+from sqlalchemy.dialects.postgresql import insert as postgresql_insert
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.engine import Engine
 
 from storage.sqlalchemy_schema import (
@@ -278,12 +280,22 @@ class SQLAlchemyStorageBackend:
             )
 
     def _upsert(self, *, table: Any, match_columns: dict[str, Any], values: dict[str, Any]) -> None:
-        predicates = [getattr(table.c, name) == value for name, value in match_columns.items()]
         update_values = {
             key: value
             for key, value in values.items()
             if key not in match_columns
         }
+        if self.database_dialect in {"postgresql", "sqlite"}:
+            insert_factory = postgresql_insert if self.database_dialect == "postgresql" else sqlite_insert
+            statement = insert_factory(table).values(**values).on_conflict_do_update(
+                index_elements=list(match_columns.keys()),
+                set_=update_values,
+            )
+            with self._engine.begin() as connection:
+                connection.execute(statement)
+            return
+
+        predicates = [getattr(table.c, name) == value for name, value in match_columns.items()]
         with self._engine.begin() as connection:
             result = connection.execute(update(table).where(*predicates).values(**update_values))
             if result.rowcount == 0:

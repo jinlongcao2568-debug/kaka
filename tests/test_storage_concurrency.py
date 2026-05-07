@@ -82,6 +82,16 @@ from storage.local_artifact_cleanup import (
     RUNTIME_DEBUG_ARTIFACT,
     build_local_artifact_cleanup,
 )
+from storage.legacy_snapshot_parse import (
+    LEGACY_PROJECT_CLUSTER_MANIFEST_OBJECT_TYPE,
+    LEGACY_PUBLIC_HTML_SNAPSHOT_KIND,
+    LEGACY_SNAPSHOT_PARSE_MANIFEST_OBJECT_TYPE,
+    NON_PROJECT_PLATFORM_PAGE,
+    PROJECT_CLUSTERED,
+    build_legacy_snapshot_parse,
+    infer_notice_stage,
+    normalize_project_name,
+)
 from shared.settings import Settings
 
 
@@ -1192,6 +1202,8 @@ class TestStorageConcurrency(unittest.TestCase):
             shared_path = Path(tmp_dir) / "shared-store.json"
             session_a = DatabaseSession(storage_path=shared_path)
             session_b = DatabaseSession(storage_path=shared_path)
+            self.assertEqual(session_a.storage_backend, "json-file")
+            self.assertEqual(session_b.storage_backend, "json-file")
 
             def write_many(session: DatabaseSession, writer_id: str) -> None:
                 for _ in range(20):
@@ -1950,6 +1962,203 @@ class TestStorageConcurrency(unittest.TestCase):
                 )
             finally:
                 repeated_target.close()
+
+    def test_legacy_snapshot_parse_builds_review_only_project_clusters(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            object_root = Path(tmp_dir) / "objects"
+            database_url = sqlalchemy_sqlite_url(Path(tmp_dir) / "legacy-parse.sqlite")
+            settings = Settings(
+                storage_backend="sqlalchemy",
+                storage_database_url_optional=database_url,
+                storage_scope="shared",
+                storage_runtime_mode="explicit-path",
+                object_storage_path_optional=str(object_root),
+            )
+            session = DatabaseSession(settings=settings)
+            try:
+                repo = ObjectStorageRepository(session=session, settings=settings)
+                snapshots = {
+                    "SNAP-LEGACY-PARSE-EVAL": "测试道路工程评标报告",
+                    "SNAP-LEGACY-PARSE-CANDIDATE": "测试道路工程中标候选人公示",
+                    "SNAP-LEGACY-PARSE-TENDER": "测试道路工程招标公告",
+                    "SNAP-LEGACY-PARSE-PLATFORM": "广州交易集团有限公司",
+                }
+                for snapshot_id, title in snapshots.items():
+                    body = (
+                        f"<!DOCTYPE html><html><head><title>{title}</title></head>"
+                        f"<body><h1>{title}</h1>"
+                    )
+                    if snapshot_id != "SNAP-LEGACY-PARSE-PLATFORM":
+                        body += (
+                            "<table>"
+                            "<tr><td>项目名称</td><td>测试道路工程</td></tr>"
+                            "<tr><td>公告日期</td><td>2026年05月07日</td></tr>"
+                            "</table>"
+                        )
+                    body += "</body></html>"
+                    repo.save_snapshot(
+                        body.encode("utf-8"),
+                        snapshot_id=snapshot_id,
+                        snapshot_kind=LEGACY_PUBLIC_HTML_SNAPSHOT_KIND,
+                        content_type="text/html",
+                        source_family_optional="legacy_public_html",
+                        raw_snapshot_metadata={"title_optional": title},
+                        lineage_refs={"legacy_object_key": f"legacy/{snapshot_id}.html"},
+                        created_at="2026-05-07T05:00:00+00:00",
+                    )
+            finally:
+                session.close()
+
+            self.assertEqual(infer_notice_stage("测试道路工程评标报告"), "bid_evaluation_report")
+            self.assertEqual(infer_notice_stage("测试道路工程中标候选人公示"), "candidate_notice")
+            self.assertEqual(infer_notice_stage("测试道路工程招标公告"), "tender_notice")
+            self.assertEqual(
+                normalize_project_name("测试道路工程评标报告"),
+                normalize_project_name("测试道路工程中标候选人公示"),
+            )
+
+            dry_run = build_legacy_snapshot_parse(
+                database_url=database_url,
+                target_backend="sqlalchemy",
+                object_storage_path=object_root,
+                execute=False,
+                created_at="2026-05-07T05:05:00+00:00",
+            )
+
+            self.assertTrue(dry_run["safe_to_execute"])
+            self.assertFalse(dry_run["execution"]["executed"])
+            self.assertEqual(dry_run["summary"]["parse"]["snapshot_count"], 4)
+            self.assertEqual(dry_run["summary"]["cluster"]["cluster_count"], 1)
+            dry_target = DatabaseSession(settings=settings)
+            try:
+                self.assertEqual(dry_target.list_records(LEGACY_SNAPSHOT_PARSE_MANIFEST_OBJECT_TYPE), [])
+                self.assertEqual(dry_target.list_records(LEGACY_PROJECT_CLUSTER_MANIFEST_OBJECT_TYPE), [])
+            finally:
+                dry_target.close()
+
+            executed = build_legacy_snapshot_parse(
+                database_url=database_url,
+                target_backend="sqlalchemy",
+                object_storage_path=object_root,
+                execute=True,
+                created_at="2026-05-07T05:05:00+00:00",
+            )
+
+            self.assertTrue(executed["execution"]["executed"])
+            target = DatabaseSession(settings=settings)
+            try:
+                parse_manifests = target.list_records(LEGACY_SNAPSHOT_PARSE_MANIFEST_OBJECT_TYPE)
+                cluster_manifests = target.list_records(LEGACY_PROJECT_CLUSTER_MANIFEST_OBJECT_TYPE)
+                self.assertEqual(len(parse_manifests), 1)
+                self.assertEqual(len(cluster_manifests), 1)
+
+                parse_payload = parse_manifests[0].payload
+                items = {
+                    item["snapshot_id"]: item
+                    for item in parse_payload["items"]
+                }
+                self.assertEqual(
+                    items["SNAP-LEGACY-PARSE-EVAL"]["notice_stage"],
+                    "bid_evaluation_report",
+                )
+                self.assertEqual(
+                    items["SNAP-LEGACY-PARSE-CANDIDATE"]["notice_stage"],
+                    "candidate_notice",
+                )
+                self.assertEqual(
+                    items["SNAP-LEGACY-PARSE-TENDER"]["notice_stage"],
+                    "tender_notice",
+                )
+                self.assertEqual(
+                    items["SNAP-LEGACY-PARSE-PLATFORM"]["cluster_eligibility"],
+                    NON_PROJECT_PLATFORM_PAGE,
+                )
+                self.assertTrue(items["SNAP-LEGACY-PARSE-EVAL"]["review_required"])
+                self.assertFalse(items["SNAP-LEGACY-PARSE-EVAL"]["customer_visible_allowed"])
+                self.assertTrue(items["SNAP-LEGACY-PARSE-EVAL"]["no_legal_conclusion"])
+
+                cluster_payload = cluster_manifests[0].payload
+                clusters = cluster_payload["clusters"]
+                self.assertEqual(len(clusters), 1)
+                self.assertEqual(clusters[0]["cluster_state"], PROJECT_CLUSTERED)
+                self.assertEqual(clusters[0]["snapshot_count"], 3)
+                self.assertEqual(
+                    set(clusters[0]["snapshot_ids"]),
+                    {
+                        "SNAP-LEGACY-PARSE-EVAL",
+                        "SNAP-LEGACY-PARSE-CANDIDATE",
+                        "SNAP-LEGACY-PARSE-TENDER",
+                    },
+                )
+                self.assertEqual(
+                    set(clusters[0]["notice_stages"]),
+                    {"bid_evaluation_report", "candidate_notice", "tender_notice"},
+                )
+                self.assertEqual(len(cluster_payload["non_project_or_review_items"]), 1)
+                self.assertEqual(
+                    cluster_payload["non_project_or_review_items"][0]["snapshot_id"],
+                    "SNAP-LEGACY-PARSE-PLATFORM",
+                )
+                for row in [*parse_manifests, *cluster_manifests]:
+                    self.assertNotIn("bytes", row.payload)
+                    self.assertNotIn("<html", str(row.payload).lower())
+            finally:
+                target.close()
+
+            repeated = build_legacy_snapshot_parse(
+                database_url=database_url,
+                target_backend="sqlalchemy",
+                object_storage_path=object_root,
+                execute=True,
+                created_at="2026-05-07T05:10:00+00:00",
+            )
+            self.assertTrue(repeated["execution"]["executed"])
+            repeated_target = DatabaseSession(settings=settings)
+            try:
+                self.assertEqual(
+                    len(repeated_target.list_records(LEGACY_SNAPSHOT_PARSE_MANIFEST_OBJECT_TYPE)),
+                    1,
+                )
+                self.assertEqual(
+                    len(repeated_target.list_records(LEGACY_PROJECT_CLUSTER_MANIFEST_OBJECT_TYPE)),
+                    1,
+                )
+                self.assertEqual(
+                    len(repeated_target.list_records(EVIDENCE_SNAPSHOT_MANIFEST_OBJECT_TYPE)),
+                    4,
+                )
+            finally:
+                repeated_target.close()
+
+    def test_legacy_snapshot_parse_blocks_empty_execute_manifest(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            object_root = Path(tmp_dir) / "objects"
+            database_url = sqlalchemy_sqlite_url(Path(tmp_dir) / "legacy-empty-parse.sqlite")
+            settings = Settings(
+                storage_backend="sqlalchemy",
+                storage_database_url_optional=database_url,
+                storage_scope="shared",
+                storage_runtime_mode="explicit-path",
+                object_storage_path_optional=str(object_root),
+            )
+
+            result = build_legacy_snapshot_parse(
+                database_url=database_url,
+                target_backend="sqlalchemy",
+                object_storage_path=object_root,
+                execute=True,
+                created_at="2026-05-07T05:15:00+00:00",
+            )
+
+            self.assertFalse(result["safe_to_execute"])
+            self.assertIn("legacy_public_html_snapshot_missing", result["blocking_reasons"])
+            self.assertFalse(result["execution"]["executed"])
+            target = DatabaseSession(settings=settings)
+            try:
+                self.assertEqual(target.list_records(LEGACY_SNAPSHOT_PARSE_MANIFEST_OBJECT_TYPE), [])
+                self.assertEqual(target.list_records(LEGACY_PROJECT_CLUSTER_MANIFEST_OBJECT_TYPE), [])
+            finally:
+                target.close()
 
     def test_local_artifact_cleanup_archives_untracked_outputs_without_blob_import(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

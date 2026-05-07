@@ -273,7 +273,15 @@ class DatabaseSession:
     def __init__(self, *, storage_path: Path | None = None, settings: Settings | None = None) -> None:
         self._lock = RLock()
         self._closed = False
-        self._settings = settings or self.default_settings()
+        if settings is None and storage_path is not None:
+            self._settings = Settings(
+                storage_backend=_JSON_FILE_STORAGE_BACKEND,
+                storage_path_optional=str(storage_path),
+                storage_scope="shared",
+                storage_runtime_mode="explicit-path",
+            )
+        else:
+            self._settings = settings or self.default_settings()
         self._storage_backend = self._resolve_storage_backend(self._settings)
         self._validate_storage_backend_configuration(self._storage_backend, self._settings)
         self._storage_database_url = self._settings.storage_database_url_optional

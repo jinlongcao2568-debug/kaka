@@ -66,8 +66,32 @@ def sqlalchemy_sqlite_url(path: Path) -> str:
 
 class TestInternalRepositoryBoundary(unittest.TestCase):
     def setUp(self) -> None:
+        self._storage_tmp = tempfile.TemporaryDirectory()
+        tmp_root = Path(self._storage_tmp.name)
+        self._storage_env = patch.dict(
+            os.environ,
+            {
+                "KAKA_STORAGE_BACKEND": "json-file",
+                "KAKA_STORAGE_PATH": str(tmp_root / "repository-boundary-default.json"),
+                "KAKA_OBJECT_STORAGE_PATH": str(tmp_root / "objects"),
+                "LOCALAPPDATA": str(tmp_root / "local-app-data"),
+            },
+            clear=False,
+        )
+        self._storage_env.start()
+        for key in (
+            "KAKA_STORAGE_DATABASE_URL",
+            "KAKA_STORAGE_SCOPE",
+            "KAKA_STORAGE_TEST_ISOLATION",
+        ):
+            os.environ.pop(key, None)
         reset_default_storage()
         self.result = run_internal_chain(load_fixture("internal_chain_happy.json"))
+
+    def tearDown(self) -> None:
+        DatabaseSession.default().close()
+        self._storage_env.stop()
+        self._storage_tmp.cleanup()
 
     def test_repository_boundary_readback_works_with_sqlite_backend(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
