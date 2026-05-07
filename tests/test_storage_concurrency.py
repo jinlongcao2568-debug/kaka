@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import os
 import sqlite3
 import sys
 import tempfile
 import unittest
+import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from importlib.util import find_spec
@@ -46,11 +48,17 @@ from storage.repositories import (
 )
 from storage.repositories.backup_restore_repo import BackupRestoreRepository
 from storage.repositories.object_storage_repo import ObjectStorageRepository
-from storage.object_storage import ObjectStorageMissingError
+from storage.object_storage import OBJECT_STORAGE_OBJECT_TYPE, ObjectStorageMissingError
 from storage.backup_restore import compute_manifest_hash
 from storage.json_storage_migration import (
     MIGRATION_MANIFEST_OBJECT_TYPE,
     migrate_json_storage_to_database,
+)
+from storage.object_storage_inventory import (
+    OBJECT_STORAGE_INVENTORY_MANIFEST_OBJECT_TYPE,
+    REFERENCED_BY_RECORD,
+    UNREFERENCED_LEGACY_OBJECT,
+    build_object_storage_inventory,
 )
 from shared.settings import Settings
 
@@ -182,6 +190,24 @@ def build_envelope_entries(now: str) -> tuple[
 
 
 class TestStorageConcurrency(unittest.TestCase):
+    def _write_content_addressed_object(self, root: Path, data: bytes) -> str:
+        digest = hashlib.sha256(data).hexdigest()
+        object_key = f"objects/{digest[:2]}/{digest}"
+        path = root / "objects" / digest[:2] / digest
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+        return object_key
+
+    def _docx_bytes(self) -> bytes:
+        archive_path = Path(tempfile.gettempdir()) / f"kaka-docx-fixture-{os.getpid()}.docx"
+        try:
+            with zipfile.ZipFile(archive_path, "w") as archive:
+                archive.writestr("[Content_Types].xml", "<Types/>")
+                archive.writestr("word/document.xml", "<w:document/>")
+            return archive_path.read_bytes()
+        finally:
+            archive_path.unlink(missing_ok=True)
+
     def test_postgresql_psycopg_url_is_recognized_without_silent_fallback(self) -> None:
         database_url = "postgresql+psycopg://kaka_local:placeholder@example.invalid:5432/kaka_local"
 
@@ -1614,6 +1640,126 @@ class TestStorageConcurrency(unittest.TestCase):
                 self.assertEqual(len(repeated_target.list_operator_actions("WI-1")), 1)
                 self.assertEqual(len(repeated_target.list_all_worker_queue_events()), 1)
                 self.assertEqual(len(repeated_target.list_records(MIGRATION_MANIFEST_OBJECT_TYPE)), 1)
+            finally:
+                repeated_target.close()
+
+    def test_object_storage_inventory_indexes_legacy_objects_without_blob_import(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir) / "objects"
+            database_url = sqlalchemy_sqlite_url(Path(tmp_dir) / "inventory.sqlite")
+            pdf_key = self._write_content_addressed_object(root, b"%PDF-1.7\nfixture")
+            json_key = self._write_content_addressed_object(root, b'{"status":"ok"}')
+            html_key = self._write_content_addressed_object(root, b"<!DOCTYPE html><html></html>")
+            png_key = self._write_content_addressed_object(root, b"\x89PNG\r\n\x1a\nfixture")
+            docx_key = self._write_content_addressed_object(root, self._docx_bytes())
+            mismatch_path = root / "legacy" / "mismatch.bin"
+            mismatch_path.parent.mkdir(parents=True, exist_ok=True)
+            mismatch_path.write_bytes(b"\x00\x01\x02legacy")
+
+            target_settings = Settings(
+                storage_backend="sqlalchemy",
+                storage_database_url_optional=database_url,
+                storage_scope="shared",
+                storage_runtime_mode="explicit-path",
+                object_storage_path_optional=str(root),
+            )
+            target_session = DatabaseSession(settings=target_settings)
+            target_session.upsert_record(
+                PersistedRecord(
+                    object_type="existing_snapshot_ref",
+                    record_id="SNAP-REF-1",
+                    stage_scope=0,
+                    project_id="P-INVENTORY",
+                    object_refs={"object_key": pdf_key},
+                    decision_states={},
+                    trace_refs={},
+                    audit_refs={},
+                    governed_state={},
+                    writeback_state={},
+                    payload={"object_key": pdf_key},
+                    persisted_at=build_persisted_at(),
+                )
+            )
+            target_session.close()
+
+            dry_run = build_object_storage_inventory(
+                object_storage_path=root,
+                database_url=database_url,
+                target_backend="sqlalchemy",
+                execute=False,
+                created_at="2026-05-07T02:00:00+00:00",
+            )
+
+            self.assertTrue(dry_run["safe_to_execute"])
+            self.assertFalse(dry_run["execution"]["executed"])
+            self.assertEqual(dry_run["summary"]["object_count"], 6)
+            self.assertEqual(dry_run["summary"]["content_kind_counts"]["pdf"], 1)
+            self.assertEqual(dry_run["summary"]["content_kind_counts"]["json"], 1)
+            self.assertEqual(dry_run["summary"]["content_kind_counts"]["html"], 1)
+            self.assertEqual(dry_run["summary"]["content_kind_counts"]["png"], 1)
+            self.assertEqual(dry_run["summary"]["content_kind_counts"]["docx"], 1)
+            self.assertEqual(dry_run["summary"]["content_kind_counts"]["unknown_binary"], 1)
+            self.assertEqual(dry_run["summary"]["orphan_state_counts"][REFERENCED_BY_RECORD], 1)
+            self.assertEqual(dry_run["summary"]["orphan_state_counts"][UNREFERENCED_LEGACY_OBJECT], 5)
+            self.assertEqual(dry_run["summary"]["hash_path_counts"]["valid"], 5)
+            self.assertEqual(dry_run["summary"]["hash_path_counts"]["invalid"], 1)
+            dry_target = DatabaseSession(settings=target_settings)
+            try:
+                self.assertEqual(dry_target.list_records(OBJECT_STORAGE_OBJECT_TYPE), [])
+                self.assertEqual(
+                    dry_target.list_records(OBJECT_STORAGE_INVENTORY_MANIFEST_OBJECT_TYPE),
+                    [],
+                )
+            finally:
+                dry_target.close()
+
+            executed = build_object_storage_inventory(
+                object_storage_path=root,
+                database_url=database_url,
+                target_backend="sqlalchemy",
+                execute=True,
+                created_at="2026-05-07T02:00:00+00:00",
+            )
+
+            self.assertTrue(executed["execution"]["executed"])
+            target = DatabaseSession(settings=target_settings)
+            try:
+                object_records = target.list_records(OBJECT_STORAGE_OBJECT_TYPE)
+                manifests = target.list_records(OBJECT_STORAGE_INVENTORY_MANIFEST_OBJECT_TYPE)
+                self.assertEqual(len(object_records), 6)
+                self.assertEqual(len(manifests), 1)
+                by_key = {row.record_id: row for row in object_records}
+                self.assertEqual(by_key[pdf_key].payload["orphan_state"], REFERENCED_BY_RECORD)
+                self.assertEqual(by_key[json_key].payload["content_kind"], "json")
+                self.assertEqual(by_key[html_key].payload["content_kind"], "html")
+                self.assertEqual(by_key[png_key].payload["content_type"], "image/png")
+                self.assertEqual(by_key[docx_key].payload["content_kind"], "docx")
+                self.assertFalse(by_key["legacy/mismatch.bin"].payload["hash_path_valid"])
+                for row in object_records:
+                    self.assertNotIn("bytes", row.payload)
+                    self.assertFalse(row.payload["large_object_blob_database_import_enabled"])
+                self.assertEqual(
+                    manifests[0].payload["summary"]["unreferenced_legacy_object_count"],
+                    5,
+                )
+            finally:
+                target.close()
+
+            repeated = build_object_storage_inventory(
+                object_storage_path=root,
+                database_url=database_url,
+                target_backend="sqlalchemy",
+                execute=True,
+                created_at="2026-05-07T02:05:00+00:00",
+            )
+            self.assertTrue(repeated["execution"]["executed"])
+            repeated_target = DatabaseSession(settings=target_settings)
+            try:
+                self.assertEqual(len(repeated_target.list_records(OBJECT_STORAGE_OBJECT_TYPE)), 6)
+                self.assertEqual(
+                    len(repeated_target.list_records(OBJECT_STORAGE_INVENTORY_MANIFEST_OBJECT_TYPE)),
+                    1,
+                )
             finally:
                 repeated_target.close()
 
