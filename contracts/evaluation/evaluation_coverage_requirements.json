@@ -1,0 +1,139 @@
+{
+  "coverage_requirements_version": 1,
+  "requirements_id": "evaluation-coverage-requirements-v1",
+  "created_from": "official_basis_and_local_method_research",
+  "basis_sources": [
+    {
+      "basis_id": "BASIS-TENDER-LAW",
+      "basis_name": "中华人民共和国招标投标法",
+      "official_url": "https://www.npc.gov.cn/zgrdw/npc/xinwen/2018-01/04/content_2036284.htm",
+      "coverage_rationale": "招标文件应包含评标标准和方法等实质性要求。"
+    },
+    {
+      "basis_id": "BASIS-TENDER-IMPLEMENTATION",
+      "basis_name": "中华人民共和国招标投标法实施条例",
+      "official_url": "https://www.gov.cn/gongbao/content/2019/content_5468831.htm",
+      "coverage_rationale": "依法必须招标项目候选人数量、排序和公示期是候选窗口判断基础。"
+    },
+    {
+      "basis_id": "BASIS-PUBLICATION-10",
+      "basis_name": "招标公告和公示信息发布管理办法",
+      "official_url": "https://www.gov.cn/gongbao/content/2018/content_5264881.htm",
+      "coverage_rationale": "中标候选人公示字段包括排序、名称、报价、项目负责人及证书、异议渠道。"
+    },
+    {
+      "basis_id": "BASIS-EVALUATION-METHODS",
+      "basis_name": "评标委员会和评标方法暂行规定",
+      "official_url": "https://www.gov.cn/zhengce/2001-07/05/content_5713201.htm",
+      "coverage_rationale": "综合评估法、经评审最低投标价法及其他合法评标方法是评标方法分类基础。"
+    },
+    {
+      "basis_id": "LOCAL-GD-EVALUATION-GUIDE",
+      "basis_name": "广东省发展改革委等单位关于评标方法的使用导则",
+      "official_url": "https://www.gd.gov.cn/zwgk/gongbao/2018/16/content/post_3365919.html",
+      "coverage_rationale": "地方评标方法导则用于补齐地方口径和评标方法适用场景。"
+    },
+    {
+      "basis_id": "LOCAL-ZJ-DEMO-TEXT",
+      "basis_name": "浙江省施工和工程总承包招标文件示范文本政策解读",
+      "official_url": "https://jst.zj.gov.cn/art/2025/4/11/art_1229778915_2548940.html",
+      "coverage_rationale": "示范文本用于覆盖技术标明标、暗标和综合评估法细分。"
+    }
+  ],
+  "requirements": [
+    {
+      "requirement_id": "REQ-OFFICIAL-BASIS-NATIONAL",
+      "dimension": "official_basis",
+      "minimum_seed_count": 4,
+      "match": {
+        "document_kinds": ["official_basis"],
+        "source_families": ["official_government_policy"]
+      },
+      "basis_refs": ["BASIS-TENDER-LAW", "BASIS-TENDER-IMPLEMENTATION", "BASIS-PUBLICATION-10", "BASIS-EVALUATION-METHODS"],
+      "gap_action": "补国家法规和部门规章依据，不补真实样本。"
+    },
+    {
+      "requirement_id": "REQ-LOCAL-METHOD-REGIONS",
+      "dimension": "local_method_region",
+      "minimum_seed_count": 6,
+      "required_jurisdictions": ["CN-GD", "CN-JS", "CN-ZJ", "CN-BJ", "CN-SH", "CN-HB"],
+      "match": {
+        "document_kinds": ["local_method"]
+      },
+      "basis_refs": ["LOCAL-GD-EVALUATION-GUIDE", "LOCAL-ZJ-DEMO-TEXT"],
+      "gap_action": "补地方评标办法、标准文本或示范文本，优先官方政府/住建/交易平台来源。"
+    },
+    {
+      "requirement_id": "REQ-EVALUATION-METHOD-FAMILIES",
+      "dimension": "evaluation_method_family",
+      "minimum_seed_count": 6,
+      "required_tags_or_families": [
+        "comprehensive",
+        "reviewed_lowest_price",
+        "reasonable_low_price",
+        "technical_pass",
+        "technical_scored",
+        "bid_separation"
+      ],
+      "basis_refs": ["BASIS-EVALUATION-METHODS", "LOCAL-GD-EVALUATION-GUIDE", "LOCAL-ZJ-DEMO-TEXT"],
+      "gap_action": "补每类评标方法的依据 seed 和至少一个样本文本 seed。"
+    },
+    {
+      "requirement_id": "REQ-CANDIDATE-SHAPES",
+      "dimension": "candidate_shape",
+      "minimum_seed_count": 4,
+      "required_tags_or_modes": [
+        "ranked_candidates",
+        "bid_separation_candidates",
+        "unranked_candidates",
+        "single_winner"
+      ],
+      "basis_refs": ["BASIS-TENDER-IMPLEMENTATION", "BASIS-PUBLICATION-10"],
+      "gap_action": "补候选人排序、排名不分先后、定标候选、单中标人结果公告样本。"
+    },
+    {
+      "requirement_id": "REQ-DOCUMENT-LIFECYCLE",
+      "dimension": "document_lifecycle",
+      "minimum_seed_count": 5,
+      "required_document_kinds": ["tender_file", "candidate_notice", "award_result", "clarification"],
+      "basis_refs": ["BASIS-TENDER-LAW", "BASIS-PUBLICATION-10"],
+      "gap_action": "补招标文件、候选人公示、结果公告、澄清答疑样本。"
+    },
+    {
+      "requirement_id": "REQ-BRIGHT-DARK-BID",
+      "dimension": "bright_dark_bid",
+      "minimum_seed_count": 2,
+      "required_tags_or_markers": ["dark_bid", "bright_bid"],
+      "basis_refs": ["LOCAL-ZJ-DEMO-TEXT"],
+      "gap_action": "补明标和暗标示范文本或真实招标文件样本。"
+    },
+    {
+      "requirement_id": "REQ-FAIRNESS-SIGNALS",
+      "dimension": "fairness_signal",
+      "minimum_seed_count": 3,
+      "required_tags_or_markers": ["fairness_region", "fairness_brand", "clarification"],
+      "basis_refs": ["BASIS-TENDER-LAW", "BASIS-TENDER-IMPLEMENTATION"],
+      "gap_action": "补地域限制、指定品牌、澄清改评标办法等公平性信号样本。"
+    },
+    {
+      "requirement_id": "REQ-REAL-PUBLIC-ENTRY",
+      "dimension": "real_public_entry",
+      "minimum_seed_count": 5,
+      "match": {
+        "seed_tags": ["real_public_entry"]
+      },
+      "basis_refs": ["BASIS-PUBLICATION-10"],
+      "gap_action": "补省/市公共资源交易平台入口 seed。"
+    },
+    {
+      "requirement_id": "REQ-REAL-PROJECT-SNAPSHOT",
+      "dimension": "real_project_snapshot",
+      "minimum_seed_count": 50,
+      "match": {
+        "seed_tags": ["real_project_sample"]
+      },
+      "basis_refs": ["BASIS-PUBLICATION-10"],
+      "gap_action": "下一阶段采 50-100 个真实项目公告/附件 snapshot，不在 seed 补齐阶段伪造。"
+    }
+  ]
+}
