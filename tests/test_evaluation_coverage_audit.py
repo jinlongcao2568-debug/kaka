@@ -146,6 +146,53 @@ class TestEvaluationCoverageAudit(unittest.TestCase):
             self.assertFalse(result["manifest"]["safety"]["download_enabled"])
             self.assertFalse(result["manifest"]["safety"]["stage5_rule_execution_enabled"])
 
+    def test_local_region_gap_closes_when_shanghai_and_hubei_local_methods_exist(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            seed_path = root / "seed.json"
+            requirements_path = root / "requirements.json"
+            self._write_seed(seed_path)
+            payload = json.loads(seed_path.read_text(encoding="utf-8"))
+            payload["sources"].extend(
+                [
+                    {
+                        "seed_id": "LOCAL-SH",
+                        "source_url": "https://zjw.sh.gov.cn/method.html",
+                        "source_family": "local_government_policy",
+                        "jurisdiction": "CN-SH",
+                        "document_kind": "local_method",
+                        "probe_text_optional": "上海市施工招标评标办法 经评审的合理低价法 综合评估法 推荐中标候选人。",
+                        "seed_tags": ["local_method", "reasonable_low_price"],
+                    },
+                    {
+                        "seed_id": "LOCAL-HB",
+                        "source_url": "https://zjt.hubei.gov.cn/method.html",
+                        "source_family": "local_government_policy",
+                        "jurisdiction": "CN-HB",
+                        "document_kind": "local_method",
+                        "probe_text_optional": "湖北省评定分离实施办法 定标候选人 不排序中标候选人。",
+                        "seed_tags": ["local_method", "bid_separation"],
+                    },
+                ]
+            )
+            seed_path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+            self._write_requirements(requirements_path)
+            requirements = json.loads(requirements_path.read_text(encoding="utf-8"))
+            for item in requirements["requirements"]:
+                if item["requirement_id"] == "REQ-LOCAL-REGIONS":
+                    item["required_jurisdictions"] = ["CN-GD", "CN-ZJ", "CN-SH", "CN-HB"]
+                    item["minimum_seed_count"] = 4
+            requirements_path.write_text(json.dumps(requirements, ensure_ascii=False), encoding="utf-8")
+
+            result = build_evaluation_coverage_audit(
+                seed_json=seed_path,
+                requirements_json=requirements_path,
+            )
+            local = next(item for item in result["manifest"]["items"] if item["requirement_id"] == "REQ-LOCAL-REGIONS")
+
+            self.assertEqual(local["coverage_state"], "COVERED")
+            self.assertEqual(local["missing_values"], [])
+
     def _write_seed(self, path: Path) -> None:
         path.write_text(
             json.dumps(

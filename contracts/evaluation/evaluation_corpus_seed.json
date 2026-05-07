@@ -185,6 +185,39 @@
       "seed_tags": ["local_method", "comprehensive", "bright_bid"]
     },
     {
+      "seed_id": "LOCAL-SH-CONSTRUCTION-EVALUATION-2024",
+      "source_title": "上海市房屋建筑和市政基础设施工程施工招标评标办法",
+      "source_url": "https://zjw.sh.gov.cn/gfxwj/20241106/b3ff0611748a4bf1851dcd5d02fb1b87.html",
+      "source_family": "local_government_policy",
+      "jurisdiction": "CN-SH",
+      "project_type": "construction",
+      "document_kind": "local_method",
+      "probe_text_optional": "上海市房屋建筑和市政基础设施工程施工招标评标办法 评标办法包括经评审的合理低价法 有担保的最低价中标法 澄清低价法 综合评估法 按照得分由高到低或报价由低到高推荐中标候选人。",
+      "seed_tags": ["local_method", "reasonable_low_price", "reviewed_lowest_price", "comprehensive", "ranked_candidates"]
+    },
+    {
+      "seed_id": "LOCAL-SH-EVALUATION-OPTIMIZATION-2025",
+      "source_title": "关于进一步优化本市建设工程招投标管理工作的通知",
+      "source_url": "https://zjw.sh.gov.cn/gfxwj/20250925/ff9777cd46d2433b99e29968f794a786.html",
+      "source_family": "local_government_policy",
+      "jurisdiction": "CN-SH",
+      "project_type": "construction",
+      "document_kind": "local_method",
+      "probe_text_optional": "房屋建筑和市政基础设施施工招标的评标办法包括经评审的合理低价法 有担保的澄清低价法 综合评估法。施工项目负责人应当到岗履职，依托平台监测评标专家评审行为并生成异常评审行为分析报告。",
+      "seed_tags": ["local_method", "reasonable_low_price", "comprehensive", "pm_governance", "expert_review_anomaly_probe"]
+    },
+    {
+      "seed_id": "LOCAL-HB-BID-SEPARATION-2026",
+      "source_title": "湖北省房屋建筑和市政基础设施工程招标投标资格预审及评定分离实施办法",
+      "source_url": "https://zjt.hubei.gov.cn/zfxxgk/zc/gfxwj/202604/t20260430_5925856.shtml",
+      "source_family": "local_government_policy",
+      "jurisdiction": "CN-HB",
+      "project_type": "construction",
+      "document_kind": "local_method",
+      "probe_text_optional": "湖北省房屋建筑和市政基础设施工程招标投标资格预审及评定分离实施办法 评定分离 定标候选人 评标结果公示 不排序中标候选人 票决定标法 价格竞争定标法 集体议事法。",
+      "seed_tags": ["local_method", "bid_separation", "unranked_candidates", "qualification_precheck"]
+    },
+    {
       "seed_id": "SAMPLE-COMPREHENSIVE-SCORED",
       "source_title": "综合评估法评分样本文本",
       "source_url": "https://example.invalid/evaluation-samples/comprehensive-scored.html",

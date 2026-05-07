@@ -38,6 +38,24 @@
       "basis_name": "浙江省施工和工程总承包招标文件示范文本政策解读",
       "official_url": "https://jst.zj.gov.cn/art/2025/4/11/art_1229778915_2548940.html",
       "coverage_rationale": "示范文本用于覆盖技术标明标、暗标和综合评估法细分。"
+    },
+    {
+      "basis_id": "LOCAL-SH-CONSTRUCTION-EVALUATION-2024",
+      "basis_name": "上海市房屋建筑和市政基础设施工程施工招标评标办法",
+      "official_url": "https://zjw.sh.gov.cn/gfxwj/20241106/b3ff0611748a4bf1851dcd5d02fb1b87.html",
+      "coverage_rationale": "上海地方评标方法用于覆盖经评审合理低价法、澄清低价法、综合评估法和候选排序。"
+    },
+    {
+      "basis_id": "LOCAL-SH-EVALUATION-OPTIMIZATION-2025",
+      "basis_name": "关于进一步优化本市建设工程招投标管理工作的通知",
+      "official_url": "https://zjw.sh.gov.cn/gfxwj/20250925/ff9777cd46d2433b99e29968f794a786.html",
+      "coverage_rationale": "上海最新优化通知用于补充评标办法适用场景、项目负责人管理和评标专家异常评审分析口径。"
+    },
+    {
+      "basis_id": "LOCAL-HB-BID-SEPARATION-2026",
+      "basis_name": "湖北省房屋建筑和市政基础设施工程招标投标资格预审及评定分离实施办法",
+      "official_url": "https://zjt.hubei.gov.cn/zfxxgk/zc/gfxwj/202604/t20260430_5925856.shtml",
+      "coverage_rationale": "湖北地方办法用于覆盖资格预审、评定分离、不排序候选、定标方法和候选公示。"
     }
   ],
   "requirements": [
@@ -60,7 +78,13 @@
       "match": {
         "document_kinds": ["local_method"]
       },
-      "basis_refs": ["LOCAL-GD-EVALUATION-GUIDE", "LOCAL-ZJ-DEMO-TEXT"],
+      "basis_refs": [
+        "LOCAL-GD-EVALUATION-GUIDE",
+        "LOCAL-ZJ-DEMO-TEXT",
+        "LOCAL-SH-CONSTRUCTION-EVALUATION-2024",
+        "LOCAL-SH-EVALUATION-OPTIMIZATION-2025",
+        "LOCAL-HB-BID-SEPARATION-2026"
+      ],
       "gap_action": "补地方评标办法、标准文本或示范文本，优先官方政府/住建/交易平台来源。"
     },
     {
@@ -75,7 +99,13 @@
         "technical_scored",
         "bid_separation"
       ],
-      "basis_refs": ["BASIS-EVALUATION-METHODS", "LOCAL-GD-EVALUATION-GUIDE", "LOCAL-ZJ-DEMO-TEXT"],
+      "basis_refs": [
+        "BASIS-EVALUATION-METHODS",
+        "LOCAL-GD-EVALUATION-GUIDE",
+        "LOCAL-ZJ-DEMO-TEXT",
+        "LOCAL-SH-CONSTRUCTION-EVALUATION-2024",
+        "LOCAL-HB-BID-SEPARATION-2026"
+      ],
       "gap_action": "补每类评标方法的依据 seed 和至少一个样本文本 seed。"
     },
     {
