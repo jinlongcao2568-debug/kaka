@@ -92,6 +92,17 @@ from storage.legacy_snapshot_parse import (
     infer_notice_stage,
     normalize_project_name,
 )
+from storage.legacy_cluster_qa import (
+    LEGACY_CLUSTER_ATTACHMENT_LINK_MANIFEST_OBJECT_TYPE,
+    LEGACY_PROJECT_CLUSTER_QA_MANIFEST_OBJECT_TYPE,
+    LINKED_BY_EXACT_NORMALIZED_FILENAME,
+    PROJECT_NAME_OVEREXTRACTED_REVIEW,
+    PROJECT_NAME_REFINED_HIGH_CONFIDENCE,
+    REVIEW_ONLY_ATTACHMENT_PATH_NOT_RECOVERED,
+    REVIEW_ONLY_UNLINKED_ATTACHMENT,
+    build_legacy_cluster_qa,
+    extract_labeled_project_name,
+)
 from shared.settings import Settings
 
 
@@ -2159,6 +2170,240 @@ class TestStorageConcurrency(unittest.TestCase):
                 self.assertEqual(target.list_records(LEGACY_PROJECT_CLUSTER_MANIFEST_OBJECT_TYPE), [])
             finally:
                 target.close()
+
+    def test_legacy_cluster_qa_refines_project_names_and_links_exact_attachment_paths(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            object_root = Path(tmp_dir) / "objects"
+            run_root = Path(tmp_dir) / "run-artifacts"
+            database_url = sqlalchemy_sqlite_url(Path(tmp_dir) / "legacy-cluster-qa.sqlite")
+            settings = Settings(
+                storage_backend="sqlalchemy",
+                storage_database_url_optional=database_url,
+                storage_scope="shared",
+                storage_runtime_mode="explicit-path",
+                object_storage_path_optional=str(object_root),
+            )
+            session = DatabaseSession(settings=settings)
+            try:
+                repo = ObjectStorageRepository(session=session, settings=settings)
+                snapshots = {
+                    "SNAP-LEGACY-QA-EVAL": (
+                        "测试道路工程评标报告",
+                        "<table><tr><td>项目名称</td><td>测试道路工程</td></tr></table>",
+                    ),
+                    "SNAP-LEGACY-QA-CANDIDATE": (
+                        "测试道路工程中标候选人公示",
+                        "<table><tr><td>项目名称</td><td>测试道路工程</td></tr></table>",
+                    ),
+                    "SNAP-LEGACY-QA-LONG": (
+                        "海吉星公益冷库 项目编号：2020-440307 资金来源：其他 "
+                        "招标项目名称：海吉星公益冷库项目施工总承包工程 招标项目编号：2020-440307001 "
+                        "工程类型：施工 招标方式：公开招标",
+                        "",
+                    ),
+                    "SNAP-LEGACY-QA-OVER": (
+                        "过长项目 项目编号：P-1 资金来源：政府 工程类型：施工 招标方式：公开招标",
+                        "",
+                    ),
+                    "SNAP-LEGACY-QA-PLATFORM": ("广州交易集团有限公司", ""),
+                }
+                for snapshot_id, (title, body_extra) in snapshots.items():
+                    body = (
+                        f"<!DOCTYPE html><html><head><title>{title}</title></head>"
+                        f"<body><h1>{title}</h1>{body_extra}</body></html>"
+                    )
+                    repo.save_snapshot(
+                        body.encode("utf-8"),
+                        snapshot_id=snapshot_id,
+                        snapshot_kind=LEGACY_PUBLIC_HTML_SNAPSHOT_KIND,
+                        content_type="text/html",
+                        source_family_optional="legacy_public_html",
+                        raw_snapshot_metadata={"title_optional": title},
+                        lineage_refs={"legacy_object_key": f"legacy/{snapshot_id}.html"},
+                        created_at="2026-05-07T06:00:00+00:00",
+                    )
+            finally:
+                session.close()
+
+            parse_result = build_legacy_snapshot_parse(
+                database_url=database_url,
+                target_backend="sqlalchemy",
+                object_storage_path=object_root,
+                execute=True,
+                created_at="2026-05-07T06:05:00+00:00",
+            )
+            self.assertTrue(parse_result["safe_to_execute"])
+            self.assertEqual(parse_result["summary"]["cluster"]["cluster_count"], 3)
+            self.assertEqual(
+                extract_labeled_project_name(
+                    "项目编号：P-1 招标项目名称：海吉星公益冷库项目施工总承包工程 招标项目编号：P-2"
+                ),
+                "海吉星公益冷库项目施工总承包工程",
+            )
+
+            linked_attachment = b"%PDF-1.7\nlinked legacy attachment"
+            generic_attachment = b"%PDF-1.7\ngeneric attachment"
+            missing_path_attachment = b"%PDF-1.7\nmissing path attachment"
+            linked_sha = hashlib.sha256(linked_attachment).hexdigest()
+            generic_sha = hashlib.sha256(generic_attachment).hexdigest()
+            missing_sha = hashlib.sha256(missing_path_attachment).hexdigest()
+            linked_path = run_root / "2026-05-07T000000_0000" / "handoff" / "测试道路工程.pdf"
+            generic_path = run_root / "2026-05-07T000000_0000" / "handoff" / "download_招标公告-定稿.pdf"
+            linked_path.parent.mkdir(parents=True, exist_ok=True)
+            linked_path.write_bytes(linked_attachment)
+            generic_path.write_bytes(generic_attachment)
+
+            def attachment_item(sha256: str, name: str) -> dict[str, object]:
+                return {
+                    "object_key": f"objects/{sha256[:2]}/{sha256}",
+                    "content_kind": "pdf",
+                    "content_type": "application/pdf",
+                    "byte_size": len(name.encode("utf-8")),
+                    "sha256": sha256,
+                    "triage_state": REVIEW_ONLY_ATTACHMENT_CANDIDATE,
+                    "review_required": True,
+                    "no_legal_conclusion": True,
+                    "customer_visible_allowed": False,
+                }
+
+            triage_items = [
+                attachment_item(linked_sha, "linked"),
+                attachment_item(generic_sha, "generic"),
+                attachment_item(missing_sha, "missing"),
+            ]
+            session = DatabaseSession(settings=settings)
+            try:
+                session.upsert_record(
+                    PersistedRecord(
+                        object_type=LEGACY_OBJECT_TRIAGE_MANIFEST_OBJECT_TYPE,
+                        record_id="LEGACY-TRIAGE-QA-FIXTURE",
+                        stage_scope=0,
+                        project_id=None,
+                        object_refs={},
+                        decision_states={"triage_manifest_state": "CURRENT"},
+                        trace_refs={},
+                        audit_refs={},
+                        governed_state={
+                            "customer_visible_allowed": False,
+                            "no_legal_conclusion": True,
+                        },
+                        writeback_state={},
+                        payload={
+                            "manifest_id": "LEGACY-TRIAGE-QA-FIXTURE",
+                            "created_at": "2026-05-07T06:10:00+00:00",
+                            "triage_items": triage_items,
+                            "summary": {"attachment_candidate_count": 3},
+                        },
+                        persisted_at="2026-05-07T06:10:00+00:00",
+                    )
+                )
+            finally:
+                session.close()
+
+            dry_run = build_legacy_cluster_qa(
+                database_url=database_url,
+                target_backend="sqlalchemy",
+                run_artifacts_root=run_root,
+                execute=False,
+                created_at="2026-05-07T06:15:00+00:00",
+            )
+            self.assertTrue(dry_run["safe_to_execute"])
+            self.assertFalse(dry_run["execution"]["executed"])
+            dry_target = DatabaseSession(settings=settings)
+            try:
+                self.assertEqual(dry_target.list_records(LEGACY_PROJECT_CLUSTER_QA_MANIFEST_OBJECT_TYPE), [])
+                self.assertEqual(dry_target.list_records(LEGACY_CLUSTER_ATTACHMENT_LINK_MANIFEST_OBJECT_TYPE), [])
+            finally:
+                dry_target.close()
+
+            executed = build_legacy_cluster_qa(
+                database_url=database_url,
+                target_backend="sqlalchemy",
+                run_artifacts_root=run_root,
+                execute=True,
+                created_at="2026-05-07T06:15:00+00:00",
+            )
+            self.assertTrue(executed["execution"]["executed"])
+
+            target = DatabaseSession(settings=settings)
+            try:
+                qa_manifests = target.list_records(LEGACY_PROJECT_CLUSTER_QA_MANIFEST_OBJECT_TYPE)
+                link_manifests = target.list_records(LEGACY_CLUSTER_ATTACHMENT_LINK_MANIFEST_OBJECT_TYPE)
+                self.assertEqual(len(qa_manifests), 1)
+                self.assertEqual(len(link_manifests), 1)
+
+                qa_items = qa_manifests[0].payload["items"]
+                qa_by_name = {
+                    item["refined_project_name_optional"] or item["original_project_name"]: item
+                    for item in qa_items
+                }
+                self.assertEqual(
+                    qa_by_name["测试道路工程"]["qa_state"],
+                    "PROJECT_NAME_HIGH_CONFIDENCE",
+                )
+                self.assertEqual(
+                    qa_by_name["海吉星公益冷库项目施工总承包工程"]["qa_state"],
+                    PROJECT_NAME_REFINED_HIGH_CONFIDENCE,
+                )
+                self.assertIn(
+                    "original_project_name_overextracted",
+                    qa_by_name["海吉星公益冷库项目施工总承包工程"]["name_quality_reasons"],
+                )
+                overextracted_items = [
+                    item
+                    for item in qa_items
+                    if item["qa_state"] == PROJECT_NAME_OVEREXTRACTED_REVIEW
+                ]
+                self.assertEqual(len(overextracted_items), 1)
+                self.assertIsNone(overextracted_items[0]["refined_project_name_optional"])
+
+                link_items = {
+                    item["sha256"]: item
+                    for item in link_manifests[0].payload["items"]
+                }
+                self.assertEqual(
+                    link_items[linked_sha]["link_state"],
+                    LINKED_BY_EXACT_NORMALIZED_FILENAME,
+                )
+                self.assertEqual(
+                    link_items[linked_sha]["linked_refined_project_name_optional"],
+                    "测试道路工程",
+                )
+                self.assertEqual(
+                    link_items[generic_sha]["link_state"],
+                    REVIEW_ONLY_UNLINKED_ATTACHMENT,
+                )
+                self.assertEqual(
+                    link_items[missing_sha]["link_state"],
+                    REVIEW_ONLY_ATTACHMENT_PATH_NOT_RECOVERED,
+                )
+                for row in [*qa_manifests, *link_manifests]:
+                    self.assertNotIn("bytes", row.payload)
+                    self.assertNotIn("%PDF", str(row.payload))
+                    self.assertNotIn("<html", str(row.payload).lower())
+            finally:
+                target.close()
+
+            repeated = build_legacy_cluster_qa(
+                database_url=database_url,
+                target_backend="sqlalchemy",
+                run_artifacts_root=run_root,
+                execute=True,
+                created_at="2026-05-07T06:20:00+00:00",
+            )
+            self.assertTrue(repeated["execution"]["executed"])
+            repeated_target = DatabaseSession(settings=settings)
+            try:
+                self.assertEqual(
+                    len(repeated_target.list_records(LEGACY_PROJECT_CLUSTER_QA_MANIFEST_OBJECT_TYPE)),
+                    1,
+                )
+                self.assertEqual(
+                    len(repeated_target.list_records(LEGACY_CLUSTER_ATTACHMENT_LINK_MANIFEST_OBJECT_TYPE)),
+                    1,
+                )
+            finally:
+                repeated_target.close()
 
     def test_local_artifact_cleanup_archives_untracked_outputs_without_blob_import(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
