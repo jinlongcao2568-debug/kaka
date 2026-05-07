@@ -48,7 +48,8 @@ class CandidateOpportunityWindowTests(unittest.TestCase):
 
             self.assertEqual(result["window_mode"], "DRY_RUN")
             self.assertTrue(result["safe_to_execute"])
-            self.assertEqual(result["summary"]["window_item_count"], 5)
+            self.assertEqual(result["summary"]["window_item_count"], 6)
+            self.assertNotIn("BASIS", {item["seed_id"] for item in result["manifest"]["items"]})
 
             session = DatabaseSession(settings=_settings(database_url=database_url, object_root=object_root))
             try:
@@ -102,6 +103,10 @@ class CandidateOpportunityWindowTests(unittest.TestCase):
             self.assertEqual(item["window_state"], WINDOW_REVIEW_READY)
             self.assertEqual(item["review_priority"], "P2_MEDIUM")
             self.assertEqual(item["candidate_count_optional"], 3)
+
+            probe_ready = {row["seed_id"]: row for row in result["manifest"]["items"]}["PROBE_READY"]
+            self.assertEqual(probe_ready["window_state"], WINDOW_REVIEW_READY)
+            self.assertIn("snapshot_id_missing", probe_ready["review_reasons"])
 
     def test_single_winner_missing_rows_and_missing_window_fail_closed_to_review(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -231,6 +236,22 @@ def _prepare_profile_manifest(*, database_url: str, object_root: Path) -> None:
                     mode="ranked_candidates",
                     objection_window=None,
                     rows=[_candidate("甲公司", rank=1), _candidate("乙公司", rank=2)],
+                ),
+                _profile_item(
+                    seed_id="PROBE_READY",
+                    document_kind="candidate_notice",
+                    snapshot_id=None,
+                    mode="ranked_candidates",
+                    objection_window="2026-05-07至2026-05-10",
+                    rows=[_candidate("甲公司", rank=1), _candidate("乙公司", rank=2)],
+                ),
+                _profile_item(
+                    seed_id="BASIS",
+                    document_kind="official_basis",
+                    snapshot_id=None,
+                    mode="ranked_candidates",
+                    objection_window="2026-05-07至2026-05-10",
+                    rows=[_candidate("依据样本", rank=1), _candidate("依据样本二", rank=2)],
                 ),
             ],
         }

@@ -146,6 +146,9 @@ def build_window_items(
     items: list[CandidateOpportunityWindowItem] = []
     for raw_item in profile_items:
         item = dict(raw_item)
+        document_kind = str(item.get("document_kind") or "")
+        if document_kind in {"official_basis", "local_method"}:
+            continue
         candidate_profile = dict(item.get("candidate_set_profile") or {})
         mode = str(candidate_profile.get("candidate_selection_mode") or "unknown")
         candidate_rows = _candidate_rows(candidate_profile.get("candidate_rows"))
@@ -178,7 +181,7 @@ def build_window_items(
             CandidateOpportunityWindowItem(
                 seed_id=str(item.get("seed_id") or ""),
                 source_url=str(item.get("source_url") or ""),
-                document_kind=str(item.get("document_kind") or ""),
+                document_kind=document_kind,
                 snapshot_id_optional=_text(item.get("snapshot_id_optional")),
                 candidate_selection_mode=mode,
                 candidate_rows=candidate_rows,
@@ -280,8 +283,6 @@ def _window_decision(
         return WINDOW_REVIEW_ONLY, list(dict.fromkeys(reasons))
     if candidate_selection_mode not in {"ranked_candidates", "unranked_candidates", "bid_separation_candidates"}:
         reasons.append("candidate_selection_mode_not_actionable")
-        return WINDOW_REVIEW_ONLY, list(dict.fromkeys(reasons))
-    if not snapshot_id:
         return WINDOW_REVIEW_ONLY, list(dict.fromkeys(reasons))
     return WINDOW_REVIEW_READY, list(dict.fromkeys(reasons))
 

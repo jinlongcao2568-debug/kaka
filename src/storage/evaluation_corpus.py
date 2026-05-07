@@ -130,6 +130,9 @@ class EvaluationParseProbe:
     has_bright_bid_requirement: bool
     candidate_count_optional: int | None
     objection_window_optional: str | None
+    candidate_rows_probe_summary: list[dict[str, Any]]
+    scoring_dimensions_probe_summary: list[dict[str, Any]]
+    fairness_signal_types: list[str]
     project_manager_field_detected: bool
     certificate_number_field_detected: bool
     probe_state: str
@@ -350,9 +353,14 @@ def probe_evaluation_text(*, seed: EvaluationCorpusSeed, text: str | None) -> Ev
     method_family, method_markers = _detect_evaluation_method(normalized)
     selection_mode, candidate_markers = _detect_candidate_selection_mode(normalized)
     fairness_markers = _detect_fairness_markers(normalized)
+    candidate_rows = _extract_candidate_rows_probe_summary(normalized, selection_mode)
+    scoring_dimensions = _scoring_dimensions_probe_summary(normalized)
+    fairness_signal_types = _fairness_signal_types(normalized)
     has_dark = "暗标" in normalized or "暗 标" in normalized
     has_bright = "明标" in normalized or "明 标" in normalized
     candidate_count = _candidate_count(normalized)
+    if candidate_count is None and candidate_rows:
+        candidate_count = len(candidate_rows)
     objection_window = _objection_window(normalized)
     project_manager = any(token in normalized for token in ("项目负责人", "项目经理", "拟派项目负责人"))
     certificate_number = any(token in normalized for token in ("证书编号", "注册编号", "注册证书编号", "注册号"))
@@ -372,6 +380,9 @@ def probe_evaluation_text(*, seed: EvaluationCorpusSeed, text: str | None) -> Ev
         has_bright_bid_requirement=has_bright,
         candidate_count_optional=candidate_count,
         objection_window_optional=objection_window,
+        candidate_rows_probe_summary=candidate_rows,
+        scoring_dimensions_probe_summary=scoring_dimensions,
+        fairness_signal_types=fairness_signal_types,
         project_manager_field_detected=project_manager,
         certificate_number_field_detected=certificate_number,
         probe_state=probe_state,
@@ -634,6 +645,156 @@ def _detect_fairness_markers(text: str) -> list[str]:
     return [token for token in marker_tokens if token in text]
 
 
+def _scoring_dimensions_probe_summary(text: str) -> list[dict[str, Any]]:
+    checks = (
+        ("price", ("报价", "价格分", "评标基准价", "投标总价")),
+        ("technical", ("技术标", "技术评分", "施工组织设计", "技术方案")),
+        ("commercial", ("商务标", "商务评分", "商务部分")),
+        ("credit", ("信用", "诚信", "资信标", "资信评分")),
+        ("qualification", ("资质", "资格", "资格审查")),
+        ("performance", ("业绩", "类似工程", "类似项目")),
+        ("project_manager", ("项目负责人", "项目经理", "注册建造师")),
+    )
+    dimensions: list[dict[str, Any]] = []
+    for dimension, tokens in checks:
+        markers = [token for token in tokens if token in text]
+        if markers:
+            dimensions.append(
+                {
+                    "dimension": dimension,
+                    "markers": list(dict.fromkeys(markers)),
+                    "match_basis": "probe_text_marker_summary",
+                    "review_required": True,
+                }
+            )
+    return dimensions
+
+
+def _fairness_signal_types(text: str) -> list[str]:
+    signal_defs = (
+        ("geographic_restriction", ("特定行政区域", "注册地", "本地企业", "须在本市", "须在本省", "外地业绩不予认可")),
+        ("specified_brand_or_supplier", ("指定品牌", "指定供应商", "唯一品牌", "不接受同等", "不接受同等档次")),
+        ("ownership_restriction", ("限定所有制", "仅限国有", "限定国有企业", "仅限央企")),
+        ("performance_threshold", ("类似业绩", "特定行业业绩", "单项合同额", "业绩金额")),
+        ("discriminatory_scoring", ("差别待遇", "歧视待遇", "排斥潜在投标人", "限制潜在投标人", "评分倾斜")),
+        ("evaluation_method_change", ("评标办法变更", "评标标准变更", "澄清修改评标", "修改评分办法", "技术标评分项调整")),
+        ("dark_bid_identity_leakage", ("暗标出现投标人名称", "暗标出现单位名称", "暗标识别投标人")),
+    )
+    signals: list[str] = []
+    for signal_type, tokens in signal_defs:
+        if any(token in text for token in tokens):
+            signals.append(signal_type)
+    return signals
+
+
+def _extract_candidate_rows_probe_summary(text: str, selection_mode: str) -> list[dict[str, Any]]:
+    if not text:
+        return []
+    if selection_mode == "single_winner":
+        winner = _match_labeled_value(text, ("中标人名称", "中标单位", "成交供应商"))
+        return [_candidate_row_summary(candidate_name=winner, rank=1, segment=text)] if winner else []
+    ranked = _extract_ranked_candidate_rows(text)
+    if ranked:
+        return ranked
+    if selection_mode in {"unranked_candidates", "bid_separation_candidates"}:
+        return _extract_unranked_candidate_rows(text)
+    return []
+
+
+def _extract_ranked_candidate_rows(text: str) -> list[dict[str, Any]]:
+    pattern = re.compile(r"第(?P<rank>[一二三四五六七八九十0-9]+)(?:中标|成交)?候选人")
+    matches = list(pattern.finditer(text))
+    rows: list[dict[str, Any]] = []
+    for index, match in enumerate(matches):
+        start = match.end()
+        end = matches[index + 1].start() if index + 1 < len(matches) else min(len(text), start + 500)
+        segment = text[start:end]
+        name = _candidate_name_from_segment(segment)
+        if name:
+            rows.append(_candidate_row_summary(candidate_name=name, rank=_cn_int(match.group("rank")), segment=segment))
+    return rows
+
+
+def _extract_unranked_candidate_rows(text: str) -> list[dict[str, Any]]:
+    match = re.search(r"(?:定标候选人|中标候选人|候选人名单|候选人名称)\s*[:：]\s*(?P<value>[^。；;\n\r]+)", text)
+    if not match:
+        return []
+    value = re.split(r"(?:排名不分先后|不分先后|不排序|公示期|公示时间)", match.group("value"), maxsplit=1)[0]
+    names = [_clean_candidate_name(part) for part in re.split(r"[、,，;；\n\r]+", value)]
+    return [
+        _candidate_row_summary(candidate_name=name, rank=None, segment=text)
+        for name in names[:10]
+        if name and len(name) >= 2
+    ]
+
+
+def _candidate_row_summary(*, candidate_name: str, rank: int | None, segment: str) -> dict[str, Any]:
+    return {
+        "candidate_name": _limit_summary_text(candidate_name, 200),
+        "candidate_rank_optional": rank,
+        "bid_price_optional": _match_regex_value(segment, r"(?:投标报价|报价|投标总价|中标金额)\s*[:：]?\s*([0-9,.]+(?:\s*(?:元|万元))?)"),
+        "total_score_optional": _match_regex_value(segment, r"(?:总得分|综合得分|得分|评分)\s*[:：]?\s*([0-9.]+)"),
+        "project_manager_optional": _match_regex_value(segment, r"(?:项目负责人|项目经理|拟派项目负责人)\s*[:：]?\s*([^\s，,；;。]+)"),
+        "certificate_no_optional": _match_regex_value(segment, r"(?:证书编号|注册编号|注册证书编号|注册号)\s*[:：]?\s*([A-Za-z0-9\u4e00-\u9fa5-]+)"),
+        "match_basis": "probe_text_marker_summary",
+        "review_required": True,
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
+
+
+def _candidate_name_from_segment(segment: str) -> str | None:
+    for labels in (
+        ("单位名称", "投标人名称", "中标候选人名称", "候选人名称"),
+        ("中标候选人", "成交候选人"),
+    ):
+        value = _match_labeled_value(segment, labels)
+        if value:
+            return value
+    head = re.split(
+        r"(?:投标报价|报价|投标总价|中标金额|总得分|综合得分|得分|评分|项目负责人|项目经理|拟派项目负责人|证书编号|注册编号|注册证书编号|注册号|质量|工期|资格能力|公示期|公示时间|异议期)",
+        segment,
+        maxsplit=1,
+    )[0]
+    return _clean_candidate_name(head)
+
+
+def _match_labeled_value(text: str, labels: tuple[str, ...]) -> str | None:
+    pattern = re.compile(rf"(?:{'|'.join(re.escape(label) for label in labels)})\s*[:：]\s*(?P<value>[^；;。,\n\r]+)")
+    match = pattern.search(text)
+    return _clean_candidate_name(_trim_candidate_value(match.group("value"))) if match else None
+
+
+def _match_regex_value(text: str, pattern: str) -> str | None:
+    match = re.search(pattern, text)
+    if not match:
+        return None
+    return _limit_summary_text(re.sub(r"\s+", " ", match.group(1)).strip(" :：，,；;。"), 120)
+
+
+def _clean_candidate_name(value: str | None) -> str | None:
+    if not value:
+        return None
+    text = re.sub(r"<[^>]+>", " ", value)
+    text = re.sub(r"\s+", " ", text).strip(" :：，,；;。-—")
+    text = re.sub(r"^(?:名称|单位|候选人|为)\s*[:：]?", "", text).strip(" :：，,；;。-—")
+    return _limit_summary_text(text, 200) if text else None
+
+
+def _trim_candidate_value(value: str) -> str:
+    return re.split(
+        r"(?:投标报价|报价|投标总价|中标金额|总得分|综合得分|得分|评分|项目负责人|项目经理|拟派项目负责人|证书编号|注册编号|注册证书编号|注册号|公示期|公示时间|异议期)\s*[:：]?",
+        value,
+        maxsplit=1,
+    )[0]
+
+
+def _limit_summary_text(value: str | None, limit: int) -> str | None:
+    if value is None or len(value) <= limit:
+        return value
+    return value[:limit]
+
+
 def _candidate_count(text: str) -> int | None:
     ranked = set(re.findall(r"第([一二三四五六七八九十0-9]+)(?:中标|成交)?候选人", text))
     if ranked:
@@ -654,7 +815,7 @@ def _objection_window(text: str) -> str | None:
     )
     if date_range:
         return f"{date_range.group(1)}至{date_range.group(2)}"
-    days = re.search(r"(?:公示期|公示时间|异议期).{0,20}([0-9一二三四五六七八九十]+)\s*(?:个)?工作?日", text)
+    days = re.search(r"(?:公示期|公示时间|异议期).{0,20}([0-9一二三四五六七八九十]+)\s*(?:个)?(?:工作日|日)", text)
     if days:
         return f"{days.group(1)}日"
     return None

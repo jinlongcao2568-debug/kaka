@@ -138,6 +138,60 @@ class TestEvaluationStage3Profiles(unittest.TestCase):
             finally:
                 session.close()
 
+    def test_profiles_consume_probe_structured_summary_when_snapshot_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            database_url = sqlalchemy_sqlite_url(root / "profiles-probe-summary.sqlite")
+            object_root = root / "objects"
+            seed_path = root / "seed.json"
+            seed_path.write_text(
+                json.dumps(
+                    {
+                        "sources": [
+                            {
+                                "seed_id": "PROBE-RANKED",
+                                "source_url": "https://example.test/probe-ranked.html",
+                                "document_kind": "candidate_notice",
+                                "source_family": "offline_probe_sample",
+                                "jurisdiction": "CN",
+                                "project_type": "construction",
+                                "probe_text_optional": (
+                                    "第一中标候选人：甲公司 投标报价：1000万元 总得分：95.5 "
+                                    "项目负责人：张三 注册证书编号：粤144000000001。"
+                                    "第二中标候选人：乙公司。公示时间：2026年05月07日至2026年05月10日。"
+                                ),
+                            }
+                        ]
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+            build_evaluation_corpus(
+                input_json=seed_path,
+                database_url=database_url,
+                target_backend="sqlalchemy",
+                object_storage_path=object_root,
+                execute=True,
+                created_at="2026-05-07T08:55:00+00:00",
+            )
+
+            result = build_evaluation_stage3_profiles(
+                database_url=database_url,
+                target_backend="sqlalchemy",
+                object_storage_path=object_root,
+                execute=True,
+                created_at="2026-05-07T09:25:00+00:00",
+            )
+
+            item = result["manifest"]["items"][0]
+            self.assertEqual(item["profile_text_source"], "probe_structured_summary")
+            self.assertEqual(item["candidate_set_profile"]["candidate_rows_source"], "probe_structured_summary")
+            self.assertEqual(item["candidate_set_profile"]["candidate_rows_extracted_count"], 2)
+            self.assertEqual(item["candidate_set_profile"]["candidate_rows"][0]["candidate_name"], "甲公司")
+            self.assertEqual(item["candidate_set_profile"]["candidate_rows"][0]["project_manager_optional"], "张三")
+            self.assertEqual(item["candidate_set_profile"]["objection_window_optional"], "2026年05月07日至2026年05月10日")
+
     def test_missing_corpus_manifests_fail_closed_without_write(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)

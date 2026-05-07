@@ -52,7 +52,7 @@ CANDIDATE_SELECTION_MODES = {
 RANK_LABEL_RE = re.compile(r"第(?P<rank>[一二三四五六七八九十0-9]+)(?:中标|成交)?候选人")
 STOP_TOKEN_RE = re.compile(
     r"(?:投标报价|报价|投标总价|总得分|综合得分|得分|评分|项目负责人|项目经理|"
-    r"拟派项目负责人|证书编号|注册编号|注册证书编号|注册号|质量|工期|资格能力)"
+    r"拟派项目负责人|证书编号|注册编号|注册证书编号|注册号|质量|工期|资格能力|公示期|公示时间|异议期)"
 )
 PUNCT_SPLIT_RE = re.compile(r"[、,，;；\n\r]+")
 HTML_TAG_RE = re.compile(r"<[^>]+>")
@@ -197,6 +197,9 @@ def build_profile_items(
             field_summary=field_summary,
         )
         fairness_probe = build_fairness_clause_probe(text=profile_text, probe=probe)
+        profile_text_source = str(context.get("profile_text_source") or "probe_manifest_only")
+        if not profile_text and _has_probe_structured_summary(probe):
+            profile_text_source = "probe_structured_summary"
         review_reasons = _review_reasons(
             context=context,
             method_profile=method_profile,
@@ -222,7 +225,7 @@ def build_profile_items(
                 object_key_optional=_text(sample.get("object_key_optional") or context.get("object_key_optional")),
                 sha256_optional=_text(sample.get("sha256_optional") or context.get("sha256_optional")),
                 profile_state=profile_state,
-                profile_text_source=str(context.get("profile_text_source") or "probe_manifest_only"),
+                profile_text_source=profile_text_source,
                 stage3_parse_state_optional=_text(context.get("stage3_parse_state_optional")),
                 parsed_field_count=len(fields),
                 parsed_fields_summary=field_summary,
@@ -255,6 +258,8 @@ def build_evaluation_method_profile(
     dark = _contains_any(normalized, ("暗标", "暗 标")) or bool(probe.get("has_dark_bid_requirement"))
     bright = _contains_any(normalized, ("明标", "明 标")) or bool(probe.get("has_bright_bid_requirement"))
     scoring_dimensions = _scoring_dimensions(normalized, field_summary)
+    if not scoring_dimensions:
+        scoring_dimensions = _scoring_dimensions_from_probe_summary(probe)
     confidence = 0.86 if normalized and markers else 0.66 if family != "unknown" else 0.3
     review_reasons = ["evaluation_method_profile_review_required"]
     if family == "unknown":
@@ -296,6 +301,11 @@ def build_candidate_set_profile(
     candidates = _extract_candidates(normalized, mode=mode)
     if not candidates:
         candidates = _candidate_from_field_summary(field_summary)
+    candidate_source = "text_or_stage3_field_summary"
+    if not candidates:
+        candidates = _candidate_from_probe_summary(probe)
+        if candidates:
+            candidate_source = "probe_structured_summary"
     candidate_count = len(candidates) if candidates else _int_or_none(
         probe.get("candidate_count_optional") or sample.get("candidate_count_optional")
     )
@@ -309,11 +319,12 @@ def build_candidate_set_profile(
         review_reasons.append("candidate_rows_not_extracted")
     if candidate_count is None:
         review_reasons.append("candidate_count_unresolved")
-    if not normalized:
+    if not normalized and candidate_source != "probe_structured_summary":
         review_reasons.append("profile_text_unavailable")
     return {
         "candidate_selection_mode": mode,
         "candidate_selection_mode_source": mode_source,
+        "candidate_rows_source": candidate_source,
         "candidate_markers": markers,
         "candidate_count_optional": candidate_count,
         "objection_window_optional": objection_window,
@@ -329,6 +340,17 @@ def build_candidate_set_profile(
 def build_fairness_clause_probe(*, text: str, probe: Mapping[str, Any]) -> dict[str, Any]:
     normalized = _normalize_text(text)
     signals = _fairness_signals(normalized)
+    if not signals:
+        for signal_type in [str(value) for value in list(probe.get("fairness_signal_types") or []) if value]:
+            signals.append(
+                {
+                    "signal_type": signal_type,
+                    "markers": [],
+                    "match_basis": "probe_structured_summary",
+                    "review_required": True,
+                    "legal_conclusion_allowed": False,
+                }
+            )
     if not signals:
         for marker in list(probe.get("fairness_markers") or []):
             marker_text = str(marker)
@@ -635,6 +657,58 @@ def _candidate_from_field_summary(field_summary: list[Mapping[str, Any]]) -> lis
     ]
 
 
+def _candidate_from_probe_summary(probe: Mapping[str, Any]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for raw in list(probe.get("candidate_rows_probe_summary") or []):
+        if not isinstance(raw, Mapping):
+            continue
+        name = _text(raw.get("candidate_name"))
+        if not name:
+            continue
+        rows.append(
+            {
+                "candidate_name": _limit_text(name, limit=200),
+                "candidate_rank_optional": raw.get("candidate_rank_optional"),
+                "bid_price_optional": _text(raw.get("bid_price_optional")),
+                "total_score_optional": _text(raw.get("total_score_optional")),
+                "project_manager_optional": _text(raw.get("project_manager_optional")),
+                "certificate_no_optional": _text(raw.get("certificate_no_optional")),
+                "match_basis": _text(raw.get("match_basis")) or "probe_structured_summary",
+                "review_required": True,
+                "customer_visible_allowed": False,
+                "no_legal_conclusion": True,
+            }
+        )
+    return rows[:20]
+
+
+def _scoring_dimensions_from_probe_summary(probe: Mapping[str, Any]) -> list[dict[str, Any]]:
+    dimensions: list[dict[str, Any]] = []
+    for raw in list(probe.get("scoring_dimensions_probe_summary") or []):
+        if not isinstance(raw, Mapping):
+            continue
+        dimension = _text(raw.get("dimension"))
+        if not dimension:
+            continue
+        dimensions.append(
+            {
+                "dimension": dimension,
+                "markers": [str(marker) for marker in list(raw.get("markers") or []) if marker],
+                "match_basis": "probe_structured_summary",
+                "review_required": True,
+            }
+        )
+    return dimensions
+
+
+def _has_probe_structured_summary(probe: Mapping[str, Any]) -> bool:
+    return bool(
+        probe.get("candidate_rows_probe_summary")
+        or probe.get("scoring_dimensions_probe_summary")
+        or probe.get("fairness_signal_types")
+    )
+
+
 def _candidate_name_from_segment(segment: str) -> str | None:
     for labels in (
         ("单位名称", "投标人名称", "中标候选人名称", "候选人名称"),
@@ -656,6 +730,14 @@ def _clean_candidate_name(value: str | None) -> str | None:
     if not text:
         return None
     return _limit_text(text, limit=200)
+
+
+def _trim_candidate_value(value: str) -> str:
+    return re.split(
+        r"(?:投标报价|报价|投标总价|中标金额|总得分|综合得分|得分|评分|项目负责人|项目经理|拟派项目负责人|证书编号|注册编号|注册证书编号|注册号|公示期|公示时间|异议期)\s*[:：]?",
+        value,
+        maxsplit=1,
+    )[0]
 
 
 def _fairness_signals(text: str) -> list[dict[str, Any]]:
@@ -691,7 +773,11 @@ def _profile_state(
     candidate_profile: Mapping[str, Any],
     fairness_probe: Mapping[str, Any],
 ) -> str:
-    if context.get("review_reasons") and not context.get("profile_text"):
+    if context.get("review_reasons") and not context.get("profile_text") and not _has_structured_profile_signal(
+        method_profile=method_profile,
+        candidate_profile=candidate_profile,
+        fairness_probe=fairness_probe,
+    ):
         return "PROFILE_REVIEW_REQUIRED"
     if (
         method_profile.get("evaluation_method_family") == "unknown"
@@ -700,6 +786,19 @@ def _profile_state(
     ):
         return "PROFILE_REVIEW_LOW_SIGNAL"
     return "PROFILED_REVIEW_READY"
+
+
+def _has_structured_profile_signal(
+    *,
+    method_profile: Mapping[str, Any],
+    candidate_profile: Mapping[str, Any],
+    fairness_probe: Mapping[str, Any],
+) -> bool:
+    return bool(
+        method_profile.get("evaluation_method_family") != "unknown"
+        or candidate_profile.get("candidate_rows")
+        or fairness_probe.get("fairness_signal_count")
+    )
 
 
 def _review_reasons(
@@ -872,7 +971,7 @@ def _known_or_unknown(value: Any, allowed: set[str]) -> str:
 def _match_value(text: str, labels: Iterable[str]) -> str | None:
     pattern = re.compile(rf"(?:{'|'.join(re.escape(label) for label in labels)})\s*[:：]\s*(?P<value>[^；;。,\n\r]+)")
     match = pattern.search(text)
-    return _clean_candidate_name(match.group("value")) if match else None
+    return _clean_candidate_name(_trim_candidate_value(match.group("value"))) if match else None
 
 
 def _match_regex_value(text: str, pattern: str) -> str | None:
@@ -889,7 +988,7 @@ def _objection_window(text: str) -> str | None:
     )
     if date_range:
         return f"{date_range.group(1)}至{date_range.group(2)}"
-    days = re.search(r"(?:公示期|公示时间|异议期).{0,20}([0-9一二三四五六七八九十]+)\s*(?:个)?工作?日", text)
+    days = re.search(r"(?:公示期|公示时间|异议期).{0,20}([0-9一二三四五六七八九十]+)\s*(?:个)?(?:工作日|日)", text)
     if days:
         return f"{days.group(1)}日"
     return None
