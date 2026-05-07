@@ -13,6 +13,8 @@ from typing import Any, Iterable, Mapping
 
 from shared.settings import Settings
 from shared.utils import utc_now_iso
+from stage3_parsing.ocr_text import OCR_REQUIRED, _extract_pdf_embedded_text
+from stage3_parsing.real_parser import _extract_fields_from_text
 from stage3_parsing.service import Stage3Service
 from storage.db import DatabaseSession, PersistedRecord
 from storage.legacy_object_triage import (
@@ -295,6 +297,17 @@ def parse_legacy_attachment_item(
             zip_entry_samples=zip_samples,
             parser_steps=["read_object_storage_object", "inspect_zip_directory"],
         )
+    if content_kind == "pdf":
+        return _parse_pdf_without_ocr(
+            triage_item=triage_item,
+            data=data,
+            object_present=object_present,
+            sha256_verified=sha256_verified,
+            byte_size_verified=byte_size_verified,
+            hash_path_valid=hash_path_valid,
+            source_url_optional=source_url,
+            source_family_optional=source_family,
+        )
 
     readback = _stage3_readback(
         triage_item=triage_item,
@@ -361,6 +374,86 @@ def parse_legacy_attachment_item(
         source_family_optional=source_family,
         ocr_required=_contains_ocr_required(taxonomy, fallback_steps),
         ocr_attempted=any("ocr" in step.lower() for step in parser_steps),
+        customer_visible_allowed=False,
+        no_legal_conclusion=True,
+    )
+
+
+def _parse_pdf_without_ocr(
+    *,
+    triage_item: Mapping[str, Any],
+    data: bytes,
+    object_present: bool,
+    sha256_verified: bool,
+    byte_size_verified: bool,
+    hash_path_valid: bool,
+    source_url_optional: str | None,
+    source_family_optional: str | None,
+) -> LegacyAttachmentParseItem:
+    object_key = str(triage_item.get("object_key") or "")
+    sha256 = str(triage_item.get("sha256") or hashlib.sha256(data).hexdigest())
+    content_type = _text(triage_item.get("content_type")) or "application/pdf"
+    byte_size = _int(triage_item.get("byte_size"))
+    parser_steps = ["read_object_storage_object", "detect_attachment_type:PDF", "extract_pdf_embedded_text_only"]
+    pdf_result = _extract_pdf_embedded_text(data, max_pages=30)
+    fields = []
+    taxonomy: list[str] = []
+    fallback_steps: list[str] = []
+    if pdf_result.text:
+        fields = [
+            field.as_payload()
+            for field in _extract_fields_from_text(
+                pdf_result.text,
+                source_file_ref=object_key,
+                locator_type="pdf_text",
+                base_locator={"source": "pdf_text", "extractor": pdf_result.extractor},
+                confidence=pdf_result.confidence,
+                review_required=pdf_result.review_required,
+                parse_warnings=pdf_result.warnings,
+            )
+        ]
+    else:
+        taxonomy.append("PDF_TEXT_UNAVAILABLE")
+        fallback_steps.append("degrade_to_review:pdf_embedded_text_unavailable")
+        if OCR_REQUIRED in pdf_result.warnings or OCR_REQUIRED in pdf_result.state:
+            taxonomy.append(OCR_REQUIRED)
+            fallback_steps.append("degrade_to_review:ocr_required_but_disabled")
+    if not fields:
+        fallback_steps.append("degrade_to_review:no_field_candidates")
+    parse_state = PARSE_STATE_PARSED if fields and not taxonomy else PARSE_STATE_REVIEW_REQUIRED
+    if fields and taxonomy:
+        parse_state = PARSE_STATE_PARSED_WITH_REVIEW
+    reasons = _review_reasons(
+        taxonomy=taxonomy,
+        fallback_steps=fallback_steps,
+        parsed_field_count=len(fields),
+        source_url_optional=source_url_optional,
+    )
+    return LegacyAttachmentParseItem(
+        object_key=object_key,
+        sha256=sha256,
+        content_kind="pdf",
+        content_type=content_type,
+        byte_size=byte_size,
+        object_present=object_present,
+        sha256_verified=sha256_verified,
+        byte_size_verified=byte_size_verified,
+        hash_path_valid=hash_path_valid,
+        parse_state=parse_state,
+        stage3_parse_state_optional=parse_state,
+        parser_family="pdf",
+        attachment_type="PDF",
+        parsed_field_count=len(fields),
+        parsed_fields_summary=_parsed_fields_summary(fields),
+        parser_steps=parser_steps,
+        fallback_steps=fallback_steps,
+        parser_error_taxonomy=taxonomy,
+        review_required=True,
+        review_reasons=reasons,
+        source_url_optional=source_url_optional,
+        source_family_optional=source_family_optional,
+        ocr_required=OCR_REQUIRED in taxonomy,
+        ocr_attempted=False,
         customer_visible_allowed=False,
         no_legal_conclusion=True,
     )
