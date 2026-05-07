@@ -3,6 +3,18 @@ __pycache__/
 *.pyc
 .pytest_cache/
 
+# Local runtime/debug artifacts
+.playwright-mcp/
+tmp/
+handoff/runlogs/
+*.log
+*.pid
+
+# One-off local capture/debug outputs
+/gz_ywtb_*
+/jzsc_*.json
+/mwr-*.png
+
 # Local research tool environments and generated outputs
 tools/research/.venv/
 tools/research/out/

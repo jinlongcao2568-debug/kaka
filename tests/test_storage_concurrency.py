@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import os
 import sqlite3
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -71,6 +72,15 @@ from storage.legacy_object_triage import (
     REVIEW_ONLY_INTEGRITY_BLOCKED,
     REVIEW_ONLY_SOURCE_UNCLEAR,
     build_legacy_object_triage,
+)
+from storage.local_artifact_cleanup import (
+    ARCHIVE_ONLY,
+    COPY_TO_OBJECT_STORAGE_AND_ARCHIVE,
+    EVIDENCE_ORIGINAL,
+    LOCAL_ARTIFACT_CLEANUP_MANIFEST_OBJECT_TYPE,
+    REVIEW_ONLY_LOCAL_ARTIFACT,
+    RUNTIME_DEBUG_ARTIFACT,
+    build_local_artifact_cleanup,
 )
 from shared.settings import Settings
 
@@ -1940,6 +1950,183 @@ class TestStorageConcurrency(unittest.TestCase):
                 )
             finally:
                 repeated_target.close()
+
+    def test_local_artifact_cleanup_archives_untracked_outputs_without_blob_import(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo_root = Path(tmp_dir) / "repo"
+            object_root = Path(tmp_dir) / "object-storage"
+            run_root = Path(tmp_dir) / "run-artifacts"
+            repo_root.mkdir()
+            database_url = sqlalchemy_sqlite_url(Path(tmp_dir) / "cleanup.sqlite")
+
+            evidence_html = repo_root / "handoff" / "guangzhou_candidate.html"
+            evidence_json = repo_root / "jzsc_probe.json"
+            runtime_log = repo_root / "handoff" / "bg_test3.log"
+            runtime_tmp = repo_root / "tmp" / "debug.py"
+            review_script = repo_root / "tools" / "probe.ps1"
+            tracked_file = repo_root / "handoff" / "formal_asset.json"
+            for path, data in {
+                evidence_html: b"<!DOCTYPE html><html><title>notice</title></html>",
+                evidence_json: b'{"source_url":"https://example.invalid"}',
+                runtime_log: b"runtime log",
+                runtime_tmp: b"print('debug')",
+                review_script: b"Write-Host debug",
+                tracked_file: b'{"tracked":true}',
+            }.items():
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(data)
+
+            untracked_paths = [
+                "handoff/guangzhou_candidate.html",
+                "jzsc_probe.json",
+                "handoff/bg_test3.log",
+                "tmp/debug.py",
+                "tools/probe.ps1",
+            ]
+            target_settings = Settings(
+                storage_backend="sqlalchemy",
+                storage_database_url_optional=database_url,
+                storage_scope="shared",
+                storage_runtime_mode="explicit-path",
+                object_storage_path_optional=str(object_root),
+            )
+
+            dry_run = build_local_artifact_cleanup(
+                repo_root=repo_root,
+                object_storage_path=object_root,
+                run_artifacts_root=run_root,
+                database_url=database_url,
+                target_backend="sqlalchemy",
+                execute=False,
+                created_at="2026-05-07T04:00:00+00:00",
+                untracked_paths=untracked_paths,
+            )
+
+            self.assertTrue(dry_run["safe_to_execute"])
+            self.assertFalse(dry_run["execution"]["executed"])
+            self.assertEqual(dry_run["summary"]["untracked_file_count"], 5)
+            self.assertEqual(dry_run["summary"]["evidence_like_count"], 2)
+            self.assertTrue(evidence_html.exists())
+            self.assertTrue(runtime_log.exists())
+            dry_target = DatabaseSession(settings=target_settings)
+            try:
+                self.assertEqual(dry_target.list_records(OBJECT_STORAGE_OBJECT_TYPE), [])
+                self.assertEqual(
+                    dry_target.list_records(LOCAL_ARTIFACT_CLEANUP_MANIFEST_OBJECT_TYPE),
+                    [],
+                )
+            finally:
+                dry_target.close()
+
+            executed = build_local_artifact_cleanup(
+                repo_root=repo_root,
+                object_storage_path=object_root,
+                run_artifacts_root=run_root,
+                database_url=database_url,
+                target_backend="sqlalchemy",
+                execute=True,
+                created_at="2026-05-07T04:00:00+00:00",
+                untracked_paths=untracked_paths,
+            )
+
+            self.assertTrue(executed["execution"]["executed"])
+            self.assertEqual(executed["execution"]["copied_to_object_storage_count"], 2)
+            self.assertEqual(executed["execution"]["moved_to_run_artifacts_count"], 5)
+            self.assertFalse(evidence_html.exists())
+            self.assertFalse(evidence_json.exists())
+            self.assertFalse(runtime_log.exists())
+            self.assertFalse(runtime_tmp.exists())
+            self.assertFalse(review_script.exists())
+            self.assertTrue(tracked_file.exists())
+
+            target = DatabaseSession(settings=target_settings)
+            try:
+                object_records = target.list_records(OBJECT_STORAGE_OBJECT_TYPE)
+                cleanup_manifests = target.list_records(LOCAL_ARTIFACT_CLEANUP_MANIFEST_OBJECT_TYPE)
+                self.assertEqual(len(object_records), 2)
+                self.assertEqual(len(cleanup_manifests), 1)
+                items = {
+                    item["source_path"]: item
+                    for item in cleanup_manifests[0].payload["items"]
+                }
+                self.assertEqual(
+                    items["handoff/guangzhou_candidate.html"]["artifact_class"],
+                    EVIDENCE_ORIGINAL,
+                )
+                self.assertEqual(
+                    items["handoff/guangzhou_candidate.html"]["action"],
+                    COPY_TO_OBJECT_STORAGE_AND_ARCHIVE,
+                )
+                self.assertTrue(
+                    items["handoff/guangzhou_candidate.html"]["object_key_optional"]
+                )
+                self.assertEqual(
+                    items["handoff/bg_test3.log"]["artifact_class"],
+                    RUNTIME_DEBUG_ARTIFACT,
+                )
+                self.assertEqual(items["handoff/bg_test3.log"]["action"], ARCHIVE_ONLY)
+                self.assertEqual(
+                    items["tools/probe.ps1"]["artifact_class"],
+                    REVIEW_ONLY_LOCAL_ARTIFACT,
+                )
+                for row in [*object_records, *cleanup_manifests]:
+                    self.assertNotIn("bytes", row.payload)
+                for item in items.values():
+                    self.assertTrue(Path(item["archive_path"]).exists())
+            finally:
+                target.close()
+
+            repeated = build_local_artifact_cleanup(
+                repo_root=repo_root,
+                object_storage_path=object_root,
+                run_artifacts_root=run_root,
+                database_url=database_url,
+                target_backend="sqlalchemy",
+                execute=True,
+                created_at="2026-05-07T04:05:00+00:00",
+                untracked_paths=untracked_paths,
+            )
+            self.assertEqual(repeated["summary"]["untracked_file_count"], 0)
+            repeated_target = DatabaseSession(settings=target_settings)
+            try:
+                self.assertEqual(
+                    len(repeated_target.list_records(LOCAL_ARTIFACT_CLEANUP_MANIFEST_OBJECT_TYPE)),
+                    1,
+                )
+                self.assertEqual(len(repeated_target.list_records(OBJECT_STORAGE_OBJECT_TYPE)), 2)
+            finally:
+                repeated_target.close()
+
+    def test_local_artifact_gitignore_keeps_formal_handoff_assets_visible(self) -> None:
+        ignored_tmp = subprocess.run(
+            ["git", "check-ignore", "--no-index", "tmp/local-cleanup-fixture.json"],
+            cwd=str(ROOT),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        ignored_playwright = subprocess.run(
+            ["git", "check-ignore", "--no-index", ".playwright-mcp/session.json"],
+            cwd=str(ROOT),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        ignored_root_probe = subprocess.run(
+            ["git", "check-ignore", "--no-index", "jzsc_probe.json"],
+            cwd=str(ROOT),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        formal_handoff = subprocess.run(
+            ["git", "check-ignore", "--no-index", "handoff/formal_asset.json"],
+            cwd=str(ROOT),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+
+        self.assertEqual(ignored_tmp.returncode, 0)
+        self.assertEqual(ignored_playwright.returncode, 0)
+        self.assertEqual(ignored_root_probe.returncode, 0)
+        self.assertNotEqual(formal_handoff.returncode, 0)
 
     def test_restore_dry_run_marks_missing_object_refs_and_does_not_write_active_storage(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
