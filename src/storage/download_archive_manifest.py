@@ -177,6 +177,7 @@ def build_download_archive_manifest(
     database_url: str | None = None,
     target_backend: str = "postgresql",
     run_artifacts_root: str | Path | None = None,
+    session: DatabaseSession | None = None,
     execute: bool = False,
     created_at: str | None = None,
 ) -> dict[str, Any]:
@@ -217,15 +218,18 @@ def build_download_archive_manifest(
         },
     }
     if execute:
-        if not database_url:
+        if session is None and not database_url:
             raise RuntimeError("database_url is required when execute=True")
-        settings = Settings(
-            storage_backend=target_backend,
-            storage_database_url_optional=database_url,
-            storage_scope="shared",
-            storage_runtime_mode="explicit-path",
-        )
-        session = DatabaseSession(settings=settings)
+        close_session = False
+        if session is None:
+            settings = Settings(
+                storage_backend=target_backend,
+                storage_database_url_optional=database_url,
+                storage_scope="shared",
+                storage_runtime_mode="explicit-path",
+            )
+            session = DatabaseSession(settings=settings)
+            close_session = True
         try:
             session.upsert_record(_manifest_record(manifest, persisted_at=created))
             result["execution"] = {
@@ -238,8 +242,107 @@ def build_download_archive_manifest(
                 "upserted_download_run_manifest_count": 1,
             }
         finally:
-            session.close()
+            if close_session:
+                session.close()
     return result
+
+
+def append_download_archive_items(
+    *,
+    run_id: str,
+    items: Iterable[Mapping[str, Any]],
+    session: DatabaseSession | None = None,
+    database_url: str | None = None,
+    target_backend: str = "postgresql",
+    run_artifacts_root: str | Path | None = None,
+    execute: bool = True,
+    created_at: str | None = None,
+) -> dict[str, Any]:
+    created = created_at or utc_now_iso()
+    manifest_id = _manifest_id_for_run(run_id)
+    close_session = False
+    resolved_session = session
+    if execute and resolved_session is None:
+        if not database_url:
+            raise RuntimeError("database_url is required when execute=True")
+        settings = Settings(
+            storage_backend=target_backend,
+            storage_database_url_optional=database_url,
+            storage_scope="shared",
+            storage_runtime_mode="explicit-path",
+        )
+        resolved_session = DatabaseSession(settings=settings)
+        close_session = True
+    try:
+        existing_items: list[Mapping[str, Any]] = []
+        if resolved_session is not None:
+            existing_record = resolved_session.get_record(DOWNLOAD_RUN_MANIFEST_OBJECT_TYPE, manifest_id)
+            if existing_record is not None:
+                existing_items = [
+                    item
+                    for item in existing_record.payload.get("items", [])
+                    if isinstance(item, Mapping)
+                ]
+        new_items = [item.as_payload() for item in build_download_archive_items(run_id=run_id, raw_items=items)]
+        merged_items = _merge_items_by_download_item_id(existing_items, new_items)
+        return build_download_archive_manifest(
+            run_id=run_id,
+            items=merged_items,
+            database_url=database_url or (resolved_session.storage_database_url if resolved_session else None),
+            target_backend=target_backend if resolved_session is None else resolved_session.storage_backend,
+            run_artifacts_root=run_artifacts_root,
+            session=resolved_session,
+            execute=execute,
+            created_at=created,
+        )
+    finally:
+        if close_session and resolved_session is not None:
+            resolved_session.close()
+
+
+def build_stage2_download_archive_item(
+    *,
+    run_id: str,
+    capture_kind: str,
+    fetch_result: Mapping[str, Any],
+    project_id: str | None = None,
+    candidate_id: str | None = None,
+    lineage_refs: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    _validate_capture_kind(capture_kind)
+    resolved_project_id, resolved_candidate_id = _resolve_stage2_bucket_ids(
+        project_id=project_id,
+        candidate_id=candidate_id,
+        lineage_refs=lineage_refs,
+    )
+    source_url = _stage2_source_url(fetch_result=fetch_result, capture_kind=capture_kind)
+    original_filename = (
+        _optional_str(fetch_result.get("attachment_filename"))
+        if capture_kind == CAPTURE_KIND_ATTACHMENT
+        else None
+    )
+    manifest = fetch_result.get("manifest_optional")
+    manifest_payload = manifest if isinstance(manifest, Mapping) else {}
+    snapshot_id = _optional_str(fetch_result.get("snapshot_id_optional") or manifest_payload.get("snapshot_id"))
+    object_key = _optional_str(manifest_payload.get("object_key"))
+    download_status = _stage2_download_status(fetch_result=fetch_result, snapshot_id=snapshot_id)
+    raw_item = {
+        "run_id": run_id,
+        "candidate_id_optional": resolved_candidate_id,
+        "project_id_optional": resolved_project_id,
+        "source_url": source_url,
+        "source_family_optional": _optional_str(fetch_result.get("source_family")),
+        "capture_kind": capture_kind,
+        "original_filename_optional": original_filename,
+        "object_key_optional": object_key,
+        "snapshot_id_optional": snapshot_id,
+        "sha256_optional": _optional_str(fetch_result.get("sha256") or manifest_payload.get("sha256")),
+        "byte_size_optional": _optional_int(fetch_result.get("byte_size") or manifest_payload.get("byte_size")),
+        "content_type_optional": _optional_str(fetch_result.get("content_type") or manifest_payload.get("content_type")),
+        "download_status": download_status,
+        "failure_reason_optional": _stage2_failure_reason(fetch_result),
+    }
+    return build_download_archive_items(run_id=run_id, raw_items=[raw_item])[0].as_payload()
 
 
 def build_download_archive_items(
@@ -321,7 +424,7 @@ def _build_manifest_payload(
     target_backend: str,
     created_at: str,
 ) -> dict[str, Any]:
-    manifest_id = f"DOWNLOAD-RUN-MANIFEST-{sanitize_download_segment(run_id, fallback='run')}"
+    manifest_id = _manifest_id_for_run(run_id)
     payload = {
         "manifest_version": DOWNLOAD_ARCHIVE_MANIFEST_VERSION,
         "manifest_id": manifest_id,
@@ -390,6 +493,71 @@ def _manifest_record(manifest: Mapping[str, Any], *, persisted_at: str) -> Persi
         payload=dict(manifest),
         persisted_at=persisted_at,
     )
+
+
+def _manifest_id_for_run(run_id: str) -> str:
+    return f"DOWNLOAD-RUN-MANIFEST-{sanitize_download_segment(run_id, fallback='run')}"
+
+
+def _merge_items_by_download_item_id(
+    existing_items: Iterable[Mapping[str, Any]],
+    new_items: Iterable[Mapping[str, Any]],
+) -> list[Mapping[str, Any]]:
+    order: list[str] = []
+    merged: dict[str, Mapping[str, Any]] = {}
+    for item in [*existing_items, *new_items]:
+        item_id = _optional_str(item.get("download_item_id"))
+        if not item_id:
+            continue
+        if item_id not in merged:
+            order.append(item_id)
+        merged[item_id] = item
+    return [merged[item_id] for item_id in order]
+
+
+def _resolve_stage2_bucket_ids(
+    *,
+    project_id: str | None,
+    candidate_id: str | None,
+    lineage_refs: Mapping[str, Any] | None,
+) -> tuple[str | None, str | None]:
+    refs = dict(lineage_refs or {})
+    resolved_project_id = (
+        _optional_str(project_id)
+        or _optional_str(refs.get("project_id"))
+        or _optional_str(refs.get("project_root_id"))
+    )
+    resolved_candidate_id = _optional_str(candidate_id) or _optional_str(refs.get("candidate_id"))
+    return resolved_project_id, resolved_candidate_id
+
+
+def _stage2_source_url(*, fetch_result: Mapping[str, Any], capture_kind: str) -> str:
+    if capture_kind == CAPTURE_KIND_ENTRY:
+        return str(fetch_result.get("entry_url") or fetch_result.get("final_url") or "").strip()
+    if capture_kind == CAPTURE_KIND_DETAIL:
+        return str(fetch_result.get("detail_url") or fetch_result.get("final_url") or "").strip()
+    if capture_kind == CAPTURE_KIND_ATTACHMENT:
+        return str(fetch_result.get("attachment_url") or fetch_result.get("final_url") or "").strip()
+    return str(fetch_result.get("source_url") or fetch_result.get("final_url") or "").strip()
+
+
+def _stage2_download_status(*, fetch_result: Mapping[str, Any], snapshot_id: str | None) -> str:
+    status = str(fetch_result.get("status") or "").strip().upper()
+    if status == "FETCHED" and snapshot_id:
+        return "FETCHED_WITH_SNAPSHOT"
+    if status == "FETCHED":
+        return "FETCHED_NO_SNAPSHOT_REVIEW"
+    return "REVIEW_NO_SNAPSHOT"
+
+
+def _stage2_failure_reason(fetch_result: Mapping[str, Any]) -> str | None:
+    reasons = fetch_result.get("degraded_reasons") or fetch_result.get("failure_reasons") or []
+    if isinstance(reasons, str):
+        return _optional_str(reasons)
+    if isinstance(reasons, Iterable):
+        joined = ";".join(str(reason) for reason in reasons if reason not in (None, ""))
+        return _optional_str(joined)
+    return None
 
 
 def _summary(items: Iterable[DownloadArchiveItem]) -> dict[str, Any]:
@@ -581,9 +749,11 @@ __all__ = [
     "DOWNLOAD_ARCHIVE_MANIFEST_VERSION",
     "DOWNLOAD_ARCHIVE_RULESET_ID",
     "DOWNLOAD_RUN_MANIFEST_OBJECT_TYPE",
+    "append_download_archive_items",
     "build_download_archive_items",
     "build_download_archive_manifest",
     "build_download_run_id",
+    "build_stage2_download_archive_item",
     "default_real_capture_run_artifacts_root",
     "load_download_archive_input",
     "planned_download_archive_path",

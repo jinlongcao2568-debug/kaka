@@ -24,6 +24,13 @@ from stage2_ingestion.real_public_url_fetcher import (
 from stage2_ingestion.playwright_challenge_resolver import PlaywrightAttachmentChallengeResolver
 from shared.contracts_runtime import ContractStore, StageBundle
 from shared.utils import apply_rule, build_id, ensure_enum, get_flag, resolve_bundle, utc_now_iso
+from storage.download_archive_manifest import (
+    CAPTURE_KIND_ATTACHMENT,
+    CAPTURE_KIND_DETAIL,
+    CAPTURE_KIND_ENTRY,
+    append_download_archive_items,
+    build_stage2_download_archive_item,
+)
 from storage.repositories.object_storage_repo import ObjectStorageRepository
 
 
@@ -248,15 +255,32 @@ class Stage2Service:
         repository: ObjectStorageRepository | None = None,
         transport: RealPublicFetchTransport | None = None,
         lineage_refs: Mapping[str, str] | None = None,
+        download_archive_run_id: str | None = None,
+        download_archive_execute: bool = True,
+        download_archive_run_artifacts_root: str | None = None,
+        project_id: str | None = None,
+        candidate_id: str | None = None,
     ) -> Mapping[str, Any]:
+        resolved_repository = repository or ObjectStorageRepository(settings=self.settings)
         fetcher = RealPublicEntryFetcher(
-            repository=repository or ObjectStorageRepository(settings=self.settings),
+            repository=resolved_repository,
             transport=transport,
         )
-        return fetcher.fetch_entry_url(
+        carrier = fetcher.fetch_entry_url(
             url,
             profile_id=profile_id,
             lineage_refs=lineage_refs,
+        )
+        return _with_download_archive(
+            carrier,
+            capture_kind=CAPTURE_KIND_ENTRY,
+            repository=resolved_repository,
+            lineage_refs=lineage_refs,
+            download_archive_run_id=download_archive_run_id,
+            download_archive_execute=download_archive_execute,
+            download_archive_run_artifacts_root=download_archive_run_artifacts_root,
+            project_id=project_id,
+            candidate_id=candidate_id,
         )
 
     def fetch_real_public_candidate_detail_url(
@@ -267,15 +291,32 @@ class Stage2Service:
         repository: ObjectStorageRepository | None = None,
         transport: RealPublicFetchTransport | None = None,
         lineage_refs: Mapping[str, str] | None = None,
+        download_archive_run_id: str | None = None,
+        download_archive_execute: bool = True,
+        download_archive_run_artifacts_root: str | None = None,
+        project_id: str | None = None,
+        candidate_id: str | None = None,
     ) -> Mapping[str, Any]:
+        resolved_repository = repository or ObjectStorageRepository(settings=self.settings)
         fetcher = RealPublicEntryFetcher(
-            repository=repository or ObjectStorageRepository(settings=self.settings),
+            repository=resolved_repository,
             transport=transport,
         )
-        return fetcher.fetch_candidate_detail_url(
+        carrier = fetcher.fetch_candidate_detail_url(
             url,
             profile_id=profile_id,
             lineage_refs=lineage_refs,
+        )
+        return _with_download_archive(
+            carrier,
+            capture_kind=CAPTURE_KIND_DETAIL,
+            repository=resolved_repository,
+            lineage_refs=lineage_refs,
+            download_archive_run_id=download_archive_run_id,
+            download_archive_execute=download_archive_execute,
+            download_archive_run_artifacts_root=download_archive_run_artifacts_root,
+            project_id=project_id,
+            candidate_id=candidate_id,
         )
 
     def fetch_real_public_attachment_url(
@@ -287,18 +328,35 @@ class Stage2Service:
         transport: RealPublicFetchTransport | None = None,
         lineage_refs: Mapping[str, str] | None = None,
         detail_page_url: str | None = None,
+        download_archive_run_id: str | None = None,
+        download_archive_execute: bool = True,
+        download_archive_run_artifacts_root: str | None = None,
+        project_id: str | None = None,
+        candidate_id: str | None = None,
     ) -> Mapping[str, Any]:
+        resolved_repository = repository or ObjectStorageRepository(settings=self.settings)
         fetcher = RealPublicEntryFetcher(
-            repository=repository or ObjectStorageRepository(settings=self.settings),
+            repository=resolved_repository,
             transport=transport,
             attachment_challenge_resolver=_attachment_challenge_resolver_from_environment(),
             automated_challenge_resolution_enabled=_automated_attachment_challenge_enabled(),
         )
-        return fetcher.fetch_attachment_original_link(
+        carrier = fetcher.fetch_attachment_original_link(
             url,
             profile_id=profile_id,
             lineage_refs=lineage_refs,
             detail_page_url=detail_page_url,
+        )
+        return _with_download_archive(
+            carrier,
+            capture_kind=CAPTURE_KIND_ATTACHMENT,
+            repository=resolved_repository,
+            lineage_refs=lineage_refs,
+            download_archive_run_id=download_archive_run_id,
+            download_archive_execute=download_archive_execute,
+            download_archive_run_artifacts_root=download_archive_run_artifacts_root,
+            project_id=project_id,
+            candidate_id=candidate_id,
         )
 
     def fetch_real_public_same_site_attachment_url(
@@ -310,16 +368,86 @@ class Stage2Service:
         transport: RealPublicFetchTransport | None = None,
         lineage_refs: Mapping[str, str] | None = None,
         detail_page_url: str | None = None,
+        download_archive_run_id: str | None = None,
+        download_archive_execute: bool = True,
+        download_archive_run_artifacts_root: str | None = None,
+        project_id: str | None = None,
+        candidate_id: str | None = None,
     ) -> Mapping[str, Any]:
+        resolved_repository = repository or ObjectStorageRepository(settings=self.settings)
         fetcher = RealPublicEntryFetcher(
-            repository=repository or ObjectStorageRepository(settings=self.settings),
+            repository=resolved_repository,
             transport=transport,
             attachment_challenge_resolver=_attachment_challenge_resolver_from_environment(),
             automated_challenge_resolution_enabled=_automated_attachment_challenge_enabled(),
         )
-        return fetcher.fetch_same_site_attachment_url(
+        carrier = fetcher.fetch_same_site_attachment_url(
             url,
             parent_profile_id=parent_profile_id,
             lineage_refs=lineage_refs,
             detail_page_url=detail_page_url,
         )
+        return _with_download_archive(
+            carrier,
+            capture_kind=CAPTURE_KIND_ATTACHMENT,
+            repository=resolved_repository,
+            lineage_refs=lineage_refs,
+            download_archive_run_id=download_archive_run_id,
+            download_archive_execute=download_archive_execute,
+            download_archive_run_artifacts_root=download_archive_run_artifacts_root,
+            project_id=project_id,
+            candidate_id=candidate_id,
+        )
+
+
+def _with_download_archive(
+    carrier: Mapping[str, Any],
+    *,
+    capture_kind: str,
+    repository: ObjectStorageRepository,
+    lineage_refs: Mapping[str, str] | None,
+    download_archive_run_id: str | None,
+    download_archive_execute: bool,
+    download_archive_run_artifacts_root: str | None,
+    project_id: str | None,
+    candidate_id: str | None,
+) -> Mapping[str, Any]:
+    if not download_archive_run_id:
+        return carrier
+    item = build_stage2_download_archive_item(
+        run_id=download_archive_run_id,
+        capture_kind=capture_kind,
+        fetch_result=carrier,
+        project_id=project_id,
+        candidate_id=candidate_id,
+        lineage_refs=lineage_refs,
+    )
+    archive_result = append_download_archive_items(
+        run_id=download_archive_run_id,
+        items=[item],
+        session=repository.session,
+        run_artifacts_root=download_archive_run_artifacts_root,
+        execute=download_archive_execute,
+    )
+    result = dict(carrier)
+    recorded_item = _find_download_archive_item(
+        archive_result["manifest"].get("items", []),
+        item["download_item_id"],
+    )
+    result["download_archive_optional"] = {
+        "run_id": download_archive_run_id,
+        "download_item_id": item["download_item_id"],
+        "archive_relative_path_optional": recorded_item.get("archive_relative_path_optional"),
+        "manifest_id": archive_result["manifest"]["manifest_id"],
+        "recorded": bool(archive_result["execution"].get("database_write_enabled")),
+        "mode": archive_result["download_archive_mode"],
+    }
+    return result
+
+
+def _find_download_archive_item(items: Any, download_item_id: str) -> Mapping[str, Any]:
+    if isinstance(items, list):
+        for item in items:
+            if isinstance(item, Mapping) and item.get("download_item_id") == download_item_id:
+                return item
+    return {}

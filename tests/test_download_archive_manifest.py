@@ -23,6 +23,7 @@ from storage.download_archive_manifest import (
     CAPTURE_KIND_DETAIL,
     CAPTURE_KIND_ENTRY,
     DOWNLOAD_RUN_MANIFEST_OBJECT_TYPE,
+    append_download_archive_items,
     build_download_archive_manifest,
     build_download_archive_items,
     planned_download_archive_path,
@@ -220,6 +221,66 @@ class TestDownloadArchiveManifest(unittest.TestCase):
                 self.assertNotIn("bytes", payload_text.lower())
                 self.assertNotIn("<html", payload_text.lower())
                 self.assertNotIn("%pdf", payload_text.lower())
+            finally:
+                session.close()
+
+    def test_append_download_archive_items_merges_by_item_id(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            db_path = Path(tmp_dir) / "storage.sqlite"
+            database_url = sqlalchemy_sqlite_url(db_path)
+            settings = Settings(
+                storage_backend="sqlalchemy",
+                storage_database_url_optional=database_url,
+                storage_scope="shared",
+                storage_runtime_mode="explicit-path",
+            )
+            session = DatabaseSession(settings=settings)
+            try:
+                append_download_archive_items(
+                    run_id="RUN-MERGE",
+                    session=session,
+                    execute=True,
+                    items=[
+                        {
+                            "download_item_id": "DLI-ENTRY",
+                            "project_id": "PROJECT-1",
+                            "source_url": "https://example.test/entry.html",
+                            "capture_kind": CAPTURE_KIND_ENTRY,
+                            "download_status": "FETCHED_WITH_SNAPSHOT",
+                        }
+                    ],
+                )
+                append_download_archive_items(
+                    run_id="RUN-MERGE",
+                    session=session,
+                    execute=True,
+                    items=[
+                        {
+                            "download_item_id": "DLI-ENTRY",
+                            "project_id": "PROJECT-1",
+                            "source_url": "https://example.test/entry.html",
+                            "capture_kind": CAPTURE_KIND_ENTRY,
+                            "snapshot_id": "SNAP-UPDATED",
+                            "download_status": "FETCHED_WITH_SNAPSHOT",
+                        },
+                        {
+                            "download_item_id": "DLI-ATTACH",
+                            "project_id": "PROJECT-1",
+                            "source_url": "https://example.test/file.pdf",
+                            "capture_kind": CAPTURE_KIND_ATTACHMENT,
+                            "original_filename": "file.pdf",
+                            "download_status": "FETCHED_WITH_SNAPSHOT",
+                        },
+                    ],
+                )
+
+                records = session.list_records(DOWNLOAD_RUN_MANIFEST_OBJECT_TYPE)
+                self.assertEqual(len(records), 1)
+                payload = records[0].payload
+                self.assertEqual(payload["summary"]["item_count"], 2)
+                items = {item["download_item_id"]: item for item in payload["items"]}
+                self.assertEqual(items["DLI-ENTRY"]["snapshot_id_optional"], "SNAP-UPDATED")
+                self.assertIn("/attachments/", items["DLI-ATTACH"]["archive_relative_path_optional"])
             finally:
                 session.close()
 

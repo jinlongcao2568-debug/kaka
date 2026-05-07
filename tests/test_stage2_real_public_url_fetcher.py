@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sys
 import tempfile
 import unittest
@@ -32,6 +33,7 @@ from stage2_ingestion.real_public_url_fetcher import (
 )
 from stage2_ingestion.service import Stage2Service
 from storage.db import DatabaseSession
+from storage.download_archive_manifest import DOWNLOAD_RUN_MANIFEST_OBJECT_TYPE
 from storage.repositories.object_storage_repo import ObjectStorageRepository
 
 
@@ -1283,6 +1285,155 @@ class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
                 replay["manifest"]["lineage_refs"]["source_blueprint_batch_id"],
                 "PTL-I100-133A",
             )
+
+    def test_stage2_real_public_fetches_do_not_write_download_archive_without_run_id(self) -> None:
+        body = _ggzy_entry_html()
+        transport = FakeRealPublicFetchTransport(
+            {
+                GGZY_ENTRY_URL: RealPublicFetchResponse(
+                    url=GGZY_ENTRY_URL,
+                    status_code=200,
+                    content=body,
+                    content_type="text/html; charset=utf-8",
+                    final_url=GGZY_ENTRY_URL,
+                )
+            }
+        )
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = _repo(tmp_dir)
+            carrier = Stage2Service().fetch_real_public_entry_url(
+                GGZY_ENTRY_URL,
+                profile_id="GGZY-DEAL-LIST",
+                repository=repo,
+                transport=transport,
+            )
+
+            self.assertEqual(carrier["status"], "FETCHED")
+            self.assertNotIn("download_archive_optional", carrier)
+            self.assertEqual(repo.session.list_records(DOWNLOAD_RUN_MANIFEST_OBJECT_TYPE), [])
+
+    def test_stage2_real_public_fetches_append_to_download_archive_manifest(self) -> None:
+        pdf_bytes = _pdf_like_bytes()
+        transport = FakeRealPublicFetchTransport(
+            {
+                GGZY_ENTRY_URL: RealPublicFetchResponse(
+                    url=GGZY_ENTRY_URL,
+                    status_code=200,
+                    content=_ggzy_entry_html(),
+                    content_type="text/html; charset=utf-8",
+                    final_url=GGZY_ENTRY_URL,
+                ),
+                CCGP_DETAIL_URL: RealPublicFetchResponse(
+                    url=CCGP_DETAIL_URL,
+                    status_code=200,
+                    content=_ccgp_detail_html(),
+                    content_type="text/html; charset=utf-8",
+                    final_url=CCGP_DETAIL_URL,
+                ),
+                CCGP_ATTACHMENT_URL: RealPublicFetchResponse(
+                    url=CCGP_ATTACHMENT_URL,
+                    status_code=200,
+                    content=pdf_bytes,
+                    content_type="application/pdf",
+                    final_url=CCGP_ATTACHMENT_URL,
+                ),
+            }
+        )
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = _repo(tmp_dir)
+            run_root = Path(tmp_dir) / "real-capture"
+            service = Stage2Service()
+            entry = service.fetch_real_public_entry_url(
+                GGZY_ENTRY_URL,
+                profile_id="GGZY-DEAL-LIST",
+                repository=repo,
+                transport=transport,
+                lineage_refs={"project_id": "LINEAGE-PROJECT"},
+                download_archive_run_id="RUN-STAGE2-ARCHIVE",
+                download_archive_run_artifacts_root=str(run_root),
+                project_id="PROJECT:1",
+                candidate_id="CAND:IGNORED",
+            )
+            detail = service.fetch_real_public_candidate_detail_url(
+                CCGP_DETAIL_URL,
+                profile_id="CCGP-CENTRAL-NOTICES",
+                repository=repo,
+                transport=transport,
+                lineage_refs={"candidate_id": "CAND-2"},
+                download_archive_run_id="RUN-STAGE2-ARCHIVE",
+                download_archive_run_artifacts_root=str(run_root),
+            )
+            attachment = service.fetch_real_public_same_site_attachment_url(
+                CCGP_ATTACHMENT_URL,
+                parent_profile_id="CCGP-CENTRAL-NOTICES",
+                repository=repo,
+                transport=transport,
+                detail_page_url=CCGP_DETAIL_URL,
+                download_archive_run_id="RUN-STAGE2-ARCHIVE",
+                download_archive_run_artifacts_root=str(run_root),
+            )
+
+            self.assertTrue(entry["download_archive_optional"]["recorded"])
+            self.assertTrue(detail["download_archive_optional"]["recorded"])
+            self.assertTrue(attachment["download_archive_optional"]["recorded"])
+            self.assertEqual(entry["download_archive_optional"]["mode"], "EXECUTED")
+            self.assertFalse(run_root.exists())
+
+            records = repo.session.list_records(DOWNLOAD_RUN_MANIFEST_OBJECT_TYPE)
+            self.assertEqual(len(records), 1)
+            payload = records[0].payload
+            self.assertEqual(payload["summary"]["item_count"], 3)
+            self.assertEqual(payload["summary"]["download_status_counts"], {"FETCHED_WITH_SNAPSHOT": 3})
+            items = payload["items"]
+            entry_item = next(item for item in items if item["capture_kind"] == "entry")
+            detail_item = next(item for item in items if item["capture_kind"] == "detail")
+            attachment_item = next(item for item in items if item["capture_kind"] == "attachment")
+            self.assertIn("downloads/PROJECT_1/pages/", entry_item["archive_relative_path_optional"])
+            self.assertIn("downloads/CAND-2/pages/", detail_item["archive_relative_path_optional"])
+            self.assertIn("downloads/UNASSIGNED/attachments/", attachment_item["archive_relative_path_optional"])
+            self.assertTrue(attachment_item["archive_relative_path_optional"].endswith("notice.pdf"))
+            self.assertTrue(entry_item["snapshot_id_optional"])
+            self.assertTrue(attachment_item["object_key_optional"])
+
+            payload_text = json.dumps(payload, ensure_ascii=False).lower()
+            self.assertNotIn("<html", payload_text)
+            self.assertNotIn("%pdf", payload_text)
+            self.assertNotIn("public attachment", payload_text)
+
+    def test_stage2_download_archive_records_degraded_no_snapshot_as_review(self) -> None:
+        transport = FakeRealPublicFetchTransport(
+            {
+                BEIJING_ATTACHMENT_PDF_URL: RealPublicFetchResponse(
+                    url=BEIJING_ATTACHMENT_PDF_URL,
+                    status_code=200,
+                    content=b"<html>captcha</html>",
+                    content_type="text/html; charset=utf-8",
+                    final_url=BEIJING_ATTACHMENT_PDF_URL,
+                )
+            }
+        )
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = _repo(tmp_dir)
+            carrier = Stage2Service().fetch_real_public_attachment_url(
+                BEIJING_ATTACHMENT_PDF_URL,
+                profile_id="BEIJING-STANDARD-BIDDING-PDF",
+                repository=repo,
+                transport=transport,
+                download_archive_run_id="RUN-STAGE2-DEGRADED",
+                candidate_id="CAND-DEGRADED",
+            )
+
+            self.assertEqual(carrier["status"], "DEGRADED")
+            records = repo.session.list_records(DOWNLOAD_RUN_MANIFEST_OBJECT_TYPE)
+            self.assertEqual(len(records), 1)
+            item = records[0].payload["items"][0]
+            self.assertEqual(item["download_status"], "REVIEW_NO_SNAPSHOT")
+            self.assertIsNone(item["snapshot_id_optional"])
+            self.assertIsNone(item["object_key_optional"])
+            self.assertIn("downloads/CAND-DEGRADED/attachments/", item["archive_relative_path_optional"])
 
 
 if __name__ == "__main__":
