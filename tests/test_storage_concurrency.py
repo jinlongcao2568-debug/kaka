@@ -48,7 +48,11 @@ from storage.repositories import (
 )
 from storage.repositories.backup_restore_repo import BackupRestoreRepository
 from storage.repositories.object_storage_repo import ObjectStorageRepository
-from storage.object_storage import OBJECT_STORAGE_OBJECT_TYPE, ObjectStorageMissingError
+from storage.object_storage import (
+    EVIDENCE_SNAPSHOT_MANIFEST_OBJECT_TYPE,
+    OBJECT_STORAGE_OBJECT_TYPE,
+    ObjectStorageMissingError,
+)
 from storage.backup_restore import compute_manifest_hash
 from storage.json_storage_migration import (
     MIGRATION_MANIFEST_OBJECT_TYPE,
@@ -59,6 +63,14 @@ from storage.object_storage_inventory import (
     REFERENCED_BY_RECORD,
     UNREFERENCED_LEGACY_OBJECT,
     build_object_storage_inventory,
+)
+from storage.legacy_object_triage import (
+    LEGACY_OBJECT_TRIAGE_MANIFEST_OBJECT_TYPE,
+    PROMOTE_CANDIDATE,
+    REVIEW_ONLY_ATTACHMENT_CANDIDATE,
+    REVIEW_ONLY_INTEGRITY_BLOCKED,
+    REVIEW_ONLY_SOURCE_UNCLEAR,
+    build_legacy_object_triage,
 )
 from shared.settings import Settings
 
@@ -1759,6 +1771,172 @@ class TestStorageConcurrency(unittest.TestCase):
                 self.assertEqual(
                     len(repeated_target.list_records(OBJECT_STORAGE_INVENTORY_MANIFEST_OBJECT_TYPE)),
                     1,
+                )
+            finally:
+                repeated_target.close()
+
+    def test_legacy_object_triage_promotes_only_high_confidence_snapshots(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir) / "objects"
+            database_url = sqlalchemy_sqlite_url(Path(tmp_dir) / "triage.sqlite")
+            high_confidence_html = (
+                "<!DOCTYPE html><html><head><title>广州公共资源交易中心项目招标公告</title></head>"
+                "<body>公共资源交易 招标公告 中标候选人 评标报告</body></html>"
+            ).encode("utf-8")
+            generic_html = b"<!DOCTYPE html><html><head><title>Internal note</title></head><body>hello</body></html>"
+            high_confidence_json = (
+                b'{"source_url":"https://example.invalid/notice/1",'
+                b'"snapshot_id":"SNAP-LEGACY-1",'
+                b'"source_family":"public_procurement_platform",'
+                b'"title":"legacy public notice"}'
+            )
+            plain_json = b'{"status":"ok"}'
+            pdf_bytes = b"%PDF-1.7\nfixture"
+            zip_bytes = b"PK\x03\x04fixture"
+            mismatch_original = b"original"
+
+            html_key = self._write_content_addressed_object(root, high_confidence_html)
+            generic_html_key = self._write_content_addressed_object(root, generic_html)
+            json_key = self._write_content_addressed_object(root, high_confidence_json)
+            plain_json_key = self._write_content_addressed_object(root, plain_json)
+            pdf_key = self._write_content_addressed_object(root, pdf_bytes)
+            zip_key = self._write_content_addressed_object(root, zip_bytes)
+            mismatch_key = self._write_content_addressed_object(root, mismatch_original)
+
+            target_settings = Settings(
+                storage_backend="sqlalchemy",
+                storage_database_url_optional=database_url,
+                storage_scope="shared",
+                storage_runtime_mode="explicit-path",
+                object_storage_path_optional=str(root),
+            )
+
+            inventory = build_object_storage_inventory(
+                object_storage_path=root,
+                database_url=database_url,
+                target_backend="sqlalchemy",
+                execute=True,
+                created_at="2026-05-07T03:00:00+00:00",
+            )
+            self.assertEqual(inventory["summary"]["object_count"], 7)
+            (root / mismatch_key).write_bytes(b"changed!")
+
+            dry_run = build_legacy_object_triage(
+                object_storage_path=root,
+                database_url=database_url,
+                target_backend="sqlalchemy",
+                execute=False,
+                created_at="2026-05-07T03:05:00+00:00",
+            )
+
+            self.assertTrue(dry_run["safe_to_execute"])
+            self.assertFalse(dry_run["execution"]["executed"])
+            self.assertEqual(dry_run["summary"]["object_count"], 7)
+            self.assertEqual(dry_run["summary"]["promotion_eligible_count"], 2)
+            dry_target = DatabaseSession(settings=target_settings)
+            try:
+                self.assertEqual(
+                    dry_target.list_records(LEGACY_OBJECT_TRIAGE_MANIFEST_OBJECT_TYPE),
+                    [],
+                )
+                self.assertEqual(
+                    dry_target.list_records(EVIDENCE_SNAPSHOT_MANIFEST_OBJECT_TYPE),
+                    [],
+                )
+            finally:
+                dry_target.close()
+
+            executed = build_legacy_object_triage(
+                object_storage_path=root,
+                database_url=database_url,
+                target_backend="sqlalchemy",
+                execute=True,
+                created_at="2026-05-07T03:05:00+00:00",
+            )
+
+            self.assertTrue(executed["execution"]["executed"])
+            self.assertEqual(
+                executed["execution"]["upserted_evidence_snapshot_manifest_count"],
+                2,
+            )
+            target = DatabaseSession(settings=target_settings)
+            try:
+                triage_manifests = target.list_records(LEGACY_OBJECT_TRIAGE_MANIFEST_OBJECT_TYPE)
+                evidence_manifests = target.list_records(EVIDENCE_SNAPSHOT_MANIFEST_OBJECT_TYPE)
+                self.assertEqual(len(triage_manifests), 1)
+                self.assertEqual(len(evidence_manifests), 2)
+
+                items = {
+                    item["object_key"]: item
+                    for item in triage_manifests[0].payload["triage_items"]
+                }
+                self.assertEqual(items[html_key]["triage_state"], PROMOTE_CANDIDATE)
+                self.assertEqual(items[json_key]["triage_state"], PROMOTE_CANDIDATE)
+                self.assertEqual(
+                    items[pdf_key]["triage_state"],
+                    REVIEW_ONLY_ATTACHMENT_CANDIDATE,
+                )
+                self.assertEqual(
+                    items[zip_key]["triage_state"],
+                    REVIEW_ONLY_ATTACHMENT_CANDIDATE,
+                )
+                self.assertEqual(
+                    items[generic_html_key]["triage_state"],
+                    REVIEW_ONLY_SOURCE_UNCLEAR,
+                )
+                self.assertEqual(
+                    items[plain_json_key]["triage_state"],
+                    REVIEW_ONLY_SOURCE_UNCLEAR,
+                )
+                self.assertEqual(
+                    items[mismatch_key]["triage_state"],
+                    REVIEW_ONLY_INTEGRITY_BLOCKED,
+                )
+                for item in items.values():
+                    self.assertNotIn("bytes", item)
+
+                repo = ObjectStorageRepository(session=target, settings=target_settings)
+                html_snapshot_id = items[html_key]["evidence_snapshot_id_optional"]
+                json_snapshot_id = items[json_key]["evidence_snapshot_id_optional"]
+                html_replay = repo.replay_snapshot(html_snapshot_id)
+                json_replay = repo.replay_snapshot(json_snapshot_id)
+                self.assertEqual(html_replay["bytes"], high_confidence_html)
+                self.assertEqual(json_replay["bytes"], high_confidence_json)
+                self.assertTrue(
+                    html_replay["manifest"]["raw_snapshot_metadata"]["legacy_review_required"]
+                )
+                self.assertFalse(
+                    html_replay["manifest"]["raw_snapshot_metadata"]["customer_visible_allowed"]
+                )
+                self.assertTrue(
+                    html_replay["manifest"]["raw_snapshot_metadata"]["no_legal_conclusion"]
+                )
+                for row in [*triage_manifests, *evidence_manifests]:
+                    self.assertNotIn("bytes", row.payload)
+            finally:
+                target.close()
+
+            repeated = build_legacy_object_triage(
+                object_storage_path=root,
+                database_url=database_url,
+                target_backend="sqlalchemy",
+                execute=True,
+                created_at="2026-05-07T03:10:00+00:00",
+            )
+            self.assertTrue(repeated["execution"]["executed"])
+            repeated_target = DatabaseSession(settings=target_settings)
+            try:
+                self.assertEqual(
+                    len(repeated_target.list_records(LEGACY_OBJECT_TRIAGE_MANIFEST_OBJECT_TYPE)),
+                    1,
+                )
+                self.assertEqual(
+                    len(repeated_target.list_records(EVIDENCE_SNAPSHOT_MANIFEST_OBJECT_TYPE)),
+                    2,
+                )
+                self.assertEqual(
+                    len(repeated_target.list_records(OBJECT_STORAGE_OBJECT_TYPE)),
+                    7,
                 )
             finally:
                 repeated_target.close()
