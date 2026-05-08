@@ -3,7 +3,7 @@
 | 字段 | 值 |
 |---|---|
 | 文档定位 | 防漂移任务契约 / Stage1-6 文件分析闭环落地顺序 |
-| 当前状态 | P3_STAGE16_B9_BID_DOCUMENT_QA_FIRST_CUT_IMPLEMENTED |
+| 当前状态 | P3_STAGE16_B10_REMEDY_PERFORMANCE_FIRST_CUT_IMPLEMENTED |
 | 主输入 | `docs/专题_投前预测评审风控规则救济与履约结算经验库草案.md` |
 | 承载链路 | Stage1 -> Stage2 -> Stage3 -> Stage4 -> Stage5 -> Stage6 |
 | 机器镜像 | `control/stage16_file_analysis_task_contract.yaml` |
@@ -16,7 +16,7 @@
 
 `候选发现 -> 公开页面/附件快照 -> 文件解析和字段血缘 -> 公开核验 carrier -> 规则门/证据门 -> Stage6 事实报告和复核队列`
 
-经验库草案是能力池，不是单阶段需求。当前开发优先把能进入公开证据链的能力落到 Stage1-6；内部投标文件 QA 已作为内部增强第一刀接入，但不进入公开证据主链。合同结算、付款救济等能力继续后置。
+经验库草案是能力池，不是单阶段需求。当前开发优先把能进入公开证据链的能力落到 Stage1-6；内部投标文件 QA、规则救济与履约结算已作为内部复核第一刀接入，但不进入公开证据主链，也不输出法律、监管处罚或付款违约结论。
 
 ## 2. 防漂移硬规则
 
@@ -46,9 +46,9 @@
 | 7 | 复盘样本库 | Stage1-6 | P1 | 中标、废标、投诉、流标、官方案例回归样本 |
 | 8 | 报价履约与异常低价 | Stage3-6/9 | P2 | 低价、不平衡报价、付款和履约风险 |
 | 9 | 投标文件内审增强 | Stage3/6/增强模块 | P3 | 暗标、正偏离、授权签章、声明函、税率审计、电子标制作环境 |
-| 10 | 规则救济与履约结算 | Stage6/7/9 扩展 | 后置 | 异议质疑投诉、合同加码、结算审计、付款救济 |
+| 10 | 规则救济与履约结算 | Stage3/6/7/9 扩展 | P3 | 异议质疑投诉、合同加码、结算审计、付款救济 |
 
-当前已推进 **第 0 到第 9 批** 的第一刀。第 10 批继续后置，不抢主链。
+当前已推进 **第 0 到第 10 批** 的第一刀。第 10 批只作为内部复核 profile/trace，不抢 Stage5 正式规则和客户可见结论。
 
 ### 3.1 当前实施状态
 
@@ -64,7 +64,7 @@
 | 7 | 已完成准备第一刀 | 已接入现有 `evaluation_corpus`，补离线探针和覆盖审计；真实项目快照采集后续推进 |
 | 8 | 已完成第一刀 | 已在主线内部 profile/trace 中补异常低价、不平衡报价、付款履约复核线索 |
 | 9 | 已完成第一刀 | 已有内部投标文件 QA profile/trace；只做内部复核，不进入公开证据主链 |
-| 10 | 后置 | 规则救济、履约结算暂不抢主链 |
+| 10 | 已完成第一刀 | 已有规则救济、资格合法性、合同程序、结算审计、履约付款和专项监督内部 profile/trace；不做法律或付款违约定性 |
 
 ## 4. 能力矩阵
 
@@ -91,14 +91,14 @@
 | 复盘样本库 | 7 | Stage1-6 | 回归和规则校准 | 中标、废标、投诉、流标、官方案例、地区规则样本 | `evaluation_corpus`、`golden_samples`、规则校准样本 | 可同步准备，不阻塞 |
 | 报价履约与异常低价 | 8 | Stage3-6/9 | 价格和履约风险扩展 | 报价、成本、低价审查记录、付款条款、工程清单、结算资料 | `price_performance_risk_profile`、`abnormal_low_price_trigger`、`cost_breakdown_ready`、`low_price_review_record`、付款风险提示 | 已完成第一刀 |
 | 投标文件内审增强 | 9 | Stage3/Stage6/增强模块 | 投标人内部标书 QA | 内部标书、暗标格式、正偏离、授权签章、声明函、税率审计、电子标制作环境、AI 可读性 | `bid_document_internal_qa_profile`、`dark_bid_risk_hits`、`positive_deviation_quality_state`、`authorization_signature_risk_hits`、`declaration_form_risk_hits`、`financial_tax_audit_risk_hits`、`electronic_bid_environment_risk_hits`、`ai_review_readability` | 已完成第一刀，内部增强 |
-| 规则救济与履约结算 | 10 | Stage6/7/9 扩展 | 程序保护、合同和结算风险 | 质疑/异议材料、合同、验收、付款、签证变更、审计资料、专项整治公告 | `remedy_window_state`、`challenge_evidence_chain_state`、`post_award_contract_risk_hits`、`settlement_audit_risk_hits`、`payment_term_violation` | 后置 |
+| 规则救济与履约结算 | 10 | Stage3/6/7/9 扩展 | 程序保护、合同和结算风险内部复核 | 公告/招标文件、质疑/异议材料、合同、验收、付款、签证变更、审计资料、专项整治公告 | `remedy_performance_settlement_profile`、`remedy_window_state`、`challenge_evidence_chain_state`、`qualification_legality_risk_hits`、`post_award_contract_risk_hits`、`settlement_audit_risk_hits`、`payment_term_violation`、`whistleblower_reward_policy_signal` | 已完成第一刀，内部复核 |
 
 当前开发判断：
 
 1. **必须先做**：第 0 到第 4 批。没有映射、两法分流、公告前线索、项目档案和文件血缘，后面所有风险判断都会漂。
 2. **随后做完整主链**：第 5 到第 6 批。项目筛选、控标预测、自评分、废标红线必须经过公开核验和双闸门，最终落到 Stage6 报告。
 3. **已同步沉淀样本第一刀**：第 7 批。样本库服务回归，不改变当前产品完成标准；真实快照采集后续推进。
-4. **继续后置**：第 10 批仍然后置。第 9 批已做内部 QA 第一刀，但它依赖内部投标文件，不能作为 Stage1-6 公开文件分析闭环的前置完成条件。
+4. **内部增强已接入**：第 9、10 批已完成第一刀，但只作为内部 QA/复核 profile，不作为 Stage1-6 公开文件分析闭环的前置完成条件，也不进入 Stage5 正式规则。
 
 ## 5. Stage4-5 规则化边界
 
@@ -125,7 +125,7 @@
 | Stage4 核验 carrier | Stage4 | 生成公开核验 readback，给 Stage5 消费 | 项目经理、资质、信用、业绩、主体信息、公开文件引用 | 不直接定性，作为规则输入 |
 | Stage5 规则 | Stage5 | 生成 `rule_hit`、`rule_gate_decision`、`evidence_gate_decision`、`review_request` | 证据完整性、两法适用门、资格/项目经理、废标红线、控标弱规则、公平竞争 review | 可以进入 |
 | Stage6 报告 | Stage6 | 汇总事实、风险摘要、复核队列和补证建议 | `project_fact`、`review_queue_profile`、`report_record` | 消费规则结果 |
-| 后置增强 | Stage3/6 内部 QA、Stage7-10 或增强模块 | 保留接口意识，不作为当前闭环前置 | 暗标、签章、声明函、电子监管、合同付款、结算审计 | 不进入 Stage5 正式规则 |
+| 后置增强 | Stage3/6 内部 QA、Stage7-10 或增强模块 | 保留接口意识，不作为当前闭环前置 | 暗标、签章、声明函、电子监管、合同付款、结算审计、救济时钟 | 不进入 Stage5 正式规则 |
 
 ### 5.3 第一批规则化范围
 
@@ -146,7 +146,7 @@
 以下能力暂不进入 Stage1-6 当前规则主线：
 
 - 暗标、正偏离、授权签章、声明函、税率审计、电子监管、制作环境隔离：属于投标文件内审增强，依赖投标人内部材料；B9 只做内部 QA profile/trace，不进入 Stage5 正式规则。
-- 完整异议质疑投诉、合同加码、验收授权、付款、结算审计：属于规则救济与履约结算层，依赖后置材料。
+- 完整异议质疑投诉、合同加码、验收授权、付款、结算审计：B10 已做内部复核第一刀；正式规则化、期限计算、材料真实性核验和客户可见表达仍后置。
 - 地区好投/难投、内幕关系、内定结论、刑事定性：不得作为规则输出。
 - AI 生成判断、评论区、非正式经验材料：只能作为关键词、弱线索或 review 提示。
 
@@ -183,6 +183,7 @@
 | 复盘样本库 | Stage1-6 | `contracts/evaluation/evaluation_corpus_seed.json`、`contracts/evaluation/evaluation_coverage_requirements.json`、`src/storage/evaluation_corpus.py`、`src/storage/evaluation_coverage_audit.py`、`src/stage3_parsing/evaluation_profiles.py` | `evaluation_corpus`、`evaluation_parse_probe_manifest`、`evaluation_seed_coverage_audit_manifest`、`evaluation_stage3_profile_manifest` | 已完成准备第一刀 | 本批只补离线探针和覆盖审计；真实项目快照采集后续推进 | `python -m unittest tests.test_evaluation_corpus tests.test_evaluation_coverage_audit tests.test_evaluation_stage3_profiles -v` |
 | 报价履约与异常低价 | Stage3/6 | `src/stage3_parsing/mainline_risk.py`、`src/stage6_fact_review/fact_aggregator.py` | `price_performance_risk_profile`、`payment_risk_level`、`abnormal_low_price_trigger`、`unbalanced_bid_risk_hits`、`cost_breakdown_ready`、`low_price_review_record` | 已完成第一刀 | 只做公开文本内部复核线索；正式规则化、成本材料和客户可见报告后续推进 | `python -m unittest tests.test_stage1_legal_system_classifier tests.test_stage56_evaluators -v` |
 | 投标文件内审增强 | Stage3/6/增强模块 | `src/stage3_parsing/bid_document_qa.py`、`src/stage3_parsing/service.py`、`src/stage6_fact_review/fact_aggregator.py` | `bid_document_internal_qa_profile`、`dark_bid_risk_hits`、`positive_deviation_quality_state`、`authorization_signature_risk_hits`、`declaration_form_risk_hits`、`financial_tax_audit_risk_hits`、`electronic_bid_environment_risk_hits`、`ai_review_readability` | 已完成第一刀 | 只消费内部投标文件文本，不进入公开证据主链，不生成客户可见废标或违法结论 | `python -m unittest tests.test_stage1_legal_system_classifier tests.test_stage56_evaluators -v` |
+| 规则救济与履约结算 | Stage3/6/7/9 | `src/stage3_parsing/remedy_performance.py`、`src/stage3_parsing/service.py`、`src/stage6_fact_review/fact_aggregator.py` | `remedy_performance_settlement_profile`、`remedy_window_state`、`challenge_evidence_chain_state`、`qualification_legality_risk_hits`、`post_award_contract_risk_hits`、`settlement_audit_risk_hits`、`payment_term_violation`、`whistleblower_reward_policy_signal` | 已完成第一刀 | 只做救济、合同、结算、付款和监督内部复核线索；正式规则化和客户可见表达后续评估 | `python -m unittest tests.test_stage1_legal_system_classifier tests.test_stage56_evaluators tests.test_stage16_file_analysis_task_contract -v` |
 
 ## 7. 第 1 批：两法体系分流器
 
@@ -326,7 +327,7 @@
 - 第 7 批：复盘样本库已完成准备第一刀，不阻塞第 1 到第 6 批；真实项目快照采集后续推进。
 - 第 8 批：报价履约与异常低价已完成第一刀；当前只识别公开文本复核线索，成本材料和正式规则化后续推进。
 - 第 9 批：投标文件内审增强已完成第一刀，只做内部 QA profile/trace，依赖投标人内部标书材料，不进入公开证据主链。
-- 第 10 批：规则救济、履约结算、付款风险，需要救济材料、合同、履约和结算资料，后置。
+- 第 10 批：规则救济与履约结算已完成第一刀，当前只做公开文本和可选内部材料的复核线索；正式法律规则化、合同履约材料核验和客户可见表达后续评估。
 
 ## 14. 每批通用验收
 
@@ -341,6 +342,6 @@
 
 ## 15. 当前默认下一步
 
-默认下一步推进 **B7 真实项目快照采集执行闭环或 B10 规则救济与履约结算第一刀**：如果继续强化回归，先把真实中标、废标、投诉、流标和官方案例快照采集从计划推进到受控执行；如果继续能力扩展，再进入 B10。
+默认下一步推进 **B7 真实项目快照采集执行闭环或 B10 后续正式规则化评估**：如果继续强化回归，先把真实中标、废标、投诉、流标和官方案例快照采集从计划推进到受控执行；如果继续能力扩展，再评估 B10 哪些线索可以进入 Stage4/5 双闸门正式规则。
 
 除非人类明确要求，否则不要跳到真实触达交付、对外发布、支付、自动退款或客户可见结论。

@@ -375,6 +375,52 @@ class TestStage56Evaluators(unittest.TestCase):
         self.assertTrue(qa_trace["no_rejection_conclusion"])
         self.assertTrue(qa_trace["no_illegality_or_reserved_winner_conclusion"])
 
+    def test_stage6_stage16_report_profile_summarizes_remedy_performance_lane(self) -> None:
+        payload = load_fixture("internal_chain_happy.json")
+        payload.update(
+            {
+                "task_id": "TASK-B10-REPORT-PROFILE-001",
+                "project_id": "PROJ-B10-REPORT-PROFILE-001",
+                "source_title": "公共资源交易中心工程建设招标公告",
+                "source_text": (
+                    "依法必须招标工程建设项目。招标文件异议应在投标截止时间10日前提出，"
+                    "中标候选人公示期不得少于3日。资格条件要求厂家授权、ISO、CMA、现场踏勘回执。"
+                    "中标后不得新增履约保证金或验收授权条件。固定单价合同发生工程量变化、"
+                    "签证变更、隐蔽工程影像缺失、后补资料和P图时，应进入结算审计复核。"
+                    "付款不得以第三方付款作为条件，不得限定现金保证金。专项整治关注围标串标、"
+                    "长期固定供应商和有奖举报。"
+                ),
+                "document_completeness_state": "COMPLETE_WITH_ATTACHMENTS",
+            }
+        )
+
+        result = run_internal_chain_until_stage6(payload)
+        trace = result["stage6"].inputs["stage6_review_report_trace"]["stage16_file_analysis_trace"]
+        report_profile = trace["stage16_file_analysis_report_profile"]
+        remedy_trace = trace["remedy_performance_settlement"]
+
+        self.assertEqual(report_profile["rule_gate_status"], "PASS")
+        self.assertEqual(report_profile["evidence_gate_status"], "PASS")
+        self.assertEqual(report_profile["report_profile_state"], "INTERNAL_REVIEW_RECOMMENDED")
+        self.assertIn("REMEDY_PERFORMANCE_REVIEW", report_profile["recommended_review_lanes"])
+        self.assertEqual(
+            report_profile["remedy_performance_settlement_state"],
+            "PROFILED_REVIEW_READY",
+        )
+        self.assertEqual(
+            report_profile["remedy_window_state"],
+            "TENDERING_BIDDING_REMEDY_WINDOW_REVIEW",
+        )
+        self.assertGreaterEqual(report_profile["qualification_legality_risk_count"], 3)
+        self.assertGreaterEqual(report_profile["post_award_contract_risk_count"], 1)
+        self.assertGreaterEqual(report_profile["settlement_audit_risk_count"], 3)
+        self.assertGreaterEqual(report_profile["payment_term_violation_count"], 2)
+        self.assertGreaterEqual(report_profile["whistleblower_reward_policy_signal_count"], 2)
+        self.assertFalse(remedy_trace["customer_visible"])
+        self.assertTrue(remedy_trace["internal_review_only"])
+        self.assertTrue(remedy_trace["no_legal_conclusion"])
+        self.assertTrue(remedy_trace["no_payment_breach_conclusion"])
+
     def test_stage6_b6_closure_profile_links_review_request_without_recomputing_gates(self) -> None:
         stage4 = run_internal_chain(load_fixture("internal_chain_happy.json"))["stage4"]
         review_stage4 = StageBundle(

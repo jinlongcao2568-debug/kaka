@@ -355,6 +355,47 @@ def _stage16_file_analysis_report_profile(inputs: Mapping[str, Any]) -> dict[str
     bid_document_internal_qa_state = str(
         bid_document_internal_qa_profile.get("profile_state") or "MISSING"
     )
+    remedy_performance_settlement_profile = _safe_dict(
+        inputs.get("remedy_performance_settlement_profile")
+    )
+    remedy_window_state = str(
+        inputs.get("remedy_window_state")
+        or remedy_performance_settlement_profile.get("remedy_window_state")
+        or "UNKNOWN"
+    )
+    challenge_evidence_chain_state = str(
+        inputs.get("challenge_evidence_chain_state")
+        or remedy_performance_settlement_profile.get("challenge_evidence_chain_state")
+        or "UNKNOWN"
+    )
+    qualification_legality_risk_hits = ensure_list(
+        inputs.get("qualification_legality_risk_hits")
+        if inputs.get("qualification_legality_risk_hits") is not None
+        else remedy_performance_settlement_profile.get("qualification_legality_risk_hits")
+    )
+    post_award_contract_risk_hits = ensure_list(
+        inputs.get("post_award_contract_risk_hits")
+        if inputs.get("post_award_contract_risk_hits") is not None
+        else remedy_performance_settlement_profile.get("post_award_contract_risk_hits")
+    )
+    settlement_audit_risk_hits = ensure_list(
+        inputs.get("settlement_audit_risk_hits")
+        if inputs.get("settlement_audit_risk_hits") is not None
+        else remedy_performance_settlement_profile.get("settlement_audit_risk_hits")
+    )
+    payment_term_violation = ensure_list(
+        inputs.get("payment_term_violation")
+        if inputs.get("payment_term_violation") is not None
+        else remedy_performance_settlement_profile.get("payment_term_violation")
+    )
+    whistleblower_reward_policy_signal = ensure_list(
+        inputs.get("whistleblower_reward_policy_signal")
+        if inputs.get("whistleblower_reward_policy_signal") is not None
+        else remedy_performance_settlement_profile.get("whistleblower_reward_policy_signal")
+    )
+    remedy_performance_settlement_state = str(
+        remedy_performance_settlement_profile.get("profile_state") or "MISSING"
+    )
     mainline_risk_state = str(mainline_risk_profile.get("profile_state") or "MISSING")
 
     gate_statuses = {rule_gate_status, evidence_gate_status}
@@ -380,6 +421,20 @@ def _stage16_file_analysis_report_profile(inputs: Mapping[str, Any]) -> dict[str
             or bool(financial_tax_audit_risk_hits)
             or bool(electronic_bid_environment_risk_hits)
             or positive_deviation_quality_state == "WEAK_OR_UNPROVEN_REVIEW"
+        )
+    )
+    remedy_performance_weak_clue = (
+        remedy_performance_settlement_state == "PROFILED_REVIEW_READY"
+        and (
+            remedy_window_state
+            not in {"UNKNOWN", "NO_PUBLIC_MARKER", "PROFILED_NO_PUBLIC_MARKER"}
+            or challenge_evidence_chain_state
+            not in {"UNKNOWN", "NO_PUBLIC_MARKER", "PROFILED_NO_PUBLIC_MARKER"}
+            or bool(qualification_legality_risk_hits)
+            or bool(post_award_contract_risk_hits)
+            or bool(settlement_audit_risk_hits)
+            or bool(payment_term_violation)
+            or bool(whistleblower_reward_policy_signal)
         )
     )
 
@@ -445,6 +500,32 @@ def _stage16_file_analysis_report_profile(inputs: Mapping[str, Any]) -> dict[str
     if electronic_bid_environment_risk_hits:
         review_reasons.append("electronic_bid_environment_markers_require_review")
         recommended_review_lanes.append("BID_DOCUMENT_INTERNAL_QA_REVIEW")
+    if remedy_performance_weak_clue:
+        review_reasons.append(
+            f"remedy_performance_settlement_state={remedy_performance_settlement_state}"
+        )
+        recommended_review_lanes.append("REMEDY_PERFORMANCE_REVIEW")
+    if remedy_window_state not in {"UNKNOWN", "NO_PUBLIC_MARKER"}:
+        review_reasons.append(f"remedy_window_state={remedy_window_state}")
+        recommended_review_lanes.append("REMEDY_PERFORMANCE_REVIEW")
+    if challenge_evidence_chain_state not in {"UNKNOWN", "NO_PUBLIC_MARKER"}:
+        review_reasons.append(f"challenge_evidence_chain_state={challenge_evidence_chain_state}")
+        recommended_review_lanes.append("REMEDY_PERFORMANCE_REVIEW")
+    if qualification_legality_risk_hits:
+        review_reasons.append("qualification_legality_markers_detected")
+        recommended_review_lanes.append("REMEDY_PERFORMANCE_REVIEW")
+    if post_award_contract_risk_hits:
+        review_reasons.append("post_award_contract_markers_detected")
+        recommended_review_lanes.append("REMEDY_PERFORMANCE_REVIEW")
+    if settlement_audit_risk_hits:
+        review_reasons.append("settlement_audit_markers_detected")
+        recommended_review_lanes.append("REMEDY_PERFORMANCE_REVIEW")
+    if payment_term_violation:
+        review_reasons.append("payment_term_or_guarantee_markers_detected")
+        recommended_review_lanes.append("REMEDY_PERFORMANCE_REVIEW")
+    if whistleblower_reward_policy_signal:
+        review_reasons.append("special_rectification_or_report_markers_detected")
+        recommended_review_lanes.append("REMEDY_PERFORMANCE_REVIEW")
 
     if linked_review_request_id:
         review_request_state = "LINKED_REVIEW_REQUEST"
@@ -465,6 +546,7 @@ def _stage16_file_analysis_report_profile(inputs: Mapping[str, Any]) -> dict[str
         mainline_weak_clue
         or price_performance_weak_clue
         or bid_document_internal_qa_weak_clue
+        or remedy_performance_weak_clue
     ):
         report_profile_state = "INTERNAL_REVIEW_RECOMMENDED"
     elif gates_passed:
@@ -496,9 +578,21 @@ def _stage16_file_analysis_report_profile(inputs: Mapping[str, Any]) -> dict[str
         "financial_tax_audit_risk_count": len(financial_tax_audit_risk_hits),
         "electronic_bid_environment_risk_count": len(electronic_bid_environment_risk_hits),
         "positive_deviation_quality_state": positive_deviation_quality_state,
+        "remedy_performance_settlement_profile": remedy_performance_settlement_profile,
+        "remedy_performance_settlement_state": remedy_performance_settlement_state,
+        "remedy_window_state": remedy_window_state,
+        "challenge_evidence_chain_state": challenge_evidence_chain_state,
+        "qualification_legality_risk_count": len(qualification_legality_risk_hits),
+        "post_award_contract_risk_count": len(post_award_contract_risk_hits),
+        "settlement_audit_risk_count": len(settlement_audit_risk_hits),
+        "payment_term_violation_count": len(payment_term_violation),
+        "whistleblower_reward_policy_signal_count": len(whistleblower_reward_policy_signal),
         "recommended_review_lanes": _dedupe_strings(recommended_review_lanes),
         "review_reasons": _dedupe_strings(review_reasons),
         "customer_visible": False,
+        "internal_review_only": True,
+        "no_legal_conclusion": True,
+        "no_payment_breach_conclusion": True,
         "no_illegality_or_reserved_winner_conclusion": True,
     }
 
@@ -612,6 +706,29 @@ def _stage16_file_analysis_trace(inputs: Mapping[str, Any]) -> dict[str, Any]:
             "customer_visible": False,
             "internal_qa_only": True,
             "no_rejection_conclusion": True,
+            "no_illegality_or_reserved_winner_conclusion": True,
+        },
+        "remedy_performance_settlement": {
+            "remedy_performance_settlement_profile": _safe_dict(
+                inputs.get("remedy_performance_settlement_profile")
+            ),
+            "remedy_window_state": inputs.get("remedy_window_state"),
+            "challenge_evidence_chain_state": inputs.get("challenge_evidence_chain_state"),
+            "qualification_legality_risk_hits": ensure_list(
+                inputs.get("qualification_legality_risk_hits")
+            ),
+            "post_award_contract_risk_hits": ensure_list(
+                inputs.get("post_award_contract_risk_hits")
+            ),
+            "settlement_audit_risk_hits": ensure_list(inputs.get("settlement_audit_risk_hits")),
+            "payment_term_violation": ensure_list(inputs.get("payment_term_violation")),
+            "whistleblower_reward_policy_signal": ensure_list(
+                inputs.get("whistleblower_reward_policy_signal")
+            ),
+            "customer_visible": False,
+            "internal_review_only": True,
+            "no_legal_conclusion": True,
+            "no_payment_breach_conclusion": True,
             "no_illegality_or_reserved_winner_conclusion": True,
         },
         "stage16_file_analysis_report_profile": _stage16_file_analysis_report_profile(inputs),

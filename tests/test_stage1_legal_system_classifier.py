@@ -508,6 +508,145 @@ class TestStage1LegalSystemClassifier(unittest.TestCase):
         self.assertFalse(trace["bid_document_internal_qa"]["customer_visible"])
         self.assertTrue(trace["bid_document_internal_qa"]["internal_qa_only"])
 
+    def test_b10_government_procurement_remedy_payment_and_contract_markers_stay_internal_only(self) -> None:
+        payload = self._base_payload()
+        payload.update(
+            {
+                "task_id": "TASK-B10-GP-REMEDY-001",
+                "project_id": "PROJ-B10-GP-REMEDY-001",
+                "project_name": "医疗设备政府采购救济付款复核样本",
+                "source_url": "https://example.test/notice/b10-gp-remedy",
+                "source_title": "中国政府采购网公开招标公告",
+                "source_text": (
+                    "本项目为政府采购货物服务公开招标。供应商质疑应在知道或者应知"
+                    "权益受损之日起7个工作日内提出，采购人7个工作日答复；投诉应在"
+                    "答复期满后15个工作日内提出。质疑材料应书面提交，列明项目情况、"
+                    "事实理由、证据、联系方式、明确诉求并盖章，投诉前应先质疑。"
+                    "合同签订时不得新增采购文件没有的履约保证金；交付后不得新增原厂授权、"
+                    "本地经销商授权或验收额外条件作为验收付款条件。机关事业单位对中小企业"
+                    "付款一般30日，最长60日，不得以第三方付款作为付款条件，不得强制商业汇票，"
+                    "不得限定现金保证金。"
+                ),
+                "document_completeness_state": "COMPLETE_WITH_ATTACHMENTS",
+            }
+        )
+
+        result = run_internal_chain_until_stage6(payload)
+        profile = result["stage3"].inputs["remedy_performance_settlement_profile"]
+        trace = result["stage6"].inputs["stage6_review_report_trace"]["stage16_file_analysis_trace"]
+        remedy_trace = trace["remedy_performance_settlement"]
+        report_profile = trace["stage16_file_analysis_report_profile"]
+
+        self.assertEqual(profile["profile_state"], "PROFILED_REVIEW_READY")
+        self.assertEqual(profile["remedy_legal_context"], "GOVERNMENT_PROCUREMENT")
+        self.assertEqual(
+            profile["remedy_window_state"],
+            "GOVERNMENT_PROCUREMENT_REMEDY_WINDOW_REVIEW",
+        )
+        self.assertEqual(
+            profile["challenge_evidence_chain_state"],
+            "CHALLENGE_EVIDENCE_CHAIN_REVIEW_READY",
+        )
+        post_award_types = {hit["signal_type"] for hit in profile["post_award_contract_risk_hits"]}
+        self.assertTrue(
+            {
+                "performance_guarantee_added",
+                "post_award_authorization_gate",
+                "acceptance_extra_condition",
+            }.issubset(post_award_types)
+        )
+        payment_types = {hit["signal_type"] for hit in profile["payment_term_violation"]}
+        self.assertTrue(
+            {
+                "payment_30_60_day_term",
+                "third_party_payment_condition",
+                "forced_commercial_bill",
+                "cash_only_guarantee",
+            }.issubset(payment_types)
+        )
+        self.assertIn("REMEDY_PERFORMANCE_REVIEW", report_profile["recommended_review_lanes"])
+        self.assertFalse(profile["customer_visible"])
+        self.assertTrue(profile["internal_review_only"])
+        self.assertTrue(profile["no_legal_conclusion"])
+        self.assertTrue(profile["no_payment_breach_conclusion"])
+        self.assertFalse(remedy_trace["customer_visible"])
+        self.assertTrue(remedy_trace["internal_review_only"])
+        self.assertTrue(remedy_trace["no_legal_conclusion"])
+        self.assertTrue(remedy_trace["no_payment_breach_conclusion"])
+
+    def test_b10_tender_remedy_qualification_settlement_and_supervision_markers_do_not_apply_gov_path(self) -> None:
+        payload = self._base_payload()
+        payload.update(
+            {
+                "task_id": "TASK-B10-TENDER-REMEDY-001",
+                "project_id": "PROJ-B10-TENDER-REMEDY-001",
+                "project_name": "市政工程招标救济结算复核样本",
+                "source_url": "https://example.test/notice/b10-tender-remedy",
+                "source_title": "公共资源交易中心工程建设招标公告",
+                "source_text": (
+                    "本项目为依法必须招标工程建设施工项目。招标文件异议应在投标截止时间10日前提出，"
+                    "中标候选人公示期不得少于3日，投诉通常应在知道或者应知之日起10日内提出。"
+                    "资格或评分条件要求厂家授权、ISO、CMA、现场踏勘回执、本地业绩和特定行业经验。"
+                    "合同采用固定单价，工程量变化、清单偏差、签证变更、隐蔽工程影像、过程资料、"
+                    "后补资料和P图均需结算审计复核。专项整治关注围标串标、买标卖标、黄牛掮客、"
+                    "轮流中标、长期固定供应商、参数定制、代理异常和有奖举报。"
+                ),
+                "document_completeness_state": "COMPLETE_WITH_ATTACHMENTS",
+            }
+        )
+
+        result = run_internal_chain_until_stage6(payload)
+        profile = result["stage3"].inputs["remedy_performance_settlement_profile"]
+        trace = result["stage6"].inputs["stage6_review_report_trace"]["stage16_file_analysis_trace"]
+
+        self.assertEqual(profile["profile_state"], "PROFILED_REVIEW_READY")
+        self.assertEqual(profile["remedy_legal_context"], "TENDERING_BIDDING")
+        self.assertEqual(
+            profile["remedy_window_state"],
+            "TENDERING_BIDDING_REMEDY_WINDOW_REVIEW",
+        )
+        qualification_types = {hit["signal_type"] for hit in profile["qualification_legality_risk_hits"]}
+        self.assertTrue(
+            {
+                "manufacturer_authorization",
+                "iso_certificate",
+                "cma_certificate",
+                "site_visit_condition",
+                "local_experience_or_service",
+                "industry_specific_experience",
+            }.issubset(qualification_types)
+        )
+        settlement_types = {hit["signal_type"] for hit in profile["settlement_audit_risk_hits"]}
+        self.assertTrue(
+            {
+                "fixed_unit_price_settlement",
+                "variation_and_site_instruction",
+                "hidden_work_evidence",
+                "process_documentation_gap",
+                "image_tampering_review",
+            }.issubset(settlement_types)
+        )
+        supervision_types = {
+            hit["signal_type"] for hit in profile["whistleblower_reward_policy_signal"]
+        }
+        self.assertTrue(
+            {
+                "bid_rigging_or_collusion",
+                "bid_broker_or_trading",
+                "rotating_award",
+                "fixed_supplier_pattern",
+                "tailored_parameter",
+                "agent_abnormality",
+                "rewarded_report_policy",
+            }.issubset(supervision_types)
+        )
+        self.assertIn(
+            "REMEDY_PERFORMANCE_REVIEW",
+            trace["stage16_file_analysis_report_profile"]["recommended_review_lanes"],
+        )
+        self.assertTrue(profile["no_legal_conclusion"])
+        self.assertTrue(profile["no_payment_breach_conclusion"])
+
 
 if __name__ == "__main__":
     unittest.main()

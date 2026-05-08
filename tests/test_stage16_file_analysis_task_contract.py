@@ -20,7 +20,10 @@ class TestStage16FileAnalysisTaskContract(unittest.TestCase):
     def test_b0_mapping_and_b7_corpus_prep_are_machine_readable(self) -> None:
         contract = _load_contract()
 
-        self.assertEqual(contract["status"], "P3_STAGE16_B9_BID_DOCUMENT_QA_FIRST_CUT_IMPLEMENTED")
+        self.assertEqual(
+            contract["status"],
+            "P3_STAGE16_B10_REMEDY_PERFORMANCE_FIRST_CUT_IMPLEMENTED",
+        )
         batches = {item["batch_id"]: item for item in contract["batches"]}
         self.assertEqual(batches["B0_EXPERIENCE_LIBRARY_MAPPING_BASELINE"]["status"], "FIRST_CUT_IMPLEMENTED")
         self.assertEqual(batches["B7_REVIEW_CORPUS_AND_GOLDEN_SAMPLES"]["status"], "FIRST_CUT_IMPLEMENTED")
@@ -42,6 +45,7 @@ class TestStage16FileAnalysisTaskContract(unittest.TestCase):
             "B7_REVIEW_CORPUS_AND_GOLDEN_SAMPLES",
             "B8_PRICE_PERFORMANCE_LOW_BID_RISK",
             "B9_BID_DOCUMENT_INTERNAL_QA",
+            "B10_REMEDY_PERFORMANCE_SETTLEMENT",
         ):
             self.assertIn(capability_id, entries)
             self.assertEqual(entries[capability_id]["implementation_state"], "FIRST_CUT_IMPLEMENTED")
@@ -54,9 +58,12 @@ class TestStage16FileAnalysisTaskContract(unittest.TestCase):
         self.assertIn("price_performance_risk_profile", entries["B8_PRICE_PERFORMANCE_LOW_BID_RISK"]["data_carriers"])
         self.assertIn("bid_document_internal_qa_profile", entries["B9_BID_DOCUMENT_INTERNAL_QA"]["data_carriers"])
         self.assertIn("src/stage3_parsing/bid_document_qa.py", entries["B9_BID_DOCUMENT_INTERNAL_QA"]["runtime_entrypoints"])
+        self.assertIn("remedy_performance_settlement_profile", entries["B10_REMEDY_PERFORMANCE_SETTLEMENT"]["data_carriers"])
+        self.assertIn("qualification_legality_risk_hits", entries["B10_REMEDY_PERFORMANCE_SETTLEMENT"]["data_carriers"])
+        self.assertIn("src/stage3_parsing/remedy_performance.py", entries["B10_REMEDY_PERFORMANCE_SETTLEMENT"]["runtime_entrypoints"])
         self.assertNotIn("B8_PRICE_PERFORMANCE_LOW_BID_RISK", baseline["deferred_boundaries"])
         self.assertNotIn("B9_BID_DOCUMENT_INTERNAL_QA", baseline["deferred_boundaries"])
-        self.assertIn("B10_REMEDY_PERFORMANCE_SETTLEMENT", baseline["deferred_boundaries"])
+        self.assertNotIn("B10_REMEDY_PERFORMANCE_SETTLEMENT", baseline["deferred_boundaries"])
         self.assertIn("git diff --check", baseline["global_minimum_validation_commands"])
 
 

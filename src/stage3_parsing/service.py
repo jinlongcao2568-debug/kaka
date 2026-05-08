@@ -11,6 +11,7 @@ from shared.contracts_runtime import ContractStore, ContractRecord, StageBundle
 from shared.utils import apply_rule, build_id, ensure_enum, ensure_list, get_flag, resolve_bundle
 from stage3_parsing.bid_document_qa import build_bid_document_internal_qa_profile
 from stage3_parsing.mainline_risk import build_mainline_risk_profile
+from stage3_parsing.remedy_performance import build_remedy_performance_settlement_profile
 from stage3_parsing.real_parser import Stage3RealParser
 from storage.repositories.object_storage_repo import ObjectStorageRepository
 
@@ -512,8 +513,14 @@ class Stage3Service:
             inputs_out["unresolved_reason_optional"] = unresolved_reason_optional
         mainline_risk_profile = build_mainline_risk_profile(inputs_out)
         bid_document_internal_qa_profile = build_bid_document_internal_qa_profile(inputs_out)
+        remedy_performance_settlement_profile = build_remedy_performance_settlement_profile(
+            inputs_out
+        )
         inputs_out["mainline_risk_profile"] = mainline_risk_profile
         inputs_out["bid_document_internal_qa_profile"] = bid_document_internal_qa_profile
+        inputs_out["remedy_performance_settlement_profile"] = (
+            remedy_performance_settlement_profile
+        )
         for field_name in (
             "bid_selection_score",
             "bid_selection_state",
@@ -543,6 +550,16 @@ class Stage3Service:
             "structured_response_score",
         ):
             inputs_out[field_name] = bid_document_internal_qa_profile.get(field_name)
+        for field_name in (
+            "remedy_window_state",
+            "challenge_evidence_chain_state",
+            "qualification_legality_risk_hits",
+            "post_award_contract_risk_hits",
+            "settlement_audit_risk_hits",
+            "payment_term_violation",
+            "whistleblower_reward_policy_signal",
+        ):
+            inputs_out[field_name] = remedy_performance_settlement_profile.get(field_name)
 
         return StageBundle(
             stage=3,

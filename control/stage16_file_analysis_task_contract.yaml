@@ -1,6 +1,6 @@
 version: 1
 contract_id: STAGE16_FILE_ANALYSIS_TASK_CONTRACT
-status: P3_STAGE16_B9_BID_DOCUMENT_QA_FIRST_CUT_IMPLEMENTED
+status: P3_STAGE16_B10_REMEDY_PERFORMANCE_FIRST_CUT_IMPLEMENTED
 updated_at: "2026-05-08"
 role: anti_drift_execution_contract
 source_doc: "docs/专题_投前预测评审风控规则救济与履约结算经验库草案.md"
@@ -45,14 +45,14 @@ program:
     - B7_REVIEW_CORPUS_AND_GOLDEN_SAMPLES
     - B8_PRICE_PERFORMANCE_LOW_BID_RISK
     - B9_BID_DOCUMENT_INTERNAL_QA
+    - B10_REMEDY_PERFORMANCE_SETTLEMENT
     - B6_PUBLIC_VERIFICATION_DUAL_GATES_REPORT
     - B5_MAINLINE_RISK_AND_BID_DECISION
     - B3_AI_INTELLIGENCE_PROJECT_ARCHIVE
     - B4_DOCUMENT_COMPLETENESS_VERSION_LINEAGE
     - B1_LEGAL_SYSTEM_CLASSIFIER
     - B2_PRE_NOTICE_OPPORTUNITY_POLICY_RULES
-  deferred_batches:
-    - B10_REMEDY_PERFORMANCE_SETTLEMENT
+  deferred_batches: []
 
 anti_drift_rules:
   - "继续使用 Stage1-9 主链，不新造第二套阶段体系。"
@@ -291,8 +291,26 @@ runtime_mapping_baseline:
       remaining_gap: "只消费内部投标文件文本形成内审复核线索；不进入公开证据主链、不生成客户可见废标或违法结论。"
       minimum_validation_commands:
         - "python -m unittest tests.test_stage1_legal_system_classifier tests.test_stage56_evaluators -v"
-  deferred_boundaries:
-    - B10_REMEDY_PERFORMANCE_SETTLEMENT
+    - capability_id: B10_REMEDY_PERFORMANCE_SETTLEMENT
+      stage_scope: [Stage3, Stage6, Stage7, Stage9]
+      runtime_entrypoints:
+        - "src/stage3_parsing/remedy_performance.py"
+        - "src/stage3_parsing/service.py"
+        - "src/stage6_fact_review/fact_aggregator.py"
+      data_carriers:
+        - remedy_performance_settlement_profile
+        - remedy_window_state
+        - challenge_evidence_chain_state
+        - qualification_legality_risk_hits
+        - post_award_contract_risk_hits
+        - settlement_audit_risk_hits
+        - payment_term_violation
+        - whistleblower_reward_policy_signal
+      implementation_state: FIRST_CUT_IMPLEMENTED
+      remaining_gap: "只做规则救济、合同、结算、付款和监督线索的内部复核 profile；不生成法律、监管处罚或付款违约结论。"
+      minimum_validation_commands:
+        - "python -m unittest tests.test_stage1_legal_system_classifier tests.test_stage56_evaluators tests.test_stage16_file_analysis_task_contract -v"
+  deferred_boundaries: []
   global_minimum_validation_commands:
     - "python -c \"import yaml; yaml.safe_load(open('control/stage16_file_analysis_task_contract.yaml', encoding='utf-8'))\""
     - "python -c \"import json; json.load(open('contracts/evaluation/evaluation_corpus_seed.json', encoding='utf-8')); json.load(open('contracts/evaluation/evaluation_coverage_requirements.json', encoding='utf-8'))\""
@@ -477,13 +495,15 @@ batches:
       - structured_response_score
 
   - batch_id: B10_REMEDY_PERFORMANCE_SETTLEMENT
-    priority: P3_DEFERRED
-    stage_scope: [Stage6, Stage7, Stage9]
-    status: DEFERRED
-    objective: "做救济与履约后置能力，不抢 Stage1-6。"
+    priority: P3
+    stage_scope: [Stage3, Stage6, Stage7, Stage9]
+    status: FIRST_CUT_IMPLEMENTED
+    objective: "做规则救济、资格合法性、合同程序、结算审计、履约付款和专项监督的内部复核 profile。"
     candidate_outputs:
+      - remedy_performance_settlement_profile
       - remedy_window_state
       - challenge_evidence_chain_state
+      - qualification_legality_risk_hits
       - post_award_contract_risk_hits
       - settlement_audit_risk_hits
       - payment_term_violation
