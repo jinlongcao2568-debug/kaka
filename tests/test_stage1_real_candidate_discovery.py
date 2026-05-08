@@ -137,6 +137,41 @@ class FakeJiangsuRealNoticeFetcher:
         }
 
 
+class FakeGuangzhouFlowNoticeFetcher:
+    def __init__(self) -> None:
+        self.calls: list[dict[str, object]] = []
+
+    def fetch_entry_url(self, url: str, *, profile_id: str | None = None, lineage_refs: dict[str, str] | None = None) -> dict:
+        self.calls.append(
+            {
+                "url": url,
+                "profile_id": profile_id,
+                "lineage_refs": dict(lineage_refs or {}),
+            }
+        )
+        return {
+            "entry_fetch_id": f"FETCH-{profile_id}",
+            "status": "FETCHED",
+            "entry_profile_id": profile_id,
+            "entry_url": url,
+            "site_name": "广州公共资源交易中心",
+            "source_family": "local_public_resource_trading_center",
+            "http_status": 200,
+            "snapshot_id_optional": f"SNAP-{profile_id}",
+            "degraded_reasons": [],
+            "same_site_detail_links": [
+                "https://ywtb.gzggzy.cn/jyfw/002001/002001001/20260501/gz-flow-notice.html",
+            ],
+            "same_site_detail_link_items": [
+                {
+                    "url": "https://ywtb.gzggzy.cn/jyfw/002001/002001001/20260501/gz-flow-notice.html",
+                    "text": "广州某排水工程流标公告 1200万元",
+                    "published_at": "2026-05-01 00:00:00",
+                },
+            ],
+        }
+
+
 class FakeSichuanShellFetcher:
     def fetch_entry_url(self, url: str, *, profile_id: str | None = None, lineage_refs: dict[str, str] | None = None) -> dict:
         return {
@@ -519,6 +554,69 @@ class RealCandidateDiscoveryTests(unittest.TestCase):
         self.assertIn("candidate_discovery_diagnostics", result)
         self.assertGreaterEqual(result["candidate_discovery_diagnostics"]["accepted_candidate_count"], 1)
         self.assertIn("candidate_diagnostics", result["profile_reports"][0])
+
+    def test_discovery_source_profile_ids_fail_closed_without_profile_fallback(self) -> None:
+        fetcher = FakeGuangzhouFlowNoticeFetcher()
+        service = RealPublicCandidateDiscoveryService(
+            fetcher=fetcher,
+            repository=RealPublicCandidateRepository(),
+        )
+
+        result = service.discover(
+            {
+                "region_codes": ["CN-GD"],
+                "source_profile_ids": ["UNKNOWN-PROFILE-ID"],
+                "discovery_candidate_limit": 1,
+            },
+            now="2026-05-01T00:00:00+00:00",
+        )
+
+        self.assertEqual(result["discovery_state"], "NO_CANDIDATES")
+        self.assertEqual(result["source_profile_ids_requested"], ["UNKNOWN-PROFILE-ID"])
+        self.assertEqual(fetcher.calls, [])
+        self.assertEqual(result["profile_reports"][0]["profile_id"], "UNKNOWN-PROFILE-ID")
+        self.assertEqual(result["profile_reports"][0]["status"], "SOURCE_PROFILE_NOT_CONFIGURED")
+
+    def test_evaluation_corpus_mode_preserves_non_actionable_sample_titles_only(self) -> None:
+        normal_fetcher = FakeGuangzhouFlowNoticeFetcher()
+        normal_service = RealPublicCandidateDiscoveryService(
+            fetcher=normal_fetcher,
+            repository=RealPublicCandidateRepository(),
+        )
+        normal = normal_service.discover(
+            {
+                "region_codes": ["CN-GD"],
+                "source_profile_ids": ["GUANGZHOU-YWTB-CONSTRUCTION-LIST"],
+                "discovery_candidate_limit": 1,
+            },
+            now="2026-05-01T00:00:00+00:00",
+        )
+
+        self.assertEqual(normal["discovery_state"], "NO_CANDIDATES")
+        self.assertIn("non_actionable_notice_state", normal["profile_reports"][0]["rejected_counts"])
+
+        reset_default_storage()
+        sample_fetcher = FakeGuangzhouFlowNoticeFetcher()
+        sample_service = RealPublicCandidateDiscoveryService(
+            fetcher=sample_fetcher,
+            repository=RealPublicCandidateRepository(),
+        )
+        sample = sample_service.discover(
+            {
+                "region_codes": ["CN-GD"],
+                "source_profile_ids": ["GUANGZHOU-YWTB-CONSTRUCTION-LIST"],
+                "evaluation_corpus_mode": True,
+                "evaluation_document_kind": "flow_or_re_tender_notice",
+                "discovery_candidate_limit": 1,
+            },
+            now="2026-05-01T00:00:00+00:00",
+        )
+
+        self.assertEqual(sample["discovery_state"], "COMPLETED")
+        self.assertTrue(sample["evaluation_corpus_mode"])
+        self.assertEqual(sample["candidate_count"], 1)
+        self.assertEqual(sample["candidates"][0]["evaluation_document_kind"], "flow_or_re_tender_notice")
+        self.assertTrue(sample["candidates"][0]["evaluation_corpus_mode"])
 
     def test_discovery_preserves_zero_amount_minimum(self) -> None:
         service = RealPublicCandidateDiscoveryService(

@@ -1,6 +1,6 @@
 version: 1
 contract_id: STAGE16_FILE_ANALYSIS_TASK_CONTRACT
-status: P3_STAGE16_B10_REMEDY_PERFORMANCE_FIRST_CUT_IMPLEMENTED
+status: P4_STAGE16_B7_REAL_SAMPLE_EXECUTION_FIRST_CUT_IMPLEMENTED
 updated_at: "2026-05-08"
 role: anti_drift_execution_contract
 source_doc: "docs/专题_投前预测评审风控规则救济与履约结算经验库草案.md"
@@ -151,7 +151,8 @@ runtime_mapping_baseline:
   status: FIRST_CUT_IMPLEMENTED
   customer_visible: false
   no_formal_schema_or_rule_code_added: true
-  no_external_fetch_or_release_enabled: true
+  no_uncontrolled_external_fetch_or_release_enabled: true
+  controlled_b7_real_sample_fetch_runner_enabled: true
   entries:
     - capability_id: B1_LEGAL_SYSTEM_CLASSIFIER
       stage_scope: [Stage1, Stage2, Stage3, Stage6]
@@ -244,15 +245,21 @@ runtime_mapping_baseline:
         - "contracts/evaluation/evaluation_coverage_requirements.json"
         - "src/storage/evaluation_corpus.py"
         - "src/storage/evaluation_coverage_audit.py"
+        - "src/storage/evaluation_real_sample_execution.py"
+        - "src/stage1_tasking/real_candidate_discovery.py"
+        - "src/stage2_ingestion/real_candidate_capture.py"
         - "src/stage3_parsing/evaluation_profiles.py"
       data_carriers:
         - evaluation_corpus
         - evaluation_parse_probe_manifest
         - evaluation_seed_coverage_audit_manifest
         - evaluation_stage3_profile_manifest
+        - evaluation_real_project_sample_plan_manifest
+        - evaluation_real_project_sample_execution_manifest
       implementation_state: FIRST_CUT_IMPLEMENTED
-      remaining_gap: "本批只补离线探针和覆盖审计；真实项目快照采集后续推进。"
+      remaining_gap: "真实快照受控执行第一刀完成；后续补覆盖率、质量评分和更多站点。"
       minimum_validation_commands:
+        - "python -m unittest tests.test_evaluation_real_sample_plan tests.test_evaluation_real_sample_execution tests.test_stage1_real_candidate_discovery tests.test_stage2_real_candidate_capture -v"
         - "python -m unittest tests.test_evaluation_corpus tests.test_evaluation_coverage_audit tests.test_evaluation_stage3_profiles -v"
     - capability_id: B8_PRICE_PERFORMANCE_LOW_BID_RISK
       stage_scope: [Stage3, Stage5, Stage6, Stage9]
@@ -460,12 +467,13 @@ batches:
     priority: P1
     stage_scope: [Stage1, Stage2, Stage3, Stage4, Stage5, Stage6]
     status: FIRST_CUT_IMPLEMENTED
-    objective: "用中标、废标、投诉、流标、官方案例、地区规则样本反哺规则和回归。"
+    objective: "用中标、废标、投诉、流标、官方案例、地区规则样本反哺规则和回归；真实项目快照通过受控执行 runner 采集、解析和审计。"
     candidate_outputs:
       - evaluation_corpus
       - golden_samples
       - complaint_evaluation_corpus
       - regional_rule_samples
+      - evaluation_real_project_sample_execution_manifest
 
   - batch_id: B8_PRICE_PERFORMANCE_LOW_BID_RISK
     priority: P2

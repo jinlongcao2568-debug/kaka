@@ -160,6 +160,11 @@ _NON_ACTIONABLE_NOTICE_TOKENS = (
     "流标",
     "废标",
     "异常公告",
+    "投诉处理",
+    "投诉决定",
+    "监督检查",
+    "行政处罚",
+    "典型案例",
 )
 
 
@@ -1014,7 +1019,13 @@ def _merge_link_items(primary: list[Mapping[str, Any]], secondary: list[Mapping[
     return merged
 
 
-def _is_candidate_detail_url(url: str, title: str, profile_id: str) -> bool:
+def _is_candidate_detail_url(
+    url: str,
+    title: str,
+    profile_id: str,
+    *,
+    allow_non_actionable_title: bool = False,
+) -> bool:
     path = urlsplit(url).path.lower()
     text = title.lower()
     if _has_template_placeholder(url, title):
@@ -1044,7 +1055,11 @@ def _is_candidate_detail_url(url: str, title: str, profile_id: str) -> bool:
         return (
             "ygp.gdzwfw.gov.cn" in urlsplit(url).netloc.lower()
             and "/jygg" in url
-            and (_is_real_notice_candidate_title(title) or _is_guangdong_ygp_structured_notice_url(url))
+            and (
+                _is_real_notice_candidate_title(title)
+                or allow_non_actionable_title
+                or _is_guangdong_ygp_structured_notice_url(url)
+            )
         )
     if profile_id in _PROVINCE_REALTIME_PROFILE_IDS:
         host = urlsplit(url).netloc.lower()
@@ -1060,7 +1075,7 @@ def _is_candidate_detail_url(url: str, title: str, profile_id: str) -> bool:
             return False
         if profile_id == "SICHUAN-GGZY-TRANSACTION-INFO" and "ggzyjy.sc.gov.cn" not in host:
             return False
-        if not _is_real_notice_candidate_title(title):
+        if not allow_non_actionable_title and not _is_real_notice_candidate_title(title):
             return False
         return path.endswith((".html", ".htm", ".shtml", ".jhtml", ".jspx", ".jsp")) and not path.endswith(
             ("index.html", "list.html", "about.html", "transactioninfo.html")
@@ -1509,6 +1524,9 @@ class RealPublicCandidateDiscoveryService:
 
     def discover(self, payload: Mapping[str, Any], *, now: str | None = None) -> dict[str, Any]:
         discovered_at = now or str(payload.get("now") or utc_now_iso())
+        evaluation_corpus_mode = bool(payload.get("evaluation_corpus_mode"))
+        evaluation_document_kind = str(payload.get("evaluation_document_kind") or "").strip()
+        explicit_source_profile_ids = _as_string_list(payload.get("source_profile_ids"), [])
         all_region_codes = [
             str(adapter.get("region_code") or "").strip()
             for adapter in list_region_source_adapters()
@@ -1558,7 +1576,11 @@ class RealPublicCandidateDiscoveryService:
         fetched_profiles: set[str] = set()
         for region_code in region_codes:
             adapter = resolve_region_source_adapter(region_code)
-            profile_ids = _profile_ids_for_region(region_code)[:profile_limit]
+            profile_ids = (
+                explicit_source_profile_ids[:profile_limit]
+                if explicit_source_profile_ids
+                else _profile_ids_for_region(region_code)[:profile_limit]
+            )
             region_candidate_count = 0
             if not profile_ids:
                 profile_reports.append(_source_not_configured_report(region_code, adapter))
@@ -1574,6 +1596,19 @@ class RealPublicCandidateDiscoveryService:
                     break
                 profile = REAL_PUBLIC_ENTRY_PROFILE_BY_ID.get(profile_id)
                 if profile is None:
+                    profile_reports.append(
+                        {
+                            "region_code": str(adapter.get("region_code") or region_code),
+                            "profile_id": profile_id,
+                            "entry_url": "",
+                            "status": "SOURCE_PROFILE_NOT_CONFIGURED",
+                            "failure_reason": "source_profile_id_not_found",
+                            "candidate_count": 0,
+                            "accepted_candidate_count": 0,
+                            "candidate_limit_truncated_count": 0,
+                            "duplicate_filtered_count": 0,
+                        }
+                    )
                     continue
                 if profile.profile_id in fetched_profiles:
                     continue
@@ -1609,6 +1644,8 @@ class RealPublicCandidateDiscoveryService:
                     query=query,
                     run_id=run_id,
                     now=discovered_at,
+                    evaluation_corpus_mode=evaluation_corpus_mode,
+                    evaluation_document_kind=evaluation_document_kind,
                 )
                 parsed = list(parsed_result["candidates"])
                 diagnostics = dict(parsed_result["diagnostics"])
@@ -1690,6 +1727,9 @@ class RealPublicCandidateDiscoveryService:
             "discovery_run_id": run_id,
             "discovery_state": "COMPLETED" if candidates else "NO_CANDIDATES",
             "source_candidate_mode": REAL_PUBLIC_SOURCE_CANDIDATE_MODE,
+            "evaluation_corpus_mode": evaluation_corpus_mode,
+            "evaluation_document_kind": evaluation_document_kind,
+            "source_profile_ids_requested": explicit_source_profile_ids,
             "real_market_discovery": bool(candidates),
             "region_codes": region_codes,
             "project_types": project_types,
@@ -1747,6 +1787,8 @@ class RealPublicCandidateDiscoveryService:
         query: str,
         run_id: str,
         now: str,
+        evaluation_corpus_mode: bool = False,
+        evaluation_document_kind: str = "",
     ) -> list[dict[str, Any]]:
         return list(
             self._candidates_from_carrier_with_diagnostics(
@@ -1759,6 +1801,8 @@ class RealPublicCandidateDiscoveryService:
                 query=query,
                 run_id=run_id,
                 now=now,
+                evaluation_corpus_mode=evaluation_corpus_mode,
+                evaluation_document_kind=evaluation_document_kind,
             )["candidates"]
         )
 
@@ -1774,6 +1818,8 @@ class RealPublicCandidateDiscoveryService:
         query: str,
         run_id: str,
         now: str,
+        evaluation_corpus_mode: bool = False,
+        evaluation_document_kind: str = "",
     ) -> dict[str, Any]:
         profile_id = str(carrier.get("entry_profile_id") or "")
         link_items = carrier.get("same_site_detail_link_items")
@@ -1798,6 +1844,8 @@ class RealPublicCandidateDiscoveryService:
             "profile_id": profile_id,
             "entry_url": str(carrier.get("entry_url") or ""),
             "status": str(carrier.get("status") or ""),
+            "evaluation_corpus_mode": evaluation_corpus_mode,
+            "evaluation_document_kind": evaluation_document_kind,
             "link_item_count": len(link_items),
             "same_site_detail_link_count": len(carrier.get("same_site_detail_links", []) or []),
             "profile_api_discovery_state": str(api_discovery.get("state") or "UNSUPPORTED"),
@@ -1868,7 +1916,7 @@ class RealPublicCandidateDiscoveryService:
             if profile_id in _PROVINCE_REALTIME_PROFILE_IDS and _is_navigation_or_template_link(source_url, title):
                 reject("navigation_or_template_link", item=item)
                 continue
-            if profile_id in _PROVINCE_REALTIME_PROFILE_IDS and _is_non_actionable_notice_text(analysis_text):
+            if not evaluation_corpus_mode and _is_non_actionable_notice_text(analysis_text):
                 reject("non_actionable_notice_state", item=item)
                 continue
             published_at = str(item.get("published_at") or "").strip()
@@ -1882,7 +1930,12 @@ class RealPublicCandidateDiscoveryService:
             if publication_window_state == "OUTSIDE_RECENT_DISCOVERY_WINDOW":
                 discovery_review_reasons.append("published_outside_recent_discovery_window")
                 discovery_filter_tags.append("published_outside_discovery_window")
-            if not _is_candidate_detail_url(source_url, title, profile_id):
+            if not _is_candidate_detail_url(
+                source_url,
+                title,
+                profile_id,
+                allow_non_actionable_title=evaluation_corpus_mode,
+            ):
                 reject("not_candidate_detail_url", item=item)
                 continue
             source_region_code = str(item.get("source_region_code") or "").strip() or _region_from_source_url(source_url)
@@ -1951,6 +2004,8 @@ class RealPublicCandidateDiscoveryService:
                     "source_profile_id": profile_id,
                     "source_site_name": source_site_name,
                     "source_candidate_mode": REAL_PUBLIC_SOURCE_CANDIDATE_MODE,
+                    "evaluation_corpus_mode": evaluation_corpus_mode,
+                    "evaluation_document_kind": evaluation_document_kind,
                     "is_offline_sample_candidate": False,
                     "sellability_evidence_state": "REAL_LIST_PAGE_CANDIDATE_NEEDS_DETAIL_CAPTURE",
                     "truth_boundary": "真实列表页候选已入库；客户可售证据仍需详情页/附件抓取、字段解析和证据回链。",

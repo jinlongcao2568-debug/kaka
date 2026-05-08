@@ -22,7 +22,7 @@ class TestStage16FileAnalysisTaskContract(unittest.TestCase):
 
         self.assertEqual(
             contract["status"],
-            "P3_STAGE16_B10_REMEDY_PERFORMANCE_FIRST_CUT_IMPLEMENTED",
+            "P4_STAGE16_B7_REAL_SAMPLE_EXECUTION_FIRST_CUT_IMPLEMENTED",
         )
         batches = {item["batch_id"]: item for item in contract["batches"]}
         self.assertEqual(batches["B0_EXPERIENCE_LIBRARY_MAPPING_BASELINE"]["status"], "FIRST_CUT_IMPLEMENTED")
@@ -32,7 +32,8 @@ class TestStage16FileAnalysisTaskContract(unittest.TestCase):
         self.assertEqual(baseline["status"], "FIRST_CUT_IMPLEMENTED")
         self.assertFalse(baseline["customer_visible"])
         self.assertTrue(baseline["no_formal_schema_or_rule_code_added"])
-        self.assertTrue(baseline["no_external_fetch_or_release_enabled"])
+        self.assertTrue(baseline["no_uncontrolled_external_fetch_or_release_enabled"])
+        self.assertTrue(baseline["controlled_b7_real_sample_fetch_runner_enabled"])
 
         entries = {item["capability_id"]: item for item in baseline["entries"]}
         for capability_id in (
@@ -54,7 +55,9 @@ class TestStage16FileAnalysisTaskContract(unittest.TestCase):
             self.assertTrue(entries[capability_id]["minimum_validation_commands"])
 
         self.assertIn("src/storage/evaluation_corpus.py", entries["B7_REVIEW_CORPUS_AND_GOLDEN_SAMPLES"]["runtime_entrypoints"])
+        self.assertIn("src/storage/evaluation_real_sample_execution.py", entries["B7_REVIEW_CORPUS_AND_GOLDEN_SAMPLES"]["runtime_entrypoints"])
         self.assertIn("evaluation_seed_coverage_audit_manifest", entries["B7_REVIEW_CORPUS_AND_GOLDEN_SAMPLES"]["data_carriers"])
+        self.assertIn("evaluation_real_project_sample_execution_manifest", entries["B7_REVIEW_CORPUS_AND_GOLDEN_SAMPLES"]["data_carriers"])
         self.assertIn("price_performance_risk_profile", entries["B8_PRICE_PERFORMANCE_LOW_BID_RISK"]["data_carriers"])
         self.assertIn("bid_document_internal_qa_profile", entries["B9_BID_DOCUMENT_INTERNAL_QA"]["data_carriers"])
         self.assertIn("src/stage3_parsing/bid_document_qa.py", entries["B9_BID_DOCUMENT_INTERNAL_QA"]["runtime_entrypoints"])
