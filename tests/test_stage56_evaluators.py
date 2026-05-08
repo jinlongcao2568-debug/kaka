@@ -16,7 +16,7 @@ if str(TESTS) not in sys.path:
 from helpers import load_fixture
 from shared.context_packet import ContextPacket
 from shared.contracts_runtime import StageBundle
-from shared.pipeline import run_internal_chain
+from shared.pipeline import run_internal_chain, run_internal_chain_until_stage6
 from shared.policy_executor import PolicyExecutor
 from shared.state_packet import StatePacket
 from stage5_rules_evidence.engine import RuleEvidenceEngine
@@ -200,6 +200,99 @@ class TestStage56Evaluators(unittest.TestCase):
             service_result.record("review_queue_profile").get("review_lane"),
             aggregated.record("review_queue_profile").get("review_lane"),
         )
+
+    def test_stage6_stage16_report_profile_summarizes_mainline_risk_without_formal_review_request(self) -> None:
+        payload = load_fixture("internal_chain_happy.json")
+        payload.update(
+            {
+                "task_id": "TASK-B6-REPORT-PROFILE-001",
+                "project_id": "PROJ-B6-REPORT-PROFILE-001",
+                "source_title": "公共资源交易中心工程建设招标公告",
+                "source_text": (
+                    "依法必须招标工程建设项目。评标办法采用综合评分法，"
+                    "价格分30分，技术分40分，商务分30分。"
+                    "投标人须提供制造商授权、ISO9001、CMA检验检测机构资质认定、"
+                    "本地服务网点证明和现场踏勘回执。"
+                    "投标文件须签字盖章，提交投标保证金，投标有效期90日。"
+                ),
+                "document_completeness_state": "COMPLETE_WITH_ATTACHMENTS",
+                "project_manager_name": "张建明",
+            }
+        )
+
+        result = run_internal_chain_until_stage6(payload)
+        stage5 = result["stage5"]
+        report_profile = result["stage6"].inputs["stage6_review_report_trace"][
+            "stage16_file_analysis_trace"
+        ]["stage16_file_analysis_report_profile"]
+
+        self.assertNotIn("review_request", stage5.records)
+        self.assertEqual(report_profile["rule_gate_status"], "PASS")
+        self.assertEqual(report_profile["evidence_gate_status"], "PASS")
+        self.assertEqual(report_profile["review_request_state"], "NOT_CREATED")
+        self.assertEqual(report_profile["report_profile_state"], "INTERNAL_REVIEW_RECOMMENDED")
+        self.assertEqual(report_profile["tailored_bid_risk_level"], "HIGH_CLUE_REVIEW")
+        self.assertGreaterEqual(report_profile["qualification_clause_count"], 4)
+        self.assertGreaterEqual(report_profile["fatal_rejection_count"], 3)
+        self.assertIn("MAINLINE_RISK_REVIEW", report_profile["recommended_review_lanes"])
+        self.assertFalse(report_profile["customer_visible"])
+        self.assertTrue(report_profile["no_illegality_or_reserved_winner_conclusion"])
+
+    def test_stage6_stage16_report_profile_links_stage5_review_request(self) -> None:
+        result = run_internal_chain_until_stage6(load_fixture("internal_chain_block.json"))
+        stage5 = result["stage5"]
+        report_profile = result["stage6"].inputs["stage6_review_report_trace"][
+            "stage16_file_analysis_trace"
+        ]["stage16_file_analysis_report_profile"]
+
+        self.assertIn("review_request", stage5.records)
+        self.assertEqual(report_profile["report_profile_state"], "REVIEW_REQUIRED")
+        self.assertEqual(report_profile["review_request_state"], "LINKED_REVIEW_REQUEST")
+        self.assertEqual(
+            report_profile["linked_review_request_id_optional"],
+            stage5.record("review_request").get("review_request_id"),
+        )
+        self.assertEqual(
+            report_profile["missing_condition_family_optional"],
+            stage5.record("review_request").get("missing_condition_family"),
+        )
+        self.assertIn("DUAL_GATE_REVIEW", report_profile["recommended_review_lanes"])
+        self.assertIn("linked_review_request_id_present", report_profile["review_reasons"])
+
+    def test_stage6_stage16_report_profile_partials_when_mainline_profile_missing(self) -> None:
+        stage5 = Stage5Service().run(run_internal_chain(load_fixture("internal_chain_happy.json"))["stage4"])
+        inputs = dict(stage5.inputs)
+        for field_name in (
+            "mainline_risk_profile",
+            "bid_selection_score",
+            "bid_selection_state",
+            "blind_bid_pipeline_stage",
+            "evaluation_method_profile",
+            "tailored_bid_risk_level",
+            "qualification_clause_hits",
+            "fatal_rejection_risk_hits",
+            "self_score_forecast",
+        ):
+            inputs.pop(field_name, None)
+        stage5_without_profile = StageBundle(
+            stage=5,
+            records=dict(stage5.records),
+            handoff=dict(stage5.handoff),
+            trace_rules=list(stage5.trace_rules),
+            inputs=inputs,
+        )
+
+        stage6 = Stage6Service().run(stage5_without_profile)
+        report_profile = stage6.inputs["stage6_review_report_trace"]["stage16_file_analysis_trace"][
+            "stage16_file_analysis_report_profile"
+        ]
+
+        self.assertEqual(report_profile["rule_gate_status"], "PASS")
+        self.assertEqual(report_profile["evidence_gate_status"], "PASS")
+        self.assertEqual(report_profile["report_profile_state"], "PARTIAL_REVIEW_REQUIRED")
+        self.assertEqual(report_profile["mainline_risk_state"], "MISSING")
+        self.assertIn("mainline_risk_profile_missing", report_profile["review_reasons"])
+        self.assertNotIn("review_request", stage5.records)
 
     def test_stage6_aggregator_preserves_superseded_report_path(self) -> None:
         payload = load_fixture("internal_chain_happy.json")

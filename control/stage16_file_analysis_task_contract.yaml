@@ -1,6 +1,6 @@
 version: 1
 contract_id: STAGE16_FILE_ANALYSIS_TASK_CONTRACT
-status: P0_FIRST_CUT_IN_PROGRESS
+status: P1_B6_FIRST_CUT_IN_PROGRESS
 updated_at: "2026-05-08"
 role: anti_drift_execution_contract
 source_doc: "docs/专题_投前预测评审风控规则救济与履约结算经验库草案.md"
@@ -41,13 +41,13 @@ program:
     - enhanced_bid_document_internal_review
     - remedy_performance_settlement_risk
   current_priority_batches:
+    - B6_PUBLIC_VERIFICATION_DUAL_GATES_REPORT
     - B5_MAINLINE_RISK_AND_BID_DECISION
     - B3_AI_INTELLIGENCE_PROJECT_ARCHIVE
     - B4_DOCUMENT_COMPLETENESS_VERSION_LINEAGE
     - B0_EXPERIENCE_LIBRARY_MAPPING_BASELINE
     - B1_LEGAL_SYSTEM_CLASSIFIER
     - B2_PRE_NOTICE_OPPORTUNITY_POLICY_RULES
-    - B6_PUBLIC_VERIFICATION_DUAL_GATES_REPORT
     - B7_REVIEW_CORPUS_AND_GOLDEN_SAMPLES
   deferred_batches:
     - B8_PRICE_PERFORMANCE_LOW_BID_RISK
@@ -244,7 +244,7 @@ batches:
   - batch_id: B5_MAINLINE_RISK_AND_BID_DECISION
     priority: P1
     stage_scope: [Stage3, Stage4, Stage5, Stage6, Stage7]
-    status: FIRST_CUT_IN_PROGRESS
+    status: FIRST_CUT_IMPLEMENTED
     objective: "项目筛选、控标预测、自评分、废标红线、盲投运营的内部闭环。"
     candidate_outputs:
       - bid_selection_score
@@ -266,7 +266,7 @@ batches:
   - batch_id: B6_PUBLIC_VERIFICATION_DUAL_GATES_REPORT
     priority: P1
     stage_scope: [Stage4, Stage5, Stage6]
-    status: PENDING
+    status: FIRST_CUT_IN_PROGRESS
     objective: "公开证据 carrier 进入规则门、证据门、复核队列和报告。"
     candidate_outputs:
       - public_evidence_readback

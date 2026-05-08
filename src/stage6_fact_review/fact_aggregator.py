@@ -71,6 +71,127 @@ def _safe_dict(value: Any) -> dict[str, Any]:
     return dict(value) if isinstance(value, Mapping) else {}
 
 
+def _stage16_file_analysis_report_profile(inputs: Mapping[str, Any]) -> dict[str, Any]:
+    mainline_risk_profile = _safe_dict(inputs.get("mainline_risk_profile"))
+    rule_gate_status = str(inputs.get("rule_gate_status") or "UNKNOWN")
+    evidence_gate_status = str(inputs.get("evidence_gate_status") or "UNKNOWN")
+    linked_review_request_id = inputs.get("linked_review_request_id_optional") or inputs.get(
+        "review_request_id"
+    )
+    missing_condition_family = inputs.get("missing_condition_family_optional") or inputs.get(
+        "missing_condition_family"
+    )
+
+    qualification_clause_hits = ensure_list(
+        inputs.get("qualification_clause_hits")
+        if inputs.get("qualification_clause_hits") is not None
+        else mainline_risk_profile.get("qualification_clause_hits")
+    )
+    fatal_rejection_risk_hits = ensure_list(
+        inputs.get("fatal_rejection_risk_hits")
+        if inputs.get("fatal_rejection_risk_hits") is not None
+        else mainline_risk_profile.get("fatal_rejection_risk_hits")
+    )
+    tailored_bid_risk_level = str(
+        inputs.get("tailored_bid_risk_level")
+        or mainline_risk_profile.get("tailored_bid_risk_level")
+        or "UNKNOWN"
+    )
+    bid_selection_state = inputs.get("bid_selection_state") or mainline_risk_profile.get(
+        "bid_selection_state"
+    )
+    self_score_forecast = inputs.get("self_score_forecast") or mainline_risk_profile.get(
+        "self_score_forecast"
+    )
+    mainline_risk_state = str(mainline_risk_profile.get("profile_state") or "MISSING")
+
+    gate_statuses = {rule_gate_status, evidence_gate_status}
+    gates_known = "UNKNOWN" not in gate_statuses
+    gates_passed = gate_statuses == {"PASS"}
+    gate_requires_review = bool(gate_statuses.intersection({"REVIEW", "BLOCK"}))
+    mainline_weak_clue = (
+        tailored_bid_risk_level.startswith("HIGH")
+        or tailored_bid_risk_level.startswith("MEDIUM")
+        or bool(fatal_rejection_risk_hits)
+    )
+
+    review_reasons: list[str] = []
+    recommended_review_lanes: list[str] = []
+
+    if not mainline_risk_profile:
+        review_reasons.append("mainline_risk_profile_missing")
+        recommended_review_lanes.append("FILE_ANALYSIS_COMPLETENESS_REVIEW")
+    elif mainline_risk_state != "PROFILED_REVIEW_READY":
+        review_reasons.append(f"mainline_risk_state={mainline_risk_state}")
+        recommended_review_lanes.append("FILE_ANALYSIS_COMPLETENESS_REVIEW")
+    if rule_gate_status == "UNKNOWN":
+        review_reasons.append("rule_gate_status_unknown")
+        recommended_review_lanes.append("DUAL_GATE_REVIEW")
+    elif rule_gate_status != "PASS":
+        review_reasons.append(f"rule_gate_status={rule_gate_status}")
+        recommended_review_lanes.append("DUAL_GATE_REVIEW")
+    if evidence_gate_status == "UNKNOWN":
+        review_reasons.append("evidence_gate_status_unknown")
+        recommended_review_lanes.append("DUAL_GATE_REVIEW")
+    elif evidence_gate_status != "PASS":
+        review_reasons.append(f"evidence_gate_status={evidence_gate_status}")
+        recommended_review_lanes.append("DUAL_GATE_REVIEW")
+    if linked_review_request_id:
+        review_reasons.append("linked_review_request_id_present")
+        recommended_review_lanes.append(str(inputs.get("review_lane") or "STANDARD"))
+    if missing_condition_family:
+        review_reasons.append(str(missing_condition_family))
+    if tailored_bid_risk_level.startswith("HIGH") or tailored_bid_risk_level.startswith("MEDIUM"):
+        review_reasons.append(f"tailored_bid_risk_level={tailored_bid_risk_level}")
+        recommended_review_lanes.append("MAINLINE_RISK_REVIEW")
+    if fatal_rejection_risk_hits:
+        review_reasons.append("fatal_rejection_redline_markers_detected")
+        recommended_review_lanes.append("MAINLINE_RISK_REVIEW")
+    if self_score_forecast == "NOT_RUN_MISSING_INTERNAL_MATERIALS":
+        review_reasons.append("self_score_requires_internal_material_profile")
+        recommended_review_lanes.append("INTERNAL_MATERIALS_REVIEW")
+
+    if linked_review_request_id:
+        review_request_state = "LINKED_REVIEW_REQUEST"
+    elif "BLOCK" in gate_statuses:
+        review_request_state = "STAGE5_GATE_BLOCK"
+    elif "REVIEW" in gate_statuses:
+        review_request_state = "STAGE5_GATE_REVIEW"
+    elif not gates_known:
+        review_request_state = "GATE_STATUS_UNKNOWN"
+    else:
+        review_request_state = "NOT_CREATED"
+
+    if linked_review_request_id or gate_requires_review:
+        report_profile_state = "REVIEW_REQUIRED"
+    elif not mainline_risk_profile or mainline_risk_state != "PROFILED_REVIEW_READY" or not gates_known:
+        report_profile_state = "PARTIAL_REVIEW_REQUIRED"
+    elif gates_passed and mainline_weak_clue:
+        report_profile_state = "INTERNAL_REVIEW_RECOMMENDED"
+    elif gates_passed:
+        report_profile_state = "INTERNAL_READY"
+    else:
+        report_profile_state = "REVIEW_REQUIRED"
+
+    return {
+        "report_profile_state": report_profile_state,
+        "rule_gate_status": rule_gate_status,
+        "evidence_gate_status": evidence_gate_status,
+        "review_request_state": review_request_state,
+        "linked_review_request_id_optional": linked_review_request_id,
+        "missing_condition_family_optional": missing_condition_family,
+        "mainline_risk_state": mainline_risk_state,
+        "bid_selection_state": bid_selection_state,
+        "tailored_bid_risk_level": tailored_bid_risk_level,
+        "fatal_rejection_count": len(fatal_rejection_risk_hits),
+        "qualification_clause_count": len(qualification_clause_hits),
+        "recommended_review_lanes": _dedupe_strings(recommended_review_lanes),
+        "review_reasons": _dedupe_strings(review_reasons),
+        "customer_visible": False,
+        "no_illegality_or_reserved_winner_conclusion": True,
+    }
+
+
 def _stage16_file_analysis_trace(inputs: Mapping[str, Any]) -> dict[str, Any]:
     project_manager_state = str(inputs.get("project_manager_field_source_state") or "")
     if not project_manager_state:
@@ -150,6 +271,7 @@ def _stage16_file_analysis_trace(inputs: Mapping[str, Any]) -> dict[str, Any]:
             "customer_visible": False,
             "no_illegality_or_reserved_winner_conclusion": True,
         },
+        "stage16_file_analysis_report_profile": _stage16_file_analysis_report_profile(inputs),
         "output_boundary": {
             "customer_visible": False,
             "no_illegality_or_reserved_winner_conclusion": True,
