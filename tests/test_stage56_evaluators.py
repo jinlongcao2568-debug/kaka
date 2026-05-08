@@ -280,6 +280,47 @@ class TestStage56Evaluators(unittest.TestCase):
         self.assertFalse(report_profile["customer_visible"])
         self.assertTrue(report_profile["no_illegality_or_reserved_winner_conclusion"])
 
+    def test_stage6_file_analysis_review_summary_aggregates_document_ocr_and_stage5_review_rules(self) -> None:
+        stage4 = run_internal_chain(load_fixture("internal_chain_happy.json"))["stage4"]
+        review_stage4 = StageBundle(
+            stage=4,
+            records=dict(stage4.records),
+            handoff=dict(stage4.handoff),
+            trace_rules=list(stage4.trace_rules),
+            inputs={
+                **stage4.inputs,
+                "stage5_requested_rule_codes": ["FILE-REVIEW-001", "FATAL-REVIEW-001"],
+                "document_completeness_state": "PARTIAL_REVIEW_REQUIRED",
+                "notice_version_chain_state": "CLARIFICATION_OR_ADDENDUM_PRESENT",
+                "document_quality_reasons": ["ocr_required", "unknown_attachment_role"],
+                "ocr_state": "OCR_REQUIRED",
+                "attachment_ocr_required_count": 1,
+                "download_archive_manifest": {
+                    "manifest_state": "READY",
+                    "manifest_quality_state": "REVIEW_REQUIRED",
+                    "quality_reasons": ["ocr_required"],
+                },
+                "mainline_risk_profile": {"profile_state": "PROFILED_REVIEW_READY"},
+                "fatal_rejection_risk_hits": [{"risk_type": "signature_seal"}],
+            },
+        )
+
+        stage5 = Stage5Service().run(review_stage4)
+        stage6 = Stage6Service().run(stage5)
+        trace = stage6.inputs["stage6_review_report_trace"]["stage16_file_analysis_trace"]
+        summary = trace["file_analysis_review_summary"]
+
+        self.assertEqual(summary["summary_state"], "REVIEW_REQUIRED")
+        self.assertEqual(summary["document_completeness_state"], "PARTIAL_REVIEW_REQUIRED")
+        self.assertEqual(summary["notice_version_chain_state"], "CLARIFICATION_OR_ADDENDUM_PRESENT")
+        self.assertEqual(summary["ocr_state"], "OCR_REQUIRED")
+        self.assertIn("线索", summary["allowed_output_terms"])
+        self.assertIn("人工复核", summary["allowed_output_terms"])
+        self.assertTrue(summary["formal_rule_review_hits"])
+        self.assertFalse(summary["customer_visible"])
+        self.assertTrue(summary["no_legal_conclusion"])
+        self.assertTrue(summary["no_rejection_conclusion"])
+
     def test_stage6_stage16_report_profile_links_stage5_review_request(self) -> None:
         result = run_internal_chain_until_stage6(load_fixture("internal_chain_block.json"))
         stage5 = result["stage5"]

@@ -1,6 +1,6 @@
 {
   "catalog_id": "rule-catalog",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "metadata": {
     "package_name": "contracts core package round 1",
     "status": "DRAFT",
@@ -543,6 +543,167 @@
         ],
         "golden_case_refs": [
           "GC-STAGE5-QUAL-PM-REVIEW"
+        ],
+        "minimum_confidence": 0.6
+      },
+      "FILE-REVIEW-001": {
+        "enabled": true,
+        "version": "stage5-factory-v1",
+        "priority": 260,
+        "dependency_fields": [
+          "document_completeness_state",
+          "notice_version_chain_state",
+          "download_archive_manifest"
+        ],
+        "dependency_evidence": [
+          "source_document_ref",
+          "source_slice_ref",
+          "download_archive_manifest"
+        ],
+        "input_contract": {
+          "producer_handoff": "H-04-STAGE4-TO-STAGE5",
+          "optional_carrier": "stage16_file_analysis_trace.document_completeness"
+        },
+        "output_contract": {
+          "objects": [
+            "rule_hit",
+            "rule_gate_decision",
+            "review_request"
+          ]
+        },
+        "document_term_refs": [
+          "TASK-STAGE16-B4"
+        ],
+        "golden_case_refs": [
+          "GC-STAGE5-FILE-REVIEW"
+        ],
+        "minimum_confidence": 0.6
+      },
+      "TAILORED-REVIEW-001": {
+        "enabled": true,
+        "version": "stage5-factory-v1",
+        "priority": 270,
+        "dependency_fields": [
+          "mainline_risk_profile",
+          "qualification_clause_hits"
+        ],
+        "dependency_evidence": [
+          "source_document_ref",
+          "source_slice_ref",
+          "mainline_risk_profile"
+        ],
+        "input_contract": {
+          "producer_handoff": "H-04-STAGE4-TO-STAGE5",
+          "optional_carrier": "mainline_risk_profile"
+        },
+        "output_contract": {
+          "objects": [
+            "rule_hit",
+            "rule_gate_decision",
+            "review_request"
+          ]
+        },
+        "document_term_refs": [
+          "TASK-STAGE16-B5"
+        ],
+        "golden_case_refs": [
+          "GC-STAGE5-TAILORED-REVIEW"
+        ],
+        "minimum_confidence": 0.6
+      },
+      "FATAL-REVIEW-001": {
+        "enabled": true,
+        "version": "stage5-factory-v1",
+        "priority": 280,
+        "dependency_fields": [
+          "mainline_risk_profile",
+          "fatal_rejection_risk_hits"
+        ],
+        "dependency_evidence": [
+          "source_document_ref",
+          "source_slice_ref",
+          "mainline_risk_profile"
+        ],
+        "input_contract": {
+          "producer_handoff": "H-04-STAGE4-TO-STAGE5",
+          "optional_carrier": "mainline_risk_profile"
+        },
+        "output_contract": {
+          "objects": [
+            "rule_hit",
+            "rule_gate_decision",
+            "review_request"
+          ]
+        },
+        "document_term_refs": [
+          "TASK-STAGE16-B5"
+        ],
+        "golden_case_refs": [
+          "GC-STAGE5-FATAL-REVIEW"
+        ],
+        "minimum_confidence": 0.6
+      },
+      "PRICE-REVIEW-001": {
+        "enabled": true,
+        "version": "stage5-factory-v1",
+        "priority": 290,
+        "dependency_fields": [
+          "price_performance_risk_profile",
+          "legal_system_type_candidate"
+        ],
+        "dependency_evidence": [
+          "source_document_ref",
+          "source_slice_ref",
+          "price_performance_risk_profile"
+        ],
+        "input_contract": {
+          "producer_handoff": "H-04-STAGE4-TO-STAGE5",
+          "optional_carrier": "price_performance_risk_profile"
+        },
+        "output_contract": {
+          "objects": [
+            "rule_hit",
+            "rule_gate_decision",
+            "review_request"
+          ]
+        },
+        "document_term_refs": [
+          "TASK-STAGE16-B8"
+        ],
+        "golden_case_refs": [
+          "GC-STAGE5-PRICE-REVIEW"
+        ],
+        "minimum_confidence": 0.6
+      },
+      "REMEDY-REVIEW-001": {
+        "enabled": true,
+        "version": "stage5-factory-v1",
+        "priority": 300,
+        "dependency_fields": [
+          "remedy_performance_settlement_profile",
+          "legal_system_type_candidate"
+        ],
+        "dependency_evidence": [
+          "source_document_ref",
+          "source_slice_ref",
+          "remedy_performance_settlement_profile"
+        ],
+        "input_contract": {
+          "producer_handoff": "H-04-STAGE4-TO-STAGE5",
+          "optional_carrier": "remedy_performance_settlement_profile"
+        },
+        "output_contract": {
+          "objects": [
+            "rule_hit",
+            "rule_gate_decision",
+            "review_request"
+          ]
+        },
+        "document_term_refs": [
+          "TASK-STAGE16-B10"
+        ],
+        "golden_case_refs": [
+          "GC-STAGE5-REMEDY-REVIEW"
         ],
         "minimum_confidence": 0.6
       },
@@ -4273,6 +4434,262 @@
       "customer_visible_allowed": false,
       "no_legal_conclusion": true,
       "basis_gate_policy": "STRICT_FOR_REAL_PUBLIC_OR_CUSTOMER_VISIBLE"
+    },
+    {
+      "rule_code": "FILE-REVIEW-001",
+      "name": "文件完整性、OCR与版本链复核",
+      "topic": "FILE",
+      "status": "DRAFT",
+      "stage": 5,
+      "default_result": "REVIEW_REQUEST",
+      "minimum_external_use_grade": "E1_INTERNAL_ONLY",
+      "public_capability_tier": "A_PUBLIC_CORE",
+      "capability_id": "STAGE16-B4",
+      "upstream_objects": [
+        "field_lineage_record"
+      ],
+      "downstream_objects": [
+        "rule_hit",
+        "review_request"
+      ],
+      "source_refs": [
+        "TASK-STAGE16-B4"
+      ],
+      "blocked_by": [
+        "detail snapshot missing",
+        "attachment missing",
+        "OCR_REQUIRED",
+        "unresolved clarification or addendum version"
+      ],
+      "business_chain_stage": "Stage1-6文件分析闭环",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P1",
+      "basis_refs": [
+        "INTERNAL-STAGE5-EVIDENCE-GATE"
+      ],
+      "basis_verification_state": "INTERNAL_ONLY",
+      "applicability_scope": {
+        "applies_to": [
+          "附件缺失、补遗版本冲突、扫描件或OCR阻断"
+        ],
+        "does_not_apply_to": [
+          "客户可见结论",
+          "废标或违法定性"
+        ]
+      },
+      "result_ceiling": "REVIEW_REQUEST",
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "basis_gate_policy": "INTERNAL_ONLY"
+    },
+    {
+      "rule_code": "TAILORED-REVIEW-001",
+      "name": "限制竞争弱线索复核",
+      "topic": "QUAL",
+      "status": "DRAFT",
+      "stage": 5,
+      "default_result": "REVIEW_REQUEST",
+      "minimum_external_use_grade": "E1_INTERNAL_ONLY",
+      "public_capability_tier": "A_PUBLIC_CORE",
+      "capability_id": "STAGE16-B5",
+      "upstream_objects": [
+        "field_lineage_record"
+      ],
+      "downstream_objects": [
+        "rule_hit",
+        "review_request"
+      ],
+      "source_refs": [
+        "TASK-STAGE16-B5"
+      ],
+      "blocked_by": [
+        "manufacturer authorization clue",
+        "ISO/CMA clue",
+        "site visit clue",
+        "local performance or local service clue",
+        "specific certificate clue"
+      ],
+      "business_chain_stage": "Stage1-6文件分析闭环",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P1",
+      "basis_refs": [
+        "INTERNAL-STAGE5-EVIDENCE-GATE"
+      ],
+      "basis_verification_state": "INTERNAL_ONLY",
+      "applicability_scope": {
+        "applies_to": [
+          "公开招标/采购文件中的限制竞争复核线索"
+        ],
+        "does_not_apply_to": [
+          "违法结论",
+          "内定结论",
+          "客户可见法律定性"
+        ]
+      },
+      "result_ceiling": "REVIEW_REQUEST",
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "basis_gate_policy": "INTERNAL_ONLY"
+    },
+    {
+      "rule_code": "FATAL-REVIEW-001",
+      "name": "废标红线复核",
+      "topic": "FATAL",
+      "status": "DRAFT",
+      "stage": 5,
+      "default_result": "REVIEW_REQUEST",
+      "minimum_external_use_grade": "E1_INTERNAL_ONLY",
+      "public_capability_tier": "A_PUBLIC_CORE",
+      "capability_id": "STAGE16-B5",
+      "upstream_objects": [
+        "field_lineage_record"
+      ],
+      "downstream_objects": [
+        "rule_hit",
+        "review_request"
+      ],
+      "source_refs": [
+        "TASK-STAGE16-B5"
+      ],
+      "blocked_by": [
+        "signature or seal clue",
+        "bid bond clue",
+        "bid validity clue",
+        "starred term clue",
+        "second quote clue",
+        "mandatory format clue"
+      ],
+      "business_chain_stage": "Stage1-6文件分析闭环",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P1",
+      "basis_refs": [
+        "INTERNAL-STAGE5-EVIDENCE-GATE"
+      ],
+      "basis_verification_state": "INTERNAL_ONLY",
+      "applicability_scope": {
+        "applies_to": [
+          "签字盖章、保证金、有效期、星号条款、二次报价、强制格式复核线索"
+        ],
+        "does_not_apply_to": [
+          "必然废标结论",
+          "客户可见否决结论"
+        ]
+      },
+      "result_ceiling": "REVIEW_REQUEST",
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "basis_gate_policy": "INTERNAL_ONLY"
+    },
+    {
+      "rule_code": "PRICE-REVIEW-001",
+      "name": "异常低价程序与报价履约复核",
+      "topic": "PRICE",
+      "status": "DRAFT",
+      "stage": 5,
+      "default_result": "REVIEW_REQUEST",
+      "minimum_external_use_grade": "E1_INTERNAL_ONLY",
+      "public_capability_tier": "A_PUBLIC_CORE",
+      "capability_id": "STAGE16-B8",
+      "upstream_objects": [
+        "field_lineage_record"
+      ],
+      "downstream_objects": [
+        "rule_hit",
+        "review_request"
+      ],
+      "source_refs": [
+        "TASK-STAGE16-B8"
+      ],
+      "blocked_by": [
+        "abnormally low price clue",
+        "unbalanced bid clue",
+        "payment risk clue",
+        "legal system route unknown"
+      ],
+      "business_chain_stage": "Stage1-6文件分析闭环",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P1",
+      "basis_refs": [
+        "INTERNAL-STAGE5-EVIDENCE-GATE"
+      ],
+      "basis_verification_state": "INTERNAL_ONLY",
+      "applicability_scope": {
+        "applies_to": [
+          "政府采购异常低价程序或工程低于成本/不平衡报价复核线索"
+        ],
+        "does_not_apply_to": [
+          "低价无效结论",
+          "政府采购程序套用到工程招投标"
+        ]
+      },
+      "result_ceiling": "REVIEW_REQUEST",
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "basis_gate_policy": "INTERNAL_ONLY"
+    },
+    {
+      "rule_code": "REMEDY-REVIEW-001",
+      "name": "救济、合同与结算复核",
+      "topic": "REMEDY",
+      "status": "DRAFT",
+      "stage": 5,
+      "default_result": "REVIEW_REQUEST",
+      "minimum_external_use_grade": "E1_INTERNAL_ONLY",
+      "public_capability_tier": "A_PUBLIC_CORE",
+      "capability_id": "STAGE16-B10",
+      "upstream_objects": [
+        "field_lineage_record"
+      ],
+      "downstream_objects": [
+        "rule_hit",
+        "review_request"
+      ],
+      "source_refs": [
+        "TASK-STAGE16-B10"
+      ],
+      "blocked_by": [
+        "remedy window clue",
+        "precondition clue",
+        "post-award contract add-on clue",
+        "acceptance authorization clue",
+        "audit or third-party payment clue"
+      ],
+      "business_chain_stage": "Stage1-6文件分析闭环",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P1",
+      "basis_refs": [
+        "INTERNAL-STAGE5-EVIDENCE-GATE"
+      ],
+      "basis_verification_state": "INTERNAL_ONLY",
+      "applicability_scope": {
+        "applies_to": [
+          "救济期限、前置程序、合同加码、验收授权、结算审计和付款复核线索"
+        ],
+        "does_not_apply_to": [
+          "投诉必胜结论",
+          "付款违约结论",
+          "监管处罚或刑事结论"
+        ]
+      },
+      "result_ceiling": "REVIEW_REQUEST",
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "basis_gate_policy": "INTERNAL_ONLY"
     },
     {
       "rule_code": "VAL-001",

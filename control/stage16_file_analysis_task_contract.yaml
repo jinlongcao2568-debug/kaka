@@ -1,6 +1,6 @@
 version: 1
 contract_id: STAGE16_FILE_ANALYSIS_TASK_CONTRACT
-status: P4_STAGE16_B7_REAL_SAMPLE_EXECUTION_FIRST_CUT_IMPLEMENTED
+status: P5_STAGE16_STABILITY_COVERAGE_AND_REVIEW_RULES_FIRST_CUT_IMPLEMENTED
 updated_at: "2026-05-08"
 role: anti_drift_execution_contract
 source_doc: "docs/专题_投前预测评审风控规则救济与履约结算经验库草案.md"
@@ -150,7 +150,9 @@ existing_runtime_reuse:
 runtime_mapping_baseline:
   status: FIRST_CUT_IMPLEMENTED
   customer_visible: false
-  no_formal_schema_or_rule_code_added: true
+  no_formal_schema_or_rule_code_added: false
+  no_formal_schema_or_migration_added: true
+  stage5_review_rule_codes_added: true
   no_uncontrolled_external_fetch_or_release_enabled: true
   controlled_b7_real_sample_fetch_runner_enabled: true
   entries:
@@ -207,8 +209,11 @@ runtime_mapping_baseline:
         - download_archive_manifest
         - attachment_role_type
         - notice_version_chain_state
+        - document_quality_state
+        - document_quality_reasons
+        - ocr_state
       implementation_state: FIRST_CUT_IMPLEMENTED
-      remaining_gap: "真实站点下载失败和 OCR_REQUIRED 继续保持 review，不伪造成功。"
+      remaining_gap: "已增强附件/OCR/未知格式/补遗版本质量原因；后续补更多真实损坏文件和 OCR 引擎接入样本。"
       minimum_validation_commands:
         - "python -m unittest tests.test_stage2_real_candidate_capture tests.test_stage3_real_parser -v"
     - capability_id: B5_MAINLINE_RISK_AND_BID_DECISION
@@ -221,8 +226,10 @@ runtime_mapping_baseline:
         - bid_selection_state
         - tailored_bid_risk_level
         - fatal_rejection_risk_hits
+        - TAILORED-REVIEW-001
+        - FATAL-REVIEW-001
       implementation_state: FIRST_CUT_IMPLEMENTED
-      remaining_gap: "自评分缺我方材料时固定不运行；控标只输出弱线索。"
+      remaining_gap: "已加入限制竞争和废标红线内部 Stage5 复核规则；自评分缺我方材料时仍固定不运行。"
       minimum_validation_commands:
         - "python -m unittest tests.test_stage56_evaluators tests.test_stage5_rule_factory_expansion -v"
     - capability_id: B6_PUBLIC_VERIFICATION_DUAL_GATES_REPORT
@@ -234,8 +241,9 @@ runtime_mapping_baseline:
         - stage6_real_public_rule_evidence_readback_summary
         - stage16_file_analysis_report_profile
         - stage16_b6_closure_profile
+        - file_analysis_review_summary
       implementation_state: FIRST_CUT_IMPLEMENTED
-      remaining_gap: "内部闭环和复核摘要已完成，客户报告产品化仍后置。"
+      remaining_gap: "已补内部可读文件分析复核摘要；客户报告产品化仍后置。"
       minimum_validation_commands:
         - "python -m unittest tests.test_stage56_evaluators tests.test_stage6_product_package_hardening -v"
     - capability_id: B7_REVIEW_CORPUS_AND_GOLDEN_SAMPLES
@@ -256,8 +264,9 @@ runtime_mapping_baseline:
         - evaluation_stage3_profile_manifest
         - evaluation_real_project_sample_plan_manifest
         - evaluation_real_project_sample_execution_manifest
+        - coverage_quality_summary
       implementation_state: FIRST_CUT_IMPLEMENTED
-      remaining_gap: "真实快照受控执行第一刀完成；后续补覆盖率、质量评分和更多站点。"
+      remaining_gap: "已补真实样本执行覆盖质量摘要并让覆盖审计消费执行 manifest；后续补更多站点和真实覆盖率目标。"
       minimum_validation_commands:
         - "python -m unittest tests.test_evaluation_real_sample_plan tests.test_evaluation_real_sample_execution tests.test_stage1_real_candidate_discovery tests.test_stage2_real_candidate_capture -v"
         - "python -m unittest tests.test_evaluation_corpus tests.test_evaluation_coverage_audit tests.test_evaluation_stage3_profiles -v"
@@ -274,8 +283,9 @@ runtime_mapping_baseline:
         - unbalanced_bid_risk_hits
         - cost_breakdown_ready
         - low_price_review_record
+        - PRICE-REVIEW-001
       implementation_state: FIRST_CUT_IMPLEMENTED
-      remaining_gap: "仅做公开文本内部复核线索；正式规则化、成本材料和客户可见报告后续推进。"
+      remaining_gap: "已加入异常低价/报价履约内部 Stage5 复核规则；成本材料和客户可见报告后续推进。"
       minimum_validation_commands:
         - "python -m unittest tests.test_stage1_legal_system_classifier tests.test_stage56_evaluators -v"
     - capability_id: B9_BID_DOCUMENT_INTERNAL_QA
@@ -313,8 +323,9 @@ runtime_mapping_baseline:
         - settlement_audit_risk_hits
         - payment_term_violation
         - whistleblower_reward_policy_signal
+        - REMEDY-REVIEW-001
       implementation_state: FIRST_CUT_IMPLEMENTED
-      remaining_gap: "只做规则救济、合同、结算、付款和监督线索的内部复核 profile；不生成法律、监管处罚或付款违约结论。"
+      remaining_gap: "已加入救济、合同、结算、付款内部 Stage5 复核规则；不生成法律、监管处罚或付款违约结论。"
       minimum_validation_commands:
         - "python -m unittest tests.test_stage1_legal_system_classifier tests.test_stage56_evaluators tests.test_stage16_file_analysis_task_contract -v"
   deferred_boundaries: []

@@ -19,6 +19,13 @@ from stage5_rules_evidence.evidence_builder import EvidenceArtifacts
 
 
 QUAL_PM_RULE_CODES = ("QUAL-PM-001", "QUAL-PM-002", "QUAL-PM-003", "QUAL-PM-004")
+STAGE16_REVIEW_RULE_CODES = (
+    "FILE-REVIEW-001",
+    "TAILORED-REVIEW-001",
+    "FATAL-REVIEW-001",
+    "PRICE-REVIEW-001",
+    "REMEDY-REVIEW-001",
+)
 QUAL_PM_RULE_NAMES = {
     "QUAL-PM-001": "公告项目负责人证书号同单位公开记录未确认",
     "QUAL-PM-002": "同单位人员未公开确认为一级注册建造师",
@@ -328,6 +335,36 @@ class RuleRunner:
             "stage4_public_evidence_refs",
             "verification_profile_id",
             "evidence_grade_profile_id",
+        ),
+        "FILE-REVIEW-001": (
+            "document_completeness_summary",
+            "download_archive_manifest",
+            "source_document_ref",
+            "source_slice_ref",
+        ),
+        "TAILORED-REVIEW-001": (
+            "mainline_risk_profile",
+            "qualification_clause_hits",
+            "source_document_ref",
+            "source_slice_ref",
+        ),
+        "FATAL-REVIEW-001": (
+            "mainline_risk_profile",
+            "fatal_rejection_risk_hits",
+            "source_document_ref",
+            "source_slice_ref",
+        ),
+        "PRICE-REVIEW-001": (
+            "price_performance_risk_profile",
+            "legal_system_type_candidate",
+            "source_document_ref",
+            "source_slice_ref",
+        ),
+        "REMEDY-REVIEW-001": (
+            "remedy_performance_settlement_profile",
+            "legal_system_type_candidate",
+            "source_document_ref",
+            "source_slice_ref",
         ),
     }
     ACTIVE_RULE_STATUSES = frozenset({"DRAFT", "ACTIVE", "INTERNAL_READY"})
@@ -1030,6 +1067,99 @@ class RuleRunner:
             reasons.append(f"{rule_code}: public evidence gate review")
         return reasons
 
+    def _stage16_review_rule_reasons(
+        self,
+        *,
+        rule_code: str,
+        inputs: Mapping[str, Any],
+    ) -> list[str]:
+        if rule_code not in STAGE16_REVIEW_RULE_CODES:
+            return []
+        reasons: list[str] = []
+        if rule_code == "FILE-REVIEW-001":
+            document_state = str(inputs.get("document_completeness_state") or "")
+            version_state = str(inputs.get("notice_version_chain_state") or "")
+            manifest = inputs.get("download_archive_manifest")
+            manifest_reasons = []
+            if isinstance(manifest, Mapping):
+                manifest_reasons = [
+                    str(reason)
+                    for reason in ensure_list(manifest.get("quality_reasons"))
+                    if reason not in (None, "")
+                ]
+            review_states = {
+                "DETAIL_SNAPSHOT_MISSING_REVIEW",
+                "ATTACHMENTS_NOT_CAPTURED_REVIEW",
+                "PARTIAL_REVIEW_REQUIRED",
+            }
+            if document_state in review_states:
+                reasons.append(f"{rule_code}: document completeness {document_state}")
+            if version_state in {"VERSION_REVIEW_REQUIRED", "CLARIFICATION_OR_ADDENDUM_PRESENT"}:
+                reasons.append(f"{rule_code}: version chain {version_state}")
+            if int(inputs.get("attachment_ocr_required_count") or 0) > 0:
+                reasons.append(f"{rule_code}: OCR_REQUIRED attachment blocks full extraction")
+            reasons.extend(f"{rule_code}: {reason}" for reason in manifest_reasons)
+        elif rule_code == "TAILORED-REVIEW-001":
+            tailored_level = str(inputs.get("tailored_bid_risk_level") or "")
+            hits = ensure_list(inputs.get("qualification_clause_hits"))
+            if tailored_level and tailored_level not in {"LOW", "NO_SIGNAL", "NOT_RUN"}:
+                reasons.append(f"{rule_code}: tailored bid risk {tailored_level}")
+            for hit in hits:
+                if isinstance(hit, Mapping):
+                    kind = hit.get("signal_type") or hit.get("clause_type") or hit.get("keyword") or "qualification_clause"
+                    reasons.append(f"{rule_code}: restrictive competition clue {kind}")
+                elif hit not in (None, ""):
+                    reasons.append(f"{rule_code}: restrictive competition clue {hit}")
+        elif rule_code == "FATAL-REVIEW-001":
+            for hit in ensure_list(inputs.get("fatal_rejection_risk_hits")):
+                if isinstance(hit, Mapping):
+                    kind = hit.get("risk_type") or hit.get("keyword") or "fatal_rejection_clause"
+                    reasons.append(f"{rule_code}: fatal rejection review clue {kind}")
+                elif hit not in (None, ""):
+                    reasons.append(f"{rule_code}: fatal rejection review clue {hit}")
+        elif rule_code == "PRICE-REVIEW-001":
+            legal_system = str(inputs.get("legal_system_type_candidate") or "")
+            profile = inputs.get("price_performance_risk_profile")
+            triggers = ensure_list(inputs.get("abnormal_low_price_trigger"))
+            unbalanced = ensure_list(inputs.get("unbalanced_bid_risk_hits"))
+            payment_level = str(inputs.get("payment_risk_level") or "")
+            if isinstance(profile, Mapping):
+                explanation_state = str(profile.get("abnormally_low_bid_explanation_required") or "")
+                if explanation_state and explanation_state != "NOT_TRIGGERED":
+                    reasons.append(f"{rule_code}: abnormal low price procedure {explanation_state}")
+            if legal_system and triggers:
+                reasons.append(f"{rule_code}: legal system split required for {legal_system}")
+            for trigger in triggers:
+                reasons.append(f"{rule_code}: abnormal low price trigger {trigger}")
+            for hit in unbalanced:
+                reasons.append(f"{rule_code}: unbalanced bid review clue {hit}")
+            if payment_level and payment_level not in {"LOW", "NO_SIGNAL", "NOT_RUN"}:
+                reasons.append(f"{rule_code}: payment risk {payment_level}")
+        elif rule_code == "REMEDY-REVIEW-001":
+            profile = inputs.get("remedy_performance_settlement_profile")
+            if isinstance(profile, Mapping):
+                for key in (
+                    "remedy_window_state",
+                    "challenge_evidence_chain_state",
+                ):
+                    value = str(profile.get(key) or inputs.get(key) or "")
+                    if value and value not in {"NOT_TRIGGERED", "NOT_RUN", "UNKNOWN"}:
+                        reasons.append(f"{rule_code}: {key}={value}")
+            for field_name in (
+                "qualification_legality_risk_hits",
+                "post_award_contract_risk_hits",
+                "settlement_audit_risk_hits",
+                "payment_term_violation",
+                "whistleblower_reward_policy_signal",
+            ):
+                for hit in ensure_list(inputs.get(field_name)):
+                    if isinstance(hit, Mapping):
+                        kind = hit.get("risk_type") or hit.get("signal_type") or hit.get("keyword") or field_name
+                        reasons.append(f"{rule_code}: {field_name} {kind}")
+                    elif hit not in (None, ""):
+                        reasons.append(f"{rule_code}: {field_name} {hit}")
+        return list(dict.fromkeys(reasons))
+
     def _result_type_for_rule(
         self,
         *,
@@ -1121,6 +1251,12 @@ class RuleRunner:
                 self._public_evidence_rule_review_reasons(
                     rule_code=rule_code,
                     public_evidence_gate=public_evidence_gate,
+                )
+            )
+            preflight_reasons.extend(
+                self._stage16_review_rule_reasons(
+                    rule_code=rule_code,
+                    inputs=inputs,
                 )
             )
             (

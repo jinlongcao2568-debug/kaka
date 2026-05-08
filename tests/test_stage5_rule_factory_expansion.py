@@ -232,13 +232,13 @@ class Stage5RuleFactoryExpansionTests(unittest.TestCase):
         bindings = factory["rule_bindings"]
         stage5_rules = [rule for rule in catalog["rules"] if rule.get("stage") == 5]
 
-        self.assertEqual(catalog["version"], "0.1.7")
+        self.assertEqual(catalog["version"], "0.1.8")
         self.assertEqual(factory["state"], "INTERNAL_READY")
         self.assertEqual(factory["runtime_entrypoint"], "RuleEvidenceEngine")
         self.assertEqual(factory["runtime_components"], ["RuleRunner", "EvidenceBuilder", "GateEvaluator"])
         self.assertEqual(factory["selection_policy"]["stage"], 5)
         self.assertEqual(factory["selection_policy"]["default_selection_limit"], 3)
-        self.assertEqual(len(stage5_rules), 33)
+        self.assertEqual(len(stage5_rules), 38)
         for rule in stage5_rules:
             self.assertTrue(rule["basis_refs"], rule["rule_code"])
             self.assertIn(
@@ -279,6 +279,11 @@ class Stage5RuleFactoryExpansionTests(unittest.TestCase):
             "QUAL-PM-002",
             "QUAL-PM-003",
             "QUAL-PM-004",
+            "FILE-REVIEW-001",
+            "TAILORED-REVIEW-001",
+            "FATAL-REVIEW-001",
+            "PRICE-REVIEW-001",
+            "REMEDY-REVIEW-001",
         ):
             binding = bindings[rule_code]
             self.assertTrue(binding["enabled"])
@@ -287,6 +292,63 @@ class Stage5RuleFactoryExpansionTests(unittest.TestCase):
             self.assertTrue(binding["dependency_evidence"])
             self.assertTrue(binding["golden_case_refs"])
         self.assertTrue(factory["golden_cases"])
+
+    def test_stage16_review_rules_are_internal_review_only(self) -> None:
+        stage4 = stage4_bundle_with_inputs(
+            {
+                "stage5_requested_rule_codes": [
+                    "FILE-REVIEW-001",
+                    "TAILORED-REVIEW-001",
+                    "FATAL-REVIEW-001",
+                    "PRICE-REVIEW-001",
+                    "REMEDY-REVIEW-001",
+                ],
+                "document_completeness_state": "PARTIAL_REVIEW_REQUIRED",
+                "notice_version_chain_state": "CLARIFICATION_OR_ADDENDUM_PRESENT",
+                "attachment_ocr_required_count": 1,
+                "download_archive_manifest": {
+                    "manifest_state": "READY",
+                    "quality_reasons": ["ocr_required", "unknown_attachment_role"],
+                },
+                "mainline_risk_profile": {"profile_state": "PROFILED_REVIEW_READY"},
+                "tailored_bid_risk_level": "HIGH_CLUE_REVIEW",
+                "qualification_clause_hits": [{"signal_type": "manufacturer_authorization"}],
+                "fatal_rejection_risk_hits": [{"risk_type": "signature_seal"}],
+                "legal_system_type_candidate": "GOVERNMENT_PROCUREMENT",
+                "price_performance_risk_profile": {
+                    "abnormally_low_bid_explanation_required": "GOVERNMENT_PROCUREMENT_WRITTEN_EXPLANATION_REVIEW"
+                },
+                "abnormal_low_price_trigger": ["average_price_50pct"],
+                "remedy_performance_settlement_profile": {
+                    "remedy_window_state": "GOVERNMENT_PROCUREMENT_REMEDY_WINDOW_REVIEW"
+                },
+                "post_award_contract_risk_hits": [{"risk_type": "acceptance_authorization_gate"}],
+            }
+        )
+
+        stage5 = Stage5Service().run(stage4)
+        traces = stage5.inputs["stage5_rule_execution_trace"]
+
+        self.assertEqual(
+            [trace["rule_code"] for trace in traces],
+            [
+                "FILE-REVIEW-001",
+                "TAILORED-REVIEW-001",
+                "FATAL-REVIEW-001",
+                "PRICE-REVIEW-001",
+                "REMEDY-REVIEW-001",
+            ],
+        )
+        self.assertEqual(stage5.record("rule_gate_decision").get("rule_gate_status"), "REVIEW")
+        self.assertIn("review_request", stage5.records)
+        for trace in traces:
+            self.assertEqual(trace["basis_verification_state"], "INTERNAL_ONLY")
+            self.assertEqual(trace["basis_gate_status"], "PASS")
+            self.assertFalse(trace["customer_visible_allowed"])
+            self.assertTrue(trace["no_legal_conclusion"])
+            self.assertEqual(trace["rule_gate_status"], "REVIEW")
+            self.assertEqual(trace["rule_hit_state"], "REVIEW_REQUIRED")
+            self.assertTrue(trace["blocking_reasons"])
 
     def test_public_evidence_gate_degrades_missing_readback_rule_to_review(self) -> None:
         stage4 = stage4_bundle_with_inputs(

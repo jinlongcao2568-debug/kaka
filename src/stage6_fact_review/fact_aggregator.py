@@ -597,6 +597,104 @@ def _stage16_file_analysis_report_profile(inputs: Mapping[str, Any]) -> dict[str
     }
 
 
+def _file_analysis_review_summary(inputs: Mapping[str, Any]) -> dict[str, Any]:
+    document_completeness_state = str(inputs.get("document_completeness_state") or "")
+    notice_version_chain_state = str(inputs.get("notice_version_chain_state") or "")
+    manifest = _safe_dict(inputs.get("download_archive_manifest"))
+    report_profile = _stage16_file_analysis_report_profile(inputs)
+    rule_execution_trace = [
+        item for item in ensure_list(inputs.get("stage5_rule_execution_trace")) if isinstance(item, Mapping)
+    ]
+    formal_rule_hits = [
+        {
+            "rule_code": item.get("rule_code"),
+            "rule_gate_status": item.get("rule_gate_status"),
+            "rule_hit_state": item.get("rule_hit_state"),
+            "result_ceiling": item.get("result_ceiling"),
+            "blocking_reasons": ensure_list(item.get("blocking_reasons")),
+        }
+        for item in rule_execution_trace
+        if str(item.get("rule_gate_status") or "") in {"REVIEW", "BLOCK"}
+        or str(item.get("rule_code") or "").endswith("-REVIEW-001")
+    ]
+    review_lanes = ensure_list(report_profile.get("recommended_review_lanes"))
+    review_items: list[dict[str, Any]] = []
+    if document_completeness_state and document_completeness_state not in {"COMPLETE_WITH_ATTACHMENTS", "DETAIL_ONLY_NO_ATTACHMENTS"}:
+        review_items.append(
+            {
+                "category": "文件完整性",
+                "expression": "人工复核",
+                "state": document_completeness_state,
+                "reasons": ensure_list(inputs.get("document_quality_reasons"))
+                or ensure_list(manifest.get("quality_reasons")),
+            }
+        )
+    if notice_version_chain_state in {"VERSION_REVIEW_REQUIRED", "CLARIFICATION_OR_ADDENDUM_PRESENT"}:
+        review_items.append(
+            {
+                "category": "版本链",
+                "expression": "建议核查",
+                "state": notice_version_chain_state,
+                "reasons": ["补遗/澄清/附件版本需要确认最终有效版本"],
+            }
+        )
+    if int(inputs.get("attachment_ocr_required_count") or 0) > 0 or str(inputs.get("ocr_state") or "") in {
+        "OCR_REQUIRED",
+        "OCR_ENGINE_UNAVAILABLE",
+    }:
+        review_items.append(
+            {
+                "category": "OCR",
+                "expression": "证据不足",
+                "state": inputs.get("ocr_state") or "OCR_REQUIRED",
+                "reasons": ["扫描件或 OCR 阻断，不能把缺失字段当作无风险"],
+            }
+        )
+    for item in formal_rule_hits:
+        review_items.append(
+            {
+                "category": "Stage5复核规则",
+                "expression": "线索",
+                "state": item.get("rule_gate_status"),
+                "rule_code": item.get("rule_code"),
+                "reasons": item.get("blocking_reasons") or [],
+            }
+        )
+    for lane in review_lanes:
+        review_items.append(
+            {
+                "category": "内部复核队列",
+                "expression": "建议核查",
+                "state": lane,
+                "reasons": [],
+            }
+        )
+
+    summary_state = "INTERNAL_READY" if not review_items else "REVIEW_RECOMMENDED"
+    if any(item.get("expression") in {"人工复核", "证据不足"} for item in review_items):
+        summary_state = "REVIEW_REQUIRED"
+    return {
+        "summary_state": summary_state,
+        "document_completeness_state": document_completeness_state,
+        "notice_version_chain_state": notice_version_chain_state,
+        "ocr_state": inputs.get("ocr_state"),
+        "attachment_ocr_required_count": inputs.get("attachment_ocr_required_count"),
+        "attachment_ocr_extracted_count": inputs.get("attachment_ocr_extracted_count"),
+        "rule_gate_status": inputs.get("rule_gate_status"),
+        "evidence_gate_status": inputs.get("evidence_gate_status"),
+        "formal_rule_review_hits": formal_rule_hits,
+        "recommended_review_lanes": _dedupe_strings([str(item) for item in review_lanes if item not in (None, "")]),
+        "review_items": review_items,
+        "allowed_output_terms": ["线索", "建议核查", "证据不足", "人工复核"],
+        "customer_visible": False,
+        "internal_review_only": True,
+        "no_legal_conclusion": True,
+        "no_rejection_conclusion": True,
+        "no_payment_breach_conclusion": True,
+        "no_illegality_or_reserved_winner_conclusion": True,
+    }
+
+
 def _stage16_file_analysis_trace(inputs: Mapping[str, Any]) -> dict[str, Any]:
     project_manager_state = str(inputs.get("project_manager_field_source_state") or "")
     if not project_manager_state:
@@ -635,6 +733,9 @@ def _stage16_file_analysis_trace(inputs: Mapping[str, Any]) -> dict[str, Any]:
         "document_completeness": {
             "document_completeness_state": inputs.get("document_completeness_state"),
             "notice_version_chain_state": inputs.get("notice_version_chain_state"),
+            "document_quality_state": inputs.get("document_quality_state"),
+            "document_quality_reasons": ensure_list(inputs.get("document_quality_reasons")),
+            "ocr_state": inputs.get("ocr_state"),
             "stage2_detail_capture_state": inputs.get("stage2_detail_capture_state"),
             "stage3_detail_parse_state": inputs.get("stage3_detail_parse_state"),
             "stage2_attachment_link_count": inputs.get("stage2_attachment_link_count"),
@@ -732,6 +833,7 @@ def _stage16_file_analysis_trace(inputs: Mapping[str, Any]) -> dict[str, Any]:
             "no_illegality_or_reserved_winner_conclusion": True,
         },
         "stage16_file_analysis_report_profile": _stage16_file_analysis_report_profile(inputs),
+        "file_analysis_review_summary": _file_analysis_review_summary(inputs),
         "output_boundary": {
             "customer_visible": False,
             "no_illegality_or_reserved_winner_conclusion": True,

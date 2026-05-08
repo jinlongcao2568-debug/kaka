@@ -113,6 +113,14 @@ class TestEvaluationRealSampleExecution(unittest.TestCase):
             self.assertEqual(item["detail_snapshot_refs"], [])
             self.assertFalse(result["manifest"]["safety"]["fetch_public_urls_enabled"])
             self.assertFalse(result["manifest"]["safety"]["stage5_rule_execution_enabled"])
+            self.assertEqual(
+                result["manifest"]["coverage_quality_summary"]["coverage_quality_state"],
+                "DRY_RUN_ONLY_NO_REAL_SNAPSHOT",
+            )
+            self.assertIn(
+                "dry_run_only_no_real_snapshots",
+                result["manifest"]["coverage_quality_summary"]["sample_quality_reasons"],
+            )
 
     def test_execute_with_fake_services_outputs_snapshot_manifest_without_customer_visible_conclusion(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -148,6 +156,12 @@ class TestEvaluationRealSampleExecution(unittest.TestCase):
             self.assertTrue(result["manifest"]["safety"]["no_legal_conclusion"])
             self.assertFalse(result["manifest"]["safety"]["stage4_public_evidence_readback_generation_enabled"])
             self.assertFalse(result["manifest"]["safety"]["stage5_rule_execution_enabled"])
+            quality = result["manifest"]["coverage_quality_summary"]
+            self.assertEqual(quality["coverage_quality_state"], "REAL_SNAPSHOT_COVERED")
+            self.assertEqual(quality["captured_target_count"], 1)
+            self.assertEqual(quality["detail_snapshot_count"], 1)
+            self.assertEqual(quality["attachment_snapshot_count"], 1)
+            self.assertEqual(quality["ocr_blocked_count"], 0)
             manifest_text = json.dumps(result["manifest"], ensure_ascii=False).lower()
             self.assertNotIn("<html", manifest_text)
             self.assertNotIn("%pdf", manifest_text)
@@ -190,6 +204,14 @@ class TestEvaluationRealSampleExecution(unittest.TestCase):
             )
             self.assertEqual(partial["manifest"]["items"][0]["target_execution_state"], CAPTURE_PARTIAL_REVIEW)
             self.assertGreaterEqual(partial["manifest"]["items"][0]["parse_summary"]["ocr_required_count"], 1)
+            self.assertEqual(
+                partial["manifest"]["coverage_quality_summary"]["coverage_quality_state"],
+                "NO_REAL_SNAPSHOT_CAPTURED_REVIEW",
+            )
+            self.assertIn(
+                "ocr_required_blocks_full_text_extraction",
+                partial["manifest"]["coverage_quality_summary"]["sample_quality_reasons"],
+            )
 
 
 def _fake_candidate() -> dict:

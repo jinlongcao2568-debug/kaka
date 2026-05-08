@@ -77,6 +77,7 @@ def build_evaluation_coverage_audit(
     *,
     seed_json: str | Path | None = None,
     requirements_json: str | Path | None = None,
+    real_sample_execution_manifest_json: str | Path | None = None,
     database_url: str | None = None,
     target_backend: str = "postgresql",
     execute: bool = False,
@@ -111,6 +112,8 @@ def build_evaluation_coverage_audit(
         blocking_reasons.append("evaluation_coverage_requirements_empty")
 
     classifications = [_classify_seed(seed) for seed in seeds]
+    real_sample_execution_path = Path(real_sample_execution_manifest_json) if real_sample_execution_manifest_json else None
+    classifications.extend(_classify_real_sample_execution_manifest(real_sample_execution_path))
     coverage_items = build_coverage_items(
         classifications=classifications,
         requirements=requirements,
@@ -121,6 +124,7 @@ def build_evaluation_coverage_audit(
         requirements_payload=requirements_payload,
         seed_path=seed_path,
         requirements_path=requirements_path,
+        real_sample_execution_path=real_sample_execution_path,
         database_url=database_url,
         target_backend=target_backend,
         created_at=created,
@@ -217,6 +221,7 @@ def build_coverage_manifest(
     requirements_payload: Mapping[str, Any],
     seed_path: Path,
     requirements_path: Path,
+    real_sample_execution_path: Path | None,
     database_url: str | None,
     target_backend: str,
     created_at: str,
@@ -239,6 +244,7 @@ def build_coverage_manifest(
         "created_at": created_at,
         "seed_path": str(seed_path),
         "requirements_path": str(requirements_path),
+        "real_sample_execution_manifest_path": str(real_sample_execution_path or ""),
         "requirements_id": str(requirements_payload.get("requirements_id") or ""),
         "database_url_redacted": _redact_database_url(database_url),
         "target_storage_backend": target_backend,
@@ -274,6 +280,54 @@ def _classify_seed(seed: EvaluationCorpusSeed) -> SeedClassification:
         fairness_signal_types=list(probe.fairness_signal_types),
         source_role=_source_role(seed),
     )
+
+
+def _classify_real_sample_execution_manifest(path: Path | None) -> list[SeedClassification]:
+    if path is None or not path.exists():
+        return []
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    manifest = payload.get("manifest") if isinstance(payload, Mapping) and isinstance(payload.get("manifest"), Mapping) else payload
+    if not isinstance(manifest, Mapping):
+        return []
+    classifications: list[SeedClassification] = []
+    for item in list(manifest.get("items") or []):
+        if not isinstance(item, Mapping):
+            continue
+        state = str(item.get("target_execution_state") or "")
+        detail_refs = [ref for ref in list(item.get("detail_snapshot_refs") or []) if isinstance(ref, Mapping)]
+        attachment_refs = [ref for ref in list(item.get("attachment_snapshot_refs") or []) if isinstance(ref, Mapping)]
+        if state != "CAPTURED_WITH_SNAPSHOTS" or not (detail_refs or attachment_refs):
+            continue
+        target_id = str(item.get("target_id") or f"TARGET-{len(classifications) + 1}")
+        first_detail = detail_refs[0] if detail_refs else {}
+        first_candidate = next(
+            (candidate for candidate in list(item.get("candidate_refs") or []) if isinstance(candidate, Mapping)),
+            {},
+        )
+        classifications.append(
+            SeedClassification(
+                seed_id=f"REAL-SNAPSHOT-{target_id}",
+                source_url=str(first_detail.get("source_url") or first_candidate.get("source_url") or ""),
+                source_family=str(item.get("source_family") or "real_project_sample_execution"),
+                jurisdiction=str(item.get("jurisdiction") or ""),
+                document_kind=str(item.get("document_kind") or "real_project_snapshot"),
+                seed_tags=[
+                    "real_project_sample",
+                    "real_project_snapshot",
+                    "real_snapshot_captured",
+                ],
+                evaluation_method_family="real_sample_execution_readback",
+                candidate_selection_mode="real_snapshot_controlled_execution",
+                has_dark_bid_requirement=False,
+                has_bright_bid_requirement=False,
+                candidate_rows_count=0,
+                candidate_count_optional=_int_value(item.get("discovery_candidate_count"), default=0),
+                objection_window_optional=None,
+                fairness_signal_types=[],
+                source_role="real_project_snapshot",
+            )
+        )
+    return classifications
 
 
 def _matched_classifications(
@@ -357,6 +411,9 @@ def _summary(
         "local_method_count": sum(1 for item in classifications if item.document_kind == "local_method"),
         "real_public_entry_count": sum(1 for item in classifications if "real_public_entry" in item.seed_tags),
         "real_project_sample_seed_count": sum(1 for item in classifications if "real_project_sample" in item.seed_tags),
+        "real_project_snapshot_execution_count": sum(
+            1 for item in classifications if item.source_role == "real_project_snapshot"
+        ),
         "document_kind_counts": _counts(item.document_kind for item in classifications),
         "jurisdiction_counts": _counts(item.jurisdiction for item in classifications),
         "evaluation_method_family_counts": _counts(item.evaluation_method_family for item in classifications),
@@ -505,6 +562,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Audit evaluation corpus seed coverage against machine requirements.")
     parser.add_argument("--seed-json", default=str(default_evaluation_seed_path()))
     parser.add_argument("--requirements-json", default=str(default_evaluation_coverage_requirements_path()))
+    parser.add_argument("--real-sample-execution-manifest-json")
     parser.add_argument("--database-url")
     parser.add_argument("--target-backend", default="postgresql")
     parser.add_argument("--execute", action="store_true")
@@ -517,6 +575,7 @@ def main(argv: list[str] | None = None) -> int:
     result = build_evaluation_coverage_audit(
         seed_json=args.seed_json,
         requirements_json=args.requirements_json,
+        real_sample_execution_manifest_json=args.real_sample_execution_manifest_json,
         database_url=args.database_url,
         target_backend=args.target_backend,
         execute=args.execute,

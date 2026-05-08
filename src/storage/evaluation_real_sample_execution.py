@@ -293,7 +293,14 @@ def _build_execution_manifest(
         "items": items,
         "sample_items": items[:80],
         "summary": _summary(items, execute=execute),
+        "coverage_quality_summary": _coverage_quality_summary(items, execute=execute),
         "safety": _safety(execute=execute),
+    }
+    manifest["summary"] = {
+        **manifest["summary"],
+        "coverage_quality_state": manifest["coverage_quality_summary"]["coverage_quality_state"],
+        "sample_quality_reasons": manifest["coverage_quality_summary"]["sample_quality_reasons"],
+        "real_snapshot_covered_target_count": manifest["coverage_quality_summary"]["captured_target_count"],
     }
     manifest["manifest_sha256"] = _manifest_sha256(manifest)
     return manifest
@@ -475,6 +482,71 @@ def _summary(items: list[Mapping[str, Any]], *, execute: bool) -> dict[str, Any]
         "no_legal_conclusion": True,
         "stage4_public_evidence_readback_generation_enabled": False,
         "stage5_rule_execution_enabled": False,
+    }
+
+
+def _coverage_quality_summary(items: list[Mapping[str, Any]], *, execute: bool) -> dict[str, Any]:
+    state_counts = _counts(str(item.get("target_execution_state") or "") for item in items)
+    failure_values: list[str] = []
+    site_values: list[str] = []
+    target_bucket_values: list[str] = []
+    captured_target_count = 0
+    partial_target_count = 0
+    ocr_blocked_count = 0
+    detail_snapshot_count = 0
+    attachment_snapshot_count = 0
+    for item in items:
+        target_bucket_values.append(str(item.get("document_kind") or "UNKNOWN_DOCUMENT_KIND"))
+        site_values.append(str(item.get("source_profile_id") or item.get("source_family") or "UNKNOWN_SOURCE"))
+        state = str(item.get("target_execution_state") or "")
+        if state == CAPTURED_WITH_SNAPSHOTS:
+            captured_target_count += 1
+        if state in {CAPTURE_PARTIAL_REVIEW, DISCOVERY_NO_MATCH_REVIEW, DISCOVERY_FAILED_CLOSED}:
+            partial_target_count += 1
+        detail_snapshot_count += len(list(item.get("detail_snapshot_refs") or []))
+        attachment_snapshot_count += len(list(item.get("attachment_snapshot_refs") or []))
+        parse_summary = item.get("parse_summary")
+        if isinstance(parse_summary, Mapping):
+            ocr_blocked_count += _int_value(parse_summary.get("ocr_required_count"), default=0)
+        failure_values.extend(str(value) for value in list(item.get("failure_taxonomy") or []) if str(value))
+
+    quality_reasons: list[str] = []
+    if not execute:
+        quality_reasons.append("dry_run_only_no_real_snapshots")
+    if execute and captured_target_count == 0:
+        quality_reasons.append("no_target_captured_with_snapshots")
+    if partial_target_count:
+        quality_reasons.append("partial_or_failed_target_requires_review")
+    if ocr_blocked_count:
+        quality_reasons.append("ocr_required_blocks_full_text_extraction")
+    if failure_values:
+        quality_reasons.append("failure_taxonomy_present")
+    if not items:
+        quality_reasons.append("no_plan_ready_targets")
+
+    if execute and captured_target_count and not partial_target_count and not ocr_blocked_count:
+        coverage_quality_state = "REAL_SNAPSHOT_COVERED"
+    elif execute and captured_target_count:
+        coverage_quality_state = "PARTIAL_REAL_SNAPSHOT_COVERAGE_REVIEW"
+    elif execute:
+        coverage_quality_state = "NO_REAL_SNAPSHOT_CAPTURED_REVIEW"
+    else:
+        coverage_quality_state = "DRY_RUN_ONLY_NO_REAL_SNAPSHOT"
+
+    return {
+        "coverage_quality_state": coverage_quality_state,
+        "target_bucket_coverage": _counts(target_bucket_values),
+        "site_coverage": _counts(site_values),
+        "execution_state_counts": state_counts,
+        "captured_target_count": captured_target_count,
+        "partial_or_failed_target_count": partial_target_count,
+        "detail_snapshot_count": detail_snapshot_count,
+        "attachment_snapshot_count": attachment_snapshot_count,
+        "ocr_blocked_count": ocr_blocked_count,
+        "failure_taxonomy_counts": _counts(failure_values),
+        "sample_quality_reasons": list(dict.fromkeys(quality_reasons)),
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
     }
 
 

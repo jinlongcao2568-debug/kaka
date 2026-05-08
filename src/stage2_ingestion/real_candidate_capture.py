@@ -232,7 +232,7 @@ def _download_archive_manifest_summary(
         ]
         for key in ("attachment_blocker_class", "attachment_blocker_reason", "attachment_capture_status"):
             value = str(attachment.get(key) or "")
-            if value and value not in {"UNKNOWN", "SUCCESS"}:
+            if value and not _attachment_status_is_success_or_neutral(value):
                 failure_reasons.append(value)
         role_type = str(
             ref.get("attachment_role_type")
@@ -257,16 +257,74 @@ def _download_archive_manifest_summary(
                     or attachment_parse_states_by_snapshot.get(snapshot_id)
                     or ("NOT_CAPTURED" if not snapshot_id else "NOT_RUN")
                 ),
+                "parse_error_taxonomy": list(ref.get("parse_error_taxonomy") or attachment.get("parse_error_taxonomy") or []),
                 "failure_reasons": list(dict.fromkeys(failure_reasons)),
             }
         )
 
+    quality_summary = _download_archive_quality_summary(items)
     return {
         "manifest_state": "READY" if items else "EMPTY",
+        "manifest_quality_state": quality_summary["manifest_quality_state"],
+        "quality_reasons": quality_summary["quality_reasons"],
+        "quality_counts": quality_summary["quality_counts"],
         "item_count": len(items),
         "items": items,
         "source": "stage2_detail_and_attachment_capture_summary",
         "customer_visible": False,
+    }
+
+
+def _download_archive_quality_summary(items: list[Mapping[str, Any]]) -> dict[str, Any]:
+    reasons: list[str] = []
+    counts = {
+        "unknown_attachment_format_count": 0,
+        "unknown_attachment_role_count": 0,
+        "not_captured_count": 0,
+        "ocr_required_count": 0,
+        "ocr_engine_unavailable_count": 0,
+        "parse_review_count": 0,
+        "failure_reason_count": 0,
+    }
+    for item in items:
+        item_role = str(item.get("item_role") or "")
+        parse_state = str(item.get("parse_state") or "")
+        file_format = str(item.get("file_format_type") or "")
+        role_type = str(item.get("attachment_role_type") or "")
+        failure_reasons = [str(reason) for reason in list(item.get("failure_reasons") or []) if str(reason)]
+        parse_errors = [str(reason) for reason in list(item.get("parse_error_taxonomy") or []) if str(reason)]
+        joined = " ".join([parse_state, file_format, role_type, *failure_reasons, *parse_errors])
+        if item_role == "ATTACHMENT" and file_format in {"", "UNKNOWN_ATTACHMENT"}:
+            counts["unknown_attachment_format_count"] += 1
+            reasons.append("unknown_attachment_format")
+        if item_role == "ATTACHMENT" and role_type in {"", "UNKNOWN_ATTACHMENT_ROLE"}:
+            counts["unknown_attachment_role_count"] += 1
+            reasons.append("unknown_attachment_role")
+        if parse_state == "NOT_CAPTURED":
+            counts["not_captured_count"] += 1
+            reasons.append("attachment_not_captured")
+        if "OCR_REQUIRED" in joined:
+            counts["ocr_required_count"] += 1
+            reasons.append("ocr_required")
+        if "OCR_ENGINE_UNAVAILABLE" in joined:
+            counts["ocr_engine_unavailable_count"] += 1
+            reasons.append("ocr_engine_unavailable")
+        if (
+            parse_state
+            and not parse_state.startswith("PARSED")
+            and "TEXT_EXTRACTED" not in parse_state
+            and parse_state not in {"NOT_RUN", "UNKNOWN"}
+        ):
+            counts["parse_review_count"] += 1
+            reasons.append(f"parse_state_review={parse_state}")
+        if failure_reasons:
+            counts["failure_reason_count"] += len(failure_reasons)
+            reasons.append("capture_failure_or_blocker_present")
+    deduped_reasons = list(dict.fromkeys(reasons))
+    return {
+        "manifest_quality_state": "REVIEW_REQUIRED" if deduped_reasons else "READY",
+        "quality_reasons": deduped_reasons,
+        "quality_counts": counts,
     }
 
 
@@ -1694,6 +1752,12 @@ def _document_completeness_summary(capture: Mapping[str, Any]) -> dict[str, Any]
         for ref in attachment_snapshot_refs
         if isinstance(ref, Mapping)
     ]
+    if not attachment_types:
+        attachment_types = [
+            _attachment_format_type(item)
+            for item in attachment_captures
+            if isinstance(item, Mapping)
+        ]
     attachment_parse_states = [
         str(ref.get("parse_state") or "UNKNOWN")
         for ref in attachment_snapshot_refs
@@ -1748,7 +1812,7 @@ def _document_completeness_summary(capture: Mapping[str, Any]) -> dict[str, Any]
         )
         for key in ("attachment_blocker_class", "attachment_blocker_reason", "attachment_capture_status"):
             value = str(attachment.get(key) or "")
-            if value and value not in {"UNKNOWN", "SUCCESS"}:
+            if value and not _attachment_status_is_success_or_neutral(value):
                 failure_reasons.append(value)
 
     review_reasons: list[str] = []
@@ -1762,6 +1826,22 @@ def _document_completeness_summary(capture: Mapping[str, Any]) -> dict[str, Any]
         review_reasons.append("attachment_parse_error_taxonomy_present")
     if fields.get("attachment_ocr_required_count"):
         review_reasons.append("attachment_ocr_required")
+    if any(item in {"UNKNOWN_ATTACHMENT", ""} for item in attachment_types):
+        review_reasons.append("unknown_attachment_format")
+    if any(item in {"UNKNOWN_ATTACHMENT_ROLE", ""} for item in attachment_role_types):
+        review_reasons.append("unknown_attachment_role")
+    if any(
+        state
+        and not state.startswith("PARSED")
+        and "TEXT_EXTRACTED" not in state
+        and state not in {"PDF_TEXT_OCR_EXTRACTED", "NOT_RUN", "UNKNOWN"}
+        for state in attachment_parse_states
+    ):
+        review_reasons.append("attachment_parse_state_review")
+    if "CLARIFICATION_OR_ADDENDUM" in attachment_role_types:
+        review_reasons.append("clarification_or_addendum_requires_winning_version_review")
+    if any("OCR_ENGINE_UNAVAILABLE" in str(item) for item in [*detail_parse_errors, *attachment_parse_errors, *failure_reasons]):
+        review_reasons.append("ocr_engine_unavailable")
     if failure_reasons:
         review_reasons.append("capture_failure_or_blocker_present")
 
@@ -1791,10 +1871,32 @@ def _document_completeness_summary(capture: Mapping[str, Any]) -> dict[str, Any]
         ],
         attachment_parse_states_by_snapshot=attachment_parse_states_by_snapshot,
     )
+    download_quality_reasons = [
+        str(reason)
+        for reason in list(download_archive_manifest.get("quality_reasons") or [])
+        if str(reason)
+    ]
+    review_reasons = list(dict.fromkeys([*review_reasons, *download_quality_reasons]))
+    if state == "COMPLETE_WITH_ATTACHMENTS" and review_reasons:
+        state = "PARTIAL_REVIEW_REQUIRED"
+
+    attachment_ocr_required_count = _as_int(fields.get("attachment_ocr_required_count"), 0)
+    attachment_ocr_extracted_count = _as_int(fields.get("attachment_ocr_extracted_count"), 0)
+    if attachment_ocr_extracted_count:
+        ocr_state = "OCR_EXTRACTED_REVIEW"
+    elif attachment_ocr_required_count:
+        ocr_state = "OCR_REQUIRED"
+    elif "ocr_engine_unavailable" in review_reasons:
+        ocr_state = "OCR_ENGINE_UNAVAILABLE"
+    else:
+        ocr_state = "NOT_REQUIRED_OR_NOT_DETECTED"
 
     return {
         "document_completeness_state": state,
         "notice_version_chain_state": notice_version_chain_state,
+        "document_quality_state": "REVIEW_REQUIRED" if review_reasons else "READY",
+        "document_quality_reasons": list(dict.fromkeys(review_reasons)),
+        "ocr_state": ocr_state,
         "detail_snapshot_present": bool(detail_snapshot_id),
         "detail_parse_state": detail_parse_state,
         "detail_parse_error_taxonomy": detail_parse_errors,
@@ -1805,14 +1907,24 @@ def _document_completeness_summary(capture: Mapping[str, Any]) -> dict[str, Any]
         "attachment_role_types": sorted(set(attachment_role_types)),
         "attachment_parse_states": attachment_parse_states,
         "attachment_parse_error_taxonomy": sorted(set(attachment_parse_errors)),
-        "attachment_ocr_required_count": _as_int(fields.get("attachment_ocr_required_count"), 0),
-        "attachment_ocr_extracted_count": _as_int(fields.get("attachment_ocr_extracted_count"), 0),
+        "attachment_ocr_required_count": attachment_ocr_required_count,
+        "attachment_ocr_extracted_count": attachment_ocr_extracted_count,
         "download_archive_manifest": download_archive_manifest,
         "failure_reasons": list(dict.fromkeys(failure_reasons)),
         "review_reasons": list(dict.fromkeys(review_reasons)),
         "source": "stage2_detail_and_attachment_capture_summary",
         "customer_visible": False,
     }
+
+
+def _attachment_status_is_success_or_neutral(value: str) -> bool:
+    text = str(value or "").upper()
+    return (
+        not text
+        or text in {"UNKNOWN", "SUCCESS", "FETCHED", "CAPTURED", "PARSED", "TEXT_EXTRACTED"}
+        or text.startswith("PARSED")
+        or "EXTRACTED" in text
+    )
 
 
 def _with_document_completeness(capture: Mapping[str, Any]) -> dict[str, Any]:

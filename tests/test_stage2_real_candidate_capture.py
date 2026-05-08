@@ -1066,6 +1066,8 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
         self.assertEqual(enriched["document_completeness_state"], "PARTIAL_REVIEW_REQUIRED")
         self.assertEqual(enriched["attachment_ocr_required_count"], 1)
         self.assertEqual(enriched["attachment_ocr_extracted_count"], 1)
+        self.assertEqual(enriched["document_completeness_summary"]["ocr_state"], "OCR_EXTRACTED_REVIEW")
+        self.assertIn("ocr_required", enriched["download_archive_manifest"]["quality_reasons"])
         fields = result["captures"][0]["detail_fields"]
         self.assertEqual(fields["attachment_text_merge_state"], "ATTACHMENT_TEXT_MERGED")
         self.assertEqual(fields["attachment_ocr_required_count"], 1)
@@ -1198,8 +1200,18 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
         self.assertIn("DRAWING_OR_BILL_OF_QUANTITIES", role_types)
         self.assertIn("UNKNOWN_ATTACHMENT_ROLE", role_types)
         self.assertEqual(enriched["notice_version_chain_state"], "CLARIFICATION_OR_ADDENDUM_PRESENT")
+        self.assertEqual(enriched["document_completeness_state"], "PARTIAL_REVIEW_REQUIRED")
+        self.assertIn(
+            "clarification_or_addendum_requires_winning_version_review",
+            enriched["document_completeness_summary"]["review_reasons"],
+        )
+        self.assertIn(
+            "unknown_attachment_role",
+            enriched["document_completeness_summary"]["review_reasons"],
+        )
         manifest = enriched["download_archive_manifest"]
         self.assertEqual(manifest["manifest_state"], "READY")
+        self.assertEqual(manifest["manifest_quality_state"], "REVIEW_REQUIRED")
         self.assertEqual(manifest["item_count"], 6)
         self.assertTrue(
             any(
@@ -1253,6 +1265,7 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
         self.assertEqual(enriched["document_completeness_state"], "ATTACHMENTS_NOT_CAPTURED_REVIEW")
         self.assertEqual(enriched["notice_version_chain_state"], "VERSION_REVIEW_REQUIRED")
         self.assertEqual(enriched["download_archive_manifest"]["manifest_state"], "READY")
+        self.assertEqual(enriched["download_archive_manifest"]["manifest_quality_state"], "REVIEW_REQUIRED")
         self.assertTrue(
             any(item["parse_state"] == "NOT_CAPTURED" for item in enriched["download_archive_manifest"]["items"])
         )

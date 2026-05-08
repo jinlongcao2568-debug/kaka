@@ -163,6 +163,58 @@ class TestEvaluationCoverageAudit(unittest.TestCase):
         self.assertFalse(result["manifest"]["safety"]["stage5_rule_execution_enabled"])
         self.assertTrue(all(item["no_legal_conclusion"] for item in result["manifest"]["items"]))
 
+    def test_real_sample_execution_manifest_counts_as_real_snapshot_partial_coverage(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            execution_manifest_path = root / "execution.json"
+            execution_manifest_path.write_text(
+                json.dumps(
+                    {
+                        "manifest": {
+                            "items": [
+                                {
+                                    "target_id": "REAL-CANDIDATE-001",
+                                    "target_execution_state": "CAPTURED_WITH_SNAPSHOTS",
+                                    "document_kind": "candidate_notice",
+                                    "jurisdiction": "CN-GD",
+                                    "source_family": "local_public_resource_trading_center",
+                                    "discovery_candidate_count": 1,
+                                    "candidate_refs": [
+                                        {
+                                            "candidate_key": "CAND-001",
+                                            "source_url": "https://example.test/candidate.html",
+                                        }
+                                    ],
+                                    "detail_snapshot_refs": [
+                                        {
+                                            "snapshot_id": "SNAP-DETAIL-001",
+                                            "source_url": "https://example.test/candidate.html",
+                                        }
+                                    ],
+                                    "attachment_snapshot_refs": [
+                                        {"snapshot_id": "SNAP-ATT-001"}
+                                    ],
+                                }
+                            ]
+                        }
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+
+            result = build_evaluation_coverage_audit(
+                seed_json=ROOT / "contracts" / "evaluation" / "evaluation_corpus_seed.json",
+                requirements_json=ROOT / "contracts" / "evaluation" / "evaluation_coverage_requirements.json",
+                real_sample_execution_manifest_json=execution_manifest_path,
+            )
+            items = {item["requirement_id"]: item for item in result["manifest"]["items"]}
+
+            self.assertEqual(items["REQ-REAL-PROJECT-SNAPSHOT"]["coverage_state"], "PARTIAL")
+            self.assertEqual(items["REQ-REAL-PROJECT-SNAPSHOT"]["matched_seed_count"], 1)
+            self.assertIn("REAL-SNAPSHOT-REAL-CANDIDATE-001", items["REQ-REAL-PROJECT-SNAPSHOT"]["matched_seed_ids"])
+            self.assertEqual(result["summary"]["real_project_snapshot_execution_count"], 1)
+
     def test_local_region_gap_closes_when_shanghai_and_hubei_local_methods_exist(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)

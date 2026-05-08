@@ -22,7 +22,7 @@ class TestStage16FileAnalysisTaskContract(unittest.TestCase):
 
         self.assertEqual(
             contract["status"],
-            "P4_STAGE16_B7_REAL_SAMPLE_EXECUTION_FIRST_CUT_IMPLEMENTED",
+            "P5_STAGE16_STABILITY_COVERAGE_AND_REVIEW_RULES_FIRST_CUT_IMPLEMENTED",
         )
         batches = {item["batch_id"]: item for item in contract["batches"]}
         self.assertEqual(batches["B0_EXPERIENCE_LIBRARY_MAPPING_BASELINE"]["status"], "FIRST_CUT_IMPLEMENTED")
@@ -31,7 +31,9 @@ class TestStage16FileAnalysisTaskContract(unittest.TestCase):
         baseline = contract["runtime_mapping_baseline"]
         self.assertEqual(baseline["status"], "FIRST_CUT_IMPLEMENTED")
         self.assertFalse(baseline["customer_visible"])
-        self.assertTrue(baseline["no_formal_schema_or_rule_code_added"])
+        self.assertFalse(baseline["no_formal_schema_or_rule_code_added"])
+        self.assertTrue(baseline["no_formal_schema_or_migration_added"])
+        self.assertTrue(baseline["stage5_review_rule_codes_added"])
         self.assertTrue(baseline["no_uncontrolled_external_fetch_or_release_enabled"])
         self.assertTrue(baseline["controlled_b7_real_sample_fetch_runner_enabled"])
 
@@ -58,11 +60,17 @@ class TestStage16FileAnalysisTaskContract(unittest.TestCase):
         self.assertIn("src/storage/evaluation_real_sample_execution.py", entries["B7_REVIEW_CORPUS_AND_GOLDEN_SAMPLES"]["runtime_entrypoints"])
         self.assertIn("evaluation_seed_coverage_audit_manifest", entries["B7_REVIEW_CORPUS_AND_GOLDEN_SAMPLES"]["data_carriers"])
         self.assertIn("evaluation_real_project_sample_execution_manifest", entries["B7_REVIEW_CORPUS_AND_GOLDEN_SAMPLES"]["data_carriers"])
+        self.assertIn("coverage_quality_summary", entries["B7_REVIEW_CORPUS_AND_GOLDEN_SAMPLES"]["data_carriers"])
+        self.assertIn("file_analysis_review_summary", entries["B6_PUBLIC_VERIFICATION_DUAL_GATES_REPORT"]["data_carriers"])
+        self.assertIn("document_quality_state", entries["B4_DOCUMENT_COMPLETENESS_VERSION_LINEAGE"]["data_carriers"])
+        self.assertIn("TAILORED-REVIEW-001", entries["B5_MAINLINE_RISK_AND_BID_DECISION"]["data_carriers"])
         self.assertIn("price_performance_risk_profile", entries["B8_PRICE_PERFORMANCE_LOW_BID_RISK"]["data_carriers"])
+        self.assertIn("PRICE-REVIEW-001", entries["B8_PRICE_PERFORMANCE_LOW_BID_RISK"]["data_carriers"])
         self.assertIn("bid_document_internal_qa_profile", entries["B9_BID_DOCUMENT_INTERNAL_QA"]["data_carriers"])
         self.assertIn("src/stage3_parsing/bid_document_qa.py", entries["B9_BID_DOCUMENT_INTERNAL_QA"]["runtime_entrypoints"])
         self.assertIn("remedy_performance_settlement_profile", entries["B10_REMEDY_PERFORMANCE_SETTLEMENT"]["data_carriers"])
         self.assertIn("qualification_legality_risk_hits", entries["B10_REMEDY_PERFORMANCE_SETTLEMENT"]["data_carriers"])
+        self.assertIn("REMEDY-REVIEW-001", entries["B10_REMEDY_PERFORMANCE_SETTLEMENT"]["data_carriers"])
         self.assertIn("src/stage3_parsing/remedy_performance.py", entries["B10_REMEDY_PERFORMANCE_SETTLEMENT"]["runtime_entrypoints"])
         self.assertNotIn("B8_PRICE_PERFORMANCE_LOW_BID_RISK", baseline["deferred_boundaries"])
         self.assertNotIn("B9_BID_DOCUMENT_INTERNAL_QA", baseline["deferred_boundaries"])
