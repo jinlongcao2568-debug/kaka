@@ -24,7 +24,18 @@ PLAN_READY = "SAMPLE_TARGET_PLANNED"
 BLOCKED_PROFILE_MISSING = "REVIEW_BLOCKED_PROFILE_MISSING"
 BLOCKED_INVALID_TARGET = "REVIEW_BLOCKED_INVALID_TARGET"
 
-DOCUMENT_KINDS = frozenset({"tender_file", "candidate_notice", "award_result", "clarification"})
+DOCUMENT_KINDS = frozenset(
+    {
+        "tender_file",
+        "candidate_notice",
+        "award_result",
+        "clarification",
+        "failed_bid_notice",
+        "complaint_decision",
+        "flow_or_re_tender_notice",
+        "official_case",
+    }
+)
 
 
 @dataclass(frozen=True)

@@ -192,6 +192,78 @@ class TestEvaluationStage3Profiles(unittest.TestCase):
             self.assertEqual(item["candidate_set_profile"]["candidate_rows"][0]["project_manager_optional"], "张三")
             self.assertEqual(item["candidate_set_profile"]["objection_window_optional"], "2026年05月07日至2026年05月10日")
 
+    def test_review_corpus_non_candidate_documents_do_not_create_candidate_facts(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            database_url = sqlalchemy_sqlite_url(root / "profiles-review-corpus.sqlite")
+            object_root = root / "objects"
+            seed_path = root / "seed.json"
+            seed_path.write_text(
+                json.dumps(
+                    {
+                        "sources": [
+                            {
+                                "seed_id": "FAILED",
+                                "source_url": "https://example.invalid/failed-bid.html",
+                                "document_kind": "failed_bid_notice",
+                                "source_family": "offline_seed_sample",
+                                "jurisdiction": "CN",
+                                "project_type": "construction",
+                                "probe_text_optional": "废标公告 有效投标人不足三家 投标文件未按要求签字盖章。",
+                                "seed_tags": ["offline_probe_sample", "failed_bid_notice"],
+                            },
+                            {
+                                "seed_id": "COMPLAINT",
+                                "source_url": "https://example.invalid/complaint.html",
+                                "document_kind": "complaint_decision",
+                                "source_family": "offline_seed_sample",
+                                "jurisdiction": "CN",
+                                "project_type": "construction",
+                                "probe_text_optional": "投诉处理决定书 资格条件和评分项量化争议。",
+                                "seed_tags": ["offline_probe_sample", "complaint_decision"],
+                            },
+                            {
+                                "seed_id": "FLOW",
+                                "source_url": "https://example.invalid/flow.html",
+                                "document_kind": "flow_or_re_tender_notice",
+                                "source_family": "offline_seed_sample",
+                                "jurisdiction": "CN",
+                                "project_type": "construction",
+                                "probe_text_optional": "流标公告 递交投标文件不足三家 重新招标。",
+                                "seed_tags": ["offline_probe_sample", "flow_or_re_tender"],
+                            },
+                        ]
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+            build_evaluation_corpus(
+                input_json=seed_path,
+                database_url=database_url,
+                target_backend="sqlalchemy",
+                object_storage_path=object_root,
+                execute=True,
+                created_at="2026-05-07T08:55:00+00:00",
+            )
+
+            result = build_evaluation_stage3_profiles(
+                database_url=database_url,
+                target_backend="sqlalchemy",
+                object_storage_path=object_root,
+                execute=True,
+                created_at="2026-05-07T09:30:00+00:00",
+            )
+            items = {item["seed_id"]: item for item in result["manifest"]["items"]}
+
+            for seed_id in ("FAILED", "COMPLAINT", "FLOW"):
+                candidate_profile = items[seed_id]["candidate_set_profile"]
+                self.assertEqual(candidate_profile["candidate_selection_mode"], "unknown")
+                self.assertEqual(candidate_profile["candidate_rows_extracted_count"], 0)
+                self.assertTrue(candidate_profile["review_required"])
+                self.assertFalse(candidate_profile["customer_visible_allowed"])
+                self.assertTrue(candidate_profile["no_legal_conclusion"])
+
     def test_missing_corpus_manifests_fail_closed_without_write(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)

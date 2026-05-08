@@ -113,6 +113,63 @@ class TestEvaluationCorpus(unittest.TestCase):
             self.assertEqual(seeds[1].source_family, "local_public_resource_trading_center")
             self.assertEqual(seeds[1].jurisdiction, "CN-ZJ")
 
+    def test_b7_review_corpus_document_kinds_are_preserved_as_internal_samples(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            seed_path = Path(tmp_dir) / "seed.json"
+            seed_path.write_text(
+                json.dumps(
+                    {
+                        "sources": [
+                            {
+                                "seed_id": "FAILED",
+                                "source_url": "https://example.invalid/failed-bid.html",
+                                "source_family": "offline_seed_sample",
+                                "document_kind": "failed_bid_notice",
+                                "probe_text_optional": "废标公告 有效投标人不足三家 投标文件未按要求签字盖章。",
+                                "seed_tags": ["offline_probe_sample", "failed_bid_notice"],
+                            },
+                            {
+                                "seed_id": "COMPLAINT",
+                                "source_url": "https://example.invalid/complaint.html",
+                                "source_family": "offline_seed_sample",
+                                "document_kind": "complaint_decision",
+                                "probe_text_optional": "投诉处理决定书 资格条件和评分项量化争议。",
+                                "seed_tags": ["offline_probe_sample", "complaint_decision"],
+                            },
+                            {
+                                "seed_id": "FLOW",
+                                "source_url": "https://example.invalid/flow.html",
+                                "source_family": "offline_seed_sample",
+                                "document_kind": "flow_or_re_tender_notice",
+                                "probe_text_optional": "流标公告 递交投标文件不足三家 重新招标。",
+                                "seed_tags": ["offline_probe_sample", "flow_or_re_tender"],
+                            },
+                            {
+                                "seed_id": "CASE",
+                                "source_url": "https://example.invalid/case.html",
+                                "source_family": "offline_seed_sample",
+                                "document_kind": "official_case",
+                                "probe_text_optional": "官方案例 公平竞争审查 指定品牌 本地业绩限制。",
+                                "seed_tags": ["offline_probe_sample", "official_case"],
+                            },
+                        ]
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+
+            result = build_evaluation_corpus(input_json=seed_path)
+            samples = {item["seed_id"]: item for item in result["sample_manifest"]["items"]}
+
+            self.assertEqual(samples["FAILED"]["document_kind"], "failed_bid_notice")
+            self.assertEqual(samples["COMPLAINT"]["document_kind"], "complaint_decision")
+            self.assertEqual(samples["FLOW"]["document_kind"], "flow_or_re_tender_notice")
+            self.assertEqual(samples["CASE"]["document_kind"], "official_case")
+            self.assertTrue(all(item["review_required"] for item in samples.values()))
+            self.assertFalse(any(item["customer_visible_allowed"] for item in samples.values()))
+            self.assertTrue(all(item["no_legal_conclusion"] for item in samples.values()))
+
     def test_probe_classifies_methods_candidates_dark_bright_and_fields(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             seed_path = Path(tmp_dir) / "seed.json"

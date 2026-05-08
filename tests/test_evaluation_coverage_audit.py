@@ -146,6 +146,23 @@ class TestEvaluationCoverageAudit(unittest.TestCase):
             self.assertFalse(result["manifest"]["safety"]["download_enabled"])
             self.assertFalse(result["manifest"]["safety"]["stage5_rule_execution_enabled"])
 
+    def test_default_seed_covers_b7_review_corpus_first_cut_but_not_real_snapshots(self) -> None:
+        result = build_evaluation_coverage_audit(
+            seed_json=ROOT / "contracts" / "evaluation" / "evaluation_corpus_seed.json",
+            requirements_json=ROOT / "contracts" / "evaluation" / "evaluation_coverage_requirements.json",
+        )
+        items = {
+            item["requirement_id"]: item
+            for item in result["manifest"]["items"]
+        }
+
+        self.assertEqual(items["REQ-B7-REVIEW-CORPUS-LIFECYCLE"]["coverage_state"], "COVERED")
+        self.assertEqual(items["REQ-B7-REVIEW-CORPUS-SIGNALS"]["coverage_state"], "COVERED")
+        self.assertEqual(items["REQ-REAL-PROJECT-SNAPSHOT"]["coverage_state"], "MISSING")
+        self.assertFalse(result["manifest"]["safety"]["download_enabled"])
+        self.assertFalse(result["manifest"]["safety"]["stage5_rule_execution_enabled"])
+        self.assertTrue(all(item["no_legal_conclusion"] for item in result["manifest"]["items"]))
+
     def test_local_region_gap_closes_when_shanghai_and_hubei_local_methods_exist(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)

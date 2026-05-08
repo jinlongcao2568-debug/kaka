@@ -146,6 +146,36 @@
       "gap_action": "补地域限制、指定品牌、澄清改评标办法等公平性信号样本。"
     },
     {
+      "requirement_id": "REQ-B7-REVIEW-CORPUS-LIFECYCLE",
+      "dimension": "review_corpus_lifecycle",
+      "minimum_seed_count": 6,
+      "required_document_kinds": [
+        "candidate_notice",
+        "award_result",
+        "failed_bid_notice",
+        "complaint_decision",
+        "flow_or_re_tender_notice",
+        "official_case"
+      ],
+      "basis_refs": ["BASIS-PUBLICATION-10", "BASIS-TENDER-IMPLEMENTATION"],
+      "gap_action": "复盘样本库至少覆盖中标、废标、投诉、流标/重招、官方案例和候选公示生命周期。"
+    },
+    {
+      "requirement_id": "REQ-B7-REVIEW-CORPUS-SIGNALS",
+      "dimension": "review_corpus_signal_family",
+      "minimum_seed_count": 6,
+      "required_tags_or_markers": [
+        "single_winner",
+        "failed_bid_notice",
+        "complaint_decision",
+        "flow_or_re_tender",
+        "official_case",
+        "regional_rule_sample"
+      ],
+      "basis_refs": ["BASIS-PUBLICATION-10", "BASIS-TENDER-IMPLEMENTATION"],
+      "gap_action": "补齐 B7 复盘样本的信号族：中标、废标、投诉、流标/重招、官方案例和地区规则。"
+    },
+    {
       "requirement_id": "REQ-REAL-PUBLIC-ENTRY",
       "dimension": "real_public_entry",
       "minimum_seed_count": 5,

@@ -3,7 +3,7 @@
 | 字段 | 值 |
 |---|---|
 | 文档定位 | 防漂移任务契约 / Stage1-6 文件分析闭环落地顺序 |
-| 当前状态 | P1_STAGE16_MAIN_CHAIN_FIRST_CUT_IMPLEMENTED |
+| 当前状态 | P1_STAGE16_B0_MAPPING_AND_B7_CORPUS_PREP_FIRST_CUT |
 | 主输入 | `docs/专题_投前预测评审风控规则救济与履约结算经验库草案.md` |
 | 承载链路 | Stage1 -> Stage2 -> Stage3 -> Stage4 -> Stage5 -> Stage6 |
 | 机器镜像 | `control/stage16_file_analysis_task_contract.yaml` |
@@ -48,20 +48,20 @@
 | 9 | 投标文件内审增强 | 增强模块 | 后置 | 暗标、正偏离、授权签章、声明函、税率审计 |
 | 10 | 规则救济与履约结算 | Stage6/7/9 扩展 | 后置 | 异议质疑投诉、合同加码、结算审计、付款救济 |
 
-当前只推进 **第 0 到第 6 批**。第 7 批可作为回归样本建设同步准备；第 8 到第 10 批不抢主链。
+当前已推进 **第 0 到第 6 批** 的第一刀，并完成第 7 批复盘样本库准备第一刀。第 8 到第 10 批不抢主链。
 
 ### 3.1 当前实施状态
 
 | 批次 | 当前状态 | 说明 |
 |---:|---|---|
-| 0 | 部分完成，需收口 | 已形成任务契约；仍需把能力到代码、缺口和验证命令的映射表补实 |
+| 0 | 已完成第一刀 | 已补能力到代码、数据载体、缺口和验证命令的映射基线 |
 | 1 | 已完成第一刀 | 已有两法体系、资金来源、监管路径和救济路径候选；后续补真实样本和细分规则 |
 | 2 | 已完成第一刀 | 已有公告前线索、来源渠道、生命周期和来源质量候选；政策规则细化后续接入 |
 | 3 | 已完成第一刀 | 已建立内部项目档案 trace，不替代原始证据 |
 | 4 | 已完成第一刀 | 已补附件语义角色、下载归档摘要和版本链状态 |
 | 5 | 已完成第一刀 | 已有项目筛选、控标预测、自评分和废标红线内部候选 profile/trace |
 | 6 | 已完成第一刀 | 已在 Stage6 内部 trace 中收束公开核验读回、双闸门、B5 profile、报告和复核队列摘要 |
-| 7 | 可同步准备 | 只作为样本库和回归，不阻塞主链 |
+| 7 | 已完成准备第一刀 | 已接入现有 `evaluation_corpus`，补离线探针和覆盖审计；真实项目快照采集后续推进 |
 | 8-10 | 后置 | 报价履约、投标文件内审、救济结算暂不抢主链 |
 
 ## 4. 能力矩阵
@@ -95,7 +95,7 @@
 
 1. **必须先做**：第 0 到第 4 批。没有映射、两法分流、公告前线索、项目档案和文件血缘，后面所有风险判断都会漂。
 2. **随后做完整主链**：第 5 到第 6 批。项目筛选、控标预测、自评分、废标红线必须经过公开核验和双闸门，最终落到 Stage6 报告。
-3. **可以同步沉淀样本**：第 7 批。样本库服务回归，不改变当前产品完成标准。
+3. **已同步沉淀样本第一刀**：第 7 批。样本库服务回归，不改变当前产品完成标准；真实快照采集后续推进。
 4. **暂不抢主链**：第 8 到第 10 批。它们很有价值，但依赖内部报价、投标文件、合同履约或救济材料，不能作为 Stage1-6 文件分析闭环的前置完成条件。
 
 ## 5. Stage4-5 规则化边界
@@ -167,6 +167,18 @@
 - 形成“能力 -> 阶段 -> 现有代码/契约 -> 缺口 -> 验证命令”的映射表。
 - 说明哪些能力是现有主链细化，哪些是新增能力候选。
 - 不新增正式 schema/枚举/规则码。
+
+### 6.1 第一刀映射基线表
+
+| 能力 | 阶段 | 现有入口 | 数据载体 | 已实现状态 | 缺口 | 最小验证命令 |
+|---|---|---|---|---|---|---|
+| 两法体系分流器 | Stage1-3/6 | `src/stage1_tasking/extractors.py`、`src/stage1_tasking/service.py`、`src/stage3_parsing/real_parser.py` | `legal_system_type_candidate`、`fund_source_type`、`regulator_route_candidate` | 已完成第一刀 | 继续补真实平台样本和细分救济路径校准 | `python -m unittest tests.test_stage1_legal_system_classifier tests.test_stage12_extractors -v` |
+| 公告前机会与政策规则层 | Stage1-3/6 | `src/stage1_tasking/extractors.py`、`src/stage2_ingestion/real_candidate_capture.py`、`src/stage6_fact_review/service.py` | `pre_notice_type`、`source_channel_type`、`project_lifecycle_stage`、`source_quality_score` | 已完成第一刀 | 政策规则仍是候选线索，后续再规则化 | `python -m unittest tests.test_stage1_legal_system_classifier tests.test_stage12_extractors -v` |
+| AI 情报采集与项目档案 | Stage1-3/6 | `src/stage3_parsing/real_parser.py`、`src/stage6_fact_review/service.py` | `project_intelligence_folder`、`project_intelligence_state`、`project_intelligence_missing_reasons` | 已完成第一刀 | 只用公开字段形成内部档案，不补造业主、代理或对手事实 | `python -m unittest tests.test_stage2_real_candidate_capture tests.test_stage3_real_parser -v` |
+| 文件完整性与版本链 | Stage2-3/6 | `src/stage2_ingestion/real_candidate_capture.py`、`src/stage3_parsing/real_parser.py`、`src/stage6_fact_review/service.py` | `document_completeness_state`、`download_archive_manifest`、`attachment_role_type`、`notice_version_chain_state` | 已完成第一刀 | 真实站点下载失败和 `OCR_REQUIRED` 继续 review | `python -m unittest tests.test_stage2_real_candidate_capture tests.test_stage3_real_parser -v` |
+| 主线风险能力层 | Stage3-6 | `src/stage3_parsing/mainline_risk.py`、`src/stage6_fact_review/service.py` | `mainline_risk_profile`、`bid_selection_state`、`tailored_bid_risk_level`、`fatal_rejection_risk_hits` | 已完成第一刀 | 自评分缺我方材料不运行；控标只输出弱线索 | `python -m unittest tests.test_stage56_evaluators tests.test_stage5_rule_factory_expansion -v` |
+| 公开核验、双闸门与 Stage6 报告 | Stage4-6 | `src/stage6_fact_review/fact_aggregator.py`、`src/stage6_fact_review/service.py` | `stage6_real_public_rule_evidence_readback_summary`、`stage16_file_analysis_report_profile`、`stage16_b6_closure_profile` | 已完成第一刀 | 客户报告产品化仍后置 | `python -m unittest tests.test_stage56_evaluators tests.test_stage6_product_package_hardening -v` |
+| 复盘样本库 | Stage1-6 | `contracts/evaluation/evaluation_corpus_seed.json`、`contracts/evaluation/evaluation_coverage_requirements.json`、`src/storage/evaluation_corpus.py`、`src/storage/evaluation_coverage_audit.py`、`src/stage3_parsing/evaluation_profiles.py` | `evaluation_corpus`、`evaluation_parse_probe_manifest`、`evaluation_seed_coverage_audit_manifest`、`evaluation_stage3_profile_manifest` | 已完成准备第一刀 | 本批只补离线探针和覆盖审计；真实项目快照采集后续推进 | `python -m unittest tests.test_evaluation_corpus tests.test_evaluation_coverage_audit tests.test_evaluation_stage3_profiles -v` |
 
 ## 7. 第 1 批：两法体系分流器
 
@@ -307,7 +319,7 @@
 
 第 7 到第 10 批不是 Stage1-6 文件分析闭环的完成前置条件。
 
-- 第 7 批：复盘样本库，可同步准备，不阻塞第 1 到第 6 批。
+- 第 7 批：复盘样本库已完成准备第一刀，不阻塞第 1 到第 6 批；真实项目快照采集后续推进。
 - 第 8 批：报价履约与异常低价，需要报价、成本、付款和履约材料，后置。
 - 第 9 批：投标文件内审增强，需要投标人内部标书材料，后置。
 - 第 10 批：规则救济、履约结算、付款风险，需要救济材料、合同、履约和结算资料，后置。
@@ -325,6 +337,6 @@
 
 ## 15. 当前默认下一步
 
-默认下一步推进 **第 0 批映射基线收口 + 第 7 批复盘样本库准备**：先把能力到代码、测试、缺口和验证命令的映射表补实，再准备中标、废标、投诉、流标、官方案例等回归样本。
+默认下一步推进 **B7 真实项目快照采集计划或 B8 报价履约与异常低价第一刀**：B0 映射基线和 B7 离线探针准备已收口；如果继续强化回归，先做真实中标、废标、投诉、流标和官方案例快照采集计划；如果回到产品主线扩展，再进入 B8。
 
 除非人类明确要求，否则不要跳到暗标、签章、声明函、电子监管、合同结算、付款救济或真实触达交付。

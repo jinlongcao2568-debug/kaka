@@ -350,6 +350,50 @@
       "seed_tags": ["offline_probe_sample", "clarification"]
     },
     {
+      "seed_id": "SAMPLE-FAILED-BID-NOTICE",
+      "source_title": "废标或无效投标公告样本文本",
+      "source_url": "https://example.invalid/evaluation-samples/failed-bid-notice.html",
+      "source_family": "offline_seed_sample",
+      "jurisdiction": "CN",
+      "project_type": "construction",
+      "document_kind": "failed_bid_notice",
+      "probe_text_optional": "废标公告：本项目通过符合性审查的有效投标人不足三家，按招标文件规定本次招标失败。无效投标原因包括投标文件未按要求签字盖章、投标保证金不符合要求、未响应星号条款。",
+      "seed_tags": ["offline_probe_sample", "failed_bid_notice", "invalid_bid", "fatal_rejection_sample"]
+    },
+    {
+      "seed_id": "SAMPLE-COMPLAINT-DECISION-QUALIFICATION",
+      "source_title": "投诉处理决定资格条件样本文本",
+      "source_url": "https://example.invalid/evaluation-samples/complaint-decision-qualification.html",
+      "source_family": "offline_seed_sample",
+      "jurisdiction": "CN",
+      "project_type": "construction",
+      "document_kind": "complaint_decision",
+      "probe_text_optional": "投诉处理决定书：投诉事项涉及供应商资格条件、评分项量化、类似业绩认定和质疑前置程序。处理结果仅作为复盘样本，不代表当前项目违法结论。",
+      "seed_tags": ["offline_probe_sample", "complaint_decision", "qualification_challenge", "remedy_review_sample"]
+    },
+    {
+      "seed_id": "SAMPLE-FLOW-RE-TENDER-NOTICE",
+      "source_title": "流标重新招标公告样本文本",
+      "source_url": "https://example.invalid/evaluation-samples/flow-re-tender-notice.html",
+      "source_family": "offline_seed_sample",
+      "jurisdiction": "CN",
+      "project_type": "construction",
+      "document_kind": "flow_or_re_tender_notice",
+      "probe_text_optional": "流标公告：递交投标文件的投标人不足三家，本项目流标。采购人将依法重新组织采购或发布重新招标公告，原招标文件和补遗答疑需重新核对版本。",
+      "seed_tags": ["offline_probe_sample", "flow_or_re_tender", "re_tender", "version_chain_sample"]
+    },
+    {
+      "seed_id": "SAMPLE-OFFICIAL-CASE-FAIR-COMPETITION",
+      "source_title": "官方案例公平竞争审查样本文本",
+      "source_url": "https://example.invalid/evaluation-samples/official-case-fair-competition.html",
+      "source_family": "offline_seed_sample",
+      "jurisdiction": "CN",
+      "project_type": "construction",
+      "document_kind": "official_case",
+      "probe_text_optional": "官方案例复盘：采购文件设置特定行政区域业绩、指定品牌或本地服务网点等条件，形成公平竞争审查复核信号。该样本只用于规则校准和人工复核训练。",
+      "seed_tags": ["offline_probe_sample", "official_case", "fair_competition_case", "regional_rule_sample"]
+    },
+    {
       "seed_id": "ENTRY-ZHEJIANG-GGZY",
       "source_title": "浙江省公共资源交易服务平台交易信息入口",
       "source_url": "https://ggzy.zj.gov.cn/jyxxgk/list.html",

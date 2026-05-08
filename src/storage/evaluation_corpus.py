@@ -37,6 +37,10 @@ DOCUMENT_KINDS = frozenset(
         "candidate_notice",
         "award_result",
         "clarification",
+        "failed_bid_notice",
+        "complaint_decision",
+        "flow_or_re_tender_notice",
+        "official_case",
     }
 )
 EVALUATION_METHOD_FAMILIES = frozenset(
