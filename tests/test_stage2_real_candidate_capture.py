@@ -1041,6 +1041,7 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
         self.assertEqual(enriched["candidate_company"], "广东省机电建设有限公司")
         self.assertEqual(enriched["project_manager_name"], "李建国")
         self.assertEqual(enriched["project_manager_certificate_no"], "144202498765")
+        self.assertEqual(enriched["document_completeness_state"], "PARTIAL_REVIEW_REQUIRED")
         self.assertEqual(enriched["attachment_ocr_required_count"], 1)
         self.assertEqual(enriched["attachment_ocr_extracted_count"], 1)
         fields = result["captures"][0]["detail_fields"]
@@ -1096,11 +1097,59 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
         enriched = result["enriched_candidates"][0]
         self.assertEqual(enriched["project_manager_certificate_type"], "注册土木工程师（岩土）")
         self.assertEqual(enriched["project_manager_cert_specialty"], "岩土")
+        self.assertEqual(enriched["document_completeness_state"], "COMPLETE_WITH_ATTACHMENTS")
+        self.assertIn("WORD_DOCX", enriched["stage2_attachment_types"])
         self.assertEqual(enriched["attachment_text_merge_state"], "ATTACHMENT_TEXT_MERGED")
         self.assertTrue(enriched["attachment_snapshot_refs"])
         self.assertTrue(enriched["qualification_text_candidate_blocks"])
         fields = result["captures"][0]["detail_fields"]
         self.assertTrue(any("WORD_DOCX" in state for state in fields["attachment_text_parse_states"]))
+
+    def test_attachment_download_failure_records_document_completeness_review(self) -> None:
+        detail_url = "https://www.ccgp.gov.cn/cggg/zygg/zbgg/202604/t20260430_missing_attachment.htm"
+        attachment_url = "https://www.ccgp.gov.cn/cggg/zygg/zbgg/202604/files/missing-manager.docx"
+        transport = FakeRealPublicFetchTransport(
+            {
+                detail_url: RealPublicFetchResponse(
+                    url=detail_url,
+                    status_code=200,
+                    content=_unit_name_table_with_attachment_detail_html(attachment_url, "资格要求.docx"),
+                    content_type="text/html; charset=utf-8",
+                    final_url=detail_url,
+                ),
+            }
+        )
+        candidate = {
+            "candidate_key": "gd-missing-attachment-001",
+            "notice_id": "NOTICE-GD-MISSING-ATTACHMENT-001",
+            "project_id": "PROJ-GD-MISSING-ATTACHMENT-001",
+            "project_name": "广东附件缺失工程评标报告",
+            "region_code": "CN-GD",
+            "project_type": "survey_design",
+            "notice_stage": "candidate_notice",
+            "source_url": detail_url,
+            "source_profile_id": "CCGP-CENTRAL-NOTICES",
+            "source_candidate_mode": "REAL_PUBLIC_SOURCE_CANDIDATES",
+            "key_fields_present": ["project_name", "notice_stage"],
+            "candidate_count": 0,
+        }
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            service = RealCandidateStage2CaptureService(
+                stage2_service=FakeStage2Service(transport),
+                object_repository=_repo(tmp_dir),
+                repository=RealCandidateStage2CaptureRepository(),
+            )
+            result = service.capture_candidates([candidate], now="2026-05-01T00:00:00+00:00")
+
+        enriched = result["enriched_candidates"][0]
+        self.assertEqual(enriched["stage2_attachment_link_count"], 1)
+        self.assertEqual(enriched["stage2_attachment_snapshot_count"], 0)
+        self.assertEqual(enriched["document_completeness_state"], "ATTACHMENTS_NOT_CAPTURED_REVIEW")
+        self.assertIn(
+            "attachment_snapshot_count_below_link_count",
+            enriched["document_completeness_summary"]["review_reasons"],
+        )
 
     def test_xlsx_attachment_text_feeds_qualification_blocks_without_negative_fact(self) -> None:
         detail_url = "https://www.ccgp.gov.cn/cggg/zygg/zbgg/202604/t20260430_xlsx_manager.htm"

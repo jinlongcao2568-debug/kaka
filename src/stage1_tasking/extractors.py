@@ -38,7 +38,14 @@ class Stage1Extraction:
     legal_system_type_candidate: str
     legal_system_classification_confidence: str
     legal_system_classification_reasons: list[str]
+    fund_source_type: str
+    regulator_route_candidate: str
     remedy_path_candidate: str
+    pre_notice_type: str
+    source_channel_type: str
+    project_lifecycle_stage: str
+    source_quality_score: int
+    source_quality_reasons: list[str]
     identity_resolution_rule_id: str
     clock_resolution_rule_id: str
     clock_precedence_rule_id: str
@@ -147,6 +154,12 @@ def _classify_legal_system(payload: Mapping[str, Any], text: str) -> tuple[str, 
     gov_hits = [keyword for keyword in gov_keywords if keyword.lower() in text]
     tender_hits = [keyword for keyword in tender_keywords if keyword.lower() in text]
     state_owned_hits = [keyword for keyword in state_owned_keywords if keyword.lower() in text]
+    strong_gov_hits = [keyword for keyword in gov_hits if keyword not in {"供应商"}]
+    strong_tender_hits = [
+        keyword
+        for keyword in tender_hits
+        if keyword != "依法必须招标" or "非依法必须招标" not in text
+    ]
     reasons: list[str] = []
     reasons.extend(f"government_procurement_keyword:{keyword}" for keyword in gov_hits[:4])
     reasons.extend(f"tender_bidding_keyword:{keyword}" for keyword in tender_hits[:4])
@@ -162,6 +175,15 @@ def _classify_legal_system(payload: Mapping[str, Any], text: str) -> tuple[str, 
         if "STATE_OWNED" in explicit_category or "PLATFORM" in explicit_category:
             return "STATE_OWNED_PLATFORM_PROCUREMENT", explicit_category, "EXPLICIT", reasons, "REVIEW_REQUIRED"
         return "UNKNOWN", explicit_category, "EXPLICIT", reasons, "REVIEW_REQUIRED"
+
+    if state_owned_hits and not strong_gov_hits and not strong_tender_hits:
+        return (
+            "STATE_OWNED_PLATFORM_PROCUREMENT",
+            "STATE_OWNED_PLATFORM_PROCUREMENT",
+            "MEDIUM",
+            reasons,
+            "REVIEW_REQUIRED",
+        )
 
     has_engineering = any(keyword in text for keyword in ("工程", "施工", "勘察", "设计", "监理", "epc"))
     if gov_hits and tender_hits and has_engineering:
@@ -188,6 +210,123 @@ def _classify_legal_system(payload: Mapping[str, Any], text: str) -> tuple[str, 
     if gov_hits and tender_hits:
         return "MIXED_PUBLIC_PROCUREMENT", "MIXED_PUBLIC_PROCUREMENT", "MEDIUM", reasons, "REVIEW_REQUIRED"
     return "UNKNOWN", "UNKNOWN", "LOW", ["no_legal_system_keyword_signal"], "REVIEW_REQUIRED"
+
+
+def _classify_fund_source(text: str) -> tuple[str, list[str]]:
+    if any(keyword in text for keyword in ("财政资金和自筹", "财政及自筹", "混合资金")):
+        return "MIXED_FUNDS", ["fund_source_keyword:mixed_funds"]
+    if any(keyword in text for keyword in ("财政资金", "财政预算", "预算资金", "政府采购资金", "财政性资金")):
+        return "FISCAL_BUDGET", ["fund_source_keyword:fiscal_budget"]
+    if any(keyword in text for keyword in ("国有资金", "国企", "国有企业", "国资", "集团采购", "阳光采购")):
+        return "STATE_OWNED_FUNDS", ["fund_source_keyword:state_owned_funds"]
+    if any(keyword in text for keyword in ("自筹资金", "企业自筹", "社会资本", "民营", "自有资金")):
+        return "PRIVATE_OR_SELF_FUNDED", ["fund_source_keyword:private_or_self_funded"]
+    return "UNKNOWN", ["fund_source_keyword_missing"]
+
+
+def _regulator_route_for(
+    *,
+    legal_system_type_candidate: str,
+    procurement_category: str,
+    text: str,
+) -> tuple[str, list[str]]:
+    if "MIXED" in legal_system_type_candidate or "MIXED" in procurement_category:
+        return "REVIEW_REQUIRED", ["regulator_route:mixed_system_review_required"]
+    if "GOVERNMENT_PROCUREMENT" in legal_system_type_candidate:
+        return "FINANCE_DEPARTMENT", ["regulator_route:government_procurement_finance"]
+    if legal_system_type_candidate == "TENDER_BIDDING_LAW":
+        if any(keyword in text for keyword in ("公共资源交易", "招标投标", "依法必须招标", "工程建设")):
+            return "DEVELOPMENT_REFORM_OR_PUBLIC_RESOURCE_SUPERVISION", [
+                "regulator_route:tender_bidding_public_resource"
+            ]
+        return "INDUSTRY_SUPERVISOR", ["regulator_route:tender_bidding_industry_supervisor"]
+    if legal_system_type_candidate == "STATE_OWNED_PLATFORM_PROCUREMENT":
+        return "STATE_OWNED_PLATFORM_OWNER", ["regulator_route:state_owned_platform_owner"]
+    return "REVIEW_REQUIRED", ["regulator_route:unknown_system_review_required"]
+
+
+def _classify_source_channel(text: str) -> tuple[str, list[str]]:
+    if any(keyword in text for keyword in ("中国政府采购网", "政府采购网", "政府采购")):
+        return "GOVERNMENT_PROCUREMENT_SITE", ["source_channel:government_procurement_site"]
+    if any(keyword in text for keyword in ("公共资源交易", "交易中心", "ggzy")):
+        return "PUBLIC_RESOURCE_TRADING_PLATFORM", ["source_channel:public_resource_trading_platform"]
+    if any(keyword in text for keyword in ("发改委", "重大项目", "重点项目", "招标计划")):
+        return "DEVELOPMENT_REFORM_PROJECT_CHANNEL", ["source_channel:development_reform_project_channel"]
+    if any(keyword in text for keyword in ("住建", "自然资源", "用地", "规划许可", "施工许可", "审批")):
+        return "APPROVAL_PLANNING_LAND_CHANNEL", ["source_channel:approval_planning_land_channel"]
+    if any(keyword in text for keyword in ("设计中标", "咨询中标", "可研中标", "施工图设计")):
+        return "DESIGN_CONSULTING_AWARD_CHANNEL", ["source_channel:design_consulting_award_channel"]
+    if any(keyword in text for keyword in ("新闻", "开工", "签约", "奠基", "封顶", "竣工")):
+        return "NEWS_MEDIA_CHANNEL", ["source_channel:news_media_channel"]
+    if any(keyword in text for keyword in ("医院", "学校", "教育", "医疗", "银行", "国企采购", "行业采购平台")):
+        return "INDUSTRY_PLATFORM_CHANNEL", ["source_channel:industry_platform_channel"]
+    return "UNKNOWN", ["source_channel_keyword_missing"]
+
+
+def _classify_pre_notice(text: str) -> tuple[str, str, list[str]]:
+    if any(keyword in text for keyword in ("采购意向", "意向公开", "预计采购时间")):
+        return "PROCUREMENT_INTENTION", "PRE_NOTICE_WATCHLIST", ["pre_notice:procurement_intention"]
+    if any(keyword in text for keyword in ("招标计划", "预计招标", "计划招标")):
+        return "TENDER_PLAN", "PRE_NOTICE_WATCHLIST", ["pre_notice:tender_plan"]
+    if any(keyword in text for keyword in ("招标文件预公示", "提前公示", "需求意见征集", "征求意见")):
+        return "ADVANCE_PUBLICITY", "PRE_NOTICE_WATCHLIST", ["pre_notice:advance_publicity"]
+    if any(keyword in text for keyword in ("重大项目", "重点项目", "年度项目清单", "前期项目")):
+        return "MAJOR_PROJECT_LIST", "EARLY_INTELLIGENCE", ["pre_notice:major_project_list"]
+    if any(keyword in text for keyword in ("立项", "审批", "用地", "规划许可", "施工许可", "土地成交", "招拍挂")):
+        return "APPROVAL_PLANNING_LAND", "EARLY_INTELLIGENCE", ["pre_notice:approval_planning_land"]
+    if any(keyword in text for keyword in ("设计中标", "咨询中标", "可研中标", "施工图设计中标")):
+        return "DESIGN_CONSULTING_AWARD", "EARLY_INTELLIGENCE", ["pre_notice:design_consulting_award"]
+    if any(keyword in text for keyword in ("中标候选人", "成交候选人", "候选人公示")):
+        return "CANDIDATE_NOTICE", "CANDIDATE_REVIEW", ["notice_stage:candidate_notice"]
+    if any(keyword in text for keyword in ("中标公告", "成交公告", "结果公告", "中标结果", "成交结果")):
+        return "AWARD_RESULT", "AWARD_RESULT", ["notice_stage:award_result"]
+    if any(keyword in text for keyword in ("更正公告", "变更公告", "澄清公告", "补遗", "答疑")):
+        return "CORRECTION_OR_SUPPLEMENT", "CORRECTION_OR_SUPPLEMENT", ["notice_stage:correction_or_supplement"]
+    if any(keyword in text for keyword in ("招标公告", "采购公告", "竞争性磋商公告", "竞争性谈判公告", "询价公告")):
+        return "FORMAL_NOTICE", "NOTICE_ACTIVE", ["notice_stage:formal_notice"]
+    return "UNKNOWN", "UNKNOWN", ["pre_notice_keyword_missing"]
+
+
+def _score_source_quality(
+    *,
+    source_channel_type: str,
+    pre_notice_type: str,
+    text: str,
+    payload: Mapping[str, Any],
+) -> tuple[int, list[str]]:
+    score = 35
+    reasons: list[str] = []
+    if source_channel_type in {"GOVERNMENT_PROCUREMENT_SITE", "PUBLIC_RESOURCE_TRADING_PLATFORM"}:
+        score += 35
+        reasons.append("official_public_platform")
+    elif source_channel_type in {
+        "DEVELOPMENT_REFORM_PROJECT_CHANNEL",
+        "APPROVAL_PLANNING_LAND_CHANNEL",
+        "DESIGN_CONSULTING_AWARD_CHANNEL",
+        "INDUSTRY_PLATFORM_CHANNEL",
+    }:
+        score += 25
+        reasons.append("structured_public_lead_channel")
+    elif source_channel_type == "NEWS_MEDIA_CHANNEL":
+        score += 10
+        reasons.append("news_or_event_lead_channel")
+
+    if pre_notice_type in {"FORMAL_NOTICE", "CANDIDATE_NOTICE", "AWARD_RESULT"}:
+        score += 20
+        reasons.append("formal_notice_or_result_stage")
+    elif pre_notice_type in {"PROCUREMENT_INTENTION", "TENDER_PLAN", "ADVANCE_PUBLICITY"}:
+        score += 10
+        reasons.append("pre_notice_watchlist_stage")
+
+    if payload.get("announcement_url") or payload.get("source_url"):
+        score += 5
+        reasons.append("source_url_present")
+    if any(keyword in text for keyword in ("评论区", "帖子", "社群", "圈子")):
+        score -= 25
+        reasons.append("informal_signal_requires_review")
+    if not reasons:
+        reasons.append("source_quality_low_signal")
+    return max(0, min(score, 100)), reasons
 
 
 def _resolve_fallback_route(
@@ -242,6 +381,20 @@ def extract_stage1(payload: Mapping[str, Any], store: ContractStore, *, now: str
         legal_system_classification_reasons,
         remedy_path_candidate,
     ) = _classify_legal_system(payload, classification_text)
+    fund_source_type, fund_source_reasons = _classify_fund_source(classification_text)
+    regulator_route_candidate, regulator_reasons = _regulator_route_for(
+        legal_system_type_candidate=legal_system_type_candidate,
+        procurement_category=procurement_category,
+        text=classification_text,
+    )
+    source_channel_type, source_channel_reasons = _classify_source_channel(classification_text)
+    pre_notice_type, project_lifecycle_stage, pre_notice_reasons = _classify_pre_notice(classification_text)
+    source_quality_score, source_quality_reasons = _score_source_quality(
+        source_channel_type=source_channel_type,
+        pre_notice_type=pre_notice_type,
+        text=classification_text,
+        payload=payload,
+    )
     baseline_collection_state = ensure_enum_or_fallback(
         store,
         "collection_state",
@@ -354,8 +507,21 @@ def extract_stage1(payload: Mapping[str, Any], store: ContractStore, *, now: str
         legal_system_classification_reasons=[
             procurement_regime_source,
             *legal_system_classification_reasons,
+            *fund_source_reasons,
+            *regulator_reasons,
         ],
+        fund_source_type=fund_source_type,
+        regulator_route_candidate=regulator_route_candidate,
         remedy_path_candidate=remedy_path_candidate,
+        pre_notice_type=pre_notice_type,
+        source_channel_type=source_channel_type,
+        project_lifecycle_stage=project_lifecycle_stage,
+        source_quality_score=source_quality_score,
+        source_quality_reasons=[
+            *source_channel_reasons,
+            *pre_notice_reasons,
+            *source_quality_reasons,
+        ],
         identity_resolution_rule_id=str(payload.get("identity_resolution_rule_id", "ID-DEFAULT")),
         clock_resolution_rule_id=clock_resolution_rule_id,
         clock_precedence_rule_id=clock_precedence_rule_id,

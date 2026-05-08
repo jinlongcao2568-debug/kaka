@@ -1503,6 +1503,120 @@ def _capture_failure_summary(captures: list[Mapping[str, Any]]) -> dict[str, int
     return summary
 
 
+def _document_completeness_summary(capture: Mapping[str, Any]) -> dict[str, Any]:
+    fields = dict(capture.get("detail_fields", {}) or {})
+    attachment_captures = list(capture.get("attachment_captures", []) or [])
+    attachment_snapshot_refs = list(fields.get("attachment_snapshot_refs") or [])
+    link_count = _as_int(capture.get("attachment_link_count"), 0)
+    attempted_count = _as_int(capture.get("attachment_capture_attempted_count"), 0)
+    snapshot_count = _as_int(capture.get("attachment_snapshot_count"), 0)
+    detail_snapshot_id = str(capture.get("detail_snapshot_id_optional") or "")
+    detail_parse_state = str(capture.get("stage3_parse_state") or "NOT_RUN")
+    detail_parse_errors = [
+        str(item)
+        for item in list(capture.get("stage3_parse_error_taxonomy", []) or [])
+        if str(item or "").strip()
+    ]
+
+    attachment_types = [
+        str(ref.get("attachment_type") or "UNKNOWN_ATTACHMENT")
+        for ref in attachment_snapshot_refs
+        if isinstance(ref, Mapping)
+    ]
+    attachment_parse_states = [
+        str(ref.get("parse_state") or "UNKNOWN")
+        for ref in attachment_snapshot_refs
+        if isinstance(ref, Mapping)
+    ]
+    attachment_parse_errors: list[str] = []
+    for ref in attachment_snapshot_refs:
+        if not isinstance(ref, Mapping):
+            continue
+        attachment_parse_errors.extend(
+            str(item)
+            for item in list(ref.get("parse_error_taxonomy") or [])
+            if str(item or "").strip()
+        )
+
+    failure_reasons: list[str] = []
+    failure_reasons.extend(
+        str(item)
+        for item in list(capture.get("detail_capture_failure_reasons", []) or [])
+        if str(item or "").strip()
+    )
+    failure_reasons.extend(
+        str(item)
+        for item in list(capture.get("detail_degraded_reasons", []) or [])
+        if str(item or "").strip()
+    )
+    for attachment in attachment_captures:
+        if not isinstance(attachment, Mapping):
+            continue
+        if attachment.get("attachment_snapshot_id_optional"):
+            continue
+        failure_reasons.extend(
+            str(item)
+            for item in list(attachment.get("attachment_degraded_reasons", []) or [])
+            if str(item or "").strip()
+        )
+        for key in ("attachment_blocker_class", "attachment_blocker_reason", "attachment_capture_status"):
+            value = str(attachment.get(key) or "")
+            if value and value not in {"UNKNOWN", "SUCCESS"}:
+                failure_reasons.append(value)
+
+    review_reasons: list[str] = []
+    if not detail_snapshot_id:
+        review_reasons.append("detail_snapshot_missing")
+    if detail_snapshot_id and not detail_parse_state.startswith("PARSED"):
+        review_reasons.append(f"detail_parse_state={detail_parse_state}")
+    if link_count and snapshot_count < link_count:
+        review_reasons.append("attachment_snapshot_count_below_link_count")
+    if attachment_parse_errors:
+        review_reasons.append("attachment_parse_error_taxonomy_present")
+    if fields.get("attachment_ocr_required_count"):
+        review_reasons.append("attachment_ocr_required")
+    if failure_reasons:
+        review_reasons.append("capture_failure_or_blocker_present")
+
+    if not detail_snapshot_id:
+        state = "DETAIL_SNAPSHOT_MISSING_REVIEW"
+    elif link_count == 0:
+        state = "DETAIL_ONLY_NO_ATTACHMENTS"
+    elif snapshot_count == 0:
+        state = "ATTACHMENTS_NOT_CAPTURED_REVIEW"
+    elif review_reasons:
+        state = "PARTIAL_REVIEW_REQUIRED"
+    else:
+        state = "COMPLETE_WITH_ATTACHMENTS"
+
+    return {
+        "document_completeness_state": state,
+        "detail_snapshot_present": bool(detail_snapshot_id),
+        "detail_parse_state": detail_parse_state,
+        "detail_parse_error_taxonomy": detail_parse_errors,
+        "attachment_link_count": link_count,
+        "attachment_capture_attempted_count": attempted_count,
+        "attachment_snapshot_count": snapshot_count,
+        "attachment_types": sorted(set(attachment_types)),
+        "attachment_parse_states": attachment_parse_states,
+        "attachment_parse_error_taxonomy": sorted(set(attachment_parse_errors)),
+        "attachment_ocr_required_count": _as_int(fields.get("attachment_ocr_required_count"), 0),
+        "attachment_ocr_extracted_count": _as_int(fields.get("attachment_ocr_extracted_count"), 0),
+        "failure_reasons": list(dict.fromkeys(failure_reasons)),
+        "review_reasons": list(dict.fromkeys(review_reasons)),
+        "source": "stage2_detail_and_attachment_capture_summary",
+        "customer_visible": False,
+    }
+
+
+def _with_document_completeness(capture: Mapping[str, Any]) -> dict[str, Any]:
+    enriched = dict(capture)
+    summary = _document_completeness_summary(enriched)
+    enriched["document_completeness_summary"] = summary
+    enriched["document_completeness_state"] = summary["document_completeness_state"]
+    return enriched
+
+
 class RealCandidateStage2CaptureRepository:
     def __init__(self, *, repository: OperatorActionRepository | None = None) -> None:
         self.repository = repository or OperatorActionRepository()
@@ -1544,6 +1658,7 @@ class RealCandidateStage2CaptureRepository:
                 "stage3_parse_state": str(capture.get("stage3_parse_state") or ""),
                 "attachment_link_count": str(capture.get("attachment_link_count") or 0),
                 "attachment_snapshot_count": str(capture.get("attachment_snapshot_count") or 0),
+                "document_completeness_state": str(capture.get("document_completeness_state") or ""),
                 "capture_json": _json_text(capture),
             },
             trace_refs={
@@ -1603,11 +1718,13 @@ class RealCandidateStage2CaptureRepository:
                 "stage3_parse_state": refs.get("stage3_parse_state") or capture.get("stage3_parse_state"),
                 "attachment_link_count": _as_int(refs.get("attachment_link_count"), 0),
                 "attachment_snapshot_count": _as_int(refs.get("attachment_snapshot_count"), 0),
+                "document_completeness_state": refs.get("document_completeness_state")
+                or capture.get("document_completeness_state"),
                 "captured_at": action.requested_at,
                 "repository_backed": True,
             }
         )
-        return capture
+        return _with_document_completeness(capture)
 
 
 class RealCandidateStage2CaptureService:
@@ -1801,7 +1918,7 @@ class RealCandidateStage2CaptureService:
             parser_carrier.get("parse_error_taxonomy", []) or capture.get("stage3_parse_error_taxonomy", []) or []
         )
         refreshed["parsed_field_count"] = len(parser_carrier.get("parsed_fields", []) or [])
-        return refreshed
+        return _with_document_completeness(refreshed)
 
     def capture_candidate(
         self,
@@ -1837,6 +1954,7 @@ class RealCandidateStage2CaptureService:
                 "attachment_snapshot_count": 0,
                 "attachment_captures": [],
             }
+            capture = _with_document_completeness(capture)
             capture["capture_record"] = self.repository.persist_capture(candidate=candidate, capture=capture, now=captured_at)
             return capture
 
@@ -1866,6 +1984,7 @@ class RealCandidateStage2CaptureService:
                 "attachment_snapshot_count": 0,
                 "attachment_captures": [],
             }
+            capture = _with_document_completeness(capture)
             capture["capture_record"] = self.repository.persist_capture(candidate=candidate, capture=capture, now=captured_at)
             return capture
 
@@ -1936,6 +2055,7 @@ class RealCandidateStage2CaptureService:
             "attachment_captures": attachment_captures,
             "snapshot_readback_path_optional": f"/operator-console/real-source-runs/{snapshot_id}" if snapshot_id else "",
         }
+        capture = _with_document_completeness(capture)
         capture["capture_record"] = self.repository.persist_capture(candidate=candidate, capture=capture, now=captured_at)
         return capture
 
@@ -2234,6 +2354,16 @@ class RealCandidateStage2CaptureService:
             dict(capture.get("capture_record", {}) or {}).get("capture_event_id") or ""
         )
         row["stage3_detail_parse_state"] = str(capture.get("stage3_parse_state") or "")
+        document_summary = dict(
+            capture.get("document_completeness_summary")
+            or _document_completeness_summary(capture)
+        )
+        row["document_completeness_state"] = str(
+            capture.get("document_completeness_state")
+            or document_summary.get("document_completeness_state")
+            or ""
+        )
+        row["document_completeness_summary"] = document_summary
         row["stage2_attachment_link_count"] = _as_int(capture.get("attachment_link_count"), 0)
         row["same_site_attachment_link_items"] = list(capture.get("same_site_attachment_link_items", []) or [])
         attachment_snapshot_ids = [
@@ -2244,6 +2374,11 @@ class RealCandidateStage2CaptureService:
         row["stage2_attachment_snapshot_count"] = len(attachment_snapshot_ids)
         row["stage2_attachment_snapshot_ids"] = attachment_snapshot_ids
         row["stage2_attachment_captures"] = list(capture.get("attachment_captures", []) or [])
+        row["stage2_attachment_types"] = list(document_summary.get("attachment_types") or [])
+        row["stage2_attachment_parse_error_taxonomy"] = list(
+            document_summary.get("attachment_parse_error_taxonomy") or []
+        )
+        row["stage2_attachment_failure_reasons"] = list(document_summary.get("failure_reasons") or [])
         row["attachment_text_merge_state"] = str(fields.get("attachment_text_merge_state") or "")
         row["attachment_text_parse_states"] = list(fields.get("attachment_text_parse_states") or [])
         row["attachment_snapshot_refs"] = list(fields.get("attachment_snapshot_refs") or [])

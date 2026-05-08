@@ -407,15 +407,37 @@ class Stage3Service:
             bidder_candidate_payload["candidate_review_path_optional"] = stage3_review_path_ref
         bidder_candidate = self.store.build_record("bidder_candidate", bidder_candidate_payload)
 
+        project_manager_name = str(
+            inputs.get("project_manager_name")
+            or inputs.get("primary_responsible_person_name")
+            or ""
+        )
+        project_manager_field_source_state = (
+            "FIELD_EXTRACTED"
+            if project_manager_name
+            else "MISSING_REVIEW_REQUIRED"
+        )
+        project_manager_missing_review_reasons = []
+        if not project_manager_name:
+            project_manager_missing_review_reasons.append(
+                "project_manager_name_missing_from_stage3_inputs"
+            )
+
         project_manager = self.store.build_record(
             "project_manager",
             {
                 "project_manager_id": build_id("PM", project_id),
                 "project_id": project_id,
-                "project_manager_name": inputs.get("project_manager_name", "DEFAULT_PM"),
-                "project_manager_cert_specialty": inputs.get("project_manager_cert_specialty", "GENERAL"),
-                "project_manager_cert_level": inputs.get("project_manager_cert_level", "LEVEL-1"),
-                "project_manager_cert_unit": inputs.get("project_manager_cert_unit", "UNIT"),
+                "project_manager_name": project_manager_name or "REVIEW_REQUIRED",
+                "project_manager_cert_specialty": str(
+                    inputs.get("project_manager_cert_specialty") or "REVIEW_REQUIRED"
+                ),
+                "project_manager_cert_level": str(
+                    inputs.get("project_manager_cert_level") or "REVIEW_REQUIRED"
+                ),
+                "project_manager_cert_unit": str(
+                    inputs.get("project_manager_cert_unit") or "REVIEW_REQUIRED"
+                ),
                 "project_manager_conflict_clue_status": ensure_enum(
                     self.store,
                     "project_manager_conflict_clue_status",
@@ -478,6 +500,8 @@ class Stage3Service:
         inputs_out["bidder_candidate_collection_ref_optional"] = candidate_collection_ref
         inputs_out["candidate_collection_ref_optional"] = candidate_collection_ref
         inputs_out["stage3_review_path_ref_optional"] = stage3_review_path_ref
+        inputs_out["project_manager_field_source_state"] = project_manager_field_source_state
+        inputs_out["project_manager_missing_review_reasons"] = project_manager_missing_review_reasons
         if current_action_start_at_optional is not None:
             inputs_out["current_action_start_at_optional"] = current_action_start_at_optional
         if current_action_deadline_at_optional is not None:

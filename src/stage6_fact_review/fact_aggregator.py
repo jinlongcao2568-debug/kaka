@@ -67,6 +67,70 @@ def _package_state_from_reasons(
     return "INTERNAL_READY"
 
 
+def _stage16_file_analysis_trace(inputs: Mapping[str, Any]) -> dict[str, Any]:
+    project_manager_state = str(inputs.get("project_manager_field_source_state") or "")
+    if not project_manager_state:
+        project_manager_state = (
+            "FIELD_EXTRACTED"
+            if inputs.get("project_manager_name") or inputs.get("primary_responsible_person_name")
+            else "MISSING_REVIEW_REQUIRED"
+        )
+
+    return {
+        "legal_system": {
+            "procurement_regime": inputs.get("procurement_regime"),
+            "procurement_category": inputs.get("procurement_category"),
+            "legal_system_type_candidate": inputs.get("legal_system_type_candidate"),
+            "legal_system_classification_confidence": inputs.get(
+                "legal_system_classification_confidence"
+            ),
+            "fund_source_type": inputs.get("fund_source_type"),
+            "regulator_route_candidate": inputs.get("regulator_route_candidate"),
+            "remedy_path_candidate": inputs.get("remedy_path_candidate"),
+        },
+        "pre_notice_and_source": {
+            "pre_notice_type": inputs.get("pre_notice_type"),
+            "source_channel_type": inputs.get("source_channel_type"),
+            "project_lifecycle_stage": inputs.get("project_lifecycle_stage"),
+            "source_quality_score": inputs.get("source_quality_score"),
+            "source_quality_reasons": ensure_list(inputs.get("source_quality_reasons")),
+        },
+        "document_completeness": {
+            "document_completeness_state": inputs.get("document_completeness_state"),
+            "stage2_detail_capture_state": inputs.get("stage2_detail_capture_state"),
+            "stage3_detail_parse_state": inputs.get("stage3_detail_parse_state"),
+            "stage2_attachment_link_count": inputs.get("stage2_attachment_link_count"),
+            "stage2_attachment_snapshot_count": inputs.get("stage2_attachment_snapshot_count"),
+            "stage2_attachment_types": ensure_list(inputs.get("stage2_attachment_types")),
+            "stage2_attachment_parse_error_taxonomy": ensure_list(
+                inputs.get("stage2_attachment_parse_error_taxonomy")
+            ),
+            "attachment_ocr_required_count": inputs.get("attachment_ocr_required_count"),
+            "attachment_ocr_extracted_count": inputs.get("attachment_ocr_extracted_count"),
+        },
+        "project_manager_lineage": {
+            "project_manager_field_source_state": project_manager_state,
+            "project_manager_name_parse_state": inputs.get("project_manager_name_parse_state"),
+            "project_manager_certificate_no_parse_state": inputs.get(
+                "project_manager_certificate_no_parse_state"
+            ),
+            "project_manager_missing_review_reasons": ensure_list(
+                inputs.get("project_manager_missing_review_reasons")
+            ),
+            "source_document_ref": inputs.get("source_document_ref"),
+            "source_slice_ref": inputs.get("source_slice_ref"),
+            "field_lineage_collection_ref_optional": inputs.get(
+                "field_lineage_collection_ref_optional"
+            ),
+        },
+        "output_boundary": {
+            "customer_visible": False,
+            "no_illegality_or_reserved_winner_conclusion": True,
+            "stage7_to_stage10_execution_triggered": False,
+        },
+    }
+
+
 def _governance_guard_summary(result: Any) -> dict[str, Any]:
     additions = dict(getattr(result, "governance_additions", {}) or {})
     trace_fields = dict(getattr(result, "trace_fields", {}) or {})
@@ -1266,6 +1330,7 @@ class ProjectFactAggregator:
                 "review_task_status": review_task_status,
                 "minimum_release_level": report_record.get("minimum_release_level"),
             },
+            "stage16_file_analysis_trace": _stage16_file_analysis_trace(inputs),
             "supplement_trace": supplement_trace,
             "product_package_readiness": product_package_readiness,
         }
