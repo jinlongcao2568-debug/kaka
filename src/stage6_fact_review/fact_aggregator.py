@@ -15,6 +15,7 @@ from shared.utils import apply_rule, build_id, ensure_enum, ensure_list, get_fla
 
 
 STAGE6_PRODUCT_PACKAGE_READINESS_KEY = "stage6_product_package_readiness"
+REAL_PUBLIC_STAGE6_READBACK_KEY = "stage6_real_public_rule_evidence_readback_summary"
 
 _RELEASE_LEVEL_RANK = {
     "DEV_ALLOWED": 0,
@@ -69,6 +70,204 @@ def _package_state_from_reasons(
 
 def _safe_dict(value: Any) -> dict[str, Any]:
     return dict(value) if isinstance(value, Mapping) else {}
+
+
+def _state_from_public_summary(summary: Mapping[str, Any]) -> str:
+    chain_state = str(summary.get("real_public_product_package_chain_state") or "UNKNOWN")
+    if chain_state == "INTERNAL_READY":
+        return "INTERNAL_READY"
+    if chain_state == "BLOCKED":
+        return "BLOCKED"
+    if chain_state == "REVIEW_REQUIRED":
+        return "REVIEW_REQUIRED"
+    return "PARTIAL_REVIEW_REQUIRED"
+
+
+def _dual_gate_chain_state(rule_gate_status: Any, evidence_gate_status: Any) -> str:
+    statuses = {str(rule_gate_status or "UNKNOWN"), str(evidence_gate_status or "UNKNOWN")}
+    if "BLOCK" in statuses:
+        return "BLOCKED"
+    if "REVIEW" in statuses:
+        return "REVIEW_REQUIRED"
+    if statuses == {"PASS"}:
+        return "INTERNAL_READY"
+    return "PARTIAL_REVIEW_REQUIRED"
+
+
+def _report_state(report_record: Mapping[str, Any]) -> str:
+    report_status = str(report_record.get("report_status") or "UNKNOWN")
+    if report_status == "REVOKED":
+        return "BLOCKED"
+    if report_status == "ISSUED":
+        return "INTERNAL_READY"
+    if report_status == "READY":
+        return "REVIEW_REQUIRED"
+    return "PARTIAL_REVIEW_REQUIRED"
+
+
+def _review_queue_state(
+    review_queue_profile: Mapping[str, Any],
+    *,
+    linked_review_request_id: Any,
+    missing_condition_family: Any,
+    report_state: str,
+) -> str:
+    if report_state == "BLOCKED":
+        return "BLOCKED"
+    if linked_review_request_id or missing_condition_family:
+        return "REVIEW_REQUIRED"
+    if review_queue_profile.get("review_lane") and review_queue_profile.get("queue_profile_id"):
+        return "INTERNAL_READY"
+    return "PARTIAL_REVIEW_REQUIRED"
+
+
+def _build_real_public_rule_evidence_readback_summary(
+    *,
+    inputs: Mapping[str, Any],
+    handoff: Mapping[str, Any],
+    project_fact: Mapping[str, Any],
+    report_record: Mapping[str, Any],
+    product_package_readiness: Mapping[str, Any],
+) -> dict[str, Any]:
+    stage5_rule_readback = _safe_dict(inputs.get("stage5_rule_readback_summary"))
+    stage4_carrier = _safe_dict(inputs.get("stage4_public_verification_carrier"))
+    stage4_readback = _safe_dict(inputs.get("stage4_public_verification_readback_summary"))
+    rule_gate_status = str(handoff.get("rule_gate_status") or inputs.get("rule_gate_status") or "UNKNOWN")
+    evidence_gate_status = str(
+        handoff.get("evidence_gate_status") or inputs.get("evidence_gate_status") or "UNKNOWN"
+    )
+    stage4_refs = list(stage5_rule_readback.get("stage4_public_verification_refs", []) or [])
+    fail_closed_reasons: list[str] = []
+
+    if not stage4_refs:
+        fail_closed_reasons.append("stage4_public_verification_refs_missing")
+    if not stage4_carrier:
+        fail_closed_reasons.append("stage4_public_verification_carrier_missing")
+    if stage4_carrier and not bool(stage4_carrier.get("public_only", False)):
+        fail_closed_reasons.append("stage4_public_verification_not_public_only")
+    if stage4_carrier and bool(stage4_carrier.get("customer_visible", False)):
+        fail_closed_reasons.append("stage4_public_verification_marked_customer_visible")
+    if stage4_carrier and not bool(stage4_carrier.get("no_legal_conclusion", False)):
+        fail_closed_reasons.append("stage4_public_verification_legal_conclusion_boundary_missing")
+    if stage4_readback and stage4_readback.get("readback_state") != "READBACK_READY":
+        fail_closed_reasons.append(f"stage4_readback_state={stage4_readback.get('readback_state')}")
+    if evidence_gate_status == "BLOCK":
+        fail_closed_reasons.append("evidence_gate_status=BLOCK")
+    elif evidence_gate_status != "PASS":
+        fail_closed_reasons.append(f"evidence_gate_status={evidence_gate_status}")
+    if rule_gate_status == "BLOCK":
+        fail_closed_reasons.append("rule_gate_status=BLOCK")
+    elif rule_gate_status != "PASS":
+        fail_closed_reasons.append(f"rule_gate_status={rule_gate_status}")
+
+    product_state = str(product_package_readiness.get("product_package_readiness") or "UNKNOWN")
+    if product_state == "BLOCKED":
+        chain_state = "BLOCKED"
+    elif fail_closed_reasons:
+        chain_state = "REVIEW_REQUIRED"
+    elif product_state == "INTERNAL_READY":
+        chain_state = "INTERNAL_READY"
+    else:
+        chain_state = product_state
+
+    return {
+        "readback_state": "READBACK_READY" if chain_state == "INTERNAL_READY" else "REVIEW_REQUIRED",
+        "real_public_product_package_chain_state": chain_state,
+        "stage5_rule_gate_status": rule_gate_status,
+        "stage5_evidence_gate_status": evidence_gate_status,
+        "stage6_product_package_readiness": product_state,
+        "stage4_public_verification_refs": stage4_refs,
+        "source_refs": {
+            "verification_run_id": stage4_carrier.get("verification_run_id"),
+            "verification_target_id": stage4_carrier.get("verification_target_id"),
+            "verification_target_type": stage4_carrier.get("verification_target_type"),
+            "source_snapshot_id": stage4_carrier.get("source_snapshot_id"),
+            "input_parse_run_id": stage4_carrier.get("input_parse_run_id"),
+            "parsed_field_refs": list(stage4_carrier.get("parsed_field_refs", []) or []),
+            "rule_hit_id": handoff.get("rule_hit_id") or inputs.get("rule_hit_id"),
+            "evidence_id": handoff.get("evidence_id") or inputs.get("evidence_id"),
+            "rule_gate_decision_id": handoff.get("rule_gate_decision_id")
+            or inputs.get("rule_gate_decision_id"),
+            "evidence_gate_decision_id": handoff.get("evidence_gate_decision_id")
+            or inputs.get("evidence_gate_decision_id"),
+            "project_fact_id": project_fact.get("project_fact_id"),
+            "report_record_id": report_record.get("report_id"),
+        },
+        "fail_closed_reasons": _dedupe_strings(fail_closed_reasons),
+        "customer_visible_material_generated": False,
+        "external_release_enabled": False,
+        "stage7_stage8_stage9_execution_triggered": False,
+        "legal_conclusion_generated": False,
+        "audit_readback_summary": {
+            "source": "stage6_real_public_rule_evidence_readback",
+            "replayable": True,
+            "stage_scope": 6,
+            "no_customer_visible_material_generated": True,
+            "no_external_release_enabled": True,
+            "no_stage7_stage8_stage9_execution_triggered": True,
+            "formal_facts_mutated_by_summary": False,
+        },
+    }
+
+
+def _stage16_b6_closure_profile(
+    *,
+    real_public_summary: Mapping[str, Any],
+    rule_gate_status: Any,
+    evidence_gate_status: Any,
+    report_record: Mapping[str, Any],
+    review_queue_profile: Mapping[str, Any],
+    linked_review_request_id: Any,
+    missing_condition_family: Any,
+) -> dict[str, Any]:
+    public_evidence_readback_state = _state_from_public_summary(real_public_summary)
+    dual_gate_chain_state = _dual_gate_chain_state(rule_gate_status, evidence_gate_status)
+    stage6_report_state = _report_state(report_record)
+    review_queue_state = _review_queue_state(
+        review_queue_profile,
+        linked_review_request_id=linked_review_request_id,
+        missing_condition_family=missing_condition_family,
+        report_state=stage6_report_state,
+    )
+    component_states = {
+        public_evidence_readback_state,
+        dual_gate_chain_state,
+        stage6_report_state,
+        review_queue_state,
+    }
+    closure_reasons = list(real_public_summary.get("fail_closed_reasons", []) or [])
+
+    if linked_review_request_id:
+        closure_reasons.append("linked_review_request_id_present")
+    if missing_condition_family:
+        closure_reasons.append(str(missing_condition_family))
+    if stage6_report_state != "INTERNAL_READY":
+        closure_reasons.append(f"stage6_report_state={stage6_report_state}")
+    if review_queue_state != "INTERNAL_READY":
+        closure_reasons.append(f"review_queue_state={review_queue_state}")
+
+    if "BLOCKED" in component_states:
+        closure_state = "BLOCKED"
+    elif "REVIEW_REQUIRED" in component_states:
+        closure_state = "REVIEW_REQUIRED"
+    elif "PARTIAL_REVIEW_REQUIRED" in component_states:
+        closure_state = "PARTIAL_REVIEW_REQUIRED"
+    else:
+        closure_state = "INTERNAL_READY"
+
+    return {
+        "closure_state": closure_state,
+        "public_evidence_readback_state": public_evidence_readback_state,
+        "dual_gate_chain_state": dual_gate_chain_state,
+        "stage6_report_state": stage6_report_state,
+        "review_queue_state": review_queue_state,
+        "linked_review_request_id_optional": linked_review_request_id,
+        "missing_condition_family_optional": missing_condition_family,
+        "closure_reasons": _dedupe_strings(closure_reasons),
+        "customer_visible": False,
+        "legal_conclusion_generated": False,
+        "external_release_enabled": False,
+    }
 
 
 def _stage16_file_analysis_report_profile(inputs: Mapping[str, Any]) -> dict[str, Any]:
@@ -1427,6 +1626,23 @@ class ProjectFactAggregator:
         if governed_supplement_carrier_summary:
             handoff["governed_supplement_carrier_summary"] = governed_supplement_carrier_summary
         handoff[STAGE6_PRODUCT_PACKAGE_READINESS_KEY] = product_package_readiness
+        real_public_rule_evidence_readback_summary = _build_real_public_rule_evidence_readback_summary(
+            inputs=inputs,
+            handoff=handoff,
+            project_fact=project_fact.data,
+            report_record=report_record.data,
+            product_package_readiness=product_package_readiness,
+        )
+        handoff[REAL_PUBLIC_STAGE6_READBACK_KEY] = real_public_rule_evidence_readback_summary
+        stage16_b6_closure_profile = _stage16_b6_closure_profile(
+            real_public_summary=real_public_rule_evidence_readback_summary,
+            rule_gate_status=rule_gate_status,
+            evidence_gate_status=evidence_gate_status,
+            report_record=report_record.data,
+            review_queue_profile=review_queue_profile.data,
+            linked_review_request_id=review_request_id,
+            missing_condition_family=missing_condition_family,
+        )
 
         inputs_out = dict(inputs)
         inputs_out["window_status"] = legal_action_recommendation.get("window_status")
@@ -1458,6 +1674,7 @@ class ProjectFactAggregator:
         inputs_out["confidence_band_optional"] = competitor_confidence_band
         inputs_out["linked_review_request_id_optional"] = review_request_id
         inputs_out["missing_condition_family_optional"] = missing_condition_family
+        inputs_out[REAL_PUBLIC_STAGE6_READBACK_KEY] = real_public_rule_evidence_readback_summary
         inputs_out["stage6_review_report_trace"] = {
             "h05_authority_snapshot": {
                 "rule_gate_status": rule_gate_status,
@@ -1480,6 +1697,8 @@ class ProjectFactAggregator:
                 "minimum_release_level": report_record.get("minimum_release_level"),
             },
             "stage16_file_analysis_trace": _stage16_file_analysis_trace(inputs),
+            "stage16_b6_closure_profile": stage16_b6_closure_profile,
+            REAL_PUBLIC_STAGE6_READBACK_KEY: real_public_rule_evidence_readback_summary,
             "supplement_trace": supplement_trace,
             "product_package_readiness": product_package_readiness,
         }
@@ -1509,4 +1728,8 @@ class ProjectFactAggregator:
         )
 
 
-__all__ = ["ProjectFactAggregator", "STAGE6_PRODUCT_PACKAGE_READINESS_KEY"]
+__all__ = [
+    "ProjectFactAggregator",
+    "REAL_PUBLIC_STAGE6_READBACK_KEY",
+    "STAGE6_PRODUCT_PACKAGE_READINESS_KEY",
+]

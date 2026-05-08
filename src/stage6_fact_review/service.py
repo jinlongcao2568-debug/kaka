@@ -7,7 +7,10 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
-from stage6_fact_review.fact_aggregator import ProjectFactAggregator
+from stage6_fact_review.fact_aggregator import (
+    ProjectFactAggregator,
+    REAL_PUBLIC_STAGE6_READBACK_KEY as REAL_PUBLIC_READBACK_KEY,
+)
 from shared.contracts_runtime import ContractStore, StageBundle
 from shared.utils import resolve_bundle, utc_now_iso
 
@@ -82,7 +85,7 @@ def _install_h06_formal_carrier_projection() -> None:
 
 
 class Stage6Service:
-    REAL_PUBLIC_STAGE6_READBACK_KEY = "stage6_real_public_rule_evidence_readback_summary"
+    REAL_PUBLIC_STAGE6_READBACK_KEY = REAL_PUBLIC_READBACK_KEY
     H05_REVIEW_REQUEST_FIELDS = (
         "review_request_id",
         "missing_condition_family",
@@ -119,108 +122,7 @@ class Stage6Service:
         payload: Mapping[str, Any] | StageBundle,
     ) -> StageBundle:
         stage5_bundle = resolve_bundle(payload)
-        result = self.run(stage5_bundle)
-        summary = self._build_real_public_rule_evidence_readback_summary(
-            stage5_bundle=stage5_bundle,
-            stage6_bundle=result,
-        )
-        inputs = dict(result.inputs)
-        handoff = dict(result.handoff)
-        review_trace = dict(inputs.get("stage6_review_report_trace", {}) or {})
-        inputs[self.REAL_PUBLIC_STAGE6_READBACK_KEY] = summary
-        handoff[self.REAL_PUBLIC_STAGE6_READBACK_KEY] = summary
-        review_trace[self.REAL_PUBLIC_STAGE6_READBACK_KEY] = summary
-        inputs["stage6_review_report_trace"] = review_trace
-        return StageBundle(
-            stage=result.stage,
-            records=dict(result.records),
-            handoff=handoff,
-            trace_rules=list(result.trace_rules),
-            inputs=inputs,
-        )
-
-    def _build_real_public_rule_evidence_readback_summary(
-        self,
-        *,
-        stage5_bundle: StageBundle,
-        stage6_bundle: StageBundle,
-    ) -> dict[str, Any]:
-        stage5_rule_readback = dict(stage5_bundle.inputs.get("stage5_rule_readback_summary", {}) or {})
-        stage4_carrier = dict(stage5_bundle.inputs.get("stage4_public_verification_carrier", {}) or {})
-        stage4_readback = dict(stage5_bundle.inputs.get("stage4_public_verification_readback_summary", {}) or {})
-        product_carrier = dict(stage6_bundle.inputs.get("stage6_product_package_readiness", {}) or {})
-        rule_gate_status = str(stage5_bundle.handoff.get("rule_gate_status", "UNKNOWN"))
-        evidence_gate_status = str(stage5_bundle.handoff.get("evidence_gate_status", "UNKNOWN"))
-        stage4_refs = list(stage5_rule_readback.get("stage4_public_verification_refs", []) or [])
-        fail_closed_reasons: list[str] = []
-
-        if not stage4_refs:
-            fail_closed_reasons.append("stage4_public_verification_refs_missing")
-        if not stage4_carrier:
-            fail_closed_reasons.append("stage4_public_verification_carrier_missing")
-        if stage4_carrier and not bool(stage4_carrier.get("public_only", False)):
-            fail_closed_reasons.append("stage4_public_verification_not_public_only")
-        if stage4_carrier and bool(stage4_carrier.get("customer_visible", False)):
-            fail_closed_reasons.append("stage4_public_verification_marked_customer_visible")
-        if stage4_carrier and not bool(stage4_carrier.get("no_legal_conclusion", False)):
-            fail_closed_reasons.append("stage4_public_verification_legal_conclusion_boundary_missing")
-        if stage4_readback and stage4_readback.get("readback_state") != "READBACK_READY":
-            fail_closed_reasons.append(f"stage4_readback_state={stage4_readback.get('readback_state')}")
-        if evidence_gate_status == "BLOCK":
-            fail_closed_reasons.append("evidence_gate_status=BLOCK")
-        elif evidence_gate_status != "PASS":
-            fail_closed_reasons.append(f"evidence_gate_status={evidence_gate_status}")
-        if rule_gate_status == "BLOCK":
-            fail_closed_reasons.append("rule_gate_status=BLOCK")
-        elif rule_gate_status != "PASS":
-            fail_closed_reasons.append(f"rule_gate_status={rule_gate_status}")
-
-        product_state = str(product_carrier.get("product_package_readiness", "UNKNOWN"))
-        if product_state == "BLOCKED":
-            chain_state = "BLOCKED"
-        elif fail_closed_reasons:
-            chain_state = "REVIEW_REQUIRED"
-        elif product_state == "INTERNAL_READY":
-            chain_state = "INTERNAL_READY"
-        else:
-            chain_state = product_state
-
-        return {
-            "readback_state": "READBACK_READY" if chain_state == "INTERNAL_READY" else "REVIEW_REQUIRED",
-            "real_public_product_package_chain_state": chain_state,
-            "stage5_rule_gate_status": rule_gate_status,
-            "stage5_evidence_gate_status": evidence_gate_status,
-            "stage6_product_package_readiness": product_state,
-            "stage4_public_verification_refs": stage4_refs,
-            "source_refs": {
-                "verification_run_id": stage4_carrier.get("verification_run_id"),
-                "verification_target_id": stage4_carrier.get("verification_target_id"),
-                "verification_target_type": stage4_carrier.get("verification_target_type"),
-                "source_snapshot_id": stage4_carrier.get("source_snapshot_id"),
-                "input_parse_run_id": stage4_carrier.get("input_parse_run_id"),
-                "parsed_field_refs": list(stage4_carrier.get("parsed_field_refs", []) or []),
-                "rule_hit_id": stage5_bundle.handoff.get("rule_hit_id"),
-                "evidence_id": stage5_bundle.handoff.get("evidence_id"),
-                "rule_gate_decision_id": stage5_bundle.handoff.get("rule_gate_decision_id"),
-                "evidence_gate_decision_id": stage5_bundle.handoff.get("evidence_gate_decision_id"),
-                "project_fact_id": stage6_bundle.records["project_fact"].get("project_fact_id"),
-                "report_record_id": stage6_bundle.records["report_record"].get("report_id"),
-            },
-            "fail_closed_reasons": fail_closed_reasons,
-            "customer_visible_material_generated": False,
-            "external_release_enabled": False,
-            "stage7_stage8_stage9_execution_triggered": False,
-            "legal_conclusion_generated": False,
-            "audit_readback_summary": {
-                "source": "stage6_real_public_rule_evidence_readback",
-                "replayable": True,
-                "stage_scope": 6,
-                "no_customer_visible_material_generated": True,
-                "no_external_release_enabled": True,
-                "no_stage7_stage8_stage9_execution_triggered": True,
-                "formal_facts_mutated_by_summary": False,
-            },
-        }
+        return self.run(stage5_bundle)
 
     def build_handoff(self, result: StageBundle) -> Mapping[str, Any]:
         return result.handoff

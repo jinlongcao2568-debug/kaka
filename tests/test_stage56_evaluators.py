@@ -201,6 +201,48 @@ class TestStage56Evaluators(unittest.TestCase):
             aggregated.record("review_queue_profile").get("review_lane"),
         )
 
+    def test_stage6_run_attaches_real_public_summary_and_b6_closure_profile(self) -> None:
+        result = run_internal_chain(load_fixture("internal_chain_happy.json"))
+        stage5 = Stage5Service().run(result["stage4"])
+        stage6 = Stage6Service().run(stage5)
+
+        summary = stage6.inputs[Stage6Service.REAL_PUBLIC_STAGE6_READBACK_KEY]
+        review_trace = stage6.inputs["stage6_review_report_trace"]
+        closure = review_trace["stage16_b6_closure_profile"]
+
+        self.assertEqual(summary, stage6.handoff[Stage6Service.REAL_PUBLIC_STAGE6_READBACK_KEY])
+        self.assertEqual(summary, review_trace[Stage6Service.REAL_PUBLIC_STAGE6_READBACK_KEY])
+        self.assertEqual(summary["readback_state"], "REVIEW_REQUIRED")
+        self.assertEqual(summary["real_public_product_package_chain_state"], "REVIEW_REQUIRED")
+        self.assertIn("stage4_public_verification_refs_missing", summary["fail_closed_reasons"])
+        self.assertIn("stage4_public_verification_carrier_missing", summary["fail_closed_reasons"])
+        self.assertEqual(closure["closure_state"], "REVIEW_REQUIRED")
+        self.assertEqual(closure["public_evidence_readback_state"], "REVIEW_REQUIRED")
+        self.assertEqual(closure["dual_gate_chain_state"], "INTERNAL_READY")
+        self.assertEqual(closure["stage6_report_state"], "INTERNAL_READY")
+        self.assertEqual(closure["review_queue_state"], "INTERNAL_READY")
+        self.assertFalse(closure["customer_visible"])
+        self.assertFalse(closure["legal_conclusion_generated"])
+        self.assertFalse(closure["external_release_enabled"])
+
+    def test_stage6_real_public_entry_reuses_default_run_summary(self) -> None:
+        result = run_internal_chain(load_fixture("internal_chain_happy.json"))
+        stage5 = Stage5Service().run(result["stage4"])
+        service = Stage6Service()
+
+        default_stage6 = service.run(stage5)
+        readback_stage6 = service.run_real_public_rule_evidence_readback(stage5)
+
+        self.assertEqual(
+            default_stage6.inputs[Stage6Service.REAL_PUBLIC_STAGE6_READBACK_KEY],
+            readback_stage6.inputs[Stage6Service.REAL_PUBLIC_STAGE6_READBACK_KEY],
+        )
+        self.assertEqual(
+            default_stage6.inputs["stage6_review_report_trace"]["stage16_b6_closure_profile"],
+            readback_stage6.inputs["stage6_review_report_trace"]["stage16_b6_closure_profile"],
+        )
+        self.assertEqual(default_stage6.handoff, readback_stage6.handoff)
+
     def test_stage6_stage16_report_profile_summarizes_mainline_risk_without_formal_review_request(self) -> None:
         payload = load_fixture("internal_chain_happy.json")
         payload.update(
@@ -258,6 +300,34 @@ class TestStage56Evaluators(unittest.TestCase):
         )
         self.assertIn("DUAL_GATE_REVIEW", report_profile["recommended_review_lanes"])
         self.assertIn("linked_review_request_id_present", report_profile["review_reasons"])
+
+    def test_stage6_b6_closure_profile_links_review_request_without_recomputing_gates(self) -> None:
+        stage4 = run_internal_chain(load_fixture("internal_chain_happy.json"))["stage4"]
+        review_stage4 = StageBundle(
+            stage=4,
+            records=dict(stage4.records),
+            handoff={
+                **stage4.handoff,
+                "clock_conflict_state": "CONFLICTING",
+                "collection_state": "REVIEW_REQUIRED",
+            },
+            trace_rules=list(stage4.trace_rules),
+            inputs=dict(stage4.inputs),
+        )
+        stage5 = Stage5Service().run(review_stage4)
+        stage6 = Stage6Service().run(stage5)
+
+        closure = stage6.inputs["stage6_review_report_trace"]["stage16_b6_closure_profile"]
+        summary = stage6.inputs[Stage6Service.REAL_PUBLIC_STAGE6_READBACK_KEY]
+
+        self.assertIn("review_request", stage5.records)
+        self.assertEqual(closure["closure_state"], "REVIEW_REQUIRED")
+        self.assertEqual(closure["dual_gate_chain_state"], "REVIEW_REQUIRED")
+        self.assertEqual(closure["linked_review_request_id_optional"], stage5.handoff["review_request_id"])
+        self.assertEqual(closure["missing_condition_family_optional"], stage5.handoff["missing_condition_family"])
+        self.assertIn("linked_review_request_id_present", closure["closure_reasons"])
+        self.assertEqual(summary["stage5_rule_gate_status"], "REVIEW")
+        self.assertEqual(summary["stage5_evidence_gate_status"], "PASS")
 
     def test_stage6_stage16_report_profile_partials_when_mainline_profile_missing(self) -> None:
         stage5 = Stage5Service().run(run_internal_chain(load_fixture("internal_chain_happy.json"))["stage4"])

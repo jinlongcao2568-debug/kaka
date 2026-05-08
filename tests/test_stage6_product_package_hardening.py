@@ -269,6 +269,16 @@ class TestStage6ProductPackageHardening(unittest.TestCase):
         self.assertFalse(summary["external_release_enabled"])
         self.assertFalse(summary["stage7_stage8_stage9_execution_triggered"])
         self.assertFalse(summary["legal_conclusion_generated"])
+        closure = stage6.inputs["stage6_review_report_trace"]["stage16_b6_closure_profile"]
+        self.assertEqual(closure["closure_state"], "INTERNAL_READY")
+        self.assertEqual(closure["public_evidence_readback_state"], "INTERNAL_READY")
+        self.assertEqual(closure["dual_gate_chain_state"], "INTERNAL_READY")
+        self.assertEqual(closure["stage6_report_state"], "INTERNAL_READY")
+        self.assertEqual(closure["review_queue_state"], "INTERNAL_READY")
+        self.assertEqual(closure["closure_reasons"], [])
+        self.assertFalse(closure["customer_visible"])
+        self.assertFalse(closure["legal_conclusion_generated"])
+        self.assertFalse(closure["external_release_enabled"])
         self.assertNotIn("sales_lead", stage6.records)
         self.assertNotIn("customer_material", stage6.inputs)
 
