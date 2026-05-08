@@ -463,6 +463,51 @@ class TestStage1LegalSystemClassifier(unittest.TestCase):
         self.assertTrue(price_profile["no_low_price_invalidity_conclusion"])
         self.assertTrue(price_profile["no_payment_breach_conclusion"])
 
+    def test_b9_bid_document_internal_qa_profile_stays_internal_only(self) -> None:
+        payload = self._base_payload()
+        payload.update(
+            {
+                "task_id": "TASK-B9-BID-QA-001",
+                "project_id": "PROJ-B9-BID-QA-001",
+                "project_name": "医院设备采购投标文件内审",
+                "source_url": "https://example.test/notice/b9-bid-qa",
+                "source_title": "中国政府采购网公开招标公告",
+                "source_text": "政府采购货物服务公开招标公告。",
+                "internal_bid_document_text": (
+                    "技术暗标首页保留某某科技有限公司 LOGO 和页眉水印，联系人电话仍在页脚。"
+                    "正偏离写完全优于招标要求，但没有检测报告、产品参数或证明材料。"
+                    "授权委托书写全权代理，使用抠图签名和人名章，未列明授权范围。"
+                    "中小企业声明函未写行业分类、从业人员、营业收入和资产总额。"
+                    "本国产品声明函同时出现进口产品描述。报价税率和征收率由做标人员填写，"
+                    "审计报告二维码无法查询验证。同一电脑、同一IP、CA锁混用，清单软件同源。"
+                ),
+                "document_completeness_state": "COMPLETE_WITH_ATTACHMENTS",
+            }
+        )
+
+        result = run_internal_chain_until_stage6(payload)
+        profile = result["stage3"].inputs["bid_document_internal_qa_profile"]
+        trace = result["stage6"].inputs["stage6_review_report_trace"]["stage16_file_analysis_trace"]
+
+        self.assertEqual(profile["profile_state"], "PROFILED_REVIEW_READY")
+        self.assertTrue(profile["internal_bid_document_present"])
+        self.assertGreaterEqual(len(profile["dark_bid_risk_hits"]), 3)
+        self.assertEqual(profile["positive_deviation_quality_state"], "WEAK_OR_UNPROVEN_REVIEW")
+        self.assertGreaterEqual(len(profile["authorization_signature_risk_hits"]), 2)
+        self.assertGreaterEqual(len(profile["declaration_form_risk_hits"]), 2)
+        self.assertGreaterEqual(len(profile["financial_tax_audit_risk_hits"]), 2)
+        self.assertGreaterEqual(len(profile["electronic_bid_environment_risk_hits"]), 2)
+        self.assertFalse(profile["customer_visible"])
+        self.assertTrue(profile["internal_qa_only"])
+        self.assertTrue(profile["no_rejection_conclusion"])
+        self.assertTrue(profile["no_illegality_or_reserved_winner_conclusion"])
+        self.assertEqual(
+            trace["bid_document_internal_qa"]["bid_document_internal_qa_profile"]["profile_state"],
+            "PROFILED_REVIEW_READY",
+        )
+        self.assertFalse(trace["bid_document_internal_qa"]["customer_visible"])
+        self.assertTrue(trace["bid_document_internal_qa"]["internal_qa_only"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -306,6 +306,7 @@ def _stage16_file_analysis_report_profile(inputs: Mapping[str, Any]) -> dict[str
         inputs.get("price_performance_risk_profile")
         or mainline_risk_profile.get("price_performance_risk_profile")
     )
+    bid_document_internal_qa_profile = _safe_dict(inputs.get("bid_document_internal_qa_profile"))
     abnormal_low_price_trigger = ensure_list(
         inputs.get("abnormal_low_price_trigger")
         if inputs.get("abnormal_low_price_trigger") is not None
@@ -320,6 +321,39 @@ def _stage16_file_analysis_report_profile(inputs: Mapping[str, Any]) -> dict[str
         inputs.get("payment_risk_level")
         or price_performance_risk_profile.get("payment_risk_level")
         or "UNKNOWN"
+    )
+    dark_bid_risk_hits = ensure_list(
+        inputs.get("dark_bid_risk_hits")
+        if inputs.get("dark_bid_risk_hits") is not None
+        else bid_document_internal_qa_profile.get("dark_bid_risk_hits")
+    )
+    authorization_signature_risk_hits = ensure_list(
+        inputs.get("authorization_signature_risk_hits")
+        if inputs.get("authorization_signature_risk_hits") is not None
+        else bid_document_internal_qa_profile.get("authorization_signature_risk_hits")
+    )
+    declaration_form_risk_hits = ensure_list(
+        inputs.get("declaration_form_risk_hits")
+        if inputs.get("declaration_form_risk_hits") is not None
+        else bid_document_internal_qa_profile.get("declaration_form_risk_hits")
+    )
+    financial_tax_audit_risk_hits = ensure_list(
+        inputs.get("financial_tax_audit_risk_hits")
+        if inputs.get("financial_tax_audit_risk_hits") is not None
+        else bid_document_internal_qa_profile.get("financial_tax_audit_risk_hits")
+    )
+    electronic_bid_environment_risk_hits = ensure_list(
+        inputs.get("electronic_bid_environment_risk_hits")
+        if inputs.get("electronic_bid_environment_risk_hits") is not None
+        else bid_document_internal_qa_profile.get("electronic_bid_environment_risk_hits")
+    )
+    positive_deviation_quality_state = str(
+        inputs.get("positive_deviation_quality_state")
+        or bid_document_internal_qa_profile.get("positive_deviation_quality_state")
+        or "NOT_PRESENT"
+    )
+    bid_document_internal_qa_state = str(
+        bid_document_internal_qa_profile.get("profile_state") or "MISSING"
     )
     mainline_risk_state = str(mainline_risk_profile.get("profile_state") or "MISSING")
 
@@ -336,6 +370,17 @@ def _stage16_file_analysis_report_profile(inputs: Mapping[str, Any]) -> dict[str
         bool(abnormal_low_price_trigger)
         or bool(unbalanced_bid_risk_hits)
         or payment_risk_level in {"HIGH_REVIEW", "MEDIUM_REVIEW"}
+    )
+    bid_document_internal_qa_weak_clue = (
+        bid_document_internal_qa_state == "PROFILED_REVIEW_READY"
+        and (
+            bool(dark_bid_risk_hits)
+            or bool(authorization_signature_risk_hits)
+            or bool(declaration_form_risk_hits)
+            or bool(financial_tax_audit_risk_hits)
+            or bool(electronic_bid_environment_risk_hits)
+            or positive_deviation_quality_state == "WEAK_OR_UNPROVEN_REVIEW"
+        )
     )
 
     review_reasons: list[str] = []
@@ -382,6 +427,24 @@ def _stage16_file_analysis_report_profile(inputs: Mapping[str, Any]) -> dict[str
     if payment_risk_level in {"HIGH_REVIEW", "MEDIUM_REVIEW"}:
         review_reasons.append(f"payment_risk_level={payment_risk_level}")
         recommended_review_lanes.append("PRICE_PERFORMANCE_REVIEW")
+    if bid_document_internal_qa_weak_clue:
+        review_reasons.append(f"bid_document_internal_qa_state={bid_document_internal_qa_state}")
+        recommended_review_lanes.append("BID_DOCUMENT_INTERNAL_QA_REVIEW")
+    if dark_bid_risk_hits:
+        review_reasons.append("dark_bid_anonymity_markers_detected")
+        recommended_review_lanes.append("BID_DOCUMENT_INTERNAL_QA_REVIEW")
+    if authorization_signature_risk_hits:
+        review_reasons.append("authorization_signature_markers_require_review")
+        recommended_review_lanes.append("BID_DOCUMENT_INTERNAL_QA_REVIEW")
+    if declaration_form_risk_hits:
+        review_reasons.append("declaration_form_markers_require_review")
+        recommended_review_lanes.append("BID_DOCUMENT_INTERNAL_QA_REVIEW")
+    if financial_tax_audit_risk_hits:
+        review_reasons.append("financial_tax_audit_markers_require_review")
+        recommended_review_lanes.append("BID_DOCUMENT_INTERNAL_QA_REVIEW")
+    if electronic_bid_environment_risk_hits:
+        review_reasons.append("electronic_bid_environment_markers_require_review")
+        recommended_review_lanes.append("BID_DOCUMENT_INTERNAL_QA_REVIEW")
 
     if linked_review_request_id:
         review_request_state = "LINKED_REVIEW_REQUEST"
@@ -398,7 +461,11 @@ def _stage16_file_analysis_report_profile(inputs: Mapping[str, Any]) -> dict[str
         report_profile_state = "REVIEW_REQUIRED"
     elif not mainline_risk_profile or mainline_risk_state != "PROFILED_REVIEW_READY" or not gates_known:
         report_profile_state = "PARTIAL_REVIEW_REQUIRED"
-    elif gates_passed and (mainline_weak_clue or price_performance_weak_clue):
+    elif gates_passed and (
+        mainline_weak_clue
+        or price_performance_weak_clue
+        or bid_document_internal_qa_weak_clue
+    ):
         report_profile_state = "INTERNAL_REVIEW_RECOMMENDED"
     elif gates_passed:
         report_profile_state = "INTERNAL_READY"
@@ -421,6 +488,14 @@ def _stage16_file_analysis_report_profile(inputs: Mapping[str, Any]) -> dict[str
         "payment_risk_level": payment_risk_level,
         "abnormal_low_price_trigger_count": len(abnormal_low_price_trigger),
         "unbalanced_bid_risk_count": len(unbalanced_bid_risk_hits),
+        "bid_document_internal_qa_profile": bid_document_internal_qa_profile,
+        "bid_document_internal_qa_state": bid_document_internal_qa_state,
+        "dark_bid_risk_count": len(dark_bid_risk_hits),
+        "authorization_signature_risk_count": len(authorization_signature_risk_hits),
+        "declaration_form_risk_count": len(declaration_form_risk_hits),
+        "financial_tax_audit_risk_count": len(financial_tax_audit_risk_hits),
+        "electronic_bid_environment_risk_count": len(electronic_bid_environment_risk_hits),
+        "positive_deviation_quality_state": positive_deviation_quality_state,
         "recommended_review_lanes": _dedupe_strings(recommended_review_lanes),
         "review_reasons": _dedupe_strings(review_reasons),
         "customer_visible": False,
@@ -514,6 +589,29 @@ def _stage16_file_analysis_trace(inputs: Mapping[str, Any]) -> dict[str, Any]:
             "low_price_review_record": inputs.get("low_price_review_record"),
             "self_score_forecast": inputs.get("self_score_forecast"),
             "customer_visible": False,
+            "no_illegality_or_reserved_winner_conclusion": True,
+        },
+        "bid_document_internal_qa": {
+            "bid_document_internal_qa_profile": _safe_dict(
+                inputs.get("bid_document_internal_qa_profile")
+            ),
+            "dark_bid_risk_hits": ensure_list(inputs.get("dark_bid_risk_hits")),
+            "positive_deviation_quality_state": inputs.get("positive_deviation_quality_state"),
+            "authorization_signature_risk_hits": ensure_list(
+                inputs.get("authorization_signature_risk_hits")
+            ),
+            "declaration_form_risk_hits": ensure_list(inputs.get("declaration_form_risk_hits")),
+            "financial_tax_audit_risk_hits": ensure_list(
+                inputs.get("financial_tax_audit_risk_hits")
+            ),
+            "electronic_bid_environment_risk_hits": ensure_list(
+                inputs.get("electronic_bid_environment_risk_hits")
+            ),
+            "ai_review_readability": inputs.get("ai_review_readability"),
+            "structured_response_score": inputs.get("structured_response_score"),
+            "customer_visible": False,
+            "internal_qa_only": True,
+            "no_rejection_conclusion": True,
             "no_illegality_or_reserved_winner_conclusion": True,
         },
         "stage16_file_analysis_report_profile": _stage16_file_analysis_report_profile(inputs),

@@ -1,6 +1,6 @@
 version: 1
 contract_id: STAGE16_FILE_ANALYSIS_TASK_CONTRACT
-status: P2_STAGE16_B8_PRICE_RISK_FIRST_CUT_IMPLEMENTED
+status: P3_STAGE16_B9_BID_DOCUMENT_QA_FIRST_CUT_IMPLEMENTED
 updated_at: "2026-05-08"
 role: anti_drift_execution_contract
 source_doc: "docs/专题_投前预测评审风控规则救济与履约结算经验库草案.md"
@@ -44,6 +44,7 @@ program:
     - B0_EXPERIENCE_LIBRARY_MAPPING_BASELINE
     - B7_REVIEW_CORPUS_AND_GOLDEN_SAMPLES
     - B8_PRICE_PERFORMANCE_LOW_BID_RISK
+    - B9_BID_DOCUMENT_INTERNAL_QA
     - B6_PUBLIC_VERIFICATION_DUAL_GATES_REPORT
     - B5_MAINLINE_RISK_AND_BID_DECISION
     - B3_AI_INTELLIGENCE_PROJECT_ARCHIVE
@@ -51,7 +52,6 @@ program:
     - B1_LEGAL_SYSTEM_CLASSIFIER
     - B2_PRE_NOTICE_OPPORTUNITY_POLICY_RULES
   deferred_batches:
-    - B9_BID_DOCUMENT_INTERNAL_QA
     - B10_REMEDY_PERFORMANCE_SETTLEMENT
 
 anti_drift_rules:
@@ -271,8 +271,27 @@ runtime_mapping_baseline:
       remaining_gap: "仅做公开文本内部复核线索；正式规则化、成本材料和客户可见报告后续推进。"
       minimum_validation_commands:
         - "python -m unittest tests.test_stage1_legal_system_classifier tests.test_stage56_evaluators -v"
+    - capability_id: B9_BID_DOCUMENT_INTERNAL_QA
+      stage_scope: [Stage3, Stage6, Enhancement]
+      runtime_entrypoints:
+        - "src/stage3_parsing/bid_document_qa.py"
+        - "src/stage3_parsing/service.py"
+        - "src/stage6_fact_review/fact_aggregator.py"
+      data_carriers:
+        - bid_document_internal_qa_profile
+        - dark_bid_risk_hits
+        - positive_deviation_quality_state
+        - authorization_signature_risk_hits
+        - declaration_form_risk_hits
+        - financial_tax_audit_risk_hits
+        - electronic_bid_environment_risk_hits
+        - ai_review_readability
+        - structured_response_score
+      implementation_state: FIRST_CUT_IMPLEMENTED
+      remaining_gap: "只消费内部投标文件文本形成内审复核线索；不进入公开证据主链、不生成客户可见废标或违法结论。"
+      minimum_validation_commands:
+        - "python -m unittest tests.test_stage1_legal_system_classifier tests.test_stage56_evaluators -v"
   deferred_boundaries:
-    - B9_BID_DOCUMENT_INTERNAL_QA
     - B10_REMEDY_PERFORMANCE_SETTLEMENT
   global_minimum_validation_commands:
     - "python -c \"import yaml; yaml.safe_load(open('control/stage16_file_analysis_task_contract.yaml', encoding='utf-8'))\""
@@ -443,9 +462,9 @@ batches:
       - low_price_review_record
 
   - batch_id: B9_BID_DOCUMENT_INTERNAL_QA
-    priority: P3_DEFERRED
-    stage_scope: [Enhancement]
-    status: DEFERRED
+    priority: P3
+    stage_scope: [Stage3, Stage6, Enhancement]
+    status: FIRST_CUT_IMPLEMENTED
     objective: "做投标人内部标书 QA，不作为当前公开证据主链。"
     candidate_outputs:
       - dark_bid_risk_hits
@@ -453,7 +472,9 @@ batches:
       - authorization_signature_risk_hits
       - declaration_form_risk_hits
       - financial_tax_audit_risk_hits
+      - electronic_bid_environment_risk_hits
       - ai_review_readability
+      - structured_response_score
 
   - batch_id: B10_REMEDY_PERFORMANCE_SETTLEMENT
     priority: P3_DEFERRED

@@ -335,6 +335,46 @@ class TestStage56Evaluators(unittest.TestCase):
             trace["mainline_risk"]["price_performance_risk_profile"]["no_low_price_invalidity_conclusion"]
         )
 
+    def test_stage6_stage16_report_profile_summarizes_bid_document_internal_qa_lane(self) -> None:
+        payload = load_fixture("internal_chain_happy.json")
+        payload.update(
+            {
+                "task_id": "TASK-B9-REPORT-PROFILE-001",
+                "project_id": "PROJ-B9-REPORT-PROFILE-001",
+                "source_title": "公共资源交易中心工程建设招标公告",
+                "source_text": "依法必须招标工程建设项目，评标办法采用综合评分法。",
+                "internal_bid_document_text": (
+                    "暗标文件出现投标人名称、有限公司、LOGO、页眉页脚和联系人。"
+                    "正偏离只有完全响应，没有量化指标和证明材料。"
+                    "授权委托书采用图片签名、人名章，全权代理。"
+                    "中小企业声明函缺行业分类和制造商信息。"
+                    "税率、审计报告、二维码查询验证待核。"
+                    "同一电脑、同一IP、CA锁混用，技术方案相似。"
+                ),
+                "document_completeness_state": "COMPLETE_WITH_ATTACHMENTS",
+            }
+        )
+
+        result = run_internal_chain_until_stage6(payload)
+        trace = result["stage6"].inputs["stage6_review_report_trace"]["stage16_file_analysis_trace"]
+        report_profile = trace["stage16_file_analysis_report_profile"]
+        qa_trace = trace["bid_document_internal_qa"]
+
+        self.assertEqual(report_profile["rule_gate_status"], "PASS")
+        self.assertEqual(report_profile["evidence_gate_status"], "PASS")
+        self.assertEqual(report_profile["report_profile_state"], "INTERNAL_REVIEW_RECOMMENDED")
+        self.assertIn("BID_DOCUMENT_INTERNAL_QA_REVIEW", report_profile["recommended_review_lanes"])
+        self.assertEqual(report_profile["bid_document_internal_qa_state"], "PROFILED_REVIEW_READY")
+        self.assertGreaterEqual(report_profile["dark_bid_risk_count"], 2)
+        self.assertGreaterEqual(report_profile["authorization_signature_risk_count"], 1)
+        self.assertGreaterEqual(report_profile["declaration_form_risk_count"], 1)
+        self.assertGreaterEqual(report_profile["financial_tax_audit_risk_count"], 1)
+        self.assertGreaterEqual(report_profile["electronic_bid_environment_risk_count"], 1)
+        self.assertFalse(qa_trace["customer_visible"])
+        self.assertTrue(qa_trace["internal_qa_only"])
+        self.assertTrue(qa_trace["no_rejection_conclusion"])
+        self.assertTrue(qa_trace["no_illegality_or_reserved_winner_conclusion"])
+
     def test_stage6_b6_closure_profile_links_review_request_without_recomputing_gates(self) -> None:
         stage4 = run_internal_chain(load_fixture("internal_chain_happy.json"))["stage4"]
         review_stage4 = StageBundle(
