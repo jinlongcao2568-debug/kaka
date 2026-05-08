@@ -9,6 +9,7 @@ from typing import Any, Mapping
 
 from shared.contracts_runtime import ContractStore, ContractRecord, StageBundle
 from shared.utils import apply_rule, build_id, ensure_enum, ensure_list, get_flag, resolve_bundle
+from stage3_parsing.mainline_risk import build_mainline_risk_profile
 from stage3_parsing.real_parser import Stage3RealParser
 from storage.repositories.object_storage_repo import ObjectStorageRepository
 
@@ -508,6 +509,19 @@ class Stage3Service:
             inputs_out["current_action_deadline_at_optional"] = current_action_deadline_at_optional
         if unresolved_reason_optional:
             inputs_out["unresolved_reason_optional"] = unresolved_reason_optional
+        mainline_risk_profile = build_mainline_risk_profile(inputs_out)
+        inputs_out["mainline_risk_profile"] = mainline_risk_profile
+        for field_name in (
+            "bid_selection_score",
+            "bid_selection_state",
+            "blind_bid_pipeline_stage",
+            "evaluation_method_profile",
+            "tailored_bid_risk_level",
+            "qualification_clause_hits",
+            "fatal_rejection_risk_hits",
+            "self_score_forecast",
+        ):
+            inputs_out[field_name] = mainline_risk_profile.get(field_name)
 
         return StageBundle(
             stage=3,

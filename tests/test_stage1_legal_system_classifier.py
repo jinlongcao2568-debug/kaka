@@ -279,6 +279,104 @@ class TestStage1LegalSystemClassifier(unittest.TestCase):
         self.assertFalse(trace["output_boundary"]["customer_visible"])
         self.assertTrue(trace["output_boundary"]["no_illegality_or_reserved_winner_conclusion"])
 
+    def test_mainline_risk_profile_detects_internal_b5_candidates_without_legal_conclusion(self) -> None:
+        payload = self._base_payload()
+        payload.update(
+            {
+                "task_id": "TASK-B5-RISK-001",
+                "project_id": "PROJ-B5-RISK-001",
+                "project_name": "市政道路工程施工公开招标项目",
+                "source_url": "https://example.test/notice/b5-risk",
+                "source_title": "公共资源交易中心工程建设招标公告",
+                "source_text": (
+                    "依法必须招标工程建设项目。评标办法采用综合评分法，"
+                    "价格分30分，技术分40分，商务分30分，主观分40分，客观分60分。"
+                    "投标人须提供制造商授权、ISO9001、CMA检验检测机构资质认定、"
+                    "本市服务网点证明和现场踏勘回执。投标文件须法定代表人签字并加盖公章，"
+                    "按响应文件格式填写，提交投标保证金，投标有效期90日，"
+                    "★实质性响应条款不得偏离，竞争性磋商最后报价不得漏报。"
+                ),
+                "purchaser_name": "某市建设中心",
+                "agency_name": "某招标代理有限公司",
+                "candidate_company": "历史施工企业有限公司",
+                "publish_date": "2026-05-01",
+                "document_completeness_state": "COMPLETE_WITH_ATTACHMENTS",
+                "project_manager_name": "张建明",
+            }
+        )
+
+        result = run_internal_chain_until_stage6(payload)
+        profile = result["stage3"].inputs["mainline_risk_profile"]
+        trace = result["stage6"].inputs["stage6_review_report_trace"]["stage16_file_analysis_trace"]
+
+        self.assertEqual(profile["self_score_forecast"], "NOT_RUN_MISSING_INTERNAL_MATERIALS")
+        self.assertEqual(profile["tailored_bid_risk_level"], "HIGH_CLUE_REVIEW")
+        self.assertEqual(
+            profile["evaluation_method_profile"]["evaluation_method_family"],
+            "comprehensive",
+        )
+        self.assertEqual(profile["evaluation_method_profile"]["score_split"]["price_score"], 30.0)
+        self.assertEqual(profile["evaluation_method_profile"]["score_split"]["technical_score"], 40.0)
+        self.assertEqual(profile["evaluation_method_profile"]["score_split"]["commercial_score"], 30.0)
+        signal_types = {hit["signal_type"] for hit in profile["qualification_clause_hits"]}
+        self.assertTrue(
+            {
+                "manufacturer_authorization",
+                "iso_certificate",
+                "cma_certificate",
+                "mandatory_site_visit",
+                "local_service",
+            }.issubset(signal_types)
+        )
+        fatal_types = {hit["risk_type"] for hit in profile["fatal_rejection_risk_hits"]}
+        self.assertTrue(
+            {
+                "signature_seal_format",
+                "bid_bond",
+                "bid_validity",
+                "qualification_responsiveness",
+                "second_round_quotation",
+                "mandatory_format",
+            }.issubset(fatal_types)
+        )
+        self.assertFalse(profile["customer_visible"])
+        self.assertTrue(profile["no_illegality_or_reserved_winner_conclusion"])
+        self.assertEqual(
+            trace["mainline_risk"]["mainline_risk_profile"]["tailored_bid_risk_level"],
+            "HIGH_CLUE_REVIEW",
+        )
+        self.assertEqual(trace["mainline_risk"]["self_score_forecast"], "NOT_RUN_MISSING_INTERNAL_MATERIALS")
+        self.assertFalse(trace["mainline_risk"]["customer_visible"])
+        self.assertTrue(trace["mainline_risk"]["no_illegality_or_reserved_winner_conclusion"])
+
+    def test_mainline_risk_profile_routes_unknown_scoring_to_review(self) -> None:
+        payload = self._base_payload()
+        payload.update(
+            {
+                "task_id": "TASK-B5-RISK-REVIEW-001",
+                "project_id": "PROJ-B5-RISK-REVIEW-001",
+                "project_name": "医院信息化采购公告",
+                "source_url": "https://example.test/notice/b5-review",
+                "source_title": "中国政府采购网采购公告",
+                "source_text": "采购人发布公告，评标办法详见采购文件附件。",
+                "document_completeness_state": "DETAIL_ONLY_NO_ATTACHMENTS",
+            }
+        )
+
+        result = run_internal_chain_until_stage6(payload)
+        profile = result["stage3"].inputs["mainline_risk_profile"]
+
+        self.assertEqual(
+            profile["evaluation_method_profile"]["evaluation_method_family"],
+            "unknown",
+        )
+        self.assertEqual(profile["evaluation_method_profile"]["score_parse_state"], "REVIEW_REQUIRED")
+        self.assertIn(
+            "score_split_unresolved",
+            profile["evaluation_method_profile"]["review_reasons"],
+        )
+        self.assertEqual(profile["bid_selection_state"], "REVIEW_BEFORE_BID")
+
 
 if __name__ == "__main__":
     unittest.main()

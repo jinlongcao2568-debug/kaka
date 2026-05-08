@@ -137,6 +137,19 @@ def _stage16_file_analysis_trace(inputs: Mapping[str, Any]) -> dict[str, Any]:
                 "field_lineage_collection_ref_optional"
             ),
         },
+        "mainline_risk": {
+            "mainline_risk_profile": _safe_dict(inputs.get("mainline_risk_profile")),
+            "bid_selection_score": inputs.get("bid_selection_score"),
+            "bid_selection_state": inputs.get("bid_selection_state"),
+            "blind_bid_pipeline_stage": inputs.get("blind_bid_pipeline_stage"),
+            "evaluation_method_profile": _safe_dict(inputs.get("evaluation_method_profile")),
+            "tailored_bid_risk_level": inputs.get("tailored_bid_risk_level"),
+            "qualification_clause_hits": ensure_list(inputs.get("qualification_clause_hits")),
+            "fatal_rejection_risk_hits": ensure_list(inputs.get("fatal_rejection_risk_hits")),
+            "self_score_forecast": inputs.get("self_score_forecast"),
+            "customer_visible": False,
+            "no_illegality_or_reserved_winner_conclusion": True,
+        },
         "output_boundary": {
             "customer_visible": False,
             "no_illegality_or_reserved_winner_conclusion": True,
