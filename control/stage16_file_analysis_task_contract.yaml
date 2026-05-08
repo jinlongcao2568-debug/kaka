@@ -1,6 +1,6 @@
 version: 1
 contract_id: STAGE16_FILE_ANALYSIS_TASK_CONTRACT
-status: P1_STAGE16_B0_MAPPING_AND_B7_CORPUS_PREP_FIRST_CUT
+status: P2_STAGE16_B8_PRICE_RISK_FIRST_CUT_IMPLEMENTED
 updated_at: "2026-05-08"
 role: anti_drift_execution_contract
 source_doc: "docs/专题_投前预测评审风控规则救济与履约结算经验库草案.md"
@@ -43,6 +43,7 @@ program:
   current_priority_batches:
     - B0_EXPERIENCE_LIBRARY_MAPPING_BASELINE
     - B7_REVIEW_CORPUS_AND_GOLDEN_SAMPLES
+    - B8_PRICE_PERFORMANCE_LOW_BID_RISK
     - B6_PUBLIC_VERIFICATION_DUAL_GATES_REPORT
     - B5_MAINLINE_RISK_AND_BID_DECISION
     - B3_AI_INTELLIGENCE_PROJECT_ARCHIVE
@@ -50,7 +51,6 @@ program:
     - B1_LEGAL_SYSTEM_CLASSIFIER
     - B2_PRE_NOTICE_OPPORTUNITY_POLICY_RULES
   deferred_batches:
-    - B8_PRICE_PERFORMANCE_LOW_BID_RISK
     - B9_BID_DOCUMENT_INTERNAL_QA
     - B10_REMEDY_PERFORMANCE_SETTLEMENT
 
@@ -254,8 +254,24 @@ runtime_mapping_baseline:
       remaining_gap: "本批只补离线探针和覆盖审计；真实项目快照采集后续推进。"
       minimum_validation_commands:
         - "python -m unittest tests.test_evaluation_corpus tests.test_evaluation_coverage_audit tests.test_evaluation_stage3_profiles -v"
+    - capability_id: B8_PRICE_PERFORMANCE_LOW_BID_RISK
+      stage_scope: [Stage3, Stage5, Stage6, Stage9]
+      runtime_entrypoints:
+        - "src/stage3_parsing/mainline_risk.py"
+        - "src/stage6_fact_review/fact_aggregator.py"
+      data_carriers:
+        - price_performance_risk_profile
+        - payment_risk_level
+        - abnormally_low_bid_explanation_required
+        - abnormal_low_price_trigger
+        - unbalanced_bid_risk_hits
+        - cost_breakdown_ready
+        - low_price_review_record
+      implementation_state: FIRST_CUT_IMPLEMENTED
+      remaining_gap: "仅做公开文本内部复核线索；正式规则化、成本材料和客户可见报告后续推进。"
+      minimum_validation_commands:
+        - "python -m unittest tests.test_stage1_legal_system_classifier tests.test_stage56_evaluators -v"
   deferred_boundaries:
-    - B8_PRICE_PERFORMANCE_LOW_BID_RISK
     - B9_BID_DOCUMENT_INTERNAL_QA
     - B10_REMEDY_PERFORMANCE_SETTLEMENT
   global_minimum_validation_commands:
@@ -415,9 +431,9 @@ batches:
       - regional_rule_samples
 
   - batch_id: B8_PRICE_PERFORMANCE_LOW_BID_RISK
-    priority: P2_DEFERRED
+    priority: P2
     stage_scope: [Stage3, Stage5, Stage6, Stage9]
-    status: DEFERRED
+    status: FIRST_CUT_IMPLEMENTED
     objective: "识别异常低价、不平衡报价、付款、履约和成本证据风险。"
     candidate_outputs:
       - payment_risk_level

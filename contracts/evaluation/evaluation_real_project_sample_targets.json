@@ -196,38 +196,86 @@
     {
       "target_id": "REAL-SH-TENDER-001",
       "jurisdiction": "CN-SH",
-      "platform_name": "上海市建设工程交易服务中心",
-      "entry_seed_id": "ENTRY-SHANGHAI-CPE",
-      "required_fetch_profile_id_optional": "SHANGHAI-CPE-CONSTRUCTION-LIST",
+      "platform_name": "全国公共资源交易平台（上海筛选）",
+      "entry_seed_id": "ENTRY-GGZY-DEAL-LIST",
+      "required_fetch_profile_id_optional": "GGZY-DEAL-LIST",
       "source_family": "local_public_resource_trading_center",
       "project_type": "construction",
       "document_kind": "tender_file",
       "target_count": 3,
-      "selection_filters": ["工程建设", "招标公告", "含招标文件或应用文本", "评标办法字段"]
+      "selection_filters": ["上海", "工程建设", "招标公告", "含招标文件或应用文本", "评标办法字段"]
     },
     {
       "target_id": "REAL-SH-CANDIDATE-001",
       "jurisdiction": "CN-SH",
-      "platform_name": "上海市建设工程交易服务中心",
-      "entry_seed_id": "ENTRY-SHANGHAI-CPE",
-      "required_fetch_profile_id_optional": "SHANGHAI-CPE-CONSTRUCTION-LIST",
+      "platform_name": "全国公共资源交易平台（上海筛选）",
+      "entry_seed_id": "ENTRY-GGZY-DEAL-LIST",
+      "required_fetch_profile_id_optional": "GGZY-DEAL-LIST",
       "source_family": "local_public_resource_trading_center",
       "project_type": "construction",
       "document_kind": "candidate_notice",
       "target_count": 4,
-      "selection_filters": ["工程建设", "中标候选人公示", "排序候选", "项目负责人字段"]
+      "selection_filters": ["上海", "工程建设", "中标候选人公示", "排序候选", "项目负责人字段"]
     },
     {
       "target_id": "REAL-SH-AWARD-001",
       "jurisdiction": "CN-SH",
-      "platform_name": "上海市建设工程交易服务中心",
-      "entry_seed_id": "ENTRY-SHANGHAI-CPE",
-      "required_fetch_profile_id_optional": "SHANGHAI-CPE-CONSTRUCTION-LIST",
+      "platform_name": "全国公共资源交易平台（上海筛选）",
+      "entry_seed_id": "ENTRY-GGZY-DEAL-LIST",
+      "required_fetch_profile_id_optional": "GGZY-DEAL-LIST",
       "source_family": "local_public_resource_trading_center",
       "project_type": "construction",
       "document_kind": "award_result",
       "target_count": 3,
-      "selection_filters": ["工程建设", "中标结果公告", "能回链候选公示"]
+      "selection_filters": ["上海", "工程建设", "中标结果公告", "能回链候选公示"]
+    },
+    {
+      "target_id": "REAL-GP-FAILED-BID-001",
+      "jurisdiction": "CN",
+      "platform_name": "中国政府采购网",
+      "entry_seed_id": "ENTRY-CCGP-CENTRAL-NOTICES",
+      "required_fetch_profile_id_optional": "CCGP-CENTRAL-NOTICES",
+      "source_family": "government_procurement_public_site",
+      "project_type": "government_procurement",
+      "document_kind": "failed_bid_notice",
+      "target_count": 3,
+      "selection_filters": ["废标公告", "终止公告", "无效投标原因", "有效供应商不足"]
+    },
+    {
+      "target_id": "REAL-GP-COMPLAINT-001",
+      "jurisdiction": "CN",
+      "platform_name": "中国政府采购网",
+      "entry_seed_id": "ENTRY-CCGP-CENTRAL-NOTICES",
+      "required_fetch_profile_id_optional": "CCGP-CENTRAL-NOTICES",
+      "source_family": "government_procurement_public_site",
+      "project_type": "government_procurement",
+      "document_kind": "complaint_decision",
+      "target_count": 3,
+      "selection_filters": ["投诉处理决定", "质疑投诉", "资格条件", "评分项"]
+    },
+    {
+      "target_id": "REAL-GGZY-FLOW-RETENDER-001",
+      "jurisdiction": "CN",
+      "platform_name": "全国公共资源交易平台",
+      "entry_seed_id": "ENTRY-GGZY-DEAL-LIST",
+      "required_fetch_profile_id_optional": "GGZY-DEAL-LIST",
+      "source_family": "local_public_resource_trading_center",
+      "project_type": "construction",
+      "document_kind": "flow_or_re_tender_notice",
+      "target_count": 3,
+      "selection_filters": ["流标公告", "重新招标", "终止公告", "有效投标人不足"]
+    },
+    {
+      "target_id": "REAL-OFFICIAL-CASE-FAIRNESS-001",
+      "jurisdiction": "CN",
+      "platform_name": "全国公共资源交易平台",
+      "entry_seed_id": "ENTRY-GGZY-DEAL-LIST",
+      "required_fetch_profile_id_optional": "GGZY-DEAL-LIST",
+      "source_family": "local_public_resource_trading_center",
+      "project_type": "construction",
+      "document_kind": "official_case",
+      "target_count": 2,
+      "selection_filters": ["官方案例", "公平竞争", "限制排斥", "地区规则"]
     }
   ]
 }

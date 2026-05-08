@@ -301,6 +301,40 @@ class TestStage56Evaluators(unittest.TestCase):
         self.assertIn("DUAL_GATE_REVIEW", report_profile["recommended_review_lanes"])
         self.assertIn("linked_review_request_id_present", report_profile["review_reasons"])
 
+    def test_stage6_stage16_report_profile_summarizes_price_performance_review_lane(self) -> None:
+        payload = load_fixture("internal_chain_happy.json")
+        payload.update(
+            {
+                "task_id": "TASK-B8-REPORT-PROFILE-001",
+                "project_id": "PROJ-B8-REPORT-PROFILE-001",
+                "source_title": "中国政府采购网公开招标公告",
+                "source_text": (
+                    "本项目为政府采购货物服务公开招标。报价低于全部通过符合性审查供应商"
+                    "平均报价50%，低于次低报价50%，低于最高限价45%时，评标委员会应要求"
+                    "供应商提交书面说明和证明材料，成本说明时间不少于30分钟。"
+                ),
+                "document_completeness_state": "COMPLETE_WITH_ATTACHMENTS",
+            }
+        )
+
+        result = run_internal_chain_until_stage6(payload)
+        trace = result["stage6"].inputs["stage6_review_report_trace"]["stage16_file_analysis_trace"]
+        report_profile = trace["stage16_file_analysis_report_profile"]
+
+        self.assertEqual(report_profile["rule_gate_status"], "PASS")
+        self.assertEqual(report_profile["evidence_gate_status"], "PASS")
+        self.assertEqual(report_profile["report_profile_state"], "INTERNAL_REVIEW_RECOMMENDED")
+        self.assertIn("PRICE_PERFORMANCE_REVIEW", report_profile["recommended_review_lanes"])
+        self.assertGreaterEqual(report_profile["abnormal_low_price_trigger_count"], 3)
+        self.assertEqual(
+            report_profile["price_performance_risk_profile"]["abnormally_low_bid_explanation_required"],
+            "GOVERNMENT_PROCUREMENT_WRITTEN_EXPLANATION_REVIEW",
+        )
+        self.assertFalse(trace["mainline_risk"]["price_performance_risk_profile"]["customer_visible"])
+        self.assertTrue(
+            trace["mainline_risk"]["price_performance_risk_profile"]["no_low_price_invalidity_conclusion"]
+        )
+
     def test_stage6_b6_closure_profile_links_review_request_without_recomputing_gates(self) -> None:
         stage4 = run_internal_chain(load_fixture("internal_chain_happy.json"))["stage4"]
         review_stage4 = StageBundle(

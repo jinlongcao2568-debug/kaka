@@ -377,6 +377,92 @@ class TestStage1LegalSystemClassifier(unittest.TestCase):
         )
         self.assertEqual(profile["bid_selection_state"], "REVIEW_BEFORE_BID")
 
+    def test_b8_government_procurement_low_price_markers_enter_internal_review_only(self) -> None:
+        payload = self._base_payload()
+        payload.update(
+            {
+                "task_id": "TASK-B8-GP-LOW-PRICE-001",
+                "project_id": "PROJ-B8-GP-LOW-PRICE-001",
+                "project_name": "智慧设备政府采购公开招标项目",
+                "source_url": "https://example.test/notice/b8-gp-low-price",
+                "source_title": "中国政府采购网公开招标公告",
+                "source_text": (
+                    "本项目为政府采购货物服务公开招标。评标委员会认为供应商报价明显过低时，"
+                    "低于全部通过符合性审查供应商平均报价50%、低于次低报价50%、"
+                    "低于最高限价45%，或评委专业判断报价明显过低的，应要求供应商提交书面说明。"
+                    "供应商提交成本说明和证明材料的时间一般不少于30分钟。"
+                ),
+                "document_completeness_state": "COMPLETE_WITH_ATTACHMENTS",
+            }
+        )
+
+        result = run_internal_chain_until_stage6(payload)
+        profile = result["stage3"].inputs["mainline_risk_profile"]
+        price_profile = profile["price_performance_risk_profile"]
+        trace = result["stage6"].inputs["stage6_review_report_trace"]["stage16_file_analysis_trace"]
+        report_profile = trace["stage16_file_analysis_report_profile"]
+
+        self.assertEqual(price_profile["legal_context"], "GOVERNMENT_PROCUREMENT")
+        self.assertEqual(
+            price_profile["abnormally_low_bid_explanation_required"],
+            "GOVERNMENT_PROCUREMENT_WRITTEN_EXPLANATION_REVIEW",
+        )
+        self.assertTrue(
+            {
+                "BELOW_AVERAGE_ACCEPTED_PRICE_50_PERCENT",
+                "BELOW_SECOND_LOWEST_PRICE_50_PERCENT",
+                "BELOW_CEILING_PRICE_45_PERCENT",
+                "EVALUATION_COMMITTEE_PROFESSIONAL_LOW_PRICE_JUDGMENT",
+                "MINIMUM_30_MINUTE_COST_EXPLANATION_WINDOW",
+            }.issubset(set(price_profile["abnormal_low_price_trigger"]))
+        )
+        self.assertEqual(price_profile["cost_breakdown_ready"], "NOT_RUN_MISSING_INTERNAL_COSTS")
+        self.assertEqual(trace["mainline_risk"]["cost_breakdown_ready"], "NOT_RUN_MISSING_INTERNAL_COSTS")
+        self.assertIn("PRICE_PERFORMANCE_REVIEW", report_profile["recommended_review_lanes"])
+        self.assertFalse(price_profile["customer_visible"])
+        self.assertTrue(price_profile["no_low_price_invalidity_conclusion"])
+        self.assertTrue(price_profile["no_legal_conclusion"])
+
+    def test_b8_engineering_low_price_and_unbalanced_bid_do_not_apply_government_procurement_procedure(self) -> None:
+        payload = self._base_payload()
+        payload.update(
+            {
+                "task_id": "TASK-B8-ENG-LOW-PRICE-001",
+                "project_id": "PROJ-B8-ENG-LOW-PRICE-001",
+                "project_name": "市政工程施工招标项目",
+                "source_url": "https://example.test/notice/b8-eng-low-price",
+                "source_title": "公共资源交易中心工程建设招标公告",
+                "source_text": (
+                    "本项目为依法必须招标工程建设施工项目，评标办法采用合理低价法。"
+                    "投标报价不得低于成本，工程量变化、清单偏差和高价清单项、低价清单项"
+                    "可能导致不平衡报价在结算审计中调整或扣减。付款周期较长，审计后支付。"
+                ),
+                "document_completeness_state": "COMPLETE_WITH_ATTACHMENTS",
+            }
+        )
+
+        result = run_internal_chain_until_stage6(payload)
+        price_profile = result["stage3"].inputs["mainline_risk_profile"]["price_performance_risk_profile"]
+        trace = result["stage6"].inputs["stage6_review_report_trace"]["stage16_file_analysis_trace"]
+
+        self.assertEqual(price_profile["legal_context"], "ENGINEERING_TENDER")
+        self.assertEqual(
+            price_profile["abnormally_low_bid_explanation_required"],
+            "ENGINEERING_LOW_PRICE_REVIEW_ONLY",
+        )
+        self.assertIn("ENGINEERING_REASONABLE_LOW_PRICE_METHOD", price_profile["abnormal_low_price_trigger"])
+        self.assertIn("ENGINEERING_BELOW_COST_REVIEW", price_profile["abnormal_low_price_trigger"])
+        self.assertEqual(price_profile["government_procurement_low_price_triggers"], [])
+        self.assertGreaterEqual(len(price_profile["unbalanced_bid_risk_hits"]), 2)
+        self.assertEqual(price_profile["payment_risk_level"], "HIGH_REVIEW")
+        self.assertIn(
+            "PRICE_PERFORMANCE_REVIEW",
+            trace["stage16_file_analysis_report_profile"]["recommended_review_lanes"],
+        )
+        self.assertFalse(price_profile["customer_visible"])
+        self.assertTrue(price_profile["no_low_price_invalidity_conclusion"])
+        self.assertTrue(price_profile["no_payment_breach_conclusion"])
+
 
 if __name__ == "__main__":
     unittest.main()

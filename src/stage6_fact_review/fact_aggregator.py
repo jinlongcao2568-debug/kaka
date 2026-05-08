@@ -302,6 +302,25 @@ def _stage16_file_analysis_report_profile(inputs: Mapping[str, Any]) -> dict[str
     self_score_forecast = inputs.get("self_score_forecast") or mainline_risk_profile.get(
         "self_score_forecast"
     )
+    price_performance_risk_profile = _safe_dict(
+        inputs.get("price_performance_risk_profile")
+        or mainline_risk_profile.get("price_performance_risk_profile")
+    )
+    abnormal_low_price_trigger = ensure_list(
+        inputs.get("abnormal_low_price_trigger")
+        if inputs.get("abnormal_low_price_trigger") is not None
+        else price_performance_risk_profile.get("abnormal_low_price_trigger")
+    )
+    unbalanced_bid_risk_hits = ensure_list(
+        inputs.get("unbalanced_bid_risk_hits")
+        if inputs.get("unbalanced_bid_risk_hits") is not None
+        else price_performance_risk_profile.get("unbalanced_bid_risk_hits")
+    )
+    payment_risk_level = str(
+        inputs.get("payment_risk_level")
+        or price_performance_risk_profile.get("payment_risk_level")
+        or "UNKNOWN"
+    )
     mainline_risk_state = str(mainline_risk_profile.get("profile_state") or "MISSING")
 
     gate_statuses = {rule_gate_status, evidence_gate_status}
@@ -312,6 +331,11 @@ def _stage16_file_analysis_report_profile(inputs: Mapping[str, Any]) -> dict[str
         tailored_bid_risk_level.startswith("HIGH")
         or tailored_bid_risk_level.startswith("MEDIUM")
         or bool(fatal_rejection_risk_hits)
+    )
+    price_performance_weak_clue = (
+        bool(abnormal_low_price_trigger)
+        or bool(unbalanced_bid_risk_hits)
+        or payment_risk_level in {"HIGH_REVIEW", "MEDIUM_REVIEW"}
     )
 
     review_reasons: list[str] = []
@@ -349,6 +373,15 @@ def _stage16_file_analysis_report_profile(inputs: Mapping[str, Any]) -> dict[str
     if self_score_forecast == "NOT_RUN_MISSING_INTERNAL_MATERIALS":
         review_reasons.append("self_score_requires_internal_material_profile")
         recommended_review_lanes.append("INTERNAL_MATERIALS_REVIEW")
+    if abnormal_low_price_trigger:
+        review_reasons.append("abnormal_low_price_review_markers_detected")
+        recommended_review_lanes.append("PRICE_PERFORMANCE_REVIEW")
+    if unbalanced_bid_risk_hits:
+        review_reasons.append("unbalanced_bid_or_settlement_markers_detected")
+        recommended_review_lanes.append("PRICE_PERFORMANCE_REVIEW")
+    if payment_risk_level in {"HIGH_REVIEW", "MEDIUM_REVIEW"}:
+        review_reasons.append(f"payment_risk_level={payment_risk_level}")
+        recommended_review_lanes.append("PRICE_PERFORMANCE_REVIEW")
 
     if linked_review_request_id:
         review_request_state = "LINKED_REVIEW_REQUEST"
@@ -365,7 +398,7 @@ def _stage16_file_analysis_report_profile(inputs: Mapping[str, Any]) -> dict[str
         report_profile_state = "REVIEW_REQUIRED"
     elif not mainline_risk_profile or mainline_risk_state != "PROFILED_REVIEW_READY" or not gates_known:
         report_profile_state = "PARTIAL_REVIEW_REQUIRED"
-    elif gates_passed and mainline_weak_clue:
+    elif gates_passed and (mainline_weak_clue or price_performance_weak_clue):
         report_profile_state = "INTERNAL_REVIEW_RECOMMENDED"
     elif gates_passed:
         report_profile_state = "INTERNAL_READY"
@@ -384,6 +417,10 @@ def _stage16_file_analysis_report_profile(inputs: Mapping[str, Any]) -> dict[str
         "tailored_bid_risk_level": tailored_bid_risk_level,
         "fatal_rejection_count": len(fatal_rejection_risk_hits),
         "qualification_clause_count": len(qualification_clause_hits),
+        "price_performance_risk_profile": price_performance_risk_profile,
+        "payment_risk_level": payment_risk_level,
+        "abnormal_low_price_trigger_count": len(abnormal_low_price_trigger),
+        "unbalanced_bid_risk_count": len(unbalanced_bid_risk_hits),
         "recommended_review_lanes": _dedupe_strings(recommended_review_lanes),
         "review_reasons": _dedupe_strings(review_reasons),
         "customer_visible": False,
@@ -466,6 +503,15 @@ def _stage16_file_analysis_trace(inputs: Mapping[str, Any]) -> dict[str, Any]:
             "tailored_bid_risk_level": inputs.get("tailored_bid_risk_level"),
             "qualification_clause_hits": ensure_list(inputs.get("qualification_clause_hits")),
             "fatal_rejection_risk_hits": ensure_list(inputs.get("fatal_rejection_risk_hits")),
+            "price_performance_risk_profile": _safe_dict(inputs.get("price_performance_risk_profile")),
+            "payment_risk_level": inputs.get("payment_risk_level"),
+            "abnormally_low_bid_explanation_required": inputs.get(
+                "abnormally_low_bid_explanation_required"
+            ),
+            "abnormal_low_price_trigger": ensure_list(inputs.get("abnormal_low_price_trigger")),
+            "unbalanced_bid_risk_hits": ensure_list(inputs.get("unbalanced_bid_risk_hits")),
+            "cost_breakdown_ready": inputs.get("cost_breakdown_ready"),
+            "low_price_review_record": inputs.get("low_price_review_record"),
             "self_score_forecast": inputs.get("self_score_forecast"),
             "customer_visible": False,
             "no_illegality_or_reserved_winner_conclusion": True,

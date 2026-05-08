@@ -119,6 +119,36 @@ class TestEvaluationRealSamplePlan(unittest.TestCase):
             self.assertIn("evaluation_real_sample_targets_empty", result["blocking_reasons"])
             self.assertIn("evaluation_seed_empty", result["blocking_reasons"])
 
+    def test_default_real_sample_targets_cover_b7_buckets_without_fetch_or_missing_entry(self) -> None:
+        result = build_evaluation_real_sample_plan(
+            targets_json=ROOT / "contracts" / "evaluation" / "evaluation_real_project_sample_targets.json",
+            seed_json=ROOT / "contracts" / "evaluation" / "evaluation_corpus_seed.json",
+            target_backend="json-file",
+        )
+
+        self.assertTrue(result["safe_to_execute"])
+        self.assertEqual(result["summary"]["blocked_sample_goal_count"], 0)
+        self.assertNotIn(
+            BLOCKED_PROFILE_MISSING,
+            result["summary"]["plan_state_counts"],
+        )
+        document_kinds = result["summary"]["document_kind_sample_goal_counts"]
+        for document_kind in (
+            "tender_file",
+            "candidate_notice",
+            "award_result",
+            "failed_bid_notice",
+            "complaint_decision",
+            "flow_or_re_tender_notice",
+            "official_case",
+        ):
+            self.assertIn(document_kind, document_kinds)
+            self.assertGreater(document_kinds[document_kind], 0)
+        self.assertFalse(result["manifest"]["safety"]["download_enabled"])
+        self.assertFalse(result["manifest"]["safety"]["fetch_public_urls_enabled"])
+        self.assertFalse(result["manifest"]["safety"]["stage5_rule_execution_enabled"])
+        self.assertTrue(all(item["no_legal_conclusion"] for item in result["manifest"]["items"]))
+
     def _write_targets(self, path: Path) -> None:
         path.write_text(
             json.dumps(

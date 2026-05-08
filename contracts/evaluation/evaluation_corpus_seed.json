@@ -60,6 +60,32 @@
       "seed_tags": ["real_public_entry", "fetchable"]
     },
     {
+      "seed_id": "ENTRY-GGZY-DEAL-LIST",
+      "source_title": "全国公共资源交易平台交易查询入口",
+      "source_url": "https://www.ggzy.gov.cn/deal/dealList.html",
+      "source_family": "local_public_resource_trading_center",
+      "jurisdiction": "CN",
+      "project_type": "construction",
+      "document_kind": "candidate_notice",
+      "fetch_profile_id_optional": "GGZY-DEAL-LIST",
+      "capture_kind": "entry",
+      "probe_text_optional": "全国公共资源交易平台 交易查询 招标公告 中标候选人公示 中标结果公告 终止公告 流标公告",
+      "seed_tags": ["real_public_entry", "fetchable", "national_entry"]
+    },
+    {
+      "seed_id": "ENTRY-CCGP-CENTRAL-NOTICES",
+      "source_title": "中国政府采购网中央公告入口",
+      "source_url": "https://www.ccgp.gov.cn/cggg/zygg/",
+      "source_family": "government_procurement_public_site",
+      "jurisdiction": "CN",
+      "project_type": "government_procurement",
+      "document_kind": "candidate_notice",
+      "fetch_profile_id_optional": "CCGP-CENTRAL-NOTICES",
+      "capture_kind": "entry",
+      "probe_text_optional": "中国政府采购网 中央公告 公开招标公告 废标公告 终止公告 更正公告 投诉处理",
+      "seed_tags": ["real_public_entry", "fetchable", "government_procurement_entry"]
+    },
+    {
       "seed_id": "ENTRY-JIANGSU-GGZY",
       "source_title": "江苏省公共资源交易网入口",
       "source_url": "http://jsggzy.jszwfw.gov.cn/",

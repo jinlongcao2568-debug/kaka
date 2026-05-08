@@ -519,6 +519,13 @@ class Stage3Service:
             "tailored_bid_risk_level",
             "qualification_clause_hits",
             "fatal_rejection_risk_hits",
+            "price_performance_risk_profile",
+            "payment_risk_level",
+            "abnormally_low_bid_explanation_required",
+            "abnormal_low_price_trigger",
+            "unbalanced_bid_risk_hits",
+            "cost_breakdown_ready",
+            "low_price_review_record",
             "self_score_forecast",
         ):
             inputs_out[field_name] = mainline_risk_profile.get(field_name)
