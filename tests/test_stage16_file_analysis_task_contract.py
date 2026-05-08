@@ -22,7 +22,7 @@ class TestStage16FileAnalysisTaskContract(unittest.TestCase):
 
         self.assertEqual(
             contract["status"],
-            "P5_STAGE16_STABILITY_COVERAGE_AND_REVIEW_RULES_FIRST_CUT_IMPLEMENTED",
+            "P6_STAGE16_REAL_SAMPLE_COVERAGE_AND_FILE_RULE_CALIBRATION_FIRST_CUT",
         )
         batches = {item["batch_id"]: item for item in contract["batches"]}
         self.assertEqual(batches["B0_EXPERIENCE_LIBRARY_MAPPING_BASELINE"]["status"], "FIRST_CUT_IMPLEMENTED")
@@ -36,6 +36,7 @@ class TestStage16FileAnalysisTaskContract(unittest.TestCase):
         self.assertTrue(baseline["stage5_review_rule_codes_added"])
         self.assertTrue(baseline["no_uncontrolled_external_fetch_or_release_enabled"])
         self.assertTrue(baseline["controlled_b7_real_sample_fetch_runner_enabled"])
+        self.assertTrue(baseline["file_ocr_rule_calibration_manifest_enabled"])
 
         entries = {item["capability_id"]: item for item in baseline["entries"]}
         for capability_id in (
@@ -58,8 +59,12 @@ class TestStage16FileAnalysisTaskContract(unittest.TestCase):
 
         self.assertIn("src/storage/evaluation_corpus.py", entries["B7_REVIEW_CORPUS_AND_GOLDEN_SAMPLES"]["runtime_entrypoints"])
         self.assertIn("src/storage/evaluation_real_sample_execution.py", entries["B7_REVIEW_CORPUS_AND_GOLDEN_SAMPLES"]["runtime_entrypoints"])
+        self.assertIn("src/storage/evaluation_rule_calibration.py", entries["B7_REVIEW_CORPUS_AND_GOLDEN_SAMPLES"]["runtime_entrypoints"])
+        self.assertIn("scripts/run-evaluation-real-sample-execution.ps1", entries["B7_REVIEW_CORPUS_AND_GOLDEN_SAMPLES"]["runtime_entrypoints"])
         self.assertIn("evaluation_seed_coverage_audit_manifest", entries["B7_REVIEW_CORPUS_AND_GOLDEN_SAMPLES"]["data_carriers"])
         self.assertIn("evaluation_real_project_sample_execution_manifest", entries["B7_REVIEW_CORPUS_AND_GOLDEN_SAMPLES"]["data_carriers"])
+        self.assertIn("evaluation_rule_calibration_manifest", entries["B7_REVIEW_CORPUS_AND_GOLDEN_SAMPLES"]["data_carriers"])
+        self.assertIn("file_review_expected_counts", entries["B7_REVIEW_CORPUS_AND_GOLDEN_SAMPLES"]["data_carriers"])
         self.assertIn("coverage_quality_summary", entries["B7_REVIEW_CORPUS_AND_GOLDEN_SAMPLES"]["data_carriers"])
         self.assertIn("file_analysis_review_summary", entries["B6_PUBLIC_VERIFICATION_DUAL_GATES_REPORT"]["data_carriers"])
         self.assertIn("document_quality_state", entries["B4_DOCUMENT_COMPLETENESS_VERSION_LINEAGE"]["data_carriers"])

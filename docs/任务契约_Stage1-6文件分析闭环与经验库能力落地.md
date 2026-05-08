@@ -3,7 +3,7 @@
 | 字段 | 值 |
 |---|---|
 | 文档定位 | 防漂移任务契约 / Stage1-6 文件分析闭环落地顺序 |
-| 当前状态 | P5_STAGE16_STABILITY_COVERAGE_AND_REVIEW_RULES_FIRST_CUT_IMPLEMENTED |
+| 当前状态 | P6_STAGE16_REAL_SAMPLE_COVERAGE_AND_FILE_RULE_CALIBRATION_FIRST_CUT |
 | 主输入 | `docs/专题_投前预测评审风控规则救济与履约结算经验库草案.md` |
 | 承载链路 | Stage1 -> Stage2 -> Stage3 -> Stage4 -> Stage5 -> Stage6 |
 | 机器镜像 | `control/stage16_file_analysis_task_contract.yaml` |
@@ -48,7 +48,7 @@
 | 9 | 投标文件内审增强 | Stage3/6/增强模块 | P3 | 暗标、正偏离、授权签章、声明函、税率审计、电子标制作环境 |
 | 10 | 规则救济与履约结算 | Stage3/6/7/9 扩展 | P3 | 异议质疑投诉、合同加码、结算审计、付款救济 |
 
-当前已推进 **第 0 到第 10 批** 的第一刀，并完成一轮后续增强：B4 附件/OCR 稳定性、B7 真实样本覆盖质量、B5/B8/B10 内部 Stage5 复核规则、B6 内部可读摘要。第 10 批仍不输出法律、监管处罚或付款违约结论。
+当前已推进 **第 0 到第 10 批** 的第一刀，并完成后续增强：B4 附件/OCR 稳定性、B7 真实样本覆盖质量、B7 小规模真实快照执行、FILE/OCR 规则校准、B5/B8/B10 内部 Stage5 复核规则、B6 内部可读摘要。第 10 批仍不输出法律、监管处罚或付款违约结论。
 
 ### 3.1 当前实施状态
 
@@ -61,7 +61,7 @@
 | 4 | 已完成增强第一刀 | 已补附件语义角色、下载归档摘要、版本链状态、未知格式/OCR/下载失败质量原因 |
 | 5 | 已完成增强第一刀 | 已有项目筛选、控标预测、自评分、废标红线内部候选 profile/trace，并补限制竞争/废标红线 Stage5 内部复核规则 |
 | 6 | 已完成增强第一刀 | 已在 Stage6 内部 trace 中收束公开核验读回、双闸门、B5 profile、报告、复核队列和 `file_analysis_review_summary` |
-| 7 | 已完成增强第一刀 | 已接入现有 `evaluation_corpus`，补离线探针、覆盖审计、真实项目快照受控执行 runner 和覆盖质量摘要 |
+| 7 | 已完成增强第一刀 | 已接入现有 `evaluation_corpus`，补离线探针、覆盖审计、真实项目快照受控执行 runner、TargetIds 小规模受控执行、覆盖质量摘要和 FILE/OCR 校准 manifest |
 | 8 | 已完成增强第一刀 | 已在主线内部 profile/trace 中补异常低价、不平衡报价、付款履约复核线索，并补 Stage5 内部复核规则 |
 | 9 | 已完成第一刀 | 已有内部投标文件 QA profile/trace；只做内部复核，不进入公开证据主链 |
 | 10 | 已完成增强第一刀 | 已有规则救济、资格合法性、合同程序、结算审计、履约付款和专项监督内部 profile/trace，并补 Stage5 内部复核规则；不做法律或付款违约定性 |
@@ -180,7 +180,7 @@
 | 文件完整性与版本链 | Stage2-3/6 | `src/stage2_ingestion/real_candidate_capture.py`、`src/stage3_parsing/real_parser.py`、`src/stage6_fact_review/service.py` | `document_completeness_state`、`download_archive_manifest`、`attachment_role_type`、`notice_version_chain_state` | 已完成第一刀 | 真实站点下载失败和 `OCR_REQUIRED` 继续 review | `python -m unittest tests.test_stage2_real_candidate_capture tests.test_stage3_real_parser -v` |
 | 主线风险能力层 | Stage3-6 | `src/stage3_parsing/mainline_risk.py`、`src/stage6_fact_review/service.py` | `mainline_risk_profile`、`bid_selection_state`、`tailored_bid_risk_level`、`fatal_rejection_risk_hits` | 已完成第一刀 | 自评分缺我方材料不运行；控标只输出弱线索 | `python -m unittest tests.test_stage56_evaluators tests.test_stage5_rule_factory_expansion -v` |
 | 公开核验、双闸门与 Stage6 报告 | Stage4-6 | `src/stage6_fact_review/fact_aggregator.py`、`src/stage6_fact_review/service.py` | `stage6_real_public_rule_evidence_readback_summary`、`stage16_file_analysis_report_profile`、`stage16_b6_closure_profile` | 已完成第一刀 | 客户报告产品化仍后置 | `python -m unittest tests.test_stage56_evaluators tests.test_stage6_product_package_hardening -v` |
-| 复盘样本库 | Stage1-6 | `contracts/evaluation/evaluation_corpus_seed.json`、`contracts/evaluation/evaluation_coverage_requirements.json`、`src/storage/evaluation_corpus.py`、`src/storage/evaluation_coverage_audit.py`、`src/storage/evaluation_real_sample_execution.py`、`src/stage1_tasking/real_candidate_discovery.py`、`src/stage2_ingestion/real_candidate_capture.py`、`src/stage3_parsing/evaluation_profiles.py` | `evaluation_corpus`、`evaluation_parse_probe_manifest`、`evaluation_seed_coverage_audit_manifest`、`evaluation_stage3_profile_manifest`、`evaluation_real_project_sample_plan_manifest`、`evaluation_real_project_sample_execution_manifest` | 已完成执行第一刀 | 真实快照受控执行第一刀完成；后续补覆盖率、质量评分和更多站点 | `python -m unittest tests.test_evaluation_real_sample_plan tests.test_evaluation_real_sample_execution tests.test_stage1_real_candidate_discovery tests.test_stage2_real_candidate_capture -v` |
+| 复盘样本库 | Stage1-6 | `contracts/evaluation/evaluation_corpus_seed.json`、`contracts/evaluation/evaluation_coverage_requirements.json`、`src/storage/evaluation_corpus.py`、`src/storage/evaluation_coverage_audit.py`、`src/storage/evaluation_real_sample_execution.py`、`src/storage/evaluation_rule_calibration.py`、`scripts/run-evaluation-real-sample-execution.ps1`、`src/stage1_tasking/real_candidate_discovery.py`、`src/stage2_ingestion/real_candidate_capture.py`、`src/stage3_parsing/evaluation_profiles.py` | `evaluation_corpus`、`evaluation_parse_probe_manifest`、`evaluation_seed_coverage_audit_manifest`、`evaluation_stage3_profile_manifest`、`evaluation_real_project_sample_plan_manifest`、`evaluation_real_project_sample_execution_manifest`、`evaluation_rule_calibration_manifest`、`file_review_expected_counts` | 已完成校准第一刀 | 真实快照小规模受控执行、覆盖审计联动和 FILE/OCR 校准第一刀完成；后续扩大真实样本到 50+ 并校准其他规则 | `python -m unittest tests.test_evaluation_real_sample_plan tests.test_evaluation_real_sample_execution tests.test_evaluation_rule_calibration tests.test_stage1_real_candidate_discovery tests.test_stage2_real_candidate_capture -v` |
 | 报价履约与异常低价 | Stage3/6 | `src/stage3_parsing/mainline_risk.py`、`src/stage6_fact_review/fact_aggregator.py` | `price_performance_risk_profile`、`payment_risk_level`、`abnormal_low_price_trigger`、`unbalanced_bid_risk_hits`、`cost_breakdown_ready`、`low_price_review_record` | 已完成第一刀 | 只做公开文本内部复核线索；正式规则化、成本材料和客户可见报告后续推进 | `python -m unittest tests.test_stage1_legal_system_classifier tests.test_stage56_evaluators -v` |
 | 投标文件内审增强 | Stage3/6/增强模块 | `src/stage3_parsing/bid_document_qa.py`、`src/stage3_parsing/service.py`、`src/stage6_fact_review/fact_aggregator.py` | `bid_document_internal_qa_profile`、`dark_bid_risk_hits`、`positive_deviation_quality_state`、`authorization_signature_risk_hits`、`declaration_form_risk_hits`、`financial_tax_audit_risk_hits`、`electronic_bid_environment_risk_hits`、`ai_review_readability` | 已完成第一刀 | 只消费内部投标文件文本，不进入公开证据主链，不生成客户可见废标或违法结论 | `python -m unittest tests.test_stage1_legal_system_classifier tests.test_stage56_evaluators -v` |
 | 规则救济与履约结算 | Stage3/6/7/9 | `src/stage3_parsing/remedy_performance.py`、`src/stage3_parsing/service.py`、`src/stage6_fact_review/fact_aggregator.py` | `remedy_performance_settlement_profile`、`remedy_window_state`、`challenge_evidence_chain_state`、`qualification_legality_risk_hits`、`post_award_contract_risk_hits`、`settlement_audit_risk_hits`、`payment_term_violation`、`whistleblower_reward_policy_signal` | 已完成第一刀 | 只做救济、合同、结算、付款和监督内部复核线索；正式规则化和客户可见表达后续评估 | `python -m unittest tests.test_stage1_legal_system_classifier tests.test_stage56_evaluators tests.test_stage16_file_analysis_task_contract -v` |
@@ -324,7 +324,7 @@
 
 第 7 到第 10 批不是 Stage1-6 文件分析闭环的完成前置条件。
 
-- 第 7 批：复盘样本库已完成真实快照受控执行第一刀，不阻塞第 1 到第 6 批；后续补覆盖率、质量评分和更多站点。
+- 第 7 批：复盘样本库已完成真实快照受控执行和 FILE/OCR 校准第一刀，不阻塞第 1 到第 6 批；后续扩大真实样本到 50+，再校准 TAILORED/FATAL/PRICE/REMEDY。
 - 第 8 批：报价履约与异常低价已完成第一刀；当前只识别公开文本复核线索，成本材料和正式规则化后续推进。
 - 第 9 批：投标文件内审增强已完成第一刀，只做内部 QA profile/trace，依赖投标人内部标书材料，不进入公开证据主链。
 - 第 10 批：规则救济与履约结算已完成第一刀，当前只做公开文本和可选内部材料的复核线索；正式法律规则化、合同履约材料核验和客户可见表达后续评估。
@@ -342,6 +342,6 @@
 
 ## 15. 当前默认下一步
 
-默认下一步推进 **真实样本覆盖率和规则校准**：优先用 B7 真实快照执行 manifest 扩大站点/桶覆盖，再用新增 Stage5 内部复核规则回归 B4/B5/B8/B10 的误报、漏报和证据门表现。客户可见报告、真实触达和交付仍后置。
+默认下一步推进 **真实样本扩面和规则校准二批**：把 B7 真实样本扩大到 50+ 并补覆盖率/质量评分，再校准 TAILORED/FATAL/PRICE/REMEDY 的误报、漏报和证据门表现。客户可见报告、真实触达和交付仍后置。
 
 除非人类明确要求，否则不要跳到真实触达交付、对外发布、支付、自动退款或客户可见结论。

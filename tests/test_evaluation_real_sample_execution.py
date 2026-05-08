@@ -47,10 +47,23 @@ class FakeDiscoveryService:
 
 
 class FakeCaptureService:
-    def __init__(self, *, detail_snapshot: bool = True, parse_state: str = "PARSED_HTML") -> None:
+    def __init__(
+        self,
+        *,
+        detail_snapshot: bool = True,
+        parse_state: str = "PARSED_HTML",
+        document_state: str = "COMPLETE_WITH_ATTACHMENTS",
+        version_state: str = "NO_SUPPLEMENT_DETECTED",
+        attachment_ocr_required_count: int = 0,
+        download_quality_reasons: list[str] | None = None,
+    ) -> None:
         self.calls: list[dict] = []
         self.detail_snapshot = detail_snapshot
         self.parse_state = parse_state
+        self.document_state = document_state
+        self.version_state = version_state
+        self.attachment_ocr_required_count = attachment_ocr_required_count
+        self.download_quality_reasons = list(download_quality_reasons or [])
 
     def capture_candidates(self, candidates: list[dict], **kwargs: object) -> dict:
         self.calls.append({"candidates": list(candidates), "kwargs": dict(kwargs)})
@@ -70,6 +83,21 @@ class FakeCaptureService:
                     "source_url": candidate["source_url"],
                     "detail_snapshot_id_optional": snapshot_id,
                     "stage3_parse_state": self.parse_state,
+                    "document_completeness_state": self.document_state,
+                    "notice_version_chain_state": self.version_state,
+                    "document_completeness_summary": {
+                        "document_completeness_state": self.document_state,
+                        "notice_version_chain_state": self.version_state,
+                        "attachment_ocr_required_count": self.attachment_ocr_required_count,
+                    },
+                    "detail_fields": {
+                        "attachment_ocr_required_count": self.attachment_ocr_required_count,
+                        "attachment_ocr_extracted_count": 0,
+                    },
+                    "download_archive_manifest": {
+                        "manifest_quality_state": "REVIEW_REQUIRED" if self.download_quality_reasons else "READY",
+                        "quality_reasons": list(self.download_quality_reasons),
+                    },
                     "attachment_captures": [
                         {
                             "attachment_snapshot_id_optional": "SNAP-ATT-001",
@@ -99,6 +127,7 @@ class TestEvaluationRealSampleExecution(unittest.TestCase):
                 seed_json=seed_path,
                 target_backend="json-file",
                 execute=False,
+                target_limit=1,
                 discovery_service=discovery,
                 capture_service=capture,
             )
@@ -138,6 +167,7 @@ class TestEvaluationRealSampleExecution(unittest.TestCase):
                 target_backend="json-file",
                 execute=True,
                 created_at="2026-05-01T00:00:00+00:00",
+                target_limit=1,
                 discovery_service=discovery,
                 capture_service=capture,
             )
@@ -179,6 +209,7 @@ class TestEvaluationRealSampleExecution(unittest.TestCase):
                 seed_json=seed_path,
                 target_backend="json-file",
                 execute=True,
+                target_limit=1,
                 discovery_service=FakeDiscoveryService(candidates=[]),
                 capture_service=FakeCaptureService(),
             )
@@ -189,6 +220,7 @@ class TestEvaluationRealSampleExecution(unittest.TestCase):
                 seed_json=seed_path,
                 target_backend="json-file",
                 execute=True,
+                target_limit=1,
                 discovery_service=FakeDiscoveryService(candidates=[], profile_status="SOURCE_PROFILE_NOT_CONFIGURED"),
                 capture_service=FakeCaptureService(),
             )
@@ -199,6 +231,7 @@ class TestEvaluationRealSampleExecution(unittest.TestCase):
                 seed_json=seed_path,
                 target_backend="json-file",
                 execute=True,
+                target_limit=1,
                 discovery_service=FakeDiscoveryService(),
                 capture_service=FakeCaptureService(detail_snapshot=False, parse_state="OCR_REQUIRED"),
             )
@@ -212,6 +245,67 @@ class TestEvaluationRealSampleExecution(unittest.TestCase):
                 "ocr_required_blocks_full_text_extraction",
                 partial["manifest"]["coverage_quality_summary"]["sample_quality_reasons"],
             )
+
+    def test_target_ids_filter_before_target_limit_and_reports_missing_requested_ids(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            targets_path = root / "targets.json"
+            seed_path = root / "seed.json"
+            _write_targets(targets_path)
+            _write_seed(seed_path)
+
+            result = build_evaluation_real_sample_execution(
+                targets_json=targets_path,
+                seed_json=seed_path,
+                target_backend="json-file",
+                execute=False,
+                target_ids=["READY-AWARD", "MISSING-TARGET"],
+                target_limit=1,
+            )
+
+            manifest = result["manifest"]
+            self.assertEqual([item["target_id"] for item in manifest["items"]], ["READY-AWARD"])
+            self.assertEqual(manifest["requested_target_ids"], ["READY-AWARD", "MISSING-TARGET"])
+            self.assertEqual(manifest["selected_target_ids"], ["READY-AWARD"])
+            self.assertEqual(manifest["missing_requested_target_ids"], ["MISSING-TARGET"])
+            self.assertEqual(manifest["items"][0]["target_execution_state"], EXECUTION_READY)
+
+    def test_fake_execute_carries_document_quality_fields_for_file_calibration(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            targets_path = root / "targets.json"
+            seed_path = root / "seed.json"
+            _write_targets(targets_path)
+            _write_seed(seed_path)
+
+            result = build_evaluation_real_sample_execution(
+                targets_json=targets_path,
+                seed_json=seed_path,
+                target_backend="json-file",
+                execute=True,
+                target_ids="READY-CAND",
+                discovery_service=FakeDiscoveryService(),
+                capture_service=FakeCaptureService(
+                    document_state="ATTACHMENTS_NOT_CAPTURED_REVIEW",
+                    version_state="CLARIFICATION_OR_ADDENDUM_PRESENT",
+                    attachment_ocr_required_count=1,
+                    download_quality_reasons=["unknown_attachment_format"],
+                ),
+            )
+
+            item = result["manifest"]["items"][0]
+            self.assertEqual(
+                item["parse_summary"]["document_completeness_state_counts"],
+                {"ATTACHMENTS_NOT_CAPTURED_REVIEW": 1},
+            )
+            self.assertEqual(
+                item["parse_summary"]["notice_version_chain_state_counts"],
+                {"CLARIFICATION_OR_ADDENDUM_PRESENT": 1},
+            )
+            self.assertEqual(item["parse_summary"]["attachment_ocr_required_count"], 1)
+            self.assertEqual(item["parse_summary"]["attachment_missing_review_count"], 1)
+            self.assertEqual(item["parse_summary"]["clarification_version_review_count"], 1)
+            self.assertEqual(item["parse_summary"]["unknown_attachment_count"], 1)
 
 
 def _fake_candidate() -> dict:
@@ -244,6 +338,18 @@ def _write_targets(path: Path) -> None:
                         "document_kind": "candidate_notice",
                         "target_count": 1,
                         "selection_filters": ["中标候选人公示"],
+                    },
+                    {
+                        "target_id": "READY-AWARD",
+                        "jurisdiction": "CN-GD",
+                        "platform_name": "广州交易集团",
+                        "entry_seed_id": "ENTRY-GZ",
+                        "required_fetch_profile_id_optional": "GUANGZHOU-YWTB-CONSTRUCTION-LIST",
+                        "source_family": "local_public_resource_trading_center",
+                        "project_type": "construction",
+                        "document_kind": "award_result",
+                        "target_count": 1,
+                        "selection_filters": ["中标结果公告"],
                     }
                 ],
             },

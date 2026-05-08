@@ -1,6 +1,6 @@
 version: 1
 contract_id: STAGE16_FILE_ANALYSIS_TASK_CONTRACT
-status: P5_STAGE16_STABILITY_COVERAGE_AND_REVIEW_RULES_FIRST_CUT_IMPLEMENTED
+status: P6_STAGE16_REAL_SAMPLE_COVERAGE_AND_FILE_RULE_CALIBRATION_FIRST_CUT
 updated_at: "2026-05-08"
 role: anti_drift_execution_contract
 source_doc: "docs/专题_投前预测评审风控规则救济与履约结算经验库草案.md"
@@ -155,6 +155,7 @@ runtime_mapping_baseline:
   stage5_review_rule_codes_added: true
   no_uncontrolled_external_fetch_or_release_enabled: true
   controlled_b7_real_sample_fetch_runner_enabled: true
+  file_ocr_rule_calibration_manifest_enabled: true
   entries:
     - capability_id: B1_LEGAL_SYSTEM_CLASSIFIER
       stage_scope: [Stage1, Stage2, Stage3, Stage6]
@@ -254,6 +255,9 @@ runtime_mapping_baseline:
         - "src/storage/evaluation_corpus.py"
         - "src/storage/evaluation_coverage_audit.py"
         - "src/storage/evaluation_real_sample_execution.py"
+        - "src/storage/evaluation_rule_calibration.py"
+        - "scripts/run-evaluation-real-sample-execution.ps1"
+        - "scripts/build-evaluation-rule-calibration.ps1"
         - "src/stage1_tasking/real_candidate_discovery.py"
         - "src/stage2_ingestion/real_candidate_capture.py"
         - "src/stage3_parsing/evaluation_profiles.py"
@@ -264,12 +268,14 @@ runtime_mapping_baseline:
         - evaluation_stage3_profile_manifest
         - evaluation_real_project_sample_plan_manifest
         - evaluation_real_project_sample_execution_manifest
+        - evaluation_rule_calibration_manifest
         - coverage_quality_summary
+        - file_review_expected_counts
       implementation_state: FIRST_CUT_IMPLEMENTED
-      remaining_gap: "已补真实样本执行覆盖质量摘要并让覆盖审计消费执行 manifest；后续补更多站点和真实覆盖率目标。"
+      remaining_gap: "已补真实样本执行覆盖质量摘要、TargetIds 小规模受控执行、覆盖审计消费 execution manifest、FILE/OCR 校准 manifest；后续扩大真实样本到 50+ 并校准 TAILORED/FATAL/PRICE/REMEDY。"
       minimum_validation_commands:
         - "python -m unittest tests.test_evaluation_real_sample_plan tests.test_evaluation_real_sample_execution tests.test_stage1_real_candidate_discovery tests.test_stage2_real_candidate_capture -v"
-        - "python -m unittest tests.test_evaluation_corpus tests.test_evaluation_coverage_audit tests.test_evaluation_stage3_profiles -v"
+        - "python -m unittest tests.test_evaluation_corpus tests.test_evaluation_coverage_audit tests.test_evaluation_rule_calibration tests.test_evaluation_stage3_profiles -v"
     - capability_id: B8_PRICE_PERFORMANCE_LOW_BID_RISK
       stage_scope: [Stage3, Stage5, Stage6, Stage9]
       runtime_entrypoints:

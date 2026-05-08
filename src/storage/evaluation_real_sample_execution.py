@@ -9,7 +9,10 @@ from typing import Any, Mapping
 from shared.settings import Settings
 from shared.utils import utc_now_iso
 from stage1_tasking.real_candidate_discovery import RealPublicCandidateDiscoveryService
-from stage2_ingestion.real_candidate_capture import RealCandidateStage2CaptureService
+from stage2_ingestion.real_candidate_capture import (
+    RealCandidateStage2CaptureRepository,
+    RealCandidateStage2CaptureService,
+)
 from storage.db import DatabaseSession, PersistedRecord, build_persisted_at
 from storage.evaluation_corpus import default_evaluation_seed_path
 from storage.evaluation_real_sample_plan import (
@@ -17,12 +20,30 @@ from storage.evaluation_real_sample_plan import (
     build_evaluation_real_sample_plan,
     default_evaluation_real_project_sample_targets_path,
 )
+from storage.repositories.object_storage_repo import ObjectStorageRepository
+from storage.repositories.operator_action_repo import OperatorActionRepository
 
 
 EVALUATION_REAL_PROJECT_SAMPLE_EXECUTION_OBJECT_TYPE = "evaluation_real_project_sample_execution_manifest"
 EVALUATION_REAL_PROJECT_SAMPLE_EXECUTION_VERSION = 1
 EVALUATION_REAL_PROJECT_SAMPLE_EXECUTION_RULESET_ID = "evaluation-real-project-sample-execution-v1"
 EVALUATION_REAL_PROJECT_SAMPLE_EXECUTION_ADAPTER_ID = "evaluation-real-sample-controlled-execution-runner"
+
+DEFAULT_SMALL_REAL_SAMPLE_TARGET_IDS = (
+    "REAL-GD-TENDER-001",
+    "REAL-GD-CANDIDATE-001",
+    "REAL-GD-AWARD-001",
+    "REAL-JS-TENDER-001",
+    "REAL-JS-CANDIDATE-001",
+    "REAL-HB-TENDER-001",
+    "REAL-ZJ-CANDIDATE-001",
+    "REAL-SD-AWARD-001",
+    "REAL-SH-TENDER-001",
+    "REAL-GP-FAILED-BID-001",
+    "REAL-GP-COMPLAINT-001",
+    "REAL-GGZY-FLOW-RETENDER-001",
+    "REAL-OFFICIAL-CASE-FAIRNESS-001",
+)
 
 EXECUTION_READY = "EXECUTION_READY"
 DISCOVERY_NO_MATCH_REVIEW = "DISCOVERY_NO_MATCH_REVIEW"
@@ -37,9 +58,12 @@ def build_evaluation_real_sample_execution(
     seed_json: str | Path | None = None,
     database_url: str | None = None,
     target_backend: str = "postgresql",
+    storage_path: str | Path | None = None,
+    object_storage_path: str | Path | None = None,
     execute: bool = False,
     created_at: str | None = None,
     target_limit: int | None = None,
+    target_ids: list[str] | tuple[str, ...] | str | None = None,
     per_target_candidate_limit: int = 1,
     discovery_service: RealPublicCandidateDiscoveryService | None = None,
     capture_service: RealCandidateStage2CaptureService | None = None,
@@ -64,11 +88,30 @@ def build_evaluation_real_sample_execution(
         for item in list((plan.get("manifest") or {}).get("items") or [])
         if str(item.get("plan_state") or "") == PLAN_READY
     ]
+    requested_target_ids = _target_id_list(target_ids)
+    if requested_target_ids:
+        requested_set = set(requested_target_ids)
+        plan_items = [
+            item
+            for item in plan_items
+            if str(item.get("target_id") or "") in requested_set
+        ]
     if target_limit is not None:
         plan_items = plan_items[: max(0, int(target_limit))]
+    selected_target_ids = [str(item.get("target_id") or "") for item in plan_items]
+    missing_requested_target_ids = [
+        target_id
+        for target_id in requested_target_ids
+        if target_id not in selected_target_ids
+    ]
 
     runner_discovery_service = discovery_service or RealPublicCandidateDiscoveryService()
-    runner_capture_service = capture_service or RealCandidateStage2CaptureService()
+    runner_capture_service = capture_service or _build_capture_service(
+        target_backend=target_backend,
+        database_url=database_url,
+        storage_path=storage_path,
+        object_storage_path=object_storage_path,
+    )
     items: list[dict[str, Any]] = []
     for item in plan_items:
         if not execute:
@@ -91,6 +134,9 @@ def build_evaluation_real_sample_execution(
         execute=execute,
         database_url=database_url,
         target_backend=target_backend,
+        requested_target_ids=requested_target_ids,
+        selected_target_ids=selected_target_ids,
+        missing_requested_target_ids=missing_requested_target_ids,
         target_limit=target_limit,
         per_target_candidate_limit=per_target_candidate_limit,
     )
@@ -110,14 +156,18 @@ def build_evaluation_real_sample_execution(
             "stage4_public_evidence_readback_generation_enabled": False,
             "stage5_rule_execution_enabled": False,
             "large_object_blob_database_import_enabled": False,
+            "storage_path_optional": str(storage_path or ""),
+            "object_storage_path_optional": str(object_storage_path or ""),
         },
     }
     if execute and database_url:
         settings = Settings(
             storage_backend=target_backend,
+            storage_path_optional=str(storage_path) if storage_path else None,
             storage_database_url_optional=database_url,
             storage_scope="shared",
             storage_runtime_mode="explicit-path",
+            object_storage_path_optional=str(object_storage_path) if object_storage_path else None,
         )
         session = DatabaseSession(settings=settings)
         try:
@@ -157,6 +207,31 @@ def _dry_run_execution_item(plan_item: Mapping[str, Any]) -> dict[str, Any]:
         "parse_summary": _empty_parse_summary(),
         "failure_taxonomy": [],
     }
+
+
+def _build_capture_service(
+    *,
+    target_backend: str,
+    database_url: str | None,
+    storage_path: str | Path | None,
+    object_storage_path: str | Path | None,
+) -> RealCandidateStage2CaptureService:
+    settings = Settings(
+        storage_backend=target_backend,
+        storage_path_optional=str(storage_path) if storage_path else None,
+        storage_database_url_optional=database_url,
+        storage_scope="shared",
+        storage_runtime_mode="explicit-path",
+        object_storage_path_optional=str(object_storage_path) if object_storage_path else None,
+    )
+    session = DatabaseSession(settings=settings)
+    action_repository = OperatorActionRepository(session=session)
+    capture_repository = RealCandidateStage2CaptureRepository(repository=action_repository)
+    object_repository = ObjectStorageRepository(session=session, settings=settings)
+    return RealCandidateStage2CaptureService(
+        object_repository=object_repository,
+        repository=capture_repository,
+    )
 
 
 def _execute_target_item(
@@ -263,6 +338,9 @@ def _build_execution_manifest(
     execute: bool,
     database_url: str | None,
     target_backend: str,
+    requested_target_ids: list[str],
+    selected_target_ids: list[str],
+    missing_requested_target_ids: list[str],
     target_limit: int | None,
     per_target_candidate_limit: int,
 ) -> dict[str, Any]:
@@ -270,6 +348,7 @@ def _build_execution_manifest(
         {
             "plan_manifest_id": (plan.get("manifest") or {}).get("manifest_id"),
             "execute": execute,
+            "requested_target_ids": requested_target_ids,
             "target_limit": target_limit,
             "per_target_candidate_limit": per_target_candidate_limit,
             "items": items,
@@ -288,6 +367,9 @@ def _build_execution_manifest(
         "plan_fingerprint": str((plan.get("manifest") or {}).get("plan_fingerprint") or ""),
         "database_url_redacted": _redact_database_url(database_url),
         "target_storage_backend": target_backend,
+        "requested_target_ids": requested_target_ids,
+        "selected_target_ids": selected_target_ids,
+        "missing_requested_target_ids": missing_requested_target_ids,
         "target_limit": target_limit if target_limit is not None else "ALL_PLAN_READY_TARGETS",
         "per_target_candidate_limit": per_target_candidate_limit,
         "items": items,
@@ -344,9 +426,65 @@ def _capture_manifest_summary(capture_result: Mapping[str, Any]) -> dict[str, An
     detail_snapshot_refs: list[dict[str, Any]] = []
     attachment_snapshot_refs: list[dict[str, Any]] = []
     failure_taxonomy: list[str] = []
+    document_state_values: list[str] = []
+    version_state_values: list[str] = []
+    document_quality_reasons: list[str] = []
+    download_manifest_quality_reasons: list[str] = []
+    unknown_attachment_count = 0
+    attachment_missing_review_count = 0
+    clarification_version_review_count = 0
+    attachment_ocr_required_count = 0
+    attachment_ocr_extracted_count = 0
     for capture in captures:
         candidate_key = str(capture.get("candidate_key") or "")
         detail_snapshot_id = str(capture.get("detail_snapshot_id_optional") or "")
+        document_summary = dict(capture.get("document_completeness_summary") or {})
+        document_state = str(
+            capture.get("document_completeness_state")
+            or document_summary.get("document_completeness_state")
+            or ""
+        )
+        version_state = str(
+            capture.get("notice_version_chain_state")
+            or document_summary.get("notice_version_chain_state")
+            or ""
+        )
+        download_archive_manifest = dict(
+            capture.get("download_archive_manifest")
+            or document_summary.get("download_archive_manifest")
+            or {}
+        )
+        fields = dict(capture.get("detail_fields") or {})
+        attachment_ocr_required_count += _int_value(
+            capture.get("attachment_ocr_required_count")
+            or fields.get("attachment_ocr_required_count"),
+            default=0,
+        )
+        attachment_ocr_extracted_count += _int_value(
+            capture.get("attachment_ocr_extracted_count")
+            or fields.get("attachment_ocr_extracted_count"),
+            default=0,
+        )
+        if document_state:
+            document_state_values.append(document_state)
+        if version_state:
+            version_state_values.append(version_state)
+        if document_state in {
+            "DETAIL_SNAPSHOT_MISSING_REVIEW",
+            "ATTACHMENTS_NOT_CAPTURED_REVIEW",
+            "PARTIAL_REVIEW_REQUIRED",
+        }:
+            attachment_missing_review_count += 1
+        if version_state in {"VERSION_REVIEW_REQUIRED", "CLARIFICATION_OR_ADDENDUM_PRESENT"}:
+            clarification_version_review_count += 1
+        for reason in list(capture.get("document_quality_reasons") or document_summary.get("document_quality_reasons") or []):
+            if str(reason):
+                document_quality_reasons.append(str(reason))
+        for reason in list(download_archive_manifest.get("quality_reasons") or []):
+            if str(reason):
+                download_manifest_quality_reasons.append(str(reason))
+                if str(reason) in {"unknown_attachment_format", "unknown_attachment_role"}:
+                    unknown_attachment_count += 1
         if detail_snapshot_id:
             detail_snapshot_refs.append(
                 {
@@ -354,6 +492,14 @@ def _capture_manifest_summary(capture_result: Mapping[str, Any]) -> dict[str, An
                     "snapshot_id": detail_snapshot_id,
                     "source_url": str(capture.get("source_url") or ""),
                     "parse_state": str(capture.get("stage3_parse_state") or ""),
+                    "document_completeness_state": document_state,
+                    "notice_version_chain_state": version_state,
+                    "download_archive_manifest_quality_state": str(
+                        download_archive_manifest.get("manifest_quality_state")
+                        or download_archive_manifest.get("document_quality_state")
+                        or ""
+                    ),
+                    "download_archive_manifest_quality_reasons": _dedupe_strings(download_manifest_quality_reasons),
                 }
             )
         failure_taxonomy.extend(str(item) for item in list(capture.get("stage3_parse_error_taxonomy") or []) if str(item))
@@ -362,12 +508,15 @@ def _capture_manifest_summary(capture_result: Mapping[str, Any]) -> dict[str, An
                 continue
             snapshot_id = str(attachment.get("attachment_snapshot_id_optional") or attachment.get("snapshot_id") or "")
             if snapshot_id:
+                attachment_parse_state = str(attachment.get("parse_state") or attachment.get("stage3_parse_state") or "")
+                if attachment_parse_state in {"OCR_REQUIRED", "OCR_ENGINE_UNAVAILABLE"}:
+                    attachment_ocr_required_count += 1
                 attachment_snapshot_refs.append(
                     {
                         "candidate_key": candidate_key,
                         "snapshot_id": snapshot_id,
                         "attachment_url": str(attachment.get("attachment_url") or attachment.get("url") or ""),
-                        "parse_state": str(attachment.get("parse_state") or attachment.get("stage3_parse_state") or ""),
+                        "parse_state": attachment_parse_state,
                         "attachment_role_type": str(attachment.get("attachment_role_type") or ""),
                     }
                 )
@@ -398,6 +547,15 @@ def _capture_manifest_summary(capture_result: Mapping[str, Any]) -> dict[str, An
             "stage3_parse_success_count": _int_value(capture_result.get("stage3_parse_success_count"), default=0),
             "stage3_parse_failed_count": _int_value(capture_result.get("stage3_parse_failed_count"), default=0),
             "ocr_required_count": _count_ocr_required(capture_result),
+            "attachment_ocr_required_count": attachment_ocr_required_count,
+            "attachment_ocr_extracted_count": attachment_ocr_extracted_count,
+            "document_completeness_state_counts": _counts(document_state_values),
+            "notice_version_chain_state_counts": _counts(version_state_values),
+            "document_quality_reasons": _dedupe_strings(document_quality_reasons),
+            "download_archive_quality_reasons": _dedupe_strings(download_manifest_quality_reasons),
+            "attachment_missing_review_count": attachment_missing_review_count,
+            "clarification_version_review_count": clarification_version_review_count,
+            "unknown_attachment_count": unknown_attachment_count,
         },
         "failure_taxonomy": _dedupe_strings(failure_taxonomy),
     }
@@ -476,6 +634,26 @@ def _summary(items: list[Mapping[str, Any]], *, execute: bool) -> dict[str, Any]
             for item in items
             if isinstance(item.get("parse_summary"), Mapping)
         ),
+        "attachment_ocr_required_count": sum(
+            _int_value((item.get("parse_summary") or {}).get("attachment_ocr_required_count"), default=0)
+            for item in items
+            if isinstance(item.get("parse_summary"), Mapping)
+        ),
+        "attachment_missing_review_count": sum(
+            _int_value((item.get("parse_summary") or {}).get("attachment_missing_review_count"), default=0)
+            for item in items
+            if isinstance(item.get("parse_summary"), Mapping)
+        ),
+        "clarification_version_review_count": sum(
+            _int_value((item.get("parse_summary") or {}).get("clarification_version_review_count"), default=0)
+            for item in items
+            if isinstance(item.get("parse_summary"), Mapping)
+        ),
+        "unknown_attachment_count": sum(
+            _int_value((item.get("parse_summary") or {}).get("unknown_attachment_count"), default=0)
+            for item in items
+            if isinstance(item.get("parse_summary"), Mapping)
+        ),
         "download_enabled": execute,
         "fetch_public_urls_enabled": execute,
         "customer_visible_allowed": False,
@@ -508,6 +686,7 @@ def _coverage_quality_summary(items: list[Mapping[str, Any]], *, execute: bool) 
         parse_summary = item.get("parse_summary")
         if isinstance(parse_summary, Mapping):
             ocr_blocked_count += _int_value(parse_summary.get("ocr_required_count"), default=0)
+            ocr_blocked_count += _int_value(parse_summary.get("attachment_ocr_required_count"), default=0)
         failure_values.extend(str(value) for value in list(item.get("failure_taxonomy") or []) if str(value))
 
     quality_reasons: list[str] = []
@@ -568,11 +747,20 @@ def _safety(*, execute: bool) -> dict[str, Any]:
     }
 
 
-def _empty_parse_summary() -> dict[str, int]:
+def _empty_parse_summary() -> dict[str, Any]:
     return {
         "stage3_parse_success_count": 0,
         "stage3_parse_failed_count": 0,
         "ocr_required_count": 0,
+        "attachment_ocr_required_count": 0,
+        "attachment_ocr_extracted_count": 0,
+        "attachment_missing_review_count": 0,
+        "clarification_version_review_count": 0,
+        "unknown_attachment_count": 0,
+        "document_completeness_state_counts": {},
+        "notice_version_chain_state_counts": {},
+        "document_quality_reasons": [],
+        "download_archive_quality_reasons": [],
     }
 
 
@@ -587,6 +775,17 @@ def _target_source_profile_id(plan_item: Mapping[str, Any]) -> str:
 def _target_region_code(plan_item: Mapping[str, Any]) -> str:
     jurisdiction = str(plan_item.get("jurisdiction") or "").strip()
     return jurisdiction if jurisdiction else "CN-NATIONAL"
+
+
+def _target_id_list(value: Any) -> list[str]:
+    raw_values = _string_list(value)
+    result: list[str] = []
+    for raw in raw_values:
+        for part in str(raw).replace(";", ",").replace("\n", ",").split(","):
+            text = part.strip()
+            if text:
+                result.append(text)
+    return list(dict.fromkeys(result))
 
 
 def _string_list(value: Any) -> list[str]:
@@ -670,8 +869,12 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--seed-json", default=str(default_evaluation_seed_path()))
     parser.add_argument("--database-url")
     parser.add_argument("--target-backend", default="postgresql")
+    parser.add_argument("--storage-path")
+    parser.add_argument("--object-storage-path")
     parser.add_argument("--target-limit", type=int)
+    parser.add_argument("--target-ids", nargs="*")
     parser.add_argument("--per-target-candidate-limit", type=int, default=1)
+    parser.add_argument("--output-json")
     parser.add_argument("--execute", action="store_true")
     parser.add_argument("--json", action="store_true", dest="emit_json")
     return parser.parse_args(argv)
@@ -684,10 +887,17 @@ def main(argv: list[str] | None = None) -> int:
         seed_json=args.seed_json,
         database_url=args.database_url,
         target_backend=args.target_backend,
+        storage_path=args.storage_path,
+        object_storage_path=args.object_storage_path,
         execute=args.execute,
         target_limit=args.target_limit,
+        target_ids=args.target_ids,
         per_target_candidate_limit=args.per_target_candidate_limit,
     )
+    if args.output_json:
+        output_path = Path(args.output_json)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
     if args.emit_json:
         print(json.dumps(result, ensure_ascii=False, indent=2))
     else:
@@ -714,5 +924,6 @@ __all__ = [
     "DISCOVERY_NO_MATCH_REVIEW",
     "EVALUATION_REAL_PROJECT_SAMPLE_EXECUTION_OBJECT_TYPE",
     "EXECUTION_READY",
+    "DEFAULT_SMALL_REAL_SAMPLE_TARGET_IDS",
     "build_evaluation_real_sample_execution",
 ]

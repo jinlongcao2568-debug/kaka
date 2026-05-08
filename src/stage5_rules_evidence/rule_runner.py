@@ -1079,6 +1079,7 @@ class RuleRunner:
         if rule_code == "FILE-REVIEW-001":
             document_state = str(inputs.get("document_completeness_state") or "")
             version_state = str(inputs.get("notice_version_chain_state") or "")
+            ocr_state = str(inputs.get("ocr_state") or "")
             manifest = inputs.get("download_archive_manifest")
             manifest_reasons = []
             if isinstance(manifest, Mapping):
@@ -1087,6 +1088,11 @@ class RuleRunner:
                     for reason in ensure_list(manifest.get("quality_reasons"))
                     if reason not in (None, "")
                 ]
+            document_quality_reasons = [
+                str(reason)
+                for reason in ensure_list(inputs.get("document_quality_reasons"))
+                if reason not in (None, "")
+            ]
             review_states = {
                 "DETAIL_SNAPSHOT_MISSING_REVIEW",
                 "ATTACHMENTS_NOT_CAPTURED_REVIEW",
@@ -1098,6 +1104,9 @@ class RuleRunner:
                 reasons.append(f"{rule_code}: version chain {version_state}")
             if int(inputs.get("attachment_ocr_required_count") or 0) > 0:
                 reasons.append(f"{rule_code}: OCR_REQUIRED attachment blocks full extraction")
+            if ocr_state in {"OCR_REQUIRED", "OCR_ENGINE_UNAVAILABLE"}:
+                reasons.append(f"{rule_code}: {ocr_state} blocks full extraction")
+            reasons.extend(f"{rule_code}: {reason}" for reason in document_quality_reasons)
             reasons.extend(f"{rule_code}: {reason}" for reason in manifest_reasons)
         elif rule_code == "TAILORED-REVIEW-001":
             tailored_level = str(inputs.get("tailored_bid_risk_level") or "")

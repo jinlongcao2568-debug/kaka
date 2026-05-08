@@ -1,6 +1,7 @@
 param(
     [string]$SeedJson = "",
     [string]$RequirementsJson = "",
+    [string]$RealSampleExecutionManifestJson = "",
     [string]$DatabaseUrl = "",
     [switch]$Execute,
     [switch]$EmitJson
@@ -42,6 +43,10 @@ $argsList = @(
 
 if ($DatabaseUrl) {
     $argsList += @("--database-url", $DatabaseUrl)
+}
+
+if ($RealSampleExecutionManifestJson) {
+    $argsList += @("--real-sample-execution-manifest-json", $RealSampleExecutionManifestJson)
 }
 
 if ($Execute) {
