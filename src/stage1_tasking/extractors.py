@@ -34,6 +34,11 @@ class Stage1Extraction:
     window_priority_policy: str
     window_priority: str
     procurement_regime: str
+    procurement_category: str
+    legal_system_type_candidate: str
+    legal_system_classification_confidence: str
+    legal_system_classification_reasons: list[str]
+    remedy_path_candidate: str
     identity_resolution_rule_id: str
     clock_resolution_rule_id: str
     clock_precedence_rule_id: str
@@ -52,6 +57,137 @@ class Stage1Extraction:
 def _year_bounds(now: str) -> tuple[str, str]:
     current = datetime.fromisoformat(now.replace("Z", "+00:00"))
     return f"{current.year}-01-01", f"{current.year}-12-31"
+
+
+def _classification_text(
+    payload: Mapping[str, Any],
+    source_entry: Mapping[str, Any],
+    route_policy: Mapping[str, Any],
+) -> str:
+    parts: list[str] = []
+    for source in (payload, source_entry, route_policy):
+        for key, value in source.items():
+            if isinstance(value, (str, int, float, bool)):
+                parts.append(str(value))
+            elif isinstance(value, list):
+                parts.extend(str(item) for item in value if isinstance(item, (str, int, float, bool)))
+    return " ".join(part for part in parts if part).lower()
+
+
+def _derive_procurement_regime(payload: Mapping[str, Any], text: str) -> tuple[str, str]:
+    explicit = str(payload.get("procurement_regime") or "").strip().upper()
+    if explicit:
+        return explicit, "payload.procurement_regime"
+
+    method_text = " ".join(
+        str(payload.get(key) or "")
+        for key in (
+            "tender_method",
+            "procurement_method",
+            "purchase_method",
+            "notice_type",
+            "project_name",
+            "source_title",
+        )
+    ).lower()
+    combined = f"{method_text} {text}"
+    if "单一来源" in combined or "single source" in combined:
+        return "SINGLE_SOURCE", "classifier.method_keywords"
+    if any(keyword in combined for keyword in ("竞争性谈判", "竞争性磋商", "谈判采购", "磋商公告", "negotiation")):
+        return "NEGOTIATION", "classifier.method_keywords"
+    if "邀请招标" in combined or "invited tender" in combined:
+        return "INVITED_TENDER", "classifier.method_keywords"
+    if any(keyword in combined for keyword in ("公开招标", "招标公告", "中标候选人公示", "open tender")):
+        return "OPEN_TENDER", "classifier.method_keywords"
+    if any(keyword in combined for keyword in ("询价", "比选", "询比", "框架协议")):
+        return "OTHER", "classifier.method_keywords"
+    return "UNKNOWN", "classifier.no_method_signal"
+
+
+def _classify_legal_system(payload: Mapping[str, Any], text: str) -> tuple[str, str, str, list[str], str]:
+    explicit_category = str(payload.get("procurement_category") or "").strip().upper()
+    explicit_legal = str(payload.get("legal_system_type_candidate") or "").strip().upper()
+    if explicit_legal:
+        category = explicit_category or "UNKNOWN"
+        return explicit_legal, category, "EXPLICIT", ["payload.legal_system_type_candidate"], "REVIEW_REQUIRED"
+
+    gov_keywords = (
+        "政府采购",
+        "中国政府采购网",
+        "财政部",
+        "采购人",
+        "供应商",
+        "竞争性磋商",
+        "竞争性谈判",
+        "询价",
+        "单一来源",
+        "质疑",
+        "投诉",
+    )
+    tender_keywords = (
+        "招标投标",
+        "招标人",
+        "投标人",
+        "公共资源交易",
+        "工程建设",
+        "依法必须招标",
+        "中标候选人",
+        "评标委员会",
+        "异议",
+    )
+    state_owned_keywords = (
+        "国企采购",
+        "阳光采购",
+        "平台采购",
+        "集团采购",
+        "非依法必须招标",
+        "非依法必招",
+    )
+
+    gov_hits = [keyword for keyword in gov_keywords if keyword.lower() in text]
+    tender_hits = [keyword for keyword in tender_keywords if keyword.lower() in text]
+    state_owned_hits = [keyword for keyword in state_owned_keywords if keyword.lower() in text]
+    reasons: list[str] = []
+    reasons.extend(f"government_procurement_keyword:{keyword}" for keyword in gov_hits[:4])
+    reasons.extend(f"tender_bidding_keyword:{keyword}" for keyword in tender_hits[:4])
+    reasons.extend(f"state_owned_platform_keyword:{keyword}" for keyword in state_owned_hits[:3])
+
+    if explicit_category:
+        if not reasons:
+            reasons.append("payload.procurement_category")
+        if "GOVERNMENT" in explicit_category:
+            return "GOVERNMENT_PROCUREMENT_LAW", explicit_category, "EXPLICIT", reasons, "QUESTION_COMPLAINT"
+        if "TENDER" in explicit_category or "ENGINEERING" in explicit_category:
+            return "TENDER_BIDDING_LAW", explicit_category, "EXPLICIT", reasons, "OBJECTION_COMPLAINT"
+        if "STATE_OWNED" in explicit_category or "PLATFORM" in explicit_category:
+            return "STATE_OWNED_PLATFORM_PROCUREMENT", explicit_category, "EXPLICIT", reasons, "REVIEW_REQUIRED"
+        return "UNKNOWN", explicit_category, "EXPLICIT", reasons, "REVIEW_REQUIRED"
+
+    has_engineering = any(keyword in text for keyword in ("工程", "施工", "勘察", "设计", "监理", "epc"))
+    if gov_hits and tender_hits and has_engineering:
+        return (
+            "MIXED_GOVERNMENT_PROCUREMENT_ENGINEERING",
+            "GOVERNMENT_PROCUREMENT_ENGINEERING",
+            "MEDIUM",
+            reasons,
+            "REVIEW_REQUIRED",
+        )
+    if gov_hits and not tender_hits:
+        return "GOVERNMENT_PROCUREMENT_LAW", "GOVERNMENT_PROCUREMENT", "HIGH", reasons, "QUESTION_COMPLAINT"
+    if tender_hits and not gov_hits:
+        category = "MANDATORY_TENDER_ENGINEERING" if has_engineering else "TENDER_BIDDING_PROJECT"
+        return "TENDER_BIDDING_LAW", category, "HIGH", reasons, "OBJECTION_COMPLAINT"
+    if state_owned_hits:
+        return (
+            "STATE_OWNED_PLATFORM_PROCUREMENT",
+            "STATE_OWNED_PLATFORM_PROCUREMENT",
+            "MEDIUM",
+            reasons,
+            "REVIEW_REQUIRED",
+        )
+    if gov_hits and tender_hits:
+        return "MIXED_PUBLIC_PROCUREMENT", "MIXED_PUBLIC_PROCUREMENT", "MEDIUM", reasons, "REVIEW_REQUIRED"
+    return "UNKNOWN", "UNKNOWN", "LOW", ["no_legal_system_keyword_signal"], "REVIEW_REQUIRED"
 
 
 def _resolve_fallback_route(
@@ -97,6 +233,15 @@ def extract_stage1(payload: Mapping[str, Any], store: ContractStore, *, now: str
         source_registry_id=str(source_entry["source_registry_id"]),
         source_family=source_family,
     )
+    classification_text = _classification_text(payload, source_entry, route_policy)
+    procurement_regime, procurement_regime_source = _derive_procurement_regime(payload, classification_text)
+    (
+        legal_system_type_candidate,
+        procurement_category,
+        legal_system_classification_confidence,
+        legal_system_classification_reasons,
+        remedy_path_candidate,
+    ) = _classify_legal_system(payload, classification_text)
     baseline_collection_state = ensure_enum_or_fallback(
         store,
         "collection_state",
@@ -202,7 +347,15 @@ def extract_stage1(payload: Mapping[str, Any], store: ContractStore, *, now: str
         project_unification_strategy=str(payload.get("project_unification_strategy", "STRICT")),
         window_priority_policy=str(payload.get("window_priority_policy", "STANDARD")),
         window_priority=str(payload.get("window_priority", "NORMAL")),
-        procurement_regime=str(payload.get("procurement_regime", "UNKNOWN")),
+        procurement_regime=procurement_regime,
+        procurement_category=procurement_category,
+        legal_system_type_candidate=legal_system_type_candidate,
+        legal_system_classification_confidence=legal_system_classification_confidence,
+        legal_system_classification_reasons=[
+            procurement_regime_source,
+            *legal_system_classification_reasons,
+        ],
+        remedy_path_candidate=remedy_path_candidate,
         identity_resolution_rule_id=str(payload.get("identity_resolution_rule_id", "ID-DEFAULT")),
         clock_resolution_rule_id=clock_resolution_rule_id,
         clock_precedence_rule_id=clock_precedence_rule_id,

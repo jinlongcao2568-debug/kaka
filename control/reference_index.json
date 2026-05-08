@@ -22,7 +22,10 @@
   "formalSupportDocs": {
     "statusBoard": "docs/文档与资产状态板.md",
     "techDecision": "docs/技术实现决策页.md",
-    "launchAdjudication": "docs/正式业务代码开发开工裁决页.md"
+    "launchAdjudication": "docs/正式业务代码开发开工裁决页.md",
+    "stage16FileAnalysisTaskContract": "docs/任务契约_Stage1-6文件分析闭环与经验库能力落地.md",
+    "sourceCoverageRoutingSpec": "docs/专题_来源覆盖与采集路由规范.md",
+    "bidRiskExperienceLibraryDraft": "docs/专题_投前预测评审风控规则救济与履约结算经验库草案.md"
   },
   "formalStatusSources": {
     "repoStatus": "control/repo_status.md",
@@ -84,6 +87,7 @@
     "milestoneStatus": "control/milestone_status.yaml",
     "releaseManifest": "control/release_manifest.yaml",
     "modelReleaseManifest": "control/model_release_manifest.yaml",
+    "stage16FileAnalysisTaskContract": "control/stage16_file_analysis_task_contract.yaml",
     "futureUnlockDecisionState": "control/future_unlock_decision_state.yaml",
     "externalUnlockPrerequisiteState": "control/external_unlock_prerequisite_state.yaml",
     "releaseCalendar": "control/release_calendar.yaml",

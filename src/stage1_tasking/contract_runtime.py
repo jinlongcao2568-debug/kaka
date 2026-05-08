@@ -24,6 +24,12 @@ def _project_stage1_authority_fields(
         "rollout_enabled": extracted.rollout_enabled,
         "backlog_reason_optional": extracted.backlog_reason_optional,
         "review_lane": extracted.review_lane,
+        "procurement_regime_hint": extracted.procurement_regime,
+        "procurement_category_hint": extracted.procurement_category,
+        "legal_system_type_candidate": extracted.legal_system_type_candidate,
+        "legal_system_classification_confidence": extracted.legal_system_classification_confidence,
+        "legal_system_classification_reasons": extracted.legal_system_classification_reasons,
+        "remedy_path_candidate": extracted.remedy_path_candidate,
         "clock_resolution_rule_id": extracted.clock_resolution_rule_id,
         "clock_precedence_rule_id": extracted.clock_precedence_rule_id,
         "requires_manual_review": requires_manual_review,
@@ -78,6 +84,12 @@ def build_stage1_inputs(
             "source_registry_id": extracted.source_registry_id,
             "route_policy_id": extracted.route_policy_id,
             "carrier_type": extracted.carrier_type,
+            "procurement_regime": extracted.procurement_regime,
+            "procurement_category": extracted.procurement_category,
+            "legal_system_type_candidate": extracted.legal_system_type_candidate,
+            "legal_system_classification_confidence": extracted.legal_system_classification_confidence,
+            "legal_system_classification_reasons": extracted.legal_system_classification_reasons,
+            "remedy_path_candidate": extracted.remedy_path_candidate,
             "baseline_collection_state": extracted.baseline_collection_state,
             "rollout_enabled": extracted.rollout_enabled,
             "backlog_reason_optional": extracted.backlog_reason_optional,
@@ -89,9 +101,12 @@ def build_stage1_inputs(
                 "stage1": {
                     "fallback_reasons": extracted.fallback_reasons,
                     "mismatch_reasons": extracted.mismatch_reasons,
+                    "legal_system_type_candidate": extracted.legal_system_type_candidate,
+                    "legal_system_classification_confidence": extracted.legal_system_classification_confidence,
+                    "legal_system_classification_reasons": extracted.legal_system_classification_reasons,
+                    "remedy_path_candidate": extracted.remedy_path_candidate,
                 }
             },
         }
     )
     return inputs_out
-
