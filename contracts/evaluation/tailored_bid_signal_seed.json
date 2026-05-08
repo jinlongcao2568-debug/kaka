@@ -1,0 +1,2048 @@
+{
+  "seed_version": 1,
+  "seed_id": "tailored-bid-signal-seed-v1",
+  "created_from": "tailored_bid_index_full_signal_inventory_2026_05",
+  "source_class_policy": {
+    "allowed_source_classes": [
+      "OFFICIAL_OR_QUASI_OFFICIAL",
+      "INDUSTRY_PRACTICE",
+      "SOCIAL_EXPERIENCE",
+      "UNSTABLE_PUBLIC_THREAD"
+    ],
+    "social_experience_position": "真实行业经验与社会吐槽可作为规则经验样本和关键词样本；不得单独升级为法律定性证据。",
+    "customer_visible_allowed": false,
+    "no_legal_conclusion": true
+  },
+  "risk_level_policy": {
+    "NO_SIGNAL": [
+      0,
+      0
+    ],
+    "LOW": [
+      1,
+      20
+    ],
+    "WEAK_CLUE_REVIEW": [
+      21,
+      40
+    ],
+    "MEDIUM_CLUE_REVIEW": [
+      41,
+      60
+    ],
+    "HIGH_CLUE_REVIEW": [
+      61,
+      80
+    ],
+    "STRONG_CLUE_REVIEW": [
+      81,
+      100
+    ],
+    "INSUFFICIENT_EVIDENCE": "文档缺失、OCR 阻断、附件缺失或版本链阻断时使用"
+  },
+  "allowed_output_terms": [
+    "疑似定制标",
+    "限制竞争线索",
+    "控标风险线索",
+    "人工复核"
+  ],
+  "prohibited_output_terms": [
+    "已内定",
+    "违法成立",
+    "必然废标",
+    "控标成立"
+  ],
+  "signals": [
+    {
+      "sample_id": "TAILORED-SIGNAL-0001",
+      "signal_family": "qualification_customization",
+      "signal_keyword": "非必要证书资格门槛",
+      "keyword_patterns": [
+        "ISO",
+        "三体系",
+        "质量管理体系",
+        "环境管理体系",
+        "职业健康安全管理体系",
+        "CMA",
+        "CNAS",
+        "CAL",
+        "ILAC-MRA",
+        "检验检测机构资质认定",
+        "安全生产标准化证书",
+        "协会证书",
+        "培训证书",
+        "国家级证书",
+        "省级证书",
+        "行业权威机构",
+        "公告日前取得",
+        "证书原件备查",
+        "特定平台证书",
+        "特定组织颁发"
+      ],
+      "bid_file_sections": [
+        "资格条件",
+        "评分办法",
+        "技术参数"
+      ],
+      "index_targets": [
+        "qualification_customization_index"
+      ],
+      "base_weight": 12,
+      "counter_reasons": [
+        "法律法规强制资质",
+        "强监管设备",
+        "安全生产强制要求",
+        "依法必须认证"
+      ],
+      "counter_reason_keywords": [
+        "强制认证",
+        "法律法规规定",
+        "依法必须",
+        "安全生产许可证",
+        "医疗器械注册证"
+      ],
+      "source_classes": [
+        "OFFICIAL_OR_QUASI_OFFICIAL",
+        "INDUSTRY_PRACTICE",
+        "SOCIAL_EXPERIENCE"
+      ],
+      "should_trigger_stage5_review": true,
+      "should_trigger_ai_review": true,
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "signal_domain": "TAILORED_COMPETITION",
+      "observable_from": [
+        "tender_file",
+        "attachment",
+        "complaint_case"
+      ],
+      "source_confidence": "MEDIUM",
+      "rule_gate_condition": "命中 非必要证书资格门槛 相关关键词，且条款位于资格条件、技术参数、评分办法、商务条款或补遗澄清中。",
+      "evidence_gate_condition": "必须能定位到 tender_file、attachment、complaint_case 中的原文片段、章节、页码、附件或投诉案例来源；需要保留反例条件。"
+    },
+    {
+      "sample_id": "TAILORED-SIGNAL-0002",
+      "signal_family": "authorization_binding",
+      "signal_keyword": "厂家授权绑定",
+      "keyword_patterns": [
+        "厂家授权",
+        "制造商授权",
+        "原厂授权",
+        "生产厂家授权",
+        "唯一授权",
+        "本项目专项授权",
+        "售后服务承诺函",
+        "原厂售后",
+        "原厂工程师",
+        "原厂驻场",
+        "授权链条",
+        "本地经销商授权",
+        "原厂盖章证明",
+        "原厂供货证明",
+        "原厂质保承诺",
+        "制造商承诺",
+        "授权渠道",
+        "原厂参数证明"
+      ],
+      "bid_file_sections": [
+        "资格条件",
+        "技术参数",
+        "商务条款",
+        "合同条款",
+        "验收条款"
+      ],
+      "index_targets": [
+        "authorization_binding_index",
+        "qualification_customization_index"
+      ],
+      "base_weight": 18,
+      "counter_reasons": [
+        "原厂质保确有必要",
+        "系统兼容确有必要",
+        "强监管设备",
+        "信息安全认证要求"
+      ],
+      "counter_reason_keywords": [
+        "原厂质保",
+        "系统兼容",
+        "接口兼容",
+        "信息安全",
+        "强监管"
+      ],
+      "source_classes": [
+        "OFFICIAL_OR_QUASI_OFFICIAL",
+        "INDUSTRY_PRACTICE",
+        "SOCIAL_EXPERIENCE"
+      ],
+      "should_trigger_stage5_review": true,
+      "should_trigger_ai_review": true,
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "signal_domain": "TAILORED_COMPETITION",
+      "observable_from": [
+        "tender_file",
+        "attachment",
+        "complaint_case"
+      ],
+      "source_confidence": "MEDIUM",
+      "rule_gate_condition": "命中 厂家授权绑定 相关关键词，且条款位于资格条件、技术参数、评分办法、商务条款或补遗澄清中。",
+      "evidence_gate_condition": "必须能定位到 tender_file、attachment、complaint_case 中的原文片段、章节、页码、附件或投诉案例来源；需要保留反例条件。"
+    },
+    {
+      "sample_id": "TAILORED-SIGNAL-0003",
+      "signal_family": "local_protection",
+      "signal_keyword": "本地化门槛",
+      "keyword_patterns": [
+        "本地分公司",
+        "本地子公司",
+        "本地办事处",
+        "本地办公场所",
+        "本地纳税",
+        "本地社保",
+        "本地仓库",
+        "本地维修点",
+        "本地备品备件库",
+        "本地驻场",
+        "本地服务团队",
+        "本地服务网点",
+        "本市服务网点",
+        "本地售后",
+        "本地业绩",
+        "本地区业绩",
+        "本市业绩",
+        "本省业绩",
+        "本地政府项目经验",
+        "本地响应30分钟",
+        "1小时到场",
+        "2小时到场"
+      ],
+      "bid_file_sections": [
+        "资格条件",
+        "评分办法",
+        "服务要求",
+        "商务条款"
+      ],
+      "index_targets": [
+        "local_protection_index",
+        "qualification_customization_index"
+      ],
+      "base_weight": 16,
+      "counter_reasons": [
+        "强应急服务",
+        "公共安全即时响应",
+        "中标后设立服务点"
+      ],
+      "counter_reason_keywords": [
+        "中标后设立",
+        "应急抢修",
+        "公共安全",
+        "抢险",
+        "故障即时处理"
+      ],
+      "source_classes": [
+        "OFFICIAL_OR_QUASI_OFFICIAL",
+        "INDUSTRY_PRACTICE",
+        "SOCIAL_EXPERIENCE"
+      ],
+      "should_trigger_stage5_review": true,
+      "should_trigger_ai_review": true,
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "signal_domain": "TAILORED_COMPETITION",
+      "observable_from": [
+        "tender_file",
+        "attachment",
+        "complaint_case"
+      ],
+      "source_confidence": "MEDIUM",
+      "rule_gate_condition": "命中 本地化门槛 相关关键词，且条款位于资格条件、技术参数、评分办法、商务条款或补遗澄清中。",
+      "evidence_gate_condition": "必须能定位到 tender_file、attachment、complaint_case 中的原文片段、章节、页码、附件或投诉案例来源；需要保留反例条件。"
+    },
+    {
+      "sample_id": "TAILORED-SIGNAL-0004",
+      "signal_family": "performance_personnel_binding",
+      "signal_keyword": "业绩条件定制",
+      "keyword_patterns": [
+        "同类业绩",
+        "类似业绩",
+        "特定行业业绩",
+        "指定行业业绩",
+        "本地区业绩",
+        "单项合同额",
+        "业绩金额",
+        "政府客户业绩",
+        "事业单位业绩",
+        "央企业绩",
+        "国企业绩",
+        "近一年",
+        "近两年",
+        "合同发票验收",
+        "中标通知书",
+        "用户证明",
+        "最终用户证明",
+        "成熟产品业绩",
+        "生产台数",
+        "使用年限",
+        "特定品牌项目业绩",
+        "特定平台项目业绩"
+      ],
+      "bid_file_sections": [
+        "资格条件",
+        "评分办法",
+        "商务条款"
+      ],
+      "index_targets": [
+        "performance_personnel_binding_index",
+        "qualification_customization_index"
+      ],
+      "base_weight": 14,
+      "counter_reasons": [
+        "项目复杂度要求同类经验",
+        "依法要求资质业绩",
+        "履约能力强相关"
+      ],
+      "counter_reason_keywords": [
+        "复杂项目",
+        "履约能力",
+        "同类经验必要",
+        "依法要求"
+      ],
+      "source_classes": [
+        "OFFICIAL_OR_QUASI_OFFICIAL",
+        "INDUSTRY_PRACTICE",
+        "SOCIAL_EXPERIENCE"
+      ],
+      "should_trigger_stage5_review": true,
+      "should_trigger_ai_review": true,
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "signal_domain": "TAILORED_COMPETITION",
+      "observable_from": [
+        "tender_file",
+        "attachment",
+        "complaint_case"
+      ],
+      "source_confidence": "MEDIUM",
+      "rule_gate_condition": "命中 业绩条件定制 相关关键词，且条款位于资格条件、技术参数、评分办法、商务条款或补遗澄清中。",
+      "evidence_gate_condition": "必须能定位到 tender_file、attachment、complaint_case 中的原文片段、章节、页码、附件或投诉案例来源；需要保留反例条件。"
+    },
+    {
+      "sample_id": "TAILORED-SIGNAL-0005",
+      "signal_family": "performance_personnel_binding",
+      "signal_keyword": "人员条件定制",
+      "keyword_patterns": [
+        "项目经理",
+        "技术负责人",
+        "特定专业",
+        "特定职称",
+        "证书组合",
+        "多个证书",
+        "人员业绩",
+        "连续社保",
+        "本地社保",
+        "无在建",
+        "团队人员数量",
+        "罕见证书",
+        "培训证明",
+        "劳动合同",
+        "身份证",
+        "原厂培训证书",
+        "厂商认证",
+        "人员答辩"
+      ],
+      "bid_file_sections": [
+        "资格条件",
+        "评分办法",
+        "人员要求"
+      ],
+      "index_targets": [
+        "performance_personnel_binding_index"
+      ],
+      "base_weight": 12,
+      "counter_reasons": [
+        "工程项目法定人员要求",
+        "关键岗位依法注册",
+        "安全生产岗位要求"
+      ],
+      "counter_reason_keywords": [
+        "注册建造师",
+        "安全B证",
+        "法定要求",
+        "关键岗位"
+      ],
+      "source_classes": [
+        "OFFICIAL_OR_QUASI_OFFICIAL",
+        "INDUSTRY_PRACTICE",
+        "SOCIAL_EXPERIENCE"
+      ],
+      "should_trigger_stage5_review": true,
+      "should_trigger_ai_review": true,
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "signal_domain": "TAILORED_COMPETITION",
+      "observable_from": [
+        "tender_file",
+        "attachment",
+        "complaint_case"
+      ],
+      "source_confidence": "MEDIUM",
+      "rule_gate_condition": "命中 人员条件定制 相关关键词，且条款位于资格条件、技术参数、评分办法、商务条款或补遗澄清中。",
+      "evidence_gate_condition": "必须能定位到 tender_file、attachment、complaint_case 中的原文片段、章节、页码、附件或投诉案例来源；需要保留反例条件。"
+    },
+    {
+      "sample_id": "TAILORED-SIGNAL-0006",
+      "signal_family": "technical_parameter_customization",
+      "signal_keyword": "技术参数过细",
+      "keyword_patterns": [
+        "唯一参数",
+        "指定参数",
+        "不可偏离参数",
+        "完全满足技术参数",
+        "精确到小数",
+        "特定尺寸",
+        "特定材质",
+        "特定工艺",
+        "特定接口",
+        "特定协议",
+        "特定芯片",
+        "特定主控",
+        "特定模组",
+        "特定端口",
+        "特定软件版本",
+        "固件版本",
+        "非常规测试项",
+        "非核心功能",
+        "不得负偏离",
+        "不得使用兼容",
+        "必须内置",
+        "零配置兼容",
+        "完全兼容某系统",
+        "无缝兼容"
+      ],
+      "bid_file_sections": [
+        "技术参数",
+        "采购需求",
+        "评分办法"
+      ],
+      "index_targets": [
+        "technical_parameter_customization_index"
+      ],
+      "base_weight": 18,
+      "counter_reasons": [
+        "行业标准明确要求",
+        "存量系统接口公开",
+        "安全等级强制要求"
+      ],
+      "counter_reason_keywords": [
+        "国家标准",
+        "行业标准",
+        "接口公开",
+        "安全等级",
+        "等保"
+      ],
+      "source_classes": [
+        "OFFICIAL_OR_QUASI_OFFICIAL",
+        "INDUSTRY_PRACTICE",
+        "SOCIAL_EXPERIENCE"
+      ],
+      "should_trigger_stage5_review": true,
+      "should_trigger_ai_review": true,
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "signal_domain": "TAILORED_COMPETITION",
+      "observable_from": [
+        "tender_file",
+        "attachment",
+        "complaint_case"
+      ],
+      "source_confidence": "MEDIUM",
+      "rule_gate_condition": "命中 技术参数过细 相关关键词，且条款位于资格条件、技术参数、评分办法、商务条款或补遗澄清中。",
+      "evidence_gate_condition": "必须能定位到 tender_file、attachment、complaint_case 中的原文片段、章节、页码、附件或投诉案例来源；需要保留反例条件。"
+    },
+    {
+      "sample_id": "TAILORED-SIGNAL-0007",
+      "signal_family": "test_report_customization",
+      "signal_keyword": "检测报告控标",
+      "keyword_patterns": [
+        "检测报告",
+        "CMA报告",
+        "CNAS报告",
+        "CAL报告",
+        "ILAC-MRA报告",
+        "特定检测机构",
+        "完整型号报告",
+        "系列报告不接受",
+        "委托单位",
+        "投标时提交检测报告",
+        "原件扫描",
+        "二维码可查",
+        "查询截图",
+        "报告日期",
+        "报告编号",
+        "样品名称",
+        "检测依据",
+        "每项参数均需检测报告"
+      ],
+      "bid_file_sections": [
+        "技术参数",
+        "资格条件",
+        "评分办法"
+      ],
+      "index_targets": [
+        "test_report_customization_index",
+        "technical_parameter_customization_index"
+      ],
+      "base_weight": 16,
+      "counter_reasons": [
+        "强制检测",
+        "安全合规强制报告",
+        "医疗设备注册检验"
+      ],
+      "counter_reason_keywords": [
+        "强制检测",
+        "注册检验",
+        "安全合规",
+        "法定检测"
+      ],
+      "source_classes": [
+        "OFFICIAL_OR_QUASI_OFFICIAL",
+        "INDUSTRY_PRACTICE",
+        "SOCIAL_EXPERIENCE"
+      ],
+      "should_trigger_stage5_review": true,
+      "should_trigger_ai_review": true,
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "signal_domain": "TAILORED_COMPETITION",
+      "observable_from": [
+        "tender_file",
+        "attachment",
+        "complaint_case"
+      ],
+      "source_confidence": "MEDIUM",
+      "rule_gate_condition": "命中 检测报告控标 相关关键词，且条款位于资格条件、技术参数、评分办法、商务条款或补遗澄清中。",
+      "evidence_gate_condition": "必须能定位到 tender_file、attachment、complaint_case 中的原文片段、章节、页码、附件或投诉案例来源；需要保留反例条件。"
+    },
+    {
+      "sample_id": "TAILORED-SIGNAL-0008",
+      "signal_family": "technical_parameter_customization",
+      "signal_keyword": "品牌暗示",
+      "keyword_patterns": [
+        "指定品牌",
+        "参考品牌",
+        "唯一品牌",
+        "不接受同等",
+        "不接受同等档次",
+        "原厂配套件",
+        "品牌生态认证",
+        "同一品牌",
+        "同一制造商",
+        "进口品牌",
+        "国产品牌",
+        "产品型号",
+        "品牌彩页",
+        "品牌标识",
+        "现有系统",
+        "统一管理平台",
+        "原厂原配",
+        "不得OEM",
+        "不得ODM"
+      ],
+      "bid_file_sections": [
+        "技术参数",
+        "采购需求",
+        "评分办法"
+      ],
+      "index_targets": [
+        "technical_parameter_customization_index",
+        "authorization_binding_index"
+      ],
+      "base_weight": 17,
+      "counter_reasons": [
+        "兼容存量系统且接口公开",
+        "政策明确允许进口产品",
+        "国产化政策依据明确"
+      ],
+      "counter_reason_keywords": [
+        "接口公开",
+        "进口产品核准",
+        "国产化政策",
+        "同等产品"
+      ],
+      "source_classes": [
+        "OFFICIAL_OR_QUASI_OFFICIAL",
+        "INDUSTRY_PRACTICE",
+        "SOCIAL_EXPERIENCE"
+      ],
+      "should_trigger_stage5_review": true,
+      "should_trigger_ai_review": true,
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "signal_domain": "TAILORED_COMPETITION",
+      "observable_from": [
+        "tender_file",
+        "attachment",
+        "complaint_case"
+      ],
+      "source_confidence": "MEDIUM",
+      "rule_gate_condition": "命中 品牌暗示 相关关键词，且条款位于资格条件、技术参数、评分办法、商务条款或补遗澄清中。",
+      "evidence_gate_condition": "必须能定位到 tender_file、attachment、complaint_case 中的原文片段、章节、页码、附件或投诉案例来源；需要保留反例条件。"
+    },
+    {
+      "sample_id": "TAILORED-SIGNAL-0009",
+      "signal_family": "scoring_customization",
+      "signal_keyword": "正偏离诱导",
+      "keyword_patterns": [
+        "正偏离",
+        "优于招标参数",
+        "越高越优",
+        "越多越优",
+        "厂家证明",
+        "专利证明",
+        "检测报告加分",
+        "服务网点加分",
+        "响应时间加分",
+        "优于采购需求",
+        "基础响应分低",
+        "正偏离评分"
+      ],
+      "bid_file_sections": [
+        "评分办法",
+        "技术参数"
+      ],
+      "index_targets": [
+        "scoring_customization_index",
+        "technical_parameter_customization_index"
+      ],
+      "base_weight": 12,
+      "counter_reasons": [
+        "量化标准清晰",
+        "性能提升与项目目标直接相关"
+      ],
+      "counter_reason_keywords": [
+        "量化标准",
+        "客观标准",
+        "项目目标",
+        "实际效果"
+      ],
+      "source_classes": [
+        "OFFICIAL_OR_QUASI_OFFICIAL",
+        "INDUSTRY_PRACTICE",
+        "SOCIAL_EXPERIENCE"
+      ],
+      "should_trigger_stage5_review": true,
+      "should_trigger_ai_review": true,
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "signal_domain": "TAILORED_COMPETITION",
+      "observable_from": [
+        "tender_file",
+        "attachment",
+        "complaint_case"
+      ],
+      "source_confidence": "MEDIUM",
+      "rule_gate_condition": "命中 正偏离诱导 相关关键词，且条款位于资格条件、技术参数、评分办法、商务条款或补遗澄清中。",
+      "evidence_gate_condition": "必须能定位到 tender_file、attachment、complaint_case 中的原文片段、章节、页码、附件或投诉案例来源；需要保留反例条件。"
+    },
+    {
+      "sample_id": "TAILORED-SIGNAL-0010",
+      "signal_family": "scoring_customization",
+      "signal_keyword": "主观分过高",
+      "keyword_patterns": [
+        "主观分",
+        "技术方案评分",
+        "商务方案评分",
+        "服务方案评分",
+        "演示",
+        "答辩",
+        "样品分",
+        "优良中差",
+        "综合评价",
+        "专家自由裁量",
+        "价格分低",
+        "客观分低",
+        "评定分离",
+        "定标因素",
+        "择优"
+      ],
+      "bid_file_sections": [
+        "评分办法",
+        "定标办法"
+      ],
+      "index_targets": [
+        "scoring_customization_index"
+      ],
+      "base_weight": 12,
+      "counter_reasons": [
+        "评分细则量化",
+        "演示标准固定",
+        "样品标准明确"
+      ],
+      "counter_reason_keywords": [
+        "量化评分",
+        "评分细则",
+        "固定标准",
+        "客观评分"
+      ],
+      "source_classes": [
+        "OFFICIAL_OR_QUASI_OFFICIAL",
+        "INDUSTRY_PRACTICE",
+        "SOCIAL_EXPERIENCE"
+      ],
+      "should_trigger_stage5_review": true,
+      "should_trigger_ai_review": true,
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "signal_domain": "TAILORED_COMPETITION",
+      "observable_from": [
+        "tender_file",
+        "attachment",
+        "complaint_case"
+      ],
+      "source_confidence": "MEDIUM",
+      "rule_gate_condition": "命中 主观分过高 相关关键词，且条款位于资格条件、技术参数、评分办法、商务条款或补遗澄清中。",
+      "evidence_gate_condition": "必须能定位到 tender_file、attachment、complaint_case 中的原文片段、章节、页码、附件或投诉案例来源；需要保留反例条件。"
+    },
+    {
+      "sample_id": "TAILORED-SIGNAL-0011",
+      "signal_family": "scoring_customization",
+      "signal_keyword": "评分项碎片化",
+      "keyword_patterns": [
+        "评分细项",
+        "每缺一项扣",
+        "逐项响应",
+        "响应矩阵",
+        "页码索引",
+        "重复评分",
+        "证书加分",
+        "业绩加分",
+        "截图加分",
+        "小项分值",
+        "评分表逐项绑定"
+      ],
+      "bid_file_sections": [
+        "评分办法",
+        "格式文件"
+      ],
+      "index_targets": [
+        "scoring_customization_index",
+        "fatal_rejection_complexity_index"
+      ],
+      "base_weight": 10,
+      "counter_reasons": [
+        "材料索引清晰",
+        "评分项与履约强相关"
+      ],
+      "counter_reason_keywords": [
+        "索引表",
+        "履约能力",
+        "强相关"
+      ],
+      "source_classes": [
+        "OFFICIAL_OR_QUASI_OFFICIAL",
+        "INDUSTRY_PRACTICE",
+        "SOCIAL_EXPERIENCE"
+      ],
+      "should_trigger_stage5_review": true,
+      "should_trigger_ai_review": false,
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "signal_domain": "TAILORED_COMPETITION",
+      "observable_from": [
+        "tender_file",
+        "attachment",
+        "complaint_case"
+      ],
+      "source_confidence": "MEDIUM",
+      "rule_gate_condition": "命中 评分项碎片化 相关关键词，且条款位于资格条件、技术参数、评分办法、商务条款或补遗澄清中。",
+      "evidence_gate_condition": "必须能定位到 tender_file、attachment、complaint_case 中的原文片段、章节、页码、附件或投诉案例来源；需要保留反例条件。"
+    },
+    {
+      "sample_id": "TAILORED-SIGNAL-0012",
+      "signal_family": "qualification_customization",
+      "signal_keyword": "资格条件变相评分",
+      "keyword_patterns": [
+        "注册资本加分",
+        "资产规模加分",
+        "营业收入加分",
+        "纳税额加分",
+        "社保人数加分",
+        "本地分支加分",
+        "本地业绩加分",
+        "本地人员加分",
+        "所有制加分",
+        "协会会员加分",
+        "平台入库加分",
+        "目录入选加分",
+        "荣誉奖项加分",
+        "AAA证书",
+        "高新技术企业加分",
+        "专精特新加分"
+      ],
+      "bid_file_sections": [
+        "评分办法",
+        "资格条件"
+      ],
+      "index_targets": [
+        "qualification_customization_index",
+        "scoring_customization_index",
+        "local_protection_index"
+      ],
+      "base_weight": 13,
+      "counter_reasons": [
+        "评分因素与履约强相关",
+        "政策明确支持"
+      ],
+      "counter_reason_keywords": [
+        "政策支持",
+        "履约能力",
+        "强相关"
+      ],
+      "source_classes": [
+        "OFFICIAL_OR_QUASI_OFFICIAL",
+        "INDUSTRY_PRACTICE",
+        "SOCIAL_EXPERIENCE"
+      ],
+      "should_trigger_stage5_review": true,
+      "should_trigger_ai_review": true,
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "signal_domain": "TAILORED_COMPETITION",
+      "observable_from": [
+        "tender_file",
+        "attachment",
+        "complaint_case"
+      ],
+      "source_confidence": "MEDIUM",
+      "rule_gate_condition": "命中 资格条件变相评分 相关关键词，且条款位于资格条件、技术参数、评分办法、商务条款或补遗澄清中。",
+      "evidence_gate_condition": "必须能定位到 tender_file、attachment、complaint_case 中的原文片段、章节、页码、附件或投诉案例来源；需要保留反例条件。"
+    },
+    {
+      "sample_id": "TAILORED-SIGNAL-0013",
+      "signal_family": "procedure_abnormality",
+      "signal_keyword": "流标重招异常",
+      "keyword_patterns": [
+        "多次流标",
+        "重新招标",
+        "有效供应商不足三家",
+        "有效投标人不足三家",
+        "资格条件反而更精细",
+        "重招后新增",
+        "新增证书",
+        "新增授权",
+        "新增本地服务",
+        "补遗澄清次数",
+        "参数未放宽",
+        "核心卡点",
+        "时间窗口更紧"
+      ],
+      "bid_file_sections": [
+        "公告",
+        "废标公告",
+        "流标公告",
+        "补遗澄清"
+      ],
+      "index_targets": [
+        "procedure_abnormality_index"
+      ],
+      "base_weight": 14,
+      "counter_reasons": [
+        "采购需求依法调整",
+        "预算或范围实质变化"
+      ],
+      "counter_reason_keywords": [
+        "采购需求调整",
+        "预算调整",
+        "范围调整",
+        "政策调整"
+      ],
+      "source_classes": [
+        "OFFICIAL_OR_QUASI_OFFICIAL",
+        "INDUSTRY_PRACTICE",
+        "SOCIAL_EXPERIENCE"
+      ],
+      "should_trigger_stage5_review": true,
+      "should_trigger_ai_review": true,
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "signal_domain": "TAILORED_COMPETITION",
+      "observable_from": [
+        "tender_file",
+        "post_award_notice",
+        "complaint_case",
+        "platform_metadata",
+        "internal_material"
+      ],
+      "source_confidence": "MEDIUM",
+      "rule_gate_condition": "命中 流标重招异常 相关关键词，且条款位于资格条件、技术参数、评分办法、商务条款或补遗澄清中。",
+      "evidence_gate_condition": "必须能定位到 tender_file、post_award_notice、complaint_case、platform_metadata、internal_material 中的原文片段、章节、页码、附件或投诉案例来源；需要保留反例条件。"
+    },
+    {
+      "sample_id": "TAILORED-SIGNAL-0014",
+      "signal_family": "procedure_abnormality",
+      "signal_keyword": "固定供应商异常",
+      "keyword_patterns": [
+        "固定供应商",
+        "长期中标",
+        "轮流中标",
+        "同一代理",
+        "同一采购人",
+        "同一供应商",
+        "报价接近预算",
+        "技术分稳定领先",
+        "商务分稳定领先",
+        "竞争者频繁废标",
+        "历史中标人",
+        "主观分显著领先",
+        "陪跑"
+      ],
+      "bid_file_sections": [
+        "历史公告",
+        "中标候选人公示",
+        "中标结果公告"
+      ],
+      "index_targets": [
+        "historical_winner_pattern_index",
+        "procedure_abnormality_index"
+      ],
+      "base_weight": 12,
+      "counter_reasons": [
+        "公开竞争充分",
+        "价格明显低于预算",
+        "历史供应商履约评价客观"
+      ],
+      "counter_reason_keywords": [
+        "公开竞争",
+        "履约评价",
+        "价格最低",
+        "充分竞争"
+      ],
+      "source_classes": [
+        "OFFICIAL_OR_QUASI_OFFICIAL",
+        "INDUSTRY_PRACTICE",
+        "SOCIAL_EXPERIENCE"
+      ],
+      "should_trigger_stage5_review": true,
+      "should_trigger_ai_review": true,
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "signal_domain": "TAILORED_COMPETITION",
+      "observable_from": [
+        "tender_file",
+        "post_award_notice",
+        "complaint_case",
+        "platform_metadata",
+        "internal_material"
+      ],
+      "source_confidence": "MEDIUM",
+      "rule_gate_condition": "命中 固定供应商异常 相关关键词，且条款位于资格条件、技术参数、评分办法、商务条款或补遗澄清中。",
+      "evidence_gate_condition": "必须能定位到 tender_file、post_award_notice、complaint_case、platform_metadata、internal_material 中的原文片段、章节、页码、附件或投诉案例来源；需要保留反例条件。"
+    },
+    {
+      "sample_id": "TAILORED-SIGNAL-0015",
+      "signal_family": "fatal_rejection_complexity",
+      "signal_keyword": "签字盖章废标",
+      "keyword_patterns": [
+        "签字",
+        "签章",
+        "盖章",
+        "漏签",
+        "漏盖",
+        "法定代表人章",
+        "法人章",
+        "授权代表签名",
+        "扫描章",
+        "图片章",
+        "人名章",
+        "骑缝章",
+        "逐页签字",
+        "电子签章",
+        "分公司盖章",
+        "联合体盖章",
+        "红章",
+        "蓝章"
+      ],
+      "bid_file_sections": [
+        "格式文件",
+        "投标函",
+        "授权书",
+        "报价表",
+        "承诺书"
+      ],
+      "index_targets": [
+        "fatal_rejection_complexity_index"
+      ],
+      "base_weight": 10,
+      "counter_reasons": [
+        "采购文件允许电子签章",
+        "签字或盖章均可"
+      ],
+      "counter_reason_keywords": [
+        "签字或盖章",
+        "电子签章有效",
+        "可使用签名章"
+      ],
+      "source_classes": [
+        "OFFICIAL_OR_QUASI_OFFICIAL",
+        "INDUSTRY_PRACTICE",
+        "SOCIAL_EXPERIENCE"
+      ],
+      "should_trigger_stage5_review": false,
+      "should_trigger_ai_review": false,
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "signal_domain": "FATAL_REJECTION",
+      "observable_from": [
+        "tender_file",
+        "bidder_file",
+        "post_award_notice",
+        "attachment"
+      ],
+      "source_confidence": "MEDIUM",
+      "rule_gate_condition": "命中 签字盖章废标 相关废标或无效投标关键词，仅进入废标红线复核。",
+      "evidence_gate_condition": "必须能定位到 tender_file、bidder_file、post_award_notice、attachment 中的原文片段、页码、附件、元数据或内部材料来源。"
+    },
+    {
+      "sample_id": "TAILORED-SIGNAL-0016",
+      "signal_family": "fatal_rejection_complexity",
+      "signal_keyword": "授权委托书废标",
+      "keyword_patterns": [
+        "授权委托书",
+        "全权代理",
+        "全权委托",
+        "无转委托",
+        "授权期限",
+        "投标有效期",
+        "身份证正反面",
+        "身份证复印件",
+        "机打签名",
+        "抠图签名",
+        "上传人员",
+        "解密人员",
+        "开标人员",
+        "授权范围",
+        "授权代表"
+      ],
+      "bid_file_sections": [
+        "格式文件",
+        "授权委托书"
+      ],
+      "index_targets": [
+        "fatal_rejection_complexity_index"
+      ],
+      "base_weight": 9,
+      "counter_reasons": [
+        "格式明确且材料齐全"
+      ],
+      "counter_reason_keywords": [
+        "按格式填写",
+        "授权期限覆盖",
+        "无转委托"
+      ],
+      "source_classes": [
+        "INDUSTRY_PRACTICE",
+        "SOCIAL_EXPERIENCE"
+      ],
+      "should_trigger_stage5_review": false,
+      "should_trigger_ai_review": false,
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "signal_domain": "FATAL_REJECTION",
+      "observable_from": [
+        "tender_file",
+        "bidder_file",
+        "post_award_notice",
+        "attachment"
+      ],
+      "source_confidence": "EXPERIENCE",
+      "rule_gate_condition": "命中 授权委托书废标 相关废标或无效投标关键词，仅进入废标红线复核。",
+      "evidence_gate_condition": "必须能定位到 tender_file、bidder_file、post_award_notice、attachment 中的原文片段、页码、附件、元数据或内部材料来源。"
+    },
+    {
+      "sample_id": "TAILORED-SIGNAL-0017",
+      "signal_family": "price_abnormality",
+      "signal_keyword": "报价废标",
+      "keyword_patterns": [
+        "最高限价",
+        "单价限价",
+        "分项报价",
+        "总价不一致",
+        "大小写金额",
+        "税率",
+        "征收率",
+        "小数位",
+        "折扣",
+        "二次报价",
+        "最后报价",
+        "异常低价",
+        "成本说明",
+        "工程量清单",
+        "清单漏项",
+        "清单编码",
+        "不可竞争费用",
+        "报价超过"
+      ],
+      "bid_file_sections": [
+        "报价文件",
+        "工程量清单",
+        "评分办法"
+      ],
+      "index_targets": [
+        "price_abnormality_index",
+        "fatal_rejection_complexity_index"
+      ],
+      "base_weight": 11,
+      "counter_reasons": [
+        "报价修正规则明确",
+        "允许算术修正"
+      ],
+      "counter_reason_keywords": [
+        "算术修正",
+        "按单价修正",
+        "评标委员会修正"
+      ],
+      "source_classes": [
+        "OFFICIAL_OR_QUASI_OFFICIAL",
+        "INDUSTRY_PRACTICE",
+        "SOCIAL_EXPERIENCE"
+      ],
+      "should_trigger_stage5_review": false,
+      "should_trigger_ai_review": false,
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "signal_domain": "PRICE_PERFORMANCE",
+      "observable_from": [
+        "tender_file",
+        "bidder_file",
+        "post_award_notice",
+        "internal_material"
+      ],
+      "source_confidence": "MEDIUM",
+      "rule_gate_condition": "命中 报价废标 相关报价、低价、成本或价格规律关键词，仅进入报价履约复核。",
+      "evidence_gate_condition": "必须能定位到 tender_file、bidder_file、post_award_notice、internal_material 中的原文片段、页码、附件、元数据或内部材料来源。"
+    },
+    {
+      "sample_id": "TAILORED-SIGNAL-0018",
+      "signal_family": "fatal_rejection_complexity",
+      "signal_keyword": "保证金废标",
+      "keyword_patterns": [
+        "投标保证金",
+        "保证金",
+        "保函",
+        "到账",
+        "付款主体",
+        "项目编号备注",
+        "包号备注",
+        "多包保证金",
+        "保函有效期",
+        "出具机构",
+        "收款账户",
+        "银行回单",
+        "电子保函",
+        "受益人",
+        "保证金用途"
+      ],
+      "bid_file_sections": [
+        "商务条款",
+        "保证金",
+        "格式文件"
+      ],
+      "index_targets": [
+        "fatal_rejection_complexity_index",
+        "price_abnormality_index"
+      ],
+      "base_weight": 10,
+      "counter_reasons": [
+        "免收保证金",
+        "信用承诺替代保证金"
+      ],
+      "counter_reason_keywords": [
+        "免收投标保证金",
+        "无需保证金",
+        "信用承诺"
+      ],
+      "source_classes": [
+        "OFFICIAL_OR_QUASI_OFFICIAL",
+        "INDUSTRY_PRACTICE",
+        "SOCIAL_EXPERIENCE"
+      ],
+      "should_trigger_stage5_review": false,
+      "should_trigger_ai_review": false,
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "signal_domain": "FATAL_REJECTION",
+      "observable_from": [
+        "tender_file",
+        "bidder_file",
+        "post_award_notice",
+        "attachment"
+      ],
+      "source_confidence": "MEDIUM",
+      "rule_gate_condition": "命中 保证金废标 相关废标或无效投标关键词，仅进入废标红线复核。",
+      "evidence_gate_condition": "必须能定位到 tender_file、bidder_file、post_award_notice、attachment 中的原文片段、页码、附件、元数据或内部材料来源。"
+    },
+    {
+      "sample_id": "TAILORED-SIGNAL-0019",
+      "signal_family": "fatal_rejection_complexity",
+      "signal_keyword": "资格信用社保废标",
+      "keyword_patterns": [
+        "营业执照过期",
+        "经营范围",
+        "资质证书过期",
+        "安全生产许可证过期",
+        "信用中国",
+        "中国政府采购网",
+        "重大违法记录",
+        "无行贿犯罪记录",
+        "社保月份",
+        "五险",
+        "派遣人员",
+        "项目经理社保",
+        "业绩合同主体",
+        "母公司业绩",
+        "子公司业绩",
+        "分公司业绩",
+        "分包业绩",
+        "财务审计报告"
+      ],
+      "bid_file_sections": [
+        "资格条件",
+        "资格证明文件"
+      ],
+      "index_targets": [
+        "fatal_rejection_complexity_index",
+        "qualification_customization_index"
+      ],
+      "base_weight": 10,
+      "counter_reasons": [
+        "新成立企业豁免",
+        "承诺制资格审查"
+      ],
+      "counter_reason_keywords": [
+        "承诺制",
+        "新成立企业",
+        "无需提供"
+      ],
+      "source_classes": [
+        "OFFICIAL_OR_QUASI_OFFICIAL",
+        "INDUSTRY_PRACTICE",
+        "SOCIAL_EXPERIENCE"
+      ],
+      "should_trigger_stage5_review": false,
+      "should_trigger_ai_review": false,
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "signal_domain": "FATAL_REJECTION",
+      "observable_from": [
+        "tender_file",
+        "bidder_file",
+        "post_award_notice",
+        "attachment"
+      ],
+      "source_confidence": "MEDIUM",
+      "rule_gate_condition": "命中 资格信用社保废标 相关废标或无效投标关键词，仅进入废标红线复核。",
+      "evidence_gate_condition": "必须能定位到 tender_file、bidder_file、post_award_notice、attachment 中的原文片段、页码、附件、元数据或内部材料来源。"
+    },
+    {
+      "sample_id": "TAILORED-SIGNAL-0020",
+      "signal_family": "fatal_rejection_complexity",
+      "signal_keyword": "声明函废标",
+      "keyword_patterns": [
+        "中小企业声明函",
+        "小微企业声明函",
+        "行业分类",
+        "从业人员",
+        "营业收入",
+        "资产总额",
+        "万元",
+        "制造商",
+        "声明主体",
+        "本国产品声明函",
+        "国产产品声明函",
+        "进口产品",
+        "虚假声明",
+        "残疾人福利性单位",
+        "监狱企业",
+        "节能产品",
+        "环保产品"
+      ],
+      "bid_file_sections": [
+        "格式文件",
+        "声明函",
+        "资格证明文件"
+      ],
+      "index_targets": [
+        "fatal_rejection_complexity_index"
+      ],
+      "base_weight": 9,
+      "counter_reasons": [
+        "项目不适用声明函",
+        "未享受政策优惠"
+      ],
+      "counter_reason_keywords": [
+        "不享受价格扣除",
+        "不适用",
+        "非专门面向中小企业"
+      ],
+      "source_classes": [
+        "INDUSTRY_PRACTICE",
+        "SOCIAL_EXPERIENCE"
+      ],
+      "should_trigger_stage5_review": false,
+      "should_trigger_ai_review": false,
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "signal_domain": "FATAL_REJECTION",
+      "observable_from": [
+        "tender_file",
+        "bidder_file",
+        "post_award_notice",
+        "attachment"
+      ],
+      "source_confidence": "EXPERIENCE",
+      "rule_gate_condition": "命中 声明函废标 相关废标或无效投标关键词，仅进入废标红线复核。",
+      "evidence_gate_condition": "必须能定位到 tender_file、bidder_file、post_award_notice、attachment 中的原文片段、页码、附件、元数据或内部材料来源。"
+    },
+    {
+      "sample_id": "TAILORED-SIGNAL-0021",
+      "signal_family": "dark_bid_format_risk",
+      "signal_keyword": "暗标格式废标",
+      "keyword_patterns": [
+        "暗标",
+        "盲评",
+        "公司名称",
+        "投标人名称",
+        "LOGO",
+        "水印",
+        "联系人",
+        "联系电话",
+        "页眉",
+        "页脚",
+        "文件属性",
+        "作者",
+        "人员姓名",
+        "字体",
+        "字号",
+        "颜色",
+        "行距",
+        "页边距",
+        "缩进",
+        "页码",
+        "目录格式",
+        "特殊符号",
+        "英文标点",
+        "隐藏字符",
+        "报价信息",
+        "修订痕迹",
+        "批注"
+      ],
+      "bid_file_sections": [
+        "暗标要求",
+        "格式文件",
+        "技术标"
+      ],
+      "index_targets": [
+        "dark_bid_format_risk_index",
+        "fatal_rejection_complexity_index"
+      ],
+      "base_weight": 12,
+      "counter_reasons": [
+        "明标项目",
+        "暗标扣分制而非否决"
+      ],
+      "counter_reason_keywords": [
+        "明标",
+        "扣分",
+        "不作否决"
+      ],
+      "source_classes": [
+        "OFFICIAL_OR_QUASI_OFFICIAL",
+        "INDUSTRY_PRACTICE",
+        "SOCIAL_EXPERIENCE"
+      ],
+      "should_trigger_stage5_review": false,
+      "should_trigger_ai_review": false,
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "signal_domain": "FATAL_REJECTION",
+      "observable_from": [
+        "tender_file",
+        "bidder_file",
+        "post_award_notice",
+        "attachment"
+      ],
+      "source_confidence": "MEDIUM",
+      "rule_gate_condition": "命中 暗标格式废标 相关废标或无效投标关键词，仅进入废标红线复核。",
+      "evidence_gate_condition": "必须能定位到 tender_file、bidder_file、post_award_notice、attachment 中的原文片段、页码、附件、元数据或内部材料来源。"
+    },
+    {
+      "sample_id": "TAILORED-SIGNAL-0022",
+      "signal_family": "document_quality_obstruction",
+      "signal_keyword": "文件一致性废标",
+      "keyword_patterns": [
+        "项目名称不一致",
+        "标段号不一致",
+        "包号不一致",
+        "采购人名称写错",
+        "代理机构名称写错",
+        "投标有效期不一致",
+        "工期不一致",
+        "交货期不一致",
+        "服务期不一致",
+        "日历日",
+        "质量标准不一致",
+        "付款响应矛盾",
+        "质保期矛盾",
+        "偏离表",
+        "补遗未同步",
+        "型号不一致",
+        "页码定位错误"
+      ],
+      "bid_file_sections": [
+        "格式文件",
+        "投标文件",
+        "补遗澄清"
+      ],
+      "index_targets": [
+        "document_quality_obstruction_index",
+        "fatal_rejection_complexity_index"
+      ],
+      "base_weight": 9,
+      "counter_reasons": [
+        "澄清允许修正非实质性错误"
+      ],
+      "counter_reason_keywords": [
+        "非实质性偏差",
+        "澄清",
+        "补正"
+      ],
+      "source_classes": [
+        "INDUSTRY_PRACTICE",
+        "SOCIAL_EXPERIENCE"
+      ],
+      "should_trigger_stage5_review": false,
+      "should_trigger_ai_review": false,
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "signal_domain": "DOCUMENT_QUALITY",
+      "observable_from": [
+        "attachment",
+        "bidder_file",
+        "internal_material"
+      ],
+      "source_confidence": "EXPERIENCE",
+      "rule_gate_condition": "命中 文件一致性废标 相关附件、扫描、OCR、水印、版本或一致性关键词，仅进入文档质量复核。",
+      "evidence_gate_condition": "必须能定位到 attachment、bidder_file、internal_material 中的原文片段、页码、附件、元数据或内部材料来源。"
+    },
+    {
+      "sample_id": "TAILORED-SIGNAL-0023",
+      "signal_family": "document_quality_obstruction",
+      "signal_keyword": "附件扫描水印阻断",
+      "keyword_patterns": [
+        "彩色扫描件",
+        "黑白复印件",
+        "原件扫描",
+        "查询截图",
+        "二维码无法验证",
+        "验证码过期",
+        "截图不完整",
+        "关键页缺失",
+        "合同金额页缺失",
+        "签章页缺失",
+        "验收报告缺签章",
+        "水印",
+        "仅限某项目使用",
+        "再次复印无效",
+        "旧项目水印",
+        "扫描件模糊",
+        "PDF图片化",
+        "OCR识别失败",
+        "附件上传错误"
+      ],
+      "bid_file_sections": [
+        "附件",
+        "资格证明文件",
+        "格式文件"
+      ],
+      "index_targets": [
+        "document_quality_obstruction_index"
+      ],
+      "base_weight": 10,
+      "counter_reasons": [
+        "可通过公开查询补证",
+        "文件允许截图"
+      ],
+      "counter_reason_keywords": [
+        "官网查询",
+        "截图有效",
+        "可补正"
+      ],
+      "source_classes": [
+        "INDUSTRY_PRACTICE",
+        "SOCIAL_EXPERIENCE"
+      ],
+      "should_trigger_stage5_review": false,
+      "should_trigger_ai_review": false,
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "signal_domain": "DOCUMENT_QUALITY",
+      "observable_from": [
+        "attachment",
+        "bidder_file",
+        "internal_material"
+      ],
+      "source_confidence": "EXPERIENCE",
+      "rule_gate_condition": "命中 附件扫描水印阻断 相关附件、扫描、OCR、水印、版本或一致性关键词，仅进入文档质量复核。",
+      "evidence_gate_condition": "必须能定位到 attachment、bidder_file、internal_material 中的原文片段、页码、附件、元数据或内部材料来源。"
+    },
+    {
+      "sample_id": "TAILORED-SIGNAL-0024",
+      "signal_family": "collusion_trace",
+      "signal_keyword": "文件制作同源",
+      "keyword_patterns": [
+        "格式高度一致",
+        "错别字一致",
+        "排版一致",
+        "技术方案相同",
+        "目录结构一致",
+        "页眉页脚一致",
+        "文件元数据",
+        "创建软件版本",
+        "创建时间",
+        "清单软件",
+        "同一打印机",
+        "同一扫描仪",
+        "同一复印店",
+        "另一家公司名称",
+        "另一家公司公章",
+        "模板残留",
+        "复制粘贴",
+        "文件大小异常接近"
+      ],
+      "bid_file_sections": [
+        "投标文件",
+        "电子监管线索"
+      ],
+      "index_targets": [
+        "collusion_trace_index"
+      ],
+      "base_weight": 15,
+      "counter_reasons": [
+        "统一平台模板",
+        "采购文件强制模板"
+      ],
+      "counter_reason_keywords": [
+        "统一模板",
+        "平台模板",
+        "固定格式"
+      ],
+      "source_classes": [
+        "OFFICIAL_OR_QUASI_OFFICIAL",
+        "INDUSTRY_PRACTICE",
+        "SOCIAL_EXPERIENCE",
+        "UNSTABLE_PUBLIC_THREAD"
+      ],
+      "should_trigger_stage5_review": true,
+      "should_trigger_ai_review": true,
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "signal_domain": "ELECTRONIC_SUPERVISION",
+      "observable_from": [
+        "platform_metadata",
+        "internal_material",
+        "complaint_case"
+      ],
+      "source_confidence": "UNSTABLE",
+      "rule_gate_condition": "命中 文件制作同源 相关电子监管或同源痕迹关键词，必须有平台元数据或内部材料才可作为证据。",
+      "evidence_gate_condition": "必须能定位到 platform_metadata、internal_material、complaint_case 中的可核验记录；普通招标文件文本不足以证明该线索。"
+    },
+    {
+      "sample_id": "TAILORED-SIGNAL-0025",
+      "signal_family": "collusion_trace",
+      "signal_keyword": "上传解密账号同源",
+      "keyword_patterns": [
+        "同一IP",
+        "同一 IP",
+        "同一电脑",
+        "同一MAC",
+        "MAC地址",
+        "同一机器码",
+        "硬盘序列号",
+        "同一CA",
+        "CA锁混用",
+        "加密锁混用",
+        "同一联系人",
+        "同一手机号",
+        "同一邮箱",
+        "同一账号",
+        "浏览器指纹",
+        "上传时间接近",
+        "解密时间接近",
+        "集中解密失败",
+        "电子签章操作人"
+      ],
+      "bid_file_sections": [
+        "电子监管线索",
+        "平台日志"
+      ],
+      "index_targets": [
+        "collusion_trace_index"
+      ],
+      "base_weight": 18,
+      "counter_reasons": [
+        "平台公共机房",
+        "代理机构集中培训环境"
+      ],
+      "counter_reason_keywords": [
+        "公共机房",
+        "统一办理",
+        "平台原因"
+      ],
+      "source_classes": [
+        "OFFICIAL_OR_QUASI_OFFICIAL",
+        "INDUSTRY_PRACTICE",
+        "SOCIAL_EXPERIENCE",
+        "UNSTABLE_PUBLIC_THREAD"
+      ],
+      "should_trigger_stage5_review": true,
+      "should_trigger_ai_review": true,
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "signal_domain": "ELECTRONIC_SUPERVISION",
+      "observable_from": [
+        "platform_metadata",
+        "internal_material",
+        "complaint_case"
+      ],
+      "source_confidence": "UNSTABLE",
+      "rule_gate_condition": "命中 上传解密账号同源 相关电子监管或同源痕迹关键词，必须有平台元数据或内部材料才可作为证据。",
+      "evidence_gate_condition": "必须能定位到 platform_metadata、internal_material、complaint_case 中的可核验记录；普通招标文件文本不足以证明该线索。"
+    },
+    {
+      "sample_id": "TAILORED-SIGNAL-0026",
+      "signal_family": "price_abnormality",
+      "signal_keyword": "报价规律异常",
+      "keyword_patterns": [
+        "报价等差",
+        "报价高度接近",
+        "异常高价",
+        "异常低价",
+        "护航",
+        "围绕目标价",
+        "轮流低价",
+        "长期陪标",
+        "报价下浮率",
+        "报价尾数",
+        "预算价",
+        "评分最优区间",
+        "报价梯度",
+        "多包报价",
+        "综合单价高度一致",
+        "取费规律一致"
+      ],
+      "bid_file_sections": [
+        "报价文件",
+        "历史公告",
+        "电子监管线索"
+      ],
+      "index_targets": [
+        "price_abnormality_index",
+        "collusion_trace_index"
+      ],
+      "base_weight": 14,
+      "counter_reasons": [
+        "市场价格透明",
+        "统一清单计价导致接近"
+      ],
+      "counter_reason_keywords": [
+        "市场价格",
+        "统一清单",
+        "定额计价"
+      ],
+      "source_classes": [
+        "OFFICIAL_OR_QUASI_OFFICIAL",
+        "INDUSTRY_PRACTICE",
+        "SOCIAL_EXPERIENCE"
+      ],
+      "should_trigger_stage5_review": true,
+      "should_trigger_ai_review": true,
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "signal_domain": "PRICE_PERFORMANCE",
+      "observable_from": [
+        "tender_file",
+        "bidder_file",
+        "post_award_notice",
+        "internal_material"
+      ],
+      "source_confidence": "MEDIUM",
+      "rule_gate_condition": "命中 报价规律异常 相关报价、低价、成本或价格规律关键词，仅进入报价履约复核。",
+      "evidence_gate_condition": "必须能定位到 tender_file、bidder_file、post_award_notice、internal_material 中的原文片段、页码、附件、元数据或内部材料来源。"
+    },
+    {
+      "sample_id": "TAILORED-SIGNAL-0027",
+      "signal_family": "blind_bid_suitability",
+      "signal_keyword": "适合盲投信号",
+      "keyword_patterns": [
+        "政府采购平台",
+        "公共资源交易中心",
+        "电子标",
+        "远程异地评标",
+        "小微企业预留",
+        "价格分",
+        "客观分",
+        "附件完整",
+        "规则清晰",
+        "资格门槛低",
+        "流标重招",
+        "投标人数不足",
+        "采购需求标准化"
+      ],
+      "bid_file_sections": [
+        "公告",
+        "评分办法",
+        "采购需求"
+      ],
+      "index_targets": [
+        "blind_bid_suitability_index"
+      ],
+      "base_weight": -8,
+      "counter_reasons": [
+        "主观分高",
+        "厂家授权",
+        "本地化要求"
+      ],
+      "counter_reason_keywords": [
+        "主观分",
+        "厂家授权",
+        "本地化"
+      ],
+      "source_classes": [
+        "INDUSTRY_PRACTICE",
+        "SOCIAL_EXPERIENCE"
+      ],
+      "should_trigger_stage5_review": false,
+      "should_trigger_ai_review": false,
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "signal_domain": "BID_SELECTION",
+      "observable_from": [
+        "tender_file",
+        "attachment",
+        "post_award_notice",
+        "internal_material"
+      ],
+      "source_confidence": "EXPERIENCE",
+      "rule_gate_condition": "命中 适合盲投信号 相关盲投筛选关键词，仅用于项目筛选或盲投适配判断。",
+      "evidence_gate_condition": "必须能定位到 tender_file、attachment、post_award_notice、internal_material 中的原文片段、页码、附件、元数据或内部材料来源。"
+    },
+    {
+      "sample_id": "TAILORED-SIGNAL-0028",
+      "signal_family": "blind_bid_suitability",
+      "signal_keyword": "不适合盲投信号",
+      "keyword_patterns": [
+        "场外项目",
+        "纸质标",
+        "付款差",
+        "演示答辩",
+        "样品评审",
+        "参数明显指向",
+        "厂家授权卡死",
+        "本地化要求强",
+        "EPC",
+        "设计施工一体化",
+        "附件缺失",
+        "补遗很多",
+        "现场踏勘",
+        "投标前提交样品",
+        "投标前接口对接",
+        "付款周期长",
+        "违约责任重"
+      ],
+      "bid_file_sections": [
+        "公告",
+        "评分办法",
+        "采购需求",
+        "合同条款"
+      ],
+      "index_targets": [
+        "blind_bid_suitability_index",
+        "procedure_abnormality_index"
+      ],
+      "base_weight": 10,
+      "counter_reasons": [
+        "客观分高",
+        "规则清晰",
+        "附件完整"
+      ],
+      "counter_reason_keywords": [
+        "客观分",
+        "附件完整",
+        "规则清晰"
+      ],
+      "source_classes": [
+        "INDUSTRY_PRACTICE",
+        "SOCIAL_EXPERIENCE"
+      ],
+      "should_trigger_stage5_review": false,
+      "should_trigger_ai_review": true,
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "signal_domain": "BID_SELECTION",
+      "observable_from": [
+        "tender_file",
+        "attachment",
+        "post_award_notice",
+        "internal_material"
+      ],
+      "source_confidence": "EXPERIENCE",
+      "rule_gate_condition": "命中 不适合盲投信号 相关盲投筛选关键词，仅用于项目筛选或盲投适配判断。",
+      "evidence_gate_condition": "必须能定位到 tender_file、attachment、post_award_notice、internal_material 中的原文片段、页码、附件、元数据或内部材料来源。"
+    },
+    {
+      "sample_id": "TAILORED-SIGNAL-0029",
+      "signal_family": "regional_rule_profile",
+      "signal_keyword": "暗标型地区画像",
+      "keyword_patterns": [
+        "辽宁暗标",
+        "浙江暗标",
+        "内蒙古高标准农田",
+        "河北暗标",
+        "暗标扣分制",
+        "文件属性",
+        "页码字体",
+        "技术标暗标"
+      ],
+      "bid_file_sections": [
+        "地区规则",
+        "暗标要求"
+      ],
+      "index_targets": [
+        "dark_bid_format_risk_index"
+      ],
+      "base_weight": 5,
+      "counter_reasons": [
+        "地区画像仅用于模板选择"
+      ],
+      "counter_reason_keywords": [
+        "地区画像",
+        "模板选择"
+      ],
+      "source_classes": [
+        "OFFICIAL_OR_QUASI_OFFICIAL",
+        "INDUSTRY_PRACTICE",
+        "SOCIAL_EXPERIENCE"
+      ],
+      "should_trigger_stage5_review": false,
+      "should_trigger_ai_review": false,
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "signal_domain": "REGIONAL_RULE_PROFILE",
+      "observable_from": [
+        "tender_file",
+        "platform_metadata",
+        "post_award_notice",
+        "internal_material"
+      ],
+      "source_confidence": "EXPERIENCE",
+      "rule_gate_condition": "命中 暗标型地区画像 相关地区画像关键词，仅用于选择审查模板、格式检查或合规留痕。",
+      "evidence_gate_condition": "必须能定位到 tender_file、platform_metadata、post_award_notice、internal_material 中的地区规则、平台规则、公告或监管材料；不得仅因地区名称输出风险结论。"
+    },
+    {
+      "sample_id": "TAILORED-SIGNAL-0030",
+      "signal_family": "regional_rule_profile",
+      "signal_keyword": "低价型地区画像",
+      "keyword_patterns": [
+        "重庆低价",
+        "海南最低价",
+        "最低价评标",
+        "机器化评审",
+        "异常低价说明",
+        "成本证明",
+        "不可竞争费用"
+      ],
+      "bid_file_sections": [
+        "地区规则",
+        "评分办法",
+        "报价文件"
+      ],
+      "index_targets": [
+        "price_abnormality_index"
+      ],
+      "base_weight": 5,
+      "counter_reasons": [
+        "地区画像仅用于报价复核"
+      ],
+      "counter_reason_keywords": [
+        "报价测算",
+        "成本测算"
+      ],
+      "source_classes": [
+        "OFFICIAL_OR_QUASI_OFFICIAL",
+        "INDUSTRY_PRACTICE",
+        "SOCIAL_EXPERIENCE"
+      ],
+      "should_trigger_stage5_review": false,
+      "should_trigger_ai_review": false,
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "signal_domain": "REGIONAL_RULE_PROFILE",
+      "observable_from": [
+        "tender_file",
+        "platform_metadata",
+        "post_award_notice",
+        "internal_material"
+      ],
+      "source_confidence": "EXPERIENCE",
+      "rule_gate_condition": "命中 低价型地区画像 相关地区画像关键词，仅用于选择审查模板、格式检查或合规留痕。",
+      "evidence_gate_condition": "必须能定位到 tender_file、platform_metadata、post_award_notice、internal_material 中的地区规则、平台规则、公告或监管材料；不得仅因地区名称输出风险结论。"
+    },
+    {
+      "sample_id": "TAILORED-SIGNAL-0031",
+      "signal_family": "regional_rule_profile",
+      "signal_keyword": "细则型地区画像",
+      "keyword_patterns": [
+        "福建评分细",
+        "江西规则细",
+        "评分细",
+        "细项多",
+        "容易漏项",
+        "逐项材料索引",
+        "废标红线清单"
+      ],
+      "bid_file_sections": [
+        "地区规则",
+        "评分办法"
+      ],
+      "index_targets": [
+        "scoring_customization_index",
+        "fatal_rejection_complexity_index"
+      ],
+      "base_weight": 5,
+      "counter_reasons": [
+        "地区画像仅用于格式和材料检查"
+      ],
+      "counter_reason_keywords": [
+        "材料索引",
+        "格式检查"
+      ],
+      "source_classes": [
+        "OFFICIAL_OR_QUASI_OFFICIAL",
+        "INDUSTRY_PRACTICE",
+        "SOCIAL_EXPERIENCE"
+      ],
+      "should_trigger_stage5_review": false,
+      "should_trigger_ai_review": false,
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "signal_domain": "REGIONAL_RULE_PROFILE",
+      "observable_from": [
+        "tender_file",
+        "platform_metadata",
+        "post_award_notice",
+        "internal_material"
+      ],
+      "source_confidence": "EXPERIENCE",
+      "rule_gate_condition": "命中 细则型地区画像 相关地区画像关键词，仅用于选择审查模板、格式检查或合规留痕。",
+      "evidence_gate_condition": "必须能定位到 tender_file、platform_metadata、post_award_notice、internal_material 中的地区规则、平台规则、公告或监管材料；不得仅因地区名称输出风险结论。"
+    },
+    {
+      "sample_id": "TAILORED-SIGNAL-0032",
+      "signal_family": "regional_rule_profile",
+      "signal_keyword": "专项整治监督画像",
+      "keyword_patterns": [
+        "专项整治",
+        "有奖举报",
+        "线索征集",
+        "电子监管通报",
+        "合规强审",
+        "留痕增强",
+        "围串标整治"
+      ],
+      "bid_file_sections": [
+        "监管通报",
+        "地区规则",
+        "公告"
+      ],
+      "index_targets": [
+        "procedure_abnormality_index",
+        "collusion_trace_index"
+      ],
+      "base_weight": 6,
+      "counter_reasons": [
+        "仅作为合规留痕增强"
+      ],
+      "counter_reason_keywords": [
+        "合规留痕",
+        "监督检查"
+      ],
+      "source_classes": [
+        "OFFICIAL_OR_QUASI_OFFICIAL",
+        "INDUSTRY_PRACTICE",
+        "SOCIAL_EXPERIENCE"
+      ],
+      "should_trigger_stage5_review": false,
+      "should_trigger_ai_review": false,
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "signal_domain": "REGIONAL_RULE_PROFILE",
+      "observable_from": [
+        "tender_file",
+        "platform_metadata",
+        "post_award_notice",
+        "internal_material"
+      ],
+      "source_confidence": "EXPERIENCE",
+      "rule_gate_condition": "命中 专项整治监督画像 相关地区画像关键词，仅用于选择审查模板、格式检查或合规留痕。",
+      "evidence_gate_condition": "必须能定位到 tender_file、platform_metadata、post_award_notice、internal_material 中的地区规则、平台规则、公告或监管材料；不得仅因地区名称输出风险结论。"
+    }
+  ],
+  "signal_domain_policy": {
+    "allowed_signal_domains": [
+      "TAILORED_COMPETITION",
+      "FATAL_REJECTION",
+      "ELECTRONIC_SUPERVISION",
+      "BID_SELECTION",
+      "REGIONAL_RULE_PROFILE",
+      "DOCUMENT_QUALITY",
+      "PRICE_PERFORMANCE"
+    ],
+    "tailored_bid_index_domains": [
+      "TAILORED_COMPETITION"
+    ],
+    "non_tailored_domains_keep_sub_indices_only": [
+      "FATAL_REJECTION",
+      "DOCUMENT_QUALITY",
+      "PRICE_PERFORMANCE",
+      "ELECTRONIC_SUPERVISION",
+      "BID_SELECTION",
+      "REGIONAL_RULE_PROFILE"
+    ],
+    "regional_rule_profile_usage": "地区画像只用于规则模板、格式检查、报价复核和合规留痕，不进入控标总指数。"
+  },
+  "observable_source_policy": {
+    "allowed_observable_from": [
+      "tender_file",
+      "attachment",
+      "platform_metadata",
+      "bidder_file",
+      "post_award_notice",
+      "complaint_case",
+      "internal_material"
+    ],
+    "default_text_observable_from": [
+      "tender_file",
+      "attachment"
+    ],
+    "platform_metadata_boundary": "IP、MAC、CA、上传解密时间等电子监管线索不能从普通招标文件文本直接证明。"
+  },
+  "source_confidence_policy": {
+    "allowed_source_confidence": [
+      "HIGH",
+      "MEDIUM",
+      "EXPERIENCE",
+      "UNSTABLE"
+    ],
+    "social_experience": "SOCIAL_EXPERIENCE 可作为经验样本源；正式法律定性证据仍需官方或可核验材料。"
+  }
+}

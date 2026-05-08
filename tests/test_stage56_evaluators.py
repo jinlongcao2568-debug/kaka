@@ -243,7 +243,7 @@ class TestStage56Evaluators(unittest.TestCase):
         )
         self.assertEqual(default_stage6.handoff, readback_stage6.handoff)
 
-    def test_stage6_stage16_report_profile_summarizes_mainline_risk_without_formal_review_request(self) -> None:
+    def test_stage6_stage16_report_profile_triggers_tailored_review_from_seed_index(self) -> None:
         payload = load_fixture("internal_chain_happy.json")
         payload.update(
             {
@@ -268,14 +268,17 @@ class TestStage56Evaluators(unittest.TestCase):
             "stage16_file_analysis_trace"
         ]["stage16_file_analysis_report_profile"]
 
-        self.assertNotIn("review_request", stage5.records)
-        self.assertEqual(report_profile["rule_gate_status"], "PASS")
+        self.assertIn("review_request", stage5.records)
+        self.assertEqual(report_profile["rule_gate_status"], "REVIEW")
         self.assertEqual(report_profile["evidence_gate_status"], "PASS")
-        self.assertEqual(report_profile["review_request_state"], "NOT_CREATED")
-        self.assertEqual(report_profile["report_profile_state"], "INTERNAL_REVIEW_RECOMMENDED")
+        self.assertEqual(report_profile["review_request_state"], "LINKED_REVIEW_REQUEST")
+        self.assertEqual(report_profile["report_profile_state"], "REVIEW_REQUIRED")
+        self.assertGreaterEqual(report_profile["tailored_bid_index"], 41)
         self.assertEqual(report_profile["tailored_bid_risk_level"], "HIGH_CLUE_REVIEW")
         self.assertGreaterEqual(report_profile["qualification_clause_count"], 4)
         self.assertGreaterEqual(report_profile["fatal_rejection_count"], 3)
+        self.assertIn("TAILORED_BID_INTERNAL_REVIEW", report_profile["recommended_review_lanes"])
+        self.assertIn("TAILORED_BID_AI_REVIEW", report_profile["recommended_review_lanes"])
         self.assertIn("MAINLINE_RISK_REVIEW", report_profile["recommended_review_lanes"])
         self.assertFalse(report_profile["customer_visible"])
         self.assertTrue(report_profile["no_illegality_or_reserved_winner_conclusion"])
@@ -440,9 +443,11 @@ class TestStage56Evaluators(unittest.TestCase):
         report_profile = trace["stage16_file_analysis_report_profile"]
         remedy_trace = trace["remedy_performance_settlement"]
 
-        self.assertEqual(report_profile["rule_gate_status"], "PASS")
+        self.assertEqual(report_profile["rule_gate_status"], "REVIEW")
         self.assertEqual(report_profile["evidence_gate_status"], "PASS")
-        self.assertEqual(report_profile["report_profile_state"], "INTERNAL_REVIEW_RECOMMENDED")
+        self.assertEqual(report_profile["review_request_state"], "LINKED_REVIEW_REQUEST")
+        self.assertEqual(report_profile["report_profile_state"], "REVIEW_REQUIRED")
+        self.assertIn("TAILORED_BID_INTERNAL_REVIEW", report_profile["recommended_review_lanes"])
         self.assertIn("REMEDY_PERFORMANCE_REVIEW", report_profile["recommended_review_lanes"])
         self.assertEqual(
             report_profile["remedy_performance_settlement_state"],

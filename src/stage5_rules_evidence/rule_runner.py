@@ -40,6 +40,13 @@ QUAL_PM_OFFICIAL_CHECKS = {
 }
 
 
+def _stage16_int_value(value: Any) -> int:
+    try:
+        return int(float(value))
+    except (TypeError, ValueError):
+        return 0
+
+
 def evaluate_project_manager_qualification_rules(readback: Mapping[str, Any]) -> dict[str, Any]:
     """Evaluate cautious Stage5 project-manager qualification rule states."""
     carrier = dict(readback or {})
@@ -344,6 +351,9 @@ class RuleRunner:
         ),
         "TAILORED-REVIEW-001": (
             "mainline_risk_profile",
+            "tailored_bid_signal_profile",
+            "tailored_bid_index",
+            "tailored_bid_sub_indices",
             "qualification_clause_hits",
             "source_document_ref",
             "source_slice_ref",
@@ -1109,14 +1119,54 @@ class RuleRunner:
             reasons.extend(f"{rule_code}: {reason}" for reason in document_quality_reasons)
             reasons.extend(f"{rule_code}: {reason}" for reason in manifest_reasons)
         elif rule_code == "TAILORED-REVIEW-001":
-            tailored_level = str(inputs.get("tailored_bid_risk_level") or "")
-            hits = ensure_list(inputs.get("qualification_clause_hits"))
-            if tailored_level and tailored_level not in {"LOW", "NO_SIGNAL", "NOT_RUN"}:
+            mainline_risk_profile = inputs.get("mainline_risk_profile")
+            if not isinstance(mainline_risk_profile, Mapping):
+                mainline_risk_profile = {}
+            tailored_signal_profile = inputs.get("tailored_bid_signal_profile")
+            if not isinstance(tailored_signal_profile, Mapping):
+                tailored_signal_profile = mainline_risk_profile.get("tailored_bid_signal_profile")
+            if not isinstance(tailored_signal_profile, Mapping):
+                tailored_signal_profile = {}
+            tailored_level = str(
+                inputs.get("tailored_bid_risk_level")
+                or tailored_signal_profile.get("tailored_bid_risk_level")
+                or mainline_risk_profile.get("tailored_bid_risk_level")
+                or ""
+            )
+            tailored_index = _stage16_int_value(
+                inputs.get("tailored_bid_index")
+                or tailored_signal_profile.get("tailored_bid_index")
+                or mainline_risk_profile.get("tailored_bid_index")
+            )
+            hits = ensure_list(
+                tailored_signal_profile.get("signal_hits")
+                or tailored_signal_profile.get("tailored_bid_signal_hits")
+                or inputs.get("qualification_clause_hits")
+            )
+            if tailored_index >= 21:
+                reasons.append(f"{rule_code}: tailored bid index {tailored_index}")
+            if tailored_level and tailored_level not in {"LOW", "NO_SIGNAL", "NOT_RUN", "NO_PUBLIC_MARKER"}:
                 reasons.append(f"{rule_code}: tailored bid risk {tailored_level}")
+            evidence_state = str(tailored_signal_profile.get("evidence_state") or "")
+            if evidence_state == "INSUFFICIENT_EVIDENCE":
+                reasons.append(f"{rule_code}: insufficient evidence blocks final tailored analysis")
+            if tailored_signal_profile.get("tailored_bid_ai_review_required"):
+                reasons.append(f"{rule_code}: AI second review required")
             for hit in hits:
                 if isinstance(hit, Mapping):
-                    kind = hit.get("signal_type") or hit.get("clause_type") or hit.get("keyword") or "qualification_clause"
-                    reasons.append(f"{rule_code}: restrictive competition clue {kind}")
+                    kind = (
+                        hit.get("signal_family")
+                        or hit.get("signal_type")
+                        or hit.get("clause_type")
+                        or hit.get("keyword")
+                        or "qualification_clause"
+                    )
+                    keyword = hit.get("signal_keyword") or hit.get("keyword") or ""
+                    seed_ref = hit.get("sample_id") or "seed_ref_missing"
+                    tailored_index_weight = _stage16_int_value(hit.get("tailored_index_weight"))
+                    if hit.get("should_trigger_stage5_review") or tailored_index_weight > 0:
+                        reasons.append(f"{rule_code}: seed clue {seed_ref} {kind} {keyword}".strip())
+                        continue
                 elif hit not in (None, ""):
                     reasons.append(f"{rule_code}: restrictive competition clue {hit}")
         elif rule_code == "FATAL-REVIEW-001":

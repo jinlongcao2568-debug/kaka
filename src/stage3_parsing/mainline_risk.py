@@ -3,6 +3,8 @@ from __future__ import annotations
 import re
 from typing import Any, Mapping
 
+from stage3_parsing.tailored_bid_signals import build_tailored_bid_signal_profile
+
 
 _TEXT_KEYS = (
     "source_text",
@@ -76,14 +78,21 @@ _PAYMENT_RISK_SIGNAL_DEFS = (
 def build_mainline_risk_profile(inputs: Mapping[str, Any]) -> dict[str, Any]:
     text = _profile_text(inputs)
     evaluation_method_profile = _evaluation_method_profile(text)
-    qualification_clause_hits = _qualification_clause_hits(text)
+    tailored_bid_signal_profile = build_tailored_bid_signal_profile(inputs, text=text)
+    qualification_clause_hits = _merge_qualification_clause_hits(
+        tailored_bid_signal_profile,
+        _qualification_clause_hits(text),
+    )
     fatal_rejection_risk_hits = _fatal_rejection_hits(text)
     price_performance_risk_profile = _price_performance_risk_profile(
         inputs,
         text=text,
         evaluation_method_profile=evaluation_method_profile,
     )
-    tailored_bid_risk_level = _tailored_risk_level(qualification_clause_hits)
+    tailored_bid_risk_level = _stronger_tailored_risk_level(
+        str(tailored_bid_signal_profile.get("tailored_bid_risk_level") or ""),
+        _tailored_risk_level(qualification_clause_hits),
+    )
     bid_selection_score = _bid_selection_score(
         inputs,
         tailored_bid_risk_level=tailored_bid_risk_level,
@@ -103,6 +112,7 @@ def build_mainline_risk_profile(inputs: Mapping[str, Any]) -> dict[str, Any]:
         fatal_rejection_risk_hits=fatal_rejection_risk_hits,
         self_score_forecast=self_score_forecast,
         price_performance_risk_profile=price_performance_risk_profile,
+        tailored_bid_signal_profile=tailored_bid_signal_profile,
     )
     return {
         "profile_state": "PROFILED_REVIEW_READY" if text else "PROFILE_REVIEW_REQUIRED",
@@ -110,7 +120,16 @@ def build_mainline_risk_profile(inputs: Mapping[str, Any]) -> dict[str, Any]:
         "bid_selection_state": bid_selection_state,
         "blind_bid_pipeline_stage": blind_bid_pipeline_stage,
         "evaluation_method_profile": evaluation_method_profile,
+        "tailored_bid_index": tailored_bid_signal_profile["tailored_bid_index"],
         "tailored_bid_risk_level": tailored_bid_risk_level,
+        "tailored_bid_sub_indices": tailored_bid_signal_profile["tailored_bid_sub_indices"],
+        "tailored_bid_signal_profile": tailored_bid_signal_profile,
+        "tailored_bid_ai_review_required": tailored_bid_signal_profile[
+            "tailored_bid_ai_review_required"
+        ],
+        "tailored_bid_stage5_review_required": tailored_bid_signal_profile[
+            "tailored_bid_stage5_review_required"
+        ],
         "qualification_clause_hits": qualification_clause_hits,
         "fatal_rejection_risk_hits": fatal_rejection_risk_hits,
         "price_performance_risk_profile": price_performance_risk_profile,
@@ -309,6 +328,48 @@ def _tailored_risk_level(hits: list[Mapping[str, Any]]) -> str:
     return "NO_PUBLIC_MARKER"
 
 
+def _stronger_tailored_risk_level(seed_level: str, legacy_level: str) -> str:
+    order = {
+        "NO_SIGNAL": 0,
+        "NO_PUBLIC_MARKER": 0,
+        "LOW": 1,
+        "LOW_CLUE_REVIEW": 1,
+        "WEAK_CLUE_REVIEW": 2,
+        "MEDIUM_CLUE_REVIEW": 3,
+        "HIGH_CLUE_REVIEW": 4,
+        "STRONG_CLUE_REVIEW": 5,
+        "INSUFFICIENT_EVIDENCE": 6,
+    }
+    seed = seed_level or "NO_SIGNAL"
+    legacy = legacy_level or "NO_PUBLIC_MARKER"
+    return seed if order.get(seed, 0) >= order.get(legacy, 0) else legacy
+
+
+def _merge_qualification_clause_hits(
+    tailored_bid_signal_profile: Mapping[str, Any],
+    legacy_hits: list[Mapping[str, Any]],
+) -> list[dict[str, Any]]:
+    merged: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for hit in tailored_bid_signal_profile.get("signal_hits") or []:
+        if not isinstance(hit, Mapping):
+            continue
+        if hit.get("risk_role") != "tailored_or_restrictive_competition_clue":
+            continue
+        key = str(hit.get("sample_id") or hit.get("signal_type") or hit.get("signal_keyword") or "")
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        merged.append(dict(hit))
+    for hit in legacy_hits:
+        key = str(hit.get("signal_type") or hit.get("clause_type") or hit.get("keyword") or "")
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        merged.append(dict(hit))
+    return merged
+
+
 def _bid_selection_score(
     inputs: Mapping[str, Any],
     *,
@@ -339,10 +400,12 @@ def _bid_selection_score(
     legal_type = str(inputs.get("legal_system_type_candidate") or "")
     if legal_type in {"REVIEW_REQUIRED", "UNKNOWN", ""}:
         score -= 8
-    if tailored_bid_risk_level.startswith("HIGH"):
+    if tailored_bid_risk_level.startswith("STRONG") or tailored_bid_risk_level.startswith("HIGH"):
         score -= 15
     elif tailored_bid_risk_level.startswith("MEDIUM"):
         score -= 8
+    elif tailored_bid_risk_level == "INSUFFICIENT_EVIDENCE":
+        score -= 10
     if fatal_hit_count:
         score -= min(20, fatal_hit_count * 4)
     if str(inputs.get("project_lifecycle_stage") or "") == "PRE_NOTICE_WATCHLIST":
@@ -382,6 +445,7 @@ def _review_reasons(
     fatal_rejection_risk_hits: list[Mapping[str, Any]],
     self_score_forecast: str,
     price_performance_risk_profile: Mapping[str, Any],
+    tailored_bid_signal_profile: Mapping[str, Any],
 ) -> list[str]:
     reasons = ["mainline_risk_profile_internal_review_required"]
     if not text:
@@ -389,6 +453,13 @@ def _review_reasons(
     reasons.extend(str(reason) for reason in evaluation_method_profile.get("review_reasons", []))
     if qualification_clause_hits:
         reasons.append("tailored_or_restrictive_clause_markers_detected")
+    tailored_bid_index = _int_or_none(tailored_bid_signal_profile.get("tailored_bid_index"))
+    if tailored_bid_index is not None and tailored_bid_index >= 21:
+        reasons.append(f"tailored_bid_index={tailored_bid_index}")
+    if tailored_bid_signal_profile.get("tailored_bid_ai_review_required"):
+        reasons.append("tailored_bid_ai_review_required")
+    for reason in tailored_bid_signal_profile.get("evidence_reasons") or []:
+        reasons.append(str(reason))
     if fatal_rejection_risk_hits:
         reasons.append("fatal_rejection_redline_markers_detected")
     if self_score_forecast == "NOT_RUN_MISSING_INTERNAL_MATERIALS":

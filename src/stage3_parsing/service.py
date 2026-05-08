@@ -526,7 +526,12 @@ class Stage3Service:
             "bid_selection_state",
             "blind_bid_pipeline_stage",
             "evaluation_method_profile",
+            "tailored_bid_index",
             "tailored_bid_risk_level",
+            "tailored_bid_sub_indices",
+            "tailored_bid_signal_profile",
+            "tailored_bid_ai_review_required",
+            "tailored_bid_stage5_review_required",
             "qualification_clause_hits",
             "fatal_rejection_risk_hits",
             "price_performance_risk_profile",
@@ -539,6 +544,14 @@ class Stage3Service:
             "self_score_forecast",
         ):
             inputs_out[field_name] = mainline_risk_profile.get(field_name)
+        if mainline_risk_profile.get("tailored_bid_stage5_review_required"):
+            requested_rule_codes = [
+                str(code)
+                for code in ensure_list(inputs_out.get("stage5_requested_rule_codes"))
+                if code not in (None, "")
+            ]
+            requested_rule_codes.append("TAILORED-REVIEW-001")
+            inputs_out["stage5_requested_rule_codes"] = list(dict.fromkeys(requested_rule_codes))
         for field_name in (
             "dark_bid_risk_hits",
             "positive_deviation_quality_state",

@@ -585,12 +585,16 @@
         "priority": 270,
         "dependency_fields": [
           "mainline_risk_profile",
+          "tailored_bid_signal_profile",
+          "tailored_bid_index",
+          "tailored_bid_sub_indices",
           "qualification_clause_hits"
         ],
         "dependency_evidence": [
           "source_document_ref",
           "source_slice_ref",
-          "mainline_risk_profile"
+          "mainline_risk_profile",
+          "tailored_bid_signal_profile"
         ],
         "input_contract": {
           "producer_handoff": "H-04-STAGE4-TO-STAGE5",
@@ -4510,7 +4514,12 @@
         "ISO/CMA clue",
         "site visit clue",
         "local performance or local service clue",
-        "specific certificate clue"
+        "specific certificate clue",
+        "tailored bid index seed clue",
+        "technical parameter customization clue",
+        "scoring customization clue",
+        "collusion or electronic supervision clue",
+        "document obstruction or fatal rejection complexity clue"
       ],
       "business_chain_stage": "Stage1-6文件分析闭环",
       "consumer_surfaces": [

@@ -1,5 +1,6 @@
 param(
     [string]$RealSampleExecutionManifestJson = "",
+    [string]$TailoredSignalSeedJson = "",
     [string]$DatabaseUrl = "",
     [string]$TargetBackend = "json-file",
     [string]$OutputJson = "",
@@ -14,6 +15,10 @@ $repoRoot = Resolve-Path (Join-Path $scriptDir "..")
 
 if (-not $RealSampleExecutionManifestJson) {
     $RealSampleExecutionManifestJson = Join-Path $repoRoot "tmp\evaluation-real-samples\real-sample-execution.json"
+}
+
+if (-not $TailoredSignalSeedJson) {
+    $TailoredSignalSeedJson = Join-Path $repoRoot "contracts\evaluation\tailored_bid_signal_seed.json"
 }
 
 if (-not $OutputJson) {
@@ -39,6 +44,7 @@ $env:PYTHONPATH = "$repoRoot\src;$repoRoot\tests"
 $argsList = @(
     "-m", "storage.evaluation_rule_calibration",
     "--real-sample-execution-manifest-json", $RealSampleExecutionManifestJson,
+    "--tailored-signal-seed-json", $TailoredSignalSeedJson,
     "--target-backend", $TargetBackend,
     "--output-json", $OutputJson
 )

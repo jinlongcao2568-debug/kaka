@@ -72,6 +72,13 @@ def _safe_dict(value: Any) -> dict[str, Any]:
     return dict(value) if isinstance(value, Mapping) else {}
 
 
+def _int_value(value: Any) -> int:
+    try:
+        return int(float(value))
+    except (TypeError, ValueError):
+        return 0
+
+
 def _state_from_public_summary(summary: Mapping[str, Any]) -> str:
     chain_state = str(summary.get("real_public_product_package_chain_state") or "UNKNOWN")
     if chain_state == "INTERNAL_READY":
@@ -296,6 +303,40 @@ def _stage16_file_analysis_report_profile(inputs: Mapping[str, Any]) -> dict[str
         or mainline_risk_profile.get("tailored_bid_risk_level")
         or "UNKNOWN"
     )
+    tailored_bid_signal_profile = _safe_dict(
+        inputs.get("tailored_bid_signal_profile")
+        or mainline_risk_profile.get("tailored_bid_signal_profile")
+    )
+    tailored_bid_index = _int_value(
+        inputs.get("tailored_bid_index")
+        or tailored_bid_signal_profile.get("tailored_bid_index")
+        or mainline_risk_profile.get("tailored_bid_index")
+    )
+    tailored_bid_sub_indices = _safe_dict(
+        inputs.get("tailored_bid_sub_indices")
+        or tailored_bid_signal_profile.get("tailored_bid_sub_indices")
+        or mainline_risk_profile.get("tailored_bid_sub_indices")
+    )
+    tailored_bid_signal_hits = ensure_list(
+        tailored_bid_signal_profile.get("signal_hits")
+        or tailored_bid_signal_profile.get("tailored_bid_signal_hits")
+    )
+    tailored_bid_counter_reason_count = _int_value(
+        tailored_bid_signal_profile.get("counter_reason_count")
+    )
+    tailored_bid_ai_review_required = bool(
+        inputs.get("tailored_bid_ai_review_required")
+        or tailored_bid_signal_profile.get("tailored_bid_ai_review_required")
+        or mainline_risk_profile.get("tailored_bid_ai_review_required")
+    )
+    tailored_bid_evidence_state = str(tailored_bid_signal_profile.get("evidence_state") or "")
+    tailored_primary_signal_families = [
+        str(item[0])
+        for item in sorted(
+            _safe_dict(tailored_bid_signal_profile.get("tailored_bid_signal_families")).items(),
+            key=lambda pair: (-_int_value(pair[1]), str(pair[0])),
+        )[:8]
+    ]
     bid_selection_state = inputs.get("bid_selection_state") or mainline_risk_profile.get(
         "bid_selection_state"
     )
@@ -403,8 +444,11 @@ def _stage16_file_analysis_report_profile(inputs: Mapping[str, Any]) -> dict[str
     gates_passed = gate_statuses == {"PASS"}
     gate_requires_review = bool(gate_statuses.intersection({"REVIEW", "BLOCK"}))
     mainline_weak_clue = (
-        tailored_bid_risk_level.startswith("HIGH")
+        tailored_bid_index >= 21
+        or tailored_bid_risk_level.startswith("STRONG")
+        or tailored_bid_risk_level.startswith("HIGH")
         or tailored_bid_risk_level.startswith("MEDIUM")
+        or tailored_bid_risk_level.startswith("WEAK")
         or bool(fatal_rejection_risk_hits)
     )
     price_performance_weak_clue = (
@@ -464,7 +508,21 @@ def _stage16_file_analysis_report_profile(inputs: Mapping[str, Any]) -> dict[str
         recommended_review_lanes.append(str(inputs.get("review_lane") or "STANDARD"))
     if missing_condition_family:
         review_reasons.append(str(missing_condition_family))
-    if tailored_bid_risk_level.startswith("HIGH") or tailored_bid_risk_level.startswith("MEDIUM"):
+    if tailored_bid_index >= 21:
+        review_reasons.append(f"tailored_bid_index={tailored_bid_index}")
+        recommended_review_lanes.append("TAILORED_BID_INTERNAL_REVIEW")
+    if tailored_bid_ai_review_required:
+        review_reasons.append("tailored_bid_ai_review_required")
+        recommended_review_lanes.append("TAILORED_BID_AI_REVIEW")
+    if tailored_bid_evidence_state == "INSUFFICIENT_EVIDENCE":
+        review_reasons.append("tailored_bid_evidence_state=INSUFFICIENT_EVIDENCE")
+        recommended_review_lanes.append("FILE_ANALYSIS_COMPLETENESS_REVIEW")
+    if (
+        tailored_bid_risk_level.startswith("STRONG")
+        or tailored_bid_risk_level.startswith("HIGH")
+        or tailored_bid_risk_level.startswith("MEDIUM")
+        or tailored_bid_risk_level.startswith("WEAK")
+    ):
         review_reasons.append(f"tailored_bid_risk_level={tailored_bid_risk_level}")
         recommended_review_lanes.append("MAINLINE_RISK_REVIEW")
     if fatal_rejection_risk_hits:
@@ -563,7 +621,20 @@ def _stage16_file_analysis_report_profile(inputs: Mapping[str, Any]) -> dict[str
         "missing_condition_family_optional": missing_condition_family,
         "mainline_risk_state": mainline_risk_state,
         "bid_selection_state": bid_selection_state,
+        "tailored_bid_index": tailored_bid_index,
         "tailored_bid_risk_level": tailored_bid_risk_level,
+        "tailored_bid_sub_indices": tailored_bid_sub_indices,
+        "tailored_bid_signal_count": len(tailored_bid_signal_hits),
+        "tailored_bid_counter_reason_count": tailored_bid_counter_reason_count,
+        "tailored_bid_ai_review_required": tailored_bid_ai_review_required,
+        "tailored_bid_evidence_state": tailored_bid_evidence_state,
+        "tailored_bid_primary_signal_families": tailored_primary_signal_families,
+        "tailored_bid_allowed_output_terms": ensure_list(
+            tailored_bid_signal_profile.get("allowed_output_terms")
+        ),
+        "tailored_bid_prohibited_output_terms": ensure_list(
+            tailored_bid_signal_profile.get("prohibited_output_terms")
+        ),
         "fatal_rejection_count": len(fatal_rejection_risk_hits),
         "qualification_clause_count": len(qualification_clause_hits),
         "price_performance_risk_profile": price_performance_risk_profile,
@@ -650,6 +721,33 @@ def _file_analysis_review_summary(inputs: Mapping[str, Any]) -> dict[str, Any]:
                 "reasons": ["扫描件或 OCR 阻断，不能把缺失字段当作无风险"],
             }
         )
+    tailored_bid_index = _int_value(report_profile.get("tailored_bid_index"))
+    tailored_bid_risk_level = str(report_profile.get("tailored_bid_risk_level") or "")
+    if tailored_bid_index >= 21 or tailored_bid_risk_level in {
+        "WEAK_CLUE_REVIEW",
+        "MEDIUM_CLUE_REVIEW",
+        "HIGH_CLUE_REVIEW",
+        "STRONG_CLUE_REVIEW",
+        "INSUFFICIENT_EVIDENCE",
+    }:
+        tailored_reasons = [f"tailored_bid_index={tailored_bid_index}"]
+        families = ensure_list(report_profile.get("tailored_bid_primary_signal_families"))
+        if families:
+            tailored_reasons.append("主要信号族：" + "、".join(str(item) for item in families[:6]))
+        counter_count = _int_value(report_profile.get("tailored_bid_counter_reason_count"))
+        tailored_reasons.append(f"反例抵消条件命中数={counter_count}")
+        if report_profile.get("tailored_bid_ai_review_required"):
+            tailored_reasons.append("AI 二次分析需要")
+        review_items.append(
+            {
+                "category": "控标风险线索",
+                "expression": "限制竞争线索",
+                "state": tailored_bid_risk_level or "REVIEW_REQUIRED",
+                "tailored_bid_index": tailored_bid_index,
+                "tailored_bid_sub_indices": report_profile.get("tailored_bid_sub_indices") or {},
+                "reasons": _dedupe_strings(tailored_reasons),
+            }
+        )
     for item in formal_rule_hits:
         review_items.append(
             {
@@ -685,7 +783,27 @@ def _file_analysis_review_summary(inputs: Mapping[str, Any]) -> dict[str, Any]:
         "formal_rule_review_hits": formal_rule_hits,
         "recommended_review_lanes": _dedupe_strings([str(item) for item in review_lanes if item not in (None, "")]),
         "review_items": review_items,
-        "allowed_output_terms": ["线索", "建议核查", "证据不足", "人工复核"],
+        "allowed_output_terms": _dedupe_strings(
+            [
+                "线索",
+                "建议核查",
+                "证据不足",
+                "人工复核",
+                "疑似定制标",
+                "限制竞争线索",
+                "控标风险线索",
+            ]
+            + ensure_list(report_profile.get("tailored_bid_allowed_output_terms"))
+        ),
+        "prohibited_output_terms": _dedupe_strings(
+            [
+                "已内定",
+                "违法成立",
+                "必然废标",
+                "控标成立",
+            ]
+            + ensure_list(report_profile.get("tailored_bid_prohibited_output_terms"))
+        ),
         "customer_visible": False,
         "internal_review_only": True,
         "no_legal_conclusion": True,
@@ -770,7 +888,12 @@ def _stage16_file_analysis_trace(inputs: Mapping[str, Any]) -> dict[str, Any]:
             "bid_selection_state": inputs.get("bid_selection_state"),
             "blind_bid_pipeline_stage": inputs.get("blind_bid_pipeline_stage"),
             "evaluation_method_profile": _safe_dict(inputs.get("evaluation_method_profile")),
+            "tailored_bid_index": inputs.get("tailored_bid_index"),
             "tailored_bid_risk_level": inputs.get("tailored_bid_risk_level"),
+            "tailored_bid_sub_indices": _safe_dict(inputs.get("tailored_bid_sub_indices")),
+            "tailored_bid_signal_profile": _safe_dict(inputs.get("tailored_bid_signal_profile")),
+            "tailored_bid_ai_review_required": inputs.get("tailored_bid_ai_review_required"),
+            "tailored_bid_stage5_review_required": inputs.get("tailored_bid_stage5_review_required"),
             "qualification_clause_hits": ensure_list(inputs.get("qualification_clause_hits")),
             "fatal_rejection_risk_hits": ensure_list(inputs.get("fatal_rejection_risk_hits")),
             "price_performance_risk_profile": _safe_dict(inputs.get("price_performance_risk_profile")),

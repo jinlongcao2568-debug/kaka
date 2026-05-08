@@ -14,6 +14,7 @@ if str(SRC) not in sys.path:
 
 from storage.evaluation_rule_calibration import (  # noqa: E402
     FILE_REVIEW_RULE_CODE,
+    TAILORED_REVIEW_RULE_CODE,
     build_evaluation_rule_calibration_manifest,
 )
 
@@ -111,6 +112,44 @@ class TestEvaluationRuleCalibration(unittest.TestCase):
             self.assertFalse(result["safe_to_execute"])
             self.assertIn("real_sample_execution_manifest_missing", result["blocking_reasons"])
             self.assertEqual(result["summary"]["target_count"], 0)
+            self.assertEqual(result["summary"]["tailored_insufficient_sample_state"], "INSUFFICIENT_SAMPLE")
+
+    def test_tailored_review_calibration_reports_distribution_without_mutating_thresholds(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            path = Path(tmp_dir) / "execution.json"
+            _write_execution_manifest(
+                path,
+                [
+                    _execution_item(
+                        target_id="REAL-TAILORED",
+                        document_counts={"COMPLETE_WITH_ATTACHMENTS": 1},
+                        version_counts={"NO_SUPPLEMENT_DETECTED": 1},
+                        source_text=(
+                            "招标文件要求厂家授权、原厂唯一授权、本地社保、本地服务网点、"
+                            "CMA检测报告、技术参数精确到小数、主观分45分、现场踏勘回执。"
+                        ),
+                    )
+                ],
+            )
+
+            result = build_evaluation_rule_calibration_manifest(
+                real_sample_execution_manifest_json=path,
+                target_backend="json-file",
+            )
+
+            self.assertIn(TAILORED_REVIEW_RULE_CODE, result["manifest"]["calibrated_rule_codes"])
+            tailored_item = result["manifest"]["tailored_items"][0]
+            self.assertEqual(tailored_item["tailored_review_rule_code"], TAILORED_REVIEW_RULE_CODE)
+            self.assertEqual(tailored_item["expected_tailored_review_state"], "REVIEW_REQUIRED")
+            self.assertGreaterEqual(tailored_item["tailored_bid_index"], 41)
+            self.assertEqual(result["summary"]["tailored_sample_count"], 1)
+            self.assertEqual(result["summary"]["tailored_insufficient_sample_state"], "INSUFFICIENT_SAMPLE")
+            self.assertFalse(
+                result["summary"]["tailored_threshold_recommendation"][
+                    "formal_rule_threshold_mutation_enabled"
+                ]
+            )
+            self.assertFalse(result["manifest"]["safety"]["formal_rule_threshold_mutation_enabled"])
 
 
 def _write_execution_manifest(path: Path, items: list[dict]) -> None:
@@ -140,6 +179,7 @@ def _execution_item(
     version_review: int = 0,
     unknown_count: int = 0,
     quality_reasons: list[str] | None = None,
+    source_text: str = "",
 ) -> dict:
     return {
         "target_id": target_id,
@@ -147,6 +187,7 @@ def _execution_item(
         "jurisdiction": "CN-GD",
         "source_profile_id": "TEST-PROFILE",
         "target_execution_state": state,
+        "source_text": source_text,
         "detail_snapshot_refs": [
             {
                 "snapshot_id": f"{target_id}-DETAIL",
