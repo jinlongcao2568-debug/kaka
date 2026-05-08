@@ -37,6 +37,9 @@ def _project_stage1_authority_fields(
         "project_lifecycle_stage": extracted.project_lifecycle_stage,
         "source_quality_score": extracted.source_quality_score,
         "source_quality_reasons": extracted.source_quality_reasons,
+        "project_intelligence_folder": extracted.project_intelligence_folder,
+        "project_intelligence_state": extracted.project_intelligence_state,
+        "project_intelligence_missing_reasons": extracted.project_intelligence_missing_reasons,
         "clock_resolution_rule_id": extracted.clock_resolution_rule_id,
         "clock_precedence_rule_id": extracted.clock_precedence_rule_id,
         "requires_manual_review": requires_manual_review,
@@ -104,6 +107,9 @@ def build_stage1_inputs(
             "project_lifecycle_stage": extracted.project_lifecycle_stage,
             "source_quality_score": extracted.source_quality_score,
             "source_quality_reasons": extracted.source_quality_reasons,
+            "project_intelligence_folder": extracted.project_intelligence_folder,
+            "project_intelligence_state": extracted.project_intelligence_state,
+            "project_intelligence_missing_reasons": extracted.project_intelligence_missing_reasons,
             "baseline_collection_state": extracted.baseline_collection_state,
             "rollout_enabled": extracted.rollout_enabled,
             "backlog_reason_optional": extracted.backlog_reason_optional,
@@ -126,6 +132,8 @@ def build_stage1_inputs(
                     "project_lifecycle_stage": extracted.project_lifecycle_stage,
                     "source_quality_score": extracted.source_quality_score,
                     "source_quality_reasons": extracted.source_quality_reasons,
+                    "project_intelligence_state": extracted.project_intelligence_state,
+                    "project_intelligence_missing_reasons": extracted.project_intelligence_missing_reasons,
                 }
             },
         }

@@ -1,6 +1,6 @@
 version: 1
 contract_id: STAGE16_FILE_ANALYSIS_TASK_CONTRACT
-status: PLANNED
+status: P0_FIRST_CUT_IN_PROGRESS
 updated_at: "2026-05-08"
 role: anti_drift_execution_contract
 source_doc: "docs/专题_投前预测评审风控规则救济与履约结算经验库草案.md"
@@ -41,11 +41,11 @@ program:
     - enhanced_bid_document_internal_review
     - remedy_performance_settlement_risk
   current_priority_batches:
+    - B3_AI_INTELLIGENCE_PROJECT_ARCHIVE
+    - B4_DOCUMENT_COMPLETENESS_VERSION_LINEAGE
     - B0_EXPERIENCE_LIBRARY_MAPPING_BASELINE
     - B1_LEGAL_SYSTEM_CLASSIFIER
     - B2_PRE_NOTICE_OPPORTUNITY_POLICY_RULES
-    - B3_AI_INTELLIGENCE_PROJECT_ARCHIVE
-    - B4_DOCUMENT_COMPLETENESS_VERSION_LINEAGE
     - B5_MAINLINE_RISK_AND_BID_DECISION
     - B6_PUBLIC_VERIFICATION_DUAL_GATES_REPORT
     - B7_REVIEW_CORPUS_AND_GOLDEN_SAMPLES
@@ -151,7 +151,7 @@ batches:
   - batch_id: B0_EXPERIENCE_LIBRARY_MAPPING_BASELINE
     priority: P0
     stage_scope: [Stage1, Stage2, Stage3, Stage4, Stage5, Stage6]
-    status: PLANNED
+    status: PARTIAL_NEEDS_MAPPING_CLOSEOUT
     objective: "固定经验库能力到现有对象、字段、规则、调用链、样本、脚本和最小验收口径的映射。"
     deliverables:
       - experience_library_to_runtime_mapping
@@ -169,7 +169,7 @@ batches:
   - batch_id: B1_LEGAL_SYSTEM_CLASSIFIER
     priority: P0
     stage_scope: [Stage1, Stage2, Stage3, Stage6]
-    status: PLANNED
+    status: FIRST_CUT_IMPLEMENTED
     objective: "识别法律体系、采购/招标方式、采购类别和救济路径候选，作为所有后续规则判断的前置分类。"
     candidate_outputs:
       - procurement_regime
@@ -187,7 +187,7 @@ batches:
   - batch_id: B2_PRE_NOTICE_OPPORTUNITY_POLICY_RULES
     priority: P0
     stage_scope: [Stage1, Stage2, Stage3, Stage6]
-    status: PLANNED
+    status: FIRST_CUT_IMPLEMENTED
     objective: "承接采购意向、招标计划、招标文件提前公示、公平竞争、需求管理、本国产品政策、远程异地评标、AI机器审查和地区画像。"
     candidate_outputs:
       - pre_notice_type
@@ -205,7 +205,7 @@ batches:
   - batch_id: B3_AI_INTELLIGENCE_PROJECT_ARCHIVE
     priority: P0
     stage_scope: [Stage1, Stage2, Stage3, Stage7]
-    status: PLANNED
+    status: NEXT_FIRST_CUT
     objective: "建立来源质量、分类标签、项目档案夹和时间节点链。"
     candidate_outputs:
       - project_intelligence_folder
@@ -223,7 +223,7 @@ batches:
   - batch_id: B4_DOCUMENT_COMPLETENESS_VERSION_LINEAGE
     priority: P0
     stage_scope: [Stage2, Stage3]
-    status: PLANNED
+    status: FIRST_CUT_CONTINUE_STRENGTHENING
     objective: "稳定获取附件、归档版本并解析字段来源。"
     candidate_outputs:
       - attachment_snapshot_refs
@@ -244,7 +244,7 @@ batches:
   - batch_id: B5_MAINLINE_RISK_AND_BID_DECISION
     priority: P1
     stage_scope: [Stage3, Stage4, Stage5, Stage6, Stage7]
-    status: PLANNED
+    status: PENDING
     objective: "项目筛选、控标预测、自评分、废标红线、盲投运营的内部闭环。"
     candidate_outputs:
       - bid_selection_score
@@ -266,7 +266,7 @@ batches:
   - batch_id: B6_PUBLIC_VERIFICATION_DUAL_GATES_REPORT
     priority: P1
     stage_scope: [Stage4, Stage5, Stage6]
-    status: PLANNED
+    status: PENDING
     objective: "公开证据 carrier 进入规则门、证据门、复核队列和报告。"
     candidate_outputs:
       - public_evidence_readback

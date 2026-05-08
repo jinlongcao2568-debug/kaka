@@ -113,8 +113,179 @@ def _attachment_snapshot_ref(
         "content_type": str(attachment.get("content_type") or ""),
         "parse_state": parse_state,
         "attachment_type": attachment_type,
+        "attachment_role_type": str(
+            attachment.get("attachment_role_type")
+            or _infer_attachment_role_type(attachment)
+        ),
         "parse_error_taxonomy": list(parse_error_taxonomy or []),
     }
+
+
+def _infer_attachment_role_type(attachment: Mapping[str, Any]) -> str:
+    text = " ".join(
+        str(attachment.get(key) or "")
+        for key in (
+            "attachment_link_text",
+            "attachment_filename",
+            "attachment_url",
+            "content_type",
+        )
+    ).lower()
+    if any(keyword in text for keyword in ("补遗", "澄清", "答疑", "更正", "变更")):
+        return "CLARIFICATION_OR_ADDENDUM"
+    if any(keyword in text for keyword in ("评标报告", "定标报告", "评审报告")):
+        return "EVALUATION_REPORT"
+    if any(keyword in text for keyword in ("中标候选", "成交候选", "候选人", "中标公告", "成交公告", "结果公告", "结果文件")):
+        return "CANDIDATE_OR_AWARD_NOTICE"
+    if any(keyword in text for keyword in ("图纸", "清单", "工程量", "控制价", "cad", "bill")):
+        return "DRAWING_OR_BILL_OF_QUANTITIES"
+    if any(
+        keyword in text
+        for keyword in (
+            "招标文件",
+            "采购文件",
+            "磋商文件",
+            "谈判文件",
+            "询价文件",
+            "资格要求",
+            "招标公告",
+        )
+    ):
+        return "TENDER_DOCUMENT"
+    return "UNKNOWN_ATTACHMENT_ROLE"
+
+
+def _attachment_format_type(attachment: Mapping[str, Any]) -> str:
+    declared = str(attachment.get("attachment_type") or "").strip()
+    if declared:
+        return declared
+    text = " ".join(
+        str(attachment.get(key) or "")
+        for key in ("attachment_filename", "attachment_url", "content_type")
+    ).lower()
+    if "pdf" in text:
+        return "PDF"
+    if ".docx" in text or "wordprocessingml" in text:
+        return "WORD_DOCX"
+    if ".doc" in text:
+        return "WORD_DOC"
+    if ".xlsx" in text or "spreadsheetml" in text:
+        return "EXCEL_XLSX"
+    if ".xls" in text:
+        return "EXCEL_XLS"
+    if ".zip" in text or "zip" in text:
+        return "ZIP"
+    if "html" in text or ".htm" in text:
+        return "HTML"
+    return "UNKNOWN_ATTACHMENT"
+
+
+def _download_archive_manifest_summary(
+    *,
+    capture: Mapping[str, Any],
+    attachment_snapshot_refs: list[Mapping[str, Any]],
+    attachment_captures: list[Mapping[str, Any]],
+    attachment_parse_states_by_snapshot: Mapping[str, str],
+) -> dict[str, Any]:
+    items: list[dict[str, Any]] = []
+    detail_snapshot_id = str(capture.get("detail_snapshot_id_optional") or "")
+    if detail_snapshot_id:
+        detail_failure_reasons = [
+            str(item)
+            for item in list(capture.get("detail_degraded_reasons", []) or [])
+            if str(item or "").strip()
+        ]
+        items.append(
+            {
+                "item_role": "DETAIL_PAGE",
+                "snapshot_id": detail_snapshot_id,
+                "url": str(capture.get("source_url") or ""),
+                "filename": "",
+                "content_type": str(capture.get("detail_content_type") or ""),
+                "file_format_type": "HTML",
+                "attachment_role_type": "DETAIL_PAGE",
+                "parse_state": str(capture.get("stage3_parse_state") or "NOT_RUN"),
+                "failure_reasons": detail_failure_reasons,
+            }
+        )
+
+    refs_by_snapshot = {
+        str(ref.get("snapshot_id") or ""): dict(ref)
+        for ref in attachment_snapshot_refs
+        if isinstance(ref, Mapping) and str(ref.get("snapshot_id") or "")
+    }
+    refs_by_url = {
+        str(ref.get("attachment_url") or ""): dict(ref)
+        for ref in attachment_snapshot_refs
+        if isinstance(ref, Mapping) and str(ref.get("attachment_url") or "")
+    }
+    for attachment in attachment_captures:
+        if not isinstance(attachment, Mapping):
+            continue
+        snapshot_id = str(attachment.get("attachment_snapshot_id_optional") or "")
+        attachment_url = str(attachment.get("attachment_url") or "")
+        ref = refs_by_snapshot.get(snapshot_id) or refs_by_url.get(attachment_url) or {}
+        failure_reasons = [
+            str(item)
+            for item in list(attachment.get("attachment_degraded_reasons", []) or [])
+            if str(item or "").strip()
+        ]
+        for key in ("attachment_blocker_class", "attachment_blocker_reason", "attachment_capture_status"):
+            value = str(attachment.get(key) or "")
+            if value and value not in {"UNKNOWN", "SUCCESS"}:
+                failure_reasons.append(value)
+        role_type = str(
+            ref.get("attachment_role_type")
+            or attachment.get("attachment_role_type")
+            or _infer_attachment_role_type(attachment)
+        )
+        items.append(
+            {
+                "item_role": "ATTACHMENT",
+                "snapshot_id": snapshot_id,
+                "url": attachment_url,
+                "filename": str(attachment.get("attachment_filename") or ""),
+                "content_type": str(attachment.get("content_type") or ""),
+                "file_format_type": str(
+                    ref.get("attachment_type")
+                    or attachment.get("attachment_type")
+                    or _attachment_format_type(attachment)
+                ),
+                "attachment_role_type": role_type,
+                "parse_state": str(
+                    ref.get("parse_state")
+                    or attachment_parse_states_by_snapshot.get(snapshot_id)
+                    or ("NOT_CAPTURED" if not snapshot_id else "NOT_RUN")
+                ),
+                "failure_reasons": list(dict.fromkeys(failure_reasons)),
+            }
+        )
+
+    return {
+        "manifest_state": "READY" if items else "EMPTY",
+        "item_count": len(items),
+        "items": items,
+        "source": "stage2_detail_and_attachment_capture_summary",
+        "customer_visible": False,
+    }
+
+
+def _notice_version_chain_state(
+    *,
+    detail_snapshot_id: str,
+    link_count: int,
+    snapshot_count: int,
+    attachment_role_types: list[str],
+) -> str:
+    if not detail_snapshot_id:
+        return "DETAIL_MISSING_REVIEW_REQUIRED"
+    if link_count == 0:
+        return "DETAIL_ONLY"
+    if snapshot_count < link_count:
+        return "VERSION_REVIEW_REQUIRED"
+    if "CLARIFICATION_OR_ADDENDUM" in attachment_role_types:
+        return "CLARIFICATION_OR_ADDENDUM_PRESENT"
+    return "ATTACHMENTS_LINKED"
 
 
 def _qualification_text_candidate_blocks(text: str) -> list[str]:
@@ -1528,6 +1699,22 @@ def _document_completeness_summary(capture: Mapping[str, Any]) -> dict[str, Any]
         for ref in attachment_snapshot_refs
         if isinstance(ref, Mapping)
     ]
+    attachment_parse_states_by_snapshot = {
+        str(ref.get("snapshot_id") or ""): str(ref.get("parse_state") or "UNKNOWN")
+        for ref in attachment_snapshot_refs
+        if isinstance(ref, Mapping) and str(ref.get("snapshot_id") or "")
+    }
+    attachment_role_types = [
+        str(ref.get("attachment_role_type") or _infer_attachment_role_type(ref))
+        for ref in attachment_snapshot_refs
+        if isinstance(ref, Mapping)
+    ]
+    if not attachment_role_types:
+        attachment_role_types = [
+            str(item.get("attachment_role_type") or _infer_attachment_role_type(item))
+            for item in attachment_captures
+            if isinstance(item, Mapping)
+        ]
     attachment_parse_errors: list[str] = []
     for ref in attachment_snapshot_refs:
         if not isinstance(ref, Mapping):
@@ -1588,9 +1775,26 @@ def _document_completeness_summary(capture: Mapping[str, Any]) -> dict[str, Any]
         state = "PARTIAL_REVIEW_REQUIRED"
     else:
         state = "COMPLETE_WITH_ATTACHMENTS"
+    notice_version_chain_state = _notice_version_chain_state(
+        detail_snapshot_id=detail_snapshot_id,
+        link_count=link_count,
+        snapshot_count=snapshot_count,
+        attachment_role_types=attachment_role_types,
+    )
+    download_archive_manifest = _download_archive_manifest_summary(
+        capture=capture,
+        attachment_snapshot_refs=[
+            ref for ref in attachment_snapshot_refs if isinstance(ref, Mapping)
+        ],
+        attachment_captures=[
+            item for item in attachment_captures if isinstance(item, Mapping)
+        ],
+        attachment_parse_states_by_snapshot=attachment_parse_states_by_snapshot,
+    )
 
     return {
         "document_completeness_state": state,
+        "notice_version_chain_state": notice_version_chain_state,
         "detail_snapshot_present": bool(detail_snapshot_id),
         "detail_parse_state": detail_parse_state,
         "detail_parse_error_taxonomy": detail_parse_errors,
@@ -1598,10 +1802,12 @@ def _document_completeness_summary(capture: Mapping[str, Any]) -> dict[str, Any]
         "attachment_capture_attempted_count": attempted_count,
         "attachment_snapshot_count": snapshot_count,
         "attachment_types": sorted(set(attachment_types)),
+        "attachment_role_types": sorted(set(attachment_role_types)),
         "attachment_parse_states": attachment_parse_states,
         "attachment_parse_error_taxonomy": sorted(set(attachment_parse_errors)),
         "attachment_ocr_required_count": _as_int(fields.get("attachment_ocr_required_count"), 0),
         "attachment_ocr_extracted_count": _as_int(fields.get("attachment_ocr_extracted_count"), 0),
+        "download_archive_manifest": download_archive_manifest,
         "failure_reasons": list(dict.fromkeys(failure_reasons)),
         "review_reasons": list(dict.fromkeys(review_reasons)),
         "source": "stage2_detail_and_attachment_capture_summary",
@@ -1614,6 +1820,8 @@ def _with_document_completeness(capture: Mapping[str, Any]) -> dict[str, Any]:
     summary = _document_completeness_summary(enriched)
     enriched["document_completeness_summary"] = summary
     enriched["document_completeness_state"] = summary["document_completeness_state"]
+    enriched["notice_version_chain_state"] = summary["notice_version_chain_state"]
+    enriched["download_archive_manifest"] = summary["download_archive_manifest"]
     return enriched
 
 
@@ -1659,6 +1867,7 @@ class RealCandidateStage2CaptureRepository:
                 "attachment_link_count": str(capture.get("attachment_link_count") or 0),
                 "attachment_snapshot_count": str(capture.get("attachment_snapshot_count") or 0),
                 "document_completeness_state": str(capture.get("document_completeness_state") or ""),
+                "notice_version_chain_state": str(capture.get("notice_version_chain_state") or ""),
                 "capture_json": _json_text(capture),
             },
             trace_refs={
@@ -1720,6 +1929,8 @@ class RealCandidateStage2CaptureRepository:
                 "attachment_snapshot_count": _as_int(refs.get("attachment_snapshot_count"), 0),
                 "document_completeness_state": refs.get("document_completeness_state")
                 or capture.get("document_completeness_state"),
+                "notice_version_chain_state": refs.get("notice_version_chain_state")
+                or capture.get("notice_version_chain_state"),
                 "captured_at": action.requested_at,
                 "repository_backed": True,
             }
@@ -2187,25 +2398,35 @@ class RealCandidateStage2CaptureService:
                     )
                 )
             except Exception as exc:
+                failed_attachment = {
+                    "attachment_url": attachment_url,
+                    "attachment_link_text": str(link.get("text") or ""),
+                }
                 captures.append(
                     {
-                        "attachment_url": attachment_url,
-                        "attachment_link_text": str(link.get("text") or ""),
+                        **failed_attachment,
                         "attachment_capture_status": "FAILED_CLOSED",
                         "attachment_snapshot_id_optional": "",
+                        "attachment_role_type": _infer_attachment_role_type(failed_attachment),
+                        "attachment_type": _attachment_format_type(failed_attachment),
                         "attachment_degraded_reasons": [str(exc)],
                         "review_required": True,
                     }
                 )
                 continue
+            attachment_meta = {
+                "attachment_url": attachment_url,
+                "attachment_link_text": str(link.get("text") or ""),
+                "attachment_filename": str(carrier.get("attachment_filename") or ""),
+                "content_type": str(carrier.get("content_type") or ""),
+            }
             captures.append(
                 {
-                    "attachment_url": attachment_url,
-                    "attachment_link_text": str(link.get("text") or ""),
+                    **attachment_meta,
                     "attachment_capture_status": str(carrier.get("status") or "UNKNOWN"),
                     "attachment_snapshot_id_optional": str(carrier.get("snapshot_id_optional") or ""),
-                    "attachment_filename": str(carrier.get("attachment_filename") or ""),
-                    "content_type": str(carrier.get("content_type") or ""),
+                    "attachment_role_type": _infer_attachment_role_type(attachment_meta),
+                    "attachment_type": _attachment_format_type(attachment_meta),
                     "byte_size": _as_int(carrier.get("byte_size"), 0),
                     "attachment_degraded_reasons": list(carrier.get("degraded_reasons", []) or []),
                     "attachment_blocker_class": str(carrier.get("attachment_blocker_class") or ""),
@@ -2364,6 +2585,16 @@ class RealCandidateStage2CaptureService:
             or ""
         )
         row["document_completeness_summary"] = document_summary
+        row["notice_version_chain_state"] = str(
+            capture.get("notice_version_chain_state")
+            or document_summary.get("notice_version_chain_state")
+            or ""
+        )
+        row["download_archive_manifest"] = dict(
+            capture.get("download_archive_manifest")
+            or document_summary.get("download_archive_manifest")
+            or {}
+        )
         row["stage2_attachment_link_count"] = _as_int(capture.get("attachment_link_count"), 0)
         row["same_site_attachment_link_items"] = list(capture.get("same_site_attachment_link_items", []) or [])
         attachment_snapshot_ids = [
@@ -2375,6 +2606,7 @@ class RealCandidateStage2CaptureService:
         row["stage2_attachment_snapshot_ids"] = attachment_snapshot_ids
         row["stage2_attachment_captures"] = list(capture.get("attachment_captures", []) or [])
         row["stage2_attachment_types"] = list(document_summary.get("attachment_types") or [])
+        row["stage2_attachment_role_types"] = list(document_summary.get("attachment_role_types") or [])
         row["stage2_attachment_parse_error_taxonomy"] = list(
             document_summary.get("attachment_parse_error_taxonomy") or []
         )

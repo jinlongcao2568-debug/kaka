@@ -134,6 +134,81 @@ class TestStage1LegalSystemClassifier(unittest.TestCase):
         self.assertEqual(stage1.inputs["project_lifecycle_stage"], "PRE_NOTICE_WATCHLIST")
         self.assertEqual(stage1.inputs["source_channel_type"], "GOVERNMENT_PROCUREMENT_SITE")
         self.assertGreaterEqual(stage1.inputs["source_quality_score"], 70)
+        self.assertEqual(
+            stage1.inputs["project_intelligence_folder"]["source_profile"]["pre_notice_type"],
+            "PROCUREMENT_INTENTION",
+        )
+        self.assertEqual(stage1.inputs["project_intelligence_state"], "PARTIAL")
+
+    def test_project_intelligence_folder_complete_when_public_fields_exist(self) -> None:
+        payload = self._base_payload()
+        payload.update(
+            {
+                "task_id": "TASK-INTEL-COMPLETE-001",
+                "project_id": "PROJ-INTEL-COMPLETE-001",
+                "project_name": "医院信息化公开招标项目",
+                "source_url": "https://example.test/notice/complete",
+                "source_title": "中国政府采购网公开招标公告",
+                "source_text": "采购人发布政府采购公开招标公告。",
+                "purchaser_name": "某市人民医院",
+                "agency_name": "某招标代理有限公司",
+                "candidate_company": "历史中标供应商有限公司",
+                "expected_procurement_time": "2026-06",
+            }
+        )
+
+        stage1 = Stage1Service().run(payload)
+
+        folder = stage1.inputs["project_intelligence_folder"]
+        self.assertEqual(stage1.inputs["project_intelligence_state"], "COMPLETE")
+        self.assertEqual(stage1.inputs["project_intelligence_missing_reasons"], [])
+        self.assertEqual(folder["actors"]["owner_actor"], "某市人民医院")
+        self.assertEqual(folder["actors"]["agency_actor"], "某招标代理有限公司")
+        self.assertEqual(folder["actors"]["competitor_or_candidate_actor"], "历史中标供应商有限公司")
+        self.assertEqual(folder["timeline"]["expected_procurement_time"], "2026-06")
+        self.assertFalse(folder["customer_visible"])
+
+    def test_project_intelligence_folder_marks_missing_agency_as_partial(self) -> None:
+        payload = self._base_payload()
+        payload.update(
+            {
+                "task_id": "TASK-INTEL-NO-AGENCY-001",
+                "project_id": "PROJ-INTEL-NO-AGENCY-001",
+                "project_name": "国企平台采购项目",
+                "source_url": "https://example.test/notice/no-agency",
+                "source_title": "国企阳光采购询比公告",
+                "source_text": "国有企业集团采购，供应商提交响应文件。",
+                "purchaser_name": "省属集团有限公司",
+                "candidate_company": "历史供应商有限公司",
+                "expected_procurement_time": "2026-07",
+            }
+        )
+
+        stage1 = Stage1Service().run(payload)
+
+        self.assertEqual(stage1.inputs["project_intelligence_state"], "PARTIAL")
+        self.assertIn("agency_actor_missing", stage1.inputs["project_intelligence_missing_reasons"])
+
+    def test_project_intelligence_folder_marks_missing_timeline_as_partial(self) -> None:
+        payload = self._base_payload()
+        payload.update(
+            {
+                "task_id": "TASK-INTEL-NO-TIME-001",
+                "project_id": "PROJ-INTEL-NO-TIME-001",
+                "project_name": "公共资源工程招标项目",
+                "source_url": "https://example.test/notice/no-time",
+                "source_title": "公共资源交易中心工程招标公告",
+                "source_text": "依法必须招标工程建设项目。",
+                "purchaser_name": "某建设单位",
+                "agency_name": "某工程咨询有限公司",
+                "candidate_company": "历史施工单位有限公司",
+            }
+        )
+
+        stage1 = Stage1Service().run(payload)
+
+        self.assertEqual(stage1.inputs["project_intelligence_state"], "PARTIAL")
+        self.assertIn("project_timeline_missing", stage1.inputs["project_intelligence_missing_reasons"])
 
     def test_stage3_project_base_consumes_stage1_classified_category_without_recomputing(self) -> None:
         payload = self._base_payload()
@@ -164,8 +239,21 @@ class TestStage1LegalSystemClassifier(unittest.TestCase):
                 "task_id": "TASK-LEGAL-STAGE6-001",
                 "project_id": "PROJ-LEGAL-STAGE6-001",
                 "project_name": "市政道路工程施工公开招标项目",
+                "source_url": "https://example.test/notice/stage6",
                 "source_title": "公共资源交易中心工程建设招标公告",
                 "source_text": "依法必须招标工程建设项目，招标人发布公开招标公告。",
+                "purchaser_name": "某市建设中心",
+                "agency_name": "某招标代理有限公司",
+                "candidate_company": "历史施工企业有限公司",
+                "publish_date": "2026-05-01",
+                "document_completeness_state": "COMPLETE_WITH_ATTACHMENTS",
+                "notice_version_chain_state": "ATTACHMENTS_LINKED",
+                "stage2_attachment_role_types": ["TENDER_DOCUMENT", "EVALUATION_REPORT"],
+                "download_archive_manifest": {
+                    "manifest_state": "READY",
+                    "item_count": 2,
+                    "customer_visible": False,
+                },
             }
         )
 
@@ -174,6 +262,20 @@ class TestStage1LegalSystemClassifier(unittest.TestCase):
 
         self.assertEqual(trace["legal_system"]["legal_system_type_candidate"], "TENDER_BIDDING_LAW")
         self.assertEqual(trace["pre_notice_and_source"]["pre_notice_type"], "FORMAL_NOTICE")
+        self.assertEqual(trace["project_intelligence"]["project_intelligence_state"], "COMPLETE")
+        self.assertEqual(
+            trace["project_intelligence"]["project_intelligence_folder"]["actors"]["owner_actor"],
+            "某市建设中心",
+        )
+        self.assertEqual(
+            trace["document_completeness"]["notice_version_chain_state"],
+            "ATTACHMENTS_LINKED",
+        )
+        self.assertIn("TENDER_DOCUMENT", trace["document_completeness"]["stage2_attachment_role_types"])
+        self.assertEqual(
+            trace["document_completeness"]["download_archive_manifest"]["manifest_state"],
+            "READY",
+        )
         self.assertFalse(trace["output_boundary"]["customer_visible"])
         self.assertTrue(trace["output_boundary"]["no_illegality_or_reserved_winner_conclusion"])
 

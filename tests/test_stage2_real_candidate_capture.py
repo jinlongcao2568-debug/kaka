@@ -272,6 +272,28 @@ def _unit_name_table_with_attachment_detail_html(attachment_url: str, label: str
     return html.encode("utf-8")
 
 
+def _multi_attachment_role_detail_html(items: list[tuple[str, str]]) -> bytes:
+    links = "\n".join(f'<p><a href="{url}">{label}</a></p>' for url, label in items)
+    html = f"""
+    <html>
+      <head><title>广东多附件语义角色评标报告</title></head>
+      <body>
+        <h1>广东多附件语义角色评标报告</h1>
+        <section><h2>公告内容</h2>
+          <table>
+            <thead><tr><th>序号</th><th>单位名称</th><th>报价（元）</th></tr></thead>
+            <tbody>
+              <tr><td>1</td><td>广东附件角色测试有限公司</td><td>12000000.0</td></tr>
+            </tbody>
+          </table>
+          {links}
+        </section>
+      </body>
+    </html>
+    """
+    return html.encode("utf-8")
+
+
 def _candidate_summary_table_detail_html() -> bytes:
     html = """
     <html>
@@ -1105,6 +1127,89 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
         fields = result["captures"][0]["detail_fields"]
         self.assertTrue(any("WORD_DOCX" in state for state in fields["attachment_text_parse_states"]))
 
+    def test_detail_without_attachments_keeps_detail_only_version_chain(self) -> None:
+        enriched = _capture_single_candidate_from_html(
+            detail_url="https://www.ccgp.gov.cn/cggg/zygg/zbgg/202604/t20260430_no_attachment.htm",
+            title="广东无附件详情公告",
+            html=_classification_detail_html("广东无附件详情公告"),
+            source_profile_id="CCGP-CENTRAL-NOTICES",
+        )
+
+        self.assertEqual(enriched["document_completeness_state"], "DETAIL_ONLY_NO_ATTACHMENTS")
+        self.assertEqual(enriched["notice_version_chain_state"], "DETAIL_ONLY")
+        self.assertEqual(enriched["download_archive_manifest"]["item_count"], 1)
+        self.assertEqual(enriched["download_archive_manifest"]["items"][0]["item_role"], "DETAIL_PAGE")
+
+    def test_attachment_role_types_manifest_and_version_chain_are_recorded(self) -> None:
+        detail_url = "https://www.ccgp.gov.cn/cggg/zygg/zbgg/202604/t20260430_multi_attachment.htm"
+        base = "https://www.ccgp.gov.cn/cggg/zygg/zbgg/202604/files"
+        attachment_items = [
+            (f"{base}/tender-file.docx", "招标文件.docx"),
+            (f"{base}/clarification.docx", "澄清答疑文件.docx"),
+            (f"{base}/evaluation.docx", "评标报告.docx"),
+            (f"{base}/drawing-list.docx", "图纸及工程量清单.docx"),
+            (f"{base}/material.docx", "附件材料.docx"),
+        ]
+        responses = {
+            detail_url: RealPublicFetchResponse(
+                url=detail_url,
+                status_code=200,
+                content=_multi_attachment_role_detail_html(attachment_items),
+                content_type="text/html; charset=utf-8",
+                final_url=detail_url,
+            )
+        }
+        for url, _label in attachment_items:
+            responses[url] = RealPublicFetchResponse(
+                url=url,
+                status_code=200,
+                content=_build_docx_qualification_bytes(),
+                content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                final_url=url,
+            )
+        candidate = {
+            "candidate_key": "gd-multi-attachment-role-001",
+            "notice_id": "NOTICE-GD-MULTI-ATTACHMENT-ROLE-001",
+            "project_id": "PROJ-GD-MULTI-ATTACHMENT-ROLE-001",
+            "project_name": "广东多附件语义角色评标报告",
+            "region_code": "CN-GD",
+            "project_type": "construction",
+            "notice_stage": "candidate_notice",
+            "source_url": detail_url,
+            "source_profile_id": "CCGP-CENTRAL-NOTICES",
+            "source_candidate_mode": "REAL_PUBLIC_SOURCE_CANDIDATES",
+            "key_fields_present": ["project_name", "notice_stage"],
+            "candidate_count": 0,
+        }
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            service = RealCandidateStage2CaptureService(
+                stage2_service=FakeStage2Service(FakeRealPublicFetchTransport(responses)),
+                object_repository=_repo(tmp_dir),
+                repository=RealCandidateStage2CaptureRepository(),
+            )
+            result = service.capture_candidates([candidate], now="2026-05-01T00:00:00+00:00")
+
+        enriched = result["enriched_candidates"][0]
+        role_types = set(enriched["stage2_attachment_role_types"])
+        self.assertIn("TENDER_DOCUMENT", role_types)
+        self.assertIn("CLARIFICATION_OR_ADDENDUM", role_types)
+        self.assertIn("EVALUATION_REPORT", role_types)
+        self.assertIn("DRAWING_OR_BILL_OF_QUANTITIES", role_types)
+        self.assertIn("UNKNOWN_ATTACHMENT_ROLE", role_types)
+        self.assertEqual(enriched["notice_version_chain_state"], "CLARIFICATION_OR_ADDENDUM_PRESENT")
+        manifest = enriched["download_archive_manifest"]
+        self.assertEqual(manifest["manifest_state"], "READY")
+        self.assertEqual(manifest["item_count"], 6)
+        self.assertTrue(
+            any(
+                item["attachment_role_type"] == "CLARIFICATION_OR_ADDENDUM"
+                and item["parse_state"] == "PARSED"
+                for item in manifest["items"]
+            )
+        )
+        self.assertFalse(manifest["customer_visible"])
+
     def test_attachment_download_failure_records_document_completeness_review(self) -> None:
         detail_url = "https://www.ccgp.gov.cn/cggg/zygg/zbgg/202604/t20260430_missing_attachment.htm"
         attachment_url = "https://www.ccgp.gov.cn/cggg/zygg/zbgg/202604/files/missing-manager.docx"
@@ -1146,6 +1251,11 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
         self.assertEqual(enriched["stage2_attachment_link_count"], 1)
         self.assertEqual(enriched["stage2_attachment_snapshot_count"], 0)
         self.assertEqual(enriched["document_completeness_state"], "ATTACHMENTS_NOT_CAPTURED_REVIEW")
+        self.assertEqual(enriched["notice_version_chain_state"], "VERSION_REVIEW_REQUIRED")
+        self.assertEqual(enriched["download_archive_manifest"]["manifest_state"], "READY")
+        self.assertTrue(
+            any(item["parse_state"] == "NOT_CAPTURED" for item in enriched["download_archive_manifest"]["items"])
+        )
         self.assertIn(
             "attachment_snapshot_count_below_link_count",
             enriched["document_completeness_summary"]["review_reasons"],

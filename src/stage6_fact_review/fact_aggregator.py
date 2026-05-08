@@ -67,6 +67,10 @@ def _package_state_from_reasons(
     return "INTERNAL_READY"
 
 
+def _safe_dict(value: Any) -> dict[str, Any]:
+    return dict(value) if isinstance(value, Mapping) else {}
+
+
 def _stage16_file_analysis_trace(inputs: Mapping[str, Any]) -> dict[str, Any]:
     project_manager_state = str(inputs.get("project_manager_field_source_state") or "")
     if not project_manager_state:
@@ -95,18 +99,28 @@ def _stage16_file_analysis_trace(inputs: Mapping[str, Any]) -> dict[str, Any]:
             "source_quality_score": inputs.get("source_quality_score"),
             "source_quality_reasons": ensure_list(inputs.get("source_quality_reasons")),
         },
+        "project_intelligence": {
+            "project_intelligence_state": inputs.get("project_intelligence_state"),
+            "project_intelligence_missing_reasons": ensure_list(
+                inputs.get("project_intelligence_missing_reasons")
+            ),
+            "project_intelligence_folder": _safe_dict(inputs.get("project_intelligence_folder")),
+        },
         "document_completeness": {
             "document_completeness_state": inputs.get("document_completeness_state"),
+            "notice_version_chain_state": inputs.get("notice_version_chain_state"),
             "stage2_detail_capture_state": inputs.get("stage2_detail_capture_state"),
             "stage3_detail_parse_state": inputs.get("stage3_detail_parse_state"),
             "stage2_attachment_link_count": inputs.get("stage2_attachment_link_count"),
             "stage2_attachment_snapshot_count": inputs.get("stage2_attachment_snapshot_count"),
             "stage2_attachment_types": ensure_list(inputs.get("stage2_attachment_types")),
+            "stage2_attachment_role_types": ensure_list(inputs.get("stage2_attachment_role_types")),
             "stage2_attachment_parse_error_taxonomy": ensure_list(
                 inputs.get("stage2_attachment_parse_error_taxonomy")
             ),
             "attachment_ocr_required_count": inputs.get("attachment_ocr_required_count"),
             "attachment_ocr_extracted_count": inputs.get("attachment_ocr_extracted_count"),
+            "download_archive_manifest": _safe_dict(inputs.get("download_archive_manifest")),
         },
         "project_manager_lineage": {
             "project_manager_field_source_state": project_manager_state,

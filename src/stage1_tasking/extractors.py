@@ -46,6 +46,9 @@ class Stage1Extraction:
     project_lifecycle_stage: str
     source_quality_score: int
     source_quality_reasons: list[str]
+    project_intelligence_folder: dict[str, Any]
+    project_intelligence_state: str
+    project_intelligence_missing_reasons: list[str]
     identity_resolution_rule_id: str
     clock_resolution_rule_id: str
     clock_precedence_rule_id: str
@@ -329,6 +332,118 @@ def _score_source_quality(
     return max(0, min(score, 100)), reasons
 
 
+def _first_payload_text(payload: Mapping[str, Any], *keys: str) -> str:
+    for key in keys:
+        value = payload.get(key)
+        if value not in (None, ""):
+            return str(value).strip()
+    return ""
+
+
+def _build_project_intelligence_folder(
+    payload: Mapping[str, Any],
+    *,
+    procurement_regime: str,
+    procurement_category: str,
+    legal_system_type_candidate: str,
+    pre_notice_type: str,
+    source_channel_type: str,
+    project_lifecycle_stage: str,
+    source_quality_score: int,
+) -> tuple[dict[str, Any], str, list[str]]:
+    source_url = _first_payload_text(
+        payload,
+        "source_url",
+        "announcement_url",
+        "detail_url",
+        "entry_url",
+    )
+    owner_actor = _first_payload_text(
+        payload,
+        "owner_actor",
+        "procurement_actor",
+        "purchaser_name",
+        "buyer_name",
+        "tenderer_name",
+        "procurement_unit",
+    )
+    agency_actor = _first_payload_text(
+        payload,
+        "agency_actor",
+        "procurement_agency",
+        "agency_name",
+        "tender_agency",
+        "agent_name",
+    )
+    competitor_actor = _first_payload_text(
+        payload,
+        "competitor_history_profile",
+        "candidate_company",
+        "bidder_name",
+        "winner_name",
+        "supplier_name",
+    )
+    timeline_nodes = {
+        "publish_date": _first_payload_text(payload, "publish_date", "notice_date", "announcement_date"),
+        "expected_procurement_time": _first_payload_text(payload, "expected_procurement_time"),
+        "current_action_start_at_optional": _first_payload_text(payload, "current_action_start_at_optional"),
+        "current_action_deadline_at_optional": _first_payload_text(payload, "current_action_deadline_at_optional"),
+    }
+    timeline_nodes = {key: value for key, value in timeline_nodes.items() if value}
+
+    missing_reasons: list[str] = []
+    if not _first_payload_text(payload, "project_name"):
+        missing_reasons.append("project_name_missing")
+    if not source_url:
+        missing_reasons.append("source_url_missing")
+    if not owner_actor:
+        missing_reasons.append("owner_actor_missing")
+    if not agency_actor:
+        missing_reasons.append("agency_actor_missing")
+    if not competitor_actor:
+        missing_reasons.append("competitor_history_missing")
+    if not timeline_nodes:
+        missing_reasons.append("project_timeline_missing")
+
+    if any(reason in missing_reasons for reason in ("project_name_missing", "source_url_missing")):
+        state = "REVIEW_REQUIRED"
+    elif missing_reasons:
+        state = "PARTIAL"
+    else:
+        state = "COMPLETE"
+
+    folder = {
+        "basic_info": {
+            "project_id": _first_payload_text(payload, "project_id"),
+            "project_name": _first_payload_text(payload, "project_name"),
+            "region_code": _first_payload_text(payload, "region_code"),
+            "source_url": source_url,
+            "source_title": _first_payload_text(payload, "source_title"),
+        },
+        "source_profile": {
+            "pre_notice_type": pre_notice_type,
+            "source_channel_type": source_channel_type,
+            "project_lifecycle_stage": project_lifecycle_stage,
+            "source_quality_score": source_quality_score,
+        },
+        "classification": {
+            "procurement_regime": procurement_regime,
+            "procurement_category": procurement_category,
+            "legal_system_type_candidate": legal_system_type_candidate,
+        },
+        "actors": {
+            "owner_actor": owner_actor,
+            "agency_actor": agency_actor,
+            "competitor_or_candidate_actor": competitor_actor,
+        },
+        "timeline": timeline_nodes,
+        "state": state,
+        "missing_reasons": missing_reasons,
+        "customer_visible": False,
+    }
+    return folder, state, missing_reasons
+
+
 def _resolve_fallback_route(
     *,
     route_policy: Mapping[str, Any],
@@ -394,6 +509,20 @@ def extract_stage1(payload: Mapping[str, Any], store: ContractStore, *, now: str
         pre_notice_type=pre_notice_type,
         text=classification_text,
         payload=payload,
+    )
+    (
+        project_intelligence_folder,
+        project_intelligence_state,
+        project_intelligence_missing_reasons,
+    ) = _build_project_intelligence_folder(
+        payload,
+        procurement_regime=procurement_regime,
+        procurement_category=procurement_category,
+        legal_system_type_candidate=legal_system_type_candidate,
+        pre_notice_type=pre_notice_type,
+        source_channel_type=source_channel_type,
+        project_lifecycle_stage=project_lifecycle_stage,
+        source_quality_score=source_quality_score,
     )
     baseline_collection_state = ensure_enum_or_fallback(
         store,
@@ -522,6 +651,9 @@ def extract_stage1(payload: Mapping[str, Any], store: ContractStore, *, now: str
             *pre_notice_reasons,
             *source_quality_reasons,
         ],
+        project_intelligence_folder=project_intelligence_folder,
+        project_intelligence_state=project_intelligence_state,
+        project_intelligence_missing_reasons=project_intelligence_missing_reasons,
         identity_resolution_rule_id=str(payload.get("identity_resolution_rule_id", "ID-DEFAULT")),
         clock_resolution_rule_id=clock_resolution_rule_id,
         clock_precedence_rule_id=clock_precedence_rule_id,
