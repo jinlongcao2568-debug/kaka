@@ -230,6 +230,42 @@
       "selection_filters": ["上海", "工程建设", "中标结果公告", "能回链候选公示"]
     },
     {
+      "target_id": "REAL-SC-TENDER-001",
+      "jurisdiction": "CN-SC",
+      "platform_name": "四川省公共资源交易信息网",
+      "entry_seed_id": "ENTRY-SICHUAN-GGZY",
+      "required_fetch_profile_id_optional": "SICHUAN-GGZY-TRANSACTION-INFO",
+      "source_family": "local_public_resource_trading_center",
+      "project_type": "construction",
+      "document_kind": "tender_file",
+      "target_count": 3,
+      "selection_filters": ["四川", "工程建设", "招标公告", "含招标文件或附件"]
+    },
+    {
+      "target_id": "REAL-SC-CANDIDATE-001",
+      "jurisdiction": "CN-SC",
+      "platform_name": "四川省公共资源交易信息网",
+      "entry_seed_id": "ENTRY-SICHUAN-GGZY",
+      "required_fetch_profile_id_optional": "SICHUAN-GGZY-TRANSACTION-INFO",
+      "source_family": "local_public_resource_trading_center",
+      "project_type": "construction",
+      "document_kind": "candidate_notice",
+      "target_count": 4,
+      "selection_filters": ["四川", "工程建设", "中标候选人公示", "项目负责人字段"]
+    },
+    {
+      "target_id": "REAL-SC-AWARD-001",
+      "jurisdiction": "CN-SC",
+      "platform_name": "四川省公共资源交易信息网",
+      "entry_seed_id": "ENTRY-SICHUAN-GGZY",
+      "required_fetch_profile_id_optional": "SICHUAN-GGZY-TRANSACTION-INFO",
+      "source_family": "local_public_resource_trading_center",
+      "project_type": "construction",
+      "document_kind": "award_result",
+      "target_count": 3,
+      "selection_filters": ["四川", "工程建设", "中标结果公告", "能回链候选公示"]
+    },
+    {
       "target_id": "REAL-GP-FAILED-BID-001",
       "jurisdiction": "CN",
       "platform_name": "中国政府采购网",

@@ -19,6 +19,7 @@ from stage2_ingestion.real_candidate_capture import (
     REAL_CANDIDATE_STAGE2_CAPTURE_MODE,
     RealCandidateStage2CaptureRepository,
     RealCandidateStage2CaptureService,
+    _infer_attachment_role_type,
     list_real_candidate_stage2_captures,
 )
 from stage2_ingestion.real_public_url_fetcher import (
@@ -849,6 +850,127 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
         self.assertEqual(second["new_detail_capture_attempted_count"], 0)
         self.assertEqual(second["detail_snapshot_count"], 1)
 
+    def test_capture_reuse_requires_detail_snapshot_readback(self) -> None:
+        transport = FakeRealPublicFetchTransport(
+            {
+                CCGP_DETAIL_URL: RealPublicFetchResponse(
+                    url=CCGP_DETAIL_URL,
+                    status_code=200,
+                    content=_ccgp_detail_html(),
+                    content_type="text/html; charset=utf-8",
+                    final_url=CCGP_DETAIL_URL,
+                ),
+            }
+        )
+        candidate = {
+            "candidate_key": "real-candidate-stale-detail-001",
+            "notice_id": "NOTICE-STALE-DETAIL-001",
+            "project_id": "PROJ-STALE-DETAIL-001",
+            "project_name": "列表页标题待详情校正",
+            "region_code": "CN-GD",
+            "project_type": "municipal",
+            "notice_stage": "candidate_notice",
+            "source_url": CCGP_DETAIL_URL,
+            "source_profile_id": "CCGP-CENTRAL-NOTICES",
+            "source_candidate_mode": "REAL_PUBLIC_SOURCE_CANDIDATES",
+            "key_fields_present": ["project_name", "notice_stage"],
+            "candidate_count": 0,
+        }
+
+        with tempfile.TemporaryDirectory() as first_tmp_dir, tempfile.TemporaryDirectory() as second_tmp_dir:
+            first = RealCandidateStage2CaptureService(
+                stage2_service=FakeStage2Service(transport),
+                object_repository=_repo(first_tmp_dir),
+                repository=RealCandidateStage2CaptureRepository(),
+            ).capture_candidates([candidate], now="2026-05-01T00:00:00+00:00")
+
+            second = RealCandidateStage2CaptureService(
+                stage2_service=FakeStage2Service(transport),
+                object_repository=_repo(second_tmp_dir),
+                repository=RealCandidateStage2CaptureRepository(),
+            ).capture_candidates([candidate], now="2026-05-01T00:05:00+00:00")
+
+        self.assertEqual(first["new_detail_capture_attempted_count"], 1)
+        self.assertEqual(second["existing_capture_reused_count"], 0)
+        self.assertEqual(second["new_detail_capture_attempted_count"], 1)
+        self.assertEqual(transport.call_log.count(CCGP_DETAIL_URL), 2)
+
+    def test_capture_reuse_drops_unreplayable_attachment_snapshot_refs(self) -> None:
+        transport = FakeRealPublicFetchTransport(
+            {
+                CCGP_DETAIL_URL: RealPublicFetchResponse(
+                    url=CCGP_DETAIL_URL,
+                    status_code=200,
+                    content=_ccgp_detail_html(),
+                    content_type="text/html; charset=utf-8",
+                    final_url=CCGP_DETAIL_URL,
+                ),
+                CCGP_ATTACHMENT_URL: RealPublicFetchResponse(
+                    url=CCGP_ATTACHMENT_URL,
+                    status_code=200,
+                    content=b"%PDF-1.4\nreal public attachment\n",
+                    content_type="application/pdf",
+                    final_url=CCGP_ATTACHMENT_URL,
+                ),
+            }
+        )
+        candidate = {
+            "candidate_key": "real-candidate-stale-attachment-001",
+            "notice_id": "NOTICE-STALE-ATTACHMENT-001",
+            "project_id": "PROJ-STALE-ATTACHMENT-001",
+            "project_name": "列表页标题待详情校正",
+            "region_code": "CN-GD",
+            "project_type": "municipal",
+            "notice_stage": "candidate_notice",
+            "source_url": CCGP_DETAIL_URL,
+            "source_profile_id": "CCGP-CENTRAL-NOTICES",
+            "source_candidate_mode": "REAL_PUBLIC_SOURCE_CANDIDATES",
+            "key_fields_present": ["project_name", "notice_stage"],
+            "candidate_count": 0,
+        }
+
+        with tempfile.TemporaryDirectory() as first_tmp_dir, tempfile.TemporaryDirectory() as second_tmp_dir:
+            first = RealCandidateStage2CaptureService(
+                stage2_service=FakeStage2Service(transport),
+                object_repository=_repo(first_tmp_dir),
+                repository=RealCandidateStage2CaptureRepository(),
+            ).capture_candidates([candidate], now="2026-05-01T00:00:00+00:00")
+            detail_snapshot_id = first["captures"][0]["detail_snapshot_id_optional"]
+            second_repo = _repo(second_tmp_dir)
+            second_repo.save_snapshot(
+                _ccgp_detail_html(),
+                snapshot_id=detail_snapshot_id,
+                snapshot_kind="real_public_detail_html_snapshot",
+                content_type="text/html; charset=utf-8",
+                source_url_optional=CCGP_DETAIL_URL,
+                source_family_optional="government_procurement_public_site",
+                lineage_refs={"candidate_key": candidate["candidate_key"]},
+            )
+
+            second = RealCandidateStage2CaptureService(
+                stage2_service=FakeStage2Service(FakeRealPublicFetchTransport({})),
+                object_repository=second_repo,
+                repository=RealCandidateStage2CaptureRepository(),
+            ).capture_candidates([candidate], now="2026-05-01T00:05:00+00:00")
+
+        self.assertEqual(first["attachment_snapshot_count"], 1)
+        self.assertEqual(second["existing_capture_reused_count"], 1)
+        self.assertEqual(second["new_detail_capture_attempted_count"], 0)
+        self.assertEqual(second["attachment_snapshot_count"], 0)
+        enriched = second["enriched_candidates"][0]
+        self.assertEqual(enriched["stage2_attachment_snapshot_count"], 0)
+        self.assertEqual(enriched["attachment_snapshot_refs"], [])
+        self.assertTrue(
+            any(
+                "ATTACHMENT_SNAPSHOT_READBACK_MISSING" in state
+                for state in second["captures"][0]["detail_fields"]["attachment_text_parse_states"]
+            )
+        )
+        self.assertIn(
+            "attachment_snapshot_readback_missing",
+            second["captures"][0]["document_completeness_summary"]["failure_reasons"],
+        )
+
     def test_candidate_table_detail_extracts_clean_company_and_project_manager(self) -> None:
         detail_url = "https://www.ccgp.gov.cn/cggg/zygg/zbgg/202604/t20260430_candidate.htm"
         transport = FakeRealPublicFetchTransport(
@@ -1074,6 +1196,93 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
         self.assertEqual(fields["attachment_ocr_extracted_count"], 1)
         self.assertTrue(any(PDF_TEXT_OCR_EXTRACTED in state for state in fields["attachment_text_parse_states"]))
 
+    def test_pdf_attachment_markitdown_fallback_feeds_qualification_blocks(self) -> None:
+        detail_url = "https://www.ccgp.gov.cn/cggg/zygg/zbgg/202604/t20260430_pdf_markitdown_manager.htm"
+        attachment_url = "https://www.ccgp.gov.cn/cggg/zygg/zbgg/202604/files/gd-manager.pdf"
+        markitdown_probe = (
+            "项目名称: 广东MarkItDown附件工程\n"
+            "第一中标候选人: 广东省机电建设有限公司\n"
+            "项目负责人: 王明\n"
+            "注册编号: 144202488888\n"
+            "资格条件: 须提供厂家授权、本地社保和类似业绩。"
+        )
+        transport = FakeRealPublicFetchTransport(
+            {
+                detail_url: RealPublicFetchResponse(
+                    url=detail_url,
+                    status_code=200,
+                    content=_unit_name_table_with_pdf_attachment_detail_html(),
+                    content_type="text/html; charset=utf-8",
+                    final_url=detail_url,
+                ),
+                attachment_url: RealPublicFetchResponse(
+                    url=attachment_url,
+                    status_code=200,
+                    content=_build_blank_pdf_bytes(),
+                    content_type="application/pdf",
+                    final_url=attachment_url,
+                ),
+            }
+        )
+        candidate = {
+            "candidate_key": "gd-pdf-markitdown-manager-001",
+            "notice_id": "NOTICE-GD-PDF-MARKITDOWN-MANAGER-001",
+            "project_id": "PROJ-GD-PDF-MARKITDOWN-MANAGER-001",
+            "project_name": "广东MarkItDown附件工程评标报告",
+            "region_code": "CN-GD",
+            "project_type": "construction",
+            "notice_stage": "candidate_notice",
+            "source_url": detail_url,
+            "source_profile_id": "CCGP-CENTRAL-NOTICES",
+            "source_candidate_mode": "REAL_PUBLIC_SOURCE_CANDIDATES",
+            "key_fields_present": ["project_name", "notice_stage"],
+            "candidate_count": 0,
+        }
+
+        with tempfile.TemporaryDirectory() as tmp_dir, patch(
+            "stage2_ingestion.real_candidate_capture.extract_pdf_text_with_ocr",
+            return_value=ExtractedText(
+                text="",
+                state="PDF_TEXT_UNAVAILABLE",
+                extractor="pypdf",
+                confidence=0.0,
+                review_required=True,
+                warnings=[OCR_REQUIRED],
+            ),
+        ), patch(
+            "stage2_ingestion.real_candidate_capture.Stage3Service.parse_raw_snapshot",
+            return_value={
+                "parse_state": "PARSED_WITH_REVIEW",
+                "attachment_type": "PDF",
+                "parse_error_taxonomy": ["PDF_TEXT_UNAVAILABLE"],
+                "parsed_fields": [],
+                "parser_audit": {
+                    "markitdown_state": "MARKITDOWN_TEXT_EXTRACTED",
+                    "markitdown_text_probe": markitdown_probe,
+                },
+            },
+        ):
+            service = RealCandidateStage2CaptureService(
+                stage2_service=FakeStage2Service(transport),
+                object_repository=_repo(tmp_dir),
+                repository=RealCandidateStage2CaptureRepository(),
+            )
+            result = service.capture_candidates([candidate], now="2026-05-01T00:00:00+00:00")
+
+        enriched = result["enriched_candidates"][0]
+        self.assertEqual(enriched["candidate_company"], "广东省机电建设有限公司")
+        self.assertEqual(enriched["project_manager_name"], "王明")
+        self.assertEqual(enriched["project_manager_certificate_no"], "144202488888")
+        self.assertTrue(enriched["qualification_text_candidate_blocks"])
+        self.assertTrue(
+            any("厂家授权" in block for block in enriched["qualification_text_candidate_blocks"])
+        )
+        fields = result["captures"][0]["detail_fields"]
+        self.assertEqual(fields["attachment_text_merge_state"], "ATTACHMENT_TEXT_MERGED")
+        self.assertTrue(
+            any("MARKITDOWN_TEXT_EXTRACTED" in state for state in fields["attachment_text_parse_states"])
+        )
+
     def test_docx_attachment_text_feeds_certificate_type_and_qualification_blocks(self) -> None:
         detail_url = "https://www.ccgp.gov.cn/cggg/zygg/zbgg/202604/t20260430_docx_manager.htm"
         attachment_url = "https://www.ccgp.gov.cn/cggg/zygg/zbgg/202604/files/gd-manager.docx"
@@ -1128,6 +1337,80 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
         self.assertTrue(enriched["qualification_text_candidate_blocks"])
         fields = result["captures"][0]["detail_fields"]
         self.assertTrue(any("WORD_DOCX" in state for state in fields["attachment_text_parse_states"]))
+
+    def test_docx_attachment_markitdown_probe_records_parse_state_and_blocks(self) -> None:
+        detail_url = "https://www.ccgp.gov.cn/cggg/zygg/zbgg/202604/t20260430_docx_markitdown_manager.htm"
+        attachment_url = "https://www.ccgp.gov.cn/cggg/zygg/zbgg/202604/files/gd-markitdown-manager.docx"
+        markitdown_probe = (
+            "项目名称: 广东DOCX MarkItDown附件工程\n"
+            "第一中标候选人: 广东附件测试有限公司\n"
+            "项目负责人: 赵强\n"
+            "注册编号: 144202477777\n"
+            "资格要求: 拟派项目负责人须提供本地社保和同类业绩证明。"
+        )
+        transport = FakeRealPublicFetchTransport(
+            {
+                detail_url: RealPublicFetchResponse(
+                    url=detail_url,
+                    status_code=200,
+                    content=_unit_name_table_with_attachment_detail_html(attachment_url, "资格要求.docx"),
+                    content_type="text/html; charset=utf-8",
+                    final_url=detail_url,
+                ),
+                attachment_url: RealPublicFetchResponse(
+                    url=attachment_url,
+                    status_code=200,
+                    content=b"not a zip based docx",
+                    content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    final_url=attachment_url,
+                ),
+            }
+        )
+        candidate = {
+            "candidate_key": "gd-docx-markitdown-manager-001",
+            "notice_id": "NOTICE-GD-DOCX-MARKITDOWN-MANAGER-001",
+            "project_id": "PROJ-GD-DOCX-MARKITDOWN-MANAGER-001",
+            "project_name": "广东DOCX MarkItDown附件工程评标报告",
+            "region_code": "CN-GD",
+            "project_type": "construction",
+            "notice_stage": "candidate_notice",
+            "source_url": detail_url,
+            "source_profile_id": "CCGP-CENTRAL-NOTICES",
+            "source_candidate_mode": "REAL_PUBLIC_SOURCE_CANDIDATES",
+            "key_fields_present": ["project_name", "notice_stage"],
+            "candidate_count": 0,
+        }
+
+        with tempfile.TemporaryDirectory() as tmp_dir, patch(
+            "stage2_ingestion.real_candidate_capture.Stage3Service.parse_raw_snapshot",
+            return_value={
+                "parse_state": "PARSED_WITH_REVIEW",
+                "attachment_type": "WORD_DOCX",
+                "parse_error_taxonomy": ["WORD_PARSE_FAILED"],
+                "parsed_fields": [],
+                "parser_audit": {
+                    "markitdown_state": "MARKITDOWN_TEXT_EXTRACTED",
+                    "markitdown_text_probe": markitdown_probe,
+                },
+            },
+        ):
+            service = RealCandidateStage2CaptureService(
+                stage2_service=FakeStage2Service(transport),
+                object_repository=_repo(tmp_dir),
+                repository=RealCandidateStage2CaptureRepository(),
+            )
+            result = service.capture_candidates([candidate], now="2026-05-01T00:00:00+00:00")
+
+        enriched = result["enriched_candidates"][0]
+        self.assertEqual(enriched["project_manager_name"], "赵强")
+        self.assertEqual(enriched["project_manager_certificate_no"], "144202477777")
+        self.assertTrue(
+            any("本地社保" in block for block in enriched["qualification_text_candidate_blocks"])
+        )
+        fields = result["captures"][0]["detail_fields"]
+        self.assertTrue(
+            any("MARKITDOWN_TEXT_EXTRACTED" in state for state in fields["attachment_text_parse_states"])
+        )
 
     def test_detail_without_attachments_keeps_detail_only_version_chain(self) -> None:
         enriched = _capture_single_candidate_from_html(
@@ -1221,6 +1504,17 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
             )
         )
         self.assertFalse(manifest["customer_visible"])
+
+    def test_award_info_attachment_is_post_tender_notice_role(self) -> None:
+        self.assertEqual(
+            _infer_attachment_role_type(
+                {
+                    "attachment_link_text": "中标信息.pdf",
+                    "attachment_filename": "中标信息.pdf",
+                }
+            ),
+            "CANDIDATE_OR_AWARD_NOTICE",
+        )
 
     def test_attachment_download_failure_records_document_completeness_review(self) -> None:
         detail_url = "https://www.ccgp.gov.cn/cggg/zygg/zbgg/202604/t20260430_missing_attachment.htm"

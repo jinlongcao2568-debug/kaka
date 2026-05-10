@@ -123,6 +123,20 @@ def build_mainline_risk_profile(inputs: Mapping[str, Any]) -> dict[str, Any]:
         "tailored_bid_index": tailored_bid_signal_profile["tailored_bid_index"],
         "tailored_bid_risk_level": tailored_bid_risk_level,
         "tailored_bid_sub_indices": tailored_bid_signal_profile["tailored_bid_sub_indices"],
+        "collusion_trace_index": tailored_bid_signal_profile["collusion_trace_index"],
+        "cover_bid_index": tailored_bid_signal_profile["cover_bid_index"],
+        "bid_rigging_index": tailored_bid_signal_profile["bid_rigging_index"],
+        "fatal_rejection_complexity_index": tailored_bid_signal_profile[
+            "fatal_rejection_complexity_index"
+        ],
+        "electronic_supervision_index": tailored_bid_signal_profile[
+            "electronic_supervision_index"
+        ],
+        "system_risk_indices": tailored_bid_signal_profile["system_risk_indices"],
+        "system_risk_levels": tailored_bid_signal_profile["system_risk_levels"],
+        "system_auto_judgement": tailored_bid_signal_profile["system_auto_judgement"],
+        "document_section_profile": tailored_bid_signal_profile["document_section_profile"],
+        "document_section_slices": tailored_bid_signal_profile["document_section_slices"],
         "tailored_bid_signal_profile": tailored_bid_signal_profile,
         "tailored_bid_ai_review_required": tailored_bid_signal_profile[
             "tailored_bid_ai_review_required"

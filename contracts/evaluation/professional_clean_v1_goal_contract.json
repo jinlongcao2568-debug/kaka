@@ -1,0 +1,100 @@
+{
+  "contract_id": "PROFESSIONAL-CLEAN-V1-GOAL-CONTRACT",
+  "contract_version": 1,
+  "purpose": "确保广东广州、浙江、四川实战样本按项目ID独立下载、归档、解析和审计，旧运行产物不得作为新校准依据。",
+  "active_output_root": "tmp/evaluation-real-samples/professional-clean-v1",
+  "excluded_active_sources": [
+    "GUANGDONG-YGP-PROVINCE-TRADING-LIST"
+  ],
+  "primary_regions": [
+    {
+      "region_code": "CN-GD",
+      "source_profile_id": "GUANGZHOU-YWTB-CONSTRUCTION-LIST",
+      "adapter_mode": "province_specific"
+    },
+    {
+      "region_code": "CN-ZJ",
+      "source_profile_id": "ZHEJIANG-GGZY-JYXXGK-LIST",
+      "adapter_mode": "province_specific"
+    },
+    {
+      "region_code": "CN-SC",
+      "source_profile_id": "SICHUAN-GGZY-TRANSACTION-INFO",
+      "adapter_mode": "province_specific"
+    }
+  ],
+  "project_storage_rules": [
+    "每个 project_id 必须独立目录存放。",
+    "每个文件必须能追溯到唯一 project_id、source_profile_id、source_url 和 snapshot_id。",
+    "详情页、附件、解析结果和 audit.json 必须分目录存放。",
+    "正式分析以本地 replay_snapshot 可读回的文件为输入；抓取过程中产生的临时文本只能作为诊断，不得替代本地快照。",
+    "每个 project_id 必须输出 file_inventory，逐文件记录下载状态、读回状态、解析状态和失败原因。",
+    "每个 project_id 必须拆分 download_completeness_state 与 parse_completeness_state，禁止用样本总数冒充项目完整率。",
+    "候选公示、合同、招标计划、RSS、统计页、办事指南不得冒充 tender_file 或招标附件。",
+    "附件必须 replay_snapshot 可读回后才能进入解析。",
+    "MarkItDown 只对 PDF、DOCX、XLSX 等真实文件转换，不处理污染 HTML 页面。",
+    "MarkItDown 使用顺序为：下载文件 -> 保存 snapshot -> replay_snapshot 读回 -> 临时落盘转换 -> 抽取有限 text_probe/章节/信号 -> 清理临时文件。"
+  ],
+  "required_project_audit_fields": [
+    "project_id",
+    "project_name",
+    "source_profile_ids",
+    "document_kinds",
+    "source_urls",
+    "detail_file_count",
+    "attachment_file_count",
+    "replayable_file_count",
+    "parsed_file_count",
+    "parse_attempted_file_count",
+    "parse_failed_file_count",
+    "parse_blocked_file_count",
+    "valid_tender_attachment_count",
+    "html_pollution_file_count",
+    "qualification_section_found",
+    "scoring_section_found",
+    "technical_section_found",
+    "parse_metrics",
+    "project_completeness_contract",
+    "file_inventory",
+    "completion_rate",
+    "failure_reasons"
+  ],
+  "incomplete_root_cause_taxonomy": [
+    "detail_snapshot_not_replayable",
+    "tender_attachment_not_found_or_not_downloaded",
+    "attachment_snapshot_not_replayable",
+    "valid_tender_attachment_not_identified",
+    "stage3_parse_success_missing",
+    "stage3_parse_failed",
+    "ocr_required",
+    "required_section_text_missing",
+    "downloaded_tender_attachment_but_parse_success_missing",
+    "downloaded_tender_attachment_but_required_sections_missing",
+    "stage_pollution_detected"
+  ],
+  "target_region_adapter_contracts": [
+    {
+      "region_code": "CN-GD",
+      "adapter_contract": "广州交易集团独立适配；不得使用广东省YGP作为主动样本源。"
+    },
+    {
+      "region_code": "CN-ZJ",
+      "adapter_contract": "浙江公共资源独立适配；过滤留言、办件、登录、导航类非公告页面。"
+    },
+    {
+      "region_code": "CN-SC",
+      "adapter_contract": "四川公共资源独立适配；附件、详情和交易阶段必须独立归档。"
+    }
+  ],
+  "acceptance_metrics": {
+    "legacy_default_outputs_deleted_before_clean_run": true,
+    "project_file_audit_required": true,
+    "per_project_directory_required": true,
+    "file_inventory_required": true,
+    "download_and_parse_completeness_split_required": true,
+    "project_id_level_completion_required": true,
+    "valid_tender_document_required_for_tailored_index": true,
+    "customer_visible_allowed": false,
+    "no_legal_conclusion": true
+  }
+}

@@ -1138,6 +1138,22 @@ class RuleRunner:
                 or tailored_signal_profile.get("tailored_bid_index")
                 or mainline_risk_profile.get("tailored_bid_index")
             )
+            system_risk_indices = inputs.get("system_risk_indices")
+            if not isinstance(system_risk_indices, Mapping):
+                system_risk_indices = (
+                    tailored_signal_profile.get("system_risk_indices")
+                    or mainline_risk_profile.get("system_risk_indices")
+                )
+            if not isinstance(system_risk_indices, Mapping):
+                system_risk_indices = {}
+            system_auto_judgement = inputs.get("system_auto_judgement")
+            if not isinstance(system_auto_judgement, Mapping):
+                system_auto_judgement = (
+                    tailored_signal_profile.get("system_auto_judgement")
+                    or mainline_risk_profile.get("system_auto_judgement")
+                )
+            if not isinstance(system_auto_judgement, Mapping):
+                system_auto_judgement = {}
             hits = ensure_list(
                 tailored_signal_profile.get("signal_hits")
                 or tailored_signal_profile.get("tailored_bid_signal_hits")
@@ -1145,6 +1161,13 @@ class RuleRunner:
             )
             if tailored_index >= 21:
                 reasons.append(f"{rule_code}: tailored bid index {tailored_index}")
+            for index_name, index_value in sorted(system_risk_indices.items()):
+                parsed_value = _stage16_int_value(index_value)
+                if parsed_value >= 21:
+                    reasons.append(f"{rule_code}: {index_name} {parsed_value}")
+            judgement_state = str(system_auto_judgement.get("judgement_state") or "")
+            if judgement_state in {"RISK_CLUE_DETECTED", "INSUFFICIENT_EVIDENCE"}:
+                reasons.append(f"{rule_code}: system auto judgement {judgement_state}")
             if tailored_level and tailored_level not in {"LOW", "NO_SIGNAL", "NOT_RUN", "NO_PUBLIC_MARKER"}:
                 reasons.append(f"{rule_code}: tailored bid risk {tailored_level}")
             evidence_state = str(tailored_signal_profile.get("evidence_state") or "")
@@ -1164,7 +1187,21 @@ class RuleRunner:
                     keyword = hit.get("signal_keyword") or hit.get("keyword") or ""
                     seed_ref = hit.get("sample_id") or "seed_ref_missing"
                     tailored_index_weight = _stage16_int_value(hit.get("tailored_index_weight"))
-                    if hit.get("should_trigger_stage5_review") or tailored_index_weight > 0:
+                    system_index_weight = _stage16_int_value(hit.get("system_index_weight"))
+                    section_state = str(hit.get("section_match_state") or "")
+                    if section_state in {"SECTION_GUARDRAIL_BLOCKED", "SECTION_MISMATCH_REVIEW"}:
+                        reasons.append(
+                            f"{rule_code}: section gate {seed_ref} {section_state}".strip()
+                        )
+                    for discount_reason in ensure_list(hit.get("section_gate_discount_reasons")):
+                        reasons.append(
+                            f"{rule_code}: section discount {seed_ref} {discount_reason}".strip()
+                        )
+                    if (
+                        hit.get("should_trigger_stage5_review")
+                        or tailored_index_weight > 0
+                        or system_index_weight > 0
+                    ):
                         reasons.append(f"{rule_code}: seed clue {seed_ref} {kind} {keyword}".strip())
                         continue
                 elif hit not in (None, ""):

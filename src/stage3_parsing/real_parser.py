@@ -16,6 +16,7 @@ from shared.model_assist_governance import (
     build_parser_model_assist,
 )
 from shared.utils import utc_now_iso
+from stage3_parsing import markitdown_adapter
 from stage3_parsing.ocr_text import (
     OCR_REQUIRED,
     PDF_TEXT_OCR_EXTRACTED,
@@ -37,6 +38,7 @@ TABLE_EXTRACTION_AMBIGUOUS = "TABLE_EXTRACTION_AMBIGUOUS"
 WORD_PARSE_FAILED = "WORD_PARSE_FAILED"
 EXCEL_SHEET_AMBIGUOUS = "EXCEL_SHEET_AMBIGUOUS"
 ATTACHMENT_TYPE_UNKNOWN = "ATTACHMENT_TYPE_UNKNOWN"
+MARKITDOWN_PARSE_REVIEW = "MARKITDOWN_PARSE_REVIEW"
 
 FIELD_LABELS: dict[str, tuple[str, ...]] = {
     "project_name": ("项目名称", "工程名称", "工程项目名称", "项目名"),
@@ -148,6 +150,7 @@ class Stage3RealParser:
         parser_steps: list[str] = ["read_stage2_snapshot_readback"]
         fallback_steps: list[str] = []
         parser_errors: list[dict[str, str]] = []
+        markitdown_result: markitdown_adapter.MarkItDownText | None = None
 
         manifest = _manifest(readback)
         raw_snapshot_metadata = _mapping(manifest.get("raw_snapshot_metadata"))
@@ -311,6 +314,40 @@ class Stage3RealParser:
             fallback_steps.append(f"degrade_to_review:{code.lower()}")
             parsed_fields = []
 
+        if _should_try_markitdown_fallback(
+            attachment_type=detection.attachment_type,
+            parsed_fields=parsed_fields,
+            parser_errors=parser_errors,
+        ):
+            markitdown_result = markitdown_adapter.convert_bytes_to_markdown_text(
+                data,
+                source_url=source_url,
+                content_type=content_type,
+                source_file_ref=source_file_ref,
+            )
+            parser_steps.append(f"markitdown_fallback:{markitdown_result.state}")
+            if markitdown_result.text:
+                markitdown_fields = _extract_fields_from_text(
+                    markitdown_result.text,
+                    source_file_ref=source_file_ref,
+                    locator_type="markitdown_text",
+                    base_locator={
+                        "source": "markitdown_text",
+                        "extractor": markitdown_result.extractor,
+                    },
+                    confidence=0.61,
+                    review_required=True,
+                    parse_warnings=[MARKITDOWN_PARSE_REVIEW, markitdown_result.state],
+                )
+                parsed_fields = _merge_fields(parsed_fields, markitdown_fields)
+                fallback_steps.append("review_required:markitdown_text_fallback")
+            elif markitdown_result.state in {
+                markitdown_adapter.MARKITDOWN_UNAVAILABLE,
+                markitdown_adapter.MARKITDOWN_CONVERT_FAILED,
+            }:
+                _add_error(parser_errors, markitdown_result.state, ";".join(markitdown_result.warnings))
+                fallback_steps.append(f"degrade_to_review:{markitdown_result.state.lower()}")
+
         review_required = bool(parser_errors) or any(field.review_required for field in parsed_fields)
         if not parsed_fields and detection.attachment_type in {"HTML", "PDF", "WORD_DOCX", "EXCEL_XLSX"}:
             review_required = True
@@ -336,6 +373,7 @@ class Stage3RealParser:
             parser_errors=parser_errors,
             input_sha256=input_sha256,
             parse_state=parse_state,
+            markitdown_result=markitdown_result,
         ).as_payload()
 
     def _parse_html(
@@ -488,6 +526,7 @@ class Stage3RealParser:
         parser_errors: list[dict[str, str]],
         input_sha256: str,
         parse_state: str,
+        markitdown_result: markitdown_adapter.MarkItDownText | None = None,
     ) -> Stage3ParserCarrier:
         taxonomy = _unique([error["code"] for error in parser_errors])
         parser_audit = {
@@ -499,6 +538,16 @@ class Stage3RealParser:
             "completed_at": utc_now_iso(),
             "parser_errors": [dict(error) for error in parser_errors],
         }
+        if markitdown_result is not None:
+            parser_audit.update(
+                {
+                    "markitdown_state": markitdown_result.state,
+                    "markitdown_text_sha256": markitdown_result.text_sha256,
+                    "markitdown_text_length": markitdown_result.text_length,
+                    "markitdown_text_probe": markitdown_result.text_probe,
+                    "markitdown_warnings": list(markitdown_result.warnings),
+                }
+            )
         review_required = bool(taxonomy) or any(
             bool(field.get("review_required")) for field in parsed_fields
         )
@@ -959,6 +1008,26 @@ def _detect_attachment(
         if any(name.startswith("xl/worksheets/") for name in names):
             return _AttachmentDetection("EXCEL_XLSX", "excel", normalized)
     return _AttachmentDetection("UNKNOWN_ATTACHMENT", "attachment", normalized)
+
+
+def _should_try_markitdown_fallback(
+    *,
+    attachment_type: str,
+    parsed_fields: list[ParsedField],
+    parser_errors: list[dict[str, str]],
+) -> bool:
+    if attachment_type not in {"PDF", "WORD_DOCX", "EXCEL_XLSX"}:
+        return False
+    if not parsed_fields:
+        return True
+    retry_codes = {
+        PDF_TEXT_UNAVAILABLE,
+        OCR_REQUIRED,
+        WORD_PARSE_FAILED,
+        EXCEL_SHEET_AMBIGUOUS,
+        TABLE_EXTRACTION_AMBIGUOUS,
+    }
+    return any(str(error.get("code") or "") in retry_codes for error in parser_errors)
 
 
 def _decode_text(data: bytes) -> str:

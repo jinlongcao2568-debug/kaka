@@ -23,6 +23,7 @@ from stage2_ingestion.real_public_url_fetcher import (
     RealPublicFetchResponse,
 )
 from stage2_ingestion.service import Stage2Service
+from stage3_parsing import markitdown_adapter
 from stage3_parsing.real_parser import (
     ATTACHMENT_TYPE_UNKNOWN,
     OCR_LOW_CONFIDENCE,
@@ -477,6 +478,75 @@ class Stage3RealParserTests(unittest.TestCase):
         self.assertTrue(carrier["review_required"])
         self.assertEqual(carrier["parsed_fields"], [])
         self.assertIn(WORD_PARSE_FAILED, carrier["parse_error_taxonomy"])
+
+    def test_markitdown_fallback_extracts_docx_fields_with_review_locator(self) -> None:
+        text = "项目名称: MarkItDown附件工程\n项目负责人: 张建明\n资格条件: 须提供厂家授权和本地社保。"
+        with patch(
+            "stage3_parsing.real_parser.markitdown_adapter.convert_bytes_to_markdown_text",
+            return_value=markitdown_adapter.MarkItDownText(
+                text=text,
+                state=markitdown_adapter.MARKITDOWN_TEXT_EXTRACTED,
+                text_sha256=hashlib.sha256(text.encode("utf-8")).hexdigest(),
+                text_length=len(text),
+                text_probe=text,
+            ),
+        ):
+            carrier = self._parse(
+                data=b"not a zip based docx",
+                snapshot_id="SNAP-STAGE3-MARKITDOWN-DOCX-1",
+                content_type=DOCX_CONTENT_TYPE,
+                source_url="sandbox://provincial-bidding-platforms/mirror/broken.docx",
+                snapshot_kind="raw_attachment",
+            )
+
+        self._assert_unverified_internal_carrier(carrier)
+        self.assertEqual(carrier["attachment_type"], "WORD_DOCX")
+        self.assertEqual(carrier["parse_state"], "PARSED_WITH_REVIEW")
+        self.assertTrue(carrier["review_required"])
+        self.assertIn(WORD_PARSE_FAILED, carrier["parse_error_taxonomy"])
+        audit = carrier["parser_audit"]
+        self.assertEqual(audit["markitdown_state"], markitdown_adapter.MARKITDOWN_TEXT_EXTRACTED)
+        self.assertEqual(audit["markitdown_text_length"], len(text))
+        self.assertIn("厂家授权", audit["markitdown_text_probe"])
+        fields = {field["field_name"]: field for field in carrier["parsed_fields"]}
+        self.assertEqual(fields["project_name"]["field_value_optional"], "MarkItDown附件工程")
+        self.assertEqual(fields["project_name"]["locator"]["type"], "markitdown_text")
+        self.assertTrue(fields["project_name"]["review_required"])
+        self.assertIn(
+            markitdown_adapter.MARKITDOWN_TEXT_EXTRACTED,
+            fields["project_name"]["parse_warnings"],
+        )
+
+    def test_markitdown_unavailable_keeps_review_degradation_without_exception(self) -> None:
+        with patch(
+            "stage3_parsing.real_parser.markitdown_adapter.convert_bytes_to_markdown_text",
+            return_value=markitdown_adapter.MarkItDownText(
+                text="",
+                state=markitdown_adapter.MARKITDOWN_UNAVAILABLE,
+                warnings=["MARKITDOWN_UNAVAILABLE:ImportError"],
+            ),
+        ):
+            carrier = self._parse(
+                data=b"not a zip based docx",
+                snapshot_id="SNAP-STAGE3-MARKITDOWN-UNAVAILABLE-1",
+                content_type=DOCX_CONTENT_TYPE,
+                source_url="sandbox://provincial-bidding-platforms/mirror/broken.docx",
+                snapshot_kind="raw_attachment",
+            )
+
+        self._assert_unverified_internal_carrier(carrier)
+        self.assertEqual(carrier["attachment_type"], "WORD_DOCX")
+        self.assertEqual(carrier["parse_state"], "REVIEW_REQUIRED")
+        self.assertEqual(carrier["parsed_fields"], [])
+        self.assertIn(WORD_PARSE_FAILED, carrier["parse_error_taxonomy"])
+        self.assertIn(
+            markitdown_adapter.MARKITDOWN_UNAVAILABLE,
+            carrier["parse_error_taxonomy"],
+        )
+        self.assertEqual(
+            carrier["parser_audit"]["markitdown_state"],
+            markitdown_adapter.MARKITDOWN_UNAVAILABLE,
+        )
 
     def test_stage3_parser_does_not_import_stage2_adapter_or_stage4_to_stage9_runtime(self) -> None:
         parser_source = (ROOT / "src/stage3_parsing/real_parser.py").read_text(

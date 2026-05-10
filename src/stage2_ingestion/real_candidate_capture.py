@@ -84,6 +84,10 @@ def _extract_pdf_text(data: bytes) -> tuple[str, str]:
 
 def _attachment_parsed_field_text(parser_carrier: Mapping[str, Any]) -> str:
     values: list[str] = []
+    audit = dict(parser_carrier.get("parser_audit") or {})
+    markitdown_probe = _clean_text(audit.get("markitdown_text_probe"))
+    if markitdown_probe:
+        values.append(markitdown_probe)
     for field in list(parser_carrier.get("parsed_fields") or []):
         if not isinstance(field, Mapping):
             continue
@@ -135,7 +139,21 @@ def _infer_attachment_role_type(attachment: Mapping[str, Any]) -> str:
         return "CLARIFICATION_OR_ADDENDUM"
     if any(keyword in text for keyword in ("评标报告", "定标报告", "评审报告")):
         return "EVALUATION_REPORT"
-    if any(keyword in text for keyword in ("中标候选", "成交候选", "候选人", "中标公告", "成交公告", "结果公告", "结果文件")):
+    if any(
+        keyword in text
+        for keyword in (
+            "中标候选",
+            "成交候选",
+            "候选人",
+            "中标公告",
+            "成交公告",
+            "中标结果",
+            "中标信息",
+            "成交结果",
+            "结果公告",
+            "结果文件",
+        )
+    ):
         return "CANDIDATE_OR_AWARD_NOTICE"
     if any(keyword in text for keyword in ("图纸", "清单", "工程量", "控制价", "cad", "bill")):
         return "DRAWING_OR_BILL_OF_QUANTITIES"
@@ -230,10 +248,17 @@ def _download_archive_manifest_summary(
             for item in list(attachment.get("attachment_degraded_reasons", []) or [])
             if str(item or "").strip()
         ]
+        failure_reasons.extend(
+            str(item)
+            for item in list(attachment.get("attachment_failure_taxonomy", []) or [])
+            if str(item or "").strip()
+        )
         for key in ("attachment_blocker_class", "attachment_blocker_reason", "attachment_capture_status"):
             value = str(attachment.get(key) or "")
             if value and not _attachment_status_is_success_or_neutral(value):
                 failure_reasons.append(value)
+        if snapshot_id and not ref:
+            failure_reasons.append("attachment_snapshot_readback_missing")
         role_type = str(
             ref.get("attachment_role_type")
             or attachment.get("attachment_role_type")
@@ -255,7 +280,13 @@ def _download_archive_manifest_summary(
                 "parse_state": str(
                     ref.get("parse_state")
                     or attachment_parse_states_by_snapshot.get(snapshot_id)
-                    or ("NOT_CAPTURED" if not snapshot_id else "NOT_RUN")
+                    or (
+                        "NOT_CAPTURED"
+                        if not snapshot_id
+                        else "ATTACHMENT_SNAPSHOT_READBACK_MISSING"
+                        if snapshot_id and not ref
+                        else "NOT_RUN"
+                    )
                 ),
                 "parse_error_taxonomy": list(ref.get("parse_error_taxonomy") or attachment.get("parse_error_taxonomy") or []),
                 "failure_reasons": list(dict.fromkeys(failure_reasons)),
@@ -303,6 +334,9 @@ def _download_archive_quality_summary(items: list[Mapping[str, Any]]) -> dict[st
         if parse_state == "NOT_CAPTURED":
             counts["not_captured_count"] += 1
             reasons.append("attachment_not_captured")
+        if "ATTACHMENT_SNAPSHOT_READBACK_MISSING" in joined or "MISSING_MANIFEST" in joined or "MISSING_OBJECT" in joined:
+            counts["parse_review_count"] += 1
+            reasons.append("attachment_snapshot_readback_missing")
         if "OCR_REQUIRED" in joined:
             counts["ocr_required_count"] += 1
             reasons.append("ocr_required")
@@ -1736,9 +1770,14 @@ def _document_completeness_summary(capture: Mapping[str, Any]) -> dict[str, Any]
     fields = dict(capture.get("detail_fields", {}) or {})
     attachment_captures = list(capture.get("attachment_captures", []) or [])
     attachment_snapshot_refs = list(fields.get("attachment_snapshot_refs") or [])
+    attachment_text_parse_states = [
+        str(item)
+        for item in list(fields.get("attachment_text_parse_states") or [])
+        if str(item or "").strip()
+    ]
     link_count = _as_int(capture.get("attachment_link_count"), 0)
     attempted_count = _as_int(capture.get("attachment_capture_attempted_count"), 0)
-    snapshot_count = _as_int(capture.get("attachment_snapshot_count"), 0)
+    snapshot_count = len([ref for ref in attachment_snapshot_refs if isinstance(ref, Mapping)])
     detail_snapshot_id = str(capture.get("detail_snapshot_id_optional") or "")
     detail_parse_state = str(capture.get("stage3_parse_state") or "NOT_RUN")
     detail_parse_errors = [
@@ -1763,11 +1802,17 @@ def _document_completeness_summary(capture: Mapping[str, Any]) -> dict[str, Any]
         for ref in attachment_snapshot_refs
         if isinstance(ref, Mapping)
     ]
+    if not attachment_parse_states:
+        attachment_parse_states = list(attachment_text_parse_states)
     attachment_parse_states_by_snapshot = {
         str(ref.get("snapshot_id") or ""): str(ref.get("parse_state") or "UNKNOWN")
         for ref in attachment_snapshot_refs
         if isinstance(ref, Mapping) and str(ref.get("snapshot_id") or "")
     }
+    for state in attachment_text_parse_states:
+        snapshot_id, _, state_tail = state.partition(":")
+        if snapshot_id and snapshot_id not in attachment_parse_states_by_snapshot:
+            attachment_parse_states_by_snapshot[snapshot_id] = state_tail or state
     attachment_role_types = [
         str(ref.get("attachment_role_type") or _infer_attachment_role_type(ref))
         for ref in attachment_snapshot_refs
@@ -1810,10 +1855,36 @@ def _document_completeness_summary(capture: Mapping[str, Any]) -> dict[str, Any]
             for item in list(attachment.get("attachment_degraded_reasons", []) or [])
             if str(item or "").strip()
         )
+        failure_reasons.extend(
+            str(item)
+            for item in list(attachment.get("attachment_failure_taxonomy", []) or [])
+            if str(item or "").strip()
+        )
         for key in ("attachment_blocker_class", "attachment_blocker_reason", "attachment_capture_status"):
             value = str(attachment.get(key) or "")
             if value and not _attachment_status_is_success_or_neutral(value):
                 failure_reasons.append(value)
+    readback_failure_states = [
+        state
+        for state in attachment_text_parse_states
+        if any(
+            marker in state
+            for marker in (
+                "ATTACHMENT_SNAPSHOT_READBACK_MISSING",
+                "READBACK_BYTES_MISSING",
+                "MISSING_MANIFEST",
+                "MISSING_OBJECT",
+                "READBACK_FAILED",
+            )
+        )
+    ]
+    failure_reasons.extend(readback_failure_states)
+    if readback_failure_states:
+        failure_reasons.append("attachment_snapshot_readback_missing")
+        if any("MISSING_MANIFEST" in state for state in readback_failure_states):
+            failure_reasons.append("attachment_manifest_missing")
+        if any("MISSING_OBJECT" in state for state in readback_failure_states):
+            failure_reasons.append("attachment_object_missing")
 
     review_reasons: list[str] = []
     if not detail_snapshot_id:
@@ -1822,6 +1893,8 @@ def _document_completeness_summary(capture: Mapping[str, Any]) -> dict[str, Any]
         review_reasons.append(f"detail_parse_state={detail_parse_state}")
     if link_count and snapshot_count < link_count:
         review_reasons.append("attachment_snapshot_count_below_link_count")
+    if readback_failure_states:
+        review_reasons.append("attachment_snapshot_readback_missing")
     if attachment_parse_errors:
         review_reasons.append("attachment_parse_error_taxonomy_present")
     if fields.get("attachment_ocr_required_count"):
@@ -2155,7 +2228,16 @@ class RealCandidateStage2CaptureService:
             "detail_capture_failure_summary": _capture_failure_summary(captures),
             "attachment_link_count": sum(_as_int(item.get("attachment_link_count"), 0) for item in captures),
             "attachment_capture_attempted_count": sum(_as_int(item.get("attachment_capture_attempted_count"), 0) for item in captures),
-            "attachment_snapshot_count": sum(_as_int(item.get("attachment_snapshot_count"), 0) for item in captures),
+            "attachment_snapshot_count": sum(
+                len(
+                    [
+                        ref
+                        for ref in list(dict(item.get("detail_fields") or {}).get("attachment_snapshot_refs") or [])
+                        if isinstance(ref, Mapping) and str(ref.get("snapshot_id") or "").strip()
+                    ]
+                )
+                for item in captures
+            ),
             "captures": captures,
             "capture_by_candidate_key": by_key,
             "enriched_candidates": enriched,
@@ -2178,11 +2260,14 @@ class RealCandidateStage2CaptureService:
         existing: dict[str, dict[str, Any]] = {}
         for capture in list(catalog.get("captures", []) or []):
             key = str(capture.get("candidate_key") or "")
-            if (
-                key in requested_keys
-                and key not in existing
-                and str(capture.get("detail_snapshot_id_optional") or "").strip()
-            ):
+            snapshot_id = str(capture.get("detail_snapshot_id_optional") or "").strip()
+            if key in requested_keys and key not in existing and snapshot_id:
+                try:
+                    replay = self.object_repository.replay_snapshot(snapshot_id)
+                except Exception:
+                    continue
+                if not bool(replay.get("replayable")):
+                    continue
                 existing[key] = dict(capture)
         return existing
 
@@ -2196,6 +2281,16 @@ class RealCandidateStage2CaptureService:
             return dict(capture)
         try:
             replay = self.object_repository.replay_snapshot(snapshot_id)
+            if not bool(replay.get("replayable")):
+                refreshed = dict(capture)
+                state = str(replay.get("readback_state") or "READBACK_NOT_REPLAYABLE")
+                refreshed["detail_capture_status"] = "STALE_DETAIL_SNAPSHOT_REVIEW"
+                refreshed["detail_capture_failure_reasons"] = _dedupe_strings(
+                    list(refreshed.get("detail_capture_failure_reasons") or [])
+                    + [f"detail_snapshot_readback_missing:{state}"]
+                )
+                refreshed["stage3_parse_state"] = str(refreshed.get("stage3_parse_state") or "NOT_RUN")
+                return _with_document_completeness(refreshed)
             readback_text = _decode_snapshot_text(replay)
             parser_carrier = dict(
                 self.stage3_service.parse_raw_snapshot(snapshot_id, repository=self.object_repository)
@@ -2241,6 +2336,7 @@ class RealCandidateStage2CaptureService:
             parser_carrier.get("parse_error_taxonomy", []) or capture.get("stage3_parse_error_taxonomy", []) or []
         )
         refreshed["parsed_field_count"] = len(parser_carrier.get("parsed_fields", []) or [])
+        refreshed["attachment_snapshot_count"] = len(attachment_snapshot_refs)
         return _with_document_completeness(refreshed)
 
     def capture_candidate(
@@ -2367,6 +2463,14 @@ class RealCandidateStage2CaptureService:
             "detail_content_type": str(detail_carrier.get("content_type") or ""),
             "detail_byte_size": _as_int(detail_carrier.get("byte_size"), 0),
             "detail_degraded_reasons": list(detail_carrier.get("degraded_reasons", []) or []),
+            "detail_url_retry_audit": dict(detail_carrier.get("detail_url_retry_audit") or {}),
+            "detail_automated_challenge_resolution_attempted": bool(
+                detail_carrier.get("automated_challenge_resolution_attempted")
+            ),
+            "detail_automated_challenge_resolution_state": str(
+                detail_carrier.get("automated_challenge_resolution_state") or ""
+            ),
+            "detail_challenge_resume_audit": dict(detail_carrier.get("challenge_resume_audit") or {}),
             "stage3_parse_state": str(parser_carrier.get("parse_state") or "NOT_RUN"),
             "stage3_parse_error_taxonomy": list(parser_carrier.get("parse_error_taxonomy", []) or []),
             "parsed_field_count": len(parser_carrier.get("parsed_fields", []) or []),
@@ -2374,7 +2478,7 @@ class RealCandidateStage2CaptureService:
             "attachment_link_count": len(attachment_link_items),
             "same_site_attachment_link_items": attachment_link_items,
             "attachment_capture_attempted_count": len(attachment_captures),
-            "attachment_snapshot_count": sum(1 for item in attachment_captures if item.get("attachment_snapshot_id_optional")),
+            "attachment_snapshot_count": len(attachment_snapshot_refs),
             "attachment_captures": attachment_captures,
             "snapshot_readback_path_optional": f"/operator-console/real-source-runs/{snapshot_id}" if snapshot_id else "",
         }
@@ -2402,9 +2506,14 @@ class RealCandidateStage2CaptureService:
             except Exception as exc:  # pragma: no cover - repository corruption varies
                 states.append(f"{snapshot_id}:READBACK_FAILED:{type(exc).__name__}")
                 continue
+            if not bool(readback.get("replayable")):
+                state = str(readback.get("readback_state") or "READBACK_NOT_REPLAYABLE")
+                states.append(f"{snapshot_id}:ATTACHMENT_SNAPSHOT_READBACK_MISSING:{state}")
+                continue
             data = readback.get("bytes")
             if not isinstance(data, (bytes, bytearray)):
-                states.append(f"{snapshot_id}:READBACK_BYTES_MISSING")
+                state = str(readback.get("readback_state") or "READBACK_BYTES_MISSING")
+                states.append(f"{snapshot_id}:ATTACHMENT_SNAPSHOT_READBACK_MISSING:{state}")
                 continue
             content_type = str(
                 attachment.get("content_type")
@@ -2415,13 +2524,40 @@ class RealCandidateStage2CaptureService:
             blob = bytes(data)
             if "pdf" in content_type or blob.startswith(b"%PDF"):
                 text, state = _extract_pdf_text(blob)
+                taxonomy: list[str] = []
+                parse_state = state
+                if not text or "OCR_REQUIRED" in state:
+                    try:
+                        parser_carrier = dict(
+                            self.stage3_service.parse_raw_snapshot(
+                                snapshot_id,
+                                repository=self.object_repository,
+                            )
+                        )
+                    except Exception as exc:  # pragma: no cover - parser failures are source dependent
+                        state = f"{state}:MARKITDOWN_FALLBACK_FAILED:{type(exc).__name__}"
+                    else:
+                        parsed_text = _attachment_parsed_field_text(parser_carrier)
+                        audit = dict(parser_carrier.get("parser_audit") or {})
+                        markitdown_state = str(audit.get("markitdown_state") or "").strip()
+                        if markitdown_state:
+                            state = f"{state}:{markitdown_state}"
+                        taxonomy = [
+                            str(item)
+                            for item in list(parser_carrier.get("parse_error_taxonomy") or [])
+                            if str(item or "").strip()
+                        ]
+                        parse_state = str(parser_carrier.get("parse_state") or state)
+                        if parsed_text:
+                            text = "\n".join(part for part in (text, parsed_text) if part)
                 states.append(f"{snapshot_id}:{state}")
                 snapshot_refs.append(
                     _attachment_snapshot_ref(
                         attachment=attachment,
                         snapshot_id=snapshot_id,
-                        parse_state=state,
+                        parse_state=parse_state,
                         attachment_type="PDF",
+                        parse_error_taxonomy=taxonomy,
                     )
                 )
                 if text:
@@ -2452,7 +2588,11 @@ class RealCandidateStage2CaptureService:
                 for item in list(parser_carrier.get("parse_error_taxonomy") or [])
                 if str(item or "").strip()
             ]
+            audit = dict(parser_carrier.get("parser_audit") or {})
+            markitdown_state = str(audit.get("markitdown_state") or "").strip()
             state_parts = [snapshot_id, attachment_type or "ATTACHMENT", parse_state]
+            if markitdown_state:
+                state_parts.append(markitdown_state)
             state_parts.extend(taxonomy[:4])
             states.append(":".join(state_parts))
             snapshot_refs.append(
@@ -2543,6 +2683,7 @@ class RealCandidateStage2CaptureService:
                     "attachment_degraded_reasons": list(carrier.get("degraded_reasons", []) or []),
                     "attachment_blocker_class": str(carrier.get("attachment_blocker_class") or ""),
                     "attachment_blocker_reason": str(carrier.get("attachment_blocker_reason") or ""),
+                    "attachment_failure_taxonomy": list(carrier.get("attachment_failure_taxonomy") or []),
                     "attachment_resolution_route": str(carrier.get("attachment_resolution_route") or ""),
                     "attachment_browser_replay_steps": list(carrier.get("attachment_browser_replay_steps") or []),
                     "automated_challenge_resolution_attempted": bool(
@@ -2709,11 +2850,12 @@ class RealCandidateStage2CaptureService:
         )
         row["stage2_attachment_link_count"] = _as_int(capture.get("attachment_link_count"), 0)
         row["same_site_attachment_link_items"] = list(capture.get("same_site_attachment_link_items", []) or [])
-        attachment_snapshot_ids = [
-            str(item.get("attachment_snapshot_id_optional") or "")
-            for item in list(capture.get("attachment_captures", []) or [])
-            if str(item.get("attachment_snapshot_id_optional") or "")
+        attachment_snapshot_refs = [
+            ref
+            for ref in list(fields.get("attachment_snapshot_refs") or [])
+            if isinstance(ref, Mapping) and str(ref.get("snapshot_id") or "").strip()
         ]
+        attachment_snapshot_ids = [str(ref.get("snapshot_id") or "") for ref in attachment_snapshot_refs]
         row["stage2_attachment_snapshot_count"] = len(attachment_snapshot_ids)
         row["stage2_attachment_snapshot_ids"] = attachment_snapshot_ids
         row["stage2_attachment_captures"] = list(capture.get("attachment_captures", []) or [])
@@ -2725,7 +2867,7 @@ class RealCandidateStage2CaptureService:
         row["stage2_attachment_failure_reasons"] = list(document_summary.get("failure_reasons") or [])
         row["attachment_text_merge_state"] = str(fields.get("attachment_text_merge_state") or "")
         row["attachment_text_parse_states"] = list(fields.get("attachment_text_parse_states") or [])
-        row["attachment_snapshot_refs"] = list(fields.get("attachment_snapshot_refs") or [])
+        row["attachment_snapshot_refs"] = attachment_snapshot_refs
         row["qualification_text_candidate_blocks"] = list(fields.get("qualification_text_candidate_blocks") or [])
         row["attachment_ocr_required_count"] = _as_int(fields.get("attachment_ocr_required_count"), 0)
         row["attachment_ocr_extracted_count"] = _as_int(fields.get("attachment_ocr_extracted_count"), 0)

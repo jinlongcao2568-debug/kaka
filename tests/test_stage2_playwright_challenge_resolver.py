@@ -18,6 +18,8 @@ from stage2_ingestion.playwright_challenge_resolver import (
     _epoint_attachment_action_url,
     _epoint_jigsaw_captcha_url,
     _filename_from_content_disposition,
+    _guangdong_ygp_download_signature_params,
+    _guangdong_ygp_download_url,
     _solve_blockpuzzle_offset,
 )
 
@@ -26,6 +28,15 @@ GZ_ATTACHMENT_URL = (
     "https://ywtb.gzggzy.cn/EpointWebBuilder/pages/webbuildermis/attach/downloadztbattach?"
     "attachGuid=568108d4-62ef-4407-83dc-a35d11c5f0f2&appUrlFlag=f2025tp"
     "&siteGuid=7eb5f7f1-9041-43ad-8e13-8fcb82ea831a"
+)
+GD_YGP_ATTACHMENT_URL = (
+    "https://ygp.gdzwfw.gov.cn/ggzy-portal/base/sys-file/download/v3/"
+    "e1633e95-9630-48e3-95fb-17e38a18cba0--3C14?1696027"
+)
+JS_ATTACHMENT_URL = (
+    "http://jsggzy.jszwfw.gov.cn/EpointWebBuilder_jsggzy/pages/webbuildermis/attach/"
+    "downloadZtbAttach.jspx?attachGuid=js-attach-001&appUrlFlag=js2026"
+    "&siteGuid=js-site-001"
 )
 
 
@@ -52,6 +63,24 @@ class PlaywrightChallengeResolverHelperTests(unittest.TestCase):
         self.assertEqual(params["attachGuid"], ["568108d4-62ef-4407-83dc-a35d11c5f0f2"])
         self.assertEqual(params["verificationCode"], ["blockpuzzle@captcha@validated"])
         self.assertEqual(_epoint_jigsaw_captcha_url(GZ_ATTACHMENT_URL), "https://ywtb.gzggzy.cn/EpointWebBuilder/rest/shellcaptcha/initAndCheckCaptcha")
+
+    def test_epoint_jsggzy_jspx_urls_target_builder_variant(self) -> None:
+        action_url = _epoint_attachment_action_url(
+            JS_ATTACHMENT_URL,
+            verification_code="validated",
+            verification_guid="validated",
+        )
+
+        parsed = urlsplit(action_url)
+        params = parse_qs(parsed.query)
+        self.assertEqual(parsed.scheme, "http")
+        self.assertEqual(parsed.netloc, "jsggzy.jszwfw.gov.cn")
+        self.assertTrue(parsed.path.endswith("/EpointWebBuilder_jsggzy/pages/webbuildermis/attach/ztbAttachDownloadAction.action"))
+        self.assertEqual(params["attachGuid"], ["js-attach-001"])
+        self.assertEqual(
+            _epoint_jigsaw_captcha_url(JS_ATTACHMENT_URL),
+            "http://jsggzy.jszwfw.gov.cn/EpointWebBuilder_jsggzy/rest/shellcaptcha/initAndCheckCaptcha",
+        )
 
     def test_blockpuzzle_solver_finds_edge_aligned_gap_and_builds_track(self) -> None:
         try:
@@ -86,6 +115,13 @@ class PlaywrightChallengeResolverHelperTests(unittest.TestCase):
             _filename_from_content_disposition('attachment; filename="bad/name.pdf"'),
             "bad_name.pdf",
         )
+
+    def test_guangdong_ygp_download_url_and_signature_params_are_parsed(self) -> None:
+        self.assertTrue(_guangdong_ygp_download_url(GD_YGP_ATTACHMENT_URL))
+        params = _guangdong_ygp_download_signature_params(GD_YGP_ATTACHMENT_URL)
+        self.assertEqual(params["version"], "v3")
+        self.assertEqual(params["rowGuid"], "e1633e95-9630-48e3-95fb-17e38a18cba0--3C14")
+        self.assertEqual(params["flowId"], "1696027")
 
 
 if __name__ == "__main__":

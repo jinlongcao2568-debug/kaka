@@ -265,6 +265,8 @@ class Stage2Service:
         fetcher = RealPublicEntryFetcher(
             repository=resolved_repository,
             transport=transport,
+            attachment_challenge_resolver=_attachment_challenge_resolver_from_environment(),
+            automated_challenge_resolution_enabled=_automated_attachment_challenge_enabled(),
         )
         carrier = fetcher.fetch_entry_url(
             url,
@@ -301,6 +303,8 @@ class Stage2Service:
         fetcher = RealPublicEntryFetcher(
             repository=resolved_repository,
             transport=transport,
+            attachment_challenge_resolver=_attachment_challenge_resolver_from_environment(),
+            automated_challenge_resolution_enabled=_automated_attachment_challenge_enabled(),
         )
         carrier = fetcher.fetch_candidate_detail_url(
             url,

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 import tempfile
 import unittest
@@ -57,6 +58,7 @@ GZ_YWTB_ATTACHMENT_URL = (
 GD_YGP_URL = "https://ygp.gdzwfw.gov.cn/#/44/jygg"
 JS_DETAIL_URL = "http://jsggzy.jszwfw.gov.cn/jyxx/003001/003001001/20260501/e40bba6b-3eda-4245-9d15-21b921f8db54.html"
 SD_DETAIL_URL = "http://ggzyjy.shandong.gov.cn:80/jsgczbgg/14229113.jhtml"
+SD_DETAIL_URL_HTTPS = "https://ggzyjy.shandong.gov.cn/jsgczbgg/14229113.jhtml"
 GD_YGP_DETAIL_URL = (
     "https://ygp.gdzwfw.gov.cn/#/44/new/jygg/v3/A?"
     "noticeId=3fd848f3-3ef4-4240-9417-bded006b182d-3C14"
@@ -67,6 +69,14 @@ GD_YGP_DETAIL_URL = (
     "&source=%E4%BD%9B%E5%B1%B1%E5%B8%82%E5%85%AC%E5%85%B1%E8%B5%84%E6%BA%90%E4%BA%A4%E6%98%93%E4%BF%A1%E6%81%AF%E5%8C%96%E7%BB%BC%E5%90%88%E5%B9%B3%E5%8F%B0"
     "&titleDetails=%E5%B7%A5%E7%A8%8B%E5%BB%BA%E8%AE%BE"
     "&classify=A07"
+)
+GD_YGP_ATTACHMENT_URL = (
+    "https://ygp.gdzwfw.gov.cn/ggzy-portal/base/sys-file/download/v3/"
+    "e1633e95-9630-48e3-95fb-17e38a18cba0--3C14?1696027"
+)
+HB_ATTACHMENT_URL = (
+    "https://www.hbbidcloud.cn/hubei/jyxx/download?"
+    "fileName=%E6%8B%9B%E6%A0%87%E6%96%87%E4%BB%B6.pdf&id=hb-001"
 )
 BEIJING_ATTACHMENT_PDF_URL = "https://ggzyfw.beijing.gov.cn/cmsbj/u/cms/cn.gov.bjggzyfw.www/202506/9426015154001.pdf"
 BEIJING_TOOLING_PDF_URL = "https://ggzyfw.beijing.gov.cn/cmsbj/u/cms/cn.gov.bjggzyfw.www/202410/25172947ch03.pdf"
@@ -132,6 +142,29 @@ class FakeAttachmentChallengeResolver:
                 "ocr_recognition",
                 "same_session_capture_resume",
                 "browser_fingerprint_profile_reuse",
+            ],
+        }
+
+
+class FakeDetailChallengeResolver(FakeAttachmentChallengeResolver):
+    def __init__(self, detail_html: bytes) -> None:
+        super().__init__(_pdf_like_bytes())
+        self.detail_html = detail_html
+        self.detail_requests: list[dict[str, object]] = []
+
+    def resolve_candidate_detail(self, request: dict[str, object]) -> dict[str, object]:
+        self.detail_requests.append(dict(request))
+        return {
+            "url": request["detail_url"],
+            "status_code": 200,
+            "content": self.detail_html,
+            "content_type": "text/html; charset=utf-8",
+            "headers": {"x-ax9s-fetch-transport": "fake_detail_challenge_resolver"},
+            "resolution_method": "controlled_test_browser_detail_resume",
+            "resolution_capabilities_used": [
+                "same_session_capture_resume",
+                "browser_fingerprint_profile_reuse",
+                "cookie_reuse",
             ],
         }
 
@@ -345,6 +378,30 @@ def _pdf_like_bytes() -> bytes:
 
 
 class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self._tmp_dir = tempfile.TemporaryDirectory()
+        self._old_env = {
+            key: os.environ.get(key)
+            for key in ("KAKA_STORAGE_BACKEND", "KAKA_STORAGE_PATH", "KAKA_STORAGE_DATABASE_URL")
+        }
+        os.environ["KAKA_STORAGE_BACKEND"] = "json-file"
+        os.environ["KAKA_STORAGE_PATH"] = str(Path(self._tmp_dir.name) / "storage.json")
+        os.environ.pop("KAKA_STORAGE_DATABASE_URL", None)
+        if DatabaseSession._default is not None:
+            DatabaseSession._default.close()
+            DatabaseSession._default = None
+
+    def tearDown(self) -> None:
+        if DatabaseSession._default is not None:
+            DatabaseSession._default.close()
+            DatabaseSession._default = None
+        for key, value in self._old_env.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+        self._tmp_dir.cleanup()
+
     def test_degraded_profile_set_from_136_is_explicit_for_137(self) -> None:
         self.assertEqual(
             DEGRADED_ENTRY_PROFILE_IDS_AFTER_136,
@@ -355,7 +412,6 @@ class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
                 "JZSC-NATIONAL-PROJECT",
                 "CREDITCHINA-HOME",
                 "GSXT-HOME",
-                "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
             ),
         )
 
@@ -745,6 +801,99 @@ class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
             replay = repo.replay_snapshot(attachment["snapshot_id_optional"])
             self.assertTrue(replay["manifest"]["fetch_audit"]["automated_challenge_resume_used"])
 
+    def test_guangdong_interface_error_routes_to_explicit_challenge_resolver(self) -> None:
+        pdf_bytes = _pdf_like_bytes()
+        interface_error_html = (
+            "<html><body><p>参数错误</p><p>X-Dgi-Req-Signature 签名验证失败</p></body></html>"
+        ).encode("utf-8")
+        transport = FakeRealPublicFetchTransport(
+            {
+                GD_YGP_ATTACHMENT_URL: RealPublicFetchResponse(
+                    url=GD_YGP_ATTACHMENT_URL,
+                    status_code=400,
+                    content=interface_error_html,
+                    content_type="text/html; charset=utf-8",
+                    final_url=GD_YGP_ATTACHMENT_URL,
+                ),
+            }
+        )
+        resolver = FakeAttachmentChallengeResolver(pdf_bytes)
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = _repo(tmp_dir)
+            fetcher = RealPublicEntryFetcher(
+                transport=transport,
+                repository=repo,
+                timeout_seconds=3,
+                attachment_challenge_resolver=resolver,
+                automated_challenge_resolution_enabled=True,
+            )
+            attachment = fetcher.fetch_same_site_attachment_url(
+                GD_YGP_ATTACHMENT_URL,
+                parent_profile_id="GUANGDONG-YGP-PROVINCE-TRADING-LIST",
+                detail_page_url=GD_YGP_DETAIL_URL,
+                lineage_refs={"candidate_key": "gd-candidate-001"},
+            )
+
+            self.assertEqual(attachment["status"], "FETCHED")
+            self.assertEqual(attachment["automated_challenge_resolution_state"], "RESOLVED_AND_SNAPSHOT_CAPTURED")
+            self.assertEqual(repo.read_snapshot_bytes(attachment["snapshot_id_optional"]), pdf_bytes)
+            self.assertEqual(len(resolver.requests), 1)
+            request = resolver.requests[0]
+            self.assertEqual(request["challenge_family"], "GUANGDONG_YGP_SIGNED_PUBLIC_FILE")
+            self.assertEqual(request["attachment_blocker_class"], "ATTACHMENT_INTERFACE_ERROR")
+            self.assertIn("400", request["first_attempt_http_statuses"])
+            self.assertIn("same_site_referer_replay", request["allowed_resolution_capabilities"])
+            self.assertEqual(
+                request["platform_resolution_hint"]["resolver_route"],
+                "guangdong_ygp_signed_request_or_browser_session",
+            )
+
+    def test_hubei_slider_or_geetest_page_routes_to_explicit_challenge_resolver(self) -> None:
+        pdf_bytes = _pdf_like_bytes()
+        geetest_html = (
+            "<html><body><p>请完成验证</p><p>geetest 极验 滑块 拖动滑块后下载</p></body></html>"
+        ).encode("utf-8")
+        transport = FakeRealPublicFetchTransport(
+            {
+                HB_ATTACHMENT_URL: RealPublicFetchResponse(
+                    url=HB_ATTACHMENT_URL,
+                    status_code=200,
+                    content=geetest_html,
+                    content_type="text/html; charset=utf-8",
+                    final_url=HB_ATTACHMENT_URL,
+                ),
+            }
+        )
+        resolver = FakeAttachmentChallengeResolver(pdf_bytes)
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = _repo(tmp_dir)
+            fetcher = RealPublicEntryFetcher(
+                transport=transport,
+                repository=repo,
+                timeout_seconds=3,
+                attachment_challenge_resolver=resolver,
+                automated_challenge_resolution_enabled=True,
+            )
+            attachment = fetcher.fetch_same_site_attachment_url(
+                HB_ATTACHMENT_URL,
+                parent_profile_id="HUBEI-BIDCLOUD-JYXX-LIST",
+                detail_page_url="https://www.hbbidcloud.cn/hubei/jyxx/002001/002001001/hb001.html",
+                lineage_refs={"candidate_key": "hb-candidate-001"},
+            )
+
+            self.assertEqual(attachment["status"], "FETCHED")
+            self.assertEqual(repo.read_snapshot_bytes(attachment["snapshot_id_optional"]), pdf_bytes)
+            self.assertEqual(len(resolver.requests), 1)
+            request = resolver.requests[0]
+            self.assertEqual(request["challenge_family"], "HUBEI_BIDCLOUD_BROWSER_SESSION")
+            self.assertEqual(request["attachment_blocker_class"], "CAPTCHA_MANUAL_REQUIRED")
+            self.assertEqual(
+                request["platform_resolution_hint"]["resolver_route"],
+                "hubei_bidcloud_browser_session",
+            )
+
     def test_same_site_attachment_challenge_stays_fail_closed_without_explicit_resolver(self) -> None:
         captcha_html = b"<html><body><p>captcha</p><p>verificationCode</p></body></html>"
         transport = FakeRealPublicFetchTransport(
@@ -786,12 +935,12 @@ class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
                     content_type="text/html; charset=utf-8",
                     final_url=JS_DETAIL_URL,
                 ),
-                SD_DETAIL_URL: RealPublicFetchResponse(
-                    url=SD_DETAIL_URL,
+                SD_DETAIL_URL_HTTPS: RealPublicFetchResponse(
+                    url=SD_DETAIL_URL_HTTPS,
                     status_code=200,
                     content=_province_detail_html("山东工程建设项目招标公告"),
                     content_type="text/html; charset=utf-8",
-                    final_url=SD_DETAIL_URL,
+                    final_url=SD_DETAIL_URL_HTTPS,
                 ),
             }
         )
@@ -810,7 +959,139 @@ class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
         self.assertEqual(js_carrier["status"], "FETCHED")
         self.assertEqual(sd_carrier["status"], "FETCHED")
         self.assertEqual(transport.call_log[0]["url"], JS_DETAIL_URL)
-        self.assertEqual(transport.call_log[1]["url"], SD_DETAIL_URL)
+        self.assertEqual(transport.call_log[1]["url"], SD_DETAIL_URL_HTTPS)
+
+    def test_shandong_detail_fetch_retries_original_url_after_https_variant_degrades(self) -> None:
+        transport = FakeRealPublicFetchTransport(
+            {
+                SD_DETAIL_URL_HTTPS: RealPublicFetchResponse(
+                    url=SD_DETAIL_URL_HTTPS,
+                    status_code=502,
+                    content=b"bad",
+                    content_type="text/html; charset=utf-8",
+                    final_url=SD_DETAIL_URL_HTTPS,
+                ),
+                "http://ggzyjy.shandong.gov.cn/jsgczbgg/14229113.jhtml": RealPublicFetchResponse(
+                    url="http://ggzyjy.shandong.gov.cn/jsgczbgg/14229113.jhtml",
+                    status_code=502,
+                    content=b"bad",
+                    content_type="text/html; charset=utf-8",
+                    final_url="http://ggzyjy.shandong.gov.cn/jsgczbgg/14229113.jhtml",
+                ),
+                SD_DETAIL_URL: RealPublicFetchResponse(
+                    url=SD_DETAIL_URL,
+                    status_code=200,
+                    content=_province_detail_html("山东工程建设项目招标公告"),
+                    content_type="text/html; charset=utf-8",
+                    final_url=SD_DETAIL_URL,
+                ),
+            }
+        )
+
+        carrier = Stage2Service().fetch_real_public_candidate_detail_url(
+            SD_DETAIL_URL,
+            profile_id="SHANDONG-GGZY-JYXXGK-LIST",
+            transport=transport,
+        )
+
+        self.assertEqual(carrier["status"], "FETCHED")
+        self.assertEqual(
+            [row["url"] for row in transport.call_log],
+            [SD_DETAIL_URL_HTTPS, "http://ggzyjy.shandong.gov.cn/jsgczbgg/14229113.jhtml", SD_DETAIL_URL],
+        )
+        self.assertEqual(
+            carrier["detail_url_retry_audit"]["variant_strategy"],
+            "shandong_https_without_explicit_80_first",
+        )
+
+    def test_shandong_502_does_not_route_to_detail_challenge_resolver(self) -> None:
+        transport = FakeRealPublicFetchTransport(
+            {
+                SD_DETAIL_URL_HTTPS: RealPublicFetchResponse(
+                    url=SD_DETAIL_URL_HTTPS,
+                    status_code=502,
+                    content=b"bad",
+                    content_type="text/html; charset=utf-8",
+                    final_url=SD_DETAIL_URL_HTTPS,
+                ),
+                "http://ggzyjy.shandong.gov.cn/jsgczbgg/14229113.jhtml": RealPublicFetchResponse(
+                    url="http://ggzyjy.shandong.gov.cn/jsgczbgg/14229113.jhtml",
+                    status_code=502,
+                    content=b"bad",
+                    content_type="text/html; charset=utf-8",
+                    final_url="http://ggzyjy.shandong.gov.cn/jsgczbgg/14229113.jhtml",
+                ),
+                SD_DETAIL_URL: RealPublicFetchResponse(
+                    url=SD_DETAIL_URL,
+                    status_code=502,
+                    content=b"bad",
+                    content_type="text/html; charset=utf-8",
+                    final_url=SD_DETAIL_URL,
+                ),
+            }
+        )
+        resolver = FakeDetailChallengeResolver(_province_detail_html("山东工程建设项目招标公告"))
+
+        fetcher = RealPublicEntryFetcher(
+            transport=transport,
+            timeout_seconds=3,
+            attachment_challenge_resolver=resolver,
+            automated_challenge_resolution_enabled=True,
+        )
+        carrier = fetcher.fetch_candidate_detail_url(
+            SD_DETAIL_URL,
+            profile_id="SHANDONG-GGZY-JYXXGK-LIST",
+        )
+
+        self.assertEqual(carrier["status"], "DEGRADED")
+        self.assertEqual(len(resolver.detail_requests), 0)
+        self.assertEqual(
+            carrier["detail_url_retry_audit"]["variant_strategy"],
+            "shandong_https_without_explicit_80_first",
+        )
+        self.assertIn("detail_body_too_small", carrier["degraded_reasons"])
+        self.assertNotIn("automated_challenge_resolution_state", carrier)
+
+    def test_jiangsu_detail_login_challenge_routes_to_detail_resolver(self) -> None:
+        login_html = "<html><head><title>用户登录</title></head><body>请登录 验证码</body></html>".encode("utf-8")
+        detail_html = _province_detail_html("江苏工程建设项目招标公告")
+        transport = FakeRealPublicFetchTransport(
+            {
+                JS_DETAIL_URL: RealPublicFetchResponse(
+                    url=JS_DETAIL_URL,
+                    status_code=200,
+                    content=login_html,
+                    content_type="text/html; charset=utf-8",
+                    final_url=JS_DETAIL_URL,
+                ),
+            }
+        )
+        resolver = FakeDetailChallengeResolver(detail_html)
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = _repo(tmp_dir)
+            fetcher = RealPublicEntryFetcher(
+                transport=transport,
+                repository=repo,
+                timeout_seconds=3,
+                attachment_challenge_resolver=resolver,
+                automated_challenge_resolution_enabled=True,
+            )
+            carrier = fetcher.fetch_candidate_detail_url(
+                JS_DETAIL_URL,
+                profile_id="JIANGSU-GGZY-HOME",
+                lineage_refs={"candidate_key": "js-candidate-001"},
+            )
+
+            self.assertEqual(carrier["status"], "FETCHED")
+            self.assertEqual(carrier["automated_challenge_resolution_state"], "RESOLVED_AND_SNAPSHOT_CAPTURED")
+            self.assertEqual(len(resolver.detail_requests), 1)
+            request = resolver.detail_requests[0]
+            self.assertEqual(request["challenge_family"], "EPOINT_DETAIL_SESSION_OR_LOGIN")
+            self.assertIn("same_session_capture_resume", request["allowed_resolution_capabilities"])
+            replay = repo.replay_snapshot(carrier["snapshot_id_optional"])
+            self.assertTrue(replay["replayable"])
+            self.assertNotIn("请登录", replay["bytes"].decode("utf-8"))
 
     def test_same_site_candidate_attachment_fetch_persists_dynamic_attachment_snapshot(self) -> None:
         pdf_bytes = _pdf_like_bytes()
@@ -848,6 +1129,84 @@ class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
             self.assertEqual(repo.read_snapshot_bytes(carrier["snapshot_id_optional"]), pdf_bytes)
 
         self.assertEqual(transport.call_log[0]["url"], CCGP_ATTACHMENT_URL)
+
+    def test_same_site_attachment_query_filename_is_discovered_and_replayable(self) -> None:
+        pdf_bytes = _pdf_like_bytes()
+        detail_url = CCGP_DETAIL_URL
+        attachment_url = "https://www.ccgp.gov.cn/cggg/zygg/zbgg/202604/download?fileName=tender.pdf&id=1001"
+        detail_body = f"""
+        <html><body>
+          <h1>测试招标公告</h1>
+          <a href="{attachment_url}">招标文件下载</a>
+        </body></html>
+        """.encode("utf-8")
+        transport = FakeRealPublicFetchTransport(
+            {
+                detail_url: RealPublicFetchResponse(
+                    url=detail_url,
+                    status_code=200,
+                    content=detail_body,
+                    content_type="text/html; charset=utf-8",
+                    final_url=detail_url,
+                ),
+                attachment_url: RealPublicFetchResponse(
+                    url=attachment_url,
+                    status_code=200,
+                    content=pdf_bytes,
+                    content_type="application/octet-stream",
+                    final_url=attachment_url,
+                ),
+            }
+        )
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = _repo(tmp_dir)
+            fetcher = RealPublicEntryFetcher(transport=transport, repository=repo, timeout_seconds=3)
+            detail = fetcher.fetch_candidate_detail_url(
+                detail_url,
+                profile_id="CCGP-CENTRAL-NOTICES",
+                lineage_refs={"candidate_key": "candidate-query-attachment"},
+            )
+            self.assertEqual(detail["same_site_attachment_link_items"][0]["url"], attachment_url)
+
+            attachment = fetcher.fetch_same_site_attachment_url(
+                attachment_url,
+                parent_profile_id="CCGP-CENTRAL-NOTICES",
+                detail_page_url=detail_url,
+                lineage_refs={"candidate_key": "candidate-query-attachment"},
+            )
+
+            self.assertEqual(attachment["status"], "FETCHED")
+            self.assertEqual(attachment["attachment_filename"], "tender.pdf")
+            replay = repo.replay_snapshot(attachment["snapshot_id_optional"])
+            self.assertTrue(replay["replayable"])
+            self.assertEqual(repo.read_snapshot_bytes(attachment["snapshot_id_optional"]), pdf_bytes)
+
+    def test_same_site_attachment_captcha_html_has_normalized_taxonomy_and_no_snapshot(self) -> None:
+        captcha_html = b"<html><body><p>captcha</p><p>verificationCode</p></body></html>"
+        transport = FakeRealPublicFetchTransport(
+            {
+                GZ_YWTB_ATTACHMENT_URL: RealPublicFetchResponse(
+                    url=GZ_YWTB_ATTACHMENT_URL,
+                    status_code=200,
+                    content=captcha_html,
+                    content_type="text/html; charset=utf-8",
+                    final_url=GZ_YWTB_ATTACHMENT_URL,
+                ),
+            }
+        )
+
+        attachment = RealPublicEntryFetcher(transport=transport, repository=None).fetch_same_site_attachment_url(
+            GZ_YWTB_ATTACHMENT_URL,
+            parent_profile_id="GUANGZHOU-YWTB-CONSTRUCTION-LIST",
+            detail_page_url=GZ_YWTB_DETAIL_URL,
+            lineage_refs={"candidate_key": "gz-captcha-001"},
+        )
+
+        self.assertEqual(attachment["status"], "DEGRADED")
+        self.assertIsNone(attachment["snapshot_id_optional"])
+        self.assertIn("attachment_captcha_required", attachment["attachment_failure_taxonomy"])
+        self.assertIn("attachment_unsupported_content_type", attachment["attachment_failure_taxonomy"])
 
     def test_unregistered_url_is_blocked_before_fetch(self) -> None:
         transport = FakeRealPublicFetchTransport({})
@@ -911,6 +1270,7 @@ class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
             if profile.profile_id not in (
                 *NATIONAL_VERIFICATION_ENTRY_PROFILE_IDS,
                 *REPRESENTATIVE_LOCAL_PLATFORM_ENTRY_PROFILE_IDS,
+                "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
             ):
                 self.assertNotEqual(profile.url, profile.sample_detail_url, profile.profile_id)
             if profile.profile_id == "JIANGSU-GGZY-HOME":
@@ -953,7 +1313,6 @@ class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
                 "BEIJING-GCJS-LIST",
                 "BEIJING-BDA-HOME",
                 "GUANGZHOU-YWTB-CONSTRUCTION-LIST",
-                "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
                 "JIANGSU-GGZY-HOME",
                 "ZHEJIANG-GGZY-JYXXGK-LIST",
                 "SHANDONG-GGZY-JYXXGK-LIST",
@@ -966,7 +1325,6 @@ class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
         self.assertEqual(profiles_by_id["BEIJING-GCJS-LIST"].url, BEIJING_GCJS_URL)
         self.assertEqual(profiles_by_id["BEIJING-BDA-HOME"].url, BEIJING_BDA_URL)
         self.assertEqual(profiles_by_id["GUANGZHOU-YWTB-CONSTRUCTION-LIST"].url, GZ_YWTB_URL)
-        self.assertEqual(profiles_by_id["GUANGDONG-YGP-PROVINCE-TRADING-LIST"].url, GD_YGP_URL)
         self.assertEqual(profiles_by_id["JIANGSU-GGZY-HOME"].url, "http://jsggzy.jszwfw.gov.cn/")
         self.assertEqual(profiles_by_id["ZHEJIANG-GGZY-JYXXGK-LIST"].url, "https://ggzy.zj.gov.cn/jyxxgk/list.html")
         self.assertEqual(profiles_by_id["SHANDONG-GGZY-JYXXGK-LIST"].url, "https://ggzyjy.shandong.gov.cn/queryContent-jyxxgk.jspx?channelId=78")

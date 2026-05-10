@@ -8,11 +8,17 @@ from typing import Any, Mapping
 
 from shared.settings import Settings
 from shared.utils import utc_now_iso
-from stage1_tasking.real_candidate_discovery import RealPublicCandidateDiscoveryService
+from stage1_tasking.real_candidate_discovery import (
+    RealPublicCandidateDiscoveryService,
+    RealPublicCandidateRepository,
+    _discover_profile_api_link_items,
+)
+from stage1_tasking.region_adapters import resolve_source_quality_policy
 from stage2_ingestion.real_candidate_capture import (
     RealCandidateStage2CaptureRepository,
     RealCandidateStage2CaptureService,
 )
+from stage2_ingestion.real_public_url_fetcher import RealPublicEntryFetcher
 from storage.db import DatabaseSession, PersistedRecord, build_persisted_at
 from storage.evaluation_corpus import default_evaluation_seed_path
 from storage.evaluation_real_sample_plan import (
@@ -65,6 +71,7 @@ def build_evaluation_real_sample_execution(
     target_limit: int | None = None,
     target_ids: list[str] | tuple[str, ...] | str | None = None,
     per_target_candidate_limit: int = 1,
+    professional_source_only: bool = False,
     discovery_service: RealPublicCandidateDiscoveryService | None = None,
     capture_service: RealCandidateStage2CaptureService | None = None,
 ) -> dict[str, Any]:
@@ -96,6 +103,13 @@ def build_evaluation_real_sample_execution(
             for item in plan_items
             if str(item.get("target_id") or "") in requested_set
         ]
+    if professional_source_only:
+        plan_items = [
+            item
+            for item in plan_items
+            if resolve_source_quality_policy(_target_source_profile_id(item)).get("source_quality_state")
+            == "PRIMARY_FRIENDLY"
+        ]
     if target_limit is not None:
         plan_items = plan_items[: max(0, int(target_limit))]
     selected_target_ids = [str(item.get("target_id") or "") for item in plan_items]
@@ -105,27 +119,53 @@ def build_evaluation_real_sample_execution(
         if target_id not in selected_target_ids
     ]
 
-    runner_discovery_service = discovery_service or RealPublicCandidateDiscoveryService()
-    runner_capture_service = capture_service or _build_capture_service(
-        target_backend=target_backend,
-        database_url=database_url,
-        storage_path=storage_path,
-        object_storage_path=object_storage_path,
-    )
-    items: list[dict[str, Any]] = []
-    for item in plan_items:
-        if not execute:
-            items.append(_dry_run_execution_item(item))
-            continue
-        items.append(
-            _execute_target_item(
-                item,
-                discovery_service=runner_discovery_service,
-                capture_service=runner_capture_service,
-                created_at=created,
-                per_target_candidate_limit=per_target_candidate_limit,
+    runner_discovery_service = discovery_service
+    runner_capture_service = capture_service
+    runner_settings: Settings | None = None
+    runner_session: DatabaseSession | None = None
+    if execute:
+        if discovery_service is None or capture_service is None:
+            runner_settings = _execution_settings(
+                target_backend=target_backend,
+                database_url=database_url,
+                storage_path=storage_path,
+                object_storage_path=object_storage_path,
             )
+            runner_session = DatabaseSession(settings=runner_settings)
+        runner_discovery_service = discovery_service or _build_discovery_service(
+            target_backend=target_backend,
+            database_url=database_url,
+            storage_path=storage_path,
+            object_storage_path=object_storage_path,
+            settings=runner_settings,
+            session=runner_session,
         )
+        runner_capture_service = capture_service or _build_capture_service(
+            target_backend=target_backend,
+            database_url=database_url,
+            storage_path=storage_path,
+            object_storage_path=object_storage_path,
+            settings=runner_settings,
+            session=runner_session,
+        )
+    try:
+        items: list[dict[str, Any]] = []
+        for item in plan_items:
+            if not execute:
+                items.append(_dry_run_execution_item(item))
+                continue
+            items.append(
+                _execute_target_item(
+                    item,
+                    discovery_service=runner_discovery_service,
+                    capture_service=runner_capture_service,
+                    created_at=created,
+                    per_target_candidate_limit=per_target_candidate_limit,
+                )
+            )
+    finally:
+        if runner_session is not None:
+            runner_session.close()
 
     manifest = _build_execution_manifest(
         plan=plan,
@@ -139,6 +179,7 @@ def build_evaluation_real_sample_execution(
         missing_requested_target_ids=missing_requested_target_ids,
         target_limit=target_limit,
         per_target_candidate_limit=per_target_candidate_limit,
+        professional_source_only=professional_source_only,
     )
     result = {
         "real_sample_execution_mode": "EXECUTED" if execute else "DRY_RUN",
@@ -185,6 +226,7 @@ def build_evaluation_real_sample_execution(
 
 
 def _dry_run_execution_item(plan_item: Mapping[str, Any]) -> dict[str, Any]:
+    source_quality_policy = resolve_source_quality_policy(_target_source_profile_id(plan_item))
     return {
         "target_id": str(plan_item.get("target_id") or ""),
         "jurisdiction": str(plan_item.get("jurisdiction") or ""),
@@ -192,6 +234,9 @@ def _dry_run_execution_item(plan_item: Mapping[str, Any]) -> dict[str, Any]:
         "document_kind": str(plan_item.get("document_kind") or ""),
         "source_family": str(plan_item.get("source_family") or ""),
         "source_profile_id": _target_source_profile_id(plan_item),
+        "source_quality_state": str(source_quality_policy.get("source_quality_state") or ""),
+        "source_calibration_role": str(source_quality_policy.get("source_calibration_role") or ""),
+        "professional_source_priority": bool(source_quality_policy.get("professional_source_priority")),
         "selection_filters": _string_list(plan_item.get("selection_filters")),
         "target_count": _int_value(plan_item.get("target_count"), default=0),
         "target_execution_state": EXECUTION_READY,
@@ -209,28 +254,70 @@ def _dry_run_execution_item(plan_item: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
+def _build_discovery_service(
+    *,
+    target_backend: str,
+    database_url: str | None,
+    storage_path: str | Path | None,
+    object_storage_path: str | Path | None,
+    settings: Settings | None = None,
+    session: DatabaseSession | None = None,
+) -> RealPublicCandidateDiscoveryService:
+    resolved_settings = settings or _execution_settings(
+        target_backend=target_backend,
+        database_url=database_url,
+        storage_path=storage_path,
+        object_storage_path=object_storage_path,
+    )
+    resolved_session = session or DatabaseSession(settings=resolved_settings)
+    action_repository = OperatorActionRepository(session=resolved_session)
+    object_repository = ObjectStorageRepository(session=resolved_session, settings=resolved_settings)
+    return RealPublicCandidateDiscoveryService(
+        fetcher=RealPublicEntryFetcher(repository=object_repository),
+        repository=RealPublicCandidateRepository(repository=action_repository),
+        profile_api_link_discoverer=_discover_profile_api_link_items,
+    )
+
+
 def _build_capture_service(
     *,
     target_backend: str,
     database_url: str | None,
     storage_path: str | Path | None,
     object_storage_path: str | Path | None,
+    settings: Settings | None = None,
+    session: DatabaseSession | None = None,
 ) -> RealCandidateStage2CaptureService:
-    settings = Settings(
+    resolved_settings = settings or _execution_settings(
+        target_backend=target_backend,
+        database_url=database_url,
+        storage_path=storage_path,
+        object_storage_path=object_storage_path,
+    )
+    resolved_session = session or DatabaseSession(settings=resolved_settings)
+    action_repository = OperatorActionRepository(session=resolved_session)
+    capture_repository = RealCandidateStage2CaptureRepository(repository=action_repository)
+    object_repository = ObjectStorageRepository(session=resolved_session, settings=resolved_settings)
+    return RealCandidateStage2CaptureService(
+        object_repository=object_repository,
+        repository=capture_repository,
+    )
+
+
+def _execution_settings(
+    *,
+    target_backend: str,
+    database_url: str | None,
+    storage_path: str | Path | None,
+    object_storage_path: str | Path | None,
+) -> Settings:
+    return Settings(
         storage_backend=target_backend,
         storage_path_optional=str(storage_path) if storage_path else None,
         storage_database_url_optional=database_url,
         storage_scope="shared",
         storage_runtime_mode="explicit-path",
         object_storage_path_optional=str(object_storage_path) if object_storage_path else None,
-    )
-    session = DatabaseSession(settings=settings)
-    action_repository = OperatorActionRepository(session=session)
-    capture_repository = RealCandidateStage2CaptureRepository(repository=action_repository)
-    object_repository = ObjectStorageRepository(session=session, settings=settings)
-    return RealCandidateStage2CaptureService(
-        object_repository=object_repository,
-        repository=capture_repository,
     )
 
 
@@ -303,6 +390,13 @@ def _execute_target_item(
             "discovery_state": str(discovery_result.get("discovery_state") or ""),
             "discovery_candidate_count": len(candidates),
             "candidate_refs": _candidate_refs(selected_candidates),
+            "project_sample_items": _project_sample_items(
+                plan_item=plan_item,
+                selected_candidates=selected_candidates,
+                capture_summary={},
+                target_execution_state=CAPTURE_PARTIAL_REVIEW,
+                failure_taxonomy=_discovery_failure_taxonomy(profile_reports) + [f"capture_exception:{exc}"],
+            ),
             "failure_taxonomy": _discovery_failure_taxonomy(profile_reports) + [f"capture_exception:{exc}"],
         }
 
@@ -323,6 +417,15 @@ def _execute_target_item(
         "candidate_refs": _candidate_refs(selected_candidates),
         "detail_snapshot_refs": capture_summary["detail_snapshot_refs"],
         "attachment_snapshot_refs": capture_summary["attachment_snapshot_refs"],
+        "project_sample_items": _project_sample_items(
+            plan_item=plan_item,
+            selected_candidates=selected_candidates,
+            capture_summary=capture_summary,
+            target_execution_state=state,
+            failure_taxonomy=_dedupe_strings(
+                _discovery_failure_taxonomy(profile_reports) + capture_summary["failure_taxonomy"]
+            ),
+        ),
         "parse_summary": capture_summary["parse_summary"],
         "failure_taxonomy": _dedupe_strings(
             _discovery_failure_taxonomy(profile_reports) + capture_summary["failure_taxonomy"]
@@ -343,7 +446,9 @@ def _build_execution_manifest(
     missing_requested_target_ids: list[str],
     target_limit: int | None,
     per_target_candidate_limit: int,
+    professional_source_only: bool,
 ) -> dict[str, Any]:
+    project_sample_items = _flatten_project_sample_items(items)
     fingerprint = _fingerprint(
         {
             "plan_manifest_id": (plan.get("manifest") or {}).get("manifest_id"),
@@ -351,7 +456,9 @@ def _build_execution_manifest(
             "requested_target_ids": requested_target_ids,
             "target_limit": target_limit,
             "per_target_candidate_limit": per_target_candidate_limit,
+            "professional_source_only": professional_source_only,
             "items": items,
+            "project_sample_items": project_sample_items,
         }
     )
     manifest = {
@@ -372,10 +479,18 @@ def _build_execution_manifest(
         "missing_requested_target_ids": missing_requested_target_ids,
         "target_limit": target_limit if target_limit is not None else "ALL_PLAN_READY_TARGETS",
         "per_target_candidate_limit": per_target_candidate_limit,
+        "professional_source_only": professional_source_only,
+        "source_quality_policy": _source_quality_manifest_policy(items, project_sample_items),
         "items": items,
         "sample_items": items[:80],
-        "summary": _summary(items, execute=execute),
-        "coverage_quality_summary": _coverage_quality_summary(items, execute=execute),
+        "project_sample_items": project_sample_items,
+        "project_sample_preview_items": project_sample_items[:80],
+        "summary": _summary(items, project_sample_items=project_sample_items, execute=execute),
+        "coverage_quality_summary": _coverage_quality_summary(
+            items,
+            project_sample_items=project_sample_items,
+            execute=execute,
+        ),
         "safety": _safety(execute=execute),
     }
     manifest["summary"] = {
@@ -383,6 +498,9 @@ def _build_execution_manifest(
         "coverage_quality_state": manifest["coverage_quality_summary"]["coverage_quality_state"],
         "sample_quality_reasons": manifest["coverage_quality_summary"]["sample_quality_reasons"],
         "real_snapshot_covered_target_count": manifest["coverage_quality_summary"]["captured_target_count"],
+        "real_snapshot_covered_project_sample_count": manifest["coverage_quality_summary"][
+            "captured_project_sample_count"
+        ],
     }
     manifest["manifest_sha256"] = _manifest_sha256(manifest)
     return manifest
@@ -425,6 +543,7 @@ def _capture_manifest_summary(capture_result: Mapping[str, Any]) -> dict[str, An
     captures = [dict(item) for item in list(capture_result.get("captures") or []) if isinstance(item, Mapping)]
     detail_snapshot_refs: list[dict[str, Any]] = []
     attachment_snapshot_refs: list[dict[str, Any]] = []
+    project_sample_captures: list[dict[str, Any]] = []
     failure_taxonomy: list[str] = []
     document_state_values: list[str] = []
     version_state_values: list[str] = []
@@ -455,16 +574,31 @@ def _capture_manifest_summary(capture_result: Mapping[str, Any]) -> dict[str, An
             or {}
         )
         fields = dict(capture.get("detail_fields") or {})
-        attachment_ocr_required_count += _int_value(
+        verified_attachment_refs = [
+            dict(ref)
+            for ref in list(fields.get("attachment_snapshot_refs") or [])
+            if isinstance(ref, Mapping) and str(ref.get("snapshot_id") or "").strip()
+        ]
+        verified_attachment_snapshot_ids = {
+            str(ref.get("snapshot_id") or "").strip() for ref in verified_attachment_refs
+        }
+        local_detail_snapshot_refs: list[dict[str, Any]] = []
+        local_attachment_snapshot_refs: list[dict[str, Any]] = []
+        local_document_quality_reasons: list[str] = []
+        local_download_manifest_quality_reasons: list[str] = []
+        local_challenge_diagnostics: list[dict[str, Any]] = []
+        local_attachment_ocr_required_count = _int_value(
             capture.get("attachment_ocr_required_count")
             or fields.get("attachment_ocr_required_count"),
             default=0,
         )
-        attachment_ocr_extracted_count += _int_value(
+        local_attachment_ocr_extracted_count = _int_value(
             capture.get("attachment_ocr_extracted_count")
             or fields.get("attachment_ocr_extracted_count"),
             default=0,
         )
+        attachment_ocr_required_count += local_attachment_ocr_required_count
+        attachment_ocr_extracted_count += local_attachment_ocr_extracted_count
         if document_state:
             document_state_values.append(document_state)
         if version_state:
@@ -480,46 +614,100 @@ def _capture_manifest_summary(capture_result: Mapping[str, Any]) -> dict[str, An
         for reason in list(capture.get("document_quality_reasons") or document_summary.get("document_quality_reasons") or []):
             if str(reason):
                 document_quality_reasons.append(str(reason))
+                local_document_quality_reasons.append(str(reason))
         for reason in list(download_archive_manifest.get("quality_reasons") or []):
             if str(reason):
                 download_manifest_quality_reasons.append(str(reason))
+                local_download_manifest_quality_reasons.append(str(reason))
                 if str(reason) in {"unknown_attachment_format", "unknown_attachment_role"}:
                     unknown_attachment_count += 1
         if detail_snapshot_id:
-            detail_snapshot_refs.append(
+            detail_snapshot_ref = {
+                "candidate_key": candidate_key,
+                "snapshot_id": detail_snapshot_id,
+                "source_url": str(capture.get("source_url") or ""),
+                "parse_state": str(capture.get("stage3_parse_state") or ""),
+                "document_completeness_state": document_state,
+                "notice_version_chain_state": version_state,
+                "download_archive_manifest_quality_state": str(
+                    download_archive_manifest.get("manifest_quality_state")
+                    or download_archive_manifest.get("document_quality_state")
+                    or ""
+                ),
+                "download_archive_manifest_quality_reasons": _dedupe_strings(
+                    local_download_manifest_quality_reasons
+                ),
+            }
+            detail_snapshot_refs.append(detail_snapshot_ref)
+            local_detail_snapshot_refs.append(detail_snapshot_ref)
+        detail_challenge_state = str(capture.get("detail_automated_challenge_resolution_state") or "")
+        if bool(capture.get("detail_automated_challenge_resolution_attempted")) or detail_challenge_state:
+            local_challenge_diagnostics.append(
                 {
-                    "candidate_key": candidate_key,
-                    "snapshot_id": detail_snapshot_id,
+                    "capture_kind": "detail",
                     "source_url": str(capture.get("source_url") or ""),
-                    "parse_state": str(capture.get("stage3_parse_state") or ""),
-                    "document_completeness_state": document_state,
-                    "notice_version_chain_state": version_state,
-                    "download_archive_manifest_quality_state": str(
-                        download_archive_manifest.get("manifest_quality_state")
-                        or download_archive_manifest.get("document_quality_state")
-                        or ""
-                    ),
-                    "download_archive_manifest_quality_reasons": _dedupe_strings(download_manifest_quality_reasons),
+                    "attempted": bool(capture.get("detail_automated_challenge_resolution_attempted")),
+                    "state": detail_challenge_state,
+                    "challenge_family": "EPOINT_DETAIL_SESSION_OR_LOGIN"
+                    if str(capture.get("source_profile_id") or "") == "JIANGSU-GGZY-HOME"
+                    else "",
                 }
             )
+            if detail_challenge_state:
+                failure_taxonomy.append(f"detail_automated_challenge_resolution_state:{detail_challenge_state}")
+        detail_retry_audit = dict(capture.get("detail_url_retry_audit") or {})
+        retry_strategy = str(detail_retry_audit.get("variant_strategy") or "")
+        if retry_strategy:
+            failure_taxonomy.append(f"detail_url_retry_strategy:{retry_strategy}")
+            if retry_strategy == "shandong_https_without_explicit_80_first":
+                failure_taxonomy.append("shandong_detail_url_variant_exhausted")
         failure_taxonomy.extend(str(item) for item in list(capture.get("stage3_parse_error_taxonomy") or []) if str(item))
+        for ref in verified_attachment_refs:
+            snapshot_id = str(ref.get("snapshot_id") or "").strip()
+            attachment_parse_state = str(ref.get("parse_state") or ref.get("stage3_parse_state") or "")
+            if attachment_parse_state in {"OCR_REQUIRED", "OCR_ENGINE_UNAVAILABLE"}:
+                attachment_ocr_required_count += 1
+                local_attachment_ocr_required_count += 1
+            attachment_snapshot_ref = {
+                "candidate_key": candidate_key,
+                "snapshot_id": snapshot_id,
+                "attachment_url": str(ref.get("attachment_url") or ref.get("url") or ""),
+                "parse_state": attachment_parse_state,
+                "attachment_role_type": str(ref.get("attachment_role_type") or ""),
+            }
+            attachment_snapshot_refs.append(attachment_snapshot_ref)
+            local_attachment_snapshot_refs.append(attachment_snapshot_ref)
+        for state in list(fields.get("attachment_text_parse_states") or []):
+            text_state = str(state or "")
+            if not text_state:
+                continue
+            if (
+                "ATTACHMENT_SNAPSHOT_READBACK_MISSING" in text_state
+                or "MISSING_MANIFEST" in text_state
+                or "MISSING_OBJECT" in text_state
+                or "READBACK_BYTES_MISSING" in text_state
+                or "READBACK_FAILED" in text_state
+            ):
+                failure_taxonomy.append("attachment_snapshot_readback_missing")
+                document_quality_reasons.append("attachment_snapshot_readback_missing")
+                local_document_quality_reasons.append("attachment_snapshot_readback_missing")
+                if "MISSING_MANIFEST" in text_state:
+                    failure_taxonomy.append("attachment_manifest_missing")
+                if "MISSING_OBJECT" in text_state:
+                    failure_taxonomy.append("attachment_object_missing")
         for attachment in list(capture.get("attachment_captures") or []):
             if not isinstance(attachment, Mapping):
                 continue
             snapshot_id = str(attachment.get("attachment_snapshot_id_optional") or attachment.get("snapshot_id") or "")
-            if snapshot_id:
-                attachment_parse_state = str(attachment.get("parse_state") or attachment.get("stage3_parse_state") or "")
-                if attachment_parse_state in {"OCR_REQUIRED", "OCR_ENGINE_UNAVAILABLE"}:
-                    attachment_ocr_required_count += 1
-                attachment_snapshot_refs.append(
-                    {
-                        "candidate_key": candidate_key,
-                        "snapshot_id": snapshot_id,
-                        "attachment_url": str(attachment.get("attachment_url") or attachment.get("url") or ""),
-                        "parse_state": attachment_parse_state,
-                        "attachment_role_type": str(attachment.get("attachment_role_type") or ""),
-                    }
-                )
+            if snapshot_id and snapshot_id not in verified_attachment_snapshot_ids:
+                failure_taxonomy.append("attachment_snapshot_readback_missing")
+                document_quality_reasons.append("attachment_snapshot_readback_missing")
+                local_document_quality_reasons.append("attachment_snapshot_readback_missing")
+            failure_taxonomy.extend(
+                str(item)
+                for item in list(attachment.get("attachment_failure_taxonomy") or [])
+                if str(item or "").strip()
+            )
             for key in (
                 "attachment_blocker_class",
                 "attachment_blocker_reason",
@@ -528,21 +716,85 @@ def _capture_manifest_summary(capture_result: Mapping[str, Any]) -> dict[str, An
                 value = str(attachment.get(key) or "")
                 if value and value not in {"SUCCESS", "FETCHED", "PARSED"}:
                     failure_taxonomy.append(value)
+            attachment_challenge_state = str(attachment.get("automated_challenge_resolution_state") or "")
+            if bool(attachment.get("automated_challenge_resolution_attempted")) or attachment_challenge_state:
+                local_challenge_diagnostics.append(
+                    {
+                        "capture_kind": "attachment",
+                        "attachment_url": str(attachment.get("attachment_url") or ""),
+                        "attachment_link_text": str(attachment.get("attachment_link_text") or ""),
+                        "attempted": bool(attachment.get("automated_challenge_resolution_attempted")),
+                        "state": attachment_challenge_state,
+                        "blocker_class": str(attachment.get("attachment_blocker_class") or ""),
+                        "blocker_reason": str(attachment.get("attachment_blocker_reason") or ""),
+                    }
+                )
+                if attachment_challenge_state:
+                    failure_taxonomy.append(f"attachment_automated_challenge_resolution_state:{attachment_challenge_state}")
+        project_sample_captures.append(
+            {
+                "candidate_key": candidate_key,
+                "project_id": str(capture.get("project_id") or ""),
+                "project_name": str(capture.get("project_name") or fields.get("project_name") or ""),
+                "source_url": str(capture.get("source_url") or ""),
+                "source_profile_id": str(capture.get("source_profile_id") or ""),
+                "detail_capture_status": str(capture.get("detail_capture_status") or ""),
+                "stage3_parse_state": str(capture.get("stage3_parse_state") or ""),
+                "detail_snapshot_refs": local_detail_snapshot_refs,
+                "attachment_snapshot_refs": local_attachment_snapshot_refs,
+                "challenge_diagnostics": local_challenge_diagnostics,
+                "detail_url_retry_audit": detail_retry_audit,
+                "document_completeness_state": document_state,
+                "notice_version_chain_state": version_state,
+                "source_text": _project_sample_text_probe(capture, fields),
+                "parse_summary": {
+                    "stage3_parse_success_count": 1
+                    if str(capture.get("stage3_parse_state") or "").startswith("PARSED")
+                    else 0,
+                    "stage3_parse_failed_count": 1
+                    if str(capture.get("stage3_parse_state") or "") not in {"", "NOT_RUN"}
+                    and not str(capture.get("stage3_parse_state") or "").startswith("PARSED")
+                    else 0,
+                    "ocr_required_count": _count_ocr_required(capture),
+                    "attachment_ocr_required_count": local_attachment_ocr_required_count,
+                    "attachment_ocr_extracted_count": local_attachment_ocr_extracted_count,
+                    "attachment_missing_review_count": 1
+                    if document_state
+                    in {
+                        "DETAIL_SNAPSHOT_MISSING_REVIEW",
+                        "ATTACHMENTS_NOT_CAPTURED_REVIEW",
+                        "PARTIAL_REVIEW_REQUIRED",
+                    }
+                    else 0,
+                    "clarification_version_review_count": 1
+                    if version_state in {"VERSION_REVIEW_REQUIRED", "CLARIFICATION_OR_ADDENDUM_PRESENT"}
+                    else 0,
+                    "unknown_attachment_count": sum(
+                        1
+                        for reason in local_download_manifest_quality_reasons
+                        if reason in {"unknown_attachment_format", "unknown_attachment_role"}
+                    ),
+                    "document_completeness_state_counts": _counts([document_state] if document_state else []),
+                    "notice_version_chain_state_counts": _counts([version_state] if version_state else []),
+                    "document_quality_reasons": _dedupe_strings(local_document_quality_reasons),
+                    "download_archive_quality_reasons": _dedupe_strings(local_download_manifest_quality_reasons),
+                    "text_probe": _project_sample_text_probe(capture, fields),
+                },
+            }
+        )
     detail_failure_summary = dict(capture_result.get("detail_capture_failure_summary") or {})
     for reason, count in detail_failure_summary.items():
         failure_taxonomy.append(f"detail_capture_failure:{reason}:{count}")
     return {
         "detail_snapshot_count": _int_value(capture_result.get("detail_snapshot_count"), default=len(detail_snapshot_refs)),
-        "attachment_snapshot_count": _int_value(
-            capture_result.get("attachment_snapshot_count"),
-            default=len(attachment_snapshot_refs),
-        ),
+        "attachment_snapshot_count": len(attachment_snapshot_refs),
         "detail_capture_failed_count": _int_value(capture_result.get("detail_capture_failed_count"), default=0),
         "stage3_parse_success_count": _int_value(capture_result.get("stage3_parse_success_count"), default=0),
         "stage3_parse_failed_count": _int_value(capture_result.get("stage3_parse_failed_count"), default=0),
         "ocr_required_count": _count_ocr_required(capture_result),
         "detail_snapshot_refs": detail_snapshot_refs,
         "attachment_snapshot_refs": attachment_snapshot_refs,
+        "project_sample_captures": project_sample_captures,
         "parse_summary": {
             "stage3_parse_success_count": _int_value(capture_result.get("stage3_parse_success_count"), default=0),
             "stage3_parse_failed_count": _int_value(capture_result.get("stage3_parse_failed_count"), default=0),
@@ -564,6 +816,7 @@ def _capture_manifest_summary(capture_result: Mapping[str, Any]) -> dict[str, An
 def _candidate_refs(candidates: list[Mapping[str, Any]]) -> list[dict[str, Any]]:
     refs: list[dict[str, Any]] = []
     for candidate in candidates:
+        source_quality_policy = resolve_source_quality_policy(candidate.get("source_profile_id"))
         refs.append(
             {
                 "candidate_key": str(candidate.get("candidate_key") or ""),
@@ -572,10 +825,188 @@ def _candidate_refs(candidates: list[Mapping[str, Any]]) -> list[dict[str, Any]]
                 "project_name": str(candidate.get("project_name") or ""),
                 "source_url": str(candidate.get("source_url") or ""),
                 "source_profile_id": str(candidate.get("source_profile_id") or ""),
+                "source_quality_state": str(
+                    candidate.get("source_quality_state")
+                    or source_quality_policy.get("source_quality_state")
+                    or ""
+                ),
+                "source_calibration_role": str(
+                    candidate.get("source_calibration_role")
+                    or source_quality_policy.get("source_calibration_role")
+                    or ""
+                ),
+                "professional_source_priority": bool(
+                    candidate.get("professional_source_priority")
+                    or source_quality_policy.get("professional_source_priority")
+                ),
                 "notice_stage": str(candidate.get("notice_stage") or ""),
             }
         )
     return refs
+
+
+def _project_sample_items(
+    *,
+    plan_item: Mapping[str, Any],
+    selected_candidates: list[Mapping[str, Any]],
+    capture_summary: Mapping[str, Any],
+    target_execution_state: str,
+    failure_taxonomy: list[str],
+) -> list[dict[str, Any]]:
+    captures_by_key = {
+        str(item.get("candidate_key") or ""): dict(item)
+        for item in list(capture_summary.get("project_sample_captures") or [])
+        if isinstance(item, Mapping) and str(item.get("candidate_key") or "")
+    }
+    items: list[dict[str, Any]] = []
+    for candidate in selected_candidates:
+        candidate_key = str(candidate.get("candidate_key") or "")
+        capture = captures_by_key.get(candidate_key, {})
+        detail_refs = [
+            dict(ref)
+            for ref in list(capture.get("detail_snapshot_refs") or [])
+            if isinstance(ref, Mapping)
+        ]
+        attachment_refs = [
+            dict(ref)
+            for ref in list(capture.get("attachment_snapshot_refs") or [])
+            if isinstance(ref, Mapping)
+        ]
+        parse_summary = dict(capture.get("parse_summary") or _empty_parse_summary())
+        challenge_diagnostics = [
+            dict(item)
+            for item in list(capture.get("challenge_diagnostics") or [])
+            if isinstance(item, Mapping)
+        ]
+        project_state = (
+            CAPTURED_WITH_SNAPSHOTS
+            if detail_refs
+            and _int_value(parse_summary.get("stage3_parse_failed_count"), default=0) == 0
+            else target_execution_state
+        )
+        source_text = str(capture.get("source_text") or "").strip()
+        if not source_text:
+            source_text = _clip_text(
+                " ".join(
+                    str(value or "").strip()
+                    for value in (
+                        candidate.get("project_name"),
+                        candidate.get("notice_stage"),
+                        candidate.get("source_profile_id"),
+                    )
+                    if str(value or "").strip()
+                )
+            )
+        source_quality_policy = resolve_source_quality_policy(
+            candidate.get("source_profile_id")
+            or capture.get("source_profile_id")
+            or _target_source_profile_id(plan_item)
+        )
+        items.append(
+            {
+                "sample_id": _project_sample_id(plan_item, candidate),
+                "parent_target_id": str(plan_item.get("target_id") or ""),
+                "target_id": _project_sample_id(plan_item, candidate),
+                "candidate_key": candidate_key,
+                "project_id": str(candidate.get("project_id") or capture.get("project_id") or ""),
+                "notice_id": str(candidate.get("notice_id") or ""),
+                "project_name": str(
+                    capture.get("project_name") or candidate.get("project_name") or ""
+                ),
+                "source_url": str(candidate.get("source_url") or capture.get("source_url") or ""),
+                "document_kind": str(plan_item.get("document_kind") or ""),
+                "jurisdiction": str(plan_item.get("jurisdiction") or ""),
+                "source_profile_id": str(
+                    candidate.get("source_profile_id")
+                    or capture.get("source_profile_id")
+                    or _target_source_profile_id(plan_item)
+                ),
+                "source_quality_state": str(
+                    candidate.get("source_quality_state")
+                    or source_quality_policy.get("source_quality_state")
+                    or ""
+                ),
+                "source_calibration_role": str(
+                    candidate.get("source_calibration_role")
+                    or source_quality_policy.get("source_calibration_role")
+                    or ""
+                ),
+                "professional_source_priority": bool(
+                    candidate.get("professional_source_priority")
+                    or source_quality_policy.get("professional_source_priority")
+                ),
+                "source_trading_process": str(candidate.get("source_trading_process") or ""),
+                "source_dataset_name": str(candidate.get("source_dataset_name") or ""),
+                "source_query_process_label": str(candidate.get("source_query_process_label") or ""),
+                "source_family": str(plan_item.get("source_family") or ""),
+                "project_type": str(plan_item.get("project_type") or ""),
+                "target_execution_state": project_state,
+                "detail_capture_status": str(capture.get("detail_capture_status") or ""),
+                "stage3_parse_state": str(capture.get("stage3_parse_state") or ""),
+                "document_completeness_state": str(capture.get("document_completeness_state") or ""),
+                "notice_version_chain_state": str(capture.get("notice_version_chain_state") or ""),
+                "detail_snapshot_refs": detail_refs,
+                "attachment_snapshot_refs": attachment_refs,
+                "detail_snapshot_count": len(detail_refs),
+                "attachment_snapshot_count": len(attachment_refs),
+                "challenge_diagnostics": challenge_diagnostics,
+                "detail_url_retry_audit": dict(capture.get("detail_url_retry_audit") or {}),
+                "parse_summary": parse_summary,
+                "source_text": source_text,
+                "failure_taxonomy": _dedupe_strings(list(failure_taxonomy)),
+                "customer_visible_allowed": False,
+                "no_legal_conclusion": True,
+            }
+        )
+    return items
+
+
+def _project_sample_id(plan_item: Mapping[str, Any], candidate: Mapping[str, Any]) -> str:
+    target_id = str(plan_item.get("target_id") or "TARGET")
+    candidate_key = str(candidate.get("candidate_key") or candidate.get("project_id") or candidate.get("source_url") or "")
+    return f"{target_id}::{_hash_text(candidate_key or target_id, 12)}"
+
+
+def _flatten_project_sample_items(items: list[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    samples: list[dict[str, Any]] = []
+    for item in items:
+        samples.extend(
+            dict(sample)
+            for sample in list(item.get("project_sample_items") or [])
+            if isinstance(sample, Mapping)
+        )
+    return samples
+
+
+def _project_sample_text_probe(capture: Mapping[str, Any], fields: Mapping[str, Any]) -> str:
+    parts: list[str] = []
+    for value in (
+        capture.get("project_name"),
+        capture.get("detail_title"),
+        fields.get("project_name"),
+        fields.get("parser_project_name"),
+        fields.get("parser_announcement_title"),
+        fields.get("notice_stage"),
+        fields.get("candidate_company"),
+        fields.get("primary_responsible_role"),
+        fields.get("project_manager_certificate_type"),
+        fields.get("project_manager_cert_specialty"),
+    ):
+        text = str(value or "").strip()
+        if text:
+            parts.append(text)
+    for block in list(fields.get("qualification_text_candidate_blocks") or [])[:8]:
+        text = str(block or "").strip()
+        if text:
+            parts.append(text)
+    return _clip_text("\n".join(dict.fromkeys(parts)))
+
+
+def _clip_text(value: str, limit: int = 4000) -> str:
+    text = str(value or "").strip()
+    if len(text) <= limit:
+        return text
+    return text[:limit] + "...[TRUNCATED]"
 
 
 def _profile_report_refs(profile_reports: list[Mapping[str, Any]]) -> list[dict[str, Any]]:
@@ -602,9 +1033,22 @@ def _discovery_failure_taxonomy(profile_reports: list[Mapping[str, Any]]) -> lis
     return _dedupe_strings(failures)
 
 
-def _summary(items: list[Mapping[str, Any]], *, execute: bool) -> dict[str, Any]:
+def _summary(
+    items: list[Mapping[str, Any]],
+    *,
+    project_sample_items: list[Mapping[str, Any]] | None = None,
+    execute: bool,
+) -> dict[str, Any]:
+    project_sample_items = list(project_sample_items or [])
     return {
         "target_execution_bucket_count": len(items),
+        "project_sample_count": len(project_sample_items),
+        "project_sample_execution_state_counts": _counts(
+            str(item.get("target_execution_state") or "") for item in project_sample_items
+        ),
+        "project_sample_document_kind_counts": _counts(
+            str(item.get("document_kind") or "") for item in project_sample_items
+        ),
         "execution_state_counts": _counts(str(item.get("target_execution_state") or "") for item in items),
         "document_kind_bucket_counts": _counts(str(item.get("document_kind") or "") for item in items),
         "jurisdiction_bucket_counts": _counts(str(item.get("jurisdiction") or "") for item in items),
@@ -663,8 +1107,17 @@ def _summary(items: list[Mapping[str, Any]], *, execute: bool) -> dict[str, Any]
     }
 
 
-def _coverage_quality_summary(items: list[Mapping[str, Any]], *, execute: bool) -> dict[str, Any]:
+def _coverage_quality_summary(
+    items: list[Mapping[str, Any]],
+    *,
+    project_sample_items: list[Mapping[str, Any]] | None = None,
+    execute: bool,
+) -> dict[str, Any]:
+    project_sample_items = list(project_sample_items or [])
     state_counts = _counts(str(item.get("target_execution_state") or "") for item in items)
+    project_state_counts = _counts(
+        str(item.get("target_execution_state") or "") for item in project_sample_items
+    )
     failure_values: list[str] = []
     site_values: list[str] = []
     target_bucket_values: list[str] = []
@@ -673,6 +1126,7 @@ def _coverage_quality_summary(items: list[Mapping[str, Any]], *, execute: bool) 
     ocr_blocked_count = 0
     detail_snapshot_count = 0
     attachment_snapshot_count = 0
+    captured_project_sample_count = 0
     for item in items:
         target_bucket_values.append(str(item.get("document_kind") or "UNKNOWN_DOCUMENT_KIND"))
         site_values.append(str(item.get("source_profile_id") or item.get("source_family") or "UNKNOWN_SOURCE"))
@@ -688,6 +1142,10 @@ def _coverage_quality_summary(items: list[Mapping[str, Any]], *, execute: bool) 
             ocr_blocked_count += _int_value(parse_summary.get("ocr_required_count"), default=0)
             ocr_blocked_count += _int_value(parse_summary.get("attachment_ocr_required_count"), default=0)
         failure_values.extend(str(value) for value in list(item.get("failure_taxonomy") or []) if str(value))
+    for sample in project_sample_items:
+        if str(sample.get("target_execution_state") or "") == CAPTURED_WITH_SNAPSHOTS:
+            captured_project_sample_count += 1
+        failure_values.extend(str(value) for value in list(sample.get("failure_taxonomy") or []) if str(value))
 
     quality_reasons: list[str] = []
     if not execute:
@@ -717,13 +1175,58 @@ def _coverage_quality_summary(items: list[Mapping[str, Any]], *, execute: bool) 
         "target_bucket_coverage": _counts(target_bucket_values),
         "site_coverage": _counts(site_values),
         "execution_state_counts": state_counts,
+        "project_sample_count": len(project_sample_items),
+        "project_sample_execution_state_counts": project_state_counts,
         "captured_target_count": captured_target_count,
+        "captured_project_sample_count": captured_project_sample_count,
         "partial_or_failed_target_count": partial_target_count,
         "detail_snapshot_count": detail_snapshot_count,
         "attachment_snapshot_count": attachment_snapshot_count,
         "ocr_blocked_count": ocr_blocked_count,
         "failure_taxonomy_counts": _counts(failure_values),
         "sample_quality_reasons": list(dict.fromkeys(quality_reasons)),
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
+
+
+def _source_quality_manifest_policy(
+    items: list[Mapping[str, Any]],
+    project_sample_items: list[Mapping[str, Any]],
+) -> dict[str, Any]:
+    item_states = [
+        str(item.get("source_quality_state") or "OBSERVATION_NEEDS_SOURCE_ANALYSIS")
+        for item in items
+    ]
+    sample_states = [
+        str(sample.get("source_quality_state") or "OBSERVATION_NEEDS_SOURCE_ANALYSIS")
+        for sample in project_sample_items
+    ]
+    active_profiles = _dedupe_strings(
+        str(item.get("source_profile_id") or "")
+        for item in items
+        if str(item.get("source_profile_id") or "")
+    )
+    quarantined_profiles = [
+        profile_id
+        for profile_id in active_profiles
+        if resolve_source_quality_policy(profile_id).get("source_quality_state") == "QUARANTINED"
+    ]
+    return {
+        "policy_id": "real-sample-source-quality-policy-v1",
+        "primary_friendly_profile_ids": [
+            "GUANGZHOU-YWTB-CONSTRUCTION-LIST",
+            "ZHEJIANG-GGZY-JYXXGK-LIST",
+            "SICHUAN-GGZY-TRANSACTION-INFO",
+        ],
+        "quarantined_profile_ids": ["GUANGDONG-YGP-PROVINCE-TRADING-LIST"],
+        "source_quality_state_counts": _counts(item_states),
+        "project_sample_source_quality_state_counts": _counts(sample_states),
+        "active_profile_ids": active_profiles,
+        "quarantined_profile_ids_present": quarantined_profiles,
+        "professional_source_priority_sample_count": sum(
+            1 for sample in project_sample_items if bool(sample.get("professional_source_priority"))
+        ),
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,
     }
@@ -874,6 +1377,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--target-limit", type=int)
     parser.add_argument("--target-ids", nargs="*")
     parser.add_argument("--per-target-candidate-limit", type=int, default=1)
+    parser.add_argument("--professional-source-only", action="store_true")
     parser.add_argument("--output-json")
     parser.add_argument("--execute", action="store_true")
     parser.add_argument("--json", action="store_true", dest="emit_json")
@@ -893,6 +1397,7 @@ def main(argv: list[str] | None = None) -> int:
         target_limit=args.target_limit,
         target_ids=args.target_ids,
         per_target_candidate_limit=args.per_target_candidate_limit,
+        professional_source_only=args.professional_source_only,
     )
     if args.output_json:
         output_path = Path(args.output_json)

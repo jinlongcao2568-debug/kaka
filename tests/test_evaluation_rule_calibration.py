@@ -151,8 +151,83 @@ class TestEvaluationRuleCalibration(unittest.TestCase):
             )
             self.assertFalse(result["manifest"]["safety"]["formal_rule_threshold_mutation_enabled"])
 
+    def test_tailored_calibration_prefers_project_sample_items_over_target_buckets(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            path = Path(tmp_dir) / "execution.json"
+            _write_execution_manifest(
+                path,
+                [
+                    _execution_item(
+                        target_id="BUCKET-ONLY",
+                        document_counts={"COMPLETE_WITH_ATTACHMENTS": 1},
+                        version_counts={"NO_SUPPLEMENT_DETECTED": 1},
+                        source_text="目标桶摘要不应作为项目级控标样本。",
+                    )
+                ],
+                project_sample_items=[
+                    _project_sample_item(
+                        target_id="BUCKET-ONLY::001",
+                        parent_target_id="BUCKET-ONLY",
+                        candidate_key="CAND-001",
+                        source_text="招标文件要求厂家授权、本地服务网点、检测报告、参数过细。",
+                    ),
+                    _project_sample_item(
+                        target_id="BUCKET-ONLY::002",
+                        parent_target_id="BUCKET-ONLY",
+                        candidate_key="CAND-002",
+                        source_text="评分办法主观分45分，要求现场踏勘回执和本地社保。",
+                    ),
+                ],
+            )
 
-def _write_execution_manifest(path: Path, items: list[dict]) -> None:
+            result = build_evaluation_rule_calibration_manifest(
+                real_sample_execution_manifest_json=path,
+                target_backend="json-file",
+            )
+
+            self.assertEqual(result["summary"]["tailored_source_sample_mode"], "PROJECT_SAMPLE_ITEMS")
+            self.assertEqual(result["summary"]["tailored_sample_count"], 2)
+            target_ids = [item["target_id"] for item in result["manifest"]["tailored_items"]]
+            self.assertEqual(target_ids, ["BUCKET-ONLY::001", "BUCKET-ONLY::002"])
+            self.assertEqual(result["manifest"]["tailored_items"][0]["parent_target_id"], "BUCKET-ONLY")
+            self.assertEqual(result["manifest"]["tailored_items"][0]["candidate_key"], "CAND-001")
+
+    def test_tailored_calibration_reports_sample_ready_at_fifty_project_samples(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            path = Path(tmp_dir) / "execution.json"
+            _write_execution_manifest(
+                path,
+                [_execution_item(target_id="BUCKET-50")],
+                project_sample_items=[
+                    _project_sample_item(
+                        target_id=f"BUCKET-50::{index:03d}",
+                        parent_target_id="BUCKET-50",
+                        candidate_key=f"CAND-{index:03d}",
+                        source_text="招标文件资格条件、评分办法和技术参数可解析。",
+                    )
+                    for index in range(50)
+                ],
+            )
+
+            result = build_evaluation_rule_calibration_manifest(
+                real_sample_execution_manifest_json=path,
+                target_backend="json-file",
+            )
+
+            self.assertEqual(result["summary"]["tailored_sample_count"], 50)
+            self.assertEqual(result["summary"]["tailored_insufficient_sample_state"], "SAMPLE_READY")
+            self.assertEqual(
+                result["summary"]["tailored_threshold_recommendation"]["suggested_action"],
+                "MANUAL_REVIEW_THRESHOLD_DISTRIBUTION_BEFORE_MUTATION",
+            )
+
+
+def _write_execution_manifest(
+    path: Path,
+    items: list[dict],
+    *,
+    project_sample_items: list[dict] | None = None,
+) -> None:
     path.write_text(
         json.dumps(
             {
@@ -160,6 +235,7 @@ def _write_execution_manifest(path: Path, items: list[dict]) -> None:
                     "manifest_id": "EXEC-MANIFEST-001",
                     "manifest_sha256": "abc123",
                     "items": items,
+                    "project_sample_items": list(project_sample_items or []),
                 }
             },
             ensure_ascii=False,
@@ -208,6 +284,32 @@ def _execution_item(
             "document_quality_reasons": list(quality_reasons or []),
             "download_archive_quality_reasons": list(quality_reasons or []),
         },
+    }
+
+
+def _project_sample_item(
+    *,
+    target_id: str,
+    parent_target_id: str,
+    candidate_key: str,
+    source_text: str,
+) -> dict:
+    return {
+        **_execution_item(
+            target_id=target_id,
+            document_counts={"COMPLETE_WITH_ATTACHMENTS": 1},
+            version_counts={"NO_SUPPLEMENT_DETECTED": 1},
+            source_text=source_text,
+        ),
+        "sample_id": target_id,
+        "parent_target_id": parent_target_id,
+        "candidate_key": candidate_key,
+        "project_id": f"PROJ-{candidate_key}",
+        "project_name": f"测试项目 {candidate_key}",
+        "source_url": f"https://example.test/{candidate_key}.html",
+        "failure_taxonomy": [],
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
     }
 
 

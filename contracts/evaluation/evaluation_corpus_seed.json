@@ -112,6 +112,19 @@
       "seed_tags": ["real_public_entry", "fetchable"]
     },
     {
+      "seed_id": "ENTRY-SICHUAN-GGZY",
+      "source_title": "四川省公共资源交易信息网交易信息入口",
+      "source_url": "https://ggzyjy.sc.gov.cn/jyxx/transactionInfo.html",
+      "source_family": "local_public_resource_trading_center",
+      "jurisdiction": "CN-SC",
+      "project_type": "construction",
+      "document_kind": "candidate_notice",
+      "fetch_profile_id_optional": "SICHUAN-GGZY-TRANSACTION-INFO",
+      "capture_kind": "entry",
+      "probe_text_optional": "四川省公共资源交易信息网 交易信息 工程建设 招标公告 中标候选人公示 中标结果公告",
+      "seed_tags": ["real_public_entry", "fetchable"]
+    },
+    {
       "seed_id": "SAMPLE-YICHANG-UNRANKED-CANDIDATES",
       "source_title": "宜昌公共资源交易定标候选人样本",
       "source_url": "https://ggzy.sc.yichang.gov.cn/jyxx/003001/003001004/20241101/a7ce38ce-b5c5-4eed-97af-da287da09533.html",

@@ -9,6 +9,9 @@ param(
     [string]$ObjectStoragePath = "",
     [string]$DatabaseUrl = "",
     [string]$OutputJson = "",
+    [switch]$UseAllTargets,
+    [switch]$ProfessionalSourceOnly,
+    [switch]$EnableAttachmentChallengeResolver,
     [switch]$Execute,
     [switch]$EmitJson
 )
@@ -38,7 +41,9 @@ if (-not $OutputJson) {
     $OutputJson = Join-Path $repoRoot "tmp\evaluation-real-samples\real-sample-execution.json"
 }
 
-if (-not $TargetIds -or $TargetIds.Count -eq 0) {
+if ($UseAllTargets) {
+    $TargetIds = @()
+} elseif (-not $TargetIds -or $TargetIds.Count -eq 0) {
     $TargetIds = @(
         "REAL-GD-TENDER-001",
         "REAL-GD-CANDIDATE-001",
@@ -82,10 +87,13 @@ $argsList = @(
     "--storage-path", $StoragePath,
     "--object-storage-path", $ObjectStoragePath,
     "--per-target-candidate-limit", "$PerTargetCandidateLimit",
-    "--output-json", $OutputJson,
-    "--target-ids"
+    "--output-json", $OutputJson
 )
-$argsList += $TargetIds
+
+if ($TargetIds -and $TargetIds.Count -gt 0) {
+    $argsList += "--target-ids"
+    $argsList += $TargetIds
+}
 
 if ($TargetLimit -gt 0) {
     $argsList += @("--target-limit", "$TargetLimit")
@@ -99,13 +107,33 @@ if ($Execute) {
     $argsList += "--execute"
 }
 
+if ($ProfessionalSourceOnly) {
+    $argsList += "--professional-source-only"
+}
+
 if ($EmitJson) {
     $argsList += "--json"
+}
+
+$previousAttachmentChallengeResolver = $env:KAKA_STAGE2_ENABLE_ATTACHMENT_CHALLENGE_RESOLVER
+if ($EnableAttachmentChallengeResolver) {
+    $env:KAKA_STAGE2_ENABLE_ATTACHMENT_CHALLENGE_RESOLVER = "1"
 }
 
 Push-Location $repoRoot
 try {
     python @argsList
+    $pythonExitCode = $LASTEXITCODE
+    if ($pythonExitCode -ne 0) {
+        exit $pythonExitCode
+    }
 } finally {
     Pop-Location
+    if ($EnableAttachmentChallengeResolver) {
+        if ($null -eq $previousAttachmentChallengeResolver) {
+            Remove-Item Env:KAKA_STAGE2_ENABLE_ATTACHMENT_CHALLENGE_RESOLVER -ErrorAction SilentlyContinue
+        } else {
+            $env:KAKA_STAGE2_ENABLE_ATTACHMENT_CHALLENGE_RESOLVER = $previousAttachmentChallengeResolver
+        }
+    }
 }

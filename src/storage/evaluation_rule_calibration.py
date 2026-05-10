@@ -65,11 +65,11 @@ def build_evaluation_rule_calibration_manifest(
         for item in list(source_manifest.get("items") or [])
         if isinstance(item, Mapping)
     ]
+    tailored_source_items = _tailored_source_items(source_manifest)
     tailored_items = (
         [
             _calibrate_tailored_review_item(item, seed_path=tailored_seed_path)
-            for item in list(source_manifest.get("items") or [])
-            if isinstance(item, Mapping)
+            for item in tailored_source_items
         ]
         if tailored_seed_load_ok
         else []
@@ -134,6 +134,21 @@ def _source_manifest(payload: Mapping[str, Any]) -> dict[str, Any]:
     if isinstance(manifest, Mapping):
         return dict(manifest)
     return dict(payload)
+
+
+def _tailored_source_items(source_manifest: Mapping[str, Any]) -> list[dict[str, Any]]:
+    project_items = [
+        dict(item)
+        for item in list(source_manifest.get("project_sample_items") or [])
+        if isinstance(item, Mapping)
+    ]
+    if project_items:
+        return project_items
+    return [
+        dict(item)
+        for item in list(source_manifest.get("items") or [])
+        if isinstance(item, Mapping)
+    ]
 
 
 def _calibrate_file_review_item(item: Mapping[str, Any]) -> dict[str, Any]:
@@ -244,10 +259,16 @@ def _calibrate_tailored_review_item(item: Mapping[str, Any], *, seed_path: Path)
     )
     return {
         "target_id": str(item.get("target_id") or ""),
+        "parent_target_id": str(item.get("parent_target_id") or ""),
+        "candidate_key": str(item.get("candidate_key") or ""),
+        "project_id": str(item.get("project_id") or ""),
+        "project_name": str(item.get("project_name") or ""),
+        "source_url": str(item.get("source_url") or ""),
         "document_kind": str(item.get("document_kind") or ""),
         "jurisdiction": str(item.get("jurisdiction") or ""),
         "source_profile_id": str(item.get("source_profile_id") or ""),
         "target_execution_state": str(item.get("target_execution_state") or ""),
+        "failure_taxonomy": _string_list(item.get("failure_taxonomy")),
         "tailored_review_rule_code": TAILORED_REVIEW_RULE_CODE,
         "tailored_signal_seed_id": profile.get("seed_id"),
         "tailored_bid_index": profile.get("tailored_bid_index"),
@@ -357,6 +378,9 @@ def _build_manifest(
     created_at: str,
 ) -> dict[str, Any]:
     summary = _summary(items, tailored_items)
+    summary["tailored_source_sample_mode"] = (
+        "PROJECT_SAMPLE_ITEMS" if source_manifest.get("project_sample_items") else "TARGET_BUCKET_ITEMS"
+    )
     fingerprint = _fingerprint(
         {
             "source_manifest_id": source_manifest.get("manifest_id"),
@@ -460,6 +484,11 @@ def _summary(
         ),
         "tailored_stage5_review_required_count": sum(
             1 for item in tailored_items if item.get("tailored_bid_stage5_review_required")
+        ),
+        "tailored_failure_taxonomy_counts": _counts(
+            value
+            for item in tailored_items
+            for value in _string_list(item.get("failure_taxonomy"))
         ),
         "tailored_counter_reason_count": sum(
             _int_value(item.get("tailored_bid_counter_reason_count"), default=0)

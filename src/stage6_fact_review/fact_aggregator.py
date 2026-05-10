@@ -317,12 +317,84 @@ def _stage16_file_analysis_report_profile(inputs: Mapping[str, Any]) -> dict[str
         or tailored_bid_signal_profile.get("tailored_bid_sub_indices")
         or mainline_risk_profile.get("tailored_bid_sub_indices")
     )
+    system_risk_indices = _safe_dict(
+        inputs.get("system_risk_indices")
+        or tailored_bid_signal_profile.get("system_risk_indices")
+        or mainline_risk_profile.get("system_risk_indices")
+    )
+    system_risk_levels = _safe_dict(
+        inputs.get("system_risk_levels")
+        or tailored_bid_signal_profile.get("system_risk_levels")
+        or mainline_risk_profile.get("system_risk_levels")
+    )
+    system_auto_judgement = _safe_dict(
+        inputs.get("system_auto_judgement")
+        or tailored_bid_signal_profile.get("system_auto_judgement")
+        or mainline_risk_profile.get("system_auto_judgement")
+    )
+    document_section_profile = _safe_dict(
+        inputs.get("document_section_profile")
+        or tailored_bid_signal_profile.get("document_section_profile")
+        or mainline_risk_profile.get("document_section_profile")
+    )
+    document_section_slices = ensure_list(
+        inputs.get("document_section_slices")
+        or tailored_bid_signal_profile.get("document_section_slices")
+        or mainline_risk_profile.get("document_section_slices")
+    )
+    document_section_slice_types = _dedupe_strings(
+        [
+            str(item.get("section_type") or "")
+            for item in document_section_slices
+            if isinstance(item, Mapping)
+        ]
+    )
+    collusion_trace_index = _int_value(
+        inputs.get("collusion_trace_index")
+        or tailored_bid_signal_profile.get("collusion_trace_index")
+        or mainline_risk_profile.get("collusion_trace_index")
+        or system_risk_indices.get("collusion_trace_index")
+    )
+    cover_bid_index = _int_value(
+        inputs.get("cover_bid_index")
+        or tailored_bid_signal_profile.get("cover_bid_index")
+        or mainline_risk_profile.get("cover_bid_index")
+        or system_risk_indices.get("cover_bid_index")
+    )
+    bid_rigging_index = _int_value(
+        inputs.get("bid_rigging_index")
+        or tailored_bid_signal_profile.get("bid_rigging_index")
+        or mainline_risk_profile.get("bid_rigging_index")
+        or system_risk_indices.get("bid_rigging_index")
+    )
+    fatal_rejection_complexity_index = _int_value(
+        inputs.get("fatal_rejection_complexity_index")
+        or tailored_bid_signal_profile.get("fatal_rejection_complexity_index")
+        or mainline_risk_profile.get("fatal_rejection_complexity_index")
+        or system_risk_indices.get("fatal_rejection_complexity_index")
+    )
+    electronic_supervision_index = _int_value(
+        inputs.get("electronic_supervision_index")
+        or tailored_bid_signal_profile.get("electronic_supervision_index")
+        or mainline_risk_profile.get("electronic_supervision_index")
+        or system_risk_indices.get("electronic_supervision_index")
+    )
     tailored_bid_signal_hits = ensure_list(
         tailored_bid_signal_profile.get("signal_hits")
         or tailored_bid_signal_profile.get("tailored_bid_signal_hits")
     )
     tailored_bid_counter_reason_count = _int_value(
         tailored_bid_signal_profile.get("counter_reason_count")
+    )
+    tailored_section_expected_match_count = sum(
+        1
+        for hit in tailored_bid_signal_hits
+        if isinstance(hit, Mapping) and str(hit.get("section_match_state") or "") == "EXPECTED_SECTION_MATCH"
+    )
+    tailored_section_guardrail_blocked_count = sum(
+        1
+        for hit in tailored_bid_signal_hits
+        if isinstance(hit, Mapping) and bool(hit.get("section_gate_discount_reasons"))
     )
     tailored_bid_ai_review_required = bool(
         inputs.get("tailored_bid_ai_review_required")
@@ -456,6 +528,16 @@ def _stage16_file_analysis_report_profile(inputs: Mapping[str, Any]) -> dict[str
         or bool(unbalanced_bid_risk_hits)
         or payment_risk_level in {"HIGH_REVIEW", "MEDIUM_REVIEW"}
     )
+    system_multi_index_weak_clue = any(
+        value >= 21
+        for value in (
+            collusion_trace_index,
+            cover_bid_index,
+            bid_rigging_index,
+            fatal_rejection_complexity_index,
+            electronic_supervision_index,
+        )
+    )
     bid_document_internal_qa_weak_clue = (
         bid_document_internal_qa_state == "PROFILED_REVIEW_READY"
         and (
@@ -514,6 +596,25 @@ def _stage16_file_analysis_report_profile(inputs: Mapping[str, Any]) -> dict[str
     if tailored_bid_ai_review_required:
         review_reasons.append("tailored_bid_ai_review_required")
         recommended_review_lanes.append("TAILORED_BID_AI_REVIEW")
+    if collusion_trace_index >= 21:
+        review_reasons.append(f"collusion_trace_index={collusion_trace_index}")
+        recommended_review_lanes.append("COLLUSION_TRACE_INTERNAL_REVIEW")
+    if bid_rigging_index >= 21:
+        review_reasons.append(f"bid_rigging_index={bid_rigging_index}")
+        recommended_review_lanes.append("BID_RIGGING_INTERNAL_REVIEW")
+    if cover_bid_index >= 21:
+        review_reasons.append(f"cover_bid_index={cover_bid_index}")
+        recommended_review_lanes.append("COVER_BID_INTERNAL_REVIEW")
+    if electronic_supervision_index >= 21:
+        review_reasons.append(f"electronic_supervision_index={electronic_supervision_index}")
+        recommended_review_lanes.append("ELECTRONIC_SUPERVISION_REVIEW")
+    if fatal_rejection_complexity_index >= 21:
+        review_reasons.append(f"fatal_rejection_complexity_index={fatal_rejection_complexity_index}")
+        recommended_review_lanes.append("FATAL_REJECTION_REVIEW")
+    if tailored_section_guardrail_blocked_count:
+        review_reasons.append(
+            f"section_guardrail_blocked_count={tailored_section_guardrail_blocked_count}"
+        )
     if tailored_bid_evidence_state == "INSUFFICIENT_EVIDENCE":
         review_reasons.append("tailored_bid_evidence_state=INSUFFICIENT_EVIDENCE")
         recommended_review_lanes.append("FILE_ANALYSIS_COMPLETENESS_REVIEW")
@@ -602,6 +703,7 @@ def _stage16_file_analysis_report_profile(inputs: Mapping[str, Any]) -> dict[str
         report_profile_state = "PARTIAL_REVIEW_REQUIRED"
     elif gates_passed and (
         mainline_weak_clue
+        or system_multi_index_weak_clue
         or price_performance_weak_clue
         or bid_document_internal_qa_weak_clue
         or remedy_performance_weak_clue
@@ -624,6 +726,20 @@ def _stage16_file_analysis_report_profile(inputs: Mapping[str, Any]) -> dict[str
         "tailored_bid_index": tailored_bid_index,
         "tailored_bid_risk_level": tailored_bid_risk_level,
         "tailored_bid_sub_indices": tailored_bid_sub_indices,
+        "collusion_trace_index": collusion_trace_index,
+        "cover_bid_index": cover_bid_index,
+        "bid_rigging_index": bid_rigging_index,
+        "fatal_rejection_complexity_index": fatal_rejection_complexity_index,
+        "electronic_supervision_index": electronic_supervision_index,
+        "system_risk_indices": system_risk_indices,
+        "system_risk_levels": system_risk_levels,
+        "system_auto_judgement": system_auto_judgement,
+        "document_section_profile": document_section_profile,
+        "document_section_slices": document_section_slices[:12],
+        "document_section_slice_count": len(document_section_slices),
+        "document_section_slice_types": document_section_slice_types,
+        "tailored_section_expected_match_count": tailored_section_expected_match_count,
+        "tailored_section_guardrail_blocked_count": tailored_section_guardrail_blocked_count,
         "tailored_bid_signal_count": len(tailored_bid_signal_hits),
         "tailored_bid_counter_reason_count": tailored_bid_counter_reason_count,
         "tailored_bid_ai_review_required": tailored_bid_ai_review_required,
@@ -734,6 +850,12 @@ def _file_analysis_review_summary(inputs: Mapping[str, Any]) -> dict[str, Any]:
         families = ensure_list(report_profile.get("tailored_bid_primary_signal_families"))
         if families:
             tailored_reasons.append("主要信号族：" + "、".join(str(item) for item in families[:6]))
+        section_types = ensure_list(report_profile.get("document_section_slice_types"))
+        if section_types:
+            tailored_reasons.append("主要命中章节：" + "、".join(str(item) for item in section_types[:6]))
+        guardrail_count = _int_value(report_profile.get("tailored_section_guardrail_blocked_count"))
+        if guardrail_count:
+            tailored_reasons.append(f"章节抵消命中数={guardrail_count}")
         counter_count = _int_value(report_profile.get("tailored_bid_counter_reason_count"))
         tailored_reasons.append(f"反例抵消条件命中数={counter_count}")
         if report_profile.get("tailored_bid_ai_review_required"):
@@ -746,6 +868,29 @@ def _file_analysis_review_summary(inputs: Mapping[str, Any]) -> dict[str, Any]:
                 "tailored_bid_index": tailored_bid_index,
                 "tailored_bid_sub_indices": report_profile.get("tailored_bid_sub_indices") or {},
                 "reasons": _dedupe_strings(tailored_reasons),
+            }
+        )
+    system_indices = _safe_dict(report_profile.get("system_risk_indices"))
+    system_signal_items: list[str] = []
+    for index_name, allowed_term in (
+        ("bid_rigging_index", "围标线索/串标线索"),
+        ("cover_bid_index", "陪标线索"),
+        ("collusion_trace_index", "串标线索"),
+        ("electronic_supervision_index", "电子监管线索"),
+        ("fatal_rejection_complexity_index", "废标风险线索"),
+    ):
+        value = _int_value(system_indices.get(index_name) or report_profile.get(index_name))
+        if value >= 21:
+            system_signal_items.append(f"{index_name}={value}:{allowed_term}")
+    if system_signal_items:
+        review_items.append(
+            {
+                "category": "围标串标陪标风险线索",
+                "expression": "线索",
+                "state": "SYSTEM_CLUE_REVIEW",
+                "system_risk_indices": system_indices,
+                "system_auto_judgement": report_profile.get("system_auto_judgement") or {},
+                "reasons": _dedupe_strings(system_signal_items),
             }
         )
     for item in formal_rule_hits:
@@ -771,8 +916,13 @@ def _file_analysis_review_summary(inputs: Mapping[str, Any]) -> dict[str, Any]:
     summary_state = "INTERNAL_READY" if not review_items else "REVIEW_RECOMMENDED"
     if any(item.get("expression") in {"人工复核", "证据不足"} for item in review_items):
         summary_state = "REVIEW_REQUIRED"
+    auto_judgement_summary = _file_analysis_auto_judgement_summary(
+        report_profile,
+        review_items=review_items,
+    )
     return {
         "summary_state": summary_state,
+        "auto_judgement_summary": auto_judgement_summary,
         "document_completeness_state": document_completeness_state,
         "notice_version_chain_state": notice_version_chain_state,
         "ocr_state": inputs.get("ocr_state"),
@@ -781,6 +931,11 @@ def _file_analysis_review_summary(inputs: Mapping[str, Any]) -> dict[str, Any]:
         "rule_gate_status": inputs.get("rule_gate_status"),
         "evidence_gate_status": inputs.get("evidence_gate_status"),
         "formal_rule_review_hits": formal_rule_hits,
+        "document_section_slice_count": report_profile.get("document_section_slice_count"),
+        "document_section_slice_types": report_profile.get("document_section_slice_types") or [],
+        "tailored_section_guardrail_blocked_count": report_profile.get(
+            "tailored_section_guardrail_blocked_count"
+        ),
         "recommended_review_lanes": _dedupe_strings([str(item) for item in review_lanes if item not in (None, "")]),
         "review_items": review_items,
         "allowed_output_terms": _dedupe_strings(
@@ -792,6 +947,10 @@ def _file_analysis_review_summary(inputs: Mapping[str, Any]) -> dict[str, Any]:
                 "疑似定制标",
                 "限制竞争线索",
                 "控标风险线索",
+                "围标线索",
+                "串标线索",
+                "陪标线索",
+                "电子监管线索",
             ]
             + ensure_list(report_profile.get("tailored_bid_allowed_output_terms"))
         ),
@@ -810,6 +969,86 @@ def _file_analysis_review_summary(inputs: Mapping[str, Any]) -> dict[str, Any]:
         "no_rejection_conclusion": True,
         "no_payment_breach_conclusion": True,
         "no_illegality_or_reserved_winner_conclusion": True,
+    }
+
+
+def _file_analysis_auto_judgement_summary(
+    report_profile: Mapping[str, Any],
+    *,
+    review_items: list[Mapping[str, Any]],
+) -> dict[str, Any]:
+    system_auto_judgement = _safe_dict(report_profile.get("system_auto_judgement"))
+    system_indices = _safe_dict(report_profile.get("system_risk_indices"))
+    tailored_bid_index = _int_value(report_profile.get("tailored_bid_index"))
+    index_values = {
+        "tailored_bid_index": tailored_bid_index,
+        "bid_rigging_index": _int_value(system_indices.get("bid_rigging_index") or report_profile.get("bid_rigging_index")),
+        "cover_bid_index": _int_value(system_indices.get("cover_bid_index") or report_profile.get("cover_bid_index")),
+        "collusion_trace_index": _int_value(
+            system_indices.get("collusion_trace_index") or report_profile.get("collusion_trace_index")
+        ),
+        "fatal_rejection_complexity_index": _int_value(
+            system_indices.get("fatal_rejection_complexity_index")
+            or report_profile.get("fatal_rejection_complexity_index")
+        ),
+        "electronic_supervision_index": _int_value(
+            system_indices.get("electronic_supervision_index") or report_profile.get("electronic_supervision_index")
+        ),
+    }
+    judgement_state = str(system_auto_judgement.get("judgement_state") or "")
+    if not judgement_state:
+        if str(report_profile.get("tailored_bid_evidence_state") or "") == "INSUFFICIENT_EVIDENCE":
+            judgement_state = "INSUFFICIENT_EVIDENCE"
+        elif any(value >= 21 for value in index_values.values()):
+            judgement_state = "RISK_CLUE_DETECTED"
+        elif _int_value(report_profile.get("tailored_bid_signal_count")) > 0:
+            judgement_state = "WEAK_SIGNAL_ONLY"
+        else:
+            judgement_state = "NO_SIGNAL"
+
+    max_index = max(index_values.values(), default=0)
+    if judgement_state == "INSUFFICIENT_EVIDENCE":
+        recommended_action = "EVIDENCE_BLOCKED_RETRY_PARSE"
+    elif max_index >= 61:
+        recommended_action = "AVOID_OR_CHALLENGE_EVALUATE"
+    elif judgement_state == "RISK_CLUE_DETECTED":
+        recommended_action = "CAUTION_TENDER"
+    elif judgement_state == "WEAK_SIGNAL_ONLY":
+        recommended_action = "TRACK_LOW_PRIORITY"
+    else:
+        recommended_action = "PROCEED_STANDARD"
+
+    section_types = ensure_list(report_profile.get("document_section_slice_types"))
+    guardrail_count = _int_value(report_profile.get("tailored_section_guardrail_blocked_count"))
+    evidence_reasons = _dedupe_strings(
+        [
+            str(item.get("state") or "")
+            for item in review_items
+            if str(item.get("expression") or "") in {"证据不足", "人工复核"}
+        ]
+        + ensure_list(report_profile.get("tailored_bid_ai_review_reasons"))
+    )
+    triggered_indices = [
+        {"index_name": name, "index_value": value}
+        for name, value in index_values.items()
+        if value >= 21
+    ]
+    return {
+        "system_judgement_state": judgement_state,
+        "recommended_system_action": recommended_action,
+        "major_indices": index_values,
+        "triggered_indices": triggered_indices,
+        "primary_allowed_terms": _dedupe_strings(
+            ensure_list(system_auto_judgement.get("primary_allowed_terms"))
+            + ensure_list(report_profile.get("tailored_bid_allowed_output_terms"))
+        ),
+        "document_section_slice_count": report_profile.get("document_section_slice_count"),
+        "document_section_slice_types": section_types,
+        "section_guardrail_blocked_count": guardrail_count,
+        "evidence_blocker_reasons": evidence_reasons,
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+        "formal_rule_threshold_mutation_enabled": False,
     }
 
 

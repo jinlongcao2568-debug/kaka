@@ -386,7 +386,6 @@ REPRESENTATIVE_LOCAL_PLATFORM_ENTRY_PROFILE_IDS = (
     "BEIJING-GCJS-LIST",
     "BEIJING-BDA-HOME",
     "GUANGZHOU-YWTB-CONSTRUCTION-LIST",
-    "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
     "JIANGSU-GGZY-HOME",
     "ZHEJIANG-GGZY-JYXXGK-LIST",
     "SHANDONG-GGZY-JYXXGK-LIST",
@@ -404,7 +403,6 @@ DEGRADED_ENTRY_PROFILE_IDS_AFTER_136 = (
     "JZSC-NATIONAL-PROJECT",
     "CREDITCHINA-HOME",
     "GSXT-HOME",
-    "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
 )
 REAL_PUBLIC_ATTACHMENT_PROFILES: tuple[RealPublicAttachmentProfile, ...] = (
     RealPublicAttachmentProfile(
@@ -449,6 +447,79 @@ _CONTROLLED_CHALLENGE_BODY_PATTERNS = (
     "安全验证",
 )
 
+_SUPPORTED_ATTACHMENT_EXTENSIONS = (
+    ".pdf",
+    ".doc",
+    ".docx",
+    ".xls",
+    ".xlsx",
+    ".zip",
+    ".rar",
+)
+_SUPPORTED_HTML_ATTACHMENT_EXTENSIONS = (".html", ".htm")
+_SUPPORTED_ATTACHMENT_CONTENT_TYPE_TOKENS = (
+    "pdf",
+    "zip",
+    "msword",
+    "officedocument",
+    "excel",
+    "spreadsheet",
+    "rar",
+    "octet-stream",
+)
+_DOWNLOAD_ENDPOINT_TOKENS = (
+    "/download",
+    "/downfile",
+    "/filedownload",
+    "/attach/",
+    "/attachment",
+    "/sys-file/download/",
+    "/epointwebbuilder/pages/webbuildermis/attach/downloadztbattach",
+    "downloadztbattach",
+)
+_ATTACHMENT_QUERY_KEYS = {
+    "filename",
+    "fileName",
+    "file",
+    "filePath",
+    "fileUrl",
+    "attachGuid",
+    "attachmentId",
+    "flowId",
+    "rowGuid",
+    "docId",
+}
+_NON_ATTACHMENT_LINK_TEXTS = {
+    "首页",
+    "通知公告",
+    "交易服务",
+    "交易公开",
+    "交易信息",
+    "项目信息",
+    "建设工程",
+    "主体信息",
+    "信用信息",
+    "政策文件",
+    "服务指南",
+    "常用服务",
+    "关于我们",
+    "查看更多",
+    "更多",
+    "项目注册",
+    "房建市政",
+    "水利工程",
+    "交通工程",
+    "打印",
+    "关闭",
+}
+_NORMALIZED_ATTACHMENT_BLOCKER_BY_CLASS = {
+    "CAPTCHA_MANUAL_REQUIRED": "attachment_captcha_required",
+    "SESSION_OR_LOGIN_REQUIRED": "attachment_login_required",
+    "REFERER_OR_HOTLINK_REQUIRED": "attachment_hotlink_or_referer_required",
+    "ATTACHMENT_INTERFACE_ERROR": "attachment_url_expired",
+    "UNKNOWN_HTML_ATTACHMENT_RESPONSE": "attachment_unknown_html_response",
+}
+
 
 def _attachment_html_blocker_diagnostics(
     content: bytes,
@@ -464,6 +535,7 @@ def _attachment_html_blocker_diagnostics(
         return {
             "attachment_blocker_class": "",
             "attachment_blocker_reason": "",
+            "attachment_failure_taxonomy": [],
             "attachment_resolution_route": "",
             "attachment_browser_replay_steps": [],
         }
@@ -476,6 +548,15 @@ def _attachment_html_blocker_diagnostics(
             "captcha",
             "人机验证",
             "安全验证",
+            "滑块",
+            "拖动滑块",
+            "请完成验证",
+            "geetest",
+            "极验",
+            "waf",
+            "web应用防火墙",
+            "访问环境异常",
+            "访问频率过高",
             "verificationcode",
             "verificationguid",
             "pageverify",
@@ -494,7 +575,23 @@ def _attachment_html_blocker_diagnostics(
         blocker_class = "REFERER_OR_HOTLINK_REQUIRED"
         blocker_reason = "attachment_html_blocker:referer_or_hotlink_required"
         route = "open_detail_page_first_then_click_attachment_with_same_site_referer"
-    elif any(marker.lower() in lowered_body for marker in ("错误", "异常", "不存在", "404", "参数错误", "下载失败")):
+    elif any(
+        marker.lower() in lowered_body
+        for marker in (
+            "错误",
+            "异常",
+            "不存在",
+            "404",
+            "参数错误",
+            "下载失败",
+            "签名错误",
+            "签名验证失败",
+            "非法请求",
+            "请求参数非法",
+            "token",
+            "x-dgi-req",
+        )
+    ):
         blocker_class = "ATTACHMENT_INTERFACE_ERROR"
         blocker_reason = "attachment_html_blocker:interface_error_or_expired_link"
         route = "recapture_detail_page_and_refresh_attachment_link"
@@ -502,6 +599,7 @@ def _attachment_html_blocker_diagnostics(
         return {
             "attachment_blocker_class": "",
             "attachment_blocker_reason": "",
+            "attachment_failure_taxonomy": [],
             "attachment_resolution_route": "",
             "attachment_browser_replay_steps": [],
         }
@@ -513,12 +611,225 @@ def _attachment_html_blocker_diagnostics(
     return {
         "attachment_blocker_class": blocker_class,
         "attachment_blocker_reason": blocker_reason,
+        "attachment_failure_taxonomy": [
+            _NORMALIZED_ATTACHMENT_BLOCKER_BY_CLASS.get(blocker_class, "attachment_html_blocker")
+        ],
         "attachment_resolution_route": route,
         "attachment_browser_replay_steps": [
             "open_detail_page_url_optional",
             "click_same_site_attachment_link",
             "save_downloaded_file_if_content_type_is_pdf_zip_or_office",
             "record_captcha_or_session_blocker_without_bypassing_third_party_controls",
+        ],
+    }
+
+
+def _empty_attachment_blocker_diagnostics() -> dict[str, Any]:
+    return {
+        "attachment_blocker_class": "",
+        "attachment_blocker_reason": "",
+        "attachment_failure_taxonomy": [],
+        "attachment_resolution_route": "",
+        "attachment_browser_replay_steps": [],
+    }
+
+
+def _attachment_filename_from_response(
+    profile: "RealPublicAttachmentProfile",
+    response: "RealPublicFetchResponse",
+) -> str:
+    headers = {str(key).lower(): str(value) for key, value in dict(response.headers or {}).items()}
+    disposition = headers.get("content-disposition", "")
+    filename_match = re.search(
+        r"filename\*\s*=\s*[^']*''(?P<name>[^;]+)|filename\s*=\s*\"?(?P<plain>[^\";]+)",
+        disposition,
+        flags=re.IGNORECASE,
+    )
+    if filename_match:
+        filename = unquote(filename_match.group("name") or filename_match.group("plain") or "").strip()
+        if filename:
+            return filename.rsplit("/", 1)[-1].rsplit("\\", 1)[-1]
+    parsed = urlsplit(response.final_url or profile.url)
+    path_filename = unquote(parsed.path.rsplit("/", 1)[-1] or "").strip()
+    if path_filename.lower().endswith(_SUPPORTED_ATTACHMENT_EXTENSIONS):
+        return path_filename
+    query = parse_qs(parsed.query)
+    for key in ("filename", "fileName", "file", "name"):
+        values = query.get(key) or query.get(key.lower()) or []
+        if values:
+            filename = unquote(str(values[0] or "")).strip()
+            if filename:
+                return filename.rsplit("/", 1)[-1].rsplit("\\", 1)[-1]
+    if path_filename:
+        return path_filename
+    return "attachment.bin"
+
+
+def _attachment_url_has_supported_signal(url: str, *, link_text: str = "") -> bool:
+    parsed = urlsplit(str(url or "").strip())
+    path = unquote(parsed.path or "").lower()
+    query = parse_qs(parsed.query)
+    joined_query = " ".join(
+        unquote(str(value or "")).lower()
+        for values in query.values()
+        for value in values
+    )
+    text = _clean_anchor_text(link_text).lower()
+    if path.endswith((*_SUPPORTED_ATTACHMENT_EXTENSIONS, *_SUPPORTED_HTML_ATTACHMENT_EXTENSIONS)):
+        return True
+    if re.search(r"\.(pdf|docx?|xlsx?|zip|rar)(?:$|[?#&\s])", f"{path} {joined_query} {text}", flags=re.IGNORECASE):
+        return True
+    if any(token in path for token in _DOWNLOAD_ENDPOINT_TOKENS):
+        return True
+    if any(key in query for key in _ATTACHMENT_QUERY_KEYS):
+        return True
+    return False
+
+
+def _attachment_url_has_resumable_download_signal(url: str) -> bool:
+    parsed = urlsplit(str(url or "").strip())
+    path = unquote(parsed.path or "").lower()
+    query = parse_qs(parsed.query)
+    if any(token in path for token in _DOWNLOAD_ENDPOINT_TOKENS):
+        return True
+    if path.endswith(_SUPPORTED_ATTACHMENT_EXTENSIONS):
+        return True
+    if any(key in query for key in _ATTACHMENT_QUERY_KEYS):
+        return True
+    if re.search(r"\.(pdf|docx?|xlsx?|zip|rar)(?:$|[?#&\s])", unquote(parsed.query or ""), flags=re.IGNORECASE):
+        return True
+    return False
+
+
+def _attachment_content_is_supported(
+    *,
+    content: bytes,
+    content_type: str,
+    filename: str,
+    allow_plain_html_attachment: bool,
+) -> bool:
+    lowered_content_type = str(content_type or "").lower()
+    filename_lower = str(filename or "").lower()
+    stripped = content.lstrip()[:16].lower()
+    if filename_lower.endswith((*_SUPPORTED_ATTACHMENT_EXTENSIONS, *_SUPPORTED_HTML_ATTACHMENT_EXTENSIONS)):
+        return True
+    if any(token in lowered_content_type for token in _SUPPORTED_ATTACHMENT_CONTENT_TYPE_TOKENS):
+        return True
+    if content.startswith(b"%PDF") or content.startswith(b"PK\x03\x04") or content.startswith(b"\xd0\xcf\x11\xe0"):
+        return True
+    if stripped.startswith((b"<html", b"<!doctype html")) and allow_plain_html_attachment:
+        return True
+    return False
+
+
+def _normalized_attachment_failure_taxonomy(
+    *,
+    degraded_reasons: list[str],
+    attachment_blocker: Mapping[str, Any],
+) -> list[str]:
+    taxonomy: list[str] = []
+    taxonomy.extend(
+        str(item)
+        for item in list(attachment_blocker.get("attachment_failure_taxonomy") or [])
+        if str(item or "").strip()
+    )
+    for reason in degraded_reasons:
+        value = str(reason or "")
+        if value == "attachment_body_empty":
+            taxonomy.append("attachment_empty_body")
+        elif value == "unsupported_attachment_content_type":
+            taxonomy.append("attachment_unsupported_content_type")
+        elif value == "attachment_snapshot_readback_missing":
+            taxonomy.append("attachment_snapshot_readback_missing")
+        elif value.startswith("http_status:"):
+            taxonomy.append(value)
+        elif value.startswith("attachment_html_blocker:interface_error_or_expired_link"):
+            taxonomy.append("attachment_url_expired")
+        elif value.startswith("attachment_html_blocker:login_or_session_required"):
+            taxonomy.append("attachment_login_required")
+        elif value.startswith("attachment_html_blocker:referer_or_hotlink_required"):
+            taxonomy.append("attachment_hotlink_or_referer_required")
+        elif value.startswith("attachment_html_blocker:captcha_or_manual_verification"):
+            taxonomy.append("attachment_captcha_required")
+    return list(dict.fromkeys(taxonomy))
+
+
+def _attachment_challenge_family(profile: "RealPublicAttachmentProfile") -> str:
+    url = str(profile.url or "")
+    parsed = urlsplit(url)
+    host = (parsed.hostname or "").lower()
+    path = parsed.path.lower()
+    profile_id = str(profile.profile_id or "")
+    if "downloadztbattach" in path or "GUANGZHOU-YWTB-CONSTRUCTION-LIST" in profile_id:
+        return "EPOINT_PAGE_VERIFY_OR_JIGSAW"
+    if host == "ygp.gdzwfw.gov.cn" and "/ggzy-portal/base/sys-file/download/" in path:
+        return "GUANGDONG_YGP_SIGNED_PUBLIC_FILE"
+    if "hbbidcloud.cn" in host:
+        return "HUBEI_BIDCLOUD_BROWSER_SESSION"
+    if "ggzyjy.sc.gov.cn" in host:
+        return "SICHUAN_GGZY_BROWSER_SESSION"
+    if "ggzy.gov.cn" in host:
+        return "NATIONAL_GGZY_BROWSER_SESSION"
+    return "GENERIC_ATTACHMENT_CHALLENGE"
+
+
+def _attachment_platform_resolution_hint(profile: "RealPublicAttachmentProfile") -> dict[str, Any]:
+    family = _attachment_challenge_family(profile)
+    if family == "EPOINT_PAGE_VERIFY_OR_JIGSAW":
+        return {
+            "resolver_route": "epoint_page_verify_or_blockpuzzle",
+            "preferred_steps": [
+                "open_detail_page_url_optional",
+                "click_same_site_attachment_link",
+                "solve_epoint_blockpuzzle_or_page_verify",
+                "retry_verified_download_action",
+            ],
+        }
+    if family == "GUANGDONG_YGP_SIGNED_PUBLIC_FILE":
+        return {
+            "resolver_route": "guangdong_ygp_signed_request_or_browser_session",
+            "preferred_steps": [
+                "open_detail_page_hash_route",
+                "reuse_browser_session_cookies",
+                "retry_sys_file_download_with_referer",
+                "retry_with_public_x_dgi_signature_headers",
+            ],
+        }
+    if family == "HUBEI_BIDCLOUD_BROWSER_SESSION":
+        return {
+            "resolver_route": "hubei_bidcloud_browser_session",
+            "preferred_steps": [
+                "open_detail_page_url_optional",
+                "reuse_browser_session_cookies",
+                "retry_attachment_with_same_site_referer",
+                "record_captcha_or_slider_diagnostics_if_still_blocked",
+            ],
+        }
+    if family == "SICHUAN_GGZY_BROWSER_SESSION":
+        return {
+            "resolver_route": "sichuan_ggzy_browser_session",
+            "preferred_steps": [
+                "open_detail_page_url_optional",
+                "reuse_browser_session_cookies",
+                "retry_attachment_with_same_site_referer",
+                "record_interface_error_if_link_expired",
+            ],
+        }
+    if family == "NATIONAL_GGZY_BROWSER_SESSION":
+        return {
+            "resolver_route": "national_ggzy_browser_session",
+            "preferred_steps": [
+                "open_detail_page_url_optional",
+                "reuse_browser_session_cookies",
+                "retry_attachment_with_same_site_referer",
+            ],
+        }
+    return {
+        "resolver_route": "generic_browser_session_retry",
+        "preferred_steps": [
+            "open_detail_page_url_optional",
+            "click_same_site_attachment_link",
+            "retry_attachment_with_same_site_referer",
         ],
     }
 
@@ -545,6 +856,12 @@ class RealPublicFetchTransport(Protocol):
 
 
 class RealPublicAttachmentChallengeResolver(Protocol):
+    def resolve_candidate_detail(
+        self,
+        request: Mapping[str, Any],
+    ) -> RealPublicFetchResponse | Mapping[str, Any]:
+        ...
+
     def resolve_same_site_attachment(
         self,
         request: Mapping[str, Any],
@@ -712,6 +1029,41 @@ class RealPublicUrlBoundaryError(ValueError):
         self.carrier = dict(carrier)
 
 
+def _candidate_detail_url_variants(url: str, *, profile_id: str) -> list[str]:
+    cleaned = str(url or "").strip()
+    if not cleaned:
+        return []
+    variants: list[str] = []
+    if profile_id == "SHANDONG-GGZY-JYXXGK-LIST" or _is_shandong_detail_url(cleaned):
+        parsed = urlsplit(cleaned)
+        host = parsed.hostname or parsed.netloc.split(":", 1)[0]
+        if host:
+            path_query = parsed.path or "/"
+            if parsed.query:
+                path_query = f"{path_query}?{parsed.query}"
+            variants.append(f"https://{host}{path_query}")
+            variants.append(f"http://{host}{path_query}")
+    variants.append(cleaned)
+    return list(dict.fromkeys(variants))
+
+
+def _is_shandong_detail_url(url: str) -> bool:
+    parsed = urlsplit(str(url or "").strip())
+    return "shandong.gov.cn" in parsed.netloc.lower()
+
+
+def _should_retry_candidate_detail_variant(carrier: Mapping[str, Any]) -> bool:
+    if carrier.get("status") == "FETCHED":
+        return False
+    reasons = [str(item) for item in list(carrier.get("degraded_reasons") or [])]
+    return any(
+        reason.startswith("http_status:502")
+        or reason in {"detail_body_too_small", "detail_title_missing"}
+        or reason.startswith("fetch_failed")
+        for reason in reasons
+    )
+
+
 class RealPublicEntryFetcher:
     def __init__(
         self,
@@ -770,38 +1122,97 @@ class RealPublicEntryFetcher:
         lineage_refs: Mapping[str, str] | None = None,
     ) -> dict[str, Any]:
         profile = self._resolve_candidate_detail_profile(url, profile_id=profile_id)
-        detail_url = str(url).strip()
         now = utc_now_iso()
-        try:
-            if _is_guangdong_ygp_hash_detail_url(detail_url, profile_id=profile.profile_id):
-                response = _fetch_guangdong_ygp_detail_api_response(
-                    detail_url,
-                    user_agent=self.user_agent,
+        attempts: list[dict[str, Any]] = []
+        last_carrier: dict[str, Any] | None = None
+        variants = _candidate_detail_url_variants(str(url).strip(), profile_id=profile.profile_id)
+        for index, detail_url in enumerate(variants):
+            try:
+                if _is_guangdong_ygp_hash_detail_url(detail_url, profile_id=profile.profile_id):
+                    response = _fetch_guangdong_ygp_detail_api_response(
+                        detail_url,
+                        user_agent=self.user_agent,
+                    )
+                else:
+                    response = self.transport.fetch(
+                        detail_url,
+                        timeout_seconds=self.timeout_seconds,
+                        user_agent=self.user_agent,
+                    )
+            except Exception as exc:  # pragma: no cover - concrete network exceptions vary
+                carrier = self._degraded_detail_carrier(
+                    profile,
+                    detail_url=detail_url,
+                    now=now,
+                    reason="fetch_failed",
+                    detail=str(exc),
+                    lineage_refs=lineage_refs,
+                    fetch_attempted=True,
                 )
             else:
-                response = self.transport.fetch(
-                    detail_url,
-                    timeout_seconds=self.timeout_seconds,
-                    user_agent=self.user_agent,
+                carrier = self._detail_carrier_from_response(
+                    profile,
+                    detail_url=detail_url,
+                    response=response,
+                    now=now,
+                    lineage_refs=lineage_refs,
                 )
-        except Exception as exc:  # pragma: no cover - concrete network exceptions vary
-            return self._degraded_detail_carrier(
+            attempts.append(
+                {
+                    "detail_url": detail_url,
+                    "status": carrier.get("status"),
+                    "http_status": carrier.get("http_status"),
+                    "degraded_reasons": list(carrier.get("degraded_reasons") or []),
+                }
+            )
+            if carrier.get("status") == "FETCHED":
+                if len(attempts) > 1 or variants[0] != str(url).strip():
+                    carrier["detail_url_retry_audit"] = {
+                        "attempts": attempts,
+                        "variant_strategy": "shandong_https_without_explicit_80_first"
+                        if _is_shandong_detail_url(str(url))
+                        else "candidate_detail_variants",
+                    }
+                return carrier
+            if self._should_attempt_detail_challenge_resolution(profile, carrier):
+                resolved = self._resolve_candidate_detail_after_challenge(
+                    profile=profile,
+                    first_carrier=carrier,
+                    detail_url=detail_url,
+                    lineage_refs=lineage_refs,
+                )
+                if len(attempts) > 1 or variants[0] != str(url).strip():
+                    resolved["detail_url_retry_audit"] = {
+                        "attempts": attempts,
+                        "variant_strategy": "shandong_https_without_explicit_80_first"
+                        if _is_shandong_detail_url(str(url))
+                        else "candidate_detail_variants",
+                    }
+                return resolved
+            last_carrier = carrier
+            if index + 1 >= len(variants) or not _should_retry_candidate_detail_variant(carrier):
+                break
+
+        if last_carrier is not None:
+            if len(attempts) > 1 or variants[0] != str(url).strip():
+                last_carrier["detail_url_retry_audit"] = {
+                    "attempts": attempts,
+                    "variant_strategy": "shandong_https_without_explicit_80_first"
+                    if _is_shandong_detail_url(str(url))
+                    else "candidate_detail_variants",
+                }
+            return last_carrier
+
+        detail_url = str(url).strip()
+        return self._degraded_detail_carrier(
                 profile,
                 detail_url=detail_url,
                 now=now,
-                reason="fetch_failed",
-                detail=str(exc),
+                reason="missing_detail_url",
+                detail="candidate detail url is empty",
                 lineage_refs=lineage_refs,
                 fetch_attempted=True,
             )
-
-        return self._detail_carrier_from_response(
-            profile,
-            detail_url=detail_url,
-            response=response,
-            now=now,
-            lineage_refs=lineage_refs,
-        )
 
     def fetch_attachment_original_link(
         self,
@@ -876,7 +1287,7 @@ class RealPublicEntryFetcher:
             lineage_refs=lineage_refs,
             detail_page_url=detail_page_url,
         )
-        if self._should_attempt_attachment_challenge_resolution(carrier):
+        if self._should_attempt_attachment_challenge_resolution(profile, carrier):
             return self._resolve_same_site_attachment_after_challenge(
                 profile=profile,
                 first_carrier=carrier,
@@ -1003,7 +1414,7 @@ class RealPublicEntryFetcher:
         if (
             not guangdong_file_download
             and not guangzhou_ywtb_file_download
-            and not path.endswith((".pdf", ".doc", ".docx", ".xls", ".xlsx", ".zip", ".html", ".htm"))
+            and not _attachment_url_has_supported_signal(attachment_url)
         ):
             raise self._boundary_error(url, "same_site_attachment_url_not_supported_file")
         if detail_page_url:
@@ -1033,11 +1444,20 @@ class RealPublicEntryFetcher:
             ),
         )
 
-    def _should_attempt_attachment_challenge_resolution(self, carrier: Mapping[str, Any]) -> bool:
+    def _should_attempt_attachment_challenge_resolution(
+        self,
+        profile: RealPublicAttachmentProfile,
+        carrier: Mapping[str, Any],
+    ) -> bool:
         if not self.automated_challenge_resolution_enabled or self.attachment_challenge_resolver is None:
             return False
         blocker_class = str(carrier.get("attachment_blocker_class") or "")
         blocker_reason = str(carrier.get("attachment_blocker_reason") or "")
+        degraded_reasons = [str(item or "") for item in list(carrier.get("degraded_reasons") or [])]
+        challenge_family = _attachment_challenge_family(profile)
+        resumable_download = _attachment_url_has_resumable_download_signal(profile.url)
+        if blocker_class == "ATTACHMENT_INTERFACE_ERROR" and not resumable_download:
+            return False
         return (
             blocker_class
             in {
@@ -1045,10 +1465,133 @@ class RealPublicEntryFetcher:
                 "SESSION_OR_LOGIN_REQUIRED",
                 "REFERER_OR_HOTLINK_REQUIRED",
                 "UNKNOWN_HTML_ATTACHMENT_RESPONSE",
+                "ATTACHMENT_INTERFACE_ERROR",
             }
             or "captcha" in blocker_reason.lower()
             or "manual_verification" in blocker_reason.lower()
+            or (
+                challenge_family != "GENERIC_ATTACHMENT_CHALLENGE"
+                and any(
+                    reason.startswith(("http_status:400", "http_status:401", "http_status:403", "http_status:404"))
+                    or reason == "unsupported_attachment_content_type"
+                    for reason in degraded_reasons
+                )
+            )
         )
+
+    def _should_attempt_detail_challenge_resolution(
+        self,
+        profile: RealPublicEntryProfile,
+        carrier: Mapping[str, Any],
+    ) -> bool:
+        if not self.automated_challenge_resolution_enabled or self.attachment_challenge_resolver is None:
+            return False
+        if not hasattr(self.attachment_challenge_resolver, "resolve_candidate_detail"):
+            return False
+        if str(carrier.get("status") or "") != "AUTOMATED_CHALLENGE_RESOLUTION_PENDING":
+            return False
+        if profile.profile_id != "JIANGSU-GGZY-HOME":
+            return False
+        reasons = [str(item or "") for item in list(carrier.get("degraded_reasons") or [])]
+        return any(reason.startswith("controlled_challenge_body_pattern") for reason in reasons)
+
+    def _resolve_candidate_detail_after_challenge(
+        self,
+        *,
+        profile: RealPublicEntryProfile,
+        first_carrier: Mapping[str, Any],
+        detail_url: str,
+        lineage_refs: Mapping[str, str] | None,
+    ) -> dict[str, Any]:
+        context_id = hashlib.sha1(
+            f"{profile.profile_id}|{detail_url}".encode("utf-8")
+        ).hexdigest()[:16]
+        request = {
+            "challenge_resume_context_id": context_id,
+            "detail_url": detail_url,
+            "entry_profile_id": profile.profile_id,
+            "site_name": profile.site_name,
+            "source_family": profile.source_family,
+            "challenge_family": "EPOINT_DETAIL_SESSION_OR_LOGIN",
+            "first_attempt_status": first_carrier.get("status"),
+            "first_attempt_degraded_reasons": list(first_carrier.get("degraded_reasons") or []),
+            "same_capture_plan_resume_required": True,
+            "allowed_resolution_capabilities": [
+                "browser_fingerprint_profile_reuse",
+                "cookie_reuse",
+                "same_session_capture_resume",
+                "hidden_interface_call_if_public_and_audited",
+            ],
+        }
+        try:
+            resolver = self.attachment_challenge_resolver
+            result = resolver.resolve_candidate_detail(request)  # type: ignore[attr-defined]
+        except Exception as exc:  # pragma: no cover - resolver implementations vary
+            failed = dict(first_carrier)
+            failed["automated_challenge_resolution_attempted"] = True
+            failed["automated_challenge_resolution_state"] = "FAILED_CLOSED_RESOLVER_ERROR"
+            failed["challenge_resume_audit"] = {
+                "challenge_resume_context_id": context_id,
+                "resolver_error": type(exc).__name__,
+                "resolver_error_detail": str(exc),
+                "resume_from_same_capture_plan": True,
+                "resume_requires_human_input": False,
+            }
+            failed["failure_taxonomy"] = {
+                "failure_class": "CONTROLLED_CHALLENGE_RESOLVER_ERROR",
+                "degraded_reasons": list(first_carrier.get("degraded_reasons") or []),
+                "resolver_error": type(exc).__name__,
+                "fail_closed": True,
+            }
+            return failed
+
+        response, resolution_metadata = _coerce_challenge_resolution_result(result, detail_url)
+        if response is None:
+            failed = dict(first_carrier)
+            failed["automated_challenge_resolution_attempted"] = True
+            failed["automated_challenge_resolution_state"] = "FAILED_CLOSED_NO_RESPONSE"
+            failed["challenge_resume_audit"] = {
+                "challenge_resume_context_id": context_id,
+                "resolution_metadata": resolution_metadata,
+                "resume_from_same_capture_plan": True,
+                "resume_requires_human_input": False,
+            }
+            return failed
+
+        now = utc_now_iso()
+        audit = {
+            "challenge_resume_context_id": context_id,
+            "resolution_method": resolution_metadata.get("resolution_method") or "automated_detail_challenge_resolver",
+            "resolution_capabilities_used": list(resolution_metadata.get("resolution_capabilities_used") or []),
+            "resume_from_same_capture_plan": True,
+            "resume_requires_human_input": False,
+            "first_attempt_status": first_carrier.get("status"),
+            "first_attempt_degraded_reasons": list(first_carrier.get("degraded_reasons") or []),
+            "resolver_metadata": {
+                key: value
+                for key, value in resolution_metadata.items()
+                if key not in {"content", "response"}
+            },
+        }
+        carrier = self._detail_carrier_from_response(
+            profile,
+            detail_url=detail_url,
+            response=response,
+            now=now,
+            lineage_refs=lineage_refs,
+        )
+        carrier["automated_challenge_resolution_attempted"] = True
+        carrier["automated_challenge_resolution_state"] = (
+            "RESOLVED_AND_SNAPSHOT_CAPTURED"
+            if carrier.get("status") == "FETCHED"
+            else "RESOLVED_RESPONSE_STILL_DEGRADED"
+        )
+        carrier["challenge_resume_audit"] = audit
+        carrier["first_attempt_carrier"] = {
+            "status": first_carrier.get("status"),
+            "degraded_reasons": list(first_carrier.get("degraded_reasons") or []),
+        }
+        return carrier
 
     def _resolve_same_site_attachment_after_challenge(
         self,
@@ -1070,6 +1613,14 @@ class RealPublicEntryFetcher:
             "detail_page_url": detail_page_url or profile.detail_page_url_optional,
             "site_name": profile.site_name,
             "source_family": profile.source_family,
+            "challenge_family": _attachment_challenge_family(profile),
+            "platform_resolution_hint": _attachment_platform_resolution_hint(profile),
+            "attachment_resolution_route": first_carrier.get("attachment_resolution_route"),
+            "first_attempt_http_statuses": [
+                reason.split(":", 1)[1]
+                for reason in list(first_carrier.get("degraded_reasons") or [])
+                if str(reason).startswith("http_status:")
+            ],
             "first_attempt_status": first_carrier.get("status"),
             "first_attempt_degraded_reasons": list(first_carrier.get("degraded_reasons") or []),
             "attachment_blocker_class": first_carrier.get("attachment_blocker_class"),
@@ -1082,6 +1633,7 @@ class RealPublicEntryFetcher:
                 "browser_fingerprint_profile_reuse",
                 "cookie_reuse",
                 "same_session_capture_resume",
+                "same_site_referer_replay",
                 "hidden_interface_call_if_public_and_audited",
             ],
         }
@@ -1621,7 +2173,7 @@ class RealPublicEntryFetcher:
     ) -> dict[str, Any]:
         content = response.content or b""
         content_type = response.content_type or "application/octet-stream"
-        filename = (urlsplit(response.final_url or profile.url).path.rsplit("/", 1)[-1] or "attachment.bin")
+        filename = _attachment_filename_from_response(profile, response)
         filename_lower = filename.lower()
         sha256 = hashlib.sha256(content).hexdigest()
         degraded_reasons: list[str] = []
@@ -1640,10 +2192,11 @@ class RealPublicEntryFetcher:
         )
         if attachment_blocker["attachment_blocker_reason"]:
             degraded_reasons.append(str(attachment_blocker["attachment_blocker_reason"]))
-        if not (
-            any(token in lowered_content_type for token in ("pdf", "zip", "msword", "officedocument", "excel", "octet-stream"))
-            or ("html" in lowered_content_type and plain_html_attachment)
-            or filename_lower.endswith((".pdf", ".doc", ".docx", ".xls", ".xlsx", ".zip", ".html", ".htm"))
+        if not _attachment_content_is_supported(
+            content=content,
+            content_type=content_type,
+            filename=filename,
+            allow_plain_html_attachment=plain_html_attachment,
         ):
             degraded_reasons.append("unsupported_attachment_content_type")
 
@@ -1668,6 +2221,7 @@ class RealPublicEntryFetcher:
             fetch_audit["automated_challenge_resume_used"] = True
             fetch_audit["challenge_resume_audit"] = dict(challenge_resume_audit)
         manifest_payload: dict[str, Any] | None = None
+        snapshot_readback_state = ""
         if self.repository is not None and status == "FETCHED":
             manifest = self.repository.save_snapshot(
                 content,
@@ -1727,7 +2281,19 @@ class RealPublicEntryFetcher:
                     ),
                 },
             )
-            manifest_payload = manifest.as_payload()
+            readback = self.repository.replay_snapshot(snapshot_id)
+            snapshot_readback_state = str(readback.get("readback_state") or "")
+            if bool(readback.get("replayable")):
+                manifest_payload = manifest.as_payload()
+            else:
+                degraded_reasons.append("attachment_snapshot_readback_missing")
+                if snapshot_readback_state:
+                    degraded_reasons.append(f"attachment_snapshot_readback_state:{snapshot_readback_state}")
+        status = "DEGRADED" if degraded_reasons else "FETCHED"
+        attachment_failure_taxonomy = _normalized_attachment_failure_taxonomy(
+            degraded_reasons=degraded_reasons,
+            attachment_blocker=attachment_blocker,
+        )
 
         return {
             "attachment_fetch_id": snapshot_id,
@@ -1744,10 +2310,12 @@ class RealPublicEntryFetcher:
             "snapshot_id_optional": snapshot_id if manifest_payload else None,
             "manifest_optional": manifest_payload,
             "degraded_reasons": degraded_reasons,
+            "snapshot_readback_state": snapshot_readback_state,
             "review_required": bool(degraded_reasons),
             "fail_closed": bool(degraded_reasons),
             "no_broad_fallback": True,
             **attachment_blocker,
+            "attachment_failure_taxonomy": attachment_failure_taxonomy,
             "fetch_audit": fetch_audit,
             "transport": fetch_audit["transport"],
             "controlled_opening_requirements": _controlled_opening_requirements(),
@@ -1775,9 +2343,13 @@ class RealPublicEntryFetcher:
         attachment_blocker = {
             "attachment_blocker_class": "",
             "attachment_blocker_reason": "",
+            "attachment_failure_taxonomy": [],
             "attachment_resolution_route": "",
             "attachment_browser_replay_steps": [],
         }
+        failure_taxonomy = _fetch_failure_taxonomy(detail)
+        if reason == "fetch_failed":
+            failure_taxonomy.append("attachment_fetch_failed")
         return {
             "attachment_fetch_id": f"REAL-ATTACH-{profile.profile_id}-DEGRADED",
             "status": "DEGRADED",
@@ -1788,6 +2360,7 @@ class RealPublicEntryFetcher:
             "detail_page_url_optional": detail_page_url or profile.detail_page_url_optional,
             "snapshot_id_optional": None,
             "degraded_reasons": [reason],
+            "attachment_failure_taxonomy": list(dict.fromkeys(failure_taxonomy)),
             "failure_detail_optional": detail,
             "review_required": True,
             "fail_closed": True,
@@ -2103,7 +2676,8 @@ def _discover_same_site_link_items(text: str, *, base_url: str, host: str) -> li
         if not (
             parsed.path.endswith((".html", ".htm", ".shtml", ".jhtml"))
             or parsed.path.endswith((".jspx", ".jsp"))
-            or parsed.path.endswith((".pdf", ".doc", ".docx", ".xls", ".xlsx", ".zip"))
+            or parsed.path.endswith(_SUPPORTED_ATTACHMENT_EXTENSIONS)
+            or _attachment_url_has_supported_signal(full, link_text=_clean_anchor_text(match.group("body") or ""))
             or "/information/" in parsed.path
             or "/cggg/" in parsed.path
             or "/deal/" in parsed.path
@@ -2176,8 +2750,14 @@ def _discover_same_site_attachment_link_items(text: str, *, base_url: str, host:
         r"onclick\s*=\s*['\"][^'\"]*ztbfjyz\(\s*['\"](?P<href>[^'\"]+)['\"]",
         flags=re.IGNORECASE | re.DOTALL,
     )
+    epoint_download_pattern = re.compile(
+        r"['\"](?P<href>[^'\"]*downloadZtbAttach[^'\"]*)['\"]",
+        flags=re.IGNORECASE | re.DOTALL,
+    )
     for match in ywtb_onclick_pattern.finditer(text):
-        onclick_match = ywtb_download_pattern.search(match.group("attrs") or "")
+        onclick_match = ywtb_download_pattern.search(match.group("attrs") or "") or epoint_download_pattern.search(
+            match.group("attrs") or ""
+        )
         if not onclick_match:
             continue
         href = unescape(onclick_match.group("href")).strip()
@@ -2186,7 +2766,7 @@ def _discover_same_site_attachment_link_items(text: str, *, base_url: str, host:
         if (
             parsed.scheme not in {"http", "https"}
             or (parsed.hostname or "").lower() != expected_host
-            or "/epointwebbuilder/pages/webbuildermis/attach/downloadztbattach" not in parsed.path.lower()
+            or "downloadztbattach" not in parsed.path.lower()
         ):
             continue
         clean = full.split("#", 1)[0]
@@ -2194,6 +2774,40 @@ def _discover_same_site_attachment_link_items(text: str, *, base_url: str, host:
             continue
         seen.add(clean)
         items.append({"url": clean, "text": _clean_anchor_text(match.group("body") or "")})
+        if len(items) >= 10:
+            return items
+    anchor_pattern = re.compile(
+        r"<a\b(?P<attrs>[^>]*)>(?P<body>.*?)</a>",
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    href_pattern = re.compile(r"href=[\"'](?P<href>[^\"']+)[\"']", flags=re.IGNORECASE)
+    data_url_pattern = re.compile(
+        r"(?:data-url|data-href|data-file|data-fileurl|fileurl|url)\s*=\s*[\"'](?P<href>[^\"']+)[\"']",
+        flags=re.IGNORECASE,
+    )
+    for match in anchor_pattern.finditer(text):
+        attrs = match.group("attrs") or ""
+        body = match.group("body") or ""
+        link_text = _clean_anchor_text(body)
+        href_match = href_pattern.search(attrs) or data_url_pattern.search(attrs)
+        if not href_match:
+            continue
+        href = unescape(href_match.group("href")).strip()
+        if not href or href.startswith(("#", "javascript:", "mailto:")):
+            continue
+        full = urljoin(base_url, href)
+        parsed = urlsplit(full)
+        if parsed.scheme not in {"http", "https"} or (parsed.hostname or "").lower() != expected_host:
+            continue
+        if _is_non_attachment_navigation_link(full, link_text=link_text):
+            continue
+        if not _attachment_url_has_supported_signal(full, link_text=link_text):
+            continue
+        clean = full.split("#", 1)[0]
+        if clean in seen:
+            continue
+        seen.add(clean)
+        items.append({"url": clean, "text": link_text})
         if len(items) >= 10:
             return items
     for item in _discover_same_site_link_items(text, base_url=base_url, host=host):
@@ -2206,11 +2820,14 @@ def _discover_same_site_attachment_link_items(text: str, *, base_url: str, host:
             for token in ("附件", "下载", "招标文件", "采购文件", "结果文件", "资格要求", "评标报告", "定标报告")
         )
         if not (
-            path.endswith((".pdf", ".doc", ".docx", ".xls", ".xlsx", ".zip"))
+            path.endswith(_SUPPORTED_ATTACHMENT_EXTENSIONS)
+            or _attachment_url_has_supported_signal(url, link_text=link_text)
             or attachment_text_hint
             or (path.endswith((".html", ".htm")) and attachment_text_hint)
-            or re.search(r"\.(pdf|docx?|xlsx?|zip)$", link_text.strip(), flags=re.IGNORECASE)
+            or re.search(r"\.(pdf|docx?|xlsx?|zip|rar)$", link_text.strip(), flags=re.IGNORECASE)
         ):
+            continue
+        if _is_non_attachment_navigation_link(url, link_text=link_text):
             continue
         if url in seen:
             continue
@@ -2219,6 +2836,22 @@ def _discover_same_site_attachment_link_items(text: str, *, base_url: str, host:
         if len(items) >= 10:
             break
     return items
+
+
+def _is_non_attachment_navigation_link(url: str, *, link_text: str) -> bool:
+    parsed = urlsplit(str(url or ""))
+    path = parsed.path.lower()
+    text = _clean_anchor_text(link_text).replace(" ", "")
+    normalized_text = text.lstrip("/").strip()
+    if not url:
+        return True
+    if text in _NON_ATTACHMENT_LINK_TEXTS or normalized_text in _NON_ATTACHMENT_LINK_TEXTS:
+        return True
+    if any(token in path for token in ("/login", "/onlinelettersubmit", "/message", "/guestbook", "/help")):
+        return True
+    if path.endswith(("index.html", "list.html", "about.html", "transactioninfo.html")):
+        return True
+    return False
 
 
 def _clean_anchor_text(value: str) -> str:

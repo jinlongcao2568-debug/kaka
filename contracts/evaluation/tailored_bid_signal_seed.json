@@ -44,6 +44,10 @@
     "疑似定制标",
     "限制竞争线索",
     "控标风险线索",
+    "围标线索",
+    "串标线索",
+    "陪标线索",
+    "电子监管线索",
     "人工复核"
   ],
   "prohibited_output_terms": [
@@ -92,14 +96,28 @@
         "法律法规强制资质",
         "强监管设备",
         "安全生产强制要求",
-        "依法必须认证"
+        "依法必须认证",
+        "候选/中标/开标等后验材料",
+        "澄清补遗非最终招标正文",
+        "附件缺失或正文不完整"
       ],
       "counter_reason_keywords": [
         "强制认证",
         "法律法规规定",
         "依法必须",
         "安全生产许可证",
-        "医疗器械注册证"
+        "医疗器械注册证",
+        "候选人公示",
+        "中标候选人公示",
+        "中标结果公告",
+        "成交结果公告",
+        "开标记录",
+        "澄清文件",
+        "补遗",
+        "答疑文件",
+        "附件缺失",
+        "非招标文件正文",
+        "后验否决原因"
       ],
       "source_classes": [
         "OFFICIAL_OR_QUASI_OFFICIAL",
@@ -299,13 +317,27 @@
       "counter_reasons": [
         "项目复杂度要求同类经验",
         "依法要求资质业绩",
-        "履约能力强相关"
+        "履约能力强相关",
+        "候选/中标/开标等后验材料",
+        "澄清补遗非最终招标正文",
+        "附件缺失或正文不完整"
       ],
       "counter_reason_keywords": [
         "复杂项目",
         "履约能力",
         "同类经验必要",
-        "依法要求"
+        "依法要求",
+        "候选人公示",
+        "中标候选人公示",
+        "中标结果公告",
+        "成交结果公告",
+        "开标记录",
+        "澄清文件",
+        "补遗",
+        "答疑文件",
+        "附件缺失",
+        "非招标文件正文",
+        "后验否决原因"
       ],
       "source_classes": [
         "OFFICIAL_OR_QUASI_OFFICIAL",
@@ -362,13 +394,27 @@
       "counter_reasons": [
         "工程项目法定人员要求",
         "关键岗位依法注册",
-        "安全生产岗位要求"
+        "安全生产岗位要求",
+        "候选/中标/开标等后验材料",
+        "澄清补遗非最终招标正文",
+        "附件缺失或正文不完整"
       ],
       "counter_reason_keywords": [
         "注册建造师",
         "安全B证",
         "法定要求",
-        "关键岗位"
+        "关键岗位",
+        "候选人公示",
+        "中标候选人公示",
+        "中标结果公告",
+        "成交结果公告",
+        "开标记录",
+        "澄清文件",
+        "补遗",
+        "答疑文件",
+        "附件缺失",
+        "非招标文件正文",
+        "后验否决原因"
       ],
       "source_classes": [
         "OFFICIAL_OR_QUASI_OFFICIAL",
@@ -1277,12 +1323,24 @@
       "base_weight": 9,
       "counter_reasons": [
         "项目不适用声明函",
-        "未享受政策优惠"
+        "未享受政策优惠",
+        "候选/中标/开标等后验材料",
+        "澄清补遗非最终招标正文"
       ],
       "counter_reason_keywords": [
         "不享受价格扣除",
         "不适用",
-        "非专门面向中小企业"
+        "非专门面向中小企业",
+        "候选人公示",
+        "中标候选人公示",
+        "中标结果公告",
+        "成交结果公告",
+        "开标记录",
+        "澄清文件",
+        "补遗",
+        "答疑文件",
+        "非招标文件正文",
+        "后验否决原因"
       ],
       "source_classes": [
         "INDUSTRY_PRACTICE",
@@ -1348,12 +1406,24 @@
       "base_weight": 12,
       "counter_reasons": [
         "明标项目",
-        "暗标扣分制而非否决"
+        "暗标扣分制而非否决",
+        "候选/中标/开标等后验材料",
+        "澄清补遗非最终招标正文"
       ],
       "counter_reason_keywords": [
         "明标",
         "扣分",
-        "不作否决"
+        "不作否决",
+        "候选人公示",
+        "中标候选人公示",
+        "中标结果公告",
+        "成交结果公告",
+        "开标记录",
+        "澄清文件",
+        "补遗",
+        "答疑文件",
+        "非招标文件正文",
+        "后验否决原因"
       ],
       "source_classes": [
         "OFFICIAL_OR_QUASI_OFFICIAL",
@@ -1995,6 +2065,330 @@
       "source_confidence": "EXPERIENCE",
       "rule_gate_condition": "命中 专项整治监督画像 相关地区画像关键词，仅用于选择审查模板、格式检查或合规留痕。",
       "evidence_gate_condition": "必须能定位到 tender_file、platform_metadata、post_award_notice、internal_material 中的地区规则、平台规则、公告或监管材料；不得仅因地区名称输出风险结论。"
+    },
+    {
+      "sample_id": "TAILORED-SIGNAL-0033",
+      "signal_family": "tailored_jargon",
+      "signal_keyword": "控标黑话与萝卜标",
+      "keyword_patterns": [
+        "控标",
+        "萝卜标",
+        "量身定制",
+        "定制标",
+        "关系户",
+        "内定供应商",
+        "锁供应商",
+        "提前沟通需求",
+        "参数照抄",
+        "指定供应商",
+        "陪跑供应商",
+        "招标文件有倾向性"
+      ],
+      "bid_file_sections": [
+        "采购需求",
+        "资格条件",
+        "评分办法",
+        "技术参数"
+      ],
+      "index_targets": [
+        "tailored_jargon_index",
+        "qualification_customization_index",
+        "technical_parameter_customization_index",
+        "scoring_customization_index"
+      ],
+      "base_weight": 15,
+      "counter_reasons": [
+        "投诉或讨论文本仅为主观吐槽",
+        "缺少招标正文条款定位",
+        "后验公示或评论区材料"
+      ],
+      "counter_reason_keywords": [
+        "评论",
+        "吐槽",
+        "听说",
+        "据说",
+        "中标候选人公示",
+        "中标结果公告",
+        "开标记录",
+        "非招标文件正文"
+      ],
+      "source_classes": [
+        "INDUSTRY_PRACTICE",
+        "SOCIAL_EXPERIENCE",
+        "UNSTABLE_PUBLIC_THREAD"
+      ],
+      "should_trigger_stage5_review": true,
+      "should_trigger_ai_review": true,
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "signal_domain": "TAILORED_COMPETITION",
+      "observable_from": [
+        "tender_file",
+        "attachment",
+        "complaint_case",
+        "internal_material"
+      ],
+      "source_confidence": "EXPERIENCE",
+      "rule_gate_condition": "命中 控标、萝卜标、量身定制等行业黑话时，只作为定制标/限制竞争线索候选。",
+      "evidence_gate_condition": "必须能定位到招标正文、附件、投诉案例或内部材料中的具体上下文；评论区或短视频吐槽不得单独形成法律定性。"
+    },
+    {
+      "sample_id": "TAILORED-SIGNAL-0034",
+      "signal_family": "bid_rigging_jargon",
+      "signal_keyword": "围标串标黑话",
+      "keyword_patterns": [
+        "围标",
+        "串标",
+        "串通投标",
+        "围串标",
+        "协商报价",
+        "约好报价",
+        "一起投标",
+        "同一老板控制",
+        "同一实际控制人",
+        "借资质投标",
+        "挂靠投标",
+        "轮流坐庄",
+        "轮流中标",
+        "抬标",
+        "压标"
+      ],
+      "bid_file_sections": [
+        "电子监管线索",
+        "投诉案例",
+        "历史公告",
+        "平台日志"
+      ],
+      "index_targets": [
+        "bid_rigging_index",
+        "collusion_trace_index"
+      ],
+      "base_weight": 16,
+      "counter_reasons": [
+        "仅为社会经验词汇",
+        "缺少平台日志或投诉证据",
+        "统一模板导致相似"
+      ],
+      "counter_reason_keywords": [
+        "统一模板",
+        "平台模板",
+        "评论",
+        "吐槽",
+        "猜测",
+        "无证据"
+      ],
+      "source_classes": [
+        "OFFICIAL_OR_QUASI_OFFICIAL",
+        "INDUSTRY_PRACTICE",
+        "SOCIAL_EXPERIENCE",
+        "UNSTABLE_PUBLIC_THREAD"
+      ],
+      "should_trigger_stage5_review": true,
+      "should_trigger_ai_review": true,
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "signal_domain": "ELECTRONIC_SUPERVISION",
+      "observable_from": [
+        "platform_metadata",
+        "complaint_case",
+        "internal_material"
+      ],
+      "source_confidence": "EXPERIENCE",
+      "rule_gate_condition": "命中 围标、串标、串通投标、轮流坐庄等行业黑话时，进入围标/串标线索指数。",
+      "evidence_gate_condition": "普通招标文件文本不能单独证明围标串标；需要平台元数据、投诉案例、历史中标网络或内部材料支撑。"
+    },
+    {
+      "sample_id": "TAILORED-SIGNAL-0035",
+      "signal_family": "cover_bid_jargon",
+      "signal_keyword": "陪标护航报价",
+      "keyword_patterns": [
+        "陪标",
+        "陪跑",
+        "护航",
+        "凑三家",
+        "凑够三家",
+        "陪标公司",
+        "陪跑公司",
+        "抬轿",
+        "垫背投标",
+        "异常高价护航",
+        "报价陪跑",
+        "陪标费",
+        "不中标承诺",
+        "不中标补偿"
+      ],
+      "bid_file_sections": [
+        "报价文件",
+        "历史公告",
+        "投诉案例",
+        "内部材料"
+      ],
+      "index_targets": [
+        "cover_bid_index",
+        "bid_rigging_index",
+        "price_abnormality_index"
+      ],
+      "base_weight": 22,
+      "counter_reasons": [
+        "仅为社会经验词汇",
+        "缺少报价矩阵或历史中标网络",
+        "市场价格透明导致报价接近"
+      ],
+      "counter_reason_keywords": [
+        "评论",
+        "吐槽",
+        "猜测",
+        "市场价格透明",
+        "统一清单",
+        "定额计价"
+      ],
+      "source_classes": [
+        "INDUSTRY_PRACTICE",
+        "SOCIAL_EXPERIENCE",
+        "UNSTABLE_PUBLIC_THREAD"
+      ],
+      "should_trigger_stage5_review": true,
+      "should_trigger_ai_review": true,
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "signal_domain": "PRICE_PERFORMANCE",
+      "observable_from": [
+        "post_award_notice",
+        "bidder_file",
+        "complaint_case",
+        "internal_material"
+      ],
+      "source_confidence": "EXPERIENCE",
+      "rule_gate_condition": "命中 陪标、护航、凑三家、异常高价护航等词时，进入陪标/护航报价线索指数。",
+      "evidence_gate_condition": "需要报价矩阵、开标记录、历史公告、投诉案例或内部材料支撑；单条吐槽不形成结论。"
+    },
+    {
+      "sample_id": "TAILORED-SIGNAL-0036",
+      "signal_family": "lock_in_jargon",
+      "signal_keyword": "参数授权本地业绩锁",
+      "keyword_patterns": [
+        "参数锁",
+        "授权锁",
+        "本地锁",
+        "业绩锁",
+        "评分锁",
+        "证书锁",
+        "服务网点锁",
+        "厂家锁",
+        "品牌锁",
+        "检测报告锁",
+        "社保锁",
+        "踏勘锁",
+        "接口锁",
+        "平台锁"
+      ],
+      "bid_file_sections": [
+        "资格条件",
+        "评分办法",
+        "技术参数",
+        "服务要求"
+      ],
+      "index_targets": [
+        "qualification_customization_index",
+        "technical_parameter_customization_index",
+        "authorization_binding_index",
+        "local_protection_index",
+        "scoring_customization_index"
+      ],
+      "base_weight": 15,
+      "counter_reasons": [
+        "锁定说法仅为经验总结",
+        "存在强制资质或兼容性必要性",
+        "缺少具体招标条款"
+      ],
+      "counter_reason_keywords": [
+        "依法必须",
+        "强制认证",
+        "系统兼容",
+        "接口公开",
+        "评论",
+        "吐槽",
+        "非招标文件正文"
+      ],
+      "source_classes": [
+        "INDUSTRY_PRACTICE",
+        "SOCIAL_EXPERIENCE",
+        "UNSTABLE_PUBLIC_THREAD"
+      ],
+      "should_trigger_stage5_review": true,
+      "should_trigger_ai_review": true,
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "signal_domain": "TAILORED_COMPETITION",
+      "observable_from": [
+        "tender_file",
+        "attachment",
+        "complaint_case",
+        "internal_material"
+      ],
+      "source_confidence": "EXPERIENCE",
+      "rule_gate_condition": "命中 参数锁、授权锁、本地锁、业绩锁等黑话时，进入控标/限制竞争线索指数。",
+      "evidence_gate_condition": "必须能定位到资格、评分、技术参数或服务要求中的具体条款；仅社会吐槽不形成法律结论。"
+    },
+    {
+      "sample_id": "TAILORED-SIGNAL-0037",
+      "signal_family": "historical_winner_pattern",
+      "signal_keyword": "固定供应商与轮流中标黑话",
+      "keyword_patterns": [
+        "固定供应商",
+        "长期中标",
+        "常年中标",
+        "熟面孔中标",
+        "轮流中标",
+        "轮流低价",
+        "同一批公司",
+        "几家公司轮着来",
+        "长期陪跑",
+        "老关系供应商",
+        "历史中标人高度匹配"
+      ],
+      "bid_file_sections": [
+        "历史公告",
+        "中标结果",
+        "候选人公示",
+        "投诉案例"
+      ],
+      "index_targets": [
+        "historical_winner_pattern_index",
+        "bid_rigging_index",
+        "cover_bid_index"
+      ],
+      "base_weight": 12,
+      "counter_reasons": [
+        "市场集中度高",
+        "专业供应商数量有限",
+        "缺少历史中标网络"
+      ],
+      "counter_reason_keywords": [
+        "专业性强",
+        "供应商较少",
+        "市场集中",
+        "无历史数据",
+        "单次项目"
+      ],
+      "source_classes": [
+        "OFFICIAL_OR_QUASI_OFFICIAL",
+        "INDUSTRY_PRACTICE",
+        "SOCIAL_EXPERIENCE"
+      ],
+      "should_trigger_stage5_review": true,
+      "should_trigger_ai_review": true,
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "signal_domain": "PRICE_PERFORMANCE",
+      "observable_from": [
+        "post_award_notice",
+        "complaint_case",
+        "internal_material"
+      ],
+      "source_confidence": "EXPERIENCE",
+      "rule_gate_condition": "命中 固定供应商、轮流中标、长期陪跑等词时，进入历史供应商网络线索。",
+      "evidence_gate_condition": "需要多个历史公告、候选/中标结果、投诉案例或内部材料支撑；单个项目不能单独证明固定供应商异常。"
     }
   ],
   "signal_domain_policy": {

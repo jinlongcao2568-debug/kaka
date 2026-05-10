@@ -588,6 +588,12 @@
           "tailored_bid_signal_profile",
           "tailored_bid_index",
           "tailored_bid_sub_indices",
+          "system_risk_indices",
+          "system_auto_judgement",
+          "collusion_trace_index",
+          "cover_bid_index",
+          "bid_rigging_index",
+          "electronic_supervision_index",
           "qualification_clause_hits"
         ],
         "dependency_evidence": [

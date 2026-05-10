@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import os
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -14,12 +16,16 @@ from stage1_tasking.real_candidate_discovery import (
     REAL_PUBLIC_SOURCE_CANDIDATE_MODE,
     RealPublicCandidateDiscoveryService,
     RealPublicCandidateRepository,
+    _guangdong_ygp_process_priority,
+    _guangzhou_ywtb_process_priority,
+    _is_candidate_detail_url,
     _link_items_from_guangzhou_ywtb_records,
     _link_items_from_guangdong_ygp_records,
     list_persisted_real_candidates,
     list_real_candidate_discovery_runs,
 )
 from storage import reset_default_storage
+from storage.db import DatabaseSession
 
 
 class FakeCandidateEntryFetcher:
@@ -219,6 +225,29 @@ def fake_sichuan_api_link_discoverer(profile_id: str, *, now: str) -> dict:
     }
 
 
+class FakeGgzySelectionApiDiscoverer:
+    def __init__(self) -> None:
+        self.contexts: list[dict] = []
+
+    def __call__(self, profile_id: str, *, now: str, context: dict | None = None) -> dict:
+        self.contexts.append(dict(context or {}))
+        if profile_id != "GGZY-DEAL-LIST":
+            return {"state": "UNSUPPORTED", "items": []}
+        return {
+            "state": "FETCHED",
+            "endpoint": "https://deal.ggzy.gov.cn/ds/deal/dealList_find.jsp",
+            "items": [
+                {
+                    "url": "https://www.ggzy.gov.cn/information/deal/html/a/310000/0101/20260501/sh-tender.html",
+                    "text": "上海市政道路改造工程招标公告 1200万元",
+                    "summary": "上海 工程建设 招标公告",
+                    "published_at": "2026-05-01 09:00:00",
+                }
+            ],
+            "record_count": 1,
+        }
+
+
 def fake_guangdong_api_link_discoverer(profile_id: str, *, now: str) -> dict:
     if profile_id != "GUANGDONG-YGP-PROVINCE-TRADING-LIST":
         return {"state": "UNSUPPORTED", "items": []}
@@ -288,6 +317,139 @@ def fake_guangzhou_candidate_publicity_api_link_discoverer(profile_id: str, *, n
             }
         ],
     }
+
+
+def _gz_stage_record(code: str, title: str, suffix: str) -> dict:
+    return {
+        "id": f"002001001-{suffix}",
+        "title": title,
+        "title2": title,
+        "linkurl": f"/jyfw/002001/002001001/20260501/{suffix}.html",
+        "categorynum": "002001001",
+        "jsgcggfl": code,
+        "webdate": "2026-05-01 00:00:00",
+        "xmbh": f"JG2026-{suffix}",
+        "content": title,
+    }
+
+
+def fake_guangzhou_stage_aware_api_link_discoverer(
+    profile_id: str,
+    *,
+    now: str,
+    context: dict | None = None,
+) -> dict:
+    if profile_id != "GUANGZHOU-YWTB-CONSTRUCTION-LIST":
+        return {"state": "UNSUPPORTED", "items": []}
+    records_by_process = {
+        "01": [
+            _gz_stage_record(
+                "01",
+                "南沙区排水设施小修项目施工招标公告",
+                "gz-tender-notice-001",
+            )
+        ],
+        "03": [
+            _gz_stage_record(
+                "03",
+                "南沙区排水设施小修项目施工中标候选人公示",
+                "gz-candidate-notice-001",
+            )
+        ],
+        "05": [
+            _gz_stage_record(
+                "05",
+                "南沙区排水设施小修项目施工中标信息",
+                "gz-award-info-001",
+            )
+        ],
+        "06": [
+            _gz_stage_record(
+                "06",
+                "南沙区排水设施小修项目施工中标结果公告",
+                "gz-award-result-001",
+            )
+        ],
+    }
+    process_attempts = []
+    for process_label, process_code in _guangzhou_ywtb_process_priority(context or {}):
+        records = records_by_process.get(process_code, [])
+        items = _link_items_from_guangzhou_ywtb_records(
+            records,
+            allowed_processes={process_code},
+            fallback_process_label=process_label,
+        )
+        process_attempts.append(
+            {
+                "process_label": process_label,
+                "trading_process": process_code,
+                "record_count": len(records),
+                "accepted_item_count": len(items),
+                "attempted_pages": 1,
+            }
+        )
+        if items:
+            return {
+                "state": "FETCHED",
+                "endpoint": "https://ywtb.gzggzy.cn/inteligentsearch/rest/esinteligentsearch/getFullTextDataNew",
+                "items": items,
+                "record_count": len(records),
+                "page_size": 50,
+                "page_limit": 1,
+                "candidate_record_window_cap": 50,
+                "attempted_pages": len(process_attempts),
+                "trading_process_strategy": "guangzhou_ywtb_stage_aware",
+                "primary_trading_process": _guangzhou_ywtb_process_priority(context or {})[0][1],
+                "process_attempts": process_attempts,
+            }
+    return {
+        "state": "EMPTY",
+        "endpoint": "https://ywtb.gzggzy.cn/inteligentsearch/rest/esinteligentsearch/getFullTextDataNew",
+        "items": [],
+        "record_count": 0,
+        "process_attempts": process_attempts,
+    }
+
+
+def fake_guangzhou_award_result_fallback_api_link_discoverer(
+    profile_id: str,
+    *,
+    now: str,
+    context: dict | None = None,
+) -> dict:
+    if profile_id != "GUANGZHOU-YWTB-CONSTRUCTION-LIST":
+        return {"state": "UNSUPPORTED", "items": []}
+    process_attempts = []
+    for process_label, process_code in _guangzhou_ywtb_process_priority(context or {}):
+        records = []
+        if process_code == "05":
+            records = [_gz_stage_record("05", "南沙区排水设施小修项目施工中标信息", "gz-award-info-001")]
+        items = _link_items_from_guangzhou_ywtb_records(
+            records,
+            allowed_processes={process_code},
+            fallback_process_label=process_label,
+        )
+        process_attempts.append(
+            {
+                "process_label": process_label,
+                "trading_process": process_code,
+                "record_count": len(records),
+                "accepted_item_count": len(items),
+                "attempted_pages": 1,
+            }
+        )
+        if items:
+            return {
+                "state": "FETCHED",
+                "endpoint": "https://ywtb.gzggzy.cn/inteligentsearch/rest/esinteligentsearch/getFullTextDataNew",
+                "items": items,
+                "record_count": len(records),
+                "trading_process_strategy": "guangzhou_ywtb_stage_aware",
+                "primary_trading_process": "06",
+                "fallback_recent_all_used": True,
+                "process_attempts": process_attempts,
+            }
+    return {"state": "EMPTY", "items": [], "process_attempts": process_attempts}
 
 
 def fake_guangzhou_many_candidate_publicity_api_link_discoverer(profile_id: str, *, now: str) -> dict:
@@ -424,64 +586,80 @@ def fake_guangdong_many_candidate_publicity_api_link_discoverer(profile_id: str,
     }
 
 
-def fake_guangdong_api_link_discoverer_with_expired_notice(profile_id: str, *, now: str) -> dict:
-    if profile_id != "GUANGDONG-YGP-PROVINCE-TRADING-LIST":
+def fake_guangzhou_api_link_discoverer_with_expired_notice(profile_id: str, *, now: str) -> dict:
+    if profile_id != "GUANGZHOU-YWTB-CONSTRUCTION-LIST":
         return {"state": "UNSUPPORTED", "items": []}
     records = [
         {
-            "docId": "current-gd-notice",
-            "noticeId": "current-gd-notice-3C14",
-            "noticeSecondType": "A",
-            "noticeSecondTypeDesc": "工程建设",
-            "noticeThirdType": "1",
-            "projectType": "A07",
-            "projectTypeName": "水利",
-            "siteName": "三水区",
-            "siteCode": "440607",
-            "regionCode": "440600",
-            "regionName": "佛山市",
-            "noticeTitle": "白坭镇水利设施提升改造工程Ⅰ标施工招标公告",
-            "projectCode": "A4406010001000670003",
-            "publishDate": "20260501131830",
-            "edition": "v3",
-            "tradingProcess": "3C14",
-            "datasetName": "招标公告、资格预审公告",
-            "pubServicePlat": "佛山市公共资源交易信息化综合平台",
-            "noticeNature": "正常公告",
+            "id": "current-gz-notice",
+            "title": "白坭镇水利设施提升改造工程Ⅰ标施工中标候选人公示",
+            "title2": "白坭镇水利设施提升改造工程Ⅰ标施工中标候选人公示",
+            "linkurl": "/jyfw/002001/002001001/20260501/current-gz-notice.html",
+            "categorynum": "002001001",
+            "jsgcggfl": "03",
+            "webdate": "2026-05-01 13:18:30",
+            "xmbh": "JG2026-11001",
+            "content": "中标候选人公示 白坭镇水利设施提升改造工程 1200万元",
         },
         {
-            "docId": "expired-gd-notice",
-            "noticeId": "expired-gd-notice-3C14",
-            "noticeSecondType": "A",
-            "noticeSecondTypeDesc": "工程建设",
-            "noticeThirdType": "1",
-            "projectType": "A07",
-            "projectTypeName": "水利",
-            "siteName": "三水区",
-            "siteCode": "440607",
-            "regionCode": "440600",
-            "regionName": "佛山市",
-            "noticeTitle": "旧水利设施提升改造工程施工招标公告",
-            "projectCode": "A4406010001000670999",
-            "publishDate": "20260101131830",
-            "edition": "v3",
-            "tradingProcess": "3C14",
-            "datasetName": "招标公告、资格预审公告",
-            "pubServicePlat": "佛山市公共资源交易信息化综合平台",
-            "noticeNature": "正常公告",
+            "id": "expired-gz-notice",
+            "title": "旧水利设施提升改造工程施工中标候选人公示",
+            "title2": "旧水利设施提升改造工程施工中标候选人公示",
+            "linkurl": "/jyfw/002001/002001001/20260101/expired-gz-notice.html",
+            "categorynum": "002001001",
+            "jsgcggfl": "03",
+            "webdate": "2026-01-01 13:18:30",
+            "xmbh": "JG2026-10001",
+            "content": "中标候选人公示 旧水利设施提升改造工程 1100万元",
         },
     ]
     return {
         "state": "FETCHED",
-        "endpoint": "https://ygp.gdzwfw.gov.cn/ggzy-portal/search/v2/items",
-        "items": _link_items_from_guangdong_ygp_records(records),
+        "endpoint": "https://ywtb.gzggzy.cn/inteligentsearch/rest/esinteligentsearch/getFullTextDataNew",
+        "items": _link_items_from_guangzhou_ywtb_records(records),
         "record_count": len(records),
     }
 
 
 class RealCandidateDiscoveryTests(unittest.TestCase):
+    def test_guangdong_ygp_process_priority_follows_requested_document_kind(self) -> None:
+        self.assertEqual(
+            _guangdong_ygp_process_priority({"evaluation_document_kind": "tender_file"})[0],
+            ("tender_notice", "3C14"),
+        )
+        self.assertEqual(
+            _guangdong_ygp_process_priority({"evaluation_document_kind": "award_result"})[0],
+            ("evaluation_report", "3C42"),
+        )
+        self.assertEqual(
+            _guangdong_ygp_process_priority({"evaluation_document_kind": "candidate_notice"})[0],
+            ("candidate_publicity", "3C51"),
+        )
+
     def setUp(self) -> None:
+        self._tmp_dir = tempfile.TemporaryDirectory()
+        self._old_env = {
+            key: os.environ.get(key)
+            for key in ("KAKA_STORAGE_BACKEND", "KAKA_STORAGE_PATH", "KAKA_STORAGE_DATABASE_URL")
+        }
+        os.environ["KAKA_STORAGE_BACKEND"] = "json-file"
+        os.environ["KAKA_STORAGE_PATH"] = str(Path(self._tmp_dir.name) / "storage.json")
+        os.environ.pop("KAKA_STORAGE_DATABASE_URL", None)
+        if DatabaseSession._default is not None:
+            DatabaseSession._default.close()
+            DatabaseSession._default = None
         reset_default_storage()
+
+    def tearDown(self) -> None:
+        if DatabaseSession._default is not None:
+            DatabaseSession._default.close()
+            DatabaseSession._default = None
+        for key, value in self._old_env.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+        self._tmp_dir.cleanup()
 
     def test_discovers_parses_persists_and_dedupes_real_list_candidates(self) -> None:
         fetcher = FakeCandidateEntryFetcher()
@@ -576,6 +754,28 @@ class RealCandidateDiscoveryTests(unittest.TestCase):
         self.assertEqual(fetcher.calls, [])
         self.assertEqual(result["profile_reports"][0]["profile_id"], "UNKNOWN-PROFILE-ID")
         self.assertEqual(result["profile_reports"][0]["status"], "SOURCE_PROFILE_NOT_CONFIGURED")
+
+    def test_ygp_source_profile_id_is_excluded_by_policy(self) -> None:
+        fetcher = FakeGuangdongShellFetcher()
+        service = RealPublicCandidateDiscoveryService(
+            fetcher=fetcher,
+            repository=RealPublicCandidateRepository(),
+            profile_api_link_discoverer=fake_guangdong_api_link_discoverer,
+        )
+
+        result = service.discover(
+            {
+                "region_codes": ["CN-GD"],
+                "source_profile_ids": ["GUANGDONG-YGP-PROVINCE-TRADING-LIST"],
+                "discovery_candidate_limit": 1,
+            },
+            now="2026-05-01T00:00:00+00:00",
+        )
+
+        self.assertEqual(result["discovery_state"], "NO_CANDIDATES")
+        self.assertEqual(result["profile_reports"][0]["profile_id"], "GUANGDONG-YGP-PROVINCE-TRADING-LIST")
+        self.assertEqual(result["profile_reports"][0]["status"], "SOURCE_PROFILE_EXCLUDED_BY_POLICY")
+        self.assertEqual(result["candidate_count"], 0)
 
     def test_evaluation_corpus_mode_preserves_non_actionable_sample_titles_only(self) -> None:
         normal_fetcher = FakeGuangzhouFlowNoticeFetcher()
@@ -786,7 +986,50 @@ class RealCandidateDiscoveryTests(unittest.TestCase):
         self.assertEqual(candidate["amount_parse_state"], "TITLE_TEXT")
         self.assertEqual(candidate["source_profile_id"], "SICHUAN-GGZY-TRANSACTION-INFO")
 
-    def test_guangdong_public_search_api_feeds_real_candidates(self) -> None:
+    def test_zhejiang_online_letter_submit_is_not_candidate_detail_even_in_evaluation_mode(self) -> None:
+        self.assertFalse(
+            _is_candidate_detail_url(
+                "https://ggzy.zj.gov.cn/zhejiangnew/onlinelettersubmit.html?cate=002",
+                "onlinelettersubmit",
+                "ZHEJIANG-GGZY-JYXXGK-LIST",
+                allow_non_actionable_title=True,
+            )
+        )
+
+    def test_ggzy_selection_filters_feed_public_api_context_for_shanghai_targets(self) -> None:
+        api_discoverer = FakeGgzySelectionApiDiscoverer()
+        service = RealPublicCandidateDiscoveryService(
+            fetcher=FakeCandidateEntryFetcher(),
+            repository=RealPublicCandidateRepository(),
+            profile_api_link_discoverer=api_discoverer,
+        )
+
+        result = service.discover(
+            {
+                "region_codes": ["CN-SH"],
+                "project_types": ["construction"],
+                "source_profile_ids": ["GGZY-DEAL-LIST"],
+                "selection_filters": ["上海", "工程建设", "招标公告"],
+                "evaluation_corpus_mode": True,
+                "evaluation_document_kind": "tender_file",
+                "amount_min": 0,
+                "amount_max": 30_000_000,
+                "discovery_profile_limit_per_region": 1,
+                "discovery_candidate_limit": 3,
+                "now": "2026-05-01T00:00:00+00:00",
+            },
+            now="2026-05-01T00:00:00+00:00",
+        )
+
+        self.assertEqual(result["discovery_state"], "COMPLETED")
+        self.assertEqual(result["candidate_count"], 1)
+        self.assertEqual(api_discoverer.contexts[0]["selection_filters"], ["上海", "工程建设", "招标公告"])
+        self.assertEqual(api_discoverer.contexts[0]["requested_region_code"], "CN-SH")
+        candidate = result["candidates"][0]
+        self.assertEqual(candidate["region_code"], "CN-SH")
+        self.assertEqual(candidate["source_profile_id"], "GGZY-DEAL-LIST")
+
+    def test_guangdong_default_discovery_excludes_ygp_pollution_source(self) -> None:
         service = RealPublicCandidateDiscoveryService(
             fetcher=FakeGuangdongShellFetcher(),
             repository=RealPublicCandidateRepository(),
@@ -806,20 +1049,16 @@ class RealCandidateDiscoveryTests(unittest.TestCase):
             now="2026-05-01T00:00:00+00:00",
         )
 
-        self.assertEqual(result["discovery_state"], "COMPLETED")
-        self.assertEqual(result["candidate_count"], 1)
-        report = result["profile_reports"][1]
-        self.assertEqual(report["candidate_diagnostics"]["profile_api_discovery_state"], "FETCHED")
-        self.assertEqual(report["candidate_diagnostics"]["profile_api_link_count"], 1)
-        self.assertIn("candidate_links_accepted", report["operator_diagnosis"])
-        candidate = result["candidates"][0]
-        self.assertEqual(candidate["region_code"], "CN-GD")
-        self.assertEqual(candidate["project_type"], "water_conservancy")
-        self.assertEqual(candidate["notice_stage"], "tender_notice")
-        self.assertEqual(candidate["source_profile_id"], "GUANGDONG-YGP-PROVINCE-TRADING-LIST")
-        self.assertEqual(candidate["publication_window_state"], "WITHIN_RECENT_DISCOVERY_WINDOW")
-        self.assertIn("ygp.gdzwfw.gov.cn/#/44/new/jygg/v3/A", candidate["source_url"])
-        self.assertIn("noticeId=3fd848f3-3ef4-4240-9417-bded006b182d-3C14", candidate["source_url"])
+        self.assertEqual(result["discovery_state"], "NO_CANDIDATES")
+        self.assertEqual(result["candidate_count"], 0)
+        self.assertEqual(
+            [report["profile_id"] for report in result["profile_reports"]],
+            ["GUANGZHOU-YWTB-CONSTRUCTION-LIST"],
+        )
+        self.assertNotIn(
+            "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
+            [report["profile_id"] for report in result["profile_reports"]],
+        )
 
     def test_guangdong_candidate_publicity_process_uses_guangzhou_source_not_eval_report(self) -> None:
         service = RealPublicCandidateDiscoveryService(
@@ -850,6 +1089,120 @@ class RealCandidateDiscoveryTests(unittest.TestCase):
         self.assertEqual(candidate["source_dataset_name"], "中标候选人公示")
         self.assertEqual(candidate["source_query_process_label"], "candidate_publicity")
         self.assertIn("ywtb.gzggzy.cn/jyfw/002001/002001001/20260501", candidate["source_url"])
+
+    def test_guangzhou_ywtb_process_priority_follows_requested_document_kind(self) -> None:
+        self.assertEqual(
+            _guangzhou_ywtb_process_priority({"evaluation_document_kind": "tender_file"})[0],
+            ("tender_notice", "01"),
+        )
+        self.assertEqual(
+            _guangzhou_ywtb_process_priority({"evaluation_document_kind": "candidate_notice"})[0],
+            ("candidate_publicity", "03"),
+        )
+        self.assertEqual(
+            _guangzhou_ywtb_process_priority({"evaluation_document_kind": "award_result"}),
+            (("award_result", "06"), ("award_info_fallback", "05")),
+        )
+
+    def test_guangzhou_tender_target_uses_tender_notice_not_candidate_publicity(self) -> None:
+        service = RealPublicCandidateDiscoveryService(
+            fetcher=FakeGuangdongShellFetcher(),
+            repository=RealPublicCandidateRepository(),
+            profile_api_link_discoverer=fake_guangzhou_stage_aware_api_link_discoverer,
+        )
+
+        result = service.discover(
+            {
+                "region_codes": ["CN-GD"],
+                "project_types": ["municipal"],
+                "discovery_profile_limit_per_region": 1,
+                "discovery_candidate_limit": 5,
+                "source_profile_ids": ["GUANGZHOU-YWTB-CONSTRUCTION-LIST"],
+                "evaluation_corpus_mode": True,
+                "evaluation_document_kind": "tender_file",
+                "now": "2026-05-01T00:00:00+00:00",
+            },
+            now="2026-05-01T00:00:00+00:00",
+        )
+
+        self.assertEqual(result["candidate_count"], 1)
+        candidate = result["candidates"][0]
+        self.assertEqual(candidate["source_trading_process"], "01")
+        self.assertEqual(candidate["source_query_process_label"], "tender_notice")
+        self.assertEqual(candidate["source_dataset_name"], "招标公告")
+        self.assertNotIn("中标候选人", candidate["project_name"])
+        report = result["profile_reports"][0]
+        self.assertEqual(report["public_api_trading_process_strategy"], "guangzhou_ywtb_stage_aware")
+        self.assertEqual(report["public_api_primary_trading_process"], "01")
+
+    def test_guangzhou_candidate_and_award_targets_use_distinct_stages(self) -> None:
+        service = RealPublicCandidateDiscoveryService(
+            fetcher=FakeGuangdongShellFetcher(),
+            repository=RealPublicCandidateRepository(),
+            profile_api_link_discoverer=fake_guangzhou_stage_aware_api_link_discoverer,
+        )
+
+        candidate_result = service.discover(
+            {
+                "region_codes": ["CN-GD"],
+                "project_types": ["municipal"],
+                "discovery_profile_limit_per_region": 1,
+                "discovery_candidate_limit": 5,
+                "source_profile_ids": ["GUANGZHOU-YWTB-CONSTRUCTION-LIST"],
+                "evaluation_corpus_mode": True,
+                "evaluation_document_kind": "candidate_notice",
+                "now": "2026-05-01T00:00:00+00:00",
+            },
+            now="2026-05-01T00:00:00+00:00",
+        )
+        award_result = service.discover(
+            {
+                "region_codes": ["CN-GD"],
+                "project_types": ["municipal"],
+                "discovery_profile_limit_per_region": 1,
+                "discovery_candidate_limit": 5,
+                "source_profile_ids": ["GUANGZHOU-YWTB-CONSTRUCTION-LIST"],
+                "evaluation_corpus_mode": True,
+                "evaluation_document_kind": "award_result",
+                "now": "2026-05-01T00:00:00+00:00",
+            },
+            now="2026-05-01T00:00:00+00:00",
+        )
+
+        self.assertEqual(candidate_result["candidates"][0]["source_trading_process"], "03")
+        self.assertEqual(candidate_result["candidates"][0]["source_query_process_label"], "candidate_publicity")
+        self.assertEqual(award_result["candidates"][0]["source_trading_process"], "06")
+        self.assertEqual(award_result["candidates"][0]["source_query_process_label"], "award_result")
+        self.assertEqual(award_result["candidates"][0]["source_dataset_name"], "中标结果公告")
+
+    def test_guangzhou_award_target_falls_back_to_award_info_when_result_empty(self) -> None:
+        service = RealPublicCandidateDiscoveryService(
+            fetcher=FakeGuangdongShellFetcher(),
+            repository=RealPublicCandidateRepository(),
+            profile_api_link_discoverer=fake_guangzhou_award_result_fallback_api_link_discoverer,
+        )
+
+        result = service.discover(
+            {
+                "region_codes": ["CN-GD"],
+                "project_types": ["municipal"],
+                "discovery_profile_limit_per_region": 1,
+                "discovery_candidate_limit": 5,
+                "source_profile_ids": ["GUANGZHOU-YWTB-CONSTRUCTION-LIST"],
+                "evaluation_corpus_mode": True,
+                "evaluation_document_kind": "award_result",
+                "now": "2026-05-01T00:00:00+00:00",
+            },
+            now="2026-05-01T00:00:00+00:00",
+        )
+
+        self.assertEqual(result["candidate_count"], 1)
+        candidate = result["candidates"][0]
+        self.assertEqual(candidate["source_trading_process"], "05")
+        self.assertEqual(candidate["source_query_process_label"], "award_info_fallback")
+        self.assertEqual(candidate["source_dataset_name"], "中标信息")
+        attempts = result["profile_reports"][0]["public_api_process_attempts"]
+        self.assertEqual([item["trading_process"] for item in attempts], ["06", "05"])
 
     def test_guangdong_stage1_6_validation_defaults_to_30_candidates_and_one_page_window(self) -> None:
         service = RealPublicCandidateDiscoveryService(
@@ -892,7 +1245,7 @@ class RealCandidateDiscoveryTests(unittest.TestCase):
         service = RealPublicCandidateDiscoveryService(
             fetcher=FakeGuangdongShellFetcher(),
             repository=RealPublicCandidateRepository(),
-            profile_api_link_discoverer=fake_guangdong_api_link_discoverer_with_expired_notice,
+            profile_api_link_discoverer=fake_guangzhou_api_link_discoverer_with_expired_notice,
         )
 
         result = service.discover(
@@ -913,7 +1266,7 @@ class RealCandidateDiscoveryTests(unittest.TestCase):
         self.assertEqual(old_candidate["publication_window_state"], "OUTSIDE_RECENT_DISCOVERY_WINDOW")
         self.assertTrue(old_candidate["discovery_preserved_after_filter_review"])
         self.assertIn("published_outside_recent_discovery_window", old_candidate["discovery_review_reasons"])
-        preserved = result["profile_reports"][1]["candidate_diagnostics"]["preserved_filter_counts"]
+        preserved = result["profile_reports"][0]["candidate_diagnostics"]["preserved_filter_counts"]
         self.assertEqual(preserved["published_outside_discovery_window"], 1)
         self.assertEqual(
             result["candidate_discovery_diagnostics"]["preserved_filter_totals"]["published_outside_discovery_window"],

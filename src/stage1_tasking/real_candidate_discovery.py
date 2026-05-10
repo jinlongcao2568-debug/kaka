@@ -14,6 +14,7 @@ from shared.utils import build_id, utc_now_iso
 from stage1_tasking.region_adapters import (
     list_region_source_adapters,
     resolve_region_source_adapter,
+    resolve_source_quality_policy,
 )
 from stage2_ingestion.real_public_url_fetcher import (
     REAL_PUBLIC_ENTRY_PROFILE_BY_ID,
@@ -35,7 +36,33 @@ MAX_GUANGDONG_DISCOVERY_PAGES = 1
 GUANGZHOU_YWTB_PROFILE_ID = "GUANGZHOU-YWTB-CONSTRUCTION-LIST"
 GUANGZHOU_YWTB_DISCOVERY_PAGE_SIZE = 50
 GUANGZHOU_YWTB_CONSTRUCTION_CATEGORY_NUM = "002001001"
+GUANGZHOU_YWTB_TENDER_NOTICE_TYPE = "01"
 GUANGZHOU_YWTB_CANDIDATE_NOTICE_TYPE = "03"
+GUANGZHOU_YWTB_AWARD_INFO_TYPE = "05"
+GUANGZHOU_YWTB_AWARD_RESULT_TYPE = "06"
+GUANGZHOU_YWTB_PROCESS_METADATA = {
+    GUANGZHOU_YWTB_TENDER_NOTICE_TYPE: {
+        "process_label": "tender_notice",
+        "dataset_name": "招标公告",
+        "notice_third_type_desc": "招标公告",
+    },
+    GUANGZHOU_YWTB_CANDIDATE_NOTICE_TYPE: {
+        "process_label": "candidate_publicity",
+        "dataset_name": "中标候选人公示",
+        "notice_third_type_desc": "中标候选人公示",
+    },
+    GUANGZHOU_YWTB_AWARD_INFO_TYPE: {
+        "process_label": "award_info_fallback",
+        "dataset_name": "中标信息",
+        "notice_third_type_desc": "中标信息",
+    },
+    GUANGZHOU_YWTB_AWARD_RESULT_TYPE: {
+        "process_label": "award_result",
+        "dataset_name": "中标结果公告",
+        "notice_third_type_desc": "中标结果公告",
+    },
+}
+GUANGDONG_TENDER_NOTICE_TRADING_PROCESS = "3C14"
 GUANGDONG_CANDIDATE_PUBLICITY_TRADING_PROCESS = "3C51"
 GUANGDONG_EVALUATION_REPORT_TRADING_PROCESS = "3C42"
 GUANGDONG_YGP_TRADING_PROCESS_PRIORITY = (
@@ -53,6 +80,7 @@ _PROJECT_TYPE_LABELS = {
 
 _PROVINCE_ADMIN_CODE_TO_REGION = {
     "110000": "CN-BJ",
+    "310000": "CN-SH",
     "320000": "CN-JS",
     "330000": "CN-ZJ",
     "370000": "CN-SD",
@@ -64,17 +92,19 @@ _PROVINCE_ADMIN_CODE_TO_REGION = {
 
 _BROWSER_RENDERED_REALTIME_PROFILE_IDS = {
     GUANGZHOU_YWTB_PROFILE_ID,
-    "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
 }
 
 _PROVINCE_REALTIME_PROFILE_IDS = {
     GUANGZHOU_YWTB_PROFILE_ID,
-    "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
     "JIANGSU-GGZY-HOME",
     "ZHEJIANG-GGZY-JYXXGK-LIST",
     "SHANDONG-GGZY-JYXXGK-LIST",
     "HUBEI-BIDCLOUD-JYXX-LIST",
     "SICHUAN-GGZY-TRANSACTION-INFO",
+}
+
+EXCLUDED_DISCOVERY_PROFILE_IDS = {
+    "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
 }
 
 _GENERIC_NAV_TITLE_EXACTS = {
@@ -105,7 +135,37 @@ _GENERIC_NAV_TITLE_EXACTS = {
     "中标公告",
     "中标候选人公示",
     "结果公告",
+    "onlinelettersubmit",
+    "生产要素",
 }
+
+_NON_PROJECT_DETAIL_PATH_TOKENS = (
+    "onlinelettersubmit",
+    "login",
+    "userlogin",
+    "register",
+    "wechat",
+    "wxlogin",
+    "letter",
+    "mailbox",
+    "consult",
+    "feedback",
+    "complaintsubmit",
+    "appeal",
+    "serviceguide",
+    "transactioninfoscys",
+)
+
+_NON_PROJECT_DETAIL_TITLE_TOKENS = (
+    "登录",
+    "注册",
+    "留言",
+    "在线留言",
+    "办件",
+    "咨询",
+    "投诉提交",
+    "意见反馈",
+)
 
 _NOTICE_TITLE_TOKENS = (
     "公告",
@@ -345,6 +405,8 @@ def _is_navigation_or_template_link(url: str, title: str) -> bool:
     clean_title = _clean_text(title)
     if _has_template_placeholder(url, clean_title):
         return True
+    if _is_non_project_detail_path(url, clean_title):
+        return True
     normalized = clean_title.replace(" ", "").lower()
     if not normalized:
         return True
@@ -353,6 +415,15 @@ def _is_navigation_or_template_link(url: str, title: str) -> bool:
     if len(normalized) <= 8 and any(token in normalized for token in ("更多", "查看更多", "入口", "栏目", "专题")):
         return True
     return False
+
+
+def _is_non_project_detail_path(url: str, title: str = "") -> bool:
+    parsed = urlsplit(str(url or "").strip())
+    path_query = f"{parsed.path}?{parsed.query}".lower()
+    if any(token in path_query for token in _NON_PROJECT_DETAIL_PATH_TOKENS):
+        return True
+    normalized_title = str(title or "").replace(" ", "").lower()
+    return any(token.lower() in normalized_title for token in _NON_PROJECT_DETAIL_TITLE_TOKENS)
 
 
 def _is_real_notice_candidate_title(title: str) -> bool:
@@ -432,11 +503,18 @@ def _is_published_within_discovery_window(value: Any, *, now: str, days: int = 3
     return start.date() <= published.date() <= parsed_now.date()
 
 
-def _discover_profile_api_link_items(profile_id: str, *, now: str) -> dict[str, Any]:
+def _discover_profile_api_link_items(
+    profile_id: str,
+    *,
+    now: str,
+    context: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
     if profile_id == GUANGZHOU_YWTB_PROFILE_ID:
-        return _discover_guangzhou_ywtb_api_link_items(now=now)
+        return _discover_guangzhou_ywtb_api_link_items(now=now, context=context or {})
     if profile_id == "GUANGDONG-YGP-PROVINCE-TRADING-LIST":
-        return _discover_guangdong_ygp_api_link_items(now=now)
+        return _discover_guangdong_ygp_api_link_items(now=now, context=context or {})
+    if profile_id == "GGZY-DEAL-LIST":
+        return _discover_ggzy_deal_api_link_items(now=now, context=context or {})
     if profile_id == "JIANGSU-GGZY-HOME":
         return _discover_text_search_api_link_items(
             endpoint="http://jsggzy.jszwfw.gov.cn/inteligentsearch/rest/esinteligentsearch/getFullTextDataNew",
@@ -446,6 +524,7 @@ def _discover_profile_api_link_items(profile_id: str, *, now: str) -> dict[str, 
             sort_field="infodatepx",
             no_participle="1",
             now=now,
+            profile_id=profile_id,
         )
     if profile_id == "ZHEJIANG-GGZY-JYXXGK-LIST":
         return _discover_text_search_api_link_items(
@@ -456,6 +535,7 @@ def _discover_profile_api_link_items(profile_id: str, *, now: str) -> dict[str, 
             sort_field="webdate",
             no_participle="0",
             now=now,
+            profile_id=profile_id,
         )
     if profile_id == "SICHUAN-GGZY-TRANSACTION-INFO":
         return _discover_sichuan_api_link_items(now=now)
@@ -465,6 +545,191 @@ def _discover_profile_api_link_items(profile_id: str, *, now: str) -> dict[str, 
         "items": [],
         "error_optional": "",
     }
+
+
+def _call_profile_api_link_discoverer(
+    discoverer: Any,
+    profile_id: str,
+    *,
+    now: str,
+    context: Mapping[str, Any],
+) -> Any:
+    try:
+        return discoverer(profile_id, now=now, context=context)
+    except TypeError as exc:
+        if "context" not in str(exc):
+            raise
+        return discoverer(profile_id, now=now)
+
+
+def _discover_ggzy_deal_api_link_items(
+    *,
+    now: str,
+    context: Mapping[str, Any],
+) -> dict[str, Any]:
+    endpoint = "https://deal.ggzy.gov.cn/ds/deal/dealList_find.jsp"
+    start_date, end_date = _date_window_from_now(now)
+    terms = _ggzy_find_terms(context)
+    query_text = " ".join(terms[:4])
+    province_code = _ggzy_province_code(context)
+    params = {
+        "TIMEBEGIN_SHOW": start_date,
+        "TIMEEND_SHOW": end_date,
+        "TIMEBEGIN": start_date,
+        "TIMEEND": end_date,
+        "SOURCE_TYPE": "1",
+        "DEAL_TIME": "02",
+        "DEAL_CLASSIFY": "00",
+        "DEAL_STAGE": "0000",
+        "DEAL_PROVINCE": province_code,
+        "DEAL_CITY": "0",
+        "DEAL_PLATFORM": "0",
+        "BID_PLATFORM": "0",
+        "DEAL_TRADE": "0",
+        "isShowAll": "1",
+        "PAGENUMBER": "1",
+        "FINDTXT": query_text,
+    }
+    url = f"{endpoint}?{urlencode(params)}"
+    request = Request(
+        url,
+        headers={
+            "User-Agent": "AX9S-RealPublicCandidateDiscovery/0.1 (+public-readonly-validation)",
+            "Accept": "application/json, text/javascript, */*; q=0.01",
+            "Referer": "https://www.ggzy.gov.cn/deal/dealList.html",
+        },
+        method="GET",
+    )
+    try:
+        with urlopen(request, timeout=18) as response:
+            raw = response.read(1_500_000).decode("utf-8", "ignore")
+        data = json.loads(raw)
+    except Exception as exc:  # pragma: no cover - public network failures vary
+        return {
+            "state": "FAILED",
+            "endpoint": endpoint,
+            "url": url,
+            "items": [],
+            "error_optional": str(exc),
+            "query_window": {"start_date": start_date, "end_date": end_date},
+            "query_terms": terms,
+            "province_code": province_code,
+        }
+    records = _ggzy_deal_records(data)
+    return {
+        "state": "FETCHED" if records else "EMPTY",
+        "endpoint": endpoint,
+        "url": url,
+        "items": _link_items_from_ggzy_deal_records(records),
+        "error_optional": "",
+        "query_window": {"start_date": start_date, "end_date": end_date},
+        "query_terms": terms,
+        "province_code": province_code,
+        "record_count": len(records),
+    }
+
+
+def _ggzy_find_terms(context: Mapping[str, Any]) -> list[str]:
+    values = _as_string_list(context.get("selection_filters"), [])
+    document_kind = str(context.get("evaluation_document_kind") or "")
+    if document_kind == "flow_or_re_tender_notice":
+        values = ["流标", "重新招标", "终止公告", *values]
+    elif document_kind == "official_case":
+        values = ["公平竞争", "限制排斥", *values]
+    elif document_kind == "candidate_notice":
+        values = ["中标候选人公示", *values]
+    elif document_kind == "award_result":
+        values = ["中标结果公告", *values]
+    elif document_kind == "tender_file":
+        values = ["招标公告", *values]
+    return [
+        value
+        for value in dict.fromkeys(str(item).strip() for item in values)
+        if value and value not in {"工程建设", "含招标文件或应用文本", "能回链候选公示"}
+    ]
+
+
+def _ggzy_province_code(context: Mapping[str, Any]) -> str:
+    region_code = str(context.get("requested_region_code") or "").strip()
+    if region_code == "CN-SH":
+        return "310000"
+    filters = " ".join(_as_string_list(context.get("selection_filters"), []))
+    if "上海" in filters:
+        return "310000"
+    return "0"
+
+
+def _ggzy_deal_records(data: Any) -> list[Any]:
+    if isinstance(data, list):
+        return data
+    if not isinstance(data, Mapping):
+        return []
+    for key in ("data", "rows", "result", "list"):
+        value = data.get(key)
+        if isinstance(value, list):
+            return value
+        if isinstance(value, Mapping):
+            nested = _ggzy_deal_records(value)
+            if nested:
+                return nested
+    return []
+
+
+def _link_items_from_ggzy_deal_records(records: list[Any]) -> list[dict[str, str]]:
+    items: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for record in records:
+        if not isinstance(record, Mapping):
+            continue
+        title = _normalize_public_title(
+            record.get("title")
+            or record.get("titleShow")
+            or record.get("projectName")
+            or record.get("noticeTitle")
+            or record.get("name")
+        )
+        link = str(
+            record.get("url")
+            or record.get("href")
+            or record.get("detailUrl")
+            or record.get("linkurl")
+            or ""
+        ).strip()
+        if not title or not link:
+            continue
+        full_url = urljoin("https://www.ggzy.gov.cn/", link)
+        if not _is_candidate_detail_url(
+            full_url,
+            title,
+            "GGZY-DEAL-LIST",
+            allow_non_actionable_title=True,
+        ):
+            continue
+        if full_url in seen:
+            continue
+        seen.add(full_url)
+        items.append(
+            {
+                "url": full_url,
+                "text": title,
+                "summary": _clean_text(
+                    record.get("content")
+                    or record.get("summary")
+                    or record.get("platformName")
+                    or record.get("districtShow")
+                )[:1500],
+                "published_at": str(
+                    record.get("timeShow")
+                    or record.get("dealTime")
+                    or record.get("publishTime")
+                    or record.get("pubDate")
+                    or ""
+                ),
+                "source_region_code": _region_from_source_url(full_url),
+                "source_api": "https://deal.ggzy.gov.cn/ds/deal/dealList_find.jsp",
+            }
+        )
+    return items
 
 
 def _stringify_guangdong_ygp_payload(payload: Mapping[str, Any]) -> str:
@@ -498,10 +763,29 @@ def _url_decode_for_guangdong_signature(value: str) -> str:
     return unquote(value)
 
 
-def _discover_guangzhou_ywtb_api_link_items(*, now: str) -> dict[str, Any]:
+def _guangzhou_ywtb_process_priority(context: Mapping[str, Any] | None = None) -> tuple[tuple[str, str], ...]:
+    document_kind = str((context or {}).get("evaluation_document_kind") or "")
+    if document_kind == "tender_file":
+        return (("tender_notice", GUANGZHOU_YWTB_TENDER_NOTICE_TYPE),)
+    if document_kind == "award_result":
+        return (
+            ("award_result", GUANGZHOU_YWTB_AWARD_RESULT_TYPE),
+            ("award_info_fallback", GUANGZHOU_YWTB_AWARD_INFO_TYPE),
+        )
+    if document_kind == "candidate_notice":
+        return (("candidate_publicity", GUANGZHOU_YWTB_CANDIDATE_NOTICE_TYPE),)
+    return (("candidate_publicity", GUANGZHOU_YWTB_CANDIDATE_NOTICE_TYPE),)
+
+
+def _discover_guangzhou_ywtb_api_link_items(
+    *,
+    now: str,
+    context: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
     endpoint = "https://ywtb.gzggzy.cn/inteligentsearch/rest/esinteligentsearch/getFullTextDataNew"
     start_date, end_date = _date_window_from_now(now)
-    payload = {
+    process_priority = _guangzhou_ywtb_process_priority(context or {})
+    base_payload = {
         "token": "",
         "pn": 0,
         "rn": GUANGZHOU_YWTB_DISCOVERY_PAGE_SIZE,
@@ -523,12 +807,6 @@ def _discover_guangzhou_ywtb_api_link_items(*, now: str) -> dict[str, Any]:
                 "isLike": True,
                 "likeType": 2,
             },
-            {
-                "fieldName": "jsgcggfl",
-                "equal": GUANGZHOU_YWTB_CANDIDATE_NOTICE_TYPE,
-                "isLike": False,
-                "likeType": 0,
-            },
         ],
         "time": None,
         "highlights": "",
@@ -539,69 +817,115 @@ def _discover_guangzhou_ywtb_api_link_items(*, now: str) -> dict[str, Any]:
         "searchRange": [],
         "isBusiness": "1",
     }
-    request = Request(
-        endpoint,
-        data=json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8"),
-        headers={
-            "User-Agent": "AX9S-RealPublicCandidateDiscovery/0.1 (+public-readonly-validation)",
-            "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-            "Accept": "application/json, text/javascript, */*; q=0.01",
-            "Referer": "https://ywtb.gzggzy.cn/jyfw/002001/002001001/trade_purchasetoplen6.html",
-            "X-Requested-With": "XMLHttpRequest",
-        },
-        method="POST",
-    )
-    try:
-        with urlopen(request, timeout=18) as response:
-            raw = response.read(2_500_000).decode("utf-8", "ignore")
-        outer = json.loads(raw)
-        content = outer.get("content")
-        data = json.loads(content) if isinstance(content, str) else dict(content or {})
-    except Exception as exc:  # pragma: no cover - public network failures vary
-        return {
-            "state": "FAILED",
-            "endpoint": endpoint,
-            "items": [],
-            "error_optional": str(exc),
-            "query_window": {"start_date": start_date, "end_date": end_date},
-            "api_time_filter_state": "guangzhou_ywtb_default_recent_candidate_notice_list",
-        }
-    records = list(((data.get("result") or {}).get("records") or []))
-    total = str((data.get("result") or {}).get("totalcount") or "")
+    all_items: list[dict[str, str]] = []
+    process_attempts: list[dict[str, Any]] = []
+    totals: dict[str, str] = {}
+    first_error = ""
+    for process_label, process_code in process_priority:
+        payload = dict(base_payload)
+        payload["condition"] = [
+            *list(base_payload["condition"]),
+            {
+                "fieldName": "jsgcggfl",
+                "equal": process_code,
+                "isLike": False,
+                "likeType": 0,
+            },
+        ]
+        request = Request(
+            endpoint,
+            data=json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8"),
+            headers={
+                "User-Agent": "AX9S-RealPublicCandidateDiscovery/0.1 (+public-readonly-validation)",
+                "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+                "Accept": "application/json, text/javascript, */*; q=0.01",
+                "Referer": "https://ywtb.gzggzy.cn/jyfw/002001/002001001/trade_purchasetoplen6.html",
+                "X-Requested-With": "XMLHttpRequest",
+            },
+            method="POST",
+        )
+        try:
+            with urlopen(request, timeout=18) as response:
+                raw = response.read(2_500_000).decode("utf-8", "ignore")
+            outer = json.loads(raw)
+            content = outer.get("content")
+            data = json.loads(content) if isinstance(content, str) else dict(content or {})
+        except Exception as exc:  # pragma: no cover - public network failures vary
+            if not first_error:
+                first_error = str(exc)
+            process_attempts.append(
+                {
+                    "process_label": process_label,
+                    "trading_process": process_code,
+                    "attempted_pages": 1,
+                    "record_count": 0,
+                    "accepted_item_count": 0,
+                    "total": "",
+                    "state": "FAILED",
+                    "error_optional": str(exc),
+                }
+            )
+            continue
+        records = list(((data.get("result") or {}).get("records") or []))
+        total = str((data.get("result") or {}).get("totalcount") or "")
+        totals[process_code] = total
+        items = _link_items_from_guangzhou_ywtb_records(
+            records,
+            allowed_processes={process_code},
+            fallback_process_label=process_label,
+        )
+        all_items = _merge_link_items(all_items, items)
+        process_attempts.append(
+            {
+                "process_label": process_label,
+                "trading_process": process_code,
+                "attempted_pages": 1,
+                "record_count": len(records),
+                "accepted_item_count": len(items),
+                "total": total,
+                "state": "FETCHED" if records else "EMPTY",
+            }
+        )
+        if items:
+            break
+    primary_process = process_priority[0][1] if process_priority else ""
     return {
-        "state": "FETCHED" if records else "EMPTY",
+        "state": "FETCHED" if all_items else ("FAILED" if first_error and not process_attempts else "EMPTY"),
         "endpoint": endpoint,
-        "items": _link_items_from_guangzhou_ywtb_records(records),
-        "error_optional": "",
+        "items": all_items,
+        "error_optional": "" if all_items or process_attempts else first_error,
         "query_window": {"start_date": start_date, "end_date": end_date},
-        "api_time_filter_state": "guangzhou_ywtb_default_recent_candidate_notice_list",
-        "trading_process_strategy": "guangzhou_ywtb_candidate_notice_only",
-        "primary_trading_process": GUANGZHOU_YWTB_CANDIDATE_NOTICE_TYPE,
+        "api_time_filter_state": "guangzhou_ywtb_stage_aware_recent_list",
+        "trading_process_strategy": "guangzhou_ywtb_stage_aware",
+        "primary_trading_process": primary_process,
         "page_size": GUANGZHOU_YWTB_DISCOVERY_PAGE_SIZE,
         "page_limit": 1,
         "candidate_record_window_cap": GUANGZHOU_YWTB_DISCOVERY_PAGE_SIZE,
-        "attempted_pages": 1,
-        "record_count": len(records),
-        "total": total,
-        "process_attempts": [
-            {
-                "process_label": "candidate_publicity",
-                "trading_process": GUANGZHOU_YWTB_CANDIDATE_NOTICE_TYPE,
-                "attempted_pages": 1,
-                "record_count": len(records),
-                "total": total,
-            }
-        ],
+        "attempted_pages": len(process_attempts),
+        "record_count": sum(_as_int(item.get("record_count"), 0) for item in process_attempts),
+        "total": totals.get(primary_process, ""),
+        "total_by_process": totals,
+        "fallback_recent_all_used": bool(
+            all_items and process_priority and str(all_items[0].get("trading_process") or "") != primary_process
+        ),
+        "process_attempts": process_attempts,
     }
 
 
-def _link_items_from_guangzhou_ywtb_records(records: list[Any]) -> list[dict[str, str]]:
+def _link_items_from_guangzhou_ywtb_records(
+    records: list[Any],
+    *,
+    allowed_processes: set[str] | None = None,
+    fallback_process_label: str = "",
+) -> list[dict[str, str]]:
     items: list[dict[str, str]] = []
     seen: set[str] = set()
+    allowed = allowed_processes or {GUANGZHOU_YWTB_CANDIDATE_NOTICE_TYPE}
     for record in records:
         if not isinstance(record, Mapping):
             continue
-        if str(record.get("jsgcggfl") or "") != GUANGZHOU_YWTB_CANDIDATE_NOTICE_TYPE:
+        process_code = str(record.get("jsgcggfl") or "")
+        if process_code not in allowed:
             continue
         title = _normalize_public_title(record.get("title") or record.get("title2"))
         link = str(record.get("linkurl") or record.get("visiturl") or record.get("infourl") or "").strip()
@@ -611,6 +935,7 @@ def _link_items_from_guangzhou_ywtb_records(records: list[Any]) -> list[dict[str
         if full_url in seen:
             continue
         seen.add(full_url)
+        metadata = dict(GUANGZHOU_YWTB_PROCESS_METADATA.get(process_code) or {})
         items.append(
             {
                 "url": full_url,
@@ -618,10 +943,10 @@ def _link_items_from_guangzhou_ywtb_records(records: list[Any]) -> list[dict[str
                 "summary": _clean_text(record.get("content"))[:1500],
                 "published_at": str(record.get("webdate") or record.get("infodate") or ""),
                 "categorynum": str(record.get("categorynum") or ""),
-                "trading_process": GUANGZHOU_YWTB_CANDIDATE_NOTICE_TYPE,
-                "dataset_name": "中标候选人公示",
-                "notice_third_type_desc": "中标候选人公示",
-                "query_process_label": "candidate_publicity",
+                "trading_process": process_code,
+                "dataset_name": str(metadata.get("dataset_name") or ""),
+                "notice_third_type_desc": str(metadata.get("notice_third_type_desc") or ""),
+                "query_process_label": fallback_process_label or str(metadata.get("process_label") or ""),
                 "source_api": "https://ywtb.gzggzy.cn/inteligentsearch/rest/esinteligentsearch/getFullTextDataNew",
                 "source_record_id": str(record.get("id") or record.get("xmbh") or ""),
                 "project_code": str(record.get("xmbh") or ""),
@@ -631,9 +956,14 @@ def _link_items_from_guangzhou_ywtb_records(records: list[Any]) -> list[dict[str
     return items
 
 
-def _discover_guangdong_ygp_api_link_items(*, now: str) -> dict[str, Any]:
+def _discover_guangdong_ygp_api_link_items(
+    *,
+    now: str,
+    context: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
     endpoint = "https://ygp.gdzwfw.gov.cn/ggzy-portal/search/v2/items"
     start_date, end_date = _date_window_from_now(now)
+    process_priority = _guangdong_ygp_process_priority(context or {})
     base_payload = {
         "type": "trading-type",
         "openConvert": False,
@@ -651,7 +981,7 @@ def _discover_guangdong_ygp_api_link_items(*, now: str) -> dict[str, Any]:
     total_by_process: dict[str, str] = {}
     process_attempts: list[dict[str, Any]] = []
     page_errors: list[str] = []
-    for process_label, trading_process in GUANGDONG_YGP_TRADING_PROCESS_PRIORITY:
+    for process_label, trading_process in process_priority:
         process_records: list[Any] = []
         attempted_pages = 0
         for page_no in range(1, MAX_GUANGDONG_DISCOVERY_PAGES + 1):
@@ -699,7 +1029,7 @@ def _discover_guangdong_ygp_api_link_items(*, now: str) -> dict[str, Any]:
         )
         if process_records:
             all_records.extend(process_records)
-            if process_label == "candidate_publicity":
+            if process_label == process_priority[0][0] or process_label == "candidate_publicity":
                 break
     items = _link_items_from_guangdong_ygp_records(all_records)
     return {
@@ -709,9 +1039,9 @@ def _discover_guangdong_ygp_api_link_items(*, now: str) -> dict[str, Any]:
         "error_optional": ";".join(page_errors),
         "query_window": {"start_date": start_date, "end_date": end_date},
         "api_time_filter_state": "candidate_publicity_process_first_then_evaluation_report_then_recent_fallback",
-        "trading_process_strategy": "candidate_publicity_first",
+        "trading_process_strategy": process_priority[0][0] + "_first" if process_priority else "empty",
         "process_attempts": process_attempts,
-        "primary_trading_process": GUANGDONG_CANDIDATE_PUBLICITY_TRADING_PROCESS,
+        "primary_trading_process": process_priority[0][1] if process_priority else "",
         "fallback_recent_all_used": bool(
             process_attempts
             and process_attempts[-1].get("process_label") == "recent_all_fallback"
@@ -722,9 +1052,28 @@ def _discover_guangdong_ygp_api_link_items(*, now: str) -> dict[str, Any]:
         "candidate_record_window_cap": GUANGDONG_DISCOVERY_PAGE_SIZE * MAX_GUANGDONG_DISCOVERY_PAGES,
         "attempted_pages": sum(_as_int(item.get("attempted_pages"), 0) for item in process_attempts),
         "record_count": len(all_records),
-        "total": total_by_process.get("candidate_publicity") or total_by_process.get("recent_all_fallback") or "",
+        "total": total_by_process.get(process_priority[0][0] if process_priority else "")
+        or total_by_process.get("recent_all_fallback")
+        or "",
         "total_by_process": total_by_process,
     }
+
+
+def _guangdong_ygp_process_priority(context: Mapping[str, Any]) -> tuple[tuple[str, str], ...]:
+    document_kind = str(context.get("evaluation_document_kind") or "")
+    if document_kind == "tender_file":
+        return (
+            ("tender_notice", GUANGDONG_TENDER_NOTICE_TRADING_PROCESS),
+            ("candidate_publicity_fallback", GUANGDONG_CANDIDATE_PUBLICITY_TRADING_PROCESS),
+            ("recent_all_fallback", ""),
+        )
+    if document_kind == "award_result":
+        return (
+            ("evaluation_report", GUANGDONG_EVALUATION_REPORT_TRADING_PROCESS),
+            ("candidate_publicity_fallback", GUANGDONG_CANDIDATE_PUBLICITY_TRADING_PROCESS),
+            ("recent_all_fallback", ""),
+        )
+    return GUANGDONG_YGP_TRADING_PROCESS_PRIORITY
 
 
 def _link_items_from_guangdong_ygp_records(records: list[Any]) -> list[dict[str, str]]:
@@ -818,6 +1167,7 @@ def _discover_text_search_api_link_items(
     sort_field: str,
     no_participle: str,
     now: str,
+    profile_id: str = "",
 ) -> dict[str, Any]:
     start_date, end_date = _date_window_from_now(now, days=1)
     payload = {
@@ -878,7 +1228,12 @@ def _discover_text_search_api_link_items(
     return {
         "state": "FETCHED" if records else "EMPTY",
         "endpoint": endpoint,
-        "items": _link_items_from_text_search_records(records, base_url=base_url, endpoint=endpoint),
+        "items": _link_items_from_text_search_records(
+            records,
+            base_url=base_url,
+            endpoint=endpoint,
+            profile_id=profile_id,
+        ),
         "error_optional": "",
         "query_window": {"start_date": start_date, "end_date": end_date},
         "api_time_filter_state": "local_publish_time_filter_after_default_recent_list",
@@ -891,6 +1246,7 @@ def _link_items_from_text_search_records(
     *,
     base_url: str,
     endpoint: str,
+    profile_id: str = "",
 ) -> list[dict[str, str]]:
     items: list[dict[str, str]] = []
     seen: set[str] = set()
@@ -902,6 +1258,15 @@ def _link_items_from_text_search_records(
         if not title or not link:
             continue
         full_url = urljoin(base_url, link)
+        if _is_navigation_or_template_link(full_url, title):
+            continue
+        if profile_id and not _is_candidate_detail_url(
+            full_url,
+            title,
+            profile_id,
+            allow_non_actionable_title=True,
+        ):
+            continue
         if full_url in seen:
             continue
         seen.add(full_url)
@@ -1029,6 +1394,8 @@ def _is_candidate_detail_url(
     path = urlsplit(url).path.lower()
     text = title.lower()
     if _has_template_placeholder(url, title):
+        return False
+    if _is_non_project_detail_path(url, title):
         return False
     blocked_title_tokens = (
         "wechat",
@@ -1561,6 +1928,7 @@ class RealPublicCandidateDiscoveryService:
             candidate_limit_source = "GUANGDONG_STAGE1_6_VALIDATION_DEFAULT"
         profile_limit = max(1, _as_int(payload.get("discovery_profile_limit_per_region"), DEFAULT_DISCOVERY_PROFILE_LIMIT_PER_REGION))
         query = str(payload.get("query") or payload.get("project_keyword") or payload.get("keyword") or "").strip()
+        selection_filters = _as_string_list(payload.get("selection_filters"), [])
         run_id = str(payload.get("candidate_discovery_run_id") or build_id("REAL-CANDIDATE-DISCOVERY", _hash_text(discovered_at, 12)))
         per_region_candidate_limit = (
             None
@@ -1594,6 +1962,21 @@ class RealPublicCandidateDiscoveryService:
                     )
                 ):
                     break
+                if profile_id in EXCLUDED_DISCOVERY_PROFILE_IDS:
+                    profile_reports.append(
+                        {
+                            "region_code": str(adapter.get("region_code") or region_code),
+                            "profile_id": profile_id,
+                            "entry_url": "",
+                            "status": "SOURCE_PROFILE_EXCLUDED_BY_POLICY",
+                            "failure_reason": "profile_removed_from_default_discovery_due_incomplete_tender_document_coverage",
+                            "candidate_count": 0,
+                            "accepted_candidate_count": 0,
+                            "candidate_limit_truncated_count": 0,
+                            "duplicate_filtered_count": 0,
+                        }
+                    )
+                    continue
                 profile = REAL_PUBLIC_ENTRY_PROFILE_BY_ID.get(profile_id)
                 if profile is None:
                     profile_reports.append(
@@ -1646,6 +2029,7 @@ class RealPublicCandidateDiscoveryService:
                     now=discovered_at,
                     evaluation_corpus_mode=evaluation_corpus_mode,
                     evaluation_document_kind=evaluation_document_kind,
+                    selection_filters=selection_filters,
                 )
                 parsed = list(parsed_result["candidates"])
                 diagnostics = dict(parsed_result["diagnostics"])
@@ -1701,6 +2085,16 @@ class RealPublicCandidateDiscoveryService:
                             "public_api_candidate_record_window_cap"
                         ),
                         "public_api_attempted_pages": diagnostics.get("public_api_attempted_pages"),
+                        "public_api_trading_process_strategy": diagnostics.get(
+                            "public_api_trading_process_strategy"
+                        ),
+                        "public_api_primary_trading_process": diagnostics.get(
+                            "public_api_primary_trading_process"
+                        ),
+                        "public_api_fallback_recent_all_used": diagnostics.get(
+                            "public_api_fallback_recent_all_used"
+                        ),
+                        "public_api_process_attempts": diagnostics.get("public_api_process_attempts"),
                         "candidate_diagnostics": diagnostics,
                         "operator_diagnosis": diagnostics.get("operator_diagnosis"),
                         "next_action": diagnostics.get("next_action"),
@@ -1789,6 +2183,7 @@ class RealPublicCandidateDiscoveryService:
         now: str,
         evaluation_corpus_mode: bool = False,
         evaluation_document_kind: str = "",
+        selection_filters: list[str] | None = None,
     ) -> list[dict[str, Any]]:
         return list(
             self._candidates_from_carrier_with_diagnostics(
@@ -1803,6 +2198,7 @@ class RealPublicCandidateDiscoveryService:
                 now=now,
                 evaluation_corpus_mode=evaluation_corpus_mode,
                 evaluation_document_kind=evaluation_document_kind,
+                selection_filters=selection_filters,
             )["candidates"]
         )
 
@@ -1820,6 +2216,7 @@ class RealPublicCandidateDiscoveryService:
         now: str,
         evaluation_corpus_mode: bool = False,
         evaluation_document_kind: str = "",
+        selection_filters: list[str] | None = None,
     ) -> dict[str, Any]:
         profile_id = str(carrier.get("entry_profile_id") or "")
         link_items = carrier.get("same_site_detail_link_items")
@@ -1828,7 +2225,23 @@ class RealPublicCandidateDiscoveryService:
                 {"url": url, "text": _title_from_url(str(url))}
                 for url in list(carrier.get("same_site_detail_links", []) or [])
             ]
-        api_discovery = dict(self.profile_api_link_discoverer(profile_id, now=now) or {})
+        api_context = {
+            "requested_region_code": requested_region_code,
+            "requested_project_types": requested_project_types,
+            "query": query,
+            "evaluation_corpus_mode": evaluation_corpus_mode,
+            "evaluation_document_kind": evaluation_document_kind,
+            "selection_filters": list(selection_filters or []),
+        }
+        api_discovery = dict(
+            _call_profile_api_link_discoverer(
+                self.profile_api_link_discoverer,
+                profile_id,
+                now=now,
+                context=api_context,
+            )
+            or {}
+        )
         api_link_items = [
             dict(item)
             for item in list(api_discovery.get("items") or [])
@@ -1975,6 +2388,7 @@ class RealPublicCandidateDiscoveryService:
             notice_id = build_id("NOTICE", _slug(profile_id, "PROFILE"), candidate_key[:10])
             project_id = build_id("PROJ", _slug(region_code, "REGION"), candidate_key[:10])
             query_match = bool(query and query in analysis_text)
+            source_quality_policy = resolve_source_quality_policy(profile_id)
             rows.append(
                 {
                     "notice_id": notice_id,
@@ -2002,6 +2416,11 @@ class RealPublicCandidateDiscoveryService:
                     "source_family": source_family,
                     "source_registry_id": "REAL_PUBLIC_LIST_PAGE_DISCOVERY",
                     "source_profile_id": profile_id,
+                    "source_quality_state": source_quality_policy["source_quality_state"],
+                    "source_calibration_role": source_quality_policy["source_calibration_role"],
+                    "professional_source_priority": bool(
+                        source_quality_policy["professional_source_priority"]
+                    ),
                     "source_site_name": source_site_name,
                     "source_candidate_mode": REAL_PUBLIC_SOURCE_CANDIDATE_MODE,
                     "evaluation_corpus_mode": evaluation_corpus_mode,

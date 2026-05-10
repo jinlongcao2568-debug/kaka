@@ -1,15 +1,17 @@
 from __future__ import annotations
 
 import base64
+import hashlib
 import os
 import json
 import math
 import tempfile
 import re
+import time
 from io import BytesIO
 from pathlib import Path
 from typing import Any, Mapping
-from urllib.parse import parse_qs, urlsplit, unquote
+from urllib.parse import parse_qs, quote, urlsplit, unquote
 from urllib.parse import urlencode, urlunsplit
 
 
@@ -85,6 +87,13 @@ class PlaywrightAttachmentChallengeResolver:
                 if detail_page_url:
                     page.goto(detail_page_url, wait_until="domcontentloaded", timeout=self.timeout_ms)
                 download_path = None
+                if _guangdong_ygp_download_url(attachment_url):
+                    download_path = self._try_guangdong_ygp_download(
+                        context,
+                        attachment_url=attachment_url,
+                        tmp_dir=tmp_dir,
+                        referer_url=detail_page_url or page.url,
+                    )
                 if _epoint_jigsaw_captcha_url(attachment_url):
                     download_path = self._try_epoint_jigsaw_download(page, context, attachment_url, tmp_dir)
                 if download_path is None:
@@ -92,7 +101,12 @@ class PlaywrightAttachmentChallengeResolver:
                 if download_path is None:
                     download_path = self._try_page_verify_ocr_download(page, context, attachment_url, tmp_dir)
                 if download_path is None:
-                    download_path = self._try_request_download(context, attachment_url, tmp_dir)
+                    download_path = self._try_request_download(
+                        context,
+                        attachment_url,
+                        tmp_dir,
+                        referer_url=detail_page_url or page.url,
+                    )
                 if download_path is None:
                     diagnostics = self._page_diagnostics(page)
                     diagnostics.update(self._last_browser_diagnostics)
@@ -115,6 +129,13 @@ class PlaywrightAttachmentChallengeResolver:
                             "hidden_interface_call_if_public_and_audited",
                         ]
                     )
+                if self._last_browser_diagnostics.get("guangdong_ygp_resolution_state"):
+                    capabilities.extend(
+                        [
+                            "same_site_referer_replay",
+                            "hidden_interface_call_if_public_and_audited",
+                        ]
+                    )
                 if self._last_browser_diagnostics.get("ocr_resolution_state"):
                     capabilities.extend(["captcha_recognition", "ocr_recognition"])
                 return {
@@ -130,6 +151,85 @@ class PlaywrightAttachmentChallengeResolver:
                     "cookie_reuse_state": "STORAGE_STATE_REUSED" if self.storage_state_path else "SESSION_COOKIES_USED",
                     "fingerprint_profile_ref": "zh-CN/chromium/1366x900/Asia-Shanghai",
                     "proxy_profile_ref": "CONFIGURED_PROXY" if self.proxy_server else "",
+                }
+            except PlaywrightTimeoutError as exc:
+                raise RuntimeError(f"playwright_timeout:{exc}") from exc
+            finally:
+                context.close()
+                browser.close()
+
+    def resolve_candidate_detail(self, request: Mapping[str, Any]) -> Mapping[str, Any]:
+        try:
+            from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+            from playwright.sync_api import sync_playwright
+        except Exception as exc:  # pragma: no cover - optional runtime dependency
+            raise RuntimeError(f"playwright_unavailable:{exc}") from exc
+
+        detail_url = str(request.get("detail_url") or "").strip()
+        if not detail_url:
+            raise ValueError("detail_url_required")
+
+        with sync_playwright() as playwright:
+            launch_options: dict[str, Any] = {"headless": self.headless}
+            if self.proxy_server:
+                launch_options["proxy"] = {"server": self.proxy_server}
+            browser = playwright.chromium.launch(**launch_options)
+            context_options: dict[str, Any] = {
+                "accept_downloads": True,
+                "locale": "zh-CN",
+                "timezone_id": "Asia/Shanghai",
+                "viewport": {"width": 1366, "height": 900},
+            }
+            if self.user_agent:
+                context_options["user_agent"] = self.user_agent
+            if self.storage_state_path and Path(self.storage_state_path).exists():
+                context_options["storage_state"] = self.storage_state_path
+            context = browser.new_context(**context_options)
+            page = context.new_page()
+            try:
+                page.goto(detail_url, wait_until="domcontentloaded", timeout=self.timeout_ms)
+                try:
+                    page.wait_for_load_state("networkidle", timeout=min(self.timeout_ms, 12000))
+                except Exception:
+                    pass
+                html = page.content()
+                text = ""
+                try:
+                    text = page.locator("body").inner_text(timeout=3000)
+                except Exception:
+                    text = ""
+                diagnostics = self._page_diagnostics(page)
+                if _detail_page_still_blocked(html, text):
+                    raise RuntimeError(
+                        "automated_detail_challenge_not_resolved:"
+                        + json.dumps(diagnostics, ensure_ascii=False, sort_keys=True)[:1200]
+                    )
+                content = html.encode("utf-8")
+                return {
+                    "url": detail_url,
+                    "final_url": page.url or detail_url,
+                    "status_code": 200,
+                    "content": content,
+                    "content_type": "text/html; charset=utf-8",
+                    "headers": {"x-ax9s-fetch-transport": "playwright_detail_challenge_resolver"},
+                    "resolution_method": "playwright_browser_detail_challenge_resume",
+                    "resolution_capabilities_used": _dedupe(
+                        [
+                            "same_session_capture_resume",
+                            "cookie_reuse" if self.storage_state_path else "browser_session_cookie_capture",
+                            "browser_fingerprint_profile_reuse",
+                            "proxy_pool" if self.proxy_server else "",
+                        ]
+                    ),
+                    "browser_context_ref": "playwright.chromium",
+                    "cookie_reuse_state": "STORAGE_STATE_REUSED" if self.storage_state_path else "SESSION_COOKIES_USED",
+                    "fingerprint_profile_ref": "zh-CN/chromium/1366x900/Asia-Shanghai",
+                    "proxy_profile_ref": "CONFIGURED_PROXY" if self.proxy_server else "",
+                    "resolution_metadata": {
+                        "page_title": diagnostics.get("page_title"),
+                        "page_url": diagnostics.get("page_url"),
+                        "selector_counts": diagnostics.get("selector_counts"),
+                    },
                 }
             except PlaywrightTimeoutError as exc:
                 raise RuntimeError(f"playwright_timeout:{exc}") from exc
@@ -239,8 +339,19 @@ class PlaywrightAttachmentChallengeResolver:
                 continue
         return None
 
-    def _try_request_download(self, context: Any, attachment_url: str, tmp_dir: str) -> str | None:
-        response = context.request.get(attachment_url, timeout=self.timeout_ms)
+    def _try_request_download(
+        self,
+        context: Any,
+        attachment_url: str,
+        tmp_dir: str,
+        *,
+        referer_url: str | None = None,
+    ) -> str | None:
+        response = context.request.get(
+            attachment_url,
+            headers={"Referer": referer_url or _same_site_referer_url(attachment_url)},
+            timeout=self.timeout_ms,
+        )
         if not response.ok:
             return None
         content_type = (response.headers.get("content-type") or "").lower()
@@ -250,6 +361,58 @@ class PlaywrightAttachmentChallengeResolver:
         save_path = str(Path(tmp_dir) / _filename_from_url(attachment_url))
         Path(save_path).write_bytes(body)
         return save_path
+
+    def _try_guangdong_ygp_download(
+        self,
+        context: Any,
+        *,
+        attachment_url: str,
+        tmp_dir: str,
+        referer_url: str | None,
+    ) -> str | None:
+        if not _guangdong_ygp_download_url(attachment_url):
+            return None
+        base_headers = {
+            "Accept": "application/octet-stream,application/pdf,application/zip,*/*",
+            "Referer": referer_url or "https://ygp.gdzwfw.gov.cn/",
+        }
+        attempts = [
+            ("referer_request", base_headers),
+            (
+                "signed_public_request",
+                {
+                    **base_headers,
+                    **_guangdong_ygp_signature_headers(
+                        _guangdong_ygp_download_signature_params(attachment_url)
+                    ),
+                },
+            ),
+        ]
+        for attempt_name, headers in attempts:
+            try:
+                response = context.request.get(
+                    attachment_url,
+                    headers=headers,
+                    timeout=self.timeout_ms,
+                )
+                path = _save_download_response_if_file(
+                    response,
+                    tmp_dir=tmp_dir,
+                    fallback_filename=_filename_from_url(attachment_url),
+                )
+                self._last_browser_diagnostics[f"guangdong_ygp_{attempt_name}_status"] = getattr(
+                    response,
+                    "status",
+                    "",
+                )
+                if path:
+                    self._last_browser_diagnostics["guangdong_ygp_resolution_state"] = attempt_name
+                    return path
+            except Exception as exc:
+                self._last_browser_diagnostics[f"guangdong_ygp_{attempt_name}_error"] = (
+                    f"{type(exc).__name__}:{str(exc)[:240]}"
+                )
+        return None
 
     def _try_page_verify_ocr_download(
         self,
@@ -429,6 +592,90 @@ def _filename_from_url(url: str) -> str:
     return name if "." in name else f"{name}.bin"
 
 
+def _same_site_referer_url(url: str) -> str:
+    parsed = urlsplit(url)
+    return urlunsplit((parsed.scheme, parsed.netloc, "/", "", ""))
+
+
+def _guangdong_ygp_download_url(url: str) -> bool:
+    parsed = urlsplit(str(url or ""))
+    return (
+        parsed.scheme == "https"
+        and parsed.netloc.lower() == "ygp.gdzwfw.gov.cn"
+        and "/ggzy-portal/base/sys-file/download/" in parsed.path.lower()
+    )
+
+
+def _guangdong_ygp_download_signature_params(url: str) -> dict[str, str]:
+    parsed = urlsplit(str(url or ""))
+    parts = [part for part in parsed.path.split("/") if part]
+    params: dict[str, str] = {}
+    try:
+        download_index = parts.index("download")
+        params["version"] = parts[download_index + 1]
+        params["rowGuid"] = parts[download_index + 2]
+    except (ValueError, IndexError):
+        pass
+    query_values = parse_qs(parsed.query, keep_blank_values=True)
+    for key, values in query_values.items():
+        if values:
+            params[key] = str(values[0] or "")
+    if parsed.query and "=" not in parsed.query:
+        params["flowId"] = parsed.query
+    return params
+
+
+def _guangdong_ygp_signature_headers(params: Mapping[str, Any]) -> dict[str, str]:
+    nonce = os.urandom(12).hex()[:16]
+    timestamp_ms = str(int(time.time() * 1000))
+    sorted_query = "&".join(sorted(_guangdong_ygp_query_string(params).split("&")))
+    signature_basis = f"{nonce}k8tUyS$m{unquote(sorted_query)}{timestamp_ms}"
+    return {
+        "X-Dgi-Req-App": "ggzy-portal",
+        "X-Dgi-Req-Nonce": nonce,
+        "X-Dgi-Req-Timestamp": timestamp_ms,
+        "X-Dgi-Req-Signature": hashlib.sha256(signature_basis.encode("utf-8")).hexdigest(),
+    }
+
+
+def _guangdong_ygp_query_string(params: Mapping[str, Any]) -> str:
+    parts: list[str] = []
+    for key, value in params.items():
+        if isinstance(value, bool):
+            text = "true" if value else "false"
+        elif value is None:
+            text = ""
+        else:
+            text = str(value)
+        parts.append(f"{quote(str(key), safe='')}={quote(text, safe='')}")
+    return "&".join(parts)
+
+
+def _save_download_response_if_file(response: Any, *, tmp_dir: str, fallback_filename: str) -> str | None:
+    if not response.ok:
+        return None
+    body = response.body()
+    if not body:
+        return None
+    content_type = (response.headers.get("content-type") or "").lower()
+    if "html" in content_type and not body.lstrip().startswith((b"%PDF", b"PK\x03\x04")):
+        return None
+    if not (
+        body.startswith(b"%PDF")
+        or body.startswith(b"PK\x03\x04")
+        or body.startswith(b"\xd0\xcf\x11\xe0")
+        or any(
+            token in content_type
+            for token in ("pdf", "zip", "msword", "officedocument", "excel", "spreadsheet", "octet-stream")
+        )
+    ):
+        return None
+    filename = _filename_from_content_disposition(response.headers.get("content-disposition") or "")
+    save_path = str(Path(tmp_dir) / (filename or fallback_filename))
+    Path(save_path).write_bytes(body)
+    return save_path
+
+
 def _query_param(url: str, name: str) -> str:
     values = parse_qs(urlsplit(url).query).get(name) or []
     return values[0] if values else ""
@@ -443,8 +690,7 @@ def _epoint_attachment_action_url(
     parsed = urlsplit(attachment_url)
     params = parse_qs(parsed.query)
     path = parsed.path
-    marker = "/downloadztbattach"
-    if marker not in path:
+    if "downloadztbattach" not in path.lower():
         return ""
     base_path = path.rsplit("/", 1)[0] + "/ztbAttachDownloadAction.action"
     action_params = {
@@ -469,14 +715,14 @@ def _epoint_attachment_action_url(
 
 def _epoint_jigsaw_captcha_url(attachment_url: str) -> str:
     parsed = urlsplit(attachment_url)
-    marker = "/EpointWebBuilder/"
-    if marker not in parsed.path:
+    root = _epoint_builder_root_path(parsed.path)
+    if not root:
         return ""
     return urlunsplit(
         (
             parsed.scheme,
             parsed.netloc,
-            "/EpointWebBuilder/rest/shellcaptcha/initAndCheckCaptcha",
+            f"{root}/rest/shellcaptcha/initAndCheckCaptcha",
             "",
             "",
         )
@@ -485,15 +731,23 @@ def _epoint_jigsaw_captcha_url(attachment_url: str) -> str:
 
 def _epoint_page_verify_url(attachment_url: str) -> str:
     parsed = urlsplit(attachment_url)
+    root = _epoint_builder_root_path(parsed.path) or "/EpointWebBuilder"
     return urlunsplit(
         (
             parsed.scheme,
             parsed.netloc,
-            "/EpointWebBuilder/frame/pages/login/pageVerify.html",
+            f"{root}/frame/pages/login/pageVerify.html",
             "",
             "",
         )
     )
+
+
+def _epoint_builder_root_path(path: str) -> str:
+    match = re.search(r"(?i)(/EpointWebBuilder[^/]*)/", str(path or ""))
+    if not match:
+        return ""
+    return match.group(1)
 
 
 def _json_response(response: Any) -> dict[str, Any]:
@@ -615,6 +869,24 @@ def _dedupe(values: list[str]) -> list[str]:
         seen.add(value)
         out.append(value)
     return out
+
+
+def _detail_page_still_blocked(html: str, text: str) -> bool:
+    combined = f"{html or ''}\n{text or ''}".lower()
+    if len((text or "").strip()) < 80 and len((html or "").strip()) < 500:
+        return True
+    return any(
+        token.lower() in combined
+        for token in (
+            "请先登录",
+            "请登录",
+            "用户登录",
+            "验证码",
+            "captcha",
+            "人机验证",
+            "安全验证",
+        )
+    )
 
 
 def _ocr_verification_code(image_path: str) -> str:

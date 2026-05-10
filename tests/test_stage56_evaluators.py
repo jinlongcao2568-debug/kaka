@@ -283,6 +283,97 @@ class TestStage56Evaluators(unittest.TestCase):
         self.assertFalse(report_profile["customer_visible"])
         self.assertTrue(report_profile["no_illegality_or_reserved_winner_conclusion"])
 
+    def test_stage6_stage16_report_profile_summarizes_bid_rigging_and_cover_bid_indices(self) -> None:
+        payload = load_fixture("internal_chain_happy.json")
+        payload.update(
+            {
+                "task_id": "TASK-MULTI-RISK-REPORT-PROFILE-001",
+                "project_id": "PROJ-MULTI-RISK-REPORT-PROFILE-001",
+                "source_title": "投诉线索与历史公告内部分析",
+                "source_text": (
+                    "投诉材料和历史公告显示存在围标、串标、串通投标、轮流坐庄，"
+                    "并出现陪标、护航、凑三家、异常高价护航等报价陪跑线索。"
+                ),
+                "input_observable_from": ["complaint_case", "post_award_notice", "internal_material"],
+                "document_completeness_state": "COMPLETE_WITH_ATTACHMENTS",
+            }
+        )
+
+        result = run_internal_chain_until_stage6(payload)
+        report_profile = result["stage6"].inputs["stage6_review_report_trace"][
+            "stage16_file_analysis_trace"
+        ]["stage16_file_analysis_report_profile"]
+        summary = result["stage6"].inputs["stage6_review_report_trace"][
+            "stage16_file_analysis_trace"
+        ]["file_analysis_review_summary"]
+
+        self.assertLess(report_profile["tailored_bid_index"], 21)
+        self.assertGreaterEqual(report_profile["bid_rigging_index"], 21)
+        self.assertGreaterEqual(report_profile["cover_bid_index"], 21)
+        self.assertIn("BID_RIGGING_INTERNAL_REVIEW", report_profile["recommended_review_lanes"])
+        self.assertIn("COVER_BID_INTERNAL_REVIEW", report_profile["recommended_review_lanes"])
+        self.assertEqual(
+            report_profile["system_auto_judgement"]["judgement_state"],
+            "RISK_CLUE_DETECTED",
+        )
+        self.assertEqual(
+            summary["auto_judgement_summary"]["system_judgement_state"],
+            "RISK_CLUE_DETECTED",
+        )
+        self.assertEqual(
+            summary["auto_judgement_summary"]["recommended_system_action"],
+            "CAUTION_TENDER",
+        )
+        self.assertGreaterEqual(
+            summary["auto_judgement_summary"]["major_indices"]["cover_bid_index"],
+            21,
+        )
+        self.assertIn("围标线索", summary["allowed_output_terms"])
+        self.assertIn("串标线索", summary["allowed_output_terms"])
+        self.assertIn("陪标线索", summary["allowed_output_terms"])
+        self.assertFalse(report_profile["customer_visible"])
+        self.assertTrue(report_profile["no_illegality_or_reserved_winner_conclusion"])
+
+    def test_stage6_stage16_report_profile_summarizes_document_section_slices(self) -> None:
+        payload = load_fixture("internal_chain_happy.json")
+        payload.update(
+            {
+                "task_id": "TASK-SECTION-SLICES-REPORT-PROFILE-001",
+                "project_id": "PROJ-SECTION-SLICES-REPORT-PROFILE-001",
+                "source_title": "招标文件章节切片测试",
+                "source_text": (
+                    "资格条件\n投标人须提供厂家授权、本地社保。\n"
+                    "评分办法\n技术方案主观分45分。\n"
+                    "技术参数\n设备技术参数精确到小数，并提供CMA检测报告。"
+                ),
+                "document_completeness_state": "COMPLETE_WITH_ATTACHMENTS",
+            }
+        )
+
+        result = run_internal_chain_until_stage6(payload)
+        trace = result["stage6"].inputs["stage6_review_report_trace"][
+            "stage16_file_analysis_trace"
+        ]
+        report_profile = trace["stage16_file_analysis_report_profile"]
+        summary = trace["file_analysis_review_summary"]
+
+        self.assertGreaterEqual(report_profile["document_section_slice_count"], 3)
+        self.assertIn("资格条件", report_profile["document_section_slice_types"])
+        self.assertIn("评分办法", report_profile["document_section_slice_types"])
+        self.assertIn("技术参数", report_profile["document_section_slice_types"])
+        self.assertGreaterEqual(report_profile["tailored_section_expected_match_count"], 3)
+        self.assertEqual(report_profile["tailored_section_guardrail_blocked_count"], 0)
+        self.assertEqual(summary["document_section_slice_count"], report_profile["document_section_slice_count"])
+        self.assertIn("资格条件", summary["document_section_slice_types"])
+        self.assertEqual(
+            summary["auto_judgement_summary"]["system_judgement_state"],
+            "RISK_CLUE_DETECTED",
+        )
+        self.assertGreaterEqual(
+            summary["auto_judgement_summary"]["major_indices"]["tailored_bid_index"],
+            21,
+        )
+
     def test_stage6_file_analysis_review_summary_aggregates_document_ocr_and_stage5_review_rules(self) -> None:
         stage4 = run_internal_chain(load_fixture("internal_chain_happy.json"))["stage4"]
         review_stage4 = StageBundle(
