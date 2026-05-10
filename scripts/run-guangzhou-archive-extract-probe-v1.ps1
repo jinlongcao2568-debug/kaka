@@ -1,11 +1,11 @@
 param(
     [string]$InputRoot = "",
+    [string]$StrategyRoot = "",
     [string]$OutputRoot = "",
     [string]$ProjectIds = "PROJ-CN-GD-JG2026-10815,PROJ-CN-GD-JG2026-11021",
-    [string]$FlowNos = "03,04,07,08",
-    [string]$ArchiveExtractRoot = "",
     [string]$StoragePath = "",
     [string]$ObjectStoragePath = "",
+    [int]$MaxExtractFiles = 12,
     [switch]$Execute,
     [switch]$EmitJson
 )
@@ -18,44 +18,40 @@ $repoRoot = Resolve-Path (Join-Path $scriptDir "..")
 if (-not $InputRoot) {
     $InputRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\guangzhou-download-probe-v1"
 }
-
-if (-not $OutputRoot) {
-    $OutputRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\guangzhou-parse-probe-v1"
+if (-not $StrategyRoot) {
+    $StrategyRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\guangzhou-evidence-strategy-v1"
 }
-
+if (-not $OutputRoot) {
+    $OutputRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\guangzhou-archive-extract-probe-v1"
+}
 if (-not $StoragePath) {
     $StoragePath = Join-Path $InputRoot "storage.json"
 }
-
 if (-not $ObjectStoragePath) {
     $ObjectStoragePath = Join-Path $InputRoot "objects"
 }
 
-$parseProbeJson = Join-Path $OutputRoot "parse-probe-manifest.json"
+$outputJson = Join-Path $OutputRoot "archive-extract-probe-manifest.json"
 
 New-Item -ItemType Directory -Force -Path $OutputRoot | Out-Null
 
 $env:PYTHONPATH = "$repoRoot\src;$repoRoot\tests"
 
 $argsList = @(
-    "-m", "storage.guangzhou_parse_probe",
+    "-m", "storage.guangzhou_archive_extract_probe",
     "--input-root", $InputRoot,
+    "--strategy-root", $StrategyRoot,
     "--output-root", $OutputRoot,
     "--project-ids", $ProjectIds,
-    "--flow-nos", $FlowNos,
     "--storage-path", $StoragePath,
     "--object-storage-path", $ObjectStoragePath,
-    "--output-json", $parseProbeJson
+    "--max-extract-files", ([string]$MaxExtractFiles),
+    "--output-json", $outputJson
 )
-
-if ($ArchiveExtractRoot) {
-    $argsList += @("--archive-extract-root", $ArchiveExtractRoot)
-}
 
 if ($Execute) {
     $argsList += "--execute"
 }
-
 if ($EmitJson) {
     $argsList += "--json"
 }

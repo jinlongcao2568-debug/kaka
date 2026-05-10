@@ -144,6 +144,99 @@ class GuangzhouParseProbeTests(unittest.TestCase):
             self.assertIn("招标文件.pdf", item["archive_inventory"]["member_name_probes"])
             convert.assert_not_called()
 
+    def test_docx_zip_container_is_parsed_as_document_not_archive(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            input_root = root / "download"
+            _write_download_manifest(input_root, snapshot_id="ATT-DOCX-1", attachment_url="https://example.test/files/tender.docx")
+            text = "资格条件：项目负责人须具备注册证书。评分办法：综合评估法。"
+            with patch(
+                "storage.guangzhou_parse_probe.markitdown_adapter.convert_bytes_to_markdown_text",
+                return_value=markitdown_adapter.MarkItDownText(
+                    text=text,
+                    state=markitdown_adapter.MARKITDOWN_TEXT_EXTRACTED,
+                    text_sha256="docx-text-sha",
+                    text_length=len(text),
+                    text_probe=text,
+                ),
+            ) as convert:
+                result = build_guangzhou_parse_probe(
+                    input_root=input_root,
+                    output_root=root / "parse",
+                    project_ids=["JG2026-10815"],
+                    flow_nos=["03"],
+                    execute=True,
+                    object_repository=FakeReplayRepository(
+                        {
+                            "ATT-DOCX-1": _replay(
+                                "ATT-DOCX-1",
+                                _zip_bytes(),
+                                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                            )
+                        }
+                    ),
+                    created_at="2026-05-10T00:00:00+08:00",
+                )
+
+            item = result["manifest"]["items"][0]
+            self.assertEqual(item["parse_state"], "PARSED_TEXT_PROBE")
+            self.assertNotIn("archive_inventory", item)
+            convert.assert_called_once()
+
+    def test_archive_child_snapshot_generates_stage4_verification_inputs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            input_root = root / "download"
+            archive_root = root / "archive"
+            output_root = root / "parse"
+            _write_download_manifest(input_root, flow_no="03", snapshot_id="ATT-03-1")
+            _write_archive_extract_manifest(archive_root)
+            text = "\n".join(
+                [
+                    "第一中标候选人：广州第一建筑有限公司",
+                    "项目负责人：张三",
+                    "证书编号：粤1442020202100001",
+                    "投标报价：1234.56万元",
+                    "评标办法：综合评估法",
+                ]
+            )
+            repo = FakeReplayRepository(
+                {
+                    "CHILD-07-1": _replay("CHILD-07-1", b"%PDF candidate child", "application/pdf"),
+                }
+            )
+            with patch(
+                "storage.guangzhou_parse_probe.markitdown_adapter.convert_bytes_to_markdown_text",
+                return_value=markitdown_adapter.MarkItDownText(
+                    text=text,
+                    state=markitdown_adapter.MARKITDOWN_TEXT_EXTRACTED,
+                    text_sha256="child-text-sha",
+                    text_length=len(text),
+                    text_probe=text,
+                ),
+            ):
+                result = build_guangzhou_parse_probe(
+                    input_root=input_root,
+                    output_root=output_root,
+                    archive_extract_root=archive_root,
+                    project_ids=["JG2026-10815"],
+                    flow_nos=["07"],
+                    execute=True,
+                    object_repository=repo,
+                    created_at="2026-05-10T00:00:00+08:00",
+                )
+
+            self.assertTrue(result["safe_to_execute"])
+            self.assertEqual(result["summary"]["parse_success_count"], 1)
+            stage4_inputs = result["manifest"]["stage4_candidate_verification_inputs"]
+            self.assertEqual(stage4_inputs["summary"]["stage4_input_count"], 1)
+            stage4_item = stage4_inputs["items"][0]
+            self.assertEqual(stage4_item["candidate_company_name"], "广州第一建筑有限公司")
+            self.assertEqual(stage4_item["project_manager_name"], "张三")
+            self.assertEqual(stage4_item["project_manager_certificate_no"], "粤1442020202100001")
+            self.assertEqual(stage4_item["recommended_stage4_route"], "JZSC_COMPANY_FIRST_PROJECT_MANAGER")
+            self.assertTrue((output_root / "stage4_candidate_verification_inputs.json").exists())
+
 
 class FakeReplayRepository:
     def __init__(self, snapshots: dict[str, dict]) -> None:
@@ -205,6 +298,60 @@ def _write_download_manifest(
         }
     }
     (input_root / "download-probe-manifest.json").write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+
+def _write_archive_extract_manifest(archive_root: Path) -> None:
+    archive_root.mkdir(parents=True, exist_ok=True)
+    project_id = "PROJ-CN-GD-JG2026-10815"
+    child_ref = {
+        "snapshot_id": "CHILD-07-1",
+        "child_snapshot_id": "CHILD-07-1",
+        "parent_archive_snapshot_id": "ATT-07-ZIP",
+        "archive_inner_path": "候选人公示.pdf",
+        "source_url": "https://example.test/candidate.zip",
+        "attachment_url": "https://example.test/candidate.zip",
+        "attachment_link_text": "候选人公示.pdf",
+        "attachment_role_type": "CANDIDATE_NOTICE_ATTACHMENT",
+        "content_type": "application/pdf",
+        "target_fields": ["candidate_company", "project_manager_name", "certificate_no", "bid_price"],
+        "stage4_targets": ["project_manager_qualification", "candidate_verification"],
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
+    sample = {
+        "target_id": "ARCHIVE-EXTRACT-07-001",
+        "parent_target_id": "GUANGZHOU-ARCHIVE-EXTRACT-PROBE-V1",
+        "candidate_key": "EVIDENCE-STRATEGY-07-001",
+        "project_id": project_id,
+        "project_name": "广州测试项目",
+        "source_url": "https://example.test/07.html",
+        "document_kind": "candidate_notice",
+        "jurisdiction": "CN-GD",
+        "source_profile_id": "GUANGZHOU-YWTB-CONSTRUCTION-LIST",
+        "pipeline_stage": "ArchiveExtractProbe",
+        "guangzhou_flow_no": "07",
+        "guangzhou_flow_title": "中标候选人公示",
+        "guangzhou_flow_folder": str(archive_root / "projects" / "CN-GD" / project_id / "07_中标候选人公示" / "2026-05-10_广州测试项目"),
+        "parent_archive_snapshot_id": "ATT-07-ZIP",
+        "archive_extract_state": "TARGETED_CHILD_SNAPSHOTS_CAPTURED",
+        "attachment_snapshot_refs": [child_ref],
+        "child_snapshot_refs": [child_ref],
+        "child_snapshot_count": 1,
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
+    payload = {
+        "manifest": {
+            "manifest_kind": "guangzhou_archive_extract_probe_manifest",
+            "pipeline_stage": "ArchiveExtractProbe",
+            "project_sample_items": [sample],
+            "items": [],
+        }
+    }
+    (archive_root / "archive-extract-probe-manifest.json").write_text(
         json.dumps(payload, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )

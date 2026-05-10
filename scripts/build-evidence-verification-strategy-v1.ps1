@@ -2,11 +2,9 @@ param(
     [string]$InputRoot = "",
     [string]$OutputRoot = "",
     [string]$ProjectIds = "PROJ-CN-GD-JG2026-10815,PROJ-CN-GD-JG2026-11021",
-    [string]$FlowNos = "03,04,07,08",
-    [string]$ArchiveExtractRoot = "",
-    [string]$StoragePath = "",
-    [string]$ObjectStoragePath = "",
-    [switch]$Execute,
+    [string]$DownloadProbeManifestJson = "",
+    [string]$AnalysisPlanJson = "",
+    [string]$ParseProbeManifestJson = "",
     [switch]$EmitJson
 )
 
@@ -20,42 +18,32 @@ if (-not $InputRoot) {
 }
 
 if (-not $OutputRoot) {
-    $OutputRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\guangzhou-parse-probe-v1"
+    $OutputRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\guangzhou-evidence-strategy-v1"
 }
 
-if (-not $StoragePath) {
-    $StoragePath = Join-Path $InputRoot "storage.json"
-}
-
-if (-not $ObjectStoragePath) {
-    $ObjectStoragePath = Join-Path $InputRoot "objects"
-}
-
-$parseProbeJson = Join-Path $OutputRoot "parse-probe-manifest.json"
+$outputJson = Join-Path $OutputRoot "evidence-verification-strategy.json"
 
 New-Item -ItemType Directory -Force -Path $OutputRoot | Out-Null
 
 $env:PYTHONPATH = "$repoRoot\src;$repoRoot\tests"
 
 $argsList = @(
-    "-m", "storage.guangzhou_parse_probe",
+    "-m", "storage.evidence_verification_strategy",
     "--input-root", $InputRoot,
     "--output-root", $OutputRoot,
     "--project-ids", $ProjectIds,
-    "--flow-nos", $FlowNos,
-    "--storage-path", $StoragePath,
-    "--object-storage-path", $ObjectStoragePath,
-    "--output-json", $parseProbeJson
+    "--output-json", $outputJson
 )
 
-if ($ArchiveExtractRoot) {
-    $argsList += @("--archive-extract-root", $ArchiveExtractRoot)
+if ($DownloadProbeManifestJson) {
+    $argsList += @("--download-probe-manifest-json", $DownloadProbeManifestJson)
 }
-
-if ($Execute) {
-    $argsList += "--execute"
+if ($AnalysisPlanJson) {
+    $argsList += @("--analysis-plan-json", $AnalysisPlanJson)
 }
-
+if ($ParseProbeManifestJson) {
+    $argsList += @("--parse-probe-manifest-json", $ParseProbeManifestJson)
+}
 if ($EmitJson) {
     $argsList += "--json"
 }

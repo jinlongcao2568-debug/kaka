@@ -36,6 +36,7 @@ def build_guangzhou_parse_probe(
     output_root: str | Path,
     project_ids: list[str] | tuple[str, ...] = DEFAULT_PROJECT_IDS,
     flow_nos: list[str] | tuple[str, ...] = DEFAULT_PARSE_FLOW_NOS,
+    archive_extract_root: str | Path | None = None,
     storage_path: str | Path | None = None,
     object_storage_path: str | Path | None = None,
     execute: bool = False,
@@ -52,13 +53,23 @@ def build_guangzhou_parse_probe(
     blocking_reasons: list[str] = []
     download_payload = _load_json(in_root / "download-probe-manifest.json", blocking_reasons, "download_probe_manifest_missing")
     analysis_payload = _load_json(in_root / "analysis-plan.json", [], "analysis_plan_missing")
+    archive_root = Path(archive_extract_root) if archive_extract_root else None
+    archive_payload = _load_json(archive_root / "archive-extract-probe-manifest.json", [], "archive_extract_probe_manifest_missing") if archive_root else {}
     download_manifest = _source_manifest(download_payload)
     analysis_manifest = _source_manifest(analysis_payload)
-    selected_samples = _select_project_samples(
+    archive_manifest = _source_manifest(archive_payload)
+    selected_samples = [
+        *_select_project_samples(
         download_manifest=download_manifest,
         project_ids=project_ids,
         flow_nos=flow_nos,
-    )
+        ),
+        *_select_archive_child_samples(
+            archive_manifest=archive_manifest,
+            project_ids=project_ids,
+            flow_nos=flow_nos,
+        ),
+    ]
     if not selected_samples and not blocking_reasons:
         blocking_reasons.append("parse_probe_no_downloaded_samples_selected")
 
@@ -101,6 +112,7 @@ def build_guangzhou_parse_probe(
         "source_input_root": str(in_root),
         "source_download_probe_manifest_path": str(in_root / "download-probe-manifest.json"),
         "source_analysis_plan_path": str(in_root / "analysis-plan.json"),
+        "source_archive_extract_probe_manifest_path": str(archive_root / "archive-extract-probe-manifest.json") if archive_root else "",
         "storage_path_optional": str(storage),
         "object_storage_path_optional": str(object_storage),
         "execution_mode": "EXECUTED" if execute else "DRY_RUN",
@@ -127,6 +139,12 @@ def build_guangzhou_parse_probe(
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,
     }
+    stage4_inputs = _build_stage4_candidate_verification_inputs(
+        parse_items=parse_items,
+        project_sample_items=project_sample_items,
+        created_at=created,
+    )
+    manifest["stage4_candidate_verification_inputs"] = stage4_inputs
     manifest["manifest_sha256"] = _fingerprint({key: value for key, value in manifest.items() if key != "manifest_sha256"})
     result = {
         "guangzhou_parse_probe_mode": "EXECUTED" if execute else "DRY_RUN",
@@ -149,6 +167,10 @@ def build_guangzhou_parse_probe(
     }
     output_path = out_root / "parse-probe-manifest.json"
     output_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+    (out_root / "stage4_candidate_verification_inputs.json").write_text(
+        json.dumps(stage4_inputs, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
     return result
 
 
@@ -172,7 +194,8 @@ def _parse_sample(
         if isinstance(ref, Mapping)
     ]
     items: list[dict[str, Any]] = []
-    if flow_no == BID_FILE_PUBLICITY_FLOW_NO:
+    archive_child_sample = str(sample.get("pipeline_stage") or "") == "ArchiveExtractProbe"
+    if flow_no == BID_FILE_PUBLICITY_FLOW_NO and not archive_child_sample:
         for ref in refs:
             items.append(_skipped_item(sample=sample, ref=ref, parse_state="SKIPPED_BID_FILE_PUBLICITY_DEEP_PARSE"))
     elif flow_no not in SECTION_PARSE_FLOW_NOS | POST_CANDIDATE_TEXT_PROBE_FLOW_NOS:
@@ -323,6 +346,7 @@ def _parse_ref(
         "text_probe": _clip(text, TEXT_PROBE_LIMIT),
         "parsed_field_count": len(list(carrier.get("parsed_fields") or [])),
         "parsed_fields_probe": _parsed_fields_probe(carrier),
+        "field_candidate_profile": _field_candidate_profile(text=text, item_base=base),
         "parse_error_taxonomy": parse_error_taxonomy,
         "section_flags": section_flags,
         "document_section_profile": dict(tailored_profile.get("document_section_profile") or {}),
@@ -444,6 +468,11 @@ def _base_item(
         "attachment_url": str(ref.get("attachment_url") or ref.get("source_url") or ""),
         "attachment_link_text": str(ref.get("attachment_link_text") or ""),
         "attachment_role_type": str(ref.get("attachment_role_type") or ""),
+        "parent_archive_snapshot_id": str(ref.get("parent_archive_snapshot_id") or ""),
+        "archive_inner_path": str(ref.get("archive_inner_path") or ""),
+        "evidence_strategy_item_id": str(ref.get("evidence_strategy_item_id") or ""),
+        "target_fields": list(ref.get("target_fields") or []),
+        "stage4_targets": list(ref.get("stage4_targets") or []),
         "snapshot_id": snapshot_id,
         "flow_directory": str(flow_dir),
         "created_at": created_at,
@@ -519,6 +548,48 @@ def _select_project_samples(
     return out
 
 
+def _select_archive_child_samples(
+    *,
+    archive_manifest: Mapping[str, Any],
+    project_ids: list[str] | tuple[str, ...],
+    flow_nos: list[str] | tuple[str, ...],
+) -> list[dict[str, Any]]:
+    requested_projects = {_normalize_project_token(value) for value in project_ids if _normalize_project_token(value)}
+    requested_flows = {_flow_no(value) for value in flow_nos if _flow_no(value)}
+    out: list[dict[str, Any]] = []
+    seen: set[tuple[str, str, str, str]] = set()
+    for sample in list(archive_manifest.get("project_sample_items") or []):
+        if not isinstance(sample, Mapping):
+            continue
+        project_id = str(sample.get("project_id") or "")
+        flow_no = _sample_flow_no(sample)
+        if requested_projects and not (_project_aliases(project_id) & requested_projects):
+            continue
+        if requested_flows and flow_no not in requested_flows:
+            continue
+        child_refs = [
+            dict(ref)
+            for ref in list(sample.get("child_snapshot_refs") or sample.get("attachment_snapshot_refs") or [])
+            if isinstance(ref, Mapping)
+        ]
+        if not child_refs:
+            continue
+        row = dict(sample)
+        row["attachment_snapshot_refs"] = child_refs
+        row["pipeline_stage"] = "ArchiveExtractProbe"
+        key = (
+            project_id,
+            flow_no,
+            str(sample.get("source_url") or ""),
+            ",".join(str(ref.get("snapshot_id") or "") for ref in child_refs),
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(row)
+    return out
+
+
 def _repository(*, storage_path: Path, object_storage_path: Path) -> ObjectStorageRepository:
     settings = Settings(
         storage_backend="json-file",
@@ -562,7 +633,9 @@ def _markitdown_result_from_stage3_audit(carrier: Mapping[str, Any]) -> markitdo
 def _archive_inventory(data: bytes, *, source_url: str, content_type: str) -> dict[str, Any]:
     extension = Path(urlsplit(source_url).path).suffix.lower()
     normalized_content_type = str(content_type or "").lower()
-    if zipfile.is_zipfile(BytesIO(data)):
+    if extension in {".docx", ".xlsx"} or "officedocument" in normalized_content_type:
+        return {"archive_state": "NOT_ARCHIVE", "archive_type": ""}
+    if zipfile.is_zipfile(BytesIO(data)) and (extension == ".zip" or "zip" in normalized_content_type):
         try:
             with zipfile.ZipFile(BytesIO(data)) as archive:
                 names = archive.namelist()
@@ -705,6 +778,256 @@ def _parsed_fields_probe(carrier: Mapping[str, Any]) -> list[dict[str, Any]]:
             }
         )
     return rows
+
+
+def _field_candidate_profile(*, text: str, item_base: Mapping[str, Any]) -> dict[str, Any]:
+    candidate_companies = _company_candidates(text)
+    project_managers = _role_name_candidates(text)
+    certificates = _certificate_candidates(text)
+    bid_prices = _bid_price_candidates(text)
+    rejection_reasons = _rejection_reason_candidates(text)
+    evaluation_methods = _evaluation_method_candidates(text)
+    review_reasons: list[str] = []
+    if not candidate_companies and str(item_base.get("flow_no") or "") in {"07", "08"}:
+        review_reasons.append("candidate_company_not_extracted")
+    if not project_managers and str(item_base.get("flow_no") or "") in {"07", "08"}:
+        review_reasons.append("project_manager_not_extracted")
+    if project_managers and not certificates:
+        review_reasons.append("certificate_no_not_extracted_for_project_manager_candidate")
+    return {
+        "project_id": str(item_base.get("project_id") or ""),
+        "flow_no": str(item_base.get("flow_no") or ""),
+        "snapshot_id": str(item_base.get("snapshot_id") or ""),
+        "candidate_company_candidates": candidate_companies,
+        "project_manager_candidates": project_managers,
+        "certificate_no_candidates": certificates,
+        "bid_price_candidates": bid_prices,
+        "rejection_reason_candidates": rejection_reasons,
+        "evaluation_method_candidates": evaluation_methods,
+        "review_required": bool(review_reasons),
+        "review_reasons": review_reasons,
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
+
+
+def _build_stage4_candidate_verification_inputs(
+    *,
+    parse_items: list[Mapping[str, Any]],
+    project_sample_items: list[Mapping[str, Any]],
+    created_at: str,
+) -> dict[str, Any]:
+    stage4_items: list[dict[str, Any]] = []
+    for item in parse_items:
+        profile = dict(item.get("field_candidate_profile") or {})
+        if not profile:
+            continue
+        has_candidate = any(
+            profile.get(key)
+            for key in (
+                "candidate_company_candidates",
+                "project_manager_candidates",
+                "certificate_no_candidates",
+                "bid_price_candidates",
+                "rejection_reason_candidates",
+            )
+        )
+        if not has_candidate:
+            continue
+        companies = list(profile.get("candidate_company_candidates") or [])
+        managers = list(profile.get("project_manager_candidates") or [])
+        certs = list(profile.get("certificate_no_candidates") or [])
+        stage4_items.append(
+            {
+                "stage4_input_id": f"STAGE4-CANDIDATE-INPUT-{_fingerprint({'snapshot': item.get('snapshot_id'), 'profile': profile})[:16]}",
+                "project_id": str(item.get("project_id") or ""),
+                "project_name": str(item.get("project_name") or ""),
+                "flow_no": str(item.get("flow_no") or ""),
+                "flow_title": str(item.get("flow_title") or ""),
+                "source_url": str(item.get("source_url") or ""),
+                "attachment_url": str(item.get("attachment_url") or ""),
+                "snapshot_id": str(item.get("snapshot_id") or ""),
+                "parent_archive_snapshot_id": str(item.get("parent_archive_snapshot_id") or ""),
+                "archive_inner_path": str(item.get("archive_inner_path") or ""),
+                "candidate_company_name": companies[0]["value"] if companies else "",
+                "project_manager_name": managers[0]["value"] if managers else "",
+                "project_manager_certificate_no": certs[0]["value"] if certs else "",
+                "candidate_company_candidates": companies,
+                "project_manager_candidates": managers,
+                "certificate_no_candidates": certs,
+                "bid_price_candidates": list(profile.get("bid_price_candidates") or []),
+                "rejection_reason_candidates": list(profile.get("rejection_reason_candidates") or []),
+                "evaluation_method_candidates": list(profile.get("evaluation_method_candidates") or []),
+                "target_fields": list(item.get("target_fields") or []),
+                "stage4_targets": list(item.get("stage4_targets") or []),
+                "recommended_stage4_route": _recommended_stage4_route(item, profile),
+                "review_required": bool(profile.get("review_required")),
+                "review_reasons": list(profile.get("review_reasons") or []),
+                "rules_first": True,
+                "customer_visible_allowed": False,
+                "no_legal_conclusion": True,
+            }
+        )
+    project_ids = {str(item.get("project_id") or "") for item in project_sample_items if item.get("project_id")}
+    return {
+        "manifest_kind": "stage4_candidate_verification_inputs_manifest",
+        "adapter_id": GUANGZHOU_PARSE_PROBE_ADAPTER_ID,
+        "created_at": created_at,
+        "project_count": len(project_ids),
+        "stage4_input_count": len(stage4_items),
+        "items": stage4_items,
+        "summary": {
+            "stage4_input_count": len(stage4_items),
+            "project_count": len(project_ids),
+            "with_project_manager_count": sum(1 for item in stage4_items if item.get("project_manager_name")),
+            "with_certificate_count": sum(1 for item in stage4_items if item.get("project_manager_certificate_no")),
+            "review_required_count": sum(1 for item in stage4_items if item.get("review_required")),
+            "recommended_stage4_route_counts": _counts(item.get("recommended_stage4_route") for item in stage4_items),
+            "customer_visible_allowed": False,
+            "no_legal_conclusion": True,
+        },
+        "safety": {
+            "stage4_live_provider_enabled": False,
+            "llm_execution_enabled": False,
+            "customer_visible_allowed": False,
+            "no_legal_conclusion": True,
+        },
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
+
+
+def _company_candidates(text: str) -> list[dict[str, Any]]:
+    candidates: list[dict[str, Any]] = []
+    label_pattern = (
+        r"(?:第一中标候选人|第二中标候选人|第三中标候选人|中标候选人名称|候选人名称|"
+        r"投标人名称|投标单位|单位名称|中标单位)[：:\s为]*"
+        r"([^\n，,；;。]{2,80}?(?:公司|集团|院|所|中心))"
+    )
+    for match in re.finditer(label_pattern, text):
+        value = _clean_company_candidate(match.group(1))
+        if value:
+            candidates.append(_candidate(value=value, source="company_label_pattern"))
+    for line in str(text or "").splitlines():
+        compact = line.strip()
+        if not compact or len(compact) > 160:
+            continue
+        for match in re.finditer(r"([\u4e00-\u9fffA-Za-z0-9（）()·\-]{2,60}(?:公司|集团|院|中心))", compact):
+            value = _clean_company_candidate(match.group(1))
+            if value:
+                candidates.append(_candidate(value=value, source="company_line_pattern"))
+    return _dedupe_candidates(candidates, limit=12)
+
+
+def _role_name_candidates(text: str) -> list[dict[str, Any]]:
+    pattern = r"(?:项目经理|项目负责人|项目总负责人|总监理工程师|总监|设计负责人|勘察负责人)(?:[：:\s]+|为)([\u4e00-\u9fff·]{2,6})"
+    rows: list[dict[str, Any]] = []
+    for match in re.finditer(pattern, text):
+        value = _clean_person_candidate(match.group(1))
+        if value:
+            rows.append(_candidate(value=value, source="role_label"))
+    return _dedupe_candidates(rows, limit=12)
+
+
+def _certificate_candidates(text: str) -> list[dict[str, Any]]:
+    patterns = [
+        r"(?:证书编号|注册编号|注册证号|执业证号)[：:\s]*([A-Z\u4e00-\u9fff]?\d{8,20})",
+        r"([\u4e00-\u9fff][A-Z]?\d{9,20})",
+    ]
+    rows: list[dict[str, Any]] = []
+    for pattern in patterns:
+        for match in re.finditer(pattern, text):
+            rows.append(_candidate(value=match.group(1), source="certificate_pattern"))
+    return _dedupe_candidates(rows, limit=12)
+
+
+def _bid_price_candidates(text: str) -> list[dict[str, Any]]:
+    pattern = r"(?:投标报价|中标价|报价|投标总价)[：:\s]*([0-9,，.]+)\s*(万元|元)?"
+    rows = []
+    for match in re.finditer(pattern, text):
+        value = f"{match.group(1)}{match.group(2) or ''}"
+        rows.append(_candidate(value=value, source="bid_price_pattern"))
+    return _dedupe_candidates(rows, limit=12)
+
+
+def _rejection_reason_candidates(text: str) -> list[dict[str, Any]]:
+    rows = []
+    for line in str(text or "").splitlines():
+        compact = line.strip()
+        if any(token in compact for token in ("废标", "否决", "无效投标", "不通过")):
+            rows.append(_candidate(value=_clip(compact, 260), source="rejection_line"))
+    return _dedupe_candidates(rows, limit=12)
+
+
+def _evaluation_method_candidates(text: str) -> list[dict[str, Any]]:
+    methods = ("综合评估法", "经评审的最低投标价法", "最低投标价法", "合理低价法", "评定分离", "票决法")
+    return [_candidate(value=method, source="evaluation_method_keyword") for method in methods if method in str(text or "")]
+
+
+def _recommended_stage4_route(item: Mapping[str, Any], profile: Mapping[str, Any]) -> str:
+    if profile.get("project_manager_candidates") or profile.get("certificate_no_candidates"):
+        return "JZSC_COMPANY_FIRST_PROJECT_MANAGER"
+    if profile.get("candidate_company_candidates"):
+        return "CANDIDATE_COMPANY_PUBLIC_VERIFICATION"
+    return "STAGE4_REVIEW_INPUT_ONLY"
+
+
+def _candidate(*, value: str, source: str) -> dict[str, Any]:
+    return {
+        "value": str(value or "").strip(),
+        "source": source,
+        "confidence": 0.62,
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
+
+
+def _dedupe_candidates(candidates: list[Mapping[str, Any]], *, limit: int) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for candidate in candidates:
+        value = _clean_candidate_value(candidate.get("value"))
+        if not value or value in seen:
+            continue
+        seen.add(value)
+        row = dict(candidate)
+        row["value"] = value
+        out.append(row)
+        if len(out) >= limit:
+            break
+    return out
+
+
+def _clean_candidate_value(value: Any) -> str:
+    text = " ".join(str(value or "").split())
+    text = re.sub(r"^[：:，,、；;\s|｜]+|[：:，,、；;\s|｜]+$", "", text)
+    return text
+
+
+def _clean_company_candidate(value: Any) -> str:
+    text = _clean_candidate_value(value)
+    text = re.split(r"(?:招标人|招标代理|委托|项目已于|在广州交易集团|广州公共资源交易中心)", text)[0]
+    text = _clean_candidate_value(text)
+    if not text or len(text) < 4:
+        return ""
+    if any(token in text for token in ("广州交易集团有限公司", "广州公共资源交易中心", "招标代理机构")):
+        return ""
+    if any(token in text for token in ("我方", "投标文件", "若我方中标", "符合本项目", "代码后", "JG2026")):
+        return ""
+    if text.endswith("有限公司") and len(text) < 6:
+        return ""
+    if len(text) > 64 and not any(marker in text for marker in ("联合体", "集团")):
+        return ""
+    return text
+
+
+def _clean_person_candidate(value: Any) -> str:
+    text = _clean_candidate_value(value)
+    if not re.fullmatch(r"[\u4e00-\u9fff·]{2,4}", text):
+        return ""
+    if any(token in text for token in ("我方", "中标", "工程", "公司", "投标", "负责人", "代码")):
+        return ""
+    return text
 
 
 def _flow_parse_directory(*, sample: Mapping[str, Any], input_root: Path, output_root: Path) -> Path:
@@ -899,6 +1222,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--output-root", required=True)
     parser.add_argument("--project-ids", default=",".join(DEFAULT_PROJECT_IDS))
     parser.add_argument("--flow-nos", default=",".join(DEFAULT_PARSE_FLOW_NOS))
+    parser.add_argument("--archive-extract-root")
     parser.add_argument("--storage-path")
     parser.add_argument("--object-storage-path")
     parser.add_argument("--execute", action="store_true")
@@ -914,6 +1238,7 @@ def main(argv: list[str] | None = None) -> int:
         output_root=args.output_root,
         project_ids=_parse_csv(args.project_ids),
         flow_nos=_parse_csv(args.flow_nos),
+        archive_extract_root=args.archive_extract_root,
         storage_path=args.storage_path,
         object_storage_path=args.object_storage_path,
         execute=args.execute,
