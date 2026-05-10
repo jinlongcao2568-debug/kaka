@@ -84,11 +84,29 @@ class TestProfessionalCleanProjectArchive(unittest.TestCase):
                 "PROJECT_READY_FOR_SIGNAL_ANALYSIS",
             )
             self.assertEqual(len(item["file_inventory"]), 2)
+            self.assertEqual(item["verification_urls"]["url_count"], 2)
+            self.assertIn(
+                "https://example.test/detail.html",
+                item["verification_urls"]["project_source_urls"],
+            )
+            self.assertIn(
+                "https://example.test/tender.pdf",
+                item["verification_urls"]["attachment_snapshot_urls"],
+            )
+            self.assertIn(
+                "verify_attachment_links_match_file_inventory",
+                item["verification_urls"]["verification_workflow"],
+            )
+            project_payload = json.loads((project_dir / "project.json").read_text(encoding="utf-8"))
+            self.assertIn("verification_urls", project_payload)
             self.assertEqual(
                 item["parse_metrics"]["file_level_parse_attribution_state"],
                 "PROJECT_LEVEL_ONLY_MISSING_FILE_LEVEL_ATTRIBUTION",
             )
-            self.assertTrue((project_dir / "parsed" / "parse-summary.json").exists())
+            parse_summary_payload = json.loads(
+                (project_dir / "parsed" / "parse-summary.json").read_text(encoding="utf-8")
+            )
+            self.assertIn("verification_urls", parse_summary_payload)
             self.assertFalse(item["failure_reasons"])
 
     def test_flags_stage_pollution_and_html_attachment_pollution(self) -> None:

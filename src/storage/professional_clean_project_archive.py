@@ -182,6 +182,7 @@ def _archive_project(
         attachment_files=attachment_files,
         parse_metrics=parse_metrics,
     )
+    verification_urls = _verification_urls(samples=samples, file_inventory=file_inventory)
     failure_reasons = _failure_reasons(
         samples,
         detail_files,
@@ -197,6 +198,7 @@ def _archive_project(
         "source_profile_ids": _dedupe_strings(sample.get("source_profile_id") for sample in samples),
         "document_kinds": _dedupe_strings(sample.get("document_kind") for sample in samples),
         "source_urls": _dedupe_strings(sample.get("source_url") for sample in samples),
+        "verification_urls": verification_urls,
         "sample_count": len(samples),
         "detail_file_count": len(detail_files),
         "attachment_file_count": len(attachment_files),
@@ -224,6 +226,7 @@ def _archive_project(
         "source_profile_ids": audit["source_profile_ids"],
         "document_kinds": audit["document_kinds"],
         "source_urls": audit["source_urls"],
+        "verification_urls": verification_urls,
         "samples": [_sample_card(sample) for sample in samples],
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,
@@ -241,6 +244,7 @@ def _archive_project(
             {
                 "project_id": project_id,
                 "project_name": audit["project_name"],
+                "verification_urls": verification_urls,
                 "parse_metrics": parse_metrics,
                 "section_flags": section_flags,
                 "project_completeness_contract": project_contract,
@@ -628,6 +632,43 @@ def _file_inventory(
             }
         )
     return inventory
+
+
+def _verification_urls(
+    *,
+    samples: list[Mapping[str, Any]],
+    file_inventory: list[Mapping[str, Any]],
+) -> dict[str, Any]:
+    sample_urls = _dedupe_strings(sample.get("source_url") for sample in samples)
+    detail_urls = _dedupe_strings(
+        row.get("source_url")
+        for row in file_inventory
+        if str(row.get("file_role") or "") == "detail"
+    )
+    attachment_urls = _dedupe_strings(
+        row.get("source_url")
+        for row in file_inventory
+        if str(row.get("file_role") or "") == "attachment"
+    )
+    all_urls = _dedupe_strings([*sample_urls, *detail_urls, *attachment_urls])
+    return {
+        "manual_verification_required": True,
+        "project_source_urls": sample_urls,
+        "detail_snapshot_urls": detail_urls,
+        "attachment_snapshot_urls": attachment_urls,
+        "all_urls": all_urls,
+        "url_count": len(all_urls),
+        "verification_workflow": [
+            "open_project_source_url",
+            "compare_project_name_and_project_id",
+            "open_detail_snapshot_url",
+            "verify_attachment_links_match_file_inventory",
+            "compare_downloaded_files_with_source_page",
+            "confirm_parse_summary_matches_downloaded_files",
+        ],
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
 
 
 def _failure_reasons(
