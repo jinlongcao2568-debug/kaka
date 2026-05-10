@@ -21,6 +21,13 @@
 4. 普通开发默认按 `DIRECT_DEV_DEFAULT` 直接定位、实现、验证；真实市场候选进料、真实公开快照入链和证据包可售性是当前主产品完成标准，内部/样本通过只算回归通过。
 5. 触及对外/live、release gate、approval/audit 语义、schema/migration 或机器契约大批量治理时，才切回 controlled task packet / scoped subpacket。
 
+## 当前招投标业务方向
+
+- 核心商业主线：候选公示后证据包分析。默认从中标候选人公示、评标结果、开标记录、中标结果等后验阶段项目进入，再回溯同一项目招标公告、招标文件、答疑澄清、开标、候选、结果和投标文件公开，形成控标/围标/串标/陪标线索、候选人核查、真实竞争者识别和证据包销售承接。
+- 辅助产品线：投前预测分析。用于刚发布招标公告、招标文件、答疑澄清和补遗阶段，输出是否值得投、控标/定制标预测、废标风险和澄清/质疑建议。
+- 方向契约：`docs/业务方向_候选公示后证据包与投前预测双线契约.md`。
+- 机器契约：`contracts/evaluation/business_direction_strategy_contract.json`。
+
 ## 说明
 
 - 当前产出面包含：文档、contracts、handoff、control、骨架（skeleton）、最小实现设计与受控实现代码。

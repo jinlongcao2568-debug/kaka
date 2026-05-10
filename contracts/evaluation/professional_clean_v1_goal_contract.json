@@ -2,6 +2,8 @@
   "contract_id": "PROFESSIONAL-CLEAN-V1-GOAL-CONTRACT",
   "contract_version": 1,
   "purpose": "确保广东广州、浙江、四川实战样本按项目ID独立下载、归档、解析和审计，旧运行产物不得作为新校准依据。",
+  "business_direction_contract_ref": "contracts/evaluation/business_direction_strategy_contract.json",
+  "business_positioning_note": "clean-v1 tender_file smoke 主要验证文件下载、snapshot、MarkItDown/解析和项目审计链路；核心商业主线仍是候选公示后证据包分析，不能把招标公告 smoke 当成最终业务入口。",
   "active_output_root": "tmp/evaluation-real-samples/professional-clean-v1",
   "excluded_active_sources": [
     "GUANGDONG-YGP-PROVINCE-TRADING-LIST"

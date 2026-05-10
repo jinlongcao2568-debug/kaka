@@ -1,0 +1,174 @@
+{
+  "contract_id": "BUSINESS-DIRECTION-STRATEGY-CONTRACT",
+  "contract_version": 1,
+  "purpose": "固定招投标分析产品的双线业务方向，避免后续开发把招标公告文件链路验证误当成核心商业主线。",
+  "primary_commercial_line": "POST_CANDIDATE_EVIDENCE_PACK",
+  "default_when_ambiguous": "POST_CANDIDATE_EVIDENCE_PACK",
+  "human_direction_priority": true,
+  "customer_visible_allowed": false,
+  "no_legal_conclusion": true,
+  "product_lines": [
+    {
+      "line_id": "POST_CANDIDATE_EVIDENCE_PACK",
+      "line_title": "候选公示后证据包分析",
+      "business_priority": "PRIMARY",
+      "default_entry_document_kinds": [
+        "candidate_notice",
+        "evaluation_result",
+        "opening_record",
+        "award_result",
+        "failed_bid_notice"
+      ],
+      "required_backtrace_document_kinds": [
+        "tender_notice",
+        "tender_file",
+        "qualification_pre_review",
+        "clarification_or_addendum",
+        "opening_record",
+        "evaluation_result",
+        "candidate_notice",
+        "award_result",
+        "bid_file_publicity",
+        "rejection_reason_notice"
+      ],
+      "business_outputs": [
+        "tailored_bid_signal",
+        "collusion_trace_signal",
+        "cover_bid_signal",
+        "bid_rigging_signal",
+        "candidate_verification",
+        "real_competitor_identification",
+        "violation_clue_evidence_pack",
+        "sales_leadpack_handoff"
+      ],
+      "must_not_output": [
+        "已内定",
+        "违法成立",
+        "控标成立",
+        "必然废标"
+      ]
+    },
+    {
+      "line_id": "PRE_BID_PREDICTION",
+      "line_title": "投前预测分析",
+      "business_priority": "SECONDARY",
+      "default_entry_document_kinds": [
+        "tender_notice",
+        "tender_file",
+        "procurement_intention",
+        "tender_plan",
+        "clarification_or_addendum"
+      ],
+      "required_backtrace_document_kinds": [
+        "tender_notice",
+        "tender_file",
+        "clarification_or_addendum",
+        "qualification_pre_review"
+      ],
+      "business_outputs": [
+        "tailored_bid_prediction",
+        "fatal_rejection_risk",
+        "bid_selection_advice",
+        "clarification_or_challenge_suggestion",
+        "document_completeness_gap"
+      ],
+      "must_not_output": [
+        "candidate_verification",
+        "real_competitor_conclusion",
+        "cover_bid_group_conclusion",
+        "successful_bidder_benefit_chain"
+      ]
+    }
+  ],
+  "source_policy": {
+    "primary_friendly_sources": [
+      {
+        "region_code": "CN-GD",
+        "source_profile_id": "GUANGZHOU-YWTB-CONSTRUCTION-LIST",
+        "source_title": "广州交易集团/广州公共资源交易中心建设工程源",
+        "notes": "广东主源；支持广州 Epoint 附件挑战下载。"
+      },
+      {
+        "region_code": "CN-ZJ",
+        "source_profile_id": "ZHEJIANG-GGZY-JYXXGK-LIST",
+        "source_title": "浙江公共资源交易源",
+        "notes": "浙江独立适配。"
+      },
+      {
+        "region_code": "CN-SC",
+        "source_profile_id": "SICHUAN-GGZY-TRANSACTION-INFO",
+        "source_title": "四川公共资源交易源",
+        "notes": "四川独立适配。"
+      }
+    ],
+    "quarantined_sources": [
+      {
+        "source_profile_id": "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
+        "reason": "广东省 YGP 附件和招标过程信息不完整，污染控标/证据包校准，不作为主动采集、真实样本或控标校准来源。"
+      }
+    ],
+    "observation_policy": "除广东广州、浙江、四川以外的省市，默认先做省源/市源完整性分析，再决定独立适配。"
+  },
+  "routing_rules": [
+    {
+      "rule_id": "BDR-001",
+      "condition": "用户或任务涉及候选公示、评标结果、中标结果、候选人核查、真实竞争者、证据包、销售承接",
+      "route_to": "POST_CANDIDATE_EVIDENCE_PACK"
+    },
+    {
+      "rule_id": "BDR-002",
+      "condition": "用户或任务涉及刚发布招标公告、招标文件、是否值得投、投前预测、澄清/质疑",
+      "route_to": "PRE_BID_PREDICTION"
+    },
+    {
+      "rule_id": "BDR-003",
+      "condition": "任务目标不明确但属于控标/围标/串标/陪标证据包方向",
+      "route_to": "POST_CANDIDATE_EVIDENCE_PACK"
+    }
+  ],
+  "project_level_audit_required_fields": [
+    "project_id",
+    "project_name",
+    "source_urls",
+    "verification_urls",
+    "verification_urls.all_urls",
+    "file_inventory",
+    "detail_file_count",
+    "attachment_file_count",
+    "replayable_file_count",
+    "parsed_file_count",
+    "download_completeness_state",
+    "parse_completeness_state",
+    "failure_reasons"
+  ],
+  "run_modes": [
+    {
+      "run_mode_id": "GUANGZHOU_TENDER_FILE_SMOKE",
+      "line_id": "PRE_BID_PREDICTION",
+      "script": "scripts/run-professional-clean-v1-real-samples.ps1",
+      "status": "AVAILABLE",
+      "purpose": "仅验证广州招标公告文件链路、Epoint 挑战下载、snapshot 和解析，不代表核心商业入口。"
+    },
+    {
+      "run_mode_id": "THREE_PROVINCE_CLEAN_V1_SMOKE",
+      "line_id": "PRE_BID_PREDICTION",
+      "script": "scripts/run-professional-clean-v1-real-samples.ps1",
+      "status": "AVAILABLE",
+      "purpose": "验证广东广州、浙江、四川文件下载/解析/项目审计链路。"
+    },
+    {
+      "run_mode_id": "POST_CANDIDATE_BACKTRACE_V1",
+      "line_id": "POST_CANDIDATE_EVIDENCE_PACK",
+      "script": "scripts/run-post-candidate-evidence-pack-samples.ps1",
+      "status": "PLANNED",
+      "purpose": "从候选公示或评标结果进入，回溯同一项目全流程文件并生成证据包分析输入。"
+    }
+  ],
+  "analysis_boundaries": [
+    "样本数量必须以 project_id 和可 replay 文件完整率为核心，不用目标桶数量冒充项目数量。",
+    "招标公告 smoke 只证明文件链路，不代表候选公示后证据包主线完成。",
+    "投前预测线不能生成候选人核查、真实竞争者结论或陪标组合结论。",
+    "候选公示后证据包线必须回溯招标文件、答疑澄清、开标、候选、结果和投标文件公开等全过程材料。",
+    "所有真实文件必须下载到本地对象仓库并通过 replay_snapshot 后才进入解析和证据包。"
+  ]
+}
