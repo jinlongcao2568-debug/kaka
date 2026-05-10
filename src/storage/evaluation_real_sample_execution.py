@@ -576,6 +576,16 @@ def _capture_manifest_summary(capture_result: Mapping[str, Any]) -> dict[str, An
         fields = dict(capture.get("detail_fields") or {})
         detail_text_source = str(fields.get("detail_text_source") or "")
         detail_text_probe = str(fields.get("detail_text_probe") or "")
+        guangzhou_ywtb_download_discovery_state = str(
+            fields.get("guangzhou_ywtb_download_discovery_state")
+            or capture.get("guangzhou_ywtb_download_discovery_state")
+            or ""
+        )
+        guangzhou_ywtb_download_diagnostics = dict(
+            fields.get("guangzhou_ywtb_download_diagnostics")
+            or capture.get("guangzhou_ywtb_download_diagnostics")
+            or {}
+        )
         attachment_text_probes = [
             dict(item)
             for item in list(fields.get("attachment_text_probes") or [])
@@ -798,6 +808,8 @@ def _capture_manifest_summary(capture_result: Mapping[str, Any]) -> dict[str, An
                     "text_probe": _project_sample_text_probe(capture, fields),
                     "detail_text_source": detail_text_source,
                     "detail_text_probe": detail_text_probe,
+                    "guangzhou_ywtb_download_discovery_state": guangzhou_ywtb_download_discovery_state,
+                    "guangzhou_ywtb_download_diagnostics": guangzhou_ywtb_download_diagnostics,
                     "attachment_text_probes": attachment_text_probes,
                     "file_parse_attributions": file_parse_attributions,
                 },

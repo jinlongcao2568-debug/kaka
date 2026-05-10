@@ -1975,6 +1975,55 @@ class RealPublicEntryFetcher:
         attachment_link_items = _discover_same_site_attachment_link_items(text, base_url=final_url, host=host)
         attachment_discovery_taxonomy: list[str] = []
         attachment_discovery_diagnostics: dict[str, Any] = {}
+        if profile.profile_id == "GUANGZHOU-YWTB-CONSTRUCTION-LIST":
+            guangzhou_static_diagnosis = _guangzhou_ywtb_download_discovery_from_html(
+                text,
+                detail_url=final_url,
+                attachment_link_items=attachment_link_items,
+            )
+            attachment_discovery_diagnostics["guangzhou_ywtb"] = guangzhou_static_diagnosis
+            attachment_discovery_taxonomy.extend(
+                list(guangzhou_static_diagnosis.get("failure_taxonomy") or [])
+            )
+            if (
+                not attachment_link_items
+                and self.automated_challenge_resolution_enabled
+                and self.attachment_challenge_resolver is not None
+                and hasattr(self.attachment_challenge_resolver, "diagnose_guangzhou_ywtb_detail_downloads")
+            ):
+                try:
+                    rendered_diagnosis = self.attachment_challenge_resolver.diagnose_guangzhou_ywtb_detail_downloads(
+                        {
+                            "detail_url": final_url,
+                            "parent_profile_id": profile.profile_id,
+                            "site_name": profile.site_name,
+                            "source_family": profile.source_family,
+                        }
+                    )
+                    if isinstance(rendered_diagnosis, Mapping):
+                        rendered_items = [
+                            {"url": str(item.get("url") or ""), "text": str(item.get("text") or "")}
+                            for item in list(rendered_diagnosis.get("same_site_attachment_link_items") or [])
+                            if isinstance(item, Mapping) and str(item.get("url") or "").strip()
+                        ]
+                        attachment_link_items = _merge_link_items(rendered_items, attachment_link_items)
+                        attachment_discovery_diagnostics["guangzhou_ywtb_rendered"] = dict(rendered_diagnosis)
+                        if str(rendered_diagnosis.get("guangzhou_ywtb_download_discovery_state") or "") == "DOWNLOAD_ENDPOINT_CAPTURED":
+                            attachment_discovery_taxonomy = [
+                                item for item in attachment_discovery_taxonomy if not str(item).startswith("guangzhou_")
+                            ]
+                        attachment_discovery_taxonomy.extend(
+                            str(item)
+                            for item in list(rendered_diagnosis.get("failure_taxonomy") or [])
+                            if str(item or "").strip()
+                        )
+                except Exception as exc:  # pragma: no cover - browser diagnostics vary by host/runtime
+                    attachment_discovery_diagnostics["guangzhou_ywtb_rendered"] = {
+                        "guangzhou_ywtb_download_discovery_state": "SCRIPT_ENDPOINT_UNRESOLVED",
+                        "diagnostic_error": type(exc).__name__,
+                        "diagnostic_error_detail": str(exc)[:500],
+                    }
+                    attachment_discovery_taxonomy.append("guangzhou_ywtb_rendered_diagnostic_failed")
         if profile.profile_id == "SICHUAN-GGZY-TRANSACTION-INFO":
             if _has_template_placeholder(text):
                 attachment_discovery_taxonomy.append("sichuan_template_placeholder_attachment_ignored")
@@ -2944,6 +2993,54 @@ def _has_template_placeholder(*values: Any) -> bool:
         or "%7d%7d" in lowered
         or any(token in text for token in ("{{arrGuid}}", "{{appUrlFlag}}", "{{attFileName}}"))
     )
+
+
+def _guangzhou_ywtb_download_discovery_from_html(
+    text: str,
+    *,
+    detail_url: str,
+    attachment_link_items: list[Mapping[str, Any]],
+) -> dict[str, Any]:
+    body = str(text or "")
+    lowered = body.lower()
+    if attachment_link_items:
+        state = "DOWNLOAD_ENDPOINT_CAPTURED"
+    elif any(token in body for token in ("数字证书", "CA锁", "CA证书", "CA 登录", "CA登录", "粤商通")):
+        state = "LOGIN_OR_CA_REQUIRED"
+    elif any(token in body for token in ("请登录", "用户登录", "登录后", "登录系统", "会员登录")):
+        state = "LOGIN_OR_CA_REQUIRED"
+    elif any(token in body for token in ("验证码", "滑块", "拖动", "captcha", "blockpuzzle")):
+        state = "CHALLENGE_REQUIRED"
+    elif any(token in lowered for token in ("ztbfjyz", "downloadztbattach", "attachguid", "appurlflag")):
+        state = "SCRIPT_ENDPOINT_UNRESOLVED"
+    else:
+        state = "NO_PUBLIC_DOWNLOAD_ENDPOINT"
+    return {
+        "guangzhou_ywtb_download_discovery_state": state,
+        "detail_url": detail_url,
+        "static_download_endpoint_count": len(attachment_link_items),
+        "static_download_endpoint_urls": [
+            str(item.get("url") or "")
+            for item in attachment_link_items[:10]
+            if isinstance(item, Mapping)
+        ],
+        "failure_taxonomy": _guangzhou_ywtb_discovery_failure_taxonomy(state),
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
+
+
+def _guangzhou_ywtb_discovery_failure_taxonomy(state: str) -> list[str]:
+    if state == "DOWNLOAD_ENDPOINT_CAPTURED":
+        return []
+    mapping = {
+        "NO_PUBLIC_DOWNLOAD_ENDPOINT": "guangzhou_public_download_endpoint_missing",
+        "LOGIN_OR_CA_REQUIRED": "guangzhou_login_or_ca_required",
+        "CHALLENGE_REQUIRED": "guangzhou_challenge_required",
+        "SCRIPT_ENDPOINT_UNRESOLVED": "guangzhou_script_endpoint_unresolved",
+    }
+    value = mapping.get(str(state or ""))
+    return [value] if value else []
 
 
 def _discover_sichuan_static_json_attachment_link_items(

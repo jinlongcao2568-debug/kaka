@@ -95,6 +95,27 @@ def _preferred_detail_text(candidate: Mapping[str, Any], readback_text: str) -> 
     return _clean_text(readback_text), "full_detail_readback"
 
 
+def _guangzhou_ywtb_download_diagnostics(detail_carrier: Mapping[str, Any]) -> dict[str, Any]:
+    diagnostics = dict(detail_carrier.get("attachment_discovery_diagnostics") or {})
+    rendered = diagnostics.get("guangzhou_ywtb_rendered")
+    static = diagnostics.get("guangzhou_ywtb")
+    if isinstance(rendered, Mapping) and rendered.get("guangzhou_ywtb_download_discovery_state"):
+        return dict(rendered)
+    if isinstance(static, Mapping):
+        return dict(static)
+    return {}
+
+
+def _guangzhou_ywtb_failure_from_state(state: str) -> str:
+    mapping = {
+        "NO_PUBLIC_DOWNLOAD_ENDPOINT": "guangzhou_public_download_endpoint_missing",
+        "LOGIN_OR_CA_REQUIRED": "guangzhou_login_or_ca_required",
+        "CHALLENGE_REQUIRED": "guangzhou_challenge_required",
+        "SCRIPT_ENDPOINT_UNRESOLVED": "guangzhou_script_endpoint_unresolved",
+    }
+    return mapping.get(str(state or ""), "")
+
+
 def _clip_text(value: Any, limit: int = 4000) -> str:
     text = str(value or "").strip()
     if len(text) <= limit:
@@ -1989,8 +2010,19 @@ def _document_completeness_summary(capture: Mapping[str, Any]) -> dict[str, Any]
         and source_profile_id == "GUANGZHOU-YWTB-CONSTRUCTION-LIST"
         and document_kind == "tender_file"
     ):
-        failure_reasons.append("guangzhou_ywtb_attachment_download_link_not_found")
-        review_reasons.append("guangzhou_ywtb_attachment_download_link_not_found")
+        guangzhou_state = str(
+            fields.get("guangzhou_ywtb_download_discovery_state")
+            or capture.get("guangzhou_ywtb_download_discovery_state")
+            or ""
+        )
+        guangzhou_failure = _guangzhou_ywtb_failure_from_state(guangzhou_state)
+        if guangzhou_failure:
+            failure_reasons.append(guangzhou_failure)
+            review_reasons.append(guangzhou_failure)
+            review_reasons.append(f"guangzhou_ywtb_download_discovery_state:{guangzhou_state}")
+        else:
+            failure_reasons.append("guangzhou_ywtb_attachment_download_link_not_found")
+            review_reasons.append("guangzhou_ywtb_attachment_download_link_not_found")
     if source_profile_id == "SICHUAN-GGZY-TRANSACTION-INFO":
         for reason in list(capture.get("detail_attachment_discovery_taxonomy") or fields.get("attachment_discovery_taxonomy") or []):
             text_reason = str(reason or "").strip()
@@ -2418,12 +2450,21 @@ class RealCandidateStage2CaptureService:
         detail_carrier = {
             "title": capture.get("detail_title") or capture.get("project_name") or candidate.get("project_name"),
         }
+        previous_fields = dict(capture.get("detail_fields") or {})
         refreshed["detail_fields"] = self._detail_fields(
             candidate=candidate,
             detail_carrier=detail_carrier,
             parser_carrier=parser_carrier,
             readback_text=combined_readback_text or readback_text,
         )
+        for key in (
+            "guangzhou_ywtb_download_discovery_state",
+            "guangzhou_ywtb_download_diagnostics",
+            "attachment_discovery_taxonomy",
+            "attachment_discovery_diagnostics",
+        ):
+            if key in previous_fields:
+                refreshed["detail_fields"][key] = previous_fields[key]
         refreshed["detail_fields"]["file_parse_attributions"] = [
             _file_parse_attribution(
                 project_id=str(candidate.get("project_id") or capture.get("project_id") or ""),
@@ -2587,6 +2628,12 @@ class RealCandidateStage2CaptureService:
             detail_fields["attachment_discovery_diagnostics"] = dict(
                 detail_carrier.get("attachment_discovery_diagnostics") or {}
             )
+        guangzhou_download_diagnostics = _guangzhou_ywtb_download_diagnostics(detail_carrier)
+        if guangzhou_download_diagnostics:
+            detail_fields["guangzhou_ywtb_download_discovery_state"] = str(
+                guangzhou_download_diagnostics.get("guangzhou_ywtb_download_discovery_state") or ""
+            )
+            detail_fields["guangzhou_ywtb_download_diagnostics"] = guangzhou_download_diagnostics
         if attachment_text_states:
             detail_fields["attachment_text_parse_states"] = attachment_text_states
             detail_fields["attachment_text_merge_state"] = (
@@ -2612,6 +2659,12 @@ class RealCandidateStage2CaptureService:
             "detail_attachment_discovery_taxonomy": attachment_discovery_taxonomy,
             "detail_attachment_discovery_diagnostics": dict(
                 detail_carrier.get("attachment_discovery_diagnostics") or {}
+            ),
+            "guangzhou_ywtb_download_discovery_state": detail_fields.get(
+                "guangzhou_ywtb_download_discovery_state", ""
+            ),
+            "guangzhou_ywtb_download_diagnostics": detail_fields.get(
+                "guangzhou_ywtb_download_diagnostics", {}
             ),
             "detail_url_retry_audit": dict(detail_carrier.get("detail_url_retry_audit") or {}),
             "detail_automated_challenge_resolution_attempted": bool(
@@ -3082,6 +3135,12 @@ class RealCandidateStage2CaptureService:
         row["attachment_text_merge_state"] = str(fields.get("attachment_text_merge_state") or "")
         row["attachment_text_parse_states"] = list(fields.get("attachment_text_parse_states") or [])
         row["detail_text_probe"] = str(fields.get("detail_text_probe") or "")
+        row["guangzhou_ywtb_download_discovery_state"] = str(
+            fields.get("guangzhou_ywtb_download_discovery_state") or ""
+        )
+        row["guangzhou_ywtb_download_diagnostics"] = dict(
+            fields.get("guangzhou_ywtb_download_diagnostics") or {}
+        )
         row["attachment_text_probes"] = list(fields.get("attachment_text_probes") or [])
         row["file_parse_attributions"] = list(fields.get("file_parse_attributions") or [])
         row["attachment_snapshot_refs"] = attachment_snapshot_refs

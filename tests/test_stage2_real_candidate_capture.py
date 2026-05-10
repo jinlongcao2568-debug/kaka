@@ -1702,12 +1702,16 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
 
         self.assertEqual(enriched["stage2_attachment_link_count"], 0)
         self.assertIn(
-            "guangzhou_ywtb_attachment_download_link_not_found",
+            "guangzhou_public_download_endpoint_missing",
             enriched["document_completeness_summary"]["failure_reasons"],
         )
         self.assertIn(
-            "guangzhou_ywtb_attachment_download_link_not_found",
+            "guangzhou_public_download_endpoint_missing",
             enriched["document_completeness_summary"]["review_reasons"],
+        )
+        self.assertEqual(
+            enriched["guangzhou_ywtb_download_discovery_state"],
+            "NO_PUBLIC_DOWNLOAD_ENDPOINT",
         )
 
     def test_xlsx_attachment_text_feeds_qualification_blocks_without_negative_fact(self) -> None:

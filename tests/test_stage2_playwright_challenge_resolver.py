@@ -18,6 +18,9 @@ from stage2_ingestion.playwright_challenge_resolver import (
     _epoint_attachment_action_url,
     _epoint_jigsaw_captcha_url,
     _filename_from_content_disposition,
+    _guangzhou_ywtb_discovery_failure_taxonomy,
+    _guangzhou_ywtb_download_discovery_state,
+    _guangzhou_ywtb_download_url,
     _guangdong_ygp_download_signature_params,
     _guangdong_ygp_download_url,
     _solve_blockpuzzle_offset,
@@ -122,6 +125,25 @@ class PlaywrightChallengeResolverHelperTests(unittest.TestCase):
         self.assertEqual(params["version"], "v3")
         self.assertEqual(params["rowGuid"], "e1633e95-9630-48e3-95fb-17e38a18cba0--3C14")
         self.assertEqual(params["flowId"], "1696027")
+
+    def test_guangzhou_download_diagnosis_classifies_endpoint_and_blockers(self) -> None:
+        self.assertTrue(_guangzhou_ywtb_download_url(GZ_ATTACHMENT_URL))
+        self.assertEqual(
+            _guangzhou_ywtb_download_discovery_state(body_text="", html="", candidate_count=1),
+            "DOWNLOAD_ENDPOINT_CAPTURED",
+        )
+        self.assertEqual(
+            _guangzhou_ywtb_download_discovery_state(
+                body_text="请使用CA证书登录后下载招标文件",
+                html="",
+                candidate_count=0,
+            ),
+            "LOGIN_OR_CA_REQUIRED",
+        )
+        self.assertEqual(
+            _guangzhou_ywtb_discovery_failure_taxonomy("NO_PUBLIC_DOWNLOAD_ENDPOINT"),
+            ["guangzhou_public_download_endpoint_missing"],
+        )
 
 
 if __name__ == "__main__":

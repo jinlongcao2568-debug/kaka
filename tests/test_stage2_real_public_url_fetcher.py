@@ -170,6 +170,16 @@ class FakeDetailChallengeResolver(FakeAttachmentChallengeResolver):
         }
 
 
+class FakeGuangzhouDownloadDiagnosisResolver:
+    def __init__(self, diagnosis: dict[str, object]) -> None:
+        self.diagnosis = diagnosis
+        self.requests: list[dict[str, object]] = []
+
+    def diagnose_guangzhou_ywtb_detail_downloads(self, request: dict[str, object]) -> dict[str, object]:
+        self.requests.append(dict(request))
+        return dict(self.diagnosis)
+
+
 def _repo(tmp_dir: str) -> ObjectStorageRepository:
     settings = Settings(
         storage_backend="json-file",
@@ -800,6 +810,79 @@ class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
         )
 
         self.assertEqual(items, [])
+
+    def test_guangzhou_static_detail_without_download_endpoint_gets_specific_state(self) -> None:
+        detail_html = """
+        <html><head><title>广州招标公告</title></head><body>
+          <a href="/jyfw/002001/002001006/002001006001/20250807/file-open.html">投标文件公开</a>
+          <a href="/jyfw/002001/002001003/20260510/result.html">中标结果</a>
+        </body></html>
+        """.encode("utf-8")
+        transport = FakeRealPublicFetchTransport(
+            {
+                GZ_YWTB_DETAIL_URL: RealPublicFetchResponse(
+                    url=GZ_YWTB_DETAIL_URL,
+                    status_code=200,
+                    content=detail_html,
+                    content_type="text/html; charset=utf-8",
+                    final_url=GZ_YWTB_DETAIL_URL,
+                ),
+            }
+        )
+
+        carrier = RealPublicEntryFetcher(transport=transport, repository=None).fetch_candidate_detail_url(
+            GZ_YWTB_DETAIL_URL,
+            profile_id="GUANGZHOU-YWTB-CONSTRUCTION-LIST",
+        )
+
+        self.assertEqual(carrier["same_site_attachment_link_items"], [])
+        self.assertIn("guangzhou_public_download_endpoint_missing", carrier["attachment_discovery_taxonomy"])
+        self.assertEqual(
+            carrier["attachment_discovery_diagnostics"]["guangzhou_ywtb"]["guangzhou_ywtb_download_discovery_state"],
+            "NO_PUBLIC_DOWNLOAD_ENDPOINT",
+        )
+
+    def test_guangzhou_rendered_diagnosis_can_supply_download_endpoint(self) -> None:
+        detail_html = "<html><head><title>广州招标公告</title></head><body><button>附件下载</button></body></html>".encode("utf-8")
+        resolver = FakeGuangzhouDownloadDiagnosisResolver(
+            {
+                "guangzhou_ywtb_download_discovery_state": "DOWNLOAD_ENDPOINT_CAPTURED",
+                "same_site_attachment_link_items": [
+                    {"url": GZ_YWTB_ATTACHMENT_URL, "text": "招标文件.pdf"},
+                ],
+                "failure_taxonomy": [],
+            }
+        )
+        transport = FakeRealPublicFetchTransport(
+            {
+                GZ_YWTB_DETAIL_URL: RealPublicFetchResponse(
+                    url=GZ_YWTB_DETAIL_URL,
+                    status_code=200,
+                    content=detail_html,
+                    content_type="text/html; charset=utf-8",
+                    final_url=GZ_YWTB_DETAIL_URL,
+                ),
+            }
+        )
+
+        carrier = RealPublicEntryFetcher(
+            transport=transport,
+            repository=None,
+            attachment_challenge_resolver=resolver,
+            automated_challenge_resolution_enabled=True,
+        ).fetch_candidate_detail_url(
+            GZ_YWTB_DETAIL_URL,
+            profile_id="GUANGZHOU-YWTB-CONSTRUCTION-LIST",
+        )
+
+        self.assertEqual(carrier["same_site_attachment_link_items"][0]["url"], GZ_YWTB_ATTACHMENT_URL)
+        self.assertEqual(len(resolver.requests), 1)
+        self.assertEqual(
+            carrier["attachment_discovery_diagnostics"]["guangzhou_ywtb_rendered"][
+                "guangzhou_ywtb_download_discovery_state"
+            ],
+            "DOWNLOAD_ENDPOINT_CAPTURED",
+        )
 
     def test_sichuan_navigation_links_are_not_treated_as_attachment_links(self) -> None:
         detail_html = """

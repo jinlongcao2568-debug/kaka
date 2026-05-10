@@ -11,7 +11,7 @@ import time
 from io import BytesIO
 from pathlib import Path
 from typing import Any, Mapping
-from urllib.parse import parse_qs, quote, urlsplit, unquote
+from urllib.parse import parse_qs, quote, urljoin, urlsplit, unquote
 from urllib.parse import urlencode, urlunsplit
 
 
@@ -230,6 +230,112 @@ class PlaywrightAttachmentChallengeResolver:
                         "page_url": diagnostics.get("page_url"),
                         "selector_counts": diagnostics.get("selector_counts"),
                     },
+                }
+            except PlaywrightTimeoutError as exc:
+                raise RuntimeError(f"playwright_timeout:{exc}") from exc
+            finally:
+                context.close()
+                browser.close()
+
+    def diagnose_guangzhou_ywtb_detail_downloads(self, request: Mapping[str, Any]) -> Mapping[str, Any]:
+        """Inspect a Guangzhou YWTB detail page for public tender download endpoints.
+
+        This is diagnostic-only: it records endpoint URLs and blocker classes,
+        but does not persist raw HTML or downloaded blobs.
+        """
+        try:
+            from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+            from playwright.sync_api import sync_playwright
+        except Exception as exc:  # pragma: no cover - optional runtime dependency
+            raise RuntimeError(f"playwright_unavailable:{exc}") from exc
+
+        detail_url = str(request.get("detail_url") or "").strip()
+        if not detail_url:
+            raise ValueError("detail_url_required")
+
+        candidates: list[dict[str, str]] = []
+        response_statuses: list[dict[str, Any]] = []
+        clicked_texts: list[str] = []
+
+        def remember_candidate(url: str, text: str = "", source: str = "") -> None:
+            absolute = urljoin(detail_url, str(url or "").strip())
+            if not _guangzhou_ywtb_download_url(absolute):
+                return
+            clean = absolute.split("#", 1)[0]
+            if any(item.get("url") == clean for item in candidates):
+                return
+            candidates.append({"url": clean, "text": text[:160], "source": source})
+
+        with sync_playwright() as playwright:
+            launch_options: dict[str, Any] = {"headless": self.headless}
+            if self.proxy_server:
+                launch_options["proxy"] = {"server": self.proxy_server}
+            browser = playwright.chromium.launch(**launch_options)
+            context_options: dict[str, Any] = {
+                "accept_downloads": True,
+                "locale": "zh-CN",
+                "timezone_id": "Asia/Shanghai",
+                "viewport": {"width": 1366, "height": 900},
+            }
+            if self.user_agent:
+                context_options["user_agent"] = self.user_agent
+            if self.storage_state_path and Path(self.storage_state_path).exists():
+                context_options["storage_state"] = self.storage_state_path
+            context = browser.new_context(**context_options)
+            page = context.new_page()
+
+            def on_request(req: Any) -> None:
+                remember_candidate(req.url, source="network_request")
+
+            def on_response(resp: Any) -> None:
+                if _guangzhou_ywtb_download_url(resp.url):
+                    response_statuses.append(
+                        {
+                            "url": resp.url.split("#", 1)[0],
+                            "status": getattr(resp, "status", None),
+                            "content_type": (getattr(resp, "headers", {}) or {}).get("content-type", ""),
+                        }
+                    )
+
+            page.on("request", on_request)
+            page.on("response", on_response)
+            try:
+                page.goto(detail_url, wait_until="domcontentloaded", timeout=self.timeout_ms)
+                try:
+                    page.wait_for_load_state("networkidle", timeout=min(self.timeout_ms, 12000))
+                except Exception:
+                    pass
+                html = page.content()
+                body_text = ""
+                try:
+                    body_text = page.locator("body").inner_text(timeout=3000)
+                except Exception:
+                    body_text = ""
+                for item in _guangzhou_ywtb_dom_download_candidates(page):
+                    remember_candidate(item.get("url", ""), item.get("text", ""), "dom")
+                if not candidates:
+                    for item in _guangzhou_ywtb_click_probe(page):
+                        clicked_texts.append(str(item.get("text") or "")[:160])
+                        remember_candidate(item.get("url", ""), item.get("text", ""), "click_probe")
+                state = _guangzhou_ywtb_download_discovery_state(
+                    body_text=body_text,
+                    html=html,
+                    candidate_count=len(candidates),
+                )
+                return {
+                    "guangzhou_ywtb_download_discovery_state": state,
+                    "same_site_attachment_link_items": [
+                        {"url": item["url"], "text": item.get("text") or "广州交易集团下载入口"}
+                        for item in candidates
+                    ],
+                    "failure_taxonomy": _guangzhou_ywtb_discovery_failure_taxonomy(state),
+                    "network_download_response_count": len(response_statuses),
+                    "network_download_response_statuses": response_statuses[:20],
+                    "clicked_download_probe_texts": clicked_texts[:20],
+                    "page_title": _safe_page_title(page),
+                    "page_url": page.url or detail_url,
+                    "customer_visible_allowed": False,
+                    "no_legal_conclusion": True,
                 }
             except PlaywrightTimeoutError as exc:
                 raise RuntimeError(f"playwright_timeout:{exc}") from exc
@@ -649,6 +755,131 @@ def _guangdong_ygp_query_string(params: Mapping[str, Any]) -> str:
             text = str(value)
         parts.append(f"{quote(str(key), safe='')}={quote(text, safe='')}")
     return "&".join(parts)
+
+
+def _guangzhou_ywtb_download_url(url: str) -> bool:
+    parsed = urlsplit(str(url or ""))
+    host = (parsed.hostname or "").lower()
+    path = unquote(parsed.path or "").lower()
+    return host == "ywtb.gzggzy.cn" and (
+        "downloadztbattach" in path or "ztbattachdownloadaction.action" in path
+    )
+
+
+def _guangzhou_ywtb_dom_download_candidates(page: Any) -> list[dict[str, str]]:
+    script = """
+    () => Array.from(document.querySelectorAll('a,button,[onclick],[href]')).map((el) => {
+      const href = el.getAttribute('href') || '';
+      const dataUrl = el.getAttribute('data-url') || el.getAttribute('data-href') || '';
+      const onclick = el.getAttribute('onclick') || '';
+      const text = (el.innerText || el.textContent || el.getAttribute('title') || '').trim();
+      const values = [href, dataUrl, onclick].filter(Boolean);
+      return values.map((value) => {
+        const match = value.match(/['"]([^'"]*downloadztbattach[^'"]*)['"]/i);
+        const rawUrl = match ? match[1] : value;
+        let url = rawUrl;
+        try { url = new URL(rawUrl, location.href).href; } catch (e) {}
+        return {url, text};
+      });
+    }).flat()
+    """
+    try:
+        raw_items = page.evaluate(script)
+    except Exception:
+        return []
+    items: list[dict[str, str]] = []
+    for raw in raw_items if isinstance(raw_items, list) else []:
+        if not isinstance(raw, Mapping):
+            continue
+        url = str(raw.get("url") or "").strip()
+        if not _guangzhou_ywtb_download_url(url):
+            continue
+        items.append({"url": url, "text": str(raw.get("text") or "")})
+    return items
+
+
+def _guangzhou_ywtb_click_probe(page: Any) -> list[dict[str, str]]:
+    items: list[dict[str, str]] = []
+    try:
+        locator = page.locator("a,button,[onclick]")
+        count = min(int(locator.count()), 80)
+    except Exception:
+        return items
+    for index in range(count):
+        try:
+            element = locator.nth(index)
+            text = (element.inner_text(timeout=500) or "").strip()
+            attrs = " ".join(
+                str(element.get_attribute(name, timeout=500) or "")
+                for name in ("href", "onclick", "title", "data-url", "data-href")
+            )
+            if not _guangzhou_ywtb_probe_text_or_attrs(text, attrs):
+                continue
+            before = set(item["url"] for item in _guangzhou_ywtb_dom_download_candidates(page))
+            try:
+                element.click(timeout=1200, no_wait_after=True)
+            except Exception:
+                pass
+            time.sleep(0.2)
+            after = _guangzhou_ywtb_dom_download_candidates(page)
+            for candidate in after:
+                if candidate["url"] not in before:
+                    items.append({"url": candidate["url"], "text": text or candidate.get("text", "")})
+        except Exception:
+            continue
+    return items
+
+
+def _guangzhou_ywtb_probe_text_or_attrs(text: str, attrs: str) -> bool:
+    combined = f"{text} {attrs}".lower()
+    return any(
+        token in combined
+        for token in (
+            "附件",
+            "下载",
+            "招标文件",
+            "招标资料",
+            "招标公告",
+            "downloadztbattach",
+            "ztbfjyz",
+        )
+    )
+
+
+def _guangzhou_ywtb_download_discovery_state(*, body_text: str, html: str, candidate_count: int) -> str:
+    if candidate_count > 0:
+        return "DOWNLOAD_ENDPOINT_CAPTURED"
+    text = f"{body_text or ''}\n{html or ''}"
+    lowered = text.lower()
+    if any(token in text for token in ("数字证书", "CA锁", "CA证书", "CA 登录", "CA登录", "粤商通")):
+        return "LOGIN_OR_CA_REQUIRED"
+    if any(token in text for token in ("请登录", "用户登录", "登录后", "登录系统", "会员登录")):
+        return "LOGIN_OR_CA_REQUIRED"
+    if any(token in text for token in ("验证码", "滑块", "拖动", "captcha", "blockpuzzle")):
+        return "CHALLENGE_REQUIRED"
+    if any(token in lowered for token in ("ztbfjyz", "downloadztbattach", "attachguid", "appurlflag")):
+        return "SCRIPT_ENDPOINT_UNRESOLVED"
+    return "NO_PUBLIC_DOWNLOAD_ENDPOINT"
+
+
+def _guangzhou_ywtb_discovery_failure_taxonomy(state: str) -> list[str]:
+    if state == "DOWNLOAD_ENDPOINT_CAPTURED":
+        return []
+    mapping = {
+        "NO_PUBLIC_DOWNLOAD_ENDPOINT": "guangzhou_public_download_endpoint_missing",
+        "LOGIN_OR_CA_REQUIRED": "guangzhou_login_or_ca_required",
+        "CHALLENGE_REQUIRED": "guangzhou_challenge_required",
+        "SCRIPT_ENDPOINT_UNRESOLVED": "guangzhou_script_endpoint_unresolved",
+    }
+    value = mapping.get(str(state or ""))
+    return [value] if value else []
+
+
+def _safe_page_title(page: Any) -> str:
+    try:
+        return str(page.title() or "")
+    except Exception:
+        return ""
 
 
 def _save_download_response_if_file(response: Any, *, tmp_dir: str, fallback_filename: str) -> str | None:
