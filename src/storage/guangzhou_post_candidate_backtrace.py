@@ -75,6 +75,8 @@ GUANGZHOU_FLOW_MODULES = (
     {"flow_no": "11", "flow_code": "07", "flow_title": "合同信息公开", "document_kind": "contract_public_info"},
     {"flow_no": "12", "flow_code": "20", "flow_title": "项目异常", "document_kind": "project_exception"},
 )
+# These human-provided URLs are adapter validation fixtures only.
+# They prove Guangzhou flow/interface shapes and must not become default crawl targets.
 GUANGZHOU_HUMAN_PROVIDED_FLOW_SEEDS = (
     {
         "flow_no": "02",
@@ -88,6 +90,10 @@ GUANGZHOU_HUMAN_PROVIDED_FLOW_SEEDS = (
         "source_record_id": "0020010071061283",
         "sample_source_type": "HUMAN_PROVIDED_FLOW_SEED",
         "seed_evidence": "human_confirmed_independent_flow_02_page",
+        "usage_scope": "FLOW_INTERFACE_ADAPTER_VALIDATION_ONLY",
+        "adapter_validation_only": True,
+        "production_crawl_source_allowed": False,
+        "default_crawl_target_allowed": False,
     },
 )
 CORE_BACKTRACE_DOCUMENT_KINDS = tuple(str(module["document_kind"]) for module in GUANGZHOU_FLOW_MODULES)
@@ -1133,6 +1139,10 @@ def _human_provided_flow_seed_samples() -> list[dict[str, Any]]:
                 "failure_taxonomy": [],
                 "sample_source_type": str(seed.get("sample_source_type") or "HUMAN_PROVIDED_FLOW_SEED"),
                 "seed_evidence": str(seed.get("seed_evidence") or ""),
+                "usage_scope": str(seed.get("usage_scope") or "FLOW_INTERFACE_ADAPTER_VALIDATION_ONLY"),
+                "adapter_validation_only": bool(seed.get("adapter_validation_only", True)),
+                "production_crawl_source_allowed": bool(seed.get("production_crawl_source_allowed", False)),
+                "default_crawl_target_allowed": bool(seed.get("default_crawl_target_allowed", False)),
                 "customer_visible_allowed": False,
                 "no_legal_conclusion": True,
             }
@@ -1231,6 +1241,10 @@ def _scan_guangzhou_interface_sample(sample: Mapping[str, Any], *, execute: bool
         "source_project_code": str(sample.get("source_project_code") or ""),
         "sample_source_type": str(sample.get("sample_source_type") or ""),
         "seed_evidence": str(sample.get("seed_evidence") or ""),
+        "usage_scope": str(sample.get("usage_scope") or ""),
+        "adapter_validation_only": bool(sample.get("adapter_validation_only", False)),
+        "production_crawl_source_allowed": sample.get("production_crawl_source_allowed"),
+        "default_crawl_target_allowed": sample.get("default_crawl_target_allowed"),
         "download_enabled": False,
         "snapshot_write_enabled": False,
         "parse_enabled": False,
@@ -1530,6 +1544,10 @@ def _build_manual_interface_check_table(interface_report: Mapping[str, Any]) -> 
                     "failure_taxonomy": list(flow.get("failure_taxonomy") or flow.get("target_failure_taxonomy") or []),
                     "sample_source_type": "",
                     "seed_evidence": "",
+                    "usage_scope": "",
+                    "adapter_validation_only": False,
+                    "production_crawl_source_allowed": None,
+                    "default_crawl_target_allowed": None,
                     "attempted_pages": _int(flow.get("attempted_pages")),
                     "record_count": _int(flow.get("record_count")),
                     "accepted_item_count": _int(flow.get("accepted_item_count")),
@@ -1555,6 +1573,10 @@ def _build_manual_interface_check_table(interface_report: Mapping[str, Any]) -> 
                     "failure_taxonomy": list(sample.get("failure_taxonomy") or []),
                     "sample_source_type": str(sample.get("sample_source_type") or ""),
                     "seed_evidence": str(sample.get("seed_evidence") or ""),
+                    "usage_scope": str(sample.get("usage_scope") or ""),
+                    "adapter_validation_only": bool(sample.get("adapter_validation_only", False)),
+                    "production_crawl_source_allowed": sample.get("production_crawl_source_allowed"),
+                    "default_crawl_target_allowed": sample.get("default_crawl_target_allowed"),
                     "attempted_pages": _int(flow.get("attempted_pages")),
                     "record_count": _int(flow.get("record_count")),
                     "accepted_item_count": _int(flow.get("accepted_item_count")),

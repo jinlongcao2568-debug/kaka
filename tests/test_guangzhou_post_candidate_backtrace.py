@@ -453,11 +453,20 @@ class TestGuangzhouPostCandidateBacktrace(unittest.TestCase):
         rows = manual["manifest"]["items"]
         self.assertTrue(any(row["interface_status"] == FLOW_SAMPLE_NOT_FOUND for row in rows))
         self.assertTrue(any(row["interface_status"] == OPTIONAL_LOW_FREQUENCY_FLOW_NOT_FOUND for row in rows))
+        flow_02_seed_rows = [
+            row
+            for row in rows
+            if row["flow_no"] == "02" and row["sample_source_type"] == "HUMAN_PROVIDED_FLOW_SEED"
+        ]
+        self.assertTrue(flow_02_seed_rows)
         self.assertTrue(
-            any(
-                row["flow_no"] == "02" and row["sample_source_type"] == "HUMAN_PROVIDED_FLOW_SEED"
-                for row in rows
-            )
+            all(row["usage_scope"] == "FLOW_INTERFACE_ADAPTER_VALIDATION_ONLY" for row in flow_02_seed_rows)
+        )
+        self.assertTrue(all(row["adapter_validation_only"] for row in flow_02_seed_rows))
+        self.assertTrue(all(row["production_crawl_source_allowed"] is False for row in flow_02_seed_rows))
+        self.assertTrue(all(row["default_crawl_target_allowed"] is False for row in flow_02_seed_rows))
+        self.assertTrue(
+            all(row["interface_status"] in {INTERFACE_UNRESOLVED, SCRIPT_DOWNLOAD_ENDPOINT_FOUND} for row in flow_02_seed_rows)
         )
         self.assertEqual(manual["manifest"]["summary"]["flow_count"], 12)
 
