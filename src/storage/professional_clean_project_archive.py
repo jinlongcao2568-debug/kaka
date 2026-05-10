@@ -182,6 +182,7 @@ def _archive_project(
     )
     guangzhou_flow_inventory = _materialize_guangzhou_flow_view(
         project_dir=project_dir,
+        samples=samples,
         detail_files=detail_files,
         attachment_files=attachment_files,
     )
@@ -414,11 +415,55 @@ def _materialize_refs(
 def _materialize_guangzhou_flow_view(
     *,
     project_dir: Path,
+    samples: list[Mapping[str, Any]],
     detail_files: list[Mapping[str, Any]],
     attachment_files: list[Mapping[str, Any]],
 ) -> list[dict[str, Any]]:
-    flow_root = project_dir / "flow"
+    legacy_flow_root = project_dir / "flow"
     inventory: list[dict[str, Any]] = []
+    materialized_url_keys: set[tuple[str, str]] = set()
+    for sample in samples:
+        flow_no = _sample_flow_no(sample)
+        flow_title = _sample_flow_title(sample)
+        source_url = str(sample.get("source_url") or "").strip()
+        if not flow_no or not flow_title or not source_url:
+            continue
+        key = (flow_no, source_url)
+        if key in materialized_url_keys:
+            continue
+        materialized_url_keys.add(key)
+        publish_date = _publish_date_for_sample(sample)
+        destination_dir = _flow_notice_directory(
+            project_dir=project_dir,
+            flow_no=flow_no,
+            flow_title=flow_title,
+            publish_date=publish_date,
+            title=str(sample.get("project_name") or sample.get("document_kind") or "流程页面"),
+        )
+        for child in ("detail", "attachments", "extracted", "parsed"):
+            (destination_dir / child).mkdir(parents=True, exist_ok=True)
+        meta = {
+            "flow_no": flow_no,
+            "flow_title": flow_title,
+            "flow_code": str(sample.get("guangzhou_flow_code") or sample.get("source_trading_process") or ""),
+            "published_date": publish_date,
+            "file_id": f"FLOW-URL-{flow_no}-{_fingerprint(source_url)[:10]}",
+            "file_role": "detail_url",
+            "snapshot_id": "",
+            "source_url": source_url,
+            "parent_source_url": "",
+            "copied_file_path": "",
+            "primary_flow_directory": str(destination_dir),
+            "replayable": False,
+            "target_execution_state": str(sample.get("target_execution_state") or ""),
+            "customer_visible_allowed": False,
+            "no_legal_conclusion": True,
+        }
+        (destination_dir / "detail" / f"{_safe_path_part(str(meta['file_id']))}.meta.json").write_text(
+            json.dumps(meta, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        inventory.append(meta)
     for item in [*detail_files, *attachment_files]:
         flow_no = str(item.get("guangzhou_flow_no") or "").strip()
         flow_title = str(item.get("guangzhou_flow_title") or "").strip()
@@ -429,18 +474,22 @@ def _materialize_guangzhou_flow_view(
         if not flow_no or not flow_title:
             continue
         publish_date = _publish_date_for_item(item)
-        role_dir = "details" if str(item.get("file_role") or "") == "detail" else "attachments"
-        destination_dir = (
-            flow_root
-            / _safe_path_part(f"{flow_no}_{flow_title}")
-            / _safe_path_part(publish_date or "unknown-date")
-            / role_dir
+        destination_dir = _flow_notice_directory(
+            project_dir=project_dir,
+            flow_no=flow_no,
+            flow_title=flow_title,
+            publish_date=publish_date,
+            title=str(item.get("parent_document_kind") or item.get("file_id") or "流程文件"),
         )
+        for child in ("detail", "attachments", "extracted", "parsed"):
+            (destination_dir / child).mkdir(parents=True, exist_ok=True)
+        role_dir = "detail" if str(item.get("file_role") or "") == "detail" else "attachments"
+        file_destination_dir = destination_dir / role_dir
         destination_dir.mkdir(parents=True, exist_ok=True)
         source_path = Path(str(item.get("file_path") or ""))
         copied_path = ""
         if source_path.exists() and bool(item.get("replayable")):
-            copied = destination_dir / source_path.name
+            copied = file_destination_dir / source_path.name
             if source_path.resolve() != copied.resolve():
                 shutil.copy2(source_path, copied)
             copied_path = str(copied)
@@ -455,17 +504,23 @@ def _materialize_guangzhou_flow_view(
             "source_url": str(item.get("source_url") or ""),
             "parent_source_url": str(item.get("parent_source_url") or ""),
             "copied_file_path": copied_path,
+            "primary_flow_directory": str(destination_dir),
             "replayable": bool(item.get("replayable")),
             "customer_visible_allowed": False,
             "no_legal_conclusion": True,
         }
-        (destination_dir / f"{_safe_path_part(str(item.get('file_id') or 'file'))}.meta.json").write_text(
+        (file_destination_dir / f"{_safe_path_part(str(item.get('file_id') or 'file'))}.meta.json").write_text(
             json.dumps(meta, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
         inventory.append(meta)
     if inventory:
-        (flow_root / "flow-index.json").write_text(
+        legacy_flow_root.mkdir(parents=True, exist_ok=True)
+        (legacy_flow_root / "flow-index.json").write_text(
+            json.dumps({"items": inventory}, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        (project_dir / "flow-index.json").write_text(
             json.dumps({"items": inventory}, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
@@ -738,6 +793,29 @@ def _publish_date_for_item(item: Mapping[str, Any]) -> str:
         if match:
             return f"{match.group(1)}-{match.group(2)}-{match.group(3)}"
     return ""
+
+
+def _publish_date_for_sample(sample: Mapping[str, Any]) -> str:
+    for value in (sample.get("published_at_optional"), sample.get("source_url")):
+        text = str(value or "")
+        match = re.search(r"(20\d{2})[-/]?([01]\d)[-/]?([0-3]\d)", text)
+        if match:
+            return f"{match.group(1)}-{match.group(2)}-{match.group(3)}"
+    return ""
+
+
+def _flow_notice_directory(
+    *,
+    project_dir: Path,
+    flow_no: str,
+    flow_title: str,
+    publish_date: str,
+    title: str,
+) -> Path:
+    flow_dir = project_dir / _safe_path_part(f"{flow_no}_{flow_title}")
+    title_part = _safe_path_part(str(title or "流程页面"))[:80]
+    date_part = _safe_path_part(publish_date or "unknown-date")
+    return flow_dir / _safe_path_part(f"{date_part}_{title_part}")
 
 
 def _backtrace_completeness_state(missing_stage_kinds: list[str]) -> str:
@@ -1280,7 +1358,7 @@ def _is_html_pollution(content_type: str, extension: str) -> bool:
 
 def _safe_path_part(value: str) -> str:
     text = str(value or "").strip() or "UNKNOWN"
-    text = re.sub(r"[^A-Za-z0-9._-]+", "_", text)
+    text = re.sub(r"[^A-Za-z0-9\u4e00-\u9fff._-]+", "_", text)
     return text.strip("._") or "UNKNOWN"
 
 

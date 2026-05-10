@@ -93,10 +93,13 @@ class TestGuangzhou12FlowGoldenContract(unittest.TestCase):
 
             project_dir = Path(audit["project_dir"])
             self.assertTrue((project_dir / "flow" / "flow-index.json").exists())
+            self.assertTrue((project_dir / "03_招标公告_关联公告").exists())
+            self.assertTrue((project_dir / "08_投标_资格预审申请_文件公开").exists())
             self.assertTrue(
                 any(
                     item["flow_no"] == "03"
                     and item["published_date"] == "2026-03-17"
+                    and "03_招标公告_关联公告" in item["primary_flow_directory"]
                     and Path(item["copied_file_path"]).exists()
                     for item in audit["guangzhou_flow_inventory"]
                 )

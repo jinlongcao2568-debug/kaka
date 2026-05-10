@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -11,12 +13,65 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from storage.guangzhou_post_candidate_backtrace import (  # noqa: E402
+    FLOW_URL_DISCOVERED,
+    PARTIAL_RUN_INTERRUPTED,
+    PIPELINE_STAGE_FLOW_URL_ONLY,
     _annotate_project_samples,
     _backtrace_targets_for_entries,
+    _build_flow_url_manifest,
+    _build_pipeline_state_manifest,
+    _entry_targets_with_candidate_limit,
+    _flow_url_project_sample_items,
+    _maybe_resume_flow_url_manifest,
 )
 
 
 class TestGuangzhouPostCandidateBacktrace(unittest.TestCase):
+    def test_entry_targets_override_small_fixture_target_count_for_batch_runs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            base_targets = Path(tmp_dir) / "targets.json"
+            base_targets.write_text(
+                json.dumps(
+                    {
+                        "target_version": 1,
+                        "target_policy": {"customer_visible_allowed": False},
+                        "targets": [
+                            {
+                                "target_id": "REAL-GD-CANDIDATE-001",
+                                "target_count": 4,
+                                "selection_filters": ["工程建设", "中标候选人公示"],
+                            },
+                            {
+                                "target_id": "REAL-GD-AWARD-001",
+                                "target_count": 3,
+                                "selection_filters": ["工程建设", "中标结果公告"],
+                            },
+                            {
+                                "target_id": "REAL-ZJ-CANDIDATE-001",
+                                "target_count": 4,
+                                "selection_filters": ["浙江"],
+                            },
+                        ],
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                ),
+                encoding="utf-8",
+            )
+
+            path = _entry_targets_with_candidate_limit(
+                base_targets_path=base_targets,
+                output_root=Path(tmp_dir),
+                per_target_candidate_limit=30,
+            )
+
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            self.assertEqual({item["target_id"] for item in payload["targets"]}, set(("REAL-GD-CANDIDATE-001", "REAL-GD-AWARD-001")))
+            self.assertTrue(all(item["target_count"] == 30 for item in payload["targets"]))
+            self.assertTrue(
+                all("POST_CANDIDATE_BATCH_LIMIT:30" in item["selection_filters"] for item in payload["targets"])
+            )
+
     def test_backtrace_targets_start_from_post_candidate_entry_and_include_project_filters(self) -> None:
         targets = _backtrace_targets_for_entries(
             [
@@ -130,6 +185,117 @@ class TestGuangzhouPostCandidateBacktrace(unittest.TestCase):
         self.assertIn("discovery_no_match", tender_attempt["failure_taxonomy"])
         self.assertEqual(tender_attempt["base_project_name"], "南沙区排水设施小修项目施工")
         self.assertIn("南沙区排水设施小修项目施工", tender_attempt["backtrace_query_variants"])
+
+    def test_flow_url_only_project_samples_do_not_include_snapshots_or_parse(self) -> None:
+        rows = _flow_url_project_sample_items(
+            plan_item={
+                "target_id": "REAL-GD-CANDIDATE-001",
+                "document_kind": "candidate_notice",
+                "jurisdiction": "CN-GD",
+                "required_fetch_profile_id_optional": "GUANGZHOU-YWTB-CONSTRUCTION-LIST",
+            },
+            selected_candidates=[
+                {
+                    "candidate_key": "CAND-1",
+                    "project_id": "PROJ-CN-GD-JG2026-10815",
+                    "project_name": "某工程中标候选人公示",
+                    "source_url": "https://ywtb.gzggzy.cn/jyfw/002001/002001001/20260510/candidate.html",
+                    "source_profile_id": "GUANGZHOU-YWTB-CONSTRUCTION-LIST",
+                    "source_project_code": "JG2026-10815",
+                    "project_match_key": "JG2026-10815",
+                    "guangzhou_flow_no": "07",
+                    "guangzhou_flow_title": "中标候选人公示",
+                    "guangzhou_flow_code": "03",
+                    "published_at_optional": "2026-05-10",
+                }
+            ],
+            target_execution_state=FLOW_URL_DISCOVERED,
+            failure_taxonomy=[],
+        )
+
+        self.assertEqual(rows[0]["pipeline_stage"], PIPELINE_STAGE_FLOW_URL_ONLY)
+        self.assertEqual(rows[0]["detail_snapshot_refs"], [])
+        self.assertEqual(rows[0]["attachment_snapshot_refs"], [])
+        self.assertEqual(rows[0]["detail_capture_status"], "NOT_RUN_FLOW_URL_ONLY")
+        self.assertEqual(rows[0]["stage3_parse_state"], "NOT_RUN_FLOW_URL_ONLY")
+
+    def test_flow_url_manifest_outputs_12_flow_matrix_without_downloads(self) -> None:
+        sample = _sample("candidate_notice", project_id="PROJ-CN-GD-JG2026-10815", flow_no="07", flow_code="03")
+        sample["source_url"] = "https://ywtb.gzggzy.cn/jyfw/002001/002001001/20260510/candidate.html"
+        sample["published_at_optional"] = "2026-05-10"
+
+        result = _build_flow_url_manifest(
+            project_samples=[sample],
+            archive_manifest={"items": []},
+            created_at="2026-05-10T00:00:00+08:00",
+            output_root=Path("tmp/test"),
+            per_target_candidate_limit=5,
+        )
+
+        project = result["manifest"]["projects"][0]
+        self.assertEqual(len(project["flow_matrix"]), 12)
+        by_flow = {row["flow_no"]: row for row in project["flow_matrix"]}
+        self.assertTrue(by_flow["07"]["present"])
+        self.assertIn(sample["source_url"], by_flow["07"]["detail_urls"])
+        self.assertFalse(by_flow["07"]["download_enabled"])
+        self.assertFalse(by_flow["07"]["parse_enabled"])
+
+    def test_pipeline_state_marks_flow_urls_and_resume_marks_stale_running(self) -> None:
+        sample = _sample("candidate_notice", project_id="PROJ-CN-GD-JG2026-10815", flow_no="07", flow_code="03")
+        sample["source_url"] = "https://example.test/candidate.html"
+        state = _build_pipeline_state_manifest(
+            project_samples=[sample],
+            items=[],
+            created_at="2026-05-10T00:00:00+08:00",
+            pipeline_stage=PIPELINE_STAGE_FLOW_URL_ONLY,
+        )
+        self.assertEqual(state["summary"]["state_counts"][FLOW_URL_DISCOVERED], 1)
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            (root / "pipeline-state.json").write_text(
+                json.dumps(
+                    {"manifest": {"items": [{"state": "RUNNING"}], "summary": {}}},
+                    ensure_ascii=False,
+                    indent=2,
+                ),
+                encoding="utf-8",
+            )
+            (root / "run-manifest.json").write_text(
+                json.dumps(
+                    {
+                        "manifest": {"pipeline_stage": PIPELINE_STAGE_FLOW_URL_ONLY},
+                        "summary": {},
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                ),
+                encoding="utf-8",
+            )
+            (root / "flow-url-manifest.json").write_text(
+                json.dumps(
+                    {
+                        "manifest": {
+                            "pipeline_stage": PIPELINE_STAGE_FLOW_URL_ONLY,
+                            "summary": {"project_count": 1},
+                        }
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                ),
+                encoding="utf-8",
+            )
+
+            resumed = _maybe_resume_flow_url_manifest(
+                root=root,
+                per_target_candidate_limit=1,
+                created_at="2026-05-10T00:00:00+08:00",
+                resume=True,
+            )
+
+            self.assertIsNotNone(resumed)
+            state_payload = json.loads((root / "pipeline-state.json").read_text(encoding="utf-8"))
+            self.assertEqual(state_payload["manifest"]["items"][0]["state"], PARTIAL_RUN_INTERRUPTED)
 
 
 def _sample(

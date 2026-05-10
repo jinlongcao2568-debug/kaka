@@ -4,6 +4,9 @@ param(
     [string]$TargetBackend = "json-file",
     [string]$StoragePath = "",
     [string]$ObjectStoragePath = "",
+    [ValidateSet("FlowUrlOnly", "AttachmentList", "Download", "Parse", "Full")]
+    [string]$PipelineStage = "Full",
+    [switch]$Resume,
     [switch]$EnableAttachmentChallengeResolver,
     [switch]$Execute,
     [switch]$EmitJson
@@ -51,11 +54,16 @@ $argsList = @(
     "--storage-path", $StoragePath,
     "--object-storage-path", $ObjectStoragePath,
     "--per-target-candidate-limit", "$PerTargetCandidateLimit",
+    "--pipeline-stage", $PipelineStage,
     "--output-json", $runManifestJson
 )
 
 if ($Execute) {
     $argsList += "--execute"
+}
+
+if ($Resume) {
+    $argsList += "--resume"
 }
 
 if ($EmitJson) {
