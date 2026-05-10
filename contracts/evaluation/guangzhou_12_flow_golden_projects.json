@@ -1,0 +1,120 @@
+{
+  "contract_id": "guangzhou_12_flow_golden_projects",
+  "version": 1,
+  "contract_state": "ACTIVE_INTERNAL_ACCEPTANCE",
+  "scope": "GUANGZHOU_YWTB_POST_CANDIDATE_BACKTRACE",
+  "source_profile_id": "GUANGZHOU-YWTB-CONSTRUCTION-LIST",
+  "official_entry_url": "https://ywtb.gzggzy.cn/jyfw/002001/002001001/trade_purchasetoplen6.html",
+  "business_route": "POST_CANDIDATE_EVIDENCE_PACK",
+  "customer_visible_allowed": false,
+  "no_legal_conclusion": true,
+  "notes": [
+    "广州 12 流程断言只适用于广州市交易集团/广州公共资源交易中心当前源。",
+    "广东其他城市可复用招投标流程思路，但下载接口和页面结构必须按城市源独立适配。",
+    "本契约用于防止 JG2026-10815 标准样板退化，不作为广东全省稳定性结论。"
+  ],
+  "flow_modules": [
+    {"flow_no": "01", "flow_title": "招标计划", "document_kind": "bid_plan"},
+    {"flow_no": "02", "flow_title": "招标文件公示", "document_kind": "tender_file_publicity"},
+    {"flow_no": "03", "flow_title": "招标公告/关联公告", "document_kind": "tender_file"},
+    {"flow_no": "04", "flow_title": "澄清答疑", "document_kind": "clarification_notice"},
+    {"flow_no": "05", "flow_title": "开标信息", "document_kind": "opening_info"},
+    {"flow_no": "06", "flow_title": "资审结果公示", "document_kind": "qualification_review_result"},
+    {"flow_no": "07", "flow_title": "中标候选人公示", "document_kind": "candidate_notice"},
+    {"flow_no": "08", "flow_title": "投标(资格预审申请)文件公开", "document_kind": "bid_file_publicity"},
+    {"flow_no": "09", "flow_title": "中标结果公示/公告", "document_kind": "award_result"},
+    {"flow_no": "10", "flow_title": "中标信息", "document_kind": "award_info"},
+    {"flow_no": "11", "flow_title": "合同信息公开", "document_kind": "contract_public_info"},
+    {"flow_no": "12", "flow_title": "项目异常", "document_kind": "project_exception"}
+  ],
+  "projects": [
+    {
+      "project_id": "PROJ-CN-GD-JG2026-10815",
+      "project_code": "JG2026-10815",
+      "project_name": "广东省监狱管理局安防监控工程（基础设施部分）标段九工程监理服务",
+      "expected_present_flow_nos": ["03", "05", "06", "07", "08"],
+      "expected_missing_flow_nos": ["01", "02", "04", "09", "10", "11", "12"],
+      "expected_detail_count": 6,
+      "expected_attachment_count": 28,
+      "expected_replayable_file_count": 34,
+      "must_have_flow_nos": ["03", "05", "06", "08"],
+      "flow_expectations": [
+        {
+          "flow_no": "03",
+          "flow_title": "招标公告/关联公告",
+          "document_kind": "tender_file",
+          "expected_detail_count": 2,
+          "expected_attachment_count": 20,
+          "details": [
+            {
+              "published_date": "2026-03-17",
+              "expected_attachment_count": 14,
+              "source_url": "https://ywtb.gzggzy.cn/jyfw/002001/002001001/20260317/083780d1-0448-4682-885a-84ed90009650.html"
+            },
+            {
+              "published_date": "2026-04-03",
+              "expected_attachment_count": 6,
+              "source_url": "https://ywtb.gzggzy.cn/jyfw/002001/002001001/20260403/d8a086ff-7d43-431c-8f53-e3ca9f393a20.html"
+            }
+          ]
+        },
+        {
+          "flow_no": "05",
+          "flow_title": "开标信息",
+          "document_kind": "opening_info",
+          "expected_detail_count": 1,
+          "expected_attachment_count": 0,
+          "details": [
+            {
+              "published_date": "2026-04-24",
+              "expected_attachment_count": 0,
+              "source_url": "https://jsgc.gzggzy.cn/tpframe/jsgc/kaibiao/infotoweb_list?biaoduanguid=b8869532-a756-4b36-8b6e-e82076e22019&level=1"
+            }
+          ]
+        },
+        {
+          "flow_no": "06",
+          "flow_title": "资审结果公示",
+          "document_kind": "qualification_review_result",
+          "expected_detail_count": 1,
+          "expected_attachment_count": 2,
+          "details": [
+            {
+              "published_date": "2026-05-10",
+              "expected_attachment_count": 2,
+              "source_url": "https://ywtb.gzggzy.cn/jyfw/002001/002001001/20260510/63ed1d0a-cf91-4c8c-ba5f-cb4b74176e7a_zs.html"
+            }
+          ]
+        },
+        {
+          "flow_no": "07",
+          "flow_title": "中标候选人公示",
+          "document_kind": "candidate_notice",
+          "expected_detail_count": 1,
+          "expected_attachment_count": 3,
+          "details": [
+            {
+              "published_date": "2026-05-10",
+              "expected_attachment_count": 3,
+              "source_url": "https://ywtb.gzggzy.cn/jyfw/002001/002001001/20260510/63ed1d0a-cf91-4c8c-ba5f-cb4b74176e7a.html"
+            }
+          ]
+        },
+        {
+          "flow_no": "08",
+          "flow_title": "投标(资格预审申请)文件公开",
+          "document_kind": "bid_file_publicity",
+          "expected_detail_count": 1,
+          "expected_attachment_count": 3,
+          "details": [
+            {
+              "published_date": "2026-05-10",
+              "expected_attachment_count": 3,
+              "source_url": "https://ywtb.gzggzy.cn/jyfw/002001/002001001/20260510/63ed1d0a-cf91-4c8c-ba5f-cb4b74176e7a_tb.html"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
