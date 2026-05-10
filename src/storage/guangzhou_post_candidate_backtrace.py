@@ -910,6 +910,7 @@ def _guangzhou_flow_interface_targets(*, output_root: Path, per_flow_candidate_l
                     flow_title,
                     "FLOW_INTERFACE_COVERAGE",
                     "FLOW_INTERFACE_PAGE_LIMIT:8",
+                    "FLOW_INTERFACE_MONTH_WINDOWS:12",
                     f"FLOW_INTERFACE_SAMPLE_LIMIT:{desired_count}",
                     f"BACKTRACE_FLOW_NO:{flow_no}",
                     f"BACKTRACE_FLOW_CODE:{flow_code}",

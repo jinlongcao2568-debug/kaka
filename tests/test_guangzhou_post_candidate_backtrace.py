@@ -326,6 +326,7 @@ class TestGuangzhouPostCandidateBacktrace(unittest.TestCase):
         self.assertTrue(all(item["target_count"] == 2 for item in payload["targets"]))
         self.assertTrue(all("FLOW_INTERFACE_COVERAGE" in item["selection_filters"] for item in payload["targets"]))
         self.assertTrue(all("FLOW_INTERFACE_PAGE_LIMIT:8" in item["selection_filters"] for item in payload["targets"]))
+        self.assertTrue(all("FLOW_INTERFACE_MONTH_WINDOWS:12" in item["selection_filters"] for item in payload["targets"]))
         self.assertTrue(all("FLOW_INTERFACE_SAMPLE_LIMIT:2" in item["selection_filters"] for item in payload["targets"]))
         self.assertFalse(payload["target_policy"]["download_enabled"])
         self.assertTrue(payload["target_policy"]["fetch_public_urls_enabled"])

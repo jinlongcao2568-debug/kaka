@@ -1032,11 +1032,13 @@ class RealCandidateDiscoveryTests(unittest.TestCase):
 
     def test_guangzhou_flow_interface_coverage_scans_later_pages_for_missing_flow_samples(self) -> None:
         requested_pages: list[int] = []
+        requested_payloads: list[dict[str, object]] = []
 
         def fake_urlopen(request, timeout: int = 18):  # noqa: ANN001
             payload = json.loads(request.data.decode("utf-8"))
             page_index = int(payload["pn"])
             requested_pages.append(page_index)
+            requested_payloads.append(payload)
             records = []
             if page_index == 1:
                 records = [
@@ -1044,7 +1046,12 @@ class RealCandidateDiscoveryTests(unittest.TestCase):
                         "19",
                         "广州市某项目开标信息",
                         "gz-opening-page-2",
-                    )
+                    ),
+                    _gz_stage_record(
+                        "19",
+                        "广州市另一个项目开标信息",
+                        "gz-opening-page-2b",
+                    ),
                 ]
             return FakeGuangzhouApiResponse(
                 {
@@ -1063,20 +1070,85 @@ class RealCandidateDiscoveryTests(unittest.TestCase):
                     "selection_filters": [
                         "FLOW_INTERFACE_COVERAGE",
                         "FLOW_INTERFACE_PAGE_LIMIT:8",
+                        "FLOW_INTERFACE_MONTH_WINDOWS:12",
                         "FLOW_INTERFACE_SAMPLE_LIMIT:2",
                         "BACKTRACE_FLOW_CODE:19",
                     ],
                 },
             )
 
-        self.assertEqual(requested_pages, list(range(8)))
+        self.assertEqual(requested_pages, [0, 1])
         self.assertEqual(result["state"], "FETCHED")
         self.assertEqual(result["page_limit"], 8)
-        self.assertEqual(result["candidate_record_window_cap"], 400)
+        self.assertEqual(result["candidate_record_window_cap"], 4800)
         self.assertTrue(result["flow_interface_coverage_mode"])
+        self.assertEqual(result["flow_interface_month_windows"], 12)
+        self.assertEqual(requested_payloads[0]["cnum"], "002")
+        self.assertEqual(requested_payloads[0]["sdt"], "2026-04-10")
+        self.assertEqual(requested_payloads[0]["edt"], "2026-05-10")
+        self.assertEqual(requested_payloads[0]["time"][0]["fieldName"], "webdate")
+        self.assertNotIn(
+            "categorynum",
+            {str(condition.get("fieldName") or "") for condition in requested_payloads[0]["condition"]},
+        )
         self.assertEqual(result["items"][0]["guangzhou_flow_no"], "05")
         self.assertEqual(result["process_attempts"][1]["page_index"], 1)
-        self.assertEqual(result["process_attempts"][1]["accepted_item_count"], 1)
+        self.assertEqual(result["process_attempts"][1]["window_index"], 0)
+        self.assertEqual(result["process_attempts"][1]["accepted_item_count"], 2)
+
+    def test_guangzhou_flow_interface_coverage_scans_historical_month_windows(self) -> None:
+        requested_attempts: list[tuple[str, int]] = []
+
+        def fake_urlopen(request, timeout: int = 18):  # noqa: ANN001
+            payload = json.loads(request.data.decode("utf-8"))
+            page_index = int(payload["pn"])
+            sdt = str(payload.get("sdt") or "")
+            requested_attempts.append((sdt, page_index))
+            records = []
+            if sdt == "2026-03-11" and page_index == 0:
+                records = [
+                    _gz_stage_record(
+                        "18",
+                        "广州市历史项目澄清答疑",
+                        "gz-clarification-old-1",
+                    ),
+                    _gz_stage_record(
+                        "18",
+                        "广州市历史项目答疑纪要",
+                        "gz-clarification-old-2",
+                    ),
+                ]
+            return FakeGuangzhouApiResponse(
+                {
+                    "result": {
+                        "records": records,
+                        "totalcount": "2",
+                    }
+                }
+            )
+
+        with patch("stage1_tasking.real_candidate_discovery.urlopen", side_effect=fake_urlopen):
+            result = _discover_guangzhou_ywtb_api_link_items(
+                now="2026-05-10T00:00:00+00:00",
+                context={
+                    "evaluation_document_kind": "clarification_notice",
+                    "selection_filters": [
+                        "FLOW_INTERFACE_COVERAGE",
+                        "FLOW_INTERFACE_PAGE_LIMIT:8",
+                        "FLOW_INTERFACE_MONTH_WINDOWS:12",
+                        "FLOW_INTERFACE_SAMPLE_LIMIT:2",
+                        "BACKTRACE_FLOW_CODE:18",
+                    ],
+                },
+            )
+
+        self.assertEqual(result["state"], "FETCHED")
+        self.assertEqual(result["flow_interface_month_windows"], 12)
+        self.assertEqual(result["query_window"]["start_date"], "2025-05-15")
+        self.assertEqual(result["query_window"]["end_date"], "2026-05-10")
+        self.assertIn(("2026-03-11", 0), requested_attempts)
+        self.assertEqual(result["process_attempts"][-1]["window_index"], 1)
+        self.assertEqual(result["process_attempts"][-1]["accepted_item_count"], 2)
 
     def test_guangzhou_stage_backtrace_without_interface_marker_stays_single_page(self) -> None:
         requested_pages: list[int] = []
@@ -1113,6 +1185,15 @@ class RealCandidateDiscoveryTests(unittest.TestCase):
         self.assertFalse(result["flow_interface_coverage_mode"])
         self.assertEqual(result["page_limit"], 1)
         self.assertEqual(result["candidate_record_window_cap"], 50)
+
+    def test_guangzhou_flow_interface_accepts_external_bid_plan_supervision_url(self) -> None:
+        self.assertTrue(
+            _is_candidate_detail_url(
+                "https://zbtb.gd.gov.cn/#/jygg/v2/914401017268110139-20250922-000028-4/A/A014?rowGuid=603996391810814976&siteName=广东省招标投标监管网",
+                "南沙滨海花园二十一期项目招标计划",
+                "GUANGZHOU-YWTB-CONSTRUCTION-LIST",
+            )
+        )
 
     def test_guangzhou_tender_target_uses_tender_notice_not_candidate_publicity(self) -> None:
         service = RealPublicCandidateDiscoveryService(

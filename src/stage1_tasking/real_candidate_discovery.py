@@ -36,6 +36,7 @@ GUANGZHOU_YWTB_PROFILE_ID = "GUANGZHOU-YWTB-CONSTRUCTION-LIST"
 GUANGZHOU_YWTB_DISCOVERY_PAGE_SIZE = 50
 GUANGZHOU_YWTB_FLOW_INTERFACE_PAGE_LIMIT = 8
 GUANGZHOU_YWTB_FLOW_INTERFACE_SAMPLE_LIMIT = 2
+GUANGZHOU_YWTB_FLOW_INTERFACE_MONTH_WINDOWS = 12
 GUANGZHOU_YWTB_CONSTRUCTION_CATEGORY_NUM = "002001001"
 GUANGZHOU_YWTB_TENDER_NOTICE_TYPE = "01"
 GUANGZHOU_YWTB_QUALIFICATION_RESULT_TYPE = "02"
@@ -909,6 +910,45 @@ def _guangzhou_flow_interface_sample_limit(context: Mapping[str, Any]) -> int:
     return GUANGZHOU_YWTB_FLOW_INTERFACE_SAMPLE_LIMIT
 
 
+def _guangzhou_flow_interface_month_windows(context: Mapping[str, Any]) -> int:
+    for value in _as_string_list(context.get("selection_filters"), []):
+        text = str(value or "").strip()
+        if text.startswith("FLOW_INTERFACE_MONTH_WINDOWS:"):
+            return max(
+                1,
+                min(
+                    _as_int(text.split(":", 1)[1].strip(), GUANGZHOU_YWTB_FLOW_INTERFACE_MONTH_WINDOWS),
+                    36,
+                ),
+            )
+    return GUANGZHOU_YWTB_FLOW_INTERFACE_MONTH_WINDOWS
+
+
+def _guangzhou_flow_interface_date_windows(
+    *,
+    context: Mapping[str, Any],
+    now: str,
+) -> list[dict[str, Any]]:
+    try:
+        parsed = datetime.fromisoformat(str(now).replace("Z", "+00:00"))
+    except ValueError:
+        parsed = datetime.now(timezone.utc)
+    month_windows = _guangzhou_flow_interface_month_windows(context)
+    windows: list[dict[str, Any]] = []
+    current_end = parsed.date()
+    for window_index in range(month_windows):
+        window_end = current_end - timedelta(days=window_index * 30)
+        window_start = window_end - timedelta(days=30)
+        windows.append(
+            {
+                "window_index": window_index,
+                "start_date": window_start.isoformat(),
+                "end_date": window_end.isoformat(),
+            }
+        )
+    return windows
+
+
 def _discover_guangzhou_ywtb_api_link_items(
     *,
     now: str,
@@ -976,123 +1016,161 @@ def _discover_guangzhou_ywtb_api_link_items(
         if flow_interface_coverage
         else GUANGZHOU_YWTB_DISCOVERY_PAGE_SIZE
     )
+    date_windows = (
+        _guangzhou_flow_interface_date_windows(context=context or {}, now=now)
+        if flow_interface_coverage
+        else [{"window_index": 0, "start_date": start_date, "end_date": end_date}]
+    )
     all_items: list[dict[str, str]] = []
     process_attempts: list[dict[str, Any]] = []
     totals: dict[str, str] = {}
     first_error = ""
     for process_label, process_code in process_priority:
         process_items: list[dict[str, str]] = []
-        for query_index, query_variant in enumerate(query_variants, start=1):
-            for page_index in range(page_limit):
-                payload = dict(base_payload)
-                payload["pn"] = page_index
-                payload["wd"] = query_variant
-                payload["condition"] = [
-                    *list(base_payload["condition"]),
-                    {
-                        "fieldName": "jsgcggfl",
-                        "equal": process_code,
-                        "isLike": False,
-                        "likeType": 0,
-                    },
-                ]
-                request = Request(
-                    endpoint,
-                    data=json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8"),
-                    headers={
-                        "User-Agent": "AX9S-RealPublicCandidateDiscovery/0.1 (+public-readonly-validation)",
-                        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-                        "Accept": "application/json, text/javascript, */*; q=0.01",
-                        "Referer": "https://ywtb.gzggzy.cn/jyfw/002001/002001001/trade_purchasetoplen6.html",
-                        "X-Requested-With": "XMLHttpRequest",
-                    },
-                    method="POST",
-                )
-                try:
-                    with urlopen(request, timeout=18) as response:
-                        raw = response.read(2_500_000).decode("utf-8", "ignore")
-                    outer = json.loads(raw)
-                    content = outer.get("content")
-                    data = json.loads(content) if isinstance(content, str) else dict(content or {})
-                except Exception as exc:  # pragma: no cover - public network failures vary
-                    if not first_error:
-                        first_error = str(exc)
+        for window in date_windows:
+            window_start = str(window["start_date"])
+            window_end = str(window["end_date"])
+            for query_index, query_variant in enumerate(query_variants, start=1):
+                for page_index in range(page_limit):
+                    payload = dict(base_payload)
+                    payload["pn"] = page_index
+                    payload["wd"] = query_variant
+                    if flow_interface_coverage:
+                        payload["cnum"] = "002"
+                    if flow_interface_coverage:
+                        payload["sdt"] = window_start
+                        payload["edt"] = window_end
+                        payload["time"] = [
+                            {
+                                "fieldName": "webdate",
+                                "startTime": f"{window_start} 00:00:00",
+                                "endTime": f"{window_end} 23:59:59",
+                            }
+                        ]
+                    base_conditions = [] if flow_interface_coverage else list(base_payload["condition"])
+                    payload["condition"] = [
+                        *base_conditions,
+                        {
+                            "fieldName": "jsgcggfl",
+                            "equal": process_code,
+                            "isLike": False,
+                            "likeType": 0,
+                        },
+                    ]
+                    request = Request(
+                        endpoint,
+                        data=json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8"),
+                        headers={
+                            "User-Agent": "AX9S-RealPublicCandidateDiscovery/0.1 (+public-readonly-validation)",
+                            "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+                            "Accept": "application/json, text/javascript, */*; q=0.01",
+                            "Referer": "https://ywtb.gzggzy.cn/jyfw/002001/002001001/trade_purchasetoplen6.html",
+                            "X-Requested-With": "XMLHttpRequest",
+                        },
+                        method="POST",
+                    )
+                    try:
+                        with urlopen(request, timeout=18) as response:
+                            raw = response.read(2_500_000).decode("utf-8", "ignore")
+                        outer = json.loads(raw)
+                        content = outer.get("content")
+                        data = json.loads(content) if isinstance(content, str) else dict(content or {})
+                    except Exception as exc:  # pragma: no cover - public network failures vary
+                        if not first_error:
+                            first_error = str(exc)
+                        process_attempts.append(
+                            {
+                                "process_label": process_label,
+                                "trading_process": process_code,
+                                "attempted_pages": 1,
+                                "page_index": page_index,
+                                "window_index": window["window_index"],
+                                "window_start": window_start,
+                                "window_end": window_end,
+                                "record_count": 0,
+                                "accepted_item_count": 0,
+                                "total": "",
+                                "state": "FAILED",
+                                "error_optional": str(exc),
+                                "backtrace_query_variant": query_variant,
+                                "backtrace_query_index": query_index,
+                                "flow_interface_coverage_mode": flow_interface_coverage,
+                                "failure_taxonomy": ["guangzhou_flow_interface_page_fetch_failed"]
+                                if flow_interface_coverage
+                                else [],
+                            }
+                        )
+                        continue
+                    records = list(((data.get("result") or {}).get("records") or []))
+                    total = str((data.get("result") or {}).get("totalcount") or "")
+                    totals.setdefault(process_code, total)
+                    items = _link_items_from_guangzhou_ywtb_records(
+                        records,
+                        allowed_processes={process_code},
+                        fallback_process_label=process_label,
+                        project_codes=set(backtrace_context["project_codes"]),
+                        project_name_queries=list(backtrace_context["project_name_queries"]),
+                        query_variant=query_variant,
+                        query_variants=query_variants,
+                        base_project_name=str(backtrace_context.get("base_project_name") or ""),
+                    )
+                    process_items = _merge_link_items(process_items, items)
                     process_attempts.append(
                         {
                             "process_label": process_label,
                             "trading_process": process_code,
                             "attempted_pages": 1,
                             "page_index": page_index,
-                            "record_count": 0,
-                            "accepted_item_count": 0,
-                            "total": "",
-                            "state": "FAILED",
-                            "error_optional": str(exc),
+                            "window_index": window["window_index"],
+                            "window_start": window_start,
+                            "window_end": window_end,
+                            "record_count": len(records),
+                            "accepted_item_count": len(items),
+                            "total": total,
+                            "state": "FETCHED" if records else "EMPTY",
                             "backtrace_query_variant": query_variant,
                             "backtrace_query_index": query_index,
                             "flow_interface_coverage_mode": flow_interface_coverage,
-                            "failure_taxonomy": ["guangzhou_flow_interface_page_fetch_failed"]
-                            if flow_interface_coverage
-                            else [],
+                            "failure_taxonomy": []
+                            if items or not records
+                            else ["backtrace_records_rejected_by_project_match"],
                         }
                     )
-                    continue
-                records = list(((data.get("result") or {}).get("records") or []))
-                total = str((data.get("result") or {}).get("totalcount") or "")
-                totals.setdefault(process_code, total)
-                items = _link_items_from_guangzhou_ywtb_records(
-                    records,
-                    allowed_processes={process_code},
-                    fallback_process_label=process_label,
-                    project_codes=set(backtrace_context["project_codes"]),
-                    project_name_queries=list(backtrace_context["project_name_queries"]),
-                    query_variant=query_variant,
-                    query_variants=query_variants,
-                    base_project_name=str(backtrace_context.get("base_project_name") or ""),
-                )
-                process_items = _merge_link_items(process_items, items)
-                process_attempts.append(
-                    {
-                        "process_label": process_label,
-                        "trading_process": process_code,
-                        "attempted_pages": 1,
-                        "page_index": page_index,
-                        "record_count": len(records),
-                        "accepted_item_count": len(items),
-                        "total": total,
-                        "state": "FETCHED" if records else "EMPTY",
-                        "backtrace_query_variant": query_variant,
-                        "backtrace_query_index": query_index,
-                        "flow_interface_coverage_mode": flow_interface_coverage,
-                        "failure_taxonomy": []
-                        if items or not records
-                        else ["backtrace_records_rejected_by_project_match"],
-                    }
-                )
+                    if not flow_interface_coverage and process_items:
+                        break
+                    if flow_interface_coverage and len(process_items) >= sample_limit:
+                        break
                 if not flow_interface_coverage and process_items:
                     break
                 if flow_interface_coverage and len(process_items) >= sample_limit:
                     break
-            if process_items:
+            if not flow_interface_coverage and process_items:
+                break
+            if flow_interface_coverage and len(process_items) >= sample_limit:
                 break
         all_items = _merge_link_items(all_items, process_items)
         if process_items:
             break
     primary_process = process_priority[0][1] if process_priority else ""
+    oldest_window = date_windows[-1] if date_windows else {"start_date": start_date, "end_date": end_date}
+    newest_window = date_windows[0] if date_windows else {"start_date": start_date, "end_date": end_date}
     return {
         "state": "FETCHED" if all_items else ("FAILED" if first_error and not process_attempts else "EMPTY"),
         "endpoint": endpoint,
         "items": all_items,
         "error_optional": "" if all_items or process_attempts else first_error,
-        "query_window": {"start_date": start_date, "end_date": end_date},
-        "api_time_filter_state": "guangzhou_ywtb_stage_aware_recent_list",
+        "query_window": {"start_date": oldest_window["start_date"], "end_date": newest_window["end_date"]},
+        "query_windows": date_windows,
+        "api_time_filter_state": "guangzhou_ywtb_flow_interface_historical_month_windows"
+        if flow_interface_coverage
+        else "guangzhou_ywtb_stage_aware_recent_list",
         "trading_process_strategy": "guangzhou_ywtb_flow_interface_coverage"
         if flow_interface_coverage
         else "guangzhou_ywtb_stage_aware",
         "primary_trading_process": primary_process,
         "page_size": GUANGZHOU_YWTB_DISCOVERY_PAGE_SIZE,
         "page_limit": page_limit,
-        "candidate_record_window_cap": GUANGZHOU_YWTB_DISCOVERY_PAGE_SIZE * page_limit,
+        "candidate_record_window_cap": GUANGZHOU_YWTB_DISCOVERY_PAGE_SIZE * page_limit * len(date_windows),
         "attempted_pages": len(process_attempts),
         "record_count": sum(_as_int(item.get("record_count"), 0) for item in process_attempts),
         "total": totals.get(primary_process, ""),
@@ -1108,6 +1186,7 @@ def _discover_guangzhou_ywtb_api_link_items(
         "backtrace_query_variants": query_variants,
         "flow_interface_coverage_mode": flow_interface_coverage,
         "flow_interface_sample_limit": sample_limit if flow_interface_coverage else "",
+        "flow_interface_month_windows": len(date_windows) if flow_interface_coverage else "",
     }
 
 
@@ -1889,6 +1968,8 @@ def _is_candidate_detail_url(
         host = urlsplit(url).netloc.lower()
         if profile_id == GUANGZHOU_YWTB_PROFILE_ID:
             if "jsgc.gzggzy.cn" in host and "/kaibiao/infotoweb_list" in path:
+                return True
+            if "zbtb.gd.gov.cn" in host and "/jygg/" in urlsplit(url).fragment.lower():
                 return True
             if "ywtb.gzggzy.cn" not in host:
                 return False
