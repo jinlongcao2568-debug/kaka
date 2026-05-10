@@ -34,6 +34,8 @@ GUANGDONG_DISCOVERY_PAGE_SIZE = 50
 MAX_GUANGDONG_DISCOVERY_PAGES = 1
 GUANGZHOU_YWTB_PROFILE_ID = "GUANGZHOU-YWTB-CONSTRUCTION-LIST"
 GUANGZHOU_YWTB_DISCOVERY_PAGE_SIZE = 50
+GUANGZHOU_YWTB_FLOW_INTERFACE_PAGE_LIMIT = 8
+GUANGZHOU_YWTB_FLOW_INTERFACE_SAMPLE_LIMIT = 2
 GUANGZHOU_YWTB_CONSTRUCTION_CATEGORY_NUM = "002001001"
 GUANGZHOU_YWTB_TENDER_NOTICE_TYPE = "01"
 GUANGZHOU_YWTB_QUALIFICATION_RESULT_TYPE = "02"
@@ -884,6 +886,29 @@ def _guangzhou_backtrace_flow_codes(context: Mapping[str, Any]) -> list[str]:
     return _dedupe_texts(codes)
 
 
+def _guangzhou_flow_interface_coverage_requested(context: Mapping[str, Any]) -> bool:
+    return any(
+        str(value or "").strip() == "FLOW_INTERFACE_COVERAGE"
+        for value in _as_string_list(context.get("selection_filters"), [])
+    )
+
+
+def _guangzhou_flow_interface_page_limit(context: Mapping[str, Any]) -> int:
+    for value in _as_string_list(context.get("selection_filters"), []):
+        text = str(value or "").strip()
+        if text.startswith("FLOW_INTERFACE_PAGE_LIMIT:"):
+            return max(1, min(_as_int(text.split(":", 1)[1].strip(), GUANGZHOU_YWTB_FLOW_INTERFACE_PAGE_LIMIT), 20))
+    return GUANGZHOU_YWTB_FLOW_INTERFACE_PAGE_LIMIT
+
+
+def _guangzhou_flow_interface_sample_limit(context: Mapping[str, Any]) -> int:
+    for value in _as_string_list(context.get("selection_filters"), []):
+        text = str(value or "").strip()
+        if text.startswith("FLOW_INTERFACE_SAMPLE_LIMIT:"):
+            return max(1, min(_as_int(text.split(":", 1)[1].strip(), GUANGZHOU_YWTB_FLOW_INTERFACE_SAMPLE_LIMIT), 20))
+    return GUANGZHOU_YWTB_FLOW_INTERFACE_SAMPLE_LIMIT
+
+
 def _discover_guangzhou_ywtb_api_link_items(
     *,
     now: str,
@@ -940,6 +965,17 @@ def _discover_guangzhou_ywtb_api_link_items(
     query_variants = list(backtrace_context["query_variants"])
     if not query_variants:
         query_variants = [""]
+    flow_interface_coverage = _guangzhou_flow_interface_coverage_requested(context or {})
+    page_limit = (
+        _guangzhou_flow_interface_page_limit(context or {})
+        if flow_interface_coverage
+        else 1
+    )
+    sample_limit = (
+        _guangzhou_flow_interface_sample_limit(context or {})
+        if flow_interface_coverage
+        else GUANGZHOU_YWTB_DISCOVERY_PAGE_SIZE
+    )
     all_items: list[dict[str, str]] = []
     process_attempts: list[dict[str, Any]] = []
     totals: dict[str, str] = {}
@@ -947,83 +983,96 @@ def _discover_guangzhou_ywtb_api_link_items(
     for process_label, process_code in process_priority:
         process_items: list[dict[str, str]] = []
         for query_index, query_variant in enumerate(query_variants, start=1):
-            payload = dict(base_payload)
-            payload["wd"] = query_variant
-            payload["condition"] = [
-                *list(base_payload["condition"]),
-                {
-                    "fieldName": "jsgcggfl",
-                    "equal": process_code,
-                    "isLike": False,
-                    "likeType": 0,
-                },
-            ]
-            request = Request(
-                endpoint,
-                data=json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8"),
-                headers={
-                    "User-Agent": "AX9S-RealPublicCandidateDiscovery/0.1 (+public-readonly-validation)",
-                    "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-                    "Accept": "application/json, text/javascript, */*; q=0.01",
-                    "Referer": "https://ywtb.gzggzy.cn/jyfw/002001/002001001/trade_purchasetoplen6.html",
-                    "X-Requested-With": "XMLHttpRequest",
-                },
-                method="POST",
-            )
-            try:
-                with urlopen(request, timeout=18) as response:
-                    raw = response.read(2_500_000).decode("utf-8", "ignore")
-                outer = json.loads(raw)
-                content = outer.get("content")
-                data = json.loads(content) if isinstance(content, str) else dict(content or {})
-            except Exception as exc:  # pragma: no cover - public network failures vary
-                if not first_error:
-                    first_error = str(exc)
+            for page_index in range(page_limit):
+                payload = dict(base_payload)
+                payload["pn"] = page_index
+                payload["wd"] = query_variant
+                payload["condition"] = [
+                    *list(base_payload["condition"]),
+                    {
+                        "fieldName": "jsgcggfl",
+                        "equal": process_code,
+                        "isLike": False,
+                        "likeType": 0,
+                    },
+                ]
+                request = Request(
+                    endpoint,
+                    data=json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8"),
+                    headers={
+                        "User-Agent": "AX9S-RealPublicCandidateDiscovery/0.1 (+public-readonly-validation)",
+                        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+                        "Accept": "application/json, text/javascript, */*; q=0.01",
+                        "Referer": "https://ywtb.gzggzy.cn/jyfw/002001/002001001/trade_purchasetoplen6.html",
+                        "X-Requested-With": "XMLHttpRequest",
+                    },
+                    method="POST",
+                )
+                try:
+                    with urlopen(request, timeout=18) as response:
+                        raw = response.read(2_500_000).decode("utf-8", "ignore")
+                    outer = json.loads(raw)
+                    content = outer.get("content")
+                    data = json.loads(content) if isinstance(content, str) else dict(content or {})
+                except Exception as exc:  # pragma: no cover - public network failures vary
+                    if not first_error:
+                        first_error = str(exc)
+                    process_attempts.append(
+                        {
+                            "process_label": process_label,
+                            "trading_process": process_code,
+                            "attempted_pages": 1,
+                            "page_index": page_index,
+                            "record_count": 0,
+                            "accepted_item_count": 0,
+                            "total": "",
+                            "state": "FAILED",
+                            "error_optional": str(exc),
+                            "backtrace_query_variant": query_variant,
+                            "backtrace_query_index": query_index,
+                            "flow_interface_coverage_mode": flow_interface_coverage,
+                            "failure_taxonomy": ["guangzhou_flow_interface_page_fetch_failed"]
+                            if flow_interface_coverage
+                            else [],
+                        }
+                    )
+                    continue
+                records = list(((data.get("result") or {}).get("records") or []))
+                total = str((data.get("result") or {}).get("totalcount") or "")
+                totals.setdefault(process_code, total)
+                items = _link_items_from_guangzhou_ywtb_records(
+                    records,
+                    allowed_processes={process_code},
+                    fallback_process_label=process_label,
+                    project_codes=set(backtrace_context["project_codes"]),
+                    project_name_queries=list(backtrace_context["project_name_queries"]),
+                    query_variant=query_variant,
+                    query_variants=query_variants,
+                    base_project_name=str(backtrace_context.get("base_project_name") or ""),
+                )
+                process_items = _merge_link_items(process_items, items)
                 process_attempts.append(
                     {
                         "process_label": process_label,
                         "trading_process": process_code,
                         "attempted_pages": 1,
-                        "record_count": 0,
-                        "accepted_item_count": 0,
-                        "total": "",
-                        "state": "FAILED",
-                        "error_optional": str(exc),
+                        "page_index": page_index,
+                        "record_count": len(records),
+                        "accepted_item_count": len(items),
+                        "total": total,
+                        "state": "FETCHED" if records else "EMPTY",
                         "backtrace_query_variant": query_variant,
                         "backtrace_query_index": query_index,
+                        "flow_interface_coverage_mode": flow_interface_coverage,
+                        "failure_taxonomy": []
+                        if items or not records
+                        else ["backtrace_records_rejected_by_project_match"],
                     }
                 )
-                continue
-            records = list(((data.get("result") or {}).get("records") or []))
-            total = str((data.get("result") or {}).get("totalcount") or "")
-            totals.setdefault(process_code, total)
-            items = _link_items_from_guangzhou_ywtb_records(
-                records,
-                allowed_processes={process_code},
-                fallback_process_label=process_label,
-                project_codes=set(backtrace_context["project_codes"]),
-                project_name_queries=list(backtrace_context["project_name_queries"]),
-                query_variant=query_variant,
-                query_variants=query_variants,
-                base_project_name=str(backtrace_context.get("base_project_name") or ""),
-            )
-            process_items = _merge_link_items(process_items, items)
-            process_attempts.append(
-                {
-                    "process_label": process_label,
-                    "trading_process": process_code,
-                    "attempted_pages": 1,
-                    "record_count": len(records),
-                    "accepted_item_count": len(items),
-                    "total": total,
-                    "state": "FETCHED" if records else "EMPTY",
-                    "backtrace_query_variant": query_variant,
-                    "backtrace_query_index": query_index,
-                    "failure_taxonomy": []
-                    if items or not records
-                    else ["backtrace_records_rejected_by_project_match"],
-                }
-            )
+                if not flow_interface_coverage and process_items:
+                    break
+                if flow_interface_coverage and len(process_items) >= sample_limit:
+                    break
             if process_items:
                 break
         all_items = _merge_link_items(all_items, process_items)
@@ -1037,11 +1086,13 @@ def _discover_guangzhou_ywtb_api_link_items(
         "error_optional": "" if all_items or process_attempts else first_error,
         "query_window": {"start_date": start_date, "end_date": end_date},
         "api_time_filter_state": "guangzhou_ywtb_stage_aware_recent_list",
-        "trading_process_strategy": "guangzhou_ywtb_stage_aware",
+        "trading_process_strategy": "guangzhou_ywtb_flow_interface_coverage"
+        if flow_interface_coverage
+        else "guangzhou_ywtb_stage_aware",
         "primary_trading_process": primary_process,
         "page_size": GUANGZHOU_YWTB_DISCOVERY_PAGE_SIZE,
-        "page_limit": 1,
-        "candidate_record_window_cap": GUANGZHOU_YWTB_DISCOVERY_PAGE_SIZE,
+        "page_limit": page_limit,
+        "candidate_record_window_cap": GUANGZHOU_YWTB_DISCOVERY_PAGE_SIZE * page_limit,
         "attempted_pages": len(process_attempts),
         "record_count": sum(_as_int(item.get("record_count"), 0) for item in process_attempts),
         "total": totals.get(primary_process, ""),
@@ -1055,6 +1106,8 @@ def _discover_guangzhou_ywtb_api_link_items(
         "backtrace_search_query": backtrace_context["search_query"],
         "backtrace_base_project_name": backtrace_context["base_project_name"],
         "backtrace_query_variants": query_variants,
+        "flow_interface_coverage_mode": flow_interface_coverage,
+        "flow_interface_sample_limit": sample_limit if flow_interface_coverage else "",
     }
 
 

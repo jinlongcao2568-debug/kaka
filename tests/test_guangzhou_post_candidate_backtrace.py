@@ -325,6 +325,8 @@ class TestGuangzhouPostCandidateBacktrace(unittest.TestCase):
         self.assertEqual(len(payload["targets"]), 12)
         self.assertTrue(all(item["target_count"] == 2 for item in payload["targets"]))
         self.assertTrue(all("FLOW_INTERFACE_COVERAGE" in item["selection_filters"] for item in payload["targets"]))
+        self.assertTrue(all("FLOW_INTERFACE_PAGE_LIMIT:8" in item["selection_filters"] for item in payload["targets"]))
+        self.assertTrue(all("FLOW_INTERFACE_SAMPLE_LIMIT:2" in item["selection_filters"] for item in payload["targets"]))
         self.assertFalse(payload["target_policy"]["download_enabled"])
         self.assertTrue(payload["target_policy"]["fetch_public_urls_enabled"])
 
@@ -403,7 +405,25 @@ class TestGuangzhouPostCandidateBacktrace(unittest.TestCase):
         sample["pipeline_stage"] = PIPELINE_STAGE_ATTACHMENT_LIST
 
         result = _build_flow_interface_coverage_manifest(
-            items=[],
+            items=[
+                {
+                    "guangzhou_flow_no": "01",
+                    "failure_taxonomy": ["discovery_no_match"],
+                    "discovery_profile_reports": [
+                        {
+                            "public_api_process_attempts": [
+                                {
+                                    "trading_process": "08",
+                                    "attempted_pages": 1,
+                                    "record_count": 50,
+                                    "accepted_item_count": 0,
+                                    "failure_taxonomy": ["flow_interface_records_rejected"],
+                                }
+                            ]
+                        }
+                    ],
+                }
+            ],
             project_samples=[sample],
             execute=False,
             per_flow_candidate_limit=2,
@@ -418,6 +438,11 @@ class TestGuangzhouPostCandidateBacktrace(unittest.TestCase):
         by_flow = {row["flow_no"]: row for row in result["manifest"]["flow_reports"]}
         self.assertEqual(by_flow["12"]["flow_interface_coverage_state"], OPTIONAL_LOW_FREQUENCY_FLOW_NOT_FOUND)
         self.assertEqual(by_flow["01"]["flow_interface_coverage_state"], FLOW_SAMPLE_NOT_FOUND)
+        self.assertEqual(by_flow["01"]["attempted_pages"], 1)
+        self.assertEqual(by_flow["01"]["record_count"], 50)
+        self.assertIn("flow_interface_records_rejected", by_flow["01"]["failure_taxonomy"])
+        self.assertIn("optional_low_frequency_flow_no_sample", by_flow["12"]["failure_taxonomy"])
+        self.assertIn("flow_interface_no_records_after_page_scan", by_flow["12"]["failure_taxonomy"])
         self.assertEqual(by_flow["07"]["sample_interface_items"][0]["interface_status"], INTERFACE_UNRESOLVED)
 
         manual = _build_manual_interface_check_table(result)

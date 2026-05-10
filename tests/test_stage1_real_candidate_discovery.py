@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import os
+import json
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -16,6 +18,7 @@ from stage1_tasking.real_candidate_discovery import (
     REAL_PUBLIC_SOURCE_CANDIDATE_MODE,
     RealPublicCandidateDiscoveryService,
     RealPublicCandidateRepository,
+    _discover_guangzhou_ywtb_api_link_items,
     _guangzhou_backtrace_query_variants,
     _guangzhou_ywtb_process_priority,
     _is_candidate_detail_url,
@@ -177,6 +180,21 @@ class FakeGuangzhouFlowNoticeFetcher:
                 },
             ],
         }
+
+
+class FakeGuangzhouApiResponse:
+    def __init__(self, payload: dict) -> None:
+        self.payload = payload
+
+    def __enter__(self) -> "FakeGuangzhouApiResponse":
+        return self
+
+    def __exit__(self, exc_type, exc, tb) -> None:  # noqa: ANN001
+        return None
+
+    def read(self, size: int = -1) -> bytes:
+        content = json.dumps(self.payload, ensure_ascii=False)
+        return json.dumps({"content": content}, ensure_ascii=False).encode("utf-8")
 
 
 class FakeSichuanShellFetcher:
@@ -1011,6 +1029,90 @@ class RealCandidateDiscoveryTests(unittest.TestCase):
             ),
             (("opening_info", "19"),),
         )
+
+    def test_guangzhou_flow_interface_coverage_scans_later_pages_for_missing_flow_samples(self) -> None:
+        requested_pages: list[int] = []
+
+        def fake_urlopen(request, timeout: int = 18):  # noqa: ANN001
+            payload = json.loads(request.data.decode("utf-8"))
+            page_index = int(payload["pn"])
+            requested_pages.append(page_index)
+            records = []
+            if page_index == 1:
+                records = [
+                    _gz_stage_record(
+                        "19",
+                        "广州市某项目开标信息",
+                        "gz-opening-page-2",
+                    )
+                ]
+            return FakeGuangzhouApiResponse(
+                {
+                    "result": {
+                        "records": records,
+                        "totalcount": "51",
+                    }
+                }
+            )
+
+        with patch("stage1_tasking.real_candidate_discovery.urlopen", side_effect=fake_urlopen):
+            result = _discover_guangzhou_ywtb_api_link_items(
+                now="2026-05-10T00:00:00+00:00",
+                context={
+                    "evaluation_document_kind": "opening_info",
+                    "selection_filters": [
+                        "FLOW_INTERFACE_COVERAGE",
+                        "FLOW_INTERFACE_PAGE_LIMIT:8",
+                        "FLOW_INTERFACE_SAMPLE_LIMIT:2",
+                        "BACKTRACE_FLOW_CODE:19",
+                    ],
+                },
+            )
+
+        self.assertEqual(requested_pages, list(range(8)))
+        self.assertEqual(result["state"], "FETCHED")
+        self.assertEqual(result["page_limit"], 8)
+        self.assertEqual(result["candidate_record_window_cap"], 400)
+        self.assertTrue(result["flow_interface_coverage_mode"])
+        self.assertEqual(result["items"][0]["guangzhou_flow_no"], "05")
+        self.assertEqual(result["process_attempts"][1]["page_index"], 1)
+        self.assertEqual(result["process_attempts"][1]["accepted_item_count"], 1)
+
+    def test_guangzhou_stage_backtrace_without_interface_marker_stays_single_page(self) -> None:
+        requested_pages: list[int] = []
+
+        def fake_urlopen(request, timeout: int = 18):  # noqa: ANN001
+            payload = json.loads(request.data.decode("utf-8"))
+            requested_pages.append(int(payload["pn"]))
+            records = [
+                _gz_stage_record(
+                    "19",
+                    "广州市某项目开标信息",
+                    "gz-opening-page-1",
+                )
+            ]
+            return FakeGuangzhouApiResponse(
+                {
+                    "result": {
+                        "records": records,
+                        "totalcount": "51",
+                    }
+                }
+            )
+
+        with patch("stage1_tasking.real_candidate_discovery.urlopen", side_effect=fake_urlopen):
+            result = _discover_guangzhou_ywtb_api_link_items(
+                now="2026-05-10T00:00:00+00:00",
+                context={
+                    "evaluation_document_kind": "opening_info",
+                    "selection_filters": ["BACKTRACE_FLOW_CODE:19"],
+                },
+            )
+
+        self.assertEqual(requested_pages, [0])
+        self.assertFalse(result["flow_interface_coverage_mode"])
+        self.assertEqual(result["page_limit"], 1)
+        self.assertEqual(result["candidate_record_window_cap"], 50)
 
     def test_guangzhou_tender_target_uses_tender_notice_not_candidate_publicity(self) -> None:
         service = RealPublicCandidateDiscoveryService(

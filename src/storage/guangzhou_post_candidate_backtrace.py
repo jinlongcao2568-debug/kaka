@@ -909,6 +909,8 @@ def _guangzhou_flow_interface_targets(*, output_root: Path, per_flow_candidate_l
                     "工程建设",
                     flow_title,
                     "FLOW_INTERFACE_COVERAGE",
+                    "FLOW_INTERFACE_PAGE_LIMIT:8",
+                    f"FLOW_INTERFACE_SAMPLE_LIMIT:{desired_count}",
                     f"BACKTRACE_FLOW_NO:{flow_no}",
                     f"BACKTRACE_FLOW_CODE:{flow_code}",
                 ],
@@ -1058,6 +1060,37 @@ def _flow_interface_report_row(
     else:
         status = "FLOW_INTERFACE_SAMPLED"
     target_failures = list(target_item.get("failure_taxonomy") or [])
+    process_attempts = _target_item_public_api_process_attempts(target_item)
+    attempted_pages = sum(_int(attempt.get("attempted_pages")) or 1 for attempt in process_attempts)
+    record_count = sum(_int(attempt.get("record_count")) for attempt in process_attempts)
+    accepted_item_count = sum(_int(attempt.get("accepted_item_count")) for attempt in process_attempts)
+    sample_urls = _dedupe_strings(
+        str(sample.get("source_url") or "") for sample in sample_items if str(sample.get("source_url") or "")
+    )
+    flow_failure_taxonomy = _dedupe_strings(
+        [
+            *target_failures,
+            *[
+                str(reason or "")
+                for attempt in process_attempts
+                for reason in list(attempt.get("failure_taxonomy") or [])
+            ],
+        ]
+    )
+    if not sample_items and not flow_failure_taxonomy:
+        flow_failure_taxonomy = [
+            "optional_low_frequency_flow_no_sample"
+            if flow_no == "12"
+            else "flow_interface_no_sample"
+        ]
+    if not sample_items and record_count == 0:
+        flow_failure_taxonomy = _dedupe_strings(
+            [*flow_failure_taxonomy, "flow_interface_no_records_after_page_scan"]
+        )
+    elif not sample_items and record_count > 0 and accepted_item_count == 0:
+        flow_failure_taxonomy = _dedupe_strings(
+            [*flow_failure_taxonomy, "flow_interface_records_rejected"]
+        )
     return {
         "flow_no": flow_no,
         "flow_title": str(module.get("flow_title") or ""),
@@ -1067,6 +1100,12 @@ def _flow_interface_report_row(
         "flow_interface_coverage_state": status,
         "target_execution_state": str(target_item.get("target_execution_state") or ""),
         "target_failure_taxonomy": target_failures,
+        "attempted_pages": attempted_pages,
+        "record_count": record_count,
+        "accepted_item_count": accepted_item_count,
+        "sample_urls": sample_urls,
+        "failure_taxonomy": flow_failure_taxonomy,
+        "public_api_process_attempts": process_attempts,
         "sample_interface_items": sample_items,
         "sample_count": len(sample_items),
         "interface_status_counts": _counts(str(item.get("interface_status") or "") for item in sample_items),
@@ -1124,6 +1163,17 @@ def _scan_guangzhou_interface_sample(sample: Mapping[str, Any], *, execute: bool
         **base,
         **scan,
     }
+
+
+def _target_item_public_api_process_attempts(target_item: Mapping[str, Any]) -> list[dict[str, Any]]:
+    attempts: list[dict[str, Any]] = []
+    for report in list(target_item.get("discovery_profile_reports") or []):
+        if not isinstance(report, Mapping):
+            continue
+        for attempt in list(report.get("public_api_process_attempts") or []):
+            if isinstance(attempt, Mapping):
+                attempts.append(dict(attempt))
+    return attempts
 
 
 def _fetch_public_text(source_url: str) -> dict[str, Any]:
@@ -1371,7 +1421,10 @@ def _build_manual_interface_check_table(interface_report: Mapping[str, Any]) -> 
                     "published_at_optional": "",
                     "interface_status": str(flow.get("flow_interface_coverage_state") or ""),
                     "attachment_entry_count": 0,
-                    "failure_taxonomy": list(flow.get("target_failure_taxonomy") or []),
+                    "failure_taxonomy": list(flow.get("failure_taxonomy") or flow.get("target_failure_taxonomy") or []),
+                    "attempted_pages": _int(flow.get("attempted_pages")),
+                    "record_count": _int(flow.get("record_count")),
+                    "accepted_item_count": _int(flow.get("accepted_item_count")),
                     "manual_check_state": "NO_SAMPLE_TO_CHECK",
                     "customer_visible_allowed": False,
                     "no_legal_conclusion": True,
@@ -1392,6 +1445,9 @@ def _build_manual_interface_check_table(interface_report: Mapping[str, Any]) -> 
                     "interface_status": str(sample.get("interface_status") or ""),
                     "attachment_entry_count": _int(sample.get("attachment_entry_count")),
                     "failure_taxonomy": list(sample.get("failure_taxonomy") or []),
+                    "attempted_pages": _int(flow.get("attempted_pages")),
+                    "record_count": _int(flow.get("record_count")),
+                    "accepted_item_count": _int(flow.get("accepted_item_count")),
                     "manual_check_state": "PENDING",
                     "customer_visible_allowed": False,
                     "no_legal_conclusion": True,
