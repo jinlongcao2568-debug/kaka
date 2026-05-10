@@ -439,6 +439,9 @@ class TestGuangzhouPostCandidateBacktrace(unittest.TestCase):
         by_flow = {row["flow_no"]: row for row in result["manifest"]["flow_reports"]}
         self.assertEqual(by_flow["12"]["flow_interface_coverage_state"], OPTIONAL_LOW_FREQUENCY_FLOW_NOT_FOUND)
         self.assertEqual(by_flow["01"]["flow_interface_coverage_state"], FLOW_SAMPLE_NOT_FOUND)
+        self.assertEqual(by_flow["02"]["flow_interface_coverage_state"], "FLOW_INTERFACE_SAMPLED")
+        self.assertEqual(by_flow["02"]["human_provided_flow_seed_count"], 1)
+        self.assertIn("human_provided_flow_seed_used", by_flow["02"]["failure_taxonomy"])
         self.assertEqual(by_flow["01"]["attempted_pages"], 1)
         self.assertEqual(by_flow["01"]["record_count"], 50)
         self.assertIn("flow_interface_records_rejected", by_flow["01"]["failure_taxonomy"])
@@ -450,6 +453,12 @@ class TestGuangzhouPostCandidateBacktrace(unittest.TestCase):
         rows = manual["manifest"]["items"]
         self.assertTrue(any(row["interface_status"] == FLOW_SAMPLE_NOT_FOUND for row in rows))
         self.assertTrue(any(row["interface_status"] == OPTIONAL_LOW_FREQUENCY_FLOW_NOT_FOUND for row in rows))
+        self.assertTrue(
+            any(
+                row["flow_no"] == "02" and row["sample_source_type"] == "HUMAN_PROVIDED_FLOW_SEED"
+                for row in rows
+            )
+        )
         self.assertEqual(manual["manifest"]["summary"]["flow_count"], 12)
 
     def test_pipeline_state_marks_attachment_list_stage_without_snapshots(self) -> None:

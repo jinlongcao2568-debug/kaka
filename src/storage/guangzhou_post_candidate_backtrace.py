@@ -75,6 +75,21 @@ GUANGZHOU_FLOW_MODULES = (
     {"flow_no": "11", "flow_code": "15", "flow_title": "合同信息公开", "document_kind": "contract_public_info"},
     {"flow_no": "12", "flow_code": "20", "flow_title": "项目异常", "document_kind": "project_exception"},
 )
+GUANGZHOU_HUMAN_PROVIDED_FLOW_SEEDS = (
+    {
+        "flow_no": "02",
+        "flow_code": "17",
+        "flow_title": "招标文件公示",
+        "document_kind": "tender_file_publicity",
+        "project_id": "PROJ-CN-GD-0020010071061283",
+        "project_name": "广州新机场航站楼施工监理招标文件公示",
+        "source_url": "https://ywtb.gzggzy.cn/jyfw/002001/002001008/20251121/0020010071061283.html",
+        "published_at_optional": "2025-11-21 17:18",
+        "source_record_id": "0020010071061283",
+        "sample_source_type": "HUMAN_PROVIDED_FLOW_SEED",
+        "seed_evidence": "human_confirmed_independent_flow_02_page",
+    },
+)
 CORE_BACKTRACE_DOCUMENT_KINDS = tuple(str(module["document_kind"]) for module in GUANGZHOU_FLOW_MODULES)
 
 
@@ -955,6 +970,17 @@ def _build_flow_interface_coverage_manifest(
         flow_no = _sample_flow_no(sample)
         if flow_no:
             samples_by_flow.setdefault(flow_no, []).append(sample)
+    for sample in _human_provided_flow_seed_samples():
+        flow_no = _sample_flow_no(sample)
+        if not flow_no:
+            continue
+        existing_urls = {
+            str(existing.get("source_url") or "")
+            for existing in samples_by_flow.get(flow_no, [])
+            if isinstance(existing, Mapping)
+        }
+        if str(sample.get("source_url") or "") not in existing_urls:
+            samples_by_flow.setdefault(flow_no, []).append(sample)
     target_by_flow: dict[str, Mapping[str, Any]] = {}
     for item in items:
         flow_no = str(item.get("guangzhou_flow_no") or _target_item_filter_value(item, "BACKTRACE_FLOW_NO:"))
@@ -998,6 +1024,12 @@ def _build_flow_interface_coverage_manifest(
         for sample in list(row.get("sample_interface_items") or [])
         for reason in list(sample.get("failure_taxonomy") or [])
     )
+    human_seed_count = sum(
+        1
+        for row in flow_reports
+        for sample in list(row.get("sample_interface_items") or [])
+        if str(sample.get("sample_source_type") or "") == "HUMAN_PROVIDED_FLOW_SEED"
+    )
     status_counts = _counts(
         str(sample.get("interface_status") or "")
         for row in flow_reports
@@ -1017,6 +1049,7 @@ def _build_flow_interface_coverage_manifest(
         "sample_interface_count": sum(len(list(row.get("sample_interface_items") or [])) for row in flow_reports),
         "interface_status_counts": status_counts,
         "failure_taxonomy_counts": failure_taxonomy_counts,
+        "human_provided_flow_seed_count": human_seed_count,
         "attachment_snapshot_count": 0,
         "download_enabled": False,
         "parse_enabled": False,
@@ -1042,6 +1075,71 @@ def _build_flow_interface_coverage_manifest(
     return {"manifest": manifest, "summary": summary}
 
 
+def _human_provided_flow_seed_samples() -> list[dict[str, Any]]:
+    samples: list[dict[str, Any]] = []
+    for seed in GUANGZHOU_HUMAN_PROVIDED_FLOW_SEEDS:
+        source_url = str(seed.get("source_url") or "")
+        flow_no = str(seed.get("flow_no") or "")
+        flow_title = str(seed.get("flow_title") or "")
+        source_quality_policy = resolve_source_quality_policy(GUANGZHOU_PROFILE_ID)
+        samples.append(
+            {
+                "sample_id": f"HUMAN-FLOW-SEED-{flow_no}-{_fingerprint(source_url)[:12]}",
+                "parent_target_id": f"GZ-FLOW-INTERFACE-{flow_no}-HUMAN-SEED",
+                "target_id": f"GZ-FLOW-INTERFACE-{flow_no}-HUMAN-SEED::{_fingerprint(source_url)[:12]}",
+                "candidate_key": _fingerprint(source_url)[:24],
+                "project_id": str(seed.get("project_id") or f"PROJ-CN-GD-HUMAN-{_fingerprint(source_url)[:10]}"),
+                "notice_id": f"NOTICE-GUANGZHOU-HUMAN-SEED-{_fingerprint(source_url)[:10]}",
+                "project_name": str(seed.get("project_name") or ""),
+                "source_url": source_url,
+                "document_kind": str(seed.get("document_kind") or ""),
+                "jurisdiction": "CN-GD",
+                "source_profile_id": GUANGZHOU_PROFILE_ID,
+                "source_quality_state": str(source_quality_policy.get("source_quality_state") or ""),
+                "source_calibration_role": str(source_quality_policy.get("source_calibration_role") or ""),
+                "professional_source_priority": bool(source_quality_policy.get("professional_source_priority")),
+                "source_trading_process": str(seed.get("flow_code") or ""),
+                "source_dataset_name": flow_title,
+                "source_query_process_label": "human_provided_flow_seed",
+                "source_notice_third_type_desc": flow_title,
+                "published_at_optional": str(seed.get("published_at_optional") or ""),
+                "source_project_code": "",
+                "source_record_id": str(seed.get("source_record_id") or ""),
+                "project_match_key": str(seed.get("source_record_id") or ""),
+                "base_project_name": str(seed.get("project_name") or ""),
+                "guangzhou_flow_no": flow_no,
+                "guangzhou_flow_title": flow_title,
+                "guangzhou_flow_code": str(seed.get("flow_code") or ""),
+                "guangzhou_flow_folder": f"{flow_no}_{flow_title}" if flow_no and flow_title else "",
+                "guangzhou_relation_guid": "",
+                "backtrace_query_variants": [],
+                "backtrace_match_reason": "human_provided_flow_seed",
+                "matched_project_keys": _dedupe_strings([seed.get("source_record_id"), seed.get("project_name")]),
+                "source_family": "local_public_resource_trading_center",
+                "project_type": "construction",
+                "target_execution_state": ATTACHMENT_LISTED,
+                "pipeline_stage": PIPELINE_STAGE_ATTACHMENT_LIST,
+                "detail_capture_status": "NOT_RUN_ATTACHMENT_LIST",
+                "stage3_parse_state": "NOT_RUN_ATTACHMENT_LIST",
+                "document_completeness_state": PIPELINE_STAGE_ATTACHMENT_LIST,
+                "notice_version_chain_state": PIPELINE_STAGE_ATTACHMENT_LIST,
+                "detail_snapshot_refs": [],
+                "attachment_snapshot_refs": [],
+                "detail_snapshot_count": 0,
+                "attachment_snapshot_count": 0,
+                "challenge_diagnostics": [],
+                "parse_summary": _empty_parse_summary(),
+                "source_text": str(seed.get("project_name") or ""),
+                "failure_taxonomy": [],
+                "sample_source_type": str(seed.get("sample_source_type") or "HUMAN_PROVIDED_FLOW_SEED"),
+                "seed_evidence": str(seed.get("seed_evidence") or ""),
+                "customer_visible_allowed": False,
+                "no_legal_conclusion": True,
+            }
+        )
+    return samples
+
+
 def _flow_interface_report_row(
     *,
     module: Mapping[str, Any],
@@ -1056,6 +1154,9 @@ def _flow_interface_report_row(
         _scan_guangzhou_interface_sample(sample, execute=execute)
         for sample in sample_rows
     ]
+    human_seed_count = sum(
+        1 for sample in sample_items if str(sample.get("sample_source_type") or "") == "HUMAN_PROVIDED_FLOW_SEED"
+    )
     if not sample_items:
         status = OPTIONAL_LOW_FREQUENCY_FLOW_NOT_FOUND if flow_no == "12" else FLOW_SAMPLE_NOT_FOUND
     else:
@@ -1071,6 +1172,7 @@ def _flow_interface_report_row(
     flow_failure_taxonomy = _dedupe_strings(
         [
             *target_failures,
+            *(["human_provided_flow_seed_used"] if human_seed_count else []),
             *[
                 str(reason or "")
                 for attempt in process_attempts
@@ -1109,6 +1211,7 @@ def _flow_interface_report_row(
         "public_api_process_attempts": process_attempts,
         "sample_interface_items": sample_items,
         "sample_count": len(sample_items),
+        "human_provided_flow_seed_count": human_seed_count,
         "interface_status_counts": _counts(str(item.get("interface_status") or "") for item in sample_items),
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,
@@ -1126,6 +1229,8 @@ def _scan_guangzhou_interface_sample(sample: Mapping[str, Any], *, execute: bool
         "source_url": source_url,
         "published_at_optional": str(sample.get("published_at_optional") or ""),
         "source_project_code": str(sample.get("source_project_code") or ""),
+        "sample_source_type": str(sample.get("sample_source_type") or ""),
+        "seed_evidence": str(sample.get("seed_evidence") or ""),
         "download_enabled": False,
         "snapshot_write_enabled": False,
         "parse_enabled": False,
@@ -1423,6 +1528,8 @@ def _build_manual_interface_check_table(interface_report: Mapping[str, Any]) -> 
                     "interface_status": str(flow.get("flow_interface_coverage_state") or ""),
                     "attachment_entry_count": 0,
                     "failure_taxonomy": list(flow.get("failure_taxonomy") or flow.get("target_failure_taxonomy") or []),
+                    "sample_source_type": "",
+                    "seed_evidence": "",
                     "attempted_pages": _int(flow.get("attempted_pages")),
                     "record_count": _int(flow.get("record_count")),
                     "accepted_item_count": _int(flow.get("accepted_item_count")),
@@ -1446,6 +1553,8 @@ def _build_manual_interface_check_table(interface_report: Mapping[str, Any]) -> 
                     "interface_status": str(sample.get("interface_status") or ""),
                     "attachment_entry_count": _int(sample.get("attachment_entry_count")),
                     "failure_taxonomy": list(sample.get("failure_taxonomy") or []),
+                    "sample_source_type": str(sample.get("sample_source_type") or ""),
+                    "seed_evidence": str(sample.get("seed_evidence") or ""),
                     "attempted_pages": _int(flow.get("attempted_pages")),
                     "record_count": _int(flow.get("record_count")),
                     "accepted_item_count": _int(flow.get("accepted_item_count")),
