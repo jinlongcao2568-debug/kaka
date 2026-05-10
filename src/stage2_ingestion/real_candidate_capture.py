@@ -112,8 +112,41 @@ def _guangzhou_ywtb_failure_from_state(state: str) -> str:
         "LOGIN_OR_CA_REQUIRED": "guangzhou_login_or_ca_required",
         "CHALLENGE_REQUIRED": "guangzhou_challenge_required",
         "SCRIPT_ENDPOINT_UNRESOLVED": "guangzhou_script_endpoint_unresolved",
+        "SCRIPT_ENDPOINT_CAPTURED": "guangzhou_script_endpoint_captured_without_download_url",
+        "EPPOINT_CHALLENGE_DETECTED": "guangzhou_epoint_challenge_detected",
+        "EPPOINT_CHALLENGE_FAILED": "guangzhou_epoint_challenge_failed",
     }
     return mapping.get(str(state or ""), "")
+
+
+def _guangzhou_ywtb_attachment_challenge_state(attachment_captures: list[Mapping[str, Any]]) -> tuple[str, list[str]]:
+    attempted = False
+    failed = False
+    detected = False
+    states: list[str] = []
+    for capture in attachment_captures:
+        if not isinstance(capture, Mapping):
+            continue
+        state = str(capture.get("automated_challenge_resolution_state") or "")
+        blocker = str(capture.get("attachment_blocker_reason") or "")
+        taxonomy = " ".join(str(item or "") for item in list(capture.get("attachment_failure_taxonomy") or []))
+        degraded = " ".join(str(item or "") for item in list(capture.get("attachment_degraded_reasons") or []))
+        if state:
+            states.append(state)
+        if capture.get("automated_challenge_resolution_attempted") or state:
+            attempted = True
+        if state == "RESOLVED_AND_SNAPSHOT_CAPTURED" and capture.get("attachment_snapshot_id_optional"):
+            return "EPPOINT_CHALLENGE_RESOLVED", states
+        if state.startswith("FAILED"):
+            failed = True
+        challenge_text = f"{blocker} {taxonomy} {degraded}".lower()
+        if any(token in challenge_text for token in ("captcha", "pageverify", "verification", "blockpuzzle")):
+            detected = True
+    if attempted and failed:
+        return "EPPOINT_CHALLENGE_FAILED", states
+    if detected:
+        return "EPPOINT_CHALLENGE_DETECTED", states
+    return "", states
 
 
 def _clip_text(value: Any, limit: int = 4000) -> str:
@@ -1892,6 +1925,11 @@ def _document_completeness_summary(capture: Mapping[str, Any]) -> dict[str, Any]
     ]
     source_profile_id = str(capture.get("source_profile_id") or "")
     document_kind = str(capture.get("document_kind") or "")
+    guangzhou_state = str(
+        fields.get("guangzhou_ywtb_download_discovery_state")
+        or capture.get("guangzhou_ywtb_download_discovery_state")
+        or ""
+    )
 
     attachment_types = [
         str(ref.get("attachment_type") or "UNKNOWN_ATTACHMENT")
@@ -2010,11 +2048,6 @@ def _document_completeness_summary(capture: Mapping[str, Any]) -> dict[str, Any]
         and source_profile_id == "GUANGZHOU-YWTB-CONSTRUCTION-LIST"
         and document_kind == "tender_file"
     ):
-        guangzhou_state = str(
-            fields.get("guangzhou_ywtb_download_discovery_state")
-            or capture.get("guangzhou_ywtb_download_discovery_state")
-            or ""
-        )
         guangzhou_failure = _guangzhou_ywtb_failure_from_state(guangzhou_state)
         if guangzhou_failure:
             failure_reasons.append(guangzhou_failure)
@@ -2023,6 +2056,26 @@ def _document_completeness_summary(capture: Mapping[str, Any]) -> dict[str, Any]
         else:
             failure_reasons.append("guangzhou_ywtb_attachment_download_link_not_found")
             review_reasons.append("guangzhou_ywtb_attachment_download_link_not_found")
+    elif source_profile_id == "GUANGZHOU-YWTB-CONSTRUCTION-LIST" and document_kind == "tender_file":
+        if guangzhou_state in {"EPPOINT_CHALLENGE_DETECTED", "EPPOINT_CHALLENGE_FAILED"}:
+            guangzhou_failure = _guangzhou_ywtb_failure_from_state(guangzhou_state)
+            if guangzhou_failure:
+                failure_reasons.append(guangzhou_failure)
+                review_reasons.append(guangzhou_failure)
+            review_reasons.append(f"guangzhou_ywtb_download_discovery_state:{guangzhou_state}")
+    if (
+        source_profile_id == "GUANGZHOU-YWTB-CONSTRUCTION-LIST"
+        and document_kind == "tender_file"
+        and guangzhou_state == "EPPOINT_CHALLENGE_RESOLVED"
+    ):
+        stale_guangzhou_failures = {
+            "guangzhou_script_endpoint_unresolved",
+            "guangzhou_epoint_challenge_detected",
+            "guangzhou_challenge_required",
+            "guangzhou_script_endpoint_captured_without_download_url",
+        }
+        failure_reasons = [reason for reason in failure_reasons if reason not in stale_guangzhou_failures]
+        review_reasons = [reason for reason in review_reasons if reason not in stale_guangzhou_failures]
     if source_profile_id == "SICHUAN-GGZY-TRANSACTION-INFO":
         for reason in list(capture.get("detail_attachment_discovery_taxonomy") or fields.get("attachment_discovery_taxonomy") or []):
             text_reason = str(reason or "").strip()
@@ -2634,6 +2687,16 @@ class RealCandidateStage2CaptureService:
                 guangzhou_download_diagnostics.get("guangzhou_ywtb_download_discovery_state") or ""
             )
             detail_fields["guangzhou_ywtb_download_diagnostics"] = guangzhou_download_diagnostics
+        if str(candidate.get("source_profile_id") or "") == "GUANGZHOU-YWTB-CONSTRUCTION-LIST":
+            challenge_state, attachment_challenge_states = _guangzhou_ywtb_attachment_challenge_state(
+                [item for item in attachment_captures if isinstance(item, Mapping)]
+            )
+            if challenge_state:
+                detail_fields["guangzhou_ywtb_download_discovery_state"] = challenge_state
+                diagnostics = dict(detail_fields.get("guangzhou_ywtb_download_diagnostics") or {})
+                diagnostics["attachment_challenge_states"] = attachment_challenge_states
+                diagnostics["attachment_challenge_summary_state"] = challenge_state
+                detail_fields["guangzhou_ywtb_download_diagnostics"] = diagnostics
         if attachment_text_states:
             detail_fields["attachment_text_parse_states"] = attachment_text_states
             detail_fields["attachment_text_merge_state"] = (

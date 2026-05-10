@@ -18,6 +18,7 @@ from stage2_ingestion.playwright_challenge_resolver import (
     _epoint_attachment_action_url,
     _epoint_jigsaw_captcha_url,
     _filename_from_content_disposition,
+    _guangzhou_ywtb_candidate_urls_from_value,
     _guangzhou_ywtb_discovery_failure_taxonomy,
     _guangzhou_ywtb_download_discovery_state,
     _guangzhou_ywtb_download_url,
@@ -130,7 +131,34 @@ class PlaywrightChallengeResolverHelperTests(unittest.TestCase):
         self.assertTrue(_guangzhou_ywtb_download_url(GZ_ATTACHMENT_URL))
         self.assertEqual(
             _guangzhou_ywtb_download_discovery_state(body_text="", html="", candidate_count=1),
-            "DOWNLOAD_ENDPOINT_CAPTURED",
+            "SCRIPT_ENDPOINT_CAPTURED",
+        )
+        self.assertEqual(
+            _guangzhou_ywtb_download_discovery_state(
+                body_text="",
+                html="",
+                candidate_count=1,
+                candidate_sources=["click_probe"],
+            ),
+            "CLICK_DOWNLOAD_ENDPOINT_CAPTURED",
+        )
+        self.assertEqual(
+            _guangzhou_ywtb_download_discovery_state(
+                body_text="",
+                html="",
+                candidate_count=1,
+                epoint_challenge_detected=True,
+            ),
+            "EPPOINT_CHALLENGE_DETECTED",
+        )
+        self.assertEqual(
+            _guangzhou_ywtb_download_discovery_state(
+                body_text="",
+                html="",
+                candidate_count=0,
+                script_clue_count=2,
+            ),
+            "SCRIPT_ENDPOINT_CAPTURED",
         )
         self.assertEqual(
             _guangzhou_ywtb_download_discovery_state(
@@ -143,6 +171,32 @@ class PlaywrightChallengeResolverHelperTests(unittest.TestCase):
         self.assertEqual(
             _guangzhou_ywtb_discovery_failure_taxonomy("NO_PUBLIC_DOWNLOAD_ENDPOINT"),
             ["guangzhou_public_download_endpoint_missing"],
+        )
+        self.assertEqual(
+            _guangzhou_ywtb_discovery_failure_taxonomy("EPPOINT_CHALLENGE_FAILED"),
+            ["guangzhou_epoint_challenge_failed"],
+        )
+
+    def test_guangzhou_candidate_urls_are_reversed_from_script_values(self) -> None:
+        base_url = "https://ywtb.gzggzy.cn/jyfw/002001/002001001/20260510/detail.html"
+
+        self.assertEqual(
+            _guangzhou_ywtb_candidate_urls_from_value(
+                "ztbfjyz('/EpointWebBuilder/pages/webbuildermis/attach/downloadztbattach?attachGuid=abc&appUrlFlag=f2026&siteGuid=site-1','1')",
+                base_url=base_url,
+            ),
+            [
+                "https://ywtb.gzggzy.cn/EpointWebBuilder/pages/webbuildermis/attach/downloadztbattach?attachGuid=abc&appUrlFlag=f2026&siteGuid=site-1"
+            ],
+        )
+        self.assertEqual(
+            _guangzhou_ywtb_candidate_urls_from_value(
+                "attachGuid=abc-001&appUrlFlag=f2026&siteGuid=site-1",
+                base_url=base_url,
+            ),
+            [
+                "https://ywtb.gzggzy.cn/EpointWebBuilder/pages/webbuildermis/attach/downloadztbattach?attachGuid=abc-001&appUrlFlag=f2026&siteGuid=site-1"
+            ],
         )
 
 

@@ -255,6 +255,8 @@ class PlaywrightAttachmentChallengeResolver:
 
         candidates: list[dict[str, str]] = []
         response_statuses: list[dict[str, Any]] = []
+        network_probe_urls: list[str] = []
+        download_event_urls: list[str] = []
         clicked_texts: list[str] = []
 
         def remember_candidate(url: str, text: str = "", source: str = "") -> None:
@@ -265,6 +267,13 @@ class PlaywrightAttachmentChallengeResolver:
             if any(item.get("url") == clean for item in candidates):
                 return
             candidates.append({"url": clean, "text": text[:160], "source": source})
+
+        def remember_network_probe(url: str) -> None:
+            clean = str(url or "").split("#", 1)[0]
+            if not _guangzhou_ywtb_interesting_url(clean):
+                return
+            if clean not in network_probe_urls:
+                network_probe_urls.append(clean)
 
         with sync_playwright() as playwright:
             launch_options: dict[str, Any] = {"headless": self.headless}
@@ -285,10 +294,12 @@ class PlaywrightAttachmentChallengeResolver:
             page = context.new_page()
 
             def on_request(req: Any) -> None:
+                remember_network_probe(req.url)
                 remember_candidate(req.url, source="network_request")
 
             def on_response(resp: Any) -> None:
-                if _guangzhou_ywtb_download_url(resp.url):
+                remember_network_probe(resp.url)
+                if _guangzhou_ywtb_interesting_url(resp.url):
                     response_statuses.append(
                         {
                             "url": resp.url.split("#", 1)[0],
@@ -297,8 +308,15 @@ class PlaywrightAttachmentChallengeResolver:
                         }
                     )
 
+            def on_download(download: Any) -> None:
+                url = str(getattr(download, "url", "") or "")
+                if url:
+                    download_event_urls.append(url.split("#", 1)[0])
+                    remember_candidate(url, text="browser_download_event", source="download_event")
+
             page.on("request", on_request)
             page.on("response", on_response)
+            page.on("download", on_download)
             try:
                 page.goto(detail_url, wait_until="domcontentloaded", timeout=self.timeout_ms)
                 try:
@@ -311,16 +329,27 @@ class PlaywrightAttachmentChallengeResolver:
                     body_text = page.locator("body").inner_text(timeout=3000)
                 except Exception:
                     body_text = ""
+                script_clues = _guangzhou_ywtb_script_clues(page)
                 for item in _guangzhou_ywtb_dom_download_candidates(page):
                     remember_candidate(item.get("url", ""), item.get("text", ""), "dom")
                 if not candidates:
-                    for item in _guangzhou_ywtb_click_probe(page):
-                        clicked_texts.append(str(item.get("text") or "")[:160])
+                    click_result = _guangzhou_ywtb_click_probe(page)
+                    clicked_texts.extend(list(click_result.get("clicked_texts") or [])[:20])
+                    for item in list(click_result.get("candidates") or []):
                         remember_candidate(item.get("url", ""), item.get("text", ""), "click_probe")
+                endpoint_probe = _guangzhou_ywtb_probe_candidate_endpoints(
+                    context,
+                    candidates,
+                    referer_url=page.url or detail_url,
+                    timeout_ms=min(self.timeout_ms, 12000),
+                )
                 state = _guangzhou_ywtb_download_discovery_state(
                     body_text=body_text,
                     html=html,
                     candidate_count=len(candidates),
+                    candidate_sources=[item.get("source", "") for item in candidates],
+                    script_clue_count=int(script_clues.get("script_clue_count") or 0),
+                    epoint_challenge_detected=bool(endpoint_probe.get("epoint_challenge_detected")),
                 )
                 return {
                     "guangzhou_ywtb_download_discovery_state": state,
@@ -329,8 +358,12 @@ class PlaywrightAttachmentChallengeResolver:
                         for item in candidates
                     ],
                     "failure_taxonomy": _guangzhou_ywtb_discovery_failure_taxonomy(state),
+                    "script_clues": script_clues,
+                    "endpoint_probe": endpoint_probe,
+                    "network_probe_urls": network_probe_urls[:30],
                     "network_download_response_count": len(response_statuses),
                     "network_download_response_statuses": response_statuses[:20],
+                    "download_event_urls": download_event_urls[:20],
                     "clicked_download_probe_texts": clicked_texts[:20],
                     "page_title": _safe_page_title(page),
                     "page_url": page.url or detail_url,
@@ -766,22 +799,84 @@ def _guangzhou_ywtb_download_url(url: str) -> bool:
     )
 
 
+def _guangzhou_ywtb_interesting_url(url: str) -> bool:
+    parsed = urlsplit(str(url or ""))
+    host = (parsed.hostname or "").lower()
+    if host and host != "ywtb.gzggzy.cn":
+        return False
+    lowered = unquote(f"{parsed.path}?{parsed.query}").lower()
+    return any(
+        token in lowered
+        for token in (
+            "attach",
+            "download",
+            "file",
+            "ztb",
+            "pageverify",
+            "captcha",
+            "verification",
+        )
+    )
+
+
+def _guangzhou_ywtb_script_clues(page: Any) -> dict[str, Any]:
+    script = """
+    () => {
+      const tokens = ['ztbfjyz', 'downloadztbattach', 'ztbAttachDownloadAction', 'pageVerify', 'captcha', 'attachGuid', 'appUrlFlag'];
+      const scripts = Array.from(document.scripts || []);
+      const scriptSrcs = scripts.map((s) => s.src || '').filter((src) => tokens.some((t) => src.toLowerCase().includes(t.toLowerCase()))).slice(0, 20);
+      const inlineProbes = [];
+      for (const s of scripts) {
+        const text = s.textContent || '';
+        const hit = tokens.find((t) => text.toLowerCase().includes(t.toLowerCase()));
+        if (!hit) continue;
+        const idx = text.toLowerCase().indexOf(hit.toLowerCase());
+        inlineProbes.push({
+          token: hit,
+          probe: text.slice(Math.max(0, idx - 160), Math.min(text.length, idx + 360)).replace(/\\s+/g, ' ').trim()
+        });
+        if (inlineProbes.length >= 10) break;
+      }
+      const attrHits = Array.from(document.querySelectorAll('a,button,[onclick],[href],[data-url],[data-href]')).map((el) => {
+        const attrs = ['href', 'onclick', 'title', 'data-url', 'data-href'].map((name) => el.getAttribute(name) || '').join(' ');
+        const text = (el.innerText || el.textContent || '').trim();
+        const combined = `${attrs} ${text}`;
+        const hit = tokens.find((t) => combined.toLowerCase().includes(t.toLowerCase()));
+        return hit ? {token: hit, text: text.slice(0, 120), attrs: attrs.slice(0, 260)} : null;
+      }).filter(Boolean).slice(0, 20);
+      return {
+        ztbfjyz_function_present: typeof window.ztbfjyz === 'function',
+        script_srcs: scriptSrcs,
+        inline_script_probes: inlineProbes,
+        dom_attribute_hits: attrHits,
+        script_clue_count: scriptSrcs.length + inlineProbes.length + attrHits.length + (typeof window.ztbfjyz === 'function' ? 1 : 0)
+      };
+    }
+    """
+    try:
+        raw = page.evaluate(script)
+    except Exception:
+        return {
+            "ztbfjyz_function_present": False,
+            "script_srcs": [],
+            "inline_script_probes": [],
+            "dom_attribute_hits": [],
+            "script_clue_count": 0,
+        }
+    return dict(raw) if isinstance(raw, Mapping) else {}
+
+
 def _guangzhou_ywtb_dom_download_candidates(page: Any) -> list[dict[str, str]]:
     script = """
-    () => Array.from(document.querySelectorAll('a,button,[onclick],[href]')).map((el) => {
+    () => Array.from(document.querySelectorAll('a,button,[onclick],[href],[data-url],[data-href]')).map((el) => {
       const href = el.getAttribute('href') || '';
       const dataUrl = el.getAttribute('data-url') || el.getAttribute('data-href') || '';
+      const dataFile = el.getAttribute('data-file') || el.getAttribute('data-fileurl') || '';
       const onclick = el.getAttribute('onclick') || '';
-      const text = (el.innerText || el.textContent || el.getAttribute('title') || '').trim();
-      const values = [href, dataUrl, onclick].filter(Boolean);
-      return values.map((value) => {
-        const match = value.match(/['"]([^'"]*downloadztbattach[^'"]*)['"]/i);
-        const rawUrl = match ? match[1] : value;
-        let url = rawUrl;
-        try { url = new URL(rawUrl, location.href).href; } catch (e) {}
-        return {url, text};
-      });
-    }).flat()
+      const title = el.getAttribute('title') || '';
+      const text = (el.innerText || el.textContent || title || '').trim();
+      return {values: [href, dataUrl, dataFile, onclick, title].filter(Boolean), text};
+    })
     """
     try:
         raw_items = page.evaluate(script)
@@ -791,20 +886,88 @@ def _guangzhou_ywtb_dom_download_candidates(page: Any) -> list[dict[str, str]]:
     for raw in raw_items if isinstance(raw_items, list) else []:
         if not isinstance(raw, Mapping):
             continue
-        url = str(raw.get("url") or "").strip()
-        if not _guangzhou_ywtb_download_url(url):
-            continue
-        items.append({"url": url, "text": str(raw.get("text") or "")})
+        text = str(raw.get("text") or "")
+        for value in list(raw.get("values") or []):
+            for url in _guangzhou_ywtb_candidate_urls_from_value(value, base_url=str(getattr(page, "url", "") or "")):
+                if not _guangzhou_ywtb_download_url(url):
+                    continue
+                if any(item["url"] == url for item in items):
+                    continue
+                items.append({"url": url, "text": text})
     return items
 
 
-def _guangzhou_ywtb_click_probe(page: Any) -> list[dict[str, str]]:
+def _guangzhou_ywtb_candidate_urls_from_value(value: Any, *, base_url: str) -> list[str]:
+    text = str(value or "").strip()
+    if not text:
+        return []
+    candidates: list[str] = []
+
+    def remember(raw_url: str) -> None:
+        raw = str(raw_url or "").strip()
+        if not raw or raw.startswith(("#", "javascript:", "mailto:")):
+            return
+        if "ztbfjyz(" in raw.lower():
+            return
+        absolute = urljoin(base_url, raw).split("#", 1)[0]
+        if _guangzhou_ywtb_download_url(absolute) and absolute not in candidates:
+            candidates.append(absolute)
+
+    if "downloadztbattach" in text.lower() or "ztbattachdownloadaction.action" in text.lower():
+        remember(text)
+    for match in re.finditer(
+        r"['\"](?P<href>[^'\"]*(?:downloadztbattach|ztbAttachDownloadAction\.action)[^'\"]*)['\"]",
+        text,
+        flags=re.IGNORECASE,
+    ):
+        remember(match.group("href"))
+    ztbfjyz_match = re.search(r"ztbfjyz\(\s*['\"](?P<href>[^'\"]+)['\"]", text, flags=re.IGNORECASE)
+    if ztbfjyz_match:
+        remember(ztbfjyz_match.group("href"))
+
+    param_url = _guangzhou_ywtb_download_url_from_params(text, base_url=base_url)
+    if param_url:
+        remember(param_url)
+    return candidates
+
+
+def _guangzhou_ywtb_download_url_from_params(value: str, *, base_url: str) -> str:
+    text = str(value or "")
+    params: dict[str, str] = {}
+    for key in ("attachGuid", "appUrlFlag", "siteGuid"):
+        match = re.search(
+            rf"{key}\s*(?:=|:)\s*['\"]?(?P<value>[^'\"&,\s)]+)",
+            text,
+            flags=re.IGNORECASE,
+        )
+        if match:
+            params[key] = match.group("value")
+    if "attachGuid" not in params:
+        parsed = urlsplit(text)
+        query_values = parse_qs(parsed.query or text, keep_blank_values=True)
+        for key in ("attachGuid", "appUrlFlag", "siteGuid"):
+            if query_values.get(key):
+                params[key] = str(query_values[key][0] or "")
+    if not params.get("attachGuid"):
+        return ""
+    query = urlencode(
+        {
+            "attachGuid": params.get("attachGuid", ""),
+            "appUrlFlag": params.get("appUrlFlag", ""),
+            "siteGuid": params.get("siteGuid", ""),
+        }
+    )
+    return urljoin(base_url, f"/EpointWebBuilder/pages/webbuildermis/attach/downloadztbattach?{query}")
+
+
+def _guangzhou_ywtb_click_probe(page: Any) -> dict[str, Any]:
     items: list[dict[str, str]] = []
+    clicked_texts: list[str] = []
     try:
         locator = page.locator("a,button,[onclick]")
         count = min(int(locator.count()), 80)
     except Exception:
-        return items
+        return {"candidates": items, "clicked_texts": clicked_texts}
     for index in range(count):
         try:
             element = locator.nth(index)
@@ -815,6 +978,7 @@ def _guangzhou_ywtb_click_probe(page: Any) -> list[dict[str, str]]:
             )
             if not _guangzhou_ywtb_probe_text_or_attrs(text, attrs):
                 continue
+            clicked_texts.append(text[:160] or attrs[:160])
             before = set(item["url"] for item in _guangzhou_ywtb_dom_download_candidates(page))
             try:
                 element.click(timeout=1200, no_wait_after=True)
@@ -827,7 +991,7 @@ def _guangzhou_ywtb_click_probe(page: Any) -> list[dict[str, str]]:
                     items.append({"url": candidate["url"], "text": text or candidate.get("text", "")})
         except Exception:
             continue
-    return items
+    return {"candidates": items, "clicked_texts": clicked_texts}
 
 
 def _guangzhou_ywtb_probe_text_or_attrs(text: str, attrs: str) -> bool:
@@ -846,9 +1010,90 @@ def _guangzhou_ywtb_probe_text_or_attrs(text: str, attrs: str) -> bool:
     )
 
 
-def _guangzhou_ywtb_download_discovery_state(*, body_text: str, html: str, candidate_count: int) -> str:
+def _guangzhou_ywtb_probe_candidate_endpoints(
+    context: Any,
+    candidates: list[Mapping[str, Any]],
+    *,
+    referer_url: str,
+    timeout_ms: int,
+) -> dict[str, Any]:
+    probes: list[dict[str, Any]] = []
+    epoint_challenge_detected = False
+    for candidate in candidates[:5]:
+        url = str(candidate.get("url") or "")
+        if not _guangzhou_ywtb_download_url(url):
+            continue
+        try:
+            response = context.request.get(
+                url,
+                headers={"Referer": referer_url},
+                timeout=timeout_ms,
+            )
+            content_type = (response.headers.get("content-type") or "").lower()
+            body = response.body()[:2000] if response.ok else b""
+            challenge = _epoint_challenge_detected(url=url, content_type=content_type, body=body)
+            epoint_challenge_detected = epoint_challenge_detected or challenge
+            probes.append(
+                {
+                    "url": url,
+                    "status": getattr(response, "status", None),
+                    "content_type": content_type,
+                    "epoint_challenge_detected": challenge,
+                    "file_like_response": _download_probe_is_file_like(content_type=content_type, body=body),
+                }
+            )
+        except Exception as exc:
+            probes.append(
+                {
+                    "url": url,
+                    "error": type(exc).__name__,
+                    "error_detail": str(exc)[:240],
+                }
+            )
+    return {
+        "attempted_count": len(probes),
+        "probes": probes,
+        "epoint_challenge_detected": epoint_challenge_detected,
+    }
+
+
+def _epoint_challenge_detected(*, url: str, content_type: str, body: bytes) -> bool:
+    lowered_url = url.lower()
+    lowered_body = body[:2000].lower()
+    return (
+        "pageverify" in lowered_url
+        or "captcha" in lowered_url
+        or b"pageverify" in lowered_body
+        or b"validateverificationcode" in lowered_body
+        or b"blockpuzzle" in lowered_body
+        or ("html" in content_type and b"verification" in lowered_body)
+    )
+
+
+def _download_probe_is_file_like(*, content_type: str, body: bytes) -> bool:
+    lowered = content_type.lower()
+    return (
+        body.startswith((b"%PDF", b"PK\x03\x04", b"\xd0\xcf\x11\xe0"))
+        or any(token in lowered for token in ("pdf", "zip", "msword", "officedocument", "excel", "spreadsheet"))
+    )
+
+
+def _guangzhou_ywtb_download_discovery_state(
+    *,
+    body_text: str,
+    html: str,
+    candidate_count: int,
+    candidate_sources: list[str] | None = None,
+    script_clue_count: int = 0,
+    epoint_challenge_detected: bool = False,
+) -> str:
+    sources = {str(item or "") for item in list(candidate_sources or [])}
     if candidate_count > 0:
-        return "DOWNLOAD_ENDPOINT_CAPTURED"
+        if epoint_challenge_detected:
+            return "EPPOINT_CHALLENGE_DETECTED"
+        if any(source in sources for source in {"click_probe", "network_request", "download_event"}):
+            return "CLICK_DOWNLOAD_ENDPOINT_CAPTURED"
+        return "SCRIPT_ENDPOINT_CAPTURED"
     text = f"{body_text or ''}\n{html or ''}"
     lowered = text.lower()
     if any(token in text for token in ("数字证书", "CA锁", "CA证书", "CA 登录", "CA登录", "粤商通")):
@@ -857,19 +1102,28 @@ def _guangzhou_ywtb_download_discovery_state(*, body_text: str, html: str, candi
         return "LOGIN_OR_CA_REQUIRED"
     if any(token in text for token in ("验证码", "滑块", "拖动", "captcha", "blockpuzzle")):
         return "CHALLENGE_REQUIRED"
+    if script_clue_count > 0:
+        return "SCRIPT_ENDPOINT_CAPTURED"
     if any(token in lowered for token in ("ztbfjyz", "downloadztbattach", "attachguid", "appurlflag")):
         return "SCRIPT_ENDPOINT_UNRESOLVED"
     return "NO_PUBLIC_DOWNLOAD_ENDPOINT"
 
 
 def _guangzhou_ywtb_discovery_failure_taxonomy(state: str) -> list[str]:
-    if state == "DOWNLOAD_ENDPOINT_CAPTURED":
+    if state in {
+        "DOWNLOAD_ENDPOINT_CAPTURED",
+        "SCRIPT_ENDPOINT_CAPTURED",
+        "CLICK_DOWNLOAD_ENDPOINT_CAPTURED",
+        "EPPOINT_CHALLENGE_RESOLVED",
+    }:
         return []
     mapping = {
         "NO_PUBLIC_DOWNLOAD_ENDPOINT": "guangzhou_public_download_endpoint_missing",
         "LOGIN_OR_CA_REQUIRED": "guangzhou_login_or_ca_required",
         "CHALLENGE_REQUIRED": "guangzhou_challenge_required",
         "SCRIPT_ENDPOINT_UNRESOLVED": "guangzhou_script_endpoint_unresolved",
+        "EPPOINT_CHALLENGE_DETECTED": "guangzhou_epoint_challenge_detected",
+        "EPPOINT_CHALLENGE_FAILED": "guangzhou_epoint_challenge_failed",
     }
     value = mapping.get(str(state or ""))
     return [value] if value else []

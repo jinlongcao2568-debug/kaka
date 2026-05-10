@@ -758,6 +758,27 @@ def _capture_manifest_summary(capture_result: Mapping[str, Any]) -> dict[str, An
                 )
                 if attachment_challenge_state:
                     failure_taxonomy.append(f"attachment_automated_challenge_resolution_state:{attachment_challenge_state}")
+        if (
+            str(capture.get("source_profile_id") or "") == "GUANGZHOU-YWTB-CONSTRUCTION-LIST"
+            and guangzhou_ywtb_download_discovery_state == "EPPOINT_CHALLENGE_RESOLVED"
+        ):
+            stale_guangzhou_failures = {
+                "guangzhou_public_download_endpoint_missing",
+                "guangzhou_script_endpoint_unresolved",
+                "guangzhou_epoint_challenge_detected",
+                "guangzhou_challenge_required",
+                "guangzhou_script_endpoint_captured_without_download_url",
+                "attachment_automated_challenge_resolution_state:RESOLVED_AND_SNAPSHOT_CAPTURED",
+            }
+            failure_taxonomy = [
+                reason for reason in failure_taxonomy if reason not in stale_guangzhou_failures
+            ]
+            local_document_quality_reasons = [
+                reason for reason in local_document_quality_reasons if reason not in stale_guangzhou_failures
+            ]
+            document_quality_reasons = [
+                reason for reason in document_quality_reasons if reason not in stale_guangzhou_failures
+            ]
         project_sample_captures.append(
             {
                 "candidate_key": candidate_key,

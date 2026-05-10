@@ -2008,9 +2008,25 @@ class RealPublicEntryFetcher:
                         ]
                         attachment_link_items = _merge_link_items(rendered_items, attachment_link_items)
                         attachment_discovery_diagnostics["guangzhou_ywtb_rendered"] = dict(rendered_diagnosis)
-                        if str(rendered_diagnosis.get("guangzhou_ywtb_download_discovery_state") or "") == "DOWNLOAD_ENDPOINT_CAPTURED":
+                        rendered_state = str(
+                            rendered_diagnosis.get("guangzhou_ywtb_download_discovery_state") or ""
+                        )
+                        if rendered_items or rendered_state in {
+                            "DOWNLOAD_ENDPOINT_CAPTURED",
+                            "SCRIPT_ENDPOINT_CAPTURED",
+                            "CLICK_DOWNLOAD_ENDPOINT_CAPTURED",
+                            "EPPOINT_CHALLENGE_DETECTED",
+                            "EPPOINT_CHALLENGE_RESOLVED",
+                        }:
                             attachment_discovery_taxonomy = [
-                                item for item in attachment_discovery_taxonomy if not str(item).startswith("guangzhou_")
+                                item
+                                for item in attachment_discovery_taxonomy
+                                if str(item)
+                                not in {
+                                    "guangzhou_public_download_endpoint_missing",
+                                    "guangzhou_script_endpoint_unresolved",
+                                    "guangzhou_ywtb_attachment_download_link_not_found",
+                                }
                             ]
                         attachment_discovery_taxonomy.extend(
                             str(item)

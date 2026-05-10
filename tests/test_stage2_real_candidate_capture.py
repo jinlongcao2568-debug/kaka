@@ -20,6 +20,7 @@ from stage2_ingestion.real_candidate_capture import (
     REAL_CANDIDATE_STAGE2_CAPTURE_MODE,
     RealCandidateStage2CaptureRepository,
     RealCandidateStage2CaptureService,
+    _guangzhou_ywtb_attachment_challenge_state,
     _infer_attachment_role_type,
     list_real_candidate_stage2_captures,
 )
@@ -1713,6 +1714,40 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
             enriched["guangzhou_ywtb_download_discovery_state"],
             "NO_PUBLIC_DOWNLOAD_ENDPOINT",
         )
+
+    def test_guangzhou_attachment_challenge_state_prefers_resolved_snapshot(self) -> None:
+        state, states = _guangzhou_ywtb_attachment_challenge_state(
+            [
+                {
+                    "automated_challenge_resolution_attempted": True,
+                    "automated_challenge_resolution_state": "FAILED_CLOSED_RESOLVER_ERROR",
+                    "attachment_failure_taxonomy": ["captcha_required"],
+                },
+                {
+                    "automated_challenge_resolution_attempted": True,
+                    "automated_challenge_resolution_state": "RESOLVED_AND_SNAPSHOT_CAPTURED",
+                    "attachment_snapshot_id_optional": "snapshot-gz-001",
+                },
+            ]
+        )
+
+        self.assertEqual(state, "EPPOINT_CHALLENGE_RESOLVED")
+        self.assertIn("FAILED_CLOSED_RESOLVER_ERROR", states)
+        self.assertIn("RESOLVED_AND_SNAPSHOT_CAPTURED", states)
+
+    def test_guangzhou_attachment_challenge_state_classifies_failed_epoint(self) -> None:
+        state, states = _guangzhou_ywtb_attachment_challenge_state(
+            [
+                {
+                    "automated_challenge_resolution_attempted": True,
+                    "automated_challenge_resolution_state": "FAILED_CLOSED_RESOLVER_ERROR",
+                    "attachment_blocker_reason": "pageVerify blockpuzzle captcha",
+                }
+            ]
+        )
+
+        self.assertEqual(state, "EPPOINT_CHALLENGE_FAILED")
+        self.assertEqual(states, ["FAILED_CLOSED_RESOLVER_ERROR"])
 
     def test_xlsx_attachment_text_feeds_qualification_blocks_without_negative_fact(self) -> None:
         detail_url = "https://www.ccgp.gov.cn/cggg/zygg/zbgg/202604/t20260430_xlsx_manager.htm"
