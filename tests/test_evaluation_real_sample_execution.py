@@ -112,6 +112,41 @@ class FakeCaptureService:
                         "attachment_ocr_required_count": self.attachment_ocr_required_count,
                     },
                     "detail_fields": {
+                        "detail_text_probe": "资格条件：厂家授权。本项目采用综合评分法，技术参数详见招标文件。",
+                        "attachment_text_probes": [
+                            {
+                                "project_id": candidate["project_id"],
+                                "snapshot_id": attachment_snapshot_id,
+                                "source_url": "https://example.test/tender.pdf",
+                                "file_role": "attachment",
+                                "parse_state": "PARSED_PDF",
+                                "section_flags": {
+                                    "qualification_section_found": True,
+                                    "scoring_section_found": True,
+                                    "technical_section_found": True,
+                                    "section_analysis_state": "SECTION_COMPLETE",
+                                },
+                                "text_sha256": "sha",
+                                "text_probe": "评标办法：综合评分。技术参数：须满足服务要求。",
+                            }
+                        ],
+                        "file_parse_attributions": [
+                            {
+                                "project_id": candidate["project_id"],
+                                "snapshot_id": snapshot_id,
+                                "source_url": candidate["source_url"],
+                                "file_role": "detail",
+                                "parse_state": self.parse_state,
+                                "section_flags": {
+                                    "qualification_section_found": True,
+                                    "scoring_section_found": False,
+                                    "technical_section_found": False,
+                                    "section_analysis_state": "SECTION_PARTIAL_QUALIFICATION_ONLY",
+                                },
+                                "text_sha256": "detail-sha",
+                                "text_probe": "资格条件：厂家授权。",
+                            }
+                        ],
                         "attachment_ocr_required_count": self.attachment_ocr_required_count,
                         "attachment_ocr_extracted_count": 0,
                         "attachment_snapshot_refs": attachment_snapshot_refs,
@@ -390,7 +425,11 @@ class TestEvaluationRealSampleExecution(unittest.TestCase):
             self.assertEqual(sample["source_dataset_name"], "中标候选人公示")
             self.assertEqual(sample["source_query_process_label"], "candidate_publicity")
             self.assertEqual(sample["detail_snapshot_refs"][0]["snapshot_id"], "SNAP-DETAIL-002")
+            self.assertIn("资格条件", sample["parse_summary"]["detail_text_probe"])
+            self.assertTrue(sample["parse_summary"]["attachment_text_probes"])
+            self.assertTrue(sample["parse_summary"]["file_parse_attributions"])
             self.assertIn("厂家授权", sample["source_text"])
+            self.assertIn("技术参数", sample["source_text"])
             manifest_text = json.dumps(manifest, ensure_ascii=False).lower()
             self.assertNotIn("<html", manifest_text)
             self.assertNotIn("%pdf", manifest_text)

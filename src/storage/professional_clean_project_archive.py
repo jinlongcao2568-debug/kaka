@@ -250,6 +250,7 @@ def _archive_project(
                 "verification_urls": verification_urls,
                 "parse_metrics": parse_metrics,
                 "section_flags": section_flags,
+                "file_parse_attributions": _project_file_parse_attributions(samples),
                 "project_completeness_contract": project_contract,
                 "file_level_parse_attribution_state": parse_metrics["file_level_parse_attribution_state"],
                 "customer_visible_allowed": False,
@@ -424,6 +425,7 @@ def _sample_card(sample: Mapping[str, Any]) -> dict[str, Any]:
             "stage3_parse_failed_count": parse_summary.get("stage3_parse_failed_count", 0),
             "attachment_missing_review_count": parse_summary.get("attachment_missing_review_count", 0),
             "unknown_attachment_count": parse_summary.get("unknown_attachment_count", 0),
+            "file_parse_attribution_count": len(list(parse_summary.get("file_parse_attributions") or [])),
         },
         "failure_taxonomy": _as_list(sample.get("failure_taxonomy")),
     }
@@ -524,6 +526,9 @@ def _parse_metrics(*, samples: list[Mapping[str, Any]], section_flags: Mapping[s
     section_analysis_state = str(section_flags.get("section_analysis_state") or "")
     if section_analysis_state == "SECTION_PARTIAL_QUALIFICATION_ONLY":
         parse_insufficiency_reasons.append("section_partial_qualification_only")
+    if _tender_notice_pdf_lacks_full_tender_sections(samples=samples, section_flags=section_flags):
+        parse_insufficiency_reasons.append("tender_notice_pdf_lacks_full_tender_sections")
+    file_parse_attributions = _project_file_parse_attributions(samples)
 
     return {
         "stage3_parse_success_count": success_count,
@@ -538,9 +543,12 @@ def _parse_metrics(*, samples: list[Mapping[str, Any]], section_flags: Mapping[s
         "section_analysis_state": section_analysis_state,
         "markitdown_state_counts": markitdown_state_counts,
         "parse_insufficiency_reasons": _dedupe_strings(parse_insufficiency_reasons),
-        "file_level_parse_attribution_state": "PROJECT_LEVEL_ONLY_MISSING_FILE_LEVEL_ATTRIBUTION"
+        "file_level_parse_attribution_state": "FILE_LEVEL_PARSE_ATTRIBUTION_READY"
+        if file_parse_attributions
+        else "PROJECT_LEVEL_ONLY_MISSING_FILE_LEVEL_ATTRIBUTION"
         if parse_summaries
         else "PARSE_SUMMARY_MISSING",
+        "file_parse_attribution_count": len(file_parse_attributions),
         "download_then_parse_required": True,
         "parse_from_replay_snapshot_required": True,
         "customer_visible_allowed": False,
@@ -781,6 +789,9 @@ def _sample_text_values(sample: Mapping[str, Any]) -> list[Any]:
     parse_summary = sample.get("parse_summary")
     if isinstance(parse_summary, Mapping):
         values.append(parse_summary.get("text_probe"))
+        values.append(parse_summary.get("detail_text_probe"))
+        values.extend(_text_probe_values(parse_summary.get("attachment_text_probes")))
+        values.extend(_text_probe_values(parse_summary.get("file_parse_attributions")))
         for key in (
             "markitdown_text_probe",
             "attachment_text_probe",
@@ -793,6 +804,75 @@ def _sample_text_values(sample: Mapping[str, Any]) -> list[Any]:
         values.extend(_as_list(detail_fields.get("document_section_slices")))
     values.extend(_as_list(sample.get("qualification_text_candidate_blocks")))
     return values
+
+
+def _text_probe_values(value: Any) -> list[str]:
+    probes: list[str] = []
+    for item in _as_list(value):
+        if isinstance(item, Mapping):
+            text = str(item.get("text_probe") or "")
+        else:
+            text = str(item or "")
+        if text.strip():
+            probes.append(text)
+    return probes
+
+
+def _project_file_parse_attributions(samples: list[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    attributions: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for sample in samples:
+        parse_summary = sample.get("parse_summary")
+        if not isinstance(parse_summary, Mapping):
+            continue
+        for item in list(parse_summary.get("file_parse_attributions") or []):
+            if not isinstance(item, Mapping):
+                continue
+            key = "|".join(
+                str(item.get(part) or "")
+                for part in ("project_id", "snapshot_id", "file_role", "source_url")
+            )
+            if key in seen:
+                continue
+            seen.add(key)
+            attributions.append(
+                {
+                    "project_id": str(item.get("project_id") or sample.get("project_id") or ""),
+                    "snapshot_id": str(item.get("snapshot_id") or ""),
+                    "source_url": str(item.get("source_url") or ""),
+                    "file_role": str(item.get("file_role") or ""),
+                    "parse_state": str(item.get("parse_state") or ""),
+                    "section_flags": dict(item.get("section_flags") or {}),
+                    "text_sha256": str(item.get("text_sha256") or ""),
+                    "text_probe": str(item.get("text_probe") or ""),
+                    "customer_visible_allowed": False,
+                    "no_legal_conclusion": True,
+                }
+            )
+    return attributions
+
+
+def _tender_notice_pdf_lacks_full_tender_sections(
+    *,
+    samples: list[Mapping[str, Any]],
+    section_flags: Mapping[str, bool],
+) -> bool:
+    if bool(section_flags.get("scoring_section_found")):
+        return False
+    source_text = "\n".join(str(value) for sample in samples for value in _sample_text_values(sample) if value)
+    if "招标公告" not in source_text:
+        return False
+    for sample in samples:
+        for ref in list(sample.get("attachment_snapshot_refs") or []):
+            if not isinstance(ref, Mapping):
+                continue
+            text = " ".join(
+                str(ref.get(key) or "")
+                for key in ("attachment_url", "source_url", "attachment_type", "content_type", "parse_state")
+            ).lower()
+            if ".pdf" in text or "pdf" in text:
+                return True
+    return False
 
 
 def _declared_ref_url(ref: Mapping[str, Any]) -> str:

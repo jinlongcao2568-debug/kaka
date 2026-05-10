@@ -1973,6 +1973,33 @@ class RealPublicEntryFetcher:
         host = parsed_final.netloc.lower() or profile.host
         same_site_link_items = _discover_same_site_link_items(text, base_url=final_url, host=host)
         attachment_link_items = _discover_same_site_attachment_link_items(text, base_url=final_url, host=host)
+        attachment_discovery_taxonomy: list[str] = []
+        attachment_discovery_diagnostics: dict[str, Any] = {}
+        if profile.profile_id == "SICHUAN-GGZY-TRANSACTION-INFO":
+            if _has_template_placeholder(text):
+                attachment_discovery_taxonomy.append("sichuan_template_placeholder_attachment_ignored")
+            sichuan_attachment_discovery = _discover_sichuan_static_json_attachment_link_items(
+                text,
+                base_url=final_url,
+                host=host,
+                transport=self.transport,
+                timeout_seconds=self.timeout_seconds,
+                user_agent=self.user_agent,
+            )
+            attachment_link_items = _merge_link_items(
+                list(sichuan_attachment_discovery.get("items") or []),
+                attachment_link_items,
+            )
+            attachment_discovery_taxonomy.extend(
+                str(item)
+                for item in list(sichuan_attachment_discovery.get("taxonomy") or [])
+                if str(item or "").strip()
+            )
+            attachment_discovery_diagnostics["sichuan_static_json"] = {
+                key: value
+                for key, value in dict(sichuan_attachment_discovery).items()
+                if key not in {"items"}
+            }
         entry_unavailable_body_patterns = [
             marker
             for marker in _ENTRY_UNAVAILABLE_BODY_PATTERNS
@@ -2051,6 +2078,8 @@ class RealPublicEntryFetcher:
             "same_site_detail_link_items": same_site_link_items,
             "same_site_attachment_links": [item["url"] for item in attachment_link_items],
             "same_site_attachment_link_items": attachment_link_items,
+            "attachment_discovery_taxonomy": list(dict.fromkeys(attachment_discovery_taxonomy)),
+            "attachment_discovery_diagnostics": attachment_discovery_diagnostics,
             "entry_unavailable_body_patterns_observed": entry_unavailable_body_patterns,
             "controlled_challenge_body_patterns_observed": controlled_challenge_body_patterns,
             "degraded_reasons": degraded_reasons,
@@ -2107,6 +2136,8 @@ class RealPublicEntryFetcher:
             "same_site_detail_link_items": same_site_link_items,
             "same_site_attachment_links": [item["url"] for item in attachment_link_items],
             "same_site_attachment_link_items": attachment_link_items,
+            "attachment_discovery_taxonomy": list(dict.fromkeys(attachment_discovery_taxonomy)),
+            "attachment_discovery_diagnostics": attachment_discovery_diagnostics,
             "snapshot_id_optional": snapshot_id if manifest_payload else None,
             "manifest_optional": manifest_payload,
             "degraded_reasons": degraded_reasons,
@@ -2711,6 +2742,8 @@ def _discover_same_site_link_items(text: str, *, base_url: str, host: str) -> li
         href = unescape(href_match.group(1)).strip()
         if not href or href.startswith(("#", "javascript:", "mailto:")):
             continue
+        if _has_template_placeholder(href, match.group("body") or ""):
+            continue
         full = urljoin(base_url, href)
         parsed = urlsplit(full)
         parsed_host = (parsed.hostname or "").lower()
@@ -2804,6 +2837,8 @@ def _discover_same_site_attachment_link_items(text: str, *, base_url: str, host:
         if not onclick_match:
             continue
         href = unescape(onclick_match.group("href")).strip()
+        if _has_template_placeholder(href, match.group("body") or ""):
+            continue
         full = urljoin(base_url, href)
         parsed = urlsplit(full)
         if (
@@ -2838,6 +2873,8 @@ def _discover_same_site_attachment_link_items(text: str, *, base_url: str, host:
         href = unescape(href_match.group("href")).strip()
         if not href or href.startswith(("#", "javascript:", "mailto:")):
             continue
+        if _has_template_placeholder(href, attrs, body):
+            continue
         full = urljoin(base_url, href)
         parsed = urlsplit(full)
         if parsed.scheme not in {"http", "https"} or (parsed.hostname or "").lower() != expected_host:
@@ -2858,6 +2895,8 @@ def _discover_same_site_attachment_link_items(text: str, *, base_url: str, host:
         parsed = urlsplit(url)
         path = parsed.path.lower()
         link_text = item.get("text", "")
+        if _has_template_placeholder(url, link_text):
+            continue
         attachment_text_hint = any(
             token in link_text
             for token in ("附件", "下载", "招标文件", "采购文件", "结果文件", "资格要求", "评标报告", "定标报告")
@@ -2879,6 +2918,209 @@ def _discover_same_site_attachment_link_items(text: str, *, base_url: str, host:
         if len(items) >= 10:
             break
     return items
+
+
+def _merge_link_items(primary: list[Mapping[str, Any]], secondary: list[Mapping[str, Any]]) -> list[dict[str, str]]:
+    merged: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for item in [*primary, *secondary]:
+        if not isinstance(item, Mapping):
+            continue
+        url = str(item.get("url") or "").strip()
+        if not url or url in seen or _has_template_placeholder(url, item.get("text")):
+            continue
+        seen.add(url)
+        merged.append({"url": url, "text": str(item.get("text") or "")})
+    return merged[:50]
+
+
+def _has_template_placeholder(*values: Any) -> bool:
+    text = " ".join(str(value or "") for value in values)
+    lowered = text.lower()
+    return (
+        "{{" in text
+        or "}}" in text
+        or "%7b%7b" in lowered
+        or "%7d%7d" in lowered
+        or any(token in text for token in ("{{arrGuid}}", "{{appUrlFlag}}", "{{attFileName}}"))
+    )
+
+
+def _discover_sichuan_static_json_attachment_link_items(
+    text: str,
+    *,
+    base_url: str,
+    host: str,
+    transport: RealPublicFetchTransport,
+    timeout_seconds: float,
+    user_agent: str,
+) -> dict[str, Any]:
+    taxonomy: list[str] = []
+    relateinfoid = _extract_sichuan_relateinfoid(text)
+    stage = _extract_sichuan_current_stage(text) or "503"
+    if not relateinfoid:
+        return {
+            "state": "SKIPPED",
+            "taxonomy": ["sichuan_static_json_route_missing"],
+            "relateinfoid": "",
+            "stage": stage,
+            "json_url": "",
+            "item_count": 0,
+        }
+
+    json_url = urljoin(base_url, f"/staticJson/{relateinfoid}/{stage}.json")
+    try:
+        response = transport.fetch(json_url, timeout_seconds=timeout_seconds, user_agent=user_agent)
+    except Exception as exc:  # pragma: no cover - public site failures vary
+        return {
+            "state": "FETCH_FAILED",
+            "taxonomy": [f"sichuan_static_json_fetch_failed:{type(exc).__name__}"],
+            "relateinfoid": relateinfoid,
+            "stage": stage,
+            "json_url": json_url,
+            "item_count": 0,
+        }
+    if response.status_code != 200:
+        return {
+            "state": "FETCH_FAILED",
+            "taxonomy": [f"sichuan_static_json_http_status:{response.status_code}"],
+            "relateinfoid": relateinfoid,
+            "stage": stage,
+            "json_url": json_url,
+            "item_count": 0,
+        }
+    try:
+        payload = json.loads(_decode_html(response.content or b"{}"))
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return {
+            "state": "PARSE_FAILED",
+            "taxonomy": ["sichuan_static_json_parse_failed"],
+            "relateinfoid": relateinfoid,
+            "stage": stage,
+            "json_url": json_url,
+            "item_count": 0,
+        }
+
+    view_infoid = _extract_sichuan_view_infoid(text)
+    rows = [row for row in list(payload.get("data") or []) if isinstance(row, Mapping)]
+    matched_rows = [
+        row
+        for row in rows
+        if view_infoid and str(row.get("infoid") or "") and str(row.get("infoid") or "") in view_infoid
+    ]
+    if not matched_rows:
+        matched_rows = rows
+
+    items: list[dict[str, str]] = []
+    attach_file_count = 0
+    for row in matched_rows:
+        infoid = str(row.get("infoid") or "")
+        for file_item in list(row.get("attachFiles") or []):
+            if not isinstance(file_item, Mapping):
+                continue
+            attach_file_count += 1
+            link_item = _sichuan_static_json_attach_file_link_item(
+                file_item,
+                base_url=base_url,
+                infoid=infoid,
+                host=host,
+            )
+            if link_item:
+                items.append(link_item)
+            else:
+                taxonomy.append("sichuan_static_json_attach_file_missing_download_fields")
+    if attach_file_count <= 0:
+        taxonomy.append("sichuan_static_json_no_attach_files")
+    return {
+        "state": "FETCHED",
+        "taxonomy": list(dict.fromkeys(taxonomy)),
+        "relateinfoid": relateinfoid,
+        "stage": stage,
+        "json_url": json_url,
+        "row_count": len(rows),
+        "matched_row_count": len(matched_rows),
+        "attach_file_count": attach_file_count,
+        "item_count": len(items),
+        "items": _merge_link_items(items, []),
+    }
+
+
+def _extract_sichuan_relateinfoid(text: str) -> str:
+    patterns = (
+        r"id=['\"]relateinfoid['\"][^>]*data-value=['\"]([^'\"]+)['\"]",
+        r"data-value=['\"]([^'\"]+)['\"][^>]*id=['\"]relateinfoid['\"]",
+    )
+    for pattern in patterns:
+        match = re.search(pattern, text, flags=re.IGNORECASE | re.DOTALL)
+        if match:
+            return unescape(match.group(1)).strip()
+    return ""
+
+
+def _extract_sichuan_current_stage(text: str) -> str:
+    match = re.search(
+        r"<a\b(?=[^>]*class=['\"][^'\"]*\bcurrent\b[^'\"]*['\"])(?=[^>]*data-value=['\"]([^'\"]+)['\"])[^>]*>",
+        text,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    return unescape(match.group(1)).strip() if match else ""
+
+
+def _extract_sichuan_view_infoid(text: str) -> str:
+    patterns = (
+        r"id=['\"]viewGuid['\"][^>]*(?:value|data-value)=['\"]([^'\"]+)['\"]",
+        r"(?:value|data-value)=['\"]([^'\"]+)['\"][^>]*id=['\"]viewGuid['\"]",
+    )
+    for pattern in patterns:
+        match = re.search(pattern, text, flags=re.IGNORECASE | re.DOTALL)
+        if match:
+            return unescape(match.group(1)).strip()
+    return ""
+
+
+def _sichuan_static_json_attach_file_link_item(
+    file_item: Mapping[str, Any],
+    *,
+    base_url: str,
+    infoid: str,
+    host: str,
+) -> dict[str, str] | None:
+    filename = str(
+        file_item.get("attFileName")
+        or file_item.get("fileName")
+        or file_item.get("filename")
+        or file_item.get("name")
+        or ""
+    ).strip()
+    filepath = str(file_item.get("filepath") or file_item.get("filePath") or "").strip()
+    arr_guid = str(file_item.get("arrGuid") or file_item.get("attachGuid") or "").strip()
+    app_url_flag = str(file_item.get("appUrlFlag") or "").strip()
+    if _has_template_placeholder(filename, filepath, arr_guid, app_url_flag):
+        return None
+    if filepath:
+        url = urljoin(base_url, filepath + filename)
+    elif arr_guid and app_url_flag:
+        url = urljoin(
+            base_url,
+            "/WebBuilder/WebbuilderMIS/attach/downloadZtbAttach.jspx?"
+            + urlencode(
+                {
+                    "attachGuid": arr_guid,
+                    "appUrlFlag": app_url_flag,
+                    "siteGuid": "7eb5f7f1-9041-43ad-8e13-8fcb82ea831a",
+                }
+            ),
+        )
+    elif infoid and filename:
+        url = urljoin(base_url, f"/uploadfile/{infoid}/{quote(filename)}")
+    else:
+        return None
+    parsed = urlsplit(url)
+    if (parsed.hostname or "").lower() != host.split(":", 1)[0].lower():
+        return None
+    if _is_non_attachment_navigation_link(url, link_text=filename):
+        return None
+    return {"url": url, "text": filename}
 
 
 def _is_non_attachment_navigation_link(url: str, *, link_text: str) -> bool:

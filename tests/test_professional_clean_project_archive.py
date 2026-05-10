@@ -380,6 +380,131 @@ class TestProfessionalCleanProjectArchive(unittest.TestCase):
                 "PARSE_INCOMPLETE",
             )
 
+    def test_attachment_text_probe_and_file_attribution_drive_section_flags(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = _repo(tmp_dir)
+            _save_snapshot(
+                repo,
+                snapshot_id="SNAP-DETAIL-007",
+                data=b"<html><body>detail</body></html>",
+                content_type="text/html",
+                source_url="https://example.test/detail.html",
+            )
+            _save_snapshot(
+                repo,
+                snapshot_id="SNAP-TENDER-PDF-007",
+                data=b"%PDF-1.4 tender file",
+                content_type="application/pdf",
+                source_url="https://example.test/tender.pdf",
+            )
+            execution_path = Path(tmp_dir) / "run-manifest.json"
+            output_root = Path(tmp_dir) / "professional-clean-v1"
+            sample = _project_sample(
+                source_text="项目名称：某工程",
+                detail_snapshot_id="SNAP-DETAIL-007",
+                attachment_snapshot_id="SNAP-TENDER-PDF-007",
+            )
+            sample["parse_summary"] = {
+                "stage3_parse_success_count": 1,
+                "stage3_parse_failed_count": 0,
+                "attachment_missing_review_count": 0,
+                "unknown_attachment_count": 0,
+                "detail_text_probe": "项目名称：某工程",
+                "attachment_text_probes": [
+                    {
+                        "snapshot_id": "SNAP-TENDER-PDF-007",
+                        "file_role": "attachment",
+                        "parse_state": "PDF_TEXT_EXTRACTED",
+                        "text_sha256": "sha",
+                        "text_probe": "投标人资格要求：具备资质。评标办法：综合评分法。发包人要求：满足设计任务书。",
+                    }
+                ],
+                "file_parse_attributions": [
+                    {
+                        "project_id": "PROJ-CN-GD-CLEAN-001",
+                        "snapshot_id": "SNAP-TENDER-PDF-007",
+                        "source_url": "https://example.test/tender.pdf",
+                        "file_role": "attachment",
+                        "parse_state": "PDF_TEXT_EXTRACTED",
+                        "section_flags": {},
+                        "text_sha256": "sha",
+                        "text_probe": "投标人资格要求：具备资质。评标办法：综合评分法。发包人要求：满足设计任务书。",
+                    }
+                ],
+            }
+            _write_execution_manifest(execution_path, [sample])
+
+            result = build_professional_clean_project_archive_manifest(
+                real_sample_execution_manifest_json=execution_path,
+                output_root=output_root,
+                object_repository=repo,
+                created_at="2026-05-10T00:00:00+08:00",
+            )
+
+            item = result["manifest"]["items"][0]
+            self.assertTrue(item["qualification_section_found"])
+            self.assertTrue(item["scoring_section_found"])
+            self.assertTrue(item["technical_section_found"])
+            self.assertEqual(item["section_analysis_state"], "SECTION_COMPLETE")
+            self.assertEqual(
+                item["parse_metrics"]["file_level_parse_attribution_state"],
+                "FILE_LEVEL_PARSE_ATTRIBUTION_READY",
+            )
+            parse_summary_payload = json.loads(
+                (Path(item["project_dir"]) / "parsed" / "parse-summary.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(len(parse_summary_payload["file_parse_attributions"]), 1)
+
+    def test_notice_pdf_missing_full_tender_sections_gets_specific_reason(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = _repo(tmp_dir)
+            _save_snapshot(
+                repo,
+                snapshot_id="SNAP-DETAIL-008",
+                data=b"<html><body>detail</body></html>",
+                content_type="text/html",
+                source_url="https://example.test/detail.html",
+            )
+            _save_snapshot(
+                repo,
+                snapshot_id="SNAP-TENDER-PDF-008",
+                data=b"%PDF-1.4 notice file",
+                content_type="application/pdf",
+                source_url="https://example.test/tender.pdf",
+            )
+            execution_path = Path(tmp_dir) / "run-manifest.json"
+            output_root = Path(tmp_dir) / "professional-clean-v1"
+            sample = _project_sample(
+                source_text="招标公告：本项目发布公告。投标人资格要求：具备资质。",
+                detail_snapshot_id="SNAP-DETAIL-008",
+                attachment_snapshot_id="SNAP-TENDER-PDF-008",
+            )
+            sample["parse_summary"] = {
+                "stage3_parse_success_count": 1,
+                "stage3_parse_failed_count": 0,
+                "attachment_missing_review_count": 0,
+                "unknown_attachment_count": 0,
+                "text_probe": "招标公告：本项目发布公告。投标人资格要求：具备资质。",
+            }
+            _write_execution_manifest(execution_path, [sample])
+
+            result = build_professional_clean_project_archive_manifest(
+                real_sample_execution_manifest_json=execution_path,
+                output_root=output_root,
+                object_repository=repo,
+                created_at="2026-05-10T00:00:00+08:00",
+            )
+
+            item = result["manifest"]["items"][0]
+            self.assertIn(
+                "tender_notice_pdf_lacks_full_tender_sections",
+                item["parse_metrics"]["parse_insufficiency_reasons"],
+            )
+            self.assertIn(
+                "tender_notice_pdf_lacks_full_tender_sections",
+                item["failure_reasons"],
+            )
+
 
 def _repo(tmp_dir: str) -> ObjectStorageRepository:
     settings = Settings(

@@ -277,6 +277,29 @@ def _unit_name_table_with_attachment_detail_html(attachment_url: str, label: str
     return html.encode("utf-8")
 
 
+def _sichuan_detail_html_with_template_attachment() -> str:
+    long_text = "公开详情正文" * 40
+    return f"""
+    <html>
+      <head><title>遂宁市中心医院德胜路院区病房改造项目外科大楼</title></head>
+      <body>
+        <a id="viewGuid" value="cms_002001001_27E1D411-5DB2-449D-91EE-001DEB1455E8">招标公告</a>
+        <span id="relateinfoid" data-value="E5109003109009785001"></span>
+        <a class="ewb-tab-name current" data-value="503" data-role="tab">招标公告</a>
+        <div id="newsText">
+          <h1>遂宁市中心医院德胜路院区病房改造项目外科大楼</h1>
+          <p>3. 投标人资格要求：具备建筑工程施工总承包三级及以上资质。</p>
+          <p>3.1.3 项目经理资格要求：建筑工程二级及以上建造师。</p>
+          <p>{long_text}</p>
+        </div>
+        <script type="text/x-template" id="infolist-tpl">
+          附件:<a class="attachUrl" href="/WebBuilder/WebbuilderMIS/attach/downloadZtbAttach.jspx?attachGuid={{{{arrGuid}}}}&amp;appUrlFlag={{{{appUrlFlag}}}}&amp;siteGuid=7eb5f7f1-9041-43ad-8e13-8fcb82ea831a" title="{{{{attFileName}}}}">{{{{attFileName}}}}</a>
+        </script>
+      </body>
+    </html>
+    """
+
+
 def _multi_attachment_role_detail_html(items: list[tuple[str, str]]) -> bytes:
     links = "\n".join(f'<p><a href="{url}">{label}</a></p>' for url, label in items)
     html = f"""
@@ -1438,6 +1461,70 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
         self.assertTrue(
             any("MARKITDOWN_TEXT_EXTRACTED" in state for state in fields["attachment_text_parse_states"])
         )
+
+    def test_sichuan_detail_probe_and_static_json_no_files_are_recorded(self) -> None:
+        detail_url = "https://ggzyjy.sc.gov.cn/jyxx/002001/002001001/20260509/27E1D411-5DB2-449D-91EE-001DEB1455E8.html"
+        static_json_url = "https://ggzyjy.sc.gov.cn/staticJson/E5109003109009785001/503.json"
+        transport = FakeRealPublicFetchTransport(
+            {
+                detail_url: RealPublicFetchResponse(
+                    url=detail_url,
+                    status_code=200,
+                    content=_sichuan_detail_html_with_template_attachment().encode("utf-8"),
+                    content_type="text/html; charset=utf-8",
+                    final_url=detail_url,
+                ),
+                static_json_url: RealPublicFetchResponse(
+                    url=static_json_url,
+                    status_code=200,
+                    content=(
+                        '{"data":[{"infoid":"27E1D411-5DB2-449D-91EE-001DEB1455E8",'
+                        '"title":"招标公告","attachFiles":[]}]}'
+                    ).encode("utf-8"),
+                    content_type="application/json",
+                    final_url=static_json_url,
+                ),
+            }
+        )
+        candidate = {
+            "candidate_key": "sc-static-json-no-files-001",
+            "notice_id": "NOTICE-SC-001",
+            "project_id": "PROJ-SC-001",
+            "project_name": "遂宁市中心医院德胜路院区病房改造项目外科大楼",
+            "region_code": "CN-SC",
+            "project_type": "construction",
+            "notice_stage": "tender_notice",
+            "source_url": detail_url,
+            "source_profile_id": "SICHUAN-GGZY-TRANSACTION-INFO",
+            "document_kind": "tender_file",
+            "evaluation_document_kind": "tender_file",
+            "source_candidate_mode": "REAL_PUBLIC_SOURCE_CANDIDATES",
+            "key_fields_present": ["project_name", "notice_stage"],
+            "candidate_count": 0,
+        }
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            service = RealCandidateStage2CaptureService(
+                stage2_service=FakeStage2Service(transport),
+                object_repository=_repo(tmp_dir),
+                repository=RealCandidateStage2CaptureRepository(),
+            )
+            result = service.capture_candidates([candidate], now="2026-05-01T00:00:00+00:00")
+
+        capture = result["captures"][0]
+        fields = capture["detail_fields"]
+        self.assertEqual(fields["detail_text_source"], "sichuan_news_text")
+        self.assertIn("投标人资格要求", fields["detail_text_probe"])
+        self.assertNotIn("{{arrGuid}}", fields["detail_text_probe"])
+        self.assertTrue(fields["detail_section_flags"]["qualification_section_found"])
+        self.assertIn("sichuan_static_json_no_attach_files", fields["attachment_discovery_taxonomy"])
+        self.assertEqual(capture["attachment_link_count"], 0)
+        self.assertEqual(capture["attachment_capture_attempted_count"], 0)
+        self.assertIn(
+            "sichuan_static_json_no_attach_files",
+            capture["document_completeness_summary"]["document_quality_reasons"],
+        )
+        self.assertTrue(fields["file_parse_attributions"])
 
     def test_detail_without_attachments_keeps_detail_only_version_chain(self) -> None:
         enriched = _capture_single_candidate_from_html(

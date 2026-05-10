@@ -574,6 +574,18 @@ def _capture_manifest_summary(capture_result: Mapping[str, Any]) -> dict[str, An
             or {}
         )
         fields = dict(capture.get("detail_fields") or {})
+        detail_text_source = str(fields.get("detail_text_source") or "")
+        detail_text_probe = str(fields.get("detail_text_probe") or "")
+        attachment_text_probes = [
+            dict(item)
+            for item in list(fields.get("attachment_text_probes") or [])
+            if isinstance(item, Mapping)
+        ]
+        file_parse_attributions = [
+            dict(item)
+            for item in list(fields.get("file_parse_attributions") or [])
+            if isinstance(item, Mapping)
+        ]
         verified_attachment_refs = [
             dict(ref)
             for ref in list(fields.get("attachment_snapshot_refs") or [])
@@ -662,6 +674,11 @@ def _capture_manifest_summary(capture_result: Mapping[str, Any]) -> dict[str, An
             if retry_strategy == "shandong_https_without_explicit_80_first":
                 failure_taxonomy.append("shandong_detail_url_variant_exhausted")
         failure_taxonomy.extend(str(item) for item in list(capture.get("stage3_parse_error_taxonomy") or []) if str(item))
+        failure_taxonomy.extend(
+            str(item)
+            for item in list(capture.get("detail_attachment_discovery_taxonomy") or fields.get("attachment_discovery_taxonomy") or [])
+            if str(item or "").strip()
+        )
         for ref in verified_attachment_refs:
             snapshot_id = str(ref.get("snapshot_id") or "").strip()
             attachment_parse_state = str(ref.get("parse_state") or ref.get("stage3_parse_state") or "")
@@ -779,6 +796,10 @@ def _capture_manifest_summary(capture_result: Mapping[str, Any]) -> dict[str, An
                     "document_quality_reasons": _dedupe_strings(local_document_quality_reasons),
                     "download_archive_quality_reasons": _dedupe_strings(local_download_manifest_quality_reasons),
                     "text_probe": _project_sample_text_probe(capture, fields),
+                    "detail_text_source": detail_text_source,
+                    "detail_text_probe": detail_text_probe,
+                    "attachment_text_probes": attachment_text_probes,
+                    "file_parse_attributions": file_parse_attributions,
                 },
             }
         )
@@ -997,6 +1018,22 @@ def _project_sample_text_probe(capture: Mapping[str, Any], fields: Mapping[str, 
             parts.append(text)
     for block in list(fields.get("qualification_text_candidate_blocks") or [])[:8]:
         text = str(block or "").strip()
+        if text:
+            parts.append(text)
+    detail_probe = str(fields.get("detail_text_probe") or "").strip()
+    if detail_probe:
+        parts.append(detail_probe)
+    for probe in list(fields.get("attachment_text_probes") or [])[:8]:
+        if isinstance(probe, Mapping):
+            text = str(probe.get("text_probe") or "").strip()
+        else:
+            text = str(probe or "").strip()
+        if text:
+            parts.append(text)
+    for attribution in list(fields.get("file_parse_attributions") or [])[:10]:
+        if not isinstance(attribution, Mapping):
+            continue
+        text = str(attribution.get("text_probe") or "").strip()
         if text:
             parts.append(text)
     return _clip_text("\n".join(dict.fromkeys(parts)))

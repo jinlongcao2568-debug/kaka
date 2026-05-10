@@ -309,6 +309,31 @@ def _guangzhou_ywtb_detail_html_with_onclick_attachment() -> bytes:
     return html.encode("utf-8")
 
 
+def _sichuan_detail_html_with_template_attachment() -> str:
+    long_text = "公开详情正文" * 40
+    return f"""
+    <html>
+      <head><title>遂宁市中心医院德胜路院区病房改造项目外科大楼</title></head>
+      <body>
+        <a id="viewGuid" value="cms_002001001_27E1D411-5DB2-449D-91EE-001DEB1455E8">招标公告</a>
+        <span id="relateinfoid" data-value="E5109003109009785001"></span>
+        <a class="ewb-tab-name current" data-value="503" data-role="tab">招标公告</a>
+        <div id="newsText">
+          <h1>遂宁市中心医院德胜路院区病房改造项目外科大楼</h1>
+          <p>3. 投标人资格要求：具备建筑工程施工总承包三级及以上资质。</p>
+          <p>3.1.3 项目经理资格要求：建筑工程二级及以上建造师。</p>
+          <p>{long_text}</p>
+        </div>
+        <script type="text/x-template" id="infolist-tpl">
+          {{#attachFiles}}
+          附件:<a class="attachUrl" data-url="{{{{filepath}}}}" href="/WebBuilder/WebbuilderMIS/attach/downloadZtbAttach.jspx?attachGuid={{{{arrGuid}}}}&amp;appUrlFlag={{{{appUrlFlag}}}}&amp;siteGuid=7eb5f7f1-9041-43ad-8e13-8fcb82ea831a" title="{{{{attFileName}}}}">{{{{attFileName}}}}</a>
+          {{/attachFiles}}
+        </script>
+      </body>
+    </html>
+    """
+
+
 def _fake_guangdong_detail_api(endpoint: str, params: dict, *, user_agent: str) -> dict:
     if endpoint.endswith("/nodeList"):
         return {
@@ -792,6 +817,92 @@ class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
         )
 
         self.assertEqual(items, [])
+
+    def test_sichuan_template_attachment_is_ignored_and_static_json_no_files_is_classified(self) -> None:
+        detail_url = "https://ggzyjy.sc.gov.cn/jyxx/002001/002001001/20260509/27E1D411-5DB2-449D-91EE-001DEB1455E8.html"
+        static_json_url = "https://ggzyjy.sc.gov.cn/staticJson/E5109003109009785001/503.json"
+        detail_html = _sichuan_detail_html_with_template_attachment()
+        transport = FakeRealPublicFetchTransport(
+            {
+                detail_url: RealPublicFetchResponse(
+                    url=detail_url,
+                    status_code=200,
+                    content=detail_html.encode("utf-8"),
+                    content_type="text/html; charset=utf-8",
+                    final_url=detail_url,
+                ),
+                static_json_url: RealPublicFetchResponse(
+                    url=static_json_url,
+                    status_code=200,
+                    content=(
+                        '{"data":[{"infoid":"27E1D411-5DB2-449D-91EE-001DEB1455E8",'
+                        '"title":"招标公告","attachFiles":null}]}'
+                    ).encode("utf-8"),
+                    content_type="application/json",
+                    final_url=static_json_url,
+                ),
+            }
+        )
+
+        carrier = RealPublicEntryFetcher(transport=transport, repository=None).fetch_candidate_detail_url(
+            detail_url,
+            profile_id="SICHUAN-GGZY-TRANSACTION-INFO",
+        )
+
+        self.assertEqual(carrier["same_site_attachment_link_items"], [])
+        self.assertIn("sichuan_template_placeholder_attachment_ignored", carrier["attachment_discovery_taxonomy"])
+        self.assertIn("sichuan_static_json_no_attach_files", carrier["attachment_discovery_taxonomy"])
+        self.assertEqual([item["url"] for item in transport.call_log], [detail_url, static_json_url])
+
+    def test_sichuan_static_json_real_attach_files_generate_download_links(self) -> None:
+        detail_url = "https://ggzyjy.sc.gov.cn/jyxx/002001/002001001/20260509/27E1D411-5DB2-449D-91EE-001DEB1455E8.html"
+        static_json_url = "https://ggzyjy.sc.gov.cn/staticJson/E5109003109009785001/503.json"
+        detail_html = _sichuan_detail_html_with_template_attachment()
+        payload = {
+            "data": [
+                {
+                    "infoid": "27E1D411-5DB2-449D-91EE-001DEB1455E8",
+                    "title": "招标公告",
+                    "attachFiles": [
+                        {
+                            "arrGuid": "sc-attach-guid-001",
+                            "appUrlFlag": "scztb001",
+                            "attFileName": "招标文件.pdf",
+                        }
+                    ],
+                }
+            ]
+        }
+        transport = FakeRealPublicFetchTransport(
+            {
+                detail_url: RealPublicFetchResponse(
+                    url=detail_url,
+                    status_code=200,
+                    content=detail_html.encode("utf-8"),
+                    content_type="text/html; charset=utf-8",
+                    final_url=detail_url,
+                ),
+                static_json_url: RealPublicFetchResponse(
+                    url=static_json_url,
+                    status_code=200,
+                    content=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+                    content_type="application/json",
+                    final_url=static_json_url,
+                ),
+            }
+        )
+
+        carrier = RealPublicEntryFetcher(transport=transport, repository=None).fetch_candidate_detail_url(
+            detail_url,
+            profile_id="SICHUAN-GGZY-TRANSACTION-INFO",
+        )
+
+        self.assertEqual(len(carrier["same_site_attachment_link_items"]), 1)
+        item = carrier["same_site_attachment_link_items"][0]
+        self.assertIn("downloadZtbAttach.jspx", item["url"])
+        self.assertIn("attachGuid=sc-attach-guid-001", item["url"])
+        self.assertEqual(item["text"], "招标文件.pdf")
+        self.assertNotIn("sichuan_static_json_no_attach_files", carrier["attachment_discovery_taxonomy"])
 
     def test_same_site_attachment_challenge_can_be_resolved_by_explicit_resolver(self) -> None:
         pdf_bytes = _pdf_like_bytes()
