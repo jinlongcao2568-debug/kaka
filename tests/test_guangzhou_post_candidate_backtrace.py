@@ -159,7 +159,7 @@ class TestGuangzhouPostCandidateBacktrace(unittest.TestCase):
                 _sample("bid_file_publicity", project_id="PROJ-1", flow_no="08", flow_code="04"),
                 _sample("award_result", project_id="PROJ-1", flow_no="09", flow_code="06"),
                 _sample("award_info", project_id="PROJ-1", flow_no="10", flow_code="05"),
-                _sample("contract_public_info", project_id="PROJ-1", flow_no="11", flow_code="15"),
+                _sample("contract_public_info", project_id="PROJ-1", flow_no="11", flow_code="07"),
                 _sample("project_exception", project_id="PROJ-1", flow_no="12", flow_code="20"),
             ]
         )

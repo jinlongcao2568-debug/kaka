@@ -1364,22 +1364,32 @@ class RealCandidateDiscoveryTests(unittest.TestCase):
                     "infourl": "/jyfw/002001/002001001/20260510/abc_tb.html",
                     "infoid": "bid-file-1",
                 },
+                {
+                    "jsgcggfl": "07",
+                    "infodate": "2026-05-20 00:00:00",
+                    "title": "广东省监狱管理局安防监控工程合同信息公开",
+                    "infourl": "/jyfw/002001/002001001/20260520/abc_hetong.html",
+                    "infoid": "contract-1",
+                },
             ],
-            allowed_processes={"19", "04"},
+            allowed_processes={"19", "04", "07"},
             relation_guid="JG2026-10815",
             query_variants=["JG2026-10815"],
             base_project_name="广东省监狱管理局安防监控工程",
         )
 
-        self.assertEqual(len(items), 2)
+        self.assertEqual(len(items), 3)
         opening = next(item for item in items if item["trading_process"] == "19")
         bid_file = next(item for item in items if item["trading_process"] == "04")
+        contract = next(item for item in items if item["trading_process"] == "07")
         self.assertEqual(opening["guangzhou_flow_no"], "05")
         self.assertEqual(opening["guangzhou_flow_title"], "开标信息")
         self.assertEqual(opening["project_match_key"], "JG2026-10815")
         self.assertEqual(opening["backtrace_match_reason"], "relation_guid_exact_match")
         self.assertEqual(bid_file["guangzhou_flow_no"], "08")
         self.assertEqual(bid_file["guangzhou_flow_title"], "投标(资格预审申请)文件公开")
+        self.assertEqual(contract["guangzhou_flow_no"], "11")
+        self.assertEqual(contract["guangzhou_flow_title"], "合同信息公开")
 
     def test_guangzhou_backtrace_empty_api_does_not_fallback_to_static_entry_links(self) -> None:
         service = RealPublicCandidateDiscoveryService(

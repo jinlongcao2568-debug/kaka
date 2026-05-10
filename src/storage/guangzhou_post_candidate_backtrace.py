@@ -72,7 +72,7 @@ GUANGZHOU_FLOW_MODULES = (
     {"flow_no": "08", "flow_code": "04", "flow_title": "投标(资格预审申请)文件公开", "document_kind": "bid_file_publicity"},
     {"flow_no": "09", "flow_code": "06", "flow_title": "中标结果公示/公告", "document_kind": "award_result"},
     {"flow_no": "10", "flow_code": "05", "flow_title": "中标信息", "document_kind": "award_info"},
-    {"flow_no": "11", "flow_code": "15", "flow_title": "合同信息公开", "document_kind": "contract_public_info"},
+    {"flow_no": "11", "flow_code": "07", "flow_title": "合同信息公开", "document_kind": "contract_public_info"},
     {"flow_no": "12", "flow_code": "20", "flow_title": "项目异常", "document_kind": "project_exception"},
 )
 GUANGZHOU_HUMAN_PROVIDED_FLOW_SEEDS = (
