@@ -544,6 +544,12 @@ def _attachment_html_blocker_diagnostics(
     body = ""
     if "html" in lowered_content_type or content.lstrip().lower().startswith((b"<html", b"<!doctype html")):
         body = content.decode("utf-8", errors="ignore")
+    stripped_content = content.lstrip()
+    if not body and (
+        "json" in lowered_content_type
+        or stripped_content.startswith((b"{", b"["))
+    ):
+        body = content.decode("utf-8", errors="ignore")
     if not body:
         return {
             "attachment_blocker_class": "",
@@ -603,6 +609,11 @@ def _attachment_html_blocker_diagnostics(
             "请求参数非法",
             "token",
             "x-dgi-req",
+            "state\":\"error",
+            "\"state\":\"error",
+            "\"code\":\"1",
+            "replayattack",
+            "_common_hidden_viewdata",
         )
     ):
         blocker_class = "ATTACHMENT_INTERFACE_ERROR"
@@ -741,11 +752,13 @@ def _attachment_content_is_supported(
     lowered_content_type = str(content_type or "").lower()
     filename_lower = str(filename or "").lower()
     stripped = content.lstrip()[:16].lower()
+    if content.lstrip().startswith((b"{", b"[")):
+        return False
+    if content.startswith(b"%PDF") or content.startswith(b"PK\x03\x04") or content.startswith(b"\xd0\xcf\x11\xe0") or content.startswith(b"Rar!"):
+        return True
     if filename_lower.endswith((*_SUPPORTED_ATTACHMENT_EXTENSIONS, *_SUPPORTED_HTML_ATTACHMENT_EXTENSIONS)):
         return True
-    if any(token in lowered_content_type for token in _SUPPORTED_ATTACHMENT_CONTENT_TYPE_TOKENS):
-        return True
-    if content.startswith(b"%PDF") or content.startswith(b"PK\x03\x04") or content.startswith(b"\xd0\xcf\x11\xe0"):
+    if any(token in lowered_content_type for token in _SUPPORTED_ATTACHMENT_CONTENT_TYPE_TOKENS if token != "octet-stream"):
         return True
     if stripped.startswith((b"<html", b"<!doctype html")) and allow_plain_html_attachment:
         return True

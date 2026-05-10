@@ -86,15 +86,19 @@ def convert_bytes_to_markdown_text(
 def _suffix(*, source_url: str | None, content_type: str, source_file_ref: str) -> str:
     parsed_path = urlparse(str(source_url or "")).path or str(source_file_ref or "")
     suffix = Path(parsed_path).suffix.lower()
-    if suffix in {".pdf", ".docx", ".xlsx", ".pptx", ".html", ".htm"}:
+    if suffix in {".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".html", ".htm"}:
         return suffix
     normalized = str(content_type or "").split(";", 1)[0].lower()
     if normalized == "application/pdf":
         return ".pdf"
     if normalized == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
         return ".docx"
+    if normalized == "application/msword":
+        return ".doc"
     if normalized == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
         return ".xlsx"
+    if normalized == "application/vnd.ms-excel":
+        return ".xls"
     if normalized in {"text/html", "application/xhtml+xml"}:
         return ".html"
     return ".bin"

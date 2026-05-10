@@ -947,6 +947,38 @@ class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
         self.assertTrue(attachment["fail_closed"])
         self.assertNotIn("automated_challenge_resolution_state", attachment)
 
+    def test_same_site_attachment_json_interface_error_is_not_saved_as_snapshot(self) -> None:
+        json_error = (
+            b'{"controls":[{"id":"_common_hidden_viewdata","value":"{\\"replayAttack\\":\\"abc\\"}"}],'
+            b'"status":{"code":"1","text":"","url":"","state":"error"}}'
+        )
+        transport = FakeRealPublicFetchTransport(
+            {
+                GZ_YWTB_ATTACHMENT_URL: RealPublicFetchResponse(
+                    url=GZ_YWTB_ATTACHMENT_URL,
+                    status_code=200,
+                    content=json_error,
+                    content_type="application/octet-stream",
+                    final_url=GZ_YWTB_ATTACHMENT_URL,
+                ),
+            }
+        )
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = _repo(tmp_dir)
+            attachment = RealPublicEntryFetcher(transport=transport, repository=repo).fetch_same_site_attachment_url(
+                GZ_YWTB_ATTACHMENT_URL,
+                parent_profile_id="GUANGZHOU-YWTB-CONSTRUCTION-LIST",
+                detail_page_url=GZ_YWTB_DETAIL_URL,
+                lineage_refs={"candidate_key": "gz-candidate-001"},
+            )
+
+        self.assertEqual(attachment["status"], "DEGRADED")
+        self.assertIsNone(attachment["snapshot_id_optional"])
+        self.assertEqual(attachment["attachment_blocker_class"], "ATTACHMENT_INTERFACE_ERROR")
+        self.assertIn("attachment_url_expired", attachment["attachment_failure_taxonomy"])
+        self.assertIn("attachment_unsupported_content_type", attachment["attachment_failure_taxonomy"])
+
     def test_province_detail_urls_allow_http_and_jspx_variants(self) -> None:
         transport = FakeRealPublicFetchTransport(
             {
