@@ -93,6 +93,10 @@ def test_business_direction_doc_contains_final_analysis_strategy_rules() -> None
     assert "真实买家线索" in text
     assert "PRE_BID_NOT_ELIGIBLE_OPENING_STARTED" in text
     assert "PRE_BID_NOT_ELIGIBLE_DEADLINE_PASSED" in text
+    assert "PRE_BID_NOT_ELIGIBLE_TOO_LATE_FOR_SALE" in text
+    assert "PRE_BID_LIMITED_FAST_REVIEW" in text
+    assert "168 小时以上" in text
+    assert "不足 72 小时" in text
     assert "05 开标信息" in text and "投前预测已经来不及" in text
     assert "广州 01-12 流程扫描是“适配器和接口形态验证”" in text
 

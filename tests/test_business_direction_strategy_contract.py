@@ -62,6 +62,30 @@ class BusinessDirectionStrategyContractTests(unittest.TestCase):
             "POST_CANDIDATE_EVIDENCE_PACK",
         )
 
+    def test_analysis_strategy_v1_uses_realistic_pre_bid_time_windows(self) -> None:
+        contract = self._contract()
+        windows = {
+            item["state"]: item
+            for item in contract["analysis_strategy_policy"]["pre_bid_time_window_policy"]
+        }
+
+        self.assertEqual(
+            windows["PRE_BID_STANDARD_PREDICTION_READY"]["min_hours_to_bid_deadline_or_opening"],
+            168,
+        )
+        self.assertEqual(
+            windows["PRE_BID_LIMITED_FAST_REVIEW"]["min_hours_to_bid_deadline_or_opening"],
+            72,
+        )
+        self.assertEqual(
+            windows["PRE_BID_LIMITED_FAST_REVIEW"]["max_hours_to_bid_deadline_or_opening_exclusive"],
+            168,
+        )
+        self.assertEqual(
+            windows["PRE_BID_NOT_ELIGIBLE_TOO_LATE_FOR_SALE"]["max_hours_to_bid_deadline_or_opening_exclusive"],
+            72,
+        )
+
     def test_analysis_strategy_v1_keeps_adapter_urls_out_of_production_crawl(self) -> None:
         contract = self._contract()
         adapter_policy = contract["analysis_strategy_policy"]["adapter_validation_policy"]
