@@ -271,6 +271,59 @@ class TestProfessionalCleanProjectArchive(unittest.TestCase):
             self.assertEqual(item["attachment_file_count"], 0)
             self.assertEqual(result["summary"]["download_incomplete_project_count"], 1)
 
+    def test_unknown_role_pdf_with_extracted_text_keeps_attachment_url_and_counts_as_tender_candidate(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = _repo(tmp_dir)
+            _save_snapshot(
+                repo,
+                snapshot_id="SNAP-DETAIL-005",
+                data=b"<html><body>detail</body></html>",
+                content_type="text/html",
+                source_url="https://example.test/detail.html",
+            )
+            _save_snapshot(
+                repo,
+                snapshot_id="SNAP-TENDER-PDF-005",
+                data=b"%PDF-1.4 extracted tender text",
+                content_type="application/pdf",
+                source_url="https://example.test/download/招标文件.pdf",
+            )
+            execution_path = Path(tmp_dir) / "run-manifest.json"
+            output_root = Path(tmp_dir) / "professional-clean-v1"
+            sample = _project_sample(
+                detail_snapshot_id="SNAP-DETAIL-005",
+                attachment_snapshot_id="SNAP-TENDER-PDF-005",
+            )
+            sample["attachment_snapshot_refs"] = [
+                {
+                    "snapshot_id": "SNAP-TENDER-PDF-005",
+                    "attachment_url": "https://example.test/download/招标文件.pdf",
+                    "attachment_role_type": "UNKNOWN_ATTACHMENT_ROLE",
+                    "parse_state": "PDF_TEXT_EXTRACTED",
+                }
+            ]
+            _write_execution_manifest(execution_path, [sample])
+
+            result = build_professional_clean_project_archive_manifest(
+                real_sample_execution_manifest_json=execution_path,
+                output_root=output_root,
+                object_repository=repo,
+                created_at="2026-05-10T00:00:00+08:00",
+            )
+
+            item = result["manifest"]["items"][0]
+            attachment_rows = [row for row in item["file_inventory"] if row["file_role"] == "attachment"]
+            self.assertEqual(item["valid_tender_attachment_count"], 1)
+            self.assertTrue(attachment_rows[0]["valid_tender_attachment"])
+            self.assertEqual(
+                attachment_rows[0]["source_url"],
+                "https://example.test/download/招标文件.pdf",
+            )
+            self.assertIn(
+                "https://example.test/download/招标文件.pdf",
+                item["verification_urls"]["attachment_snapshot_urls"],
+            )
+
 
 def _repo(tmp_dir: str) -> ObjectStorageRepository:
     settings = Settings(

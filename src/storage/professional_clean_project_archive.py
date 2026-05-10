@@ -283,7 +283,10 @@ def _materialize_refs(
             if not snapshot_id or snapshot_id in seen:
                 continue
             seen.add(snapshot_id)
-            refs.append(ref)
+            ref_payload = dict(ref)
+            ref_payload.setdefault("parent_document_kind", sample.get("document_kind"))
+            ref_payload.setdefault("parent_source_url", sample.get("source_url"))
+            refs.append(ref_payload)
 
     materialized: list[dict[str, Any]] = []
     for index, ref in enumerate(refs, start=1):
@@ -294,13 +297,16 @@ def _materialize_refs(
         file_name = f"{index:03d}_{file_prefix}_{_safe_path_part(snapshot_id[-12:])}{extension}"
         file_path = output_dir / file_name
         replayable = bool(readback.get("replayable"))
+        source_url = _ref_source_url(ref, readback)
         if replayable:
             file_path.write_bytes(readback.get("bytes") or b"")
         meta = {
             "file_id": f"{file_prefix.upper()}-{index:03d}-{_safe_path_part(snapshot_id[-12:])}",
             "file_role": file_prefix,
             "snapshot_id": snapshot_id,
-            "source_url": str(ref.get("source_url") or (readback.get("manifest") or {}).get("source_url_optional") or ""),
+            "source_url": source_url,
+            "parent_source_url": str(ref.get("parent_source_url") or ""),
+            "parent_document_kind": str(ref.get("parent_document_kind") or ""),
             "content_type": content_type,
             "byte_size": _int_value(readback.get("byte_size"), default=0),
             "sha256": str(readback.get("sha256") or ""),
@@ -310,6 +316,7 @@ def _materialize_refs(
             "file_path": str(file_path) if replayable else "",
             "meta_path": str(file_path.with_suffix(file_path.suffix + ".meta.json")),
             "attachment_role_type": str(ref.get("attachment_role_type") or ""),
+            "attachment_parse_state": str(ref.get("parse_state") or ""),
             "valid_tender_attachment": _is_valid_tender_attachment(ref, content_type, extension),
             "html_pollution": _is_html_pollution(content_type, extension),
             "customer_visible_allowed": False,
@@ -742,8 +749,23 @@ def _source_manifest(payload: Mapping[str, Any]) -> dict[str, Any]:
     return dict(payload)
 
 
+def _declared_ref_url(ref: Mapping[str, Any]) -> str:
+    return str(
+        ref.get("source_url")
+        or ref.get("attachment_url")
+        or ref.get("download_url")
+        or ref.get("href")
+        or ""
+    )
+
+
+def _ref_source_url(ref: Mapping[str, Any], readback: Mapping[str, Any]) -> str:
+    manifest = readback.get("manifest") if isinstance(readback.get("manifest"), Mapping) else {}
+    return str(_declared_ref_url(ref) or manifest.get("source_url_optional") or "")
+
+
 def _extension_for_ref(ref: Mapping[str, Any], content_type: str) -> str:
-    source_url = str(ref.get("source_url") or "")
+    source_url = _declared_ref_url(ref)
     suffix = Path(source_url.split("?", 1)[0]).suffix.lower()
     if suffix in VALID_ATTACHMENT_EXTENSIONS or suffix in {".html", ".htm"}:
         return suffix
@@ -763,16 +785,34 @@ def _extension_for_ref(ref: Mapping[str, Any], content_type: str) -> str:
 
 def _is_valid_tender_attachment(ref: Mapping[str, Any], content_type: str, extension: str) -> bool:
     role = str(ref.get("attachment_role_type") or "").lower()
-    role_text = str(ref.get("attachment_link_text") or ref.get("source_url") or "").lower()
+    role_text = " ".join(
+        str(value or "")
+        for value in (
+            ref.get("attachment_link_text"),
+            ref.get("attachment_name"),
+            _declared_ref_url(ref),
+            ref.get("parse_state"),
+            ref.get("parent_document_kind"),
+        )
+    ).lower()
     content = content_type.lower()
     type_ok = extension.lower() in VALID_ATTACHMENT_EXTENSIONS or any(
         marker in content for marker in VALID_ATTACHMENT_CONTENT_MARKERS
     )
     if not type_ok or _is_html_pollution(content_type, extension):
         return False
-    if not role or "unknown" in role:
-        return False
-    return any(token in role or token in role_text for token in ("tender", "招标", "采购", "答疑", "澄清", "补遗", "清单"))
+    tender_tokens = ("tender", "招标", "采购", "答疑", "澄清", "补遗", "清单")
+    if any(token in role or token in role_text for token in tender_tokens):
+        return True
+    parent_document_kind = str(ref.get("parent_document_kind") or "")
+    parse_state = str(ref.get("parse_state") or "")
+    if (
+        parent_document_kind == "tender_file"
+        and extension.lower() in VALID_ATTACHMENT_EXTENSIONS
+        and parse_state in {"PDF_TEXT_EXTRACTED", "MARKITDOWN_TEXT_EXTRACTED"}
+    ):
+        return True
+    return False
 
 
 def _is_html_pollution(content_type: str, extension: str) -> bool:
