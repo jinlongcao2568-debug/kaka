@@ -21,6 +21,7 @@ from stage1_tasking.real_candidate_discovery import (
     _is_candidate_detail_url,
     _link_items_from_guangzhou_ywtb_records,
     _link_items_from_guangdong_ygp_records,
+    _link_items_from_text_search_records,
     list_persisted_real_candidates,
     list_real_candidate_discovery_runs,
 )
@@ -986,6 +987,28 @@ class RealCandidateDiscoveryTests(unittest.TestCase):
         self.assertEqual(candidate["amount_parse_state"], "TITLE_TEXT")
         self.assertEqual(candidate["source_profile_id"], "SICHUAN-GGZY-TRANSACTION-INFO")
 
+    def test_sichuan_tender_file_filters_file_name_category_pollution(self) -> None:
+        items = _link_items_from_text_search_records(
+            [
+                {
+                    "title": "招标文件.CDZ",
+                    "linkurl": "/jyxx/002001/002001012/20260510/file.html",
+                    "categorynum": "002001012",
+                },
+                {
+                    "title": "四川某道路改造工程施工招标公告",
+                    "linkurl": "/jyxx/002001/002001001/20260510/tender.html",
+                    "categorynum": "002001001",
+                },
+            ],
+            base_url="https://ggzyjy.sc.gov.cn/",
+            endpoint="https://ggzyjy.sc.gov.cn/inteligentsearch/rest/esinteligentsearch/getFullTextDataNew",
+            profile_id="SICHUAN-GGZY-TRANSACTION-INFO",
+            context={"evaluation_document_kind": "tender_file"},
+        )
+
+        self.assertEqual([item["text"] for item in items], ["四川某道路改造工程施工招标公告"])
+
     def test_zhejiang_online_letter_submit_is_not_candidate_detail_even_in_evaluation_mode(self) -> None:
         self.assertFalse(
             _is_candidate_detail_url(
@@ -995,6 +1018,28 @@ class RealCandidateDiscoveryTests(unittest.TestCase):
                 allow_non_actionable_title=True,
             )
         )
+
+    def test_zhejiang_tender_file_filters_test_and_non_tender_category(self) -> None:
+        items = _link_items_from_text_search_records(
+            [
+                {
+                    "title": "（0510测-试）临海市东大河综合整治工程",
+                    "linkurl": "/jyxxgk/002001/002001008/20260510/test.html",
+                    "categorynum": "002001008",
+                },
+                {
+                    "title": "杭州西站枢纽河道整治工程设计招标公告",
+                    "linkurl": "/jyxxgk/002001/002001001/20260510/tender.html",
+                    "categorynum": "002001001",
+                },
+            ],
+            base_url="https://ggzy.zj.gov.cn/",
+            endpoint="https://ggzy.zj.gov.cn/inteligentsearch/rest/esinteligentsearch/getFullTextDataNew",
+            profile_id="ZHEJIANG-GGZY-JYXXGK-LIST",
+            context={"evaluation_document_kind": "tender_file"},
+        )
+
+        self.assertEqual([item["text"] for item in items], ["杭州西站枢纽河道整治工程设计招标公告"])
 
     def test_ggzy_selection_filters_feed_public_api_context_for_shanghai_targets(self) -> None:
         api_discoverer = FakeGgzySelectionApiDiscoverer()

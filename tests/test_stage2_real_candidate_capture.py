@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import sys
 import tempfile
 import unittest
@@ -103,6 +104,7 @@ def _capture_single_candidate_from_html(
     title: str,
     html: bytes,
     source_profile_id: str = "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
+    document_kind: str = "",
 ) -> dict:
     transport = FakeRealPublicFetchTransport(
         {
@@ -125,6 +127,8 @@ def _capture_single_candidate_from_html(
         "notice_stage": "candidate_notice",
         "source_url": detail_url,
         "source_profile_id": source_profile_id,
+        "document_kind": document_kind,
+        "evaluation_document_kind": document_kind,
         "source_candidate_mode": "REAL_PUBLIC_SOURCE_CANDIDATES",
         "key_fields_present": ["project_name", "notice_stage"],
         "candidate_count": 0,
@@ -663,7 +667,30 @@ def _build_html_qualification_bytes() -> bytes:
 
 class RealCandidateStage2CaptureTests(unittest.TestCase):
     def setUp(self) -> None:
+        self._tmp_dir = tempfile.TemporaryDirectory()
+        self._old_env = {
+            key: os.environ.get(key)
+            for key in (
+                "KAKA_STORAGE_BACKEND",
+                "KAKA_STORAGE_PATH",
+                "KAKA_STORAGE_DATABASE_URL",
+                "KAKA_OBJECT_STORAGE_PATH",
+            )
+        }
+        os.environ["KAKA_STORAGE_BACKEND"] = "json-file"
+        os.environ["KAKA_STORAGE_PATH"] = str(Path(self._tmp_dir.name) / "stage2-capture-storage.json")
+        os.environ["KAKA_OBJECT_STORAGE_PATH"] = str(Path(self._tmp_dir.name) / "objects")
+        os.environ.pop("KAKA_STORAGE_DATABASE_URL", None)
         reset_default_storage()
+
+    def tearDown(self) -> None:
+        reset_default_storage()
+        for key, value in self._old_env.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+        self._tmp_dir.cleanup()
 
     def test_captures_detail_snapshot_parses_fields_enriches_candidate_and_persists_readback(self) -> None:
         transport = FakeRealPublicFetchTransport(
@@ -1565,6 +1592,34 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
         )
         self.assertIn(
             "attachment_snapshot_count_below_link_count",
+            enriched["document_completeness_summary"]["review_reasons"],
+        )
+
+    def test_guangzhou_tender_without_real_download_endpoint_records_specific_taxonomy(self) -> None:
+        detail_url = "https://ywtb.gzggzy.cn/jyfw/002001/002001001/20260510/gz-tender.html"
+        html = """
+        <html><body>
+          <h1>广州某工程施工招标公告</h1>
+          <p>招标公告正文。</p>
+          <a href="/jyfw/002001/002001006/002001006001/20250807/not-download.html">投标文件公开</a>
+        </body></html>
+        """.encode("utf-8")
+
+        enriched = _capture_single_candidate_from_html(
+            detail_url=detail_url,
+            title="广州某工程施工招标公告",
+            html=html,
+            source_profile_id="GUANGZHOU-YWTB-CONSTRUCTION-LIST",
+            document_kind="tender_file",
+        )
+
+        self.assertEqual(enriched["stage2_attachment_link_count"], 0)
+        self.assertIn(
+            "guangzhou_ywtb_attachment_download_link_not_found",
+            enriched["document_completeness_summary"]["failure_reasons"],
+        )
+        self.assertIn(
+            "guangzhou_ywtb_attachment_download_link_not_found",
             enriched["document_completeness_summary"]["review_reasons"],
         )
 

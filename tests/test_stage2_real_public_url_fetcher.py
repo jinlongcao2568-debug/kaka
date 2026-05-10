@@ -31,6 +31,7 @@ from stage2_ingestion.real_public_url_fetcher import (
     RealPublicEntryFetcher,
     RealPublicFetchResponse,
     RealPublicUrlBoundaryError,
+    _discover_same_site_attachment_link_items,
 )
 from stage2_ingestion.service import Stage2Service
 from storage.db import DatabaseSession
@@ -756,6 +757,41 @@ class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
                 [item["url"] for item in transport.call_log],
                 [GZ_YWTB_DETAIL_URL, GZ_YWTB_ATTACHMENT_URL],
             )
+
+    def test_guangzhou_stage_html_page_is_not_treated_as_attachment_link(self) -> None:
+        detail_html = """
+        <html><body>
+          <a href="/jyfw/002001/002001006/002001006001/20250807/a5e9de67-d6bd-4f13-82b1-b3450b39f374.html">
+            投标文件公开
+          </a>
+          <a href="/jyfw/002001/002001003/20260510/result.html">中标结果</a>
+        </body></html>
+        """
+
+        items = _discover_same_site_attachment_link_items(
+            detail_html,
+            base_url=GZ_YWTB_DETAIL_URL,
+            host="ywtb.gzggzy.cn",
+        )
+
+        self.assertEqual(items, [])
+
+    def test_sichuan_navigation_links_are_not_treated_as_attachment_links(self) -> None:
+        detail_html = """
+        <html><body>
+          <a href="/fwtj/websitestatis.html">网站统计</a>
+          <a href="/rss.html">RSS订阅</a>
+          <a href="/bszn/010014/20250709/646af22f-9000-422a-81e6-69da619a00c3.html">办事指南</a>
+        </body></html>
+        """
+
+        items = _discover_same_site_attachment_link_items(
+            detail_html,
+            base_url="https://ggzyjy.sc.gov.cn/jyxx/002001/002001001/20260510/detail.html",
+            host="ggzyjy.sc.gov.cn",
+        )
+
+        self.assertEqual(items, [])
 
     def test_same_site_attachment_challenge_can_be_resolved_by_explicit_resolver(self) -> None:
         pdf_bytes = _pdf_like_bytes()

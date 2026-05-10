@@ -248,6 +248,7 @@ class TestProfessionalCleanProjectArchive(unittest.TestCase):
                 "attachment_missing_review_count": 1,
                 "unknown_attachment_count": 0,
                 "text_probe": "资格条件\n评分办法\n技术参数",
+                "document_quality_reasons": ["guangzhou_ywtb_attachment_download_link_not_found"],
             }
             _write_execution_manifest(execution_path, [sample])
 
@@ -268,6 +269,7 @@ class TestProfessionalCleanProjectArchive(unittest.TestCase):
                 item["project_completeness_contract"]["download_blocking_reasons"],
             )
             self.assertIn("attachment_missing_review", item["failure_reasons"])
+            self.assertIn("guangzhou_ywtb_attachment_download_link_not_found", item["failure_reasons"])
             self.assertEqual(item["attachment_file_count"], 0)
             self.assertEqual(result["summary"]["download_incomplete_project_count"], 1)
 
@@ -322,6 +324,60 @@ class TestProfessionalCleanProjectArchive(unittest.TestCase):
             self.assertIn(
                 "https://example.test/download/招标文件.pdf",
                 item["verification_urls"]["attachment_snapshot_urls"],
+            )
+
+    def test_qualification_only_parse_is_marked_as_section_partial(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = _repo(tmp_dir)
+            _save_snapshot(
+                repo,
+                snapshot_id="SNAP-DETAIL-006",
+                data=b"<html><body>detail</body></html>",
+                content_type="text/html",
+                source_url="https://example.test/detail.html",
+            )
+            _save_snapshot(
+                repo,
+                snapshot_id="SNAP-TENDER-PDF-006",
+                data=b"%PDF-1.4 tender file",
+                content_type="application/pdf",
+                source_url="https://example.test/tender.pdf",
+            )
+            execution_path = Path(tmp_dir) / "run-manifest.json"
+            output_root = Path(tmp_dir) / "professional-clean-v1"
+            sample = _project_sample(
+                source_text="投标人资格要求：具备市政公用工程施工总承包资质。",
+                detail_snapshot_id="SNAP-DETAIL-006",
+                attachment_snapshot_id="SNAP-TENDER-PDF-006",
+            )
+            sample["parse_summary"] = {
+                "stage3_parse_success_count": 1,
+                "stage3_parse_failed_count": 0,
+                "attachment_missing_review_count": 0,
+                "unknown_attachment_count": 0,
+                "text_probe": "投标人资格要求：具备市政公用工程施工总承包资质。",
+            }
+            _write_execution_manifest(execution_path, [sample])
+
+            result = build_professional_clean_project_archive_manifest(
+                real_sample_execution_manifest_json=execution_path,
+                output_root=output_root,
+                object_repository=repo,
+                created_at="2026-05-10T00:00:00+08:00",
+            )
+
+            item = result["manifest"]["items"][0]
+            self.assertTrue(item["qualification_section_found"])
+            self.assertFalse(item["scoring_section_found"])
+            self.assertFalse(item["technical_section_found"])
+            self.assertEqual(item["section_analysis_state"], "SECTION_PARTIAL_QUALIFICATION_ONLY")
+            self.assertIn(
+                "section_partial_qualification_only",
+                item["parse_metrics"]["parse_insufficiency_reasons"],
+            )
+            self.assertEqual(
+                item["project_completeness_contract"]["parse_completeness_state"],
+                "PARSE_INCOMPLETE",
             )
 
 

@@ -227,6 +227,24 @@ _NON_ACTIONABLE_NOTICE_TOKENS = (
     "典型案例",
 )
 
+_TEST_OR_PLACEHOLDER_NOTICE_TOKENS = (
+    "测试",
+    "测-试",
+    "test",
+    "demo",
+)
+
+_FILE_NAME_ONLY_NOTICE_EXTENSIONS = (
+    ".cdz",
+    ".pdf",
+    ".doc",
+    ".docx",
+    ".xls",
+    ".xlsx",
+    ".zip",
+    ".rar",
+)
+
 
 def _as_float(value: Any, default: float | None = None) -> float | None:
     try:
@@ -450,6 +468,19 @@ def _is_non_actionable_notice_text(text: str) -> bool:
     return any(token.lower() in normalized for token in _NON_ACTIONABLE_NOTICE_TOKENS)
 
 
+def _is_test_or_placeholder_notice_text(text: str) -> bool:
+    normalized = str(text or "").replace(" ", "").lower()
+    return any(token.lower() in normalized for token in _TEST_OR_PLACEHOLDER_NOTICE_TOKENS)
+
+
+def _is_file_name_only_notice_title(text: str) -> bool:
+    normalized = _normalize_public_title(text).replace(" ", "")
+    lowered = normalized.lower()
+    if not lowered.endswith(_FILE_NAME_ONLY_NOTICE_EXTENSIONS):
+        return False
+    return not any(token in normalized for token in _PROJECT_TITLE_TOKENS)
+
+
 def _date_window_from_now(now: str, *, days: int = 30) -> tuple[str, str]:
     try:
         parsed = datetime.fromisoformat(str(now).replace("Z", "+00:00"))
@@ -536,9 +567,10 @@ def _discover_profile_api_link_items(
             no_participle="0",
             now=now,
             profile_id=profile_id,
+            context=context or {},
         )
     if profile_id == "SICHUAN-GGZY-TRANSACTION-INFO":
-        return _discover_sichuan_api_link_items(now=now)
+        return _discover_sichuan_api_link_items(now=now, context=context or {})
     return {
         "state": "UNSUPPORTED",
         "endpoint": "",
@@ -1168,6 +1200,7 @@ def _discover_text_search_api_link_items(
     no_participle: str,
     now: str,
     profile_id: str = "",
+    context: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     start_date, end_date = _date_window_from_now(now, days=1)
     payload = {
@@ -1233,6 +1266,7 @@ def _discover_text_search_api_link_items(
             base_url=base_url,
             endpoint=endpoint,
             profile_id=profile_id,
+            context=context or {},
         ),
         "error_optional": "",
         "query_window": {"start_date": start_date, "end_date": end_date},
@@ -1247,6 +1281,7 @@ def _link_items_from_text_search_records(
     base_url: str,
     endpoint: str,
     profile_id: str = "",
+    context: Mapping[str, Any] | None = None,
 ) -> list[dict[str, str]]:
     items: list[dict[str, str]] = []
     seen: set[str] = set()
@@ -1258,7 +1293,18 @@ def _link_items_from_text_search_records(
         if not title or not link:
             continue
         full_url = urljoin(base_url, link)
+        categorynum = str(record.get("categorynum") or "")
+        if _is_test_or_placeholder_notice_text(title) or _is_file_name_only_notice_title(title):
+            continue
         if _is_navigation_or_template_link(full_url, title):
+            continue
+        if profile_id and not _profile_link_item_matches_document_kind(
+            profile_id,
+            full_url,
+            title,
+            categorynum=categorynum,
+            context=context or {},
+        ):
             continue
         if profile_id and not _is_candidate_detail_url(
             full_url,
@@ -1281,24 +1327,30 @@ def _link_items_from_text_search_records(
                     or record.get("infodate")
                     or ""
                 ),
-                "categorynum": str(record.get("categorynum") or ""),
+                "categorynum": categorynum,
                 "source_api": endpoint,
             }
         )
     return items
 
 
-def _discover_sichuan_api_link_items(*, now: str) -> dict[str, Any]:
+def _discover_sichuan_api_link_items(
+    *,
+    now: str,
+    context: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
     endpoint = "https://ggzyjy.sc.gov.cn/inteligentsearch/rest/esinteligentsearch/getFullTextDataNew"
     start_date, end_date = _date_window_from_now(now)
+    document_kind = str((context or {}).get("evaluation_document_kind") or "")
+    categorynum = "002001001" if document_kind == "tender_file" else "002001"
     condition = {
         "fieldName": "categorynum",
-        "equal": "002001",
+        "equal": categorynum,
         "notEqual": None,
         "equalList": None,
         "notEqualList": None,
-        "isLike": True,
-        "likeType": 2,
+        "isLike": document_kind != "tender_file",
+        "likeType": 2 if document_kind != "tender_file" else 0,
     }
     payload = {
         "token": "",
@@ -1359,6 +1411,8 @@ def _discover_sichuan_api_link_items(*, now: str) -> dict[str, Any]:
         records,
         base_url="https://ggzyjy.sc.gov.cn/",
         endpoint=endpoint,
+        profile_id="SICHUAN-GGZY-TRANSACTION-INFO",
+        context=context or {},
     )
     return {
         "state": "FETCHED" if items else "EMPTY",
@@ -1366,8 +1420,35 @@ def _discover_sichuan_api_link_items(*, now: str) -> dict[str, Any]:
         "items": items,
         "error_optional": "",
         "query_window": {"start_date": start_date, "end_date": end_date},
+        "target_categorynum": categorynum,
+        "category_strategy": (
+            "sichuan_tender_notice_exact"
+            if document_kind == "tender_file"
+            else "sichuan_all_engineering_like"
+        ),
         "record_count": len(records),
     }
+
+
+def _profile_link_item_matches_document_kind(
+    profile_id: str,
+    url: str,
+    title: str,
+    *,
+    categorynum: str,
+    context: Mapping[str, Any],
+) -> bool:
+    document_kind = str(context.get("evaluation_document_kind") or "")
+    if document_kind != "tender_file":
+        return True
+    path = urlsplit(str(url or "")).path.lower()
+    if profile_id == "ZHEJIANG-GGZY-JYXXGK-LIST":
+        return categorynum.startswith("002001001") or "/002001/002001001/" in path
+    if profile_id == "SICHUAN-GGZY-TRANSACTION-INFO":
+        if categorynum.startswith("002001012") or "/002001/002001012/" in path:
+            return False
+        return categorynum.startswith("002001001") or "/002001/002001001/" in path
+    return True
 
 
 def _merge_link_items(primary: list[Mapping[str, Any]], secondary: list[Mapping[str, Any]]) -> list[dict[str, Any]]:

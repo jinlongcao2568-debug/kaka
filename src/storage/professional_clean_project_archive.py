@@ -26,9 +26,18 @@ PROJECT_STAGE_POLLUTION_MARKERS = (
     "开标记录",
 )
 SECTION_MARKERS = {
-    "qualification_section_found": ("资格条件", "资格要求", "投标人资格", "供应商资格"),
-    "scoring_section_found": ("评分办法", "评标办法", "评分标准", "综合评分"),
-    "technical_section_found": ("技术参数", "技术要求", "采购需求", "服务要求"),
+    "qualification_section_found": ("资格条件", "资格要求", "投标人资格", "供应商资格", "投标人资格要求"),
+    "scoring_section_found": ("评分办法", "评标办法", "评分标准", "综合评分", "综合评估法"),
+    "technical_section_found": (
+        "技术参数",
+        "技术要求",
+        "采购需求",
+        "服务要求",
+        "技术标准和要求",
+        "设计任务书",
+        "发包人要求",
+        "设计要求",
+    ),
 }
 VALID_ATTACHMENT_EXTENSIONS = {".pdf", ".doc", ".docx", ".xls", ".xlsx", ".zip", ".rar"}
 VALID_ATTACHMENT_CONTENT_MARKERS = (
@@ -157,13 +166,7 @@ def _archive_project(
     source_text = "\n".join(
         str(value)
         for sample in samples
-        for value in (
-            sample.get("project_name"),
-            sample.get("source_text"),
-            (sample.get("parse_summary") or {}).get("text_probe")
-            if isinstance(sample.get("parse_summary"), Mapping)
-            else "",
-        )
+        for value in _sample_text_values(sample)
         if value
     )
     stage_pollution_reasons = _stage_pollution_reasons(samples, source_text)
@@ -436,9 +439,22 @@ def _stage_pollution_reasons(samples: list[Mapping[str, Any]], source_text: str)
 
 
 def _section_flags(source_text: str) -> dict[str, bool]:
-    return {
+    flags = {
         field_name: any(marker in source_text for marker in markers)
         for field_name, markers in SECTION_MARKERS.items()
+    }
+    found = [field_name for field_name, present in flags.items() if present]
+    if len(found) == len(SECTION_MARKERS):
+        state = "SECTION_COMPLETE"
+    elif found == ["qualification_section_found"]:
+        state = "SECTION_PARTIAL_QUALIFICATION_ONLY"
+    elif found:
+        state = "SECTION_PARTIAL"
+    else:
+        state = "SECTION_NOT_FOUND"
+    return {
+        **flags,
+        "section_analysis_state": state,
     }
 
 
@@ -505,6 +521,9 @@ def _parse_metrics(*, samples: list[Mapping[str, Any]], section_flags: Mapping[s
         parse_insufficiency_reasons.append("clarification_or_addendum_review")
     if section_missing:
         parse_insufficiency_reasons.append("required_section_text_missing")
+    section_analysis_state = str(section_flags.get("section_analysis_state") or "")
+    if section_analysis_state == "SECTION_PARTIAL_QUALIFICATION_ONLY":
+        parse_insufficiency_reasons.append("section_partial_qualification_only")
 
     return {
         "stage3_parse_success_count": success_count,
@@ -516,6 +535,7 @@ def _parse_metrics(*, samples: list[Mapping[str, Any]], section_flags: Mapping[s
         "parse_attempted_file_count": parse_attempted_count,
         "parse_blocked_file_count": ocr_required_count + attachment_missing_count + unknown_attachment_count,
         "section_missing_fields": section_missing,
+        "section_analysis_state": section_analysis_state,
         "markitdown_state_counts": markitdown_state_counts,
         "parse_insufficiency_reasons": _dedupe_strings(parse_insufficiency_reasons),
         "file_level_parse_attribution_state": "PROJECT_LEVEL_ONLY_MISSING_FILE_LEVEL_ATTRIBUTION"
@@ -702,6 +722,10 @@ def _failure_reasons(
     reasons.extend(_as_list(parse_metrics.get("parse_insufficiency_reasons")))
     for sample in samples:
         reasons.extend(_as_list(sample.get("failure_taxonomy")))
+        parse_summary = sample.get("parse_summary")
+        if isinstance(parse_summary, Mapping):
+            reasons.extend(_as_list(parse_summary.get("document_quality_reasons")))
+            reasons.extend(_as_list(parse_summary.get("download_archive_quality_reasons")))
     return _dedupe_strings(reasons)
 
 
@@ -747,6 +771,28 @@ def _source_manifest(payload: Mapping[str, Any]) -> dict[str, Any]:
     if isinstance(manifest, Mapping):
         return dict(manifest)
     return dict(payload)
+
+
+def _sample_text_values(sample: Mapping[str, Any]) -> list[Any]:
+    values: list[Any] = [
+        sample.get("project_name"),
+        sample.get("source_text"),
+    ]
+    parse_summary = sample.get("parse_summary")
+    if isinstance(parse_summary, Mapping):
+        values.append(parse_summary.get("text_probe"))
+        for key in (
+            "markitdown_text_probe",
+            "attachment_text_probe",
+            "document_text_probe",
+        ):
+            values.append(parse_summary.get(key))
+    detail_fields = sample.get("detail_fields")
+    if isinstance(detail_fields, Mapping):
+        values.extend(_as_list(detail_fields.get("qualification_text_candidate_blocks")))
+        values.extend(_as_list(detail_fields.get("document_section_slices")))
+    values.extend(_as_list(sample.get("qualification_text_candidate_blocks")))
+    return values
 
 
 def _declared_ref_url(ref: Mapping[str, Any]) -> str:

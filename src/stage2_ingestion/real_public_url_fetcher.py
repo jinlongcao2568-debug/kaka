@@ -512,6 +512,32 @@ _NON_ATTACHMENT_LINK_TEXTS = {
     "打印",
     "关闭",
 }
+
+_NON_ATTACHMENT_PATH_TOKENS = (
+    "/login",
+    "/onlinelettersubmit",
+    "/message",
+    "/guestbook",
+    "/help",
+    "/fwtj/",
+    "/bszn/",
+    "/rss.html",
+    "/about.html",
+    "websitestatis",
+    "/002001006/",
+)
+
+_HTML_ATTACHMENT_LINK_HINTS = (
+    "附件",
+    "下载",
+    "招标文件",
+    "采购文件",
+    "资格要求",
+    "澄清",
+    "答疑",
+    "补遗",
+    "清单",
+)
 _NORMALIZED_ATTACHMENT_BLOCKER_BY_CLASS = {
     "CAPTCHA_MANUAL_REQUIRED": "attachment_captcha_required",
     "SESSION_OR_LOGIN_REQUIRED": "attachment_login_required",
@@ -675,8 +701,10 @@ def _attachment_url_has_supported_signal(url: str, *, link_text: str = "") -> bo
         for value in values
     )
     text = _clean_anchor_text(link_text).lower()
-    if path.endswith((*_SUPPORTED_ATTACHMENT_EXTENSIONS, *_SUPPORTED_HTML_ATTACHMENT_EXTENSIONS)):
+    if path.endswith(_SUPPORTED_ATTACHMENT_EXTENSIONS):
         return True
+    if path.endswith(_SUPPORTED_HTML_ATTACHMENT_EXTENSIONS):
+        return _html_attachment_link_is_strong(url, link_text=link_text)
     if re.search(r"\.(pdf|docx?|xlsx?|zip|rar)(?:$|[?#&\s])", f"{path} {joined_query} {text}", flags=re.IGNORECASE):
         return True
     if any(token in path for token in _DOWNLOAD_ENDPOINT_TOKENS):
@@ -684,6 +712,21 @@ def _attachment_url_has_supported_signal(url: str, *, link_text: str = "") -> bo
     if any(key in query for key in _ATTACHMENT_QUERY_KEYS):
         return True
     return False
+
+
+def _html_attachment_link_is_strong(url: str, *, link_text: str = "") -> bool:
+    parsed = urlsplit(str(url or "").strip())
+    path = unquote(parsed.path or "").lower()
+    path_name = path.rsplit("/", 1)[-1] if path else ""
+    text = _clean_anchor_text(link_text).lower()
+    combined = f"{path_name} {text}"
+    if not path_name.endswith(_SUPPORTED_HTML_ATTACHMENT_EXTENSIONS):
+        return False
+    if "/files/" in path or "/attachment/" in path or "/attach/" in path:
+        return True
+    if re.search(r"\.(pdf|docx?|xlsx?|zip|rar)$", text, flags=re.IGNORECASE):
+        return True
+    return any(hint.lower() in combined for hint in _HTML_ATTACHMENT_LINK_HINTS)
 
 
 def _attachment_url_has_resumable_download_signal(url: str) -> bool:
@@ -2847,7 +2890,7 @@ def _is_non_attachment_navigation_link(url: str, *, link_text: str) -> bool:
         return True
     if text in _NON_ATTACHMENT_LINK_TEXTS or normalized_text in _NON_ATTACHMENT_LINK_TEXTS:
         return True
-    if any(token in path for token in ("/login", "/onlinelettersubmit", "/message", "/guestbook", "/help")):
+    if any(token in path for token in _NON_ATTACHMENT_PATH_TOKENS):
         return True
     if path.endswith(("index.html", "list.html", "about.html", "transactioninfo.html")):
         return True

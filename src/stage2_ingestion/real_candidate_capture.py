@@ -1785,6 +1785,8 @@ def _document_completeness_summary(capture: Mapping[str, Any]) -> dict[str, Any]
         for item in list(capture.get("stage3_parse_error_taxonomy", []) or [])
         if str(item or "").strip()
     ]
+    source_profile_id = str(capture.get("source_profile_id") or "")
+    document_kind = str(capture.get("document_kind") or "")
 
     attachment_types = [
         str(ref.get("attachment_type") or "UNKNOWN_ATTACHMENT")
@@ -1893,6 +1895,13 @@ def _document_completeness_summary(capture: Mapping[str, Any]) -> dict[str, Any]
         review_reasons.append(f"detail_parse_state={detail_parse_state}")
     if link_count and snapshot_count < link_count:
         review_reasons.append("attachment_snapshot_count_below_link_count")
+    if (
+        link_count == 0
+        and source_profile_id == "GUANGZHOU-YWTB-CONSTRUCTION-LIST"
+        and document_kind == "tender_file"
+    ):
+        failure_reasons.append("guangzhou_ywtb_attachment_download_link_not_found")
+        review_reasons.append("guangzhou_ywtb_attachment_download_link_not_found")
     if readback_failure_states:
         review_reasons.append("attachment_snapshot_readback_missing")
     if attachment_parse_errors:
@@ -2356,6 +2365,7 @@ class RealCandidateStage2CaptureService:
             "project_name": str(candidate.get("project_name") or ""),
             "source_url": source_url,
             "source_profile_id": profile_id,
+            "document_kind": str(candidate.get("evaluation_document_kind") or candidate.get("document_kind") or ""),
             "capture_mode": REAL_CANDIDATE_STAGE2_CAPTURE_MODE,
             "captured_at": captured_at,
             "real_provider_call_enabled": False,
