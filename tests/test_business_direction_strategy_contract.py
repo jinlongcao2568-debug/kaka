@@ -40,6 +40,37 @@ class BusinessDirectionStrategyContractTests(unittest.TestCase):
         self.assertIn("candidate_verification", pre_bid["must_not_output"])
         self.assertIn("real_competitor_conclusion", pre_bid["must_not_output"])
 
+    def test_analysis_strategy_v1_blocks_pre_bid_after_opening_and_candidate(self) -> None:
+        contract = self._contract()
+        policy = contract["analysis_strategy_policy"]
+        blockers = {item["blocker_id"]: item for item in policy["pre_bid_hard_blockers"]}
+        routing_states = {item["state"]: item for item in policy["routing_order"]}
+
+        self.assertTrue(policy["required_before_download_or_parse"])
+        self.assertIn("PRE_BID_NOT_ELIGIBLE_OPENING_STARTED", blockers)
+        self.assertEqual(
+            blockers["PRE_BID_NOT_ELIGIBLE_OPENING_STARTED"]["condition"],
+            "flow_05_opening_info_present",
+        )
+        self.assertEqual(
+            routing_states["PRE_BID_NOT_ELIGIBLE_OPENING_STARTED"]["product_mode"],
+            "POST_OPENING_EVIDENCE_TRACK",
+        )
+        self.assertIn("PRE_BID_NOT_ELIGIBLE_CANDIDATE_PRESENT", blockers)
+        self.assertEqual(
+            blockers["PRE_BID_NOT_ELIGIBLE_CANDIDATE_PRESENT"]["route_to"],
+            "POST_CANDIDATE_EVIDENCE_PACK",
+        )
+
+    def test_analysis_strategy_v1_keeps_adapter_urls_out_of_production_crawl(self) -> None:
+        contract = self._contract()
+        adapter_policy = contract["analysis_strategy_policy"]["adapter_validation_policy"]
+
+        self.assertTrue(adapter_policy["guangzhou_12_flow_samples_are_adapter_validation_only"])
+        self.assertFalse(adapter_policy["human_provided_flow_urls_default_crawl_target_allowed"])
+        self.assertFalse(adapter_policy["human_provided_flow_urls_production_crawl_source_allowed"])
+        self.assertIn("relationInfo", adapter_policy["production_crawl_must_use"])
+
     def test_source_policy_keeps_guangzhou_primary_and_deletes_incomplete_province_source(self) -> None:
         contract = self._contract()
         source_policy = contract["source_policy"]

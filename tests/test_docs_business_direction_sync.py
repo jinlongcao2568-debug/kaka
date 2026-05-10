@@ -34,8 +34,12 @@ def test_source_route_spec_locks_post_candidate_backtrace_and_guangzhou_primary_
     assert "回溯同一项目全流程材料" in text
     assert "招标文件" in text and "答疑澄清" in text and "投标文件公开" in text
     assert "PRE_BID_PREDICTION" in text
+    assert "05 开标信息" in text
+    assert "投前预测" in text and "不再卖" in text or "不得继续把该项目送入投前预测" in text
+    assert "AnalysisStrategyPlan v1" in text
     assert "广东工程建设现行来源只保留广州交易集团" in text
     assert "tender_file" in text and "smoke" in text
+    assert "广州 `01-12` 流程接口覆盖是适配器验证" in text
 
 
 def test_pre_bid_topic_is_secondary_rule_pool_and_forbids_post_candidate_outputs() -> None:
@@ -49,6 +53,9 @@ def test_pre_bid_topic_is_secondary_rule_pool_and_forbids_post_candidate_outputs
     assert "真实竞争者结论" in text
     assert "陪标组合结论" in text
     assert "不能输出" in text
+    assert "PRE_BID_NOT_ELIGIBLE_OPENING_STARTED" in text
+    assert "PRE_BID_NOT_ELIGIBLE_DEADLINE_PASSED" in text
+    assert "AnalysisStrategyPlan v1" in text
 
 
 def test_ax9s_runbook_states_post_candidate_mainline_and_tender_file_smoke_boundary() -> None:
@@ -59,6 +66,8 @@ def test_ax9s_runbook_states_post_candidate_mainline_and_tender_file_smoke_bound
     assert "中标候选人公示、评标结果、开标记录、中标结果" in text
     assert "回溯同一项目" in text
     assert "辅助产品线是投前预测分析" in text
+    assert "05 开标信息" in text
+    assert "AnalysisStrategyPlan v1" in text
     assert "tender_file" in text and "不是最终业务入口" in text
     assert "只验证文件链路" in text
 
@@ -71,3 +80,61 @@ def test_status_board_records_p0_sync_boundary() -> None:
     assert "PRE_BID_PREDICTION" in text
     assert "tender_file" in text and "最终业务入口" in text
     assert "广东只保留广州交易集团主源" in text
+    assert "AnalysisStrategyPlan v1" in text
+    assert "05 开标信息" in text
+    assert "适配器验证" in text
+
+
+def test_business_direction_doc_contains_final_analysis_strategy_rules() -> None:
+    text = _read(DOCS / "业务方向_候选公示后证据包与投前预测双线契约.md")
+
+    assert "AnalysisStrategyPlan v1" in text
+    assert "候选公示后主线不是“少解析”" in text
+    assert "真实买家线索" in text
+    assert "PRE_BID_NOT_ELIGIBLE_OPENING_STARTED" in text
+    assert "PRE_BID_NOT_ELIGIBLE_DEADLINE_PASSED" in text
+    assert "05 开标信息" in text and "投前预测已经来不及" in text
+    assert "广州 01-12 流程扫描是“适配器和接口形态验证”" in text
+
+
+def test_top_level_docs_contain_final_strategy_guardrails() -> None:
+    readme = _read(ROOT / "README.md")
+    agents = _read(ROOT / "AGENTS.md")
+
+    for text in (readme, agents):
+        assert "AnalysisStrategyPlan v1" in text
+        assert "05 开标信息" in text
+        assert "投前预测" in text
+        assert "候选公示后证据包" in text
+
+
+def test_navigation_docs_do_not_drift_from_analysis_strategy_v1() -> None:
+    paths = [
+        DOCS / "AX9S_开发执行路由图.md",
+        DOCS / "AX9S_自动运营决策架构与商业钩子方案.md",
+    ]
+
+    for path in paths:
+        text = _read(path)
+        assert "AnalysisStrategyPlan v1" in text, path
+        assert "05 开标信息" in text, path
+        assert "投前预测" in text, path
+        assert "候选后证据包" in text, path
+
+
+def test_formal_docs_reference_final_bid_analysis_split() -> None:
+    paths = [
+        DOCS / "D3_正式规则码总表与判定说明书.md",
+        DOCS / "D8_真实竞争者识别可售对象与销售推进规范.md",
+        DOCS / "D11_测试验收与金标回归清单.md",
+        DOCS / "D13_公开可查边界能力清单.md",
+    ]
+
+    for path in paths:
+        text = _read(path)
+        assert "05 开标信息" in text, path
+        assert "投前预测" in text, path
+        assert "候选后" in text or "候选公示后" in text, path
+
+    assert "AnalysisStrategyPlan v1" in _read(DOCS / "D3_正式规则码总表与判定说明书.md")
+    assert "AnalysisStrategyPlan v1" in _read(DOCS / "D11_测试验收与金标回归清单.md")

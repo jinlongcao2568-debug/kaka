@@ -1,6 +1,6 @@
 {
   "contract_id": "BUSINESS-DIRECTION-STRATEGY-CONTRACT",
-  "contract_version": 1,
+  "contract_version": 2,
   "purpose": "固定招投标分析产品的双线业务方向，避免后续开发把招标公告文件链路验证误当成核心商业主线。",
   "primary_commercial_line": "POST_CANDIDATE_EVIDENCE_PACK",
   "default_when_ambiguous": "POST_CANDIDATE_EVIDENCE_PACK",
@@ -120,6 +120,184 @@
       "route_to": "POST_CANDIDATE_EVIDENCE_PACK"
     }
   ],
+  "analysis_strategy_policy": {
+    "policy_id": "ANALYSIS-STRATEGY-PLAN-V1",
+    "policy_version": 1,
+    "required_before_download_or_parse": true,
+    "purpose": "在附件清单之后、下载和解析之前，按产品线决定流程范围、文件动作、解析深度、规则核验和大模型触发条件，避免所有文件默认全量解析。",
+    "routing_order": [
+      {
+        "order": 1,
+        "condition": "flow_07_candidate_notice_present_or_award_result_present",
+        "product_mode": "POST_CANDIDATE_EVIDENCE_PACK",
+        "state": "POST_CANDIDATE_READY"
+      },
+      {
+        "order": 2,
+        "condition": "flow_05_opening_info_present_without_flow_07",
+        "product_mode": "POST_OPENING_EVIDENCE_TRACK",
+        "state": "PRE_BID_NOT_ELIGIBLE_OPENING_STARTED"
+      },
+      {
+        "order": 3,
+        "condition": "only_flow_02_03_04_present_and_deadline_not_passed",
+        "product_mode": "PRE_BID_PREDICTION",
+        "state": "PRE_BID_ELIGIBLE"
+      },
+      {
+        "order": 4,
+        "condition": "only_flow_02_03_04_present_but_deadline_or_opening_passed",
+        "product_mode": "POST_OPENING_EVIDENCE_TRACK",
+        "state": "PRE_BID_NOT_ELIGIBLE_DEADLINE_PASSED"
+      },
+      {
+        "order": 5,
+        "condition": "only_flow_01_or_early_plan_present",
+        "product_mode": "WATCHLIST_ONLY",
+        "state": "WATCHLIST_ONLY"
+      }
+    ],
+    "pre_bid_hard_blockers": [
+      {
+        "blocker_id": "PRE_BID_NOT_ELIGIBLE_OPENING_STARTED",
+        "condition": "flow_05_opening_info_present",
+        "route_to": "POST_OPENING_EVIDENCE_TRACK"
+      },
+      {
+        "blocker_id": "PRE_BID_NOT_ELIGIBLE_DEADLINE_PASSED",
+        "condition": "bid_deadline_or_opening_time_passed",
+        "route_to": "POST_OPENING_EVIDENCE_TRACK"
+      },
+      {
+        "blocker_id": "PRE_BID_NOT_ELIGIBLE_CANDIDATE_PRESENT",
+        "condition": "flow_07_candidate_notice_present",
+        "route_to": "POST_CANDIDATE_EVIDENCE_PACK"
+      }
+    ],
+    "parse_depth_levels": [
+      "NONE",
+      "METADATA_ONLY",
+      "LIST_ONLY",
+      "TEXT_PROBE",
+      "SECTION_PARSE",
+      "DEEP_PARSE"
+    ],
+    "post_candidate_flow_policy": [
+      {
+        "flow_no": "03",
+        "flow_title": "招标公告/关联公告",
+        "download_policy": "DOWNLOAD_REQUIRED",
+        "parse_depth": "SECTION_PARSE",
+        "index_targets": [
+          "tailored_bid_index",
+          "fatal_rejection_complexity_index"
+        ]
+      },
+      {
+        "flow_no": "04",
+        "flow_title": "澄清答疑",
+        "download_policy": "DOWNLOAD_REQUIRED",
+        "parse_depth": "SECTION_PARSE",
+        "index_targets": [
+          "tailored_bid_index",
+          "procedure_abnormality_index"
+        ]
+      },
+      {
+        "flow_no": "05",
+        "flow_title": "开标信息",
+        "download_policy": "LIST_OR_DOWNLOAD_IF_ATTACHMENT_PRESENT",
+        "parse_depth": "TEXT_PROBE",
+        "index_targets": [
+          "collusion_trace_index",
+          "cover_bid_index",
+          "bid_rigging_index"
+        ]
+      },
+      {
+        "flow_no": "06",
+        "flow_title": "资审结果公示",
+        "download_policy": "LIST_OR_DOWNLOAD_IF_ATTACHMENT_PRESENT",
+        "parse_depth": "TEXT_PROBE",
+        "index_targets": [
+          "fatal_rejection_complexity_index",
+          "real_competitor_identification"
+        ]
+      },
+      {
+        "flow_no": "07",
+        "flow_title": "中标候选人公示",
+        "download_policy": "DOWNLOAD_REQUIRED_IF_ATTACHMENT_PRESENT",
+        "parse_depth": "TEXT_PROBE",
+        "index_targets": [
+          "candidate_verification",
+          "real_competitor_identification",
+          "sales_leadpack_handoff"
+        ]
+      },
+      {
+        "flow_no": "08",
+        "flow_title": "投标文件公开",
+        "download_policy": "LIST_ALL_THEN_TARGETED_DOWNLOAD",
+        "parse_depth": "TEXT_PROBE_THEN_TARGETED_DEEP_PARSE",
+        "index_targets": [
+          "collusion_trace_index",
+          "cover_bid_index",
+          "bid_rigging_index",
+          "real_competitor_identification"
+        ]
+      }
+    ],
+    "pre_bid_flow_policy": [
+      {
+        "flow_no": "02",
+        "flow_title": "招标文件公示",
+        "download_policy": "DOWNLOAD_REQUIRED_IF_DOCUMENT_PRESENT",
+        "parse_depth": "SECTION_PARSE"
+      },
+      {
+        "flow_no": "03",
+        "flow_title": "招标公告/关联公告",
+        "download_policy": "DOWNLOAD_REQUIRED",
+        "parse_depth": "SECTION_PARSE"
+      },
+      {
+        "flow_no": "04",
+        "flow_title": "澄清答疑",
+        "download_policy": "DOWNLOAD_REQUIRED_IF_PRESENT",
+        "parse_depth": "SECTION_PARSE"
+      }
+    ],
+    "llm_trigger_policy": {
+      "rules_first": true,
+      "trigger_when": [
+        "high_tailored_or_collusion_index",
+        "bidder_response_conflicts_with_tender_file",
+        "multiple_bid_files_high_similarity",
+        "abnormal_quote_pattern_requires_context",
+        "rejection_reason_conflicts_with_document_rules",
+        "parameter_or_certificate_reasonableness_requires_context"
+      ],
+      "do_not_trigger_for": [
+        "metadata_only_without_text",
+        "non_tender_document_guardrail_hit",
+        "missing_replayable_snapshot",
+        "adapter_validation_url_only"
+      ]
+    },
+    "adapter_validation_policy": {
+      "guangzhou_12_flow_samples_are_adapter_validation_only": true,
+      "human_provided_flow_urls_default_crawl_target_allowed": false,
+      "human_provided_flow_urls_production_crawl_source_allowed": false,
+      "production_crawl_must_use": [
+        "list_api",
+        "flow_code",
+        "relationInfo",
+        "project_id_or_xmbh",
+        "normalized_project_name"
+      ]
+    }
+  },
   "project_level_audit_required_fields": [
     "project_id",
     "project_name",
