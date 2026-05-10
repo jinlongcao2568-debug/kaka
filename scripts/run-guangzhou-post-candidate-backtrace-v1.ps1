@@ -6,8 +6,10 @@ param(
     [string]$ObjectStoragePath = "",
     [ValidateSet("FlowUrlOnly", "AttachmentList", "Download", "Parse", "Full")]
     [string]$PipelineStage = "Full",
+    [string]$AnalysisPlanJson = "",
     [switch]$Resume,
     [switch]$EnableAttachmentChallengeResolver,
+    [switch]$BuildAnalysisPlan,
     [switch]$Execute,
     [switch]$EmitJson
 )
@@ -31,6 +33,9 @@ if (-not $ObjectStoragePath) {
 
 $runManifestJson = Join-Path $OutputRoot "run-manifest.json"
 $stabilityJson = Join-Path $OutputRoot "challenge-stability-report.json"
+if (-not $AnalysisPlanJson) {
+    $AnalysisPlanJson = Join-Path $OutputRoot "analysis-plan.json"
+}
 
 New-Item -ItemType Directory -Force -Path $OutputRoot | Out-Null
 New-Item -ItemType Directory -Force -Path (Split-Path -Parent $StoragePath) | Out-Null
@@ -98,4 +103,22 @@ try {
     -OutputJson $stabilityJson
 if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
+}
+
+if ($BuildAnalysisPlan) {
+    $analysisArgs = @(
+        "-NoProfile", "-ExecutionPolicy", "Bypass",
+        "-File", (Join-Path $scriptDir "build-product-analysis-strategy-plan.ps1"),
+        "-OutputRoot", $OutputRoot,
+        "-RealSampleExecutionManifestJson", $runManifestJson,
+        "-OutputJson", $AnalysisPlanJson
+    )
+    $projectFileAuditJson = Join-Path $OutputRoot "project-file-audit.json"
+    if (Test-Path $projectFileAuditJson) {
+        $analysisArgs += @("-ProjectFileAuditJson", $projectFileAuditJson)
+    }
+    & pwsh @analysisArgs
+    if ($LASTEXITCODE -ne 0) {
+        exit $LASTEXITCODE
+    }
 }
