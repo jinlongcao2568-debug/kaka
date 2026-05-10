@@ -53,6 +53,7 @@ def build_guangzhou_post_candidate_acceptance_report(
     run_manifest = _source_manifest(run_payload)
     audit_manifest = _source_manifest(audit_payload)
     stability_manifest = _source_manifest(stability_payload)
+    pipeline_stage = str(run_manifest.get("pipeline_stage") or "")
     flow_modules = _flow_modules(golden_contract)
     project_items = [
         dict(item)
@@ -64,7 +65,7 @@ def build_guangzhou_post_candidate_acceptance_report(
         for item in project_items
     ]
     golden_results = [
-        _golden_project_result(project, project_reports)
+        _golden_project_result(project, project_reports, pipeline_stage=pipeline_stage)
         for project in list(golden_contract.get("projects") or [])
         if isinstance(project, Mapping)
     ]
@@ -88,6 +89,7 @@ def build_guangzhou_post_candidate_acceptance_report(
         "source_project_file_audit_path": str(audit_path),
         "source_challenge_stability_report_path": str(stability_path),
         "golden_contract_path": str(contract_path),
+        "pipeline_stage": pipeline_stage,
         "official_entry_url": str(golden_contract.get("official_entry_url") or ""),
         "source_profile_id": str(golden_contract.get("source_profile_id") or ""),
         "flow_modules": flow_modules,
@@ -229,6 +231,8 @@ def _file_inventory_row(row: Mapping[str, Any]) -> dict[str, Any]:
 def _golden_project_result(
     golden_project: Mapping[str, Any],
     project_reports: list[Mapping[str, Any]],
+    *,
+    pipeline_stage: str = "",
 ) -> dict[str, Any]:
     project_code = str(golden_project.get("project_code") or "")
     expected_project_id = str(golden_project.get("project_id") or "")
@@ -264,21 +268,23 @@ def _golden_project_result(
     missing = [str(value) for value in list(report.get("missing_flow_nos") or [])]
     if missing != expected_missing:
         failed.append(f"missing_flow_nos_mismatch:{'/'.join(missing)}")
-    if _int(report.get("detail_file_count")) != _int(golden_project.get("expected_detail_count")):
-        failed.append("detail_count_mismatch")
-    if _int(report.get("attachment_file_count")) != _int(golden_project.get("expected_attachment_count")):
-        failed.append("attachment_count_mismatch")
-    if _int(golden_project.get("expected_replayable_file_count")) and _int(report.get("replayable_file_count")) != _int(
-        golden_project.get("expected_replayable_file_count")
-    ):
-        failed.append("replayable_file_count_mismatch")
+    flow_url_only = pipeline_stage == "FlowUrlOnly"
+    if not flow_url_only:
+        if _int(report.get("detail_file_count")) != _int(golden_project.get("expected_detail_count")):
+            failed.append("detail_count_mismatch")
+        if _int(report.get("attachment_file_count")) != _int(golden_project.get("expected_attachment_count")):
+            failed.append("attachment_count_mismatch")
+        if _int(golden_project.get("expected_replayable_file_count")) and _int(report.get("replayable_file_count")) != _int(
+            golden_project.get("expected_replayable_file_count")
+        ):
+            failed.append("replayable_file_count_mismatch")
     for expectation in list(golden_project.get("flow_expectations") or []):
         if not isinstance(expectation, Mapping):
             continue
         row = by_flow.get(str(expectation.get("flow_no") or "")) or {}
         if _int(row.get("detail_count")) != _int(expectation.get("expected_detail_count")):
             failed.append(f"flow_detail_count_mismatch:{expectation.get('flow_no')}")
-        if _int(row.get("attachment_count")) != _int(expectation.get("expected_attachment_count")):
+        if not flow_url_only and _int(row.get("attachment_count")) != _int(expectation.get("expected_attachment_count")):
             failed.append(f"flow_attachment_count_mismatch:{expectation.get('flow_no')}")
         for detail in list(expectation.get("details") or []):
             if not isinstance(detail, Mapping):

@@ -116,18 +116,57 @@ class TestGuangzhouPostCandidateAcceptanceReport(unittest.TestCase):
         self.assertIn("important_flow_missing:05", manual_text)
         self.assertIn("golden_acceptance_failed", manual_text)
 
+    def test_flow_url_only_golden_acceptance_ignores_attachment_counts(self) -> None:
+        contract = _load_contract()
+        flow_url_only = _golden_project_audit(contract)
+        flow_url_only["attachment_file_count"] = 0
+        flow_url_only["replayable_file_count"] = 0
+        flow_url_only["file_inventory"] = [
+            item for item in flow_url_only["file_inventory"] if item["file_role"] == "detail"
+        ]
+        flow_url_only["guangzhou_flow_inventory"] = [
+            item for item in flow_url_only["guangzhou_flow_inventory"] if item["file_role"] == "detail"
+        ]
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_inputs(
+                root,
+                audit_items=[flow_url_only],
+                challenge_failed_count=0,
+                pipeline_stage="FlowUrlOnly",
+            )
+
+            result = build_guangzhou_post_candidate_acceptance_report(
+                output_root=root,
+                golden_contract_json=CONTRACT_PATH,
+                created_at="2026-05-10T00:00:00+08:00",
+            )
+
+        golden = result["manifest"]["golden_project_results"][0]
+        self.assertEqual(golden["golden_acceptance_state"], "GOLDEN_ACCEPTED")
+        self.assertNotIn("attachment_count_mismatch", golden["failed_assertions"])
+        self.assertNotIn("replayable_file_count_mismatch", golden["failed_assertions"])
+        self.assertEqual(result["manifest"]["pipeline_stage"], "FlowUrlOnly")
+
 
 def _load_contract() -> dict[str, Any]:
     return json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))
 
 
-def _write_inputs(root: Path, *, audit_items: list[dict[str, Any]], challenge_failed_count: int) -> None:
+def _write_inputs(
+    root: Path,
+    *,
+    audit_items: list[dict[str, Any]],
+    challenge_failed_count: int,
+    pipeline_stage: str = "",
+) -> None:
     root.mkdir(parents=True, exist_ok=True)
     (root / "run-manifest.json").write_text(
         json.dumps(
             {
                 "manifest": {
                     "manifest_id": "GZ-ACCEPTANCE-TEST",
+                    "pipeline_stage": pipeline_stage,
                     "summary": {
                         "project_sample_count": len(audit_items),
                         "selected_post_candidate_entry_count": len(audit_items),
