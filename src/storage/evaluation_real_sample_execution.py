@@ -894,6 +894,12 @@ def _candidate_refs(candidates: list[Mapping[str, Any]]) -> list[dict[str, Any]]
                     or source_quality_policy.get("professional_source_priority")
                 ),
                 "notice_stage": str(candidate.get("notice_stage") or ""),
+                "source_project_code": str(candidate.get("source_project_code") or ""),
+                "source_record_id": str(candidate.get("source_record_id") or ""),
+                "project_match_key": str(candidate.get("project_match_key") or ""),
+                "matched_project_keys": _dedupe_strings(
+                    [str(value or "") for value in list(candidate.get("matched_project_keys") or [])]
+                ),
             }
         )
     return refs
@@ -992,6 +998,34 @@ def _project_sample_items(
                 "source_trading_process": str(candidate.get("source_trading_process") or ""),
                 "source_dataset_name": str(candidate.get("source_dataset_name") or ""),
                 "source_query_process_label": str(candidate.get("source_query_process_label") or ""),
+                "source_project_code": str(
+                    candidate.get("source_project_code")
+                    or capture.get("source_project_code")
+                    or ""
+                ),
+                "source_record_id": str(
+                    candidate.get("source_record_id")
+                    or capture.get("source_record_id")
+                    or ""
+                ),
+                "project_match_key": str(
+                    candidate.get("project_match_key")
+                    or capture.get("project_match_key")
+                    or ""
+                ),
+                "matched_project_keys": _dedupe_strings(
+                    [
+                        str(value or "")
+                        for value in [
+                            *list(candidate.get("matched_project_keys") or []),
+                            *list(capture.get("matched_project_keys") or []),
+                            candidate.get("source_project_code"),
+                            candidate.get("project_match_key"),
+                            capture.get("source_project_code"),
+                            capture.get("project_match_key"),
+                        ]
+                    ]
+                ),
                 "source_family": str(plan_item.get("source_family") or ""),
                 "project_type": str(plan_item.get("project_type") or ""),
                 "target_execution_state": project_state,

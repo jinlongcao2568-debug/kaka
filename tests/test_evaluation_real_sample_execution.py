@@ -294,6 +294,8 @@ class TestEvaluationRealSampleExecution(unittest.TestCase):
             item = result["manifest"]["items"][0]
             self.assertEqual(item["target_execution_state"], CAPTURED_WITH_SNAPSHOTS)
             self.assertEqual(item["candidate_refs"][0]["candidate_key"], "CAND-001")
+            self.assertEqual(item["candidate_refs"][0]["source_project_code"], "JG2026-TEST")
+            self.assertIn("JG2026-TEST", item["candidate_refs"][0]["matched_project_keys"])
             self.assertEqual(item["detail_snapshot_refs"][0]["snapshot_id"], "SNAP-DETAIL-001")
             self.assertEqual(item["attachment_snapshot_refs"][0]["snapshot_id"], "SNAP-ATT-001")
             self.assertFalse(result["manifest"]["safety"]["customer_visible_allowed"])
@@ -417,6 +419,9 @@ class TestEvaluationRealSampleExecution(unittest.TestCase):
             self.assertEqual(sample["source_trading_process"], "03")
             self.assertEqual(sample["source_dataset_name"], "中标候选人公示")
             self.assertEqual(sample["source_query_process_label"], "candidate_publicity")
+            self.assertEqual(sample["source_project_code"], "JG2026-TEST")
+            self.assertEqual(sample["project_match_key"], "JG2026-TEST")
+            self.assertIn("JG2026-TEST", sample["matched_project_keys"])
             self.assertEqual(sample["detail_snapshot_refs"][0]["snapshot_id"], "SNAP-DETAIL-002")
             self.assertIn("资格条件", sample["parse_summary"]["detail_text_probe"])
             self.assertTrue(sample["parse_summary"]["attachment_text_probes"])
@@ -547,6 +552,7 @@ def _fake_candidate(
     source_trading_process: str = "03",
     source_dataset_name: str = "中标候选人公示",
     source_query_process_label: str = "candidate_publicity",
+    source_project_code: str = "JG2026-TEST",
 ) -> dict:
     return {
         "candidate_key": candidate_key,
@@ -558,6 +564,10 @@ def _fake_candidate(
         "source_trading_process": source_trading_process,
         "source_dataset_name": source_dataset_name,
         "source_query_process_label": source_query_process_label,
+        "source_project_code": source_project_code,
+        "source_record_id": source_project_code,
+        "project_match_key": source_project_code,
+        "matched_project_keys": [source_project_code, project_name],
         "notice_stage": "candidate_notice",
     }
 

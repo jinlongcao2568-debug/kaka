@@ -52,14 +52,18 @@ class BusinessDirectionStrategyContractTests(unittest.TestCase):
         self.assertIn("SICHUAN-GGZY-TRANSACTION-INFO", primary_profile_ids)
         self.assertNotIn("GUANGDONG-PROVINCE-INCOMPLETE-SUMMARY-SOURCE", primary_profile_ids)
 
-    def test_run_modes_distinguish_available_smoke_from_planned_backtrace(self) -> None:
+    def test_run_modes_distinguish_pre_bid_smoke_from_available_backtrace(self) -> None:
         contract = self._contract()
         run_modes = {item["run_mode_id"]: item for item in contract["run_modes"]}
 
         self.assertEqual(run_modes["GUANGZHOU_TENDER_FILE_SMOKE"]["line_id"], "PRE_BID_PREDICTION")
         self.assertEqual(run_modes["GUANGZHOU_TENDER_FILE_SMOKE"]["status"], "AVAILABLE")
         self.assertEqual(run_modes["POST_CANDIDATE_BACKTRACE_V1"]["line_id"], "POST_CANDIDATE_EVIDENCE_PACK")
-        self.assertEqual(run_modes["POST_CANDIDATE_BACKTRACE_V1"]["status"], "PLANNED")
+        self.assertEqual(run_modes["POST_CANDIDATE_BACKTRACE_V1"]["status"], "AVAILABLE")
+        self.assertEqual(
+            run_modes["POST_CANDIDATE_BACKTRACE_V1"]["script"],
+            "scripts/run-guangzhou-post-candidate-backtrace-v1.ps1",
+        )
 
     def test_project_level_audit_fields_are_required_by_contract(self) -> None:
         contract = self._contract()
@@ -74,6 +78,12 @@ class BusinessDirectionStrategyContractTests(unittest.TestCase):
             "parsed_file_count",
             "download_completeness_state",
             "parse_completeness_state",
+            "post_candidate_entry_state",
+            "backtrace_stage_attempts",
+            "matched_project_keys",
+            "missing_stage_kinds",
+            "backtrace_completeness_state",
+            "ready_for_tailored_analysis",
         ):
             self.assertIn(field, fields)
 

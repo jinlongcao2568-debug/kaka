@@ -49,6 +49,8 @@ VALID_ATTACHMENT_CONTENT_MARKERS = (
     "rar",
     "octet-stream",
 )
+POST_CANDIDATE_ENTRY_DOCUMENT_KINDS = {"candidate_notice", "award_result"}
+CORE_BACKTRACE_DOCUMENT_KINDS = ("tender_file", "candidate_notice", "award_result")
 
 
 def build_professional_clean_project_archive_manifest(
@@ -172,12 +174,18 @@ def _archive_project(
     stage_pollution_reasons = _stage_pollution_reasons(samples, source_text)
     section_flags = _section_flags(source_text)
     parse_metrics = _parse_metrics(samples=samples, section_flags=section_flags)
+    post_candidate_entry_state = _post_candidate_entry_state(samples)
+    backtrace_stage_attempts = _backtrace_stage_attempts(samples)
+    missing_stage_kinds = _missing_stage_kinds(samples)
+    backtrace_completeness_state = _backtrace_completeness_state(missing_stage_kinds)
     project_contract = _project_completeness_contract(
         samples=samples,
         detail_files=detail_files,
         attachment_files=attachment_files,
         parse_metrics=parse_metrics,
         stage_pollution_reasons=stage_pollution_reasons,
+        post_candidate_entry_state=post_candidate_entry_state,
+        backtrace_completeness_state=backtrace_completeness_state,
     )
     file_inventory = _file_inventory(
         project_id=project_id,
@@ -213,6 +221,19 @@ def _archive_project(
         "valid_tender_attachment_count": sum(1 for item in attachment_files if item.get("valid_tender_attachment")),
         "html_pollution_file_count": sum(1 for item in attachment_files if item.get("html_pollution")),
         "stage_pollution_reasons": stage_pollution_reasons,
+        "post_candidate_entry_state": post_candidate_entry_state,
+        "backtrace_stage_attempts": backtrace_stage_attempts,
+        "matched_project_keys": _dedupe_strings(
+            key
+            for sample in samples
+            for key in _as_list(sample.get("matched_project_keys"))
+        ),
+        "missing_stage_kinds": missing_stage_kinds,
+        "backtrace_completeness_state": backtrace_completeness_state,
+        "download_completeness_state": str(project_contract.get("download_completeness_state") or ""),
+        "parse_completeness_state": str(project_contract.get("parse_completeness_state") or ""),
+        "ready_for_tailored_analysis": str(project_contract.get("overall_project_readiness_state") or "")
+        == "PROJECT_READY_FOR_SIGNAL_ANALYSIS",
         **section_flags,
         "parse_metrics": parse_metrics,
         "project_completeness_contract": project_contract,
@@ -250,6 +271,10 @@ def _archive_project(
                 "verification_urls": verification_urls,
                 "parse_metrics": parse_metrics,
                 "section_flags": section_flags,
+                "post_candidate_entry_state": post_candidate_entry_state,
+                "backtrace_stage_attempts": backtrace_stage_attempts,
+                "missing_stage_kinds": missing_stage_kinds,
+                "backtrace_completeness_state": backtrace_completeness_state,
                 "file_parse_attributions": _project_file_parse_attributions(samples),
                 "project_completeness_contract": project_contract,
                 "file_level_parse_attribution_state": parse_metrics["file_level_parse_attribution_state"],
@@ -362,6 +387,9 @@ def _summary(items: list[Mapping[str, Any]]) -> dict[str, Any]:
             (item.get("project_completeness_contract") or {}).get("overall_project_readiness_state")
             for item in items
         ),
+        "post_candidate_entry_state_counts": _counts(item.get("post_candidate_entry_state") for item in items),
+        "backtrace_completeness_state_counts": _counts(item.get("backtrace_completeness_state") for item in items),
+        "ready_for_tailored_analysis_count": sum(1 for item in items if bool(item.get("ready_for_tailored_analysis"))),
         "parse_insufficiency_counts": _counts(
             reason
             for item in items
@@ -415,6 +443,9 @@ def _sample_card(sample: Mapping[str, Any]) -> dict[str, Any]:
         "document_kind": str(sample.get("document_kind") or ""),
         "source_profile_id": str(sample.get("source_profile_id") or ""),
         "source_url": str(sample.get("source_url") or ""),
+        "source_project_code": str(sample.get("source_project_code") or ""),
+        "project_match_key": str(sample.get("project_match_key") or ""),
+        "matched_project_keys": _as_list(sample.get("matched_project_keys")),
         "target_execution_state": str(sample.get("target_execution_state") or ""),
         "document_completeness_state": str(sample.get("document_completeness_state") or ""),
         "notice_version_chain_state": str(sample.get("notice_version_chain_state") or ""),
@@ -431,11 +462,89 @@ def _sample_card(sample: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
+def _post_candidate_entry_state(samples: list[Mapping[str, Any]]) -> str:
+    document_kinds = {str(sample.get("document_kind") or "") for sample in samples}
+    if document_kinds & POST_CANDIDATE_ENTRY_DOCUMENT_KINDS:
+        return "POST_CANDIDATE_ENTRY_PRESENT"
+    return "POST_CANDIDATE_ENTRY_MISSING"
+
+
+def _backtrace_stage_attempts(samples: list[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    attempts: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for sample in samples:
+        for existing in list(sample.get("backtrace_stage_attempts") or []):
+            if not isinstance(existing, Mapping):
+                continue
+            key = "|".join(
+                str(existing.get(part) or "")
+                for part in ("target_id", "document_kind", "source_url", "target_execution_state")
+            )
+            if key in seen:
+                continue
+            seen.add(key)
+            attempts.append(
+                {
+                    "document_kind": str(existing.get("document_kind") or ""),
+                    "target_id": str(existing.get("target_id") or ""),
+                    "source_url": str(existing.get("source_url") or ""),
+                    "target_execution_state": str(existing.get("target_execution_state") or ""),
+                    "detail_snapshot_count": _int_value(existing.get("detail_snapshot_count"), default=0),
+                    "attachment_snapshot_count": _int_value(existing.get("attachment_snapshot_count"), default=0),
+                    "failure_taxonomy": _as_list(existing.get("failure_taxonomy")),
+                    "customer_visible_allowed": False,
+                    "no_legal_conclusion": True,
+                }
+            )
+        document_kind = str(sample.get("document_kind") or "")
+        source_url = str(sample.get("source_url") or "")
+        target_id = str(sample.get("parent_target_id") or sample.get("target_id") or "")
+        state = str(sample.get("target_execution_state") or "")
+        key = "|".join((target_id, document_kind, source_url, state))
+        if key in seen:
+            continue
+        seen.add(key)
+        attempts.append(
+            {
+                "document_kind": document_kind,
+                "target_id": target_id,
+                "source_url": source_url,
+                "target_execution_state": state,
+                "detail_snapshot_count": _int_value(sample.get("detail_snapshot_count"), default=0),
+                "attachment_snapshot_count": _int_value(sample.get("attachment_snapshot_count"), default=0),
+                "failure_taxonomy": _as_list(sample.get("failure_taxonomy")),
+                "customer_visible_allowed": False,
+                "no_legal_conclusion": True,
+            }
+        )
+    return attempts
+
+
+def _missing_stage_kinds(samples: list[Mapping[str, Any]]) -> list[str]:
+    present = {str(sample.get("document_kind") or "") for sample in samples}
+    return [kind for kind in CORE_BACKTRACE_DOCUMENT_KINDS if kind not in present]
+
+
+def _backtrace_completeness_state(missing_stage_kinds: list[str]) -> str:
+    if not missing_stage_kinds:
+        return "BACKTRACE_CORE_COMPLETE"
+    if len(missing_stage_kinds) < len(CORE_BACKTRACE_DOCUMENT_KINDS):
+        return "BACKTRACE_PARTIAL"
+    return "BACKTRACE_MISSING"
+
+
 def _stage_pollution_reasons(samples: list[Mapping[str, Any]], source_text: str) -> list[str]:
     reasons: list[str] = []
     if any(str(sample.get("document_kind") or "") == "tender_file" for sample in samples):
+        tender_source_text = "\n".join(
+            str(value)
+            for sample in samples
+            if str(sample.get("document_kind") or "") == "tender_file"
+            for value in _sample_text_values(sample)
+            if value
+        ) or source_text
         for marker in PROJECT_STAGE_POLLUTION_MARKERS:
-            if marker in source_text:
+            if marker in tender_source_text:
                 reasons.append(f"tender_file_stage_text_contains:{marker}")
     return _dedupe_strings(reasons)
 
@@ -563,6 +672,8 @@ def _project_completeness_contract(
     attachment_files: list[Mapping[str, Any]],
     parse_metrics: Mapping[str, Any],
     stage_pollution_reasons: list[str],
+    post_candidate_entry_state: str,
+    backtrace_completeness_state: str,
 ) -> dict[str, Any]:
     has_tender_sample = any(str(sample.get("document_kind") or "") == "tender_file" for sample in samples)
     replayable_detail_count = sum(1 for item in detail_files if item.get("replayable"))
@@ -610,6 +721,8 @@ def _project_completeness_contract(
         "parse_completeness_state": parse_state,
         "parse_blocking_reasons": _dedupe_strings(parse_reasons),
         "overall_project_readiness_state": overall,
+        "post_candidate_entry_state": post_candidate_entry_state,
+        "backtrace_completeness_state": backtrace_completeness_state,
         "download_before_parse_required": True,
         "official_analysis_input": "LOCAL_REPLAY_SNAPSHOT_ONLY",
         "customer_visible_allowed": False,

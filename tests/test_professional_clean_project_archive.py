@@ -505,6 +505,95 @@ class TestProfessionalCleanProjectArchive(unittest.TestCase):
                 item["failure_reasons"],
             )
 
+    def test_post_candidate_backtrace_fields_are_reported_per_project(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = _repo(tmp_dir)
+            for snapshot_id, url in (
+                ("SNAP-DETAIL-TENDER", "https://example.test/tender.html"),
+                ("SNAP-DETAIL-CAND", "https://example.test/candidate.html"),
+                ("SNAP-DETAIL-AWARD", "https://example.test/award.html"),
+                ("SNAP-TENDER-PDF", "https://example.test/tender.pdf"),
+            ):
+                _save_snapshot(
+                    repo,
+                    snapshot_id=snapshot_id,
+                    data=b"%PDF-1.4" if snapshot_id == "SNAP-TENDER-PDF" else b"<html>detail</html>",
+                    content_type="application/pdf" if snapshot_id == "SNAP-TENDER-PDF" else "text/html",
+                    source_url=url,
+                )
+            execution_path = Path(tmp_dir) / "run-manifest.json"
+            output_root = Path(tmp_dir) / "professional-clean-v1"
+            tender = _project_sample(
+                project_name="某工程施工招标公告",
+                detail_snapshot_id="SNAP-DETAIL-TENDER",
+                attachment_snapshot_id="SNAP-TENDER-PDF",
+                attachment_source_url="https://example.test/tender.pdf",
+            )
+            candidate = _project_sample(
+                project_name="某工程施工中标候选人公示",
+                detail_snapshot_id="SNAP-DETAIL-CAND",
+                attachment_snapshot_id="SNAP-TENDER-PDF",
+            )
+            candidate["document_kind"] = "candidate_notice"
+            candidate["parent_target_id"] = "GZ-BACKTRACE-CANDIDATE"
+            candidate["source_url"] = "https://example.test/candidate.html"
+            candidate["attachment_snapshot_refs"] = []
+            candidate["backtrace_stage_attempts"] = [
+                {
+                    "document_kind": "award_result",
+                    "target_id": "GZ-BACKTRACE-AWARD-NO-MATCH",
+                    "source_url": "",
+                    "target_execution_state": "DISCOVERY_NO_MATCH_REVIEW",
+                    "detail_snapshot_count": 0,
+                    "attachment_snapshot_count": 0,
+                    "failure_taxonomy": ["discovery_no_match"],
+                }
+            ]
+            award = _project_sample(
+                project_name="某工程施工中标结果公告",
+                detail_snapshot_id="SNAP-DETAIL-AWARD",
+                attachment_snapshot_id="SNAP-TENDER-PDF",
+            )
+            award["document_kind"] = "award_result"
+            award["parent_target_id"] = "GZ-BACKTRACE-AWARD"
+            award["source_url"] = "https://example.test/award.html"
+            award["attachment_snapshot_refs"] = []
+            for sample in (tender, candidate, award):
+                sample["source_project_code"] = "JG2026-POST"
+                sample["project_match_key"] = "JG2026-POST"
+                sample["matched_project_keys"] = ["JG2026-POST"]
+            _write_execution_manifest(execution_path, [tender, candidate, award])
+
+            result = build_professional_clean_project_archive_manifest(
+                real_sample_execution_manifest_json=execution_path,
+                output_root=output_root,
+                object_repository=repo,
+                created_at="2026-05-10T00:00:00+08:00",
+            )
+
+            item = result["manifest"]["items"][0]
+            self.assertEqual(item["post_candidate_entry_state"], "POST_CANDIDATE_ENTRY_PRESENT")
+            self.assertEqual(item["backtrace_completeness_state"], "BACKTRACE_CORE_COMPLETE")
+            self.assertEqual(item["missing_stage_kinds"], [])
+            self.assertEqual(len(item["backtrace_stage_attempts"]), 4)
+            self.assertTrue(
+                any(
+                    attempt["target_id"] == "GZ-BACKTRACE-AWARD-NO-MATCH"
+                    and attempt["target_execution_state"] == "DISCOVERY_NO_MATCH_REVIEW"
+                    for attempt in item["backtrace_stage_attempts"]
+                )
+            )
+            self.assertIn("JG2026-POST", item["matched_project_keys"])
+            self.assertTrue(item["ready_for_tailored_analysis"])
+            self.assertEqual(
+                item["project_completeness_contract"]["post_candidate_entry_state"],
+                "POST_CANDIDATE_ENTRY_PRESENT",
+            )
+            self.assertEqual(
+                result["summary"]["backtrace_completeness_state_counts"]["BACKTRACE_CORE_COMPLETE"],
+                1,
+            )
+
 
 def _repo(tmp_dir: str) -> ObjectStorageRepository:
     settings = Settings(

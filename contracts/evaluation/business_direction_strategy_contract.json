@@ -133,7 +133,13 @@
     "parsed_file_count",
     "download_completeness_state",
     "parse_completeness_state",
-    "failure_reasons"
+    "failure_reasons",
+    "post_candidate_entry_state",
+    "backtrace_stage_attempts",
+    "matched_project_keys",
+    "missing_stage_kinds",
+    "backtrace_completeness_state",
+    "ready_for_tailored_analysis"
   ],
   "run_modes": [
     {
@@ -153,9 +159,9 @@
     {
       "run_mode_id": "POST_CANDIDATE_BACKTRACE_V1",
       "line_id": "POST_CANDIDATE_EVIDENCE_PACK",
-      "script": "scripts/run-post-candidate-evidence-pack-samples.ps1",
-      "status": "PLANNED",
-      "purpose": "从候选公示或评标结果进入，回溯同一项目全流程文件并生成证据包分析输入。"
+      "script": "scripts/run-guangzhou-post-candidate-backtrace-v1.ps1",
+      "status": "AVAILABLE",
+      "purpose": "广州候选公示后证据包入口：从候选公示/中标结果入池，按同项目回溯核心阶段，生成项目级证据链审计和挑战稳定性报告。"
     }
   ],
   "analysis_boundaries": [

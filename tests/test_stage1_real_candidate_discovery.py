@@ -416,6 +416,31 @@ def fake_guangzhou_award_result_fallback_api_link_discoverer(
     return {"state": "EMPTY", "items": [], "process_attempts": process_attempts}
 
 
+def fake_guangzhou_backtrace_empty_api_link_discoverer(
+    profile_id: str,
+    *,
+    now: str,
+    context: dict | None = None,
+) -> dict:
+    if profile_id != "GUANGZHOU-YWTB-CONSTRUCTION-LIST":
+        return {"state": "UNSUPPORTED", "items": []}
+    return {
+        "state": "EMPTY",
+        "endpoint": "https://ywtb.gzggzy.cn/inteligentsearch/rest/esinteligentsearch/getFullTextDataNew",
+        "items": [],
+        "record_count": 0,
+        "process_attempts": [
+            {
+                "process_label": "tender_notice",
+                "trading_process": "01",
+                "record_count": 0,
+                "accepted_item_count": 0,
+                "attempted_pages": 1,
+            }
+        ],
+    }
+
+
 def fake_guangzhou_many_candidate_publicity_api_link_discoverer(profile_id: str, *, now: str) -> dict:
     if profile_id != "GUANGZHOU-YWTB-CONSTRUCTION-LIST":
         return {"state": "UNSUPPORTED", "items": []}
@@ -959,6 +984,10 @@ class RealCandidateDiscoveryTests(unittest.TestCase):
         self.assertEqual(candidate["source_trading_process"], "03")
         self.assertEqual(candidate["source_dataset_name"], "中标候选人公示")
         self.assertEqual(candidate["source_query_process_label"], "candidate_publicity")
+        self.assertEqual(candidate["source_project_code"], "JG2026-11113")
+        self.assertEqual(candidate["project_match_key"], "JG2026-11113")
+        self.assertIn("JG2026-11113", candidate["matched_project_keys"])
+        self.assertIn("JG2026-11113", candidate["project_id"])
         self.assertIn("ywtb.gzggzy.cn/jyfw/002001/002001001/20260501", candidate["source_url"])
 
     def test_guangzhou_ywtb_process_priority_follows_requested_document_kind(self) -> None:
@@ -1046,6 +1075,31 @@ class RealCandidateDiscoveryTests(unittest.TestCase):
         self.assertEqual(award_result["candidates"][0]["source_query_process_label"], "award_result")
         self.assertEqual(award_result["candidates"][0]["source_dataset_name"], "中标结果公告")
 
+    def test_guangzhou_backtrace_filters_records_by_project_code_or_name(self) -> None:
+        records = [
+            _gz_stage_record("01", "南沙区排水设施小修项目施工招标公告", "same-project"),
+            _gz_stage_record("01", "白云区道路整治项目施工招标公告", "other-project"),
+        ]
+        records[0]["xmbh"] = "JG2026-SAME"
+        records[1]["xmbh"] = "JG2026-OTHER"
+
+        by_code = _link_items_from_guangzhou_ywtb_records(
+            records,
+            allowed_processes={"01"},
+            project_codes={"JG2026-SAME"},
+        )
+        by_name = _link_items_from_guangzhou_ywtb_records(
+            records,
+            allowed_processes={"01"},
+            project_name_queries=["南沙区排水设施小修项目施工中标候选人公示"],
+        )
+
+        self.assertEqual(len(by_code), 1)
+        self.assertEqual(by_code[0]["project_code"], "JG2026-SAME")
+        self.assertEqual(by_code[0]["project_match_key"], "JG2026-SAME")
+        self.assertEqual(len(by_name), 1)
+        self.assertEqual(by_name[0]["project_code"], "JG2026-SAME")
+
     def test_guangzhou_award_target_falls_back_to_award_info_when_result_empty(self) -> None:
         service = RealPublicCandidateDiscoveryService(
             fetcher=FakeGuangdongShellFetcher(),
@@ -1074,6 +1128,37 @@ class RealCandidateDiscoveryTests(unittest.TestCase):
         self.assertEqual(candidate["source_dataset_name"], "中标信息")
         attempts = result["profile_reports"][0]["public_api_process_attempts"]
         self.assertEqual([item["trading_process"] for item in attempts], ["06", "05"])
+
+    def test_guangzhou_backtrace_empty_api_does_not_fallback_to_static_entry_links(self) -> None:
+        service = RealPublicCandidateDiscoveryService(
+            fetcher=FakeGuangzhouFlowNoticeFetcher(),
+            repository=RealPublicCandidateRepository(),
+            profile_api_link_discoverer=fake_guangzhou_backtrace_empty_api_link_discoverer,
+        )
+
+        result = service.discover(
+            {
+                "region_codes": ["CN-GD"],
+                "project_types": ["municipal"],
+                "discovery_profile_limit_per_region": 1,
+                "discovery_candidate_limit": 5,
+                "source_profile_ids": ["GUANGZHOU-YWTB-CONSTRUCTION-LIST"],
+                "evaluation_corpus_mode": True,
+                "evaluation_document_kind": "tender_file",
+                "selection_filters": [
+                    "BACKTRACE_PROJECT_CODE:JG2026-MISSING",
+                    "BACKTRACE_PROJECT_NAME:不存在项目",
+                ],
+                "now": "2026-05-01T00:00:00+00:00",
+            },
+            now="2026-05-01T00:00:00+00:00",
+        )
+
+        self.assertEqual(result["candidate_count"], 0)
+        report = result["profile_reports"][0]
+        diagnostics = report.get("candidate_diagnostics") or {}
+        self.assertEqual(diagnostics.get("profile_api_link_count"), 0)
+        self.assertEqual(diagnostics.get("accepted_candidate_count"), 0)
 
     def test_guangdong_stage1_6_validation_defaults_to_30_candidates_and_one_page_window(self) -> None:
         service = RealPublicCandidateDiscoveryService(
