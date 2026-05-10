@@ -19,6 +19,7 @@ from stage1_tasking.real_candidate_discovery import (
     _guangzhou_backtrace_query_variants,
     _guangzhou_ywtb_process_priority,
     _is_candidate_detail_url,
+    _link_items_from_guangzhou_ywtb_relation_records,
     _link_items_from_guangzhou_ywtb_records,
     _link_items_from_text_search_records,
     list_persisted_real_candidates,
@@ -1002,7 +1003,13 @@ class RealCandidateDiscoveryTests(unittest.TestCase):
         )
         self.assertEqual(
             _guangzhou_ywtb_process_priority({"evaluation_document_kind": "award_result"}),
-            (("award_result", "06"), ("award_info_fallback", "05")),
+            (("award_result", "06"), ("award_info", "05")),
+        )
+        self.assertEqual(
+            _guangzhou_ywtb_process_priority(
+                {"selection_filters": ["BACKTRACE_FLOW_CODE:19"], "evaluation_document_kind": "opening_info"}
+            ),
+            (("opening_info", "19"),),
         )
 
     def test_guangzhou_tender_target_uses_tender_notice_not_candidate_publicity(self) -> None:
@@ -1030,7 +1037,7 @@ class RealCandidateDiscoveryTests(unittest.TestCase):
         candidate = result["candidates"][0]
         self.assertEqual(candidate["source_trading_process"], "01")
         self.assertEqual(candidate["source_query_process_label"], "tender_notice")
-        self.assertEqual(candidate["source_dataset_name"], "招标公告")
+        self.assertEqual(candidate["source_dataset_name"], "招标公告/关联公告")
         self.assertNotIn("中标候选人", candidate["project_name"])
         report = result["profile_reports"][0]
         self.assertEqual(report["public_api_trading_process_strategy"], "guangzhou_ywtb_stage_aware")
@@ -1074,7 +1081,7 @@ class RealCandidateDiscoveryTests(unittest.TestCase):
         self.assertEqual(candidate_result["candidates"][0]["source_query_process_label"], "candidate_publicity")
         self.assertEqual(award_result["candidates"][0]["source_trading_process"], "06")
         self.assertEqual(award_result["candidates"][0]["source_query_process_label"], "award_result")
-        self.assertEqual(award_result["candidates"][0]["source_dataset_name"], "中标结果公告")
+        self.assertEqual(award_result["candidates"][0]["source_dataset_name"], "中标结果公示/公告")
 
     def test_guangzhou_backtrace_filters_records_by_project_code_or_name(self) -> None:
         records = [
@@ -1152,10 +1159,44 @@ class RealCandidateDiscoveryTests(unittest.TestCase):
         self.assertEqual(result["candidate_count"], 1)
         candidate = result["candidates"][0]
         self.assertEqual(candidate["source_trading_process"], "05")
-        self.assertEqual(candidate["source_query_process_label"], "award_info_fallback")
+        self.assertEqual(candidate["source_query_process_label"], "award_info")
         self.assertEqual(candidate["source_dataset_name"], "中标信息")
         attempts = result["profile_reports"][0]["public_api_process_attempts"]
         self.assertEqual([item["trading_process"] for item in attempts], ["06", "05"])
+
+    def test_guangzhou_relation_records_keep_all_official_flow_metadata(self) -> None:
+        items = _link_items_from_guangzhou_ywtb_relation_records(
+            [
+                {
+                    "jsgcggfl": "19",
+                    "infodate": "2026-04-24 09:00:00",
+                    "title": "广东省监狱管理局安防监控工程开标信息",
+                    "infourl": "https://jsgc.gzggzy.cn/tpframe/jsgc/kaibiao/infotoweb_list?biaoduanguid=abc",
+                    "infoid": "open-1",
+                },
+                {
+                    "jsgcggfl": "04",
+                    "infodate": "2026-05-10 00:00:00",
+                    "title": "广东省监狱管理局安防监控工程[JG2026-10815]中标候选人投标文件公开",
+                    "infourl": "/jyfw/002001/002001001/20260510/abc_tb.html",
+                    "infoid": "bid-file-1",
+                },
+            ],
+            allowed_processes={"19", "04"},
+            relation_guid="JG2026-10815",
+            query_variants=["JG2026-10815"],
+            base_project_name="广东省监狱管理局安防监控工程",
+        )
+
+        self.assertEqual(len(items), 2)
+        opening = next(item for item in items if item["trading_process"] == "19")
+        bid_file = next(item for item in items if item["trading_process"] == "04")
+        self.assertEqual(opening["guangzhou_flow_no"], "05")
+        self.assertEqual(opening["guangzhou_flow_title"], "开标信息")
+        self.assertEqual(opening["project_match_key"], "JG2026-10815")
+        self.assertEqual(opening["backtrace_match_reason"], "relation_guid_exact_match")
+        self.assertEqual(bid_file["guangzhou_flow_no"], "08")
+        self.assertEqual(bid_file["guangzhou_flow_title"], "投标(资格预审申请)文件公开")
 
     def test_guangzhou_backtrace_empty_api_does_not_fallback_to_static_entry_links(self) -> None:
         service = RealPublicCandidateDiscoveryService(

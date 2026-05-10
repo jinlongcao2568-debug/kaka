@@ -1343,9 +1343,16 @@ class RealPublicEntryFetcher:
         http_detail_allowed = profile.profile_id in HTTP_PUBLIC_ENTRY_ALLOWLIST_PROFILE_IDS or profile.profile_id in PROVINCE_REALTIME_DETAIL_PROFILE_IDS
         if parsed.scheme != "https" and not (parsed.scheme == "http" and http_detail_allowed):
             raise self._boundary_error(url, "non_https_public_detail_url")
-        if (parsed.hostname or "").lower() != profile.host.split(":", 1)[0].lower():
-            raise self._boundary_error(url, "detail_url_host_not_parent_profile")
+        host = (parsed.hostname or "").lower()
         path = parsed.path.lower()
+        if (
+            profile.profile_id == "GUANGZHOU-YWTB-CONSTRUCTION-LIST"
+            and host == "jsgc.gzggzy.cn"
+            and "/kaibiao/infotoweb_list" in path
+        ):
+            return profile
+        if host != profile.host.split(":", 1)[0].lower():
+            raise self._boundary_error(url, "detail_url_host_not_parent_profile")
         allowed_detail_suffixes = (".html", ".htm", ".shtml")
         if profile.profile_id in PROVINCE_REALTIME_DETAIL_PROFILE_IDS:
             allowed_detail_suffixes = (*allowed_detail_suffixes, ".jhtml", ".jspx", ".jsp")

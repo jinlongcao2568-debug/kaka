@@ -20,12 +20,21 @@ GUANGZHOU_POST_CANDIDATE_BACKTRACE_ADAPTER_ID = "guangzhou-post-candidate-backtr
 
 GUANGZHOU_PROFILE_ID = "GUANGZHOU-YWTB-CONSTRUCTION-LIST"
 ENTRY_TARGET_IDS = ("REAL-GD-CANDIDATE-001", "REAL-GD-AWARD-001")
-CORE_BACKTRACE_DOCUMENT_KINDS = ("tender_file", "candidate_notice", "award_result")
-BACKTRACE_STAGE_FILTERS = {
-    "tender_file": ["工程建设", "招标公告", "含招标文件或附件", "BACKTRACE_STAGE:tender_file"],
-    "candidate_notice": ["工程建设", "中标候选人公示", "BACKTRACE_STAGE:candidate_notice"],
-    "award_result": ["工程建设", "中标结果公告", "BACKTRACE_STAGE:award_result"],
-}
+GUANGZHOU_FLOW_MODULES = (
+    {"flow_no": "01", "flow_code": "08", "flow_title": "招标计划", "document_kind": "bid_plan"},
+    {"flow_no": "02", "flow_code": "17", "flow_title": "招标文件公示", "document_kind": "tender_file_publicity"},
+    {"flow_no": "03", "flow_code": "01", "flow_title": "招标公告/关联公告", "document_kind": "tender_file"},
+    {"flow_no": "04", "flow_code": "18", "flow_title": "澄清答疑", "document_kind": "clarification_notice"},
+    {"flow_no": "05", "flow_code": "19", "flow_title": "开标信息", "document_kind": "opening_info"},
+    {"flow_no": "06", "flow_code": "02", "flow_title": "资审结果公示", "document_kind": "qualification_review_result"},
+    {"flow_no": "07", "flow_code": "03", "flow_title": "中标候选人公示", "document_kind": "candidate_notice"},
+    {"flow_no": "08", "flow_code": "04", "flow_title": "投标(资格预审申请)文件公开", "document_kind": "bid_file_publicity"},
+    {"flow_no": "09", "flow_code": "06", "flow_title": "中标结果公示/公告", "document_kind": "award_result"},
+    {"flow_no": "10", "flow_code": "05", "flow_title": "中标信息", "document_kind": "award_info"},
+    {"flow_no": "11", "flow_code": "15", "flow_title": "合同信息公开", "document_kind": "contract_public_info"},
+    {"flow_no": "12", "flow_code": "20", "flow_title": "项目异常", "document_kind": "project_exception"},
+)
+CORE_BACKTRACE_DOCUMENT_KINDS = tuple(str(module["document_kind"]) for module in GUANGZHOU_FLOW_MODULES)
 
 
 def build_guangzhou_post_candidate_backtrace(
@@ -92,7 +101,7 @@ def build_guangzhou_post_candidate_backtrace(
             object_storage_path=object_storage,
             execute=execute,
             target_ids=[str(item.get("target_id") or "") for item in backtrace_targets["targets"]],
-            per_target_candidate_limit=1,
+            per_target_candidate_limit=max(5, per_target_candidate_limit),
             professional_source_only=True,
             created_at=created,
         )
@@ -256,22 +265,39 @@ def _backtrace_targets_for_entries(entries: list[Mapping[str, Any]]) -> dict[str
         match_key = _project_match_key(entry)
         base_project_name = _base_guangzhou_project_name(project_name)
         query_variants = _backtrace_query_variants(entry, base_project_name=base_project_name)
-        present_document_kinds = set(str(kind) for kind in list(entry.get("present_document_kinds") or []))
+        present_flow_nos = {
+            str(entry.get("guangzhou_flow_no") or "")
+        } | {
+            _flow_no_for_document_kind(str(kind))
+            for kind in list(entry.get("present_document_kinds") or [])
+        }
+        present_flow_nos.discard("")
         suffix = _slug(project_code or match_key or f"PROJECT-{index}")[:36]
-        for document_kind in CORE_BACKTRACE_DOCUMENT_KINDS:
-            if document_kind in present_document_kinds:
+        for module in GUANGZHOU_FLOW_MODULES:
+            document_kind = str(module["document_kind"])
+            flow_no = str(module["flow_no"])
+            flow_code = str(module["flow_code"])
+            flow_title = str(module["flow_title"])
+            if flow_no in present_flow_nos:
                 continue
-            target_id = f"GZ-BACKTRACE-{suffix}-{_document_kind_suffix(document_kind)}"
+            target_id = f"GZ-BACKTRACE-{suffix}-{flow_no}-{_document_kind_suffix(document_kind)}"
             filters = [
-                *BACKTRACE_STAGE_FILTERS[document_kind],
+                "工程建设",
+                flow_title,
+                f"BACKTRACE_STAGE:{document_kind}",
+                f"BACKTRACE_FLOW_NO:{flow_no}",
+                f"BACKTRACE_FLOW_CODE:{flow_code}",
                 f"BACKTRACE_PROJECT_KEY:{match_key}",
             ]
             if project_code:
                 filters.append(f"BACKTRACE_PROJECT_CODE:{project_code}")
+                filters.append(f"BACKTRACE_RELATION_GUID:{project_code}")
             if project_name:
                 filters.append(f"BACKTRACE_PROJECT_NAME:{project_name}")
             if base_project_name:
                 filters.append(f"BACKTRACE_BASE_PROJECT_NAME:{base_project_name}")
+            filters.append("BACKTRACE_RELATION_SITE_GUID:7eb5f7f1-9041-43ad-8e13-8fcb82ea831a")
+            filters.append("BACKTRACE_RELATION_CATEGORY_NUM:002001001")
             for variant in query_variants:
                 filters.append(f"BACKTRACE_QUERY_VARIANT:{variant}")
             targets.append(
@@ -284,10 +310,14 @@ def _backtrace_targets_for_entries(entries: list[Mapping[str, Any]]) -> dict[str
                     "source_family": "local_public_resource_trading_center",
                     "project_type": "construction",
                     "document_kind": document_kind,
-                    "target_count": 1,
+                    "target_count": 5,
                     "selection_filters": filters,
                     "base_project_name": base_project_name,
                     "backtrace_query_variants": query_variants,
+                    "guangzhou_flow_no": flow_no,
+                    "guangzhou_flow_title": flow_title,
+                    "guangzhou_flow_code": flow_code,
+                    "guangzhou_flow_folder": f"{flow_no}_{flow_title}",
                 }
             )
     return {
@@ -320,13 +350,21 @@ def _annotate_project_samples(
     target_items = list(target_items or [])
     for project_samples in grouped.values():
         document_kinds = {str(sample.get("document_kind") or "") for sample in project_samples}
-        missing = [kind for kind in CORE_BACKTRACE_DOCUMENT_KINDS if kind not in document_kinds]
+        present_flow_nos = {_sample_flow_no(sample) for sample in project_samples}
+        present_flow_nos.discard("")
+        missing_flow_modules = [
+            dict(module)
+            for module in GUANGZHOU_FLOW_MODULES
+            if str(module["flow_no"]) not in present_flow_nos
+        ]
+        missing = [str(module["document_kind"]) for module in missing_flow_modules]
         post_state = (
             "POST_CANDIDATE_ENTRY_PRESENT"
             if document_kinds & {"candidate_notice", "award_result"}
             else "POST_CANDIDATE_ENTRY_MISSING"
         )
         backtrace_state = "BACKTRACE_CORE_COMPLETE" if not missing else "BACKTRACE_PARTIAL"
+        flow_state = "GUANGZHOU_FLOW_COMPLETE" if not missing_flow_modules else "GUANGZHOU_FLOW_PARTIAL"
         project_keys = {
             key
             for sample in project_samples
@@ -360,6 +398,10 @@ def _annotate_project_samples(
                 "base_project_name": str(sample.get("base_project_name") or ""),
                 "backtrace_query_variants": list(sample.get("backtrace_query_variants") or []),
                 "backtrace_match_reason": str(sample.get("backtrace_match_reason") or ""),
+                "guangzhou_flow_no": _sample_flow_no(sample),
+                "guangzhou_flow_title": _sample_flow_title(sample),
+                "guangzhou_flow_code": str(sample.get("guangzhou_flow_code") or sample.get("source_trading_process") or ""),
+                "guangzhou_flow_folder": str(sample.get("guangzhou_flow_folder") or ""),
                 "customer_visible_allowed": False,
                 "no_legal_conclusion": True,
             }
@@ -387,6 +429,14 @@ def _annotate_project_samples(
                 "base_project_name": target_base_project_name,
                 "backtrace_query_variants": target_query_variants,
                 "backtrace_match_reason": str(target_item.get("backtrace_match_reason") or ""),
+                "guangzhou_flow_no": str(
+                    target_item.get("guangzhou_flow_no") or _target_item_filter_value(target_item, "BACKTRACE_FLOW_NO:")
+                ),
+                "guangzhou_flow_title": str(target_item.get("guangzhou_flow_title") or ""),
+                "guangzhou_flow_code": str(
+                    target_item.get("guangzhou_flow_code") or _target_item_filter_value(target_item, "BACKTRACE_FLOW_CODE:")
+                ),
+                "guangzhou_flow_folder": str(target_item.get("guangzhou_flow_folder") or ""),
                 "customer_visible_allowed": False,
                 "no_legal_conclusion": True,
             }
@@ -421,6 +471,9 @@ def _annotate_project_samples(
             )
             row["missing_stage_kinds"] = missing
             row["backtrace_completeness_state"] = backtrace_state
+            row["guangzhou_flow_modules_present"] = _present_flow_modules(project_samples)
+            row["guangzhou_flow_modules_missing"] = missing_flow_modules
+            row["guangzhou_flow_completeness_state"] = flow_state
             annotated.append(row)
     return annotated
 
@@ -428,9 +481,56 @@ def _annotate_project_samples(
 def _target_item_project_key(target_item: Mapping[str, Any]) -> str:
     for value in list(target_item.get("selection_filters") or []):
         text = str(value or "")
-        if text.startswith("BACKTRACE_PROJECT_CODE:") or text.startswith("BACKTRACE_PROJECT_KEY:"):
+        if (
+            text.startswith("BACKTRACE_RELATION_GUID:")
+            or text.startswith("BACKTRACE_PROJECT_CODE:")
+            or text.startswith("BACKTRACE_PROJECT_KEY:")
+        ):
             return text.split(":", 1)[1].strip()
     return ""
+
+
+def _sample_flow_no(sample: Mapping[str, Any]) -> str:
+    explicit = str(sample.get("guangzhou_flow_no") or "").strip()
+    if explicit:
+        return explicit
+    flow_code = str(sample.get("guangzhou_flow_code") or sample.get("source_trading_process") or "").strip()
+    for module in GUANGZHOU_FLOW_MODULES:
+        if str(module["flow_code"]) == flow_code:
+            return str(module["flow_no"])
+    return _flow_no_for_document_kind(str(sample.get("document_kind") or ""))
+
+
+def _sample_flow_title(sample: Mapping[str, Any]) -> str:
+    explicit = str(sample.get("guangzhou_flow_title") or "").strip()
+    if explicit:
+        return explicit
+    flow_no = _sample_flow_no(sample)
+    for module in GUANGZHOU_FLOW_MODULES:
+        if str(module["flow_no"]) == flow_no:
+            return str(module["flow_title"])
+    return ""
+
+
+def _present_flow_modules(samples: list[Mapping[str, Any]]) -> list[dict[str, str]]:
+    present: dict[str, dict[str, str]] = {}
+    for sample in samples:
+        flow_no = _sample_flow_no(sample)
+        if not flow_no:
+            continue
+        title = _sample_flow_title(sample)
+        flow_code = str(sample.get("guangzhou_flow_code") or sample.get("source_trading_process") or "")
+        document_kind = str(sample.get("document_kind") or "")
+        present.setdefault(
+            flow_no,
+            {
+                "flow_no": flow_no,
+                "flow_code": flow_code,
+                "flow_title": title,
+                "document_kind": document_kind,
+            },
+        )
+    return [present[key] for key in sorted(present)]
 
 
 def _target_item_filter_value(target_item: Mapping[str, Any], prefix: str) -> str:
@@ -511,6 +611,10 @@ def _summary(
         "unique_project_count": len(project_ids),
         "selected_post_candidate_entry_count": len(selected_entries),
         "project_sample_document_kind_counts": _counts(str(sample.get("document_kind") or "") for sample in project_samples),
+        "guangzhou_flow_no_counts": _counts(str(sample.get("guangzhou_flow_no") or "") for sample in project_samples),
+        "guangzhou_flow_completeness_state_counts": _counts(
+            str(sample.get("guangzhou_flow_completeness_state") or "") for sample in project_samples
+        ),
         "post_candidate_entry_state_counts": _counts(str(sample.get("post_candidate_entry_state") or "") for sample in project_samples),
         "backtrace_completeness_state_counts": _counts(str(sample.get("backtrace_completeness_state") or "") for sample in project_samples),
         "detail_snapshot_count": sum(_int(sample.get("detail_snapshot_count")) for sample in project_samples),
@@ -551,10 +655,26 @@ def _project_match_key(sample: Mapping[str, Any]) -> str:
 
 def _document_kind_suffix(document_kind: str) -> str:
     return {
+        "bid_plan": "BID-PLAN",
+        "tender_file_publicity": "TENDER-FILE-PUBLICITY",
         "tender_file": "TENDER",
+        "clarification_notice": "CLARIFICATION",
+        "opening_info": "OPENING",
+        "qualification_review_result": "QUALIFICATION",
         "candidate_notice": "CANDIDATE",
+        "bid_file_publicity": "BID-FILE-PUBLICITY",
         "award_result": "AWARD",
+        "award_info": "AWARD-INFO",
+        "contract_public_info": "CONTRACT",
+        "project_exception": "EXCEPTION",
     }.get(document_kind, _slug(document_kind))
+
+
+def _flow_no_for_document_kind(document_kind: str) -> str:
+    for module in GUANGZHOU_FLOW_MODULES:
+        if str(module["document_kind"]) == document_kind:
+            return str(module["flow_no"])
+    return ""
 
 
 def _slug(value: Any) -> str:

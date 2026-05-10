@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import json
 import re
+import shutil
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -51,6 +52,20 @@ VALID_ATTACHMENT_CONTENT_MARKERS = (
 )
 POST_CANDIDATE_ENTRY_DOCUMENT_KINDS = {"candidate_notice", "award_result"}
 CORE_BACKTRACE_DOCUMENT_KINDS = ("tender_file", "candidate_notice", "award_result")
+GUANGZHOU_FLOW_MODULES = (
+    {"flow_no": "01", "flow_code": "08", "flow_title": "招标计划", "document_kind": "bid_plan"},
+    {"flow_no": "02", "flow_code": "17", "flow_title": "招标文件公示", "document_kind": "tender_file_publicity"},
+    {"flow_no": "03", "flow_code": "01", "flow_title": "招标公告/关联公告", "document_kind": "tender_file"},
+    {"flow_no": "04", "flow_code": "18", "flow_title": "澄清答疑", "document_kind": "clarification_notice"},
+    {"flow_no": "05", "flow_code": "19", "flow_title": "开标信息", "document_kind": "opening_info"},
+    {"flow_no": "06", "flow_code": "02", "flow_title": "资审结果公示", "document_kind": "qualification_review_result"},
+    {"flow_no": "07", "flow_code": "03", "flow_title": "中标候选人公示", "document_kind": "candidate_notice"},
+    {"flow_no": "08", "flow_code": "04", "flow_title": "投标(资格预审申请)文件公开", "document_kind": "bid_file_publicity"},
+    {"flow_no": "09", "flow_code": "06", "flow_title": "中标结果公示/公告", "document_kind": "award_result"},
+    {"flow_no": "10", "flow_code": "05", "flow_title": "中标信息", "document_kind": "award_info"},
+    {"flow_no": "11", "flow_code": "15", "flow_title": "合同信息公开", "document_kind": "contract_public_info"},
+    {"flow_no": "12", "flow_code": "20", "flow_title": "项目异常", "document_kind": "project_exception"},
+)
 
 
 def build_professional_clean_project_archive_manifest(
@@ -165,6 +180,11 @@ def _archive_project(
         file_prefix="attachment",
         repository=repository,
     )
+    guangzhou_flow_inventory = _materialize_guangzhou_flow_view(
+        project_dir=project_dir,
+        detail_files=detail_files,
+        attachment_files=attachment_files,
+    )
     source_text = "\n".join(
         str(value)
         for sample in samples
@@ -235,6 +255,10 @@ def _archive_project(
             for value in _as_list(sample.get("backtrace_query_variants"))
         ),
         "backtrace_match_reasons": _dedupe_strings(sample.get("backtrace_match_reason") for sample in samples),
+        "guangzhou_flow_modules_present": _guangzhou_flow_modules_present(samples),
+        "guangzhou_flow_modules_missing": _guangzhou_flow_modules_missing(samples),
+        "guangzhou_flow_completeness_state": _guangzhou_flow_completeness_state(samples),
+        "guangzhou_flow_inventory": guangzhou_flow_inventory,
         "missing_stage_kinds": missing_stage_kinds,
         "backtrace_completeness_state": backtrace_completeness_state,
         "download_completeness_state": str(project_contract.get("download_completeness_state") or ""),
@@ -259,6 +283,9 @@ def _archive_project(
         "source_urls": audit["source_urls"],
         "verification_urls": verification_urls,
         "samples": [_sample_card(sample) for sample in samples],
+        "guangzhou_flow_modules_present": audit["guangzhou_flow_modules_present"],
+        "guangzhou_flow_modules_missing": audit["guangzhou_flow_modules_missing"],
+        "guangzhou_flow_inventory": guangzhou_flow_inventory,
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,
     }
@@ -282,6 +309,10 @@ def _archive_project(
                 "backtrace_stage_attempts": backtrace_stage_attempts,
                 "missing_stage_kinds": missing_stage_kinds,
                 "backtrace_completeness_state": backtrace_completeness_state,
+                "guangzhou_flow_modules_present": audit["guangzhou_flow_modules_present"],
+                "guangzhou_flow_modules_missing": audit["guangzhou_flow_modules_missing"],
+                "guangzhou_flow_completeness_state": audit["guangzhou_flow_completeness_state"],
+                "guangzhou_flow_inventory": guangzhou_flow_inventory,
                 "file_parse_attributions": _project_file_parse_attributions(samples),
                 "project_completeness_contract": project_contract,
                 "file_level_parse_attribution_state": parse_metrics["file_level_parse_attribution_state"],
@@ -322,6 +353,13 @@ def _materialize_refs(
             ref_payload = dict(ref)
             ref_payload.setdefault("parent_document_kind", sample.get("document_kind"))
             ref_payload.setdefault("parent_source_url", sample.get("source_url"))
+            ref_payload.setdefault("parent_published_at", sample.get("published_at_optional"))
+            ref_payload.setdefault("source_trading_process", sample.get("source_trading_process"))
+            ref_payload.setdefault("source_dataset_name", sample.get("source_dataset_name"))
+            ref_payload.setdefault("guangzhou_flow_no", sample.get("guangzhou_flow_no"))
+            ref_payload.setdefault("guangzhou_flow_title", sample.get("guangzhou_flow_title"))
+            ref_payload.setdefault("guangzhou_flow_code", sample.get("guangzhou_flow_code"))
+            ref_payload.setdefault("guangzhou_flow_folder", sample.get("guangzhou_flow_folder"))
             refs.append(ref_payload)
 
     materialized: list[dict[str, Any]] = []
@@ -343,6 +381,13 @@ def _materialize_refs(
             "source_url": source_url,
             "parent_source_url": str(ref.get("parent_source_url") or ""),
             "parent_document_kind": str(ref.get("parent_document_kind") or ""),
+            "parent_published_at": str(ref.get("parent_published_at") or ""),
+            "source_trading_process": str(ref.get("source_trading_process") or ""),
+            "source_dataset_name": str(ref.get("source_dataset_name") or ""),
+            "guangzhou_flow_no": str(ref.get("guangzhou_flow_no") or ""),
+            "guangzhou_flow_title": str(ref.get("guangzhou_flow_title") or ""),
+            "guangzhou_flow_code": str(ref.get("guangzhou_flow_code") or ""),
+            "guangzhou_flow_folder": str(ref.get("guangzhou_flow_folder") or ""),
             "content_type": content_type,
             "byte_size": _int_value(readback.get("byte_size"), default=0),
             "sha256": str(readback.get("sha256") or ""),
@@ -364,6 +409,67 @@ def _materialize_refs(
         )
         materialized.append(meta)
     return materialized
+
+
+def _materialize_guangzhou_flow_view(
+    *,
+    project_dir: Path,
+    detail_files: list[Mapping[str, Any]],
+    attachment_files: list[Mapping[str, Any]],
+) -> list[dict[str, Any]]:
+    flow_root = project_dir / "flow"
+    inventory: list[dict[str, Any]] = []
+    for item in [*detail_files, *attachment_files]:
+        flow_no = str(item.get("guangzhou_flow_no") or "").strip()
+        flow_title = str(item.get("guangzhou_flow_title") or "").strip()
+        if not flow_no:
+            flow_no = _flow_no_for_document_kind(str(item.get("parent_document_kind") or ""))
+        if not flow_title:
+            flow_title = _flow_title_for_no(flow_no)
+        if not flow_no or not flow_title:
+            continue
+        publish_date = _publish_date_for_item(item)
+        role_dir = "details" if str(item.get("file_role") or "") == "detail" else "attachments"
+        destination_dir = (
+            flow_root
+            / _safe_path_part(f"{flow_no}_{flow_title}")
+            / _safe_path_part(publish_date or "unknown-date")
+            / role_dir
+        )
+        destination_dir.mkdir(parents=True, exist_ok=True)
+        source_path = Path(str(item.get("file_path") or ""))
+        copied_path = ""
+        if source_path.exists() and bool(item.get("replayable")):
+            copied = destination_dir / source_path.name
+            if source_path.resolve() != copied.resolve():
+                shutil.copy2(source_path, copied)
+            copied_path = str(copied)
+        meta = {
+            "flow_no": flow_no,
+            "flow_title": flow_title,
+            "flow_code": str(item.get("guangzhou_flow_code") or item.get("source_trading_process") or ""),
+            "published_date": publish_date,
+            "file_id": str(item.get("file_id") or ""),
+            "file_role": str(item.get("file_role") or ""),
+            "snapshot_id": str(item.get("snapshot_id") or ""),
+            "source_url": str(item.get("source_url") or ""),
+            "parent_source_url": str(item.get("parent_source_url") or ""),
+            "copied_file_path": copied_path,
+            "replayable": bool(item.get("replayable")),
+            "customer_visible_allowed": False,
+            "no_legal_conclusion": True,
+        }
+        (destination_dir / f"{_safe_path_part(str(item.get('file_id') or 'file'))}.meta.json").write_text(
+            json.dumps(meta, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        inventory.append(meta)
+    if inventory:
+        (flow_root / "flow-index.json").write_text(
+            json.dumps({"items": inventory}, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+    return inventory
 
 
 def _summary(items: list[Mapping[str, Any]]) -> dict[str, Any]:
@@ -396,6 +502,15 @@ def _summary(items: list[Mapping[str, Any]]) -> dict[str, Any]:
         ),
         "post_candidate_entry_state_counts": _counts(item.get("post_candidate_entry_state") for item in items),
         "backtrace_completeness_state_counts": _counts(item.get("backtrace_completeness_state") for item in items),
+        "guangzhou_flow_completeness_state_counts": _counts(
+            item.get("guangzhou_flow_completeness_state") for item in items
+        ),
+        "guangzhou_flow_no_counts": _counts(
+            module.get("flow_no")
+            for item in items
+            for module in _as_list(item.get("guangzhou_flow_modules_present"))
+            if isinstance(module, Mapping)
+        ),
         "ready_for_tailored_analysis_count": sum(1 for item in items if bool(item.get("ready_for_tailored_analysis"))),
         "parse_insufficiency_counts": _counts(
             reason
@@ -452,6 +567,11 @@ def _sample_card(sample: Mapping[str, Any]) -> dict[str, Any]:
         "source_url": str(sample.get("source_url") or ""),
         "source_project_code": str(sample.get("source_project_code") or ""),
         "project_match_key": str(sample.get("project_match_key") or ""),
+        "published_at_optional": str(sample.get("published_at_optional") or ""),
+        "guangzhou_flow_no": _sample_flow_no(sample),
+        "guangzhou_flow_title": _sample_flow_title(sample),
+        "guangzhou_flow_code": str(sample.get("guangzhou_flow_code") or sample.get("source_trading_process") or ""),
+        "guangzhou_flow_folder": str(sample.get("guangzhou_flow_folder") or ""),
         "matched_project_keys": _as_list(sample.get("matched_project_keys")),
         "base_project_name": str(sample.get("base_project_name") or ""),
         "backtrace_query_variants": _as_list(sample.get("backtrace_query_variants")),
@@ -505,6 +625,10 @@ def _backtrace_stage_attempts(samples: list[Mapping[str, Any]]) -> list[dict[str
                     "base_project_name": str(existing.get("base_project_name") or ""),
                     "backtrace_query_variants": _as_list(existing.get("backtrace_query_variants")),
                     "backtrace_match_reason": str(existing.get("backtrace_match_reason") or ""),
+                    "guangzhou_flow_no": str(existing.get("guangzhou_flow_no") or ""),
+                    "guangzhou_flow_title": str(existing.get("guangzhou_flow_title") or ""),
+                    "guangzhou_flow_code": str(existing.get("guangzhou_flow_code") or ""),
+                    "guangzhou_flow_folder": str(existing.get("guangzhou_flow_folder") or ""),
                     "customer_visible_allowed": False,
                     "no_legal_conclusion": True,
                 }
@@ -529,6 +653,10 @@ def _backtrace_stage_attempts(samples: list[Mapping[str, Any]]) -> list[dict[str
                 "base_project_name": str(sample.get("base_project_name") or ""),
                 "backtrace_query_variants": _as_list(sample.get("backtrace_query_variants")),
                 "backtrace_match_reason": str(sample.get("backtrace_match_reason") or ""),
+                "guangzhou_flow_no": _sample_flow_no(sample),
+                "guangzhou_flow_title": _sample_flow_title(sample),
+                "guangzhou_flow_code": str(sample.get("guangzhou_flow_code") or sample.get("source_trading_process") or ""),
+                "guangzhou_flow_folder": str(sample.get("guangzhou_flow_folder") or ""),
                 "customer_visible_allowed": False,
                 "no_legal_conclusion": True,
             }
@@ -539,6 +667,77 @@ def _backtrace_stage_attempts(samples: list[Mapping[str, Any]]) -> list[dict[str
 def _missing_stage_kinds(samples: list[Mapping[str, Any]]) -> list[str]:
     present = {str(sample.get("document_kind") or "") for sample in samples}
     return [kind for kind in CORE_BACKTRACE_DOCUMENT_KINDS if kind not in present]
+
+
+def _guangzhou_flow_modules_present(samples: list[Mapping[str, Any]]) -> list[dict[str, str]]:
+    present: dict[str, dict[str, str]] = {}
+    for sample in samples:
+        flow_no = _sample_flow_no(sample)
+        if not flow_no:
+            continue
+        flow_title = _sample_flow_title(sample)
+        flow_code = str(sample.get("guangzhou_flow_code") or sample.get("source_trading_process") or "")
+        present.setdefault(
+            flow_no,
+            {
+                "flow_no": flow_no,
+                "flow_code": flow_code,
+                "flow_title": flow_title,
+                "document_kind": str(sample.get("document_kind") or ""),
+            },
+        )
+    return [present[key] for key in sorted(present)]
+
+
+def _guangzhou_flow_modules_missing(samples: list[Mapping[str, Any]]) -> list[dict[str, str]]:
+    present = {_sample_flow_no(sample) for sample in samples}
+    present.discard("")
+    return [dict(module) for module in GUANGZHOU_FLOW_MODULES if str(module["flow_no"]) not in present]
+
+
+def _guangzhou_flow_completeness_state(samples: list[Mapping[str, Any]]) -> str:
+    return "GUANGZHOU_FLOW_COMPLETE" if not _guangzhou_flow_modules_missing(samples) else "GUANGZHOU_FLOW_PARTIAL"
+
+
+def _sample_flow_no(sample: Mapping[str, Any]) -> str:
+    explicit = str(sample.get("guangzhou_flow_no") or "").strip()
+    if explicit:
+        return explicit
+    flow_code = str(sample.get("guangzhou_flow_code") or sample.get("source_trading_process") or "").strip()
+    for module in GUANGZHOU_FLOW_MODULES:
+        if str(module["flow_code"]) == flow_code:
+            return str(module["flow_no"])
+    return _flow_no_for_document_kind(str(sample.get("document_kind") or ""))
+
+
+def _sample_flow_title(sample: Mapping[str, Any]) -> str:
+    explicit = str(sample.get("guangzhou_flow_title") or "").strip()
+    if explicit:
+        return explicit
+    return _flow_title_for_no(_sample_flow_no(sample))
+
+
+def _flow_no_for_document_kind(document_kind: str) -> str:
+    for module in GUANGZHOU_FLOW_MODULES:
+        if str(module["document_kind"]) == document_kind:
+            return str(module["flow_no"])
+    return ""
+
+
+def _flow_title_for_no(flow_no: str) -> str:
+    for module in GUANGZHOU_FLOW_MODULES:
+        if str(module["flow_no"]) == flow_no:
+            return str(module["flow_title"])
+    return ""
+
+
+def _publish_date_for_item(item: Mapping[str, Any]) -> str:
+    for value in (item.get("parent_published_at"), item.get("source_url"), item.get("parent_source_url")):
+        text = str(value or "")
+        match = re.search(r"(20\d{2})[-/]?([01]\d)[-/]?([0-3]\d)", text)
+        if match:
+            return f"{match.group(1)}-{match.group(2)}-{match.group(3)}"
+    return ""
 
 
 def _backtrace_completeness_state(missing_stage_kinds: list[str]) -> str:
@@ -785,6 +984,11 @@ def _file_inventory(
                 "content_type": str(item.get("content_type") or ""),
                 "byte_size": _int_value(item.get("byte_size"), default=0),
                 "sha256": str(item.get("sha256") or ""),
+                "parent_document_kind": str(item.get("parent_document_kind") or ""),
+                "parent_published_at": str(item.get("parent_published_at") or ""),
+                "guangzhou_flow_no": str(item.get("guangzhou_flow_no") or ""),
+                "guangzhou_flow_title": str(item.get("guangzhou_flow_title") or ""),
+                "guangzhou_flow_code": str(item.get("guangzhou_flow_code") or ""),
                 "download_state": str(item.get("download_state") or ""),
                 "readback_state": str(item.get("readback_state") or ""),
                 "valid_tender_attachment": valid_tender_attachment,

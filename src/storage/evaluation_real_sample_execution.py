@@ -1003,6 +1003,8 @@ def _project_sample_items(
                 "source_trading_process": str(candidate.get("source_trading_process") or ""),
                 "source_dataset_name": str(candidate.get("source_dataset_name") or ""),
                 "source_query_process_label": str(candidate.get("source_query_process_label") or ""),
+                "source_notice_third_type_desc": str(candidate.get("source_notice_third_type_desc") or ""),
+                "published_at_optional": str(candidate.get("published_at_optional") or ""),
                 "source_project_code": str(
                     candidate.get("source_project_code")
                     or capture.get("source_project_code")
@@ -1021,6 +1023,33 @@ def _project_sample_items(
                 "base_project_name": str(
                     candidate.get("base_project_name")
                     or capture.get("base_project_name")
+                    or ""
+                ),
+                "guangzhou_flow_no": str(
+                    candidate.get("guangzhou_flow_no")
+                    or capture.get("guangzhou_flow_no")
+                    or ""
+                ),
+                "guangzhou_flow_title": str(
+                    candidate.get("guangzhou_flow_title")
+                    or capture.get("guangzhou_flow_title")
+                    or ""
+                ),
+                "guangzhou_flow_code": str(
+                    candidate.get("guangzhou_flow_code")
+                    or capture.get("guangzhou_flow_code")
+                    or candidate.get("source_trading_process")
+                    or ""
+                ),
+                "guangzhou_flow_folder": str(
+                    candidate.get("guangzhou_flow_folder")
+                    or capture.get("guangzhou_flow_folder")
+                    or ""
+                ),
+                "guangzhou_relation_guid": str(
+                    candidate.get("guangzhou_relation_guid")
+                    or capture.get("guangzhou_relation_guid")
+                    or candidate.get("source_project_code")
                     or ""
                 ),
                 "backtrace_query_variants": _dedupe_strings(

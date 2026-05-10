@@ -36,30 +36,116 @@ GUANGZHOU_YWTB_PROFILE_ID = "GUANGZHOU-YWTB-CONSTRUCTION-LIST"
 GUANGZHOU_YWTB_DISCOVERY_PAGE_SIZE = 50
 GUANGZHOU_YWTB_CONSTRUCTION_CATEGORY_NUM = "002001001"
 GUANGZHOU_YWTB_TENDER_NOTICE_TYPE = "01"
+GUANGZHOU_YWTB_QUALIFICATION_RESULT_TYPE = "02"
 GUANGZHOU_YWTB_CANDIDATE_NOTICE_TYPE = "03"
+GUANGZHOU_YWTB_BID_FILE_PUBLIC_TYPE = "04"
 GUANGZHOU_YWTB_AWARD_INFO_TYPE = "05"
 GUANGZHOU_YWTB_AWARD_RESULT_TYPE = "06"
+GUANGZHOU_YWTB_BID_PLAN_TYPE = "08"
+GUANGZHOU_YWTB_CONTRACT_PUBLIC_TYPE = "15"
+GUANGZHOU_YWTB_TENDER_FILE_PUBLICITY_TYPE = "17"
+GUANGZHOU_YWTB_CLARIFICATION_TYPE = "18"
+GUANGZHOU_YWTB_OPENING_INFO_TYPE = "19"
+GUANGZHOU_YWTB_PROJECT_EXCEPTION_TYPE = "20"
 GUANGZHOU_YWTB_PROCESS_METADATA = {
+    GUANGZHOU_YWTB_BID_PLAN_TYPE: {
+        "process_label": "bid_plan",
+        "dataset_name": "招标计划",
+        "notice_third_type_desc": "招标计划",
+        "guangzhou_flow_no": "01",
+        "guangzhou_flow_title": "招标计划",
+    },
+    GUANGZHOU_YWTB_TENDER_FILE_PUBLICITY_TYPE: {
+        "process_label": "tender_file_publicity",
+        "dataset_name": "招标文件公示",
+        "notice_third_type_desc": "招标文件公示",
+        "guangzhou_flow_no": "02",
+        "guangzhou_flow_title": "招标文件公示",
+    },
     GUANGZHOU_YWTB_TENDER_NOTICE_TYPE: {
         "process_label": "tender_notice",
-        "dataset_name": "招标公告",
-        "notice_third_type_desc": "招标公告",
+        "dataset_name": "招标公告/关联公告",
+        "notice_third_type_desc": "招标公告/关联公告",
+        "guangzhou_flow_no": "03",
+        "guangzhou_flow_title": "招标公告/关联公告",
+    },
+    GUANGZHOU_YWTB_CLARIFICATION_TYPE: {
+        "process_label": "clarification_notice",
+        "dataset_name": "澄清答疑",
+        "notice_third_type_desc": "澄清答疑",
+        "guangzhou_flow_no": "04",
+        "guangzhou_flow_title": "澄清答疑",
+    },
+    GUANGZHOU_YWTB_OPENING_INFO_TYPE: {
+        "process_label": "opening_info",
+        "dataset_name": "开标信息",
+        "notice_third_type_desc": "开标信息",
+        "guangzhou_flow_no": "05",
+        "guangzhou_flow_title": "开标信息",
+    },
+    GUANGZHOU_YWTB_QUALIFICATION_RESULT_TYPE: {
+        "process_label": "qualification_review_result",
+        "dataset_name": "资审结果公示",
+        "notice_third_type_desc": "资审结果公示",
+        "guangzhou_flow_no": "06",
+        "guangzhou_flow_title": "资审结果公示",
     },
     GUANGZHOU_YWTB_CANDIDATE_NOTICE_TYPE: {
         "process_label": "candidate_publicity",
         "dataset_name": "中标候选人公示",
         "notice_third_type_desc": "中标候选人公示",
+        "guangzhou_flow_no": "07",
+        "guangzhou_flow_title": "中标候选人公示",
     },
-    GUANGZHOU_YWTB_AWARD_INFO_TYPE: {
-        "process_label": "award_info_fallback",
-        "dataset_name": "中标信息",
-        "notice_third_type_desc": "中标信息",
+    GUANGZHOU_YWTB_BID_FILE_PUBLIC_TYPE: {
+        "process_label": "bid_file_publicity",
+        "dataset_name": "投标(资格预审申请)文件公开",
+        "notice_third_type_desc": "投标(资格预审申请)文件公开",
+        "guangzhou_flow_no": "08",
+        "guangzhou_flow_title": "投标(资格预审申请)文件公开",
     },
     GUANGZHOU_YWTB_AWARD_RESULT_TYPE: {
         "process_label": "award_result",
-        "dataset_name": "中标结果公告",
-        "notice_third_type_desc": "中标结果公告",
+        "dataset_name": "中标结果公示/公告",
+        "notice_third_type_desc": "中标结果公示/公告",
+        "guangzhou_flow_no": "09",
+        "guangzhou_flow_title": "中标结果公示/公告",
     },
+    GUANGZHOU_YWTB_AWARD_INFO_TYPE: {
+        "process_label": "award_info",
+        "dataset_name": "中标信息",
+        "notice_third_type_desc": "中标信息",
+        "guangzhou_flow_no": "10",
+        "guangzhou_flow_title": "中标信息",
+    },
+    GUANGZHOU_YWTB_CONTRACT_PUBLIC_TYPE: {
+        "process_label": "contract_public_info",
+        "dataset_name": "合同信息公开",
+        "notice_third_type_desc": "合同信息公开",
+        "guangzhou_flow_no": "11",
+        "guangzhou_flow_title": "合同信息公开",
+    },
+    GUANGZHOU_YWTB_PROJECT_EXCEPTION_TYPE: {
+        "process_label": "project_exception",
+        "dataset_name": "项目异常",
+        "notice_third_type_desc": "项目异常",
+        "guangzhou_flow_no": "12",
+        "guangzhou_flow_title": "项目异常",
+    },
+}
+GUANGZHOU_YWTB_DOCUMENT_KIND_TO_PROCESS = {
+    "bid_plan": (GUANGZHOU_YWTB_BID_PLAN_TYPE,),
+    "tender_file_publicity": (GUANGZHOU_YWTB_TENDER_FILE_PUBLICITY_TYPE,),
+    "tender_file": (GUANGZHOU_YWTB_TENDER_NOTICE_TYPE,),
+    "clarification_notice": (GUANGZHOU_YWTB_CLARIFICATION_TYPE,),
+    "opening_info": (GUANGZHOU_YWTB_OPENING_INFO_TYPE,),
+    "qualification_review_result": (GUANGZHOU_YWTB_QUALIFICATION_RESULT_TYPE,),
+    "candidate_notice": (GUANGZHOU_YWTB_CANDIDATE_NOTICE_TYPE,),
+    "bid_file_publicity": (GUANGZHOU_YWTB_BID_FILE_PUBLIC_TYPE,),
+    "award_result": (GUANGZHOU_YWTB_AWARD_RESULT_TYPE,),
+    "award_info": (GUANGZHOU_YWTB_AWARD_INFO_TYPE,),
+    "contract_public_info": (GUANGZHOU_YWTB_CONTRACT_PUBLIC_TYPE,),
+    "project_exception": (GUANGZHOU_YWTB_PROJECT_EXCEPTION_TYPE,),
 }
 _PROJECT_TYPE_LABELS = {
     "construction": "房建工程",
@@ -760,17 +846,42 @@ def _link_items_from_ggzy_deal_records(records: list[Any]) -> list[dict[str, str
 
 
 def _guangzhou_ywtb_process_priority(context: Mapping[str, Any] | None = None) -> tuple[tuple[str, str], ...]:
+    explicit_flow_codes = _guangzhou_backtrace_flow_codes(context or {})
+    if explicit_flow_codes:
+        return tuple(
+            (
+                str((GUANGZHOU_YWTB_PROCESS_METADATA.get(code) or {}).get("process_label") or f"flow_{code}"),
+                code,
+            )
+            for code in explicit_flow_codes
+        )
     document_kind = str((context or {}).get("evaluation_document_kind") or "")
-    if document_kind == "tender_file":
-        return (("tender_notice", GUANGZHOU_YWTB_TENDER_NOTICE_TYPE),)
     if document_kind == "award_result":
         return (
             ("award_result", GUANGZHOU_YWTB_AWARD_RESULT_TYPE),
-            ("award_info_fallback", GUANGZHOU_YWTB_AWARD_INFO_TYPE),
+            ("award_info", GUANGZHOU_YWTB_AWARD_INFO_TYPE),
         )
-    if document_kind == "candidate_notice":
-        return (("candidate_publicity", GUANGZHOU_YWTB_CANDIDATE_NOTICE_TYPE),)
+    process_codes = GUANGZHOU_YWTB_DOCUMENT_KIND_TO_PROCESS.get(document_kind)
+    if process_codes:
+        return tuple(
+            (
+                str((GUANGZHOU_YWTB_PROCESS_METADATA.get(code) or {}).get("process_label") or f"flow_{code}"),
+                code,
+            )
+            for code in process_codes
+        )
     return (("candidate_publicity", GUANGZHOU_YWTB_CANDIDATE_NOTICE_TYPE),)
+
+
+def _guangzhou_backtrace_flow_codes(context: Mapping[str, Any]) -> list[str]:
+    codes: list[str] = []
+    for value in _as_string_list(context.get("selection_filters"), []):
+        text = str(value or "").strip()
+        if text.startswith("BACKTRACE_FLOW_CODE:"):
+            code = text.split(":", 1)[1].strip()
+            if code:
+                codes.append(code)
+    return _dedupe_texts(codes)
 
 
 def _discover_guangzhou_ywtb_api_link_items(
@@ -782,6 +893,18 @@ def _discover_guangzhou_ywtb_api_link_items(
     start_date, end_date = _date_window_from_now(now)
     process_priority = _guangzhou_ywtb_process_priority(context or {})
     backtrace_context = _guangzhou_ywtb_backtrace_context(context or {})
+    if backtrace_context.get("relation_guid") and backtrace_context.get("flow_codes"):
+        relation_result = _discover_guangzhou_ywtb_relation_link_items(
+            now=now,
+            backtrace_context=backtrace_context,
+            process_priority=process_priority,
+        )
+        # The relation API is the official same-project flow source.  For
+        # backtrace targets, an empty relation response means the module is
+        # absent; falling back to broad title search would reintroduce polluted
+        # cross-project matches.
+        if relation_result["state"] in {"FETCHED", "EMPTY"}:
+            return relation_result
     base_payload = {
         "token": "",
         "pn": 0,
@@ -935,6 +1058,203 @@ def _discover_guangzhou_ywtb_api_link_items(
     }
 
 
+def _discover_guangzhou_ywtb_relation_link_items(
+    *,
+    now: str,
+    backtrace_context: Mapping[str, Any],
+    process_priority: tuple[tuple[str, str], ...],
+) -> dict[str, Any]:
+    endpoint = "https://ywtb.gzggzy.cn/EWB-FRONT-5.4.2-sp1/rest/secaction/getRelationInfo"
+    relation_guid = str(backtrace_context.get("relation_guid") or "").strip()
+    relation_site_guid = str(
+        backtrace_context.get("relation_site_guid") or "7eb5f7f1-9041-43ad-8e13-8fcb82ea831a"
+    ).strip()
+    relation_category_num = str(
+        backtrace_context.get("relation_category_num") or GUANGZHOU_YWTB_CONSTRUCTION_CATEGORY_NUM
+    ).strip()
+    if not relation_guid:
+        return {
+            "state": "EMPTY",
+            "endpoint": endpoint,
+            "items": [],
+            "error_optional": "",
+            "record_count": 0,
+            "process_attempts": [],
+        }
+    payload = urlencode(
+        {
+            "siteGuid": relation_site_guid,
+            "relationGuid": relation_guid,
+            "categoryNum": relation_category_num,
+        }
+    ).encode("utf-8")
+    request = Request(
+        endpoint,
+        data=payload,
+        headers={
+            "User-Agent": "AX9S-RealPublicCandidateDiscovery/0.1 (+public-readonly-validation)",
+            "Referer": "https://ywtb.gzggzy.cn/",
+        },
+        method="POST",
+    )
+    try:
+        with urlopen(request, timeout=18) as response:
+            raw = response.read(2_500_000).decode("utf-8", "ignore")
+        data = json.loads(raw)
+    except Exception as exc:  # pragma: no cover - public network failures vary
+        return {
+            "state": "FAILED",
+            "endpoint": endpoint,
+            "items": [],
+            "error_optional": str(exc),
+            "record_count": 0,
+            "process_attempts": [
+                {
+                    "process_label": process_priority[0][0] if process_priority else "",
+                    "trading_process": process_priority[0][1] if process_priority else "",
+                    "record_count": 0,
+                    "accepted_item_count": 0,
+                    "attempted_pages": 1,
+                    "state": "FAILED",
+                    "error_optional": str(exc),
+                    "failure_taxonomy": ["guangzhou_relation_info_fetch_failed"],
+                }
+            ],
+            "trading_process_strategy": "guangzhou_ywtb_relation_flow_backtrace",
+        }
+    records = list(((data.get("custom") or {}).get("infodata") or []))
+    allowed_codes = {code for _, code in process_priority} or set(backtrace_context.get("flow_codes") or [])
+    items = _link_items_from_guangzhou_ywtb_relation_records(
+        records,
+        allowed_processes=allowed_codes,
+        relation_guid=relation_guid,
+        query_variants=list(backtrace_context.get("query_variants") or []),
+        base_project_name=str(backtrace_context.get("base_project_name") or ""),
+    )
+    process_attempts: list[dict[str, Any]] = []
+    for process_label, process_code in process_priority:
+        matching_records = [
+            record
+            for record in records
+            if isinstance(record, Mapping) and str(record.get("jsgcggfl") or "") == process_code
+        ]
+        matching_items = [
+            item for item in items if str(item.get("trading_process") or "") == process_code
+        ]
+        process_attempts.append(
+            {
+                "process_label": process_label,
+                "trading_process": process_code,
+                "attempted_pages": 1,
+                "record_count": len(matching_records),
+                "accepted_item_count": len(matching_items),
+                "total": str(len(matching_records)),
+                "state": "FETCHED" if matching_records else "EMPTY",
+                "backtrace_relation_guid": relation_guid,
+                "failure_taxonomy": []
+                if matching_items or not matching_records
+                else ["guangzhou_relation_records_rejected"],
+            }
+        )
+    primary_process = process_priority[0][1] if process_priority else ""
+    return {
+        "state": "FETCHED" if items else "EMPTY",
+        "endpoint": endpoint,
+        "items": items,
+        "error_optional": "",
+        "query_window": {"start_date": "", "end_date": ""},
+        "api_time_filter_state": "guangzhou_ywtb_same_project_relation_info",
+        "trading_process_strategy": "guangzhou_ywtb_relation_flow_backtrace",
+        "primary_trading_process": primary_process,
+        "page_size": len(records),
+        "page_limit": 1,
+        "candidate_record_window_cap": len(records),
+        "attempted_pages": len(process_attempts),
+        "record_count": len(records),
+        "total": str(len(records)),
+        "total_by_process": {
+            code: str(
+                sum(
+                    1
+                    for record in records
+                    if isinstance(record, Mapping) and str(record.get("jsgcggfl") or "") == code
+                )
+            )
+            for code in sorted(allowed_codes)
+        },
+        "fallback_recent_all_used": False,
+        "process_attempts": process_attempts,
+        "backtrace_project_codes": [relation_guid],
+        "backtrace_project_name_queries": list(backtrace_context.get("project_name_queries") or []),
+        "backtrace_search_query": str(backtrace_context.get("search_query") or ""),
+        "backtrace_base_project_name": str(backtrace_context.get("base_project_name") or ""),
+        "backtrace_query_variants": list(backtrace_context.get("query_variants") or []),
+        "backtrace_relation_guid": relation_guid,
+        "relation_info_record_count": len(records),
+        "relation_info_flow_codes": sorted(allowed_codes),
+        "relation_info_checked_at": now,
+    }
+
+
+def _link_items_from_guangzhou_ywtb_relation_records(
+    records: list[Any],
+    *,
+    allowed_processes: set[str] | None = None,
+    relation_guid: str,
+    query_variants: list[str] | None = None,
+    base_project_name: str = "",
+) -> list[dict[str, Any]]:
+    items: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    allowed = allowed_processes or set(GUANGZHOU_YWTB_PROCESS_METADATA)
+    for record in records:
+        if not isinstance(record, Mapping):
+            continue
+        process_code = str(record.get("jsgcggfl") or "").strip()
+        if process_code not in allowed:
+            continue
+        title = _normalize_public_title(record.get("title") or record.get("title2"))
+        link = str(record.get("infourl") or record.get("linkurl") or record.get("visiturl") or "").strip()
+        if not title or not link:
+            continue
+        full_url = urljoin("https://ywtb.gzggzy.cn/", link)
+        if full_url in seen:
+            continue
+        seen.add(full_url)
+        metadata = dict(GUANGZHOU_YWTB_PROCESS_METADATA.get(process_code) or {})
+        flow_no = str(metadata.get("guangzhou_flow_no") or "")
+        flow_title = str(metadata.get("guangzhou_flow_title") or metadata.get("dataset_name") or "")
+        publish_time = str(record.get("infodate") or record.get("webdate") or "")
+        items.append(
+            {
+                "url": full_url,
+                "text": title,
+                "summary": _clean_text(record.get("content"))[:1500],
+                "published_at": publish_time,
+                "categorynum": str(record.get("categorynum") or GUANGZHOU_YWTB_CONSTRUCTION_CATEGORY_NUM),
+                "trading_process": process_code,
+                "dataset_name": str(metadata.get("dataset_name") or ""),
+                "notice_third_type_desc": str(metadata.get("notice_third_type_desc") or ""),
+                "query_process_label": str(metadata.get("process_label") or ""),
+                "source_api": "https://ywtb.gzggzy.cn/EWB-FRONT-5.4.2-sp1/rest/secaction/getRelationInfo",
+                "source_record_id": str(record.get("infoid") or record.get("relationGuid") or relation_guid),
+                "project_code": relation_guid,
+                "project_match_key": relation_guid,
+                "base_project_name": base_project_name or _base_guangzhou_project_name(title),
+                "backtrace_query_variant": relation_guid,
+                "backtrace_query_variants": list(query_variants or [relation_guid]),
+                "backtrace_match_reason": "relation_guid_exact_match",
+                "source_region_code": "CN-GD",
+                "guangzhou_flow_no": flow_no,
+                "guangzhou_flow_title": flow_title,
+                "guangzhou_flow_code": process_code,
+                "guangzhou_flow_folder": f"{flow_no}_{flow_title}" if flow_no and flow_title else "",
+                "guangzhou_relation_guid": relation_guid,
+            }
+        )
+    return items
+
+
 def _link_items_from_guangzhou_ywtb_records(
     records: list[Any],
     *,
@@ -980,6 +1300,8 @@ def _link_items_from_guangzhou_ywtb_records(
             continue
         seen.add(full_url)
         metadata = dict(GUANGZHOU_YWTB_PROCESS_METADATA.get(process_code) or {})
+        flow_no = str(metadata.get("guangzhou_flow_no") or "")
+        flow_title = str(metadata.get("guangzhou_flow_title") or metadata.get("dataset_name") or "")
         items.append(
             {
                 "url": full_url,
@@ -1002,6 +1324,10 @@ def _link_items_from_guangzhou_ywtb_records(
                 "backtrace_query_variants": list(query_variants or []),
                 "backtrace_match_reason": str(match_result["reason"]),
                 "source_region_code": "CN-GD",
+                "guangzhou_flow_no": flow_no,
+                "guangzhou_flow_title": flow_title,
+                "guangzhou_flow_code": process_code,
+                "guangzhou_flow_folder": f"{flow_no}_{flow_title}" if flow_no and flow_title else "",
             }
         )
     return items
@@ -1011,13 +1337,31 @@ def _guangzhou_ywtb_backtrace_context(context: Mapping[str, Any]) -> dict[str, A
     project_codes: list[str] = []
     project_name_queries: list[str] = []
     explicit_variants: list[str] = []
+    flow_codes: list[str] = []
     base_project_name = ""
+    relation_guid = ""
+    relation_site_guid = ""
+    relation_category_num = ""
     for value in _as_string_list(context.get("selection_filters"), []):
         text = str(value or "").strip()
         if text.startswith("BACKTRACE_PROJECT_CODE:"):
             code = text.split(":", 1)[1].strip()
             if code:
                 project_codes.append(code)
+                relation_guid = relation_guid or code
+        elif text.startswith("BACKTRACE_RELATION_GUID:"):
+            code = text.split(":", 1)[1].strip()
+            if code:
+                relation_guid = code
+                project_codes.append(code)
+        elif text.startswith("BACKTRACE_FLOW_CODE:"):
+            code = text.split(":", 1)[1].strip()
+            if code:
+                flow_codes.append(code)
+        elif text.startswith("BACKTRACE_RELATION_SITE_GUID:"):
+            relation_site_guid = text.split(":", 1)[1].strip()
+        elif text.startswith("BACKTRACE_RELATION_CATEGORY_NUM:"):
+            relation_category_num = text.split(":", 1)[1].strip()
         elif text.startswith("BACKTRACE_PROJECT_NAME:"):
             name = text.split(":", 1)[1].strip()
             if name:
@@ -1034,6 +1378,7 @@ def _guangzhou_ywtb_backtrace_context(context: Mapping[str, Any]) -> dict[str, A
     explicit_name = str(context.get("guangzhou_ywtb_project_name") or "").strip()
     if explicit_code:
         project_codes.append(explicit_code)
+        relation_guid = relation_guid or explicit_code
     if explicit_name:
         project_name_queries.append(explicit_name)
     project_codes = list(dict.fromkeys(project_codes))
@@ -1054,6 +1399,10 @@ def _guangzhou_ywtb_backtrace_context(context: Mapping[str, Any]) -> dict[str, A
         "base_project_name": base_project_name,
         "query_variants": query_variants,
         "search_query": search_query,
+        "flow_codes": _dedupe_texts(flow_codes),
+        "relation_guid": relation_guid or (project_codes[0] if project_codes else ""),
+        "relation_site_guid": relation_site_guid,
+        "relation_category_num": relation_category_num,
     }
 
 
@@ -1485,8 +1834,11 @@ def _is_candidate_detail_url(
         )
     if profile_id in _PROVINCE_REALTIME_PROFILE_IDS:
         host = urlsplit(url).netloc.lower()
-        if profile_id == GUANGZHOU_YWTB_PROFILE_ID and "ywtb.gzggzy.cn" not in host:
-            return False
+        if profile_id == GUANGZHOU_YWTB_PROFILE_ID:
+            if "jsgc.gzggzy.cn" in host and "/kaibiao/infotoweb_list" in path:
+                return True
+            if "ywtb.gzggzy.cn" not in host:
+                return False
         if profile_id == "JIANGSU-GGZY-HOME" and "jszwfw.gov.cn" not in host:
             return False
         if profile_id == "ZHEJIANG-GGZY-JYXXGK-LIST" and "ggzy.zj.gov.cn" not in host:
@@ -2296,7 +2648,7 @@ class RealPublicCandidateDiscoveryService:
             for value in list(selection_filters or [])
         )
         if api_link_items:
-            link_items = _merge_link_items(api_link_items, list(link_items))
+            link_items = api_link_items if profile_id == GUANGZHOU_YWTB_PROFILE_ID and backtrace_requested else _merge_link_items(api_link_items, list(link_items))
         elif profile_id == GUANGZHOU_YWTB_PROFILE_ID and backtrace_requested:
             link_items = []
         rows: list[dict[str, Any]] = []
@@ -2440,6 +2792,11 @@ class RealPublicCandidateDiscoveryService:
             source_project_code = str(item.get("project_code") or "").strip()
             source_record_id = str(item.get("source_record_id") or "").strip()
             base_project_name = str(item.get("base_project_name") or "").strip()
+            guangzhou_flow_no = str(item.get("guangzhou_flow_no") or "").strip()
+            guangzhou_flow_title = str(item.get("guangzhou_flow_title") or "").strip()
+            guangzhou_flow_code = str(item.get("guangzhou_flow_code") or item.get("trading_process") or "").strip()
+            guangzhou_flow_folder = str(item.get("guangzhou_flow_folder") or "").strip()
+            guangzhou_relation_guid = str(item.get("guangzhou_relation_guid") or source_project_code or "").strip()
             backtrace_query_variants = _dedupe_texts(
                 [str(value or "") for value in list(item.get("backtrace_query_variants") or [])]
             )
@@ -2523,6 +2880,11 @@ class RealPublicCandidateDiscoveryService:
                     "source_query_process_label": str(item.get("query_process_label") or ""),
                     "source_project_code": source_project_code,
                     "source_record_id": source_record_id,
+                    "guangzhou_flow_no": guangzhou_flow_no,
+                    "guangzhou_flow_title": guangzhou_flow_title,
+                    "guangzhou_flow_code": guangzhou_flow_code,
+                    "guangzhou_flow_folder": guangzhou_flow_folder,
+                    "guangzhou_relation_guid": guangzhou_relation_guid,
                     "project_match_key": project_match_key,
                     "matched_project_keys": matched_project_keys,
                     "base_project_name": base_project_name,

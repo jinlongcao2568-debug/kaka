@@ -27,9 +27,18 @@ BLOCKED_INVALID_TARGET = "REVIEW_BLOCKED_INVALID_TARGET"
 DOCUMENT_KINDS = frozenset(
     {
         "tender_file",
+        "bid_plan",
+        "tender_file_publicity",
         "candidate_notice",
+        "opening_info",
+        "qualification_review_result",
+        "bid_file_publicity",
         "award_result",
+        "award_info",
         "clarification",
+        "clarification_notice",
+        "contract_public_info",
+        "project_exception",
         "failed_bid_notice",
         "complaint_decision",
         "flow_or_re_tender_notice",

@@ -29,14 +29,29 @@ class TestGuangzhouPostCandidateBacktrace(unittest.TestCase):
             ]
         )
 
-        self.assertEqual(len(targets["targets"]), 3)
+        self.assertEqual(len(targets["targets"]), 12)
         self.assertEqual(
             {target["document_kind"] for target in targets["targets"]},
-            {"tender_file", "candidate_notice", "award_result"},
+            {
+                "bid_plan",
+                "tender_file_publicity",
+                "tender_file",
+                "clarification_notice",
+                "opening_info",
+                "qualification_review_result",
+                "candidate_notice",
+                "bid_file_publicity",
+                "award_result",
+                "award_info",
+                "contract_public_info",
+                "project_exception",
+            },
         )
         for target in targets["targets"]:
             filters = target["selection_filters"]
             self.assertIn("BACKTRACE_PROJECT_CODE:JG2026-POST", filters)
+            self.assertIn("BACKTRACE_RELATION_GUID:JG2026-POST", filters)
+            self.assertTrue(any(item.startswith("BACKTRACE_FLOW_CODE:") for item in filters))
             self.assertTrue(any(item.startswith("BACKTRACE_PROJECT_NAME:") for item in filters))
             self.assertIn("BACKTRACE_BASE_PROJECT_NAME:南沙区排水设施小修项目施工", filters)
             self.assertIn("BACKTRACE_QUERY_VARIANT:南沙区排水设施小修项目", filters)
@@ -56,14 +71,26 @@ class TestGuangzhouPostCandidateBacktrace(unittest.TestCase):
             ]
         )
 
-        self.assertEqual([target["document_kind"] for target in targets["targets"]], ["tender_file"])
+        kinds = [target["document_kind"] for target in targets["targets"]]
+        self.assertNotIn("candidate_notice", kinds)
+        self.assertNotIn("award_result", kinds)
+        self.assertIn("tender_file", kinds)
 
     def test_annotates_missing_and_complete_backtrace_states(self) -> None:
         complete = _annotate_project_samples(
             [
-                _sample("tender_file", project_id="PROJ-1"),
-                _sample("candidate_notice", project_id="PROJ-1"),
-                _sample("award_result", project_id="PROJ-1"),
+                _sample("bid_plan", project_id="PROJ-1", flow_no="01", flow_code="08"),
+                _sample("tender_file_publicity", project_id="PROJ-1", flow_no="02", flow_code="17"),
+                _sample("tender_file", project_id="PROJ-1", flow_no="03", flow_code="01"),
+                _sample("clarification_notice", project_id="PROJ-1", flow_no="04", flow_code="18"),
+                _sample("opening_info", project_id="PROJ-1", flow_no="05", flow_code="19"),
+                _sample("qualification_review_result", project_id="PROJ-1", flow_no="06", flow_code="02"),
+                _sample("candidate_notice", project_id="PROJ-1", flow_no="07", flow_code="03"),
+                _sample("bid_file_publicity", project_id="PROJ-1", flow_no="08", flow_code="04"),
+                _sample("award_result", project_id="PROJ-1", flow_no="09", flow_code="06"),
+                _sample("award_info", project_id="PROJ-1", flow_no="10", flow_code="05"),
+                _sample("contract_public_info", project_id="PROJ-1", flow_no="11", flow_code="15"),
+                _sample("project_exception", project_id="PROJ-1", flow_no="12", flow_code="20"),
             ]
         )
         partial = _annotate_project_samples(
@@ -73,9 +100,12 @@ class TestGuangzhouPostCandidateBacktrace(unittest.TestCase):
         )
 
         self.assertTrue(all(item["backtrace_completeness_state"] == "BACKTRACE_CORE_COMPLETE" for item in complete))
+        self.assertTrue(all(item["guangzhou_flow_completeness_state"] == "GUANGZHOU_FLOW_COMPLETE" for item in complete))
         self.assertTrue(all(item["post_candidate_entry_state"] == "POST_CANDIDATE_ENTRY_PRESENT" for item in complete))
         self.assertEqual(partial[0]["backtrace_completeness_state"], "BACKTRACE_PARTIAL")
-        self.assertEqual(partial[0]["missing_stage_kinds"], ["tender_file", "award_result"])
+        self.assertIn("tender_file", partial[0]["missing_stage_kinds"])
+        self.assertIn("award_result", partial[0]["missing_stage_kinds"])
+        self.assertEqual(partial[0]["guangzhou_flow_completeness_state"], "GUANGZHOU_FLOW_PARTIAL")
 
     def test_no_match_backtrace_target_attempt_is_attached_to_project(self) -> None:
         annotated = _annotate_project_samples(
@@ -102,7 +132,13 @@ class TestGuangzhouPostCandidateBacktrace(unittest.TestCase):
         self.assertIn("南沙区排水设施小修项目施工", tender_attempt["backtrace_query_variants"])
 
 
-def _sample(document_kind: str, *, project_id: str) -> dict[str, object]:
+def _sample(
+    document_kind: str,
+    *,
+    project_id: str,
+    flow_no: str = "",
+    flow_code: str = "",
+) -> dict[str, object]:
     return {
         "project_id": project_id,
         "target_id": f"TARGET-{document_kind}",
@@ -116,6 +152,8 @@ def _sample(document_kind: str, *, project_id: str) -> dict[str, object]:
         "source_project_code": "JG2026-POST",
         "project_match_key": "JG2026-POST",
         "matched_project_keys": ["JG2026-POST"],
+        "guangzhou_flow_no": flow_no,
+        "guangzhou_flow_code": flow_code,
     }
 
 
