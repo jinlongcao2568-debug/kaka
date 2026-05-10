@@ -547,6 +547,9 @@ class TestProfessionalCleanProjectArchive(unittest.TestCase):
                     "detail_snapshot_count": 0,
                     "attachment_snapshot_count": 0,
                     "failure_taxonomy": ["discovery_no_match"],
+                    "base_project_name": "某工程施工",
+                    "backtrace_query_variants": ["JG2026-POST", "某工程施工"],
+                    "backtrace_match_reason": "",
                 }
             ]
             award = _project_sample(
@@ -562,6 +565,9 @@ class TestProfessionalCleanProjectArchive(unittest.TestCase):
                 sample["source_project_code"] = "JG2026-POST"
                 sample["project_match_key"] = "JG2026-POST"
                 sample["matched_project_keys"] = ["JG2026-POST"]
+                sample["base_project_name"] = "某工程施工"
+                sample["backtrace_query_variants"] = ["JG2026-POST", "某工程施工"]
+                sample["backtrace_match_reason"] = "project_code_exact_match"
             _write_execution_manifest(execution_path, [tender, candidate, award])
 
             result = build_professional_clean_project_archive_manifest(
@@ -584,6 +590,9 @@ class TestProfessionalCleanProjectArchive(unittest.TestCase):
                 )
             )
             self.assertIn("JG2026-POST", item["matched_project_keys"])
+            self.assertIn("某工程施工", item["base_project_names"])
+            self.assertIn("某工程施工", item["backtrace_query_variants"])
+            self.assertIn("project_code_exact_match", item["backtrace_match_reasons"])
             self.assertTrue(item["ready_for_tailored_analysis"])
             self.assertEqual(
                 item["project_completeness_contract"]["post_candidate_entry_state"],

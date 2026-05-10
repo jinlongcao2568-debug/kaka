@@ -421,6 +421,9 @@ class TestEvaluationRealSampleExecution(unittest.TestCase):
             self.assertEqual(sample["source_query_process_label"], "candidate_publicity")
             self.assertEqual(sample["source_project_code"], "JG2026-TEST")
             self.assertEqual(sample["project_match_key"], "JG2026-TEST")
+            self.assertEqual(sample["base_project_name"], "广州某排水工程")
+            self.assertIn("广州某排水工程", sample["backtrace_query_variants"])
+            self.assertEqual(sample["backtrace_match_reason"], "project_code_exact_match")
             self.assertIn("JG2026-TEST", sample["matched_project_keys"])
             self.assertEqual(sample["detail_snapshot_refs"][0]["snapshot_id"], "SNAP-DETAIL-002")
             self.assertIn("资格条件", sample["parse_summary"]["detail_text_probe"])
@@ -567,6 +570,9 @@ def _fake_candidate(
         "source_project_code": source_project_code,
         "source_record_id": source_project_code,
         "project_match_key": source_project_code,
+        "base_project_name": "广州某排水工程",
+        "backtrace_query_variants": [source_project_code, "广州某排水工程"],
+        "backtrace_match_reason": "project_code_exact_match",
         "matched_project_keys": [source_project_code, project_name],
         "notice_stage": "candidate_notice",
     }

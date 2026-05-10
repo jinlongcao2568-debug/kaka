@@ -814,80 +814,97 @@ def _discover_guangzhou_ywtb_api_link_items(
         "searchRange": [],
         "isBusiness": "1",
     }
-    if backtrace_context["search_query"]:
-        base_payload["wd"] = backtrace_context["search_query"]
+    query_variants = list(backtrace_context["query_variants"])
+    if not query_variants:
+        query_variants = [""]
     all_items: list[dict[str, str]] = []
     process_attempts: list[dict[str, Any]] = []
     totals: dict[str, str] = {}
     first_error = ""
     for process_label, process_code in process_priority:
-        payload = dict(base_payload)
-        payload["condition"] = [
-            *list(base_payload["condition"]),
-            {
-                "fieldName": "jsgcggfl",
-                "equal": process_code,
-                "isLike": False,
-                "likeType": 0,
-            },
-        ]
-        request = Request(
-            endpoint,
-            data=json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8"),
-            headers={
-                "User-Agent": "AX9S-RealPublicCandidateDiscovery/0.1 (+public-readonly-validation)",
-                "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-                "Accept": "application/json, text/javascript, */*; q=0.01",
-                "Referer": "https://ywtb.gzggzy.cn/jyfw/002001/002001001/trade_purchasetoplen6.html",
-                "X-Requested-With": "XMLHttpRequest",
-            },
-            method="POST",
-        )
-        try:
-            with urlopen(request, timeout=18) as response:
-                raw = response.read(2_500_000).decode("utf-8", "ignore")
-            outer = json.loads(raw)
-            content = outer.get("content")
-            data = json.loads(content) if isinstance(content, str) else dict(content or {})
-        except Exception as exc:  # pragma: no cover - public network failures vary
-            if not first_error:
-                first_error = str(exc)
+        process_items: list[dict[str, str]] = []
+        for query_index, query_variant in enumerate(query_variants, start=1):
+            payload = dict(base_payload)
+            payload["wd"] = query_variant
+            payload["condition"] = [
+                *list(base_payload["condition"]),
+                {
+                    "fieldName": "jsgcggfl",
+                    "equal": process_code,
+                    "isLike": False,
+                    "likeType": 0,
+                },
+            ]
+            request = Request(
+                endpoint,
+                data=json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8"),
+                headers={
+                    "User-Agent": "AX9S-RealPublicCandidateDiscovery/0.1 (+public-readonly-validation)",
+                    "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+                    "Accept": "application/json, text/javascript, */*; q=0.01",
+                    "Referer": "https://ywtb.gzggzy.cn/jyfw/002001/002001001/trade_purchasetoplen6.html",
+                    "X-Requested-With": "XMLHttpRequest",
+                },
+                method="POST",
+            )
+            try:
+                with urlopen(request, timeout=18) as response:
+                    raw = response.read(2_500_000).decode("utf-8", "ignore")
+                outer = json.loads(raw)
+                content = outer.get("content")
+                data = json.loads(content) if isinstance(content, str) else dict(content or {})
+            except Exception as exc:  # pragma: no cover - public network failures vary
+                if not first_error:
+                    first_error = str(exc)
+                process_attempts.append(
+                    {
+                        "process_label": process_label,
+                        "trading_process": process_code,
+                        "attempted_pages": 1,
+                        "record_count": 0,
+                        "accepted_item_count": 0,
+                        "total": "",
+                        "state": "FAILED",
+                        "error_optional": str(exc),
+                        "backtrace_query_variant": query_variant,
+                        "backtrace_query_index": query_index,
+                    }
+                )
+                continue
+            records = list(((data.get("result") or {}).get("records") or []))
+            total = str((data.get("result") or {}).get("totalcount") or "")
+            totals.setdefault(process_code, total)
+            items = _link_items_from_guangzhou_ywtb_records(
+                records,
+                allowed_processes={process_code},
+                fallback_process_label=process_label,
+                project_codes=set(backtrace_context["project_codes"]),
+                project_name_queries=list(backtrace_context["project_name_queries"]),
+                query_variant=query_variant,
+                query_variants=query_variants,
+                base_project_name=str(backtrace_context.get("base_project_name") or ""),
+            )
+            process_items = _merge_link_items(process_items, items)
             process_attempts.append(
                 {
                     "process_label": process_label,
                     "trading_process": process_code,
                     "attempted_pages": 1,
-                    "record_count": 0,
-                    "accepted_item_count": 0,
-                    "total": "",
-                    "state": "FAILED",
-                    "error_optional": str(exc),
+                    "record_count": len(records),
+                    "accepted_item_count": len(items),
+                    "total": total,
+                    "state": "FETCHED" if records else "EMPTY",
+                    "backtrace_query_variant": query_variant,
+                    "backtrace_query_index": query_index,
+                    "failure_taxonomy": []
+                    if items or not records
+                    else ["backtrace_records_rejected_by_project_match"],
                 }
             )
-            continue
-        records = list(((data.get("result") or {}).get("records") or []))
-        total = str((data.get("result") or {}).get("totalcount") or "")
-        totals[process_code] = total
-        items = _link_items_from_guangzhou_ywtb_records(
-            records,
-            allowed_processes={process_code},
-            fallback_process_label=process_label,
-            project_codes=set(backtrace_context["project_codes"]),
-            project_name_queries=list(backtrace_context["project_name_queries"]),
-        )
-        all_items = _merge_link_items(all_items, items)
-        process_attempts.append(
-            {
-                "process_label": process_label,
-                "trading_process": process_code,
-                "attempted_pages": 1,
-                "record_count": len(records),
-                "accepted_item_count": len(items),
-                "total": total,
-                "state": "FETCHED" if records else "EMPTY",
-            }
-        )
-        if items:
+            if process_items:
+                break
+        all_items = _merge_link_items(all_items, process_items)
+        if process_items:
             break
     primary_process = process_priority[0][1] if process_priority else ""
     return {
@@ -913,6 +930,8 @@ def _discover_guangzhou_ywtb_api_link_items(
         "backtrace_project_codes": backtrace_context["project_codes"],
         "backtrace_project_name_queries": backtrace_context["project_name_queries"],
         "backtrace_search_query": backtrace_context["search_query"],
+        "backtrace_base_project_name": backtrace_context["base_project_name"],
+        "backtrace_query_variants": query_variants,
     }
 
 
@@ -923,6 +942,9 @@ def _link_items_from_guangzhou_ywtb_records(
     fallback_process_label: str = "",
     project_codes: set[str] | None = None,
     project_name_queries: list[str] | None = None,
+    query_variant: str = "",
+    query_variants: list[str] | None = None,
+    base_project_name: str = "",
 ) -> list[dict[str, str]]:
     items: list[dict[str, str]] = []
     seen: set[str] = set()
@@ -944,13 +966,15 @@ def _link_items_from_guangzhou_ywtb_records(
         if not title or not link:
             continue
         record_project_code = str(record.get("xmbh") or "").strip()
-        if not _guangzhou_ywtb_record_matches_backtrace(
+        match_result = _guangzhou_ywtb_record_match_result(
             title=title,
             record_project_code=record_project_code,
             project_codes=project_codes,
             project_name_queries=project_name_queries,
-        ):
+        )
+        if not match_result["matched"]:
             continue
+        canonical_project_key = str(match_result.get("canonical_project_key") or "").strip()
         full_url = urljoin("https://ywtb.gzggzy.cn/", link)
         if full_url in seen:
             continue
@@ -970,7 +994,13 @@ def _link_items_from_guangzhou_ywtb_records(
                 "source_api": "https://ywtb.gzggzy.cn/inteligentsearch/rest/esinteligentsearch/getFullTextDataNew",
                 "source_record_id": str(record.get("id") or record.get("xmbh") or ""),
                 "project_code": record_project_code,
-                "project_match_key": record_project_code or _normalize_guangzhou_project_match_text(title),
+                "project_match_key": canonical_project_key
+                or record_project_code
+                or _normalize_guangzhou_project_match_text(title),
+                "base_project_name": base_project_name or _base_guangzhou_project_name(title),
+                "backtrace_query_variant": query_variant,
+                "backtrace_query_variants": list(query_variants or []),
+                "backtrace_match_reason": str(match_result["reason"]),
                 "source_region_code": "CN-GD",
             }
         )
@@ -980,6 +1010,8 @@ def _link_items_from_guangzhou_ywtb_records(
 def _guangzhou_ywtb_backtrace_context(context: Mapping[str, Any]) -> dict[str, Any]:
     project_codes: list[str] = []
     project_name_queries: list[str] = []
+    explicit_variants: list[str] = []
+    base_project_name = ""
     for value in _as_string_list(context.get("selection_filters"), []):
         text = str(value or "").strip()
         if text.startswith("BACKTRACE_PROJECT_CODE:"):
@@ -990,6 +1022,14 @@ def _guangzhou_ywtb_backtrace_context(context: Mapping[str, Any]) -> dict[str, A
             name = text.split(":", 1)[1].strip()
             if name:
                 project_name_queries.append(name)
+        elif text.startswith("BACKTRACE_QUERY_VARIANT:"):
+            variant = text.split(":", 1)[1].strip()
+            if variant:
+                explicit_variants.append(variant)
+        elif text.startswith("BACKTRACE_BASE_PROJECT_NAME:"):
+            name = text.split(":", 1)[1].strip()
+            if name:
+                base_project_name = name
     explicit_code = str(context.get("guangzhou_ywtb_project_code") or "").strip()
     explicit_name = str(context.get("guangzhou_ywtb_project_name") or "").strip()
     if explicit_code:
@@ -998,12 +1038,44 @@ def _guangzhou_ywtb_backtrace_context(context: Mapping[str, Any]) -> dict[str, A
         project_name_queries.append(explicit_name)
     project_codes = list(dict.fromkeys(project_codes))
     project_name_queries = list(dict.fromkeys(project_name_queries))
-    search_query = project_name_queries[0] if project_name_queries else (project_codes[0] if project_codes else "")
+    if not base_project_name and project_name_queries:
+        base_project_name = _base_guangzhou_project_name(project_name_queries[0])
+    query_variants = _guangzhou_backtrace_query_variants(
+        project_codes=project_codes,
+        project_name_queries=project_name_queries,
+        explicit_variants=explicit_variants,
+        base_project_name=base_project_name,
+    )
+    project_name_queries = _dedupe_texts([*project_name_queries, base_project_name, *query_variants])
+    search_query = query_variants[0] if query_variants else ""
     return {
         "project_codes": project_codes,
         "project_name_queries": project_name_queries,
+        "base_project_name": base_project_name,
+        "query_variants": query_variants,
         "search_query": search_query,
     }
+
+
+def _guangzhou_backtrace_query_variants(
+    *,
+    project_codes: list[str],
+    project_name_queries: list[str],
+    explicit_variants: list[str],
+    base_project_name: str = "",
+) -> list[str]:
+    candidates: list[str] = []
+    candidates.extend(explicit_variants)
+    candidates.extend(project_codes)
+    if base_project_name:
+        candidates.append(base_project_name)
+    for name in project_name_queries:
+        candidates.append(name)
+        base = _base_guangzhou_project_name(name)
+        candidates.append(base)
+        candidates.append(_remove_guangzhou_parenthetical_text(base))
+        candidates.append(_short_guangzhou_project_query(base))
+    return _dedupe_texts(value for value in candidates if str(value or "").strip())[:8]
 
 
 def _guangzhou_ywtb_record_matches_backtrace(
@@ -1013,18 +1085,39 @@ def _guangzhou_ywtb_record_matches_backtrace(
     project_codes: set[str],
     project_name_queries: list[str],
 ) -> bool:
-    if not project_codes and not project_name_queries:
-        return True
-    if project_codes and record_project_code and record_project_code in project_codes:
-        return True
-    normalized_title = _normalize_guangzhou_project_match_text(title)
     return bool(
-        normalized_title
-        and any(query in normalized_title or normalized_title in query for query in project_name_queries)
+        _guangzhou_ywtb_record_match_result(
+            title=title,
+            record_project_code=record_project_code,
+            project_codes=project_codes,
+            project_name_queries=project_name_queries,
+        )["matched"]
     )
 
 
-def _normalize_guangzhou_project_match_text(value: Any) -> str:
+def _guangzhou_ywtb_record_match_result(
+    *,
+    title: str,
+    record_project_code: str,
+    project_codes: set[str],
+    project_name_queries: list[str],
+) -> dict[str, Any]:
+    if not project_codes and not project_name_queries:
+        return {"matched": True, "reason": "stage_listing_match", "canonical_project_key": record_project_code}
+    if project_codes and record_project_code and record_project_code in project_codes:
+        return {"matched": True, "reason": "project_code_exact_match", "canonical_project_key": record_project_code}
+    normalized_title = _normalize_guangzhou_project_match_text(title)
+    for query in project_name_queries:
+        normalized_query = _normalize_guangzhou_project_match_text(query)
+        if normalized_title and normalized_query and (
+            normalized_query in normalized_title or normalized_title in normalized_query
+        ):
+            canonical = sorted(project_codes)[0] if project_codes else (normalized_query or record_project_code)
+            return {"matched": True, "reason": "name_variant_match", "canonical_project_key": canonical}
+    return {"matched": False, "reason": "backtrace_project_mismatch", "canonical_project_key": ""}
+
+
+def _base_guangzhou_project_name(value: Any) -> str:
     text = _normalize_public_title(value)
     for marker in (
         "中标候选人公示",
@@ -1041,6 +1134,24 @@ def _normalize_guangzhou_project_match_text(value: Any) -> str:
         "开标记录",
     ):
         text = text.replace(marker, "")
+    return re.sub(r"\s+", " ", text).strip(" 　-—_：:")
+
+
+def _remove_guangzhou_parenthetical_text(value: Any) -> str:
+    text = str(value or "")
+    text = re.sub(r"[（(][^（）()]{1,40}[）)]", "", text)
+    return re.sub(r"\s+", " ", text).strip(" 　-—_：:")
+
+
+def _short_guangzhou_project_query(value: Any) -> str:
+    text = _remove_guangzhou_parenthetical_text(value)
+    text = re.sub(r"(第[一二三四五六七八九十0-9]+次|标段[一二三四五六七八九十0-9]+|第[一二三四五六七八九十0-9]+标段)", "", text)
+    text = re.sub(r"(工程监理服务|设计施工总承包|勘察设计施工总承包及运营|施工总承包|工程施工|施工|监理服务)$", "", text)
+    return re.sub(r"\s+", " ", text).strip(" 　-—_：:")
+
+
+def _normalize_guangzhou_project_match_text(value: Any) -> str:
+    text = _base_guangzhou_project_name(value)
     text = re.sub(r"[\s　（）()【】\[\]《》<>:：,，。；;、_-]+", "", text)
     return text.strip()
 
@@ -2214,6 +2325,8 @@ class RealPublicCandidateDiscoveryService:
             "public_api_primary_trading_process": api_discovery.get("primary_trading_process"),
             "public_api_fallback_recent_all_used": bool(api_discovery.get("fallback_recent_all_used")),
             "public_api_process_attempts": list(api_discovery.get("process_attempts", []) or []),
+            "public_api_backtrace_query_variants": list(api_discovery.get("backtrace_query_variants", []) or []),
+            "public_api_backtrace_base_project_name": str(api_discovery.get("backtrace_base_project_name") or ""),
             "accepted_candidate_count": 0,
             "rejected_counts": {},
             "rejected_samples": [],
@@ -2326,6 +2439,11 @@ class RealPublicCandidateDiscoveryService:
             candidate_key = _hash_text(source_url.lower(), 24)
             source_project_code = str(item.get("project_code") or "").strip()
             source_record_id = str(item.get("source_record_id") or "").strip()
+            base_project_name = str(item.get("base_project_name") or "").strip()
+            backtrace_query_variants = _dedupe_texts(
+                [str(value or "") for value in list(item.get("backtrace_query_variants") or [])]
+            )
+            backtrace_match_reason = str(item.get("backtrace_match_reason") or "").strip()
             project_match_key = str(
                 item.get("project_match_key")
                 or source_project_code
@@ -2340,7 +2458,11 @@ class RealPublicCandidateDiscoveryService:
             )
             notice_id = build_id("NOTICE", _slug(profile_id, "PROFILE"), candidate_key[:10])
             if profile_id == GUANGZHOU_YWTB_PROFILE_ID and project_match_key:
-                project_token = _slug(source_project_code, "") or f"GZ-{_hash_text(project_match_key, 14).upper()}"
+                project_token = (
+                    _slug(project_match_key, "")
+                    or _slug(source_project_code, "")
+                    or f"GZ-{_hash_text(project_match_key, 14).upper()}"
+                )
                 project_id = build_id("PROJ", _slug(region_code, "REGION"), project_token[:28])
             else:
                 project_id = build_id("PROJ", _slug(region_code, "REGION"), candidate_key[:10])
@@ -2403,6 +2525,9 @@ class RealPublicCandidateDiscoveryService:
                     "source_record_id": source_record_id,
                     "project_match_key": project_match_key,
                     "matched_project_keys": matched_project_keys,
+                    "base_project_name": base_project_name,
+                    "backtrace_query_variants": backtrace_query_variants,
+                    "backtrace_match_reason": backtrace_match_reason,
                     "discovery_preserved_after_filter_review": bool(discovery_review_reasons),
                     "discovery_review_reasons": discovery_review_reasons,
                     "discovery_filter_tags": discovery_filter_tags,

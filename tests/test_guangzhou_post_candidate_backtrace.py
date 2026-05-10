@@ -38,6 +38,9 @@ class TestGuangzhouPostCandidateBacktrace(unittest.TestCase):
             filters = target["selection_filters"]
             self.assertIn("BACKTRACE_PROJECT_CODE:JG2026-POST", filters)
             self.assertTrue(any(item.startswith("BACKTRACE_PROJECT_NAME:") for item in filters))
+            self.assertIn("BACKTRACE_BASE_PROJECT_NAME:南沙区排水设施小修项目施工", filters)
+            self.assertIn("BACKTRACE_QUERY_VARIANT:南沙区排水设施小修项目", filters)
+            self.assertIn("南沙区排水设施小修项目", target["backtrace_query_variants"])
             self.assertEqual(target["required_fetch_profile_id_optional"], "GUANGZHOU-YWTB-CONSTRUCTION-LIST")
 
     def test_backtrace_targets_skip_entry_stage_already_captured(self) -> None:
@@ -82,6 +85,8 @@ class TestGuangzhouPostCandidateBacktrace(unittest.TestCase):
                     "target_id": "GZ-BACKTRACE-JG2026-POST-TENDER",
                     "document_kind": "tender_file",
                     "selection_filters": ["BACKTRACE_PROJECT_CODE:JG2026-POST"],
+                    "base_project_name": "南沙区排水设施小修项目施工",
+                    "backtrace_query_variants": ["JG2026-POST", "南沙区排水设施小修项目施工"],
                     "target_execution_state": "DISCOVERY_NO_MATCH_REVIEW",
                     "failure_taxonomy": ["discovery_no_match"],
                 }
@@ -93,6 +98,8 @@ class TestGuangzhouPostCandidateBacktrace(unittest.TestCase):
         tender_attempt = next(attempt for attempt in attempts if attempt["document_kind"] == "tender_file")
         self.assertEqual(tender_attempt["target_execution_state"], "DISCOVERY_NO_MATCH_REVIEW")
         self.assertIn("discovery_no_match", tender_attempt["failure_taxonomy"])
+        self.assertEqual(tender_attempt["base_project_name"], "南沙区排水设施小修项目施工")
+        self.assertIn("南沙区排水设施小修项目施工", tender_attempt["backtrace_query_variants"])
 
 
 def _sample(document_kind: str, *, project_id: str) -> dict[str, object]:

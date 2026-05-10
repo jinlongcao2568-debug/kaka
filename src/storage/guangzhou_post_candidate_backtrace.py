@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -253,6 +254,8 @@ def _backtrace_targets_for_entries(entries: list[Mapping[str, Any]]) -> dict[str
         project_code = str(entry.get("source_project_code") or "").strip()
         project_name = str(entry.get("project_name") or "").strip()
         match_key = _project_match_key(entry)
+        base_project_name = _base_guangzhou_project_name(project_name)
+        query_variants = _backtrace_query_variants(entry, base_project_name=base_project_name)
         present_document_kinds = set(str(kind) for kind in list(entry.get("present_document_kinds") or []))
         suffix = _slug(project_code or match_key or f"PROJECT-{index}")[:36]
         for document_kind in CORE_BACKTRACE_DOCUMENT_KINDS:
@@ -267,6 +270,10 @@ def _backtrace_targets_for_entries(entries: list[Mapping[str, Any]]) -> dict[str
                 filters.append(f"BACKTRACE_PROJECT_CODE:{project_code}")
             if project_name:
                 filters.append(f"BACKTRACE_PROJECT_NAME:{project_name}")
+            if base_project_name:
+                filters.append(f"BACKTRACE_BASE_PROJECT_NAME:{base_project_name}")
+            for variant in query_variants:
+                filters.append(f"BACKTRACE_QUERY_VARIANT:{variant}")
             targets.append(
                 {
                     "target_id": target_id,
@@ -279,6 +286,8 @@ def _backtrace_targets_for_entries(entries: list[Mapping[str, Any]]) -> dict[str
                     "document_kind": document_kind,
                     "target_count": 1,
                     "selection_filters": filters,
+                    "base_project_name": base_project_name,
+                    "backtrace_query_variants": query_variants,
                 }
             )
     return {
@@ -328,6 +337,17 @@ def _annotate_project_samples(
             ]
             if key
         }
+        base_project_names = _dedupe_strings(
+            str(sample.get("base_project_name") or "") for sample in project_samples
+        )
+        query_variants = _dedupe_strings(
+            value
+            for sample in project_samples
+            for value in list(sample.get("backtrace_query_variants") or [])
+        )
+        match_reasons = _dedupe_strings(
+            str(sample.get("backtrace_match_reason") or "") for sample in project_samples
+        )
         attempts = [
             {
                 "document_kind": str(sample.get("document_kind") or ""),
@@ -337,6 +357,9 @@ def _annotate_project_samples(
                 "detail_snapshot_count": _int(sample.get("detail_snapshot_count")),
                 "attachment_snapshot_count": _int(sample.get("attachment_snapshot_count")),
                 "failure_taxonomy": list(sample.get("failure_taxonomy") or []),
+                "base_project_name": str(sample.get("base_project_name") or ""),
+                "backtrace_query_variants": list(sample.get("backtrace_query_variants") or []),
+                "backtrace_match_reason": str(sample.get("backtrace_match_reason") or ""),
                 "customer_visible_allowed": False,
                 "no_legal_conclusion": True,
             }
@@ -347,6 +370,12 @@ def _annotate_project_samples(
             target_key = _target_item_project_key(target_item)
             if not target_key or target_key not in project_keys:
                 continue
+            target_base_project_name = str(
+                target_item.get("base_project_name") or _target_item_filter_value(target_item, "BACKTRACE_BASE_PROJECT_NAME:")
+            )
+            target_query_variants = list(target_item.get("backtrace_query_variants") or []) or _target_item_query_variants(
+                target_item
+            )
             attempt = {
                 "document_kind": str(target_item.get("document_kind") or ""),
                 "target_id": str(target_item.get("target_id") or ""),
@@ -355,6 +384,9 @@ def _annotate_project_samples(
                 "detail_snapshot_count": _int(target_item.get("detail_snapshot_count")),
                 "attachment_snapshot_count": _int(target_item.get("attachment_snapshot_count")),
                 "failure_taxonomy": list(target_item.get("failure_taxonomy") or []),
+                "base_project_name": target_base_project_name,
+                "backtrace_query_variants": target_query_variants,
+                "backtrace_match_reason": str(target_item.get("backtrace_match_reason") or ""),
                 "customer_visible_allowed": False,
                 "no_legal_conclusion": True,
             }
@@ -375,6 +407,18 @@ def _annotate_project_samples(
                     _project_match_key(row),
                 ]
             )
+            row["base_project_name"] = str(
+                row.get("base_project_name") or (base_project_names[0] if base_project_names else "")
+            )
+            row["backtrace_query_variants"] = _dedupe_strings(
+                [
+                    *list(row.get("backtrace_query_variants") or []),
+                    *query_variants,
+                ]
+            )
+            row["backtrace_match_reason"] = str(
+                row.get("backtrace_match_reason") or (match_reasons[0] if match_reasons else "")
+            )
             row["missing_stage_kinds"] = missing
             row["backtrace_completeness_state"] = backtrace_state
             annotated.append(row)
@@ -387,6 +431,71 @@ def _target_item_project_key(target_item: Mapping[str, Any]) -> str:
         if text.startswith("BACKTRACE_PROJECT_CODE:") or text.startswith("BACKTRACE_PROJECT_KEY:"):
             return text.split(":", 1)[1].strip()
     return ""
+
+
+def _target_item_filter_value(target_item: Mapping[str, Any], prefix: str) -> str:
+    for value in list(target_item.get("selection_filters") or []):
+        text = str(value or "")
+        if text.startswith(prefix):
+            return text.split(":", 1)[1].strip()
+    return ""
+
+
+def _target_item_query_variants(target_item: Mapping[str, Any]) -> list[str]:
+    return _dedupe_strings(
+        str(value or "").split(":", 1)[1].strip()
+        for value in list(target_item.get("selection_filters") or [])
+        if str(value or "").startswith("BACKTRACE_QUERY_VARIANT:")
+    )
+
+
+def _backtrace_query_variants(entry: Mapping[str, Any], *, base_project_name: str = "") -> list[str]:
+    candidates: list[str] = []
+    candidates.extend(str(value or "") for value in list(entry.get("backtrace_query_variants") or []))
+    candidates.extend(
+        [
+            str(entry.get("source_project_code") or ""),
+            str(entry.get("project_match_key") or ""),
+            base_project_name,
+            str(entry.get("project_name") or ""),
+            _remove_parenthetical_text(base_project_name),
+            _short_project_query(base_project_name),
+        ]
+    )
+    return _dedupe_strings(value for value in candidates if str(value or "").strip())[:8]
+
+
+def _base_guangzhou_project_name(value: Any) -> str:
+    text = str(value or "").strip()
+    for marker in (
+        "中标候选人公示",
+        "中标结果公告",
+        "中标结果",
+        "中标信息",
+        "招标公告",
+        "重新招标公告",
+        "变更公告",
+        "补充公告",
+        "答疑公告",
+        "澄清公告",
+        "投标文件公开",
+        "开标记录",
+    ):
+        text = text.replace(marker, "")
+    return re.sub(r"\s+", " ", text).strip(" 　-—_：:")
+
+
+def _remove_parenthetical_text(value: Any) -> str:
+    text = str(value or "")
+    text = re.sub(r"[（(][^（）()]{1,40}[）)]", "", text)
+    return re.sub(r"\s+", " ", text).strip(" 　-—_：:")
+
+
+def _short_project_query(value: Any) -> str:
+    text = _remove_parenthetical_text(value)
+    text = re.sub(r"(第[一二三四五六七八九十0-9]+次|标段[一二三四五六七八九十0-9]+|第[一二三四五六七八九十0-9]+标段)", "", text)
+    text = re.sub(r"(工程监理服务|设计施工总承包|勘察设计施工总承包及运营|施工总承包|工程施工|施工|监理服务)$", "", text)
+    return re.sub(r"\s+", " ", text).strip(" 　-—_：:")
 
 
 def _summary(
@@ -411,6 +520,7 @@ def _summary(
             for sample in project_samples
             for reason in list(sample.get("failure_taxonomy") or [])
         ),
+        "backtrace_match_reason_counts": _counts(str(sample.get("backtrace_match_reason") or "") for sample in project_samples),
         "download_enabled": True,
         "fetch_public_urls_enabled": True,
         "customer_visible_allowed": False,

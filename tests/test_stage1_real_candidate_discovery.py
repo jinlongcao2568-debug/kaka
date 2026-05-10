@@ -16,6 +16,7 @@ from stage1_tasking.real_candidate_discovery import (
     REAL_PUBLIC_SOURCE_CANDIDATE_MODE,
     RealPublicCandidateDiscoveryService,
     RealPublicCandidateRepository,
+    _guangzhou_backtrace_query_variants,
     _guangzhou_ywtb_process_priority,
     _is_candidate_detail_url,
     _link_items_from_guangzhou_ywtb_records,
@@ -1097,8 +1098,35 @@ class RealCandidateDiscoveryTests(unittest.TestCase):
         self.assertEqual(len(by_code), 1)
         self.assertEqual(by_code[0]["project_code"], "JG2026-SAME")
         self.assertEqual(by_code[0]["project_match_key"], "JG2026-SAME")
+        self.assertEqual(by_code[0]["backtrace_match_reason"], "project_code_exact_match")
         self.assertEqual(len(by_name), 1)
         self.assertEqual(by_name[0]["project_code"], "JG2026-SAME")
+        self.assertEqual(by_name[0]["backtrace_match_reason"], "name_variant_match")
+
+        by_name_with_different_record_code = _link_items_from_guangzhou_ywtb_records(
+            records,
+            allowed_processes={"01"},
+            project_codes={"JG2026-CANONICAL"},
+            project_name_queries=["南沙区排水设施小修项目施工中标候选人公示"],
+        )
+        self.assertEqual(len(by_name_with_different_record_code), 1)
+        self.assertEqual(by_name_with_different_record_code[0]["project_code"], "JG2026-SAME")
+        self.assertEqual(by_name_with_different_record_code[0]["project_match_key"], "JG2026-CANONICAL")
+        self.assertEqual(by_name_with_different_record_code[0]["backtrace_match_reason"], "name_variant_match")
+
+    def test_guangzhou_backtrace_query_variants_strip_stage_words_and_brackets(self) -> None:
+        variants = _guangzhou_backtrace_query_variants(
+            project_codes=["JG2026-11029"],
+            project_name_queries=[
+                "郁南县政府管理的屋顶光伏资源有偿使用项目勘察设计施工总承包及运营（EPCO）（第二次）中标候选人公示"
+            ],
+            explicit_variants=[],
+            base_project_name="",
+        )
+
+        self.assertEqual(variants[0], "JG2026-11029")
+        self.assertIn("郁南县政府管理的屋顶光伏资源有偿使用项目勘察设计施工总承包及运营（EPCO）（第二次）", variants)
+        self.assertIn("郁南县政府管理的屋顶光伏资源有偿使用项目勘察设计施工总承包及运营", variants)
 
     def test_guangzhou_award_target_falls_back_to_award_info_when_result_empty(self) -> None:
         service = RealPublicCandidateDiscoveryService(

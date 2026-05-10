@@ -897,6 +897,11 @@ def _candidate_refs(candidates: list[Mapping[str, Any]]) -> list[dict[str, Any]]
                 "source_project_code": str(candidate.get("source_project_code") or ""),
                 "source_record_id": str(candidate.get("source_record_id") or ""),
                 "project_match_key": str(candidate.get("project_match_key") or ""),
+                "base_project_name": str(candidate.get("base_project_name") or ""),
+                "backtrace_query_variants": _dedupe_strings(
+                    [str(value or "") for value in list(candidate.get("backtrace_query_variants") or [])]
+                ),
+                "backtrace_match_reason": str(candidate.get("backtrace_match_reason") or ""),
                 "matched_project_keys": _dedupe_strings(
                     [str(value or "") for value in list(candidate.get("matched_project_keys") or [])]
                 ),
@@ -1011,6 +1016,25 @@ def _project_sample_items(
                 "project_match_key": str(
                     candidate.get("project_match_key")
                     or capture.get("project_match_key")
+                    or ""
+                ),
+                "base_project_name": str(
+                    candidate.get("base_project_name")
+                    or capture.get("base_project_name")
+                    or ""
+                ),
+                "backtrace_query_variants": _dedupe_strings(
+                    [
+                        str(value or "")
+                        for value in [
+                            *list(candidate.get("backtrace_query_variants") or []),
+                            *list(capture.get("backtrace_query_variants") or []),
+                        ]
+                    ]
+                ),
+                "backtrace_match_reason": str(
+                    candidate.get("backtrace_match_reason")
+                    or capture.get("backtrace_match_reason")
                     or ""
                 ),
                 "matched_project_keys": _dedupe_strings(

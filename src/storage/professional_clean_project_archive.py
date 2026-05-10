@@ -228,6 +228,13 @@ def _archive_project(
             for sample in samples
             for key in _as_list(sample.get("matched_project_keys"))
         ),
+        "base_project_names": _dedupe_strings(sample.get("base_project_name") for sample in samples),
+        "backtrace_query_variants": _dedupe_strings(
+            value
+            for sample in samples
+            for value in _as_list(sample.get("backtrace_query_variants"))
+        ),
+        "backtrace_match_reasons": _dedupe_strings(sample.get("backtrace_match_reason") for sample in samples),
         "missing_stage_kinds": missing_stage_kinds,
         "backtrace_completeness_state": backtrace_completeness_state,
         "download_completeness_state": str(project_contract.get("download_completeness_state") or ""),
@@ -446,6 +453,9 @@ def _sample_card(sample: Mapping[str, Any]) -> dict[str, Any]:
         "source_project_code": str(sample.get("source_project_code") or ""),
         "project_match_key": str(sample.get("project_match_key") or ""),
         "matched_project_keys": _as_list(sample.get("matched_project_keys")),
+        "base_project_name": str(sample.get("base_project_name") or ""),
+        "backtrace_query_variants": _as_list(sample.get("backtrace_query_variants")),
+        "backtrace_match_reason": str(sample.get("backtrace_match_reason") or ""),
         "target_execution_state": str(sample.get("target_execution_state") or ""),
         "document_completeness_state": str(sample.get("document_completeness_state") or ""),
         "notice_version_chain_state": str(sample.get("notice_version_chain_state") or ""),
@@ -492,6 +502,9 @@ def _backtrace_stage_attempts(samples: list[Mapping[str, Any]]) -> list[dict[str
                     "detail_snapshot_count": _int_value(existing.get("detail_snapshot_count"), default=0),
                     "attachment_snapshot_count": _int_value(existing.get("attachment_snapshot_count"), default=0),
                     "failure_taxonomy": _as_list(existing.get("failure_taxonomy")),
+                    "base_project_name": str(existing.get("base_project_name") or ""),
+                    "backtrace_query_variants": _as_list(existing.get("backtrace_query_variants")),
+                    "backtrace_match_reason": str(existing.get("backtrace_match_reason") or ""),
                     "customer_visible_allowed": False,
                     "no_legal_conclusion": True,
                 }
@@ -513,6 +526,9 @@ def _backtrace_stage_attempts(samples: list[Mapping[str, Any]]) -> list[dict[str
                 "detail_snapshot_count": _int_value(sample.get("detail_snapshot_count"), default=0),
                 "attachment_snapshot_count": _int_value(sample.get("attachment_snapshot_count"), default=0),
                 "failure_taxonomy": _as_list(sample.get("failure_taxonomy")),
+                "base_project_name": str(sample.get("base_project_name") or ""),
+                "backtrace_query_variants": _as_list(sample.get("backtrace_query_variants")),
+                "backtrace_match_reason": str(sample.get("backtrace_match_reason") or ""),
                 "customer_visible_allowed": False,
                 "no_legal_conclusion": True,
             }
