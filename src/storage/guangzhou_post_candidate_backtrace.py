@@ -6,6 +6,9 @@ import json
 import re
 from pathlib import Path
 from typing import Any, Mapping
+from urllib.error import HTTPError, URLError
+from urllib.parse import urljoin
+from urllib.request import Request, urlopen
 
 from shared.settings import Settings
 from shared.utils import utc_now_iso
@@ -44,9 +47,19 @@ PIPELINE_STAGES = {
     PIPELINE_STAGE_FULL.lower(): PIPELINE_STAGE_FULL,
 }
 FLOW_URL_DISCOVERED = "FLOW_URL_DISCOVERED"
+ATTACHMENT_LISTED = "ATTACHMENT_LISTED"
 PARTIAL_RUN_INTERRUPTED = "PARTIAL_RUN_INTERRUPTED"
 FAILED_RETRYABLE = "FAILED_RETRYABLE"
 FAILED_FINAL = "FAILED_FINAL"
+NO_PUBLIC_ATTACHMENT = "NO_PUBLIC_ATTACHMENT"
+STATIC_ATTACHMENT_LINK_FOUND = "STATIC_ATTACHMENT_LINK_FOUND"
+SCRIPT_DOWNLOAD_ENDPOINT_FOUND = "SCRIPT_DOWNLOAD_ENDPOINT_FOUND"
+CLICK_DOWNLOAD_ENDPOINT_FOUND = "CLICK_DOWNLOAD_ENDPOINT_FOUND"
+EPOINT_CHALLENGE_REQUIRED = "EPOINT_CHALLENGE_REQUIRED"
+LOGIN_OR_CA_REQUIRED = "LOGIN_OR_CA_REQUIRED"
+INTERFACE_UNRESOLVED = "INTERFACE_UNRESOLVED"
+FLOW_SAMPLE_NOT_FOUND = "FLOW_SAMPLE_NOT_FOUND"
+OPTIONAL_LOW_FREQUENCY_FLOW_NOT_FOUND = "OPTIONAL_LOW_FREQUENCY_FLOW_NOT_FOUND"
 ENTRY_TARGET_IDS = ("REAL-GD-CANDIDATE-001", "REAL-GD-AWARD-001")
 GUANGZHOU_FLOW_MODULES = (
     {"flow_no": "01", "flow_code": "08", "flow_title": "招标计划", "document_kind": "bid_plan"},
@@ -107,6 +120,25 @@ def build_guangzhou_post_candidate_backtrace(
             target_backend=target_backend,
             execute=execute,
             per_target_candidate_limit=per_target_candidate_limit,
+            created=created,
+            resume=resume,
+        )
+    if resolved_pipeline_stage == PIPELINE_STAGE_ATTACHMENT_LIST:
+        resumed = _maybe_resume_interface_coverage_manifest(
+            root=root,
+            created_at=created,
+            resume=resume,
+        )
+        if resumed:
+            return resumed
+        return _build_guangzhou_attachment_list_interface_coverage(
+            root=root,
+            seed_path=seed_path,
+            storage=storage,
+            object_storage=object_storage,
+            target_backend=target_backend,
+            execute=execute,
+            per_flow_candidate_limit=per_target_candidate_limit,
             created=created,
             resume=resume,
         )
@@ -441,6 +473,134 @@ def _build_guangzhou_flow_url_only_backtrace(
     return result
 
 
+def _build_guangzhou_attachment_list_interface_coverage(
+    *,
+    root: Path,
+    seed_path: Path,
+    storage: Path,
+    object_storage: Path,
+    target_backend: str,
+    execute: bool,
+    per_flow_candidate_limit: int,
+    created: str,
+    resume: bool,
+) -> dict[str, Any]:
+    targets_path = _guangzhou_flow_interface_targets(
+        output_root=root,
+        per_flow_candidate_limit=per_flow_candidate_limit,
+    )
+    target_ids = [
+        f"GZ-FLOW-INTERFACE-{module['flow_no']}-{_document_kind_suffix(str(module['document_kind']))}"
+        for module in GUANGZHOU_FLOW_MODULES
+    ]
+    items = _discover_flow_url_target_items(
+        targets_json=targets_path,
+        seed_json=seed_path,
+        storage_path=storage,
+        object_storage_path=object_storage,
+        target_backend=target_backend,
+        target_ids=target_ids,
+        execute=execute,
+        per_target_candidate_limit=per_flow_candidate_limit,
+        created_at=created,
+        pipeline_stage=PIPELINE_STAGE_ATTACHMENT_LIST,
+    )
+    project_samples = _annotate_project_samples(_flatten_project_samples(items), target_items=items)
+    interface_report = _build_flow_interface_coverage_manifest(
+        items=items,
+        project_samples=project_samples,
+        execute=execute,
+        per_flow_candidate_limit=per_flow_candidate_limit,
+        created_at=created,
+        output_root=root,
+    )
+    pipeline_state = _build_pipeline_state_manifest(
+        project_samples=project_samples,
+        items=items,
+        created_at=created,
+        pipeline_stage=PIPELINE_STAGE_ATTACHMENT_LIST,
+    )
+    manual_table = _build_manual_interface_check_table(interface_report)
+    summary = dict(interface_report["summary"])
+    summary["pipeline_stage"] = PIPELINE_STAGE_ATTACHMENT_LIST
+    manifest = {
+        "manifest_version": GUANGZHOU_POST_CANDIDATE_BACKTRACE_VERSION,
+        "manifest_kind": "evaluation_real_project_sample_execution_manifest",
+        "sub_kind": GUANGZHOU_POST_CANDIDATE_BACKTRACE_MANIFEST_KIND,
+        "adapter_id": GUANGZHOU_POST_CANDIDATE_BACKTRACE_ADAPTER_ID,
+        "pipeline_stage": PIPELINE_STAGE_ATTACHMENT_LIST,
+        "resume_enabled": bool(resume),
+        "manifest_id": f"GUANGZHOU-ATTACHMENT-LIST-{_fingerprint({'samples': project_samples, 'items': items})[:16]}",
+        "created_at": created,
+        "execution_mode": "EXECUTED" if execute else "DRY_RUN",
+        "execute": execute,
+        "target_storage_backend": target_backend,
+        "source_profile_id": GUANGZHOU_PROFILE_ID,
+        "flow_interface_targets_json": str(targets_path),
+        "items": items,
+        "sample_items": items[:80],
+        "project_sample_items": project_samples,
+        "project_sample_preview_items": project_samples[:80],
+        "summary": summary,
+        "coverage_quality_summary": {
+            "coverage_quality_state": str(summary.get("interface_coverage_state") or ""),
+            "failure_taxonomy_counts": dict(summary.get("failure_taxonomy_counts") or {}),
+            "customer_visible_allowed": False,
+            "no_legal_conclusion": True,
+        },
+        "safety": {
+            "external_service_connection_enabled": execute,
+            "download_enabled": False,
+            "fetch_public_urls_enabled": execute,
+            "login_required_fetch_enabled": False,
+            "ca_certificate_required_fetch_enabled": False,
+            "stage4_public_evidence_readback_generation_enabled": False,
+            "stage5_rule_execution_enabled": False,
+            "customer_visible_allowed": False,
+            "no_legal_conclusion": True,
+            "manifest_stores_raw_html_or_blob": False,
+        },
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
+    manifest["manifest_sha256"] = _fingerprint({key: value for key, value in manifest.items() if key != "manifest_sha256"})
+    result = {
+        "guangzhou_post_candidate_backtrace_mode": "ATTACHMENT_LIST_EXECUTED" if execute else "ATTACHMENT_LIST_DRY_RUN",
+        "pipeline_stage": PIPELINE_STAGE_ATTACHMENT_LIST,
+        "resume_enabled": bool(resume),
+        "real_sample_execution_mode": "EXECUTED" if execute else "DRY_RUN",
+        "execute": execute,
+        "safe_to_execute": True,
+        "blocking_reasons": [],
+        "manifest": manifest,
+        "summary": summary,
+        "execution": {
+            "executed": execute,
+            "download_enabled": False,
+            "parse_enabled": False,
+            "fetch_public_urls_enabled": execute,
+            "storage_path_optional": str(storage),
+            "object_storage_path_optional": str(object_storage),
+            "customer_visible_allowed": False,
+            "no_legal_conclusion": True,
+        },
+    }
+    (root / "run-manifest.json").write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+    (root / "guangzhou-flow-interface-coverage.json").write_text(
+        json.dumps(interface_report, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    (root / "pipeline-state.json").write_text(
+        json.dumps(pipeline_state, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    (root / "manual-interface-check-table.json").write_text(
+        json.dumps(manual_table, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    return result
+
+
 def _discover_flow_url_target_items(
     *,
     targets_json: Path,
@@ -452,6 +612,7 @@ def _discover_flow_url_target_items(
     execute: bool,
     per_target_candidate_limit: int,
     created_at: str,
+    pipeline_stage: str = PIPELINE_STAGE_FLOW_URL_ONLY,
 ) -> list[dict[str, Any]]:
     plan = build_evaluation_real_sample_plan(
         targets_json=targets_json,
@@ -469,7 +630,7 @@ def _discover_flow_url_target_items(
         and resolve_source_quality_policy(_target_source_profile_id(item)).get("source_quality_state") == "PRIMARY_FRIENDLY"
     ]
     if not execute:
-        return [_flow_url_dry_run_item(item) for item in plan_items]
+        return [_flow_url_dry_run_item(item, pipeline_stage=pipeline_stage) for item in plan_items]
     settings = Settings(
         storage_backend=target_backend,
         storage_path_optional=str(storage_path),
@@ -491,6 +652,7 @@ def _discover_flow_url_target_items(
                 discovery_service=discovery_service,
                 created_at=created_at,
                 per_target_candidate_limit=per_target_candidate_limit,
+                pipeline_stage=pipeline_stage,
             )
             for item in plan_items
         ]
@@ -504,8 +666,9 @@ def _discover_flow_url_target_item(
     discovery_service: RealPublicCandidateDiscoveryService,
     created_at: str,
     per_target_candidate_limit: int,
+    pipeline_stage: str = PIPELINE_STAGE_FLOW_URL_ONLY,
 ) -> dict[str, Any]:
-    base = _flow_url_dry_run_item(plan_item)
+    base = _flow_url_dry_run_item(plan_item, pipeline_stage=pipeline_stage)
     target_id = str(plan_item.get("target_id") or "")
     profile_id = _target_source_profile_id(plan_item)
     candidate_limit = max(1, min(_int(plan_item.get("target_count")), per_target_candidate_limit))
@@ -544,9 +707,10 @@ def _discover_flow_url_target_item(
             "failure_taxonomy": failure_taxonomy,
         }
     selected = candidates[:candidate_limit]
+    target_state = FLOW_URL_DISCOVERED if pipeline_stage == PIPELINE_STAGE_FLOW_URL_ONLY else ATTACHMENT_LISTED
     return {
         **base,
-        "target_execution_state": FLOW_URL_DISCOVERED,
+        "target_execution_state": target_state,
         "discovery_state": str(discovery_result.get("discovery_state") or ""),
         "discovery_candidate_count": len(candidates),
         "discovery_profile_reports": _profile_report_refs(profile_reports),
@@ -554,14 +718,19 @@ def _discover_flow_url_target_item(
         "project_sample_items": _flow_url_project_sample_items(
             plan_item=plan_item,
             selected_candidates=selected,
-            target_execution_state=FLOW_URL_DISCOVERED,
+            target_execution_state=target_state,
             failure_taxonomy=_discovery_failure_taxonomy(profile_reports),
+            pipeline_stage=pipeline_stage,
         ),
         "failure_taxonomy": _discovery_failure_taxonomy(profile_reports),
     }
 
 
-def _flow_url_dry_run_item(plan_item: Mapping[str, Any]) -> dict[str, Any]:
+def _flow_url_dry_run_item(
+    plan_item: Mapping[str, Any],
+    *,
+    pipeline_stage: str = PIPELINE_STAGE_FLOW_URL_ONLY,
+) -> dict[str, Any]:
     source_quality_policy = resolve_source_quality_policy(_target_source_profile_id(plan_item))
     return {
         "target_id": str(plan_item.get("target_id") or ""),
@@ -574,7 +743,10 @@ def _flow_url_dry_run_item(plan_item: Mapping[str, Any]) -> dict[str, Any]:
         "selection_filters": _string_list(plan_item.get("selection_filters")),
         "target_count": _int(plan_item.get("target_count")),
         "target_execution_state": "EXECUTION_READY",
-        "pipeline_stage": PIPELINE_STAGE_FLOW_URL_ONLY,
+        "pipeline_stage": pipeline_stage,
+        "guangzhou_flow_no": str(plan_item.get("guangzhou_flow_no") or _target_item_filter_value(plan_item, "BACKTRACE_FLOW_NO:")),
+        "guangzhou_flow_title": str(plan_item.get("guangzhou_flow_title") or ""),
+        "guangzhou_flow_code": str(plan_item.get("guangzhou_flow_code") or _target_item_filter_value(plan_item, "BACKTRACE_FLOW_CODE:")),
         "download_enabled": False,
         "parse_enabled": False,
         "review_required": True,
@@ -592,8 +764,10 @@ def _flow_url_project_sample_items(
     selected_candidates: list[Mapping[str, Any]],
     target_execution_state: str,
     failure_taxonomy: list[str],
+    pipeline_stage: str = PIPELINE_STAGE_FLOW_URL_ONLY,
 ) -> list[dict[str, Any]]:
     items: list[dict[str, Any]] = []
+    stage_suffix = _pipeline_stage_state_suffix(pipeline_stage)
     for candidate in selected_candidates:
         candidate_key = str(candidate.get("candidate_key") or "")
         source_quality_policy = resolve_source_quality_policy(
@@ -652,11 +826,11 @@ def _flow_url_project_sample_items(
                 "source_family": str(plan_item.get("source_family") or ""),
                 "project_type": str(plan_item.get("project_type") or ""),
                 "target_execution_state": target_execution_state,
-                "pipeline_stage": PIPELINE_STAGE_FLOW_URL_ONLY,
-                "detail_capture_status": "NOT_RUN_FLOW_URL_ONLY",
-                "stage3_parse_state": "NOT_RUN_FLOW_URL_ONLY",
-                "document_completeness_state": "FLOW_URL_ONLY",
-                "notice_version_chain_state": "FLOW_URL_ONLY",
+                "pipeline_stage": pipeline_stage,
+                "detail_capture_status": f"NOT_RUN_{stage_suffix}",
+                "stage3_parse_state": f"NOT_RUN_{stage_suffix}",
+                "document_completeness_state": pipeline_stage,
+                "notice_version_chain_state": pipeline_stage,
                 "detail_snapshot_refs": [],
                 "attachment_snapshot_refs": [],
                 "detail_snapshot_count": 0,
@@ -710,6 +884,567 @@ def _entry_targets_with_candidate_limit(
     entry_targets_path = output_root / "entry-targets.json"
     entry_targets_path.write_text(json.dumps(entry_payload, ensure_ascii=False, indent=2), encoding="utf-8")
     return entry_targets_path
+
+
+def _guangzhou_flow_interface_targets(*, output_root: Path, per_flow_candidate_limit: int) -> Path:
+    targets = []
+    desired_count = max(1, per_flow_candidate_limit)
+    for module in GUANGZHOU_FLOW_MODULES:
+        document_kind = str(module["document_kind"])
+        flow_no = str(module["flow_no"])
+        flow_code = str(module["flow_code"])
+        flow_title = str(module["flow_title"])
+        targets.append(
+            {
+                "target_id": f"GZ-FLOW-INTERFACE-{flow_no}-{_document_kind_suffix(document_kind)}",
+                "jurisdiction": "CN-GD",
+                "platform_name": "广州交易集团",
+                "entry_seed_id": "ENTRY-GUANGZHOU-YWTB",
+                "required_fetch_profile_id_optional": GUANGZHOU_PROFILE_ID,
+                "source_family": "local_public_resource_trading_center",
+                "project_type": "construction",
+                "document_kind": document_kind,
+                "target_count": desired_count,
+                "selection_filters": [
+                    "工程建设",
+                    flow_title,
+                    "FLOW_INTERFACE_COVERAGE",
+                    f"BACKTRACE_FLOW_NO:{flow_no}",
+                    f"BACKTRACE_FLOW_CODE:{flow_code}",
+                ],
+                "guangzhou_flow_no": flow_no,
+                "guangzhou_flow_title": flow_title,
+                "guangzhou_flow_code": flow_code,
+            }
+        )
+    payload = {
+        "target_version": 1,
+        "target_set_id": "guangzhou-flow-interface-coverage-v1",
+        "minimum_total_sample_goal": len(targets) * desired_count,
+        "created_from": "GUANGZHOU_ATTACHMENT_LIST_INTERFACE_COVERAGE_V1",
+        "target_policy": {
+            "download_enabled": False,
+            "fetch_public_urls_enabled": True,
+            "stage4_public_evidence_readback_generation_enabled": False,
+            "stage5_rule_execution_enabled": False,
+            "customer_visible_allowed": False,
+            "no_legal_conclusion": True,
+            "do_not_fabricate_project_urls": True,
+        },
+        "targets": targets,
+    }
+    targets_path = output_root / "flow-interface-targets.json"
+    targets_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    return targets_path
+
+
+def _build_flow_interface_coverage_manifest(
+    *,
+    items: list[Mapping[str, Any]],
+    project_samples: list[Mapping[str, Any]],
+    execute: bool,
+    per_flow_candidate_limit: int,
+    created_at: str,
+    output_root: Path,
+) -> dict[str, Any]:
+    samples_by_flow: dict[str, list[Mapping[str, Any]]] = {}
+    for sample in project_samples:
+        flow_no = _sample_flow_no(sample)
+        if flow_no:
+            samples_by_flow.setdefault(flow_no, []).append(sample)
+    target_by_flow: dict[str, Mapping[str, Any]] = {}
+    for item in items:
+        flow_no = str(item.get("guangzhou_flow_no") or _target_item_filter_value(item, "BACKTRACE_FLOW_NO:"))
+        if flow_no:
+            target_by_flow[flow_no] = item
+    flow_reports = [
+        _flow_interface_report_row(
+            module=module,
+            samples=samples_by_flow.get(str(module["flow_no"]), []),
+            target_item=target_by_flow.get(str(module["flow_no"]), {}),
+            execute=execute,
+            per_flow_candidate_limit=per_flow_candidate_limit,
+        )
+        for module in GUANGZHOU_FLOW_MODULES
+    ]
+    required_flow_nos = {f"{index:02d}" for index in range(1, 12)}
+    missing_required = [
+        str(row.get("flow_no") or "")
+        for row in flow_reports
+        if str(row.get("flow_no") or "") in required_flow_nos
+        and str(row.get("flow_interface_coverage_state") or "") == FLOW_SAMPLE_NOT_FOUND
+    ]
+    missing_optional = [
+        str(row.get("flow_no") or "")
+        for row in flow_reports
+        if str(row.get("flow_interface_coverage_state") or "") == OPTIONAL_LOW_FREQUENCY_FLOW_NOT_FOUND
+    ]
+    required_with_sample = len(required_flow_nos) - len(missing_required)
+    optional_with_sample = len(
+        [
+            row
+            for row in flow_reports
+            if str(row.get("flow_no") or "") not in required_flow_nos
+            and str(row.get("flow_interface_coverage_state") or "") != OPTIONAL_LOW_FREQUENCY_FLOW_NOT_FOUND
+        ]
+    )
+    state = "SAMPLE_READY" if not missing_required else "PARTIAL_REVIEW_REQUIRED"
+    failure_taxonomy_counts = _counts(
+        reason
+        for row in flow_reports
+        for sample in list(row.get("sample_interface_items") or [])
+        for reason in list(sample.get("failure_taxonomy") or [])
+    )
+    status_counts = _counts(
+        str(sample.get("interface_status") or "")
+        for row in flow_reports
+        for sample in list(row.get("sample_interface_items") or [])
+    )
+    summary = {
+        "pipeline_stage": PIPELINE_STAGE_ATTACHMENT_LIST,
+        "interface_coverage_state": state,
+        "flow_count": len(flow_reports),
+        "required_flow_count": 11,
+        "required_flow_covered_count": required_with_sample,
+        "required_flow_with_sample_count": required_with_sample,
+        "optional_flow_with_sample_count": optional_with_sample,
+        "missing_required_flow_nos": missing_required,
+        "optional_low_frequency_flow_nos": ["12"],
+        "optional_missing_flow_nos": missing_optional,
+        "sample_interface_count": sum(len(list(row.get("sample_interface_items") or [])) for row in flow_reports),
+        "interface_status_counts": status_counts,
+        "failure_taxonomy_counts": failure_taxonomy_counts,
+        "attachment_snapshot_count": 0,
+        "download_enabled": False,
+        "parse_enabled": False,
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
+    manifest = {
+        "manifest_version": 1,
+        "manifest_kind": "guangzhou_flow_interface_coverage_manifest",
+        "adapter_id": "guangzhou-flow-interface-coverage-v1",
+        "manifest_id": f"GUANGZHOU-FLOW-INTERFACE-{_fingerprint({'flows': flow_reports, 'summary': summary})[:16]}",
+        "created_at": created_at,
+        "output_root": str(output_root),
+        "source_profile_id": GUANGZHOU_PROFILE_ID,
+        "official_entry_url": "https://ywtb.gzggzy.cn/jyfw/002001/002001001/trade_purchasetoplen6.html",
+        "pipeline_stage": PIPELINE_STAGE_ATTACHMENT_LIST,
+        "flow_reports": flow_reports,
+        "summary": summary,
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
+    manifest["manifest_sha256"] = _fingerprint(manifest)
+    return {"manifest": manifest, "summary": summary}
+
+
+def _flow_interface_report_row(
+    *,
+    module: Mapping[str, Any],
+    samples: list[Mapping[str, Any]],
+    target_item: Mapping[str, Any],
+    execute: bool,
+    per_flow_candidate_limit: int,
+) -> dict[str, Any]:
+    flow_no = str(module.get("flow_no") or "")
+    sample_rows = samples[: max(1, per_flow_candidate_limit)]
+    sample_items = [
+        _scan_guangzhou_interface_sample(sample, execute=execute)
+        for sample in sample_rows
+    ]
+    if not sample_items:
+        status = OPTIONAL_LOW_FREQUENCY_FLOW_NOT_FOUND if flow_no == "12" else FLOW_SAMPLE_NOT_FOUND
+    else:
+        status = "FLOW_INTERFACE_SAMPLED"
+    target_failures = list(target_item.get("failure_taxonomy") or [])
+    return {
+        "flow_no": flow_no,
+        "flow_title": str(module.get("flow_title") or ""),
+        "flow_code": str(module.get("flow_code") or ""),
+        "document_kind": str(module.get("document_kind") or ""),
+        "required_for_recent_acceptance": flow_no != "12",
+        "flow_interface_coverage_state": status,
+        "target_execution_state": str(target_item.get("target_execution_state") or ""),
+        "target_failure_taxonomy": target_failures,
+        "sample_interface_items": sample_items,
+        "sample_count": len(sample_items),
+        "interface_status_counts": _counts(str(item.get("interface_status") or "") for item in sample_items),
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
+
+
+def _scan_guangzhou_interface_sample(sample: Mapping[str, Any], *, execute: bool) -> dict[str, Any]:
+    source_url = str(sample.get("source_url") or "")
+    base = {
+        "project_id": str(sample.get("project_id") or ""),
+        "project_name": str(sample.get("project_name") or ""),
+        "flow_no": _sample_flow_no(sample),
+        "flow_title": _sample_flow_title(sample),
+        "document_kind": str(sample.get("document_kind") or ""),
+        "source_url": source_url,
+        "published_at_optional": str(sample.get("published_at_optional") or ""),
+        "source_project_code": str(sample.get("source_project_code") or ""),
+        "download_enabled": False,
+        "snapshot_write_enabled": False,
+        "parse_enabled": False,
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
+    if not execute:
+        return {
+            **base,
+            "interface_status": INTERFACE_UNRESOLVED,
+            "attachment_entry_count": 0,
+            "discovered_endpoints": [],
+            "probe_text": "",
+            "failure_taxonomy": ["dry_run_interface_scan_not_executed"],
+        }
+    html_result = _fetch_public_text(source_url)
+    if not html_result["ok"]:
+        return {
+            **base,
+            "interface_status": INTERFACE_UNRESOLVED,
+            "attachment_entry_count": 0,
+            "discovered_endpoints": [],
+            "probe_text": "",
+            "failure_taxonomy": list(html_result["failure_taxonomy"]),
+        }
+    scan = _scan_guangzhou_interface_html(str(html_result["text"]), source_url=source_url)
+    if scan["interface_status"] in {NO_PUBLIC_ATTACHMENT, INTERFACE_UNRESOLVED}:
+        playwright_scan = _playwright_interface_probe(source_url)
+        if playwright_scan.get("interface_status") == CLICK_DOWNLOAD_ENDPOINT_FOUND:
+            scan = playwright_scan
+        elif playwright_scan.get("failure_taxonomy"):
+            scan["failure_taxonomy"] = _dedupe_strings(
+                [*list(scan.get("failure_taxonomy") or []), *list(playwright_scan.get("failure_taxonomy") or [])]
+            )
+    return {
+        **base,
+        **scan,
+    }
+
+
+def _fetch_public_text(source_url: str) -> dict[str, Any]:
+    if not source_url:
+        return {"ok": False, "text": "", "failure_taxonomy": ["source_url_missing"]}
+    request = Request(
+        source_url,
+        headers={
+            "User-Agent": "AX9S-Guangzhou-InterfaceCoverage/0.1 (+public-readonly-validation)",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Referer": "https://ywtb.gzggzy.cn/jyfw/002001/002001001/trade_purchasetoplen6.html",
+        },
+        method="GET",
+    )
+    try:
+        with urlopen(request, timeout=18) as response:
+            raw = response.read(1_500_000)
+            content_type = str(response.headers.get("Content-Type") or "")
+        text = raw.decode("utf-8", "ignore")
+        return {"ok": True, "text": text, "content_type": content_type, "failure_taxonomy": []}
+    except HTTPError as exc:
+        return {"ok": False, "text": "", "failure_taxonomy": [f"interface_http_error:{exc.code}"]}
+    except URLError as exc:
+        return {"ok": False, "text": "", "failure_taxonomy": [f"interface_url_error:{exc.reason}"]}
+    except Exception as exc:  # pragma: no cover - network failures vary.
+        return {"ok": False, "text": "", "failure_taxonomy": [f"interface_fetch_exception:{exc}"]}
+
+
+def _scan_guangzhou_interface_html(html: str, *, source_url: str) -> dict[str, Any]:
+    text = str(html or "")
+    lower = text.lower()
+    endpoints = _extract_interface_endpoints(text, source_url=source_url)
+    probe = _clip_text(_visible_interface_probe(text), 800)
+    failure_taxonomy: list[str] = []
+    if _has_login_or_ca_marker(text):
+        status = LOGIN_OR_CA_REQUIRED
+        failure_taxonomy.append("login_or_ca_required")
+    elif _has_epoint_challenge_marker(text):
+        status = EPOINT_CHALLENGE_REQUIRED
+        failure_taxonomy.append("epoint_challenge_required")
+    elif any(_is_script_download_endpoint(item.get("url", "")) or _is_script_download_endpoint(item.get("raw", "")) for item in endpoints):
+        status = SCRIPT_DOWNLOAD_ENDPOINT_FOUND
+    elif any(_is_static_attachment_endpoint(item.get("url", "")) for item in endpoints):
+        status = STATIC_ATTACHMENT_LINK_FOUND
+    elif _has_no_public_attachment_marker(text):
+        status = NO_PUBLIC_ATTACHMENT
+    elif _has_attachment_words(text):
+        status = INTERFACE_UNRESOLVED
+        failure_taxonomy.append("attachment_words_present_but_endpoint_unresolved")
+    else:
+        status = NO_PUBLIC_ATTACHMENT
+    return {
+        "interface_status": status,
+        "attachment_entry_count": len(endpoints),
+        "discovered_endpoints": endpoints[:20],
+        "probe_text": probe,
+        "failure_taxonomy": failure_taxonomy,
+        "html_probe_sha256": _fingerprint(probe),
+    }
+
+
+def _extract_interface_endpoints(html: str, *, source_url: str) -> list[dict[str, str]]:
+    endpoints: list[dict[str, str]] = []
+    patterns = [
+        r"""(?:href|data-url|data-href|action)=["']([^"']+)["']""",
+        r"""(?:ztbfjyz|downloadztbattach|downloadZtbAttach|ztbAttachDownloadAction)[^"'<>\s)]*""",
+        r"""["']([^"']*(?:downloadztbattach|downloadZtbAttach|ztbAttachDownloadAction|sys-file/download|tempdownattach|AttachGuid|\.pdf|\.docx?|\.xlsx?|\.zip|\.rar)[^"']*)["']""",
+    ]
+    for pattern in patterns:
+        for match in re.finditer(pattern, html, flags=re.IGNORECASE):
+            raw = match.group(1) if match.lastindex else match.group(0)
+            raw = str(raw or "").strip()
+            if not raw or raw.startswith("javascript:void"):
+                continue
+            if any(token in raw for token in ("<", ">")) and not re.match(r"^https?://", raw, flags=re.IGNORECASE):
+                continue
+            url = raw if re.match(r"^https?://", raw, flags=re.IGNORECASE) else urljoin(source_url, raw)
+            if not _looks_like_interface_endpoint(raw, url):
+                continue
+            endpoints.append(
+                {
+                    "url": url,
+                    "raw": raw[:300],
+                    "endpoint_kind": _endpoint_kind(raw, url),
+                }
+            )
+    return _dedupe_endpoint_rows(endpoints)
+
+
+def _visible_interface_probe(html: str) -> str:
+    text = re.sub(r"<script\b.*?</script>", " ", html, flags=re.IGNORECASE | re.DOTALL)
+    text = re.sub(r"<style\b.*?</style>", " ", text, flags=re.IGNORECASE | re.DOTALL)
+    text = re.sub(r"<[^>]+>", " ", text)
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def _has_login_or_ca_marker(text: str) -> bool:
+    return any(token in text for token in ("请登录", "登录后", "CA锁", "数字证书", "证书登录", "CA登录"))
+
+
+def _has_epoint_challenge_marker(text: str) -> bool:
+    lower = text.lower()
+    return any(token in lower for token in ("pageverify", "blockpuzzle", "captcha", "initandcheckcaptcha"))
+
+
+def _has_attachment_words(text: str) -> bool:
+    return any(token in text for token in ("附件", "下载", "招标文件", "招标资料", "投标文件", "答疑", "补遗", "澄清"))
+
+
+def _has_no_public_attachment_marker(text: str) -> bool:
+    return any(token in text for token in ("无附件", "暂无附件", "没有附件", "未上传附件"))
+
+
+def _looks_like_interface_endpoint(raw: str, url: str) -> bool:
+    combined = f"{raw} {url}".lower()
+    return any(
+        token in combined
+        for token in (
+            "download",
+            "attach",
+            "downloadztbattach",
+            "ztbattachdownloadaction",
+            "ztbfjyz",
+            "sys-file/download",
+            "tempdownattach",
+            "attachguid",
+            ".pdf",
+            ".doc",
+            ".docx",
+            ".xls",
+            ".xlsx",
+            ".zip",
+            ".rar",
+        )
+    )
+
+
+def _is_script_download_endpoint(value: str) -> bool:
+    lower = str(value or "").lower()
+    return any(token in lower for token in ("ztbfjyz", "downloadztbattach", "downloadztbattach.jspx", "ztbattachdownloadaction"))
+
+
+def _is_static_attachment_endpoint(value: str) -> bool:
+    lower = str(value or "").lower()
+    return any(
+        token in lower
+        for token in (
+            ".pdf",
+            ".doc",
+            ".docx",
+            ".xls",
+            ".xlsx",
+            ".zip",
+            ".rar",
+            "sys-file/download",
+            "tempdownattach",
+            "attachguid=",
+            "/download?",
+        )
+    )
+
+
+def _endpoint_kind(raw: str, url: str) -> str:
+    if _is_script_download_endpoint(raw) or _is_script_download_endpoint(url):
+        return "SCRIPT_DOWNLOAD_ENDPOINT"
+    if _is_static_attachment_endpoint(url):
+        return "STATIC_ATTACHMENT_LINK"
+    return "POSSIBLE_ATTACHMENT_INTERFACE"
+
+
+def _dedupe_endpoint_rows(rows: list[Mapping[str, str]]) -> list[dict[str, str]]:
+    result: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for row in rows:
+        url = str(row.get("url") or "")
+        if not url or url in seen:
+            continue
+        seen.add(url)
+        result.append(dict(row))
+    return result
+
+
+def _playwright_interface_probe(source_url: str) -> dict[str, Any]:
+    try:
+        from playwright.sync_api import sync_playwright  # type: ignore
+    except Exception:
+        return {"interface_status": INTERFACE_UNRESOLVED, "failure_taxonomy": ["playwright_unavailable"]}
+    endpoints: list[dict[str, str]] = []
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            page = browser.new_page()
+            page.on(
+                "request",
+                lambda request: endpoints.append(
+                    {
+                        "url": request.url,
+                        "raw": request.url[:300],
+                        "endpoint_kind": _endpoint_kind(request.url, request.url),
+                    }
+                )
+                if _looks_like_interface_endpoint(request.url, request.url)
+                else None,
+            )
+            page.goto(source_url, wait_until="domcontentloaded", timeout=18_000)
+            locators = page.locator("text=/附件|下载|招标文件|招标资料|答疑|补遗|澄清|投标文件/")
+            count = min(locators.count(), 8)
+            for index in range(count):
+                try:
+                    locators.nth(index).click(timeout=1_500, trial=False)
+                    page.wait_for_timeout(300)
+                except Exception:
+                    continue
+            browser.close()
+    except Exception as exc:  # pragma: no cover - browser/network variance.
+        return {"interface_status": INTERFACE_UNRESOLVED, "failure_taxonomy": [f"playwright_probe_failed:{exc}"]}
+    endpoints = _dedupe_endpoint_rows(endpoints)
+    if endpoints:
+        return {
+            "interface_status": CLICK_DOWNLOAD_ENDPOINT_FOUND,
+            "attachment_entry_count": len(endpoints),
+            "discovered_endpoints": endpoints[:20],
+            "probe_text": "",
+            "failure_taxonomy": [],
+            "html_probe_sha256": "",
+        }
+    return {"interface_status": INTERFACE_UNRESOLVED, "failure_taxonomy": ["playwright_no_download_endpoint"]}
+
+
+def _build_manual_interface_check_table(interface_report: Mapping[str, Any]) -> dict[str, Any]:
+    manifest = interface_report.get("manifest") if isinstance(interface_report.get("manifest"), Mapping) else {}
+    rows: list[dict[str, Any]] = []
+    for flow in list(manifest.get("flow_reports") or []):
+        if not isinstance(flow, Mapping):
+            continue
+        sample_items = list(flow.get("sample_interface_items") or [])
+        if not sample_items:
+            rows.append(
+                {
+                    "flow_no": str(flow.get("flow_no") or ""),
+                    "flow_title": str(flow.get("flow_title") or ""),
+                    "project_id": "",
+                    "project_name": "",
+                    "source_url": "",
+                    "published_at_optional": "",
+                    "interface_status": str(flow.get("flow_interface_coverage_state") or ""),
+                    "attachment_entry_count": 0,
+                    "failure_taxonomy": list(flow.get("target_failure_taxonomy") or []),
+                    "manual_check_state": "NO_SAMPLE_TO_CHECK",
+                    "customer_visible_allowed": False,
+                    "no_legal_conclusion": True,
+                }
+            )
+            continue
+        for sample in sample_items:
+            if not isinstance(sample, Mapping):
+                continue
+            rows.append(
+                {
+                    "flow_no": str(flow.get("flow_no") or ""),
+                    "flow_title": str(flow.get("flow_title") or ""),
+                    "project_id": str(sample.get("project_id") or ""),
+                    "project_name": str(sample.get("project_name") or ""),
+                    "source_url": str(sample.get("source_url") or ""),
+                    "published_at_optional": str(sample.get("published_at_optional") or ""),
+                    "interface_status": str(sample.get("interface_status") or ""),
+                    "attachment_entry_count": _int(sample.get("attachment_entry_count")),
+                    "failure_taxonomy": list(sample.get("failure_taxonomy") or []),
+                    "manual_check_state": "PENDING",
+                    "customer_visible_allowed": False,
+                    "no_legal_conclusion": True,
+                }
+            )
+    return {
+        "manifest": {
+            "manifest_version": 1,
+            "manifest_kind": "guangzhou_manual_interface_check_table",
+            "pipeline_stage": PIPELINE_STAGE_ATTACHMENT_LIST,
+            "items": rows,
+            "summary": {
+                "row_count": len(rows),
+                "flow_count": len({row["flow_no"] for row in rows if row["flow_no"]}),
+                "customer_visible_allowed": False,
+                "no_legal_conclusion": True,
+            },
+            "customer_visible_allowed": False,
+            "no_legal_conclusion": True,
+        }
+    }
+
+
+def _maybe_resume_interface_coverage_manifest(
+    *,
+    root: Path,
+    created_at: str,
+    resume: bool,
+) -> dict[str, Any] | None:
+    if not resume:
+        return None
+    state_path = root / "pipeline-state.json"
+    if state_path.exists():
+        state_payload = json.loads(state_path.read_text(encoding="utf-8"))
+        _mark_interrupted_pipeline_rows(state_payload, created_at=created_at)
+        state_path.write_text(json.dumps(state_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    run_path = root / "run-manifest.json"
+    coverage_path = root / "guangzhou-flow-interface-coverage.json"
+    if not run_path.exists() or not coverage_path.exists():
+        return None
+    result = json.loads(run_path.read_text(encoding="utf-8"))
+    coverage_payload = json.loads(coverage_path.read_text(encoding="utf-8"))
+    coverage_manifest = coverage_payload.get("manifest") if isinstance(coverage_payload.get("manifest"), Mapping) else {}
+    if str(coverage_manifest.get("pipeline_stage") or "") != PIPELINE_STAGE_ATTACHMENT_LIST:
+        return None
+    result["pipeline_resume"] = {
+        "resume_state": "RESUMED_FROM_INTERFACE_COVERAGE_MANIFEST",
+        "coverage_manifest_path": str(coverage_path),
+        "pipeline_state_path": str(state_path),
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
+    return result
 
 
 def _build_flow_url_manifest(
@@ -892,7 +1627,10 @@ def _build_pipeline_state_manifest(
     rows: list[dict[str, Any]] = []
     for sample in project_samples:
         flow_no = _sample_flow_no(sample)
-        state = FLOW_URL_DISCOVERED if str(sample.get("source_url") or "") else FAILED_RETRYABLE
+        if str(sample.get("source_url") or ""):
+            state = ATTACHMENT_LISTED if pipeline_stage == PIPELINE_STAGE_ATTACHMENT_LIST else FLOW_URL_DISCOVERED
+        else:
+            state = FAILED_RETRYABLE
         rows.append(
             {
                 "project_id": str(sample.get("project_id") or ""),
@@ -917,7 +1655,7 @@ def _build_pipeline_state_manifest(
         if _project_match_key(sample)
     }
     for item in items:
-        if str(item.get("target_execution_state") or "") == FLOW_URL_DISCOVERED:
+        if str(item.get("target_execution_state") or "") in {FLOW_URL_DISCOVERED, ATTACHMENT_LISTED}:
             continue
         target_key = _target_item_project_key(item)
         if target_key and target_key not in sample_project_keys:
@@ -1541,6 +2279,16 @@ def _flow_no_for_document_kind(document_kind: str) -> str:
 def _normalize_pipeline_stage(value: Any) -> str:
     text = str(value or PIPELINE_STAGE_FULL).strip()
     return PIPELINE_STAGES.get(text.lower(), PIPELINE_STAGE_FULL)
+
+
+def _pipeline_stage_state_suffix(value: str) -> str:
+    return {
+        PIPELINE_STAGE_FLOW_URL_ONLY: "FLOW_URL_ONLY",
+        PIPELINE_STAGE_ATTACHMENT_LIST: "ATTACHMENT_LIST",
+        PIPELINE_STAGE_DOWNLOAD: "DOWNLOAD",
+        PIPELINE_STAGE_PARSE: "PARSE",
+        PIPELINE_STAGE_FULL: "FULL",
+    }.get(value, _slug(value))
 
 
 def _target_source_profile_id(plan_item: Mapping[str, Any]) -> str:

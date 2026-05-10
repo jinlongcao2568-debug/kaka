@@ -13,16 +13,31 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from storage.guangzhou_post_candidate_backtrace import (  # noqa: E402
+    ATTACHMENT_LISTED,
+    CLICK_DOWNLOAD_ENDPOINT_FOUND,
+    EPOINT_CHALLENGE_REQUIRED,
     FLOW_URL_DISCOVERED,
+    FLOW_SAMPLE_NOT_FOUND,
+    INTERFACE_UNRESOLVED,
+    LOGIN_OR_CA_REQUIRED,
+    NO_PUBLIC_ATTACHMENT,
+    OPTIONAL_LOW_FREQUENCY_FLOW_NOT_FOUND,
     PARTIAL_RUN_INTERRUPTED,
+    PIPELINE_STAGE_ATTACHMENT_LIST,
     PIPELINE_STAGE_FLOW_URL_ONLY,
+    SCRIPT_DOWNLOAD_ENDPOINT_FOUND,
+    STATIC_ATTACHMENT_LINK_FOUND,
     _annotate_project_samples,
     _backtrace_targets_for_entries,
+    _build_flow_interface_coverage_manifest,
     _build_flow_url_manifest,
+    _build_manual_interface_check_table,
     _build_pipeline_state_manifest,
     _entry_targets_with_candidate_limit,
     _flow_url_project_sample_items,
+    _guangzhou_flow_interface_targets,
     _maybe_resume_flow_url_manifest,
+    _scan_guangzhou_interface_html,
 )
 
 
@@ -296,6 +311,135 @@ class TestGuangzhouPostCandidateBacktrace(unittest.TestCase):
             self.assertIsNotNone(resumed)
             state_payload = json.loads((root / "pipeline-state.json").read_text(encoding="utf-8"))
             self.assertEqual(state_payload["manifest"]["items"][0]["state"], PARTIAL_RUN_INTERRUPTED)
+
+    def test_flow_interface_targets_cover_12_guangzhou_modules_without_downloads(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            path = _guangzhou_flow_interface_targets(
+                output_root=Path(tmp_dir),
+                per_flow_candidate_limit=2,
+            )
+
+            payload = json.loads(path.read_text(encoding="utf-8"))
+
+        self.assertEqual(payload["target_set_id"], "guangzhou-flow-interface-coverage-v1")
+        self.assertEqual(len(payload["targets"]), 12)
+        self.assertTrue(all(item["target_count"] == 2 for item in payload["targets"]))
+        self.assertTrue(all("FLOW_INTERFACE_COVERAGE" in item["selection_filters"] for item in payload["targets"]))
+        self.assertFalse(payload["target_policy"]["download_enabled"])
+        self.assertTrue(payload["target_policy"]["fetch_public_urls_enabled"])
+
+    def test_static_guangzhou_interface_scanner_classifies_download_entry_types(self) -> None:
+        static_scan = _scan_guangzhou_interface_html(
+            '<a href="/files/招标文件.pdf">附件下载</a>',
+            source_url="https://ywtb.gzggzy.cn/jyfw/002001/002001001/demo.html",
+        )
+        rest_scan = _scan_guangzhou_interface_html(
+            '<script>var u="https://jsgc.gzggzy.cn/tpframe/rest/guangzhoutempdownattach4webaction/download?AttachGuid=A1&FileCode=TBGK001";</script>',
+            source_url="https://ywtb.gzggzy.cn/jyfw/002001/002001001/demo.html",
+        )
+        script_scan = _scan_guangzhou_interface_html(
+            "ztbfjyz('/EpointWebBuilder/downloadztbattach?attachGuid=A1')",
+            source_url="https://ywtb.gzggzy.cn/jyfw/002001/002001001/demo.html",
+        )
+        challenge_scan = _scan_guangzhou_interface_html(
+            "<script>initAndCheckCaptcha();</script><div>pageVerify blockPuzzle</div>",
+            source_url="https://ywtb.gzggzy.cn/jyfw/002001/002001001/demo.html",
+        )
+        login_scan = _scan_guangzhou_interface_html(
+            "<div>请登录后使用 CA锁 数字证书 下载</div>",
+            source_url="https://ywtb.gzggzy.cn/jyfw/002001/002001001/demo.html",
+        )
+        empty_scan = _scan_guangzhou_interface_html(
+            "<div>本公告无附件</div>",
+            source_url="https://ywtb.gzggzy.cn/jyfw/002001/002001001/demo.html",
+        )
+
+        self.assertEqual(static_scan["interface_status"], STATIC_ATTACHMENT_LINK_FOUND)
+        self.assertEqual(rest_scan["interface_status"], STATIC_ATTACHMENT_LINK_FOUND)
+        self.assertEqual(script_scan["interface_status"], SCRIPT_DOWNLOAD_ENDPOINT_FOUND)
+        self.assertEqual(challenge_scan["interface_status"], EPOINT_CHALLENGE_REQUIRED)
+        self.assertEqual(login_scan["interface_status"], LOGIN_OR_CA_REQUIRED)
+        self.assertEqual(empty_scan["interface_status"], NO_PUBLIC_ATTACHMENT)
+        self.assertFalse(any(">" in item["raw"] for item in static_scan["discovered_endpoints"]))
+
+    def test_attachment_list_project_samples_do_not_include_snapshots_or_parse(self) -> None:
+        rows = _flow_url_project_sample_items(
+            plan_item={
+                "target_id": "GZ-FLOW-INTERFACE-07-CANDIDATE",
+                "document_kind": "candidate_notice",
+                "jurisdiction": "CN-GD",
+                "required_fetch_profile_id_optional": "GUANGZHOU-YWTB-CONSTRUCTION-LIST",
+            },
+            selected_candidates=[
+                {
+                    "candidate_key": "CAND-1",
+                    "project_id": "PROJ-CN-GD-JG2026-10815",
+                    "project_name": "某工程中标候选人公示",
+                    "source_url": "https://ywtb.gzggzy.cn/jyfw/002001/002001001/20260510/candidate.html",
+                    "source_profile_id": "GUANGZHOU-YWTB-CONSTRUCTION-LIST",
+                    "source_project_code": "JG2026-10815",
+                    "project_match_key": "JG2026-10815",
+                    "guangzhou_flow_no": "07",
+                    "guangzhou_flow_title": "中标候选人公示",
+                    "guangzhou_flow_code": "03",
+                    "published_at_optional": "2026-05-10",
+                }
+            ],
+            target_execution_state=ATTACHMENT_LISTED,
+            failure_taxonomy=[],
+            pipeline_stage=PIPELINE_STAGE_ATTACHMENT_LIST,
+        )
+
+        self.assertEqual(rows[0]["pipeline_stage"], PIPELINE_STAGE_ATTACHMENT_LIST)
+        self.assertEqual(rows[0]["target_execution_state"], ATTACHMENT_LISTED)
+        self.assertEqual(rows[0]["detail_snapshot_refs"], [])
+        self.assertEqual(rows[0]["attachment_snapshot_refs"], [])
+        self.assertEqual(rows[0]["detail_capture_status"], "NOT_RUN_ATTACHMENT_LIST")
+        self.assertEqual(rows[0]["stage3_parse_state"], "NOT_RUN_ATTACHMENT_LIST")
+
+    def test_flow_interface_coverage_marks_required_missing_and_optional_12_non_blocking(self) -> None:
+        sample = _sample("candidate_notice", project_id="PROJ-CN-GD-JG2026-10815", flow_no="07", flow_code="03")
+        sample["source_url"] = "https://example.test/candidate.html"
+        sample["pipeline_stage"] = PIPELINE_STAGE_ATTACHMENT_LIST
+
+        result = _build_flow_interface_coverage_manifest(
+            items=[],
+            project_samples=[sample],
+            execute=False,
+            per_flow_candidate_limit=2,
+            created_at="2026-05-10T00:00:00+08:00",
+            output_root=Path("tmp/test"),
+        )
+
+        summary = result["summary"]
+        self.assertEqual(summary["interface_coverage_state"], "PARTIAL_REVIEW_REQUIRED")
+        self.assertIn("01", summary["missing_required_flow_nos"])
+        self.assertEqual(summary["attachment_snapshot_count"], 0)
+        by_flow = {row["flow_no"]: row for row in result["manifest"]["flow_reports"]}
+        self.assertEqual(by_flow["12"]["flow_interface_coverage_state"], OPTIONAL_LOW_FREQUENCY_FLOW_NOT_FOUND)
+        self.assertEqual(by_flow["01"]["flow_interface_coverage_state"], FLOW_SAMPLE_NOT_FOUND)
+        self.assertEqual(by_flow["07"]["sample_interface_items"][0]["interface_status"], INTERFACE_UNRESOLVED)
+
+        manual = _build_manual_interface_check_table(result)
+        rows = manual["manifest"]["items"]
+        self.assertTrue(any(row["interface_status"] == FLOW_SAMPLE_NOT_FOUND for row in rows))
+        self.assertTrue(any(row["interface_status"] == OPTIONAL_LOW_FREQUENCY_FLOW_NOT_FOUND for row in rows))
+        self.assertEqual(manual["manifest"]["summary"]["flow_count"], 12)
+
+    def test_pipeline_state_marks_attachment_list_stage_without_snapshots(self) -> None:
+        sample = _sample("candidate_notice", project_id="PROJ-CN-GD-JG2026-10815", flow_no="07", flow_code="03")
+        sample["source_url"] = "https://example.test/candidate.html"
+        state = _build_pipeline_state_manifest(
+            project_samples=[sample],
+            items=[],
+            created_at="2026-05-10T00:00:00+08:00",
+            pipeline_stage=PIPELINE_STAGE_ATTACHMENT_LIST,
+        )
+
+        row = state["manifest"]["items"][0]
+        self.assertEqual(row["state"], ATTACHMENT_LISTED)
+        self.assertEqual(row["artifact_refs"]["attachment_snapshot_refs"], [])
+        self.assertEqual(state["summary"]["state_counts"][ATTACHMENT_LISTED], 1)
 
 
 def _sample(
