@@ -37,7 +37,7 @@ def build_guangzhou_upstream_readiness_report(
     flow_manifest = _source_manifest(_load_json(flow_dir / "run-manifest.json", missing_inputs, "flow_run_manifest_missing"))
     flow_url_manifest = _source_manifest(_load_json(flow_dir / "flow-url-manifest.json", [], "flow_url_manifest_missing"))
     analysis_manifest = _source_manifest(_load_json(flow_dir / "analysis-plan.json", [], "analysis_plan_missing"))
-    download_manifest = _source_manifest(_load_json(download_dir / "download-probe-manifest.json", missing_inputs, "download_probe_manifest_missing"))
+    download_manifest = _source_manifest(_load_download_manifest(download_dir, missing_inputs))
     strategy_manifest = _source_manifest(_load_json(strategy_dir / "evidence-verification-strategy.json", [], "evidence_strategy_missing"))
     archive_manifest = _source_manifest(_load_json(archive_dir / "archive-extract-probe-manifest.json", [], "archive_extract_manifest_missing"))
     parse_manifest = _source_manifest(_load_json(parse_dir / "parse-probe-manifest.json", missing_inputs, "parse_probe_manifest_missing"))
@@ -309,6 +309,10 @@ def _summary(
         blocking.append("download_probe_project_coverage_below_flowurl_projects")
     if _rate(_int(download_summary.get("attachment_snapshot_count")), _int(download_summary.get("download_attempted_count"))) < 0.8:
         blocking.append("attachment_snapshot_success_rate_below_target")
+    if _int(download_summary.get("timeout_interrupted_count")) > 0:
+        blocking.append("download_probe_timeout_interrupted")
+    if _int(download_summary.get("partial_segment_count")) > 0:
+        blocking.append("download_probe_partial_segment_present")
     if _rate(_int(parse_summary.get("parse_success_count")), _int(parse_summary.get("parse_attempted_file_count"))) < 0.8:
         blocking.append("parse_success_rate_below_target")
     if stage4_pm == 0:
@@ -339,6 +343,8 @@ def _summary(
         "project_repair_required_count": sum(1 for row in project_records if row.get("readiness_state") != "READY_FOR_STAGE4_PROBE"),
         "flow_repair_required_count": sum(1 for row in flow_records if row.get("readiness_state") != "FLOW_READY_FOR_NEXT_PROBE"),
         "download_failure_taxonomy_counts": dict(download_summary.get("failure_taxonomy_counts") or {}),
+        "download_segment_state_counts": dict(download_summary.get("segment_state_counts") or {}),
+        "download_deferred_attachment_count": _int(download_summary.get("deferred_attachment_count")),
         "parse_failure_taxonomy_counts": dict(parse_summary.get("parse_failure_taxonomy_counts") or {}),
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,
@@ -366,6 +372,18 @@ def _repair_backlog(*, project_records: list[Mapping[str, Any]], flow_records: l
                 "repair_layer": "Stage2AttachmentDownload",
                 "repair_action": "按项目/流程修附件接口失败、过期链接和非下载导航误入，目标附件 snapshot 成功率先到 80%。",
                 "evidence": summary.get("download_failure_taxonomy_counts"),
+            }
+        )
+    if any(reason in summary.get("stage4_blocking_reasons", []) for reason in ("download_probe_timeout_interrupted", "download_probe_partial_segment_present", "download_probe_partial_manifest_used")):
+        backlog.append(
+            {
+                "priority": 2,
+                "repair_layer": "DownloadRepairResume",
+                "repair_action": "按 08/07/04/03 分段续跑 DownloadRepair，优先补齐 timeout/partial segment，不进入 Stage4。",
+                "evidence": {
+                    "download_segment_state_counts": summary.get("download_segment_state_counts"),
+                    "download_probe_project_count": summary.get("download_probe_project_count"),
+                },
             }
         )
     if "parse_success_rate_below_target" in summary.get("stage4_blocking_reasons", []):
@@ -514,6 +532,22 @@ def _load_json(path: Path, missing_inputs: list[str], missing_reason: str) -> di
     return dict(data) if isinstance(data, Mapping) else {}
 
 
+def _load_download_manifest(download_dir: Path, missing_inputs: list[str]) -> dict[str, Any]:
+    candidates = [
+        (download_dir / "download-probe-manifest.json", ""),
+        (download_dir / "download-repair-merged-manifest.json", ""),
+        (download_dir / "download-probe-manifest.partial.json", "download_probe_partial_manifest_used"),
+    ]
+    for path, marker in candidates:
+        if path.exists():
+            if marker:
+                missing_inputs.append(marker)
+            data = json.loads(path.read_text(encoding="utf-8"))
+            return dict(data) if isinstance(data, Mapping) else {}
+    missing_inputs.append("download_probe_manifest_missing")
+    return {}
+
+
 def _source_manifest(payload: Mapping[str, Any]) -> dict[str, Any]:
     manifest = payload.get("manifest") if isinstance(payload, Mapping) else {}
     return dict(manifest) if isinstance(manifest, Mapping) else dict(payload)
@@ -534,7 +568,7 @@ def _first_text(values: Any) -> str:
 
 def _rate(numerator: int, denominator: int) -> float:
     if denominator <= 0:
-        return 1.0 if numerator == 0 else 0.0
+        return 0.0
     return round(float(numerator) / float(denominator), 4)
 
 

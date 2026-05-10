@@ -51,6 +51,7 @@ def build_guangzhou_download_probe(
     storage_path: str | Path | None = None,
     object_storage_path: str | Path | None = None,
     max_bid_file_publicity_downloads_per_project: int = 2,
+    max_attachments_per_flow_item: int = 0,
     use_all_analysis_projects: bool = False,
     execute: bool = False,
     created_at: str | None = None,
@@ -107,6 +108,7 @@ def build_guangzhou_download_probe(
                 repository=repository,
                 project_bid_publicity_download_counts=project_bid_publicity_download_counts,
                 max_bid_file_publicity_downloads_per_project=max(0, max_bid_file_publicity_downloads_per_project),
+                max_attachments_per_flow_item=max(0, max_attachments_per_flow_item),
                 created_at=created,
             )
             flow_items.append(result["flow_item"])
@@ -156,6 +158,7 @@ def build_guangzhou_download_probe(
         "project_ids": list(project_ids),
         "use_all_analysis_projects": bool(use_all_analysis_projects),
         "flow_nos": [_flow_no(value) for value in flow_nos],
+        "max_attachments_per_flow_item": max(0, max_attachments_per_flow_item),
         "items": flow_items,
         "sample_items": flow_items[:80],
         "project_sample_items": project_samples,
@@ -278,6 +281,7 @@ def _execute_probe_item(
     repository: Any,
     project_bid_publicity_download_counts: dict[str, int],
     max_bid_file_publicity_downloads_per_project: int,
+    max_attachments_per_flow_item: int,
     created_at: str,
 ) -> dict[str, dict[str, Any]]:
     project_id = str(item.get("project_id") or "")
@@ -302,6 +306,7 @@ def _execute_probe_item(
     attachment_snapshot_refs: list[dict[str, Any]] = []
     attachment_link_items: list[dict[str, str]] = []
     attachment_attempts: list[dict[str, Any]] = []
+    deferred_attachment_count = 0
     detail_carrier: Mapping[str, Any] = {}
 
     try:
@@ -358,7 +363,12 @@ def _execute_probe_item(
             already = project_bid_publicity_download_counts.get(project_id, 0)
             remaining = max(0, max_bid_file_publicity_downloads_per_project - already)
             download_limit = min(len(attachment_link_items), remaining)
+        elif max_attachments_per_flow_item > 0:
+            download_limit = min(len(attachment_link_items), max_attachments_per_flow_item)
         selected_links = attachment_link_items[:download_limit]
+        deferred_attachment_count = max(0, len(attachment_link_items) - len(selected_links))
+        if deferred_attachment_count and flow_no != "08":
+            failure_taxonomy.append("DEFERRED_BY_DOWNLOAD_REPAIR_LIMIT")
         if flow_no == "08":
             project_bid_publicity_download_counts[project_id] = (
                 project_bid_publicity_download_counts.get(project_id, 0) + len(selected_links)
@@ -389,12 +399,17 @@ def _execute_probe_item(
                 )
                 if retry_attempt:
                     retry_attempt["retry_of_attachment_url"] = attempt.get("attachment_url")
-                    retry_attempt["failure_taxonomy"] = _dedupe_strings(
-                        [
-                            "attachment_retry_after_detail_refresh",
-                            *list(retry_attempt.get("failure_taxonomy") or []),
-                        ]
-                    )
+                    if retry_attempt.get("snapshot_ref"):
+                        retry_attempt["failure_taxonomy"] = _dedupe_strings(
+                            list(retry_attempt.get("failure_taxonomy") or [])
+                        )
+                    else:
+                        retry_attempt["failure_taxonomy"] = _dedupe_strings(
+                            [
+                                "attachment_retry_after_detail_refresh",
+                                *list(retry_attempt.get("failure_taxonomy") or []),
+                            ]
+                        )
                     attempt = retry_attempt
             attachment_attempts.append(attempt)
             if attempt.get("snapshot_ref"):
@@ -424,6 +439,8 @@ def _execute_probe_item(
         challenge_diagnostics=challenge_diagnostics,
         failure_taxonomy=_dedupe_strings(failure_taxonomy),
         attachment_link_items=attachment_link_items,
+        download_attempted_count=len(attachment_attempts),
+        deferred_attachment_count=deferred_attachment_count,
         source_dir=source_dir,
     )
     flow_item = {
@@ -441,6 +458,7 @@ def _execute_probe_item(
         "detail_snapshot_count": len(detail_snapshot_refs),
         "listed_attachment_count": len(attachment_link_items),
         "download_attempted_count": len(attachment_attempts),
+        "deferred_attachment_count": deferred_attachment_count,
         "attachment_snapshot_count": len(attachment_snapshot_refs),
         "challenge_diagnostics": challenge_diagnostics,
         "failure_taxonomy": _dedupe_strings(failure_taxonomy),
@@ -689,6 +707,8 @@ def _project_sample(
     challenge_diagnostics: list[dict[str, Any]],
     failure_taxonomy: list[str],
     attachment_link_items: list[dict[str, str]],
+    download_attempted_count: int = 0,
+    deferred_attachment_count: int = 0,
     source_dir: Path,
 ) -> dict[str, Any]:
     flow_no = _flow_no(item.get("flow_no"))
@@ -717,6 +737,9 @@ def _project_sample(
         "notice_version_chain_state": "NOT_EVALUATED_DOWNLOAD_PROBE",
         "detail_snapshot_count": len(detail_snapshot_refs),
         "attachment_snapshot_count": len(attachment_snapshot_refs),
+        "listed_attachment_count": len(attachment_link_items),
+        "download_attempted_count": max(0, download_attempted_count),
+        "deferred_attachment_count": max(0, deferred_attachment_count),
         "detail_snapshot_refs": detail_snapshot_refs,
         "attachment_snapshot_refs": attachment_snapshot_refs,
         "same_site_attachment_link_items": attachment_link_items,
@@ -727,6 +750,7 @@ def _project_sample(
             "stage3_parse_success_count": 0,
             "stage3_parse_failed_count": 0,
             "attachment_missing_review_count": 0 if attachment_snapshot_refs else (1 if attachment_link_items else 0),
+            "deferred_attachment_count": max(0, deferred_attachment_count),
             "unknown_attachment_count": 0,
             "text_probe": "",
             "stage3_parse_state": NOT_RUN_PARSE_STATE,
@@ -790,7 +814,10 @@ def _materialize_snapshot(*, ref: Mapping[str, Any], repository: Any, output_dir
     extension = _extension_for(source_url=source_url, content_type=str(readback.get("content_type") or ""))
     file_name = f"{_safe_path_part(prefix)}_{_safe_path_part(snapshot_id[-12:])}{extension}"
     path = output_dir / file_name
-    path.write_bytes(readback.get("bytes") or b"")
+    try:
+        path.write_bytes(readback.get("bytes") or b"")
+    except OSError:
+        return ""
     meta = {
         "snapshot_id": snapshot_id,
         "source_url": source_url,
@@ -802,10 +829,13 @@ def _materialize_snapshot(*, ref: Mapping[str, Any], repository: Any, output_dir
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,
     }
-    path.with_suffix(path.suffix + ".meta.json").write_text(
-        json.dumps(meta, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
+    try:
+        path.with_suffix(path.suffix + ".meta.json").write_text(
+            json.dumps(meta, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+    except OSError:
+        pass
     return str(path)
 
 
@@ -1058,14 +1088,16 @@ def _flow_notice_directory(
     title: str,
 ) -> Path:
     date_part = _safe_path_part(published_date[:10] if published_date else "NO_DATE")
-    title_part = _safe_path_part(title)[:90] or "流程页面"
+    title_part = _safe_path_part(title)[:18] or "流程页面"
+    title_hash = _fingerprint({"title": title})[:8]
+    flow_part = _safe_path_part(f"{flow_no}_{flow_title}")[:18]
     return (
         output_root
         / "projects"
         / "CN-GD"
         / _safe_path_part(project_id)
-        / _safe_path_part(f"{flow_no}_{flow_title}")
-        / _safe_path_part(f"{date_part}_{title_part}")
+        / flow_part
+        / _safe_path_part(f"{date_part}_{title_hash}_{title_part}")
     )
 
 
@@ -1199,6 +1231,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--storage-path")
     parser.add_argument("--object-storage-path")
     parser.add_argument("--max-bid-file-publicity-downloads-per-project", type=int, default=2)
+    parser.add_argument("--max-attachments-per-flow-item", type=int, default=0)
     parser.add_argument("--use-all-analysis-projects", action="store_true")
     parser.add_argument("--execute", action="store_true")
     parser.add_argument("--output-json")
@@ -1216,6 +1249,7 @@ def main(argv: list[str] | None = None) -> int:
         storage_path=args.storage_path,
         object_storage_path=args.object_storage_path,
         max_bid_file_publicity_downloads_per_project=args.max_bid_file_publicity_downloads_per_project,
+        max_attachments_per_flow_item=args.max_attachments_per_flow_item,
         use_all_analysis_projects=args.use_all_analysis_projects,
         execute=args.execute,
     )

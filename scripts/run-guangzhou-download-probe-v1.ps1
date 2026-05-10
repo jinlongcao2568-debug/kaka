@@ -6,6 +6,7 @@ param(
     [string]$StoragePath = "",
     [string]$ObjectStoragePath = "",
     [int]$MaxBidFilePublicityDownloadsPerProject = 2,
+    [int]$MaxAttachmentsPerFlowItem = 0,
     [switch]$UseAllAnalysisProjects,
     [switch]$EnableAttachmentChallengeResolver,
     [switch]$Execute,
@@ -58,6 +59,7 @@ $argsList = @(
     "--storage-path", $StoragePath,
     "--object-storage-path", $ObjectStoragePath,
     "--max-bid-file-publicity-downloads-per-project", "$MaxBidFilePublicityDownloadsPerProject",
+    "--max-attachments-per-flow-item", "$MaxAttachmentsPerFlowItem",
     "--output-json", $downloadProbeJson
 )
 

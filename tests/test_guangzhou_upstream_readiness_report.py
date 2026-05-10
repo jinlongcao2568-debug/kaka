@@ -56,6 +56,38 @@ class GuangzhouUpstreamReadinessReportTests(unittest.TestCase):
             p2 = next(row for row in result["manifest"]["project_records"] if row["project_id"] == "PROJ-CN-GD-JG2026-22222")
             self.assertIn("download_probe_not_run_for_project", p2["blocking_layers"])
 
+    def test_report_reads_partial_download_manifest_and_blocks_stage4(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            flow_root = root / "flow"
+            download_root = root / "download"
+            strategy_root = root / "strategy"
+            archive_root = root / "archive"
+            parse_root = root / "parse"
+            output_root = root / "report"
+            _write_flow_manifest(flow_root)
+            _write_analysis_plan(flow_root)
+            _write_download_manifest(download_root, partial=True)
+            _write_strategy_manifest(strategy_root)
+            _write_archive_manifest(archive_root)
+            _write_parse_manifest(parse_root)
+            _write_stage4_inputs(parse_root)
+
+            result = build_guangzhou_upstream_readiness_report(
+                flow_root=flow_root,
+                download_root=download_root,
+                evidence_strategy_root=strategy_root,
+                archive_extract_root=archive_root,
+                parse_root=parse_root,
+                output_root=output_root,
+                created_at="2026-05-11T00:00:00+08:00",
+            )
+
+            summary = result["summary"]
+            self.assertFalse(result["safe_to_continue_stage4"])
+            self.assertIn("download_probe_partial_manifest_used", summary["stage4_blocking_reasons"])
+            self.assertIn("attachment_snapshot_success_rate_below_target", summary["stage4_blocking_reasons"])
+
 
 def _write_flow_manifest(root: Path) -> None:
     root.mkdir(parents=True, exist_ok=True)
@@ -97,7 +129,7 @@ def _write_analysis_plan(root: Path) -> None:
     (root / "analysis-plan.json").write_text(json.dumps({"manifest": {"items": items, "summary": {"project_count": 2}}}, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def _write_download_manifest(root: Path) -> None:
+def _write_download_manifest(root: Path, *, partial: bool = False) -> None:
     root.mkdir(parents=True, exist_ok=True)
     sample = {
         **_sample("PROJ-CN-GD-JG2026-11111", "03", "招标公告/关联公告"),
@@ -126,7 +158,8 @@ def _write_download_manifest(root: Path) -> None:
             },
         }
     }
-    (root / "download-probe-manifest.json").write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    filename = "download-probe-manifest.partial.json" if partial else "download-probe-manifest.json"
+    (root / filename).write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def _write_strategy_manifest(root: Path) -> None:

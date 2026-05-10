@@ -168,6 +168,65 @@ class GuangzhouDownloadProbeTests(unittest.TestCase):
             self.assertEqual(len(service.attachment_calls), 2)
             self.assertEqual(service.attachment_calls[-1]["url"], "https://example.test/attach/public2.pdf")
 
+    def test_max_attachments_per_flow_item_defers_extra_tender_files(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            input_root = root / "input"
+            output_root = root / "output"
+            _write_inputs(input_root)
+            repo = FakeReplayRepository(
+                {
+                    "DETAIL-03": _replay("DETAIL-03", b"<html>detail 03</html>", "text/html"),
+                    "ATT-03-1": _replay("ATT-03-1", b"%PDF 1", "application/pdf"),
+                    "ATT-03-2": _replay("ATT-03-2", b"%PDF 2", "application/pdf"),
+                }
+            )
+            links = [
+                {"url": f"https://example.test/attach/tender{index}.pdf", "text": f"招标文件{index}.pdf"}
+                for index in range(1, 5)
+            ]
+            service = FakeStage2Service(
+                detail_map={
+                    "https://example.test/03.html": {
+                        "status": "FETCHED",
+                        "snapshot_id_optional": "DETAIL-03",
+                        "same_site_attachment_link_items": links,
+                    }
+                },
+                attachment_map={
+                    "https://example.test/attach/tender1.pdf": {
+                        "status": "FETCHED",
+                        "snapshot_id_optional": "ATT-03-1",
+                        "attachment_url": "https://example.test/attach/tender1.pdf",
+                    },
+                    "https://example.test/attach/tender2.pdf": {
+                        "status": "FETCHED",
+                        "snapshot_id_optional": "ATT-03-2",
+                        "attachment_url": "https://example.test/attach/tender2.pdf",
+                    },
+                },
+            )
+
+            result = build_guangzhou_download_probe(
+                input_root=input_root,
+                output_root=output_root,
+                project_ids=["JG2026-10815"],
+                flow_nos=["03"],
+                max_attachments_per_flow_item=2,
+                execute=True,
+                stage2_service=service,
+                object_repository=repo,
+                created_at="2026-05-10T00:00:00+08:00",
+            )
+
+            self.assertEqual(result["summary"]["listed_attachment_count"], 4)
+            self.assertEqual(result["summary"]["download_attempted_count"], 2)
+            self.assertEqual(result["summary"]["attachment_snapshot_count"], 2)
+            self.assertEqual(result["summary"]["failure_taxonomy_counts"]["DEFERRED_BY_DOWNLOAD_REPAIR_LIMIT"], 2)
+            self.assertEqual(len(service.attachment_calls), 2)
+            sample = result["manifest"]["project_sample_items"][0]
+            self.assertEqual(sample["deferred_attachment_count"], 2)
+
     def test_failed_snapshot_readback_is_taxonomy_not_success(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
