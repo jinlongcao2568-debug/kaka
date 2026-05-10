@@ -463,6 +463,7 @@ _DOWNLOAD_ENDPOINT_TOKENS = (
     "/sys-file/download/",
     "/epointwebbuilder/pages/webbuildermis/attach/downloadztbattach",
     "downloadztbattach",
+    "guangzhoutempdownattach4webaction/download",
 )
 _ATTACHMENT_QUERY_KEYS = {
     "filename",
@@ -1430,7 +1431,11 @@ class RealPublicEntryFetcher:
         http_attachment_allowed = parent.profile_id in HTTP_PUBLIC_ENTRY_ALLOWLIST_PROFILE_IDS or parent.profile_id in PROVINCE_REALTIME_DETAIL_PROFILE_IDS
         if parsed.scheme != "https" and not (parsed.scheme == "http" and http_attachment_allowed):
             raise self._boundary_error(url, "non_https_same_site_attachment_url")
-        if (parsed.hostname or "").lower() != parent.host.split(":", 1)[0].lower():
+        if not _same_site_attachment_profile_host_allowed(
+            parent_profile_id=parent.profile_id,
+            parent_host=parent.host,
+            attachment_host=(parsed.hostname or "").lower(),
+        ):
             raise self._boundary_error(url, "same_site_attachment_host_not_parent_profile")
         path = parsed.path.lower()
         guangzhou_ywtb_file_download = (
@@ -2662,7 +2667,7 @@ def _discover_same_site_attachment_link_items(text: str, *, base_url: str, host:
         parsed = urlsplit(full)
         if (
             parsed.scheme not in {"http", "https"}
-            or (parsed.hostname or "").lower() != expected_host
+            or not _same_site_attachment_discovery_host_allowed(expected_host, (parsed.hostname or "").lower())
             or "downloadztbattach" not in parsed.path.lower()
         ):
             continue
@@ -2696,7 +2701,10 @@ def _discover_same_site_attachment_link_items(text: str, *, base_url: str, host:
             continue
         full = urljoin(base_url, href)
         parsed = urlsplit(full)
-        if parsed.scheme not in {"http", "https"} or (parsed.hostname or "").lower() != expected_host:
+        if parsed.scheme not in {"http", "https"} or not _same_site_attachment_discovery_host_allowed(
+            expected_host,
+            (parsed.hostname or "").lower(),
+        ):
             continue
         if _is_non_attachment_navigation_link(full, link_text=link_text):
             continue
@@ -2737,6 +2745,30 @@ def _discover_same_site_attachment_link_items(text: str, *, base_url: str, host:
         if len(items) >= 10:
             break
     return items
+
+
+def _same_site_attachment_discovery_host_allowed(expected_host: str, candidate_host: str) -> bool:
+    expected = str(expected_host or "").split(":", 1)[0].lower()
+    candidate = str(candidate_host or "").split(":", 1)[0].lower()
+    if not candidate:
+        return False
+    if candidate == expected:
+        return True
+    if expected == "ywtb.gzggzy.cn" and candidate == "jsgc.gzggzy.cn":
+        return True
+    return False
+
+
+def _same_site_attachment_profile_host_allowed(*, parent_profile_id: str, parent_host: str, attachment_host: str) -> bool:
+    parent = str(parent_host or "").split(":", 1)[0].lower()
+    attachment = str(attachment_host or "").split(":", 1)[0].lower()
+    if not attachment:
+        return False
+    if attachment == parent:
+        return True
+    if parent_profile_id == "GUANGZHOU-YWTB-CONSTRUCTION-LIST" and attachment == "jsgc.gzggzy.cn":
+        return True
+    return False
 
 
 def _merge_link_items(primary: list[Mapping[str, Any]], secondary: list[Mapping[str, Any]]) -> list[dict[str, str]]:

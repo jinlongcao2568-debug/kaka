@@ -674,15 +674,15 @@ def _guangzhou_ywtb_download_url(url: str) -> bool:
     parsed = urlsplit(str(url or ""))
     host = (parsed.hostname or "").lower()
     path = unquote(parsed.path or "").lower()
-    return host == "ywtb.gzggzy.cn" and (
-        "downloadztbattach" in path or "ztbattachdownloadaction.action" in path
-    )
+    if host == "ywtb.gzggzy.cn" and ("downloadztbattach" in path or "ztbattachdownloadaction.action" in path):
+        return True
+    return host == "jsgc.gzggzy.cn" and "guangzhoutempdownattach4webaction/download" in path
 
 
 def _guangzhou_ywtb_interesting_url(url: str) -> bool:
     parsed = urlsplit(str(url or ""))
     host = (parsed.hostname or "").lower()
-    if host and host != "ywtb.gzggzy.cn":
+    if host and host not in {"ywtb.gzggzy.cn", "jsgc.gzggzy.cn"}:
         return False
     lowered = unquote(f"{parsed.path}?{parsed.query}").lower()
     return any(
@@ -793,7 +793,12 @@ def _guangzhou_ywtb_candidate_urls_from_value(value: Any, *, base_url: str) -> l
         if _guangzhou_ywtb_download_url(absolute) and absolute not in candidates:
             candidates.append(absolute)
 
-    if "downloadztbattach" in text.lower() or "ztbattachdownloadaction.action" in text.lower():
+    lowered_text = text.lower()
+    if (
+        "downloadztbattach" in lowered_text
+        or "ztbattachdownloadaction.action" in lowered_text
+        or "guangzhoutempdownattach4webaction/download" in lowered_text
+    ):
         remember(text)
     for match in re.finditer(
         r"['\"](?P<href>[^'\"]*(?:downloadztbattach|ztbAttachDownloadAction\.action)[^'\"]*)['\"]",

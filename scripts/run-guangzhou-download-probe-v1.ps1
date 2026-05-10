@@ -6,6 +6,7 @@ param(
     [string]$StoragePath = "",
     [string]$ObjectStoragePath = "",
     [int]$MaxBidFilePublicityDownloadsPerProject = 2,
+    [switch]$UseAllAnalysisProjects,
     [switch]$EnableAttachmentChallengeResolver,
     [switch]$Execute,
     [switch]$EmitJson
@@ -53,13 +54,18 @@ $argsList = @(
     "-m", "storage.guangzhou_download_probe",
     "--input-root", $InputRoot,
     "--output-root", $OutputRoot,
-    "--project-ids", $ProjectIds,
     "--flow-nos", $FlowNos,
     "--storage-path", $StoragePath,
     "--object-storage-path", $ObjectStoragePath,
     "--max-bid-file-publicity-downloads-per-project", "$MaxBidFilePublicityDownloadsPerProject",
     "--output-json", $downloadProbeJson
 )
+
+if ($UseAllAnalysisProjects) {
+    $argsList += "--use-all-analysis-projects"
+} else {
+    $argsList += @("--project-ids", $ProjectIds)
+}
 
 if ($Execute) {
     $argsList += "--execute"

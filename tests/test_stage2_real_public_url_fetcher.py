@@ -55,6 +55,11 @@ GZ_YWTB_ATTACHMENT_URL = (
     "attachGuid=568108d4-62ef-4407-83dc-a35d11c5f0f2&appUrlFlag=f2025tp"
     "&siteGuid=7eb5f7f1-9041-43ad-8e13-8fcb82ea831a"
 )
+GZ_YWTB_BID_PUBLICITY_ATTACHMENT_URL = (
+    "https://jsgc.gzggzy.cn/tpframe/rest/guangzhoutempdownattach4webaction/download?"
+    "AttachGuid=b2fa3d33-bcfd-48eb-bf40-245acdf35092&FileCode=TBGK001"
+    "&BiaoDuanGuid=b8869532-a756-4b36-8b6e-e82076e22019&ClientGuid=null&isCommondto=true"
+)
 JS_DETAIL_URL = "http://jsggzy.jszwfw.gov.cn/jyxx/003001/003001001/20260501/e40bba6b-3eda-4245-9d15-21b921f8db54.html"
 SD_DETAIL_URL = "http://ggzyjy.shandong.gov.cn:80/jsgczbgg/14229113.jhtml"
 SD_DETAIL_URL_HTTPS = "https://ggzyjy.shandong.gov.cn/jsgczbgg/14229113.jhtml"
@@ -650,6 +655,50 @@ class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
         )
 
         self.assertEqual(items, [])
+
+    def test_guangzhou_bid_publicity_tempdownattach_link_is_discovered(self) -> None:
+        detail_html = f"""
+        <html><body>
+          <a href="{GZ_YWTB_BID_PUBLICITY_ATTACHMENT_URL}">查看资料</a>
+        </body></html>
+        """
+
+        items = _discover_same_site_attachment_link_items(
+            detail_html,
+            base_url="https://ywtb.gzggzy.cn/jyfw/002001/002001001/20260510/project_tb.html",
+            host="ywtb.gzggzy.cn",
+        )
+
+        self.assertEqual(items, [{"url": GZ_YWTB_BID_PUBLICITY_ATTACHMENT_URL, "text": "查看资料"}])
+
+    def test_guangzhou_affiliated_tempdownattach_can_be_fetched_as_same_site_attachment(self) -> None:
+        payload = b"Rar!\x1a\x07\x00mock"
+        transport = FakeRealPublicFetchTransport(
+            {
+                GZ_YWTB_BID_PUBLICITY_ATTACHMENT_URL: RealPublicFetchResponse(
+                    url=GZ_YWTB_BID_PUBLICITY_ATTACHMENT_URL,
+                    status_code=200,
+                    content=payload,
+                    content_type="application/octet-stream",
+                    final_url=GZ_YWTB_BID_PUBLICITY_ATTACHMENT_URL,
+                ),
+            }
+        )
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = _repo(tmp_dir)
+            attachment = RealPublicEntryFetcher(
+                transport=transport,
+                repository=repo,
+                timeout_seconds=3,
+            ).fetch_same_site_attachment_url(
+                GZ_YWTB_BID_PUBLICITY_ATTACHMENT_URL,
+                parent_profile_id="GUANGZHOU-YWTB-CONSTRUCTION-LIST",
+                detail_page_url="https://ywtb.gzggzy.cn/jyfw/002001/002001001/20260510/project_tb.html",
+            )
+
+            self.assertEqual(attachment["status"], "FETCHED")
+            self.assertEqual(repo.read_snapshot_bytes(attachment["snapshot_id_optional"]), payload)
 
     def test_guangzhou_static_detail_without_download_endpoint_gets_specific_state(self) -> None:
         detail_html = """

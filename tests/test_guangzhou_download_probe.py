@@ -252,6 +252,105 @@ class GuangzhouDownloadProbeTests(unittest.TestCase):
             sample = result["manifest"]["project_sample_items"][0]
             self.assertIn("attachment_links_rejected_as_non_download_navigation", sample["failure_taxonomy"])
 
+    def test_use_all_analysis_projects_selects_all_projects(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            input_root = root / "input"
+            output_root = root / "output"
+            _write_multi_project_inputs(input_root)
+            service = FakeStage2Service(
+                detail_map={
+                    "https://example.test/11111/07.html": {"status": "FETCHED", "snapshot_id_optional": "DETAIL-11111"},
+                    "https://example.test/22222/07.html": {"status": "FETCHED", "snapshot_id_optional": "DETAIL-22222"},
+                }
+            )
+            repo = FakeReplayRepository(
+                {
+                    "DETAIL-11111": _replay("DETAIL-11111", b"<html>11111</html>", "text/html"),
+                    "DETAIL-22222": _replay("DETAIL-22222", b"<html>22222</html>", "text/html"),
+                }
+            )
+
+            result = build_guangzhou_download_probe(
+                input_root=input_root,
+                output_root=output_root,
+                project_ids=[],
+                flow_nos=["07"],
+                use_all_analysis_projects=True,
+                execute=True,
+                stage2_service=service,
+                object_repository=repo,
+                created_at="2026-05-10T00:00:00+08:00",
+            )
+
+            self.assertEqual(result["summary"]["download_probe_project_count"], 2)
+            self.assertEqual(result["summary"]["flowurl_project_count"], 2)
+            self.assertEqual({sample["project_id"] for sample in result["manifest"]["project_sample_items"]}, {"PROJ-CN-GD-JG2026-11111", "PROJ-CN-GD-JG2026-22222"})
+
+    def test_expired_attachment_link_refreshes_detail_and_retries_once(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            input_root = root / "input"
+            output_root = root / "output"
+            _write_inputs(input_root, items=[_strategy_item("08", "https://example.test/08_tb.html")])
+            service = FakeStage2Service(
+                detail_map={
+                    "https://example.test/08_tb.html": [
+                        {
+                            "status": "FETCHED",
+                            "snapshot_id_optional": "DETAIL-08-A",
+                            "same_site_attachment_link_items": [
+                                {"url": "https://example.test/attach/expired.pdf", "text": "投标文件公开.pdf"}
+                            ],
+                        },
+                        {
+                            "status": "FETCHED",
+                            "snapshot_id_optional": "DETAIL-08-B",
+                            "same_site_attachment_link_items": [
+                                {"url": "https://example.test/attach/fresh.pdf", "text": "投标文件公开.pdf"}
+                            ],
+                        },
+                    ]
+                },
+                attachment_map={
+                    "https://example.test/attach/expired.pdf": {
+                        "status": "DEGRADED",
+                        "attachment_failure_taxonomy": ["attachment_url_expired", "ATTACHMENT_INTERFACE_ERROR"],
+                    },
+                    "https://example.test/attach/fresh.pdf": {
+                        "status": "FETCHED",
+                        "snapshot_id_optional": "ATT-08-FRESH",
+                        "attachment_url": "https://example.test/attach/fresh.pdf",
+                        "content_type": "application/pdf",
+                    },
+                },
+            )
+            repo = FakeReplayRepository(
+                {
+                    "DETAIL-08-A": _replay("DETAIL-08-A", b"<html>old</html>", "text/html"),
+                    "DETAIL-08-B": _replay("DETAIL-08-B", b"<html>new</html>", "text/html"),
+                    "ATT-08-FRESH": _replay("ATT-08-FRESH", b"%PDF fresh", "application/pdf"),
+                }
+            )
+
+            result = build_guangzhou_download_probe(
+                input_root=input_root,
+                output_root=output_root,
+                project_ids=["JG2026-10815"],
+                flow_nos=["08"],
+                max_bid_file_publicity_downloads_per_project=2,
+                execute=True,
+                stage2_service=service,
+                object_repository=repo,
+                created_at="2026-05-10T00:00:00+08:00",
+            )
+
+            self.assertEqual(len(service.detail_calls), 2)
+            self.assertEqual([call["url"] for call in service.attachment_calls], ["https://example.test/attach/expired.pdf", "https://example.test/attach/fresh.pdf"])
+            self.assertEqual(result["summary"]["attachment_snapshot_count"], 1)
+            sample = result["manifest"]["project_sample_items"][0]
+            self.assertEqual(sample["attachment_snapshot_refs"][0]["snapshot_id"], "ATT-08-FRESH")
+
 
 class FakeStage2Service:
     def __init__(self, detail_map: dict[str, dict] | None = None, attachment_map: dict[str, dict] | None = None) -> None:
@@ -262,7 +361,11 @@ class FakeStage2Service:
 
     def fetch_real_public_candidate_detail_url(self, url: str, **kwargs: object) -> dict:
         self.detail_calls.append({"url": url, **kwargs})
-        return dict(self.detail_map.get(url, {"status": "DEGRADED", "degraded_reasons": ["detail_missing"]}))
+        value = self.detail_map.get(url, {"status": "DEGRADED", "degraded_reasons": ["detail_missing"]})
+        if isinstance(value, list):
+            index = sum(1 for call in self.detail_calls if call["url"] == url) - 1
+            return dict(value[min(index, len(value) - 1)])
+        return dict(value)
 
     def fetch_real_public_same_site_attachment_url(self, url: str, **kwargs: object) -> dict:
         self.attachment_calls.append({"url": url, **kwargs})
@@ -328,16 +431,49 @@ def _write_inputs(input_root: Path, items: list[dict[str, object]] | None = None
     )
 
 
+def _write_multi_project_inputs(input_root: Path) -> None:
+    input_root.mkdir(parents=True, exist_ok=True)
+    items = [
+        _strategy_item("07", "https://example.test/11111/07.html", project_id="PROJ-CN-GD-JG2026-11111"),
+        _strategy_item("07", "https://example.test/22222/07.html", project_id="PROJ-CN-GD-JG2026-22222"),
+    ]
+    samples = [
+        {
+            "project_id": item["project_id"],
+            "project_name": f"{item['project_id']}候选公示",
+            "document_kind": "candidate_notice",
+            "guangzhou_flow_no": "07",
+            "guangzhou_flow_title": "中标候选人公示",
+            "source_url": item["source_url"],
+            "published_at_optional": "2026-05-10 00:00:00",
+        }
+        for item in items
+    ]
+    (input_root / "analysis-plan.json").write_text(
+        json.dumps({"manifest": {"items": items, "summary": {"project_count": 2}}}, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    (input_root / "run-manifest.json").write_text(
+        json.dumps({"manifest": {"project_sample_items": samples, "summary": {"unique_project_count": 2}}}, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    (input_root / "project-file-audit.json").write_text(
+        json.dumps({"manifest": {"items": [], "summary": {}}}, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+
 def _strategy_item(
     flow_no: str,
     url: str,
     *,
     adapter_validation_only: bool = False,
     download_policy: str = "DOWNLOAD_REQUIRED",
+    project_id: str = "PROJ-CN-GD-JG2026-10815",
 ) -> dict[str, object]:
     return {
         "strategy_item_id": f"STRATEGY-{flow_no}",
-        "project_id": "PROJ-CN-GD-JG2026-10815",
+        "project_id": project_id,
         "project_name": "广州测试项目中标候选人公示",
         "product_mode": "POST_CANDIDATE_EVIDENCE_PACK",
         "strategy_state": "POST_CANDIDATE_READY",

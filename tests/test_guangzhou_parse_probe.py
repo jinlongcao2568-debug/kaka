@@ -237,6 +237,45 @@ class GuangzhouParseProbeTests(unittest.TestCase):
             self.assertEqual(stage4_item["recommended_stage4_route"], "JZSC_COMPANY_FIRST_PROJECT_MANAGER")
             self.assertTrue((output_root / "stage4_candidate_verification_inputs.json").exists())
 
+    def test_candidate_notice_table_row_extracts_manager_and_certificate(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            input_root = root / "download"
+            output_root = root / "parse"
+            _write_download_manifest(
+                input_root,
+                flow_no="07",
+                snapshot_id="ATT-07-1",
+                attachment_url="https://example.test/files/candidate.pdf",
+            )
+            text = "1 广州珠江监理咨询集团有限公司 91440101190668588M 1 1974252.50元 张合力 监理工程师/44012765"
+            repo = FakeReplayRepository({"ATT-07-1": _replay("ATT-07-1", b"%PDF candidate", "application/pdf")})
+            with patch(
+                "storage.guangzhou_parse_probe.markitdown_adapter.convert_bytes_to_markdown_text",
+                return_value=markitdown_adapter.MarkItDownText(
+                    text=text,
+                    state=markitdown_adapter.MARKITDOWN_TEXT_EXTRACTED,
+                    text_sha256="candidate-text-sha",
+                    text_length=len(text),
+                    text_probe=text,
+                ),
+            ):
+                result = build_guangzhou_parse_probe(
+                    input_root=input_root,
+                    output_root=output_root,
+                    project_ids=["JG2026-10815"],
+                    flow_nos=["07"],
+                    execute=True,
+                    object_repository=repo,
+                    created_at="2026-05-10T00:00:00+08:00",
+                )
+
+            stage4_item = result["manifest"]["stage4_candidate_verification_inputs"]["items"][0]
+            self.assertEqual(stage4_item["candidate_company_name"], "广州珠江监理咨询集团有限公司")
+            self.assertEqual(stage4_item["project_manager_name"], "张合力")
+            self.assertEqual(stage4_item["project_manager_certificate_no"], "44012765")
+            self.assertEqual(stage4_item["recommended_stage4_route"], "JZSC_COMPANY_FIRST_PROJECT_MANAGER")
+
 
 class FakeReplayRepository:
     def __init__(self, snapshots: dict[str, dict]) -> None:

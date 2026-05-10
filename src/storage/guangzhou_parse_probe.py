@@ -920,18 +920,24 @@ def _company_candidates(text: str) -> list[dict[str, Any]]:
 
 
 def _role_name_candidates(text: str) -> list[dict[str, Any]]:
-    pattern = r"(?:项目经理|项目负责人|项目总负责人|总监理工程师|总监|设计负责人|勘察负责人)(?:[：:\s]+|为)([\u4e00-\u9fff·]{2,6})"
     rows: list[dict[str, Any]] = []
+    pattern = r"(?:项目经理|项目负责人|项目总负责人|总监理工程师|总监|设计负责人|勘察负责人)(?:[：:\s]+|为)([\u4e00-\u9fff·]{2,6})"
     for match in re.finditer(pattern, text):
         value = _clean_person_candidate(match.group(1))
         if value:
             rows.append(_candidate(value=value, source="role_label"))
+    table_pattern = r"(?:公司|集团|院|中心)[^\n]{0,80}?([\u4e00-\u9fff·]{2,4})\s*(?:监理工程师|注册(?:建造师|建筑师|结构工程师|土木工程师)|建造师)"
+    for match in re.finditer(table_pattern, text):
+        value = _clean_person_candidate(match.group(1))
+        if value:
+            rows.append(_candidate(value=value, source="candidate_table_role_pattern"))
     return _dedupe_candidates(rows, limit=12)
 
 
 def _certificate_candidates(text: str) -> list[dict[str, Any]]:
     patterns = [
         r"(?:证书编号|注册编号|注册证号|执业证号)[：:\s]*([A-Z\u4e00-\u9fff]?\d{8,20})",
+        r"(?:监理工程师|建造师|注册(?:建造师|建筑师|结构工程师|土木工程师))[/／\s]*([A-Z\u4e00-\u9fff]?\d{6,20})",
         r"([\u4e00-\u9fff][A-Z]?\d{9,20})",
     ]
     rows: list[dict[str, Any]] = []

@@ -51,6 +51,7 @@ def build_guangzhou_download_probe(
     storage_path: str | Path | None = None,
     object_storage_path: str | Path | None = None,
     max_bid_file_publicity_downloads_per_project: int = 2,
+    use_all_analysis_projects: bool = False,
     execute: bool = False,
     created_at: str | None = None,
     stage2_service: Any | None = None,
@@ -75,7 +76,7 @@ def build_guangzhou_download_probe(
     selected = _select_strategy_items(
         analysis_manifest=analysis_manifest,
         run_manifest=run_manifest,
-        project_ids=project_ids,
+        project_ids=[] if use_all_analysis_projects else project_ids,
         flow_nos=flow_nos,
     )
     if not selected and not blocking_reasons:
@@ -110,13 +111,33 @@ def build_guangzhou_download_probe(
             )
             flow_items.append(result["flow_item"])
             project_samples.append(result["project_sample"])
+            _write_checkpoint_manifest(
+                output_root=out_root,
+                input_root=in_root,
+                storage=storage,
+                object_storage=object_storage,
+                project_ids=project_ids,
+                use_all_analysis_projects=use_all_analysis_projects,
+                flow_nos=flow_nos,
+                flow_items=flow_items,
+                project_samples=project_samples,
+                run_manifest=run_manifest,
+                blocking_reasons=blocking_reasons,
+                created_at=created,
+                checkpoint_state="PARTIAL_RUN_IN_PROGRESS",
+            )
     else:
         for item in selected:
             planned = _planned_probe_item(item)
             flow_items.append(planned["flow_item"])
             project_samples.append(planned["project_sample"])
 
-    summary = _summary(flow_items=flow_items, project_samples=project_samples, blocking_reasons=blocking_reasons)
+    summary = _summary(
+        flow_items=flow_items,
+        project_samples=project_samples,
+        run_manifest=run_manifest,
+        blocking_reasons=blocking_reasons,
+    )
     manifest = {
         "manifest_version": GUANGZHOU_DOWNLOAD_PROBE_VERSION,
         "manifest_kind": "evaluation_real_project_sample_execution_manifest",
@@ -133,6 +154,7 @@ def build_guangzhou_download_probe(
         "execute": bool(execute),
         "source_profile_id": GUANGZHOU_PROFILE_ID,
         "project_ids": list(project_ids),
+        "use_all_analysis_projects": bool(use_all_analysis_projects),
         "flow_nos": [_flow_no(value) for value in flow_nos],
         "items": flow_items,
         "sample_items": flow_items[:80],
@@ -187,6 +209,65 @@ def build_guangzhou_download_probe(
         encoding="utf-8",
     )
     return result
+
+
+def _write_checkpoint_manifest(
+    *,
+    output_root: Path,
+    input_root: Path,
+    storage: Path,
+    object_storage: Path,
+    project_ids: list[str] | tuple[str, ...],
+    use_all_analysis_projects: bool,
+    flow_nos: list[str] | tuple[str, ...],
+    flow_items: list[Mapping[str, Any]],
+    project_samples: list[Mapping[str, Any]],
+    run_manifest: Mapping[str, Any],
+    blocking_reasons: list[str],
+    created_at: str,
+    checkpoint_state: str,
+) -> None:
+    summary = _summary(
+        flow_items=flow_items,
+        project_samples=project_samples,
+        run_manifest=run_manifest,
+        blocking_reasons=blocking_reasons,
+    )
+    payload = {
+        "guangzhou_download_probe_mode": checkpoint_state,
+        "safe_to_execute": not blocking_reasons,
+        "blocking_reasons": blocking_reasons,
+        "manifest": {
+            "manifest_version": GUANGZHOU_DOWNLOAD_PROBE_VERSION,
+            "manifest_kind": "evaluation_real_project_sample_execution_manifest",
+            "sub_kind": GUANGZHOU_DOWNLOAD_PROBE_MANIFEST_KIND,
+            "adapter_id": GUANGZHOU_DOWNLOAD_PROBE_ADAPTER_ID,
+            "pipeline_stage": "DownloadProbe",
+            "checkpoint_state": checkpoint_state,
+            "created_at": created_at,
+            "source_input_root": str(input_root),
+            "source_analysis_plan_path": str(input_root / "analysis-plan.json"),
+            "source_run_manifest_path": str(input_root / "run-manifest.json"),
+            "storage_path_optional": str(storage),
+            "object_storage_path_optional": str(object_storage),
+            "execution_mode": "PARTIAL",
+            "execute": True,
+            "source_profile_id": GUANGZHOU_PROFILE_ID,
+            "project_ids": list(project_ids),
+            "use_all_analysis_projects": bool(use_all_analysis_projects),
+            "flow_nos": [_flow_no(value) for value in flow_nos],
+            "items": list(flow_items),
+            "project_sample_items": list(project_samples),
+            "summary": summary,
+            "customer_visible_allowed": False,
+            "no_legal_conclusion": True,
+        },
+        "summary": summary,
+    }
+    (output_root / "download-probe-manifest.partial.json").write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
 
 
 def _execute_probe_item(
@@ -294,6 +375,27 @@ def _execute_probe_item(
                 source_dir=source_dir,
                 index=index,
             )
+            if not attempt.get("snapshot_ref") and _should_retry_attachment_attempt(attempt):
+                retry_attempt = _retry_attachment_after_detail_refresh(
+                    original_link=link,
+                    source_url=source_url,
+                    item=item,
+                    repository=repository,
+                    service=service,
+                    flow_no=flow_no,
+                    flow_title=flow_title,
+                    source_dir=source_dir,
+                    index=index,
+                )
+                if retry_attempt:
+                    retry_attempt["retry_of_attachment_url"] = attempt.get("attachment_url")
+                    retry_attempt["failure_taxonomy"] = _dedupe_strings(
+                        [
+                            "attachment_retry_after_detail_refresh",
+                            *list(retry_attempt.get("failure_taxonomy") or []),
+                        ]
+                    )
+                    attempt = retry_attempt
             attachment_attempts.append(attempt)
             if attempt.get("snapshot_ref"):
                 attachment_snapshot_refs.append(dict(attempt["snapshot_ref"]))
@@ -442,6 +544,106 @@ def _download_attachment(
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,
     }
+
+
+def _should_retry_attachment_attempt(attempt: Mapping[str, Any]) -> bool:
+    reasons = {str(reason or "") for reason in list(attempt.get("failure_taxonomy") or [])}
+    retry_markers = {
+        "attachment_url_expired",
+        "attachment_html_blocker:interface_error_or_expired_link",
+        "ATTACHMENT_INTERFACE_ERROR",
+        "recapture_detail_page_and_refresh_attachment_link",
+        "attachment_snapshot_not_captured",
+    }
+    return bool(reasons & retry_markers)
+
+
+def _retry_attachment_after_detail_refresh(
+    *,
+    original_link: Mapping[str, Any],
+    source_url: str,
+    item: Mapping[str, Any],
+    repository: Any,
+    service: Any,
+    flow_no: str,
+    flow_title: str,
+    source_dir: Path,
+    index: int,
+) -> dict[str, Any] | None:
+    try:
+        refreshed_detail = service.fetch_real_public_candidate_detail_url(
+            source_url,
+            profile_id=GUANGZHOU_PROFILE_ID,
+            repository=repository,
+            lineage_refs={
+                "project_id": str(item.get("project_id") or ""),
+                "flow_no": flow_no,
+                "download_probe": "v1",
+                "retry_reason": "refresh_attachment_link",
+            },
+            project_id=str(item.get("project_id") or ""),
+            candidate_id=str(item.get("strategy_item_id") or ""),
+        )
+    except Exception as exc:  # pragma: no cover - exact boundary exceptions vary by runtime
+        return {
+            "attachment_url": str(original_link.get("url") or ""),
+            "attachment_link_text": str(original_link.get("text") or original_link.get("attachment_link_text") or ""),
+            "status": "DEGRADED",
+            "snapshot_ref": None,
+            "local_path": "",
+            "failure_taxonomy": [f"attachment_retry_detail_fetch_exception:{type(exc).__name__}"],
+            "challenge_diagnostic": None,
+            "customer_visible_allowed": False,
+            "no_legal_conclusion": True,
+        }
+    refreshed_links = _attachment_link_items(refreshed_detail)
+    retry_link = _select_retry_attachment_link(original_link=original_link, refreshed_links=refreshed_links)
+    if not retry_link:
+        return {
+            "attachment_url": str(original_link.get("url") or ""),
+            "attachment_link_text": str(original_link.get("text") or original_link.get("attachment_link_text") or ""),
+            "status": str(refreshed_detail.get("status") or "DEGRADED"),
+            "snapshot_ref": None,
+            "local_path": "",
+            "failure_taxonomy": _dedupe_strings(
+                [
+                    "attachment_retry_no_refreshed_link",
+                    *_carrier_failure_taxonomy(refreshed_detail, prefix="detail_retry"),
+                ]
+            ),
+            "challenge_diagnostic": None,
+            "customer_visible_allowed": False,
+            "no_legal_conclusion": True,
+        }
+    return _download_attachment(
+        link=retry_link,
+        source_url=source_url,
+        item=item,
+        repository=repository,
+        service=service,
+        flow_no=flow_no,
+        flow_title=flow_title,
+        source_dir=source_dir,
+        index=index,
+    )
+
+
+def _select_retry_attachment_link(
+    *,
+    original_link: Mapping[str, Any],
+    refreshed_links: list[dict[str, str]],
+) -> dict[str, str] | None:
+    if not refreshed_links:
+        return None
+    original_url = str(original_link.get("url") or "")
+    original_text = str(original_link.get("text") or original_link.get("attachment_link_text") or "")
+    for link in refreshed_links:
+        if original_text and str(link.get("text") or "") == original_text:
+            return link
+    for link in refreshed_links:
+        if original_url and str(link.get("url") or "") == original_url:
+            return link
+    return refreshed_links[0]
 
 
 def _planned_probe_item(item: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
@@ -745,29 +947,105 @@ def _summary(
     *,
     flow_items: list[Mapping[str, Any]],
     project_samples: list[Mapping[str, Any]],
+    run_manifest: Mapping[str, Any],
     blocking_reasons: list[str],
 ) -> dict[str, Any]:
+    download_attempted_count = sum(_int(item.get("download_attempted_count")) for item in flow_items)
+    attachment_snapshot_count = sum(_int(item.get("attachment_snapshot_count")) for item in project_samples)
+    flowurl_project_count = len(
+        {
+            str(item.get("project_id") or "")
+            for item in list(run_manifest.get("project_sample_items") or [])
+            if isinstance(item, Mapping) and item.get("project_id")
+        }
+    )
+    download_probe_project_count = len({str(item.get("project_id") or "") for item in project_samples if item.get("project_id")})
     return {
         "download_probe_state": "READY" if not blocking_reasons else "INPUT_BLOCKED",
         "flow_item_count": len(flow_items),
         "project_sample_count": len(project_samples),
-        "unique_project_count": len({str(item.get("project_id") or "") for item in project_samples if item.get("project_id")}),
+        "unique_project_count": download_probe_project_count,
+        "flowurl_project_count": flowurl_project_count,
+        "download_probe_project_count": download_probe_project_count,
         "detail_snapshot_count": sum(_int(item.get("detail_snapshot_count")) for item in project_samples),
-        "attachment_snapshot_count": sum(_int(item.get("attachment_snapshot_count")) for item in project_samples),
+        "attachment_snapshot_count": attachment_snapshot_count,
         "listed_attachment_count": sum(_int(item.get("listed_attachment_count")) for item in flow_items),
-        "download_attempted_count": sum(_int(item.get("download_attempted_count")) for item in flow_items),
+        "download_attempted_count": download_attempted_count,
+        "attachment_snapshot_success_rate": _rate(attachment_snapshot_count, download_attempted_count),
         "flow_no_counts": _counts(str(item.get("flow_no") or "") for item in flow_items),
+        "flow_no_failure_taxonomy_counts": _flow_no_failure_taxonomy_counts(flow_items, project_samples),
         "target_execution_state_counts": _counts(str(item.get("target_execution_state") or "") for item in project_samples),
         "failure_taxonomy_counts": _counts(
             reason
             for item in [*flow_items, *project_samples]
             for reason in list(item.get("failure_taxonomy") or [])
         ),
+        "project_flow_repair_items": _project_flow_repair_items(flow_items, project_samples),
         "parse_state_counts": _counts(str(item.get("stage3_parse_state") or item.get("parse_state") or "") for item in project_samples),
         "blocking_reasons": blocking_reasons,
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,
     }
+
+
+def _flow_no_failure_taxonomy_counts(
+    flow_items: list[Mapping[str, Any]],
+    project_samples: list[Mapping[str, Any]],
+) -> dict[str, dict[str, int]]:
+    result: dict[str, dict[str, int]] = {}
+    for item in [*flow_items, *project_samples]:
+        flow_no = _flow_no(item.get("flow_no") or item.get("guangzhou_flow_no"))
+        if not flow_no:
+            continue
+        bucket = result.setdefault(flow_no, {})
+        for reason in list(item.get("failure_taxonomy") or []):
+            text = str(reason or "").strip()
+            if text:
+                bucket[text] = bucket.get(text, 0) + 1
+    return {key: dict(sorted(value.items())) for key, value in sorted(result.items())}
+
+
+def _project_flow_repair_items(
+    flow_items: list[Mapping[str, Any]],
+    project_samples: list[Mapping[str, Any]],
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    flow_lookup = {
+        (str(item.get("project_id") or ""), _flow_no(item.get("flow_no")), str(item.get("source_url") or "")): item
+        for item in flow_items
+    }
+    for sample in project_samples:
+        key = (
+            str(sample.get("project_id") or ""),
+            _flow_no(sample.get("guangzhou_flow_no") or sample.get("flow_no")),
+            str(sample.get("source_url") or ""),
+        )
+        flow_item = flow_lookup.get(key, {})
+        failure_taxonomy = _dedupe_strings(
+            [
+                *list(flow_item.get("failure_taxonomy") or []),
+                *list(sample.get("failure_taxonomy") or []),
+            ]
+        )
+        if not failure_taxonomy and _int(sample.get("attachment_snapshot_count")) > 0:
+            continue
+        rows.append(
+            {
+                "project_id": key[0],
+                "project_name": str(sample.get("project_name") or flow_item.get("project_name") or ""),
+                "flow_no": key[1],
+                "flow_title": str(sample.get("guangzhou_flow_title") or flow_item.get("flow_title") or ""),
+                "source_url": key[2],
+                "target_execution_state": str(sample.get("target_execution_state") or ""),
+                "listed_attachment_count": _int(flow_item.get("listed_attachment_count")),
+                "download_attempted_count": _int(flow_item.get("download_attempted_count")),
+                "attachment_snapshot_count": _int(sample.get("attachment_snapshot_count")),
+                "failure_taxonomy": failure_taxonomy,
+                "customer_visible_allowed": False,
+                "no_legal_conclusion": True,
+            }
+        )
+    return rows
 
 
 def _flow_notice_directory(
@@ -881,6 +1159,12 @@ def _int(value: Any) -> int:
         return 0
 
 
+def _rate(numerator: int, denominator: int) -> float:
+    if denominator <= 0:
+        return 0.0
+    return round(float(numerator) / float(denominator), 4)
+
+
 def _load_json(path: Path, blocking_reasons: list[str], missing_reason: str) -> dict[str, Any]:
     if not path.exists():
         blocking_reasons.append(missing_reason)
@@ -910,11 +1194,12 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run Guangzhou DownloadProbe v1.")
     parser.add_argument("--input-root", required=True)
     parser.add_argument("--output-root", required=True)
-    parser.add_argument("--project-ids", required=True)
+    parser.add_argument("--project-ids", default="")
     parser.add_argument("--flow-nos", default=",".join(DEFAULT_DOWNLOAD_FLOW_NOS))
     parser.add_argument("--storage-path")
     parser.add_argument("--object-storage-path")
     parser.add_argument("--max-bid-file-publicity-downloads-per-project", type=int, default=2)
+    parser.add_argument("--use-all-analysis-projects", action="store_true")
     parser.add_argument("--execute", action="store_true")
     parser.add_argument("--output-json")
     parser.add_argument("--json", action="store_true", dest="emit_json")
@@ -931,6 +1216,7 @@ def main(argv: list[str] | None = None) -> int:
         storage_path=args.storage_path,
         object_storage_path=args.object_storage_path,
         max_bid_file_publicity_downloads_per_project=args.max_bid_file_publicity_downloads_per_project,
+        use_all_analysis_projects=args.use_all_analysis_projects,
         execute=args.execute,
     )
     output_json = Path(args.output_json) if args.output_json else Path(args.output_root) / "download-probe-manifest.json"
