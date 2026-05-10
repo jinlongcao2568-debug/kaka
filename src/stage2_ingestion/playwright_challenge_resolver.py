@@ -11,7 +11,7 @@ import time
 from io import BytesIO
 from pathlib import Path
 from typing import Any, Mapping
-from urllib.parse import parse_qs, quote, urljoin, urlsplit, unquote
+from urllib.parse import parse_qs, urljoin, urlsplit, unquote
 from urllib.parse import urlencode, urlunsplit
 
 
@@ -87,13 +87,6 @@ class PlaywrightAttachmentChallengeResolver:
                 if detail_page_url:
                     page.goto(detail_page_url, wait_until="domcontentloaded", timeout=self.timeout_ms)
                 download_path = None
-                if _guangdong_ygp_download_url(attachment_url):
-                    download_path = self._try_guangdong_ygp_download(
-                        context,
-                        attachment_url=attachment_url,
-                        tmp_dir=tmp_dir,
-                        referer_url=detail_page_url or page.url,
-                    )
                 if _epoint_jigsaw_captcha_url(attachment_url):
                     download_path = self._try_epoint_jigsaw_download(page, context, attachment_url, tmp_dir)
                 if download_path is None:
@@ -126,13 +119,6 @@ class PlaywrightAttachmentChallengeResolver:
                     capabilities.extend(
                         [
                             "slider_trajectory_simulation",
-                            "hidden_interface_call_if_public_and_audited",
-                        ]
-                    )
-                if self._last_browser_diagnostics.get("guangdong_ygp_resolution_state"):
-                    capabilities.extend(
-                        [
-                            "same_site_referer_replay",
                             "hidden_interface_call_if_public_and_audited",
                         ]
                     )
@@ -501,58 +487,6 @@ class PlaywrightAttachmentChallengeResolver:
         Path(save_path).write_bytes(body)
         return save_path
 
-    def _try_guangdong_ygp_download(
-        self,
-        context: Any,
-        *,
-        attachment_url: str,
-        tmp_dir: str,
-        referer_url: str | None,
-    ) -> str | None:
-        if not _guangdong_ygp_download_url(attachment_url):
-            return None
-        base_headers = {
-            "Accept": "application/octet-stream,application/pdf,application/zip,*/*",
-            "Referer": referer_url or "https://ygp.gdzwfw.gov.cn/",
-        }
-        attempts = [
-            ("referer_request", base_headers),
-            (
-                "signed_public_request",
-                {
-                    **base_headers,
-                    **_guangdong_ygp_signature_headers(
-                        _guangdong_ygp_download_signature_params(attachment_url)
-                    ),
-                },
-            ),
-        ]
-        for attempt_name, headers in attempts:
-            try:
-                response = context.request.get(
-                    attachment_url,
-                    headers=headers,
-                    timeout=self.timeout_ms,
-                )
-                path = _save_download_response_if_file(
-                    response,
-                    tmp_dir=tmp_dir,
-                    fallback_filename=_filename_from_url(attachment_url),
-                )
-                self._last_browser_diagnostics[f"guangdong_ygp_{attempt_name}_status"] = getattr(
-                    response,
-                    "status",
-                    "",
-                )
-                if path:
-                    self._last_browser_diagnostics["guangdong_ygp_resolution_state"] = attempt_name
-                    return path
-            except Exception as exc:
-                self._last_browser_diagnostics[f"guangdong_ygp_{attempt_name}_error"] = (
-                    f"{type(exc).__name__}:{str(exc)[:240]}"
-                )
-        return None
-
     def _try_page_verify_ocr_download(
         self,
         page: Any,
@@ -734,60 +668,6 @@ def _filename_from_url(url: str) -> str:
 def _same_site_referer_url(url: str) -> str:
     parsed = urlsplit(url)
     return urlunsplit((parsed.scheme, parsed.netloc, "/", "", ""))
-
-
-def _guangdong_ygp_download_url(url: str) -> bool:
-    parsed = urlsplit(str(url or ""))
-    return (
-        parsed.scheme == "https"
-        and parsed.netloc.lower() == "ygp.gdzwfw.gov.cn"
-        and "/ggzy-portal/base/sys-file/download/" in parsed.path.lower()
-    )
-
-
-def _guangdong_ygp_download_signature_params(url: str) -> dict[str, str]:
-    parsed = urlsplit(str(url or ""))
-    parts = [part for part in parsed.path.split("/") if part]
-    params: dict[str, str] = {}
-    try:
-        download_index = parts.index("download")
-        params["version"] = parts[download_index + 1]
-        params["rowGuid"] = parts[download_index + 2]
-    except (ValueError, IndexError):
-        pass
-    query_values = parse_qs(parsed.query, keep_blank_values=True)
-    for key, values in query_values.items():
-        if values:
-            params[key] = str(values[0] or "")
-    if parsed.query and "=" not in parsed.query:
-        params["flowId"] = parsed.query
-    return params
-
-
-def _guangdong_ygp_signature_headers(params: Mapping[str, Any]) -> dict[str, str]:
-    nonce = os.urandom(12).hex()[:16]
-    timestamp_ms = str(int(time.time() * 1000))
-    sorted_query = "&".join(sorted(_guangdong_ygp_query_string(params).split("&")))
-    signature_basis = f"{nonce}k8tUyS$m{unquote(sorted_query)}{timestamp_ms}"
-    return {
-        "X-Dgi-Req-App": "ggzy-portal",
-        "X-Dgi-Req-Nonce": nonce,
-        "X-Dgi-Req-Timestamp": timestamp_ms,
-        "X-Dgi-Req-Signature": hashlib.sha256(signature_basis.encode("utf-8")).hexdigest(),
-    }
-
-
-def _guangdong_ygp_query_string(params: Mapping[str, Any]) -> str:
-    parts: list[str] = []
-    for key, value in params.items():
-        if isinstance(value, bool):
-            text = "true" if value else "false"
-        elif value is None:
-            text = ""
-        else:
-            text = str(value)
-        parts.append(f"{quote(str(key), safe='')}={quote(text, safe='')}")
-    return "&".join(parts)
 
 
 def _guangzhou_ywtb_download_url(url: str) -> bool:

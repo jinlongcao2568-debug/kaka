@@ -30,9 +30,6 @@ ACTIVE_WITH_CHALLENGE_SOURCE_PROFILE_IDS = {
     "JIANGSU-GGZY-HOME",
     "HUBEI-BIDCLOUD-JYXX-LIST",
 }
-QUARANTINED_SOURCE_PROFILE_IDS = {
-    "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
-}
 
 
 @dataclass(frozen=True)
@@ -130,7 +127,7 @@ REGION_SOURCE_ADAPTERS: tuple[RegionSourceAdapter, ...] = (
         commercial_pilot_region=True,
         source_quality_state="PRIMARY_FRIENDLY",
         coverage_gap_signals=("guangzhou_ywtb_full_tender_attachment_required",),
-        notes="广东工程建设控标样本默认只使用广州交易集团/广州公共资源交易中心建设工程项目信息源；广东省公共资源交易平台 YGP 摘要和附件不完整，不再作为默认发现或校准来源。",
+        notes="广东工程建设控标样本只使用广州交易集团/广州公共资源交易中心建设工程项目信息源。",
     ),
     RegionSourceAdapter(
         region_code="CN-SC",
@@ -195,11 +192,7 @@ def list_region_source_adapters() -> list[dict[str, Any]]:
 
 def resolve_source_quality_policy(profile_id: str | None) -> dict[str, Any]:
     normalized = str(profile_id or "").strip()
-    if normalized in QUARANTINED_SOURCE_PROFILE_IDS:
-        state = "QUARANTINED"
-        calibration_role = "EXCLUDED_FROM_ACTIVE_CALIBRATION"
-        reason = "source_marked_pollution_or_incomplete_process"
-    elif normalized in PRIMARY_FRIENDLY_SOURCE_PROFILE_IDS:
+    if normalized in PRIMARY_FRIENDLY_SOURCE_PROFILE_IDS:
         state = "PRIMARY_FRIENDLY"
         calibration_role = "PRIMARY_CALIBRATION_SOURCE"
         reason = "professional_source_with_replayable_detail_and_attachment_path"
@@ -220,7 +213,7 @@ def resolve_source_quality_policy(profile_id: str | None) -> dict[str, Any]:
         "source_calibration_role": calibration_role,
         "source_quality_reason": reason,
         "professional_source_priority": state == "PRIMARY_FRIENDLY",
-        "active_discovery_allowed": state not in {"QUARANTINED", "HISTORICAL_ONLY"},
+        "active_discovery_allowed": state != "HISTORICAL_ONLY",
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,
     }

@@ -188,19 +188,16 @@ class FakeCaptureService:
 
 
 class TestEvaluationRealSampleExecution(unittest.TestCase):
-    def test_default_real_sample_targets_exclude_guangdong_ygp_pollution_source(self) -> None:
+    def test_default_real_sample_targets_keep_guangdong_on_guangzhou_source_only(self) -> None:
         payload = json.loads((ROOT / "contracts" / "evaluation" / "evaluation_real_project_sample_targets.json").read_text(encoding="utf-8"))
-        ids = {item["target_id"] for item in payload["targets"]}
+        gd_targets = [item for item in payload["targets"] if item["jurisdiction"] == "CN-GD"]
 
-        self.assertNotIn("REAL-GD-YGP-TENDER-001", ids)
-        self.assertNotIn("REAL-GD-YGP-CANDIDATE-001", ids)
-        self.assertNotIn("REAL-GD-YGP-AWARD-001", ids)
-        ygp_targets = [
-            item
-            for item in payload["targets"]
-            if item.get("required_fetch_profile_id_optional") == "GUANGDONG-YGP-PROVINCE-TRADING-LIST"
-        ]
-        self.assertEqual(ygp_targets, [])
+        self.assertTrue(gd_targets)
+        self.assertEqual(
+            {item.get("required_fetch_profile_id_optional") for item in gd_targets},
+            {"GUANGZHOU-YWTB-CONSTRUCTION-LIST"},
+        )
+        self.assertEqual({item.get("entry_seed_id") for item in gd_targets}, {"ENTRY-GUANGZHOU-YWTB"})
 
     def test_professional_source_only_mode_keeps_guangdong_zhejiang_sichuan_primary_sources(self) -> None:
         result = build_evaluation_real_sample_execution(
@@ -220,10 +217,6 @@ class TestEvaluationRealSampleExecution(unittest.TestCase):
                 "ZHEJIANG-GGZY-JYXXGK-LIST",
                 "SICHUAN-GGZY-TRANSACTION-INFO",
             },
-        )
-        self.assertEqual(
-            manifest["source_quality_policy"]["quarantined_profile_ids_present"],
-            [],
         )
         self.assertEqual(
             manifest["source_quality_policy"]["source_quality_state_counts"],

@@ -518,7 +518,7 @@ def _real_public_verification_html(
     markers = profile.visible_entry_markers or profile.lightweight_public_entry_markers
     if profile.lightweight_public_entry_markers and profile_id in {
         "JZSC-NATIONAL-HOME",
-        "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
+        "GUANGZHOU-YWTB-CONSTRUCTION-LIST",
     }:
         markers = profile.lightweight_public_entry_markers
     marker_text = " ".join(markers)

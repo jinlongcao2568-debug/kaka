@@ -31,7 +31,7 @@ class ChallengeStabilityReportTests(unittest.TestCase):
                 "items": [
                     {"target_id": "GZ", "source_profile_id": "GUANGZHOU-YWTB-CONSTRUCTION-LIST"},
                     {"target_id": "JS", "source_profile_id": "JIANGSU-GGZY-HOME"},
-                    {"target_id": "YGP", "source_profile_id": "GUANGDONG-YGP-PROVINCE-TRADING-LIST"},
+                    {"target_id": "UNUSED", "source_profile_id": "UNUSED-PLATFORM-WITHOUT-PROJECTS"},
                     {"target_id": "SD", "source_profile_id": "SHANDONG-GGZY-JYXXGK-LIST"},
                     {"target_id": "HB", "source_profile_id": "HUBEI-BIDCLOUD-JYXX-LIST"},
                 ],
@@ -109,7 +109,7 @@ class ChallengeStabilityReportTests(unittest.TestCase):
         }
         self.assertEqual(reports["GUANGZHOU-YWTB-CONSTRUCTION-LIST"]["stability_grade"], STABLE)
         self.assertEqual(reports["JIANGSU-GGZY-HOME"]["stability_grade"], CLASSIFIED_ONLY)
-        self.assertEqual(reports["GUANGDONG-YGP-PROVINCE-TRADING-LIST"]["stability_grade"], NO_REAL_COVERAGE)
+        self.assertEqual(reports["UNUSED-PLATFORM-WITHOUT-PROJECTS"]["stability_grade"], NO_REAL_COVERAGE)
         self.assertEqual(reports["SHANDONG-GGZY-JYXXGK-LIST"]["stability_grade"], NO_ATTACHMENT_SIGNAL)
         self.assertEqual(reports["HUBEI-BIDCLOUD-JYXX-LIST"]["stability_grade"], PARTIAL)
         self.assertEqual(result["summary"]["challenge_resolved_count"], 2)

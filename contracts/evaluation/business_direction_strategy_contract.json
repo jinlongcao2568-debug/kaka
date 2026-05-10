@@ -101,12 +101,6 @@
         "notes": "四川独立适配。"
       }
     ],
-    "quarantined_sources": [
-      {
-        "source_profile_id": "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
-        "reason": "广东省 YGP 附件和招标过程信息不完整，污染控标/证据包校准，不作为主动采集、真实样本或控标校准来源。"
-      }
-    ],
     "observation_policy": "除广东广州、浙江、四川以外的省市，默认先做省源/市源完整性分析，再决定独立适配。"
   },
   "routing_rules": [

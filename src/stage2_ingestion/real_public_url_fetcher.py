@@ -3,7 +3,6 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-import secrets
 import shutil
 import subprocess
 import tempfile
@@ -232,18 +231,6 @@ REAL_PUBLIC_ENTRY_PROFILES: tuple[RealPublicEntryProfile, ...] = (
             "详情页 HTML 直接包含候选人、拟派项目负责人、项目负责人资质和相关附件。"
         ),
         lightweight_public_entry_markers=("广州交易集团有限公司", "广州公共资源交易中心"),
-    ),
-    RealPublicEntryProfile(
-        profile_id="GUANGDONG-YGP-PROVINCE-TRADING-LIST",
-        url="https://ygp.gdzwfw.gov.cn/#/44/jygg",
-        site_name="广东省公共资源交易平台",
-        source_family="local_public_resource_trading_center",
-        expected_title_contains="广东省公共资源交易平台",
-        visible_entry_markers=("交易公开", "工程建设", "招标公告及资格预审", "中标候选人公示"),
-        sample_detail_url="https://ygp.gdzwfw.gov.cn/#/44/jygg",
-        browser_verified_at="2026-05-01T14:50:39+08:00",
-        browser_verified_evidence="浏览器打开 https://ygp.gdzwfw.gov.cn/#/44/jygg，页面标题为广东省公共资源交易平台，广东省项目所属交易公开列表可见 2026-05-01 全省工程建设招标公告。",
-        lightweight_public_entry_markers=("广东省公共资源交易平台",),
     ),
     RealPublicEntryProfile(
         profile_id="GUANGDONG-GDCIC-HOME",
@@ -805,8 +792,6 @@ def _attachment_challenge_family(profile: "RealPublicAttachmentProfile") -> str:
     profile_id = str(profile.profile_id or "")
     if "downloadztbattach" in path or "GUANGZHOU-YWTB-CONSTRUCTION-LIST" in profile_id:
         return "EPOINT_PAGE_VERIFY_OR_JIGSAW"
-    if host == "ygp.gdzwfw.gov.cn" and "/ggzy-portal/base/sys-file/download/" in path:
-        return "GUANGDONG_YGP_SIGNED_PUBLIC_FILE"
     if "hbbidcloud.cn" in host:
         return "HUBEI_BIDCLOUD_BROWSER_SESSION"
     if "ggzyjy.sc.gov.cn" in host:
@@ -826,16 +811,6 @@ def _attachment_platform_resolution_hint(profile: "RealPublicAttachmentProfile")
                 "click_same_site_attachment_link",
                 "solve_epoint_blockpuzzle_or_page_verify",
                 "retry_verified_download_action",
-            ],
-        }
-    if family == "GUANGDONG_YGP_SIGNED_PUBLIC_FILE":
-        return {
-            "resolver_route": "guangdong_ygp_signed_request_or_browser_session",
-            "preferred_steps": [
-                "open_detail_page_hash_route",
-                "reuse_browser_session_cookies",
-                "retry_sys_file_download_with_referer",
-                "retry_with_public_x_dgi_signature_headers",
             ],
         }
     if family == "HUBEI_BIDCLOUD_BROWSER_SESSION":
@@ -1171,17 +1146,11 @@ class RealPublicEntryFetcher:
         variants = _candidate_detail_url_variants(str(url).strip(), profile_id=profile.profile_id)
         for index, detail_url in enumerate(variants):
             try:
-                if _is_guangdong_ygp_hash_detail_url(detail_url, profile_id=profile.profile_id):
-                    response = _fetch_guangdong_ygp_detail_api_response(
-                        detail_url,
-                        user_agent=self.user_agent,
-                    )
-                else:
-                    response = self.transport.fetch(
-                        detail_url,
-                        timeout_seconds=self.timeout_seconds,
-                        user_agent=self.user_agent,
-                    )
+                response = self.transport.fetch(
+                    detail_url,
+                    timeout_seconds=self.timeout_seconds,
+                    user_agent=self.user_agent,
+                )
             except Exception as exc:  # pragma: no cover - concrete network exceptions vary
                 carrier = self._degraded_detail_carrier(
                     profile,
@@ -1376,8 +1345,6 @@ class RealPublicEntryFetcher:
             raise self._boundary_error(url, "non_https_public_detail_url")
         if (parsed.hostname or "").lower() != profile.host.split(":", 1)[0].lower():
             raise self._boundary_error(url, "detail_url_host_not_parent_profile")
-        if _is_guangdong_ygp_hash_detail_url(detail_url, profile_id=profile.profile_id):
-            return profile
         path = parsed.path.lower()
         allowed_detail_suffixes = (".html", ".htm", ".shtml")
         if profile.profile_id in PROVINCE_REALTIME_DETAIL_PROFILE_IDS:
@@ -1446,17 +1413,12 @@ class RealPublicEntryFetcher:
         if (parsed.hostname or "").lower() != parent.host.split(":", 1)[0].lower():
             raise self._boundary_error(url, "same_site_attachment_host_not_parent_profile")
         path = parsed.path.lower()
-        guangdong_file_download = (
-            parent.profile_id == "GUANGDONG-YGP-PROVINCE-TRADING-LIST"
-            and "/ggzy-portal/base/sys-file/download/" in path
-        )
         guangzhou_ywtb_file_download = (
             parent.profile_id == "GUANGZHOU-YWTB-CONSTRUCTION-LIST"
             and "/epointwebbuilder/pages/webbuildermis/attach/downloadztbattach" in path
         )
         if (
-            not guangdong_file_download
-            and not guangzhou_ywtb_file_download
+            not guangzhou_ywtb_file_download
             and not _attachment_url_has_supported_signal(attachment_url)
         ):
             raise self._boundary_error(url, "same_site_attachment_url_not_supported_file")
@@ -2520,239 +2482,11 @@ class RealPublicEntryFetcher:
         }
 
 
-def _is_guangdong_ygp_hash_detail_url(url: str, *, profile_id: str) -> bool:
-    if profile_id != "GUANGDONG-YGP-PROVINCE-TRADING-LIST":
-        return False
-    parsed = urlsplit(str(url or "").strip())
-    return (
-        parsed.scheme == "https"
-        and parsed.netloc.lower() == "ygp.gdzwfw.gov.cn"
-        and "/new/jygg/" in parsed.fragment
-    )
-
-
 def _as_int(value: Any, default: int) -> int:
     try:
         return int(value)
     except (TypeError, ValueError):
         return default
-
-
-def _fetch_guangdong_ygp_detail_api_response(
-    detail_url: str,
-    *,
-    user_agent: str,
-) -> RealPublicFetchResponse:
-    route = _parse_guangdong_ygp_detail_route(detail_url)
-    node_id = route.get("nodeId") or _fetch_guangdong_ygp_node_id(route, user_agent=user_agent)
-    api_params = {
-        "nodeId": node_id,
-        "version": route["edition"],
-        "tradingType": route["tradingType"],
-        "noticeId": route["noticeId"],
-        "bizCode": route["bizCode"],
-        "projectCode": route["projectCode"],
-        "siteCode": route["siteCode"],
-    }
-    data = _guangdong_ygp_signed_get_json(
-        "https://ygp.gdzwfw.gov.cn/ggzy-portal/center/apis/trading-notice/new/detail",
-        api_params,
-        user_agent=user_agent,
-    )
-    if _as_int(data.get("errcode"), -1) != 0:
-        raise RuntimeError(f"guangdong_detail_api_error:{data.get('errmsg') or data.get('errcode')}")
-    detail_data = data.get("data")
-    if not isinstance(detail_data, Mapping):
-        raise RuntimeError("guangdong_detail_api_missing_data")
-    html = _guangdong_ygp_detail_html(
-        detail_data,
-        detail_url=detail_url,
-        edition=route["edition"],
-        source=str(route.get("source") or ""),
-        title_details=str(route.get("titleDetails") or ""),
-    )
-    return RealPublicFetchResponse(
-        url=detail_url,
-        status_code=200,
-        content=html.encode("utf-8"),
-        content_type="text/html; charset=utf-8",
-        final_url=detail_url,
-        headers={"x-ax9s-fetch-transport": "guangdong_ygp_public_detail_api"},
-    )
-
-
-def _parse_guangdong_ygp_detail_route(detail_url: str) -> dict[str, str]:
-    parsed = urlsplit(str(detail_url or "").strip())
-    fragment_path, _, fragment_query = parsed.fragment.partition("?")
-    parts = [part for part in fragment_path.split("/") if part]
-    try:
-        new_index = parts.index("new")
-        if parts[new_index + 1] != "jygg":
-            raise ValueError
-        edition = parts[new_index + 2]
-        trading_type = parts[new_index + 3]
-    except (ValueError, IndexError):
-        raise ValueError("guangdong_detail_hash_route_invalid") from None
-    query_values = {
-        key: values[0]
-        for key, values in parse_qs(fragment_query, keep_blank_values=True).items()
-        if values
-    }
-    route = {
-        "edition": edition,
-        "tradingType": trading_type,
-        **query_values,
-    }
-    missing = [
-        key
-        for key in ("noticeId", "bizCode", "projectCode", "siteCode")
-        if not str(route.get(key) or "").strip()
-    ]
-    if missing:
-        raise ValueError("guangdong_detail_query_missing:" + ",".join(missing))
-    return {key: str(value or "") for key, value in route.items()}
-
-
-def _fetch_guangdong_ygp_node_id(route: Mapping[str, str], *, user_agent: str) -> str:
-    params = {
-        "siteCode": str(route.get("siteCode") or ""),
-        "tradingType": str(route.get("tradingType") or ""),
-        "bizCode": str(route.get("bizCode") or ""),
-        "projectCode": str(route.get("projectCode") or ""),
-    }
-    classify = str(route.get("classify") or "")
-    if classify:
-        params["classify"] = classify
-    data = _guangdong_ygp_signed_get_json(
-        "https://ygp.gdzwfw.gov.cn/ggzy-portal/center/apis/trading-notice/new/nodeList",
-        params,
-        user_agent=user_agent,
-    )
-    rows = list(data.get("data") or [])
-    notice_id = str(route.get("noticeId") or "")
-    biz_code = str(route.get("bizCode") or "")
-    for row in rows:
-        if not isinstance(row, Mapping):
-            continue
-        if str(row.get("noticeId") or "") == notice_id and str(row.get("selectedBizCode") or "") == biz_code:
-            node_id = str(row.get("nodeId") or "")
-            if node_id:
-                return node_id
-    for row in rows:
-        if not isinstance(row, Mapping):
-            continue
-        if _as_int(row.get("dataCount"), 0) > 0:
-            node_id = str(row.get("nodeId") or "")
-            if node_id:
-                return node_id
-    raise RuntimeError("guangdong_node_id_not_found")
-
-
-def _guangdong_ygp_signed_get_json(
-    endpoint: str,
-    params: Mapping[str, Any],
-    *,
-    user_agent: str,
-) -> dict[str, Any]:
-    url = f"{endpoint}?{urlencode(params)}"
-    request = Request(
-        url,
-        headers={
-            "User-Agent": user_agent,
-            "Accept": "application/json, text/plain, */*",
-            "Referer": "https://ygp.gdzwfw.gov.cn/",
-            **_guangdong_ygp_signature_headers(params),
-        },
-    )
-    with urlopen(request, timeout=18) as response:
-        return json.loads(response.read(1_500_000).decode("utf-8", "ignore"))
-
-
-def _guangdong_ygp_signature_headers(params: Mapping[str, Any]) -> dict[str, str]:
-    nonce = secrets.token_urlsafe(18).replace("-", "").replace("_", "")[:16]
-    timestamp_ms = str(int(time.time() * 1000))
-    sorted_query = "&".join(sorted(_guangdong_ygp_query_string(params).split("&")))
-    signature_basis = f"{nonce}k8tUyS$m{unquote(sorted_query)}{timestamp_ms}"
-    return {
-        "X-Dgi-Req-App": "ggzy-portal",
-        "X-Dgi-Req-Nonce": nonce,
-        "X-Dgi-Req-Timestamp": timestamp_ms,
-        "X-Dgi-Req-Signature": hashlib.sha256(signature_basis.encode("utf-8")).hexdigest(),
-    }
-
-
-def _guangdong_ygp_query_string(params: Mapping[str, Any]) -> str:
-    parts: list[str] = []
-    for key, value in params.items():
-        if isinstance(value, bool):
-            text = "true" if value else "false"
-        elif value is None:
-            text = ""
-        else:
-            text = str(value)
-        parts.append(f"{quote(str(key), safe='')}={quote(text, safe='')}")
-    return "&".join(parts)
-
-
-def _guangdong_ygp_detail_html(
-    data: Mapping[str, Any],
-    *,
-    detail_url: str,
-    edition: str,
-    source: str,
-    title_details: str,
-) -> str:
-    title = str(data.get("title") or "")
-    publish_date = str(data.get("publishDate") or "")
-    sections: list[str] = [
-        "<!doctype html><html><head><meta charset=\"utf-8\">",
-        f"<title>{escape(title)}</title>",
-        "</head><body>",
-        f"<h1>{escape(title)}</h1>",
-        f"<p>发布时间：{escape(publish_date)} 来源：{escape(source)} {escape(title_details)}</p>",
-        f"<p>公开来源：<a href=\"{escape(detail_url, quote=True)}\">广东省公共资源交易平台详情页</a></p>",
-    ]
-    for section in list(data.get("tradingNoticeColumnModelList") or []):
-        if not isinstance(section, Mapping):
-            continue
-        name = str(section.get("name") or "公告内容")
-        sections.append(f"<section><h2>{escape(name)}</h2>")
-        for row in list(section.get("multiKeyValueTableList") or []):
-            if isinstance(row, list):
-                for field in row:
-                    if isinstance(field, Mapping) and field.get("isShow") is not False:
-                        label = str(field.get("aliasName") or field.get("key") or field.get("code") or "")
-                        value = str(field.get("value") or "")
-                        if label or value:
-                            sections.append(f"<p><strong>{escape(label)}</strong> {escape(value)}</p>")
-        richtext = str(section.get("richtext") or "")
-        if richtext:
-            sections.append(f"<div class=\"richtext\">{richtext}</div>")
-        table_model = section.get("tradingNoticeTableColumnModel")
-        if isinstance(table_model, Mapping):
-            for row in list(table_model.get("dataList") or []):
-                if isinstance(row, Mapping):
-                    cells = " ".join(f"{escape(str(key))}: {escape(str(value))}" for key, value in row.items())
-                    sections.append(f"<p>{cells}</p>")
-        files = [item for item in list(section.get("noticeFileBOList") or []) if isinstance(item, Mapping)]
-        if files:
-            sections.append("<ul>")
-            for file_item in files:
-                file_name = str(file_item.get("fileName") or "附件")
-                row_guid = str(file_item.get("rowGuid") or "")
-                flow_id = str(file_item.get("flowId") or "")
-                if row_guid and flow_id:
-                    href = (
-                        "https://ygp.gdzwfw.gov.cn/ggzy-portal/base/sys-file/download/"
-                        f"{quote(edition, safe='')}/{quote(row_guid, safe='')}?{quote(flow_id, safe='')}"
-                    )
-                    sections.append(f"<li><a href=\"{escape(href, quote=True)}\">{escape(file_name)}</a></li>")
-                else:
-                    sections.append(f"<li>{escape(file_name)}</li>")
-            sections.append("</ul>")
-        sections.append("</section>")
-    sections.append("</body></html>")
-    return "\n".join(sections)
 
 
 def _decode_html(content: bytes) -> str:

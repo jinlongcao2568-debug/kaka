@@ -24,7 +24,7 @@ class Stage4RegionalHardDefectSourcePlanTests(unittest.TestCase):
                 "candidate_company": "广东测试建设有限公司",
                 "project_manager_name": "张三",
                 "region_code": "CN-GD",
-                "source_url": "https://ygp.gdzwfw.gov.cn/#/44/new/jygg/v3/A?noticeId=1",
+                "source_url": "https://ywtb.gzggzy.cn/jyfw/002001/002001001/20260501/mock.html?noticeId=1",
             },
             covered_source_types={"performance_public_record"},
         )

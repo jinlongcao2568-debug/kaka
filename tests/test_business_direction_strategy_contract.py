@@ -40,21 +40,17 @@ class BusinessDirectionStrategyContractTests(unittest.TestCase):
         self.assertIn("candidate_verification", pre_bid["must_not_output"])
         self.assertIn("real_competitor_conclusion", pre_bid["must_not_output"])
 
-    def test_source_policy_keeps_guangzhou_primary_and_ygp_quarantined(self) -> None:
+    def test_source_policy_keeps_guangzhou_primary_and_deletes_incomplete_province_source(self) -> None:
         contract = self._contract()
         source_policy = contract["source_policy"]
         primary_profile_ids = {
             item["source_profile_id"] for item in source_policy["primary_friendly_sources"]
         }
-        quarantined_profile_ids = {
-            item["source_profile_id"] for item in source_policy["quarantined_sources"]
-        }
 
         self.assertIn("GUANGZHOU-YWTB-CONSTRUCTION-LIST", primary_profile_ids)
         self.assertIn("ZHEJIANG-GGZY-JYXXGK-LIST", primary_profile_ids)
         self.assertIn("SICHUAN-GGZY-TRANSACTION-INFO", primary_profile_ids)
-        self.assertIn("GUANGDONG-YGP-PROVINCE-TRADING-LIST", quarantined_profile_ids)
-        self.assertNotIn("GUANGDONG-YGP-PROVINCE-TRADING-LIST", primary_profile_ids)
+        self.assertNotIn("GUANGDONG-PROVINCE-INCOMPLETE-SUMMARY-SOURCE", primary_profile_ids)
 
     def test_run_modes_distinguish_available_smoke_from_planned_backtrace(self) -> None:
         contract = self._contract()

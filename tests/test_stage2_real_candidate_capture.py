@@ -104,7 +104,7 @@ def _capture_single_candidate_from_html(
     detail_url: str,
     title: str,
     html: bytes,
-    source_profile_id: str = "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
+    source_profile_id: str = "GUANGZHOU-YWTB-CONSTRUCTION-LIST",
     document_kind: str = "",
 ) -> dict:
     transport = FakeRealPublicFetchTransport(
@@ -1934,7 +1934,7 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
         self.assertEqual(enriched["candidate_company_parse_state"], "DETAIL_TEXT_TRANSPOSED_CANDIDATE_TABLE")
 
     def test_contextual_responsible_person_alias_and_certificate_identity_are_normalized(self) -> None:
-        detail_url = "https://ygp.gdzwfw.gov.cn/notice/alias-001.html"
+        detail_url = "https://ywtb.gzggzy.cn/notice/alias-001.html"
         transport = FakeRealPublicFetchTransport(
             {
                 detail_url: RealPublicFetchResponse(
@@ -1955,7 +1955,7 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
             "project_type": "construction",
             "notice_stage": "candidate_notice",
             "source_url": detail_url,
-            "source_profile_id": "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
+            "source_profile_id": "GUANGZHOU-YWTB-CONSTRUCTION-LIST",
             "source_candidate_mode": "REAL_PUBLIC_SOURCE_CANDIDATES",
             "key_fields_present": ["project_name", "notice_stage"],
             "candidate_count": 0,
@@ -1985,7 +1985,7 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
         self.assertIn("project_manager_cert_specialty", enriched["key_fields_present"])
 
     def test_supervision_chief_engineer_is_lane_specific_and_backfilled_to_project_manager_chain(self) -> None:
-        detail_url = "https://ygp.gdzwfw.gov.cn/notice/supervision-chief-001.html"
+        detail_url = "https://ywtb.gzggzy.cn/notice/supervision-chief-001.html"
         transport = FakeRealPublicFetchTransport(
             {
                 detail_url: RealPublicFetchResponse(
@@ -2006,7 +2006,7 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
             "project_type": "construction",
             "notice_stage": "candidate_notice",
             "source_url": detail_url,
-            "source_profile_id": "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
+            "source_profile_id": "GUANGZHOU-YWTB-CONSTRUCTION-LIST",
             "source_candidate_mode": "REAL_PUBLIC_SOURCE_CANDIDATES",
             "key_fields_present": ["project_name", "notice_stage"],
             "candidate_count": 0,
@@ -2036,7 +2036,7 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
         self.assertEqual(enriched["project_manager_professional_title"], "高级工程师")
 
     def test_candidate_publicity_table_extracts_person_after_quality_columns(self) -> None:
-        detail_url = "https://ygp.gdzwfw.gov.cn/notice/guangzhou-candidate-publicity-001.html"
+        detail_url = "https://ywtb.gzggzy.cn/notice/guangzhou-candidate-publicity-001.html"
         transport = FakeRealPublicFetchTransport(
             {
                 detail_url: RealPublicFetchResponse(
@@ -2057,7 +2057,7 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
             "project_type": "construction",
             "notice_stage": "candidate_notice",
             "source_url": detail_url,
-            "source_profile_id": "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
+            "source_profile_id": "GUANGZHOU-YWTB-CONSTRUCTION-LIST",
             "source_candidate_mode": "REAL_PUBLIC_SOURCE_CANDIDATES",
             "key_fields_present": ["project_name", "notice_stage"],
             "candidate_count": 0,
@@ -2082,7 +2082,7 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
     def test_guangzhou_publicity_table_extracts_name_only_without_fabricating_certificate(self) -> None:
         title = "2026-2027年度南沙区排水设施小修项目施工中标候选人公示"
         enriched = _capture_single_candidate_from_html(
-            detail_url="https://ygp.gdzwfw.gov.cn/notice/gz-publicity-name-only-001.html",
+            detail_url="https://ywtb.gzggzy.cn/notice/gz-publicity-name-only-001.html",
             title=title,
             html=_guangzhou_publicity_table_html(
                 title,
@@ -2105,7 +2105,7 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
     def test_guangzhou_publicity_table_extracts_construction_certificate_with_space(self) -> None:
         title = "长安镇110kV东宝站10kV领阳线电力迁改工程施工中标候选人公示"
         enriched = _capture_single_candidate_from_html(
-            detail_url="https://ygp.gdzwfw.gov.cn/notice/gz-publicity-builder-cert-001.html",
+            detail_url="https://ywtb.gzggzy.cn/notice/gz-publicity-builder-cert-001.html",
             title=title,
             html=_guangzhou_publicity_table_html(
                 title,
@@ -2127,7 +2127,7 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
     def test_guangzhou_publicity_table_extracts_survey_design_registered_civil_certificate(self) -> None:
         title = "绿色化工和氢能产业园基础设施建设－北区土方工程一期勘察设计中标候选人公示"
         enriched = _capture_single_candidate_from_html(
-            detail_url="https://ygp.gdzwfw.gov.cn/notice/gz-publicity-survey-design-cert-001.html",
+            detail_url="https://ywtb.gzggzy.cn/notice/gz-publicity-survey-design-cert-001.html",
             title=title,
             html=_guangzhou_publicity_table_html(
                 title,
@@ -2151,7 +2151,7 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
     def test_guangzhou_publicity_table_extracts_supervision_engineer_slash_certificate(self) -> None:
         title = "广州市黄埔区城中村改造项目工程监理服务中标候选人公示"
         enriched = _capture_single_candidate_from_html(
-            detail_url="https://ygp.gdzwfw.gov.cn/notice/gz-publicity-supervision-cert-001.html",
+            detail_url="https://ywtb.gzggzy.cn/notice/gz-publicity-supervision-cert-001.html",
             title=title,
             html=_guangzhou_publicity_table_html(
                 title,
@@ -2172,7 +2172,7 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
         self.assertEqual(enriched["project_manager_certificate_type"], "注册监理工程师")
 
     def test_design_lead_is_not_forced_into_construction_project_manager(self) -> None:
-        detail_url = "https://ygp.gdzwfw.gov.cn/notice/design-lead-001.html"
+        detail_url = "https://ywtb.gzggzy.cn/notice/design-lead-001.html"
         transport = FakeRealPublicFetchTransport(
             {
                 detail_url: RealPublicFetchResponse(
@@ -2193,7 +2193,7 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
             "project_type": "construction",
             "notice_stage": "candidate_notice",
             "source_url": detail_url,
-            "source_profile_id": "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
+            "source_profile_id": "GUANGZHOU-YWTB-CONSTRUCTION-LIST",
             "source_candidate_mode": "REAL_PUBLIC_SOURCE_CANDIDATES",
             "key_fields_present": ["project_name", "notice_stage"],
             "candidate_count": 0,
@@ -2224,7 +2224,7 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
         self.assertEqual(enriched["project_manager_professional_title"], "高级工程师")
 
     def test_survey_lead_and_registered_geotechnical_identity_are_normalized(self) -> None:
-        detail_url = "https://ygp.gdzwfw.gov.cn/notice/survey-lead-001.html"
+        detail_url = "https://ywtb.gzggzy.cn/notice/survey-lead-001.html"
         transport = FakeRealPublicFetchTransport(
             {
                 detail_url: RealPublicFetchResponse(
@@ -2245,7 +2245,7 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
             "project_type": "construction",
             "notice_stage": "candidate_notice",
             "source_url": detail_url,
-            "source_profile_id": "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
+            "source_profile_id": "GUANGZHOU-YWTB-CONSTRUCTION-LIST",
             "source_candidate_mode": "REAL_PUBLIC_SOURCE_CANDIDATES",
             "key_fields_present": ["project_name", "notice_stage"],
             "candidate_count": 0,
@@ -2273,7 +2273,7 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
         self.assertEqual(enriched["project_manager_professional_title"], "工程师")
 
     def test_survey_design_candidate_table_extracts_project_lead_and_certificate_no(self) -> None:
-        detail_url = "https://ygp.gdzwfw.gov.cn/notice/survey-design-table-001.html"
+        detail_url = "https://ywtb.gzggzy.cn/notice/survey-design-table-001.html"
         transport = FakeRealPublicFetchTransport(
             {
                 detail_url: RealPublicFetchResponse(
@@ -2294,7 +2294,7 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
             "project_type": "construction",
             "notice_stage": "candidate_notice",
             "source_url": detail_url,
-            "source_profile_id": "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
+            "source_profile_id": "GUANGZHOU-YWTB-CONSTRUCTION-LIST",
             "source_candidate_mode": "REAL_PUBLIC_SOURCE_CANDIDATES",
             "key_fields_present": ["project_name", "notice_stage"],
             "candidate_count": 0,
@@ -2323,7 +2323,7 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
         )
 
     def test_survey_design_role_table_skips_earlier_irrelevant_project_manager_header(self) -> None:
-        detail_url = "https://ygp.gdzwfw.gov.cn/notice/survey-design-table-late-001.html"
+        detail_url = "https://ywtb.gzggzy.cn/notice/survey-design-table-late-001.html"
         transport = FakeRealPublicFetchTransport(
             {
                 detail_url: RealPublicFetchResponse(
@@ -2344,7 +2344,7 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
             "project_type": "construction",
             "notice_stage": "candidate_notice",
             "source_url": detail_url,
-            "source_profile_id": "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
+            "source_profile_id": "GUANGZHOU-YWTB-CONSTRUCTION-LIST",
             "source_candidate_mode": "REAL_PUBLIC_SOURCE_CANDIDATES",
             "key_fields_present": ["project_name", "notice_stage"],
             "candidate_count": 0,
@@ -2366,7 +2366,7 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
         self.assertFalse(enriched["responsible_role_gap_review_required"])
 
     def test_survey_design_candidate_table_extracts_project_lead_without_certificate_no(self) -> None:
-        detail_url = "https://ygp.gdzwfw.gov.cn/notice/survey-design-table-no-cert-001.html"
+        detail_url = "https://ywtb.gzggzy.cn/notice/survey-design-table-no-cert-001.html"
         transport = FakeRealPublicFetchTransport(
             {
                 detail_url: RealPublicFetchResponse(
@@ -2387,7 +2387,7 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
             "project_type": "construction",
             "notice_stage": "candidate_notice",
             "source_url": detail_url,
-            "source_profile_id": "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
+            "source_profile_id": "GUANGZHOU-YWTB-CONSTRUCTION-LIST",
             "source_candidate_mode": "REAL_PUBLIC_SOURCE_CANDIDATES",
             "key_fields_present": ["project_name", "notice_stage"],
             "candidate_count": 0,
@@ -2416,7 +2416,7 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
         )
 
     def test_service_project_total_responsible_table_extracts_name_and_certificate(self) -> None:
-        detail_url = "https://ygp.gdzwfw.gov.cn/notice/service-total-responsible-001.html"
+        detail_url = "https://ywtb.gzggzy.cn/notice/service-total-responsible-001.html"
         transport = FakeRealPublicFetchTransport(
             {
                 detail_url: RealPublicFetchResponse(
@@ -2437,7 +2437,7 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
             "project_type": "construction",
             "notice_stage": "candidate_notice",
             "source_url": detail_url,
-            "source_profile_id": "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
+            "source_profile_id": "GUANGZHOU-YWTB-CONSTRUCTION-LIST",
             "source_candidate_mode": "REAL_PUBLIC_SOURCE_CANDIDATES",
             "key_fields_present": ["project_name", "notice_stage"],
             "candidate_count": 0,
@@ -2466,7 +2466,7 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
         )
 
     def test_generic_responsible_person_without_project_context_is_not_project_manager(self) -> None:
-        detail_url = "https://ygp.gdzwfw.gov.cn/notice/generic-person-001.html"
+        detail_url = "https://ywtb.gzggzy.cn/notice/generic-person-001.html"
         transport = FakeRealPublicFetchTransport(
             {
                 detail_url: RealPublicFetchResponse(
@@ -2487,7 +2487,7 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
             "project_type": "procurement",
             "notice_stage": "award_result",
             "source_url": detail_url,
-            "source_profile_id": "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
+            "source_profile_id": "GUANGZHOU-YWTB-CONSTRUCTION-LIST",
             "source_candidate_mode": "REAL_PUBLIC_SOURCE_CANDIDATES",
             "key_fields_present": ["project_name", "notice_stage"],
             "candidate_count": 0,
@@ -2518,7 +2518,7 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
         self.assertEqual(enriched["project_manager_cert_specialty_parse_state"], "DETAIL_TEXT_NOT_FOUND")
 
     def test_tender_qualification_text_is_not_candidate_role_table(self) -> None:
-        detail_url = "https://ygp.gdzwfw.gov.cn/notice/epc-tender-requirement-001.html"
+        detail_url = "https://ywtb.gzggzy.cn/notice/epc-tender-requirement-001.html"
         transport = FakeRealPublicFetchTransport(
             {
                 detail_url: RealPublicFetchResponse(
@@ -2539,7 +2539,7 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
             "project_type": "construction",
             "notice_stage": "tender_notice",
             "source_url": detail_url,
-            "source_profile_id": "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
+            "source_profile_id": "GUANGZHOU-YWTB-CONSTRUCTION-LIST",
             "source_candidate_mode": "REAL_PUBLIC_SOURCE_CANDIDATES",
             "key_fields_present": ["project_name", "notice_stage"],
             "candidate_count": 0,
@@ -2569,7 +2569,7 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
         self.assertEqual(enriched.get("project_manager_name", ""), "")
 
     def test_digital_system_project_uses_supplier_service_priority_class(self) -> None:
-        detail_url = "https://ygp.gdzwfw.gov.cn/notice/digital-system-service-001.html"
+        detail_url = "https://ywtb.gzggzy.cn/notice/digital-system-service-001.html"
         transport = FakeRealPublicFetchTransport(
             {
                 detail_url: RealPublicFetchResponse(
@@ -2590,7 +2590,7 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
             "project_type": "construction",
             "notice_stage": "candidate_notice",
             "source_url": detail_url,
-            "source_profile_id": "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
+            "source_profile_id": "GUANGZHOU-YWTB-CONSTRUCTION-LIST",
             "source_candidate_mode": "REAL_PUBLIC_SOURCE_CANDIDATES",
             "key_fields_present": ["project_name", "notice_stage"],
             "candidate_count": 0,
@@ -2612,7 +2612,7 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
         self.assertEqual(enriched.get("project_manager_name", ""), "")
 
     def test_shipbuilding_project_uses_supplier_service_priority_class(self) -> None:
-        detail_url = "https://ygp.gdzwfw.gov.cn/notice/shipbuilding-service-001.html"
+        detail_url = "https://ywtb.gzggzy.cn/notice/shipbuilding-service-001.html"
         transport = FakeRealPublicFetchTransport(
             {
                 detail_url: RealPublicFetchResponse(
@@ -2633,7 +2633,7 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
             "project_type": "construction",
             "notice_stage": "candidate_notice",
             "source_url": detail_url,
-            "source_profile_id": "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
+            "source_profile_id": "GUANGZHOU-YWTB-CONSTRUCTION-LIST",
             "source_candidate_mode": "REAL_PUBLIC_SOURCE_CANDIDATES",
             "key_fields_present": ["project_name", "notice_stage"],
             "candidate_count": 0,
@@ -2714,7 +2714,7 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
         )
         for index, (label, title, body, lane, priority, gap_required) in enumerate(cases, 1):
             with self.subTest(label=label):
-                detail_url = f"https://ygp.gdzwfw.gov.cn/notice/abcd-classification-{index}.html"
+                detail_url = f"https://ywtb.gzggzy.cn/notice/abcd-classification-{index}.html"
                 transport = FakeRealPublicFetchTransport(
                     {
                         detail_url: RealPublicFetchResponse(
@@ -2735,7 +2735,7 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
                     "project_type": "construction",
                     "notice_stage": "candidate_notice",
                     "source_url": detail_url,
-                    "source_profile_id": "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
+                    "source_profile_id": "GUANGZHOU-YWTB-CONSTRUCTION-LIST",
                     "source_candidate_mode": "REAL_PUBLIC_SOURCE_CANDIDATES",
                     "key_fields_present": ["project_name", "notice_stage"],
                     "candidate_count": 0,
@@ -2765,7 +2765,7 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
                     self.assertFalse(enriched["stage4_identity_completion_required"])
 
     def test_project_or_tender_number_is_not_project_manager_certificate(self) -> None:
-        detail_url = "https://ygp.gdzwfw.gov.cn/notice/project-code-only-001.html"
+        detail_url = "https://ywtb.gzggzy.cn/notice/project-code-only-001.html"
         transport = FakeRealPublicFetchTransport(
             {
                 detail_url: RealPublicFetchResponse(
@@ -2786,7 +2786,7 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
             "project_type": "construction",
             "notice_stage": "candidate_notice",
             "source_url": detail_url,
-            "source_profile_id": "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
+            "source_profile_id": "GUANGZHOU-YWTB-CONSTRUCTION-LIST",
             "source_candidate_mode": "REAL_PUBLIC_SOURCE_CANDIDATES",
             "key_fields_present": ["project_name", "notice_stage"],
             "candidate_count": 0,
@@ -2827,7 +2827,7 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
         self.assertEqual(enriched["project_manager_certificate_no_parse_state"], "DETAIL_TEXT_NOT_FOUND")
 
     def test_company_fragment_after_manager_label_is_not_project_manager_name(self) -> None:
-        detail_url = "https://ygp.gdzwfw.gov.cn/notice/company-fragment-manager-001.html"
+        detail_url = "https://ywtb.gzggzy.cn/notice/company-fragment-manager-001.html"
         transport = FakeRealPublicFetchTransport(
             {
                 detail_url: RealPublicFetchResponse(
@@ -2848,7 +2848,7 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
             "project_type": "construction",
             "notice_stage": "candidate_notice",
             "source_url": detail_url,
-            "source_profile_id": "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
+            "source_profile_id": "GUANGZHOU-YWTB-CONSTRUCTION-LIST",
             "source_candidate_mode": "REAL_PUBLIC_SOURCE_CANDIDATES",
             "key_fields_present": ["project_name", "notice_stage"],
             "candidate_count": 0,

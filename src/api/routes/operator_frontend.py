@@ -1411,7 +1411,6 @@ const stateLabels = {
   "NATIONAL_DISCOVERY_READY": "全国发现就绪",
   "LOCAL_PROFILE_READY": "本地入口就绪",
   "LOCAL_REALTIME_SOURCE_REQUIRED": "本省实时源待补",
-  "GUANGDONG-YGP-PROVINCE-TRADING-LIST": "广东省交易公开",
   "JIANGSU-GGZY-HOME": "江苏公共资源交易网",
   "ZHEJIANG-GGZY-JYXXGK-LIST": "浙江交易信息公开",
   "SHANDONG-GGZY-JYXXGK-LIST": "山东交易公开",

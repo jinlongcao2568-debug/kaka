@@ -22,8 +22,6 @@ from stage2_ingestion.playwright_challenge_resolver import (
     _guangzhou_ywtb_discovery_failure_taxonomy,
     _guangzhou_ywtb_download_discovery_state,
     _guangzhou_ywtb_download_url,
-    _guangdong_ygp_download_signature_params,
-    _guangdong_ygp_download_url,
     _solve_blockpuzzle_offset,
 )
 
@@ -32,10 +30,6 @@ GZ_ATTACHMENT_URL = (
     "https://ywtb.gzggzy.cn/EpointWebBuilder/pages/webbuildermis/attach/downloadztbattach?"
     "attachGuid=568108d4-62ef-4407-83dc-a35d11c5f0f2&appUrlFlag=f2025tp"
     "&siteGuid=7eb5f7f1-9041-43ad-8e13-8fcb82ea831a"
-)
-GD_YGP_ATTACHMENT_URL = (
-    "https://ygp.gdzwfw.gov.cn/ggzy-portal/base/sys-file/download/v3/"
-    "e1633e95-9630-48e3-95fb-17e38a18cba0--3C14?1696027"
 )
 JS_ATTACHMENT_URL = (
     "http://jsggzy.jszwfw.gov.cn/EpointWebBuilder_jsggzy/pages/webbuildermis/attach/"
@@ -119,13 +113,6 @@ class PlaywrightChallengeResolverHelperTests(unittest.TestCase):
             _filename_from_content_disposition('attachment; filename="bad/name.pdf"'),
             "bad_name.pdf",
         )
-
-    def test_guangdong_ygp_download_url_and_signature_params_are_parsed(self) -> None:
-        self.assertTrue(_guangdong_ygp_download_url(GD_YGP_ATTACHMENT_URL))
-        params = _guangdong_ygp_download_signature_params(GD_YGP_ATTACHMENT_URL)
-        self.assertEqual(params["version"], "v3")
-        self.assertEqual(params["rowGuid"], "e1633e95-9630-48e3-95fb-17e38a18cba0--3C14")
-        self.assertEqual(params["flowId"], "1696027")
 
     def test_guangzhou_download_diagnosis_classifies_endpoint_and_blockers(self) -> None:
         self.assertTrue(_guangzhou_ywtb_download_url(GZ_ATTACHMENT_URL))

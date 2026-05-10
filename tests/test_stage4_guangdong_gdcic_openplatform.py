@@ -213,7 +213,7 @@ class GuangdongGdcicOpenplatformAdapterTests(unittest.TestCase):
                 "project_name": "广东市政道路工程",
                 "candidate_company": "广东测试建设有限公司",
                 "region_code": "CN-GD",
-                "source_url": "https://ygp.gdzwfw.gov.cn/#/44/new/jygg/v3/A?noticeId=abc&projectCode=E4401002701502243001&bizCode=3C42",
+                "source_url": "https://ywtb.gzggzy.cn/jyfw/002001/002001001/20260501/mock.html?noticeId=abc&projectCode=E4401002701502243001&bizCode=3C42",
             },
             http_get_json=fake_get_json,
             now="2026-05-02T10:00:00+08:00",

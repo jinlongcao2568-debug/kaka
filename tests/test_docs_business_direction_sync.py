@@ -26,7 +26,7 @@ def test_p0_entry_docs_reference_business_direction_contracts() -> None:
         assert HUMAN_REF in text or CONTRACT_REF in text, path
 
 
-def test_source_route_spec_locks_post_candidate_backtrace_and_ygp_quarantine() -> None:
+def test_source_route_spec_locks_post_candidate_backtrace_and_guangzhou_primary_source() -> None:
     text = _read(DOCS / "专题_来源覆盖与采集路由规范.md")
 
     assert "POST_CANDIDATE_EVIDENCE_PACK" in text
@@ -34,8 +34,7 @@ def test_source_route_spec_locks_post_candidate_backtrace_and_ygp_quarantine() -
     assert "回溯同一项目全流程材料" in text
     assert "招标文件" in text and "答疑澄清" in text and "投标文件公开" in text
     assert "PRE_BID_PREDICTION" in text
-    assert "GUANGDONG-YGP-PROVINCE-TRADING-LIST" in text
-    assert "继续隔离" in text
+    assert "广东工程建设现行来源只保留广州交易集团" in text
     assert "tender_file" in text and "smoke" in text
 
 
@@ -71,4 +70,4 @@ def test_status_board_records_p0_sync_boundary() -> None:
     assert "POST_CANDIDATE_EVIDENCE_PACK" in text
     assert "PRE_BID_PREDICTION" in text
     assert "tender_file" in text and "最终业务入口" in text
-    assert "YGP" in text and "继续隔离" in text
+    assert "广东只保留广州交易集团主源" in text

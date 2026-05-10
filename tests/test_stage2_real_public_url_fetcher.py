@@ -6,7 +6,6 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -56,25 +55,9 @@ GZ_YWTB_ATTACHMENT_URL = (
     "attachGuid=568108d4-62ef-4407-83dc-a35d11c5f0f2&appUrlFlag=f2025tp"
     "&siteGuid=7eb5f7f1-9041-43ad-8e13-8fcb82ea831a"
 )
-GD_YGP_URL = "https://ygp.gdzwfw.gov.cn/#/44/jygg"
 JS_DETAIL_URL = "http://jsggzy.jszwfw.gov.cn/jyxx/003001/003001001/20260501/e40bba6b-3eda-4245-9d15-21b921f8db54.html"
 SD_DETAIL_URL = "http://ggzyjy.shandong.gov.cn:80/jsgczbgg/14229113.jhtml"
 SD_DETAIL_URL_HTTPS = "https://ggzyjy.shandong.gov.cn/jsgczbgg/14229113.jhtml"
-GD_YGP_DETAIL_URL = (
-    "https://ygp.gdzwfw.gov.cn/#/44/new/jygg/v3/A?"
-    "noticeId=3fd848f3-3ef4-4240-9417-bded006b182d-3C14"
-    "&projectCode=A4406010001000670003"
-    "&bizCode=3C14"
-    "&siteCode=440600"
-    "&publishDate=20260501131830"
-    "&source=%E4%BD%9B%E5%B1%B1%E5%B8%82%E5%85%AC%E5%85%B1%E8%B5%84%E6%BA%90%E4%BA%A4%E6%98%93%E4%BF%A1%E6%81%AF%E5%8C%96%E7%BB%BC%E5%90%88%E5%B9%B3%E5%8F%B0"
-    "&titleDetails=%E5%B7%A5%E7%A8%8B%E5%BB%BA%E8%AE%BE"
-    "&classify=A07"
-)
-GD_YGP_ATTACHMENT_URL = (
-    "https://ygp.gdzwfw.gov.cn/ggzy-portal/base/sys-file/download/v3/"
-    "e1633e95-9630-48e3-95fb-17e38a18cba0--3C14?1696027"
-)
 HB_ATTACHMENT_URL = (
     "https://www.hbbidcloud.cn/hubei/jyxx/download?"
     "fileName=%E6%8B%9B%E6%A0%87%E6%96%87%E4%BB%B6.pdf&id=hb-001"
@@ -262,27 +245,6 @@ def _beijing_platform_html() -> bytes:
     return html.encode("utf-8")
 
 
-def _guangdong_shell_html() -> bytes:
-    html = """
-    <html>
-      <head>
-        <title>广东省公共资源交易平台</title>
-        <meta name="keywords" content="广东省公共资源交易平台,公开入口">
-      </head>
-      <body>
-        <div id="app"></div>
-        <script src="/portal/app.js"></script>
-        <span>工程建设</span>
-        <p>广东省公共资源交易平台公开入口用于项目公开信息展示。</p>
-        <p>本测试文本模拟真实入口页 meta/正文中的公开入口说明，不模拟浏览器渲染后的实时列表。</p>
-        <p>公开信息通过浏览器渲染列表展示，后续项目详情仍必须由 allowlisted URL 或合法公开接口承接。</p>
-        <p>公开入口说明公开入口说明公开入口说明公开入口说明公开入口说明公开入口说明公开入口说明公开入口说明公开入口说明公开入口说明。</p>
-      </body>
-    </html>
-    """
-    return html.encode("utf-8")
-
-
 def _province_detail_html(title: str) -> bytes:
     html = f"""
     <html>
@@ -344,71 +306,6 @@ def _sichuan_detail_html_with_template_attachment() -> str:
     """
 
 
-def _fake_guangdong_detail_api(endpoint: str, params: dict, *, user_agent: str) -> dict:
-    if endpoint.endswith("/nodeList"):
-        return {
-            "errcode": 0,
-            "errmsg": "ok",
-            "data": [
-                {
-                    "nodeName": "招标公告及资格预审",
-                    "nodeId": "1971512620815388674",
-                    "selectedBizCode": "3C14",
-                    "dataCount": 1,
-                    "noticeId": "3fd848f3-3ef4-4240-9417-bded006b182d-3C14",
-                }
-            ],
-        }
-    if endpoint.endswith("/detail"):
-        return {
-            "errcode": 0,
-            "errmsg": "ok",
-            "data": {
-                "title": "白坭镇水利设施提升改造工程Ⅰ标施工招标公告",
-                "publishDate": "2026-05-01 13:18:30",
-                "tradingNoticeColumnModelList": [
-                    {
-                        "name": "公告信息",
-                        "viewStyle": "keyTable",
-                        "multiKeyValueTableList": [
-                            [
-                                {
-                                    "code": "TENDER_PROJECT_NAME",
-                                    "aliasName": "招标项目名称",
-                                    "value": "白坭镇水利设施提升改造工程Ⅰ标施工",
-                                    "isShow": True,
-                                },
-                                {
-                                    "code": "NOTICE_NATURE",
-                                    "aliasName": "公告性质",
-                                    "value": "正常公告",
-                                    "isShow": True,
-                                },
-                            ]
-                        ],
-                    },
-                    {
-                        "name": "公告内容",
-                        "viewStyle": "richText",
-                        "richtext": "<p>广东省工程建设项目招标公告，招标控制价 1200 万元。</p>",
-                    },
-                    {
-                        "name": "相关附件",
-                        "viewStyle": "keyTable",
-                        "noticeFileBOList": [
-                            {
-                                "fileName": "招标公告.pdf",
-                                "rowGuid": "e1633e95-9630-48e3-95fb-17e38a18cba0--3C14",
-                                "flowId": "1696027",
-                            }
-                        ],
-                    },
-                ],
-            },
-        }
-    raise AssertionError(endpoint)
-
-
 def _pdf_like_bytes() -> bytes:
     return (b"%PDF-1.4\n" + (b"public attachment\n" * 80))
 
@@ -455,7 +352,7 @@ class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
         entry_profile_ids = {profile.profile_id for profile in REAL_PUBLIC_ENTRY_PROFILES}
         attachment_profile_ids = set(PUBLIC_ATTACHMENT_PROFILE_IDS)
 
-        self.assertEqual(len(entry_profile_ids), 24)
+        self.assertEqual(len(entry_profile_ids), 23)
         self.assertEqual(len(attachment_profile_ids), 2)
         self.assertIn("GGZY-DEAL-LIST", entry_profile_ids)
         self.assertIn("CCGP-CENTRAL-NOTICES", entry_profile_ids)
@@ -465,7 +362,6 @@ class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
         self.assertIn("BEIJING-PLATFORM-HOME", entry_profile_ids)
         for profile_id in (
             "GUANGZHOU-YWTB-CONSTRUCTION-LIST",
-            "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
             "GUANGDONG-GDCIC-HOME",
             "GUANGDONG-GDCIC-SKYPT-OPENPLATFORM",
             "GUANGDONG-TZXM-HOME",
@@ -680,62 +576,6 @@ class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
 
         self.assertEqual(len(transport.call_log), 1)
         self.assertEqual(transport.call_log[0]["url"], CCGP_DETAIL_URL)
-
-    def test_guangdong_hash_detail_uses_public_detail_api_and_discovers_download_attachments(self) -> None:
-        pdf_bytes = _pdf_like_bytes()
-        attachment_url = (
-            "https://ygp.gdzwfw.gov.cn/ggzy-portal/base/sys-file/download/v3/"
-            "e1633e95-9630-48e3-95fb-17e38a18cba0--3C14?1696027"
-        )
-        transport = FakeRealPublicFetchTransport(
-            {
-                attachment_url: RealPublicFetchResponse(
-                    url=attachment_url,
-                    status_code=200,
-                    content=pdf_bytes,
-                    content_type="application/pdf;charset=UTF-8",
-                    final_url=attachment_url,
-                )
-            }
-        )
-
-        with tempfile.TemporaryDirectory() as tmp_dir, patch(
-            "stage2_ingestion.real_public_url_fetcher._guangdong_ygp_signed_get_json",
-            side_effect=_fake_guangdong_detail_api,
-        ) as api_get:
-            repo = _repo(tmp_dir)
-            fetcher = RealPublicEntryFetcher(
-                transport=transport,
-                repository=repo,
-                timeout_seconds=3,
-            )
-            carrier = fetcher.fetch_candidate_detail_url(
-                GD_YGP_DETAIL_URL,
-                profile_id="GUANGDONG-YGP-PROVINCE-TRADING-LIST",
-                lineage_refs={"candidate_key": "gd-candidate-001"},
-            )
-
-            self.assertEqual(carrier["status"], "FETCHED")
-            self.assertEqual(carrier["transport"], "guangdong_ygp_public_detail_api")
-            self.assertEqual(carrier["title"], "白坭镇水利设施提升改造工程Ⅰ标施工招标公告")
-            self.assertEqual(carrier["same_site_attachment_link_items"][0]["url"], attachment_url)
-            self.assertEqual(carrier["same_site_attachment_link_items"][0]["text"], "招标公告.pdf")
-            self.assertEqual(transport.call_log, [])
-            self.assertEqual(api_get.call_count, 2)
-            replay = repo.replay_snapshot(carrier["snapshot_id_optional"])
-            self.assertEqual(replay["manifest"]["snapshot_kind"], REAL_PUBLIC_DETAIL_SNAPSHOT_KIND)
-            self.assertIn("白坭镇水利设施提升改造工程", repo.read_snapshot_bytes(carrier["snapshot_id_optional"]).decode("utf-8"))
-
-            attachment = fetcher.fetch_same_site_attachment_url(
-                attachment_url,
-                parent_profile_id="GUANGDONG-YGP-PROVINCE-TRADING-LIST",
-                detail_page_url=GD_YGP_DETAIL_URL,
-                lineage_refs={"candidate_key": "gd-candidate-001"},
-            )
-
-            self.assertEqual(attachment["status"], "FETCHED")
-            self.assertEqual(repo.read_snapshot_bytes(attachment["snapshot_id_optional"]), pdf_bytes)
-            self.assertEqual(transport.call_log[0]["url"], attachment_url)
 
     def test_guangzhou_ywtb_onclick_download_attachment_is_discovered_and_allowlisted(self) -> None:
         pdf_bytes = _pdf_like_bytes()
@@ -1030,54 +870,6 @@ class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
             self.assertIn("captcha_recognition", audit["resolution_capabilities_used"])
             replay = repo.replay_snapshot(attachment["snapshot_id_optional"])
             self.assertTrue(replay["manifest"]["fetch_audit"]["automated_challenge_resume_used"])
-
-    def test_guangdong_interface_error_routes_to_explicit_challenge_resolver(self) -> None:
-        pdf_bytes = _pdf_like_bytes()
-        interface_error_html = (
-            "<html><body><p>参数错误</p><p>X-Dgi-Req-Signature 签名验证失败</p></body></html>"
-        ).encode("utf-8")
-        transport = FakeRealPublicFetchTransport(
-            {
-                GD_YGP_ATTACHMENT_URL: RealPublicFetchResponse(
-                    url=GD_YGP_ATTACHMENT_URL,
-                    status_code=400,
-                    content=interface_error_html,
-                    content_type="text/html; charset=utf-8",
-                    final_url=GD_YGP_ATTACHMENT_URL,
-                ),
-            }
-        )
-        resolver = FakeAttachmentChallengeResolver(pdf_bytes)
-
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            repo = _repo(tmp_dir)
-            fetcher = RealPublicEntryFetcher(
-                transport=transport,
-                repository=repo,
-                timeout_seconds=3,
-                attachment_challenge_resolver=resolver,
-                automated_challenge_resolution_enabled=True,
-            )
-            attachment = fetcher.fetch_same_site_attachment_url(
-                GD_YGP_ATTACHMENT_URL,
-                parent_profile_id="GUANGDONG-YGP-PROVINCE-TRADING-LIST",
-                detail_page_url=GD_YGP_DETAIL_URL,
-                lineage_refs={"candidate_key": "gd-candidate-001"},
-            )
-
-            self.assertEqual(attachment["status"], "FETCHED")
-            self.assertEqual(attachment["automated_challenge_resolution_state"], "RESOLVED_AND_SNAPSHOT_CAPTURED")
-            self.assertEqual(repo.read_snapshot_bytes(attachment["snapshot_id_optional"]), pdf_bytes)
-            self.assertEqual(len(resolver.requests), 1)
-            request = resolver.requests[0]
-            self.assertEqual(request["challenge_family"], "GUANGDONG_YGP_SIGNED_PUBLIC_FILE")
-            self.assertEqual(request["attachment_blocker_class"], "ATTACHMENT_INTERFACE_ERROR")
-            self.assertIn("400", request["first_attempt_http_statuses"])
-            self.assertIn("same_site_referer_replay", request["allowed_resolution_capabilities"])
-            self.assertEqual(
-                request["platform_resolution_hint"]["resolver_route"],
-                "guangdong_ygp_signed_request_or_browser_session",
-            )
 
     def test_hubei_slider_or_geetest_page_routes_to_explicit_challenge_resolver(self) -> None:
         pdf_bytes = _pdf_like_bytes()
@@ -1500,7 +1292,6 @@ class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
             if profile.profile_id not in (
                 *NATIONAL_VERIFICATION_ENTRY_PROFILE_IDS,
                 *REPRESENTATIVE_LOCAL_PLATFORM_ENTRY_PROFILE_IDS,
-                "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
             ):
                 self.assertNotEqual(profile.url, profile.sample_detail_url, profile.profile_id)
             if profile.profile_id == "JIANGSU-GGZY-HOME":
@@ -1673,12 +1464,21 @@ class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
                     content_type="text/html; charset=utf-8",
                     final_url=BEIJING_HOME_URL,
                 ),
-                GD_YGP_URL: RealPublicFetchResponse(
-                    url=GD_YGP_URL,
+                GZ_YWTB_URL: RealPublicFetchResponse(
+                    url=GZ_YWTB_URL,
                     status_code=200,
-                    content=_guangdong_shell_html(),
+                    content=(
+                        "<html><head><title>广州交易集团有限公司</title></head>"
+                        "<body><p>广州公共资源交易中心 工程建设 交易服务公开入口。</p>"
+                        "<p>公开入口说明公开入口说明公开入口说明公开入口说明公开入口说明公开入口说明公开入口说明公开入口说明。</p>"
+                        "<p>公开首页说明公开首页说明公开首页说明公开首页说明公开首页说明公开首页说明公开首页说明公开首页说明。</p>"
+                        "<p>建设工程交易信息建设工程交易信息建设工程交易信息建设工程交易信息建设工程交易信息建设工程交易信息建设工程交易信息建设工程交易信息。</p>"
+                        "<p>招标公告中标候选人公示中标结果公告交易服务公开页面说明公开页面说明公开页面说明公开页面说明公开页面说明公开页面说明。</p>"
+                        "<p>广州公共资源交易中心公开入口用于工程建设项目列表、公告详情和附件下载入口的统一公开展示。</p>"
+                        "</body></html>"
+                    ).encode("utf-8"),
                     content_type="text/html; charset=utf-8",
-                    final_url=GD_YGP_URL,
+                    final_url=GZ_YWTB_URL,
                 ),
             }
         )
@@ -1690,8 +1490,8 @@ class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
                 profile_id="BEIJING-PLATFORM-HOME",
             )
             guangdong = fetcher.fetch_entry_url(
-                GD_YGP_URL,
-                profile_id="GUANGDONG-YGP-PROVINCE-TRADING-LIST",
+                GZ_YWTB_URL,
+                profile_id="GUANGZHOU-YWTB-CONSTRUCTION-LIST",
             )
 
             self.assertEqual(beijing["status"], "FETCHED")
@@ -1704,7 +1504,7 @@ class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
             self.assertEqual(guangdong["entry_validation_level"], "VISIBLE_ENTRY_MARKERS")
             self.assertEqual(
                 guangdong["lightweight_public_entry_markers_found"],
-                ["广东省公共资源交易平台"],
+                ["广州交易集团有限公司", "广州公共资源交易中心"],
             )
             self.assertFalse(guangdong["fail_closed"])
             self.assertTrue(guangdong["snapshot_id_optional"])

@@ -1277,11 +1277,6 @@ def _source_quality_manifest_policy(
         for item in items
         if str(item.get("source_profile_id") or "")
     )
-    quarantined_profiles = [
-        profile_id
-        for profile_id in active_profiles
-        if resolve_source_quality_policy(profile_id).get("source_quality_state") == "QUARANTINED"
-    ]
     return {
         "policy_id": "real-sample-source-quality-policy-v1",
         "primary_friendly_profile_ids": [
@@ -1289,11 +1284,9 @@ def _source_quality_manifest_policy(
             "ZHEJIANG-GGZY-JYXXGK-LIST",
             "SICHUAN-GGZY-TRANSACTION-INFO",
         ],
-        "quarantined_profile_ids": ["GUANGDONG-YGP-PROVINCE-TRADING-LIST"],
         "source_quality_state_counts": _counts(item_states),
         "project_sample_source_quality_state_counts": _counts(sample_states),
         "active_profile_ids": active_profiles,
-        "quarantined_profile_ids_present": quarantined_profiles,
         "professional_source_priority_sample_count": sum(
             1 for sample in project_sample_items if bool(sample.get("professional_source_priority"))
         ),

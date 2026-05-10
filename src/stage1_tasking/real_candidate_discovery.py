@@ -3,11 +3,10 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-import secrets
 from datetime import datetime, timedelta, timezone
 from html import unescape
 from typing import Any, Mapping
-from urllib.parse import parse_qs, quote, unquote, urlencode, urljoin, urlsplit
+from urllib.parse import urlencode, urljoin, urlsplit
 from urllib.request import Request, urlopen
 
 from shared.utils import build_id, utc_now_iso
@@ -62,15 +61,6 @@ GUANGZHOU_YWTB_PROCESS_METADATA = {
         "notice_third_type_desc": "中标结果公告",
     },
 }
-GUANGDONG_TENDER_NOTICE_TRADING_PROCESS = "3C14"
-GUANGDONG_CANDIDATE_PUBLICITY_TRADING_PROCESS = "3C51"
-GUANGDONG_EVALUATION_REPORT_TRADING_PROCESS = "3C42"
-GUANGDONG_YGP_TRADING_PROCESS_PRIORITY = (
-    ("candidate_publicity", GUANGDONG_CANDIDATE_PUBLICITY_TRADING_PROCESS),
-    ("evaluation_report_fallback", GUANGDONG_EVALUATION_REPORT_TRADING_PROCESS),
-    ("recent_all_fallback", ""),
-)
-
 _PROJECT_TYPE_LABELS = {
     "construction": "房建工程",
     "municipal": "市政工程",
@@ -103,9 +93,7 @@ _PROVINCE_REALTIME_PROFILE_IDS = {
     "SICHUAN-GGZY-TRANSACTION-INFO",
 }
 
-EXCLUDED_DISCOVERY_PROFILE_IDS = {
-    "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
-}
+EXCLUDED_DISCOVERY_PROFILE_IDS: set[str] = set()
 
 _GENERIC_NAV_TITLE_EXACTS = {
     "首页",
@@ -542,8 +530,6 @@ def _discover_profile_api_link_items(
 ) -> dict[str, Any]:
     if profile_id == GUANGZHOU_YWTB_PROFILE_ID:
         return _discover_guangzhou_ywtb_api_link_items(now=now, context=context or {})
-    if profile_id == "GUANGDONG-YGP-PROVINCE-TRADING-LIST":
-        return _discover_guangdong_ygp_api_link_items(now=now, context=context or {})
     if profile_id == "GGZY-DEAL-LIST":
         return _discover_ggzy_deal_api_link_items(now=now, context=context or {})
     if profile_id == "JIANGSU-GGZY-HOME":
@@ -764,37 +750,6 @@ def _link_items_from_ggzy_deal_records(records: list[Any]) -> list[dict[str, str
     return items
 
 
-def _stringify_guangdong_ygp_payload(payload: Mapping[str, Any]) -> str:
-    parts: list[str] = []
-    for key, value in payload.items():
-        if isinstance(value, bool):
-            text = "true" if value else "false"
-        elif value is None:
-            text = ""
-        else:
-            text = str(value)
-        parts.append(f"{quote(str(key), safe='')}={quote(text, safe='')}")
-    return "&".join(parts)
-
-
-def _guangdong_ygp_signature_headers(payload: Mapping[str, Any]) -> dict[str, str]:
-    nonce = secrets.token_urlsafe(18).replace("-", "").replace("_", "")[:16]
-    timestamp_ms = str(int(datetime.now(timezone.utc).timestamp() * 1000))
-    sorted_query = "&".join(sorted(_stringify_guangdong_ygp_payload(payload).split("&")))
-    signature_basis = f"{nonce}k8tUyS$m{_url_decode_for_guangdong_signature(sorted_query)}{timestamp_ms}"
-    return {
-        "X-Dgi-Req-App": "ggzy-portal",
-        "X-Dgi-Req-Nonce": nonce,
-        "X-Dgi-Req-Timestamp": timestamp_ms,
-        "X-Dgi-Req-Signature": hashlib.sha256(signature_basis.encode("utf-8")).hexdigest(),
-    }
-
-
-def _url_decode_for_guangdong_signature(value: str) -> str:
-    # 广东门户前端签名逻辑先按 & 排序，再对 query-string 做 decodeURIComponent。
-    return unquote(value)
-
-
 def _guangzhou_ywtb_process_priority(context: Mapping[str, Any] | None = None) -> tuple[tuple[str, str], ...]:
     document_kind = str((context or {}).get("evaluation_document_kind") or "")
     if document_kind == "tender_file":
@@ -986,190 +941,6 @@ def _link_items_from_guangzhou_ywtb_records(
             }
         )
     return items
-
-
-def _discover_guangdong_ygp_api_link_items(
-    *,
-    now: str,
-    context: Mapping[str, Any] | None = None,
-) -> dict[str, Any]:
-    endpoint = "https://ygp.gdzwfw.gov.cn/ggzy-portal/search/v2/items"
-    start_date, end_date = _date_window_from_now(now)
-    process_priority = _guangdong_ygp_process_priority(context or {})
-    base_payload = {
-        "type": "trading-type",
-        "openConvert": False,
-        "keyword": "",
-        "siteCode": "44",
-        "secondType": "A",
-        "tradingProcess": "",
-        "thirdType": "[]",
-        "projectType": "",
-        "publishStartTime": "",
-        "publishEndTime": "",
-        "pageSize": GUANGDONG_DISCOVERY_PAGE_SIZE,
-    }
-    all_records: list[Any] = []
-    total_by_process: dict[str, str] = {}
-    process_attempts: list[dict[str, Any]] = []
-    page_errors: list[str] = []
-    for process_label, trading_process in process_priority:
-        process_records: list[Any] = []
-        attempted_pages = 0
-        for page_no in range(1, MAX_GUANGDONG_DISCOVERY_PAGES + 1):
-            payload = {**base_payload, "tradingProcess": trading_process, "pageNo": page_no}
-            request = Request(
-                endpoint,
-                data=json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8"),
-                headers={
-                    "User-Agent": "AX9S-RealPublicCandidateDiscovery/0.1 (+public-readonly-validation)",
-                    "Content-Type": "application/json",
-                    "Accept": "application/json, text/plain, */*",
-                    "Referer": "https://ygp.gdzwfw.gov.cn/",
-                    **_guangdong_ygp_signature_headers(payload),
-                },
-                method="POST",
-            )
-            attempted_pages = page_no
-            try:
-                with urlopen(request, timeout=18) as response:
-                    raw = response.read(1_500_000).decode("utf-8", "ignore")
-                data = json.loads(raw)
-            except Exception as exc:  # pragma: no cover - public network failures vary
-                page_errors.append(f"{process_label}:page_{page_no}:{exc}")
-                break
-            page_data = list(((data.get("data") or {}).get("pageData") or []))
-            total_by_process[process_label] = str((data.get("data") or {}).get("total") or "")
-            if not page_data:
-                break
-            for record in page_data:
-                row = dict(record) if isinstance(record, Mapping) else record
-                if isinstance(row, dict):
-                    row["_ax9s_query_process_label"] = process_label
-                    row["_ax9s_query_trading_process"] = trading_process
-                process_records.append(row)
-            if len(page_data) < GUANGDONG_DISCOVERY_PAGE_SIZE:
-                break
-        process_attempts.append(
-            {
-                "process_label": process_label,
-                "trading_process": trading_process,
-                "attempted_pages": attempted_pages,
-                "record_count": len(process_records),
-                "total": total_by_process.get(process_label, ""),
-            }
-        )
-        if process_records:
-            all_records.extend(process_records)
-            if process_label == process_priority[0][0] or process_label == "candidate_publicity":
-                break
-    items = _link_items_from_guangdong_ygp_records(all_records)
-    return {
-        "state": "FETCHED" if items else "FAILED" if page_errors else "EMPTY",
-        "endpoint": endpoint,
-        "items": items,
-        "error_optional": ";".join(page_errors),
-        "query_window": {"start_date": start_date, "end_date": end_date},
-        "api_time_filter_state": "candidate_publicity_process_first_then_evaluation_report_then_recent_fallback",
-        "trading_process_strategy": process_priority[0][0] + "_first" if process_priority else "empty",
-        "process_attempts": process_attempts,
-        "primary_trading_process": process_priority[0][1] if process_priority else "",
-        "fallback_recent_all_used": bool(
-            process_attempts
-            and process_attempts[-1].get("process_label") == "recent_all_fallback"
-            and process_attempts[-1].get("record_count")
-        ),
-        "page_size": GUANGDONG_DISCOVERY_PAGE_SIZE,
-        "page_limit": MAX_GUANGDONG_DISCOVERY_PAGES,
-        "candidate_record_window_cap": GUANGDONG_DISCOVERY_PAGE_SIZE * MAX_GUANGDONG_DISCOVERY_PAGES,
-        "attempted_pages": sum(_as_int(item.get("attempted_pages"), 0) for item in process_attempts),
-        "record_count": len(all_records),
-        "total": total_by_process.get(process_priority[0][0] if process_priority else "")
-        or total_by_process.get("recent_all_fallback")
-        or "",
-        "total_by_process": total_by_process,
-    }
-
-
-def _guangdong_ygp_process_priority(context: Mapping[str, Any]) -> tuple[tuple[str, str], ...]:
-    document_kind = str(context.get("evaluation_document_kind") or "")
-    if document_kind == "tender_file":
-        return (
-            ("tender_notice", GUANGDONG_TENDER_NOTICE_TRADING_PROCESS),
-            ("candidate_publicity_fallback", GUANGDONG_CANDIDATE_PUBLICITY_TRADING_PROCESS),
-            ("recent_all_fallback", ""),
-        )
-    if document_kind == "award_result":
-        return (
-            ("evaluation_report", GUANGDONG_EVALUATION_REPORT_TRADING_PROCESS),
-            ("candidate_publicity_fallback", GUANGDONG_CANDIDATE_PUBLICITY_TRADING_PROCESS),
-            ("recent_all_fallback", ""),
-        )
-    return GUANGDONG_YGP_TRADING_PROCESS_PRIORITY
-
-
-def _link_items_from_guangdong_ygp_records(records: list[Any]) -> list[dict[str, str]]:
-    items: list[dict[str, str]] = []
-    seen: set[str] = set()
-    for record in records:
-        if not isinstance(record, Mapping):
-            continue
-        title = _normalize_public_title(record.get("noticeTitle"))
-        notice_id = str(record.get("noticeId") or "").strip()
-        edition = str(record.get("edition") or "").strip()
-        notice_second_type = str(record.get("noticeSecondType") or "").strip()
-        if not title or not notice_id or not edition or not notice_second_type:
-            continue
-        detail_url = _guangdong_ygp_detail_url(record)
-        if not detail_url or detail_url in seen:
-            continue
-        seen.add(detail_url)
-        summary_parts = [
-            record.get("noticeSecondTypeDesc"),
-            record.get("projectTypeName"),
-            record.get("datasetName"),
-            record.get("regionName"),
-            record.get("siteName"),
-            record.get("projectOwner"),
-            record.get("pubServicePlat"),
-            record.get("noticeNature"),
-        ]
-        items.append(
-            {
-                "url": detail_url,
-                "text": title,
-                "summary": " ".join(_clean_text(part) for part in summary_parts if _clean_text(part)),
-                "published_at": _format_guangdong_publish_date(record.get("publishDate")),
-                "categorynum": str(record.get("noticeThirdType") or ""),
-                "trading_process": str(record.get("tradingProcess") or record.get("_ax9s_query_trading_process") or ""),
-                "dataset_name": str(record.get("datasetName") or ""),
-                "notice_third_type_desc": str(record.get("noticeThirdTypeDesc") or ""),
-                "query_process_label": str(record.get("_ax9s_query_process_label") or ""),
-                "source_api": "https://ygp.gdzwfw.gov.cn/ggzy-portal/search/v2/items",
-                "source_record_id": str(record.get("docId") or notice_id),
-            }
-        )
-    return items
-
-
-def _guangdong_ygp_detail_url(record: Mapping[str, Any]) -> str:
-    base = "https://ygp.gdzwfw.gov.cn/#/44/new/jygg"
-    edition = str(record.get("edition") or "").strip()
-    notice_second_type = str(record.get("noticeSecondType") or "").strip()
-    if not edition or not notice_second_type:
-        return ""
-    query = {
-        "noticeId": str(record.get("noticeId") or "").strip(),
-        "projectCode": str(record.get("projectCode") or "").strip(),
-        "bizCode": str(record.get("tradingProcess") or record.get("bizCode") or "").strip(),
-        "siteCode": str(record.get("regionCode") or record.get("siteCode") or "44").strip(),
-        "publishDate": str(record.get("publishDate") or "").strip(),
-        "source": str(record.get("pubServicePlat") or "").strip(),
-        "titleDetails": str(record.get("noticeSecondTypeDesc") or "").strip(),
-        "classify": str(record.get("projectType") or "").strip(),
-    }
-    query = {key: value for key, value in query.items() if value}
-    return f"{base}/{quote(edition, safe='')}/{quote(notice_second_type, safe='')}?{urlencode(query)}"
 
 
 def _format_guangdong_publish_date(value: Any) -> str:
@@ -1499,16 +1270,6 @@ def _is_candidate_detail_url(
         return path.endswith((".html", ".htm", ".shtml")) and any(
             token in path for token in ("notice", "ggzy", "cms", "jyzx")
         )
-    if profile_id == "GUANGDONG-YGP-PROVINCE-TRADING-LIST":
-        return (
-            "ygp.gdzwfw.gov.cn" in urlsplit(url).netloc.lower()
-            and "/jygg" in url
-            and (
-                _is_real_notice_candidate_title(title)
-                or allow_non_actionable_title
-                or _is_guangdong_ygp_structured_notice_url(url)
-            )
-        )
     if profile_id in _PROVINCE_REALTIME_PROFILE_IDS:
         host = urlsplit(url).netloc.lower()
         if profile_id == GUANGZHOU_YWTB_PROFILE_ID and "ywtb.gzggzy.cn" not in host:
@@ -1533,17 +1294,6 @@ def _is_candidate_detail_url(
             token in path for token in ("notice", "jygg", "ggzy", "bulletin")
         )
     return path.endswith((".html", ".htm", ".shtml")) and not path.endswith(("index.html", "deallist.html"))
-
-
-def _is_guangdong_ygp_structured_notice_url(url: str) -> bool:
-    parsed = urlsplit(str(url or "").strip())
-    if parsed.netloc.lower() != "ygp.gdzwfw.gov.cn":
-        return False
-    fragment_path, _, fragment_query = parsed.fragment.partition("?")
-    if "/jygg/" not in fragment_path:
-        return False
-    query_values = parse_qs(fragment_query, keep_blank_values=True)
-    return all(str((query_values.get(key) or [""])[0]).strip() for key in ("noticeId", "projectCode", "bizCode"))
 
 
 def _candidate_key(candidate: Mapping[str, Any]) -> str:

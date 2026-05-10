@@ -308,7 +308,7 @@ class TestStage1MarketScan(unittest.TestCase):
                     "source_candidate_mode": "REAL_PUBLIC_SOURCE_CANDIDATES",
                     "stage2_detail_snapshot_id_optional": "REAL-DETAIL-GD-001",
                     "stage2_attachment_snapshot_count": 2,
-                    "source_url": "https://ygp.gdzwfw.gov.cn/#/44/new/jygg/v3/A",
+                    "source_url": "https://ywtb.gzggzy.cn/jyfw/002001/002001001/20260501/mock.html",
                     "key_fields_present": ["project_name", "notice_stage"],
                 }
             ],

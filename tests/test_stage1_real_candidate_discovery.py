@@ -16,11 +16,9 @@ from stage1_tasking.real_candidate_discovery import (
     REAL_PUBLIC_SOURCE_CANDIDATE_MODE,
     RealPublicCandidateDiscoveryService,
     RealPublicCandidateRepository,
-    _guangdong_ygp_process_priority,
     _guangzhou_ywtb_process_priority,
     _is_candidate_detail_url,
     _link_items_from_guangzhou_ywtb_records,
-    _link_items_from_guangdong_ygp_records,
     _link_items_from_text_search_records,
     list_persisted_real_candidates,
     list_real_candidate_discovery_runs,
@@ -249,41 +247,6 @@ class FakeGgzySelectionApiDiscoverer:
         }
 
 
-def fake_guangdong_api_link_discoverer(profile_id: str, *, now: str) -> dict:
-    if profile_id != "GUANGDONG-YGP-PROVINCE-TRADING-LIST":
-        return {"state": "UNSUPPORTED", "items": []}
-    records = [
-        {
-            "docId": "3fd848f3-3ef4-4240-9417-bded006b182d-3C14-3C14",
-            "noticeId": "3fd848f3-3ef4-4240-9417-bded006b182d-3C14",
-            "noticeSecondType": "A",
-            "noticeSecondTypeDesc": "工程建设",
-            "noticeThirdType": "1",
-            "projectType": "A07",
-            "projectTypeName": "水利",
-            "siteName": "三水区",
-            "siteCode": "440607",
-            "regionCode": "440600",
-            "regionName": "佛山市",
-            "noticeTitle": "白坭镇水利设施提升改造工程Ⅰ标施工招标公告",
-            "projectOwner": "佛山市三水区白坭镇城建水利事务中心",
-            "projectCode": "A4406010001000670003",
-            "publishDate": "20260501131830",
-            "edition": "v3",
-            "tradingProcess": "3C14",
-            "datasetName": "招标公告、资格预审公告",
-            "pubServicePlat": "佛山市公共资源交易信息化综合平台",
-            "noticeNature": "正常公告",
-        }
-    ]
-    return {
-        "state": "FETCHED",
-        "endpoint": "https://ygp.gdzwfw.gov.cn/ggzy-portal/search/v2/items",
-        "items": _link_items_from_guangdong_ygp_records(records),
-        "record_count": len(records),
-    }
-
-
 def fake_guangzhou_candidate_publicity_api_link_discoverer(profile_id: str, *, now: str) -> dict:
     if profile_id != "GUANGZHOU-YWTB-CONSTRUCTION-LIST":
         return {"state": "UNSUPPORTED", "items": []}
@@ -491,102 +454,6 @@ def fake_guangzhou_many_candidate_publicity_api_link_discoverer(profile_id: str,
     }
 
 
-def fake_guangdong_candidate_publicity_api_link_discoverer(profile_id: str, *, now: str) -> dict:
-    if profile_id != "GUANGDONG-YGP-PROVINCE-TRADING-LIST":
-        return {"state": "UNSUPPORTED", "items": []}
-    records = [
-        {
-            "docId": "gd-candidate-publicity-001",
-            "noticeId": "gd-candidate-publicity-001-3C51",
-            "noticeSecondType": "A",
-            "noticeSecondTypeDesc": "工程建设",
-            "noticeThirdType": "2",
-            "noticeThirdTypeDesc": "中标候选人公示",
-            "projectType": "A02",
-            "projectTypeName": "市政",
-            "siteName": "霞山区",
-            "siteCode": "440803",
-            "regionCode": "440800",
-            "regionName": "湛江市",
-            "noticeTitle": "霞山区农村供水一体化工程监理中标候选人公示",
-            "projectCode": "E4408000001000001001",
-            "publishDate": "20260501004038",
-            "edition": "v3",
-            "tradingProcess": "3C51",
-            "datasetName": "中标候选人公示",
-            "pubServicePlat": "广东省公共资源交易平台",
-            "noticeNature": "正常公告",
-            "_ax9s_query_process_label": "candidate_publicity",
-            "_ax9s_query_trading_process": "3C51",
-        }
-    ]
-    return {
-        "state": "FETCHED",
-        "endpoint": "https://ygp.gdzwfw.gov.cn/ggzy-portal/search/v2/items",
-        "items": _link_items_from_guangdong_ygp_records(records),
-        "record_count": len(records),
-        "process_attempts": [
-            {
-                "process_label": "candidate_publicity",
-                "trading_process": "3C51",
-                "record_count": 1,
-                "attempted_pages": 1,
-            }
-        ],
-    }
-
-
-def fake_guangdong_many_candidate_publicity_api_link_discoverer(profile_id: str, *, now: str) -> dict:
-    if profile_id != "GUANGDONG-YGP-PROVINCE-TRADING-LIST":
-        return {"state": "UNSUPPORTED", "items": []}
-    records = []
-    for index in range(35):
-        records.append(
-            {
-                "docId": f"gd-candidate-publicity-many-{index:03d}",
-                "noticeId": f"gd-candidate-publicity-many-{index:03d}-3C51",
-                "noticeSecondType": "A",
-                "noticeSecondTypeDesc": "工程建设",
-                "noticeThirdType": "2",
-                "noticeThirdTypeDesc": "中标候选人公示",
-                "projectType": "A02",
-                "projectTypeName": "市政",
-                "siteName": "霞山区",
-                "siteCode": "440803",
-                "regionCode": "440800",
-                "regionName": "湛江市",
-                "noticeTitle": f"霞山区市政道路工程{index:03d}中标候选人公示",
-                "projectCode": f"E4408000001000{index:04d}",
-                "publishDate": "20260501004038",
-                "edition": "v3",
-                "tradingProcess": "3C51",
-                "datasetName": "中标候选人公示",
-                "pubServicePlat": "广东省公共资源交易平台",
-                "noticeNature": "正常公告",
-                "_ax9s_query_process_label": "candidate_publicity",
-                "_ax9s_query_trading_process": "3C51",
-            }
-        )
-    return {
-        "state": "FETCHED",
-        "endpoint": "https://ygp.gdzwfw.gov.cn/ggzy-portal/search/v2/items",
-        "items": _link_items_from_guangdong_ygp_records(records),
-        "record_count": len(records),
-        "page_size": 50,
-        "page_limit": 1,
-        "attempted_pages": 1,
-        "candidate_record_window_cap": 50,
-        "process_attempts": [
-            {
-                "process_label": "candidate_publicity",
-                "trading_process": "3C51",
-                "record_count": len(records),
-                "attempted_pages": 1,
-            }
-        ],
-    }
-
-
 def fake_guangzhou_api_link_discoverer_with_expired_notice(profile_id: str, *, now: str) -> dict:
     if profile_id != "GUANGZHOU-YWTB-CONSTRUCTION-LIST":
         return {"state": "UNSUPPORTED", "items": []}
@@ -623,20 +490,6 @@ def fake_guangzhou_api_link_discoverer_with_expired_notice(profile_id: str, *, n
 
 
 class RealCandidateDiscoveryTests(unittest.TestCase):
-    def test_guangdong_ygp_process_priority_follows_requested_document_kind(self) -> None:
-        self.assertEqual(
-            _guangdong_ygp_process_priority({"evaluation_document_kind": "tender_file"})[0],
-            ("tender_notice", "3C14"),
-        )
-        self.assertEqual(
-            _guangdong_ygp_process_priority({"evaluation_document_kind": "award_result"})[0],
-            ("evaluation_report", "3C42"),
-        )
-        self.assertEqual(
-            _guangdong_ygp_process_priority({"evaluation_document_kind": "candidate_notice"})[0],
-            ("candidate_publicity", "3C51"),
-        )
-
     def setUp(self) -> None:
         self._tmp_dir = tempfile.TemporaryDirectory()
         self._old_env = {
@@ -755,28 +608,6 @@ class RealCandidateDiscoveryTests(unittest.TestCase):
         self.assertEqual(fetcher.calls, [])
         self.assertEqual(result["profile_reports"][0]["profile_id"], "UNKNOWN-PROFILE-ID")
         self.assertEqual(result["profile_reports"][0]["status"], "SOURCE_PROFILE_NOT_CONFIGURED")
-
-    def test_ygp_source_profile_id_is_excluded_by_policy(self) -> None:
-        fetcher = FakeGuangdongShellFetcher()
-        service = RealPublicCandidateDiscoveryService(
-            fetcher=fetcher,
-            repository=RealPublicCandidateRepository(),
-            profile_api_link_discoverer=fake_guangdong_api_link_discoverer,
-        )
-
-        result = service.discover(
-            {
-                "region_codes": ["CN-GD"],
-                "source_profile_ids": ["GUANGDONG-YGP-PROVINCE-TRADING-LIST"],
-                "discovery_candidate_limit": 1,
-            },
-            now="2026-05-01T00:00:00+00:00",
-        )
-
-        self.assertEqual(result["discovery_state"], "NO_CANDIDATES")
-        self.assertEqual(result["profile_reports"][0]["profile_id"], "GUANGDONG-YGP-PROVINCE-TRADING-LIST")
-        self.assertEqual(result["profile_reports"][0]["status"], "SOURCE_PROFILE_EXCLUDED_BY_POLICY")
-        self.assertEqual(result["candidate_count"], 0)
 
     def test_evaluation_corpus_mode_preserves_non_actionable_sample_titles_only(self) -> None:
         normal_fetcher = FakeGuangzhouFlowNoticeFetcher()
@@ -1074,11 +905,10 @@ class RealCandidateDiscoveryTests(unittest.TestCase):
         self.assertEqual(candidate["region_code"], "CN-SH")
         self.assertEqual(candidate["source_profile_id"], "GGZY-DEAL-LIST")
 
-    def test_guangdong_default_discovery_excludes_ygp_pollution_source(self) -> None:
+    def test_guangdong_default_discovery_uses_only_guangzhou_trading_group(self) -> None:
         service = RealPublicCandidateDiscoveryService(
             fetcher=FakeGuangdongShellFetcher(),
             repository=RealPublicCandidateRepository(),
-            profile_api_link_discoverer=fake_guangdong_api_link_discoverer,
         )
 
         result = service.discover(
@@ -1099,10 +929,6 @@ class RealCandidateDiscoveryTests(unittest.TestCase):
         self.assertEqual(
             [report["profile_id"] for report in result["profile_reports"]],
             ["GUANGZHOU-YWTB-CONSTRUCTION-LIST"],
-        )
-        self.assertNotIn(
-            "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
-            [report["profile_id"] for report in result["profile_reports"]],
         )
 
     def test_guangdong_candidate_publicity_process_uses_guangzhou_source_not_eval_report(self) -> None:

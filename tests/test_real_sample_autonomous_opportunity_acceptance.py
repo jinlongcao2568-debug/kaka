@@ -141,10 +141,10 @@ class _FakeAcceptedRealCandidateDiscoveryService:
                     "candidate_company": "广东测试建设有限公司",
                     "key_fields_present": ["project_name", "notice_stage", "candidate_company"],
                     "objection_deadline_at_optional": "2026-05-08T23:59:59+08:00",
-                    "source_url": "https://ygp.gdzwfw.gov.cn/#/44/new/jygg/v3/A?noticeId=ready-001",
+                    "source_url": "https://ywtb.gzggzy.cn/jyfw/002001/002001001/20260501/mock.html?noticeId=ready-001",
                     "source_family": "local_public_resource_trading_center",
                     "source_registry_id": "REAL_PUBLIC_LIST_PAGE_DISCOVERY",
-                    "source_profile_id": "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
+                    "source_profile_id": "GUANGZHOU-YWTB-CONSTRUCTION-LIST",
                     "source_site_name": "广东省公共资源交易平台",
                     "source_candidate_mode": "REAL_PUBLIC_SOURCE_CANDIDATES",
                     "is_offline_sample_candidate": False,
@@ -156,7 +156,7 @@ class _FakeAcceptedRealCandidateDiscoveryService:
             ],
             "profile_reports": [
                 {
-                    "profile_id": "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
+                    "profile_id": "GUANGZHOU-YWTB-CONSTRUCTION-LIST",
                     "status": "FETCHED",
                     "same_site_detail_link_count": 1,
                     "candidate_count": 1,
@@ -175,7 +175,7 @@ class _FakeTwoAcceptedRealCandidateDiscoveryService:
             "notice_id": "NOTICE-REAL-LIST-READY-002",
             "project_id": "PROJ-REAL-LIST-READY-002",
             "project_name": "广东市政道路工程中标候选人公示二",
-            "source_url": "https://ygp.gdzwfw.gov.cn/#/44/new/jygg/v3/A?noticeId=ready-002",
+            "source_url": "https://ywtb.gzggzy.cn/jyfw/002001/002001001/20260501/mock.html?noticeId=ready-002",
             "candidate_key": "real-list-ready-002",
             "snapshot_id_optional": "SNAP-GD-READY-LIST-002",
         }

@@ -501,7 +501,7 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
                 "https://ggzyfw.beijing.gov.cn/",
                 "https://ggzyfw.beijing.gov.cn/tyrkgcjs/index.html",
                 "https://ggzyjy.bda.gov.cn/",
-                "https://ygp.gdzwfw.gov.cn/#/44/jygg",
+                "https://ywtb.gzggzy.cn/jyfw/002001/002001001/trade_purchasetoplen6.html",
                 "http://jsggzy.jszwfw.gov.cn/",
                 "https://ggzy.zj.gov.cn/jyxxgk/list.html",
                 "https://ggzyjy.shandong.gov.cn/queryContent-jyxxgk.jspx?channelId=78",
