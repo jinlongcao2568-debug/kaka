@@ -25,6 +25,7 @@ GUANGZHOU_PARSE_PROBE_ADAPTER_ID = "guangzhou-parse-probe-v1-runner"
 DEFAULT_PARSE_FLOW_NOS = ("03", "04")
 DEFAULT_PROJECT_IDS = ("PROJ-CN-GD-JG2026-10815", "PROJ-CN-GD-JG2026-11021")
 TEXT_PROBE_LIMIT = 4000
+MAX_PARSE_PROBE_ATTACHMENT_BYTES = 20_000_000
 BID_FILE_PUBLICITY_FLOW_NO = "08"
 POST_CANDIDATE_TEXT_PROBE_FLOW_NOS = {"07"}
 SECTION_PARSE_FLOW_NOS = {"03", "04"}
@@ -257,6 +258,23 @@ def _parse_ref(
 ) -> dict[str, Any]:
     snapshot_id = str(ref.get("snapshot_id") or "")
     base = _base_item(sample=sample, ref=ref, index=index, flow_dir=flow_dir, created_at=created_at)
+    if _int(ref.get("byte_size")) > MAX_PARSE_PROBE_ATTACHMENT_BYTES:
+        return {
+            **base,
+            "parse_state": "SKIPPED_LARGE_ATTACHMENT_TARGETED_PARSE_DEFERRED",
+            "stage3_parse_state": "NOT_RUN_SIZE_LIMIT",
+            "snapshot_readback_state": "NOT_ATTEMPTED_SIZE_LIMIT",
+            "snapshot_readback_failure": "",
+            "markitdown_state": "MARKITDOWN_NOT_ATTEMPTED",
+            "byte_size": _int(ref.get("byte_size")),
+            "parse_error_taxonomy": ["large_attachment_targeted_parse_deferred"],
+            "section_flags": _section_flags(""),
+            "document_section_profile": {},
+            "document_section_slices": [],
+            "tailored_signal_profile_summary": _empty_signal_summary(),
+            "customer_visible_allowed": False,
+            "no_legal_conclusion": True,
+        }
     readback = repository.replay_snapshot(snapshot_id)
     if not bool(readback.get("replayable")):
         state = str(readback.get("readback_state") or "READBACK_NOT_REPLAYABLE")

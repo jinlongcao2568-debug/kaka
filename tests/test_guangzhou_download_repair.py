@@ -64,6 +64,28 @@ class GuangzhouDownloadRepairTests(unittest.TestCase):
             self.assertTrue((root / "merged" / "download-repair-merged-manifest.json").exists())
             self.assertTrue((root / "merged" / "download-probe-manifest.json").exists())
 
+    def test_merge_builds_replay_store_for_parse_probe(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            flow07 = root / "segments" / "flow-07"
+            _write_download_probe(flow07, flow_no="07", project_id="PROJ-CN-GD-JG2026-10815", snapshots=1, attempted=1)
+            _write_segment_replay_store(flow07, snapshot_id="ATT-0", object_key="objects/aa/aa01", data=b"candidate pdf")
+
+            build_download_repair_merged_manifest(
+                output_root=root / "merged",
+                segment_roots=[flow07],
+                created_at="2026-05-11T00:00:00+08:00",
+            )
+
+            merged_storage = json.loads((root / "merged" / "storage.json").read_text(encoding="utf-8"))
+            self.assertIn("ATT-0", merged_storage["tables"]["evidence_snapshot_manifest"])
+            self.assertTrue((root / "merged" / "objects" / "objects" / "aa" / "aa01").exists())
+            merged_manifest = json.loads((root / "merged" / "download-probe-manifest.json").read_text(encoding="utf-8"))
+            self.assertEqual(
+                merged_manifest["manifest"]["object_storage_path_optional"],
+                str(root / "merged" / "objects"),
+            )
+
     def test_merge_manifest_includes_detail_transport_failure_matrix(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -156,6 +178,60 @@ def _write_download_probe(
     }
     filename = "download-probe-manifest.partial.json" if partial else "download-probe-manifest.json"
     (root / filename).write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _write_segment_replay_store(root: Path, *, snapshot_id: str, object_key: str, data: bytes) -> None:
+    object_path = root / "objects" / object_key
+    object_path.parent.mkdir(parents=True, exist_ok=True)
+    object_path.write_bytes(data)
+    storage = {
+        "storage_version": 1,
+        "tables": {
+            "object_storage_object": {
+                object_key: {
+                    "object_type": "object_storage_object",
+                    "record_id": object_key,
+                    "payload": {
+                        "object_key": object_key,
+                        "content_type": "application/pdf",
+                        "byte_size": len(data),
+                        "sha256": "aa01",
+                        "created_at": "2026-05-11T00:00:00+08:00",
+                        "storage_backend": "local-filesystem",
+                    },
+                }
+            },
+            "evidence_snapshot_manifest": {
+                snapshot_id: {
+                    "object_type": "evidence_snapshot_manifest",
+                    "record_id": snapshot_id,
+                    "payload": {
+                        "snapshot_id": snapshot_id,
+                        "object_key": object_key,
+                        "source_url_optional": "https://example.test/file.pdf",
+                        "source_family_optional": "local_public_resource_trading_center",
+                        "snapshot_kind": "real_public_attachment_snapshot",
+                        "content_type": "application/pdf",
+                        "byte_size": len(data),
+                        "sha256": "aa01",
+                        "lineage_refs": {},
+                        "created_at": "2026-05-11T00:00:00+08:00",
+                        "storage_backend": "local-filesystem",
+                        "replay_metadata": {},
+                        "fetch_audit": {},
+                        "raw_snapshot_metadata": {},
+                        "source_health": {},
+                    },
+                }
+            },
+        },
+        "stage_states": {},
+        "work_items": {},
+        "operator_actions": {},
+        "worker_queue_items": {},
+        "worker_queue_events": {},
+    }
+    (root / "storage.json").write_text(json.dumps(storage, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 if __name__ == "__main__":

@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import shutil
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -94,6 +95,8 @@ def build_download_repair_merged_manifest(
         "sample_items": items[:80],
         "project_sample_items": samples,
         "project_sample_preview_items": samples[:80],
+        "storage_path_optional": str(out_root / "storage.json"),
+        "object_storage_path_optional": str(out_root / "objects"),
         "summary": summary,
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,
@@ -107,10 +110,74 @@ def build_download_repair_merged_manifest(
         "summary": summary,
     }
     target = Path(output_json) if output_json else out_root / "download-repair-merged-manifest.json"
+    _merge_segment_replay_store(output_root=out_root, segment_roots=[Path(root) for root in segment_roots])
     target.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
     # Compatibility alias for ParseProbe and existing readiness callers.
     (out_root / "download-probe-manifest.json").write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
     return result
+
+
+def _merge_segment_replay_store(*, output_root: Path, segment_roots: list[Path]) -> None:
+    output_root.mkdir(parents=True, exist_ok=True)
+    merged_storage: dict[str, Any] = {
+        "storage_version": 1,
+        "tables": {},
+        "stage_states": {},
+        "work_items": {},
+        "operator_actions": {},
+        "worker_queue_items": {},
+        "worker_queue_events": {},
+    }
+    for root in segment_roots:
+        _merge_storage_json(merged_storage, root / "storage.json")
+        _copy_object_store(root / "objects", output_root / "objects")
+    (output_root / "storage.json").write_text(
+        json.dumps(merged_storage, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+
+def _merge_storage_json(merged_storage: dict[str, Any], source_path: Path) -> None:
+    if not source_path.exists():
+        return
+    try:
+        source = json.loads(source_path.read_text(encoding="utf-8"))
+    except Exception:
+        return
+    for table_name, records in dict(source.get("tables") or {}).items():
+        if not isinstance(records, Mapping):
+            continue
+        merged_table = merged_storage.setdefault("tables", {}).setdefault(str(table_name), {})
+        for record_id, record in records.items():
+            if isinstance(record, Mapping):
+                merged_table[str(record_id)] = dict(record)
+    for section in (
+        "stage_states",
+        "work_items",
+        "operator_actions",
+        "worker_queue_items",
+        "worker_queue_events",
+    ):
+        records = source.get(section)
+        if isinstance(records, Mapping):
+            merged_section = merged_storage.setdefault(section, {})
+            for record_id, record in records.items():
+                if isinstance(record, Mapping):
+                    merged_section[str(record_id)] = dict(record)
+
+
+def _copy_object_store(source_root: Path, target_root: Path) -> None:
+    if not source_root.exists():
+        return
+    for source_file in source_root.rglob("*"):
+        if not source_file.is_file():
+            continue
+        relative = source_file.relative_to(source_root)
+        target_file = target_root / relative
+        if target_file.exists():
+            continue
+        target_file.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source_file, target_file)
 
 
 def _load_or_build_segment(root: Path) -> tuple[dict[str, Any], dict[str, Any]]:

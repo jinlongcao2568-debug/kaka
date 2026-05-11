@@ -98,6 +98,34 @@ class GuangzhouParseProbeTests(unittest.TestCase):
             self.assertEqual(result["manifest"]["items"][0]["parse_state"], "SKIPPED_BID_FILE_PUBLICITY_DEEP_PARSE")
             convert.assert_not_called()
 
+    def test_large_candidate_attachment_is_deferred_before_readback(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            input_root = root / "download"
+            _write_download_manifest(
+                input_root,
+                flow_no="07",
+                snapshot_id="ATT-07-LARGE",
+                attachment_url="https://example.test/files/company-bid.pdf",
+                byte_size=65_000_000,
+            )
+            with patch("storage.guangzhou_parse_probe.markitdown_adapter.convert_bytes_to_markdown_text") as convert:
+                result = build_guangzhou_parse_probe(
+                    input_root=input_root,
+                    output_root=root / "parse",
+                    project_ids=["JG2026-10815"],
+                    flow_nos=["07"],
+                    execute=True,
+                    object_repository=FakeReplayRepository({}),
+                    created_at="2026-05-10T00:00:00+08:00",
+                )
+
+            item = result["manifest"]["items"][0]
+            self.assertEqual(item["parse_state"], "SKIPPED_LARGE_ATTACHMENT_TARGETED_PARSE_DEFERRED")
+            self.assertEqual(item["stage3_parse_state"], "NOT_RUN_SIZE_LIMIT")
+            self.assertEqual(result["summary"]["parse_skipped_file_count"], 1)
+            convert.assert_not_called()
+
     def test_snapshot_readback_failure_is_fail_closed(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -296,6 +324,7 @@ def _write_download_manifest(
     flow_no: str = "03",
     snapshot_id: str = "ATT-03-1",
     attachment_url: str = "https://example.test/files/tender.pdf",
+    byte_size: int = 1024,
 ) -> None:
     input_root.mkdir(parents=True, exist_ok=True)
     project_id = "PROJ-CN-GD-JG2026-10815"
@@ -322,6 +351,7 @@ def _write_download_manifest(
                 "attachment_role_type": "BID_FILE_PUBLICITY_SAMPLE" if flow_no == "08" else "TENDER_FILE",
                 "attachment_link_text": Path(attachment_url).name,
                 "content_type": "application/zip" if attachment_url.endswith(".zip") else "application/pdf",
+                "byte_size": byte_size,
             }
         ],
         "customer_visible_allowed": False,
