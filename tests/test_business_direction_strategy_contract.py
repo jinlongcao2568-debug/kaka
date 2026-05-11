@@ -83,8 +83,12 @@ class BusinessDirectionStrategyContractTests(unittest.TestCase):
 
         source_window = policy["default_source_time_window_policy"]
         self.assertTrue(source_window["website_default_recent_first"])
+        self.assertEqual(source_window["default_recent_window_unit"], "WORKING_HOURS")
+        self.assertEqual(source_window["default_recent_working_hours"], 72)
+        self.assertEqual(source_window["default_recent_window_state"], "RECENT_72_WORKING_HOURS")
         self.assertTrue(source_window["explicit_time_window_filter_planned"])
         self.assertIn(7, source_window["planned_time_window_options_days"])
+        self.assertIn("30 天或更长窗口只用于广州 01-12 流程接口覆盖", source_window["notes"])
 
         clarification = policy["pre_bid_clarification_recalculation_policy"]
         self.assertEqual(clarification["before_flow_04_state"], "PREDICTION_BEFORE_CLARIFICATION")

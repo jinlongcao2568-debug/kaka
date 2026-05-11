@@ -1,6 +1,6 @@
 {
   "contract_id": "BUSINESS-DIRECTION-STRATEGY-CONTRACT",
-  "contract_version": 3,
+  "contract_version": 4,
   "purpose": "固定招投标分析产品的双线业务方向，避免后续开发把招标公告文件链路验证误当成核心商业主线。",
   "primary_commercial_line": "POST_CANDIDATE_EVIDENCE_PACK",
   "default_when_ambiguous": "POST_CANDIDATE_EVIDENCE_PACK",
@@ -205,6 +205,9 @@
     ],
     "default_source_time_window_policy": {
       "website_default_recent_first": true,
+      "default_recent_window_unit": "WORKING_HOURS",
+      "default_recent_working_hours": 72,
+      "default_recent_window_state": "RECENT_72_WORKING_HOURS",
       "explicit_time_window_filter_planned": true,
       "planned_time_window_options_days": [
         1,
@@ -213,7 +216,7 @@
         15,
         30
       ],
-      "notes": "两条路线都先使用网站默认近期排序：07 用于候选后证据包，02/03/04 用于投前预测。后续再加入显式最近几天/自定义时间窗口过滤。"
+      "notes": "两条业务入口默认只抓工作日 72 小时内的近期公告：07 用于候选后证据包，02/03/04 用于投前预测。30 天或更长窗口只用于广州 01-12 流程接口覆盖、历史适配验证或人类明确指定的回溯/历史场景。"
     },
     "pre_bid_clarification_recalculation_policy": {
       "before_flow_04_state": "PREDICTION_BEFORE_CLARIFICATION",

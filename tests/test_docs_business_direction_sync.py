@@ -31,6 +31,8 @@ def test_source_route_spec_locks_post_candidate_backtrace_and_guangzhou_primary_
 
     assert "POST_CANDIDATE_EVIDENCE_PACK" in text
     assert "近期 `07 中标候选人公示`" in text
+    assert "工作日 72 小时内" in text
+    assert "30 天作为默认生产入口窗口" in text
     assert "不再作为默认商业入口" in text
     assert "回溯同一项目全流程材料" in text
     assert "招标文件" in text and "答疑澄清" in text and "投标文件公开" in text
@@ -104,6 +106,8 @@ def test_business_direction_doc_contains_final_analysis_strategy_rules() -> None
 
     assert "AnalysisStrategyPlan v1" in text
     assert "候选公示后主线不是“少解析”" in text
+    assert "工作日 72 小时内" in text
+    assert "不得把 30 天作为默认生产入口窗口" in text
     assert "真实买家线索" in text
     assert "`07 中标候选人公示`" in text
     assert "`02 招标文件公示`" in text
@@ -126,6 +130,7 @@ def test_top_level_docs_contain_final_strategy_guardrails() -> None:
 
     for text in (readme, agents):
         assert "AnalysisStrategyPlan v1" in text
+        assert "工作日 72 小时内" in text
         assert "05 开标信息" in text
         assert "投前预测" in text
         assert "候选公示后证据包" in text

@@ -29,6 +29,7 @@ REAL_CANDIDATE_DISCOVERY_RUN_WORK_ITEM_ID = "operator-real-candidate-discovery-r
 REAL_CANDIDATE_DISCOVERY_CANDIDATE_WORK_ITEM_ID = "operator-real-candidate-discovery-candidates"
 
 DEFAULT_DISCOVERY_PROFILE_LIMIT_PER_REGION = 3
+DEFAULT_RECENT_DISCOVERY_WORKING_HOURS = 72
 GUANGDONG_STAGE1_6_VALIDATION_CANDIDATE_LIMIT = 30
 GUANGDONG_DISCOVERY_PAGE_SIZE = 50
 MAX_GUANGDONG_DISCOVERY_PAGES = 1
@@ -567,13 +568,41 @@ def _is_file_name_only_notice_title(text: str) -> bool:
     return not any(token in normalized for token in _PROJECT_TITLE_TOKENS)
 
 
-def _date_window_from_now(now: str, *, days: int = 30) -> tuple[str, str]:
+def _coerce_now_datetime(now: str) -> datetime:
     try:
         parsed = datetime.fromisoformat(str(now).replace("Z", "+00:00"))
     except ValueError:
         parsed = datetime.now(timezone.utc)
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed
+
+
+def _subtract_working_hours(value: datetime, working_hours: int) -> datetime:
+    remaining = max(0, int(working_hours))
+    current = value
+    while remaining:
+        current -= timedelta(hours=1)
+        if current.weekday() < 5:
+            remaining -= 1
+    return current
+
+
+def _date_window_from_now(
+    now: str,
+    *,
+    days: int | None = None,
+    working_hours: int | None = None,
+) -> tuple[str, str]:
+    parsed = _coerce_now_datetime(now)
     end = parsed.date()
-    start = end - timedelta(days=days)
+    if days is not None:
+        start = end - timedelta(days=days)
+    else:
+        start = _subtract_working_hours(
+            parsed,
+            working_hours if working_hours is not None else DEFAULT_RECENT_DISCOVERY_WORKING_HOURS,
+        ).date()
     return start.isoformat(), end.isoformat()
 
 
@@ -604,19 +633,24 @@ def _parse_public_date(value: Any) -> datetime | None:
     return None
 
 
-def _is_published_within_discovery_window(value: Any, *, now: str, days: int = 30) -> bool:
+def _is_published_within_discovery_window(
+    value: Any,
+    *,
+    now: str,
+    days: int | None = None,
+    working_hours: int | None = None,
+) -> bool:
     published = _parse_public_date(value)
     if published is None:
         return True
-    try:
-        parsed_now = datetime.fromisoformat(str(now).replace("Z", "+00:00"))
-    except ValueError:
-        parsed_now = datetime.now(timezone.utc)
-    if parsed_now.tzinfo is None:
-        parsed_now = parsed_now.replace(tzinfo=timezone.utc)
+    parsed_now = _coerce_now_datetime(now).astimezone(timezone.utc)
+    if days is not None:
+        start = parsed_now - timedelta(days=days)
     else:
-        parsed_now = parsed_now.astimezone(timezone.utc)
-    start = parsed_now - timedelta(days=days)
+        start = _subtract_working_hours(
+            parsed_now,
+            working_hours if working_hours is not None else DEFAULT_RECENT_DISCOVERY_WORKING_HOURS,
+        )
     return start.date() <= published.date() <= parsed_now.date()
 
 
@@ -1006,6 +1040,9 @@ def _discover_guangzhou_ywtb_api_link_items(
     if not query_variants:
         query_variants = [""]
     flow_interface_coverage = _guangzhou_flow_interface_coverage_requested(context or {})
+    recent_entry_time_filter = not flow_interface_coverage and not _guangzhou_backtrace_requested(
+        backtrace_context
+    )
     page_limit = (
         _guangzhou_flow_interface_page_limit(context or {})
         if flow_interface_coverage
@@ -1037,7 +1074,7 @@ def _discover_guangzhou_ywtb_api_link_items(
                     payload["wd"] = query_variant
                     if flow_interface_coverage:
                         payload["cnum"] = "002"
-                    if flow_interface_coverage:
+                    if flow_interface_coverage or recent_entry_time_filter:
                         payload["sdt"] = window_start
                         payload["edt"] = window_end
                         payload["time"] = [
@@ -1163,7 +1200,11 @@ def _discover_guangzhou_ywtb_api_link_items(
         "query_windows": date_windows,
         "api_time_filter_state": "guangzhou_ywtb_flow_interface_historical_month_windows"
         if flow_interface_coverage
-        else "guangzhou_ywtb_stage_aware_recent_list",
+        else (
+            "guangzhou_ywtb_recent_72_working_hours"
+            if recent_entry_time_filter
+            else "guangzhou_ywtb_stage_aware_backtrace_unbounded"
+        ),
         "trading_process_strategy": "guangzhou_ywtb_flow_interface_coverage"
         if flow_interface_coverage
         else "guangzhou_ywtb_stage_aware",
@@ -1536,6 +1577,21 @@ def _guangzhou_ywtb_backtrace_context(context: Mapping[str, Any]) -> dict[str, A
         "relation_site_guid": relation_site_guid,
         "relation_category_num": relation_category_num,
     }
+
+
+def _guangzhou_backtrace_requested(backtrace_context: Mapping[str, Any]) -> bool:
+    return any(
+        bool(backtrace_context.get(key))
+        for key in (
+            "project_codes",
+            "project_name_queries",
+            "base_project_name",
+            "flow_codes",
+            "relation_guid",
+            "relation_site_guid",
+            "relation_category_num",
+        )
+    )
 
 
 def _guangzhou_backtrace_query_variants(
@@ -2827,7 +2883,7 @@ class RealPublicCandidateDiscoveryService:
             "operator_diagnosis": [],
             "next_action": "",
             "js_shell_suspected": False,
-            "candidate_time_window": "recent_30_days_by_publish_time",
+            "candidate_time_window": "recent_72_working_hours_by_publish_time",
         }
 
         def reject(reason: str, *, item: Mapping[str, Any] | None = None, extra: Mapping[str, Any] | None = None) -> None:

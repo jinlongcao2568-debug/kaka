@@ -18,10 +18,12 @@ from stage1_tasking.real_candidate_discovery import (
     REAL_PUBLIC_SOURCE_CANDIDATE_MODE,
     RealPublicCandidateDiscoveryService,
     RealPublicCandidateRepository,
+    _date_window_from_now,
     _discover_guangzhou_ywtb_api_link_items,
     _guangzhou_backtrace_query_variants,
     _guangzhou_ywtb_process_priority,
     _is_candidate_detail_url,
+    _is_published_within_discovery_window,
     _link_items_from_guangzhou_ywtb_relation_records,
     _link_items_from_guangzhou_ywtb_records,
     _link_items_from_text_search_records,
@@ -1030,6 +1032,63 @@ class RealCandidateDiscoveryTests(unittest.TestCase):
             (("opening_info", "19"),),
         )
 
+    def test_default_discovery_window_uses_recent_72_working_hours(self) -> None:
+        start_date, end_date = _date_window_from_now("2026-05-11T09:00:00+08:00")
+
+        self.assertEqual(start_date, "2026-05-06")
+        self.assertEqual(end_date, "2026-05-11")
+        self.assertTrue(
+            _is_published_within_discovery_window(
+                "2026-05-06 00:00:00",
+                now="2026-05-11T09:00:00+08:00",
+            )
+        )
+        self.assertFalse(
+            _is_published_within_discovery_window(
+                "2026-05-05 23:59:59",
+                now="2026-05-11T09:00:00+08:00",
+            )
+        )
+        self.assertEqual(
+            _date_window_from_now("2026-05-11T09:00:00+08:00", days=30),
+            ("2026-04-11", "2026-05-11"),
+        )
+
+    def test_guangzhou_recent_entry_api_uses_72_working_hour_time_filter(self) -> None:
+        requested_payloads: list[dict[str, object]] = []
+
+        def fake_urlopen(request, timeout: int = 18):  # noqa: ANN001
+            payload = json.loads(request.data.decode("utf-8"))
+            requested_payloads.append(payload)
+            return FakeGuangzhouApiResponse(
+                {
+                    "result": {
+                        "records": [
+                            _gz_stage_record(
+                                "03",
+                                "广州市某道路工程中标候选人公示",
+                                "gz-candidate-recent",
+                            )
+                        ],
+                        "totalcount": "1",
+                    }
+                }
+            )
+
+        with patch("stage1_tasking.real_candidate_discovery.urlopen", side_effect=fake_urlopen):
+            result = _discover_guangzhou_ywtb_api_link_items(
+                now="2026-05-11T09:00:00+08:00",
+                context={"evaluation_document_kind": "candidate_notice"},
+            )
+
+        self.assertEqual(result["state"], "FETCHED")
+        self.assertEqual(result["query_window"], {"start_date": "2026-05-06", "end_date": "2026-05-11"})
+        self.assertEqual(result["api_time_filter_state"], "guangzhou_ywtb_recent_72_working_hours")
+        self.assertEqual(requested_payloads[0]["sdt"], "2026-05-06")
+        self.assertEqual(requested_payloads[0]["edt"], "2026-05-11")
+        self.assertEqual(requested_payloads[0]["time"][0]["startTime"], "2026-05-06 00:00:00")
+        self.assertEqual(requested_payloads[0]["time"][0]["endTime"], "2026-05-11 23:59:59")
+
     def test_guangzhou_flow_interface_coverage_scans_later_pages_for_missing_flow_samples(self) -> None:
         requested_pages: list[int] = []
         requested_payloads: list[dict[str, object]] = []
@@ -1152,10 +1211,12 @@ class RealCandidateDiscoveryTests(unittest.TestCase):
 
     def test_guangzhou_stage_backtrace_without_interface_marker_stays_single_page(self) -> None:
         requested_pages: list[int] = []
+        requested_payloads: list[dict[str, object]] = []
 
         def fake_urlopen(request, timeout: int = 18):  # noqa: ANN001
             payload = json.loads(request.data.decode("utf-8"))
             requested_pages.append(int(payload["pn"]))
+            requested_payloads.append(payload)
             records = [
                 _gz_stage_record(
                     "19",
@@ -1185,6 +1246,10 @@ class RealCandidateDiscoveryTests(unittest.TestCase):
         self.assertFalse(result["flow_interface_coverage_mode"])
         self.assertEqual(result["page_limit"], 1)
         self.assertEqual(result["candidate_record_window_cap"], 50)
+        self.assertEqual(result["api_time_filter_state"], "guangzhou_ywtb_stage_aware_backtrace_unbounded")
+        self.assertEqual(requested_payloads[0]["sdt"], "")
+        self.assertEqual(requested_payloads[0]["edt"], "")
+        self.assertIsNone(requested_payloads[0]["time"])
 
     def test_guangzhou_flow_interface_accepts_external_bid_plan_supervision_url(self) -> None:
         self.assertTrue(
