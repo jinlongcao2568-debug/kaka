@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import hashlib
 import json
 import re
@@ -13,7 +14,6 @@ from shared.utils import utc_now_iso
 from stage2_ingestion.service import Stage2Service
 from storage.challenge_stability_report import build_challenge_stability_report
 from storage.db import DatabaseSession
-from storage.professional_clean_project_archive import build_professional_clean_project_archive_manifest
 from storage.repositories.object_storage_repo import ObjectStorageRepository
 
 
@@ -198,19 +198,12 @@ def build_guangzhou_download_probe(
 
     manifest_path = out_root / "download-probe-manifest.json"
     manifest_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
-    if execute and not blocking_reasons:
-        build_professional_clean_project_archive_manifest(
-            real_sample_execution_manifest_json=manifest_path,
-            output_root=out_root,
-            storage_path=storage,
-            object_storage_path=object_storage,
-            object_repository=repository,
-        )
     stability = build_challenge_stability_report(real_sample_execution_manifest_json=manifest_path)
     (out_root / "challenge-stability-report.json").write_text(
         json.dumps(stability, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
+    _write_human_readable_file_map(output_root=out_root, project_samples=project_samples)
     return result
 
 
@@ -347,12 +340,13 @@ def _execute_probe_item(
     )
     if detail_ref:
         detail_snapshot_refs.append(detail_ref)
-        _materialize_snapshot(
+        detail_path = _materialize_snapshot(
             ref=detail_ref,
             repository=repository,
             output_dir=source_dir / "detail",
             prefix="detail",
         )
+        _apply_materialized_path_fields(detail_ref, detail_path)
     elif str(detail_carrier.get("snapshot_id_optional") or ""):
         failure_taxonomy.append("detail_snapshot_readback_missing")
     elif str(detail_carrier.get("status") or "") != "FETCHED":
@@ -538,7 +532,7 @@ def _download_attachment(
             output_dir=source_dir / "attachments",
             prefix=f"attachment_{index:02d}",
         )
-        snapshot_ref["local_path"] = local_path
+        _apply_materialized_path_fields(snapshot_ref, local_path)
     elif str(carrier.get("snapshot_id_optional") or ""):
         failure_taxonomy.append("attachment_snapshot_readback_missing")
         failure_taxonomy.append("attachment_snapshot_not_captured")
@@ -820,16 +814,25 @@ def _materialize_snapshot(*, ref: Mapping[str, Any], repository: Any, output_dir
         return ""
     output_dir.mkdir(parents=True, exist_ok=True)
     source_url = str(ref.get("source_url") or ref.get("attachment_url") or "")
-    extension = _extension_for(source_url=source_url, content_type=str(readback.get("content_type") or ""))
-    file_name = f"{_safe_path_part(prefix)}_{_safe_path_part(snapshot_id[-12:])}{extension}"
+    data = bytes(readback.get("bytes") or b"")
+    extension = _extension_for(
+        source_url=source_url,
+        content_type=str(readback.get("content_type") or ""),
+        file_name_hint=str(ref.get("attachment_link_text") or ""),
+        data=data,
+    )
+    file_name = _human_materialized_file_name(ref=ref, prefix=prefix, extension=extension)
     path = output_dir / file_name
     try:
-        path.write_bytes(readback.get("bytes") or b"")
+        path.write_bytes(data)
     except OSError:
         return ""
     meta = {
         "snapshot_id": snapshot_id,
         "source_url": source_url,
+        "attachment_link_text": str(ref.get("attachment_link_text") or ""),
+        "human_file_name": file_name,
+        "human_readable_path": str(path),
         "content_type": str(readback.get("content_type") or ""),
         "byte_size": _int(readback.get("byte_size")),
         "sha256": str(readback.get("sha256") or ""),
@@ -846,6 +849,65 @@ def _materialize_snapshot(*, ref: Mapping[str, Any], repository: Any, output_dir
     except OSError:
         pass
     return str(path)
+
+
+def _apply_materialized_path_fields(ref: dict[str, Any], local_path: str) -> None:
+    if not local_path:
+        return
+    ref["local_path"] = local_path
+    ref["human_readable_path"] = local_path
+    ref["human_file_name"] = Path(local_path).name
+
+
+def _write_human_readable_file_map(*, output_root: Path, project_samples: list[Mapping[str, Any]]) -> None:
+    rows: list[dict[str, Any]] = []
+    for sample in project_samples:
+        for ref in list(sample.get("detail_snapshot_refs") or []):
+            if isinstance(ref, Mapping):
+                rows.append(_human_file_map_row(sample=sample, ref=ref, file_role="detail"))
+        for ref in list(sample.get("attachment_snapshot_refs") or []):
+            if isinstance(ref, Mapping):
+                rows.append(_human_file_map_row(sample=sample, ref=ref, file_role="attachment"))
+    json_path = output_root / "human-readable-file-map.json"
+    csv_path = output_root / "human-readable-file-map.csv"
+    json_path.write_text(json.dumps(rows, ensure_ascii=False, indent=2), encoding="utf-8")
+    fieldnames = [
+        "project_id",
+        "project_name",
+        "flow_no",
+        "flow_title",
+        "file_role",
+        "human_file_name",
+        "human_readable_path",
+        "source_url",
+        "attachment_url",
+        "snapshot_id",
+        "content_type",
+        "byte_size",
+        "sha256",
+    ]
+    with csv_path.open("w", newline="", encoding="utf-8-sig") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def _human_file_map_row(*, sample: Mapping[str, Any], ref: Mapping[str, Any], file_role: str) -> dict[str, Any]:
+    return {
+        "project_id": str(sample.get("project_id") or ""),
+        "project_name": str(sample.get("project_name") or ""),
+        "flow_no": str(sample.get("guangzhou_flow_no") or ref.get("guangzhou_flow_no") or ""),
+        "flow_title": str(sample.get("guangzhou_flow_title") or ref.get("guangzhou_flow_title") or ""),
+        "file_role": file_role,
+        "human_file_name": str(ref.get("human_file_name") or Path(str(ref.get("human_readable_path") or ref.get("local_path") or "")).name),
+        "human_readable_path": str(ref.get("human_readable_path") or ref.get("local_path") or ""),
+        "source_url": str(ref.get("parent_source_url") or sample.get("source_url") or ""),
+        "attachment_url": str(ref.get("attachment_url") or ref.get("source_url") or ""),
+        "snapshot_id": str(ref.get("snapshot_id") or ""),
+        "content_type": str(ref.get("content_type") or ""),
+        "byte_size": _int(ref.get("byte_size")),
+        "sha256": str(ref.get("sha256") or ""),
+    }
 
 
 def _select_strategy_items(
@@ -1155,7 +1217,38 @@ def _flow_notice_directory(
     )
 
 
-def _extension_for(*, source_url: str, content_type: str) -> str:
+def _human_materialized_file_name(*, ref: Mapping[str, Any], prefix: str, extension: str) -> str:
+    link_text = str(ref.get("attachment_link_text") or "").strip()
+    if link_text:
+        candidate = Path(link_text.replace("\\", "/")).name
+    else:
+        source_url = str(ref.get("source_url") or ref.get("attachment_url") or "")
+        candidate = Path(urlsplit(source_url).path).name
+    candidate = _safe_path_part(candidate or "文件")
+    current_suffix = Path(candidate).suffix.lower()
+    if current_suffix in {".html", ".htm", ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".zip", ".rar", ".bin"}:
+        stem = candidate[: -len(current_suffix)] or "文件"
+        suffix = current_suffix if current_suffix != ".bin" else extension
+    else:
+        stem = candidate
+        suffix = extension
+    if prefix == "detail":
+        return f"{_safe_path_part(prefix)}{suffix}"
+    return f"{_safe_path_part(prefix)}_{_safe_path_part(stem)[:72]}{suffix}"
+
+
+def _extension_for(*, source_url: str, content_type: str, file_name_hint: str = "", data: bytes = b"") -> str:
+    if data.startswith(b"%PDF"):
+        return ".pdf"
+    if data.startswith(b"PK\x03\x04"):
+        return ".zip"
+    if data.startswith(b"Rar!"):
+        return ".rar"
+    if data.startswith(b"\xd0\xcf\x11\xe0"):
+        return ".doc"
+    hint_suffix = Path(str(file_name_hint or "").replace("\\", "/")).suffix.lower()
+    if hint_suffix in {".html", ".htm", ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".zip", ".rar"}:
+        return hint_suffix
     suffix = Path(urlsplit(source_url).path).suffix.lower()
     if suffix in {".html", ".htm", ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".zip", ".rar"}:
         return suffix
@@ -1164,12 +1257,16 @@ def _extension_for(*, source_url: str, content_type: str) -> str:
         return ".html"
     if "pdf" in normalized:
         return ".pdf"
+    if "msword" in normalized:
+        return ".doc"
     if "word" in normalized:
         return ".docx"
     if "spreadsheet" in normalized or "excel" in normalized:
         return ".xlsx"
     if "zip" in normalized:
         return ".zip"
+    if "rar" in normalized:
+        return ".rar"
     return ".bin"
 
 

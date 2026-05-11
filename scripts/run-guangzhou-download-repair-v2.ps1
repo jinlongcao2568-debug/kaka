@@ -4,8 +4,8 @@ param(
     [string]$ProjectIds = "",
     [string]$FlowNos = "08,07,04,03",
     [int]$StageTimeoutSeconds = 900,
-    [int]$MaxBidFilePublicityDownloadsPerProject = 2,
-    [int]$MaxAttachmentsPerFlowItem = 5,
+    [int]$MaxBidFilePublicityDownloadsPerProject = 999,
+    [int]$MaxAttachmentsPerFlowItem = 0,
     [switch]$EnableAttachmentChallengeResolver,
     [switch]$Execute,
     [switch]$EmitJson

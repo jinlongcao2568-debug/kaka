@@ -167,6 +167,58 @@ class GuangzhouDownloadProbeTests(unittest.TestCase):
             self.assertEqual(result["summary"]["attachment_snapshot_count"], 2)
             self.assertEqual(len(service.attachment_calls), 2)
             self.assertEqual(service.attachment_calls[-1]["url"], "https://example.test/attach/public2.pdf")
+            first_ref = result["manifest"]["project_sample_items"][0]["attachment_snapshot_refs"][0]
+            self.assertTrue(first_ref["human_file_name"].endswith("投标文件1.pdf"))
+            self.assertIn("投标文件1", first_ref["human_readable_path"])
+            self.assertNotIn("ATT-08-1", first_ref["human_file_name"])
+
+    def test_octet_stream_archive_is_materialized_with_human_readable_name_and_sniffed_suffix(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            input_root = root / "input"
+            output_root = root / "output"
+            _write_inputs(input_root, items=[_strategy_item("08", "https://example.test/08.html")])
+            repo = FakeReplayRepository(
+                {
+                    "DETAIL-08": _replay("DETAIL-08", b"<html>detail 08</html>", "text/html"),
+                    "ATT-08-RAR": _replay("ATT-08-RAR", b"Rar!\x1a\x07\x00payload", "application/octet-stream"),
+                }
+            )
+            service = FakeStage2Service(
+                detail_map={
+                    "https://example.test/08.html": {
+                        "status": "FETCHED",
+                        "snapshot_id_optional": "DETAIL-08",
+                        "same_site_attachment_link_items": [
+                            {"url": "https://example.test/download?AttachGuid=abc&FileCode=TBGK001", "text": "查看资料"}
+                        ],
+                    }
+                },
+                attachment_map={
+                    "https://example.test/download?AttachGuid=abc&FileCode=TBGK001": {
+                        "status": "FETCHED",
+                        "snapshot_id_optional": "ATT-08-RAR",
+                        "attachment_url": "https://example.test/download?AttachGuid=abc&FileCode=TBGK001",
+                        "content_type": "application/octet-stream",
+                    }
+                },
+            )
+
+            result = build_guangzhou_download_probe(
+                input_root=input_root,
+                output_root=output_root,
+                project_ids=["JG2026-10815"],
+                flow_nos=["08"],
+                max_bid_file_publicity_downloads_per_project=1,
+                execute=True,
+                stage2_service=service,
+                object_repository=repo,
+                created_at="2026-05-10T00:00:00+08:00",
+            )
+
+            ref = result["manifest"]["project_sample_items"][0]["attachment_snapshot_refs"][0]
+            self.assertEqual(ref["human_file_name"], "attachment_01_查看资料.rar")
+            self.assertTrue(Path(ref["human_readable_path"]).exists())
 
     def test_max_attachments_per_flow_item_defers_extra_tender_files(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

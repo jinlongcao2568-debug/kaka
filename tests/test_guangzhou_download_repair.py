@@ -80,6 +80,7 @@ class GuangzhouDownloadRepairTests(unittest.TestCase):
             merged_storage = json.loads((root / "merged" / "storage.json").read_text(encoding="utf-8"))
             self.assertIn("ATT-0", merged_storage["tables"]["evidence_snapshot_manifest"])
             self.assertTrue((root / "merged" / "objects" / "objects" / "aa" / "aa01").exists())
+            self.assertTrue((root / "merged" / "projects" / "CN-GD" / "PROJ-CN-GD-JG2026-10815" / "07" / "attachments" / "candidate.pdf").exists())
             merged_manifest = json.loads((root / "merged" / "download-probe-manifest.json").read_text(encoding="utf-8"))
             self.assertEqual(
                 merged_manifest["manifest"]["object_storage_path_optional"],
@@ -232,6 +233,9 @@ def _write_segment_replay_store(root: Path, *, snapshot_id: str, object_key: str
         "worker_queue_events": {},
     }
     (root / "storage.json").write_text(json.dumps(storage, ensure_ascii=False, indent=2), encoding="utf-8")
+    project_file = root / "projects" / "CN-GD" / "PROJ-CN-GD-JG2026-10815" / "07" / "attachments" / "candidate.pdf"
+    project_file.parent.mkdir(parents=True, exist_ok=True)
+    project_file.write_bytes(data)
 
 
 if __name__ == "__main__":

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import hashlib
 import json
 import shutil
@@ -114,6 +115,7 @@ def build_download_repair_merged_manifest(
     target.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
     # Compatibility alias for ParseProbe and existing readiness callers.
     (out_root / "download-probe-manifest.json").write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+    _write_human_readable_file_map(output_root=out_root, project_samples=samples)
     return result
 
 
@@ -131,6 +133,7 @@ def _merge_segment_replay_store(*, output_root: Path, segment_roots: list[Path])
     for root in segment_roots:
         _merge_storage_json(merged_storage, root / "storage.json")
         _copy_object_store(root / "objects", output_root / "objects")
+        _copy_project_tree(root / "projects", output_root / "projects")
     (output_root / "storage.json").write_text(
         json.dumps(merged_storage, ensure_ascii=False, indent=2),
         encoding="utf-8",
@@ -178,6 +181,89 @@ def _copy_object_store(source_root: Path, target_root: Path) -> None:
             continue
         target_file.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source_file, target_file)
+
+
+def _copy_project_tree(source_root: Path, target_root: Path) -> None:
+    if not source_root.exists():
+        return
+    for source_file in source_root.rglob("*"):
+        if not source_file.is_file():
+            continue
+        relative = source_file.relative_to(source_root)
+        target_file = target_root / relative
+        target_file.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source_file, target_file)
+
+
+def _write_human_readable_file_map(*, output_root: Path, project_samples: list[Mapping[str, Any]]) -> None:
+    rows: list[dict[str, Any]] = []
+    for sample in project_samples:
+        for ref in list(sample.get("detail_snapshot_refs") or []):
+            if isinstance(ref, Mapping):
+                rows.append(_human_file_map_row(output_root=output_root, sample=sample, ref=ref, file_role="detail"))
+        for ref in list(sample.get("attachment_snapshot_refs") or []):
+            if isinstance(ref, Mapping):
+                rows.append(_human_file_map_row(output_root=output_root, sample=sample, ref=ref, file_role="attachment"))
+    (output_root / "human-readable-file-map.json").write_text(
+        json.dumps(rows, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    fieldnames = [
+        "project_id",
+        "project_name",
+        "flow_no",
+        "flow_title",
+        "file_role",
+        "human_file_name",
+        "human_readable_path",
+        "source_url",
+        "attachment_url",
+        "snapshot_id",
+        "content_type",
+        "byte_size",
+        "sha256",
+    ]
+    with (output_root / "human-readable-file-map.csv").open("w", newline="", encoding="utf-8-sig") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def _human_file_map_row(
+    *,
+    output_root: Path,
+    sample: Mapping[str, Any],
+    ref: Mapping[str, Any],
+    file_role: str,
+) -> dict[str, Any]:
+    raw_path = str(ref.get("human_readable_path") or ref.get("local_path") or "")
+    human_path = _merged_human_path(output_root=output_root, raw_path=raw_path)
+    return {
+        "project_id": str(sample.get("project_id") or ""),
+        "project_name": str(sample.get("project_name") or ""),
+        "flow_no": str(sample.get("guangzhou_flow_no") or ref.get("guangzhou_flow_no") or ""),
+        "flow_title": str(sample.get("guangzhou_flow_title") or ref.get("guangzhou_flow_title") or ""),
+        "file_role": file_role,
+        "human_file_name": str(ref.get("human_file_name") or Path(human_path).name),
+        "human_readable_path": human_path,
+        "source_url": str(ref.get("parent_source_url") or sample.get("source_url") or ""),
+        "attachment_url": str(ref.get("attachment_url") or ref.get("source_url") or ""),
+        "snapshot_id": str(ref.get("snapshot_id") or ""),
+        "content_type": str(ref.get("content_type") or ""),
+        "byte_size": _int(ref.get("byte_size")),
+        "sha256": str(ref.get("sha256") or ""),
+    }
+
+
+def _merged_human_path(*, output_root: Path, raw_path: str) -> str:
+    if not raw_path:
+        return ""
+    path = Path(raw_path)
+    parts = path.parts
+    if "projects" in parts:
+        index = parts.index("projects")
+        return str(output_root.joinpath(*parts[index:]))
+    return raw_path
 
 
 def _load_or_build_segment(root: Path) -> tuple[dict[str, Any], dict[str, Any]]:
