@@ -7,7 +7,7 @@ import json
 import re
 from pathlib import Path
 from typing import Any, Mapping
-from urllib.parse import urlsplit
+from urllib.parse import parse_qsl, urlsplit
 
 from shared.settings import Settings
 from shared.utils import utc_now_iso
@@ -974,13 +974,25 @@ def _attachment_link_items(carrier: Mapping[str, Any]) -> list[dict[str, str]]:
         if not isinstance(item, Mapping):
             continue
         url = str(item.get("url") or "").strip()
-        if not url or url in seen:
+        if not url:
             continue
         if not _looks_like_download_attachment_url(url, text=str(item.get("text") or "")):
             continue
-        seen.add(url)
+        dedupe_key = _attachment_link_dedupe_key(url)
+        if dedupe_key in seen:
+            continue
+        seen.add(dedupe_key)
         out.append({"url": url, "text": str(item.get("text") or "")})
     return out
+
+
+def _attachment_link_dedupe_key(url: str) -> str:
+    parsed = urlsplit(str(url or ""))
+    query = {key.lower(): value for key, value in parse_qsl(parsed.query, keep_blank_values=True)}
+    attach_guid = query.get("attachguid")
+    if attach_guid:
+        return f"attachGuid:{attach_guid.lower()}"
+    return f"url:{str(url or '').strip()}"
 
 
 def _looks_like_download_attachment_url(url: str, *, text: str = "") -> bool:

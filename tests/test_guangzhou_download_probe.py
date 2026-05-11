@@ -363,6 +363,64 @@ class GuangzhouDownloadProbeTests(unittest.TestCase):
             sample = result["manifest"]["project_sample_items"][0]
             self.assertIn("attachment_links_rejected_as_non_download_navigation", sample["failure_taxonomy"])
 
+    def test_guangzhou_direct_and_wrapper_attachment_links_are_deduped_by_attach_guid(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            input_root = root / "input"
+            output_root = root / "output"
+            _write_inputs(input_root)
+            direct_url = "https://jsgc.gzggzy.cn/tpframe/rest/guangzhoutempdownattach4webaction/download?AttachGuid=abc-123&FileCode=RCGG002"
+            wrapper_url = "https://ywtb.gzggzy.cn/EpointWebBuilder/pages/webbuildermis/attach/downloadztbattach?attachGuid=abc-123&appUrlFlag=&siteGuid="
+            service = FakeStage2Service(
+                detail_map={
+                    "https://example.test/03.html": {
+                        "status": "FETCHED",
+                        "snapshot_id_optional": "DETAIL-03",
+                        "same_site_attachment_link_items": [
+                            {"url": direct_url, "text": "招标文件.pdf"},
+                            {"url": wrapper_url, "text": "招标文件.pdf"},
+                        ],
+                    }
+                },
+                attachment_map={
+                    direct_url: {
+                        "status": "FETCHED",
+                        "snapshot_id_optional": "ATT-03-1",
+                        "attachment_url": direct_url,
+                        "content_type": "application/pdf",
+                    },
+                    wrapper_url: {
+                        "status": "FETCHED",
+                        "snapshot_id_optional": "ATT-03-DUP",
+                        "attachment_url": wrapper_url,
+                        "content_type": "application/pdf",
+                    },
+                },
+            )
+            repo = FakeReplayRepository(
+                {
+                    "DETAIL-03": _replay("DETAIL-03", b"<html>detail</html>", "text/html"),
+                    "ATT-03-1": _replay("ATT-03-1", b"%PDF tender", "application/pdf"),
+                    "ATT-03-DUP": _replay("ATT-03-DUP", b"%PDF tender", "application/pdf"),
+                }
+            )
+
+            result = build_guangzhou_download_probe(
+                input_root=input_root,
+                output_root=output_root,
+                project_ids=["JG2026-10815"],
+                flow_nos=["03"],
+                execute=True,
+                stage2_service=service,
+                object_repository=repo,
+                created_at="2026-05-10T00:00:00+08:00",
+            )
+
+            self.assertEqual(result["summary"]["listed_attachment_count"], 1)
+            self.assertEqual(result["summary"]["download_attempted_count"], 1)
+            self.assertEqual(result["summary"]["attachment_snapshot_count"], 1)
+            self.assertEqual([call["url"] for call in service.attachment_calls], [direct_url])
+
     def test_detail_transport_attempts_are_carried_into_probe_outputs(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
