@@ -1671,6 +1671,10 @@ def _build_flow_url_manifest(
         "project_count": len(projects),
         "requested_project_limit": max(1, per_target_candidate_limit),
         "flow_url_count": sum(len(row.get("verification_urls", {}).get("all_urls", [])) for row in projects),
+        "default_entry_flow_no": "07",
+        "default_entry_document_kind": "candidate_notice",
+        "late_stage_flows_required_for_recent_candidate": False,
+        "late_stage_support_flow_nos": ["09", "10", "11", "12"],
         "download_enabled": False,
         "parse_enabled": False,
         "customer_visible_allowed": False,
@@ -2150,7 +2154,7 @@ def _annotate_project_samples(
         missing = [str(module["document_kind"]) for module in missing_flow_modules]
         post_state = (
             "POST_CANDIDATE_ENTRY_PRESENT"
-            if document_kinds & {"candidate_notice", "award_result"}
+            if "candidate_notice" in document_kinds
             else "POST_CANDIDATE_ENTRY_MISSING"
         )
         backtrace_state = "BACKTRACE_CORE_COMPLETE" if not missing else "BACKTRACE_PARTIAL"
@@ -2238,6 +2242,14 @@ def _annotate_project_samples(
         for sample in project_samples:
             row = dict(sample)
             row["post_candidate_entry_state"] = post_state
+            row["post_candidate_entry_document_kinds"] = ["candidate_notice"]
+            row["default_entry_flow_no"] = "07"
+            row["late_stage_flows_required_for_recent_candidate"] = False
+            row["recent_candidate_late_stage_missing_non_blocking"] = [
+                str(module["flow_no"])
+                for module in missing_flow_modules
+                if str(module["flow_no"]) in {"11", "12"}
+            ]
             row["backtrace_stage_attempts"] = attempts
             row["matched_project_keys"] = _dedupe_strings(
                 [
@@ -2400,6 +2412,10 @@ def _summary(
         "project_sample_count": len(project_samples),
         "unique_project_count": len(project_ids),
         "selected_post_candidate_entry_count": len(selected_entries),
+        "default_entry_flow_no": "07",
+        "default_entry_document_kind": "candidate_notice",
+        "late_stage_flows_required_for_recent_candidate": False,
+        "late_stage_support_flow_nos": ["09", "10", "11", "12"],
         "project_sample_document_kind_counts": _counts(str(sample.get("document_kind") or "") for sample in project_samples),
         "guangzhou_flow_no_counts": _counts(str(sample.get("guangzhou_flow_no") or "") for sample in project_samples),
         "guangzhou_flow_completeness_state_counts": _counts(

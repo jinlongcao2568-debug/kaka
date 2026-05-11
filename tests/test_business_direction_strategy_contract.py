@@ -26,17 +26,31 @@ class BusinessDirectionStrategyContractTests(unittest.TestCase):
             line for line in contract["product_lines"] if line["line_id"] == "POST_CANDIDATE_EVIDENCE_PACK"
         )
         self.assertEqual(post_candidate["business_priority"], "PRIMARY")
-        for document_kind in ("candidate_notice", "evaluation_result", "opening_record", "award_result"):
-            self.assertIn(document_kind, post_candidate["default_entry_document_kinds"])
+        self.assertEqual(post_candidate["default_entry_document_kinds"], ["candidate_notice"])
+        for document_kind in ("evaluation_result", "opening_record", "award_result"):
+            self.assertIn(document_kind, post_candidate["related_non_default_entry_document_kinds"])
         for backtrace_kind in ("tender_file", "clarification_or_addendum", "bid_file_publicity"):
             self.assertIn(backtrace_kind, post_candidate["required_backtrace_document_kinds"])
+        self.assertFalse(
+            post_candidate["recent_candidate_late_stage_policy"][
+                "flow_11_contract_public_info_required_for_current_sales_window"
+            ]
+        )
+        self.assertFalse(
+            post_candidate["recent_candidate_late_stage_policy"][
+                "flow_12_project_exception_required_for_current_sales_window"
+            ]
+        )
 
     def test_pre_bid_prediction_is_secondary_and_does_not_claim_candidate_outputs(self) -> None:
         contract = self._contract()
         pre_bid = next(line for line in contract["product_lines"] if line["line_id"] == "PRE_BID_PREDICTION")
 
         self.assertEqual(pre_bid["business_priority"], "SECONDARY")
-        self.assertIn("tender_file", pre_bid["default_entry_document_kinds"])
+        self.assertEqual(
+            pre_bid["default_entry_document_kinds"],
+            ["tender_file_publicity", "tender_notice", "clarification_or_addendum"],
+        )
         self.assertIn("candidate_verification", pre_bid["must_not_output"])
         self.assertIn("real_competitor_conclusion", pre_bid["must_not_output"])
 
@@ -56,11 +70,55 @@ class BusinessDirectionStrategyContractTests(unittest.TestCase):
             routing_states["PRE_BID_NOT_ELIGIBLE_OPENING_STARTED"]["product_mode"],
             "POST_OPENING_EVIDENCE_TRACK",
         )
+        self.assertEqual(routing_states["POST_CANDIDATE_READY"]["condition"], "flow_07_candidate_notice_present")
         self.assertIn("PRE_BID_NOT_ELIGIBLE_CANDIDATE_PRESENT", blockers)
         self.assertEqual(
             blockers["PRE_BID_NOT_ELIGIBLE_CANDIDATE_PRESENT"]["route_to"],
             "POST_CANDIDATE_EVIDENCE_PACK",
         )
+
+    def test_analysis_strategy_v1_records_recent_source_and_clarification_recalc_policy(self) -> None:
+        contract = self._contract()
+        policy = contract["analysis_strategy_policy"]
+
+        source_window = policy["default_source_time_window_policy"]
+        self.assertTrue(source_window["website_default_recent_first"])
+        self.assertTrue(source_window["explicit_time_window_filter_planned"])
+        self.assertIn(7, source_window["planned_time_window_options_days"])
+
+        clarification = policy["pre_bid_clarification_recalculation_policy"]
+        self.assertEqual(clarification["before_flow_04_state"], "PREDICTION_BEFORE_CLARIFICATION")
+        self.assertEqual(clarification["new_flow_04_or_supplement_state"], "PREDICTION_RECALC_REQUIRED")
+        self.assertEqual(clarification["after_flow_04_state"], "PREDICTION_AFTER_CLARIFICATION")
+
+    def test_analysis_strategy_v1_does_not_require_11_12_for_recent_candidate_window(self) -> None:
+        contract = self._contract()
+        policy = contract["analysis_strategy_policy"]["post_candidate_late_stage_policy"]
+        post_flow_policy = {
+            item["flow_no"]: item
+            for item in contract["analysis_strategy_policy"]["post_candidate_flow_policy"]
+        }
+
+        self.assertEqual(policy["recent_candidate_default_entry_flow_no"], "07")
+        self.assertTrue(policy["flow_11_contract_public_info_absent_expected_for_recent_candidate"])
+        self.assertTrue(policy["flow_12_project_exception_absent_expected_for_recent_candidate"])
+        self.assertFalse(post_flow_policy["11"]["required_for_recent_candidate_sales_window"])
+        self.assertFalse(post_flow_policy["12"]["required_for_recent_candidate_sales_window"])
+
+    def test_analysis_strategy_v1_has_failure_repair_gate_taxonomy(self) -> None:
+        contract = self._contract()
+        policy = contract["analysis_strategy_policy"]["failure_repair_gate_policy"]
+
+        self.assertTrue(policy["visible_page_or_attachment_but_fetch_failed_requires_repair_queue"])
+        for taxonomy in (
+            "code_or_adapter_bug",
+            "detail_transport_blocked",
+            "attachment_challenge_required",
+            "tls_or_waf_or_proxy_issue",
+            "login_or_ca_required",
+            "platform_sync_delay_or_no_public_endpoint",
+        ):
+            self.assertIn(taxonomy, policy["must_distinguish_taxonomy"])
 
     def test_analysis_strategy_v1_uses_realistic_pre_bid_time_windows(self) -> None:
         contract = self._contract()

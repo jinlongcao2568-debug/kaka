@@ -14,8 +14,11 @@ if str(SRC) not in sys.path:
 
 from storage.product_analysis_strategy_plan import (  # noqa: E402
     ADAPTER_VALIDATION_ONLY,
+    HISTORICAL_OR_LATE_STAGE_REVIEW,
     POST_CANDIDATE_EVIDENCE_PACK,
     POST_OPENING_EVIDENCE_TRACK,
+    PREDICTION_AFTER_CLARIFICATION,
+    PREDICTION_BEFORE_CLARIFICATION,
     PRE_BID_PREDICTION,
     TIME_WINDOW_UNKNOWN_REVIEW,
     WATCHLIST_ONLY,
@@ -35,10 +38,21 @@ class ProductAnalysisStrategyPlanTests(unittest.TestCase):
         project = result["manifest"]["project_strategy_items"][0]
         self.assertEqual(project["product_mode"], POST_CANDIDATE_EVIDENCE_PACK)
         self.assertEqual(project["strategy_state"], "POST_CANDIDATE_READY")
+        self.assertEqual(project["current_sales_window_entry_flow_no"], "07")
+        self.assertFalse(project["late_stage_flows_required_for_recent_candidate"])
         by_flow = {item["flow_no"]: item for item in result["manifest"]["items"]}
         self.assertEqual(by_flow["03"]["download_policy"], "DOWNLOAD_REQUIRED")
         self.assertEqual(by_flow["03"]["parse_depth"], "SECTION_PARSE")
         self.assertTrue(by_flow["03"]["llm_allowed"])
+
+    def test_late_stage_without_candidate_is_not_current_sales_window_ready(self) -> None:
+        result = _build_with_samples([_sample("award_result", flow_no="09")])
+
+        project = result["manifest"]["project_strategy_items"][0]
+        self.assertEqual(project["product_mode"], POST_CANDIDATE_EVIDENCE_PACK)
+        self.assertEqual(project["strategy_state"], HISTORICAL_OR_LATE_STAGE_REVIEW)
+        self.assertNotEqual(project["strategy_state"], "POST_CANDIDATE_READY")
+        self.assertEqual(project["current_sales_window_entry_flow_no"], "")
 
     def test_opening_without_candidate_blocks_pre_bid_prediction(self) -> None:
         result = _build_with_samples([_sample("opening_info", flow_no="05")])
@@ -75,6 +89,36 @@ class ProductAnalysisStrategyPlanTests(unittest.TestCase):
             "PRE_BID_NOT_ELIGIBLE_TOO_LATE_FOR_SALE",
         )
         self.assertEqual(too_late["manifest"]["project_strategy_items"][0]["product_mode"], POST_OPENING_EVIDENCE_TRACK)
+
+    def test_pre_bid_before_clarification_requires_recalculation_when_flow_04_appears(self) -> None:
+        result = _build_with_samples(
+            [
+                _sample("tender_file_publicity", flow_no="02", deadline="2026-05-20T09:00:00+08:00"),
+                _sample("tender_file", flow_no="03", deadline="2026-05-20T09:00:00+08:00"),
+            ],
+            now="2026-05-10T09:00:00+08:00",
+        )
+
+        project = result["manifest"]["project_strategy_items"][0]
+        self.assertEqual(project["product_mode"], PRE_BID_PREDICTION)
+        self.assertEqual(project["pre_bid_clarification_state"], PREDICTION_BEFORE_CLARIFICATION)
+        self.assertTrue(project["prediction_recalc_required_on_new_flow_04"])
+        self.assertTrue(all(item["prediction_recalc_required_on_new_flow_04"] for item in result["manifest"]["items"]))
+
+    def test_pre_bid_after_clarification_marks_prediction_after_clarification(self) -> None:
+        result = _build_with_samples(
+            [
+                _sample("tender_file_publicity", flow_no="02", deadline="2026-05-20T09:00:00+08:00"),
+                _sample("tender_file", flow_no="03", deadline="2026-05-20T09:00:00+08:00"),
+                _sample("clarification_notice", flow_no="04", deadline="2026-05-20T09:00:00+08:00"),
+            ],
+            now="2026-05-10T09:00:00+08:00",
+        )
+
+        project = result["manifest"]["project_strategy_items"][0]
+        self.assertEqual(project["product_mode"], PRE_BID_PREDICTION)
+        self.assertEqual(project["pre_bid_clarification_state"], PREDICTION_AFTER_CLARIFICATION)
+        self.assertFalse(project["prediction_recalc_required_on_new_flow_04"])
 
     def test_missing_deadline_keeps_pre_bid_in_time_window_review(self) -> None:
         result = _build_with_samples([_sample("tender_file", flow_no="03")])

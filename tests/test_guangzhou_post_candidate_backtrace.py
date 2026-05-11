@@ -176,6 +176,19 @@ class TestGuangzhouPostCandidateBacktrace(unittest.TestCase):
         self.assertIn("tender_file", partial[0]["missing_stage_kinds"])
         self.assertIn("award_result", partial[0]["missing_stage_kinds"])
         self.assertEqual(partial[0]["guangzhou_flow_completeness_state"], "GUANGZHOU_FLOW_PARTIAL")
+        self.assertEqual(partial[0]["default_entry_flow_no"], "07")
+        self.assertFalse(partial[0]["late_stage_flows_required_for_recent_candidate"])
+        self.assertEqual(partial[0]["recent_candidate_late_stage_missing_non_blocking"], ["11", "12"])
+
+    def test_award_only_project_is_not_current_post_candidate_entry(self) -> None:
+        annotated = _annotate_project_samples(
+            [
+                _sample("award_result", project_id="PROJ-AWARD-ONLY", flow_no="09", flow_code="06"),
+            ]
+        )
+
+        self.assertEqual(annotated[0]["post_candidate_entry_state"], "POST_CANDIDATE_ENTRY_MISSING")
+        self.assertEqual(annotated[0]["post_candidate_entry_document_kinds"], ["candidate_notice"])
 
     def test_no_match_backtrace_target_attempt_is_attached_to_project(self) -> None:
         annotated = _annotate_project_samples(

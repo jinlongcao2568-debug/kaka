@@ -17,7 +17,7 @@
 - 本图中的 `controlled-opening-required` 表示未通过 provider config、sandbox、approval、audit、operator action、field allowlist/masking、controlled-opening gate 与验收前不能 live，不表示永久不做。
 - 本图不放开 `external release`，不放开 `Stage 8 real execution`，不放开 `Stage 9 real payment / delivery / refund`；自动退款执行不实现，只保留 manual exception / approval-audit / governed review。
 - 各阶段保留 1 个最贴近的导航候选 `packet_id`；更集中的近端候选提示统一放在第 3 节。
-- 招投标方向以 `docs/业务方向_候选公示后证据包与投前预测双线契约.md` 和 `contracts/evaluation/business_direction_strategy_contract.json` 为准：候选后证据包是核心商业主线；投前预测只适用于 02/03/04 且投标截止/开标未过的项目；出现 05 开标信息后转开标后核验/候选后证据包；下载解析前必须先生成 `AnalysisStrategyPlan v1`。
+- 招投标方向以 `docs/业务方向_候选公示后证据包与投前预测双线契约.md` 和 `contracts/evaluation/business_direction_strategy_contract.json` 为准：候选后证据包是核心商业主线，默认从近期 07 中标候选人公示入池；投前预测只适用于近期 02/03/04 且投标截止/开标未过的项目，只有 02/03 且无 04 时属于预澄清半成品预测，后续出现澄清、答疑、补遗或补充文件必须重新预测；出现 05 开标信息后转开标后核验/候选后证据包；近期 07 项目缺 11 合同和 12 异常不阻断当前销售窗口；下载解析前必须先生成 `AnalysisStrategyPlan v1`。
 
 ## 1.1 现实对齐说明
 

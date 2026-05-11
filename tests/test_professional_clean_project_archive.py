@@ -603,6 +603,89 @@ class TestProfessionalCleanProjectArchive(unittest.TestCase):
                 1,
             )
 
+    def test_award_result_alone_is_not_post_candidate_entry(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = _repo(tmp_dir)
+            _save_snapshot(
+                repo,
+                snapshot_id="SNAP-DETAIL-AWARD-ONLY",
+                data=b"<html><body>award result</body></html>",
+                content_type="text/html",
+                source_url="https://example.test/award-only.html",
+            )
+            execution_path = Path(tmp_dir) / "run-manifest.json"
+            output_root = Path(tmp_dir) / "professional-clean-v1"
+            award = _project_sample(
+                project_name="某工程施工中标结果公告",
+                detail_snapshot_id="SNAP-DETAIL-AWARD-ONLY",
+                attachment_snapshot_id="SNAP-NOT-USED",
+            )
+            award["document_kind"] = "award_result"
+            award["source_url"] = "https://example.test/award-only.html"
+            award["attachment_snapshot_refs"] = []
+            award["source_text"] = "中标结果公告"
+            award["parse_summary"] = {
+                "stage3_parse_success_count": 0,
+                "stage3_parse_failed_count": 0,
+                "attachment_missing_review_count": 0,
+                "unknown_attachment_count": 0,
+                "text_probe": "中标结果公告",
+            }
+            _write_execution_manifest(execution_path, [award])
+
+            result = build_professional_clean_project_archive_manifest(
+                real_sample_execution_manifest_json=execution_path,
+                output_root=output_root,
+                object_repository=repo,
+                created_at="2026-05-10T00:00:00+08:00",
+            )
+
+            item = result["manifest"]["items"][0]
+            self.assertEqual(item["post_candidate_entry_state"], "POST_CANDIDATE_ENTRY_MISSING")
+            self.assertEqual(item["post_candidate_entry_document_kinds"], ["candidate_notice"])
+
+    def test_recent_candidate_missing_11_12_is_non_blocking_policy_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = _repo(tmp_dir)
+            _save_snapshot(
+                repo,
+                snapshot_id="SNAP-DETAIL-CAND-ONLY",
+                data=b"<html><body>candidate notice</body></html>",
+                content_type="text/html",
+                source_url="https://example.test/candidate-only.html",
+            )
+            execution_path = Path(tmp_dir) / "run-manifest.json"
+            output_root = Path(tmp_dir) / "professional-clean-v1"
+            candidate = _project_sample(
+                project_name="某工程施工中标候选人公示",
+                detail_snapshot_id="SNAP-DETAIL-CAND-ONLY",
+                attachment_snapshot_id="SNAP-NOT-USED",
+            )
+            candidate["document_kind"] = "candidate_notice"
+            candidate["source_url"] = "https://example.test/candidate-only.html"
+            candidate["attachment_snapshot_refs"] = []
+            candidate["source_text"] = "中标候选人公示"
+            candidate["parse_summary"] = {
+                "stage3_parse_success_count": 0,
+                "stage3_parse_failed_count": 0,
+                "attachment_missing_review_count": 0,
+                "unknown_attachment_count": 0,
+                "text_probe": "中标候选人公示",
+            }
+            _write_execution_manifest(execution_path, [candidate])
+
+            result = build_professional_clean_project_archive_manifest(
+                real_sample_execution_manifest_json=execution_path,
+                output_root=output_root,
+                object_repository=repo,
+                created_at="2026-05-10T00:00:00+08:00",
+            )
+
+            item = result["manifest"]["items"][0]
+            self.assertFalse(item["late_stage_flows_required_for_recent_candidate"])
+            self.assertEqual(item["recent_candidate_late_stage_missing_non_blocking"], ["11", "12"])
+            self.assertFalse(item["project_completeness_contract"]["late_stage_flows_required_for_recent_candidate"])
+
 
 def _repo(tmp_dir: str) -> ObjectStorageRepository:
     settings = Settings(

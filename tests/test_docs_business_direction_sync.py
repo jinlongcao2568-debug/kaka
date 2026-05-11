@@ -30,12 +30,19 @@ def test_source_route_spec_locks_post_candidate_backtrace_and_guangzhou_primary_
     text = _read(DOCS / "专题_来源覆盖与采集路由规范.md")
 
     assert "POST_CANDIDATE_EVIDENCE_PACK" in text
-    assert "候选公示/评标结果/中标结果/开标记录" in text
+    assert "近期 `07 中标候选人公示`" in text
+    assert "不再作为默认商业入口" in text
     assert "回溯同一项目全流程材料" in text
     assert "招标文件" in text and "答疑澄清" in text and "投标文件公开" in text
     assert "PRE_BID_PREDICTION" in text
+    assert "`02 招标文件公示`" in text and "`03 招标公告/关联公告`" in text and "`04 澄清答疑`" in text
+    assert "PREDICTION_BEFORE_CLARIFICATION" in text
+    assert "PREDICTION_RECALC_REQUIRED" in text
     assert "05 开标信息" in text
     assert "投前预测" in text and "不再卖" in text or "不得继续把该项目送入投前预测" in text
+    assert "11 合同信息公开" in text and "12 项目异常" in text
+    assert "缺 11/12 不能算当前销售窗口失败" in text
+    assert "detail_transport_blocked" in text and "attachment_challenge_required" in text
     assert "AnalysisStrategyPlan v1" in text
     assert "广东工程建设现行来源只保留广州交易集团" in text
     assert "tender_file" in text and "smoke" in text
@@ -55,6 +62,8 @@ def test_pre_bid_topic_is_secondary_rule_pool_and_forbids_post_candidate_outputs
     assert "不能输出" in text
     assert "PRE_BID_NOT_ELIGIBLE_OPENING_STARTED" in text
     assert "PRE_BID_NOT_ELIGIBLE_DEADLINE_PASSED" in text
+    assert "PREDICTION_BEFORE_CLARIFICATION" in text
+    assert "PREDICTION_RECALC_REQUIRED" in text
     assert "AnalysisStrategyPlan v1" in text
 
 
@@ -63,7 +72,9 @@ def test_ax9s_runbook_states_post_candidate_mainline_and_tender_file_smoke_bound
 
     assert "默认业务入口" in text
     assert "核心商业主线是候选公示后证据包分析" in text
-    assert "中标候选人公示、评标结果、开标记录、中标结果" in text
+    assert "近期 `07 中标候选人公示`" in text
+    assert "不是默认入口" in text
+    assert "缺 11/12 不阻断当前证据包销售窗口" in text
     assert "回溯同一项目" in text
     assert "辅助产品线是投前预测分析" in text
     assert "05 开标信息" in text
@@ -81,6 +92,9 @@ def test_status_board_records_p0_sync_boundary() -> None:
     assert "tender_file" in text and "最终业务入口" in text
     assert "广东只保留广州交易集团主源" in text
     assert "AnalysisStrategyPlan v1" in text
+    assert "近期 07 中标候选人公示" in text
+    assert "预澄清半成品预测" in text
+    assert "缺 11/12 不阻断当前证据包销售窗口" in text
     assert "05 开标信息" in text
     assert "适配器验证" in text
 
@@ -91,6 +105,11 @@ def test_business_direction_doc_contains_final_analysis_strategy_rules() -> None
     assert "AnalysisStrategyPlan v1" in text
     assert "候选公示后主线不是“少解析”" in text
     assert "真实买家线索" in text
+    assert "`07 中标候选人公示`" in text
+    assert "`02 招标文件公示`" in text
+    assert "PREDICTION_BEFORE_CLARIFICATION" in text
+    assert "PREDICTION_RECALC_REQUIRED" in text
+    assert "缺 11/12 不应算作当前销售窗口的回溯失败" in text
     assert "PRE_BID_NOT_ELIGIBLE_OPENING_STARTED" in text
     assert "PRE_BID_NOT_ELIGIBLE_DEADLINE_PASSED" in text
     assert "PRE_BID_NOT_ELIGIBLE_TOO_LATE_FOR_SALE" in text
@@ -110,6 +129,8 @@ def test_top_level_docs_contain_final_strategy_guardrails() -> None:
         assert "05 开标信息" in text
         assert "投前预测" in text
         assert "候选公示后证据包" in text
+        assert "近期 `07 中标候选人公示`" in text or "近期 07 中标候选人公示" in text
+        assert "缺 11/12 不阻断当前证据包销售窗口" in text
 
 
 def test_navigation_docs_do_not_drift_from_analysis_strategy_v1() -> None:

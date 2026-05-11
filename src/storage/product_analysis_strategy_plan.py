@@ -21,12 +21,15 @@ WATCHLIST_ONLY = "WATCHLIST_ONLY"
 ADAPTER_VALIDATION_ONLY = "ADAPTER_VALIDATION_ONLY"
 
 POST_CANDIDATE_READY = "POST_CANDIDATE_READY"
+HISTORICAL_OR_LATE_STAGE_REVIEW = "HISTORICAL_OR_LATE_STAGE_REVIEW"
 PRE_BID_NOT_ELIGIBLE_OPENING_STARTED = "PRE_BID_NOT_ELIGIBLE_OPENING_STARTED"
 PRE_BID_NOT_ELIGIBLE_DEADLINE_PASSED = "PRE_BID_NOT_ELIGIBLE_DEADLINE_PASSED"
 PRE_BID_NOT_ELIGIBLE_TOO_LATE_FOR_SALE = "PRE_BID_NOT_ELIGIBLE_TOO_LATE_FOR_SALE"
 PRE_BID_STANDARD_PREDICTION_READY = "PRE_BID_STANDARD_PREDICTION_READY"
 PRE_BID_LIMITED_FAST_REVIEW = "PRE_BID_LIMITED_FAST_REVIEW"
 TIME_WINDOW_UNKNOWN_REVIEW = "TIME_WINDOW_UNKNOWN_REVIEW"
+PREDICTION_BEFORE_CLARIFICATION = "PREDICTION_BEFORE_CLARIFICATION"
+PREDICTION_AFTER_CLARIFICATION = "PREDICTION_AFTER_CLARIFICATION"
 
 DOWNLOAD_SKIP = "SKIP"
 PARSE_NONE = "NONE"
@@ -320,25 +323,35 @@ def _source_row_from_sample(sample: Mapping[str, Any]) -> dict[str, Any]:
 def _project_strategy(*, context: Mapping[str, Any], now: datetime) -> dict[str, Any]:
     items = [item for item in list(context.get("items") or []) if isinstance(item, Mapping)]
     flow_nos = sorted({_flow_no(item) for item in items if _flow_no(item)})
+    flow_set = set(flow_nos)
     all_adapter = bool(items) and all(_is_adapter_validation(item, run_stage=str(context.get("run_stage") or "")) for item in items)
     deadline = _deadline_for_project(context)
     hours_to_deadline = None
     if deadline:
         hours_to_deadline = round((deadline - now).total_seconds() / 3600, 2)
+    pre_bid_clarification_state = ""
+    prediction_recalc_required_on_new_flow_04 = False
+    current_sales_window_entry_flow_no = ""
     if all_adapter:
         product_mode = ADAPTER_VALIDATION_ONLY
         strategy_state = ADAPTER_VALIDATION_ONLY
-    elif {"07", "09", "10"} & set(flow_nos):
+    elif "07" in flow_set:
         product_mode = POST_CANDIDATE_EVIDENCE_PACK
         strategy_state = POST_CANDIDATE_READY
-    elif "05" in flow_nos:
+        current_sales_window_entry_flow_no = "07"
+    elif flow_set and flow_set.issubset({"09", "10", "11", "12"}):
+        product_mode = POST_CANDIDATE_EVIDENCE_PACK
+        strategy_state = HISTORICAL_OR_LATE_STAGE_REVIEW
+    elif "05" in flow_set:
         product_mode = POST_OPENING_EVIDENCE_TRACK
         strategy_state = PRE_BID_NOT_ELIGIBLE_OPENING_STARTED
-    elif set(flow_nos) and set(flow_nos).issubset({"01"}):
+    elif flow_set and flow_set.issubset({"01"}):
         product_mode = WATCHLIST_ONLY
         strategy_state = WATCHLIST_ONLY
-    elif {"02", "03", "04"} & set(flow_nos):
+    elif {"02", "03", "04"} & flow_set and flow_set.issubset({"01", "02", "03", "04"}):
         product_mode, strategy_state = _pre_bid_strategy(deadline=deadline, hours_to_deadline=hours_to_deadline)
+        pre_bid_clarification_state = _pre_bid_clarification_state(flow_set)
+        prediction_recalc_required_on_new_flow_04 = pre_bid_clarification_state == PREDICTION_BEFORE_CLARIFICATION
     else:
         product_mode = WATCHLIST_ONLY
         strategy_state = TIME_WINDOW_UNKNOWN_REVIEW
@@ -351,6 +364,11 @@ def _project_strategy(*, context: Mapping[str, Any], now: datetime) -> dict[str,
         "flow_nos_present": flow_nos,
         "deadline_at_optional": deadline.isoformat() if deadline else "",
         "hours_to_deadline_optional": hours_to_deadline,
+        "current_sales_window_entry_flow_no": current_sales_window_entry_flow_no,
+        "late_stage_flows_required_for_recent_candidate": False,
+        "late_stage_support_flow_nos": ["09", "10", "11", "12"],
+        "pre_bid_clarification_state": pre_bid_clarification_state,
+        "prediction_recalc_required_on_new_flow_04": prediction_recalc_required_on_new_flow_04,
         "item_count": len(items),
         "adapter_validation_only": all_adapter,
         "customer_visible_allowed": False,
@@ -368,6 +386,14 @@ def _pre_bid_strategy(*, deadline: datetime | None, hours_to_deadline: float | N
     if hours_to_deadline >= 72:
         return PRE_BID_PREDICTION, PRE_BID_LIMITED_FAST_REVIEW
     return POST_OPENING_EVIDENCE_TRACK, PRE_BID_NOT_ELIGIBLE_TOO_LATE_FOR_SALE
+
+
+def _pre_bid_clarification_state(flow_set: set[str]) -> str:
+    if "04" in flow_set:
+        return PREDICTION_AFTER_CLARIFICATION
+    if {"02", "03"} & flow_set:
+        return PREDICTION_BEFORE_CLARIFICATION
+    return ""
 
 
 def _strategy_item(
@@ -400,6 +426,14 @@ def _strategy_item(
         "source_url": str(source.get("source_url") or ""),
         "snapshot_id": str(source.get("snapshot_id") or ""),
         "published_date": str(source.get("published_date") or ""),
+        "current_sales_window_entry_flow_no": str(project_strategy.get("current_sales_window_entry_flow_no") or ""),
+        "late_stage_flows_required_for_recent_candidate": bool(
+            project_strategy.get("late_stage_flows_required_for_recent_candidate")
+        ),
+        "pre_bid_clarification_state": str(project_strategy.get("pre_bid_clarification_state") or ""),
+        "prediction_recalc_required_on_new_flow_04": bool(
+            project_strategy.get("prediction_recalc_required_on_new_flow_04")
+        ),
         "download_policy": flow_policy["download_policy"],
         "download_required": _download_required(flow_policy["download_policy"]),
         "parse_depth": flow_policy["parse_depth"],
@@ -569,6 +603,15 @@ def _summary(
         "strategy_item_count": len(strategy_items),
         "product_mode_counts": _counts(item.get("product_mode") for item in project_strategy_items),
         "strategy_state_counts": _counts(item.get("strategy_state") for item in project_strategy_items),
+        "current_sales_window_entry_flow_no_counts": _counts(
+            item.get("current_sales_window_entry_flow_no") for item in project_strategy_items
+        ),
+        "pre_bid_clarification_state_counts": _counts(
+            item.get("pre_bid_clarification_state") for item in project_strategy_items
+        ),
+        "prediction_recalc_required_on_new_flow_04_count": sum(
+            1 for item in project_strategy_items if bool(item.get("prediction_recalc_required_on_new_flow_04"))
+        ),
         "download_policy_counts": _counts(item.get("download_policy") for item in strategy_items),
         "parse_depth_counts": _counts(item.get("parse_depth") for item in strategy_items),
         "llm_allowed_count": sum(1 for item in strategy_items if bool(item.get("llm_allowed"))),
@@ -717,8 +760,11 @@ if __name__ == "__main__":
 
 __all__ = [
     "ADAPTER_VALIDATION_ONLY",
+    "HISTORICAL_OR_LATE_STAGE_REVIEW",
     "POST_CANDIDATE_EVIDENCE_PACK",
     "POST_OPENING_EVIDENCE_TRACK",
+    "PREDICTION_AFTER_CLARIFICATION",
+    "PREDICTION_BEFORE_CLARIFICATION",
     "PRE_BID_PREDICTION",
     "PRODUCT_ANALYSIS_STRATEGY_PLAN_MANIFEST_KIND",
     "TIME_WINDOW_UNKNOWN_REVIEW",

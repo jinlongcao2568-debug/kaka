@@ -50,8 +50,9 @@ VALID_ATTACHMENT_CONTENT_MARKERS = (
     "rar",
     "octet-stream",
 )
-POST_CANDIDATE_ENTRY_DOCUMENT_KINDS = {"candidate_notice", "award_result"}
+POST_CANDIDATE_ENTRY_DOCUMENT_KINDS = {"candidate_notice"}
 CORE_BACKTRACE_DOCUMENT_KINDS = ("tender_file", "candidate_notice", "award_result")
+RECENT_CANDIDATE_LATE_STAGE_FLOW_NOS = ("11", "12")
 GUANGZHOU_FLOW_MODULES = (
     {"flow_no": "01", "flow_code": "08", "flow_title": "招标计划", "document_kind": "bid_plan"},
     {"flow_no": "02", "flow_code": "17", "flow_title": "招标文件公示", "document_kind": "tender_file_publicity"},
@@ -199,6 +200,7 @@ def _archive_project(
     backtrace_stage_attempts = _backtrace_stage_attempts(samples)
     missing_stage_kinds = _missing_stage_kinds(samples)
     backtrace_completeness_state = _backtrace_completeness_state(missing_stage_kinds)
+    late_stage_missing_non_blocking = _recent_candidate_late_stage_missing_non_blocking(samples)
     project_contract = _project_completeness_contract(
         samples=samples,
         detail_files=detail_files,
@@ -207,6 +209,7 @@ def _archive_project(
         stage_pollution_reasons=stage_pollution_reasons,
         post_candidate_entry_state=post_candidate_entry_state,
         backtrace_completeness_state=backtrace_completeness_state,
+        late_stage_missing_non_blocking=late_stage_missing_non_blocking,
     )
     file_inventory = _file_inventory(
         project_id=project_id,
@@ -243,6 +246,9 @@ def _archive_project(
         "html_pollution_file_count": sum(1 for item in attachment_files if item.get("html_pollution")),
         "stage_pollution_reasons": stage_pollution_reasons,
         "post_candidate_entry_state": post_candidate_entry_state,
+        "post_candidate_entry_document_kinds": sorted(POST_CANDIDATE_ENTRY_DOCUMENT_KINDS),
+        "late_stage_flows_required_for_recent_candidate": False,
+        "recent_candidate_late_stage_missing_non_blocking": late_stage_missing_non_blocking,
         "backtrace_stage_attempts": backtrace_stage_attempts,
         "matched_project_keys": _dedupe_strings(
             key
@@ -307,6 +313,9 @@ def _archive_project(
                 "parse_metrics": parse_metrics,
                 "section_flags": section_flags,
                 "post_candidate_entry_state": post_candidate_entry_state,
+                "post_candidate_entry_document_kinds": sorted(POST_CANDIDATE_ENTRY_DOCUMENT_KINDS),
+                "late_stage_flows_required_for_recent_candidate": False,
+                "recent_candidate_late_stage_missing_non_blocking": late_stage_missing_non_blocking,
                 "backtrace_stage_attempts": backtrace_stage_attempts,
                 "missing_stage_kinds": missing_stage_kinds,
                 "backtrace_completeness_state": backtrace_completeness_state,
@@ -750,6 +759,13 @@ def _guangzhou_flow_modules_missing(samples: list[Mapping[str, Any]]) -> list[di
     return [dict(module) for module in GUANGZHOU_FLOW_MODULES if str(module["flow_no"]) not in present]
 
 
+def _recent_candidate_late_stage_missing_non_blocking(samples: list[Mapping[str, Any]]) -> list[str]:
+    if _post_candidate_entry_state(samples) != "POST_CANDIDATE_ENTRY_PRESENT":
+        return []
+    present = {_sample_flow_no(sample) for sample in samples}
+    return [flow_no for flow_no in RECENT_CANDIDATE_LATE_STAGE_FLOW_NOS if flow_no not in present]
+
+
 def _guangzhou_flow_completeness_state(samples: list[Mapping[str, Any]]) -> str:
     return "GUANGZHOU_FLOW_COMPLETE" if not _guangzhou_flow_modules_missing(samples) else "GUANGZHOU_FLOW_PARTIAL"
 
@@ -967,6 +983,7 @@ def _project_completeness_contract(
     stage_pollution_reasons: list[str],
     post_candidate_entry_state: str,
     backtrace_completeness_state: str,
+    late_stage_missing_non_blocking: list[str],
 ) -> dict[str, Any]:
     has_tender_sample = any(str(sample.get("document_kind") or "") == "tender_file" for sample in samples)
     replayable_detail_count = sum(1 for item in detail_files if item.get("replayable"))
@@ -1016,6 +1033,8 @@ def _project_completeness_contract(
         "overall_project_readiness_state": overall,
         "post_candidate_entry_state": post_candidate_entry_state,
         "backtrace_completeness_state": backtrace_completeness_state,
+        "late_stage_flows_required_for_recent_candidate": False,
+        "recent_candidate_late_stage_missing_non_blocking": late_stage_missing_non_blocking,
         "download_before_parse_required": True,
         "official_analysis_input": "LOCAL_REPLAY_SNAPSHOT_ONLY",
         "customer_visible_allowed": False,
