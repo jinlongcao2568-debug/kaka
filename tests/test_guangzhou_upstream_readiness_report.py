@@ -49,8 +49,8 @@ class GuangzhouUpstreamReadinessReportTests(unittest.TestCase):
             self.assertIn("download_probe_project_coverage_below_flowurl_projects", summary["stage4_blocking_reasons"])
             self.assertIn("attachment_snapshot_success_rate_below_target", summary["stage4_blocking_reasons"])
             self.assertIn("parse_success_rate_below_target", summary["stage4_blocking_reasons"])
-            self.assertIn("stage4_project_manager_inputs_missing", summary["stage4_blocking_reasons"])
-            self.assertIn("stage4_certificate_inputs_missing", summary["stage4_blocking_reasons"])
+            self.assertIn("flow_07_certificate_inputs_missing_parse_required", summary["stage4_blocking_reasons"])
+            self.assertEqual(summary["flow_07_certificate_gate_state"], "CERTIFICATE_MISSING_PARSE_REQUIRED")
             self.assertTrue(result["manifest"]["repair_backlog"])
             self.assertTrue((output_root / "guangzhou-upstream-readiness-report.json").exists())
             p2 = next(row for row in result["manifest"]["project_records"] if row["project_id"] == "PROJ-CN-GD-JG2026-22222")
@@ -88,28 +88,99 @@ class GuangzhouUpstreamReadinessReportTests(unittest.TestCase):
             self.assertIn("download_probe_partial_manifest_used", summary["stage4_blocking_reasons"])
             self.assertIn("attachment_snapshot_success_rate_below_target", summary["stage4_blocking_reasons"])
 
+    def test_report_allows_stage4_when_flow_07_certificate_exists_even_if_parse_rate_is_low(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            flow_root = root / "flow"
+            download_root = root / "download"
+            strategy_root = root / "strategy"
+            archive_root = root / "archive"
+            parse_root = root / "parse"
+            output_root = root / "report"
+            _write_flow_manifest(flow_root, include_only_candidate_project=True)
+            _write_analysis_plan(flow_root, include_only_candidate_project=True)
+            _write_download_manifest(download_root, complete_candidate=True)
+            _write_strategy_manifest(strategy_root)
+            _write_archive_manifest(archive_root)
+            _write_parse_manifest(parse_root, candidate_parse_review=True)
+            _write_stage4_inputs(parse_root, flow_07_certificate=True)
 
-def _write_flow_manifest(root: Path) -> None:
+            result = build_guangzhou_upstream_readiness_report(
+                flow_root=flow_root,
+                download_root=download_root,
+                evidence_strategy_root=strategy_root,
+                archive_extract_root=archive_root,
+                parse_root=parse_root,
+                output_root=output_root,
+                created_at="2026-05-11T00:00:00+08:00",
+            )
+
+            summary = result["summary"]
+            self.assertTrue(result["safe_to_continue_stage4"])
+            self.assertEqual(summary["readiness_state"], "READY_FOR_STAGE4_PROBE")
+            self.assertEqual(summary["flow_07_certificate_gate_state"], "READY_FOR_STAGE4_CERTIFICATE_VERIFICATION")
+            self.assertEqual(summary["parse_success_rate_gate_state"], "DEFERRED_AFTER_FLOW_07_CERTIFICATE_GATE")
+            self.assertNotIn("parse_success_rate_below_target", summary["stage4_blocking_reasons"])
+            self.assertNotIn("flow_07_certificate_inputs_missing_parse_required", summary["stage4_blocking_reasons"])
+            flow_07 = next(row for row in result["manifest"]["flow_records"] if row["flow_no"] == "07")
+            self.assertEqual(flow_07["readiness_state"], "FLOW_READY_FOR_NEXT_PROBE")
+
+    def test_report_does_not_treat_non_07_certificate_as_candidate_gate_ready(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            flow_root = root / "flow"
+            download_root = root / "download"
+            strategy_root = root / "strategy"
+            archive_root = root / "archive"
+            parse_root = root / "parse"
+            output_root = root / "report"
+            _write_flow_manifest(flow_root, include_only_candidate_project=True)
+            _write_analysis_plan(flow_root, include_only_candidate_project=True)
+            _write_download_manifest(download_root, complete_candidate=True)
+            _write_strategy_manifest(strategy_root)
+            _write_archive_manifest(archive_root)
+            _write_parse_manifest(parse_root, candidate_parse_review=True)
+            _write_stage4_inputs(parse_root, non_07_certificate=True)
+
+            result = build_guangzhou_upstream_readiness_report(
+                flow_root=flow_root,
+                download_root=download_root,
+                evidence_strategy_root=strategy_root,
+                archive_extract_root=archive_root,
+                parse_root=parse_root,
+                output_root=output_root,
+                created_at="2026-05-11T00:00:00+08:00",
+            )
+
+            summary = result["summary"]
+            self.assertFalse(result["safe_to_continue_stage4"])
+            self.assertEqual(summary["flow_07_certificate_gate_state"], "CERTIFICATE_MISSING_PARSE_REQUIRED")
+            self.assertIn("flow_07_certificate_inputs_missing_parse_required", summary["stage4_blocking_reasons"])
+
+
+def _write_flow_manifest(root: Path, *, include_only_candidate_project: bool = False) -> None:
     root.mkdir(parents=True, exist_ok=True)
     samples = [
         _sample("PROJ-CN-GD-JG2026-11111", "03", "招标公告/关联公告"),
         _sample("PROJ-CN-GD-JG2026-22222", "07", "中标候选人公示"),
     ]
+    if include_only_candidate_project:
+        samples = [_sample("PROJ-CN-GD-JG2026-22222", "07", "中标候选人公示")]
     payload = {
         "manifest": {
             "manifest_kind": "evaluation_real_project_sample_execution_manifest",
             "project_sample_items": samples,
-            "summary": {"unique_project_count": 2, "project_sample_count": 2},
+            "summary": {"unique_project_count": len({str(row["project_id"]) for row in samples}), "project_sample_count": len(samples)},
         }
     }
     (root / "run-manifest.json").write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     (root / "flow-url-manifest.json").write_text(
-        json.dumps({"manifest": {"manifest_kind": "guangzhou_flow_url_manifest", "summary": {"project_count": 2, "flow_url_count": 2}}}, ensure_ascii=False, indent=2),
+        json.dumps({"manifest": {"manifest_kind": "guangzhou_flow_url_manifest", "summary": {"project_count": len({str(row["project_id"]) for row in samples}), "flow_url_count": len(samples)}}}, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
 
 
-def _write_analysis_plan(root: Path) -> None:
+def _write_analysis_plan(root: Path, *, include_only_candidate_project: bool = False) -> None:
     items = [
         {
             "project_id": "PROJ-CN-GD-JG2026-11111",
@@ -126,35 +197,58 @@ def _write_analysis_plan(root: Path) -> None:
             "parse_depth": "TEXT_PROBE",
         },
     ]
+    if include_only_candidate_project:
+        items = [item for item in items if item["project_id"] == "PROJ-CN-GD-JG2026-22222"]
     (root / "analysis-plan.json").write_text(json.dumps({"manifest": {"items": items, "summary": {"project_count": 2}}}, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def _write_download_manifest(root: Path, *, partial: bool = False) -> None:
+def _write_download_manifest(root: Path, *, partial: bool = False, complete_candidate: bool = False) -> None:
     root.mkdir(parents=True, exist_ok=True)
-    sample = {
-        **_sample("PROJ-CN-GD-JG2026-11111", "03", "招标公告/关联公告"),
-        "pipeline_stage": "DownloadProbe",
-        "target_execution_state": "DOWNLOAD_PROBE_PARTIAL_REVIEW",
-        "listed_attachment_count": 2,
-        "download_attempted_count": 2,
-        "failure_taxonomy": ["ATTACHMENT_INTERFACE_ERROR"],
-        "attachment_snapshot_refs": [
+    if complete_candidate:
+        samples = [
             {
-                "snapshot_id": "ATT-1",
-                "attachment_url": "https://example.test/file.pdf",
-                "content_type": "application/pdf",
+                **_sample("PROJ-CN-GD-JG2026-22222", "07", "中标候选人公示"),
+                "pipeline_stage": "DownloadProbe",
+                "target_execution_state": "DOWNLOAD_PROBE_CAPTURED",
+                "listed_attachment_count": 1,
+                "download_attempted_count": 1,
+                "failure_taxonomy": [],
+                "attachment_snapshot_refs": [
+                    {
+                        "snapshot_id": "ATT-7",
+                        "attachment_url": "https://example.test/candidate.pdf",
+                        "content_type": "application/pdf",
+                    }
+                ],
             }
-        ],
-    }
+        ]
+    else:
+        samples = [
+            {
+                **_sample("PROJ-CN-GD-JG2026-11111", "03", "招标公告/关联公告"),
+                "pipeline_stage": "DownloadProbe",
+                "target_execution_state": "DOWNLOAD_PROBE_PARTIAL_REVIEW",
+                "listed_attachment_count": 2,
+                "download_attempted_count": 2,
+                "failure_taxonomy": ["ATTACHMENT_INTERFACE_ERROR"],
+                "attachment_snapshot_refs": [
+                    {
+                        "snapshot_id": "ATT-1",
+                        "attachment_url": "https://example.test/file.pdf",
+                        "content_type": "application/pdf",
+                    }
+                ],
+            }
+        ]
     payload = {
         "manifest": {
-            "project_sample_items": [sample],
+            "project_sample_items": samples,
             "summary": {
-                "unique_project_count": 1,
-                "project_sample_count": 1,
-                "download_attempted_count": 2,
-                "attachment_snapshot_count": 1,
-                "failure_taxonomy_counts": {"ATTACHMENT_INTERFACE_ERROR": 1},
+                "unique_project_count": len({str(row["project_id"]) for row in samples}),
+                "project_sample_count": len(samples),
+                "download_attempted_count": sum(int(row["download_attempted_count"]) for row in samples),
+                "attachment_snapshot_count": sum(len(row["attachment_snapshot_refs"]) for row in samples),
+                "failure_taxonomy_counts": {} if complete_candidate else {"ATTACHMENT_INTERFACE_ERROR": 1},
             },
         }
     }
@@ -184,10 +278,13 @@ def _write_archive_manifest(root: Path) -> None:
     )
 
 
-def _write_parse_manifest(root: Path) -> None:
+def _write_parse_manifest(root: Path, *, candidate_parse_review: bool = False) -> None:
     root.mkdir(parents=True, exist_ok=True)
+    flow_no = "07" if candidate_parse_review else "03"
+    project_id = "PROJ-CN-GD-JG2026-22222" if candidate_parse_review else "PROJ-CN-GD-JG2026-11111"
+    flow_title = "中标候选人公示" if candidate_parse_review else "招标公告/关联公告"
     sample = {
-        **_sample("PROJ-CN-GD-JG2026-11111", "03", "招标公告/关联公告"),
+        **_sample(project_id, flow_no, flow_title),
         "pipeline_stage": "ParseProbe",
         "parse_probe_state": "PARSE_PROBE_REVIEW_REQUIRED",
         "parse_metrics": {
@@ -198,8 +295,8 @@ def _write_parse_manifest(root: Path) -> None:
         "failure_taxonomy": ["MARKITDOWN_TEXT_EMPTY"],
     }
     item = {
-        "project_id": "PROJ-CN-GD-JG2026-11111",
-        "flow_no": "03",
+        "project_id": project_id,
+        "flow_no": flow_no,
         "parse_state": "PARSE_REVIEW_REQUIRED",
         "parse_error_taxonomy": ["MARKITDOWN_TEXT_EMPTY"],
     }
@@ -218,14 +315,43 @@ def _write_parse_manifest(root: Path) -> None:
     (root / "parse-probe-manifest.json").write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def _write_stage4_inputs(root: Path) -> None:
+def _write_stage4_inputs(root: Path, *, flow_07_certificate: bool = False, non_07_certificate: bool = False) -> None:
+    items = []
+    if flow_07_certificate:
+        items = [
+            {
+                "stage4_input_id": "STAGE4-CANDIDATE-INPUT-07",
+                "project_id": "PROJ-CN-GD-JG2026-22222",
+                "project_name": "PROJ-CN-GD-JG2026-22222测试项目",
+                "flow_no": "07",
+                "flow_title": "中标候选人公示",
+                "project_manager_name": "张三",
+                "project_manager_certificate_no": "粤1442020202100001",
+                "customer_visible_allowed": False,
+                "no_legal_conclusion": True,
+            }
+        ]
+    elif non_07_certificate:
+        items = [
+            {
+                "stage4_input_id": "STAGE4-CANDIDATE-INPUT-03",
+                "project_id": "PROJ-CN-GD-JG2026-22222",
+                "project_name": "PROJ-CN-GD-JG2026-22222测试项目",
+                "flow_no": "03",
+                "flow_title": "招标公告/关联公告",
+                "project_manager_name": "张三",
+                "project_manager_certificate_no": "粤1442020202100001",
+                "customer_visible_allowed": False,
+                "no_legal_conclusion": True,
+            }
+        ]
     payload = {
         "manifest_kind": "stage4_candidate_verification_inputs_manifest",
-        "items": [],
+        "items": items,
         "summary": {
-            "stage4_input_count": 0,
-            "with_project_manager_count": 0,
-            "with_certificate_count": 0,
+            "stage4_input_count": len(items),
+            "with_project_manager_count": sum(1 for item in items if item.get("project_manager_name")),
+            "with_certificate_count": sum(1 for item in items if item.get("project_manager_certificate_no")),
         },
     }
     (root / "stage4_candidate_verification_inputs.json").write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
