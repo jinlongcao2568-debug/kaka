@@ -960,7 +960,30 @@ def _target_execution_state(
 def _carrier_failure_taxonomy(carrier: Mapping[str, Any], *, prefix: str) -> list[str]:
     reasons: list[str] = []
     for key in ("failure_taxonomy", "attachment_failure_taxonomy", "degraded_reasons"):
-        for value in list(carrier.get(key) or []):
+        raw = carrier.get(key)
+        if isinstance(raw, Mapping):
+            failure_class = str(raw.get("failure_class") or "").strip()
+            if failure_class:
+                reasons.append(failure_class)
+            direct_fetch_failure_class = str(raw.get("direct_fetch_failure_class") or "").strip()
+            if direct_fetch_failure_class:
+                reasons.append(f"direct_fetch:{direct_fetch_failure_class}")
+            resolver_error = str(raw.get("resolver_error") or "").strip()
+            if resolver_error:
+                reasons.append(f"resolver_error:{resolver_error}")
+            resolver_error_detail = str(raw.get("resolver_error_detail") or "").strip()
+            if "ERR_SSL_PROTOCOL_ERROR" in resolver_error_detail:
+                reasons.append("detail_browser_ssl_protocol_error")
+            elif "playwright_timeout" in resolver_error_detail or "Timeout" in resolver_error_detail:
+                reasons.append("detail_browser_timeout")
+            elif "automated_detail_challenge_not_resolved" in resolver_error_detail:
+                reasons.append("detail_browser_empty_or_blocked")
+            for value in list(raw.get("degraded_reasons") or []):
+                text = str(value or "").strip()
+                if text:
+                    reasons.append(text)
+            continue
+        for value in list(raw or []):
             text = str(value or "").strip()
             if text:
                 reasons.append(text)
@@ -968,6 +991,9 @@ def _carrier_failure_taxonomy(carrier: Mapping[str, Any], *, prefix: str) -> lis
         text = str(carrier.get(key) or "").strip()
         if text:
             reasons.append(text)
+    text = str(carrier.get("detail_fetch_repair_state") or "").strip()
+    if text:
+        reasons.append(text)
     if str(carrier.get("status") or "") == "DEGRADED":
         reasons.append(f"{prefix}_degraded")
     return _dedupe_strings(reasons)

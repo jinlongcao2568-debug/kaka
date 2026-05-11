@@ -1518,7 +1518,14 @@ class RealPublicEntryFetcher:
             return False
         if not hasattr(self.attachment_challenge_resolver, "resolve_candidate_detail"):
             return False
-        if str(carrier.get("status") or "") != "AUTOMATED_CHALLENGE_RESOLUTION_PENDING":
+        status = str(carrier.get("status") or "")
+        if (
+            profile.profile_id == "GUANGZHOU-YWTB-CONSTRUCTION-LIST"
+            and status == "DEGRADED"
+            and _is_retryable_detail_fetch_failure(carrier)
+        ):
+            return True
+        if status != "AUTOMATED_CHALLENGE_RESOLUTION_PENDING":
             return False
         if profile.profile_id != "JIANGSU-GGZY-HOME":
             return False
@@ -1542,7 +1549,9 @@ class RealPublicEntryFetcher:
             "entry_profile_id": profile.profile_id,
             "site_name": profile.site_name,
             "source_family": profile.source_family,
-            "challenge_family": "EPOINT_DETAIL_SESSION_OR_LOGIN",
+            "challenge_family": "GUANGZHOU_YWTB_DETAIL_BROWSER_FALLBACK"
+            if profile.profile_id == "GUANGZHOU-YWTB-CONSTRUCTION-LIST"
+            else "EPOINT_DETAIL_SESSION_OR_LOGIN",
             "first_attempt_status": first_carrier.get("status"),
             "first_attempt_degraded_reasons": list(first_carrier.get("degraded_reasons") or []),
             "same_capture_plan_resume_required": True,
@@ -1558,21 +1567,30 @@ class RealPublicEntryFetcher:
             result = resolver.resolve_candidate_detail(request)  # type: ignore[attr-defined]
         except Exception as exc:  # pragma: no cover - resolver implementations vary
             failed = dict(first_carrier)
+            first_failure_taxonomy = _detail_fetch_failure_taxonomy(first_carrier)
             failed["automated_challenge_resolution_attempted"] = True
             failed["automated_challenge_resolution_state"] = "FAILED_CLOSED_RESOLVER_ERROR"
             failed["challenge_resume_audit"] = {
                 "challenge_resume_context_id": context_id,
                 "resolver_error": type(exc).__name__,
                 "resolver_error_detail": str(exc),
+                "direct_fetch_failure_class": str(first_failure_taxonomy.get("failure_class") or ""),
                 "resume_from_same_capture_plan": True,
                 "resume_requires_human_input": False,
             }
             failed["failure_taxonomy"] = {
                 "failure_class": "CONTROLLED_CHALLENGE_RESOLVER_ERROR",
+                "direct_fetch_failure_class": str(first_failure_taxonomy.get("failure_class") or ""),
                 "degraded_reasons": list(first_carrier.get("degraded_reasons") or []),
                 "resolver_error": type(exc).__name__,
+                "resolver_error_detail": str(exc),
                 "fail_closed": True,
             }
+            _annotate_detail_browser_fallback_state(
+                failed,
+                profile=profile,
+                state="FAILED_CLOSED_RESOLVER_ERROR",
+            )
             return failed
 
         response, resolution_metadata = _coerce_challenge_resolution_result(result, detail_url)
@@ -1586,6 +1604,11 @@ class RealPublicEntryFetcher:
                 "resume_from_same_capture_plan": True,
                 "resume_requires_human_input": False,
             }
+            _annotate_detail_browser_fallback_state(
+                failed,
+                profile=profile,
+                state="FAILED_CLOSED_NO_RESPONSE",
+            )
             return failed
 
         now = utc_now_iso()
@@ -1600,9 +1623,10 @@ class RealPublicEntryFetcher:
             "resolver_metadata": {
                 key: value
                 for key, value in resolution_metadata.items()
-                if key not in {"content", "response"}
+            if key not in {"content", "response"}
             },
         }
+        _annotate_detail_browser_fallback_audit(audit, profile=profile, first_carrier=first_carrier)
         carrier = self._detail_carrier_from_response(
             profile,
             detail_url=detail_url,
@@ -1621,6 +1645,11 @@ class RealPublicEntryFetcher:
             "status": first_carrier.get("status"),
             "degraded_reasons": list(first_carrier.get("degraded_reasons") or []),
         }
+        _annotate_detail_browser_fallback_state(
+            carrier,
+            profile=profile,
+            state=carrier["automated_challenge_resolution_state"],
+        )
         return carrier
 
     def _resolve_same_site_attachment_after_challenge(
@@ -2231,6 +2260,7 @@ class RealPublicEntryFetcher:
             "fail_closed": True,
             "no_broad_fallback": True,
             "lineage_refs": dict(lineage_refs or {}),
+            "failure_taxonomy": _fetch_failure_taxonomy(detail),
             "fetch_audit": {
                 "fetcher_id": REAL_PUBLIC_ENTRY_FETCHER_ID,
                 "fetch_mode": "REAL_PUBLIC_DETAIL_SAME_SITE",
@@ -3136,6 +3166,64 @@ def _fetch_failure_taxonomy(detail: str) -> dict[str, Any]:
         "fail_closed": True,
         "no_broad_fallback": True,
     }
+
+
+def _detail_fetch_failure_taxonomy(carrier: Mapping[str, Any]) -> Mapping[str, Any]:
+    direct = carrier.get("failure_taxonomy")
+    if isinstance(direct, Mapping):
+        return direct
+    fetch_audit = carrier.get("fetch_audit")
+    if isinstance(fetch_audit, Mapping):
+        nested = fetch_audit.get("failure_taxonomy")
+        if isinstance(nested, Mapping):
+            return nested
+    return {}
+
+
+def _is_retryable_detail_fetch_failure(carrier: Mapping[str, Any]) -> bool:
+    reasons = [str(item or "") for item in list(carrier.get("degraded_reasons") or [])]
+    if "fetch_failed" not in reasons:
+        return False
+    taxonomy = _detail_fetch_failure_taxonomy(carrier)
+    failure_class = str(taxonomy.get("failure_class") or "")
+    if not failure_class:
+        return True
+    return bool(taxonomy.get("retryable")) and failure_class in {
+        "TLS_HANDSHAKE_FAILED",
+        "TIMEOUT",
+        "FETCH_FAILED",
+    }
+
+
+def _annotate_detail_browser_fallback_audit(
+    audit: dict[str, Any],
+    *,
+    profile: "RealPublicEntryProfile",
+    first_carrier: Mapping[str, Any],
+) -> None:
+    if profile.profile_id != "GUANGZHOU-YWTB-CONSTRUCTION-LIST":
+        return
+    taxonomy = _detail_fetch_failure_taxonomy(first_carrier)
+    audit["detail_browser_fallback_reason"] = "direct_fetch_retryable_failure"
+    audit["direct_fetch_failure_class"] = str(taxonomy.get("failure_class") or "")
+    audit["direct_fetch_failure_retryable"] = bool(taxonomy.get("retryable"))
+
+
+def _annotate_detail_browser_fallback_state(
+    carrier: dict[str, Any],
+    *,
+    profile: "RealPublicEntryProfile",
+    state: str,
+) -> None:
+    if profile.profile_id != "GUANGZHOU-YWTB-CONSTRUCTION-LIST":
+        return
+    captured = state == "RESOLVED_AND_SNAPSHOT_CAPTURED" and carrier.get("status") == "FETCHED"
+    carrier["detail_browser_fallback_attempted"] = True
+    carrier["detail_browser_snapshot_captured"] = bool(captured)
+    carrier["detail_browser_fallback_failed"] = not bool(captured)
+    carrier["detail_fetch_repair_state"] = (
+        "DETAIL_BROWSER_SNAPSHOT_CAPTURED" if captured else "DETAIL_BROWSER_FALLBACK_FAILED"
+    )
 
 
 def _response_failure_taxonomy(

@@ -168,6 +168,16 @@ class FakeGuangzhouDownloadDiagnosisResolver:
         return dict(self.diagnosis)
 
 
+class FailingDetailChallengeResolver(FakeAttachmentChallengeResolver):
+    def __init__(self) -> None:
+        super().__init__(_pdf_like_bytes())
+        self.detail_requests: list[dict[str, object]] = []
+
+    def resolve_candidate_detail(self, request: dict[str, object]) -> dict[str, object]:
+        self.detail_requests.append(dict(request))
+        raise RuntimeError("browser detail failed")
+
+
 def _repo(tmp_dir: str) -> ObjectStorageRepository:
     settings = Settings(
         storage_backend="json-file",
@@ -772,6 +782,78 @@ class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
             ],
             "DOWNLOAD_ENDPOINT_CAPTURED",
         )
+
+    def test_guangzhou_detail_fetch_failure_uses_browser_fallback(self) -> None:
+        resolver = FakeDetailChallengeResolver(_guangzhou_ywtb_detail_html_with_onclick_attachment())
+        transport = AlwaysFailTransport(RuntimeError("TLSV1_ALERT_INTERNAL_ERROR"))
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = _repo(tmp_dir)
+            carrier = RealPublicEntryFetcher(
+                transport=transport,
+                repository=repo,
+                attachment_challenge_resolver=resolver,
+                automated_challenge_resolution_enabled=True,
+            ).fetch_candidate_detail_url(
+                GZ_YWTB_DETAIL_URL,
+                profile_id="GUANGZHOU-YWTB-CONSTRUCTION-LIST",
+                lineage_refs={"candidate_key": "gz-detail-browser-fallback"},
+            )
+
+            self.assertEqual(carrier["status"], "FETCHED")
+            self.assertEqual(carrier["same_site_attachment_link_items"][0]["url"], GZ_YWTB_ATTACHMENT_URL)
+            self.assertTrue(carrier["detail_browser_fallback_attempted"])
+            self.assertTrue(carrier["detail_browser_snapshot_captured"])
+            self.assertFalse(carrier["detail_browser_fallback_failed"])
+            self.assertEqual(carrier["detail_fetch_repair_state"], "DETAIL_BROWSER_SNAPSHOT_CAPTURED")
+            self.assertEqual(carrier["challenge_resume_audit"]["direct_fetch_failure_class"], "TLS_HANDSHAKE_FAILED")
+            self.assertEqual(resolver.detail_requests[0]["challenge_family"], "GUANGZHOU_YWTB_DETAIL_BROWSER_FALLBACK")
+            replay = repo.replay_snapshot(carrier["snapshot_id_optional"])
+            self.assertTrue(replay["replayable"])
+
+    def test_guangzhou_detail_browser_fallback_failure_is_fail_closed(self) -> None:
+        resolver = FailingDetailChallengeResolver()
+        transport = AlwaysFailTransport(RuntimeError("RemoteDisconnected"))
+
+        carrier = RealPublicEntryFetcher(
+            transport=transport,
+            repository=None,
+            attachment_challenge_resolver=resolver,
+            automated_challenge_resolution_enabled=True,
+        ).fetch_candidate_detail_url(
+            GZ_YWTB_DETAIL_URL,
+            profile_id="GUANGZHOU-YWTB-CONSTRUCTION-LIST",
+        )
+
+        self.assertEqual(carrier["status"], "DEGRADED")
+        self.assertIsNone(carrier["snapshot_id_optional"])
+        self.assertTrue(carrier["detail_browser_fallback_attempted"])
+        self.assertTrue(carrier["detail_browser_fallback_failed"])
+        self.assertFalse(carrier["detail_browser_snapshot_captured"])
+        self.assertEqual(carrier["detail_fetch_repair_state"], "DETAIL_BROWSER_FALLBACK_FAILED")
+        self.assertEqual(carrier["automated_challenge_resolution_state"], "FAILED_CLOSED_RESOLVER_ERROR")
+        self.assertEqual(carrier["failure_taxonomy"]["direct_fetch_failure_class"], "FETCH_FAILED")
+        self.assertIn("browser detail failed", carrier["failure_taxonomy"]["resolver_error_detail"])
+        self.assertEqual(len(resolver.detail_requests), 1)
+
+    def test_non_guangzhou_detail_fetch_failure_does_not_use_browser_fallback(self) -> None:
+        resolver = FakeDetailChallengeResolver(_ccgp_detail_html())
+        transport = AlwaysFailTransport(RuntimeError("TLSV1_ALERT_INTERNAL_ERROR"))
+
+        carrier = RealPublicEntryFetcher(
+            transport=transport,
+            repository=None,
+            attachment_challenge_resolver=resolver,
+            automated_challenge_resolution_enabled=True,
+        ).fetch_candidate_detail_url(
+            CCGP_DETAIL_URL,
+            profile_id="CCGP-CENTRAL-NOTICES",
+        )
+
+        self.assertEqual(carrier["status"], "DEGRADED")
+        self.assertEqual(carrier["degraded_reasons"], ["fetch_failed"])
+        self.assertFalse(resolver.detail_requests)
+        self.assertNotIn("detail_browser_fallback_attempted", carrier)
 
     def test_sichuan_navigation_links_are_not_treated_as_attachment_links(self) -> None:
         detail_html = """
