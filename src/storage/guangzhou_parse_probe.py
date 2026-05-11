@@ -3,6 +3,8 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import multiprocessing
+import queue
 import re
 import zipfile
 from io import BytesIO
@@ -25,7 +27,8 @@ GUANGZHOU_PARSE_PROBE_ADAPTER_ID = "guangzhou-parse-probe-v1-runner"
 DEFAULT_PARSE_FLOW_NOS = ("03", "04")
 DEFAULT_PROJECT_IDS = ("PROJ-CN-GD-JG2026-10815", "PROJ-CN-GD-JG2026-11021")
 TEXT_PROBE_LIMIT = 4000
-MAX_PARSE_PROBE_ATTACHMENT_BYTES = 20_000_000
+PARSE_PROBE_TIMEOUT_GUARD_BYTES = 20_000_000
+PARSE_PROBE_HEAVY_FILE_TIMEOUT_SECONDS = 60
 BID_FILE_PUBLICITY_FLOW_NO = "08"
 POST_CANDIDATE_TEXT_PROBE_FLOW_NOS = {"07"}
 SECTION_PARSE_FLOW_NOS = {"03", "04"}
@@ -196,10 +199,7 @@ def _parse_sample(
     ]
     items: list[dict[str, Any]] = []
     archive_child_sample = str(sample.get("pipeline_stage") or "") == "ArchiveExtractProbe"
-    if flow_no == BID_FILE_PUBLICITY_FLOW_NO and not archive_child_sample:
-        for ref in refs:
-            items.append(_skipped_item(sample=sample, ref=ref, parse_state="SKIPPED_BID_FILE_PUBLICITY_DEEP_PARSE"))
-    elif flow_no not in SECTION_PARSE_FLOW_NOS | POST_CANDIDATE_TEXT_PROBE_FLOW_NOS:
+    if flow_no not in SECTION_PARSE_FLOW_NOS | POST_CANDIDATE_TEXT_PROBE_FLOW_NOS | {BID_FILE_PUBLICITY_FLOW_NO}:
         for ref in refs:
             items.append(_skipped_item(sample=sample, ref=ref, parse_state="SKIPPED_FLOW_NOT_IN_PARSE_PROBE_SCOPE"))
     elif not refs:
@@ -258,23 +258,6 @@ def _parse_ref(
 ) -> dict[str, Any]:
     snapshot_id = str(ref.get("snapshot_id") or "")
     base = _base_item(sample=sample, ref=ref, index=index, flow_dir=flow_dir, created_at=created_at)
-    if _int(ref.get("byte_size")) > MAX_PARSE_PROBE_ATTACHMENT_BYTES:
-        return {
-            **base,
-            "parse_state": "SKIPPED_LARGE_ATTACHMENT_TARGETED_PARSE_DEFERRED",
-            "stage3_parse_state": "NOT_RUN_SIZE_LIMIT",
-            "snapshot_readback_state": "NOT_ATTEMPTED_SIZE_LIMIT",
-            "snapshot_readback_failure": "",
-            "markitdown_state": "MARKITDOWN_NOT_ATTEMPTED",
-            "byte_size": _int(ref.get("byte_size")),
-            "parse_error_taxonomy": ["large_attachment_targeted_parse_deferred"],
-            "section_flags": _section_flags(""),
-            "document_section_profile": {},
-            "document_section_slices": [],
-            "tailored_signal_profile_summary": _empty_signal_summary(),
-            "customer_visible_allowed": False,
-            "no_legal_conclusion": True,
-        }
     readback = repository.replay_snapshot(snapshot_id)
     if not bool(readback.get("replayable")):
         state = str(readback.get("readback_state") or "READBACK_NOT_REPLAYABLE")
@@ -314,16 +297,90 @@ def _parse_ref(
             "no_legal_conclusion": True,
         }
 
-    carrier = parser.parse_readback(readback)
-    markitdown_result = _markitdown_result_from_stage3_audit(carrier)
-    if markitdown_result is None:
-        markitdown_result = markitdown_adapter.convert_bytes_to_markdown_text(
-            bytes(data),
+    targeted = _targeted_candidate_evidence_text(
+        data=bytes(data),
+        sample=sample,
+        ref=ref,
+        readback=readback,
+    )
+    if targeted.get("certificate_found"):
+        text = str(targeted.get("text") or "")
+        profile_inputs = _signal_profile_inputs(sample=sample, ref=ref)
+        tailored_profile = build_tailored_bid_signal_profile(profile_inputs, text=text)
+        section_flags = _section_flags(text)
+        return {
+            **base,
+            "parse_state": "PARSED_TEXT_PROBE",
+            "parse_depth_executed": "TARGET_FIELD_PROBE",
+            "targeted_parse_stop_reason": "certificate_extracted_stop_file_parse",
+            "targeted_parse_pages_scanned": _int(targeted.get("pages_scanned")),
+            "stage3_parse_state": "TARGET_FIELD_EXTRACTED",
+            "stage3_attachment_type": "PDF",
+            "snapshot_readback_state": str(readback.get("readback_state") or ""),
+            "snapshot_readback_failure": "",
+            "content_type": str(readback.get("content_type") or ""),
+            "byte_size": _int(readback.get("byte_size") or len(data)),
+            "sha256": str(readback.get("sha256") or ""),
+            "markitdown_state": "MARKITDOWN_NOT_ATTEMPTED",
+            "markitdown_text_sha256": "",
+            "markitdown_text_length": 0,
+            "text_sha256": hashlib.sha256(text.encode("utf-8")).hexdigest() if text else "",
+            "text_length": len(text),
+            "text_probe": _clip(text, TEXT_PROBE_LIMIT),
+            "parsed_field_count": 0,
+            "parsed_fields_probe": [],
+            "field_candidate_profile": _field_candidate_profile(text=text, item_base=base),
+            "parse_error_taxonomy": [],
+            "section_flags": section_flags,
+            "document_section_profile": dict(tailored_profile.get("document_section_profile") or {}),
+            "document_section_slices": list(tailored_profile.get("document_section_slices") or [])[:12],
+            "tailored_signal_profile_summary": _signal_summary(tailored_profile),
+            "formal_index_weight_blocked_count": _int(tailored_profile.get("formal_index_weight_blocked_count")),
+            "llm_execution_enabled": False,
+            "graphify_enabled": False,
+            "mempalace_enabled": False,
+            "customer_visible_allowed": False,
+            "no_legal_conclusion": True,
+        }
+
+    if _int(readback.get("byte_size") or len(data)) > PARSE_PROBE_TIMEOUT_GUARD_BYTES:
+        guarded = _parse_readback_with_timeout(
+            readback=dict(readback),
             source_url=_ref_url(ref, readback),
             content_type=str(readback.get("content_type") or ""),
-            source_file_ref=str(readback.get("object_key") or snapshot_id),
+            source_file_ref=_source_file_ref(ref=ref, readback=readback, snapshot_id=snapshot_id),
+            timeout_seconds=PARSE_PROBE_HEAVY_FILE_TIMEOUT_SECONDS,
         )
-    text = _best_text(markitdown_result=markitdown_result, carrier=carrier)
+        if guarded.get("timeout"):
+            return _parse_timeout_item(
+                base=base,
+                readback=readback,
+                timeout_seconds=PARSE_PROBE_HEAVY_FILE_TIMEOUT_SECONDS,
+                timeout_state=str(guarded.get("timeout_state") or "parse_probe_timeout"),
+            )
+        if guarded.get("worker_error"):
+            carrier = _empty_carrier_for_readback(readback, error=str(guarded.get("worker_error") or "parse_probe_worker_failed"))
+            markitdown_result = markitdown_adapter.MarkItDownText(
+                text="",
+                state=markitdown_adapter.MARKITDOWN_CONVERT_FAILED,
+                warnings=[f"PARSE_PROBE_WORKER_FAILED:{guarded.get('worker_error')}"],
+            )
+            text = ""
+        else:
+            carrier = dict(guarded.get("carrier") or {})
+            markitdown_result = markitdown_adapter.MarkItDownText(**dict(guarded.get("markitdown_result") or {}))
+            text = str(guarded.get("text") or "")
+    else:
+        carrier = parser.parse_readback(readback)
+        markitdown_result = _markitdown_result_from_stage3_audit(carrier)
+        if markitdown_result is None:
+            markitdown_result = markitdown_adapter.convert_bytes_to_markdown_text(
+                bytes(data),
+                source_url=_ref_url(ref, readback),
+                content_type=str(readback.get("content_type") or ""),
+                source_file_ref=_source_file_ref(ref=ref, readback=readback, snapshot_id=snapshot_id),
+            )
+        text = _best_text(markitdown_result=markitdown_result, carrier=carrier)
     profile_inputs = _signal_profile_inputs(sample=sample, ref=ref)
     tailored_profile = build_tailored_bid_signal_profile(profile_inputs, text=text)
     section_flags = _section_flags(text)
@@ -341,7 +398,7 @@ def _parse_ref(
         parse_state = "PARSED_FIELD_ONLY"
     else:
         parse_state = "PARSE_REVIEW_REQUIRED"
-    if _sample_flow_no(sample) in POST_CANDIDATE_TEXT_PROBE_FLOW_NOS:
+    if _sample_flow_no(sample) in POST_CANDIDATE_TEXT_PROBE_FLOW_NOS | {BID_FILE_PUBLICITY_FLOW_NO}:
         parse_depth_executed = "TEXT_PROBE"
     else:
         parse_depth_executed = "SECTION_PARSE"
@@ -377,6 +434,174 @@ def _parse_ref(
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,
     }
+
+
+def _targeted_candidate_evidence_text(
+    *,
+    data: bytes,
+    sample: Mapping[str, Any],
+    ref: Mapping[str, Any],
+    readback: Mapping[str, Any],
+) -> dict[str, Any]:
+    flow_no = _sample_flow_no(sample)
+    if flow_no not in {"07", "08"}:
+        return {}
+    if not _looks_like_pdf(data=data, ref=ref, readback=readback):
+        return {}
+    try:
+        from pypdf import PdfReader  # type: ignore
+    except Exception:
+        return {}
+    try:
+        reader = PdfReader(BytesIO(data))
+    except Exception:
+        return {}
+    lines: list[str] = []
+    pages_scanned = 0
+    for page in list(reader.pages)[:40]:
+        pages_scanned += 1
+        try:
+            page_text = str(page.extract_text() or "")
+        except Exception:
+            page_text = ""
+        if page_text:
+            lines.append(page_text)
+        text = "\n".join(lines)
+        if _certificate_candidates(text):
+            return {
+                "text": text,
+                "pages_scanned": pages_scanned,
+                "certificate_found": True,
+                "targeted_parse_state": "CERTIFICATE_EXTRACTED",
+            }
+    return {
+        "text": "\n".join(lines),
+        "pages_scanned": pages_scanned,
+        "certificate_found": False,
+        "targeted_parse_state": "CERTIFICATE_NOT_FOUND_IN_TARGETED_PAGES",
+    }
+
+
+def _parse_readback_with_timeout(
+    *,
+    readback: Mapping[str, Any],
+    source_url: str,
+    content_type: str,
+    source_file_ref: str,
+    timeout_seconds: int,
+) -> dict[str, Any]:
+    ctx = multiprocessing.get_context("spawn")
+    result_queue = ctx.Queue(maxsize=1)
+    process = ctx.Process(
+        target=_heavy_parse_worker,
+        args=(dict(readback), source_url, content_type, source_file_ref, result_queue),
+    )
+    process.start()
+    process.join(timeout_seconds)
+    if process.is_alive():
+        process.terminate()
+        process.join(5)
+        return {"timeout": True, "timeout_state": "parse_probe_timeout"}
+    try:
+        result = result_queue.get_nowait()
+    except queue.Empty:
+        return {"worker_error": "parse_probe_worker_no_result"}
+    return dict(result) if isinstance(result, Mapping) else {"worker_error": "parse_probe_worker_invalid_result"}
+
+
+def _heavy_parse_worker(
+    readback: Mapping[str, Any],
+    source_url: str,
+    content_type: str,
+    source_file_ref: str,
+    result_queue: Any,
+) -> None:
+    try:
+        parser = Stage3RealParser()
+        carrier = parser.parse_readback(readback)
+        markitdown_result = _markitdown_result_from_stage3_audit(carrier)
+        if markitdown_result is None:
+            markitdown_result = markitdown_adapter.convert_bytes_to_markdown_text(
+                bytes(readback.get("bytes") or b""),
+                source_url=source_url,
+                content_type=content_type,
+                source_file_ref=source_file_ref,
+            )
+        text = _best_text(markitdown_result=markitdown_result, carrier=carrier)
+        result_queue.put(
+            {
+                "carrier": carrier,
+                "markitdown_result": {
+                    "text": markitdown_result.text,
+                    "state": markitdown_result.state,
+                    "extractor": markitdown_result.extractor,
+                    "text_sha256": markitdown_result.text_sha256,
+                    "text_length": markitdown_result.text_length,
+                    "text_probe": markitdown_result.text_probe,
+                    "warnings": list(markitdown_result.warnings),
+                },
+                "text": text,
+            }
+        )
+    except BaseException as exc:  # pragma: no cover - worker failures depend on public files and optional deps
+        result_queue.put({"worker_error": f"{type(exc).__name__}:{exc}"})
+
+
+def _parse_timeout_item(
+    *,
+    base: Mapping[str, Any],
+    readback: Mapping[str, Any],
+    timeout_seconds: int,
+    timeout_state: str,
+) -> dict[str, Any]:
+    return {
+        **dict(base),
+        "parse_state": "PARSE_TIMEOUT_REVIEW",
+        "parse_depth_executed": "TARGET_FIELD_PROBE_TIMEOUT_GUARD",
+        "stage3_parse_state": "NOT_RUN_PARSE_TIMEOUT",
+        "snapshot_readback_state": str(readback.get("readback_state") or ""),
+        "snapshot_readback_failure": "",
+        "content_type": str(readback.get("content_type") or ""),
+        "byte_size": _int(readback.get("byte_size")),
+        "sha256": str(readback.get("sha256") or ""),
+        "markitdown_state": "MARKITDOWN_NOT_COMPLETED_TIMEOUT",
+        "parse_timeout_seconds": timeout_seconds,
+        "parse_error_taxonomy": [timeout_state],
+        "section_flags": _section_flags(""),
+        "document_section_profile": {},
+        "document_section_slices": [],
+        "tailored_signal_profile_summary": _empty_signal_summary(),
+        "llm_execution_enabled": False,
+        "graphify_enabled": False,
+        "mempalace_enabled": False,
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
+
+
+def _empty_carrier_for_readback(readback: Mapping[str, Any], *, error: str) -> dict[str, Any]:
+    return {
+        "parse_state": "REVIEW_REQUIRED",
+        "attachment_type": "",
+        "parsed_fields": [],
+        "parser_audit": {},
+        "parse_error_taxonomy": [error],
+    }
+
+
+def _looks_like_pdf(*, data: bytes, ref: Mapping[str, Any], readback: Mapping[str, Any]) -> bool:
+    content_type = str(readback.get("content_type") or ref.get("content_type") or "").split(";", 1)[0].lower()
+    name = f"{ref.get('attachment_link_text') or ''} {_ref_url(ref, readback)} {_source_file_ref(ref=ref, readback=readback, snapshot_id=str(ref.get('snapshot_id') or ''))}".lower()
+    return content_type == "application/pdf" or ".pdf" in name or bytes(data).startswith(b"%PDF")
+
+
+def _source_file_ref(*, ref: Mapping[str, Any], readback: Mapping[str, Any], snapshot_id: str) -> str:
+    return str(
+        ref.get("attachment_link_text")
+        or readback.get("source_file_ref")
+        or readback.get("object_key")
+        or snapshot_id
+    )
 
 
 def _planned_sample(

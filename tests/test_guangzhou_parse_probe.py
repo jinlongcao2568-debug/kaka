@@ -76,12 +76,22 @@ class GuangzhouParseProbeTests(unittest.TestCase):
             self.assertTrue(list((output_root / "projects" / "CN-GD").glob("**/parsed/parse-summary.json")))
             convert.assert_called_once()
 
-    def test_bid_file_publicity_is_skipped_by_default_even_if_selected(self) -> None:
+    def test_bid_file_publicity_is_target_parsed_when_selected(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
             input_root = root / "download"
             _write_download_manifest(input_root, flow_no="08", snapshot_id="ATT-08-1")
-            with patch("storage.guangzhou_parse_probe.markitdown_adapter.convert_bytes_to_markdown_text") as convert:
+            text = "投标文件公开：项目负责人：李四 证书编号：粤1442020202100002"
+            with patch(
+                "storage.guangzhou_parse_probe.markitdown_adapter.convert_bytes_to_markdown_text",
+                return_value=markitdown_adapter.MarkItDownText(
+                    text=text,
+                    state=markitdown_adapter.MARKITDOWN_TEXT_EXTRACTED,
+                    text_sha256="flow08-text-sha",
+                    text_length=len(text),
+                    text_probe=text,
+                ),
+            ) as convert:
                 result = build_guangzhou_parse_probe(
                     input_root=input_root,
                     output_root=root / "parse",
@@ -94,11 +104,12 @@ class GuangzhouParseProbeTests(unittest.TestCase):
                     created_at="2026-05-10T00:00:00+08:00",
                 )
 
-            self.assertEqual(result["summary"]["parse_skipped_file_count"], 1)
-            self.assertEqual(result["manifest"]["items"][0]["parse_state"], "SKIPPED_BID_FILE_PUBLICITY_DEEP_PARSE")
-            convert.assert_not_called()
+            self.assertEqual(result["summary"]["parse_skipped_file_count"], 0)
+            self.assertEqual(result["summary"]["parse_success_count"], 1)
+            self.assertEqual(result["manifest"]["items"][0]["parse_state"], "PARSED_TEXT_PROBE")
+            convert.assert_called_once()
 
-    def test_large_candidate_attachment_is_deferred_before_readback(self) -> None:
+    def test_large_candidate_attachment_is_parsed_instead_of_deferred_by_size(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
             input_root = root / "download"
@@ -109,22 +120,35 @@ class GuangzhouParseProbeTests(unittest.TestCase):
                 attachment_url="https://example.test/files/company-bid.pdf",
                 byte_size=65_000_000,
             )
-            with patch("storage.guangzhou_parse_probe.markitdown_adapter.convert_bytes_to_markdown_text") as convert:
+            text = "中标候选人：广州测试有限公司\n项目负责人：张三\n证书编号：粤1442020202100001"
+            with patch(
+                "storage.guangzhou_parse_probe.markitdown_adapter.convert_bytes_to_markdown_text",
+                return_value=markitdown_adapter.MarkItDownText(
+                    text=text,
+                    state=markitdown_adapter.MARKITDOWN_TEXT_EXTRACTED,
+                    text_sha256="large-text-sha",
+                    text_length=len(text),
+                    text_probe=text,
+                ),
+            ) as convert:
                 result = build_guangzhou_parse_probe(
                     input_root=input_root,
                     output_root=root / "parse",
                     project_ids=["JG2026-10815"],
                     flow_nos=["07"],
                     execute=True,
-                    object_repository=FakeReplayRepository({}),
+                    object_repository=FakeReplayRepository(
+                        {"ATT-07-LARGE": _replay("ATT-07-LARGE", b"%PDF large candidate", "application/pdf")}
+                    ),
                     created_at="2026-05-10T00:00:00+08:00",
                 )
 
             item = result["manifest"]["items"][0]
-            self.assertEqual(item["parse_state"], "SKIPPED_LARGE_ATTACHMENT_TARGETED_PARSE_DEFERRED")
-            self.assertEqual(item["stage3_parse_state"], "NOT_RUN_SIZE_LIMIT")
-            self.assertEqual(result["summary"]["parse_skipped_file_count"], 1)
-            convert.assert_not_called()
+            self.assertEqual(item["parse_state"], "PARSED_TEXT_PROBE")
+            self.assertEqual(item["markitdown_state"], markitdown_adapter.MARKITDOWN_TEXT_EXTRACTED)
+            self.assertEqual(result["summary"]["parse_skipped_file_count"], 0)
+            self.assertNotIn("large_attachment_targeted_parse_deferred", result["summary"]["parse_failure_taxonomy_counts"])
+            convert.assert_called_once()
 
     def test_snapshot_readback_failure_is_fail_closed(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
