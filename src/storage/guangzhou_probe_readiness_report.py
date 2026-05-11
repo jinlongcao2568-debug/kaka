@@ -12,6 +12,14 @@ from shared.utils import utc_now_iso
 GUANGZHOU_UPSTREAM_READINESS_REPORT_KIND = "guangzhou_upstream_readiness_report_manifest"
 GUANGZHOU_UPSTREAM_READINESS_REPORT_VERSION = 1
 GUANGZHOU_UPSTREAM_READINESS_REPORT_ADAPTER_ID = "guangzhou-upstream-readiness-report-v1"
+_CANDIDATE_CERTIFICATE_READY_STATES = {
+    "READY_FOR_STAGE4_CERTIFICATE_VERIFICATION",
+    "READY_FOR_STAGE4_CERTIFICATE_VERIFICATION_FROM_FLOW_08_FALLBACK",
+}
+_CANDIDATE_CERTIFICATE_GATE_STATES = {
+    *_CANDIDATE_CERTIFICATE_READY_STATES,
+    "CERTIFICATE_MISSING_PARSE_REQUIRED",
+}
 
 
 def build_guangzhou_upstream_readiness_report(
@@ -155,7 +163,11 @@ def _project_record(
     stage4_pm = sum(1 for item in stage4_items if item.get("project_manager_name"))
     stage4_cert = sum(1 for item in stage4_items if item.get("project_manager_certificate_no"))
     flow_07_stage4_items = [item for item in stage4_items if _flow_no(item.get("flow_no") or item.get("guangzhou_flow_no")) == "07"]
+    flow_08_stage4_items = [item for item in stage4_items if _flow_no(item.get("flow_no") or item.get("guangzhou_flow_no")) == "08"]
     flow_07_cert = sum(1 for item in flow_07_stage4_items if item.get("project_manager_certificate_no"))
+    flow_08_cert = sum(1 for item in flow_08_stage4_items if item.get("project_manager_certificate_no"))
+    candidate_cert = flow_07_cert + flow_08_cert
+    has_candidate_evidence_sample = any(_flow_no(row.get("guangzhou_flow_no") or row.get("flow_no")) in {"07", "08"} for row in [*flow_samples, *parse_samples, *stage4_items])
     blockers = _project_blockers(
         flow_samples=flow_samples,
         download_samples=download_samples,
@@ -167,7 +179,12 @@ def _project_record(
         parse_success=parse_success,
         stage4_pm=stage4_pm,
         stage4_cert=stage4_cert,
+        candidate_certificate_inputs=candidate_cert,
+    )
+    candidate_gate_state = _candidate_certificate_gate_state(
         flow_07_certificate_inputs=flow_07_cert,
+        flow_08_certificate_inputs=flow_08_cert,
+        has_candidate_evidence_sample=has_candidate_evidence_sample,
     )
     return {
         "project_id": project_id,
@@ -190,6 +207,15 @@ def _project_record(
         "stage4_certificate_input_count": stage4_cert,
         "flow_07_stage4_input_count": len(flow_07_stage4_items),
         "flow_07_certificate_input_count": flow_07_cert,
+        "flow_08_stage4_input_count": len(flow_08_stage4_items),
+        "flow_08_certificate_input_count": flow_08_cert,
+        "candidate_evidence_certificate_input_count": candidate_cert,
+        "candidate_evidence_certificate_source_flows": _dedupe(
+            flow
+            for flow, count in (("07", flow_07_cert), ("08", flow_08_cert))
+            if count > 0
+        ),
+        "candidate_evidence_certificate_gate_state": candidate_gate_state,
         "flow_07_certificate_gate_state": (
             "READY_FOR_STAGE4_CERTIFICATE_VERIFICATION"
             if flow_07_cert > 0
@@ -327,12 +353,21 @@ def _summary(
     stage4_cert = _int(stage4_summary.get("with_certificate_count"))
     stage4_items = [dict(item) for item in list(stage4_manifest.get("items") or []) if isinstance(item, Mapping)]
     flow_07_stage4_items = [item for item in stage4_items if _flow_no(item.get("flow_no") or item.get("guangzhou_flow_no")) == "07"]
+    flow_08_stage4_items = [item for item in stage4_items if _flow_no(item.get("flow_no") or item.get("guangzhou_flow_no")) == "08"]
     flow_07_pm = sum(1 for item in flow_07_stage4_items if item.get("project_manager_name"))
     flow_07_cert = sum(1 for item in flow_07_stage4_items if item.get("project_manager_certificate_no"))
-    flow_07_certificate_gate_ready = flow_07_cert > 0
+    flow_08_pm = sum(1 for item in flow_08_stage4_items if item.get("project_manager_name"))
+    flow_08_cert = sum(1 for item in flow_08_stage4_items if item.get("project_manager_certificate_no"))
+    candidate_cert = flow_07_cert + flow_08_cert
+    candidate_certificate_gate_ready = candidate_cert > 0
     flow_07_project_count = sum(1 for row in project_records if row.get("flow_07_certificate_gate_state") in {"READY_FOR_STAGE4_CERTIFICATE_VERIFICATION", "CERTIFICATE_MISSING_PARSE_REQUIRED"})
     flow_07_projects_with_certificate_count = sum(1 for row in project_records if row.get("flow_07_certificate_gate_state") == "READY_FOR_STAGE4_CERTIFICATE_VERIFICATION")
     flow_07_projects_missing_certificate_count = sum(1 for row in project_records if row.get("flow_07_certificate_gate_state") == "CERTIFICATE_MISSING_PARSE_REQUIRED")
+    candidate_project_count = sum(1 for row in project_records if row.get("candidate_evidence_certificate_gate_state") in _CANDIDATE_CERTIFICATE_GATE_STATES)
+    candidate_projects_with_certificate_count = sum(1 for row in project_records if row.get("candidate_evidence_certificate_gate_state") in _CANDIDATE_CERTIFICATE_READY_STATES)
+    candidate_projects_with_flow_07_certificate_count = sum(1 for row in project_records if row.get("candidate_evidence_certificate_gate_state") == "READY_FOR_STAGE4_CERTIFICATE_VERIFICATION")
+    candidate_projects_with_flow_08_fallback_certificate_count = sum(1 for row in project_records if row.get("candidate_evidence_certificate_gate_state") == "READY_FOR_STAGE4_CERTIFICATE_VERIFICATION_FROM_FLOW_08_FALLBACK")
+    candidate_projects_missing_certificate_count = sum(1 for row in project_records if row.get("candidate_evidence_certificate_gate_state") == "CERTIFICATE_MISSING_PARSE_REQUIRED")
     parse_success_rate = _rate(_int(parse_summary.get("parse_success_count")), _int(parse_summary.get("parse_attempted_file_count")))
     blocking = []
     if missing_inputs:
@@ -345,20 +380,20 @@ def _summary(
         blocking.append("download_probe_timeout_interrupted")
     if _int(download_summary.get("partial_segment_count")) > 0:
         blocking.append("download_probe_partial_segment_present")
-    if parse_success_rate < 0.8 and not flow_07_certificate_gate_ready:
+    if parse_success_rate < 0.8 and not candidate_certificate_gate_ready:
         blocking.append("parse_success_rate_below_target")
-    if not flow_07_certificate_gate_ready:
-        blocking.append("flow_07_certificate_inputs_missing_parse_required")
+    if not candidate_certificate_gate_ready:
+        blocking.append("candidate_evidence_certificate_inputs_missing_parse_required")
     safe_to_continue_stage4 = not blocking
-    if safe_to_continue_stage4 and flow_07_projects_missing_certificate_count > 0:
-        readiness_state = "READY_FOR_STAGE4_PROBE_PARTIAL_FLOW_07_CERTIFICATE_SCOPE"
-        stage4_execution_scope = "FLOW_07_CERTIFICATE_READY_PROJECTS_ONLY"
+    if safe_to_continue_stage4 and candidate_projects_missing_certificate_count > 0:
+        readiness_state = "READY_FOR_STAGE4_PROBE_PARTIAL_CANDIDATE_CERTIFICATE_SCOPE"
+        stage4_execution_scope = "CANDIDATE_CERTIFICATE_READY_PROJECTS_ONLY"
     elif safe_to_continue_stage4:
         readiness_state = "READY_FOR_STAGE4_PROBE"
-        stage4_execution_scope = "ALL_READY_FLOW_07_PROJECTS"
+        stage4_execution_scope = "ALL_READY_CANDIDATE_CERTIFICATE_PROJECTS"
     else:
         readiness_state = "UPSTREAM_NOT_READY_FOR_STAGE4"
-        stage4_execution_scope = "BLOCKED_UNTIL_FLOW_07_CERTIFICATE"
+        stage4_execution_scope = "BLOCKED_UNTIL_CANDIDATE_CERTIFICATE"
     return {
         "readiness_state": readiness_state,
         "safe_to_continue_stage4": safe_to_continue_stage4,
@@ -378,9 +413,9 @@ def _summary(
         "parse_success_count": _int(parse_summary.get("parse_success_count")),
         "parse_success_rate": parse_success_rate,
         "parse_success_rate_gate_state": (
-            "DEFERRED_AFTER_FLOW_07_CERTIFICATE_GATE"
-            if parse_success_rate < 0.8 and flow_07_certificate_gate_ready
-            else "BLOCKING_UNTIL_FLOW_07_CERTIFICATE"
+            "DEFERRED_AFTER_CANDIDATE_CERTIFICATE_GATE"
+            if parse_success_rate < 0.8 and candidate_certificate_gate_ready
+            else "BLOCKING_UNTIL_CANDIDATE_CERTIFICATE"
             if parse_success_rate < 0.8
             else "PASS"
         ),
@@ -391,12 +426,33 @@ def _summary(
         "flow_07_stage4_input_count": len(flow_07_stage4_items),
         "flow_07_project_manager_input_count": flow_07_pm,
         "flow_07_certificate_input_count": flow_07_cert,
+        "flow_08_stage4_input_count": len(flow_08_stage4_items),
+        "flow_08_project_manager_input_count": flow_08_pm,
+        "flow_08_certificate_input_count": flow_08_cert,
+        "candidate_evidence_certificate_input_count": candidate_cert,
+        "candidate_evidence_certificate_source_flows": _dedupe(
+            flow
+            for flow, count in (("07", flow_07_cert), ("08", flow_08_cert))
+            if count > 0
+        ),
+        "candidate_evidence_project_count": candidate_project_count,
+        "candidate_evidence_projects_with_certificate_count": candidate_projects_with_certificate_count,
+        "candidate_evidence_projects_with_flow_07_certificate_count": candidate_projects_with_flow_07_certificate_count,
+        "candidate_evidence_projects_with_flow_08_fallback_certificate_count": candidate_projects_with_flow_08_fallback_certificate_count,
+        "candidate_evidence_projects_missing_certificate_count": candidate_projects_missing_certificate_count,
+        "candidate_evidence_certificate_gate_state": (
+            "READY_FOR_STAGE4_CERTIFICATE_VERIFICATION"
+            if flow_07_cert > 0
+            else "READY_FOR_STAGE4_CERTIFICATE_VERIFICATION_FROM_FLOW_08_FALLBACK"
+            if flow_08_cert > 0
+            else "CERTIFICATE_MISSING_PARSE_REQUIRED"
+        ),
         "flow_07_project_count": flow_07_project_count,
         "flow_07_projects_with_certificate_count": flow_07_projects_with_certificate_count,
         "flow_07_projects_missing_certificate_count": flow_07_projects_missing_certificate_count,
         "flow_07_certificate_gate_state": (
             "READY_FOR_STAGE4_CERTIFICATE_VERIFICATION"
-            if flow_07_certificate_gate_ready
+            if flow_07_cert > 0
             else "CERTIFICATE_MISSING_PARSE_REQUIRED"
         ),
         "project_repair_required_count": sum(1 for row in project_records if row.get("readiness_state") != "READY_FOR_STAGE4_PROBE"),
@@ -454,28 +510,29 @@ def _repair_backlog(*, project_records: list[Mapping[str, Any]], flow_records: l
                 "evidence": summary.get("parse_failure_taxonomy_counts"),
             }
         )
-    if summary.get("parse_success_rate_gate_state") == "DEFERRED_AFTER_FLOW_07_CERTIFICATE_GATE":
+    if summary.get("parse_success_rate_gate_state") == "DEFERRED_AFTER_CANDIDATE_CERTIFICATE_GATE":
         backlog.append(
             {
                 "priority": 3,
                 "repair_layer": "DeferredStage3ParseProbe",
-                "repair_action": "07 候选线已抽到证书，允许先走 Stage4 核验；03/04/08 其他解析不足暂缓为后续证据补强任务。",
+                "repair_action": "候选证据线已抽到证书，允许先走 Stage4 核验；03/04/08 其他解析不足暂缓为后续证据补强任务。",
                 "evidence": {
                     "parse_success_rate": summary.get("parse_success_rate"),
-                    "flow_07_certificate_input_count": summary.get("flow_07_certificate_input_count"),
+                    "candidate_evidence_certificate_input_count": summary.get("candidate_evidence_certificate_input_count"),
+                    "candidate_evidence_certificate_source_flows": summary.get("candidate_evidence_certificate_source_flows"),
                 },
             }
         )
-    if "flow_07_certificate_inputs_missing_parse_required" in summary.get("stage4_blocking_reasons", []):
+    if "candidate_evidence_certificate_inputs_missing_parse_required" in summary.get("stage4_blocking_reasons", []):
         backlog.append(
             {
                 "priority": 1,
-                "repair_layer": "Flow07CertificateExtraction",
-                "repair_action": "只围绕 07 中标候选人公示附件补解析，目标先抽到项目负责人证书号；抽到证书后先接 Stage4 核验，其他解析暂缓。",
+                "repair_layer": "CandidateEvidenceCertificateExtraction",
+                "repair_action": "先解析 07 中标候选人公示及副本附件；若 07 无证书，再解析 08 投标/资格预审申请文件公开，目标先抽到项目负责人证书号。",
                 "evidence": {
-                    "flow_07_stage4_input_count": summary.get("flow_07_stage4_input_count"),
-                    "flow_07_project_manager_input_count": summary.get("flow_07_project_manager_input_count"),
+                    "candidate_evidence_certificate_input_count": summary.get("candidate_evidence_certificate_input_count"),
                     "flow_07_certificate_input_count": summary.get("flow_07_certificate_input_count"),
+                    "flow_08_certificate_input_count": summary.get("flow_08_certificate_input_count"),
                 },
             }
         )
@@ -510,20 +567,20 @@ def _project_blockers(
     parse_success: int,
     stage4_pm: int,
     stage4_cert: int,
-    flow_07_certificate_inputs: int,
+    candidate_certificate_inputs: int,
 ) -> list[str]:
     blockers: list[str] = []
-    has_flow_07 = any(_flow_no(row.get("guangzhou_flow_no") or row.get("flow_no")) == "07" for row in [*flow_samples, *parse_samples, *stage4_items])
+    has_candidate_evidence_flow = any(_flow_no(row.get("guangzhou_flow_no") or row.get("flow_no")) in {"07", "08"} for row in [*flow_samples, *parse_samples, *stage4_items])
     if flow_samples and not download_samples:
         blockers.append("download_probe_not_run_for_project")
     if listed_attachments and attachment_snapshots < listed_attachments:
         blockers.append("attachment_download_incomplete")
-    if parse_attempted and parse_success < parse_attempted and not flow_07_certificate_inputs:
+    if parse_attempted and parse_success < parse_attempted and not candidate_certificate_inputs:
         blockers.append("parse_incomplete")
     if parse_samples and not stage4_items:
         blockers.append("stage4_inputs_not_generated")
-    if has_flow_07 and not flow_07_certificate_inputs:
-        blockers.append("flow_07_certificate_input_missing_parse_required")
+    if has_candidate_evidence_flow and not candidate_certificate_inputs:
+        blockers.append("candidate_evidence_certificate_input_missing_parse_required")
     return blockers
 
 
@@ -547,10 +604,10 @@ def _flow_blockers(
         blockers.append("download_probe_not_run_for_required_flow")
     if listed and snapshots < (attempted or listed):
         blockers.append("attachment_snapshot_incomplete_for_flow")
-    if parse_attempted and parse_success < parse_attempted and not (flow_no == "07" and stage4_certificate_inputs > 0):
+    if parse_attempted and parse_success < parse_attempted and not (flow_no in {"07", "08"} and stage4_certificate_inputs > 0):
         blockers.append("parse_incomplete_for_flow")
-    if flow_no == "07" and parse_samples and stage4_certificate_inputs == 0:
-        blockers.append("flow_07_certificate_input_missing_parse_required")
+    if flow_no in {"07", "08"} and parse_samples and stage4_certificate_inputs == 0:
+        blockers.append("candidate_evidence_certificate_input_missing_parse_required")
     elif parse_samples and not stage4_items and any(_flow_no(sample.get("guangzhou_flow_no") or sample.get("flow_no")) == "08" for sample in parse_samples):
         blockers.append("candidate_stage4_input_missing_for_flow")
     return blockers
@@ -632,6 +689,21 @@ def _source_manifest(payload: Mapping[str, Any]) -> dict[str, Any]:
 def _flow_no(value: Any) -> str:
     text = str(value or "").strip()
     return text.zfill(2) if text else ""
+
+
+def _candidate_certificate_gate_state(
+    *,
+    flow_07_certificate_inputs: int,
+    flow_08_certificate_inputs: int,
+    has_candidate_evidence_sample: bool,
+) -> str:
+    if flow_07_certificate_inputs > 0:
+        return "READY_FOR_STAGE4_CERTIFICATE_VERIFICATION"
+    if flow_08_certificate_inputs > 0:
+        return "READY_FOR_STAGE4_CERTIFICATE_VERIFICATION_FROM_FLOW_08_FALLBACK"
+    if has_candidate_evidence_sample:
+        return "CERTIFICATE_MISSING_PARSE_REQUIRED"
+    return "NO_CANDIDATE_EVIDENCE_SAMPLE"
 
 
 def _first_text(values: Any) -> str:
