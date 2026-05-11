@@ -81,7 +81,7 @@ class TestGuangzhouPostCandidateBacktrace(unittest.TestCase):
             )
 
             payload = json.loads(path.read_text(encoding="utf-8"))
-            self.assertEqual({item["target_id"] for item in payload["targets"]}, set(("REAL-GD-CANDIDATE-001", "REAL-GD-AWARD-001")))
+            self.assertEqual({item["target_id"] for item in payload["targets"]}, {"REAL-GD-CANDIDATE-001"})
             self.assertTrue(all(item["target_count"] == 30 for item in payload["targets"]))
             self.assertTrue(
                 all("POST_CANDIDATE_BATCH_LIMIT:30" in item["selection_filters"] for item in payload["targets"])

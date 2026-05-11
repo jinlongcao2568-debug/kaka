@@ -60,7 +60,10 @@ LOGIN_OR_CA_REQUIRED = "LOGIN_OR_CA_REQUIRED"
 INTERFACE_UNRESOLVED = "INTERFACE_UNRESOLVED"
 FLOW_SAMPLE_NOT_FOUND = "FLOW_SAMPLE_NOT_FOUND"
 OPTIONAL_LOW_FREQUENCY_FLOW_NOT_FOUND = "OPTIONAL_LOW_FREQUENCY_FLOW_NOT_FOUND"
-ENTRY_TARGET_IDS = ("REAL-GD-CANDIDATE-001", "REAL-GD-AWARD-001")
+# Default business entry is 07 中标候选人公示.  Award/result pages remain
+# backtrace stages, not the default entry pool, so fresh runs do not mix
+# result-only projects into the candidate evidence-pack queue.
+ENTRY_TARGET_IDS = ("REAL-GD-CANDIDATE-001",)
 GUANGZHOU_FLOW_MODULES = (
     {"flow_no": "01", "flow_code": "08", "flow_title": "招标计划", "document_kind": "bid_plan"},
     {"flow_no": "02", "flow_code": "17", "flow_title": "招标文件公示", "document_kind": "tender_file_publicity"},
