@@ -192,6 +192,83 @@ class GuangzhouUpstreamReadinessReportTests(unittest.TestCase):
             self.assertEqual(summary["candidate_evidence_certificate_gate_state"], "CERTIFICATE_MISSING_PARSE_REQUIRED")
             self.assertIn("candidate_evidence_certificate_inputs_missing_parse_required", summary["stage4_blocking_reasons"])
 
+    def test_report_includes_candidate_group_stage4_resolution(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            flow_root = root / "flow"
+            download_root = root / "download"
+            strategy_root = root / "strategy"
+            archive_root = root / "archive"
+            parse_root = root / "parse"
+            stage4_execution_root = root / "stage4-execution"
+            output_root = root / "report"
+            _write_flow_manifest(flow_root, include_only_candidate_project=True)
+            _write_analysis_plan(flow_root, include_only_candidate_project=True)
+            _write_download_manifest(download_root, complete_candidate=True)
+            _write_strategy_manifest(strategy_root)
+            _write_archive_manifest(archive_root)
+            _write_parse_manifest(parse_root, candidate_parse_review=True)
+            _write_stage4_inputs(parse_root, flow_07_certificate=True)
+            _write_stage4_execution_manifest(stage4_execution_root)
+
+            result = build_guangzhou_upstream_readiness_report(
+                flow_root=flow_root,
+                download_root=download_root,
+                evidence_strategy_root=strategy_root,
+                archive_extract_root=archive_root,
+                parse_root=parse_root,
+                stage4_execution_root=stage4_execution_root,
+                output_root=output_root,
+                created_at="2026-05-11T00:00:00+08:00",
+            )
+
+            summary = result["summary"]["candidate_group_verification_summary"]
+            self.assertEqual(summary["candidate_group_count"], 1)
+            self.assertEqual(summary["resolved_group_count"], 1)
+            self.assertEqual(summary["matched_company_names"], ["北京神州新桥科技有限公司"])
+            project = result["manifest"]["project_records"][0]
+            group_record = project["candidate_group_verification_records"][0]
+            self.assertEqual(group_record["group_resolution_state"], "RESOLVED_BY_CONSORTIUM_MEMBER")
+            self.assertEqual(group_record["matched_company_names"], ["北京神州新桥科技有限公司"])
+            self.assertEqual(group_record["nonmatched_but_group_resolved_count"], 2)
+            self.assertFalse(group_record["flow_08_targeted_parse_required"])
+            self.assertEqual(group_record["member_records"][0]["resolved_certificate_no_optional"], "")
+
+    def test_report_does_not_mark_all_resolved_groups_as_flow08_required_when_parse_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            flow_root = root / "flow"
+            download_root = root / "download"
+            strategy_root = root / "strategy"
+            archive_root = root / "archive"
+            parse_root = root / "parse"
+            stage4_execution_root = root / "stage4-execution"
+            output_root = root / "report"
+            _write_flow_manifest(flow_root, include_only_candidate_project=True)
+            _write_analysis_plan(flow_root, include_only_candidate_project=True)
+            _write_download_manifest(download_root, complete_candidate=True)
+            _write_strategy_manifest(strategy_root)
+            _write_archive_manifest(archive_root)
+            _write_stage4_execution_manifest(stage4_execution_root)
+
+            result = build_guangzhou_upstream_readiness_report(
+                flow_root=flow_root,
+                download_root=download_root,
+                evidence_strategy_root=strategy_root,
+                archive_extract_root=archive_root,
+                parse_root=parse_root,
+                stage4_execution_root=stage4_execution_root,
+                output_root=output_root,
+                created_at="2026-05-11T00:00:00+08:00",
+            )
+
+            summary = result["summary"]
+            self.assertFalse(summary["safe_to_continue_stage4"])
+            self.assertEqual(summary["readiness_state"], "STAGE4_GROUP_VERIFICATION_READY_PARSE_DEFERRED")
+            self.assertEqual(summary["stage4_execution_scope"], "CANDIDATE_GROUPS_RESOLVED_PARSE_DEFERRED")
+            self.assertEqual(summary["candidate_group_stage4_gate_state"], "GROUPS_RESOLVED")
+            self.assertIn("parse_probe_manifest_missing", summary["stage4_blocking_reasons"])
+
 
 def _write_flow_manifest(
     root: Path,
@@ -435,6 +512,82 @@ def _write_stage4_inputs(
         },
     }
     (root / "stage4_candidate_verification_inputs.json").write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _write_stage4_execution_manifest(root: Path) -> None:
+    root.mkdir(parents=True, exist_ok=True)
+    members = ["云浮市易安停科技有限公司", "中裕工程集团有限公司", "北京神州新桥科技有限公司"]
+    items = [
+        {
+            "project_id": "PROJ-CN-GD-JG2026-22222",
+            "project_name": "PROJ-CN-GD-JG2026-22222测试项目",
+            "flow_no": "07",
+            "flow_title": "中标候选人公示",
+            "candidate_group_id": "GROUP-22222-1",
+            "candidate_group_order": 1,
+            "candidate_group_members": members,
+            "candidate_company_name": "云浮市易安停科技有限公司",
+            "consortium_member_role": "lead",
+            "responsible_person_name": "王立亮",
+            "source_certificate_no_optional": "京1112017201745983",
+            "resolved_certificate_no_optional": "王立亮",
+            "supplement_after_execution_state": "CONSORTIUM_MEMBER_NONMATCH_GROUP_RESOLVED",
+            "candidate_group_resolution_state": "RESOLVED_BY_CONSORTIUM_MEMBER",
+            "candidate_group_matched_company_name_optional": "北京神州新桥科技有限公司",
+            "flow_08_targeted_parse_required": False,
+        },
+        {
+            "project_id": "PROJ-CN-GD-JG2026-22222",
+            "project_name": "PROJ-CN-GD-JG2026-22222测试项目",
+            "flow_no": "07",
+            "flow_title": "中标候选人公示",
+            "candidate_group_id": "GROUP-22222-1",
+            "candidate_group_order": 1,
+            "candidate_group_members": members,
+            "candidate_company_name": "中裕工程集团有限公司",
+            "consortium_member_role": "member",
+            "responsible_person_name": "王立亮",
+            "source_certificate_no_optional": "京1112017201745983",
+            "supplement_after_execution_state": "CONSORTIUM_MEMBER_NONMATCH_GROUP_RESOLVED",
+            "candidate_group_resolution_state": "RESOLVED_BY_CONSORTIUM_MEMBER",
+            "candidate_group_matched_company_name_optional": "北京神州新桥科技有限公司",
+            "flow_08_targeted_parse_required": False,
+        },
+        {
+            "project_id": "PROJ-CN-GD-JG2026-22222",
+            "project_name": "PROJ-CN-GD-JG2026-22222测试项目",
+            "flow_no": "07",
+            "flow_title": "中标候选人公示",
+            "candidate_group_id": "GROUP-22222-1",
+            "candidate_group_order": 1,
+            "candidate_group_members": members,
+            "candidate_company_name": "北京神州新桥科技有限公司",
+            "consortium_member_role": "member",
+            "responsible_person_name": "王立亮",
+            "source_certificate_no_optional": "京1112017201745983",
+            "resolved_certificate_no_optional": "京1112017201745983",
+            "registered_unit_name_optional": "北京神州新桥科技有限公司",
+            "supplement_after_execution_state": "COMPANY_FIRST_CERTIFICATE_RESOLVED",
+            "candidate_group_resolution_state": "RESOLVED_BY_THIS_MEMBER",
+            "candidate_group_matched_company_name_optional": "北京神州新桥科技有限公司",
+            "flow_08_targeted_parse_required": False,
+        },
+    ]
+    payload = {
+        "manifest": {
+            "manifest_kind": "company_first_stage4_execution_manifest",
+            "items": items,
+            "summary": {
+                "job_count": len(items),
+                "candidate_group_resolved_count": 1,
+                "stage4_execution_state_counts": {"FAIL_CLOSED": 2, "READBACK_READY": 1},
+            },
+        }
+    }
+    (root / "company-first-stage4-execution.json").write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
 
 
 def _sample(project_id: str, flow_no: str, flow_title: str) -> dict[str, object]:

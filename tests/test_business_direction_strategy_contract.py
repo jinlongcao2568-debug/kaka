@@ -109,6 +109,109 @@ class BusinessDirectionStrategyContractTests(unittest.TestCase):
         self.assertFalse(post_flow_policy["11"]["required_for_recent_candidate_sales_window"])
         self.assertFalse(post_flow_policy["12"]["required_for_recent_candidate_sales_window"])
 
+    def test_responsible_person_early_probe_policy_prioritizes_07_then_company_first_then_08(self) -> None:
+        contract = self._contract()
+        policy = contract["analysis_strategy_policy"]["responsible_person_early_probe_policy"]
+
+        self.assertEqual(policy["policy_id"], "RESPONSIBLE-PERSON-EARLY-PROBE-V1")
+        self.assertTrue(policy["required_before_stage4_live_verification"])
+        self.assertEqual(policy["applies_to_product_mode"], "POST_CANDIDATE_EVIDENCE_PACK")
+        group_policy = policy["candidate_group_binding_policy"]
+        self.assertTrue(group_policy["must_bind_by_candidate_row"])
+        self.assertEqual(
+            group_policy["group_resolution_rule"],
+            "ANY_CONSORTIUM_MEMBER_MATCH_RESOLVES_THE_CANDIDATE_GROUP",
+        )
+        self.assertIn("candidate_group_members", group_policy["candidate_group_fields"])
+        self.assertIn(
+            "do_not_cross_match_company_person_certificate_between_candidate_rows",
+            group_policy["must_not"],
+        )
+        self.assertIn("do_not_only_verify_consortium_lead_company", group_policy["must_not"])
+
+        evidence_order = {item["order"]: item for item in policy["preferred_evidence_order"]}
+        self.assertEqual(evidence_order[1]["flow_no"], "07")
+        self.assertEqual(evidence_order[1]["source"], "candidate_notice_detail_html")
+        self.assertEqual(evidence_order[2]["source"], "candidate_notice_small_pdf_or_evaluation_report_pdf")
+        self.assertEqual(evidence_order[3]["action"], "OCR_ONLY_WHEN_MARKITDOWN_TEXT_EMPTY_AND_TARGET_FIELDS_MISSING")
+        self.assertEqual(evidence_order[4]["flow_no"], "08")
+        self.assertEqual(evidence_order[4]["action"], "TARGETED_PARSE_ONLY")
+        self.assertIn("证书", evidence_order[4]["preferred_file_name_keywords"])
+
+        decision_states = {item["state"]: item for item in policy["stage4_supplement_decision_tree"]}
+        self.assertEqual(
+            decision_states["CERTIFICATE_READY_FROM_07"]["next_action"],
+            "STAGE4_VERIFY_CERTIFICATE_AND_REGISTERED_UNIT",
+        )
+        self.assertEqual(
+            decision_states["COMPANY_FIRST_CERTIFICATE_SUPPLEMENT_REQUIRED"]["next_action"],
+            "QUERY_CANDIDATE_COMPANY_PERSONNEL_LIST_THEN_WRITE_BACK_CERTIFICATE_NO",
+        )
+        self.assertEqual(
+            decision_states["NAME_ENUMERATION_FALLBACK_REQUIRED"]["next_action"],
+            "ENUMERATE_PUBLIC_PERSONS_BY_NAME_UNTIL_REGISTERED_UNIT_MATCHES_CANDIDATE_COMPANY_OR_JOINT_VENTURE_MEMBER",
+        )
+        self.assertEqual(
+            decision_states["FLOW_08_TARGETED_PARSE_REQUIRED"]["next_action"],
+            "ESCALATE_RISK_AND_PARSE_FLOW_08_TARGET_FILES_FOR_CERTIFICATE_NO",
+        )
+        self.assertEqual(
+            decision_states["STRONG_CONFLICT_CLUE_AFTER_08"]["next_action"],
+            "RAISE_PERSON_COMPANY_MISMATCH_RISK_AND_SEND_TO_STAGE5_EVIDENCE_GATE",
+        )
+
+        self.assertIn(
+            "do_not_deep_parse_all_flow_08_by_default",
+            policy["must_not"],
+        )
+        self.assertIn(
+            "do_not_treat_company_first_no_match_as_final_conflict_without_flow_08_or_stage4_readback",
+            policy["must_not"],
+        )
+
+    def test_responsible_person_early_probe_policy_raises_risk_without_legal_conclusion(self) -> None:
+        contract = self._contract()
+        risk_policy = contract["analysis_strategy_policy"]["responsible_person_early_probe_policy"][
+            "risk_escalation_policy"
+        ]
+
+        self.assertEqual(risk_policy["company_first_no_match_risk"], "HIGH_CLUE_REVIEW")
+        self.assertEqual(risk_policy["flow_08_certificate_registered_unit_mismatch_risk"], "STRONG_CLUE_REVIEW")
+        self.assertTrue(risk_policy["must_not_treat_as_final_legal_conclusion"])
+        self.assertIn("项目负责人注册单位不一致线索", risk_policy["allowed_internal_phrases"])
+        self.assertIn("冲突成立", risk_policy["forbidden_phrases"])
+
+    def test_public_registration_match_policy_forbids_person_identity_claim_and_limits_jzsc_active_conflict(self) -> None:
+        contract = self._contract()
+        policy = contract["analysis_strategy_policy"]["public_registration_match_and_conflict_probe_policy"]
+
+        self.assertEqual(policy["policy_id"], "PUBLIC-REGISTRATION-MATCH-AND-CONFLICT-PROBE-V1")
+        self.assertIn("公开注册信息匹配", policy["language_boundary"]["allowed_terms"])
+        self.assertIn("是不是本人", policy["language_boundary"]["forbidden_terms"])
+        self.assertTrue(
+            policy["match_acceptance_policy"][
+                "do_not_require_flow_08_when_flow_07_public_registration_match_succeeds"
+            ]
+        )
+        routes = [item["route_id"] for item in policy["route_order"]]
+        self.assertEqual(
+            routes,
+            [
+                "PERSON_NAME_WITH_COMPANY_QUERY",
+                "COMPANY_SEARCH_THEN_PERSON_QUERY",
+                "PERSON_NAME_ONLY_FILTER_COMPANY",
+            ],
+        )
+        self.assertFalse(policy["flow_08_trigger_policy"]["default_parse_flow_08_for_certificate_check"])
+        conflict_policy = policy["performance_and_active_conflict_policy"]
+        self.assertTrue(conflict_policy["jzsc_lagging_risk_acknowledged"])
+        self.assertTrue(conflict_policy["jzsc_not_unique_active_conflict_source"])
+        self.assertIn("construction_permit", conflict_policy["active_conflict_priority_sources"])
+        self.assertIn(
+            "do_not_use_jzsc_as_realtime_active_conflict_single_source",
+            conflict_policy["must_not"],
+        )
+
     def test_analysis_strategy_v1_has_failure_repair_gate_taxonomy(self) -> None:
         contract = self._contract()
         policy = contract["analysis_strategy_policy"]["failure_repair_gate_policy"]

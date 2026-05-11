@@ -1,6 +1,6 @@
 {
   "contract_id": "BUSINESS-DIRECTION-STRATEGY-CONTRACT",
-  "contract_version": 4,
+  "contract_version": 6,
   "purpose": "固定招投标分析产品的双线业务方向，避免后续开发把招标公告文件链路验证误当成核心商业主线。",
   "primary_commercial_line": "POST_CANDIDATE_EVIDENCE_PACK",
   "default_when_ambiguous": "POST_CANDIDATE_EVIDENCE_PACK",
@@ -230,6 +230,227 @@
       "flow_12_project_exception_absent_expected_for_recent_candidate": true,
       "late_stage_present_state": "HISTORICAL_OR_LATE_STAGE_REVIEW",
       "notes": "近期 07 中标候选人公示项目通常不会有 11 合同和 12 异常；缺失不算回溯失败，也不阻断当前可售证据窗口。若 11/12 已出现，通常说明项目进入后期或历史复盘，销售窗口需另判。"
+    },
+    "responsible_person_early_probe_policy": {
+      "policy_id": "RESPONSIBLE-PERSON-EARLY-PROBE-V1",
+      "policy_version": 1,
+      "required_before_stage4_live_verification": true,
+      "applies_to_product_mode": "POST_CANDIDATE_EVIDENCE_PACK",
+      "purpose": "在候选后证据包路线中，以最低解析成本尽早取得候选公司、项目负责人/总监/设计负责人、证书号、报价和排名；拿到证书号即可先进入 Stage4 核验，未拿到再逐层加深解析。",
+      "candidate_group_binding_policy": {
+        "must_bind_by_candidate_row": true,
+        "candidate_group_fields": [
+          "candidate_group_id",
+          "candidate_group_order",
+          "candidate_group_members",
+          "responsible_person_name",
+          "certificate_no",
+          "bid_price",
+          "rank"
+        ],
+        "consortium_member_policy": "VERIFY_ALL_MEMBERS_AS_ALTERNATIVE_REGISTERED_UNIT_TARGETS",
+        "group_resolution_rule": "ANY_CONSORTIUM_MEMBER_MATCH_RESOLVES_THE_CANDIDATE_GROUP",
+        "must_not": [
+          "do_not_cross_match_company_person_certificate_between_candidate_rows",
+          "do_not_only_verify_consortium_lead_company",
+          "do_not_escalate_nonmatched_member_when_same_candidate_group_has_matched_member"
+        ],
+        "notes": "07 多候选人公示必须先按候选行形成候选组；同一候选组内联合体牵头方和成员方全部进入核验目标。负责人/证书只能绑定同一候选行；同组任一成员匹配注册单位即可认为该候选组身份线索已解析。"
+      },
+      "preferred_evidence_order": [
+        {
+          "order": 1,
+          "flow_no": "07",
+          "source": "candidate_notice_detail_html",
+          "action": "RULE_PARSE_ONLY",
+          "stop_when_fields_present": [
+            "candidate_company",
+            "responsible_person_name",
+            "certificate_no"
+          ]
+        },
+        {
+          "order": 2,
+          "flow_no": "07",
+          "source": "candidate_notice_small_pdf_or_evaluation_report_pdf",
+          "action": "MARKITDOWN_TEXT_PROBE_THEN_RULE_PARSE",
+          "preferred_file_name_keywords": [
+            "中标候选人公示",
+            "定标候选人公示",
+            "评标报告",
+            "复评报告"
+          ],
+          "stop_when_fields_present": [
+            "candidate_company",
+            "responsible_person_name",
+            "certificate_no"
+          ]
+        },
+        {
+          "order": 3,
+          "flow_no": "07",
+          "source": "candidate_notice_scanned_pdf",
+          "action": "OCR_ONLY_WHEN_MARKITDOWN_TEXT_EMPTY_AND_TARGET_FIELDS_MISSING"
+        },
+        {
+          "order": 4,
+          "flow_no": "08",
+          "source": "bid_file_publicity",
+          "action": "TARGETED_PARSE_ONLY",
+          "preferred_file_name_keywords": [
+            "资格",
+            "项目负责人",
+            "项目经理",
+            "总监",
+            "建造师",
+            "证书",
+            "商务",
+            "投标函"
+          ],
+          "notes": "08 先全量登记清单；只有 07 和 Stage4 补证不足时才定向解析，不默认全量深解析。"
+        }
+      ],
+      "stage4_supplement_decision_tree": [
+        {
+          "state": "CERTIFICATE_READY_FROM_07",
+          "condition": "flow_07_has_candidate_company_responsible_person_and_certificate_no",
+          "next_action": "STAGE4_VERIFY_CERTIFICATE_AND_REGISTERED_UNIT"
+        },
+        {
+          "state": "COMPANY_FIRST_CERTIFICATE_SUPPLEMENT_REQUIRED",
+          "condition": "flow_07_has_candidate_company_and_responsible_person_but_no_certificate_no",
+          "next_action": "QUERY_CANDIDATE_COMPANY_PERSONNEL_LIST_THEN_WRITE_BACK_CERTIFICATE_NO"
+        },
+        {
+          "state": "NAME_ENUMERATION_FALLBACK_REQUIRED",
+          "condition": "company_first_does_not_find_unique_person_match",
+          "next_action": "ENUMERATE_PUBLIC_PERSONS_BY_NAME_UNTIL_REGISTERED_UNIT_MATCHES_CANDIDATE_COMPANY_OR_JOINT_VENTURE_MEMBER"
+        },
+        {
+          "state": "FLOW_08_TARGETED_PARSE_REQUIRED",
+          "condition": "company_first_and_name_enumeration_do_not_find_matching_company",
+          "next_action": "ESCALATE_RISK_AND_PARSE_FLOW_08_TARGET_FILES_FOR_CERTIFICATE_NO"
+        },
+        {
+          "state": "STRONG_CONFLICT_CLUE_AFTER_08",
+          "condition": "flow_08_certificate_no_found_but_registered_unit_still_does_not_match_candidate_company_or_joint_venture_member",
+          "next_action": "RAISE_PERSON_COMPANY_MISMATCH_RISK_AND_SEND_TO_STAGE5_EVIDENCE_GATE"
+        },
+        {
+          "state": "INSUFFICIENT_EVIDENCE_AFTER_08",
+          "condition": "flow_08_targeted_parse_still_has_no_certificate_no_or_replayable_text",
+          "next_action": "KEEP_HIGH_RISK_REVIEW_AND_REQUIRE_OCR_OR_DEEPER_PARSE"
+        }
+      ],
+      "risk_escalation_policy": {
+        "company_first_no_match_risk": "HIGH_CLUE_REVIEW",
+        "name_enumeration_no_registered_unit_match_risk": "HIGH_CLUE_REVIEW",
+        "flow_08_certificate_registered_unit_mismatch_risk": "STRONG_CLUE_REVIEW",
+        "must_not_treat_as_final_legal_conclusion": true,
+        "allowed_internal_phrases": [
+          "项目负责人注册单位不一致线索",
+          "项目负责人公开注册信息未匹配候选公司",
+          "需结合08投标文件公开进一步确认",
+          "证书号回填后注册单位仍不一致，高风险线索"
+        ],
+        "forbidden_phrases": [
+          "违法成立",
+          "已内定",
+          "必然废标",
+          "冲突成立"
+        ]
+      },
+      "must_not": [
+        "do_not_deep_parse_all_flow_08_by_default",
+        "do_not_treat_name_only_public_search_as_pass",
+        "do_not_treat_company_first_no_match_as_final_conflict_without_flow_08_or_stage4_readback",
+        "do_not_force_project_manager_role_for_insurance_or_non_engineering_service_projects"
+      ]
+    },
+    "public_registration_match_and_conflict_probe_policy": {
+      "policy_id": "PUBLIC-REGISTRATION-MATCH-AND-CONFLICT-PROBE-V1",
+      "policy_version": 1,
+      "applies_to_product_mode": "POST_CANDIDATE_EVIDENCE_PACK",
+      "purpose": "把候选公示或 08 投标文件公开中的负责人字段，与四库/地方注册人员公开记录做公开注册信息匹配；不表述自然人本人核实。",
+      "language_boundary": {
+        "allowed_terms": [
+          "公开注册信息匹配",
+          "姓名与注册单位匹配",
+          "证书号与公开注册记录匹配",
+          "注册单位不一致线索",
+          "证书类别或专业不一致线索"
+        ],
+        "forbidden_terms": [
+          "是不是本人",
+          "确认本人",
+          "本人核实",
+          "冲突成立",
+          "造假成立"
+        ]
+      },
+      "match_acceptance_policy": {
+        "name_and_registered_unit_match_state": "PUBLIC_REGISTRATION_NAME_COMPANY_MATCHED",
+        "certificate_and_registered_unit_match_state": "PUBLIC_REGISTRATION_CERTIFICATE_STRONG_MATCH",
+        "group_resolution_rule": "同一候选组任一候选公司或联合体成员与公开注册单位匹配，即视为该候选组身份线索已解析。",
+        "do_not_require_flow_08_when_flow_07_public_registration_match_succeeds": true
+      },
+      "field_checks": [
+        "responsible_person_name",
+        "candidate_company_or_consortium_member_name",
+        "certificate_no",
+        "registered_unit_name",
+        "registration_category",
+        "registration_profession",
+        "certificate_validity_or_status",
+        "registration_or_change_time"
+      ],
+      "route_order": [
+        {
+          "order": 1,
+          "route_id": "PERSON_NAME_WITH_COMPANY_QUERY",
+          "description": "用姓名 + 公司/注册单位直接查人员，作为默认最快路线。"
+        },
+        {
+          "order": 2,
+          "route_id": "COMPANY_SEARCH_THEN_PERSON_QUERY",
+          "description": "先搜公司规范化企业名，再查企业人员列表或人员页。"
+        },
+        {
+          "order": 3,
+          "route_id": "PERSON_NAME_ONLY_FILTER_COMPANY",
+          "description": "姓名-only 枚举公开人员，再按注册单位过滤，作为最后兜底。"
+        }
+      ],
+      "flow_08_trigger_policy": {
+        "default_parse_flow_08_for_certificate_check": false,
+        "trigger_when": [
+          "flow_07_missing_responsible_person_or_certificate_fields",
+          "public_registration_record_not_matched_after_route_fallbacks",
+          "certificate_no_or_registered_unit_conflicts_with_flow_07",
+          "registration_category_or_profession_needed_for_role_rule",
+          "declared_performance_in_flow_08_needs_public_record_match"
+        ]
+      },
+      "performance_and_active_conflict_policy": {
+        "jzsc_performance_usage": "ONLY_AS_AUXILIARY_PUBLIC_RECORD_MATCH_FOR_DECLARED_FLOW_08_PERFORMANCE",
+        "jzsc_lagging_risk_acknowledged": true,
+        "jzsc_not_unique_active_conflict_source": true,
+        "active_conflict_priority_sources": [
+          "local_public_resource_candidate_or_award_notices",
+          "local_housing_construction_or_administrative_approval_platform",
+          "construction_permit",
+          "contract_filing",
+          "completion_or_acceptance_filing",
+          "project_manager_change_notice",
+          "administrative_penalty_or_complaint_decision",
+          "public_web_clues_with_replayable_source_url"
+        ],
+        "must_not": [
+          "do_not_treat_jzsc_missing_project_as_no_active_conflict",
+          "do_not_treat_jzsc_missing_performance_as_performance_fraud",
+          "do_not_use_jzsc_as_realtime_active_conflict_single_source"
+        ]
+      }
     },
     "failure_repair_gate_policy": {
       "visible_page_or_attachment_but_fetch_failed_requires_repair_queue": true,

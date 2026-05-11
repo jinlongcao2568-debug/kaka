@@ -248,13 +248,32 @@ def build_jzsc_personnel_list_carrier(
             or _normalize(row.get("masked_identity_no")) == normalized_identifier
         )
     ]
-    matched_rows = identifier_matches if normalized_identifier else name_matches
+    candidate_rows = identifier_matches if normalized_identifier else name_matches
+    same_company_rows = _same_company_personnel_rows(
+        candidate_rows,
+        target_company_name=target_company_name,
+    )
+    company_person_match_without_identifier = bool(
+        not normalized_identifier and target_company_name and same_company_rows
+    )
+    selected_row = _select_preferred_personnel_row(
+        same_company_rows if same_company_rows else candidate_rows,
+        required_registration_category=required_registration_category,
+        required_registration_profession_keywords=required_registration_profession_keywords,
+    )
+    matched_rows = (
+        identifier_matches
+        if normalized_identifier
+        else [selected_row]
+        if company_person_match_without_identifier and selected_row
+        else name_matches
+    )
     source_failures = _source_failures(
         source_url=source_url,
         source_snapshot_id=source_snapshot_id,
     )
+    matched_row = selected_row if selected_row and len(matched_rows) == 1 else {}
     resolved_identifier = _resolved_identifier(matched_rows)
-    matched_row = matched_rows[0] if len(matched_rows) == 1 else {}
     company_failures = _company_failures(
         matched_row=matched_row,
         target_company_name=target_company_name,
@@ -279,7 +298,7 @@ def build_jzsc_personnel_list_carrier(
             failure_reason = ANNOUNCED_CERTIFICATE_NOT_FOUND_IN_SAME_COMPANY_ROWS
         else:
             failure_reason = "personnel_public_record_not_found_in_rendered_rows"
-    elif len(matched_rows) > 1 and not normalized_identifier:
+    elif len(matched_rows) > 1 and not normalized_identifier and not company_person_match_without_identifier:
         result = REVIEW_REQUIRED
         failure_reason = AMBIGUOUS_PUBLIC_MATCH
     elif review_failures:
@@ -365,12 +384,18 @@ def build_jzsc_personnel_list_carrier(
             "derived_identifier_from_matched_row": bool(resolved_identifier and not normalized_identifier),
             "same_company_same_name_count": len(name_matches),
             "matched_row_count": len(matched_rows),
+            "same_company_person_match_without_identifier": company_person_match_without_identifier,
+            "same_company_personnel_row_count": len(same_company_rows),
             "resolution_state": result,
             "failure_reason_optional": failure_reason,
             "failure_reasons": failure_reasons,
         },
         "parsed_personnel_rows": rows,
         "name_matched_personnel_rows": name_matches,
+        "same_company_name_matched_personnel_rows": same_company_rows,
+        "candidate_certificate_no_options": _dedupe_strings(
+            row.get("registration_no") for row in same_company_rows or name_matches
+        ),
         "identifier_mismatch_personnel_rows": (
             name_matches if normalized_identifier and name_matches and not identifier_matches else []
         ),
@@ -654,6 +679,67 @@ def _company_failures(
     if row_unit and target_unit and row_unit != target_unit:
         return [REGISTERED_UNIT_CONFLICT]
     return []
+
+
+def _same_company_personnel_rows(
+    rows: list[dict[str, Any]],
+    *,
+    target_company_name: str | None,
+) -> list[dict[str, Any]]:
+    target_unit = _normalize(target_company_name)
+    if not target_unit:
+        return []
+    return [
+        row
+        for row in rows
+        if _normalize(row.get("registered_unit_name_optional")) == target_unit
+    ]
+
+
+def _select_preferred_personnel_row(
+    rows: list[dict[str, Any]],
+    *,
+    required_registration_category: str | None,
+    required_registration_profession_keywords: Iterable[str] | None,
+) -> dict[str, Any]:
+    if not rows:
+        return {}
+    required_category = _clean_text(required_registration_category)
+    if required_category:
+        category_rows = [
+            row
+            for row in rows
+            if required_category in _clean_text(row.get("registration_category"))
+        ]
+        if category_rows:
+            rows = category_rows
+    keywords = [
+        _clean_text(value)
+        for value in list(required_registration_profession_keywords or [])
+        if _clean_text(value)
+    ]
+    if keywords:
+        profession_rows = [
+            row
+            for row in rows
+            if any(keyword in _clean_text(row.get("registration_profession_optional")) for keyword in keywords)
+        ]
+        if profession_rows:
+            rows = profession_rows
+    return sorted(rows, key=_registration_priority)[0]
+
+
+def _registration_priority(row: Mapping[str, Any]) -> tuple[int, str]:
+    category = _clean_text(row.get("registration_category"))
+    if "注册监理工程师" in category:
+        return (0, category)
+    if "一级注册建造师" in category or "一级建造师" in category:
+        return (1, category)
+    if "二级注册建造师" in category or "二级建造师" in category:
+        return (2, category)
+    if "注册造价工程师" in category:
+        return (3, category)
+    return (10, category)
 
 
 def _resolved_identifier(rows: list[dict[str, Any]]) -> str | None:

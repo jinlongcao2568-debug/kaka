@@ -4,6 +4,7 @@ param(
     [string]$EvidenceStrategyRoot = "",
     [string]$ArchiveExtractRoot = "",
     [string]$ParseRoot = "",
+    [string]$Stage4ExecutionRoot = "",
     [string]$OutputRoot = "",
     [switch]$EmitJson
 )
@@ -48,6 +49,10 @@ $argsList = @(
     "--output-root", $OutputRoot,
     "--output-json", $outputJson
 )
+
+if ($Stage4ExecutionRoot) {
+    $argsList += @("--stage4-execution-root", $Stage4ExecutionRoot)
+}
 
 if ($EmitJson) {
     $argsList += "--json"

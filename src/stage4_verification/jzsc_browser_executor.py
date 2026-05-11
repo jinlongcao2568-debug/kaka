@@ -408,65 +408,79 @@ def _playwright_browser_runner(capture_plan: Mapping[str, Any]) -> dict[str, Any
         )
         try:
             company_candidates = _candidate_company_names(company_name)
-            company_match: dict[str, Any] | None = None
-            company_search_failure_reasons: list[str] = []
-            for attempt_no, candidate_company in enumerate(company_candidates[:3], start=1):
-                search_result = _search_company_diagnostic_with_retry(
-                    page,
-                    entry_url=entry_url,
-                    company_name=candidate_company,
-                    retry_attempts=personnel_retry_attempts,
-                )
-                rows = list(search_result.get("company_rows") or [])
-                attempt_failure_reasons = [
-                    str(reason)
-                    for reason in list(search_result.get("failure_reasons") or [])
-                    if str(reason).strip()
-                ]
-                company_search_failure_reasons.extend(attempt_failure_reasons)
-                browser_attempts.append(
-                    {
-                        "attempt_no": attempt_no,
-                        "attempt_type": "company_search",
-                        "query_company_name": candidate_company,
-                        "result_count": len(rows),
-                        "diagnostic_state": search_result.get("diagnostic_state"),
-                        "diagnostic_status_code": search_result.get("diagnostic_status_code"),
-                        "failure_reasons": attempt_failure_reasons,
-                        "query_url": search_result.get("query_url"),
-                        "final_url": search_result.get("final_url"),
-                        "page_title": search_result.get("page_title"),
-                        "challenge_state": search_result.get("challenge_state"),
-                        "vue_component_count": search_result.get("vue_component_count"),
-                        "company_row_count": search_result.get("company_row_count"),
-                        "body_key_text": search_result.get("body_key_text"),
-                    }
-                )
-                company_match = _pick_company_match(rows, candidate_company)
-                if company_match:
-                    break
-            if not company_match:
-                failure_reasons.extend(_dedupe_strings(company_search_failure_reasons))
-                failure_reasons.append("company_search_result_not_found_after_three_attempts")
-
-            matched_company_name = str(
-                (company_match or {}).get("QY_NAME")
-                or (company_candidates[0] if company_candidates else company_name)
-            ).strip()
-            matched_company_id = str((company_match or {}).get("QY_ID") or "").strip()
-            matched_company_names = _dedupe_strings(
-                [matched_company_name, *company_candidates, company_name]
-            )
-
-            company_rows, personnel_attempts = _resolve_personnel_rows_by_company_first(
+            company_rows, personnel_attempts = _resolve_personnel_rows_by_person_company_direct(
                 page,
                 manager_name=manager_name,
-                company_names=matched_company_names,
-                max_pages=max_personnel_pages,
+                company_names=company_candidates,
                 retry_attempts=personnel_retry_attempts,
             )
             browser_attempts.extend(personnel_attempts)
             personnel_url = page.url
+            matched_company_name = (
+                _matched_registered_unit_from_rendered_rows(company_rows)
+                or (company_candidates[0] if company_candidates else company_name)
+            )
+            matched_company_id = ""
+            company_match: dict[str, Any] | None = None
+            company_search_failure_reasons: list[str] = []
+            if not company_rows:
+                for attempt_no, candidate_company in enumerate(company_candidates[:3], start=1):
+                    search_result = _search_company_diagnostic_with_retry(
+                        page,
+                        entry_url=entry_url,
+                        company_name=candidate_company,
+                        retry_attempts=personnel_retry_attempts,
+                    )
+                    rows = list(search_result.get("company_rows") or [])
+                    attempt_failure_reasons = [
+                        str(reason)
+                        for reason in list(search_result.get("failure_reasons") or [])
+                        if str(reason).strip()
+                    ]
+                    company_search_failure_reasons.extend(attempt_failure_reasons)
+                    browser_attempts.append(
+                        {
+                            "attempt_no": attempt_no,
+                            "attempt_type": "company_search",
+                            "query_company_name": candidate_company,
+                            "result_count": len(rows),
+                            "diagnostic_state": search_result.get("diagnostic_state"),
+                            "diagnostic_status_code": search_result.get("diagnostic_status_code"),
+                            "failure_reasons": attempt_failure_reasons,
+                            "query_url": search_result.get("query_url"),
+                            "final_url": search_result.get("final_url"),
+                            "page_title": search_result.get("page_title"),
+                            "challenge_state": search_result.get("challenge_state"),
+                            "vue_component_count": search_result.get("vue_component_count"),
+                            "company_row_count": search_result.get("company_row_count"),
+                            "body_key_text": search_result.get("body_key_text"),
+                        }
+                    )
+                    company_match = _pick_company_match(rows, candidate_company)
+                    if company_match:
+                        break
+                if not company_match:
+                    failure_reasons.extend(_dedupe_strings(company_search_failure_reasons))
+                    failure_reasons.append("company_search_result_not_found_after_three_attempts")
+
+                matched_company_name = str(
+                    (company_match or {}).get("QY_NAME")
+                    or (company_candidates[0] if company_candidates else company_name)
+                ).strip()
+                matched_company_id = str((company_match or {}).get("QY_ID") or "").strip()
+                matched_company_names = _dedupe_strings(
+                    [matched_company_name, *company_candidates, company_name]
+                )
+
+                company_rows, personnel_attempts = _resolve_personnel_rows_by_company_first(
+                    page,
+                    manager_name=manager_name,
+                    company_names=matched_company_names,
+                    max_pages=max_personnel_pages,
+                    retry_attempts=personnel_retry_attempts,
+                )
+                browser_attempts.extend(personnel_attempts)
+                personnel_url = page.url
             if not company_rows:
                 failure_reasons.append(
                     f"project_manager_not_found_by_company_name_person_name_after_{personnel_retry_attempts}_attempts"
@@ -904,6 +918,42 @@ def _resolve_personnel_rows_by_company_first(
         if matches:
             return [_person_search_row_to_rendered_row(row) for row in matches], attempts
         page.wait_for_timeout(900 * retry_no)
+    return [], attempts
+
+
+def _resolve_personnel_rows_by_person_company_direct(
+    page: Any,
+    *,
+    manager_name: str,
+    company_names: list[str],
+    retry_attempts: int,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    attempts: list[dict[str, Any]] = []
+    target_names = _dedupe_strings(company_names)[:3]
+    for retry_no in range(1, max(1, retry_attempts) + 1):
+        for company_index, company_name in enumerate(target_names, start=1):
+            rows = _search_person_rows(
+                page,
+                manager_name=manager_name,
+                company_name=company_name,
+                max_pages=1,
+            )
+            matches = _pick_person_company_matches(rows, manager_name, target_names)
+            attempts.append(
+                {
+                    "attempt_no": len(attempts) + 1,
+                    "retry_no": retry_no,
+                    "company_candidate_no": company_index,
+                    "attempt_type": "person_name_with_company_query",
+                    "query_person_name": manager_name,
+                    "query_company_name": company_name,
+                    "result_count": len(rows),
+                    "matched_count": len(matches),
+                }
+            )
+            if matches:
+                return [_person_search_row_to_rendered_row(row) for row in matches], attempts
+        page.wait_for_timeout(500 * retry_no)
     return [], attempts
 
 
@@ -1429,6 +1479,22 @@ def _person_search_row_to_rendered_row(row: Mapping[str, Any]) -> dict[str, Any]
         "registration_at": _timestamp_ms_to_date(row.get("REG_SDATE")),
         "raw_source_row": dict(row),
     }
+
+
+def _matched_registered_unit_from_rendered_rows(rows: list[Mapping[str, Any]]) -> str:
+    for row in rows:
+        value = str(
+            _first_non_empty(
+                row.get("registered_unit_name"),
+                row.get("registered_unit_name_optional"),
+                row.get("REG_QYMC"),
+                "",
+            )
+            or ""
+        ).strip()
+        if value:
+            return value
+    return ""
 
 
 def _candidate_company_names(value: Any) -> list[str]:

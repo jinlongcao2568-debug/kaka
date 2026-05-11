@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -30,6 +31,7 @@ def build_guangzhou_upstream_readiness_report(
     archive_extract_root: str | Path,
     parse_root: str | Path,
     output_root: str | Path,
+    stage4_execution_root: str | Path | None = None,
     created_at: str | None = None,
 ) -> dict[str, Any]:
     created = created_at or utc_now_iso()
@@ -38,6 +40,7 @@ def build_guangzhou_upstream_readiness_report(
     strategy_dir = Path(evidence_strategy_root)
     archive_dir = Path(archive_extract_root)
     parse_dir = Path(parse_root)
+    stage4_execution_dir = Path(stage4_execution_root) if stage4_execution_root else None
     out_dir = Path(output_root)
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -50,12 +53,18 @@ def build_guangzhou_upstream_readiness_report(
     archive_manifest = _source_manifest(_load_json(archive_dir / "archive-extract-probe-manifest.json", [], "archive_extract_manifest_missing"))
     parse_manifest = _source_manifest(_load_json(parse_dir / "parse-probe-manifest.json", missing_inputs, "parse_probe_manifest_missing"))
     stage4_manifest = _source_manifest(_load_json(parse_dir / "stage4_candidate_verification_inputs.json", [], "stage4_inputs_missing"))
+    stage4_execution_manifest = _source_manifest(
+        _load_json(stage4_execution_dir / "company-first-stage4-execution.json", [], "stage4_execution_manifest_missing")
+        if stage4_execution_dir
+        else {}
+    )
 
     project_ids = _project_ids(
         flow_manifest=flow_manifest,
         download_manifest=download_manifest,
         parse_manifest=parse_manifest,
         stage4_manifest=stage4_manifest,
+        stage4_execution_manifest=stage4_execution_manifest,
     )
     project_records = [
         _project_record(
@@ -67,6 +76,7 @@ def build_guangzhou_upstream_readiness_report(
             archive_manifest=archive_manifest,
             parse_manifest=parse_manifest,
             stage4_manifest=stage4_manifest,
+            stage4_execution_manifest=stage4_execution_manifest,
         )
         for project_id in project_ids
     ]
@@ -77,6 +87,7 @@ def build_guangzhou_upstream_readiness_report(
         strategy_manifest=strategy_manifest,
         parse_manifest=parse_manifest,
         stage4_manifest=stage4_manifest,
+        stage4_execution_manifest=stage4_execution_manifest,
     )
     summary = _summary(
         project_records=project_records,
@@ -88,6 +99,7 @@ def build_guangzhou_upstream_readiness_report(
         archive_manifest=archive_manifest,
         parse_manifest=parse_manifest,
         stage4_manifest=stage4_manifest,
+        stage4_execution_manifest=stage4_execution_manifest,
         missing_inputs=missing_inputs,
     )
     manifest = {
@@ -102,6 +114,7 @@ def build_guangzhou_upstream_readiness_report(
         "source_evidence_strategy_root": str(strategy_dir),
         "source_archive_extract_root": str(archive_dir),
         "source_parse_root": str(parse_dir),
+        "source_stage4_execution_root_optional": str(stage4_execution_dir or ""),
         "summary": summary,
         "project_records": project_records,
         "flow_records": flow_records,
@@ -143,6 +156,7 @@ def _project_record(
     archive_manifest: Mapping[str, Any],
     parse_manifest: Mapping[str, Any],
     stage4_manifest: Mapping[str, Any],
+    stage4_execution_manifest: Mapping[str, Any],
 ) -> dict[str, Any]:
     flow_samples = _samples_for_project(flow_manifest, project_id)
     analysis_items = _items_for_project(analysis_manifest, project_id)
@@ -152,6 +166,8 @@ def _project_record(
     parse_samples = _samples_for_project(parse_manifest, project_id)
     parse_items = _items_for_project(parse_manifest, project_id)
     stage4_items = _items_for_project(stage4_manifest, project_id)
+    stage4_execution_items = _items_for_project(stage4_execution_manifest, project_id)
+    candidate_group_records = _candidate_group_verification_records(stage4_execution_items)
     project_name = _first_text(
         [item.get("project_name") for item in [*download_samples, *flow_samples, *parse_samples, *stage4_items]]
     )
@@ -216,6 +232,8 @@ def _project_record(
             if count > 0
         ),
         "candidate_evidence_certificate_gate_state": candidate_gate_state,
+        "candidate_group_verification_records": candidate_group_records,
+        "candidate_group_verification_summary": _candidate_group_summary(candidate_group_records),
         "flow_07_certificate_gate_state": (
             "READY_FOR_STAGE4_CERTIFICATE_VERIFICATION"
             if flow_07_cert > 0
@@ -243,6 +261,7 @@ def _flow_records(
     strategy_manifest: Mapping[str, Any],
     parse_manifest: Mapping[str, Any],
     stage4_manifest: Mapping[str, Any],
+    stage4_execution_manifest: Mapping[str, Any],
 ) -> list[dict[str, Any]]:
     keys: set[tuple[str, str]] = set()
     for row in [
@@ -250,6 +269,7 @@ def _flow_records(
         *list(download_manifest.get("project_sample_items") or []),
         *list(parse_manifest.get("project_sample_items") or []),
         *list(stage4_manifest.get("items") or []),
+        *list(stage4_execution_manifest.get("items") or []),
     ]:
         if isinstance(row, Mapping):
             project_id = str(row.get("project_id") or "")
@@ -264,6 +284,8 @@ def _flow_records(
         strategy_items = _items_for_project_flow(strategy_manifest, project_id, flow_no)
         parse_samples = _samples_for_project_flow(parse_manifest, project_id, flow_no)
         stage4_items = _items_for_project_flow(stage4_manifest, project_id, flow_no)
+        stage4_execution_items = _items_for_project_flow(stage4_execution_manifest, project_id, flow_no)
+        candidate_group_records = _candidate_group_verification_records(stage4_execution_items)
         listed = sum(_listed_attachment_count(sample) for sample in download_samples)
         attempted = sum(_download_attempt_count(sample) for sample in download_samples)
         snapshots = sum(len(list(sample.get("attachment_snapshot_refs") or [])) for sample in download_samples)
@@ -313,6 +335,8 @@ def _flow_records(
                     if flow_no == "07"
                     else "NOT_FLOW_07"
                 ),
+                "candidate_group_verification_records": candidate_group_records,
+                "candidate_group_verification_summary": _candidate_group_summary(candidate_group_records),
                 "failure_taxonomy": _dedupe(
                     reason
                     for row in [*flow_samples, *download_samples, *parse_samples]
@@ -338,6 +362,7 @@ def _summary(
     archive_manifest: Mapping[str, Any],
     parse_manifest: Mapping[str, Any],
     stage4_manifest: Mapping[str, Any],
+    stage4_execution_manifest: Mapping[str, Any],
     missing_inputs: list[str],
 ) -> dict[str, Any]:
     flow_summary = dict(flow_manifest.get("summary") or {})
@@ -347,6 +372,23 @@ def _summary(
     archive_summary = dict(archive_manifest.get("summary") or {})
     parse_summary = dict(parse_manifest.get("summary") or {})
     stage4_summary = dict(stage4_manifest.get("summary") or {})
+    stage4_execution_summary = dict(stage4_execution_manifest.get("summary") or {})
+    candidate_group_records = _candidate_group_verification_records(
+        [dict(item) for item in list(stage4_execution_manifest.get("items") or []) if isinstance(item, Mapping)]
+    )
+    candidate_group_summary = _candidate_group_summary(candidate_group_records)
+    candidate_group_resolved_count = _int(candidate_group_summary.get("resolved_group_count"))
+    candidate_group_unresolved_count = _int(candidate_group_summary.get("unresolved_group_count"))
+    candidate_group_resolved_project_ids = {
+        str(row.get("project_id") or "")
+        for row in candidate_group_records
+        if row.get("group_resolution_state") == "RESOLVED_BY_CONSORTIUM_MEMBER"
+    }
+    candidate_group_unresolved_project_ids = {
+        str(row.get("project_id") or "")
+        for row in candidate_group_records
+        if row.get("group_resolution_state") == "UNRESOLVED_NO_MEMBER_MATCHED"
+    }
     flow_project_count = _int(flow_summary.get("unique_project_count") or flow_url_summary.get("project_count"))
     download_project_count = _int(download_summary.get("unique_project_count") or download_summary.get("project_sample_count"))
     stage4_pm = _int(stage4_summary.get("with_project_manager_count"))
@@ -359,7 +401,7 @@ def _summary(
     flow_08_pm = sum(1 for item in flow_08_stage4_items if item.get("project_manager_name"))
     flow_08_cert = sum(1 for item in flow_08_stage4_items if item.get("project_manager_certificate_no"))
     candidate_cert = flow_07_cert + flow_08_cert
-    candidate_certificate_gate_ready = candidate_cert > 0
+    candidate_certificate_gate_ready = candidate_cert > 0 or candidate_group_resolved_count > 0
     flow_07_project_count = sum(1 for row in project_records if row.get("flow_07_certificate_gate_state") in {"READY_FOR_STAGE4_CERTIFICATE_VERIFICATION", "CERTIFICATE_MISSING_PARSE_REQUIRED"})
     flow_07_projects_with_certificate_count = sum(1 for row in project_records if row.get("flow_07_certificate_gate_state") == "READY_FOR_STAGE4_CERTIFICATE_VERIFICATION")
     flow_07_projects_missing_certificate_count = sum(1 for row in project_records if row.get("flow_07_certificate_gate_state") == "CERTIFICATE_MISSING_PARSE_REQUIRED")
@@ -384,6 +426,8 @@ def _summary(
         blocking.append("parse_success_rate_below_target")
     if not candidate_certificate_gate_ready:
         blocking.append("candidate_evidence_certificate_inputs_missing_parse_required")
+    if candidate_group_unresolved_count > 0:
+        blocking.append("candidate_group_unresolved_flow08_required")
     safe_to_continue_stage4 = not blocking
     if safe_to_continue_stage4 and candidate_projects_missing_certificate_count > 0:
         readiness_state = "READY_FOR_STAGE4_PROBE_PARTIAL_CANDIDATE_CERTIFICATE_SCOPE"
@@ -391,6 +435,12 @@ def _summary(
     elif safe_to_continue_stage4:
         readiness_state = "READY_FOR_STAGE4_PROBE"
         stage4_execution_scope = "ALL_READY_CANDIDATE_CERTIFICATE_PROJECTS"
+    elif candidate_group_resolved_count > 0 and candidate_group_unresolved_count == 0:
+        readiness_state = "STAGE4_GROUP_VERIFICATION_READY_PARSE_DEFERRED"
+        stage4_execution_scope = "CANDIDATE_GROUPS_RESOLVED_PARSE_DEFERRED"
+    elif candidate_group_resolved_count > 0:
+        readiness_state = "STAGE4_GROUP_VERIFICATION_PARTIAL_REVIEW_REQUIRED"
+        stage4_execution_scope = "RESOLVED_GROUPS_READY_UNRESOLVED_REQUIRE_FLOW_08"
     else:
         readiness_state = "UPSTREAM_NOT_READY_FOR_STAGE4"
         stage4_execution_scope = "BLOCKED_UNTIL_CANDIDATE_CERTIFICATE"
@@ -421,6 +471,19 @@ def _summary(
         ),
         "parse_review_required_count": _int(parse_summary.get("parse_review_required_count")),
         "stage4_input_count": _int(stage4_summary.get("stage4_input_count")),
+        "stage4_execution_job_count": _int(stage4_execution_summary.get("job_count")),
+        "stage4_execution_state_counts": dict(stage4_execution_summary.get("stage4_execution_state_counts") or {}),
+        "candidate_group_verification_summary": candidate_group_summary,
+        "candidate_group_verification_records": candidate_group_records,
+        "candidate_group_resolved_project_count": len(candidate_group_resolved_project_ids),
+        "candidate_group_unresolved_project_count": len(candidate_group_unresolved_project_ids),
+        "candidate_group_stage4_gate_state": (
+            "PARTIAL_GROUPS_REQUIRE_FLOW_08"
+            if candidate_group_resolved_count > 0 and candidate_group_unresolved_count > 0
+            else "GROUPS_RESOLVED"
+            if candidate_group_resolved_count > 0
+            else "NOT_RUN"
+        ),
         "stage4_project_manager_input_count": stage4_pm,
         "stage4_certificate_input_count": stage4_cert,
         "flow_07_stage4_input_count": len(flow_07_stage4_items),
@@ -445,6 +508,8 @@ def _summary(
             if flow_07_cert > 0
             else "READY_FOR_STAGE4_CERTIFICATE_VERIFICATION_FROM_FLOW_08_FALLBACK"
             if flow_08_cert > 0
+            else "READY_FROM_CANDIDATE_GROUP_STAGE4"
+            if candidate_group_resolved_count > 0
             else "CERTIFICATE_MISSING_PARSE_REQUIRED"
         ),
         "flow_07_project_count": flow_07_project_count,
@@ -536,6 +601,18 @@ def _repair_backlog(*, project_records: list[Mapping[str, Any]], flow_records: l
                 },
             }
         )
+    if "candidate_group_unresolved_flow08_required" in summary.get("stage4_blocking_reasons", []):
+        backlog.append(
+            {
+                "priority": 1,
+                "repair_layer": "CandidateGroupFlow08TargetedParse",
+                "repair_action": "候选组公司优先补证仍未匹配的负责人，进入 08 投标文件公开定向解析；已由同组成员解决的联合体不得重复升级为冲突。",
+                "evidence": {
+                    "candidate_group_verification_summary": summary.get("candidate_group_verification_summary"),
+                    "candidate_group_stage4_gate_state": summary.get("candidate_group_stage4_gate_state"),
+                },
+            }
+        )
     for record in flow_records:
         if not record.get("blocking_layers"):
             continue
@@ -552,7 +629,128 @@ def _repair_backlog(*, project_records: list[Mapping[str, Any]], flow_records: l
                 "source_urls": record.get("source_urls"),
             }
         )
+    for record in project_records:
+        group_summary = dict(record.get("candidate_group_verification_summary") or {})
+        if _int(group_summary.get("unresolved_group_count")) <= 0:
+            continue
+        backlog.append(
+            {
+                "priority": 4,
+                "repair_layer": "CandidateGroupStage4Verification",
+                "project_id": record.get("project_id"),
+                "repair_action": "候选组 Stage4 公司优先和姓名枚举未匹配任何联合体成员；进入 08 定向解析或补证修复，不得直接输出最终冲突。",
+                "candidate_group_verification_summary": group_summary,
+            }
+        )
     return backlog
+
+
+def _candidate_group_verification_records(stage4_execution_items: list[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    groups: dict[tuple[str, str, str], list[Mapping[str, Any]]] = {}
+    for item in stage4_execution_items:
+        group_id = str(item.get("candidate_group_id") or "").strip()
+        if not group_id:
+            continue
+        key = (str(item.get("project_id") or ""), group_id, str(item.get("responsible_person_name") or ""))
+        groups.setdefault(key, []).append(item)
+
+    records: list[dict[str, Any]] = []
+    for (project_id, group_id, person), items in sorted(groups.items(), key=lambda row: row[0]):
+        matched_items = [
+            item
+            for item in items
+            if item.get("candidate_group_resolution_state") == "RESOLVED_BY_THIS_MEMBER"
+            or item.get("supplement_after_execution_state") == "COMPANY_FIRST_CERTIFICATE_RESOLVED"
+            or item.get("verification_result") == "MATCHED"
+        ]
+        resolved_by_member_items = [
+            item
+            for item in items
+            if item.get("candidate_group_resolution_state") == "RESOLVED_BY_CONSORTIUM_MEMBER"
+            or item.get("supplement_after_execution_state") == "CONSORTIUM_MEMBER_NONMATCH_GROUP_RESOLVED"
+        ]
+        pending_items = [item for item in items if item.get("candidate_group_resolution_state") == "PENDING_EXECUTION"]
+        member_names = _dedupe(
+            member
+            for item in items
+            for member in list(item.get("candidate_group_members") or [])
+        ) or _dedupe(item.get("candidate_company_name") for item in items)
+        matched_companies = _dedupe(
+            item.get("candidate_company_name") or item.get("matched_company_name_optional")
+            for item in matched_items
+        )
+        group_state = (
+            "RESOLVED_BY_CONSORTIUM_MEMBER"
+            if matched_items
+            else "PENDING_EXECUTION"
+            if pending_items and len(pending_items) == len(items)
+            else "UNRESOLVED_NO_MEMBER_MATCHED"
+        )
+        records.append(
+            {
+                "project_id": project_id,
+                "candidate_group_id": group_id,
+                "candidate_group_order": _first_text(item.get("candidate_group_order") for item in items),
+                "responsible_person_name": person,
+                "certificate_no": _first_text(
+                    _valid_certificate_no(
+                        item.get("source_certificate_no_optional")
+                        or item.get("resolved_certificate_no_optional")
+                        or item.get("certificate_no")
+                    )
+                    for item in items
+                ),
+                "candidate_group_members": member_names,
+                "target_count": len(items),
+                "matched_company_names": matched_companies,
+                "matched_member_count": len(matched_items),
+                "nonmatched_but_group_resolved_count": len(resolved_by_member_items),
+                "group_resolution_state": group_state,
+                "flow_08_targeted_parse_required": bool(group_state == "UNRESOLVED_NO_MEMBER_MATCHED"),
+                "member_records": [
+                    {
+                        "candidate_company_name": item.get("candidate_company_name", ""),
+                        "consortium_member_role": item.get("consortium_member_role", ""),
+                        "candidate_group_resolution_state": item.get("candidate_group_resolution_state", ""),
+                        "supplement_after_execution_state": item.get("supplement_after_execution_state", ""),
+                        "matched_company_name_optional": item.get("candidate_group_matched_company_name_optional")
+                        or item.get("matched_company_name_optional", ""),
+                        "resolved_certificate_no_optional": _valid_certificate_no(
+                            item.get("resolved_certificate_no_optional", "")
+                        ),
+                        "registered_unit_name_optional": item.get("registered_unit_name_optional", ""),
+                        "fail_closed_reasons": list(item.get("fail_closed_reasons") or []),
+                    }
+                    for item in items
+                ],
+                "customer_visible_allowed": False,
+                "no_legal_conclusion": True,
+            }
+        )
+    return records
+
+
+def _valid_certificate_no(value: Any) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    if not re.search(r"\d{6,24}", text):
+        return ""
+    return text
+
+
+def _candidate_group_summary(records: list[Mapping[str, Any]]) -> dict[str, Any]:
+    return {
+        "candidate_group_count": len(records),
+        "resolved_group_count": sum(1 for row in records if row.get("group_resolution_state") == "RESOLVED_BY_CONSORTIUM_MEMBER"),
+        "pending_group_count": sum(1 for row in records if row.get("group_resolution_state") == "PENDING_EXECUTION"),
+        "unresolved_group_count": sum(1 for row in records if row.get("group_resolution_state") == "UNRESOLVED_NO_MEMBER_MATCHED"),
+        "group_resolution_state_counts": _counts(row.get("group_resolution_state") for row in records),
+        "matched_company_names": _dedupe(company for row in records for company in list(row.get("matched_company_names") or [])),
+        "flow_08_targeted_parse_required_count": sum(1 for row in records if row.get("flow_08_targeted_parse_required")),
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
 
 
 def _project_blockers(
@@ -613,13 +811,23 @@ def _flow_blockers(
     return blockers
 
 
-def _project_ids(*, flow_manifest: Mapping[str, Any], download_manifest: Mapping[str, Any], parse_manifest: Mapping[str, Any], stage4_manifest: Mapping[str, Any]) -> list[str]:
+def _project_ids(
+    *,
+    flow_manifest: Mapping[str, Any],
+    download_manifest: Mapping[str, Any],
+    parse_manifest: Mapping[str, Any],
+    stage4_manifest: Mapping[str, Any],
+    stage4_execution_manifest: Mapping[str, Any],
+) -> list[str]:
     values: set[str] = set()
     for manifest in (flow_manifest, download_manifest, parse_manifest):
         for sample in list(manifest.get("project_sample_items") or []):
             if isinstance(sample, Mapping) and sample.get("project_id"):
                 values.add(str(sample.get("project_id")))
     for item in list(stage4_manifest.get("items") or []):
+        if isinstance(item, Mapping) and item.get("project_id"):
+            values.add(str(item.get("project_id")))
+    for item in list(stage4_execution_manifest.get("items") or []):
         if isinstance(item, Mapping) and item.get("project_id"):
             values.add(str(item.get("project_id")))
     return sorted(values)
@@ -759,6 +967,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--evidence-strategy-root", required=True)
     parser.add_argument("--archive-extract-root", required=True)
     parser.add_argument("--parse-root", required=True)
+    parser.add_argument("--stage4-execution-root", default="")
     parser.add_argument("--output-root", required=True)
     parser.add_argument("--output-json")
     parser.add_argument("--json", action="store_true", dest="emit_json")
@@ -773,6 +982,7 @@ def main(argv: list[str] | None = None) -> int:
         evidence_strategy_root=args.evidence_strategy_root,
         archive_extract_root=args.archive_extract_root,
         parse_root=args.parse_root,
+        stage4_execution_root=args.stage4_execution_root or None,
         output_root=args.output_root,
     )
     output_json = Path(args.output_json) if args.output_json else Path(args.output_root) / "guangzhou-upstream-readiness-report.json"

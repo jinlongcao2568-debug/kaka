@@ -203,6 +203,40 @@ class Stage4JzscPersonnelAdapterTests(unittest.TestCase):
         self.assertTrue(carrier["review_required"])
         self.assertEqual(len(carrier["matched_personnel_rows"]), 2)
 
+    def test_same_company_same_name_multiple_certificates_matches_and_selects_required_category(self) -> None:
+        rendered_rows = [
+            {
+                "row_text": "1 苑晓东 130633**********75 注册监理工程师 11015464",
+                "person_name": "苑晓东",
+                "registered_unit_name": "北京诚公管理咨询有限公司",
+            },
+            {
+                "row_text": "2 苑晓东 130633**********75 一级注册建造师 京1112021202203391",
+                "person_name": "苑晓东",
+                "registered_unit_name": "北京诚公管理咨询有限公司",
+            },
+            {
+                "row_text": "3 苑晓东 130633**********75 一级注册造价工程师 B11231100025055",
+                "person_name": "苑晓东",
+                "registered_unit_name": "北京诚公管理咨询有限公司",
+            },
+        ]
+        carrier = build_jzsc_personnel_list_carrier(
+            rendered_rows,
+            target_name="苑晓东",
+            target_company_name="北京诚公管理咨询有限公司",
+            required_registration_category="注册监理工程师",
+            source_url="https://jzsc.mohurd.gov.cn/data/person",
+            source_snapshot_id="SNAP-JZSC-PERSON-YXD",
+        )
+
+        self.assertEqual(carrier["verification_result"], "MATCHED")
+        self.assertFalse(carrier["review_required"])
+        self.assertEqual(carrier["project_manager_certificate_no_optional"], "11015464")
+        self.assertEqual(carrier["identifier_resolution"]["same_company_personnel_row_count"], 3)
+        self.assertTrue(carrier["identifier_resolution"]["same_company_person_match_without_identifier"])
+        self.assertIn("京1112021202203391", carrier["candidate_certificate_no_options"])
+
     def test_registration_identifier_match_feeds_active_conflict_identity_resolution(self) -> None:
         personnel_carrier = build_jzsc_personnel_list_carrier(
             RENDERED_PERSONNEL_ROWS,

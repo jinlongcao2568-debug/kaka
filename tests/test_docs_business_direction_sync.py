@@ -99,6 +99,10 @@ def test_status_board_records_p0_sync_boundary() -> None:
     assert "缺 11/12 不阻断当前证据包销售窗口" in text
     assert "05 开标信息" in text
     assert "适配器验证" in text
+    assert "公开注册信息匹配同步说明" in text
+    assert "不得写“是不是本人”" in text
+    assert "四库/JZSC 只作为公开注册信息" in text
+    assert "不能作为实时在建冲突唯一依据" in text
 
 
 def test_business_direction_doc_contains_final_analysis_strategy_rules() -> None:
@@ -114,6 +118,20 @@ def test_business_direction_doc_contains_final_analysis_strategy_rules() -> None
     assert "PREDICTION_BEFORE_CLARIFICATION" in text
     assert "PREDICTION_RECALC_REQUIRED" in text
     assert "缺 11/12 不应算作当前销售窗口的回溯失败" in text
+    assert "ResponsiblePersonEarlyProbe v1" in text
+    assert "候选组" in text
+    assert "不得跨候选行混配" in text
+    assert "联合体成员" in text
+    assert "公司优先补证" in text
+    assert "姓名枚举兜底" in text
+    assert "`08 投标文件公开` 只做定向解析" in text
+    assert "不得因为公司优先补证未命中就直接写“冲突成立”" in text
+    assert "公开注册信息匹配" in text
+    assert "不得写“核实是不是本人”" in text
+    assert "四库/JZSC 的项目业绩信息只用于辅助核对 `08 投标文件公开`" in text
+    assert "不能把“四库未出现”单独写成业绩造假或在建冲突" in text
+    assert "在建/履约冲突不以四库作为唯一实时依据" in text
+    assert "单一路线失败不能直接进入 `08` 或冲突结论" in text
     assert "PRE_BID_NOT_ELIGIBLE_OPENING_STARTED" in text
     assert "PRE_BID_NOT_ELIGIBLE_DEADLINE_PASSED" in text
     assert "PRE_BID_NOT_ELIGIBLE_TOO_LATE_FOR_SALE" in text
@@ -130,12 +148,38 @@ def test_top_level_docs_contain_final_strategy_guardrails() -> None:
 
     for text in (readme, agents):
         assert "AnalysisStrategyPlan v1" in text
+        assert "ResponsiblePersonEarlyProbe v1" in text
+        assert "联合体" in text
+        assert "公司优先补证" in text
+        assert "姓名枚举兜底" in text
         assert "工作日 72 小时内" in text
         assert "05 开标信息" in text
         assert "投前预测" in text
         assert "候选公示后证据包" in text
         assert "近期 `07 中标候选人公示`" in text or "近期 07 中标候选人公示" in text
         assert "缺 11/12 不阻断当前证据包销售窗口" in text
+        assert "公开注册信息" in text
+        assert "是不是本人" in text
+
+
+def test_stage45_runbook_contains_responsible_person_early_probe_decision_tree() -> None:
+    text = _read(DOCS / "AX9S_Stage4-5_核验与双闸门操作规程.md")
+
+    assert "ResponsiblePersonEarlyProbe v1" in text
+    assert "候选组" in text
+    assert "任一成员" in text
+    assert "COMPANY_FIRST_CERTIFICATE_SUPPLEMENT_REQUIRED" in text
+    assert "NAME_ENUMERATION_FALLBACK_REQUIRED" in text
+    assert "FLOW_08_TARGETED_PARSE_REQUIRED" in text
+    assert "STRONG_CONFLICT_CLUE_AFTER_08" in text
+    assert "INSUFFICIENT_EVIDENCE_AFTER_08" in text
+    assert "姓名枚举只用于补证和消歧，不能单独 PASS" in text
+    assert "不得直接判定冲突成立" in text
+    assert "不得输出法律定性" in text
+    assert "不判断自然人“是不是本人”" in text
+    assert "姓名 + 公司/注册单位" in text
+    assert "四库/JZSC 的人员项目页和企业项目页只能作为身份消歧" in text
+    assert "不能作为实时在建冲突唯一依据" in text
 
 
 def test_navigation_docs_do_not_drift_from_analysis_strategy_v1() -> None:
