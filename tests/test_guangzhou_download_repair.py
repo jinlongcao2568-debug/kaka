@@ -64,6 +64,37 @@ class GuangzhouDownloadRepairTests(unittest.TestCase):
             self.assertTrue((root / "merged" / "download-repair-merged-manifest.json").exists())
             self.assertTrue((root / "merged" / "download-probe-manifest.json").exists())
 
+    def test_merge_manifest_includes_detail_transport_failure_matrix(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            flow03 = root / "segments" / "flow-03"
+            _write_download_probe(
+                flow03,
+                flow_no="03",
+                project_id="PROJ-CN-GD-JG2026-33333",
+                snapshots=0,
+                attempted=0,
+                failure_taxonomy=["detail_ssl_protocol_error"],
+                detail_transport_attempts=[
+                    {
+                        "route": "guangzhou_https_browser",
+                        "state": "FAILED",
+                        "failure_taxonomy": ["detail_ssl_protocol_error"],
+                    }
+                ],
+            )
+
+            merged = build_download_repair_merged_manifest(
+                output_root=root / "merged",
+                segment_roots=[flow03],
+                created_at="2026-05-11T00:00:00+08:00",
+            )
+
+            matrix = merged["summary"]["detail_transport_failure_matrix"]
+            self.assertEqual(len(matrix), 1)
+            self.assertEqual(matrix[0]["project_id"], "PROJ-CN-GD-JG2026-33333")
+            self.assertEqual(matrix[0]["detail_transport_attempts"][0]["route"], "guangzhou_https_browser")
+
 
 def _write_download_probe(
     root: Path,
@@ -74,6 +105,7 @@ def _write_download_probe(
     attempted: int,
     partial: bool = False,
     failure_taxonomy: list[str] | None = None,
+    detail_transport_attempts: list[dict[str, object]] | None = None,
 ) -> None:
     root.mkdir(parents=True, exist_ok=True)
     failures = failure_taxonomy or []
@@ -100,6 +132,7 @@ def _write_download_probe(
         "attachment_snapshot_count": snapshots,
         "attachment_snapshot_refs": [{"snapshot_id": f"ATT-{index}"} for index in range(snapshots)],
         "failure_taxonomy": failures,
+        "detail_transport_attempts": detail_transport_attempts or [],
     }
     payload = {
         "manifest": {

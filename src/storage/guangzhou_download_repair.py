@@ -177,12 +177,46 @@ def _merged_summary(
             for item in [*flow_items, *project_samples]
             for reason in list(item.get("failure_taxonomy") or [])
         ),
+        "detail_transport_failure_matrix": _detail_transport_failure_matrix(project_samples),
         "segment_state_counts": _counts(str(item.get("segment_state") or "") for item in segment_records),
         "timeout_interrupted_count": timeout_count,
         "partial_segment_count": partial_count,
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,
     }
+
+
+def _detail_transport_failure_matrix(project_samples: list[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    for sample in project_samples:
+        attempts = [
+            dict(item)
+            for item in list(sample.get("detail_transport_attempts") or [])
+            if isinstance(item, Mapping)
+        ]
+        failures = [
+            str(reason)
+            for reason in list(sample.get("failure_taxonomy") or [])
+            if str(reason or "").startswith("detail_")
+            or str(reason or "").startswith("direct_fetch:")
+            or str(reason or "") == "CONTROLLED_CHALLENGE_RESOLVER_ERROR"
+        ]
+        if not attempts and not failures:
+            continue
+        out.append(
+            {
+                "project_id": str(sample.get("project_id") or ""),
+                "project_name": str(sample.get("project_name") or ""),
+                "flow_no": str(sample.get("guangzhou_flow_no") or sample.get("flow_no") or ""),
+                "source_url": str(sample.get("source_url") or ""),
+                "target_execution_state": str(sample.get("target_execution_state") or ""),
+                "failure_taxonomy": list(dict.fromkeys(failures)),
+                "detail_transport_attempts": attempts,
+                "customer_visible_allowed": False,
+                "no_legal_conclusion": True,
+            }
+        )
+    return out
 
 
 def _source_manifest(payload: Mapping[str, Any]) -> dict[str, Any]:

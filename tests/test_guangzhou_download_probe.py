@@ -311,6 +311,45 @@ class GuangzhouDownloadProbeTests(unittest.TestCase):
             sample = result["manifest"]["project_sample_items"][0]
             self.assertIn("attachment_links_rejected_as_non_download_navigation", sample["failure_taxonomy"])
 
+    def test_detail_transport_attempts_are_carried_into_probe_outputs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            input_root = root / "input"
+            output_root = root / "output"
+            _write_inputs(input_root)
+            service = FakeStage2Service(
+                detail_map={
+                    "https://example.test/03.html": {
+                        "status": "DEGRADED",
+                        "degraded_reasons": ["fetch_failed"],
+                        "detail_transport_attempts": [
+                            {
+                                "route": "guangzhou_https_browser",
+                                "state": "FAILED",
+                                "failure_taxonomy": ["detail_ssl_protocol_error", "detail_browser_route_failed"],
+                            }
+                        ],
+                    }
+                }
+            )
+
+            result = build_guangzhou_download_probe(
+                input_root=input_root,
+                output_root=output_root,
+                project_ids=["JG2026-10815"],
+                flow_nos=["03"],
+                execute=True,
+                stage2_service=service,
+                object_repository=FakeReplayRepository({}),
+                created_at="2026-05-10T00:00:00+08:00",
+            )
+
+            sample = result["manifest"]["project_sample_items"][0]
+            item = result["manifest"]["items"][0]
+            self.assertEqual(sample["detail_transport_attempts"][0]["route"], "guangzhou_https_browser")
+            self.assertEqual(item["detail_transport_attempts"][0]["route"], "guangzhou_https_browser")
+            self.assertIn("detail_ssl_protocol_error", sample["failure_taxonomy"])
+
     def test_use_all_analysis_projects_selects_all_projects(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)

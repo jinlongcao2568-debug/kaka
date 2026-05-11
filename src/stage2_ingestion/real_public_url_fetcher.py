@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
+import shlex
 import shutil
 import subprocess
 import tempfile
@@ -12,7 +14,7 @@ from html import escape, unescape
 from pathlib import Path
 from typing import Any, Mapping, Protocol
 from urllib.error import HTTPError
-from urllib.parse import parse_qs, quote, unquote, urlencode, urljoin, urlsplit
+from urllib.parse import parse_qs, quote, unquote, urlencode, urljoin, urlsplit, urlunsplit
 from urllib.request import Request, urlopen
 
 from shared.utils import utc_now_iso
@@ -963,16 +965,25 @@ class CurlCommandRealPublicFetchTransport:
                 "--location",
                 "--silent",
                 "--show-error",
+                "--http1.1",
+                "--compressed",
                 "--max-time",
                 str(timeout_value),
                 "--user-agent",
                 user_agent,
+                "--header",
+                "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                "--header",
+                "Accept-Language: zh-CN,zh;q=0.9,en;q=0.6",
+                "--header",
+                "Connection: keep-alive",
                 "--dump-header",
                 str(header_path),
                 "--output",
                 str(body_path),
                 "--write-out",
                 "\n%{http_code}\n%{url_effective}\n%{content_type}",
+                *_curl_extra_args_for_url(url),
                 url,
             ]
             completed = subprocess.run(
@@ -1066,6 +1077,16 @@ def _candidate_detail_url_variants(url: str, *, profile_id: str) -> list[str]:
     if not cleaned:
         return []
     variants: list[str] = []
+    if profile_id == "GUANGZHOU-YWTB-CONSTRUCTION-LIST":
+        parsed = urlsplit(cleaned)
+        if parsed.scheme == "https":
+            variants.append(cleaned)
+            variants.append(urlunsplit(("http", parsed.netloc, parsed.path, parsed.query, "")))
+            return list(dict.fromkeys(variants))
+        if parsed.scheme == "http":
+            variants.append(cleaned)
+            variants.append(urlunsplit(("https", parsed.netloc, parsed.path, parsed.query, "")))
+            return list(dict.fromkeys(variants))
     if profile_id == "SHANDONG-GGZY-JYXXGK-LIST" or _is_shandong_detail_url(cleaned):
         parsed = urlsplit(cleaned)
         host = parsed.hostname or parsed.netloc.split(":", 1)[0]
@@ -1084,10 +1105,16 @@ def _is_shandong_detail_url(url: str) -> bool:
     return "shandong.gov.cn" in parsed.netloc.lower()
 
 
-def _should_retry_candidate_detail_variant(carrier: Mapping[str, Any]) -> bool:
+def _should_retry_candidate_detail_variant(
+    carrier: Mapping[str, Any],
+    *,
+    profile_id: str = "",
+) -> bool:
     if carrier.get("status") == "FETCHED":
         return False
     reasons = [str(item) for item in list(carrier.get("degraded_reasons") or [])]
+    if profile_id == "GUANGZHOU-YWTB-CONSTRUCTION-LIST":
+        return any(reason.startswith("fetch_failed") for reason in reasons)
     return any(
         reason.startswith("http_status:502")
         or reason in {"detail_body_too_small", "detail_title_missing"}
@@ -1200,11 +1227,25 @@ class RealPublicEntryFetcher:
                         else "candidate_detail_variants",
                     }
                 return carrier
-            if self._should_attempt_detail_challenge_resolution(profile, carrier):
+            should_defer_guangzhou_browser_fallback = (
+                profile.profile_id == "GUANGZHOU-YWTB-CONSTRUCTION-LIST"
+                and index + 1 < len(variants)
+                and str(carrier.get("status") or "") == "DEGRADED"
+                and _should_retry_candidate_detail_variant(carrier, profile_id=profile.profile_id)
+            )
+            if (
+                not should_defer_guangzhou_browser_fallback
+                and self._should_attempt_detail_challenge_resolution(profile, carrier)
+            ):
+                challenge_detail_url = (
+                    str(url).strip()
+                    if profile.profile_id == "GUANGZHOU-YWTB-CONSTRUCTION-LIST"
+                    else detail_url
+                )
                 resolved = self._resolve_candidate_detail_after_challenge(
                     profile=profile,
                     first_carrier=carrier,
-                    detail_url=detail_url,
+                    detail_url=challenge_detail_url,
                     lineage_refs=lineage_refs,
                 )
                 if len(attempts) > 1 or variants[0] != str(url).strip():
@@ -1216,7 +1257,10 @@ class RealPublicEntryFetcher:
                     }
                 return resolved
             last_carrier = carrier
-            if index + 1 >= len(variants) or not _should_retry_candidate_detail_variant(carrier):
+            if index + 1 >= len(variants) or not _should_retry_candidate_detail_variant(
+                carrier,
+                profile_id=profile.profile_id,
+            ):
                 break
 
         if last_carrier is not None:
@@ -1568,13 +1612,19 @@ class RealPublicEntryFetcher:
         except Exception as exc:  # pragma: no cover - resolver implementations vary
             failed = dict(first_carrier)
             first_failure_taxonomy = _detail_fetch_failure_taxonomy(first_carrier)
+            detail_transport_attempts = _extract_detail_transport_attempts(str(exc))
+            detail_transport_failure_flags = _extract_detail_transport_failure_flags(str(exc))
             failed["automated_challenge_resolution_attempted"] = True
             failed["automated_challenge_resolution_state"] = "FAILED_CLOSED_RESOLVER_ERROR"
+            failed["detail_transport_attempts"] = detail_transport_attempts
+            failed["detail_transport_failure_flags"] = detail_transport_failure_flags
             failed["challenge_resume_audit"] = {
                 "challenge_resume_context_id": context_id,
                 "resolver_error": type(exc).__name__,
                 "resolver_error_detail": str(exc),
                 "direct_fetch_failure_class": str(first_failure_taxonomy.get("failure_class") or ""),
+                "detail_transport_attempts": detail_transport_attempts,
+                "detail_transport_failure_flags": detail_transport_failure_flags,
                 "resume_from_same_capture_plan": True,
                 "resume_requires_human_input": False,
             }
@@ -1584,6 +1634,8 @@ class RealPublicEntryFetcher:
                 "degraded_reasons": list(first_carrier.get("degraded_reasons") or []),
                 "resolver_error": type(exc).__name__,
                 "resolver_error_detail": str(exc),
+                "detail_transport_attempts": detail_transport_attempts,
+                "detail_transport_failure_flags": detail_transport_failure_flags,
                 "fail_closed": True,
             }
             _annotate_detail_browser_fallback_state(
@@ -1598,9 +1650,13 @@ class RealPublicEntryFetcher:
             failed = dict(first_carrier)
             failed["automated_challenge_resolution_attempted"] = True
             failed["automated_challenge_resolution_state"] = "FAILED_CLOSED_NO_RESPONSE"
+            failed["detail_transport_attempts"] = list(
+                resolution_metadata.get("detail_transport_attempts") or []
+            )
             failed["challenge_resume_audit"] = {
                 "challenge_resume_context_id": context_id,
                 "resolution_metadata": resolution_metadata,
+                "detail_transport_attempts": list(resolution_metadata.get("detail_transport_attempts") or []),
                 "resume_from_same_capture_plan": True,
                 "resume_requires_human_input": False,
             }
@@ -1641,6 +1697,9 @@ class RealPublicEntryFetcher:
             else "RESOLVED_RESPONSE_STILL_DEGRADED"
         )
         carrier["challenge_resume_audit"] = audit
+        carrier["detail_transport_attempts"] = list(
+            resolution_metadata.get("detail_transport_attempts") or []
+        )
         carrier["first_attempt_carrier"] = {
             "status": first_carrier.get("status"),
             "degraded_reasons": list(first_carrier.get("degraded_reasons") or []),
@@ -3147,6 +3206,15 @@ def _should_try_fetch_fallback(exc: Exception) -> bool:
     )
 
 
+def _curl_extra_args_for_url(url: str) -> list[str]:
+    args: list[str] = []
+    parsed = urlsplit(str(url or ""))
+    if (parsed.hostname or "").lower().endswith("gzggzy.cn"):
+        args.extend(shlex.split(os.environ.get("KAKA_GUANGZHOU_CURL_EXTRA_ARGS") or ""))
+    args.extend(shlex.split(os.environ.get("KAKA_CURL_EXTRA_ARGS") or ""))
+    return args
+
+
 def _fetch_failure_taxonomy(detail: str) -> dict[str, Any]:
     lowered = detail.lower()
     if any(token in lowered for token in ("ssl", "tls", "bad_ecpoint", "handshake", "certificate")):
@@ -3180,8 +3248,65 @@ def _detail_fetch_failure_taxonomy(carrier: Mapping[str, Any]) -> Mapping[str, A
     return {}
 
 
+def _extract_detail_transport_attempts(error_detail: str) -> list[dict[str, Any]]:
+    marker = "guangzhou_detail_transport_all_routes_failed:"
+    text = str(error_detail or "")
+    if marker not in text:
+        return []
+    raw_json = text.split(marker, 1)[1].strip()
+    try:
+        payload = json.loads(raw_json)
+    except Exception:
+        return []
+    attempts = payload.get("detail_transport_attempts")
+    if not isinstance(attempts, list):
+        return []
+    out: list[dict[str, Any]] = []
+    for item in attempts:
+        if not isinstance(item, Mapping):
+            continue
+        out.append(
+            {
+                "route": str(item.get("route") or ""),
+                "url": str(item.get("url") or ""),
+                "state": str(item.get("state") or ""),
+                "proxy_configured": bool(item.get("proxy_configured")),
+                "browser_channel": str(item.get("browser_channel") or ""),
+                "ignore_https_errors": bool(item.get("ignore_https_errors")),
+                "error_class": str(item.get("error_class") or ""),
+                "error_detail": str(item.get("error_detail") or "")[:500],
+                "failure_taxonomy": [
+                    str(value)
+                    for value in list(item.get("failure_taxonomy") or [])
+                    if str(value or "").strip()
+                ],
+            }
+        )
+    return out
+
+
+def _extract_detail_transport_failure_flags(error_detail: str) -> list[str]:
+    marker = "guangzhou_detail_transport_all_routes_failed:"
+    text = str(error_detail or "")
+    if marker not in text:
+        return []
+    raw_json = text.split(marker, 1)[1].strip()
+    try:
+        payload = json.loads(raw_json)
+    except Exception:
+        return []
+    flags: list[str] = []
+    if payload.get("proxy_pool_not_configured"):
+        flags.append("proxy_pool_not_configured")
+    if payload.get("proxy_pool_configured"):
+        flags.append("proxy_pool_configured")
+    return flags
+
+
 def _is_retryable_detail_fetch_failure(carrier: Mapping[str, Any]) -> bool:
     reasons = [str(item or "") for item in list(carrier.get("degraded_reasons") or [])]
+    if any(reason.startswith("http_status:502") for reason in reasons):
+        return True
     if "fetch_failed" not in reasons:
         return False
     taxonomy = _detail_fetch_failure_taxonomy(carrier)

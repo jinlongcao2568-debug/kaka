@@ -28,6 +28,9 @@ class PlaywrightAttachmentChallengeResolver:
         headless: bool = True,
         storage_state_path: str | None = None,
         proxy_server: str | None = None,
+        proxy_pool: list[str] | None = None,
+        browser_channel: str | None = None,
+        guangzhou_prewarm_url: str | None = None,
         timeout_ms: int = 60000,
         user_agent: str | None = None,
         ocr_attempts: int = 3,
@@ -36,6 +39,9 @@ class PlaywrightAttachmentChallengeResolver:
         self.headless = headless
         self.storage_state_path = storage_state_path
         self.proxy_server = proxy_server
+        self.proxy_pool = _dedupe([item.strip() for item in list(proxy_pool or []) if item.strip()])
+        self.browser_channel = browser_channel
+        self.guangzhou_prewarm_url = guangzhou_prewarm_url or "https://ywtb.gzggzy.cn/jyfw/002001/002001001/trade_purchasetoplen6.html"
         self.timeout_ms = timeout_ms
         self.user_agent = user_agent
         self.ocr_attempts = max(1, ocr_attempts)
@@ -48,6 +54,9 @@ class PlaywrightAttachmentChallengeResolver:
             headless=(os.environ.get("KAKA_CHALLENGE_BROWSER_HEADLESS") or "1") != "0",
             storage_state_path=os.environ.get("KAKA_CHALLENGE_STORAGE_STATE") or None,
             proxy_server=os.environ.get("KAKA_CHALLENGE_PROXY_SERVER") or None,
+            proxy_pool=_split_env_list(os.environ.get("KAKA_GUANGZHOU_PROXY_POOL") or ""),
+            browser_channel=os.environ.get("KAKA_CHALLENGE_BROWSER_CHANNEL") or None,
+            guangzhou_prewarm_url=os.environ.get("KAKA_GUANGZHOU_PREWARM_URL") or None,
             timeout_ms=int(os.environ.get("KAKA_CHALLENGE_TIMEOUT_MS") or "60000"),
             user_agent=os.environ.get("KAKA_CHALLENGE_USER_AGENT") or None,
             ocr_attempts=int(os.environ.get("KAKA_CHALLENGE_OCR_ATTEMPTS") or "3"),
@@ -154,74 +163,206 @@ class PlaywrightAttachmentChallengeResolver:
         detail_url = str(request.get("detail_url") or "").strip()
         if not detail_url:
             raise ValueError("detail_url_required")
+        if str(request.get("challenge_family") or "") == "GUANGZHOU_YWTB_DETAIL_BROWSER_FALLBACK":
+            return self._resolve_guangzhou_candidate_detail(request)
 
         with sync_playwright() as playwright:
-            launch_options: dict[str, Any] = {"headless": self.headless}
-            if self.proxy_server:
-                launch_options["proxy"] = {"server": self.proxy_server}
-            browser = playwright.chromium.launch(**launch_options)
-            context_options: dict[str, Any] = {
-                "accept_downloads": True,
-                "locale": "zh-CN",
-                "timezone_id": "Asia/Shanghai",
-                "viewport": {"width": 1366, "height": 900},
-            }
-            if self.user_agent:
-                context_options["user_agent"] = self.user_agent
-            if self.storage_state_path and Path(self.storage_state_path).exists():
-                context_options["storage_state"] = self.storage_state_path
-            context = browser.new_context(**context_options)
-            page = context.new_page()
-            try:
-                page.goto(detail_url, wait_until="domcontentloaded", timeout=self.timeout_ms)
+            return self._resolve_candidate_detail_once(
+                playwright,
+                detail_url=detail_url,
+                route_name="default_browser",
+                proxy_server=self.proxy_server,
+                browser_channel=self.browser_channel,
+                ignore_https_errors=False,
+                prewarm_urls=[],
+            )
+
+    def _resolve_candidate_detail_once(
+        self,
+        playwright: Any,
+        *,
+        detail_url: str,
+        route_name: str,
+        proxy_server: str | None,
+        browser_channel: str | None,
+        ignore_https_errors: bool,
+        prewarm_urls: list[str],
+    ) -> Mapping[str, Any]:
+        from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+
+        launch_options: dict[str, Any] = {"headless": self.headless}
+        if proxy_server:
+            launch_options["proxy"] = {"server": proxy_server}
+        if browser_channel:
+            launch_options["channel"] = browser_channel
+        browser = playwright.chromium.launch(**launch_options)
+        context_options: dict[str, Any] = {
+            "accept_downloads": True,
+            "locale": "zh-CN",
+            "timezone_id": "Asia/Shanghai",
+            "viewport": {"width": 1366, "height": 900},
+            "ignore_https_errors": bool(ignore_https_errors),
+        }
+        if self.user_agent:
+            context_options["user_agent"] = self.user_agent
+        if self.storage_state_path and Path(self.storage_state_path).exists():
+            context_options["storage_state"] = self.storage_state_path
+        context = browser.new_context(**context_options)
+        page = context.new_page()
+        prewarm_attempts: list[dict[str, Any]] = []
+        try:
+            for prewarm_url in prewarm_urls:
+                if not prewarm_url:
+                    continue
                 try:
-                    page.wait_for_load_state("networkidle", timeout=min(self.timeout_ms, 12000))
-                except Exception:
-                    pass
-                html = page.content()
-                text = ""
-                try:
-                    text = page.locator("body").inner_text(timeout=3000)
-                except Exception:
-                    text = ""
-                diagnostics = self._page_diagnostics(page)
-                if _detail_page_still_blocked(html, text):
-                    raise RuntimeError(
-                        "automated_detail_challenge_not_resolved:"
-                        + json.dumps(diagnostics, ensure_ascii=False, sort_keys=True)[:1200]
+                    response = page.goto(prewarm_url, wait_until="domcontentloaded", timeout=min(self.timeout_ms, 15000))
+                    prewarm_attempts.append(
+                        {
+                            "url": prewarm_url,
+                            "status": getattr(response, "status", None) if response else None,
+                            "state": "OK",
+                        }
                     )
-                content = html.encode("utf-8")
-                return {
-                    "url": detail_url,
-                    "final_url": page.url or detail_url,
-                    "status_code": 200,
-                    "content": content,
-                    "content_type": "text/html; charset=utf-8",
-                    "headers": {"x-ax9s-fetch-transport": "playwright_detail_challenge_resolver"},
-                    "resolution_method": "playwright_browser_detail_challenge_resume",
-                    "resolution_capabilities_used": _dedupe(
-                        [
-                            "same_session_capture_resume",
-                            "cookie_reuse" if self.storage_state_path else "browser_session_cookie_capture",
-                            "browser_fingerprint_profile_reuse",
-                            "proxy_pool" if self.proxy_server else "",
-                        ]
-                    ),
-                    "browser_context_ref": "playwright.chromium",
-                    "cookie_reuse_state": "STORAGE_STATE_REUSED" if self.storage_state_path else "SESSION_COOKIES_USED",
-                    "fingerprint_profile_ref": "zh-CN/chromium/1366x900/Asia-Shanghai",
-                    "proxy_profile_ref": "CONFIGURED_PROXY" if self.proxy_server else "",
-                    "resolution_metadata": {
-                        "page_title": diagnostics.get("page_title"),
-                        "page_url": diagnostics.get("page_url"),
-                        "selector_counts": diagnostics.get("selector_counts"),
-                    },
-                }
-            except PlaywrightTimeoutError as exc:
-                raise RuntimeError(f"playwright_timeout:{exc}") from exc
-            finally:
-                context.close()
-                browser.close()
+                except Exception as exc:
+                    prewarm_attempts.append(
+                        {
+                            "url": prewarm_url,
+                            "state": "FAILED",
+                            "error_class": type(exc).__name__,
+                            "error_detail": str(exc)[:500],
+                        }
+                    )
+            page.goto(detail_url, wait_until="domcontentloaded", timeout=self.timeout_ms)
+            try:
+                page.wait_for_load_state("networkidle", timeout=min(self.timeout_ms, 12000))
+            except Exception:
+                pass
+            html = page.content()
+            text = ""
+            try:
+                text = page.locator("body").inner_text(timeout=3000)
+            except Exception:
+                text = ""
+            diagnostics = self._page_diagnostics(page)
+            if _detail_page_still_blocked(html, text):
+                diagnostics["route_name"] = route_name
+                diagnostics["detail_url"] = detail_url
+                diagnostics["prewarm_attempts"] = prewarm_attempts
+                raise RuntimeError(
+                    "automated_detail_challenge_not_resolved:"
+                    + json.dumps(diagnostics, ensure_ascii=False, sort_keys=True)[:1200]
+                )
+            content = html.encode("utf-8")
+            return {
+                "url": detail_url,
+                "final_url": page.url or detail_url,
+                "status_code": 200,
+                "content": content,
+                "content_type": "text/html; charset=utf-8",
+                "headers": {"x-ax9s-fetch-transport": "playwright_detail_challenge_resolver"},
+                "resolution_method": "playwright_browser_detail_challenge_resume",
+                "resolution_capabilities_used": _dedupe(
+                    [
+                        "same_session_capture_resume",
+                        "cookie_reuse" if self.storage_state_path else "browser_session_cookie_capture",
+                        "browser_fingerprint_profile_reuse",
+                        "proxy_pool" if proxy_server else "",
+                    ]
+                ),
+                "browser_context_ref": "playwright.chromium",
+                "cookie_reuse_state": "STORAGE_STATE_REUSED" if self.storage_state_path else "SESSION_COOKIES_USED",
+                "fingerprint_profile_ref": "zh-CN/chromium/1366x900/Asia-Shanghai",
+                "proxy_profile_ref": "CONFIGURED_PROXY" if proxy_server else "",
+                "resolution_metadata": {
+                    "page_title": diagnostics.get("page_title"),
+                    "page_url": diagnostics.get("page_url"),
+                    "selector_counts": diagnostics.get("selector_counts"),
+                    "detail_transport_route": route_name,
+                    "detail_transport_attempts": [
+                        {
+                            "route": route_name,
+                            "url": detail_url,
+                            "state": "FETCHED",
+                            "proxy_configured": bool(proxy_server),
+                            "browser_channel": browser_channel or "",
+                            "ignore_https_errors": bool(ignore_https_errors),
+                            "prewarm_attempts": prewarm_attempts,
+                        }
+                    ],
+                },
+            }
+        except PlaywrightTimeoutError as exc:
+            raise RuntimeError(f"playwright_timeout:{exc}") from exc
+        finally:
+            context.close()
+            browser.close()
+
+    def _resolve_guangzhou_candidate_detail(self, request: Mapping[str, Any]) -> Mapping[str, Any]:
+        try:
+            from playwright.sync_api import sync_playwright
+        except Exception as exc:  # pragma: no cover - optional runtime dependency
+            raise RuntimeError(f"playwright_unavailable:{exc}") from exc
+
+        detail_url = str(request.get("detail_url") or "").strip()
+        route_attempts: list[dict[str, Any]] = []
+        variants = _guangzhou_detail_url_variants(detail_url)
+        proxy_candidates: list[str | None] = [None]
+        for proxy in _dedupe([self.proxy_server or "", *self.proxy_pool]):
+            proxy_candidates.append(proxy)
+        browser_channels: list[str | None] = [None]
+        if self.browser_channel:
+            browser_channels.append(self.browser_channel)
+        prewarm_variants = _guangzhou_detail_url_variants(self.guangzhou_prewarm_url)
+
+        with sync_playwright() as playwright:
+            for proxy_server in proxy_candidates:
+                for browser_channel in browser_channels:
+                    for variant in variants:
+                        route_name = _guangzhou_route_name(
+                            url=variant,
+                            proxy_server=proxy_server,
+                            browser_channel=browser_channel,
+                        )
+                        try:
+                            result = self._resolve_candidate_detail_once(
+                                playwright,
+                                detail_url=variant,
+                                route_name=route_name,
+                                proxy_server=proxy_server,
+                                browser_channel=browser_channel,
+                                ignore_https_errors=True,
+                                prewarm_urls=prewarm_variants,
+                            )
+                            metadata = dict(result.get("resolution_metadata") or {})
+                            attempts = list(metadata.get("detail_transport_attempts") or [])
+                            attempts = [*route_attempts, *attempts]
+                            metadata["detail_transport_attempts"] = attempts
+                            result = dict(result)
+                            result["resolution_metadata"] = metadata
+                            return result
+                        except Exception as exc:
+                            route_attempts.append(
+                                {
+                                    "route": route_name,
+                                    "url": variant,
+                                    "state": "FAILED",
+                                    "proxy_configured": bool(proxy_server),
+                                    "browser_channel": browser_channel or "",
+                                    "ignore_https_errors": True,
+                                    "error_class": type(exc).__name__,
+                                    "error_detail": str(exc)[:900],
+                                    "failure_taxonomy": _detail_transport_failure_taxonomy(str(exc)),
+                                }
+                            )
+        payload = {
+            "detail_transport_attempts": route_attempts,
+            "proxy_pool_configured": bool([item for item in proxy_candidates if item]),
+            "proxy_pool_not_configured": not bool([item for item in proxy_candidates if item]),
+        }
+        raise RuntimeError(
+            "guangzhou_detail_transport_all_routes_failed:"
+            + json.dumps(payload, ensure_ascii=False, sort_keys=True)[:5000]
+        )
 
     def diagnose_guangzhou_ywtb_detail_downloads(self, request: Mapping[str, Any]) -> Mapping[str, Any]:
         """Inspect a Guangzhou YWTB detail page for public tender download endpoints.
@@ -1228,6 +1369,55 @@ def _filename_from_content_disposition(value: str) -> str:
 def _safe_filename(value: str) -> str:
     cleaned = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", value).strip().strip(".")
     return cleaned[:180]
+
+
+def _split_env_list(value: str) -> list[str]:
+    if not value:
+        return []
+    return [item.strip() for item in re.split(r"[;,\r\n]+", value) if item.strip()]
+
+
+def _guangzhou_detail_url_variants(url: str) -> list[str]:
+    text = str(url or "").strip()
+    if not text:
+        return []
+    parsed = urlsplit(text)
+    variants = [text]
+    if parsed.scheme == "https":
+        variants.append(urlunsplit(("http", parsed.netloc, parsed.path, parsed.query, "")))
+    elif parsed.scheme == "http":
+        variants.append(urlunsplit(("https", parsed.netloc, parsed.path, parsed.query, "")))
+    return _dedupe(variants)
+
+
+def _guangzhou_route_name(*, url: str, proxy_server: str, browser_channel: str) -> str:
+    parsed = urlsplit(str(url or ""))
+    parts = ["guangzhou", parsed.scheme or "unknown", "browser"]
+    if browser_channel:
+        parts.append(str(browser_channel))
+    if proxy_server:
+        parts.append("proxy")
+    return "_".join(parts)
+
+
+def _detail_transport_failure_taxonomy(detail: str) -> list[str]:
+    text = str(detail or "")
+    lowered = text.lower()
+    taxonomy: list[str] = []
+    if "err_ssl_protocol_error" in lowered:
+        taxonomy.append("detail_ssl_protocol_error")
+    if any(token in lowered for token in ("tls", "ssl", "handshake", "certificate")):
+        taxonomy.append("detail_tls_handshake_failed")
+    if "empty reply" in lowered or "remote end closed" in lowered or "remotedisconnected" in lowered:
+        taxonomy.append("detail_empty_reply")
+    if "timeout" in lowered or "timed out" in lowered:
+        taxonomy.append("detail_browser_timeout")
+    if "automated_detail_challenge_not_resolved" in lowered:
+        taxonomy.append("detail_browser_empty_or_blocked")
+    if "proxy" in lowered:
+        taxonomy.append("detail_proxy_route_failed")
+    taxonomy.append("detail_browser_route_failed")
+    return _dedupe(taxonomy)
 
 
 def _dedupe(values: list[str]) -> list[str]:

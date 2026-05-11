@@ -330,6 +330,11 @@ def _execute_probe_item(
             "failure_taxonomy": [f"detail_fetch_exception:{type(exc).__name__}"],
         }
     failure_taxonomy.extend(_carrier_failure_taxonomy(detail_carrier, prefix="detail"))
+    detail_transport_attempts = [
+        dict(item)
+        for item in list(detail_carrier.get("detail_transport_attempts") or [])
+        if isinstance(item, Mapping)
+    ]
     detail_ref = _snapshot_ref_from_carrier(
         carrier=detail_carrier,
         repository=repository,
@@ -441,6 +446,7 @@ def _execute_probe_item(
         attachment_link_items=attachment_link_items,
         download_attempted_count=len(attachment_attempts),
         deferred_attachment_count=deferred_attachment_count,
+        detail_transport_attempts=detail_transport_attempts,
         source_dir=source_dir,
     )
     flow_item = {
@@ -461,6 +467,7 @@ def _execute_probe_item(
         "deferred_attachment_count": deferred_attachment_count,
         "attachment_snapshot_count": len(attachment_snapshot_refs),
         "challenge_diagnostics": challenge_diagnostics,
+        "detail_transport_attempts": detail_transport_attempts,
         "failure_taxonomy": _dedupe_strings(failure_taxonomy),
         "flow_directory": str(source_dir),
         "parse_state": NOT_RUN_PARSE_STATE,
@@ -710,6 +717,7 @@ def _project_sample(
     download_attempted_count: int = 0,
     deferred_attachment_count: int = 0,
     source_dir: Path,
+    detail_transport_attempts: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     flow_no = _flow_no(item.get("flow_no"))
     flow_title = str(item.get("flow_title") or FLOW_TITLES.get(flow_no, ""))
@@ -744,6 +752,7 @@ def _project_sample(
         "attachment_snapshot_refs": attachment_snapshot_refs,
         "same_site_attachment_link_items": attachment_link_items,
         "challenge_diagnostics": challenge_diagnostics,
+        "detail_transport_attempts": list(detail_transport_attempts or []),
         "failure_taxonomy": _dedupe_strings(failure_taxonomy),
         "source_text": "",
         "parse_summary": {
@@ -974,10 +983,22 @@ def _carrier_failure_taxonomy(carrier: Mapping[str, Any], *, prefix: str) -> lis
             resolver_error_detail = str(raw.get("resolver_error_detail") or "").strip()
             if "ERR_SSL_PROTOCOL_ERROR" in resolver_error_detail:
                 reasons.append("detail_browser_ssl_protocol_error")
+                reasons.append("detail_ssl_protocol_error")
             elif "playwright_timeout" in resolver_error_detail or "Timeout" in resolver_error_detail:
                 reasons.append("detail_browser_timeout")
             elif "automated_detail_challenge_not_resolved" in resolver_error_detail:
                 reasons.append("detail_browser_empty_or_blocked")
+            for attempt in list(raw.get("detail_transport_attempts") or []):
+                if not isinstance(attempt, Mapping):
+                    continue
+                for value in list(attempt.get("failure_taxonomy") or []):
+                    text = str(value or "").strip()
+                    if text:
+                        reasons.append(text)
+            for value in list(raw.get("detail_transport_failure_flags") or []):
+                text = str(value or "").strip()
+                if text:
+                    reasons.append(text)
             for value in list(raw.get("degraded_reasons") or []):
                 text = str(value or "").strip()
                 if text:
@@ -994,6 +1015,13 @@ def _carrier_failure_taxonomy(carrier: Mapping[str, Any], *, prefix: str) -> lis
     text = str(carrier.get("detail_fetch_repair_state") or "").strip()
     if text:
         reasons.append(text)
+    for attempt in list(carrier.get("detail_transport_attempts") or []):
+        if not isinstance(attempt, Mapping):
+            continue
+        for value in list(attempt.get("failure_taxonomy") or []):
+            text = str(value or "").strip()
+            if text:
+                reasons.append(text)
     if str(carrier.get("status") or "") == "DEGRADED":
         reasons.append(f"{prefix}_degraded")
     return _dedupe_strings(reasons)

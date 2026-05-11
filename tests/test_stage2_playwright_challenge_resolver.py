@@ -18,11 +18,14 @@ from stage2_ingestion.playwright_challenge_resolver import (
     _epoint_attachment_action_url,
     _epoint_jigsaw_captcha_url,
     _filename_from_content_disposition,
+    _detail_transport_failure_taxonomy,
+    _guangzhou_detail_url_variants,
     _guangzhou_ywtb_candidate_urls_from_value,
     _guangzhou_ywtb_discovery_failure_taxonomy,
     _guangzhou_ywtb_download_discovery_state,
     _guangzhou_ywtb_download_url,
     _solve_blockpuzzle_offset,
+    _split_env_list,
 )
 
 
@@ -184,6 +187,26 @@ class PlaywrightChallengeResolverHelperTests(unittest.TestCase):
             [
                 "https://ywtb.gzggzy.cn/EpointWebBuilder/pages/webbuildermis/attach/downloadztbattach?attachGuid=abc-001&appUrlFlag=f2026&siteGuid=site-1"
             ],
+        )
+
+    def test_guangzhou_detail_transport_helpers_classify_route_variants(self) -> None:
+        https_url = "https://ywtb.gzggzy.cn/jyfw/002001/002001001/20260510/detail.html"
+
+        self.assertEqual(
+            _guangzhou_detail_url_variants(https_url),
+            [
+                https_url,
+                "http://ywtb.gzggzy.cn/jyfw/002001/002001001/20260510/detail.html",
+            ],
+        )
+        self.assertEqual(_split_env_list("http://a:1; http://b:2\nhttp://c:3"), ["http://a:1", "http://b:2", "http://c:3"])
+        self.assertIn(
+            "detail_ssl_protocol_error",
+            _detail_transport_failure_taxonomy("Error: net::ERR_SSL_PROTOCOL_ERROR at https://ywtb.gzggzy.cn"),
+        )
+        self.assertIn(
+            "detail_empty_reply",
+            _detail_transport_failure_taxonomy("RemoteDisconnected: Remote end closed connection without response"),
         )
 
 

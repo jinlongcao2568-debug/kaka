@@ -178,6 +178,30 @@ class FailingDetailChallengeResolver(FakeAttachmentChallengeResolver):
         raise RuntimeError("browser detail failed")
 
 
+class FailingTransportMatrixDetailResolver(FakeAttachmentChallengeResolver):
+    def __init__(self) -> None:
+        super().__init__(_pdf_like_bytes())
+
+    def resolve_candidate_detail(self, request: dict[str, object]) -> dict[str, object]:
+        payload = {
+            "detail_transport_attempts": [
+                {
+                    "route": "guangzhou_https_browser",
+                    "url": request["detail_url"],
+                    "state": "FAILED",
+                    "proxy_configured": False,
+                    "browser_channel": "",
+                    "ignore_https_errors": True,
+                    "error_class": "Error",
+                    "error_detail": "net::ERR_SSL_PROTOCOL_ERROR",
+                    "failure_taxonomy": ["detail_ssl_protocol_error", "detail_browser_route_failed"],
+                }
+            ],
+            "proxy_pool_not_configured": True,
+        }
+        raise RuntimeError("guangzhou_detail_transport_all_routes_failed:" + json.dumps(payload, ensure_ascii=False))
+
+
 def _repo(tmp_dir: str) -> ObjectStorageRepository:
     settings = Settings(
         storage_backend="json-file",
@@ -811,6 +835,35 @@ class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
             replay = repo.replay_snapshot(carrier["snapshot_id_optional"])
             self.assertTrue(replay["replayable"])
 
+    def test_guangzhou_502_detail_routes_to_browser_transport_matrix(self) -> None:
+        resolver = FakeDetailChallengeResolver(_guangzhou_ywtb_detail_html_with_onclick_attachment())
+        transport = FakeRealPublicFetchTransport(
+            {
+                GZ_YWTB_DETAIL_URL: RealPublicFetchResponse(
+                    url=GZ_YWTB_DETAIL_URL,
+                    status_code=502,
+                    content=b"bad",
+                    content_type="text/html; charset=utf-8",
+                    final_url=GZ_YWTB_DETAIL_URL,
+                ),
+            }
+        )
+
+        carrier = RealPublicEntryFetcher(
+            transport=transport,
+            repository=None,
+            attachment_challenge_resolver=resolver,
+            automated_challenge_resolution_enabled=True,
+        ).fetch_candidate_detail_url(
+            GZ_YWTB_DETAIL_URL,
+            profile_id="GUANGZHOU-YWTB-CONSTRUCTION-LIST",
+        )
+
+        self.assertEqual(carrier["status"], "FETCHED")
+        self.assertEqual(len(resolver.detail_requests), 1)
+        self.assertEqual(resolver.detail_requests[0]["challenge_family"], "GUANGZHOU_YWTB_DETAIL_BROWSER_FALLBACK")
+        self.assertEqual(carrier["first_attempt_carrier"]["degraded_reasons"][0], "http_status:502")
+
     def test_guangzhou_detail_browser_fallback_failure_is_fail_closed(self) -> None:
         resolver = FailingDetailChallengeResolver()
         transport = AlwaysFailTransport(RuntimeError("RemoteDisconnected"))
@@ -835,6 +888,29 @@ class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
         self.assertEqual(carrier["failure_taxonomy"]["direct_fetch_failure_class"], "FETCH_FAILED")
         self.assertIn("browser detail failed", carrier["failure_taxonomy"]["resolver_error_detail"])
         self.assertEqual(len(resolver.detail_requests), 1)
+
+    def test_guangzhou_detail_transport_matrix_is_preserved_on_fallback_failure(self) -> None:
+        resolver = FailingTransportMatrixDetailResolver()
+        transport = AlwaysFailTransport(RuntimeError("TLSV1_ALERT_INTERNAL_ERROR"))
+
+        carrier = RealPublicEntryFetcher(
+            transport=transport,
+            repository=None,
+            attachment_challenge_resolver=resolver,
+            automated_challenge_resolution_enabled=True,
+        ).fetch_candidate_detail_url(
+            GZ_YWTB_DETAIL_URL,
+            profile_id="GUANGZHOU-YWTB-CONSTRUCTION-LIST",
+        )
+
+        self.assertEqual(carrier["status"], "DEGRADED")
+        self.assertEqual(carrier["detail_transport_attempts"][0]["route"], "guangzhou_https_browser")
+        self.assertIn("detail_ssl_protocol_error", carrier["detail_transport_attempts"][0]["failure_taxonomy"])
+        self.assertEqual(
+            carrier["failure_taxonomy"]["detail_transport_attempts"][0]["error_detail"],
+            "net::ERR_SSL_PROTOCOL_ERROR",
+        )
+        self.assertIn("proxy_pool_not_configured", carrier["failure_taxonomy"]["detail_transport_failure_flags"])
 
     def test_non_guangzhou_detail_fetch_failure_does_not_use_browser_fallback(self) -> None:
         resolver = FakeDetailChallengeResolver(_ccgp_detail_html())
