@@ -60,10 +60,13 @@ class Stage4RegionalHardDefectSourcePlanTests(unittest.TestCase):
             "zhejiang_construction_market_public_service_query_adapter",
             plan["next_required_runtime_adapters"],
         )
-        self.assertIn(
-            "guangzhou_housing_credit_double_publicity_query_adapter",
-            plan["next_required_runtime_adapters"],
+        gz_entry = next(
+            entry
+            for entry in plan["source_entries"]
+            if entry["entry_id"] == "GZ-ZFCJ-CREDIT-DOUBLE-PUBLICITY"
         )
+        self.assertEqual(gz_entry["runtime_status"], "CITY_PUBLIC_API_QUERY_ADAPTER_AVAILABLE")
+        self.assertEqual(gz_entry["next_adapter"], "guangzhou_zfcj_xyxx_api_query_v1")
         self.assertEqual(plan["query_context"]["project_name"], "广东市政道路工程")
         self.assertTrue(plan["no_no-risk_inference_without_sources"])
 

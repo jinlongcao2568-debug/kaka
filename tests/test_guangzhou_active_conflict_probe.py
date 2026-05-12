@@ -42,7 +42,6 @@ class GuangzhouActiveConflictProbeTests(unittest.TestCase):
             self.assertIn("project_manager_change_notice", summary["source_category_counts"])
             self.assertIn("administrative_penalty_public_record", summary["source_category_counts"])
             self.assertIn("jzsc_company_first_project_manager_active_conflict_query", summary["next_required_runtime_adapters"])
-            self.assertIn("guangzhou_housing_credit_double_publicity_query_adapter", summary["next_required_runtime_adapters"])
             self.assertIn("zhejiang_construction_market_public_service_query_adapter", summary["next_required_runtime_adapters"])
             self.assertIn("sichuan_construction_market_public_service_query_adapter", summary["next_required_runtime_adapters"])
             self.assertIn("jiangsu_construction_market_integrated_platform_query_adapter", summary["next_required_runtime_adapters"])
@@ -58,6 +57,12 @@ class GuangzhouActiveConflictProbeTests(unittest.TestCase):
             self.assertIn("JIANGSU-JZSC-INTEGRATED-PLATFORM", source_profile_ids)
             self.assertIn("SHANDONG-JZSC-CREDIT-SUPERVISION-PLATFORM", source_profile_ids)
             self.assertIn("GUANGZHOU-ZFCJ-CREDIT-DOUBLE-PUBLICITY", source_profile_ids)
+            gz_entry = next(
+                entry for entry in task["source_entries"]
+                if entry["source_profile_id"] == "GUANGZHOU-ZFCJ-CREDIT-DOUBLE-PUBLICITY"
+            )
+            self.assertEqual(gz_entry["runtime_status"], "CITY_PUBLIC_API_QUERY_ADAPTER_AVAILABLE")
+            self.assertEqual(gz_entry["next_adapter"], "guangzhou_zfcj_xyxx_api_query_v1")
             source_region_codes = {entry["region_code"] for entry in task["source_entries"]}
             self.assertIn("CN-ZJ", source_region_codes)
             self.assertIn("CN-SD", source_region_codes)

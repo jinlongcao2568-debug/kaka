@@ -33,9 +33,9 @@ class GuangdongLocalFieldQueryProbeTests(unittest.TestCase):
             self.assertTrue(result["safe_to_execute"])
             summary = result["summary"]
             self.assertEqual(summary["execution_mode"], "PLAN_ONLY_NOT_EXECUTED")
-            self.assertEqual(summary["guangdong_local_field_query_task_count"], 5)
+            self.assertEqual(summary["guangdong_local_field_query_task_count"], 6)
             self.assertEqual(summary["delegated_task_count"], 1)
-            self.assertEqual(summary["field_query_probe_state_counts"]["PLAN_ONLY_NOT_EXECUTED"], 4)
+            self.assertEqual(summary["field_query_probe_state_counts"]["PLAN_ONLY_NOT_EXECUTED"], 5)
             delegated = result["manifest"]["field_task_records"][0]
             self.assertEqual(delegated["field_query_probe_state"], "DELEGATED_TO_SEPARATE_FIELD_ADAPTER")
             self.assertEqual(delegated["delegated_adapter_id"], "guangdong_gdcic_query_probe_v1")
@@ -281,6 +281,90 @@ class GuangdongLocalFieldQueryProbeTests(unittest.TestCase):
             self.assertEqual(record["document_no"], "粤建质罚〔2026〕88号")
             self.assertIn("暂扣建筑施工企业安全生产许可证30日", record["punishment_summary_probe"])
 
+    def test_tzxm_project_approval_readback_records_filing_detail(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            local_root = root / "local"
+            _write_local_verification(local_root)
+
+            def fake_getter(url: str, params: Mapping[str, Any]) -> Mapping[str, Any]:
+                if "selectBaProjectInfo" in url:
+                    return {
+                        "http_status": 200,
+                        "content_type": "application/json; charset=utf-8",
+                        "json_payload": {
+                            "code": "0",
+                            "status": 200,
+                            "data": {
+                                "proofOrSerialCode": "2605-440100-04-01-000001",
+                                "projectName": "广州测试项目",
+                                "applyOrgan": "广州测试建设有限公司",
+                                "place": "广州市天河区",
+                                "scope": "建设一栋研发楼及配套设施。",
+                                "finishDate": "2026-05-12",
+                                "stateFlagName": "办结（通过）",
+                                "fullName": "广州市发展和改革委员会",
+                            },
+                        },
+                        "text_probe": "",
+                    }
+                if "selectByPageBA" in url and params.get("flag") == "1":
+                    return {
+                        "http_status": 200,
+                        "content_type": "application/json; charset=utf-8",
+                        "json_payload": {
+                            "code": "0",
+                            "status": 200,
+                            "data": {
+                                "list": [
+                                    {
+                                        "baId": "BA-001",
+                                        "projectCode": "2605-440100-04-01-000001",
+                                        "projectName": "广州测试项目",
+                                        "applyOrgan": "广州测试建设有限公司",
+                                        "projectAddress": "广州市天河区",
+                                        "stateFlagName": "办结（通过）",
+                                        "finishDate": "2026-05-12",
+                                    }
+                                ]
+                            },
+                        },
+                        "text_probe": "",
+                    }
+                return {
+                    "http_status": 200,
+                    "content_type": "application/json; charset=utf-8",
+                    "json_payload": {"code": "0", "status": 200, "data": {"list": []}},
+                    "text_probe": "",
+                }
+
+            result = build_guangdong_local_field_query_probe(
+                local_verification_root=local_root,
+                output_root=root / "out",
+                source_profile_ids=["GUANGDONG-TZXM-HOME"],
+                enable_live_public_query=True,
+                max_live_tasks=1,
+                http_getter=fake_getter,
+                created_at="2026-05-12T00:00:00+08:00",
+            )
+
+            self.assertTrue(result["safe_to_execute"])
+            summary = result["summary"]
+            self.assertEqual(summary["readback_ready_count"], 1)
+            self.assertEqual(summary["source_specific_readback_ready_count"], 1)
+            self.assertEqual(summary["guangdong_tzxm_readback_ready_count"], 1)
+            task = result["manifest"]["field_task_records"][0]
+            self.assertEqual(task["field_query_probe_state"], "FIELD_READBACK_READY_PUBLIC_SOURCE")
+            self.assertEqual(
+                task["field_summary"]["source_specific_adapter_id"],
+                "guangdong_tzxm_project_approval_publicity_api_v1",
+            )
+            record = task["field_match_summary"]["source_specific_records"][0]
+            self.assertEqual(record["project_code"], "2605-440100-04-01-000001")
+            self.assertEqual(record["project_unit_probe"], "广州测试建设有限公司")
+            self.assertEqual(record["detail_readback"]["approval_unit"], "广州市发展和改革委员会")
+            self.assertIn("研发楼", record["detail_readback"]["project_scope_probe"])
+
     def test_live_public_query_miss_remains_review_required(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -359,6 +443,7 @@ def _write_local_verification(root: Path) -> None:
         _task("GUANGDONG-GDCIC-SKYPT-OPENPLATFORM", "https://skypt.gdcic.net/openplatform/"),
         _task("GUANGDONG-GDCIC-HOME", "http://210.76.80.152:8008"),
         _task("GUANGDONG-ZFCXJST-PENALTY-PUBLICITY", "https://zfcxjst.gd.gov.cn/xxgk/gsgg/"),
+        _task("GUANGDONG-TZXM-HOME", "https://tzxm.gd.gov.cn/"),
         _task("GUANGZHOU-ZFCJ-CREDIT-DOUBLE-PUBLICITY", "https://zfcj.gz.gov.cn/zfcj/xyxx/"),
         _task("GUANGDONG-CREDIT-GD-HOME", "https://credit.gd.gov.cn/"),
     ]

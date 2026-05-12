@@ -586,6 +586,7 @@
         ],
         "source_specific_field_adapters": [
           "guangdong_gdcic_contract_performance_public_page_v1",
+          "guangdong_tzxm_project_approval_publicity_api_v1",
           "guangdong_zfcxjst_penalty_publicity_page_v1",
           "guangzhou_zfcj_xyxx_api_query_v1"
         ],
@@ -593,6 +594,7 @@
           "source_home_keyword_probe",
           "official_site_search_or_list_probe_when_known",
           "guangdong_gdcic_contract_performance_public_page_probe",
+          "guangdong_tzxm_project_approval_publicity_api_probe",
           "guangdong_zfcxjst_penalty_publicity_list_and_detail_probe",
           "guangzhou_zfcj_xyxx_api_query_for_city_double_publicity",
           "city_double_publicity_keyword_probe_for_guangzhou",

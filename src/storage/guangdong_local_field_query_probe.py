@@ -40,6 +40,10 @@ GUANGDONG_GDCIC_CONTRACT_SYSTEM_URL = (
 GUANGDONG_ZFCXJST_PENALTY_PROFILE_ID = "GUANGDONG-ZFCXJST-PENALTY-PUBLICITY"
 GUANGDONG_ZFCXJST_GSGG_BASE_URL = "https://zfcxjst.gd.gov.cn/xxgk/gsgg/"
 GUANGDONG_ZFCXJST_SITE_SEARCH_URL = "https://search.gd.gov.cn/search/all/233"
+GUANGDONG_TZXM_PROFILE_ID = "GUANGDONG-TZXM-HOME"
+GUANGDONG_TZXM_BASE_URL = "https://tzxm.gd.gov.cn"
+GUANGDONG_TZXM_PUBLICITY_URL = f"{GUANGDONG_TZXM_BASE_URL}/PublicityInformation/PublicityHandlingResults.html"
+GUANGDONG_TZXM_API_BASE_URL = f"{GUANGDONG_TZXM_BASE_URL}/tzxmspweb/api/publicityInformation"
 
 FORBIDDEN_TERMS = ("在建冲突成立", "无在建", "无冲突", "造假成立", "违法成立", "确认本人", "是不是本人")
 
@@ -293,11 +297,28 @@ def _route_plan_for_task(task: Mapping[str, Any], query_params: Mapping[str, Any
                 _route("credit_gd_penalty_page", f"https://credit.gd.gov.cn/page/creditPublic/xzcf.html?keywords={encoded}", "credit_gd_penalty_page_probe", keywords),
             ]
         )
-    elif profile_id == "GUANGDONG-TZXM-HOME":
+    elif profile_id == GUANGDONG_TZXM_PROFILE_ID:
         routes.extend(
             [
                 _route("source_home", source_url, "source_home_probe", keywords),
-                _route("investment_project_home_keyword", f"https://tzxm.gd.gov.cn/?keywords={encoded}", "investment_project_home_keyword_probe", keywords),
+                _route(
+                    "investment_project_publicity_page",
+                    GUANGDONG_TZXM_PUBLICITY_URL,
+                    "investment_project_publicity_page_probe",
+                    keywords,
+                ),
+                _route(
+                    "investment_project_home_keyword",
+                    f"https://tzxm.gd.gov.cn/?keywords={encoded}",
+                    "investment_project_home_keyword_probe",
+                    keywords,
+                ),
+                _guangdong_tzxm_publicity_list_route("ba", "1", "project_filing_publicity", keywords),
+                _guangdong_tzxm_publicity_list_route("hz", "9", "project_approval_pre_publicity", keywords),
+                _guangdong_tzxm_publicity_list_route("hz", "10", "project_approval_notice", keywords),
+                _guangdong_tzxm_publicity_list_route("sp", "6", "project_review_pre_publicity", keywords),
+                _guangdong_tzxm_publicity_list_route("sp", "7", "project_review_notice", keywords),
+                _guangdong_tzxm_publicity_list_route("jn", "13", "energy_saving_review_notice", keywords),
             ]
         )
     elif profile_id == GUANGDONG_GDCIC_HOME_PROFILE_ID:
@@ -444,6 +465,39 @@ def _guangdong_zfcxjst_penalty_search_route(
     }
 
 
+def _guangdong_tzxm_publicity_list_route(
+    audit: str,
+    flag: str,
+    route_kind: str,
+    query_keywords: list[str],
+) -> dict[str, Any]:
+    endpoint_by_audit = {
+        "ba": "selectByPageBA",
+        "hz": "selectHzByPage",
+        "sp": "selectByPageSP",
+        "jn": "selectJnscByPage",
+    }
+    endpoint = endpoint_by_audit[audit]
+    return {
+        "route_id": f"gd_tzxm_{route_kind}_page_1",
+        "route_group": "gd_tzxm_publicity_list",
+        "url": f"{GUANGDONG_TZXM_API_BASE_URL}/{endpoint}",
+        "method": "POST",
+        "json_body": True,
+        "params": {
+            "flag": flag,
+            "pageSize": 20,
+            "pageNumber": 1,
+        },
+        "tzxm_audit": audit,
+        "tzxm_flag": flag,
+        "tzxm_route_kind": route_kind,
+        "keyword_count": len(query_keywords),
+        "query_keyword_probe": query_keywords[:5],
+        "source_specific_adapter_id": "guangdong_tzxm_project_approval_publicity_api_v1",
+    }
+
+
 def _query_keywords(query_params: Mapping[str, Any]) -> list[str]:
     values = [
         query_params.get("certificateNo"),
@@ -523,6 +577,12 @@ def _execute_live_field_query(
         for route in route_plan
     ):
         return _execute_guangdong_zfcxjst_penalty_field_query(task, route_plan, http_getter=http_getter)
+    if any(
+        str(route.get("source_specific_adapter_id") or "")
+        == "guangdong_tzxm_project_approval_publicity_api_v1"
+        for route in route_plan
+    ):
+        return _execute_guangdong_tzxm_field_query(task, route_plan, http_getter=http_getter)
     getter = http_getter or _default_http_getter
     query_params = dict(task.get("query_params") or {})
     keywords = _query_keywords(query_params)
@@ -606,6 +666,8 @@ def _request_params_for_route(route: Mapping[str, Any]) -> dict[str, Any]:
     params = dict(route.get("params") or {})
     if route.get("method"):
         params["_method"] = str(route.get("method") or "GET").upper()
+    if route.get("json_body"):
+        params["_json_body"] = True
     if route.get("route_id"):
         params["_route_id"] = str(route.get("route_id") or "")
     if route.get("route_group"):
@@ -616,12 +678,18 @@ def _request_params_for_route(route: Mapping[str, Any]) -> dict[str, Any]:
 def _default_http_getter(url: str, params: Mapping[str, Any]) -> Mapping[str, Any]:
     request_params = {key: value for key, value in dict(params or {}).items() if not str(key).startswith("_")}
     method = str((params or {}).get("_method") or "GET").upper()
+    json_body = bool((params or {}).get("_json_body"))
     request_url = url
-    if request_params:
+    data = None
+    if method == "POST" and json_body:
+        data = json.dumps(request_params, ensure_ascii=False).encode("utf-8")
+    elif request_params:
         request_url = f"{url}?{urllib.parse.urlencode(request_params)}"
+    if method == "POST" and data is None:
+        data = b""
     request = urllib.request.Request(
         request_url,
-        data=b"" if method == "POST" else None,
+        data=data,
         headers={
             "User-Agent": (
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -631,6 +699,7 @@ def _default_http_getter(url: str, params: Mapping[str, Any]) -> Mapping[str, An
             "Accept-Language": "zh-CN,zh;q=0.9",
             "Referer": "https://zfcj.gz.gov.cn/zfcj/xyxx/",
             "X-Requested-With": "XMLHttpRequest",
+            **({"Content-Type": "application/json;charset=utf-8"} if method == "POST" and json_body else {}),
         },
         method=method,
     )
@@ -999,6 +1068,130 @@ def _execute_guangdong_zfcxjst_penalty_field_query(
     }
 
 
+def _execute_guangdong_tzxm_field_query(
+    task: Mapping[str, Any],
+    route_plan: list[Mapping[str, Any]],
+    *,
+    http_getter: HttpGetter | None,
+) -> dict[str, Any]:
+    getter = http_getter or _default_http_getter
+    query_params = dict(task.get("query_params") or {})
+    keywords = _query_keywords(query_params)
+    attempts: list[dict[str, Any]] = []
+    source_records: list[dict[str, Any]] = []
+
+    for route in route_plan:
+        response = _safe_get(route, getter=getter)
+        attempt = _route_attempt(route, response, keywords)
+        route_group = str(route.get("route_group") or "")
+        if route_group != "gd_tzxm_publicity_list":
+            _suppress_tzxm_navigation_login_noise(attempt)
+            attempts.append(attempt)
+            continue
+        records = _guangdong_tzxm_records_from_response(response)
+        attempt["json_record_count"] = len(records)
+        attempts.append(attempt)
+        for record in records[:20]:
+            compact = _compact_guangdong_tzxm_record(record, route, keywords)
+            if not compact.get("matched_keywords"):
+                continue
+            detail_route = _guangdong_tzxm_detail_route(record, route, keywords)
+            if detail_route:
+                detail_response = _safe_get(detail_route, getter=getter)
+                detail_attempt = _route_attempt(detail_route, detail_response, keywords)
+                detail_records = _guangdong_tzxm_records_from_response(detail_response)
+                detail_attempt["json_record_count"] = len(detail_records)
+                detail = _compact_guangdong_tzxm_detail(
+                    _first_mapping(detail_records),
+                    route,
+                    keywords,
+                )
+                if detail:
+                    compact["detail_readback"] = detail
+                    compact["detail_text_sha256"] = _sha256_text(json.dumps(detail, ensure_ascii=False, sort_keys=True))
+                    detail_attempt["tzxm_detail_readback_ready"] = True
+                attempts.append(detail_attempt)
+            source_records.append(compact)
+
+    blockers = _dedupe(blocker for attempt in attempts for blocker in _list(attempt.get("blocker_taxonomy")))
+    status_codes = [_int(attempt.get("http_status")) for attempt in attempts if _int(attempt.get("http_status"))]
+    matched_keyword_count = len(
+        _dedupe(keyword for record in source_records for keyword in _list(record.get("matched_keywords")))
+    )
+    if source_records:
+        return {
+            "field_query_probe_state": "FIELD_READBACK_READY_PUBLIC_SOURCE",
+            "field_readback_state": "PUBLIC_SOURCE_FIELD_READBACK_READY_REVIEW_REQUIRED",
+            "readback_ready": True,
+            "readback_status_code": status_codes[0] if status_codes else 200,
+            "field_summary": {
+                "source_specific_adapter_id": "guangdong_tzxm_project_approval_publicity_api_v1",
+                "record_count": len(source_records),
+                "matched_keyword_count": matched_keyword_count,
+                "source_profile_keyword_hit": bool(matched_keyword_count),
+                "source_profile_id": GUANGDONG_TZXM_PROFILE_ID,
+                "record_type": "investment_project_approval_or_filing_publicity",
+            },
+            "field_match_summary": {
+                "source_specific_records": source_records[:10],
+                "query_miss_is_not_clearance": True,
+                "readback_is_line_clue_not_final_conclusion": True,
+            },
+            "route_plan": list(route_plan),
+            "route_attempts": attempts,
+            "blocker_taxonomy": blockers,
+        }
+    if attempts and all(str(attempt.get("route_state") or "").startswith("FAIL_CLOSED") for attempt in attempts):
+        return {
+            "field_query_probe_state": "FAIL_CLOSED_PUBLIC_SOURCE_BLOCKED",
+            "field_readback_state": "FIELD_READBACK_BLOCKED",
+            "readback_ready": False,
+            "readback_status_code": status_codes[0] if status_codes else None,
+            "field_summary": {
+                "source_specific_adapter_id": "guangdong_tzxm_project_approval_publicity_api_v1",
+            },
+            "field_match_summary": {"query_miss_is_not_clearance": True},
+            "route_plan": list(route_plan),
+            "route_attempts": attempts,
+            "blocker_taxonomy": blockers or ["gd_tzxm_project_approval_all_routes_blocked"],
+        }
+    return {
+        "field_query_probe_state": "NO_FIELD_MATCH_REVIEW_REQUIRED",
+        "field_readback_state": "PUBLIC_SOURCE_QUERIED_NO_FIELD_RECORD",
+        "readback_ready": False,
+        "readback_status_code": status_codes[0] if status_codes else None,
+        "field_summary": {
+            "source_specific_adapter_id": "guangdong_tzxm_project_approval_publicity_api_v1",
+            "record_count": 0,
+            "source_profile_keyword_hit": False,
+        },
+        "field_match_summary": {
+            "query_miss_is_not_clearance": True,
+            "readback_is_line_clue_not_final_conclusion": True,
+        },
+        "route_plan": list(route_plan),
+        "route_attempts": attempts,
+        "blocker_taxonomy": blockers or ["gd_tzxm_project_approval_no_record_review"],
+    }
+
+
+def _suppress_tzxm_navigation_login_noise(attempt: dict[str, Any]) -> None:
+    if _int(attempt.get("http_status")) != 200:
+        return
+    route_group = str(attempt.get("route_group") or "")
+    if route_group not in {
+        "source_home_probe",
+        "investment_project_publicity_page_probe",
+        "investment_project_home_keyword_probe",
+    }:
+        return
+    blockers = _list(attempt.get("blocker_taxonomy"))
+    if blockers == ["guangdong_local_field_query_captcha_or_login_required"]:
+        attempt["route_state"] = "PUBLIC_SOURCE_QUERIED"
+        attempt["blocker_taxonomy"] = []
+        attempt["navigation_login_text_suppressed"] = True
+
+
 def _route_attempt(route: Mapping[str, Any], response: Mapping[str, Any], keywords: list[str]) -> dict[str, Any]:
     text = str(response.get("text_probe") or response.get("body_probe") or "")
     matched = [keyword for keyword in keywords if keyword and keyword in text]
@@ -1174,6 +1367,181 @@ def _guangdong_gdcic_performance_records_from_html(text: str, keywords: list[str
     return records
 
 
+def _guangdong_tzxm_records_from_response(response: Mapping[str, Any]) -> list[Mapping[str, Any]]:
+    payload = _json_payload(response)
+    if isinstance(payload, list):
+        return [row for row in payload if isinstance(row, Mapping)]
+    if not isinstance(payload, Mapping):
+        return []
+    data = payload.get("data")
+    if isinstance(data, list):
+        return [row for row in data if isinstance(row, Mapping)]
+    if isinstance(data, Mapping):
+        for key in ("list", "rows", "items", "result"):
+            value = data.get(key)
+            if isinstance(value, list):
+                return [row for row in value if isinstance(row, Mapping)]
+        return [data]
+    for key in ("list", "rows", "items", "result"):
+        value = payload.get(key)
+        if isinstance(value, list):
+            return [row for row in value if isinstance(row, Mapping)]
+    return []
+
+
+def _compact_guangdong_tzxm_record(
+    record: Mapping[str, Any],
+    route: Mapping[str, Any],
+    keywords: list[str],
+) -> dict[str, Any]:
+    project_name = _first_text(
+        (
+            record.get("projectName"),
+            record.get("pname"),
+            record.get("title"),
+            record.get("xmmc"),
+        )
+    )
+    project_code = _first_text(
+        (
+            record.get("projectCode"),
+            record.get("proofCode"),
+            record.get("proofOrSerialCode"),
+            record.get("projectNo"),
+        )
+    )
+    unit = _first_text(
+        (
+            record.get("applyOrgan"),
+            record.get("buildOrgan"),
+            record.get("projectDept"),
+            record.get("legalDeptName"),
+            record.get("approvalOrgan"),
+            record.get("lxUnit"),
+        )
+    )
+    record_text = _compact_mapping_text(record)
+    return {
+        "source_profile_id": GUANGDONG_TZXM_PROFILE_ID,
+        "source_specific_adapter_id": "guangdong_tzxm_project_approval_publicity_api_v1",
+        "route_kind": str(route.get("tzxm_route_kind") or ""),
+        "audit": str(route.get("tzxm_audit") or ""),
+        "flag": str(route.get("tzxm_flag") or ""),
+        "project_code": project_code[:100],
+        "project_name_probe": project_name[:500],
+        "project_unit_probe": unit[:300],
+        "approval_unit_probe": _first_text((record.get("approveUnitName"), record.get("department"), record.get("fullName")))[:300],
+        "project_location_probe": _first_text((record.get("projectAddress"), record.get("place"), record.get("areaDetailName")))[:300],
+        "status_probe": _first_text((record.get("stateFlagName"), record.get("stateName"), record.get("isValidity")))[:120],
+        "finish_date": _first_text((record.get("finishDate"), record.get("operateDate"), record.get("beginDate"), record.get("endDate")))[:80],
+        "detail_url": _guangdong_tzxm_detail_page_url(record, route),
+        "matched_keywords": [keyword for keyword in keywords if keyword and keyword in record_text][:10],
+        "record_sha256": _sha256_text(record_text),
+        "query_miss_is_not_clearance": True,
+        "readback_is_line_clue_not_final_conclusion": True,
+    }
+
+
+def _compact_guangdong_tzxm_detail(
+    record: Mapping[str, Any],
+    route: Mapping[str, Any],
+    keywords: list[str],
+) -> dict[str, Any]:
+    if not record:
+        return {}
+    record_text = _compact_mapping_text(record)
+    fields = {
+        "route_kind": str(route.get("tzxm_route_kind") or ""),
+        "audit": str(route.get("tzxm_audit") or ""),
+        "flag": str(route.get("tzxm_flag") or ""),
+        "project_code": _first_text((record.get("proofOrSerialCode"), record.get("projectCode"), record.get("proofCode"))),
+        "project_name": _first_text((record.get("projectName"), record.get("pname"), record.get("title"))),
+        "project_unit": _first_text((record.get("applyOrgan"), record.get("buildOrgan"), record.get("approvalOrgan"))),
+        "project_location": _first_text((record.get("place"), record.get("projectAddress"), record.get("areaDetailName"))),
+        "project_scope_probe": _strip_html(str(record.get("scope") or record.get("scaleContent") or ""))[:700],
+        "total_invest": str(record.get("totalInvest") or record.get("totalMoney") or "").strip(),
+        "approval_unit": _first_text((record.get("fullName"), record.get("department"), record.get("handleDeptName"))),
+        "finish_date": _first_text((record.get("finishDate"), record.get("finishDateString"), record.get("submitDate"))),
+        "project_period": _first_text(
+            (
+                f"{record.get('beginDate') or ''}至{record.get('overDate') or record.get('fixed') or ''}".strip("至"),
+                record.get("fixed"),
+            )
+        ),
+        "state": _first_text((record.get("stateFlagName"), record.get("isValidity"), record.get("openType"))),
+        "tender_scope_probe": _strip_html(str(record.get("tenderJson") or ""))[:700],
+        "matched_keywords": [keyword for keyword in keywords if keyword and keyword in record_text][:10],
+        "record_sha256": _sha256_text(record_text),
+    }
+    return {
+        key: value
+        for key, value in fields.items()
+        if value not in ("", [], None)
+    }
+
+
+def _guangdong_tzxm_detail_route(
+    record: Mapping[str, Any],
+    route: Mapping[str, Any],
+    keywords: list[str],
+) -> dict[str, Any] | None:
+    audit = str(route.get("tzxm_audit") or "")
+    flag = str(route.get("tzxm_flag") or "")
+    if audit == "ba":
+        ba_id = _first_text((record.get("baId"), record.get("id")))
+        if not ba_id:
+            return None
+        endpoint = "selectBaProjectInfo"
+        params = {"baId": ba_id}
+        suffix = f"id={urllib.parse.quote(ba_id)}&audit=ba&flag={urllib.parse.quote(flag)}"
+    elif audit == "hz":
+        row_id = _first_text((record.get("id"), record.get("projectId")))
+        if not row_id:
+            return None
+        endpoint = "getHzggInfoById" if flag == "10" else "getHzgsInfoById"
+        params = {"id": row_id}
+        suffix = f"id={urllib.parse.quote(row_id)}&audit=hz&flag={urllib.parse.quote(flag)}"
+    elif audit == "sp":
+        row_id = _first_text((record.get("id"), record.get("projectId")))
+        if not row_id:
+            return None
+        endpoint = "getSpggInfoById" if flag == "7" else "getSpgsInfoById"
+        params = {"id": row_id}
+        pid = _first_text((record.get("pid"), record.get("projectId")))
+        if flag == "7" and pid:
+            params["pid"] = pid
+        suffix = f"id={urllib.parse.quote(row_id)}&pid={urllib.parse.quote(pid)}&audit=sp&flag={urllib.parse.quote(flag)}"
+    elif audit == "jn":
+        row_id = _first_text((record.get("id"), record.get("projectId")))
+        if not row_id:
+            return None
+        endpoint = "getJnscggInfoById"
+        params = {"id": row_id}
+        suffix = f"id={urllib.parse.quote(row_id)}&audit=jn&flag={urllib.parse.quote(flag)}"
+    else:
+        return None
+    return {
+        "route_id": f"gd_tzxm_detail_{audit}_{flag}_{_sha256_text(json.dumps(params, sort_keys=True))[:8]}",
+        "route_group": "gd_tzxm_publicity_detail",
+        "url": f"{GUANGDONG_TZXM_API_BASE_URL}/{endpoint}",
+        "method": "POST",
+        "json_body": True,
+        "params": params,
+        "human_detail_url": f"{GUANGDONG_TZXM_BASE_URL}/PublicityInformation/resultDetail2.html?{suffix}",
+        "tzxm_audit": audit,
+        "tzxm_flag": flag,
+        "tzxm_route_kind": str(route.get("tzxm_route_kind") or ""),
+        "keyword_count": len(keywords),
+        "query_keyword_probe": keywords[:5],
+        "source_specific_adapter_id": "guangdong_tzxm_project_approval_publicity_api_v1",
+    }
+
+
+def _guangdong_tzxm_detail_page_url(record: Mapping[str, Any], route: Mapping[str, Any]) -> str:
+    detail_route = _guangdong_tzxm_detail_route(record, route, [])
+    return str((detail_route or {}).get("human_detail_url") or "")
+
+
 def _guangdong_zfcxjst_penalty_links_from_html(text: str, base_url: str) -> list[dict[str, str]]:
     links: list[dict[str, str]] = []
     for match in re.finditer(r"<a\b([^>]*?)>(.*?)</a>", str(text or ""), flags=re.I | re.S):
@@ -1303,6 +1671,10 @@ def _strip_html(value: str) -> str:
     return " ".join(text.replace("&nbsp;", " ").split())
 
 
+def _compact_mapping_text(record: Mapping[str, Any]) -> str:
+    return " ".join(json.dumps(dict(record), ensure_ascii=False, default=str).split())
+
+
 def _first_mapping(records: Iterable[Mapping[str, Any]]) -> Mapping[str, Any]:
     for record in records:
         if isinstance(record, Mapping):
@@ -1416,6 +1788,12 @@ def _summary(
             1
             for task in field_task_records
             if str(task.get("source_profile_id") or "").upper() == GUANGDONG_ZFCXJST_PENALTY_PROFILE_ID
+            and str(task.get("field_query_probe_state") or "") == "FIELD_READBACK_READY_PUBLIC_SOURCE"
+        ),
+        "guangdong_tzxm_readback_ready_count": sum(
+            1
+            for task in field_task_records
+            if str(task.get("source_profile_id") or "").upper() == GUANGDONG_TZXM_PROFILE_ID
             and str(task.get("field_query_probe_state") or "") == "FIELD_READBACK_READY_PUBLIC_SOURCE"
         ),
         "delegated_task_count": sum(
