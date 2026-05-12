@@ -290,6 +290,24 @@ class BusinessDirectionStrategyContractTests(unittest.TestCase):
             "do_not_limit_guangdong_verification_to_guangzhou_only",
             guangdong_policy["must_not"],
         )
+        guangdong_field_policy = conflict_policy["guangdong_local_field_query_probe_v1_policy"]
+        self.assertEqual(
+            guangdong_field_policy["default_execution_mode"],
+            "PLAN_ONLY_NOT_EXECUTED",
+        )
+        self.assertEqual(
+            guangdong_field_policy["optional_execution_mode"],
+            "LIVE_PUBLIC_FIELD_QUERY_ATTEMPTED",
+        )
+        self.assertEqual(
+            guangdong_field_policy["input_manifest"],
+            "guangdong_local_verification_probe_v1_manifest",
+        )
+        self.assertIn("guangdong_gdcic_query_probe_v1", guangdong_field_policy["delegated_field_adapters"])
+        self.assertIn(
+            "do_not_treat_query_miss_as_no_risk",
+            guangdong_field_policy["must_not"],
+        )
         self.assertIn(
             "do_not_output_final_active_conflict_conclusion_without_replayable_sources",
             conflict_policy["must_not"],

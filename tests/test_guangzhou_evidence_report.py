@@ -190,6 +190,40 @@ class GuangzhouEvidenceReportTests(unittest.TestCase):
                 [item["recommended_action"] for item in project["optimization_recommendations"]],
             )
 
+    def test_report_consumes_guangdong_local_field_query_probe_summary_when_available(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_flow_root(root / "flow")
+            _write_download_root(root / "download")
+            _write_responsible_root(root / "responsible")
+            _write_stage4_root(root / "stage4")
+            _write_readiness_root(root / "readiness", flow_08_required=False)
+            _write_guangdong_local_field_query_root(root / "gd-local-field")
+
+            result = build_guangzhou_evidence_report(
+                flow_root=root / "flow",
+                download_root=root / "download",
+                responsible_person_root=root / "responsible",
+                stage4_execution_root=root / "stage4",
+                readiness_root=root / "readiness",
+                guangdong_local_field_query_root=root / "gd-local-field",
+                output_root=root / "out",
+                created_at="2026-05-12T00:00:00+08:00",
+            )
+
+            self.assertEqual(result["summary"]["guangdong_local_field_query_probe_state"], "READY")
+            self.assertEqual(result["summary"]["guangdong_local_field_query_task_count"], 6)
+            self.assertEqual(result["summary"]["guangdong_local_field_keyword_hit_task_count"], 1)
+            project = result["manifest"]["project_reports"][0]
+            evidence = project["verification_evidence"]
+            self.assertEqual(evidence["guangdong_local_field_query_probe_state"], "READY")
+            self.assertEqual(evidence["guangdong_local_field_keyword_hit_count"], 1)
+            self.assertIn("GUANGZHOU-ZFCJ-CREDIT-DOUBLE-PUBLICITY", evidence["guangdong_local_field_source_profile_ids"])
+            self.assertIn(
+                "GUANGDONG_LOCAL_FIELD_QUERY_KEYWORD_HIT_REVIEW",
+                [item["recommended_action"] for item in project["optimization_recommendations"]],
+            )
+
 
 def _write_flow_root(root: Path) -> None:
     root.mkdir(parents=True, exist_ok=True)
@@ -386,6 +420,44 @@ def _write_guangdong_local_verification_root(root: Path) -> None:
         }
     }
     (root / "guangdong-local-verification-probe-v1.json").write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+
+def _write_guangdong_local_field_query_root(root: Path) -> None:
+    root.mkdir(parents=True, exist_ok=True)
+    project_record = {
+        "project_id": "PROJ-CN-GD-JG2026-10815",
+        "project_name": "广州测试项目",
+        "field_query_task_ids": ["GD-LOCAL-FIELD-1", "GD-LOCAL-FIELD-2"],
+        "field_query_task_count": 6,
+        "source_profile_ids": [
+            "GUANGDONG-CREDIT-GD-HOME",
+            "GUANGZHOU-ZFCJ-CREDIT-DOUBLE-PUBLICITY",
+        ],
+        "readback_ready_count": 1,
+        "keyword_hit_count": 1,
+        "blocker_taxonomy_counts": {"guangdong_local_field_query_no_keyword_hit_review": 1},
+    }
+    payload = {
+        "manifest": {
+            "manifest_kind": "guangdong_local_field_query_probe_v1_manifest",
+            "project_task_records": [project_record],
+            "summary": {
+                "probe_state": "READY",
+                "guangdong_local_field_query_task_count": 6,
+                "readback_ready_count": 1,
+                "keyword_hit_task_count": 1,
+                "field_query_probe_state_counts": {
+                    "FIELD_READBACK_KEYWORD_HIT_PUBLIC_SOURCE": 1,
+                    "NO_FIELD_MATCH_REVIEW_REQUIRED": 5,
+                },
+                "blocker_taxonomy_counts": {"guangdong_local_field_query_no_keyword_hit_review": 1},
+            },
+        }
+    }
+    (root / "guangdong-local-field-query-probe-v1.json").write_text(
         json.dumps(payload, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )

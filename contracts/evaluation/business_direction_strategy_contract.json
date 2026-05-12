@@ -1,6 +1,6 @@
 {
   "contract_id": "BUSINESS-DIRECTION-STRATEGY-CONTRACT",
-  "contract_version": 9,
+  "contract_version": 10,
   "purpose": "固定招投标分析产品的双线业务方向，避免后续开发把招标公告文件链路验证误当成核心商业主线。",
   "primary_commercial_line": "POST_CANDIDATE_EVIDENCE_PACK",
   "default_when_ambiguous": "POST_CANDIDATE_EVIDENCE_PACK",
@@ -570,6 +570,32 @@
           "do_not_treat_unreachable_source_as_no_risk",
           "do_not_output_final_active_conflict_conclusion_from_probe",
           "do_not_limit_guangdong_verification_to_guangzhou_only"
+        ],
+        "customer_visible_allowed": false,
+        "no_legal_conclusion": true
+      },
+      "guangdong_local_field_query_probe_v1_policy": {
+        "policy_id": "GUANGDONG-LOCAL-FIELD-QUERY-PROBE-V1",
+        "default_execution_mode": "PLAN_ONLY_NOT_EXECUTED",
+        "optional_execution_mode": "LIVE_PUBLIC_FIELD_QUERY_ATTEMPTED",
+        "purpose": "在广东省级和广州城市补强源已形成任务之后，按候选公司、负责人、证书号和项目名做字段级只读查询探针；查询命中只作为公开源线索，查询未命中或阻断不得推断无风险。",
+        "input_manifest": "guangdong_local_verification_probe_v1_manifest",
+        "source_scope_policy": "REUSE_GUANGDONG_LOCAL_VERIFICATION_SOURCE_SCOPE",
+        "delegated_field_adapters": [
+          "guangdong_gdcic_query_probe_v1"
+        ],
+        "query_route_policy": [
+          "source_home_keyword_probe",
+          "official_site_search_or_list_probe_when_known",
+          "city_double_publicity_keyword_probe_for_guangzhou",
+          "province_housing_site_search_probe",
+          "credit_subject_search_probe"
+        ],
+        "must_not": [
+          "do_not_treat_keyword_hit_as_final_field_verification",
+          "do_not_treat_query_miss_as_no_risk",
+          "do_not_output_final_active_conflict_conclusion_from_probe",
+          "do_not_replace_source_specific_adapter_with_generic_keyword_probe"
         ],
         "customer_visible_allowed": false,
         "no_legal_conclusion": true
