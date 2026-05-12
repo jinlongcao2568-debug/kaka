@@ -378,6 +378,12 @@ class GuangdongLocalFieldQueryProbeTests(unittest.TestCase):
                         "content_type": "text/html; charset=utf-8",
                         "text_probe": "信用广东公开查询入口",
                     }
+                if params.get("jsonArgs"):
+                    return {
+                        "http_status": 403,
+                        "content_type": "text/html; charset=utf-8",
+                        "text_probe": "Forbidden",
+                    }
                 table_name = str(params.get("tableName") or "")
                 if "xzcf" in table_name:
                     return {
@@ -448,12 +454,130 @@ class GuangdongLocalFieldQueryProbeTests(unittest.TestCase):
                 task["field_summary"]["source_specific_adapter_id"],
                 "guangdong_credit_gd_public_credit_query_v1",
             )
+            self.assertEqual(task["field_summary"]["public_list_record_count"], 2)
+            self.assertEqual(
+                task["field_summary"]["public_list_record_type_counts"]["administrative_penalty_public_record"],
+                1,
+            )
+            self.assertEqual(
+                task["field_summary"]["public_list_record_type_counts"]["administrative_license_public_record"],
+                1,
+            )
             records = task["field_match_summary"]["source_specific_records"]
             self.assertGreaterEqual(len(records), 2)
             self.assertEqual(records[0]["administrative_counterparty"], "广州测试建设有限公司")
             self.assertIn(records[0]["record_type"], {"administrative_penalty_public_record", "administrative_license_public_record"})
             self.assertIn("creditPublic", records[0]["detail_url"])
             self.assertTrue(task["field_match_summary"]["query_miss_is_not_clearance"])
+            list_urls = [
+                route["url"]
+                for route in task["route_plan"]
+                if route["route_group"] == "gd_credit_gd_public_credit_list"
+            ]
+            self.assertTrue(list_urls)
+            self.assertTrue(
+                all("/gdcreditwebApi2//company/web/booleanQueryListByPageSimple" in url for url in list_urls)
+            )
+            self.assertIn("gd_credit_gd_targeted_query_forbidden_review", task["blocker_taxonomy"])
+
+    def test_credit_gd_list_records_without_candidate_match_stay_review_required(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            local_root = root / "local"
+            _write_local_verification(local_root)
+
+            def fake_getter(url: str, params: Mapping[str, Any]) -> Mapping[str, Any]:
+                if "booleanQueryListByPageSimple" not in url:
+                    return {
+                        "http_status": 200,
+                        "content_type": "text/html; charset=utf-8",
+                        "text_probe": "信用广东公开查询入口",
+                    }
+                if params.get("jsonArgs"):
+                    return {
+                        "http_status": 403,
+                        "content_type": "text/html; charset=utf-8",
+                        "text_probe": "Forbidden",
+                    }
+                table_name = str(params.get("tableName") or "")
+                if "xzcf" in table_name:
+                    return {
+                        "http_status": 200,
+                        "content_type": "application/json; charset=utf-8",
+                        "json_payload": {
+                            "code": 0,
+                            "data": {
+                                "rows": [
+                                    {
+                                        "ID": "CF-OTHER",
+                                        "CF_XDR_MC": "其他建设有限公司",
+                                        "CF_WSH": "粤信罚〔2026〕2号",
+                                        "CF_SY": "其他项目处罚事项",
+                                        "CF_CFJG": "广东省发展和改革委员会",
+                                        "CF_JDRQ": "2026-05-01",
+                                        "CF_NR": "行政处罚公开记录",
+                                    }
+                                ],
+                            },
+                        },
+                        "text_probe": "",
+                    }
+                return {
+                    "http_status": 200,
+                    "content_type": "application/json; charset=utf-8",
+                    "json_payload": {
+                        "code": 0,
+                        "data": {
+                            "rows": [
+                                {
+                                    "ID": "XK-OTHER",
+                                    "XK_XDR_MC": "其他建设有限公司",
+                                    "XK_WSH": "粤信许〔2026〕2号",
+                                    "XK_XMMC": "其他项目行政许可事项",
+                                    "XK_XKJG": "广东省发展和改革委员会",
+                                    "XK_JDRQ": "2026-05-02",
+                                    "XK_NR": "行政许可公开记录",
+                                }
+                            ],
+                        },
+                    },
+                    "text_probe": "",
+                }
+
+            result = build_guangdong_local_field_query_probe(
+                local_verification_root=local_root,
+                output_root=root / "out",
+                source_profile_ids=["GUANGDONG-CREDIT-GD-HOME"],
+                enable_live_public_query=True,
+                max_live_tasks=1,
+                http_getter=fake_getter,
+                created_at="2026-05-12T00:00:00+08:00",
+            )
+
+            self.assertTrue(result["safe_to_execute"])
+            summary = result["summary"]
+            self.assertEqual(summary["guangdong_credit_gd_readback_ready_count"], 0)
+            self.assertEqual(summary["field_query_probe_state_counts"]["NO_FIELD_MATCH_REVIEW_REQUIRED"], 1)
+            task = result["manifest"]["field_task_records"][0]
+            self.assertEqual(task["field_query_probe_state"], "NO_FIELD_MATCH_REVIEW_REQUIRED")
+            self.assertEqual(task["field_readback_state"], "PUBLIC_SOURCE_QUERIED_NO_FIELD_MATCH")
+            self.assertFalse(task["readback_ready"])
+            self.assertEqual(task["field_summary"]["public_list_record_count"], 2)
+            self.assertEqual(
+                task["field_summary"]["public_list_record_type_counts"]["administrative_penalty_public_record"],
+                1,
+            )
+            self.assertEqual(
+                task["field_summary"]["public_list_record_type_counts"]["administrative_license_public_record"],
+                1,
+            )
+            samples = task["field_match_summary"]["public_list_sample_records_for_interface_diagnostics"]
+            self.assertEqual({sample["record_type"] for sample in samples}, {
+                "administrative_penalty_public_record",
+                "administrative_license_public_record",
+            })
+            self.assertTrue(task["field_match_summary"]["query_miss_is_not_clearance"])
+            self.assertIn("gd_credit_gd_targeted_query_forbidden_review", task["blocker_taxonomy"])
 
     def test_credit_gd_stale_or_blocked_interface_fails_closed(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

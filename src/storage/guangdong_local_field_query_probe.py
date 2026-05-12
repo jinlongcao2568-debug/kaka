@@ -47,7 +47,7 @@ GUANGDONG_TZXM_API_BASE_URL = f"{GUANGDONG_TZXM_BASE_URL}/tzxmspweb/api/publicit
 GUANGDONG_CREDIT_GD_PROFILE_ID = "GUANGDONG-CREDIT-GD-HOME"
 GUANGDONG_CREDIT_GD_BASE_URL = "https://credit.gd.gov.cn"
 GUANGDONG_CREDIT_GD_QUERY_URL = (
-    f"{GUANGDONG_CREDIT_GD_BASE_URL}/company/web/booleanQueryListByPageSimple"
+    f"{GUANGDONG_CREDIT_GD_BASE_URL}/gdcreditwebApi2//company/web/booleanQueryListByPageSimple"
 )
 GUANGDONG_CREDIT_GD_PENALTY_PAGE_URL = f"{GUANGDONG_CREDIT_GD_BASE_URL}/page/creditPublic/xzcf.html"
 GUANGDONG_CREDIT_GD_LICENSE_PAGE_URL = f"{GUANGDONG_CREDIT_GD_BASE_URL}/page/creditPublic/xzxk.html"
@@ -1321,8 +1321,16 @@ def _execute_guangdong_credit_gd_field_query(
     keywords = _query_keywords(query_params)
     attempts: list[dict[str, Any]] = []
     source_records: list[dict[str, Any]] = []
+    public_list_records: list[dict[str, Any]] = []
 
-    for route in route_plan:
+    execution_routes = sorted(
+        route_plan,
+        key=lambda route: {
+            "gd_credit_gd_public_credit_list": 0,
+            "gd_credit_gd_public_credit_targeted_query": 1,
+        }.get(str(route.get("route_group") or ""), 2),
+    )
+    for route in execution_routes:
         response = _safe_get(route, getter=getter)
         attempt = _route_attempt(route, response, keywords)
         if str(route.get("source_specific_adapter_id") or "") != "guangdong_credit_gd_public_credit_query_v1":
@@ -1337,23 +1345,32 @@ def _execute_guangdong_credit_gd_field_query(
             str(response.get("text_probe") or response.get("body_probe") or "")
         ):
             blockers = _list(attempt.get("blocker_taxonomy"))
+            if bool(route.get("targeted_query")) and _int(response.get("http_status")) in {401, 403}:
+                blockers.append("gd_credit_gd_targeted_query_forbidden_review")
             blockers.append("gd_credit_gd_waf_or_captcha_required")
             attempt["blocker_taxonomy"] = _dedupe(blockers)
             attempt["route_state"] = "FAIL_CLOSED_PUBLIC_SOURCE_BLOCKED"
+        if bool(route.get("targeted_query")) and str(attempt.get("route_state") or "").startswith("FAIL_CLOSED"):
+            blockers = _list(attempt.get("blocker_taxonomy"))
+            blockers.append("gd_credit_gd_targeted_query_forbidden_review")
+            attempt["blocker_taxonomy"] = _dedupe(blockers)
         records = _guangdong_credit_gd_records_from_response(response)
         attempt["json_record_count"] = len(records)
         attempts.append(attempt)
         for record in records[:20]:
             compact = _compact_guangdong_credit_gd_record(record, route, keywords)
-            if not compact.get("matched_keywords"):
-                continue
-            source_records.append(compact)
+            if str(route.get("route_group") or "") == "gd_credit_gd_public_credit_list":
+                public_list_records.append(compact)
+            if compact.get("matched_keywords"):
+                source_records.append(compact)
 
     blockers = _dedupe(blocker for attempt in attempts for blocker in _list(attempt.get("blocker_taxonomy")))
     status_codes = [_int(attempt.get("http_status")) for attempt in attempts if _int(attempt.get("http_status"))]
     matched_keyword_count = len(
         _dedupe(keyword for record in source_records for keyword in _list(record.get("matched_keywords")))
     )
+    public_list_record_count = len(public_list_records)
+    public_list_record_type_counts = _counts(record.get("record_type") for record in public_list_records)
     if source_records:
         return {
             "field_query_probe_state": "FIELD_READBACK_READY_PUBLIC_SOURCE",
@@ -1367,6 +1384,8 @@ def _execute_guangdong_credit_gd_field_query(
                 "source_profile_keyword_hit": bool(matched_keyword_count),
                 "source_profile_id": GUANGDONG_CREDIT_GD_PROFILE_ID,
                 "record_type": "credit_public_penalty_or_license_record",
+                "public_list_record_count": public_list_record_count,
+                "public_list_record_type_counts": public_list_record_type_counts,
             },
             "field_match_summary": {
                 "source_specific_records": source_records[:10],
@@ -1377,7 +1396,15 @@ def _execute_guangdong_credit_gd_field_query(
             "route_attempts": attempts,
             "blocker_taxonomy": blockers,
         }
-    if attempts and all(str(attempt.get("route_state") or "").startswith("FAIL_CLOSED") for attempt in attempts):
+    credit_attempts = [
+        attempt
+        for attempt in attempts
+        if str(attempt.get("route_group") or "")
+        in {"gd_credit_gd_public_credit_list", "gd_credit_gd_public_credit_targeted_query"}
+    ]
+    if credit_attempts and all(
+        str(attempt.get("route_state") or "").startswith("FAIL_CLOSED") for attempt in credit_attempts
+    ):
         return {
             "field_query_probe_state": "FAIL_CLOSED_PUBLIC_SOURCE_BLOCKED",
             "field_readback_state": "FIELD_READBACK_BLOCKED",
@@ -1393,15 +1420,22 @@ def _execute_guangdong_credit_gd_field_query(
         }
     return {
         "field_query_probe_state": "NO_FIELD_MATCH_REVIEW_REQUIRED",
-        "field_readback_state": "PUBLIC_SOURCE_QUERIED_NO_FIELD_RECORD",
+        "field_readback_state": (
+            "PUBLIC_SOURCE_QUERIED_NO_FIELD_MATCH"
+            if public_list_record_count
+            else "PUBLIC_SOURCE_QUERIED_NO_FIELD_RECORD"
+        ),
         "readback_ready": False,
         "readback_status_code": status_codes[0] if status_codes else None,
         "field_summary": {
             "source_specific_adapter_id": "guangdong_credit_gd_public_credit_query_v1",
             "record_count": 0,
+            "public_list_record_count": public_list_record_count,
+            "public_list_record_type_counts": public_list_record_type_counts,
             "source_profile_keyword_hit": False,
         },
         "field_match_summary": {
+            "public_list_sample_records_for_interface_diagnostics": public_list_records[:3],
             "query_miss_is_not_clearance": True,
             "readback_is_line_clue_not_final_conclusion": True,
         },

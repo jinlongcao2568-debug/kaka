@@ -306,7 +306,11 @@ def _build_guangdong_source_plan(
                 "source_name": "信用广东",
                 "source_url": "https://credit.gd.gov.cn/",
                 "source_family": "local_credit_public_record",
-                "target_source_types": ["credit_penalty_blacklist"],
+                "target_source_types": [
+                    "credit_penalty_blacklist",
+                    "administrative_license_public_record",
+                    "administrative_penalty_public_record",
+                ],
                 "scope_mode": "LOCAL_SUPPLEMENT_TO_NATIONAL_CREDIT_SCOPE",
                 "query_keys": ["candidate_company", "unified_social_credit_code"],
                 "runtime_status": "PUBLIC_CREDIT_LIST_QUERY_ADAPTER_AVAILABLE_WITH_WAF_GUARD",

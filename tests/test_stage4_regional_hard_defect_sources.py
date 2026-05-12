@@ -73,6 +73,8 @@ class Stage4RegionalHardDefectSourcePlanTests(unittest.TestCase):
             credit_entry["runtime_status"],
             "PUBLIC_CREDIT_LIST_QUERY_ADAPTER_AVAILABLE_WITH_WAF_GUARD",
         )
+        self.assertIn("administrative_license_public_record", credit_entry["target_source_types"])
+        self.assertIn("administrative_penalty_public_record", credit_entry["target_source_types"])
         self.assertEqual(credit_entry["next_adapter"], "guangdong_credit_gd_public_credit_query_v1")
         self.assertEqual(plan["query_context"]["project_name"], "广东市政道路工程")
         self.assertTrue(plan["no_no-risk_inference_without_sources"])

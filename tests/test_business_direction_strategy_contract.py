@@ -337,6 +337,14 @@ class BusinessDirectionStrategyContractTests(unittest.TestCase):
             guangdong_field_policy["query_route_policy"],
         )
         self.assertIn(
+            "guangdong_credit_gd_public_list_readback_first_when_targeted_query_forbidden",
+            guangdong_field_policy["query_route_policy"],
+        )
+        self.assertIn(
+            "guangdong_credit_gd_targeted_query_403_is_review_not_source_unavailable",
+            guangdong_field_policy["query_route_policy"],
+        )
+        self.assertIn(
             "guangdong_tzxm_project_approval_publicity_api_probe",
             guangdong_field_policy["query_route_policy"],
         )
