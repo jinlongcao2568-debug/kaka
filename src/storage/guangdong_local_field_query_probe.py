@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -28,6 +29,14 @@ GUANGZHOU_ZFCJ_PROFILE_ID = "GUANGZHOU-ZFCJ-CREDIT-DOUBLE-PUBLICITY"
 GUANGZHOU_ZFCJ_XYXX_API_URL = "https://zfcj.gz.gov.cn/ysqgk/Api/WebApi/xyxxzhlb.ashx"
 GUANGZHOU_ZFCJ_XYXX_DETAIL_API_URL = "https://zfcj.gz.gov.cn/ysqgk/Api/WebApi/xyxxxxxx.ashx"
 GUANGZHOU_ZFCJ_XYXX_DETAIL_PAGE_URL = "https://zfcj.gz.gov.cn/zfcj/xyxx/xyxxDetails/index.html"
+GUANGDONG_GDCIC_HOME_PROFILE_ID = "GUANGDONG-GDCIC-HOME"
+GUANGDONG_GDCIC_HOME_BASE_URL = "http://210.76.80.152:8008"
+GUANGDONG_GDCIC_PERFORMANCE_PUBLIC_URL = (
+    f"{GUANGDONG_GDCIC_HOME_BASE_URL}/JG/Information/PerformanceEvaluationProject/Indexgs"
+)
+GUANGDONG_GDCIC_CONTRACT_SYSTEM_URL = (
+    f"{GUANGDONG_GDCIC_HOME_BASE_URL}/JG/home/Indexht"
+)
 
 FORBIDDEN_TERMS = ("在建冲突成立", "无在建", "无冲突", "造假成立", "违法成立", "确认本人", "是不是本人")
 
@@ -275,13 +284,30 @@ def _route_plan_for_task(task: Mapping[str, Any], query_params: Mapping[str, Any
                 _route("investment_project_home_keyword", f"https://tzxm.gd.gov.cn/?keywords={encoded}", "investment_project_home_keyword_probe", keywords),
             ]
         )
-    elif profile_id == "GUANGDONG-GDCIC-HOME":
+    elif profile_id == GUANGDONG_GDCIC_HOME_PROFILE_ID:
+        company_keyword = str(query_params.get("companyName") or "").strip()
+        project_keyword = _clean_project_title(query_params.get("projectName"))
         routes.extend(
             [
                 _route("source_home", source_url, "source_home_probe", keywords),
                 _route("gdcic_home_keyword", f"{source_url.rstrip('/')}?keywords={encoded}" if source_url else "", "gdcic_contract_performance_keyword_probe", keywords),
             ]
         )
+        for route in (
+            _guangdong_gdcic_home_performance_route(
+                "gd_gdcic_performance_public_project",
+                project_keyword,
+                keywords,
+            ),
+            _guangdong_gdcic_home_performance_route(
+                "gd_gdcic_performance_public_company",
+                company_keyword,
+                keywords,
+            ),
+            _guangdong_gdcic_home_contract_sso_route(keywords),
+        ):
+            if route:
+                routes.append(route)
     else:
         routes.append(_route("source_home", source_url, "source_home_probe", keywords))
     return [route for route in routes if route["url"]]
@@ -323,6 +349,44 @@ def _guangzhou_zfcj_api_route(
         "keyword_count": len(query_keywords),
         "query_keyword_probe": query_keywords[:5],
         "source_specific_adapter_id": "guangzhou_zfcj_xyxx_api_query_v1",
+    }
+
+
+def _guangdong_gdcic_home_performance_route(
+    route_id: str,
+    keyword: str,
+    query_keywords: list[str],
+) -> dict[str, Any] | None:
+    keyword = str(keyword or "").strip()
+    if not keyword:
+        return None
+    params = {
+        "pageCurrent": 1,
+        "pageTotal": 5,
+        "search_name": keyword,
+    }
+    return {
+        "route_id": route_id,
+        "route_group": "gd_gdcic_contract_performance_public_page",
+        "url": GUANGDONG_GDCIC_PERFORMANCE_PUBLIC_URL,
+        "method": "GET",
+        "params": params,
+        "keyword_count": len(query_keywords),
+        "query_keyword_probe": query_keywords[:5],
+        "source_specific_adapter_id": "guangdong_gdcic_contract_performance_public_page_v1",
+    }
+
+
+def _guangdong_gdcic_home_contract_sso_route(query_keywords: list[str]) -> dict[str, Any]:
+    return {
+        "route_id": "gd_gdcic_contract_system_sso_check",
+        "route_group": "gd_gdcic_contract_system_login_check",
+        "url": GUANGDONG_GDCIC_CONTRACT_SYSTEM_URL,
+        "method": "GET",
+        "params": {"RequestMethod": 1, "SysType": 2},
+        "keyword_count": len(query_keywords),
+        "query_keyword_probe": query_keywords[:5],
+        "source_specific_adapter_id": "guangdong_gdcic_contract_performance_public_page_v1",
     }
 
 
@@ -393,6 +457,12 @@ def _execute_live_field_query(
         for route in route_plan
     ):
         return _execute_guangzhou_zfcj_field_query(task, route_plan, http_getter=http_getter)
+    if any(
+        str(route.get("source_specific_adapter_id") or "")
+        == "guangdong_gdcic_contract_performance_public_page_v1"
+        for route in route_plan
+    ):
+        return _execute_guangdong_gdcic_home_field_query(task, route_plan, http_getter=http_getter)
     getter = http_getter or _default_http_getter
     query_params = dict(task.get("query_params") or {})
     keywords = _query_keywords(query_params)
@@ -656,6 +726,103 @@ def _execute_guangzhou_zfcj_field_query(
     }
 
 
+def _execute_guangdong_gdcic_home_field_query(
+    task: Mapping[str, Any],
+    route_plan: list[Mapping[str, Any]],
+    *,
+    http_getter: HttpGetter | None,
+) -> dict[str, Any]:
+    getter = http_getter or _default_http_getter
+    query_params = dict(task.get("query_params") or {})
+    keywords = _query_keywords(query_params)
+    attempts: list[dict[str, Any]] = []
+    performance_records: list[dict[str, Any]] = []
+    sso_route_seen = False
+    for route in route_plan:
+        response = _safe_get(route, getter=getter)
+        attempt = _route_attempt(route, response, keywords)
+        route_group = str(route.get("route_group") or "")
+        text = str(response.get("text_probe") or response.get("body_probe") or "")
+        if route_group == "gd_gdcic_contract_system_login_check":
+            sso_route_seen = True
+            if "SSO/jrsso/auth" in text or "UniteLogin" in text:
+                attempt["route_state"] = "FAIL_CLOSED_LOGIN_OR_SSO_REQUIRED"
+                attempt["blocker_taxonomy"] = _dedupe(
+                    [
+                        *attempt.get("blocker_taxonomy", []),
+                        "gd_gdcic_contract_system_sso_login_required",
+                    ]
+                )
+        records = _guangdong_gdcic_performance_records_from_html(text, keywords)
+        if records:
+            attempt["html_record_count"] = len(records)
+            performance_records.extend(records[:5])
+        attempts.append(attempt)
+
+    blockers = _dedupe(blocker for attempt in attempts for blocker in _list(attempt.get("blocker_taxonomy")))
+    status_codes = [_int(attempt.get("http_status")) for attempt in attempts if _int(attempt.get("http_status"))]
+    matched_keyword_count = len(
+        _dedupe(keyword for record in performance_records for keyword in _list(record.get("matched_keywords")))
+    )
+    if performance_records:
+        return {
+            "field_query_probe_state": "FIELD_READBACK_READY_PUBLIC_SOURCE",
+            "field_readback_state": "PUBLIC_SOURCE_FIELD_READBACK_READY_REVIEW_REQUIRED",
+            "readback_ready": True,
+            "readback_status_code": status_codes[0] if status_codes else 200,
+            "field_summary": {
+                "source_specific_adapter_id": "guangdong_gdcic_contract_performance_public_page_v1",
+                "record_count": len(performance_records),
+                "matched_keyword_count": matched_keyword_count,
+                "source_profile_keyword_hit": bool(matched_keyword_count),
+                "source_profile_id": GUANGDONG_GDCIC_HOME_PROFILE_ID,
+                "contract_system_sso_route_seen": sso_route_seen,
+            },
+            "field_match_summary": {
+                "source_specific_records": performance_records[:10],
+                "query_miss_is_not_clearance": True,
+                "readback_is_line_clue_not_final_conclusion": True,
+            },
+            "route_plan": list(route_plan),
+            "route_attempts": attempts,
+            "blocker_taxonomy": blockers,
+        }
+    if attempts and all(str(attempt.get("route_state") or "").startswith("FAIL_CLOSED") for attempt in attempts):
+        return {
+            "field_query_probe_state": "FAIL_CLOSED_PUBLIC_SOURCE_BLOCKED",
+            "field_readback_state": "FIELD_READBACK_BLOCKED",
+            "readback_ready": False,
+            "readback_status_code": status_codes[0] if status_codes else None,
+            "field_summary": {
+                "source_specific_adapter_id": "guangdong_gdcic_contract_performance_public_page_v1",
+                "contract_system_sso_route_seen": sso_route_seen,
+            },
+            "field_match_summary": {"query_miss_is_not_clearance": True},
+            "route_plan": list(route_plan),
+            "route_attempts": attempts,
+            "blocker_taxonomy": blockers or ["gd_gdcic_contract_performance_all_routes_blocked"],
+        }
+    return {
+        "field_query_probe_state": "NO_FIELD_MATCH_REVIEW_REQUIRED",
+        "field_readback_state": "PUBLIC_SOURCE_QUERIED_NO_FIELD_RECORD",
+        "readback_ready": False,
+        "readback_status_code": status_codes[0] if status_codes else None,
+        "field_summary": {
+            "source_specific_adapter_id": "guangdong_gdcic_contract_performance_public_page_v1",
+            "record_count": 0,
+            "source_profile_keyword_hit": False,
+            "contract_system_sso_route_seen": sso_route_seen,
+        },
+        "field_match_summary": {
+            "query_miss_is_not_clearance": True,
+            "readback_is_line_clue_not_final_conclusion": True,
+        },
+        "route_plan": list(route_plan),
+        "route_attempts": attempts,
+        "blocker_taxonomy": blockers or ["gd_gdcic_contract_performance_public_no_record_review"],
+    }
+
+
 def _route_attempt(route: Mapping[str, Any], response: Mapping[str, Any], keywords: list[str]) -> dict[str, Any]:
     text = str(response.get("text_probe") or response.get("body_probe") or "")
     matched = [keyword for keyword in keywords if keyword and keyword in text]
@@ -795,6 +962,49 @@ def _guangzhou_zfcj_detail_page_url(info_id: str, subcategory: str) -> str:
     return f"{GUANGZHOU_ZFCJ_XYXX_DETAIL_PAGE_URL}?{urllib.parse.urlencode({'infoid': info_id, 'subcategory': subcategory})}"
 
 
+def _guangdong_gdcic_performance_records_from_html(text: str, keywords: list[str]) -> list[dict[str, Any]]:
+    rows = re.findall(r"<tr[^>]*>(.*?)</tr>", str(text or ""), flags=re.I | re.S)
+    records: list[dict[str, Any]] = []
+    for row in rows:
+        cells = [
+            _strip_html(cell)
+            for cell in re.findall(r"<td[^>]*>(.*?)</td>", row, flags=re.I | re.S)
+        ]
+        if len(cells) < 6:
+            continue
+        row_text = " ".join(cells)
+        data_guid = ""
+        guid_match = re.search(r"ppDetaill\(['\"]?([^'\")]+)", row, flags=re.I)
+        if guid_match:
+            data_guid = guid_match.group(1).strip()
+        records.append(
+            {
+                "row_index": len(records) + 1,
+                "project_name_probe": cells[1][:500] if len(cells) > 1 else "",
+                "construction_unit_probe": cells[2][:200] if len(cells) > 2 else "",
+                "construction_company_probe": cells[3][:200] if len(cells) > 3 else "",
+                "survey_company_probe": cells[4][:200] if len(cells) > 4 else "",
+                "design_company_probe": cells[5][:200] if len(cells) > 5 else "",
+                "supervision_company_probe": cells[6][:200] if len(cells) > 6 else "",
+                "detail_url": (
+                    f"{GUANGDONG_GDCIC_HOME_BASE_URL}/JG/Information/PerformanceEvaluationProject/Detailgs?DataGuid={urllib.parse.quote(data_guid)}"
+                    if data_guid
+                    else ""
+                ),
+                "matched_keywords": [keyword for keyword in keywords if keyword and keyword in row_text][:10],
+                "record_sha256": _sha256_text(row_text),
+            }
+        )
+    return records
+
+
+def _strip_html(value: str) -> str:
+    text = re.sub(r"<script[\s\S]*?</script>", " ", str(value or ""), flags=re.I)
+    text = re.sub(r"<style[\s\S]*?</style>", " ", text, flags=re.I)
+    text = re.sub(r"<[^>]+>", " ", text)
+    return " ".join(text.replace("&nbsp;", " ").split())
+
+
 def _first_mapping(records: Iterable[Mapping[str, Any]]) -> Mapping[str, Any]:
     for record in records:
         if isinstance(record, Mapping):
@@ -896,6 +1106,12 @@ def _summary(
             1
             for task in field_task_records
             if str(task.get("source_profile_id") or "").upper() == GUANGZHOU_ZFCJ_PROFILE_ID
+            and str(task.get("field_query_probe_state") or "") == "FIELD_READBACK_READY_PUBLIC_SOURCE"
+        ),
+        "guangdong_gdcic_contract_performance_readback_ready_count": sum(
+            1
+            for task in field_task_records
+            if str(task.get("source_profile_id") or "").upper() == GUANGDONG_GDCIC_HOME_PROFILE_ID
             and str(task.get("field_query_probe_state") or "") == "FIELD_READBACK_READY_PUBLIC_SOURCE"
         ),
         "delegated_task_count": sum(

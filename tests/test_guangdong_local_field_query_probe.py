@@ -33,9 +33,9 @@ class GuangdongLocalFieldQueryProbeTests(unittest.TestCase):
             self.assertTrue(result["safe_to_execute"])
             summary = result["summary"]
             self.assertEqual(summary["execution_mode"], "PLAN_ONLY_NOT_EXECUTED")
-            self.assertEqual(summary["guangdong_local_field_query_task_count"], 3)
+            self.assertEqual(summary["guangdong_local_field_query_task_count"], 4)
             self.assertEqual(summary["delegated_task_count"], 1)
-            self.assertEqual(summary["field_query_probe_state_counts"]["PLAN_ONLY_NOT_EXECUTED"], 2)
+            self.assertEqual(summary["field_query_probe_state_counts"]["PLAN_ONLY_NOT_EXECUTED"], 3)
             delegated = result["manifest"]["field_task_records"][0]
             self.assertEqual(delegated["field_query_probe_state"], "DELEGATED_TO_SEPARATE_FIELD_ADAPTER")
             self.assertEqual(delegated["delegated_adapter_id"], "guangdong_gdcic_query_probe_v1")
@@ -156,6 +156,65 @@ class GuangdongLocalFieldQueryProbeTests(unittest.TestCase):
             self.assertEqual(record["detail_readback"]["administrative_counterparty"], "广州测试建设有限公司")
             self.assertTrue(task["field_match_summary"]["query_miss_is_not_clearance"])
 
+    def test_gdcic_contract_performance_public_page_readback_records_rows(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            local_root = root / "local"
+            _write_local_verification(local_root)
+
+            def fake_getter(url: str, params: Mapping[str, Any]) -> Mapping[str, Any]:
+                if "PerformanceEvaluationProject/Indexgs" in url and params.get("search_name") == "广州测试建设有限公司":
+                    return {
+                        "http_status": 200,
+                        "content_type": "text/html; charset=utf-8",
+                        "text_probe": """
+                        <table><tbody>
+                        <tr>
+                          <td>1</td><td>广州测试项目</td><td>广州建设单位</td>
+                          <td>广州测试建设有限公司</td><td>广州勘察单位</td><td>广州设计单位</td>
+                          <td>广州监理单位</td><td><a onclick="ppDetaill('DG-001')">查看</a></td>
+                        </tr>
+                        </tbody></table>
+                        """,
+                    }
+                if "Indexht" in url:
+                    return {
+                        "http_status": 200,
+                        "content_type": "text/html; charset=utf-8",
+                        "text_probe": "<script>top.window.location.href='http://210.76.80.152:8008/SSO/jrsso/auth'</script>",
+                    }
+                return {
+                    "http_status": 200,
+                    "content_type": "text/html; charset=utf-8",
+                    "text_probe": "<table><tbody></tbody></table>",
+                }
+
+            result = build_guangdong_local_field_query_probe(
+                local_verification_root=local_root,
+                output_root=root / "out",
+                source_profile_ids=["GUANGDONG-GDCIC-HOME"],
+                enable_live_public_query=True,
+                max_live_tasks=1,
+                http_getter=fake_getter,
+                created_at="2026-05-12T00:00:00+08:00",
+            )
+
+            self.assertTrue(result["safe_to_execute"])
+            summary = result["summary"]
+            self.assertEqual(summary["readback_ready_count"], 1)
+            self.assertEqual(summary["source_specific_readback_ready_count"], 1)
+            self.assertEqual(summary["guangdong_gdcic_contract_performance_readback_ready_count"], 1)
+            task = result["manifest"]["field_task_records"][0]
+            self.assertEqual(task["field_query_probe_state"], "FIELD_READBACK_READY_PUBLIC_SOURCE")
+            self.assertEqual(
+                task["field_summary"]["source_specific_adapter_id"],
+                "guangdong_gdcic_contract_performance_public_page_v1",
+            )
+            self.assertIn("gd_gdcic_contract_system_sso_login_required", task["blocker_taxonomy"])
+            record = task["field_match_summary"]["source_specific_records"][0]
+            self.assertEqual(record["construction_company_probe"], "广州测试建设有限公司")
+            self.assertIn("Detailgs", record["detail_url"])
+
     def test_live_public_query_miss_remains_review_required(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -232,6 +291,7 @@ def _write_local_verification(root: Path) -> None:
     root.mkdir(parents=True, exist_ok=True)
     tasks = [
         _task("GUANGDONG-GDCIC-SKYPT-OPENPLATFORM", "https://skypt.gdcic.net/openplatform/"),
+        _task("GUANGDONG-GDCIC-HOME", "http://210.76.80.152:8008"),
         _task("GUANGZHOU-ZFCJ-CREDIT-DOUBLE-PUBLICITY", "https://zfcj.gz.gov.cn/zfcj/xyxx/"),
         _task("GUANGDONG-CREDIT-GD-HOME", "https://credit.gd.gov.cn/"),
     ]

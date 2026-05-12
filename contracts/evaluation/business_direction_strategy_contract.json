@@ -585,11 +585,13 @@
           "guangdong_gdcic_query_probe_v1"
         ],
         "source_specific_field_adapters": [
+          "guangdong_gdcic_contract_performance_public_page_v1",
           "guangzhou_zfcj_xyxx_api_query_v1"
         ],
         "query_route_policy": [
           "source_home_keyword_probe",
           "official_site_search_or_list_probe_when_known",
+          "guangdong_gdcic_contract_performance_public_page_probe",
           "guangzhou_zfcj_xyxx_api_query_for_city_double_publicity",
           "city_double_publicity_keyword_probe_for_guangzhou",
           "province_housing_site_search_probe",
