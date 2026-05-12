@@ -37,6 +37,9 @@ GUANGDONG_GDCIC_PERFORMANCE_PUBLIC_URL = (
 GUANGDONG_GDCIC_CONTRACT_SYSTEM_URL = (
     f"{GUANGDONG_GDCIC_HOME_BASE_URL}/JG/home/Indexht"
 )
+GUANGDONG_ZFCXJST_PENALTY_PROFILE_ID = "GUANGDONG-ZFCXJST-PENALTY-PUBLICITY"
+GUANGDONG_ZFCXJST_GSGG_BASE_URL = "https://zfcxjst.gd.gov.cn/xxgk/gsgg/"
+GUANGDONG_ZFCXJST_SITE_SEARCH_URL = "https://search.gd.gov.cn/search/all/233"
 
 FORBIDDEN_TERMS = ("在建冲突成立", "无在建", "无冲突", "造假成立", "违法成立", "确认本人", "是不是本人")
 
@@ -262,11 +265,24 @@ def _route_plan_for_task(task: Mapping[str, Any], query_params: Mapping[str, Any
         ):
             if route:
                 routes.append(route)
-    elif profile_id == "GUANGDONG-ZFCXJST-PENALTY-PUBLICITY":
+    elif profile_id == GUANGDONG_ZFCXJST_PENALTY_PROFILE_ID:
+        company_keyword = str(query_params.get("companyName") or "").strip()
+        person_keyword = str(query_params.get("personName") or "").strip()
+        project_keyword = _clean_project_title(query_params.get("projectName"))
         routes.extend(
             [
                 _route("source_home", source_url, "source_home_probe", keywords),
-                _route("province_site_search", f"https://search.gd.gov.cn/search/all/233?keywords={encoded}", "province_housing_site_search_probe", keywords),
+                _guangdong_zfcxjst_penalty_list_route(1, keywords),
+                _guangdong_zfcxjst_penalty_list_route(2, keywords),
+                *[
+                    route
+                    for route in (
+                        _guangdong_zfcxjst_penalty_search_route(company_keyword, keywords),
+                        _guangdong_zfcxjst_penalty_search_route(person_keyword, keywords),
+                        _guangdong_zfcxjst_penalty_search_route(project_keyword, keywords),
+                    )
+                    if route
+                ],
             ]
         )
     elif profile_id == "GUANGDONG-CREDIT-GD-HOME":
@@ -390,6 +406,44 @@ def _guangdong_gdcic_home_contract_sso_route(query_keywords: list[str]) -> dict[
     }
 
 
+def _guangdong_zfcxjst_penalty_list_route(page: int, query_keywords: list[str]) -> dict[str, Any]:
+    suffix = "index.html" if page <= 1 else f"index_{page}.html"
+    return {
+        "route_id": f"gd_zfcxjst_penalty_list_page_{page}",
+        "route_group": "gd_zfcxjst_penalty_publicity_list",
+        "url": urllib.parse.urljoin(GUANGDONG_ZFCXJST_GSGG_BASE_URL, suffix),
+        "method": "GET",
+        "params": {},
+        "keyword_count": len(query_keywords),
+        "query_keyword_probe": query_keywords[:5],
+        "source_specific_adapter_id": "guangdong_zfcxjst_penalty_publicity_page_v1",
+    }
+
+
+def _guangdong_zfcxjst_penalty_search_route(
+    keyword: str,
+    query_keywords: list[str],
+) -> dict[str, Any] | None:
+    keyword = str(keyword or "").strip()
+    if not keyword:
+        return None
+    return {
+        "route_id": f"gd_zfcxjst_penalty_site_search_{_sha256_text(keyword)[:8]}",
+        "route_group": "gd_zfcxjst_penalty_site_search",
+        "url": GUANGDONG_ZFCXJST_SITE_SEARCH_URL,
+        "method": "GET",
+        "params": {
+            "keywords": keyword,
+            "sort": "time",
+            "position": "all",
+            "time": "5year",
+        },
+        "keyword_count": len(query_keywords),
+        "query_keyword_probe": query_keywords[:5],
+        "source_specific_adapter_id": "guangdong_zfcxjst_penalty_publicity_page_v1",
+    }
+
+
 def _query_keywords(query_params: Mapping[str, Any]) -> list[str]:
     values = [
         query_params.get("certificateNo"),
@@ -463,6 +517,12 @@ def _execute_live_field_query(
         for route in route_plan
     ):
         return _execute_guangdong_gdcic_home_field_query(task, route_plan, http_getter=http_getter)
+    if any(
+        str(route.get("source_specific_adapter_id") or "")
+        == "guangdong_zfcxjst_penalty_publicity_page_v1"
+        for route in route_plan
+    ):
+        return _execute_guangdong_zfcxjst_penalty_field_query(task, route_plan, http_getter=http_getter)
     getter = http_getter or _default_http_getter
     query_params = dict(task.get("query_params") or {})
     keywords = _query_keywords(query_params)
@@ -823,6 +883,122 @@ def _execute_guangdong_gdcic_home_field_query(
     }
 
 
+def _execute_guangdong_zfcxjst_penalty_field_query(
+    task: Mapping[str, Any],
+    route_plan: list[Mapping[str, Any]],
+    *,
+    http_getter: HttpGetter | None,
+) -> dict[str, Any]:
+    getter = http_getter or _default_http_getter
+    query_params = dict(task.get("query_params") or {})
+    keywords = _query_keywords(query_params)
+    attempts: list[dict[str, Any]] = []
+    source_records: list[dict[str, Any]] = []
+    seen_urls: set[str] = set()
+
+    for route in route_plan:
+        response = _safe_get(route, getter=getter)
+        attempt = _route_attempt(route, response, keywords)
+        text = str(response.get("text_probe") or response.get("body_probe") or "")
+        candidate_links = _guangdong_zfcxjst_penalty_links_from_html(text, str(route.get("url") or ""))
+        if candidate_links:
+            attempt["html_candidate_link_count"] = len(candidate_links)
+        attempts.append(attempt)
+        for link in candidate_links[:8]:
+            detail_url = str(link.get("url") or "")
+            if not detail_url or detail_url in seen_urls:
+                continue
+            seen_urls.add(detail_url)
+            title = str(link.get("title") or "")
+            title_match = [keyword for keyword in keywords if keyword and keyword in title]
+            if not title_match and not _looks_like_penalty_title(title):
+                continue
+            detail_route = {
+                "route_id": f"gd_zfcxjst_penalty_detail_{_sha256_text(detail_url)[:8]}",
+                "route_group": "gd_zfcxjst_penalty_detail_page",
+                "url": detail_url,
+                "method": "GET",
+                "params": {},
+                "keyword_count": len(keywords),
+                "query_keyword_probe": keywords[:5],
+                "source_specific_adapter_id": "guangdong_zfcxjst_penalty_publicity_page_v1",
+            }
+            detail_response = _safe_get(detail_route, getter=getter)
+            detail_attempt = _route_attempt(detail_route, detail_response, keywords)
+            detail_text = str(detail_response.get("text_probe") or detail_response.get("body_probe") or "")
+            detail_record = _guangdong_zfcxjst_penalty_record_from_detail(
+                detail_text,
+                detail_url=detail_url,
+                fallback_title=title,
+                keywords=keywords,
+            )
+            if detail_record:
+                detail_attempt["penalty_record_ready"] = True
+                source_records.append(detail_record)
+            attempts.append(detail_attempt)
+
+    blockers = _dedupe(blocker for attempt in attempts for blocker in _list(attempt.get("blocker_taxonomy")))
+    status_codes = [_int(attempt.get("http_status")) for attempt in attempts if _int(attempt.get("http_status"))]
+    matched_keyword_count = len(
+        _dedupe(keyword for record in source_records for keyword in _list(record.get("matched_keywords")))
+    )
+    if source_records:
+        return {
+            "field_query_probe_state": "FIELD_READBACK_READY_PUBLIC_SOURCE",
+            "field_readback_state": "PUBLIC_SOURCE_FIELD_READBACK_READY_REVIEW_REQUIRED",
+            "readback_ready": True,
+            "readback_status_code": status_codes[0] if status_codes else 200,
+            "field_summary": {
+                "source_specific_adapter_id": "guangdong_zfcxjst_penalty_publicity_page_v1",
+                "record_count": len(source_records),
+                "matched_keyword_count": matched_keyword_count,
+                "source_profile_keyword_hit": bool(matched_keyword_count),
+                "source_profile_id": GUANGDONG_ZFCXJST_PENALTY_PROFILE_ID,
+                "record_type": "administrative_penalty_or_supervision_notice",
+            },
+            "field_match_summary": {
+                "source_specific_records": source_records[:10],
+                "query_miss_is_not_clearance": True,
+                "readback_is_line_clue_not_final_conclusion": True,
+            },
+            "route_plan": list(route_plan),
+            "route_attempts": attempts,
+            "blocker_taxonomy": blockers,
+        }
+    if attempts and all(str(attempt.get("route_state") or "").startswith("FAIL_CLOSED") for attempt in attempts):
+        return {
+            "field_query_probe_state": "FAIL_CLOSED_PUBLIC_SOURCE_BLOCKED",
+            "field_readback_state": "FIELD_READBACK_BLOCKED",
+            "readback_ready": False,
+            "readback_status_code": status_codes[0] if status_codes else None,
+            "field_summary": {
+                "source_specific_adapter_id": "guangdong_zfcxjst_penalty_publicity_page_v1",
+            },
+            "field_match_summary": {"query_miss_is_not_clearance": True},
+            "route_plan": list(route_plan),
+            "route_attempts": attempts,
+            "blocker_taxonomy": blockers or ["gd_zfcxjst_penalty_publicity_all_routes_blocked"],
+        }
+    return {
+        "field_query_probe_state": "NO_FIELD_MATCH_REVIEW_REQUIRED",
+        "field_readback_state": "PUBLIC_SOURCE_QUERIED_NO_FIELD_RECORD",
+        "readback_ready": False,
+        "readback_status_code": status_codes[0] if status_codes else None,
+        "field_summary": {
+            "source_specific_adapter_id": "guangdong_zfcxjst_penalty_publicity_page_v1",
+            "record_count": 0,
+            "source_profile_keyword_hit": False,
+        },
+        "field_match_summary": {
+            "query_miss_is_not_clearance": True,
+            "readback_is_line_clue_not_final_conclusion": True,
+        },
+        "route_plan": list(route_plan),
+        "route_attempts": attempts,
+        "blocker_taxonomy": blockers or ["gd_zfcxjst_penalty_publicity_no_record_review"],
+    }
+
+
 def _route_attempt(route: Mapping[str, Any], response: Mapping[str, Any], keywords: list[str]) -> dict[str, Any]:
     text = str(response.get("text_probe") or response.get("body_probe") or "")
     matched = [keyword for keyword in keywords if keyword and keyword in text]
@@ -998,6 +1174,128 @@ def _guangdong_gdcic_performance_records_from_html(text: str, keywords: list[str
     return records
 
 
+def _guangdong_zfcxjst_penalty_links_from_html(text: str, base_url: str) -> list[dict[str, str]]:
+    links: list[dict[str, str]] = []
+    for match in re.finditer(r"<a\b([^>]*?)>(.*?)</a>", str(text or ""), flags=re.I | re.S):
+        attrs = match.group(1)
+        body = match.group(2)
+        href_match = re.search(r"\bhref=['\"]([^'\"]+)['\"]", attrs, flags=re.I)
+        if not href_match:
+            continue
+        href = href_match.group(1).strip()
+        if not href or href.startswith("javascript:"):
+            continue
+        title_match = re.search(r"\btitle=['\"]([^'\"]+)['\"]", attrs, flags=re.I)
+        title = _strip_html(title_match.group(1) if title_match else body)
+        url = urllib.parse.urljoin(base_url or GUANGDONG_ZFCXJST_GSGG_BASE_URL, href)
+        if "zfcxjst.gd.gov.cn" not in url or "/content/post_" not in url:
+            continue
+        if not _looks_like_penalty_title(title) and "行政处罚" not in _strip_html(body):
+            continue
+        links.append({"title": title[:500], "url": url})
+    return _dedupe_links(links)
+
+
+def _guangdong_zfcxjst_penalty_record_from_detail(
+    text: str,
+    *,
+    detail_url: str,
+    fallback_title: str,
+    keywords: list[str],
+) -> dict[str, Any]:
+    plain = _strip_html(text)
+    title = _first_text(
+        (
+            _meta_content(text, "ArticleTitle"),
+            _match_text(r"<div[^>]+class=['\"][^'\"]*news-title[^'\"]*['\"][^>]*>(.*?)</div>", text),
+            fallback_title,
+        )
+    )
+    if not _looks_like_penalty_title(title) and "行政处罚" not in plain:
+        return {}
+    matched = [keyword for keyword in keywords if keyword and (keyword in title or keyword in plain)]
+    # Source-specific records are only useful when at least one query term appears in title/body.
+    if not matched:
+        return {}
+    party = _first_text(
+        (
+            _match_text(r"（法人）名称[:：]\s*(.+?)(?=统一社会信用代码|文号|成文日期|发布机构|$)", plain),
+            _match_text(r"名称[:：]\s*(.+?)(?=统一社会信用代码|文号|成文日期|发布机构|$)", plain),
+            _match_text(r"关于(.+?)的行政处罚决定书", title),
+        )
+    )
+    document_no = _first_text(
+        (
+            _meta_content(text, "DocumentNumber"),
+            _match_text(r"([\u4e00-\u9fa5]{1,8}罚〔\d{4}〕\d+号)", plain),
+            _match_text(r"([\u4e00-\u9fa5]{1,8}告〔\d{4}〕\d+号)", plain),
+            _match_text(r"文号[:：]\s*(.+?)(?=本机关|你单位|若你|$)", plain),
+        )
+    )
+    record = {
+        "title_probe": title[:500],
+        "detail_url": detail_url,
+        "publication_date": _first_text((_meta_content(text, "PubDate"), _match_text(r"(\d{4}[-年]\d{1,2}[-月]\d{1,2})", plain))),
+        "document_no": document_no[:200],
+        "administrative_counterparty": party[:300],
+        "credit_code": _match_text(r"统一社会信用代码[:：]\s*([0-9A-Z]{15,20})", plain),
+        "project_name_probe": _match_text(r"承建的(.{2,120}?项目)", plain)[:300],
+        "punishment_summary_probe": _penalty_summary_probe(plain),
+        "matched_keywords": matched[:10],
+        "record_sha256": _sha256_text(plain),
+        "source_profile_id": GUANGDONG_ZFCXJST_PENALTY_PROFILE_ID,
+        "source_specific_adapter_id": "guangdong_zfcxjst_penalty_publicity_page_v1",
+        "query_miss_is_not_clearance": True,
+        "readback_is_line_clue_not_final_conclusion": True,
+    }
+    return {key: value for key, value in record.items() if value not in ("", [], None)}
+
+
+def _looks_like_penalty_title(title: str) -> bool:
+    text = str(title or "")
+    return any(pattern in text for pattern in ("行政处罚", "处罚决定书", "处罚意见告知", "暂扣", "撤销", "监管决定"))
+
+
+def _penalty_summary_probe(text: str) -> str:
+    for pattern in (
+        r"(决定给予.{2,120}?行政处罚[^。]*。)",
+        r"(决定对你.{0,80}?作出如下行政处罚[:：]?.{0,160})",
+        r"(暂扣建筑施工企业安全生产许可证[^。]*。)",
+        r"(罚款人民币[^。]*。)",
+    ):
+        matched = _match_text(pattern, text)
+        if matched:
+            return matched[:500]
+    start = text.find("本机关决定")
+    if start >= 0:
+        return text[start : start + 300]
+    return ""
+
+
+def _meta_content(text: str, name: str) -> str:
+    pattern = rf"<meta[^>]+(?:name|property)=['\"]{re.escape(name)}['\"][^>]+content=['\"]([^'\"]*)['\"]"
+    return _match_text(pattern, text)
+
+
+def _match_text(pattern: str, text: str) -> str:
+    match = re.search(pattern, str(text or ""), flags=re.I | re.S)
+    if not match:
+        return ""
+    return _strip_html(match.group(1)).strip()
+
+
+def _dedupe_links(links: Iterable[Mapping[str, str]]) -> list[dict[str, str]]:
+    out: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for link in links:
+        url = str(link.get("url") or "").strip()
+        if not url or url in seen:
+            continue
+        seen.add(url)
+        out.append({"title": str(link.get("title") or "").strip(), "url": url})
+    return out
+
+
 def _strip_html(value: str) -> str:
     text = re.sub(r"<script[\s\S]*?</script>", " ", str(value or ""), flags=re.I)
     text = re.sub(r"<style[\s\S]*?</style>", " ", text, flags=re.I)
@@ -1114,6 +1412,12 @@ def _summary(
             if str(task.get("source_profile_id") or "").upper() == GUANGDONG_GDCIC_HOME_PROFILE_ID
             and str(task.get("field_query_probe_state") or "") == "FIELD_READBACK_READY_PUBLIC_SOURCE"
         ),
+        "guangdong_zfcxjst_penalty_readback_ready_count": sum(
+            1
+            for task in field_task_records
+            if str(task.get("source_profile_id") or "").upper() == GUANGDONG_ZFCXJST_PENALTY_PROFILE_ID
+            and str(task.get("field_query_probe_state") or "") == "FIELD_READBACK_READY_PUBLIC_SOURCE"
+        ),
         "delegated_task_count": sum(
             1 for task in field_task_records if str(task.get("field_query_probe_state") or "") == "DELEGATED_TO_SEPARATE_FIELD_ADAPTER"
         ),
@@ -1169,14 +1473,22 @@ def _http_timeout_seconds() -> int:
 def _decode_probe(body: bytes, content_type: str) -> str:
     if not body:
         return ""
+    probe_limit = _http_probe_char_limit()
     lowered = content_type.lower()
     encodings = ["gb18030", "utf-8"] if "charset=gb" in lowered else ["utf-8", "gb18030"]
     for encoding in encodings:
         try:
-            return body.decode(encoding, errors="ignore")[:8000]
+            return body.decode(encoding, errors="ignore")[:probe_limit]
         except LookupError:
             continue
-    return body.decode("utf-8", errors="ignore")[:8000]
+    return body.decode("utf-8", errors="ignore")[:probe_limit]
+
+
+def _http_probe_char_limit() -> int:
+    try:
+        return max(8_000, min(80_000, int(os.environ.get("KAKA_GD_LOCAL_FIELD_HTTP_PROBE_CHARS", "50000"))))
+    except ValueError:
+        return 50_000
 
 
 def _clean_project_title(value: Any) -> str:

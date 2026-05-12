@@ -313,11 +313,19 @@ class BusinessDirectionStrategyContractTests(unittest.TestCase):
             guangdong_field_policy["source_specific_field_adapters"],
         )
         self.assertIn(
+            "guangdong_zfcxjst_penalty_publicity_page_v1",
+            guangdong_field_policy["source_specific_field_adapters"],
+        )
+        self.assertIn(
             "guangzhou_zfcj_xyxx_api_query_for_city_double_publicity",
             guangdong_field_policy["query_route_policy"],
         )
         self.assertIn(
             "guangdong_gdcic_contract_performance_public_page_probe",
+            guangdong_field_policy["query_route_policy"],
+        )
+        self.assertIn(
+            "guangdong_zfcxjst_penalty_publicity_list_and_detail_probe",
             guangdong_field_policy["query_route_policy"],
         )
         self.assertIn(
