@@ -3,6 +3,7 @@ param(
     [string]$ActiveConflictJson = "",
     [string]$OutputRoot = "",
     [switch]$EnableLivePublicQuery,
+    [int]$MaxLiveTasks = 3,
     [switch]$EmitJson
 )
 
@@ -33,6 +34,7 @@ if ($ActiveConflictJson) {
 }
 if ($EnableLivePublicQuery) {
     $argsList += "--enable-live-public-query"
+    $argsList += @("--max-live-tasks", "$MaxLiveTasks")
 }
 if ($EmitJson) {
     $argsList += "--json"

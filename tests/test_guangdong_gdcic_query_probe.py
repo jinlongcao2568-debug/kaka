@@ -50,21 +50,43 @@ class GuangdongGdcicQueryProbeTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
             _write_active_conflict_probe(root / "active", task_count=1)
+            requested_urls: list[str] = []
 
-            def fake_getter(_url: str, _params: Mapping[str, Any]) -> Mapping[str, Any]:
+            def fake_getter(url: str, _params: Mapping[str, Any]) -> Mapping[str, Any]:
+                requested_urls.append(url)
+                if url.endswith("/openplatform/personIntoGd/list"):
+                    return {
+                        "http_status": 200,
+                        "content_type": "application/json",
+                        "payload": {
+                            "rows": [
+                                {
+                                    "projectName": "广州测试项目",
+                                    "entName": "广州测试建设有限公司01",
+                                    "name": "张三01",
+                                    "idCard": "HASH-ZHANGSAN-01",
+                                }
+                            ]
+                        },
+                    }
+                if url.endswith("/openplatform/personCertReg/list"):
+                    return {
+                        "http_status": 200,
+                        "content_type": "application/json",
+                        "payload": {
+                            "rows": [
+                                {
+                                    "name": "张三01",
+                                    "entName": "广州测试建设有限公司01",
+                                    "certNum": "粤144202020210001",
+                                }
+                            ]
+                        },
+                    }
                 return {
                     "http_status": 200,
                     "content_type": "application/json",
-                    "payload": {
-                        "records": [
-                            {
-                                "projectName": "广州测试项目",
-                                "companyName": "广州测试建设有限公司01",
-                                "personName": "张三01",
-                                "certificateNo": "粤144202020210001",
-                            }
-                        ]
-                    },
+                    "payload": {"rows": []},
                 }
 
             result = build_guangdong_gdcic_query_probe(
@@ -80,8 +102,13 @@ class GuangdongGdcicQueryProbeTests(unittest.TestCase):
             self.assertEqual(result["summary"]["gdcic_readback_ready_count"], 1)
             task = result["manifest"]["query_task_records"][0]
             self.assertEqual(task["query_probe_state"], "READBACK_READY_PUBLIC_SOURCE")
-            self.assertEqual(task["field_summary"]["record_count"], 1)
+            self.assertGreaterEqual(task["field_summary"]["record_count"], 2)
             self.assertEqual(task["limited_readback"]["sample_person_names"], ["张三01"])
+            self.assertIn("person_into_gd_by_name_company", task["limited_readback"]["readback_route_ids"])
+            self.assertIn("person_cert_reg_by_id_card", task["limited_readback"]["readback_route_ids"])
+            self.assertTrue(any(url.endswith("/openplatform/personInGd/list") for url in requested_urls))
+            self.assertTrue(any(url.endswith("/openplatform/personIntoGd/list") for url in requested_urls))
+            self.assertTrue(any(url.endswith("/openplatform/personCertReg/list") for url in requested_urls))
 
     def test_live_fake_getter_classifies_blockers_and_review_states(self) -> None:
         cases = [
@@ -126,6 +153,36 @@ class GuangdongGdcicQueryProbeTests(unittest.TestCase):
                     text = json.dumps(result, ensure_ascii=False)
                     for term in ("无在建", "无冲突"):
                         self.assertNotIn(term, text)
+
+    def test_live_query_can_defer_tasks_by_limit(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_active_conflict_probe(root / "active", task_count=3)
+            call_count = 0
+
+            def fake_getter(_url: str, _params: Mapping[str, Any]) -> Mapping[str, Any]:
+                nonlocal call_count
+                call_count += 1
+                return {
+                    "http_status": 200,
+                    "content_type": "application/json",
+                    "payload": {"rows": [{"name": "张三01", "entName": "广州测试建设有限公司01"}]},
+                }
+
+            result = build_guangdong_gdcic_query_probe(
+                active_conflict_root=root / "active",
+                output_root=root / "out",
+                enable_live_public_query=True,
+                max_live_tasks=1,
+                http_getter=fake_getter,
+                created_at="2026-05-12T00:00:00+08:00",
+            )
+
+            tasks = result["manifest"]["query_task_records"]
+            self.assertGreater(call_count, 0)
+            self.assertEqual(tasks[0]["query_probe_state"], "READBACK_READY_PUBLIC_SOURCE")
+            self.assertEqual(tasks[1]["query_probe_state"], "LIVE_PUBLIC_QUERY_DEFERRED_BY_LIMIT")
+            self.assertIn("gdcic_live_query_deferred_by_limit", tasks[1]["blocker_taxonomy"])
 
     def test_missing_active_conflict_probe_fails_closed(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
