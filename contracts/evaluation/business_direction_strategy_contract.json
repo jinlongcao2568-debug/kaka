@@ -561,7 +561,7 @@
           "GUANGZHOU-ZFCJ-CREDIT-DOUBLE-PUBLICITY"
         ],
         "source_scope_policy": "GUANGDONG_PROVINCE_FIRST_WITH_CURRENT_CITY_SUPPLEMENT_FOR_GUANGZHOU",
-        "current_city_supplement_policy": "广州项目额外加入广州市住建局信用信息双公示，用于施工许可、合同信用信息、处罚等城市级公开线索补强。",
+        "current_city_supplement_policy": "广州项目额外加入广州市住建局信用信息双公示、建筑工程施工许可证公示信息、工程竣工验收信息和工程合同信用信息，用于施工许可、竣工验收、合同信用信息、处罚等城市级公开线索补强。",
         "implemented_separate_field_adapters": [
           "guangdong_gdcic_query_probe_v1"
         ],
@@ -572,7 +572,42 @@
           "do_not_limit_guangdong_verification_to_guangzhou_only"
         ],
         "customer_visible_allowed": false,
-        "no_legal_conclusion": true
+        "no_legal_conclusion": true,
+        "verified_official_city_subsources": [
+          {
+            "subsource_id": "gz_zfcj_construction_permit_public_api",
+            "source_name": "广州市住房和城乡建设局 / 建筑工程施工许可证公示信息",
+            "source_url": "https://zfcj.gz.gov.cn/zfcj/gczlaq/constructionPermitInformation/",
+            "api_url": "https://zfcj.gz.gov.cn/ysqgk/Api/WebApi/jzgdsgxkxxlb.ashx",
+            "runtime_status": "PUBLIC_POST_JSON_API_VERIFIED",
+            "target_source_types": [
+              "construction_permit"
+            ],
+            "next_adapter": "guangzhou_zfcj_construction_permit_public_api_v1"
+          },
+          {
+            "subsource_id": "gz_zfcj_completion_acceptance_public_api",
+            "source_name": "广州市住房和城乡建设局 / 工程竣工验收信息",
+            "source_url": "https://zfcj.gz.gov.cn/zfcj/gczlaq/completionAcceptance/",
+            "api_url": "https://zfcj.gz.gov.cn/ysqgk/Api/WebApi/gcjgysxxlb.ashx",
+            "runtime_status": "PUBLIC_POST_JSON_API_VERIFIED_ADAPTER_PENDING",
+            "target_source_types": [
+              "completion_filing"
+            ],
+            "next_adapter": "guangzhou_zfcj_completion_acceptance_public_api_v1"
+          },
+          {
+            "subsource_id": "gz_zfcj_contract_credit_public_portal",
+            "source_name": "广州市住房和城乡建设局 / 工程合同信用信息",
+            "source_url": "https://113.108.173.251:8080/",
+            "official_parent_url": "https://zfcj.gz.gov.cn/",
+            "runtime_status": "OFFICIAL_PORTAL_LINK_VERIFIED_ADAPTER_PENDING",
+            "target_source_types": [
+              "contract_public_info"
+            ],
+            "next_adapter": "guangzhou_zfcj_contract_credit_query_adapter"
+          }
+        ]
       },
       "guangdong_local_field_query_probe_v1_policy": {
         "policy_id": "GUANGDONG-LOCAL-FIELD-QUERY-PROBE-V1",
@@ -589,7 +624,8 @@
           "guangdong_gdcic_contract_performance_public_page_v1",
           "guangdong_tzxm_project_approval_publicity_api_v1",
           "guangdong_zfcxjst_penalty_publicity_page_v1",
-          "guangzhou_zfcj_xyxx_api_query_v1"
+          "guangzhou_zfcj_xyxx_api_query_v1",
+          "guangzhou_zfcj_construction_permit_public_api_v1"
         ],
         "query_route_policy": [
           "source_home_keyword_probe",
@@ -609,7 +645,10 @@
           "guangzhou_zfcj_xyxx_api_query_for_city_double_publicity",
           "city_double_publicity_keyword_probe_for_guangzhou",
           "province_housing_site_search_probe",
-          "credit_subject_search_probe"
+          "credit_subject_search_probe",
+          "guangzhou_zfcj_construction_permit_public_api_probe",
+          "guangzhou_zfcj_completion_acceptance_public_api_recorded_pending_adapter",
+          "guangzhou_zfcj_contract_credit_official_portal_recorded_pending_adapter"
         ],
         "must_not": [
           "do_not_treat_keyword_hit_as_final_field_verification",

@@ -288,6 +288,19 @@ class BusinessDirectionStrategyContractTests(unittest.TestCase):
             "GUANGDONG_PROVINCE_FIRST_WITH_CURRENT_CITY_SUPPLEMENT_FOR_GUANGZHOU",
         )
         self.assertIn("guangdong_gdcic_query_probe_v1", guangdong_policy["implemented_separate_field_adapters"])
+        subsources = {sub["subsource_id"]: sub for sub in guangdong_policy["verified_official_city_subsources"]}
+        self.assertEqual(
+            subsources["gz_zfcj_construction_permit_public_api"]["api_url"],
+            "https://zfcj.gz.gov.cn/ysqgk/Api/WebApi/jzgdsgxkxxlb.ashx",
+        )
+        self.assertEqual(
+            subsources["gz_zfcj_completion_acceptance_public_api"]["api_url"],
+            "https://zfcj.gz.gov.cn/ysqgk/Api/WebApi/gcjgysxxlb.ashx",
+        )
+        self.assertEqual(
+            subsources["gz_zfcj_contract_credit_public_portal"]["source_url"],
+            "https://113.108.173.251:8080/",
+        )
         self.assertIn(
             "do_not_limit_guangdong_verification_to_guangzhou_only",
             guangdong_policy["must_not"],
@@ -311,6 +324,10 @@ class BusinessDirectionStrategyContractTests(unittest.TestCase):
             guangdong_field_policy["source_specific_field_adapters"],
         )
         self.assertIn(
+            "guangzhou_zfcj_construction_permit_public_api_v1",
+            guangdong_field_policy["source_specific_field_adapters"],
+        )
+        self.assertIn(
             "guangdong_credit_gd_public_credit_query_v1",
             guangdong_field_policy["source_specific_field_adapters"],
         )
@@ -328,6 +345,10 @@ class BusinessDirectionStrategyContractTests(unittest.TestCase):
         )
         self.assertIn(
             "guangzhou_zfcj_xyxx_api_query_for_city_double_publicity",
+            guangdong_field_policy["query_route_policy"],
+        )
+        self.assertIn(
+            "guangzhou_zfcj_construction_permit_public_api_probe",
             guangdong_field_policy["query_route_policy"],
         )
         self.assertIn(

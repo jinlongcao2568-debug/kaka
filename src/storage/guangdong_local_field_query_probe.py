@@ -30,6 +30,15 @@ GUANGZHOU_ZFCJ_PROFILE_ID = "GUANGZHOU-ZFCJ-CREDIT-DOUBLE-PUBLICITY"
 GUANGZHOU_ZFCJ_XYXX_API_URL = "https://zfcj.gz.gov.cn/ysqgk/Api/WebApi/xyxxzhlb.ashx"
 GUANGZHOU_ZFCJ_XYXX_DETAIL_API_URL = "https://zfcj.gz.gov.cn/ysqgk/Api/WebApi/xyxxxxxx.ashx"
 GUANGZHOU_ZFCJ_XYXX_DETAIL_PAGE_URL = "https://zfcj.gz.gov.cn/zfcj/xyxx/xyxxDetails/index.html"
+GUANGZHOU_ZFCJ_CONSTRUCTION_PERMIT_PAGE_URL = (
+    "https://zfcj.gz.gov.cn/zfcj/gczlaq/constructionPermitInformation/"
+)
+GUANGZHOU_ZFCJ_CONSTRUCTION_PERMIT_API_URL = (
+    "https://zfcj.gz.gov.cn/ysqgk/Api/WebApi/jzgdsgxkxxlb.ashx"
+)
+GUANGZHOU_ZFCJ_COMPLETION_ACCEPTANCE_PAGE_URL = "https://zfcj.gz.gov.cn/zfcj/gczlaq/completionAcceptance/"
+GUANGZHOU_ZFCJ_COMPLETION_ACCEPTANCE_API_URL = "https://zfcj.gz.gov.cn/ysqgk/Api/WebApi/gcjgysxxlb.ashx"
+GUANGZHOU_ZFCJ_CONTRACT_CREDIT_URL = "https://113.108.173.251:8080/"
 GUANGDONG_GDCIC_HOME_PROFILE_ID = "GUANGDONG-GDCIC-HOME"
 GUANGDONG_GDCIC_HOME_BASE_URL = "http://210.76.80.152:8008"
 GUANGDONG_GDCIC_PERFORMANCE_PUBLIC_URL = (
@@ -273,9 +282,33 @@ def _route_plan_for_task(task: Mapping[str, Any], query_params: Mapping[str, Any
                 _route("source_home", source_url, "source_home_probe", keywords),
                 _route("city_double_publicity_keyword_url", f"https://zfcj.gz.gov.cn/zfcj/xyxx/index.html?keywords={encoded}", "city_double_publicity_keyword_probe", keywords),
                 _route("city_construction_permit_category", f"https://zfcj.gz.gov.cn/zfcj/xyxx/index.html?subcategory=1&keywords={encoded}", "city_double_publicity_permit_probe", keywords),
+                _route(
+                    "city_construction_permit_public_page",
+                    GUANGZHOU_ZFCJ_CONSTRUCTION_PERMIT_PAGE_URL,
+                    "city_construction_permit_public_page_probe",
+                    keywords,
+                ),
             ]
         )
         for route in (
+            _guangzhou_zfcj_construction_permit_route(
+                "gz_zfcj_construction_permit_sgdw_company",
+                "sgdw",
+                company_keyword,
+                keywords,
+            ),
+            _guangzhou_zfcj_construction_permit_route(
+                "gz_zfcj_construction_permit_jsdw_company",
+                "jsdw",
+                company_keyword,
+                keywords,
+            ),
+            _guangzhou_zfcj_construction_permit_route(
+                "gz_zfcj_construction_permit_project",
+                "gcmc",
+                project_keyword,
+                keywords,
+            ),
             _guangzhou_zfcj_api_route(
                 "gz_zfcj_xyxx_api_company_construction_permit",
                 "gz_zfcj_xyxx_api_construction_permit",
@@ -450,6 +483,40 @@ def _guangzhou_zfcj_api_route(
         "keyword_count": len(query_keywords),
         "query_keyword_probe": query_keywords[:5],
         "source_specific_adapter_id": "guangzhou_zfcj_xyxx_api_query_v1",
+    }
+
+
+def _guangzhou_zfcj_construction_permit_route(
+    route_id: str,
+    query_field: str,
+    keyword: str,
+    query_keywords: list[str],
+) -> dict[str, Any] | None:
+    keyword = str(keyword or "").strip()
+    if not keyword:
+        return None
+    params = {
+        "page": 1,
+        "pageSize": 10,
+        "gcmc": "",
+        "jsdw": "",
+        "sgdw": "",
+        "ywlcbh": "",
+    }
+    if query_field in params:
+        params[query_field] = keyword
+    query_url = f"{GUANGZHOU_ZFCJ_CONSTRUCTION_PERMIT_API_URL}?{urllib.parse.urlencode(params)}"
+    return {
+        "route_id": route_id,
+        "route_group": "gz_zfcj_construction_permit_public_api",
+        "url": query_url,
+        "method": "POST",
+        "params": {},
+        "referer": GUANGZHOU_ZFCJ_CONSTRUCTION_PERMIT_PAGE_URL,
+        "keyword_count": len(query_keywords),
+        "query_keyword_probe": query_keywords[:5],
+        "query_field": query_field,
+        "source_specific_adapter_id": "guangzhou_zfcj_construction_permit_public_api_v1",
     }
 
 
@@ -931,6 +998,10 @@ def _execute_guangzhou_zfcj_field_query(
         if not records:
             continue
         for record in records[:5]:
+            if str(route.get("route_group") or "") == "gz_zfcj_construction_permit_public_api":
+                compact = _compact_guangzhou_zfcj_construction_permit_record(record, route, keywords)
+                field_records.append(compact)
+                continue
             compact = _compact_guangzhou_zfcj_record(record, keywords)
             detail_route = _guangzhou_zfcj_detail_route(record, keywords)
             if detail_route:
@@ -952,13 +1023,18 @@ def _execute_guangzhou_zfcj_field_query(
         _dedupe(keyword for record in field_records for keyword in _list(record.get("matched_keywords")))
     )
     if field_records:
+        adapter_ids = _dedupe(record.get("source_specific_adapter_id") for record in field_records)
+        source_specific_adapter_id = (
+            adapter_ids[0] if len(adapter_ids) == 1 else "guangzhou_zfcj_multi_public_api_query_v1"
+        )
         return {
             "field_query_probe_state": "FIELD_READBACK_READY_PUBLIC_SOURCE",
             "field_readback_state": "PUBLIC_SOURCE_FIELD_READBACK_READY_REVIEW_REQUIRED",
             "readback_ready": True,
             "readback_status_code": status_codes[0] if status_codes else 200,
             "field_summary": {
-                "source_specific_adapter_id": "guangzhou_zfcj_xyxx_api_query_v1",
+                "source_specific_adapter_id": source_specific_adapter_id,
+                "source_specific_adapter_ids": adapter_ids,
                 "record_count": len(field_records),
                 "detail_readback_count": detail_ready_count,
                 "matched_keyword_count": matched_keyword_count,
@@ -2034,6 +2110,8 @@ def _compact_guangzhou_zfcj_record(record: Mapping[str, Any], keywords: list[str
     info_name = str(record.get("infoName") or record.get("infoname") or record.get("xmmc") or "").strip()
     info_date = str(record.get("infoDate") or record.get("jdrq") or "").strip()
     return {
+        "source_profile_id": GUANGZHOU_ZFCJ_PROFILE_ID,
+        "source_specific_adapter_id": "guangzhou_zfcj_xyxx_api_query_v1",
         "info_id": info_id,
         "subcategory": subcategory,
         "info_name_probe": info_name[:500],
@@ -2042,6 +2120,55 @@ def _compact_guangzhou_zfcj_record(record: Mapping[str, Any], keywords: list[str
         "detail_url": _guangzhou_zfcj_detail_page_url(info_id, subcategory),
         "matched_keywords": [keyword for keyword in keywords if keyword and keyword in info_name][:10],
         "record_sha256": _sha256_text(json.dumps(dict(record), ensure_ascii=False, sort_keys=True, default=str)),
+    }
+
+
+def _compact_guangzhou_zfcj_construction_permit_record(
+    record: Mapping[str, Any],
+    route: Mapping[str, Any],
+    keywords: list[str],
+) -> dict[str, Any]:
+    project_name = _record_text(record, "gcmc", "projectName", "xmmc")
+    construction_site = _record_text(record, "jsdd", "buildingAddress")
+    builder_unit = _record_text(record, "jsdw", "buildingUnit")
+    construction_company = _record_text(record, "sgdw", "workUnit")
+    supervision_company = _record_text(record, "jldw", "superviseUnit")
+    permit_no = _record_text(record, "sgxkzh", "workAgreeName", "ywlcbh")
+    approval_date = _record_text(record, "pzrq", "sendTime")
+    permit_status = _record_text(record, "sgxkzt", "currentStatus")
+    record_text = _compact_mapping_text(record)
+    matched_keywords = [
+        keyword
+        for keyword in keywords
+        if keyword
+        and (
+            keyword in project_name
+            or keyword in builder_unit
+            or keyword in construction_company
+            or keyword in supervision_company
+            or keyword in permit_no
+        )
+    ][:10]
+    return {
+        "source_profile_id": GUANGZHOU_ZFCJ_PROFILE_ID,
+        "source_specific_adapter_id": "guangzhou_zfcj_construction_permit_public_api_v1",
+        "source_page_url": GUANGZHOU_ZFCJ_CONSTRUCTION_PERMIT_PAGE_URL,
+        "api_url": GUANGZHOU_ZFCJ_CONSTRUCTION_PERMIT_API_URL,
+        "route_id": str(route.get("route_id") or ""),
+        "query_field": str(route.get("query_field") or ""),
+        "record_type": "construction_permit_public_record",
+        "project_name_probe": project_name[:500],
+        "construction_site_probe": construction_site[:500],
+        "builder_unit_probe": builder_unit[:300],
+        "construction_company_probe": construction_company[:300],
+        "supervision_company_probe": supervision_company[:300],
+        "construction_permit_no": permit_no[:200],
+        "approval_date": approval_date[:100],
+        "permit_status": permit_status[:100],
+        "matched_keywords": matched_keywords,
+        "record_sha256": _sha256_text(record_text),
+        "query_miss_is_not_clearance": True,
+        "readback_is_line_clue_not_final_conclusion": True,
     }
 
 
@@ -2625,6 +2752,22 @@ def _summary(
             for task in field_task_records
             if str(task.get("source_profile_id") or "").upper() == GUANGZHOU_ZFCJ_PROFILE_ID
             and str(task.get("field_query_probe_state") or "") == "FIELD_READBACK_READY_PUBLIC_SOURCE"
+        ),
+        "guangzhou_zfcj_construction_permit_readback_ready_count": sum(
+            1
+            for task in field_task_records
+            if str(task.get("source_profile_id") or "").upper() == GUANGZHOU_ZFCJ_PROFILE_ID
+            and str((task.get("field_summary") or {}).get("source_specific_adapter_id") or "")
+            in {
+                "guangzhou_zfcj_construction_permit_public_api_v1",
+                "guangzhou_zfcj_multi_public_api_query_v1",
+            }
+            and any(
+                str(record.get("source_specific_adapter_id") or "")
+                == "guangzhou_zfcj_construction_permit_public_api_v1"
+                for record in _list((task.get("field_match_summary") or {}).get("source_specific_records"))
+                if isinstance(record, Mapping)
+            )
         ),
         "guangdong_gdcic_contract_performance_readback_ready_count": sum(
             1

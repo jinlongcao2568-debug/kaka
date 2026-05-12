@@ -268,6 +268,7 @@ def _source_entry_summaries(source_plan: Mapping[str, Any]) -> list[dict[str, An
                 "query_keys": _list(entry.get("query_keys")),
                 "runtime_status": str(entry.get("runtime_status") or ""),
                 "next_adapter": str(entry.get("next_adapter") or ""),
+                "verified_public_subsources": _list(entry.get("verified_public_subsources")),
             }
         )
     return entries

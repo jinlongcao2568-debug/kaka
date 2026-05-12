@@ -66,8 +66,21 @@ class Stage4RegionalHardDefectSourcePlanTests(unittest.TestCase):
             for entry in plan["source_entries"]
             if entry["entry_id"] == "GZ-ZFCJ-CREDIT-DOUBLE-PUBLICITY"
         )
-        self.assertEqual(gz_entry["runtime_status"], "CITY_PUBLIC_API_QUERY_ADAPTER_AVAILABLE")
+        self.assertEqual(gz_entry["runtime_status"], "CITY_PUBLIC_API_QUERY_ADAPTER_AVAILABLE_WITH_VERIFIED_SUBSOURCES")
         self.assertEqual(gz_entry["next_adapter"], "guangzhou_zfcj_xyxx_api_query_v1")
+        gz_subsources = {sub["subsource_id"]: sub for sub in gz_entry["verified_public_subsources"]}
+        self.assertEqual(
+            gz_subsources["gz_zfcj_construction_permit_public_api"]["runtime_status"],
+            "PUBLIC_POST_JSON_API_VERIFIED",
+        )
+        self.assertEqual(
+            gz_subsources["gz_zfcj_completion_acceptance_public_api"]["api_url"],
+            "https://zfcj.gz.gov.cn/ysqgk/Api/WebApi/gcjgysxxlb.ashx",
+        )
+        self.assertEqual(
+            gz_subsources["gz_zfcj_contract_credit_public_portal"]["source_url"],
+            "https://113.108.173.251:8080/",
+        )
         credit_entry = next(entry for entry in plan["source_entries"] if entry["entry_id"] == "GD-CREDIT-GD")
         self.assertEqual(
             credit_entry["runtime_status"],

@@ -61,8 +61,12 @@ class GuangzhouActiveConflictProbeTests(unittest.TestCase):
                 entry for entry in task["source_entries"]
                 if entry["source_profile_id"] == "GUANGZHOU-ZFCJ-CREDIT-DOUBLE-PUBLICITY"
             )
-            self.assertEqual(gz_entry["runtime_status"], "CITY_PUBLIC_API_QUERY_ADAPTER_AVAILABLE")
+            self.assertEqual(gz_entry["runtime_status"], "CITY_PUBLIC_API_QUERY_ADAPTER_AVAILABLE_WITH_VERIFIED_SUBSOURCES")
             self.assertEqual(gz_entry["next_adapter"], "guangzhou_zfcj_xyxx_api_query_v1")
+            subsource_ids = {sub["subsource_id"] for sub in gz_entry["verified_public_subsources"]}
+            self.assertIn("gz_zfcj_construction_permit_public_api", subsource_ids)
+            self.assertIn("gz_zfcj_completion_acceptance_public_api", subsource_ids)
+            self.assertIn("gz_zfcj_contract_credit_public_portal", subsource_ids)
             source_region_codes = {entry["region_code"] for entry in task["source_entries"]}
             self.assertIn("CN-ZJ", source_region_codes)
             self.assertIn("CN-SD", source_region_codes)
