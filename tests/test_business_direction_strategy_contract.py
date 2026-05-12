@@ -267,6 +267,15 @@ class BusinessDirectionStrategyContractTests(unittest.TestCase):
             "do_not_treat_plan_only_source_as_live_verified",
             major_region_policy["must_not"],
         )
+        query_probe_policy = conflict_policy["major_region_query_probe_v1_policy"]
+        self.assertEqual(query_probe_policy["default_execution_mode"], "PLAN_ONLY_NOT_EXECUTED")
+        self.assertEqual(query_probe_policy["optional_execution_mode"], "LIVE_REACHABILITY_ATTEMPTED")
+        self.assertIn("CN-ZJ", query_probe_policy["default_region_codes"])
+        self.assertIn("CN-SD", query_probe_policy["default_region_codes"])
+        self.assertIn(
+            "do_not_treat_reachability_as_field_verification",
+            query_probe_policy["must_not"],
+        )
         self.assertIn(
             "do_not_output_final_active_conflict_conclusion_without_replayable_sources",
             conflict_policy["must_not"],

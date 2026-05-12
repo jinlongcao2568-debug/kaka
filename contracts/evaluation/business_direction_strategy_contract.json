@@ -525,6 +525,28 @@
         "customer_visible_allowed": false,
         "no_legal_conclusion": true
       },
+      "major_region_query_probe_v1_policy": {
+        "policy_id": "MAJOR-REGION-QUERY-PROBE-V1",
+        "default_execution_mode": "PLAN_ONLY_NOT_EXECUTED",
+        "optional_execution_mode": "LIVE_REACHABILITY_ATTEMPTED",
+        "purpose": "把浙江、四川、江苏、湖北、山东、湖南、河南等重点省份源目录转成可执行任务和只读可达性诊断；字段级核验仍需各省 adapter 逐个实现。",
+        "default_region_codes": [
+          "CN-ZJ",
+          "CN-SC",
+          "CN-JS",
+          "CN-HB",
+          "CN-SD",
+          "CN-HN",
+          "CN-HA"
+        ],
+        "must_not": [
+          "do_not_treat_reachability_as_field_verification",
+          "do_not_treat_unreachable_source_as_no_risk",
+          "do_not_output_final_active_conflict_conclusion_from_probe"
+        ],
+        "customer_visible_allowed": false,
+        "no_legal_conclusion": true
+      },
       "must_not": [
         "do_not_treat_jzsc_missing_project_as_no_active_conflict",
         "do_not_treat_jzsc_missing_performance_as_performance_fraud",

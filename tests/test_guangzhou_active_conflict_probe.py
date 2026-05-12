@@ -59,6 +59,11 @@ class GuangzhouActiveConflictProbeTests(unittest.TestCase):
             source_region_codes = {entry["region_code"] for entry in task["source_entries"]}
             self.assertIn("CN-ZJ", source_region_codes)
             self.assertIn("CN-SD", source_region_codes)
+            zhejiang_entry = next(
+                entry for entry in task["source_entries"]
+                if entry["source_profile_id"] == "ZHEJIANG-JZSC-PUBLIC-SERVICE"
+            )
+            self.assertTrue(zhejiang_entry["official_reference_url"])
             self.assertEqual(task["candidate_notice_source_urls"], ["https://example.test/07.html"])
             self.assertTrue(result["manifest"]["manual_check_table"])
             text = json.dumps(result, ensure_ascii=False)
