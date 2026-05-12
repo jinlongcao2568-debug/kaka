@@ -440,6 +440,7 @@ class GuangdongLocalFieldQueryProbeTests(unittest.TestCase):
                 enable_live_public_query=True,
                 max_live_tasks=1,
                 http_getter=fake_getter,
+                credit_gd_session_getter=_credit_gd_session_readback,
                 created_at="2026-05-12T00:00:00+08:00",
             )
 
@@ -469,6 +470,15 @@ class GuangdongLocalFieldQueryProbeTests(unittest.TestCase):
             self.assertIn(records[0]["record_type"], {"administrative_penalty_public_record", "administrative_license_public_record"})
             self.assertIn("creditPublic", records[0]["detail_url"])
             self.assertTrue(task["field_match_summary"]["query_miss_is_not_clearance"])
+            self.assertIn("gd_credit_gd_public_list_readback_ready", task["blocker_taxonomy"])
+            self.assertEqual(
+                task["diagnostics"]["credit_gd_session_readback_v1"]["discovered_api_path"],
+                "/gdcreditwebApi2//company/web/booleanQueryListByPageSimple",
+            )
+            self.assertEqual(
+                task["route_attempts"][0]["credit_gd_cookie_session_state"],
+                "SESSION_COOKIE_PRESENT",
+            )
             list_urls = [
                 route["url"]
                 for route in task["route_plan"]
@@ -478,7 +488,13 @@ class GuangdongLocalFieldQueryProbeTests(unittest.TestCase):
             self.assertTrue(
                 all("/gdcreditwebApi2//company/web/booleanQueryListByPageSimple" in url for url in list_urls)
             )
-            self.assertIn("gd_credit_gd_targeted_query_forbidden_review", task["blocker_taxonomy"])
+            targeted_attempts = [
+                attempt
+                for attempt in task["route_attempts"]
+                if attempt["route_group"] == "gd_credit_gd_public_credit_targeted_query"
+            ]
+            self.assertTrue(targeted_attempts)
+            self.assertTrue(all(attempt["deferred_reason"] == "public_list_match_ready" for attempt in targeted_attempts))
 
     def test_credit_gd_list_records_without_candidate_match_stay_review_required(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -551,6 +567,7 @@ class GuangdongLocalFieldQueryProbeTests(unittest.TestCase):
                 enable_live_public_query=True,
                 max_live_tasks=1,
                 http_getter=fake_getter,
+                credit_gd_session_getter=_credit_gd_session_readback,
                 created_at="2026-05-12T00:00:00+08:00",
             )
 
@@ -578,6 +595,130 @@ class GuangdongLocalFieldQueryProbeTests(unittest.TestCase):
             })
             self.assertTrue(task["field_match_summary"]["query_miss_is_not_clearance"])
             self.assertIn("gd_credit_gd_targeted_query_forbidden_review", task["blocker_taxonomy"])
+            self.assertIn("gd_credit_gd_targeted_query_deferred_by_site_guard", task["blocker_taxonomy"])
+
+    def test_credit_gd_browser_session_readback_discovers_current_api_prefix(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            local_root = root / "local"
+            _write_local_verification(local_root)
+            seen_urls: list[str] = []
+
+            def fake_getter(url: str, params: Mapping[str, Any]) -> Mapping[str, Any]:
+                seen_urls.append(url)
+                self.assertIn("/gdcreditwebApi2//company/web/booleanQueryListByPageSimple", url)
+                self.assertEqual(params.get("_cookie_header"), "SESSIONID=abc")
+                return {
+                    "http_status": 200,
+                    "content_type": "application/json; charset=utf-8",
+                    "json_payload": {"data": {"rows": []}},
+                    "text_probe": "",
+                }
+
+            result = build_guangdong_local_field_query_probe(
+                local_verification_root=local_root,
+                output_root=root / "out",
+                source_profile_ids=["GUANGDONG-CREDIT-GD-HOME"],
+                enable_live_public_query=True,
+                max_live_tasks=1,
+                http_getter=fake_getter,
+                credit_gd_session_getter=_credit_gd_session_readback,
+                credit_gd_max_requests_per_task=2,
+                created_at="2026-05-12T00:00:00+08:00",
+            )
+
+            self.assertTrue(result["safe_to_execute"])
+            task = result["manifest"]["field_task_records"][0]
+            self.assertEqual(task["field_query_probe_state"], "NO_FIELD_MATCH_REVIEW_REQUIRED")
+            self.assertEqual(task["diagnostics"]["credit_gd_session_readback_v1"]["session_state"], "SESSION_READBACK_READY")
+            self.assertEqual(task["diagnostics"]["credit_gd_session_readback_v1"]["cookie_count"], 1)
+            self.assertTrue(seen_urls)
+            self.assertTrue(all("/company/web/booleanQueryListByPageSimple" in url for url in seen_urls))
+            self.assertTrue(all("/gdcreditwebApi2//company/web/" in url for url in seen_urls))
+
+    def test_credit_gd_site_guard_does_not_mark_source_successful(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            local_root = root / "local"
+            _write_local_verification(local_root)
+
+            def fake_getter(_url: str, params: Mapping[str, Any]) -> Mapping[str, Any]:
+                if params.get("_route_group") == "gd_credit_gd_public_credit_list":
+                    return {
+                        "http_status": 503,
+                        "content_type": "text/html; charset=utf-8",
+                        "text_probe": "Service Temporarily Unavailable",
+                    }
+                return {
+                    "http_status": 403,
+                    "content_type": "text/html; charset=utf-8",
+                    "text_probe": "验证码 校验失败",
+                }
+
+            result = build_guangdong_local_field_query_probe(
+                local_verification_root=local_root,
+                output_root=root / "out",
+                source_profile_ids=["GUANGDONG-CREDIT-GD-HOME"],
+                enable_live_public_query=True,
+                max_live_tasks=1,
+                http_getter=fake_getter,
+                credit_gd_session_getter=_credit_gd_session_readback,
+                created_at="2026-05-12T00:00:00+08:00",
+            )
+
+            self.assertTrue(result["safe_to_execute"])
+            summary = result["summary"]
+            self.assertEqual(summary["guangdong_credit_gd_readback_ready_count"], 0)
+            task = result["manifest"]["field_task_records"][0]
+            self.assertEqual(task["field_query_probe_state"], "FAIL_CLOSED_PUBLIC_SOURCE_BLOCKED")
+            self.assertFalse(task["readback_ready"])
+            self.assertIn("gd_credit_gd_rate_limited_or_temporary_unavailable", task["blocker_taxonomy"])
+            self.assertIn("gd_credit_gd_targeted_query_deferred_by_site_guard", task["blocker_taxonomy"])
+            self.assertNotIn("gd_credit_gd_public_list_readback_ready", task["blocker_taxonomy"])
+
+    def test_credit_gd_repeated_runs_never_reuse_legacy_404_prefix(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            local_root = root / "local"
+            _write_local_verification(local_root)
+            seen_urls: list[str] = []
+
+            def fake_getter(url: str, _params: Mapping[str, Any]) -> Mapping[str, Any]:
+                seen_urls.append(url)
+                if "/gdcreditwebApi2//company/web/booleanQueryListByPageSimple" not in url:
+                    return {
+                        "http_status": 404,
+                        "content_type": "text/html; charset=utf-8",
+                        "text_probe": "legacy 404",
+                    }
+                return {
+                    "http_status": 200,
+                    "content_type": "application/json; charset=utf-8",
+                    "json_payload": {"data": {"rows": []}},
+                    "text_probe": "",
+                }
+
+            for index in range(2):
+                result = build_guangdong_local_field_query_probe(
+                    local_verification_root=local_root,
+                    output_root=root / f"out-{index}",
+                    source_profile_ids=["GUANGDONG-CREDIT-GD-HOME"],
+                    enable_live_public_query=True,
+                    max_live_tasks=1,
+                    http_getter=fake_getter,
+                    credit_gd_session_getter=_credit_gd_session_readback,
+                    credit_gd_max_requests_per_task=2,
+                    created_at="2026-05-12T00:00:00+08:00",
+                )
+                self.assertTrue(result["safe_to_execute"])
+
+            self.assertTrue(seen_urls)
+            self.assertTrue(
+                all("/gdcreditwebApi2//company/web/booleanQueryListByPageSimple" in url for url in seen_urls)
+            )
+            self.assertFalse(
+                any(url.endswith("/company/web/booleanQueryListByPageSimple") and "/gdcreditwebApi2//" not in url for url in seen_urls)
+            )
 
     def test_credit_gd_stale_or_blocked_interface_fails_closed(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -759,6 +900,25 @@ def _task(source_profile_id: str, source_url: str) -> dict[str, Any]:
         ),
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,
+    }
+
+
+def _credit_gd_session_readback(_routes: list[Mapping[str, Any]]) -> Mapping[str, Any]:
+    return {
+        "session_readback_adapter_id": "credit_gd_session_readback_v1",
+        "session_state": "SESSION_READBACK_READY",
+        "discovered_api_url": "https://credit.gd.gov.cn/gdcreditwebApi2//company/web/booleanQueryListByPageSimple",
+        "captured_response_urls": [
+            "https://credit.gd.gov.cn/gdcreditwebApi2//company/web/booleanQueryListByPageSimple?page=1",
+        ],
+        "prewarm_page_urls": [
+            "https://credit.gd.gov.cn/page/creditPublic/xzcf.html",
+            "https://credit.gd.gov.cn/page/creditPublic/xzxk.html",
+        ],
+        "cookie_header": "SESSIONID=abc",
+        "cookie_session_state": "SESSION_COOKIE_PRESENT",
+        "cookie_count": 1,
+        "blocker_taxonomy": [],
     }
 
 

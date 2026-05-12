@@ -5,6 +5,8 @@ param(
     [string[]]$SourceProfileIds = @(),
     [switch]$EnableLivePublicQuery,
     [int]$MaxLiveTasks = 12,
+    [int]$CreditGdMaxRequestsPerTask = 4,
+    [double]$CreditGdRequestIntervalSeconds = 0.8,
     [switch]$EmitJson
 )
 
@@ -40,6 +42,8 @@ if ($SourceProfileIds.Count -gt 0) {
 if ($EnableLivePublicQuery) {
     $argsList += "--enable-live-public-query"
     $argsList += @("--max-live-tasks", "$MaxLiveTasks")
+    $argsList += @("--credit-gd-max-requests-per-task", "$CreditGdMaxRequestsPerTask")
+    $argsList += @("--credit-gd-request-interval-seconds", "$CreditGdRequestIntervalSeconds")
 }
 if ($EmitJson) {
     $argsList += "--json"
