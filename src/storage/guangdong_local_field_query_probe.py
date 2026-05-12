@@ -59,7 +59,7 @@ GUANGDONG_CREDIT_GD_API_PATH_RE = re.compile(r"/[^\"'\s<>]*company/web/booleanQu
 GUANGDONG_CREDIT_GD_DEFAULT_MAX_REQUESTS_PER_TASK = 4
 GUANGDONG_CREDIT_GD_DEFAULT_REQUEST_INTERVAL_SECONDS = 0.8
 
-FORBIDDEN_TERMS = ("在建冲突成立", "无在建", "无冲突", "造假成立", "违法成立", "确认本人", "是不是本人")
+FORBIDDEN_TERMS = ("在建冲突成立", "无在建", "无风险", "无冲突", "造假成立", "违法成立", "确认本人", "是不是本人")
 
 HttpGetter = Callable[[str, Mapping[str, Any]], Mapping[str, Any]]
 CreditGdSessionGetter = Callable[[list[Mapping[str, Any]]], Mapping[str, Any]]
@@ -835,6 +835,8 @@ def _request_params_for_route(route: Mapping[str, Any]) -> dict[str, Any]:
         params["_route_id"] = str(route.get("route_id") or "")
     if route.get("route_group"):
         params["_route_group"] = str(route.get("route_group") or "")
+    if route.get("credit_gd_repair_action"):
+        params["_credit_gd_repair_action"] = str(route.get("credit_gd_repair_action") or "")
     return params
 
 
@@ -1362,6 +1364,7 @@ def _execute_guangdong_credit_gd_field_query(
     attempts: list[dict[str, Any]] = []
     source_records: list[dict[str, Any]] = []
     public_list_records: list[dict[str, Any]] = []
+    session_repair_attempts: list[dict[str, Any]] = []
     session_getter = (
         credit_gd_session_getter
         if credit_gd_session_getter is not None
@@ -1373,6 +1376,8 @@ def _execute_guangdong_credit_gd_field_query(
     execution_routes = _credit_gd_execution_routes(route_plan, max_requests=request_limit)
     executed_request_count = 0
     site_guard_seen = False
+    public_list_session_retry_used = False
+    rendered_session_readback = dict(session_readback)
 
     for route in execution_routes:
         active_route = _credit_gd_route_with_session(route, session_readback)
@@ -1425,6 +1430,72 @@ def _execute_guangdong_credit_gd_field_query(
                 public_list_records.append(compact)
             if compact.get("matched_keywords"):
                 source_records.append(compact)
+        if (
+            str(active_route.get("route_group") or "") == "gd_credit_gd_public_credit_list"
+            and _credit_gd_site_guard_response(response)
+            and not public_list_session_retry_used
+        ):
+            public_list_session_retry_used = True
+            retry_session_readback = _credit_gd_session_readback(route_plan, session_getter)
+            rendered_session_readback = dict(retry_session_readback)
+            session_repair_attempts.append(
+                {
+                    "repair_action": "session_refresh_retry_public_list_once",
+                    "trigger_route_id": str(active_route.get("route_id") or ""),
+                    "session_diagnostics": _credit_gd_public_session_diagnostics(retry_session_readback),
+                    "customer_visible_allowed": False,
+                    "no_legal_conclusion": True,
+                }
+            )
+            retry_route = _credit_gd_route_with_session(route, retry_session_readback)
+            retry_route["credit_gd_repair_action"] = "session_refresh_retry_public_list_once"
+            _credit_gd_sleep_before_request(executed_request_count, request_interval)
+            retry_response = _safe_get(retry_route, getter=getter)
+            executed_request_count += 1
+            retry_attempt = _route_attempt(retry_route, retry_response, keywords)
+            _annotate_credit_gd_attempt(retry_attempt, retry_route, retry_session_readback)
+            retry_attempt["credit_gd_repair_action"] = "session_refresh_retry_public_list_once"
+            retry_attempt["retry_of_route_id"] = str(active_route.get("route_id") or "")
+            if _int(retry_response.get("http_status")) == 404:
+                retry_blockers = _list(retry_attempt.get("blocker_taxonomy"))
+                retry_blockers.append("gd_credit_gd_interface_endpoint_not_found_or_stale")
+                retry_attempt["blocker_taxonomy"] = _dedupe(retry_blockers)
+                retry_attempt["route_state"] = "FAIL_CLOSED_PUBLIC_SOURCE_BLOCKED"
+            retry_credit_blockers = _credit_gd_response_blockers(retry_route, retry_response, retry_session_readback)
+            if retry_credit_blockers:
+                retry_blockers = _list(retry_attempt.get("blocker_taxonomy"))
+                retry_blockers.extend(retry_credit_blockers)
+                retry_attempt["blocker_taxonomy"] = _dedupe(retry_blockers)
+                retry_attempt["route_state"] = "FAIL_CLOSED_PUBLIC_SOURCE_BLOCKED"
+            retry_records = _guangdong_credit_gd_records_from_response(retry_response)
+            retry_attempt["json_record_count"] = len(retry_records)
+            attempts.append(retry_attempt)
+            site_guard_seen = _credit_gd_site_guard_response(retry_response)
+            for record in retry_records[:20]:
+                compact = _compact_guangdong_credit_gd_record(record, retry_route, keywords)
+                public_list_records.append(compact)
+                if compact.get("matched_keywords"):
+                    source_records.append(compact)
+
+    rendered_fallback = _credit_gd_rendered_public_list_fallback(rendered_session_readback, keywords)
+    if (
+        not public_list_records
+        and any(_credit_gd_attempt_is_site_guard(attempt) for attempt in attempts)
+        and rendered_fallback
+    ):
+        attempts.append(rendered_fallback)
+        if rendered_fallback.get("matched_keywords"):
+            source_records.append(
+                {
+                    "source_profile_id": GUANGDONG_CREDIT_GD_PROFILE_ID,
+                    "source_specific_adapter_id": "guangdong_credit_gd_public_credit_query_v1",
+                    "record_type": "credit_gd_rendered_public_list_text_probe",
+                    "readback_method": "playwright_rendered_page_text_fallback",
+                    "matched_keywords": _list(rendered_fallback.get("matched_keywords")),
+                    "detail_url": GUANGDONG_CREDIT_GD_PENALTY_PAGE_URL,
+                    "readback_is_line_clue_not_final_conclusion": True,
+                }
+            )
 
     blockers = _dedupe(blocker for attempt in attempts for blocker in _list(attempt.get("blocker_taxonomy")))
     status_codes = [_int(attempt.get("http_status")) for attempt in attempts if _int(attempt.get("http_status"))]
@@ -1442,9 +1513,11 @@ def _execute_guangdong_credit_gd_field_query(
             "executed_request_count": executed_request_count,
             "request_interval_seconds": request_interval,
             "targeted_query_policy": "defer_after_first_site_guard_or_request_limit",
+            "site_guard_repair_policy": "refresh_browser_session_then_retry_public_list_once_then_rendered_page_text_fallback",
             "legacy_query_url": GUANGDONG_CREDIT_GD_LEGACY_QUERY_URL,
             "current_query_url": str(session_readback.get("discovered_api_url") or GUANGDONG_CREDIT_GD_QUERY_URL),
         },
+        "credit_gd_session_repair_attempts": session_repair_attempts,
     }
     if source_records:
         return {
@@ -1479,7 +1552,11 @@ def _execute_guangdong_credit_gd_field_query(
         if str(attempt.get("route_group") or "")
         in {"gd_credit_gd_public_credit_list", "gd_credit_gd_public_credit_targeted_query"}
     ]
-    if not public_list_record_count and credit_attempts and all(
+    rendered_fallback_ready = any(
+        str(attempt.get("route_group") or "") == "gd_credit_gd_rendered_public_list_fallback"
+        for attempt in attempts
+    )
+    if not public_list_record_count and not rendered_fallback_ready and credit_attempts and all(
         str(attempt.get("route_state") or "").startswith("FAIL_CLOSED")
         or str(attempt.get("route_state") or "") == "FIELD_QUERY_DEFERRED_BY_SITE_GUARD"
         for attempt in credit_attempts
@@ -1584,7 +1661,9 @@ def _default_credit_gd_session_getter(session_routes: list[Mapping[str, Any]]) -
             "diagnostic_message": f"playwright_unavailable:{type(exc).__name__}",
             "prewarm_page_urls": [str(route.get("url") or "") for route in session_routes],
         }
-    captured_urls: list[str] = []
+    captured_response_urls: list[str] = []
+    captured_request_urls: list[str] = []
+    rendered_texts: list[str] = []
     cookie_header = ""
     with sync_playwright() as playwright:  # pragma: no cover - browser runtime varies by host.
         browser = playwright.chromium.launch(headless=True)
@@ -1598,8 +1677,14 @@ def _default_credit_gd_session_getter(session_routes: list[Mapping[str, Any]]) -
         page = context.new_page()
         page.on(
             "response",
-            lambda response: captured_urls.append(response.url)
+            lambda response: captured_response_urls.append(response.url)
             if "booleanQueryListByPageSimple" in response.url
+            else None,
+        )
+        page.on(
+            "request",
+            lambda request: captured_request_urls.append(request.url)
+            if "booleanQueryListByPageSimple" in request.url
             else None,
         )
         for route in session_routes[:2]:
@@ -1608,6 +1693,10 @@ def _default_credit_gd_session_getter(session_routes: list[Mapping[str, Any]]) -
                 continue
             page.goto(url, wait_until="domcontentloaded", timeout=20_000)
             page.wait_for_timeout(1_200)
+            try:
+                rendered_texts.append(_compact_rendered_text(page.locator("body").inner_text(timeout=5_000)))
+            except Exception:
+                rendered_texts.append("")
         cookies = context.cookies(GUANGDONG_CREDIT_GD_BASE_URL)
         cookie_header = "; ".join(
             f"{cookie.get('name')}={cookie.get('value')}"
@@ -1615,13 +1704,17 @@ def _default_credit_gd_session_getter(session_routes: list[Mapping[str, Any]]) -
             if str(cookie.get("name") or "").strip()
         )
         browser.close()
-    api_url = _credit_gd_api_url_from_values(captured_urls)
+    rendered_text = _compact_rendered_text("\n".join(text for text in rendered_texts if text))
+    api_url = _credit_gd_api_url_from_values([*captured_response_urls, *captured_request_urls])
     return {
         "session_readback_adapter_id": "credit_gd_session_readback_v1",
         "session_state": "SESSION_READBACK_READY" if api_url else "SESSION_READBACK_NO_API_CAPTURED",
         "discovered_api_url": api_url,
-        "captured_response_urls": captured_urls[:10],
+        "captured_response_urls": captured_response_urls[:10],
+        "captured_request_urls": captured_request_urls[:10],
         "prewarm_page_urls": [str(route.get("url") or "") for route in session_routes],
+        "rendered_public_list_state": "RENDERED_TEXT_READY" if rendered_text else "RENDERED_TEXT_EMPTY",
+        "rendered_public_list_text_probe": rendered_text,
         "cookie_header": cookie_header,
         "cookie_session_state": "SESSION_COOKIE_PRESENT" if cookie_header else "SESSION_COOKIE_NOT_CAPTURED",
         "cookie_count": len([item for item in cookie_header.split("; ") if item]),
@@ -1776,7 +1869,50 @@ def _credit_gd_site_guard_response(response: Mapping[str, Any]) -> bool:
     return status in {401, 403, 429, 503} or _looks_like_captcha_or_login(text) or "繁忙" in text
 
 
+def _credit_gd_attempt_is_site_guard(attempt: Mapping[str, Any]) -> bool:
+    blockers = set(_list(attempt.get("blocker_taxonomy")))
+    return bool(
+        blockers.intersection(
+            {
+                "gd_credit_gd_session_required",
+                "gd_credit_gd_waf_or_captcha_required",
+                "gd_credit_gd_rate_limited_or_temporary_unavailable",
+                "gd_credit_gd_targeted_query_deferred_by_site_guard",
+            }
+        )
+        or _int(attempt.get("http_status")) in {401, 403, 429, 503}
+    )
+
+
+def _credit_gd_rendered_public_list_fallback(
+    session_readback: Mapping[str, Any],
+    keywords: list[str],
+) -> dict[str, Any]:
+    text = str(session_readback.get("rendered_public_list_text_probe") or "").strip()
+    if not text:
+        return {}
+    matched = [keyword for keyword in keywords if keyword and keyword in text]
+    attempt = {
+        "route_id": "gd_credit_gd_rendered_public_list_text_fallback",
+        "route_group": "gd_credit_gd_rendered_public_list_fallback",
+        "url": GUANGDONG_CREDIT_GD_PENALTY_PAGE_URL,
+        "route_state": "PUBLIC_SOURCE_RENDERED_TEXT_READBACK_READY",
+        "http_status": None,
+        "content_type_probe": "text/plain; rendered=playwright",
+        "keyword_hit_count": len(matched),
+        "matched_keywords": matched[:10],
+        "text_probe_sha256": _sha256_text(text),
+        "text_probe_length": len(text),
+        "blocker_taxonomy": ["gd_credit_gd_public_list_rendered_fallback_ready"],
+        "credit_gd_repair_action": "playwright_rendered_page_text_fallback",
+        "readback_is_line_clue_not_final_conclusion": True,
+    }
+    _annotate_credit_gd_attempt(attempt, {}, session_readback)
+    return attempt
+
+
 def _credit_gd_public_session_diagnostics(session_readback: Mapping[str, Any]) -> dict[str, Any]:
+    rendered_text = str(session_readback.get("rendered_public_list_text_probe") or "")
     return {
         "session_readback_adapter_id": str(session_readback.get("session_readback_adapter_id") or ""),
         "session_state": str(session_readback.get("session_state") or ""),
@@ -1789,6 +1925,9 @@ def _credit_gd_public_session_diagnostics(session_readback: Mapping[str, Any]) -
         else "",
         "captured_response_urls": _list(session_readback.get("captured_response_urls"))[:5],
         "prewarm_page_urls": _list(session_readback.get("prewarm_page_urls"))[:5],
+        "rendered_public_list_state": str(session_readback.get("rendered_public_list_state") or ""),
+        "rendered_public_list_text_probe_sha256": _sha256_text(rendered_text) if rendered_text else "",
+        "rendered_public_list_text_probe_length": len(rendered_text),
         "blocker_taxonomy": _list(session_readback.get("blocker_taxonomy")),
         "diagnostic_message": str(session_readback.get("diagnostic_message") or ""),
     }
@@ -2374,6 +2513,10 @@ def _strip_html(value: str) -> str:
     text = re.sub(r"<style[\s\S]*?</style>", " ", text, flags=re.I)
     text = re.sub(r"<[^>]+>", " ", text)
     return " ".join(text.replace("&nbsp;", " ").split())
+
+
+def _compact_rendered_text(value: str) -> str:
+    return " ".join(str(value or "").split())[:4000]
 
 
 def _compact_mapping_text(record: Mapping[str, Any]) -> str:

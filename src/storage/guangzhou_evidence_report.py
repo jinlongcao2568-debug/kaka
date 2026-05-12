@@ -21,10 +21,10 @@ DEFAULT_READINESS_ROOT = Path("tmp/evaluation-real-samples/guangzhou-upstream-re
 DEFAULT_ACTIVE_CONFLICT_ROOT = Path("tmp/evaluation-real-samples/guangzhou-active-conflict-probe-v1")
 DEFAULT_GDCIC_QUERY_PROBE_ROOT = Path("tmp/evaluation-real-samples/guangdong-gdcic-query-probe-v1")
 DEFAULT_GUANGDONG_LOCAL_VERIFICATION_ROOT = Path("tmp/evaluation-real-samples/guangdong-local-verification-probe-v1")
-DEFAULT_GUANGDONG_LOCAL_FIELD_QUERY_ROOT = Path("tmp/evaluation-real-samples/guangdong-local-field-query-probe-v1")
+DEFAULT_GUANGDONG_LOCAL_FIELD_QUERY_ROOT = Path("tmp/evaluation-real-samples/guangdong-local-field-query-closeout-v1")
 DEFAULT_OUTPUT_ROOT = Path("tmp/evaluation-real-samples/guangzhou-evidence-report-v1")
 
-FORBIDDEN_TERMS = ("是不是本人", "确认本人", "冲突成立", "造假成立", "违法成立")
+FORBIDDEN_TERMS = ("是不是本人", "确认本人", "无风险", "无冲突", "冲突成立", "造假成立", "违法成立")
 
 ACTIVE_CONFLICT_SOURCE_CATEGORIES = (
     "local_public_resource_candidate_or_award_notices",
@@ -136,6 +136,7 @@ def build_guangzhou_evidence_report(
         ],
         "project_reports": project_reports,
         "summary": summary,
+        "guangdong_local_field_query_summary": summary.get("guangdong_local_field_query_summary", {}),
         "safety": {
             "download_enabled": False,
             "parse_enabled": False,
@@ -193,6 +194,14 @@ def _project_report(
     guangdong_local_field_project = _first(
         _guangdong_local_field_project_records_for_project(guangdong_local_field_manifest, project_id)
     )
+    guangdong_local_field_tasks = _guangdong_local_field_tasks_for_project(
+        guangdong_local_field_manifest,
+        project_id,
+    )
+    local_field_probe_state = _local_field_project_state(
+        guangdong_local_field_project,
+        guangdong_local_field_tasks,
+    )
     group_records = list(readiness_project.get("candidate_group_verification_records") or [])
     if not group_records:
         group_records = _candidate_groups_from_responsible(responsible_item)
@@ -248,6 +257,7 @@ def _project_report(
         "guangdong_local_field_blocker_taxonomy_counts": dict(
             guangdong_local_field_project.get("blocker_taxonomy_counts") or {}
         ),
+        "local_field_probe_state": local_field_probe_state,
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,
     }
@@ -279,6 +289,7 @@ def _project_report(
         "project_name": verification_evidence["project_name"],
         "verification_evidence": verification_evidence,
         "process_stability": process_stability,
+        "local_field_probe_state": local_field_probe_state,
         "optimization_recommendations": optimization_recommendations,
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,
@@ -397,6 +408,7 @@ def _recommendations(*, verification_evidence: Mapping[str, Any], process_stabil
             )
         )
     if verification_evidence.get("guangdong_local_field_query_probe_state") == "READY":
+        local_field_state = verification_evidence.get("local_field_probe_state") or {}
         if _int(verification_evidence.get("guangdong_local_field_readback_ready_count")):
             recommendations.append(
                 _recommendation(
@@ -416,6 +428,38 @@ def _recommendations(*, verification_evidence: Mapping[str, Any], process_stabil
                 _recommendation(
                     "GUANGDONG_LOCAL_FIELD_QUERY_REVIEW_REQUIRED",
                     "广东本地公开源字段探针已生成；未命中或阻断不能作为排除风险依据。",
+                )
+            )
+        if _int(local_field_state.get("readback_ready_count")):
+            recommendations.append(
+                _recommendation(
+                    "source_readback_ready",
+                    "已有本地公开源完成字段回放，继续按来源专项证据链复核。",
+                )
+            )
+        if dict(local_field_state.get("blocker_taxonomy_counts") or {}):
+            recommendations.append(
+                _recommendation(
+                    "source_blocked_retry_later",
+                    "部分本地公开源存在站点防护、登录、限流或临时不可用分类，保留低频重试和人工续跑入口。",
+                )
+            )
+        if _int(local_field_state.get("task_count")) and _int(local_field_state.get("readback_ready_count")) < _int(
+            local_field_state.get("task_count")
+        ):
+            recommendations.append(
+                _recommendation(
+                    "targeted_adapter_needed",
+                    "字段级回放尚未覆盖全部候选和来源，下一步补来源专项 adapter 或定向人工核验。",
+                )
+            )
+        if _int(local_field_state.get("no_match_review_required_count")) or not _int(
+            local_field_state.get("keyword_hit_count")
+        ):
+            recommendations.append(
+                _recommendation(
+                    "no_match_review_required",
+                    "公开查询未命中只表示需复核，不作为排除结论。",
                 )
             )
     return recommendations
@@ -450,6 +494,7 @@ def _summary(
         for project in project_reports
         if bool((project.get("verification_evidence") or {}).get("flow_08_targeted_parse_required"))
     ]
+    local_field_summary = _local_field_query_summary(guangdong_local_field_manifest)
     return {
         "report_state": "READY" if not missing_inputs else "INPUT_BLOCKED",
         "project_count": len(project_reports),
@@ -532,6 +577,7 @@ def _summary(
         "guangdong_local_field_blocker_taxonomy_counts": dict(
             (guangdong_local_field_manifest.get("summary") or {}).get("blocker_taxonomy_counts") or {}
         ),
+        "guangdong_local_field_query_summary": local_field_summary,
         "section_names": ["verification_evidence", "process_stability", "optimization_recommendations"],
         "blocking_reasons": missing_inputs,
         "customer_visible_allowed": False,
@@ -609,6 +655,140 @@ def _guangdong_local_field_project_records_for_project(manifest: Mapping[str, An
     ]
 
 
+def _guangdong_local_field_tasks_for_project(manifest: Mapping[str, Any], project_id: str) -> list[dict[str, Any]]:
+    return [
+        dict(item)
+        for item in _list(manifest.get("field_task_records"))
+        if isinstance(item, Mapping) and str(item.get("project_id") or "") == project_id
+    ]
+
+
+def _local_field_project_state(
+    project_record: Mapping[str, Any],
+    field_tasks: list[Mapping[str, Any]],
+) -> dict[str, Any]:
+    if field_tasks:
+        return {
+            "probe_state": "READY",
+            "task_count": len(field_tasks),
+            "readback_ready_count": sum(1 for task in field_tasks if bool(task.get("readback_ready"))),
+            "keyword_hit_count": sum(1 for task in field_tasks if _field_task_has_keyword_hit(task)),
+            "source_profile_task_counts": _counts(task.get("source_profile_id") for task in field_tasks),
+            "source_profile_ids": _dedupe(task.get("source_profile_id") for task in field_tasks),
+            "field_query_probe_state_counts": _counts(task.get("field_query_probe_state") for task in field_tasks),
+            "blocker_taxonomy_counts": _counts(
+                blocker for task in field_tasks for blocker in _list(task.get("blocker_taxonomy"))
+            ),
+            "no_match_review_required_count": sum(
+                1 for task in field_tasks if str(task.get("field_query_probe_state") or "") == "NO_FIELD_MATCH_REVIEW_REQUIRED"
+            ),
+            "no_legal_conclusion": True,
+            "query_miss_is_not_clearance": True,
+        }
+    if project_record:
+        state_counts = dict(project_record.get("field_query_probe_state_counts") or {})
+        return {
+            "probe_state": str(project_record.get("probe_state") or "READY"),
+            "task_count": _int(project_record.get("field_query_task_count") or project_record.get("query_task_count")),
+            "readback_ready_count": _int(project_record.get("readback_ready_count")),
+            "keyword_hit_count": _int(project_record.get("keyword_hit_count")),
+            "source_profile_task_counts": dict(project_record.get("source_profile_task_counts") or {}),
+            "source_profile_ids": _list(project_record.get("source_profile_ids")),
+            "field_query_probe_state_counts": state_counts,
+            "blocker_taxonomy_counts": dict(project_record.get("blocker_taxonomy_counts") or {}),
+            "no_match_review_required_count": _int(state_counts.get("NO_FIELD_MATCH_REVIEW_REQUIRED")),
+            "no_legal_conclusion": True,
+            "query_miss_is_not_clearance": True,
+        }
+    return {
+        "probe_state": "NOT_BUILT",
+        "task_count": 0,
+        "readback_ready_count": 0,
+        "keyword_hit_count": 0,
+        "source_profile_task_counts": {},
+        "source_profile_ids": [],
+        "field_query_probe_state_counts": {},
+        "blocker_taxonomy_counts": {},
+        "no_match_review_required_count": 0,
+        "no_legal_conclusion": True,
+        "query_miss_is_not_clearance": True,
+    }
+
+
+def _local_field_query_summary(manifest: Mapping[str, Any]) -> dict[str, Any]:
+    manifest_summary = manifest.get("summary") or {}
+    field_tasks = [dict(item) for item in _list(manifest.get("field_task_records")) if isinstance(item, Mapping)]
+    if field_tasks:
+        source_summaries: list[dict[str, Any]] = []
+        for source_profile_id in _dedupe(task.get("source_profile_id") for task in field_tasks):
+            source_tasks = [
+                task
+                for task in field_tasks
+                if str(task.get("source_profile_id") or "") == source_profile_id
+            ]
+            source_summaries.append(
+                {
+                    "source_profile_id": source_profile_id,
+                    "task_count": len(source_tasks),
+                    "readback_ready_count": sum(1 for task in source_tasks if bool(task.get("readback_ready"))),
+                    "keyword_hit_count": sum(1 for task in source_tasks if _field_task_has_keyword_hit(task)),
+                    "field_query_probe_state_counts": _counts(task.get("field_query_probe_state") for task in source_tasks),
+                    "blocker_taxonomy_counts": _counts(
+                        blocker for task in source_tasks for blocker in _list(task.get("blocker_taxonomy"))
+                    ),
+                    "no_legal_conclusion": True,
+                    "query_miss_is_not_clearance": True,
+                }
+            )
+        return {
+            "probe_state": str(manifest_summary.get("probe_state") or "READY"),
+            "task_count": len(field_tasks),
+            "readback_ready_count": sum(1 for task in field_tasks if bool(task.get("readback_ready"))),
+            "keyword_hit_count": sum(1 for task in field_tasks if _field_task_has_keyword_hit(task)),
+            "source_profile_task_counts": _counts(task.get("source_profile_id") for task in field_tasks),
+            "source_profile_summaries": source_summaries,
+            "field_query_probe_state_counts": _counts(task.get("field_query_probe_state") for task in field_tasks),
+            "blocker_taxonomy_counts": _counts(
+                blocker for task in field_tasks for blocker in _list(task.get("blocker_taxonomy"))
+            ),
+            "no_legal_conclusion": True,
+            "query_miss_is_not_clearance": True,
+        }
+    return {
+        "probe_state": str(manifest_summary.get("probe_state") or ("READY" if manifest else "NOT_BUILT")),
+        "task_count": _int(manifest_summary.get("guangdong_local_field_query_task_count")),
+        "readback_ready_count": _int(manifest_summary.get("readback_ready_count")),
+        "keyword_hit_count": _int(manifest_summary.get("keyword_hit_task_count")),
+        "source_profile_task_counts": dict(manifest_summary.get("source_profile_task_counts") or {}),
+        "source_profile_summaries": [
+            {
+                "source_profile_id": source_profile_id,
+                "task_count": _int(task_count),
+                "readback_ready_count": 0,
+                "keyword_hit_count": 0,
+                "field_query_probe_state_counts": {},
+                "blocker_taxonomy_counts": {},
+                "no_legal_conclusion": True,
+                "query_miss_is_not_clearance": True,
+            }
+            for source_profile_id, task_count in dict(manifest_summary.get("source_profile_task_counts") or {}).items()
+        ],
+        "field_query_probe_state_counts": dict(manifest_summary.get("field_query_probe_state_counts") or {}),
+        "blocker_taxonomy_counts": dict(manifest_summary.get("blocker_taxonomy_counts") or {}),
+        "no_legal_conclusion": True,
+        "query_miss_is_not_clearance": True,
+    }
+
+
+def _field_task_has_keyword_hit(task: Mapping[str, Any]) -> bool:
+    field_summary = task.get("field_summary") or {}
+    if _int(field_summary.get("matched_keyword_count") or field_summary.get("keyword_hit_count")):
+        return True
+    if _int(task.get("keyword_hit_count")):
+        return True
+    return bool(_list((task.get("field_match_summary") or {}).get("source_specific_records")))
+
+
 def _project_name(project_id: str, *sources: Any) -> str:
     for source in sources:
         if isinstance(source, Mapping):
@@ -675,6 +855,16 @@ def _dedupe(values: Iterable[Any]) -> list[str]:
             seen.add(text)
             out.append(text)
     return out
+
+
+def _counts(values: Iterable[Any]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for value in values:
+        text = str(value or "").strip()
+        if not text:
+            continue
+        counts[text] = counts.get(text, 0) + 1
+    return counts
 
 
 def _fingerprint(payload: Any) -> str:

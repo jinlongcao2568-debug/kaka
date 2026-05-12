@@ -57,7 +57,7 @@ class GuangzhouEvidenceReportTests(unittest.TestCase):
                 [item["recommended_action"] for item in project["optimization_recommendations"]],
             )
             report_text = json.dumps(result, ensure_ascii=False)
-            for term in ("是不是本人", "确认本人", "冲突成立", "造假成立", "违法成立"):
+            for term in ("是不是本人", "确认本人", "无风险", "无冲突", "冲突成立", "造假成立", "违法成立"):
                 self.assertNotIn(term, report_text)
             self.assertTrue((root / "out" / "guangzhou-evidence-report-v1.json").exists())
 
@@ -214,15 +214,36 @@ class GuangzhouEvidenceReportTests(unittest.TestCase):
             self.assertEqual(result["summary"]["guangdong_local_field_query_probe_state"], "READY")
             self.assertEqual(result["summary"]["guangdong_local_field_query_task_count"], 6)
             self.assertEqual(result["summary"]["guangdong_local_field_keyword_hit_task_count"], 1)
+            field_summary = result["summary"]["guangdong_local_field_query_summary"]
+            self.assertEqual(field_summary["task_count"], 2)
+            self.assertEqual(field_summary["readback_ready_count"], 1)
+            self.assertEqual(field_summary["keyword_hit_count"], 1)
+            self.assertTrue(field_summary["no_legal_conclusion"])
+            self.assertTrue(field_summary["query_miss_is_not_clearance"])
             project = result["manifest"]["project_reports"][0]
             evidence = project["verification_evidence"]
             self.assertEqual(evidence["guangdong_local_field_query_probe_state"], "READY")
             self.assertEqual(evidence["guangdong_local_field_keyword_hit_count"], 1)
             self.assertIn("GUANGZHOU-ZFCJ-CREDIT-DOUBLE-PUBLICITY", evidence["guangdong_local_field_source_profile_ids"])
+            self.assertEqual(project["local_field_probe_state"]["task_count"], 2)
+            self.assertEqual(project["local_field_probe_state"]["readback_ready_count"], 1)
+            self.assertEqual(project["local_field_probe_state"]["no_match_review_required_count"], 1)
+            self.assertTrue(project["local_field_probe_state"]["query_miss_is_not_clearance"])
+            actions = [item["recommended_action"] for item in project["optimization_recommendations"]]
             self.assertIn(
                 "GUANGDONG_LOCAL_FIELD_QUERY_READBACK_READY",
-                [item["recommended_action"] for item in project["optimization_recommendations"]],
+                actions,
             )
+            for action in (
+                "source_readback_ready",
+                "source_blocked_retry_later",
+                "targeted_adapter_needed",
+                "no_match_review_required",
+            ):
+                self.assertIn(action, actions)
+            report_text = json.dumps(result, ensure_ascii=False)
+            for term in ("无风险", "无冲突", "违法成立", "造假成立", "确认本人"):
+                self.assertNotIn(term, report_text)
 
 
 def _write_flow_root(root: Path) -> None:
@@ -427,6 +448,48 @@ def _write_guangdong_local_verification_root(root: Path) -> None:
 
 def _write_guangdong_local_field_query_root(root: Path) -> None:
     root.mkdir(parents=True, exist_ok=True)
+    field_tasks = [
+        {
+            "field_query_task_id": "GD-LOCAL-FIELD-1",
+            "project_id": "PROJ-CN-GD-JG2026-10815",
+            "project_name": "广州测试项目",
+            "source_profile_id": "GUANGZHOU-ZFCJ-CREDIT-DOUBLE-PUBLICITY",
+            "field_query_probe_state": "FIELD_READBACK_READY_PUBLIC_SOURCE",
+            "field_readback_state": "PUBLIC_SOURCE_FIELD_READBACK_READY_REVIEW_REQUIRED",
+            "readback_ready": True,
+            "field_summary": {
+                "matched_keyword_count": 1,
+                "source_specific_adapter_id": "guangzhou_zfcj_xyxx_api_query_v1",
+            },
+            "field_match_summary": {
+                "source_specific_records": [{"administrative_counterparty": "广州测试建设有限公司"}],
+                "query_miss_is_not_clearance": True,
+            },
+            "blocker_taxonomy": [],
+            "customer_visible_allowed": False,
+            "no_legal_conclusion": True,
+        },
+        {
+            "field_query_task_id": "GD-LOCAL-FIELD-2",
+            "project_id": "PROJ-CN-GD-JG2026-10815",
+            "project_name": "广州测试项目",
+            "source_profile_id": "GUANGDONG-CREDIT-GD-HOME",
+            "field_query_probe_state": "NO_FIELD_MATCH_REVIEW_REQUIRED",
+            "field_readback_state": "PUBLIC_SOURCE_QUERIED_NO_FIELD_MATCH",
+            "readback_ready": False,
+            "field_summary": {
+                "public_list_record_count": 2,
+                "source_specific_adapter_id": "guangdong_credit_gd_public_credit_query_v1",
+            },
+            "field_match_summary": {"query_miss_is_not_clearance": True},
+            "blocker_taxonomy": [
+                "gd_credit_gd_targeted_query_deferred_by_site_guard",
+                "gd_credit_gd_public_list_readback_ready",
+            ],
+            "customer_visible_allowed": False,
+            "no_legal_conclusion": True,
+        },
+    ]
     project_record = {
         "project_id": "PROJ-CN-GD-JG2026-10815",
         "project_name": "广州测试项目",
@@ -438,22 +501,41 @@ def _write_guangdong_local_field_query_root(root: Path) -> None:
         ],
         "readback_ready_count": 1,
         "keyword_hit_count": 1,
-        "blocker_taxonomy_counts": {"guangdong_local_field_query_no_keyword_hit_review": 1},
+        "source_profile_task_counts": {
+            "GUANGZHOU-ZFCJ-CREDIT-DOUBLE-PUBLICITY": 1,
+            "GUANGDONG-CREDIT-GD-HOME": 1,
+        },
+        "field_query_probe_state_counts": {
+            "FIELD_READBACK_READY_PUBLIC_SOURCE": 1,
+            "NO_FIELD_MATCH_REVIEW_REQUIRED": 1,
+        },
+        "blocker_taxonomy_counts": {
+            "gd_credit_gd_targeted_query_deferred_by_site_guard": 1,
+            "gd_credit_gd_public_list_readback_ready": 1,
+        },
     }
     payload = {
         "manifest": {
             "manifest_kind": "guangdong_local_field_query_probe_v1_manifest",
             "project_task_records": [project_record],
+            "field_task_records": field_tasks,
             "summary": {
                 "probe_state": "READY",
                 "guangdong_local_field_query_task_count": 6,
                 "readback_ready_count": 1,
                 "keyword_hit_task_count": 1,
+                "source_profile_task_counts": {
+                    "GUANGZHOU-ZFCJ-CREDIT-DOUBLE-PUBLICITY": 1,
+                    "GUANGDONG-CREDIT-GD-HOME": 1,
+                },
                 "field_query_probe_state_counts": {
                     "FIELD_READBACK_KEYWORD_HIT_PUBLIC_SOURCE": 1,
                     "NO_FIELD_MATCH_REVIEW_REQUIRED": 5,
                 },
-                "blocker_taxonomy_counts": {"guangdong_local_field_query_no_keyword_hit_review": 1},
+                "blocker_taxonomy_counts": {
+                    "gd_credit_gd_targeted_query_deferred_by_site_guard": 1,
+                    "gd_credit_gd_public_list_readback_ready": 1,
+                },
             },
         }
     }

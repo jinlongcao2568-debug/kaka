@@ -42,7 +42,7 @@ if (-not $GuangdongLocalVerificationRoot) {
     $GuangdongLocalVerificationRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\guangdong-local-verification-probe-v1"
 }
 if (-not $GuangdongLocalFieldQueryRoot) {
-    $GuangdongLocalFieldQueryRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\guangdong-local-field-query-probe-v1"
+    $GuangdongLocalFieldQueryRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\guangdong-local-field-query-closeout-v1"
 }
 if (-not $OutputRoot) {
     $OutputRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\guangzhou-evidence-report-v1"

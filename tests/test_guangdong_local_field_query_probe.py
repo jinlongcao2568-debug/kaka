@@ -43,7 +43,7 @@ class GuangdongLocalFieldQueryProbeTests(unittest.TestCase):
             self.assertTrue(pending["route_plan"])
             self.assertEqual(pending["field_readback_state"], "FIELD_READBACK_NOT_RUN")
             text = json.dumps(result, ensure_ascii=False)
-            for term in ("在建冲突成立", "无在建", "无冲突", "造假成立", "违法成立", "确认本人", "是不是本人"):
+            for term in ("在建冲突成立", "无在建", "无风险", "无冲突", "造假成立", "违法成立", "确认本人", "是不是本人"):
                 self.assertNotIn(term, text)
             self.assertTrue((output_root / "guangdong-local-field-query-probe-v1.json").exists())
 
@@ -675,6 +675,117 @@ class GuangdongLocalFieldQueryProbeTests(unittest.TestCase):
             self.assertIn("gd_credit_gd_rate_limited_or_temporary_unavailable", task["blocker_taxonomy"])
             self.assertIn("gd_credit_gd_targeted_query_deferred_by_site_guard", task["blocker_taxonomy"])
             self.assertNotIn("gd_credit_gd_public_list_readback_ready", task["blocker_taxonomy"])
+            repair_attempts = task["diagnostics"]["credit_gd_session_repair_attempts"]
+            self.assertEqual(repair_attempts[0]["repair_action"], "session_refresh_retry_public_list_once")
+            self.assertTrue(
+                any(
+                    attempt.get("credit_gd_repair_action") == "session_refresh_retry_public_list_once"
+                    for attempt in task["route_attempts"]
+                )
+            )
+
+    def test_credit_gd_session_refresh_retry_can_recover_public_list_readback(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            local_root = root / "local"
+            _write_local_verification(local_root)
+            list_call_count = 0
+
+            def fake_getter(_url: str, params: Mapping[str, Any]) -> Mapping[str, Any]:
+                nonlocal list_call_count
+                if params.get("_route_group") == "gd_credit_gd_public_credit_list":
+                    list_call_count += 1
+                    if list_call_count == 1:
+                        return {
+                            "http_status": 503,
+                            "content_type": "text/html; charset=utf-8",
+                            "text_probe": "站点繁忙",
+                        }
+                    return {
+                        "http_status": 200,
+                        "content_type": "application/json; charset=utf-8",
+                        "json_payload": {
+                            "data": {
+                                "rows": [
+                                    {
+                                        "ID": "CF-RECOVERED",
+                                        "CF_XDR_MC": "广州测试建设有限公司",
+                                        "CF_WSH": "粤信罚〔2026〕3号",
+                                        "CF_SY": "广州测试项目行政处罚事项",
+                                        "CF_CFJG": "广东省发展和改革委员会",
+                                        "CF_JDRQ": "2026-05-03",
+                                    }
+                                ]
+                            }
+                        },
+                        "text_probe": "",
+                    }
+                return {
+                    "http_status": 403,
+                    "content_type": "text/html; charset=utf-8",
+                    "text_probe": "验证码 校验失败",
+                }
+
+            result = build_guangdong_local_field_query_probe(
+                local_verification_root=local_root,
+                output_root=root / "out",
+                source_profile_ids=["GUANGDONG-CREDIT-GD-HOME"],
+                enable_live_public_query=True,
+                max_live_tasks=1,
+                http_getter=fake_getter,
+                credit_gd_session_getter=_credit_gd_session_readback,
+                created_at="2026-05-12T00:00:00+08:00",
+            )
+
+            self.assertTrue(result["safe_to_execute"])
+            task = result["manifest"]["field_task_records"][0]
+            self.assertEqual(task["field_query_probe_state"], "FIELD_READBACK_READY_PUBLIC_SOURCE")
+            self.assertTrue(task["readback_ready"])
+            self.assertIn("gd_credit_gd_public_list_readback_ready", task["blocker_taxonomy"])
+            self.assertTrue(
+                any(
+                    attempt.get("credit_gd_repair_action") == "session_refresh_retry_public_list_once"
+                    and attempt.get("json_record_count") == 1
+                    for attempt in task["route_attempts"]
+                )
+            )
+
+    def test_credit_gd_rendered_page_fallback_keeps_query_miss_in_review(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            local_root = root / "local"
+            _write_local_verification(local_root)
+
+            def fake_getter(_url: str, _params: Mapping[str, Any]) -> Mapping[str, Any]:
+                return {
+                    "http_status": 503,
+                    "content_type": "text/html; charset=utf-8",
+                    "text_probe": "Service Temporarily Unavailable",
+                }
+
+            result = build_guangdong_local_field_query_probe(
+                local_verification_root=local_root,
+                output_root=root / "out",
+                source_profile_ids=["GUANGDONG-CREDIT-GD-HOME"],
+                enable_live_public_query=True,
+                max_live_tasks=1,
+                http_getter=fake_getter,
+                credit_gd_session_getter=_credit_gd_rendered_session_readback,
+                created_at="2026-05-12T00:00:00+08:00",
+            )
+
+            self.assertTrue(result["safe_to_execute"])
+            task = result["manifest"]["field_task_records"][0]
+            self.assertEqual(task["field_query_probe_state"], "NO_FIELD_MATCH_REVIEW_REQUIRED")
+            self.assertFalse(task["readback_ready"])
+            self.assertIn("gd_credit_gd_public_list_rendered_fallback_ready", task["blocker_taxonomy"])
+            self.assertTrue(task["field_match_summary"]["query_miss_is_not_clearance"])
+            self.assertTrue(
+                any(
+                    attempt["route_group"] == "gd_credit_gd_rendered_public_list_fallback"
+                    for attempt in task["route_attempts"]
+                )
+            )
 
     def test_credit_gd_repeated_runs_never_reuse_legacy_404_prefix(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -920,6 +1031,13 @@ def _credit_gd_session_readback(_routes: list[Mapping[str, Any]]) -> Mapping[str
         "cookie_count": 1,
         "blocker_taxonomy": [],
     }
+
+
+def _credit_gd_rendered_session_readback(routes: list[Mapping[str, Any]]) -> Mapping[str, Any]:
+    payload = dict(_credit_gd_session_readback(routes))
+    payload["rendered_public_list_state"] = "RENDERED_TEXT_READY"
+    payload["rendered_public_list_text_probe"] = "信用广东 行政处罚 行政许可 其他建设有限公司"
+    return payload
 
 
 if __name__ == "__main__":

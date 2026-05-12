@@ -248,6 +248,8 @@ class BusinessDirectionStrategyContractTests(unittest.TestCase):
         self.assertFalse(evidence_policy["customer_visible_allowed"])
         self.assertTrue(evidence_policy["no_legal_conclusion"])
         self.assertIn("是不是本人", evidence_policy["forbidden_terms"])
+        self.assertIn("无风险", evidence_policy["forbidden_terms"])
+        self.assertIn("无冲突", evidence_policy["forbidden_terms"])
 
         self.assertEqual(conflict_policy["first_version_execution_mode"], "PLAN_ONLY")
         self.assertIn("construction_permit", conflict_policy["source_categories"])
@@ -342,6 +344,18 @@ class BusinessDirectionStrategyContractTests(unittest.TestCase):
         )
         self.assertIn(
             "guangdong_credit_gd_public_list_readback_first_when_targeted_query_forbidden",
+            guangdong_field_policy["query_route_policy"],
+        )
+        self.assertIn(
+            "guangdong_credit_gd_session_refresh_retry_public_list_once_on_site_guard",
+            guangdong_field_policy["query_route_policy"],
+        )
+        self.assertIn(
+            "guangdong_credit_gd_playwright_rendered_public_list_text_fallback_after_api_block",
+            guangdong_field_policy["query_route_policy"],
+        )
+        self.assertIn(
+            "guangdong_credit_gd_targeted_query_deferred_preserves_manual_captcha_rerun_entry",
             guangdong_field_policy["query_route_policy"],
         )
         self.assertIn(

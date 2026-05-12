@@ -598,6 +598,9 @@
           "guangdong_credit_gd_public_credit_query_probe",
           "guangdong_credit_gd_session_readback_v1_browser_prewarm_and_api_prefix_discovery",
           "guangdong_credit_gd_public_list_readback_first_when_targeted_query_forbidden",
+          "guangdong_credit_gd_session_refresh_retry_public_list_once_on_site_guard",
+          "guangdong_credit_gd_playwright_rendered_public_list_text_fallback_after_api_block",
+          "guangdong_credit_gd_targeted_query_deferred_preserves_manual_captcha_rerun_entry",
           "guangdong_credit_gd_targeted_query_403_is_review_not_source_unavailable",
           "guangdong_credit_gd_request_throttle_and_per_task_cap",
           "guangdong_credit_gd_site_guard_or_rate_limit_deferred_review",
@@ -638,6 +641,8 @@
       "forbidden_terms": [
         "是不是本人",
         "确认本人",
+        "无风险",
+        "无冲突",
         "冲突成立",
         "造假成立",
         "违法成立"
