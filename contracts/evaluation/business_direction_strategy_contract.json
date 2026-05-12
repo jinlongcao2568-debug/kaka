@@ -1,6 +1,6 @@
 {
   "contract_id": "BUSINESS-DIRECTION-STRATEGY-CONTRACT",
-  "contract_version": 8,
+  "contract_version": 9,
   "purpose": "固定招投标分析产品的双线业务方向，避免后续开发把招标公告文件链路验证误当成核心商业主线。",
   "primary_commercial_line": "POST_CANDIDATE_EVIDENCE_PACK",
   "default_when_ambiguous": "POST_CANDIDATE_EVIDENCE_PACK",
@@ -543,6 +543,33 @@
           "do_not_treat_reachability_as_field_verification",
           "do_not_treat_unreachable_source_as_no_risk",
           "do_not_output_final_active_conflict_conclusion_from_probe"
+        ],
+        "customer_visible_allowed": false,
+        "no_legal_conclusion": true
+      },
+      "guangdong_local_verification_probe_v1_policy": {
+        "policy_id": "GUANGDONG-LOCAL-VERIFICATION-PROBE-V1",
+        "default_execution_mode": "PLAN_ONLY_NOT_EXECUTED",
+        "optional_execution_mode": "LIVE_REACHABILITY_ATTEMPTED",
+        "purpose": "把广东省级公开源和广州当前城市补强源转成可执行核验任务与只读可达性诊断；字段级核验仍按各源 adapter 逐个实现。",
+        "source_profile_ids": [
+          "GUANGDONG-GDCIC-SKYPT-OPENPLATFORM",
+          "GUANGDONG-GDCIC-HOME",
+          "GUANGDONG-TZXM-HOME",
+          "GUANGDONG-ZFCXJST-PENALTY-PUBLICITY",
+          "GUANGDONG-CREDIT-GD-HOME",
+          "GUANGZHOU-ZFCJ-CREDIT-DOUBLE-PUBLICITY"
+        ],
+        "source_scope_policy": "GUANGDONG_PROVINCE_FIRST_WITH_CURRENT_CITY_SUPPLEMENT_FOR_GUANGZHOU",
+        "current_city_supplement_policy": "广州项目额外加入广州市住建局信用信息双公示，用于施工许可、合同信用信息、处罚等城市级公开线索补强。",
+        "implemented_separate_field_adapters": [
+          "guangdong_gdcic_query_probe_v1"
+        ],
+        "must_not": [
+          "do_not_treat_reachability_as_field_verification",
+          "do_not_treat_unreachable_source_as_no_risk",
+          "do_not_output_final_active_conflict_conclusion_from_probe",
+          "do_not_limit_guangdong_verification_to_guangzhou_only"
         ],
         "customer_visible_allowed": false,
         "no_legal_conclusion": true

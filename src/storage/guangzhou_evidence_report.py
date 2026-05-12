@@ -20,6 +20,7 @@ DEFAULT_STAGE4_EXECUTION_ROOT = Path("tmp/evaluation-real-samples/guangzhou-comp
 DEFAULT_READINESS_ROOT = Path("tmp/evaluation-real-samples/guangzhou-upstream-readiness-with-stage4-groups-v3")
 DEFAULT_ACTIVE_CONFLICT_ROOT = Path("tmp/evaluation-real-samples/guangzhou-active-conflict-probe-v1")
 DEFAULT_GDCIC_QUERY_PROBE_ROOT = Path("tmp/evaluation-real-samples/guangdong-gdcic-query-probe-v1")
+DEFAULT_GUANGDONG_LOCAL_VERIFICATION_ROOT = Path("tmp/evaluation-real-samples/guangdong-local-verification-probe-v1")
 DEFAULT_OUTPUT_ROOT = Path("tmp/evaluation-real-samples/guangzhou-evidence-report-v1")
 
 FORBIDDEN_TERMS = ("是不是本人", "确认本人", "冲突成立", "造假成立", "违法成立")
@@ -45,6 +46,7 @@ def build_guangzhou_evidence_report(
     readiness_root: str | Path = DEFAULT_READINESS_ROOT,
     active_conflict_probe_root: str | Path = DEFAULT_ACTIVE_CONFLICT_ROOT,
     gdcic_query_probe_root: str | Path = DEFAULT_GDCIC_QUERY_PROBE_ROOT,
+    guangdong_local_verification_root: str | Path = DEFAULT_GUANGDONG_LOCAL_VERIFICATION_ROOT,
     output_root: str | Path = DEFAULT_OUTPUT_ROOT,
     created_at: str | None = None,
 ) -> dict[str, Any]:
@@ -56,6 +58,7 @@ def build_guangzhou_evidence_report(
     readiness_dir = Path(readiness_root)
     active_conflict_dir = Path(active_conflict_probe_root)
     gdcic_query_dir = Path(gdcic_query_probe_root)
+    guangdong_local_dir = Path(guangdong_local_verification_root)
     out_dir = Path(output_root)
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -68,6 +71,9 @@ def build_guangzhou_evidence_report(
     readiness_manifest = _source_manifest(_load_json(readiness_dir / "guangzhou-upstream-readiness-report.json", [], "readiness_report_missing"))
     active_conflict_manifest = _source_manifest(_load_json_optional(active_conflict_dir / "guangzhou-active-conflict-probe-v1.json"))
     gdcic_query_manifest = _source_manifest(_load_json_optional(gdcic_query_dir / "guangdong-gdcic-query-probe-v1.json"))
+    guangdong_local_manifest = _source_manifest(
+        _load_json_optional(guangdong_local_dir / "guangdong-local-verification-probe-v1.json")
+    )
 
     project_ids = _project_ids(
         flow_manifest,
@@ -88,6 +94,7 @@ def build_guangzhou_evidence_report(
             readiness_manifest=readiness_manifest,
             active_conflict_manifest=active_conflict_manifest,
             gdcic_query_manifest=gdcic_query_manifest,
+            guangdong_local_manifest=guangdong_local_manifest,
         )
         for project_id in project_ids
     ]
@@ -96,6 +103,7 @@ def build_guangzhou_evidence_report(
         missing_inputs=missing_inputs,
         active_conflict_manifest=active_conflict_manifest,
         gdcic_query_manifest=gdcic_query_manifest,
+        guangdong_local_manifest=guangdong_local_manifest,
     )
     manifest = {
         "manifest_version": GUANGZHOU_EVIDENCE_REPORT_VERSION,
@@ -111,6 +119,7 @@ def build_guangzhou_evidence_report(
         "source_readiness_root": str(readiness_dir),
         "source_active_conflict_probe_root": str(active_conflict_dir),
         "source_gdcic_query_probe_root": str(gdcic_query_dir),
+        "source_guangdong_local_verification_root": str(guangdong_local_dir),
         "report_sections": [
             "verification_evidence",
             "process_stability",
@@ -160,6 +169,7 @@ def _project_report(
     readiness_manifest: Mapping[str, Any],
     active_conflict_manifest: Mapping[str, Any],
     gdcic_query_manifest: Mapping[str, Any],
+    guangdong_local_manifest: Mapping[str, Any],
 ) -> dict[str, Any]:
     flow_items = _items_for_project(flow_manifest, project_id)
     analysis_items = _items_for_project(analysis_manifest, project_id)
@@ -169,6 +179,7 @@ def _project_report(
     readiness_project = _first(_project_records_for_project(readiness_manifest, project_id))
     active_conflict_project = _first(_project_task_records_for_project(active_conflict_manifest, project_id))
     gdcic_query_project = _first(_gdcic_project_records_for_project(gdcic_query_manifest, project_id))
+    guangdong_local_project = _first(_guangdong_local_project_records_for_project(guangdong_local_manifest, project_id))
     group_records = list(readiness_project.get("candidate_group_verification_records") or [])
     if not group_records:
         group_records = _candidate_groups_from_responsible(responsible_item)
@@ -203,6 +214,15 @@ def _project_report(
         "gdcic_query_task_ids": _list(gdcic_query_project.get("query_task_ids")),
         "gdcic_readback_ready_count": _int(gdcic_query_project.get("readback_ready_count")),
         "gdcic_blocker_taxonomy_counts": dict(gdcic_query_project.get("blocker_taxonomy_counts") or {}),
+        "guangdong_local_verification_probe_state": (
+            "READY"
+            if guangdong_local_project
+            else "NOT_BUILT"
+        ),
+        "guangdong_local_query_task_ids": _list(guangdong_local_project.get("query_task_ids")),
+        "guangdong_local_readback_ready_count": _int(guangdong_local_project.get("readback_ready_count")),
+        "guangdong_local_source_profile_ids": _list(guangdong_local_project.get("source_profile_ids")),
+        "guangdong_local_blocker_taxonomy_counts": dict(guangdong_local_project.get("blocker_taxonomy_counts") or {}),
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,
     }
@@ -344,6 +364,13 @@ def _recommendations(*, verification_evidence: Mapping[str, Any], process_stabil
             recommendations.append(_recommendation("GDCIC_PUBLIC_SOURCE_READBACK_READY", "广东三库一平台公开源已有字段回放摘要，可作为外部线索继续复核。"))
         else:
             recommendations.append(_recommendation("GDCIC_PUBLIC_SOURCE_REVIEW_REQUIRED", "广东三库一平台探针已生成，公开源命中或阻断状态需继续复核。"))
+    if verification_evidence.get("guangdong_local_verification_probe_state") == "READY":
+        recommendations.append(
+            _recommendation(
+                "GUANGDONG_LOCAL_VERIFICATION_PROBE_READY",
+                "已生成广东省级和广州城市补强公开源核验任务；入口可达不等于字段级结论。",
+            )
+        )
     return recommendations
 
 
@@ -362,6 +389,7 @@ def _summary(
     missing_inputs: list[str],
     active_conflict_manifest: Mapping[str, Any],
     gdcic_query_manifest: Mapping[str, Any],
+    guangdong_local_manifest: Mapping[str, Any],
 ) -> dict[str, Any]:
     groups = [
         group
@@ -419,6 +447,23 @@ def _summary(
         "gdcic_blocker_taxonomy_counts": dict(
             (gdcic_query_manifest.get("summary") or {}).get("gdcic_blocker_taxonomy_counts") or {}
         ),
+        "guangdong_local_verification_probe_state": (
+            "READY"
+            if guangdong_local_manifest
+            else "NOT_BUILT"
+        ),
+        "guangdong_local_verification_task_count": _int(
+            (guangdong_local_manifest.get("summary") or {}).get("guangdong_local_verification_task_count")
+        ),
+        "guangdong_local_readback_ready_count": _int(
+            (guangdong_local_manifest.get("summary") or {}).get("readback_ready_count")
+        ),
+        "guangdong_local_source_profile_task_counts": dict(
+            (guangdong_local_manifest.get("summary") or {}).get("source_profile_task_counts") or {}
+        ),
+        "guangdong_local_blocker_taxonomy_counts": dict(
+            (guangdong_local_manifest.get("summary") or {}).get("blocker_taxonomy_counts") or {}
+        ),
         "section_names": ["verification_evidence", "process_stability", "optimization_recommendations"],
         "blocking_reasons": missing_inputs,
         "customer_visible_allowed": False,
@@ -473,6 +518,14 @@ def _project_task_records_for_project(manifest: Mapping[str, Any], project_id: s
 
 
 def _gdcic_project_records_for_project(manifest: Mapping[str, Any], project_id: str) -> list[dict[str, Any]]:
+    return [
+        dict(item)
+        for item in _list(manifest.get("project_task_records"))
+        if isinstance(item, Mapping) and str(item.get("project_id") or "") == project_id
+    ]
+
+
+def _guangdong_local_project_records_for_project(manifest: Mapping[str, Any], project_id: str) -> list[dict[str, Any]]:
     return [
         dict(item)
         for item in _list(manifest.get("project_task_records"))
@@ -563,6 +616,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--readiness-root", default=str(DEFAULT_READINESS_ROOT))
     parser.add_argument("--active-conflict-probe-root", default=str(DEFAULT_ACTIVE_CONFLICT_ROOT))
     parser.add_argument("--gdcic-query-probe-root", default=str(DEFAULT_GDCIC_QUERY_PROBE_ROOT))
+    parser.add_argument("--guangdong-local-verification-root", default=str(DEFAULT_GUANGDONG_LOCAL_VERIFICATION_ROOT))
     parser.add_argument("--output-root", default=str(DEFAULT_OUTPUT_ROOT))
     parser.add_argument("--created-at")
     parser.add_argument("--json", action="store_true", dest="emit_json")
@@ -579,6 +633,7 @@ def main(argv: list[str] | None = None) -> int:
         readiness_root=args.readiness_root,
         active_conflict_probe_root=args.active_conflict_probe_root,
         gdcic_query_probe_root=args.gdcic_query_probe_root,
+        guangdong_local_verification_root=args.guangdong_local_verification_root,
         output_root=args.output_root,
         created_at=args.created_at,
     )

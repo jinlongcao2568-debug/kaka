@@ -276,6 +276,20 @@ class BusinessDirectionStrategyContractTests(unittest.TestCase):
             "do_not_treat_reachability_as_field_verification",
             query_probe_policy["must_not"],
         )
+        guangdong_policy = conflict_policy["guangdong_local_verification_probe_v1_policy"]
+        self.assertEqual(guangdong_policy["default_execution_mode"], "PLAN_ONLY_NOT_EXECUTED")
+        self.assertEqual(guangdong_policy["optional_execution_mode"], "LIVE_REACHABILITY_ATTEMPTED")
+        self.assertIn("GUANGDONG-GDCIC-SKYPT-OPENPLATFORM", guangdong_policy["source_profile_ids"])
+        self.assertIn("GUANGZHOU-ZFCJ-CREDIT-DOUBLE-PUBLICITY", guangdong_policy["source_profile_ids"])
+        self.assertEqual(
+            guangdong_policy["source_scope_policy"],
+            "GUANGDONG_PROVINCE_FIRST_WITH_CURRENT_CITY_SUPPLEMENT_FOR_GUANGZHOU",
+        )
+        self.assertIn("guangdong_gdcic_query_probe_v1", guangdong_policy["implemented_separate_field_adapters"])
+        self.assertIn(
+            "do_not_limit_guangdong_verification_to_guangzhou_only",
+            guangdong_policy["must_not"],
+        )
         self.assertIn(
             "do_not_output_final_active_conflict_conclusion_without_replayable_sources",
             conflict_policy["must_not"],

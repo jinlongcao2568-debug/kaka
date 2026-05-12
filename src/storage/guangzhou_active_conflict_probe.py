@@ -263,6 +263,7 @@ def _source_entry_summaries(source_plan: Mapping[str, Any]) -> list[dict[str, An
                 "source_name": str(entry.get("source_name") or ""),
                 "source_url": str(entry.get("source_url") or ""),
                 "official_reference_url": str(entry.get("official_reference_url") or ""),
+                "source_family": str(entry.get("source_family") or ""),
                 "target_source_types": _list(entry.get("target_source_types")),
                 "query_keys": _list(entry.get("query_keys")),
                 "runtime_status": str(entry.get("runtime_status") or ""),

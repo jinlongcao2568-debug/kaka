@@ -41,6 +41,7 @@ class Stage4RegionalHardDefectSourcePlanTests(unittest.TestCase):
         self.assertIn("GD-GDCIC-SKYPT-PROJECT", entry_ids)
         self.assertIn("GD-GDCIC-CONTRACT-PERFORMANCE", entry_ids)
         self.assertIn("GD-ZFCXJST-PENALTY", entry_ids)
+        self.assertIn("GZ-ZFCJ-CREDIT-DOUBLE-PUBLICITY", entry_ids)
         self.assertIn("ZJ-JZSC-PUBLIC-SERVICE", entry_ids)
         self.assertIn("SC-JZSC-PUBLIC-SERVICE", entry_ids)
         self.assertIn("JS-JZSC-INTEGRATED-PLATFORM", entry_ids)
@@ -57,6 +58,10 @@ class Stage4RegionalHardDefectSourcePlanTests(unittest.TestCase):
         self.assertIn("CN-SD", plan["major_target_region_policy"]["target_region_codes"])
         self.assertIn(
             "zhejiang_construction_market_public_service_query_adapter",
+            plan["next_required_runtime_adapters"],
+        )
+        self.assertIn(
+            "guangzhou_housing_credit_double_publicity_query_adapter",
             plan["next_required_runtime_adapters"],
         )
         self.assertEqual(plan["query_context"]["project_name"], "广东市政道路工程")

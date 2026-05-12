@@ -6,6 +6,7 @@ param(
     [string]$ReadinessRoot = "",
     [string]$ActiveConflictProbeRoot = "",
     [string]$GdcicQueryProbeRoot = "",
+    [string]$GuangdongLocalVerificationRoot = "",
     [string]$OutputRoot = "",
     [switch]$EmitJson
 )
@@ -36,6 +37,9 @@ if (-not $ActiveConflictProbeRoot) {
 if (-not $GdcicQueryProbeRoot) {
     $GdcicQueryProbeRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\guangdong-gdcic-query-probe-v1"
 }
+if (-not $GuangdongLocalVerificationRoot) {
+    $GuangdongLocalVerificationRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\guangdong-local-verification-probe-v1"
+}
 if (-not $OutputRoot) {
     $OutputRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\guangzhou-evidence-report-v1"
 }
@@ -53,6 +57,7 @@ $argsList = @(
     "--readiness-root", $ReadinessRoot,
     "--active-conflict-probe-root", $ActiveConflictProbeRoot,
     "--gdcic-query-probe-root", $GdcicQueryProbeRoot,
+    "--guangdong-local-verification-root", $GuangdongLocalVerificationRoot,
     "--output-root", $OutputRoot
 )
 

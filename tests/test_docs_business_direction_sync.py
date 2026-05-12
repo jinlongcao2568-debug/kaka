@@ -106,6 +106,9 @@ def test_status_board_records_p0_sync_boundary() -> None:
     assert "不得写“是不是本人”" in text
     assert "四库/JZSC 只作为公开注册信息" in text
     assert "不能作为实时在建冲突唯一依据" in text
+    assert "GuangdongLocalVerificationProbe v1 同步说明" in text
+    assert "广东核验不限定广州市" in text
+    assert "入口可达不等于字段核验成功" in text
 
 
 def test_business_direction_doc_contains_final_analysis_strategy_rules() -> None:
@@ -139,6 +142,8 @@ def test_business_direction_doc_contains_final_analysis_strategy_rules() -> None
     assert "浙江、四川、江苏、湖北、山东、湖南、河南" in text
     assert "PLAN_ONLY_UNTIL_REGION_ADAPTER_VERIFIED" in text
     assert "MajorRegionQueryProbe v1" in text
+    assert "GuangdongLocalVerificationProbe v1" in text
+    assert "广东核验不限定广州市" in text
     assert "入口页可达" in text
     assert "不得因为公司优先补证未命中就直接写“冲突成立”" in text
     assert "公开注册信息匹配" in text
@@ -179,6 +184,7 @@ def test_top_level_docs_contain_final_strategy_guardrails() -> None:
         assert "浙江、四川、江苏、湖北、山东、湖南、河南" in text
         assert "PLAN_ONLY_UNTIL_REGION_ADAPTER_VERIFIED" in text
         assert "MajorRegionQueryProbe v1" in text
+        assert "GuangdongLocalVerificationProbe v1" in text
 
 
 def test_stage45_runbook_contains_responsible_person_early_probe_decision_tree() -> None:
