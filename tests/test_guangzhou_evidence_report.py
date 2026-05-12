@@ -47,6 +47,10 @@ class GuangzhouEvidenceReportTests(unittest.TestCase):
             self.assertIn("verification_evidence", project)
             self.assertIn("process_stability", project)
             self.assertIn("optimization_recommendations", project)
+            chain = project["verification_evidence"]["responsible_person_verification_chain"]
+            self.assertEqual(chain["source_07_certificate_ready_count"], 1)
+            self.assertEqual(chain["stage4_public_registration_input_count"], 1)
+            self.assertEqual(chain["company_first_supplement_required_count"], 0)
             flow08 = project["verification_evidence"]["flow_08_registry"]
             self.assertTrue(flow08["flow_08_present"])
             self.assertEqual(flow08["default_parse_depth"], "LIST_ONLY")
@@ -54,6 +58,10 @@ class GuangzhouEvidenceReportTests(unittest.TestCase):
             self.assertEqual(project["process_stability"]["flow_08_default_parse_state"], "REGISTER_ONLY_NO_DEFAULT_PARSE")
             self.assertIn(
                 "READY_FOR_INTERNAL_EVIDENCE_PACKAGE_REVIEW",
+                [item["recommended_action"] for item in project["optimization_recommendations"]],
+            )
+            self.assertIn(
+                "run_stage4_registration_probe",
                 [item["recommended_action"] for item in project["optimization_recommendations"]],
             )
             report_text = json.dumps(result, ensure_ascii=False)
@@ -82,8 +90,19 @@ class GuangzhouEvidenceReportTests(unittest.TestCase):
 
             self.assertEqual(result["summary"]["flow_08_targeted_parse_required_project_count"], 1)
             project = result["manifest"]["project_reports"][0]
+            chain = project["verification_evidence"]["responsible_person_verification_chain"]
+            self.assertEqual(chain["source_07_certificate_missing_count"], 1)
+            self.assertEqual(chain["company_first_supplement_required_count"], 1)
             self.assertIn(
                 "RUN_FLOW_08_TARGETED_PARSE",
+                [item["recommended_action"] for item in project["optimization_recommendations"]],
+            )
+            self.assertIn(
+                "company_first_certificate_supplement",
+                [item["recommended_action"] for item in project["optimization_recommendations"]],
+            )
+            self.assertIn(
+                "flow_08_targeted_parse_if_stage4_unmatched",
                 [item["recommended_action"] for item in project["optimization_recommendations"]],
             )
             tasks = project["verification_evidence"]["active_conflict_probe_tasks"]
@@ -220,30 +239,35 @@ class GuangzhouEvidenceReportTests(unittest.TestCase):
             self.assertEqual(field_summary["keyword_hit_count"], 1)
             self.assertTrue(field_summary["no_legal_conclusion"])
             self.assertTrue(field_summary["query_miss_is_not_clearance"])
+            failure_review = result["manifest"]["guangdong_local_field_query_failure_review"]
+            self.assertEqual(failure_review["review_purpose"], "REFOCUS_ON_RESPONSIBLE_PERSON_PUBLIC_REGISTRATION_CHAIN")
+            self.assertIn("GUANGDONG-CREDIT-GD-HOME", failure_review["not_primary_source_profile_ids"])
             project = result["manifest"]["project_reports"][0]
             evidence = project["verification_evidence"]
             self.assertEqual(evidence["guangdong_local_field_query_probe_state"], "READY")
             self.assertEqual(evidence["guangdong_local_field_keyword_hit_count"], 1)
             self.assertIn("GUANGZHOU-ZFCJ-CREDIT-DOUBLE-PUBLICITY", evidence["guangdong_local_field_source_profile_ids"])
+            self.assertEqual(
+                evidence["local_credit_source_context"]["source_role"],
+                "SUPPLEMENTARY_ONLY_NOT_PRIMARY_RESPONSIBLE_PERSON_CHAIN",
+            )
             self.assertEqual(project["local_field_probe_state"]["task_count"], 2)
             self.assertEqual(project["local_field_probe_state"]["readback_ready_count"], 1)
             self.assertEqual(project["local_field_probe_state"]["no_match_review_required_count"], 1)
             self.assertTrue(project["local_field_probe_state"]["query_miss_is_not_clearance"])
             actions = [item["recommended_action"] for item in project["optimization_recommendations"]]
-            self.assertIn(
-                "GUANGDONG_LOCAL_FIELD_QUERY_READBACK_READY",
-                actions,
-            )
             for action in (
-                "source_readback_ready",
-                "source_blocked_retry_later",
-                "targeted_adapter_needed",
-                "no_match_review_required",
+                "run_stage4_registration_probe",
+                "flow_08_targeted_parse_if_stage4_unmatched",
+                "retry_creditgd_later_only",
             ):
                 self.assertIn(action, actions)
+            for action in ("targeted_adapter_needed", "no_match_review_required"):
+                self.assertNotIn(action, actions)
             report_text = json.dumps(result, ensure_ascii=False)
             for term in ("无风险", "无冲突", "违法成立", "造假成立", "确认本人"):
                 self.assertNotIn(term, report_text)
+            self.assertTrue((root / "out" / "guangdong-local-field-query-failure-review.json").exists())
 
 
 def _write_flow_root(root: Path) -> None:
@@ -484,7 +508,8 @@ def _write_guangdong_local_field_query_root(root: Path) -> None:
             "field_match_summary": {"query_miss_is_not_clearance": True},
             "blocker_taxonomy": [
                 "gd_credit_gd_targeted_query_deferred_by_site_guard",
-                "gd_credit_gd_public_list_readback_ready",
+                "gd_credit_gd_rate_limited_or_temporary_unavailable",
+                "gd_credit_gd_public_list_rendered_fallback_ready",
             ],
             "customer_visible_allowed": False,
             "no_legal_conclusion": True,
@@ -511,7 +536,8 @@ def _write_guangdong_local_field_query_root(root: Path) -> None:
         },
         "blocker_taxonomy_counts": {
             "gd_credit_gd_targeted_query_deferred_by_site_guard": 1,
-            "gd_credit_gd_public_list_readback_ready": 1,
+            "gd_credit_gd_rate_limited_or_temporary_unavailable": 1,
+            "gd_credit_gd_public_list_rendered_fallback_ready": 1,
         },
     }
     payload = {
@@ -534,7 +560,8 @@ def _write_guangdong_local_field_query_root(root: Path) -> None:
                 },
                 "blocker_taxonomy_counts": {
                     "gd_credit_gd_targeted_query_deferred_by_site_guard": 1,
-                    "gd_credit_gd_public_list_readback_ready": 1,
+                    "gd_credit_gd_rate_limited_or_temporary_unavailable": 1,
+                    "gd_credit_gd_public_list_rendered_fallback_ready": 1,
                 },
             },
         }

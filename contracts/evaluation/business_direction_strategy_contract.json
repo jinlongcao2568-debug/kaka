@@ -634,6 +634,14 @@
         "process_stability",
         "optimization_recommendations"
       ],
+      "primary_verification_chain": "RESPONSIBLE_PERSON_PUBLIC_REGISTRATION_FIRST",
+      "guangdong_local_field_query_failure_review_required": true,
+      "optimization_recommendation_policy": [
+        "run_stage4_registration_probe",
+        "company_first_certificate_supplement",
+        "flow_08_targeted_parse_if_stage4_unmatched",
+        "retry_creditgd_later_only"
+      ],
       "default_scope": "current_guangzhou_5_projects",
       "flow_08_default_handling": "REGISTER_ONLY_NO_DEFAULT_PARSE",
       "customer_visible_allowed": false,

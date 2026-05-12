@@ -113,6 +113,11 @@ def build_guangzhou_evidence_report(
         guangdong_local_manifest=guangdong_local_manifest,
         guangdong_local_field_manifest=guangdong_local_field_manifest,
     )
+    guangdong_local_field_failure_review = _guangdong_local_field_failure_review(
+        guangdong_local_field_manifest,
+        project_reports,
+    )
+    summary["guangdong_local_field_query_failure_review"] = guangdong_local_field_failure_review
     manifest = {
         "manifest_version": GUANGZHOU_EVIDENCE_REPORT_VERSION,
         "manifest_kind": GUANGZHOU_EVIDENCE_REPORT_KIND,
@@ -137,6 +142,7 @@ def build_guangzhou_evidence_report(
         "project_reports": project_reports,
         "summary": summary,
         "guangdong_local_field_query_summary": summary.get("guangdong_local_field_query_summary", {}),
+        "guangdong_local_field_query_failure_review": guangdong_local_field_failure_review,
         "safety": {
             "download_enabled": False,
             "parse_enabled": False,
@@ -165,6 +171,10 @@ def build_guangzhou_evidence_report(
         result["summary"]["forbidden_term_hits"] = forbidden_hits
         text = json.dumps(result, ensure_ascii=False, indent=2)
     (out_dir / "guangzhou-evidence-report-v1.json").write_text(text, encoding="utf-8")
+    (out_dir / "guangdong-local-field-query-failure-review.json").write_text(
+        json.dumps(guangdong_local_field_failure_review, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
     return result
 
 
@@ -205,6 +215,15 @@ def _project_report(
     group_records = list(readiness_project.get("candidate_group_verification_records") or [])
     if not group_records:
         group_records = _candidate_groups_from_responsible(responsible_item)
+    responsible_stage4_inputs = _responsible_stage4_inputs_for_project(responsible_manifest, project_id)
+    responsible_chain_state = _responsible_person_verification_chain_state(
+        project_id=project_id,
+        responsible_item=responsible_item,
+        stage4_items=stage4_items,
+        group_records=group_records,
+        responsible_stage4_inputs=responsible_stage4_inputs,
+    )
+    local_credit_source_context = _local_credit_source_context(local_field_probe_state)
 
     flow_08_registry = _flow_08_registry(analysis_items=analysis_items, download_items=download_items)
     targeted_parse_required = any(bool(row.get("flow_08_targeted_parse_required")) for row in group_records) or bool(
@@ -217,6 +236,7 @@ def _project_report(
         "candidate_group_count": len(group_records),
         "resolved_candidate_group_count": sum(1 for row in group_records if "RESOLVED" in str(row.get("group_resolution_state") or "")),
         "public_registration_match_state": _public_registration_state(group_records),
+        "responsible_person_verification_chain": responsible_chain_state,
         "flow_08_targeted_parse_required": targeted_parse_required,
         "flow_08_registry": flow_08_registry,
         "candidate_notice_source_urls": _source_urls_for_flow([*flow_items, *download_items], "07"),
@@ -258,6 +278,7 @@ def _project_report(
             guangdong_local_field_project.get("blocker_taxonomy_counts") or {}
         ),
         "local_field_probe_state": local_field_probe_state,
+        "local_credit_source_context": local_credit_source_context,
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,
     }
@@ -272,6 +293,8 @@ def _project_report(
         "responsible_person_stage4_readiness_state": str(responsible_item.get("stage4_readiness_state") or ""),
         "stage4_execution_job_count": len(stage4_items),
         "stage4_readback_ready_count": sum(1 for row in stage4_items if str(row.get("stage4_execution_state") or "") == "READBACK_READY"),
+        "guangdong_local_field_blocker_taxonomy_counts": dict(local_field_probe_state.get("blocker_taxonomy_counts") or {}),
+        "local_field_source_stability": local_credit_source_context,
         "failure_taxonomy": _dedupe(
             reason
             for row in [*flow_items, *download_items, responsible_item, readiness_project]
@@ -289,6 +312,7 @@ def _project_report(
         "project_name": verification_evidence["project_name"],
         "verification_evidence": verification_evidence,
         "process_stability": process_stability,
+        "responsible_person_verification_chain": responsible_chain_state,
         "local_field_probe_state": local_field_probe_state,
         "optimization_recommendations": optimization_recommendations,
         "customer_visible_allowed": False,
@@ -381,14 +405,377 @@ def _active_conflict_tasks(*, project_id: str, group_records: list[Mapping[str, 
     return tasks
 
 
+def _responsible_person_verification_chain_state(
+    *,
+    project_id: str,
+    responsible_item: Mapping[str, Any],
+    stage4_items: list[Mapping[str, Any]],
+    group_records: list[Mapping[str, Any]],
+    responsible_stage4_inputs: list[Mapping[str, Any]],
+) -> dict[str, Any]:
+    source_07_groups = [
+        group for group in _list(responsible_item.get("candidate_groups")) if isinstance(group, Mapping)
+    ]
+    source_07_certificates_are_usable = _source_07_certificates_are_usable(responsible_item)
+    source_07_certificate_ready = [
+        _source_07_candidate_record(group)
+        for group in source_07_groups
+        if source_07_certificates_are_usable and _text(group.get("certificate_no"))
+    ]
+    source_07_certificate_missing = [
+        _source_07_candidate_record(group)
+        for group in source_07_groups
+        if _text(group.get("responsible_person_name"))
+        and (not source_07_certificates_are_usable or not _text(group.get("certificate_no")))
+    ]
+    stage4_inputs = _stage4_public_registration_inputs(
+        responsible_stage4_inputs=responsible_stage4_inputs,
+        stage4_items=stage4_items,
+        group_records=group_records,
+    )
+    supplement_plan = _company_first_supplement_plan(responsible_item, stage4_items)
+    flow_08_plan = _flow_08_targeted_parse_plan(
+        responsible_item=responsible_item,
+        stage4_items=stage4_items,
+        group_records=group_records,
+    )
+    if _text(responsible_item.get("responsible_role")) == "not_applicable":
+        chain_state = "RESPONSIBLE_PERSON_NOT_APPLICABLE"
+    elif stage4_inputs:
+        chain_state = "PUBLIC_REGISTRATION_CHAIN_READY"
+    elif supplement_plan:
+        chain_state = "COMPANY_FIRST_SUPPLEMENT_REQUIRED"
+    else:
+        chain_state = "PUBLIC_REGISTRATION_CHAIN_REVIEW_REQUIRED"
+    return {
+        "project_id": project_id,
+        "chain_state": chain_state,
+        "early_probe_state": _text(responsible_item.get("early_probe_state")),
+        "stage4_readiness_state": _text(responsible_item.get("stage4_readiness_state")),
+        "responsible_role": _text(responsible_item.get("responsible_role")),
+        "source_07_certificate_ready_count": len(source_07_certificate_ready),
+        "source_07_certificate_ready_records": source_07_certificate_ready,
+        "source_07_certificate_missing_count": len(source_07_certificate_missing),
+        "source_07_certificate_missing_records": source_07_certificate_missing,
+        "stage4_public_registration_input_count": len(stage4_inputs),
+        "stage4_public_registration_verification_inputs": stage4_inputs,
+        "company_first_supplement_required_count": len(supplement_plan),
+        "company_first_supplement_plan": supplement_plan,
+        "company_first_supplement_resolved_count": sum(
+            1 for item in supplement_plan if _text(item.get("supplement_state")) == "COMPANY_FIRST_CERTIFICATE_RESOLVED"
+        ),
+        "flow_08_targeted_parse_required": bool(flow_08_plan),
+        "flow_08_targeted_parse_plan": flow_08_plan,
+        "chain_priority": "RESPONSIBLE_PERSON_PUBLIC_REGISTRATION_FIRST",
+        "local_credit_sources_role": "SUPPLEMENTARY_ONLY",
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
+
+
+def _source_07_candidate_record(group: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "candidate_group_id": _text(group.get("candidate_group_id")),
+        "candidate_group_order": _text(group.get("candidate_group_order") or group.get("rank")),
+        "candidate_group_members": _list(group.get("candidate_group_members") or group.get("company_names")),
+        "responsible_person_name": _text(group.get("responsible_person_name")),
+        "certificate_no": _text(group.get("certificate_no")),
+        "certificate_source": "FLOW_07_CANDIDATE_NOTICE",
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
+
+
+def _source_07_certificates_are_usable(responsible_item: Mapping[str, Any]) -> bool:
+    early_probe_state = _text(responsible_item.get("early_probe_state"))
+    if bool(responsible_item.get("flow_08_targeted_parse_required")):
+        return False
+    if early_probe_state in {
+        "COMPANY_FIRST_CERTIFICATE_SUPPLEMENT_REQUIRED",
+        "NAME_ENUMERATION_FALLBACK_REQUIRED",
+        "FLOW_08_TARGETED_PARSE_REQUIRED",
+    }:
+        return False
+    return True
+
+
+def _stage4_public_registration_inputs(
+    *,
+    responsible_stage4_inputs: list[Mapping[str, Any]],
+    stage4_items: list[Mapping[str, Any]],
+    group_records: list[Mapping[str, Any]],
+) -> list[dict[str, Any]]:
+    inputs: list[dict[str, Any]] = []
+    for item in responsible_stage4_inputs:
+        certificate_no = _text(item.get("certificate_no") or item.get("project_manager_certificate_no"))
+        if not certificate_no:
+            continue
+        inputs.append(
+            _stage4_registration_input_record(
+                item,
+                certificate_no=certificate_no,
+                certificate_source="FLOW_07_CANDIDATE_NOTICE",
+                input_state="READY_FROM_07_CERTIFICATE",
+            )
+        )
+    for item in stage4_items:
+        certificate_no = _text(item.get("resolved_certificate_no_optional") or item.get("certificate_no"))
+        if not certificate_no:
+            continue
+        source_certificate = _text(item.get("source_certificate_no_optional"))
+        inputs.append(
+            _stage4_registration_input_record(
+                item,
+                certificate_no=certificate_no,
+                certificate_source="FLOW_07_CANDIDATE_NOTICE" if source_certificate else "COMPANY_FIRST_SUPPLEMENT",
+                input_state="READY_FROM_COMPANY_FIRST_SUPPLEMENT" if not source_certificate else "READY_FROM_07_CERTIFICATE",
+            )
+        )
+    for group in group_records:
+        certificate_no = _text(group.get("certificate_no") or group.get("resolved_certificate_no_optional"))
+        person_name = _text(group.get("responsible_person_name"))
+        for company_name in _list(group.get("matched_company_names")):
+            if certificate_no and person_name and company_name:
+                inputs.append(
+                    {
+                        "candidate_group_id": _text(group.get("candidate_group_id")),
+                        "candidate_group_order": _text(group.get("candidate_group_order")),
+                        "candidate_company_name": _text(company_name),
+                        "responsible_person_name": person_name,
+                        "certificate_no": certificate_no,
+                        "certificate_source": "STAGE4_OR_READINESS_RESOLVED",
+                        "input_state": "READY_FROM_EXISTING_READBACK",
+                        "stage4_live_provider_enabled": False,
+                        "customer_visible_allowed": False,
+                        "no_legal_conclusion": True,
+                    }
+                )
+    return _dedupe_records(
+        inputs,
+        keys=("candidate_group_id", "candidate_company_name", "responsible_person_name", "certificate_no"),
+    )
+
+
+def _stage4_registration_input_record(
+    item: Mapping[str, Any],
+    *,
+    certificate_no: str,
+    certificate_source: str,
+    input_state: str,
+) -> dict[str, Any]:
+    return {
+        "stage4_input_id": _text(item.get("stage4_input_id") or item.get("job_id")),
+        "candidate_group_id": _text(item.get("candidate_group_id")),
+        "candidate_group_order": _text(item.get("candidate_group_order")),
+        "candidate_company_name": _text(item.get("candidate_company_name") or item.get("matched_company_name_optional")),
+        "responsible_person_name": _text(item.get("responsible_person_name") or item.get("project_manager_name")),
+        "certificate_no": certificate_no,
+        "certificate_source": certificate_source,
+        "input_state": input_state,
+        "registered_unit_name_optional": _text(item.get("registered_unit_name_optional")),
+        "stage4_live_provider_enabled": False,
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
+
+
+def _company_first_supplement_plan(
+    responsible_item: Mapping[str, Any],
+    stage4_items: list[Mapping[str, Any]],
+) -> list[dict[str, Any]]:
+    plans: list[dict[str, Any]] = []
+    source_07_certificates_are_usable = _source_07_certificates_are_usable(responsible_item)
+    targets = [target for target in _list(responsible_item.get("verification_targets")) if isinstance(target, Mapping)]
+    if not targets:
+        targets = [
+            {
+                "candidate_company_name": _first_text(
+                    _list(group.get("candidate_group_members") or group.get("company_names"))
+                ),
+                "responsible_person_name": group.get("responsible_person_name"),
+                "certificate_no": group.get("certificate_no") if source_07_certificates_are_usable else "",
+            }
+            for group in _list(responsible_item.get("candidate_groups"))
+            if isinstance(group, Mapping)
+        ]
+    for target in targets:
+        if not isinstance(target, Mapping):
+            continue
+        company_name = _text(target.get("candidate_company_name"))
+        person_name = _text(target.get("responsible_person_name"))
+        if not company_name or not person_name or _text(target.get("certificate_no")):
+            continue
+        stage4_match = _first(
+            [
+                dict(item)
+                for item in stage4_items
+                if _text(item.get("candidate_company_name")) == company_name
+                and _text(item.get("responsible_person_name")) == person_name
+            ]
+        )
+        resolved_certificate = _text(stage4_match.get("resolved_certificate_no_optional"))
+        plans.append(
+            {
+                "candidate_company_name": company_name,
+                "responsible_person_name": person_name,
+                "source_07_certificate_state": "MISSING",
+                "supplement_route": "COMPANY_FIRST_THEN_NAME_ENUMERATION_FALLBACK",
+                "supplement_state": _text(stage4_match.get("supplement_after_execution_state")) or "PENDING_COMPANY_FIRST_SUPPLEMENT",
+                "resolved_certificate_no_optional": resolved_certificate,
+                "next_action": (
+                    "BUILD_STAGE4_REGISTRATION_INPUT_FROM_SUPPLEMENT"
+                    if resolved_certificate
+                    else "RUN_COMPANY_FIRST_CERTIFICATE_SUPPLEMENT"
+                ),
+                "flow_08_targeted_parse_required": bool(stage4_match.get("flow_08_targeted_parse_required")),
+                "customer_visible_allowed": False,
+                "no_legal_conclusion": True,
+            }
+        )
+    return _dedupe_records(plans, keys=("candidate_company_name", "responsible_person_name"))
+
+
+def _flow_08_targeted_parse_plan(
+    *,
+    responsible_item: Mapping[str, Any],
+    stage4_items: list[Mapping[str, Any]],
+    group_records: list[Mapping[str, Any]],
+) -> list[dict[str, Any]]:
+    triggered = bool(responsible_item.get("flow_08_targeted_parse_required")) or any(
+        bool(item.get("flow_08_targeted_parse_required")) for item in [*stage4_items, *group_records]
+    )
+    if not triggered:
+        return []
+    records: list[dict[str, Any]] = []
+    for item in [*stage4_items, *group_records]:
+        if bool(item.get("flow_08_targeted_parse_required")):
+            records.append(
+                {
+                    "candidate_group_id": _text(item.get("candidate_group_id")),
+                    "candidate_company_name": _text(item.get("candidate_company_name")),
+                    "responsible_person_name": _text(item.get("responsible_person_name")),
+                    "trigger": "STAGE4_COMPANY_FIRST_AND_NAME_ENUMERATION_UNMATCHED",
+                    "parse_policy": "TARGETED_ONLY",
+                    "customer_visible_allowed": False,
+                    "no_legal_conclusion": True,
+                }
+            )
+    return _dedupe_records(records, keys=("candidate_group_id", "candidate_company_name", "responsible_person_name"))
+
+
+def _local_credit_source_context(local_field_probe_state: Mapping[str, Any]) -> dict[str, Any]:
+    source_summaries = _list(local_field_probe_state.get("source_profile_summaries"))
+    suitability = [_source_suitability(summary) for summary in source_summaries if isinstance(summary, Mapping)]
+    return {
+        "source_role": "SUPPLEMENTARY_ONLY_NOT_PRIMARY_RESPONSIBLE_PERSON_CHAIN",
+        "source_profile_suitability": suitability,
+        "supplementary_no_record_source_profile_ids": [
+            item["source_profile_id"] for item in suitability if item.get("source_state") == "NO_RECORD_SUPPLEMENTARY_ONLY"
+        ],
+        "blocked_or_retry_later_source_profile_ids": [
+            item["source_profile_id"] for item in suitability if bool(item.get("retry_later_only"))
+        ],
+        "not_primary_verification_source_profile_ids": [
+            item["source_profile_id"] for item in suitability if bool(item.get("not_primary_verification_source"))
+        ],
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
+
+
+def _source_suitability(source_summary: Mapping[str, Any]) -> dict[str, Any]:
+    source_profile_id = _text(source_summary.get("source_profile_id"))
+    blockers = dict(source_summary.get("blocker_taxonomy_counts") or {})
+    source_state = "SUPPLEMENTARY_ONLY"
+    reason = "local_credit_source_is_not_primary_responsible_person_registration_chain"
+    retry_later_only = False
+    if source_profile_id == "GUANGDONG-CREDIT-GD-HOME":
+        if any(key in blockers for key in ("gd_credit_gd_rate_limited_or_temporary_unavailable", "gd_credit_gd_public_list_rendered_fallback_ready")):
+            source_state = "TEMPORARY_UNAVAILABLE_OR_RENDERED_FALLBACK_ONLY"
+            reason = "temporary_unavailable_or_rendered_fallback_only"
+            retry_later_only = True
+    elif source_profile_id == "GUANGDONG-GDCIC-HOME" and "gd_gdcic_contract_system_sso_login_required" in blockers:
+        source_state = "SSO_REQUIRED_SUPPLEMENTARY_ONLY"
+        reason = "contract_system_sso_required"
+        retry_later_only = True
+    elif source_profile_id == "GUANGDONG-TZXM-HOME" and "gd_tzxm_project_approval_no_record_review" in blockers:
+        source_state = "NO_RECORD_SUPPLEMENTARY_ONLY"
+        reason = "project_approval_no_record"
+    elif source_profile_id == "GUANGDONG-ZFCXJST-PENALTY-PUBLICITY" and "gd_zfcxjst_penalty_publicity_no_record_review" in blockers:
+        source_state = "NO_RECORD_SUPPLEMENTARY_ONLY"
+        reason = "housing_penalty_no_record"
+    elif source_profile_id == "GUANGZHOU-ZFCJ-CREDIT-DOUBLE-PUBLICITY" and "guangzhou_zfcj_xyxx_api_no_record_review" in blockers:
+        source_state = "NO_RECORD_SUPPLEMENTARY_ONLY"
+        reason = "city_double_publicity_no_record"
+    elif source_profile_id == "GUANGDONG-GDCIC-SKYPT-OPENPLATFORM":
+        source_state = "DELEGATED_FIELD_ADAPTER"
+        reason = "handled_by_separate_gdcic_adapter"
+    return {
+        "source_profile_id": source_profile_id,
+        "source_state": source_state,
+        "reason": reason,
+        "task_count": _int(source_summary.get("task_count")),
+        "readback_ready_count": _int(source_summary.get("readback_ready_count")),
+        "keyword_hit_count": _int(source_summary.get("keyword_hit_count")),
+        "blocker_taxonomy_counts": blockers,
+        "not_primary_verification_source": True,
+        "retry_later_only": retry_later_only,
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
+
+
+def _creditgd_retry_later_only(local_context: Mapping[str, Any]) -> bool:
+    for item in _list(local_context.get("source_profile_suitability")):
+        if isinstance(item, Mapping) and item.get("source_profile_id") == "GUANGDONG-CREDIT-GD-HOME":
+            return bool(item.get("retry_later_only"))
+    return False
+
+
 def _recommendations(*, verification_evidence: Mapping[str, Any], process_stability: Mapping[str, Any]) -> list[dict[str, Any]]:
     recommendations: list[dict[str, Any]] = []
+    responsible_chain = verification_evidence.get("responsible_person_verification_chain") or {}
+    local_context = verification_evidence.get("local_credit_source_context") or {}
     if verification_evidence.get("flow_08_targeted_parse_required"):
         recommendations.append(_recommendation("RUN_FLOW_08_TARGETED_PARSE", "存在 08 定向解析触发条件，先按目标文件关键词解析。"))
     elif verification_evidence.get("public_registration_match_state") == "ALL_GROUPS_RESOLVED":
         recommendations.append(_recommendation("READY_FOR_INTERNAL_EVIDENCE_PACKAGE_REVIEW", "候选组公开注册信息已匹配，08 保持登记状态。"))
     else:
         recommendations.append(_recommendation("SUPPLEMENT_PUBLIC_REGISTRATION_MATCH", "公开注册信息匹配仍需补查，暂不扩大 08 解析。"))
+    if _int(responsible_chain.get("stage4_public_registration_input_count")):
+        recommendations.append(
+            _recommendation(
+                "run_stage4_registration_probe",
+                "优先使用候选公司、负责人姓名和证书号进入公开注册信息核验链。",
+            )
+        )
+    if _int(responsible_chain.get("company_first_supplement_required_count")):
+        recommendations.append(
+            _recommendation(
+                "company_first_certificate_supplement",
+                "07 未给出证书号的候选人按公司优先补证；已有补证结果时直接进入注册信息复核。",
+            )
+        )
+    recommendations.append(
+        _recommendation(
+            "flow_08_targeted_parse_if_stage4_unmatched",
+            "仅在公司优先和姓名枚举仍未完成公开注册信息匹配时，再触发 08 定向解析计划。",
+        )
+    )
+    if _creditgd_retry_later_only(local_context):
+        recommendations.append(
+            _recommendation(
+                "retry_creditgd_later_only",
+                "CreditGD 当前只保留为补充重试源，不作为负责人主核验链入口。",
+            )
+        )
+    if verification_evidence.get("guangdong_local_verification_probe_state") == "READY":
+        recommendations.append(
+            _recommendation(
+                "GUANGDONG_LOCAL_VERIFICATION_PROBE_READY",
+                "已生成广东省级和广州城市补强公开源核验任务；入口可达不等于字段级结论。",
+            )
+        )
     if process_stability.get("failure_taxonomy"):
         recommendations.append(_recommendation("REPAIR_PROCESS_STABILITY_ITEMS", "存在采集、下载或核验过程失败分类，先修可定位失败。"))
     if verification_evidence.get("active_conflict_probe_state") == "TASKS_READY":
@@ -400,68 +787,6 @@ def _recommendations(*, verification_evidence: Mapping[str, Any], process_stabil
             recommendations.append(_recommendation("GDCIC_PUBLIC_SOURCE_READBACK_READY", "广东三库一平台公开源已有字段回放摘要，可作为外部线索继续复核。"))
         else:
             recommendations.append(_recommendation("GDCIC_PUBLIC_SOURCE_REVIEW_REQUIRED", "广东三库一平台探针已生成，公开源命中或阻断状态需继续复核。"))
-    if verification_evidence.get("guangdong_local_verification_probe_state") == "READY":
-        recommendations.append(
-            _recommendation(
-                "GUANGDONG_LOCAL_VERIFICATION_PROBE_READY",
-                "已生成广东省级和广州城市补强公开源核验任务；入口可达不等于字段级结论。",
-            )
-        )
-    if verification_evidence.get("guangdong_local_field_query_probe_state") == "READY":
-        local_field_state = verification_evidence.get("local_field_probe_state") or {}
-        if _int(verification_evidence.get("guangdong_local_field_readback_ready_count")):
-            recommendations.append(
-                _recommendation(
-                    "GUANGDONG_LOCAL_FIELD_QUERY_READBACK_READY",
-                    "广东本地公开源字段探针已有字段回放摘要，需继续按来源专项规则复核。",
-                )
-            )
-        elif _int(verification_evidence.get("guangdong_local_field_keyword_hit_count")):
-            recommendations.append(
-                _recommendation(
-                    "GUANGDONG_LOCAL_FIELD_QUERY_KEYWORD_HIT_REVIEW",
-                    "广东本地公开源字段探针已有关键词命中，需继续做字段级复核和来源回放。",
-                )
-            )
-        else:
-            recommendations.append(
-                _recommendation(
-                    "GUANGDONG_LOCAL_FIELD_QUERY_REVIEW_REQUIRED",
-                    "广东本地公开源字段探针已生成；未命中或阻断不能作为排除风险依据。",
-                )
-            )
-        if _int(local_field_state.get("readback_ready_count")):
-            recommendations.append(
-                _recommendation(
-                    "source_readback_ready",
-                    "已有本地公开源完成字段回放，继续按来源专项证据链复核。",
-                )
-            )
-        if dict(local_field_state.get("blocker_taxonomy_counts") or {}):
-            recommendations.append(
-                _recommendation(
-                    "source_blocked_retry_later",
-                    "部分本地公开源存在站点防护、登录、限流或临时不可用分类，保留低频重试和人工续跑入口。",
-                )
-            )
-        if _int(local_field_state.get("task_count")) and _int(local_field_state.get("readback_ready_count")) < _int(
-            local_field_state.get("task_count")
-        ):
-            recommendations.append(
-                _recommendation(
-                    "targeted_adapter_needed",
-                    "字段级回放尚未覆盖全部候选和来源，下一步补来源专项 adapter 或定向人工核验。",
-                )
-            )
-        if _int(local_field_state.get("no_match_review_required_count")) or not _int(
-            local_field_state.get("keyword_hit_count")
-        ):
-            recommendations.append(
-                _recommendation(
-                    "no_match_review_required",
-                    "公开查询未命中只表示需复核，不作为排除结论。",
-                )
-            )
     return recommendations
 
 
@@ -495,6 +820,10 @@ def _summary(
         if bool((project.get("verification_evidence") or {}).get("flow_08_targeted_parse_required"))
     ]
     local_field_summary = _local_field_query_summary(guangdong_local_field_manifest)
+    responsible_chains = [
+        project.get("responsible_person_verification_chain") or {}
+        for project in project_reports
+    ]
     return {
         "report_state": "READY" if not missing_inputs else "INPUT_BLOCKED",
         "project_count": len(project_reports),
@@ -503,6 +832,18 @@ def _summary(
         "flow_08_present_project_count": sum(1 for project in project_reports if bool(((project.get("verification_evidence") or {}).get("flow_08_registry") or {}).get("flow_08_present"))),
         "flow_08_targeted_parse_required_project_count": len(flow_08_required),
         "active_conflict_probe_task_count": sum(len(_list((project.get("verification_evidence") or {}).get("active_conflict_probe_tasks"))) for project in project_reports),
+        "source_07_certificate_ready_candidate_count": sum(
+            _int(chain.get("source_07_certificate_ready_count")) for chain in responsible_chains
+        ),
+        "source_07_certificate_missing_candidate_count": sum(
+            _int(chain.get("source_07_certificate_missing_count")) for chain in responsible_chains
+        ),
+        "stage4_public_registration_input_count": sum(
+            _int(chain.get("stage4_public_registration_input_count")) for chain in responsible_chains
+        ),
+        "company_first_supplement_plan_count": sum(
+            _int(chain.get("company_first_supplement_required_count")) for chain in responsible_chains
+        ),
         "active_conflict_external_probe_state": (
             "TASKS_READY"
             if active_conflict_manifest
@@ -639,6 +980,15 @@ def _gdcic_project_records_for_project(manifest: Mapping[str, Any], project_id: 
     ]
 
 
+def _responsible_stage4_inputs_for_project(manifest: Mapping[str, Any], project_id: str) -> list[dict[str, Any]]:
+    stage4_inputs = manifest.get("stage4_candidate_verification_inputs") or {}
+    return [
+        dict(item)
+        for item in _list(stage4_inputs.get("items"))
+        if isinstance(item, Mapping) and str(item.get("project_id") or "") == project_id
+    ]
+
+
 def _guangdong_local_project_records_for_project(manifest: Mapping[str, Any], project_id: str) -> list[dict[str, Any]]:
     return [
         dict(item)
@@ -674,6 +1024,7 @@ def _local_field_project_state(
             "readback_ready_count": sum(1 for task in field_tasks if bool(task.get("readback_ready"))),
             "keyword_hit_count": sum(1 for task in field_tasks if _field_task_has_keyword_hit(task)),
             "source_profile_task_counts": _counts(task.get("source_profile_id") for task in field_tasks),
+            "source_profile_summaries": _local_field_source_summaries(field_tasks),
             "source_profile_ids": _dedupe(task.get("source_profile_id") for task in field_tasks),
             "field_query_probe_state_counts": _counts(task.get("field_query_probe_state") for task in field_tasks),
             "blocker_taxonomy_counts": _counts(
@@ -693,6 +1044,19 @@ def _local_field_project_state(
             "readback_ready_count": _int(project_record.get("readback_ready_count")),
             "keyword_hit_count": _int(project_record.get("keyword_hit_count")),
             "source_profile_task_counts": dict(project_record.get("source_profile_task_counts") or {}),
+            "source_profile_summaries": [
+                {
+                    "source_profile_id": source_profile_id,
+                    "task_count": _int(task_count),
+                    "readback_ready_count": 0,
+                    "keyword_hit_count": 0,
+                    "field_query_probe_state_counts": {},
+                    "blocker_taxonomy_counts": {},
+                    "no_legal_conclusion": True,
+                    "query_miss_is_not_clearance": True,
+                }
+                for source_profile_id, task_count in dict(project_record.get("source_profile_task_counts") or {}).items()
+            ],
             "source_profile_ids": _list(project_record.get("source_profile_ids")),
             "field_query_probe_state_counts": state_counts,
             "blocker_taxonomy_counts": dict(project_record.get("blocker_taxonomy_counts") or {}),
@@ -706,6 +1070,7 @@ def _local_field_project_state(
         "readback_ready_count": 0,
         "keyword_hit_count": 0,
         "source_profile_task_counts": {},
+        "source_profile_summaries": [],
         "source_profile_ids": [],
         "field_query_probe_state_counts": {},
         "blocker_taxonomy_counts": {},
@@ -719,27 +1084,7 @@ def _local_field_query_summary(manifest: Mapping[str, Any]) -> dict[str, Any]:
     manifest_summary = manifest.get("summary") or {}
     field_tasks = [dict(item) for item in _list(manifest.get("field_task_records")) if isinstance(item, Mapping)]
     if field_tasks:
-        source_summaries: list[dict[str, Any]] = []
-        for source_profile_id in _dedupe(task.get("source_profile_id") for task in field_tasks):
-            source_tasks = [
-                task
-                for task in field_tasks
-                if str(task.get("source_profile_id") or "") == source_profile_id
-            ]
-            source_summaries.append(
-                {
-                    "source_profile_id": source_profile_id,
-                    "task_count": len(source_tasks),
-                    "readback_ready_count": sum(1 for task in source_tasks if bool(task.get("readback_ready"))),
-                    "keyword_hit_count": sum(1 for task in source_tasks if _field_task_has_keyword_hit(task)),
-                    "field_query_probe_state_counts": _counts(task.get("field_query_probe_state") for task in source_tasks),
-                    "blocker_taxonomy_counts": _counts(
-                        blocker for task in source_tasks for blocker in _list(task.get("blocker_taxonomy"))
-                    ),
-                    "no_legal_conclusion": True,
-                    "query_miss_is_not_clearance": True,
-                }
-            )
+        source_summaries = _local_field_source_summaries(field_tasks)
         return {
             "probe_state": str(manifest_summary.get("probe_state") or "READY"),
             "task_count": len(field_tasks),
@@ -778,6 +1123,77 @@ def _local_field_query_summary(manifest: Mapping[str, Any]) -> dict[str, Any]:
         "no_legal_conclusion": True,
         "query_miss_is_not_clearance": True,
     }
+
+
+def _guangdong_local_field_failure_review(
+    manifest: Mapping[str, Any],
+    project_reports: list[Mapping[str, Any]],
+) -> dict[str, Any]:
+    summary = _local_field_query_summary(manifest)
+    source_profile_reviews = [
+        _source_suitability(source_summary)
+        for source_summary in _list(summary.get("source_profile_summaries"))
+        if isinstance(source_summary, Mapping)
+    ]
+    project_certificate_reviews: list[dict[str, Any]] = []
+    for project in project_reports:
+        chain = project.get("responsible_person_verification_chain") or {}
+        project_certificate_reviews.append(
+            {
+                "project_id": str(project.get("project_id") or ""),
+                "project_name": str(project.get("project_name") or ""),
+                "source_07_certificate_ready_count": _int(chain.get("source_07_certificate_ready_count")),
+                "source_07_certificate_ready_records": _list(chain.get("source_07_certificate_ready_records")),
+                "source_07_certificate_missing_count": _int(chain.get("source_07_certificate_missing_count")),
+                "source_07_certificate_missing_records": _list(chain.get("source_07_certificate_missing_records")),
+                "company_first_supplement_plan_count": _int(chain.get("company_first_supplement_required_count")),
+                "stage4_public_registration_input_count": _int(chain.get("stage4_public_registration_input_count")),
+                "flow_08_targeted_parse_required": bool(chain.get("flow_08_targeted_parse_required")),
+                "customer_visible_allowed": False,
+                "no_legal_conclusion": True,
+            }
+        )
+    return {
+        "review_state": "READY" if manifest else "NOT_BUILT",
+        "review_purpose": "REFOCUS_ON_RESPONSIBLE_PERSON_PUBLIC_REGISTRATION_CHAIN",
+        "source_profile_summaries": source_profile_reviews,
+        "project_certificate_reviews": project_certificate_reviews,
+        "not_primary_source_profile_ids": [
+            item["source_profile_id"] for item in source_profile_reviews if bool(item.get("not_primary_verification_source"))
+        ],
+        "retry_later_only_source_profile_ids": [
+            item["source_profile_id"] for item in source_profile_reviews if bool(item.get("retry_later_only"))
+        ],
+        "primary_chain_next_step": "RESPONSIBLE_PERSON_PUBLIC_REGISTRATION_FIRST",
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+        "query_miss_is_not_clearance": True,
+    }
+
+
+def _local_field_source_summaries(field_tasks: list[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    source_summaries: list[dict[str, Any]] = []
+    for source_profile_id in _dedupe(task.get("source_profile_id") for task in field_tasks):
+        source_tasks = [
+            task
+            for task in field_tasks
+            if str(task.get("source_profile_id") or "") == source_profile_id
+        ]
+        source_summaries.append(
+            {
+                "source_profile_id": source_profile_id,
+                "task_count": len(source_tasks),
+                "readback_ready_count": sum(1 for task in source_tasks if bool(task.get("readback_ready"))),
+                "keyword_hit_count": sum(1 for task in source_tasks if _field_task_has_keyword_hit(task)),
+                "field_query_probe_state_counts": _counts(task.get("field_query_probe_state") for task in source_tasks),
+                "blocker_taxonomy_counts": _counts(
+                    blocker for task in source_tasks for blocker in _list(task.get("blocker_taxonomy"))
+                ),
+                "no_legal_conclusion": True,
+                "query_miss_is_not_clearance": True,
+            }
+        )
+    return source_summaries
 
 
 def _field_task_has_keyword_hit(task: Mapping[str, Any]) -> bool:
@@ -839,6 +1255,14 @@ def _list(value: Any) -> list[Any]:
     return list(value) if isinstance(value, list) else []
 
 
+def _text(value: Any) -> str:
+    return str(value or "").strip()
+
+
+def _first_text(values: list[Any]) -> str:
+    return _text(values[0]) if values else ""
+
+
 def _int(value: Any) -> int:
     try:
         return int(float(value))
@@ -865,6 +1289,18 @@ def _counts(values: Iterable[Any]) -> dict[str, int]:
             continue
         counts[text] = counts.get(text, 0) + 1
     return counts
+
+
+def _dedupe_records(records: list[dict[str, Any]], *, keys: tuple[str, ...]) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    seen: set[tuple[str, ...]] = set()
+    for record in records:
+        marker = tuple(str(record.get(key) or "") for key in keys)
+        if marker in seen:
+            continue
+        seen.add(marker)
+        out.append(record)
+    return out
 
 
 def _fingerprint(payload: Any) -> str:
