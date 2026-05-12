@@ -397,7 +397,14 @@ def _recommendations(*, verification_evidence: Mapping[str, Any], process_stabil
             )
         )
     if verification_evidence.get("guangdong_local_field_query_probe_state") == "READY":
-        if _int(verification_evidence.get("guangdong_local_field_keyword_hit_count")):
+        if _int(verification_evidence.get("guangdong_local_field_readback_ready_count")):
+            recommendations.append(
+                _recommendation(
+                    "GUANGDONG_LOCAL_FIELD_QUERY_READBACK_READY",
+                    "广东本地公开源字段探针已有字段回放摘要，需继续按来源专项规则复核。",
+                )
+            )
+        elif _int(verification_evidence.get("guangdong_local_field_keyword_hit_count")):
             recommendations.append(
                 _recommendation(
                     "GUANGDONG_LOCAL_FIELD_QUERY_KEYWORD_HIT_REVIEW",

@@ -220,7 +220,7 @@ class GuangzhouEvidenceReportTests(unittest.TestCase):
             self.assertEqual(evidence["guangdong_local_field_keyword_hit_count"], 1)
             self.assertIn("GUANGZHOU-ZFCJ-CREDIT-DOUBLE-PUBLICITY", evidence["guangdong_local_field_source_profile_ids"])
             self.assertIn(
-                "GUANGDONG_LOCAL_FIELD_QUERY_KEYWORD_HIT_REVIEW",
+                "GUANGDONG_LOCAL_FIELD_QUERY_READBACK_READY",
                 [item["recommended_action"] for item in project["optimization_recommendations"]],
             )
 

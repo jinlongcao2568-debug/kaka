@@ -305,6 +305,14 @@ class BusinessDirectionStrategyContractTests(unittest.TestCase):
         )
         self.assertIn("guangdong_gdcic_query_probe_v1", guangdong_field_policy["delegated_field_adapters"])
         self.assertIn(
+            "guangzhou_zfcj_xyxx_api_query_v1",
+            guangdong_field_policy["source_specific_field_adapters"],
+        )
+        self.assertIn(
+            "guangzhou_zfcj_xyxx_api_query_for_city_double_publicity",
+            guangdong_field_policy["query_route_policy"],
+        )
+        self.assertIn(
             "do_not_treat_query_miss_as_no_risk",
             guangdong_field_policy["must_not"],
         )

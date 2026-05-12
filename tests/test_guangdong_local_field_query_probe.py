@@ -80,6 +80,82 @@ class GuangdongLocalFieldQueryProbeTests(unittest.TestCase):
             self.assertEqual(task["field_readback_state"], "PUBLIC_SOURCE_KEYWORD_HIT_REVIEW_REQUIRED")
             self.assertTrue(task["field_match_summary"]["query_miss_is_not_clearance"])
 
+    def test_guangzhou_zfcj_api_readback_records_source_specific_fields(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            local_root = root / "local"
+            _write_local_verification(local_root)
+
+            def fake_getter(url: str, params: Mapping[str, Any]) -> Mapping[str, Any]:
+                if "xyxxxxxx.ashx" in url:
+                    return {
+                        "http_status": 200,
+                        "content_type": "application/json; charset=utf-8",
+                        "json_payload": {
+                            "status": 1,
+                            "message": "ok",
+                            "data": {
+                                "wsh": "440100202605010101",
+                                "xmmc": "广州测试项目",
+                                "xknr": "房屋建筑工程和市政基础设施工程施工许可",
+                                "xdrmc": "广州测试建设有限公司",
+                                "jdrq": "2026/5/1 0:00:00",
+                                "xkjg": "广州市住房和城乡建设局",
+                            },
+                        },
+                        "text_probe": "",
+                    }
+                if "xyxxzhlb.ashx" in url and params.get("keywords") == "广州测试建设有限公司":
+                    return {
+                        "http_status": 200,
+                        "content_type": "application/json; charset=utf-8",
+                        "json_payload": {
+                            "currentPage": 1,
+                            "totalNum": 1,
+                            "data": [
+                                {
+                                    "infoId": "INFO-001",
+                                    "infoDate": "2026/5/1 0:00:00",
+                                    "subCategory": 1,
+                                    "infoName": "房屋建筑工程和市政基础设施工程施工许可【广州测试建设有限公司】",
+                                    "rowNum": "1",
+                                }
+                            ],
+                            "status": 1,
+                        },
+                        "text_probe": "",
+                    }
+                return {
+                    "http_status": 200,
+                    "content_type": "application/json; charset=utf-8",
+                    "json_payload": {"currentPage": 1, "totalNum": 0, "data": [], "status": 1},
+                    "text_probe": "",
+                }
+
+            result = build_guangdong_local_field_query_probe(
+                local_verification_root=local_root,
+                output_root=root / "out",
+                source_profile_ids=["GUANGZHOU-ZFCJ-CREDIT-DOUBLE-PUBLICITY"],
+                enable_live_public_query=True,
+                max_live_tasks=1,
+                http_getter=fake_getter,
+                created_at="2026-05-12T00:00:00+08:00",
+            )
+
+            self.assertTrue(result["safe_to_execute"])
+            summary = result["summary"]
+            self.assertEqual(summary["readback_ready_count"], 1)
+            self.assertEqual(summary["source_specific_readback_ready_count"], 1)
+            self.assertEqual(summary["guangzhou_zfcj_api_readback_ready_count"], 1)
+            task = result["manifest"]["field_task_records"][0]
+            self.assertEqual(task["field_query_probe_state"], "FIELD_READBACK_READY_PUBLIC_SOURCE")
+            self.assertEqual(task["field_readback_state"], "PUBLIC_SOURCE_FIELD_READBACK_READY_REVIEW_REQUIRED")
+            self.assertEqual(task["field_summary"]["source_specific_adapter_id"], "guangzhou_zfcj_xyxx_api_query_v1")
+            record = task["field_match_summary"]["source_specific_records"][0]
+            self.assertIn("xyxxDetails", record["detail_url"])
+            self.assertEqual(record["detail_readback"]["administrative_counterparty"], "广州测试建设有限公司")
+            self.assertTrue(task["field_match_summary"]["query_miss_is_not_clearance"])
+
     def test_live_public_query_miss_remains_review_required(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -107,7 +183,7 @@ class GuangdongLocalFieldQueryProbeTests(unittest.TestCase):
             task = result["manifest"]["field_task_records"][0]
             self.assertEqual(task["field_query_probe_state"], "NO_FIELD_MATCH_REVIEW_REQUIRED")
             self.assertFalse(task["readback_ready"])
-            self.assertIn("guangdong_local_field_query_no_keyword_hit_review", task["blocker_taxonomy"])
+            self.assertIn("guangzhou_zfcj_xyxx_api_no_record_review", task["blocker_taxonomy"])
             self.assertTrue(task["field_match_summary"]["query_miss_is_not_clearance"])
 
     def test_captcha_or_login_fails_closed(self) -> None:

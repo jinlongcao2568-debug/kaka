@@ -24,6 +24,11 @@ DELEGATED_PROFILE_ADAPTERS = {
     "GUANGDONG-GDCIC-SKYPT-OPENPLATFORM": "guangdong_gdcic_query_probe_v1",
 }
 
+GUANGZHOU_ZFCJ_PROFILE_ID = "GUANGZHOU-ZFCJ-CREDIT-DOUBLE-PUBLICITY"
+GUANGZHOU_ZFCJ_XYXX_API_URL = "https://zfcj.gz.gov.cn/ysqgk/Api/WebApi/xyxxzhlb.ashx"
+GUANGZHOU_ZFCJ_XYXX_DETAIL_API_URL = "https://zfcj.gz.gov.cn/ysqgk/Api/WebApi/xyxxxxxx.ashx"
+GUANGZHOU_ZFCJ_XYXX_DETAIL_PAGE_URL = "https://zfcj.gz.gov.cn/zfcj/xyxx/xyxxDetails/index.html"
+
 FORBIDDEN_TERMS = ("在建冲突成立", "无在建", "无冲突", "造假成立", "违法成立", "确认本人", "是不是本人")
 
 HttpGetter = Callable[[str, Mapping[str, Any]], Mapping[str, Any]]
@@ -212,7 +217,10 @@ def _route_plan_for_task(task: Mapping[str, Any], query_params: Mapping[str, Any
     primary_keyword = _first_text(keywords)
     encoded = urllib.parse.quote(primary_keyword)
     routes: list[dict[str, Any]] = []
-    if profile_id == "GUANGZHOU-ZFCJ-CREDIT-DOUBLE-PUBLICITY":
+    if profile_id == GUANGZHOU_ZFCJ_PROFILE_ID:
+        company_keyword = str(query_params.get("companyName") or "").strip()
+        project_keyword = _clean_project_title(query_params.get("projectName"))
+        person_keyword = str(query_params.get("personName") or "").strip()
         routes.extend(
             [
                 _route("source_home", source_url, "source_home_probe", keywords),
@@ -220,6 +228,31 @@ def _route_plan_for_task(task: Mapping[str, Any], query_params: Mapping[str, Any
                 _route("city_construction_permit_category", f"https://zfcj.gz.gov.cn/zfcj/xyxx/index.html?subcategory=1&keywords={encoded}", "city_double_publicity_permit_probe", keywords),
             ]
         )
+        for route in (
+            _guangzhou_zfcj_api_route(
+                "gz_zfcj_xyxx_api_company_construction_permit",
+                "gz_zfcj_xyxx_api_construction_permit",
+                company_keyword,
+                keywords,
+                subcategory=1,
+            ),
+            _guangzhou_zfcj_api_route(
+                "gz_zfcj_xyxx_api_project_construction_permit",
+                "gz_zfcj_xyxx_api_construction_permit",
+                project_keyword,
+                keywords,
+                subcategory=1,
+            ),
+            _guangzhou_zfcj_api_route(
+                "gz_zfcj_xyxx_api_person_all_categories",
+                "gz_zfcj_xyxx_api_all_categories",
+                person_keyword,
+                keywords,
+                subcategory=0,
+            ),
+        ):
+            if route:
+                routes.append(route)
     elif profile_id == "GUANGDONG-ZFCXJST-PENALTY-PUBLICITY":
         routes.extend(
             [
@@ -261,6 +294,35 @@ def _route(route_id: str, url: str, route_group: str, keywords: list[str]) -> di
         "url": url,
         "keyword_count": len(keywords),
         "query_keyword_probe": keywords[:5],
+    }
+
+
+def _guangzhou_zfcj_api_route(
+    route_id: str,
+    route_group: str,
+    keyword: str,
+    query_keywords: list[str],
+    *,
+    subcategory: int,
+) -> dict[str, Any] | None:
+    keyword = str(keyword or "").strip()
+    if not keyword:
+        return None
+    params = {
+        "subcategory": subcategory,
+        "keywords": keyword,
+        "page": 1,
+        "pageSize": 10,
+    }
+    return {
+        "route_id": route_id,
+        "route_group": route_group,
+        "url": GUANGZHOU_ZFCJ_XYXX_API_URL,
+        "method": "POST",
+        "params": params,
+        "keyword_count": len(query_keywords),
+        "query_keyword_probe": query_keywords[:5],
+        "source_specific_adapter_id": "guangzhou_zfcj_xyxx_api_query_v1",
     }
 
 
@@ -326,6 +388,11 @@ def _execute_live_field_query(
     *,
     http_getter: HttpGetter | None,
 ) -> dict[str, Any]:
+    if any(
+        str(route.get("source_specific_adapter_id") or "") == "guangzhou_zfcj_xyxx_api_query_v1"
+        for route in route_plan
+    ):
+        return _execute_guangzhou_zfcj_field_query(task, route_plan, http_getter=http_getter)
     getter = http_getter or _default_http_getter
     query_params = dict(task.get("query_params") or {})
     keywords = _query_keywords(query_params)
@@ -395,7 +462,7 @@ def _execute_live_field_query(
 
 def _safe_get(route: Mapping[str, Any], *, getter: HttpGetter) -> Mapping[str, Any]:
     try:
-        return dict(getter(str(route.get("url") or ""), {}))
+        return dict(getter(str(route.get("url") or ""), _request_params_for_route(route)))
     except Exception as exc:  # pragma: no cover - defensive guard for external routes.
         return {
             "http_status": None,
@@ -405,9 +472,26 @@ def _safe_get(route: Mapping[str, Any], *, getter: HttpGetter) -> Mapping[str, A
         }
 
 
-def _default_http_getter(url: str, _params: Mapping[str, Any]) -> Mapping[str, Any]:
+def _request_params_for_route(route: Mapping[str, Any]) -> dict[str, Any]:
+    params = dict(route.get("params") or {})
+    if route.get("method"):
+        params["_method"] = str(route.get("method") or "GET").upper()
+    if route.get("route_id"):
+        params["_route_id"] = str(route.get("route_id") or "")
+    if route.get("route_group"):
+        params["_route_group"] = str(route.get("route_group") or "")
+    return params
+
+
+def _default_http_getter(url: str, params: Mapping[str, Any]) -> Mapping[str, Any]:
+    request_params = {key: value for key, value in dict(params or {}).items() if not str(key).startswith("_")}
+    method = str((params or {}).get("_method") or "GET").upper()
+    request_url = url
+    if request_params:
+        request_url = f"{url}?{urllib.parse.urlencode(request_params)}"
     request = urllib.request.Request(
-        url,
+        request_url,
+        data=b"" if method == "POST" else None,
         headers={
             "User-Agent": (
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -415,24 +499,161 @@ def _default_http_getter(url: str, _params: Mapping[str, Any]) -> Mapping[str, A
             ),
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,application/json;q=0.8,*/*;q=0.7",
             "Accept-Language": "zh-CN,zh;q=0.9",
+            "Referer": "https://zfcj.gz.gov.cn/zfcj/xyxx/",
+            "X-Requested-With": "XMLHttpRequest",
         },
+        method=method,
     )
     try:
         with urllib.request.urlopen(request, timeout=_http_timeout_seconds()) as response:  # noqa: S310
             body = response.read(80_000)
             content_type = response.headers.get("Content-Type", "")
+            text = _decode_probe(body, content_type)
             return {
                 "http_status": response.getcode(),
                 "content_type": content_type,
-                "text_probe": _decode_probe(body, content_type),
+                "text_probe": text,
+                "json_payload": _loads_json_or_empty(text),
             }
     except urllib.error.HTTPError as exc:
         body = exc.read(4096) if hasattr(exc, "read") else b""
+        text = _decode_probe(body, exc.headers.get("Content-Type", "") if exc.headers else "")
         return {
             "http_status": exc.code,
             "content_type": exc.headers.get("Content-Type", "") if exc.headers else "",
-            "text_probe": _decode_probe(body, exc.headers.get("Content-Type", "") if exc.headers else ""),
+            "text_probe": text,
+            "json_payload": _loads_json_or_empty(text),
         }
+
+
+def _execute_guangzhou_zfcj_field_query(
+    task: Mapping[str, Any],
+    route_plan: list[Mapping[str, Any]],
+    *,
+    http_getter: HttpGetter | None,
+) -> dict[str, Any]:
+    getter = http_getter or _default_http_getter
+    query_params = dict(task.get("query_params") or {})
+    keywords = _query_keywords(query_params)
+    attempts: list[dict[str, Any]] = []
+    field_records: list[dict[str, Any]] = []
+    generic_match_records: list[dict[str, Any]] = []
+    detail_ready_count = 0
+    for route in route_plan:
+        response = _safe_get(route, getter=getter)
+        attempt = _route_attempt(route, response, keywords)
+        if attempt["keyword_hit_count"]:
+            generic_match_records.append(
+                {
+                    "route_id": attempt["route_id"],
+                    "url": attempt["url"],
+                    "matched_keywords": attempt["matched_keywords"],
+                    "source_text_sha256": attempt["text_probe_sha256"],
+                }
+            )
+        records = _guangzhou_zfcj_records_from_response(response)
+        if records:
+            attempt["json_record_count"] = len(records)
+        attempts.append(attempt)
+        if not records:
+            continue
+        for record in records[:5]:
+            compact = _compact_guangzhou_zfcj_record(record, keywords)
+            detail_route = _guangzhou_zfcj_detail_route(record, keywords)
+            if detail_route:
+                detail_response = _safe_get(detail_route, getter=getter)
+                detail_attempt = _route_attempt(detail_route, detail_response, keywords)
+                detail_records = _guangzhou_zfcj_records_from_response(detail_response)
+                detail_attempt["json_record_count"] = len(detail_records)
+                attempts.append(detail_attempt)
+                detail = _compact_guangzhou_zfcj_detail(_first_mapping(detail_records))
+                if detail:
+                    detail_ready_count += 1
+                    compact["detail_readback"] = detail
+                    compact["detail_text_sha256"] = _sha256_text(json.dumps(detail, ensure_ascii=False, sort_keys=True))
+            field_records.append(compact)
+
+    blockers = _dedupe(blocker for attempt in attempts for blocker in _list(attempt.get("blocker_taxonomy")))
+    status_codes = [_int(attempt.get("http_status")) for attempt in attempts if _int(attempt.get("http_status"))]
+    matched_keyword_count = len(
+        _dedupe(keyword for record in field_records for keyword in _list(record.get("matched_keywords")))
+    )
+    if field_records:
+        return {
+            "field_query_probe_state": "FIELD_READBACK_READY_PUBLIC_SOURCE",
+            "field_readback_state": "PUBLIC_SOURCE_FIELD_READBACK_READY_REVIEW_REQUIRED",
+            "readback_ready": True,
+            "readback_status_code": status_codes[0] if status_codes else 200,
+            "field_summary": {
+                "source_specific_adapter_id": "guangzhou_zfcj_xyxx_api_query_v1",
+                "record_count": len(field_records),
+                "detail_readback_count": detail_ready_count,
+                "matched_keyword_count": matched_keyword_count,
+                "source_profile_keyword_hit": bool(matched_keyword_count),
+                "source_profile_id": GUANGZHOU_ZFCJ_PROFILE_ID,
+            },
+            "field_match_summary": {
+                "source_specific_records": field_records[:10],
+                "query_miss_is_not_clearance": True,
+                "readback_is_line_clue_not_final_conclusion": True,
+            },
+            "route_plan": list(route_plan),
+            "route_attempts": attempts,
+            "blocker_taxonomy": blockers,
+        }
+    if generic_match_records:
+        return {
+            "field_query_probe_state": "FIELD_READBACK_KEYWORD_HIT_PUBLIC_SOURCE",
+            "field_readback_state": "PUBLIC_SOURCE_KEYWORD_HIT_REVIEW_REQUIRED",
+            "readback_ready": True,
+            "readback_status_code": status_codes[0] if status_codes else 200,
+            "field_summary": {
+                "source_specific_adapter_id": "guangzhou_zfcj_xyxx_api_query_v1",
+                "record_count": 0,
+                "keyword_hit_route_count": len(generic_match_records),
+                "matched_keyword_count": len(
+                    _dedupe(keyword for row in generic_match_records for keyword in row["matched_keywords"])
+                ),
+                "source_profile_keyword_hit": True,
+            },
+            "field_match_summary": {
+                "match_records": generic_match_records[:10],
+                "query_miss_is_not_clearance": True,
+            },
+            "route_plan": list(route_plan),
+            "route_attempts": attempts,
+            "blocker_taxonomy": blockers,
+        }
+    if attempts and all(str(attempt.get("route_state") or "").startswith("FAIL_CLOSED") for attempt in attempts):
+        return {
+            "field_query_probe_state": "FAIL_CLOSED_PUBLIC_SOURCE_BLOCKED",
+            "field_readback_state": "FIELD_READBACK_BLOCKED",
+            "readback_ready": False,
+            "readback_status_code": status_codes[0] if status_codes else None,
+            "field_summary": {"source_specific_adapter_id": "guangzhou_zfcj_xyxx_api_query_v1"},
+            "field_match_summary": {"query_miss_is_not_clearance": True},
+            "route_plan": list(route_plan),
+            "route_attempts": attempts,
+            "blocker_taxonomy": blockers or ["guangzhou_zfcj_xyxx_api_all_routes_blocked"],
+        }
+    return {
+        "field_query_probe_state": "NO_FIELD_MATCH_REVIEW_REQUIRED",
+        "field_readback_state": "PUBLIC_SOURCE_QUERIED_NO_FIELD_RECORD",
+        "readback_ready": False,
+        "readback_status_code": status_codes[0] if status_codes else None,
+        "field_summary": {
+            "source_specific_adapter_id": "guangzhou_zfcj_xyxx_api_query_v1",
+            "record_count": 0,
+            "source_profile_keyword_hit": False,
+        },
+        "field_match_summary": {
+            "query_miss_is_not_clearance": True,
+            "readback_is_line_clue_not_final_conclusion": True,
+        },
+        "route_plan": list(route_plan),
+        "route_attempts": attempts,
+        "blocker_taxonomy": blockers or ["guangzhou_zfcj_xyxx_api_no_record_review"],
+    }
 
 
 def _route_attempt(route: Mapping[str, Any], response: Mapping[str, Any], keywords: list[str]) -> dict[str, Any]:
@@ -478,6 +699,109 @@ def _route_blockers(response: Mapping[str, Any]) -> list[str]:
     return []
 
 
+def _loads_json_or_empty(text: str) -> Any:
+    probe = str(text or "").strip()
+    if not probe or probe[0] not in "[{":
+        return {}
+    try:
+        return json.loads(probe)
+    except json.JSONDecodeError:
+        return {}
+
+
+def _json_payload(response: Mapping[str, Any]) -> Any:
+    payload = response.get("json_payload")
+    if isinstance(payload, (Mapping, list)):
+        return payload
+    return _loads_json_or_empty(str(response.get("text_probe") or response.get("body_probe") or ""))
+
+
+def _guangzhou_zfcj_records_from_response(response: Mapping[str, Any]) -> list[Mapping[str, Any]]:
+    payload = _json_payload(response)
+    if isinstance(payload, list):
+        return [row for row in payload if isinstance(row, Mapping)]
+    if not isinstance(payload, Mapping):
+        return []
+    data = payload.get("data")
+    if isinstance(data, list):
+        return [row for row in data if isinstance(row, Mapping)]
+    if isinstance(data, Mapping):
+        return [data]
+    for key in ("rows", "items", "list", "result"):
+        value = payload.get(key)
+        if isinstance(value, list):
+            return [row for row in value if isinstance(row, Mapping)]
+    return []
+
+
+def _compact_guangzhou_zfcj_record(record: Mapping[str, Any], keywords: list[str]) -> dict[str, Any]:
+    info_id = str(record.get("infoId") or record.get("infoid") or "").strip()
+    subcategory = str(record.get("subCategory") or record.get("subcategory") or "").strip()
+    info_name = str(record.get("infoName") or record.get("infoname") or record.get("xmmc") or "").strip()
+    info_date = str(record.get("infoDate") or record.get("jdrq") or "").strip()
+    return {
+        "info_id": info_id,
+        "subcategory": subcategory,
+        "info_name_probe": info_name[:500],
+        "info_date": info_date,
+        "row_num": str(record.get("rowNum") or ""),
+        "detail_url": _guangzhou_zfcj_detail_page_url(info_id, subcategory),
+        "matched_keywords": [keyword for keyword in keywords if keyword and keyword in info_name][:10],
+        "record_sha256": _sha256_text(json.dumps(dict(record), ensure_ascii=False, sort_keys=True, default=str)),
+    }
+
+
+def _compact_guangzhou_zfcj_detail(record: Mapping[str, Any]) -> dict[str, Any]:
+    if not record:
+        return {}
+    fields = {
+        "document_no": record.get("wsh"),
+        "project_name": record.get("xmmc"),
+        "approval_category": record.get("splb"),
+        "license_content": record.get("xknr"),
+        "administrative_counterparty": record.get("xdrmc"),
+        "decision_date": record.get("jdrq"),
+        "licensing_authority": record.get("xkjg"),
+        "current_status": record.get("dqzt"),
+        "credit_code": record.get("xydm"),
+    }
+    return {
+        key: str(value or "").strip()[:500]
+        for key, value in fields.items()
+        if str(value or "").strip()
+    }
+
+
+def _guangzhou_zfcj_detail_route(record: Mapping[str, Any], keywords: list[str]) -> dict[str, Any] | None:
+    info_id = str(record.get("infoId") or record.get("infoid") or "").strip()
+    subcategory = str(record.get("subCategory") or record.get("subcategory") or "").strip()
+    if not info_id or not subcategory:
+        return None
+    return {
+        "route_id": f"gz_zfcj_xyxx_detail_api_{info_id[:8]}",
+        "route_group": "gz_zfcj_xyxx_detail_api",
+        "url": GUANGZHOU_ZFCJ_XYXX_DETAIL_API_URL,
+        "method": "POST",
+        "params": {"infoid": info_id, "subcategory": subcategory},
+        "keyword_count": len(keywords),
+        "query_keyword_probe": keywords[:5],
+        "source_specific_adapter_id": "guangzhou_zfcj_xyxx_api_query_v1",
+    }
+
+
+def _guangzhou_zfcj_detail_page_url(info_id: str, subcategory: str) -> str:
+    if not info_id or not subcategory:
+        return ""
+    return f"{GUANGZHOU_ZFCJ_XYXX_DETAIL_PAGE_URL}?{urllib.parse.urlencode({'infoid': info_id, 'subcategory': subcategory})}"
+
+
+def _first_mapping(records: Iterable[Mapping[str, Any]]) -> Mapping[str, Any]:
+    for record in records:
+        if isinstance(record, Mapping):
+            return record
+    return {}
+
+
 def _looks_like_captcha_or_login(text: str) -> bool:
     lowered = text.lower()
     return any(pattern in lowered for pattern in ("captcha", "验证码", "滑块", "请登录", "用户登录", "统一身份认证"))
@@ -497,7 +821,16 @@ def _project_task_records(field_task_records: list[Mapping[str, Any]]) -> list[d
                 "field_query_task_count": len(tasks),
                 "source_profile_ids": _dedupe(task.get("source_profile_id") for task in tasks),
                 "readback_ready_count": sum(1 for task in tasks if bool(task.get("readback_ready"))),
-                "keyword_hit_count": sum(1 for task in tasks if str(task.get("field_query_probe_state") or "") == "FIELD_READBACK_KEYWORD_HIT_PUBLIC_SOURCE"),
+                "keyword_hit_count": sum(
+                    1
+                    for task in tasks
+                    if str(task.get("field_query_probe_state") or "")
+                    in {"FIELD_READBACK_KEYWORD_HIT_PUBLIC_SOURCE", "FIELD_READBACK_READY_PUBLIC_SOURCE"}
+                    and _int((task.get("field_summary") or {}).get("matched_keyword_count"))
+                ),
+                "source_specific_readback_ready_count": sum(
+                    1 for task in tasks if str(task.get("field_query_probe_state") or "") == "FIELD_READBACK_READY_PUBLIC_SOURCE"
+                ),
                 "blocker_taxonomy_counts": _counts(
                     blocker for task in tasks for blocker in _list(task.get("blocker_taxonomy"))
                 ),
@@ -548,7 +881,22 @@ def _summary(
         ),
         "readback_ready_count": sum(1 for task in field_task_records if bool(task.get("readback_ready"))),
         "keyword_hit_task_count": sum(
-            1 for task in field_task_records if str(task.get("field_query_probe_state") or "") == "FIELD_READBACK_KEYWORD_HIT_PUBLIC_SOURCE"
+            1
+            for task in field_task_records
+            if str(task.get("field_query_probe_state") or "")
+            in {"FIELD_READBACK_KEYWORD_HIT_PUBLIC_SOURCE", "FIELD_READBACK_READY_PUBLIC_SOURCE"}
+            and _int((task.get("field_summary") or {}).get("matched_keyword_count"))
+        ),
+        "source_specific_readback_ready_count": sum(
+            1
+            for task in field_task_records
+            if str(task.get("field_query_probe_state") or "") == "FIELD_READBACK_READY_PUBLIC_SOURCE"
+        ),
+        "guangzhou_zfcj_api_readback_ready_count": sum(
+            1
+            for task in field_task_records
+            if str(task.get("source_profile_id") or "").upper() == GUANGZHOU_ZFCJ_PROFILE_ID
+            and str(task.get("field_query_probe_state") or "") == "FIELD_READBACK_READY_PUBLIC_SOURCE"
         ),
         "delegated_task_count": sum(
             1 for task in field_task_records if str(task.get("field_query_probe_state") or "") == "DELEGATED_TO_SEPARATE_FIELD_ADAPTER"
