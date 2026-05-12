@@ -309,8 +309,8 @@ def _build_guangdong_source_plan(
                 "target_source_types": ["credit_penalty_blacklist"],
                 "scope_mode": "LOCAL_SUPPLEMENT_TO_NATIONAL_CREDIT_SCOPE",
                 "query_keys": ["candidate_company", "unified_social_credit_code"],
-                "runtime_status": "ENTRY_PORTAL_PENDING_PROJECT_SUBJECT_QUERY",
-                "next_adapter": "guangdong_credit_subject_query_adapter",
+                "runtime_status": "PUBLIC_CREDIT_LIST_QUERY_ADAPTER_AVAILABLE_WITH_WAF_GUARD",
+                "next_adapter": "guangdong_credit_gd_public_credit_query_v1",
             },
             {
                 "entry_id": "GZ-ZFCJ-CREDIT-DOUBLE-PUBLICITY",
@@ -338,7 +338,6 @@ def _build_guangdong_source_plan(
             "jzsc_company_first_project_manager_active_conflict_query",
             "targeted_regional_project_overlap_verification_adapter",
             "guangdong_contract_performance_query_adapter",
-            "guangdong_credit_subject_query_adapter",
             "national_credit_subject_query_adapter",
             *_major_target_region_next_adapters(),
         ],

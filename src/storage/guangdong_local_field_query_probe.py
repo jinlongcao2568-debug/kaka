@@ -44,6 +44,13 @@ GUANGDONG_TZXM_PROFILE_ID = "GUANGDONG-TZXM-HOME"
 GUANGDONG_TZXM_BASE_URL = "https://tzxm.gd.gov.cn"
 GUANGDONG_TZXM_PUBLICITY_URL = f"{GUANGDONG_TZXM_BASE_URL}/PublicityInformation/PublicityHandlingResults.html"
 GUANGDONG_TZXM_API_BASE_URL = f"{GUANGDONG_TZXM_BASE_URL}/tzxmspweb/api/publicityInformation"
+GUANGDONG_CREDIT_GD_PROFILE_ID = "GUANGDONG-CREDIT-GD-HOME"
+GUANGDONG_CREDIT_GD_BASE_URL = "https://credit.gd.gov.cn"
+GUANGDONG_CREDIT_GD_QUERY_URL = (
+    f"{GUANGDONG_CREDIT_GD_BASE_URL}/company/web/booleanQueryListByPageSimple"
+)
+GUANGDONG_CREDIT_GD_PENALTY_PAGE_URL = f"{GUANGDONG_CREDIT_GD_BASE_URL}/page/creditPublic/xzcf.html"
+GUANGDONG_CREDIT_GD_LICENSE_PAGE_URL = f"{GUANGDONG_CREDIT_GD_BASE_URL}/page/creditPublic/xzxk.html"
 
 FORBIDDEN_TERMS = ("在建冲突成立", "无在建", "无冲突", "造假成立", "违法成立", "确认本人", "是不是本人")
 
@@ -289,12 +296,45 @@ def _route_plan_for_task(task: Mapping[str, Any], query_params: Mapping[str, Any
                 ],
             ]
         )
-    elif profile_id == "GUANGDONG-CREDIT-GD-HOME":
+    elif profile_id == GUANGDONG_CREDIT_GD_PROFILE_ID:
+        company_keyword = str(query_params.get("companyName") or "").strip()
+        person_keyword = str(query_params.get("personName") or "").strip()
+        project_keyword = _clean_project_title(query_params.get("projectName"))
         routes.extend(
             [
                 _route("source_home", source_url, "source_home_probe", keywords),
-                _route("credit_gd_search_page", f"https://credit.gd.gov.cn/Search/index.html?keywords={encoded}", "credit_gd_subject_search_probe", keywords),
-                _route("credit_gd_penalty_page", f"https://credit.gd.gov.cn/page/creditPublic/xzcf.html?keywords={encoded}", "credit_gd_penalty_page_probe", keywords),
+                _route(
+                    "credit_gd_search_page",
+                    f"https://credit.gd.gov.cn/Search/index.html?keywords={encoded}",
+                    "credit_gd_subject_search_probe",
+                    keywords,
+                ),
+                _route(
+                    "credit_gd_penalty_page",
+                    f"{GUANGDONG_CREDIT_GD_PENALTY_PAGE_URL}?keywords={encoded}",
+                    "credit_gd_penalty_page_probe",
+                    keywords,
+                ),
+                _route(
+                    "credit_gd_license_page",
+                    f"{GUANGDONG_CREDIT_GD_LICENSE_PAGE_URL}?keywords={encoded}",
+                    "credit_gd_license_page_probe",
+                    keywords,
+                ),
+                _guangdong_credit_gd_list_route("penalty_recent_public_list", "penalty", keywords),
+                _guangdong_credit_gd_list_route("license_recent_public_list", "license", keywords),
+                *[
+                    route
+                    for route in (
+                        _guangdong_credit_gd_query_route("penalty_company_query", "penalty", company_keyword, keywords),
+                        _guangdong_credit_gd_query_route("penalty_person_query", "penalty", person_keyword, keywords),
+                        _guangdong_credit_gd_query_route("penalty_project_query", "penalty", project_keyword, keywords),
+                        _guangdong_credit_gd_query_route("license_company_query", "license", company_keyword, keywords),
+                        _guangdong_credit_gd_query_route("license_person_query", "license", person_keyword, keywords),
+                        _guangdong_credit_gd_query_route("license_project_query", "license", project_keyword, keywords),
+                    )
+                    if route
+                ],
             ]
         )
     elif profile_id == GUANGDONG_TZXM_PROFILE_ID:
@@ -498,6 +538,83 @@ def _guangdong_tzxm_publicity_list_route(
     }
 
 
+def _guangdong_credit_gd_list_route(
+    route_id: str,
+    record_type: str,
+    query_keywords: list[str],
+) -> dict[str, Any]:
+    table_name, order_args, referer = _guangdong_credit_gd_table_config(record_type)
+    return {
+        "route_id": f"gd_credit_gd_{route_id}",
+        "route_group": "gd_credit_gd_public_credit_list",
+        "url": GUANGDONG_CREDIT_GD_QUERY_URL,
+        "method": "POST",
+        "form_body": True,
+        "referer": referer,
+        "params": {
+            "tableName": table_name,
+            "page": 1,
+            "rows": 20,
+            "orderArgs": json.dumps(order_args, ensure_ascii=False),
+        },
+        "credit_gd_record_type": record_type,
+        "targeted_query": False,
+        "keyword_count": len(query_keywords),
+        "query_keyword_probe": query_keywords[:5],
+        "source_specific_adapter_id": "guangdong_credit_gd_public_credit_query_v1",
+    }
+
+
+def _guangdong_credit_gd_query_route(
+    route_id: str,
+    record_type: str,
+    keyword: str,
+    query_keywords: list[str],
+) -> dict[str, Any] | None:
+    keyword = str(keyword or "").strip()
+    if not keyword:
+        return None
+    table_name, order_args, referer = _guangdong_credit_gd_table_config(record_type)
+    query_key = "cf_xdr_mc_qkh" if record_type == "penalty" else "xk_xdr_mc_qkh"
+    if route_id.endswith("_person_query") or route_id.endswith("_project_query"):
+        query_key = "cf_wsh_qkh" if record_type == "penalty" else "xk_wsh_qkh"
+    return {
+        "route_id": f"gd_credit_gd_{route_id}_{_sha256_text(keyword)[:8]}",
+        "route_group": "gd_credit_gd_public_credit_targeted_query",
+        "url": GUANGDONG_CREDIT_GD_QUERY_URL,
+        "method": "POST",
+        "form_body": True,
+        "referer": referer,
+        "params": {
+            "tableName": table_name,
+            "page": 1,
+            "rows": 20,
+            "orderArgs": json.dumps(order_args, ensure_ascii=False),
+            "jsonArgs": json.dumps({query_key: f"like;{keyword}"}, ensure_ascii=False),
+        },
+        "credit_gd_record_type": record_type,
+        "targeted_query": True,
+        "targeted_query_keyword": keyword,
+        "keyword_count": len(query_keywords),
+        "query_keyword_probe": query_keywords[:5],
+        "source_specific_adapter_id": "guangdong_credit_gd_public_credit_query_v1",
+    }
+
+
+def _guangdong_credit_gd_table_config(record_type: str) -> tuple[str, list[dict[str, str]], str]:
+    if record_type == "license":
+        return (
+            "v_ztk_03_sgs_xzxk,V_XYDAK_SGS_2018XZXKXX",
+            [{"xk_jdrq_sort": "desc"}],
+            GUANGDONG_CREDIT_GD_LICENSE_PAGE_URL,
+        )
+    return (
+        "v_ztk_03_sgs_xzcf",
+        [{"cf_jdrq_sort": "desc"}],
+        GUANGDONG_CREDIT_GD_PENALTY_PAGE_URL,
+    )
+
+
 def _query_keywords(query_params: Mapping[str, Any]) -> list[str]:
     values = [
         query_params.get("certificateNo"),
@@ -583,6 +700,12 @@ def _execute_live_field_query(
         for route in route_plan
     ):
         return _execute_guangdong_tzxm_field_query(task, route_plan, http_getter=http_getter)
+    if any(
+        str(route.get("source_specific_adapter_id") or "")
+        == "guangdong_credit_gd_public_credit_query_v1"
+        for route in route_plan
+    ):
+        return _execute_guangdong_credit_gd_field_query(task, route_plan, http_getter=http_getter)
     getter = http_getter or _default_http_getter
     query_params = dict(task.get("query_params") or {})
     keywords = _query_keywords(query_params)
@@ -668,6 +791,10 @@ def _request_params_for_route(route: Mapping[str, Any]) -> dict[str, Any]:
         params["_method"] = str(route.get("method") or "GET").upper()
     if route.get("json_body"):
         params["_json_body"] = True
+    if route.get("form_body"):
+        params["_form_body"] = True
+    if route.get("referer"):
+        params["_referer"] = str(route.get("referer") or "")
     if route.get("route_id"):
         params["_route_id"] = str(route.get("route_id") or "")
     if route.get("route_group"):
@@ -679,10 +806,13 @@ def _default_http_getter(url: str, params: Mapping[str, Any]) -> Mapping[str, An
     request_params = {key: value for key, value in dict(params or {}).items() if not str(key).startswith("_")}
     method = str((params or {}).get("_method") or "GET").upper()
     json_body = bool((params or {}).get("_json_body"))
+    form_body = bool((params or {}).get("_form_body"))
     request_url = url
     data = None
     if method == "POST" and json_body:
         data = json.dumps(request_params, ensure_ascii=False).encode("utf-8")
+    elif method == "POST" and form_body:
+        data = urllib.parse.urlencode(request_params).encode("utf-8")
     elif request_params:
         request_url = f"{url}?{urllib.parse.urlencode(request_params)}"
     if method == "POST" and data is None:
@@ -697,9 +827,14 @@ def _default_http_getter(url: str, params: Mapping[str, Any]) -> Mapping[str, An
             ),
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,application/json;q=0.8,*/*;q=0.7",
             "Accept-Language": "zh-CN,zh;q=0.9",
-            "Referer": "https://zfcj.gz.gov.cn/zfcj/xyxx/",
+            "Referer": str((params or {}).get("_referer") or "https://zfcj.gz.gov.cn/zfcj/xyxx/"),
             "X-Requested-With": "XMLHttpRequest",
             **({"Content-Type": "application/json;charset=utf-8"} if method == "POST" and json_body else {}),
+            **(
+                {"Content-Type": "application/x-www-form-urlencoded; charset=UTF-8"}
+                if method == "POST" and form_body
+                else {}
+            ),
         },
         method=method,
     )
@@ -1175,6 +1310,107 @@ def _execute_guangdong_tzxm_field_query(
     }
 
 
+def _execute_guangdong_credit_gd_field_query(
+    task: Mapping[str, Any],
+    route_plan: list[Mapping[str, Any]],
+    *,
+    http_getter: HttpGetter | None,
+) -> dict[str, Any]:
+    getter = http_getter or _default_http_getter
+    query_params = dict(task.get("query_params") or {})
+    keywords = _query_keywords(query_params)
+    attempts: list[dict[str, Any]] = []
+    source_records: list[dict[str, Any]] = []
+
+    for route in route_plan:
+        response = _safe_get(route, getter=getter)
+        attempt = _route_attempt(route, response, keywords)
+        if str(route.get("source_specific_adapter_id") or "") != "guangdong_credit_gd_public_credit_query_v1":
+            attempts.append(attempt)
+            continue
+        if _int(response.get("http_status")) == 404:
+            blockers = _list(attempt.get("blocker_taxonomy"))
+            blockers.append("gd_credit_gd_interface_endpoint_not_found_or_stale")
+            attempt["blocker_taxonomy"] = _dedupe(blockers)
+            attempt["route_state"] = "FAIL_CLOSED_PUBLIC_SOURCE_BLOCKED"
+        if _int(response.get("http_status")) in {401, 403} or _looks_like_captcha_or_login(
+            str(response.get("text_probe") or response.get("body_probe") or "")
+        ):
+            blockers = _list(attempt.get("blocker_taxonomy"))
+            blockers.append("gd_credit_gd_waf_or_captcha_required")
+            attempt["blocker_taxonomy"] = _dedupe(blockers)
+            attempt["route_state"] = "FAIL_CLOSED_PUBLIC_SOURCE_BLOCKED"
+        records = _guangdong_credit_gd_records_from_response(response)
+        attempt["json_record_count"] = len(records)
+        attempts.append(attempt)
+        for record in records[:20]:
+            compact = _compact_guangdong_credit_gd_record(record, route, keywords)
+            if not compact.get("matched_keywords"):
+                continue
+            source_records.append(compact)
+
+    blockers = _dedupe(blocker for attempt in attempts for blocker in _list(attempt.get("blocker_taxonomy")))
+    status_codes = [_int(attempt.get("http_status")) for attempt in attempts if _int(attempt.get("http_status"))]
+    matched_keyword_count = len(
+        _dedupe(keyword for record in source_records for keyword in _list(record.get("matched_keywords")))
+    )
+    if source_records:
+        return {
+            "field_query_probe_state": "FIELD_READBACK_READY_PUBLIC_SOURCE",
+            "field_readback_state": "PUBLIC_SOURCE_FIELD_READBACK_READY_REVIEW_REQUIRED",
+            "readback_ready": True,
+            "readback_status_code": status_codes[0] if status_codes else 200,
+            "field_summary": {
+                "source_specific_adapter_id": "guangdong_credit_gd_public_credit_query_v1",
+                "record_count": len(source_records),
+                "matched_keyword_count": matched_keyword_count,
+                "source_profile_keyword_hit": bool(matched_keyword_count),
+                "source_profile_id": GUANGDONG_CREDIT_GD_PROFILE_ID,
+                "record_type": "credit_public_penalty_or_license_record",
+            },
+            "field_match_summary": {
+                "source_specific_records": source_records[:10],
+                "query_miss_is_not_clearance": True,
+                "readback_is_line_clue_not_final_conclusion": True,
+            },
+            "route_plan": list(route_plan),
+            "route_attempts": attempts,
+            "blocker_taxonomy": blockers,
+        }
+    if attempts and all(str(attempt.get("route_state") or "").startswith("FAIL_CLOSED") for attempt in attempts):
+        return {
+            "field_query_probe_state": "FAIL_CLOSED_PUBLIC_SOURCE_BLOCKED",
+            "field_readback_state": "FIELD_READBACK_BLOCKED",
+            "readback_ready": False,
+            "readback_status_code": status_codes[0] if status_codes else None,
+            "field_summary": {
+                "source_specific_adapter_id": "guangdong_credit_gd_public_credit_query_v1",
+            },
+            "field_match_summary": {"query_miss_is_not_clearance": True},
+            "route_plan": list(route_plan),
+            "route_attempts": attempts,
+            "blocker_taxonomy": blockers or ["gd_credit_gd_public_credit_all_routes_blocked"],
+        }
+    return {
+        "field_query_probe_state": "NO_FIELD_MATCH_REVIEW_REQUIRED",
+        "field_readback_state": "PUBLIC_SOURCE_QUERIED_NO_FIELD_RECORD",
+        "readback_ready": False,
+        "readback_status_code": status_codes[0] if status_codes else None,
+        "field_summary": {
+            "source_specific_adapter_id": "guangdong_credit_gd_public_credit_query_v1",
+            "record_count": 0,
+            "source_profile_keyword_hit": False,
+        },
+        "field_match_summary": {
+            "query_miss_is_not_clearance": True,
+            "readback_is_line_clue_not_final_conclusion": True,
+        },
+        "route_plan": list(route_plan),
+        "route_attempts": attempts,
+        "blocker_taxonomy": blockers or ["gd_credit_gd_public_credit_no_record_review"],
+    }
+
+
 def _suppress_tzxm_navigation_login_noise(attempt: dict[str, Any]) -> None:
     if _int(attempt.get("http_status")) != 200:
         return
@@ -1542,6 +1778,92 @@ def _guangdong_tzxm_detail_page_url(record: Mapping[str, Any], route: Mapping[st
     return str((detail_route or {}).get("human_detail_url") or "")
 
 
+def _guangdong_credit_gd_records_from_response(response: Mapping[str, Any]) -> list[Mapping[str, Any]]:
+    payload = _json_payload(response)
+    if isinstance(payload, list):
+        return [row for row in payload if isinstance(row, Mapping)]
+    if not isinstance(payload, Mapping):
+        return []
+    data = payload.get("data")
+    if isinstance(data, list):
+        return [row for row in data if isinstance(row, Mapping)]
+    if isinstance(data, Mapping):
+        for key in ("rows", "list", "items", "result", "records"):
+            value = data.get(key)
+            if isinstance(value, list):
+                return [row for row in value if isinstance(row, Mapping)]
+        return [data] if any(data.values()) else []
+    for key in ("rows", "list", "items", "result", "records"):
+        value = payload.get(key)
+        if isinstance(value, list):
+            return [row for row in value if isinstance(row, Mapping)]
+    return []
+
+
+def _compact_guangdong_credit_gd_record(
+    record: Mapping[str, Any],
+    route: Mapping[str, Any],
+    keywords: list[str],
+) -> dict[str, Any]:
+    record_type = str(route.get("credit_gd_record_type") or "penalty")
+    record_text = _compact_mapping_text(record)
+    record_id = _record_text(record, "ID", "id", "uuid", "ROW_ID", "row_id")
+    if record_type == "license":
+        counterparty = _record_text(record, "XK_XDR_MC", "xk_xdr_mc", "xkXdrMc", "xdrmc", "xdrMc")
+        document_no = _record_text(record, "XK_WSH", "xk_wsh", "xkWsh", "wsh")
+        item_name = _record_text(record, "XK_XMMC", "xk_xmmc", "xkXmmc", "xmmc")
+        authority = _record_text(record, "XK_XKJG", "xk_xkjg", "xkXkjg", "xkjg")
+        decision_date = _record_text(record, "XK_JDRQ", "xk_jdrq", "xkJdrq", "jdrq")
+        content = _record_text(record, "XK_NR", "xk_nr", "xkNr", "xknr")
+        detail_url = _guangdong_credit_gd_detail_url(record_id, "license", record)
+        source_type = "administrative_license_public_record"
+    else:
+        counterparty = _record_text(record, "CF_XDR_MC", "cf_xdr_mc", "cfXdrMc", "xdrmc", "xdrMc")
+        document_no = _record_text(record, "CF_WSH", "cf_wsh", "cfWsh", "wsh")
+        item_name = _record_text(record, "CF_SY", "cf_sy", "cfSy", "ajmc", "xmmc")
+        authority = _record_text(record, "CF_CFJG", "cf_cfjg", "cfCfjg", "cfjg")
+        decision_date = _record_text(record, "CF_JDRQ", "cf_jdrq", "cfJdrq", "jdrq")
+        content = _record_text(record, "CF_NR", "cf_nr", "cfNr", "cfnr")
+        detail_url = _guangdong_credit_gd_detail_url(record_id, "penalty", record)
+        source_type = "administrative_penalty_public_record"
+    return {
+        "source_profile_id": GUANGDONG_CREDIT_GD_PROFILE_ID,
+        "source_specific_adapter_id": "guangdong_credit_gd_public_credit_query_v1",
+        "record_type": source_type,
+        "record_id": record_id,
+        "administrative_counterparty": counterparty[:300],
+        "document_no": document_no[:200],
+        "project_or_item_name_probe": item_name[:500],
+        "decision_authority": authority[:300],
+        "decision_date": decision_date[:100],
+        "content_probe": content[:800],
+        "detail_url": detail_url,
+        "matched_keywords": [keyword for keyword in keywords if keyword and keyword in record_text][:10],
+        "targeted_query": bool(route.get("targeted_query")),
+        "record_sha256": _sha256_text(record_text),
+    }
+
+
+def _guangdong_credit_gd_detail_url(record_id: str, record_type: str, record: Mapping[str, Any]) -> str:
+    if not record_id:
+        return ""
+    if record_type == "license":
+        detail_page = "xzxkOlddet.html" if _record_text(record, "TABLE_NAME", "tableName", "const_0") else "xzxkdet.html"
+        return f"{GUANGDONG_CREDIT_GD_BASE_URL}/page/creditPublic/{detail_page}?id={urllib.parse.quote(record_id)}"
+    return f"{GUANGDONG_CREDIT_GD_BASE_URL}/page/creditPublic/xzcfdet.html?id={urllib.parse.quote(record_id)}"
+
+
+def _record_text(record: Mapping[str, Any], *keys: str) -> str:
+    lowered = {str(key).lower(): value for key, value in record.items()}
+    for key in keys:
+        if key in record and str(record.get(key) or "").strip():
+            return str(record.get(key) or "").strip()
+        value = lowered.get(str(key).lower())
+        if str(value or "").strip():
+            return str(value or "").strip()
+    return ""
+
+
 def _guangdong_zfcxjst_penalty_links_from_html(text: str, base_url: str) -> list[dict[str, str]]:
     links: list[dict[str, str]] = []
     for match in re.finditer(r"<a\b([^>]*?)>(.*?)</a>", str(text or ""), flags=re.I | re.S):
@@ -1794,6 +2116,12 @@ def _summary(
             1
             for task in field_task_records
             if str(task.get("source_profile_id") or "").upper() == GUANGDONG_TZXM_PROFILE_ID
+            and str(task.get("field_query_probe_state") or "") == "FIELD_READBACK_READY_PUBLIC_SOURCE"
+        ),
+        "guangdong_credit_gd_readback_ready_count": sum(
+            1
+            for task in field_task_records
+            if str(task.get("source_profile_id") or "").upper() == GUANGDONG_CREDIT_GD_PROFILE_ID
             and str(task.get("field_query_probe_state") or "") == "FIELD_READBACK_READY_PUBLIC_SOURCE"
         ),
         "delegated_task_count": sum(

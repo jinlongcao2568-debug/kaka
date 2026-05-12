@@ -41,6 +41,7 @@ class Stage4RegionalHardDefectSourcePlanTests(unittest.TestCase):
         self.assertIn("GD-GDCIC-SKYPT-PROJECT", entry_ids)
         self.assertIn("GD-GDCIC-CONTRACT-PERFORMANCE", entry_ids)
         self.assertIn("GD-ZFCXJST-PENALTY", entry_ids)
+        self.assertIn("GD-CREDIT-GD", entry_ids)
         self.assertIn("GZ-ZFCJ-CREDIT-DOUBLE-PUBLICITY", entry_ids)
         self.assertIn("ZJ-JZSC-PUBLIC-SERVICE", entry_ids)
         self.assertIn("SC-JZSC-PUBLIC-SERVICE", entry_ids)
@@ -67,6 +68,12 @@ class Stage4RegionalHardDefectSourcePlanTests(unittest.TestCase):
         )
         self.assertEqual(gz_entry["runtime_status"], "CITY_PUBLIC_API_QUERY_ADAPTER_AVAILABLE")
         self.assertEqual(gz_entry["next_adapter"], "guangzhou_zfcj_xyxx_api_query_v1")
+        credit_entry = next(entry for entry in plan["source_entries"] if entry["entry_id"] == "GD-CREDIT-GD")
+        self.assertEqual(
+            credit_entry["runtime_status"],
+            "PUBLIC_CREDIT_LIST_QUERY_ADAPTER_AVAILABLE_WITH_WAF_GUARD",
+        )
+        self.assertEqual(credit_entry["next_adapter"], "guangdong_credit_gd_public_credit_query_v1")
         self.assertEqual(plan["query_context"]["project_name"], "广东市政道路工程")
         self.assertTrue(plan["no_no-risk_inference_without_sources"])
 
