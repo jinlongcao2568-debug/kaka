@@ -4,6 +4,7 @@ param(
     [string]$ResponsiblePersonRoot = "",
     [string]$Stage4ExecutionRoot = "",
     [string]$ReadinessRoot = "",
+    [string]$ActiveConflictProbeRoot = "",
     [string]$OutputRoot = "",
     [switch]$EmitJson
 )
@@ -28,6 +29,9 @@ if (-not $Stage4ExecutionRoot) {
 if (-not $ReadinessRoot) {
     $ReadinessRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\guangzhou-upstream-readiness-with-stage4-groups-v3"
 }
+if (-not $ActiveConflictProbeRoot) {
+    $ActiveConflictProbeRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\guangzhou-active-conflict-probe-v1"
+}
 if (-not $OutputRoot) {
     $OutputRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\guangzhou-evidence-report-v1"
 }
@@ -43,6 +47,7 @@ $argsList = @(
     "--responsible-person-root", $ResponsiblePersonRoot,
     "--stage4-execution-root", $Stage4ExecutionRoot,
     "--readiness-root", $ReadinessRoot,
+    "--active-conflict-probe-root", $ActiveConflictProbeRoot,
     "--output-root", $OutputRoot
 )
 

@@ -90,6 +90,36 @@ class GuangzhouEvidenceReportTests(unittest.TestCase):
             self.assertEqual(tasks[0]["probe_state"], "PLAN_ONLY_NOT_EXECUTED")
             self.assertIn("construction_permit", tasks[0]["source_categories"])
 
+    def test_report_consumes_active_conflict_probe_summary_when_available(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_flow_root(root / "flow")
+            _write_download_root(root / "download")
+            _write_responsible_root(root / "responsible")
+            _write_stage4_root(root / "stage4")
+            _write_readiness_root(root / "readiness", flow_08_required=False)
+            _write_active_conflict_root(root / "active-conflict")
+
+            result = build_guangzhou_evidence_report(
+                flow_root=root / "flow",
+                download_root=root / "download",
+                responsible_person_root=root / "responsible",
+                stage4_execution_root=root / "stage4",
+                readiness_root=root / "readiness",
+                active_conflict_probe_root=root / "active-conflict",
+                output_root=root / "out",
+                created_at="2026-05-12T00:00:00+08:00",
+            )
+
+            self.assertEqual(result["summary"]["active_conflict_external_probe_state"], "TASKS_READY")
+            self.assertEqual(result["summary"]["active_conflict_external_probe_task_count"], 1)
+            project = result["manifest"]["project_reports"][0]
+            self.assertEqual(project["verification_evidence"]["active_conflict_probe_state"], "TASKS_READY")
+            self.assertIn(
+                "ACTIVE_CONFLICT_EXTERNAL_SOURCE_TASKS_READY",
+                [item["recommended_action"] for item in project["optimization_recommendations"]],
+            )
+
 
 def _write_flow_root(root: Path) -> None:
     root.mkdir(parents=True, exist_ok=True)
@@ -199,6 +229,30 @@ def _write_readiness_root(root: Path, *, flow_08_required: bool, resolved: bool 
     }
     (root / "guangzhou-upstream-readiness-report.json").write_text(
         json.dumps({"manifest": {"project_records": [project]}}, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+
+def _write_active_conflict_root(root: Path) -> None:
+    root.mkdir(parents=True, exist_ok=True)
+    project_record = {
+        "project_id": "PROJ-CN-GD-JG2026-10815",
+        "project_name": "广州测试项目",
+        "task_ids": ["GZ-ACTIVE-CONFLICT-TASK-1"],
+        "task_count": 1,
+    }
+    payload = {
+        "manifest": {
+            "manifest_kind": "guangzhou_active_conflict_probe_v1_manifest",
+            "project_task_records": [project_record],
+            "summary": {
+                "active_conflict_probe_task_count": 1,
+                "probe_state": "READY",
+            },
+        }
+    }
+    (root / "guangzhou-active-conflict-probe-v1.json").write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
 

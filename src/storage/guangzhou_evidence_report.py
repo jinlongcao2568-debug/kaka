@@ -18,6 +18,7 @@ DEFAULT_DOWNLOAD_ROOT = Path("tmp/evaluation-real-samples/guangzhou-download-hum
 DEFAULT_RESPONSIBLE_ROOT = Path("tmp/evaluation-real-samples/guangzhou-responsible-person-early-probe-v3")
 DEFAULT_STAGE4_EXECUTION_ROOT = Path("tmp/evaluation-real-samples/guangzhou-company-first-stage4-execution-v4-merged")
 DEFAULT_READINESS_ROOT = Path("tmp/evaluation-real-samples/guangzhou-upstream-readiness-with-stage4-groups-v3")
+DEFAULT_ACTIVE_CONFLICT_ROOT = Path("tmp/evaluation-real-samples/guangzhou-active-conflict-probe-v1")
 DEFAULT_OUTPUT_ROOT = Path("tmp/evaluation-real-samples/guangzhou-evidence-report-v1")
 
 FORBIDDEN_TERMS = ("是不是本人", "确认本人", "冲突成立", "造假成立", "违法成立")
@@ -41,6 +42,7 @@ def build_guangzhou_evidence_report(
     responsible_person_root: str | Path = DEFAULT_RESPONSIBLE_ROOT,
     stage4_execution_root: str | Path = DEFAULT_STAGE4_EXECUTION_ROOT,
     readiness_root: str | Path = DEFAULT_READINESS_ROOT,
+    active_conflict_probe_root: str | Path = DEFAULT_ACTIVE_CONFLICT_ROOT,
     output_root: str | Path = DEFAULT_OUTPUT_ROOT,
     created_at: str | None = None,
 ) -> dict[str, Any]:
@@ -50,6 +52,7 @@ def build_guangzhou_evidence_report(
     responsible_dir = Path(responsible_person_root)
     stage4_dir = Path(stage4_execution_root)
     readiness_dir = Path(readiness_root)
+    active_conflict_dir = Path(active_conflict_probe_root)
     out_dir = Path(output_root)
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -60,6 +63,7 @@ def build_guangzhou_evidence_report(
     responsible_manifest = _source_manifest(_load_json(responsible_dir / "responsible-person-early-probe.json", missing_inputs, "responsible_person_early_probe_missing"))
     stage4_manifest = _source_manifest(_load_json(stage4_dir / "company-first-stage4-execution.json", [], "stage4_execution_manifest_missing"))
     readiness_manifest = _source_manifest(_load_json(readiness_dir / "guangzhou-upstream-readiness-report.json", [], "readiness_report_missing"))
+    active_conflict_manifest = _source_manifest(_load_json_optional(active_conflict_dir / "guangzhou-active-conflict-probe-v1.json"))
 
     project_ids = _project_ids(
         flow_manifest,
@@ -78,10 +82,15 @@ def build_guangzhou_evidence_report(
             responsible_manifest=responsible_manifest,
             stage4_manifest=stage4_manifest,
             readiness_manifest=readiness_manifest,
+            active_conflict_manifest=active_conflict_manifest,
         )
         for project_id in project_ids
     ]
-    summary = _summary(project_reports=project_reports, missing_inputs=missing_inputs)
+    summary = _summary(
+        project_reports=project_reports,
+        missing_inputs=missing_inputs,
+        active_conflict_manifest=active_conflict_manifest,
+    )
     manifest = {
         "manifest_version": GUANGZHOU_EVIDENCE_REPORT_VERSION,
         "manifest_kind": GUANGZHOU_EVIDENCE_REPORT_KIND,
@@ -94,6 +103,7 @@ def build_guangzhou_evidence_report(
         "source_responsible_person_root": str(responsible_dir),
         "source_stage4_execution_root": str(stage4_dir),
         "source_readiness_root": str(readiness_dir),
+        "source_active_conflict_probe_root": str(active_conflict_dir),
         "report_sections": [
             "verification_evidence",
             "process_stability",
@@ -141,6 +151,7 @@ def _project_report(
     responsible_manifest: Mapping[str, Any],
     stage4_manifest: Mapping[str, Any],
     readiness_manifest: Mapping[str, Any],
+    active_conflict_manifest: Mapping[str, Any],
 ) -> dict[str, Any]:
     flow_items = _items_for_project(flow_manifest, project_id)
     analysis_items = _items_for_project(analysis_manifest, project_id)
@@ -148,6 +159,7 @@ def _project_report(
     responsible_item = _first(_items_for_project(responsible_manifest, project_id))
     stage4_items = _items_for_project(stage4_manifest, project_id)
     readiness_project = _first(_project_records_for_project(readiness_manifest, project_id))
+    active_conflict_project = _first(_project_task_records_for_project(active_conflict_manifest, project_id))
     group_records = list(readiness_project.get("candidate_group_verification_records") or [])
     if not group_records:
         group_records = _candidate_groups_from_responsible(responsible_item)
@@ -165,7 +177,15 @@ def _project_report(
         "public_registration_match_state": _public_registration_state(group_records),
         "flow_08_targeted_parse_required": targeted_parse_required,
         "flow_08_registry": flow_08_registry,
+        "candidate_notice_source_urls": _source_urls_for_flow([*flow_items, *download_items], "07"),
+        "project_source_urls": _dedupe(row.get("source_url") for row in [*flow_items, *download_items]),
         "active_conflict_probe_tasks": _active_conflict_tasks(project_id=project_id, group_records=group_records),
+        "active_conflict_probe_state": (
+            "TASKS_READY"
+            if active_conflict_project
+            else "PLAN_ONLY_TASKS_NOT_BUILT"
+        ),
+        "active_conflict_probe_task_ids": _list(active_conflict_project.get("task_ids")),
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,
     }
@@ -298,7 +318,10 @@ def _recommendations(*, verification_evidence: Mapping[str, Any], process_stabil
         recommendations.append(_recommendation("SUPPLEMENT_PUBLIC_REGISTRATION_MATCH", "公开注册信息匹配仍需补查，暂不扩大 08 解析。"))
     if process_stability.get("failure_taxonomy"):
         recommendations.append(_recommendation("REPAIR_PROCESS_STABILITY_ITEMS", "存在采集、下载或核验过程失败分类，先修可定位失败。"))
-    recommendations.append(_recommendation("BUILD_ACTIVE_CONFLICT_EXTERNAL_SOURCE_PROBE", "按地方公开来源生成在建/履约冲突线索任务，不用四库单独下结论。"))
+    if verification_evidence.get("active_conflict_probe_state") == "TASKS_READY":
+        recommendations.append(_recommendation("ACTIVE_CONFLICT_EXTERNAL_SOURCE_TASKS_READY", "已生成地方公开来源待核验任务清单，不用四库单独下结论。"))
+    else:
+        recommendations.append(_recommendation("BUILD_ACTIVE_CONFLICT_EXTERNAL_SOURCE_PROBE", "按地方公开来源生成在建/履约冲突线索任务，不用四库单独下结论。"))
     return recommendations
 
 
@@ -311,7 +334,12 @@ def _recommendation(action: str, reason: str) -> dict[str, Any]:
     }
 
 
-def _summary(*, project_reports: list[Mapping[str, Any]], missing_inputs: list[str]) -> dict[str, Any]:
+def _summary(
+    *,
+    project_reports: list[Mapping[str, Any]],
+    missing_inputs: list[str],
+    active_conflict_manifest: Mapping[str, Any],
+) -> dict[str, Any]:
     groups = [
         group
         for project in project_reports
@@ -331,6 +359,14 @@ def _summary(*, project_reports: list[Mapping[str, Any]], missing_inputs: list[s
         "flow_08_present_project_count": sum(1 for project in project_reports if bool(((project.get("verification_evidence") or {}).get("flow_08_registry") or {}).get("flow_08_present"))),
         "flow_08_targeted_parse_required_project_count": len(flow_08_required),
         "active_conflict_probe_task_count": sum(len(_list((project.get("verification_evidence") or {}).get("active_conflict_probe_tasks"))) for project in project_reports),
+        "active_conflict_external_probe_state": (
+            "TASKS_READY"
+            if active_conflict_manifest
+            else "NOT_BUILT"
+        ),
+        "active_conflict_external_probe_task_count": _int(
+            (active_conflict_manifest.get("summary") or {}).get("active_conflict_probe_task_count")
+        ),
         "section_names": ["verification_evidence", "process_stability", "optimization_recommendations"],
         "blocking_reasons": missing_inputs,
         "customer_visible_allowed": False,
@@ -376,6 +412,14 @@ def _project_records_for_project(manifest: Mapping[str, Any], project_id: str) -
     ]
 
 
+def _project_task_records_for_project(manifest: Mapping[str, Any], project_id: str) -> list[dict[str, Any]]:
+    return [
+        dict(item)
+        for item in _list(manifest.get("project_task_records"))
+        if isinstance(item, Mapping) and str(item.get("project_id") or "") == project_id
+    ]
+
+
 def _project_name(project_id: str, *sources: Any) -> str:
     for source in sources:
         if isinstance(source, Mapping):
@@ -402,9 +446,20 @@ def _load_json(path: Path, missing_inputs: list[str], missing_reason: str) -> di
     return dict(data) if isinstance(data, Mapping) else {}
 
 
+def _load_json_optional(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {}
+    data = json.loads(path.read_text(encoding="utf-8"))
+    return dict(data) if isinstance(data, Mapping) else {}
+
+
 def _source_manifest(payload: Mapping[str, Any]) -> dict[str, Any]:
     manifest = payload.get("manifest")
     return dict(manifest) if isinstance(manifest, Mapping) else dict(payload)
+
+
+def _source_urls_for_flow(rows: list[Mapping[str, Any]], flow_no: str) -> list[str]:
+    return _dedupe(row.get("source_url") for row in rows if _flow_no(row) == flow_no)
 
 
 def _first(items: list[dict[str, Any]]) -> dict[str, Any]:
@@ -446,6 +501,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--responsible-person-root", default=str(DEFAULT_RESPONSIBLE_ROOT))
     parser.add_argument("--stage4-execution-root", default=str(DEFAULT_STAGE4_EXECUTION_ROOT))
     parser.add_argument("--readiness-root", default=str(DEFAULT_READINESS_ROOT))
+    parser.add_argument("--active-conflict-probe-root", default=str(DEFAULT_ACTIVE_CONFLICT_ROOT))
     parser.add_argument("--output-root", default=str(DEFAULT_OUTPUT_ROOT))
     parser.add_argument("--created-at")
     parser.add_argument("--json", action="store_true", dest="emit_json")
@@ -460,6 +516,7 @@ def main(argv: list[str] | None = None) -> int:
         responsible_person_root=args.responsible_person_root,
         stage4_execution_root=args.stage4_execution_root,
         readiness_root=args.readiness_root,
+        active_conflict_probe_root=args.active_conflict_probe_root,
         output_root=args.output_root,
         created_at=args.created_at,
     )
