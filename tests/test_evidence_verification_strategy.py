@@ -58,6 +58,60 @@ class EvidenceVerificationStrategyTests(unittest.TestCase):
             self.assertEqual(item["extract_policy"], "SKIP")
             self.assertEqual(item["skip_reason"], "adapter_validation_only_not_evidence_package_input")
 
+    def test_flow_08_defaults_to_register_only_until_triggered(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            input_root = root / "download"
+            output_root = root / "strategy"
+            _write_download_manifest(
+                input_root,
+                flow_no="08",
+                snapshot_id="ATT-08-ZIP",
+                attachment_url="https://example.test/bid-publicity.zip",
+            )
+
+            result = build_evidence_verification_strategy(
+                input_root=input_root,
+                output_root=output_root,
+                project_ids=["JG2026-10815"],
+                created_at="2026-05-10T00:00:00+08:00",
+            )
+
+            item = result["manifest"]["items"][0]
+            self.assertEqual(item["strategy_state"], "FLOW_08_REGISTER_ONLY")
+            self.assertFalse(item["verification_enabled"])
+            self.assertEqual(item["extract_policy"], "INVENTORY_ONLY")
+            self.assertEqual(item["parse_policy"], "SKIP")
+            self.assertEqual(
+                item["skip_reason"],
+                "flow_08_registered_only_until_stage4_or_public_registration_trigger",
+            )
+
+    def test_flow_08_targeted_parse_can_be_explicitly_triggered(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            input_root = root / "download"
+            output_root = root / "strategy"
+            _write_download_manifest(
+                input_root,
+                flow_no="08",
+                snapshot_id="ATT-08-ZIP",
+                attachment_url="https://example.test/bid-publicity.zip",
+                flow_08_targeted_parse_required=True,
+            )
+
+            result = build_evidence_verification_strategy(
+                input_root=input_root,
+                output_root=output_root,
+                project_ids=["JG2026-10815"],
+                created_at="2026-05-10T00:00:00+08:00",
+            )
+
+            item = result["manifest"]["items"][0]
+            self.assertEqual(item["strategy_state"], "TARGETED_BID_PUBLICITY_SAMPLE_READY")
+            self.assertTrue(item["verification_enabled"])
+            self.assertEqual(item["parse_policy"], "TEXT_PROBE_THEN_TARGETED_DEEP_PARSE")
+
 
 def _write_download_manifest(
     input_root: Path,
@@ -66,6 +120,7 @@ def _write_download_manifest(
     snapshot_id: str = "ATT-03-ZIP",
     attachment_url: str = "https://example.test/tender.zip",
     adapter_validation_only: bool = False,
+    flow_08_targeted_parse_required: bool = False,
 ) -> None:
     input_root.mkdir(parents=True, exist_ok=True)
     sample = {
@@ -77,6 +132,7 @@ def _write_download_manifest(
         "guangzhou_flow_no": flow_no,
         "guangzhou_flow_title": f"{flow_no}流程",
         "adapter_validation_only": adapter_validation_only,
+        "flow_08_targeted_parse_required": flow_08_targeted_parse_required,
         "attachment_snapshot_refs": [
             {
                 "snapshot_id": snapshot_id,

@@ -109,6 +109,28 @@ class BusinessDirectionStrategyContractTests(unittest.TestCase):
         self.assertFalse(post_flow_policy["11"]["required_for_recent_candidate_sales_window"])
         self.assertFalse(post_flow_policy["12"]["required_for_recent_candidate_sales_window"])
 
+    def test_flow_08_is_register_only_by_default(self) -> None:
+        contract = self._contract()
+        policy = contract["analysis_strategy_policy"]["flow_08_registry_only_policy"]
+        post_flow_policy = {
+            item["flow_no"]: item
+            for item in contract["analysis_strategy_policy"]["post_candidate_flow_policy"]
+        }
+
+        self.assertEqual(policy["policy_id"], "FLOW-08-REGISTRY-ONLY-BY-DEFAULT-V1")
+        self.assertEqual(policy["default_download_policy"], "REGISTER_ONLY_THEN_TARGETED_PARSE_IF_TRIGGERED")
+        self.assertEqual(policy["default_parse_depth"], "LIST_ONLY")
+        self.assertFalse(policy["default_download_required"])
+        self.assertFalse(policy["default_parse_required"])
+        self.assertIn("attachment_names", policy["must_record_fields"])
+        self.assertIn("do_not_parse_all_flow_08_by_default", policy["must_not"])
+        self.assertEqual(
+            post_flow_policy["08"]["download_policy"],
+            "REGISTER_ONLY_THEN_TARGETED_PARSE_IF_TRIGGERED",
+        )
+        self.assertEqual(post_flow_policy["08"]["parse_depth"], "LIST_ONLY")
+        self.assertFalse(post_flow_policy["08"]["default_parse_required"])
+
     def test_responsible_person_early_probe_policy_prioritizes_07_then_company_first_then_08(self) -> None:
         contract = self._contract()
         policy = contract["analysis_strategy_policy"]["responsible_person_early_probe_policy"]
@@ -209,6 +231,28 @@ class BusinessDirectionStrategyContractTests(unittest.TestCase):
         self.assertIn("construction_permit", conflict_policy["active_conflict_priority_sources"])
         self.assertIn(
             "do_not_use_jzsc_as_realtime_active_conflict_single_source",
+            conflict_policy["must_not"],
+        )
+
+    def test_evidence_report_and_active_conflict_policy_are_internal_only(self) -> None:
+        contract = self._contract()
+        evidence_policy = contract["analysis_strategy_policy"]["evidence_report_v1_policy"]
+        conflict_policy = contract["analysis_strategy_policy"]["active_conflict_external_source_policy"]
+
+        self.assertEqual(evidence_policy["policy_id"], "GUANGZHOU-EVIDENCE-REPORT-V1")
+        self.assertEqual(
+            evidence_policy["report_sections"],
+            ["verification_evidence", "process_stability", "optimization_recommendations"],
+        )
+        self.assertEqual(evidence_policy["flow_08_default_handling"], "REGISTER_ONLY_NO_DEFAULT_PARSE")
+        self.assertFalse(evidence_policy["customer_visible_allowed"])
+        self.assertTrue(evidence_policy["no_legal_conclusion"])
+        self.assertIn("是不是本人", evidence_policy["forbidden_terms"])
+
+        self.assertEqual(conflict_policy["first_version_execution_mode"], "PLAN_ONLY")
+        self.assertIn("construction_permit", conflict_policy["source_categories"])
+        self.assertIn(
+            "do_not_output_final_active_conflict_conclusion_without_replayable_sources",
             conflict_policy["must_not"],
         )
 

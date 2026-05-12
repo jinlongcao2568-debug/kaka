@@ -269,6 +269,42 @@ class GuangzhouUpstreamReadinessReportTests(unittest.TestCase):
             self.assertEqual(summary["candidate_group_stage4_gate_state"], "GROUPS_RESOLVED")
             self.assertIn("parse_probe_manifest_missing", summary["stage4_blocking_reasons"])
 
+    def test_flow_08_register_only_does_not_block_when_not_triggered(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            flow_root = root / "flow"
+            download_root = root / "download"
+            strategy_root = root / "strategy"
+            archive_root = root / "archive"
+            parse_root = root / "parse"
+            stage4_execution_root = root / "stage4-execution"
+            output_root = root / "report"
+            _write_flow_manifest(flow_root, include_candidate_and_bid_publicity_project=True)
+            _write_analysis_plan(flow_root, include_candidate_and_bid_publicity_project=True)
+            _write_download_manifest(download_root, complete_candidate=True)
+            _append_flow08_register_only_download_sample(download_root)
+            _write_strategy_manifest(strategy_root)
+            _write_archive_manifest(archive_root)
+            _write_stage4_execution_manifest(stage4_execution_root)
+
+            result = build_guangzhou_upstream_readiness_report(
+                flow_root=flow_root,
+                download_root=download_root,
+                evidence_strategy_root=strategy_root,
+                archive_extract_root=archive_root,
+                parse_root=parse_root,
+                stage4_execution_root=stage4_execution_root,
+                output_root=output_root,
+                created_at="2026-05-11T00:00:00+08:00",
+            )
+
+            project = result["manifest"]["project_records"][0]
+            flow_08 = next(row for row in result["manifest"]["flow_records"] if row["flow_no"] == "08")
+            self.assertFalse(project["flow_08_targeted_parse_required"])
+            self.assertNotIn("attachment_download_incomplete", project["blocking_layers"])
+            self.assertFalse(flow_08["flow_08_targeted_parse_required"])
+            self.assertNotIn("attachment_snapshot_incomplete_for_flow", flow_08["blocking_layers"])
+
 
 def _write_flow_manifest(
     root: Path,
@@ -327,8 +363,9 @@ def _write_analysis_plan(
             "project_id": "PROJ-CN-GD-JG2026-22222",
             "flow_no": "08",
             "source_url": "https://example.test/22222/08.html",
-            "download_policy": "LIST_ALL_THEN_TARGETED_DOWNLOAD",
-            "parse_depth": "TEXT_PROBE",
+            "download_policy": "REGISTER_ONLY_THEN_TARGETED_PARSE_IF_TRIGGERED",
+            "parse_depth": "LIST_ONLY",
+            "flow_08_targeted_parse_required": False,
         },
     ]
     if include_only_candidate_project:
@@ -391,6 +428,33 @@ def _write_download_manifest(root: Path, *, partial: bool = False, complete_cand
     }
     filename = "download-probe-manifest.partial.json" if partial else "download-probe-manifest.json"
     (root / filename).write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _append_flow08_register_only_download_sample(root: Path) -> None:
+    path = root / "download-probe-manifest.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    manifest = payload["manifest"]
+    samples = list(manifest.get("project_sample_items") or [])
+    samples.append(
+        {
+            **_sample("PROJ-CN-GD-JG2026-22222", "08", "投标(资格预审申请)文件公开"),
+            "pipeline_stage": "DownloadProbe",
+            "target_execution_state": "DOWNLOAD_PROBE_REGISTER_ONLY",
+            "listed_attachment_count": 3,
+            "download_attempted_count": 0,
+            "failure_taxonomy": [],
+            "attachment_snapshot_refs": [],
+        }
+    )
+    manifest["project_sample_items"] = samples
+    manifest["summary"] = {
+        **dict(manifest.get("summary") or {}),
+        "unique_project_count": len({str(row["project_id"]) for row in samples}),
+        "project_sample_count": len(samples),
+        "download_attempted_count": sum(int(row.get("download_attempted_count") or 0) for row in samples),
+        "attachment_snapshot_count": sum(len(row.get("attachment_snapshot_refs") or []) for row in samples),
+    }
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def _write_strategy_manifest(root: Path) -> None:

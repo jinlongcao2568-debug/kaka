@@ -100,6 +100,9 @@ def test_status_board_records_p0_sync_boundary() -> None:
     assert "05 开标信息" in text
     assert "适配器验证" in text
     assert "公开注册信息匹配同步说明" in text
+    assert "EvidenceReport v1 同步说明" in text
+    assert "默认不下载、不解析 `08 投标文件公开`" in text
+    assert "核验线索/证据、过程稳定性、优化建议" in text
     assert "不得写“是不是本人”" in text
     assert "四库/JZSC 只作为公开注册信息" in text
     assert "不能作为实时在建冲突唯一依据" in text
@@ -124,7 +127,14 @@ def test_business_direction_doc_contains_final_analysis_strategy_rules() -> None
     assert "联合体成员" in text
     assert "公司优先补证" in text
     assert "姓名枚举兜底" in text
-    assert "`08 投标文件公开` 只做定向解析" in text
+    assert "`08 投标文件公开` 默认只登记存在、URL、附件清单和后续可解析目标" in text
+    assert "只有 `FLOW_08_TARGETED_PARSE_REQUIRED`、公开注册信息不匹配、缺证书号、证书类别/专业不足或需核对 `08` 声明业绩" in text
+    assert "`08 投标文件公开` 默认只登记存在、URL、附件清单和后续可解析目标" in text
+    assert "`EvidenceReport v1` 三类输出" in text
+    assert "核验线索/证据" in text
+    assert "过程稳定性" in text
+    assert "优化建议" in text
+    assert "`ActiveConflictProbe v1` 第一版只生成外部核验任务清单" in text
     assert "不得因为公司优先补证未命中就直接写“冲突成立”" in text
     assert "公开注册信息匹配" in text
     assert "不得写“核实是不是本人”" in text
@@ -160,6 +170,7 @@ def test_top_level_docs_contain_final_strategy_guardrails() -> None:
         assert "缺 11/12 不阻断当前证据包销售窗口" in text
         assert "公开注册信息" in text
         assert "是不是本人" in text
+        assert "08" in text and ("不默认下载" in text or "不默认下载或解析" in text)
 
 
 def test_stage45_runbook_contains_responsible_person_early_probe_decision_tree() -> None:

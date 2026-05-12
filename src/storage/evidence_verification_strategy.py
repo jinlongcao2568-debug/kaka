@@ -166,9 +166,17 @@ def _strategy_items_for_sample(
             )
         ]
 
+    targeted_parse_required = _flow_08_targeted_parse_required(
+        sample=sample,
+        analysis_item=analysis_item,
+    )
     out: list[dict[str, Any]] = []
     for index, ref in enumerate(refs, start=1):
-        flow_policy = _flow_policy(flow_no=flow_no, ref=ref)
+        flow_policy = _flow_policy(
+            flow_no=flow_no,
+            ref=ref,
+            flow_08_targeted_parse_required=targeted_parse_required,
+        )
         parsed_state = str((parse_lookup.get(str(ref.get("snapshot_id") or "")) or {}).get("parse_state") or "")
         out.append(
             _strategy_item(
@@ -189,7 +197,12 @@ def _strategy_items_for_sample(
     return out
 
 
-def _flow_policy(*, flow_no: str, ref: Mapping[str, Any]) -> dict[str, Any]:
+def _flow_policy(
+    *,
+    flow_no: str,
+    ref: Mapping[str, Any],
+    flow_08_targeted_parse_required: bool = False,
+) -> dict[str, Any]:
     archive = _is_archive_ref(ref)
     document = _is_document_ref(ref)
     if flow_no == "07":
@@ -216,6 +229,22 @@ def _flow_policy(*, flow_no: str, ref: Mapping[str, Any]) -> dict[str, Any]:
             "skip_reason": "",
         }
     if flow_no == "08":
+        if not flow_08_targeted_parse_required:
+            return {
+                "strategy_state": "FLOW_08_REGISTER_ONLY",
+                "verification_enabled": False,
+                "extract_policy": "INVENTORY_ONLY",
+                "parse_policy": "SKIP",
+                "target_fields": [
+                    "attachment_inventory",
+                    "candidate_or_bidder_file_groups",
+                    "targeted_parse_candidate_keywords",
+                ],
+                "stage4_targets": [
+                    "future_flow_08_targeted_parse_if_triggered",
+                ],
+                "skip_reason": "flow_08_registered_only_until_stage4_or_public_registration_trigger",
+            }
         return {
             "strategy_state": "TARGETED_BID_PUBLICITY_SAMPLE_READY",
             "verification_enabled": True,
@@ -274,6 +303,43 @@ def _flow_policy(*, flow_no: str, ref: Mapping[str, Any]) -> dict[str, Any]:
         "stage4_targets": [],
         "skip_reason": "flow_not_in_evidence_strategy_scope",
     }
+
+
+def _flow_08_targeted_parse_required(
+    *,
+    sample: Mapping[str, Any],
+    analysis_item: Mapping[str, Any],
+) -> bool:
+    truthy_keys = (
+        "flow_08_targeted_parse_required",
+        "targeted_parse_required",
+        "force_flow_08_targeted_parse",
+        "public_registration_mismatch_requires_flow_08",
+    )
+    for source in (sample, analysis_item):
+        for key in truthy_keys:
+            if bool(source.get(key)):
+                return True
+        joined = " ".join(
+            str(item)
+            for item in [
+                *_as_list(source.get("next_actions")),
+                *_as_list(source.get("llm_trigger_reasons")),
+                source.get("strategy_state"),
+                source.get("skip_reason"),
+            ]
+        )
+        if "FLOW_08_TARGETED_PARSE_REQUIRED" in joined:
+            return True
+    return False
+
+
+def _as_list(value: Any) -> list[Any]:
+    if isinstance(value, list):
+        return value
+    if value is None:
+        return []
+    return [value]
 
 
 def _strategy_item(

@@ -1,6 +1,6 @@
 {
   "contract_id": "BUSINESS-DIRECTION-STRATEGY-CONTRACT",
-  "contract_version": 6,
+  "contract_version": 7,
   "purpose": "固定招投标分析产品的双线业务方向，避免后续开发把招标公告文件链路验证误当成核心商业主线。",
   "primary_commercial_line": "POST_CANDIDATE_EVIDENCE_PACK",
   "default_when_ambiguous": "POST_CANDIDATE_EVIDENCE_PACK",
@@ -452,6 +452,76 @@
         ]
       }
     },
+    "flow_08_registry_only_policy": {
+      "policy_id": "FLOW-08-REGISTRY-ONLY-BY-DEFAULT-V1",
+      "policy_version": 1,
+      "default_download_policy": "REGISTER_ONLY_THEN_TARGETED_PARSE_IF_TRIGGERED",
+      "default_parse_depth": "LIST_ONLY",
+      "default_download_required": false,
+      "default_parse_required": false,
+      "must_record_fields": [
+        "flow_08_present",
+        "source_url",
+        "published_date",
+        "attachment_count",
+        "attachment_names",
+        "candidate_or_bidder_file_groups",
+        "targeted_parse_candidate_keywords"
+      ],
+      "targeted_parse_trigger_when": [
+        "flow_07_missing_responsible_person_or_certificate_fields",
+        "public_registration_record_not_matched_after_route_fallbacks",
+        "certificate_no_or_registered_unit_conflicts_with_flow_07",
+        "registration_category_or_profession_needed_for_role_rule",
+        "declared_performance_in_flow_08_needs_public_record_match"
+      ],
+      "must_not": [
+        "do_not_download_all_flow_08_by_default",
+        "do_not_parse_all_flow_08_by_default",
+        "do_not_block_evidence_report_only_because_flow_08_exists_but_is_unparsed"
+      ]
+    },
+    "active_conflict_external_source_policy": {
+      "policy_id": "ACTIVE-CONFLICT-EXTERNAL-SOURCE-PROBE-V1",
+      "policy_version": 1,
+      "first_version_execution_mode": "PLAN_ONLY",
+      "purpose": "为候选负责人生成在建/履约冲突外部核验任务清单；不以四库/JZSC 作为实时在建冲突唯一依据。",
+      "source_categories": [
+        "local_public_resource_candidate_or_award_notices",
+        "local_housing_construction_or_administrative_approval_platform",
+        "construction_permit",
+        "contract_filing",
+        "completion_or_acceptance_filing",
+        "project_manager_change_notice",
+        "administrative_penalty_or_complaint_decision",
+        "public_web_clues_with_replayable_source_url"
+      ],
+      "must_not": [
+        "do_not_treat_jzsc_missing_project_as_no_active_conflict",
+        "do_not_treat_jzsc_missing_performance_as_performance_fraud",
+        "do_not_output_final_active_conflict_conclusion_without_replayable_sources"
+      ]
+    },
+    "evidence_report_v1_policy": {
+      "policy_id": "GUANGZHOU-EVIDENCE-REPORT-V1",
+      "policy_version": 1,
+      "report_sections": [
+        "verification_evidence",
+        "process_stability",
+        "optimization_recommendations"
+      ],
+      "default_scope": "current_guangzhou_5_projects",
+      "flow_08_default_handling": "REGISTER_ONLY_NO_DEFAULT_PARSE",
+      "customer_visible_allowed": false,
+      "no_legal_conclusion": true,
+      "forbidden_terms": [
+        "是不是本人",
+        "确认本人",
+        "冲突成立",
+        "造假成立",
+        "违法成立"
+      ]
+    },
     "failure_repair_gate_policy": {
       "visible_page_or_attachment_but_fetch_failed_requires_repair_queue": true,
       "must_distinguish_taxonomy": [
@@ -528,8 +598,10 @@
       {
         "flow_no": "08",
         "flow_title": "投标文件公开",
-        "download_policy": "LIST_ALL_THEN_TARGETED_DOWNLOAD",
-        "parse_depth": "TEXT_PROBE_THEN_TARGETED_DEEP_PARSE",
+        "download_policy": "REGISTER_ONLY_THEN_TARGETED_PARSE_IF_TRIGGERED",
+        "parse_depth": "LIST_ONLY",
+        "default_download_required": false,
+        "default_parse_required": false,
         "index_targets": [
           "collusion_trace_index",
           "cover_bid_index",

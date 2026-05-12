@@ -167,9 +167,11 @@ class ProductAnalysisStrategyPlanTests(unittest.TestCase):
         )
 
         item = next(item for item in result["manifest"]["items"] if item["flow_no"] == "08")
-        self.assertEqual(item["download_policy"], "LIST_ALL_THEN_TARGETED_DOWNLOAD")
-        self.assertEqual(item["parse_depth"], "TEXT_PROBE_THEN_TARGETED_DEEP_PARSE")
-        self.assertNotEqual(item["parse_depth"], "DEEP_PARSE")
+        self.assertEqual(item["download_policy"], "REGISTER_ONLY_THEN_TARGETED_PARSE_IF_TRIGGERED")
+        self.assertFalse(item["download_required"])
+        self.assertEqual(item["parse_depth"], "LIST_ONLY")
+        self.assertFalse(item["parse_required"])
+        self.assertFalse(item["llm_allowed"])
 
 
 def _build_with_samples(

@@ -184,13 +184,25 @@ def _project_record(
     flow_08_cert = sum(1 for item in flow_08_stage4_items if item.get("project_manager_certificate_no"))
     candidate_cert = flow_07_cert + flow_08_cert
     has_candidate_evidence_sample = any(_flow_no(row.get("guangzhou_flow_no") or row.get("flow_no")) in {"07", "08"} for row in [*flow_samples, *parse_samples, *stage4_items])
+    flow_08_targeted_required = _flow_08_targeted_parse_required(
+        analysis_items=analysis_items,
+        stage4_items=stage4_items,
+        candidate_group_records=candidate_group_records,
+    )
+    download_samples_for_gate = [
+        sample
+        for sample in download_samples
+        if not (_flow_no(sample.get("guangzhou_flow_no") or sample.get("flow_no")) == "08" and not flow_08_targeted_required)
+    ]
+    listed_attachments_for_gate = sum(_listed_attachment_count(sample) for sample in download_samples_for_gate)
+    attachment_snapshots_for_gate = sum(len(list(sample.get("attachment_snapshot_refs") or [])) for sample in download_samples_for_gate)
     blockers = _project_blockers(
         flow_samples=flow_samples,
-        download_samples=download_samples,
+        download_samples=download_samples_for_gate,
         parse_samples=parse_samples,
         stage4_items=stage4_items,
-        listed_attachments=listed_attachments,
-        attachment_snapshots=attachment_snapshots,
+        listed_attachments=listed_attachments_for_gate,
+        attachment_snapshots=attachment_snapshots_for_gate,
         parse_attempted=parse_attempted,
         parse_success=parse_success,
         stage4_pm=stage4_pm,
@@ -225,6 +237,7 @@ def _project_record(
         "flow_07_certificate_input_count": flow_07_cert,
         "flow_08_stage4_input_count": len(flow_08_stage4_items),
         "flow_08_certificate_input_count": flow_08_cert,
+        "flow_08_targeted_parse_required": flow_08_targeted_required,
         "candidate_evidence_certificate_input_count": candidate_cert,
         "candidate_evidence_certificate_source_flows": _dedupe(
             flow
@@ -293,6 +306,11 @@ def _flow_records(
         parse_success = sum(_int((sample.get("parse_metrics") or {}).get("stage3_parse_success_count")) for sample in parse_samples)
         stage4_pm = sum(1 for item in stage4_items if item.get("project_manager_name"))
         stage4_cert = sum(1 for item in stage4_items if item.get("project_manager_certificate_no"))
+        flow_08_targeted_required = _flow_08_targeted_parse_required(
+            analysis_items=analysis_items,
+            stage4_items=stage4_items,
+            candidate_group_records=candidate_group_records,
+        )
         flow_blockers = _flow_blockers(
             flow_no=flow_no,
             analysis_items=analysis_items,
@@ -305,6 +323,7 @@ def _flow_records(
             parse_success=parse_success,
             stage4_items=stage4_items,
             stage4_certificate_inputs=stage4_cert,
+            flow_08_targeted_parse_required=flow_08_targeted_required,
         )
         records.append(
             {
@@ -328,6 +347,7 @@ def _flow_records(
                 "stage4_input_count": len(stage4_items),
                 "stage4_project_manager_input_count": stage4_pm,
                 "stage4_certificate_input_count": stage4_cert,
+                "flow_08_targeted_parse_required": flow_08_targeted_required,
                 "flow_07_certificate_gate_state": (
                     "READY_FOR_STAGE4_CERTIFICATE_VERIFICATION"
                     if flow_no == "07" and stage4_cert > 0
@@ -795,20 +815,44 @@ def _flow_blockers(
     parse_success: int,
     stage4_items: list[Mapping[str, Any]],
     stage4_certificate_inputs: int,
+    flow_08_targeted_parse_required: bool = False,
 ) -> list[str]:
     blockers: list[str] = []
-    download_required = any(str(item.get("download_policy") or "").startswith("DOWNLOAD") or str(item.get("download_policy") or "") == "LIST_ALL_THEN_TARGETED_DOWNLOAD" for item in analysis_items)
+    register_only_flow_08 = flow_no == "08" and not flow_08_targeted_parse_required and any(
+        str(item.get("download_policy") or "") == "REGISTER_ONLY_THEN_TARGETED_PARSE_IF_TRIGGERED"
+        for item in analysis_items
+    )
+    download_required = (
+        not register_only_flow_08
+        and any(
+            str(item.get("download_policy") or "").startswith("DOWNLOAD")
+            or str(item.get("download_policy") or "") == "LIST_ALL_THEN_TARGETED_DOWNLOAD"
+            for item in analysis_items
+        )
+    )
     if download_required and not download_samples:
         blockers.append("download_probe_not_run_for_required_flow")
-    if listed and snapshots < (attempted or listed):
+    if not register_only_flow_08 and listed and snapshots < (attempted or listed):
         blockers.append("attachment_snapshot_incomplete_for_flow")
-    if parse_attempted and parse_success < parse_attempted and not (flow_no in {"07", "08"} and stage4_certificate_inputs > 0):
+    if not register_only_flow_08 and parse_attempted and parse_success < parse_attempted and not (flow_no in {"07", "08"} and stage4_certificate_inputs > 0):
         blockers.append("parse_incomplete_for_flow")
-    if flow_no in {"07", "08"} and parse_samples and stage4_certificate_inputs == 0:
+    if flow_no in {"07", "08"} and parse_samples and stage4_certificate_inputs == 0 and not register_only_flow_08:
         blockers.append("candidate_evidence_certificate_input_missing_parse_required")
     elif parse_samples and not stage4_items and any(_flow_no(sample.get("guangzhou_flow_no") or sample.get("flow_no")) == "08" for sample in parse_samples):
         blockers.append("candidate_stage4_input_missing_for_flow")
     return blockers
+
+
+def _flow_08_targeted_parse_required(
+    *,
+    analysis_items: list[Mapping[str, Any]],
+    stage4_items: list[Mapping[str, Any]],
+    candidate_group_records: list[Mapping[str, Any]],
+) -> bool:
+    return any(
+        bool(item.get("flow_08_targeted_parse_required"))
+        for item in [*analysis_items, *stage4_items, *candidate_group_records]
+    )
 
 
 def _project_ids(
