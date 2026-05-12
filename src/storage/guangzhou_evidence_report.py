@@ -401,6 +401,21 @@ def _summary(
         "gdcic_readback_ready_count": _int(
             (gdcic_query_manifest.get("summary") or {}).get("gdcic_readback_ready_count")
         ),
+        "gdcic_person_directory_readback_ready_count": _int(
+            (gdcic_query_manifest.get("summary") or {}).get("gdcic_person_directory_readback_ready_count")
+        ),
+        "gdcic_company_project_readback_ready_count": _int(
+            (gdcic_query_manifest.get("summary") or {}).get("gdcic_company_project_readback_ready_count")
+        ),
+        "gdcic_certificate_route_readback_ready_count": _int(
+            (gdcic_query_manifest.get("summary") or {}).get("gdcic_certificate_route_readback_ready_count")
+        ),
+        "gdcic_certificate_field_candidate_count": _int(
+            (gdcic_query_manifest.get("summary") or {}).get("gdcic_certificate_field_candidate_count")
+        ),
+        "gdcic_captcha_blocked_task_count": _int(
+            (gdcic_query_manifest.get("summary") or {}).get("gdcic_captcha_blocked_task_count")
+        ),
         "gdcic_blocker_taxonomy_counts": dict(
             (gdcic_query_manifest.get("summary") or {}).get("gdcic_blocker_taxonomy_counts") or {}
         ),

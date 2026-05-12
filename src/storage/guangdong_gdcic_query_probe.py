@@ -911,6 +911,12 @@ def _summary(
     blockers = _counts(
         blocker for task in query_task_records for blocker in _list(task.get("blocker_taxonomy"))
     )
+    route_state_counts = _counts(
+        route.get("route_state")
+        for task in query_task_records
+        for route in _list(task.get("route_attempts"))
+        if isinstance(route, Mapping)
+    )
     return {
         "probe_state": "READY" if not blocking_reasons else "INPUT_BLOCKED",
         "execution_mode": execution_mode,
@@ -918,14 +924,42 @@ def _summary(
         "gdcic_query_probe_task_count": len(query_task_records),
         "project_count": len(project_task_records),
         "gdcic_readback_ready_count": sum(1 for task in query_task_records if bool(task.get("readback_ready"))),
+        "gdcic_person_directory_readback_ready_count": sum(
+            1 for task in query_task_records if _task_has_ready_route_group(task, {"person_directory", "person_directory_followup"})
+        ),
+        "gdcic_company_project_readback_ready_count": sum(
+            1 for task in query_task_records if _task_has_ready_route_group(task, {"company_project_evidence", "project_public_record"})
+        ),
+        "gdcic_certificate_route_readback_ready_count": sum(
+            1 for task in query_task_records if _task_has_ready_route_group(task, {"person_certificate_followup"})
+        ),
+        "gdcic_certificate_field_candidate_count": sum(
+            1 for task in query_task_records if _list((task.get("field_summary") or {}).get("sample_certificate_nos"))
+        ),
+        "gdcic_captcha_blocked_task_count": sum(
+            1 for task in query_task_records if "gdcic_captcha_required" in _list(task.get("blocker_taxonomy"))
+        ),
         "review_required_count": sum(1 for task in query_task_records if str(task.get("query_probe_state") or "") == "REVIEW_REQUIRED"),
         "fail_closed_count": sum(1 for task in query_task_records if str(task.get("query_probe_state") or "").startswith("FAIL_CLOSED")),
         "query_probe_state_counts": states,
+        "gdcic_route_state_counts": route_state_counts,
         "gdcic_blocker_taxonomy_counts": blockers,
         "blocking_reasons": list(blocking_reasons),
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,
     }
+
+
+def _task_has_ready_route_group(task: Mapping[str, Any], groups: set[str]) -> bool:
+    for route in _list(task.get("route_attempts")):
+        if not isinstance(route, Mapping):
+            continue
+        if (
+            str(route.get("route_state") or "") == "READBACK_READY_PUBLIC_SOURCE"
+            and str(route.get("route_group") or "") in groups
+        ):
+            return True
+    return False
 
 
 def _load_json(path: Path, blocking_reasons: list[str], missing_reason: str) -> dict[str, Any]:

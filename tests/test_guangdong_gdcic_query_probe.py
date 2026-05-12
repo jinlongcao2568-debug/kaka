@@ -100,6 +100,9 @@ class GuangdongGdcicQueryProbeTests(unittest.TestCase):
             self.assertTrue(result["safe_to_execute"])
             self.assertEqual(result["summary"]["execution_mode"], "LIVE_PUBLIC_QUERY_ATTEMPTED")
             self.assertEqual(result["summary"]["gdcic_readback_ready_count"], 1)
+            self.assertEqual(result["summary"]["gdcic_person_directory_readback_ready_count"], 1)
+            self.assertEqual(result["summary"]["gdcic_certificate_route_readback_ready_count"], 1)
+            self.assertEqual(result["summary"]["gdcic_certificate_field_candidate_count"], 1)
             task = result["manifest"]["query_task_records"][0]
             self.assertEqual(task["query_probe_state"], "READBACK_READY_PUBLIC_SOURCE")
             self.assertGreaterEqual(task["field_summary"]["record_count"], 2)
