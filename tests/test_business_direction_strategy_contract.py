@@ -251,6 +251,22 @@ class BusinessDirectionStrategyContractTests(unittest.TestCase):
 
         self.assertEqual(conflict_policy["first_version_execution_mode"], "PLAN_ONLY")
         self.assertIn("construction_permit", conflict_policy["source_categories"])
+        major_region_policy = conflict_policy["major_target_region_source_catalog_policy"]
+        self.assertEqual(
+            major_region_policy["scope_mode"],
+            "NATIONAL_DISCOVERY_THEN_MAJOR_REGION_TARGETED_VERIFICATION",
+        )
+        self.assertFalse(major_region_policy["all_region_bruteforce_required"])
+        self.assertEqual(
+            major_region_policy["default_execution_state"],
+            "PLAN_ONLY_UNTIL_REGION_ADAPTER_VERIFIED",
+        )
+        for region_code in ("CN-ZJ", "CN-SC", "CN-JS", "CN-HB", "CN-SD", "CN-HN", "CN-HA"):
+            self.assertIn(region_code, major_region_policy["target_region_codes"])
+        self.assertIn(
+            "do_not_treat_plan_only_source_as_live_verified",
+            major_region_policy["must_not"],
+        )
         self.assertIn(
             "do_not_output_final_active_conflict_conclusion_without_replayable_sources",
             conflict_policy["must_not"],

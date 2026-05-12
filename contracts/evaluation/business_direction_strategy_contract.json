@@ -1,6 +1,6 @@
 {
   "contract_id": "BUSINESS-DIRECTION-STRATEGY-CONTRACT",
-  "contract_version": 7,
+  "contract_version": 8,
   "purpose": "固定招投标分析产品的双线业务方向，避免后续开发把招标公告文件链路验证误当成核心商业主线。",
   "primary_commercial_line": "POST_CANDIDATE_EVIDENCE_PACK",
   "default_when_ambiguous": "POST_CANDIDATE_EVIDENCE_PACK",
@@ -496,6 +496,35 @@
         "administrative_penalty_or_complaint_decision",
         "public_web_clues_with_replayable_source_url"
       ],
+      "major_target_region_source_catalog_policy": {
+        "policy_id": "MAJOR-PROVINCE-TARGET-REGION-SOURCE-CATALOG-V1",
+        "scope_mode": "NATIONAL_DISCOVERY_THEN_MAJOR_REGION_TARGETED_VERIFICATION",
+        "purpose": "业绩、在建和履约冲突核验不固定广东；先用全国平台发现人员、企业和项目出现地区，再按重点省份公开源定向核验。",
+        "all_region_bruteforce_required": false,
+        "default_execution_state": "PLAN_ONLY_UNTIL_REGION_ADAPTER_VERIFIED",
+        "target_region_codes": [
+          "CN-ZJ",
+          "CN-SC",
+          "CN-JS",
+          "CN-HB",
+          "CN-SD",
+          "CN-HN",
+          "CN-HA"
+        ],
+        "activation_conditions": [
+          "candidate_company_registered_or_appeared_region_matches_catalog",
+          "jzsc_discovered_region_codes_matches_catalog",
+          "bid_file_or_candidate_notice_declared_performance_region_matches_catalog",
+          "manual_target_region_requested"
+        ],
+        "must_not": [
+          "do_not_bruteforce_all_provinces_before_region_discovery",
+          "do_not_treat_plan_only_source_as_live_verified",
+          "do_not_infer_no_active_conflict_from_missing_major_region_adapter"
+        ],
+        "customer_visible_allowed": false,
+        "no_legal_conclusion": true
+      },
       "must_not": [
         "do_not_treat_jzsc_missing_project_as_no_active_conflict",
         "do_not_treat_jzsc_missing_performance_as_performance_fraud",

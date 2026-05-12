@@ -20,6 +20,95 @@ GUANGDONG_HARD_DEFECT_REQUIRED_SOURCE_TYPES = (
     "complaint_or_supervision_decision",
 )
 
+MAJOR_TARGET_REGION_REQUIRED_SOURCE_TYPES = (
+    "construction_permit",
+    "contract_public_info",
+    "completion_filing",
+    "project_manager_change_notice",
+    "personnel_public_record",
+    "performance_public_record",
+)
+
+MAJOR_TARGET_REGION_SOURCE_CATALOG = (
+    {
+        "region_code": "CN-ZJ",
+        "region_name": "浙江",
+        "entry_id": "ZJ-JZSC-PUBLIC-SERVICE",
+        "source_profile_id": "ZHEJIANG-JZSC-PUBLIC-SERVICE",
+        "source_name": "浙江省建筑市场监管公共服务系统",
+        "source_url": "https://jzsc.jst.zj.gov.cn/webserver/app/index.html",
+        "official_reference_url": "https://jst.zj.gov.cn/art/2021/9/14/art_1229159345_58927639.html",
+        "runtime_status": "ENTRY_PORTAL_VERIFIED_ADAPTER_PENDING",
+        "next_adapter": "zhejiang_construction_market_public_service_query_adapter",
+    },
+    {
+        "region_code": "CN-SC",
+        "region_name": "四川",
+        "entry_id": "SC-JZSC-PUBLIC-SERVICE",
+        "source_profile_id": "SICHUAN-JZSC-PUBLIC-SERVICE",
+        "source_name": "四川省建筑市场监管公共服务平台",
+        "source_url": "https://jst.sc.gov.cn/scjst/businesSys/sys_list.shtml",
+        "official_reference_url": "https://jst.sc.gov.cn/scjst/c101428/2020/12/16/524a5e292df5461996313971cdf85f3f.shtml",
+        "runtime_status": "ENTRY_PORTAL_VERIFIED_ADAPTER_PENDING",
+        "next_adapter": "sichuan_construction_market_public_service_query_adapter",
+    },
+    {
+        "region_code": "CN-JS",
+        "region_name": "江苏",
+        "entry_id": "JS-JZSC-INTEGRATED-PLATFORM",
+        "source_profile_id": "JIANGSU-JZSC-INTEGRATED-PLATFORM",
+        "source_name": "江苏省建筑市场监管与诚信管理一体化平台",
+        "source_url": "https://jsszfhcxjst.jiangsu.gov.cn/",
+        "official_reference_url": "https://jsszfhcxjst.jiangsu.gov.cn/art/2025/2/20/art_49384_11496246.html",
+        "runtime_status": "OFFICIAL_PLATFORM_REFERENCED_ADAPTER_PENDING",
+        "next_adapter": "jiangsu_construction_market_integrated_platform_query_adapter",
+    },
+    {
+        "region_code": "CN-HB",
+        "region_name": "湖北",
+        "entry_id": "HB-JZSC-INTEGRITY-PLATFORM",
+        "source_profile_id": "HUBEI-JZSC-INTEGRITY-PLATFORM",
+        "source_name": "湖北省建筑市场监督与诚信一体化平台",
+        "source_url": "https://hbjz.hbcic.net.cn/",
+        "official_reference_url": "https://hbjz.hbcic.net.cn/",
+        "runtime_status": "ENTRY_PORTAL_VERIFIED_ADAPTER_PENDING",
+        "next_adapter": "hubei_construction_market_integrity_platform_query_adapter",
+    },
+    {
+        "region_code": "CN-SD",
+        "region_name": "山东",
+        "entry_id": "SD-JZSC-CREDIT-SUPERVISION-PLATFORM",
+        "source_profile_id": "SHANDONG-JZSC-CREDIT-SUPERVISION-PLATFORM",
+        "source_name": "山东省住房城乡建设服务监管与信用信息综合平台 / 建筑市场监管与诚信信息一体化平台",
+        "source_url": "https://zjt.shandong.gov.cn/",
+        "official_reference_url": "https://zwfwzx.jining.gov.cn/art/2022/5/26/art_32745_2707826.html",
+        "runtime_status": "SOURCE_ANALYSIS_REQUIRED_ADAPTER_PENDING",
+        "next_adapter": "shandong_construction_market_credit_supervision_query_adapter",
+    },
+    {
+        "region_code": "CN-HN",
+        "region_name": "湖南",
+        "entry_id": "HN-JZSC-PUBLIC-SERVICE",
+        "source_profile_id": "HUNAN-JZSC-PUBLIC-SERVICE",
+        "source_name": "湖南省建筑市场监管公共服务平台 / 智慧住建云",
+        "source_url": "https://www.hunanjs.gov.cn/",
+        "official_reference_url": "https://zjt.hunan.gov.cn/xxgk/xinxigongkaimulu/tzgg/tzgg2jzgl/201906/t20190614_5357245.html",
+        "runtime_status": "ENTRY_PORTAL_VERIFIED_ADAPTER_PENDING",
+        "next_adapter": "hunan_construction_market_public_service_query_adapter",
+    },
+    {
+        "region_code": "CN-HA",
+        "region_name": "河南",
+        "entry_id": "HA-JZSC-PUBLIC-SERVICE",
+        "source_profile_id": "HENAN-JZSC-PUBLIC-SERVICE",
+        "source_name": "河南省建筑市场监管公共服务平台",
+        "source_url": "https://hngcjs.hnjs.henan.gov.cn/site/",
+        "official_reference_url": "https://hngcjs.hnjs.henan.gov.cn/site/",
+        "runtime_status": "ENTRY_PORTAL_VERIFIED_ADAPTER_PENDING",
+        "next_adapter": "henan_construction_market_public_service_query_adapter",
+    },
+)
+
 
 def build_regional_hard_defect_source_plan(
     candidate: Mapping[str, Any],
@@ -75,7 +164,10 @@ def _build_guangdong_source_plan(
             "project_manager_active_conflict_requires_national_discovery_then_targeted_regions",
             "current_region_only_cannot_prove_no_active_conflict",
             "all_region_bruteforce_not_required",
+            "major_region_source_catalog_is_plan_only_until_adapter_verified",
         ],
+        "major_target_region_policy": _major_target_region_policy(),
+        "major_target_region_source_entries": _major_target_region_source_entries(),
         "source_entries": [
             {
                 "entry_id": "NATIONAL-JZSC-COMPANY-MANAGER-REGION-DISCOVERY",
@@ -220,6 +312,7 @@ def _build_guangdong_source_plan(
                 "runtime_status": "ENTRY_PORTAL_PENDING_PROJECT_SUBJECT_QUERY",
                 "next_adapter": "guangdong_credit_subject_query_adapter",
             },
+            *_major_target_region_source_entries(),
         ],
         "no_no-risk_inference_without_sources": True,
         "next_required_runtime_adapters": [
@@ -231,6 +324,7 @@ def _build_guangdong_source_plan(
             "guangdong_housing_penalty_list_query_adapter",
             "guangdong_credit_subject_query_adapter",
             "national_credit_subject_query_adapter",
+            *_major_target_region_next_adapters(),
         ],
     }
 
@@ -262,15 +356,73 @@ def _build_generic_source_plan(
             "project_manager_active_conflict_requires_national_discovery_then_targeted_regions",
             "current_region_only_cannot_prove_no_active_conflict",
             "all_region_bruteforce_not_required",
+            "major_region_source_catalog_is_plan_only_until_adapter_verified",
         ],
-        "source_entries": [],
+        "major_target_region_policy": _major_target_region_policy(),
+        "major_target_region_source_entries": _major_target_region_source_entries(),
+        "source_entries": _major_target_region_source_entries(),
         "no_no-risk_inference_without_sources": True,
         "next_required_runtime_adapters": [
             "jzsc_company_manager_project_region_discovery",
             "targeted_regional_project_overlap_verification_adapter",
             "region_specific_hard_defect_source_adapter",
+            *_major_target_region_next_adapters(),
         ],
     }
+
+
+def _major_target_region_policy() -> dict[str, Any]:
+    return {
+        "policy_id": "MAJOR-PROVINCE-TARGET-REGION-SOURCE-CATALOG-V1",
+        "scope_mode": "NATIONAL_DISCOVERY_THEN_MAJOR_REGION_TARGETED_VERIFICATION",
+        "purpose": "项目负责人业绩、在建和履约冲突不限定广东；先由全国平台发现人员和公司出现地区，再优先核验重点省份公开源。",
+        "all_region_bruteforce_required": False,
+        "target_region_codes": [str(item["region_code"]) for item in MAJOR_TARGET_REGION_SOURCE_CATALOG],
+        "activation_conditions": [
+            "candidate_company_registered_or_appeared_region_matches_catalog",
+            "jzsc_discovered_region_codes_matches_catalog",
+            "bid_file_or_candidate_notice_declared_performance_region_matches_catalog",
+            "manual_target_region_requested",
+        ],
+        "default_execution_state": "PLAN_ONLY_UNTIL_REGION_ADAPTER_VERIFIED",
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
+
+
+def _major_target_region_source_entries() -> list[dict[str, Any]]:
+    entries: list[dict[str, Any]] = []
+    for item in MAJOR_TARGET_REGION_SOURCE_CATALOG:
+        entries.append(
+            {
+                "entry_id": item["entry_id"],
+                "region_code": item["region_code"],
+                "region_name": item["region_name"],
+                "source_profile_id": item["source_profile_id"],
+                "source_name": item["source_name"],
+                "source_url": item["source_url"],
+                "official_reference_url": item["official_reference_url"],
+                "source_family": "regional_construction_market_public_service",
+                "target_source_types": list(MAJOR_TARGET_REGION_REQUIRED_SOURCE_TYPES),
+                "scope_mode": "TARGETED_REGION_AFTER_NATIONAL_DISCOVERY_OR_DECLARED_PERFORMANCE",
+                "query_keys": [
+                    "candidate_company",
+                    "project_manager_name",
+                    "project_manager_certificate_no",
+                    "declared_performance_project_name",
+                    "discovered_region_codes",
+                ],
+                "runtime_status": item["runtime_status"],
+                "next_adapter": item["next_adapter"],
+                "customer_visible_allowed": False,
+                "no_legal_conclusion": True,
+            }
+        )
+    return entries
+
+
+def _major_target_region_next_adapters() -> list[str]:
+    return [str(item["next_adapter"]) for item in MAJOR_TARGET_REGION_SOURCE_CATALOG]
 
 
 def _normalized_source_types(values: list[str] | tuple[str, ...] | set[str] | None) -> set[str]:
@@ -279,5 +431,6 @@ def _normalized_source_types(values: list[str] | tuple[str, ...] | set[str] | No
 
 __all__ = [
     "GUANGDONG_HARD_DEFECT_REQUIRED_SOURCE_TYPES",
+    "MAJOR_TARGET_REGION_SOURCE_CATALOG",
     "build_regional_hard_defect_source_plan",
 ]

@@ -42,11 +42,23 @@ class GuangzhouActiveConflictProbeTests(unittest.TestCase):
             self.assertIn("project_manager_change_notice", summary["source_category_counts"])
             self.assertIn("administrative_penalty_public_record", summary["source_category_counts"])
             self.assertIn("jzsc_company_first_project_manager_active_conflict_query", summary["next_required_runtime_adapters"])
+            self.assertIn("zhejiang_construction_market_public_service_query_adapter", summary["next_required_runtime_adapters"])
+            self.assertIn("sichuan_construction_market_public_service_query_adapter", summary["next_required_runtime_adapters"])
+            self.assertIn("jiangsu_construction_market_integrated_platform_query_adapter", summary["next_required_runtime_adapters"])
+            self.assertIn("shandong_construction_market_credit_supervision_query_adapter", summary["next_required_runtime_adapters"])
             task = result["manifest"]["task_records"][0]
             self.assertEqual(task["probe_state"], "PLAN_ONLY_NOT_EXECUTED")
             self.assertTrue(task["company_query_variants"])
             self.assertTrue(task["query_keywords"])
             self.assertTrue(task["source_entries"])
+            source_profile_ids = {entry["source_profile_id"] for entry in task["source_entries"]}
+            self.assertIn("ZHEJIANG-JZSC-PUBLIC-SERVICE", source_profile_ids)
+            self.assertIn("SICHUAN-JZSC-PUBLIC-SERVICE", source_profile_ids)
+            self.assertIn("JIANGSU-JZSC-INTEGRATED-PLATFORM", source_profile_ids)
+            self.assertIn("SHANDONG-JZSC-CREDIT-SUPERVISION-PLATFORM", source_profile_ids)
+            source_region_codes = {entry["region_code"] for entry in task["source_entries"]}
+            self.assertIn("CN-ZJ", source_region_codes)
+            self.assertIn("CN-SD", source_region_codes)
             self.assertEqual(task["candidate_notice_source_urls"], ["https://example.test/07.html"])
             self.assertTrue(result["manifest"]["manual_check_table"])
             text = json.dumps(result, ensure_ascii=False)

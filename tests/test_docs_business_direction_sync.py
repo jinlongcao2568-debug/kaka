@@ -135,6 +135,9 @@ def test_business_direction_doc_contains_final_analysis_strategy_rules() -> None
     assert "过程稳定性" in text
     assert "优化建议" in text
     assert "`ActiveConflictProbe v1` 第一版只生成外部核验任务清单" in text
+    assert "不能固定广东" in text
+    assert "浙江、四川、江苏、湖北、山东、湖南、河南" in text
+    assert "PLAN_ONLY_UNTIL_REGION_ADAPTER_VERIFIED" in text
     assert "不得因为公司优先补证未命中就直接写“冲突成立”" in text
     assert "公开注册信息匹配" in text
     assert "不得写“核实是不是本人”" in text
@@ -171,6 +174,8 @@ def test_top_level_docs_contain_final_strategy_guardrails() -> None:
         assert "公开注册信息" in text
         assert "是不是本人" in text
         assert "08" in text and ("不默认下载" in text or "不默认下载或解析" in text)
+        assert "浙江、四川、江苏、湖北、山东、湖南、河南" in text
+        assert "PLAN_ONLY_UNTIL_REGION_ADAPTER_VERIFIED" in text
 
 
 def test_stage45_runbook_contains_responsible_person_early_probe_decision_tree() -> None:
@@ -191,6 +196,8 @@ def test_stage45_runbook_contains_responsible_person_early_probe_decision_tree()
     assert "姓名 + 公司/注册单位" in text
     assert "四库/JZSC 的人员项目页和企业项目页只能作为身份消歧" in text
     assert "不能作为实时在建冲突唯一依据" in text
+    assert "浙江、四川、江苏、湖北、山东、湖南、河南" in text
+    assert "PLAN_ONLY_UNTIL_REGION_ADAPTER_VERIFIED" in text
 
 
 def test_navigation_docs_do_not_drift_from_analysis_strategy_v1() -> None:

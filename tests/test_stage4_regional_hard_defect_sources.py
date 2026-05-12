@@ -41,8 +41,48 @@ class Stage4RegionalHardDefectSourcePlanTests(unittest.TestCase):
         self.assertIn("GD-GDCIC-SKYPT-PROJECT", entry_ids)
         self.assertIn("GD-GDCIC-CONTRACT-PERFORMANCE", entry_ids)
         self.assertIn("GD-ZFCXJST-PENALTY", entry_ids)
+        self.assertIn("ZJ-JZSC-PUBLIC-SERVICE", entry_ids)
+        self.assertIn("SC-JZSC-PUBLIC-SERVICE", entry_ids)
+        self.assertIn("JS-JZSC-INTEGRATED-PLATFORM", entry_ids)
+        self.assertIn("HB-JZSC-INTEGRITY-PLATFORM", entry_ids)
+        self.assertIn("SD-JZSC-CREDIT-SUPERVISION-PLATFORM", entry_ids)
+        self.assertIn("HN-JZSC-PUBLIC-SERVICE", entry_ids)
+        self.assertIn("HA-JZSC-PUBLIC-SERVICE", entry_ids)
+        self.assertEqual(
+            plan["major_target_region_policy"]["scope_mode"],
+            "NATIONAL_DISCOVERY_THEN_MAJOR_REGION_TARGETED_VERIFICATION",
+        )
+        self.assertFalse(plan["major_target_region_policy"]["all_region_bruteforce_required"])
+        self.assertIn("CN-ZJ", plan["major_target_region_policy"]["target_region_codes"])
+        self.assertIn("CN-SD", plan["major_target_region_policy"]["target_region_codes"])
+        self.assertIn(
+            "zhejiang_construction_market_public_service_query_adapter",
+            plan["next_required_runtime_adapters"],
+        )
         self.assertEqual(plan["query_context"]["project_name"], "广东市政道路工程")
         self.assertTrue(plan["no_no-risk_inference_without_sources"])
+
+    def test_generic_plan_still_exposes_major_region_catalog_for_cross_region_checks(self) -> None:
+        plan = build_regional_hard_defect_source_plan(
+            {
+                "project_id": "PROJ-OTHER-001",
+                "project_name": "跨省业绩项目",
+                "candidate_company": "外省测试建设有限公司",
+                "project_manager_name": "李四",
+                "region_code": "CN-NATIONAL",
+            }
+        )
+
+        entry_regions = {entry["region_code"] for entry in plan["source_entries"]}
+        self.assertIn("CN-ZJ", entry_regions)
+        self.assertIn("CN-SC", entry_regions)
+        self.assertIn("CN-JS", entry_regions)
+        self.assertIn("CN-SD", entry_regions)
+        self.assertIn("major_region_source_catalog_is_plan_only_until_adapter_verified", plan["scope_warnings"])
+        self.assertIn(
+            "jiangsu_construction_market_integrated_platform_query_adapter",
+            plan["next_required_runtime_adapters"],
+        )
 
 
 if __name__ == "__main__":

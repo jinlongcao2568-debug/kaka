@@ -257,6 +257,8 @@ def _source_entry_summaries(source_plan: Mapping[str, Any]) -> list[dict[str, An
         entries.append(
             {
                 "entry_id": str(entry.get("entry_id") or ""),
+                "region_code": str(entry.get("region_code") or ""),
+                "region_name": str(entry.get("region_name") or ""),
                 "source_profile_id": str(entry.get("source_profile_id") or ""),
                 "source_name": str(entry.get("source_name") or ""),
                 "source_url": str(entry.get("source_url") or ""),
