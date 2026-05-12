@@ -5,6 +5,7 @@ param(
     [string]$Stage4ExecutionRoot = "",
     [string]$ReadinessRoot = "",
     [string]$ActiveConflictProbeRoot = "",
+    [string]$GdcicQueryProbeRoot = "",
     [string]$OutputRoot = "",
     [switch]$EmitJson
 )
@@ -32,6 +33,9 @@ if (-not $ReadinessRoot) {
 if (-not $ActiveConflictProbeRoot) {
     $ActiveConflictProbeRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\guangzhou-active-conflict-probe-v1"
 }
+if (-not $GdcicQueryProbeRoot) {
+    $GdcicQueryProbeRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\guangdong-gdcic-query-probe-v1"
+}
 if (-not $OutputRoot) {
     $OutputRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\guangzhou-evidence-report-v1"
 }
@@ -48,6 +52,7 @@ $argsList = @(
     "--stage4-execution-root", $Stage4ExecutionRoot,
     "--readiness-root", $ReadinessRoot,
     "--active-conflict-probe-root", $ActiveConflictProbeRoot,
+    "--gdcic-query-probe-root", $GdcicQueryProbeRoot,
     "--output-root", $OutputRoot
 )
 

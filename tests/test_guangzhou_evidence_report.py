@@ -120,6 +120,42 @@ class GuangzhouEvidenceReportTests(unittest.TestCase):
                 [item["recommended_action"] for item in project["optimization_recommendations"]],
             )
 
+    def test_report_consumes_gdcic_query_probe_summary_when_available(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_flow_root(root / "flow")
+            _write_download_root(root / "download")
+            _write_responsible_root(root / "responsible")
+            _write_stage4_root(root / "stage4")
+            _write_readiness_root(root / "readiness", flow_08_required=False)
+            _write_active_conflict_root(root / "active-conflict")
+            _write_gdcic_query_root(root / "gdcic")
+
+            result = build_guangzhou_evidence_report(
+                flow_root=root / "flow",
+                download_root=root / "download",
+                responsible_person_root=root / "responsible",
+                stage4_execution_root=root / "stage4",
+                readiness_root=root / "readiness",
+                active_conflict_probe_root=root / "active-conflict",
+                gdcic_query_probe_root=root / "gdcic",
+                output_root=root / "out",
+                created_at="2026-05-12T00:00:00+08:00",
+            )
+
+            self.assertEqual(result["summary"]["gdcic_probe_state"], "READY")
+            self.assertEqual(result["summary"]["gdcic_query_probe_task_count"], 1)
+            self.assertEqual(result["summary"]["gdcic_readback_ready_count"], 1)
+            self.assertEqual(result["summary"]["gdcic_blocker_taxonomy_counts"], {"gdcic_public_query_empty_review": 1})
+            project = result["manifest"]["project_reports"][0]
+            evidence = project["verification_evidence"]
+            self.assertEqual(evidence["gdcic_probe_state"], "READY")
+            self.assertEqual(evidence["gdcic_readback_ready_count"], 1)
+            self.assertIn(
+                "GDCIC_PUBLIC_SOURCE_READBACK_READY",
+                [item["recommended_action"] for item in project["optimization_recommendations"]],
+            )
+
 
 def _write_flow_root(root: Path) -> None:
     root.mkdir(parents=True, exist_ok=True)
@@ -252,6 +288,34 @@ def _write_active_conflict_root(root: Path) -> None:
         }
     }
     (root / "guangzhou-active-conflict-probe-v1.json").write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+
+def _write_gdcic_query_root(root: Path) -> None:
+    root.mkdir(parents=True, exist_ok=True)
+    project_record = {
+        "project_id": "PROJ-CN-GD-JG2026-10815",
+        "project_name": "广州测试项目",
+        "query_task_ids": ["GD-GDCIC-QUERY-1"],
+        "query_task_count": 1,
+        "readback_ready_count": 1,
+        "blocker_taxonomy_counts": {"gdcic_public_query_empty_review": 1},
+    }
+    payload = {
+        "manifest": {
+            "manifest_kind": "guangdong_gdcic_query_probe_v1_manifest",
+            "project_task_records": [project_record],
+            "summary": {
+                "probe_state": "READY",
+                "gdcic_query_probe_task_count": 1,
+                "gdcic_readback_ready_count": 1,
+                "gdcic_blocker_taxonomy_counts": {"gdcic_public_query_empty_review": 1},
+            },
+        }
+    }
+    (root / "guangdong-gdcic-query-probe-v1.json").write_text(
         json.dumps(payload, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
