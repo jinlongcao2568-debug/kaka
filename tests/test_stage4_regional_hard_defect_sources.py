@@ -78,6 +78,10 @@ class Stage4RegionalHardDefectSourcePlanTests(unittest.TestCase):
             "https://zfcj.gz.gov.cn/ysqgk/Api/WebApi/gcjgysxxlb.ashx",
         )
         self.assertEqual(
+            gz_subsources["gz_zfcj_completion_acceptance_public_api"]["runtime_status"],
+            "PUBLIC_POST_JSON_API_VERIFIED",
+        )
+        self.assertEqual(
             gz_subsources["gz_zfcj_contract_credit_public_portal"]["source_url"],
             "https://113.108.173.251:8080/",
         )

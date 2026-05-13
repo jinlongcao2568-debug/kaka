@@ -76,6 +76,12 @@ class GuangzhouActiveConflictProbeTests(unittest.TestCase):
             )
             self.assertTrue(zhejiang_entry["official_reference_url"])
             self.assertEqual(task["candidate_notice_source_urls"], ["https://example.test/07.html"])
+            self.assertEqual(task["release_evidence_matrix"]["matrix_state"], "RELEASE_READBACK_REQUIRED")
+            self.assertIn(
+                "completion_acceptance_or_completion_filing",
+                task["release_evidence_matrix"]["release_evidence_targets"],
+            )
+            self.assertTrue(task["release_evidence_matrix"]["time_window_required"])
             self.assertTrue(result["manifest"]["manual_check_table"])
             text = json.dumps(result, ensure_ascii=False)
             for term in ("冲突成立", "造假成立", "违法成立", "确认本人"):

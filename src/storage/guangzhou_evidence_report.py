@@ -229,6 +229,11 @@ def _project_report(
     targeted_parse_required = any(bool(row.get("flow_08_targeted_parse_required")) for row in group_records) or bool(
         responsible_item.get("flow_08_targeted_parse_required")
     )
+    release_evidence_matrix = _release_evidence_matrix(
+        project_id=project_id,
+        group_records=group_records,
+        guangdong_local_field_tasks=guangdong_local_field_tasks,
+    )
     verification_evidence = {
         "project_id": project_id,
         "project_name": _project_name(project_id, flow_items, download_items, responsible_item, readiness_project),
@@ -246,6 +251,12 @@ def _project_report(
             "TASKS_READY"
             if active_conflict_project
             else "PLAN_ONLY_TASKS_NOT_BUILT"
+        ),
+        "release_evidence_matrix": release_evidence_matrix,
+        "release_evidence_matrix_state": (
+            "RELEASE_SOURCE_READBACK_PRESENT_REVIEW_REQUIRED"
+            if any(row.get("release_source_readback_present") for row in release_evidence_matrix)
+            else "RELEASE_READBACK_REQUIRED"
         ),
         "active_conflict_probe_task_ids": _list(active_conflict_project.get("task_ids")),
         "gdcic_probe_state": (
@@ -397,12 +408,120 @@ def _active_conflict_tasks(*, project_id: str, group_records: list[Mapping[str, 
                 "company_names": companies,
                 "probe_state": "PLAN_ONLY_NOT_EXECUTED",
                 "source_categories": list(ACTIVE_CONFLICT_SOURCE_CATEGORIES),
+                "release_evidence_matrix": _release_evidence_matrix_for_group(
+                    project_id=project_id,
+                    group=group,
+                    project_level_readback_counts={},
+                ),
                 "jzsc_usage_boundary": "AUXILIARY_ONLY_NOT_REALTIME_ACTIVE_CONFLICT_SINGLE_SOURCE",
                 "customer_visible_allowed": False,
                 "no_legal_conclusion": True,
             }
         )
     return tasks
+
+
+def _release_evidence_matrix(
+    *,
+    project_id: str,
+    group_records: list[Mapping[str, Any]],
+    guangdong_local_field_tasks: list[Mapping[str, Any]],
+) -> list[dict[str, Any]]:
+    project_level_readback_counts = _local_field_release_readback_counts(guangdong_local_field_tasks)
+    matrix: list[dict[str, Any]] = []
+    for group in group_records:
+        if not _text(group.get("responsible_person_name")):
+            continue
+        matrix.append(
+            _release_evidence_matrix_for_group(
+                project_id=project_id,
+                group=group,
+                project_level_readback_counts=project_level_readback_counts,
+            )
+        )
+    return matrix
+
+
+def _release_evidence_matrix_for_group(
+    *,
+    project_id: str,
+    group: Mapping[str, Any],
+    project_level_readback_counts: Mapping[str, int],
+) -> dict[str, Any]:
+    completion_count = _int(project_level_readback_counts.get("completion_acceptance_public_record"))
+    construction_count = _int(project_level_readback_counts.get("construction_permit_public_record"))
+    contract_count = _int(project_level_readback_counts.get("contract_or_performance_public_record"))
+    return {
+        "project_id": project_id,
+        "candidate_group_id": _text(group.get("candidate_group_id")),
+        "candidate_group_order": _text(group.get("candidate_group_order")),
+        "responsible_person_name": _text(group.get("responsible_person_name")),
+        "certificate_no": _text(group.get("certificate_no") or group.get("resolved_certificate_no_optional")),
+        "candidate_group_members": _list(group.get("candidate_group_members")),
+        "matched_company_names": _list(group.get("matched_company_names")),
+        "matrix_state": (
+            "RELEASE_SOURCE_READBACK_PRESENT_REVIEW_REQUIRED"
+            if completion_count
+            else "RELEASE_READBACK_REQUIRED"
+        ),
+        "current_project_evidence_targets": [
+            "flow_07_candidate_notice",
+            "public_registration_match",
+            "candidate_company_or_consortium_member_binding",
+        ],
+        "occupied_project_evidence_targets": [
+            "local_public_resource_candidate_or_award_notice",
+            "construction_permit",
+            "contract_filing_or_contract_public_info",
+            "performance_or_project_role_public_record",
+            "project_manager_change_notice",
+        ],
+        "release_evidence_targets": [
+            "completion_acceptance_or_completion_filing",
+            "project_manager_change_notice_or_permit_change",
+            "contract_agreed_work_acceptance_or_handover",
+            "non_contractor_suspension_over_120_days_with_construction_unit_consent",
+            "same_project_adjacent_section_or_phase_exception",
+            "guangzhou_construction_project_safety_standardization_assessment_result_notice",
+        ],
+        "project_level_readback_counts": {
+            "construction_permit_public_record": construction_count,
+            "completion_acceptance_public_record": completion_count,
+            "contract_or_performance_public_record": contract_count,
+        },
+        "release_source_readback_present": bool(completion_count),
+        "time_window_required": True,
+        "evidence_strength_state": (
+            "RELEASE_SOURCE_PRESENT_BUT_REVIEW_REQUIRED"
+            if completion_count
+            else "INSUFFICIENT_EVIDENCE_PENDING_EXTERNAL_READBACK"
+        ),
+        "allowed_internal_output_state": "PROJECT_MANAGER_RELEASE_RISK_CLUE_REVIEW",
+        "query_miss_is_not_clearance": True,
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
+
+
+def _local_field_release_readback_counts(tasks: list[Mapping[str, Any]]) -> dict[str, int]:
+    counts = {
+        "construction_permit_public_record": 0,
+        "completion_acceptance_public_record": 0,
+        "contract_or_performance_public_record": 0,
+    }
+    for task in tasks:
+        for record in _list((task.get("field_match_summary") or {}).get("source_specific_records")):
+            if not isinstance(record, Mapping):
+                continue
+            record_type = _text(record.get("record_type"))
+            adapter_id = _text(record.get("source_specific_adapter_id"))
+            if record_type == "construction_permit_public_record":
+                counts["construction_permit_public_record"] += 1
+            elif record_type == "completion_acceptance_public_record":
+                counts["completion_acceptance_public_record"] += 1
+            elif adapter_id == "guangdong_gdcic_contract_performance_public_page_v1":
+                counts["contract_or_performance_public_record"] += 1
+    return counts
 
 
 def _responsible_person_verification_chain_state(

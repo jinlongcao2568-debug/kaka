@@ -108,6 +108,14 @@ class GuangzhouEvidenceReportTests(unittest.TestCase):
             tasks = project["verification_evidence"]["active_conflict_probe_tasks"]
             self.assertEqual(tasks[0]["probe_state"], "PLAN_ONLY_NOT_EXECUTED")
             self.assertIn("construction_permit", tasks[0]["source_categories"])
+            release_matrix = project["verification_evidence"]["release_evidence_matrix"]
+            self.assertEqual(release_matrix[0]["matrix_state"], "RELEASE_READBACK_REQUIRED")
+            self.assertIn("completion_acceptance_or_completion_filing", release_matrix[0]["release_evidence_targets"])
+            self.assertIn("project_manager_change_notice_or_permit_change", release_matrix[0]["release_evidence_targets"])
+            self.assertEqual(
+                tasks[0]["release_evidence_matrix"]["evidence_strength_state"],
+                "INSUFFICIENT_EVIDENCE_PENDING_EXTERNAL_READBACK",
+            )
 
     def test_report_consumes_active_conflict_probe_summary_when_available(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -246,6 +254,16 @@ class GuangzhouEvidenceReportTests(unittest.TestCase):
             evidence = project["verification_evidence"]
             self.assertEqual(evidence["guangdong_local_field_query_probe_state"], "READY")
             self.assertEqual(evidence["guangdong_local_field_keyword_hit_count"], 1)
+            self.assertEqual(
+                evidence["release_evidence_matrix"][0]["project_level_readback_counts"][
+                    "completion_acceptance_public_record"
+                ],
+                1,
+            )
+            self.assertEqual(
+                evidence["release_evidence_matrix"][0]["matrix_state"],
+                "RELEASE_SOURCE_READBACK_PRESENT_REVIEW_REQUIRED",
+            )
             self.assertIn("GUANGZHOU-ZFCJ-CREDIT-DOUBLE-PUBLICITY", evidence["guangdong_local_field_source_profile_ids"])
             self.assertEqual(
                 evidence["local_credit_source_context"]["source_role"],
@@ -483,10 +501,17 @@ def _write_guangdong_local_field_query_root(root: Path) -> None:
             "readback_ready": True,
             "field_summary": {
                 "matched_keyword_count": 1,
-                "source_specific_adapter_id": "guangzhou_zfcj_xyxx_api_query_v1",
+                "source_specific_adapter_id": "guangzhou_zfcj_multi_public_api_query_v1",
             },
             "field_match_summary": {
-                "source_specific_records": [{"administrative_counterparty": "广州测试建设有限公司"}],
+                "source_specific_records": [
+                    {"administrative_counterparty": "广州测试建设有限公司"},
+                    {
+                        "source_specific_adapter_id": "guangzhou_zfcj_completion_acceptance_public_api_v1",
+                        "record_type": "completion_acceptance_public_record",
+                        "completion_filing_no": "穗竣备2026-001",
+                    },
+                ],
                 "query_miss_is_not_clearance": True,
             },
             "blocker_taxonomy": [],

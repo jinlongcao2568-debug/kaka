@@ -288,6 +288,12 @@ def _route_plan_for_task(task: Mapping[str, Any], query_params: Mapping[str, Any
                     "city_construction_permit_public_page_probe",
                     keywords,
                 ),
+                _route(
+                    "city_completion_acceptance_public_page",
+                    GUANGZHOU_ZFCJ_COMPLETION_ACCEPTANCE_PAGE_URL,
+                    "city_completion_acceptance_public_page_probe",
+                    keywords,
+                ),
             ]
         )
         for route in (
@@ -305,6 +311,24 @@ def _route_plan_for_task(task: Mapping[str, Any], query_params: Mapping[str, Any
             ),
             _guangzhou_zfcj_construction_permit_route(
                 "gz_zfcj_construction_permit_project",
+                "gcmc",
+                project_keyword,
+                keywords,
+            ),
+            _guangzhou_zfcj_completion_acceptance_route(
+                "gz_zfcj_completion_acceptance_sgdw_company",
+                "sgdw",
+                company_keyword,
+                keywords,
+            ),
+            _guangzhou_zfcj_completion_acceptance_route(
+                "gz_zfcj_completion_acceptance_jsdw_company",
+                "jsdw",
+                company_keyword,
+                keywords,
+            ),
+            _guangzhou_zfcj_completion_acceptance_route(
+                "gz_zfcj_completion_acceptance_project",
                 "gcmc",
                 project_keyword,
                 keywords,
@@ -517,6 +541,40 @@ def _guangzhou_zfcj_construction_permit_route(
         "query_keyword_probe": query_keywords[:5],
         "query_field": query_field,
         "source_specific_adapter_id": "guangzhou_zfcj_construction_permit_public_api_v1",
+    }
+
+
+def _guangzhou_zfcj_completion_acceptance_route(
+    route_id: str,
+    query_field: str,
+    keyword: str,
+    query_keywords: list[str],
+) -> dict[str, Any] | None:
+    keyword = str(keyword or "").strip()
+    if not keyword:
+        return None
+    params = {
+        "page": 1,
+        "pageSize": 10,
+        "gcmc": "",
+        "jsdw": "",
+        "sgdw": "",
+        "bah": "",
+    }
+    if query_field in params:
+        params[query_field] = keyword
+    query_url = f"{GUANGZHOU_ZFCJ_COMPLETION_ACCEPTANCE_API_URL}?{urllib.parse.urlencode(params)}"
+    return {
+        "route_id": route_id,
+        "route_group": "gz_zfcj_completion_acceptance_public_api",
+        "url": query_url,
+        "method": "POST",
+        "params": {},
+        "referer": GUANGZHOU_ZFCJ_COMPLETION_ACCEPTANCE_PAGE_URL,
+        "keyword_count": len(query_keywords),
+        "query_keyword_probe": query_keywords[:5],
+        "query_field": query_field,
+        "source_specific_adapter_id": "guangzhou_zfcj_completion_acceptance_public_api_v1",
     }
 
 
@@ -772,7 +830,12 @@ def _execute_live_field_query(
     credit_gd_request_interval_seconds: float | None,
 ) -> dict[str, Any]:
     if any(
-        str(route.get("source_specific_adapter_id") or "") == "guangzhou_zfcj_xyxx_api_query_v1"
+        str(route.get("source_specific_adapter_id") or "")
+        in {
+            "guangzhou_zfcj_xyxx_api_query_v1",
+            "guangzhou_zfcj_construction_permit_public_api_v1",
+            "guangzhou_zfcj_completion_acceptance_public_api_v1",
+        }
         for route in route_plan
     ):
         return _execute_guangzhou_zfcj_field_query(task, route_plan, http_getter=http_getter)
@@ -998,8 +1061,13 @@ def _execute_guangzhou_zfcj_field_query(
         if not records:
             continue
         for record in records[:5]:
-            if str(route.get("route_group") or "") == "gz_zfcj_construction_permit_public_api":
+            route_group = str(route.get("route_group") or "")
+            if route_group == "gz_zfcj_construction_permit_public_api":
                 compact = _compact_guangzhou_zfcj_construction_permit_record(record, route, keywords)
+                field_records.append(compact)
+                continue
+            if route_group == "gz_zfcj_completion_acceptance_public_api":
+                compact = _compact_guangzhou_zfcj_completion_acceptance_record(record, route, keywords)
                 field_records.append(compact)
                 continue
             compact = _compact_guangzhou_zfcj_record(record, keywords)
@@ -2172,6 +2240,52 @@ def _compact_guangzhou_zfcj_construction_permit_record(
     }
 
 
+def _compact_guangzhou_zfcj_completion_acceptance_record(
+    record: Mapping[str, Any],
+    route: Mapping[str, Any],
+    keywords: list[str],
+) -> dict[str, Any]:
+    project_name = _record_text(record, "pegcmc", "gcmc", "projectName", "xmmc")
+    construction_site = _record_text(record, "pejsdd", "jsdd", "buildingAddress")
+    builder_unit = _record_text(record, "jsdw", "buildingUnit")
+    construction_company = _record_text(record, "sgdw", "workUnit")
+    approval_department = _record_text(record, "spbm", "approvalDepartment")
+    filing_no = _record_text(record, "babh", "yjsbh", "completionFilingNo", "acceptanceNo")
+    acceptance_date = _record_text(record, "peblrq", "blrq", "jgrq", "acceptanceDate")
+    record_text = _compact_mapping_text(record)
+    matched_keywords = [
+        keyword
+        for keyword in keywords
+        if keyword
+        and (
+            keyword in project_name
+            or keyword in builder_unit
+            or keyword in construction_company
+            or keyword in filing_no
+        )
+    ][:10]
+    return {
+        "source_profile_id": GUANGZHOU_ZFCJ_PROFILE_ID,
+        "source_specific_adapter_id": "guangzhou_zfcj_completion_acceptance_public_api_v1",
+        "source_page_url": GUANGZHOU_ZFCJ_COMPLETION_ACCEPTANCE_PAGE_URL,
+        "api_url": GUANGZHOU_ZFCJ_COMPLETION_ACCEPTANCE_API_URL,
+        "route_id": str(route.get("route_id") or ""),
+        "query_field": str(route.get("query_field") or ""),
+        "record_type": "completion_acceptance_public_record",
+        "project_name_probe": project_name[:500],
+        "construction_site_probe": construction_site[:500],
+        "builder_unit_probe": builder_unit[:300],
+        "construction_company_probe": construction_company[:300],
+        "approval_department_probe": approval_department[:300],
+        "completion_filing_no": filing_no[:200],
+        "acceptance_date": acceptance_date[:100],
+        "matched_keywords": matched_keywords,
+        "record_sha256": _sha256_text(record_text),
+        "query_miss_is_not_clearance": True,
+        "readback_is_line_clue_not_final_conclusion": True,
+    }
+
+
 def _compact_guangzhou_zfcj_detail(record: Mapping[str, Any]) -> dict[str, Any]:
     if not record:
         return {}
@@ -2765,6 +2879,22 @@ def _summary(
             and any(
                 str(record.get("source_specific_adapter_id") or "")
                 == "guangzhou_zfcj_construction_permit_public_api_v1"
+                for record in _list((task.get("field_match_summary") or {}).get("source_specific_records"))
+                if isinstance(record, Mapping)
+            )
+        ),
+        "guangzhou_zfcj_completion_acceptance_readback_ready_count": sum(
+            1
+            for task in field_task_records
+            if str(task.get("source_profile_id") or "").upper() == GUANGZHOU_ZFCJ_PROFILE_ID
+            and str((task.get("field_summary") or {}).get("source_specific_adapter_id") or "")
+            in {
+                "guangzhou_zfcj_completion_acceptance_public_api_v1",
+                "guangzhou_zfcj_multi_public_api_query_v1",
+            }
+            and any(
+                str(record.get("source_specific_adapter_id") or "")
+                == "guangzhou_zfcj_completion_acceptance_public_api_v1"
                 for record in _list((task.get("field_match_summary") or {}).get("source_specific_records"))
                 if isinstance(record, Mapping)
             )

@@ -690,7 +690,7 @@
             "source_name": "广州市住房和城乡建设局 / 工程竣工验收信息",
             "source_url": "https://zfcj.gz.gov.cn/zfcj/gczlaq/completionAcceptance/",
             "api_url": "https://zfcj.gz.gov.cn/ysqgk/Api/WebApi/gcjgysxxlb.ashx",
-            "runtime_status": "PUBLIC_POST_JSON_API_VERIFIED_ADAPTER_PENDING",
+            "runtime_status": "PUBLIC_POST_JSON_API_VERIFIED",
             "target_source_types": [
               "completion_filing"
             ],
@@ -725,7 +725,8 @@
           "guangdong_tzxm_project_approval_publicity_api_v1",
           "guangdong_zfcxjst_penalty_publicity_page_v1",
           "guangzhou_zfcj_xyxx_api_query_v1",
-          "guangzhou_zfcj_construction_permit_public_api_v1"
+          "guangzhou_zfcj_construction_permit_public_api_v1",
+          "guangzhou_zfcj_completion_acceptance_public_api_v1"
         ],
         "query_route_policy": [
           "source_home_keyword_probe",
@@ -747,7 +748,7 @@
           "province_housing_site_search_probe",
           "credit_subject_search_probe",
           "guangzhou_zfcj_construction_permit_public_api_probe",
-          "guangzhou_zfcj_completion_acceptance_public_api_recorded_pending_adapter",
+          "guangzhou_zfcj_completion_acceptance_public_api_probe",
           "guangzhou_zfcj_contract_credit_official_portal_recorded_pending_adapter"
         ],
         "must_not": [

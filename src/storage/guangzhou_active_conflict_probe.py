@@ -110,6 +110,11 @@ def _task_records_from_evidence_report(*, project_reports: list[Mapping[str, Any
         project_name = str(project.get("project_name") or verification.get("project_name") or "")
         candidate_notice_source_urls = _list(verification.get("candidate_notice_source_urls"))
         project_source_urls = _list(verification.get("project_source_urls"))
+        release_matrix_by_group = {
+            str(item.get("candidate_group_id") or ""): dict(item)
+            for item in _list(verification.get("release_evidence_matrix"))
+            if isinstance(item, Mapping)
+        }
         for group in _list(verification.get("candidate_group_records")):
             if not isinstance(group, Mapping):
                 continue
@@ -171,6 +176,13 @@ def _task_records_from_evidence_report(*, project_reports: list[Mapping[str, Any
                         if isinstance(entry, Mapping)
                         for source_type in _list(entry.get("target_source_types"))
                     ),
+                    "release_evidence_matrix": release_matrix_by_group.get(
+                        str(group.get("candidate_group_id") or ""),
+                        _default_release_evidence_matrix(
+                            project_id=project_id,
+                            group=group,
+                        ),
+                    ),
                     "missing_source_types": _list(source_plan.get("missing_source_types")),
                     "next_required_runtime_adapters": _list(source_plan.get("next_required_runtime_adapters")),
                     "created_at": created_at,
@@ -179,6 +191,51 @@ def _task_records_from_evidence_report(*, project_reports: list[Mapping[str, Any
                 }
             )
     return records
+
+
+def _default_release_evidence_matrix(*, project_id: str, group: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "project_id": project_id,
+        "candidate_group_id": str(group.get("candidate_group_id") or ""),
+        "candidate_group_order": str(group.get("candidate_group_order") or ""),
+        "responsible_person_name": str(group.get("responsible_person_name") or ""),
+        "certificate_no": str(group.get("certificate_no") or ""),
+        "candidate_group_members": _list(group.get("candidate_group_members")),
+        "matched_company_names": _list(group.get("matched_company_names")),
+        "matrix_state": "RELEASE_READBACK_REQUIRED",
+        "current_project_evidence_targets": [
+            "flow_07_candidate_notice",
+            "public_registration_match",
+            "candidate_company_or_consortium_member_binding",
+        ],
+        "occupied_project_evidence_targets": [
+            "local_public_resource_candidate_or_award_notice",
+            "construction_permit",
+            "contract_filing_or_contract_public_info",
+            "performance_or_project_role_public_record",
+            "project_manager_change_notice",
+        ],
+        "release_evidence_targets": [
+            "completion_acceptance_or_completion_filing",
+            "project_manager_change_notice_or_permit_change",
+            "contract_agreed_work_acceptance_or_handover",
+            "non_contractor_suspension_over_120_days_with_construction_unit_consent",
+            "same_project_adjacent_section_or_phase_exception",
+            "guangzhou_construction_project_safety_standardization_assessment_result_notice",
+        ],
+        "project_level_readback_counts": {
+            "construction_permit_public_record": 0,
+            "completion_acceptance_public_record": 0,
+            "contract_or_performance_public_record": 0,
+        },
+        "release_source_readback_present": False,
+        "time_window_required": True,
+        "evidence_strength_state": "INSUFFICIENT_EVIDENCE_PENDING_EXTERNAL_READBACK",
+        "allowed_internal_output_state": "PROJECT_MANAGER_RELEASE_RISK_CLUE_REVIEW",
+        "query_miss_is_not_clearance": True,
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
 
 
 def _project_task_records(

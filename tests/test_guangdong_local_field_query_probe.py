@@ -220,6 +220,69 @@ class GuangdongLocalFieldQueryProbeTests(unittest.TestCase):
             self.assertEqual(record["permit_status"], "有效")
             self.assertTrue(record["query_miss_is_not_clearance"])
 
+    def test_guangzhou_completion_acceptance_public_api_readback_records_filing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            local_root = root / "local"
+            _write_local_verification(local_root)
+
+            def fake_getter(url: str, _params: Mapping[str, Any]) -> Mapping[str, Any]:
+                if "gcjgysxxlb.ashx" in url and "sgdw=" in url:
+                    return {
+                        "http_status": 200,
+                        "content_type": "application/json; charset=utf-8",
+                        "json_payload": {
+                            "currentPage": 1,
+                            "totalNum": 1,
+                            "data": [
+                                {
+                                    "pegcmc": "广州测试项目",
+                                    "babh": "穗竣备2026-001",
+                                    "pejsdd": "广州市天河区测试路1号",
+                                    "jsdw": "广州测试建设单位",
+                                    "sgdw": "广州测试建设有限公司",
+                                    "spbm": "广州市住房和城乡建设局",
+                                    "peblrq": "2026/5/13 0:00:00",
+                                }
+                            ],
+                            "status": 1,
+                        },
+                        "text_probe": "",
+                    }
+                return {
+                    "http_status": 200,
+                    "content_type": "application/json; charset=utf-8",
+                    "json_payload": {"currentPage": 1, "totalNum": 0, "data": [], "status": 1},
+                    "text_probe": "",
+                }
+
+            result = build_guangdong_local_field_query_probe(
+                local_verification_root=local_root,
+                output_root=root / "out",
+                source_profile_ids=["GUANGZHOU-ZFCJ-CREDIT-DOUBLE-PUBLICITY"],
+                enable_live_public_query=True,
+                max_live_tasks=1,
+                http_getter=fake_getter,
+                created_at="2026-05-12T00:00:00+08:00",
+            )
+
+            self.assertTrue(result["safe_to_execute"])
+            summary = result["summary"]
+            self.assertEqual(summary["readback_ready_count"], 1)
+            self.assertEqual(summary["guangzhou_zfcj_completion_acceptance_readback_ready_count"], 1)
+            task = result["manifest"]["field_task_records"][0]
+            self.assertEqual(task["field_query_probe_state"], "FIELD_READBACK_READY_PUBLIC_SOURCE")
+            self.assertEqual(
+                task["field_summary"]["source_specific_adapter_id"],
+                "guangzhou_zfcj_completion_acceptance_public_api_v1",
+            )
+            record = task["field_match_summary"]["source_specific_records"][0]
+            self.assertEqual(record["record_type"], "completion_acceptance_public_record")
+            self.assertEqual(record["construction_company_probe"], "广州测试建设有限公司")
+            self.assertEqual(record["completion_filing_no"], "穗竣备2026-001")
+            self.assertEqual(record["acceptance_date"], "2026/5/13 0:00:00")
+            self.assertTrue(record["readback_is_line_clue_not_final_conclusion"])
+
     def test_gdcic_contract_performance_public_page_readback_records_rows(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)

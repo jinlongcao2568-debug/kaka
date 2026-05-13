@@ -338,6 +338,10 @@ class BusinessDirectionStrategyContractTests(unittest.TestCase):
             "https://zfcj.gz.gov.cn/ysqgk/Api/WebApi/gcjgysxxlb.ashx",
         )
         self.assertEqual(
+            subsources["gz_zfcj_completion_acceptance_public_api"]["runtime_status"],
+            "PUBLIC_POST_JSON_API_VERIFIED",
+        )
+        self.assertEqual(
             subsources["gz_zfcj_contract_credit_public_portal"]["source_url"],
             "https://113.108.173.251:8080/",
         )
@@ -368,6 +372,10 @@ class BusinessDirectionStrategyContractTests(unittest.TestCase):
             guangdong_field_policy["source_specific_field_adapters"],
         )
         self.assertIn(
+            "guangzhou_zfcj_completion_acceptance_public_api_v1",
+            guangdong_field_policy["source_specific_field_adapters"],
+        )
+        self.assertIn(
             "guangdong_credit_gd_public_credit_query_v1",
             guangdong_field_policy["source_specific_field_adapters"],
         )
@@ -389,6 +397,10 @@ class BusinessDirectionStrategyContractTests(unittest.TestCase):
         )
         self.assertIn(
             "guangzhou_zfcj_construction_permit_public_api_probe",
+            guangdong_field_policy["query_route_policy"],
+        )
+        self.assertIn(
+            "guangzhou_zfcj_completion_acceptance_public_api_probe",
             guangdong_field_policy["query_route_policy"],
         )
         self.assertIn(

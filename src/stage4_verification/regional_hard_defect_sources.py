@@ -346,7 +346,7 @@ def _build_guangdong_source_plan(
                         "source_url": "https://zfcj.gz.gov.cn/zfcj/gczlaq/completionAcceptance/",
                         "api_url": "https://zfcj.gz.gov.cn/ysqgk/Api/WebApi/gcjgysxxlb.ashx",
                         "target_source_types": ["completion_filing"],
-                        "runtime_status": "PUBLIC_POST_JSON_API_VERIFIED_ADAPTER_PENDING",
+                        "runtime_status": "PUBLIC_POST_JSON_API_VERIFIED",
                         "next_adapter": "guangzhou_zfcj_completion_acceptance_public_api_v1",
                     },
                     {
