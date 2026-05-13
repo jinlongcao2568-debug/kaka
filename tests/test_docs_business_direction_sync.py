@@ -109,6 +109,11 @@ def test_status_board_records_p0_sync_boundary() -> None:
     assert "GuangdongLocalVerificationProbe v1 同步说明" in text
     assert "广东核验不限定广州市" in text
     assert "入口可达不等于字段核验成功" in text
+    assert "项目负责人未释放证据链同步说明" in text
+    assert "非承包方原因停工超过 120 天" in text
+    assert "安全生产标准化考评结果告知书" in text
+    assert "在建冲突成立" in text
+    assert "无在建" in text and "无风险" in text
 
 
 def test_business_direction_doc_contains_final_analysis_strategy_rules() -> None:
@@ -152,6 +157,14 @@ def test_business_direction_doc_contains_final_analysis_strategy_rules() -> None
     assert "不能把“四库未出现”单独写成业绩造假或在建冲突" in text
     assert "在建/履约冲突不以四库作为唯一实时依据" in text
     assert "单一路线失败不能直接进入 `08` 或冲突结论" in text
+    assert "项目负责人未释放 / 在建履约冲突官方证据链" in text
+    assert "非承包方原因导致工程停工超过 120 天" in text
+    assert "建筑施工项目安全生产标准化考评结果告知书" in text
+    assert "STRONG_REPLAYABLE_CLUE" in text
+    assert "MEDIUM_REVIEW_CLUE" in text
+    assert "INSUFFICIENT_EVIDENCE" in text
+    assert "异议/投诉证据包" in text
+    assert "不得输出“在建冲突成立”" in text
     assert "PRE_BID_NOT_ELIGIBLE_OPENING_STARTED" in text
     assert "PRE_BID_NOT_ELIGIBLE_DEADLINE_PASSED" in text
     assert "PRE_BID_NOT_ELIGIBLE_TOO_LATE_FOR_SALE" in text
@@ -185,6 +198,10 @@ def test_top_level_docs_contain_final_strategy_guardrails() -> None:
         assert "PLAN_ONLY_UNTIL_REGION_ADAPTER_VERIFIED" in text
         assert "MajorRegionQueryProbe v1" in text
         assert "GuangdongLocalVerificationProbe v1" in text
+        assert "项目负责人未释放" in text
+        assert "缺竣工" in text
+        assert "无在建" in text
+        assert "无风险" in text
 
 
 def test_stage45_runbook_contains_responsible_person_early_probe_decision_tree() -> None:
@@ -208,6 +225,11 @@ def test_stage45_runbook_contains_responsible_person_early_probe_decision_tree()
     assert "浙江、四川、江苏、湖北、山东、湖南、河南" in text
     assert "PLAN_ONLY_UNTIL_REGION_ADAPTER_VERIFIED" in text
     assert "MajorRegionQueryProbe v1" in text
+    assert "项目负责人释放证据链" in text
+    assert "非承包方原因停工超过 120 天" in text
+    assert "缺竣工、缺备案、缺变更或缺安全生产标准化考评释放材料" in text
+    assert "异议/投诉证据包口径" in text
+    assert "当前项目 07 证据" in text
 
 
 def test_navigation_docs_do_not_drift_from_analysis_strategy_v1() -> None:

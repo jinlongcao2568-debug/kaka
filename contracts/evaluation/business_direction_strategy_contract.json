@@ -445,6 +445,75 @@
           "administrative_penalty_or_complaint_decision",
           "public_web_clues_with_replayable_source_url"
         ],
+        "official_active_conflict_evidence_policy": {
+          "policy_id": "PROJECT-MANAGER-ACTIVE-CONFLICT-OFFICIAL-EVIDENCE-V1",
+          "purpose": "把项目负责人在建/履约冲突从单源查询升级为官方证据链判断；缺竣工、缺备案或四库未命中只能形成未释放风险线索，不能形成最终结论。",
+          "current_project_required_evidence": [
+            "flow_07_candidate_notice_or_attachment",
+            "candidate_company_or_consortium_group",
+            "responsible_person_name",
+            "certificate_no_or_public_person_identifier_when_available",
+            "tender_rule_no_active_project_requirement_when_available"
+          ],
+          "occupied_project_evidence": [
+            "local_public_resource_award_or_candidate_notice",
+            "construction_permit",
+            "contract_filing_or_contract_public_info",
+            "performance_or_project_role_public_record",
+            "project_manager_change_notice"
+          ],
+          "release_evidence": [
+            "contract_agreed_work_acceptance_or_handover",
+            "completion_acceptance_or_completion_filing",
+            "project_manager_change_notice_or_permit_change",
+            "non_contractor_suspension_over_120_days_with_construction_unit_consent",
+            "same_project_adjacent_section_or_phase_exception",
+            "guangzhou_construction_project_safety_standardization_assessment_result_notice"
+          ],
+          "evidence_strength_levels": [
+            {
+              "level": "STRONG_REPLAYABLE_CLUE",
+              "requires": [
+                "current_project_candidate_evidence",
+                "occupied_project_award_or_permit_or_contract_evidence",
+                "time_window_overlap",
+                "no_replayable_release_evidence_after_source_attempts"
+              ],
+              "allowed_output": "项目负责人未释放/在建履约冲突强线索，建议招标人或监管部门核验"
+            },
+            {
+              "level": "MEDIUM_REVIEW_CLUE",
+              "requires": [
+                "current_project_candidate_evidence",
+                "occupied_project_candidate_or_award_clue",
+                "partial_time_window_or_release_status_missing"
+              ],
+              "allowed_output": "项目负责人未释放风险线索，证据链需补施工许可、合同、竣工或变更材料"
+            },
+            {
+              "level": "INSUFFICIENT_EVIDENCE",
+              "requires": [
+                "identity_not_disambiguated_or_public_sources_blocked"
+              ],
+              "allowed_output": "证据不足，需补公开源 readback"
+            }
+          ],
+          "must_not": [
+            "do_not_treat_missing_completion_certificate_as_final_active_conflict",
+            "do_not_treat_jzsc_no_project_result_as_no_active_conflict",
+            "do_not_treat_current_candidate_notice_alone_as_occupied_project_final_fact",
+            "do_not_output_no_active_project_or_no_risk_without_release_chain_readback",
+            "do_not_output_active_conflict_established_or_illegal_established"
+          ],
+          "official_basis_refs": [
+            "MOHURD_REGISTERED_CONSTRUCTOR_MANAGEMENT_RULE_ARTICLE_21",
+            "REGISTERED_CONSTRUCTOR_PRACTICE_MANAGEMENT_TRIAL_ARTICLE_9",
+            "GUANGZHOU_PROJECT_RESPONSIBLE_PERSON_MANAGEMENT_NOTICE",
+            "ENGINEERING_PROJECT_TENDER_COMPLAINT_HANDLING_MEASURES"
+          ],
+          "customer_visible_allowed": false,
+          "no_legal_conclusion": true
+        },
         "must_not": [
           "do_not_treat_jzsc_missing_project_as_no_active_conflict",
           "do_not_treat_jzsc_missing_performance_as_performance_fraud",
@@ -496,6 +565,37 @@
         "administrative_penalty_or_complaint_decision",
         "public_web_clues_with_replayable_source_url"
       ],
+      "objection_evidence_package_policy": {
+        "policy_id": "ACTIVE-CONFLICT-OBJECTION-EVIDENCE-PACKAGE-V1",
+        "purpose": "把项目负责人未释放风险整理为异议/投诉前的内部证据包；只输出事实、线索、证明材料缺口和建议核验事项。",
+        "required_evidence_groups": [
+          "current_project_candidate_notice_and_attachment_refs",
+          "candidate_group_and_responsible_person_binding",
+          "public_registration_match_or_mismatch_readback",
+          "occupied_project_award_permit_contract_or_performance_readback",
+          "release_evidence_or_missing_release_source_attempts",
+          "time_window_overlap_table",
+          "tender_document_no_active_project_clause_when_available"
+        ],
+        "complaint_material_principle": "投诉或异议材料应包含事实、请求、有效线索和证明材料；系统只生成内部证据线索包和待核验清单。",
+        "allowed_internal_outputs": [
+          "项目负责人未释放风险线索",
+          "在建/履约冲突待核验线索",
+          "公开注册信息不一致线索",
+          "释放证据缺口",
+          "建议招标人或监管部门核验"
+        ],
+        "forbidden_outputs": [
+          "在建冲突成立",
+          "已违法",
+          "无在建",
+          "无风险",
+          "确认本人",
+          "必然废标"
+        ],
+        "customer_visible_allowed": false,
+        "no_legal_conclusion": true
+      },
       "major_target_region_source_catalog_policy": {
         "policy_id": "MAJOR-PROVINCE-TARGET-REGION-SOURCE-CATALOG-V1",
         "scope_mode": "NATIONAL_DISCOVERY_THEN_MAJOR_REGION_TARGETED_VERIFICATION",

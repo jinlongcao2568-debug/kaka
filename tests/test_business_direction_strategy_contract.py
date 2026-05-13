@@ -233,6 +233,32 @@ class BusinessDirectionStrategyContractTests(unittest.TestCase):
             "do_not_use_jzsc_as_realtime_active_conflict_single_source",
             conflict_policy["must_not"],
         )
+        official_policy = conflict_policy["official_active_conflict_evidence_policy"]
+        self.assertEqual(
+            official_policy["policy_id"],
+            "PROJECT-MANAGER-ACTIVE-CONFLICT-OFFICIAL-EVIDENCE-V1",
+        )
+        self.assertIn("completion_acceptance_or_completion_filing", official_policy["release_evidence"])
+        self.assertIn(
+            "non_contractor_suspension_over_120_days_with_construction_unit_consent",
+            official_policy["release_evidence"],
+        )
+        self.assertIn(
+            "guangzhou_construction_project_safety_standardization_assessment_result_notice",
+            official_policy["release_evidence"],
+        )
+        self.assertIn(
+            "do_not_treat_missing_completion_certificate_as_final_active_conflict",
+            official_policy["must_not"],
+        )
+        self.assertIn(
+            "do_not_output_no_active_project_or_no_risk_without_release_chain_readback",
+            official_policy["must_not"],
+        )
+        self.assertIn(
+            "GUANGZHOU_PROJECT_RESPONSIBLE_PERSON_MANAGEMENT_NOTICE",
+            official_policy["official_basis_refs"],
+        )
 
     def test_evidence_report_and_active_conflict_policy_are_internal_only(self) -> None:
         contract = self._contract()
@@ -253,6 +279,20 @@ class BusinessDirectionStrategyContractTests(unittest.TestCase):
 
         self.assertEqual(conflict_policy["first_version_execution_mode"], "PLAN_ONLY")
         self.assertIn("construction_permit", conflict_policy["source_categories"])
+        objection_policy = conflict_policy["objection_evidence_package_policy"]
+        self.assertEqual(
+            objection_policy["policy_id"],
+            "ACTIVE-CONFLICT-OBJECTION-EVIDENCE-PACKAGE-V1",
+        )
+        self.assertIn(
+            "release_evidence_or_missing_release_source_attempts",
+            objection_policy["required_evidence_groups"],
+        )
+        self.assertIn("项目负责人未释放风险线索", objection_policy["allowed_internal_outputs"])
+        self.assertIn("在建冲突成立", objection_policy["forbidden_outputs"])
+        self.assertIn("无风险", objection_policy["forbidden_outputs"])
+        self.assertFalse(objection_policy["customer_visible_allowed"])
+        self.assertTrue(objection_policy["no_legal_conclusion"])
         major_region_policy = conflict_policy["major_target_region_source_catalog_policy"]
         self.assertEqual(
             major_region_policy["scope_mode"],
