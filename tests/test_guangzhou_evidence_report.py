@@ -172,6 +172,37 @@ class GuangzhouEvidenceReportTests(unittest.TestCase):
                 [item["recommended_action"] for item in project["optimization_recommendations"]],
             )
 
+    def test_no_default_optional_roots_keeps_batch_reports_isolated_from_old_outputs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_flow_root(root / "flow")
+            _write_download_root(root / "download")
+            _write_responsible_root(root / "responsible")
+            _write_stage4_root(root / "stage4")
+            _write_readiness_root(root / "readiness", flow_08_required=False)
+
+            result = build_guangzhou_evidence_report(
+                flow_root=root / "flow",
+                download_root=root / "download",
+                responsible_person_root=root / "responsible",
+                stage4_execution_root=root / "stage4",
+                readiness_root=root / "readiness",
+                output_root=root / "out",
+                created_at="2026-05-12T00:00:00+08:00",
+                no_default_optional_roots=True,
+            )
+
+            manifest = result["manifest"]
+            self.assertEqual(manifest["source_active_conflict_probe_root"], "")
+            self.assertEqual(manifest["source_gdcic_query_probe_root"], "")
+            self.assertEqual(manifest["source_official_source_readback_root"], "")
+            self.assertEqual(manifest["source_certificate_supplement_closeout_root"], "")
+            self.assertTrue(manifest["no_default_optional_roots"])
+            summary = result["summary"]
+            self.assertEqual(summary["active_conflict_external_probe_state"], "NOT_BUILT")
+            self.assertEqual(summary["official_source_readback_closeout_state"], "NOT_BUILT")
+            self.assertEqual(summary["certificate_supplement_closeout_state"], "NOT_BUILT")
+
     def test_not_applicable_responsible_person_project_can_closeout_without_candidate_group(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)

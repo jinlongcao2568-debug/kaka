@@ -6,6 +6,7 @@ param(
     [string]$Stage4ExecutionRoot = "",
     [string]$RecaptureRoot = "",
     [string]$OutputRoot = "",
+    [switch]$GdcicQueryOptional,
     [switch]$EmitJson
 )
 
@@ -50,6 +51,9 @@ $argsList = @(
     "--output-root", $OutputRoot
 )
 
+if ($GdcicQueryOptional) {
+    $argsList += "--gdcic-query-optional"
+}
 if ($RecaptureRoot) {
     $argsList += @("--recapture-root", $RecaptureRoot)
 }

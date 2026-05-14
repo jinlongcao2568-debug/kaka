@@ -34,6 +34,7 @@ def build_certificate_supplement_closeout(
     official_source_readback_root: str | Path = DEFAULT_OFFICIAL_SOURCE_READBACK_ROOT,
     output_root: str | Path = DEFAULT_OUTPUT_ROOT,
     created_at: str | None = None,
+    official_source_required: bool = True,
 ) -> dict[str, Any]:
     created = created_at or utc_now_iso()
     evidence_dir = Path(evidence_report_root)
@@ -49,8 +50,13 @@ def build_certificate_supplement_closeout(
     stage4_manifest = _source_manifest(
         _load_json(stage4_dir / "company-first-stage4-execution.json", blocking_reasons, "stage4_execution_missing")
     )
+    official_missing_reasons: list[str] = []
     official_manifest = _source_manifest(
-        _load_json(official_dir / "guangdong-official-source-readback-closeout-v1.json", blocking_reasons, "official_source_readback_missing")
+        _load_json(
+            official_dir / "guangdong-official-source-readback-closeout-v1.json",
+            blocking_reasons if official_source_required else official_missing_reasons,
+            "official_source_readback_missing",
+        )
     )
 
     stage4_items = _list(stage4_manifest.get("items"))
@@ -65,6 +71,9 @@ def build_certificate_supplement_closeout(
         for group in _list(project.get("certificate_supplement_group_records"))
     ]
     summary = _summary(project_records=project_records, group_records=group_records, blocking_reasons=blocking_reasons)
+    if official_missing_reasons:
+        summary["official_source_readback_optional_missing_reasons"] = official_missing_reasons
+        summary["official_source_readback_is_not_closeout_gate"] = True
     manifest = {
         "manifest_version": CERTIFICATE_SUPPLEMENT_CLOSEOUT_VERSION,
         "manifest_kind": CERTIFICATE_SUPPLEMENT_CLOSEOUT_KIND,
@@ -75,6 +84,7 @@ def build_certificate_supplement_closeout(
         "source_evidence_report_root": str(evidence_dir),
         "source_stage4_execution_root": str(stage4_dir),
         "source_official_source_readback_root": str(official_dir),
+        "official_source_required": official_source_required,
         "project_records": project_records,
         "certificate_supplement_group_records": group_records,
         "summary": summary,
@@ -335,6 +345,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--official-source-readback-root", default=str(DEFAULT_OFFICIAL_SOURCE_READBACK_ROOT))
     parser.add_argument("--output-root", default=str(DEFAULT_OUTPUT_ROOT))
     parser.add_argument("--created-at")
+    parser.add_argument("--official-source-optional", action="store_true")
     parser.add_argument("--json", action="store_true", dest="emit_json")
     return parser.parse_args(argv)
 
@@ -347,6 +358,7 @@ def main(argv: list[str] | None = None) -> int:
         official_source_readback_root=args.official_source_readback_root,
         output_root=args.output_root,
         created_at=args.created_at,
+        official_source_required=not args.official_source_optional,
     )
     if args.emit_json:
         print(json.dumps(result, ensure_ascii=False, indent=2))

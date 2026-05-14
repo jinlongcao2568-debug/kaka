@@ -34,6 +34,7 @@ def build_guangzhou_evidence_fixation_backfill(
     recapture_root: str | Path | None = None,
     output_root: str | Path = DEFAULT_OUTPUT_ROOT,
     created_at: str | None = None,
+    gdcic_query_required: bool = True,
 ) -> dict[str, Any]:
     created = created_at or utc_now_iso()
     package_dir = Path(internal_evidence_package_root)
@@ -54,8 +55,13 @@ def build_guangzhou_evidence_fixation_backfill(
     )
     human_file_map = _load_json_optional(download_dir / "human-readable-file-map.json")
     flow_manifest = _source_manifest(_load_json(flow_dir / "run-manifest.json", blocking_reasons, "flow_run_manifest_missing"))
+    gdcic_missing_reasons: list[str] = []
     gdcic_manifest = _source_manifest(
-        _load_json(gdcic_dir / "guangdong-gdcic-query-probe-v1.json", blocking_reasons, "gdcic_query_probe_missing")
+        _load_json(
+            gdcic_dir / "guangdong-gdcic-query-probe-v1.json",
+            blocking_reasons if gdcic_query_required else gdcic_missing_reasons,
+            "gdcic_query_probe_missing",
+        )
     )
     stage4_manifest = _source_manifest(
         _load_json(stage4_dir / "company-first-stage4-execution.json", blocking_reasons, "stage4_execution_missing")
@@ -81,6 +87,9 @@ def build_guangzhou_evidence_fixation_backfill(
         if str(row.get("fixation_state") or "") != "FIXATION_COMPLETE"
     ]
     summary = _summary(backfill_records=backfill_records, blocking_reasons=blocking_reasons)
+    if gdcic_missing_reasons:
+        summary["gdcic_query_probe_optional_missing_reasons"] = gdcic_missing_reasons
+        summary["gdcic_query_probe_is_not_backfill_gate"] = True
     manifest = {
         "manifest_version": GUANGZHOU_EVIDENCE_FIXATION_BACKFILL_VERSION,
         "manifest_kind": GUANGZHOU_EVIDENCE_FIXATION_BACKFILL_KIND,
@@ -92,6 +101,7 @@ def build_guangzhou_evidence_fixation_backfill(
         "source_download_root": str(download_dir),
         "source_flow_root": str(flow_dir),
         "source_gdcic_query_probe_root": str(gdcic_dir),
+        "gdcic_query_required": gdcic_query_required,
         "source_stage4_execution_root": str(stage4_dir),
         "source_recapture_root": str(recapture_dir) if recapture_dir else "",
         "backfill_records": backfill_records,
@@ -475,6 +485,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--stage4-execution-root", default=str(DEFAULT_STAGE4_EXECUTION_ROOT))
     parser.add_argument("--recapture-root", default="")
     parser.add_argument("--output-root", default=str(DEFAULT_OUTPUT_ROOT))
+    parser.add_argument("--gdcic-query-optional", action="store_true")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
 
@@ -486,6 +497,7 @@ def main(argv: list[str] | None = None) -> int:
         stage4_execution_root=args.stage4_execution_root,
         recapture_root=args.recapture_root or None,
         output_root=args.output_root,
+        gdcic_query_required=not args.gdcic_query_optional,
     )
     if args.json:
         print(json.dumps(result, ensure_ascii=False, indent=2))

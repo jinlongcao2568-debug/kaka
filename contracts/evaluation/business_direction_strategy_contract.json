@@ -1,6 +1,6 @@
 {
   "contract_id": "BUSINESS-DIRECTION-STRATEGY-CONTRACT",
-  "contract_version": 10,
+  "contract_version": 11,
   "purpose": "固定招投标分析产品的双线业务方向，避免后续开发把招标公告文件链路验证误当成核心商业主线。",
   "primary_commercial_line": "POST_CANDIDATE_EVIDENCE_PACK",
   "default_when_ambiguous": "POST_CANDIDATE_EVIDENCE_PACK",
@@ -1056,7 +1056,7 @@
   ],
   "next_phase_execution_plan": {
     "plan_id": "POST-CANDIDATE-EVIDENCE-PACK-NEXT-PHASE-V1",
-    "current_focus": "P10_P9_AWARE_READABLE_CLOSEOUT_V1",
+    "current_focus": "P11_GUANGZHOU_10_PROJECT_STABILITY_V1",
     "phases": [
       {
         "phase_id": "P1_GUANGZHOU_EVIDENCE_REPORT_CLOSEOUT_V1",
@@ -1157,10 +1157,21 @@
           "Markdown 明确记录级 hash 不等同于源网页或源文件完整内容 hash",
           "P10 完成后才进入广州 10 项目稳定性验证"
         ]
+      },
+      {
+        "phase_id": "P11_GUANGZHOU_10_PROJECT_STABILITY_V1",
+        "goal": "用全新 P11 专属目录验证广州 10 个近期 07 候选后项目从入池、回溯、下载、早取证、Stage4 公司优先补证、EvidenceReport、P7/P8/P9/P10 到批次稳定性 closeout 的完整链路。",
+        "success_criteria": [
+          "近期 07 入池项目达到 8 个以上时至少 80% 形成 P10 可读报告",
+          "入池不足 8 个时输出 P11_PARTIAL_SOURCE_COVERAGE，不用旧项目或假样本补齐",
+          "P11 EvidenceReport 使用 NoDefaultOptionalRoots 隔离旧 5 项目 GDCIC/local/active conflict 产物",
+          "下载、Stage4、P7/P8/P9/P10 任一阶段失败时，batch closeout 给出项目级和流程级 taxonomy",
+          "08 未触发时不作为 blocker，且不默认深解析 08"
+        ]
       }
     ],
     "must_not": [
-      "do_not_expand_to_10_projects_before_p10_readable_closeout",
+      "do_not_expand_to_20_or_50_before_p11_batch_stability_closeout",
       "do_not_start_graph_or_saas_before_evidence_fixation_backfill",
       "do_not_default_parse_flow_08_without_trigger",
       "do_not_treat_plan_only_region_sources_as_live_verified"

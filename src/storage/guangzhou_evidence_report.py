@@ -55,6 +55,7 @@ def build_guangzhou_evidence_report(
     guangdong_local_field_query_root: str | Path = DEFAULT_GUANGDONG_LOCAL_FIELD_QUERY_ROOT,
     output_root: str | Path = DEFAULT_OUTPUT_ROOT,
     created_at: str | None = None,
+    no_default_optional_roots: bool = False,
 ) -> dict[str, Any]:
     created = created_at or utc_now_iso()
     flow_dir = Path(flow_root)
@@ -62,12 +63,36 @@ def build_guangzhou_evidence_report(
     responsible_dir = Path(responsible_person_root)
     stage4_dir = Path(stage4_execution_root)
     readiness_dir = Path(readiness_root)
-    active_conflict_dir = Path(active_conflict_probe_root)
-    gdcic_query_dir = Path(gdcic_query_probe_root)
-    official_source_readback_dir = Path(official_source_readback_root)
-    certificate_supplement_dir = Path(certificate_supplement_closeout_root)
-    guangdong_local_dir = Path(guangdong_local_verification_root)
-    guangdong_local_field_dir = Path(guangdong_local_field_query_root)
+    active_conflict_dir = _optional_root(
+        active_conflict_probe_root,
+        DEFAULT_ACTIVE_CONFLICT_ROOT,
+        no_default_optional_roots=no_default_optional_roots,
+    )
+    gdcic_query_dir = _optional_root(
+        gdcic_query_probe_root,
+        DEFAULT_GDCIC_QUERY_PROBE_ROOT,
+        no_default_optional_roots=no_default_optional_roots,
+    )
+    official_source_readback_dir = _optional_root(
+        official_source_readback_root,
+        DEFAULT_OFFICIAL_SOURCE_READBACK_ROOT,
+        no_default_optional_roots=no_default_optional_roots,
+    )
+    certificate_supplement_dir = _optional_root(
+        certificate_supplement_closeout_root,
+        DEFAULT_CERTIFICATE_SUPPLEMENT_CLOSEOUT_ROOT,
+        no_default_optional_roots=no_default_optional_roots,
+    )
+    guangdong_local_dir = _optional_root(
+        guangdong_local_verification_root,
+        DEFAULT_GUANGDONG_LOCAL_VERIFICATION_ROOT,
+        no_default_optional_roots=no_default_optional_roots,
+    )
+    guangdong_local_field_dir = _optional_root(
+        guangdong_local_field_query_root,
+        DEFAULT_GUANGDONG_LOCAL_FIELD_QUERY_ROOT,
+        no_default_optional_roots=no_default_optional_roots,
+    )
     out_dir = Path(output_root)
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -78,19 +103,23 @@ def build_guangzhou_evidence_report(
     responsible_manifest = _source_manifest(_load_json(responsible_dir / "responsible-person-early-probe.json", missing_inputs, "responsible_person_early_probe_missing"))
     stage4_manifest = _source_manifest(_load_json(stage4_dir / "company-first-stage4-execution.json", [], "stage4_execution_manifest_missing"))
     readiness_manifest = _source_manifest(_load_json(readiness_dir / "guangzhou-upstream-readiness-report.json", [], "readiness_report_missing"))
-    active_conflict_manifest = _source_manifest(_load_json_optional(active_conflict_dir / "guangzhou-active-conflict-probe-v1.json"))
-    gdcic_query_manifest = _source_manifest(_load_json_optional(gdcic_query_dir / "guangdong-gdcic-query-probe-v1.json"))
+    active_conflict_manifest = _source_manifest(
+        _load_optional_root_json(active_conflict_dir, "guangzhou-active-conflict-probe-v1.json")
+    )
+    gdcic_query_manifest = _source_manifest(
+        _load_optional_root_json(gdcic_query_dir, "guangdong-gdcic-query-probe-v1.json")
+    )
     official_source_readback_manifest = _source_manifest(
-        _load_json_optional(official_source_readback_dir / "guangdong-official-source-readback-closeout-v1.json")
+        _load_optional_root_json(official_source_readback_dir, "guangdong-official-source-readback-closeout-v1.json")
     )
     certificate_supplement_manifest = _source_manifest(
-        _load_json_optional(certificate_supplement_dir / "certificate-supplement-closeout-v1.json")
+        _load_optional_root_json(certificate_supplement_dir, "certificate-supplement-closeout-v1.json")
     )
     guangdong_local_manifest = _source_manifest(
-        _load_json_optional(guangdong_local_dir / "guangdong-local-verification-probe-v1.json")
+        _load_optional_root_json(guangdong_local_dir, "guangdong-local-verification-probe-v1.json")
     )
     guangdong_local_field_manifest = _source_manifest(
-        _load_json_optional(guangdong_local_field_dir / "guangdong-local-field-query-probe-v1.json")
+        _load_optional_root_json(guangdong_local_field_dir, "guangdong-local-field-query-probe-v1.json")
     )
 
     project_ids = _project_ids(
@@ -147,12 +176,13 @@ def build_guangzhou_evidence_report(
         "source_responsible_person_root": str(responsible_dir),
         "source_stage4_execution_root": str(stage4_dir),
         "source_readiness_root": str(readiness_dir),
-        "source_active_conflict_probe_root": str(active_conflict_dir),
-        "source_gdcic_query_probe_root": str(gdcic_query_dir),
-        "source_official_source_readback_root": str(official_source_readback_dir),
-        "source_certificate_supplement_closeout_root": str(certificate_supplement_dir),
-        "source_guangdong_local_verification_root": str(guangdong_local_dir),
-        "source_guangdong_local_field_query_root": str(guangdong_local_field_dir),
+        "source_active_conflict_probe_root": _root_display(active_conflict_dir),
+        "source_gdcic_query_probe_root": _root_display(gdcic_query_dir),
+        "source_official_source_readback_root": _root_display(official_source_readback_dir),
+        "source_certificate_supplement_closeout_root": _root_display(certificate_supplement_dir),
+        "source_guangdong_local_verification_root": _root_display(guangdong_local_dir),
+        "source_guangdong_local_field_query_root": _root_display(guangdong_local_field_dir),
+        "no_default_optional_roots": no_default_optional_roots,
         "report_sections": [
             "verification_evidence",
             "process_stability",
@@ -1645,6 +1675,28 @@ def _load_json_optional(path: Path) -> dict[str, Any]:
     return dict(data) if isinstance(data, Mapping) else {}
 
 
+def _optional_root(
+    root: str | Path,
+    default_root: Path,
+    *,
+    no_default_optional_roots: bool,
+) -> Path | None:
+    path = Path(root)
+    if no_default_optional_roots and path == default_root:
+        return None
+    return path
+
+
+def _load_optional_root_json(root: Path | None, filename: str) -> dict[str, Any]:
+    if root is None:
+        return {}
+    return _load_json_optional(root / filename)
+
+
+def _root_display(root: Path | None) -> str:
+    return "" if root is None else str(root)
+
+
 def _source_manifest(payload: Mapping[str, Any]) -> dict[str, Any]:
     manifest = payload.get("manifest")
     return dict(manifest) if isinstance(manifest, Mapping) else dict(payload)
@@ -1731,6 +1783,11 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--guangdong-local-field-query-root", default=str(DEFAULT_GUANGDONG_LOCAL_FIELD_QUERY_ROOT))
     parser.add_argument("--output-root", default=str(DEFAULT_OUTPUT_ROOT))
     parser.add_argument("--created-at")
+    parser.add_argument(
+        "--no-default-optional-roots",
+        action="store_true",
+        help="Do not read default optional roots unless the caller passes explicit root values.",
+    )
     parser.add_argument("--json", action="store_true", dest="emit_json")
     return parser.parse_args(argv)
 
@@ -1751,6 +1808,7 @@ def main(argv: list[str] | None = None) -> int:
         guangdong_local_field_query_root=args.guangdong_local_field_query_root,
         output_root=args.output_root,
         created_at=args.created_at,
+        no_default_optional_roots=args.no_default_optional_roots,
     )
     if args.emit_json:
         print(json.dumps(result, ensure_ascii=False, indent=2))

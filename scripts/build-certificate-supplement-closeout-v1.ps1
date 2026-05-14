@@ -3,6 +3,7 @@ param(
     [string]$Stage4ExecutionRoot = "",
     [string]$OfficialSourceReadbackRoot = "",
     [string]$OutputRoot = "",
+    [switch]$OfficialSourceOptional,
     [switch]$EmitJson
 )
 
@@ -36,6 +37,9 @@ $argsList = @(
     "--output-root", $OutputRoot
 )
 
+if ($OfficialSourceOptional) {
+    $argsList += "--official-source-optional"
+}
 if ($EmitJson) {
     $argsList += "--json"
 }

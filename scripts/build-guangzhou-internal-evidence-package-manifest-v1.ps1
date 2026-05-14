@@ -7,6 +7,7 @@ param(
     [string]$FlowRoot = "",
     [string]$FixationBackfillRoot = "",
     [string]$OutputRoot = "",
+    [switch]$OfficialSourceOptional,
     [switch]$EmitJson
 )
 
@@ -55,6 +56,9 @@ $argsList = @(
     "--output-root", $OutputRoot
 )
 
+if ($OfficialSourceOptional) {
+    $argsList += "--official-source-optional"
+}
 if ($FixationBackfillRoot) {
     $argsList += @("--fixation-backfill-root", $FixationBackfillRoot)
 }

@@ -36,6 +36,7 @@ def build_guangzhou_internal_evidence_package_manifest(
     fixation_backfill_root: str | Path | None = None,
     output_root: str | Path = DEFAULT_OUTPUT_ROOT,
     created_at: str | None = None,
+    official_source_required: bool = True,
 ) -> dict[str, Any]:
     created = created_at or utc_now_iso()
     evidence_dir = Path(evidence_report_root)
@@ -55,10 +56,11 @@ def build_guangzhou_internal_evidence_package_manifest(
     certificate_manifest = _source_manifest(
         _load_json(certificate_dir / "certificate-supplement-closeout-v1.json", blocking_reasons, "certificate_supplement_missing")
     )
+    official_missing_reasons: list[str] = []
     official_manifest = _source_manifest(
         _load_json(
             official_dir / "guangdong-official-source-readback-closeout-v1.json",
-            blocking_reasons,
+            blocking_reasons if official_source_required else official_missing_reasons,
             "official_source_readback_missing",
         )
     )
@@ -123,6 +125,9 @@ def build_guangzhou_internal_evidence_package_manifest(
         certificate_manifest=certificate_manifest,
         backfill_manifest=backfill_manifest,
     )
+    if official_missing_reasons:
+        summary["official_source_readback_optional_missing_reasons"] = official_missing_reasons
+        summary["official_source_readback_is_not_package_gate"] = True
     package_scope = {
         "product_mode": "POST_CANDIDATE_EVIDENCE_PACK",
         "scope_state": "INTERNAL_PRE_SALES_EVIDENCE_PACKAGE",
@@ -131,6 +136,7 @@ def build_guangzhou_internal_evidence_package_manifest(
         "source_evidence_report_root": str(evidence_dir),
         "source_certificate_supplement_root": str(certificate_dir),
         "source_official_source_readback_root": str(official_dir),
+        "official_source_required": official_source_required,
         "source_stage4_execution_root": str(stage4_dir),
         "source_download_root": str(download_dir),
         "source_flow_root": str(flow_dir),
@@ -1072,6 +1078,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--flow-root", default=str(DEFAULT_FLOW_ROOT))
     parser.add_argument("--fixation-backfill-root", default="")
     parser.add_argument("--output-root", default=str(DEFAULT_OUTPUT_ROOT))
+    parser.add_argument("--official-source-optional", action="store_true")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
 
@@ -1084,6 +1091,7 @@ def main(argv: list[str] | None = None) -> int:
         flow_root=args.flow_root,
         fixation_backfill_root=args.fixation_backfill_root or None,
         output_root=args.output_root,
+        official_source_required=not args.official_source_optional,
     )
     if args.json:
         print(json.dumps(result, ensure_ascii=False, indent=2))

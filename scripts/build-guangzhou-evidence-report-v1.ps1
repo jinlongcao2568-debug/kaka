@@ -11,6 +11,7 @@ param(
     [string]$GuangdongLocalVerificationRoot = "",
     [string]$GuangdongLocalFieldQueryRoot = "",
     [string]$OutputRoot = "",
+    [switch]$NoDefaultOptionalRoots,
     [switch]$EmitJson
 )
 
@@ -34,22 +35,22 @@ if (-not $Stage4ExecutionRoot) {
 if (-not $ReadinessRoot) {
     $ReadinessRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\guangzhou-upstream-readiness-with-stage4-groups-v3"
 }
-if (-not $ActiveConflictProbeRoot) {
+if (-not $NoDefaultOptionalRoots -and -not $ActiveConflictProbeRoot) {
     $ActiveConflictProbeRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\guangzhou-active-conflict-probe-v1"
 }
-if (-not $GdcicQueryProbeRoot) {
+if (-not $NoDefaultOptionalRoots -and -not $GdcicQueryProbeRoot) {
     $GdcicQueryProbeRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\guangdong-gdcic-query-probe-v1"
 }
-if (-not $OfficialSourceReadbackRoot) {
+if (-not $NoDefaultOptionalRoots -and -not $OfficialSourceReadbackRoot) {
     $OfficialSourceReadbackRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\guangdong-official-source-readback-closeout-v1"
 }
-if (-not $CertificateSupplementCloseoutRoot) {
+if (-not $NoDefaultOptionalRoots -and -not $CertificateSupplementCloseoutRoot) {
     $CertificateSupplementCloseoutRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\certificate-supplement-closeout-v1"
 }
-if (-not $GuangdongLocalVerificationRoot) {
+if (-not $NoDefaultOptionalRoots -and -not $GuangdongLocalVerificationRoot) {
     $GuangdongLocalVerificationRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\guangdong-local-verification-probe-v1"
 }
-if (-not $GuangdongLocalFieldQueryRoot) {
+if (-not $NoDefaultOptionalRoots -and -not $GuangdongLocalFieldQueryRoot) {
     $GuangdongLocalFieldQueryRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\guangdong-local-field-query-closeout-v1"
 }
 if (-not $OutputRoot) {
@@ -67,15 +68,30 @@ $argsList = @(
     "--responsible-person-root", $ResponsiblePersonRoot,
     "--stage4-execution-root", $Stage4ExecutionRoot,
     "--readiness-root", $ReadinessRoot,
-    "--active-conflict-probe-root", $ActiveConflictProbeRoot,
-    "--gdcic-query-probe-root", $GdcicQueryProbeRoot,
-    "--official-source-readback-root", $OfficialSourceReadbackRoot,
-    "--certificate-supplement-closeout-root", $CertificateSupplementCloseoutRoot,
-    "--guangdong-local-verification-root", $GuangdongLocalVerificationRoot,
-    "--guangdong-local-field-query-root", $GuangdongLocalFieldQueryRoot,
     "--output-root", $OutputRoot
 )
 
+if ($ActiveConflictProbeRoot) {
+    $argsList += @("--active-conflict-probe-root", $ActiveConflictProbeRoot)
+}
+if ($GdcicQueryProbeRoot) {
+    $argsList += @("--gdcic-query-probe-root", $GdcicQueryProbeRoot)
+}
+if ($OfficialSourceReadbackRoot) {
+    $argsList += @("--official-source-readback-root", $OfficialSourceReadbackRoot)
+}
+if ($CertificateSupplementCloseoutRoot) {
+    $argsList += @("--certificate-supplement-closeout-root", $CertificateSupplementCloseoutRoot)
+}
+if ($GuangdongLocalVerificationRoot) {
+    $argsList += @("--guangdong-local-verification-root", $GuangdongLocalVerificationRoot)
+}
+if ($GuangdongLocalFieldQueryRoot) {
+    $argsList += @("--guangdong-local-field-query-root", $GuangdongLocalFieldQueryRoot)
+}
+if ($NoDefaultOptionalRoots) {
+    $argsList += "--no-default-optional-roots"
+}
 if ($EmitJson) {
     $argsList += "--json"
 }
