@@ -6,6 +6,7 @@ param(
     [string]$ReadinessRoot = "",
     [string]$ActiveConflictProbeRoot = "",
     [string]$GdcicQueryProbeRoot = "",
+    [string]$OfficialSourceReadbackRoot = "",
     [string]$GuangdongLocalVerificationRoot = "",
     [string]$GuangdongLocalFieldQueryRoot = "",
     [string]$OutputRoot = "",
@@ -38,6 +39,9 @@ if (-not $ActiveConflictProbeRoot) {
 if (-not $GdcicQueryProbeRoot) {
     $GdcicQueryProbeRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\guangdong-gdcic-query-probe-v1"
 }
+if (-not $OfficialSourceReadbackRoot) {
+    $OfficialSourceReadbackRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\guangdong-official-source-readback-closeout-v1"
+}
 if (-not $GuangdongLocalVerificationRoot) {
     $GuangdongLocalVerificationRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\guangdong-local-verification-probe-v1"
 }
@@ -61,6 +65,7 @@ $argsList = @(
     "--readiness-root", $ReadinessRoot,
     "--active-conflict-probe-root", $ActiveConflictProbeRoot,
     "--gdcic-query-probe-root", $GdcicQueryProbeRoot,
+    "--official-source-readback-root", $OfficialSourceReadbackRoot,
     "--guangdong-local-verification-root", $GuangdongLocalVerificationRoot,
     "--guangdong-local-field-query-root", $GuangdongLocalFieldQueryRoot,
     "--output-root", $OutputRoot

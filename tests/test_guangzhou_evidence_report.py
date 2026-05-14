@@ -234,6 +234,39 @@ class GuangzhouEvidenceReportTests(unittest.TestCase):
                 [item["recommended_action"] for item in project["optimization_recommendations"]],
             )
 
+    def test_report_consumes_official_source_readback_closeout_when_available(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_flow_root(root / "flow")
+            _write_download_root(root / "download")
+            _write_responsible_root(root / "responsible")
+            _write_stage4_root(root / "stage4")
+            _write_readiness_root(root / "readiness", flow_08_required=False)
+            _write_official_source_readback_root(root / "official-source")
+
+            result = build_guangzhou_evidence_report(
+                flow_root=root / "flow",
+                download_root=root / "download",
+                responsible_person_root=root / "responsible",
+                stage4_execution_root=root / "stage4",
+                readiness_root=root / "readiness",
+                official_source_readback_root=root / "official-source",
+                output_root=root / "out",
+                created_at="2026-05-12T00:00:00+08:00",
+            )
+
+            self.assertEqual(result["summary"]["official_source_readback_closeout_state"], "P2_OFFICIAL_READBACK_READY")
+            self.assertEqual(result["summary"]["official_source_readback_ready_count"], 12)
+            project = result["manifest"]["project_reports"][0]
+            evidence = project["verification_evidence"]
+            self.assertEqual(evidence["official_source_readback_closeout_state"], "P2_OFFICIAL_READBACK_READY")
+            self.assertEqual(evidence["official_source_readback_state"], "OFFICIAL_SOURCE_READBACK_READY")
+            self.assertEqual(evidence["official_source_readback_ready_count"], 3)
+            self.assertIn(
+                "OFFICIAL_SOURCE_READBACK_READY",
+                [item["recommended_action"] for item in project["optimization_recommendations"]],
+            )
+
     def test_report_consumes_guangdong_local_verification_probe_summary_when_available(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -537,6 +570,40 @@ def _write_gdcic_query_root(root: Path) -> None:
         }
     }
     (root / "guangdong-gdcic-query-probe-v1.json").write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+
+def _write_official_source_readback_root(root: Path) -> None:
+    root.mkdir(parents=True, exist_ok=True)
+    project_record = {
+        "project_id": "PROJ-CN-GD-JG2026-10815",
+        "project_name": "广州测试项目",
+        "official_source_readback_state": "OFFICIAL_SOURCE_READBACK_READY",
+        "official_source_readback_ready_count": 3,
+        "official_source_task_count": 3,
+        "source_profile_ids": ["GUANGDONG-GDCIC-SKYPT-OPENPLATFORM"],
+        "blocker_taxonomy_counts": {"gdcic_public_query_empty_review": 1},
+    }
+    payload = {
+        "manifest": {
+            "manifest_kind": "guangdong_official_source_readback_closeout_v1_manifest",
+            "project_records": [project_record],
+            "summary": {
+                "closeout_state": "P2_OFFICIAL_READBACK_READY",
+                "p2_closeout_state": "P2_OFFICIAL_READBACK_READY",
+                "p2_ready": True,
+                "official_source_readback_ready_count": 12,
+                "official_source_project_ready_count": 1,
+                "source_profile_readback_ready_counts": {
+                    "GUANGDONG-GDCIC-SKYPT-OPENPLATFORM": 12,
+                },
+                "blocker_taxonomy_counts": {"gdcic_public_query_empty_review": 1},
+            },
+        }
+    }
+    (root / "guangdong-official-source-readback-closeout-v1.json").write_text(
         json.dumps(payload, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )

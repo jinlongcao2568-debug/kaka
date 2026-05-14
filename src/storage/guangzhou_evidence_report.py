@@ -20,6 +20,7 @@ DEFAULT_STAGE4_EXECUTION_ROOT = Path("tmp/evaluation-real-samples/guangzhou-comp
 DEFAULT_READINESS_ROOT = Path("tmp/evaluation-real-samples/guangzhou-upstream-readiness-with-stage4-groups-v3")
 DEFAULT_ACTIVE_CONFLICT_ROOT = Path("tmp/evaluation-real-samples/guangzhou-active-conflict-probe-v1")
 DEFAULT_GDCIC_QUERY_PROBE_ROOT = Path("tmp/evaluation-real-samples/guangdong-gdcic-query-probe-v1")
+DEFAULT_OFFICIAL_SOURCE_READBACK_ROOT = Path("tmp/evaluation-real-samples/guangdong-official-source-readback-closeout-v1")
 DEFAULT_GUANGDONG_LOCAL_VERIFICATION_ROOT = Path("tmp/evaluation-real-samples/guangdong-local-verification-probe-v1")
 DEFAULT_GUANGDONG_LOCAL_FIELD_QUERY_ROOT = Path("tmp/evaluation-real-samples/guangdong-local-field-query-closeout-v1")
 DEFAULT_OUTPUT_ROOT = Path("tmp/evaluation-real-samples/guangzhou-evidence-report-v1")
@@ -47,6 +48,7 @@ def build_guangzhou_evidence_report(
     readiness_root: str | Path = DEFAULT_READINESS_ROOT,
     active_conflict_probe_root: str | Path = DEFAULT_ACTIVE_CONFLICT_ROOT,
     gdcic_query_probe_root: str | Path = DEFAULT_GDCIC_QUERY_PROBE_ROOT,
+    official_source_readback_root: str | Path = DEFAULT_OFFICIAL_SOURCE_READBACK_ROOT,
     guangdong_local_verification_root: str | Path = DEFAULT_GUANGDONG_LOCAL_VERIFICATION_ROOT,
     guangdong_local_field_query_root: str | Path = DEFAULT_GUANGDONG_LOCAL_FIELD_QUERY_ROOT,
     output_root: str | Path = DEFAULT_OUTPUT_ROOT,
@@ -60,6 +62,7 @@ def build_guangzhou_evidence_report(
     readiness_dir = Path(readiness_root)
     active_conflict_dir = Path(active_conflict_probe_root)
     gdcic_query_dir = Path(gdcic_query_probe_root)
+    official_source_readback_dir = Path(official_source_readback_root)
     guangdong_local_dir = Path(guangdong_local_verification_root)
     guangdong_local_field_dir = Path(guangdong_local_field_query_root)
     out_dir = Path(output_root)
@@ -74,6 +77,9 @@ def build_guangzhou_evidence_report(
     readiness_manifest = _source_manifest(_load_json(readiness_dir / "guangzhou-upstream-readiness-report.json", [], "readiness_report_missing"))
     active_conflict_manifest = _source_manifest(_load_json_optional(active_conflict_dir / "guangzhou-active-conflict-probe-v1.json"))
     gdcic_query_manifest = _source_manifest(_load_json_optional(gdcic_query_dir / "guangdong-gdcic-query-probe-v1.json"))
+    official_source_readback_manifest = _source_manifest(
+        _load_json_optional(official_source_readback_dir / "guangdong-official-source-readback-closeout-v1.json")
+    )
     guangdong_local_manifest = _source_manifest(
         _load_json_optional(guangdong_local_dir / "guangdong-local-verification-probe-v1.json")
     )
@@ -100,6 +106,7 @@ def build_guangzhou_evidence_report(
             readiness_manifest=readiness_manifest,
             active_conflict_manifest=active_conflict_manifest,
             gdcic_query_manifest=gdcic_query_manifest,
+            official_source_readback_manifest=official_source_readback_manifest,
             guangdong_local_manifest=guangdong_local_manifest,
             guangdong_local_field_manifest=guangdong_local_field_manifest,
         )
@@ -111,6 +118,7 @@ def build_guangzhou_evidence_report(
         readiness_manifest=readiness_manifest,
         active_conflict_manifest=active_conflict_manifest,
         gdcic_query_manifest=gdcic_query_manifest,
+        official_source_readback_manifest=official_source_readback_manifest,
         guangdong_local_manifest=guangdong_local_manifest,
         guangdong_local_field_manifest=guangdong_local_field_manifest,
     )
@@ -133,6 +141,7 @@ def build_guangzhou_evidence_report(
         "source_readiness_root": str(readiness_dir),
         "source_active_conflict_probe_root": str(active_conflict_dir),
         "source_gdcic_query_probe_root": str(gdcic_query_dir),
+        "source_official_source_readback_root": str(official_source_readback_dir),
         "source_guangdong_local_verification_root": str(guangdong_local_dir),
         "source_guangdong_local_field_query_root": str(guangdong_local_field_dir),
         "report_sections": [
@@ -190,6 +199,7 @@ def _project_report(
     readiness_manifest: Mapping[str, Any],
     active_conflict_manifest: Mapping[str, Any],
     gdcic_query_manifest: Mapping[str, Any],
+    official_source_readback_manifest: Mapping[str, Any],
     guangdong_local_manifest: Mapping[str, Any],
     guangdong_local_field_manifest: Mapping[str, Any],
 ) -> dict[str, Any]:
@@ -201,6 +211,7 @@ def _project_report(
     readiness_project = _first(_project_records_for_project(readiness_manifest, project_id))
     active_conflict_project = _first(_project_task_records_for_project(active_conflict_manifest, project_id))
     gdcic_query_project = _first(_gdcic_project_records_for_project(gdcic_query_manifest, project_id))
+    official_source_project = _first(_official_source_project_records_for_project(official_source_readback_manifest, project_id))
     guangdong_local_project = _first(_guangdong_local_project_records_for_project(guangdong_local_manifest, project_id))
     guangdong_local_field_project = _first(
         _guangdong_local_field_project_records_for_project(guangdong_local_field_manifest, project_id)
@@ -268,6 +279,18 @@ def _project_report(
         "gdcic_query_task_ids": _list(gdcic_query_project.get("query_task_ids")),
         "gdcic_readback_ready_count": _int(gdcic_query_project.get("readback_ready_count")),
         "gdcic_blocker_taxonomy_counts": dict(gdcic_query_project.get("blocker_taxonomy_counts") or {}),
+        "official_source_readback_closeout_state": str(
+            (official_source_readback_manifest.get("summary") or {}).get("closeout_state")
+            or "NOT_BUILT"
+        ),
+        "official_source_readback_state": str(
+            official_source_project.get("official_source_readback_state")
+            or "NOT_BUILT"
+        ),
+        "official_source_readback_ready_count": _int(official_source_project.get("official_source_readback_ready_count")),
+        "official_source_task_count": _int(official_source_project.get("official_source_task_count")),
+        "official_source_profile_ids": _list(official_source_project.get("source_profile_ids")),
+        "official_source_blocker_taxonomy_counts": dict(official_source_project.get("blocker_taxonomy_counts") or {}),
         "guangdong_local_verification_probe_state": (
             "READY"
             if guangdong_local_project
@@ -945,6 +968,28 @@ def _recommendations(*, verification_evidence: Mapping[str, Any], process_stabil
             recommendations.append(_recommendation("GDCIC_PUBLIC_SOURCE_READBACK_READY", "广东三库一平台公开源已有字段回放摘要，可作为外部线索继续复核。"))
         else:
             recommendations.append(_recommendation("GDCIC_PUBLIC_SOURCE_REVIEW_REQUIRED", "广东三库一平台探针已生成，公开源命中或阻断状态需继续复核。"))
+    if verification_evidence.get("official_source_readback_closeout_state") == "P2_OFFICIAL_READBACK_READY":
+        if _int(verification_evidence.get("official_source_readback_ready_count")):
+            recommendations.append(
+                _recommendation(
+                    "OFFICIAL_SOURCE_READBACK_READY",
+                    "P2 官方源 readback closeout 已可用，本项目存在可回放公开源字段摘要，可继续做人工复核和后续源补强。",
+                )
+            )
+        else:
+            recommendations.append(
+                _recommendation(
+                    "OFFICIAL_SOURCE_TASK_NOT_APPLICABLE_OR_NOT_BUILT",
+                    "P2 官方源 closeout 已可用，但本项目未生成可回放字段摘要；按项目适用性或源任务覆盖继续检查。",
+                )
+            )
+    elif verification_evidence.get("official_source_readback_closeout_state") == "P2_OFFICIAL_READBACK_REVIEW_REQUIRED":
+        recommendations.append(
+            _recommendation(
+                "OFFICIAL_SOURCE_READBACK_REVIEW_REQUIRED",
+                "P2 官方源 closeout 已生成但公开源回放不足，只能作为阻断或待复核线索。",
+            )
+        )
     return recommendations
 
 
@@ -964,6 +1009,7 @@ def _summary(
     readiness_manifest: Mapping[str, Any],
     active_conflict_manifest: Mapping[str, Any],
     gdcic_query_manifest: Mapping[str, Any],
+    official_source_readback_manifest: Mapping[str, Any],
     guangdong_local_manifest: Mapping[str, Any],
     guangdong_local_field_manifest: Mapping[str, Any],
 ) -> dict[str, Any]:
@@ -1067,6 +1113,22 @@ def _summary(
         "gdcic_blocker_taxonomy_counts": dict(
             (gdcic_query_manifest.get("summary") or {}).get("gdcic_blocker_taxonomy_counts") or {}
         ),
+        "official_source_readback_closeout_state": str(
+            (official_source_readback_manifest.get("summary") or {}).get("closeout_state")
+            or "NOT_BUILT"
+        ),
+        "official_source_readback_ready_count": _int(
+            (official_source_readback_manifest.get("summary") or {}).get("official_source_readback_ready_count")
+        ),
+        "official_source_project_ready_count": _int(
+            (official_source_readback_manifest.get("summary") or {}).get("official_source_project_ready_count")
+        ),
+        "official_source_blocker_taxonomy_counts": dict(
+            (official_source_readback_manifest.get("summary") or {}).get("blocker_taxonomy_counts") or {}
+        ),
+        "official_source_profile_readback_ready_counts": dict(
+            (official_source_readback_manifest.get("summary") or {}).get("source_profile_readback_ready_counts") or {}
+        ),
         "guangdong_local_verification_probe_state": (
             "READY"
             if guangdong_local_manifest
@@ -1162,6 +1224,14 @@ def _gdcic_project_records_for_project(manifest: Mapping[str, Any], project_id: 
     return [
         dict(item)
         for item in _list(manifest.get("project_task_records"))
+        if isinstance(item, Mapping) and str(item.get("project_id") or "") == project_id
+    ]
+
+
+def _official_source_project_records_for_project(manifest: Mapping[str, Any], project_id: str) -> list[dict[str, Any]]:
+    return [
+        dict(item)
+        for item in _list(manifest.get("project_records"))
         if isinstance(item, Mapping) and str(item.get("project_id") or "") == project_id
     ]
 
@@ -1504,6 +1574,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--readiness-root", default=str(DEFAULT_READINESS_ROOT))
     parser.add_argument("--active-conflict-probe-root", default=str(DEFAULT_ACTIVE_CONFLICT_ROOT))
     parser.add_argument("--gdcic-query-probe-root", default=str(DEFAULT_GDCIC_QUERY_PROBE_ROOT))
+    parser.add_argument("--official-source-readback-root", default=str(DEFAULT_OFFICIAL_SOURCE_READBACK_ROOT))
     parser.add_argument("--guangdong-local-verification-root", default=str(DEFAULT_GUANGDONG_LOCAL_VERIFICATION_ROOT))
     parser.add_argument("--guangdong-local-field-query-root", default=str(DEFAULT_GUANGDONG_LOCAL_FIELD_QUERY_ROOT))
     parser.add_argument("--output-root", default=str(DEFAULT_OUTPUT_ROOT))
@@ -1522,6 +1593,7 @@ def main(argv: list[str] | None = None) -> int:
         readiness_root=args.readiness_root,
         active_conflict_probe_root=args.active_conflict_probe_root,
         gdcic_query_probe_root=args.gdcic_query_probe_root,
+        official_source_readback_root=args.official_source_readback_root,
         guangdong_local_verification_root=args.guangdong_local_verification_root,
         guangdong_local_field_query_root=args.guangdong_local_field_query_root,
         output_root=args.output_root,
