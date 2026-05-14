@@ -110,6 +110,18 @@ def test_status_board_records_p0_sync_boundary() -> None:
     assert "广东核验不限定广州市" in text
     assert "入口可达不等于字段核验成功" in text
     assert "项目负责人未释放证据链同步说明" in text
+    assert "早期研究报告吸收同步说明" in text
+    assert "不新增独立吸收清单文档" in text
+    assert "来源 URL" in text
+    assert "采集时间" in text
+    assert "SHA-256/hash" in text
+    assert "脱敏日志" in text
+    assert "可信时间戳" in text
+    assert "白标协作" in text
+    assert "SaaS 后置" in text
+    assert "跨项目关系图谱" in text
+    assert "文件相似度" in text
+    assert "报价异常" in text
     assert "非承包方原因停工超过 120 天" in text
     assert "安全生产标准化考评结果告知书" in text
     assert "在建冲突成立" in text
@@ -142,6 +154,20 @@ def test_business_direction_doc_contains_final_analysis_strategy_rules() -> None
     assert "核验线索/证据" in text
     assert "过程稳定性" in text
     assert "优化建议" in text
+    assert "正式证据固化与交付边界" in text
+    assert "事实、线索、证据、反向解释和建议核验事项" in text
+    assert "来源 URL" in text
+    assert "采集时间" in text
+    assert "脚本版本" in text
+    assert "SHA-256/hash" in text
+    assert "脱敏日志" in text
+    assert "可信时间戳" in text
+    assert "收费举报人路线" in text
+    assert "付费沉默" in text
+    assert "AI 只用于抽取" in text
+    assert "跨项目关系图谱" in text
+    assert "投标文件相似度" in text
+    assert "报价异常" in text
     assert "`ActiveConflictProbe v1` 第一版只生成外部核验任务清单" in text
     assert "不能固定广东" in text
     assert "浙江、四川、江苏、湖北、山东、湖南、河南" in text
@@ -202,6 +228,14 @@ def test_top_level_docs_contain_final_strategy_guardrails() -> None:
         assert "缺竣工" in text
         assert "无在建" in text
         assert "无风险" in text
+        assert "来源 URL" in text
+        assert "采集时间" in text
+        assert "SHA-256/hash" in text
+        assert "脱敏日志" in text
+        assert "可信时间戳" in text
+        assert "收费举报" in text
+        assert "付费沉默" in text
+        assert "AI 一键定性" in text
 
 
 def test_stage45_runbook_contains_responsible_person_early_probe_decision_tree() -> None:
@@ -230,6 +264,17 @@ def test_stage45_runbook_contains_responsible_person_early_probe_decision_tree()
     assert "缺竣工、缺备案、缺变更或缺安全生产标准化考评释放材料" in text
     assert "异议/投诉证据包口径" in text
     assert "当前项目 07 证据" in text
+    assert "来源 URL" in text
+    assert "采集时间" in text
+    assert "脚本版本" in text
+    assert "snapshot/readback" in text
+    assert "SHA-256/hash" in text
+    assert "脱敏日志" in text
+    assert "可信时间戳" in text
+    assert "事实、线索、证据、反向解释和建议核验事项" in text
+    assert "收费举报人" in text
+    assert "付费沉默" in text
+    assert "AI 一键定性" in text
 
 
 def test_navigation_docs_do_not_drift_from_analysis_strategy_v1() -> None:

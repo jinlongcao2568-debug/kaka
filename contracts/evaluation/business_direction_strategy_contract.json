@@ -784,6 +784,60 @@
       ],
       "default_scope": "current_guangzhou_5_projects",
       "flow_08_default_handling": "REGISTER_ONLY_NO_DEFAULT_PARSE",
+      "formal_evidence_hardening_policy": {
+        "policy_id": "FORMAL-EVIDENCE-HARDENING-V1",
+        "minimum_required_trace_fields": [
+          "source_url",
+          "capture_time",
+          "access_path",
+          "script_version",
+          "snapshot_or_readback_ref",
+          "sha256_or_hash",
+          "field_lineage",
+          "redaction_log",
+          "forbidden_terms_check",
+          "competing_explanations"
+        ],
+        "deferred_enhancement_fields": [
+          "trusted_timestamp_id",
+          "evidence_deposit_id",
+          "blockchain_txid",
+          "notarization_ref"
+        ],
+        "deferred_enhancement_state": "RESERVED_NOT_IMPLEMENTED",
+        "must_not": [
+          "do_not_claim_trusted_timestamp_or_notarization_before_integration",
+          "do_not_export_customer_package_without_source_url_hash_readback_and_redaction_trace"
+        ]
+      },
+      "customer_delivery_boundary": {
+        "allowed_output_groups": [
+          "facts",
+          "risk_clues",
+          "evidence_refs",
+          "competing_explanations",
+          "recommended_verification_actions"
+        ],
+        "forbidden_business_routes": [
+          "paid_whistleblower_front_role",
+          "paid_silence_or_withdrawal",
+          "public_exposure_account",
+          "public_naming_without_legal_review",
+          "internal_leaked_material_use",
+          "ai_one_click_legal_conclusion"
+        ],
+        "commercial_sequence": [
+          "post_candidate_evidence_pack_or_public_data_review_report",
+          "lawyer_or_compliance_white_label_collaboration",
+          "saas_anomaly_warning_after_rules_are_verified"
+        ],
+        "midterm_capability_backlog": [
+          "cross_project_relationship_graph",
+          "bid_file_similarity_engine",
+          "quote_pattern_anomaly_engine",
+          "multi_region_live_readback_adapters"
+        ]
+      },
       "customer_visible_allowed": false,
       "no_legal_conclusion": true,
       "forbidden_terms": [

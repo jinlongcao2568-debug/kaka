@@ -271,6 +271,35 @@ class BusinessDirectionStrategyContractTests(unittest.TestCase):
             ["verification_evidence", "process_stability", "optimization_recommendations"],
         )
         self.assertEqual(evidence_policy["flow_08_default_handling"], "REGISTER_ONLY_NO_DEFAULT_PARSE")
+        hardening_policy = evidence_policy["formal_evidence_hardening_policy"]
+        self.assertEqual(hardening_policy["policy_id"], "FORMAL-EVIDENCE-HARDENING-V1")
+        self.assertIn("source_url", hardening_policy["minimum_required_trace_fields"])
+        self.assertIn("capture_time", hardening_policy["minimum_required_trace_fields"])
+        self.assertIn("snapshot_or_readback_ref", hardening_policy["minimum_required_trace_fields"])
+        self.assertIn("sha256_or_hash", hardening_policy["minimum_required_trace_fields"])
+        self.assertIn("redaction_log", hardening_policy["minimum_required_trace_fields"])
+        self.assertIn("competing_explanations", hardening_policy["minimum_required_trace_fields"])
+        self.assertIn("trusted_timestamp_id", hardening_policy["deferred_enhancement_fields"])
+        self.assertEqual(hardening_policy["deferred_enhancement_state"], "RESERVED_NOT_IMPLEMENTED")
+        self.assertIn(
+            "do_not_claim_trusted_timestamp_or_notarization_before_integration",
+            hardening_policy["must_not"],
+        )
+        delivery_boundary = evidence_policy["customer_delivery_boundary"]
+        self.assertIn("facts", delivery_boundary["allowed_output_groups"])
+        self.assertIn("risk_clues", delivery_boundary["allowed_output_groups"])
+        self.assertIn("competing_explanations", delivery_boundary["allowed_output_groups"])
+        self.assertIn("paid_whistleblower_front_role", delivery_boundary["forbidden_business_routes"])
+        self.assertIn("paid_silence_or_withdrawal", delivery_boundary["forbidden_business_routes"])
+        self.assertIn("internal_leaked_material_use", delivery_boundary["forbidden_business_routes"])
+        self.assertIn("ai_one_click_legal_conclusion", delivery_boundary["forbidden_business_routes"])
+        self.assertEqual(
+            delivery_boundary["commercial_sequence"][0],
+            "post_candidate_evidence_pack_or_public_data_review_report",
+        )
+        self.assertIn("cross_project_relationship_graph", delivery_boundary["midterm_capability_backlog"])
+        self.assertIn("bid_file_similarity_engine", delivery_boundary["midterm_capability_backlog"])
+        self.assertIn("quote_pattern_anomaly_engine", delivery_boundary["midterm_capability_backlog"])
         self.assertFalse(evidence_policy["customer_visible_allowed"])
         self.assertTrue(evidence_policy["no_legal_conclusion"])
         self.assertIn("是不是本人", evidence_policy["forbidden_terms"])
