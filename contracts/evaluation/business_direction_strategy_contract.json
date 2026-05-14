@@ -1056,7 +1056,7 @@
   ],
   "next_phase_execution_plan": {
     "plan_id": "POST-CANDIDATE-EVIDENCE-PACK-NEXT-PHASE-V1",
-    "current_focus": "P8_EVIDENCE_FIXATION_BACKFILL_V1",
+    "current_focus": "P9_EVIDENCE_FIXATION_RECAPTURE_V1",
     "phases": [
       {
         "phase_id": "P1_GUANGZHOU_EVIDENCE_REPORT_CLOSEOUT_V1",
@@ -1137,10 +1137,20 @@
           "无法从当前产物补齐的缺口输出 UNFIXABLE_WITH_CURRENT_ARTIFACTS 和缺失原因",
           "P7 manifest 消费 backfill 后输出 strict_fixation_gap_count 与 classified_fixation_gap_count"
         ]
+      },
+      {
+        "phase_id": "P9_EVIDENCE_FIXATION_RECAPTURE_V1",
+        "goal": "针对 P8 中仍不可补齐的广州流程页和 Stage4/JZSC readback 缺口做受控重采与字段摘要固化。",
+        "success_criteria": [
+          "P9 PlanOnly 能生成 38 条重采任务清单",
+          "05/06 流程页重采成功时生成 detail snapshot、readback 和 SHA-256",
+          "Stage4/JZSC readback 只生成字段摘要 hash 和 route attempts，不改变核验结论",
+          "P8 消费 RecaptureRoot 后 backfilled_no_remaining_gap_count 高于 32，剩余缺口有 route taxonomy"
+        ]
       }
     ],
     "must_not": [
-      "do_not_expand_to_20_projects_before_p8_backfill_closeout",
+      "do_not_expand_to_20_projects_before_p9_recapture_closeout",
       "do_not_start_graph_or_saas_before_evidence_fixation_backfill",
       "do_not_default_parse_flow_08_without_trigger",
       "do_not_treat_plan_only_region_sources_as_live_verified"

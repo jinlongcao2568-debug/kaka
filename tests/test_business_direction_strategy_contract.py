@@ -589,7 +589,7 @@ class BusinessDirectionStrategyContractTests(unittest.TestCase):
         plan = contract["next_phase_execution_plan"]
         phases = [phase["phase_id"] for phase in plan["phases"]]
 
-        self.assertEqual(plan["current_focus"], "P8_EVIDENCE_FIXATION_BACKFILL_V1")
+        self.assertEqual(plan["current_focus"], "P9_EVIDENCE_FIXATION_RECAPTURE_V1")
         self.assertEqual(
             phases,
             [
@@ -601,21 +601,22 @@ class BusinessDirectionStrategyContractTests(unittest.TestCase):
                 "P6_CERTIFICATE_SUPPLEMENT_CLOSEOUT_V1",
                 "P7_INTERNAL_EVIDENCE_PACKAGE_MANIFEST_V1",
                 "P8_EVIDENCE_FIXATION_BACKFILL_V1",
+                "P9_EVIDENCE_FIXATION_RECAPTURE_V1",
             ],
         )
         p1 = plan["phases"][0]
         self.assertIn("ParseProbe missing 不再阻断未触发 08 的项目", p1["success_criteria"])
         self.assertIn("12 个候选组均有负责人公开注册信息匹配结果", p1["success_criteria"])
-        self.assertIn("do_not_expand_to_20_projects_before_p8_backfill_closeout", plan["must_not"])
+        self.assertIn("do_not_expand_to_20_projects_before_p9_recapture_closeout", plan["must_not"])
         self.assertIn("do_not_default_parse_flow_08_without_trigger", plan["must_not"])
         self.assertIn("do_not_treat_plan_only_region_sources_as_live_verified", plan["must_not"])
         p7 = plan["phases"][-1]
-        self.assertEqual(p7["phase_id"], "P8_EVIDENCE_FIXATION_BACKFILL_V1")
+        self.assertEqual(p7["phase_id"], "P9_EVIDENCE_FIXATION_RECAPTURE_V1")
         self.assertIn(
-            "stage4 readback 只能回填 readback_record_sha256 时，不冒充源网页或源文件内容 hash",
+            "Stage4/JZSC readback 只生成字段摘要 hash 和 route attempts，不改变核验结论",
             p7["success_criteria"],
         )
-        self.assertIn("P7 manifest 消费 backfill 后输出 strict_fixation_gap_count 与 classified_fixation_gap_count", p7["success_criteria"])
+        self.assertIn("P8 消费 RecaptureRoot 后 backfilled_no_remaining_gap_count 高于 32，剩余缺口有 route taxonomy", p7["success_criteria"])
 
 
 if __name__ == "__main__":

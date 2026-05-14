@@ -92,6 +92,32 @@ class GuangzhouEvidenceFixationBackfillTests(unittest.TestCase):
         self.assertTrue(stage4["backfilled_fields"]["readback_record_sha256"])
         self.assertIn("source_content_sha256_not_available_from_current_artifacts", stage4["remaining_gap_reasons"])
 
+    def test_recapture_root_backfills_previous_unfixable_flow_and_stage4_records(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_internal_package(root / "package", include_unmatched=True)
+            _write_download(root / "download")
+            _write_flow(root / "flow")
+            _write_gdcic(root / "gdcic")
+            _write_stage4(root / "stage4")
+            _write_recapture(root / "recapture")
+
+            result = build_guangzhou_evidence_fixation_backfill(
+                internal_evidence_package_root=root / "package",
+                download_root=root / "download",
+                flow_root=root / "flow",
+                gdcic_query_probe_root=root / "gdcic",
+                stage4_execution_root=root / "stage4",
+                recapture_root=root / "recapture",
+                output_root=root / "out",
+            )
+
+        records = {record["source_fixation_id"]: record for record in result["manifest"]["backfill_records"]}
+        self.assertEqual(records["FIX-UNMATCHED"]["backfill_state"], "BACKFILLED_FROM_RECAPTURED_DETAIL_SNAPSHOT")
+        self.assertEqual(records["FIX-STAGE4"]["backfill_state"], "BACKFILLED_FROM_RECAPTURED_STAGE4_READBACK")
+        self.assertEqual(records["FIX-STAGE4"]["backfill_classification"], "SOURCE_READBACK_HASH_BACKFILLED")
+        self.assertEqual(len(records["FIX-STAGE4"]["backfilled_fields"]["source_readback_sha256"]), 64)
+
     def test_unmatched_gap_is_classified_unfixable_without_forbidden_terms(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -238,6 +264,44 @@ def _write_stage4(root: Path) -> None:
         }
     }
     (root / "company-first-stage4-execution.json").write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+
+def _write_recapture(root: Path) -> None:
+    root.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "manifest": {
+            "manifest_kind": "guangzhou_evidence_fixation_recapture_v1_manifest",
+            "recapture_records": [
+                {
+                    "source_fixation_id": "FIX-UNMATCHED",
+                    "project_id": "PROJ-CN-GD-JG2026-10000",
+                    "source_family": "flow_url_manifest",
+                    "flow_no": "03",
+                    "source_url": "https://example.test/project/missing.html",
+                    "recapture_state": "FLOW_DETAIL_RECAPTURED",
+                    "snapshot_id": "P9-FLOW-123",
+                    "readback_ref": "READBACK_READY",
+                    "sha256": "c" * 64,
+                    "content_type": "text/html",
+                    "byte_size": 100,
+                    "object_key": "objects/P9-FLOW-123",
+                },
+                {
+                    "source_fixation_id": "FIX-STAGE4",
+                    "project_id": "PROJ-CN-GD-JG2026-10000",
+                    "source_family": "stage4_company_personnel_readback",
+                    "flow_no": "07",
+                    "source_url": "https://jzsc.example.test/person",
+                    "recapture_state": "STAGE4_READBACK_RECAPTURED",
+                    "source_readback_url": "https://jzsc.example.test/person",
+                    "source_readback_sha256": "d" * 64,
+                    "readback_payload_sha256": "d" * 64,
+                    "field_evidence_probe": {"responsible_person_name": "张三"},
+                },
+            ],
+        }
+    }
+    (root / "evidence-fixation-recapture-v1.json").write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
 
 
 if __name__ == "__main__":

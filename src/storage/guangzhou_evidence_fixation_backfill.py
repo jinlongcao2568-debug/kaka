@@ -18,6 +18,7 @@ DEFAULT_DOWNLOAD_ROOT = Path("tmp/evaluation-real-samples/guangzhou-download-hum
 DEFAULT_FLOW_ROOT = Path("tmp/evaluation-real-samples/guangzhou-flowurl-analysis-72h-v1")
 DEFAULT_GDCIC_QUERY_PROBE_ROOT = Path("tmp/evaluation-real-samples/guangdong-gdcic-query-probe-v1-live-max12")
 DEFAULT_STAGE4_EXECUTION_ROOT = Path("tmp/evaluation-real-samples/guangzhou-company-first-stage4-execution-v4-merged")
+DEFAULT_RECAPTURE_ROOT = Path("tmp/evaluation-real-samples/guangzhou-evidence-fixation-recapture-v1")
 DEFAULT_OUTPUT_ROOT = Path("tmp/evaluation-real-samples/guangzhou-evidence-fixation-backfill-v1")
 
 FORBIDDEN_TERMS = ("是不是本人", "确认本人", "无风险", "无冲突", "在建冲突成立", "冲突成立", "造假成立", "违法成立")
@@ -30,6 +31,7 @@ def build_guangzhou_evidence_fixation_backfill(
     flow_root: str | Path = DEFAULT_FLOW_ROOT,
     gdcic_query_probe_root: str | Path = DEFAULT_GDCIC_QUERY_PROBE_ROOT,
     stage4_execution_root: str | Path = DEFAULT_STAGE4_EXECUTION_ROOT,
+    recapture_root: str | Path | None = None,
     output_root: str | Path = DEFAULT_OUTPUT_ROOT,
     created_at: str | None = None,
 ) -> dict[str, Any]:
@@ -39,6 +41,7 @@ def build_guangzhou_evidence_fixation_backfill(
     flow_dir = Path(flow_root)
     gdcic_dir = Path(gdcic_query_probe_root)
     stage4_dir = Path(stage4_execution_root)
+    recapture_dir = Path(recapture_root) if recapture_root else None
     out_dir = Path(output_root)
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -57,10 +60,14 @@ def build_guangzhou_evidence_fixation_backfill(
     stage4_manifest = _source_manifest(
         _load_json(stage4_dir / "company-first-stage4-execution.json", blocking_reasons, "stage4_execution_missing")
     )
+    recapture_manifest = _source_manifest(
+        _load_json_optional(recapture_dir / "evidence-fixation-recapture-v1.json") if recapture_dir else {}
+    )
 
     download_snapshot_index = _download_snapshot_index(download_manifest, human_file_map)
     gdcic_index = _gdcic_task_index(gdcic_manifest)
     stage4_index = _stage4_record_index(stage4_manifest)
+    recapture_index = _recapture_record_index(recapture_manifest)
     source_records = [row for row in _list(package_manifest.get("source_fixation_records")) if isinstance(row, Mapping)]
     backfill_records = [
         _backfill_record(
@@ -68,6 +75,7 @@ def build_guangzhou_evidence_fixation_backfill(
             download_snapshot_index=download_snapshot_index,
             gdcic_index=gdcic_index,
             stage4_index=stage4_index,
+            recapture_index=recapture_index,
         )
         for row in source_records
         if str(row.get("fixation_state") or "") != "FIXATION_COMPLETE"
@@ -85,6 +93,7 @@ def build_guangzhou_evidence_fixation_backfill(
         "source_flow_root": str(flow_dir),
         "source_gdcic_query_probe_root": str(gdcic_dir),
         "source_stage4_execution_root": str(stage4_dir),
+        "source_recapture_root": str(recapture_dir) if recapture_dir else "",
         "backfill_records": backfill_records,
         "summary": summary,
         "safety": {
@@ -125,9 +134,13 @@ def _backfill_record(
     download_snapshot_index: Mapping[tuple[str, str, str], Mapping[str, Any]],
     gdcic_index: Mapping[str, Mapping[str, Any]],
     stage4_index: Mapping[str, Mapping[str, Any]],
+    recapture_index: Mapping[str, Mapping[str, Any]],
 ) -> dict[str, Any]:
     family = str(source_record.get("source_family") or "")
     source_id = str(source_record.get("source_fixation_id") or "")
+    recaptured = _recapture_backfill(source_record, recapture_index.get(source_id), source_id)
+    if recaptured is not None:
+        return recaptured
     if family in {"flow_url_manifest", "evidence_report_candidate_notice_url"}:
         return _download_backfill(source_record, download_snapshot_index, source_id)
     if family == "official_source_readback_summary":
@@ -135,6 +148,57 @@ def _backfill_record(
     if family in {"stage4_company_personnel_readback", "stage4_personnel_project_readback"}:
         return _stage4_backfill(source_record, stage4_index, source_id)
     return _unfixable(source_record, source_id, "unsupported_source_family_for_backfill")
+
+
+def _recapture_backfill(source_record: Mapping[str, Any], recapture_record: Mapping[str, Any] | None, source_id: str) -> dict[str, Any] | None:
+    if not recapture_record:
+        return None
+    state = str(recapture_record.get("recapture_state") or "")
+    if state == "FLOW_DETAIL_RECAPTURED":
+        return _record(
+            source_record=source_record,
+            source_fixation_id=source_id,
+            backfill_state="BACKFILLED_FROM_RECAPTURED_DETAIL_SNAPSHOT",
+            backfill_classification="CONTENT_SNAPSHOT_HASH_BACKFILLED",
+            backfilled_fields={
+                "snapshot_id": str(recapture_record.get("snapshot_id") or ""),
+                "readback_ref": str(recapture_record.get("readback_ref") or "READBACK_READY"),
+                "sha256": str(recapture_record.get("sha256") or ""),
+                "local_path": str(recapture_record.get("object_key") or ""),
+                "content_type": str(recapture_record.get("content_type") or ""),
+                "byte_size": _int(recapture_record.get("byte_size")),
+            },
+            remaining_gap_reasons=[],
+            backfill_source_ref="guangzhou_evidence_fixation_recapture.flow_detail",
+        )
+    if state == "STAGE4_READBACK_RECAPTURED":
+        readback_hash = str(recapture_record.get("source_readback_sha256") or recapture_record.get("readback_payload_sha256") or "")
+        return _record(
+            source_record=source_record,
+            source_fixation_id=source_id,
+            backfill_state="BACKFILLED_FROM_RECAPTURED_STAGE4_READBACK",
+            backfill_classification="SOURCE_READBACK_HASH_BACKFILLED",
+            backfilled_fields={
+                "source_url": str(recapture_record.get("source_readback_url") or source_record.get("source_url") or ""),
+                "readback_ref": str(recapture_record.get("readback_ref") or source_record.get("readback_ref") or ""),
+                "sha256": readback_hash,
+                "source_readback_sha256": readback_hash,
+                "readback_payload_sha256": str(recapture_record.get("readback_payload_sha256") or readback_hash),
+            },
+            remaining_gap_reasons=[],
+            backfill_source_ref="guangzhou_evidence_fixation_recapture.stage4_readback",
+        )
+    if "BLOCKED" in state:
+        return _record(
+            source_record=source_record,
+            source_fixation_id=source_id,
+            backfill_state="RECAPTURE_BLOCKED_CURRENT_ARTIFACT_GAP_CLASSIFIED",
+            backfill_classification="CURRENT_ARTIFACT_GAP_CLASSIFIED",
+            backfilled_fields={},
+            remaining_gap_reasons=[*list(recapture_record.get("failure_taxonomy") or []), *_list(source_record.get("fixation_gap_reasons"))],
+            backfill_source_ref="guangzhou_evidence_fixation_recapture.blocked",
+        )
+    return None
 
 
 def _download_backfill(
@@ -307,6 +371,14 @@ def _stage4_record_index(stage4_manifest: Mapping[str, Any]) -> dict[str, Mappin
     return out
 
 
+def _recapture_record_index(recapture_manifest: Mapping[str, Any]) -> dict[str, Mapping[str, Any]]:
+    return {
+        str(item.get("source_fixation_id") or ""): dict(item)
+        for item in _list(recapture_manifest.get("recapture_records"))
+        if isinstance(item, Mapping) and str(item.get("source_fixation_id") or "")
+    }
+
+
 def _summary(*, backfill_records: list[Mapping[str, Any]], blocking_reasons: list[str]) -> dict[str, Any]:
     state_counts: dict[str, int] = {}
     class_counts: dict[str, int] = {}
@@ -321,7 +393,13 @@ def _summary(*, backfill_records: list[Mapping[str, Any]], blocking_reasons: lis
     backfilled = sum(
         1
         for row in backfill_records
-        if str(row.get("backfill_state") or "") in {"BACKFILLED_FROM_DOWNLOAD_DETAIL_SNAPSHOT", "BACKFILLED_FROM_GDCIC_QUERY_TASK"}
+        if str(row.get("backfill_state") or "")
+        in {
+            "BACKFILLED_FROM_DOWNLOAD_DETAIL_SNAPSHOT",
+            "BACKFILLED_FROM_GDCIC_QUERY_TASK",
+            "BACKFILLED_FROM_RECAPTURED_DETAIL_SNAPSHOT",
+            "BACKFILLED_FROM_RECAPTURED_STAGE4_READBACK",
+        }
     )
     classified = sum(1 for row in backfill_records if str(row.get("backfill_state") or "") == "RECORD_HASH_BACKFILLED_CONTENT_HASH_NOT_AVAILABLE")
     unfixable = sum(1 for row in backfill_records if str(row.get("backfill_state") or "") == "UNFIXABLE_WITH_CURRENT_ARTIFACTS")
@@ -395,6 +473,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--flow-root", default=str(DEFAULT_FLOW_ROOT))
     parser.add_argument("--gdcic-query-probe-root", default=str(DEFAULT_GDCIC_QUERY_PROBE_ROOT))
     parser.add_argument("--stage4-execution-root", default=str(DEFAULT_STAGE4_EXECUTION_ROOT))
+    parser.add_argument("--recapture-root", default="")
     parser.add_argument("--output-root", default=str(DEFAULT_OUTPUT_ROOT))
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
@@ -405,6 +484,7 @@ def main(argv: list[str] | None = None) -> int:
         flow_root=args.flow_root,
         gdcic_query_probe_root=args.gdcic_query_probe_root,
         stage4_execution_root=args.stage4_execution_root,
+        recapture_root=args.recapture_root or None,
         output_root=args.output_root,
     )
     if args.json:

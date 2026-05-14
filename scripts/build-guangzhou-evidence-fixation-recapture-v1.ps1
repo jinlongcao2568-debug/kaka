@@ -1,11 +1,11 @@
 param(
-    [string]$InternalEvidencePackageRoot = "",
-    [string]$DownloadRoot = "",
+    [string]$BackfillRoot = "",
+    [string]$InternalPackageRoot = "",
     [string]$FlowRoot = "",
-    [string]$GdcicQueryProbeRoot = "",
+    [string]$DownloadRoot = "",
     [string]$Stage4ExecutionRoot = "",
-    [string]$RecaptureRoot = "",
     [string]$OutputRoot = "",
+    [switch]$Execute,
     [switch]$EmitJson
 )
 
@@ -14,26 +14,23 @@ $ErrorActionPreference = "Stop"
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = Resolve-Path (Join-Path $scriptDir "..")
 
-if (-not $InternalEvidencePackageRoot) {
-    $InternalEvidencePackageRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\guangzhou-internal-evidence-package-manifest-v1"
+if (-not $BackfillRoot) {
+    $BackfillRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\guangzhou-evidence-fixation-backfill-v1"
 }
-if (-not $DownloadRoot) {
-    $DownloadRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\guangzhou-download-human-v1"
+if (-not $InternalPackageRoot) {
+    $InternalPackageRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\guangzhou-internal-evidence-package-manifest-p8-v1"
 }
 if (-not $FlowRoot) {
     $FlowRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\guangzhou-flowurl-analysis-72h-v1"
 }
-if (-not $GdcicQueryProbeRoot) {
-    $GdcicQueryProbeRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\guangdong-gdcic-query-probe-v1-live-max12"
+if (-not $DownloadRoot) {
+    $DownloadRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\guangzhou-download-human-v1"
 }
 if (-not $Stage4ExecutionRoot) {
     $Stage4ExecutionRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\guangzhou-company-first-stage4-execution-v4-merged"
 }
-if (-not $RecaptureRoot) {
-    $RecaptureRoot = ""
-}
 if (-not $OutputRoot) {
-    $OutputRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\guangzhou-evidence-fixation-backfill-v1"
+    $OutputRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\guangzhou-evidence-fixation-recapture-v1"
 }
 
 New-Item -ItemType Directory -Force -Path $OutputRoot | Out-Null
@@ -41,19 +38,18 @@ New-Item -ItemType Directory -Force -Path $OutputRoot | Out-Null
 $env:PYTHONPATH = "$repoRoot\src;$repoRoot\tests"
 
 $argsList = @(
-    "-m", "storage.guangzhou_evidence_fixation_backfill",
-    "--internal-evidence-package-root", $InternalEvidencePackageRoot,
-    "--download-root", $DownloadRoot,
+    "-m", "storage.guangzhou_evidence_fixation_recapture",
+    "--backfill-root", $BackfillRoot,
+    "--internal-package-root", $InternalPackageRoot,
     "--flow-root", $FlowRoot,
-    "--gdcic-query-probe-root", $GdcicQueryProbeRoot,
+    "--download-root", $DownloadRoot,
     "--stage4-execution-root", $Stage4ExecutionRoot,
     "--output-root", $OutputRoot
 )
 
-if ($RecaptureRoot) {
-    $argsList += @("--recapture-root", $RecaptureRoot)
+if ($Execute) {
+    $argsList += "--execute"
 }
-
 if ($EmitJson) {
     $argsList += "--json"
 }
