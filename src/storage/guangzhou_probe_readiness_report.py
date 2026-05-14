@@ -135,7 +135,9 @@ def build_guangzhou_upstream_readiness_report(
     result = {
         "guangzhou_upstream_readiness_report_mode": "BUILT",
         "safe_to_continue_stage4": summary["safe_to_continue_stage4"],
+        "safe_to_closeout_evidence_report": summary["safe_to_closeout_evidence_report"],
         "blocking_reasons": summary["stage4_blocking_reasons"],
+        "closeout_blocking_reasons": summary["closeout_blocking_reasons"],
         "manifest": manifest,
         "summary": summary,
     }
@@ -168,6 +170,7 @@ def _project_record(
     stage4_items = _items_for_project(stage4_manifest, project_id)
     stage4_execution_items = _items_for_project(stage4_execution_manifest, project_id)
     candidate_group_records = _candidate_group_verification_records(stage4_execution_items)
+    candidate_group_closeout_ready = _candidate_groups_ready_for_closeout(candidate_group_records)
     project_name = _first_text(
         [item.get("project_name") for item in [*download_samples, *flow_samples, *parse_samples, *stage4_items]]
     )
@@ -208,6 +211,7 @@ def _project_record(
         stage4_pm=stage4_pm,
         stage4_cert=stage4_cert,
         candidate_certificate_inputs=candidate_cert,
+        candidate_group_closeout_ready=candidate_group_closeout_ready,
     )
     candidate_gate_state = _candidate_certificate_gate_state(
         flow_07_certificate_inputs=flow_07_cert,
@@ -247,6 +251,15 @@ def _project_record(
         "candidate_evidence_certificate_gate_state": candidate_gate_state,
         "candidate_group_verification_records": candidate_group_records,
         "candidate_group_verification_summary": _candidate_group_summary(candidate_group_records),
+        "candidate_group_closeout_ready": candidate_group_closeout_ready,
+        "safe_to_closeout_evidence_report": candidate_group_closeout_ready and not blockers,
+        "closeout_readiness_state": (
+            "EVIDENCE_REPORT_CLOSEOUT_READY"
+            if candidate_group_closeout_ready and not blockers
+            else "EVIDENCE_REPORT_CLOSEOUT_BLOCKED"
+        ),
+        "closeout_blocking_reasons": blockers,
+        "closeout_deferred_reasons": [],
         "flow_07_certificate_gate_state": (
             "READY_FOR_STAGE4_CERTIFICATE_VERIFICATION"
             if flow_07_cert > 0
@@ -299,6 +312,7 @@ def _flow_records(
         stage4_items = _items_for_project_flow(stage4_manifest, project_id, flow_no)
         stage4_execution_items = _items_for_project_flow(stage4_execution_manifest, project_id, flow_no)
         candidate_group_records = _candidate_group_verification_records(stage4_execution_items)
+        candidate_group_closeout_ready = _candidate_groups_ready_for_closeout(candidate_group_records)
         listed = sum(_listed_attachment_count(sample) for sample in download_samples)
         attempted = sum(_download_attempt_count(sample) for sample in download_samples)
         snapshots = sum(len(list(sample.get("attachment_snapshot_refs") or [])) for sample in download_samples)
@@ -324,6 +338,7 @@ def _flow_records(
             stage4_items=stage4_items,
             stage4_certificate_inputs=stage4_cert,
             flow_08_targeted_parse_required=flow_08_targeted_required,
+            candidate_group_closeout_ready=candidate_group_closeout_ready,
         )
         records.append(
             {
@@ -357,6 +372,7 @@ def _flow_records(
                 ),
                 "candidate_group_verification_records": candidate_group_records,
                 "candidate_group_verification_summary": _candidate_group_summary(candidate_group_records),
+                "candidate_group_closeout_ready": candidate_group_closeout_ready,
                 "failure_taxonomy": _dedupe(
                     reason
                     for row in [*flow_samples, *download_samples, *parse_samples]
@@ -397,6 +413,7 @@ def _summary(
         [dict(item) for item in list(stage4_execution_manifest.get("items") or []) if isinstance(item, Mapping)]
     )
     candidate_group_summary = _candidate_group_summary(candidate_group_records)
+    candidate_group_closeout_ready = _candidate_groups_ready_for_closeout(candidate_group_records)
     candidate_group_resolved_count = _int(candidate_group_summary.get("resolved_group_count"))
     candidate_group_unresolved_count = _int(candidate_group_summary.get("unresolved_group_count"))
     candidate_group_resolved_project_ids = {
@@ -464,11 +481,29 @@ def _summary(
     else:
         readiness_state = "UPSTREAM_NOT_READY_FOR_STAGE4"
         stage4_execution_scope = "BLOCKED_UNTIL_CANDIDATE_CERTIFICATE"
+    closeout_blocking, closeout_deferred = _evidence_report_closeout_gate(
+        stage4_blocking_reasons=blocking,
+        missing_inputs=missing_inputs,
+        candidate_group_summary=candidate_group_summary,
+        candidate_group_closeout_ready=candidate_group_closeout_ready,
+    )
+    safe_to_closeout_evidence_report = not closeout_blocking
+    closeout_readiness_state = (
+        "EVIDENCE_REPORT_CLOSEOUT_READY"
+        if safe_to_closeout_evidence_report and closeout_deferred
+        else "EVIDENCE_REPORT_CLOSEOUT_FULLY_READY"
+        if safe_to_closeout_evidence_report
+        else "EVIDENCE_REPORT_CLOSEOUT_BLOCKED"
+    )
     return {
         "readiness_state": readiness_state,
         "safe_to_continue_stage4": safe_to_continue_stage4,
         "stage4_execution_scope": stage4_execution_scope,
         "stage4_blocking_reasons": _dedupe(blocking),
+        "safe_to_closeout_evidence_report": safe_to_closeout_evidence_report,
+        "closeout_readiness_state": closeout_readiness_state,
+        "closeout_blocking_reasons": closeout_blocking,
+        "closeout_deferred_reasons": closeout_deferred,
         "flowurl_project_count": flow_project_count,
         "flowurl_flow_count": _int(flow_summary.get("project_sample_count") or flow_url_summary.get("flow_url_count")),
         "download_probe_project_count": download_project_count,
@@ -495,6 +530,7 @@ def _summary(
         "stage4_execution_state_counts": dict(stage4_execution_summary.get("stage4_execution_state_counts") or {}),
         "candidate_group_verification_summary": candidate_group_summary,
         "candidate_group_verification_records": candidate_group_records,
+        "candidate_group_closeout_ready": candidate_group_closeout_ready,
         "candidate_group_resolved_project_count": len(candidate_group_resolved_project_ids),
         "candidate_group_unresolved_project_count": len(candidate_group_unresolved_project_ids),
         "candidate_group_stage4_gate_state": (
@@ -773,6 +809,17 @@ def _candidate_group_summary(records: list[Mapping[str, Any]]) -> dict[str, Any]
     }
 
 
+def _candidate_groups_ready_for_closeout(records: list[Mapping[str, Any]]) -> bool:
+    summary = _candidate_group_summary(records)
+    return (
+        _int(summary.get("candidate_group_count")) > 0
+        and _int(summary.get("resolved_group_count")) > 0
+        and _int(summary.get("pending_group_count")) == 0
+        and _int(summary.get("unresolved_group_count")) == 0
+        and _int(summary.get("flow_08_targeted_parse_required_count")) == 0
+    )
+
+
 def _project_blockers(
     *,
     flow_samples: list[Mapping[str, Any]],
@@ -786,6 +833,7 @@ def _project_blockers(
     stage4_pm: int,
     stage4_cert: int,
     candidate_certificate_inputs: int,
+    candidate_group_closeout_ready: bool = False,
 ) -> list[str]:
     blockers: list[str] = []
     has_candidate_evidence_flow = any(_flow_no(row.get("guangzhou_flow_no") or row.get("flow_no")) in {"07", "08"} for row in [*flow_samples, *parse_samples, *stage4_items])
@@ -797,7 +845,7 @@ def _project_blockers(
         blockers.append("parse_incomplete")
     if parse_samples and not stage4_items:
         blockers.append("stage4_inputs_not_generated")
-    if has_candidate_evidence_flow and not candidate_certificate_inputs:
+    if has_candidate_evidence_flow and not candidate_certificate_inputs and not candidate_group_closeout_ready:
         blockers.append("candidate_evidence_certificate_input_missing_parse_required")
     return blockers
 
@@ -816,6 +864,7 @@ def _flow_blockers(
     stage4_items: list[Mapping[str, Any]],
     stage4_certificate_inputs: int,
     flow_08_targeted_parse_required: bool = False,
+    candidate_group_closeout_ready: bool = False,
 ) -> list[str]:
     blockers: list[str] = []
     register_only_flow_08 = flow_no == "08" and not flow_08_targeted_parse_required and any(
@@ -836,7 +885,7 @@ def _flow_blockers(
         blockers.append("attachment_snapshot_incomplete_for_flow")
     if not register_only_flow_08 and parse_attempted and parse_success < parse_attempted and not (flow_no in {"07", "08"} and stage4_certificate_inputs > 0):
         blockers.append("parse_incomplete_for_flow")
-    if flow_no in {"07", "08"} and parse_samples and stage4_certificate_inputs == 0 and not register_only_flow_08:
+    if flow_no in {"07", "08"} and parse_samples and stage4_certificate_inputs == 0 and not register_only_flow_08 and not candidate_group_closeout_ready:
         blockers.append("candidate_evidence_certificate_input_missing_parse_required")
     elif parse_samples and not stage4_items and any(_flow_no(sample.get("guangzhou_flow_no") or sample.get("flow_no")) == "08" for sample in parse_samples):
         blockers.append("candidate_stage4_input_missing_for_flow")
@@ -853,6 +902,42 @@ def _flow_08_targeted_parse_required(
         bool(item.get("flow_08_targeted_parse_required"))
         for item in [*analysis_items, *stage4_items, *candidate_group_records]
     )
+
+
+def _evidence_report_closeout_gate(
+    *,
+    stage4_blocking_reasons: list[str],
+    missing_inputs: list[str],
+    candidate_group_summary: Mapping[str, Any],
+    candidate_group_closeout_ready: bool,
+) -> tuple[list[str], list[str]]:
+    blocking: list[str] = []
+    deferred: list[str] = []
+    for reason in stage4_blocking_reasons:
+        if reason == "parse_probe_manifest_missing":
+            if candidate_group_closeout_ready:
+                deferred.append("parse_probe_manifest_missing_deferred_by_candidate_group_resolution")
+            else:
+                blocking.append(reason)
+            continue
+        if reason == "parse_success_rate_below_target" and candidate_group_closeout_ready:
+            deferred.append("parse_success_rate_deferred_by_candidate_group_resolution")
+            continue
+        blocking.append(reason)
+
+    if not candidate_group_closeout_ready:
+        if _int(candidate_group_summary.get("candidate_group_count")) == 0:
+            blocking.append("candidate_group_verification_not_run")
+        if _int(candidate_group_summary.get("pending_group_count")) > 0:
+            blocking.append("candidate_group_pending_execution")
+        if _int(candidate_group_summary.get("unresolved_group_count")) > 0:
+            blocking.append("candidate_group_unresolved_flow08_required")
+        if _int(candidate_group_summary.get("flow_08_targeted_parse_required_count")) > 0:
+            blocking.append("flow_08_targeted_parse_required")
+
+    if "parse_probe_manifest_missing" in missing_inputs and candidate_group_closeout_ready:
+        deferred.append("parse_probe_manifest_missing_deferred_by_candidate_group_resolution")
+    return _dedupe(blocking), _dedupe(deferred)
 
 
 def _project_ids(

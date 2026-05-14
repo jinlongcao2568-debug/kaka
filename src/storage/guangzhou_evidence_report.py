@@ -108,6 +108,7 @@ def build_guangzhou_evidence_report(
     summary = _summary(
         project_reports=project_reports,
         missing_inputs=missing_inputs,
+        readiness_manifest=readiness_manifest,
         active_conflict_manifest=active_conflict_manifest,
         gdcic_query_manifest=gdcic_query_manifest,
         guangdong_local_manifest=guangdong_local_manifest,
@@ -293,10 +294,27 @@ def _project_report(
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,
     }
+    closeout_state = str(
+        readiness_project.get("closeout_readiness_state")
+        or readiness_project.get("readiness_state")
+        or ""
+    )
+    closeout_safe = bool(readiness_project.get("safe_to_closeout_evidence_report"))
+    closeout_blocking_reasons = _list(readiness_project.get("closeout_blocking_reasons"))
+    closeout_deferred_reasons = _list(readiness_project.get("closeout_deferred_reasons"))
+    if responsible_chain_state.get("chain_state") == "RESPONSIBLE_PERSON_NOT_APPLICABLE":
+        closeout_state = "EVIDENCE_REPORT_CLOSEOUT_NOT_APPLICABLE"
+        closeout_safe = True
+        closeout_blocking_reasons = []
+        closeout_deferred_reasons = []
     process_stability = {
         "flow_07_present": any(_flow_no(row) == "07" for row in [*flow_items, *download_items]),
         "flow_08_present": flow_08_registry["flow_08_present"],
         "flow_08_default_parse_state": "REGISTER_ONLY_NO_DEFAULT_PARSE",
+        "evidence_report_closeout_state": closeout_state,
+        "safe_to_closeout_evidence_report": closeout_safe,
+        "closeout_blocking_reasons": closeout_blocking_reasons,
+        "closeout_deferred_reasons": closeout_deferred_reasons,
         "download_probe_flow_count": len(download_items),
         "download_attempted_count": sum(_int(row.get("download_attempted_count")) for row in download_items),
         "attachment_snapshot_count": sum(_int(row.get("attachment_snapshot_count")) for row in download_items),
@@ -855,6 +873,27 @@ def _recommendations(*, verification_evidence: Mapping[str, Any], process_stabil
     recommendations: list[dict[str, Any]] = []
     responsible_chain = verification_evidence.get("responsible_person_verification_chain") or {}
     local_context = verification_evidence.get("local_credit_source_context") or {}
+    if process_stability.get("safe_to_closeout_evidence_report"):
+        recommendations.append(
+            _recommendation(
+                "CLOSEOUT_EVIDENCE_REPORT_READY",
+                "候选组公开注册信息已匹配，未触发 08 定向解析，当前内部证据报告可收口。",
+            )
+        )
+    if "parse_probe_manifest_missing_deferred_by_candidate_group_resolution" in _list(process_stability.get("closeout_deferred_reasons")):
+        recommendations.append(
+            _recommendation(
+                "PARSE_PROBE_DEFERRED_NO_FLOW08_TRIGGER",
+                "ParseProbe 缺失已按候选组匹配结果暂缓，不阻断当前内部报告收口。",
+            )
+        )
+    if process_stability.get("closeout_blocking_reasons"):
+        recommendations.append(
+            _recommendation(
+                "REPAIR_EVIDENCE_REPORT_CLOSEOUT_BLOCKERS",
+                "EvidenceReport closeout 仍有阻断项，先按 closeout_blocking_reasons 定向修复。",
+            )
+        )
     if verification_evidence.get("flow_08_targeted_parse_required"):
         recommendations.append(_recommendation("RUN_FLOW_08_TARGETED_PARSE", "存在 08 定向解析触发条件，先按目标文件关键词解析。"))
     elif verification_evidence.get("public_registration_match_state") == "ALL_GROUPS_RESOLVED":
@@ -922,6 +961,7 @@ def _summary(
     *,
     project_reports: list[Mapping[str, Any]],
     missing_inputs: list[str],
+    readiness_manifest: Mapping[str, Any],
     active_conflict_manifest: Mapping[str, Any],
     gdcic_query_manifest: Mapping[str, Any],
     guangdong_local_manifest: Mapping[str, Any],
@@ -943,6 +983,21 @@ def _summary(
         project.get("responsible_person_verification_chain") or {}
         for project in project_reports
     ]
+    process_stability_records = [
+        project.get("process_stability") or {}
+        for project in project_reports
+    ]
+    closeout_deferred_reasons = [
+        reason
+        for record in process_stability_records
+        for reason in _list(record.get("closeout_deferred_reasons"))
+    ]
+    closeout_blocking_reasons = [
+        reason
+        for record in process_stability_records
+        for reason in _list(record.get("closeout_blocking_reasons"))
+    ]
+    readiness_summary = dict(readiness_manifest.get("summary") or {})
     return {
         "report_state": "READY" if not missing_inputs else "INPUT_BLOCKED",
         "project_count": len(project_reports),
@@ -963,6 +1018,18 @@ def _summary(
         "company_first_supplement_plan_count": sum(
             _int(chain.get("company_first_supplement_required_count")) for chain in responsible_chains
         ),
+        "evidence_report_closeout_state_counts": _counts(
+            str(record.get("evidence_report_closeout_state") or "") for record in process_stability_records
+        ),
+        "safe_to_closeout_evidence_report_project_count": sum(
+            1 for record in process_stability_records if record.get("safe_to_closeout_evidence_report")
+        ),
+        "safe_to_closeout_evidence_report": bool(readiness_summary.get("safe_to_closeout_evidence_report")),
+        "evidence_report_closeout_overall_state": str(readiness_summary.get("closeout_readiness_state") or ""),
+        "overall_closeout_deferred_reasons": _list(readiness_summary.get("closeout_deferred_reasons")),
+        "overall_closeout_blocking_reasons": _list(readiness_summary.get("closeout_blocking_reasons")),
+        "closeout_deferred_reason_counts": _counts(closeout_deferred_reasons),
+        "closeout_blocking_reason_counts": _counts(closeout_blocking_reasons),
         "active_conflict_external_probe_state": (
             "TASKS_READY"
             if active_conflict_manifest

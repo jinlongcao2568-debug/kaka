@@ -56,8 +56,33 @@ class GuangzhouEvidenceReportTests(unittest.TestCase):
             self.assertEqual(flow08["default_parse_depth"], "LIST_ONLY")
             self.assertFalse(flow08["default_parse_required"])
             self.assertEqual(project["process_stability"]["flow_08_default_parse_state"], "REGISTER_ONLY_NO_DEFAULT_PARSE")
+            self.assertEqual(project["process_stability"]["evidence_report_closeout_state"], "EVIDENCE_REPORT_CLOSEOUT_READY")
+            self.assertTrue(project["process_stability"]["safe_to_closeout_evidence_report"])
+            self.assertIn(
+                "parse_probe_manifest_missing_deferred_by_candidate_group_resolution",
+                project["process_stability"]["closeout_deferred_reasons"],
+            )
+            self.assertEqual(summary["safe_to_closeout_evidence_report_project_count"], 1)
+            self.assertTrue(summary["safe_to_closeout_evidence_report"])
+            self.assertEqual(summary["evidence_report_closeout_overall_state"], "EVIDENCE_REPORT_CLOSEOUT_READY")
+            self.assertIn(
+                "parse_probe_manifest_missing_deferred_by_candidate_group_resolution",
+                summary["overall_closeout_deferred_reasons"],
+            )
+            self.assertEqual(
+                summary["closeout_deferred_reason_counts"],
+                {"parse_probe_manifest_missing_deferred_by_candidate_group_resolution": 1},
+            )
             self.assertIn(
                 "READY_FOR_INTERNAL_EVIDENCE_PACKAGE_REVIEW",
+                [item["recommended_action"] for item in project["optimization_recommendations"]],
+            )
+            self.assertIn(
+                "CLOSEOUT_EVIDENCE_REPORT_READY",
+                [item["recommended_action"] for item in project["optimization_recommendations"]],
+            )
+            self.assertIn(
+                "PARSE_PROBE_DEFERRED_NO_FLOW08_TRIGGER",
                 [item["recommended_action"] for item in project["optimization_recommendations"]],
             )
             self.assertIn(
@@ -146,6 +171,32 @@ class GuangzhouEvidenceReportTests(unittest.TestCase):
                 "ACTIVE_CONFLICT_EXTERNAL_SOURCE_TASKS_READY",
                 [item["recommended_action"] for item in project["optimization_recommendations"]],
             )
+
+    def test_not_applicable_responsible_person_project_can_closeout_without_candidate_group(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_flow_root(root / "flow")
+            _write_download_root(root / "download")
+            _write_responsible_root(root / "responsible", not_applicable=True)
+            _write_stage4_root(root / "stage4")
+            _write_readiness_root(root / "readiness", flow_08_required=False, include_group=False)
+
+            result = build_guangzhou_evidence_report(
+                flow_root=root / "flow",
+                download_root=root / "download",
+                responsible_person_root=root / "responsible",
+                stage4_execution_root=root / "stage4",
+                readiness_root=root / "readiness",
+                output_root=root / "out",
+                created_at="2026-05-12T00:00:00+08:00",
+            )
+
+            project = result["manifest"]["project_reports"][0]
+            self.assertEqual(project["verification_evidence"]["public_registration_match_state"], "NO_CANDIDATE_GROUPS")
+            self.assertEqual(project["responsible_person_verification_chain"]["chain_state"], "RESPONSIBLE_PERSON_NOT_APPLICABLE")
+            self.assertEqual(project["process_stability"]["evidence_report_closeout_state"], "EVIDENCE_REPORT_CLOSEOUT_NOT_APPLICABLE")
+            self.assertTrue(project["process_stability"]["safe_to_closeout_evidence_report"])
+            self.assertEqual(project["process_stability"]["closeout_blocking_reasons"], [])
 
     def test_report_consumes_gdcic_query_probe_summary_when_available(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -335,15 +386,22 @@ def _write_download_root(root: Path) -> None:
     )
 
 
-def _write_responsible_root(root: Path, *, flow_08_required: bool = False) -> None:
+def _write_responsible_root(root: Path, *, flow_08_required: bool = False, not_applicable: bool = False) -> None:
     root.mkdir(parents=True, exist_ok=True)
     item = {
         "project_id": "PROJ-CN-GD-JG2026-10815",
         "project_name": "广州测试项目",
-        "early_probe_state": "CERTIFICATE_READY_FROM_07" if not flow_08_required else "COMPANY_FIRST_CERTIFICATE_SUPPLEMENT_REQUIRED",
-        "stage4_readiness_state": "READY_FOR_STAGE4_INPUT",
+        "early_probe_state": "RESPONSIBLE_PERSON_NOT_APPLICABLE"
+        if not_applicable
+        else "CERTIFICATE_READY_FROM_07"
+        if not flow_08_required
+        else "COMPANY_FIRST_CERTIFICATE_SUPPLEMENT_REQUIRED",
+        "stage4_readiness_state": "STAGE4_NOT_APPLICABLE" if not_applicable else "READY_FOR_STAGE4_INPUT",
+        "responsible_role": "not_applicable" if not_applicable else "project_manager",
         "flow_08_targeted_parse_required": flow_08_required,
-        "candidate_groups": [
+        "candidate_groups": []
+        if not_applicable
+        else [
             {
                 "candidate_group_id": "G1",
                 "candidate_group_order": "1",
@@ -375,7 +433,7 @@ def _write_stage4_root(root: Path, *, resolved: bool = True) -> None:
     )
 
 
-def _write_readiness_root(root: Path, *, flow_08_required: bool, resolved: bool = True) -> None:
+def _write_readiness_root(root: Path, *, flow_08_required: bool, resolved: bool = True, include_group: bool = True) -> None:
     root.mkdir(parents=True, exist_ok=True)
     group = {
         "project_id": "PROJ-CN-GD-JG2026-10815",
@@ -392,10 +450,42 @@ def _write_readiness_root(root: Path, *, flow_08_required: bool, resolved: bool 
     project = {
         "project_id": "PROJ-CN-GD-JG2026-10815",
         "project_name": "广州测试项目",
-        "candidate_group_verification_records": [group],
+        "candidate_group_verification_records": [group] if include_group else [],
+        "safe_to_closeout_evidence_report": resolved and not flow_08_required,
+        "closeout_readiness_state": "EVIDENCE_REPORT_CLOSEOUT_READY" if resolved and not flow_08_required else "EVIDENCE_REPORT_CLOSEOUT_BLOCKED",
+        "closeout_blocking_reasons": []
+        if resolved and not flow_08_required and include_group
+        else ["candidate_evidence_certificate_input_missing_parse_required"],
+        "closeout_deferred_reasons": (
+            ["parse_probe_manifest_missing_deferred_by_candidate_group_resolution"]
+            if resolved and not flow_08_required
+            else []
+        ),
     }
     (root / "guangzhou-upstream-readiness-report.json").write_text(
-        json.dumps({"manifest": {"project_records": [project]}}, ensure_ascii=False, indent=2),
+        json.dumps(
+            {
+                "manifest": {
+                    "project_records": [project],
+                    "summary": {
+                        "safe_to_closeout_evidence_report": resolved and not flow_08_required,
+                        "closeout_readiness_state": "EVIDENCE_REPORT_CLOSEOUT_READY"
+                        if resolved and not flow_08_required
+                        else "EVIDENCE_REPORT_CLOSEOUT_BLOCKED",
+                        "closeout_deferred_reasons": (
+                            ["parse_probe_manifest_missing_deferred_by_candidate_group_resolution"]
+                            if resolved and not flow_08_required
+                            else []
+                        ),
+                        "closeout_blocking_reasons": []
+                        if resolved and not flow_08_required
+                        else ["candidate_group_unresolved_flow08_required"],
+                    },
+                }
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
         encoding="utf-8",
     )
 
