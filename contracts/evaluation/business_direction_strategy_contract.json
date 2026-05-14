@@ -1054,6 +1054,78 @@
       "purpose": "广州候选公示后证据包入口：默认从近期 07 中标候选人公示入池，按同项目回溯核心阶段；中标结果、开标记录、合同和异常属于回溯/支撑或后期复盘材料。"
     }
   ],
+  "next_phase_execution_plan": {
+    "plan_id": "POST-CANDIDATE-EVIDENCE-PACK-NEXT-PHASE-V1",
+    "current_focus": "GUANGZHOU_EVIDENCE_REPORT_CLOSEOUT_V1",
+    "phases": [
+      {
+        "phase_id": "P1_GUANGZHOU_EVIDENCE_REPORT_CLOSEOUT_V1",
+        "goal": "修正 readiness 门禁并把当前广州 5 项目收口成可读、可复核、可销售判断的内部 EvidenceReport closeout。",
+        "success_criteria": [
+          "5 个广州项目均有项目状态",
+          "12 个候选组均有负责人公开注册信息匹配结果",
+          "ParseProbe missing 不再阻断未触发 08 的项目",
+          "报告清楚区分已核验、无记录、源阻断、仅任务清单和禁止输出结论"
+        ]
+      },
+      {
+        "phase_id": "P2_GUANGDONG_OFFICIAL_SOURCE_READBACK_V1",
+        "goal": "优先打穿广东/广州官方源字段 readback，先让至少一个施工许可、竣工验收、投资项目审批或信用公开源返回可用字段。",
+        "success_criteria": [
+          "至少 1 个官方源 readback_ready_count 大于 0",
+          "EvidenceReport 消费 readback 摘要",
+          "未命中、阻断、限流、登录或 SSO 明确 taxonomy",
+          "不把未命中写成无风险"
+        ]
+      },
+      {
+        "phase_id": "P3_GUANGZHOU_20_PROJECT_STABILITY_V1",
+        "goal": "把广州候选后证据包链路扩大到 20 个近期 07 项目，验证入池、下载、早取证、Stage4 和 EvidenceReport 稳定性。",
+        "success_criteria": [
+          "至少 15/20 项目形成可读 EvidenceReport",
+          "附件下载和 snapshot readback 失败均有 taxonomy",
+          "候选组负责人匹配失败均可追溯",
+          "仍不默认深解析 08"
+        ]
+      },
+      {
+        "phase_id": "P4_ZHEJIANG_REGION_ADAPTER_V1",
+        "goal": "实现第一个非广东省份 live readback adapter，优先浙江建设市场公开源。",
+        "success_criteria": [
+          "浙江至少一个官方公开源可 readback",
+          "MajorRegionQueryProbe 能消费浙江结果",
+          "未命中不输出无风险",
+          "失败 taxonomy 可定位"
+        ]
+      },
+      {
+        "phase_id": "P5_FORMAL_EVIDENCE_PACKAGE_MANIFEST_V1",
+        "goal": "把内部 EvidenceReport 升级为正式证据包 manifest 前置资产。",
+        "success_criteria": [
+          "每条证据具备 source_url、capture_time、snapshot/readback、hash、field_lineage 和 redaction_log",
+          "客户版和内部版字段边界清楚",
+          "可信时间戳/存证字段仅作为预留状态",
+          "禁止词扫描通过"
+        ]
+      },
+      {
+        "phase_id": "P6_CROSS_PROJECT_ANOMALY_V1",
+        "goal": "启动跨项目异常能力，形成固定供应商、轮流中标、陪标组合、文件相似度和报价异常的内部线索。",
+        "success_criteria": [
+          "只输出内部风险线索",
+          "能解释证据来源和反向解释",
+          "不输出串标成立、围标成立或违法成立",
+          "基于可回放项目样本和字段血缘"
+        ]
+      }
+    ],
+    "must_not": [
+      "do_not_expand_to_20_projects_before_p1_closeout",
+      "do_not_start_graph_or_saas_before_formal_evidence_manifest",
+      "do_not_default_parse_flow_08_without_trigger",
+      "do_not_treat_plan_only_region_sources_as_live_verified"
+    ]
+  },
   "analysis_boundaries": [
     "样本数量必须以 project_id 和可 replay 文件完整率为核心，不用目标桶数量冒充项目数量。",
     "招标公告 smoke 只证明文件链路，不代表候选公示后证据包主线完成。",

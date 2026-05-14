@@ -584,6 +584,30 @@ class BusinessDirectionStrategyContractTests(unittest.TestCase):
         ):
             self.assertIn(field, fields)
 
+    def test_next_phase_execution_plan_locks_current_focus_and_order(self) -> None:
+        contract = self._contract()
+        plan = contract["next_phase_execution_plan"]
+        phases = [phase["phase_id"] for phase in plan["phases"]]
+
+        self.assertEqual(plan["current_focus"], "GUANGZHOU_EVIDENCE_REPORT_CLOSEOUT_V1")
+        self.assertEqual(
+            phases,
+            [
+                "P1_GUANGZHOU_EVIDENCE_REPORT_CLOSEOUT_V1",
+                "P2_GUANGDONG_OFFICIAL_SOURCE_READBACK_V1",
+                "P3_GUANGZHOU_20_PROJECT_STABILITY_V1",
+                "P4_ZHEJIANG_REGION_ADAPTER_V1",
+                "P5_FORMAL_EVIDENCE_PACKAGE_MANIFEST_V1",
+                "P6_CROSS_PROJECT_ANOMALY_V1",
+            ],
+        )
+        p1 = plan["phases"][0]
+        self.assertIn("ParseProbe missing 不再阻断未触发 08 的项目", p1["success_criteria"])
+        self.assertIn("12 个候选组均有负责人公开注册信息匹配结果", p1["success_criteria"])
+        self.assertIn("do_not_expand_to_20_projects_before_p1_closeout", plan["must_not"])
+        self.assertIn("do_not_default_parse_flow_08_without_trigger", plan["must_not"])
+        self.assertIn("do_not_treat_plan_only_region_sources_as_live_verified", plan["must_not"])
+
 
 if __name__ == "__main__":
     unittest.main()
