@@ -21,6 +21,7 @@ DEFAULT_READINESS_ROOT = Path("tmp/evaluation-real-samples/guangzhou-upstream-re
 DEFAULT_ACTIVE_CONFLICT_ROOT = Path("tmp/evaluation-real-samples/guangzhou-active-conflict-probe-v1")
 DEFAULT_GDCIC_QUERY_PROBE_ROOT = Path("tmp/evaluation-real-samples/guangdong-gdcic-query-probe-v1")
 DEFAULT_OFFICIAL_SOURCE_READBACK_ROOT = Path("tmp/evaluation-real-samples/guangdong-official-source-readback-closeout-v1")
+DEFAULT_CERTIFICATE_SUPPLEMENT_CLOSEOUT_ROOT = Path("tmp/evaluation-real-samples/certificate-supplement-closeout-v1")
 DEFAULT_GUANGDONG_LOCAL_VERIFICATION_ROOT = Path("tmp/evaluation-real-samples/guangdong-local-verification-probe-v1")
 DEFAULT_GUANGDONG_LOCAL_FIELD_QUERY_ROOT = Path("tmp/evaluation-real-samples/guangdong-local-field-query-closeout-v1")
 DEFAULT_OUTPUT_ROOT = Path("tmp/evaluation-real-samples/guangzhou-evidence-report-v1")
@@ -49,6 +50,7 @@ def build_guangzhou_evidence_report(
     active_conflict_probe_root: str | Path = DEFAULT_ACTIVE_CONFLICT_ROOT,
     gdcic_query_probe_root: str | Path = DEFAULT_GDCIC_QUERY_PROBE_ROOT,
     official_source_readback_root: str | Path = DEFAULT_OFFICIAL_SOURCE_READBACK_ROOT,
+    certificate_supplement_closeout_root: str | Path = DEFAULT_CERTIFICATE_SUPPLEMENT_CLOSEOUT_ROOT,
     guangdong_local_verification_root: str | Path = DEFAULT_GUANGDONG_LOCAL_VERIFICATION_ROOT,
     guangdong_local_field_query_root: str | Path = DEFAULT_GUANGDONG_LOCAL_FIELD_QUERY_ROOT,
     output_root: str | Path = DEFAULT_OUTPUT_ROOT,
@@ -63,6 +65,7 @@ def build_guangzhou_evidence_report(
     active_conflict_dir = Path(active_conflict_probe_root)
     gdcic_query_dir = Path(gdcic_query_probe_root)
     official_source_readback_dir = Path(official_source_readback_root)
+    certificate_supplement_dir = Path(certificate_supplement_closeout_root)
     guangdong_local_dir = Path(guangdong_local_verification_root)
     guangdong_local_field_dir = Path(guangdong_local_field_query_root)
     out_dir = Path(output_root)
@@ -79,6 +82,9 @@ def build_guangzhou_evidence_report(
     gdcic_query_manifest = _source_manifest(_load_json_optional(gdcic_query_dir / "guangdong-gdcic-query-probe-v1.json"))
     official_source_readback_manifest = _source_manifest(
         _load_json_optional(official_source_readback_dir / "guangdong-official-source-readback-closeout-v1.json")
+    )
+    certificate_supplement_manifest = _source_manifest(
+        _load_json_optional(certificate_supplement_dir / "certificate-supplement-closeout-v1.json")
     )
     guangdong_local_manifest = _source_manifest(
         _load_json_optional(guangdong_local_dir / "guangdong-local-verification-probe-v1.json")
@@ -107,6 +113,7 @@ def build_guangzhou_evidence_report(
             active_conflict_manifest=active_conflict_manifest,
             gdcic_query_manifest=gdcic_query_manifest,
             official_source_readback_manifest=official_source_readback_manifest,
+            certificate_supplement_manifest=certificate_supplement_manifest,
             guangdong_local_manifest=guangdong_local_manifest,
             guangdong_local_field_manifest=guangdong_local_field_manifest,
         )
@@ -119,6 +126,7 @@ def build_guangzhou_evidence_report(
         active_conflict_manifest=active_conflict_manifest,
         gdcic_query_manifest=gdcic_query_manifest,
         official_source_readback_manifest=official_source_readback_manifest,
+        certificate_supplement_manifest=certificate_supplement_manifest,
         guangdong_local_manifest=guangdong_local_manifest,
         guangdong_local_field_manifest=guangdong_local_field_manifest,
     )
@@ -142,6 +150,7 @@ def build_guangzhou_evidence_report(
         "source_active_conflict_probe_root": str(active_conflict_dir),
         "source_gdcic_query_probe_root": str(gdcic_query_dir),
         "source_official_source_readback_root": str(official_source_readback_dir),
+        "source_certificate_supplement_closeout_root": str(certificate_supplement_dir),
         "source_guangdong_local_verification_root": str(guangdong_local_dir),
         "source_guangdong_local_field_query_root": str(guangdong_local_field_dir),
         "report_sections": [
@@ -200,6 +209,7 @@ def _project_report(
     active_conflict_manifest: Mapping[str, Any],
     gdcic_query_manifest: Mapping[str, Any],
     official_source_readback_manifest: Mapping[str, Any],
+    certificate_supplement_manifest: Mapping[str, Any],
     guangdong_local_manifest: Mapping[str, Any],
     guangdong_local_field_manifest: Mapping[str, Any],
 ) -> dict[str, Any]:
@@ -212,6 +222,7 @@ def _project_report(
     active_conflict_project = _first(_project_task_records_for_project(active_conflict_manifest, project_id))
     gdcic_query_project = _first(_gdcic_project_records_for_project(gdcic_query_manifest, project_id))
     official_source_project = _first(_official_source_project_records_for_project(official_source_readback_manifest, project_id))
+    certificate_supplement_project = _first(_certificate_supplement_project_records_for_project(certificate_supplement_manifest, project_id))
     guangdong_local_project = _first(_guangdong_local_project_records_for_project(guangdong_local_manifest, project_id))
     guangdong_local_field_project = _first(
         _guangdong_local_field_project_records_for_project(guangdong_local_field_manifest, project_id)
@@ -296,6 +307,12 @@ def _project_report(
         "gdcic_missing_field_counts": dict(official_source_project.get("gdcic_missing_field_counts") or {}),
         "gdcic_certificate_field_availability_state": str(official_source_project.get("gdcic_certificate_field_availability_state") or ""),
         "official_source_blocker_taxonomy_counts": dict(official_source_project.get("blocker_taxonomy_counts") or {}),
+        "certificate_supplement_closeout_state": str(
+            (certificate_supplement_manifest.get("summary") or {}).get("closeout_state")
+            or "NOT_BUILT"
+        ),
+        "certificate_supplement_summary": _certificate_supplement_summary(certificate_supplement_project),
+        "certificate_supplement_group_records": _list(certificate_supplement_project.get("certificate_supplement_group_records")),
         "guangdong_local_verification_probe_state": (
             "READY"
             if guangdong_local_project
@@ -1032,6 +1049,28 @@ def _recommendations(*, verification_evidence: Mapping[str, Any], process_stabil
                         "广东三库一平台当前字段回放包含证书相关字段，可进入证书号、注册类别、注册专业或有效状态辅助复核。",
                     )
                 )
+            supplement_summary = dict(verification_evidence.get("certificate_supplement_summary") or {})
+            if _int(supplement_summary.get("gdcic_certificate_field_gap_compensated_by_stage4_count")):
+                recommendations.append(
+                    _recommendation(
+                        "CERTIFICATE_SUPPLEMENT_RESOLVED_BY_STAGE4",
+                        "GDCIC 当前未返回证书字段，但 Stage4 公司优先链路已补到证书号和注册单位，可用于内部复核。",
+                    )
+                )
+            if _int(supplement_summary.get("certificate_unresolved_group_count")):
+                recommendations.append(
+                    _recommendation(
+                        "CERTIFICATE_SUPPLEMENT_UNRESOLVED_NEEDS_SOURCE_RETRY",
+                        "仍有候选组缺证书字段，先重试公开注册信息链或姓名枚举，不默认解析 08。",
+                    )
+                )
+            if _int(supplement_summary.get("flow_08_targeted_parse_required_count")):
+                recommendations.append(
+                    _recommendation(
+                        "FLOW_08_TARGETED_PARSE_REQUIRED_AFTER_SUPPLEMENT",
+                        "证书补强后仍有候选组触发 08 定向解析，只处理目标文件，不全量深解析。",
+                    )
+                )
         else:
             recommendations.append(
                 _recommendation(
@@ -1066,6 +1105,7 @@ def _summary(
     active_conflict_manifest: Mapping[str, Any],
     gdcic_query_manifest: Mapping[str, Any],
     official_source_readback_manifest: Mapping[str, Any],
+    certificate_supplement_manifest: Mapping[str, Any],
     guangdong_local_manifest: Mapping[str, Any],
     guangdong_local_field_manifest: Mapping[str, Any],
 ) -> dict[str, Any]:
@@ -1198,6 +1238,11 @@ def _summary(
             (official_source_readback_manifest.get("summary") or {}).get("gdcic_certificate_field_availability_state")
             or ""
         ),
+        "certificate_supplement_closeout_state": str(
+            (certificate_supplement_manifest.get("summary") or {}).get("closeout_state")
+            or "NOT_BUILT"
+        ),
+        "certificate_supplement_summary": dict(certificate_supplement_manifest.get("summary") or {}),
         "project_gdcic_classification_record_count": _int(
             (official_source_readback_manifest.get("summary") or {}).get("project_gdcic_classification_record_count")
         ),
@@ -1306,6 +1351,40 @@ def _official_source_project_records_for_project(manifest: Mapping[str, Any], pr
         for item in _list(manifest.get("project_records"))
         if isinstance(item, Mapping) and str(item.get("project_id") or "") == project_id
     ]
+
+
+def _certificate_supplement_project_records_for_project(manifest: Mapping[str, Any], project_id: str) -> list[dict[str, Any]]:
+    return [
+        dict(item)
+        for item in _list(manifest.get("project_records"))
+        if isinstance(item, Mapping) and str(item.get("project_id") or "") == project_id
+    ]
+
+
+def _certificate_supplement_summary(project_record: Mapping[str, Any]) -> dict[str, Any]:
+    if not project_record:
+        return {
+            "certificate_supplement_state": "NOT_BUILT",
+            "candidate_group_count": 0,
+            "certificate_resolved_group_count": 0,
+            "certificate_unresolved_group_count": 0,
+            "flow_08_targeted_parse_required_count": 0,
+            "gdcic_certificate_field_gap_compensated_by_stage4_count": 0,
+            "customer_visible_allowed": False,
+            "no_legal_conclusion": True,
+        }
+    return {
+        "certificate_supplement_state": "READY",
+        "candidate_group_count": _int(project_record.get("candidate_group_count")),
+        "certificate_resolved_group_count": _int(project_record.get("certificate_resolved_group_count")),
+        "certificate_unresolved_group_count": _int(project_record.get("certificate_unresolved_group_count")),
+        "flow_08_targeted_parse_required_count": _int(project_record.get("flow_08_targeted_parse_required_count")),
+        "gdcic_certificate_field_gap_compensated_by_stage4_count": _int(
+            project_record.get("gdcic_certificate_field_gap_compensated_by_stage4_count")
+        ),
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
 
 
 def _responsible_stage4_inputs_for_project(manifest: Mapping[str, Any], project_id: str) -> list[dict[str, Any]]:
@@ -1647,6 +1726,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--active-conflict-probe-root", default=str(DEFAULT_ACTIVE_CONFLICT_ROOT))
     parser.add_argument("--gdcic-query-probe-root", default=str(DEFAULT_GDCIC_QUERY_PROBE_ROOT))
     parser.add_argument("--official-source-readback-root", default=str(DEFAULT_OFFICIAL_SOURCE_READBACK_ROOT))
+    parser.add_argument("--certificate-supplement-closeout-root", default=str(DEFAULT_CERTIFICATE_SUPPLEMENT_CLOSEOUT_ROOT))
     parser.add_argument("--guangdong-local-verification-root", default=str(DEFAULT_GUANGDONG_LOCAL_VERIFICATION_ROOT))
     parser.add_argument("--guangdong-local-field-query-root", default=str(DEFAULT_GUANGDONG_LOCAL_FIELD_QUERY_ROOT))
     parser.add_argument("--output-root", default=str(DEFAULT_OUTPUT_ROOT))
@@ -1666,6 +1746,7 @@ def main(argv: list[str] | None = None) -> int:
         active_conflict_probe_root=args.active_conflict_probe_root,
         gdcic_query_probe_root=args.gdcic_query_probe_root,
         official_source_readback_root=args.official_source_readback_root,
+        certificate_supplement_closeout_root=args.certificate_supplement_closeout_root,
         guangdong_local_verification_root=args.guangdong_local_verification_root,
         guangdong_local_field_query_root=args.guangdong_local_field_query_root,
         output_root=args.output_root,

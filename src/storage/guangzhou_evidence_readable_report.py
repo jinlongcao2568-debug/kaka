@@ -86,7 +86,16 @@ def build_guangzhou_evidence_readable_report(
 def _project_card(project: Mapping[str, Any]) -> dict[str, Any]:
     evidence = dict(project.get("verification_evidence") or {})
     stability = dict(project.get("process_stability") or {})
-    groups = [_candidate_group_card(group) for group in _list(evidence.get("candidate_group_records")) if isinstance(group, Mapping)]
+    certificate_groups = {
+        str(group.get("candidate_group_id") or ""): dict(group)
+        for group in _list(evidence.get("certificate_supplement_group_records"))
+        if isinstance(group, Mapping)
+    }
+    groups = [
+        _candidate_group_card(group, certificate_groups.get(str(group.get("candidate_group_id") or ""), {}))
+        for group in _list(evidence.get("candidate_group_records"))
+        if isinstance(group, Mapping)
+    ]
     gdcic_counts = dict(evidence.get("gdcic_readback_classification_counts") or {})
     flow08 = dict(evidence.get("flow_08_registry") or {})
     recommendations = _recommended_actions(project)
@@ -120,6 +129,7 @@ def _project_card(project: Mapping[str, Any]) -> dict[str, Any]:
             "empty_result_review_count": _int(gdcic_counts.get("EMPTY_PUBLIC_RESULT_REVIEW")),
             "blocked_or_captcha_review_count": _int(gdcic_counts.get("BLOCKED_OR_CAPTCHA_REVIEW")),
         },
+        "certificate_supplement_summary": dict(evidence.get("certificate_supplement_summary") or {}),
         "process_stability": {
             "closeout_state": str(stability.get("evidence_report_closeout_state") or ""),
             "safe_to_closeout": bool(stability.get("safe_to_closeout_evidence_report")),
@@ -136,7 +146,7 @@ def _project_card(project: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
-def _candidate_group_card(group: Mapping[str, Any]) -> dict[str, Any]:
+def _candidate_group_card(group: Mapping[str, Any], certificate_group: Mapping[str, Any]) -> dict[str, Any]:
     state = str(group.get("group_resolution_state") or "")
     return {
         "candidate_group_id": str(group.get("candidate_group_id") or group.get("group_id") or ""),
@@ -150,6 +160,10 @@ def _candidate_group_card(group: Mapping[str, Any]) -> dict[str, Any]:
         "responsible_person_name": str(group.get("responsible_person_name") or ""),
         "responsible_role": str(group.get("responsible_role") or ""),
         "certificate_no": str(group.get("certificate_no") or ""),
+        "certificate_supplement_state": str(certificate_group.get("certificate_supplement_state") or ""),
+        "registered_unit_name": str(certificate_group.get("registered_unit_name") or ""),
+        "registration_category": str(certificate_group.get("registration_category") or ""),
+        "personnel_public_source_url": str(certificate_group.get("personnel_public_source_url") or ""),
         "bid_price": str(group.get("bid_price") or ""),
         "rank": str(group.get("rank") or group.get("candidate_group_order") or ""),
         "group_state": "PUBLIC_REGISTRATION_MATCHED" if "RESOLVED" in state else "REVIEW_REQUIRED",
@@ -191,6 +205,9 @@ def _action_label(action: str) -> str:
         "GDCIC_BLOCKED_OR_CAPTCHA_REVIEW_REQUIRED": "GDCIC 源阻断需重试或适配",
         "GDCIC_CERTIFICATE_FIELDS_NOT_RETURNED_REVIEW": "GDCIC 当前 readback 未返回证书字段",
         "GDCIC_CERTIFICATE_FIELDS_READY_REVIEW": "GDCIC 证书字段可辅助复核",
+        "CERTIFICATE_SUPPLEMENT_RESOLVED_BY_STAGE4": "证书字段已由 Stage4 公司优先链路补强",
+        "CERTIFICATE_SUPPLEMENT_UNRESOLVED_NEEDS_SOURCE_RETRY": "证书字段仍需源重试或姓名枚举补强",
+        "FLOW_08_TARGETED_PARSE_REQUIRED_AFTER_SUPPLEMENT": "证书补强后需要 08 定向解析",
         "ACTIVE_CONFLICT_EXTERNAL_SOURCE_TASKS_READY": "外部线索任务已生成",
         "RUN_FLOW_08_TARGETED_PARSE": "需要 08 定向解析",
         "SUPPLEMENT_PUBLIC_REGISTRATION_MATCH": "补充公开注册信息匹配",
@@ -229,6 +246,7 @@ def _summary(evidence_manifest: Mapping[str, Any], project_cards: list[Mapping[s
         "gdcic_field_availability_counts": gdcic_field_counts,
         "gdcic_missing_field_counts": gdcic_missing_counts,
         "gdcic_certificate_field_availability_state": str(source_summary.get("gdcic_certificate_field_availability_state") or ""),
+        "certificate_supplement_summary": dict(source_summary.get("certificate_supplement_summary") or {}),
         "source_evidence_report_state": str(source_summary.get("report_state") or ""),
         "source_closeout_state": str(source_summary.get("evidence_report_closeout_overall_state") or ""),
         "blocking_reasons": blocking_reasons,
@@ -253,6 +271,7 @@ def _markdown(summary: Mapping[str, Any], project_cards: list[Mapping[str, Any]]
         f"- GDCIC 分类：{_compact_counts(summary.get('gdcic_readback_classification_counts'))}",
         f"- GDCIC 字段可用性：{_compact_counts(summary.get('gdcic_field_availability_counts'))}",
         f"- GDCIC 证书字段状态：`{summary.get('gdcic_certificate_field_availability_state') or '-'}`",
+        f"- 证书补强：{_compact_certificate_summary(summary.get('certificate_supplement_summary'))}",
         "",
     ]
     for project in project_cards:
@@ -271,6 +290,7 @@ def _project_markdown(project: Mapping[str, Any]) -> list[str]:
         f"- GDCIC：{_compact_counts((project.get('gdcic_readback_summary') or {}).get('classification_counts'))}",
         f"- GDCIC 字段：{_compact_counts((project.get('gdcic_readback_summary') or {}).get('field_availability_counts'))}",
         f"- GDCIC 证书字段状态：`{(project.get('gdcic_readback_summary') or {}).get('certificate_field_availability_state') or '-'}`",
+        f"- 证书补强：{_compact_certificate_summary(project.get('certificate_supplement_summary'))}",
         "",
         "### 候选组",
         "",
@@ -287,6 +307,7 @@ def _project_markdown(project: Mapping[str, Any]) -> list[str]:
                 f"成员：{members}；"
                 f"负责人：{group.get('responsible_person_name') or '-'}；"
                 f"证书号：{group.get('certificate_no') or '-'}；"
+                f"证书补强：`{group.get('certificate_supplement_state') or '-'}`；"
                 f"状态：`{group.get('group_state')}`"
             )
     lines.extend(["", "### 过程稳定性", ""])
@@ -333,6 +354,20 @@ def _compact_counts(value: Any) -> str:
 def _compact_list(value: Any) -> str:
     items = [str(item) for item in _list(value) if str(item)]
     return "；".join(items[:8]) if items else "-"
+
+
+def _compact_certificate_summary(value: Any) -> str:
+    summary = dict(value or {})
+    if not summary:
+        return "`NOT_BUILT`"
+    parts = [
+        f"state={summary.get('certificate_supplement_state') or summary.get('closeout_state') or 'READY'}",
+        f"groups={_int(summary.get('candidate_group_count'))}",
+        f"resolved={_int(summary.get('certificate_resolved_group_count'))}",
+        f"unresolved={_int(summary.get('certificate_unresolved_group_count'))}",
+        f"flow08={_int(summary.get('flow_08_targeted_parse_required_count'))}",
+    ]
+    return "；".join(f"`{part}`" for part in parts)
 
 
 def _load_json(path: Path, blocking_reasons: list[str], missing_reason: str) -> dict[str, Any]:

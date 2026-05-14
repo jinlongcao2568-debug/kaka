@@ -7,6 +7,7 @@ param(
     [string]$ActiveConflictProbeRoot = "",
     [string]$GdcicQueryProbeRoot = "",
     [string]$OfficialSourceReadbackRoot = "",
+    [string]$CertificateSupplementCloseoutRoot = "",
     [string]$GuangdongLocalVerificationRoot = "",
     [string]$GuangdongLocalFieldQueryRoot = "",
     [string]$OutputRoot = "",
@@ -42,6 +43,9 @@ if (-not $GdcicQueryProbeRoot) {
 if (-not $OfficialSourceReadbackRoot) {
     $OfficialSourceReadbackRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\guangdong-official-source-readback-closeout-v1"
 }
+if (-not $CertificateSupplementCloseoutRoot) {
+    $CertificateSupplementCloseoutRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\certificate-supplement-closeout-v1"
+}
 if (-not $GuangdongLocalVerificationRoot) {
     $GuangdongLocalVerificationRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\guangdong-local-verification-probe-v1"
 }
@@ -66,6 +70,7 @@ $argsList = @(
     "--active-conflict-probe-root", $ActiveConflictProbeRoot,
     "--gdcic-query-probe-root", $GdcicQueryProbeRoot,
     "--official-source-readback-root", $OfficialSourceReadbackRoot,
+    "--certificate-supplement-closeout-root", $CertificateSupplementCloseoutRoot,
     "--guangdong-local-verification-root", $GuangdongLocalVerificationRoot,
     "--guangdong-local-field-query-root", $GuangdongLocalFieldQueryRoot,
     "--output-root", $OutputRoot

@@ -276,6 +276,41 @@ class GuangzhouEvidenceReportTests(unittest.TestCase):
             self.assertIn("GDCIC_BLOCKED_OR_CAPTCHA_REVIEW_REQUIRED", recommendation_actions)
             self.assertIn("GDCIC_CERTIFICATE_FIELDS_NOT_RETURNED_REVIEW", recommendation_actions)
 
+    def test_report_consumes_certificate_supplement_closeout_when_available(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_flow_root(root / "flow")
+            _write_download_root(root / "download")
+            _write_responsible_root(root / "responsible")
+            _write_stage4_root(root / "stage4")
+            _write_readiness_root(root / "readiness", flow_08_required=False)
+            _write_official_source_readback_root(root / "official-source")
+            _write_certificate_supplement_root(root / "certificate-supplement")
+
+            result = build_guangzhou_evidence_report(
+                flow_root=root / "flow",
+                download_root=root / "download",
+                responsible_person_root=root / "responsible",
+                stage4_execution_root=root / "stage4",
+                readiness_root=root / "readiness",
+                official_source_readback_root=root / "official-source",
+                certificate_supplement_closeout_root=root / "certificate-supplement",
+                output_root=root / "out",
+                created_at="2026-05-12T00:00:00+08:00",
+            )
+
+            summary = result["summary"]["certificate_supplement_summary"]
+            self.assertEqual(summary["candidate_group_count"], 1)
+            self.assertEqual(summary["certificate_resolved_group_count"], 1)
+            project = result["manifest"]["project_reports"][0]
+            evidence = project["verification_evidence"]
+            self.assertEqual(
+                evidence["certificate_supplement_summary"]["gdcic_certificate_field_gap_compensated_by_stage4_count"],
+                1,
+            )
+            actions = [item["recommended_action"] for item in project["optimization_recommendations"]]
+            self.assertIn("CERTIFICATE_SUPPLEMENT_RESOLVED_BY_STAGE4", actions)
+
     def test_report_consumes_guangdong_local_verification_probe_summary_when_available(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -662,6 +697,50 @@ def _write_official_source_readback_root(root: Path) -> None:
         }
     }
     (root / "guangdong-official-source-readback-closeout-v1.json").write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+
+def _write_certificate_supplement_root(root: Path) -> None:
+    root.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "manifest": {
+            "manifest_kind": "certificate_supplement_closeout_v1_manifest",
+            "project_records": [
+                {
+                    "project_id": "PROJ-CN-GD-JG2026-10815",
+                    "project_name": "广州测试项目",
+                    "candidate_group_count": 1,
+                    "certificate_resolved_group_count": 1,
+                    "certificate_unresolved_group_count": 0,
+                    "flow_08_targeted_parse_required_count": 0,
+                    "gdcic_certificate_field_gap_compensated_by_stage4_count": 1,
+                    "certificate_supplement_group_records": [
+                        {
+                            "project_id": "PROJ-CN-GD-JG2026-10815",
+                            "candidate_group_id": "G1",
+                            "responsible_person_name": "张三",
+                            "certificate_supplement_state": "CERTIFICATE_SUPPLEMENT_RESOLVED_BY_STAGE4",
+                            "certificate_no": "粤1442020202100001",
+                            "registered_unit_name": "广州测试建设有限公司",
+                            "registration_category": "注册建造师",
+                            "flow_08_targeted_parse_required": False,
+                        }
+                    ],
+                }
+            ],
+            "summary": {
+                "closeout_state": "P6_CERTIFICATE_SUPPLEMENT_READY",
+                "candidate_group_count": 1,
+                "certificate_resolved_group_count": 1,
+                "certificate_unresolved_group_count": 0,
+                "flow_08_targeted_parse_required_count": 0,
+                "gdcic_certificate_field_gap_compensated_by_stage4_count": 1,
+            },
+        }
+    }
+    (root / "certificate-supplement-closeout-v1.json").write_text(
         json.dumps(payload, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )

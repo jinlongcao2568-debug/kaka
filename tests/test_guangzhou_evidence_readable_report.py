@@ -38,6 +38,7 @@ class GuangzhouEvidenceReadableReportTests(unittest.TestCase):
             self.assertEqual(summary["gdcic_readback_classification_counts"]["PERSON_REGISTRATION_READBACK"], 12)
             self.assertEqual(summary["gdcic_field_availability_counts"]["person_name"], 12)
             self.assertEqual(summary["gdcic_certificate_field_availability_state"], "GDCIC_CERTIFICATE_FIELDS_NOT_RETURNED_IN_CURRENT_READBACK")
+            self.assertEqual(summary["certificate_supplement_summary"]["certificate_resolved_group_count"], 12)
             self.assertTrue((root / "out" / "guangzhou-evidence-readable-report-v1.json").exists())
             md_path = root / "out" / "guangzhou-evidence-readable-report-v1.md"
             self.assertTrue(md_path.exists())
@@ -47,6 +48,8 @@ class GuangzhouEvidenceReadableReportTests(unittest.TestCase):
             self.assertIn("NOT_APPLICABLE", markdown)
             self.assertIn("GDCIC_BLOCKED_OR_CAPTCHA_REVIEW_REQUIRED", markdown)
             self.assertIn("GDCIC 当前 readback 未返回证书字段", markdown)
+            self.assertIn("证书字段已由 Stage4 公司优先链路补强", markdown)
+            self.assertIn("CERTIFICATE_SUPPLEMENT_RESOLVED_BY_STAGE4", markdown)
             report_text = json.dumps(result, ensure_ascii=False) + markdown
             for term in ("无风险", "无冲突", "在建冲突成立", "违法成立", "确认本人", "造假成立", "是不是本人"):
                 self.assertNotIn(term, report_text)
@@ -117,6 +120,13 @@ def _write_evidence_report(root: Path, *, project_count: int, flow08_required: b
                     "effective_status": 12,
                 },
                 "gdcic_certificate_field_availability_state": "GDCIC_CERTIFICATE_FIELDS_NOT_RETURNED_IN_CURRENT_READBACK",
+                "certificate_supplement_summary": {
+                    "candidate_group_count": candidate_count,
+                    "certificate_resolved_group_count": candidate_count,
+                    "certificate_unresolved_group_count": 0,
+                    "flow_08_targeted_parse_required_count": 0,
+                    "gdcic_certificate_field_gap_compensated_by_stage4_count": candidate_count,
+                },
                 "gdcic_readback_classification_counts": {
                     "PERSON_REGISTRATION_READBACK": 12,
                     "COMPANY_PROJECT_READBACK": 10,
@@ -171,6 +181,23 @@ def _project_payload(
                 "effective_status": 1,
             },
             "gdcic_certificate_field_availability_state": "GDCIC_CERTIFICATE_FIELDS_NOT_RETURNED_IN_CURRENT_READBACK" if gdcic_counts else "",
+            "certificate_supplement_summary": {
+                "candidate_group_count": len(groups),
+                "certificate_resolved_group_count": len(groups),
+                "certificate_unresolved_group_count": 0,
+                "flow_08_targeted_parse_required_count": 0,
+                "gdcic_certificate_field_gap_compensated_by_stage4_count": len(groups),
+            },
+            "certificate_supplement_group_records": [
+                {
+                    "candidate_group_id": group["candidate_group_id"],
+                    "certificate_supplement_state": "CERTIFICATE_SUPPLEMENT_RESOLVED_BY_STAGE4",
+                    "registered_unit_name": group["candidate_group_members"][0],
+                    "registration_category": "注册建造师",
+                    "personnel_public_source_url": "https://example.test/person",
+                }
+                for group in groups
+            ],
         },
         "process_stability": {
             "evidence_report_closeout_state": (
@@ -191,6 +218,7 @@ def _project_payload(
             {"recommended_action": "GDCIC_EMPTY_PUBLIC_RESULT_REVIEW_REQUIRED", "reason": "empty"},
             {"recommended_action": "GDCIC_BLOCKED_OR_CAPTCHA_REVIEW_REQUIRED", "reason": "blocked"},
             {"recommended_action": "GDCIC_CERTIFICATE_FIELDS_NOT_RETURNED_REVIEW", "reason": "cert"},
+            {"recommended_action": "CERTIFICATE_SUPPLEMENT_RESOLVED_BY_STAGE4", "reason": "stage4 cert"},
             *([{"recommended_action": "RUN_FLOW_08_TARGETED_PARSE", "reason": "flow08"}] if flow08_required else []),
         ],
     }
