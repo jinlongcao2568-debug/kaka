@@ -5,6 +5,7 @@ param(
     [string]$Stage4ExecutionRoot = "",
     [string]$DownloadRoot = "",
     [string]$FlowRoot = "",
+    [string]$FixationBackfillRoot = "",
     [string]$OutputRoot = "",
     [switch]$EmitJson
 )
@@ -32,6 +33,9 @@ if (-not $DownloadRoot) {
 if (-not $FlowRoot) {
     $FlowRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\guangzhou-flowurl-analysis-72h-v1"
 }
+if (-not $FixationBackfillRoot) {
+    $FixationBackfillRoot = ""
+}
 if (-not $OutputRoot) {
     $OutputRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\guangzhou-internal-evidence-package-manifest-v1"
 }
@@ -50,6 +54,10 @@ $argsList = @(
     "--flow-root", $FlowRoot,
     "--output-root", $OutputRoot
 )
+
+if ($FixationBackfillRoot) {
+    $argsList += @("--fixation-backfill-root", $FixationBackfillRoot)
+}
 
 if ($EmitJson) {
     $argsList += "--json"

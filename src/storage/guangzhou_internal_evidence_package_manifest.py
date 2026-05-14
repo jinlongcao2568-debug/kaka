@@ -19,6 +19,7 @@ DEFAULT_OFFICIAL_SOURCE_READBACK_ROOT = Path("tmp/evaluation-real-samples/guangd
 DEFAULT_STAGE4_EXECUTION_ROOT = Path("tmp/evaluation-real-samples/guangzhou-company-first-stage4-execution-v4-merged")
 DEFAULT_DOWNLOAD_ROOT = Path("tmp/evaluation-real-samples/guangzhou-download-human-v1")
 DEFAULT_FLOW_ROOT = Path("tmp/evaluation-real-samples/guangzhou-flowurl-analysis-72h-v1")
+DEFAULT_FIXATION_BACKFILL_ROOT = Path("tmp/evaluation-real-samples/guangzhou-evidence-fixation-backfill-v1")
 DEFAULT_OUTPUT_ROOT = Path("tmp/evaluation-real-samples/guangzhou-internal-evidence-package-manifest-v1")
 
 FORBIDDEN_TERMS = ("是不是本人", "确认本人", "无风险", "无冲突", "在建冲突成立", "冲突成立", "造假成立", "违法成立")
@@ -32,6 +33,7 @@ def build_guangzhou_internal_evidence_package_manifest(
     stage4_execution_root: str | Path = DEFAULT_STAGE4_EXECUTION_ROOT,
     download_root: str | Path = DEFAULT_DOWNLOAD_ROOT,
     flow_root: str | Path = DEFAULT_FLOW_ROOT,
+    fixation_backfill_root: str | Path | None = None,
     output_root: str | Path = DEFAULT_OUTPUT_ROOT,
     created_at: str | None = None,
 ) -> dict[str, Any]:
@@ -42,6 +44,7 @@ def build_guangzhou_internal_evidence_package_manifest(
     stage4_dir = Path(stage4_execution_root)
     download_dir = Path(download_root)
     flow_dir = Path(flow_root)
+    backfill_dir = Path(fixation_backfill_root) if fixation_backfill_root else None
     out_dir = Path(output_root)
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -66,6 +69,9 @@ def build_guangzhou_internal_evidence_package_manifest(
         _load_json(download_dir / "download-probe-manifest.json", blocking_reasons, "download_probe_manifest_missing")
     )
     flow_manifest = _source_manifest(_load_json(flow_dir / "run-manifest.json", blocking_reasons, "flow_run_manifest_missing"))
+    backfill_manifest = _source_manifest(
+        _load_json_optional(backfill_dir / "evidence-fixation-backfill-v1.json") if backfill_dir else {}
+    )
 
     project_reports = [item for item in _list(evidence_manifest.get("project_reports")) if isinstance(item, Mapping)]
     project_records = [
@@ -104,15 +110,18 @@ def build_guangzhou_internal_evidence_package_manifest(
         source_fixation_records=source_fixation_records,
         official_manifest=official_manifest,
     )
+    backfilled_source_records = _backfilled_source_fixation_records(source_fixation_records, backfill_manifest)
     redaction_log = _redaction_log(source_fixation_records, field_lineage_records)
     summary = _summary(
         project_records=project_records,
         candidate_group_records=candidate_group_records,
         source_fixation_records=source_fixation_records,
+        backfilled_source_fixation_records=backfilled_source_records,
         field_lineage_records=field_lineage_records,
         reverse_explanations=reverse_explanations,
         blocking_reasons=blocking_reasons,
         certificate_manifest=certificate_manifest,
+        backfill_manifest=backfill_manifest,
     )
     package_scope = {
         "product_mode": "POST_CANDIDATE_EVIDENCE_PACK",
@@ -125,6 +134,7 @@ def build_guangzhou_internal_evidence_package_manifest(
         "source_stage4_execution_root": str(stage4_dir),
         "source_download_root": str(download_dir),
         "source_flow_root": str(flow_dir),
+        "source_fixation_backfill_root": str(backfill_dir) if backfill_dir else "",
         "generated_at": created,
         "script_version": GUANGZHOU_INTERNAL_EVIDENCE_PACKAGE_ADAPTER_ID,
         "customer_visible_allowed": False,
@@ -141,6 +151,8 @@ def build_guangzhou_internal_evidence_package_manifest(
         "project_records": project_records,
         "candidate_group_records": candidate_group_records,
         "source_fixation_records": source_fixation_records,
+        "source_fixation_backfill_summary": dict(backfill_manifest.get("summary") or {}),
+        "backfilled_source_fixation_records": backfilled_source_records,
         "field_lineage_records": field_lineage_records,
         "verification_summary": _verification_summary(project_records, certificate_manifest, official_manifest),
         "reverse_explanation_records": reverse_explanations,
@@ -480,6 +492,56 @@ def _source_fixation_records(
     return _dedupe_records(records, ("project_id", "source_family", "source_url", "snapshot_id", "readback_ref"))
 
 
+def _backfilled_source_fixation_records(
+    source_fixation_records: list[Mapping[str, Any]],
+    backfill_manifest: Mapping[str, Any],
+) -> list[dict[str, Any]]:
+    backfill_by_source_id = {
+        str(row.get("source_fixation_id") or ""): dict(row)
+        for row in _list(backfill_manifest.get("backfill_records"))
+        if isinstance(row, Mapping) and str(row.get("source_fixation_id") or "")
+    }
+    out: list[dict[str, Any]] = []
+    for record in source_fixation_records:
+        if str(record.get("fixation_state") or "") == "FIXATION_COMPLETE":
+            continue
+        source_id = str(record.get("source_fixation_id") or "")
+        backfill = backfill_by_source_id.get(source_id)
+        if not backfill:
+            out.append(
+                {
+                    **dict(record),
+                    "backfill_state": "BACKFILL_NOT_AVAILABLE",
+                    "backfill_classification": "NOT_RUN_OR_NO_MATCH",
+                    "backfill_record_id": "",
+                    "strict_fixation_state": "STRICT_FIXATION_GAP",
+                    "classified_fixation_state": "UNCLASSIFIED_GAP",
+                }
+            )
+            continue
+        fields = dict(backfill.get("backfilled_fields") or {})
+        remaining = _list(backfill.get("remaining_gap_reasons"))
+        merged = {
+            **dict(record),
+            "source_url": str(fields.get("source_url") or record.get("source_url") or ""),
+            "snapshot_id": str(fields.get("snapshot_id") or record.get("snapshot_id") or ""),
+            "readback_ref": str(fields.get("readback_ref") or record.get("readback_ref") or ""),
+            "sha256": str(fields.get("sha256") or record.get("sha256") or ""),
+            "local_path": str(fields.get("local_path") or record.get("local_path") or ""),
+            "backfill_state": str(backfill.get("backfill_state") or ""),
+            "backfill_classification": str(backfill.get("backfill_classification") or ""),
+            "backfill_record_id": str(backfill.get("backfill_record_id") or ""),
+            "backfill_source_ref": str(backfill.get("backfill_source_ref") or ""),
+            "readback_record_sha256": str(fields.get("readback_record_sha256") or ""),
+            "query_params": fields.get("query_params") or {},
+            "remaining_gap_reasons": remaining,
+            "strict_fixation_state": "STRICT_FIXATION_GAP",
+            "classified_fixation_state": "CLASSIFIED_GAP_REVIEW" if remaining else "BACKFILLED_NO_REMAINING_GAP",
+        }
+        out.append(merged)
+    return out
+
+
 def _fixation_record_from_snapshot_ref(*, base: Mapping[str, str], source_family: str, ref: Mapping[str, Any]) -> dict[str, Any]:
     return _fixation_record(
         project_id=base["project_id"],
@@ -810,12 +872,20 @@ def _summary(
     project_records: list[Mapping[str, Any]],
     candidate_group_records: list[Mapping[str, Any]],
     source_fixation_records: list[Mapping[str, Any]],
+    backfilled_source_fixation_records: list[Mapping[str, Any]],
     field_lineage_records: list[Mapping[str, Any]],
     reverse_explanations: list[Mapping[str, Any]],
     blocking_reasons: list[str],
     certificate_manifest: Mapping[str, Any],
+    backfill_manifest: Mapping[str, Any],
 ) -> dict[str, Any]:
     fixation_gap_count = sum(1 for row in source_fixation_records if row.get("fixation_state") != "FIXATION_COMPLETE")
+    backfill_summary = dict(backfill_manifest.get("summary") or {})
+    strict_gap_count = fixation_gap_count
+    classified_gap_count = sum(1 for row in backfilled_source_fixation_records if row.get("classified_fixation_state") == "CLASSIFIED_GAP_REVIEW")
+    backfilled_no_remaining_gap_count = sum(
+        1 for row in backfilled_source_fixation_records if row.get("classified_fixation_state") == "BACKFILLED_NO_REMAINING_GAP"
+    )
     certificate_summary = dict(certificate_manifest.get("summary") or {})
     candidate_group_count = len(candidate_group_records)
     resolved_count = _int(certificate_summary.get("certificate_resolved_group_count")) or sum(
@@ -845,6 +915,11 @@ def _summary(
         "fixation_complete_count": len(source_fixation_records) - fixation_gap_count,
         "fixation_gap_count": fixation_gap_count,
         "fixation_completeness_state": "SOURCE_FIXATION_COMPLETE" if fixation_gap_count == 0 else "SOURCE_FIXATION_PARTIAL_REVIEW",
+        "source_fixation_backfill_state": str(backfill_summary.get("backfill_state") or "NOT_BUILT"),
+        "strict_fixation_gap_count": strict_gap_count,
+        "classified_fixation_gap_count": classified_gap_count,
+        "backfilled_no_remaining_gap_count": backfilled_no_remaining_gap_count,
+        "backfill_unfixable_with_current_artifacts_count": _int(backfill_summary.get("unfixable_with_current_artifacts_count")),
         "field_lineage_record_count": len(field_lineage_records),
         "reverse_explanation_count": len(reverse_explanations),
         "forbidden_term_scan_state": "PASS",
@@ -903,6 +978,16 @@ def _load_json(path: Path, blocking_reasons: list[str], missing_reason: str) -> 
         data = json.loads(path.read_text(encoding="utf-8"))
     except Exception:
         blocking_reasons.append(f"{missing_reason}_invalid_json")
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _load_json_optional(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
         return {}
     return data if isinstance(data, dict) else {}
 
@@ -985,6 +1070,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--stage4-execution-root", default=str(DEFAULT_STAGE4_EXECUTION_ROOT))
     parser.add_argument("--download-root", default=str(DEFAULT_DOWNLOAD_ROOT))
     parser.add_argument("--flow-root", default=str(DEFAULT_FLOW_ROOT))
+    parser.add_argument("--fixation-backfill-root", default="")
     parser.add_argument("--output-root", default=str(DEFAULT_OUTPUT_ROOT))
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
@@ -996,6 +1082,7 @@ def main(argv: list[str] | None = None) -> int:
         stage4_execution_root=args.stage4_execution_root,
         download_root=args.download_root,
         flow_root=args.flow_root,
+        fixation_backfill_root=args.fixation_backfill_root or None,
         output_root=args.output_root,
     )
     if args.json:

@@ -1056,7 +1056,7 @@
   ],
   "next_phase_execution_plan": {
     "plan_id": "POST-CANDIDATE-EVIDENCE-PACK-NEXT-PHASE-V1",
-    "current_focus": "P7_INTERNAL_EVIDENCE_PACKAGE_MANIFEST_V1",
+    "current_focus": "P8_EVIDENCE_FIXATION_BACKFILL_V1",
     "phases": [
       {
         "phase_id": "P1_GUANGZHOU_EVIDENCE_REPORT_CLOSEOUT_V1",
@@ -1127,11 +1127,21 @@
           "field_lineage、redaction_log、reverse_explanation_records 和 forbidden_term_scan 可读",
           "customer_delivery_ready=false 且可信时间戳/公证仅为 RESERVED_NOT_IMPLEMENTED"
         ]
+      },
+      {
+        "phase_id": "P8_EVIDENCE_FIXATION_BACKFILL_V1",
+        "goal": "用现有本地产物回填或分类 P7 的证据固化缺口，区分完整内容 hash、readback 记录 hash 和当前产物不可补齐缺口。",
+        "success_criteria": [
+          "flow URL、候选公示 URL、GDCIC readback 和 Stage4 readback 缺口均进入 backfilled 或 classified 状态",
+          "stage4 readback 只能回填 readback_record_sha256 时，不冒充源网页或源文件内容 hash",
+          "无法从当前产物补齐的缺口输出 UNFIXABLE_WITH_CURRENT_ARTIFACTS 和缺失原因",
+          "P7 manifest 消费 backfill 后输出 strict_fixation_gap_count 与 classified_fixation_gap_count"
+        ]
       }
     ],
     "must_not": [
-      "do_not_expand_to_20_projects_before_p1_closeout",
-      "do_not_start_graph_or_saas_before_formal_evidence_manifest",
+      "do_not_expand_to_20_projects_before_p8_backfill_closeout",
+      "do_not_start_graph_or_saas_before_evidence_fixation_backfill",
       "do_not_default_parse_flow_08_without_trigger",
       "do_not_treat_plan_only_region_sources_as_live_verified"
     ]

@@ -94,6 +94,65 @@ class GuangzhouInternalEvidencePackageManifestTests(unittest.TestCase):
             self.assertGreater(result["summary"]["fixation_gap_count"], 0)
             self.assertTrue(any("snapshot_or_readback_ref_missing" in record["fixation_gap_reasons"] for record in gap_records))
 
+    def test_consumes_backfill_root_without_rewriting_original_fixation_records(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_evidence_report(root / "evidence", project_count=1, groups_per_project=[1])
+            _write_certificate_supplement(root / "certificate", project_count=1, groups_per_project=[1])
+            _write_official_source(root / "official", project_count=1, groups_per_project=[1])
+            _write_stage4(root / "stage4", project_count=1, groups_per_project=[1])
+            _write_download(root / "download", project_count=1, groups_per_project=[1])
+            _write_flow(root / "flow", project_count=1)
+
+            initial = build_guangzhou_internal_evidence_package_manifest(
+                evidence_report_root=root / "evidence",
+                certificate_supplement_root=root / "certificate",
+                official_source_readback_root=root / "official",
+                stage4_execution_root=root / "stage4",
+                download_root=root / "download",
+                flow_root=root / "flow",
+                output_root=root / "out-initial",
+            )
+            gap_record = next(
+                record
+                for record in initial["manifest"]["source_fixation_records"]
+                if record["fixation_state"] == "FIXATION_GAP_REVIEW"
+            )
+            _write_fixation_backfill(root / "backfill", gap_record)
+
+            result = build_guangzhou_internal_evidence_package_manifest(
+                evidence_report_root=root / "evidence",
+                certificate_supplement_root=root / "certificate",
+                official_source_readback_root=root / "official",
+                stage4_execution_root=root / "stage4",
+                download_root=root / "download",
+                flow_root=root / "flow",
+                fixation_backfill_root=root / "backfill",
+                output_root=root / "out-p8",
+            )
+
+            summary = result["summary"]
+            self.assertEqual(summary["source_fixation_backfill_state"], "BACKFILL_PARTIAL_REVIEW")
+            self.assertGreater(summary["strict_fixation_gap_count"], 0)
+            self.assertGreater(summary["backfilled_no_remaining_gap_count"], 0)
+            self.assertGreaterEqual(summary["classified_fixation_gap_count"], 0)
+            self.assertFalse(summary["customer_delivery_ready"])
+            manifest = result["manifest"]
+            self.assertEqual(len(manifest["backfilled_source_fixation_records"]), summary["strict_fixation_gap_count"])
+            self.assertTrue(
+                any(
+                    row["source_fixation_id"] == gap_record["source_fixation_id"]
+                    and row["classified_fixation_state"] == "BACKFILLED_NO_REMAINING_GAP"
+                    for row in manifest["backfilled_source_fixation_records"]
+                )
+            )
+            original = next(
+                row
+                for row in manifest["source_fixation_records"]
+                if row["source_fixation_id"] == gap_record["source_fixation_id"]
+            )
+            self.assertEqual(original["fixation_state"], "FIXATION_GAP_REVIEW")
+
     def test_internal_manifest_does_not_export_raw_blobs_or_forbidden_terms(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -444,6 +503,48 @@ def _write_flow(root: Path, *, project_count: int = 5) -> None:
         }
     }
     (root / "run-manifest.json").write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+
+def _write_fixation_backfill(root: Path, gap_record: dict[str, object]) -> None:
+    root.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "manifest": {
+            "manifest_kind": "guangzhou_evidence_fixation_backfill_v1_manifest",
+            "adapter_id": "guangzhou-evidence-fixation-backfill-v1",
+            "created_at": "2026-05-14T00:00:00+08:00",
+            "backfill_records": [
+                {
+                    "backfill_record_id": "BCK-FAKE",
+                    "source_fixation_id": gap_record["source_fixation_id"],
+                    "source_family": gap_record["source_family"],
+                    "project_id": gap_record["project_id"],
+                    "flow_no": gap_record["flow_no"],
+                    "backfill_state": "BACKFILLED_FROM_DOWNLOAD_DETAIL_SNAPSHOT",
+                    "backfill_classification": "CONTENT_SNAPSHOT_HASH_BACKFILLED",
+                    "backfilled_fields": {
+                        "source_url": gap_record["source_url"],
+                        "snapshot_id": "DETAIL-BACKFILLED",
+                        "readback_ref": "READBACK_READY",
+                        "sha256": "b" * 64,
+                        "local_path": "projects/CN-GD/PROJ/07/detail/detail.html",
+                    },
+                    "remaining_gap_reasons": [],
+                    "customer_visible_allowed": False,
+                    "no_legal_conclusion": True,
+                }
+            ],
+            "summary": {
+                "backfill_state": "BACKFILL_PARTIAL_REVIEW",
+                "source_fixation_gap_input_count": 1,
+                "backfilled_record_count": 1,
+                "record_hash_backfilled_count": 0,
+                "unfixable_with_current_artifacts_count": 0,
+            },
+            "customer_visible_allowed": False,
+            "no_legal_conclusion": True,
+        }
+    }
+    (root / "evidence-fixation-backfill-v1.json").write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
 
 
 if __name__ == "__main__":
