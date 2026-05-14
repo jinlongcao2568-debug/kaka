@@ -123,20 +123,23 @@ def test_status_board_records_p0_sync_boundary() -> None:
     assert "文件相似度" in text
     assert "报价异常" in text
     assert "下一阶段执行计划同步说明" in text
+    assert "P10_P9_AWARE_READABLE_CLOSEOUT_V1" in text
     assert "P9_EVIDENCE_FIXATION_RECAPTURE_V1" in text
     assert "P8_EVIDENCE_FIXATION_BACKFILL_V1" in text
     assert "P7_INTERNAL_EVIDENCE_PACKAGE_MANIFEST_V1" in text
-    assert "证据固化缺口" in text
-    assert "FIXATION_GAP_REVIEW" in text
-    assert "source_readback_sha256" in text
+    assert "证据固化状态" in text
+    assert "人能直接看懂的内部 Markdown/JSON 报告" in text
     assert "backfilled_no_remaining_gap_count" in text
-    assert "重采阻断 taxonomy" in text
+    assert "classified_record_hash_only_count=12" in text
+    assert "unfixable_with_current_artifacts_count=0" in text
+    assert "recapture_task_count=38" in text
+    assert "记录级 hash 只证明当前 readback 记录未被改动" in text
     assert "customer_delivery_ready=false" in text
     assert "RESERVED_NOT_IMPLEMENTED" in text
-    assert "广州 20 项目小批量稳定性验证" in text
+    assert "广州 10 项目小批量稳定性验证" in text
     assert "浙江非广东省份 adapter" in text
     assert "跨项目异常能力" in text
-    assert "不得在证据固化源内容重采前启动图谱或 SaaS 主线" in text
+    assert "不得在 P9-aware 可读报告收口前扩样本" in text
     assert "非承包方原因停工超过 120 天" in text
     assert "安全生产标准化考评结果告知书" in text
     assert "在建冲突成立" in text

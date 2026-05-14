@@ -1056,7 +1056,7 @@
   ],
   "next_phase_execution_plan": {
     "plan_id": "POST-CANDIDATE-EVIDENCE-PACK-NEXT-PHASE-V1",
-    "current_focus": "P9_EVIDENCE_FIXATION_RECAPTURE_V1",
+    "current_focus": "P10_P9_AWARE_READABLE_CLOSEOUT_V1",
     "phases": [
       {
         "phase_id": "P1_GUANGZHOU_EVIDENCE_REPORT_CLOSEOUT_V1",
@@ -1147,10 +1147,20 @@
           "Stage4/JZSC readback 只生成字段摘要 hash 和 route attempts，不改变核验结论",
           "P8 消费 RecaptureRoot 后 backfilled_no_remaining_gap_count 高于 32，剩余缺口有 route taxonomy"
         ]
+      },
+      {
+        "phase_id": "P10_P9_AWARE_READABLE_CLOSEOUT_V1",
+        "goal": "把 P9 后的证据固化、回填和重采结果接入广州可读报告，形成当前 5 项目可人工复核的内部 Markdown/JSON。",
+        "success_criteria": [
+          "可读报告消费 P9 internal package、backfill 和 recapture 输出",
+          "报告显示 backfilled_no_remaining_gap_count=70、classified_record_hash_only_count=12、unfixable_with_current_artifacts_count=0",
+          "Markdown 明确记录级 hash 不等同于源网页或源文件完整内容 hash",
+          "P10 完成后才进入广州 10 项目稳定性验证"
+        ]
       }
     ],
     "must_not": [
-      "do_not_expand_to_20_projects_before_p9_recapture_closeout",
+      "do_not_expand_to_10_projects_before_p10_readable_closeout",
       "do_not_start_graph_or_saas_before_evidence_fixation_backfill",
       "do_not_default_parse_flow_08_without_trigger",
       "do_not_treat_plan_only_region_sources_as_live_verified"

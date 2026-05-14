@@ -13,8 +13,11 @@ GUANGZHOU_EVIDENCE_READABLE_REPORT_KIND = "guangzhou_evidence_readable_report_v1
 GUANGZHOU_EVIDENCE_READABLE_REPORT_VERSION = 1
 GUANGZHOU_EVIDENCE_READABLE_REPORT_ADAPTER_ID = "guangzhou-evidence-readable-report-v1-builder"
 
-DEFAULT_EVIDENCE_REPORT_ROOT = Path("tmp/evaluation-real-samples/guangzhou-evidence-report-p3-closeout-v1")
-DEFAULT_OUTPUT_ROOT = Path("tmp/evaluation-real-samples/guangzhou-evidence-readable-report-v1")
+DEFAULT_EVIDENCE_REPORT_ROOT = Path("tmp/evaluation-real-samples/guangzhou-evidence-report-p6-closeout-v1")
+DEFAULT_INTERNAL_EVIDENCE_PACKAGE_ROOT = Path("tmp/evaluation-real-samples/guangzhou-internal-evidence-package-manifest-p9-v1")
+DEFAULT_FIXATION_BACKFILL_ROOT = Path("tmp/evaluation-real-samples/guangzhou-evidence-fixation-backfill-p9-v1")
+DEFAULT_RECAPTURE_ROOT = Path("tmp/evaluation-real-samples/guangzhou-evidence-fixation-recapture-v1")
+DEFAULT_OUTPUT_ROOT = Path("tmp/evaluation-real-samples/guangzhou-evidence-readable-report-p10-v1")
 
 FORBIDDEN_TERMS = ("是不是本人", "确认本人", "无风险", "无冲突", "在建冲突成立", "冲突成立", "造假成立", "违法成立")
 
@@ -23,6 +26,9 @@ def build_guangzhou_evidence_readable_report(
     *,
     evidence_report_root: str | Path = DEFAULT_EVIDENCE_REPORT_ROOT,
     evidence_report_json: str | Path | None = None,
+    internal_evidence_package_root: str | Path | None = DEFAULT_INTERNAL_EVIDENCE_PACKAGE_ROOT,
+    fixation_backfill_root: str | Path | None = DEFAULT_FIXATION_BACKFILL_ROOT,
+    recapture_root: str | Path | None = DEFAULT_RECAPTURE_ROOT,
     output_root: str | Path = DEFAULT_OUTPUT_ROOT,
     created_at: str | None = None,
 ) -> dict[str, Any]:
@@ -34,8 +40,13 @@ def build_guangzhou_evidence_readable_report(
 
     blocking_reasons: list[str] = []
     evidence_manifest = _source_manifest(_load_json(evidence_path, blocking_reasons, "evidence_report_missing"))
+    p9_context = _p9_context(
+        internal_evidence_package_root=internal_evidence_package_root,
+        fixation_backfill_root=fixation_backfill_root,
+        recapture_root=recapture_root,
+    )
     project_cards = [_project_card(project) for project in _list(evidence_manifest.get("project_reports")) if isinstance(project, Mapping)]
-    summary = _summary(evidence_manifest, project_cards, blocking_reasons)
+    summary = _summary(evidence_manifest, project_cards, blocking_reasons, p9_context)
     markdown = _markdown(summary, project_cards)
     manifest = {
         "manifest_version": GUANGZHOU_EVIDENCE_READABLE_REPORT_VERSION,
@@ -46,8 +57,14 @@ def build_guangzhou_evidence_readable_report(
         "created_at": created,
         "source_evidence_report_root": str(evidence_dir),
         "source_evidence_report_json": str(evidence_path),
+        "source_internal_evidence_package_root": str(internal_evidence_package_root or ""),
+        "source_fixation_backfill_root": str(fixation_backfill_root or ""),
+        "source_recapture_root": str(recapture_root or ""),
         "project_cards": project_cards,
         "summary": summary,
+        "evidence_fixation_summary": summary.get("evidence_fixation_summary", {}),
+        "source_fixation_backfill_summary": summary.get("source_fixation_backfill_summary", {}),
+        "recapture_summary": summary.get("recapture_summary", {}),
         "markdown_file": "guangzhou-evidence-readable-report-v1.md",
         "safety": {
             "network_enabled": False,
@@ -226,11 +243,19 @@ def _project_status(*, groups: list[Mapping[str, Any]], evidence: Mapping[str, A
     return "REVIEW_REQUIRED"
 
 
-def _summary(evidence_manifest: Mapping[str, Any], project_cards: list[Mapping[str, Any]], blocking_reasons: list[str]) -> dict[str, Any]:
+def _summary(
+    evidence_manifest: Mapping[str, Any],
+    project_cards: list[Mapping[str, Any]],
+    blocking_reasons: list[str],
+    p9_context: Mapping[str, Any],
+) -> dict[str, Any]:
     source_summary = dict(evidence_manifest.get("summary") or {})
     gdcic_counts = _merge_counts(*(dict(project.get("gdcic_readback_summary", {}).get("classification_counts") or {}) for project in project_cards))
     gdcic_field_counts = _merge_counts(*(dict(project.get("gdcic_readback_summary", {}).get("field_availability_counts") or {}) for project in project_cards))
     gdcic_missing_counts = _merge_counts(*(dict(project.get("gdcic_readback_summary", {}).get("missing_field_counts") or {}) for project in project_cards))
+    fixation = _evidence_fixation_summary(p9_context)
+    backfill = _source_fixation_backfill_summary(p9_context)
+    recapture = _recapture_summary(p9_context)
     return {
         "report_state": "READY" if not blocking_reasons else "INPUT_BLOCKED",
         "project_count": len(project_cards),
@@ -247,6 +272,10 @@ def _summary(evidence_manifest: Mapping[str, Any], project_cards: list[Mapping[s
         "gdcic_missing_field_counts": gdcic_missing_counts,
         "gdcic_certificate_field_availability_state": str(source_summary.get("gdcic_certificate_field_availability_state") or ""),
         "certificate_supplement_summary": dict(source_summary.get("certificate_supplement_summary") or {}),
+        "evidence_fixation_summary": fixation,
+        "source_fixation_backfill_summary": backfill,
+        "recapture_summary": recapture,
+        "forbidden_term_scan_state": str(fixation.get("forbidden_term_scan_state") or "NOT_BUILT"),
         "source_evidence_report_state": str(source_summary.get("report_state") or ""),
         "source_closeout_state": str(source_summary.get("evidence_report_closeout_overall_state") or ""),
         "blocking_reasons": blocking_reasons,
@@ -272,6 +301,13 @@ def _markdown(summary: Mapping[str, Any], project_cards: list[Mapping[str, Any]]
         f"- GDCIC 字段可用性：{_compact_counts(summary.get('gdcic_field_availability_counts'))}",
         f"- GDCIC 证书字段状态：`{summary.get('gdcic_certificate_field_availability_state') or '-'}`",
         f"- 证书补强：{_compact_certificate_summary(summary.get('certificate_supplement_summary'))}",
+        "",
+        "## 证据固化状态",
+        "",
+        f"- 内部证据包：{_compact_fixation_summary(summary.get('evidence_fixation_summary'))}",
+        f"- 回填分类：{_compact_backfill_summary(summary.get('source_fixation_backfill_summary'))}",
+        f"- 重采结果：{_compact_recapture_summary(summary.get('recapture_summary'))}",
+        "- 记录级 hash 说明：只证明当前 readback 记录未被改动，不等同于源网页或源文件完整内容 hash；它不是业务失败，也不能冒充完整源内容固化。",
         "",
     ]
     for project in project_cards:
@@ -370,9 +406,148 @@ def _compact_certificate_summary(value: Any) -> str:
     return "；".join(f"`{part}`" for part in parts)
 
 
+def _compact_fixation_summary(value: Any) -> str:
+    summary = dict(value or {})
+    if not summary:
+        return "`NOT_BUILT`"
+    parts = [
+        f"state={summary.get('internal_package_state') or 'NOT_BUILT'}",
+        f"records={_int(summary.get('source_fixation_record_count'))}",
+        f"complete={_int(summary.get('fixation_complete_count'))}",
+        f"gaps={_int(summary.get('fixation_gap_count'))}",
+        f"backfilled={_int(summary.get('backfilled_no_remaining_gap_count'))}",
+        f"classified={_int(summary.get('classified_fixation_gap_count'))}",
+        f"unfixable={_int(summary.get('backfill_unfixable_with_current_artifacts_count'))}",
+    ]
+    return "；".join(f"`{part}`" for part in parts)
+
+
+def _compact_backfill_summary(value: Any) -> str:
+    summary = dict(value or {})
+    if not summary:
+        return "`NOT_BUILT`"
+    parts = [
+        f"state={summary.get('backfill_state') or 'NOT_BUILT'}",
+        f"source_gaps={_int(summary.get('source_gap_record_count'))}",
+        f"backfilled={_int(summary.get('backfilled_record_count'))}",
+        f"record_hash_only={_int(summary.get('classified_record_hash_only_count'))}",
+        f"unfixable={_int(summary.get('unfixable_with_current_artifacts_count'))}",
+    ]
+    return "；".join(f"`{part}`" for part in parts)
+
+
+def _compact_recapture_summary(value: Any) -> str:
+    summary = dict(value or {})
+    if not summary:
+        return "`NOT_BUILT`"
+    parts = [
+        f"state={summary.get('recapture_state') or 'NOT_BUILT'}",
+        f"tasks={_int(summary.get('recapture_task_count'))}",
+        f"flow_detail={_int(summary.get('flow_detail_recapture_task_count'))}",
+        f"stage4={_int(summary.get('stage4_readback_recapture_task_count'))}",
+        f"failures={sum(_int(value) for value in dict(summary.get('failure_taxonomy_counts') or {}).values())}",
+    ]
+    return "；".join(f"`{part}`" for part in parts)
+
+
+def _p9_context(
+    *,
+    internal_evidence_package_root: str | Path | None,
+    fixation_backfill_root: str | Path | None,
+    recapture_root: str | Path | None,
+) -> dict[str, Any]:
+    package_manifest = _source_manifest(
+        _load_json_optional(Path(internal_evidence_package_root) / "internal-evidence-package-manifest-v1.json")
+        if internal_evidence_package_root
+        else {}
+    )
+    backfill_manifest = _source_manifest(
+        _load_json_optional(Path(fixation_backfill_root) / "evidence-fixation-backfill-v1.json")
+        if fixation_backfill_root
+        else {}
+    )
+    recapture_manifest = _source_manifest(
+        _load_json_optional(Path(recapture_root) / "evidence-fixation-recapture-v1.json") if recapture_root else {}
+    )
+    return {
+        "internal_evidence_package_manifest": package_manifest,
+        "fixation_backfill_manifest": backfill_manifest,
+        "recapture_manifest": recapture_manifest,
+    }
+
+
+def _evidence_fixation_summary(p9_context: Mapping[str, Any]) -> dict[str, Any]:
+    summary = dict((p9_context.get("internal_evidence_package_manifest") or {}).get("summary") or {})
+    if not summary:
+        return {}
+    return {
+        "internal_package_state": str(summary.get("internal_package_state") or "NOT_BUILT"),
+        "source_fixation_record_count": _int(summary.get("source_fixation_record_count")),
+        "fixation_complete_count": _int(summary.get("fixation_complete_count")),
+        "fixation_gap_count": _int(summary.get("fixation_gap_count")),
+        "fixation_completeness_state": str(summary.get("fixation_completeness_state") or ""),
+        "source_fixation_backfill_state": str(summary.get("source_fixation_backfill_state") or ""),
+        "strict_fixation_gap_count": _int(summary.get("strict_fixation_gap_count")),
+        "classified_fixation_gap_count": _int(summary.get("classified_fixation_gap_count")),
+        "backfilled_no_remaining_gap_count": _int(summary.get("backfilled_no_remaining_gap_count")),
+        "backfill_unfixable_with_current_artifacts_count": _int(summary.get("backfill_unfixable_with_current_artifacts_count")),
+        "forbidden_term_scan_state": str(summary.get("forbidden_term_scan_state") or "NOT_BUILT"),
+        "customer_delivery_ready": bool(summary.get("customer_delivery_ready")),
+        "approval_required_before_customer_delivery": bool(summary.get("approval_required_before_customer_delivery")),
+        "trusted_timestamp_state": str(summary.get("trusted_timestamp_state") or ""),
+        "notary_state": str(summary.get("notary_state") or ""),
+        "record_hash_only_explanation": "记录级 hash 只证明当前 readback 记录未被改动，不等同于源网页或源文件完整内容 hash。",
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
+
+
+def _source_fixation_backfill_summary(p9_context: Mapping[str, Any]) -> dict[str, Any]:
+    summary = dict((p9_context.get("fixation_backfill_manifest") or {}).get("summary") or {})
+    if not summary:
+        return {}
+    return {
+        "backfill_state": str(summary.get("backfill_state") or "NOT_BUILT"),
+        "source_gap_record_count": _int(summary.get("source_gap_record_count")),
+        "backfilled_record_count": _int(summary.get("backfilled_record_count")),
+        "classified_record_hash_only_count": _int(summary.get("classified_record_hash_only_count")),
+        "unfixable_with_current_artifacts_count": _int(summary.get("unfixable_with_current_artifacts_count")),
+        "backfill_state_counts": dict(summary.get("backfill_state_counts") or {}),
+        "backfill_classification_counts": dict(summary.get("backfill_classification_counts") or {}),
+        "remaining_gap_reason_counts": dict(summary.get("remaining_gap_reason_counts") or {}),
+        "record_hash_only_explanation": "记录级 hash 是当前 readback 记录固化，不代表源内容完整 hash。",
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
+
+
+def _recapture_summary(p9_context: Mapping[str, Any]) -> dict[str, Any]:
+    summary = dict((p9_context.get("recapture_manifest") or {}).get("summary") or {})
+    if not summary:
+        return {}
+    return {
+        "recapture_state": str(summary.get("recapture_state") or "NOT_BUILT"),
+        "recapture_task_count": _int(summary.get("recapture_task_count")),
+        "flow_detail_recapture_task_count": _int(summary.get("flow_detail_recapture_task_count")),
+        "stage4_readback_recapture_task_count": _int(summary.get("stage4_readback_recapture_task_count")),
+        "recapture_state_counts": dict(summary.get("recapture_state_counts") or {}),
+        "failure_taxonomy_counts": dict(summary.get("failure_taxonomy_counts") or {}),
+        "execute_enabled": bool(summary.get("execute_enabled")),
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
+
+
 def _load_json(path: Path, blocking_reasons: list[str], missing_reason: str) -> dict[str, Any]:
     if not path.exists():
         blocking_reasons.append(missing_reason)
+        return {}
+    data = json.loads(path.read_text(encoding="utf-8"))
+    return dict(data) if isinstance(data, Mapping) else {}
+
+
+def _load_json_optional(path: Path) -> dict[str, Any]:
+    if not path.exists():
         return {}
     data = json.loads(path.read_text(encoding="utf-8"))
     return dict(data) if isinstance(data, Mapping) else {}
@@ -421,6 +596,9 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Build Guangzhou Evidence readable report v1.")
     parser.add_argument("--evidence-report-root", default=str(DEFAULT_EVIDENCE_REPORT_ROOT))
     parser.add_argument("--evidence-report-json")
+    parser.add_argument("--internal-evidence-package-root", default=str(DEFAULT_INTERNAL_EVIDENCE_PACKAGE_ROOT))
+    parser.add_argument("--fixation-backfill-root", default=str(DEFAULT_FIXATION_BACKFILL_ROOT))
+    parser.add_argument("--recapture-root", default=str(DEFAULT_RECAPTURE_ROOT))
     parser.add_argument("--output-root", default=str(DEFAULT_OUTPUT_ROOT))
     parser.add_argument("--created-at")
     parser.add_argument("--json", action="store_true", dest="emit_json")
@@ -432,6 +610,9 @@ def main(argv: list[str] | None = None) -> int:
     result = build_guangzhou_evidence_readable_report(
         evidence_report_root=args.evidence_report_root,
         evidence_report_json=args.evidence_report_json,
+        internal_evidence_package_root=args.internal_evidence_package_root or None,
+        fixation_backfill_root=args.fixation_backfill_root or None,
+        recapture_root=args.recapture_root or None,
         output_root=args.output_root,
         created_at=args.created_at,
     )

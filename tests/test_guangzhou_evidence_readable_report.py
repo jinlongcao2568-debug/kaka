@@ -23,6 +23,9 @@ class GuangzhouEvidenceReadableReportTests(unittest.TestCase):
 
             result = build_guangzhou_evidence_readable_report(
                 evidence_report_root=root / "evidence",
+                internal_evidence_package_root=root / "package",
+                fixation_backfill_root=root / "backfill",
+                recapture_root=root / "recapture",
                 output_root=root / "out",
                 created_at="2026-05-14T00:00:00+08:00",
             )
@@ -39,6 +42,11 @@ class GuangzhouEvidenceReadableReportTests(unittest.TestCase):
             self.assertEqual(summary["gdcic_field_availability_counts"]["person_name"], 12)
             self.assertEqual(summary["gdcic_certificate_field_availability_state"], "GDCIC_CERTIFICATE_FIELDS_NOT_RETURNED_IN_CURRENT_READBACK")
             self.assertEqual(summary["certificate_supplement_summary"]["certificate_resolved_group_count"], 12)
+            self.assertEqual(summary["evidence_fixation_summary"]["backfilled_no_remaining_gap_count"], 70)
+            self.assertEqual(summary["source_fixation_backfill_summary"]["classified_record_hash_only_count"], 12)
+            self.assertEqual(summary["source_fixation_backfill_summary"]["unfixable_with_current_artifacts_count"], 0)
+            self.assertEqual(summary["recapture_summary"]["recapture_task_count"], 38)
+            self.assertEqual(summary["forbidden_term_scan_state"], "PASS")
             self.assertTrue((root / "out" / "guangzhou-evidence-readable-report-v1.json").exists())
             md_path = root / "out" / "guangzhou-evidence-readable-report-v1.md"
             self.assertTrue(md_path.exists())
@@ -50,6 +58,12 @@ class GuangzhouEvidenceReadableReportTests(unittest.TestCase):
             self.assertIn("GDCIC 当前 readback 未返回证书字段", markdown)
             self.assertIn("证书字段已由 Stage4 公司优先链路补强", markdown)
             self.assertIn("CERTIFICATE_SUPPLEMENT_RESOLVED_BY_STAGE4", markdown)
+            self.assertIn("证据固化状态", markdown)
+            self.assertIn("backfilled=70", markdown)
+            self.assertIn("record_hash_only=12", markdown)
+            self.assertIn("unfixable=0", markdown)
+            self.assertIn("tasks=38", markdown)
+            self.assertIn("不等同于源网页或源文件完整内容 hash", markdown)
             report_text = json.dumps(result, ensure_ascii=False) + markdown
             for term in ("无风险", "无冲突", "在建冲突成立", "违法成立", "确认本人", "造假成立", "是不是本人"):
                 self.assertNotIn(term, report_text)
@@ -61,6 +75,9 @@ class GuangzhouEvidenceReadableReportTests(unittest.TestCase):
 
             result = build_guangzhou_evidence_readable_report(
                 evidence_report_root=root / "evidence",
+                internal_evidence_package_root=None,
+                fixation_backfill_root=None,
+                recapture_root=None,
                 output_root=root / "out",
                 created_at="2026-05-14T00:00:00+08:00",
             )
@@ -139,6 +156,94 @@ def _write_evidence_report(root: Path, *, project_count: int, flow08_required: b
     }
     (root / "guangzhou-evidence-report-v1.json").write_text(
         json.dumps(payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    if root.parent.exists():
+        _write_p9_inputs(root.parent)
+
+
+def _write_p9_inputs(root: Path) -> None:
+    package = root / "package"
+    package.mkdir(parents=True, exist_ok=True)
+    (package / "internal-evidence-package-manifest-v1.json").write_text(
+        json.dumps(
+            {
+                "manifest": {
+                    "summary": {
+                        "internal_package_state": "P7_INTERNAL_EVIDENCE_PACKAGE_READY",
+                        "source_fixation_record_count": 173,
+                        "fixation_complete_count": 91,
+                        "fixation_gap_count": 82,
+                        "fixation_completeness_state": "SOURCE_FIXATION_PARTIAL_REVIEW",
+                        "source_fixation_backfill_state": "P8_FIXATION_BACKFILL_READY",
+                        "strict_fixation_gap_count": 82,
+                        "classified_fixation_gap_count": 12,
+                        "backfilled_no_remaining_gap_count": 70,
+                        "backfill_unfixable_with_current_artifacts_count": 0,
+                        "forbidden_term_scan_state": "PASS",
+                        "customer_delivery_ready": False,
+                        "approval_required_before_customer_delivery": True,
+                        "trusted_timestamp_state": "RESERVED_NOT_IMPLEMENTED",
+                        "notary_state": "RESERVED_NOT_IMPLEMENTED",
+                    }
+                }
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    backfill = root / "backfill"
+    backfill.mkdir(parents=True, exist_ok=True)
+    (backfill / "evidence-fixation-backfill-v1.json").write_text(
+        json.dumps(
+            {
+                "manifest": {
+                    "summary": {
+                        "backfill_state": "P8_FIXATION_BACKFILL_READY",
+                        "source_gap_record_count": 82,
+                        "backfilled_record_count": 70,
+                        "classified_record_hash_only_count": 12,
+                        "unfixable_with_current_artifacts_count": 0,
+                        "backfill_state_counts": {
+                            "BACKFILLED_FROM_RECAPTURED_DETAIL_SNAPSHOT": 8,
+                            "BACKFILLED_FROM_RECAPTURED_STAGE4_READBACK": 30,
+                        },
+                        "backfill_classification_counts": {
+                            "CONTENT_SNAPSHOT_HASH_BACKFILLED": 28,
+                            "READBACK_RECORD_HASH_ONLY": 12,
+                        },
+                    }
+                }
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    recapture = root / "recapture"
+    recapture.mkdir(parents=True, exist_ok=True)
+    (recapture / "evidence-fixation-recapture-v1.json").write_text(
+        json.dumps(
+            {
+                "manifest": {
+                    "summary": {
+                        "recapture_state": "P9_RECAPTURE_EXECUTED",
+                        "recapture_task_count": 38,
+                        "flow_detail_recapture_task_count": 8,
+                        "stage4_readback_recapture_task_count": 30,
+                        "recapture_state_counts": {
+                            "FLOW_DETAIL_RECAPTURED": 8,
+                            "STAGE4_READBACK_RECAPTURED": 30,
+                        },
+                        "failure_taxonomy_counts": {},
+                        "execute_enabled": True,
+                    }
+                }
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
         encoding="utf-8",
     )
 
