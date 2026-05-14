@@ -171,6 +171,67 @@ class CompanyFirstStage4ExecutionTest(unittest.TestCase):
         self.assertEqual(item["resolved_certificate_no_optional"], "11015464")
         self.assertEqual(result["summary"]["stage4_input_count"], 1)
 
+    def test_design_survey_field_level_readback_resolves_without_default_builder_category(self) -> None:
+        def fake_browser_runner(capture_plan: dict[str, object]) -> dict[str, object]:
+            self.assertEqual(capture_plan["required_registration_category_optional"], None)
+            return {
+                "browser_runner_id": "fake-jzsc-browser",
+                "live_browser_executed": True,
+                "company_personnel_source_url": "https://jzsc.mohurd.gov.cn/data/company/detail?id=design",
+                "matched_company_name_optional": "广东省建筑设计研究院集团股份有限公司",
+                "matched_company_public_id_optional": "design",
+                "rendered_company_personnel_rows": [
+                    {
+                        "row_text": "1 区展辉 440100**********01 注册建筑师 4401373-274",
+                        "detail_url": "https://jzsc.mohurd.gov.cn/data/person/detail?id=person-ou",
+                        "person_public_id": "person-ou",
+                        "registered_unit_name": "广东省建筑设计研究院集团股份有限公司",
+                    }
+                ],
+                "rendered_personnel_project_rows": [],
+                "failure_reasons": [],
+            }
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_root = Path(temp_dir) / "out"
+            inputs_path = Path(temp_dir) / "inputs.json"
+            inputs_path.write_text(
+                json.dumps(
+                    {
+                        "items": [
+                            {
+                                "project_id": "PROJ-CN-GD-JG2026-11109",
+                                "project_name": "勘察、方案设计及初步设计候选公示",
+                                "candidate_company_name": "广东省建筑设计研究院集团股份有限公司",
+                                "candidate_group_id": "GROUP-DESIGN",
+                                "candidate_group_members": ["广东省建筑设计研究院集团股份有限公司"],
+                                "responsible_person_name": "区展辉",
+                                "responsible_role": "design_lead",
+                                "certificate_no": "",
+                            }
+                        ]
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+
+            result = build_company_first_stage4_execution(
+                input_root=Path(temp_dir) / "missing-jobs",
+                output_root=output_root,
+                stage4_inputs_json=inputs_path,
+                execute=True,
+                browser_runner=fake_browser_runner,
+            )
+
+        item = result["manifest"]["items"][0]
+        self.assertEqual(item["required_registration_category_optional"], "")
+        self.assertEqual(item["supplement_after_execution_state"], "COMPANY_FIRST_CERTIFICATE_RESOLVED")
+        self.assertEqual(item["resolved_certificate_no_optional"], "4401373-274")
+        self.assertTrue(item["certificate_category_review_required"])
+        self.assertEqual(item["candidate_group_resolution_state"], "RESOLVED_BY_THIS_MEMBER")
+        self.assertEqual(result["summary"]["stage4_input_count"], 1)
+
     def test_no_rendered_rows_goes_to_name_enumeration_not_final_conflict(self) -> None:
         def fake_blocked_runner(capture_plan: dict[str, object]) -> dict[str, object]:
             return {
@@ -376,6 +437,83 @@ class CompanyFirstStage4ExecutionTest(unittest.TestCase):
         self.assertFalse(by_company["云浮市易安停科技有限公司"]["flow_08_targeted_parse_required"])
         self.assertEqual(result["summary"]["candidate_group_resolved_count"], 1)
         self.assertEqual(result["summary"]["stage4_input_count"], 1)
+
+    def test_consortium_group_resolves_when_lead_has_field_level_readback_and_member_misses(self) -> None:
+        def fake_browser_runner(capture_plan: dict[str, object]) -> dict[str, object]:
+            company = capture_plan["target"]["company_name"]
+            if company == "中图设计有限公司":
+                return {
+                    "browser_runner_id": "fake-jzsc-browser",
+                    "live_browser_executed": True,
+                    "company_personnel_source_url": "https://jzsc.mohurd.gov.cn/data/company/detail?id=zhongtu",
+                    "matched_company_name_optional": "中图设计有限公司",
+                    "matched_company_public_id_optional": "zhongtu",
+                    "rendered_company_personnel_rows": [
+                        {
+                            "row_text": "1 林杰 520100**********01 注册建筑师 5200794-014",
+                            "person_public_id": "person-linjie",
+                            "registered_unit_name": "中图设计有限公司",
+                        }
+                    ],
+                    "rendered_personnel_project_rows": [],
+                    "failure_reasons": [],
+                }
+            return {
+                "browser_runner_id": "fake-jzsc-browser",
+                "live_browser_executed": True,
+                "company_personnel_source_url": str(capture_plan.get("entry_url") or ""),
+                "rendered_company_personnel_rows": [],
+                "failure_reasons": ["project_manager_not_found_by_company_name_person_name_after_2_attempts"],
+                "browser_attempts": [
+                    {
+                        "attempt_type": "person_search_name_only_paginated_company_filter",
+                        "result_count": 1,
+                        "matched_count": 0,
+                    }
+                ],
+            }
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_root = Path(temp_dir) / "out"
+            inputs_path = Path(temp_dir) / "inputs.json"
+            members = ["中图设计有限公司", "鸿儒勘测设计有限公司"]
+            inputs_path.write_text(
+                json.dumps(
+                    {
+                        "items": [
+                            {
+                                "project_id": "PROJ-CN-GD-JG2026-11259",
+                                "project_name": "勘察和初步设计候选公示",
+                                "candidate_company_name": company,
+                                "candidate_group_id": "GROUP-11259-1",
+                                "candidate_group_order": 1,
+                                "candidate_group_members": members,
+                                "consortium_member_role": "lead" if company == "中图设计有限公司" else "member",
+                                "responsible_person_name": "林杰",
+                                "responsible_role": "design_lead",
+                                "certificate_no": "",
+                            }
+                            for company in members
+                        ]
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+
+            result = build_company_first_stage4_execution(
+                input_root=Path(temp_dir) / "missing-jobs",
+                output_root=output_root,
+                stage4_inputs_json=inputs_path,
+                execute=True,
+                browser_runner=fake_browser_runner,
+            )
+
+        by_company = {item["candidate_company_name"]: item for item in result["manifest"]["items"]}
+        self.assertEqual(by_company["中图设计有限公司"]["candidate_group_resolution_state"], "RESOLVED_BY_THIS_MEMBER")
+        self.assertEqual(by_company["鸿儒勘测设计有限公司"]["candidate_group_resolution_state"], "RESOLVED_BY_CONSORTIUM_MEMBER")
+        self.assertFalse(by_company["鸿儒勘测设计有限公司"]["flow_08_targeted_parse_required"])
+        self.assertEqual(result["summary"]["candidate_group_resolved_count"], 1)
 
     def test_can_filter_stage4_inputs_by_candidate_group_id(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

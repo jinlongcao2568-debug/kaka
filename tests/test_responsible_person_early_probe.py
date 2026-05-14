@@ -199,6 +199,70 @@ class ResponsiblePersonEarlyProbeTests(unittest.TestCase):
             self.assertEqual(item["early_probe_state"], "RESPONSIBLE_PERSON_NOT_APPLICABLE")
             self.assertFalse(item["flow_08_targeted_parse_required"])
 
+    def test_equipment_procurement_placeholder_person_is_not_forced_to_stage4_or_flow08(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            input_root = root / "download"
+            _write_project(
+                input_root,
+                project_id="PROJ-CN-GD-JG2026-11204",
+                project_name="电动集装箱牵引车及半挂车购置项目中标候选人公示",
+                detail_text=(
+                    "序号\n中标候选人名称\n候选人代码\n排名\n投标报价\n质量承诺\n工期（交货期）\n"
+                    "候选人资格情况\n候选人业绩情况\n拟派项目负责人\n项目负责人资质\n项目负责人业绩\n"
+                    "1\n三一海洋重工有限公司\n914404005764303531\n1\n15706000.00元\n合格\n88天\n"
+                    "满足招标文件要求\n详见附件\n/\n/\n/\n"
+                    "2\n广州市华奥德汽车销售服务有限公司\n91440116082744192A\n2\n15456000.00元\n合格\n89天\n"
+                    "满足招标文件要求\n详见附件\n/\n/\n/"
+                ),
+            )
+            result = build_responsible_person_early_probe(
+                input_root=input_root,
+                output_root=root / "out",
+                created_at="2026-05-11T00:00:00+08:00",
+            )
+
+            item = result["manifest"]["items"][0]
+            self.assertEqual(item["responsible_role"], "not_applicable")
+            self.assertEqual(item["early_probe_state"], "RESPONSIBLE_PERSON_NOT_APPLICABLE")
+            self.assertFalse(item["verification_targets"])
+            self.assertFalse(item["flow_08_targeted_parse_required"])
+
+    def test_candidate_table_uses_later_specific_person_over_placeholder_rows(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            input_root = root / "download"
+            _write_project(
+                input_root,
+                project_id="PROJ-CN-GD-JG2026-11292",
+                project_name="工程可行性研究及方案深化研究中标候选人公示",
+                detail_text=(
+                    "项目负责人姓名及证书、证号\n详见附件\n详见附件\n详见附件\n"
+                    "序号\n中标候选人名称\n候选人代码\n排名\n投标报价\n质量承诺\n工期（交货期）\n"
+                    "候选人资格情况\n候选人业绩情况\n拟派项目负责人\n项目负责人资质\n项目负责人业绩\n"
+                    "1\n广东省交通规划设计研究院集团股份有限公司\n91440000455857836N\n1\n9400000元\n"
+                    "研究成果需通过专家评审\n按招标人规定\n工程勘察综合甲级资质、工程设计公路行业甲级资质\n"
+                    "惠州至肇庆高速公路白云至三水段项目勘察设计\n雷明\n路桥高级工程师\n惠州惠城至惠阳霞涌高速公路工程勘察设计SJ1标段。\n"
+                    "2\n中交第二公路勘察设计研究院有限公司\n91420100177668591H\n2\n9395678元\n"
+                    "研究成果需通过专家评审\n按招标人规定\n工程勘察综合甲级资质\n"
+                    "武汉都市圈环线高速公路两阶段勘察设计\n查明高\n正高级工程师\n京港澳高速公路改扩建工程勘察设计。"
+                ),
+            )
+            result = build_responsible_person_early_probe(
+                input_root=input_root,
+                output_root=root / "out",
+                created_at="2026-05-11T00:00:00+08:00",
+            )
+
+            item = result["manifest"]["items"][0]
+            self.assertEqual(item["responsible_role"], "design_lead")
+            self.assertEqual(
+                [(group["candidate_group_order"], group["responsible_person_name"]) for group in item["candidate_groups"]],
+                [(1, "雷明"), (2, "查明高")],
+            )
+            self.assertNotIn("按招标人规定", [row["value"] for row in item["responsible_person_candidates"]])
+            self.assertEqual(item["early_probe_state"], "COMPANY_FIRST_CERTIFICATE_SUPPLEMENT_REQUIRED")
+
     def test_candidate_table_prefers_personal_registration_over_enterprise_qualification_certificate(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)

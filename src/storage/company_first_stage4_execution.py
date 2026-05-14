@@ -259,6 +259,16 @@ def _execute_job(
         }
     state = _post_execution_state(stage4_result)
     carrier = dict(stage4_result.get("personnel_carrier") or {})
+    resolved_certificate = carrier.get("project_manager_certificate_no_optional") or stage4_result.get(
+        "resolved_public_identifier_optional", ""
+    )
+    certificate_category_review_required = bool(
+        state.get("certificate_category_review_required")
+        or (
+            "DESIGN_SURVEY" in str(target.get("opportunity_priority_class") or "").upper()
+            and resolved_certificate
+        )
+    )
     return {
         **base,
         "stage4_execution_state": stage4_result.get("executor_state", ""),
@@ -267,8 +277,7 @@ def _execute_job(
         "verification_result": carrier.get("verification_result", ""),
         "matched_company_name_optional": stage4_result.get("matched_company_name_optional", ""),
         "matched_company_public_id_optional": stage4_result.get("matched_company_public_id_optional", ""),
-        "resolved_certificate_no_optional": carrier.get("project_manager_certificate_no_optional")
-        or stage4_result.get("resolved_public_identifier_optional", ""),
+        "resolved_certificate_no_optional": resolved_certificate,
         "person_public_id_optional": carrier.get("person_public_id_optional", ""),
         "registered_unit_name_optional": carrier.get("project_manager_registered_unit_optional", ""),
         "company_personnel_source_url": stage4_result.get("company_personnel_source_url", ""),
@@ -288,6 +297,9 @@ def _execute_job(
         "next_actions": state["next_actions"],
         "risk_escalation_state": state["risk_escalation_state"],
         "flow_08_targeted_parse_required": state["flow_08_targeted_parse_required"],
+        "certificate_category_review_required": certificate_category_review_required,
+        "public_registration_match_basis": state.get("public_registration_match_basis", ""),
+        "field_level_public_registration_match": _field_level_public_registration_match(stage4_result),
         "no_name_only_final_proof": True,
     }
 
@@ -301,6 +313,22 @@ def _post_execution_state(stage4_result: Mapping[str, Any]) -> dict[str, Any]:
             "next_actions": ["BUILD_STAGE4_CANDIDATE_VERIFICATION_INPUT", "CONTINUE_PROJECT_MANAGER_ACTIVE_CONFLICT_PROBE"],
             "risk_escalation_state": "NO_ESCALATION",
             "flow_08_targeted_parse_required": False,
+            "certificate_category_review_required": False,
+            "public_registration_match_basis": "provider_identity_matched",
+        }
+    if _field_level_public_registration_match(stage4_result):
+        return {
+            "supplement_after_execution_state": "COMPANY_FIRST_CERTIFICATE_RESOLVED",
+            "stage4_readiness_state": "READY_FOR_STAGE4_CERTIFICATE_VERIFICATION",
+            "next_actions": [
+                "BUILD_STAGE4_CANDIDATE_VERIFICATION_INPUT",
+                "KEEP_CERTIFICATE_CATEGORY_REVIEW_IF_REQUIRED",
+                "CONTINUE_PROJECT_MANAGER_ACTIVE_CONFLICT_PROBE",
+            ],
+            "risk_escalation_state": "NO_ESCALATION",
+            "flow_08_targeted_parse_required": False,
+            "certificate_category_review_required": True,
+            "public_registration_match_basis": "field_level_company_unit_certificate_readback",
         }
     if _name_enumeration_fallback_exhausted(stage4_result):
         return {
@@ -334,7 +362,43 @@ def _post_execution_state(stage4_result: Mapping[str, Any]) -> dict[str, Any]:
         "next_actions": ["REVIEW_PROVIDER_DIAGNOSTICS", "DO_NOT_OUTPUT_FINAL_CONFLICT"],
         "risk_escalation_state": "MEDIUM_CLUE_REVIEW",
         "flow_08_targeted_parse_required": False,
+        "certificate_category_review_required": False,
+        "public_registration_match_basis": "",
     }
+
+
+def _field_level_public_registration_match(stage4_result: Mapping[str, Any]) -> bool:
+    reasons = [str(reason) for reason in list(stage4_result.get("fail_closed_reasons") or []) if str(reason)]
+    if reasons:
+        return False
+    readback_ready = str(stage4_result.get("readback_state") or "") == "READBACK_READY" or str(
+        stage4_result.get("executor_state") or ""
+    ) == "READBACK_READY"
+    if not readback_ready:
+        return False
+    carrier = dict(stage4_result.get("personnel_carrier") or {})
+    matched_company = str(stage4_result.get("matched_company_name_optional") or "").strip()
+    registered_unit = str(carrier.get("project_manager_registered_unit_optional") or "").strip()
+    certificate_or_person_id = str(
+        carrier.get("project_manager_certificate_no_optional")
+        or stage4_result.get("resolved_public_identifier_optional")
+        or carrier.get("person_public_id_optional")
+        or ""
+    ).strip()
+    if not (matched_company and registered_unit and certificate_or_person_id):
+        return False
+    return _company_names_equivalent(matched_company, registered_unit)
+
+
+def _company_names_equivalent(left: Any, right: Any) -> bool:
+    def normalize(value: Any) -> str:
+        text = str(value or "").strip()
+        text = text.replace("（", "(").replace("）", ")")
+        text = text.replace("(主)", "").replace("(成)", "")
+        text = "".join(text.split())
+        return text.strip("；;，,、")
+
+    return bool(normalize(left) and normalize(left) == normalize(right))
 
 
 def _apply_candidate_group_resolution(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -617,7 +681,7 @@ def _priority_class(responsible_role: str) -> str:
     role = str(responsible_role or "")
     if role == "chief_supervision_engineer":
         return "B_HIGH_SUPERVISION"
-    if role in {"design_lead", "survey_lead"}:
+    if role in {"design_lead", "survey_lead", "service_project_lead"}:
         return "C_MEDIUM_DESIGN_SURVEY"
     return "A_HIGH_CONSTRUCTION_EPC"
 

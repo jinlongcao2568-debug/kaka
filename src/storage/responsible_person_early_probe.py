@@ -23,6 +23,22 @@ TEXT_PROBE_LIMIT = 4000
 DEFAULT_PROJECT_IDS: tuple[str, ...] = ()
 PREFERRED_07_PDF_KEYWORDS = ("中标候选人公示", "定标候选人公示", "评标报告", "复评报告")
 SMALL_PDF_MAX_BYTES = 20_000_000
+PLACEHOLDER_PERSON_VALUES = {
+    "/",
+    "／",
+    "-",
+    "--",
+    "详见附件",
+    "详见附表",
+    "详见投标文件",
+    "详见投标文件公开",
+    "按招标人规定",
+    "按招标 人 规定",
+    "按招标文件要求",
+    "按合同约定",
+    "无",
+    "不适用",
+}
 
 
 def build_responsible_person_early_probe(
@@ -575,7 +591,7 @@ def _looks_like_candidate_group_person_row(segment: list[str], index: int) -> bo
     next_line = _clean_token(segment[index + 1] if index + 1 < len(segment) else "")
     if any(token in previous_line for token in ("公司", "集团", "院")) and _looks_like_money_or_score(next_line):
         return True
-    if any(token in next_line for token in ("详见投标文件公开", "投标文件公开", "注册", "证书", "资质", "/")):
+    if any(token in next_line for token in ("详见投标文件公开", "投标文件公开", "注册", "证书", "资质", "高级工程师", "工程师", "/")):
         return True
     if any(token in previous_line for token in ("详见投标文件公开", "投标文件公开", "按招标文件", "满足招标文件", "/")):
         return True
@@ -843,7 +859,11 @@ def _rank_candidates(text: str) -> list[dict[str, Any]]:
 
 def _responsible_role(*, text: str, project_name: str, profile: Mapping[str, list[dict[str, Any]]]) -> str:
     combined = f"{project_name}\n{text}"
-    if any(token in combined for token in ("保险项目", "保险服务")) and not profile.get("responsible_person_candidates"):
+    has_person_or_certificate = bool(profile.get("responsible_person_candidates") or profile.get("certificate_no_candidates"))
+    if (
+        any(token in combined for token in ("保险项目", "保险服务", "车辆购置", "设备购置", "材料采购", "货物采购", "集装箱牵引车", "半挂车"))
+        and not has_person_or_certificate
+    ):
         return "not_applicable"
     if "总监理工程师" in combined or re.search(r"\b总监\b", combined):
         return "chief_supervision_engineer"
@@ -851,6 +871,8 @@ def _responsible_role(*, text: str, project_name: str, profile: Mapping[str, lis
         return "design_lead"
     if "勘察负责人" in combined:
         return "survey_lead"
+    if any(token in combined for token in ("勘察设计", "方案设计", "初步设计", "工程可行性研究", "方案深化研究")):
+        return "design_lead"
     if "服务负责人" in combined or "项目总负责人" in combined:
         return "service_project_lead"
     return "project_manager"
@@ -1073,6 +1095,8 @@ def _clean_company(value: Any) -> str:
 
 def _clean_person(value: Any) -> str:
     text = _clean_token(value)
+    if _is_placeholder_person(text):
+        return ""
     if not re.fullmatch(r"[\u4e00-\u9fff·]{2,6}", text):
         return ""
     if text in {"项目负责人", "总监理", "总监理工程师", "工程师", "候选人", "负责人"}:
@@ -1080,6 +1104,12 @@ def _clean_person(value: Any) -> str:
     if any(token in text for token in ("项目", "负责", "资质", "业绩", "投标", "报价", "候选", "证书", "代码", "合同", "约定")):
         return ""
     return text
+
+
+def _is_placeholder_person(value: Any) -> bool:
+    text = _clean_token(value)
+    compact = text.replace(" ", "")
+    return text in PLACEHOLDER_PERSON_VALUES or compact in {item.replace(" ", "") for item in PLACEHOLDER_PERSON_VALUES}
 
 
 def _clean_token(value: Any) -> str:
