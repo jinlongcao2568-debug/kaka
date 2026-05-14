@@ -292,6 +292,9 @@ def _project_report(
         "official_source_profile_ids": _list(official_source_project.get("source_profile_ids")),
         "gdcic_readback_classification_counts": dict(official_source_project.get("gdcic_readback_classification_counts") or {}),
         "gdcic_readback_classification_records": _list(official_source_project.get("gdcic_readback_classification_records")),
+        "gdcic_field_availability_counts": dict(official_source_project.get("gdcic_field_availability_counts") or {}),
+        "gdcic_missing_field_counts": dict(official_source_project.get("gdcic_missing_field_counts") or {}),
+        "gdcic_certificate_field_availability_state": str(official_source_project.get("gdcic_certificate_field_availability_state") or ""),
         "official_source_blocker_taxonomy_counts": dict(official_source_project.get("blocker_taxonomy_counts") or {}),
         "guangdong_local_verification_probe_state": (
             "READY"
@@ -1014,6 +1017,21 @@ def _recommendations(*, verification_evidence: Mapping[str, Any], process_stabil
                         "广东三库一平台部分查询存在验证码或源阻断，进入源适配或后续重试建议。",
                     )
                 )
+            certificate_state = str(verification_evidence.get("gdcic_certificate_field_availability_state") or "")
+            if certificate_state == "GDCIC_CERTIFICATE_FIELDS_NOT_RETURNED_IN_CURRENT_READBACK":
+                recommendations.append(
+                    _recommendation(
+                        "GDCIC_CERTIFICATE_FIELDS_NOT_RETURNED_REVIEW",
+                        "广东三库一平台当前字段回放未返回证书号、注册类别、注册专业或有效状态；转公开注册信息链或其他官方源补强。",
+                    )
+                )
+            elif certificate_state == "GDCIC_CERTIFICATE_FIELDS_RETURNED_IN_CURRENT_READBACK":
+                recommendations.append(
+                    _recommendation(
+                        "GDCIC_CERTIFICATE_FIELDS_READY_REVIEW",
+                        "广东三库一平台当前字段回放包含证书相关字段，可进入证书号、注册类别、注册专业或有效状态辅助复核。",
+                    )
+                )
         else:
             recommendations.append(
                 _recommendation(
@@ -1169,6 +1187,16 @@ def _summary(
         ),
         "gdcic_readback_classification_counts": dict(
             (official_source_readback_manifest.get("summary") or {}).get("gdcic_readback_classification_counts") or {}
+        ),
+        "gdcic_field_availability_counts": dict(
+            (official_source_readback_manifest.get("summary") or {}).get("gdcic_field_availability_counts") or {}
+        ),
+        "gdcic_missing_field_counts": dict(
+            (official_source_readback_manifest.get("summary") or {}).get("gdcic_missing_field_counts") or {}
+        ),
+        "gdcic_certificate_field_availability_state": str(
+            (official_source_readback_manifest.get("summary") or {}).get("gdcic_certificate_field_availability_state")
+            or ""
         ),
         "project_gdcic_classification_record_count": _int(
             (official_source_readback_manifest.get("summary") or {}).get("project_gdcic_classification_record_count")

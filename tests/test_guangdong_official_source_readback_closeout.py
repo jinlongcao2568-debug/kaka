@@ -52,6 +52,11 @@ class GuangdongOfficialSourceReadbackCloseoutTests(unittest.TestCase):
                     "PERSON_REGISTRATION_READBACK": 1,
                 },
             )
+            self.assertEqual(summary["gdcic_certificate_field_availability_state"], "GDCIC_CERTIFICATE_FIELDS_RETURNED_IN_CURRENT_READBACK")
+            self.assertEqual(summary["gdcic_field_availability_counts"]["certificate_no"], 1)
+            self.assertEqual(summary["gdcic_field_availability_counts"]["registration_category"], 1)
+            self.assertEqual(summary["gdcic_field_availability_counts"]["registration_profession"], 1)
+            self.assertEqual(summary["gdcic_field_availability_counts"]["effective_status"], 1)
             project = result["manifest"]["project_records"][0]
             self.assertEqual(project["official_source_readback_state"], "OFFICIAL_SOURCE_READBACK_READY")
             self.assertEqual(len(project["gdcic_readback_classification_records"]), 1)
@@ -82,6 +87,7 @@ class GuangdongOfficialSourceReadbackCloseoutTests(unittest.TestCase):
             self.assertEqual(summary["official_source_readback_ready_count"], 0)
             self.assertEqual(summary["blocker_taxonomy_counts"], {"gdcic_captcha_required": 1})
             self.assertEqual(summary["gdcic_readback_classification_counts"], {"BLOCKED_OR_CAPTCHA_REVIEW": 1})
+            self.assertEqual(summary["gdcic_certificate_field_availability_state"], "GDCIC_CERTIFICATE_FIELDS_NO_READBACK_CONTEXT")
             self.assertNotIn("无风险", json.dumps(result, ensure_ascii=False))
             self.assertNotIn("无冲突", json.dumps(result, ensure_ascii=False))
 
@@ -101,6 +107,28 @@ class GuangdongOfficialSourceReadbackCloseoutTests(unittest.TestCase):
             self.assertFalse(result["safe_to_execute"])
             self.assertEqual(result["summary"]["p2_closeout_state"], "INPUT_BLOCKED")
             self.assertIn("gdcic_query_probe_missing", result["blocking_reasons"])
+
+    def test_certificate_fields_not_returned_when_only_person_and_project_readback(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_gdcic_root_without_certificate_fields(root / "gdcic")
+            _write_evidence_report_root(root / "evidence")
+
+            result = build_guangdong_official_source_readback_closeout(
+                gdcic_query_probe_root=root / "gdcic",
+                evidence_report_root=root / "evidence",
+                guangdong_local_field_query_root=None,
+                output_root=root / "out",
+                created_at="2026-05-14T00:00:00+08:00",
+            )
+
+            summary = result["summary"]
+            self.assertEqual(summary["p2_closeout_state"], "P2_OFFICIAL_READBACK_READY")
+            self.assertEqual(summary["gdcic_certificate_field_availability_state"], "GDCIC_CERTIFICATE_FIELDS_NOT_RETURNED_IN_CURRENT_READBACK")
+            self.assertEqual(summary["gdcic_field_availability_counts"]["person_name"], 1)
+            self.assertEqual(summary["gdcic_field_availability_counts"]["company_name"], 1)
+            self.assertEqual(summary["gdcic_field_availability_counts"]["project_name"], 1)
+            self.assertEqual(summary["gdcic_missing_field_counts"]["certificate_no"], 1)
 
 
 def _write_gdcic_root(root: Path, *, readback_ready_count: int) -> None:
@@ -132,6 +160,43 @@ def _write_gdcic_root(root: Path, *, readback_ready_count: int) -> None:
                     "REVIEW_REQUIRED": 0 if readback_ready_count else 12,
                 },
                 "gdcic_blocker_taxonomy_counts": blocker_counts,
+            },
+        }
+    }
+    (root / "guangdong-gdcic-query-probe-v1.json").write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+
+def _write_gdcic_root_without_certificate_fields(root: Path) -> None:
+    root.mkdir(parents=True, exist_ok=True)
+    task = _gdcic_task_payload(readback_ready_count=12, blocker_counts={"gdcic_public_query_empty_review": 1})
+    task["field_summary"]["sample_certificate_nos"] = []
+    for route in task["route_attempts"]:
+        if route["route_id"] == "project_bidding_by_company":
+            route["field_summary"]["sample_certificate_nos"] = []
+            route.pop("sample_records", None)
+    payload = {
+        "manifest": {
+            "manifest_kind": "guangdong_gdcic_query_probe_v1_manifest",
+            "project_task_records": [
+                {
+                    "project_id": "PROJ-CN-GD-JG2026-10815",
+                    "project_name": "广州测试项目",
+                    "query_task_ids": ["GD-GDCIC-QUERY-1"],
+                    "query_task_count": 1,
+                    "readback_ready_count": 1,
+                    "blocker_taxonomy_counts": {"gdcic_public_query_empty_review": 1},
+                }
+            ],
+            "query_task_records": [task],
+            "summary": {
+                "probe_state": "READY",
+                "gdcic_query_probe_task_count": 1,
+                "gdcic_readback_ready_count": 1,
+                "query_probe_state_counts": {"READBACK_READY_PUBLIC_SOURCE": 1},
+                "gdcic_blocker_taxonomy_counts": {"gdcic_public_query_empty_review": 1},
             },
         }
     }
@@ -181,6 +246,14 @@ def _gdcic_task_payload(*, readback_ready_count: int, blocker_counts: dict[str, 
                         "sample_company_names": ["广州测试建设有限公司"],
                         "sample_certificate_nos": ["粤144202600001"],
                     },
+                    "sample_records": [
+                        {
+                            "certificateNo": "粤144202600001",
+                            "registrationCategory": "一级注册建造师",
+                            "registrationProfession": "建筑工程",
+                            "effectiveStatus": "有效",
+                        }
+                    ],
                     "blocker_taxonomy": [],
                 },
                 {

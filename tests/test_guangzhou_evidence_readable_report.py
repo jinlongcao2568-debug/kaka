@@ -36,6 +36,8 @@ class GuangzhouEvidenceReadableReportTests(unittest.TestCase):
             self.assertEqual(summary["flow_08_targeted_parse_required_project_count"], 0)
             self.assertEqual(summary["official_source_readback_ready_count"], 12)
             self.assertEqual(summary["gdcic_readback_classification_counts"]["PERSON_REGISTRATION_READBACK"], 12)
+            self.assertEqual(summary["gdcic_field_availability_counts"]["person_name"], 12)
+            self.assertEqual(summary["gdcic_certificate_field_availability_state"], "GDCIC_CERTIFICATE_FIELDS_NOT_RETURNED_IN_CURRENT_READBACK")
             self.assertTrue((root / "out" / "guangzhou-evidence-readable-report-v1.json").exists())
             md_path = root / "out" / "guangzhou-evidence-readable-report-v1.md"
             self.assertTrue(md_path.exists())
@@ -44,6 +46,7 @@ class GuangzhouEvidenceReadableReportTests(unittest.TestCase):
             self.assertIn("REGISTER_ONLY_BACKUP", markdown)
             self.assertIn("NOT_APPLICABLE", markdown)
             self.assertIn("GDCIC_BLOCKED_OR_CAPTCHA_REVIEW_REQUIRED", markdown)
+            self.assertIn("GDCIC 当前 readback 未返回证书字段", markdown)
             report_text = json.dumps(result, ensure_ascii=False) + markdown
             for term in ("无风险", "无冲突", "在建冲突成立", "违法成立", "确认本人", "造假成立", "是不是本人"):
                 self.assertNotIn(term, report_text)
@@ -101,6 +104,19 @@ def _write_evidence_report(root: Path, *, project_count: int, flow08_required: b
                 "flow_08_targeted_parse_required_project_count": 1 if flow08_required else 0,
                 "official_source_readback_ready_count": 12,
                 "official_source_project_ready_count": 4,
+                "gdcic_field_availability_counts": {
+                    "person_name": 12,
+                    "company_name": 12,
+                    "project_name": 10,
+                    "id_card_hash": 12,
+                },
+                "gdcic_missing_field_counts": {
+                    "certificate_no": 12,
+                    "registration_category": 12,
+                    "registration_profession": 12,
+                    "effective_status": 12,
+                },
+                "gdcic_certificate_field_availability_state": "GDCIC_CERTIFICATE_FIELDS_NOT_RETURNED_IN_CURRENT_READBACK",
                 "gdcic_readback_classification_counts": {
                     "PERSON_REGISTRATION_READBACK": 12,
                     "COMPANY_PROJECT_READBACK": 10,
@@ -142,6 +158,19 @@ def _project_payload(
             "official_source_readback_state": "OFFICIAL_SOURCE_READBACK_READY" if gdcic_counts else "NOT_BUILT",
             "official_source_readback_ready_count": sum(gdcic_counts.values()),
             "gdcic_readback_classification_counts": gdcic_counts,
+            "gdcic_field_availability_counts": {
+                "person_name": gdcic_counts.get("PERSON_REGISTRATION_READBACK", 0),
+                "company_name": gdcic_counts.get("PERSON_REGISTRATION_READBACK", 0),
+                "project_name": gdcic_counts.get("COMPANY_PROJECT_READBACK", 0),
+                "id_card_hash": gdcic_counts.get("PERSON_REGISTRATION_READBACK", 0),
+            },
+            "gdcic_missing_field_counts": {
+                "certificate_no": 1,
+                "registration_category": 1,
+                "registration_profession": 1,
+                "effective_status": 1,
+            },
+            "gdcic_certificate_field_availability_state": "GDCIC_CERTIFICATE_FIELDS_NOT_RETURNED_IN_CURRENT_READBACK" if gdcic_counts else "",
         },
         "process_stability": {
             "evidence_report_closeout_state": (
@@ -161,6 +190,7 @@ def _project_payload(
             {"recommended_action": "GDCIC_COMPANY_PROJECT_READBACK_REVIEW", "reason": "project"},
             {"recommended_action": "GDCIC_EMPTY_PUBLIC_RESULT_REVIEW_REQUIRED", "reason": "empty"},
             {"recommended_action": "GDCIC_BLOCKED_OR_CAPTCHA_REVIEW_REQUIRED", "reason": "blocked"},
+            {"recommended_action": "GDCIC_CERTIFICATE_FIELDS_NOT_RETURNED_REVIEW", "reason": "cert"},
             *([{"recommended_action": "RUN_FLOW_08_TARGETED_PARSE", "reason": "flow08"}] if flow08_required else []),
         ],
     }

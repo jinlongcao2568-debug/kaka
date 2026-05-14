@@ -111,6 +111,9 @@ def _project_card(project: Mapping[str, Any]) -> dict[str, Any]:
             "official_source_readback_state": str(evidence.get("official_source_readback_state") or "NOT_BUILT"),
             "official_source_readback_ready_count": _int(evidence.get("official_source_readback_ready_count")),
             "classification_counts": gdcic_counts,
+            "field_availability_counts": dict(evidence.get("gdcic_field_availability_counts") or {}),
+            "missing_field_counts": dict(evidence.get("gdcic_missing_field_counts") or {}),
+            "certificate_field_availability_state": str(evidence.get("gdcic_certificate_field_availability_state") or ""),
             "person_registration_readback_count": _int(gdcic_counts.get("PERSON_REGISTRATION_READBACK")),
             "company_project_readback_count": _int(gdcic_counts.get("COMPANY_PROJECT_READBACK")),
             "certificate_field_readback_count": _int(gdcic_counts.get("CERTIFICATE_FIELD_READBACK")),
@@ -186,6 +189,8 @@ def _action_label(action: str) -> str:
         "GDCIC_CERTIFICATE_FIELD_READBACK_REVIEW": "GDCIC 证书字段可复核",
         "GDCIC_EMPTY_PUBLIC_RESULT_REVIEW_REQUIRED": "GDCIC 空结果需复核",
         "GDCIC_BLOCKED_OR_CAPTCHA_REVIEW_REQUIRED": "GDCIC 源阻断需重试或适配",
+        "GDCIC_CERTIFICATE_FIELDS_NOT_RETURNED_REVIEW": "GDCIC 当前 readback 未返回证书字段",
+        "GDCIC_CERTIFICATE_FIELDS_READY_REVIEW": "GDCIC 证书字段可辅助复核",
         "ACTIVE_CONFLICT_EXTERNAL_SOURCE_TASKS_READY": "外部线索任务已生成",
         "RUN_FLOW_08_TARGETED_PARSE": "需要 08 定向解析",
         "SUPPLEMENT_PUBLIC_REGISTRATION_MATCH": "补充公开注册信息匹配",
@@ -207,6 +212,8 @@ def _project_status(*, groups: list[Mapping[str, Any]], evidence: Mapping[str, A
 def _summary(evidence_manifest: Mapping[str, Any], project_cards: list[Mapping[str, Any]], blocking_reasons: list[str]) -> dict[str, Any]:
     source_summary = dict(evidence_manifest.get("summary") or {})
     gdcic_counts = _merge_counts(*(dict(project.get("gdcic_readback_summary", {}).get("classification_counts") or {}) for project in project_cards))
+    gdcic_field_counts = _merge_counts(*(dict(project.get("gdcic_readback_summary", {}).get("field_availability_counts") or {}) for project in project_cards))
+    gdcic_missing_counts = _merge_counts(*(dict(project.get("gdcic_readback_summary", {}).get("missing_field_counts") or {}) for project in project_cards))
     return {
         "report_state": "READY" if not blocking_reasons else "INPUT_BLOCKED",
         "project_count": len(project_cards),
@@ -219,6 +226,9 @@ def _summary(evidence_manifest: Mapping[str, Any], project_cards: list[Mapping[s
         "official_source_readback_ready_count": _int(source_summary.get("official_source_readback_ready_count")),
         "official_source_project_ready_count": _int(source_summary.get("official_source_project_ready_count")),
         "gdcic_readback_classification_counts": gdcic_counts,
+        "gdcic_field_availability_counts": gdcic_field_counts,
+        "gdcic_missing_field_counts": gdcic_missing_counts,
+        "gdcic_certificate_field_availability_state": str(source_summary.get("gdcic_certificate_field_availability_state") or ""),
         "source_evidence_report_state": str(source_summary.get("report_state") or ""),
         "source_closeout_state": str(source_summary.get("evidence_report_closeout_overall_state") or ""),
         "blocking_reasons": blocking_reasons,
@@ -241,6 +251,8 @@ def _markdown(summary: Mapping[str, Any], project_cards: list[Mapping[str, Any]]
         f"- 官方源字段回放数：{_int(summary.get('official_source_readback_ready_count'))}",
         f"- 08 定向解析项目数：{_int(summary.get('flow_08_targeted_parse_required_project_count'))}",
         f"- GDCIC 分类：{_compact_counts(summary.get('gdcic_readback_classification_counts'))}",
+        f"- GDCIC 字段可用性：{_compact_counts(summary.get('gdcic_field_availability_counts'))}",
+        f"- GDCIC 证书字段状态：`{summary.get('gdcic_certificate_field_availability_state') or '-'}`",
         "",
     ]
     for project in project_cards:
@@ -257,6 +269,8 @@ def _project_markdown(project: Mapping[str, Any]) -> list[str]:
         f"- 项目流程 URL 数：{len(_list(project.get('project_source_urls')))}",
         f"- 08 状态：`{(project.get('flow_08_state') or {}).get('default_state')}`，附件数：{_int((project.get('flow_08_state') or {}).get('attachment_count'))}",
         f"- GDCIC：{_compact_counts((project.get('gdcic_readback_summary') or {}).get('classification_counts'))}",
+        f"- GDCIC 字段：{_compact_counts((project.get('gdcic_readback_summary') or {}).get('field_availability_counts'))}",
+        f"- GDCIC 证书字段状态：`{(project.get('gdcic_readback_summary') or {}).get('certificate_field_availability_state') or '-'}`",
         "",
         "### 候选组",
         "",

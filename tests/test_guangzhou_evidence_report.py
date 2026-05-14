@@ -263,6 +263,7 @@ class GuangzhouEvidenceReportTests(unittest.TestCase):
             self.assertEqual(evidence["official_source_readback_state"], "OFFICIAL_SOURCE_READBACK_READY")
             self.assertEqual(evidence["official_source_readback_ready_count"], 3)
             self.assertEqual(evidence["gdcic_readback_classification_counts"]["PERSON_REGISTRATION_READBACK"], 1)
+            self.assertEqual(evidence["gdcic_certificate_field_availability_state"], "GDCIC_CERTIFICATE_FIELDS_NOT_RETURNED_IN_CURRENT_READBACK")
             self.assertIn(
                 "OFFICIAL_SOURCE_READBACK_READY",
                 [item["recommended_action"] for item in project["optimization_recommendations"]],
@@ -273,6 +274,7 @@ class GuangzhouEvidenceReportTests(unittest.TestCase):
             self.assertIn("GDCIC_CERTIFICATE_FIELD_READBACK_REVIEW", recommendation_actions)
             self.assertIn("GDCIC_EMPTY_PUBLIC_RESULT_REVIEW_REQUIRED", recommendation_actions)
             self.assertIn("GDCIC_BLOCKED_OR_CAPTCHA_REVIEW_REQUIRED", recommendation_actions)
+            self.assertIn("GDCIC_CERTIFICATE_FIELDS_NOT_RETURNED_REVIEW", recommendation_actions)
 
     def test_report_consumes_guangdong_local_verification_probe_summary_when_available(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -599,6 +601,19 @@ def _write_official_source_readback_root(root: Path) -> None:
             "EMPTY_PUBLIC_RESULT_REVIEW": 1,
             "BLOCKED_OR_CAPTCHA_REVIEW": 1,
         },
+        "gdcic_field_availability_counts": {
+            "person_name": 1,
+            "company_name": 1,
+            "project_name": 1,
+            "id_card_hash": 1,
+        },
+        "gdcic_missing_field_counts": {
+            "certificate_no": 1,
+            "registration_category": 1,
+            "registration_profession": 1,
+            "effective_status": 1,
+        },
+        "gdcic_certificate_field_availability_state": "GDCIC_CERTIFICATE_FIELDS_NOT_RETURNED_IN_CURRENT_READBACK",
         "gdcic_readback_classification_records": [
             {
                 "query_task_id": "GD-GDCIC-QUERY-1",
@@ -632,6 +647,13 @@ def _write_official_source_readback_root(root: Path) -> None:
                     "EMPTY_PUBLIC_RESULT_REVIEW": 1,
                     "BLOCKED_OR_CAPTCHA_REVIEW": 1,
                 },
+                "gdcic_field_availability_counts": {
+                    "person_name": 1,
+                    "company_name": 1,
+                    "project_name": 1,
+                    "id_card_hash": 1,
+                },
+                "gdcic_certificate_field_availability_state": "GDCIC_CERTIFICATE_FIELDS_NOT_RETURNED_IN_CURRENT_READBACK",
                 "source_profile_readback_ready_counts": {
                     "GUANGDONG-GDCIC-SKYPT-OPENPLATFORM": 12,
                 },

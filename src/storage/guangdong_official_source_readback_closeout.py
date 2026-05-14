@@ -27,6 +27,20 @@ CERTIFICATE_FIELD_READBACK = "CERTIFICATE_FIELD_READBACK"
 EMPTY_PUBLIC_RESULT_REVIEW = "EMPTY_PUBLIC_RESULT_REVIEW"
 BLOCKED_OR_CAPTCHA_REVIEW = "BLOCKED_OR_CAPTCHA_REVIEW"
 
+GDCIC_FIELD_KEYS = (
+    "person_name",
+    "company_name",
+    "project_name",
+    "certificate_no",
+    "registration_category",
+    "registration_profession",
+    "effective_status",
+    "id_card_hash",
+)
+CERTIFICATE_FIELD_KEYS = ("certificate_no", "registration_category", "registration_profession", "effective_status")
+CERTIFICATE_FIELDS_NOT_RETURNED = "GDCIC_CERTIFICATE_FIELDS_NOT_RETURNED_IN_CURRENT_READBACK"
+CERTIFICATE_FIELDS_RETURNED = "GDCIC_CERTIFICATE_FIELDS_RETURNED_IN_CURRENT_READBACK"
+
 
 def build_guangdong_official_source_readback_closeout(
     *,
@@ -149,6 +163,9 @@ def _source_summaries(gdcic_manifest: Mapping[str, Any], local_field_manifest: M
                 "probe_state_counts": dict(gdcic_summary.get("query_probe_state_counts") or {}),
                 "blocker_taxonomy_counts": dict(gdcic_summary.get("gdcic_blocker_taxonomy_counts") or {}),
                 "gdcic_readback_classification_counts": _classification_counts(gdcic_classification_records),
+                "gdcic_field_availability_counts": _field_availability_counts(gdcic_classification_records),
+                "gdcic_missing_field_counts": _missing_field_counts(gdcic_classification_records),
+                "gdcic_certificate_field_availability_state": _certificate_field_availability_state(gdcic_classification_records),
                 "source_closeout_state": _source_closeout_state(_int(gdcic_summary.get("gdcic_readback_ready_count"))),
                 "customer_visible_allowed": False,
                 "no_legal_conclusion": True,
@@ -219,6 +236,9 @@ def _project_records(
                 ),
                 "gdcic_query_task_ids": list(gdcic_project.get("query_task_ids") or []),
                 "gdcic_readback_classification_counts": _classification_counts(gdcic_classification_records),
+                "gdcic_field_availability_counts": _field_availability_counts(gdcic_classification_records),
+                "gdcic_missing_field_counts": _missing_field_counts(gdcic_classification_records),
+                "gdcic_certificate_field_availability_state": _certificate_field_availability_state(gdcic_classification_records),
                 "gdcic_readback_classification_records": gdcic_classification_records,
                 "local_field_query_task_ids": list(local_project.get("field_query_task_ids") or []),
                 "blocker_taxonomy_counts": blocker_counts,
@@ -248,6 +268,12 @@ def _summary(
     classification_counts = _merge_counts(
         *(dict(row.get("gdcic_readback_classification_counts") or {}) for row in project_records)
     )
+    field_availability_counts = _merge_counts(
+        *(dict(row.get("gdcic_field_availability_counts") or {}) for row in project_records)
+    )
+    missing_field_counts = _merge_counts(
+        *(dict(row.get("gdcic_missing_field_counts") or {}) for row in project_records)
+    )
     closeout_state = (
         "INPUT_BLOCKED"
         if blocking_reasons
@@ -273,6 +299,15 @@ def _summary(
         },
         "source_profile_state_counts": _counts(row.get("source_closeout_state") for row in source_summaries),
         "gdcic_readback_classification_counts": classification_counts,
+        "gdcic_field_availability_counts": field_availability_counts,
+        "gdcic_missing_field_counts": missing_field_counts,
+        "gdcic_certificate_field_availability_state": (
+            CERTIFICATE_FIELDS_RETURNED
+            if any(_int(field_availability_counts.get(key)) for key in CERTIFICATE_FIELD_KEYS)
+            else CERTIFICATE_FIELDS_NOT_RETURNED
+            if official_ready_count > 0
+            else "GDCIC_CERTIFICATE_FIELDS_NO_READBACK_CONTEXT"
+        ),
         "project_gdcic_classification_record_count": sum(
             len(_list(row.get("gdcic_readback_classification_records"))) for row in project_records
         ),
@@ -292,6 +327,8 @@ def _manual_check_table(project_records: list[Mapping[str, Any]]) -> list[dict[s
             "official_source_readback_state": str(row.get("official_source_readback_state") or ""),
             "official_source_readback_ready_count": _int(row.get("official_source_readback_ready_count")),
             "gdcic_readback_classification_counts": dict(row.get("gdcic_readback_classification_counts") or {}),
+            "gdcic_field_availability_counts": dict(row.get("gdcic_field_availability_counts") or {}),
+            "gdcic_certificate_field_availability_state": str(row.get("gdcic_certificate_field_availability_state") or ""),
             "blocker_taxonomy_counts": dict(row.get("blocker_taxonomy_counts") or {}),
             "source_profile_ids": list(row.get("source_profile_ids") or []),
             "customer_visible_allowed": False,
@@ -350,6 +387,7 @@ def _gdcic_task_classification_record(task: Mapping[str, Any]) -> dict[str, Any]
         },
         "route_classification_counts": _route_classification_counts(task),
         "blocker_taxonomy": blockers,
+        "field_quality": _gdcic_task_field_quality(task),
         "query_miss_is_not_clearance": True,
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,
@@ -362,6 +400,81 @@ def _classification_counts(records: list[Mapping[str, Any]]) -> dict[str, int]:
         for record in records
         for tag in _list(record.get("classification_tags"))
     )
+
+
+def _field_availability_counts(records: list[Mapping[str, Any]]) -> dict[str, int]:
+    return _merge_counts(*(dict((record.get("field_quality") or {}).get("available_fields") or {}) for record in records))
+
+
+def _missing_field_counts(records: list[Mapping[str, Any]]) -> dict[str, int]:
+    return _merge_counts(*(dict((record.get("field_quality") or {}).get("missing_fields") or {}) for record in records))
+
+
+def _certificate_field_availability_state(records: list[Mapping[str, Any]]) -> str:
+    availability = _field_availability_counts(records)
+    if any(_int(availability.get(key)) for key in CERTIFICATE_FIELD_KEYS):
+        return CERTIFICATE_FIELDS_RETURNED
+    if any(PERSON_REGISTRATION_READBACK in _list(record.get("classification_tags")) or COMPANY_PROJECT_READBACK in _list(record.get("classification_tags")) for record in records):
+        return CERTIFICATE_FIELDS_NOT_RETURNED
+    return "GDCIC_CERTIFICATE_FIELDS_NO_READBACK_CONTEXT"
+
+
+def _gdcic_task_field_quality(task: Mapping[str, Any]) -> dict[str, Any]:
+    available: dict[str, int] = {key: 0 for key in GDCIC_FIELD_KEYS}
+    for field_name, values in _field_values(task).items():
+        if field_name in available and values:
+            available[field_name] = len(values)
+    missing = {key: 1 for key in GDCIC_FIELD_KEYS if not available.get(key)}
+    certificate_state = (
+        CERTIFICATE_FIELDS_RETURNED
+        if any(available.get(key) for key in CERTIFICATE_FIELD_KEYS)
+        else CERTIFICATE_FIELDS_NOT_RETURNED
+        if bool(task.get("readback_ready"))
+        else "GDCIC_CERTIFICATE_FIELDS_NOT_EVALUATED_NO_READBACK"
+    )
+    return {
+        "available_fields": {key: value for key, value in available.items() if value},
+        "missing_fields": missing,
+        "certificate_field_availability_state": certificate_state,
+        "field_value_probe": {key: values[:3] for key, values in _field_values(task).items() if values},
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
+
+
+def _field_values(task: Mapping[str, Any]) -> dict[str, list[str]]:
+    values: dict[str, list[str]] = {key: [] for key in GDCIC_FIELD_KEYS}
+    summaries = [dict(task.get("field_summary") or {})]
+    records: list[Mapping[str, Any]] = []
+    for route in _list(task.get("route_attempts")):
+        if not isinstance(route, Mapping):
+            continue
+        summaries.append(dict(route.get("field_summary") or {}))
+        records.extend(record for record in _list(route.get("sample_records")) if isinstance(record, Mapping))
+    for summary in summaries:
+        values["person_name"].extend(_list(summary.get("sample_person_names")))
+        values["company_name"].extend(_list(summary.get("sample_company_names")))
+        values["project_name"].extend(_list(summary.get("sample_project_names")))
+        values["certificate_no"].extend(_list(summary.get("sample_certificate_nos")))
+        values["id_card_hash"].extend(_list(summary.get("sample_id_card_hashes")))
+    for record in records:
+        values["person_name"].append(_first_field(record, ("personName", "name", "person_name", "姓名", "人员姓名")))
+        values["company_name"].append(_first_field(record, ("companyName", "corpName", "entName", "company_name", "企业名称", "单位名称")))
+        values["project_name"].append(_first_field(record, ("projectName", "prjName", "project_name", "项目名称")))
+        values["certificate_no"].append(_first_field(record, ("certificateNo", "certNo", "certNum", "regCertNo", "project_manager_certificate_no", "注册证书号", "证书编号")))
+        values["registration_category"].append(_first_field(record, ("registrationCategory", "regCategory", "certType", "registerType", "注册类别", "证书类型")))
+        values["registration_profession"].append(_first_field(record, ("registrationProfession", "regProfession", "major", "profession", "注册专业", "专业")))
+        values["effective_status"].append(_first_field(record, ("effectiveStatus", "status", "certStatus", "validStatus", "状态", "有效状态")))
+        values["id_card_hash"].append(_first_field(record, ("idCardHash", "id_card_hash", "cardHash", "sample_id_card_hash")))
+    return {key: _dedupe(items) for key, items in values.items()}
+
+
+def _first_field(record: Mapping[str, Any], names: Iterable[str]) -> str:
+    for name in names:
+        value = record.get(name)
+        if value is not None and str(value).strip():
+            return str(value).strip()
+    return ""
 
 
 def _route_classification_counts(task: Mapping[str, Any]) -> dict[str, int]:
