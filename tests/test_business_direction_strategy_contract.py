@@ -589,7 +589,7 @@ class BusinessDirectionStrategyContractTests(unittest.TestCase):
         plan = contract["next_phase_execution_plan"]
         phases = [phase["phase_id"] for phase in plan["phases"]]
 
-        self.assertEqual(plan["current_focus"], "GUANGZHOU_EVIDENCE_REPORT_CLOSEOUT_V1")
+        self.assertEqual(plan["current_focus"], "P7_INTERNAL_EVIDENCE_PACKAGE_MANIFEST_V1")
         self.assertEqual(
             phases,
             [
@@ -597,8 +597,9 @@ class BusinessDirectionStrategyContractTests(unittest.TestCase):
                 "P2_GUANGDONG_OFFICIAL_SOURCE_READBACK_V1",
                 "P3_GUANGZHOU_20_PROJECT_STABILITY_V1",
                 "P4_ZHEJIANG_REGION_ADAPTER_V1",
-                "P5_FORMAL_EVIDENCE_PACKAGE_MANIFEST_V1",
-                "P6_CROSS_PROJECT_ANOMALY_V1",
+                "P5_GDCIC_FIELD_QUALITY_V1",
+                "P6_CERTIFICATE_SUPPLEMENT_CLOSEOUT_V1",
+                "P7_INTERNAL_EVIDENCE_PACKAGE_MANIFEST_V1",
             ],
         )
         p1 = plan["phases"][0]
@@ -607,6 +608,9 @@ class BusinessDirectionStrategyContractTests(unittest.TestCase):
         self.assertIn("do_not_expand_to_20_projects_before_p1_closeout", plan["must_not"])
         self.assertIn("do_not_default_parse_flow_08_without_trigger", plan["must_not"])
         self.assertIn("do_not_treat_plan_only_region_sources_as_live_verified", plan["must_not"])
+        p7 = plan["phases"][-1]
+        self.assertIn("field_lineage、redaction_log、reverse_explanation_records 和 forbidden_term_scan 可读", p7["success_criteria"])
+        self.assertIn("customer_delivery_ready=false 且可信时间戳/公证仅为 RESERVED_NOT_IMPLEMENTED", p7["success_criteria"])
 
 
 if __name__ == "__main__":

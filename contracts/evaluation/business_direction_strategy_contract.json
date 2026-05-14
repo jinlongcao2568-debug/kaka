@@ -1056,7 +1056,7 @@
   ],
   "next_phase_execution_plan": {
     "plan_id": "POST-CANDIDATE-EVIDENCE-PACK-NEXT-PHASE-V1",
-    "current_focus": "GUANGZHOU_EVIDENCE_REPORT_CLOSEOUT_V1",
+    "current_focus": "P7_INTERNAL_EVIDENCE_PACKAGE_MANIFEST_V1",
     "phases": [
       {
         "phase_id": "P1_GUANGZHOU_EVIDENCE_REPORT_CLOSEOUT_V1",
@@ -1099,23 +1099,33 @@
         ]
       },
       {
-        "phase_id": "P5_FORMAL_EVIDENCE_PACKAGE_MANIFEST_V1",
-        "goal": "把内部 EvidenceReport 升级为正式证据包 manifest 前置资产。",
+        "phase_id": "P5_GDCIC_FIELD_QUALITY_V1",
+        "goal": "把 GDCIC readback 拆成字段质量摘要，说明人员、企业项目、证书字段、空结果和阻断状态。",
         "success_criteria": [
-          "每条证据具备 source_url、capture_time、snapshot/readback、hash、field_lineage 和 redaction_log",
-          "客户版和内部版字段边界清楚",
-          "可信时间戳/存证字段仅作为预留状态",
-          "禁止词扫描通过"
+          "gdcic_field_availability_counts 可读",
+          "证书字段未返回时写成当前 readback 缺口",
+          "EvidenceReport 和可读化报告消费字段质量",
+          "未返回字段不写成排除结论"
         ]
       },
       {
-        "phase_id": "P6_CROSS_PROJECT_ANOMALY_V1",
-        "goal": "启动跨项目异常能力，形成固定供应商、轮流中标、陪标组合、文件相似度和报价异常的内部线索。",
+        "phase_id": "P6_CERTIFICATE_SUPPLEMENT_CLOSEOUT_V1",
+        "goal": "用 Stage4 公司优先补证链路补齐 GDCIC 当前未返回的证书字段缺口。",
         "success_criteria": [
-          "只输出内部风险线索",
-          "能解释证据来源和反向解释",
-          "不输出串标成立、围标成立或违法成立",
-          "基于可回放项目样本和字段血缘"
+          "12 个候选组证书补强 resolved",
+          "GDCIC 证书字段缺口由 Stage4 补强计数可见",
+          "未触发 08 时不默认解析 08",
+          "不输出确认本人或最终冲突定性"
+        ]
+      },
+      {
+        "phase_id": "P7_INTERNAL_EVIDENCE_PACKAGE_MANIFEST_V1",
+        "goal": "把广州 5 项目 P1-P6 结果收口为内部证据包 manifest，固化来源、readback、hash、字段血缘、反向解释和脱敏边界。",
+        "success_criteria": [
+          "5 个项目和 12 个候选组进入内部证据包 manifest",
+          "每条证据线索具备 source_url、capture_time、snapshot/readback、hash 或明确 FIXATION_GAP_REVIEW",
+          "field_lineage、redaction_log、reverse_explanation_records 和 forbidden_term_scan 可读",
+          "customer_delivery_ready=false 且可信时间戳/公证仅为 RESERVED_NOT_IMPLEMENTED"
         ]
       }
     ],

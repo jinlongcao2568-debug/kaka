@@ -123,16 +123,15 @@ def test_status_board_records_p0_sync_boundary() -> None:
     assert "文件相似度" in text
     assert "报价异常" in text
     assert "下一阶段执行计划同步说明" in text
-    assert "GUANGZHOU_EVIDENCE_REPORT_CLOSEOUT_V1" in text
-    assert "广州 5 项目 EvidenceReport closeout" in text
-    assert "12 个候选组公开注册信息匹配" in text
-    assert "ParseProbe missing" in text
-    assert "广东/广州官方源 readback 打穿" in text
+    assert "P7_INTERNAL_EVIDENCE_PACKAGE_MANIFEST_V1" in text
+    assert "广州 5 项目 P1-P6 结果收口为内部证据包 manifest" in text
+    assert "FIXATION_GAP_REVIEW" in text
+    assert "customer_delivery_ready=false" in text
+    assert "RESERVED_NOT_IMPLEMENTED" in text
     assert "广州 20 项目小批量稳定性验证" in text
     assert "浙江非广东省份 adapter" in text
-    assert "正式证据包 manifest" in text
     assert "跨项目异常能力" in text
-    assert "不得在 P1 closeout 前扩到 20 项目" in text
+    assert "不得在内部证据包 manifest 前启动图谱或 SaaS 主线" in text
     assert "非承包方原因停工超过 120 天" in text
     assert "安全生产标准化考评结果告知书" in text
     assert "在建冲突成立" in text
