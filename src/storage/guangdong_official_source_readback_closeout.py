@@ -21,6 +21,12 @@ DEFAULT_OUTPUT_ROOT = Path("tmp/evaluation-real-samples/guangdong-official-sourc
 GDCIC_SOURCE_PROFILE_ID = "GUANGDONG-GDCIC-SKYPT-OPENPLATFORM"
 FORBIDDEN_TERMS = ("无风险", "无冲突", "在建冲突成立", "违法成立", "确认本人", "是不是本人", "造假成立")
 
+PERSON_REGISTRATION_READBACK = "PERSON_REGISTRATION_READBACK"
+COMPANY_PROJECT_READBACK = "COMPANY_PROJECT_READBACK"
+CERTIFICATE_FIELD_READBACK = "CERTIFICATE_FIELD_READBACK"
+EMPTY_PUBLIC_RESULT_REVIEW = "EMPTY_PUBLIC_RESULT_REVIEW"
+BLOCKED_OR_CAPTCHA_REVIEW = "BLOCKED_OR_CAPTCHA_REVIEW"
+
 
 def build_guangdong_official_source_readback_closeout(
     *,
@@ -67,6 +73,11 @@ def build_guangdong_official_source_readback_closeout(
         blocking_reasons=blocking_reasons,
     )
     manual_check_table = _manual_check_table(project_records)
+    project_gdcic_classification_records = [
+        record
+        for project in project_records
+        for record in _list(project.get("gdcic_readback_classification_records"))
+    ]
     manifest = {
         "manifest_version": GUANGDONG_OFFICIAL_SOURCE_READBACK_CLOSEOUT_VERSION,
         "manifest_kind": GUANGDONG_OFFICIAL_SOURCE_READBACK_CLOSEOUT_KIND,
@@ -83,6 +94,7 @@ def build_guangdong_official_source_readback_closeout(
         "primary_source_profile_id": GDCIC_SOURCE_PROFILE_ID,
         "source_summaries": source_summaries,
         "project_records": project_records,
+        "project_gdcic_classification_records": project_gdcic_classification_records,
         "manual_check_table": manual_check_table,
         "summary": summary,
         "safety": {
@@ -122,6 +134,11 @@ def _source_summaries(gdcic_manifest: Mapping[str, Any], local_field_manifest: M
     summaries: list[dict[str, Any]] = []
     gdcic_summary = dict(gdcic_manifest.get("summary") or {})
     if gdcic_manifest:
+        gdcic_classification_records = [
+            _gdcic_task_classification_record(task)
+            for task in _list(gdcic_manifest.get("query_task_records"))
+            if isinstance(task, Mapping)
+        ]
         summaries.append(
             {
                 "source_profile_id": GDCIC_SOURCE_PROFILE_ID,
@@ -131,6 +148,7 @@ def _source_summaries(gdcic_manifest: Mapping[str, Any], local_field_manifest: M
                 "task_count": _int(gdcic_summary.get("gdcic_query_probe_task_count")),
                 "probe_state_counts": dict(gdcic_summary.get("query_probe_state_counts") or {}),
                 "blocker_taxonomy_counts": dict(gdcic_summary.get("gdcic_blocker_taxonomy_counts") or {}),
+                "gdcic_readback_classification_counts": _classification_counts(gdcic_classification_records),
                 "source_closeout_state": _source_closeout_state(_int(gdcic_summary.get("gdcic_readback_ready_count"))),
                 "customer_visible_allowed": False,
                 "no_legal_conclusion": True,
@@ -169,6 +187,11 @@ def _project_records(
     for project_id in project_ids:
         evidence_project = _first(_project_reports(evidence_manifest, project_id))
         gdcic_project = _first(_project_task_records(gdcic_manifest, project_id))
+        gdcic_task_records = _gdcic_query_tasks_for_project(gdcic_manifest, project_id)
+        gdcic_classification_records = [
+            _gdcic_task_classification_record(task)
+            for task in gdcic_task_records
+        ]
         local_project = _first(_project_task_records(local_field_manifest, project_id))
         ready_count = _int(gdcic_project.get("readback_ready_count")) + _int(local_project.get("readback_ready_count"))
         blocker_counts = _merge_counts(
@@ -195,6 +218,8 @@ def _project_records(
                     ]
                 ),
                 "gdcic_query_task_ids": list(gdcic_project.get("query_task_ids") or []),
+                "gdcic_readback_classification_counts": _classification_counts(gdcic_classification_records),
+                "gdcic_readback_classification_records": gdcic_classification_records,
                 "local_field_query_task_ids": list(local_project.get("field_query_task_ids") or []),
                 "blocker_taxonomy_counts": blocker_counts,
                 "review_state": (
@@ -220,6 +245,9 @@ def _summary(
     official_ready_count = sum(_int(row.get("readback_ready_count")) for row in source_summaries)
     project_ready_count = sum(1 for row in project_records if _int(row.get("official_source_readback_ready_count")) > 0)
     blocker_counts = _merge_counts(*(dict(row.get("blocker_taxonomy_counts") or {}) for row in source_summaries))
+    classification_counts = _merge_counts(
+        *(dict(row.get("gdcic_readback_classification_counts") or {}) for row in project_records)
+    )
     closeout_state = (
         "INPUT_BLOCKED"
         if blocking_reasons
@@ -244,6 +272,10 @@ def _summary(
             for row in source_summaries
         },
         "source_profile_state_counts": _counts(row.get("source_closeout_state") for row in source_summaries),
+        "gdcic_readback_classification_counts": classification_counts,
+        "project_gdcic_classification_record_count": sum(
+            len(_list(row.get("gdcic_readback_classification_records"))) for row in project_records
+        ),
         "blocker_taxonomy_counts": blocker_counts,
         "query_miss_is_not_clearance": True,
         "blocking_reasons": list(blocking_reasons),
@@ -259,6 +291,7 @@ def _manual_check_table(project_records: list[Mapping[str, Any]]) -> list[dict[s
             "project_name": str(row.get("project_name") or ""),
             "official_source_readback_state": str(row.get("official_source_readback_state") or ""),
             "official_source_readback_ready_count": _int(row.get("official_source_readback_ready_count")),
+            "gdcic_readback_classification_counts": dict(row.get("gdcic_readback_classification_counts") or {}),
             "blocker_taxonomy_counts": dict(row.get("blocker_taxonomy_counts") or {}),
             "source_profile_ids": list(row.get("source_profile_ids") or []),
             "customer_visible_allowed": False,
@@ -270,6 +303,161 @@ def _manual_check_table(project_records: list[Mapping[str, Any]]) -> list[dict[s
 
 def _source_closeout_state(readback_ready_count: int) -> str:
     return "OFFICIAL_SOURCE_READBACK_READY" if readback_ready_count > 0 else "OFFICIAL_SOURCE_REVIEW_REQUIRED"
+
+
+def _gdcic_task_classification_record(task: Mapping[str, Any]) -> dict[str, Any]:
+    field_summary = dict(task.get("field_summary") or {})
+    blockers = _dedupe(
+        [
+            *_list(task.get("blocker_taxonomy")),
+            *[
+                blocker
+                for route in _list(task.get("route_attempts"))
+                if isinstance(route, Mapping)
+                for blocker in _list(route.get("blocker_taxonomy"))
+            ],
+        ]
+    )
+    classifications: list[str] = []
+    if _has_person_registration_readback(task):
+        classifications.append(PERSON_REGISTRATION_READBACK)
+    if _has_company_project_readback(task):
+        classifications.append(COMPANY_PROJECT_READBACK)
+    if _has_certificate_field_readback(task):
+        classifications.append(CERTIFICATE_FIELD_READBACK)
+    if _has_empty_public_result(task, blockers):
+        classifications.append(EMPTY_PUBLIC_RESULT_REVIEW)
+    if _has_blocked_or_captcha(task, blockers):
+        classifications.append(BLOCKED_OR_CAPTCHA_REVIEW)
+    if not classifications and not bool(task.get("readback_ready")):
+        classifications.append(EMPTY_PUBLIC_RESULT_REVIEW)
+    return {
+        "query_task_id": str(task.get("query_task_id") or ""),
+        "project_id": str(task.get("project_id") or ""),
+        "project_name": str(task.get("project_name") or ""),
+        "candidate_group_id": str(task.get("candidate_group_id") or ""),
+        "responsible_person_name": str(task.get("responsible_person_name") or ""),
+        "certificate_no": str(task.get("certificate_no") or ""),
+        "readback_ready": bool(task.get("readback_ready")),
+        "query_probe_state": str(task.get("query_probe_state") or ""),
+        "classification_tags": classifications,
+        "field_summary_probe": {
+            "record_count": _int(field_summary.get("record_count")),
+            "sample_project_names": _list(field_summary.get("sample_project_names"))[:3],
+            "sample_company_names": _list(field_summary.get("sample_company_names"))[:3],
+            "sample_person_names": _list(field_summary.get("sample_person_names"))[:3],
+            "sample_certificate_nos": _list(field_summary.get("sample_certificate_nos"))[:3],
+        },
+        "route_classification_counts": _route_classification_counts(task),
+        "blocker_taxonomy": blockers,
+        "query_miss_is_not_clearance": True,
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
+
+
+def _classification_counts(records: list[Mapping[str, Any]]) -> dict[str, int]:
+    return _counts(
+        tag
+        for record in records
+        for tag in _list(record.get("classification_tags"))
+    )
+
+
+def _route_classification_counts(task: Mapping[str, Any]) -> dict[str, int]:
+    tags: list[str] = []
+    for route in _list(task.get("route_attempts")):
+        if not isinstance(route, Mapping):
+            continue
+        route_summary = dict(route.get("field_summary") or {})
+        route_id = str(route.get("route_id") or "")
+        route_state = str(route.get("route_state") or "")
+        route_blockers = _list(route.get("blocker_taxonomy"))
+        if route_state == "READBACK_READY_PUBLIC_SOURCE" and (
+            route_summary.get("sample_person_names")
+            or route_summary.get("sample_id_card_hashes")
+            or route_id.startswith("person_")
+        ):
+            tags.append(PERSON_REGISTRATION_READBACK)
+        if route_state == "READBACK_READY_PUBLIC_SOURCE" and (
+            route_summary.get("sample_project_names")
+            or route_id.startswith("project_")
+        ):
+            tags.append(COMPANY_PROJECT_READBACK)
+        if route_state == "READBACK_READY_PUBLIC_SOURCE" and route_summary.get("sample_certificate_nos"):
+            tags.append(CERTIFICATE_FIELD_READBACK)
+        if "gdcic_public_query_empty_review" in route_blockers or route_state == "REVIEW_REQUIRED":
+            tags.append(EMPTY_PUBLIC_RESULT_REVIEW)
+        if route_state.startswith("FAIL_CLOSED") or _has_blocker_marker(route_blockers):
+            tags.append(BLOCKED_OR_CAPTCHA_REVIEW)
+    return _counts(tags)
+
+
+def _has_person_registration_readback(task: Mapping[str, Any]) -> bool:
+    summary = dict(task.get("field_summary") or {})
+    if bool(summary.get("sample_person_names")) or bool(summary.get("sample_id_card_hashes")):
+        return bool(task.get("readback_ready"))
+    for route in _list(task.get("route_attempts")):
+        if not isinstance(route, Mapping):
+            continue
+        route_summary = dict(route.get("field_summary") or {})
+        if str(route.get("route_state") or "") == "READBACK_READY_PUBLIC_SOURCE" and (
+            route_summary.get("sample_person_names")
+            or route_summary.get("sample_id_card_hashes")
+            or str(route.get("route_id") or "").startswith("person_")
+        ):
+            return True
+    return False
+
+
+def _has_company_project_readback(task: Mapping[str, Any]) -> bool:
+    summary = dict(task.get("field_summary") or {})
+    if bool(summary.get("sample_project_names")):
+        return bool(task.get("readback_ready"))
+    for route in _list(task.get("route_attempts")):
+        if not isinstance(route, Mapping):
+            continue
+        route_summary = dict(route.get("field_summary") or {})
+        if str(route.get("route_state") or "") == "READBACK_READY_PUBLIC_SOURCE" and (
+            route_summary.get("sample_project_names")
+            or str(route.get("route_id") or "").startswith("project_")
+        ):
+            return True
+    return False
+
+
+def _has_certificate_field_readback(task: Mapping[str, Any]) -> bool:
+    summary = dict(task.get("field_summary") or {})
+    if bool(summary.get("sample_certificate_nos")):
+        return bool(task.get("readback_ready"))
+    for route in _list(task.get("route_attempts")):
+        if not isinstance(route, Mapping):
+            continue
+        route_summary = dict(route.get("field_summary") or {})
+        if str(route.get("route_state") or "") == "READBACK_READY_PUBLIC_SOURCE" and route_summary.get("sample_certificate_nos"):
+            return True
+    return False
+
+
+def _has_empty_public_result(task: Mapping[str, Any], blockers: list[str]) -> bool:
+    if "gdcic_public_query_empty_review" in blockers:
+        return True
+    return any(
+        isinstance(route, Mapping) and str(route.get("route_state") or "") == "REVIEW_REQUIRED"
+        for route in _list(task.get("route_attempts"))
+    )
+
+
+def _has_blocked_or_captcha(task: Mapping[str, Any], blockers: list[str]) -> bool:
+    return _has_blocker_marker(blockers) or any(
+        isinstance(route, Mapping) and str(route.get("route_state") or "").startswith("FAIL_CLOSED")
+        for route in _list(task.get("route_attempts"))
+    )
+
+
+def _has_blocker_marker(blockers: Iterable[Any]) -> bool:
+    marker_text = " ".join(str(item or "").lower() for item in blockers)
+    return any(token in marker_text for token in ("captcha", "sso", "403", "503", "forbidden", "blocked", "server_error"))
 
 
 def _local_readback_count_for_profile(manifest: Mapping[str, Any], profile_id: str) -> int:
@@ -304,6 +492,14 @@ def _project_task_records(manifest: Mapping[str, Any], project_id: str) -> list[
     return [
         dict(row)
         for row in _list(manifest.get("project_task_records"))
+        if isinstance(row, Mapping) and str(row.get("project_id") or "") == project_id
+    ]
+
+
+def _gdcic_query_tasks_for_project(manifest: Mapping[str, Any], project_id: str) -> list[dict[str, Any]]:
+    return [
+        dict(row)
+        for row in _list(manifest.get("query_task_records"))
         if isinstance(row, Mapping) and str(row.get("project_id") or "") == project_id
     ]
 

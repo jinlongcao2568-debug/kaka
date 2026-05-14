@@ -42,8 +42,20 @@ class GuangdongOfficialSourceReadbackCloseoutTests(unittest.TestCase):
                 summary["source_profile_readback_ready_counts"],
                 {"GUANGDONG-GDCIC-SKYPT-OPENPLATFORM": 12},
             )
+            self.assertEqual(
+                summary["gdcic_readback_classification_counts"],
+                {
+                    "BLOCKED_OR_CAPTCHA_REVIEW": 1,
+                    "CERTIFICATE_FIELD_READBACK": 1,
+                    "COMPANY_PROJECT_READBACK": 1,
+                    "EMPTY_PUBLIC_RESULT_REVIEW": 1,
+                    "PERSON_REGISTRATION_READBACK": 1,
+                },
+            )
             project = result["manifest"]["project_records"][0]
             self.assertEqual(project["official_source_readback_state"], "OFFICIAL_SOURCE_READBACK_READY")
+            self.assertEqual(len(project["gdcic_readback_classification_records"]), 1)
+            self.assertIn("PERSON_REGISTRATION_READBACK", project["gdcic_readback_classification_records"][0]["classification_tags"])
             report_text = json.dumps(result, ensure_ascii=False)
             for term in ("无风险", "无冲突", "在建冲突成立", "违法成立", "确认本人", "造假成立"):
                 self.assertNotIn(term, report_text)
@@ -69,6 +81,7 @@ class GuangdongOfficialSourceReadbackCloseoutTests(unittest.TestCase):
             self.assertFalse(summary["p2_ready"])
             self.assertEqual(summary["official_source_readback_ready_count"], 0)
             self.assertEqual(summary["blocker_taxonomy_counts"], {"gdcic_captcha_required": 1})
+            self.assertEqual(summary["gdcic_readback_classification_counts"], {"BLOCKED_OR_CAPTCHA_REVIEW": 1})
             self.assertNotIn("无风险", json.dumps(result, ensure_ascii=False))
             self.assertNotIn("无冲突", json.dumps(result, ensure_ascii=False))
 
@@ -107,6 +120,9 @@ def _write_gdcic_root(root: Path, *, readback_ready_count: int) -> None:
                     "blocker_taxonomy_counts": blocker_counts,
                 }
             ],
+            "query_task_records": [
+                _gdcic_task_payload(readback_ready_count=readback_ready_count, blocker_counts=blocker_counts)
+            ],
             "summary": {
                 "probe_state": "READY",
                 "gdcic_query_probe_task_count": 12,
@@ -123,6 +139,84 @@ def _write_gdcic_root(root: Path, *, readback_ready_count: int) -> None:
         json.dumps(payload, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
+
+
+def _gdcic_task_payload(*, readback_ready_count: int, blocker_counts: dict[str, int]) -> dict[str, object]:
+    if readback_ready_count:
+        return {
+            "query_task_id": "GD-GDCIC-QUERY-1",
+            "project_id": "PROJ-CN-GD-JG2026-10815",
+            "project_name": "广州测试项目",
+            "candidate_group_id": "GROUP-1",
+            "responsible_person_name": "张三",
+            "certificate_no": "粤144202600001",
+            "readback_ready": True,
+            "query_probe_state": "READBACK_READY_PUBLIC_SOURCE",
+            "field_summary": {
+                "record_count": 3,
+                "sample_project_names": ["广州历史项目"],
+                "sample_company_names": ["广州测试建设有限公司"],
+                "sample_person_names": ["*三"],
+                "sample_certificate_nos": ["粤144202600001"],
+                "sample_id_card_hashes": ["hash-1"],
+            },
+            "blocker_taxonomy": list(blocker_counts.keys()),
+            "route_attempts": [
+                {
+                    "route_id": "person_in_gd_by_name",
+                    "route_state": "READBACK_READY_PUBLIC_SOURCE",
+                    "field_summary": {
+                        "record_count": 1,
+                        "sample_person_names": ["*三"],
+                        "sample_id_card_hashes": ["hash-1"],
+                    },
+                    "blocker_taxonomy": [],
+                },
+                {
+                    "route_id": "project_bidding_by_company",
+                    "route_state": "READBACK_READY_PUBLIC_SOURCE",
+                    "field_summary": {
+                        "record_count": 1,
+                        "sample_project_names": ["广州历史项目"],
+                        "sample_company_names": ["广州测试建设有限公司"],
+                        "sample_certificate_nos": ["粤144202600001"],
+                    },
+                    "blocker_taxonomy": [],
+                },
+                {
+                    "route_id": "person_into_gd_by_name_company",
+                    "route_state": "REVIEW_REQUIRED",
+                    "field_summary": {},
+                    "blocker_taxonomy": ["gdcic_public_query_empty_review"],
+                },
+                {
+                    "route_id": "person_in_gd_by_name",
+                    "route_state": "FAIL_CLOSED_CAPTCHA_REQUIRED",
+                    "field_summary": {},
+                    "blocker_taxonomy": ["gdcic_captcha_required"],
+                },
+            ],
+        }
+    return {
+        "query_task_id": "GD-GDCIC-QUERY-1",
+        "project_id": "PROJ-CN-GD-JG2026-10815",
+        "project_name": "广州测试项目",
+        "candidate_group_id": "GROUP-1",
+        "responsible_person_name": "张三",
+        "certificate_no": "",
+        "readback_ready": False,
+        "query_probe_state": "FAIL_CLOSED_CAPTCHA_REQUIRED",
+        "field_summary": {},
+        "blocker_taxonomy": list(blocker_counts.keys()),
+        "route_attempts": [
+            {
+                "route_id": "person_in_gd_by_name",
+                "route_state": "FAIL_CLOSED_CAPTCHA_REQUIRED",
+                "field_summary": {},
+                "blocker_taxonomy": ["gdcic_captcha_required"],
+            }
+        ],
+    }
 
 
 def _write_evidence_report_root(root: Path) -> None:

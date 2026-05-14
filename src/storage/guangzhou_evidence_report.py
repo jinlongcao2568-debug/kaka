@@ -290,6 +290,8 @@ def _project_report(
         "official_source_readback_ready_count": _int(official_source_project.get("official_source_readback_ready_count")),
         "official_source_task_count": _int(official_source_project.get("official_source_task_count")),
         "official_source_profile_ids": _list(official_source_project.get("source_profile_ids")),
+        "gdcic_readback_classification_counts": dict(official_source_project.get("gdcic_readback_classification_counts") or {}),
+        "gdcic_readback_classification_records": _list(official_source_project.get("gdcic_readback_classification_records")),
         "official_source_blocker_taxonomy_counts": dict(official_source_project.get("blocker_taxonomy_counts") or {}),
         "guangdong_local_verification_probe_state": (
             "READY"
@@ -976,6 +978,42 @@ def _recommendations(*, verification_evidence: Mapping[str, Any], process_stabil
                     "P2 官方源 readback closeout 已可用，本项目存在可回放公开源字段摘要，可继续做人工复核和后续源补强。",
                 )
             )
+            classification_counts = dict(verification_evidence.get("gdcic_readback_classification_counts") or {})
+            if _int(classification_counts.get("PERSON_REGISTRATION_READBACK")):
+                recommendations.append(
+                    _recommendation(
+                        "GDCIC_PERSON_REGISTRATION_READBACK_REVIEW",
+                        "广东三库一平台存在人员注册信息回放，可用于公开注册信息复核。",
+                    )
+                )
+            if _int(classification_counts.get("COMPANY_PROJECT_READBACK")):
+                recommendations.append(
+                    _recommendation(
+                        "GDCIC_COMPANY_PROJECT_READBACK_REVIEW",
+                        "广东三库一平台存在企业项目记录回放，可用于业绩或项目线索复核。",
+                    )
+                )
+            if _int(classification_counts.get("CERTIFICATE_FIELD_READBACK")):
+                recommendations.append(
+                    _recommendation(
+                        "GDCIC_CERTIFICATE_FIELD_READBACK_REVIEW",
+                        "广东三库一平台存在证书字段回放，可用于证书号、注册类别或专业辅助复核。",
+                    )
+                )
+            if _int(classification_counts.get("EMPTY_PUBLIC_RESULT_REVIEW")):
+                recommendations.append(
+                    _recommendation(
+                        "GDCIC_EMPTY_PUBLIC_RESULT_REVIEW_REQUIRED",
+                        "广东三库一平台部分查询为空结果，只能作为需复核状态，不作为排除依据。",
+                    )
+                )
+            if _int(classification_counts.get("BLOCKED_OR_CAPTCHA_REVIEW")):
+                recommendations.append(
+                    _recommendation(
+                        "GDCIC_BLOCKED_OR_CAPTCHA_REVIEW_REQUIRED",
+                        "广东三库一平台部分查询存在验证码或源阻断，进入源适配或后续重试建议。",
+                    )
+                )
         else:
             recommendations.append(
                 _recommendation(
@@ -1128,6 +1166,12 @@ def _summary(
         ),
         "official_source_profile_readback_ready_counts": dict(
             (official_source_readback_manifest.get("summary") or {}).get("source_profile_readback_ready_counts") or {}
+        ),
+        "gdcic_readback_classification_counts": dict(
+            (official_source_readback_manifest.get("summary") or {}).get("gdcic_readback_classification_counts") or {}
+        ),
+        "project_gdcic_classification_record_count": _int(
+            (official_source_readback_manifest.get("summary") or {}).get("project_gdcic_classification_record_count")
         ),
         "guangdong_local_verification_probe_state": (
             "READY"

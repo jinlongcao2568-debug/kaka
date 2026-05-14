@@ -262,10 +262,17 @@ class GuangzhouEvidenceReportTests(unittest.TestCase):
             self.assertEqual(evidence["official_source_readback_closeout_state"], "P2_OFFICIAL_READBACK_READY")
             self.assertEqual(evidence["official_source_readback_state"], "OFFICIAL_SOURCE_READBACK_READY")
             self.assertEqual(evidence["official_source_readback_ready_count"], 3)
+            self.assertEqual(evidence["gdcic_readback_classification_counts"]["PERSON_REGISTRATION_READBACK"], 1)
             self.assertIn(
                 "OFFICIAL_SOURCE_READBACK_READY",
                 [item["recommended_action"] for item in project["optimization_recommendations"]],
             )
+            recommendation_actions = [item["recommended_action"] for item in project["optimization_recommendations"]]
+            self.assertIn("GDCIC_PERSON_REGISTRATION_READBACK_REVIEW", recommendation_actions)
+            self.assertIn("GDCIC_COMPANY_PROJECT_READBACK_REVIEW", recommendation_actions)
+            self.assertIn("GDCIC_CERTIFICATE_FIELD_READBACK_REVIEW", recommendation_actions)
+            self.assertIn("GDCIC_EMPTY_PUBLIC_RESULT_REVIEW_REQUIRED", recommendation_actions)
+            self.assertIn("GDCIC_BLOCKED_OR_CAPTCHA_REVIEW_REQUIRED", recommendation_actions)
 
     def test_report_consumes_guangdong_local_verification_probe_summary_when_available(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -585,6 +592,28 @@ def _write_official_source_readback_root(root: Path) -> None:
         "official_source_task_count": 3,
         "source_profile_ids": ["GUANGDONG-GDCIC-SKYPT-OPENPLATFORM"],
         "blocker_taxonomy_counts": {"gdcic_public_query_empty_review": 1},
+        "gdcic_readback_classification_counts": {
+            "PERSON_REGISTRATION_READBACK": 1,
+            "COMPANY_PROJECT_READBACK": 1,
+            "CERTIFICATE_FIELD_READBACK": 1,
+            "EMPTY_PUBLIC_RESULT_REVIEW": 1,
+            "BLOCKED_OR_CAPTCHA_REVIEW": 1,
+        },
+        "gdcic_readback_classification_records": [
+            {
+                "query_task_id": "GD-GDCIC-QUERY-1",
+                "classification_tags": [
+                    "PERSON_REGISTRATION_READBACK",
+                    "COMPANY_PROJECT_READBACK",
+                    "CERTIFICATE_FIELD_READBACK",
+                    "EMPTY_PUBLIC_RESULT_REVIEW",
+                    "BLOCKED_OR_CAPTCHA_REVIEW",
+                ],
+                "field_summary_probe": {"record_count": 3},
+                "customer_visible_allowed": False,
+                "no_legal_conclusion": True,
+            }
+        ],
     }
     payload = {
         "manifest": {
@@ -596,6 +625,13 @@ def _write_official_source_readback_root(root: Path) -> None:
                 "p2_ready": True,
                 "official_source_readback_ready_count": 12,
                 "official_source_project_ready_count": 1,
+                "gdcic_readback_classification_counts": {
+                    "PERSON_REGISTRATION_READBACK": 1,
+                    "COMPANY_PROJECT_READBACK": 1,
+                    "CERTIFICATE_FIELD_READBACK": 1,
+                    "EMPTY_PUBLIC_RESULT_REVIEW": 1,
+                    "BLOCKED_OR_CAPTCHA_REVIEW": 1,
+                },
                 "source_profile_readback_ready_counts": {
                     "GUANGDONG-GDCIC-SKYPT-OPENPLATFORM": 12,
                 },
