@@ -1,8 +1,6 @@
 param(
     [string]$InputRoot = "",
     [string]$InputJson = "",
-    [string]$YgpReadbackRoot = "",
-    [string]$YgpReadbackJson = "",
     [string]$OutputRoot = "",
     [switch]$EnableLivePublicQuery,
     [int]$MaxLiveOriginalNotices = 0,
@@ -15,10 +13,10 @@ $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = Resolve-Path (Join-Path $scriptDir "..")
 
 if (-not $InputRoot) {
-    $InputRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\p13b-company-history-overlap-triage-v1-smoke"
+    $InputRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\p13b-original-notice-backtrace-v1-smoke"
 }
 if (-not $OutputRoot) {
-    $OutputRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\p13b-original-notice-backtrace-v1"
+    $OutputRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\p13b-ygp-original-readback-v1"
 }
 
 New-Item -ItemType Directory -Force -Path $OutputRoot | Out-Null
@@ -26,19 +24,13 @@ New-Item -ItemType Directory -Force -Path $OutputRoot | Out-Null
 $env:PYTHONPATH = "$repoRoot\src;$repoRoot\tests"
 
 $argsList = @(
-    "-m", "storage.p13b_original_notice_backtrace",
+    "-m", "storage.p13b_ygp_original_readback",
     "--input-root", $InputRoot,
     "--output-root", $OutputRoot
 )
 
 if ($InputJson) {
     $argsList += @("--input-json", $InputJson)
-}
-if ($YgpReadbackRoot) {
-    $argsList += @("--ygp-readback-root", $YgpReadbackRoot)
-}
-if ($YgpReadbackJson) {
-    $argsList += @("--ygp-readback-json", $YgpReadbackJson)
 }
 if ($EnableLivePublicQuery) {
     $argsList += "--enable-live-public-query"

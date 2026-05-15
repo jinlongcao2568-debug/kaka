@@ -665,6 +665,7 @@
           "data_ggzy_company_award_history_search_by_company_name_or_uniscid",
           "data_ggzy_bid_list_by_uniscid",
           "data_ggzy_bid_show_notice_content_and_original_url",
+          "ygp_original_url_readback_from_data_ggzy_pointer",
           "original_notice_url_targeted_flow_07_or_08_backtrace_when_needed",
           "major_region_public_resource_candidate_or_award_notices_as_supplement",
           "contract_service_period_or_performance_period_records_when_available"
@@ -705,7 +706,8 @@
           "do_not_treat_source_blocked_or_region_adapter_missing_as_clearance",
           "do_not_use_legacy_dealList_find_as_p13b_primary_company_history_source",
           "do_not_treat_data_ggzy_bid_list_without_person_as_overlap_signal",
-          "do_not_treat_data_ggzy_original_url_as_ygp_active_collection_restore"
+          "do_not_treat_data_ggzy_original_url_as_ygp_active_collection_restore",
+          "do_not_use_ygp_as_guangzhou_primary_source"
         ],
         "customer_visible_allowed": false,
         "no_legal_conclusion": true,
@@ -716,6 +718,7 @@
           "resolve_uniscid_and_exact_or_alias_company_match",
           "data.ggzy.yjcx.index.bid_list_by_uniscid_for_recent_1_to_3_years",
           "data.ggzy.yjcx.index.bid_show_by_record_id_for_notice_content_and_original_url",
+          "ygp.url_mapping_original_readback_when_data_ggzy_points_to_ygp",
           "extract_responsible_person_and_contract_or_service_period_from_bid_show_content",
           "use_original_notice_url_for_targeted_01_to_12_backtrace_only_when_bid_show_is_insufficient_or_overlap_signal_exists"
         ],
@@ -730,6 +733,29 @@
           "company_search_hit_count": 23,
           "bid_list_hit_count": 23,
           "finding": "data.ggzy.gov.cn can search company/uniscid and return bid_list plus bid_show content/original_url; bid_list alone does not return project manager, so bid_show and original source backtrace are required for person/time-window matching."
+        },
+        "ygp_original_readback_policy": {
+          "source_profile_id": "GUANGDONG-YGP-ORIGINAL-READBACK",
+          "role": "P13B_ORIGINAL_READBACK_AND_GUANGDONG_CITY_ADAPTER_BASE_CAPABILITY",
+          "not_guangzhou_primary_source": true,
+          "p13b_original_readback_allowed": true,
+          "guangdong_city_adapter_base_capability": true,
+          "active_sample_calibration_disabled_until_city_validated": true,
+          "input_scope": "only_data_ggzy_bid_show_original_url_or_future_city_adapter_targets",
+          "readback_states": [
+            "YGP_SPA_SHELL_FETCHED",
+            "YGP_DETAIL_API_DISCOVERED",
+            "YGP_ORIGINAL_URL_READBACK_READY",
+            "YGP_BROWSER_NETWORK_READBACK_READY",
+            "YGP_ORIGINAL_NOTICE_PERSON_PERIOD_EXTRACTED",
+            "YGP_ORIGINAL_URL_BLOCKED",
+            "YGP_ORIGINAL_URL_UNSUPPORTED"
+          ],
+          "must_not": [
+            "do_not_restore_ygp_as_guangzhou_active_collection_source",
+            "do_not_treat_ygp_readback_as_final_active_conflict_conclusion",
+            "do_not_treat_ygp_source_blocked_as_clearance"
+          ]
         }
       },
       "guangdong_local_verification_probe_v1_policy": {

@@ -29,6 +29,8 @@ def build_p13b_original_notice_backtrace(
     *,
     input_root: str | Path = DEFAULT_INPUT_ROOT,
     input_json: str | Path | None = None,
+    ygp_readback_root: str | Path | None = None,
+    ygp_readback_json: str | Path | None = None,
     output_root: str | Path = DEFAULT_OUTPUT_ROOT,
     enable_live_public_query: bool = False,
     max_live_original_notices: int | None = None,
@@ -43,6 +45,10 @@ def build_p13b_original_notice_backtrace(
     blocking_reasons: list[str] = []
     p13b_payload = _load_json(source_path, blocking_reasons, "p13b_company_history_overlap_triage_missing")
     source_manifest = _source_manifest(p13b_payload)
+    ygp_readback_lookup = _load_ygp_readback_lookup(
+        ygp_readback_root=ygp_readback_root,
+        ygp_readback_json=ygp_readback_json,
+    )
     execution_mode = "LIVE_PUBLIC_QUERY_ATTEMPTED" if enable_live_public_query else "PLAN_ONLY_NOT_EXECUTED"
     original_notice_task_records = _task_records_from_p13b(source_manifest, created_at=created)
     fetch_records, extraction_records, overlap_records = _execute_original_notice_tasks(
@@ -51,6 +57,7 @@ def build_p13b_original_notice_backtrace(
         enable_live_public_query=enable_live_public_query,
         max_live_original_notices=max_live_original_notices,
         http_getter=http_getter,
+        ygp_readback_lookup=ygp_readback_lookup,
     )
     manual_release_evidence_probe_table = _manual_release_evidence_probe_table(overlap_records)
     summary = _summary(
@@ -70,6 +77,9 @@ def build_p13b_original_notice_backtrace(
         "created_at": created,
         "source_input_root": str(in_dir),
         "source_input_json": str(source_path),
+        "ygp_readback_root": str(ygp_readback_root or ""),
+        "ygp_readback_json": str(ygp_readback_json or ""),
+        "ygp_readback_record_count": len(ygp_readback_lookup),
         "execution_mode": execution_mode,
         "live_public_query_enabled": bool(enable_live_public_query),
         "max_live_original_notices": max_live_original_notices,
@@ -181,8 +191,9 @@ def _execute_original_notice_tasks(
     enable_live_public_query: bool,
     max_live_original_notices: int | None,
     http_getter: HttpGetter | None,
+    ygp_readback_lookup: Mapping[str, Mapping[str, Any]],
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
-    if not enable_live_public_query:
+    if not enable_live_public_query and not ygp_readback_lookup:
         return [], [], []
     getter = http_getter or _default_http_getter
     fetch_records: list[dict[str, Any]] = []
@@ -190,6 +201,16 @@ def _execute_original_notice_tasks(
     overlap_records: list[dict[str, Any]] = []
     attempted = 0
     for task in tasks:
+        ygp_readback = _match_ygp_readback(task, ygp_readback_lookup)
+        if ygp_readback:
+            fetch = _fetch_record_from_ygp_readback(task, ygp_readback, created_at=created_at)
+            fetch_records.append(fetch)
+            extraction = _extract_record_from_ygp_readback(task, ygp_readback, created_at=created_at)
+            extraction_records.append(extraction)
+            overlap_records.append(_overlap_record(task, extraction, created_at=created_at))
+            continue
+        if not enable_live_public_query:
+            continue
         if max_live_original_notices is not None and attempted >= max_live_original_notices:
             fetch = {
                 **task,
@@ -207,6 +228,108 @@ def _execute_original_notice_tasks(
         extraction_records.append(extraction)
         overlap_records.append(_overlap_record(task, extraction, created_at=created_at))
     return fetch_records, extraction_records, overlap_records
+
+
+def _load_ygp_readback_lookup(
+    *,
+    ygp_readback_root: str | Path | None,
+    ygp_readback_json: str | Path | None,
+) -> dict[str, Mapping[str, Any]]:
+    if not ygp_readback_root and not ygp_readback_json:
+        return {}
+    source_path = Path(ygp_readback_json) if ygp_readback_json else Path(ygp_readback_root or "") / "ygp-original-readback-v1.json"
+    if not source_path.exists():
+        return {}
+    try:
+        payload = json.loads(source_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {}
+    manifest = _source_manifest(payload)
+    lookup: dict[str, Mapping[str, Any]] = {}
+    for record in _list(manifest.get("ygp_original_readback_records")):
+        if not isinstance(record, Mapping):
+            continue
+        state = str(record.get("ygp_readback_state") or "")
+        extraction_state = str(record.get("ygp_extraction_state") or "")
+        if state not in {"YGP_ORIGINAL_URL_READBACK_READY", "YGP_BROWSER_NETWORK_READBACK_READY"} and extraction_state != "YGP_ORIGINAL_NOTICE_PERSON_PERIOD_EXTRACTED":
+            continue
+        task_id = str(record.get("original_notice_task_id") or "")
+        url = str(record.get("original_notice_url") or record.get("source_url") or "")
+        if task_id:
+            lookup[f"task:{task_id}"] = record
+        if url:
+            lookup[f"url:{url}"] = record
+    return lookup
+
+
+def _match_ygp_readback(task: Mapping[str, Any], lookup: Mapping[str, Mapping[str, Any]]) -> Mapping[str, Any] | None:
+    task_id = str(task.get("original_notice_task_id") or "")
+    url = str(task.get("original_notice_url") or "")
+    if task_id and f"task:{task_id}" in lookup:
+        return lookup[f"task:{task_id}"]
+    if url and f"url:{url}" in lookup:
+        return lookup[f"url:{url}"]
+    return None
+
+
+def _fetch_record_from_ygp_readback(task: Mapping[str, Any], ygp_readback: Mapping[str, Any], *, created_at: str) -> dict[str, Any]:
+    text = str(ygp_readback.get("text_probe") or "")
+    return {
+        **dict(task),
+        "execution_mode": "LOCAL_YGP_READBACK_CONSUMED",
+        "fetch_state": "ORIGINAL_NOTICE_FETCHED",
+        "fetch_source": "YGP_ORIGINAL_READBACK",
+        "source_url": str(ygp_readback.get("source_url") or task.get("original_notice_url") or ""),
+        "status_code": int(ygp_readback.get("status_code") or 200),
+        "content_type": str(ygp_readback.get("content_type") or "application/json"),
+        "body_sha256": str(ygp_readback.get("readback_payload_sha256") or ygp_readback.get("record_payload_sha256") or ""),
+        "body_probe": text[:300],
+        "text_probe": text[:600],
+        "text_probe_sha256": _sha256(text[:600]) if text else "",
+        "route_attempt": {
+            "route": "ygp_original_readback_consumed",
+            "url": str(ygp_readback.get("source_url") or task.get("original_notice_url") or ""),
+            "status_code": int(ygp_readback.get("status_code") or 200),
+            "content_type": str(ygp_readback.get("content_type") or "application/json"),
+            "body_sha256": str(ygp_readback.get("readback_payload_sha256") or ygp_readback.get("record_payload_sha256") or ""),
+            "error": "",
+        },
+        "blocker_taxonomy": [],
+        "created_at": created_at,
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
+
+
+def _extract_record_from_ygp_readback(task: Mapping[str, Any], ygp_readback: Mapping[str, Any], *, created_at: str) -> dict[str, Any]:
+    people = _list(ygp_readback.get("extracted_responsible_person_names"))
+    period = str(ygp_readback.get("extracted_period_text") or "")
+    award_date = str(ygp_readback.get("extracted_award_date") or "")
+    companies = _list(ygp_readback.get("extracted_company_names"))
+    text_probe = str(ygp_readback.get("text_probe") or "")
+    if people and period:
+        state = "ORIGINAL_NOTICE_PERSON_PERIOD_EXTRACTED"
+    elif people or period or companies or text_probe:
+        state = "ORIGINAL_NOTICE_NO_MATCH_REVIEW"
+    else:
+        state = "ORIGINAL_NOTICE_SOURCE_UNSUPPORTED"
+    return {
+        **dict(task),
+        "original_notice_extraction_state": state,
+        "extraction_source": "YGP_ORIGINAL_READBACK",
+        "source_url": str(ygp_readback.get("source_url") or task.get("original_notice_url") or ""),
+        "extracted_responsible_person_names": people,
+        "extracted_period_text": period,
+        "extracted_award_date": award_date,
+        "extracted_company_names": companies,
+        "text_probe": text_probe[:600],
+        "text_probe_sha256": str(ygp_readback.get("text_probe_sha256") or ""),
+        "record_payload_sha256": str(ygp_readback.get("record_payload_sha256") or ""),
+        "blocker_taxonomy": [],
+        "created_at": created_at,
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
 
 
 def _fetch_original_notice(task: Mapping[str, Any], *, getter: HttpGetter, created_at: str) -> dict[str, Any]:
@@ -576,6 +699,8 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Build P13B original notice backtrace manifest.")
     parser.add_argument("--input-root", default=str(DEFAULT_INPUT_ROOT))
     parser.add_argument("--input-json", default=None)
+    parser.add_argument("--ygp-readback-root", default=None)
+    parser.add_argument("--ygp-readback-json", default=None)
     parser.add_argument("--output-root", default=str(DEFAULT_OUTPUT_ROOT))
     parser.add_argument("--enable-live-public-query", action="store_true")
     parser.add_argument("--max-live-original-notices", type=int, default=None)
@@ -584,6 +709,8 @@ def main(argv: list[str] | None = None) -> int:
     result = build_p13b_original_notice_backtrace(
         input_root=args.input_root,
         input_json=args.input_json,
+        ygp_readback_root=args.ygp_readback_root,
+        ygp_readback_json=args.ygp_readback_json,
         output_root=args.output_root,
         enable_live_public_query=args.enable_live_public_query,
         max_live_original_notices=args.max_live_original_notices,
