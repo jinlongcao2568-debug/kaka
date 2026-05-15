@@ -135,6 +135,12 @@ def test_status_board_records_p0_sync_boundary() -> None:
     assert "YGP" in text
     assert "原文 readback" in text
     assert "不恢复为广州主采集源" in text
+    assert "项目流程矩阵" in text
+    assert "nodeList" in text
+    assert "detail" in text
+    assert "广州交易集团独立适配" in text
+    assert "深圳公共资源交易中心独立适配" in text
+    assert "广东其他城市" in text
     assert "旧 `dealList_find.jsp` 不作为 P13B 公司历史中标主入口" in text
     assert "不得写排除结论" in text
     assert "P11_GUANGZHOU_10_PROJECT_STABILITY_V1" in text
@@ -264,6 +270,10 @@ def test_top_level_docs_contain_final_strategy_guardrails() -> None:
         assert "YGP" in text
         assert "原文 readback" in text
         assert "广州主源仍" in text or "不恢复为广州主采集源" in text
+        assert "项目流程矩阵" in text
+        assert "nodeList" in text
+        assert "detail" in text
+        assert "广东其他城市" in text
         assert "bid_show" in text
         assert "原文链接" in text
         assert "不得一开始全省施工许可、竣工、合同备案全量扫描" in text

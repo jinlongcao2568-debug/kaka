@@ -666,6 +666,7 @@
           "data_ggzy_bid_list_by_uniscid",
           "data_ggzy_bid_show_notice_content_and_original_url",
           "ygp_original_url_readback_from_data_ggzy_pointer",
+          "ygp_flow_matrix_01_to_12_node_list_and_detail_readback",
           "original_notice_url_targeted_flow_07_or_08_backtrace_when_needed",
           "major_region_public_resource_candidate_or_award_notices_as_supplement",
           "contract_service_period_or_performance_period_records_when_available"
@@ -756,6 +757,45 @@
             "do_not_treat_ygp_readback_as_final_active_conflict_conclusion",
             "do_not_treat_ygp_source_blocked_as_clearance"
           ]
+        },
+        "ygp_flow_matrix_v1_policy": {
+          "source_profile_id": "GUANGDONG-YGP-FLOW-MATRIX",
+          "role": "GUANGDONG_NON_GUANGZHOU_SHENZHEN_CITY_FLOW_MATRIX_AND_P13B_BACKTRACE",
+          "default_execution_mode": "PLAN_ONLY_NOT_EXECUTED",
+          "optional_execution_mode": "LIVE_PUBLIC_QUERY_ATTEMPTED",
+          "not_guangzhou_primary_source": true,
+          "not_shenzhen_primary_source": true,
+          "guangzhou_primary_source_remains": "GUANGZHOU-YWTB-CONSTRUCTION-LIST",
+          "shenzhen_primary_source_requires_independent_adapter": true,
+          "guangdong_other_city_adapter_base_capability": true,
+          "input_scope": "YGP project/original notice URL, including data.ggzy original URL pointers and future Guangdong city adapters except Guangzhou/Shenzhen",
+          "readback_flow": [
+            "parse_ygp_hash_or_url_mapping_project_parameters",
+            "fetch_trading_notice_new_nodeList",
+            "map_node_list_to_01_to_12_flow_matrix",
+            "fetch_trading_notice_new_detail_for_each_present_node",
+            "store_limited_text_probe_hash_and_field_summary_without_download_or_parse"
+          ],
+          "flow_item_states": [
+            "YGP_FLOW_ITEM_PRESENT",
+            "YGP_FLOW_ITEM_NOT_PRESENT",
+            "YGP_FLOW_ITEM_ABSENT"
+          ],
+          "readback_states": [
+            "YGP_FLOW_MATRIX_READY",
+            "YGP_DETAIL_READBACK_READY",
+            "YGP_DETAIL_READBACK_BLOCKED",
+            "YGP_FLOW_MATRIX_BLOCKED"
+          ],
+          "must_not": [
+            "do_not_restore_ygp_as_guangzhou_primary_source",
+            "do_not_use_ygp_for_shenzhen_before_independent_adapter_review",
+            "do_not_treat_flow_matrix_readback_as_active_conflict_conclusion",
+            "do_not_default_download_or_parse_flow_08_from_ygp_matrix",
+            "do_not_treat_missing_flow_node_as_clearance"
+          ],
+          "customer_visible_allowed": false,
+          "no_legal_conclusion": true
         }
       },
       "guangdong_local_verification_probe_v1_policy": {
