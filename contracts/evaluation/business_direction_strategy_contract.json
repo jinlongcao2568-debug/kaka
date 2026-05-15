@@ -371,7 +371,7 @@
       "policy_id": "PUBLIC-REGISTRATION-MATCH-AND-CONFLICT-PROBE-V1",
       "policy_version": 1,
       "applies_to_product_mode": "POST_CANDIDATE_EVIDENCE_PACK",
-      "purpose": "把候选公示或 08 投标文件公开中的负责人字段，与四库/地方注册人员公开记录做公开注册信息匹配；不表述自然人本人核实。",
+      "purpose": "把候选公示或 08 投标文件公开中的负责人字段，与四库/地方注册人员公开记录做公开注册信息匹配；公路、路桥、可研、方案深化、勘察设计路线优先补充交通运输部全国公路建设市场监督管理查询系统；不表述自然人本人核实。",
       "language_boundary": {
         "allowed_terms": [
           "公开注册信息匹配",
@@ -412,11 +412,16 @@
         },
         {
           "order": 2,
+          "route_id": "MOT_HIGHWAY_MARKET_PERSON_TITLE_QUERY",
+          "description": "公路、路桥、交通工程可研、方案深化、勘察设计项目，若四库/JZSC 未匹配或职称证路线更合适，查询交通运输部全国公路建设市场监督管理查询系统的设计人员和职称证书。"
+        },
+        {
+          "order": 3,
           "route_id": "COMPANY_SEARCH_THEN_PERSON_QUERY",
           "description": "先搜公司规范化企业名，再查企业人员列表或人员页。"
         },
         {
-          "order": 3,
+          "order": 4,
           "route_id": "PERSON_NAME_ONLY_FILTER_COMPANY",
           "description": "姓名-only 枚举公开人员，再按注册单位过滤，作为最后兜底。"
         }

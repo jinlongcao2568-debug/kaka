@@ -261,6 +261,186 @@ class CompanyFirstStage4ExecutionTest(unittest.TestCase):
         self.assertEqual(result["summary"]["stage4_input_count"], 0)
         self.assertTrue(item["no_name_only_final_proof"])
 
+    def test_highway_market_fallback_resolves_road_design_title_certificate_when_jzsc_misses(self) -> None:
+        def fake_blocked_jzsc(capture_plan: dict[str, object]) -> dict[str, object]:
+            return {
+                "browser_runner_id": "fake-jzsc-browser",
+                "live_browser_executed": True,
+                "company_personnel_source_url": str(capture_plan.get("entry_url") or ""),
+                "rendered_company_personnel_rows": [],
+                "failure_reasons": ["project_manager_not_found_by_company_name_person_name_after_2_attempts"],
+            }
+
+        def fake_highway_runner(request: dict[str, object]) -> dict[str, object]:
+            self.assertEqual(request["target_person_name"], "雷明")
+            self.assertEqual(request["target_company_name"], "广东省交通规划设计研究院集团股份有限公司")
+            return {
+                "adapter_id": "stage4.highway_market_personnel_query.v1",
+                "source_family": "national_highway_construction_market_credit_system",
+                "entry_url": "https://hwdms.mot.gov.cn/BMWebSite/person/index.do?type=2",
+                "query_state": "READBACK_READY_PERSON_COMPANY_CERTIFICATE_MATCHED",
+                "readback_state": "READBACK_READY",
+                "verification_result": "MATCHED",
+                "matched_company_name_optional": "广东省交通规划设计研究院集团股份有限公司",
+                "matched_company_public_id_optional": "7c4f3bdb80994242b22b126215405c6b",
+                "registered_unit_name_optional": "广东省交通规划设计研究院集团股份有限公司",
+                "person_public_id_optional": "f6553570e2864db3902b491e4f756450",
+                "resolved_certificate_no_optional": "粤高职证字第1700101008631号",
+                "academic_records": [
+                    {
+                        "academic_name": "高级工程师",
+                        "academic_id": "粤高职证字第1700101008631号",
+                        "academic_major": "路桥",
+                    }
+                ],
+                "route_attempts": [
+                    {"route": "person_name_query", "source_url": "https://hwdms.mot.gov.cn/BMWebSite/person/getPersonListTab.do"},
+                    {
+                        "route": "person_academic_query",
+                        "source_url": "https://hwdms.mot.gov.cn/BMWebSite/person/getPersonAcademicList.do?perId=f6553570e2864db3902b491e4f756450",
+                    },
+                ],
+                "fail_closed_reasons": [],
+                "customer_visible_allowed": False,
+                "no_legal_conclusion": True,
+            }
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_root = Path(temp_dir) / "out"
+            inputs_path = Path(temp_dir) / "inputs.json"
+            inputs_path.write_text(
+                json.dumps(
+                    {
+                        "items": [
+                            {
+                                "project_id": "PROJ-CN-GD-JG2026-11292",
+                                "project_name": "广澳高速公路广州化龙至坦尾段改扩建工程项目工程可行性研究及方案深化研究",
+                                "candidate_company_name": "广东省交通规划设计研究院集团股份有限公司",
+                                "candidate_group_id": "GROUP-HIGHWAY-1",
+                                "candidate_group_members": ["广东省交通规划设计研究院集团股份有限公司"],
+                                "responsible_person_name": "雷明",
+                                "responsible_role": "design_lead",
+                                "certificate_no": "",
+                            }
+                        ]
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+
+            result = build_company_first_stage4_execution(
+                input_root=Path(temp_dir) / "missing-jobs",
+                output_root=output_root,
+                stage4_inputs_json=inputs_path,
+                execute=True,
+                browser_runner=fake_blocked_jzsc,
+                highway_market_runner=fake_highway_runner,
+            )
+
+        item = result["manifest"]["items"][0]
+        self.assertEqual(item["supplement_after_execution_state"], "COMPANY_FIRST_CERTIFICATE_RESOLVED")
+        self.assertEqual(item["stage4_resolution_route"], "MOT_HIGHWAY_MARKET_PERSON_TITLE")
+        self.assertEqual(item["resolved_certificate_no_optional"], "粤高职证字第1700101008631号")
+        self.assertFalse(item["flow_08_targeted_parse_required"])
+        self.assertTrue(item["highway_market_fallback_attempted"])
+        self.assertEqual(item["prior_jzsc_fail_closed_reasons"], [])
+        self.assertEqual(
+            result["manifest"]["stage4_candidate_verification_inputs"]["items"][0]["recommended_stage4_route"],
+            "MOT_HIGHWAY_MARKET_PERSON_TITLE",
+        )
+
+    def test_highway_market_person_company_match_without_certificate_does_not_default_to_flow08(self) -> None:
+        def fake_blocked_jzsc(capture_plan: dict[str, object]) -> dict[str, object]:
+            return {
+                "browser_runner_id": "fake-jzsc-browser",
+                "live_browser_executed": True,
+                "company_personnel_source_url": str(capture_plan.get("entry_url") or ""),
+                "rendered_company_personnel_rows": [],
+                "failure_reasons": ["rendered_company_personnel_rows_missing"],
+            }
+
+        def fake_highway_runner(request: dict[str, object]) -> dict[str, object]:
+            return {
+                "adapter_id": "stage4.highway_market_personnel_query.v1",
+                "entry_url": "https://hwdms.mot.gov.cn/BMWebSite/person/index.do?type=2",
+                "query_state": "READBACK_READY_PERSON_COMPANY_MATCHED_CERTIFICATE_FIELD_MISSING",
+                "readback_state": "READBACK_READY",
+                "verification_result": "MATCHED",
+                "matched_company_name_optional": "中交第二公路勘察设计研究院有限公司",
+                "registered_unit_name_optional": "中交第二公路勘察设计研究院有限公司",
+                "person_public_id_optional": "0087eb7861fe4eadb8df4720a6f319a4",
+                "resolved_certificate_no_optional": "",
+                "route_attempts": [{"route": "person_name_query", "source_url": "https://hwdms.mot.gov.cn/BMWebSite/person/getPersonListTab.do"}],
+                "fail_closed_reasons": [],
+            }
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            inputs_path = Path(temp_dir) / "inputs.json"
+            inputs_path.write_text(
+                json.dumps(
+                    {
+                        "items": [
+                            {
+                                "project_id": "PROJ-CN-GD-JG2026-11292",
+                                "project_name": "广澳高速公路工程可行性研究",
+                                "candidate_company_name": "中交第二公路勘察设计研究院有限公司",
+                                "responsible_person_name": "查明高",
+                                "responsible_role": "design_lead",
+                            }
+                        ]
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+            result = build_company_first_stage4_execution(
+                input_root=Path(temp_dir) / "missing-jobs",
+                output_root=Path(temp_dir) / "out",
+                stage4_inputs_json=inputs_path,
+                execute=True,
+                browser_runner=fake_blocked_jzsc,
+                highway_market_runner=fake_highway_runner,
+            )
+
+        item = result["manifest"]["items"][0]
+        self.assertEqual(item["supplement_after_execution_state"], "COMPANY_FIRST_CERTIFICATE_RESOLVED")
+        self.assertEqual(item["person_public_id_optional"], "0087eb7861fe4eadb8df4720a6f319a4")
+        self.assertEqual(item["resolved_certificate_no_optional"], "")
+        self.assertFalse(item["flow_08_targeted_parse_required"])
+        self.assertEqual(result["summary"]["stage4_input_count"], 1)
+
+    def test_highway_market_fallback_is_not_used_for_non_highway_project(self) -> None:
+        def fake_blocked_jzsc(capture_plan: dict[str, object]) -> dict[str, object]:
+            return {
+                "browser_runner_id": "fake-jzsc-browser",
+                "live_browser_executed": True,
+                "company_personnel_source_url": str(capture_plan.get("entry_url") or ""),
+                "rendered_company_personnel_rows": [],
+                "failure_reasons": ["project_manager_not_found_by_company_name_person_name_after_2_attempts"],
+            }
+
+        def fail_if_called(request: dict[str, object]) -> dict[str, object]:
+            raise AssertionError("highway fallback should not run for non-highway projects")
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            input_root = Path(temp_dir) / "input"
+            output_root = Path(temp_dir) / "out"
+            _write_jobs(input_root)
+
+            result = build_company_first_stage4_execution(
+                input_root=input_root,
+                output_root=output_root,
+                execute=True,
+                browser_runner=fake_blocked_jzsc,
+                highway_market_runner=fail_if_called,
+            )
+
+        item = result["manifest"]["items"][0]
+        self.assertFalse(item["highway_market_fallback_attempted"])
+        self.assertEqual(item["supplement_after_execution_state"], "NAME_ENUMERATION_FALLBACK_REQUIRED")
+        self.assertFalse(item["flow_08_targeted_parse_required"])
+
     def test_exhausted_name_enumeration_requires_flow08_targeted_parse(self) -> None:
         def fake_exhausted_runner(capture_plan: dict[str, object]) -> dict[str, object]:
             return {

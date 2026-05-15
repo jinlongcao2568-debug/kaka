@@ -220,10 +220,15 @@ class BusinessDirectionStrategyContractTests(unittest.TestCase):
             routes,
             [
                 "PERSON_NAME_WITH_COMPANY_QUERY",
+                "MOT_HIGHWAY_MARKET_PERSON_TITLE_QUERY",
                 "COMPANY_SEARCH_THEN_PERSON_QUERY",
                 "PERSON_NAME_ONLY_FILTER_COMPANY",
             ],
         )
+        highway_route = next(
+            item for item in policy["route_order"] if item["route_id"] == "MOT_HIGHWAY_MARKET_PERSON_TITLE_QUERY"
+        )
+        self.assertIn("交通运输部全国公路建设市场监督管理查询系统", highway_route["description"])
         self.assertFalse(policy["flow_08_trigger_policy"]["default_parse_flow_08_for_certificate_check"])
         conflict_policy = policy["performance_and_active_conflict_policy"]
         self.assertTrue(conflict_policy["jzsc_lagging_risk_acknowledged"])

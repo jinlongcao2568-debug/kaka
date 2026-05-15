@@ -8,6 +8,11 @@ from typing import Any, Callable, Mapping
 
 from shared.settings import Settings
 from shared.utils import utc_now_iso
+from stage4_verification.highway_market_personnel import (
+    HIGHWAY_MARKET_PERSONNEL_ADAPTER_ID,
+    HIGHWAY_MARKET_PERSON_INDEX_URL,
+    query_highway_market_person_title,
+)
 from stage4_verification.provider_registry import JZSC_PERSON_IDENTITY
 from stage4_verification.service import Stage4Service
 from storage.db import DatabaseSession
@@ -23,6 +28,7 @@ DEFAULT_OUTPUT_ROOT = Path("tmp/evaluation-real-samples/guangzhou-company-first-
 
 
 BrowserRunner = Callable[[Mapping[str, Any]], Mapping[str, Any]]
+HighwayMarketRunner = Callable[[Mapping[str, Any]], Mapping[str, Any]]
 
 
 def build_company_first_stage4_execution(
@@ -39,6 +45,7 @@ def build_company_first_stage4_execution(
     personnel_retry_attempts: int = 2,
     capture_personnel_project_records: bool = False,
     browser_runner: BrowserRunner | None = None,
+    highway_market_runner: HighwayMarketRunner | None = None,
     created_at: str | None = None,
 ) -> dict[str, Any]:
     created = created_at or utc_now_iso()
@@ -86,6 +93,7 @@ def build_company_first_stage4_execution(
             personnel_retry_attempts=personnel_retry_attempts,
             capture_personnel_project_records=capture_personnel_project_records,
             browser_runner=browser_runner,
+            highway_market_runner=highway_market_runner,
             created_at=created,
         )
         for job in jobs
@@ -166,6 +174,7 @@ def _execute_job(
     personnel_retry_attempts: int,
     capture_personnel_project_records: bool,
     browser_runner: BrowserRunner | None,
+    highway_market_runner: HighwayMarketRunner | None,
     created_at: str,
 ) -> dict[str, Any]:
     payload = dict(job.get("payload") or {})
@@ -233,31 +242,70 @@ def _execute_job(
             "fail_closed_reasons": [],
         }
 
-    try:
-        stage4_result = dict(
-            service.run_jzsc_company_first_browser_execution(
-                _parsed_context(job),
-                target_company_name=company,
-                target_project_manager_name=person,
-                target_identifier=certificate_no or None,
+    highway_market_readback: dict[str, Any] = {}
+    prior_stage4_fail_closed_reasons: list[Any] = []
+    stage4_result: dict[str, Any]
+    if _should_try_highway_market(
+        project_name=project_name,
+        company=company,
+        person=person,
+        certificate_no=certificate_no,
+        responsible_role=str(target.get("responsible_role") or ""),
+        priority_class=str(target.get("opportunity_priority_class") or ""),
+    ):
+        highway_market_readback = _run_highway_market_readback(
+            runner=highway_market_runner,
+            project_id=project_id,
+            project_name=project_name,
+            company=company,
+            person=person,
+            certificate_no=certificate_no,
+            responsible_role=str(target.get("responsible_role") or ""),
+            candidate_group_id=candidate_group_id,
+        )
+        if _highway_market_resolved(highway_market_readback):
+            stage4_result = _stage4_result_from_highway_readback(
+                highway_market_readback,
+                prior_stage4_fail_closed_reasons=[],
+            )
+            state = _post_execution_state(stage4_result)
+        else:
+            stage4_result, state = _run_jzsc_company_first(
+                job=job,
+                service=service,
                 repository=repository,
-                browser_runner=browser_runner,
+                company=company,
+                person=person,
+                certificate_no=certificate_no,
+                required_registration_category=required_registration_category,
                 max_personnel_pages=max_personnel_pages,
                 max_project_pages=max_project_pages,
                 personnel_retry_attempts=personnel_retry_attempts,
                 capture_personnel_project_records=capture_personnel_project_records,
-                required_registration_category=required_registration_category or None,
+                browser_runner=browser_runner,
             )
+            prior_stage4_fail_closed_reasons = list(stage4_result.get("fail_closed_reasons") or [])
+            stage4_result["highway_market_readback"] = highway_market_readback
+            stage4_result["browser_nonfatal_diagnostics"] = [
+                *list(stage4_result.get("browser_nonfatal_diagnostics") or []),
+                f"highway_market_precheck_not_resolved:{highway_market_readback.get('query_state', '')}",
+            ]
+    else:
+        stage4_result, state = _run_jzsc_company_first(
+            job=job,
+            service=service,
+            repository=repository,
+            company=company,
+            person=person,
+            certificate_no=certificate_no,
+            required_registration_category=required_registration_category,
+            max_personnel_pages=max_personnel_pages,
+            max_project_pages=max_project_pages,
+            personnel_retry_attempts=personnel_retry_attempts,
+            capture_personnel_project_records=capture_personnel_project_records,
+            browser_runner=browser_runner,
         )
-    except Exception as exc:  # pragma: no cover - defensive boundary
-        stage4_result = {
-            "executor_state": "FAIL_CLOSED",
-            "readback_state": "REVIEW_REQUIRED",
-            "identity_resolution_state": "REVIEW_REQUIRED",
-            "fail_closed_reasons": [f"stage4_company_first_execution_exception:{exc}"],
-            "customer_sellable_evidence_ready": False,
-        }
-    state = _post_execution_state(stage4_result)
+        prior_stage4_fail_closed_reasons = list(stage4_result.get("fail_closed_reasons") or [])
     carrier = dict(stage4_result.get("personnel_carrier") or {})
     resolved_certificate = carrier.get("project_manager_certificate_no_optional") or stage4_result.get(
         "resolved_public_identifier_optional", ""
@@ -284,6 +332,14 @@ def _execute_job(
         "company_personnel_source_snapshot_id": stage4_result.get("company_personnel_source_snapshot_id", ""),
         "personnel_project_source_url": stage4_result.get("personnel_project_source_url", ""),
         "personnel_project_source_snapshot_id": stage4_result.get("personnel_project_source_snapshot_id", ""),
+        "stage4_resolution_route": stage4_result.get("route") or stage4_result.get("adapter_id", ""),
+        "highway_market_fallback_attempted": bool(highway_market_readback),
+        "highway_market_readback_state": highway_market_readback.get("readback_state", ""),
+        "highway_market_query_state": highway_market_readback.get("query_state", ""),
+        "highway_market_readback": highway_market_readback,
+        "prior_jzsc_fail_closed_reasons": prior_stage4_fail_closed_reasons
+        if highway_market_readback
+        else [],
         "rendered_company_personnel_row_count": stage4_result.get("rendered_company_personnel_row_count", 0),
         "rendered_personnel_project_row_count": stage4_result.get("rendered_personnel_project_row_count", 0),
         "browser_runner_id": stage4_result.get("browser_runner_id", ""),
@@ -302,6 +358,48 @@ def _execute_job(
         "field_level_public_registration_match": _field_level_public_registration_match(stage4_result),
         "no_name_only_final_proof": True,
     }
+
+
+def _run_jzsc_company_first(
+    *,
+    job: Mapping[str, Any],
+    service: Stage4Service,
+    repository: ObjectStorageRepository,
+    company: str,
+    person: str,
+    certificate_no: str,
+    required_registration_category: str,
+    max_personnel_pages: int,
+    max_project_pages: int,
+    personnel_retry_attempts: int,
+    capture_personnel_project_records: bool,
+    browser_runner: BrowserRunner | None,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    try:
+        stage4_result = dict(
+            service.run_jzsc_company_first_browser_execution(
+                _parsed_context(job),
+                target_company_name=company,
+                target_project_manager_name=person,
+                target_identifier=certificate_no or None,
+                repository=repository,
+                browser_runner=browser_runner,
+                max_personnel_pages=max_personnel_pages,
+                max_project_pages=max_project_pages,
+                personnel_retry_attempts=personnel_retry_attempts,
+                capture_personnel_project_records=capture_personnel_project_records,
+                required_registration_category=required_registration_category or None,
+            )
+        )
+    except Exception as exc:  # pragma: no cover - defensive boundary
+        stage4_result = {
+            "executor_state": "FAIL_CLOSED",
+            "readback_state": "REVIEW_REQUIRED",
+            "identity_resolution_state": "REVIEW_REQUIRED",
+            "fail_closed_reasons": [f"stage4_company_first_execution_exception:{exc}"],
+            "customer_sellable_evidence_ready": False,
+        }
+    return stage4_result, _post_execution_state(stage4_result)
 
 
 def _post_execution_state(stage4_result: Mapping[str, Any]) -> dict[str, Any]:
@@ -364,6 +462,166 @@ def _post_execution_state(stage4_result: Mapping[str, Any]) -> dict[str, Any]:
         "flow_08_targeted_parse_required": False,
         "certificate_category_review_required": False,
         "public_registration_match_basis": "",
+    }
+
+
+def _should_try_highway_market(
+    *,
+    project_name: str,
+    company: str,
+    person: str,
+    certificate_no: str,
+    responsible_role: str,
+    priority_class: str,
+) -> bool:
+    if not (company and person):
+        return False
+    text = " ".join(
+        [
+            project_name,
+            company,
+            certificate_no,
+            responsible_role,
+            priority_class,
+        ]
+    )
+    highway_keywords = (
+        "高速",
+        "公路",
+        "路桥",
+        "道路",
+        "桥梁",
+        "隧道",
+        "互通",
+        "交通规划",
+        "交通运输",
+        "工程可行性研究",
+        "方案深化",
+    )
+    if any(keyword in text for keyword in highway_keywords):
+        return True
+    if responsible_role in {"design_lead", "survey_lead"} and any(
+        keyword in text for keyword in ("交通", "勘察设计", "设计研究院")
+    ):
+        return True
+    return False
+
+
+def _run_highway_market_readback(
+    *,
+    runner: HighwayMarketRunner | None,
+    project_id: str,
+    project_name: str,
+    company: str,
+    person: str,
+    certificate_no: str,
+    responsible_role: str,
+    candidate_group_id: str,
+) -> dict[str, Any]:
+    request = {
+        "project_id": project_id,
+        "project_name": project_name,
+        "target_company_name": company,
+        "target_person_name": person,
+        "target_certificate_no": certificate_no,
+        "responsible_role": responsible_role,
+        "candidate_group_id": candidate_group_id,
+    }
+    try:
+        return dict((runner or query_highway_market_person_title)(request))
+    except Exception as exc:  # pragma: no cover - defensive boundary
+        return {
+            "adapter_id": HIGHWAY_MARKET_PERSONNEL_ADAPTER_ID,
+            "source_family": "national_highway_construction_market_credit_system",
+            "entry_url": HIGHWAY_MARKET_PERSON_INDEX_URL,
+            "query_state": "FAIL_CLOSED_PUBLIC_QUERY_ERROR",
+            "readback_state": "REVIEW_REQUIRED",
+            "verification_result": "REVIEW_REQUIRED",
+            "target_company_name": company,
+            "target_person_name": person,
+            "target_certificate_no_optional": certificate_no,
+            "fail_closed_reasons": [f"highway_market_query_exception:{exc}"],
+            "query_miss_is_not_clearance": True,
+            "customer_visible_allowed": False,
+            "no_legal_conclusion": True,
+        }
+
+
+def _highway_market_resolved(readback: Mapping[str, Any]) -> bool:
+    if str(readback.get("verification_result") or "") != "MATCHED":
+        return False
+    if str(readback.get("readback_state") or "") != "READBACK_READY":
+        return False
+    return bool(
+        str(readback.get("matched_company_name_optional") or "").strip()
+        and str(readback.get("registered_unit_name_optional") or "").strip()
+        and (
+            str(readback.get("resolved_certificate_no_optional") or "").strip()
+            or str(readback.get("person_public_id_optional") or "").strip()
+        )
+    )
+
+
+def _stage4_result_from_highway_readback(
+    readback: Mapping[str, Any],
+    *,
+    prior_stage4_fail_closed_reasons: list[Any],
+) -> dict[str, Any]:
+    matched_company = str(readback.get("matched_company_name_optional") or "").strip()
+    person_public_id = str(readback.get("person_public_id_optional") or "").strip()
+    resolved_certificate = str(readback.get("resolved_certificate_no_optional") or "").strip()
+    source_url = str(readback.get("entry_url") or HIGHWAY_MARKET_PERSON_INDEX_URL)
+    academic_url = ""
+    for attempt in list(readback.get("route_attempts") or []):
+        if isinstance(attempt, Mapping) and attempt.get("route") == "person_academic_query":
+            academic_url = str(attempt.get("source_url") or "")
+            break
+    return {
+        "adapter_id": HIGHWAY_MARKET_PERSONNEL_ADAPTER_ID,
+        "route": "MOT_HIGHWAY_MARKET_PERSON_TITLE",
+        "source_family": "national_highway_construction_market_credit_system",
+        "executor_state": "READBACK_READY",
+        "readback_state": "READBACK_READY",
+        "identity_resolution_state": "MATCHED",
+        "matched_company_name_optional": matched_company,
+        "matched_company_public_id_optional": readback.get("matched_company_public_id_optional", ""),
+        "resolved_public_identifier_optional": resolved_certificate,
+        "company_personnel_source_url": source_url,
+        "company_personnel_source_snapshot_id": "",
+        "personnel_project_source_url": academic_url,
+        "personnel_project_source_snapshot_id": "",
+        "rendered_company_personnel_row_count": 1,
+        "rendered_personnel_project_row_count": len(readback.get("academic_records") or []),
+        "browser_runner_id": "highway_market_public_query",
+        "live_browser_executed": False,
+        "browser_attempts": list(readback.get("route_attempts") or []),
+        "browser_nonfatal_diagnostics": [
+            "jzsc_company_first_unresolved_then_highway_market_readback_matched"
+        ],
+        "fail_closed_reasons": [],
+        "prior_jzsc_fail_closed_reasons": [str(reason) for reason in prior_stage4_fail_closed_reasons],
+        "highway_market_readback": dict(readback),
+        "personnel_carrier": {
+            "verification_result": "MATCHED",
+            "verification_provider": "MOT_HIGHWAY_MARKET_PERSON_TITLE",
+            "verification_route": "HIGHWAY_MARKET_PERSON_ACADEMIC_LIST",
+            "source_url": source_url,
+            "source_family": "national_highway_construction_market_credit_system",
+            "public_visibility_state": "PUBLIC_VISIBLE",
+            "project_manager_certificate_no_optional": resolved_certificate,
+            "project_manager_public_identifier_optional": resolved_certificate or person_public_id,
+            "project_manager_registered_unit_optional": matched_company,
+            "person_public_id_optional": person_public_id,
+            "personnel_detail_url_optional": academic_url or source_url,
+            "failure_reasons": [],
+            "review_required": False,
+            "confidence": 0.9,
+            "evidence_grade": "PUBLIC_OFFICIAL_HIGHWAY_MARKET_FIELD_MATCH",
+            "customer_visible": False,
+            "no_legal_conclusion": True,
+        },
+        "customer_sellable_evidence_ready": False,
+        "no_name_only_final_proof": True,
     }
 
 
@@ -494,7 +752,8 @@ def _stage4_inputs(items: list[Mapping[str, Any]], *, created_at: str) -> dict[s
                 "person_public_id_optional": person_public_id,
                 "registered_unit_name_optional": item.get("registered_unit_name_optional", ""),
                 "company_personnel_source_snapshot_id": item.get("company_personnel_source_snapshot_id", ""),
-                "recommended_stage4_route": "JZSC_COMPANY_FIRST_PROJECT_MANAGER",
+                "recommended_stage4_route": item.get("stage4_resolution_route")
+                or "JZSC_COMPANY_FIRST_PROJECT_MANAGER",
                 "stage4_live_provider_enabled": False,
                 "review_required": False,
                 "created_at": created_at,
