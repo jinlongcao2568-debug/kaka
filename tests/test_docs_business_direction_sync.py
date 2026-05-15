@@ -123,6 +123,7 @@ def test_status_board_records_p0_sync_boundary() -> None:
     assert "文件相似度" in text
     assert "报价异常" in text
     assert "下一阶段执行计划同步说明" in text
+    assert "P12_GUANGZHOU_10_PROJECT_VALUE_CLOSEOUT_V1" in text
     assert "P11_GUANGZHOU_10_PROJECT_STABILITY_V1" in text
     assert "P10_P9_AWARE_READABLE_CLOSEOUT_V1" in text
     assert "P9_EVIDENCE_FIXATION_RECAPTURE_V1" in text
@@ -130,9 +131,12 @@ def test_status_board_records_p0_sync_boundary() -> None:
     assert "P11_PARTIAL_SOURCE_COVERAGE" in text
     assert "旧项目或假样本补齐" in text
     assert "官方源 readback 不作为 P11 成败硬门槛" in text
+    assert "project-value-table" in text
+    assert "candidate-group-verification-table" in text
+    assert "delivery-gap-table" in text
+    assert "P12 完成前不得扩到 20/50 项目" in text
     assert "customer_delivery_ready=false" in text
     assert "RESERVED_NOT_IMPLEMENTED" in text
-    assert "P11 完成前不得扩到 20/50 项目" in text
     assert "非承包方原因停工超过 120 天" in text
     assert "安全生产标准化考评结果告知书" in text
     assert "在建冲突成立" in text

@@ -1061,7 +1061,7 @@
   ],
   "next_phase_execution_plan": {
     "plan_id": "POST-CANDIDATE-EVIDENCE-PACK-NEXT-PHASE-V1",
-    "current_focus": "P11_GUANGZHOU_10_PROJECT_STABILITY_V1",
+    "current_focus": "P12_GUANGZHOU_10_PROJECT_VALUE_CLOSEOUT_V1",
     "phases": [
       {
         "phase_id": "P1_GUANGZHOU_EVIDENCE_REPORT_CLOSEOUT_V1",
@@ -1173,10 +1173,22 @@
           "下载、Stage4、P7/P8/P9/P10 任一阶段失败时，batch closeout 给出项目级和流程级 taxonomy",
           "08 未触发时不作为 blocker，且不默认深解析 08"
         ]
+      },
+      {
+        "phase_id": "P12_GUANGZHOU_10_PROJECT_VALUE_CLOSEOUT_V1",
+        "goal": "基于 P11 已跑通的广州 10 项目，生成核验价值审查和交付缺口清单，区分可内部复核、需补外部在建/履约源、低价值/不适用和流程阻断项目。",
+        "success_criteria": [
+          "输出 project-value-table、candidate-group-verification-table、delivery-gap-table 和 value closeout manifest",
+          "未解析 08 不作为默认 blocker，只有已触发 08 才进入交付缺口",
+          "身份/证书已通但缺施工许可、合同备案、竣工验收、项目经理变更、处罚投诉等外部源时输出 EXTERNAL_CONFLICT_SOURCE_REQUIRED",
+          "证据固化 unfixable=0 时不阻断价值审查；记录级 hash 只作为交付前说明项",
+          "报告保持 customer_delivery_ready=false，不输出客户可见法律定性"
+        ]
       }
     ],
     "must_not": [
       "do_not_expand_to_20_or_50_before_p11_batch_stability_closeout",
+      "do_not_expand_to_20_or_50_before_p12_value_closeout",
       "do_not_start_graph_or_saas_before_evidence_fixation_backfill",
       "do_not_default_parse_flow_08_without_trigger",
       "do_not_treat_plan_only_region_sources_as_live_verified"

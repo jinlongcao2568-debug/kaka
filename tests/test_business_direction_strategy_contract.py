@@ -594,7 +594,7 @@ class BusinessDirectionStrategyContractTests(unittest.TestCase):
         plan = contract["next_phase_execution_plan"]
         phases = [phase["phase_id"] for phase in plan["phases"]]
 
-        self.assertEqual(plan["current_focus"], "P11_GUANGZHOU_10_PROJECT_STABILITY_V1")
+        self.assertEqual(plan["current_focus"], "P12_GUANGZHOU_10_PROJECT_VALUE_CLOSEOUT_V1")
         self.assertEqual(
             phases,
             [
@@ -609,28 +609,37 @@ class BusinessDirectionStrategyContractTests(unittest.TestCase):
                 "P9_EVIDENCE_FIXATION_RECAPTURE_V1",
                 "P10_P9_AWARE_READABLE_CLOSEOUT_V1",
                 "P11_GUANGZHOU_10_PROJECT_STABILITY_V1",
+                "P12_GUANGZHOU_10_PROJECT_VALUE_CLOSEOUT_V1",
             ],
         )
         p1 = plan["phases"][0]
         self.assertIn("ParseProbe missing 不再阻断未触发 08 的项目", p1["success_criteria"])
         self.assertIn("12 个候选组均有负责人公开注册信息匹配结果", p1["success_criteria"])
         self.assertIn("do_not_expand_to_20_or_50_before_p11_batch_stability_closeout", plan["must_not"])
+        self.assertIn("do_not_expand_to_20_or_50_before_p12_value_closeout", plan["must_not"])
         self.assertIn("do_not_default_parse_flow_08_without_trigger", plan["must_not"])
         self.assertIn("do_not_treat_plan_only_region_sources_as_live_verified", plan["must_not"])
-        p9 = plan["phases"][-3]
+        p9 = plan["phases"][-4]
         self.assertEqual(p9["phase_id"], "P9_EVIDENCE_FIXATION_RECAPTURE_V1")
         self.assertIn(
             "Stage4/JZSC readback 只生成字段摘要 hash 和 route attempts，不改变核验结论",
             p9["success_criteria"],
         )
         self.assertIn("P8 消费 RecaptureRoot 后 backfilled_no_remaining_gap_count 高于 32，剩余缺口有 route taxonomy", p9["success_criteria"])
-        p10 = plan["phases"][-2]
+        p10 = plan["phases"][-3]
         self.assertEqual(p10["phase_id"], "P10_P9_AWARE_READABLE_CLOSEOUT_V1")
         self.assertIn("P10 完成后才进入广州 10 项目稳定性验证", p10["success_criteria"])
-        p11 = plan["phases"][-1]
+        p11 = plan["phases"][-2]
         self.assertEqual(p11["phase_id"], "P11_GUANGZHOU_10_PROJECT_STABILITY_V1")
         self.assertIn("P11 EvidenceReport 使用 NoDefaultOptionalRoots 隔离旧 5 项目 GDCIC/local/active conflict 产物", p11["success_criteria"])
         self.assertIn("08 未触发时不作为 blocker，且不默认深解析 08", p11["success_criteria"])
+        p12 = plan["phases"][-1]
+        self.assertEqual(p12["phase_id"], "P12_GUANGZHOU_10_PROJECT_VALUE_CLOSEOUT_V1")
+        self.assertIn(
+            "身份/证书已通但缺施工许可、合同备案、竣工验收、项目经理变更、处罚投诉等外部源时输出 EXTERNAL_CONFLICT_SOURCE_REQUIRED",
+            p12["success_criteria"],
+        )
+        self.assertIn("报告保持 customer_delivery_ready=false，不输出客户可见法律定性", p12["success_criteria"])
 
 
 if __name__ == "__main__":
