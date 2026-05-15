@@ -1,0 +1,599 @@
+from __future__ import annotations
+
+import argparse
+import hashlib
+import html
+import json
+import re
+import urllib.error
+import urllib.parse
+import urllib.request
+from pathlib import Path
+from typing import Any, Callable, Iterable, Mapping
+
+from shared.utils import utc_now_iso
+
+
+P13B_ORIGINAL_NOTICE_BACKTRACE_KIND = "p13b_original_notice_backtrace_v1_manifest"
+P13B_ORIGINAL_NOTICE_BACKTRACE_VERSION = 1
+P13B_ORIGINAL_NOTICE_BACKTRACE_ADAPTER_ID = "p13b-original-notice-backtrace-v1-builder"
+
+DEFAULT_INPUT_ROOT = Path("tmp/evaluation-real-samples/p13b-company-history-overlap-triage-v1-smoke")
+DEFAULT_OUTPUT_ROOT = Path("tmp/evaluation-real-samples/p13b-original-notice-backtrace-v1")
+
+FORBIDDEN_TERMS = ("无风险", "无冲突", "在建冲突成立", "违法成立", "确认本人", "造假成立", "是不是本人")
+HttpGetter = Callable[[str, Mapping[str, Any]], Mapping[str, Any]]
+
+
+def build_p13b_original_notice_backtrace(
+    *,
+    input_root: str | Path = DEFAULT_INPUT_ROOT,
+    input_json: str | Path | None = None,
+    output_root: str | Path = DEFAULT_OUTPUT_ROOT,
+    enable_live_public_query: bool = False,
+    max_live_original_notices: int | None = None,
+    http_getter: HttpGetter | None = None,
+    created_at: str | None = None,
+) -> dict[str, Any]:
+    created = created_at or utc_now_iso()
+    in_dir = Path(input_root)
+    out_dir = Path(output_root)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    source_path = Path(input_json) if input_json else in_dir / "company-history-overlap-triage-v1.json"
+    blocking_reasons: list[str] = []
+    p13b_payload = _load_json(source_path, blocking_reasons, "p13b_company_history_overlap_triage_missing")
+    source_manifest = _source_manifest(p13b_payload)
+    execution_mode = "LIVE_PUBLIC_QUERY_ATTEMPTED" if enable_live_public_query else "PLAN_ONLY_NOT_EXECUTED"
+    original_notice_task_records = _task_records_from_p13b(source_manifest, created_at=created)
+    fetch_records, extraction_records, overlap_records = _execute_original_notice_tasks(
+        original_notice_task_records,
+        created_at=created,
+        enable_live_public_query=enable_live_public_query,
+        max_live_original_notices=max_live_original_notices,
+        http_getter=http_getter,
+    )
+    manual_release_evidence_probe_table = _manual_release_evidence_probe_table(overlap_records)
+    summary = _summary(
+        original_notice_task_records=original_notice_task_records,
+        fetch_records=fetch_records,
+        extraction_records=extraction_records,
+        overlap_records=overlap_records,
+        execution_mode=execution_mode,
+        blocking_reasons=blocking_reasons,
+    )
+    manifest = {
+        "manifest_version": P13B_ORIGINAL_NOTICE_BACKTRACE_VERSION,
+        "manifest_kind": P13B_ORIGINAL_NOTICE_BACKTRACE_KIND,
+        "adapter_id": P13B_ORIGINAL_NOTICE_BACKTRACE_ADAPTER_ID,
+        "pipeline_stage": "P13BOriginalNoticeBacktraceV1",
+        "manifest_id": f"P13B-ORIGINAL-NOTICE-BACKTRACE-{_fingerprint({'summary': summary, 'tasks': original_notice_task_records})[:16]}",
+        "created_at": created,
+        "source_input_root": str(in_dir),
+        "source_input_json": str(source_path),
+        "execution_mode": execution_mode,
+        "live_public_query_enabled": bool(enable_live_public_query),
+        "max_live_original_notices": max_live_original_notices,
+        "original_notice_task_records": original_notice_task_records,
+        "original_notice_fetch_records": fetch_records,
+        "original_notice_extraction_records": extraction_records,
+        "original_notice_overlap_signal_records": overlap_records,
+        "manual_release_evidence_probe_table": manual_release_evidence_probe_table,
+        "summary": summary,
+        "safety": {
+            "download_enabled": False,
+            "parse_enabled": False,
+            "stage4_live_provider_enabled": False,
+            "llm_execution_enabled": False,
+            "network_enabled": bool(enable_live_public_query),
+            "manifest_stores_raw_html_or_blob": False,
+            "customer_visible_allowed": False,
+            "no_legal_conclusion": True,
+            "query_miss_is_not_clearance": True,
+            "ygp_original_url_pointer_only": True,
+        },
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
+    manifest["manifest_sha256"] = _fingerprint(
+        {key: value for key, value in manifest.items() if key != "manifest_sha256"}
+    )
+    result = {
+        "p13b_original_notice_backtrace_mode": "BUILT" if not blocking_reasons else "INPUT_BLOCKED",
+        "safe_to_execute": not blocking_reasons,
+        "blocking_reasons": blocking_reasons,
+        "manifest": manifest,
+        "summary": summary,
+    }
+    text = json.dumps(result, ensure_ascii=False, indent=2)
+    forbidden_hits = [term for term in FORBIDDEN_TERMS if term in text]
+    if forbidden_hits:
+        result["safe_to_execute"] = False
+        result["blocking_reasons"] = [
+            *blocking_reasons,
+            *[f"forbidden_report_term:{term}" for term in forbidden_hits],
+        ]
+        result["summary"]["forbidden_term_scan_state"] = "FAIL"
+        result["summary"]["forbidden_term_hits"] = forbidden_hits
+        text = json.dumps(result, ensure_ascii=False, indent=2)
+    else:
+        result["summary"]["forbidden_term_scan_state"] = "PASS"
+        result["manifest"]["summary"]["forbidden_term_scan_state"] = "PASS"
+        text = json.dumps(result, ensure_ascii=False, indent=2)
+    (out_dir / "original-notice-backtrace-v1.json").write_text(text, encoding="utf-8")
+    return result
+
+
+def _task_records_from_p13b(source_manifest: Mapping[str, Any], *, created_at: str) -> list[dict[str, Any]]:
+    rows = _list(source_manifest.get("manual_original_url_backtrace_table"))
+    bid_show_by_key = _bid_show_lookup(source_manifest)
+    tasks: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for row in rows:
+        if not isinstance(row, Mapping):
+            continue
+        original_url = str(row.get("original_notice_url") or "").strip()
+        if not original_url:
+            continue
+        project_id = str(row.get("project_id") or "")
+        company = str(row.get("candidate_company_name") or "")
+        key = f"{project_id}|{company}|{original_url}"
+        if key in seen:
+            continue
+        seen.add(key)
+        bid_show = bid_show_by_key.get(key, {})
+        tasks.append(
+            {
+                "original_notice_task_id": _stable_id("P13B-ORIGINAL-NOTICE", project_id, company, original_url),
+                "project_id": project_id,
+                "candidate_company_name": company,
+                "responsible_person_names": _list(row.get("responsible_person_names")),
+                "bid_project_name": str(row.get("bid_project_name") or bid_show.get("bid_project_name") or ""),
+                "original_notice_url": original_url,
+                "bid_show_record_id": str(bid_show.get("bid_show_record_id") or ""),
+                "bid_show_url": str(bid_show.get("bid_show_url") or ""),
+                "backtrace_reason": str(row.get("backtrace_reason") or ""),
+                "source_profile_note": "original_notice_pointer_from_data_ggzy_bid_show",
+                "ygp_original_url_pointer_only": "ygp.gdzwfw.gov.cn" in original_url.lower(),
+                "execution_mode": "PLAN_ONLY_NOT_EXECUTED",
+                "original_notice_state": "PLAN_ONLY_NOT_EXECUTED",
+                "created_at": created_at,
+                "customer_visible_allowed": False,
+                "no_legal_conclusion": True,
+            }
+        )
+    return tasks
+
+
+def _bid_show_lookup(source_manifest: Mapping[str, Any]) -> dict[str, Mapping[str, Any]]:
+    lookup: dict[str, Mapping[str, Any]] = {}
+    for record in _list(source_manifest.get("bid_show_records")):
+        if not isinstance(record, Mapping):
+            continue
+        key = f"{record.get('project_id') or ''}|{record.get('candidate_company_name') or ''}|{record.get('original_notice_url') or ''}"
+        lookup[key] = record
+    return lookup
+
+
+def _execute_original_notice_tasks(
+    tasks: list[dict[str, Any]],
+    *,
+    created_at: str,
+    enable_live_public_query: bool,
+    max_live_original_notices: int | None,
+    http_getter: HttpGetter | None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
+    if not enable_live_public_query:
+        return [], [], []
+    getter = http_getter or _default_http_getter
+    fetch_records: list[dict[str, Any]] = []
+    extraction_records: list[dict[str, Any]] = []
+    overlap_records: list[dict[str, Any]] = []
+    attempted = 0
+    for task in tasks:
+        if max_live_original_notices is not None and attempted >= max_live_original_notices:
+            fetch = {
+                **task,
+                "execution_mode": "LIVE_PUBLIC_QUERY_DEFERRED_BY_LIMIT",
+                "fetch_state": "ORIGINAL_NOTICE_FETCH_BLOCKED",
+                "blocker_taxonomy": ["max_live_original_notices_deferred"],
+                "max_live_original_notices": max_live_original_notices,
+            }
+            fetch_records.append(fetch)
+            continue
+        attempted += 1
+        fetch = _fetch_original_notice(task, getter=getter, created_at=created_at)
+        fetch_records.append(fetch)
+        extraction = _extract_original_notice(task, fetch, created_at=created_at)
+        extraction_records.append(extraction)
+        overlap_records.append(_overlap_record(task, extraction, created_at=created_at))
+    return fetch_records, extraction_records, overlap_records
+
+
+def _fetch_original_notice(task: Mapping[str, Any], *, getter: HttpGetter, created_at: str) -> dict[str, Any]:
+    url = str(task.get("original_notice_url") or "")
+    if not url.lower().startswith(("http://", "https://")):
+        return {
+            **dict(task),
+            "execution_mode": "LIVE_PUBLIC_QUERY_ATTEMPTED",
+            "fetch_state": "ORIGINAL_NOTICE_SOURCE_UNSUPPORTED",
+            "route_attempt": {"url": url, "status_code": 0, "error": "unsupported_url_scheme"},
+            "blocker_taxonomy": ["original_notice_unsupported_url_scheme"],
+            "created_at": created_at,
+        }
+    response = dict(getter(url, {"route": "original_notice_fetch", "task": dict(task)}))
+    status = int(response.get("status_code") or response.get("status") or 0)
+    body = str(response.get("body") or response.get("content") or response.get("text") or "")
+    content_type = str(response.get("content_type") or "")
+    blockers = _blockers_from_response(status=status, body_probe=body[:300], error=str(response.get("error") or ""))
+    fetch_state = "ORIGINAL_NOTICE_FETCH_BLOCKED" if blockers else "ORIGINAL_NOTICE_FETCHED"
+    return {
+        **dict(task),
+        "execution_mode": "LIVE_PUBLIC_QUERY_ATTEMPTED",
+        "fetch_state": fetch_state,
+        "source_url": str(response.get("url") or url),
+        "status_code": status,
+        "content_type": content_type,
+        "body_sha256": _sha256(body) if body else "",
+        "body_probe": body[:300],
+        "text_probe": _html_to_text(body)[:600] if body else "",
+        "text_probe_sha256": _sha256(_html_to_text(body)[:600]) if body else "",
+        "route_attempt": {
+            "url": str(response.get("url") or url),
+            "status_code": status,
+            "content_type": content_type,
+            "body_sha256": _sha256(body) if body else "",
+            "error": str(response.get("error") or ""),
+        },
+        "blocker_taxonomy": blockers,
+        "created_at": created_at,
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
+
+
+def _extract_original_notice(task: Mapping[str, Any], fetch: Mapping[str, Any], *, created_at: str) -> dict[str, Any]:
+    if str(fetch.get("fetch_state") or "") != "ORIGINAL_NOTICE_FETCHED":
+        return {
+            **dict(task),
+            "original_notice_extraction_state": "ORIGINAL_NOTICE_FETCH_BLOCKED",
+            "source_url": str(fetch.get("source_url") or task.get("original_notice_url") or ""),
+            "blocker_taxonomy": _list(fetch.get("blocker_taxonomy")),
+            "created_at": created_at,
+            "customer_visible_allowed": False,
+            "no_legal_conclusion": True,
+        }
+    text = str(fetch.get("text_probe") or "")
+    people = _extract_responsible_people(text)
+    period = _extract_period_text(text)
+    award_date = _extract_award_date(text)
+    companies = _extract_company_names(text)
+    if people and period:
+        state = "ORIGINAL_NOTICE_PERSON_PERIOD_EXTRACTED"
+    elif people or period or companies:
+        state = "ORIGINAL_NOTICE_NO_MATCH_REVIEW"
+    else:
+        state = "ORIGINAL_NOTICE_SOURCE_UNSUPPORTED"
+    return {
+        **dict(task),
+        "original_notice_extraction_state": state,
+        "source_url": str(fetch.get("source_url") or task.get("original_notice_url") or ""),
+        "extracted_responsible_person_names": people,
+        "extracted_period_text": period,
+        "extracted_award_date": award_date,
+        "extracted_company_names": companies,
+        "text_probe": text[:600],
+        "text_probe_sha256": _sha256(text[:600]) if text else "",
+        "record_payload_sha256": _fingerprint(
+            {"source_url": fetch.get("source_url"), "people": people, "period": period, "award_date": award_date, "companies": companies}
+        ),
+        "blocker_taxonomy": [],
+        "created_at": created_at,
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
+
+
+def _overlap_record(task: Mapping[str, Any], extraction: Mapping[str, Any], *, created_at: str) -> dict[str, Any]:
+    candidate_people = {str(item).strip() for item in _list(task.get("responsible_person_names")) if str(item).strip()}
+    extracted_people = {str(item).strip() for item in _list(extraction.get("extracted_responsible_person_names")) if str(item).strip()}
+    matched_people = sorted(candidate_people & extracted_people)
+    company_match = _contains_company(extraction.get("extracted_company_names"), str(task.get("candidate_company_name") or ""))
+    period_present = bool(str(extraction.get("extracted_period_text") or "").strip() or str(extraction.get("extracted_award_date") or "").strip())
+    if str(extraction.get("original_notice_extraction_state") or "") == "ORIGINAL_NOTICE_FETCH_BLOCKED":
+        state = "ORIGINAL_NOTICE_FETCH_BLOCKED"
+        reasons = _list(extraction.get("blocker_taxonomy")) or ["original_notice_fetch_blocked"]
+    elif matched_people and company_match and period_present:
+        state = "ORIGINAL_NOTICE_OVERLAP_SIGNAL_REVIEW_REQUIRED"
+        reasons = ["same_responsible_person", "candidate_company_matched", "period_or_award_date_present"]
+    else:
+        state = "ORIGINAL_NOTICE_NO_MATCH_REVIEW"
+        reasons = ["original_notice_no_same_person_company_time_window_signal"]
+    return {
+        "original_notice_overlap_signal_id": _stable_id("P13B-ORIGINAL-OVERLAP", task.get("original_notice_task_id"), state),
+        "original_notice_task_id": str(task.get("original_notice_task_id") or ""),
+        "project_id": str(task.get("project_id") or ""),
+        "candidate_company_name": str(task.get("candidate_company_name") or ""),
+        "responsible_person_names": sorted(candidate_people),
+        "matched_person_names": matched_people,
+        "original_notice_url": str(task.get("original_notice_url") or ""),
+        "source_url": str(extraction.get("source_url") or task.get("original_notice_url") or ""),
+        "extracted_company_names": _list(extraction.get("extracted_company_names")),
+        "extracted_period_text": str(extraction.get("extracted_period_text") or ""),
+        "extracted_award_date": str(extraction.get("extracted_award_date") or ""),
+        "original_notice_overlap_signal_state": state,
+        "review_reasons": reasons,
+        "release_evidence_probe_triggered": state == "ORIGINAL_NOTICE_OVERLAP_SIGNAL_REVIEW_REQUIRED",
+        "created_at": created_at,
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
+
+
+def _manual_release_evidence_probe_table(overlap_records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for record in overlap_records:
+        if str(record.get("original_notice_overlap_signal_state") or "") != "ORIGINAL_NOTICE_OVERLAP_SIGNAL_REVIEW_REQUIRED":
+            continue
+        rows.append(
+            {
+                "project_id": str(record.get("project_id") or ""),
+                "candidate_company_name": str(record.get("candidate_company_name") or ""),
+                "matched_person_names": _list(record.get("matched_person_names")),
+                "source_url": str(record.get("source_url") or ""),
+                "release_evidence_probe_reason": "same_person_company_time_window_signal_from_original_notice",
+                "suggested_next_step": "targeted_release_evidence_probe",
+                "customer_visible_allowed": False,
+                "no_legal_conclusion": True,
+            }
+        )
+    return rows
+
+
+def _summary(
+    *,
+    original_notice_task_records: list[Mapping[str, Any]],
+    fetch_records: list[Mapping[str, Any]],
+    extraction_records: list[Mapping[str, Any]],
+    overlap_records: list[Mapping[str, Any]],
+    execution_mode: str,
+    blocking_reasons: list[str],
+) -> dict[str, Any]:
+    return {
+        "p13b_original_notice_backtrace_state": "P13B_ORIGINAL_NOTICE_BACKTRACE_READY" if not blocking_reasons else "P13B_ORIGINAL_NOTICE_INPUT_BLOCKED",
+        "execution_mode": execution_mode,
+        "original_notice_task_count": len(original_notice_task_records),
+        "original_notice_fetch_count": len(fetch_records),
+        "original_notice_extraction_count": len(extraction_records),
+        "original_notice_overlap_signal_count": len(overlap_records),
+        "original_notice_person_period_extracted_count": sum(
+            1 for record in extraction_records if str(record.get("original_notice_extraction_state") or "") == "ORIGINAL_NOTICE_PERSON_PERIOD_EXTRACTED"
+        ),
+        "original_notice_overlap_signal_review_required_count": sum(
+            1 for record in overlap_records if str(record.get("original_notice_overlap_signal_state") or "") == "ORIGINAL_NOTICE_OVERLAP_SIGNAL_REVIEW_REQUIRED"
+        ),
+        "manual_release_evidence_probe_count": sum(
+            1 for record in overlap_records if bool(record.get("release_evidence_probe_triggered"))
+        ),
+        "fetch_state_counts": _counts(record.get("fetch_state") for record in fetch_records),
+        "extraction_state_counts": _counts(record.get("original_notice_extraction_state") for record in extraction_records),
+        "overlap_signal_state_counts": _counts(record.get("original_notice_overlap_signal_state") for record in overlap_records),
+        "blocker_taxonomy_counts": _counts(
+            blocker
+            for record in [*fetch_records, *extraction_records]
+            for blocker in _list(record.get("blocker_taxonomy"))
+        ),
+        "blocking_reasons": blocking_reasons,
+        "query_miss_is_not_clearance": True,
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
+
+
+def _default_http_getter(url: str, context: Mapping[str, Any]) -> Mapping[str, Any]:
+    request = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 KakaP13B/1.0",
+            "Accept": "text/html,application/json,text/plain,*/*",
+            "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+        },
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=25) as response:
+            body = response.read().decode("utf-8", errors="replace")
+            return {
+                "status_code": int(getattr(response, "status", 0) or 0),
+                "content_type": response.headers.get("Content-Type", ""),
+                "body": body,
+                "url": url,
+            }
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace") if exc.fp else ""
+        return {
+            "status_code": int(exc.code),
+            "content_type": exc.headers.get("Content-Type", "") if exc.headers else "",
+            "body": body,
+            "url": url,
+            "error": str(exc),
+        }
+    except urllib.error.URLError as exc:
+        return {"status_code": 0, "content_type": "", "body": "", "url": url, "error": str(exc.reason)}
+
+
+def _blockers_from_response(*, status: int, body_probe: str, error: str) -> list[str]:
+    blockers: list[str] = []
+    if status in {403, 429}:
+        blockers.append("original_notice_forbidden_or_rate_limited_review")
+    if status in {500, 502, 503, 504}:
+        blockers.append("original_notice_temporary_unavailable_retry_required")
+    if status == 0 and error:
+        blockers.append("original_notice_transport_error_retry_required")
+    if "验证码" in body_probe or "captcha" in body_probe.lower():
+        blockers.append("original_notice_captcha_or_challenge_review")
+    if status == 200 and not body_probe.strip():
+        blockers.append("original_notice_empty_body_review")
+    return _dedupe(blockers)
+
+
+def _extract_responsible_people(text: str) -> list[str]:
+    patterns = [
+        r"(?:项目负责人|项目经理|施工项目负责人|设计负责人|勘察负责人|总监理工程师|工程总承包项目经理)\s*[:：]\s*([\u4e00-\u9fa5·]{2,8})",
+        r"(?:负责人姓名|姓名)\s*[:：]\s*([\u4e00-\u9fa5·]{2,8})",
+    ]
+    people: list[str] = []
+    for pattern in patterns:
+        for match in re.finditer(pattern, text):
+            people.append(match.group(1).strip())
+    return _dedupe(people)
+
+
+def _extract_period_text(text: str) -> str:
+    patterns = [
+        r"(?:工期（交货期）|工期\(交货期\)|工期|服务期|合同履行期限|履行期限|服务期限)\s*[:：]\s*([^。；;\n]{2,80})",
+        r"(?:计划工期)\s*[:：]\s*([^。；;\n]{2,80})",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, text)
+        if match:
+            return match.group(1).strip()
+    return ""
+
+
+def _extract_award_date(text: str) -> str:
+    patterns = [
+        r"(?:中标日期|成交日期|公告日期|发布日期)\s*[:：]\s*([0-9]{4}年[0-9]{1,2}月[0-9]{1,2}日|[0-9]{4}-[0-9]{1,2}-[0-9]{1,2})",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, text)
+        if match:
+            return match.group(1).strip()
+    return ""
+
+
+def _extract_company_names(text: str) -> list[str]:
+    patterns = [
+        r"(?:中标人|成交供应商|中标单位|中标候选人|第一中标候选人)\s*[:：]\s*([^。；;\n]{4,100})",
+        r"(?:联合体成员|联合体\(成\)|联合体（成）)\s*[:：]\s*([^。；;\n]{4,100})",
+    ]
+    names: list[str] = []
+    for pattern in patterns:
+        for match in re.finditer(pattern, text):
+            segment = match.group(1)
+            for part in re.split(r"[;,，、；]|(?:联合体)|(?:\\(成\\))|(?:（成）)|(?:\\(主\\))|(?:（主）)", segment):
+                part = part.strip()
+                if "公司" in part or "集团" in part or "院" in part:
+                    names.append(part)
+    return _dedupe(names)
+
+
+def _contains_company(company_names: Any, candidate_company: str) -> bool:
+    candidate = _norm(candidate_company)
+    if not candidate:
+        return False
+    for name in _list(company_names):
+        normalized = _norm(str(name or ""))
+        if normalized and (candidate in normalized or normalized in candidate):
+            return True
+    return False
+
+
+def _source_manifest(payload: Mapping[str, Any]) -> Mapping[str, Any]:
+    manifest = payload.get("manifest") if isinstance(payload, Mapping) else {}
+    return manifest if isinstance(manifest, Mapping) else payload
+
+
+def _load_json(path: Path, blocking_reasons: list[str], missing_reason: str) -> dict[str, Any]:
+    if not path.exists():
+        blocking_reasons.append(missing_reason)
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        blocking_reasons.append(f"{missing_reason}:invalid_json")
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _html_to_text(content: str) -> str:
+    text = re.sub(r"<\s*br\s*/?>", "\n", content, flags=re.I)
+    text = re.sub(r"</p\s*>", "\n", text, flags=re.I)
+    text = re.sub(r"<[^>]+>", "", text)
+    text = html.unescape(text)
+    return re.sub(r"[ \t\r\f\v]+", " ", text).strip()
+
+
+def _list(value: Any) -> list[Any]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return value
+    if isinstance(value, tuple):
+        return list(value)
+    return [value]
+
+
+def _dedupe(values: Iterable[Any]) -> list[Any]:
+    out: list[Any] = []
+    seen: set[str] = set()
+    for value in values:
+        if value is None:
+            continue
+        key = str(value).strip()
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        out.append(value)
+    return out
+
+
+def _norm(value: str) -> str:
+    return re.sub(r"[\s（）()；;，,、·\-—_]+", "", value or "").lower()
+
+
+def _counts(values: Iterable[Any]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for value in values:
+        key = str(value or "").strip()
+        if not key:
+            continue
+        counts[key] = counts.get(key, 0) + 1
+    return dict(sorted(counts.items()))
+
+
+def _stable_id(prefix: str, *parts: Any) -> str:
+    return f"{prefix}-{_sha256('|'.join(str(part or '') for part in parts))[:12]}"
+
+
+def _sha256(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def _fingerprint(payload: Any) -> str:
+    return _sha256(json.dumps(payload, ensure_ascii=False, sort_keys=True, default=str))
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Build P13B original notice backtrace manifest.")
+    parser.add_argument("--input-root", default=str(DEFAULT_INPUT_ROOT))
+    parser.add_argument("--input-json", default=None)
+    parser.add_argument("--output-root", default=str(DEFAULT_OUTPUT_ROOT))
+    parser.add_argument("--enable-live-public-query", action="store_true")
+    parser.add_argument("--max-live-original-notices", type=int, default=None)
+    parser.add_argument("--json", action="store_true")
+    args = parser.parse_args(argv)
+    result = build_p13b_original_notice_backtrace(
+        input_root=args.input_root,
+        input_json=args.input_json,
+        output_root=args.output_root,
+        enable_live_public_query=args.enable_live_public_query,
+        max_live_original_notices=args.max_live_original_notices,
+    )
+    if args.json:
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+    else:
+        print(json.dumps(result["summary"], ensure_ascii=False, indent=2))
+    return 0 if result.get("safe_to_execute") else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
