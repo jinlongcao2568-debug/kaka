@@ -60,11 +60,17 @@ def build_guangdong_ygp_flow_matrix(
     out_dir.mkdir(parents=True, exist_ok=True)
     source_path = Path(input_json) if input_json else _default_input_json(in_dir)
     blocking_reasons: list[str] = []
-    source_payload = _load_json(source_path, blocking_reasons, "ygp_flow_matrix_input_missing") if source_path else {}
+    if source_path:
+        source_payload = _load_json(source_path, blocking_reasons, "ygp_flow_matrix_input_missing")
+    elif not source_urls:
+        blocking_reasons.append("ygp_flow_matrix_input_missing")
+        source_payload = {}
+    else:
+        source_payload = {}
     urls = _dedupe([*(source_urls or []), *_source_urls_from_input(_source_manifest(source_payload))])
     task_records = _task_records_from_urls(urls, created_at=created)
     execution_mode = "LIVE_PUBLIC_QUERY_ATTEMPTED" if enable_live_public_query else "PLAN_ONLY_NOT_EXECUTED"
-    project_records, flow_matrix_records, detail_readback_records = _execute_tasks(
+    project_records, flow_bucket_records, flow_item_records, detail_readback_records = _execute_tasks(
         task_records,
         created_at=created,
         enable_live_public_query=enable_live_public_query,
@@ -74,7 +80,8 @@ def build_guangdong_ygp_flow_matrix(
     summary = _summary(
         task_records=task_records,
         project_records=project_records,
-        flow_matrix_records=flow_matrix_records,
+        flow_matrix_records=flow_bucket_records,
+        flow_item_records=flow_item_records,
         detail_readback_records=detail_readback_records,
         execution_mode=execution_mode,
         blocking_reasons=blocking_reasons,
@@ -94,7 +101,9 @@ def build_guangdong_ygp_flow_matrix(
         "flow_modules": list(FLOW_MODULES),
         "ygp_flow_matrix_task_records": task_records,
         "ygp_project_records": project_records,
-        "ygp_flow_matrix_records": flow_matrix_records,
+        "ygp_flow_matrix_records": flow_bucket_records,
+        "ygp_flow_bucket_records": flow_bucket_records,
+        "ygp_flow_item_records": flow_item_records,
         "ygp_detail_readback_records": detail_readback_records,
         "summary": summary,
         "safety": {
@@ -151,7 +160,7 @@ def _default_input_json(root: Path) -> Path | None:
         path = root / name
         if path.exists():
             return path
-    return root / "original-notice-backtrace-v1.json"
+    return None
 
 
 def _source_urls_from_input(source_manifest: Mapping[str, Any]) -> list[str]:
@@ -200,12 +209,13 @@ def _execute_tasks(
     enable_live_public_query: bool,
     max_live_source_urls: int | None,
     http_getter: HttpGetter | None,
-) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
     if not enable_live_public_query:
-        return [], [], []
+        return [], [], [], []
     getter = http_getter or _default_http_getter
     project_records: list[dict[str, Any]] = []
-    flow_matrix_records: list[dict[str, Any]] = []
+    flow_bucket_records: list[dict[str, Any]] = []
+    flow_item_records: list[dict[str, Any]] = []
     detail_records: list[dict[str, Any]] = []
     attempted = 0
     for task in tasks:
@@ -221,20 +231,23 @@ def _execute_tasks(
             )
             continue
         attempted += 1
-        project, flow_rows, details = _execute_one_task(task, getter=getter, created_at=created_at)
+        project, buckets, items, details = _execute_one_task(task, getter=getter, created_at=created_at)
         project_records.append(project)
-        flow_matrix_records.extend(flow_rows)
+        flow_bucket_records.extend(buckets)
+        flow_item_records.extend(items)
         detail_records.extend(details)
-    return project_records, flow_matrix_records, detail_records
+    return project_records, flow_bucket_records, flow_item_records, detail_records
 
 
-def _execute_one_task(task: Mapping[str, Any], *, getter: HttpGetter, created_at: str) -> tuple[dict[str, Any], list[dict[str, Any]], list[dict[str, Any]]]:
+def _execute_one_task(
+    task: Mapping[str, Any], *, getter: HttpGetter, created_at: str
+) -> tuple[dict[str, Any], list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
     source_url = str(task.get("source_url") or "")
     route_attempts: list[dict[str, Any]] = []
     resolved = _resolve_project_route(source_url, getter=getter, task=task, route_attempts=route_attempts)
     if not resolved:
         project = _project_blocked(task, route_attempts=route_attempts, blockers=["ygp_project_route_unresolved"], created_at=created_at)
-        return project, [], []
+        return project, [], [], []
     node_list_url = _node_list_url(resolved)
     node_response = _fetch_url(node_list_url, getter, route="ygp_node_list_fetch", task=task)
     route_attempts.append(node_response["attempt"])
@@ -247,16 +260,17 @@ def _execute_one_task(task: Mapping[str, Any], *, getter: HttpGetter, created_at
             prefix="ygp_node_list",
         ) or ["ygp_node_list_payload_missing"]
         project = _project_blocked(task, route_attempts=route_attempts, blockers=blockers, created_at=created_at)
-        return project, [], []
+        return project, [], [], []
 
     nodes = [node for node in node_payload.get("data", []) if isinstance(node, Mapping)]
-    flow_rows = _flow_rows_from_nodes(task, resolved=resolved, nodes=nodes, created_at=created_at)
+    flow_items = _flow_item_rows_from_nodes(task, resolved=resolved, nodes=nodes, created_at=created_at)
     detail_records: list[dict[str, Any]] = []
-    for row in flow_rows:
+    for row in flow_items:
         if str(row.get("flow_item_state") or "") != "YGP_FLOW_ITEM_PRESENT":
             continue
         detail = _fetch_detail_for_flow(row, resolved=resolved, getter=getter, created_at=created_at)
         detail_records.append(detail)
+    flow_buckets = _flow_bucket_rows(task, resolved=resolved, flow_items=flow_items, detail_records=detail_records, created_at=created_at)
     project = {
         **dict(task),
         "execution_mode": "LIVE_PUBLIC_QUERY_ATTEMPTED",
@@ -264,7 +278,8 @@ def _execute_one_task(task: Mapping[str, Any], *, getter: HttpGetter, created_at
         "resolved_project_route": resolved,
         "node_list_url": node_list_url,
         "node_count": len(nodes),
-        "present_flow_count": len({row.get("flow_no") for row in flow_rows if row.get("flow_item_state") == "YGP_FLOW_ITEM_PRESENT"}),
+        "present_flow_count": len({row.get("flow_no") for row in flow_buckets if row.get("flow_item_state") == "YGP_FLOW_ITEM_PRESENT"}),
+        "flow_item_count": len(flow_items),
         "detail_readback_ready_count": sum(1 for record in detail_records if record.get("detail_readback_state") == "YGP_DETAIL_READBACK_READY"),
         "route_attempts": route_attempts,
         "blocker_taxonomy": [],
@@ -272,7 +287,7 @@ def _execute_one_task(task: Mapping[str, Any], *, getter: HttpGetter, created_at
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,
     }
-    return project, flow_rows, detail_records
+    return project, flow_buckets, flow_items, detail_records
 
 
 def _resolve_project_route(
@@ -358,7 +373,7 @@ def _detail_url(route: Mapping[str, str], *, node_id: str, biz_code: str, notice
     return f"{YGP_API_ROOT}/trading-notice/new/detail?{query}"
 
 
-def _flow_rows_from_nodes(
+def _flow_item_rows_from_nodes(
     task: Mapping[str, Any],
     *,
     resolved: Mapping[str, str],
@@ -367,52 +382,90 @@ def _flow_rows_from_nodes(
 ) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     seen: set[str] = set()
-    present_flow_nos: set[str] = set()
-    represented_flow_nos: set[str] = set()
     for node in nodes:
-        flow = _map_node_to_flow(str(node.get("nodeName") or ""), str(node.get("selectedBizCode") or ""))
-        if not flow:
-            continue
-        flow_no = str(flow["flow_no"])
+        node_flow = _map_notice_to_flow(str(node.get("nodeName") or ""), str(node.get("selectedBizCode") or ""))
         entries = _node_notice_entries(node)
         if not entries:
+            if not node_flow:
+                continue
+            flow = node_flow
             key = f"{flow['flow_no']}|{node.get('nodeId') or ''}|absent"
             if key in seen:
                 continue
             seen.add(key)
-            represented_flow_nos.add(flow_no)
             rows.append(_flow_row(task, resolved=resolved, node=node, flow=flow, notice_id="", biz_code="", notice_label="", state="YGP_FLOW_ITEM_ABSENT", created_at=created_at))
             continue
         for entry in entries:
+            flow = _map_notice_to_flow(entry["notice_label"], entry["biz_code"]) or node_flow
+            if not flow:
+                continue
             key = f"{flow['flow_no']}|{node.get('nodeId') or ''}|{entry['biz_code']}|{entry['notice_id']}"
             if key in seen:
                 continue
             seen.add(key)
-            present_flow_nos.add(flow_no)
-            represented_flow_nos.add(flow_no)
             rows.append(_flow_row(task, resolved=resolved, node=node, flow=flow, notice_id=entry["notice_id"], biz_code=entry["biz_code"], notice_label=entry["notice_label"], state="YGP_FLOW_ITEM_PRESENT", created_at=created_at))
-    for flow in FLOW_MODULES:
-        if str(flow["flow_no"]) in represented_flow_nos:
-            continue
-        key = f"{flow['flow_no']}|matrix_absent"
-        if key in seen:
-            continue
-        seen.add(key)
-        rows.append(
-            _flow_row(
-                task,
-                resolved=resolved,
-                node={},
-                flow=flow,
-                notice_id="",
-                biz_code="",
-                notice_label="",
-                state="YGP_FLOW_ITEM_NOT_PRESENT",
-                created_at=created_at,
-            )
-        )
     rows.sort(key=lambda row: (str(row.get("flow_no") or ""), str(row.get("published_at") or ""), str(row.get("notice_id") or "")))
     return rows
+
+
+def _flow_bucket_rows(
+    task: Mapping[str, Any],
+    *,
+    resolved: Mapping[str, str],
+    flow_items: list[Mapping[str, Any]],
+    detail_records: list[Mapping[str, Any]],
+    created_at: str,
+) -> list[dict[str, Any]]:
+    detail_by_item_id = {
+        str(record.get("ygp_flow_item_id") or ""): record
+        for record in detail_records
+        if str(record.get("detail_readback_state") or "") == "YGP_DETAIL_READBACK_READY"
+    }
+    buckets: list[dict[str, Any]] = []
+    for flow in FLOW_MODULES:
+        flow_no = str(flow["flow_no"])
+        items = [item for item in flow_items if str(item.get("flow_no") or "") == flow_no]
+        present_items = [item for item in items if str(item.get("flow_item_state") or "") == "YGP_FLOW_ITEM_PRESENT"]
+        absent_items = [item for item in items if str(item.get("flow_item_state") or "") == "YGP_FLOW_ITEM_ABSENT"]
+        if present_items:
+            state = "YGP_FLOW_ITEM_PRESENT"
+        elif absent_items:
+            state = "YGP_FLOW_ITEM_ABSENT"
+        else:
+            state = "YGP_FLOW_ITEM_NOT_PRESENT"
+        ready_details = [
+            detail_by_item_id.get(str(item.get("ygp_flow_item_id") or ""))
+            for item in present_items
+            if detail_by_item_id.get(str(item.get("ygp_flow_item_id") or ""))
+        ]
+        return_row = _flow_row(
+            task,
+            resolved=resolved,
+            node=present_items[0] if present_items else absent_items[0] if absent_items else {},
+            flow=flow,
+            notice_id=str(present_items[0].get("notice_id") or "") if present_items else "",
+            biz_code=str(present_items[0].get("biz_code") or "") if present_items else "",
+            notice_label=str(present_items[0].get("notice_label") or "") if present_items else "",
+            state=state,
+            created_at=created_at,
+        )
+        return_row.update(
+            {
+                "ygp_flow_bucket_id": _stable_id("YGP-FLOW-BUCKET", task.get("source_url"), flow_no),
+                "flow_item_count": len(items),
+                "present_item_count": len(present_items),
+                "detail_readback_ready_count": len(ready_details),
+                "detail_urls": _dedupe(item.get("detail_url") for item in present_items),
+                "notice_ids": _dedupe(item.get("notice_id") for item in present_items),
+                "biz_codes": _dedupe(item.get("biz_code") for item in present_items),
+                "notice_labels": _dedupe(item.get("notice_label") for item in present_items),
+                "published_dates": _dedupe(detail.get("published_at") for detail in ready_details),
+                "attachment_name_count": sum(len(_list(detail.get("attachment_names"))) for detail in ready_details),
+                "project_names": _dedupe(detail.get("project_name") for detail in ready_details),
+            }
+        )
+        buckets.append(return_row)
+    return buckets
 
 
 def _node_notice_entries(node: Mapping[str, Any]) -> list[dict[str, str]]:
@@ -570,19 +623,18 @@ def _extract_detail_payload(data: Any) -> dict[str, Any]:
     }
 
 
-def _map_node_to_flow(node_name: str, biz_code: str) -> Mapping[str, str] | None:
-    name = re.sub(r"\s+", "", node_name or "")
+def _map_notice_to_flow(label: str, biz_code: str) -> Mapping[str, str] | None:
+    name = re.sub(r"\s+", "", label or "")
+    code = re.sub(r"\s+", "", biz_code or "")
     if any(token in name for token in ("招标计划", "采购意向")):
         return FLOW_MODULES[0]
     if any(token in name for token in ("招标文件公示", "采购需求")):
         return FLOW_MODULES[1]
-    if any(token in name for token in ("招标公告", "采购公告", "采购项目", "资格预审公告")):
-        return FLOW_MODULES[2]
-    if any(token in name for token in ("澄清", "答疑", "更正", "补充", "变更公告")):
+    if any(token in name for token in ("澄清", "答疑", "更正", "补充", "变更公告", "修改")):
         return FLOW_MODULES[3]
     if "开标" in name:
         return FLOW_MODULES[4]
-    if any(token in name for token in ("资审结果", "资格审查结果")):
+    if any(token in name for token in ("资审结果", "资格审查结果", "评标报告")):
         return FLOW_MODULES[5]
     if "候选" in name:
         return FLOW_MODULES[6]
@@ -595,6 +647,26 @@ def _map_node_to_flow(node_name: str, biz_code: str) -> Mapping[str, str] | None
     if any(token in name for token in ("合同公告", "合同信息", "合同公开")):
         return FLOW_MODULES[10]
     if any(token in name for token in ("终止", "项目异常", "废标", "流标")):
+        return FLOW_MODULES[11]
+    if any(token in name for token in ("招标公告", "采购公告", "采购项目", "资格预审公告")):
+        return FLOW_MODULES[2]
+    if code in {"3C14", "3C15", "3871", "3831", "3822"}:
+        return FLOW_MODULES[2]
+    if code in {"3C16", "3C17"}:
+        return FLOW_MODULES[3]
+    if code in {"3C31"}:
+        return FLOW_MODULES[4]
+    if code in {"3C73", "3C42"}:
+        return FLOW_MODULES[5]
+    if code in {"3C51"}:
+        return FLOW_MODULES[6]
+    if code in {"3C71", "3C72"}:
+        return FLOW_MODULES[7]
+    if code in {"3C52", "3B42"}:
+        return FLOW_MODULES[8]
+    if code in {"3C53", "3C54"}:
+        return FLOW_MODULES[10]
+    if code in {"3C81", "3C82"}:
         return FLOW_MODULES[11]
     return None
 
@@ -711,6 +783,7 @@ def _summary(
     task_records: list[Mapping[str, Any]],
     project_records: list[Mapping[str, Any]],
     flow_matrix_records: list[Mapping[str, Any]],
+    flow_item_records: list[Mapping[str, Any]],
     detail_readback_records: list[Mapping[str, Any]],
     execution_mode: str,
     blocking_reasons: list[str],
@@ -722,12 +795,14 @@ def _summary(
         "ygp_flow_matrix_task_count": len(task_records),
         "ygp_project_readback_count": len(project_records),
         "ygp_flow_item_count": len(flow_matrix_records),
+        "ygp_notice_item_count": len(flow_item_records),
         "ygp_present_flow_count": len(present_flows),
         "ygp_detail_readback_count": len(detail_readback_records),
         "ygp_detail_readback_ready_count": sum(1 for record in detail_readback_records if record.get("detail_readback_state") == "YGP_DETAIL_READBACK_READY"),
         "present_flow_nos": sorted(present_flows),
         "project_readback_state_counts": _counts(record.get("project_readback_state") for record in project_records),
         "flow_item_state_counts": _counts(record.get("flow_item_state") for record in flow_matrix_records),
+        "notice_item_state_counts": _counts(record.get("flow_item_state") for record in flow_item_records),
         "detail_readback_state_counts": _counts(record.get("detail_readback_state") for record in detail_readback_records),
         "blocker_taxonomy_counts": _counts(
             blocker

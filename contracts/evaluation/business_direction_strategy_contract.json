@@ -665,6 +665,7 @@
           "data_ggzy_company_award_history_search_by_company_name_or_uniscid",
           "data_ggzy_bid_list_by_uniscid",
           "data_ggzy_bid_show_notice_content_and_original_url",
+          "ygp_city_discovery_recent_07_candidate_search_by_city_code",
           "ygp_original_url_readback_from_data_ggzy_pointer",
           "ygp_flow_matrix_01_to_12_node_list_and_detail_readback",
           "original_notice_url_targeted_flow_07_or_08_backtrace_when_needed",
@@ -719,6 +720,7 @@
           "resolve_uniscid_and_exact_or_alias_company_match",
           "data.ggzy.yjcx.index.bid_list_by_uniscid_for_recent_1_to_3_years",
           "data.ggzy.yjcx.index.bid_show_by_record_id_for_notice_content_and_original_url",
+          "ygp.search.v2.items_by_city_code_for_recent_07_candidate_discovery",
           "ygp.url_mapping_original_readback_when_data_ggzy_points_to_ygp",
           "extract_responsible_person_and_contract_or_service_period_from_bid_show_content",
           "use_original_notice_url_for_targeted_01_to_12_backtrace_only_when_bid_show_is_insufficient_or_overlap_signal_exists"
@@ -757,6 +759,38 @@
             "do_not_treat_ygp_readback_as_final_active_conflict_conclusion",
             "do_not_treat_ygp_source_blocked_as_clearance"
           ]
+        },
+        "ygp_city_discovery_v1_policy": {
+          "source_profile_id": "GUANGDONG-YGP-CITY-DISCOVERY",
+          "role": "GUANGDONG_NON_GUANGZHOU_SHENZHEN_CITY_RECENT_07_DISCOVERY_AND_FLOW_MATRIX_ENTRY",
+          "default_execution_mode": "PLAN_ONLY_NOT_EXECUTED",
+          "optional_execution_mode": "LIVE_PUBLIC_QUERY_ATTEMPTED",
+          "search_endpoint": "https://ygp.gdzwfw.gov.cn/ggzy-portal/search/v2/items",
+          "default_city_codes": [
+            "440400",
+            "440500",
+            "440600"
+          ],
+          "default_entry_flow_no": "07",
+          "candidate_acceptance_fields": [
+            "datasetName",
+            "noticeThirdTypeDesc",
+            "noticeTitle_fallback"
+          ],
+          "candidate_rejection_policy": "do_not_treat_award_result_or_procurement_result_as_candidate_notice",
+          "builds_flow_matrix_with": "GUANGDONG-YGP-FLOW-MATRIX",
+          "not_guangzhou_primary_source": true,
+          "not_shenzhen_primary_source": true,
+          "guangdong_other_city_adapter_base_capability": true,
+          "must_not": [
+            "do_not_restore_ygp_as_guangzhou_primary_source",
+            "do_not_use_ygp_for_shenzhen_before_independent_adapter_review",
+            "do_not_treat_city_discovery_as_verification_conclusion",
+            "do_not_default_download_or_parse_flow_08_from_city_discovery",
+            "do_not_treat_search_miss_or_blocked_city_as_clearance"
+          ],
+          "customer_visible_allowed": false,
+          "no_legal_conclusion": true
         },
         "ygp_flow_matrix_v1_policy": {
           "source_profile_id": "GUANGDONG-YGP-FLOW-MATRIX",

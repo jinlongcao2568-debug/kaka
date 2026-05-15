@@ -114,6 +114,33 @@ class GuangdongYgpFlowMatrixTests(unittest.TestCase):
             self.assertEqual(len(candidate_rows), 1)
             self.assertEqual(candidate_rows[0]["flow_item_state"], "YGP_FLOW_ITEM_ABSENT")
 
+    def test_dslist_items_are_mapped_by_specific_biz_code_and_label(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+
+            result = build_guangdong_ygp_flow_matrix(
+                input_root=root,
+                source_urls=[YGP_HASH_URL],
+                output_root=root / "out",
+                enable_live_public_query=True,
+                max_live_source_urls=1,
+                http_getter=_fake_ygp_engineering_http_getter,
+                created_at="2026-05-15T00:00:00+08:00",
+            )
+
+            self.assertTrue(result["safe_to_execute"])
+            self.assertEqual(result["summary"]["ygp_flow_item_count"], 12)
+            self.assertEqual(result["summary"]["present_flow_nos"], ["03", "04", "05", "06", "07", "12"])
+            item_records = result["manifest"]["ygp_flow_item_records"]
+            by_label = {record["notice_label"]: record["flow_no"] for record in item_records}
+            self.assertEqual(by_label["招标公告、资格预审公告"], "03")
+            self.assertEqual(by_label["招标文件、招标文件澄清与修改"], "04")
+            self.assertEqual(by_label["开标记录"], "05")
+            self.assertEqual(by_label["资格审查结果"], "06")
+            self.assertEqual(by_label["评标报告"], "06")
+            self.assertEqual(by_label["中标候选人公示"], "07")
+            self.assertEqual(by_label["招标异常情况报告"], "12")
+
     def test_node_list_blocker_is_classified_without_fake_success(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -238,6 +265,25 @@ def _fake_ygp_http_getter_with_empty_candidate_node(url: str, context: Mapping[s
     return _fake_ygp_http_getter(url, context)
 
 
+def _fake_ygp_engineering_http_getter(url: str, context: Mapping[str, Any]) -> Mapping[str, Any]:
+    if "nodeList" in url:
+        return {
+            "status_code": 200,
+            "content_type": "application/json;charset=UTF-8",
+            "body": json.dumps({"data": _engineering_node_list_payload()}, ensure_ascii=False),
+            "url": url,
+        }
+    if "detail" in url:
+        params = _query(url)
+        return {
+            "status_code": 200,
+            "content_type": "application/json;charset=UTF-8",
+            "body": json.dumps({"data": _detail_payload(params.get("noticeId", ""))}, ensure_ascii=False),
+            "url": url,
+        }
+    return _fake_ygp_http_getter(url, context)
+
+
 def _node_list_payload() -> list[dict[str, Any]]:
     return [
         _node("n01", "采购意向公开", "3871@采购意向公开", "notice01"),
@@ -247,6 +293,41 @@ def _node_list_payload() -> list[dict[str, Any]]:
         _node("n09", "结果公告", "3871@结果公告", "notice09"),
         _node("n11", "合同公告", "3871@合同公告", "notice11"),
         _node("n12", "终止公告", "3871@终止公告", "notice12"),
+    ]
+
+
+def _engineering_node_list_payload() -> list[dict[str, Any]]:
+    return [
+        {
+            "nodeId": "n03",
+            "nodeName": "招标公告及资格预审",
+            "selectedBizCode": "3C14",
+            "dataCount": 3,
+            "dsList": [
+                {"3C81@招标异常情况报告": ["notice12"]},
+                {"3C14@招标公告、资格预审公告": ["notice03"]},
+                {"3C16@招标文件、招标文件澄清与修改": ["notice04"]},
+            ],
+        },
+        {
+            "nodeId": "n07",
+            "nodeName": "中标候选人公示",
+            "selectedBizCode": "3C51",
+            "dataCount": 4,
+            "dsList": [
+                {"3C73@资格审查结果": ["notice06"]},
+                {"3C51@中标候选人公示": ["notice07"]},
+                {"3C31@开标记录": ["notice05"]},
+                {"3C42@评标报告": ["notice06b"]},
+            ],
+        },
+        {
+            "nodeId": "n09",
+            "nodeName": "中标结果",
+            "selectedBizCode": "3C52",
+            "dataCount": 0,
+            "dsList": [],
+        },
     ]
 
 

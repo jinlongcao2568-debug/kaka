@@ -135,9 +135,13 @@ def test_status_board_records_p0_sync_boundary() -> None:
     assert "YGP" in text
     assert "原文 readback" in text
     assert "不恢复为广州主采集源" in text
+    assert "YGP CityDiscovery v1" in text
+    assert "search/v2/items" in text
+    assert "noticeSecondType" in text and "tradingProcess" in text and "regionCode" in text
     assert "项目流程矩阵" in text
     assert "nodeList" in text
     assert "detail" in text
+    assert "dsList" in text
     assert "广州交易集团独立适配" in text
     assert "深圳公共资源交易中心独立适配" in text
     assert "广东其他城市" in text
@@ -269,10 +273,13 @@ def test_top_level_docs_contain_final_strategy_guardrails() -> None:
         assert "data.ggzy.gov.cn" in text
         assert "YGP" in text
         assert "原文 readback" in text
+        assert "YGP CityDiscovery v1" in text
+        assert "search/v2/items" in text
         assert "广州主源仍" in text or "不恢复为广州主采集源" in text
         assert "项目流程矩阵" in text
         assert "nodeList" in text
         assert "detail" in text
+        assert "dsList" in text
         assert "广东其他城市" in text
         assert "bid_show" in text
         assert "原文链接" in text
