@@ -123,7 +123,13 @@ def test_status_board_records_p0_sync_boundary() -> None:
     assert "文件相似度" in text
     assert "报价异常" in text
     assert "下一阶段执行计划同步说明" in text
+    assert "P13B_EXTERNAL_AWARD_OVERLAP_TRIAGE_V1" in text
     assert "P12_GUANGZHOU_10_PROJECT_VALUE_CLOSEOUT_V1" in text
+    assert "P13A 已修复 `JG2026-11215`" in text
+    assert "10 项目、26 个真实候选组、流程阻断 0、08 定向解析 0" in text
+    assert "PRIOR_AWARD_AND_CANDIDATE_OVERLAP_TRIAGE" in text
+    assert "历史候选、中标、中标结果和合同服务期记录宽筛" in text
+    assert "不得写排除结论" in text
     assert "P11_GUANGZHOU_10_PROJECT_STABILITY_V1" in text
     assert "P10_P9_AWARE_READABLE_CLOSEOUT_V1" in text
     assert "P9_EVIDENCE_FIXATION_RECAPTURE_V1" in text
@@ -134,7 +140,7 @@ def test_status_board_records_p0_sync_boundary() -> None:
     assert "project-value-table" in text
     assert "candidate-group-verification-table" in text
     assert "delivery-gap-table" in text
-    assert "P12 完成前不得扩到 20/50 项目" in text
+    assert "不扩 20/50" in text
     assert "customer_delivery_ready=false" in text
     assert "RESERVED_NOT_IMPLEMENTED" in text
     assert "非承包方原因停工超过 120 天" in text
@@ -197,6 +203,11 @@ def test_business_direction_doc_contains_final_analysis_strategy_rules() -> None
     assert "四库/JZSC 的项目业绩信息只用于辅助核对 `08 投标文件公开`" in text
     assert "不能把“四库未出现”单独写成业绩造假或在建冲突" in text
     assert "在建/履约冲突不以四库作为唯一实时依据" in text
+    assert "PRIOR_AWARD_AND_CANDIDATE_OVERLAP_TRIAGE" in text
+    assert "全国/多省公共资源历史候选、中标、中标结果、合同服务期记录做宽筛" in text
+    assert "不得一开始全省施工许可、竣工、合同备案全量扫描" in text
+    assert "历史中标/候选记录只能证明曾经出现和可能存在时间窗口重叠" in text
+    assert "未发现公开重叠线索/需复核/源阻断" in text
     assert "单一路线失败不能直接进入 `08` 或冲突结论" in text
     assert "项目负责人未释放 / 在建履约冲突官方证据链" in text
     assert "非承包方原因导致工程停工超过 120 天" in text
@@ -239,6 +250,9 @@ def test_top_level_docs_contain_final_strategy_guardrails() -> None:
         assert "PLAN_ONLY_UNTIL_REGION_ADAPTER_VERIFIED" in text
         assert "MajorRegionQueryProbe v1" in text
         assert "GuangdongLocalVerificationProbe v1" in text
+        assert "PRIOR_AWARD_AND_CANDIDATE_OVERLAP_TRIAGE" in text
+        assert "历史候选" in text and "合同服务期" in text
+        assert "不得一开始全省施工许可、竣工、合同备案全量扫描" in text
         assert "项目负责人未释放" in text
         assert "缺竣工" in text
         assert "无在建" in text

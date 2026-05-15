@@ -594,7 +594,7 @@ class BusinessDirectionStrategyContractTests(unittest.TestCase):
         plan = contract["next_phase_execution_plan"]
         phases = [phase["phase_id"] for phase in plan["phases"]]
 
-        self.assertEqual(plan["current_focus"], "P12_GUANGZHOU_10_PROJECT_VALUE_CLOSEOUT_V1")
+        self.assertEqual(plan["current_focus"], "P13B_EXTERNAL_AWARD_OVERLAP_TRIAGE_V1")
         self.assertEqual(
             phases,
             [
@@ -610,6 +610,7 @@ class BusinessDirectionStrategyContractTests(unittest.TestCase):
                 "P10_P9_AWARE_READABLE_CLOSEOUT_V1",
                 "P11_GUANGZHOU_10_PROJECT_STABILITY_V1",
                 "P12_GUANGZHOU_10_PROJECT_VALUE_CLOSEOUT_V1",
+                "P13B_EXTERNAL_AWARD_OVERLAP_TRIAGE_V1",
             ],
         )
         p1 = plan["phases"][0]
@@ -617,29 +618,61 @@ class BusinessDirectionStrategyContractTests(unittest.TestCase):
         self.assertIn("12 个候选组均有负责人公开注册信息匹配结果", p1["success_criteria"])
         self.assertIn("do_not_expand_to_20_or_50_before_p11_batch_stability_closeout", plan["must_not"])
         self.assertIn("do_not_expand_to_20_or_50_before_p12_value_closeout", plan["must_not"])
+        self.assertIn("do_not_expand_to_20_or_50_before_p13b_overlap_triage", plan["must_not"])
+        self.assertIn("do_not_start_with_full_province_construction_permit_sweep", plan["must_not"])
         self.assertIn("do_not_default_parse_flow_08_without_trigger", plan["must_not"])
         self.assertIn("do_not_treat_plan_only_region_sources_as_live_verified", plan["must_not"])
-        p9 = plan["phases"][-4]
+        phase_by_id = {phase["phase_id"]: phase for phase in plan["phases"]}
+        p9 = phase_by_id["P9_EVIDENCE_FIXATION_RECAPTURE_V1"]
         self.assertEqual(p9["phase_id"], "P9_EVIDENCE_FIXATION_RECAPTURE_V1")
         self.assertIn(
             "Stage4/JZSC readback 只生成字段摘要 hash 和 route attempts，不改变核验结论",
             p9["success_criteria"],
         )
         self.assertIn("P8 消费 RecaptureRoot 后 backfilled_no_remaining_gap_count 高于 32，剩余缺口有 route taxonomy", p9["success_criteria"])
-        p10 = plan["phases"][-3]
+        p10 = phase_by_id["P10_P9_AWARE_READABLE_CLOSEOUT_V1"]
         self.assertEqual(p10["phase_id"], "P10_P9_AWARE_READABLE_CLOSEOUT_V1")
         self.assertIn("P10 完成后才进入广州 10 项目稳定性验证", p10["success_criteria"])
-        p11 = plan["phases"][-2]
+        p11 = phase_by_id["P11_GUANGZHOU_10_PROJECT_STABILITY_V1"]
         self.assertEqual(p11["phase_id"], "P11_GUANGZHOU_10_PROJECT_STABILITY_V1")
         self.assertIn("P11 EvidenceReport 使用 NoDefaultOptionalRoots 隔离旧 5 项目 GDCIC/local/active conflict 产物", p11["success_criteria"])
         self.assertIn("08 未触发时不作为 blocker，且不默认深解析 08", p11["success_criteria"])
-        p12 = plan["phases"][-1]
+        p12 = phase_by_id["P12_GUANGZHOU_10_PROJECT_VALUE_CLOSEOUT_V1"]
         self.assertEqual(p12["phase_id"], "P12_GUANGZHOU_10_PROJECT_VALUE_CLOSEOUT_V1")
         self.assertIn(
             "身份/证书已通但缺施工许可、合同备案、竣工验收、项目经理变更、处罚投诉等外部源时输出 EXTERNAL_CONFLICT_SOURCE_REQUIRED",
             p12["success_criteria"],
         )
         self.assertIn("报告保持 customer_delivery_ready=false，不输出客户可见法律定性", p12["success_criteria"])
+        p13b = phase_by_id["P13B_EXTERNAL_AWARD_OVERLAP_TRIAGE_V1"]
+        self.assertIn("8 个 EXTERNAL_CONFLICT_SOURCE_REQUIRED 项目均生成历史候选/中标重叠宽筛任务", p13b["success_criteria"])
+        self.assertIn("只有命中重叠线索的项目才生成施工许可、合同备案、竣工验收、项目经理变更等释放证据补查任务", p13b["success_criteria"])
+        self.assertIn("未命中、接口阻断或地区 adapter 未完成不写排除结论", p13b["success_criteria"])
+
+    def test_p13b_external_award_overlap_triage_policy(self) -> None:
+        contract = self._contract()
+        policy = contract["analysis_strategy_policy"]["active_conflict_external_source_policy"][
+            "external_award_overlap_triage_v1_policy"
+        ]
+
+        self.assertEqual(policy["current_phase_id"], "P13B_EXTERNAL_AWARD_OVERLAP_TRIAGE_V1")
+        self.assertEqual(policy["external_conflict_first_pass"], "PRIOR_AWARD_AND_CANDIDATE_OVERLAP_TRIAGE")
+        self.assertEqual(policy["release_evidence_probe_trigger"], "ONLY_AFTER_TIME_WINDOW_OVERLAP_SIGNAL")
+        self.assertTrue(policy["do_not_start_with_full_province_construction_permit_sweep"])
+        self.assertTrue(policy["query_miss_is_not_clearance"])
+        self.assertFalse(policy["flow_08_default_parse_required"])
+        self.assertIn("national_public_resource_historical_candidate_notices", policy["first_pass_sources"])
+        self.assertIn("construction_permit", policy["release_evidence_sources_after_overlap"])
+        self.assertIn("do_not_treat_prior_award_or_candidate_record_as_final_unreleased_proof", policy["must_not"])
+        self.assertIn("do_not_treat_no_prior_award_match_as_no_risk", policy["must_not"])
+        facts = policy["current_verified_run_facts"]
+        self.assertEqual(facts["p13a_fixed_project_id"], "JG2026-11215")
+        self.assertEqual(facts["p12_project_count"], 10)
+        self.assertEqual(facts["p12_candidate_group_count"], 26)
+        self.assertEqual(facts["p12_process_blocked_project_count"], 0)
+        self.assertEqual(facts["p12_flow_08_targeted_parse_required_count"], 0)
+        self.assertEqual(facts["p12_external_conflict_source_required_project_count"], 8)
+        self.assertEqual(facts["p12_low_value_or_not_applicable_project_count"], 2)
 
 
 if __name__ == "__main__":

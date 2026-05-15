@@ -1,6 +1,6 @@
 {
   "contract_id": "BUSINESS-DIRECTION-STRATEGY-CONTRACT",
-  "contract_version": 11,
+  "contract_version": 12,
   "purpose": "固定招投标分析产品的双线业务方向，避免后续开发把招标公告文件链路验证误当成核心商业主线。",
   "primary_commercial_line": "POST_CANDIDATE_EVIDENCE_PACK",
   "default_when_ambiguous": "POST_CANDIDATE_EVIDENCE_PACK",
@@ -652,6 +652,57 @@
         "customer_visible_allowed": false,
         "no_legal_conclusion": true
       },
+      "external_award_overlap_triage_v1_policy": {
+        "policy_id": "EXTERNAL-AWARD-OVERLAP-TRIAGE-V1",
+        "current_phase_id": "P13B_EXTERNAL_AWARD_OVERLAP_TRIAGE_V1",
+        "external_conflict_first_pass": "PRIOR_AWARD_AND_CANDIDATE_OVERLAP_TRIAGE",
+        "release_evidence_probe_trigger": "ONLY_AFTER_TIME_WINDOW_OVERLAP_SIGNAL",
+        "do_not_start_with_full_province_construction_permit_sweep": true,
+        "query_miss_is_not_clearance": true,
+        "flow_08_default_parse_required": false,
+        "purpose": "先用全国/多省公共资源历史候选、中标、中标结果、合同服务期记录宽筛负责人、候选公司/联合体成员和项目关键词的时间窗口重叠线索；命中重叠后再定向补查上一项目释放证据。",
+        "first_pass_sources": [
+          "national_public_resource_historical_candidate_notices",
+          "national_public_resource_award_results",
+          "major_region_public_resource_candidate_or_award_notices",
+          "contract_service_period_or_performance_period_records_when_available"
+        ],
+        "first_pass_output_states": [
+          "PRIOR_AWARD_OVERLAP_SIGNAL",
+          "PRIOR_CANDIDATE_RECORD_FOUND",
+          "TIME_WINDOW_OVERLAP_REVIEW",
+          "NO_PRIOR_AWARD_SIGNAL_FOUND_REVIEW",
+          "SOURCE_BLOCKED_RETRY_REQUIRED"
+        ],
+        "release_evidence_sources_after_overlap": [
+          "construction_permit",
+          "contract_filing_or_contract_credit_info",
+          "completion_or_acceptance_filing",
+          "project_manager_change_notice",
+          "construction_permit_change",
+          "owner_approved_non_contractor_shutdown_over_120_days",
+          "same_project_adjacent_section_or_phase_exception",
+          "administrative_penalty_or_complaint_decision"
+        ],
+        "current_verified_run_facts": {
+          "p13a_fixed_project_id": "JG2026-11215",
+          "p12_project_count": 10,
+          "p12_candidate_group_count": 26,
+          "p12_process_blocked_project_count": 0,
+          "p12_flow_08_targeted_parse_required_count": 0,
+          "p12_external_conflict_source_required_project_count": 8,
+          "p12_low_value_or_not_applicable_project_count": 2
+        },
+        "must_not": [
+          "do_not_treat_prior_award_or_candidate_record_as_final_unreleased_proof",
+          "do_not_treat_no_prior_award_match_as_no_risk",
+          "do_not_start_with_full_province_construction_permit_sweep",
+          "do_not_default_parse_flow_08_for_external_conflict_triage",
+          "do_not_treat_source_blocked_or_region_adapter_missing_as_clearance"
+        ],
+        "customer_visible_allowed": false,
+        "no_legal_conclusion": true
+      },
       "guangdong_local_verification_probe_v1_policy": {
         "policy_id": "GUANGDONG-LOCAL-VERIFICATION-PROBE-V1",
         "default_execution_mode": "PLAN_ONLY_NOT_EXECUTED",
@@ -1061,7 +1112,7 @@
   ],
   "next_phase_execution_plan": {
     "plan_id": "POST-CANDIDATE-EVIDENCE-PACK-NEXT-PHASE-V1",
-    "current_focus": "P12_GUANGZHOU_10_PROJECT_VALUE_CLOSEOUT_V1",
+    "current_focus": "P13B_EXTERNAL_AWARD_OVERLAP_TRIAGE_V1",
     "phases": [
       {
         "phase_id": "P1_GUANGZHOU_EVIDENCE_REPORT_CLOSEOUT_V1",
@@ -1184,12 +1235,25 @@
           "证据固化 unfixable=0 时不阻断价值审查；记录级 hash 只作为交付前说明项",
           "报告保持 customer_delivery_ready=false，不输出客户可见法律定性"
         ]
+      },
+      {
+        "phase_id": "P13B_EXTERNAL_AWARD_OVERLAP_TRIAGE_V1",
+        "goal": "基于 P12 的 8 个需外部在建/履约源项目，先做全国/多省公共资源历史候选、中标、中标结果和合同服务期记录宽筛，发现同一负责人/公司/项目时间窗口重叠线索后，再定向补查上一项目释放证据。",
+        "success_criteria": [
+          "8 个 EXTERNAL_CONFLICT_SOURCE_REQUIRED 项目均生成历史候选/中标重叠宽筛任务",
+          "输出 PRIOR_AWARD_OVERLAP_SIGNAL、TIME_WINDOW_OVERLAP_REVIEW、NO_PRIOR_AWARD_SIGNAL_FOUND_REVIEW 或 SOURCE_BLOCKED_RETRY_REQUIRED 等状态",
+          "只有命中重叠线索的项目才生成施工许可、合同备案、竣工验收、项目经理变更等释放证据补查任务",
+          "未命中、接口阻断或地区 adapter 未完成不写排除结论",
+          "不扩 20/50，不默认解析 08，不输出客户可见法律定性"
+        ]
       }
     ],
     "must_not": [
       "do_not_expand_to_20_or_50_before_p11_batch_stability_closeout",
       "do_not_expand_to_20_or_50_before_p12_value_closeout",
+      "do_not_expand_to_20_or_50_before_p13b_overlap_triage",
       "do_not_start_graph_or_saas_before_evidence_fixation_backfill",
+      "do_not_start_with_full_province_construction_permit_sweep",
       "do_not_default_parse_flow_08_without_trigger",
       "do_not_treat_plan_only_region_sources_as_live_verified"
     ]
