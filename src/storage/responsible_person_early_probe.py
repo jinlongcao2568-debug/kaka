@@ -428,7 +428,10 @@ def _candidate_groups(text: str) -> list[dict[str, Any]]:
         return []
     rows: list[dict[str, Any]] = []
     index = header_index + 1
+    end_markers = {"非候选人公示", "公示时间", "公示开始时间", "公示结束时间", "异议受理部门", "相关附件"}
     while index < len(lines):
+        if rows and lines[index] in end_markers:
+            break
         if not re.fullmatch(r"\d{1,2}", lines[index]):
             index += 1
             continue
@@ -619,19 +622,36 @@ def _certificate_from_line(line: str) -> str:
 
 
 def _dedupe_candidate_groups(groups: list[Mapping[str, Any]]) -> list[dict[str, Any]]:
-    rows: list[dict[str, Any]] = []
-    seen: set[tuple[Any, ...]] = set()
+    by_order_company: dict[tuple[Any, ...], dict[str, Any]] = {}
+    order_keys: list[tuple[Any, ...]] = []
     for group in groups:
         key = (
+            group.get("candidate_group_order"),
             tuple(member.get("company_name") for member in list(group.get("consortium_members") or [])),
-            group.get("responsible_person_name"),
-            group.get("certificate_no"),
         )
-        if key in seen:
+        current = by_order_company.get(key)
+        candidate = dict(group)
+        if current is None:
+            by_order_company[key] = candidate
+            order_keys.append(key)
             continue
-        seen.add(key)
-        rows.append(dict(group))
+        if _candidate_group_quality(candidate) > _candidate_group_quality(current):
+            by_order_company[key] = candidate
+    rows = [by_order_company[key] for key in order_keys]
     return rows[:12]
+
+
+def _candidate_group_quality(group: Mapping[str, Any]) -> int:
+    score = 0
+    if str(group.get("responsible_person_name") or "").strip():
+        score += 4
+    if str(group.get("certificate_no") or "").strip():
+        score += 4
+    if str(group.get("bid_price_optional") or "").strip():
+        score += 1
+    if str(group.get("candidate_group_rank_optional") or "").strip():
+        score += 1
+    return score
 
 
 def _profile_from_candidate_groups(
@@ -871,6 +891,8 @@ def _responsible_role(*, text: str, project_name: str, profile: Mapping[str, lis
         return "design_lead"
     if "勘察负责人" in combined:
         return "survey_lead"
+    if "注册建筑师" in combined and "设计" in project_name:
+        return "design_lead"
     if any(token in combined for token in ("勘察设计", "方案设计", "初步设计", "工程可行性研究", "方案深化研究")):
         return "design_lead"
     if "服务负责人" in combined or "项目总负责人" in combined:
@@ -1101,7 +1123,30 @@ def _clean_person(value: Any) -> str:
         return ""
     if text in {"项目负责人", "总监理", "总监理工程师", "工程师", "候选人", "负责人"}:
         return ""
-    if any(token in text for token in ("项目", "负责", "资质", "业绩", "投标", "报价", "候选", "证书", "代码", "合同", "约定")):
+    if any(
+        token in text
+        for token in (
+            "项目",
+            "负责",
+            "资质",
+            "业绩",
+            "投标",
+            "报价",
+            "候选",
+            "证书",
+            "代码",
+            "合同",
+            "约定",
+            "行业",
+            "甲级",
+            "乙级",
+            "资信",
+            "资格",
+            "建筑",
+            "工程",
+            "等级",
+        )
+    ):
         return ""
     return text
 

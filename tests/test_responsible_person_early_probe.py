@@ -407,6 +407,61 @@ class ResponsiblePersonEarlyProbeTests(unittest.TestCase):
                 [(row["candidate_company_name"], row["responsible_person_name"]) for row in targets],
             )
 
+    def test_design_candidate_table_stops_before_score_table_and_rejects_qualification_as_person(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            input_root = root / "download"
+            _write_project(
+                input_root,
+                project_id="PROJ-CN-GD-JG2026-11215",
+                project_name="广州体育学院新建学生宿舍楼项目设计中标候选人公示",
+                detail_text=(
+                    "序号\n投标单位\n商务文件得分\n技术文件得分\n投标报价得分\n总得分\n排名\n"
+                    "1\n广东南海国际建筑设计有限公司\n30\n45.10\n9.827\n84.93\n1\n"
+                    "2\n广州市设计院集团有限公司\n30\n44.40\n9.862\n84.26\n2\n"
+                    "3\n浙江恒欣设计集团股份有限公司\n30\n43.80\n9.865\n83.67\n3\n"
+                    "序号\n中标候选人名称\n候选人代码\n排名\n投标报价\n质量标准\n设计服务期限\n"
+                    "候选人资格情况\n候选人业绩情况\n拟派项目负责人\n项目负责人资质\n项目负责人业绩\n"
+                    "1\n广东南海国际建筑设计有限公司\n91440605719241964G\n1\n2409500.00元\n"
+                    "按招标文件要求\n按招标文件要求\n建筑行业（建筑工程）甲级\n详见投标文件公开。\n"
+                    "李献义\n一级注册建筑师（注册编号:20034401248）\n详见投标文件公开。\n"
+                    "2\n广州市设计院集团有限公司\n91440101455351798Q\n2\n2349300.00元\n"
+                    "按招标文件要求\n按招标文件要求\n建筑行业甲级\n详见投标文件公开。\n"
+                    "高东\n一级注册建筑师（注册编号:20034401105）\n详见投标文件公开。\n"
+                    "3\n浙江恒欣设计集团股份有限公司\n91330400727195881W\n3\n2350000.00元\n"
+                    "按招标文件要求\n按招标文件要求\n建筑行业（建筑工程）甲级\n详见投标文件公开。\n"
+                    "袁晓忠\n一级注册建筑师（注册编号:20093301403）\n详见投标文件公开。\n"
+                    "异议受理部门\n广东省代建项目管理局\n"
+                    "中标候选人公示\n序号\n投标单位\n商务文件得分\n技术文件得分\n投标报价得分\n总得分\n排名\n"
+                    "1\n广东南海国际建筑设计有限公司\n30\n45.10\n9.827\n84.93\n1\n"
+                    "2\n广州市设计院集团有限公司\n30\n44.40\n9.862\n84.26\n2\n"
+                    "3\n浙江恒欣设计集团股份有限公司\n30\n43.80\n9.865\n83.67\n3\n"
+                ),
+            )
+            result = build_responsible_person_early_probe(
+                input_root=input_root,
+                output_root=root / "out",
+                created_at="2026-05-11T00:00:00+08:00",
+            )
+
+            item = result["manifest"]["items"][0]
+            self.assertEqual(item["responsible_role"], "design_lead")
+            self.assertEqual(item["early_probe_state"], "CERTIFICATE_READY_FROM_07")
+            self.assertEqual(len(item["candidate_groups"]), 3)
+            self.assertEqual(
+                [(group["candidate_group_order"], group["responsible_person_name"], group["certificate_no"]) for group in item["candidate_groups"]],
+                [
+                    (1, "李献义", "20034401248"),
+                    (2, "高东", "20034401105"),
+                    (3, "袁晓忠", "20093301403"),
+                ],
+            )
+            self.assertNotIn("建筑行业甲级", [row["value"] for row in item["responsible_person_candidates"]])
+            stage4_items = result["manifest"]["stage4_candidate_verification_inputs"]["items"]
+            self.assertEqual(len(stage4_items), 3)
+            self.assertEqual(stage4_items[1]["candidate_company_name"], "广州市设计院集团有限公司")
+            self.assertEqual(stage4_items[1]["responsible_person_name"], "高东")
+
     def test_candidate_table_preserves_company_name_with_project_keyword_and_rejects_noise_order(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)

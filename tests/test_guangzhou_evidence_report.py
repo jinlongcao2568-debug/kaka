@@ -142,6 +142,47 @@ class GuangzhouEvidenceReportTests(unittest.TestCase):
                 "INSUFFICIENT_EVIDENCE_PENDING_EXTERNAL_READBACK",
             )
 
+    def test_flow07_certificate_ready_defers_stale_readiness_certificate_and_download_limit_blockers(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_flow_root(root / "flow")
+            _write_download_root(root / "download")
+            _write_responsible_root(root / "responsible")
+            _write_stage4_root(root / "stage4")
+            _write_readiness_root(root / "readiness", flow_08_required=False, resolved=False, include_group=False)
+            readiness_path = root / "readiness" / "guangzhou-upstream-readiness-report.json"
+            readiness = json.loads(readiness_path.read_text(encoding="utf-8"))
+            readiness["manifest"]["project_records"][0]["closeout_blocking_reasons"] = [
+                "attachment_download_incomplete",
+                "candidate_evidence_certificate_input_missing_parse_required",
+            ]
+            readiness["manifest"]["project_records"][0]["failure_taxonomy"] = ["DEFERRED_BY_DOWNLOAD_REPAIR_LIMIT"]
+            readiness_path.write_text(json.dumps(readiness, ensure_ascii=False, indent=2), encoding="utf-8")
+
+            result = build_guangzhou_evidence_report(
+                flow_root=root / "flow",
+                download_root=root / "download",
+                responsible_person_root=root / "responsible",
+                stage4_execution_root=root / "stage4",
+                readiness_root=root / "readiness",
+                output_root=root / "out",
+                created_at="2026-05-12T00:00:00+08:00",
+            )
+
+            project = result["manifest"]["project_reports"][0]
+            stability = project["process_stability"]
+            self.assertTrue(stability["safe_to_closeout_evidence_report"])
+            self.assertEqual(stability["evidence_report_closeout_state"], "EVIDENCE_REPORT_CLOSEOUT_READY")
+            self.assertNotIn("candidate_evidence_certificate_input_missing_parse_required", stability["closeout_blocking_reasons"])
+            self.assertNotIn("attachment_download_incomplete", stability["closeout_blocking_reasons"])
+            self.assertIn(
+                "candidate_evidence_certificate_input_deferred_by_flow_07_certificate_ready",
+                stability["closeout_deferred_reasons"],
+            )
+            group = project["verification_evidence"]["candidate_group_records"][0]
+            self.assertEqual(group["candidate_group_members"], ["广州测试建设有限公司"])
+            self.assertEqual(group["group_resolution_state"], "RESOLVED_FROM_FLOW_07_CERTIFICATE")
+
     def test_report_consumes_active_conflict_probe_summary_when_available(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -496,6 +537,16 @@ def _write_download_root(root: Path) -> None:
 
 def _write_responsible_root(root: Path, *, flow_08_required: bool = False, not_applicable: bool = False) -> None:
     root.mkdir(parents=True, exist_ok=True)
+    stage4_input = {
+        "project_id": "PROJ-CN-GD-JG2026-10815",
+        "project_name": "广州测试项目",
+        "candidate_group_id": "G1",
+        "candidate_group_order": "1",
+        "candidate_group_members": ["广州测试建设有限公司"],
+        "candidate_company_name": "广州测试建设有限公司",
+        "responsible_person_name": "张三",
+        "certificate_no": "粤1442020202100001",
+    }
     item = {
         "project_id": "PROJ-CN-GD-JG2026-10815",
         "project_name": "广州测试项目",
@@ -520,7 +571,18 @@ def _write_responsible_root(root: Path, *, flow_08_required: bool = False, not_a
         ],
     }
     (root / "responsible-person-early-probe.json").write_text(
-        json.dumps({"manifest": {"items": [item]}}, ensure_ascii=False, indent=2),
+        json.dumps(
+            {
+                "manifest": {
+                    "items": [item],
+                    "stage4_candidate_verification_inputs": {
+                        "items": [] if not_applicable or flow_08_required else [stage4_input]
+                    },
+                }
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
         encoding="utf-8",
     )
 

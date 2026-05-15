@@ -377,11 +377,30 @@ def _project_report(
     closeout_safe = bool(readiness_project.get("safe_to_closeout_evidence_report"))
     closeout_blocking_reasons = _list(readiness_project.get("closeout_blocking_reasons"))
     closeout_deferred_reasons = _list(readiness_project.get("closeout_deferred_reasons"))
+    failure_taxonomy = _dedupe(
+        reason
+        for row in [*flow_items, *download_items, responsible_item, readiness_project]
+        for reason in _list(row.get("failure_taxonomy") or row.get("blocking_layers") or row.get("fail_closed_reasons"))
+    )
     if responsible_chain_state.get("chain_state") == "RESPONSIBLE_PERSON_NOT_APPLICABLE":
         closeout_state = "EVIDENCE_REPORT_CLOSEOUT_NOT_APPLICABLE"
         closeout_safe = True
         closeout_blocking_reasons = []
         closeout_deferred_reasons = []
+    else:
+        (
+            closeout_state,
+            closeout_safe,
+            closeout_blocking_reasons,
+            closeout_deferred_reasons,
+        ) = _normalize_closeout_for_responsible_chain(
+            closeout_state=closeout_state,
+            closeout_safe=closeout_safe,
+            closeout_blocking_reasons=closeout_blocking_reasons,
+            closeout_deferred_reasons=closeout_deferred_reasons,
+            responsible_chain_state=responsible_chain_state,
+            failure_taxonomy=failure_taxonomy,
+        )
     process_stability = {
         "flow_07_present": any(_flow_no(row) == "07" for row in [*flow_items, *download_items]),
         "flow_08_present": flow_08_registry["flow_08_present"],
@@ -399,11 +418,7 @@ def _project_report(
         "stage4_readback_ready_count": sum(1 for row in stage4_items if str(row.get("stage4_execution_state") or "") == "READBACK_READY"),
         "guangdong_local_field_blocker_taxonomy_counts": dict(local_field_probe_state.get("blocker_taxonomy_counts") or {}),
         "local_field_source_stability": local_credit_source_context,
-        "failure_taxonomy": _dedupe(
-            reason
-            for row in [*flow_items, *download_items, responsible_item, readiness_project]
-            for reason in _list(row.get("failure_taxonomy") or row.get("blocking_layers") or row.get("fail_closed_reasons"))
-        ),
+        "failure_taxonomy": failure_taxonomy,
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,
     }
@@ -467,23 +482,48 @@ def _group_record(row: Mapping[str, Any]) -> dict[str, Any]:
 
 def _candidate_groups_from_responsible(item: Mapping[str, Any]) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
+    source_07_ready = _text(item.get("early_probe_state")) == "CERTIFICATE_READY_FROM_07" and not bool(
+        item.get("flow_08_targeted_parse_required")
+    )
     for group in _list(item.get("candidate_groups")):
         if not isinstance(group, Mapping):
             continue
+        person = str(group.get("responsible_person_name") or "").strip()
+        certificate = str(group.get("certificate_no") or "").strip()
+        if not person and not certificate:
+            continue
+        members = _candidate_group_member_names(group)
         out.append(
             {
                 "candidate_group_id": str(group.get("candidate_group_id") or ""),
                 "candidate_group_order": str(group.get("candidate_group_order") or group.get("rank") or ""),
-                "candidate_group_members": _list(group.get("candidate_group_members") or group.get("company_names")),
-                "responsible_person_name": str(group.get("responsible_person_name") or ""),
-                "certificate_no": str(group.get("certificate_no") or ""),
+                "candidate_group_members": members,
+                "responsible_person_name": person,
+                "certificate_no": certificate,
                 "matched_company_names": [],
-                "group_resolution_state": "PENDING_STAGE4_PUBLIC_REGISTRATION_MATCH",
+                "group_resolution_state": (
+                    "RESOLVED_FROM_FLOW_07_CERTIFICATE"
+                    if source_07_ready and person and certificate
+                    else "PENDING_STAGE4_PUBLIC_REGISTRATION_MATCH"
+                ),
                 "flow_08_targeted_parse_required": bool(item.get("flow_08_targeted_parse_required")),
                 "member_records": [],
             }
         )
     return out
+
+
+def _candidate_group_member_names(group: Mapping[str, Any]) -> list[str]:
+    members = _list(group.get("candidate_group_members") or group.get("company_names"))
+    if members:
+        return _dedupe(members)
+    consortium = []
+    for member in _list(group.get("consortium_members")):
+        if isinstance(member, Mapping):
+            consortium.append(member.get("company_name"))
+        else:
+            consortium.append(member)
+    return _dedupe(consortium)
 
 
 def _active_conflict_tasks(*, project_id: str, group_records: list[Mapping[str, Any]]) -> list[dict[str, Any]]:
@@ -689,7 +729,7 @@ def _source_07_candidate_record(group: Mapping[str, Any]) -> dict[str, Any]:
     return {
         "candidate_group_id": _text(group.get("candidate_group_id")),
         "candidate_group_order": _text(group.get("candidate_group_order") or group.get("rank")),
-        "candidate_group_members": _list(group.get("candidate_group_members") or group.get("company_names")),
+        "candidate_group_members": _candidate_group_member_names(group),
         "responsible_person_name": _text(group.get("responsible_person_name")),
         "certificate_no": _text(group.get("certificate_no")),
         "certificate_source": "FLOW_07_CANDIDATE_NOTICE",
@@ -709,6 +749,47 @@ def _source_07_certificates_are_usable(responsible_item: Mapping[str, Any]) -> b
     }:
         return False
     return True
+
+
+def _normalize_closeout_for_responsible_chain(
+    *,
+    closeout_state: str,
+    closeout_safe: bool,
+    closeout_blocking_reasons: list[Any],
+    closeout_deferred_reasons: list[Any],
+    responsible_chain_state: Mapping[str, Any],
+    failure_taxonomy: list[str],
+) -> tuple[str, bool, list[Any], list[Any]]:
+    blockers = list(closeout_blocking_reasons)
+    deferred = list(closeout_deferred_reasons)
+    source_07_ready = (
+        _text(responsible_chain_state.get("chain_state")) == "PUBLIC_REGISTRATION_CHAIN_READY"
+        and _int(responsible_chain_state.get("source_07_certificate_ready_count")) > 0
+        and not bool(responsible_chain_state.get("flow_08_targeted_parse_required"))
+    )
+    if source_07_ready:
+        if "candidate_evidence_certificate_input_missing_parse_required" in blockers:
+            blockers = [
+                reason
+                for reason in blockers
+                if str(reason or "") != "candidate_evidence_certificate_input_missing_parse_required"
+            ]
+            deferred.append("candidate_evidence_certificate_input_deferred_by_flow_07_certificate_ready")
+        if "attachment_download_incomplete" in blockers and set(failure_taxonomy) <= {"DEFERRED_BY_DOWNLOAD_REPAIR_LIMIT"}:
+            blockers = [reason for reason in blockers if str(reason or "") != "attachment_download_incomplete"]
+            deferred.append("attachment_download_incomplete_deferred_by_download_repair_limit")
+    blockers = _dedupe(blockers)
+    deferred = _dedupe(deferred)
+    if blockers:
+        return closeout_state or "EVIDENCE_REPORT_CLOSEOUT_BLOCKED", False, blockers, deferred
+    if closeout_safe or source_07_ready:
+        return (
+            "EVIDENCE_REPORT_CLOSEOUT_READY" if deferred else "EVIDENCE_REPORT_CLOSEOUT_FULLY_READY",
+            True,
+            blockers,
+            deferred,
+        )
+    return closeout_state, closeout_safe, blockers, deferred
 
 
 def _stage4_public_registration_inputs(
