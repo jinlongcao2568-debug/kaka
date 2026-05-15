@@ -1,0 +1,54 @@
+param(
+    [string]$InputRoot = "",
+    [string]$OutputRoot = "",
+    [switch]$EnableLivePublicQuery,
+    [int]$MaxLiveCompanies = 0,
+    [int]$MaxBidRecordsPerCompany = 10,
+    [string]$HistoryWindowYears = "1,2,3",
+    [switch]$EmitJson
+)
+
+$ErrorActionPreference = "Stop"
+
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$repoRoot = Resolve-Path (Join-Path $scriptDir "..")
+
+if (-not $InputRoot) {
+    $InputRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\guangzhou-evidence-value-closeout-p12-v1"
+}
+if (-not $OutputRoot) {
+    $OutputRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\p13b-company-history-overlap-triage-v1"
+}
+
+New-Item -ItemType Directory -Force -Path $OutputRoot | Out-Null
+
+$env:PYTHONPATH = "$repoRoot\src;$repoRoot\tests"
+
+$argsList = @(
+    "-m", "storage.p13b_company_history_overlap_triage",
+    "--input-root", $InputRoot,
+    "--output-root", $OutputRoot,
+    "--max-bid-records-per-company", "$MaxBidRecordsPerCompany",
+    "--history-window-years", $HistoryWindowYears
+)
+
+if ($EnableLivePublicQuery) {
+    $argsList += "--enable-live-public-query"
+}
+if ($MaxLiveCompanies -gt 0) {
+    $argsList += @("--max-live-companies", "$MaxLiveCompanies")
+}
+if ($EmitJson) {
+    $argsList += "--json"
+}
+
+Push-Location $repoRoot
+try {
+    python @argsList
+    $pythonExitCode = $LASTEXITCODE
+    if ($pythonExitCode -ne 0) {
+        exit $pythonExitCode
+    }
+} finally {
+    Pop-Location
+}
