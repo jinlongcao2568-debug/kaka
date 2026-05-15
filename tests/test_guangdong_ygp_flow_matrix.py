@@ -75,6 +75,29 @@ class GuangdongYgpFlowMatrixTests(unittest.TestCase):
             self.assertIn("365日历天", detail["period_text"])
             self.assertEqual(detail["award_date"], "2025年10月15日")
             self.assertIn("采购文件.pdf", detail["attachment_names"])
+            attachment_items = detail["attachment_items"]
+            self.assertEqual(len(attachment_items), 6)
+            self.assertEqual(
+                {item["source_field"] for item in attachment_items},
+                {"noticeFileBOList", "richtext_link"},
+            )
+            attachment_urls = "\n".join(item["download_url"] for item in attachment_items)
+            self.assertNotIn("gdcic.net", attachment_urls)
+            self.assertNotIn("#/index", attachment_urls)
+            self.assertNotIn("/plain/page", attachment_urls)
+            constructed = next(item for item in attachment_items if item["file_name"] == "采购文件.pdf")
+            self.assertIn("/base/sys-file/download/v3/row-notice03?", constructed["download_url"])
+            direct = next(item for item in attachment_items if item["file_name"] == "接口附件.zip")
+            self.assertIn("/direct/interface.zip", direct["download_url"])
+            richtext = next(item for item in attachment_items if item["source_field"] == "richtext_link")
+            self.assertEqual(richtext["file_name"], "正文附件.pdf")
+            self.assertTrue(any(item["file_name"] == "清单.zip" for item in attachment_items))
+            self.assertTrue(any(item["file_name"] == "商务文件.docx" for item in attachment_items))
+            self.assertTrue(any(item["file_name"] == "table.xls" for item in attachment_items))
+            rejected = detail["rejected_richtext_links"]
+            self.assertEqual(len(rejected), 3)
+            self.assertTrue(any("gdcic.net" in item["href"] for item in rejected))
+            self.assertTrue(any("#/index" in item["href"] for item in rejected))
 
     def test_hash_url_input_can_skip_url_mapping_redirect(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -357,8 +380,20 @@ def _detail_payload(notice_id: str) -> dict[str, Any]:
                         {"key": "中标日期", "value": "2025年10月15日"},
                     ]
                 ],
-                "richtext": "<p>中标单位：广东乙公司</p><p>项目负责人：李四</p>",
-                "noticeFileBOList": [{"fileName": "采购文件.pdf"}],
+                "richtext": (
+                    "<p>中标单位：广东乙公司</p><p>项目负责人：李四</p>"
+                    "<p><a href='/richtext/正文附件.pdf'>正文附件.pdf</a></p>"
+                    "<p><a href='https://www.gdcic.net/#/index'>广东建设信息网</a></p>"
+                    "<p><a href='https://ygp.gdzwfw.gov.cn/ggzy-portal/#/44/index'>粤公平首页</a></p>"
+                    "<p><a href='/plain/page'>普通跳转</a></p>"
+                    "<p><a href='https://example.test/files/清单.zip'>清单</a></p>"
+                    "<p><a href='/richtext/business'>商务文件.docx</a></p>"
+                    "<p>表格下载：https://example.test/files/table.xls</p>"
+                ),
+                "noticeFileBOList": [
+                    {"fileName": "采购文件.pdf", "rowGuid": f"row-{notice_id}", "flowId": f"flow-{notice_id}"},
+                    {"fileName": "接口附件.zip", "downloadUrl": "/direct/interface.zip"},
+                ],
             }
         ],
     }

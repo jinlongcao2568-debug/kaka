@@ -23,7 +23,9 @@ DEFAULT_OUTPUT_ROOT = Path("tmp/evaluation-real-samples/guangdong-ygp-flow-matri
 
 YGP_HOST = "ygp.gdzwfw.gov.cn"
 YGP_API_ROOT = "https://ygp.gdzwfw.gov.cn/ggzy-portal/center/apis"
+YGP_FILE_DOWNLOAD_ROOT = "https://ygp.gdzwfw.gov.cn/ggzy-portal/base/sys-file/download"
 FORBIDDEN_TERMS = ("无风险", "无冲突", "在建冲突成立", "违法成立", "确认本人", "造假成立", "是不是本人")
+ATTACHMENT_FILE_SUFFIX_RE = re.compile(r"\.(?:pdf|doc|docx|xls|xlsx|zip|rar)(?:$|[?#&\s])", re.I)
 
 HttpGetter = Callable[[str, Mapping[str, Any]], Mapping[str, Any]]
 
@@ -461,6 +463,7 @@ def _flow_bucket_rows(
                 "notice_labels": _dedupe(item.get("notice_label") for item in present_items),
                 "published_dates": _dedupe(detail.get("published_at") for detail in ready_details),
                 "attachment_name_count": sum(len(_list(detail.get("attachment_names"))) for detail in ready_details),
+                "attachment_item_count": sum(len(_list(detail.get("attachment_items"))) for detail in ready_details),
                 "project_names": _dedupe(detail.get("project_name") for detail in ready_details),
             }
         )
@@ -547,6 +550,8 @@ def _fetch_detail_for_flow(
             **dict(row),
             "detail_readback_state": "YGP_DETAIL_READBACK_BLOCKED",
             "source_url": detail_url,
+            "source_project_url": str(row.get("source_url") or ""),
+            "detail_url": detail_url,
             "status_code": response["status_code"],
             "content_type": response["content_type"],
             "route_attempt": response["attempt"],
@@ -555,11 +560,14 @@ def _fetch_detail_for_flow(
             "customer_visible_allowed": False,
             "no_legal_conclusion": True,
         }
-    extracted = _extract_detail_payload(payload.get("data"))
+    detail_version = _query_params(detail_url).get("version") or str(resolved.get("version") or "v3")
+    extracted = _extract_detail_payload(payload.get("data"), detail_version=detail_version)
     return {
         **dict(row),
         "detail_readback_state": "YGP_DETAIL_READBACK_READY",
         "source_url": detail_url,
+        "source_project_url": str(row.get("source_url") or ""),
+        "detail_url": detail_url,
         "status_code": response["status_code"],
         "content_type": response["content_type"],
         "notice_title": extracted["notice_title"],
@@ -570,6 +578,10 @@ def _fetch_detail_for_flow(
         "period_text": extracted["period_text"],
         "award_date": extracted["award_date"],
         "attachment_names": extracted["attachment_names"],
+        "attachment_items": extracted["attachment_items"],
+        "attachment_item_count": len(extracted["attachment_items"]),
+        "rejected_richtext_links": extracted["rejected_richtext_links"],
+        "rejected_richtext_link_count": len(extracted["rejected_richtext_links"]),
         "text_probe": extracted["text_probe"],
         "text_probe_sha256": _sha256(extracted["text_probe"]) if extracted["text_probe"] else "",
         "readback_payload_sha256": _sha256(response["body"]) if response["body"] else "",
@@ -582,7 +594,7 @@ def _fetch_detail_for_flow(
     }
 
 
-def _extract_detail_payload(data: Any) -> dict[str, Any]:
+def _extract_detail_payload(data: Any, *, detail_version: str = "v3") -> dict[str, Any]:
     record = data if isinstance(data, Mapping) else {}
     title = str(record.get("title") or "")
     published_at = str(record.get("publishDate") or record.get("publishTime") or "")
@@ -609,6 +621,8 @@ def _extract_detail_payload(data: Any) -> dict[str, Any]:
                 if name:
                     attachment_names.append(name)
                     text_parts.append(f"附件：{name}")
+    attachment_items = _attachment_items_from_record(record, detail_version=detail_version)
+    rejected_richtext_links = _rejected_richtext_links_from_record(record)
     text = "\n".join(part for part in text_parts if part)
     return {
         "notice_title": title,
@@ -619,8 +633,184 @@ def _extract_detail_payload(data: Any) -> dict[str, Any]:
         "period_text": _extract_period_text(text),
         "award_date": _extract_award_date(text) or published_at,
         "attachment_names": _dedupe(attachment_names),
-        "text_probe": text[:1000],
+        "attachment_items": attachment_items,
+        "rejected_richtext_links": rejected_richtext_links,
+        "text_probe": text[:4000],
     }
+
+
+def _attachment_items_from_record(record: Mapping[str, Any], *, detail_version: str) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for column in _list(record.get("tradingNoticeColumnModelList")):
+        if not isinstance(column, Mapping):
+            continue
+        column_name = str(column.get("name") or "")
+        for index, file_item in enumerate(_list(column.get("noticeFileBOList")), start=1):
+            if not isinstance(file_item, Mapping):
+                continue
+            file_name = str(file_item.get("fileName") or file_item.get("name") or file_item.get("attachName") or "").strip()
+            row_guid = str(file_item.get("rowGuid") or file_item.get("fileId") or "").strip()
+            flow_id = str(file_item.get("flowId") or "").strip()
+            direct_url = str(file_item.get("downloadUrl") or file_item.get("url") or file_item.get("fileUrl") or "").strip()
+            download_url = _ygp_download_url(
+                row_guid=row_guid,
+                flow_id=flow_id,
+                detail_version=detail_version,
+                direct_url=direct_url,
+            )
+            size_url = _ygp_size_url(row_guid=row_guid, flow_id=flow_id, detail_version=detail_version) if row_guid and flow_id else ""
+            rows.append(
+                {
+                    "attachment_id": _stable_id("YGP-ATTACH", row_guid, flow_id, file_name, len(rows) + 1),
+                    "source_field": "noticeFileBOList",
+                    "file_name": file_name,
+                    "link_text": file_name,
+                    "row_guid": row_guid,
+                    "flow_id": flow_id,
+                    "content_type_hint": str(file_item.get("contentType") or ""),
+                    "detail_version": detail_version,
+                    "column_name": column_name,
+                    "download_url": download_url,
+                    "file_size_url": size_url,
+                    "download_endpoint_state": "YGP_DOWNLOAD_ENDPOINT_CONSTRUCTED"
+                    if download_url
+                    else "YGP_ATTACHMENT_DOWNLOAD_FIELDS_MISSING",
+                    "raw_file_item_keys": sorted(str(key) for key in file_item.keys()),
+                    "customer_visible_allowed": False,
+                    "no_legal_conclusion": True,
+                }
+            )
+        for link in _richtext_attachment_links(str(column.get("richtext") or "")):
+            direct_url = str(link.get("href") or "").strip()
+            file_name = _richtext_attachment_file_name(str(link.get("text") or ""), direct_url)
+            download_url = _ygp_download_url(
+                row_guid="",
+                flow_id="",
+                detail_version=detail_version,
+                direct_url=direct_url,
+            )
+            rows.append(
+                {
+                    "attachment_id": _stable_id("YGP-RICHTEXT-ATTACH", direct_url, file_name, len(rows) + 1),
+                    "source_field": "richtext_link",
+                    "file_name": file_name,
+                    "link_text": str(link.get("text") or ""),
+                    "row_guid": "",
+                    "flow_id": "",
+                    "content_type_hint": "",
+                    "detail_version": detail_version,
+                    "column_name": column_name,
+                    "download_url": download_url,
+                    "file_size_url": "",
+                    "download_endpoint_state": "YGP_RICHTEXT_LINK_DISCOVERED"
+                    if download_url
+                    else "YGP_ATTACHMENT_DOWNLOAD_FIELDS_MISSING",
+                    "raw_file_item_keys": [],
+                    "customer_visible_allowed": False,
+                    "no_legal_conclusion": True,
+                }
+            )
+    return rows
+
+
+def _richtext_attachment_links(richtext: str) -> list[dict[str, str]]:
+    return [link for link in _richtext_link_records(richtext) if _is_richtext_download_link(str(link.get("href") or ""), str(link.get("text") or ""))]
+
+
+def _rejected_richtext_links_from_record(record: Mapping[str, Any]) -> list[dict[str, str]]:
+    rows: list[dict[str, str]] = []
+    for column in _list(record.get("tradingNoticeColumnModelList")):
+        if not isinstance(column, Mapping):
+            continue
+        column_name = str(column.get("name") or "")
+        for link in _richtext_link_records(str(column.get("richtext") or "")):
+            href = str(link.get("href") or "")
+            text = str(link.get("text") or "")
+            if _is_richtext_download_link(href, text):
+                continue
+            rows.append(
+                {
+                    "href": href,
+                    "text": text,
+                    "column_name": column_name,
+                    "rejection_reason": "ygp_richtext_link_not_file_download",
+                    "customer_visible_allowed": False,
+                    "no_legal_conclusion": True,
+                }
+            )
+    return rows
+
+
+def _richtext_link_records(richtext: str) -> list[dict[str, str]]:
+    links: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for match in re.finditer(r"<a\b[^>]*\bhref=[\"']([^\"']+)[\"'][^>]*>(.*?)</a>", richtext, flags=re.I | re.S):
+        href = _clean_richtext_href(html.unescape(match.group(1).strip()))
+        if not href or href in seen:
+            continue
+        seen.add(href)
+        text = _html_to_text(match.group(2)).strip() or _file_name_from_url(href)
+        links.append({"href": href, "text": text})
+    for match in re.finditer(r"https?://[^\s\"'<>]+", richtext):
+        href = _clean_richtext_href(html.unescape(match.group(0).strip()))
+        if href and href not in seen:
+            seen.add(href)
+            links.append({"href": href, "text": _file_name_from_url(href)})
+    return links
+
+
+def _clean_richtext_href(href: str) -> str:
+    return str(href or "").strip().rstrip(").,;，。；、")
+
+
+def _is_richtext_download_link(href: str, text: str) -> bool:
+    if not href:
+        return False
+    absolute_url = urllib.parse.urljoin("https://ygp.gdzwfw.gov.cn/", href)
+    parsed = urllib.parse.urlparse(absolute_url)
+    if parsed.netloc.lower() == YGP_HOST and parsed.path.startswith("/ggzy-portal/base/sys-file/download"):
+        return True
+    probe = " ".join(
+        part
+        for part in (
+            parsed.path,
+            urllib.parse.unquote(parsed.path),
+            urllib.parse.unquote(parsed.query),
+            str(text or ""),
+        )
+        if part
+    )
+    return bool(ATTACHMENT_FILE_SUFFIX_RE.search(probe))
+
+
+def _file_name_from_url(url: str) -> str:
+    path = urllib.parse.urlparse(url).path
+    name = urllib.parse.unquote(Path(path).name)
+    return name or "正文链接附件"
+
+
+def _richtext_attachment_file_name(text: str, href: str) -> str:
+    text = str(text or "").strip()
+    if text and ATTACHMENT_FILE_SUFFIX_RE.search(text):
+        return text
+    url_name = _file_name_from_url(href)
+    if url_name and url_name != "正文链接附件":
+        return url_name
+    return text or url_name
+
+
+def _ygp_download_url(*, row_guid: str, flow_id: str, detail_version: str, direct_url: str = "") -> str:
+    if direct_url:
+        return urllib.parse.urljoin("https://ygp.gdzwfw.gov.cn/", direct_url)
+    if not (row_guid and flow_id):
+        return ""
+    version = detail_version or "v3"
+    return f"{YGP_FILE_DOWNLOAD_ROOT}/{urllib.parse.quote(version)}/{urllib.parse.quote(row_guid)}?{urllib.parse.quote(flow_id)}"
+
+
+def _ygp_size_url(*, row_guid: str, flow_id: str, detail_version: str) -> str:
+    version = detail_version or "v3"
+    return f"{YGP_FILE_DOWNLOAD_ROOT}/size/{urllib.parse.quote(version)}/{urllib.parse.quote(row_guid)}?{urllib.parse.quote(flow_id)}"
 
 
 def _map_notice_to_flow(label: str, biz_code: str) -> Mapping[str, str] | None:
@@ -702,6 +892,11 @@ def _fetch_url(
             "error": error,
         },
     }
+
+
+def _query_params(url: str) -> dict[str, str]:
+    parsed = urllib.parse.urlsplit(url)
+    return {key: values[-1] for key, values in urllib.parse.parse_qs(parsed.query).items() if values}
 
 
 def _default_http_getter(url: str, context: Mapping[str, Any]) -> Mapping[str, Any]:

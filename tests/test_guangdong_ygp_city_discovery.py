@@ -13,6 +13,7 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
+import storage.guangdong_ygp_city_discovery as city_discovery  # noqa: E402
 from storage.guangdong_ygp_city_discovery import build_guangdong_ygp_city_discovery  # noqa: E402
 
 
@@ -97,7 +98,7 @@ class GuangdongYgpCityDiscoveryTests(unittest.TestCase):
 
             self.assertTrue(result["safe_to_execute"])
             self.assertEqual(result["summary"]["candidate_project_count"], 0)
-            self.assertEqual(result["manifest"]["ygp_city_search_records"][0]["rejected_record_count"], 2)
+            self.assertEqual(result["manifest"]["ygp_city_search_records"][0]["rejected_record_count"], 3)
 
     def test_output_does_not_contain_forbidden_terms(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -115,6 +116,15 @@ class GuangdongYgpCityDiscoveryTests(unittest.TestCase):
             text = json.dumps(result, ensure_ascii=False)
             for term in ("无风险", "无冲突", "在建冲突成立", "违法成立", "确认本人", "造假成立", "是不是本人"):
                 self.assertNotIn(term, text)
+
+    def test_http_retry_delay_respects_ygp_chinese_retry_after_message(self) -> None:
+        self.assertEqual(
+            city_discovery._http_retry_delay_seconds(
+                {"status_code": 429, "body": "{\"errmsg\":\"访问频率过高，请57秒后重试\"}"},
+                attempt_no=1,
+            ),
+            57.0,
+        )
 
 
 def _fake_ygp_city_getter(url: str, context: Mapping[str, Any]) -> Mapping[str, Any]:
@@ -148,7 +158,10 @@ def _fake_result_only_getter(url: str, context: Mapping[str, Any]) -> Mapping[st
         return {
             "status_code": 200,
             "content_type": "application/json;charset=UTF-8",
-            "body": json.dumps({"data": {"pageData": [_result_notice_item(), _procurement_notice_item()]}}, ensure_ascii=False),
+            "body": json.dumps(
+                {"data": {"pageData": [_result_notice_item(), _procurement_notice_item(), _unsupported_title_candidate_item()]}},
+                ensure_ascii=False,
+            ),
             "url": url,
         }
     return {"status_code": 404, "content_type": "text/plain", "body": "not found", "url": url}
@@ -193,6 +206,22 @@ def _procurement_notice_item() -> dict[str, Any]:
         "datasetName": "招标公告",
         "noticeThirdTypeDesc": "招标公告",
         "tradingProcess": "3C14",
+    }
+
+
+def _unsupported_title_candidate_item() -> dict[str, Any]:
+    return {
+        **_valid_candidate_item(),
+        "noticeId": "notice-other-07",
+        "projectCode": "ZZGB20260319004",
+        "noticeTitle": "惠州市汽车运输集团有限公司客车采购项目中标候选人公示",
+        "noticeSecondType": "Z",
+        "noticeSecondTypeDesc": "其他交易",
+        "noticeThirdTypeDesc": "",
+        "datasetName": "交易公告信息",
+        "tradingProcess": "3I11",
+        "projectType": "Z99",
+        "projectTypeName": "其他交易",
     }
 
 

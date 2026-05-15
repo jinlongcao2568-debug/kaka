@@ -668,6 +668,7 @@
           "ygp_city_discovery_recent_07_candidate_search_by_city_code",
           "ygp_original_url_readback_from_data_ggzy_pointer",
           "ygp_flow_matrix_01_to_12_node_list_and_detail_readback",
+          "ygp_full_chain_verification_v1_for_guangdong_other_cities",
           "original_notice_url_targeted_flow_07_or_08_backtrace_when_needed",
           "major_region_public_resource_candidate_or_award_notices_as_supplement",
           "contract_service_period_or_performance_period_records_when_available"
@@ -827,6 +828,82 @@
             "do_not_treat_flow_matrix_readback_as_active_conflict_conclusion",
             "do_not_default_download_or_parse_flow_08_from_ygp_matrix",
             "do_not_treat_missing_flow_node_as_clearance"
+          ],
+          "customer_visible_allowed": false,
+          "no_legal_conclusion": true
+        },
+        "ygp_full_chain_verification_v1_policy": {
+          "policy_id": "YGP_FULL_CHAIN_VERIFICATION_V1",
+          "source_profile_id": "GUANGDONG-YGP-FULL-CHAIN",
+          "role": "GUANGDONG_NON_GUANGZHOU_SHENZHEN_CITY_CANDIDATE_EVIDENCE_FULL_CHAIN",
+          "default_entry_flow_no": "07",
+          "default_flow_nos": [
+            "03",
+            "04",
+            "07",
+            "08"
+          ],
+          "default_city_scope": "CN-GD except Guangzhou and Shenzhen",
+          "default_city_codes": [
+            "440200",
+            "440400",
+            "440500",
+            "440600",
+            "440700",
+            "440800",
+            "440900",
+            "441200",
+            "441300",
+            "441400",
+            "441500",
+            "441600",
+            "441700",
+            "441800",
+            "441900",
+            "442000",
+            "445100",
+            "445200",
+            "445300"
+          ],
+          "pipeline_steps": [
+            "ygp_city_discovery_recent_07",
+            "ygp_flow_matrix_01_to_12",
+            "ygp_attachment_list_from_detail_readback",
+            "ygp_download_probe_for_03_04_07",
+            "flow_08_register_only_then_targeted_download_if_triggered",
+            "human_readable_project_directory_and_file_audit",
+            "responsible_person_early_probe_from_07",
+            "company_first_stage4_certificate_supplement",
+            "ygp_evidence_report_internal",
+            "guangdong_ygp_batch_stability_closeout"
+          ],
+          "download_policy": {
+            "download_default_flow_nos": [
+              "03",
+              "04",
+              "07"
+            ],
+            "flow_08_policy": "REGISTER_ONLY_THEN_TARGETED_PARSE_IF_TRIGGERED",
+            "max_bid_file_publicity_downloads_per_project_default": 2,
+            "failure_taxonomy_required": true,
+            "snapshot_replay_required_for_success": true
+          },
+          "output_artifacts": [
+            "ygp-full-chain-manifest.json",
+            "attachment-list.json",
+            "project-file-audit.json",
+            "human-readable-file-map.json",
+            "manual-url-check-table.json",
+            "challenge-stability-report.json",
+            "ygp-evidence-report-v1.json",
+            "guangdong-ygp-batch-stability-closeout-v1.json"
+          ],
+          "must_not": [
+            "do_not_restore_ygp_as_guangzhou_primary_source",
+            "do_not_use_ygp_for_shenzhen_before_independent_adapter_review",
+            "do_not_default_download_or_parse_flow_08",
+            "do_not_treat_download_blocked_or_source_miss_as_clearance",
+            "do_not_output_customer_visible_legal_conclusion"
           ],
           "customer_visible_allowed": false,
           "no_legal_conclusion": true

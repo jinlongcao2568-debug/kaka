@@ -941,7 +941,11 @@ def _discover_project_dirs(*, in_root: Path, project_ids: list[str] | tuple[str,
     root = in_root / "projects" / "CN-GD"
     if not root.exists():
         return []
-    dirs = [path for path in root.iterdir() if path.is_dir() and path.name.startswith("PROJ-CN-GD-")]
+    dirs = [
+        path
+        for path in root.rglob("PROJ-CN-GD-*")
+        if path.is_dir() and path.name.startswith("PROJ-CN-GD-")
+    ]
     if not project_ids:
         return sorted(dirs, key=lambda path: path.name)
     wanted = {_project_code(value) for value in project_ids if _project_code(value)}

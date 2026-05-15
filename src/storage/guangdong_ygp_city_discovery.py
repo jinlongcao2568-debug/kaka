@@ -3,7 +3,9 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -184,6 +186,7 @@ def _execute_city_searches(
             }
             response = _post_search(payload, getter, task=task)
             items = _search_items(response)
+            response_total = _search_total(response)
             accepted: list[dict[str, Any]] = []
             rejected_count = 0
             for item in items:
@@ -211,6 +214,9 @@ def _execute_city_searches(
                     "page_no": page_no,
                     "status_code": response["status_code"],
                     "content_type": response["content_type"],
+                    "response_body_sha256": _sha256(str(response.get("body") or "")) if response.get("body") else "",
+                    "response_body_probe": _body_probe(response),
+                    "response_total": response_total,
                     "record_count": len(items),
                     "accepted_candidate_count": len(accepted),
                     "rejected_record_count": rejected_count,
@@ -259,12 +265,42 @@ def _search_items(response: Mapping[str, Any]) -> list[Mapping[str, Any]]:
     return [item for item in _list(page_data) if isinstance(item, Mapping)]
 
 
+def _search_total(response: Mapping[str, Any]) -> int:
+    try:
+        payload = json.loads(str(response.get("body") or ""))
+    except json.JSONDecodeError:
+        return 0
+    data = payload.get("data") if isinstance(payload, Mapping) else {}
+    if not isinstance(data, Mapping):
+        return 0
+    for key in ("total", "totalCount", "recordCount"):
+        value = data.get(key)
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            continue
+    return 0
+
+
+def _body_probe(response: Mapping[str, Any]) -> str:
+    body = str(response.get("body") or "")
+    if not body:
+        return ""
+    return body[:500]
+
+
 def _is_candidate_notice_item(item: Mapping[str, Any]) -> bool:
     primary_text = " ".join(
         str(item.get(key) or "")
         for key in ("datasetName", "noticeThirdTypeDesc")
     )
     title = str(item.get("noticeTitle") or "")
+    biz_code = re.sub(r"\s+", "", str(item.get("tradingProcess") or item.get("bizCode") or ""))
+    trading_type = re.sub(r"\s+", "", str(item.get("noticeSecondType") or ""))
+    if biz_code and biz_code != "3C51":
+        return False
+    if trading_type and trading_type != "A":
+        return False
     if "中标候选人公示" in primary_text:
         return True
     if "中标候选人公示" in title and "中标结果" not in title and "结果公告" not in title:
@@ -429,12 +465,28 @@ def _blockers_from_response(response: Mapping[str, Any]) -> list[str]:
         blockers.append("ygp_city_search_transport_error_retry_required")
     if "验证码" in body or "captcha" in body.lower():
         blockers.append("ygp_city_search_captcha_or_challenge_review")
+    if "\"errcode\"" in body and "\"errcode\":0" not in body.replace(" ", ""):
+        blockers.append("ygp_city_search_interface_error_review")
+    if "请求方法错误" in body:
+        blockers.append("ygp_city_search_request_method_error")
     if status == 200 and not body.strip():
         blockers.append("ygp_city_search_empty_body_review")
     return _dedupe(blockers)
 
 
 def _default_http_getter(url: str, context: Mapping[str, Any]) -> Mapping[str, Any]:
+    attempts = _http_attempt_count()
+    last_result: Mapping[str, Any] = {}
+    for attempt_no in range(1, attempts + 1):
+        result = _default_http_getter_once(url, context)
+        last_result = result
+        if not _should_retry_http_result(result, attempt_no=attempt_no, attempts=attempts):
+            return result
+        time.sleep(_http_retry_delay_seconds(result, attempt_no=attempt_no))
+    return dict(last_result)
+
+
+def _default_http_getter_once(url: str, context: Mapping[str, Any]) -> Mapping[str, Any]:
     method = str(context.get("method") or "GET").upper()
     body: bytes | None = None
     headers = {
@@ -469,6 +521,55 @@ def _default_http_getter(url: str, context: Mapping[str, Any]) -> Mapping[str, A
         }
     except urllib.error.URLError as exc:
         return {"status_code": 0, "content_type": "", "headers": {}, "body": "", "url": url, "error": str(exc.reason)}
+
+
+def _http_attempt_count() -> int:
+    raw = os.environ.get("KAKA_YGP_HTTP_ATTEMPTS")
+    if raw is None or not str(raw).strip():
+        return 3
+    try:
+        return max(1, min(5, int(raw)))
+    except ValueError:
+        return 3
+
+
+def _should_retry_http_result(result: Mapping[str, Any], *, attempt_no: int, attempts: int) -> bool:
+    if attempt_no >= attempts:
+        return False
+    status_code = int(result.get("status_code") or 0)
+    error = str(result.get("error") or "").lower()
+    if status_code in {429, 500, 502, 503, 504}:
+        return True
+    if status_code == 0 and any(token in error for token in ("ssl", "eof", "timeout", "timed out", "connection reset", "temporarily unavailable")):
+        return True
+    return False
+
+
+def _http_retry_delay_seconds(result: Mapping[str, Any], *, attempt_no: int) -> float:
+    headers = result.get("headers") if isinstance(result.get("headers"), Mapping) else {}
+    retry_after = str(headers.get("Retry-After") or headers.get("retry-after") or "").strip()
+    body = str(result.get("body") or result.get("text") or "")
+    candidates: list[float] = []
+    if retry_after:
+        try:
+            candidates.append(float(retry_after))
+        except ValueError:
+            pass
+    match = re.search(r"请\s*(\d{1,3})\s*秒后重试", body)
+    if match:
+        candidates.append(float(match.group(1)))
+    delay = max(candidates) if candidates else min(2.0, 0.5 * attempt_no)
+    return min(delay, _http_retry_after_max_seconds())
+
+
+def _http_retry_after_max_seconds() -> float:
+    raw = os.environ.get("KAKA_YGP_RETRY_AFTER_MAX_SECONDS")
+    if raw is None or not str(raw).strip():
+        return 90.0
+    try:
+        return max(0.0, float(raw))
+    except ValueError:
+        return 90.0
 
 
 def _list(value: Any) -> list[Any]:
