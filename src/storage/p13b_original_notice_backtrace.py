@@ -429,8 +429,16 @@ def _extract_original_notice(task: Mapping[str, Any], fetch: Mapping[str, Any], 
         state = "ORIGINAL_NOTICE_PERSON_PERIOD_EXTRACTED"
     elif people or period or companies:
         state = "ORIGINAL_NOTICE_NO_MATCH_REVIEW"
+    elif text.strip():
+        state = "ORIGINAL_NOTICE_NO_MATCH_REVIEW"
     else:
         state = "ORIGINAL_NOTICE_SOURCE_UNSUPPORTED"
+    blockers: list[str] = []
+    if state == "ORIGINAL_NOTICE_NO_MATCH_REVIEW" and not (people or period or companies):
+        blockers = ["original_notice_person_period_not_extracted_review"]
+        lowered = text.lower()
+        if "loading" in lowered or "jump.html" in str(fetch.get("source_url") or "").lower():
+            blockers.append("original_notice_browser_readback_required")
     return {
         **dict(task),
         "original_notice_extraction_state": state,
@@ -444,7 +452,7 @@ def _extract_original_notice(task: Mapping[str, Any], fetch: Mapping[str, Any], 
         "record_payload_sha256": _fingerprint(
             {"source_url": fetch.get("source_url"), "people": people, "period": period, "award_date": award_date, "companies": companies}
         ),
-        "blocker_taxonomy": [],
+        "blocker_taxonomy": blockers,
         "created_at": created_at,
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,

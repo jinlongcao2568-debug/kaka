@@ -146,6 +146,27 @@ class P13BOriginalNoticeBacktraceTests(unittest.TestCase):
             self.assertEqual(summary["overlap_signal_state_counts"]["ORIGINAL_NOTICE_NO_MATCH_REVIEW"], 1)
             self.assertEqual(result["manifest"]["manual_release_evidence_probe_table"], [])
 
+    def test_fetched_notice_without_extractable_fields_is_review_not_unsupported(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_p13b_input(root, first_url="https://example.gov.cn/original/no-fields.html")
+
+            result = build_p13b_original_notice_backtrace(
+                input_root=root,
+                output_root=root / "out",
+                enable_live_public_query=True,
+                max_live_original_notices=1,
+                http_getter=_fake_http_getter,
+                created_at="2026-05-15T00:00:00+08:00",
+            )
+
+            summary = result["summary"]
+            self.assertEqual(summary["fetch_state_counts"]["ORIGINAL_NOTICE_FETCHED"], 1)
+            self.assertEqual(summary["extraction_state_counts"]["ORIGINAL_NOTICE_NO_MATCH_REVIEW"], 1)
+            self.assertEqual(summary["source_unsupported_count"], 0)
+            extraction = result["manifest"]["original_notice_extraction_records"][0]
+            self.assertIn("original_notice_person_period_not_extracted_review", extraction["blocker_taxonomy"])
+
     def test_blocked_original_notice_is_taxonomized(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -365,6 +386,12 @@ def _write_ygp_readback(root: Path) -> None:
 def _fake_http_getter(url: str, context: Mapping[str, Any]) -> Mapping[str, Any]:
     if url.endswith("/blocked.html"):
         return {"status_code": 403, "content_type": "text/html", "body": "forbidden"}
+    if url.endswith("/no-fields.html"):
+        return {
+            "status_code": 200,
+            "content_type": "text/html",
+            "body": "<html><body><h1>公告正文</h1><p>本页面为平台公告。</p></body></html>",
+        }
     if url.endswith("/no-person.html"):
         return {
             "status_code": 200,
