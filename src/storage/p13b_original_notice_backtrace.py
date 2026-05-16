@@ -590,8 +590,9 @@ def _summary(
 
 
 def _default_http_getter(url: str, context: Mapping[str, Any]) -> Mapping[str, Any]:
+    request_url = _request_safe_url(url)
     request = urllib.request.Request(
-        url,
+        request_url,
         headers={
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 KakaP13B/1.0",
             "Accept": "text/html,application/json,text/plain,*/*",
@@ -605,7 +606,7 @@ def _default_http_getter(url: str, context: Mapping[str, Any]) -> Mapping[str, A
                 "status_code": int(getattr(response, "status", 0) or 0),
                 "content_type": response.headers.get("Content-Type", ""),
                 "body": body,
-                "url": url,
+                "url": response.geturl(),
             }
     except urllib.error.HTTPError as exc:
         body = exc.read().decode("utf-8", errors="replace") if exc.fp else ""
@@ -618,6 +619,21 @@ def _default_http_getter(url: str, context: Mapping[str, Any]) -> Mapping[str, A
         }
     except urllib.error.URLError as exc:
         return {"status_code": 0, "content_type": "", "body": "", "url": url, "error": str(exc.reason)}
+    except (UnicodeEncodeError, ValueError, OSError) as exc:
+        return {"status_code": 0, "content_type": "", "body": "", "url": url, "error": f"{type(exc).__name__}:{exc}"}
+
+
+def _request_safe_url(url: str) -> str:
+    parts = urllib.parse.urlsplit(str(url or ""))
+    if not parts.scheme or not parts.netloc:
+        return str(url or "")
+    try:
+        netloc = parts.netloc.encode("idna").decode("ascii")
+    except UnicodeError:
+        netloc = parts.netloc
+    path = urllib.parse.quote(urllib.parse.unquote(parts.path), safe="/%")
+    query = urllib.parse.quote(urllib.parse.unquote(parts.query), safe="=&?/%:+,;@")
+    return urllib.parse.urlunsplit((parts.scheme, netloc, path, query, parts.fragment))
 
 
 def _blockers_from_response(*, status: int, body_probe: str, error: str) -> list[str]:

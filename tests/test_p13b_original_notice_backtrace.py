@@ -13,7 +13,7 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from storage.p13b_original_notice_backtrace import build_p13b_original_notice_backtrace, main  # noqa: E402
+from storage.p13b_original_notice_backtrace import build_p13b_original_notice_backtrace, main, _request_safe_url  # noqa: E402
 
 
 class P13BOriginalNoticeBacktraceTests(unittest.TestCase):
@@ -52,6 +52,15 @@ class P13BOriginalNoticeBacktraceTests(unittest.TestCase):
             self.assertTrue(result["safe_to_execute"])
             self.assertEqual(result["summary"]["execution_mode"], "PLAN_ONLY_NOT_EXECUTED")
             self.assertEqual(result["summary"]["original_notice_fetch_count"], 0)
+
+    def test_request_safe_url_quotes_chinese_path_and_query(self) -> None:
+        url = "https://example.gov.cn/公告/中标结果.html?title=历史项目&x=1"
+
+        safe_url = _request_safe_url(url)
+
+        self.assertIn("%E5%85%AC%E5%91%8A", safe_url)
+        self.assertIn("title=%E5%8E%86%E5%8F%B2%E9%A1%B9%E7%9B%AE", safe_url)
+        safe_url.encode("ascii")
 
     def test_company_history_triage_root_reads_manual_backtrace_table(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
