@@ -11,12 +11,15 @@ from shared.utils import utc_now_iso
 
 
 GUANGDONG_YGP_EVIDENCE_MINI_CLOSEOUT_KIND = "guangdong_ygp_evidence_mini_closeout_v1_manifest"
+GUANGDONG_YGP_EVIDENCE_MINI_CLOSEOUT_V2_KIND = "guangdong_ygp_evidence_mini_closeout_v2_manifest"
 GUANGDONG_YGP_EVIDENCE_MINI_CLOSEOUT_VERSION = 1
+GUANGDONG_YGP_EVIDENCE_MINI_CLOSEOUT_V2_VERSION = 2
 GUANGDONG_YGP_EVIDENCE_MINI_CLOSEOUT_ADAPTER_ID = "guangdong-ygp-evidence-mini-closeout-v1-builder"
 
 DEFAULT_CITY_DISCOVERY_ROOT = Path("tmp/evaluation-real-samples/ygp-morecity-smoke-v1-city-discovery")
 DEFAULT_DOWNLOAD_ROOT = Path("tmp/evaluation-real-samples/ygp-morecity-smoke-v1-07-download")
 DEFAULT_OUTPUT_ROOT = Path("tmp/evaluation-real-samples/ygp-evidence-mini-closeout-v1")
+DEFAULT_OVERSIZE_POLICY_ROOT = Path("tmp/evaluation-real-samples/ygp-oversize-policy-v1")
 DEFAULT_CITY_CODES = (
     "440200",
     "440700",
@@ -38,6 +41,7 @@ DEFAULT_CITY_CODES = (
 
 FORBIDDEN_TERMS = ("无风险", "无冲突", "在建冲突成立", "违法成立", "确认本人", "造假成立", "是不是本人")
 STRATEGY_DEFERRED_TAXONOMIES = {"DEFERRED_BY_YGP_DOWNLOAD_LIMIT", "OVERSIZE_DEFERRED_BY_POLICY"}
+ACTIONABLE_OVERSIZE_POLICY_STATES = {"OVERSIZE_QUEUE_READY", "LIMIT_DEFERRED_QUEUE_READY", "SIZE_UNKNOWN_REVIEW"}
 NO_PUBLIC_ATTACHMENT_TAXONOMIES = {"ygp_no_public_attachment_link_found"}
 REAL_DOWNLOAD_FAILURE_TAXONOMIES = {
     "ygp_attachment_empty_response_review",
@@ -60,6 +64,7 @@ def build_guangdong_ygp_evidence_mini_closeout(
     city_discovery_root: str | Path = DEFAULT_CITY_DISCOVERY_ROOT,
     download_root: str | Path = DEFAULT_DOWNLOAD_ROOT,
     output_root: str | Path = DEFAULT_OUTPUT_ROOT,
+    oversize_policy_root: str | Path | None = None,
     city_codes: list[str] | tuple[str, ...] | None = None,
     created_at: str | None = None,
 ) -> dict[str, Any]:
@@ -67,6 +72,8 @@ def build_guangdong_ygp_evidence_mini_closeout(
     city_discovery_dir = Path(city_discovery_root)
     download_dir = Path(download_root)
     out_dir = Path(output_root)
+    oversize_policy_dir = Path(oversize_policy_root) if oversize_policy_root else None
+    is_v2 = oversize_policy_dir is not None
     out_dir.mkdir(parents=True, exist_ok=True)
 
     missing_inputs: list[str] = []
@@ -88,12 +95,22 @@ def build_guangdong_ygp_evidence_mini_closeout(
         missing_inputs,
         "ygp_flow_matrix_manifest_missing",
     )
+    oversize_policy = (
+        _load_json(
+            oversize_policy_dir / "ygp-oversize-policy-v1.json",
+            missing_inputs,
+            "ygp_oversize_policy_manifest_missing",
+        )
+        if oversize_policy_dir
+        else {}
+    )
 
     full_manifest = _source_manifest(full_chain)
     full_summary = _summary(full_chain)
     closeout_summary = _summary(batch_closeout)
     discovery_manifest = _source_manifest(discovery)
     flow_manifest = _source_manifest(flow_matrix)
+    oversize_context = _oversize_policy_context(oversize_policy) if is_v2 else None
 
     cities = _city_codes(city_codes, full_manifest, discovery_manifest)
     items_by_city = {
@@ -125,6 +142,11 @@ def build_guangdong_ygp_evidence_mini_closeout(
         )
         for city_code in cities
     ]
+    if oversize_context:
+        city_project_records = [
+            _with_oversize_readiness(record, oversize_context)
+            for record in city_project_records
+        ]
     download_stability_records = [_download_stability_record(record) for record in city_project_records]
     next_action_records = [_next_action_record(record) for record in city_project_records]
 
@@ -134,12 +156,13 @@ def build_guangdong_ygp_evidence_mini_closeout(
         closeout_summary=closeout_summary,
         missing_inputs=missing_inputs,
         stage4_live_executed=stage4_live_executed,
+        oversize_context=oversize_context,
     )
     manifest = {
-        "manifest_version": GUANGDONG_YGP_EVIDENCE_MINI_CLOSEOUT_VERSION,
-        "manifest_kind": GUANGDONG_YGP_EVIDENCE_MINI_CLOSEOUT_KIND,
+        "manifest_version": GUANGDONG_YGP_EVIDENCE_MINI_CLOSEOUT_V2_VERSION if is_v2 else GUANGDONG_YGP_EVIDENCE_MINI_CLOSEOUT_VERSION,
+        "manifest_kind": GUANGDONG_YGP_EVIDENCE_MINI_CLOSEOUT_V2_KIND if is_v2 else GUANGDONG_YGP_EVIDENCE_MINI_CLOSEOUT_KIND,
         "adapter_id": GUANGDONG_YGP_EVIDENCE_MINI_CLOSEOUT_ADAPTER_ID,
-        "pipeline_stage": "GuangdongYgpEvidenceMiniCloseoutV1",
+        "pipeline_stage": "GuangdongYgpEvidenceMiniCloseoutV2" if is_v2 else "GuangdongYgpEvidenceMiniCloseoutV1",
         "manifest_id": f"GUANGDONG-YGP-EVIDENCE-MINI-{_fingerprint({'summary': summary, 'cities': city_project_records})[:16]}",
         "created_at": created,
         "source_city_discovery_root": str(city_discovery_dir),
@@ -164,6 +187,9 @@ def build_guangdong_ygp_evidence_mini_closeout(
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,
     }
+    if is_v2:
+        manifest["source_oversize_policy_root"] = str(oversize_policy_dir)
+        manifest["source_oversize_policy_manifest_path"] = str(oversize_policy_dir / "ygp-oversize-policy-v1.json") if oversize_policy_dir else ""
     manifest["manifest_sha256"] = _fingerprint({key: value for key, value in manifest.items() if key != "manifest_sha256"})
     result = {
         "guangdong_ygp_evidence_mini_closeout_mode": "BUILT" if not missing_inputs else "INPUT_BLOCKED",
@@ -310,8 +336,151 @@ def _city_closeout_state(
     return "YGP_CITY_EVIDENCE_MINI_READY"
 
 
-def _download_stability_record(record: Mapping[str, Any]) -> dict[str, Any]:
+def _oversize_policy_context(payload: Mapping[str, Any]) -> dict[str, Any]:
+    manifest = _source_manifest(payload)
+    summary = dict(_summary(payload))
+    queue_records = [
+        dict(record)
+        for record in _list(manifest.get("oversize_attachment_queue"))
+        if isinstance(record, Mapping)
+    ]
+    city_records: dict[str, list[dict[str, Any]]] = {}
+    project_records: dict[str, list[dict[str, Any]]] = {}
+    for record in queue_records:
+        city_code = str(record.get("city_code") or "")
+        project_id = str(record.get("project_id") or "")
+        if city_code:
+            city_records.setdefault(city_code, []).append(record)
+        if project_id:
+            project_records.setdefault(project_id, []).append(record)
+
     return {
+        "summary": summary,
+        "queue_records": queue_records,
+        "city_records": city_records,
+        "project_records": project_records,
+        "city_oversize_counts": {
+            city_code: _oversize_counts(records)
+            for city_code, records in sorted(city_records.items())
+        },
+        "project_oversize_counts": {
+            project_id: _oversize_counts(records)
+            for project_id, records in sorted(project_records.items())
+        },
+        "largest_deferred_attachments": _largest_deferred_attachments(queue_records),
+        "oversize_queue_count": _int(summary.get("oversize_queue_count")) or _oversize_counts(queue_records)["oversize_queue_count"],
+        "limit_deferred_queue_count": _int(summary.get("limit_deferred_queue_count")) or _oversize_counts(queue_records)["limit_deferred_queue_count"],
+        "manual_approval_required_count": _int(summary.get("manual_approval_required_count")) or _oversize_counts(queue_records)["manual_approval_required_count"],
+    }
+
+
+def _with_oversize_readiness(record: Mapping[str, Any], context: Mapping[str, Any]) -> dict[str, Any]:
+    out = dict(record)
+    city_code = str(out.get("city_code") or "")
+    project_id = str(out.get("project_id") or "")
+    city_records = list(dict(context.get("city_records") or {}).get(city_code) or [])
+    project_records = list(dict(context.get("project_records") or {}).get(project_id) or [])
+    scoped_records = project_records or city_records
+    counts = _oversize_counts(scoped_records)
+    city_counts = dict(dict(context.get("city_oversize_counts") or {}).get(city_code) or _empty_oversize_counts())
+    project_counts = dict(dict(context.get("project_oversize_counts") or {}).get(project_id) or _empty_oversize_counts())
+    largest = _largest_deferred_attachments(scoped_records)
+    policy_summary = {
+        "oversize_policy_state": dict(context.get("summary") or {}).get("oversize_policy_state"),
+        **counts,
+        "policy_state_counts": _counts(record.get("policy_state") for record in scoped_records),
+    }
+    out.update(
+        {
+            "oversize_policy_summary": policy_summary,
+            "oversize_queue_count": counts["oversize_queue_count"],
+            "limit_deferred_queue_count": counts["limit_deferred_queue_count"],
+            "manual_approval_required_count": counts["manual_approval_required_count"],
+            "largest_deferred_attachments": largest,
+            "city_oversize_counts": city_counts,
+            "project_oversize_counts": project_counts,
+            "evidence_package_readiness_state": _evidence_package_readiness_state(out, counts),
+        }
+    )
+    out["next_stage_recommendation"] = _readiness_next_stage(out["evidence_package_readiness_state"])
+    return out
+
+
+def _evidence_package_readiness_state(record: Mapping[str, Any], oversize_counts: Mapping[str, int]) -> str:
+    city_state = str(record.get("city_closeout_state") or "")
+    if not record.get("has_recent_07") or city_state == "YGP_CITY_NO_RECENT_07_REVIEW":
+        return "YGP_EVIDENCE_MINI_NO_RECENT_07"
+    if city_state == "YGP_CITY_NO_PUBLIC_ATTACHMENT_REVIEW":
+        return "YGP_EVIDENCE_MINI_NO_PUBLIC_ATTACHMENT_REVIEW"
+    if (
+        _int(record.get("real_download_failure_count")) > 0
+        or city_state in {"YGP_CITY_SOURCE_OR_DOWNLOAD_BLOCKED", "YGP_CITY_REVIEW_REQUIRED"}
+    ):
+        return "YGP_EVIDENCE_MINI_BLOCKED"
+    if _int(oversize_counts.get("queued_attachment_count")) > 0 or dict(record.get("strategy_deferred_counts") or {}):
+        return "YGP_EVIDENCE_MINI_READY_WITH_OVERSIZE_BACKLOG"
+    return "YGP_EVIDENCE_MINI_READY_FOR_P13B"
+
+
+def _readiness_next_stage(state: str) -> str:
+    return {
+        "YGP_EVIDENCE_MINI_READY_FOR_P13B": "ENTER_P13B_ORIGINAL_READBACK",
+        "YGP_EVIDENCE_MINI_READY_WITH_OVERSIZE_BACKLOG": "ENTER_P13B_ORIGINAL_READBACK_WITH_OVERSIZE_BACKLOG_TRACKED",
+        "YGP_EVIDENCE_MINI_NO_PUBLIC_ATTACHMENT_REVIEW": "MANUAL_REVIEW_07_DETAIL_THEN_OPTIONAL_P13B",
+        "YGP_EVIDENCE_MINI_NO_RECENT_07": "CONTINUE_CITY_DISCOVERY_MONITORING",
+        "YGP_EVIDENCE_MINI_BLOCKED": "REPAIR_BLOCKERS_BEFORE_P13B",
+    }.get(state, "REPAIR_BLOCKERS_BEFORE_P13B")
+
+
+def _oversize_counts(records: Iterable[Mapping[str, Any]]) -> dict[str, int]:
+    rows = [dict(record) for record in records]
+    state_counts = Counter(str(record.get("policy_state") or "") for record in rows)
+    return {
+        "queued_attachment_count": sum(1 for record in rows if record.get("policy_state") in ACTIONABLE_OVERSIZE_POLICY_STATES),
+        "oversize_queue_count": state_counts.get("OVERSIZE_QUEUE_READY", 0),
+        "limit_deferred_queue_count": state_counts.get("LIMIT_DEFERRED_QUEUE_READY", 0),
+        "size_unknown_count": state_counts.get("SIZE_UNKNOWN_REVIEW", 0),
+        "already_captured_count": state_counts.get("ALREADY_CAPTURED_NO_ACTION", 0),
+        "manual_approval_required_count": sum(1 for record in rows if record.get("recommended_action") == "MANUAL_DOWNLOAD_APPROVAL_REQUIRED"),
+    }
+
+
+def _empty_oversize_counts() -> dict[str, int]:
+    return {
+        "queued_attachment_count": 0,
+        "oversize_queue_count": 0,
+        "limit_deferred_queue_count": 0,
+        "size_unknown_count": 0,
+        "already_captured_count": 0,
+        "manual_approval_required_count": 0,
+    }
+
+
+def _largest_deferred_attachments(records: Iterable[Mapping[str, Any]], limit: int = 10) -> list[dict[str, Any]]:
+    rows = [
+        dict(record)
+        for record in records
+        if record.get("policy_state") in ACTIONABLE_OVERSIZE_POLICY_STATES and _int_or_none(record.get("file_size_bytes")) is not None
+    ]
+    rows.sort(key=lambda record: _int_or_none(record.get("file_size_bytes")) or 0, reverse=True)
+    return [
+        {
+            "city_code": record.get("city_code"),
+            "project_id": record.get("project_id"),
+            "project_name": record.get("project_name"),
+            "flow_no": record.get("flow_no"),
+            "attachment_name": record.get("attachment_name"),
+            "attachment_url": record.get("attachment_url"),
+            "file_size_bytes": record.get("file_size_bytes"),
+            "policy_state": record.get("policy_state"),
+            "recommended_action": record.get("recommended_action"),
+        }
+        for record in rows[:limit]
+    ]
+
+
+def _download_stability_record(record: Mapping[str, Any]) -> dict[str, Any]:
+    out = {
         "city_code": record.get("city_code"),
         "project_id": record.get("project_id"),
         "project_name": record.get("project_name"),
@@ -326,10 +495,20 @@ def _download_stability_record(record: Mapping[str, Any]) -> dict[str, Any]:
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,
     }
+    for key in (
+        "oversize_queue_count",
+        "limit_deferred_queue_count",
+        "manual_approval_required_count",
+        "evidence_package_readiness_state",
+        "next_stage_recommendation",
+    ):
+        if key in record:
+            out[key] = record.get(key)
+    return out
 
 
 def _next_action_record(record: Mapping[str, Any]) -> dict[str, Any]:
-    return {
+    out = {
         "city_code": record.get("city_code"),
         "project_id": record.get("project_id"),
         "city_closeout_state": record.get("city_closeout_state"),
@@ -338,6 +517,16 @@ def _next_action_record(record: Mapping[str, Any]) -> dict[str, Any]:
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,
     }
+    for key in (
+        "oversize_queue_count",
+        "limit_deferred_queue_count",
+        "manual_approval_required_count",
+        "evidence_package_readiness_state",
+        "next_stage_recommendation",
+    ):
+        if key in record:
+            out[key] = record.get(key)
+    return out
 
 
 def _build_summary(
@@ -347,6 +536,7 @@ def _build_summary(
     closeout_summary: Mapping[str, Any],
     missing_inputs: list[str],
     stage4_live_executed: bool,
+    oversize_context: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     state_counts = _counts(record.get("city_closeout_state") for record in city_project_records)
     strategy_deferred = Counter[str]()
@@ -356,7 +546,7 @@ def _build_summary(
         strategy_deferred.update(dict(record.get("strategy_deferred_counts") or {}))
         real_failures.update(dict(record.get("real_download_failure_taxonomy_counts") or {}))
         failure_counts.update(dict(record.get("failure_taxonomy_counts") or {}))
-    return {
+    summary = {
         "evidence_mini_closeout_state": "YGP_EVIDENCE_MINI_CLOSEOUT_READY" if not missing_inputs else "YGP_EVIDENCE_MINI_CLOSEOUT_INPUT_BLOCKED",
         "city_count": len(city_project_records),
         "city_with_recent_07_count": sum(1 for record in city_project_records if record.get("has_recent_07")),
@@ -383,6 +573,33 @@ def _build_summary(
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,
     }
+    if oversize_context is not None:
+        readiness_counts = _counts(record.get("evidence_package_readiness_state") for record in city_project_records)
+        summary.update(
+            {
+                "oversize_policy_summary": dict(oversize_context.get("summary") or {}),
+                "oversize_queue_count": _int(oversize_context.get("oversize_queue_count")),
+                "limit_deferred_queue_count": _int(oversize_context.get("limit_deferred_queue_count")),
+                "manual_approval_required_count": _int(oversize_context.get("manual_approval_required_count")),
+                "largest_deferred_attachments": list(oversize_context.get("largest_deferred_attachments") or []),
+                "city_oversize_counts": dict(oversize_context.get("city_oversize_counts") or {}),
+                "project_oversize_counts": dict(oversize_context.get("project_oversize_counts") or {}),
+                "evidence_package_readiness_state_counts": readiness_counts,
+                "next_stage_recommendation": _global_next_stage_recommendation(readiness_counts),
+            }
+        )
+    return summary
+
+
+def _global_next_stage_recommendation(readiness_counts: Mapping[str, int]) -> str:
+    if _int(readiness_counts.get("YGP_EVIDENCE_MINI_BLOCKED")) > 0:
+        return "REPAIR_BLOCKERS_BEFORE_P13B"
+    ready_count = _int(readiness_counts.get("YGP_EVIDENCE_MINI_READY_FOR_P13B")) + _int(
+        readiness_counts.get("YGP_EVIDENCE_MINI_READY_WITH_OVERSIZE_BACKLOG")
+    )
+    if ready_count > 0:
+        return "ENTER_P13B_ORIGINAL_READBACK_WITH_OVERSIZE_BACKLOG_TRACKED"
+    return "CONTINUE_CITY_DISCOVERY_MONITORING"
 
 
 def _recommended_next_action(state: str) -> str:
@@ -507,7 +724,12 @@ def _finalize_and_write(
     _write_json(out_dir / "ygp-city-project-table.json", {"summary": result["summary"], "records": city_project_records})
     _write_json(out_dir / "ygp-download-stability-table.json", {"summary": result["summary"], "records": download_stability_records})
     _write_json(out_dir / "ygp-next-action-table.json", {"summary": result["summary"], "records": next_action_records})
-    _write_json(out_dir / "ygp-evidence-mini-closeout-v1.json", result)
+    main_name = (
+        "ygp-evidence-mini-closeout-v2.json"
+        if _int(result.get("manifest", {}).get("manifest_version")) == GUANGDONG_YGP_EVIDENCE_MINI_CLOSEOUT_V2_VERSION
+        else "ygp-evidence-mini-closeout-v1.json"
+    )
+    _write_json(out_dir / main_name, result)
 
 
 def _load_first_json(paths: list[Path], missing: list[str], reason: str) -> dict[str, Any]:
@@ -591,15 +813,27 @@ def _int(value: Any) -> int:
         return 0
 
 
+def _int_or_none(value: Any) -> int | None:
+    try:
+        if value is None or value == "":
+            return None
+        if isinstance(value, bool):
+            return int(value)
+        return int(value)
+    except Exception:
+        return None
+
+
 def _fingerprint(payload: Mapping[str, Any]) -> str:
     return hashlib.sha256(json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")).hexdigest()
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Build Guangdong YGP evidence mini closeout v1.")
+    parser = argparse.ArgumentParser(description="Build Guangdong YGP evidence mini closeout v1/v2.")
     parser.add_argument("--city-discovery-root", default=str(DEFAULT_CITY_DISCOVERY_ROOT))
     parser.add_argument("--download-root", default=str(DEFAULT_DOWNLOAD_ROOT))
     parser.add_argument("--output-root", default=str(DEFAULT_OUTPUT_ROOT))
+    parser.add_argument("--oversize-policy-root", default="")
     parser.add_argument("--city-code", action="append", default=[])
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
@@ -607,6 +841,7 @@ def main(argv: list[str] | None = None) -> int:
         city_discovery_root=args.city_discovery_root,
         download_root=args.download_root,
         output_root=args.output_root,
+        oversize_policy_root=args.oversize_policy_root or None,
         city_codes=args.city_code or None,
     )
     if args.json:

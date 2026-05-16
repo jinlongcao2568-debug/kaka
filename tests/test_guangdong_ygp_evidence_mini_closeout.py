@@ -50,6 +50,8 @@ class GuangdongYgpEvidenceMiniCloseoutTests(unittest.TestCase):
             records = result["manifest"]["city_project_records"]
             self.assertEqual(len(records), 16)
             self.assertEqual({record["city_code"] for record in records}, set(CITY_CODES))
+            self.assertEqual(result["manifest"]["manifest_version"], 1)
+            self.assertEqual(result["manifest"]["pipeline_stage"], "GuangdongYgpEvidenceMiniCloseoutV1")
             self.assertTrue((root / "out" / "ygp-evidence-mini-closeout-v1.json").exists())
             self.assertTrue((root / "out" / "ygp-city-project-table.json").exists())
             self.assertTrue((root / "out" / "ygp-download-stability-table.json").exists())
@@ -131,12 +133,101 @@ class GuangdongYgpEvidenceMiniCloseoutTests(unittest.TestCase):
             for term in ("无风险", "无冲突", "确认本人", "在建冲突成立", "违法成立", "造假成立", "是不是本人"):
                 self.assertNotIn(term, text)
 
+    def test_v2_oversize_policy_backfills_16_city_report(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_fixture(root)
+            _write_oversize_fixture(root)
+
+            result = _build_v2(root)
+
+            self.assertTrue(result["safe_to_execute"])
+            self.assertEqual(result["manifest"]["manifest_version"], 2)
+            self.assertEqual(result["manifest"]["pipeline_stage"], "GuangdongYgpEvidenceMiniCloseoutV2")
+            self.assertEqual(len(result["manifest"]["city_project_records"]), 16)
+            self.assertTrue((root / "out-v2" / "ygp-evidence-mini-closeout-v2.json").exists())
+
+    def test_v2_summary_receives_oversize_and_limit_counts(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_fixture(root)
+            _write_oversize_fixture(root)
+
+            result = _build_v2(root)
+
+            summary = result["summary"]
+            self.assertEqual(summary["oversize_queue_count"], 9)
+            self.assertEqual(summary["limit_deferred_queue_count"], 5)
+            self.assertEqual(summary["manual_approval_required_count"], 9)
+            self.assertEqual(summary["evidence_package_readiness_state_counts"]["YGP_EVIDENCE_MINI_READY_WITH_OVERSIZE_BACKLOG"], 2)
+
+    def test_v2_oversize_city_is_backlog_not_blocked(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_fixture(root)
+            _write_oversize_fixture(root)
+
+            result = _build_v2(root)
+
+            record = _record(result, "440800")
+            self.assertEqual(record["evidence_package_readiness_state"], "YGP_EVIDENCE_MINI_READY_WITH_OVERSIZE_BACKLOG")
+            self.assertNotEqual(record["evidence_package_readiness_state"], "YGP_EVIDENCE_MINI_BLOCKED")
+            self.assertEqual(record["oversize_queue_count"], 9)
+
+    def test_v2_no_recent_and_no_public_attachment_states_are_preserved(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_fixture(root)
+            _write_oversize_fixture(root)
+
+            result = _build_v2(root)
+
+            self.assertEqual(_record(result, "441300")["evidence_package_readiness_state"], "YGP_EVIDENCE_MINI_NO_RECENT_07")
+            self.assertEqual(
+                _record(result, "441800")["evidence_package_readiness_state"],
+                "YGP_EVIDENCE_MINI_NO_PUBLIC_ATTACHMENT_REVIEW",
+            )
+
+    def test_v2_flow_08_default_download_remains_false(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_fixture(root)
+            _write_oversize_fixture(root)
+
+            result = _build_v2(root)
+
+            self.assertEqual(result["summary"]["flow_08_default_downloaded_count"], 0)
+            self.assertTrue(all(not record["flow_08_default_downloaded"] for record in result["manifest"]["city_project_records"]))
+
+    def test_v2_forbidden_terms_scan_passes(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_fixture(root)
+            _write_oversize_fixture(root)
+
+            result = _build_v2(root)
+
+            self.assertEqual(result["summary"]["forbidden_term_scan_state"], "PASS")
+            text = json.dumps(result, ensure_ascii=False)
+            for term in ("无风险", "无冲突", "确认本人", "在建冲突成立", "违法成立", "造假成立", "是不是本人"):
+                self.assertNotIn(term, text)
+
 
 def _build(root: Path) -> dict[str, Any]:
     return build_guangdong_ygp_evidence_mini_closeout(
         city_discovery_root=root / "city-discovery-external",
         download_root=root / "download",
         output_root=root / "out",
+        created_at="2026-05-16T00:00:00+08:00",
+    )
+
+
+def _build_v2(root: Path) -> dict[str, Any]:
+    return build_guangdong_ygp_evidence_mini_closeout(
+        city_discovery_root=root / "city-discovery-external",
+        download_root=root / "download",
+        oversize_policy_root=root / "oversize-policy",
+        output_root=root / "out-v2",
         created_at="2026-05-16T00:00:00+08:00",
     )
 
@@ -265,6 +356,102 @@ def _write_fixture(root: Path) -> None:
             "summary": {},
         },
     )
+
+
+def _write_oversize_fixture(root: Path) -> None:
+    queue: list[dict[str, Any]] = []
+    for index in range(9):
+        queue.append(
+            _queue_record(
+                city_code="440800",
+                policy_state="OVERSIZE_QUEUE_READY",
+                recommended_action="MANUAL_DOWNLOAD_APPROVAL_REQUIRED",
+                attachment_index=index,
+                file_size_bytes=40_000_000 + index,
+            )
+        )
+    for index in range(5):
+        queue.append(
+            _queue_record(
+                city_code="440900",
+                policy_state="LIMIT_DEFERRED_QUEUE_READY",
+                recommended_action="SCHEDULE_LIMITED_ATTACHMENT_BACKFILL",
+                attachment_index=index,
+                file_size_bytes=None,
+            )
+        )
+    summary = {
+        "oversize_policy_state": "YGP_OVERSIZE_POLICY_READY",
+        "queue_record_count": len(queue),
+        "queued_attachment_count": 14,
+        "oversize_queue_count": 9,
+        "limit_deferred_queue_count": 5,
+        "size_unknown_count": 0,
+        "already_captured_count": 0,
+        "manual_approval_required_count": 9,
+        "real_download_failure_count": 0,
+        "fake_attachment_count": 0,
+        "largest_attachments_top10": [
+            {
+                "city_code": record["city_code"],
+                "project_id": record["project_id"],
+                "project_name": record["project_name"],
+                "flow_no": record["flow_no"],
+                "attachment_name": record["attachment_name"],
+                "attachment_url": record["attachment_url"],
+                "file_size_bytes": record["file_size_bytes"],
+                "policy_state": record["policy_state"],
+                "recommended_action": record["recommended_action"],
+            }
+            for record in queue
+            if record["file_size_bytes"] is not None
+        ][:10],
+    }
+    _write_json(
+        root / "oversize-policy" / "ygp-oversize-policy-v1.json",
+        {
+            "manifest": {
+                "manifest_version": 1,
+                "pipeline_stage": "GuangdongYgpOversizePolicyV1",
+                "summary": summary,
+                "oversize_attachment_queue": queue,
+            },
+            "summary": summary,
+        },
+    )
+
+
+def _queue_record(
+    *,
+    city_code: str,
+    policy_state: str,
+    recommended_action: str,
+    attachment_index: int,
+    file_size_bytes: int | None,
+) -> dict[str, Any]:
+    project_code = f"PC-{city_code}"
+    project_id = f"PROJ-CN-GD-YGP-{city_code}-{project_code}"
+    return {
+        "queue_item_id": f"QUEUE-{city_code}-{policy_state}-{attachment_index}",
+        "city_code": city_code,
+        "project_id": project_id,
+        "project_name": f"{city_code}测试项目",
+        "flow_no": "07",
+        "flow_title": "中标候选人公示",
+        "source_url": f"https://ygp.gdzwfw.gov.cn/detail/{city_code}",
+        "attachment_name": f"附件{attachment_index}.pdf",
+        "attachment_url": f"https://ygp.gdzwfw.gov.cn/attachment/{city_code}/{attachment_index}",
+        "file_size_bytes": file_size_bytes,
+        "size_source": "file_size_url" if file_size_bytes is not None else "unknown",
+        "defer_reason": "OVERSIZE_DEFERRED_BY_POLICY"
+        if policy_state == "OVERSIZE_QUEUE_READY"
+        else "DEFERRED_BY_YGP_DOWNLOAD_LIMIT",
+        "existing_snapshot_id": "",
+        "policy_state": policy_state,
+        "recommended_action": recommended_action,
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
 
 
 def _write_json(path: Path, payload: Mapping[str, Any]) -> None:

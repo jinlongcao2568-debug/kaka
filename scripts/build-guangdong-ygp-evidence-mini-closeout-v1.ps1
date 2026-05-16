@@ -1,6 +1,7 @@
 param(
     [string]$CityDiscoveryRoot = "",
     [string]$DownloadRoot = "",
+    [string]$OversizePolicyRoot = "",
     [string]$OutputRoot = "",
     [string[]]$CityCodes = @(),
     [switch]$EmitJson
@@ -31,6 +32,9 @@ $argsList = @(
     "--download-root", $DownloadRoot,
     "--output-root", $OutputRoot
 )
+if (-not [string]::IsNullOrWhiteSpace($OversizePolicyRoot)) {
+    $argsList += @("--oversize-policy-root", $OversizePolicyRoot)
+}
 
 $normalizedCityCodes = @()
 foreach ($cityCodeValue in $CityCodes) {
