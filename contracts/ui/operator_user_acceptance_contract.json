@@ -5,9 +5,9 @@
   "ownerDocs": [
     "AGENTS.md",
     "docs/L0.md",
-    "docs/AX9S_实战运行图纸与验收契约.md",
-    "docs/AX9S_Stage1-9_实战分支验收矩阵.md",
-    "docs/AX9S_Stage4-5_核验与双闸门操作规程.md",
+    "docs/AX9S_产品主图与验收总则.md",
+    "docs/AX9S_Stage1-9_执行矩阵与子漏斗.md",
+    "docs/AX9S_Stage4-5_核验双闸门SOP.md",
     "docs/D2_正式对象契约与字段字典.md",
     "docs/D3_正式规则码总表与判定说明书.md",
     "docs/D4_OpenAPI接口契约.md",

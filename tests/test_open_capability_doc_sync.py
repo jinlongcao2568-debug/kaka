@@ -53,7 +53,7 @@ class TestOpenCapabilityDocSync(unittest.TestCase):
             self.assertIn(path, authority_docs, path)
 
     def test_route_map_uses_111f_and_112_navigation_without_stale_active_prompt(self) -> None:
-        route_map = read_text("docs/AX9S_开发执行路由图.md")
+        route_map = read_text("docs/AX9S_当前主线导航图.md")
 
         self.assertIn(POLICY_ID, route_map)
         self.assertIn("PTL-I100-111F-open-capability-registry-route-doc-sync", route_map)
@@ -141,7 +141,7 @@ class TestOpenCapabilityDocSync(unittest.TestCase):
 
     def test_stage8_stage9_leadpack_payment_delivery_are_target_capabilities_not_permanent_out_of_scope(self) -> None:
         registry_text = read_text("control/product_module_registry.yaml")
-        route_map = read_text("docs/AX9S_开发执行路由图.md")
+        route_map = read_text("docs/AX9S_当前主线导航图.md")
         combined = registry_text + "\n" + route_map
 
         for token in (

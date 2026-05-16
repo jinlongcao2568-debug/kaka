@@ -1501,7 +1501,7 @@
       "triggers": [
         "control/current_task.yaml change",
         "control/automation_task_packet_rules.yaml change",
-        "docs/自动开发任务包模板.md change",
+        "archive/non_current_docs/自动开发任务包模板.md change",
         "scripts/check-automation-readiness.ps1 change",
         "D1 change",
         "D11 change"
@@ -1884,8 +1884,8 @@
       "triggers": [
         "control/review_gate_matrix.yaml change",
         "control/current_task.yaml change",
-        "docs/AX9S_开发执行路由图.md change",
-        "docs/正式业务代码开发开工裁决页.md change",
+        "docs/AX9S_当前主线导航图.md change",
+        "archive/non_current_docs/正式业务代码开发开工裁决页.md change",
         "docs/文档与资产状态板.md change",
         "control/repo_status.md change",
         "control/milestone_status.yaml change",
@@ -1909,7 +1909,7 @@
         "control/future_unlock_decision_state.yaml change",
         "control/repo_status.md change",
         "control/milestone_status.yaml change",
-        "docs/AX9S_开发执行路由图.md change",
+        "docs/AX9S_当前主线导航图.md change",
         "docs/文档与资产状态板.md change",
         "tests change"
       ],
@@ -1935,7 +1935,7 @@
         "control/external_unlock_prerequisite_state.yaml change",
         "control/release_manifest.yaml change",
         "control/model_release_manifest.yaml change",
-        "docs/正式业务代码开发开工裁决页.md change",
+        "archive/non_current_docs/正式业务代码开发开工裁决页.md change",
         "tests change"
       ],
       "blocking": true,
@@ -2053,7 +2053,7 @@
         "docs/D13_公开可查边界能力清单.md change",
         "docs/技术实现决策页.md change",
         "docs/文档与资产状态板.md change",
-        "docs/AX9S_开发执行路由图.md change",
+        "docs/AX9S_当前主线导航图.md change",
         "tests/test_internal_surface_preview.py change",
         "tests/test_external_unlock_prerequisites.py change",
         "tests/test_leadpack_candidate_surface.py change"
@@ -2100,7 +2100,7 @@
         "docs/D13_公开可查边界能力清单.md change",
         "docs/技术实现决策页.md change",
         "docs/文档与资产状态板.md change",
-        "docs/AX9S_开发执行路由图.md change",
+        "docs/AX9S_当前主线导航图.md change",
         "tests/test_leadpack_activation_prep.py change",
         "tests/test_internal_surface_preview.py change",
         "tests/test_external_unlock_prerequisites.py change"
@@ -2150,7 +2150,7 @@
         "docs/D13_公开可查边界能力清单.md change",
         "docs/技术实现决策页.md change",
         "docs/文档与资产状态板.md change",
-        "docs/AX9S_开发执行路由图.md change",
+        "docs/AX9S_当前主线导航图.md change",
         "docs/裁决总表.md change",
         "tests/test_leadpack_activation_design_prep.py change",
         "tests/test_internal_surface_preview.py change",
@@ -2245,9 +2245,9 @@
         "control/release_manifest.yaml change",
         "control/model_release_manifest.yaml change",
         "control/reference_index.json change",
-        "docs/正式业务代码开发开工裁决页.md change",
+        "archive/non_current_docs/正式业务代码开发开工裁决页.md change",
         "docs/文档与资产状态板.md change",
-        "docs/AX9S_开发执行路由图.md change",
+        "docs/AX9S_当前主线导航图.md change",
         "scripts/check-semantic-alignment.ps1 change",
         "scripts/check-release.ps1 change",
         "tests/test_post_repair_state_sync.py change"

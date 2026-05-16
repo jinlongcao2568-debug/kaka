@@ -592,7 +592,7 @@ capabilities:
     doc_refs:
       - docs/L0.md#external-release-blocked
       - docs/D12_部署发布与运行治理规范.md#release-gate
-      - docs/正式业务代码开发开工裁决页.md#external-release
+      - archive/non_current_docs/正式业务代码开发开工裁决页.md#external-release
     runtime_refs:
       - control/repo_status.md
       - control/milestone_status.yaml

@@ -102,7 +102,7 @@ $releaseManifest = Load-YamlFile -Path (Join-Path $root 'control/release_manifes
 $modelReleaseManifest = Load-YamlFile -Path (Join-Path $root 'control/model_release_manifest.yaml') -Issues ([ref]$issues)
 $referenceIndex = Load-JsonFile -Path (Join-Path $root 'control/reference_index.json') -Issues ([ref]$issues)
 $repoStatusText = Read-TextFile -Path (Join-Path $root 'control/repo_status.md') -Issues ([ref]$issues)
-$ax9sText = Read-TextFile -Path (Join-Path $root 'docs/AX9S_开发执行路由图.md') -Issues ([ref]$issues)
+$ax9sText = Read-TextFile -Path (Join-Path $root 'docs/AX9S_当前主线导航图.md') -Issues ([ref]$issues)
 $agText = Read-TextFile -Path (Join-Path $root 'AGENTS.md') -Issues ([ref]$issues)
 
 if ($agText -and -not $agText.Contains('current_task -> product_task_library -> repo_status')) {
@@ -120,7 +120,7 @@ if ($repoStatusText -and -not $repoStatusText.Contains('current_task -> product_
 if ($ax9sText) {
     foreach ($token in @('candidate navigation asset', '候选导航资产', 'control/current_task.yaml', 'control/product_task_library.yaml', '只作导航提示，不决定执行顺序')) {
         if (-not $ax9sText.Contains($token)) {
-            Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'ROUTE_MAP_ROLE_DRIFT' -Message "AX9S route map must keep token: $token" -Path 'docs/AX9S_开发执行路由图.md'
+            Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'ROUTE_MAP_ROLE_DRIFT' -Message "AX9S route map must keep token: $token" -Path 'docs/AX9S_当前主线导航图.md'
         }
     }
 }
@@ -213,7 +213,7 @@ if ($routeMapNearEndMatch.Success) {
     }
     foreach ($routeId in $routeIds) {
         if (-not $taskIds.Contains($routeId)) {
-            Add-Issue -Bag ([ref]$issues) -Severity 'WARNING' -Code 'ROUTE_MAP_NEAR_END_HINT_LAGGING' -Message "AX9S near-end hint $routeId is not present in control/product_task_library.yaml." -Path 'docs/AX9S_开发执行路由图.md'
+            Add-Issue -Bag ([ref]$issues) -Severity 'WARNING' -Code 'ROUTE_MAP_NEAR_END_HINT_LAGGING' -Message "AX9S near-end hint $routeId is not present in control/product_task_library.yaml." -Path 'docs/AX9S_当前主线导航图.md'
         }
     }
 }

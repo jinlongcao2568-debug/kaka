@@ -1,6 +1,6 @@
-# AX9S 自动运营决策架构与商业钩子方案
+# AX9S 历史设计：自动运营与商业钩子
 
-本文承接 `PTL-I100-143D-business-decision-architecture-and-hook-lead-roadmap-sync`。它不是 runtime 实现说明，而是后续 `144-149` 的产品运行契约：系统不能退化成手工选 URL 或零散 carrier，而必须自主发现可售工程异议机会。
+本文承接 `PTL-I100-143D-business-decision-architecture-and-hook-lead-roadmap-sync`。它不是 runtime 实现说明，而是 `144-149` 自主机会产品化路线的产品运行契约和历史设计依据：系统不能退化成手工选 URL 或零散 carrier，而必须自主发现可售工程异议机会。当前 `144-149` 已完成内部闭环，本文后续表述按“设计目标已落地为内部能力，仍需真实样本持续压测和受控开放治理”理解。
 
 ## 一、产品运行目标
 
@@ -58,19 +58,19 @@ flowchart TD
 
 ## 四、Stage1-9 逐阶段优化评估
 
-已有 `112-143` 不是白做，它们提供了受控入口、真实公开快照、解析、核验、规则、产品包、销售对象、触达/支付/交付 readback 和操作面基础。现在缺的是把这些能力串成“系统自主决策”的产品运行链，而不是让 owner 手工挑 URL、手工判断值不值得卖。
+已有 `112-143` 不是白做，它们提供了受控入口、真实公开快照、解析、核验、规则、产品包、销售对象、触达/支付/交付 readback 和操作面基础。`144-149` 已把这些能力串成第一版“系统自主决策”的产品运行链；后续重点不是重写路线，而是按真实公开源和 SKU 继续压测、补源、补规则样本和收敛 review/block taxonomy。
 
-| 阶段 | 当前基础 | 仍需优化的自主决策 | 判断方式 | 后续承接 |
+| 阶段 | 当前基础 | 已落地的自主决策方向 | 判断方式 | 后续承接 |
 |---|---|---|---|---|
-| Stage1 任务编排 | 内部调度、任务入口、readback 已有 | 自动选择地区、工程类型、金额区间、公告阶段、异议窗口和 source blueprint batch | 规则 + 算力 | `144`、`145` |
-| Stage2 公开采集 | 公开 URL/附件 fetcher、snapshot、hash、lineage 已有 | 根据 Stage1 计划自动决定入口页、详情页、附件、去重、重试、降级，不走手工 URL 主流程 | 规则 + 算力 | `145`、`149` |
-| Stage3 解析 | 真实快照进入 parser pilot 已有 | 自动选择 parser、抽字段候选、识别 source slice、冲突字段和复核原因 | parser + 算力 + LLM 候选辅助 | `146`、`149` |
-| Stage4 公开核验 | 企业/人员/资质/信用/许可/合同/履约 carrier 和在建冲突切片已有 | 自动决定查哪些公开核验源、如何做同名消歧、如何处理弱证据和冲突 | 规则 | `146` |
-| Stage5 规则证据 | catalog-aware rule factory 已有 | 自动优先跑高商业价值硬伤，输出 promote/review/block 原因并喂给 Stage6 | 规则，LLM 只写解释草稿 | `146`、`147` |
-| Stage6 产品化 | product package readiness 已有 | 判断线索值不值得卖，生成商业钩子、披露等级、withheld fields、leakage risk | 规则 + 算力 + LLM 摘要辅助 | `147`、`148` |
-| Stage7 销售 | 真实竞争者、buyer fit、offer、LeadPack readback 已有 | 从商业钩子选择买家、报价、销售话术、禁语过滤、CRM/quote gate | 算力 + 规则 + LLM 话术辅助 | `147`、`148` |
-| Stage8 触达 | approved provider execution readback 已有 | 根据钩子生成触达计划、模板、频控、退订、quiet hours 和 provider gate | 规则，LLM 只写话术草稿 | `148`、`149` |
-| Stage9 交付 | 订单、支付、交付、人工退款异常 readback 已有 | 根据审批/付款/交付 gate 解锁客户版本，记录下载、对账、回滚，自动退款继续排除 | 规则 + 审计 | `148`、`149` |
+| Stage1 任务编排 | 内部调度、任务入口、readback 已有 | 自动选择地区、工程类型、金额区间、公告阶段、异议窗口和 source blueprint batch | 规则 + 算力 | 已由 `144/145` 落地，后续按真实地区继续压测 |
+| Stage2 公开采集 | 公开 URL/附件 fetcher、snapshot、hash、lineage 已有 | 根据 Stage1 计划自动决定入口页、详情页、附件、去重、重试、降级，不走手工 URL 主流程 | 规则 + 算力 | 已由 `145/149/150/151` 落地，后续补站点和附件失败样本 |
+| Stage3 解析 | 真实快照进入 parser pilot 已有 | 自动选择 parser、抽字段候选、识别 source slice、冲突字段和复核原因 | parser + 算力 + LLM 候选辅助 | 已由 `146/149` 承接，后续补 08 定向解析/OCR/复杂表格 |
+| Stage4 公开核验 | 企业/人员/资质/信用/许可/合同/履约 carrier 和在建冲突切片已有 | 自动决定查哪些公开核验源、如何做同名消歧、如何处理弱证据和冲突 | 规则 | 已由 `146` 承接，后续补多省地方 adapter 和释放证据源 |
+| Stage5 规则证据 | catalog-aware rule factory 已有 | 自动优先跑高商业价值硬伤，输出 promote/review/block 原因并喂给 Stage6 | 规则，LLM 只写解释草稿 | 已由 `146/147` 承接，后续补 SKU 规则样本 |
+| Stage6 产品化 | product package readiness 已有 | 判断线索值不值得卖，生成商业钩子、披露等级、withheld fields、leakage risk | 规则 + 算力 + LLM 摘要辅助 | 已由 `147/148` 承接，后续补人工审核和客户版差异 |
+| Stage7 销售 | 真实竞争者、buyer fit、offer、LeadPack readback 已有 | 从商业钩子选择买家、报价、销售话术、禁语过滤、CRM/quote gate | 算力 + 规则 + LLM 话术辅助 | 已由 `147/148` 承接，当前不代表马上触达 |
+| Stage8 触达 | approved provider execution readback 已有 | 根据钩子生成触达计划、模板、频控、退订、quiet hours 和 provider gate | 规则，LLM 只写话术草稿 | 已由 `148/149` 承接，真实发送仍需 gated |
+| Stage9 交付 | 订单、支付、交付、人工退款异常 readback 已有 | 根据审批/付款/交付 gate 解锁客户版本，记录下载、对账、回滚，自动退款继续排除 | 规则 + 审计 | 已由 `148/149` 承接，真实交付仍需 gated |
 
 结论：每个阶段都有优化空间，但优化方向不是重写，而是把已有受控能力接成自主产品决策链。LLM 只进入候选抽取、摘要、复核提示和销售话术草稿；事实判断、公开核验、规则命中、客户结论、触达发送、支付交付和退款都不能交给模型直接决定。
 
@@ -83,7 +83,7 @@ flowchart TD
 - Stage1-6 internal orchestration：能跑 sanitized/offline 内部链路，并把 Stage6 readback 持久化。
 - operator action / workbench：能记录人工复核、审批、下一步动作和 readback。
 
-但这还不是完整“系统大脑”。当前 bootstrap 仍明确显示 `stage1_scheduler_enabled=false`、`executes_real_orchestrator=false`。也就是说，系统有队列、调度和操作台基础，但还没有一个产品级 autonomous run controller 自动把 Stage1 推到 Stage9。
+143D 时这还不是完整“系统大脑”。后续 144-149 已把第一版 autonomous run controller、stage state machine、source blueprint、证据风险、商业钩子和真实样本 acceptance 接入内部能力。当前仍要检查的是每个真实公开源和 SKU 分支是否能稳定进入正确的 `NEXT / REVIEW / BLOCK / SUSPEND / DONE` 状态。
 
 后续必须补的执行大脑如下：
 
@@ -97,7 +97,7 @@ flowchart TD
 | operator intervention gate | 需要人工复核/审批/审计时暂停 | 只有 repository-backed operator action 才能 resume |
 | audit replay ledger | 记录每一步输入、输出、判断、下一步和阻断原因 | 操作台和验收能回放，不靠人工口头解释 |
 
-因此 144 不能只做“扫描规则”，还要建立第一版 autonomous run controller 和 stage state machine；145-149 再逐步把 source、parser、verification、rule、Stage6 钩子、Stage7 销售、Stage8 触达、Stage9 交付挂到这个控制器上。
+历史设计要求是：144 不能只做“扫描规则”，还要建立第一版 autonomous run controller 和 stage state machine；145-149 再逐步把 source、parser、verification、rule、Stage6 钩子、Stage7 销售、Stage8 触达、Stage9 交付挂到这个控制器上。当前这些已经作为内部能力完成，后续不应回到“手工 URL 工具”路线。
 
 每一步靠什么推动：
 
@@ -169,15 +169,15 @@ Stage6/Stage7 必须增加一个产品层概念：商业钩子线索。它不是
 
 | 维度 | 当前状态 | 如果不补会怎样 | 后续承接 |
 |---|---|---|---|
-| 执行大脑 | 有 scheduler / queue / orchestration / operator action 零件，但不是自运行控制器 | 系统仍靠 Codex 或 owner 判断下一步 | `144` |
-| 市场与公开源策略 | 有真实公开 fetcher 和样本验证，但 source strategy 还没产品化 | owner 仍像人工研究员一样选站点和 URL | `144`、`145` |
-| 公开网抓取升级 | 有公开站点 fetcher、source health、degrade taxonomy，但还缺统一的失败诊断和自动升级闭环 | 抓取失败会被误解为只能人工重跑，真实样本覆盖会卡在站点结构变化、JS 壳、分页、附件、编码、超时和限频上 | `150` |
-| 验证码自动化续跑 | 现有边界能识别challenge / 登录态 / source policy并 fail-closed，但还没有自动化识别/OCR/session 续跑的产品路径 | 公开网站正常出现验证码时，任务会中断而不是保留会话自动恢复执行 | `151` |
-| 证据质量与解析核验 | 有真实快照、parser、verification pilot | 弱证据、同名、缺 source slice 可能变成错误商业信号 | `146`、`149` |
-| 商业价值与钩子转化 | 有 Stage6 package、Stage7 buyer fit/readback | 系统能发现问题，但不能稳定生成可销售且不泄密的钩子 | `147` |
-| owner 可操作性 | 有操作台入口和 readback | owner 仍要看 raw JSON 或找 Codex 判断 | `148` |
-| 外部执行与客户交付 | provider、支付、交付、下载都已 gated/readback | 如果不绑定 run，会变成零散审批动作，不是产品闭环 | `148`、`149` |
-| 真实样本验收 | 有受控真实公开 pilot | 测试绿但不能证明真实样本能自主跑到商业钩子 | `149` |
+| 执行大脑 | 已有 scheduler / queue / orchestration / operator action 和第一版 autonomous run controller | 后续风险是个别来源/分支退回人工判断 | 已由 `144` 落地，继续按真实样本压测 |
+| 市场与公开源策略 | 已有真实公开 fetcher、样本验证和 source blueprint | 后续风险是新地区仍需要 source profile/adapter 补齐 | 已由 `144/145` 落地，继续补省市覆盖 |
+| 公开网抓取升级 | 已有公开站点 fetcher、source health、degrade taxonomy、失败诊断和升级闭环 | 真实站点结构变化仍会产生新 taxonomy | 已由 `150` 落地，继续收集失败样本 |
+| 验证码自动化续跑 | 已有 challenge / 登录态 / source policy fail-closed 和续跑路径 | 真实第三方生产站点仍需目标授权和审计 | 已由 `151` 落地，继续按授权目标验证 |
+| 证据质量与解析核验 | 有真实快照、parser、verification pilot 和 hard-defect strategy | 弱证据、同名、缺 source slice 仍可能产生 review 噪音 | 已由 `146/149` 承接，继续补 SKU 样本 |
+| 商业价值与钩子转化 | 有 Stage6 package、Stage7 buyer fit/readback 和商业钩子 | 当前不等于马上销售，仍需人工审核和禁语控制 | 已由 `147` 落地，继续人工复核 |
+| owner 可操作性 | 有操作台入口、readback 和产品化 workbench | 复杂缺口仍需更清晰的 next action | 已由 `148` 落地，继续 UI/工作台细化 |
+| 外部执行与客户交付 | provider、支付、交付、下载都已 gated/readback | 真实外部动作仍受控，不自动放行 | 已由 `148/149` 承接，继续 sandbox/live pilot gate |
+| 真实样本验收 | 已有真实公开样本 acceptance | 仍需更多地区、更多附件和更多失败场景 | 已由 `149` 落地，继续扩样本 |
 
 判断一件事是否真的补齐，不能只看测试绿，要问：
 
@@ -188,31 +188,33 @@ Stage6/Stage7 必须增加一个产品层概念：商业钩子线索。它不是
 5. 真实公开样本能否从市场扫描跑到可售钩子和交付候选？
 6. 所有 provider、触达、支付、交付、下载是否仍走审批、审计、operator action 和 replay？
 
-## 八、后续实施路线
+## 八、已实施路线和后续使用方式
 
 1. `PTL-I100-144-market-scan-opportunity-discovery-engine`
-   做第一版执行大脑和机会发现：run controller、stage state machine、market scan decision planner，系统自动判断哪些公告值得分析。
+   已做第一版执行大脑和机会发现：run controller、stage state machine、market scan decision planner，系统自动判断哪些公告值得分析。
 
 2. `PTL-I100-145-source-blueprint-orchestration-and-capture-plan`
-   做公开源蓝图编排：系统自动选择公开源组合并生成 Stage2 采集计划。全国聚合平台只作为一级发现、去重和补充查询面，不按全量实时源验收；首批商业试点不选北京，北京仅保留为技术回归/页面可达性样本。首批商业试点省份默认从四川、江苏、浙江、山东、广东、湖北开始，城市适配只按省级覆盖缺口、附件/详情缺失、监管投诉/备案证据、项目价值或 SPA 弱正文触发。
+   已做公开源蓝图编排：系统自动选择公开源组合并生成 Stage2 采集计划。全国聚合平台只作为一级发现、去重和补充查询面，不按全量实时源验收。
 
 3. `PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation`
-   做公开网抓取失败自动升级：系统先诊断 DOM/结构改版、JS 壳、分页/跳转、附件发现、编码、超时、限频、解析模板漂移和站点健康退化，再自动选择合法采集/解析升级策略，不把纯人工重跑作为默认失败路径。
+   已做公开网抓取失败自动升级：系统先诊断 DOM/结构改版、JS 壳、分页/跳转、附件发现、编码、超时、限频、解析模板漂移和站点健康退化，再自动选择合法采集/解析升级策略，不把纯人工重跑作为默认失败路径。
 
 4. `PTL-I100-151-public-web-captcha-automated-resolution-and-resume`
-   做验证码自动化续跑：公开站出现验证码/校验页时，系统保留 URL、cookie、表单、任务上下文和 capture plan，优先通过自动化识别/OCR/session 续跑从同一任务恢复。
+   已做验证码自动化续跑：公开站出现验证码/校验页时，系统保留 URL、cookie、表单、任务上下文和 capture plan，优先通过自动化识别/OCR/session 续跑从同一任务恢复。
 
 5. `PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy`
-   做硬伤核验策略：系统自动决定查项目经理在建、资质、信用、业绩、许可、合同、履约等。
+   已做硬伤核验策略：系统自动决定查项目经理在建、资质、信用、业绩、许可、合同、履约等。
 
 6. `PTL-I100-147-commercial-value-buyer-fit-and-hook-lead-engine`
-   做商业价值、买家识别和商业钩子：系统判断能不能卖、卖给谁、怎么不泄露地引流。
+   已做商业价值、买家识别和商业钩子：系统判断能不能卖、卖给谁、怎么不泄露地引流。
 
 7. `PTL-I100-148-productized-autonomous-operator-workbench`
-   做产品化操作台：展示机会队列、证据强度、买家排序、钩子话术、复核项、下一步动作。
+   已做产品化操作台：展示机会队列、证据强度、买家排序、钩子话术、复核项、下一步动作。
 
 8. `PTL-I100-149-real-sample-autonomous-opportunity-acceptance`
-   用真实公开样本验收：从市场扫描到可售钩子和交付候选，证明系统不是手工 URL 工具。
+   已用真实公开样本验收：从市场扫描到可售钩子和交付候选，证明系统不是手工 URL 工具。
+
+后续使用方式：不要重复把 144-149 当成待做路线；应在这条能力链上选择一个真实来源、一个 SKU 或一个失败 taxonomy 做小闭环压测和修复。
 
 ## 九、受控开放要求
 

@@ -473,7 +473,7 @@ autonomous_business_decision_architecture_after_143:
   trigger_reason: "Owner clarified that the product must not be a manual URL picker: the system must autonomously decide market opportunity, source mix, hard-defect strategy, commercial value, buyer fit, and pre-sale hook disclosure before 144-149 runtime implementation."
   target_capability_state: INTERNAL_READY
   architecture_map_ref: control/product_runtime_architecture_map.yaml
-  human_scheme_ref: docs/AX9S_自动运营决策架构与商业钩子方案.md
+  human_scheme_ref: archive/non_current_docs/AX9S_历史设计_自动运营与商业钩子.md
   current_gap: "143 proved real public Stage7 output can flow through Stage8/Stage9 readback, but the next implementation sequence needs a formal decision architecture so 144-149 do not drift into manual URL selection or leaking complete evidence before payment."
   must_prove:
     - autonomous_decision_architecture_not_manual_url_picker

@@ -4,7 +4,7 @@
 |---|---|
 | 文档定位 | 防漂移任务契约 / Stage1-6 文件分析闭环落地顺序 |
 | 当前状态 | P6_STAGE16_REAL_SAMPLE_COVERAGE_AND_FILE_RULE_CALIBRATION_FIRST_CUT |
-| 主输入 | `docs/专题_投前预测评审风控规则救济与履约结算经验库草案.md` |
+| 主输入 | `docs/专题_规则经验库候选池_投前评审履约.md` |
 | 承载链路 | Stage1 -> Stage2 -> Stage3 -> Stage4 -> Stage5 -> Stage6 |
 | 机器镜像 | `control/stage16_file_analysis_task_contract.yaml` |
 | 不替代 | `control/current_task.yaml`、正式 D2/D3/D13、contracts、release gate |

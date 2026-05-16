@@ -1219,7 +1219,7 @@
       "enum_name": "carrier_type",
       "description": "Stage 1-2 source carrier type",
       "source_refs": [
-        "专题_来源覆盖与采集路由规范.md",
+        "专题_Stage1-2_来源覆盖与采集路由.md",
         "D2-R-088"
       ],
       "values": [
@@ -1265,7 +1265,7 @@
       "enum_name": "source_family",
       "description": "Stage 1-2 source family classification",
       "source_refs": [
-        "专题_来源覆盖与采集路由规范.md",
+        "专题_Stage1-2_来源覆盖与采集路由.md",
         "D2-R-088"
       ],
       "values": [
@@ -1316,7 +1316,7 @@
       "enum_name": "platform_level",
       "description": "Stage 1-2 platform level classification",
       "source_refs": [
-        "专题_来源覆盖与采集路由规范.md",
+        "专题_Stage1-2_来源覆盖与采集路由.md",
         "D2-R-088"
       ],
       "values": [
@@ -1363,7 +1363,7 @@
       "enum_name": "region_scope",
       "description": "Stage 1-2 region scope classification",
       "source_refs": [
-        "专题_来源覆盖与采集路由规范.md",
+        "专题_Stage1-2_来源覆盖与采集路由.md",
         "D2-R-088"
       ],
       "values": [
@@ -1401,7 +1401,7 @@
       "enum_name": "coverage_tier",
       "description": "Stage 1-2 coverage tier classification",
       "source_refs": [
-        "专题_来源覆盖与采集路由规范.md",
+        "专题_Stage1-2_来源覆盖与采集路由.md",
         "D2-R-088"
       ],
       "values": [
@@ -1435,7 +1435,7 @@
       "enum_name": "route_type",
       "description": "Stage 1-2 collection route type",
       "source_refs": [
-        "专题_来源覆盖与采集路由规范.md",
+        "专题_Stage1-2_来源覆盖与采集路由.md",
         "D2-R-088"
       ],
       "values": [
@@ -1485,7 +1485,7 @@
       "enum_name": "collection_state",
       "description": "Stage 1-2 collection lifecycle state",
       "source_refs": [
-        "专题_来源覆盖与采集路由规范.md",
+        "专题_Stage1-2_来源覆盖与采集路由.md",
         "D2-R-088",
         "D3-R-051"
       ],

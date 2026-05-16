@@ -203,7 +203,7 @@ class TestStage12Extractors(unittest.TestCase):
         task_library_text = load_text("control/product_task_library.yaml")
         current_task_text = load_text("control/current_task.yaml")
         repo_status_text = load_text("control/repo_status.md")
-        route_map_text = load_text("docs/AX9S_开发执行路由图.md")
+        route_map_text = load_text("docs/AX9S_当前主线导航图.md")
 
         self.assertIn("current_task -> product_task_library -> repo_status", current_task_text)
         self.assertIn("current_task -> product_task_library -> repo_status", repo_status_text)

@@ -29,7 +29,7 @@ change_class: MANDATORY_HUMAN_REVIEW
 human_review_required: true
 impacted_assets:
   docs:
-    - docs/专题_来源覆盖与采集路由规范.md
+    - docs/专题_Stage1-2_来源覆盖与采集路由.md
     - docs/D2_正式对象契约与字段字典.md
     - docs/D3_正式规则码总表与判定说明书.md
     - docs/D11_测试验收与金标回归清单.md
@@ -52,7 +52,7 @@ impacted_assets:
     - src/stage2_ingestion
 source_of_truth_refs:
   docs:
-    - docs/专题_来源覆盖与采集路由规范.md
+    - docs/专题_Stage1-2_来源覆盖与采集路由.md
     - docs/D2_正式对象契约与字段字典.md
     - docs/D3_正式规则码总表与判定说明书.md
     - docs/D11_测试验收与金标回归清单.md
@@ -66,7 +66,7 @@ source_of_truth_refs:
     - handoff/stage1_to_stage2/contract.json
     - handoff/stage2_to_stage3/contract.json
 allowed_modification_paths:
-  - docs/专题_来源覆盖与采集路由规范.md
+  - docs/专题_Stage1-2_来源覆盖与采集路由.md
   - docs/D2_正式对象契约与字段字典.md
   - docs/D3_正式规则码总表与判定说明书.md
   - docs/D11_测试验收与金标回归清单.md
@@ -125,7 +125,7 @@ suggested_execution_slices:
       - contracts/governance/source_registry.json
       - contracts/governance/source_family_registry.json
       - contracts/governance/route_policy_catalog.json
-      - docs/专题_来源覆盖与采集路由规范.md
+      - docs/专题_Stage1-2_来源覆盖与采集路由.md
       - docs/D2_正式对象契约与字段字典.md
   - slice_id: B1-S2-stage1-runtime-activation
     focus_paths:

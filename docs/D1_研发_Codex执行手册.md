@@ -855,9 +855,9 @@ AI / Codex 一律不得：
 
 | 项 | 要求 |
 |---|---|
-| 路线图角色 | `AX9S_开发执行路由图.md` 只负责执行导航，不得成为新的状态源或裁决源 |
+| 路线图角色 | `AX9S_当前主线导航图.md` 只负责执行导航，不得成为新的状态源或裁决源 |
 | 状态源 | phase/readiness 以 `control/current_task.yaml`、`control/repo_status.md`、`control/milestone_status.yaml`、`文档与资产状态板.md` 为准 |
-| 条件开工 | `正式业务代码开发开工裁决页.md` 只负责 `READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT` 的 conditional-go |
+| 条件开工 | `archive/non_current_docs/正式业务代码开发开工裁决页.md` 只保留 `READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT` 的 historical conditional-go snapshot，不是当前正式状态源 |
 | 推进方式 | 普通开发按 `DIRECT_DEV_DEFAULT`；高风险/live/机器契约路线图片段必须先形成 `task packet`，再按 `change_class / review_gate / stop conditions` 执行 |
 | 高风险段 | 触及 shared runtime / governance / release / Stage 8-9 高风险执行 / automation control 的路线图片段，最低 `MANDATORY_HUMAN_REVIEW` |
 | 受控开放要求 | external release、Stage 8 real execution、Stage 9 real payment-delivery、高限制字段放行均可作为 controlled-opening task packet 下的受控开放能力推进；未满足 provider config、sandbox、approval、audit、operator action、field allowlist/masking、release checklist 和验收前不得 live |

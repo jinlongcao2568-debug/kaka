@@ -657,15 +657,29 @@ class BusinessDirectionStrategyContractTests(unittest.TestCase):
         ]
 
         self.assertEqual(policy["current_phase_id"], "P13B_EXTERNAL_AWARD_OVERLAP_TRIAGE_V1")
+        self.assertEqual(policy["human_readable_name"], "负责人未释放/履约重叠宽筛")
+        self.assertEqual(policy["legacy_internal_code"], "P13B")
+        self.assertIn("历史阶段编号", policy["legacy_code_note"])
         self.assertEqual(policy["external_conflict_first_pass"], "PRIOR_AWARD_AND_CANDIDATE_OVERLAP_TRIAGE")
         self.assertEqual(policy["release_evidence_probe_trigger"], "ONLY_AFTER_TIME_WINDOW_OVERLAP_SIGNAL")
         self.assertTrue(policy["do_not_start_with_full_province_construction_permit_sweep"])
         self.assertTrue(policy["query_miss_is_not_clearance"])
         self.assertFalse(policy["flow_08_default_parse_required"])
+        targeted_backtrace = policy["targeted_original_backtrace_policy"]
+        self.assertFalse(targeted_backtrace["default_full_01_to_12_download_allowed"])
+        self.assertFalse(targeted_backtrace["default_flow_08_parse_allowed"])
+        self.assertIn("responsible_person", targeted_backtrace["target_fields"])
+        self.assertIn("construction_or_service_period", targeted_backtrace["target_fields"])
+        self.assertIn("release_evidence_pointer", targeted_backtrace["target_fields"])
+        self.assertEqual(
+            targeted_backtrace["release_deep_probe_trigger"],
+            "same_responsible_person_or_same_company_plus_time_window_overlap_signal",
+        )
         self.assertEqual(policy["primary_company_history_source_profile_id"], "NATIONAL-GGZY-DATA-SERVICE-COMPANY-AWARD-HISTORY")
         self.assertEqual(policy["primary_company_history_source_url"], "https://data.ggzy.gov.cn/")
         self.assertIn("data.ggzy.yjcx.index.search_by_company_name_or_unified_social_credit_code", policy["primary_company_history_query_flow"])
         self.assertIn("data.ggzy.yjcx.index.bid_show_by_record_id_for_notice_content_and_original_url", policy["primary_company_history_query_flow"])
+        self.assertIn("do_not_download_all_01_to_12_or_parse_flow_08_by_default_for_p13b", policy["primary_company_history_query_flow"])
         self.assertIn("data_ggzy_company_award_history_search_by_company_name_or_uniscid", policy["first_pass_sources"])
         self.assertIn("data_ggzy_bid_show_notice_content_and_original_url", policy["first_pass_sources"])
         self.assertIn("ygp_city_discovery_recent_07_candidate_search_by_city_code", policy["first_pass_sources"])
@@ -677,6 +691,7 @@ class BusinessDirectionStrategyContractTests(unittest.TestCase):
         self.assertIn("do_not_treat_prior_award_or_candidate_record_as_final_unreleased_proof", policy["must_not"])
         self.assertIn("do_not_treat_no_prior_award_match_as_no_risk", policy["must_not"])
         self.assertIn("do_not_use_legacy_dealList_find_as_p13b_primary_company_history_source", policy["must_not"])
+        self.assertIn("do_not_default_download_all_01_to_12_flows_for_p13b_original_backtrace", policy["must_not"])
         self.assertIn("do_not_use_ygp_as_guangzhou_primary_source", policy["must_not"])
         self.assertIn("ygp.url_mapping_original_readback_when_data_ggzy_points_to_ygp", policy["primary_company_history_query_flow"])
         ygp_policy = policy["ygp_original_readback_policy"]

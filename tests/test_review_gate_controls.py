@@ -200,8 +200,8 @@ class TestReviewGateControls(unittest.TestCase):
 
     def test_documents_use_new_system(self) -> None:
         agents = read("AGENTS.md")
-        ax9s = read("docs/AX9S_开发执行路由图.md")
-        template = read("docs/自动开发任务包模板.md")
+        ax9s = read("docs/AX9S_当前主线导航图.md")
+        template = read("archive/non_current_docs/自动开发任务包模板.md")
         gate = read("docs/自动化开发动作门禁表.md")
         task_rules = read("control/automation_task_packet_rules.yaml")
         self.assertIn("current_task -> product_task_library -> repo_status", agents)

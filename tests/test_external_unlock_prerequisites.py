@@ -454,8 +454,8 @@ class TestExternalUnlockPrerequisites(unittest.TestCase):
         decision_matrix = read_json("contracts/release/future_unlock_decision_matrix.json")
         prerequisite_state = read_yaml("control/external_unlock_prerequisite_state.yaml")
         decision_state = read_yaml("control/future_unlock_decision_state.yaml")
-        route_map = read_text("docs/AX9S_开发执行路由图.md")
-        launch_page = read_text("docs/正式业务代码开发开工裁决页.md")
+        route_map = read_text("docs/AX9S_当前主线导航图.md")
+        launch_page = read_text("archive/non_current_docs/正式业务代码开发开工裁决页.md")
         status_board = read_text("docs/文档与资产状态板.md")
         repo_status = read_text("control/repo_status.md")
 

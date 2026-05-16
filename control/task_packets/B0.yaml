@@ -32,7 +32,7 @@ human_review_required: true
 impacted_assets:
   docs:
     - docs/文档与资产状态板.md
-    - docs/AX9S_开发执行路由图.md
+    - docs/AX9S_当前主线导航图.md
   control:
     - control/ax9s_full_repair_plan.yaml
     - control/ax9s_full_repair_status.yaml
@@ -74,7 +74,7 @@ allowed_modification_paths:
   - control/task_packets/**
   - control/reference_index.json
   - docs/文档与资产状态板.md
-  - docs/AX9S_开发执行路由图.md
+  - docs/AX9S_当前主线导航图.md
 forbidden_modification_paths:
   - docs/L0.md
   - contracts/release/**

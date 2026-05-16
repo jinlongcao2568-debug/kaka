@@ -71,7 +71,7 @@ State Semantics:
 - DIRECT_DEV_DEFAULT is the default for ordinary internal development and does not require switching control/current_task.yaml before work.
 - control/current_task.yaml is the active execution source only when a task packet / scoped subpacket window is active.
 - control/product_task_library.yaml remains the product mainline task pool and candidate source; it does not replace control/current_task.yaml inside task packet windows and does not block ordinary direct-dev.
-- docs/AX9S_开发执行路由图.md is a pure route-map candidate navigation asset; it does not act as current task source, state source, execution log, full backlog, or execution-order authority.
+- docs/AX9S_当前主线导航图.md is a pure route-map candidate navigation asset; it does not act as current task source, state source, execution log, full backlog, or execution-order authority.
 - Execution-level management and reporting should use the P1 -> P8 ladder in control/product_task_library.yaml rather than direction labels such as Stage8 governed touch 深化 / Stage9 governed delivery 深化.
 
 Current Scoped-Execution Required Checks:
@@ -103,10 +103,10 @@ Automation Guardrails:
 - Task packet rules: control/automation_task_packet_rules.yaml
 
 Navigation Assets:
-- Execution routing map (candidate navigation asset, not status source): docs/AX9S_开发执行路由图.md
+- Execution routing map (candidate navigation asset, not status source): docs/AX9S_当前主线导航图.md
 - Product mainline task pool: control/product_task_library.yaml
 - Product module registry (execution map, not status source): control/product_module_registry.yaml
 - Product operability gap matrix: control/product_operability_gap_matrix.yaml
 - Source blueprint registry: control/source_blueprint_registry.yaml
 - Operator roster defaults: control/operator_assignment_roster_defaults.yaml
-- Auto dev task packet template: docs/自动开发任务包模板.md
+- Auto dev task packet template historical snapshot: archive/non_current_docs/自动开发任务包模板.md

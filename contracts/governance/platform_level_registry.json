@@ -3,7 +3,7 @@
   "version": "0.2.0",
   "status": "DRAFT",
   "source_documents": [
-    "docs/专题_来源覆盖与采集路由规范.md",
+    "docs/专题_Stage1-2_来源覆盖与采集路由.md",
     "docs/D2_正式对象契约与字段字典.md",
     "docs/D11_测试验收与金标回归清单.md"
   ],

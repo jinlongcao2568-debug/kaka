@@ -45,7 +45,7 @@ handoff_status:
     - "H-08 unblock remains resolved; handoff catalog continues to include H-08."
 blocking_items: []
 notes:
-  - "AX9S_开发执行路由图 is restored as a controlled route-map navigation asset; in the machine-readable index it remains tagged as a candidate navigation asset and does not override control/repo/milestone state."
+  - "AX9S_当前主线导航图 is restored as a controlled route-map navigation asset; in the machine-readable index it remains tagged as a candidate navigation asset and does not override control/repo/milestone state."
   - "READY_FOR_POST-REPAIR_MAINLINE_SELECTION means the repo has finished post-repair authority convergence and can enter formal mainline selection; it does not auto-select any mainline batch."
   - "READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT remains the scoped conditional-go; candidate-gap/strategic-branch/closure-review are not the current active repo readiness states."
   - "FULL_REPAIR_COMPLETE_REVIEW_READY marks the AX9S full-repair program control closeout only; it does not replace repo readiness and does not authorize any new batch."

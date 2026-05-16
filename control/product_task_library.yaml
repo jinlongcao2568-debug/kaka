@@ -8,7 +8,7 @@ scope_rule: "Only product mainline tasks are listed here; historical repair, cle
 formal_active_task_source: control/current_task.yaml
 source_blueprint_registry: control/source_blueprint_registry.yaml
 operator_assignment_roster_defaults: control/operator_assignment_roster_defaults.yaml
-navigation_asset: docs/AX9S_开发执行路由图.md
+navigation_asset: docs/AX9S_当前主线导航图.md
 state_sources:
   - control/repo_status.md
   - control/milestone_status.yaml
@@ -17,7 +17,7 @@ source_priority:
   product_mainline_task_pool: control/product_task_library.yaml
   source_blueprint_allowlist: control/source_blueprint_registry.yaml
   stable_operator_roster_defaults: control/operator_assignment_roster_defaults.yaml
-  product_stage_navigation: docs/AX9S_开发执行路由图.md
+  product_stage_navigation: docs/AX9S_当前主线导航图.md
   repo_state_truth_sources:
     - control/repo_status.md
     - control/milestone_status.yaml
@@ -27,7 +27,7 @@ rules:
   - "current_mainline_next_candidate is a candidate-pool pointer only; it does not auto-activate as the current execution packet."
   - "control/source_blueprint_registry.yaml is the only source-blueprint allowlist."
   - "control/operator_assignment_roster_defaults.yaml is the stable roster source for stage7 / stage8 / stage9."
-  - "docs/AX9S_开发执行路由图.md remains a product stage navigation map, not an active execution source, status source, or full backlog."
+  - "docs/AX9S_当前主线导航图.md remains a product stage navigation map, not an active execution source, status source, or full backlog."
   - "repo readiness is not decided here; control/repo_status.md and control/milestone_status.yaml remain status truth sources."
   - "Future capability packets must extend existing Stage1-9, Stage2 public-source, parser, operator-console, queue, and repository seams first; duplicate parallel implementations are not acceptable without explicit retirement or architecture approval."
 controlled_opening_requirements:
@@ -101,7 +101,7 @@ planning_sync_implementation_registration:
   title: "product_task_library 与 AX9S 路线图正式同步机制实现包"
   source_blueprint_batch_id: POST-FF-CONTROL-01
   source_task_pool: control/product_task_library.yaml
-  target_navigation_asset: docs/AX9S_开发执行路由图.md
+  target_navigation_asset: docs/AX9S_当前主线导航图.md
   trigger_policy: warning_only
   implementation_state: IMPLEMENTED
   is_placeholder: false
@@ -301,7 +301,7 @@ tasks:
     hard_depends_on: []
     soft_depends_on: []
     objective: "建立 product_task_library 与 AX9S 路线图之间的正式同步机制实现包，后续实现与规则收口由该包承接。"
-    non_goals: ["本轮不实现同步逻辑", "不修改 docs/AX9S_开发执行路由图.md", "不改变 readiness", "不放开 external release 或 Stage8/Stage9"]
+    non_goals: ["本轮不实现同步逻辑", "不修改 docs/AX9S_当前主线导航图.md", "不改变 readiness", "不放开 external release 或 Stage8/Stage9"]
     expected_outputs: ["正式同步机制实现包登记", "路线图同步规则后续实现落点说明"]
     suggested_packet_refs: [PTL-GOV-101-product-planning-sync-implementation]
     risk_level: HIGH
@@ -3139,7 +3139,7 @@ tasks:
       - "不把 LLM 输出当事实、法律结论或客户可见确定结论"
     expected_outputs:
       - "control/product_runtime_architecture_map.yaml"
-      - "docs/AX9S_自动运营决策架构与商业钩子方案.md"
+      - "archive/non_current_docs/AX9S_历史设计_自动运营与商业钩子.md"
       - "143D acceptance tests"
       - "144-149 registered implementation sequence"
     acceptance_checks:

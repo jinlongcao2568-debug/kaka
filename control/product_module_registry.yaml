@@ -8,7 +8,7 @@ purpose: >
 source_priority:
   product_direction: control/product_task_library.yaml
   active_execution_source: control/current_task.yaml
-  product_stage_navigation: docs/AX9S_开发执行路由图.md
+  product_stage_navigation: docs/AX9S_当前主线导航图.md
   authority_docs:
     - docs/L0.md
     - docs/D1_研发_Codex执行手册.md
@@ -1162,7 +1162,7 @@ modules:
     product_area: "来源/路由/时钟 authority"
     source_docs:
       - docs/D2_正式对象契约与字段字典.md
-      - docs/AX9S_开发执行路由图.md
+      - docs/AX9S_当前主线导航图.md
     formal_objects:
       - task_execution_context
       - project_identity_strategy
@@ -1199,7 +1199,7 @@ modules:
     product_area: "公开链采集 / fixation / version / clock"
     source_docs:
       - docs/D2_正式对象契约与字段字典.md
-      - docs/AX9S_开发执行路由图.md
+      - docs/AX9S_当前主线导航图.md
     formal_objects:
       - public_chain
       - notice_version_chain
@@ -1242,7 +1242,7 @@ modules:
     product_area: "结构化解析 / truth layer / lineage"
     source_docs:
       - docs/D2_正式对象契约与字段字典.md
-      - docs/AX9S_开发执行路由图.md
+      - docs/AX9S_当前主线导航图.md
     formal_objects:
       - project_base
       - field_lineage_record
@@ -1271,7 +1271,7 @@ modules:
     source_docs:
       - docs/D2_正式对象契约与字段字典.md
       - docs/D13_公开可查边界能力清单.md
-      - docs/AX9S_开发执行路由图.md
+      - docs/AX9S_当前主线导航图.md
     formal_objects:
       - public_attack_surface
       - focus_bidder_verification_profile
@@ -1302,7 +1302,7 @@ modules:
     source_docs:
       - docs/D2_正式对象契约与字段字典.md
       - docs/D3_正式规则码总表与判定说明书.md
-      - docs/AX9S_开发执行路由图.md
+      - docs/AX9S_当前主线导航图.md
     formal_objects:
       - rule_hit
       - evidence
@@ -1331,7 +1331,7 @@ modules:
     source_docs:
       - docs/D2_正式对象契约与字段字典.md
       - docs/D8_真实竞争者识别可售对象与销售推进规范.md
-      - docs/AX9S_开发执行路由图.md
+      - docs/AX9S_当前主线导航图.md
     formal_objects:
       - project_fact
       - legal_action_recommendation
@@ -1363,7 +1363,7 @@ modules:
     source_docs:
       - docs/D2_正式对象契约与字段字典.md
       - docs/D8_真实竞争者识别可售对象与销售推进规范.md
-      - docs/AX9S_开发执行路由图.md
+      - docs/AX9S_当前主线导航图.md
     formal_objects:
       - saleable_opportunity
       - sales_lead
@@ -1414,7 +1414,7 @@ modules:
     source_docs:
       - docs/D9_联系对象与销售触达规范.md
       - docs/D13_公开可查边界能力清单.md
-      - docs/AX9S_开发执行路由图.md
+      - docs/AX9S_当前主线导航图.md
     formal_objects:
       - contact_candidate_collection
       - contact_selection_trace
@@ -1452,7 +1452,7 @@ modules:
     source_docs:
       - docs/D10_订单支付交付与治理反馈规范.md
       - docs/D13_公开可查边界能力清单.md
-      - docs/AX9S_开发执行路由图.md
+      - docs/AX9S_当前主线导航图.md
     formal_objects:
       - order_record
       - payment_record
@@ -1716,7 +1716,7 @@ modules:
     source_docs:
       - docs/D5_页面导出与人工复核规范.md
       - docs/D13_公开可查边界能力清单.md
-      - docs/AX9S_开发执行路由图.md
+      - docs/AX9S_当前主线导航图.md
     formal_objects:
       - internal_preview_surface
     current_files:

@@ -3,7 +3,7 @@ contract_id: STAGE16_FILE_ANALYSIS_TASK_CONTRACT
 status: P6_STAGE16_REAL_SAMPLE_COVERAGE_AND_FILE_RULE_CALIBRATION_FIRST_CUT
 updated_at: "2026-05-08"
 role: anti_drift_execution_contract
-source_doc: "docs/专题_投前预测评审风控规则救济与履约结算经验库草案.md"
+source_doc: "docs/专题_规则经验库候选池_投前评审履约.md"
 human_readable_contract: "docs/任务契约_Stage1-6文件分析闭环与经验库能力落地.md"
 
 state_source_policy:
@@ -25,7 +25,7 @@ authority_refs:
   - README.md
   - ARCHITECTURE_NOTE.md
   - docs/L0.md
-  - "docs/专题_投前预测评审风控规则救济与履约结算经验库草案.md"
+  - "docs/专题_规则经验库候选池_投前评审履约.md"
   - docs/自动化开发动作门禁表.md
   - control/automation_action_matrix.yaml
   - control/automation_stop_conditions.yaml

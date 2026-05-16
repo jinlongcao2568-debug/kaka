@@ -32,7 +32,7 @@ impacted_assets:
     - docs/D13_公开可查边界能力清单.md
     - docs/D14_AI模型治理规范.md
     - docs/技术实现决策页.md
-    - docs/AX9S_开发执行路由图.md
+    - docs/AX9S_当前主线导航图.md
   control:
     - control/runtime_inventory.yaml
     - control/model_release_manifest.yaml
@@ -67,7 +67,7 @@ source_of_truth_refs:
     - docs/D13_公开可查边界能力清单.md
     - docs/D14_AI模型治理规范.md
     - docs/技术实现决策页.md
-    - docs/AX9S_开发执行路由图.md
+    - docs/AX9S_当前主线导航图.md
   contracts:
     - contracts/release/runtime_policy_catalog.json
     - contracts/release/external_unlock_prerequisite_matrix.json
@@ -87,7 +87,7 @@ allowed_modification_paths:
   - docs/D13_公开可查边界能力清单.md
   - docs/D14_AI模型治理规范.md
   - docs/技术实现决策页.md
-  - docs/AX9S_开发执行路由图.md
+  - docs/AX9S_当前主线导航图.md
   - contracts/release/runtime_policy_catalog.json
   - contracts/release/external_unlock_prerequisite_matrix.json
   - contracts/release/future_unlock_decision_matrix.json

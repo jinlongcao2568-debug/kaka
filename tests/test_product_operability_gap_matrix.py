@@ -314,7 +314,7 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
         self.assertEqual(section["status"], "COMPLETED")
         self.assertEqual(section["target_capability_state"], "INTERNAL_READY")
         self.assertEqual(section["architecture_map_ref"], "control/product_runtime_architecture_map.yaml")
-        self.assertEqual(section["human_scheme_ref"], "docs/AX9S_自动运营决策架构与商业钩子方案.md")
+        self.assertEqual(section["human_scheme_ref"], "archive/non_current_docs/AX9S_历史设计_自动运营与商业钩子.md")
         self.assertIn("autonomous_execution_brain_contract_records_existing_parts_and_missing_run_controller", section["must_prove"])
         self.assertIn("elevated_remaining_product_readiness_gap_assessment_records_next_product_risks", section["must_prove"])
         self.assertIn("stage1_to_stage9_improvement_assessment_with_decision_method_and_llm_boundary", section["must_prove"])

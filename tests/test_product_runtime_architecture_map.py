@@ -22,8 +22,9 @@ class ProductRuntimeArchitectureMapTests(unittest.TestCase):
         self.architecture = read_yaml("control/product_runtime_architecture_map.yaml")
         self.task_library = read_yaml("control/product_task_library.yaml")
         self.checklist = read_yaml("control/product_acceptance_checklist.yaml")
-        self.route_map_text = read_text("docs/AX9S_开发执行路由图.md")
-        self.scheme_text = read_text("docs/AX9S_自动运营决策架构与商业钩子方案.md")
+        self.route_map_text = read_text("docs/AX9S_当前主线导航图.md")
+        self.runbook_text = read_text("docs/AX9S_产品主图与验收总则.md")
+        self.scheme_text = read_text("archive/non_current_docs/AX9S_历史设计_自动运营与商业钩子.md")
 
     def test_architecture_map_declares_autonomous_operating_loop_not_manual_url_picker(self) -> None:
         self.assertEqual(
@@ -268,7 +269,7 @@ class ProductRuntimeArchitectureMapTests(unittest.TestCase):
             "PTL-I100-144-market-scan-opportunity-discovery-engine",
             "PTL-I100-149-real-sample-autonomous-opportunity-acceptance",
         ):
-            self.assertIn(phrase, self.route_map_text + self.scheme_text)
+            self.assertIn(phrase, self.runbook_text + self.scheme_text)
 
     def test_controlled_opening_requirements_stay_closed(self) -> None:
         controlled_opening_requirements = self.architecture["controlled_opening_requirements_preserved"]

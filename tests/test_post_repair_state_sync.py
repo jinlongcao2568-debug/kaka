@@ -31,7 +31,7 @@ class TestPostRepairStateSync(unittest.TestCase):
         reference_index = read_json("control/reference_index.json")
         repo_status = read_text("control/repo_status.md")
         status_board = read_text("docs/文档与资产状态板.md")
-        launch_page = read_text("docs/正式业务代码开发开工裁决页.md")
+        launch_page = read_text("archive/non_current_docs/正式业务代码开发开工裁决页.md")
 
         canonical = reference_index["stateSyncSemantics"]["canonicalReadiness"]
         values = {
@@ -53,7 +53,7 @@ class TestPostRepairStateSync(unittest.TestCase):
         model_manifest = read_yaml("control/model_release_manifest.yaml")
         repo_status = read_text("control/repo_status.md")
         status_board = read_text("docs/文档与资产状态板.md")
-        launch_page = read_text("docs/正式业务代码开发开工裁决页.md")
+        launch_page = read_text("archive/non_current_docs/正式业务代码开发开工裁决页.md")
 
         expected_flags = {
             "candidate_gap_active": False,
@@ -114,13 +114,15 @@ class TestPostRepairStateSync(unittest.TestCase):
             {
                 "statusBoard": "docs/文档与资产状态板.md",
                 "techDecision": "docs/技术实现决策页.md",
-                "launchAdjudication": "docs/正式业务代码开发开工裁决页.md",
+                "stage16FileAnalysisTaskContract": "docs/任务契约_Stage1-6文件分析闭环与经验库能力落地.md",
+                "sourceCoverageRoutingSpec": "docs/专题_Stage1-2_来源覆盖与采集路由.md",
+                "bidRiskExperienceLibraryDraft": "docs/专题_规则经验库候选池_投前评审履约.md",
             },
         )
         self.assertEqual(
             reference_index["navigationAssets"]["executionRouteMap"],
             {
-                "path": "docs/AX9S_开发执行路由图.md",
+                "path": "docs/AX9S_当前主线导航图.md",
                 "assetRole": "candidate navigation asset",
                 "formalStatusSource": False,
                 "navigationRole": "controlled route-map navigation asset",
@@ -135,9 +137,17 @@ class TestPostRepairStateSync(unittest.TestCase):
                 "currentTask": "control/current_task.yaml",
                 "milestoneStatus": "control/milestone_status.yaml",
                 "statusBoard": "docs/文档与资产状态板.md",
-                "launchAdjudicationScope": "docs/正式业务代码开发开工裁决页.md",
                 "releaseManifest": "control/release_manifest.yaml",
                 "modelReleaseManifest": "control/model_release_manifest.yaml",
+            },
+        )
+        self.assertEqual(
+            reference_index["nonCurrentDocs"],
+            {
+                "preStartChecklist": "archive/non_current_docs/开工前总清单.md",
+                "launchAdjudicationSnapshot": "archive/non_current_docs/正式业务代码开发开工裁决页.md",
+                "docsDirectionSyncPlan": "archive/non_current_docs/文档方向同步与合并治理计划.md",
+                "autoTaskPacketTemplate": "archive/non_current_docs/自动开发任务包模板.md",
             },
         )
         self.assertEqual(
