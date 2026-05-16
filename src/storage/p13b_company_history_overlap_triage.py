@@ -26,6 +26,8 @@ DATA_GGZY_BID_SHOW_URL = f"{DATA_GGZY_BASE_URL}/yjcx/index/bid_show"
 
 DEFAULT_INPUT_ROOT = Path("tmp/evaluation-real-samples/guangzhou-evidence-value-closeout-p12-v1")
 DEFAULT_OUTPUT_ROOT = Path("tmp/evaluation-real-samples/p13b-company-history-overlap-triage-v1")
+DEFAULT_YGP_EXPANSION_ROOT = Path("tmp/evaluation-real-samples/p13b-ygp-original-readback-expansion-v1")
+DEFAULT_YGP_COVERAGE_CLOSEOUT_ROOT = Path("tmp/evaluation-real-samples/guangdong-ygp-city-coverage-closeout-v1")
 DEFAULT_HISTORY_WINDOW_YEARS = (1, 2, 3)
 DEFAULT_MAX_BID_RECORDS_PER_COMPANY = 10
 
@@ -37,6 +39,8 @@ HttpGetter = Callable[[str, Mapping[str, Any]], Mapping[str, Any]]
 def build_p13b_company_history_overlap_triage(
     *,
     input_root: str | Path = DEFAULT_INPUT_ROOT,
+    ygp_expansion_root: str | Path | None = None,
+    ygp_coverage_closeout_root: str | Path | None = None,
     output_root: str | Path = DEFAULT_OUTPUT_ROOT,
     enable_live_public_query: bool = False,
     max_live_companies: int | None = None,
@@ -47,37 +51,66 @@ def build_p13b_company_history_overlap_triage(
 ) -> dict[str, Any]:
     created = created_at or utc_now_iso()
     in_dir = Path(input_root)
+    ygp_expansion_dir = Path(ygp_expansion_root) if ygp_expansion_root else None
+    ygp_coverage_dir = Path(ygp_coverage_closeout_root) if ygp_coverage_closeout_root else None
     out_dir = Path(output_root)
     out_dir.mkdir(parents=True, exist_ok=True)
 
     blocking_reasons: list[str] = []
-    project_table = _load_json(in_dir / "project-value-table.json", blocking_reasons, "project_value_table_missing")
-    candidate_table = _load_json(
-        in_dir / "candidate-group-verification-table.json",
-        blocking_reasons,
-        "candidate_group_verification_table_missing",
-    )
-    selected_projects = [
-        dict(record)
-        for record in _list(project_table.get("records"))
-        if isinstance(record, Mapping)
-        and str(record.get("value_closeout_state") or "") == "EXTERNAL_CONFLICT_SOURCE_REQUIRED"
-    ]
-    candidate_records = [
-        dict(record)
-        for record in _list(candidate_table.get("records"))
-        if isinstance(record, Mapping)
-    ]
-    selected_project_ids = {str(record.get("project_id") or "") for record in selected_projects}
-    candidates_by_project: dict[str, list[dict[str, Any]]] = {}
-    for record in candidate_records:
-        project_id = str(record.get("project_id") or "")
-        if project_id in selected_project_ids:
-            candidates_by_project.setdefault(project_id, []).append(record)
+    input_mode = "YGP_ORIGINAL_READBACK_EXPANSION" if ygp_expansion_dir else "P12_VALUE_CLOSEOUT"
+    ygp_input_count = 0
+    if ygp_expansion_dir:
+        ygp_input_table = _load_json(
+            ygp_expansion_dir / "p13b-ygp-overlap-triage-input-table.json",
+            blocking_reasons,
+            "p13b_ygp_overlap_triage_input_table_missing",
+        )
+        ygp_expansion = _load_json(
+            ygp_expansion_dir / "p13b-ygp-original-readback-expansion-v1.json",
+            blocking_reasons,
+            "p13b_ygp_original_readback_expansion_missing",
+        )
+        ygp_coverage = (
+            _load_json(
+                ygp_coverage_dir / "guangdong-ygp-city-coverage-closeout-v1.json",
+                blocking_reasons,
+                "guangdong_ygp_city_coverage_closeout_missing",
+            )
+            if ygp_coverage_dir
+            else {}
+        )
+        ygp_inputs = _ygp_overlap_inputs(ygp_input_table, ygp_expansion)
+        ygp_input_count = len(ygp_inputs)
+        project_task_records = _ygp_project_task_records(ygp_inputs, _coverage_by_project(_source_manifest(ygp_coverage)))
+        company_query_tasks = _company_query_tasks(project_task_records, created_at=created, dedupe_by_company=True)
+    else:
+        project_table = _load_json(in_dir / "project-value-table.json", blocking_reasons, "project_value_table_missing")
+        candidate_table = _load_json(
+            in_dir / "candidate-group-verification-table.json",
+            blocking_reasons,
+            "candidate_group_verification_table_missing",
+        )
+        selected_projects = [
+            dict(record)
+            for record in _list(project_table.get("records"))
+            if isinstance(record, Mapping)
+            and str(record.get("value_closeout_state") or "") == "EXTERNAL_CONFLICT_SOURCE_REQUIRED"
+        ]
+        candidate_records = [
+            dict(record)
+            for record in _list(candidate_table.get("records"))
+            if isinstance(record, Mapping)
+        ]
+        selected_project_ids = {str(record.get("project_id") or "") for record in selected_projects}
+        candidates_by_project: dict[str, list[dict[str, Any]]] = {}
+        for record in candidate_records:
+            project_id = str(record.get("project_id") or "")
+            if project_id in selected_project_ids:
+                candidates_by_project.setdefault(project_id, []).append(record)
+        project_task_records = _project_task_records(selected_projects, candidates_by_project)
+        company_query_tasks = _company_query_tasks(project_task_records, created_at=created)
 
     execution_mode = "LIVE_PUBLIC_QUERY_ATTEMPTED" if enable_live_public_query else "PLAN_ONLY_NOT_EXECUTED"
-    project_task_records = _project_task_records(selected_projects, candidates_by_project)
-    company_query_tasks = _company_query_tasks(project_task_records, created_at=created)
     company_history_query_records, bid_show_records, overlap_signal_records = _execute_company_history_tasks(
         company_query_tasks,
         created_at=created,
@@ -95,6 +128,8 @@ def build_p13b_company_history_overlap_triage(
         overlap_signal_records=overlap_signal_records,
         execution_mode=execution_mode,
         blocking_reasons=blocking_reasons,
+        input_mode=input_mode,
+        ygp_input_count=ygp_input_count,
     )
     manifest = {
         "manifest_version": P13B_COMPANY_HISTORY_OVERLAP_TRIAGE_VERSION,
@@ -104,9 +139,12 @@ def build_p13b_company_history_overlap_triage(
         "manifest_id": f"P13B-COMPANY-HISTORY-OVERLAP-{_fingerprint({'summary': summary, 'tasks': company_history_query_records})[:16]}",
         "created_at": created,
         "source_input_root": str(in_dir),
+        "source_ygp_expansion_root": str(ygp_expansion_dir or ""),
+        "source_ygp_coverage_closeout_root": str(ygp_coverage_dir or ""),
         "source_project_value_table": str(in_dir / "project-value-table.json"),
         "source_candidate_group_verification_table": str(in_dir / "candidate-group-verification-table.json"),
         "source_profile_id": "NATIONAL-GGZY-DATA-SERVICE-COMPANY-AWARD-HISTORY",
+        "input_mode": input_mode,
         "source_base_url": DATA_GGZY_BASE_URL,
         "execution_mode": execution_mode,
         "live_public_query_enabled": bool(enable_live_public_query),
@@ -202,37 +240,173 @@ def _project_task_records(
     return records
 
 
-def _company_query_tasks(project_task_records: list[dict[str, Any]], *, created_at: str) -> list[dict[str, Any]]:
+def _ygp_overlap_inputs(input_table: Mapping[str, Any], expansion: Mapping[str, Any]) -> list[dict[str, Any]]:
+    records = [
+        dict(record)
+        for record in _list(input_table.get("records"))
+        if isinstance(record, Mapping)
+    ]
+    if records:
+        return records
+    manifest = _source_manifest(expansion)
+    return [
+        dict(record)
+        for record in _list(manifest.get("overlap_triage_input_records"))
+        if isinstance(record, Mapping)
+    ]
+
+
+def _coverage_by_project(coverage_manifest: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
+    out: dict[str, dict[str, Any]] = {}
+    for record in _list(coverage_manifest.get("city_coverage_records")):
+        if not isinstance(record, Mapping):
+            continue
+        project_id = str(record.get("project_id") or "")
+        if project_id:
+            out[project_id] = dict(record)
+    return out
+
+
+def _ygp_project_task_records(
+    ygp_inputs: list[dict[str, Any]],
+    coverage_by_project: Mapping[str, Mapping[str, Any]],
+) -> list[dict[str, Any]]:
+    grouped: dict[str, dict[str, Any]] = {}
+    for item in ygp_inputs:
+        project_id = str(item.get("project_id") or "")
+        if not project_id:
+            continue
+        coverage = dict(coverage_by_project.get(project_id) or {})
+        project = grouped.setdefault(
+            project_id,
+            {
+                "project_task_id": _stable_id("P13B-YGP-PROJECT", project_id),
+                "project_id": project_id,
+                "project_name": str(item.get("project_name") or coverage.get("project_name") or ""),
+                "city_code": str(item.get("city_code") or coverage.get("city_code") or ""),
+                "candidate_group_count": 0,
+                "candidate_group_ids": [],
+                "candidate_companies": [],
+                "candidate_company_input_counts": {},
+                "responsible_person_names": [],
+                "candidate_notice_source_urls": [],
+                "project_source_urls": [],
+                "value_closeout_state": "YGP_COVERAGE_READY_FOR_P13B",
+                "p13b_triage_state": "P13B_COMPANY_HISTORY_TRIAGE_REQUIRED",
+                "ygp_city_coverage_state": str(coverage.get("city_coverage_state") or ""),
+                "ygp_recommended_next_action": str(coverage.get("recommended_next_action") or ""),
+                "backlog_tracked": _int(coverage.get("oversize_queue_count")) + _int(coverage.get("limit_deferred_queue_count")) > 0
+                or bool(item.get("backlog_tracked")),
+                "ygp_overlap_input_count": 0,
+                "customer_visible_allowed": False,
+                "no_legal_conclusion": True,
+            },
+        )
+        company = str(item.get("candidate_company_name") or "").strip()
+        if company:
+            project["candidate_companies"] = _dedupe([*project["candidate_companies"], company])
+            counts = dict(project.get("candidate_company_input_counts") or {})
+            counts[company] = _int(counts.get(company)) + 1
+            project["candidate_company_input_counts"] = counts
+        project["responsible_person_names"] = _dedupe(
+            [*project["responsible_person_names"], *_list(item.get("responsible_person_candidates"))]
+        )
+        urls = _dedupe([*project["candidate_notice_source_urls"], item.get("source_07_url"), item.get("source_url")])
+        project["candidate_notice_source_urls"] = urls
+        project["project_source_urls"] = urls
+        project["ygp_overlap_input_count"] = _int(project.get("ygp_overlap_input_count")) + 1
+    return list(grouped.values())
+
+
+def _company_query_tasks(
+    project_task_records: list[dict[str, Any]],
+    *,
+    created_at: str,
+    dedupe_by_company: bool = False,
+) -> list[dict[str, Any]]:
     tasks: list[dict[str, Any]] = []
     seen: set[str] = set()
+    by_company: dict[str, dict[str, Any]] = {}
     for project in project_task_records:
         for company in _list(project.get("candidate_companies")):
             company_name = str(company or "").strip()
             if not company_name:
                 continue
-            key = f"{project.get('project_id')}|{_norm(company_name)}"
+            normalized_company = _norm(company_name)
+            key = normalized_company if dedupe_by_company else f"{project.get('project_id')}|{normalized_company}"
             if key in seen:
+                if dedupe_by_company:
+                    existing = by_company[key]
+                    existing["responsible_person_names"] = _dedupe(
+                        [*existing.get("responsible_person_names", []), *_list(project.get("responsible_person_names"))]
+                    )
+                    existing["candidate_notice_source_urls"] = _dedupe(
+                        [*existing.get("candidate_notice_source_urls", []), *_list(project.get("candidate_notice_source_urls"))]
+                    )
+                    existing["related_project_refs"] = _dedupe_project_refs(
+                        [
+                            *existing.get("related_project_refs", []),
+                            _project_ref_for_company(project, company_name),
+                        ]
+                    )
+                    existing["ygp_input_count"] = _int(existing.get("ygp_input_count")) + _int(
+                        dict(project.get("candidate_company_input_counts") or {}).get(company_name, 1)
+                    )
                 continue
             seen.add(key)
             search_url = _company_search_url(company_name)
-            tasks.append(
-                {
-                    "company_history_query_task_id": _stable_id("P13B-COMPANY-HISTORY", project.get("project_id"), company_name),
-                    "project_id": str(project.get("project_id") or ""),
-                    "project_name": str(project.get("project_name") or ""),
-                    "candidate_company_name": company_name,
-                    "candidate_company_variants": [company_name],
-                    "responsible_person_names": _list(project.get("responsible_person_names")),
-                    "candidate_notice_source_urls": _list(project.get("candidate_notice_source_urls")),
-                    "search_url": search_url,
-                    "execution_mode": "PLAN_ONLY_NOT_EXECUTED",
-                    "query_state": "PLAN_ONLY_NOT_EXECUTED",
-                    "created_at": created_at,
-                    "customer_visible_allowed": False,
-                    "no_legal_conclusion": True,
-                }
-            )
+            task = {
+                "company_history_query_task_id": _stable_id(
+                    "P13B-COMPANY-HISTORY",
+                    "YGP" if dedupe_by_company else project.get("project_id"),
+                    company_name,
+                ),
+                "project_id": str(project.get("project_id") or ""),
+                "project_name": str(project.get("project_name") or ""),
+                "candidate_company_name": company_name,
+                "candidate_company_variants": [company_name],
+                "responsible_person_names": _list(project.get("responsible_person_names")),
+                "candidate_notice_source_urls": _list(project.get("candidate_notice_source_urls")),
+                "search_url": search_url,
+                "execution_mode": "PLAN_ONLY_NOT_EXECUTED",
+                "query_state": "PLAN_ONLY_NOT_EXECUTED",
+                "related_project_refs": [_project_ref_for_company(project, company_name)] if dedupe_by_company else [],
+                "ygp_input_count": _int(dict(project.get("candidate_company_input_counts") or {}).get(company_name, 1))
+                if dedupe_by_company
+                else 0,
+                "created_at": created_at,
+                "customer_visible_allowed": False,
+                "no_legal_conclusion": True,
+            }
+            if dedupe_by_company:
+                by_company[key] = task
+            tasks.append(task)
     return tasks
+
+
+def _project_ref_for_company(project: Mapping[str, Any], company_name: str) -> dict[str, Any]:
+    return {
+        "project_id": str(project.get("project_id") or ""),
+        "project_name": str(project.get("project_name") or ""),
+        "city_code": str(project.get("city_code") or ""),
+        "candidate_company_name": company_name,
+        "responsible_person_names": _list(project.get("responsible_person_names")),
+        "candidate_notice_source_urls": _list(project.get("candidate_notice_source_urls")),
+        "ygp_city_coverage_state": str(project.get("ygp_city_coverage_state") or ""),
+        "backlog_tracked": bool(project.get("backlog_tracked")),
+    }
+
+
+def _dedupe_project_refs(values: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for value in values:
+        key = f"{value.get('project_id')}|{value.get('candidate_company_name')}"
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(dict(value))
+    return out
 
 
 def _execute_company_history_tasks(
@@ -534,10 +708,31 @@ def _summary(
     overlap_signal_records: list[Mapping[str, Any]],
     execution_mode: str,
     blocking_reasons: list[str],
+    input_mode: str = "P12_VALUE_CLOSEOUT",
+    ygp_input_count: int = 0,
 ) -> dict[str, Any]:
+    queried_company_count = sum(
+        1
+        for record in company_history_query_records
+        if str(record.get("execution_mode") or "") == "LIVE_PUBLIC_QUERY_ATTEMPTED"
+    )
+    source_blocked_count = sum(
+        1
+        for record in company_history_query_records
+        if str(record.get("query_state") or "") == "SOURCE_BLOCKED_RETRY_REQUIRED"
+        and "max_live_companies_deferred" not in set(str(item) for item in _list(record.get("blocker_taxonomy")))
+    )
+    company_search_hit_count = sum(1 for record in company_history_query_records if str(record.get("uniscid") or ""))
+    bid_list_hit_count = sum(1 for record in company_history_query_records if _int(record.get("bid_list_total")) > 0)
     return {
         "p13b_triage_state": "P13B_COMPANY_HISTORY_OVERLAP_TRIAGE_READY" if not blocking_reasons else "P13B_INPUT_BLOCKED",
+        "input_mode": input_mode,
         "execution_mode": execution_mode,
+        "ygp_input_count": ygp_input_count,
+        "unique_company_count": len(company_history_query_records),
+        "queried_company_count": queried_company_count,
+        "company_search_hit_count": company_search_hit_count,
+        "bid_list_hit_count": bid_list_hit_count,
         "project_task_count": len(project_task_records),
         "company_history_query_task_count": len(company_history_query_records),
         "company_history_record_found_count": sum(
@@ -550,9 +745,13 @@ def _summary(
         "overlap_signal_review_required_count": sum(
             1 for record in overlap_signal_records if str(record.get("overlap_signal_state") or "") == "OVERLAP_SIGNAL_REVIEW_REQUIRED"
         ),
+        "overlap_signal_count": sum(
+            1 for record in overlap_signal_records if str(record.get("overlap_signal_state") or "") == "OVERLAP_SIGNAL_REVIEW_REQUIRED"
+        ),
         "original_notice_backtrace_required_count": sum(
             1 for record in overlap_signal_records if str(record.get("overlap_signal_state") or "") == "ORIGINAL_NOTICE_BACKTRACE_REQUIRED"
         ),
+        "source_blocked_count": source_blocked_count,
         "company_query_state_counts": _counts(record.get("query_state") for record in company_history_query_records),
         "bid_show_state_counts": _counts(record.get("bid_show_state") for record in bid_show_records),
         "overlap_signal_state_counts": _counts(record.get("overlap_signal_state") for record in overlap_signal_records),
@@ -845,6 +1044,20 @@ def _counts(values: Iterable[Any]) -> dict[str, int]:
     return dict(sorted(counts.items()))
 
 
+def _source_manifest(payload: Mapping[str, Any]) -> Mapping[str, Any]:
+    manifest = payload.get("manifest") if isinstance(payload, Mapping) else {}
+    return manifest if isinstance(manifest, Mapping) else payload
+
+
+def _int(value: Any) -> int:
+    try:
+        if isinstance(value, bool):
+            return int(value)
+        return int(value or 0)
+    except Exception:
+        return 0
+
+
 def _stable_id(prefix: str, *parts: Any) -> str:
     return f"{prefix}-{_sha256('|'.join(str(part or '') for part in parts))[:12]}"
 
@@ -872,6 +1085,8 @@ def _parse_history_window_years(value: str) -> list[int]:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Build P13B company history overlap triage manifest.")
     parser.add_argument("--input-root", default=str(DEFAULT_INPUT_ROOT))
+    parser.add_argument("--ygp-expansion-root", default="")
+    parser.add_argument("--ygp-coverage-closeout-root", default="")
     parser.add_argument("--output-root", default=str(DEFAULT_OUTPUT_ROOT))
     parser.add_argument("--enable-live-public-query", action="store_true")
     parser.add_argument("--max-live-companies", type=int, default=None)
@@ -881,6 +1096,8 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     result = build_p13b_company_history_overlap_triage(
         input_root=args.input_root,
+        ygp_expansion_root=args.ygp_expansion_root or None,
+        ygp_coverage_closeout_root=args.ygp_coverage_closeout_root or None,
         output_root=args.output_root,
         enable_live_public_query=args.enable_live_public_query,
         max_live_companies=args.max_live_companies,

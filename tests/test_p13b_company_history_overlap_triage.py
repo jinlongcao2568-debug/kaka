@@ -104,6 +104,53 @@ class P13BCompanyHistoryOverlapTriageTests(unittest.TestCase):
             self.assertEqual(summary["company_query_state_counts"]["NO_PUBLIC_OVERLAP_SIGNAL_REVIEW"], 2)
             self.assertIn("data_ggzy_forbidden_or_rate_limited_review", summary["blocker_taxonomy_counts"])
 
+    def test_ygp_plan_only_reads_overlap_inputs_and_dedupes_companies(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_ygp_tables(root)
+
+            result = build_p13b_company_history_overlap_triage(
+                ygp_expansion_root=root / "ygp-expansion",
+                ygp_coverage_closeout_root=root / "coverage",
+                output_root=root / "out",
+                created_at="2026-05-15T00:00:00+08:00",
+            )
+
+            summary = result["summary"]
+            self.assertTrue(result["safe_to_execute"])
+            self.assertEqual(summary["input_mode"], "YGP_ORIGINAL_READBACK_EXPANSION")
+            self.assertEqual(summary["ygp_input_count"], 4)
+            self.assertEqual(summary["unique_company_count"], 3)
+            self.assertEqual(summary["queried_company_count"], 0)
+            tasks = result["manifest"]["company_history_query_records"]
+            self.assertEqual(len([task for task in tasks if task["candidate_company_name"] == "广东甲公司"]), 1)
+
+    def test_ygp_live_fake_query_extracts_overlap_and_backtrace_inputs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_ygp_tables(root)
+
+            result = build_p13b_company_history_overlap_triage(
+                ygp_expansion_root=root / "ygp-expansion",
+                ygp_coverage_closeout_root=root / "coverage",
+                output_root=root / "out",
+                enable_live_public_query=True,
+                max_live_companies=3,
+                max_bid_records_per_company=5,
+                http_getter=_fake_http_getter,
+                created_at="2026-05-15T00:00:00+08:00",
+            )
+
+            summary = result["summary"]
+            self.assertEqual(summary["ygp_input_count"], 4)
+            self.assertEqual(summary["unique_company_count"], 3)
+            self.assertEqual(summary["queried_company_count"], 3)
+            self.assertEqual(summary["company_search_hit_count"], 2)
+            self.assertEqual(summary["bid_list_hit_count"], 2)
+            self.assertEqual(summary["bid_show_record_count"], 2)
+            self.assertEqual(summary["overlap_signal_count"], 1)
+            self.assertEqual(summary["original_notice_backtrace_required_count"], 1)
+
     def test_report_never_contains_forbidden_terms(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -184,6 +231,74 @@ def _write_p12_tables(root: Path, *, first_company: str = "广东甲公司", fir
             ],
         },
     )
+
+
+def _write_ygp_tables(root: Path) -> None:
+    expansion = root / "ygp-expansion"
+    coverage = root / "coverage"
+    expansion.mkdir(parents=True, exist_ok=True)
+    coverage.mkdir(parents=True, exist_ok=True)
+    records = [
+        _ygp_overlap_input("P1", "440200", "广东甲公司", ["张三"]),
+        _ygp_overlap_input("P1", "440200", "广东乙公司", ["李四"]),
+        _ygp_overlap_input("P2", "440800", "广东甲公司", ["张三"]),
+        _ygp_overlap_input("P3", "441800", "广东丙公司", ["王五"]),
+    ]
+    _write_json(expansion / "p13b-ygp-overlap-triage-input-table.json", {"summary": {"overlap_triage_input_count": 4}, "records": records})
+    _write_json(
+        expansion / "p13b-ygp-original-readback-expansion-v1.json",
+        {
+            "manifest": {"overlap_triage_input_records": records},
+            "summary": {"overlap_triage_input_count": 4},
+        },
+    )
+    _write_json(
+        coverage / "guangdong-ygp-city-coverage-closeout-v1.json",
+        {
+            "manifest": {
+                "city_coverage_records": [
+                    _coverage_record("P1", "440200", "YGP_CITY_COVERAGE_READY_FOR_P13B"),
+                    _coverage_record("P2", "440800", "YGP_CITY_COVERAGE_READY_WITH_BACKLOG", oversize=1),
+                    _coverage_record("P3", "441800", "YGP_CITY_COVERAGE_NO_PUBLIC_ATTACHMENT_REVIEW"),
+                ]
+            },
+            "summary": {"p13b_overlap_input_count": 4},
+        },
+    )
+
+
+def _ygp_overlap_input(project_suffix: str, city_code: str, company: str, people: list[str]) -> dict[str, Any]:
+    project_id = f"PROJ-CN-GD-YGP-{project_suffix}"
+    return {
+        "city_code": city_code,
+        "project_id": project_id,
+        "project_name": f"{project_suffix}测试项目",
+        "candidate_company_name": company,
+        "responsible_person_candidates": people,
+        "certificate_no_candidates": [],
+        "service_period_text": "365日历天",
+        "award_date": "2026-05-01",
+        "publish_date": "2026-05-01",
+        "source_url": f"https://ygp.gdzwfw.gov.cn/detail/{project_suffix}",
+        "source_07_url": f"https://ygp.gdzwfw.gov.cn/detail/{project_suffix}",
+        "backlog_tracked": city_code == "440800",
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
+
+
+def _coverage_record(project_suffix: str, city_code: str, state: str, *, oversize: int = 0) -> dict[str, Any]:
+    return {
+        "city_code": city_code,
+        "project_id": f"PROJ-CN-GD-YGP-{project_suffix}",
+        "project_name": f"{project_suffix}测试项目",
+        "city_coverage_state": state,
+        "recommended_next_action": "KEEP_BACKLOG_AND_ENTER_P13B" if oversize else "ENTER_P13B_COMPANY_HISTORY_OVERLAP_TRIAGE",
+        "oversize_queue_count": oversize,
+        "limit_deferred_queue_count": 0,
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
 
 
 def _fake_http_getter(url: str, context: Mapping[str, Any]) -> Mapping[str, Any]:

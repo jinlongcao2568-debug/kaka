@@ -1,5 +1,7 @@
 param(
     [string]$InputRoot = "",
+    [string]$YgpExpansionRoot = "",
+    [string]$YgpCoverageCloseoutRoot = "",
     [string]$OutputRoot = "",
     [switch]$EnableLivePublicQuery,
     [int]$MaxLiveCompanies = 0,
@@ -32,6 +34,12 @@ $argsList = @(
     "--history-window-years", $HistoryWindowYears
 )
 
+if ($YgpExpansionRoot) {
+    $argsList += @("--ygp-expansion-root", $YgpExpansionRoot)
+}
+if ($YgpCoverageCloseoutRoot) {
+    $argsList += @("--ygp-coverage-closeout-root", $YgpCoverageCloseoutRoot)
+}
 if ($EnableLivePublicQuery) {
     $argsList += "--enable-live-public-query"
 }
