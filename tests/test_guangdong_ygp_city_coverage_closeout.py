@@ -53,6 +53,24 @@ class GuangdongYgpCityCoverageCloseoutTests(unittest.TestCase):
             self.assertTrue((root / "out" / "guangdong-ygp-city-coverage-closeout-v1.json").exists())
             self.assertTrue((root / "out" / "ygp-city-coverage-table.json").exists())
 
+    def test_plan_signature_accepts_positional_roots(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_fixture(root)
+
+            result = build_guangdong_ygp_city_coverage_closeout(
+                root / "city-discovery",
+                root / "download",
+                root / "mini",
+                root / "oversize",
+                root / "p13b-expansion",
+                root / "out",
+                "2026-05-16T00:00:00+08:00",
+            )
+
+            self.assertTrue(result["safe_to_execute"])
+            self.assertEqual(result["summary"]["city_count"], 16)
+
     def test_recent_07_cities_enter_expected_states(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -102,6 +120,18 @@ class GuangdongYgpCityCoverageCloseoutTests(unittest.TestCase):
             self.assertEqual(record["city_coverage_state"], "YGP_CITY_COVERAGE_NO_PUBLIC_ATTACHMENT_REVIEW")
             self.assertNotEqual(record["city_coverage_state"], "YGP_CITY_COVERAGE_BLOCKED")
 
+    def test_non_hard_review_rows_do_not_enter_blocker_table(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_fixture(root)
+
+            result = _build(root)
+
+            blocker_city_codes = {record["city_code"] for record in result["manifest"]["city_blocker_records"]}
+            self.assertNotIn("440800", blocker_city_codes)
+            self.assertNotIn("441800", blocker_city_codes)
+            self.assertNotIn("441300", blocker_city_codes)
+
     def test_p13b_ready_project_count_comes_from_expansion(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -114,6 +144,24 @@ class GuangdongYgpCityCoverageCloseoutTests(unittest.TestCase):
             self.assertEqual(_record(result, "440200")["p13b_overlap_input_count"], 2)
             self.assertTrue((root / "out" / "ygp-p13b-ready-project-table.json").exists())
 
+    def test_p13b_ready_is_from_ready_task_not_overlap_only(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_fixture(root)
+            expansion_path = root / "p13b-expansion" / "p13b-ygp-original-readback-expansion-v1.json"
+            expansion = json.loads(expansion_path.read_text(encoding="utf-8"))
+            expansion["manifest"]["overlap_triage_input_records"].append(_overlap_input("442000", "广东戊公司"))
+            _write_json(expansion_path, expansion)
+
+            result = _build(root)
+
+            record = _record(result, "442000")
+            self.assertFalse(record["p13b_ready"])
+            self.assertFalse(record["p13b_input_ready"])
+            self.assertEqual(record["city_coverage_state"], "YGP_CITY_COVERAGE_PARTIAL_REVIEW")
+            self.assertEqual(result["summary"]["p13b_ready_project_count"], 3)
+            self.assertEqual(result["summary"]["p13b_overlap_input_count"], 5)
+
     def test_fake_attachment_count_is_zero_in_summary(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -122,6 +170,24 @@ class GuangdongYgpCityCoverageCloseoutTests(unittest.TestCase):
             result = _build(root)
 
             self.assertEqual(result["summary"]["fake_attachment_count"], 0)
+
+    def test_safety_fields_are_fixed(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_fixture(root)
+
+            result = _build(root)
+
+            safety = result["manifest"]["safety"]
+            self.assertFalse(safety["network_enabled"])
+            self.assertFalse(safety["download_enabled"])
+            self.assertFalse(safety["parse_enabled"])
+            self.assertFalse(safety["customer_visible_allowed"])
+            self.assertTrue(safety["no_legal_conclusion"])
+            self.assertFalse(safety["stage4_live_executed"])
+            self.assertEqual(safety["flow_08_default_downloaded_count"], 0)
+            self.assertFalse(result["summary"]["stage4_live_executed"])
+            self.assertEqual(result["summary"]["flow_08_default_downloaded_count"], 0)
 
     def test_forbidden_terms_scan_passes(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

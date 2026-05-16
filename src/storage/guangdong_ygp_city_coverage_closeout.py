@@ -30,7 +30,6 @@ P13B_READY_STATES = {
 
 
 def build_guangdong_ygp_city_coverage_closeout(
-    *,
     city_discovery_root: str | Path = DEFAULT_CITY_DISCOVERY_ROOT,
     download_root: str | Path = DEFAULT_DOWNLOAD_ROOT,
     mini_closeout_root: str | Path = DEFAULT_MINI_CLOSEOUT_ROOT,
@@ -126,7 +125,9 @@ def build_guangdong_ygp_city_coverage_closeout(
             "download_enabled": False,
             "parse_enabled": False,
             "flow_08_default_downloaded": False,
+            "flow_08_default_downloaded_count": 0,
             "stage4_live_provider_enabled": False,
+            "stage4_live_executed": False,
             "customer_visible_allowed": False,
             "no_legal_conclusion": True,
         },
@@ -147,18 +148,19 @@ def build_guangdong_ygp_city_coverage_closeout(
 
 def _mini_city_records(mini_closeout: Mapping[str, Any], city_table: Mapping[str, Any]) -> list[dict[str, Any]]:
     manifest = _source_manifest(mini_closeout)
-    records = [
-        dict(record)
-        for record in _list(manifest.get("city_project_records"))
-        if isinstance(record, Mapping)
-    ]
-    if records:
-        return records
-    return [
-        dict(record)
-        for record in _list(city_table.get("records"))
-        if isinstance(record, Mapping)
-    ]
+    by_city: dict[str, dict[str, Any]] = {}
+    order: list[str] = []
+    for source_records in (city_table.get("records"), manifest.get("city_project_records")):
+        for record in _list(source_records):
+            if not isinstance(record, Mapping):
+                continue
+            city_code = str(record.get("city_code") or "")
+            if not city_code:
+                continue
+            if city_code not in by_city:
+                order.append(city_code)
+            by_city[city_code] = dict(record)
+    return [by_city[city_code] for city_code in order]
 
 
 def _coverage_record(
@@ -175,7 +177,8 @@ def _coverage_record(
     p13b_task_count = _int(p13b_counts.get("p13b_task_count"))
     p13b_ready_count = _int(p13b_counts.get("p13b_ready_count"))
     p13b_overlap_input_count = _int(p13b_overlap_counts.get("p13b_overlap_input_count"))
-    p13b_ready = p13b_ready_count > 0 or p13b_overlap_input_count > 0
+    p13b_ready = p13b_ready_count > 0
+    p13b_input_ready = p13b_ready and p13b_overlap_input_count > 0
     no_public_attachment = (
         str(record.get("evidence_package_readiness_state") or "") == "YGP_EVIDENCE_MINI_NO_PUBLIC_ATTACHMENT_REVIEW"
         or str(record.get("city_closeout_state") or "") == "YGP_CITY_NO_PUBLIC_ATTACHMENT_REVIEW"
@@ -187,7 +190,7 @@ def _coverage_record(
         blocked=blocked,
         no_public_attachment=no_public_attachment,
         backlog_count=oversize_queue_count + limit_deferred_queue_count,
-        p13b_ready=p13b_ready,
+        p13b_input_ready=p13b_input_ready,
     )
     action = _recommended_next_action(state, backlog_count=oversize_queue_count + limit_deferred_queue_count)
     return {
@@ -211,7 +214,9 @@ def _coverage_record(
         "limit_deferred_queue_count": limit_deferred_queue_count,
         "no_public_attachment": bool(no_public_attachment),
         "p13b_ready": bool(p13b_ready),
+        "p13b_input_ready": bool(p13b_input_ready),
         "p13b_task_count": p13b_task_count,
+        "p13b_ready_task_count": p13b_ready_count,
         "p13b_overlap_input_count": p13b_overlap_input_count,
         "city_coverage_state": state,
         "recommended_next_action": action,
@@ -230,7 +235,7 @@ def _coverage_state(
     blocked: bool,
     no_public_attachment: bool,
     backlog_count: int,
-    p13b_ready: bool,
+    p13b_input_ready: bool,
 ) -> str:
     if not has_recent_07:
         return "YGP_CITY_COVERAGE_NO_RECENT_07"
@@ -240,7 +245,7 @@ def _coverage_state(
         return "YGP_CITY_COVERAGE_NO_PUBLIC_ATTACHMENT_REVIEW"
     if backlog_count > 0:
         return "YGP_CITY_COVERAGE_READY_WITH_BACKLOG"
-    if p13b_ready:
+    if p13b_input_ready:
         return "YGP_CITY_COVERAGE_READY_FOR_P13B"
     return "YGP_CITY_COVERAGE_PARTIAL_REVIEW"
 
@@ -258,7 +263,7 @@ def _recommended_next_action(state: str, *, backlog_count: int) -> str:
         return "CITY_ADAPTER_REVIEW_REQUIRED"
     if backlog_count > 0:
         return "OVERSIZE_POLICY_FOLLOWUP"
-    return "CITY_ADAPTER_REVIEW_REQUIRED"
+    return "REVIEW_PARTIAL_P13B_INPUT"
 
 
 def _is_blocked(record: Mapping[str, Any]) -> bool:
@@ -274,11 +279,7 @@ def _is_blocked(record: Mapping[str, Any]) -> bool:
 
 
 def _has_blocker(record: Mapping[str, Any]) -> bool:
-    return (
-        bool(record.get("failure_taxonomy_counts"))
-        or str(record.get("city_coverage_state") or "") in {"YGP_CITY_COVERAGE_BLOCKED", "YGP_CITY_COVERAGE_NO_RECENT_07"}
-        or bool(record.get("no_public_attachment"))
-    )
+    return str(record.get("city_coverage_state") or "") == "YGP_CITY_COVERAGE_BLOCKED"
 
 
 def _blocker_record(record: Mapping[str, Any]) -> dict[str, Any]:
@@ -290,6 +291,9 @@ def _blocker_record(record: Mapping[str, Any]) -> dict[str, Any]:
         "failure_taxonomy_counts": dict(record.get("failure_taxonomy_counts") or {}),
         "no_public_attachment": bool(record.get("no_public_attachment")),
         "real_download_failure_count": record.get("real_download_failure_count"),
+        "fake_attachment_count": record.get("fake_attachment_count"),
+        "flow_08_default_downloaded": bool(record.get("flow_08_default_downloaded")),
+        "stage4_live_executed": bool(record.get("stage4_live_executed")),
         "recommended_next_action": record.get("recommended_next_action"),
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,
@@ -322,6 +326,7 @@ def _build_summary(
     total_oversize = sum(_int(record.get("oversize_queue_count")) for record in coverage_records)
     total_limit = sum(_int(record.get("limit_deferred_queue_count")) for record in coverage_records)
     blocked_count = state_counts.get("YGP_CITY_COVERAGE_BLOCKED", 0)
+    total_p13b_tasks = sum(_int(record.get("p13b_task_count")) for record in coverage_records)
     total_p13b_overlap = sum(_int(record.get("p13b_overlap_input_count")) for record in coverage_records)
     recommended_global = _global_recommended_next_action(
         blocked_count=blocked_count,
@@ -341,6 +346,8 @@ def _build_summary(
         "no_recent_07_count": state_counts.get("YGP_CITY_COVERAGE_NO_RECENT_07", 0),
         "blocked_city_count": blocked_count,
         "total_project_count": sum(1 for record in coverage_records if record.get("project_id")),
+        "total_p13b_task_count": total_p13b_tasks,
+        "p13b_task_count": total_p13b_tasks,
         "total_p13b_ready_project_count": len(p13b_ready_records),
         "p13b_ready_project_count": len(p13b_ready_records),
         "total_p13b_overlap_input_count": total_p13b_overlap,
