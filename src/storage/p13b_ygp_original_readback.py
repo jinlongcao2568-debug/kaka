@@ -128,19 +128,6 @@ def build_p13b_ygp_original_readback(
 def _task_records_from_original_backtrace(source_manifest: Mapping[str, Any], *, created_at: str) -> list[dict[str, Any]]:
     tasks: list[dict[str, Any]] = []
     seen: set[str] = set()
-    for task in _list(source_manifest.get("original_notice_task_records")):
-        if not isinstance(task, Mapping):
-            continue
-        original_url = str(task.get("original_notice_url") or "").strip()
-        if not original_url or YGP_HOST not in original_url.lower():
-            continue
-        key = f"{task.get('original_notice_task_id') or ''}|{original_url}"
-        if key in seen:
-            continue
-        seen.add(key)
-        tasks.append(_ygp_task_from_original_task(task, original_url=original_url, created_at=created_at))
-    if tasks:
-        return tasks
     for record in _list(source_manifest.get("original_notice_extraction_records")):
         if not isinstance(record, Mapping):
             continue
@@ -153,6 +140,19 @@ def _task_records_from_original_backtrace(source_manifest: Mapping[str, Any], *,
             continue
         seen.add(key)
         tasks.append(_ygp_task_from_original_task(record, original_url=original_url, created_at=created_at))
+    if tasks:
+        return tasks
+    for task in _list(source_manifest.get("original_notice_task_records")):
+        if not isinstance(task, Mapping):
+            continue
+        original_url = str(task.get("original_notice_url") or "").strip()
+        if not original_url or YGP_HOST not in original_url.lower():
+            continue
+        key = f"{task.get('original_notice_task_id') or ''}|{original_url}"
+        if key in seen:
+            continue
+        seen.add(key)
+        tasks.append(_ygp_task_from_original_task(task, original_url=original_url, created_at=created_at))
     return tasks
 
 

@@ -34,6 +34,35 @@ class P13BYgpOriginalReadbackTests(unittest.TestCase):
             self.assertEqual(result["summary"]["ygp_original_readback_task_count"], 1)
             self.assertEqual(result["summary"]["ygp_original_readback_count"], 0)
 
+    def test_prefers_unsupported_extraction_records_over_all_tasks(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_original_backtrace_input(root)
+            payload_path = root / "original-notice-backtrace-v1.json"
+            payload = json.loads(payload_path.read_text(encoding="utf-8"))
+            payload["manifest"]["original_notice_task_records"].append(
+                {
+                    "original_notice_task_id": "P13B-ORIGINAL-NOTICE-2",
+                    "project_id": "PROJ-CN-GD-JG2026-20003",
+                    "candidate_company_name": "广东丙公司",
+                    "responsible_person_names": ["王五"],
+                    "bid_project_name": "历史隧道工程",
+                    "original_notice_url": "https://ygp.gdzwfw.gov.cn/ggzy-portal/center/apis/dt2c/url-mapping/999-3C52",
+                    "ygp_original_url_pointer_only": True,
+                }
+            )
+            payload_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+            result = build_p13b_ygp_original_readback(
+                input_root=root,
+                output_root=root / "ygp",
+                created_at="2026-05-15T00:00:00+08:00",
+            )
+
+            self.assertEqual(result["summary"]["ygp_original_readback_task_count"], 1)
+            task = result["manifest"]["ygp_original_readback_task_records"][0]
+            self.assertEqual(task["original_notice_task_id"], "P13B-ORIGINAL-NOTICE-1")
+
     def test_spa_shell_discovers_detail_api_and_extracts_fields(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
