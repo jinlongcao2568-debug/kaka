@@ -29,6 +29,7 @@ def build_p13b_original_notice_backtrace(
     *,
     input_root: str | Path = DEFAULT_INPUT_ROOT,
     input_json: str | Path | None = None,
+    company_history_triage_root: str | Path | None = None,
     ygp_readback_root: str | Path | None = None,
     ygp_readback_json: str | Path | None = None,
     output_root: str | Path = DEFAULT_OUTPUT_ROOT,
@@ -38,7 +39,7 @@ def build_p13b_original_notice_backtrace(
     created_at: str | None = None,
 ) -> dict[str, Any]:
     created = created_at or utc_now_iso()
-    in_dir = Path(input_root)
+    in_dir = Path(company_history_triage_root) if company_history_triage_root else Path(input_root)
     out_dir = Path(output_root)
     out_dir.mkdir(parents=True, exist_ok=True)
     source_path = Path(input_json) if input_json else in_dir / "company-history-overlap-triage-v1.json"
@@ -77,6 +78,7 @@ def build_p13b_original_notice_backtrace(
         "created_at": created,
         "source_input_root": str(in_dir),
         "source_input_json": str(source_path),
+        "source_company_history_triage_root": str(company_history_triage_root or ""),
         "ygp_readback_root": str(ygp_readback_root or ""),
         "ygp_readback_json": str(ygp_readback_json or ""),
         "ygp_readback_record_count": len(ygp_readback_lookup),
@@ -128,8 +130,7 @@ def build_p13b_original_notice_backtrace(
     else:
         result["summary"]["forbidden_term_scan_state"] = "PASS"
         result["manifest"]["summary"]["forbidden_term_scan_state"] = "PASS"
-        text = json.dumps(result, ensure_ascii=False, indent=2)
-    (out_dir / "original-notice-backtrace-v1.json").write_text(text, encoding="utf-8")
+    _write_outputs(out_dir, result, fetch_records, extraction_records, overlap_records, manual_release_evidence_probe_table)
     return result
 
 
@@ -334,6 +335,30 @@ def _extract_record_from_ygp_readback(task: Mapping[str, Any], ygp_readback: Map
 
 def _fetch_original_notice(task: Mapping[str, Any], *, getter: HttpGetter, created_at: str) -> dict[str, Any]:
     url = str(task.get("original_notice_url") or "")
+    if "ygp.gdzwfw.gov.cn" in url.lower():
+        return {
+            **dict(task),
+            "execution_mode": "LIVE_PUBLIC_QUERY_ATTEMPTED",
+            "fetch_state": "ORIGINAL_NOTICE_SOURCE_UNSUPPORTED",
+            "source_url": url,
+            "status_code": 0,
+            "content_type": "",
+            "body_sha256": "",
+            "body_probe": "",
+            "text_probe": "",
+            "text_probe_sha256": "",
+            "route_attempt": {
+                "url": url,
+                "status_code": 0,
+                "content_type": "",
+                "body_sha256": "",
+                "error": "ygp_original_readback_required",
+            },
+            "blocker_taxonomy": ["ygp_original_readback_required"],
+            "created_at": created_at,
+            "customer_visible_allowed": False,
+            "no_legal_conclusion": True,
+        }
     if not url.lower().startswith(("http://", "https://")):
         return {
             **dict(task),
@@ -375,6 +400,16 @@ def _fetch_original_notice(task: Mapping[str, Any], *, getter: HttpGetter, creat
 
 
 def _extract_original_notice(task: Mapping[str, Any], fetch: Mapping[str, Any], *, created_at: str) -> dict[str, Any]:
+    if str(fetch.get("fetch_state") or "") == "ORIGINAL_NOTICE_SOURCE_UNSUPPORTED":
+        return {
+            **dict(task),
+            "original_notice_extraction_state": "ORIGINAL_NOTICE_SOURCE_UNSUPPORTED",
+            "source_url": str(fetch.get("source_url") or task.get("original_notice_url") or ""),
+            "blocker_taxonomy": _list(fetch.get("blocker_taxonomy")),
+            "created_at": created_at,
+            "customer_visible_allowed": False,
+            "no_legal_conclusion": True,
+        }
     if str(fetch.get("fetch_state") or "") != "ORIGINAL_NOTICE_FETCHED":
         return {
             **dict(task),
@@ -472,6 +507,22 @@ def _manual_release_evidence_probe_table(overlap_records: list[dict[str, Any]]) 
     return rows
 
 
+def _write_outputs(
+    out_dir: Path,
+    result: Mapping[str, Any],
+    fetch_records: list[Mapping[str, Any]],
+    extraction_records: list[Mapping[str, Any]],
+    overlap_records: list[Mapping[str, Any]],
+    manual_release_evidence_probe_table: list[Mapping[str, Any]],
+) -> None:
+    summary = result.get("summary") if isinstance(result.get("summary"), Mapping) else {}
+    _write_json(out_dir / "original-notice-backtrace-v1.json", result)
+    _write_json(out_dir / "original-notice-fetch-records.json", {"summary": summary, "records": fetch_records})
+    _write_json(out_dir / "original-notice-extraction-records.json", {"summary": summary, "records": extraction_records})
+    _write_json(out_dir / "original-notice-overlap-signal-records.json", {"summary": summary, "records": overlap_records})
+    _write_json(out_dir / "manual-release-evidence-probe-table.json", {"summary": summary, "records": manual_release_evidence_probe_table})
+
+
 def _summary(
     *,
     original_notice_task_records: list[Mapping[str, Any]],
@@ -481,19 +532,45 @@ def _summary(
     execution_mode: str,
     blocking_reasons: list[str],
 ) -> dict[str, Any]:
+    live_processed_count = sum(
+        1
+        for record in fetch_records
+        if str(record.get("execution_mode") or "") in {"LIVE_PUBLIC_QUERY_ATTEMPTED", "LOCAL_YGP_READBACK_CONSUMED"}
+    )
+    fetched_count = sum(1 for record in fetch_records if str(record.get("fetch_state") or "") == "ORIGINAL_NOTICE_FETCHED")
+    person_period_extracted_count = sum(
+        1 for record in extraction_records if str(record.get("original_notice_extraction_state") or "") == "ORIGINAL_NOTICE_PERSON_PERIOD_EXTRACTED"
+    )
+    overlap_signal_count = sum(
+        1 for record in overlap_records if str(record.get("original_notice_overlap_signal_state") or "") == "ORIGINAL_NOTICE_OVERLAP_SIGNAL_REVIEW_REQUIRED"
+    )
+    no_match_review_count = sum(
+        1 for record in overlap_records if str(record.get("original_notice_overlap_signal_state") or "") == "ORIGINAL_NOTICE_NO_MATCH_REVIEW"
+    )
+    source_unsupported_count = sum(
+        1 for record in extraction_records if str(record.get("original_notice_extraction_state") or "") == "ORIGINAL_NOTICE_SOURCE_UNSUPPORTED"
+    )
+    fetch_blocked_count = sum(1 for record in fetch_records if str(record.get("fetch_state") or "") == "ORIGINAL_NOTICE_FETCH_BLOCKED")
+    ygp_readback_ready_count = sum(
+        1 for record in extraction_records if str(record.get("extraction_source") or "") == "YGP_ORIGINAL_READBACK"
+    )
     return {
         "p13b_original_notice_backtrace_state": "P13B_ORIGINAL_NOTICE_BACKTRACE_READY" if not blocking_reasons else "P13B_ORIGINAL_NOTICE_INPUT_BLOCKED",
         "execution_mode": execution_mode,
         "original_notice_task_count": len(original_notice_task_records),
+        "live_processed_count": live_processed_count,
+        "fetched_count": fetched_count,
         "original_notice_fetch_count": len(fetch_records),
         "original_notice_extraction_count": len(extraction_records),
         "original_notice_overlap_signal_count": len(overlap_records),
-        "original_notice_person_period_extracted_count": sum(
-            1 for record in extraction_records if str(record.get("original_notice_extraction_state") or "") == "ORIGINAL_NOTICE_PERSON_PERIOD_EXTRACTED"
-        ),
-        "original_notice_overlap_signal_review_required_count": sum(
-            1 for record in overlap_records if str(record.get("original_notice_overlap_signal_state") or "") == "ORIGINAL_NOTICE_OVERLAP_SIGNAL_REVIEW_REQUIRED"
-        ),
+        "original_notice_person_period_extracted_count": person_period_extracted_count,
+        "person_period_extracted_count": person_period_extracted_count,
+        "original_notice_overlap_signal_review_required_count": overlap_signal_count,
+        "overlap_signal_count": overlap_signal_count,
+        "no_match_review_count": no_match_review_count,
+        "source_unsupported_count": source_unsupported_count,
+        "fetch_blocked_count": fetch_blocked_count,
+        "ygp_readback_ready_count": ygp_readback_ready_count,
         "manual_release_evidence_probe_count": sum(
             1 for record in overlap_records if bool(record.get("release_evidence_probe_triggered"))
         ),
@@ -637,6 +714,11 @@ def _load_json(path: Path, blocking_reasons: list[str], missing_reason: str) -> 
     return data if isinstance(data, dict) else {}
 
 
+def _write_json(path: Path, payload: Mapping[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
 def _html_to_text(content: str) -> str:
     text = re.sub(r"<\s*br\s*/?>", "\n", content, flags=re.I)
     text = re.sub(r"</p\s*>", "\n", text, flags=re.I)
@@ -699,6 +781,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Build P13B original notice backtrace manifest.")
     parser.add_argument("--input-root", default=str(DEFAULT_INPUT_ROOT))
     parser.add_argument("--input-json", default=None)
+    parser.add_argument("--company-history-triage-root", default=None)
     parser.add_argument("--ygp-readback-root", default=None)
     parser.add_argument("--ygp-readback-json", default=None)
     parser.add_argument("--output-root", default=str(DEFAULT_OUTPUT_ROOT))
@@ -709,6 +792,7 @@ def main(argv: list[str] | None = None) -> int:
     result = build_p13b_original_notice_backtrace(
         input_root=args.input_root,
         input_json=args.input_json,
+        company_history_triage_root=args.company_history_triage_root,
         ygp_readback_root=args.ygp_readback_root,
         ygp_readback_json=args.ygp_readback_json,
         output_root=args.output_root,

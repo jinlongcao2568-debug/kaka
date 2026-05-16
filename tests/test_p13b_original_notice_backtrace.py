@@ -13,7 +13,7 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from storage.p13b_original_notice_backtrace import build_p13b_original_notice_backtrace  # noqa: E402
+from storage.p13b_original_notice_backtrace import build_p13b_original_notice_backtrace, main  # noqa: E402
 
 
 class P13BOriginalNoticeBacktraceTests(unittest.TestCase):
@@ -36,6 +36,62 @@ class P13BOriginalNoticeBacktraceTests(unittest.TestCase):
             tasks = result["manifest"]["original_notice_task_records"]
             self.assertTrue(any(task["ygp_original_url_pointer_only"] for task in tasks))
             self.assertTrue((root / "out" / "original-notice-backtrace-v1.json").exists())
+
+    def test_plan_only_does_not_call_http_getter(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_p13b_input(root)
+
+            result = build_p13b_original_notice_backtrace(
+                input_root=root,
+                output_root=root / "out",
+                http_getter=_raising_http_getter,
+                created_at="2026-05-15T00:00:00+08:00",
+            )
+
+            self.assertTrue(result["safe_to_execute"])
+            self.assertEqual(result["summary"]["execution_mode"], "PLAN_ONLY_NOT_EXECUTED")
+            self.assertEqual(result["summary"]["original_notice_fetch_count"], 0)
+
+    def test_company_history_triage_root_reads_manual_backtrace_table(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            triage_root = root / "triage"
+            _write_p13b_input(triage_root)
+
+            result = build_p13b_original_notice_backtrace(
+                input_root=root / "unused",
+                company_history_triage_root=triage_root,
+                output_root=root / "out",
+                created_at="2026-05-15T00:00:00+08:00",
+            )
+
+            self.assertTrue(result["safe_to_execute"])
+            self.assertEqual(result["summary"]["original_notice_task_count"], 3)
+            self.assertEqual(result["manifest"]["source_input_root"], str(triage_root))
+            self.assertEqual(result["manifest"]["source_company_history_triage_root"], str(triage_root))
+
+    def test_cli_accepts_company_history_triage_root(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            triage_root = root / "triage"
+            out_root = root / "out"
+            _write_p13b_input(triage_root)
+
+            exit_code = main(
+                [
+                    "--input-root",
+                    str(root / "unused"),
+                    "--company-history-triage-root",
+                    str(triage_root),
+                    "--output-root",
+                    str(out_root),
+                ]
+            )
+
+            self.assertEqual(exit_code, 0)
+            payload = json.loads((out_root / "original-notice-backtrace-v1.json").read_text(encoding="utf-8"))
+            self.assertEqual(payload["summary"]["original_notice_task_count"], 3)
 
     def test_live_original_notice_extracts_overlap_signal(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -97,8 +153,71 @@ class P13BOriginalNoticeBacktraceTests(unittest.TestCase):
 
             summary = result["summary"]
             self.assertEqual(summary["fetch_state_counts"]["ORIGINAL_NOTICE_FETCH_BLOCKED"], 1)
-            self.assertEqual(summary["fetch_state_counts"]["ORIGINAL_NOTICE_SOURCE_UNSUPPORTED"], 1)
+            self.assertEqual(summary["fetch_state_counts"]["ORIGINAL_NOTICE_SOURCE_UNSUPPORTED"], 2)
             self.assertIn("original_notice_forbidden_or_rate_limited_review", summary["blocker_taxonomy_counts"])
+
+    def test_ygp_original_link_requires_local_readback_not_direct_fetch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_ygp_only_input(root)
+
+            result = build_p13b_original_notice_backtrace(
+                input_root=root,
+                output_root=root / "out",
+                enable_live_public_query=True,
+                max_live_original_notices=1,
+                http_getter=_raising_http_getter,
+                created_at="2026-05-15T00:00:00+08:00",
+            )
+
+            self.assertTrue(result["safe_to_execute"])
+            self.assertEqual(result["summary"]["fetch_state_counts"]["ORIGINAL_NOTICE_SOURCE_UNSUPPORTED"], 1)
+            self.assertEqual(result["summary"]["source_unsupported_count"], 1)
+            fetch = result["manifest"]["original_notice_fetch_records"][0]
+            self.assertEqual(fetch["blocker_taxonomy"], ["ygp_original_readback_required"])
+
+    def test_ygp_readback_root_consumes_local_readback_records(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            readback_root = root / "ygp-readback"
+            _write_ygp_only_input(root)
+            _write_ygp_readback(readback_root)
+
+            result = build_p13b_original_notice_backtrace(
+                input_root=root,
+                ygp_readback_root=readback_root,
+                output_root=root / "out",
+                http_getter=_raising_http_getter,
+                created_at="2026-05-15T00:00:00+08:00",
+            )
+
+            self.assertTrue(result["safe_to_execute"])
+            self.assertEqual(result["summary"]["ygp_readback_ready_count"], 1)
+            self.assertEqual(result["summary"]["original_notice_person_period_extracted_count"], 1)
+            extraction = result["manifest"]["original_notice_extraction_records"][0]
+            self.assertEqual(extraction["extraction_source"], "YGP_ORIGINAL_READBACK")
+            self.assertEqual(extraction["extracted_responsible_person_names"], ["李四"])
+            self.assertIn("240日历天", extraction["extracted_period_text"])
+
+    def test_writes_all_output_tables(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_p13b_input(root)
+
+            build_p13b_original_notice_backtrace(
+                input_root=root,
+                output_root=root / "out",
+                created_at="2026-05-15T00:00:00+08:00",
+            )
+
+            for file_name in (
+                "original-notice-backtrace-v1.json",
+                "original-notice-fetch-records.json",
+                "original-notice-extraction-records.json",
+                "original-notice-overlap-signal-records.json",
+                "manual-release-evidence-probe-table.json",
+            ):
+                self.assertTrue((root / "out" / file_name).exists(), file_name)
 
     def test_report_never_contains_forbidden_terms(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -175,6 +294,65 @@ def _write_p13b_input(root: Path, *, first_url: str = "https://example.gov.cn/or
     _write_json(root / "company-history-overlap-triage-v1.json", payload)
 
 
+def _write_ygp_only_input(root: Path) -> None:
+    root.mkdir(parents=True, exist_ok=True)
+    url = "https://ygp.gdzwfw.gov.cn/ggzy-portal/center/apis/dt2c/url-mapping/123-3C52"
+    payload = {
+        "manifest": {
+            "manual_original_url_backtrace_table": [
+                {
+                    "project_id": "PROJ-CN-GD-JG2026-20002",
+                    "candidate_company_name": "广东乙公司",
+                    "responsible_person_names": ["李四"],
+                    "bid_project_name": "历史桥梁工程",
+                    "original_notice_url": url,
+                    "backtrace_reason": "ORIGINAL_NOTICE_BACKTRACE_REQUIRED",
+                    "suggested_next_step": "targeted_original_notice_01_to_12_backtrace",
+                }
+            ],
+            "bid_show_records": [
+                {
+                    "project_id": "PROJ-CN-GD-JG2026-20002",
+                    "candidate_company_name": "广东乙公司",
+                    "bid_show_record_id": "BID-SHOW-2",
+                    "bid_show_url": "https://data.ggzy.gov.cn/yjcx/index/bid_show?id=2",
+                    "bid_project_name": "历史桥梁工程",
+                    "original_notice_url": url,
+                }
+            ],
+        }
+    }
+    _write_json(root / "company-history-overlap-triage-v1.json", payload)
+
+
+def _write_ygp_readback(root: Path) -> None:
+    url = "https://ygp.gdzwfw.gov.cn/ggzy-portal/center/apis/dt2c/url-mapping/123-3C52"
+    payload = {
+        "manifest": {
+            "ygp_original_readback_records": [
+                {
+                    "original_notice_url": url,
+                    "source_url": url,
+                    "ygp_readback_state": "YGP_ORIGINAL_URL_READBACK_READY",
+                    "ygp_extraction_state": "YGP_ORIGINAL_NOTICE_PERSON_PERIOD_EXTRACTED",
+                    "status_code": 200,
+                    "content_type": "application/json",
+                    "extracted_responsible_person_names": ["李四"],
+                    "extracted_period_text": "工期：240日历天",
+                    "extracted_award_date": "2026年05月03日",
+                    "extracted_company_names": ["广东乙公司"],
+                    "text_probe": "中标人：广东乙公司。项目负责人：李四。工期：240日历天。",
+                    "text_probe_sha256": "text-sha",
+                    "record_payload_sha256": "record-sha",
+                    "customer_visible_allowed": False,
+                    "no_legal_conclusion": True,
+                }
+            ]
+        }
+    }
+    _write_json(root / "ygp-original-readback-v1.json", payload)
+
+
 def _fake_http_getter(url: str, context: Mapping[str, Any]) -> Mapping[str, Any]:
     if url.endswith("/blocked.html"):
         return {"status_code": 403, "content_type": "text/html", "body": "forbidden"}
@@ -189,6 +367,10 @@ def _fake_http_getter(url: str, context: Mapping[str, Any]) -> Mapping[str, Any]
         "content_type": "text/html",
         "body": "<html><body><p>中标人：广东甲公司</p><p>项目负责人：张三</p><p>工期（交货期）：365日历天</p><p>中标日期：2026年05月01日</p></body></html>",
     }
+
+
+def _raising_http_getter(url: str, context: Mapping[str, Any]) -> Mapping[str, Any]:
+    raise AssertionError(f"unexpected http getter call: {url}")
 
 
 def _write_json(path: Path, payload: Mapping[str, Any]) -> None:

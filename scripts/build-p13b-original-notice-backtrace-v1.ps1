@@ -1,6 +1,7 @@
 param(
     [string]$InputRoot = "",
     [string]$InputJson = "",
+    [string]$CompanyHistoryTriageRoot = "",
     [string]$YgpReadbackRoot = "",
     [string]$YgpReadbackJson = "",
     [string]$OutputRoot = "",
@@ -33,6 +34,9 @@ $argsList = @(
 
 if ($InputJson) {
     $argsList += @("--input-json", $InputJson)
+}
+if ($CompanyHistoryTriageRoot) {
+    $argsList += @("--company-history-triage-root", $CompanyHistoryTriageRoot)
 }
 if ($YgpReadbackRoot) {
     $argsList += @("--ygp-readback-root", $YgpReadbackRoot)
