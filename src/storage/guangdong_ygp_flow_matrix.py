@@ -751,7 +751,7 @@ def _richtext_link_records(richtext: str) -> list[dict[str, str]]:
         seen.add(href)
         text = _html_to_text(match.group(2)).strip() or _file_name_from_url(href)
         links.append({"href": href, "text": text})
-    for match in re.finditer(r"https?://[^\s\"'<>]+", richtext):
+    for match in re.finditer(r"https?://[^\s\"'<>）)，，、；;。】》]+", richtext):
         href = _clean_richtext_href(html.unescape(match.group(0).strip()))
         if href and href not in seen:
             seen.add(href)
@@ -767,7 +767,10 @@ def _is_richtext_download_link(href: str, text: str) -> bool:
     if not href:
         return False
     absolute_url = urllib.parse.urljoin("https://ygp.gdzwfw.gov.cn/", href)
-    parsed = urllib.parse.urlparse(absolute_url)
+    try:
+        parsed = urllib.parse.urlparse(absolute_url)
+    except ValueError:
+        return False
     if parsed.netloc.lower() == YGP_HOST and parsed.path.startswith("/ggzy-portal/base/sys-file/download"):
         return True
     probe = " ".join(
@@ -784,7 +787,10 @@ def _is_richtext_download_link(href: str, text: str) -> bool:
 
 
 def _file_name_from_url(url: str) -> str:
-    path = urllib.parse.urlparse(url).path
+    try:
+        path = urllib.parse.urlparse(url).path
+    except ValueError:
+        return "正文链接附件"
     name = urllib.parse.unquote(Path(path).name)
     return name or "正文链接附件"
 

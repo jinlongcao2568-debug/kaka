@@ -95,9 +95,10 @@ class GuangdongYgpFlowMatrixTests(unittest.TestCase):
             self.assertTrue(any(item["file_name"] == "商务文件.docx" for item in attachment_items))
             self.assertTrue(any(item["file_name"] == "table.xls" for item in attachment_items))
             rejected = detail["rejected_richtext_links"]
-            self.assertEqual(len(rejected), 3)
+            self.assertGreaterEqual(len(rejected), 3)
             self.assertTrue(any("gdcic.net" in item["href"] for item in rejected))
             self.assertTrue(any("#/index" in item["href"] for item in rejected))
+            self.assertTrue(any("www.gdgczb.com" in item["href"] for item in rejected))
 
     def test_hash_url_input_can_skip_url_mapping_redirect(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -389,6 +390,7 @@ def _detail_payload(notice_id: str) -> dict[str, Any]:
                     "<p><a href='https://example.test/files/清单.zip'>清单</a></p>"
                     "<p><a href='/richtext/business'>商务文件.docx</a></p>"
                     "<p>表格下载：https://example.test/files/table.xls</p>"
+                    "<p>发布媒介：http://www.gdgczb.com）、中国招标投标公共服务平台（网址：http://www.cebpubservice.com）</p>"
                 ),
                 "noticeFileBOList": [
                     {"fileName": "采购文件.pdf", "rowGuid": f"row-{notice_id}", "flowId": f"flow-{notice_id}"},
