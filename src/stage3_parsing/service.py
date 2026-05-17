@@ -31,6 +31,12 @@ class Stage3Service:
 
     def run(self, payload: Mapping[str, Any] | StageBundle) -> StageBundle:
         stage2_bundle = resolve_bundle(payload)
+        h02_validation = self.store.evaluate_handoff_consumer(
+            producer_bundle=stage2_bundle,
+            consumer_stage=3,
+        )
+        if h02_validation and h02_validation.decision_state == "BLOCK":
+            raise ValueError(f"{h02_validation.semantic_scope} blocked: {h02_validation.reasons}")
         inputs = stage2_bundle.inputs or {}
         flags = inputs.get("flags", {})
 
@@ -38,11 +44,13 @@ class Stage3Service:
         clock_chain_profile = stage2_bundle.record("clock_chain_profile")
         notice_version_chain = stage2_bundle.record("notice_version_chain")
         fixation_bundle = stage2_bundle.record("fixation_bundle")
+        analysis_strategy_plan = stage2_bundle.record("product_analysis_strategy_plan")
 
         handoff_map = stage2_bundle.handoff
         public_chain_map = _carrier_mapping(public_chain)
         clock_chain_map = _carrier_mapping(clock_chain_profile)
         notice_version_map = _carrier_mapping(notice_version_chain)
+        analysis_strategy_map = _carrier_mapping(analysis_strategy_plan)
 
         project_id = public_chain.get("project_id")
 
@@ -178,6 +186,110 @@ class Stage3Service:
             [
                 ("handoff", handoff_map),
                 ("public_chain", public_chain_map),
+            ],
+            normalize_list=True,
+        )
+        analysis_strategy_plan_id = resolve_h02_authority(
+            "analysis_strategy_plan_id",
+            [
+                ("handoff", handoff_map),
+                ("product_analysis_strategy_plan", analysis_strategy_map),
+            ],
+            missing_is_block=True,
+        )
+        analysis_strategy_product_mode = resolve_h02_authority(
+            "analysis_strategy_product_mode",
+            [
+                ("handoff", handoff_map),
+                ("product_analysis_strategy_plan", {"analysis_strategy_product_mode": analysis_strategy_map.get("product_mode")}),
+            ],
+            missing_is_block=True,
+        )
+        analysis_strategy_state = resolve_h02_authority(
+            "analysis_strategy_state",
+            [
+                ("handoff", handoff_map),
+                ("product_analysis_strategy_plan", {"analysis_strategy_state": analysis_strategy_map.get("strategy_state")}),
+            ],
+            missing_is_block=True,
+        )
+        analysis_strategy_flow_no = resolve_h02_authority(
+            "analysis_strategy_flow_no",
+            [
+                ("handoff", handoff_map),
+                ("product_analysis_strategy_plan", {"analysis_strategy_flow_no": analysis_strategy_map.get("flow_no")}),
+            ],
+            missing_is_block=True,
+        )
+        analysis_strategy_document_kind = resolve_h02_authority(
+            "analysis_strategy_document_kind",
+            [
+                ("handoff", handoff_map),
+                ("product_analysis_strategy_plan", {"analysis_strategy_document_kind": analysis_strategy_map.get("document_kind")}),
+            ],
+            missing_is_block=True,
+        )
+        analysis_strategy_download_policy = resolve_h02_authority(
+            "analysis_strategy_download_policy",
+            [
+                ("handoff", handoff_map),
+                ("product_analysis_strategy_plan", {"analysis_strategy_download_policy": analysis_strategy_map.get("download_policy")}),
+            ],
+            missing_is_block=True,
+        )
+        analysis_strategy_parse_depth = resolve_h02_authority(
+            "analysis_strategy_parse_depth",
+            [
+                ("handoff", handoff_map),
+                ("product_analysis_strategy_plan", {"analysis_strategy_parse_depth": analysis_strategy_map.get("parse_depth")}),
+            ],
+            missing_is_block=True,
+        )
+        analysis_strategy_parse_required = resolve_h02_authority(
+            "analysis_strategy_parse_required",
+            [
+                ("handoff", handoff_map),
+                ("product_analysis_strategy_plan", {"analysis_strategy_parse_required": analysis_strategy_map.get("parse_required")}),
+            ],
+            missing_is_block=True,
+        )
+        analysis_strategy_rules_first = resolve_h02_authority(
+            "analysis_strategy_rules_first",
+            [
+                ("handoff", handoff_map),
+                ("product_analysis_strategy_plan", {"analysis_strategy_rules_first": analysis_strategy_map.get("rules_first")}),
+            ],
+            missing_is_block=True,
+        )
+        analysis_strategy_llm_allowed = resolve_h02_authority(
+            "analysis_strategy_llm_allowed",
+            [
+                ("handoff", handoff_map),
+                ("product_analysis_strategy_plan", {"analysis_strategy_llm_allowed": analysis_strategy_map.get("llm_allowed")}),
+            ],
+            missing_is_block=True,
+        )
+        analysis_strategy_skip_reason = resolve_h02_authority(
+            "analysis_strategy_skip_reason",
+            [
+                ("handoff", handoff_map),
+                ("product_analysis_strategy_plan", {"analysis_strategy_skip_reason": analysis_strategy_map.get("skip_reason")}),
+            ],
+            missing_is_block=True,
+        )
+        analysis_strategy_adapter_validation_only = resolve_h02_authority(
+            "analysis_strategy_adapter_validation_only",
+            [
+                ("handoff", handoff_map),
+                ("product_analysis_strategy_plan", {"analysis_strategy_adapter_validation_only": analysis_strategy_map.get("adapter_validation_only")}),
+            ],
+            missing_is_block=True,
+        )
+        analysis_strategy_index_targets = resolve_optional_h02_authority(
+            "analysis_strategy_index_targets",
+            [
+                ("handoff", handoff_map),
+                ("product_analysis_strategy_plan", {"analysis_strategy_index_targets": analysis_strategy_map.get("index_targets")}),
             ],
             normalize_list=True,
         )
@@ -468,6 +580,19 @@ class Stage3Service:
             "clock_resolution_rule_id": clock_resolution_rule_id,
             "clock_precedence_rule_id": clock_precedence_rule_id,
             "collection_state": collection_state,
+            "analysis_strategy_plan_id": analysis_strategy_plan_id,
+            "analysis_strategy_product_mode": analysis_strategy_product_mode,
+            "analysis_strategy_state": analysis_strategy_state,
+            "analysis_strategy_flow_no": analysis_strategy_flow_no,
+            "analysis_strategy_document_kind": analysis_strategy_document_kind,
+            "analysis_strategy_download_policy": analysis_strategy_download_policy,
+            "analysis_strategy_parse_depth": analysis_strategy_parse_depth,
+            "analysis_strategy_parse_required": analysis_strategy_parse_required,
+            "analysis_strategy_rules_first": analysis_strategy_rules_first,
+            "analysis_strategy_llm_allowed": analysis_strategy_llm_allowed,
+            "analysis_strategy_skip_reason": analysis_strategy_skip_reason,
+            "analysis_strategy_adapter_validation_only": analysis_strategy_adapter_validation_only,
+            "analysis_strategy_index_targets": analysis_strategy_index_targets,
             "stage3_truth_layer_ref_optional": stage3_truth_layer_ref,
             "field_lineage_collection_ref_optional": lineage_collection_ref,
             "bidder_candidate_collection_ref_optional": candidate_collection_ref,
@@ -498,6 +623,19 @@ class Stage3Service:
         inputs_out["winning_version_resolution_rule_id"] = winning_version_resolution_rule_id
         inputs_out["clock_resolution_rule_id"] = clock_resolution_rule_id
         inputs_out["clock_precedence_rule_id"] = clock_precedence_rule_id
+        inputs_out["analysis_strategy_plan_id"] = analysis_strategy_plan_id
+        inputs_out["analysis_strategy_product_mode"] = analysis_strategy_product_mode
+        inputs_out["analysis_strategy_state"] = analysis_strategy_state
+        inputs_out["analysis_strategy_flow_no"] = analysis_strategy_flow_no
+        inputs_out["analysis_strategy_document_kind"] = analysis_strategy_document_kind
+        inputs_out["analysis_strategy_download_policy"] = analysis_strategy_download_policy
+        inputs_out["analysis_strategy_parse_depth"] = analysis_strategy_parse_depth
+        inputs_out["analysis_strategy_parse_required"] = analysis_strategy_parse_required
+        inputs_out["analysis_strategy_rules_first"] = analysis_strategy_rules_first
+        inputs_out["analysis_strategy_llm_allowed"] = analysis_strategy_llm_allowed
+        inputs_out["analysis_strategy_skip_reason"] = analysis_strategy_skip_reason
+        inputs_out["analysis_strategy_adapter_validation_only"] = analysis_strategy_adapter_validation_only
+        inputs_out["analysis_strategy_index_targets"] = analysis_strategy_index_targets
         inputs_out["stage3_truth_layer_ref_optional"] = stage3_truth_layer_ref
         inputs_out["field_lineage_collection_ref_optional"] = lineage_collection_ref
         inputs_out["bidder_candidate_collection_ref_optional"] = candidate_collection_ref

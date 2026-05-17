@@ -333,9 +333,21 @@ $expectedH02Fields = @(
     'origin_carrier_type',
     'first_seen_at',
     'last_retrieved_at',
-    'clock_conflict_state'
+    'clock_conflict_state',
+    'analysis_strategy_plan_id',
+    'analysis_strategy_product_mode',
+    'analysis_strategy_state',
+    'analysis_strategy_flow_no',
+    'analysis_strategy_document_kind',
+    'analysis_strategy_download_policy',
+    'analysis_strategy_parse_depth',
+    'analysis_strategy_parse_required',
+    'analysis_strategy_rules_first',
+    'analysis_strategy_llm_allowed',
+    'analysis_strategy_skip_reason',
+    'analysis_strategy_adapter_validation_only'
 )
-$expectedStage2CriticalObjects = @('public_chain', 'clock_chain_profile', 'notice_version_chain', 'fixation_bundle')
+$expectedStage2CriticalObjects = @('public_chain', 'clock_chain_profile', 'notice_version_chain', 'fixation_bundle', 'product_analysis_strategy_plan')
 $expectedStage9CriticalObjects = @('saleable_opportunity', 'touch_record')
 $expectedStage9PolicySequence = @(
     'payment_exception',

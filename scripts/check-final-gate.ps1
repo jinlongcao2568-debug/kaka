@@ -89,10 +89,19 @@ $stepResults = @(
     foreach ($step in $steps) { Invoke-Step -Path (Join-Path $scriptDir $step) -Root $root }
 )
 $stepResults += Invoke-CommandStep -Name 'check-handoff-dependencies.ps1' -Executable 'pwsh' -Arguments @('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $scriptDir 'check-handoff-dependencies.ps1')) -Root $root
+$localJsonTestEnv = Join-Path $scriptDir 'invoke-local-json-test-env.ps1'
 if (Get-Command python -ErrorAction SilentlyContinue) {
-    $stepResults += Invoke-CommandStep -Name 'python tests/run_tests.py' -Executable 'python' -Arguments @('tests/run_tests.py') -Root $root
+    if (Test-Path -LiteralPath $localJsonTestEnv) {
+        $stepResults += Invoke-CommandStep -Name 'python tests/run_tests.py' -Executable 'pwsh' -Arguments @('-NoProfile','-ExecutionPolicy','Bypass','-File',$localJsonTestEnv,'python','tests/run_tests.py') -Root $root
+    } else {
+        $stepResults += Invoke-CommandStep -Name 'python tests/run_tests.py' -Executable 'python' -Arguments @('tests/run_tests.py') -Root $root
+    }
 } elseif (Get-Command py -ErrorAction SilentlyContinue) {
-    $stepResults += Invoke-CommandStep -Name 'python tests/run_tests.py' -Executable 'py' -Arguments @('-3','tests/run_tests.py') -Root $root
+    if (Test-Path -LiteralPath $localJsonTestEnv) {
+        $stepResults += Invoke-CommandStep -Name 'python tests/run_tests.py' -Executable 'pwsh' -Arguments @('-NoProfile','-ExecutionPolicy','Bypass','-File',$localJsonTestEnv,'py','-3','tests/run_tests.py') -Root $root
+    } else {
+        $stepResults += Invoke-CommandStep -Name 'python tests/run_tests.py' -Executable 'py' -Arguments @('-3','tests/run_tests.py') -Root $root
+    }
 } else {
     $stepResults += [pscustomobject]@{ exitCode=1; result=[pscustomobject]@{ script='python tests/run_tests.py'; ok=$false; issues=@([pscustomobject]@{ severity='ERROR'; code='PYTHON_RUNTIME_MISSING'; path='python tests/run_tests.py'; message='No compatible python runtime command was found.' }) } }
 }

@@ -13,6 +13,7 @@ from shared.utils import utc_now_iso
 PRODUCT_ANALYSIS_STRATEGY_PLAN_MANIFEST_KIND = "product_analysis_strategy_plan_manifest"
 PRODUCT_ANALYSIS_STRATEGY_PLAN_VERSION = 1
 PRODUCT_ANALYSIS_STRATEGY_PLAN_ADAPTER_ID = "product-analysis-strategy-plan-builder"
+RUNTIME_PRODUCT_ANALYSIS_STRATEGY_SOURCE_KIND = "RUNTIME_FORMAL_STAGE2_SOURCE"
 
 POST_CANDIDATE_EVIDENCE_PACK = "POST_CANDIDATE_EVIDENCE_PACK"
 POST_OPENING_EVIDENCE_TRACK = "POST_OPENING_EVIDENCE_TRACK"
@@ -193,6 +194,181 @@ def build_product_analysis_strategy_plan(
     return result
 
 
+def build_runtime_product_analysis_strategy_plan(
+    *,
+    public_chain: Mapping[str, Any],
+    clock_chain_profile: Mapping[str, Any],
+    notice_version_chain: Mapping[str, Any],
+    fixation_bundle: Mapping[str, Any],
+    inputs: Mapping[str, Any],
+    business_direction_contract_json: str | Path | None = None,
+    created_at: str | None = None,
+    now: str | datetime | None = None,
+) -> dict[str, Any]:
+    created = created_at or utc_now_iso()
+    now_dt = _coerce_datetime(now) or _coerce_datetime(created) or datetime.now(tz=CN_TZ)
+    contract_path = (
+        Path(business_direction_contract_json)
+        if business_direction_contract_json
+        else Path("contracts/evaluation/business_direction_strategy_contract.json")
+    )
+    blocking_reasons: list[str] = []
+    contract = _load_json_optional(contract_path, blocking_reasons, "business_direction_contract_missing")
+    policy = contract.get("analysis_strategy_policy") if isinstance(contract.get("analysis_strategy_policy"), Mapping) else {}
+
+    source_row = _runtime_source_row(
+        public_chain=public_chain,
+        clock_chain_profile=clock_chain_profile,
+        notice_version_chain=notice_version_chain,
+        fixation_bundle=fixation_bundle,
+        inputs=inputs,
+    )
+    context = {
+        "project_id": str(source_row.get("project_id") or ""),
+        "project_name": str(source_row.get("project_name") or ""),
+        "run_stage": str(source_row.get("pipeline_stage") or ""),
+        "first": dict(source_row),
+        "run_samples": [dict(source_row)],
+        "audit_item": {},
+        "items": [dict(source_row)],
+    }
+    project_strategy = _project_strategy(context=context, now=now_dt)
+    strategy_item = _strategy_item(
+        source=source_row,
+        project_strategy=project_strategy,
+        policy=policy,
+    )
+
+    if blocking_reasons:
+        project_strategy["product_mode"] = WATCHLIST_ONLY
+        project_strategy["strategy_state"] = TIME_WINDOW_UNKNOWN_REVIEW
+        strategy_item.update(
+            {
+                "product_mode": WATCHLIST_ONLY,
+                "strategy_state": TIME_WINDOW_UNKNOWN_REVIEW,
+                "download_policy": DOWNLOAD_SKIP,
+                "download_required": False,
+                "parse_depth": PARSE_NONE,
+                "parse_required": False,
+                "llm_allowed": False,
+                "llm_trigger_reasons": [],
+                "skip_reason": blocking_reasons[0],
+                "index_targets": [],
+            }
+        )
+
+    if not str(strategy_item.get("flow_no") or "").strip() and not str(strategy_item.get("document_kind") or "").strip():
+        project_strategy["product_mode"] = WATCHLIST_ONLY
+        project_strategy["strategy_state"] = TIME_WINDOW_UNKNOWN_REVIEW
+        strategy_item.update(
+            {
+                "product_mode": WATCHLIST_ONLY,
+                "strategy_state": TIME_WINDOW_UNKNOWN_REVIEW,
+                "download_policy": DOWNLOAD_SKIP,
+                "download_required": False,
+                "parse_depth": PARSE_NONE,
+                "parse_required": False,
+                "llm_allowed": False,
+                "llm_trigger_reasons": [],
+                "skip_reason": "analysis_strategy_missing_flow_or_document_kind",
+                "index_targets": [],
+            }
+        )
+
+    identity_payload = {
+        "project_id": project_strategy.get("project_id"),
+        "flow_no": strategy_item.get("flow_no"),
+        "document_kind": strategy_item.get("document_kind"),
+        "product_mode": strategy_item.get("product_mode"),
+        "strategy_state": strategy_item.get("strategy_state"),
+        "download_policy": strategy_item.get("download_policy"),
+        "parse_depth": strategy_item.get("parse_depth"),
+        "pipeline_stage": source_row.get("pipeline_stage"),
+        "source_url": source_row.get("source_url"),
+    }
+    return {
+        "analysis_strategy_plan_id": f"ANALYSIS-STRATEGY-{_fingerprint(identity_payload)[:16]}",
+        "project_id": str(project_strategy.get("project_id") or ""),
+        "product_mode": str(strategy_item.get("product_mode") or ""),
+        "strategy_state": str(strategy_item.get("strategy_state") or ""),
+        "flow_no": str(strategy_item.get("flow_no") or "UNKNOWN"),
+        "document_kind": str(strategy_item.get("document_kind") or "UNKNOWN"),
+        "download_policy": str(strategy_item.get("download_policy") or DOWNLOAD_SKIP),
+        "download_required": bool(strategy_item.get("download_required")),
+        "parse_depth": str(strategy_item.get("parse_depth") or PARSE_NONE),
+        "parse_required": bool(strategy_item.get("parse_required")),
+        "rules_first": bool(strategy_item.get("rules_first", True)),
+        "llm_allowed": bool(strategy_item.get("llm_allowed")),
+        "llm_trigger_reasons": [str(item) for item in list(strategy_item.get("llm_trigger_reasons") or [])],
+        "skip_reason": str(strategy_item.get("skip_reason") or "NOT_SKIPPED"),
+        "index_targets": [str(item) for item in list(strategy_item.get("index_targets") or [])],
+        "adapter_validation_only": bool(strategy_item.get("adapter_validation_only")),
+        "current_sales_window_entry_flow_no": str(
+            strategy_item.get("current_sales_window_entry_flow_no")
+            or project_strategy.get("current_sales_window_entry_flow_no")
+            or "NOT_APPLICABLE"
+        ),
+        "pre_bid_clarification_state": str(
+            strategy_item.get("pre_bid_clarification_state")
+            or project_strategy.get("pre_bid_clarification_state")
+            or "NOT_APPLICABLE"
+        ),
+        "prediction_recalc_required_on_new_flow_04": bool(
+            strategy_item.get("prediction_recalc_required_on_new_flow_04")
+            or project_strategy.get("prediction_recalc_required_on_new_flow_04")
+        ),
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
+
+
+def build_runtime_analysis_strategy_h02_projection(
+    analysis_strategy_plan: Mapping[str, Any],
+) -> dict[str, Any]:
+    return {
+        "analysis_strategy_plan_id": str(
+            analysis_strategy_plan.get("analysis_strategy_plan_id") or ""
+        ),
+        "analysis_strategy_product_mode": str(
+            analysis_strategy_plan.get("product_mode") or ""
+        ),
+        "analysis_strategy_state": str(
+            analysis_strategy_plan.get("strategy_state") or ""
+        ),
+        "analysis_strategy_flow_no": str(
+            analysis_strategy_plan.get("flow_no") or ""
+        ),
+        "analysis_strategy_document_kind": str(
+            analysis_strategy_plan.get("document_kind") or ""
+        ),
+        "analysis_strategy_download_policy": str(
+            analysis_strategy_plan.get("download_policy") or DOWNLOAD_SKIP
+        ),
+        "analysis_strategy_parse_depth": str(
+            analysis_strategy_plan.get("parse_depth") or PARSE_NONE
+        ),
+        "analysis_strategy_parse_required": bool(
+            analysis_strategy_plan.get("parse_required")
+        ),
+        "analysis_strategy_rules_first": bool(
+            analysis_strategy_plan.get("rules_first", True)
+        ),
+        "analysis_strategy_llm_allowed": bool(
+            analysis_strategy_plan.get("llm_allowed")
+        ),
+        "analysis_strategy_skip_reason": str(
+            analysis_strategy_plan.get("skip_reason") or ""
+        ),
+        "analysis_strategy_adapter_validation_only": bool(
+            analysis_strategy_plan.get("adapter_validation_only")
+        ),
+        "analysis_strategy_index_targets": [
+            str(item)
+            for item in list(analysis_strategy_plan.get("index_targets") or [])
+        ],
+    }
+
+
 def _project_contexts(*, run_manifest: Mapping[str, Any], audit_manifest: Mapping[str, Any]) -> list[dict[str, Any]]:
     run_stage = str(run_manifest.get("pipeline_stage") or "")
     sample_items = [
@@ -242,6 +418,77 @@ def _empty_context(sample: Mapping[str, Any], *, run_stage: str) -> dict[str, An
         "run_samples": [],
         "audit_item": {},
         "items": [],
+    }
+
+
+def _runtime_source_row(
+    *,
+    public_chain: Mapping[str, Any],
+    clock_chain_profile: Mapping[str, Any],
+    notice_version_chain: Mapping[str, Any],
+    fixation_bundle: Mapping[str, Any],
+    inputs: Mapping[str, Any],
+) -> dict[str, Any]:
+    flow_no = _flow_no(inputs)
+    document_kind = str(inputs.get("document_kind") or "").strip()
+    if not document_kind and flow_no:
+        document_kind = str(FLOW_MODULES.get(flow_no, {}).get("document_kind") or "")
+    if not flow_no and document_kind:
+        flow_no = DOCUMENT_KIND_TO_FLOW.get(document_kind, "")
+    return {
+        "source_kind": RUNTIME_PRODUCT_ANALYSIS_STRATEGY_SOURCE_KIND,
+        "project_id": str(
+            public_chain.get("project_id") or inputs.get("project_id") or ""
+        ),
+        "project_name": str(inputs.get("project_name") or ""),
+        "flow_no": flow_no,
+        "flow_title": str(
+            inputs.get("flow_title")
+            or inputs.get("guangzhou_flow_title")
+            or FLOW_MODULES.get(flow_no, {}).get("flow_title")
+            or ""
+        ),
+        "document_kind": document_kind,
+        "file_role": str(inputs.get("file_role") or "detail"),
+        "source_url": str(
+            public_chain.get("announcement_url") or inputs.get("source_url") or ""
+        ),
+        "snapshot_id": str(
+            inputs.get("source_document_ref")
+            or fixation_bundle.get("fixation_bundle_id")
+            or notice_version_chain.get("current_notice_version_id")
+            or ""
+        ),
+        "published_date": _published_date(
+            {
+                "published_at_optional": public_chain.get("first_seen_at"),
+                "published_at": public_chain.get("first_seen_at"),
+            }
+        ),
+        "pipeline_stage": str(inputs.get("pipeline_stage") or ""),
+        "sample_source_type": str(inputs.get("sample_source_type") or ""),
+        "adapter_validation_only": bool(inputs.get("adapter_validation_only")),
+        "target_id": str(inputs.get("target_id") or ""),
+        "bid_deadline_at_optional": str(
+            inputs.get("bid_deadline_at_optional")
+            or inputs.get("bid_deadline_optional")
+            or inputs.get("bid_deadline")
+            or ""
+        ),
+        "opening_at_optional": str(
+            inputs.get("opening_at_optional")
+            or inputs.get("opening_time_optional")
+            or ""
+        ),
+        "current_action_deadline_at_optional": str(
+            inputs.get("current_action_deadline_at_optional")
+            or inputs.get("current_action_deadline")
+            or clock_chain_profile.get("current_action_deadline_at_optional")
+            or ""
+        ),
+        "clock_chain_profile": dict(clock_chain_profile),
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
     }
 
 
@@ -767,7 +1014,10 @@ __all__ = [
     "PREDICTION_BEFORE_CLARIFICATION",
     "PRE_BID_PREDICTION",
     "PRODUCT_ANALYSIS_STRATEGY_PLAN_MANIFEST_KIND",
+    "RUNTIME_PRODUCT_ANALYSIS_STRATEGY_SOURCE_KIND",
     "TIME_WINDOW_UNKNOWN_REVIEW",
     "WATCHLIST_ONLY",
     "build_product_analysis_strategy_plan",
+    "build_runtime_analysis_strategy_h02_projection",
+    "build_runtime_product_analysis_strategy_plan",
 ]

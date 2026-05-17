@@ -307,6 +307,56 @@
       ]
     },
     {
+      "object": "product_analysis_strategy_plan",
+      "stage": 2,
+      "layer": "orchestration",
+      "required": [
+        "analysis_strategy_plan_id",
+        "project_id",
+        "product_mode",
+        "strategy_state",
+        "flow_no",
+        "document_kind",
+        "download_policy",
+        "download_required",
+        "parse_depth",
+        "parse_required",
+        "rules_first",
+        "llm_allowed",
+        "llm_trigger_reasons",
+        "skip_reason",
+        "index_targets",
+        "adapter_validation_only",
+        "current_sales_window_entry_flow_no",
+        "pre_bid_clarification_state",
+        "prediction_recalc_required_on_new_flow_04",
+        "customer_visible_allowed",
+        "no_legal_conclusion"
+      ],
+      "source_refs": [
+        "AX9S-ANALYSIS-STRATEGY-V1",
+        "D11-ANALYSIS-STRATEGY-V1"
+      ],
+      "upstream_dependencies": [
+        "public_chain",
+        "clock_chain_profile",
+        "notice_version_chain",
+        "fixation_bundle"
+      ],
+      "downstream_consumers": [
+        "project_base",
+        "field_lineage_record",
+        "bidder_candidate",
+        "project_manager"
+      ],
+      "enum_refs": [],
+      "hard_constraints": [
+        "must be generated after stage2 formal objects and before any stage3 formal parse",
+        "must express whether stage3 parse is allowed without relying on temporary analysis-plan.json files",
+        "must keep customer_visible_allowed=false and no_legal_conclusion=true"
+      ]
+    },
+    {
       "object": "project_base",
       "stage": 3,
       "layer": "truth",

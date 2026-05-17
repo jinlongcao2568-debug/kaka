@@ -40,7 +40,8 @@
         "public_chain",
         "clock_chain_profile",
         "notice_version_chain",
-        "fixation_bundle"
+        "fixation_bundle",
+        "product_analysis_strategy_plan"
       ],
       "consumerMustNotRecompute": [
         "first_seen_at",
@@ -53,7 +54,20 @@
         "winning_version_resolution_rule_id",
         "clock_resolution_rule_id",
         "clock_conflict_state",
-        "collection_state"
+        "collection_state",
+        "analysis_strategy_plan_id",
+        "analysis_strategy_product_mode",
+        "analysis_strategy_state",
+        "analysis_strategy_flow_no",
+        "analysis_strategy_document_kind",
+        "analysis_strategy_download_policy",
+        "analysis_strategy_parse_depth",
+        "analysis_strategy_parse_required",
+        "analysis_strategy_rules_first",
+        "analysis_strategy_llm_allowed",
+        "analysis_strategy_skip_reason",
+        "analysis_strategy_adapter_validation_only",
+        "analysis_strategy_index_targets"
       ],
       "readinessGate": "raw_carrier_fixed_and_traceable",
       "failureDisposition": "BLOCK"

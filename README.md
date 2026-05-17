@@ -30,6 +30,33 @@
 
 文档角色有疑问时，以 `docs/文档与资产状态板.md` 的 `AX9S / 专题文档单源归属表` 为准：L1 产品主图只讲总口径，L2 矩阵只讲验收和回退，L3 SOP 只讲 Stage4/5 操作细节，导航图只负责入口顺序，专题文档只负责各自专题边界。
 
+## 本地运行与测试存储后端
+
+- 默认 direct-dev、`unittest`、脚本回归都走 `json-file`，不要依赖当前 shell 里遗留的 `KAKA_STORAGE_DATABASE_URL`。
+- `local-postgres` 是显式 opt-in 路径，只在你明确要验证 PostgreSQL / Alembic / `app-postgres` profile 时使用。
+- 如果要用 PostgreSQL，必须先启动对应 profile，并先完成 migration，再做 app bootstrap。
+
+### 默认 direct-dev / unittest（推荐）
+
+统一通过本地隔离脚本执行，它会强制注入 `json-file` + `process` 存储环境，并清掉 `KAKA_STORAGE_DATABASE_URL`：
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/invoke-local-json-test-env.ps1 python -m unittest tests.test_real_sample_autonomous_opportunity_acceptance -v
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/invoke-local-json-test-env.ps1 python tests/run_tests.py
+```
+
+### opt-in `local-postgres`（受控路径）
+
+先启动 PostgreSQL profile，再在 `app-postgres` 容器里显式跑 migration，最后再做 bootstrap：
+
+```powershell
+docker compose --profile local-postgres up -d postgres
+docker compose --profile local-postgres run --rm -e KAKA_STORAGE_BACKEND=postgresql -e KAKA_STORAGE_DATABASE_URL=postgresql+psycopg://kaka_local:local_dev_placeholder_not_secret@postgres:5432/kaka_local app-postgres python -m alembic upgrade head
+docker compose --profile local-postgres run --rm app-postgres
+```
+
+如果你要在宿主机 PowerShell 里直连 PostgreSQL，必须自己显式设置一条**可达**的 `KAKA_STORAGE_DATABASE_URL`；仓库不会为了本地方便而对 PostgreSQL 不可达做 silent fallback。
+
 ## 当前招投标业务方向
 
 - 核心商业主线：候选公示后证据包分析。默认从工作日 72 小时内的近期 `07 中标候选人公示` 进入，再回溯同一项目招标公告、招标文件、答疑澄清、开标、资审、候选、结果、投标文件公开、合同和异常材料，形成控标/围标/串标/陪标线索、候选人核查、真实竞争者识别、真实买家线索和证据包销售承接。开标记录、评标结果、中标结果、合同和异常材料是回溯/支撑或后期复盘阶段，不是默认入口。

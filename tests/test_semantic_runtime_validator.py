@@ -191,6 +191,84 @@ class TestSemanticRuntimeValidator(unittest.TestCase):
         self.assertIn("version_conflict_state", " ".join(validation.reasons))
         self.assertIn("clock_precedence_rule_id", " ".join(validation.reasons))
 
+    def test_h02_runtime_blocks_missing_analysis_strategy_fields(self) -> None:
+        bundles = self._stage_bundles_to_stage7()
+        broken_h02 = StageBundle(
+            stage=2,
+            records={
+                key: value
+                for key, value in bundles["stage2"].records.items()
+                if key != "product_analysis_strategy_plan"
+            },
+            handoff={
+                key: value
+                for key, value in bundles["stage2"].handoff.items()
+                if key not in {"analysis_strategy_plan_id", "analysis_strategy_parse_depth", "analysis_strategy_parse_required"}
+            },
+            trace_rules=list(bundles["stage2"].trace_rules),
+            inputs={
+                key: value
+                for key, value in bundles["stage2"].inputs.items()
+                if key not in {"analysis_strategy_plan_id", "analysis_strategy_parse_depth", "analysis_strategy_parse_required"}
+            },
+        )
+        validation = self.store.evaluate_handoff_consumer(
+            producer_bundle=broken_h02,
+            consumer_stage=3,
+        )
+        self.assertEqual(validation.decision_state, "BLOCK")
+        self.assertIn("analysis_strategy_missing", validation.reasons)
+
+    def test_h02_runtime_blocks_non_parseable_analysis_strategy(self) -> None:
+        bundles = self._stage_bundles_to_stage7()
+        blocked_stage2 = StageBundle(
+            stage=2,
+            records={
+                **bundles["stage2"].records,
+                "product_analysis_strategy_plan": ContractRecord(
+                    object_type="product_analysis_strategy_plan",
+                    data={
+                        **bundles["stage2"].record("product_analysis_strategy_plan").data,
+                        "product_mode": "WATCHLIST_ONLY",
+                        "strategy_state": "WATCHLIST_ONLY",
+                        "download_policy": "SKIP",
+                        "parse_depth": "NONE",
+                        "parse_required": False,
+                        "llm_allowed": False,
+                        "skip_reason": "watchlist_only_flow_not_actionable",
+                    },
+                ),
+            },
+            handoff={
+                **bundles["stage2"].handoff,
+                "analysis_strategy_product_mode": "WATCHLIST_ONLY",
+                "analysis_strategy_state": "WATCHLIST_ONLY",
+                "analysis_strategy_download_policy": "SKIP",
+                "analysis_strategy_parse_depth": "NONE",
+                "analysis_strategy_parse_required": False,
+                "analysis_strategy_llm_allowed": False,
+                "analysis_strategy_skip_reason": "watchlist_only_flow_not_actionable",
+            },
+            trace_rules=list(bundles["stage2"].trace_rules),
+            inputs={
+                **bundles["stage2"].inputs,
+                "analysis_strategy_product_mode": "WATCHLIST_ONLY",
+                "analysis_strategy_state": "WATCHLIST_ONLY",
+                "analysis_strategy_download_policy": "SKIP",
+                "analysis_strategy_parse_depth": "NONE",
+                "analysis_strategy_parse_required": False,
+                "analysis_strategy_llm_allowed": False,
+                "analysis_strategy_skip_reason": "watchlist_only_flow_not_actionable",
+            },
+        )
+        validation = self.store.evaluate_handoff_consumer(
+            producer_bundle=blocked_stage2,
+            consumer_stage=3,
+        )
+        self.assertEqual(validation.decision_state, "BLOCK")
+        self.assertIn("analysis_strategy_watchlist_only", validation.reasons)
+        self.assertIn("analysis_strategy_gate_blocks_stage3_parse", validation.reasons)
+
     def test_stage2_h01_authority_missing_or_conflicting_does_not_succeed_silently(self) -> None:
         stage1 = Stage1Service().run(load_fixture("internal_chain_happy.json"))
         missing_clock_authority = StageBundle(
@@ -388,7 +466,7 @@ class TestSemanticRuntimeValidator(unittest.TestCase):
             stage4.inputs.get("h03_formal_consumption_trace", {}).get("review_reasons"),
         )
 
-    def test_stage3_prefers_stage2_handoff_authority_over_input_override(self) -> None:
+    def test_stage3_rejects_shadow_h02_input_overrides_before_parse(self) -> None:
         stage1 = Stage1Service().run(load_fixture(VERTICAL_SLICE_FIXTURE))
         stage2 = Stage2Service().run(stage1)
         conflicted_stage2 = StageBundle(
@@ -412,45 +490,10 @@ class TestSemanticRuntimeValidator(unittest.TestCase):
                 "current_action_deadline_at_optional": "1999-01-02T00:00:00Z",
             },
         )
-        stage3 = Stage3Service().run(conflicted_stage2)
+        with self.assertRaisesRegex(ValueError, "H-02-STAGE2-TO-STAGE3 blocked"):
+            Stage3Service().run(conflicted_stage2)
 
-        self.assertEqual(stage3.inputs.get("fixation_bundle_id"), stage2.handoff.get("fixation_bundle_id"))
-        self.assertEqual(stage3.inputs.get("source_registry_id"), stage2.handoff.get("source_registry_id"))
-        self.assertEqual(stage3.inputs.get("route_policy_id"), stage2.handoff.get("route_policy_id"))
-        self.assertEqual(stage3.inputs.get("route_decision_state"), stage2.handoff.get("route_decision_state"))
-        self.assertEqual(stage3.inputs.get("route_review_reasons"), stage2.handoff.get("route_review_reasons"))
-        self.assertEqual(
-            stage3.inputs.get("winning_version_resolution_rule_id"),
-            stage2.handoff.get("winning_version_resolution_rule_id"),
-        )
-        self.assertEqual(
-            stage3.inputs.get("version_conflict_state"),
-            stage2.handoff.get("version_conflict_state"),
-        )
-        self.assertEqual(
-            stage3.inputs.get("clock_resolution_rule_id"),
-            stage2.handoff.get("clock_resolution_rule_id"),
-        )
-        self.assertEqual(
-            stage3.inputs.get("clock_precedence_rule_id"),
-            stage2.handoff.get("clock_precedence_rule_id"),
-        )
-        self.assertEqual(stage3.inputs.get("fallback_route"), stage2.handoff.get("fallback_route"))
-        self.assertEqual(
-            stage3.inputs.get("current_action_start_at_optional"),
-            stage2.handoff.get("current_action_start_at_optional"),
-        )
-        self.assertEqual(
-            stage3.inputs.get("current_action_deadline_at_optional"),
-            stage2.handoff.get("current_action_deadline_at_optional"),
-        )
-        self.assertEqual(stage3.handoff.get("fixation_bundle_id"), stage2.handoff.get("fixation_bundle_id"))
-        self.assertEqual(stage3.handoff.get("source_registry_id"), stage2.handoff.get("source_registry_id"))
-        self.assertEqual(stage3.handoff.get("route_policy_id"), stage2.handoff.get("route_policy_id"))
-        self.assertEqual(stage3.handoff.get("clock_precedence_rule_id"), stage2.handoff.get("clock_precedence_rule_id"))
-        self.assertEqual(stage3.handoff.get("fallback_route"), stage2.handoff.get("fallback_route"))
-
-    def test_stage3_missing_or_conflicting_h02_authority_forces_stage4_review_path(self) -> None:
+    def test_stage3_missing_or_conflicting_h02_authority_blocks_before_parse(self) -> None:
         stage1 = Stage1Service().run(load_fixture("internal_chain_happy.json"))
         stage2 = Stage2Service().run(stage1)
         conflicted_stage2 = StageBundle(
@@ -471,33 +514,46 @@ class TestSemanticRuntimeValidator(unittest.TestCase):
                         "clock_resolution_rule_id": "CLOCK-CONFLICT",
                     },
                 ),
+                "product_analysis_strategy_plan": ContractRecord(
+                    object_type="product_analysis_strategy_plan",
+                    data={
+                        key: value
+                        for key, value in stage2.record("product_analysis_strategy_plan").data.items()
+                        if key not in {"analysis_strategy_plan_id", "parse_depth", "parse_required"}
+                    },
+                ),
             },
             handoff={
                 key: value
                 for key, value in stage2.handoff.items()
-                if key not in {"fixation_bundle_id", "route_decision_state", "route_review_reasons"}
+                if key
+                not in {
+                    "fixation_bundle_id",
+                    "route_decision_state",
+                    "route_review_reasons",
+                    "analysis_strategy_plan_id",
+                    "analysis_strategy_parse_depth",
+                    "analysis_strategy_parse_required",
+                }
             },
             trace_rules=list(stage2.trace_rules),
-            inputs=dict(stage2.inputs),
+            inputs={
+                key: value
+                for key, value in stage2.inputs.items()
+                if key
+                not in {
+                    "fixation_bundle_id",
+                    "route_decision_state",
+                    "route_review_reasons",
+                    "analysis_strategy_plan_id",
+                    "analysis_strategy_parse_depth",
+                    "analysis_strategy_parse_required",
+                }
+            },
         )
 
-        stage3 = Stage3Service().run(conflicted_stage2)
-        stage4 = Stage4Service().run(stage3)
-
-        self.assertEqual(stage3.handoff.get("route_decision_state"), "BLOCK")
-        self.assertEqual(stage3.record("project_base").get("public_chain_status"), "BROKEN")
-        self.assertEqual(stage3.record("project_base").get("stage3_review_path_ref_optional"), "STAGE3_REVIEW_REQUIRED")
-        self.assertEqual(stage3.record("field_lineage_record").get("lineage_status"), "UNVERIFIED")
-        self.assertEqual(stage3.record("field_lineage_record").get("conflict_state"), "UNRESOLVED")
-        self.assertEqual(stage4.record("public_attack_surface").get("verification_state"), "REVIEW")
-        for reason in (
-            "missing_h02_handoff_field:fixation_bundle_id",
-            "missing_h02_handoff_field:route_decision_state",
-            "missing_h02_handoff_field:route_review_reasons",
-            "h02_authority_conflict:winning_version_resolution_rule_id",
-            "h02_authority_conflict:clock_resolution_rule_id",
-        ):
-            self.assertIn(reason, stage3.handoff.get("route_review_reasons"))
+        with self.assertRaisesRegex(ValueError, "H-02-STAGE2-TO-STAGE3 blocked"):
+            Stage3Service().run(conflicted_stage2)
 
     def test_h06_and_h07_must_not_recompute_conflicts_block(self) -> None:
         bundles = self._stage_bundles_to_stage7()

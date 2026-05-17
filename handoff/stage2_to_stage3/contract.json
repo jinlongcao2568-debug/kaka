@@ -7,7 +7,8 @@
     "public_chain",
     "clock_chain_profile",
     "notice_version_chain",
-    "fixation_bundle"
+    "fixation_bundle",
+    "product_analysis_strategy_plan"
   ],
   "consumer_objects": [
     "project_base",
@@ -37,12 +38,25 @@
     "clock_precedence_rule_id",
     "clock_conflict_state",
     "collection_state",
-    "clock_resolution_rule_id"
+    "clock_resolution_rule_id",
+    "analysis_strategy_plan_id",
+    "analysis_strategy_product_mode",
+    "analysis_strategy_state",
+    "analysis_strategy_flow_no",
+    "analysis_strategy_document_kind",
+    "analysis_strategy_download_policy",
+    "analysis_strategy_parse_depth",
+    "analysis_strategy_parse_required",
+    "analysis_strategy_rules_first",
+    "analysis_strategy_llm_allowed",
+    "analysis_strategy_skip_reason",
+    "analysis_strategy_adapter_validation_only"
   ],
   "optional_payload_fields": [
     "fallback_route",
     "current_action_start_at_optional",
-    "current_action_deadline_at_optional"
+    "current_action_deadline_at_optional",
+    "analysis_strategy_index_targets"
   ],
   "consumer_runtime_required_fields": [
     "project_id",
@@ -61,11 +75,24 @@
     "clock_precedence_rule_id",
     "clock_conflict_state",
     "collection_state",
-    "clock_resolution_rule_id"
+    "clock_resolution_rule_id",
+    "analysis_strategy_plan_id",
+    "analysis_strategy_product_mode",
+    "analysis_strategy_state",
+    "analysis_strategy_flow_no",
+    "analysis_strategy_document_kind",
+    "analysis_strategy_download_policy",
+    "analysis_strategy_parse_depth",
+    "analysis_strategy_parse_required",
+    "analysis_strategy_rules_first",
+    "analysis_strategy_llm_allowed",
+    "analysis_strategy_skip_reason",
+    "analysis_strategy_adapter_validation_only"
   ],
   "consumer_obligations": [
     "Stage3 must consume Stage2 producer objects public_chain, clock_chain_profile, notice_version_chain, and fixation_bundle as read-only formal inputs.",
     "Stage3 must consume source_registry_id, route_policy_id, fallback_route, route_decision_state, route_review_reasons, winning_version_resolution_rule_id, version_conflict_state, clock_precedence_rule_id, clock_conflict_state, collection_state, and clock_resolution_rule_id from Stage2 formal outputs / handoff rather than recomputing them from scattered payload override.",
+    "Stage3 must consume runtime AnalysisStrategyPlan authority from Stage2 formal outputs / handoff and must not continue parsing when the strategy blocks Stage3 parse.",
     "Stage3 truth-layer carrier must project fallback_route, clock_precedence_rule_id, and optional action-window clock fields when supplied by H-02 authority.",
     "Missing or conflicting fixation, version, clock, or route authority must route Stage3 truth-layer output into REVIEW or BLOCK before Stage4 consumption."
   ],
@@ -83,7 +110,20 @@
     "clock_precedence_rule_id",
     "clock_resolution_rule_id",
     "clock_conflict_state",
-    "collection_state"
+    "collection_state",
+    "analysis_strategy_plan_id",
+    "analysis_strategy_product_mode",
+    "analysis_strategy_state",
+    "analysis_strategy_flow_no",
+    "analysis_strategy_document_kind",
+    "analysis_strategy_download_policy",
+    "analysis_strategy_parse_depth",
+    "analysis_strategy_parse_required",
+    "analysis_strategy_rules_first",
+    "analysis_strategy_llm_allowed",
+    "analysis_strategy_skip_reason",
+    "analysis_strategy_adapter_validation_only",
+    "analysis_strategy_index_targets"
   ],
   "stage3_truth_layer_output_obligations": [
     "Stage3 must produce project_base as the formal project truth root.",
@@ -115,7 +155,8 @@
     "clock_conflict_state_declared",
     "stage3_parse_inputs_ready",
     "collection_state_runtime_mapping_resolved",
-    "version_precedence_resolved"
+    "version_precedence_resolved",
+    "analysis_strategy_gate_resolved"
   ],
   "priority": "P0",
   "source_catalog_ref": "handoff/stage_handoff_catalog.json#H-02-STAGE2-TO-STAGE3"

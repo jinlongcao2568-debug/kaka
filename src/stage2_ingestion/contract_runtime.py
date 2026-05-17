@@ -45,6 +45,7 @@ def build_stage2_handoff(
     identity_resolution_rule_id: str,
     collection_state: str,
     version_conflict_state: str,
+    analysis_strategy_plan: Mapping[str, Any],
 ) -> dict[str, Any]:
     handoff = {
         "project_id": extracted.project_id,
@@ -66,6 +67,7 @@ def build_stage2_handoff(
             version_conflict_state=version_conflict_state,
         )
     )
+    handoff.update(dict(analysis_strategy_plan))
     return handoff
 
 
@@ -80,6 +82,7 @@ def build_stage2_inputs(
     clock_conflict_state: str,
     collection_state: str,
     version_conflict_state: str,
+    analysis_strategy_plan: Mapping[str, Any],
 ) -> dict[str, Any]:
     inputs_out = dict(inputs)
     inputs_out.update(
@@ -125,5 +128,5 @@ def build_stage2_inputs(
             },
         }
     )
+    inputs_out.update(dict(analysis_strategy_plan))
     return inputs_out
-

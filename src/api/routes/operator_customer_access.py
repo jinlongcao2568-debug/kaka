@@ -56,6 +56,9 @@ from stage4_verification.service import Stage4Service
 from stage4_verification.regional_hard_defect_sources import build_regional_hard_defect_source_plan
 from stage5_rules_evidence.service import Stage5Service
 from stage6_fact_review.service import Stage6Service
+from stage7_sales.service import Stage7Service
+from stage8_outreach.service import Stage8Service
+from stage9_delivery.service import Stage9Service
 from storage.db import DatabaseSession, PersistedOperatorAction, build_persisted_at
 from storage.repositories.object_storage_repo import ObjectStorageRepository
 from storage.repositories.operator_action_repo import OperatorActionRepository
@@ -920,6 +923,48 @@ def _project_type_label(project_type: str) -> str:
     return labels.get(project_type, project_type)
 
 
+def _analysis_document_kind_from_notice_stage(candidate: Mapping[str, Any]) -> str:
+    explicit = str(
+        candidate.get("document_kind")
+        or candidate.get("evaluation_document_kind")
+        or ""
+    ).strip()
+    if explicit:
+        return explicit
+    notice_stage = str(candidate.get("notice_stage") or "").strip()
+    mapping = {
+        "candidate_notice": "candidate_notice",
+        "tender_notice": "tender_notice",
+        "tender_file_publicity": "tender_file_publicity",
+        "clarification_notice": "clarification_notice",
+        "opening_info": "opening_info",
+        "award_result": "award_result",
+    }
+    return mapping.get(notice_stage, "candidate_notice")
+
+
+def _analysis_flow_no_from_document_kind(
+    candidate: Mapping[str, Any],
+    document_kind: str,
+) -> str:
+    explicit = str(
+        candidate.get("guangzhou_flow_no")
+        or candidate.get("flow_no")
+        or ""
+    ).strip()
+    if explicit:
+        return explicit.zfill(2)
+    mapping = {
+        "candidate_notice": "07",
+        "tender_file_publicity": "02",
+        "tender_notice": "03",
+        "clarification_notice": "04",
+        "opening_info": "05",
+        "award_result": "09",
+    }
+    return mapping.get(document_kind, "07")
+
+
 def _search_candidate_from_payload(
     payload: Mapping[str, Any],
     *,
@@ -1013,6 +1058,11 @@ def _internal_chain_payload_from_search(
 ) -> dict[str, Any]:
     capture_plan = dict(source_blueprint.get("stage2_capture_plan", {}) or {})
     candidate_source_mode = str(candidate.get("source_candidate_mode") or "")
+    analysis_document_kind = _analysis_document_kind_from_notice_stage(candidate)
+    analysis_flow_no = _analysis_flow_no_from_document_kind(
+        candidate,
+        analysis_document_kind,
+    )
     detail_snapshot_ref = str(
         candidate.get("source_document_ref")
         or candidate.get("stage2_detail_snapshot_id_optional")
@@ -1051,6 +1101,8 @@ def _internal_chain_payload_from_search(
         "review_lane": str(payload.get("review_lane") or "STANDARD"),
         "carrier_type": str(payload.get("carrier_type") or "HTML_PAGE"),
         "announcement_url": str(candidate.get("source_url") or payload.get("announcement_url") or "https://example.invalid/notice/search"),
+        "document_kind": analysis_document_kind,
+        "guangzhou_flow_no": analysis_flow_no,
         "source_document_ref": detail_snapshot_ref,
         "source_slice_ref": slice_snapshot_ref,
         "real_snapshot_ids": real_snapshot_ids,
@@ -1772,11 +1824,132 @@ def _build_real_public_stage4_9_readback_from_candidate(
         else "PARTIAL_SOURCE_COVERAGE"
     )
     regional_failures = list(regional_source_readback.get("failure_reasons", []) or [])
+    fail_closed_reasons = list(
+        dict.fromkeys(
+            str(reason)
+            for reason in [*fail_closed_reasons, *regional_failures]
+            if reason
+        )
+    )
+    stable_slice_ready = (
+        formal_chain_state == "INTERNAL_READY"
+        and not remaining_real_world_gaps
+        and not fail_closed_reasons
+    )
+    final_chain_state = (
+        "INTERNAL_READY" if stable_slice_ready else formal_chain_state
+    )
+    stage_scope = "STAGE1_6_ONLY"
+
+    if stable_slice_ready:
+        try:
+            stage7 = Stage7Service().run_real_public_product_package_readback(stage6)
+            stage7_summary = dict(
+                stage7.inputs.get(Stage7Service.REAL_PUBLIC_STAGE7_READBACK_KEY, {}) or {}
+            )
+            if (
+                str(stage7_summary.get("real_public_sales_package_chain_state") or "")
+                == "INTERNAL_READY"
+            ):
+                persist_stage_bundle(stage7)
+                stage8 = Stage8Service().run_real_public_sales_execution_readback(stage7)
+                stage8_summary = dict(
+                    stage8.inputs.get(Stage8Service.REAL_PUBLIC_STAGE8_READBACK_KEY, {}) or {}
+                )
+                if (
+                    str(stage8_summary.get("real_public_outreach_chain_state") or "")
+                    == "INTERNAL_READY"
+                ):
+                    persist_stage_bundle(stage8)
+                    stage9 = Stage9Service().run_real_public_outreach_delivery_readback(stage8)
+                    stage9_summary = dict(
+                        stage9.inputs.get(Stage9Service.REAL_PUBLIC_STAGE9_READBACK_KEY, {}) or {}
+                    )
+                    if (
+                        str(
+                            stage9_summary.get(
+                                "real_public_order_payment_delivery_chain_state"
+                            )
+                            or ""
+                        )
+                        == "INTERNAL_READY"
+                    ):
+                        persist_stage_bundle(stage9)
+                        final_chain_state = "INTERNAL_READY"
+                        stage_scope = "STAGE1_9_STABLE_SLICE"
+                    else:
+                        final_chain_state = str(
+                            stage9_summary.get(
+                                "real_public_order_payment_delivery_chain_state"
+                            )
+                            or "REVIEW_REQUIRED"
+                        )
+                        fail_closed_reasons = list(
+                            dict.fromkeys(
+                                [
+                                    *fail_closed_reasons,
+                                    *[
+                                        str(reason)
+                                        for reason in list(
+                                            stage9_summary.get("fail_closed_reasons", []) or []
+                                        )
+                                        if str(reason).strip()
+                                    ],
+                                ]
+                            )
+                        )
+                else:
+                    final_chain_state = str(
+                        stage8_summary.get("real_public_outreach_chain_state")
+                        or "REVIEW_REQUIRED"
+                    )
+                    fail_closed_reasons = list(
+                        dict.fromkeys(
+                            [
+                                *fail_closed_reasons,
+                                *[
+                                    str(reason)
+                                    for reason in list(
+                                        stage8_summary.get("fail_closed_reasons", []) or []
+                                    )
+                                    if str(reason).strip()
+                                ],
+                            ]
+                        )
+                    )
+            else:
+                final_chain_state = str(
+                    stage7_summary.get("real_public_sales_package_chain_state")
+                    or "REVIEW_REQUIRED"
+                )
+                fail_closed_reasons = list(
+                    dict.fromkeys(
+                        [
+                            *fail_closed_reasons,
+                            *[
+                                str(reason)
+                                for reason in list(
+                                    stage7_summary.get("fail_closed_reasons", []) or []
+                                )
+                                if str(reason).strip()
+                            ],
+                        ]
+                    )
+                )
+        except Exception as exc:
+            final_chain_state = "REVIEW_REQUIRED"
+            fail_closed_reasons = list(
+                dict.fromkeys(
+                    [*fail_closed_reasons, f"real_public_stage7_9_exception:{exc}"]
+                )
+            )
+    elif formal_chain_state == "INTERNAL_READY":
+        final_chain_state = "REVIEW_REQUIRED"
     return {
         "surface_id": "operator_real_public_stage4_9_readback",
-        "stage_scope": "STAGE1_6_ONLY",
-        "readback_state": "READBACK_READY" if formal_chain_state == "INTERNAL_READY" else "REVIEW_REQUIRED",
-        "real_public_stage4_9_chain_state": formal_chain_state,
+        "stage_scope": stage_scope,
+        "readback_state": "READBACK_READY" if final_chain_state == "INTERNAL_READY" else "REVIEW_REQUIRED",
+        "real_public_stage4_9_chain_state": final_chain_state,
         "real_public_stage1_6_chain_state": formal_chain_state,
         "stage1_6_closed_loop_ready": formal_chain_state == "INTERNAL_READY",
         "stage4_public_verification_run_id": stage4_verification.get("verification_run_id"),
@@ -1797,9 +1970,27 @@ def _build_real_public_stage4_9_readback_from_candidate(
         "stage6_real_public_product_package_chain_state": stage6_summary.get(
             "real_public_product_package_chain_state"
         ),
-        "stage7_real_public_sales_package_chain_state": "NOT_RUN_STAGE1_6_ONLY",
-        "stage8_real_public_outreach_chain_state": "NOT_RUN_STAGE1_6_ONLY",
-        "stage9_real_public_order_payment_delivery_chain_state": "NOT_RUN_STAGE1_6_ONLY",
+        "stage7_real_public_sales_package_chain_state": (
+            stage7_summary.get("real_public_sales_package_chain_state")
+            if stage7_summary
+            else "NOT_RUN_REAL_WORLD_GAPS"
+            if formal_chain_state == "INTERNAL_READY"
+            else "NOT_RUN_STAGE1_6_ONLY"
+        ),
+        "stage8_real_public_outreach_chain_state": (
+            stage8_summary.get("real_public_outreach_chain_state")
+            if stage8_summary
+            else "NOT_RUN_REAL_WORLD_GAPS"
+            if formal_chain_state == "INTERNAL_READY"
+            else "NOT_RUN_STAGE1_6_ONLY"
+        ),
+        "stage9_real_public_order_payment_delivery_chain_state": (
+            stage9_summary.get("real_public_order_payment_delivery_chain_state")
+            if stage9_summary
+            else "NOT_RUN_REAL_WORLD_GAPS"
+            if formal_chain_state == "INTERNAL_READY"
+            else "NOT_RUN_STAGE1_6_ONLY"
+        ),
         "source_snapshot_id": stage4_verification.get("source_snapshot_id") or snapshot_id,
         "source_url": stage4_verification.get("source_url") or source_url,
         "input_parse_run_id": stage4_verification.get("input_parse_run_id") or parsed.get("parse_run_id"),
@@ -1839,8 +2030,8 @@ def _build_real_public_stage4_9_readback_from_candidate(
             "stage9": dict(stage9_summary.get("source_refs", {}) or {}),
         },
         "formal_real_public_readback_ready": formal_chain_state == "INTERNAL_READY",
-        "real_public_sellable_gate_ready": formal_chain_state == "INTERNAL_READY" and not remaining_real_world_gaps,
-        "customer_sellable_evidence_ready": False,
+        "real_public_sellable_gate_ready": final_chain_state == "INTERNAL_READY",
+        "customer_sellable_evidence_ready": final_chain_state == "INTERNAL_READY",
         "real_world_hard_defect_gate_state": real_world_gate_state,
         "project_manager_identifier_resolution_state": (
             str(identity_resolution_plan.get("resolution_state") or "JZSC_COMPANY_FIRST_REQUIRED")
@@ -1864,13 +2055,7 @@ def _build_real_public_stage4_9_readback_from_candidate(
         "regional_hard_defect_source_plan": regional_source_plan,
         "regional_hard_defect_source_readback": regional_source_readback,
         "remaining_real_world_gaps": list(dict.fromkeys(remaining_real_world_gaps)),
-        "fail_closed_reasons": list(
-            dict.fromkeys(
-                str(reason)
-                for reason in [*fail_closed_reasons, *regional_failures]
-                if reason
-            )
-        ),
+        "fail_closed_reasons": fail_closed_reasons,
     }
 
 
@@ -1961,6 +2146,16 @@ def _build_autonomous_runtime_flow(
     offline_sample_validation = bool(candidate.get("is_offline_sample_candidate")) or source_candidate_mode == "OFFLINE_SAMPLE_CANDIDATES"
     real_public_readback = dict(real_public_stage4_9_readback or {})
     real_public_chain_state = str(real_public_readback.get("real_public_stage4_9_chain_state") or "")
+    real_public_stage7_chain_state = str(
+        real_public_readback.get("stage7_real_public_sales_package_chain_state") or ""
+    )
+    real_public_stage8_chain_state = str(
+        real_public_readback.get("stage8_real_public_outreach_chain_state") or ""
+    )
+    real_public_stage9_chain_state = str(
+        real_public_readback.get("stage9_real_public_order_payment_delivery_chain_state")
+        or ""
+    )
     real_public_fail_reasons = [
         str(reason)
         for reason in list(real_public_readback.get("fail_closed_reasons", []) or [])
@@ -1972,6 +2167,9 @@ def _build_autonomous_runtime_flow(
         if str(reason).strip()
     ]
     real_public_formal_ready = bool(real_public_readback.get("formal_real_public_readback_ready"))
+    customer_sellable_evidence_ready = bool(
+        real_public_readback.get("customer_sellable_evidence_ready")
+    )
     opportunity_id = str(stage_ref_ids.get("stage7_saleable_opportunity") or "")
     requested_regions_text = ", ".join(
         str(value)
@@ -2113,11 +2311,85 @@ def _build_autonomous_runtime_flow(
                 "stage1_6_chain_state": real_public_readback.get("real_public_stage1_6_chain_state"),
             },
             failure_reasons=real_public_fail_reasons if source_candidate_mode == REAL_PUBLIC_SOURCE_CANDIDATE_MODE else [],
-            note="形成报告记录、内部产品包和证据包预览；真实候选当前只验收到 Stage6。",
-            next_action="Stage1-6 稳定后再进入商业钩子、买家匹配和对外交付候选。",
+            note=(
+                "形成报告记录、内部产品包并继续向 Stage7-9 正式 readback。"
+                if customer_sellable_evidence_ready or real_public_stage7_chain_state
+                else "形成报告记录、内部产品包和证据包预览；真实候选当前停在 Stage6。"
+            ),
+            next_action=(
+                "已进入 Stage7-9 正式内部 readback；继续保持对外门禁关闭。"
+                if customer_sellable_evidence_ready or real_public_stage7_chain_state
+                else "Stage1-6 稳定后再进入商业钩子、买家匹配和对外交付候选。"
+            ),
         ),
     ]
-    if source_candidate_mode != REAL_PUBLIC_SOURCE_CANDIDATE_MODE:
+    if source_candidate_mode == REAL_PUBLIC_SOURCE_CANDIDATE_MODE:
+        if real_public_stage7_chain_state and not real_public_stage7_chain_state.startswith("NOT_RUN"):
+            stage7_source_refs = dict(
+                real_public_readback.get("source_refs", {}).get("stage7", {}) or {}
+            )
+            stage8_source_refs = dict(
+                real_public_readback.get("source_refs", {}).get("stage8", {}) or {}
+            )
+            stage9_source_refs = dict(
+                real_public_readback.get("source_refs", {}).get("stage9", {}) or {}
+            )
+            stage_stats.extend([
+                _runtime_stage(
+                    stage=7,
+                    name="商业钩子 / 买家匹配",
+                    produced_count=1 if stage7_source_refs.get("saleable_opportunity_id") else 0,
+                    state="已接入真实读回" if real_public_stage7_chain_state == "INTERNAL_READY" else "待复核",
+                    object_refs={
+                        "opportunity_id": stage7_source_refs.get("saleable_opportunity_id"),
+                        "buyer_fit_ref": stage7_source_refs.get("buyer_fit_id"),
+                        "offer_recommendation_ref": stage7_source_refs.get("offer_recommendation_id"),
+                        "real_public_stage7_chain_state": real_public_stage7_chain_state,
+                    },
+                    failure_reasons=real_public_fail_reasons
+                    if real_public_stage7_chain_state != "INTERNAL_READY"
+                    else [],
+                    note="真实候选已进入 Stage7 正式销售包 readback。",
+                    next_action="Stage7 通过后进入 Stage8 触达计划 readback。",
+                ),
+                _runtime_stage(
+                    stage=8,
+                    name="触达计划",
+                    produced_count=1 if stage8_source_refs.get("outreach_plan_id") else 0,
+                    state="已接入真实读回" if real_public_stage8_chain_state == "INTERNAL_READY" else "待复核",
+                    object_refs={
+                        "outreach_plan_ref": stage8_source_refs.get("outreach_plan_id"),
+                        "touch_record_ref": stage8_source_refs.get("touch_record_id"),
+                        "outbox_ref": stage8_source_refs.get("stage8_outbox_id"),
+                        "real_public_stage8_chain_state": real_public_stage8_chain_state,
+                    },
+                    failure_reasons=real_public_fail_reasons
+                    if real_public_stage8_chain_state != "INTERNAL_READY"
+                    else [],
+                    note="真实候选已进入 Stage8 触达计划 readback，真实发送仍关闭。",
+                    next_action="Stage8 通过后进入 Stage9 交付治理 readback。",
+                ),
+                _runtime_stage(
+                    stage=9,
+                    name="支付交付",
+                    produced_count=1 if stage9_source_refs.get("order_record_id") else 0,
+                    state="已接入真实读回" if real_public_stage9_chain_state == "INTERNAL_READY" else "待复核",
+                    object_refs={
+                        "order_record_ref": stage9_source_refs.get("order_record_id"),
+                        "payment_record_ref": stage9_source_refs.get("payment_record_id"),
+                        "delivery_record_ref": stage9_source_refs.get("delivery_record_id"),
+                        "execution_ledger_ref": stage9_source_refs.get("stage9_execution_ledger_id"),
+                        "real_public_stage9_chain_state": real_public_stage9_chain_state,
+                        "automated_refund_enabled": "false",
+                    },
+                    failure_reasons=real_public_fail_reasons
+                    if real_public_stage9_chain_state != "INTERNAL_READY"
+                    else [],
+                    note="真实候选已进入 Stage9 交付治理 readback，支付/交付/live gate 仍关闭。",
+                    next_action="保留内部交付候选，不放开真实支付和客户下载。",
+                ),
+            ])
+    else:
         stage_stats.extend([
         _runtime_stage(
             stage=7,
@@ -2163,6 +2435,8 @@ def _build_autonomous_runtime_flow(
     data_boundary_message = (
         "离线样本只验证 Stage1-9、工作台和证据包链路；不能当作真实市场发现或客户可售证据。"
         if offline_sample_validation
+        else "真实候选已正式进入 Stage7-9 内部 readback；客户可售证据已就绪，但对外触达、支付、交付仍受门禁控制。"
+        if customer_sellable_evidence_ready
         else "真实候选详情快照已进入 Stage1-6 产品包读回；客户可售前仍需补齐核验来源并进入 Stage7-9。"
         if real_public_formal_ready
         else "真实列表页候选已进入 Stage1-6 诊断闭环；客户可交付前仍需补齐详情页、附件、核验来源和证据回链。"
@@ -2173,7 +2447,9 @@ def _build_autonomous_runtime_flow(
         "surface_id": "autonomous_search_runtime_flow",
         "flow_mode": "真实候选内部闭环" if source_candidate_mode == REAL_PUBLIC_SOURCE_CANDIDATE_MODE else "内部实战测试闭环",
         "direction": (
-            "地区机会扫描 -> 真实详情快照 -> Stage4-6核验与产品包读回"
+            "地区机会扫描 -> 真实详情快照 -> Stage4-9正式readback"
+            if customer_sellable_evidence_ready
+            else "地区机会扫描 -> 真实详情快照 -> Stage4-6核验与产品包读回"
             if real_public_readback
             else "地区机会扫描 -> 来源蓝图 -> 阶段1-9内部链路 -> 工作台 -> 客户材料候选"
         ),
@@ -2181,7 +2457,7 @@ def _build_autonomous_runtime_flow(
         "real_market_discovery": not offline_sample_validation,
         "real_candidate_discovery_attempted": source_candidate_mode == REAL_PUBLIC_SOURCE_CANDIDATE_MODE,
         "offline_sample_validation": offline_sample_validation,
-        "customer_sellable_evidence_ready": False,
+        "customer_sellable_evidence_ready": customer_sellable_evidence_ready,
         "real_public_stage4_9_readback": real_public_readback,
         "data_boundary_message": data_boundary_message,
         "test_path_unblocked": True,
@@ -2205,6 +2481,9 @@ def _build_autonomous_runtime_flow(
             f"阶段1 公示/异议窗口分流后进入闭环 {selected_candidates}/{input_candidates} 个候选机会。",
             f"阶段2 生成 {len(capture_steps)} 个采集计划步骤。",
             (
+                f"真实详情快照已进入 Stage7-9 正式 readback，链路状态 {real_public_chain_state}。"
+                if customer_sellable_evidence_ready
+                else
                 f"真实详情快照已进入 Stage1-6 读回，链路状态 {real_public_chain_state}。"
                 if real_public_readback
                 else "阶段3-9已在内部链路生成结构化对象、商业钩子和交付候选。"
@@ -2439,16 +2718,24 @@ def _build_real_public_stage1_6_acceptance_surface(
         if str(reason).strip()
     ]
     stage1_6_state = str(readback.get("real_public_stage1_6_chain_state") or "REVIEW_REQUIRED")
+    sellable_ready = bool(readback.get("real_public_sellable_gate_ready"))
+    stage7_source_refs = dict(readback.get("source_refs", {}).get("stage7", {}) or {})
+    stage8_source_refs = dict(readback.get("source_refs", {}).get("stage8", {}) or {})
+    stage9_source_refs = dict(readback.get("source_refs", {}).get("stage9", {}) or {})
     return {
         "surface_id": "real_public_stage1_6_acceptance",
         "acceptance_state": (
-            "REAL_PUBLIC_STAGE1_6_INTERNAL_READY"
+            "REAL_SAMPLE_AUTONOMOUS_OPPORTUNITY_ACCEPTED"
+            if sellable_ready
+            else "REAL_PUBLIC_STAGE1_6_INTERNAL_READY"
             if stage1_6_state == "INTERNAL_READY"
             else "REAL_PUBLIC_STAGE1_6_REVIEW_REQUIRED"
         ),
-        "capability_state": stage1_6_state,
-        "stage_scope": "STAGE1_6_ONLY",
-        "customer_sellable_evidence_ready": False,
+        "capability_state": (
+            "REAL_PUBLIC_SELLABLE_EVIDENCE_READY" if sellable_ready else stage1_6_state
+        ),
+        "stage_scope": "STAGE1_9_STABLE_SLICE" if sellable_ready else "STAGE1_6_ONLY",
+        "customer_sellable_evidence_ready": sellable_ready,
         "fail_closed_reasons": fail_closed_reasons,
         "stage_refs": {
             "stage4_public_attack_surface": _stage_ref(
@@ -2478,6 +2765,18 @@ def _build_real_public_stage1_6_acceptance_surface(
             "stage6_product_package": _stage_ref(
                 "stage6_product_package_readiness",
                 stage6_product.get("carrier_id"),
+            ),
+            "stage7_saleable_opportunity": _stage_ref(
+                "saleable_opportunity",
+                stage7_source_refs.get("saleable_opportunity_id"),
+            ),
+            "stage8_outreach_plan": _stage_ref(
+                "outreach_plan",
+                stage8_source_refs.get("outreach_plan_id"),
+            ),
+            "stage9_order_record": _stage_ref(
+                "order_record",
+                stage9_source_refs.get("order_record_id"),
             ),
         },
         "readback": dict(readback),
@@ -3394,7 +3693,13 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
                         chain=loop_chain,
                         readback=loop_real_public_stage4_9_readback,
                     )
-                    loop_opportunity_id = ""
+                    opportunity_ref = dict(
+                        loop_acceptance.get("stage_refs", {}).get(
+                            "stage7_saleable_opportunity", {}
+                        )
+                        or {}
+                    )
+                    loop_opportunity_id = str(opportunity_ref.get("object_id") or "")
                 else:
                     loop_chain = run_internal_chain(chain_payload)
                     for stage_key in ("stage6", "stage7", "stage8", "stage9"):
@@ -3519,6 +3824,9 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
     )
     primary_real_public_sellable_gate_ready = bool(
         primary_real_public_stage4_9_readback.get("real_public_sellable_gate_ready")
+    )
+    customer_sellable_evidence_ready = bool(
+        primary_real_public_stage4_9_readback.get("customer_sellable_evidence_ready")
     )
     search_state = (
         "AUTONOMOUS_SEARCH_ACCEPTED"
@@ -3648,7 +3956,7 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
             "real_market_discovery": not offline_sample_mode,
             "real_candidate_discovery_attempted": bool(real_candidate_discovery),
             "offline_sample_validation": offline_sample_mode,
-            "customer_sellable_evidence_ready": False,
+            "customer_sellable_evidence_ready": customer_sellable_evidence_ready,
             "real_public_stage4_9_chain_state": primary_real_public_chain_state,
             "real_public_stage1_6_chain_state": primary_real_public_stage1_6_chain_state,
             "stage1_6_attempted_count": stage1_6_attempted_count,
@@ -3680,6 +3988,8 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
             "display_message": (
                 "离线样本只验证 Stage1-9、工作台和证据包链路；不能当作真实市场发现或客户可售证据。"
                 if offline_sample_mode
+                else "真实候选已正式进入 Stage7-9 内部 readback；客户可售证据已就绪，但对外触达、支付、交付仍受门禁控制。"
+                if primary_real_public_sellable_gate_ready
                 else "真实候选已验收到 Stage1-6 产品包；客户可售前仍需地方住建、合同备案、竣工、项目经理变更和处罚源补强，并在下一轮进入 Stage7-9。"
                 if primary_real_public_stage1_6_chain_state == "INTERNAL_READY"
                 else "真实列表页候选已进入 Stage1-6 诊断闭环；客户可交付前仍需补齐详情页、附件、核验来源和证据回链。"

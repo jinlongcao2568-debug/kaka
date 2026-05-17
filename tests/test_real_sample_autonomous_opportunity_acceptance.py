@@ -30,7 +30,7 @@ from helpers import load_fixture
 from shared.pipeline import run_internal_chain
 from stage1_tasking.market_scan import Stage1MarketScanEngine
 from stage1_tasking.source_blueprint import Stage1SourceBlueprintOrchestrator
-from storage import reset_default_storage
+from storage_test_support import IsolatedStorageTestMixin
 
 
 class _FakeNoCandidateDiscoveryService:
@@ -290,9 +290,63 @@ def _partial_real_public_stage4_9_readback(*args: object, **kwargs: object) -> d
     }
 
 
-class RealSampleAutonomousOpportunityAcceptanceTests(unittest.TestCase):
+def _stable_real_public_stage7_9_readback(*args: object, **kwargs: object) -> dict:
+    return {
+        "surface_id": "operator_real_public_stage4_9_readback",
+        "readback_state": "READBACK_READY",
+        "real_public_stage4_9_chain_state": "INTERNAL_READY",
+        "real_public_stage1_6_chain_state": "INTERNAL_READY",
+        "stage1_6_closed_loop_ready": True,
+        "stage4_public_verification_result": "MATCHED",
+        "stage4_public_verification_readback_state": "READBACK_READY",
+        "stage5_rule_gate_status": "PASS",
+        "stage5_evidence_gate_status": "PASS",
+        "stage6_real_public_product_package_chain_state": "INTERNAL_READY",
+        "stage7_real_public_sales_package_chain_state": "INTERNAL_READY",
+        "stage8_real_public_outreach_chain_state": "INTERNAL_READY",
+        "stage9_real_public_order_payment_delivery_chain_state": "INTERNAL_READY",
+        "formal_real_public_readback_ready": True,
+        "real_public_sellable_gate_ready": True,
+        "customer_sellable_evidence_ready": True,
+        "real_world_hard_defect_gate_state": "READY_FOR_SELLABLE_EVIDENCE_REVIEW",
+        "remaining_real_world_gaps": [],
+        "source_refs": {
+            "stage6": {
+                "report_record_id": "RPT-REAL-PUBLIC-001",
+                "product_package_ref": "PKG-REAL-PUBLIC-001",
+            },
+            "stage7": {
+                "saleable_opportunity_id": "OPP-REAL-PUBLIC-001",
+                "buyer_fit_id": "BF-REAL-PUBLIC-001",
+                "offer_recommendation_id": "OFF-REAL-PUBLIC-001",
+                "leadpack_package_id": "LPKG-REAL-PUBLIC-001",
+            },
+            "stage8": {
+                "outreach_plan_id": "OUTREACH-REAL-PUBLIC-001",
+                "touch_record_id": "TOUCH-REAL-PUBLIC-001",
+                "stage8_outbox_id": "OUTBOX-REAL-PUBLIC-001",
+            },
+            "stage9": {
+                "order_record_id": "ORDER-REAL-PUBLIC-001",
+                "payment_record_id": "PAY-REAL-PUBLIC-001",
+                "delivery_record_id": "DELIV-REAL-PUBLIC-001",
+                "stage9_execution_ledger_id": "LEDGER-REAL-PUBLIC-001",
+            },
+        },
+        "fail_closed_reasons": [],
+    }
+
+
+class RealSampleAutonomousOpportunityAcceptanceTests(
+    unittest.TestCase, IsolatedStorageTestMixin
+):
     def setUp(self) -> None:
-        reset_default_storage()
+        self.setUp_storage_test_env(
+            storage_filename="real-sample-autonomous-opportunity-acceptance.json"
+        )
+
+    def tearDown(self) -> None:
+        self.tearDown_storage_test_env()
 
     def test_missing_project_manager_certificate_generates_jzsc_company_first_resolution_plan(self) -> None:
         plan = _build_project_manager_identity_resolution_plan(
@@ -733,6 +787,71 @@ class RealSampleAutonomousOpportunityAcceptanceTests(unittest.TestCase):
             payload["data_boundary"]["remaining_real_world_gaps"],
         )
         self.assertFalse(payload["data_boundary"]["customer_sellable_evidence_ready"])
+
+    @patch(
+        "api.routes.operator_customer_access.RealPublicCandidateDiscoveryService",
+        return_value=_FakeAcceptedRealCandidateDiscoveryService(),
+    )
+    @patch(
+        "api.routes.operator_customer_access.RealCandidateStage2CaptureService",
+        return_value=_FakeReviewCandidateStage2CaptureService(),
+    )
+    @patch(
+        "api.routes.operator_customer_access._build_real_public_stage4_9_readback_from_candidate",
+        side_effect=_stable_real_public_stage7_9_readback,
+    )
+    def test_real_public_search_accepts_when_stage7_8_9_readback_is_internal_ready(
+        self,
+        _real_public_readback: object,
+        _stage2_capture_service: object,
+        _discovery_service: object,
+    ) -> None:
+        client = TestClient(create_app())
+
+        response = client.request(
+            "POST",
+            "/operator-console/autonomous-opportunity-search",
+            json={
+                "region_codes": ["CN-GD"],
+                "query": "市政道路",
+                "project_types": ["municipal"],
+                "amount_min": 8000000,
+                "amount_max": 30000000,
+                "now": "2026-05-01T00:00:00+00:00",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["search_state"], "AUTONOMOUS_SEARCH_ACCEPTED")
+        self.assertEqual(payload["capability_state"], "REAL_PUBLIC_SELLABLE_EVIDENCE_READY")
+        self.assertEqual(payload["opportunity_id"], "OPP-REAL-PUBLIC-001")
+        self.assertEqual(
+            payload["real_public_stage4_9_readback"]["stage7_real_public_sales_package_chain_state"],
+            "INTERNAL_READY",
+        )
+        self.assertEqual(
+            payload["real_public_stage4_9_readback"]["stage8_real_public_outreach_chain_state"],
+            "INTERNAL_READY",
+        )
+        self.assertEqual(
+            payload["real_public_stage4_9_readback"]["stage9_real_public_order_payment_delivery_chain_state"],
+            "INTERNAL_READY",
+        )
+        self.assertTrue(payload["real_public_stage4_9_readback"]["real_public_sellable_gate_ready"])
+        self.assertTrue(payload["runtime_flow"]["customer_sellable_evidence_ready"])
+        self.assertTrue(payload["data_boundary"]["customer_sellable_evidence_ready"])
+        self.assertEqual(
+            payload["customer_artifact_candidate_path"],
+            "/customer-artifact-access-candidates/OPP-REAL-PUBLIC-001",
+        )
+        runs = client.request("GET", "/operator-console/autonomous-search-runs").json()
+        self.assertEqual(runs["runs"][0]["search_state"], "AUTONOMOUS_SEARCH_ACCEPTED")
+        self.assertEqual(runs["runs"][0]["opportunity_id"], "OPP-REAL-PUBLIC-001")
+        self.assertEqual(
+            runs["latest_customer_artifact_portal_path"],
+            "/customer-artifact-portal/OPP-REAL-PUBLIC-001",
+        )
 
     @patch(
         "api.routes.operator_customer_access.RealPublicCandidateDiscoveryService",

@@ -15,21 +15,20 @@ for search_path in (SRC, TESTS):
     if str(search_path) not in sys.path:
         sys.path.insert(0, str(search_path))
 
-from api.deps import get_settings
 from api.main import create_app
 from api.routes.operator_frontend import OPERATOR_FRONTEND_ROUTES
 from helpers import load_fixture
 from shared.pipeline import run_internal_chain
-from storage import persist_stage_bundle, reset_default_storage
+from storage import persist_stage_bundle
+from storage_test_support import IsolatedStorageTestMixin
 
 
-class TestOperatorFrontendPortal(unittest.TestCase):
+class TestOperatorFrontendPortal(unittest.TestCase, IsolatedStorageTestMixin):
     def setUp(self) -> None:
-        get_settings.cache_clear()
-        reset_default_storage()
+        self.setUp_storage_test_env(storage_filename="operator-frontend-portal.json")
 
     def tearDown(self) -> None:
-        get_settings.cache_clear()
+        self.tearDown_storage_test_env()
 
     def test_owner_console_frontend_is_mounted_and_exposes_operator_workflow(self) -> None:
         app = create_app()

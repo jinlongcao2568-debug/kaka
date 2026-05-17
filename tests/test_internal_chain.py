@@ -88,6 +88,7 @@ class TestInternalChain(unittest.TestCase):
                 "clock_chain_profile",
                 "notice_version_chain",
                 "fixation_bundle",
+                "product_analysis_strategy_plan",
             },
         )
         self.assertEqual(stage2.record("fixation_bundle").get("carrier_type"), "HTML_PAGE")
@@ -101,6 +102,19 @@ class TestInternalChain(unittest.TestCase):
         self.assertEqual(stage2.handoff.get("winning_version_resolution_rule_id"), "VERSION-PROC-NOTICE-001")
         self.assertEqual(stage2.handoff.get("version_conflict_state"), "CONSISTENT")
         self.assertEqual(stage2.handoff.get("clock_resolution_rule_id"), "CLOCK-DEFAULT")
+        self.assertEqual(
+            stage2.handoff.get("analysis_strategy_plan_id"),
+            stage2.record("product_analysis_strategy_plan").get("analysis_strategy_plan_id"),
+        )
+        self.assertEqual(stage2.handoff.get("analysis_strategy_product_mode"), "POST_CANDIDATE_EVIDENCE_PACK")
+        self.assertEqual(stage2.handoff.get("analysis_strategy_state"), "POST_CANDIDATE_READY")
+        self.assertEqual(stage2.handoff.get("analysis_strategy_flow_no"), "07")
+        self.assertEqual(stage2.handoff.get("analysis_strategy_document_kind"), "candidate_notice")
+        self.assertEqual(stage2.handoff.get("analysis_strategy_download_policy"), "DOWNLOAD_REQUIRED_IF_ATTACHMENT_PRESENT")
+        self.assertEqual(stage2.handoff.get("analysis_strategy_parse_depth"), "TEXT_PROBE")
+        self.assertTrue(stage2.handoff.get("analysis_strategy_parse_required"))
+        self.assertTrue(stage2.handoff.get("analysis_strategy_rules_first"))
+        self.assertTrue(stage2.handoff.get("analysis_strategy_llm_allowed"))
 
         stage3 = result["stage3"]
         self.assertEqual(
@@ -118,6 +132,10 @@ class TestInternalChain(unittest.TestCase):
         self.assertEqual(stage3.handoff.get("route_decision_state"), stage2.handoff.get("route_decision_state"))
         self.assertEqual(stage3.handoff.get("winning_version_resolution_rule_id"), stage2.handoff.get("winning_version_resolution_rule_id"))
         self.assertEqual(stage3.handoff.get("clock_resolution_rule_id"), stage2.handoff.get("clock_resolution_rule_id"))
+        self.assertEqual(stage3.handoff.get("analysis_strategy_plan_id"), stage2.handoff.get("analysis_strategy_plan_id"))
+        self.assertEqual(stage3.handoff.get("analysis_strategy_product_mode"), stage2.handoff.get("analysis_strategy_product_mode"))
+        self.assertEqual(stage3.handoff.get("analysis_strategy_state"), stage2.handoff.get("analysis_strategy_state"))
+        self.assertEqual(stage3.handoff.get("analysis_strategy_parse_depth"), stage2.handoff.get("analysis_strategy_parse_depth"))
         project_id = stage3.record("project_base").get("project_id")
         self.assertEqual(stage3.record("project_base").get("stage3_truth_layer_ref_optional"), f"ST3TL-{project_id}")
         self.assertEqual(stage3.record("project_base").get("field_lineage_collection_ref_optional"), f"LINEAGE-{project_id}")
@@ -134,6 +152,10 @@ class TestInternalChain(unittest.TestCase):
         self.assertEqual(stage3.inputs.get("stage3_truth_layer_ref_optional"), f"ST3TL-{project_id}")
         self.assertEqual(stage3.inputs.get("candidate_collection_ref_optional"), f"CSET-{project_id}")
         self.assertEqual(stage3.inputs.get("route_policy_id"), stage2.handoff.get("route_policy_id"))
+        self.assertEqual(stage3.inputs.get("analysis_strategy_plan_id"), stage2.handoff.get("analysis_strategy_plan_id"))
+        self.assertEqual(stage3.inputs.get("analysis_strategy_product_mode"), stage2.handoff.get("analysis_strategy_product_mode"))
+        self.assertEqual(stage3.inputs.get("analysis_strategy_state"), stage2.handoff.get("analysis_strategy_state"))
+        self.assertEqual(stage3.inputs.get("analysis_strategy_parse_depth"), stage2.handoff.get("analysis_strategy_parse_depth"))
 
         stage4 = result["stage4"]
         self.assertEqual(
@@ -746,7 +768,7 @@ class TestInternalChain(unittest.TestCase):
         self.assertEqual(stage2_trace.get("fallback_route_source"), "h01_authority")
         self.assertEqual(stage2_trace.get("clock_precedence_rule_id_source"), "h01_authority")
 
-    def test_stage3_routes_h02_authority_gaps_or_conflicts_to_review_or_block(self) -> None:
+    def test_stage3_blocks_when_required_h02_authority_is_missing(self) -> None:
         stage1 = Stage1Service().run(load_fixture("internal_chain_happy.json"))
         stage2 = Stage2Service().run(stage1)
         conflicted_stage2 = StageBundle(
@@ -783,21 +805,37 @@ class TestInternalChain(unittest.TestCase):
             },
         )
 
-        stage3 = Stage3Service().run(conflicted_stage2)
+        with self.assertRaisesRegex(ValueError, "H-02-STAGE2-TO-STAGE3 blocked"):
+            Stage3Service().run(conflicted_stage2)
 
-        self.assertEqual(stage3.handoff.get("route_decision_state"), "BLOCK")
-        self.assertEqual(stage3.record("project_base").get("public_chain_status"), "BROKEN")
-        self.assertEqual(stage3.record("project_base").get("stage3_review_path_ref_optional"), "STAGE3_REVIEW_REQUIRED")
-        self.assertEqual(stage3.record("field_lineage_record").get("lineage_status"), "UNVERIFIED")
-        self.assertEqual(stage3.record("field_lineage_record").get("conflict_state"), "UNRESOLVED")
-        for reason in (
-            "missing_h02_handoff_field:fixation_bundle_id",
-            "missing_h02_handoff_field:route_decision_state",
-            "missing_h02_handoff_field:route_review_reasons",
-            "h02_authority_conflict:winning_version_resolution_rule_id",
-            "h02_authority_conflict:clock_resolution_rule_id",
-        ):
-            self.assertIn(reason, stage3.handoff.get("route_review_reasons"))
+    def test_stage2_to_stage3_watchlist_strategy_blocks_mainline_parse(self) -> None:
+        payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
+        payload["document_kind"] = "bid_plan"
+        payload["guangzhou_flow_no"] = "01"
+
+        with self.assertRaisesRegex(ValueError, "H-02-STAGE2-TO-STAGE3 blocked"):
+            run_internal_chain(payload)
+
+    def test_stage2_to_stage3_adapter_validation_strategy_blocks_mainline_parse(self) -> None:
+        payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
+        payload["document_kind"] = "tender_file_publicity"
+        payload["guangzhou_flow_no"] = "02"
+        payload["pipeline_stage"] = "AttachmentList"
+        payload["adapter_validation_only"] = True
+        payload["target_id"] = "GZ-FLOW-INTERFACE-02"
+        payload["sample_source_type"] = "HUMAN_PROVIDED_FLOW_SEED"
+
+        with self.assertRaisesRegex(ValueError, "H-02-STAGE2-TO-STAGE3 blocked"):
+            run_internal_chain(payload)
+
+    def test_stage2_to_stage3_closed_pre_bid_window_blocks_mainline_parse(self) -> None:
+        payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
+        payload["document_kind"] = "tender_notice"
+        payload["guangzhou_flow_no"] = "03"
+        payload["current_action_deadline_at_optional"] = "2026-04-15T08:00:00+00:00"
+
+        with self.assertRaisesRegex(ValueError, "H-02-STAGE2-TO-STAGE3 blocked"):
+            run_internal_chain(payload)
 
     def test_stage2_routes_h01_route_mismatch_to_review_path(self) -> None:
         stage1 = Stage1Service().run(load_fixture("internal_chain_happy.json"))

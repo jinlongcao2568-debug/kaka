@@ -153,6 +153,29 @@ class RuntimeValidator:
             "version_chain_strategy": TypeSpec("str"),
             "winning_version_resolution_rule_id": TypeSpec("str"),
         },
+        "product_analysis_strategy_plan": {
+            "analysis_strategy_plan_id": TypeSpec("str"),
+            "project_id": TypeSpec("str"),
+            "product_mode": TypeSpec("str"),
+            "strategy_state": TypeSpec("str"),
+            "flow_no": TypeSpec("str"),
+            "document_kind": TypeSpec("str"),
+            "download_policy": TypeSpec("str"),
+            "download_required": TypeSpec("bool"),
+            "parse_depth": TypeSpec("str"),
+            "parse_required": TypeSpec("bool"),
+            "rules_first": TypeSpec("bool"),
+            "llm_allowed": TypeSpec("bool"),
+            "llm_trigger_reasons": TypeSpec("list", "str"),
+            "skip_reason": TypeSpec("str"),
+            "index_targets": TypeSpec("list", "str"),
+            "adapter_validation_only": TypeSpec("bool"),
+            "current_sales_window_entry_flow_no": TypeSpec("str"),
+            "pre_bid_clarification_state": TypeSpec("str"),
+            "prediction_recalc_required_on_new_flow_04": TypeSpec("bool"),
+            "customer_visible_allowed": TypeSpec("bool"),
+            "no_legal_conclusion": TypeSpec("bool"),
+        },
         "report_record": {
             "report_id": TypeSpec("str"),
             "project_id": TypeSpec("str"),
@@ -754,6 +777,82 @@ class RuntimeValidator:
         if recompute_conflicts:
             decision_state = self._stricter_decision(decision_state, "BLOCK")
             reasons.append(f"must-not-recompute conflicts: {recompute_conflicts}")
+
+        if contract_id == "H-02-STAGE2-TO-STAGE3":
+            analysis_required_fields = [
+                "analysis_strategy_plan_id",
+                "analysis_strategy_product_mode",
+                "analysis_strategy_state",
+                "analysis_strategy_flow_no",
+                "analysis_strategy_document_kind",
+                "analysis_strategy_download_policy",
+                "analysis_strategy_parse_depth",
+                "analysis_strategy_parse_required",
+                "analysis_strategy_rules_first",
+                "analysis_strategy_llm_allowed",
+                "analysis_strategy_skip_reason",
+                "analysis_strategy_adapter_validation_only",
+            ]
+            analysis_missing = [
+                field_name
+                for field_name in analysis_required_fields
+                if self._resolve_bundle_field(producer_bundle, field_name) in (None, "")
+            ]
+            if analysis_missing:
+                decision_state = self._stricter_decision(decision_state, "BLOCK")
+                reasons.append("analysis_strategy_missing")
+                reasons.append(f"missing analysis strategy fields: {analysis_missing}")
+
+            analysis_product_mode = str(
+                self._resolve_bundle_field(producer_bundle, "analysis_strategy_product_mode")
+                or ""
+            )
+            analysis_state = str(
+                self._resolve_bundle_field(producer_bundle, "analysis_strategy_state")
+                or ""
+            )
+            analysis_download_policy = str(
+                self._resolve_bundle_field(
+                    producer_bundle, "analysis_strategy_download_policy"
+                )
+                or ""
+            )
+            analysis_parse_depth = str(
+                self._resolve_bundle_field(producer_bundle, "analysis_strategy_parse_depth")
+                or ""
+            )
+            analysis_parse_required = self._resolve_bundle_field(
+                producer_bundle, "analysis_strategy_parse_required"
+            )
+            analysis_adapter_validation_only = bool(
+                self._resolve_bundle_field(
+                    producer_bundle, "analysis_strategy_adapter_validation_only"
+                )
+            )
+
+            if analysis_adapter_validation_only:
+                decision_state = self._stricter_decision(decision_state, "BLOCK")
+                reasons.append("analysis_strategy_adapter_validation_only")
+            if analysis_product_mode == "WATCHLIST_ONLY":
+                decision_state = self._stricter_decision(decision_state, "BLOCK")
+                reasons.append("analysis_strategy_watchlist_only")
+            if analysis_state == "TIME_WINDOW_UNKNOWN_REVIEW":
+                decision_state = self._stricter_decision(decision_state, "BLOCK")
+                reasons.append("analysis_strategy_time_window_review")
+            if analysis_state in {
+                "PRE_BID_NOT_ELIGIBLE_DEADLINE_PASSED",
+                "PRE_BID_NOT_ELIGIBLE_OPENING_STARTED",
+                "PRE_BID_NOT_ELIGIBLE_TOO_LATE_FOR_SALE",
+            }:
+                decision_state = self._stricter_decision(decision_state, "BLOCK")
+                reasons.append("analysis_strategy_pre_bid_window_closed")
+            if (
+                analysis_download_policy == "SKIP"
+                or analysis_parse_depth == "NONE"
+                or analysis_parse_required is False
+            ):
+                decision_state = self._stricter_decision(decision_state, "BLOCK")
+                reasons.append("analysis_strategy_gate_blocks_stage3_parse")
 
         trace_fields = {
             "event": "semantic_handoff_validation",

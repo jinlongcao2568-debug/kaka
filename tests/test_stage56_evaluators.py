@@ -249,6 +249,9 @@ class TestStage56Evaluators(unittest.TestCase):
             {
                 "task_id": "TASK-B6-REPORT-PROFILE-001",
                 "project_id": "PROJ-B6-REPORT-PROFILE-001",
+                "document_kind": "tender_file",
+                "guangzhou_flow_no": "03",
+                "current_action_deadline_at_optional": "2026-04-30T00:00:00Z",
                 "source_title": "公共资源交易中心工程建设招标公告",
                 "source_text": (
                     "依法必须招标工程建设项目。评标办法采用综合评分法，"
@@ -340,6 +343,9 @@ class TestStage56Evaluators(unittest.TestCase):
             {
                 "task_id": "TASK-SECTION-SLICES-REPORT-PROFILE-001",
                 "project_id": "PROJ-SECTION-SLICES-REPORT-PROFILE-001",
+                "document_kind": "tender_file",
+                "guangzhou_flow_no": "03",
+                "current_action_deadline_at_optional": "2026-04-30T00:00:00Z",
                 "source_title": "招标文件章节切片测试",
                 "source_text": (
                     "资格条件\n投标人须提供厂家授权、本地社保。\n"
@@ -516,6 +522,9 @@ class TestStage56Evaluators(unittest.TestCase):
             {
                 "task_id": "TASK-B10-REPORT-PROFILE-001",
                 "project_id": "PROJ-B10-REPORT-PROFILE-001",
+                "document_kind": "tender_file",
+                "guangzhou_flow_no": "03",
+                "current_action_deadline_at_optional": "2026-04-30T00:00:00Z",
                 "source_title": "公共资源交易中心工程建设招标公告",
                 "source_text": (
                     "依法必须招标工程建设项目。招标文件异议应在投标截止时间10日前提出，"

@@ -24,6 +24,10 @@ from stage2_ingestion.real_public_url_fetcher import (
 from stage2_ingestion.playwright_challenge_resolver import PlaywrightAttachmentChallengeResolver
 from shared.contracts_runtime import ContractStore, StageBundle
 from shared.utils import apply_rule, build_id, ensure_enum, get_flag, resolve_bundle, utc_now_iso
+from storage.product_analysis_strategy_plan import (
+    build_runtime_analysis_strategy_h02_projection,
+    build_runtime_product_analysis_strategy_plan,
+)
 from storage.download_archive_manifest import (
     CAPTURE_KIND_ATTACHMENT,
     CAPTURE_KIND_DETAIL,
@@ -178,6 +182,20 @@ class Stage2Service:
                 "winning_version_resolution_rule_id": extracted.winning_version_resolution_rule_id,
             },
         )
+        analysis_strategy_plan = self.store.build_record(
+            "product_analysis_strategy_plan",
+            build_runtime_product_analysis_strategy_plan(
+                public_chain=public_chain.data,
+                clock_chain_profile=clock_chain_profile.data,
+                notice_version_chain=notice_version_chain.data,
+                fixation_bundle=fixation_bundle.data,
+                inputs=inputs,
+                now=now,
+            ),
+        )
+        analysis_strategy_h02_projection = build_runtime_analysis_strategy_h02_projection(
+            analysis_strategy_plan.data
+        )
 
         handoff = build_stage2_handoff(
             extracted=extracted,
@@ -193,6 +211,7 @@ class Stage2Service:
             identity_resolution_rule_id=project_identity_strategy.get("identity_resolution_rule_id"),
             collection_state=collection_state,
             version_conflict_state=version_conflict_state,
+            analysis_strategy_plan=analysis_strategy_h02_projection,
         )
 
         inputs_out = build_stage2_inputs(
@@ -205,6 +224,7 @@ class Stage2Service:
             clock_conflict_state=clock_chain_profile.get("clock_conflict_state"),
             collection_state=collection_state,
             version_conflict_state=version_conflict_state,
+            analysis_strategy_plan=analysis_strategy_h02_projection,
         )
 
         return StageBundle(
@@ -214,6 +234,7 @@ class Stage2Service:
                 "clock_chain_profile": clock_chain_profile,
                 "notice_version_chain": notice_version_chain,
                 "fixation_bundle": fixation_bundle,
+                "product_analysis_strategy_plan": analysis_strategy_plan,
             },
             handoff=handoff,
             trace_rules=trace_rules,

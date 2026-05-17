@@ -16,21 +16,20 @@ for search_path in (SRC, TESTS):
     if str(search_path) not in sys.path:
         sys.path.insert(0, str(search_path))
 
-from api.deps import get_settings
 from api.main import create_app
 from api.routes.operator_customer_access import _internal_chain_payload_from_search
 from helpers import load_fixture
 from shared.pipeline import run_internal_chain
-from storage import persist_stage_bundle, reset_default_storage
+from storage import persist_stage_bundle
+from storage_test_support import IsolatedStorageTestMixin
 
 
-class TestOperatorCustomerAccess(unittest.TestCase):
+class TestOperatorCustomerAccess(unittest.TestCase, IsolatedStorageTestMixin):
     def setUp(self) -> None:
-        get_settings.cache_clear()
-        reset_default_storage()
+        self.setUp_storage_test_env(storage_filename="operator-customer-access.json")
 
     def tearDown(self) -> None:
-        get_settings.cache_clear()
+        self.tearDown_storage_test_env()
 
     def _approved_customer_visible_payload(self) -> dict:
         payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))

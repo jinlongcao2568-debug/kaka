@@ -79,7 +79,8 @@
         "public_chain",
         "clock_chain_profile",
         "notice_version_chain",
-        "fixation_bundle"
+        "fixation_bundle",
+        "product_analysis_strategy_plan"
       ],
       "consumer_objects": [
         "project_base",
@@ -101,7 +102,19 @@
         "first_seen_at",
         "last_retrieved_at",
         "clock_conflict_state",
-        "collection_state"
+        "collection_state",
+        "analysis_strategy_plan_id",
+        "analysis_strategy_product_mode",
+        "analysis_strategy_state",
+        "analysis_strategy_flow_no",
+        "analysis_strategy_document_kind",
+        "analysis_strategy_download_policy",
+        "analysis_strategy_parse_depth",
+        "analysis_strategy_parse_required",
+        "analysis_strategy_rules_first",
+        "analysis_strategy_llm_allowed",
+        "analysis_strategy_skip_reason",
+        "analysis_strategy_adapter_validation_only"
       ],
       "optional_payload_fields": [
         "source_registry_id",
@@ -110,7 +123,8 @@
         "route_decision_state",
         "route_review_reasons",
         "winning_version_resolution_rule_id",
-        "clock_resolution_rule_id"
+        "clock_resolution_rule_id",
+        "analysis_strategy_index_targets"
       ],
       "blocking_conditions": [
         "missing_fixed_raw_carrier",
@@ -123,7 +137,8 @@
         "stage3_parse_inputs_ready",
         "collection_state_runtime_mapping_resolved",
         "version_precedence_resolved",
-        "clock_precedence_projection_ready"
+        "clock_precedence_projection_ready",
+        "analysis_strategy_gate_resolved"
       ],
       "priority": "P0"
     },

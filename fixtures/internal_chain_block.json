@@ -4,6 +4,8 @@
   "project_id": "PROJ-002",
   "project_root_id": "ROOT-002",
   "project_name": "示例项目B",
+  "document_kind": "candidate_notice",
+  "guangzhou_flow_no": "07",
   "region_code": "CN-SH",
   "region_scope": "CITY",
   "source_family": "PROCUREMENT_NOTICE",

@@ -198,6 +198,7 @@ class TestArchOptimizationA(unittest.TestCase):
             "public_chain",
             "clock_chain_profile",
             "notice_version_chain",
+            "product_analysis_strategy_plan",
             "project_fact",
             "legal_action_recommendation",
             "review_queue_profile",

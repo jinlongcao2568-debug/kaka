@@ -17,12 +17,20 @@ for search_path in (SRC, TESTS):
 from api.main import create_app
 from api.routes.stage7 import list_saleable_opportunities
 from helpers import load_fixture, run_internal_chain_to_stage7
-from storage import persist_stage_bundle, reset_default_storage
+from storage import persist_stage_bundle
+from storage_test_support import IsolatedStorageTestMixin
 
 
-class ProductizedAutonomousOperatorWorkbenchTests(unittest.TestCase):
+class ProductizedAutonomousOperatorWorkbenchTests(
+    unittest.TestCase, IsolatedStorageTestMixin
+):
     def setUp(self) -> None:
-        reset_default_storage()
+        self.setUp_storage_test_env(
+            storage_filename="productized-autonomous-operator-workbench.json"
+        )
+
+    def tearDown(self) -> None:
+        self.tearDown_storage_test_env()
 
     def test_stage7_preview_exposes_owner_workbench_without_raw_json_dependency(self) -> None:
         stage7 = run_internal_chain_to_stage7(load_fixture("internal_chain_happy.json"))["stage7"]

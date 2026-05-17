@@ -23,10 +23,89 @@ from storage.product_analysis_strategy_plan import (  # noqa: E402
     TIME_WINDOW_UNKNOWN_REVIEW,
     WATCHLIST_ONLY,
     build_product_analysis_strategy_plan,
+    build_runtime_product_analysis_strategy_plan,
 )
 
 
 class ProductAnalysisStrategyPlanTests(unittest.TestCase):
+    def test_runtime_builder_candidate_notice_routes_to_post_candidate_evidence_pack(self) -> None:
+        plan = _build_runtime_plan(document_kind="candidate_notice", flow_no="07")
+
+        self.assertEqual(plan["product_mode"], POST_CANDIDATE_EVIDENCE_PACK)
+        self.assertEqual(plan["strategy_state"], "POST_CANDIDATE_READY")
+        self.assertEqual(plan["flow_no"], "07")
+        self.assertEqual(plan["document_kind"], "candidate_notice")
+        self.assertEqual(plan["download_policy"], "DOWNLOAD_REQUIRED_IF_ATTACHMENT_PRESENT")
+        self.assertEqual(plan["parse_depth"], "TEXT_PROBE")
+        self.assertTrue(plan["parse_required"])
+        self.assertTrue(plan["llm_allowed"])
+        self.assertEqual(plan["current_sales_window_entry_flow_no"], "07")
+
+    def test_runtime_builder_opening_routes_to_post_opening_track(self) -> None:
+        plan = _build_runtime_plan(document_kind="opening_info", flow_no="05")
+
+        self.assertEqual(plan["product_mode"], POST_OPENING_EVIDENCE_TRACK)
+        self.assertEqual(plan["strategy_state"], "PRE_BID_NOT_ELIGIBLE_OPENING_STARTED")
+        self.assertEqual(plan["download_policy"], "LIST_OR_DOWNLOAD_IF_ATTACHMENT_PRESENT")
+        self.assertEqual(plan["parse_depth"], "TEXT_PROBE")
+        self.assertTrue(plan["parse_required"])
+        self.assertTrue(plan["llm_allowed"])
+
+    def test_runtime_builder_pre_bid_standard_prediction_uses_time_window(self) -> None:
+        plan = _build_runtime_plan(
+            document_kind="tender_notice",
+            flow_no="03",
+            deadline="2026-05-20T09:00:00+08:00",
+            now="2026-05-10T09:00:00+08:00",
+        )
+
+        self.assertEqual(plan["product_mode"], PRE_BID_PREDICTION)
+        self.assertEqual(plan["strategy_state"], "PRE_BID_STANDARD_PREDICTION_READY")
+        self.assertEqual(plan["download_policy"], "DOWNLOAD_REQUIRED")
+        self.assertEqual(plan["parse_depth"], "SECTION_PARSE")
+        self.assertTrue(plan["parse_required"])
+        self.assertTrue(plan["llm_allowed"])
+
+    def test_runtime_builder_short_pre_bid_window_blocks_parse(self) -> None:
+        plan = _build_runtime_plan(
+            document_kind="tender_notice",
+            flow_no="03",
+            deadline="2026-05-12T08:00:00+08:00",
+            now="2026-05-10T09:00:00+08:00",
+        )
+
+        self.assertEqual(plan["product_mode"], POST_OPENING_EVIDENCE_TRACK)
+        self.assertEqual(plan["strategy_state"], "PRE_BID_NOT_ELIGIBLE_TOO_LATE_FOR_SALE")
+        self.assertEqual(plan["download_policy"], "SKIP")
+        self.assertEqual(plan["parse_depth"], "NONE")
+        self.assertFalse(plan["parse_required"])
+
+    def test_runtime_builder_watchlist_only_blocks_parse(self) -> None:
+        plan = _build_runtime_plan(document_kind="bid_plan", flow_no="01")
+
+        self.assertEqual(plan["product_mode"], WATCHLIST_ONLY)
+        self.assertEqual(plan["strategy_state"], WATCHLIST_ONLY)
+        self.assertEqual(plan["download_policy"], "METADATA_ONLY")
+        self.assertEqual(plan["parse_depth"], "METADATA_ONLY")
+        self.assertFalse(plan["llm_allowed"])
+
+    def test_runtime_builder_attachment_list_samples_are_adapter_validation_only(self) -> None:
+        plan = _build_runtime_plan(
+            document_kind="tender_file_publicity",
+            flow_no="02",
+            pipeline_stage="AttachmentList",
+            adapter_validation_only=True,
+            target_id="GZ-FLOW-INTERFACE-02",
+            sample_source_type="HUMAN_PROVIDED_FLOW_SEED",
+        )
+
+        self.assertEqual(plan["product_mode"], ADAPTER_VALIDATION_ONLY)
+        self.assertEqual(plan["strategy_state"], ADAPTER_VALIDATION_ONLY)
+        self.assertEqual(plan["download_policy"], "SKIP")
+        self.assertEqual(plan["parse_depth"], "NONE")
+        self.assertFalse(plan["parse_required"])
+        self.assertTrue(plan["adapter_validation_only"])
+
     def test_candidate_notice_routes_to_post_candidate_evidence_pack(self) -> None:
         result = _build_with_samples(
             [
@@ -203,6 +282,49 @@ def _build_with_samples(
             output_json=output_path,
             now=now,
         )
+
+
+def _build_runtime_plan(
+    *,
+    document_kind: str,
+    flow_no: str,
+    deadline: str = "",
+    now: str = "2026-05-10T09:00:00+08:00",
+    pipeline_stage: str = "FlowUrlOnly",
+    adapter_validation_only: bool = False,
+    target_id: str = "",
+    sample_source_type: str = "",
+) -> dict[str, object]:
+    return build_runtime_product_analysis_strategy_plan(
+        public_chain={
+            "project_id": "PROJ-CN-GD-JG2026-10815",
+            "announcement_url": f"https://example.test/{flow_no}.html",
+            "source_family": "PROCUREMENT_NOTICE",
+            "platform_level": "NATIONAL",
+            "region_scope": "NATIONAL",
+            "coverage_tier": "T0_CORE",
+            "carrier_type": "HTML_PAGE",
+            "first_seen_at": "2026-05-10T09:00:00+08:00",
+            "last_retrieved_at": "2026-05-10T09:00:00+08:00",
+        },
+        clock_chain_profile={
+            "current_action_deadline_at_optional": deadline,
+        },
+        notice_version_chain={},
+        fixation_bundle={"fixation_bundle_id": "FIX-001"},
+        inputs={
+            "project_id": "PROJ-CN-GD-JG2026-10815",
+            "project_name": "测试项目",
+            "document_kind": document_kind,
+            "guangzhou_flow_no": flow_no,
+            "pipeline_stage": pipeline_stage,
+            "current_action_deadline_at_optional": deadline,
+            "adapter_validation_only": adapter_validation_only,
+            "target_id": target_id,
+            "sample_source_type": sample_source_type,
+        },
+        now=now,
+    )
 
 
 def _sample(document_kind: str, *, flow_no: str, deadline: str = "") -> dict[str, object]:
