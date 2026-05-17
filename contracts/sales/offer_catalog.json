@@ -13,7 +13,7 @@
         "project_id",
         "offer_recommendation_state",
         "sku_code",
-        "recommended_delivery_form",
+        "package_template_code",
         "recommended_quote_band"
       ],
       "sourceL0Refs": [
@@ -34,7 +34,7 @@
         "D11-R-045"
       ],
       "internalOnly": true,
-      "notes": "推荐方案内部预览，不对外放行。"
+      "notes": "推荐方案内部预览，不对外放行。package_template_code 为主包装字段；recommended_delivery_form 为兼容字段。"
     }
   ]
 }

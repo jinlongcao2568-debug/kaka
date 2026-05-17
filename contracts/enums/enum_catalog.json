@@ -3344,6 +3344,42 @@
       "semantic_notes": "Values frozen by controlled design."
     },
     {
+      "enum_name": "package_template_code",
+      "description": "Commercial packaging template code for Stage7 recommendation and Stage9 delivery packaging.",
+      "source_refs": [
+        "docs/专题_SKU分层与分类裁决.md"
+      ],
+      "values": [
+        {
+          "value": "PROJECT_BRIEF",
+          "meaning": "Compact packaging template for low-depth project briefs."
+        },
+        {
+          "value": "ANALYSIS_REPORT",
+          "meaning": "Analytical packaging template for structured internal/external analysis."
+        },
+        {
+          "value": "EVIDENCE_PACK",
+          "meaning": "Evidence-pack oriented packaging template."
+        },
+        {
+          "value": "OBJECTION_DRAFT",
+          "meaning": "Packaging template optimized for objection or challenge drafting."
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": false,
+      "inferred_from_files": false,
+      "requires_manual_confirmation": false,
+      "semantic_group": "form",
+      "owning_objects": [
+        "offer_recommendation",
+        "delivery_record"
+      ],
+      "semantic_notes": "Packaging-template layer only; not equal to formal SKU or capability tier."
+    },
+    {
       "enum_name": "recommended_delivery_form",
       "description": "Values pending confirmation from docs; no machine assets found.",
       "source_refs": [
@@ -3436,6 +3472,41 @@
         "offer_recommendation"
       ],
       "semantic_notes": "Values frozen by controlled design."
+    },
+    {
+      "enum_name": "service_tier_code",
+      "description": "Service-depth tier for evidence work and delivery readiness.",
+      "source_refs": [
+        "docs/专题_SKU分层与分类裁决.md"
+      ],
+      "values": [
+        {
+          "value": "TRIAGE",
+          "meaning": "Lightweight triage depth."
+        },
+        {
+          "value": "EVIDENCE_PACK",
+          "meaning": "Standard evidence-pack depth."
+        },
+        {
+          "value": "DEEP_RELEASE_CHECK",
+          "meaning": "Deeper release-evidence checking depth."
+        },
+        {
+          "value": "CUSTOMER_DELIVERY_READY",
+          "meaning": "Customer-delivery-ready depth after downstream gates."
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": false,
+      "inferred_from_files": false,
+      "requires_manual_confirmation": false,
+      "semantic_group": "tier",
+      "owning_objects": [
+        "offer_recommendation"
+      ],
+      "semantic_notes": "Service-depth layer only; orthogonal to formal SKU."
     },
     {
       "enum_name": "release_status",
@@ -4124,6 +4195,58 @@
           "reviewer for manual downgrade or restore"
         ]
       }
+    },
+    {
+      "enum_name": "evidence_topic_code",
+      "description": "Evidence-topic classification used by Stage1-6 evidence routing and Stage6 fact summarization.",
+      "source_refs": [
+        "docs/专题_SKU分层与分类裁决.md"
+      ],
+      "values": [
+        {
+          "value": "TOPIC-CERT-REG-TIME",
+          "meaning": "Certificate / registered unit / time anomaly topic."
+        },
+        {
+          "value": "TOPIC-RELEASE-CONFLICT",
+          "meaning": "Responsible-person release / performance overlap conflict topic."
+        },
+        {
+          "value": "TOPIC-CREDIT-PENALTY",
+          "meaning": "Credit, penalty, and regulatory risk topic."
+        },
+        {
+          "value": "TOPIC-COMPOSITE-OBJECTION",
+          "meaning": "Composite objection evidence topic."
+        },
+        {
+          "value": "TOPIC-PRE-BID-RESTRICTION",
+          "meaning": "Pre-bid restriction or tailored-bid prediction topic."
+        },
+        {
+          "value": "TOPIC-TIMELINE-DEFECT",
+          "meaning": "Timeline, process, or publication-defect topic."
+        },
+        {
+          "value": "TOPIC-COMPETITOR-PATTERN",
+          "meaning": "Competitor-pattern or accompaniment clue topic."
+        },
+        {
+          "value": "TOPIC-SOCIAL-INSURANCE-SIGNAL",
+          "meaning": "Social-insurance signal topic for controlled review only."
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": false,
+      "inferred_from_files": false,
+      "requires_manual_confirmation": false,
+      "semantic_group": "topic",
+      "owning_objects": [
+        "execution_context",
+        "project_fact"
+      ],
+      "semantic_notes": "Evidence-topic layer only; not equal to formal SKU, service tier, or packaging template."
     },
     {
       "enum_name": "sku_code",

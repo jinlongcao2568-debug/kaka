@@ -103,7 +103,7 @@ PRIMARY_STATUS_FIELD_MAP = {
     "challenger_candidate_profile": ("candidate_position_label",),
     "legal_action_recommendation": ("window_status", "action_family"),
     "saleable_opportunity": ("saleability_status", "opportunity_grade"),
-    "offer_recommendation": ("offer_recommendation_state", "recommended_delivery_form"),
+    "offer_recommendation": ("offer_recommendation_state", "package_template_code", "recommended_delivery_form"),
     "buyer_fit": ("buyer_type",),
     "legal_action_actor_profile": ("actionability_state",),
     "procurement_decision_actor_profile": ("reachable_state",),
@@ -340,6 +340,7 @@ def _operator_next_action(
 
 def _build_productized_operator_workbench_projection(
     *,
+    project_fact_summary: Mapping[str, Any],
     opportunity: Mapping[str, Any],
     offer: Mapping[str, Any],
     buyer_fit: Mapping[str, Any],
@@ -399,7 +400,11 @@ def _build_productized_operator_workbench_projection(
         "opportunity_id": opportunity.get("opportunity_id"),
         "saleability_status": opportunity.get("saleability_status"),
         "opportunity_grade": opportunity.get("opportunity_grade"),
+        "primary_evidence_topic_code": project_fact_summary.get("primary_evidence_topic_code"),
+        "resolved_evidence_topic_codes": list(project_fact_summary.get("resolved_evidence_topic_codes", []) or []),
         "recommended_sku": opportunity.get("recommended_sku"),
+        "service_tier_code": offer.get("service_tier_code"),
+        "package_template_code": offer.get("package_template_code"),
         "evidence_strength_label": hook_preview.get("evidence_strength_label"),
         "hard_defect_public_label": hook_preview.get("defect_category_public_label"),
         "commercial_hook_teaser": hook_preview.get("teaser_copy"),
@@ -1078,7 +1083,19 @@ def build_stage7_preview_surface(payload: Any) -> dict[str, Any]:
         if commercial_hook
         else {}
     )
+    project_fact_summary = {
+        "project_fact_id": bundle.inputs.get("project_fact_id"),
+        "sale_gate_status": bundle.inputs.get("sale_gate_status"),
+        "coverage_sellable_state": bundle.inputs.get("project_fact_coverage_sellable_state"),
+        "delivery_risk_state": bundle.inputs.get("project_fact_delivery_risk_state"),
+        "competitor_quality_grade": bundle.inputs.get("project_fact_competitor_quality_grade"),
+        "primary_evidence_topic_code": bundle.inputs.get("project_fact_primary_evidence_topic_code"),
+        "resolved_evidence_topic_codes": list(
+            bundle.inputs.get("project_fact_resolved_evidence_topic_codes", []) or []
+        ),
+    }
     productized_operator_workbench = _build_productized_operator_workbench_projection(
+        project_fact_summary=project_fact_summary,
         opportunity=opportunity,
         offer=offer,
         buyer_fit=buyer_fit,
@@ -1106,6 +1123,7 @@ def build_stage7_preview_surface(payload: Any) -> dict[str, Any]:
         "procurement_decision_actor_profile": _formal_object_ref(bundle, "procurement_decision_actor_profile", procurement_actor),
     }
     preview_projection = {
+        "project_fact_summary": project_fact_summary,
         "opportunity_summary": {
             "opportunity_id": opportunity.get("opportunity_id"),
             "saleability_status": opportunity.get("saleability_status"),
@@ -1116,6 +1134,8 @@ def build_stage7_preview_surface(payload: Any) -> dict[str, Any]:
         "offer_summary": {
             "offer_recommendation_state": offer.get("offer_recommendation_state"),
             "sku_code": offer.get("sku_code"),
+            "service_tier_code": offer.get("service_tier_code"),
+            "package_template_code": offer.get("package_template_code"),
             "recommended_delivery_form": offer.get("recommended_delivery_form"),
             "recommended_quote_band": offer.get("recommended_quote_band"),
         },

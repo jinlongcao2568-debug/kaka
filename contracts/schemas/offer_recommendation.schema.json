@@ -10,7 +10,9 @@
     "offer_recommendation_state",
     "sku_code",
     "recommended_delivery_form",
-    "recommended_quote_band"
+    "recommended_quote_band",
+    "service_tier_code",
+    "package_template_code"
   ],
   "properties": {
     "offer_recommendation_id": {
@@ -26,6 +28,12 @@
       "type": "string"
     },
     "recommended_delivery_form": {
+      "type": "string"
+    },
+    "service_tier_code": {
+      "type": "string"
+    },
+    "package_template_code": {
       "type": "string"
     },
     "recommended_quote_band": {
@@ -44,7 +52,7 @@
     "project_id",
     "offer_recommendation_state",
     "sku_code",
-    "recommended_delivery_form",
+    "package_template_code",
     "recommended_quote_band",
     "why_recommended",
     "prerequisites"

@@ -320,7 +320,7 @@
         "window_status",
         "window_urgency_score",
         "opportunity_grade",
-        "recommended_delivery_form",
+        "package_template_code",
         "price_band"
       ],
       "close_days_rules": [
@@ -376,7 +376,7 @@
       "delivery_cost_rules": [
         {
           "rule_id": "COST-HIGH-FORMS",
-          "recommended_delivery_forms": [
+          "package_template_codes": [
             "OBJECTION_DRAFT",
             "SCORING_EVIDENCE_SET",
             "PERFORMANCE_TRACKING"
@@ -386,7 +386,7 @@
         },
         {
           "rule_id": "COST-MEDIUM-FORMS",
-          "recommended_delivery_forms": [
+          "package_template_codes": [
             "EVIDENCE_PACK",
             "ANALYSIS_REPORT",
             "RISK_REPORT",
@@ -397,7 +397,7 @@
         },
         {
           "rule_id": "COST-LOW-FORMS",
-          "recommended_delivery_forms": [
+          "package_template_codes": [
             "PROJECT_BRIEF",
             "COMPETITION_SUMMARY"
           ],
@@ -436,7 +436,7 @@
           "window_status",
           "window_urgency_score",
           "opportunity_grade",
-          "recommended_delivery_form",
+          "package_template_code",
           "price_band"
         ],
         "outputProjection": {

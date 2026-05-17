@@ -62,6 +62,7 @@
       "allowed_fields": [
         "offer_recommendation_state",
         "sku_code",
+        "package_template_code",
         "recommended_delivery_form",
         "recommended_quote_band"
       ]

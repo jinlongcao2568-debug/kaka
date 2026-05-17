@@ -114,6 +114,9 @@
         "requires_manual_review",
         "created_at"
       ],
+      "optional": [
+        "evidence_topic_codes"
+      ],
       "source_refs": [
         "D2-R-017",
         "D2-R-088",
@@ -134,7 +137,8 @@
         "platform_level",
         "coverage_tier",
         "carrier_type",
-        "route_type"
+        "route_type",
+        "evidence_topic_code"
       ],
       "hard_constraints": [
         "must freeze unification strategy and review lane before stage 2",
@@ -899,7 +903,9 @@
         "competitor_quality_grade"
       ],
       "optional": [
-        "project_value_score_optional"
+        "project_value_score_optional",
+        "primary_evidence_topic_code",
+        "resolved_evidence_topic_codes"
       ],
       "source_refs": [
         "D2-R-008",
@@ -924,7 +930,8 @@
         "coverage_sellable_state",
         "delivery_risk_state",
         "manual_override_status",
-        "competitor_quality_grade"
+        "competitor_quality_grade",
+        "evidence_topic_code"
       ],
       "hard_constraints": [
         "the only formal unified fact hub"
@@ -1301,10 +1308,14 @@
         "project_id",
         "offer_recommendation_state",
         "sku_code",
-        "recommended_delivery_form",
+        "package_template_code",
         "recommended_quote_band",
         "why_recommended",
         "prerequisites"
+      ],
+      "optional": [
+        "service_tier_code",
+        "recommended_delivery_form"
       ],
       "source_refs": [
         "D2-R-017",
@@ -1321,7 +1332,9 @@
         "offer_recommendation_state",
         "sku_code",
         "recommended_delivery_form",
-        "recommended_quote_band"
+        "recommended_quote_band",
+        "service_tier_code",
+        "package_template_code"
       ],
       "hard_constraints": [
         "must match opportunity grade and time window"
@@ -1868,7 +1881,8 @@
         "delivery_exception_reason_tags_optional",
         "partial_delivery_state_optional",
         "resend_required_optional",
-        "redeliver_required_optional"
+        "redeliver_required_optional",
+        "package_template_code"
       ],
       "source_refs": [
         "D2-R-017",
@@ -1887,7 +1901,8 @@
         "delivery_status",
         "delivery_form",
         "archival_status",
-        "retrieval_status"
+        "retrieval_status",
+        "package_template_code"
       ],
       "hard_constraints": [
         "must not rewrite stage 3 truth",

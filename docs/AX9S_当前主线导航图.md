@@ -14,6 +14,7 @@
 - 关键历史同步锚点保留为：`PTL-I100-111F-open-capability-registry-route-doc-sync`、`PTL-I100-112-production-platform-infrastructure`、`PTL-I100-118R-final-product-operational-reacceptance`。
 - `controlled-opening-required` 表示未通过 provider config、sandbox、approval、audit、operator action、field allowlist/masking、controlled-opening gate 与验收前不能 live，不表示永久不做。
 - 招投标方向以 `docs/业务方向_候选公示后证据包与投前预测双线契约.md` 和 `contracts/evaluation/business_direction_strategy_contract.json` 为准：候选后证据包是核心商业主线，默认从近期 `07 中标候选人公示` 入池；投前预测只适用于近期 `02/03/04` 且投标截止/开标未过的项目；若出现 `05 开标信息`，投前预测即转开标后/候选后路线；下载解析前必须先生成 `AnalysisStrategyPlan v1`。
+- 普通开发默认最小读序：`AGENTS.md` -> `专题_Stage1-7_缺口收口与优先级清单.md` -> `AX9S_Stage1-9_执行矩阵与子漏斗.md`；只有做 Stage4/5 时再读 `AX9S_Stage4-5_核验双闸门SOP.md`，只有做 Stage7 商业层时再读两份 SKU 专题。
 
 ## 2. 阶段主链
 

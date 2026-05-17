@@ -2041,6 +2041,25 @@ class ProjectFactAggregator:
             "real_competitor_count": int(real_competitor_count),
             "serviceable_competitor_count": int(serviceable_competitor_count),
         }
+        primary_evidence_topic_code = str(inputs.get("primary_evidence_topic_code") or "").strip()
+        if primary_evidence_topic_code:
+            project_fact_payload["primary_evidence_topic_code"] = ensure_enum(
+                self.store,
+                "evidence_topic_code",
+                primary_evidence_topic_code,
+            )
+        resolved_evidence_topic_codes = [
+            str(value).strip()
+            for value in ensure_list(
+                inputs.get("resolved_evidence_topic_codes", inputs.get("evidence_topic_codes", []))
+            )
+            if str(value).strip()
+        ]
+        if resolved_evidence_topic_codes:
+            project_fact_payload["resolved_evidence_topic_codes"] = [
+                ensure_enum(self.store, "evidence_topic_code", value)
+                for value in resolved_evidence_topic_codes
+            ]
 
         focus_bidder_attackability_score = int(
             inputs.get(

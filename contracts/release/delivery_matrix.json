@@ -1249,5 +1249,5 @@
     "LEADPACK_DELIVERABLE",
     "EXTERNAL_CONTROLLED_OPENING"
   ],
-  "leadpack_sku_relation": "LeadPack SKU is a commercial packaging layer; delivery matrix enforces release layers, not capability tiers"
+  "leadpack_packaging_tier_relation": "LeadPack packaging tier is a commercial packaging layer; delivery matrix enforces release layers, not capability tiers"
 }

@@ -305,8 +305,14 @@ def build_real_challenger_readback(
         default=50,
     )
     sku_code = _optional_str(runtime_state.resolve("sku_code", inputs.get("sku_code"))) or "SKU-C"
+    service_tier_code = _optional_str(runtime_state.resolve("service_tier_code"))
+    package_template_code = (
+        _optional_str(runtime_state.resolve("package_template_code"))
+        or _optional_str(runtime_state.resolve("recommended_delivery_form", inputs.get("recommended_delivery_form")))
+    )
     recommended_delivery_form = (
         _optional_str(runtime_state.resolve("recommended_delivery_form", inputs.get("recommended_delivery_form")))
+        or package_template_code
         or "PROJECT_BRIEF"
     )
     recommended_quote_band = _optional_str(runtime_state.resolve("recommended_quote_band")) or "CUSTOM"
@@ -314,6 +320,8 @@ def build_real_challenger_readback(
     recommended_offer_summary = {
         "offer_recommendation_id": offer_recommendation_id,
         "sku_code": sku_code,
+        "service_tier_code": service_tier_code,
+        "package_template_code": package_template_code,
         "recommended_delivery_form": recommended_delivery_form,
         "recommended_quote_band": recommended_quote_band,
         "offer_recommendation_state": offer_state,

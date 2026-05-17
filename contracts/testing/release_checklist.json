@@ -52,7 +52,7 @@
         },
         {
           "itemId": "REL-004",
-          "text": "LeadPack SKU A/B/C/D is treated as commercial packaging, not capability tier A/B/C/D.",
+          "text": "LeadPack packaging tier A/B/C/D is treated as commercial packaging, not capability tier A/B/C/D.",
           "blocking": true,
           "sourceRefs": [
             "D13-R-070"

@@ -13,7 +13,8 @@
     "coverage_sellable_state",
     "delivery_risk_state",
     "manual_override_status",
-    "competitor_quality_grade"
+    "competitor_quality_grade",
+    "evidence_topic_code"
   ],
   "properties": {
     "project_fact_id": {
@@ -60,6 +61,13 @@
     },
     "competitor_quality_grade": {
       "type": "string"
+    },
+    "primary_evidence_topic_code": {
+      "type": "string"
+    },
+    "resolved_evidence_topic_codes": {
+      "type": "array",
+      "items": { "type": "string" }
     },
     "project_value_score_optional": {
       "type": "integer",

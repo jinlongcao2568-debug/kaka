@@ -85,26 +85,35 @@ class Stage1Service:
             },
         )
 
+        execution_context_payload = {
+            "context_id": build_id("CTX", task_id),
+            "task_id": task_id,
+            "project_unification_strategy": extracted.project_unification_strategy,
+            "review_lane": extracted.review_lane,
+            "window_priority": extracted.window_priority,
+            "region_scope": extracted.region_scope,
+            "source_family": extracted.source_family,
+            "platform_level": extracted.platform_level,
+            "coverage_tier": extracted.coverage_tier,
+            "carrier_type": extracted.carrier_type,
+            "default_route": extracted.default_route,
+            "source_registry_id": extracted.source_registry_id,
+            "route_policy_id": extracted.route_policy_id,
+            "fallback_route": extracted.fallback_route,
+            "requires_manual_review": requires_manual_review,
+            "created_at": now,
+        }
+        evidence_topic_codes = [
+            str(value).strip()
+            for value in payload.get("evidence_topic_codes", [])
+            if str(value).strip()
+        ]
+        if evidence_topic_codes:
+            execution_context_payload["evidence_topic_codes"] = evidence_topic_codes
+
         execution_context = self.store.build_record(
             "execution_context",
-            {
-                "context_id": build_id("CTX", task_id),
-                "task_id": task_id,
-                "project_unification_strategy": extracted.project_unification_strategy,
-                "review_lane": extracted.review_lane,
-                "window_priority": extracted.window_priority,
-                "region_scope": extracted.region_scope,
-                "source_family": extracted.source_family,
-                "platform_level": extracted.platform_level,
-                "coverage_tier": extracted.coverage_tier,
-                "carrier_type": extracted.carrier_type,
-                "default_route": extracted.default_route,
-                "source_registry_id": extracted.source_registry_id,
-                "route_policy_id": extracted.route_policy_id,
-                "fallback_route": extracted.fallback_route,
-                "requires_manual_review": requires_manual_review,
-                "created_at": now,
-            },
+            execution_context_payload,
         )
 
         handoff = build_stage1_handoff(

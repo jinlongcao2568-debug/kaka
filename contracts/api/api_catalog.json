@@ -1294,5 +1294,5 @@
     "LEADPACK_DELIVERABLE",
     "EXTERNAL_CONTROLLED_OPENING"
   ],
-  "leadpack_sku_relation": "LeadPack SKU is commercial packaging, not capability tier"
+  "leadpack_packaging_tier_relation": "LeadPack packaging tier is commercial packaging, not capability tier"
 }

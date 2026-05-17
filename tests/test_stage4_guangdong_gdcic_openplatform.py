@@ -4,6 +4,7 @@ import sys
 import unittest
 from pathlib import Path
 from typing import Any, Mapping
+from http.client import RemoteDisconnected
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -186,10 +187,13 @@ class GuangdongGdcicOpenplatformAdapterTests(unittest.TestCase):
 
     def test_uses_guangdong_trade_source_url_project_code_before_name_lookup(self) -> None:
         requested_project_codes: list[str] = []
+        project_lookup_called = False
 
         def fake_get_json(url: str, params: Mapping[str, str]) -> Mapping[str, Any]:
+            nonlocal project_lookup_called
             endpoint = url.replace("https://skypt.gdcic.net/api", "")
             if endpoint == "/openplatform/project/list":
+                project_lookup_called = True
                 return {"msg": "success", "code": 0, "total": 0, "rows": []}
             requested_project_codes.append(str(params.get("projectCode") or params.get("prjNum") or ""))
             if endpoint == "/openplatform/constructionPermit/list":
@@ -220,9 +224,66 @@ class GuangdongGdcicOpenplatformAdapterTests(unittest.TestCase):
         )
 
         self.assertEqual(readback["project_codes"][0], "E4401002701502243001")
+        self.assertFalse(project_lookup_called)
         self.assertNotIn("gdcic_project_code_not_resolved", readback["failure_reasons"])
         self.assertIn("E4401002701502243001", requested_project_codes)
         self.assertIn("construction_permit", readback["covered_source_types"])
+
+    def test_explicit_project_code_candidates_are_classified_when_not_matched(self) -> None:
+        def fake_get_json(url: str, params: Mapping[str, str]) -> Mapping[str, Any]:
+            endpoint = url.replace("https://skypt.gdcic.net/api", "")
+            self.assertNotEqual(endpoint, "/openplatform/project/list")
+            return {"msg": "success", "code": 0, "total": 0, "rows": []}
+
+        readback = query_guangdong_gdcic_openplatform_hard_defect_sources(
+            {
+                "project_id": "PROJ-GD-CODE-NO-MATCH",
+                "project_name": "广州候选项目",
+                "candidate_company": "广东测试建设有限公司",
+                "region_code": "CN-GD",
+                "project_code_candidates": ["GC-NO-MATCH-001"],
+            },
+            http_get_json=fake_get_json,
+            now="2026-05-02T10:00:00+08:00",
+        )
+
+        self.assertEqual(readback["project_code_candidates"], ["GC-NO-MATCH-001"])
+        self.assertEqual(readback["project_codes"], ["GC-NO-MATCH-001"])
+        self.assertIn(
+            "gdcic_project_code_candidates_present_but_not_matched",
+            readback["project_code_resolution_failure_reasons"],
+        )
+        self.assertIn(
+            "gdcic_project_code_candidates_present_but_not_matched",
+            readback["failure_reasons"],
+        )
+
+    def test_remote_disconnected_is_recorded_as_query_error(self) -> None:
+        def fake_get_json(url: str, params: Mapping[str, str]) -> Mapping[str, Any]:
+            endpoint = url.replace("https://skypt.gdcic.net/api", "")
+            if endpoint == "/openplatform/constructionPermit/list":
+                raise RemoteDisconnected("remote end closed connection")
+            return {"msg": "success", "code": 0, "total": 0, "rows": []}
+
+        readback = query_guangdong_gdcic_openplatform_hard_defect_sources(
+            {
+                "project_id": "PROJ-GD-REMOTE-DISCONNECTED",
+                "project_name": "广州候选项目",
+                "candidate_company": "广东测试建设有限公司",
+                "region_code": "CN-GD",
+                "projectCode": "GC-REMOTE-001",
+            },
+            http_get_json=fake_get_json,
+            now="2026-05-02T10:00:00+08:00",
+        )
+
+        self.assertIn("gdcic_query_error:RemoteDisconnected", readback["failure_reasons"])
+        failed = next(
+            result
+            for result in readback["source_results"]
+            if result["query_role"] == "construction_permit_lookup"
+        )
+        self.assertEqual(failed["readback_state"], "FAIL_CLOSED_QUERY_ERROR")
 
     def test_missing_project_name_fails_closed_without_broad_project_query(self) -> None:
         readback = query_guangdong_gdcic_openplatform_hard_defect_sources(

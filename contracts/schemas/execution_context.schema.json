@@ -13,7 +13,8 @@
     "platform_level",
     "coverage_tier",
     "carrier_type",
-    "route_type"
+    "route_type",
+    "evidence_topic_code"
   ],
   "properties": {
     "context_id": {
@@ -60,6 +61,10 @@
     },
     "requires_manual_review": {
       "type": "boolean"
+    },
+    "evidence_topic_codes": {
+      "type": "array",
+      "items": { "type": "string" }
     },
     "created_at": {
       "type": "string"

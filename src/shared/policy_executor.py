@@ -2312,18 +2312,26 @@ class PolicyExecutor:
 
         if opportunity_grade == "A" and fit_score >= 80 and window_urgency_score >= 70 and external_use_grade in ("E3_CLIENT_VISIBLE", "E4_EXTERNAL_ACTION_READY"):
             sku_code = "SKU-A"
+            service_tier_code = "CUSTOMER_DELIVERY_READY" if external_use_grade == "E4_EXTERNAL_ACTION_READY" else "DEEP_RELEASE_CHECK"
+            package_template_code = "OBJECTION_DRAFT"
             recommended_delivery_form = "OBJECTION_DRAFT"
             recommended_quote_band = "HIGH"
         elif opportunity_grade == "B" and fit_score >= 65 and external_use_grade in ("E3_CLIENT_VISIBLE", "E4_EXTERNAL_ACTION_READY"):
             sku_code = "SKU-B"
+            service_tier_code = "EVIDENCE_PACK"
+            package_template_code = "EVIDENCE_PACK"
             recommended_delivery_form = "EVIDENCE_PACK"
             recommended_quote_band = "MEDIUM"
         elif opportunity_grade == "C" and fit_score >= 50 and external_use_grade in ("E2_REVIEW_READY", "E3_CLIENT_VISIBLE", "E4_EXTERNAL_ACTION_READY"):
             sku_code = "SKU-C"
+            service_tier_code = "EVIDENCE_PACK"
+            package_template_code = "ANALYSIS_REPORT"
             recommended_delivery_form = "ANALYSIS_REPORT"
             recommended_quote_band = "LOW"
         else:
             sku_code = "SKU-C"
+            service_tier_code = "TRIAGE"
+            package_template_code = "PROJECT_BRIEF"
             recommended_delivery_form = "PROJECT_BRIEF"
             recommended_quote_band = "CUSTOM"
 
@@ -2348,7 +2356,7 @@ class PolicyExecutor:
             return (
                 _matches_allowed(window_status, rule.get("window_statuses"), None)
                 and _matches_allowed(opportunity_grade, rule.get("opportunity_grades"), None)
-                and _matches_allowed(recommended_delivery_form, rule.get("recommended_delivery_forms"), None)
+                and _matches_allowed(package_template_code, rule.get("package_template_codes"), None)
                 and _matches_allowed(price_band, rule.get("price_bands"), None)
                 and _matches_range(window_urgency_score, rule.get("window_urgency_score"))
             )
@@ -2377,6 +2385,8 @@ class PolicyExecutor:
             decision_state=decision_state,
             outputs={
                 "sku_code": sku_code,
+                "service_tier_code": service_tier_code,
+                "package_template_code": package_template_code,
                 "recommended_delivery_form": recommended_delivery_form,
                 "recommended_quote_band": recommended_quote_band,
                 "offer_recommendation_state": offer_state,

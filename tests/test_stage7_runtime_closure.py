@@ -453,6 +453,15 @@ class TestStage7RuntimeClosure(unittest.TestCase):
         self.assertEqual(stage7.record("offer_recommendation").get("recommended_quote_band"), "LOW")
         self.assertEqual(stage7.record("saleable_opportunity").get("expected_contract_value_band"), "LOW")
 
+    def test_stage7_offer_recommendation_separates_sku_tier_and_package_template(self) -> None:
+        stage7 = run_internal_chain_to_stage7(load_fixture("internal_chain_happy.json"))["stage7"]
+        offer = stage7.record("offer_recommendation")
+
+        self.assertEqual(offer.get("sku_code"), "SKU-C")
+        self.assertEqual(offer.get("service_tier_code"), "EVIDENCE_PACK")
+        self.assertEqual(offer.get("package_template_code"), "ANALYSIS_REPORT")
+        self.assertEqual(offer.get("recommended_delivery_form"), "ANALYSIS_REPORT")
+
     def test_stage7_direct_price_overrides_do_not_bypass_price_authority(self) -> None:
         payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
         payload.update(

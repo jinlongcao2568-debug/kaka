@@ -179,6 +179,14 @@ class RealChallengerIdentificationTests(unittest.TestCase):
             winner["recommended_offer_summary"]["offer_recommendation_state"],
             offer.get("offer_recommendation_state"),
         )
+        self.assertEqual(
+            winner["recommended_offer_summary"]["service_tier_code"],
+            offer.get("service_tier_code"),
+        )
+        self.assertEqual(
+            winner["recommended_offer_summary"]["package_template_code"],
+            offer.get("package_template_code"),
+        )
         self.assertIn("sales_priority=", ";".join(winner["explainability_reasons"]))
 
     def test_contactability_does_not_bypass_stage8_or_customer_visibility(self) -> None:

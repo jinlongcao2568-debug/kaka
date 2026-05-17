@@ -63,6 +63,7 @@ class P13BCompanyHistoryOverlapTriageTests(unittest.TestCase):
             self.assertEqual(bid_show["extracted_responsible_person_names"], ["张三"])
             self.assertIn("365日历天", bid_show["extracted_period_text"])
             self.assertEqual(bid_show["original_notice_url"], "https://example.gov.cn/original/overlap.html")
+            self.assertEqual(result["manifest"]["manual_original_url_backtrace_table"], [])
 
     def test_bid_show_original_url_without_person_triggers_backtrace_review(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -103,6 +104,31 @@ class P13BCompanyHistoryOverlapTriageTests(unittest.TestCase):
             self.assertEqual(summary["company_query_state_counts"]["SOURCE_BLOCKED_RETRY_REQUIRED"], 1)
             self.assertEqual(summary["company_query_state_counts"]["NO_PUBLIC_OVERLAP_SIGNAL_REVIEW"], 2)
             self.assertIn("data_ggzy_forbidden_or_rate_limited_review", summary["blocker_taxonomy_counts"])
+
+    def test_company_search_suffix_fallback_matches_shareholding_variant(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_p12_tables(
+                root,
+                first_company="广东省水利电力勘测设计研究院有限公司",
+                first_person="陈工",
+            )
+
+            result = build_p13b_company_history_overlap_triage(
+                input_root=root,
+                output_root=root / "out",
+                enable_live_public_query=True,
+                max_live_companies=1,
+                http_getter=_fake_http_getter,
+                created_at="2026-05-15T00:00:00+08:00",
+            )
+
+            summary = result["summary"]
+            self.assertEqual(summary["company_query_state_counts"]["COMPANY_HISTORY_RECORD_FOUND"], 1)
+            record = result["manifest"]["company_history_query_records"][0]
+            self.assertEqual(record["matched_search_keyword"], "广东省水利电力勘测设计研究院")
+            self.assertEqual(record["matched_company_name"], "广东省水利电力勘测设计研究院股份有限公司")
+            self.assertIn("广东省水利电力勘测设计研究院", record["candidate_company_variants"])
 
     def test_ygp_plan_only_reads_overlap_inputs_and_dedupes_companies(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -308,6 +334,16 @@ def _fake_http_getter(url: str, context: Mapping[str, Any]) -> Mapping[str, Any]
         keyword = query.get("keyword", [""])[0]
         if keyword == "阻断公司":
             return {"status_code": 403, "content_type": "application/json", "body": "{\"message\":\"forbidden\"}"}
+        if keyword == "广东省水利电力勘测设计研究院有限公司":
+            return _json_response({"success": True, "code": 200, "result": {"records": [], "total": 0}})
+        if keyword == "广东省水利电力勘测设计研究院":
+            return _json_response(
+                {
+                    "success": True,
+                    "code": 200,
+                    "result": {"records": [{"uniscid": "91440000123456789X", "entname": "广东省水利电力勘测设计研究院股份有限公司", "bidCount": 1}], "total": 1},
+                }
+            )
         if keyword == "广东甲公司":
             return _json_response(
                 {
@@ -328,6 +364,8 @@ def _fake_http_getter(url: str, context: Mapping[str, Any]) -> Mapping[str, Any]
     if parsed.path.endswith("/bid_list"):
         uniscid = query.get("uniscid", [""])[0]
         record_id = "overlap-record" if uniscid.endswith("1") else "needs-original-record"
+        if uniscid == "91440000123456789X":
+            record_id = "needs-original-record"
         return _json_response(
             {
                 "success": True,

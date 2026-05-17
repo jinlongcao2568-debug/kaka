@@ -167,6 +167,26 @@ class P13BOriginalNoticeBacktraceTests(unittest.TestCase):
             extraction = result["manifest"]["original_notice_extraction_records"][0]
             self.assertIn("original_notice_person_period_not_extracted_review", extraction["blocker_taxonomy"])
 
+    def test_long_boilerplate_page_still_extracts_company_and_period(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_p13b_input(root, first_url="https://example.gov.cn/original/long-boilerplate.html")
+
+            result = build_p13b_original_notice_backtrace(
+                input_root=root,
+                output_root=root / "out",
+                enable_live_public_query=True,
+                max_live_original_notices=1,
+                http_getter=_fake_http_getter,
+                created_at="2026-05-15T00:00:00+08:00",
+            )
+
+            extraction = result["manifest"]["original_notice_extraction_records"][0]
+            self.assertEqual(extraction["original_notice_extraction_state"], "ORIGINAL_NOTICE_NO_MATCH_REVIEW")
+            self.assertIn("深圳中铁二局工程有限公司", extraction["extracted_company_names"])
+            self.assertIn("730日历天", extraction["extracted_period_text"])
+            self.assertEqual(extraction["extracted_responsible_person_names"], [])
+
     def test_blocked_original_notice_is_taxonomized(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -397,6 +417,20 @@ def _fake_http_getter(url: str, context: Mapping[str, Any]) -> Mapping[str, Any]
             "status_code": 200,
             "content_type": "text/html",
             "body": "<html><body><p>中标人：广东甲公司</p><p>工期：180日历天</p><p>中标日期：2026年05月02日</p></body></html>",
+        }
+    if url.endswith("/long-boilerplate.html"):
+        boilerplate = "<div>站点模板</div>" * 300
+        body = (
+            "<html><body>"
+            + boilerplate
+            + "<div>中标人名称：深圳中铁二局工程有限公司、长厦安基工程设计有限公司</div>"
+            + "<div>工期：730日历天</div>"
+            + "</body></html>"
+        )
+        return {
+            "status_code": 200,
+            "content_type": "text/html",
+            "body": body,
         }
     return {
         "status_code": 200,

@@ -16,8 +16,6 @@ P13B_OVERLAP_TRIAGE_CLOSEOUT_ADAPTER_ID = "p13b-overlap-triage-closeout-v1-build
 
 DEFAULT_COMPANY_HISTORY_TRIAGE_ROOT = Path("tmp/evaluation-real-samples/p13b-company-history-overlap-triage-ygp-v1")
 DEFAULT_ORIGINAL_NOTICE_BACKTRACE_ROOT = Path("tmp/evaluation-real-samples/p13b-original-notice-backtrace-ygp-v1-ygpreadback")
-DEFAULT_YGP_READBACK_ROOT = Path("tmp/evaluation-real-samples/p13b-ygp-original-readback-p13b-v1")
-DEFAULT_YGP_COVERAGE_CLOSEOUT_ROOT = Path("tmp/evaluation-real-samples/guangdong-ygp-city-coverage-closeout-v1")
 DEFAULT_OUTPUT_ROOT = Path("tmp/evaluation-real-samples/p13b-overlap-triage-closeout-v1")
 
 FORBIDDEN_TERMS = ("无风险", "无冲突", "在建冲突成立", "违法成立", "确认本人", "造假成立", "是不是本人")
@@ -27,16 +25,16 @@ def build_p13b_overlap_triage_closeout(
     *,
     company_history_triage_root: str | Path = DEFAULT_COMPANY_HISTORY_TRIAGE_ROOT,
     original_notice_backtrace_root: str | Path = DEFAULT_ORIGINAL_NOTICE_BACKTRACE_ROOT,
-    ygp_readback_root: str | Path = DEFAULT_YGP_READBACK_ROOT,
-    ygp_coverage_closeout_root: str | Path | None = DEFAULT_YGP_COVERAGE_CLOSEOUT_ROOT,
+    ygp_readback_root: str | Path | None = None,
+    ygp_coverage_closeout_root: str | Path | None = None,
     output_root: str | Path = DEFAULT_OUTPUT_ROOT,
     created_at: str | None = None,
 ) -> dict[str, Any]:
     created = created_at or utc_now_iso()
     company_dir = Path(company_history_triage_root)
     original_dir = Path(original_notice_backtrace_root)
-    ygp_dir = Path(ygp_readback_root)
-    coverage_dir = Path(ygp_coverage_closeout_root) if ygp_coverage_closeout_root else None
+    ygp_dir = _optional_path(ygp_readback_root)
+    coverage_dir = _optional_path(ygp_coverage_closeout_root)
     out_dir = Path(output_root)
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -51,10 +49,14 @@ def build_p13b_overlap_triage_closeout(
         missing_inputs,
         "p13b_original_notice_backtrace_missing",
     )
-    ygp_readback = _load_json(
-        ygp_dir / "ygp-original-readback-v1.json",
-        missing_inputs,
-        "p13b_ygp_original_readback_missing",
+    ygp_readback = (
+        _load_json(
+            ygp_dir / "ygp-original-readback-v1.json",
+            missing_inputs,
+            "p13b_ygp_original_readback_missing",
+        )
+        if ygp_dir
+        else {}
     )
     ygp_coverage = (
         _load_json(
@@ -70,9 +72,15 @@ def build_p13b_overlap_triage_closeout(
     original_manifest = _source_manifest(original_notice)
     ygp_manifest = _source_manifest(ygp_readback)
     coverage_manifest = _source_manifest(ygp_coverage)
+    ygp_enabled = bool(ygp_dir or coverage_dir)
 
     company_table = _company_history_readback_table(company_manifest, created_at=created)
-    original_table = _original_notice_readback_table(original_manifest, ygp_manifest, created_at=created)
+    original_table = _original_notice_readback_table(
+        original_manifest,
+        ygp_manifest,
+        created_at=created,
+        ygp_enabled=ygp_enabled,
+    )
     release_table = _release_evidence_trigger_table(company_manifest, original_manifest, created_at=created)
     project_table = _project_overlap_triage_table(
         company_manifest=company_manifest,
@@ -101,7 +109,7 @@ def build_p13b_overlap_triage_closeout(
         "created_at": created,
         "source_company_history_triage_root": str(company_dir),
         "source_original_notice_backtrace_root": str(original_dir),
-        "source_ygp_readback_root": str(ygp_dir),
+        "source_ygp_readback_root": str(ygp_dir or ""),
         "source_ygp_coverage_closeout_root": str(coverage_dir or ""),
         "project_overlap_triage_records": project_table,
         "company_history_readback_records": company_table,
@@ -179,6 +187,7 @@ def _original_notice_readback_table(
     ygp_manifest: Mapping[str, Any],
     *,
     created_at: str,
+    ygp_enabled: bool,
 ) -> list[dict[str, Any]]:
     extraction_by_key = {
         _notice_key(record): record
@@ -205,18 +214,18 @@ def _original_notice_readback_table(
         extraction = extraction_by_key.get(key, {})
         overlap = overlap_by_key.get(key, {})
         ygp = ygp_by_key.get(key, {})
-        rows.append(_original_notice_row(fetch, extraction, overlap, ygp, created_at=created_at))
+        rows.append(_original_notice_row(fetch, extraction, overlap, ygp, created_at=created_at, ygp_enabled=ygp_enabled))
     for key, extraction in extraction_by_key.items():
         if key in seen:
             continue
         seen.add(key)
         overlap = overlap_by_key.get(key, {})
         ygp = ygp_by_key.get(key, {})
-        rows.append(_original_notice_row(extraction, extraction, overlap, ygp, created_at=created_at))
+        rows.append(_original_notice_row(extraction, extraction, overlap, ygp, created_at=created_at, ygp_enabled=ygp_enabled))
     for key, ygp in ygp_by_key.items():
         if key in seen:
             continue
-        rows.append(_original_notice_row(ygp, {}, {}, ygp, created_at=created_at))
+        rows.append(_original_notice_row(ygp, {}, {}, ygp, created_at=created_at, ygp_enabled=ygp_enabled))
     return rows
 
 
@@ -227,6 +236,7 @@ def _original_notice_row(
     ygp: Mapping[str, Any],
     *,
     created_at: str,
+    ygp_enabled: bool,
 ) -> dict[str, Any]:
     blockers = _dedupe([*_list(base.get("blocker_taxonomy")), *_list(extraction.get("blocker_taxonomy")), *_list(ygp.get("blocker_taxonomy"))])
     fetch_state = str(base.get("fetch_state") or "")
@@ -237,8 +247,11 @@ def _original_notice_row(
         closeout_state = "OVERLAP_SIGNAL_REVIEW_REQUIRED"
     elif any(str(item).startswith("max_live_") for item in blockers):
         closeout_state = "SOURCE_LIMIT_DEFERRED"
-    elif ygp_state in {"YGP_ORIGINAL_URL_UNSUPPORTED", "YGP_ORIGINAL_URL_BLOCKED"} or (
-        extraction_state == "ORIGINAL_NOTICE_SOURCE_UNSUPPORTED" and "ygp.gdzwfw.gov.cn" in str(base.get("original_notice_url") or base.get("source_url") or "").lower()
+    elif ygp_enabled and (
+        ygp_state in {"YGP_ORIGINAL_URL_UNSUPPORTED", "YGP_ORIGINAL_URL_BLOCKED"} or (
+            extraction_state == "ORIGINAL_NOTICE_SOURCE_UNSUPPORTED"
+            and "ygp.gdzwfw.gov.cn" in str(base.get("original_notice_url") or base.get("source_url") or "").lower()
+        )
     ):
         closeout_state = "YGP_READBACK_BLOCKED_OR_UNSUPPORTED"
     elif fetch_state == "ORIGINAL_NOTICE_FETCH_BLOCKED" or extraction_state == "ORIGINAL_NOTICE_FETCH_BLOCKED":
@@ -487,6 +500,13 @@ def _load_json(path: Path, missing_inputs: list[str], missing_reason: str) -> di
     return {}
 
 
+def _optional_path(value: str | Path | None) -> Path | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    return Path(text)
+
+
 def _source_manifest(payload: Mapping[str, Any]) -> Mapping[str, Any]:
     manifest = payload.get("manifest") if isinstance(payload.get("manifest"), Mapping) else payload
     return manifest if isinstance(manifest, Mapping) else {}
@@ -557,8 +577,8 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Build P13B overlap triage closeout v1.")
     parser.add_argument("--company-history-triage-root", default=str(DEFAULT_COMPANY_HISTORY_TRIAGE_ROOT))
     parser.add_argument("--original-notice-backtrace-root", default=str(DEFAULT_ORIGINAL_NOTICE_BACKTRACE_ROOT))
-    parser.add_argument("--ygp-readback-root", default=str(DEFAULT_YGP_READBACK_ROOT))
-    parser.add_argument("--ygp-coverage-closeout-root", default=str(DEFAULT_YGP_COVERAGE_CLOSEOUT_ROOT))
+    parser.add_argument("--ygp-readback-root", default="")
+    parser.add_argument("--ygp-coverage-closeout-root", default="")
     parser.add_argument("--output-root", default=str(DEFAULT_OUTPUT_ROOT))
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)

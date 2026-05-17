@@ -1399,7 +1399,7 @@
       "meaning": "治理与保护能力"
     }
   ],
-  "leadpack_sku_relation": "LeadPack SKU A/B/C/D is commercial packaging and is not equal to capability tier A/B/C/D",
+  "leadpack_packaging_tier_relation": "LeadPack packaging tier A/B/C/D is commercial packaging and is not equal to capability tier A/B/C/D",
   "future_unlock_guardrails": {
     "prerequisite_matrix_ref": "contracts/release/external_unlock_prerequisite_matrix.json",
     "decision_matrix_ref": "contracts/release/future_unlock_decision_matrix.json",

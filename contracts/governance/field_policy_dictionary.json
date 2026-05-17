@@ -561,6 +561,23 @@
       ]
     },
     {
+      "fieldPath": "offer_recommendation.package_template_code",
+      "fieldClass": "CLIENT_SUMMARY",
+      "maskRule": "SUMMARY_ONLY",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS",
+        "SALES_CONSUMABLE",
+        "LEADPACK_DELIVERABLE"
+      ],
+      "requiredApprovalChains": [
+        "client_report_release"
+      ],
+      "requiredReleaseLevel": "LEADPACK_DELIVERABLE",
+      "sourceRefs": [
+        "D7-R-060"
+      ]
+    },
+    {
       "fieldPath": "offer_recommendation.recommended_delivery_form",
       "fieldClass": "CLIENT_SUMMARY",
       "maskRule": "SUMMARY_ONLY",

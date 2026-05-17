@@ -372,6 +372,7 @@ def _fetch_original_notice(task: Mapping[str, Any], *, getter: HttpGetter, creat
     status = int(response.get("status_code") or response.get("status") or 0)
     body = str(response.get("body") or response.get("content") or response.get("text") or "")
     content_type = str(response.get("content_type") or "")
+    full_text = _html_to_text(body) if body else ""
     blockers = _blockers_from_response(status=status, body_probe=body[:300], error=str(response.get("error") or ""))
     fetch_state = "ORIGINAL_NOTICE_FETCH_BLOCKED" if blockers else "ORIGINAL_NOTICE_FETCHED"
     return {
@@ -383,8 +384,9 @@ def _fetch_original_notice(task: Mapping[str, Any], *, getter: HttpGetter, creat
         "content_type": content_type,
         "body_sha256": _sha256(body) if body else "",
         "body_probe": body[:300],
-        "text_probe": _html_to_text(body)[:600] if body else "",
-        "text_probe_sha256": _sha256(_html_to_text(body)[:600]) if body else "",
+        "text_probe": full_text[:1200] if full_text else "",
+        "text_probe_sha256": _sha256(full_text[:1200]) if full_text else "",
+        "text_extractable": full_text[:50000] if full_text else "",
         "route_attempt": {
             "url": str(response.get("url") or url),
             "status_code": status,
@@ -420,7 +422,7 @@ def _extract_original_notice(task: Mapping[str, Any], fetch: Mapping[str, Any], 
             "customer_visible_allowed": False,
             "no_legal_conclusion": True,
         }
-    text = str(fetch.get("text_probe") or "")
+    text = str(fetch.get("text_extractable") or fetch.get("text_probe") or "")
     people = _extract_responsible_people(text)
     period = _extract_period_text(text)
     award_date = _extract_award_date(text)
@@ -696,7 +698,7 @@ def _extract_award_date(text: str) -> str:
 
 def _extract_company_names(text: str) -> list[str]:
     patterns = [
-        r"(?:中标人|成交供应商|中标单位|中标候选人|第一中标候选人)\s*[:：]\s*([^。；;\n]{4,100})",
+        r"(?:中标人名称|中标人|成交供应商名称|成交供应商|中标单位|中标候选人名称|中标候选人|第一中标候选人)\s*[:：]\s*([^。；;\n]{4,100})",
         r"(?:联合体成员|联合体\(成\)|联合体（成）)\s*[:：]\s*([^。；;\n]{4,100})",
     ]
     names: list[str] = []
@@ -704,6 +706,8 @@ def _extract_company_names(text: str) -> list[str]:
         for match in re.finditer(pattern, text):
             segment = match.group(1)
             for part in re.split(r"[;,，、；]|(?:联合体)|(?:\\(成\\))|(?:（成）)|(?:\\(主\\))|(?:（主）)", segment):
+                if not isinstance(part, str):
+                    continue
                 part = part.strip()
                 if "公司" in part or "集团" in part or "院" in part:
                     names.append(part)

@@ -364,7 +364,7 @@ def _company_query_tasks(
                 "project_id": str(project.get("project_id") or ""),
                 "project_name": str(project.get("project_name") or ""),
                 "candidate_company_name": company_name,
-                "candidate_company_variants": [company_name],
+                "candidate_company_variants": _company_search_variants(company_name),
                 "responsible_person_names": _list(project.get("responsible_person_names")),
                 "candidate_notice_source_urls": _list(project.get("candidate_notice_source_urls")),
                 "search_url": search_url,
@@ -462,22 +462,58 @@ def _execute_company_task(
     created_at: str,
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     company_name = str(task.get("candidate_company_name") or "")
-    search_url = str(task.get("search_url") or _company_search_url(company_name))
-    search_attempt = _http_json(search_url, getter, route="company_search", task=task)
-    blocker = _blockers_from_attempt(search_attempt)
-    if blocker:
-        return (
-            {
-                **dict(task),
-                "execution_mode": "LIVE_PUBLIC_QUERY_ATTEMPTED",
-                "query_state": "SOURCE_BLOCKED_RETRY_REQUIRED",
-                "search_attempt": search_attempt,
-                "blocker_taxonomy": blocker,
-            },
-            [],
+    company_variants = [
+        str(item).strip()
+        for item in _list(task.get("candidate_company_variants"))
+        if str(item).strip()
+    ] or _company_search_variants(company_name)
+    search_attempts: list[dict[str, Any]] = []
+    search_attempt: dict[str, Any] = {}
+    search_records: list[dict[str, Any]] = []
+    matched: dict[str, Any] = {}
+    matched_search_keyword = ""
+    for keyword in company_variants:
+        search_url = _company_search_url(keyword)
+        current_attempt = _http_json(
+            search_url,
+            getter,
+            route="company_search",
+            task={**dict(task), "search_keyword": keyword},
         )
-    search_records = _extract_records(search_attempt.get("json_payload"), preferred_paths=(("result", "records"), ("result", "data", "records")))
-    matched = _match_company(search_records, company_name)
+        current_attempt["search_keyword"] = keyword
+        search_attempts.append(current_attempt)
+        blocker = _blockers_from_attempt(current_attempt)
+        if blocker:
+            return (
+                {
+                    **dict(task),
+                    "execution_mode": "LIVE_PUBLIC_QUERY_ATTEMPTED",
+                    "query_state": "SOURCE_BLOCKED_RETRY_REQUIRED",
+                    "search_attempt": current_attempt,
+                    "search_attempts": search_attempts,
+                    "matched_search_keyword": matched_search_keyword,
+                    "blocker_taxonomy": blocker,
+                },
+                [],
+            )
+        current_records = _extract_records(
+            current_attempt.get("json_payload"),
+            preferred_paths=(("result", "records"), ("result", "data", "records")),
+        )
+        current_matched = _match_company(
+            current_records,
+            company_name,
+            company_variants=company_variants,
+        )
+        if current_matched:
+            search_attempt = current_attempt
+            search_records = current_records
+            matched = current_matched
+            matched_search_keyword = keyword
+            break
+        if not search_attempt:
+            search_attempt = current_attempt
+            search_records = current_records
     if not matched:
         return (
             {
@@ -485,7 +521,9 @@ def _execute_company_task(
                 "execution_mode": "LIVE_PUBLIC_QUERY_ATTEMPTED",
                 "query_state": "NO_PUBLIC_OVERLAP_SIGNAL_REVIEW",
                 "search_attempt": search_attempt,
+                "search_attempts": search_attempts,
                 "search_total": _extract_total(search_attempt.get("json_payload")),
+                "matched_search_keyword": matched_search_keyword,
                 "matched_company_name": "",
                 "uniscid": "",
                 "blocker_taxonomy": ["company_search_no_exact_or_alias_match_review"],
@@ -504,7 +542,9 @@ def _execute_company_task(
                 "execution_mode": "LIVE_PUBLIC_QUERY_ATTEMPTED",
                 "query_state": "SOURCE_BLOCKED_RETRY_REQUIRED",
                 "search_attempt": search_attempt,
+                "search_attempts": search_attempts,
                 "bid_list_attempt": bid_list_attempt,
+                "matched_search_keyword": matched_search_keyword,
                 "matched_company_name": str(matched.get("entname") or matched.get("name") or company_name),
                 "uniscid": uniscid,
                 "blocker_taxonomy": bid_blocker,
@@ -544,7 +584,9 @@ def _execute_company_task(
             "execution_mode": "LIVE_PUBLIC_QUERY_ATTEMPTED",
             "query_state": query_state,
             "search_attempt": search_attempt,
+            "search_attempts": search_attempts,
             "bid_list_attempt": bid_list_attempt,
+            "matched_search_keyword": matched_search_keyword,
             "matched_company_name": str(matched.get("entname") or matched.get("name") or company_name),
             "uniscid": uniscid,
             "search_total": _extract_total(search_attempt.get("json_payload")),
@@ -682,7 +724,7 @@ def _manual_original_url_backtrace_table(
             continue
         signal = signal_by_show.get(str(show.get("bid_show_record_id") or ""), {})
         state = str(signal.get("overlap_signal_state") or show.get("bid_show_state") or "")
-        if state not in {"OVERLAP_SIGNAL_REVIEW_REQUIRED", "ORIGINAL_NOTICE_BACKTRACE_REQUIRED"}:
+        if state != "ORIGINAL_NOTICE_BACKTRACE_REQUIRED":
             continue
         rows.append(
             {
@@ -891,20 +933,58 @@ def _result_payload(payload: Any) -> dict[str, Any]:
     return {}
 
 
-def _match_company(records: Iterable[Mapping[str, Any]], company_name: str) -> dict[str, Any]:
-    normalized = _norm(company_name)
+def _match_company(
+    records: Iterable[Mapping[str, Any]],
+    company_name: str,
+    *,
+    company_variants: Iterable[str] | None = None,
+) -> dict[str, Any]:
+    normalized_targets = _dedupe(
+        [
+            _norm(company_name),
+            *[_norm(item) for item in (company_variants or []) if _norm(item)],
+        ]
+    )
     fallback: dict[str, Any] = {}
-    for record in records:
+    cached_records = [dict(record) for record in records if isinstance(record, Mapping)]
+    for record in cached_records:
         entname = str(record.get("entname") or record.get("name") or "")
         if not fallback:
             fallback = dict(record)
-        if _norm(entname) == normalized:
+        normalized_entname = _norm(entname)
+        if normalized_entname and normalized_entname in normalized_targets:
             return dict(record)
-    for record in records:
+    for record in cached_records:
         entname = str(record.get("entname") or record.get("name") or "")
-        if normalized and (normalized in _norm(entname) or _norm(entname) in normalized):
+        normalized_entname = _norm(entname)
+        if any(
+            target and normalized_entname and (target in normalized_entname or normalized_entname in target)
+            for target in normalized_targets
+        ):
             return dict(record)
-    return fallback if len(list(records)) == 1 else {}
+    return fallback if len(cached_records) == 1 else {}
+
+
+def _company_search_variants(company_name: str) -> list[str]:
+    base = str(company_name or "").strip()
+    if not base:
+        return []
+    variants: list[str] = [base]
+    current = base
+    for suffix in (
+        "集团股份有限公司",
+        "股份有限公司",
+        "有限责任公司",
+        "集团有限公司",
+        "有限公司",
+        "股份公司",
+        "公司",
+    ):
+        if current.endswith(suffix):
+            current = current[: -len(suffix)].strip()
+            if len(current) >= 6:
+                variants.append(current)
+    return _dedupe(variants)
 
 
 def _extract_responsible_people(text: str) -> list[str]:

@@ -80,6 +80,24 @@ class P13BOverlapTriageCloseoutTests(unittest.TestCase):
             states = {row["project_overlap_triage_state"] for row in result["manifest"]["project_overlap_triage_records"]}
             self.assertIn("SOURCE_LIMIT_DEFERRED", states)
 
+    def test_ygp_defaults_closed_when_not_explicitly_supplied(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_inputs(root, overlap=False)
+
+            result = build_p13b_overlap_triage_closeout(
+                company_history_triage_root=root / "company",
+                original_notice_backtrace_root=root / "original",
+                output_root=root / "out",
+                created_at="2026-05-15T00:00:00+08:00",
+            )
+
+            self.assertTrue(result["safe_to_execute"])
+            self.assertEqual(result["summary"]["ygp_readback_ready_count"], 0)
+            self.assertEqual(result["summary"]["ygp_readback_blocked_or_unsupported_count"], 0)
+            self.assertEqual(result["manifest"]["source_ygp_readback_root"], "")
+            self.assertEqual(result["manifest"]["source_ygp_coverage_closeout_root"], "")
+
     def test_report_never_contains_forbidden_terms(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)

@@ -464,6 +464,17 @@ class Stage7Service:
             offer_state = "BLOCKED"
         elif real_challenger_decision_state == "REVIEW" and offer_state == "APPROVED":
             offer_state = "REVIEW_REQUIRED"
+        package_template_code = str(
+            runtime_state.resolve("package_template_code", inputs.get("package_template_code"))
+            or runtime_state.resolve("recommended_delivery_form", inputs.get("recommended_delivery_form"))
+            or ""
+        ).strip()
+        recommended_delivery_form = ensure_enum(
+            self.store,
+            "recommended_delivery_form",
+            runtime_state.resolve("recommended_delivery_form", inputs.get("recommended_delivery_form"))
+            or package_template_code,
+        )
         offer_recommendation_payload = {
             "offer_recommendation_id": offer_recommendation_id,
             "project_id": project_id,
@@ -473,11 +484,7 @@ class Stage7Service:
                 "sku_code",
                 runtime_state.resolve("sku_code", inputs.get("sku_code")),
             ),
-            "recommended_delivery_form": ensure_enum(
-                self.store,
-                "recommended_delivery_form",
-                runtime_state.resolve("recommended_delivery_form", inputs.get("recommended_delivery_form")),
-            ),
+            "recommended_delivery_form": recommended_delivery_form,
             "recommended_quote_band": ensure_enum(
                 self.store,
                 "recommended_quote_band",
@@ -495,6 +502,21 @@ class Stage7Service:
                 )
             ),
         }
+        service_tier_code = str(
+            runtime_state.resolve("service_tier_code", inputs.get("service_tier_code")) or ""
+        ).strip()
+        if service_tier_code:
+            offer_recommendation_payload["service_tier_code"] = ensure_enum(
+                self.store,
+                "service_tier_code",
+                service_tier_code,
+            )
+        if package_template_code:
+            offer_recommendation_payload["package_template_code"] = ensure_enum(
+                self.store,
+                "package_template_code",
+                package_template_code,
+            )
         offer_semantic = self.store.evaluate_object_semantics(
             stage=7,
             object_type="offer_recommendation",
@@ -514,6 +536,8 @@ class Stage7Service:
         final_offer_summary = {
             "offer_recommendation_id": offer_recommendation.get("offer_recommendation_id"),
             "sku_code": offer_recommendation.get("sku_code"),
+            "service_tier_code": offer_recommendation.get("service_tier_code"),
+            "package_template_code": offer_recommendation.get("package_template_code"),
             "recommended_delivery_form": offer_recommendation.get("recommended_delivery_form"),
             "recommended_quote_band": offer_recommendation.get("recommended_quote_band"),
             "offer_recommendation_state": offer_recommendation.get("offer_recommendation_state"),
@@ -686,6 +710,13 @@ class Stage7Service:
         inputs_out.update(
             {
                 "project_fact_id": project_fact_id,
+                "project_fact_primary_evidence_topic_code": project_fact.get("primary_evidence_topic_code"),
+                "project_fact_resolved_evidence_topic_codes": list(
+                    project_fact.get("resolved_evidence_topic_codes", []) or []
+                ),
+                "project_fact_coverage_sellable_state": project_fact.get("coverage_sellable_state"),
+                "project_fact_delivery_risk_state": project_fact.get("delivery_risk_state"),
+                "project_fact_competitor_quality_grade": project_fact.get("competitor_quality_grade"),
                 "review_queue_profile_id": review_queue_profile_id,
                 "review_lane": review_lane,
                 "report_record_id": report_record_id,

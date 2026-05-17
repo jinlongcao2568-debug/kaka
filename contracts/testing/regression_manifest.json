@@ -899,7 +899,7 @@
     },
     {
       "suite_id": "REG-BIZ-LEADPACK-SKU-OFFER",
-      "title": "LeadPack SKU / 推荐方案 / 报价带回归",
+      "title": "LeadPack 商业封装档位 / 推荐方案 / 报价带回归",
       "checks": [
         "offer_recommendation respects leadpack sku mapping",
         "quote band uses strategy matrix configuration"

@@ -30,8 +30,8 @@ def test_p0_entry_docs_reference_business_direction_contracts() -> None:
 def test_ax9s_product_map_locks_sku_design_decisions() -> None:
     text = _read(DOCS / "AX9S_产品主图与验收总则.md")
 
-    assert "业务证据 SKU" in text
-    assert "LeadPack SKU-A/B/C" in text
+    assert "业务证据专题" in text
+    assert "LeadPack 商业封装档位 A/B/C" in text
     assert "程序时间线/公示流程缺陷包" in text
     assert "竞争格局/陪标围标线索包" in text
     assert "社保造假" in text
@@ -60,8 +60,8 @@ def test_stage19_l2_blueprint_locks_subfunnel_guardrails() -> None:
     assert "当前项目 07 入池后的 01-12" in text
     assert "历史项目定向找负责人、工期、释放证据" in text
     assert "Stage8/9 不代表自动外发" in text
-    assert "业务证据 SKU 决定 Stage1-6 证据路线" in text
-    assert "`LeadPack SKU-A/B/C` 只决定 Stage7 后商业包装" in text
+    assert "业务证据专题决定 Stage1-6 证据路线" in text
+    assert "`LeadPack 商业封装档位 A/B/C` 只决定 Stage7 后商业包装" in text
 
 
 def test_docs_default_read_order_downranks_historical_noise() -> None:

@@ -9,7 +9,7 @@ from storage.db import DatabaseSession, PersistedRecord, build_persisted_at
 
 PRIMARY_STATUS_FIELDS = {
     "saleable_opportunity": ("saleability_status", "opportunity_grade"),
-    "offer_recommendation": ("offer_recommendation_state", "recommended_delivery_form"),
+    "offer_recommendation": ("offer_recommendation_state", "package_template_code", "recommended_delivery_form"),
     "buyer_fit": ("buyer_type",),
     "legal_action_actor_profile": ("actionability_state",),
     "procurement_decision_actor_profile": ("reachable_state",),

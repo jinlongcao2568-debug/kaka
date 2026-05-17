@@ -43,6 +43,7 @@ _CUSTOMER_VISIBLE_FIELD_ALLOWLIST = [
     "recommended_sku",
     "offer_recommendation_state",
     "sku_code",
+    "package_template_code",
     "recommended_delivery_form",
     "recommended_quote_band",
     "buyer_type",

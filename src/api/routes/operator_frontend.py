@@ -1563,6 +1563,40 @@ function labelOf(value) {
   const text = String(value ?? "--");
   return stateLabels[text] || projectTypeLabels[text] || text;
 }
+const topicLabels = {
+  "TOPIC-CERT-REG-TIME": "证书/注册单位/时间异常",
+  "TOPIC-RELEASE-CONFLICT": "负责人未释放/履约冲突",
+  "TOPIC-CREDIT-PENALTY": "信用处罚/监管风险",
+  "TOPIC-COMPOSITE-OBJECTION": "综合质疑证据",
+  "TOPIC-PRE-BID-RESTRICTION": "投前限制竞争预测",
+  "TOPIC-TIMELINE-DEFECT": "程序时间线缺陷",
+  "TOPIC-COMPETITOR-PATTERN": "竞争格局/陪标线索",
+  "TOPIC-SOCIAL-INSURANCE-SIGNAL": "社保造假信号",
+};
+const serviceTierLabels = {
+  "TRIAGE": "快筛",
+  "EVIDENCE_PACK": "证据包深度",
+  "DEEP_RELEASE_CHECK": "深度释放核查",
+  "CUSTOMER_DELIVERY_READY": "客户交付就绪",
+};
+const packageTemplateLabels = {
+  "PROJECT_BRIEF": "项目简报模板",
+  "ANALYSIS_REPORT": "分析报告模板",
+  "EVIDENCE_PACK": "证据包模板",
+  "OBJECTION_DRAFT": "异议草稿模板",
+};
+function topicLabel(value) {
+  const text = String(value ?? "--");
+  return topicLabels[text] || text;
+}
+function serviceTierLabel(value) {
+  const text = String(value ?? "--");
+  return serviceTierLabels[text] || text;
+}
+function packageTemplateLabel(value) {
+  const text = String(value ?? "--");
+  return packageTemplateLabels[text] || text;
+}
 function reasonLabel(value) {
   const text = String(value ?? "");
   if (text.startsWith("missing_key_fields:")) {
@@ -2015,7 +2049,14 @@ function renderOpportunityDetail(first, panels) {
       ["机会编号", first.opportunity_id],
       ["机会级别", first.opportunity_grade],
       ["可售状态", first.saleability_status],
-      ["推荐 SKU", first.recommended_sku],
+      ["主专题", topicLabel(first.primary_evidence_topic_code || first.project_fact_primary_evidence_topic_code)],
+      [
+        "专题集合",
+        ((first.resolved_evidence_topic_codes || first.project_fact_resolved_evidence_topic_codes || []).map(topicLabel).join(" / ")) || "--",
+      ],
+      ["正式 SKU", first.recommended_sku],
+      ["服务深度", serviceTierLabel(first.service_tier_code)],
+      ["包装模板", packageTemplateLabel(first.package_template_code)],
       ["转化优先级", first.conversion_priority],
       ["异议价值分", first.objection_value_score],
       ["买家匹配分", first.buyer_fit_score || buyer.buyer_fit_score],
@@ -2602,6 +2643,7 @@ async function loadAutonomousWorkbench(opportunityId = selectedAutonomousOpportu
     return `<div class="stage-card">
       <strong>${item.opportunity_id || "--"}</strong>
       <p>${item.commercial_hook_teaser || "商业钩子待生成"}</p>
+      <p>${topicLabel(item.primary_evidence_topic_code || "--")} / ${labelOf(item.recommended_sku || "--")} / ${serviceTierLabel(item.service_tier_code || "--")} / ${packageTemplateLabel(item.package_template_code || "--")}</p>
       ${tags}
       <p>${labelOf(item.next_action || "--")}</p>
       ${opportunityActions(item.opportunity_id || "")}

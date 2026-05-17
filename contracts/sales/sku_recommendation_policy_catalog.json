@@ -9,7 +9,7 @@
   "policies": [
     {
       "policy_id": "SKU-RECOMMEND-001",
-      "title": "SKU, delivery form and quote band recommendation",
+      "title": "Formal SKU, service tier, package template and quote band recommendation",
       "inputs": [
         "saleable_opportunity.opportunity_grade",
         "buyer_fit.fit_score",
@@ -38,24 +38,32 @@
         {
           "when": "opportunity_grade=A and fit_score>=80 and window_urgency_score>=70 and external_use_grade>=E3",
           "sku_code": "SKU-A",
+          "service_tier_code": "DEEP_RELEASE_CHECK",
+          "package_template_code": "OBJECTION_DRAFT",
           "recommended_delivery_form": "OBJECTION_DRAFT",
           "recommended_quote_band": "HIGH"
         },
         {
           "when": "opportunity_grade=B and fit_score>=65 and external_use_grade>=E3",
           "sku_code": "SKU-B",
+          "service_tier_code": "EVIDENCE_PACK",
+          "package_template_code": "EVIDENCE_PACK",
           "recommended_delivery_form": "EVIDENCE_PACK",
           "recommended_quote_band": "MEDIUM"
         },
         {
           "when": "opportunity_grade=C and fit_score>=50 and external_use_grade>=E2",
           "sku_code": "SKU-C",
+          "service_tier_code": "EVIDENCE_PACK",
+          "package_template_code": "ANALYSIS_REPORT",
           "recommended_delivery_form": "ANALYSIS_REPORT",
           "recommended_quote_band": "LOW"
         },
         {
           "when": "opportunity_grade=D or fit_score<50",
           "sku_code": "SKU-C",
+          "service_tier_code": "TRIAGE",
+          "package_template_code": "PROJECT_BRIEF",
           "recommended_delivery_form": "PROJECT_BRIEF",
           "recommended_quote_band": "CUSTOM"
         }
@@ -67,6 +75,8 @@
       ],
       "output_fields": [
         "offer_recommendation.sku_code",
+        "offer_recommendation.service_tier_code",
+        "offer_recommendation.package_template_code",
         "offer_recommendation.recommended_delivery_form",
         "offer_recommendation.recommended_quote_band",
         "offer_recommendation.offer_blocking_reasons_optional"
@@ -74,6 +84,9 @@
     }
   ],
   "notes": [
+    "sku_code only represents the formal product SKU layer and must not be reused for evidence-topic, service-tier, or package-template semantics.",
+    "service_tier_code is the service-depth layer and is orthogonal to sku_code.",
+    "package_template_code is the commercial packaging template layer; recommended_delivery_form remains a compatibility sink for current runtime/UI surfaces.",
     "SKU-D is not used in this batch; D-grade opportunities remain review-only under SKU-C with CUSTOM quote band.",
     "Delivery form choices are internal-only and must still pass D6/D7 release gates."
   ]

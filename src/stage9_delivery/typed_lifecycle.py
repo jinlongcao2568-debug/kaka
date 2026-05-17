@@ -431,6 +431,13 @@ def build_delivery_record_spec(
             governed_metadata=governed_metadata,
         ),
     }
+    package_template_code = str(runtime_inputs.get("package_template_code") or "").strip()
+    if package_template_code:
+        payload["package_template_code"] = ensure_enum(
+            store,
+            "package_template_code",
+            package_template_code,
+        )
     return LifecycleRecordSpec(
         object_type="delivery_record",
         payload=payload,

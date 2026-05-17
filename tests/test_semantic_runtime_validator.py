@@ -32,6 +32,173 @@ class TestSemanticRuntimeValidator(unittest.TestCase):
     def setUp(self) -> None:
         self.store = ContractStore.default()
 
+    def test_sku_restructure_optional_contract_fields_validate_when_present(self) -> None:
+        execution_context = self.store.build_record(
+            "execution_context",
+            {
+                "context_id": "CTX-1",
+                "task_id": "TASK-1",
+                "project_unification_strategy": "DEFAULT",
+                "review_lane": "STANDARD",
+                "window_priority": "NORMAL",
+                "region_scope": "PROVINCE",
+                "source_family": "PROCUREMENT_NOTICE",
+                "platform_level": "PROVINCE",
+                "coverage_tier": "T1_REGIONAL",
+                "carrier_type": "HTML_PAGE",
+                "default_route": "LIST_TO_DETAIL",
+                "source_registry_id": "SRC-REG-PROC-NATIONAL-HTML",
+                "route_policy_id": "ROUTE-PROC-NOTICE-001",
+                "fallback_route": "DETAIL_DIRECT",
+                "requires_manual_review": False,
+                "evidence_topic_codes": [
+                    "TOPIC-RELEASE-CONFLICT",
+                    "TOPIC-CREDIT-PENALTY",
+                ],
+                "created_at": "2026-05-17T00:00:00Z",
+            },
+        )
+        self.assertEqual(
+            execution_context.get("evidence_topic_codes"),
+            ["TOPIC-RELEASE-CONFLICT", "TOPIC-CREDIT-PENALTY"],
+        )
+
+        project_fact = self.store.build_record(
+            "project_fact",
+            {
+                "project_fact_id": "FACT-1",
+                "project_id": "P-1",
+                "sale_gate_status": "HOLD",
+                "rule_gate_status": "PASS",
+                "evidence_gate_status": "PASS",
+                "rule_hit_summary": ["RH-1"],
+                "clue_summary": ["CLUE"],
+                "risk_summary": ["RISK"],
+                "coverage_sellable_state": "VALIDATING",
+                "delivery_risk_state": "REVIEW",
+                "manual_override_status": "NONE",
+                "real_competitor_count": 1,
+                "serviceable_competitor_count": 1,
+                "competitor_quality_grade": "B",
+                "primary_evidence_topic_code": "TOPIC-RELEASE-CONFLICT",
+                "resolved_evidence_topic_codes": [
+                    "TOPIC-RELEASE-CONFLICT",
+                    "TOPIC-CREDIT-PENALTY",
+                ],
+            },
+        )
+        self.assertEqual(project_fact.get("primary_evidence_topic_code"), "TOPIC-RELEASE-CONFLICT")
+
+        offer = self.store.build_record(
+            "offer_recommendation",
+            {
+                "offer_recommendation_id": "OFFER-1",
+                "project_id": "P-1",
+                "offer_recommendation_state": "REVIEW_REQUIRED",
+                "sku_code": "SKU-A",
+                "service_tier_code": "EVIDENCE_PACK",
+                "package_template_code": "EVIDENCE_PACK",
+                "recommended_delivery_form": "EVIDENCE_PACK",
+                "recommended_quote_band": "MEDIUM",
+                "why_recommended": "test",
+                "prerequisites": ["report_status=READY"],
+            },
+        )
+        self.assertEqual(offer.get("service_tier_code"), "EVIDENCE_PACK")
+        self.assertEqual(offer.get("package_template_code"), "EVIDENCE_PACK")
+
+        delivery = self.store.build_record(
+            "delivery_record",
+            {
+                "delivery_id": "DELIVERY-1",
+                "project_id": "P-1",
+                "order_id": "ORDER-1",
+                "payment_id_optional": "PAY-1",
+                "delivery_form": "INTERNAL_REVIEW",
+                "package_template_code": "PROJECT_BRIEF",
+                "delivery_status": "NOT_READY",
+                "delivered_at_optional": "NOT_DELIVERED",
+                "customer_ack_state_optional": "NOT_REQUESTED",
+                "delivery_exception_family_optional": "NO_EXCEPTION",
+                "delivery_exception_reason_optional": "NO_EXCEPTION",
+                "delivery_exception_reason_tags_optional": [],
+                "partial_delivery_state_optional": "NOT_PARTIAL",
+                "resend_required_optional": False,
+                "redeliver_required_optional": False,
+                "archival_status": "NOT_ARCHIVED",
+                "retention_until": "2026-05-17T00:00:00Z",
+                "retrieval_status": "NOT_AVAILABLE",
+                "written_back_at_optional": "2026-05-17T00:00:00Z",
+                "governed_execution_mode": "INTERNAL_GOVERNED",
+                "permission_decision_state": "ALLOW",
+                "governance_decision_state": "ALLOW",
+                "semantic_decision_state": "ALLOW",
+                "governed_metadata": {},
+            },
+        )
+        self.assertEqual(delivery.get("package_template_code"), "PROJECT_BRIEF")
+
+    def test_stage1_execution_context_carries_evidence_topic_codes_when_supplied(self) -> None:
+        payload = load_fixture("internal_chain_happy.json")
+        payload["evidence_topic_codes"] = [
+            "TOPIC-RELEASE-CONFLICT",
+            "TOPIC-CREDIT-PENALTY",
+        ]
+        stage1 = Stage1Service().run(payload)
+        self.assertEqual(
+            stage1.record("execution_context").get("evidence_topic_codes"),
+            ["TOPIC-RELEASE-CONFLICT", "TOPIC-CREDIT-PENALTY"],
+        )
+
+    def test_stage6_and_stage7_accept_new_sku_restructure_fields_when_supplied(self) -> None:
+        bundles = self._stage_bundles_to_stage7()
+
+        stage5 = bundles["stage5"]
+        stage5_with_topics = StageBundle(
+            stage=5,
+            records=dict(stage5.records),
+            handoff=dict(stage5.handoff),
+            trace_rules=list(stage5.trace_rules),
+            inputs={
+                **dict(stage5.inputs),
+                "primary_evidence_topic_code": "TOPIC-RELEASE-CONFLICT",
+                "resolved_evidence_topic_codes": [
+                    "TOPIC-RELEASE-CONFLICT",
+                    "TOPIC-CREDIT-PENALTY",
+                ],
+            },
+        )
+        stage6 = Stage6Service().run(stage5_with_topics)
+        self.assertEqual(
+            stage6.record("project_fact").get("primary_evidence_topic_code"),
+            "TOPIC-RELEASE-CONFLICT",
+        )
+        self.assertEqual(
+            stage6.record("project_fact").get("resolved_evidence_topic_codes"),
+            ["TOPIC-RELEASE-CONFLICT", "TOPIC-CREDIT-PENALTY"],
+        )
+
+        stage6_with_offer_fields = StageBundle(
+            stage=6,
+            records=dict(stage6.records),
+            handoff=dict(stage6.handoff),
+            trace_rules=list(stage6.trace_rules),
+            inputs={
+                **dict(stage6.inputs),
+                "service_tier_code": "EVIDENCE_PACK",
+                "package_template_code": "EVIDENCE_PACK",
+            },
+        )
+        stage7 = Stage7Service().run(stage6_with_offer_fields)
+        self.assertEqual(
+            stage7.record("offer_recommendation").get("service_tier_code"),
+            "EVIDENCE_PACK",
+        )
+        self.assertEqual(
+            stage7.record("offer_recommendation").get("package_template_code"),
+            "ANALYSIS_REPORT",
+        )
+
     def _stage_bundles_to_stage7(self) -> dict[str, StageBundle]:
         payload = load_fixture("internal_chain_happy.json")
         stage1 = Stage1Service().run(payload)
@@ -681,6 +848,7 @@ class TestSemanticRuntimeValidator(unittest.TestCase):
                 "project_id": "P-1",
                 "offer_recommendation_state": "APPROVED",
                 "sku_code": "SKU-A",
+                "package_template_code": "OBJECTION_DRAFT",
                 "recommended_delivery_form": "OBJECTION_DRAFT",
                 "recommended_quote_band": "HIGH",
                 "why_recommended": "test",

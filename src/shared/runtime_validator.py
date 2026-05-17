@@ -261,6 +261,7 @@ class RuntimeValidator:
             "project_id": TypeSpec("str"),
             "offer_recommendation_state": TypeSpec("str"),
             "sku_code": TypeSpec("str"),
+            "package_template_code": TypeSpec("str"),
             "recommended_delivery_form": TypeSpec("str"),
             "recommended_quote_band": TypeSpec("str"),
             "why_recommended": TypeSpec("str"),
