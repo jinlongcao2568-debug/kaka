@@ -77,6 +77,7 @@ def run_evidence_orchestration_continuation(
             ygp_readback_json=ygp_readback_json,
             enable_live_public_query=enable_live_original_notice_backtrace,
             max_live_original_notices=max_live_original_notices,
+            project_ids=project_ids,
             created_at=created,
         )
         original_source_root = original_out_root

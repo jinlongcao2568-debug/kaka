@@ -5,6 +5,7 @@ param(
     [string]$YgpReadbackRoot = "",
     [string]$YgpReadbackJson = "",
     [string]$OutputRoot = "",
+    [string]$ProjectIds = "",
     [switch]$EnableLivePublicQuery,
     [int]$MaxLiveOriginalNotices = 0,
     [switch]$EmitJson
@@ -43,6 +44,9 @@ if ($YgpReadbackRoot) {
 }
 if ($YgpReadbackJson) {
     $argsList += @("--ygp-readback-json", $YgpReadbackJson)
+}
+if ($ProjectIds) {
+    $argsList += @("--project-ids", $ProjectIds)
 }
 if ($EnableLivePublicQuery) {
     $argsList += "--enable-live-public-query"

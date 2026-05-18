@@ -80,6 +80,23 @@ class P13BOriginalNoticeBacktraceTests(unittest.TestCase):
             self.assertEqual(result["manifest"]["source_input_root"], str(triage_root))
             self.assertEqual(result["manifest"]["source_company_history_triage_root"], str(triage_root))
 
+    def test_project_ids_filter_original_notice_tasks(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_p13b_input(root)
+
+            result = build_p13b_original_notice_backtrace(
+                input_root=root,
+                output_root=root / "out",
+                project_ids=["JG2026-20002"],
+                created_at="2026-05-15T00:00:00+08:00",
+            )
+
+            self.assertTrue(result["safe_to_execute"])
+            self.assertEqual(result["summary"]["original_notice_task_count"], 1)
+            task = result["manifest"]["original_notice_task_records"][0]
+            self.assertEqual(task["project_id"], "PROJ-CN-GD-JG2026-20002")
+
     def test_cli_accepts_company_history_triage_root(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -167,6 +184,25 @@ class P13BOriginalNoticeBacktraceTests(unittest.TestCase):
             extraction = result["manifest"]["original_notice_extraction_records"][0]
             self.assertIn("original_notice_person_period_not_extracted_review", extraction["blocker_taxonomy"])
 
+    def test_javascript_shell_is_taxonomized_as_browser_readback_required(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_p13b_input(root, first_url="https://example.gov.cn/original/js-shell.html")
+
+            result = build_p13b_original_notice_backtrace(
+                input_root=root,
+                output_root=root / "out",
+                enable_live_public_query=True,
+                max_live_original_notices=1,
+                http_getter=_fake_http_getter,
+                created_at="2026-05-15T00:00:00+08:00",
+            )
+
+            extraction = result["manifest"]["original_notice_extraction_records"][0]
+            self.assertEqual(extraction["original_notice_extraction_state"], "ORIGINAL_NOTICE_NO_MATCH_REVIEW")
+            self.assertIn("original_notice_person_period_not_extracted_review", extraction["blocker_taxonomy"])
+            self.assertIn("original_notice_browser_readback_required", extraction["blocker_taxonomy"])
+
     def test_long_boilerplate_page_still_extracts_company_and_period(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -186,6 +222,7 @@ class P13BOriginalNoticeBacktraceTests(unittest.TestCase):
             self.assertIn("深圳中铁二局工程有限公司", extraction["extracted_company_names"])
             self.assertIn("730日历天", extraction["extracted_period_text"])
             self.assertEqual(extraction["extracted_responsible_person_names"], [])
+            self.assertIn("original_notice_person_period_not_extracted_review", extraction["blocker_taxonomy"])
 
     def test_blocked_original_notice_is_taxonomized(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -504,6 +541,12 @@ def _fake_http_getter(url: str, context: Mapping[str, Any]) -> Mapping[str, Any]
             "status_code": 200,
             "content_type": "text/html",
             "body": "<html><body><h1>公告正文</h1><p>本页面为平台公告。</p></body></html>",
+        }
+    if url.endswith("/js-shell.html"):
+        return {
+            "status_code": 200,
+            "content_type": "text/html",
+            "body": "<html><body>交易平台 window._AMapSecurityConfig = {}; We're sorry but 交易平台 doesn't work properly without JavaScript enabled. Please enable it to continue.</body></html>",
         }
     if url.endswith("/no-person.html"):
         return {

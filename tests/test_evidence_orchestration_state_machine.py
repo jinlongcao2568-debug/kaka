@@ -167,6 +167,33 @@ class EvidenceOrchestrationStateMachineTests(unittest.TestCase):
             self.assertEqual(rqsg2["recommended_next_action"], "continue_p13b_original_notice_backtrace")
             self.assertIn("original_notice_backtrace_budget_deferred_or_incomplete", rqsg2["review_reasons"])
 
+    def test_browser_readback_blocker_keeps_d_state_retry_reason_visible(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            storage_json = root / "storage.json"
+            supplement_json = root / "stage4-inputs.json"
+            p13b_root = root / "p13b"
+            original_root = root / "original"
+            _write_stage16_storage(storage_json)
+            _write_company_first_inputs(supplement_json)
+            _write_p13b_backtrace_required(p13b_root)
+            _write_original_notice_browser_blocked(original_root)
+
+            result = build_evidence_orchestration_state(
+                stage16_storage_json=storage_json,
+                company_first_stage4_inputs_json=supplement_json,
+                p13b_company_history_root=p13b_root,
+                original_notice_backtrace_root=original_root,
+                output_root=root / "out",
+                created_at="2026-05-18T00:00:00+08:00",
+            )
+
+            by_project = _records_by_project(result["manifest"]["evidence_state_table"]["records"])
+            rqsg2 = by_project["PROJ-CN-GD-JG2026-11398-002"]
+            self.assertEqual(rqsg2["evidence_state"], "D_INSUFFICIENT_OR_BLOCKED_READBACK")
+            self.assertEqual(rqsg2["recommended_next_action"], "manual_review_or_retry_blocked_original_notice_backtrace")
+            self.assertIn("original_notice_backtrace_blocked_or_source_unsupported", rqsg2["review_reasons"])
+
 
 def _write_stage16_storage(path: Path) -> None:
     candidates = [
@@ -410,6 +437,42 @@ def _write_original_notice_partial_deferred(root: Path) -> None:
                         "execution_mode": "LIVE_PUBLIC_QUERY_DEFERRED_BY_LIMIT",
                         "blocker_taxonomy": ["max_live_original_notices_deferred"],
                     },
+                ],
+                "original_notice_overlap_signal_records": [
+                    {
+                        "project_id": "PROJ-CN-GD-JG2026-11398-002",
+                        "candidate_company_name": "中国化学工程第六建设有限公司",
+                        "original_notice_overlap_signal_state": "ORIGINAL_NOTICE_NO_MATCH_REVIEW",
+                        "release_evidence_probe_triggered": False,
+                    }
+                ],
+                "manual_release_evidence_probe_table": [],
+            }
+        },
+    )
+
+
+def _write_original_notice_browser_blocked(root: Path) -> None:
+    _write_json(
+        root / "original-notice-backtrace-v1.json",
+        {
+            "manifest": {
+                "original_notice_fetch_records": [
+                    {
+                        "project_id": "PROJ-CN-GD-JG2026-11398-002",
+                        "fetch_state": "ORIGINAL_NOTICE_FETCHED",
+                        "execution_mode": "LIVE_PUBLIC_QUERY_ATTEMPTED",
+                    }
+                ],
+                "original_notice_extraction_records": [
+                    {
+                        "project_id": "PROJ-CN-GD-JG2026-11398-002",
+                        "original_notice_extraction_state": "ORIGINAL_NOTICE_NO_MATCH_REVIEW",
+                        "blocker_taxonomy": [
+                            "original_notice_person_period_not_extracted_review",
+                            "original_notice_browser_readback_required",
+                        ],
+                    }
                 ],
                 "original_notice_overlap_signal_records": [
                     {

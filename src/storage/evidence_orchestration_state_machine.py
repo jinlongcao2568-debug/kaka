@@ -579,7 +579,13 @@ def _count_blocked_original_records(original_project: Mapping[str, Any]) -> int:
         }:
             blocked += 1
     for record in _list(original_project.get("original_notice_extraction_records")):
-        if isinstance(record, Mapping) and str(record.get("original_notice_extraction_state") or "") == "ORIGINAL_NOTICE_SOURCE_UNSUPPORTED":
+        if not isinstance(record, Mapping):
+            continue
+        blockers = {str(item) for item in _list(record.get("blocker_taxonomy"))}
+        if (
+            str(record.get("original_notice_extraction_state") or "") == "ORIGINAL_NOTICE_SOURCE_UNSUPPORTED"
+            or "original_notice_browser_readback_required" in blockers
+        ):
             blocked += 1
     return blocked
 

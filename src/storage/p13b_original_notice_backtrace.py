@@ -45,6 +45,7 @@ def build_p13b_original_notice_backtrace(
     output_root: str | Path = DEFAULT_OUTPUT_ROOT,
     enable_live_public_query: bool = False,
     max_live_original_notices: int | None = None,
+    project_ids: list[str] | tuple[str, ...] = (),
     http_getter: HttpGetter | None = None,
     created_at: str | None = None,
 ) -> dict[str, Any]:
@@ -61,7 +62,11 @@ def build_p13b_original_notice_backtrace(
         ygp_readback_json=ygp_readback_json,
     )
     execution_mode = "LIVE_PUBLIC_QUERY_ATTEMPTED" if enable_live_public_query else "PLAN_ONLY_NOT_EXECUTED"
-    original_notice_task_records = _task_records_from_p13b(source_manifest, created_at=created)
+    original_notice_task_records = _task_records_from_p13b(
+        source_manifest,
+        created_at=created,
+        project_ids=project_ids,
+    )
     fetch_records, extraction_records, overlap_records = _execute_original_notice_tasks(
         original_notice_task_records,
         created_at=created,
@@ -95,6 +100,7 @@ def build_p13b_original_notice_backtrace(
         "execution_mode": execution_mode,
         "live_public_query_enabled": bool(enable_live_public_query),
         "max_live_original_notices": max_live_original_notices,
+        "project_ids": list(project_ids),
         "original_notice_task_records": original_notice_task_records,
         "original_notice_fetch_records": fetch_records,
         "original_notice_extraction_records": extraction_records,
@@ -144,9 +150,15 @@ def build_p13b_original_notice_backtrace(
     return result
 
 
-def _task_records_from_p13b(source_manifest: Mapping[str, Any], *, created_at: str) -> list[dict[str, Any]]:
+def _task_records_from_p13b(
+    source_manifest: Mapping[str, Any],
+    *,
+    created_at: str,
+    project_ids: list[str] | tuple[str, ...] = (),
+) -> list[dict[str, Any]]:
     rows = _list(source_manifest.get("manual_original_url_backtrace_table"))
     bid_show_by_key = _bid_show_lookup(source_manifest)
+    selected_projects = {_project_key(value) for value in project_ids if _project_key(value)}
     tasks: list[dict[str, Any]] = []
     seen: set[str] = set()
     for row in rows:
@@ -156,6 +168,8 @@ def _task_records_from_p13b(source_manifest: Mapping[str, Any], *, created_at: s
         if not original_url:
             continue
         project_id = str(row.get("project_id") or "")
+        if selected_projects and _project_key(project_id) not in selected_projects:
+            continue
         company = str(row.get("candidate_company_name") or "")
         key = f"{project_id}|{company}|{original_url}"
         if key in seen:
@@ -556,10 +570,9 @@ def _extract_original_notice(task: Mapping[str, Any], fetch: Mapping[str, Any], 
     else:
         state = "ORIGINAL_NOTICE_SOURCE_UNSUPPORTED"
     blockers: list[str] = []
-    if state == "ORIGINAL_NOTICE_NO_MATCH_REVIEW" and not (people or period or companies):
+    if state == "ORIGINAL_NOTICE_NO_MATCH_REVIEW" and not (people and period):
         blockers = ["original_notice_person_period_not_extracted_review"]
-        lowered = text.lower()
-        if "loading" in lowered or "jump.html" in str(fetch.get("source_url") or "").lower():
+        if _looks_like_browser_readback_required(text, str(fetch.get("source_url") or "")):
             blockers.append("original_notice_browser_readback_required")
     return {
         **dict(task),
@@ -793,6 +806,22 @@ def _blockers_from_response(*, status: int, body_probe: str, error: str) -> list
     return _dedupe(blockers)
 
 
+def _looks_like_browser_readback_required(text: str, source_url: str) -> bool:
+    lowered = str(text or "").lower()
+    url = str(source_url or "").lower()
+    return any(
+        marker in lowered
+        for marker in (
+            "loading",
+            "doesn't work properly without javascript enabled",
+            "please enable it to continue",
+            "window._amapsecurityconfig",
+            "whebd-vue",
+            "交易平台 doesn't work",
+        )
+    ) or "jump.html" in url
+
+
 def _extract_responsible_people(text: str) -> list[str]:
     patterns = [
         r"(?:项目负责人|项目经理|施工项目负责人|设计负责人|勘察负责人|总监理工程师|工程总承包项目经理)\s*[:：]\s*([\u4e00-\u9fa5·]{2,8})",
@@ -937,6 +966,18 @@ def _fingerprint(payload: Any) -> str:
     return _sha256(json.dumps(payload, ensure_ascii=False, sort_keys=True, default=str))
 
 
+def _project_key(value: Any) -> str:
+    text = str(value or "").strip().upper()
+    match = re.search(r"JG\d{4}-\d+(?:-\d+)?", text)
+    if match:
+        return match.group(0)
+    return text.rsplit("-", 1)[-1] if text.startswith("PROJ-") else text
+
+
+def _parse_csv(value: str) -> list[str]:
+    return [item.strip() for item in str(value or "").split(",") if item.strip()]
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Build P13B original notice backtrace manifest.")
     parser.add_argument("--input-root", default=str(DEFAULT_INPUT_ROOT))
@@ -947,6 +988,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--output-root", default=str(DEFAULT_OUTPUT_ROOT))
     parser.add_argument("--enable-live-public-query", action="store_true")
     parser.add_argument("--max-live-original-notices", type=int, default=None)
+    parser.add_argument("--project-ids", default="")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
     result = build_p13b_original_notice_backtrace(
@@ -958,6 +1000,7 @@ def main(argv: list[str] | None = None) -> int:
         output_root=args.output_root,
         enable_live_public_query=args.enable_live_public_query,
         max_live_original_notices=args.max_live_original_notices,
+        project_ids=_parse_csv(args.project_ids),
     )
     if args.json:
         print(json.dumps(result, ensure_ascii=False, indent=2))
