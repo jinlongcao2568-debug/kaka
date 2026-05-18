@@ -851,12 +851,13 @@ def _extract_role_name_by_patterns(text: str, patterns: tuple[str, ...]) -> tupl
 def _extract_candidate_table_responsible_person(text: str) -> dict[str, str]:
     company_pattern = _company_like_pattern()
     patterns = (
-        rf"(?:项目总负责人姓名及资格证书\s*编号|项目总负责人姓名及资格证书编号|"
+        rf"(?:拟派项目经理姓名及证书\s*编号|项目经理姓名及证书\s*编号|项目经理姓名及资格证书\s*编号|"
+        rf"项目总负责人姓名及资格证书\s*编号|项目总负责人姓名及资格证书编号|"
         rf"项目负责人姓名及资格证书\s*编号|项目负责人姓名及资格证书编号|项目负责人姓名/资格证书编号)"
         rf".{{0,260}}?{company_pattern}.{{0,260}}?"
-        rf"(?P<name>[\u4e00-\u9fff·]{{2,8}})\s*/\s*(?P<cert>[\u4e00-\u9fff]{{0,4}}[A-Za-z0-9][A-Za-z0-9\-]{{3,39}})",
-        rf"(?:项目总负责人姓名|项目总负责人|项目负责人姓名|项目负责人).{{0,220}}?{company_pattern}.{{0,220}}?"
-        rf"(?P<name>[\u4e00-\u9fff·]{{2,8}})\s*/\s*(?P<cert>[\u4e00-\u9fff]{{0,4}}[A-Za-z0-9][A-Za-z0-9\-]{{3,39}})",
+        rf"(?P<name>[\u4e00-\u9fff·]{{2,8}})\s*/\s*(?P<cert>[\u4e00-\u9fff]{{0,4}}\s*[A-Za-z0-9][A-Za-z0-9\s\-]{{3,49}})",
+        rf"(?:拟派项目经理姓名|项目经理姓名|项目经理|项目总负责人姓名|项目总负责人|项目负责人姓名|项目负责人).{{0,220}}?{company_pattern}.{{0,220}}?"
+        rf"(?P<name>[\u4e00-\u9fff·]{{2,8}})\s*/\s*(?P<cert>[\u4e00-\u9fff]{{0,4}}\s*[A-Za-z0-9][A-Za-z0-9\s\-]{{3,49}})",
     )
     body_result = _extract_candidate_role_table_body(text)
     if body_result.get("primary_responsible_person_name"):
@@ -888,7 +889,8 @@ def _extract_candidate_table_responsible_person(text: str) -> dict[str, str]:
 
 def _extract_candidate_role_table_body(text: str) -> dict[str, str]:
     body_pattern = (
-        r"(?:项目总负责人姓名及资格证书\s*编号|项目总负责人姓名及资格证书编号|"
+        r"(?:拟派项目经理姓名及证书\s*编号|项目经理姓名及证书\s*编号|项目经理姓名及资格证书\s*编号|"
+        r"项目总负责人姓名及资格证书\s*编号|项目总负责人姓名及资格证书编号|"
         r"项目负责人姓名及资格证书\s*编号|项目负责人姓名及资格证书编号|项目负责人姓名/资格证书编号|"
         r"拟派项目负责人|拟派项目经理姓名|项目负责人资质|项目负责人资格情况|项目总负责人|项目负责人)"
         r"(?P<body>.{0,4500})"
@@ -1070,14 +1072,14 @@ def _extract_guangzhou_candidate_publicity_row_role(row_text: str) -> dict[str, 
             }
 
     filler = (
-        r"(?:详见(?:投标文件公开|中标候选人公示|附件)|满足招标文件要求|完全响应|"
+        r"(?:见附件|详见(?:投标文件公开|中标候选人公示|附件)|满足招标文件要求|完全响应|"
         r"无业绩要求|按招标文件要求|/)"
     )
     role_only_pattern = (
         rf"(?:{filler}[\s/；;，,、]*){{1,5}}"
         rf"(?:[。.]?[\s/；;，,、]*)"
         r"(?P<name>[\u4e00-\u9fff·]{2,4})"
-        r"(?=\s+(?:详见|满足|完全|/|一级|二级|注册|市政|机电|公路|水利|监理|高级|工程师|[（(]))"
+        r"(?=\s+(?:见附件|详见|满足|完全|/|一级|二级|注册|市政|机电|公路|水利|监理|高级|工程师|[（(]))"
     )
     for match in re.finditer(role_only_pattern, text):
         name = _clean_text(match.group("name")).strip(" ：:，,；;。")
@@ -1097,6 +1099,29 @@ def _clean_certificate_no_value(value: str) -> str:
     cert = re.sub(r"\s+", "", cert)
     cert = re.split(r"(?:详见|业绩|资格|资质|候选人|投标|质量|工期)", cert, maxsplit=1)[0]
     return cert.strip(" ：:，,；;。）》)")
+
+
+def _is_placeholder_responsible_person_value(value: str) -> bool:
+    text = _clean_text(value).strip(" ：:，,；;。")
+    normalized = re.sub(r"\s+", "", text)
+    if not normalized:
+        return False
+    placeholders = {
+        "/",
+        "-",
+        "--",
+        "无",
+        "见附件",
+        "详见附件",
+        "详见投标文件",
+        "详见投标文件公开",
+        "详见候选人公示",
+        "详见中标候选人公示",
+        "按招标文件要求",
+        "满足招标文件要求",
+        "完全响应",
+    }
+    return normalized in placeholders or normalized.endswith("见附件")
 
 
 def _candidate_role_company_pattern() -> str:
@@ -1422,9 +1447,12 @@ def _extract_candidate_summary_table(text: str) -> dict[str, str]:
     for pattern in vertical_patterns:
         match = re.search(pattern, text)
         if match:
+            manager = _clean_text(match.group("manager")).strip(" ：:，,；;。")
+            if not _looks_like_person_name(manager):
+                continue
             return {
                 "candidate_company": _clean_company_value(_clean_text(match.group("company"))),
-                "project_manager_name": _clean_text(match.group("manager")).strip(" ：:，,；;。"),
+                "project_manager_name": manager,
                 "parse_state": "DETAIL_TEXT_CANDIDATE_SUMMARY_TABLE",
             }
     transposed = re.search(
@@ -1434,9 +1462,12 @@ def _extract_candidate_summary_table(text: str) -> dict[str, str]:
     if transposed:
         company = _first_company_like_text(transposed.group("companies"))
         manager_match = re.search(r"([\u4e00-\u9fff·]{2,8})", transposed.group("managers"))
+        manager = _clean_text(manager_match.group(1)).strip(" ：:，,；;。") if manager_match else ""
+        if not _looks_like_person_name(manager):
+            return {}
         return {
             "candidate_company": company,
-            "project_manager_name": _clean_text(manager_match.group(1)).strip(" ：:，,；;。") if manager_match else "",
+            "project_manager_name": manager,
             "parse_state": "DETAIL_TEXT_TRANSPOSED_CANDIDATE_TABLE",
         }
     return {}
@@ -1444,6 +1475,8 @@ def _extract_candidate_summary_table(text: str) -> dict[str, str]:
 
 def _looks_like_person_name(value: str) -> bool:
     name = _clean_text(value).strip(" ：:，,；;。")
+    if _is_placeholder_responsible_person_value(name):
+        return False
     if "·" in name:
         if not re.fullmatch(r"[\u4e00-\u9fff·]{2,8}", name):
             return False
@@ -1525,6 +1558,7 @@ def _looks_like_person_name(value: str) -> bool:
         "标段",
         "施工",
         "监理",
+        "附件",
         "千伏",
         "电厂",
         "号",
@@ -1621,6 +1655,76 @@ def _extract_project_manager_certificate_identity(text: str) -> dict[str, str]:
     return result
 
 
+def _extract_registered_builder_certificate_no(context: str) -> str:
+    patterns = (
+        r"(?:一级注册建造师|二级注册建造师|一级建造师|二级建造师|注册建造师)"
+        r"[^。；;\n\r]{0,220}?"
+        r"(?:注册编号|注册编\s*号|注册证书编号|证书编号|注册号|证号)"
+        r"\s*[：:,，]?\s*(?P<cert>[\u4e00-\u9fff]{0,4}\s*[A-Za-z0-9][A-Za-z0-9\s\-]{3,49})",
+        r"(?:注册编号|注册编\s*号|注册证书编号|证书编号|注册号|证号)"
+        r"\s*[：:,，]?\s*(?P<cert>[\u4e00-\u9fff]{0,4}\s*[A-Za-z0-9][A-Za-z0-9\s\-]{3,49})"
+        r"[^。；;\n\r]{0,120}?"
+        r"(?:一级注册建造师|二级注册建造师|一级建造师|二级建造师|注册建造师)",
+    )
+    for pattern in patterns:
+        match = re.search(pattern, context)
+        if not match:
+            continue
+        cert = _clean_certificate_no_value(match.group("cert"))
+        if cert:
+            return cert
+    return ""
+
+
+def _extract_project_manager_name_cert_pair(text: str) -> dict[str, str]:
+    normalized = _normalize_candidate_role_table_body(_clean_text(text))
+    label = (
+        r"(?:拟派项目经理姓名及证\s*书\s*编号|拟派项目经理姓名/证\s*书\s*编号|"
+        r"项目经理姓名及证\s*书\s*编号|项目经理姓名及证\s*书|项目经理姓名及证|"
+        r"项目经理姓名/证\s*书\s*编号|项目经理姓名及资格证\s*书\s*编号|"
+        r"拟派项目负责人姓名及证\s*书\s*编号|拟派项目负责人姓名/证\s*书\s*编号|"
+        r"项目负责人姓名及资格证\s*书\s*编号|项目负责人姓名及证\s*书\s*编号|项目负责人姓名/资格证\s*书\s*编号)"
+    )
+    pattern = (
+        rf"{label}\s*[：:]?\s*"
+        r"(?P<name>[\u4e00-\u9fff·]{2,4})\s*[/／]\s*"
+        r"(?P<cert>[\u4e00-\u9fffA-Za-z0-9\s\-第号]{3,80}?)"
+        r"(?=\s+[\u4e00-\u9fff·]{2,4}\s*[/／]|\s+(?:项目|一级|二级|注册|职称|专业|质量|工期|第二|第三|投标|中标|候选)|[。；;\n\r]|$)"
+    )
+    for match in re.finditer(pattern, normalized):
+        name = _clean_text(match.group("name")).strip(" ：:，,；;。")
+        if not _looks_like_person_name(name):
+            continue
+        tail = normalized[match.end() : match.end() + 900]
+        boundary_positions = [
+            pos
+            for token in (
+                "项目总工",
+                "技术负责人",
+                "安全负责人",
+                "质量负责人",
+                "第二中标候选人",
+                "第二成交候选人",
+                "第三中标候选人",
+                "第三成交候选人",
+            )
+            if (pos := tail.find(token)) >= 0
+        ]
+        context_end = min(boundary_positions) if boundary_positions else len(tail)
+        context = normalized[match.start() : match.end() + context_end]
+        cert = _extract_registered_builder_certificate_no(context) or _clean_certificate_no_value(match.group("cert"))
+        return {
+            "primary_responsible_person_name": name,
+            "project_manager_certificate_no": cert,
+            "parse_state": "DETAIL_TEXT_PROJECT_MANAGER_CERT_PAIR",
+        }
+    return {
+        "primary_responsible_person_name": "",
+        "project_manager_certificate_no": "",
+        "parse_state": "DETAIL_TEXT_NOT_FOUND",
+    }
+
+
 def _clean_company_value(value: str) -> str:
     text = value.strip()
     text = re.sub(r"(设计院|研究院)\s+(有限(?:\s*责任)?\s*公司)", r"\1\2", text)
@@ -1667,10 +1771,20 @@ def _extract_project_manager(text: str, *, work_lane: str = "") -> dict[str, str
             and search_text != text
         ):
             table_role = _extract_candidate_table_responsible_person(text)
+        project_manager_pair = _extract_project_manager_name_cert_pair(search_text)
+        if (
+            not project_manager_pair.get("primary_responsible_person_name")
+            and candidate_section
+            and search_text != text
+        ):
+            project_manager_pair = _extract_project_manager_name_cert_pair(text)
         table_role_company = str(table_role.get("candidate_company") or "")
         table_role_name = str(table_role.get("primary_responsible_person_name") or "")
         table_role_cert = str(table_role.get("project_manager_certificate_no") or "")
         table_role_state = str(table_role.get("parse_state") or "DETAIL_TEXT_NOT_FOUND")
+        project_manager_pair_name = str(project_manager_pair.get("primary_responsible_person_name") or "")
+        project_manager_pair_cert = str(project_manager_pair.get("project_manager_certificate_no") or "")
+        project_manager_pair_state = str(project_manager_pair.get("parse_state") or "DETAIL_TEXT_NOT_FOUND")
         supervision_patterns = (
             r"(?:总监理工程师姓名|总监理工程师|总监|监理负责人)(?:姓名)?[:：\s]+(?:资格能力条件\s+)?(?P<name>[\u4e00-\u9fff·]{2,8})",
             r"(?:拟派)?(?:项目|标段|监理)负责人(?:姓名)?[:：\s]+(?:资格能力条件\s+)?(?P<name>[\u4e00-\u9fff·]{2,8})",
@@ -1720,6 +1834,10 @@ def _extract_project_manager(text: str, *, work_lane: str = "") -> dict[str, str
             primary_name = construction_manager_name
             primary_state = construction_manager_state
             primary_role = "project_manager"
+        elif project_manager_pair_name:
+            primary_name = project_manager_pair_name
+            primary_state = project_manager_pair_state
+            primary_role = "project_manager"
         elif table_role_name:
             primary_name = table_role_name
             primary_state = table_role_state
@@ -1750,8 +1868,8 @@ def _extract_project_manager(text: str, *, work_lane: str = "") -> dict[str, str
     certificate_no = ""
     certificate_state = "DETAIL_TEXT_NOT_FOUND"
     cert_patterns = (
-        r"(?:注册编号|注册编\s*号|注册证书编号|证书编号|注册号)\s*[:：]?\s*([\u4e00-\u9fff]{0,4}[A-Za-z0-9][A-Za-z0-9\-]{3,39})",
-        r"(?:证号)\s*[:：]\s*([\u4e00-\u9fff]{0,4}[A-Za-z0-9][A-Za-z0-9\-]{3,39})",
+        r"(?:注册编号|注册编\s*号|注册证书编号|证书编号|注册号)\s*[：:,，]?\s*([\u4e00-\u9fff]{0,4}\s*[A-Za-z0-9][A-Za-z0-9\s\-]{3,49})",
+        r"(?:证号)\s*[：:,，]\s*([\u4e00-\u9fff]{0,4}\s*[A-Za-z0-9][A-Za-z0-9\s\-]{3,49})",
     )
     certificate_search_text = search_text if primary_name or manager_name else _project_manager_certificate_context(search_text)
     for pattern in cert_patterns:
@@ -1762,6 +1880,9 @@ def _extract_project_manager(text: str, *, work_lane: str = "") -> dict[str, str
             certificate_no = _clean_certificate_no_value(match.group(1))
             certificate_state = "DETAIL_TEXT_CANDIDATE_TABLE"
             break
+    if not certificate_no and "project_manager_pair_cert" in locals() and project_manager_pair_cert:
+        certificate_no = project_manager_pair_cert
+        certificate_state = project_manager_pair_state
     if not certificate_no and "table_role_cert" in locals() and table_role_cert:
         certificate_no = table_role_cert
         certificate_state = table_role_state

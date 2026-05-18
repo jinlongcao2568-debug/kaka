@@ -1247,6 +1247,169 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
         self.assertEqual(fields["attachment_ocr_extracted_count"], 1)
         self.assertTrue(any(PDF_TEXT_OCR_EXTRACTED in state for state in fields["attachment_text_parse_states"]))
 
+    def test_guangzhou_attachment_ocr_overrides_placeholder_project_manager(self) -> None:
+        detail_url = "https://ywtb.gzggzy.cn/notice/gz-rqsg-placeholder-manager-001.html"
+        attachment_url = "https://ywtb.gzggzy.cn/EpointWebBuilder/pages/webbuildermis/attach/downloadztbattach?attachGuid=rqsg2"
+        detail_html = f"""
+        <html>
+          <head><title>燃气管道迁改工程设计施工总承包RQSG2标段中标候选人公示</title></head>
+          <body>
+            <h1>燃气管道迁改工程设计施工总承包RQSG2标段中标候选人公示</h1>
+            <p>中标候选人单位 投标报价（元） 项目经理姓名</p>
+            <p>第一中标候选人 （主）中国化学工程第六建设有限公司,（成）中国市政工程华北设计研究总院有限公司 12800000.00 见附件</p>
+            <p>第二中标候选人 广东第二建设有限公司 12700000.00 李四</p>
+            <p><a href="{attachment_url}">06中标候选人公示（RQSG2标）.pdf</a></p>
+          </body>
+        </html>
+        """.encode("utf-8")
+        ocr_text = "\n".join(
+            [
+                "第一中标候选人: （主）中国化学工程第六建设有限公司,（成）中国市政工程华北设计研究总院有限公司",
+                "项目经理姓名及证书编号 曾凡伟/中化高职第 0007525 号",
+                "项目经理姓名: 曾凡伟",
+                "一级建造师注册证书 专业: 市政公用工程 证书编号，鄂1422014201516008",
+                "项目总工姓名及证书编号 刘工/0702060013",
+            ]
+        )
+        transport = FakeRealPublicFetchTransport(
+            {
+                detail_url: RealPublicFetchResponse(
+                    url=detail_url,
+                    status_code=200,
+                    content=detail_html,
+                    content_type="text/html; charset=utf-8",
+                    final_url=detail_url,
+                ),
+                attachment_url: RealPublicFetchResponse(
+                    url=attachment_url,
+                    status_code=200,
+                    content=_build_blank_pdf_bytes(),
+                    content_type="application/pdf",
+                    final_url=attachment_url,
+                ),
+            }
+        )
+        candidate = {
+            "candidate_key": "gz-rqsg-placeholder-manager-001",
+            "notice_id": "NOTICE-GZ-RQSG-PLACEHOLDER-MANAGER-001",
+            "project_id": "PROJ-GZ-RQSG-PLACEHOLDER-MANAGER-001",
+            "project_name": "燃气管道迁改工程设计施工总承包RQSG2标段中标候选人公示",
+            "region_code": "CN-GD",
+            "project_type": "construction",
+            "notice_stage": "candidate_notice",
+            "source_url": detail_url,
+            "source_profile_id": "GUANGZHOU-YWTB-CONSTRUCTION-LIST",
+            "source_candidate_mode": "REAL_PUBLIC_SOURCE_CANDIDATES",
+            "key_fields_present": ["project_name", "notice_stage"],
+            "candidate_count": 0,
+        }
+
+        with tempfile.TemporaryDirectory() as tmp_dir, patch(
+            "stage2_ingestion.real_candidate_capture.extract_pdf_text_with_ocr",
+            return_value=ExtractedText(
+                text=ocr_text,
+                state=PDF_TEXT_OCR_EXTRACTED,
+                extractor="provided_pdf_ocr",
+                confidence=0.7,
+                review_required=True,
+                warnings=[OCR_REQUIRED],
+            ),
+        ):
+            service = RealCandidateStage2CaptureService(
+                stage2_service=FakeStage2Service(transport),
+                object_repository=_repo(tmp_dir),
+                repository=RealCandidateStage2CaptureRepository(),
+            )
+            result = service.capture_candidates([candidate], now="2026-05-01T00:00:00+00:00")
+
+        enriched = result["enriched_candidates"][0]
+        self.assertEqual(enriched["primary_responsible_person_name"], "曾凡伟")
+        self.assertEqual(enriched["project_manager_name"], "曾凡伟")
+        self.assertEqual(enriched["project_manager_certificate_no"], "鄂1422014201516008")
+        self.assertNotEqual(enriched["project_manager_name"], "见附件")
+        self.assertNotEqual(enriched["project_manager_certificate_no"], "0702060013")
+        self.assertEqual(enriched["project_manager_certificate_type"], "一级建造师")
+        self.assertEqual(enriched["project_manager_cert_specialty"], "市政")
+        self.assertFalse(enriched["responsible_role_gap_review_required"])
+
+    def test_guangzhou_project_manager_pair_does_not_use_project_chief_cert(self) -> None:
+        detail_url = "https://ywtb.gzggzy.cn/notice/gz-rqsg-manager-pair-001.html"
+        attachment_url = "https://ywtb.gzggzy.cn/EpointWebBuilder/pages/webbuildermis/attach/downloadztbattach?attachGuid=rqsg1"
+        detail_html = f"""
+        <html>
+          <head><title>燃气管道迁改工程设计施工总承包RQSG1标段中标候选人公示</title></head>
+          <body>
+            <h1>燃气管道迁改工程设计施工总承包RQSG1标段中标候选人公示</h1>
+            <p>中标候选人单位 投标报价（元） 项目经理姓名</p>
+            <p>第一中标候选人 （主）上海能源建设集团有限公司,（成）上海能源建设工程设计研究有限公司 13800000.00 见附件</p>
+            <p><a href="{attachment_url}">06中标候选人公示（RQSG1标）.pdf</a></p>
+          </body>
+        </html>
+        """.encode("utf-8")
+        ocr_text = "\n".join(
+            [
+                "第一中标候选人: （主）上海能源建设集团有限公司,（成）上海能源建设工程设计研究有限公司",
+                "项目经理姓名及证 书编号 王杰/22ZEZACJ0034",
+                "项目总工姓名及证书编号 张工/0702060013",
+            ]
+        )
+        transport = FakeRealPublicFetchTransport(
+            {
+                detail_url: RealPublicFetchResponse(
+                    url=detail_url,
+                    status_code=200,
+                    content=detail_html,
+                    content_type="text/html; charset=utf-8",
+                    final_url=detail_url,
+                ),
+                attachment_url: RealPublicFetchResponse(
+                    url=attachment_url,
+                    status_code=200,
+                    content=_build_blank_pdf_bytes(),
+                    content_type="application/pdf",
+                    final_url=attachment_url,
+                ),
+            }
+        )
+        candidate = {
+            "candidate_key": "gz-rqsg-manager-pair-001",
+            "notice_id": "NOTICE-GZ-RQSG-MANAGER-PAIR-001",
+            "project_id": "PROJ-GZ-RQSG-MANAGER-PAIR-001",
+            "project_name": "燃气管道迁改工程设计施工总承包RQSG1标段中标候选人公示",
+            "region_code": "CN-GD",
+            "project_type": "construction",
+            "notice_stage": "candidate_notice",
+            "source_url": detail_url,
+            "source_profile_id": "GUANGZHOU-YWTB-CONSTRUCTION-LIST",
+            "source_candidate_mode": "REAL_PUBLIC_SOURCE_CANDIDATES",
+            "key_fields_present": ["project_name", "notice_stage"],
+            "candidate_count": 0,
+        }
+
+        with tempfile.TemporaryDirectory() as tmp_dir, patch(
+            "stage2_ingestion.real_candidate_capture.extract_pdf_text_with_ocr",
+            return_value=ExtractedText(
+                text=ocr_text,
+                state=PDF_TEXT_OCR_EXTRACTED,
+                extractor="provided_pdf_ocr",
+                confidence=0.7,
+                review_required=True,
+                warnings=[OCR_REQUIRED],
+            ),
+        ):
+            service = RealCandidateStage2CaptureService(
+                stage2_service=FakeStage2Service(transport),
+                object_repository=_repo(tmp_dir),
+                repository=RealCandidateStage2CaptureRepository(),
+            )
+            result = service.capture_candidates([candidate], now="2026-05-01T00:00:00+00:00")
+
+        enriched = result["enriched_candidates"][0]
+        self.assertEqual(enriched["primary_responsible_person_name"], "王杰")
+        self.assertEqual(enriched["project_manager_name"], "王杰")
+        self.assertEqual(enriched["project_manager_certificate_no"], "22ZEZACJ0034")
+        self.assertNotEqual(enriched["project_manager_certificate_no"], "0702060013")
+
     def test_pdf_attachment_markitdown_fallback_feeds_qualification_blocks(self) -> None:
         detail_url = "https://www.ccgp.gov.cn/cggg/zygg/zbgg/202604/t20260430_pdf_markitdown_manager.htm"
         attachment_url = "https://www.ccgp.gov.cn/cggg/zygg/zbgg/202604/files/gd-manager.pdf"
@@ -2101,6 +2264,30 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
         self.assertFalse(enriched["responsible_role_gap_review_required"])
         self.assertNotEqual(enriched["primary_responsible_person_name"], "按招标文件的要求")
         self.assertNotEqual(enriched.get("project_manager_certificate_no", ""), "详见投标文件公开")
+
+    def test_guangzhou_publicity_table_binds_first_candidate_when_short_attachment_placeholders(self) -> None:
+        title = "燃气管道迁改工程设计施工总承包RQSG2标段中标候选人公示"
+        enriched = _capture_single_candidate_from_html(
+            detail_url="https://ywtb.gzggzy.cn/notice/gz-publicity-short-placeholder-001.html",
+            title=title,
+            html=_guangzhou_publicity_table_html(
+                title,
+                first_row=(
+                    "（主）中国化学工程第六建设有限公司,（成）中国市政工程华北设计研究总院有限公司 "
+                    "91420000177570439L 1 167531045.35元 "
+                    "见附件 见附件 见附件 见附件 曾凡伟 见附件 见附件"
+                ),
+            ),
+        )
+
+        self.assertEqual(
+            enriched["candidate_company"],
+            "（主）中国化学工程第六建设有限公司,（成）中国市政工程华北设计研究总院有限公司",
+        )
+        self.assertEqual(enriched["primary_responsible_person_name"], "曾凡伟")
+        self.assertEqual(enriched["project_manager_name"], "曾凡伟")
+        self.assertEqual(enriched.get("project_manager_certificate_no", ""), "")
+        self.assertNotEqual(enriched["primary_responsible_person_name"], "周永兵")
 
     def test_guangzhou_publicity_table_extracts_construction_certificate_with_space(self) -> None:
         title = "长安镇110kV东宝站10kV领阳线电力迁改工程施工中标候选人公示"
