@@ -46,6 +46,16 @@ class EvidenceOrchestrationStateMachineTests(unittest.TestCase):
             adapter_jobs = json.loads((root / "out" / "adapter-job-table.json").read_text(encoding="utf-8"))
             self.assertEqual(adapter_jobs["summary"]["job_type_counts"]["data_ggzy_company_history_overlap_triage"], 2)
             self.assertTrue((root / "out" / "stage6-fact-package-readiness-table.json").exists())
+            batch_triage = json.loads((root / "out" / "batch-triage-table.json").read_text(encoding="utf-8"))
+            self.assertEqual(
+                batch_triage["summary"]["batch_triage_bucket_counts"],
+                {
+                    "DEFER_NON_MAINLINE_ADAPTER": 1,
+                    "RUN_P13B_COMPANY_HISTORY": 2,
+                },
+            )
+            self.assertEqual(summary["batch_triage_record_count"], 3)
+            self.assertEqual(summary["continue_internal_project_count"], 2)
 
     def test_p13b_backtrace_required_becomes_original_notice_adapter_job(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -68,6 +78,15 @@ class EvidenceOrchestrationStateMachineTests(unittest.TestCase):
             by_project = _records_by_project(result["manifest"]["evidence_state_table"]["records"])
             self.assertEqual(by_project["PROJ-CN-GD-JG2026-11398-002"]["evidence_state"], "P13B_ORIGINAL_BACKTRACE_REQUIRED")
             self.assertEqual(by_project["PROJ-CN-GD-JG2026-11398-002"]["evidence_grade"], "PENDING_ORIGINAL_BACKTRACE")
+            batch_by_project = _records_by_project(result["manifest"]["batch_triage_table"]["records"])
+            self.assertEqual(
+                batch_by_project["PROJ-CN-GD-JG2026-11398-002"]["batch_triage_bucket"],
+                "CONTINUE_ORIGINAL_BACKTRACE",
+            )
+            self.assertEqual(
+                batch_by_project["PROJ-CN-GD-JG2026-11398-002"]["commercial_decision_state"],
+                "CONTINUE_INTERNAL_EVIDENCE_RUN",
+            )
             adapter_jobs = result["manifest"]["adapter_job_table"]["records"]
             self.assertTrue(
                 any(
@@ -101,6 +120,16 @@ class EvidenceOrchestrationStateMachineTests(unittest.TestCase):
             self.assertEqual(rqsg2["evidence_grade"], "A_STRONG_SIGNAL")
             self.assertEqual(rqsg2["stage6_fact_package_state"], "A_STRONG_SIGNAL_FACT_PACKAGE_READY")
             self.assertTrue(rqsg2["release_evidence_probe_required"])
+            batch_by_project = _records_by_project(result["manifest"]["batch_triage_table"]["records"])
+            self.assertEqual(
+                batch_by_project["PROJ-CN-GD-JG2026-11398-002"]["batch_triage_bucket"],
+                "A_STRONG_SIGNAL_READY_FOR_RELEASE_EVIDENCE",
+            )
+            self.assertEqual(
+                batch_by_project["PROJ-CN-GD-JG2026-11398-002"]["commercial_decision_state"],
+                "PROMOTE_TO_STAGE6_FACT_PACKAGE_AND_STAGE7_GOVERNED_PREVIEW",
+            )
+            self.assertTrue(batch_by_project["PROJ-CN-GD-JG2026-11398-002"]["stage7_commercial_input_allowed"])
             fact_rows = result["manifest"]["stage6_fact_package_readiness_table"]["records"]
             fact = _records_by_project(fact_rows)["PROJ-CN-GD-JG2026-11398-002"]
             self.assertTrue(fact["stage7_commercial_input_allowed"])
@@ -166,6 +195,12 @@ class EvidenceOrchestrationStateMachineTests(unittest.TestCase):
             self.assertEqual(rqsg2["evidence_grade"], "PENDING_ORIGINAL_BACKTRACE")
             self.assertEqual(rqsg2["recommended_next_action"], "continue_p13b_original_notice_backtrace")
             self.assertIn("original_notice_backtrace_budget_deferred_or_incomplete", rqsg2["review_reasons"])
+            batch_by_project = _records_by_project(result["manifest"]["batch_triage_table"]["records"])
+            self.assertEqual(
+                batch_by_project["PROJ-CN-GD-JG2026-11398-002"]["batch_triage_bucket"],
+                "CONTINUE_ORIGINAL_BACKTRACE",
+            )
+            self.assertTrue(batch_by_project["PROJ-CN-GD-JG2026-11398-002"]["continue_allowed"])
 
     def test_browser_readback_blocker_keeps_d_state_retry_reason_visible(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -193,6 +228,16 @@ class EvidenceOrchestrationStateMachineTests(unittest.TestCase):
             self.assertEqual(rqsg2["evidence_state"], "D_INSUFFICIENT_OR_BLOCKED_READBACK")
             self.assertEqual(rqsg2["recommended_next_action"], "manual_review_or_retry_blocked_original_notice_backtrace")
             self.assertIn("original_notice_backtrace_blocked_or_source_unsupported", rqsg2["review_reasons"])
+            batch_by_project = _records_by_project(result["manifest"]["batch_triage_table"]["records"])
+            self.assertEqual(
+                batch_by_project["PROJ-CN-GD-JG2026-11398-002"]["batch_triage_bucket"],
+                "D_BLOCKED_OR_INSUFFICIENT_REVIEW",
+            )
+            self.assertEqual(
+                batch_by_project["PROJ-CN-GD-JG2026-11398-002"]["commercial_decision_state"],
+                "KEEP_INTERNAL_REVIEW_OR_MANUAL_RESOLVE",
+            )
+            self.assertFalse(batch_by_project["PROJ-CN-GD-JG2026-11398-002"]["continue_allowed"])
 
 
 def _write_stage16_storage(path: Path) -> None:

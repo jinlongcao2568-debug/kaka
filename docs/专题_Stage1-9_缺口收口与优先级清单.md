@@ -27,7 +27,7 @@
 - Stage1-3 主干链路已形成
 - Stage4 外部证据链最弱，仍是当前最大短板
 - Stage5 双闸门已实现，但真实样本规模和误报/漏报校准仍不足
-- Stage1-6 到 P13B 的证据编排状态机已新增第一版，可把真实项目归并到 P13B、原文回溯、A 级强线索、Stage6 事实包 readiness 等状态；一键续跑入口已能从 `P13B_ORIGINAL_BACKTRACE_REQUIRED` 自动生成原文回溯任务并回写状态
+- Stage1-6 到 P13B 的证据编排状态机已新增第一版，可把真实项目归并到 P13B、原文回溯、A 级强线索、Stage6 事实包 readiness 等状态；一键续跑入口已能从 `P13B_ORIGINAL_BACKTRACE_REQUIRED` 自动生成原文回溯任务并回写状态；`batch-triage-table.json` 已能按批次给出继续跑、进入事实包/Stage7 内部预览、D 级内部复核或非主线暂存决策
 - Stage6/7 内部对象和 readback 已存在
 - Stage8/9 已有 governed readback 和受控开启语义，但真实 live execution 仍按受控开放边界保持关闭
 
@@ -70,13 +70,13 @@
 
 ### P0-2 Stage6/7 真实候选 formal real_public 闭环
 
-- 现状：Stage6/7 内部对象已存在；`evidence_orchestration_state_machine_v1` 已能消费 Stage1-6 storage、公司优先补证、P13B 和原文回溯产物，生成 `evidence-state-table`、`adapter-job-table`、`stage6-fact-package-readiness-table`；`evidence_orchestration_continuation_runner_v1` 已能一键生成原文回溯任务并重建状态，但真实候选仍常被 Stage4 释放证据链缺口挡在 formal real_public 闭环之前。
+- 现状：Stage6/7 内部对象已存在；`evidence_orchestration_state_machine_v1` 已能消费 Stage1-6 storage、公司优先补证、P13B 和原文回溯产物，生成 `evidence-state-table`、`adapter-job-table`、`stage6-fact-package-readiness-table` 和 `batch-triage-table`；`evidence_orchestration_continuation_runner_v1` 已能一键生成原文回溯任务并重建状态，但真实候选仍常被 Stage4 释放证据链缺口挡在 formal real_public 闭环之前。
 - 直接症状：
   - `real_public_sellable_gate_ready=false`
   - formal real_public 路径存在，但常因 source coverage、原文回溯和释放证据链不足停下
 - 完成标准：
   - 真实候选能更稳定进入 Stage5 双门、Stage6 `project_fact`、Stage7 `saleable_opportunity`
-  - 编排状态能自动指向下一步 adapter job，避免真实项目“生成任务后靠人工记忆续跑”
+  - 编排状态能自动指向下一步 adapter job，并通过批次决策表标出继续、暂存、复核和 Stage6/7 内部预览路径，避免真实项目“生成任务后靠人工记忆续跑”
   - 不因内部 preview 存在就误判“正式可售已经完成”
 
 ## 6. 当前 P1 缺口

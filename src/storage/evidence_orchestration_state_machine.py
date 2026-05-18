@@ -101,10 +101,22 @@ def build_evidence_orchestration_state(
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,
     }
+    batch_triage_records = _batch_triage_records(evidence_records, created_at=created)
+    batch_triage_table = {
+        "summary": _batch_triage_summary(batch_triage_records),
+        "records": batch_triage_records,
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
     summary = {
         **evidence_table["summary"],
         "adapter_job_count": len(adapter_jobs),
         "stage6_fact_package_record_count": len(fact_package_records),
+        "batch_triage_record_count": len(batch_triage_records),
+        "batch_triage_bucket_counts": batch_triage_table["summary"]["batch_triage_bucket_counts"],
+        "commercial_decision_state_counts": batch_triage_table["summary"]["commercial_decision_state_counts"],
+        "continue_internal_project_count": batch_triage_table["summary"]["continue_internal_project_count"],
+        "stop_or_park_project_count": batch_triage_table["summary"]["stop_or_park_project_count"],
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,
     }
@@ -122,6 +134,7 @@ def build_evidence_orchestration_state(
         "evidence_state_table": evidence_table,
         "adapter_job_table": adapter_job_table,
         "stage6_fact_package_readiness_table": fact_package_table,
+        "batch_triage_table": batch_triage_table,
         "summary": summary,
         "safety": {
             "download_enabled": False,
@@ -150,6 +163,7 @@ def build_evidence_orchestration_state(
     _write_json(out_dir / "evidence-state-table.json", evidence_table)
     _write_json(out_dir / "adapter-job-table.json", adapter_job_table)
     _write_json(out_dir / "stage6-fact-package-readiness-table.json", fact_package_table)
+    _write_json(out_dir / "batch-triage-table.json", batch_triage_table)
     return result
 
 
@@ -717,6 +731,192 @@ def _fact_package_summary(records: list[Mapping[str, Any]]) -> dict[str, Any]:
     return {
         "stage6_fact_package_record_count": len(records),
         "stage6_fact_package_state_counts": _counts(record.get("stage6_fact_package_state") for record in records),
+        "stage6_ready_count": sum(1 for record in records if bool(record.get("stage6_ready"))),
+        "stage7_commercial_input_allowed_count": sum(
+            1 for record in records if bool(record.get("stage7_commercial_input_allowed"))
+        ),
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
+
+
+def _batch_triage_records(records: list[Mapping[str, Any]], *, created_at: str) -> list[dict[str, Any]]:
+    rows = [_batch_triage_record(record, created_at=created_at) for record in records]
+    rows.sort(
+        key=lambda row: (
+            -int(row.get("batch_priority_score") or 0),
+            str(row.get("project_id") or ""),
+        )
+    )
+    for index, row in enumerate(rows, start=1):
+        row["batch_priority_rank"] = index
+    return rows
+
+
+def _batch_triage_record(record: Mapping[str, Any], *, created_at: str) -> dict[str, Any]:
+    bucket = _batch_triage_bucket(record)
+    decision = _commercial_decision_state(bucket)
+    stage6_state = str(record.get("stage6_fact_package_state") or "")
+    continue_allowed = decision in {
+        "CONTINUE_INTERNAL_EVIDENCE_RUN",
+        "PROMOTE_TO_STAGE6_FACT_PACKAGE_AND_STAGE7_GOVERNED_PREVIEW",
+    }
+    return {
+        "batch_triage_id": _stable_id("BATCH-TRIAGE", record.get("project_id"), bucket),
+        "project_id": record.get("project_id"),
+        "project_name": record.get("project_name"),
+        "candidate_group_members": _list(record.get("candidate_group_members")),
+        "responsible_person_name": record.get("responsible_person_name"),
+        "evidence_state": record.get("evidence_state"),
+        "evidence_grade": record.get("evidence_grade"),
+        "batch_triage_bucket": bucket,
+        "commercial_decision_state": decision,
+        "recommended_next_action": _batch_recommended_next_action(record, bucket),
+        "batch_priority_score": _batch_priority_score(record, bucket),
+        "batch_priority_rank": 0,
+        "continue_allowed": continue_allowed,
+        "stop_reason": "" if continue_allowed else _batch_stop_reason(record, bucket),
+        "stage6_fact_package_state": stage6_state,
+        "stage6_ready": stage6_state in {"A_STRONG_SIGNAL_FACT_PACKAGE_READY", "REVIEW_FACT_PACKAGE_READY"},
+        "stage7_commercial_input_allowed": stage6_state == "A_STRONG_SIGNAL_FACT_PACKAGE_READY",
+        "stage7_commercial_input_mode": (
+            "GOVERNED_INTERNAL_PREVIEW_ONLY"
+            if stage6_state == "A_STRONG_SIGNAL_FACT_PACKAGE_READY"
+            else "BLOCKED_OR_REVIEW"
+        ),
+        "signal_counts": dict(record.get("signal_counts") or {}),
+        "review_reasons": _list(record.get("review_reasons")),
+        "created_at": created_at,
+        "customer_visible_allowed": False,
+        "external_send_enabled": False,
+        "no_legal_conclusion": True,
+    }
+
+
+def _batch_triage_bucket(record: Mapping[str, Any]) -> str:
+    state = str(record.get("evidence_state") or "")
+    if state == "A_STRONG_TIME_OVERLAP_SIGNAL_READY":
+        return "A_STRONG_SIGNAL_READY_FOR_RELEASE_EVIDENCE"
+    if state == "P13B_ORIGINAL_BACKTRACE_REQUIRED":
+        return "CONTINUE_ORIGINAL_BACKTRACE"
+    if state == "READY_FOR_P13B_DATA_GGZY":
+        return "RUN_P13B_COMPANY_HISTORY"
+    if state in {"WAIT_COMPANY_FIRST_CERTIFICATE_SUPPLEMENT", "WAIT_CERTIFICATE_OR_PUBLIC_IDENTIFIER"}:
+        return "RUN_COMPANY_FIRST_CERTIFICATE_SUPPLEMENT"
+    if state == "D_INSUFFICIENT_OR_BLOCKED_READBACK":
+        return "D_BLOCKED_OR_INSUFFICIENT_REVIEW"
+    if state == "P13B_NO_DIRECT_SIGNAL_REVIEW":
+        return "LOW_VALUE_REVIEW_NO_CLEARANCE_CLAIM"
+    if state == "DEFER_DESIGN_SURVEY_RESPONSIBLE_OVERLAP_ADAPTER":
+        return "DEFER_NON_MAINLINE_ADAPTER"
+    if state == "WAIT_STAGE2_CAPTURE":
+        return "FIX_STAGE2_CAPTURE"
+    if state == "WAIT_RESPONSIBLE_PERSON_EXTRACTION":
+        return "FIX_STAGE3_RESPONSIBLE_PERSON_EXTRACTION"
+    return "BLOCKED_UPSTREAM_STAGE"
+
+
+def _commercial_decision_state(bucket: str) -> str:
+    if bucket == "A_STRONG_SIGNAL_READY_FOR_RELEASE_EVIDENCE":
+        return "PROMOTE_TO_STAGE6_FACT_PACKAGE_AND_STAGE7_GOVERNED_PREVIEW"
+    if bucket in {
+        "CONTINUE_ORIGINAL_BACKTRACE",
+        "RUN_P13B_COMPANY_HISTORY",
+        "RUN_COMPANY_FIRST_CERTIFICATE_SUPPLEMENT",
+    }:
+        return "CONTINUE_INTERNAL_EVIDENCE_RUN"
+    if bucket == "D_BLOCKED_OR_INSUFFICIENT_REVIEW":
+        return "KEEP_INTERNAL_REVIEW_OR_MANUAL_RESOLVE"
+    if bucket == "LOW_VALUE_REVIEW_NO_CLEARANCE_CLAIM":
+        return "STOP_OR_PARK_WITHOUT_CLEARANCE_CLAIM"
+    if bucket == "DEFER_NON_MAINLINE_ADAPTER":
+        return "PARK_NON_MAINLINE_ADAPTER"
+    return "FIX_UPSTREAM_EXTRACTION_OR_CAPTURE"
+
+
+def _batch_recommended_next_action(record: Mapping[str, Any], bucket: str) -> str:
+    if bucket == "A_STRONG_SIGNAL_READY_FOR_RELEASE_EVIDENCE":
+        return "build_release_evidence_regional_adapter_plan_and_stage6_fact_package"
+    if bucket == "CONTINUE_ORIGINAL_BACKTRACE":
+        return "continue_p13b_original_notice_backtrace"
+    if bucket == "RUN_P13B_COMPANY_HISTORY":
+        return "run_data_ggzy_company_history_overlap_triage"
+    if bucket == "RUN_COMPANY_FIRST_CERTIFICATE_SUPPLEMENT":
+        return "run_company_first_identifier_resolution_before_p13b"
+    if bucket == "D_BLOCKED_OR_INSUFFICIENT_REVIEW":
+        return "manual_review_or_retry_blocked_original_notice_backtrace_without_clearance_claim"
+    if bucket == "LOW_VALUE_REVIEW_NO_CLEARANCE_CLAIM":
+        return "park_or_manual_review_p13b_without_clearance_claim"
+    if bucket == "DEFER_NON_MAINLINE_ADAPTER":
+        return "park_until_design_survey_responsible_overlap_adapter_exists"
+    if bucket == "FIX_STAGE2_CAPTURE":
+        return "retry_stage2_detail_capture"
+    if bucket == "FIX_STAGE3_RESPONSIBLE_PERSON_EXTRACTION":
+        return "targeted_current_notice_or_attachment_readback_for_responsible_person"
+    return str(record.get("recommended_next_action") or "manual_review_upstream_blocker")
+
+
+def _batch_stop_reason(record: Mapping[str, Any], bucket: str) -> str:
+    if bucket == "D_BLOCKED_OR_INSUFFICIENT_REVIEW":
+        return "release_evidence_or_original_readback_insufficient_or_blocked"
+    if bucket == "LOW_VALUE_REVIEW_NO_CLEARANCE_CLAIM":
+        return "p13b_no_same_person_time_window_signal_but_no_clearance_claim"
+    if bucket == "DEFER_NON_MAINLINE_ADAPTER":
+        return "design_or_survey_overlap_adapter_not_in_mainline_yet"
+    if bucket == "FIX_STAGE2_CAPTURE":
+        return "stage2_detail_capture_not_ready"
+    if bucket == "FIX_STAGE3_RESPONSIBLE_PERSON_EXTRACTION":
+        return "responsible_person_field_not_ready"
+    reasons = _list(record.get("review_reasons"))
+    return str(reasons[0]) if reasons else "upstream_evidence_or_adapter_not_ready"
+
+
+def _batch_priority_score(record: Mapping[str, Any], bucket: str) -> int:
+    base_scores = {
+        "A_STRONG_SIGNAL_READY_FOR_RELEASE_EVIDENCE": 1000,
+        "CONTINUE_ORIGINAL_BACKTRACE": 820,
+        "RUN_P13B_COMPANY_HISTORY": 760,
+        "RUN_COMPANY_FIRST_CERTIFICATE_SUPPLEMENT": 700,
+        "D_BLOCKED_OR_INSUFFICIENT_REVIEW": 430,
+        "LOW_VALUE_REVIEW_NO_CLEARANCE_CLAIM": 260,
+        "DEFER_NON_MAINLINE_ADAPTER": 220,
+        "FIX_STAGE3_RESPONSIBLE_PERSON_EXTRACTION": 180,
+        "FIX_STAGE2_CAPTURE": 120,
+        "BLOCKED_UPSTREAM_STAGE": 100,
+    }
+    score = base_scores.get(bucket, 0)
+    signal_counts = record.get("signal_counts") if isinstance(record.get("signal_counts"), Mapping) else {}
+    score += min(int(signal_counts.get("p13b_original_backtrace_required_count") or 0), 5) * 8
+    score += min(int(signal_counts.get("p13b_a_strong_direct_signal_count") or 0), 5) * 20
+    score += min(int(signal_counts.get("original_notice_a_strong_signal_count") or 0), 5) * 20
+    return score
+
+
+def _batch_triage_summary(records: list[Mapping[str, Any]]) -> dict[str, Any]:
+    return {
+        "batch_triage_record_count": len(records),
+        "batch_triage_bucket_counts": _counts(record.get("batch_triage_bucket") for record in records),
+        "commercial_decision_state_counts": _counts(record.get("commercial_decision_state") for record in records),
+        "continue_internal_project_count": sum(
+            1
+            for record in records
+            if str(record.get("commercial_decision_state") or "")
+            in {
+                "CONTINUE_INTERNAL_EVIDENCE_RUN",
+                "PROMOTE_TO_STAGE6_FACT_PACKAGE_AND_STAGE7_GOVERNED_PREVIEW",
+            }
+        ),
+        "stop_or_park_project_count": sum(
+            1
+            for record in records
+            if str(record.get("commercial_decision_state") or "")
+            in {
+                "KEEP_INTERNAL_REVIEW_OR_MANUAL_RESOLVE",
+                "STOP_OR_PARK_WITHOUT_CLEARANCE_CLAIM",
+                "PARK_NON_MAINLINE_ADAPTER",
+                "FIX_UPSTREAM_EXTRACTION_OR_CAPTURE",
+            }
+        ),
         "stage6_ready_count": sum(1 for record in records if bool(record.get("stage6_ready"))),
         "stage7_commercial_input_allowed_count": sum(
             1 for record in records if bool(record.get("stage7_commercial_input_allowed"))
