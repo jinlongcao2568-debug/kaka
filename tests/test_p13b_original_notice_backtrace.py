@@ -13,7 +13,12 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from storage.p13b_original_notice_backtrace import build_p13b_original_notice_backtrace, main, _request_safe_url  # noqa: E402
+from storage.p13b_original_notice_backtrace import (  # noqa: E402
+    _canonical_original_notice_url,
+    _request_safe_url,
+    build_p13b_original_notice_backtrace,
+    main,
+)
 
 
 class P13BOriginalNoticeBacktraceTests(unittest.TestCase):
@@ -61,6 +66,92 @@ class P13BOriginalNoticeBacktraceTests(unittest.TestCase):
         self.assertIn("%E5%85%AC%E5%91%8A", safe_url)
         self.assertIn("title=%E5%8E%86%E5%8F%B2%E9%A1%B9%E7%9B%AE", safe_url)
         safe_url.encode("ascii")
+
+    def test_original_notice_url_canonicalization_repairs_scheme_less_domain(self) -> None:
+        url, blockers = _canonical_original_notice_url("www.tjconstruct.cn/jyxx/notice.html?x=1")
+
+        self.assertEqual(url, "https://www.tjconstruct.cn/jyxx/notice.html?x=1")
+        self.assertEqual(blockers, [])
+
+    def test_original_notice_url_canonicalization_marks_placeholder_as_missing(self) -> None:
+        url, blockers = _canonical_original_notice_url("公告地址为空")
+
+        self.assertEqual(url, "公告地址为空")
+        self.assertEqual(blockers, ["original_notice_url_missing_review"])
+
+    def test_original_notice_url_canonicalization_keeps_unsupported_scheme_blocked(self) -> None:
+        url, blockers = _canonical_original_notice_url("ftp://example.invalid/unsupported")
+
+        self.assertEqual(url, "ftp://example.invalid/unsupported")
+        self.assertEqual(blockers, ["original_notice_unsupported_url_scheme"])
+
+    def test_live_original_notice_fetches_normalized_scheme_less_url(self) -> None:
+        called_urls: list[str] = []
+
+        def getter(url: str, context: Mapping[str, Any]) -> Mapping[str, Any]:
+            called_urls.append(url)
+            return _fake_http_getter(url, context)
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_p13b_input(root, first_url="www.example.gov.cn/original/overlap.html")
+
+            result = build_p13b_original_notice_backtrace(
+                input_root=root,
+                output_root=root / "out",
+                enable_live_public_query=True,
+                max_live_original_notices=1,
+                http_getter=getter,
+                created_at="2026-05-15T00:00:00+08:00",
+            )
+
+            fetch = result["manifest"]["original_notice_fetch_records"][0]
+            self.assertEqual(called_urls, ["https://www.example.gov.cn/original/overlap.html"])
+            self.assertEqual(fetch["original_notice_url_raw"], "www.example.gov.cn/original/overlap.html")
+            self.assertEqual(fetch["original_notice_url_normalized"], "https://www.example.gov.cn/original/overlap.html")
+            self.assertTrue(fetch["original_notice_url_was_normalized"])
+            self.assertEqual(result["summary"]["source_unsupported_count"], 0)
+
+    def test_scheme_less_https_transport_error_falls_back_to_http(self) -> None:
+        called_urls: list[str] = []
+
+        def getter(url: str, context: Mapping[str, Any]) -> Mapping[str, Any]:
+            called_urls.append(url)
+            if url.startswith("https://www.tjconstruct.cn"):
+                return {
+                    "status_code": 0,
+                    "content_type": "",
+                    "body": "",
+                    "url": url,
+                    "error": "[SSL: WRONG_VERSION_NUMBER] wrong version number",
+                }
+            return _fake_http_getter(url, context)
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_p13b_input(root, first_url="www.tjconstruct.cn/original/overlap.html")
+
+            result = build_p13b_original_notice_backtrace(
+                input_root=root,
+                output_root=root / "out",
+                enable_live_public_query=True,
+                max_live_original_notices=1,
+                http_getter=getter,
+                created_at="2026-05-15T00:00:00+08:00",
+            )
+
+            fetch = result["manifest"]["original_notice_fetch_records"][0]
+            self.assertEqual(
+                called_urls,
+                [
+                    "https://www.tjconstruct.cn/original/overlap.html",
+                    "http://www.tjconstruct.cn/original/overlap.html",
+                ],
+            )
+            self.assertTrue(fetch["original_notice_http_fallback_attempted"])
+            self.assertEqual(fetch["fetch_state"], "ORIGINAL_NOTICE_FETCHED")
+            self.assertEqual(fetch["route_attempt"]["requested_url"], "http://www.tjconstruct.cn/original/overlap.html")
+            self.assertEqual(len(fetch["route_attempts"]), 2)
 
     def test_company_history_triage_root_reads_manual_backtrace_table(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -183,6 +274,26 @@ class P13BOriginalNoticeBacktraceTests(unittest.TestCase):
             self.assertEqual(summary["source_unsupported_count"], 0)
             extraction = result["manifest"]["original_notice_extraction_records"][0]
             self.assertIn("original_notice_person_period_not_extracted_review", extraction["blocker_taxonomy"])
+
+    def test_fetched_notice_with_unextractable_body_keeps_blocker_reason(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_p13b_input(root, first_url="https://example.gov.cn/original/empty-text.html")
+
+            result = build_p13b_original_notice_backtrace(
+                input_root=root,
+                output_root=root / "out",
+                enable_live_public_query=True,
+                max_live_original_notices=1,
+                http_getter=_fake_http_getter,
+                created_at="2026-05-15T00:00:00+08:00",
+            )
+
+            summary = result["summary"]
+            self.assertEqual(summary["fetch_state_counts"]["ORIGINAL_NOTICE_FETCHED"], 1)
+            self.assertEqual(summary["extraction_state_counts"]["ORIGINAL_NOTICE_SOURCE_UNSUPPORTED"], 1)
+            extraction = result["manifest"]["original_notice_extraction_records"][0]
+            self.assertIn("original_notice_body_not_extractable_review", extraction["blocker_taxonomy"])
 
     def test_javascript_shell_is_taxonomized_as_browser_readback_required(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -541,6 +652,12 @@ def _fake_http_getter(url: str, context: Mapping[str, Any]) -> Mapping[str, Any]
             "status_code": 200,
             "content_type": "text/html",
             "body": "<html><body><h1>公告正文</h1><p>本页面为平台公告。</p></body></html>",
+        }
+    if url.endswith("/empty-text.html"):
+        return {
+            "status_code": 200,
+            "content_type": "text/html",
+            "body": "<html><head><script></script><style></style></head></html>",
         }
     if url.endswith("/js-shell.html"):
         return {

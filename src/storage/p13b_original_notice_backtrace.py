@@ -33,6 +33,23 @@ RELEASE_EVIDENCE_SOURCE_TARGETS = [
     "administrative_penalty_or_complaint_decision",
 ]
 HttpGetter = Callable[[str, Mapping[str, Any]], Mapping[str, Any]]
+MISSING_ORIGINAL_NOTICE_URL_MARKERS = {
+    "",
+    "-",
+    "--",
+    "null",
+    "none",
+    "nan",
+    "n/a",
+    "na",
+    "无",
+    "暂无",
+    "无链接",
+    "公告地址为空",
+    "原文地址为空",
+    "原文链接为空",
+}
+MISSING_ORIGINAL_NOTICE_URL_PHRASES = ("公告地址为空", "原文地址为空", "原文链接为空")
 
 
 def build_p13b_original_notice_backtrace(
@@ -636,13 +653,38 @@ def _extract_record_from_ygp_readback(task: Mapping[str, Any], ygp_readback: Map
 
 
 def _fetch_original_notice(task: Mapping[str, Any], *, getter: HttpGetter, created_at: str) -> dict[str, Any]:
-    url = str(task.get("original_notice_url") or "")
+    raw_url = str(task.get("original_notice_url") or "").strip()
+    url, url_blockers = _canonical_original_notice_url(raw_url)
+    if url_blockers:
+        return {
+            **dict(task),
+            "execution_mode": "LIVE_PUBLIC_QUERY_ATTEMPTED",
+            "fetch_state": "ORIGINAL_NOTICE_SOURCE_UNSUPPORTED",
+            "source_url": url,
+            "original_notice_url_raw": raw_url,
+            "original_notice_url_normalized": url,
+            "original_notice_url_was_normalized": raw_url != url,
+            "status_code": 0,
+            "content_type": "",
+            "body_sha256": "",
+            "body_probe": "",
+            "text_probe": "",
+            "text_probe_sha256": "",
+            "route_attempt": {"url": raw_url, "normalized_url": url, "status_code": 0, "error": ",".join(url_blockers)},
+            "blocker_taxonomy": url_blockers,
+            "created_at": created_at,
+            "customer_visible_allowed": False,
+            "no_legal_conclusion": True,
+        }
     if "ygp.gdzwfw.gov.cn" in url.lower():
         return {
             **dict(task),
             "execution_mode": "LIVE_PUBLIC_QUERY_ATTEMPTED",
             "fetch_state": "ORIGINAL_NOTICE_SOURCE_UNSUPPORTED",
             "source_url": url,
+            "original_notice_url_raw": raw_url,
+            "original_notice_url_normalized": url,
+            "original_notice_url_was_normalized": raw_url != url,
             "status_code": 0,
             "content_type": "",
             "body_sha256": "",
@@ -661,27 +703,37 @@ def _fetch_original_notice(task: Mapping[str, Any], *, getter: HttpGetter, creat
             "customer_visible_allowed": False,
             "no_legal_conclusion": True,
         }
-    if not url.lower().startswith(("http://", "https://")):
-        return {
-            **dict(task),
-            "execution_mode": "LIVE_PUBLIC_QUERY_ATTEMPTED",
-            "fetch_state": "ORIGINAL_NOTICE_SOURCE_UNSUPPORTED",
-            "route_attempt": {"url": url, "status_code": 0, "error": "unsupported_url_scheme"},
-            "blocker_taxonomy": ["original_notice_unsupported_url_scheme"],
-            "created_at": created_at,
-        }
     response = dict(getter(url, {"route": "original_notice_fetch", "task": dict(task)}))
-    status = int(response.get("status_code") or response.get("status") or 0)
-    body = str(response.get("body") or response.get("content") or response.get("text") or "")
-    content_type = str(response.get("content_type") or "")
-    full_text = _html_to_text(body) if body else ""
+    route_attempts = [_route_attempt_from_fetch_response(response, requested_url=url)]
+    status, content_type, body = _fetch_response_parts(response)
     blockers = _blockers_from_response(status=status, body_probe=body[:300], error=str(response.get("error") or ""))
+    fallback_url = _http_fallback_url_for_scheme_less_https(raw_url=raw_url, normalized_url=url, blockers=blockers)
+    if fallback_url:
+        response = dict(
+            getter(
+                fallback_url,
+                {
+                    "route": "original_notice_fetch_http_fallback",
+                    "task": dict(task),
+                    "previous_attempt": route_attempts[-1],
+                },
+            )
+        )
+        route_attempts.append(_route_attempt_from_fetch_response(response, requested_url=fallback_url))
+        status, content_type, body = _fetch_response_parts(response)
+        blockers = _blockers_from_response(status=status, body_probe=body[:300], error=str(response.get("error") or ""))
+    full_text = _html_to_text(body) if body else ""
     fetch_state = "ORIGINAL_NOTICE_FETCH_BLOCKED" if blockers else "ORIGINAL_NOTICE_FETCHED"
     return {
         **dict(task),
         "execution_mode": "LIVE_PUBLIC_QUERY_ATTEMPTED",
         "fetch_state": fetch_state,
         "source_url": str(response.get("url") or url),
+        "original_notice_url_raw": raw_url,
+        "original_notice_url_normalized": url,
+        "original_notice_url_effective": str(response.get("url") or route_attempts[-1].get("url") or url),
+        "original_notice_http_fallback_attempted": bool(fallback_url),
+        "original_notice_url_was_normalized": raw_url != url,
         "status_code": status,
         "content_type": content_type,
         "body_sha256": _sha256(body) if body else "",
@@ -689,13 +741,8 @@ def _fetch_original_notice(task: Mapping[str, Any], *, getter: HttpGetter, creat
         "text_probe": full_text[:1200] if full_text else "",
         "text_probe_sha256": _sha256(full_text[:1200]) if full_text else "",
         "text_extractable": full_text[:50000] if full_text else "",
-        "route_attempt": {
-            "url": str(response.get("url") or url),
-            "status_code": status,
-            "content_type": content_type,
-            "body_sha256": _sha256(body) if body else "",
-            "error": str(response.get("error") or ""),
-        },
+        "route_attempt": route_attempts[-1],
+        "route_attempts": route_attempts,
         "blocker_taxonomy": blockers,
         "created_at": created_at,
         "customer_visible_allowed": False,
@@ -742,6 +789,8 @@ def _extract_original_notice(task: Mapping[str, Any], fetch: Mapping[str, Any], 
         blockers = ["original_notice_person_period_not_extracted_review"]
         if _looks_like_browser_readback_required(text, str(fetch.get("source_url") or "")):
             blockers.append("original_notice_browser_readback_required")
+    elif state == "ORIGINAL_NOTICE_SOURCE_UNSUPPORTED":
+        blockers = ["original_notice_body_not_extractable_review"]
     return {
         **dict(task),
         "original_notice_extraction_state": state,
@@ -949,6 +998,62 @@ def _default_http_getter(url: str, context: Mapping[str, Any]) -> Mapping[str, A
         return {"status_code": 0, "content_type": "", "body": "", "url": url, "error": str(exc.reason)}
     except (UnicodeEncodeError, ValueError, OSError) as exc:
         return {"status_code": 0, "content_type": "", "body": "", "url": url, "error": f"{type(exc).__name__}:{exc}"}
+
+
+def _fetch_response_parts(response: Mapping[str, Any]) -> tuple[int, str, str]:
+    status = int(response.get("status_code") or response.get("status") or 0)
+    content_type = str(response.get("content_type") or "")
+    body = str(response.get("body") or response.get("content") or response.get("text") or "")
+    return status, content_type, body
+
+
+def _route_attempt_from_fetch_response(response: Mapping[str, Any], *, requested_url: str) -> dict[str, Any]:
+    status, content_type, body = _fetch_response_parts(response)
+    return {
+        "url": str(response.get("url") or requested_url),
+        "requested_url": requested_url,
+        "status_code": status,
+        "content_type": content_type,
+        "body_sha256": _sha256(body) if body else "",
+        "error": str(response.get("error") or ""),
+    }
+
+
+def _http_fallback_url_for_scheme_less_https(*, raw_url: str, normalized_url: str, blockers: list[str]) -> str:
+    if not blockers or "original_notice_transport_error_retry_required" not in blockers:
+        return ""
+    if str(raw_url or "").strip().lower().startswith(("http://", "https://")):
+        return ""
+    if not str(normalized_url or "").lower().startswith("https://"):
+        return ""
+    return "http://" + str(normalized_url)[len("https://") :]
+
+
+def _canonical_original_notice_url(raw_url: str) -> tuple[str, list[str]]:
+    text = str(raw_url or "").strip()
+    lowered = text.lower()
+    if lowered in MISSING_ORIGINAL_NOTICE_URL_MARKERS or any(phrase in text for phrase in MISSING_ORIGINAL_NOTICE_URL_PHRASES):
+        return text, ["original_notice_url_missing_review"]
+    if text.startswith("//"):
+        return f"https:{text}", []
+    parts = urllib.parse.urlsplit(text)
+    if parts.scheme in {"http", "https"} and parts.netloc:
+        return text, []
+    if parts.scheme:
+        return text, ["original_notice_unsupported_url_scheme"]
+    if _looks_like_scheme_less_public_url(text):
+        return f"https://{text.lstrip('/')}", []
+    return text, ["original_notice_unsupported_url_scheme"]
+
+
+def _looks_like_scheme_less_public_url(value: str) -> bool:
+    return bool(
+        re.match(
+            r"^(?:www\.|[a-z0-9][a-z0-9-]*(?:\.[a-z0-9][a-z0-9-]*)+)(?::[0-9]{1,5})?(?:[/?#]|$)",
+            str(value or "").strip(),
+            flags=re.IGNORECASE,
+        )
+    )
 
 
 def _request_safe_url(url: str) -> str:
