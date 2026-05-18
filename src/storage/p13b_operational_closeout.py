@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping
 
 from shared.utils import utc_now_iso
+from stage4_verification.regional_hard_defect_sources import build_regional_hard_defect_source_plan
 
 
 P13B_OPERATIONAL_CLOSEOUT_KIND = "p13b_operational_closeout_v1_manifest"
@@ -93,6 +94,11 @@ def build_p13b_operational_closeout(
         _project_next_action_record(record)
         for record in project_records
     ]
+    release_evidence_probe_plan_records = _release_evidence_probe_plan_records(
+        closeout_manifest=closeout_manifest,
+        project_records=project_records,
+        created_at=created,
+    )
     budget_audit_records = _budget_audit_records(
         company_manifest=company_manifest,
         original_manifest=original_manifest,
@@ -122,6 +128,7 @@ def build_p13b_operational_closeout(
         "source_overlap_triage_closeout_root": str(closeout_dir),
         "summary": summary,
         "project_next_action_records": project_next_action_records,
+        "release_evidence_probe_plan_records": release_evidence_probe_plan_records,
         "budget_audit_records": budget_audit_records,
         "safety": {
             "network_enabled": False,
@@ -145,7 +152,7 @@ def build_p13b_operational_closeout(
         "manifest": manifest,
         "summary": summary,
     }
-    _finalize_and_write(out_dir, result, project_next_action_records, budget_audit_records)
+    _finalize_and_write(out_dir, result, project_next_action_records, release_evidence_probe_plan_records, budget_audit_records)
     return result
 
 
@@ -167,6 +174,77 @@ def _project_next_action_record(record: Mapping[str, Any]) -> dict[str, Any]:
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,
     }
+
+
+def _release_evidence_probe_plan_records(
+    *,
+    closeout_manifest: Mapping[str, Any],
+    project_records: list[Mapping[str, Any]],
+    created_at: str,
+) -> list[dict[str, Any]]:
+    project_by_id = {str(record.get("project_id") or ""): record for record in project_records}
+    rows: list[dict[str, Any]] = []
+    for trigger in _list(closeout_manifest.get("release_evidence_trigger_records")):
+        if not isinstance(trigger, Mapping):
+            continue
+        project_id = str(trigger.get("project_id") or "")
+        project = project_by_id.get(project_id, {})
+        candidate_company = str(trigger.get("candidate_company_name") or "")
+        person_names = _list(trigger.get("matched_person_names")) or _list(trigger.get("responsible_person_names"))
+        city_code = str(project.get("city_code") or "")
+        region_code = _region_code_from_city_code(city_code)
+        source_targets = _list(trigger.get("release_evidence_source_targets")) or [
+            "construction_permit",
+            "contract_filing_or_contract_credit_info",
+            "completion_or_acceptance_filing",
+            "project_manager_change_notice",
+        ]
+        source_plan = build_regional_hard_defect_source_plan(
+            {
+                "region_code": region_code,
+                "project_id": project_id,
+                "project_name": str(trigger.get("project_name") or project.get("project_name") or trigger.get("bid_project_name") or ""),
+                "candidate_company": candidate_company,
+                "project_manager_name": str(person_names[0] if person_names else ""),
+                "source_url": str(trigger.get("source_url") or ""),
+            }
+        )
+        rows.append(
+            {
+                "release_evidence_probe_plan_id": _stable_id(
+                    "P13B-RELEASE-PROBE-PLAN",
+                    trigger.get("release_evidence_trigger_id"),
+                    project_id,
+                    candidate_company,
+                    trigger.get("source_url"),
+                ),
+                "release_evidence_trigger_id": str(trigger.get("release_evidence_trigger_id") or ""),
+                "source_stage": str(trigger.get("source_stage") or ""),
+                "project_id": project_id,
+                "project_name": str(trigger.get("project_name") or project.get("project_name") or ""),
+                "city_code": city_code,
+                "region_code": region_code,
+                "candidate_company_name": candidate_company,
+                "matched_person_names": person_names,
+                "source_url": str(trigger.get("source_url") or ""),
+                "extracted_period_text": str(trigger.get("extracted_period_text") or ""),
+                "extracted_award_date": str(trigger.get("extracted_award_date") or ""),
+                "time_window_review_state": str(trigger.get("time_window_review_state") or ""),
+                "estimated_performance_end_date": str(trigger.get("estimated_performance_end_date") or ""),
+                "release_evidence_source_targets": source_targets,
+                "source_plan_state": str(source_plan.get("plan_state") or ""),
+                "source_plan_coverage_state": str(source_plan.get("coverage_state") or ""),
+                "source_entry_count": len(_list(source_plan.get("source_entries"))),
+                "next_required_runtime_adapters": _list(source_plan.get("next_required_runtime_adapters")),
+                "recommended_next_action": "prepare_targeted_release_evidence_probe_tasks",
+                "execution_mode": "PLAN_ONLY_NOT_EXECUTED",
+                "query_miss_is_not_clearance": True,
+                "customer_visible_allowed": False,
+                "no_legal_conclusion": True,
+                "created_at": created_at,
+            }
+        )
+    return rows
 
 
 def _budget_audit_records(
@@ -270,6 +348,7 @@ def _build_summary(
         "source_limit_deferred_count": state_counts.get("SOURCE_LIMIT_DEFERRED", 0),
         "original_notice_backtrace_required_count": state_counts.get("ORIGINAL_NOTICE_READBACK_REQUIRED", 0),
         "release_evidence_trigger_count": state_counts.get("OVERLAP_SIGNAL_REVIEW_REQUIRED", 0),
+        "release_evidence_probe_plan_count": _int(closeout_summary.get("release_evidence_trigger_count")) or state_counts.get("OVERLAP_SIGNAL_REVIEW_REQUIRED", 0),
         "ygp_readback_blocked_or_unsupported_count": state_counts.get("YGP_READBACK_BLOCKED_OR_UNSUPPORTED", 0),
         "no_overlap_signal_review_count": state_counts.get("NO_OVERLAP_SIGNAL_REVIEW", 0),
         "project_state_counts": state_counts,
@@ -287,6 +366,7 @@ def _finalize_and_write(
     out_dir: Path,
     result: dict[str, Any],
     project_next_action_records: list[Mapping[str, Any]],
+    release_evidence_probe_plan_records: list[Mapping[str, Any]],
     budget_audit_records: list[Mapping[str, Any]],
 ) -> None:
     text = json.dumps(result, ensure_ascii=False, indent=2)
@@ -304,6 +384,7 @@ def _finalize_and_write(
         result["summary"]["forbidden_term_scan_state"] = "PASS"
         result["manifest"]["summary"]["forbidden_term_scan_state"] = "PASS"
     _write_json(out_dir / "p13b-project-next-action-table.json", {"summary": result["summary"], "records": project_next_action_records})
+    _write_json(out_dir / "p13b-release-evidence-probe-plan-table.json", {"summary": result["summary"], "records": release_evidence_probe_plan_records})
     _write_json(out_dir / "p13b-budget-audit-table.json", {"summary": result["summary"], "records": budget_audit_records})
     _write_json(out_dir / "p13b-operational-closeout-v1.json", result)
 
@@ -378,6 +459,17 @@ def _int_or_none(value: Any) -> int | None:
         return int(value)
     except Exception:
         return None
+
+
+def _region_code_from_city_code(city_code: str) -> str:
+    code = str(city_code or "")
+    if code.startswith("44"):
+        return "CN-GD"
+    return ""
+
+
+def _stable_id(prefix: str, *parts: Any) -> str:
+    return f"{prefix}-{_fingerprint('|'.join(str(part or '') for part in parts))[:12]}"
 
 
 def _fingerprint(payload: Any) -> str:

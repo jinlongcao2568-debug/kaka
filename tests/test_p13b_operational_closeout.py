@@ -44,11 +44,13 @@ class P13BOperationalCloseoutTests(unittest.TestCase):
             self.assertEqual(summary["source_limit_deferred_count"], 1)
             self.assertEqual(summary["original_notice_backtrace_required_count"], 1)
             self.assertEqual(summary["release_evidence_trigger_count"], 1)
+            self.assertEqual(summary["release_evidence_probe_plan_count"], 1)
             self.assertEqual(summary["ygp_readback_blocked_or_unsupported_count"], 1)
             self.assertEqual(summary["no_overlap_signal_review_count"], 1)
             self.assertEqual(summary["forbidden_term_scan_state"], "PASS")
             self.assertTrue((root / "out" / "p13b-operational-closeout-v1.json").exists())
             self.assertTrue((root / "out" / "p13b-project-next-action-table.json").exists())
+            self.assertTrue((root / "out" / "p13b-release-evidence-probe-plan-table.json").exists())
             self.assertTrue((root / "out" / "p13b-budget-audit-table.json").exists())
 
             next_actions = {
@@ -60,6 +62,14 @@ class P13BOperationalCloseoutTests(unittest.TestCase):
             self.assertEqual(next_actions["PROJ-3"], "rerun_with_higher_live_budget_after_review")
             self.assertEqual(next_actions["PROJ-4"], "prepare_local_ygp_readback_or_keep_blocked_taxonomy")
             self.assertEqual(next_actions["PROJ-5"], "keep_internal_review_no_clearance_conclusion")
+
+            release_plans = result["manifest"]["release_evidence_probe_plan_records"]
+            self.assertEqual(len(release_plans), 1)
+            self.assertEqual(release_plans[0]["source_stage"], "DATA_GGZY_BID_SHOW")
+            self.assertEqual(release_plans[0]["source_url"], "https://data.ggzy.gov.cn/yjcx/index/bid_show?id=1")
+            self.assertEqual(release_plans[0]["region_code"], "CN-GD")
+            self.assertIn("construction_permit", release_plans[0]["release_evidence_source_targets"])
+            self.assertGreater(release_plans[0]["source_entry_count"], 0)
 
             budget_rows = {
                 record["budget_scope"]: record
@@ -125,6 +135,7 @@ class P13BOperationalCloseoutTests(unittest.TestCase):
             self.assertTrue((run_root / "02-original-notice" / "original-notice-backtrace-v1.json").exists())
             self.assertTrue((run_root / "03-closeout" / "p13b-overlap-triage-closeout-v1.json").exists())
             self.assertTrue((run_root / "04-operational-closeout" / "p13b-operational-closeout-v1.json").exists())
+            self.assertTrue((run_root / "04-operational-closeout" / "p13b-release-evidence-probe-plan-table.json").exists())
 
             payload = json.loads(
                 (run_root / "04-operational-closeout" / "p13b-operational-closeout-v1.json").read_text(encoding="utf-8")
@@ -249,6 +260,29 @@ def _write_closeout(root: Path, *, project_name: str = "项目一") -> None:
                 {"project_id": "PROJ-2", "triage_closeout_state": "ORIGINAL_NOTICE_READBACK_REQUIRED"},
                 {"project_id": "PROJ-4", "triage_closeout_state": "YGP_READBACK_BLOCKED_OR_UNSUPPORTED"},
                 {"project_id": "PROJ-5", "triage_closeout_state": "NO_OVERLAP_SIGNAL_REVIEW"},
+            ],
+            "release_evidence_trigger_records": [
+                {
+                    "release_evidence_trigger_id": "TRIGGER-1",
+                    "source_stage": "DATA_GGZY_BID_SHOW",
+                    "project_id": "PROJ-1",
+                    "project_name": "项目一",
+                    "candidate_company_name": "广东甲公司",
+                    "matched_person_names": ["张三"],
+                    "source_url": "https://data.ggzy.gov.cn/yjcx/index/bid_show?id=1",
+                    "extracted_period_text": "365日历天",
+                    "extracted_award_date": "2026年05月01日",
+                    "time_window_review_state": "TIME_WINDOW_OVERLAP_REVIEW",
+                    "estimated_performance_end_date": "2027-05-01",
+                    "release_evidence_source_targets": [
+                        "construction_permit",
+                        "contract_filing_or_contract_credit_info",
+                        "completion_or_acceptance_filing",
+                        "project_manager_change_notice",
+                    ],
+                    "release_evidence_probe_triggered": True,
+                    "suggested_next_step": "targeted_release_evidence_probe",
+                }
             ],
         },
         "summary": {
