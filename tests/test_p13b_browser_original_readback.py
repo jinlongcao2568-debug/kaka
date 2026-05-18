@@ -73,6 +73,43 @@ class P13BBrowserOriginalReadbackTests(unittest.TestCase):
             record = result["manifest"]["browser_original_readback_records"][0]
             self.assertIn("30天", record["extracted_period_text"])
 
+    def test_table_layout_fields_are_extractable(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_original_backtrace_input(root)
+
+            result = build_p13b_browser_original_readback(
+                input_root=root,
+                output_root=root / "browser",
+                enable_live_public_query=True,
+                max_live_browser_readbacks=1,
+                browser_readback_getter=_fake_browser_table_layout_getter,
+                created_at="2026-05-18T00:00:00+08:00",
+            )
+
+            record = result["manifest"]["browser_original_readback_records"][0]
+            self.assertEqual(record["extracted_responsible_person_names"], ["赵六"])
+            self.assertIn("中国市政工程华北设计研究总院有限公司", record["extracted_company_names"])
+            self.assertIn("完整正文", record["text_extractable"])
+
+    def test_non_person_table_labels_are_not_responsible_people(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_original_backtrace_input(root)
+
+            result = build_p13b_browser_original_readback(
+                input_root=root,
+                output_root=root / "browser",
+                enable_live_public_query=True,
+                max_live_browser_readbacks=1,
+                browser_readback_getter=_fake_browser_non_person_label_getter,
+                created_at="2026-05-18T00:00:00+08:00",
+            )
+
+            record = result["manifest"]["browser_original_readback_records"][0]
+            self.assertEqual(record["extracted_responsible_person_names"], [])
+            self.assertIn("中国化学工程第六建设有限公司", record["extracted_company_names"])
+
     def test_original_backtrace_consumes_browser_readback_records(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -205,6 +242,24 @@ def _fake_browser_service_time_getter(url: str, context: Mapping[str, Any]) -> M
         "content_type": "text/plain; charset=utf-8",
         "url": url,
         "body": "历史燃气工程中标结果公告\n供应商名称：上海能源建设集团有限公司\n服务时间：30天",
+    }
+
+
+def _fake_browser_table_layout_getter(url: str, context: Mapping[str, Any]) -> Mapping[str, Any]:
+    return {
+        "status_code": 200,
+        "content_type": "text/plain; charset=utf-8",
+        "url": url,
+        "body": "完整正文\n中标人信息\n单位名称\n中国市政工程华北设计研究总院有限公司\n项目负责人\n赵六\n服务期：30天",
+    }
+
+
+def _fake_browser_non_person_label_getter(url: str, context: Mapping[str, Any]) -> Mapping[str, Any]:
+    return {
+        "status_code": 200,
+        "content_type": "text/plain; charset=utf-8",
+        "url": url,
+        "body": "项目负责人姓名\n中标人\n中国化学工程第六建设有限公司\n中标价：100万元",
     }
 
 

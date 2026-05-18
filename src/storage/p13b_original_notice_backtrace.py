@@ -998,13 +998,29 @@ def _looks_like_browser_readback_required(text: str, source_url: str) -> bool:
 def _extract_responsible_people(text: str) -> list[str]:
     patterns = [
         r"(?:项目负责人|项目经理|施工项目负责人|设计负责人|勘察负责人|总监理工程师|工程总承包项目经理)\s*[:：]\s*([\u4e00-\u9fa5·]{2,8})",
+        r"(?:项目负责人|项目经理|施工项目负责人|设计负责人|勘察负责人|总监理工程师|工程总承包项目经理)\s+([\u4e00-\u9fa5·]{2,8})",
         r"(?:负责人姓名|姓名)\s*[:：]\s*([\u4e00-\u9fa5·]{2,8})",
     ]
     people: list[str] = []
     for pattern in patterns:
         for match in re.finditer(pattern, text):
-            people.append(match.group(1).strip())
+            name = match.group(1).strip()
+            if _looks_like_person_name(name):
+                people.append(name)
     return _dedupe(people)
+
+
+def _looks_like_person_name(value: str) -> bool:
+    name = str(value or "").strip()
+    if not name:
+        return False
+    if name in {"姓名", "负责人", "项目负责人", "项目经理"}:
+        return False
+    if any(token in name for token in ("公司", "集团", "工程", "建设", "中标", "单位", "中国")):
+        return False
+    if "·" in name:
+        return 2 <= len(name) <= 8
+    return 2 <= len(name) <= 4
 
 
 def _extract_period_text(text: str) -> str:
@@ -1045,6 +1061,8 @@ def _extract_company_names(text: str) -> list[str]:
                 part = part.strip()
                 if "公司" in part or "集团" in part or "院" in part:
                     names.append(part)
+    for match in re.finditer(r"[\u4e00-\u9fa5A-Za-z0-9（）()·]{2,80}(?:有限公司|集团有限公司|设计研究院|工程院|研究院)", text):
+        names.append(match.group(0).strip())
     return _dedupe(names)
 
 
