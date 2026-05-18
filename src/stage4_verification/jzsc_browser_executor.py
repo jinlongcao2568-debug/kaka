@@ -269,6 +269,11 @@ def execute_jzsc_company_first_browser_capture(
         fail_closed_reasons.append("rendered_company_personnel_rows_missing")
     if not company_source_url:
         fail_closed_reasons.append("company_personnel_source_url_missing")
+    route_nonfatal_reasons: list[str] = []
+    if company_rows:
+        fail_closed_reasons, route_nonfatal_reasons = _downgrade_company_search_route_failures_after_personnel_match(
+            fail_closed_reasons
+        )
 
     company_snapshot_id = ""
     project_snapshot_id = ""
@@ -314,7 +319,16 @@ def execute_jzsc_company_first_browser_capture(
         "rendered_personnel_project_row_count": len(project_rows),
         "fail_closed_reasons": list(dict.fromkeys(fail_closed_reasons)),
         "browser_nonfatal_diagnostics": list(
-            dict.fromkeys(str(reason) for reason in list(browser_result.get("nonfatal_diagnostics") or []) if str(reason).strip())
+            dict.fromkeys(
+                [
+                    *[
+                        str(reason)
+                        for reason in list(browser_result.get("nonfatal_diagnostics") or [])
+                        if str(reason).strip()
+                    ],
+                    *route_nonfatal_reasons,
+                ]
+            )
         ),
         "browser_attempts": list(browser_result.get("browser_attempts") or []),
         "public_only": True,
@@ -355,6 +369,23 @@ def execute_jzsc_company_first_browser_capture(
         "fail_closed_reasons": list(dict.fromkeys([*fail_closed_reasons, *list(readback.get("fail_closed_reasons") or [])])),
         "customer_sellable_evidence_ready": False,
     }
+
+
+def _downgrade_company_search_route_failures_after_personnel_match(
+    reasons: list[str],
+) -> tuple[list[str], list[str]]:
+    route_level_reasons = {
+        JZSC_COMPANY_SEARCH_ROWS_RETURNED_WITHOUT_TARGET_MATCH,
+        "company_search_result_not_found_after_three_attempts",
+    }
+    hard_reasons: list[str] = []
+    nonfatal: list[str] = []
+    for reason in reasons:
+        if reason in route_level_reasons:
+            nonfatal.append(f"company_search_route_failed_but_personnel_unit_match_captured:{reason}")
+            continue
+        hard_reasons.append(reason)
+    return list(dict.fromkeys(hard_reasons)), list(dict.fromkeys(nonfatal))
 
 
 def _playwright_browser_runner(capture_plan: Mapping[str, Any]) -> dict[str, Any]:

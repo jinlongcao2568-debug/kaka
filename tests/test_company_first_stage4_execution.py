@@ -261,6 +261,65 @@ class CompanyFirstStage4ExecutionTest(unittest.TestCase):
         self.assertEqual(result["summary"]["stage4_input_count"], 0)
         self.assertTrue(item["no_name_only_final_proof"])
 
+    def test_personnel_unit_match_resolves_even_when_company_search_route_failed(self) -> None:
+        def fake_browser_runner(capture_plan: dict[str, object]) -> dict[str, object]:
+            return {
+                "browser_runner_id": "fake-jzsc-browser",
+                "live_browser_executed": True,
+                "company_personnel_source_url": "https://jzsc.mohurd.gov.cn/data/person",
+                "matched_company_name_optional": "中国化学工程第六建设有限公司",
+                "rendered_company_personnel_rows": [
+                    {
+                        "row_text": "7 曾凡伟 410105**********19 一级注册建造师 鄂1422014201516008",
+                        "detail_url": "https://jzsc.mohurd.gov.cn/data/person/detail?id=002303160131952780",
+                        "person_public_id": "002303160131952780",
+                        "registered_unit_name": "中国化学工程第六建设有限公司",
+                    }
+                ],
+                "rendered_personnel_project_rows": [],
+                "failure_reasons": [
+                    "jzsc_company_search_rows_returned_without_target_match",
+                    "company_search_result_not_found_after_three_attempts",
+                ],
+                "browser_attempts": [
+                    {
+                        "attempt_type": "person_search_name_only_paginated_company_filter",
+                        "matched_count": 1,
+                    }
+                ],
+            }
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            input_root = Path(temp_dir) / "input"
+            output_root = Path(temp_dir) / "out"
+            _write_jobs(input_root)
+            jobs_path = input_root / "stage4_provider_jobs.json"
+            payload = json.loads(jobs_path.read_text(encoding="utf-8"))
+            target = payload["jobs"][0]["payload"]["target"]
+            target["candidate_company_name"] = "中国化学工程第六建设有限公司"
+            target["responsible_person_name"] = "曾凡伟"
+            jobs_path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+            result = build_company_first_stage4_execution(
+                input_root=input_root,
+                output_root=output_root,
+                execute=True,
+                browser_runner=fake_browser_runner,
+            )
+
+        item = result["manifest"]["items"][0]
+        self.assertEqual(item["supplement_after_execution_state"], "COMPANY_FIRST_CERTIFICATE_RESOLVED")
+        self.assertEqual(item["stage4_execution_state"], "READBACK_READY")
+        self.assertEqual(item["resolved_certificate_no_optional"], "鄂1422014201516008")
+        self.assertEqual(item["person_public_id_optional"], "002303160131952780")
+        self.assertEqual(item["fail_closed_reasons"], [])
+        self.assertTrue(
+            any(
+                "company_search_route_failed_but_personnel_unit_match_captured" in reason
+                for reason in item["browser_nonfatal_diagnostics"]
+            )
+        )
+
     def test_highway_market_fallback_resolves_road_design_title_certificate_when_jzsc_misses(self) -> None:
         def fake_blocked_jzsc(capture_plan: dict[str, object]) -> dict[str, object]:
             return {
