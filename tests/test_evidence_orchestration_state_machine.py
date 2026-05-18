@@ -168,6 +168,42 @@ class EvidenceOrchestrationStateMachineTests(unittest.TestCase):
             self.assertEqual(rqsg2["evidence_signal_source"], "ORIGINAL_NOTICE_BACKTRACE")
             self.assertIn("project_manager_change_notice", rqsg2["release_evidence_source_targets"])
 
+    def test_multiple_original_notice_roots_are_merged_for_incremental_batch_state(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            storage_json = root / "storage.json"
+            supplement_json = root / "stage4-inputs.json"
+            p13b_root = root / "p13b"
+            blocked_original_root = root / "original-blocked"
+            a_signal_original_root = root / "original-a"
+            _write_stage16_storage(storage_json)
+            _write_company_first_inputs(supplement_json)
+            _write_p13b_backtrace_required(p13b_root)
+            _write_original_notice_browser_blocked(blocked_original_root)
+            _write_original_notice_a_signal(a_signal_original_root)
+
+            result = build_evidence_orchestration_state(
+                stage16_storage_json=storage_json,
+                company_first_stage4_inputs_json=supplement_json,
+                p13b_company_history_root=p13b_root,
+                original_notice_backtrace_root=f"{blocked_original_root};{a_signal_original_root}",
+                output_root=root / "out",
+                created_at="2026-05-18T00:00:00+08:00",
+            )
+
+            by_project = _records_by_project(result["manifest"]["evidence_state_table"]["records"])
+            rqsg2 = by_project["PROJ-CN-GD-JG2026-11398-002"]
+            self.assertEqual(rqsg2["evidence_state"], "A_STRONG_TIME_OVERLAP_SIGNAL_READY")
+            self.assertEqual(rqsg2["evidence_signal_source"], "ORIGINAL_NOTICE_BACKTRACE")
+            self.assertIn(
+                "original-blocked",
+                result["manifest"]["source_original_notice_backtrace_json"],
+            )
+            self.assertIn(
+                "original-a",
+                result["manifest"]["source_original_notice_backtrace_json"],
+            )
+
     def test_partial_live_backtrace_deferred_by_budget_stays_pending_not_d_grade(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)

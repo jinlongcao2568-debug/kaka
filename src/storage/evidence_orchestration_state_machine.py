@@ -929,17 +929,81 @@ def _batch_triage_summary(records: list[Mapping[str, Any]]) -> dict[str, Any]:
 def _optional_manifest(*, explicit_json: str | Path | None, root: str | Path | None, default_file_name: str) -> dict[str, Any]:
     if not explicit_json and not root:
         return {}
-    source_path = Path(explicit_json) if explicit_json else Path(root or "") / default_file_name
-    payload = _load_json(source_path, [], "optional_manifest_missing_or_invalid")
-    return dict(_source_manifest(payload))
+    source_paths = (
+        [Path(path) for path in _split_path_values(explicit_json)]
+        if explicit_json
+        else [Path(path) / default_file_name for path in _split_path_values(root)]
+    )
+    manifests: list[Mapping[str, Any]] = []
+    for source_path in source_paths:
+        payload = _load_json(source_path, [], "optional_manifest_missing_or_invalid")
+        source_manifest = _source_manifest(payload)
+        if source_manifest:
+            manifests.append(source_manifest)
+    return _merge_source_manifests(manifests)
 
 
 def _manifest_source_path(explicit_json: str | Path | None, root: str | Path | None, default_file_name: str) -> str:
     if explicit_json:
-        return str(explicit_json)
+        return ";".join(str(Path(path)) for path in _split_path_values(explicit_json))
     if root:
-        return str(Path(root) / default_file_name)
+        return ";".join(str(Path(path) / default_file_name) for path in _split_path_values(root))
     return ""
+
+
+def _merge_source_manifests(manifests: list[Mapping[str, Any]]) -> dict[str, Any]:
+    merged: dict[str, Any] = {}
+    for manifest in manifests:
+        for key, value in manifest.items():
+            if isinstance(value, list):
+                existing = merged.setdefault(key, [])
+                if isinstance(existing, list):
+                    existing.extend(value)
+                continue
+            if isinstance(value, Mapping):
+                existing = merged.get(key)
+                merged[key] = {**(existing if isinstance(existing, Mapping) else {}), **dict(value)}
+                continue
+            if value not in ("", None, [], {}) or key not in merged:
+                merged[key] = value
+    for key, value in list(merged.items()):
+        if isinstance(value, list):
+            merged[key] = _dedupe_records(value)
+    return merged
+
+
+def _dedupe_records(records: Iterable[Any]) -> list[Any]:
+    out: list[Any] = []
+    indexes_by_key: dict[str, int] = {}
+    for record in records:
+        key = _record_identity(record)
+        if key in indexes_by_key:
+            out[indexes_by_key[key]] = record
+            continue
+        indexes_by_key[key] = len(out)
+        out.append(record)
+    return out
+
+
+def _record_identity(record: Any) -> str:
+    if isinstance(record, Mapping):
+        for field in (
+            "original_notice_task_id",
+            "ygp_original_readback_task_id",
+            "browser_original_readback_task_id",
+            "adapter_job_id",
+            "stage6_fact_package_readiness_id",
+            "batch_triage_id",
+        ):
+            value = str(record.get(field) or "").strip()
+            if value:
+                return f"{field}:{value}"
+        project_id = str(record.get("project_id") or "").strip()
+        source_url = str(record.get("original_notice_url") or record.get("source_url") or "").strip()
+        company = str(record.get("candidate_company_name") or record.get("candidate_company") or "").strip()
+        if project_id and source_url:
+            return f"project_source:{project_id}|{company}|{source_url}"
+    return f"fingerprint:{_fingerprint(record)}"
 
 
 def _source_manifest(payload: Mapping[str, Any]) -> Mapping[str, Any]:
@@ -1049,6 +1113,13 @@ def _fingerprint(payload: Any) -> str:
 
 def _parse_csv(value: str) -> list[str]:
     return [item.strip() for item in str(value or "").split(",") if item.strip()]
+
+
+def _split_path_values(value: Any) -> list[str]:
+    text = str(value or "").strip()
+    if not text:
+        return []
+    return [item.strip() for item in re.split(r"[;,]", text) if item.strip()]
 
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:

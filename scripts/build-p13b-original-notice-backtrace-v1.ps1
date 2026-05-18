@@ -14,6 +14,8 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+$OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = Resolve-Path (Join-Path $scriptDir "..")
@@ -28,6 +30,7 @@ if (-not $OutputRoot) {
 New-Item -ItemType Directory -Force -Path $OutputRoot | Out-Null
 
 $env:PYTHONPATH = "$repoRoot\src;$repoRoot\tests"
+$env:PYTHONIOENCODING = "utf-8"
 
 $argsList = @(
     "-m", "storage.p13b_original_notice_backtrace",
