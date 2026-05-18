@@ -11,6 +11,8 @@ param(
     [string]$DesignSurveyStage4ExecutionRoot = "",
     [string]$DesignSurveyFlow08ReadbackJson = "",
     [string]$DesignSurveyFlow08ReadbackRoot = "",
+    [string]$DesignSurveyFlow08AttachmentParseJson = "",
+    [string]$DesignSurveyFlow08AttachmentParseRoot = "",
     [string]$OutputRoot = "",
     [string]$ProjectIds = "",
     [switch]$EmitJson
@@ -82,6 +84,12 @@ if ($DesignSurveyFlow08ReadbackJson) {
 }
 if ($DesignSurveyFlow08ReadbackRoot) {
     $argsList += @("--design-survey-flow08-readback-root", $DesignSurveyFlow08ReadbackRoot)
+}
+if ($DesignSurveyFlow08AttachmentParseJson) {
+    $argsList += @("--design-survey-flow08-attachment-parse-json", $DesignSurveyFlow08AttachmentParseJson)
+}
+if ($DesignSurveyFlow08AttachmentParseRoot) {
+    $argsList += @("--design-survey-flow08-attachment-parse-root", $DesignSurveyFlow08AttachmentParseRoot)
 }
 if ($ProjectIds) {
     $argsList += @("--project-ids", $ProjectIds)

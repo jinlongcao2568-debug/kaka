@@ -30,6 +30,8 @@ def build_evidence_orchestration_state(
     design_survey_stage4_execution_root: str | Path | None = None,
     design_survey_flow08_readback_json: str | Path | None = None,
     design_survey_flow08_readback_root: str | Path | None = None,
+    design_survey_flow08_attachment_parse_json: str | Path | None = None,
+    design_survey_flow08_attachment_parse_root: str | Path | None = None,
     output_root: str | Path = DEFAULT_OUTPUT_ROOT,
     project_ids: list[str] | tuple[str, ...] = (),
     created_at: str | None = None,
@@ -74,11 +76,19 @@ def build_evidence_orchestration_state(
         root=design_survey_flow08_readback_root,
         default_file_name="design-survey-flow08-targeted-readback-v1.json",
     )
+    design_survey_flow08_parse_manifest = _optional_manifest(
+        explicit_json=design_survey_flow08_attachment_parse_json,
+        root=design_survey_flow08_attachment_parse_root,
+        default_file_name="design-survey-flow08-target-attachment-parse-v1.json",
+    )
     p13b_index = _p13b_index_by_project(p13b_manifest)
     original_index = _original_backtrace_index_by_project(original_manifest)
     design_survey_plan_index = _design_survey_plan_index_by_project(design_survey_plan_manifest)
     design_survey_stage4_index = _design_survey_stage4_index_by_project(design_survey_stage4_manifest)
     design_survey_flow08_index = _design_survey_flow08_index_by_project(design_survey_flow08_manifest)
+    design_survey_flow08_parse_index = _design_survey_flow08_attachment_parse_index_by_project(
+        design_survey_flow08_parse_manifest
+    )
     selected_projects = {_project_key(value) for value in project_ids if _project_key(value)}
 
     evidence_records: list[dict[str, Any]] = []
@@ -102,11 +112,13 @@ def build_evidence_orchestration_state(
             design_survey_project=design_survey_plan_index.get(project_id, {}),
             design_survey_stage4_project=design_survey_stage4_index.get(project_id, {}),
             design_survey_flow08_project=design_survey_flow08_index.get(project_id, {}),
+            design_survey_flow08_parse_project=design_survey_flow08_parse_index.get(project_id, {}),
             p13b_supplied=bool(p13b_manifest),
             original_supplied=bool(original_manifest),
             design_survey_plan_supplied=bool(design_survey_plan_manifest),
             design_survey_stage4_supplied=bool(design_survey_stage4_manifest),
             design_survey_flow08_supplied=bool(design_survey_flow08_manifest),
+            design_survey_flow08_parse_supplied=bool(design_survey_flow08_parse_manifest),
             created_at=created,
         )
         evidence_records.append(record)
@@ -164,6 +176,7 @@ def build_evidence_orchestration_state(
         "source_design_survey_adapter_plan_json": _manifest_source_path(design_survey_adapter_plan_json, design_survey_adapter_plan_root, "design-survey-responsible-adapter-plan-v1.json"),
         "source_design_survey_stage4_execution_json": _manifest_source_path(design_survey_stage4_execution_json, design_survey_stage4_execution_root, "company-first-stage4-execution.json"),
         "source_design_survey_flow08_readback_json": _manifest_source_path(design_survey_flow08_readback_json, design_survey_flow08_readback_root, "design-survey-flow08-targeted-readback-v1.json"),
+        "source_design_survey_flow08_attachment_parse_json": _manifest_source_path(design_survey_flow08_attachment_parse_json, design_survey_flow08_attachment_parse_root, "design-survey-flow08-target-attachment-parse-v1.json"),
         "evidence_state_table": evidence_table,
         "adapter_job_table": adapter_job_table,
         "stage6_fact_package_readiness_table": fact_package_table,
@@ -210,11 +223,13 @@ def _evidence_record(
     design_survey_project: Mapping[str, Any],
     design_survey_stage4_project: Mapping[str, Any],
     design_survey_flow08_project: Mapping[str, Any],
+    design_survey_flow08_parse_project: Mapping[str, Any],
     p13b_supplied: bool,
     original_supplied: bool,
     design_survey_plan_supplied: bool,
     design_survey_stage4_supplied: bool,
     design_survey_flow08_supplied: bool,
+    design_survey_flow08_parse_supplied: bool,
     created_at: str,
 ) -> dict[str, Any]:
     project_id = str(candidate.get("project_id") or "").strip()
@@ -238,17 +253,20 @@ def _evidence_record(
         design_survey_project=design_survey_project,
         design_survey_stage4_project=design_survey_stage4_project,
         design_survey_flow08_project=design_survey_flow08_project,
+        design_survey_flow08_parse_project=design_survey_flow08_parse_project,
         p13b_supplied=p13b_supplied,
         original_supplied=original_supplied,
         design_survey_plan_supplied=design_survey_plan_supplied,
         design_survey_stage4_supplied=design_survey_stage4_supplied,
         design_survey_flow08_supplied=design_survey_flow08_supplied,
+        design_survey_flow08_parse_supplied=design_survey_flow08_parse_supplied,
     )
     signal_counts = _signal_counts(p13b_project, original_project)
     design_survey_counts = _design_survey_counts(
         design_survey_project,
         design_survey_stage4_project,
         design_survey_flow08_project,
+        design_survey_flow08_parse_project,
     )
     release_probe_targets = _release_probe_targets(original_project)
     if not release_probe_targets and evidence_state == "A_STRONG_TIME_OVERLAP_SIGNAL_READY":
@@ -344,11 +362,13 @@ def _project_evidence_state(
     design_survey_project: Mapping[str, Any],
     design_survey_stage4_project: Mapping[str, Any],
     design_survey_flow08_project: Mapping[str, Any],
+    design_survey_flow08_parse_project: Mapping[str, Any],
     p13b_supplied: bool,
     original_supplied: bool,
     design_survey_plan_supplied: bool,
     design_survey_stage4_supplied: bool,
     design_survey_flow08_supplied: bool,
+    design_survey_flow08_parse_supplied: bool,
 ) -> tuple[str, str, str, list[str], str]:
     if base_state == "DEFER_DESIGN_SURVEY_RESPONSIBLE_OVERLAP_ADAPTER":
         return _design_survey_evidence_state(
@@ -357,9 +377,11 @@ def _project_evidence_state(
             design_survey_project=design_survey_project,
             design_survey_stage4_project=design_survey_stage4_project,
             design_survey_flow08_project=design_survey_flow08_project,
+            design_survey_flow08_parse_project=design_survey_flow08_parse_project,
             design_survey_plan_supplied=design_survey_plan_supplied,
             design_survey_stage4_supplied=design_survey_stage4_supplied,
             design_survey_flow08_supplied=design_survey_flow08_supplied,
+            design_survey_flow08_parse_supplied=design_survey_flow08_parse_supplied,
         )
     if base_state != "READY_FOR_P13B_DATA_GGZY":
         return base_state, "NOT_EVIDENCE_READY", base_next_action, base_reasons, "BASE_READINESS"
@@ -461,9 +483,11 @@ def _design_survey_evidence_state(
     design_survey_project: Mapping[str, Any],
     design_survey_stage4_project: Mapping[str, Any],
     design_survey_flow08_project: Mapping[str, Any],
+    design_survey_flow08_parse_project: Mapping[str, Any],
     design_survey_plan_supplied: bool,
     design_survey_stage4_supplied: bool,
     design_survey_flow08_supplied: bool,
+    design_survey_flow08_parse_supplied: bool,
 ) -> tuple[str, str, str, list[str], str]:
     if not design_survey_plan_supplied:
         return (
@@ -544,6 +568,8 @@ def _design_survey_evidence_state(
         if design_survey_flow08_supplied:
             return _design_survey_flow08_evidence_state(
                 design_survey_flow08_project=design_survey_flow08_project,
+                design_survey_flow08_parse_project=design_survey_flow08_parse_project,
+                design_survey_flow08_parse_supplied=design_survey_flow08_parse_supplied,
             )
         return (
             "DESIGN_SURVEY_FLOW08_TARGETED_PARSE_REQUIRED",
@@ -574,6 +600,8 @@ def _design_survey_evidence_state(
 def _design_survey_flow08_evidence_state(
     *,
     design_survey_flow08_project: Mapping[str, Any],
+    design_survey_flow08_parse_project: Mapping[str, Any],
+    design_survey_flow08_parse_supplied: bool,
 ) -> tuple[str, str, str, list[str], str]:
     if not design_survey_flow08_project:
         return (
@@ -582,6 +610,11 @@ def _design_survey_flow08_evidence_state(
             "rerun_design_survey_flow08_targeted_readback_for_project",
             ["design_survey_flow08_readback_missing_project"],
             "DESIGN_SURVEY_FLOW08_TARGETED_READBACK",
+        )
+
+    if design_survey_flow08_parse_supplied and design_survey_flow08_parse_project:
+        return _design_survey_flow08_attachment_parse_evidence_state(
+            design_survey_flow08_parse_project=design_survey_flow08_parse_project,
         )
 
     state_counts = {
@@ -630,6 +663,71 @@ def _design_survey_flow08_evidence_state(
         "manual_review_or_retry_flow08_targeted_readback_without_clearance_claim",
         ["design_survey_flow08_readback_blocked_or_target_attachment_unresolved"],
         "DESIGN_SURVEY_FLOW08_TARGETED_READBACK",
+    )
+
+
+def _design_survey_flow08_attachment_parse_evidence_state(
+    *,
+    design_survey_flow08_parse_project: Mapping[str, Any],
+) -> tuple[str, str, str, list[str], str]:
+    parse_counts = {
+        str(key): int(value or 0)
+        for key, value in dict(design_survey_flow08_parse_project.get("attachment_parse_state_counts") or {}).items()
+    }
+    if parse_counts.get("TARGET_ATTACHMENT_TEXT_FIELDS_EXTRACTED", 0) > 0:
+        return (
+            "DESIGN_SURVEY_FLOW08_IDENTITY_FIELDS_EXTRACTED_REVIEW_READY",
+            "PENDING_DESIGN_SURVEY_STAGE4",
+            "apply_flow08_extracted_fields_to_design_survey_stage4_or_manual_review",
+            ["design_survey_flow08_target_attachment_fields_extracted"],
+            "DESIGN_SURVEY_FLOW08_TARGET_ATTACHMENT_PARSE",
+        )
+    if parse_counts.get("TARGET_ATTACHMENT_OCR_REQUIRED", 0) > 0:
+        return (
+            "DESIGN_SURVEY_FLOW08_TARGET_ATTACHMENT_OCR_REQUIRED",
+            "PENDING_DESIGN_SURVEY_STAGE4",
+            "rerun_design_survey_flow08_target_attachment_parse_with_ocr",
+            ["design_survey_flow08_target_attachment_requires_ocr"],
+            "DESIGN_SURVEY_FLOW08_TARGET_ATTACHMENT_PARSE",
+        )
+    if parse_counts.get("TARGET_ATTACHMENT_OCR_ENGINE_UNAVAILABLE", 0) > 0:
+        return (
+            "D_DESIGN_SURVEY_FLOW08_OCR_RUNTIME_BLOCKED",
+            "D_EVIDENCE_INSUFFICIENT",
+            "fix_local_ocr_runtime_or_manual_ocr_readback",
+            ["design_survey_flow08_ocr_runtime_blocked"],
+            "DESIGN_SURVEY_FLOW08_TARGET_ATTACHMENT_PARSE",
+        )
+    if parse_counts.get("TARGET_ATTACHMENT_OCR_LANGUAGE_UNAVAILABLE", 0) > 0:
+        return (
+            "D_DESIGN_SURVEY_FLOW08_OCR_RUNTIME_BLOCKED",
+            "D_EVIDENCE_INSUFFICIENT",
+            "install_chinese_ocr_language_pack_or_manual_ocr_readback",
+            ["design_survey_flow08_chinese_ocr_language_pack_unavailable"],
+            "DESIGN_SURVEY_FLOW08_TARGET_ATTACHMENT_PARSE",
+        )
+    if parse_counts.get("TARGET_ATTACHMENT_OCR_NO_TEXT", 0) > 0:
+        return (
+            "D_DESIGN_SURVEY_FLOW08_ATTACHMENT_PARSE_BLOCKED_OR_INSUFFICIENT",
+            "D_EVIDENCE_INSUFFICIENT",
+            "manual_review_pdf_pages_or_expand_ocr_page_budget",
+            ["design_survey_flow08_ocr_executed_but_no_text"],
+            "DESIGN_SURVEY_FLOW08_TARGET_ATTACHMENT_PARSE",
+        )
+    if parse_counts.get("TARGET_ATTACHMENT_NO_RESPONSIBLE_FIELD_FOUND", 0) > 0:
+        return (
+            "D_DESIGN_SURVEY_FLOW08_ATTACHMENT_PARSE_BLOCKED_OR_INSUFFICIENT",
+            "D_EVIDENCE_INSUFFICIENT",
+            "manual_review_or_expand_targeted_attachment_parse_without_clearance_claim",
+            ["design_survey_flow08_attachment_text_has_no_responsible_field"],
+            "DESIGN_SURVEY_FLOW08_TARGET_ATTACHMENT_PARSE",
+        )
+    return (
+        "D_DESIGN_SURVEY_FLOW08_ATTACHMENT_PARSE_BLOCKED_OR_INSUFFICIENT",
+        "D_EVIDENCE_INSUFFICIENT",
+        "manual_review_or_retry_flow08_target_attachment_parse_without_clearance_claim",
+        ["design_survey_flow08_attachment_parse_blocked_or_missing_result"],
+        "DESIGN_SURVEY_FLOW08_TARGET_ATTACHMENT_PARSE",
     )
 
 
@@ -784,14 +882,17 @@ def _adapter_jobs_for_record(record: Mapping[str, Any], *, created_at: str) -> l
                 },
             )
         )
-    elif state == "DESIGN_SURVEY_FLOW08_TARGET_ATTACHMENT_FETCHED_PARSE_PENDING":
+    elif state in {
+        "DESIGN_SURVEY_FLOW08_TARGET_ATTACHMENT_FETCHED_PARSE_PENDING",
+        "DESIGN_SURVEY_FLOW08_TARGET_ATTACHMENT_OCR_REQUIRED",
+    }:
         jobs.append(
             _adapter_job(
                 project_id=project_id,
                 project_name=record.get("project_name"),
                 job_type="design_survey_flow08_target_attachment_parse",
                 job_state="READY_TO_RUN_TARGETED_PARSE",
-                recommended_script="scripts/extract-stage4-attachment-document.ps1",
+                recommended_script="scripts/build-design-survey-flow08-target-attachment-parse-v1.ps1",
                 recommended_next_action=record.get("recommended_next_action"),
                 created_at=created_at,
                 adapter_source_targets=[
@@ -802,6 +903,49 @@ def _adapter_jobs_for_record(record: Mapping[str, Any], *, created_at: str) -> l
                     "targeted_parse_only": True,
                     "no_legal_conclusion": True,
                     "query_miss_is_not_clearance": True,
+                },
+            )
+        )
+    elif state == "DESIGN_SURVEY_FLOW08_IDENTITY_FIELDS_EXTRACTED_REVIEW_READY":
+        jobs.append(
+            _adapter_job(
+                project_id=project_id,
+                project_name=record.get("project_name"),
+                job_type="design_survey_stage4_apply_flow08_fields",
+                job_state="READY_FOR_INTERNAL_REVIEW_OR_STAGE4_REPLAY",
+                recommended_script="scripts/build-company-first-stage4-execution-v1.ps1",
+                recommended_next_action=record.get("recommended_next_action"),
+                created_at=created_at,
+                adapter_source_targets=[
+                    "flow08_target_attachment_extracted_fields",
+                    "design_survey_stage4_identity_replay",
+                ],
+                adapter_scope_guardrails={
+                    "extracted_field_is_review_input_not_legal_conclusion": True,
+                    "no_name_only_final_proof": True,
+                    "customer_visible_allowed": False,
+                },
+            )
+        )
+    elif state == "D_DESIGN_SURVEY_FLOW08_OCR_RUNTIME_BLOCKED":
+        jobs.append(
+            _adapter_job(
+                project_id=project_id,
+                project_name=record.get("project_name"),
+                job_type="design_survey_flow08_ocr_runtime_fix_and_retry",
+                job_state="ENVIRONMENT_FIX_REQUIRED",
+                recommended_script="scripts/build-design-survey-flow08-target-attachment-parse-v1.ps1",
+                recommended_next_action=record.get("recommended_next_action"),
+                created_at=created_at,
+                adapter_source_targets=[
+                    "local_ocr_runtime",
+                    "downloaded_flow08_target_candidate_attachment",
+                ],
+                adapter_scope_guardrails={
+                    "targeted_parse_only": True,
+                    "install_or_enable_chinese_ocr_language_pack_before_retry": True,
+                    "customer_visible_allowed": False,
+                    "no_legal_conclusion": True,
                 },
             )
         )
@@ -890,6 +1034,8 @@ def _stage6_fact_package_state(evidence_state: str) -> str:
         "D_DESIGN_SURVEY_TARGET_FIELDS_INSUFFICIENT",
         "D_DESIGN_SURVEY_IDENTITY_INSUFFICIENT_OR_BLOCKED",
         "D_DESIGN_SURVEY_FLOW08_READBACK_BLOCKED_OR_INSUFFICIENT",
+        "D_DESIGN_SURVEY_FLOW08_OCR_RUNTIME_BLOCKED",
+        "D_DESIGN_SURVEY_FLOW08_ATTACHMENT_PARSE_BLOCKED_OR_INSUFFICIENT",
     }:
         return "REVIEW_FACT_PACKAGE_READY"
     if evidence_state == "DEFER_DESIGN_SURVEY_RESPONSIBLE_OVERLAP_ADAPTER":
@@ -924,6 +1070,7 @@ def _design_survey_counts(
     design_survey_project: Mapping[str, Any],
     design_survey_stage4_project: Mapping[str, Any],
     design_survey_flow08_project: Mapping[str, Any],
+    design_survey_flow08_parse_project: Mapping[str, Any],
 ) -> dict[str, int]:
     supplement_states = (
         design_survey_stage4_project.get("supplement_after_execution_state_counts")
@@ -962,6 +1109,16 @@ def _design_survey_counts(
         ),
         "design_survey_flow08_target_attachment_fetched_count": int(
             design_survey_flow08_project.get("target_attachment_fetched_count") or 0
+        ),
+        "design_survey_flow08_parse_project_present": int(bool(design_survey_flow08_parse_project)),
+        "design_survey_flow08_attachment_parse_record_count": int(
+            design_survey_flow08_parse_project.get("target_attachment_parse_record_count") or 0
+        ),
+        "design_survey_flow08_field_extracted_record_count": int(
+            design_survey_flow08_parse_project.get("field_extracted_record_count") or 0
+        ),
+        "design_survey_flow08_ocr_required_record_count": int(
+            design_survey_flow08_parse_project.get("ocr_required_record_count") or 0
         ),
     }
 
@@ -1122,6 +1279,34 @@ def _design_survey_flow08_index_by_project(manifest: Mapping[str, Any]) -> dict[
         )
         project["target_attachment_fetched_count"] = sum(
             1 for item in attachment_records if str(item.get("attachment_fetch_state") or "") == "FETCHED"
+        )
+    return index
+
+
+def _design_survey_flow08_attachment_parse_index_by_project(manifest: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
+    index: dict[str, dict[str, Any]] = {}
+    table = (
+        manifest.get("target_attachment_parse_table")
+        if isinstance(manifest.get("target_attachment_parse_table"), Mapping)
+        else {}
+    )
+    for record in _list(table.get("records")):
+        _append_project_record(index, record, "target_attachment_parse_records")
+    for project in index.values():
+        records = [
+            item for item in _list(project.get("target_attachment_parse_records")) if isinstance(item, Mapping)
+        ]
+        project["target_attachment_parse_record_count"] = len(records)
+        project["attachment_parse_state_counts"] = _counts(
+            item.get("attachment_parse_state") for item in records
+        )
+        project["field_extracted_record_count"] = sum(
+            1
+            for item in records
+            if str(item.get("attachment_parse_state") or "") == "TARGET_ATTACHMENT_TEXT_FIELDS_EXTRACTED"
+        )
+        project["ocr_required_record_count"] = sum(
+            1 for item in records if str(item.get("attachment_parse_state") or "") == "TARGET_ATTACHMENT_OCR_REQUIRED"
         )
     return index
 
@@ -1296,6 +1481,8 @@ def _evidence_summary(records: list[Mapping[str, Any]], blocking_reasons: list[s
                 "DESIGN_SURVEY_FLOW08_READBACK_READY_NOT_EXECUTED",
                 "DESIGN_SURVEY_FLOW08_TARGET_ATTACHMENT_READY",
                 "DESIGN_SURVEY_FLOW08_TARGET_ATTACHMENT_FETCHED_PARSE_PENDING",
+                "DESIGN_SURVEY_FLOW08_TARGET_ATTACHMENT_OCR_REQUIRED",
+                "DESIGN_SURVEY_FLOW08_IDENTITY_FIELDS_EXTRACTED_REVIEW_READY",
             }
         ),
         "design_survey_identity_match_project_count": sum(
@@ -1419,12 +1606,17 @@ def _batch_triage_bucket(record: Mapping[str, Any]) -> str:
         "DESIGN_SURVEY_FLOW08_READBACK_READY_NOT_EXECUTED",
         "DESIGN_SURVEY_FLOW08_TARGET_ATTACHMENT_READY",
         "DESIGN_SURVEY_FLOW08_TARGET_ATTACHMENT_FETCHED_PARSE_PENDING",
+        "DESIGN_SURVEY_FLOW08_TARGET_ATTACHMENT_OCR_REQUIRED",
     }:
         return "CONTINUE_DESIGN_SURVEY_FLOW08_READBACK"
+    if state == "DESIGN_SURVEY_FLOW08_IDENTITY_FIELDS_EXTRACTED_REVIEW_READY":
+        return "CONTINUE_DESIGN_SURVEY_IDENTITY_FALLBACK"
     if state in {
         "D_DESIGN_SURVEY_TARGET_FIELDS_INSUFFICIENT",
         "D_DESIGN_SURVEY_IDENTITY_INSUFFICIENT_OR_BLOCKED",
         "D_DESIGN_SURVEY_FLOW08_READBACK_BLOCKED_OR_INSUFFICIENT",
+        "D_DESIGN_SURVEY_FLOW08_OCR_RUNTIME_BLOCKED",
+        "D_DESIGN_SURVEY_FLOW08_ATTACHMENT_PARSE_BLOCKED_OR_INSUFFICIENT",
     }:
         return "D_BLOCKED_OR_INSUFFICIENT_REVIEW"
     if state == "WAIT_STAGE2_CAPTURE":
@@ -1495,6 +1687,8 @@ def _batch_recommended_next_action(record: Mapping[str, Any], bucket: str) -> st
 
 def _batch_stop_reason(record: Mapping[str, Any], bucket: str) -> str:
     if bucket == "D_BLOCKED_OR_INSUFFICIENT_REVIEW":
+        if str(record.get("evidence_state") or "").startswith("D_DESIGN_SURVEY_"):
+            return "design_survey_identity_or_attachment_evidence_insufficient_or_blocked"
         return "release_evidence_or_original_readback_insufficient_or_blocked"
     if bucket == "LOW_VALUE_REVIEW_NO_CLEARANCE_CLAIM":
         return "p13b_no_same_person_time_window_signal_but_no_clearance_claim"
@@ -1640,6 +1834,7 @@ def _record_identity(record: Any) -> str:
             "design_survey_project_id",
             "stage4_input_id",
             "design_survey_verification_task_id",
+            "target_attachment_parse_id",
             "job_id",
             "adapter_job_id",
             "stage6_fact_package_readiness_id",
@@ -1786,6 +1981,8 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--design-survey-stage4-execution-root", default="")
     parser.add_argument("--design-survey-flow08-readback-json", default="")
     parser.add_argument("--design-survey-flow08-readback-root", default="")
+    parser.add_argument("--design-survey-flow08-attachment-parse-json", default="")
+    parser.add_argument("--design-survey-flow08-attachment-parse-root", default="")
     parser.add_argument("--output-root", default=str(DEFAULT_OUTPUT_ROOT))
     parser.add_argument("--project-ids", default="")
     parser.add_argument("--output-json")
@@ -1808,6 +2005,8 @@ def main(argv: list[str] | None = None) -> int:
         design_survey_stage4_execution_root=args.design_survey_stage4_execution_root or None,
         design_survey_flow08_readback_json=args.design_survey_flow08_readback_json or None,
         design_survey_flow08_readback_root=args.design_survey_flow08_readback_root or None,
+        design_survey_flow08_attachment_parse_json=args.design_survey_flow08_attachment_parse_json or None,
+        design_survey_flow08_attachment_parse_root=args.design_survey_flow08_attachment_parse_root or None,
         output_root=args.output_root,
         project_ids=_parse_csv(args.project_ids),
     )

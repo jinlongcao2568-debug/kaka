@@ -3,6 +3,7 @@ from __future__ import annotations
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import sys
 
@@ -12,7 +13,7 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from stage4_verification.document_extraction import extract_document_text, extract_responsible_person_fields
+from stage4_verification.document_extraction import ExtractedDocumentPage, extract_document_text, extract_responsible_person_fields
 from stage4_verification.local_job_queue import EXHAUSTED, Stage4LocalJobQueue
 from stage4_verification.provider_handlers import (
     PENDING_IMPLEMENTATION_REVIEW,
@@ -211,6 +212,35 @@ class Stage4ProviderQueueDocumentToolsTests(unittest.TestCase):
 
             self.assertNotIn("unsupported_document_suffix:<none>", result["failure_reasons"])
             self.assertTrue(any("pymupdf" in reason or "pdfplumber" in reason for reason in result["failure_reasons"]))
+
+    def test_tesseract_ocr_fallback_can_extract_fields_when_pdf_has_no_embedded_text(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            path = Path(tmp_dir) / "content-addressed-object"
+            path.write_bytes(b"%PDF-1.4\n% ocr fallback test object\n")
+
+            with patch(
+                "stage4_verification.document_extraction._extract_pdf_text",
+                return_value=([], ["pymupdf_text"], []),
+            ), patch(
+                "stage4_verification.document_extraction._extract_tesseract_ocr_text",
+                return_value=(
+                    [
+                        ExtractedDocumentPage(
+                            page_no=1,
+                            text="勘察设计项目负责人：胡昌华 粤测绘20260001",
+                            method="tesseract_ocr",
+                        )
+                    ],
+                    ["tesseract_ocr"],
+                    [],
+                    True,
+                ),
+            ):
+                result = extract_document_text(path, enable_ocr=True, max_pages=1, ocr_max_pages=1)
+
+            self.assertIn("tesseract_ocr", result["extraction_methods"])
+            self.assertEqual(result["extracted_fields"]["extraction_state"], "FIELDS_EXTRACTED")
+            self.assertEqual(result["extracted_fields"]["primary_responsible_person_name"], "胡昌华")
 
     def test_stage4_service_exposes_provider_plan_and_queue(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
