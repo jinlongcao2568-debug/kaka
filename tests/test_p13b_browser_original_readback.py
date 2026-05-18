@@ -110,6 +110,24 @@ class P13BBrowserOriginalReadbackTests(unittest.TestCase):
             self.assertEqual(record["extracted_responsible_person_names"], [])
             self.assertIn("中国化学工程第六建设有限公司", record["extracted_company_names"])
 
+    def test_slash_role_label_and_winning_duration_are_extractable(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_original_backtrace_input(root)
+
+            result = build_p13b_browser_original_readback(
+                input_root=root,
+                output_root=root / "browser",
+                enable_live_public_query=True,
+                max_live_browser_readbacks=1,
+                browser_readback_getter=_fake_browser_slash_role_duration_getter,
+                created_at="2026-05-18T00:00:00+08:00",
+            )
+
+            record = result["manifest"]["browser_original_readback_records"][0]
+            self.assertEqual(record["extracted_responsible_person_names"], ["豆连旺"])
+            self.assertEqual(record["extracted_period_text"], "180日历天")
+
     def test_original_backtrace_consumes_browser_readback_records(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -260,6 +278,15 @@ def _fake_browser_non_person_label_getter(url: str, context: Mapping[str, Any]) 
         "content_type": "text/plain; charset=utf-8",
         "url": url,
         "body": "项目负责人姓名\n中标人\n中国化学工程第六建设有限公司\n中标价：100万元",
+    }
+
+
+def _fake_browser_slash_role_duration_getter(url: str, context: Mapping[str, Any]) -> Mapping[str, Any]:
+    return {
+        "status_code": 200,
+        "content_type": "text/plain; charset=utf-8",
+        "url": url,
+        "body": "中标单位：上海能源建设工程设计研究有限公司\n中标工期（日历天）：180\n建筑师/总监/负责人：豆连旺",
     }
 
 

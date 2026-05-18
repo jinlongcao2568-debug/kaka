@@ -1102,6 +1102,7 @@ def _looks_like_browser_readback_required(text: str, source_url: str) -> bool:
 
 def _extract_responsible_people(text: str) -> list[str]:
     patterns = [
+        r"(?:建筑师[/／]总监[/／]负责人)\s*[:：]\s*([\u4e00-\u9fa5·]{2,8})",
         r"(?:项目负责人|项目经理|施工项目负责人|设计负责人|勘察负责人|总监理工程师|工程总承包项目经理)\s*[:：]\s*([\u4e00-\u9fa5·]{2,8})",
         r"(?:项目负责人|项目经理|施工项目负责人|设计负责人|勘察负责人|总监理工程师|工程总承包项目经理)\s+([\u4e00-\u9fa5·]{2,8})",
         r"(?:负责人姓名|姓名)\s*[:：]\s*([\u4e00-\u9fa5·]{2,8})",
@@ -1129,8 +1130,14 @@ def _looks_like_person_name(value: str) -> bool:
 
 
 def _extract_period_text(text: str) -> str:
+    duration_match = re.search(
+        r"(?:中标工期|工期)\s*[（(]\s*日历天\s*[）)]\s*[:：]\s*([0-9]{1,5})",
+        text,
+    )
+    if duration_match:
+        return f"{duration_match.group(1).strip()}日历天"
     patterns = [
-        r"(?:工期（交货期）|工期\(交货期\)|工期|服务期|服务时间|合同履行期限|履行期限|服务期限)\s*[:：]\s*([^。；;\n]{2,80})",
+        r"(?:中标工期|工期（交货期）|工期\(交货期\)|工期|服务期|服务时间|合同履行期限|履行期限|服务期限)\s*[:：]\s*([^。；;\n]{2,80})",
         r"(?:计划工期)\s*[:：]\s*([^。；;\n]{2,80})",
     ]
     for pattern in patterns:
