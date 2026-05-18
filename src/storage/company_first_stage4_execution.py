@@ -940,7 +940,14 @@ def _priority_class(responsible_role: str) -> str:
     role = str(responsible_role or "")
     if role == "chief_supervision_engineer":
         return "B_HIGH_SUPERVISION"
-    if role in {"design_lead", "survey_lead", "service_project_lead"}:
+    if role in {
+        "design_lead",
+        "survey_lead",
+        "survey_design_project_lead",
+        "survey_mapping_project_lead",
+        "planning_survey_project_lead",
+        "service_project_lead",
+    }:
         return "C_MEDIUM_DESIGN_SURVEY"
     return "A_HIGH_CONSTRUCTION_EPC"
 

@@ -45,17 +45,30 @@ class EvidenceOrchestrationStateMachineTests(unittest.TestCase):
             )
             adapter_jobs = json.loads((root / "out" / "adapter-job-table.json").read_text(encoding="utf-8"))
             self.assertEqual(adapter_jobs["summary"]["job_type_counts"]["data_ggzy_company_history_overlap_triage"], 2)
+            self.assertEqual(adapter_jobs["summary"]["job_type_counts"]["design_survey_responsible_adapter_plan"], 1)
+            design_job = next(
+                job
+                for job in adapter_jobs["records"]
+                if job["job_type"] == "design_survey_responsible_adapter_plan"
+            )
+            self.assertEqual(
+                design_job["recommended_script"],
+                "scripts/build-design-survey-responsible-adapter-plan-v1.ps1",
+            )
+            self.assertTrue(
+                design_job["adapter_scope_guardrails"]["does_not_apply_construction_project_manager_release_rule"]
+            )
             self.assertTrue((root / "out" / "stage6-fact-package-readiness-table.json").exists())
             batch_triage = json.loads((root / "out" / "batch-triage-table.json").read_text(encoding="utf-8"))
             self.assertEqual(
                 batch_triage["summary"]["batch_triage_bucket_counts"],
                 {
-                    "DEFER_NON_MAINLINE_ADAPTER": 1,
+                    "RUN_DESIGN_SURVEY_RESPONSIBLE_ADAPTER_PLAN": 1,
                     "RUN_P13B_COMPANY_HISTORY": 2,
                 },
             )
             self.assertEqual(summary["batch_triage_record_count"], 3)
-            self.assertEqual(summary["continue_internal_project_count"], 2)
+            self.assertEqual(summary["continue_internal_project_count"], 3)
 
     def test_p13b_backtrace_required_becomes_original_notice_adapter_job(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

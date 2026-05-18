@@ -259,7 +259,7 @@ def _base_readiness_state(
     if "DESIGN_SURVEY" in priority_class or lane == "survey_design":
         return (
             "DEFER_DESIGN_SURVEY_RESPONSIBLE_OVERLAP_ADAPTER",
-            "build_design_survey_responsible_overlap_adapter_or_keep_stage4_general_gap_review",
+            "run_design_survey_responsible_adapter_plan",
             ["design_survey_not_project_manager_release_mainline"],
         )
     if bool(readback.get("jzsc_company_first_identity_resolution_required")) and not supplement:
@@ -439,6 +439,30 @@ def _adapter_jobs_for_record(record: Mapping[str, Any], *, created_at: str) -> l
                 release_evidence_source_targets=_list(record.get("release_evidence_source_targets")),
             )
         )
+    elif state == "DEFER_DESIGN_SURVEY_RESPONSIBLE_OVERLAP_ADAPTER":
+        jobs.append(
+            _adapter_job(
+                project_id=project_id,
+                project_name=record.get("project_name"),
+                job_type="design_survey_responsible_adapter_plan",
+                job_state="READY_TO_RUN_PLAN_ONLY",
+                recommended_script="scripts/build-design-survey-responsible-adapter-plan-v1.ps1",
+                recommended_next_action="run_design_survey_responsible_adapter_plan",
+                created_at=created_at,
+                adapter_source_targets=[
+                    "candidate_notice_current_project",
+                    "jzsc_or_local_design_survey_personnel_registry",
+                    "enterprise_design_survey_qualification_public_record",
+                    "current_project_design_survey_service_clock",
+                    "data_ggzy_design_survey_history_review_when_needed",
+                ],
+                adapter_scope_guardrails={
+                    "does_not_apply_construction_project_manager_release_rule": True,
+                    "construction_release_source_targets_default_enabled": False,
+                    "query_miss_is_not_clearance": True,
+                },
+            )
+        )
     return jobs
 
 
@@ -452,6 +476,8 @@ def _adapter_job(
     recommended_next_action: Any,
     created_at: str,
     release_evidence_source_targets: list[Any] | None = None,
+    adapter_source_targets: list[Any] | None = None,
+    adapter_scope_guardrails: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     return {
         "adapter_job_id": _stable_id("ADAPTER-JOB", project_id, job_type),
@@ -462,6 +488,8 @@ def _adapter_job(
         "recommended_script": recommended_script,
         "recommended_next_action": str(recommended_next_action or ""),
         "release_evidence_source_targets": release_evidence_source_targets or [],
+        "adapter_source_targets": adapter_source_targets or [],
+        "adapter_scope_guardrails": dict(adapter_scope_guardrails or {}),
         "created_at": created_at,
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,
@@ -808,7 +836,7 @@ def _batch_triage_bucket(record: Mapping[str, Any]) -> str:
     if state == "P13B_NO_DIRECT_SIGNAL_REVIEW":
         return "LOW_VALUE_REVIEW_NO_CLEARANCE_CLAIM"
     if state == "DEFER_DESIGN_SURVEY_RESPONSIBLE_OVERLAP_ADAPTER":
-        return "DEFER_NON_MAINLINE_ADAPTER"
+        return "RUN_DESIGN_SURVEY_RESPONSIBLE_ADAPTER_PLAN"
     if state == "WAIT_STAGE2_CAPTURE":
         return "FIX_STAGE2_CAPTURE"
     if state == "WAIT_RESPONSIBLE_PERSON_EXTRACTION":
@@ -823,6 +851,7 @@ def _commercial_decision_state(bucket: str) -> str:
         "CONTINUE_ORIGINAL_BACKTRACE",
         "RUN_P13B_COMPANY_HISTORY",
         "RUN_COMPANY_FIRST_CERTIFICATE_SUPPLEMENT",
+        "RUN_DESIGN_SURVEY_RESPONSIBLE_ADAPTER_PLAN",
     }:
         return "CONTINUE_INTERNAL_EVIDENCE_RUN"
     if bucket == "D_BLOCKED_OR_INSUFFICIENT_REVIEW":
@@ -843,6 +872,8 @@ def _batch_recommended_next_action(record: Mapping[str, Any], bucket: str) -> st
         return "run_data_ggzy_company_history_overlap_triage"
     if bucket == "RUN_COMPANY_FIRST_CERTIFICATE_SUPPLEMENT":
         return "run_company_first_identifier_resolution_before_p13b"
+    if bucket == "RUN_DESIGN_SURVEY_RESPONSIBLE_ADAPTER_PLAN":
+        return "run_design_survey_responsible_adapter_plan"
     if bucket == "D_BLOCKED_OR_INSUFFICIENT_REVIEW":
         return "manual_review_or_retry_blocked_original_notice_backtrace_without_clearance_claim"
     if bucket == "LOW_VALUE_REVIEW_NO_CLEARANCE_CLAIM":
@@ -877,6 +908,7 @@ def _batch_priority_score(record: Mapping[str, Any], bucket: str) -> int:
         "CONTINUE_ORIGINAL_BACKTRACE": 820,
         "RUN_P13B_COMPANY_HISTORY": 760,
         "RUN_COMPANY_FIRST_CERTIFICATE_SUPPLEMENT": 700,
+        "RUN_DESIGN_SURVEY_RESPONSIBLE_ADAPTER_PLAN": 640,
         "D_BLOCKED_OR_INSUFFICIENT_REVIEW": 430,
         "LOW_VALUE_REVIEW_NO_CLEARANCE_CLAIM": 260,
         "DEFER_NON_MAINLINE_ADAPTER": 220,

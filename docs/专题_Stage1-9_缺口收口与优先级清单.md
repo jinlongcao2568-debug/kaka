@@ -70,7 +70,7 @@
 
 ### P0-2 Stage6/7 真实候选 formal real_public 闭环
 
-- 现状：Stage6/7 内部对象已存在；`evidence_orchestration_state_machine_v1` 已能消费 Stage1-6 storage、公司优先补证、P13B 和原文回溯产物，生成 `evidence-state-table`、`adapter-job-table`、`stage6-fact-package-readiness-table` 和 `batch-triage-table`；`evidence_orchestration_continuation_runner_v1` 已能一键生成原文回溯任务并重建状态，但真实候选仍常被 Stage4 释放证据链缺口挡在 formal real_public 闭环之前。
+- 现状：Stage6/7 内部对象已存在；`evidence_orchestration_state_machine_v1` 已能消费 Stage1-6 storage、公司优先补证、P13B 和原文回溯产物，生成 `evidence-state-table`、`adapter-job-table`、`stage6-fact-package-readiness-table` 和 `batch-triage-table`；设计/测绘候选已由 `DesignSurveyResponsibleAdapterPlan v1` 从纯暂存改为可生成 Stage4 负责人/资质/服务期计划；`evidence_orchestration_continuation_runner_v1` 已能一键生成原文回溯任务并重建状态，但真实候选仍常被 Stage4 释放证据链缺口挡在 formal real_public 闭环之前。
 - 直接症状：
   - `real_public_sellable_gate_ready=false`
   - formal real_public 路径存在，但常因 source coverage、原文回溯和释放证据链不足停下

@@ -213,7 +213,7 @@ def _continuation_state(
     if "DESIGN_SURVEY" in priority_class or lane == "survey_design":
         return (
             "DEFER_DESIGN_SURVEY_RESPONSIBLE_OVERLAP_ADAPTER",
-            "build_design_survey_responsible_overlap_adapter_or_keep_stage4_general_gap_review",
+            "run_design_survey_responsible_adapter_plan",
             ["design_survey_not_project_manager_release_mainline"],
         )
     if bool(readback.get("jzsc_company_first_identity_resolution_required")) and not supplement:
