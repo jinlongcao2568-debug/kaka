@@ -148,6 +148,7 @@ def _project_continuation_record(
     candidate_companies = _split_companies(company_text)
     responsible_person = _responsible_person(candidate, supplement)
     certificate_no = _certificate_no(candidate, supplement)
+    current_project_time_window = _current_project_time_window(candidate, readback, supplement)
     person_public_id = str((supplement or {}).get("person_public_id_optional") or "").strip()
     group_members = _group_members(candidate_companies, supplement)
     group_id = str((supplement or {}).get("candidate_group_id") or "").strip()
@@ -171,6 +172,7 @@ def _project_continuation_record(
         "candidate_group_members": group_members,
         "responsible_person_name": responsible_person,
         "project_manager_certificate_no": certificate_no,
+        "current_project_time_window": current_project_time_window,
         "person_public_id_optional": person_public_id,
         "engineering_work_lane": lane,
         "opportunity_priority_class": priority_class,
@@ -244,6 +246,7 @@ def _p13b_project_value_record(record: Mapping[str, Any]) -> dict[str, Any]:
     return {
         "project_id": record.get("project_id"),
         "project_name": record.get("project_name"),
+        "current_project_time_window": dict(record.get("current_project_time_window") or {}),
         "value_closeout_state": "EXTERNAL_CONFLICT_SOURCE_REQUIRED",
         "candidate_notice_source_urls": [source_url] if source_url else [],
         "project_source_urls": [source_url] if source_url else [],
@@ -262,6 +265,7 @@ def _p13b_candidate_group_record(record: Mapping[str, Any]) -> dict[str, Any]:
         "candidate_group_members": list(record.get("candidate_group_members") or []),
         "responsible_person_name": record.get("responsible_person_name"),
         "certificate_no": record.get("project_manager_certificate_no"),
+        "current_project_time_window": dict(record.get("current_project_time_window") or {}),
         "person_public_id_optional": record.get("person_public_id_optional"),
         "source_urls": [source_url] if source_url else [],
         "source_stage16_continuation_state": record.get("continuation_state"),
@@ -298,6 +302,87 @@ def _certificate_no(candidate: Mapping[str, Any], supplement: Mapping[str, Any] 
         if value:
             return value
     return str(candidate.get("project_manager_certificate_no") or "").strip()
+
+
+def _current_project_time_window(
+    candidate: Mapping[str, Any],
+    readback: Mapping[str, Any],
+    supplement: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    sources = [
+        supplement or {},
+        candidate,
+        readback,
+        readback.get("query_context") if isinstance(readback.get("query_context"), Mapping) else {},
+    ]
+    for source in sources:
+        window = source.get("current_project_time_window") or source.get("project_time_window")
+        if isinstance(window, Mapping):
+            copied = dict(window)
+            if copied:
+                copied.setdefault("window_state", "CURRENT_PROJECT_TIME_WINDOW_PASSTHROUGH")
+                copied.setdefault("basis", "stage16_upstream_current_project_time_window")
+                return copied
+    for source in sources:
+        period_text = _first_text(
+            source,
+            (
+                "current_project_period_text",
+                "project_period_text",
+                "construction_period_text",
+                "service_period_text",
+                "contract_period_text",
+                "performance_period_text",
+                "period_text",
+                "duration_text",
+                "工期",
+                "服务期",
+            ),
+        )
+        start_at = _first_text(
+            source,
+            (
+                "current_project_start_at",
+                "current_project_start_date",
+                "project_start_at",
+                "project_start_date",
+                "contract_start_at",
+                "contract_start_date",
+                "service_start_at",
+                "service_start_date",
+            ),
+        )
+        end_at = _first_text(
+            source,
+            (
+                "current_project_end_at",
+                "current_project_end_date",
+                "project_end_at",
+                "project_end_date",
+                "contract_end_at",
+                "contract_end_date",
+                "service_end_at",
+                "service_end_date",
+            ),
+        )
+        if period_text or start_at or end_at:
+            return {
+                "window_state": "CURRENT_PROJECT_TIME_WINDOW_PASSTHROUGH",
+                "start_at": start_at,
+                "end_at": end_at,
+                "period_text": period_text,
+                "basis": "stage16_upstream_period_or_start_end_fields",
+            }
+    return {}
+
+
+def _first_text(source: Mapping[str, Any], keys: tuple[str, ...]) -> str:
+    for key in keys:
+        value = source.get(key)
+        text = str(value or "").strip()
+        if text:
+            return text
+    return ""
 
 
 def _group_members(candidate_companies: list[str], supplement: Mapping[str, Any] | None) -> list[str]:

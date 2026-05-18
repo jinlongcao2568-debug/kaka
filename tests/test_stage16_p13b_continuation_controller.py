@@ -63,6 +63,14 @@ class Stage16P13BContinuationControllerTests(unittest.TestCase):
                 by_project["PROJ-CN-GD-JG2026-11398-001"]["candidate_group_members"],
                 ["上海能源建设集团有限公司", "上海能源建设工程设计研究有限公司"],
             )
+            self.assertEqual(
+                by_project["PROJ-CN-GD-JG2026-11398-001"]["current_project_time_window"]["start_at"],
+                "2026-08-01",
+            )
+            self.assertEqual(
+                project_table["records"][1]["current_project_time_window"]["end_at"],
+                "2027-02-01",
+            )
 
 
 def _write_stage16_storage(path: Path) -> None:
@@ -88,6 +96,7 @@ def _write_stage16_storage(path: Path) -> None:
             "primary_responsible_person_name": "王杰",
             "project_manager_name": "王杰",
             "project_manager_certificate_no": "22ZEZACJ0034",
+            "current_project_time_window": {"start_at": "2026-08-01", "end_at": "2027-02-01"},
             "engineering_work_lane": "construction_or_epc",
             "opportunity_priority_class": "A_HIGH_CONSTRUCTION_EPC",
             "stage2_detail_capture_state": "FETCHED",
