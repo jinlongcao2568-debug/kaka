@@ -86,6 +86,34 @@ class P13BYgpOriginalReadbackTests(unittest.TestCase):
             self.assertIn("365日历天", record["extracted_period_text"])
             self.assertEqual(record["extracted_award_date"], "2025年10月15日")
 
+    def test_url_mapping_redirect_uses_flow_matrix_node_list_and_detail(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_original_backtrace_input(root)
+
+            result = build_p13b_ygp_original_readback(
+                input_root=root,
+                output_root=root / "ygp",
+                enable_live_public_query=True,
+                max_live_original_notices=1,
+                http_getter=_fake_ygp_redirect_flow_getter,
+                created_at="2026-05-15T00:00:00+08:00",
+            )
+
+            summary = result["summary"]
+            self.assertEqual(summary["ygp_readback_ready_count"], 1)
+            self.assertEqual(summary["ygp_person_period_extracted_count"], 1)
+            record = result["manifest"]["ygp_original_readback_records"][0]
+            self.assertEqual(record["ygp_readback_state"], "YGP_ORIGINAL_URL_READBACK_READY")
+            self.assertEqual(record["ygp_api_discovery_state"], "YGP_DETAIL_API_DISCOVERED")
+            self.assertIn("trading-notice/new/detail", record["source_url"])
+            self.assertEqual(record["extracted_responsible_person_names"], ["李四"])
+            self.assertIn("180日历天", record["extracted_period_text"])
+            self.assertEqual(
+                [attempt["route"] for attempt in record["route_attempts"]],
+                ["ygp_url_mapping_no_redirect", "ygp_node_list_fetch", "ygp_flow_matrix_detail_fetch"],
+            )
+
     def test_browser_network_fallback_can_supply_public_detail_payload(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -282,6 +310,83 @@ def _fake_ygp_http_getter(url: str, context: Mapping[str, Any]) -> Mapping[str, 
             "body": json.dumps(
                 {
                     "content": "公告标题：历史桥梁工程中标公告。项目名称：历史桥梁工程。中标人：广东乙公司。项目负责人：李四。服务期：365日历天。中标日期：2025年10月15日"
+                },
+                ensure_ascii=False,
+            ),
+            "url": url,
+        }
+    return {"status_code": 404, "content_type": "text/plain", "body": "not found", "url": url}
+
+
+def _fake_ygp_redirect_flow_getter(url: str, context: Mapping[str, Any]) -> Mapping[str, Any]:
+    hash_url = (
+        "https://ygp.gdzwfw.gov.cn/ggzy-portal/#/44/new/jygg/v3/A?"
+        "noticeId=notice-123-3C52&projectCode=A4406010001000001&bizCode=3C52&siteCode=440600"
+        "&publishDate=20260512171755&source=佛山市公共资源交易信息化综合平台&titleDetails=工程建设"
+    )
+    if "url-mapping" in url and context.get("no_redirect"):
+        return {
+            "status_code": 302,
+            "content_type": "application/json",
+            "headers": {"Location": hash_url},
+            "body": '{"errcode":0,"errmsg":"ok","data":null}',
+            "url": url,
+            "error": "HTTP Error 302: Found",
+        }
+    if "url-mapping" in url:
+        return {
+            "status_code": 200,
+            "content_type": "text/html",
+            "body": '<html><head><script type="module" src="/ggzy-portal/assets/index.js"></script></head><body><div id="app"></div>广东省公共资源交易平台</body></html>',
+            "url": url,
+        }
+    if "nodeList" in url:
+        return {
+            "status_code": 200,
+            "content_type": "application/json;charset=UTF-8",
+            "body": json.dumps(
+                {
+                    "errcode": 0,
+                    "errmsg": "ok",
+                    "data": [
+                        {
+                            "nodeName": "中标结果",
+                            "nodeId": "node-result",
+                            "selectedBizCode": "3C52",
+                            "dataCount": 1,
+                            "noticeId": "notice-123-3C52",
+                            "dsList": [{"3C52@中标公示": ["notice-123-3C52"]}],
+                        }
+                    ],
+                },
+                ensure_ascii=False,
+            ),
+            "url": url,
+        }
+    if "trading-notice/new/detail" in url:
+        return {
+            "status_code": 200,
+            "content_type": "application/json;charset=UTF-8",
+            "body": json.dumps(
+                {
+                    "errcode": 0,
+                    "errmsg": "ok",
+                    "data": {
+                        "title": "历史桥梁工程中标结果公示",
+                        "tradingNoticeColumnModelList": [
+                            {
+                                "name": "结果信息",
+                                "multiKeyValueTableList": [
+                                    [
+                                        {"code": "WIN_BIDDER_NAME", "key": "中标人", "value": "广东乙公司"},
+                                        {"code": "PROJECT_MANAGER", "key": "项目负责人", "value": "李四"},
+                                        {"code": "PERIOD", "key": "工期", "value": "180日历天"},
+                                        {"code": "PUBLIC_DATE", "key": "公告日期", "value": "2025年10月16日"},
+                                    ]
+                                ],
+                            }
+                        ],
+                    },
                 },
                 ensure_ascii=False,
             ),

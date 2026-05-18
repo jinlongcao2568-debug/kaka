@@ -22,6 +22,7 @@ DEFAULT_INPUT_ROOT = Path("tmp/evaluation-real-samples/p13b-original-notice-back
 DEFAULT_OUTPUT_ROOT = Path("tmp/evaluation-real-samples/p13b-ygp-original-readback-v1")
 
 YGP_HOST = "ygp.gdzwfw.gov.cn"
+YGP_API_ROOT = "https://ygp.gdzwfw.gov.cn/ggzy-portal/center/apis"
 FORBIDDEN_TERMS = ("无风险", "无冲突", "在建冲突成立", "违法成立", "确认本人", "造假成立", "是不是本人")
 
 HttpGetter = Callable[[str, Mapping[str, Any]], Mapping[str, Any]]
@@ -216,6 +217,18 @@ def _readback_one_ygp_original(
 ) -> dict[str, Any]:
     original_url = str(task.get("original_notice_url") or "")
     route_attempts: list[dict[str, Any]] = []
+    resolved = _resolve_ygp_project_route(original_url, getter=getter, task=task, route_attempts=route_attempts)
+    if resolved:
+        detail_record = _readback_resolved_ygp_detail(
+            task,
+            resolved=resolved,
+            getter=getter,
+            route_attempts=route_attempts,
+            created_at=created_at,
+        )
+        if detail_record:
+            return detail_record
+
     first = _fetch_url(original_url, getter, route="ygp_url_mapping_fetch", task=task)
     route_attempts.append(first["attempt"])
     blockers = _blockers_from_response(
@@ -320,17 +333,26 @@ def _readback_one_ygp_original(
     }
 
 
-def _fetch_url(url: str, getter: HttpGetter, *, route: str, task: Mapping[str, Any]) -> dict[str, Any]:
-    response = dict(getter(url, {"route": route, "task": dict(task)}))
+def _fetch_url(
+    url: str,
+    getter: HttpGetter,
+    *,
+    route: str,
+    task: Mapping[str, Any],
+    no_redirect: bool = False,
+) -> dict[str, Any]:
+    response = dict(getter(url, {"route": route, "task": dict(task), "no_redirect": no_redirect}))
     status_code = int(response.get("status_code") or response.get("status") or 0)
     body = str(response.get("body") or response.get("content") or response.get("text") or "")
-    content_type = str(response.get("content_type") or "")
+    headers = response.get("headers") if isinstance(response.get("headers"), Mapping) else {}
+    content_type = str(response.get("content_type") or headers.get("Content-Type") or headers.get("content-type") or "")
     final_url = str(response.get("url") or url)
     error = str(response.get("error") or "")
     return {
         "url": final_url,
         "status_code": status_code,
         "content_type": content_type,
+        "headers": dict(headers),
         "body": body,
         "error": error,
         "attempt": {
@@ -338,6 +360,7 @@ def _fetch_url(url: str, getter: HttpGetter, *, route: str, task: Mapping[str, A
             "url": final_url,
             "status_code": status_code,
             "content_type": content_type,
+            "headers": dict(headers),
             "body_sha256": _sha256(body) if body else "",
             "error": error,
         },
@@ -354,6 +377,185 @@ def _attempt_from_response(response: Mapping[str, Any], *, route: str, fallback_
         "body_sha256": _sha256(body) if body else "",
         "error": str(response.get("error") or ""),
     }
+
+
+def _resolve_ygp_project_route(
+    source_url: str,
+    *,
+    getter: HttpGetter,
+    task: Mapping[str, Any],
+    route_attempts: list[dict[str, Any]],
+) -> dict[str, str] | None:
+    parsed = urllib.parse.urlparse(source_url)
+    if parsed.fragment:
+        return _route_from_hash_url(source_url)
+    if "/url-mapping/" not in parsed.path:
+        return None
+    response = _fetch_url(source_url, getter, route="ygp_url_mapping_no_redirect", task=task, no_redirect=True)
+    route_attempts.append(response["attempt"])
+    location = response["headers"].get("Location") or response["headers"].get("location") or ""
+    if location:
+        return _route_from_hash_url(urllib.parse.urljoin(source_url, str(location)))
+    if response["url"] != source_url and urllib.parse.urlparse(response["url"]).fragment:
+        return _route_from_hash_url(response["url"])
+    return None
+
+
+def _route_from_hash_url(url: str) -> dict[str, str] | None:
+    parsed = urllib.parse.urlparse(url)
+    fragment = parsed.fragment or ""
+    if "?" not in fragment:
+        return None
+    hash_path, query = fragment.split("?", 1)
+    params = {key: values[-1] for key, values in urllib.parse.parse_qs(query).items() if values}
+    path_parts = [part for part in hash_path.split("/") if part]
+    trading_type = params.get("tradingType") or ""
+    if not trading_type and len(path_parts) >= 5:
+        trading_type = path_parts[-1]
+    version = ""
+    for part in path_parts:
+        if re.fullmatch(r"v\d+", part):
+            version = part
+    if not all(params.get(key) for key in ("siteCode", "projectCode", "bizCode")):
+        return None
+    return {
+        "source_hash_url": url,
+        "siteCode": params.get("siteCode", ""),
+        "projectCode": params.get("projectCode", ""),
+        "bizCode": params.get("bizCode", ""),
+        "noticeId": params.get("noticeId", ""),
+        "nodeId": params.get("nodeId", ""),
+        "publishDate": params.get("publishDate", ""),
+        "tradingType": trading_type,
+        "version": version or "v3",
+        "source": params.get("source", ""),
+        "titleDetails": params.get("titleDetails", ""),
+    }
+
+
+def _readback_resolved_ygp_detail(
+    task: Mapping[str, Any],
+    *,
+    resolved: Mapping[str, str],
+    getter: HttpGetter,
+    route_attempts: list[dict[str, Any]],
+    created_at: str,
+) -> dict[str, Any] | None:
+    node_response = _fetch_url(_node_list_url(resolved), getter, route="ygp_node_list_fetch", task=task)
+    route_attempts.append(node_response["attempt"])
+    blockers = _blockers_from_response(
+        status=node_response["status_code"],
+        body_probe=node_response["body"][:300],
+        error=node_response["error"],
+        prefix="ygp_node_list",
+    )
+    if blockers:
+        return None
+    node_payload = _json_payload(node_response["body"])
+    nodes = node_payload.get("data")
+    if not isinstance(nodes, list):
+        return None
+    for detail_url in _detail_candidates_from_nodes(
+        [node for node in nodes if isinstance(node, Mapping)],
+        resolved=resolved,
+    ):
+        detail_response = _fetch_url(detail_url, getter, route="ygp_flow_matrix_detail_fetch", task=task)
+        route_attempts.append(detail_response["attempt"])
+        detail_blockers = _blockers_from_response(
+            status=detail_response["status_code"],
+            body_probe=detail_response["body"][:300],
+            error=detail_response["error"],
+            prefix="ygp_flow_detail",
+        )
+        if detail_blockers:
+            continue
+        text = _payload_to_text(detail_response["body"], detail_response["content_type"])
+        extraction = _extract_notice_fields(text)
+        if extraction["field_signal_count"] > 0:
+            return _ready_record(
+                task,
+                source_url=detail_response["url"],
+                status_code=detail_response["status_code"],
+                content_type=detail_response["content_type"],
+                payload=detail_response["body"],
+                text=text,
+                extraction=extraction,
+                route_attempts=route_attempts,
+                readback_state="YGP_ORIGINAL_URL_READBACK_READY",
+                api_discovery_state="YGP_DETAIL_API_DISCOVERED",
+                created_at=created_at,
+            )
+    return None
+
+
+def _node_list_url(route: Mapping[str, str]) -> str:
+    query = urllib.parse.urlencode(
+        {
+            "siteCode": route.get("siteCode", ""),
+            "tradingType": route.get("tradingType", ""),
+            "bizCode": route.get("bizCode", ""),
+            "projectCode": route.get("projectCode", ""),
+        }
+    )
+    return f"{YGP_API_ROOT}/trading-notice/new/nodeList?{query}"
+
+
+def _detail_url(route: Mapping[str, str], *, node_id: str, biz_code: str, notice_id: str) -> str:
+    query = urllib.parse.urlencode(
+        {
+            "nodeId": node_id,
+            "version": route.get("version") or "v3",
+            "tradingType": route.get("tradingType", ""),
+            "noticeId": notice_id,
+            "bizCode": biz_code,
+            "projectCode": route.get("projectCode", ""),
+            "siteCode": route.get("siteCode", ""),
+        }
+    )
+    return f"{YGP_API_ROOT}/trading-notice/new/detail?{query}"
+
+
+def _detail_candidates_from_nodes(nodes: list[Mapping[str, Any]], *, resolved: Mapping[str, str]) -> list[str]:
+    target_notice_id = str(resolved.get("noticeId") or "")
+    target_biz_code = str(resolved.get("bizCode") or "")
+    exact: list[str] = []
+    same_biz: list[str] = []
+    fallback: list[str] = []
+    for node in nodes:
+        node_id = str(node.get("nodeId") or "")
+        for entry in _node_notice_entries(node):
+            notice_id = entry["notice_id"]
+            biz_code = entry["biz_code"] or str(node.get("selectedBizCode") or "")
+            if not notice_id:
+                continue
+            candidate = _detail_url(resolved, node_id=node_id, biz_code=biz_code, notice_id=notice_id)
+            if target_notice_id and notice_id == target_notice_id:
+                exact.append(candidate)
+            elif target_biz_code and biz_code == target_biz_code:
+                same_biz.append(candidate)
+            else:
+                fallback.append(candidate)
+    return _dedupe([*exact, *same_biz, *fallback])
+
+
+def _node_notice_entries(node: Mapping[str, Any]) -> list[dict[str, str]]:
+    entries: list[dict[str, str]] = []
+    for item in _list(node.get("dsList")):
+        if not isinstance(item, Mapping):
+            continue
+        for key, values in item.items():
+            biz_code = str(key).split("@", 1)[0].strip()
+            for notice_id in _list(values):
+                if str(notice_id or "").strip():
+                    entries.append({"biz_code": biz_code, "notice_id": str(notice_id)})
+    if not entries and str(node.get("noticeId") or "").strip():
+        entries.append(
+            {
+                "biz_code": str(node.get("selectedBizCode") or ""),
+                "notice_id": str(node.get("noticeId") or ""),
+            }
+        )
+    return entries
 
 
 def _blocked_record(
@@ -606,26 +808,34 @@ def _default_http_getter(url: str, context: Mapping[str, Any]) -> Mapping[str, A
             "Referer": "https://ygp.gdzwfw.gov.cn/",
         },
     )
+    opener = urllib.request.build_opener(_NoRedirectHandler) if context.get("no_redirect") else urllib.request.build_opener()
     try:
-        with urllib.request.urlopen(request, timeout=25) as response:
+        with opener.open(request, timeout=25) as response:
             body = response.read().decode("utf-8", errors="replace")
             return {
                 "status_code": int(getattr(response, "status", 0) or 0),
                 "content_type": response.headers.get("Content-Type", ""),
+                "headers": dict(response.headers.items()),
                 "body": body,
-                "url": url,
+                "url": response.geturl(),
             }
     except urllib.error.HTTPError as exc:
         body = exc.read().decode("utf-8", errors="replace") if exc.fp else ""
         return {
             "status_code": int(exc.code),
             "content_type": exc.headers.get("Content-Type", "") if exc.headers else "",
+            "headers": dict(exc.headers.items()) if exc.headers else {},
             "body": body,
             "url": url,
             "error": str(exc),
         }
     except urllib.error.URLError as exc:
-        return {"status_code": 0, "content_type": "", "body": "", "url": url, "error": str(exc.reason)}
+        return {"status_code": 0, "content_type": "", "headers": {}, "body": "", "url": url, "error": str(exc.reason)}
+
+
+class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req: Any, fp: Any, code: int, msg: str, headers: Any, newurl: str) -> None:
+        return None
 
 
 def _blockers_from_response(*, status: int, body_probe: str, error: str, prefix: str) -> list[str]:
@@ -653,8 +863,13 @@ def _is_spa_shell(body: str, text: str) -> bool:
 
 
 def _extract_notice_fields(text: str) -> dict[str, Any]:
-    title = _extract_first(text, [r"(?:公告标题|标题)\s*[:：\t ]+\s*([^。；;\n]{4,120})"])
-    project = _extract_first(text, [r"(?:采购项目名称|项目名称|工程名称)\s*[:：\t ]+\s*([^。；;\n]{4,120})"])
+    title = _extract_first(text, [r"(?:公告标题|标题|title)\s*[:：\t ]+\s*([^。；;\n]{4,160})"])
+    project = _extract_first(
+        text,
+        [
+            r"(?:采购项目名称|项目名称|工程名称|招标项目名称|中标项目名称|标段(?:（包）)?名称|TENDER_PROJECT_NAME|BID_SECTION_NAME)\s*[:：\t ]+\s*([^。；;\n]{4,160})"
+        ],
+    )
     people = _extract_responsible_people(text)
     companies = _extract_company_names(text)
     period = _extract_period_text(text)
@@ -745,11 +960,27 @@ def _payload_to_text(content: str, content_type: str) -> str:
     return _html_to_text(content)
 
 
+def _json_payload(content: str) -> dict[str, Any]:
+    try:
+        payload = json.loads(content)
+    except json.JSONDecodeError:
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
 def _json_to_text(value: Any) -> str:
     parts: list[str] = []
 
     def walk(item: Any) -> None:
         if isinstance(item, Mapping):
+            field_label = str(item.get("key") or item.get("name") or "").strip()
+            field_code = str(item.get("code") or "").strip()
+            field_value = item.get("value")
+            if (field_label or field_code) and isinstance(field_value, (str, int, float)):
+                if field_label:
+                    parts.append(f"{field_label}：{field_value}")
+                if field_code:
+                    parts.append(f"{field_code}：{field_value}")
             for key, child in item.items():
                 if isinstance(child, (str, int, float)):
                     parts.append(f"{key}：{child}")
