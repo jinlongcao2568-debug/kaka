@@ -660,6 +660,7 @@
         "legacy_code_note": "P13B 是历史阶段编号，仅用于机器追踪和旧产物回放；产品文档应优先使用负责人未释放/履约重叠宽筛。",
         "external_conflict_first_pass": "PRIOR_AWARD_AND_CANDIDATE_OVERLAP_TRIAGE",
         "release_evidence_probe_trigger": "ONLY_AFTER_TIME_WINDOW_OVERLAP_SIGNAL",
+        "historical_overlap_project_region_first": true,
         "do_not_start_with_full_province_construction_permit_sweep": true,
         "query_miss_is_not_clearance": true,
         "flow_08_default_parse_required": false,
@@ -709,6 +710,16 @@
           "same_project_adjacent_section_or_phase_exception",
           "administrative_penalty_or_complaint_decision"
         ],
+        "release_evidence_abcd_grading_policy": {
+          "policy_id": "P13B_RELEASE_EVIDENCE_ABCD_GRADING_V1",
+          "query_region_rule": "historical_overlap_project_region_first_then_current_project_region_fallback",
+          "A_STRONG_TIME_OVERLAP_SIGNAL": "data_ggzy_bid_show_or_targeted_original_notice_has_same_person_same_company_and_overlapping_time_window",
+          "B_ENHANCEMENT_OFFICIAL_READBACK": "targeted_permit_contract_performance_or_personnel_public_readback_hits_after_A",
+          "C_REVERSE_EXPLANATION_OFFICIAL_READBACK": "targeted_completion_change_release_or_exemption_public_readback_hits_after_A",
+          "D_INSUFFICIENT_OR_BLOCKED_READBACK": "targeted_source_blocked_unavailable_or_no_public_field_match_after_attempt",
+          "D_does_not_downgrade_A": true,
+          "downstream_probe_required_for_A_value": false
+        },
         "current_verified_run_facts": {
           "p13a_fixed_project_id": "JG2026-11215",
           "p12_project_count": 10,
@@ -727,6 +738,8 @@
           "do_not_use_legacy_dealList_find_as_p13b_primary_company_history_source",
           "do_not_treat_data_ggzy_bid_list_without_person_as_overlap_signal",
           "do_not_backtrace_original_notice_when_data_ggzy_bid_show_has_person_and_contract_or_delivery_period",
+          "do_not_downgrade_a_level_time_overlap_signal_only_because_release_sources_are_unavailable",
+          "do_not_query_current_project_region_when_historical_overlap_project_region_is_known",
           "do_not_default_download_all_01_to_12_flows_for_p13b_original_backtrace",
           "do_not_treat_data_ggzy_original_url_as_ygp_active_collection_restore",
           "do_not_use_ygp_as_guangzhou_primary_source"

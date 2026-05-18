@@ -344,6 +344,8 @@ def _release_row(record: Mapping[str, Any], *, source_stage: str, created_at: st
         "candidate_company_name": str(record.get("candidate_company_name") or ""),
         "matched_person_names": _list(record.get("matched_person_names")),
         "responsible_person_names": _list(record.get("responsible_person_names")),
+        "historical_project_area_code": str(record.get("historical_project_area_code") or record.get("bid_area_code") or ""),
+        "bid_area_code": str(record.get("bid_area_code") or record.get("historical_project_area_code") or ""),
         "source_url": str(record.get("source_url") or record.get("bid_show_url") or record.get("original_notice_url") or ""),
         "extracted_period_text": str(record.get("extracted_period_text") or ""),
         "extracted_award_date": str(record.get("extracted_award_date") or ""),

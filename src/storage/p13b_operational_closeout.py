@@ -53,6 +53,78 @@ RELEASE_EVIDENCE_SOURCE_TARGET_ALIASES = {
         "complaint_or_supervision_decision",
     ),
 }
+INITIAL_RELEASE_EVIDENCE_ABCD_GRADE = "A_STRONG_TIME_OVERLAP_SIGNAL"
+DOWNSTREAM_RELEASE_EVIDENCE_POSSIBLE_ABCD_GRADES = [
+    "B_ENHANCEMENT_OFFICIAL_READBACK",
+    "C_REVERSE_EXPLANATION_OFFICIAL_READBACK",
+    "D_INSUFFICIENT_OR_BLOCKED_READBACK",
+]
+P13B_RELEASE_EVIDENCE_ABCD_POLICY = {
+    "policy_id": "P13B_RELEASE_EVIDENCE_ABCD_GRADING_V1",
+    "initial_signal_grade": INITIAL_RELEASE_EVIDENCE_ABCD_GRADE,
+    "grades": {
+        "A_STRONG_TIME_OVERLAP_SIGNAL": {
+            "trigger": "data_ggzy_bid_show_or_targeted_original_notice_same_person_company_time_window_overlap",
+            "downstream_probe_required_for_initial_signal_value": False,
+        },
+        "B_ENHANCEMENT_OFFICIAL_READBACK": {
+            "trigger": "targeted_permit_contract_performance_or_personnel_public_readback_hit",
+            "role": "enhance_initial_signal",
+        },
+        "C_REVERSE_EXPLANATION_OFFICIAL_READBACK": {
+            "trigger": "targeted_completion_change_release_or_exemption_public_readback_hit",
+            "role": "reverse_explanation_or_responsibility_window_split",
+        },
+        "D_INSUFFICIENT_OR_BLOCKED_READBACK": {
+            "trigger": "targeted_source_blocked_unavailable_or_no_public_field_match_after_attempt",
+            "role": "evidence_gap_not_signal_downgrade",
+        },
+    },
+    "region_rule": "query_historical_overlap_project_region_first_then_current_project_region_fallback",
+}
+REGION_CODE_BY_CITY_PREFIX = {
+    "11": "CN-BJ",
+    "12": "CN-TJ",
+    "13": "CN-HE",
+    "14": "CN-SX",
+    "15": "CN-NM",
+    "21": "CN-LN",
+    "22": "CN-JL",
+    "23": "CN-HL",
+    "31": "CN-SH",
+    "32": "CN-JS",
+    "33": "CN-ZJ",
+    "34": "CN-AH",
+    "35": "CN-FJ",
+    "36": "CN-JX",
+    "37": "CN-SD",
+    "41": "CN-HA",
+    "42": "CN-HB",
+    "43": "CN-HN",
+    "44": "CN-GD",
+    "45": "CN-GX",
+    "46": "CN-HI",
+    "50": "CN-CQ",
+    "51": "CN-SC",
+    "52": "CN-GZ",
+    "53": "CN-YN",
+    "54": "CN-XZ",
+    "61": "CN-SN",
+    "62": "CN-GS",
+    "63": "CN-QH",
+    "64": "CN-NX",
+    "65": "CN-XJ",
+}
+REGION_CODE_BY_AREA_HINT = (
+    ("CN-GD", ("广东", "广州", "深圳", "珠海", "佛山", "东莞", "惠州", "中山", "江门", "肇庆", "清远", "汕头", "湛江", "茂名", "韶关", "河源", "梅州", "汕尾", "阳江", "潮州", "揭阳", "云浮")),
+    ("CN-ZJ", ("浙江", "杭州", "宁波", "温州", "嘉兴", "湖州", "绍兴", "金华", "衢州", "舟山", "台州", "丽水")),
+    ("CN-SC", ("四川", "成都", "绵阳", "德阳", "宜宾", "泸州", "南充", "达州", "乐山", "眉山", "内江", "自贡")),
+    ("CN-JS", ("江苏", "南京", "苏州", "无锡", "常州", "南通", "扬州", "镇江", "泰州", "盐城", "徐州", "淮安", "连云港", "宿迁")),
+    ("CN-HB", ("湖北", "武汉", "宜昌", "襄阳", "荆州", "黄石", "十堰", "孝感", "黄冈", "咸宁", "随州")),
+    ("CN-SD", ("山东", "济南", "青岛", "烟台", "潍坊", "临沂", "济宁", "淄博", "泰安", "威海", "日照", "德州", "聊城", "滨州", "菏泽")),
+    ("CN-HN", ("湖南", "长沙", "株洲", "湘潭", "衡阳", "岳阳", "常德", "益阳", "郴州", "永州", "怀化", "娄底")),
+    ("CN-HA", ("河南", "郑州", "洛阳", "开封", "新乡", "许昌", "平顶山", "安阳", "焦作", "南阳", "商丘", "信阳", "周口", "驻马店")),
+)
 
 
 def build_p13b_operational_closeout(
@@ -142,6 +214,15 @@ def build_p13b_operational_closeout(
         blocking_reasons=blocking_reasons,
     )
     summary["release_evidence_probe_task_count"] = len(release_evidence_probe_task_records)
+    summary["release_evidence_initial_abcd_grade_counts"] = _counts(
+        record.get("initial_release_evidence_abcd_grade") for record in release_evidence_probe_plan_records
+    )
+    summary["release_evidence_query_region_basis_counts"] = _counts(
+        record.get("release_evidence_query_region_basis") for record in release_evidence_probe_plan_records
+    )
+    summary["release_evidence_task_initial_abcd_grade_counts"] = _counts(
+        record.get("initial_release_evidence_abcd_grade") for record in release_evidence_probe_task_records
+    )
     manifest = {
         "manifest_version": P13B_OPERATIONAL_CLOSEOUT_VERSION,
         "manifest_kind": P13B_OPERATIONAL_CLOSEOUT_KIND,
@@ -153,6 +234,7 @@ def build_p13b_operational_closeout(
         "source_original_notice_backtrace_root": str(original_dir),
         "source_overlap_triage_closeout_root": str(closeout_dir),
         "summary": summary,
+        "release_evidence_abcd_policy": P13B_RELEASE_EVIDENCE_ABCD_POLICY,
         "project_next_action_records": project_next_action_records,
         "release_evidence_probe_plan_records": release_evidence_probe_plan_records,
         "release_evidence_probe_task_records": release_evidence_probe_task_records,
@@ -225,8 +307,9 @@ def _release_evidence_probe_plan_records(
         project = project_by_id.get(project_id, {})
         candidate_company = str(trigger.get("candidate_company_name") or "")
         person_names = _list(trigger.get("matched_person_names")) or _list(trigger.get("responsible_person_names"))
-        city_code = str(project.get("city_code") or trigger.get("city_code") or "")
-        region_code = str(trigger.get("region_code") or project.get("region_code") or _region_code_from_city_code(city_code))
+        region_context = _release_evidence_region_context(trigger, project)
+        city_code = str(region_context["current_project_city_code"])
+        region_code = str(region_context["release_evidence_query_region_code"])
         source_targets = _list(trigger.get("release_evidence_source_targets")) or DEFAULT_RELEASE_EVIDENCE_SOURCE_TARGETS
         source_plan = build_regional_hard_defect_source_plan(
             {
@@ -253,6 +336,13 @@ def _release_evidence_probe_plan_records(
                 "project_name": str(trigger.get("project_name") or project.get("project_name") or ""),
                 "city_code": city_code,
                 "region_code": region_code,
+                "current_project_city_code": city_code,
+                "current_project_region_code": str(region_context["current_project_region_code"]),
+                "historical_project_area_code": str(region_context["historical_project_area_code"]),
+                "historical_project_region_code": str(region_context["historical_project_region_code"]),
+                "release_evidence_query_region_code": region_code,
+                "release_evidence_query_region_basis": str(region_context["release_evidence_query_region_basis"]),
+                "release_evidence_query_region_missing": bool(region_context["release_evidence_query_region_missing"]),
                 "candidate_company_name": candidate_company,
                 "matched_person_names": person_names,
                 "source_url": str(trigger.get("source_url") or ""),
@@ -265,6 +355,12 @@ def _release_evidence_probe_plan_records(
                 "source_plan_coverage_state": str(source_plan.get("coverage_state") or ""),
                 "source_entry_count": len(_list(source_plan.get("source_entries"))),
                 "next_required_runtime_adapters": _list(source_plan.get("next_required_runtime_adapters")),
+                "initial_release_evidence_abcd_grade": INITIAL_RELEASE_EVIDENCE_ABCD_GRADE,
+                "initial_release_evidence_abcd_grade_basis": [
+                    "same_person_company_time_window_overlap_from_data_ggzy_or_targeted_original_notice"
+                ],
+                "downstream_probe_role": "enhancement_or_reverse_explanation_not_prerequisite_for_initial_signal",
+                "downstream_possible_release_evidence_abcd_grades": list(DOWNSTREAM_RELEASE_EVIDENCE_POSSIBLE_ABCD_GRADES),
                 "recommended_next_action": "prepare_targeted_release_evidence_probe_tasks",
                 "execution_mode": "PLAN_ONLY_NOT_EXECUTED",
                 "query_miss_is_not_clearance": True,
@@ -298,8 +394,9 @@ def _release_evidence_probe_task_records(
         plan = plan_by_trigger_id.get(trigger_id, {})
         candidate_company = str(trigger.get("candidate_company_name") or "")
         person_names = _list(trigger.get("matched_person_names")) or _list(trigger.get("responsible_person_names"))
-        city_code = str(project.get("city_code") or trigger.get("city_code") or "")
-        region_code = str(trigger.get("region_code") or project.get("region_code") or _region_code_from_city_code(city_code))
+        region_context = _release_evidence_region_context(trigger, project)
+        city_code = str(region_context["current_project_city_code"])
+        region_code = str(region_context["release_evidence_query_region_code"])
         raw_source_targets = _list(trigger.get("release_evidence_source_targets")) or DEFAULT_RELEASE_EVIDENCE_SOURCE_TARGETS
         canonical_source_targets = _canonical_source_targets(raw_source_targets)
         source_plan = build_regional_hard_defect_source_plan(
@@ -315,13 +412,19 @@ def _release_evidence_probe_task_records(
         for entry in _list(source_plan.get("source_entries")):
             if not isinstance(entry, Mapping):
                 continue
-            if not _source_entry_is_immediate_for_project(entry, city_code=city_code, region_code=region_code):
+            if not _source_entry_is_immediate_for_project(
+                entry,
+                city_code=city_code,
+                region_code=region_code,
+                historical_area_code=str(region_context["historical_project_area_code"]),
+            ):
                 continue
             rows.extend(
                 _task_rows_for_source_entry(
                     trigger=trigger,
                     plan=plan,
                     project=project,
+                    region_context=region_context,
                     entry=entry,
                     raw_source_targets=raw_source_targets,
                     canonical_source_targets=canonical_source_targets,
@@ -337,6 +440,7 @@ def _task_rows_for_source_entry(
     trigger: Mapping[str, Any],
     plan: Mapping[str, Any],
     project: Mapping[str, Any],
+    region_context: Mapping[str, Any],
     entry: Mapping[str, Any],
     raw_source_targets: list[Any],
     canonical_source_targets: list[str],
@@ -348,6 +452,7 @@ def _task_rows_for_source_entry(
         trigger=trigger,
         plan=plan,
         project=project,
+        region_context=region_context,
         source=entry,
         parent_entry=entry,
         source_granularity="source_entry",
@@ -365,6 +470,7 @@ def _task_rows_for_source_entry(
             trigger=trigger,
             plan=plan,
             project=project,
+            region_context=region_context,
             source=subsource,
             parent_entry=entry,
             source_granularity="verified_public_subsource",
@@ -383,6 +489,7 @@ def _task_row_from_source(
     trigger: Mapping[str, Any],
     plan: Mapping[str, Any],
     project: Mapping[str, Any],
+    region_context: Mapping[str, Any],
     source: Mapping[str, Any],
     parent_entry: Mapping[str, Any],
     source_granularity: str,
@@ -419,7 +526,14 @@ def _task_row_from_source(
         "project_id": project_id,
         "project_name": project_name,
         "city_code": str(project.get("city_code") or trigger.get("city_code") or ""),
-        "region_code": str(plan.get("region_code") or _region_code_from_city_code(str(project.get("city_code") or ""))),
+        "region_code": str(plan.get("region_code") or region_context.get("release_evidence_query_region_code") or ""),
+        "current_project_city_code": str(region_context.get("current_project_city_code") or ""),
+        "current_project_region_code": str(region_context.get("current_project_region_code") or ""),
+        "historical_project_area_code": str(region_context.get("historical_project_area_code") or ""),
+        "historical_project_region_code": str(region_context.get("historical_project_region_code") or ""),
+        "release_evidence_query_region_code": str(region_context.get("release_evidence_query_region_code") or ""),
+        "release_evidence_query_region_basis": str(region_context.get("release_evidence_query_region_basis") or ""),
+        "release_evidence_query_region_missing": bool(region_context.get("release_evidence_query_region_missing")),
         "candidate_company_name": candidate_company,
         "matched_person_names": person_names,
         "trigger_source_url": str(trigger.get("source_url") or ""),
@@ -447,6 +561,24 @@ def _task_row_from_source(
         "canonical_release_evidence_source_targets": canonical_source_targets,
         "source_target_source_types": source_target_types,
         "matched_target_source_types": matched_target_types,
+        "initial_release_evidence_abcd_grade": str(
+            trigger.get("initial_release_evidence_abcd_grade")
+            or plan.get("initial_release_evidence_abcd_grade")
+            or INITIAL_RELEASE_EVIDENCE_ABCD_GRADE
+        ),
+        "initial_release_evidence_abcd_grade_basis": _list(
+            trigger.get("initial_release_evidence_abcd_grade_basis")
+            or plan.get("initial_release_evidence_abcd_grade_basis")
+        )
+        or ["same_person_company_time_window_overlap_from_data_ggzy_or_targeted_original_notice"],
+        "downstream_probe_role": str(
+            plan.get("downstream_probe_role")
+            or "enhancement_or_reverse_explanation_not_prerequisite_for_initial_signal"
+        ),
+        "downstream_possible_release_evidence_abcd_grades": _list(
+            plan.get("downstream_possible_release_evidence_abcd_grades")
+        )
+        or list(DOWNSTREAM_RELEASE_EVIDENCE_POSSIBLE_ABCD_GRADES),
         "query_keys": _list(source.get("query_keys")) or _list(parent_entry.get("query_keys")),
         "query_params": _release_evidence_query_params(
             project_id=project_id,
@@ -456,6 +588,7 @@ def _task_row_from_source(
             source_profile_id=source_profile_id,
             source_target_types=matched_target_types,
             trigger_source_url=str(trigger.get("source_url") or ""),
+            region_context=region_context,
         ),
         "runtime_status": str(source.get("runtime_status") or parent_entry.get("runtime_status") or ""),
         "next_adapter": str(source.get("next_adapter") or parent_entry.get("next_adapter") or ""),
@@ -479,6 +612,7 @@ def _release_evidence_query_params(
     source_profile_id: str,
     source_target_types: list[str],
     trigger_source_url: str,
+    region_context: Mapping[str, Any],
 ) -> dict[str, Any]:
     primary_person_name = str(person_names[0] if person_names else "")
     return {
@@ -490,6 +624,12 @@ def _release_evidence_query_params(
         "sourceProfileId": source_profile_id,
         "targetSourceTypes": source_target_types,
         "triggerSourceUrl": trigger_source_url,
+        "currentProjectCityCode": str(region_context.get("current_project_city_code") or ""),
+        "currentProjectRegionCode": str(region_context.get("current_project_region_code") or ""),
+        "historicalProjectAreaCode": str(region_context.get("historical_project_area_code") or ""),
+        "historicalProjectRegionCode": str(region_context.get("historical_project_region_code") or ""),
+        "releaseEvidenceQueryRegionCode": str(region_context.get("release_evidence_query_region_code") or ""),
+        "releaseEvidenceQueryRegionBasis": str(region_context.get("release_evidence_query_region_basis") or ""),
         "keywords": _dedupe([project_name, candidate_company, primary_person_name]),
     }
 
@@ -505,15 +645,62 @@ def _canonical_source_targets(values: list[Any]) -> list[str]:
     return _dedupe(targets)
 
 
-def _source_entry_is_immediate_for_project(entry: Mapping[str, Any], *, city_code: str, region_code: str) -> bool:
+def _source_entry_is_immediate_for_project(
+    entry: Mapping[str, Any],
+    *,
+    city_code: str,
+    region_code: str,
+    historical_area_code: str,
+) -> bool:
     profile_id = str(entry.get("source_profile_id") or "")
     entry_region = str(entry.get("region_code") or "").upper()
     normalized_region = str(region_code or "").upper()
     if profile_id == "GUANGZHOU-ZFCJ-CREDIT-DOUBLE-PUBLICITY":
-        return str(city_code or "").startswith("4401")
+        return str(city_code or "").startswith("4401") or _area_text_matches_city(
+            historical_area_code,
+            city_prefix="4401",
+            city_name="广州",
+        )
     if entry_region and entry_region != normalized_region:
         return False
     return True
+
+
+def _release_evidence_region_context(trigger: Mapping[str, Any], project: Mapping[str, Any]) -> dict[str, Any]:
+    current_city_code = str(project.get("city_code") or trigger.get("city_code") or "")
+    current_region_code = str(
+        project.get("region_code")
+        or trigger.get("current_project_region_code")
+        or trigger.get("region_code")
+        or _region_code_from_city_code(current_city_code)
+        or ""
+    ).upper()
+    historical_area_code = str(
+        trigger.get("historical_project_area_code")
+        or trigger.get("bid_area_code")
+        or ""
+    )
+    historical_region_code = str(
+        trigger.get("historical_project_region_code")
+        or _region_code_from_area_text(historical_area_code)
+        or ""
+    ).upper()
+    query_region_code = historical_region_code or current_region_code
+    if historical_region_code:
+        basis = "HISTORICAL_OVERLAP_PROJECT_REGION"
+    elif query_region_code:
+        basis = "CURRENT_PROJECT_REGION_FALLBACK"
+    else:
+        basis = "REGION_UNRESOLVED"
+    return {
+        "current_project_city_code": current_city_code,
+        "current_project_region_code": current_region_code,
+        "historical_project_area_code": historical_area_code,
+        "historical_project_region_code": historical_region_code,
+        "release_evidence_query_region_code": query_region_code,
+        "release_evidence_query_region_basis": basis,
+        "release_evidence_query_region_missing": not bool(historical_region_code),
+    }
 
 
 def _budget_audit_records(
@@ -746,9 +933,40 @@ def _int_or_none(value: Any) -> int | None:
 
 def _region_code_from_city_code(city_code: str) -> str:
     code = str(city_code or "")
-    if code.startswith("44"):
-        return "CN-GD"
+    for prefix, region_code in REGION_CODE_BY_CITY_PREFIX.items():
+        if code.startswith(prefix):
+            return region_code
     return ""
+
+
+def _region_code_from_area_text(value: Any) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    upper = text.upper()
+    if upper.startswith("CN-"):
+        return upper
+    digits = "".join(char for char in text if char.isdigit())
+    if digits:
+        region_code = _region_code_from_city_code(digits)
+        if region_code:
+            return region_code
+    for region_code, hints in REGION_CODE_BY_AREA_HINT:
+        if any(hint in text for hint in hints):
+            return region_code
+    return ""
+
+
+def _area_text_matches_city(value: Any, *, city_prefix: str, city_name: str) -> bool:
+    text = str(value or "").strip()
+    if not text:
+        return False
+    digits = "".join(char for char in text if char.isdigit())
+    if digits.startswith(city_prefix):
+        return True
+    if city_name and city_name in text:
+        return True
+    return False
 
 
 def _stable_id(prefix: str, *parts: Any) -> str:

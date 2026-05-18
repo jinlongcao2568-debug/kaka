@@ -67,6 +67,8 @@ class GuangdongLocalFieldQueryProbeTests(unittest.TestCase):
             self.assertEqual(summary["guangdong_local_field_query_task_count"], 3)
             self.assertEqual(summary["input_source_kind_counts"]["p13b_release_evidence_probe_task"], 3)
             self.assertEqual(summary["field_query_probe_state_counts"]["PLAN_ONLY_NOT_EXECUTED"], 3)
+            self.assertEqual(summary["p13b_initial_release_evidence_abcd_grade_counts"]["A_STRONG_TIME_OVERLAP_SIGNAL"], 3)
+            self.assertEqual(summary["p13b_downstream_release_evidence_abcd_grade_counts"]["PENDING_NOT_EXECUTED"], 3)
             self.assertEqual(summary["source_profile_task_counts"]["GUANGZHOU-ZFCJ-CREDIT-DOUBLE-PUBLICITY"], 2)
 
             tasks = result["manifest"]["field_task_records"]
@@ -75,11 +77,132 @@ class GuangdongLocalFieldQueryProbeTests(unittest.TestCase):
             self.assertEqual(first["trigger_source_url"], "https://data.ggzy.gov.cn/yjcx/index/bid_show?id=1")
             self.assertEqual(first["query_params"]["companyName"], "广州测试建设有限公司")
             self.assertEqual(first["query_params"]["personName"], "张三")
+            self.assertEqual(first["initial_release_evidence_abcd_grade"], "A_STRONG_TIME_OVERLAP_SIGNAL")
+            self.assertEqual(first["downstream_release_evidence_abcd_grade"], "PENDING_NOT_EXECUTED")
+            self.assertTrue(first["release_evidence_query_region_code"])
             self.assertTrue(first["route_plan"])
             self.assertIn("construction_permit", {source_type for task in tasks for source_type in task["target_source_types"]})
             self.assertIn("completion_filing", {source_type for task in tasks for source_type in task["target_source_types"]})
             self.assertIn("contract_public_info", {source_type for task in tasks for source_type in task["target_source_types"]})
             self.assertTrue((output_root / "guangdong-local-field-query-probe-v1.json").exists())
+
+    def test_p13b_release_evidence_live_readback_grades_enhancement(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            p13b_root = root / "p13b"
+            _write_p13b_operational_closeout(p13b_root)
+
+            def fake_getter(url: str, params: Mapping[str, Any]) -> Mapping[str, Any]:
+                if "PerformanceEvaluationProject/Indexgs" in url and params.get("search_name") == "广州测试建设有限公司":
+                    return {
+                        "http_status": 200,
+                        "content_type": "text/html; charset=utf-8",
+                        "text_probe": """
+                        <table><tbody>
+                        <tr>
+                          <td>1</td><td>广州测试项目</td><td>广州建设单位</td>
+                          <td>广州测试建设有限公司</td><td>广州勘察单位</td><td>广州设计单位</td>
+                          <td>广州监理单位</td><td><a onclick="ppDetaill('DG-001')">查看</a></td>
+                        </tr>
+                        </tbody></table>
+                        """,
+                    }
+                if "Indexht" in url:
+                    return {
+                        "http_status": 200,
+                        "content_type": "text/html; charset=utf-8",
+                        "text_probe": "<script>top.window.location.href='http://210.76.80.152:8008/SSO/jrsso/auth'</script>",
+                    }
+                return {"http_status": 200, "content_type": "text/html; charset=utf-8", "text_probe": ""}
+
+            result = build_guangdong_local_field_query_probe(
+                p13b_operational_closeout_root=p13b_root,
+                output_root=root / "out",
+                source_profile_ids=["GUANGDONG-GDCIC-HOME"],
+                enable_live_public_query=True,
+                max_live_tasks=1,
+                http_getter=fake_getter,
+                created_at="2026-05-18T00:00:00+08:00",
+            )
+
+            self.assertTrue(result["safe_to_execute"])
+            task = result["manifest"]["field_task_records"][0]
+            self.assertEqual(task["field_query_probe_state"], "FIELD_READBACK_READY_PUBLIC_SOURCE")
+            self.assertEqual(task["initial_release_evidence_abcd_grade"], "A_STRONG_TIME_OVERLAP_SIGNAL")
+            self.assertEqual(task["downstream_release_evidence_abcd_grade"], "B_ENHANCEMENT_OFFICIAL_READBACK")
+
+    def test_p13b_release_evidence_live_readback_grades_reverse_and_gap(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            p13b_root = root / "p13b"
+            _write_p13b_operational_closeout(p13b_root)
+
+            def fake_getter(url: str, _params: Mapping[str, Any]) -> Mapping[str, Any]:
+                if "gcjgysxxlb.ashx" in url and "sgdw=" in url:
+                    return {
+                        "http_status": 200,
+                        "content_type": "application/json; charset=utf-8",
+                        "json_payload": {
+                            "currentPage": 1,
+                            "totalNum": 1,
+                            "data": [
+                                {
+                                    "pegcmc": "广州测试项目",
+                                    "babh": "穗竣备2026-001",
+                                    "sgdw": "广州测试建设有限公司",
+                                    "peblrq": "2026/5/13 0:00:00",
+                                }
+                            ],
+                            "status": 1,
+                        },
+                        "text_probe": "",
+                    }
+                return {
+                    "http_status": 200,
+                    "content_type": "application/json; charset=utf-8",
+                    "json_payload": {"currentPage": 1, "totalNum": 0, "data": [], "status": 1},
+                    "text_probe": "",
+                }
+
+            result = build_guangdong_local_field_query_probe(
+                p13b_operational_closeout_root=p13b_root,
+                output_root=root / "out",
+                source_profile_ids=["GUANGZHOU-ZFCJ-CREDIT-DOUBLE-PUBLICITY"],
+                enable_live_public_query=True,
+                max_live_tasks=2,
+                http_getter=fake_getter,
+                created_at="2026-05-18T00:00:00+08:00",
+            )
+
+            self.assertTrue(result["safe_to_execute"])
+            by_task_id = {
+                task["p13b_release_evidence_probe_task_id"]: task
+                for task in result["manifest"]["field_task_records"]
+            }
+            self.assertEqual(
+                by_task_id["P13B-RELEASE-PROBE-TASK-2"]["downstream_release_evidence_abcd_grade"],
+                "C_REVERSE_EXPLANATION_OFFICIAL_READBACK",
+            )
+
+            miss_result = build_guangdong_local_field_query_probe(
+                p13b_operational_closeout_root=p13b_root,
+                output_root=root / "out-miss",
+                source_profile_ids=["GUANGZHOU-ZFCJ-CREDIT-DOUBLE-PUBLICITY"],
+                enable_live_public_query=True,
+                max_live_tasks=1,
+                http_getter=lambda _url, _params: {
+                    "http_status": 200,
+                    "content_type": "application/json; charset=utf-8",
+                    "json_payload": {"currentPage": 1, "totalNum": 0, "data": [], "status": 1},
+                    "text_probe": "",
+                },
+                created_at="2026-05-18T00:00:00+08:00",
+            )
+
+            self.assertTrue(miss_result["safe_to_execute"])
+            miss_task = miss_result["manifest"]["field_task_records"][0]
+            self.assertEqual(miss_task["downstream_release_evidence_abcd_grade"], "D_INSUFFICIENT_OR_BLOCKED_READBACK")
+            self.assertTrue(miss_task["initial_signal_remains_valid_when_downstream_is_d"])
 
     def test_live_public_query_records_keyword_hit_without_final_conclusion(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -1201,6 +1324,10 @@ def _p13b_release_task(
         "extracted_award_date": "2026年05月01日",
         "time_window_review_state": "TIME_WINDOW_OVERLAP_REVIEW",
         "estimated_performance_end_date": "2027-05-01",
+        "historical_project_area_code": "广州市",
+        "historical_project_region_code": "CN-GD",
+        "release_evidence_query_region_code": "CN-GD",
+        "release_evidence_query_region_basis": "HISTORICAL_OVERLAP_PROJECT_REGION",
         "source_granularity": "verified_public_subsource" if subsource_id else "source_entry",
         "source_entry_id": "GZ-ZFCJ-CREDIT-DOUBLE-PUBLICITY" if subsource_id else "GD-GDCIC-CONTRACT-PERFORMANCE",
         "subsource_id": subsource_id,
@@ -1210,6 +1337,16 @@ def _p13b_release_task(
         "source_family": "test_release_evidence_public_source",
         "matched_target_source_types": target_source_types,
         "source_target_source_types": target_source_types,
+        "initial_release_evidence_abcd_grade": "A_STRONG_TIME_OVERLAP_SIGNAL",
+        "initial_release_evidence_abcd_grade_basis": [
+            "same_person_company_time_window_overlap_from_data_ggzy_or_targeted_original_notice"
+        ],
+        "downstream_probe_role": "enhancement_or_reverse_explanation_not_prerequisite_for_initial_signal",
+        "downstream_possible_release_evidence_abcd_grades": [
+            "B_ENHANCEMENT_OFFICIAL_READBACK",
+            "C_REVERSE_EXPLANATION_OFFICIAL_READBACK",
+            "D_INSUFFICIENT_OR_BLOCKED_READBACK",
+        ],
         "query_params": {
             "projectId": "PROJ-P13B-1",
             "projectName": "广州测试项目中标候选人公示",

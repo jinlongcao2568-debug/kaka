@@ -322,6 +322,11 @@ def test_business_direction_doc_contains_final_analysis_strategy_rules() -> None
     assert "bid_show" in text
     assert "`bid_show` 已同时给出项目负责人/项目经理与工期、合同履行期限、交付期或服务期等时间周期字段" in text
     assert "不需要为了这个已足够信号再做原文回溯" in text
+    assert "A_STRONG_TIME_OVERLAP_SIGNAL" in text
+    assert "B_ENHANCEMENT_OFFICIAL_READBACK" in text
+    assert "C_REVERSE_EXPLANATION_OFFICIAL_READBACK" in text
+    assert "D_INSUFFICIENT_OR_BLOCKED_READBACK" in text
+    assert "历史重叠项目所在省/市" in text
     assert "原文链接" in text
     assert "该阶段不是全量下载 01-12，也不是默认解析 `08`" in text
     assert "可能包含项目负责人、工期/服务期、合同履行期限、中标日期或释放证据" in text

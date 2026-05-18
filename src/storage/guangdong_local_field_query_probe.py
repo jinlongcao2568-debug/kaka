@@ -70,6 +70,22 @@ GUANGDONG_CREDIT_GD_DEFAULT_MAX_REQUESTS_PER_TASK = 4
 GUANGDONG_CREDIT_GD_DEFAULT_REQUEST_INTERVAL_SECONDS = 0.8
 
 FORBIDDEN_TERMS = ("在建冲突成立", "无在建", "无风险", "无冲突", "造假成立", "违法成立", "确认本人", "是不是本人")
+INITIAL_RELEASE_EVIDENCE_ABCD_GRADE = "A_STRONG_TIME_OVERLAP_SIGNAL"
+DOWNSTREAM_PENDING_RELEASE_EVIDENCE_ABCD_GRADE = "PENDING_NOT_EXECUTED"
+ENHANCEMENT_RELEASE_EVIDENCE_SOURCE_TYPES = {
+    "construction_permit",
+    "contract_public_info",
+    "performance_public_record",
+    "personnel_public_record",
+    "administrative_license_public_record",
+}
+REVERSE_RELEASE_EVIDENCE_SOURCE_TYPES = {
+    "completion_filing",
+    "project_manager_change_notice",
+    "completion_acceptance_or_completion_filing",
+    "owner_approved_non_contractor_shutdown_over_120_days",
+    "same_project_adjacent_section_or_phase_exception",
+}
 
 HttpGetter = Callable[[str, Mapping[str, Any]], Mapping[str, Any]]
 CreditGdSessionGetter = Callable[[list[Mapping[str, Any]]], Mapping[str, Any]]
@@ -221,6 +237,29 @@ def _query_task_records_from_p13b_release_evidence_tasks(p13b_manifest: Mapping[
                 "trigger_source_url": str(task.get("trigger_source_url") or ""),
                 "time_window_review_state": str(task.get("time_window_review_state") or ""),
                 "estimated_performance_end_date": str(task.get("estimated_performance_end_date") or ""),
+                "historical_project_area_code": str(task.get("historical_project_area_code") or ""),
+                "historical_project_region_code": str(task.get("historical_project_region_code") or ""),
+                "release_evidence_query_region_code": str(task.get("release_evidence_query_region_code") or task.get("region_code") or ""),
+                "release_evidence_query_region_basis": str(task.get("release_evidence_query_region_basis") or ""),
+                "initial_release_evidence_abcd_grade": str(
+                    task.get("initial_release_evidence_abcd_grade") or INITIAL_RELEASE_EVIDENCE_ABCD_GRADE
+                ),
+                "initial_release_evidence_abcd_grade_basis": _list(
+                    task.get("initial_release_evidence_abcd_grade_basis")
+                )
+                or ["same_person_company_time_window_overlap_from_data_ggzy_or_targeted_original_notice"],
+                "downstream_probe_role": str(
+                    task.get("downstream_probe_role")
+                    or "enhancement_or_reverse_explanation_not_prerequisite_for_initial_signal"
+                ),
+                "downstream_possible_release_evidence_abcd_grades": _list(
+                    task.get("downstream_possible_release_evidence_abcd_grades")
+                )
+                or [
+                    "B_ENHANCEMENT_OFFICIAL_READBACK",
+                    "C_REVERSE_EXPLANATION_OFFICIAL_READBACK",
+                    "D_INSUFFICIENT_OR_BLOCKED_READBACK",
+                ],
                 "active_conflict_task_id": "",
                 "project_id": str(task.get("project_id") or ""),
                 "project_name": str(task.get("project_name") or query_params.get("projectName") or ""),
@@ -342,6 +381,7 @@ def _field_task_records_from_local_verification(
                 cache[cache_key] = _copy_jsonable(readback)
         else:
             readback = _plan_only_readback(route_plan)
+        release_evidence_abcd = _release_evidence_abcd_fields(task, readback)
         records.append(
             {
                 "field_query_task_id": _stable_id(
@@ -361,6 +401,10 @@ def _field_task_records_from_local_verification(
                 "trigger_source_url": str(task.get("trigger_source_url") or ""),
                 "time_window_review_state": str(task.get("time_window_review_state") or ""),
                 "estimated_performance_end_date": str(task.get("estimated_performance_end_date") or ""),
+                "historical_project_area_code": str(task.get("historical_project_area_code") or ""),
+                "historical_project_region_code": str(task.get("historical_project_region_code") or ""),
+                "release_evidence_query_region_code": str(task.get("release_evidence_query_region_code") or ""),
+                "release_evidence_query_region_basis": str(task.get("release_evidence_query_region_basis") or ""),
                 "project_id": str(task.get("project_id") or ""),
                 "project_name": str(task.get("project_name") or ""),
                 "candidate_group_id": str(task.get("candidate_group_id") or ""),
@@ -383,12 +427,91 @@ def _field_task_records_from_local_verification(
                     else "PLAN_ONLY_NOT_EXECUTED"
                 ),
                 **readback,
+                **release_evidence_abcd,
                 "created_at": created_at,
                 "customer_visible_allowed": False,
                 "no_legal_conclusion": True,
             }
         )
     return records
+
+
+def _release_evidence_abcd_fields(task: Mapping[str, Any], readback: Mapping[str, Any]) -> dict[str, Any]:
+    if str(task.get("input_source_kind") or "") != "p13b_release_evidence_probe_task":
+        return {}
+    target_source_types = _list(task.get("target_source_types")) or _list(
+        (task.get("query_params") or {}).get("targetSourceTypes")
+    )
+    downstream_grade = _downstream_release_evidence_abcd_grade(
+        target_source_types,
+        field_query_probe_state=str(readback.get("field_query_probe_state") or ""),
+        readback_ready=bool(readback.get("readback_ready")),
+    )
+    return {
+        "initial_release_evidence_abcd_grade": str(
+            task.get("initial_release_evidence_abcd_grade") or INITIAL_RELEASE_EVIDENCE_ABCD_GRADE
+        ),
+        "initial_release_evidence_abcd_grade_basis": _list(task.get("initial_release_evidence_abcd_grade_basis"))
+        or ["same_person_company_time_window_overlap_from_data_ggzy_or_targeted_original_notice"],
+        "downstream_probe_role": str(
+            task.get("downstream_probe_role")
+            or "enhancement_or_reverse_explanation_not_prerequisite_for_initial_signal"
+        ),
+        "downstream_possible_release_evidence_abcd_grades": _list(
+            task.get("downstream_possible_release_evidence_abcd_grades")
+        )
+        or [
+            "B_ENHANCEMENT_OFFICIAL_READBACK",
+            "C_REVERSE_EXPLANATION_OFFICIAL_READBACK",
+            "D_INSUFFICIENT_OR_BLOCKED_READBACK",
+        ],
+        "downstream_release_evidence_abcd_grade": downstream_grade,
+        "downstream_release_evidence_abcd_grade_basis": _downstream_release_evidence_abcd_basis(
+            downstream_grade,
+            target_source_types,
+            field_query_probe_state=str(readback.get("field_query_probe_state") or ""),
+        ),
+        "initial_signal_remains_valid_when_downstream_is_d": downstream_grade == "D_INSUFFICIENT_OR_BLOCKED_READBACK",
+    }
+
+
+def _downstream_release_evidence_abcd_grade(
+    target_source_types: list[Any],
+    *,
+    field_query_probe_state: str,
+    readback_ready: bool,
+) -> str:
+    state = str(field_query_probe_state or "")
+    if state in {"PLAN_ONLY_NOT_EXECUTED", "DELEGATED_TO_SEPARATE_FIELD_ADAPTER"}:
+        return DOWNSTREAM_PENDING_RELEASE_EVIDENCE_ABCD_GRADE
+    if state == "LIVE_FIELD_QUERY_DEFERRED_BY_LIMIT" or state.startswith("FAIL_CLOSED"):
+        return "D_INSUFFICIENT_OR_BLOCKED_READBACK"
+    if state == "NO_FIELD_MATCH_REVIEW_REQUIRED":
+        return "D_INSUFFICIENT_OR_BLOCKED_READBACK"
+    if readback_ready or state in {"FIELD_READBACK_KEYWORD_HIT_PUBLIC_SOURCE", "FIELD_READBACK_READY_PUBLIC_SOURCE"}:
+        normalized = {str(item) for item in target_source_types if str(item).strip()}
+        if normalized & REVERSE_RELEASE_EVIDENCE_SOURCE_TYPES:
+            return "C_REVERSE_EXPLANATION_OFFICIAL_READBACK"
+        if normalized & ENHANCEMENT_RELEASE_EVIDENCE_SOURCE_TYPES:
+            return "B_ENHANCEMENT_OFFICIAL_READBACK"
+        return "B_ENHANCEMENT_OFFICIAL_READBACK"
+    return DOWNSTREAM_PENDING_RELEASE_EVIDENCE_ABCD_GRADE
+
+
+def _downstream_release_evidence_abcd_basis(
+    grade: str,
+    target_source_types: list[Any],
+    *,
+    field_query_probe_state: str,
+) -> list[str]:
+    normalized = sorted({str(item) for item in target_source_types if str(item).strip()})
+    if grade == DOWNSTREAM_PENDING_RELEASE_EVIDENCE_ABCD_GRADE:
+        return ["downstream_probe_not_executed_in_this_run", f"field_query_probe_state:{field_query_probe_state}"]
+    if grade == "D_INSUFFICIENT_OR_BLOCKED_READBACK":
+        return ["targeted_source_no_hit_blocked_or_deferred_review", f"field_query_probe_state:{field_query_probe_state}"]
+    if grade == "C_REVERSE_EXPLANATION_OFFICIAL_READBACK":
+        return ["reverse_explanation_source_type_hit", *[f"target_source_type:{item}" for item in normalized]]
+    return ["enhancement_source_type_hit", *[f"target_source_type:{item}" for item in normalized]]
 
 
 def _route_plan_for_task(task: Mapping[str, Any], query_params: Mapping[str, Any]) -> list[dict[str, Any]]:
@@ -2947,6 +3070,8 @@ def _manual_check_table(field_task_records: list[Mapping[str, Any]]) -> list[dic
             "certificate_no": task.get("certificate_no"),
             "source_profile_id": task.get("source_profile_id"),
             "target_source_types": task.get("target_source_types"),
+            "initial_release_evidence_abcd_grade": task.get("initial_release_evidence_abcd_grade"),
+            "downstream_release_evidence_abcd_grade": task.get("downstream_release_evidence_abcd_grade"),
             "route_plan": task.get("route_plan"),
             "field_query_probe_state": task.get("field_query_probe_state"),
             "manual_check_state": "PENDING_FIELD_SOURCE_REVIEW",
@@ -2971,6 +3096,16 @@ def _summary(
         "project_count": len(project_task_records),
         "input_source_kind_counts": _counts(task.get("input_source_kind") for task in field_task_records),
         "source_profile_task_counts": _counts(task.get("source_profile_id") for task in field_task_records),
+        "p13b_initial_release_evidence_abcd_grade_counts": _counts(
+            task.get("initial_release_evidence_abcd_grade")
+            for task in field_task_records
+            if str(task.get("input_source_kind") or "") == "p13b_release_evidence_probe_task"
+        ),
+        "p13b_downstream_release_evidence_abcd_grade_counts": _counts(
+            task.get("downstream_release_evidence_abcd_grade")
+            for task in field_task_records
+            if str(task.get("input_source_kind") or "") == "p13b_release_evidence_probe_task"
+        ),
         "target_source_type_counts": _counts(
             source_type for task in field_task_records for source_type in _list(task.get("target_source_types"))
         ),

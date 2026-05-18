@@ -662,6 +662,7 @@ class BusinessDirectionStrategyContractTests(unittest.TestCase):
         self.assertIn("历史阶段编号", policy["legacy_code_note"])
         self.assertEqual(policy["external_conflict_first_pass"], "PRIOR_AWARD_AND_CANDIDATE_OVERLAP_TRIAGE")
         self.assertEqual(policy["release_evidence_probe_trigger"], "ONLY_AFTER_TIME_WINDOW_OVERLAP_SIGNAL")
+        self.assertTrue(policy["historical_overlap_project_region_first"])
         self.assertTrue(policy["do_not_start_with_full_province_construction_permit_sweep"])
         self.assertTrue(policy["query_miss_is_not_clearance"])
         self.assertFalse(policy["flow_08_default_parse_required"])
@@ -692,10 +693,20 @@ class BusinessDirectionStrategyContractTests(unittest.TestCase):
         self.assertIn("ygp_full_chain_verification_v1_for_guangdong_other_cities", policy["first_pass_sources"])
         self.assertIn("ORIGINAL_NOTICE_BACKTRACE_REQUIRED", policy["first_pass_output_states"])
         self.assertIn("construction_permit", policy["release_evidence_sources_after_overlap"])
+        abcd_policy = policy["release_evidence_abcd_grading_policy"]
+        self.assertEqual(abcd_policy["policy_id"], "P13B_RELEASE_EVIDENCE_ABCD_GRADING_V1")
+        self.assertEqual(
+            abcd_policy["query_region_rule"],
+            "historical_overlap_project_region_first_then_current_project_region_fallback",
+        )
+        self.assertTrue(abcd_policy["D_does_not_downgrade_A"])
+        self.assertFalse(abcd_policy["downstream_probe_required_for_A_value"])
         self.assertIn("do_not_treat_prior_award_or_candidate_record_as_final_unreleased_proof", policy["must_not"])
         self.assertIn("do_not_treat_no_prior_award_match_as_no_risk", policy["must_not"])
         self.assertIn("do_not_use_legacy_dealList_find_as_p13b_primary_company_history_source", policy["must_not"])
         self.assertIn("do_not_backtrace_original_notice_when_data_ggzy_bid_show_has_person_and_contract_or_delivery_period", policy["must_not"])
+        self.assertIn("do_not_downgrade_a_level_time_overlap_signal_only_because_release_sources_are_unavailable", policy["must_not"])
+        self.assertIn("do_not_query_current_project_region_when_historical_overlap_project_region_is_known", policy["must_not"])
         self.assertIn("do_not_default_download_all_01_to_12_flows_for_p13b_original_backtrace", policy["must_not"])
         self.assertIn("do_not_use_ygp_as_guangzhou_primary_source", policy["must_not"])
         self.assertIn("ygp.url_mapping_original_readback_when_data_ggzy_points_to_ygp", policy["primary_company_history_query_flow"])

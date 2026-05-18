@@ -46,6 +46,8 @@ class P13BOperationalCloseoutTests(unittest.TestCase):
             self.assertEqual(summary["release_evidence_trigger_count"], 1)
             self.assertEqual(summary["release_evidence_probe_plan_count"], 1)
             self.assertGreater(summary["release_evidence_probe_task_count"], 0)
+            self.assertEqual(summary["release_evidence_initial_abcd_grade_counts"]["A_STRONG_TIME_OVERLAP_SIGNAL"], 1)
+            self.assertEqual(summary["release_evidence_query_region_basis_counts"]["HISTORICAL_OVERLAP_PROJECT_REGION"], 1)
             self.assertEqual(summary["ygp_readback_blocked_or_unsupported_count"], 1)
             self.assertEqual(summary["no_overlap_signal_review_count"], 1)
             self.assertEqual(summary["forbidden_term_scan_state"], "PASS")
@@ -70,6 +72,9 @@ class P13BOperationalCloseoutTests(unittest.TestCase):
             self.assertEqual(release_plans[0]["source_stage"], "DATA_GGZY_BID_SHOW")
             self.assertEqual(release_plans[0]["source_url"], "https://data.ggzy.gov.cn/yjcx/index/bid_show?id=1")
             self.assertEqual(release_plans[0]["region_code"], "CN-GD")
+            self.assertEqual(release_plans[0]["historical_project_area_code"], "广州市")
+            self.assertEqual(release_plans[0]["release_evidence_query_region_basis"], "HISTORICAL_OVERLAP_PROJECT_REGION")
+            self.assertEqual(release_plans[0]["initial_release_evidence_abcd_grade"], "A_STRONG_TIME_OVERLAP_SIGNAL")
             self.assertIn("construction_permit", release_plans[0]["release_evidence_source_targets"])
             self.assertGreater(release_plans[0]["source_entry_count"], 0)
 
@@ -77,6 +82,8 @@ class P13BOperationalCloseoutTests(unittest.TestCase):
             self.assertEqual(len(release_tasks), summary["release_evidence_probe_task_count"])
             self.assertTrue(all(task["execution_mode"] == "PLAN_ONLY_NOT_EXECUTED" for task in release_tasks))
             self.assertTrue(all(task["readback_ready"] is False for task in release_tasks))
+            self.assertTrue(all(task["initial_release_evidence_abcd_grade"] == "A_STRONG_TIME_OVERLAP_SIGNAL" for task in release_tasks))
+            self.assertTrue(all(task["release_evidence_query_region_basis"] == "HISTORICAL_OVERLAP_PROJECT_REGION" for task in release_tasks))
             self.assertTrue(all(task["trigger_source_url"] == "https://data.ggzy.gov.cn/yjcx/index/bid_show?id=1" for task in release_tasks))
             self.assertIn("contract_public_info", {source_type for task in release_tasks for source_type in task["matched_target_source_types"]})
             self.assertIn("completion_filing", {source_type for task in release_tasks for source_type in task["matched_target_source_types"]})
@@ -98,6 +105,34 @@ class P13BOperationalCloseoutTests(unittest.TestCase):
             self.assertEqual(budget_rows["ORIGINAL_NOTICE_BACKTRACE"]["configured_limit"], 2)
             self.assertEqual(budget_rows["ORIGINAL_NOTICE_BACKTRACE"]["budget_state"], "BUDGET_WITHIN_LIMIT")
             self.assertEqual(budget_rows["BID_RECORDS_PER_COMPANY"]["configured_limit"], 10)
+
+    def test_release_probe_prefers_historical_overlap_project_region(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_company_history(root / "company")
+            _write_original_notice(root / "original")
+            _write_closeout(
+                root / "closeout",
+                historical_project_area_code="浙江省杭州市",
+                historical_project_region_code="CN-ZJ",
+            )
+
+            result = build_p13b_operational_closeout(
+                company_history_triage_root=root / "company",
+                original_notice_backtrace_root=root / "original",
+                overlap_triage_closeout_root=root / "closeout",
+                output_root=root / "out",
+                created_at="2026-05-17T00:00:00+08:00",
+            )
+
+            self.assertTrue(result["safe_to_execute"])
+            plan = result["manifest"]["release_evidence_probe_plan_records"][0]
+            self.assertEqual(plan["region_code"], "CN-ZJ")
+            self.assertEqual(plan["release_evidence_query_region_code"], "CN-ZJ")
+            self.assertEqual(plan["release_evidence_query_region_basis"], "HISTORICAL_OVERLAP_PROJECT_REGION")
+            task_entry_ids = {task["source_entry_id"] for task in result["manifest"]["release_evidence_probe_task_records"]}
+            self.assertIn("ZJ-JZSC-PUBLIC-SERVICE", task_entry_ids)
+            self.assertNotIn("GZ-ZFCJ-CREDIT-DOUBLE-PUBLICITY", task_entry_ids)
 
     def test_forbidden_terms_are_still_blocked(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -210,7 +245,13 @@ def _write_original_notice(root: Path) -> None:
     _write_json(root / "original-notice-backtrace-v1.json", payload)
 
 
-def _write_closeout(root: Path, *, project_name: str = "项目一") -> None:
+def _write_closeout(
+    root: Path,
+    *,
+    project_name: str = "项目一",
+    historical_project_area_code: str = "广州市",
+    historical_project_region_code: str = "CN-GD",
+) -> None:
     payload = {
         "manifest": {
             "project_overlap_triage_records": [
@@ -294,6 +335,8 @@ def _write_closeout(root: Path, *, project_name: str = "项目一") -> None:
                     "project_name": "项目一",
                     "candidate_company_name": "广东甲公司",
                     "matched_person_names": ["张三"],
+                    "historical_project_area_code": historical_project_area_code,
+                    "historical_project_region_code": historical_project_region_code,
                     "source_url": "https://data.ggzy.gov.cn/yjcx/index/bid_show?id=1",
                     "extracted_period_text": "365日历天",
                     "extracted_award_date": "2026年05月01日",

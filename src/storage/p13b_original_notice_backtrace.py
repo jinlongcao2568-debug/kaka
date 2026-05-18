@@ -169,6 +169,14 @@ def _task_records_from_p13b(source_manifest: Mapping[str, Any], *, created_at: s
                 "candidate_company_name": company,
                 "responsible_person_names": _list(row.get("responsible_person_names")),
                 "bid_project_name": str(row.get("bid_project_name") or bid_show.get("bid_project_name") or ""),
+                "historical_project_area_code": str(
+                    row.get("historical_project_area_code")
+                    or row.get("bid_area_code")
+                    or bid_show.get("historical_project_area_code")
+                    or bid_show.get("bid_area_code")
+                    or ""
+                ),
+                "bid_area_code": str(row.get("bid_area_code") or bid_show.get("bid_area_code") or ""),
                 "original_notice_url": original_url,
                 "bid_show_record_id": str(bid_show.get("bid_show_record_id") or ""),
                 "bid_show_url": str(bid_show.get("bid_show_url") or ""),
@@ -595,6 +603,8 @@ def _overlap_record(task: Mapping[str, Any], extraction: Mapping[str, Any], *, c
         "candidate_company_name": str(task.get("candidate_company_name") or ""),
         "responsible_person_names": sorted(candidate_people),
         "matched_person_names": matched_people,
+        "historical_project_area_code": str(task.get("historical_project_area_code") or task.get("bid_area_code") or ""),
+        "bid_area_code": str(task.get("bid_area_code") or task.get("historical_project_area_code") or ""),
         "original_notice_url": str(task.get("original_notice_url") or ""),
         "source_url": str(extraction.get("source_url") or task.get("original_notice_url") or ""),
         "extracted_company_names": _list(extraction.get("extracted_company_names")),
@@ -622,6 +632,8 @@ def _manual_release_evidence_probe_table(overlap_records: list[dict[str, Any]]) 
                 "project_id": str(record.get("project_id") or ""),
                 "candidate_company_name": str(record.get("candidate_company_name") or ""),
                 "matched_person_names": _list(record.get("matched_person_names")),
+                "historical_project_area_code": str(record.get("historical_project_area_code") or record.get("bid_area_code") or ""),
+                "bid_area_code": str(record.get("bid_area_code") or record.get("historical_project_area_code") or ""),
                 "original_notice_url": str(record.get("original_notice_url") or ""),
                 "source_url": str(record.get("source_url") or ""),
                 "extracted_period_text": str(record.get("extracted_period_text") or ""),
