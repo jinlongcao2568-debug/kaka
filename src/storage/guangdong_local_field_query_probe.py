@@ -20,6 +20,7 @@ GUANGDONG_LOCAL_FIELD_QUERY_PROBE_VERSION = 1
 GUANGDONG_LOCAL_FIELD_QUERY_PROBE_ADAPTER_ID = "guangdong-local-field-query-probe-v1-builder"
 
 DEFAULT_LOCAL_VERIFICATION_ROOT = Path("tmp/evaluation-real-samples/guangdong-local-verification-probe-v1")
+DEFAULT_P13B_OPERATIONAL_CLOSEOUT_ROOT = Path("tmp/evaluation-real-samples/p13b-operational-closeout-v1")
 DEFAULT_OUTPUT_ROOT = Path("tmp/evaluation-real-samples/guangdong-local-field-query-probe-v1")
 
 DELEGATED_PROFILE_ADAPTERS = {
@@ -78,6 +79,8 @@ def build_guangdong_local_field_query_probe(
     *,
     local_verification_root: str | Path = DEFAULT_LOCAL_VERIFICATION_ROOT,
     local_verification_json: str | Path | None = None,
+    p13b_operational_closeout_root: str | Path | None = None,
+    p13b_operational_closeout_json: str | Path | None = None,
     output_root: str | Path = DEFAULT_OUTPUT_ROOT,
     source_profile_ids: list[str] | tuple[str, ...] | None = None,
     enable_live_public_query: bool = False,
@@ -90,6 +93,7 @@ def build_guangdong_local_field_query_probe(
 ) -> dict[str, Any]:
     created = created_at or utc_now_iso()
     local_dir = Path(local_verification_root)
+    p13b_dir = Path(p13b_operational_closeout_root) if p13b_operational_closeout_root else None
     out_dir = Path(output_root)
     out_dir.mkdir(parents=True, exist_ok=True)
     source_path = (
@@ -97,10 +101,24 @@ def build_guangdong_local_field_query_probe(
         if local_verification_json
         else local_dir / "guangdong-local-verification-probe-v1.json"
     )
-    blocking_reasons: list[str] = []
-    local_manifest = _source_manifest(
-        _load_json(source_path, blocking_reasons, "guangdong_local_verification_probe_missing")
+    p13b_source_path = (
+        Path(p13b_operational_closeout_json)
+        if p13b_operational_closeout_json
+        else (p13b_dir / "p13b-operational-closeout-v1.json" if p13b_dir else None)
     )
+    blocking_reasons: list[str] = []
+    input_mode = "P13B_RELEASE_EVIDENCE_TASKS" if p13b_source_path else "GUANGDONG_LOCAL_VERIFICATION"
+    if p13b_source_path:
+        p13b_manifest = _source_manifest(
+            _load_json(p13b_source_path, blocking_reasons, "p13b_operational_closeout_missing")
+        )
+        local_manifest = {
+            "query_task_records": _query_task_records_from_p13b_release_evidence_tasks(p13b_manifest),
+        }
+    else:
+        local_manifest = _source_manifest(
+            _load_json(source_path, blocking_reasons, "guangdong_local_verification_probe_missing")
+        )
     selected_profiles = _normalize_filter(source_profile_ids)
     execution_mode = "LIVE_PUBLIC_FIELD_QUERY_ATTEMPTED" if enable_live_public_query else "PLAN_ONLY_NOT_EXECUTED"
     field_task_records = _field_task_records_from_local_verification(
@@ -129,8 +147,11 @@ def build_guangdong_local_field_query_probe(
         "pipeline_stage": "GuangdongLocalFieldQueryProbeV1",
         "manifest_id": f"GUANGDONG-LOCAL-FIELD-QUERY-PROBE-{_fingerprint({'tasks': field_task_records, 'summary': summary})[:16]}",
         "created_at": created,
+        "input_mode": input_mode,
         "source_local_verification_root": str(local_dir),
         "source_local_verification_json": str(source_path),
+        "source_p13b_operational_closeout_root": str(p13b_dir or ""),
+        "source_p13b_operational_closeout_json": str(p13b_source_path or ""),
         "execution_mode": execution_mode,
         "live_public_query_enabled": bool(enable_live_public_query),
         "max_live_tasks": max_live_tasks,
@@ -176,6 +197,103 @@ def build_guangdong_local_field_query_probe(
         text = json.dumps(result, ensure_ascii=False, indent=2)
     (out_dir / "guangdong-local-field-query-probe-v1.json").write_text(text, encoding="utf-8")
     return result
+
+
+def _query_task_records_from_p13b_release_evidence_tasks(p13b_manifest: Mapping[str, Any]) -> list[dict[str, Any]]:
+    records: list[dict[str, Any]] = []
+    for task in _list(p13b_manifest.get("release_evidence_probe_task_records")):
+        if not isinstance(task, Mapping):
+            continue
+        source_profile_id = str(task.get("source_profile_id") or "").strip()
+        if not source_profile_id:
+            continue
+        query_params = _p13b_query_params(task)
+        release_task_id = str(task.get("release_evidence_probe_task_id") or "")
+        candidate_company = str(task.get("candidate_company_name") or query_params.get("companyName") or "")
+        person = str(_first_text(_list(task.get("matched_person_names"))) or query_params.get("personName") or "")
+        records.append(
+            {
+                "query_task_id": release_task_id,
+                "input_source_kind": "p13b_release_evidence_probe_task",
+                "p13b_release_evidence_probe_task_id": release_task_id,
+                "p13b_release_evidence_trigger_id": str(task.get("release_evidence_trigger_id") or ""),
+                "p13b_release_evidence_probe_plan_id": str(task.get("release_evidence_probe_plan_id") or ""),
+                "trigger_source_url": str(task.get("trigger_source_url") or ""),
+                "time_window_review_state": str(task.get("time_window_review_state") or ""),
+                "estimated_performance_end_date": str(task.get("estimated_performance_end_date") or ""),
+                "active_conflict_task_id": "",
+                "project_id": str(task.get("project_id") or ""),
+                "project_name": str(task.get("project_name") or query_params.get("projectName") or ""),
+                "candidate_group_id": str(task.get("release_evidence_trigger_id") or ""),
+                "candidate_group_order": "",
+                "responsible_person_name": person,
+                "candidate_group_members": [candidate_company] if candidate_company else [],
+                "matched_company_names": [candidate_company] if candidate_company else [],
+                "company_query_variants": _dedupe([candidate_company]),
+                "certificate_no": str(query_params.get("certificateNo") or ""),
+                "query_keywords": _list(query_params.get("keywords")),
+                "source_profile_id": source_profile_id,
+                "source_family": str(task.get("source_family") or ""),
+                "source_url": str(task.get("source_url") or task.get("api_url") or ""),
+                "target_source_types": _list(task.get("matched_target_source_types")) or _list(task.get("source_target_source_types")),
+                "query_params": query_params,
+                "field_adapter_status": _field_adapter_status_for_profile(source_profile_id),
+                "customer_visible_allowed": False,
+                "no_legal_conclusion": True,
+            }
+        )
+    return records
+
+
+def _p13b_query_params(task: Mapping[str, Any]) -> dict[str, Any]:
+    raw_params = dict(task.get("query_params") or {})
+    project_id = str(raw_params.get("projectId") or task.get("project_id") or "")
+    project_name = str(raw_params.get("projectName") or task.get("project_name") or "")
+    company_name = str(
+        raw_params.get("companyName")
+        or raw_params.get("candidateCompanyName")
+        or task.get("candidate_company_name")
+        or ""
+    )
+    person_name = str(
+        raw_params.get("personName")
+        or raw_params.get("projectManagerName")
+        or _first_text(_list(task.get("matched_person_names")))
+        or ""
+    )
+    certificate_no = str(raw_params.get("certificateNo") or "")
+    company_variants = _dedupe([
+        *_list(raw_params.get("companyVariants")),
+        company_name,
+    ])
+    keywords = _dedupe(
+        [
+            project_name,
+            company_name,
+            person_name,
+            certificate_no,
+            *_list(raw_params.get("keywords")),
+        ]
+    )
+    return {
+        **raw_params,
+        "projectId": project_id,
+        "projectName": project_name,
+        "companyName": company_name,
+        "companyVariants": company_variants,
+        "personName": person_name,
+        "certificateNo": certificate_no,
+        "targetSourceTypes": _list(raw_params.get("targetSourceTypes")) or _list(task.get("matched_target_source_types")),
+        "triggerSourceUrl": str(raw_params.get("triggerSourceUrl") or task.get("trigger_source_url") or ""),
+        "keywords": keywords,
+    }
+
+
+def _field_adapter_status_for_profile(source_profile_id: str) -> str:
+    profile_id = str(source_profile_id or "").upper()
+    if profile_id in DELEGATED_PROFILE_ADAPTERS:
+        return f"IMPLEMENTED_SEPARATE:{DELEGATED_PROFILE_ADAPTERS[profile_id]}"
+    return "FIELD_ADAPTER_PENDING"
 
 
 def _field_task_records_from_local_verification(
@@ -234,8 +352,15 @@ def _field_task_records_from_local_verification(
                     task.get("responsible_person_name"),
                     task.get("source_profile_id"),
                 ),
+                "input_source_kind": str(task.get("input_source_kind") or "guangdong_local_verification_query_task"),
                 "local_verification_query_task_id": str(task.get("query_task_id") or ""),
                 "active_conflict_task_id": str(task.get("active_conflict_task_id") or ""),
+                "p13b_release_evidence_probe_task_id": str(task.get("p13b_release_evidence_probe_task_id") or ""),
+                "p13b_release_evidence_trigger_id": str(task.get("p13b_release_evidence_trigger_id") or ""),
+                "p13b_release_evidence_probe_plan_id": str(task.get("p13b_release_evidence_probe_plan_id") or ""),
+                "trigger_source_url": str(task.get("trigger_source_url") or ""),
+                "time_window_review_state": str(task.get("time_window_review_state") or ""),
+                "estimated_performance_end_date": str(task.get("estimated_performance_end_date") or ""),
                 "project_id": str(task.get("project_id") or ""),
                 "project_name": str(task.get("project_name") or ""),
                 "candidate_group_id": str(task.get("candidate_group_id") or ""),
@@ -2844,6 +2969,7 @@ def _summary(
         "execution_mode": execution_mode,
         "guangdong_local_field_query_task_count": len(field_task_records),
         "project_count": len(project_task_records),
+        "input_source_kind_counts": _counts(task.get("input_source_kind") for task in field_task_records),
         "source_profile_task_counts": _counts(task.get("source_profile_id") for task in field_task_records),
         "target_source_type_counts": _counts(
             source_type for task in field_task_records for source_type in _list(task.get("target_source_types"))
@@ -3070,6 +3196,8 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Build Guangdong Local FieldQueryProbe v1.")
     parser.add_argument("--local-verification-root", default=str(DEFAULT_LOCAL_VERIFICATION_ROOT))
     parser.add_argument("--local-verification-json")
+    parser.add_argument("--p13b-operational-closeout-root")
+    parser.add_argument("--p13b-operational-closeout-json")
     parser.add_argument("--output-root", default=str(DEFAULT_OUTPUT_ROOT))
     parser.add_argument("--source-profile-ids", nargs="*", default=[])
     parser.add_argument("--enable-live-public-query", action="store_true")
@@ -3086,6 +3214,8 @@ def main(argv: list[str] | None = None) -> int:
     result = build_guangdong_local_field_query_probe(
         local_verification_root=args.local_verification_root,
         local_verification_json=args.local_verification_json,
+        p13b_operational_closeout_root=args.p13b_operational_closeout_root,
+        p13b_operational_closeout_json=args.p13b_operational_closeout_json,
         output_root=args.output_root,
         source_profile_ids=args.source_profile_ids,
         enable_live_public_query=args.enable_live_public_query,

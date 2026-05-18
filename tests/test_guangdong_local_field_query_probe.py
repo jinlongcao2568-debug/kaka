@@ -47,6 +47,40 @@ class GuangdongLocalFieldQueryProbeTests(unittest.TestCase):
                 self.assertNotIn(term, text)
             self.assertTrue((output_root / "guangdong-local-field-query-probe-v1.json").exists())
 
+    def test_p13b_release_evidence_tasks_feed_field_query_probe(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            p13b_root = root / "p13b"
+            output_root = root / "out"
+            _write_p13b_operational_closeout(p13b_root)
+
+            result = build_guangdong_local_field_query_probe(
+                p13b_operational_closeout_root=p13b_root,
+                output_root=output_root,
+                created_at="2026-05-18T00:00:00+08:00",
+            )
+
+            self.assertTrue(result["safe_to_execute"])
+            self.assertEqual(result["manifest"]["input_mode"], "P13B_RELEASE_EVIDENCE_TASKS")
+            self.assertNotIn("guangdong_local_verification_probe_missing", result["blocking_reasons"])
+            summary = result["summary"]
+            self.assertEqual(summary["guangdong_local_field_query_task_count"], 3)
+            self.assertEqual(summary["input_source_kind_counts"]["p13b_release_evidence_probe_task"], 3)
+            self.assertEqual(summary["field_query_probe_state_counts"]["PLAN_ONLY_NOT_EXECUTED"], 3)
+            self.assertEqual(summary["source_profile_task_counts"]["GUANGZHOU-ZFCJ-CREDIT-DOUBLE-PUBLICITY"], 2)
+
+            tasks = result["manifest"]["field_task_records"]
+            first = tasks[0]
+            self.assertEqual(first["p13b_release_evidence_probe_task_id"], "P13B-RELEASE-PROBE-TASK-1")
+            self.assertEqual(first["trigger_source_url"], "https://data.ggzy.gov.cn/yjcx/index/bid_show?id=1")
+            self.assertEqual(first["query_params"]["companyName"], "广州测试建设有限公司")
+            self.assertEqual(first["query_params"]["personName"], "张三")
+            self.assertTrue(first["route_plan"])
+            self.assertIn("construction_permit", {source_type for task in tasks for source_type in task["target_source_types"]})
+            self.assertIn("completion_filing", {source_type for task in tasks for source_type in task["target_source_types"]})
+            self.assertIn("contract_public_info", {source_type for task in tasks for source_type in task["target_source_types"]})
+            self.assertTrue((output_root / "guangdong-local-field-query-probe-v1.json").exists())
+
     def test_live_public_query_records_keyword_hit_without_final_conclusion(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -1097,6 +1131,102 @@ def _write_local_verification(root: Path) -> None:
         json.dumps(payload, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
+
+
+def _write_p13b_operational_closeout(root: Path) -> None:
+    root.mkdir(parents=True, exist_ok=True)
+    tasks = [
+        _p13b_release_task(
+            task_id="P13B-RELEASE-PROBE-TASK-1",
+            source_profile_id="GUANGZHOU-ZFCJ-CREDIT-DOUBLE-PUBLICITY",
+            source_url="https://zfcj.gz.gov.cn/zfcj/gczlaq/constructionPermitInformation/",
+            target_source_types=["construction_permit"],
+            subsource_id="gz_zfcj_construction_permit_public_api",
+            next_adapter="guangzhou_zfcj_construction_permit_public_api_v1",
+        ),
+        _p13b_release_task(
+            task_id="P13B-RELEASE-PROBE-TASK-2",
+            source_profile_id="GUANGZHOU-ZFCJ-CREDIT-DOUBLE-PUBLICITY",
+            source_url="https://zfcj.gz.gov.cn/zfcj/gczlaq/completionAcceptance/",
+            target_source_types=["completion_filing"],
+            subsource_id="gz_zfcj_completion_acceptance_public_api",
+            next_adapter="guangzhou_zfcj_completion_acceptance_public_api_v1",
+        ),
+        _p13b_release_task(
+            task_id="P13B-RELEASE-PROBE-TASK-3",
+            source_profile_id="GUANGDONG-GDCIC-HOME",
+            source_url="http://210.76.80.152:8008",
+            target_source_types=["contract_public_info"],
+            subsource_id="",
+            next_adapter="guangdong_gdcic_contract_performance_public_page_v1",
+        ),
+    ]
+    payload = {
+        "manifest": {
+            "manifest_kind": "p13b_operational_closeout_v1_manifest",
+            "release_evidence_probe_task_records": tasks,
+        },
+        "summary": {
+            "release_evidence_probe_task_count": len(tasks),
+        },
+    }
+    (root / "p13b-operational-closeout-v1.json").write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+
+def _p13b_release_task(
+    *,
+    task_id: str,
+    source_profile_id: str,
+    source_url: str,
+    target_source_types: list[str],
+    subsource_id: str,
+    next_adapter: str,
+) -> dict[str, Any]:
+    return {
+        "release_evidence_probe_task_id": task_id,
+        "release_evidence_probe_plan_id": "P13B-RELEASE-PROBE-PLAN-1",
+        "release_evidence_trigger_id": "P13B-RELEASE-TRIGGER-1",
+        "source_stage": "DATA_GGZY_BID_SHOW",
+        "project_id": "PROJ-P13B-1",
+        "project_name": "广州测试项目中标候选人公示",
+        "city_code": "440100",
+        "region_code": "CN-GD",
+        "candidate_company_name": "广州测试建设有限公司",
+        "matched_person_names": ["张三"],
+        "trigger_source_url": "https://data.ggzy.gov.cn/yjcx/index/bid_show?id=1",
+        "extracted_period_text": "365日历天",
+        "extracted_award_date": "2026年05月01日",
+        "time_window_review_state": "TIME_WINDOW_OVERLAP_REVIEW",
+        "estimated_performance_end_date": "2027-05-01",
+        "source_granularity": "verified_public_subsource" if subsource_id else "source_entry",
+        "source_entry_id": "GZ-ZFCJ-CREDIT-DOUBLE-PUBLICITY" if subsource_id else "GD-GDCIC-CONTRACT-PERFORMANCE",
+        "subsource_id": subsource_id,
+        "source_profile_id": source_profile_id,
+        "source_name": "P13B测试源",
+        "source_url": source_url,
+        "source_family": "test_release_evidence_public_source",
+        "matched_target_source_types": target_source_types,
+        "source_target_source_types": target_source_types,
+        "query_params": {
+            "projectId": "PROJ-P13B-1",
+            "projectName": "广州测试项目中标候选人公示",
+            "candidateCompanyName": "广州测试建设有限公司",
+            "projectManagerName": "张三",
+            "targetSourceTypes": target_source_types,
+            "triggerSourceUrl": "https://data.ggzy.gov.cn/yjcx/index/bid_show?id=1",
+            "keywords": ["广州测试项目中标候选人公示", "广州测试建设有限公司", "张三"],
+        },
+        "runtime_status": "PUBLIC_API_ENDPOINT_VERIFIED_PROJECT_QUERY_AVAILABLE",
+        "next_adapter": next_adapter,
+        "task_state": "PLAN_ONLY_NOT_EXECUTED",
+        "execution_mode": "PLAN_ONLY_NOT_EXECUTED",
+        "readback_ready": False,
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
 
 
 def _task(source_profile_id: str, source_url: str) -> dict[str, Any]:

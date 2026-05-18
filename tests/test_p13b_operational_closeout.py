@@ -155,13 +155,19 @@ class P13BOperationalCloseoutTests(unittest.TestCase):
             self.assertTrue((run_root / "04-operational-closeout" / "p13b-operational-closeout-v1.json").exists())
             self.assertTrue((run_root / "04-operational-closeout" / "p13b-release-evidence-probe-plan-table.json").exists())
             self.assertTrue((run_root / "04-operational-closeout" / "p13b-release-evidence-probe-task-table.json").exists())
+            self.assertTrue((run_root / "05-release-evidence-field-query" / "guangdong-local-field-query-probe-v1.json").exists())
 
             payload = json.loads(
                 (run_root / "04-operational-closeout" / "p13b-operational-closeout-v1.json").read_text(encoding="utf-8")
             )
+            field_payload = json.loads(
+                (run_root / "05-release-evidence-field-query" / "guangdong-local-field-query-probe-v1.json").read_text(encoding="utf-8")
+            )
             self.assertEqual(payload["summary"]["company_history_execution_mode"], "PLAN_ONLY_NOT_EXECUTED")
             self.assertEqual(payload["summary"]["original_notice_execution_mode"], "PLAN_ONLY_NOT_EXECUTED")
             self.assertEqual(payload["summary"]["ygp_readback_blocked_or_unsupported_count"], 0)
+            self.assertEqual(field_payload["manifest"]["input_mode"], "P13B_RELEASE_EVIDENCE_TASKS")
+            self.assertEqual(field_payload["summary"]["execution_mode"], "PLAN_ONLY_NOT_EXECUTED")
 
 
 def _write_company_history(root: Path) -> None:

@@ -28,8 +28,9 @@ $companyHistoryRoot = Join-Path $RunRoot "01-company-history"
 $originalNoticeRoot = Join-Path $RunRoot "02-original-notice"
 $closeoutRoot = Join-Path $RunRoot "03-closeout"
 $operationalRoot = Join-Path $RunRoot "04-operational-closeout"
+$releaseFieldQueryRoot = Join-Path $RunRoot "05-release-evidence-field-query"
 
-foreach ($path in @($RunRoot, $companyHistoryRoot, $originalNoticeRoot, $closeoutRoot, $operationalRoot)) {
+foreach ($path in @($RunRoot, $companyHistoryRoot, $originalNoticeRoot, $closeoutRoot, $operationalRoot, $releaseFieldQueryRoot)) {
     New-Item -ItemType Directory -Force -Path $path | Out-Null
 }
 
@@ -37,6 +38,7 @@ $buildCompanyScript = Join-Path $scriptDir "build-p13b-company-history-overlap-t
 $buildOriginalScript = Join-Path $scriptDir "build-p13b-original-notice-backtrace-v1.ps1"
 $buildCloseoutScript = Join-Path $scriptDir "build-p13b-overlap-triage-closeout-v1.ps1"
 $buildOperationalScript = Join-Path $scriptDir "build-p13b-operational-closeout-v1.ps1"
+$buildReleaseFieldQueryScript = Join-Path $scriptDir "run-guangdong-local-field-query-probe-v1.ps1"
 
 function Invoke-Step {
     param(
@@ -112,3 +114,12 @@ if ($EmitJson) {
     $operationalArgs += "-EmitJson"
 }
 Invoke-Step -ScriptPath $buildOperationalScript -Arguments $operationalArgs
+
+$releaseFieldQueryArgs = @(
+    "-P13BOperationalCloseoutRoot", $operationalRoot,
+    "-OutputRoot", $releaseFieldQueryRoot
+)
+if ($EmitJson) {
+    $releaseFieldQueryArgs += "-EmitJson"
+}
+Invoke-Step -ScriptPath $buildReleaseFieldQueryScript -Arguments $releaseFieldQueryArgs

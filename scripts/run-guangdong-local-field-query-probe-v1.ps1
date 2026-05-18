@@ -1,6 +1,8 @@
 param(
     [string]$LocalVerificationRoot = "",
     [string]$LocalVerificationJson = "",
+    [string]$P13BOperationalCloseoutRoot = "",
+    [string]$P13BOperationalCloseoutJson = "",
     [string]$OutputRoot = "",
     [string[]]$SourceProfileIds = @(),
     [switch]$EnableLivePublicQuery,
@@ -34,6 +36,12 @@ $argsList = @(
 
 if ($LocalVerificationJson) {
     $argsList += @("--local-verification-json", $LocalVerificationJson)
+}
+if ($P13BOperationalCloseoutRoot) {
+    $argsList += @("--p13b-operational-closeout-root", $P13BOperationalCloseoutRoot)
+}
+if ($P13BOperationalCloseoutJson) {
+    $argsList += @("--p13b-operational-closeout-json", $P13BOperationalCloseoutJson)
 }
 if ($SourceProfileIds.Count -gt 0) {
     $argsList += "--source-profile-ids"
