@@ -74,6 +74,9 @@ class P13BOperationalCloseoutTests(unittest.TestCase):
             self.assertEqual(release_plans[0]["region_code"], "CN-GD")
             self.assertEqual(release_plans[0]["historical_project_area_code"], "广州市")
             self.assertEqual(release_plans[0]["release_evidence_query_region_basis"], "HISTORICAL_OVERLAP_PROJECT_REGION")
+            self.assertEqual(release_plans[0]["non_guangdong_release_adapter_rule"], "")
+            self.assertEqual(release_plans[0]["local_housing_authority_adapter_scope"], "HISTORICAL_PROJECT_JURISDICTION")
+            self.assertEqual(release_plans[0]["local_housing_authority_adapter_region_code"], "CN-GD")
             self.assertEqual(release_plans[0]["initial_release_evidence_abcd_grade"], "A_STRONG_TIME_OVERLAP_SIGNAL")
             self.assertEqual(release_plans[0]["primary_release_evidence_source_scope"], "HISTORICAL_PROJECT_LOCAL_HOUSING_AUTHORITY_ONLY")
             self.assertEqual(release_plans[0]["primary_release_evidence_source_selection_state"], "PRIMARY_LOCAL_HOUSING_AUTHORITY_SOURCE_READY")
@@ -87,6 +90,9 @@ class P13BOperationalCloseoutTests(unittest.TestCase):
             self.assertTrue(all(task["readback_ready"] is False for task in release_tasks))
             self.assertTrue(all(task["initial_release_evidence_abcd_grade"] == "A_STRONG_TIME_OVERLAP_SIGNAL" for task in release_tasks))
             self.assertTrue(all(task["release_evidence_query_region_basis"] == "HISTORICAL_OVERLAP_PROJECT_REGION" for task in release_tasks))
+            self.assertTrue(all(task["non_guangdong_release_adapter_rule"] == "" for task in release_tasks))
+            self.assertTrue(all(task["local_housing_authority_adapter_scope"] == "HISTORICAL_PROJECT_JURISDICTION" for task in release_tasks))
+            self.assertTrue(all(task["local_housing_authority_adapter_region_code"] == "CN-GD" for task in release_tasks))
             self.assertTrue(all(task["trigger_source_url"] == "https://data.ggzy.gov.cn/yjcx/index/bid_show?id=1" for task in release_tasks))
             self.assertIn("contract_public_info", {source_type for task in release_tasks for source_type in task["matched_target_source_types"]})
             self.assertIn("completion_filing", {source_type for task in release_tasks for source_type in task["matched_target_source_types"]})
@@ -137,9 +143,27 @@ class P13BOperationalCloseoutTests(unittest.TestCase):
             self.assertEqual(plan["release_evidence_query_region_code"], "CN-ZJ")
             self.assertEqual(plan["release_evidence_query_region_basis"], "HISTORICAL_OVERLAP_PROJECT_REGION")
             self.assertEqual(plan["primary_release_evidence_source_scope"], "HISTORICAL_PROJECT_LOCAL_HOUSING_AUTHORITY_ONLY")
-            task_entry_ids = {task["source_entry_id"] for task in result["manifest"]["release_evidence_probe_task_records"]}
+            self.assertEqual(
+                plan["non_guangdong_release_adapter_rule"],
+                "NON_GUANGDONG_HISTORY_PROJECT_USE_JURISDICTION_LOCAL_HOUSING_AUTHORITY_ADAPTER",
+            )
+            self.assertEqual(plan["local_housing_authority_adapter_scope"], "HISTORICAL_PROJECT_JURISDICTION")
+            self.assertEqual(plan["local_housing_authority_adapter_region_code"], "CN-ZJ")
+            release_tasks = result["manifest"]["release_evidence_probe_task_records"]
+            task_entry_ids = {task["source_entry_id"] for task in release_tasks}
             self.assertIn("ZJ-JZSC-PUBLIC-SERVICE", task_entry_ids)
             self.assertNotIn("GZ-ZFCJ-CREDIT-DOUBLE-PUBLICITY", task_entry_ids)
+            self.assertTrue(
+                all(
+                    task["non_guangdong_release_adapter_rule"]
+                    == "NON_GUANGDONG_HISTORY_PROJECT_USE_JURISDICTION_LOCAL_HOUSING_AUTHORITY_ADAPTER"
+                    for task in release_tasks
+                )
+            )
+            self.assertTrue(
+                all(task["local_housing_authority_adapter_scope"] == "HISTORICAL_PROJECT_JURISDICTION" for task in release_tasks)
+            )
+            self.assertTrue(all(task["local_housing_authority_adapter_region_code"] == "CN-ZJ" for task in release_tasks))
 
     def test_release_probe_does_not_fallback_to_guangzhou_for_non_guangzhou_history(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -166,6 +190,9 @@ class P13BOperationalCloseoutTests(unittest.TestCase):
             self.assertEqual(plan["region_code"], "CN-GD")
             self.assertEqual(plan["source_entry_count"], 0)
             self.assertEqual(plan["primary_release_evidence_source_selection_state"], "LOCAL_HOUSING_AUTHORITY_ADAPTER_REQUIRED")
+            self.assertEqual(plan["non_guangdong_release_adapter_rule"], "")
+            self.assertEqual(plan["local_housing_authority_adapter_scope"], "HISTORICAL_PROJECT_JURISDICTION")
+            self.assertEqual(plan["local_housing_authority_adapter_region_code"], "CN-GD")
             self.assertEqual(plan["next_required_runtime_adapters"], ["local_housing_authority_release_evidence_adapter_required"])
             self.assertEqual(result["manifest"]["release_evidence_probe_task_records"], [])
 

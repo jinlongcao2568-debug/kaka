@@ -715,6 +715,7 @@
           "query_region_rule": "historical_overlap_project_region_first_then_current_project_region_fallback",
           "primary_bcd_source_scope": "historical_project_local_housing_authority_only",
           "default_single_source_mvp": true,
+          "non_guangdong_history_project_rule": "non_guangdong_history_project_use_jurisdiction_local_housing_authority_adapter",
           "national_jzsc_platform_role": "auxiliary_identity_and_region_discovery_not_default_bcd_release_source",
           "province_project_approval_system_role": "auxiliary_or_manual_challenge_not_default_bcd_release_source",
           "A_STRONG_TIME_OVERLAP_SIGNAL": "data_ggzy_bid_show_or_targeted_original_notice_has_same_person_same_company_and_overlapping_time_window",
@@ -745,6 +746,7 @@
           "do_not_downgrade_a_level_time_overlap_signal_only_because_release_sources_are_unavailable",
           "do_not_query_current_project_region_when_historical_overlap_project_region_is_known",
           "do_not_generate_default_bcd_release_tasks_from_national_jzsc_or_province_project_approval_system",
+          "do_not_fallback_non_guangdong_history_project_to_guangdong_or_guangzhou_sources",
           "do_not_default_download_all_01_to_12_flows_for_p13b_original_backtrace",
           "do_not_treat_data_ggzy_original_url_as_ygp_active_collection_restore",
           "do_not_use_ygp_as_guangzhou_primary_source"

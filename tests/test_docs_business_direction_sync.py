@@ -328,6 +328,7 @@ def test_business_direction_doc_contains_final_analysis_strategy_rules() -> None
     assert "D_INSUFFICIENT_OR_BLOCKED_READBACK" in text
     assert "历史重叠项目所在地住建局" in text
     assert "B/C/D 默认只查历史重叠项目所在地住建局或住建主管部门公开源" in text
+    assert "非广东历史项目按归属地住建局适配器执行" in text
     assert "全国建筑市场监管公共服务平台只作身份/地区发现和辅助交叉验证" in text
     assert "广东省工程建设项目审批管理系统只作辅助或人工挑战路线" in text
     assert "原文链接" in text

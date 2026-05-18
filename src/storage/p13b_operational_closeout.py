@@ -59,6 +59,9 @@ DOWNSTREAM_RELEASE_EVIDENCE_POSSIBLE_ABCD_GRADES = [
     "C_REVERSE_EXPLANATION_OFFICIAL_READBACK",
     "D_INSUFFICIENT_OR_BLOCKED_READBACK",
 ]
+P13B_NON_GUANGDONG_RELEASE_ADAPTER_RULE = (
+    "NON_GUANGDONG_HISTORY_PROJECT_USE_JURISDICTION_LOCAL_HOUSING_AUTHORITY_ADAPTER"
+)
 P13B_RELEASE_EVIDENCE_ABCD_POLICY = {
     "policy_id": "P13B_RELEASE_EVIDENCE_ABCD_GRADING_V1",
     "initial_signal_grade": INITIAL_RELEASE_EVIDENCE_ABCD_GRADE,
@@ -87,6 +90,7 @@ P13B_RELEASE_EVIDENCE_ABCD_POLICY = {
         },
     },
     "region_rule": "query_historical_overlap_project_region_first_then_current_project_region_fallback",
+    "non_guangdong_history_project_rule": P13B_NON_GUANGDONG_RELEASE_ADAPTER_RULE,
 }
 P13B_PRIMARY_RELEASE_SOURCE_SCOPE = "HISTORICAL_PROJECT_LOCAL_HOUSING_AUTHORITY_ONLY"
 P13B_LOCAL_HOUSING_ADAPTER_REQUIRED = "LOCAL_HOUSING_AUTHORITY_ADAPTER_REQUIRED"
@@ -357,6 +361,9 @@ def _release_evidence_probe_plan_records(
                 "release_evidence_query_region_code": region_code,
                 "release_evidence_query_region_basis": str(region_context["release_evidence_query_region_basis"]),
                 "release_evidence_query_region_missing": bool(region_context["release_evidence_query_region_missing"]),
+                "non_guangdong_release_adapter_rule": _non_guangdong_release_adapter_rule(region_context),
+                "local_housing_authority_adapter_scope": "HISTORICAL_PROJECT_JURISDICTION",
+                "local_housing_authority_adapter_region_code": region_code,
                 "candidate_company_name": candidate_company,
                 "matched_person_names": person_names,
                 "source_url": str(trigger.get("source_url") or ""),
@@ -559,6 +566,11 @@ def _task_row_from_source(
         "release_evidence_query_region_code": str(region_context.get("release_evidence_query_region_code") or ""),
         "release_evidence_query_region_basis": str(region_context.get("release_evidence_query_region_basis") or ""),
         "release_evidence_query_region_missing": bool(region_context.get("release_evidence_query_region_missing")),
+        "non_guangdong_release_adapter_rule": _non_guangdong_release_adapter_rule(region_context),
+        "local_housing_authority_adapter_scope": "HISTORICAL_PROJECT_JURISDICTION",
+        "local_housing_authority_adapter_region_code": str(
+            region_context.get("release_evidence_query_region_code") or ""
+        ),
         "candidate_company_name": candidate_company,
         "matched_person_names": person_names,
         "trigger_source_url": str(trigger.get("source_url") or ""),
@@ -786,6 +798,13 @@ def _release_evidence_region_context(trigger: Mapping[str, Any], project: Mappin
         "release_evidence_query_region_basis": basis,
         "release_evidence_query_region_missing": not bool(historical_region_code),
     }
+
+
+def _non_guangdong_release_adapter_rule(region_context: Mapping[str, Any]) -> str:
+    region_code = str(region_context.get("release_evidence_query_region_code") or "").upper()
+    if region_code and region_code != "CN-GD":
+        return P13B_NON_GUANGDONG_RELEASE_ADAPTER_RULE
+    return ""
 
 
 def _budget_audit_records(
