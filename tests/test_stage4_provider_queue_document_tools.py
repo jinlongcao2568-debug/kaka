@@ -12,7 +12,7 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from stage4_verification.document_extraction import extract_responsible_person_fields
+from stage4_verification.document_extraction import extract_document_text, extract_responsible_person_fields
 from stage4_verification.local_job_queue import EXHAUSTED, Stage4LocalJobQueue
 from stage4_verification.provider_handlers import (
     PENDING_IMPLEMENTATION_REVIEW,
@@ -201,6 +201,16 @@ class Stage4ProviderQueueDocumentToolsTests(unittest.TestCase):
         self.assertEqual(fields["primary_responsible_person_name"], "陈丽丽")
         self.assertEqual(fields["primary_responsible_role"], "project_manager_name")
         self.assertIn("244202520260001", fields["primary_certificate_no_optional"])
+
+    def test_suffixless_pdf_snapshot_is_detected_by_magic_bytes(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            path = Path(tmp_dir) / "content-addressed-object"
+            path.write_bytes(b"%PDF-1.4\n% suffixless test object\n")
+
+            result = extract_document_text(path, max_pages=1)
+
+            self.assertNotIn("unsupported_document_suffix:<none>", result["failure_reasons"])
+            self.assertTrue(any("pymupdf" in reason or "pdfplumber" in reason for reason in result["failure_reasons"]))
 
     def test_stage4_service_exposes_provider_plan_and_queue(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

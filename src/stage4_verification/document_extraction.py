@@ -69,7 +69,8 @@ def extract_document_text(
 
     sha = _sha256_file(path)
     suffix = path.suffix.lower()
-    if suffix == ".pdf":
+    pdf_like = suffix == ".pdf" or _looks_like_pdf(path)
+    if pdf_like:
         pdf_pages, pdf_methods, pdf_failures = _extract_pdf_text(path, max_pages=max_pages)
         pages.extend(pdf_pages)
         methods.extend(pdf_methods)
@@ -82,6 +83,8 @@ def extract_document_text(
         pages.extend(ocr_pages)
         methods.extend(ocr_methods)
         failures.extend(ocr_failures)
+    if pdf_like and _needs_ocr(pages):
+        failures.append("pdf_text_unavailable_or_ocr_required")
 
     text = "\n".join(page.text for page in pages if page.text.strip())
     fields = extract_responsible_person_fields(text, opportunity_priority_class=opportunity_priority_class)
@@ -202,13 +205,13 @@ def _extract_ocr_text(path: Path, *, max_pages: int) -> tuple[list[ExtractedDocu
     try:
         from paddleocr import PaddleOCR  # type: ignore
     except Exception as exc:
-        return [], [], [f"paddleocr_unavailable:{type(exc).__name__}:{exc}"]
+        return [], [], ["ocr_engine_unavailable", f"paddleocr_unavailable:{type(exc).__name__}:{exc}"]
 
     try:
         ocr = PaddleOCR(use_angle_cls=True, lang="ch", show_log=False)
         result = ocr.ocr(str(path), cls=True)
     except Exception as exc:
-        return [], ["paddleocr"], [f"paddleocr_failed:{type(exc).__name__}:{exc}"]
+        return [], ["paddleocr"], ["ocr_engine_unavailable", f"paddleocr_failed:{type(exc).__name__}:{exc}"]
 
     pages: list[ExtractedDocumentPage] = []
     page_groups = result if isinstance(result, list) else [result]
@@ -272,3 +275,11 @@ def _sha256_file(path: Path) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _looks_like_pdf(path: Path) -> bool:
+    try:
+        with path.open("rb") as handle:
+            return handle.read(5) == b"%PDF-"
+    except Exception:
+        return False

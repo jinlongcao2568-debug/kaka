@@ -209,6 +209,50 @@ class EvidenceOrchestrationStateMachineTests(unittest.TestCase):
                 "CONTINUE_INTERNAL_REVIEW_OR_STAGE6_FACT_PACKAGE",
             )
 
+    def test_design_survey_flow08_readback_consumed_after_stage4_flow08_required(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            storage_json = root / "storage.json"
+            supplement_json = root / "stage4-inputs.json"
+            design_plan_root = root / "design-plan"
+            stage4_root = root / "design-stage4"
+            flow08_root = root / "design-flow08"
+            _write_stage16_storage(storage_json)
+            _write_company_first_inputs(supplement_json)
+            _write_design_survey_adapter_plan(design_plan_root)
+            _write_design_survey_stage4_flow08_required(stage4_root)
+            _write_design_survey_flow08_readback(flow08_root, fetched=True)
+
+            result = build_evidence_orchestration_state(
+                stage16_storage_json=storage_json,
+                company_first_stage4_inputs_json=supplement_json,
+                design_survey_adapter_plan_root=design_plan_root,
+                design_survey_stage4_execution_root=stage4_root,
+                design_survey_flow08_readback_root=flow08_root,
+                output_root=root / "out",
+                created_at="2026-05-18T00:00:00+08:00",
+            )
+
+            by_project = _records_by_project(result["manifest"]["evidence_state_table"]["records"])
+            design = by_project["PROJ-CN-GD-JG2026-11327"]
+            self.assertEqual(
+                design["evidence_state"],
+                "DESIGN_SURVEY_FLOW08_TARGET_ATTACHMENT_FETCHED_PARSE_PENDING",
+            )
+            self.assertEqual(
+                design["recommended_next_action"],
+                "run_targeted_stage4_attachment_document_parse_for_design_survey_identity",
+            )
+            self.assertEqual(design["design_survey_adapter_counts"]["design_survey_flow08_target_attachment_fetched_count"], 1)
+            jobs = result["manifest"]["adapter_job_table"]["records"]
+            self.assertTrue(
+                any(
+                    job["project_id"] == "PROJ-CN-GD-JG2026-11327"
+                    and job["job_type"] == "design_survey_flow08_target_attachment_parse"
+                    for job in jobs
+                )
+            )
+
     def test_data_ggzy_direct_overlap_creates_a_signal_and_release_probe_job(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -812,6 +856,68 @@ def _write_design_survey_stage4_execution(root: Path, *, resolved: bool) -> None
                     "customer_visible_allowed": False,
                     "no_legal_conclusion": True,
                 },
+            }
+        },
+    )
+
+
+def _write_design_survey_stage4_flow08_required(root: Path) -> None:
+    project_id = "PROJ-CN-GD-JG2026-11327"
+    companies = ["广州市城市规划勘测设计研究院有限公司", "广州湾区规划勘测设计院有限公司"]
+    items = [
+        {
+            "job_id": f"STAGE4-INPUT-JOB-{index}",
+            "project_id": project_id,
+            "candidate_company_name": company,
+            "responsible_person_name": "胡昌华",
+            "candidate_group_id": "CANDIDATE-GROUP-JG2026-11327-DESIGN-SURVEY-1",
+            "candidate_group_members": companies,
+            "stage4_execution_state": "FAIL_CLOSED",
+            "identity_resolution_state": "NO_MATCH",
+            "supplement_after_execution_state": "FLOW_08_TARGETED_PARSE_REQUIRED",
+            "flow_08_targeted_parse_required": True,
+            "candidate_group_resolution_state": "UNRESOLVED_NO_MEMBER_MATCHED",
+            "fail_closed_reasons": ["project_manager_not_found_by_company_name_person_name_after_1_attempts"],
+        }
+        for index, company in enumerate(companies, start=1)
+    ]
+    _write_json(
+        root / "company-first-stage4-execution.json",
+        {
+            "manifest": {
+                "items": items,
+                "stage4_candidate_verification_inputs": {"items": []},
+                "summary": {"project_count": 1, "job_count": len(items)},
+            }
+        },
+    )
+
+
+def _write_design_survey_flow08_readback(root: Path, *, fetched: bool) -> None:
+    project_id = "PROJ-CN-GD-JG2026-11327"
+    state = "FLOW08_TARGET_ATTACHMENT_FETCHED" if fetched else "FLOW08_TARGET_ATTACHMENT_BOUND_DOWNLOAD_DEFERRED"
+    attachment_fetch_state = "FETCHED" if fetched else ""
+    attachment = {
+        "project_id": project_id,
+        "target_attachment_match_state": "TARGET_CANDIDATE_ATTACHMENT_BOUND",
+        "attachment_fetch_state": attachment_fetch_state,
+        "attachment_url": "https://jsgc.gzggzy.cn/download?AttachGuid=union",
+    }
+    _write_json(
+        root / "design-survey-flow08-targeted-readback-v1.json",
+        {
+            "manifest": {
+                "flow08_targeted_readback_table": {
+                    "records": [
+                        {
+                            "project_id": project_id,
+                            "flow08_readback_state": state,
+                            "target_attachment_match_state": "TARGET_CANDIDATE_ATTACHMENT_BOUND",
+                            "target_attachment_records": [attachment],
+                        }
+                    ]
+                },
+                "target_attachment_table": {"records": [attachment]},
             }
         },
     )

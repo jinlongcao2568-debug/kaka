@@ -28,6 +28,8 @@ def build_evidence_orchestration_state(
     design_survey_adapter_plan_root: str | Path | None = None,
     design_survey_stage4_execution_json: str | Path | None = None,
     design_survey_stage4_execution_root: str | Path | None = None,
+    design_survey_flow08_readback_json: str | Path | None = None,
+    design_survey_flow08_readback_root: str | Path | None = None,
     output_root: str | Path = DEFAULT_OUTPUT_ROOT,
     project_ids: list[str] | tuple[str, ...] = (),
     created_at: str | None = None,
@@ -67,10 +69,16 @@ def build_evidence_orchestration_state(
         root=design_survey_stage4_execution_root,
         default_file_name="company-first-stage4-execution.json",
     )
+    design_survey_flow08_manifest = _optional_manifest(
+        explicit_json=design_survey_flow08_readback_json,
+        root=design_survey_flow08_readback_root,
+        default_file_name="design-survey-flow08-targeted-readback-v1.json",
+    )
     p13b_index = _p13b_index_by_project(p13b_manifest)
     original_index = _original_backtrace_index_by_project(original_manifest)
     design_survey_plan_index = _design_survey_plan_index_by_project(design_survey_plan_manifest)
     design_survey_stage4_index = _design_survey_stage4_index_by_project(design_survey_stage4_manifest)
+    design_survey_flow08_index = _design_survey_flow08_index_by_project(design_survey_flow08_manifest)
     selected_projects = {_project_key(value) for value in project_ids if _project_key(value)}
 
     evidence_records: list[dict[str, Any]] = []
@@ -93,10 +101,12 @@ def build_evidence_orchestration_state(
             original_project=original_index.get(project_id, {}),
             design_survey_project=design_survey_plan_index.get(project_id, {}),
             design_survey_stage4_project=design_survey_stage4_index.get(project_id, {}),
+            design_survey_flow08_project=design_survey_flow08_index.get(project_id, {}),
             p13b_supplied=bool(p13b_manifest),
             original_supplied=bool(original_manifest),
             design_survey_plan_supplied=bool(design_survey_plan_manifest),
             design_survey_stage4_supplied=bool(design_survey_stage4_manifest),
+            design_survey_flow08_supplied=bool(design_survey_flow08_manifest),
             created_at=created,
         )
         evidence_records.append(record)
@@ -153,6 +163,7 @@ def build_evidence_orchestration_state(
         "source_original_notice_backtrace_json": _manifest_source_path(original_notice_backtrace_json, original_notice_backtrace_root, "original-notice-backtrace-v1.json"),
         "source_design_survey_adapter_plan_json": _manifest_source_path(design_survey_adapter_plan_json, design_survey_adapter_plan_root, "design-survey-responsible-adapter-plan-v1.json"),
         "source_design_survey_stage4_execution_json": _manifest_source_path(design_survey_stage4_execution_json, design_survey_stage4_execution_root, "company-first-stage4-execution.json"),
+        "source_design_survey_flow08_readback_json": _manifest_source_path(design_survey_flow08_readback_json, design_survey_flow08_readback_root, "design-survey-flow08-targeted-readback-v1.json"),
         "evidence_state_table": evidence_table,
         "adapter_job_table": adapter_job_table,
         "stage6_fact_package_readiness_table": fact_package_table,
@@ -198,10 +209,12 @@ def _evidence_record(
     original_project: Mapping[str, Any],
     design_survey_project: Mapping[str, Any],
     design_survey_stage4_project: Mapping[str, Any],
+    design_survey_flow08_project: Mapping[str, Any],
     p13b_supplied: bool,
     original_supplied: bool,
     design_survey_plan_supplied: bool,
     design_survey_stage4_supplied: bool,
+    design_survey_flow08_supplied: bool,
     created_at: str,
 ) -> dict[str, Any]:
     project_id = str(candidate.get("project_id") or "").strip()
@@ -224,13 +237,19 @@ def _evidence_record(
         original_project=original_project,
         design_survey_project=design_survey_project,
         design_survey_stage4_project=design_survey_stage4_project,
+        design_survey_flow08_project=design_survey_flow08_project,
         p13b_supplied=p13b_supplied,
         original_supplied=original_supplied,
         design_survey_plan_supplied=design_survey_plan_supplied,
         design_survey_stage4_supplied=design_survey_stage4_supplied,
+        design_survey_flow08_supplied=design_survey_flow08_supplied,
     )
     signal_counts = _signal_counts(p13b_project, original_project)
-    design_survey_counts = _design_survey_counts(design_survey_project, design_survey_stage4_project)
+    design_survey_counts = _design_survey_counts(
+        design_survey_project,
+        design_survey_stage4_project,
+        design_survey_flow08_project,
+    )
     release_probe_targets = _release_probe_targets(original_project)
     if not release_probe_targets and evidence_state == "A_STRONG_TIME_OVERLAP_SIGNAL_READY":
         release_probe_targets = [
@@ -324,10 +343,12 @@ def _project_evidence_state(
     original_project: Mapping[str, Any],
     design_survey_project: Mapping[str, Any],
     design_survey_stage4_project: Mapping[str, Any],
+    design_survey_flow08_project: Mapping[str, Any],
     p13b_supplied: bool,
     original_supplied: bool,
     design_survey_plan_supplied: bool,
     design_survey_stage4_supplied: bool,
+    design_survey_flow08_supplied: bool,
 ) -> tuple[str, str, str, list[str], str]:
     if base_state == "DEFER_DESIGN_SURVEY_RESPONSIBLE_OVERLAP_ADAPTER":
         return _design_survey_evidence_state(
@@ -335,8 +356,10 @@ def _project_evidence_state(
             base_reasons=base_reasons,
             design_survey_project=design_survey_project,
             design_survey_stage4_project=design_survey_stage4_project,
+            design_survey_flow08_project=design_survey_flow08_project,
             design_survey_plan_supplied=design_survey_plan_supplied,
             design_survey_stage4_supplied=design_survey_stage4_supplied,
+            design_survey_flow08_supplied=design_survey_flow08_supplied,
         )
     if base_state != "READY_FOR_P13B_DATA_GGZY":
         return base_state, "NOT_EVIDENCE_READY", base_next_action, base_reasons, "BASE_READINESS"
@@ -437,8 +460,10 @@ def _design_survey_evidence_state(
     base_reasons: list[str],
     design_survey_project: Mapping[str, Any],
     design_survey_stage4_project: Mapping[str, Any],
+    design_survey_flow08_project: Mapping[str, Any],
     design_survey_plan_supplied: bool,
     design_survey_stage4_supplied: bool,
+    design_survey_flow08_supplied: bool,
 ) -> tuple[str, str, str, list[str], str]:
     if not design_survey_plan_supplied:
         return (
@@ -516,6 +541,10 @@ def _design_survey_evidence_state(
         )
 
     if supplement_states.get("FLOW_08_TARGETED_PARSE_REQUIRED", 0) > 0:
+        if design_survey_flow08_supplied:
+            return _design_survey_flow08_evidence_state(
+                design_survey_flow08_project=design_survey_flow08_project,
+            )
         return (
             "DESIGN_SURVEY_FLOW08_TARGETED_PARSE_REQUIRED",
             "PENDING_DESIGN_SURVEY_STAGE4",
@@ -539,6 +568,68 @@ def _design_survey_evidence_state(
         "manual_review_design_survey_stage4_execution_without_clearance_claim",
         ["design_survey_stage4_execution_no_resolved_identity"],
         "DESIGN_SURVEY_STAGE4_EXECUTION",
+    )
+
+
+def _design_survey_flow08_evidence_state(
+    *,
+    design_survey_flow08_project: Mapping[str, Any],
+) -> tuple[str, str, str, list[str], str]:
+    if not design_survey_flow08_project:
+        return (
+            "DESIGN_SURVEY_FLOW08_READBACK_NOT_COVERING_PROJECT",
+            "PENDING_DESIGN_SURVEY_STAGE4",
+            "rerun_design_survey_flow08_targeted_readback_for_project",
+            ["design_survey_flow08_readback_missing_project"],
+            "DESIGN_SURVEY_FLOW08_TARGETED_READBACK",
+        )
+
+    state_counts = {
+        str(key): int(value or 0)
+        for key, value in dict(design_survey_flow08_project.get("flow08_readback_state_counts") or {}).items()
+    }
+    match_counts = {
+        str(key): int(value or 0)
+        for key, value in dict(design_survey_flow08_project.get("target_attachment_match_state_counts") or {}).items()
+    }
+    if state_counts.get("FLOW08_TARGET_ATTACHMENT_FETCHED", 0) > 0:
+        return (
+            "DESIGN_SURVEY_FLOW08_TARGET_ATTACHMENT_FETCHED_PARSE_PENDING",
+            "PENDING_DESIGN_SURVEY_STAGE4",
+            "run_targeted_stage4_attachment_document_parse_for_design_survey_identity",
+            ["design_survey_flow08_target_attachment_downloaded_parse_pending"],
+            "DESIGN_SURVEY_FLOW08_TARGETED_READBACK",
+        )
+    if state_counts.get("FLOW08_TARGET_ATTACHMENT_BOUND_DOWNLOAD_DEFERRED", 0) > 0:
+        return (
+            "DESIGN_SURVEY_FLOW08_TARGET_ATTACHMENT_READY",
+            "PENDING_DESIGN_SURVEY_STAGE4",
+            "download_bound_flow08_target_attachment_then_parse_responsible_fields",
+            ["design_survey_flow08_target_attachment_bound_download_deferred"],
+            "DESIGN_SURVEY_FLOW08_TARGETED_READBACK",
+        )
+    if state_counts.get("FLOW08_TARGETED_READBACK_READY_NOT_EXECUTED", 0) > 0:
+        return (
+            "DESIGN_SURVEY_FLOW08_READBACK_READY_NOT_EXECUTED",
+            "PENDING_DESIGN_SURVEY_STAGE4",
+            "execute_design_survey_flow08_targeted_readback",
+            ["design_survey_flow08_readback_plan_not_executed"],
+            "DESIGN_SURVEY_FLOW08_TARGETED_READBACK",
+        )
+    if match_counts.get("TARGET_CANDIDATE_ATTACHMENT_BOUND", 0) > 0:
+        return (
+            "DESIGN_SURVEY_FLOW08_TARGET_ATTACHMENT_READY",
+            "PENDING_DESIGN_SURVEY_STAGE4",
+            "download_bound_flow08_target_attachment_then_parse_responsible_fields",
+            ["design_survey_flow08_target_attachment_bound_download_deferred"],
+            "DESIGN_SURVEY_FLOW08_TARGETED_READBACK",
+        )
+    return (
+        "D_DESIGN_SURVEY_FLOW08_READBACK_BLOCKED_OR_INSUFFICIENT",
+        "D_EVIDENCE_INSUFFICIENT",
+        "manual_review_or_retry_flow08_targeted_readback_without_clearance_claim",
+        ["design_survey_flow08_readback_blocked_or_target_attachment_unresolved"],
+        "DESIGN_SURVEY_FLOW08_TARGETED_READBACK",
     )
 
 
@@ -646,9 +737,13 @@ def _adapter_jobs_for_record(record: Mapping[str, Any], *, created_at: str) -> l
             _adapter_job(
                 project_id=project_id,
                 project_name=record.get("project_name"),
-                job_type="design_survey_identity_fallback_plan",
+                job_type="design_survey_flow08_targeted_readback"
+                if state == "DESIGN_SURVEY_FLOW08_TARGETED_PARSE_REQUIRED"
+                else "design_survey_identity_fallback_plan",
                 job_state="PLAN_ONLY_ADAPTER_REQUIRED",
-                recommended_script="scripts/build-evidence-verification-strategy-v1.ps1",
+                recommended_script="scripts/build-design-survey-flow08-targeted-readback-v1.ps1"
+                if state == "DESIGN_SURVEY_FLOW08_TARGETED_PARSE_REQUIRED"
+                else "scripts/build-evidence-verification-strategy-v1.ps1",
                 recommended_next_action=record.get("recommended_next_action"),
                 created_at=created_at,
                 adapter_source_targets=[
@@ -659,6 +754,53 @@ def _adapter_jobs_for_record(record: Mapping[str, Any], *, created_at: str) -> l
                 adapter_scope_guardrails={
                     "do_not_parse_flow_08_by_default": True,
                     "no_name_only_final_proof": True,
+                    "query_miss_is_not_clearance": True,
+                },
+            )
+        )
+    elif state in {
+        "DESIGN_SURVEY_FLOW08_READBACK_NOT_COVERING_PROJECT",
+        "DESIGN_SURVEY_FLOW08_READBACK_READY_NOT_EXECUTED",
+        "DESIGN_SURVEY_FLOW08_TARGET_ATTACHMENT_READY",
+    }:
+        jobs.append(
+            _adapter_job(
+                project_id=project_id,
+                project_name=record.get("project_name"),
+                job_type="design_survey_flow08_targeted_readback",
+                job_state="READY_TO_RUN_TARGETED_READBACK",
+                recommended_script="scripts/build-design-survey-flow08-targeted-readback-v1.ps1",
+                recommended_next_action=record.get("recommended_next_action"),
+                created_at=created_at,
+                adapter_source_targets=[
+                    "guangzhou_flow08_bid_file_publicity_detail",
+                    "target_candidate_attachment_only",
+                ],
+                adapter_scope_guardrails={
+                    "do_not_parse_all_flow_08_by_default": True,
+                    "do_not_download_non_target_candidate_attachments": True,
+                    "target_attachment_download_requires_explicit_switch": True,
+                    "query_miss_is_not_clearance": True,
+                },
+            )
+        )
+    elif state == "DESIGN_SURVEY_FLOW08_TARGET_ATTACHMENT_FETCHED_PARSE_PENDING":
+        jobs.append(
+            _adapter_job(
+                project_id=project_id,
+                project_name=record.get("project_name"),
+                job_type="design_survey_flow08_target_attachment_parse",
+                job_state="READY_TO_RUN_TARGETED_PARSE",
+                recommended_script="scripts/extract-stage4-attachment-document.ps1",
+                recommended_next_action=record.get("recommended_next_action"),
+                created_at=created_at,
+                adapter_source_targets=[
+                    "downloaded_flow08_target_candidate_attachment",
+                    "responsible_person_certificate_or_title_fields",
+                ],
+                adapter_scope_guardrails={
+                    "targeted_parse_only": True,
+                    "no_legal_conclusion": True,
                     "query_miss_is_not_clearance": True,
                 },
             )
@@ -747,6 +889,7 @@ def _stage6_fact_package_state(evidence_state: str) -> str:
         "DESIGN_SURVEY_RESPONSIBLE_IDENTITY_MATCH_READY",
         "D_DESIGN_SURVEY_TARGET_FIELDS_INSUFFICIENT",
         "D_DESIGN_SURVEY_IDENTITY_INSUFFICIENT_OR_BLOCKED",
+        "D_DESIGN_SURVEY_FLOW08_READBACK_BLOCKED_OR_INSUFFICIENT",
     }:
         return "REVIEW_FACT_PACKAGE_READY"
     if evidence_state == "DEFER_DESIGN_SURVEY_RESPONSIBLE_OVERLAP_ADAPTER":
@@ -780,6 +923,7 @@ def _signal_counts(p13b_project: Mapping[str, Any], original_project: Mapping[st
 def _design_survey_counts(
     design_survey_project: Mapping[str, Any],
     design_survey_stage4_project: Mapping[str, Any],
+    design_survey_flow08_project: Mapping[str, Any],
 ) -> dict[str, int]:
     supplement_states = (
         design_survey_stage4_project.get("supplement_after_execution_state_counts")
@@ -811,6 +955,13 @@ def _design_survey_counts(
         "design_survey_stage4_queued_not_executed_count": int(execution_states.get("QUEUED_NOT_EXECUTED", 0)),
         "design_survey_candidate_group_resolved_count": int(
             design_survey_stage4_project.get("candidate_group_resolved_count") or 0
+        ),
+        "design_survey_flow08_project_present": int(bool(design_survey_flow08_project)),
+        "design_survey_flow08_target_attachment_bound_count": int(
+            design_survey_flow08_project.get("target_attachment_bound_count") or 0
+        ),
+        "design_survey_flow08_target_attachment_fetched_count": int(
+            design_survey_flow08_project.get("target_attachment_fetched_count") or 0
         ),
     }
 
@@ -928,6 +1079,49 @@ def _design_survey_stage4_index_by_project(manifest: Mapping[str, Any]) -> dict[
             reason
             for item in items
             for reason in list(item.get("fail_closed_reasons") or [])
+        )
+    return index
+
+
+def _design_survey_flow08_index_by_project(manifest: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
+    index: dict[str, dict[str, Any]] = {}
+    table = (
+        manifest.get("flow08_targeted_readback_table")
+        if isinstance(manifest.get("flow08_targeted_readback_table"), Mapping)
+        else {}
+    )
+    for record in _list(table.get("records")):
+        _append_project_record(index, record, "flow08_targeted_readback_records")
+    attachment_table = (
+        manifest.get("target_attachment_table")
+        if isinstance(manifest.get("target_attachment_table"), Mapping)
+        else {}
+    )
+    for record in _list(attachment_table.get("records")):
+        _append_project_record(index, record, "target_attachment_records")
+    for project in index.values():
+        readback_records = [
+            item for item in _list(project.get("flow08_targeted_readback_records")) if isinstance(item, Mapping)
+        ]
+        attachment_records = [
+            item for item in _list(project.get("target_attachment_records")) if isinstance(item, Mapping)
+        ]
+        project["flow08_readback_state_counts"] = _counts(
+            item.get("flow08_readback_state") for item in readback_records
+        )
+        project["target_attachment_match_state_counts"] = _counts(
+            item.get("target_attachment_match_state") for item in attachment_records
+        )
+        project["attachment_fetch_state_counts"] = _counts(
+            item.get("attachment_fetch_state") for item in attachment_records
+        )
+        project["target_attachment_bound_count"] = sum(
+            1
+            for item in attachment_records
+            if str(item.get("target_attachment_match_state") or "") == "TARGET_CANDIDATE_ATTACHMENT_BOUND"
+        )
+        project["target_attachment_fetched_count"] = sum(
+            1 for item in attachment_records if str(item.get("attachment_fetch_state") or "") == "FETCHED"
         )
     return index
 
@@ -1098,6 +1292,10 @@ def _evidence_summary(records: list[Mapping[str, Any]], blocking_reasons: list[s
                 "DESIGN_SURVEY_STAGE4_PROVIDER_TASKS_READY",
                 "DESIGN_SURVEY_NAME_ENUMERATION_FALLBACK_REQUIRED",
                 "DESIGN_SURVEY_FLOW08_TARGETED_PARSE_REQUIRED",
+                "DESIGN_SURVEY_FLOW08_READBACK_NOT_COVERING_PROJECT",
+                "DESIGN_SURVEY_FLOW08_READBACK_READY_NOT_EXECUTED",
+                "DESIGN_SURVEY_FLOW08_TARGET_ATTACHMENT_READY",
+                "DESIGN_SURVEY_FLOW08_TARGET_ATTACHMENT_FETCHED_PARSE_PENDING",
             }
         ),
         "design_survey_identity_match_project_count": sum(
@@ -1216,7 +1414,18 @@ def _batch_triage_bucket(record: Mapping[str, Any]) -> str:
         return "EXECUTE_DESIGN_SURVEY_STAGE4_PROVIDER_TASKS"
     if state in {"DESIGN_SURVEY_NAME_ENUMERATION_FALLBACK_REQUIRED", "DESIGN_SURVEY_FLOW08_TARGETED_PARSE_REQUIRED"}:
         return "CONTINUE_DESIGN_SURVEY_IDENTITY_FALLBACK"
-    if state in {"D_DESIGN_SURVEY_TARGET_FIELDS_INSUFFICIENT", "D_DESIGN_SURVEY_IDENTITY_INSUFFICIENT_OR_BLOCKED"}:
+    if state in {
+        "DESIGN_SURVEY_FLOW08_READBACK_NOT_COVERING_PROJECT",
+        "DESIGN_SURVEY_FLOW08_READBACK_READY_NOT_EXECUTED",
+        "DESIGN_SURVEY_FLOW08_TARGET_ATTACHMENT_READY",
+        "DESIGN_SURVEY_FLOW08_TARGET_ATTACHMENT_FETCHED_PARSE_PENDING",
+    }:
+        return "CONTINUE_DESIGN_SURVEY_FLOW08_READBACK"
+    if state in {
+        "D_DESIGN_SURVEY_TARGET_FIELDS_INSUFFICIENT",
+        "D_DESIGN_SURVEY_IDENTITY_INSUFFICIENT_OR_BLOCKED",
+        "D_DESIGN_SURVEY_FLOW08_READBACK_BLOCKED_OR_INSUFFICIENT",
+    }:
         return "D_BLOCKED_OR_INSUFFICIENT_REVIEW"
     if state == "WAIT_STAGE2_CAPTURE":
         return "FIX_STAGE2_CAPTURE"
@@ -1238,6 +1447,7 @@ def _commercial_decision_state(bucket: str) -> str:
         "RUN_DESIGN_SURVEY_STAGE4_PROVIDER_TASKS",
         "EXECUTE_DESIGN_SURVEY_STAGE4_PROVIDER_TASKS",
         "CONTINUE_DESIGN_SURVEY_IDENTITY_FALLBACK",
+        "CONTINUE_DESIGN_SURVEY_FLOW08_READBACK",
     }:
         return "CONTINUE_INTERNAL_EVIDENCE_RUN"
     if bucket == "D_BLOCKED_OR_INSUFFICIENT_REVIEW":
@@ -1268,6 +1478,8 @@ def _batch_recommended_next_action(record: Mapping[str, Any], bucket: str) -> st
         return "execute_design_survey_stage4_provider_tasks"
     if bucket == "CONTINUE_DESIGN_SURVEY_IDENTITY_FALLBACK":
         return str(record.get("recommended_next_action") or "continue_design_survey_identity_fallback")
+    if bucket == "CONTINUE_DESIGN_SURVEY_FLOW08_READBACK":
+        return str(record.get("recommended_next_action") or "continue_design_survey_flow08_targeted_readback")
     if bucket == "D_BLOCKED_OR_INSUFFICIENT_REVIEW":
         return "manual_review_or_retry_blocked_original_notice_backtrace_without_clearance_claim"
     if bucket == "LOW_VALUE_REVIEW_NO_CLEARANCE_CLAIM":
@@ -1309,6 +1521,7 @@ def _batch_priority_score(record: Mapping[str, Any], bucket: str) -> int:
         "RUN_DESIGN_SURVEY_STAGE4_PROVIDER_TASKS": 680,
         "EXECUTE_DESIGN_SURVEY_STAGE4_PROVIDER_TASKS": 660,
         "CONTINUE_DESIGN_SURVEY_IDENTITY_FALLBACK": 620,
+        "CONTINUE_DESIGN_SURVEY_FLOW08_READBACK": 610,
         "D_BLOCKED_OR_INSUFFICIENT_REVIEW": 430,
         "LOW_VALUE_REVIEW_NO_CLEARANCE_CLAIM": 260,
         "DEFER_NON_MAINLINE_ADAPTER": 220,
@@ -1571,6 +1784,8 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--design-survey-adapter-plan-root", default="")
     parser.add_argument("--design-survey-stage4-execution-json", default="")
     parser.add_argument("--design-survey-stage4-execution-root", default="")
+    parser.add_argument("--design-survey-flow08-readback-json", default="")
+    parser.add_argument("--design-survey-flow08-readback-root", default="")
     parser.add_argument("--output-root", default=str(DEFAULT_OUTPUT_ROOT))
     parser.add_argument("--project-ids", default="")
     parser.add_argument("--output-json")
@@ -1591,6 +1806,8 @@ def main(argv: list[str] | None = None) -> int:
         design_survey_adapter_plan_root=args.design_survey_adapter_plan_root or None,
         design_survey_stage4_execution_json=args.design_survey_stage4_execution_json or None,
         design_survey_stage4_execution_root=args.design_survey_stage4_execution_root or None,
+        design_survey_flow08_readback_json=args.design_survey_flow08_readback_json or None,
+        design_survey_flow08_readback_root=args.design_survey_flow08_readback_root or None,
         output_root=args.output_root,
         project_ids=_parse_csv(args.project_ids),
     )
