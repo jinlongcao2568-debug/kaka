@@ -7,6 +7,7 @@ param(
     [int]$MaxPages = 20,
     [int]$OcrMaxPages = 2,
     [string]$OcrPageRanges = "",
+    [switch]$DisablePersonDossier,
     [switch]$EmitJson
 )
 
@@ -54,6 +55,9 @@ if ($EnableOcr) {
 }
 if ($OcrPageRanges) {
     $argsList += @("--ocr-page-ranges", $OcrPageRanges)
+}
+if ($DisablePersonDossier) {
+    $argsList += "--disable-person-dossier"
 }
 if ($EmitJson) {
     $argsList += "--json"

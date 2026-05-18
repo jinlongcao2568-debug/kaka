@@ -304,6 +304,42 @@ class EvidenceOrchestrationStateMachineTests(unittest.TestCase):
                 )
             )
 
+    def test_design_survey_flow08_person_dossier_parse_becomes_stage4_replay_ready(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            storage_json = root / "storage.json"
+            supplement_json = root / "stage4-inputs.json"
+            design_plan_root = root / "design-plan"
+            stage4_root = root / "design-stage4"
+            flow08_root = root / "design-flow08"
+            parse_root = root / "design-flow08-parse"
+            _write_stage16_storage(storage_json)
+            _write_company_first_inputs(supplement_json)
+            _write_design_survey_adapter_plan(design_plan_root)
+            _write_design_survey_stage4_flow08_required(stage4_root)
+            _write_design_survey_flow08_readback(flow08_root, fetched=True)
+            _write_design_survey_flow08_attachment_parse(parse_root, state="TARGET_ATTACHMENT_PERSON_DOSSIER_EXTRACTED")
+
+            result = build_evidence_orchestration_state(
+                stage16_storage_json=storage_json,
+                company_first_stage4_inputs_json=supplement_json,
+                design_survey_adapter_plan_root=design_plan_root,
+                design_survey_stage4_execution_root=stage4_root,
+                design_survey_flow08_readback_root=flow08_root,
+                design_survey_flow08_attachment_parse_root=parse_root,
+                output_root=root / "out",
+                created_at="2026-05-18T00:00:00+08:00",
+            )
+
+            design = _records_by_project(result["manifest"]["evidence_state_table"]["records"])[
+                "PROJ-CN-GD-JG2026-11327"
+            ]
+            self.assertEqual(design["evidence_state"], "DESIGN_SURVEY_FLOW08_IDENTITY_FIELDS_EXTRACTED_REVIEW_READY")
+            self.assertEqual(
+                design["recommended_next_action"],
+                "apply_flow08_person_dossier_fields_to_design_survey_stage4_or_manual_review",
+            )
+
     def test_design_survey_flow08_attachment_parse_ocr_required_stays_continuable(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)

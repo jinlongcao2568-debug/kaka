@@ -674,11 +674,16 @@ def _design_survey_flow08_attachment_parse_evidence_state(
         str(key): int(value or 0)
         for key, value in dict(design_survey_flow08_parse_project.get("attachment_parse_state_counts") or {}).items()
     }
-    if parse_counts.get("TARGET_ATTACHMENT_TEXT_FIELDS_EXTRACTED", 0) > 0:
+    if (
+        parse_counts.get("TARGET_ATTACHMENT_TEXT_FIELDS_EXTRACTED", 0) > 0
+        or parse_counts.get("TARGET_ATTACHMENT_PERSON_DOSSIER_EXTRACTED", 0) > 0
+    ):
         return (
             "DESIGN_SURVEY_FLOW08_IDENTITY_FIELDS_EXTRACTED_REVIEW_READY",
             "PENDING_DESIGN_SURVEY_STAGE4",
-            "apply_flow08_extracted_fields_to_design_survey_stage4_or_manual_review",
+            "apply_flow08_person_dossier_fields_to_design_survey_stage4_or_manual_review"
+            if parse_counts.get("TARGET_ATTACHMENT_PERSON_DOSSIER_EXTRACTED", 0) > 0
+            else "apply_flow08_extracted_fields_to_design_survey_stage4_or_manual_review",
             ["design_survey_flow08_target_attachment_fields_extracted"],
             "DESIGN_SURVEY_FLOW08_TARGET_ATTACHMENT_PARSE",
         )
