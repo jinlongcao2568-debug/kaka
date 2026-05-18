@@ -663,7 +663,7 @@
         "do_not_start_with_full_province_construction_permit_sweep": true,
         "query_miss_is_not_clearance": true,
         "flow_08_default_parse_required": false,
-        "purpose": "先用全国公共资源交易平台数据服务 data.ggzy.gov.cn 的主体成交查询按候选公司/联合体成员或统一社会信用代码做近 1-3 年公司历史成交宽筛，再用 bid_show 正文和原文链接做原始源定向回溯；原文回溯只定位可能包含项目负责人、工期/服务期、合同履行期限、中标日期或释放证据的阶段，不默认全量下载 01-12，也不默认解析 08。只有同一负责人/公司/项目时间窗口疑似重叠后，才补查上一项目释放证据。",
+        "purpose": "先用全国公共资源交易平台数据服务 data.ggzy.gov.cn 的主体成交查询按候选公司/联合体成员或统一社会信用代码做近 1-3 年公司历史成交宽筛，再读 bid_show 正文。若 bid_show 已同时包含项目负责人/项目经理与工期、合同履行期限、交付期或服务期等时间周期字段，可直接形成同负责人/同主体/时间窗口疑似重叠复核信号并进入释放证据补查；只有 bid_show 缺项目负责人、缺合同/交付/履约时间字段或字段歧义时，才使用原文链接做定向回溯。原文回溯只定位可能包含项目负责人、工期/服务期、合同履行期限、中标日期或释放证据的阶段，不默认全量下载 01-12，也不默认解析 08。",
         "targeted_original_backtrace_policy": {
           "default_full_01_to_12_download_allowed": false,
           "default_flow_08_parse_allowed": false,
@@ -675,7 +675,7 @@
             "award_or_notice_date",
             "release_evidence_pointer"
           ],
-          "backtrace_trigger": "bid_show_missing_person_or_period_fields_or_original_url_needed_for_overlap_review",
+          "backtrace_trigger": "bid_show_missing_person_or_contract_or_delivery_period_fields_or_fields_ambiguous",
           "release_deep_probe_trigger": "same_responsible_person_or_same_company_plus_time_window_overlap_signal"
         },
         "first_pass_sources": [
@@ -726,6 +726,7 @@
           "do_not_treat_source_blocked_or_region_adapter_missing_as_clearance",
           "do_not_use_legacy_dealList_find_as_p13b_primary_company_history_source",
           "do_not_treat_data_ggzy_bid_list_without_person_as_overlap_signal",
+          "do_not_backtrace_original_notice_when_data_ggzy_bid_show_has_person_and_contract_or_delivery_period",
           "do_not_default_download_all_01_to_12_flows_for_p13b_original_backtrace",
           "do_not_treat_data_ggzy_original_url_as_ygp_active_collection_restore",
           "do_not_use_ygp_as_guangzhou_primary_source"
@@ -742,7 +743,7 @@
           "ygp.search.v2.items_by_city_code_for_recent_07_candidate_discovery",
           "ygp.url_mapping_original_readback_when_data_ggzy_points_to_ygp",
           "extract_responsible_person_and_contract_or_service_period_from_bid_show_content",
-          "use_original_notice_url_for_targeted_flow_backtrace_only_when_bid_show_is_insufficient_or_overlap_signal_exists",
+          "use_original_notice_url_for_targeted_flow_backtrace_only_when_bid_show_is_insufficient_for_person_or_contract_or_delivery_period",
           "do_not_download_all_01_to_12_or_parse_flow_08_by_default_for_p13b"
         ],
         "company_history_lookup_window_years": [
@@ -1463,7 +1464,7 @@
       },
       {
         "phase_id": "P13B_EXTERNAL_AWARD_OVERLAP_TRIAGE_V1",
-        "goal": "负责人未释放/履约重叠宽筛：基于 P12 的 8 个需外部在建/履约源项目，先用 data.ggzy.gov.cn 主体成交查询按公司名/统一社会信用代码做近 1-3 年历史成交宽筛，再用 bid_show 正文和原文链接做定向原文回溯，只定位可能含项目负责人、工期/服务期、合同履行期限、中标日期或释放证据的阶段；发现同一负责人/公司/项目时间窗口重叠线索后，再补查上一项目释放证据。",
+        "goal": "负责人未释放/履约重叠宽筛：基于 P12 的 8 个需外部在建/履约源项目，先用 data.ggzy.gov.cn 主体成交查询按公司名/统一社会信用代码做近 1-3 年历史成交宽筛，再读 bid_show 正文；bid_show 已有项目负责人/项目经理和合同/交付/履约时间字段时直接形成时间窗口复核信号，bid_show 字段不足或歧义时才用原文链接做定向原文回溯，只定位可能含项目负责人、工期/服务期、合同履行期限、中标日期或释放证据的阶段；发现同一负责人/公司/项目时间窗口重叠线索后，再补查上一项目释放证据。",
         "success_criteria": [
           "8 个 EXTERNAL_CONFLICT_SOURCE_REQUIRED 项目均生成 data.ggzy 公司历史成交宽筛任务",
           "每个公司历史成交记录保留 uniscid、bid_list 记录、bid_show 正文摘要和原文链接",

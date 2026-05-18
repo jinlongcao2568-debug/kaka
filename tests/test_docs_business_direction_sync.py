@@ -17,7 +17,7 @@ def _read(path: Path) -> str:
 def test_p0_entry_docs_reference_business_direction_contracts() -> None:
     paths = [
         DOCS / "专题_Stage1-2_来源覆盖与采集路由.md",
-        DOCS / "专题_规则经验库候选池_投前评审履约.md",
+        DOCS / "专题_投前预测_Stage1-9 全链规则与判定资料池.md",
         DOCS / "AX9S_产品主图与验收总则.md",
         DOCS / "文档与资产状态板.md",
     ]
@@ -73,12 +73,14 @@ def test_docs_default_read_order_downranks_historical_noise() -> None:
     task_packet_template = _read(ARCHIVE_NON_CURRENT / "自动开发任务包模板.md")
 
     assert "默认不要遍历 `docs/` 全部文件" in readme
+    assert "原“专题_SKU重构收口清单.md”已退出现行引用面" in readme
     assert "当前默认读序与非默认入口" in status_board
     assert "HISTORICAL_PRE_START_REFERENCE" in status_board
     assert "HISTORICAL_CONDITIONAL_GO_SNAPSHOT" in status_board
     assert "MERGED_REFERENCE" in status_board
     assert "TASK_PACKET_TEMPLATE_ONLY" in status_board
-    assert "AUXILIARY_RULE_CANDIDATE_POOL" in status_board
+    assert "STAGE19_RULE_MATERIAL_POOL" in status_board
+    assert "当前规则资料主文档" in status_board
 
     assert "MERGED_REFERENCE" in sync_plan
     assert "普通开发不要把本文件当默认入口" in sync_plan
@@ -91,18 +93,19 @@ def test_docs_default_read_order_downranks_historical_noise() -> None:
 
 
 def test_ax9s_topic_docs_lock_single_source_ownership() -> None:
-    readme = _read(ROOT / "README.md")
     status_board = _read(DOCS / "文档与资产状态板.md")
 
-    assert "AX9S / 专题文档单源归属表" in readme
     assert "AX9S / 专题文档单源归属表" in status_board
     assert "L1 产品主图 / 总口径 / 当前能力快照" in status_board
     assert "L2 执行矩阵 / 子漏斗 / PASS-REVIEW-BLOCK" in status_board
     assert "L3 Stage4/5 专项 SOP" in status_board
-    assert "导航资产 / 当前主线顺序图" in status_board
+    assert "导航资产 / 阅读入口提示图" in status_board
     assert "历史设计稿 / 143D 设计依据" in status_board
     assert "Stage1-2 权威专题" in status_board
-    assert "规则候选池 / 字段候选池 / 表达模板库" in status_board
+    assert "投前预测 Stage1-9 全链规则与判定资料主文档" in status_board
+    assert "投前预测辅助线" in status_board
+    assert "增强模块 / 投标文件内审" in status_board
+    assert "SKU 重构执行设计专题" in status_board
     assert "Stage4/5 内容所有权固定为" in status_board
     assert "L1 只保留摘要口径" in status_board
     assert "L2 只保留 PASS/REVIEW/BLOCK 与补证回退" in status_board
@@ -110,57 +113,39 @@ def test_ax9s_topic_docs_lock_single_source_ownership() -> None:
     assert "本轮不改名" in status_board
 
 
-def test_docs_final_closeout_audit_records_entrypoints_and_no_backslide() -> None:
+def test_status_board_records_slimming_archives_and_current_state() -> None:
     text = _read(DOCS / "文档与资产状态板.md")
 
-    assert "第五次最终收口审计完成说明" in text
-    assert "文档入口" in text
-    assert "旧引用" in text
-    assert "默认读序" in text
-    assert "剩余重复内容" in text
-    assert "旧文件名和历史默认入口不得回流" in text
-    assert "archive 只作历史参考" in text
-    assert "导航图只作导航提示" in text
-    assert "Stage4/5 细节归 L3" in text
-    assert "投前专题默认只读 0.1 三表入口" in text
-    assert "产品总图归 L1" in text
-    assert "验收回退归 L2" in text
-    assert "规则候选归专题" in text
+    assert "当前文档收口状态" in text
+    assert "规则资料现行入口统一使用 `docs/专题_投前预测_Stage1-9 全链规则与判定资料池.md`" in text
+    assert "旧版长稿、旧版专题稿和旧版任务契约若需复核，只到 `archive/non_current_docs/*` 查历史" in text
+    assert "archive/*` 只作历史参考" in text
+    assert "当前判断：`READY_FOR_POST-REPAIR_MAINLINE_SELECTION`" in text
+    assert "当前是否 candidate-gap：`否`" in text
+    assert "当前是否 strategic-branch：`否`" in text
+    assert "当前 closure review：`已关闭`" in text
+    assert "当前 mainline selection：`就绪`" in text
 
 
-def test_ax9s_l1_absorbs_historical_high_value_content() -> None:
-    text = _read(DOCS / "AX9S_产品主图与验收总则.md")
+def test_stage16_human_contract_is_absorbed_into_l2_and_machine_mirror_remains() -> None:
+    matrix = _read(DOCS / "AX9S_Stage1-9_执行矩阵与子漏斗.md")
+    machine_contract = _read(ROOT / "control" / "stage16_file_analysis_task_contract.yaml")
 
-    assert "系统执行大脑摘要" in text
-    assert "商业钩子线索与披露层级" in text
-    assert "高维剩余缺口评估" in text
-    assert "卖前给价值感，不给可复现路径" in text
-    assert "全国聚合平台只作为一级发现" in text
-    assert "北京不进入首批商业线索试点" in text
+    assert "本表吸收原 Stage1-6 任务契约的高价值硬规则" in matrix
+    assert "control/stage16_file_analysis_task_contract.yaml" in matrix
+    assert 'human_readable_contract: "docs/AX9S_Stage1-9_执行矩阵与子漏斗.md"' in machine_contract
+    assert not (DOCS / "任务契约_Stage1-6文件分析闭环与经验库能力落地.md").exists()
 
 
-def test_ax9s_l2_absorbs_source_strategy_and_rule_pool_high_value_content() -> None:
-    text = _read(DOCS / "AX9S_Stage1-9_执行矩阵与子漏斗.md")
+def test_stage19_gap_board_replaces_stage17_gap_board_and_tracks_dynamic_projection() -> None:
+    text = _read(DOCS / "专题_Stage1-9_缺口收口与优先级清单.md")
 
-    assert "Stage1-2 authority 字段与状态机落点" in text
-    assert "source_family" in text
-    assert "platform_level" in text
-    assert "carrier_type" in text
-    assert "collection_state" in text
-    assert "fallback taxonomy" in text
-    assert "deadline provenance" in text
-    assert "authoritative baseline" in text
-    assert "adapter-ready producer" in text
-    assert "防漂移硬规则" in text
-    assert "批次顺序" in text
-    assert "两法体系分流器" in text
-    assert "项目筛选" in text
-    assert "控标预测" in text
-    assert "自评分" in text
-    assert "废标红线" in text
-    assert "机器可分析字段候选" in text
-    assert "证据等级建议" in text
-    assert "风险表达模板" in text
+    assert "Stage1-9 动态缺口投影板" in text
+    assert "以 `docs/AX9S_Stage1-9_执行矩阵与子漏斗.md` 为目标模型" in text
+    assert "对照代码 / tests / scripts / contracts 投射当前真实缺口" in text
+    assert "Stage8" in text and "Stage9" in text
+    assert "自动退款执行继续 `EXCLUDED`" in text
+    assert not (DOCS / "专题_Stage1-7_缺口收口与优先级清单.md").exists()
 
 
 def test_source_route_spec_locks_post_candidate_backtrace_and_guangzhou_primary_source() -> None:
@@ -188,49 +173,77 @@ def test_source_route_spec_locks_post_candidate_backtrace_and_guangzhou_primary_
     assert "广州 `01-12` 流程接口覆盖是适配器验证" in text
 
 
-def test_pre_bid_topic_is_secondary_rule_pool_and_forbids_post_candidate_outputs() -> None:
-    text = _read(DOCS / "专题_规则经验库候选池_投前评审履约.md")
+def test_pre_bid_topic_is_secondary_rule_pool_and_now_summary_first() -> None:
+    text = _read(DOCS / "专题_投前预测_Stage1-9 全链规则与判定资料池.md")
 
+    assert "投前预测辅助模块" in text
     assert "三表入口" in text
-    assert "默认阅读只看 `0.1 三表入口`" in text
-    assert "规则候选索引表" in text
-    assert "字段候选表" in text
-    assert "风险表达与证据等级表" in text
-    assert "候选能力" in text
-    assert "对应详细章节" in text
-    assert "正式落点" in text
-    assert "禁止越界" in text
-    assert "字段组" in text
-    assert "代表字段" in text
-    assert "未来落点" in text
-    assert "当前状态" in text
-    assert "证据等级" in text
-    assert "允许表达" in text
-    assert "禁止表达" in text
-    assert "进入 Stage5/6 条件" in text
-    assert "字段候选，不是正式 D2 字段" in text
-    assert "长章节是候选明细和历史规则材料" in text
-    assert "辅助产品线" in text
-    assert "规则候选池" in text
-    assert "字段候选池" in text
-    assert "表达模板库" in text
+    assert "辅助功能模块" in text
     assert "不是当前主线说明书" in text
-    assert "主线能力层" in text
-    assert "只表示投前预测线内部优先落地的能力层" in text
-    assert "候选人核查结论" in text
-    assert "真实竞争者结论" in text
-    assert "陪标组合结论" in text
-    assert "不能输出" in text
     assert "PRE_BID_NOT_ELIGIBLE_OPENING_STARTED" in text
     assert "PRE_BID_NOT_ELIGIBLE_DEADLINE_PASSED" in text
     assert "PREDICTION_BEFORE_CLARIFICATION" in text
     assert "PREDICTION_RECALC_REQUIRED" in text
     assert "AnalysisStrategyPlan v1" in text
+    assert "规则候选索引表" in text
+    assert "字段候选表" in text
+    assert "风险表达与证据等级表" in text
+    assert "不能输出候选人核查结论、真实竞争者结论、围标/串标/陪标组合结论" in text
+    assert "评审端可读性表" in text
+    assert "bid_score_forecast" in text
+    assert "winnability_band" in text
+
+
+def test_stage19_rule_material_pool_exists_and_points_to_formal_landing_path() -> None:
+    text = _read(DOCS / "专题_投前预测_Stage1-9 全链规则与判定资料池.md")
+
+    assert "唯一的**规则资料主文档**" in text
+    assert "规则候选索引表" in text
+    assert "字段候选总索引" in text
+    assert "证据等级与表达边界" in text
+    assert "按专题 / SKU 消费矩阵" in text
+    assert "公平竞争 / 需求管理 / 政策规则" in text
+    assert "远程异地评标与组织性线索" in text
+    assert "废标红线" in text
+    assert "资格条件合法性" in text
+    assert "救济时钟与证据链" in text
+    assert "中标后合同与程序风险" in text
+    assert "允许表达" in text and "禁止表达" in text
+    assert "rule_basis_catalog" in text
+    assert "rule_catalog" in text
+    assert "src/stage5_rules_evidence" in text
+    assert "AX9S_Stage4-5_核验双闸门SOP" in text
+    assert "维护约定" in text
+    assert "提交与开标流程" in text
+    assert "opening_material_checklist" in text
+    assert "second_quote_reminder" in text
+
+
+def test_enhanced_bid_review_material_pool_exists() -> None:
+    text = _read(DOCS / "专题_投前预测_Stage1-9 全链规则与判定资料池.md")
+
+    assert "增强模块 / bid-document review / internal QA" in text
+    assert "暗标" in text
+    assert "正偏离" in text
+    assert "授权签章" in text
+    assert "声明函" in text
+    assert "税率审计" in text
+    assert "电子监管" in text
+    assert "不能直接混入现有公开证据主链" in text
+
+
+def test_sku_closeout_doc_is_removed_and_absorbed() -> None:
+    text = _read(DOCS / "专题_SKU分层与分类裁决.md")
+
+    assert "archive/non_current_docs/专题_SKU重构收口清单_2026-05-17瘦身前原版.md" in text
+    assert "原“专题_SKU重构收口清单.md”已退出现行引用面" in _read(ROOT / "README.md")
+    assert not (DOCS / "专题_SKU重构收口清单.md").exists()
 
 
 def test_ax9s_runbook_states_post_candidate_mainline_and_tender_file_smoke_boundary() -> None:
     text = _read(DOCS / "AX9S_产品主图与验收总则.md")
 
+    assert "本文件验收的是 **`docs/AX9S_Stage1-9_执行矩阵与子漏斗.md` 所覆盖的 Stage1-9 全链产品闭环是否成立**" in text
     assert "默认业务入口" in text
     assert "核心商业主线是候选公示后证据包分析" in text
     assert "近期 `07 中标候选人公示`" in text
@@ -246,108 +259,6 @@ def test_ax9s_runbook_states_post_candidate_mainline_and_tender_file_smoke_bound
     assert "Stage4/5 公开核验和双闸门操作细节" in text
     assert "AX9S_Stage4-5_核验双闸门SOP.md" in text
     assert "Stage4 项目经理核验操作图纸" not in text
-
-
-def test_status_board_records_p0_sync_boundary() -> None:
-    text = _read(DOCS / "文档与资产状态板.md")
-
-    assert "第三次高价值内容吸收完成说明" in text
-    assert "高价值内容吸收批" in text
-    assert "docs/专题_Stage1-2_来源覆盖与采集路由.md" in text
-    assert "docs/专题_规则经验库候选池_投前评审履约.md" in text
-    assert "archive/non_current_docs/AX9S_历史设计_自动运营与商业钩子.md" in text
-    assert "docs/任务契约_Stage1-6文件分析闭环与经验库能力落地.md" in text
-    assert "formal route / 历史导航分层 / controlled-opening" in text
-    assert "不再作为产品图纸正文来源" in text
-    assert "默认读序不变" in text
-    assert "第四次投前专题三表拆轻完成说明" in text
-    assert "默认只读 `0.1 三表入口`" in text
-    assert "规则候选索引表" in text
-    assert "字段候选表" in text
-    assert "风险表达与证据等级表" in text
-    assert "开发具体规则时再读对应明细章节" in text
-
-    assert "P0 文档方向同步说明" in text
-    assert "POST_CANDIDATE_EVIDENCE_PACK" in text
-    assert "PRE_BID_PREDICTION" in text
-    assert "tender_file" in text and "最终业务入口" in text
-    assert "广东只保留广州交易集团主源" in text
-    assert "AnalysisStrategyPlan v1" in text
-    assert "近期 07 中标候选人公示" in text
-    assert "预澄清半成品预测" in text
-    assert "缺 11/12 不阻断当前证据包销售窗口" in text
-    assert "05 开标信息" in text
-    assert "适配器验证" in text
-    assert "公开注册信息匹配同步说明" in text
-    assert "EvidenceReport v1 同步说明" in text
-    assert "默认不下载、不解析 `08 投标文件公开`" in text
-    assert "核验线索/证据、过程稳定性、优化建议" in text
-    assert "不得写“是不是本人”" in text
-    assert "四库/JZSC 只作为公开注册信息" in text
-    assert "不能作为实时在建冲突唯一依据" in text
-    assert "GuangdongLocalVerificationProbe v1 同步说明" in text
-    assert "广东核验不限定广州市" in text
-    assert "入口可达不等于字段核验成功" in text
-    assert "项目负责人未释放证据链同步说明" in text
-    assert "早期研究报告吸收同步说明" in text
-    assert "不新增独立吸收清单文档" in text
-    assert "来源 URL" in text
-    assert "采集时间" in text
-    assert "SHA-256/hash" in text
-    assert "脱敏日志" in text
-    assert "可信时间戳" in text
-    assert "白标协作" in text
-    assert "SaaS 后置" in text
-    assert "跨项目关系图谱" in text
-    assert "文件相似度" in text
-    assert "报价异常" in text
-    assert "下一阶段执行计划同步说明" in text
-    assert "P13B_EXTERNAL_AWARD_OVERLAP_TRIAGE_V1" in text
-    assert "负责人未释放/履约重叠宽筛" in text
-    assert "机器追踪 ID" in text
-    assert "P12_GUANGZHOU_10_PROJECT_VALUE_CLOSEOUT_V1" in text
-    assert "P13A 已修复 `JG2026-11215`" in text
-    assert "10 项目、26 个真实候选组、流程阻断 0、08 定向解析 0" in text
-    assert "PRIOR_AWARD_AND_CANDIDATE_OVERLAP_TRIAGE" in text
-    assert "data.ggzy.gov.cn" in text
-    assert "主体成交查询" in text
-    assert "bid_list" in text and "bid_show" in text
-    assert "原文链接" in text
-    assert "YGP" in text
-    assert "原文 readback" in text
-    assert "不恢复为广州主采集源" in text
-    assert "YGP CityDiscovery v1" in text
-    assert "YGP_FULL_CHAIN_VERIFICATION_V1" in text
-    assert "YGP DownloadProbe v1" in text
-    assert "GuangdongYgpBatchStabilityCloseout v1" in text
-    assert "search/v2/items" in text
-    assert "noticeSecondType" in text and "tradingProcess" in text and "regionCode" in text
-    assert "项目流程矩阵" in text
-    assert "nodeList" in text
-    assert "detail" in text
-    assert "dsList" in text
-    assert "广州交易集团独立适配" in text
-    assert "深圳公共资源交易中心独立适配" in text
-    assert "广东其他城市" in text
-    assert "旧 `dealList_find.jsp` 不作为该宽筛的公司历史中标主入口" in text
-    assert "不得写排除结论" in text
-    assert "P11_GUANGZHOU_10_PROJECT_STABILITY_V1" in text
-    assert "P10_P9_AWARE_READABLE_CLOSEOUT_V1" in text
-    assert "P9_EVIDENCE_FIXATION_RECAPTURE_V1" in text
-    assert "EvidenceReport 使用 `NoDefaultOptionalRoots`" in text
-    assert "P11_PARTIAL_SOURCE_COVERAGE" in text
-    assert "旧项目或假样本补齐" in text
-    assert "官方源 readback 不作为 P11 成败硬门槛" in text
-    assert "project-value-table" in text
-    assert "candidate-group-verification-table" in text
-    assert "delivery-gap-table" in text
-    assert "不扩 20/50" in text
-    assert "customer_delivery_ready=false" in text
-    assert "RESERVED_NOT_IMPLEMENTED" in text
-    assert "非承包方原因停工超过 120 天" in text
-    assert "安全生产标准化考评结果告知书" in text
-    assert "在建冲突成立" in text
-    assert "无在建" in text and "无风险" in text
 
 
 def test_business_direction_doc_contains_final_analysis_strategy_rules() -> None:
@@ -371,7 +282,6 @@ def test_business_direction_doc_contains_final_analysis_strategy_rules() -> None
     assert "姓名枚举兜底" in text
     assert "`08 投标文件公开` 默认只登记存在、URL、附件清单和后续可解析目标" in text
     assert "只有 `FLOW_08_TARGETED_PARSE_REQUIRED`、公开注册信息不匹配、缺证书号、证书类别/专业不足或需核对 `08` 声明业绩" in text
-    assert "`08 投标文件公开` 默认只登记存在、URL、附件清单和后续可解析目标" in text
     assert "`EvidenceReport v1` 三类输出" in text
     assert "核验线索/证据" in text
     assert "过程稳定性" in text
@@ -410,6 +320,8 @@ def test_business_direction_doc_contains_final_analysis_strategy_rules() -> None
     assert "data.ggzy.gov.cn" in text
     assert "主体成交查询" in text
     assert "bid_show" in text
+    assert "`bid_show` 已同时给出项目负责人/项目经理与工期、合同履行期限、交付期或服务期等时间周期字段" in text
+    assert "不需要为了这个已足够信号再做原文回溯" in text
     assert "原文链接" in text
     assert "该阶段不是全量下载 01-12，也不是默认解析 `08`" in text
     assert "可能包含项目负责人、工期/服务期、合同履行期限、中标日期或释放证据" in text
@@ -542,8 +454,9 @@ def test_route_map_is_navigation_not_long_history_body() -> None:
     text = _read(DOCS / "AX9S_当前主线导航图.md")
 
     assert "| Stage | 看哪份主文档 | Handoff | 当前导航候选 |" in text
-    assert "| 历史详单 |" in text
-    assert "本导航图不再维护长历史清单" in text
+    assert "动态推进、当前缺口、缺口减少和优先级" in text
+    assert "本文件只保留静态导航" in text
+    assert "专题_Stage1-9_缺口收口与优先级清单" in text
     assert "## 2.1 Stage 1 任务编排与来源/路由治理" not in text
     assert "## 2.9 Stage 9 订单、支付、交付与治理反馈" not in text
     assert "PTL-I100-133A-real-public-entry-url-fetcher-and-allowlist" not in text

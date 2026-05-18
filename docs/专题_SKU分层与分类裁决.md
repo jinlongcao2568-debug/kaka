@@ -375,6 +375,33 @@ DoD：
 5. `SKU-CLEANUP-05`
    回归、清理旧命名、修 D2/D8/D13/L0
 
+### 10.1 已完成与兼容保留
+
+本小节吸收了原“专题_SKU重构收口清单.md”的高频收口信息，避免再维护第二份并行正文。
+
+**已完成**
+
+- `业务证据 SKU` 已冻结为历史旧提法，现行统一使用 `业务证据专题`
+- `正式 SKU` 保留为唯一 SKU 层
+- `服务深度档位` 已与 SKU 分离
+- `LeadPack 商业封装档位` 已与 SKU 分离
+- `offer_recommendation.sku_code`、`saleable_opportunity.recommended_sku` 只承接正式 SKU
+- `execution_context.evidence_topic_codes`、`project_fact.primary_evidence_topic_code`、`project_fact.resolved_evidence_topic_codes` 已落位
+- `offer_recommendation.service_tier_code`、`offer_recommendation.package_template_code`、`delivery_record.package_template_code` 已落位
+- Stage7 policy 已拆成 `sku_code / service_tier_code / package_template_code / recommended_quote_band` 四层输出
+
+**兼容保留**
+
+- `recommended_delivery_form` 继续作为兼容字段存在
+- 该字段不再承担正式 SKU 语义
+- 该字段不再承担主包装字段语义
+- `REG-BIZ-LEADPACK-SKU-OFFER`、`REG-P2-SKU-RECOMMENDATION` 等历史 suite id 当前视为稳定标识，可保留但不再代表现行术语层级
+
+**历史原版**
+
+- 原“专题_SKU重构收口清单.md”已退出现行引用面
+- 后续如需核对历史原版，只读 `archive/non_current_docs/专题_SKU重构收口清单_2026-05-17瘦身前原版.md`
+
 ## 11. 当前明确不做
 
 本轮设计不直接做以下事情：

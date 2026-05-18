@@ -672,6 +672,10 @@ class BusinessDirectionStrategyContractTests(unittest.TestCase):
         self.assertIn("construction_or_service_period", targeted_backtrace["target_fields"])
         self.assertIn("release_evidence_pointer", targeted_backtrace["target_fields"])
         self.assertEqual(
+            targeted_backtrace["backtrace_trigger"],
+            "bid_show_missing_person_or_contract_or_delivery_period_fields_or_fields_ambiguous",
+        )
+        self.assertEqual(
             targeted_backtrace["release_deep_probe_trigger"],
             "same_responsible_person_or_same_company_plus_time_window_overlap_signal",
         )
@@ -691,9 +695,14 @@ class BusinessDirectionStrategyContractTests(unittest.TestCase):
         self.assertIn("do_not_treat_prior_award_or_candidate_record_as_final_unreleased_proof", policy["must_not"])
         self.assertIn("do_not_treat_no_prior_award_match_as_no_risk", policy["must_not"])
         self.assertIn("do_not_use_legacy_dealList_find_as_p13b_primary_company_history_source", policy["must_not"])
+        self.assertIn("do_not_backtrace_original_notice_when_data_ggzy_bid_show_has_person_and_contract_or_delivery_period", policy["must_not"])
         self.assertIn("do_not_default_download_all_01_to_12_flows_for_p13b_original_backtrace", policy["must_not"])
         self.assertIn("do_not_use_ygp_as_guangzhou_primary_source", policy["must_not"])
         self.assertIn("ygp.url_mapping_original_readback_when_data_ggzy_points_to_ygp", policy["primary_company_history_query_flow"])
+        self.assertIn(
+            "use_original_notice_url_for_targeted_flow_backtrace_only_when_bid_show_is_insufficient_for_person_or_contract_or_delivery_period",
+            policy["primary_company_history_query_flow"],
+        )
         ygp_policy = policy["ygp_original_readback_policy"]
         self.assertTrue(ygp_policy["not_guangzhou_primary_source"])
         self.assertTrue(ygp_policy["p13b_original_readback_allowed"])

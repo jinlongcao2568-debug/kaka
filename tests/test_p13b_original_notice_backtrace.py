@@ -249,6 +249,75 @@ class P13BOriginalNoticeBacktraceTests(unittest.TestCase):
             self.assertEqual(extraction["extracted_responsible_person_names"], ["李四"])
             self.assertIn("240日历天", extraction["extracted_period_text"])
 
+    def test_ygp_readback_text_probe_is_reparsed_when_structured_fields_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            readback_root = root / "ygp-readback"
+            _write_ygp_only_input(root)
+            _write_ygp_text_readback(readback_root)
+
+            result = build_p13b_original_notice_backtrace(
+                input_root=root,
+                ygp_readback_root=readback_root,
+                output_root=root / "out",
+                http_getter=_raising_http_getter,
+                created_at="2026-05-15T00:00:00+08:00",
+            )
+
+            summary = result["summary"]
+            self.assertEqual(summary["original_notice_person_period_extracted_count"], 1)
+            self.assertEqual(summary["original_notice_overlap_signal_review_required_count"], 1)
+            self.assertEqual(summary["manual_release_evidence_probe_count"], 1)
+            release_row = result["manifest"]["manual_release_evidence_probe_table"][0]
+            self.assertEqual(release_row["original_notice_url"], "https://ygp.gdzwfw.gov.cn/ggzy-portal/center/apis/dt2c/url-mapping/123-3C52")
+            self.assertIn("construction_permit", release_row["release_evidence_source_targets"])
+
+    def test_ygp_readback_matches_route_attempt_original_url_mapping(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            readback_root = root / "ygp-readback"
+            _write_ygp_only_input(root)
+            _write_ygp_text_readback(readback_root, route_attempt_only=True)
+
+            result = build_p13b_original_notice_backtrace(
+                input_root=root,
+                ygp_readback_root=readback_root,
+                output_root=root / "out",
+                http_getter=_raising_http_getter,
+                created_at="2026-05-15T00:00:00+08:00",
+            )
+
+            self.assertTrue(result["safe_to_execute"])
+            self.assertEqual(result["summary"]["ygp_readback_ready_count"], 1)
+            self.assertEqual(result["summary"]["original_notice_overlap_signal_review_required_count"], 1)
+
+    def test_partial_ygp_readback_keeps_missing_readback_pointer_visible(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            readback_root = root / "ygp-readback"
+            missing_url = "https://ygp.gdzwfw.gov.cn/ggzy-portal/center/apis/dt2c/url-mapping/missing-3C52"
+            _write_p13b_input(root, first_url=missing_url)
+            _write_ygp_readback(readback_root)
+
+            result = build_p13b_original_notice_backtrace(
+                input_root=root,
+                ygp_readback_root=readback_root,
+                output_root=root / "out",
+                http_getter=_raising_http_getter,
+                created_at="2026-05-15T00:00:00+08:00",
+            )
+
+            summary = result["summary"]
+            self.assertEqual(summary["original_notice_fetch_count"], 2)
+            self.assertEqual(summary["ygp_readback_ready_count"], 1)
+            self.assertEqual(summary["source_unsupported_count"], 1)
+            missing_fetches = [
+                record
+                for record in result["manifest"]["original_notice_fetch_records"]
+                if record["blocker_taxonomy"] == ["ygp_local_readback_missing"]
+            ]
+            self.assertEqual(len(missing_fetches), 1)
+
     def test_writes_all_output_tables(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -394,6 +463,30 @@ def _write_ygp_readback(root: Path) -> None:
                     "text_probe": "中标人：广东乙公司。项目负责人：李四。工期：240日历天。",
                     "text_probe_sha256": "text-sha",
                     "record_payload_sha256": "record-sha",
+                    "customer_visible_allowed": False,
+                    "no_legal_conclusion": True,
+                }
+            ]
+        }
+    }
+    _write_json(root / "ygp-original-readback-v1.json", payload)
+
+
+def _write_ygp_text_readback(root: Path, *, route_attempt_only: bool = False) -> None:
+    url = "https://ygp.gdzwfw.gov.cn/ggzy-portal/center/apis/dt2c/url-mapping/123-3C52"
+    expanded_url = "https://ygp.gdzwfw.gov.cn/ggzy-portal/#/44/new/jygg/v3/D?noticeId=notice-123&projectCode=project-123&bizCode=3C52"
+    payload = {
+        "manifest": {
+            "ygp_original_readback_records": [
+                {
+                    "original_notice_url": expanded_url if route_attempt_only else url,
+                    "source_url": expanded_url,
+                    "ygp_readback_state": "YGP_ORIGINAL_URL_READBACK_READY",
+                    "ygp_extraction_state": "YGP_ORIGINAL_NOTICE_NO_MATCH_REVIEW",
+                    "status_code": 200,
+                    "content_type": "text/plain",
+                    "text_probe": "中标人：广东乙公司。项目负责人：李四。工期：240日历天。中标日期：2026年05月03日。",
+                    "route_attempt": {"url": url} if route_attempt_only else {},
                     "customer_visible_allowed": False,
                     "no_legal_conclusion": True,
                 }

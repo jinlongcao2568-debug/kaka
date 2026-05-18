@@ -22,7 +22,7 @@
 - 招投标分析按双线产品执行：候选公示后证据包是核心商业主线，投前预测是辅助产品线。候选后默认从工作日 72 小时内的近期 `07 中标候选人公示` 入池；投前预测只适用于近期 `02/03/04` 且投标截止/开标未过，一旦出现 `05 开标信息` 就不再走投前预测。近期 `07` 项目缺 11/12 不阻断当前证据包销售窗口。
 - 下载和解析前必须先做 `AnalysisStrategyPlan v1`。候选后负责人核验必须按 `ResponsiblePersonEarlyProbe v1`：涉及联合体时按候选行绑定；缺证书号先公司优先补证，再姓名枚举兜底；`08` 不默认下载或解析；公开注册信息只能表述匹配/不匹配，不能判断“是不是本人”。
 - 广州 `EvidenceReport v1` 只做内部三类输出；广东核验按 `GuangdongLocalVerificationProbe v1` 收口，重点省份浙江、四川、江苏、湖北、山东、湖南、河南默认 `PLAN_ONLY_UNTIL_REGION_ADAPTER_VERIFIED`，由 `MajorRegionQueryProbe v1` 只生成任务和可达性诊断，不得把入口可达写成字段核验成功。
-- P13B 外部在建/履约核验按 `PRIOR_AWARD_AND_CANDIDATE_OVERLAP_TRIAGE`：先查 `data.ggzy.gov.cn`，再用 `bid_show`、原文链接、原文 readback 做定向回溯；不得一开始全省施工许可、竣工、合同备案全量扫描。YGP 只作广东其他城市基础能力和原文回溯；`YGP CityDiscovery v1`、`YGP_FULL_CHAIN_VERIFICATION_V1` 依赖 `search/v2/items` 和项目流程矩阵，读取 `nodeList`、`detail`、`dsList`；广州主源仍是广州交易集团，不恢复为广州主采集源。
+- P13B 外部在建/履约核验按 `PRIOR_AWARD_AND_CANDIDATE_OVERLAP_TRIAGE`：先查 `data.ggzy.gov.cn` 和 `bid_show`；`bid_show` 已有项目负责人/项目经理 + 合同/交付/履约时间时直接进入时间窗口复核，字段不足或歧义时才用原文链接、原文 readback 定向回溯；不得一开始全省施工许可、竣工、合同备案全量扫描。YGP 只作广东其他城市基础能力和原文回溯；`YGP CityDiscovery v1`、`YGP_FULL_CHAIN_VERIFICATION_V1` 依赖 `search/v2/items` 和项目流程矩阵，读取 `nodeList`、`detail`、`dsList`；广州主源仍是广州交易集团，不恢复为广州主采集源。
 - 项目负责人未释放 / 在建履约冲突必须走官方证据链：当前候选证据 + 中标/施工许可/合同/履约公开记录 + 时间窗口 + 释放证据。缺竣工、缺备案、源阻断或未命中时只能形成“项目负责人未释放风险线索/证据不足”，不得直接写“无在建”或“无风险”。
 - 正式证据包和白标协作只能输出事实、线索、证据、反向解释和建议核验事项；必须固化来源 URL、采集时间、snapshot/readback、SHA-256/hash、脱敏日志等链路。可信时间戳、收费举报、付费沉默、爆料号、公开点名、AI 一键定性都不是当前已实现或允许的对外路径。
 - 具体口径以 `docs/业务方向_候选公示后证据包与投前预测双线契约.md` 和 `contracts/evaluation/business_direction_strategy_contract.json` 为准。

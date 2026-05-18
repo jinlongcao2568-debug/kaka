@@ -8,7 +8,7 @@ import re
 import urllib.error
 import urllib.parse
 import urllib.request
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping
 
@@ -617,6 +617,11 @@ def _bid_show_record(
     period_text = _extract_period_text(content_text)
     award_date = _extract_award_date(content_text) or str(bid_record.get("createTime") or "")
     original_url = str(result.get("url") or bid_record.get("url") or "")
+    time_window = _time_window_review_fields(
+        period_text,
+        award_date,
+        reference_date_text=created_at,
+    )
     company_names = _dedupe(
         [
             str(matched_company.get("entname") or ""),
@@ -652,7 +657,12 @@ def _bid_show_record(
         "extracted_responsible_person_names": extracted_people,
         "extracted_period_text": period_text,
         "extracted_award_date": award_date,
+        "time_window_review_state": time_window["time_window_review_state"],
+        "time_window_reference_date": time_window["time_window_reference_date"],
+        "estimated_performance_end_date": time_window["estimated_performance_end_date"],
+        "time_window_review_basis": time_window["time_window_review_basis"],
         "bid_show_state": state,
+        "original_notice_backtrace_required": state == "ORIGINAL_NOTICE_BACKTRACE_REQUIRED",
         "text_probe": text_probe,
         "text_probe_sha256": _sha256(text_probe),
         "record_payload_sha256": _fingerprint({"bid_record": bid_record, "field_probe": text_probe, "original_url": original_url}),
@@ -678,10 +688,24 @@ def _overlap_records_for_company(
         extracted_people = {str(item).strip() for item in _list(show.get("extracted_responsible_person_names")) if str(item).strip()}
         person_matches = sorted(candidate_people & extracted_people)
         company_match = _contains_company(show.get("matched_company_names"), candidate_company)
-        if person_matches and company_match and str(show.get("extracted_period_text") or "").strip():
+        time_window_state = str(show.get("time_window_review_state") or "")
+        if person_matches and company_match and time_window_state == "TIME_WINDOW_OVERLAP_REVIEW":
             state = "OVERLAP_SIGNAL_REVIEW_REQUIRED"
-            reasons = ["same_responsible_person", "candidate_company_matched", "period_or_service_time_present"]
-        elif str(show.get("original_notice_url") or "") and (person_matches or not extracted_people):
+            reasons = ["same_responsible_person", "candidate_company_matched", "contract_or_delivery_time_present_in_bid_show"]
+        elif (
+            person_matches
+            and company_match
+            and str(show.get("original_notice_url") or "")
+            and str(show.get("extracted_period_text") or "").strip()
+            and time_window_state == "TIME_WINDOW_REVIEW_REQUIRED"
+        ):
+            state = "ORIGINAL_NOTICE_BACKTRACE_REQUIRED"
+            reasons = ["original_notice_url_available", "bid_show_time_window_needs_review"]
+        elif (
+            str(show.get("original_notice_url") or "")
+            and (person_matches or not extracted_people)
+            and time_window_state != "TIME_WINDOW_NO_OVERLAP_REVIEW"
+        ):
             state = "ORIGINAL_NOTICE_BACKTRACE_REQUIRED"
             reasons = ["original_notice_url_available", "bid_show_person_or_period_needs_review"]
         else:
@@ -701,8 +725,18 @@ def _overlap_records_for_company(
                 "original_notice_url": str(show.get("original_notice_url") or ""),
                 "extracted_period_text": str(show.get("extracted_period_text") or ""),
                 "extracted_award_date": str(show.get("extracted_award_date") or ""),
+                "time_window_review_state": time_window_state,
+                "time_window_reference_date": str(show.get("time_window_reference_date") or ""),
+                "estimated_performance_end_date": str(show.get("estimated_performance_end_date") or ""),
+                "time_window_review_basis": str(show.get("time_window_review_basis") or ""),
                 "overlap_signal_state": state,
                 "review_reasons": reasons,
+                "overlap_source_stage": "DATA_GGZY_BID_SHOW_DIRECT"
+                if state == "OVERLAP_SIGNAL_REVIEW_REQUIRED"
+                else "ORIGINAL_NOTICE_BACKTRACE_NEEDED"
+                if state == "ORIGINAL_NOTICE_BACKTRACE_REQUIRED"
+                else "DATA_GGZY_BID_SHOW_REVIEW",
+                "original_notice_backtrace_required": state == "ORIGINAL_NOTICE_BACKTRACE_REQUIRED",
                 "release_evidence_probe_triggered": state == "OVERLAP_SIGNAL_REVIEW_REQUIRED",
                 "created_at": created_at,
                 "customer_visible_allowed": False,
@@ -1001,14 +1035,72 @@ def _extract_responsible_people(text: str) -> list[str]:
 
 def _extract_period_text(text: str) -> str:
     patterns = [
-        r"(?:工期（交货期）|工期\(交货期\)|工期|服务期|合同履行期限|履行期限|服务期限)\s*[:：]\s*([^。；;\n]{2,80})",
-        r"(?:计划工期)\s*[:：]\s*([^。；;\n]{2,80})",
+        r"(?:工期（交货期）|工期\(交货期\)|工期|计划工期|交付期|交货期|供货期|完工期|完成期限|服务期|服务期限|服务时间|合同履行期限|合同履约期限|合同期限|合同周期|履行期限|履约期限|履约期|履约周期)\s*[:：]\s*([^。；;\n]{2,100})",
     ]
     for pattern in patterns:
         match = re.search(pattern, text)
         if match:
             return match.group(1).strip()
     return ""
+
+
+def _time_window_review_fields(period_text: str, award_date: str, *, reference_date_text: str) -> dict[str, str]:
+    reference_date = _parse_date(reference_date_text) or datetime.utcnow()
+    estimated_end, basis = _estimate_performance_end_date(period_text, award_date)
+    if not str(period_text or "").strip():
+        state = "TIME_WINDOW_NOT_AVAILABLE"
+    elif estimated_end is None:
+        state = "TIME_WINDOW_REVIEW_REQUIRED"
+    elif estimated_end.date() >= reference_date.date():
+        state = "TIME_WINDOW_OVERLAP_REVIEW"
+    else:
+        state = "TIME_WINDOW_NO_OVERLAP_REVIEW"
+    return {
+        "time_window_review_state": state,
+        "time_window_reference_date": reference_date.date().isoformat(),
+        "estimated_performance_end_date": estimated_end.date().isoformat() if estimated_end else "",
+        "time_window_review_basis": basis,
+    }
+
+
+def _estimate_performance_end_date(period_text: str, award_date: str) -> tuple[datetime | None, str]:
+    period = str(period_text or "")
+    explicit_dates = _parse_dates(period)
+    if explicit_dates:
+        return max(explicit_dates), "period_text_explicit_end_date"
+    start = _parse_date(award_date)
+    if not start:
+        return None, "award_date_missing_for_duration_estimate"
+    days_match = re.search(r"([0-9]{1,5})\s*(?:日历天|天|日)", period)
+    if days_match:
+        return start + timedelta(days=int(days_match.group(1))), "award_date_plus_duration_days"
+    months_match = re.search(r"([0-9]{1,3})\s*(?:个月|月)", period)
+    if months_match:
+        return start + timedelta(days=int(months_match.group(1)) * 30), "award_date_plus_duration_months_approx"
+    years_match = re.search(r"([0-9]{1,2})\s*年", period)
+    if years_match:
+        return start + timedelta(days=int(years_match.group(1)) * 365), "award_date_plus_duration_years_approx"
+    return None, "period_text_not_machine_estimable"
+
+
+def _parse_dates(text: str) -> list[datetime]:
+    dates: list[datetime] = []
+    for match in re.finditer(r"(20[0-9]{2})年([0-9]{1,2})月([0-9]{1,2})日", str(text or "")):
+        try:
+            dates.append(datetime(int(match.group(1)), int(match.group(2)), int(match.group(3))))
+        except ValueError:
+            continue
+    for match in re.finditer(r"(20[0-9]{2})[-/]([0-9]{1,2})[-/]([0-9]{1,2})", str(text or "")):
+        try:
+            dates.append(datetime(int(match.group(1)), int(match.group(2)), int(match.group(3))))
+        except ValueError:
+            continue
+    return dates
+
+
+def _parse_date(text: str) -> datetime | None:
+    dates = _parse_dates(text)
+    return dates[0] if dates else None
 
 
 def _extract_award_date(text: str) -> str:

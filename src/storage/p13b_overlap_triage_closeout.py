@@ -19,6 +19,16 @@ DEFAULT_ORIGINAL_NOTICE_BACKTRACE_ROOT = Path("tmp/evaluation-real-samples/p13b-
 DEFAULT_OUTPUT_ROOT = Path("tmp/evaluation-real-samples/p13b-overlap-triage-closeout-v1")
 
 FORBIDDEN_TERMS = ("无风险", "无冲突", "在建冲突成立", "违法成立", "确认本人", "造假成立", "是不是本人")
+RELEASE_EVIDENCE_SOURCE_TARGETS = [
+    "construction_permit",
+    "contract_filing_or_contract_credit_info",
+    "completion_or_acceptance_filing",
+    "project_manager_change_notice",
+    "construction_permit_change",
+    "owner_approved_non_contractor_shutdown_over_120_days",
+    "same_project_adjacent_section_or_phase_exception",
+    "administrative_penalty_or_complaint_decision",
+]
 
 
 def build_p13b_overlap_triage_closeout(
@@ -337,6 +347,11 @@ def _release_row(record: Mapping[str, Any], *, source_stage: str, created_at: st
         "source_url": str(record.get("source_url") or record.get("bid_show_url") or record.get("original_notice_url") or ""),
         "extracted_period_text": str(record.get("extracted_period_text") or ""),
         "extracted_award_date": str(record.get("extracted_award_date") or ""),
+        "time_window_review_state": str(record.get("time_window_review_state") or ""),
+        "time_window_reference_date": str(record.get("time_window_reference_date") or ""),
+        "estimated_performance_end_date": str(record.get("estimated_performance_end_date") or ""),
+        "time_window_review_basis": str(record.get("time_window_review_basis") or ""),
+        "release_evidence_source_targets": _list(record.get("release_evidence_source_targets")) or RELEASE_EVIDENCE_SOURCE_TARGETS,
         "release_evidence_probe_triggered": True,
         "suggested_next_step": "targeted_release_evidence_probe",
         "created_at": created_at,

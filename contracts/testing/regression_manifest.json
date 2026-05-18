@@ -229,7 +229,7 @@
         "test_pre_route_behavior change",
         "contracts/testing/golden_cases.json change",
         "scripts/run-golden.ps1 change",
-        "check-semantic-alignment change",
+        "check-state-alignment change",
         "D9 change",
         "D11 change"
       ],
@@ -293,7 +293,7 @@
         "test_pre_route_behavior change",
         "contracts/testing/golden_cases.json change",
         "scripts/run-golden.ps1 change",
-        "check-semantic-alignment change",
+        "check-state-alignment change",
         "D10 change",
         "D11 change"
       ],
@@ -477,7 +477,7 @@
         "stage8 emits contact_candidate_collection and contact_selection_trace before contact_target finalization",
         "contact_target winner fields remain aligned with contact_candidate_collection and contact_selection_trace",
         "reselect history is formally persisted for wrong_role/invalid_contact or explicit reselect reason inputs",
-        "check-semantic-alignment fails when single challenger exists but collection carrier is missing or unused",
+        "check-state-alignment / semantic runtime tests fail when single challenger exists but collection carrier is missing or unused",
         "selection_trace keeps policy_id/sort_basis/top_n_limit/winner_selection_basis machine-readable",
         "candidate-only cutoff remains visible through ranking_reason_tags_optional or stage7 trace"
       ],
@@ -494,7 +494,7 @@
         "handoff/stage7_to_stage8/** change",
         "src/stage7_sales/service.py change",
         "src/stage8_outreach/service.py change",
-        "scripts/check-semantic-alignment.ps1 change",
+        "scripts/check-state-alignment.ps1 change",
         "tests/test_stage7_runtime_closure.py change",
         "tests/test_stage8_resolution_closure.py change",
         "tests/test_internal_chain.py change"
@@ -549,7 +549,7 @@
         "stage8 service comment/dependency change",
         "integration matrix change",
         "test_internal_chain change",
-        "check-semantic-alignment change",
+        "check-state-alignment change",
         "D8 change",
         "D11 change"
       ],
@@ -576,7 +576,7 @@
         "handoff stage8_to_stage9 change",
         "test_internal_chain change",
         "scripts/validate-contracts.ps1 change",
-        "check-semantic-alignment change",
+        "check-state-alignment change",
         "D10 change",
         "D11 change"
       ],
@@ -626,7 +626,7 @@
         "stage9 service change",
         "test_pre_route_behavior change",
         "scripts/validate-contracts.ps1 change",
-        "check-semantic-alignment change",
+        "check-state-alignment change",
         "D11 change"
       ],
       "blocking": true,
@@ -1502,7 +1502,7 @@
         "control/current_task.yaml change",
         "control/automation_task_packet_rules.yaml change",
         "archive/non_current_docs/自动开发任务包模板.md change",
-        "scripts/check-automation-readiness.ps1 change",
+        "scripts/check-task-packet.ps1 change",
         "D1 change",
         "D11 change"
       ],
@@ -1522,8 +1522,8 @@
       "triggers": [
         "control/automation_stop_conditions.yaml change",
         "control/review_gate_matrix.yaml change",
-        "scripts/check-automation-readiness.ps1 change",
-        "scripts/check-release.ps1 change",
+        "scripts/check-task-packet.ps1 change",
+        "scripts/check-final-gate.ps1 change",
         "D1 change",
         "D11 change"
       ],
@@ -1536,13 +1536,13 @@
       "suite_id": "REG-RELEASE-READINESS-REVIEW-GATE",
       "title": "release/readiness review gate 回归",
       "checks": [
-        "check-automation-readiness fails on missing task packet/missing review/wrong change class",
-        "check-release invokes automation readiness before pass",
+        "check-task-packet fails on missing task packet/missing review/wrong change class",
+        "check-final-gate invokes check-task-packet before pass",
         "release_checklist carries formal review gate assertions"
       ],
       "triggers": [
-        "scripts/check-automation-readiness.ps1 change",
-        "scripts/check-release.ps1 change",
+        "scripts/check-task-packet.ps1 change",
+        "scripts/check-final-gate.ps1 change",
         "contracts/testing/release_checklist.json change",
         "contracts/testing/regression_manifest.json change",
         "D11 change"
@@ -1556,12 +1556,12 @@
       "suite_id": "REG-RELEASE-UMBRELLA-COVERAGE",
       "title": "release umbrella 总入口回归",
       "checks": [
-        "check-release invokes doctor preflight as the first umbrella gate before downstream checks",
-        "check-release invokes check-handoff-dependencies inside the same umbrella flow before final pass",
+        "check-final-gate invokes doctor preflight as the first umbrella gate before downstream checks",
+        "check-final-gate invokes check-handoff-dependencies inside the same umbrella flow before final pass",
         "release_checklist carries umbrella doctor/handoff assertions"
       ],
       "triggers": [
-        "scripts/check-release.ps1 change",
+        "scripts/check-final-gate.ps1 change",
         "scripts/doctor.ps1 change",
         "scripts/check-handoff-dependencies.ps1 change",
         "contracts/testing/release_checklist.json change",
@@ -1599,7 +1599,7 @@
         "contracts/model/model_usage_policy.json change",
         "contracts/model/tool_usage_policy_catalog.json change",
         "tests change",
-        "scripts/check-semantic-alignment.ps1 change"
+        "scripts/check-state-alignment.ps1 change"
       ],
       "blocking": true,
       "source_refs": [
@@ -1622,7 +1622,7 @@
         "src/shared/capability_runtime.py change",
         "src/shared/runtime_validator.py change",
         "tests change",
-        "scripts/check-semantic-alignment.ps1 change"
+        "scripts/check-state-alignment.ps1 change"
       ],
       "blocking": true,
       "source_refs": [
@@ -1643,7 +1643,7 @@
         "contracts/governance change",
         "contracts/release change",
         "contracts/sales change",
-        "scripts/check-semantic-alignment.ps1 change",
+        "scripts/check-state-alignment.ps1 change",
         "tests change"
       ],
       "blocking": true,
@@ -1683,7 +1683,7 @@
         "src/stage9_delivery/service.py change",
         "src/shared/capability_runtime.py change",
         "tests change",
-        "scripts/check-semantic-alignment.ps1 change"
+        "scripts/check-state-alignment.ps1 change"
       ],
       "blocking": true,
       "source_refs": [
@@ -1711,7 +1711,7 @@
         "contracts/model change",
         "control/runtime_inventory.yaml change",
         "tests/test_architecture_anti_drift.py change",
-        "scripts/check-semantic-alignment.ps1 change"
+        "scripts/check-state-alignment.ps1 change"
       ],
       "blocking": true,
       "source_refs": [
@@ -1739,7 +1739,7 @@
         "contracts/model change",
         "control/runtime_inventory.yaml change",
         "tests/test_architecture_anti_drift.py change",
-        "scripts/check-semantic-alignment.ps1 change"
+        "scripts/check-state-alignment.ps1 change"
       ],
       "blocking": true,
       "source_refs": [
@@ -1762,7 +1762,7 @@
         "src/stage*/models.py change",
         "src/api/schemas change",
         "tests/test_architecture_anti_drift.py change",
-        "scripts/check-semantic-alignment.ps1 change"
+        "scripts/check-state-alignment.ps1 change"
       ],
       "blocking": true,
       "source_refs": [
@@ -1790,7 +1790,7 @@
         "src/stage8_outreach/service.py change",
         "src/stage9_delivery/service.py change",
         "tests/test_architecture_anti_drift.py change",
-        "scripts/check-semantic-alignment.ps1 change"
+        "scripts/check-state-alignment.ps1 change"
       ],
       "blocking": true,
       "source_refs": [
@@ -1814,7 +1814,7 @@
         "src/shared/policy_executor.py change",
         "src/shared/runtime_validator.py change",
         "tests/test_architecture_anti_drift.py change",
-        "scripts/check-semantic-alignment.ps1 change"
+        "scripts/check-state-alignment.ps1 change"
       ],
       "blocking": true,
       "source_refs": [
@@ -2186,7 +2186,9 @@
         "control/repo_status.md change",
         "control/external_unlock_prerequisite_state.yaml change",
         "control/future_unlock_decision_state.yaml change",
-        "tests/test_leadpack_implementation_decision_readiness_packet.py change"
+        "tests/test_leadpack_activation_design_prep.py change",
+        "tests/test_internal_surface_preview.py change",
+        "tests/test_external_unlock_prerequisites.py change"
       ],
       "blocking": true,
       "source_refs": [
@@ -2216,7 +2218,7 @@
         "src/stage3_parsing/service.py change",
         "contracts/schemas change",
         "scripts/validate-contracts.ps1 change",
-        "scripts/check-semantic-alignment.ps1 change",
+        "scripts/check-state-alignment.ps1 change",
         "tests change"
       ],
       "blocking": true,
@@ -2248,8 +2250,8 @@
         "archive/non_current_docs/正式业务代码开发开工裁决页.md change",
         "docs/文档与资产状态板.md change",
         "docs/AX9S_当前主线导航图.md change",
-        "scripts/check-semantic-alignment.ps1 change",
-        "scripts/check-release.ps1 change",
+        "scripts/check-state-alignment.ps1 change",
+        "scripts/check-final-gate.ps1 change",
         "tests/test_post_repair_state_sync.py change"
       ],
       "blocking": true,
@@ -2275,7 +2277,7 @@
         "src/shared/policy_executor.py change",
         "tests change",
         "scripts/validate-contracts.ps1 change",
-        "scripts/check-semantic-alignment.ps1 change"
+        "scripts/check-state-alignment.ps1 change"
       ],
       "blocking": true,
       "source_refs": [
@@ -2298,7 +2300,7 @@
         "handoff change",
         "tests/test_semantic_runtime_validator.py change",
         "tests/test_arch_optimization_a.py change",
-        "scripts/check-semantic-alignment.ps1 change"
+        "scripts/check-state-alignment.ps1 change"
       ],
       "blocking": true,
       "source_refs": [
@@ -2326,7 +2328,7 @@
         "docs/D11_测试验收与金标回归清单.md change",
         "tests/test_pre_route_behavior.py change",
         "scripts/validate-contracts.ps1 change",
-        "scripts/check-semantic-alignment.ps1 change"
+        "scripts/check-state-alignment.ps1 change"
       ],
       "blocking": true,
       "source_refs": [
@@ -2388,7 +2390,7 @@
         "docs/D11_测试验收与金标回归清单.md change",
         "contracts/testing/regression_manifest.json change",
         "contracts/testing/release_checklist.json change",
-        "scripts/check-release.ps1 change"
+        "scripts/check-final-gate.ps1 change"
       ],
       "blocking": true,
       "source_refs": [
@@ -2400,18 +2402,18 @@
       "suite_id": "REG-BLUEPRINT-REGISTRY-COMPATIBILITY",
       "title": "Blueprint registry compatibility regression",
       "checks": [
-        "control/task_packet_library.yaml#blueprint_registry registers legacy B0-B10 as historical-compatible source blueprints",
+        "control/source_blueprint_registry.yaml#registered_blueprints registers legacy B0-B10 as historical-compatible source blueprints",
         "blueprint_registry registers FF-01 through FF-18 as valid full-fix mainline source blueprints",
         "blueprint_registry registers POST-FF-CONTROL-01, POST-FF-REPORT-01, and POST-FF-GIT-01 as valid post-FF source blueprints",
-        "scripts/check-release.ps1 validates current_task.task_packet.source_blueprint_batch_id through blueprint_registry and rejects unregistered ids such as UNKNOWN-BATCH"
+        "scripts/check-final-gate.ps1 validates current_task.task_packet.source_blueprint_batch_id through source_blueprint_registry and rejects unregistered ids such as UNKNOWN-BATCH"
       ],
       "triggers": [
         "control/current_task.yaml change",
-        "control/task_packet_library.yaml change",
+        "control/source_blueprint_registry.yaml change",
         "docs/D11_测试验收与金标回归清单.md change",
         "contracts/testing/regression_manifest.json change",
         "contracts/testing/release_checklist.json change",
-        "scripts/check-release.ps1 change",
+        "scripts/check-final-gate.ps1 change",
         "tests/test_external_unlock_prerequisites.py change",
         "tests/test_check_release_blueprint_registry.py change"
       ],
@@ -2483,7 +2485,7 @@
         "price intermediate fields exist in bidder_candidate schema/catalog and H-06/H-07 optional payload",
         "confidence score remains anchored on single challenger_candidate_profile formal sink while candidate collection is handled by separate collection carriers",
         "current action start/deadline fields exist in clock_chain_profile schema/catalog and are consumed in Stage7/8 trace",
-        "check-semantic-alignment fails when D2/schema/handoff/runtime sink coverage drifts"
+        "check-state-alignment / semantic runtime tests fail when D2/schema/handoff/runtime sink coverage drifts"
       ],
       "triggers": [
         "docs/D2_正式对象契约与字段字典.md change",
@@ -2499,7 +2501,7 @@
         "handoff/stage7_to_stage8/** change",
         "src/stage7_sales/service.py change",
         "src/stage8_outreach/service.py change",
-        "scripts/check-semantic-alignment.ps1 change",
+        "scripts/check-state-alignment.ps1 change",
         "tests/test_formal_sink_fields.py change"
       ],
       "blocking": true,

@@ -62,7 +62,65 @@ class P13BCompanyHistoryOverlapTriageTests(unittest.TestCase):
             bid_show = result["manifest"]["bid_show_records"][0]
             self.assertEqual(bid_show["extracted_responsible_person_names"], ["张三"])
             self.assertIn("365日历天", bid_show["extracted_period_text"])
+            self.assertEqual(bid_show["time_window_review_state"], "TIME_WINDOW_OVERLAP_REVIEW")
+            self.assertEqual(bid_show["estimated_performance_end_date"], "2027-05-01")
             self.assertEqual(bid_show["original_notice_url"], "https://example.gov.cn/original/overlap.html")
+            self.assertFalse(bid_show["original_notice_backtrace_required"])
+            overlap = result["manifest"]["overlap_signal_records"][0]
+            self.assertEqual(overlap["overlap_source_stage"], "DATA_GGZY_BID_SHOW_DIRECT")
+            self.assertFalse(overlap["original_notice_backtrace_required"])
+            self.assertEqual(result["manifest"]["manual_original_url_backtrace_table"], [])
+
+    def test_bid_show_contract_or_delivery_period_directly_triggers_overlap_without_original_backtrace(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_p12_tables(root, first_company="合同周期公司", first_person="周七")
+
+            result = build_p13b_company_history_overlap_triage(
+                input_root=root,
+                output_root=root / "out",
+                enable_live_public_query=True,
+                max_live_companies=1,
+                http_getter=_fake_http_getter,
+                created_at="2026-05-15T00:00:00+08:00",
+            )
+
+            summary = result["summary"]
+            self.assertEqual(summary["bid_show_person_and_period_extracted_count"], 1)
+            self.assertEqual(summary["overlap_signal_review_required_count"], 1)
+            self.assertEqual(summary["original_notice_backtrace_required_count"], 0)
+            bid_show = result["manifest"]["bid_show_records"][0]
+            self.assertEqual(bid_show["bid_show_state"], "BID_SHOW_PERSON_AND_PERIOD_EXTRACTED")
+            self.assertIn("2026年12月31日", bid_show["extracted_period_text"])
+            self.assertEqual(bid_show["time_window_review_state"], "TIME_WINDOW_OVERLAP_REVIEW")
+            self.assertEqual(bid_show["estimated_performance_end_date"], "2026-12-31")
+            self.assertFalse(bid_show["original_notice_backtrace_required"])
+            overlap = result["manifest"]["overlap_signal_records"][0]
+            self.assertEqual(overlap["review_reasons"], ["same_responsible_person", "candidate_company_matched", "contract_or_delivery_time_present_in_bid_show"])
+            self.assertEqual(result["manifest"]["manual_original_url_backtrace_table"], [])
+
+    def test_bid_show_completed_period_does_not_trigger_release_or_original_backtrace(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_p12_tables(root, first_company="完工公司", first_person="吴八")
+
+            result = build_p13b_company_history_overlap_triage(
+                input_root=root,
+                output_root=root / "out",
+                enable_live_public_query=True,
+                max_live_companies=1,
+                http_getter=_fake_http_getter,
+                created_at="2026-05-15T00:00:00+08:00",
+            )
+
+            summary = result["summary"]
+            self.assertEqual(summary["bid_show_person_and_period_extracted_count"], 1)
+            self.assertEqual(summary["overlap_signal_review_required_count"], 0)
+            self.assertEqual(summary["original_notice_backtrace_required_count"], 0)
+            bid_show = result["manifest"]["bid_show_records"][0]
+            self.assertEqual(bid_show["time_window_review_state"], "TIME_WINDOW_NO_OVERLAP_REVIEW")
+            overlap = result["manifest"]["overlap_signal_records"][0]
+            self.assertEqual(overlap["overlap_signal_state"], "NO_PUBLIC_OVERLAP_SIGNAL_REVIEW")
             self.assertEqual(result["manifest"]["manual_original_url_backtrace_table"], [])
 
     def test_bid_show_original_url_without_person_triggers_backtrace_review(self) -> None:
@@ -352,6 +410,22 @@ def _fake_http_getter(url: str, context: Mapping[str, Any]) -> Mapping[str, Any]
                     "result": {"records": [{"uniscid": "914400000000000001", "entname": "广东甲公司", "bidCount": 1}], "total": 1},
                 }
             )
+        if keyword == "合同周期公司":
+            return _json_response(
+                {
+                    "success": True,
+                    "code": 200,
+                    "result": {"records": [{"uniscid": "914400000000000003", "entname": "合同周期公司", "bidCount": 1}], "total": 1},
+                }
+            )
+        if keyword == "完工公司":
+            return _json_response(
+                {
+                    "success": True,
+                    "code": 200,
+                    "result": {"records": [{"uniscid": "914400000000000004", "entname": "完工公司", "bidCount": 1}], "total": 1},
+                }
+            )
         if keyword == "广东乙公司":
             return _json_response(
                 {
@@ -364,6 +438,10 @@ def _fake_http_getter(url: str, context: Mapping[str, Any]) -> Mapping[str, Any]
     if parsed.path.endswith("/bid_list"):
         uniscid = query.get("uniscid", [""])[0]
         record_id = "overlap-record" if uniscid.endswith("1") else "needs-original-record"
+        if uniscid == "914400000000000003":
+            record_id = "contract-period-record"
+        if uniscid == "914400000000000004":
+            record_id = "completed-period-record"
         if uniscid == "91440000123456789X":
             record_id = "needs-original-record"
         return _json_response(
@@ -397,6 +475,30 @@ def _fake_http_getter(url: str, context: Mapping[str, Any]) -> Mapping[str, Any]
                         "title": "历史道路工程中标结果公告",
                         "content": "<p>中标人：广东甲公司</p><p>项目负责人：张三</p><p>工期（交货期）：365日历天</p><p>中标日期：2026年05月01日</p>",
                         "url": "https://example.gov.cn/original/overlap.html",
+                    },
+                }
+            )
+        if record_id == "contract-period-record":
+            return _json_response(
+                {
+                    "success": True,
+                    "code": 200,
+                    "result": {
+                        "title": "历史合同周期项目中标结果公告",
+                        "content": "<p>中标人：合同周期公司</p><p>项目经理：周七</p><p>合同履行期限：合同签订之日起至2026年12月31日完成交付</p>",
+                        "url": "https://example.gov.cn/original/contract-period.html",
+                    },
+                }
+            )
+        if record_id == "completed-period-record":
+            return _json_response(
+                {
+                    "success": True,
+                    "code": 200,
+                    "result": {
+                        "title": "历史已完工项目中标结果公告",
+                        "content": "<p>中标人：完工公司</p><p>项目经理：吴八</p><p>工期：30日历天</p><p>中标日期：2024年01月01日</p>",
+                        "url": "https://example.gov.cn/original/completed-period.html",
                     },
                 }
             )

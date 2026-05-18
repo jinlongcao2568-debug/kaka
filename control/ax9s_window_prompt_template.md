@@ -40,7 +40,7 @@
 - 先修 canonical source，再修 runtime，再修 tests/scripts，再修 surface。
 - 必须先在汇报中列出：`subpacket_id`、`declared_changed_paths`、`allowed_modification_paths`、`required_scripts`。
 - 必须运行 scoped subpacket 和 `control/ax9s_validation_matrix.yaml` 中为 `{{BATCH_ID}}` 声明的 required scripts。
-- 运行 `validate-contracts` / `run-golden` / `run-governance-contracts` / `check-release` 后必须停下汇报，不得继续下一批。
+- 运行 `validate-contracts` / `run-golden` / `run-governance-contracts` / `check-final-gate` 后必须停下汇报，不得继续下一批。
 - 如果发现前置依赖未满足、需要新对象/新枚举/新 release gate 语义、或范围跨到下一批，立即停止并汇报阻断。
 
 输出必须包含：

@@ -105,7 +105,7 @@
         "src/api/routes/operator_frontend.py#renderCandidateCards",
         "src/api/routes/operator_frontend.py#renderCandidateBatchReview",
         "src/api/routes/operator_frontend.py#loadRegionAdapters",
-        "src/api/routes/operator_console.py#autonomous-opportunity-search"
+        "src/api/routes/operator_customer_access.py#run_operator_autonomous_opportunity_search"
       ],
       "gaps": [
         "真实列表页候选发现器仍是最小闭环，需要继续补更多列表页解析和失败诊断。",

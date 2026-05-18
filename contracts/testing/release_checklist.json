@@ -623,7 +623,7 @@
         },
         {
           "itemId": "REL-088",
-          "text": "Stage 8/9 executor consumption is machine-checkable: traceable decisions exist, Stage 9 one-chain executor covers payment_exception/delivery_exception/outcome/governance policies, and validate-contracts/check-semantic-alignment independently assert policy sequence + additive writeback contract semantics.",
+          "text": "Stage 8/9 executor consumption is machine-checkable: traceable decisions exist, Stage 9 one-chain executor covers payment_exception/delivery_exception/outcome/governance policies, and validate-contracts/check-state-alignment plus semantic runtime tests independently assert policy sequence + additive writeback contract semantics.",
           "blocking": true,
           "sourceRefs": [
             "D11-R-053"
@@ -1414,7 +1414,7 @@
       "items": [
         {
           "itemId": "REL-187",
-          "text": "current_task.task_packet.source_blueprint_batch_id is accepted only when the value is registered in control/task_packet_library.yaml#blueprint_registry; B0-B10 remain legacy historical-compatible entries, FF-01~FF-18 and POST-FF-* registered entries are valid, and unregistered values such as UNKNOWN-BATCH are release-blocking.",
+          "text": "current_task.task_packet.source_blueprint_batch_id is accepted only when the value is registered in control/source_blueprint_registry.yaml#registered_blueprints; B0-B10 remain legacy historical-compatible entries, FF-01~FF-18 and POST-FF-* registered entries are valid, and unregistered values such as UNKNOWN-BATCH are release-blocking.",
           "blocking": true,
           "sourceRefs": [
             "D11-R-053-AK"
@@ -1469,7 +1469,7 @@
         },
         {
           "itemId": "REL-193",
-          "text": "check-release.ps1 must include doctor.ps1 as the first umbrella preflight, so runtime/tooling/repo-root prerequisites are checked before the release entrypoint can pass.",
+          "text": "check-final-gate.ps1 must include doctor.ps1 as the first umbrella preflight, so runtime/tooling/repo-root prerequisites are checked before the final gate entrypoint can pass.",
           "blocking": true,
           "sourceRefs": [
             "D11-R-053-A",
@@ -1478,7 +1478,7 @@
         },
         {
           "itemId": "REL-194",
-          "text": "check-release.ps1 must include check-handoff-dependencies.ps1 in the same umbrella flow before final pass, so handoff dependency order, root assets and required files remain release-blocking under the total entrypoint.",
+          "text": "check-final-gate.ps1 must include check-handoff-dependencies.ps1 in the same umbrella flow before final pass, so handoff dependency order, root assets and required files remain release-blocking under the total entrypoint.",
           "blocking": true,
           "sourceRefs": [
             "D11-R-053-A",

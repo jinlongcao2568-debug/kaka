@@ -22,6 +22,16 @@ DEFAULT_INPUT_ROOT = Path("tmp/evaluation-real-samples/p13b-company-history-over
 DEFAULT_OUTPUT_ROOT = Path("tmp/evaluation-real-samples/p13b-original-notice-backtrace-v1")
 
 FORBIDDEN_TERMS = ("无风险", "无冲突", "在建冲突成立", "违法成立", "确认本人", "造假成立", "是不是本人")
+RELEASE_EVIDENCE_SOURCE_TARGETS = [
+    "construction_permit",
+    "contract_filing_or_contract_credit_info",
+    "completion_or_acceptance_filing",
+    "project_manager_change_notice",
+    "construction_permit_change",
+    "owner_approved_non_contractor_shutdown_over_120_days",
+    "same_project_adjacent_section_or_phase_exception",
+    "administrative_penalty_or_complaint_decision",
+]
 HttpGetter = Callable[[str, Mapping[str, Any]], Mapping[str, Any]]
 
 
@@ -81,7 +91,7 @@ def build_p13b_original_notice_backtrace(
         "source_company_history_triage_root": str(company_history_triage_root or ""),
         "ygp_readback_root": str(ygp_readback_root or ""),
         "ygp_readback_json": str(ygp_readback_json or ""),
-        "ygp_readback_record_count": len(ygp_readback_lookup),
+        "ygp_readback_record_count": _ygp_readback_record_count(ygp_readback_lookup),
         "execution_mode": execution_mode,
         "live_public_query_enabled": bool(enable_live_public_query),
         "max_live_original_notices": max_live_original_notices,
@@ -211,6 +221,12 @@ def _execute_original_notice_tasks(
             overlap_records.append(_overlap_record(task, extraction, created_at=created_at))
             continue
         if not enable_live_public_query:
+            if ygp_readback_lookup and bool(task.get("ygp_original_url_pointer_only")):
+                fetch = _ygp_readback_missing_fetch_record(task, created_at=created_at)
+                fetch_records.append(fetch)
+                extraction = _extract_original_notice(task, fetch, created_at=created_at)
+                extraction_records.append(extraction)
+                overlap_records.append(_overlap_record(task, extraction, created_at=created_at))
             continue
         if max_live_original_notices is not None and attempted >= max_live_original_notices:
             fetch = {
@@ -254,12 +270,8 @@ def _load_ygp_readback_lookup(
         extraction_state = str(record.get("ygp_extraction_state") or "")
         if state not in {"YGP_ORIGINAL_URL_READBACK_READY", "YGP_BROWSER_NETWORK_READBACK_READY"} and extraction_state != "YGP_ORIGINAL_NOTICE_PERSON_PERIOD_EXTRACTED":
             continue
-        task_id = str(record.get("original_notice_task_id") or "")
-        url = str(record.get("original_notice_url") or record.get("source_url") or "")
-        if task_id:
-            lookup[f"task:{task_id}"] = record
-        if url:
-            lookup[f"url:{url}"] = record
+        for key in _ygp_readback_lookup_keys(record):
+            lookup.setdefault(key, record)
     return lookup
 
 
@@ -268,13 +280,76 @@ def _match_ygp_readback(task: Mapping[str, Any], lookup: Mapping[str, Mapping[st
     url = str(task.get("original_notice_url") or "")
     if task_id and f"task:{task_id}" in lookup:
         return lookup[f"task:{task_id}"]
-    if url and f"url:{url}" in lookup:
-        return lookup[f"url:{url}"]
+    for key in _url_lookup_keys(url):
+        if key in lookup:
+            return lookup[key]
     return None
 
 
+def _ygp_readback_lookup_keys(record: Mapping[str, Any]) -> list[str]:
+    keys: list[str] = []
+    task_id = str(record.get("original_notice_task_id") or "")
+    if task_id:
+        keys.append(f"task:{task_id}")
+    for url in (
+        record.get("original_notice_url"),
+        record.get("source_url"),
+        _route_attempt_url(record),
+    ):
+        keys.extend(_url_lookup_keys(str(url or "")))
+    return _dedupe(keys)
+
+
+def _url_lookup_keys(url: str) -> list[str]:
+    raw = str(url or "").strip()
+    if not raw:
+        return []
+    keys = [f"url:{raw}"]
+    unquoted = urllib.parse.unquote(raw)
+    if unquoted != raw:
+        keys.append(f"url:{unquoted}")
+    match = re.search(r"/url-mapping/([^/?#]+)", unquoted)
+    if match:
+        keys.append(f"ygp-url-mapping:{match.group(1)}")
+    parsed = urllib.parse.urlsplit(unquoted)
+    query_texts = [parsed.query]
+    if "?" in parsed.fragment:
+        query_texts.append(parsed.fragment.split("?", 1)[1])
+    for query_text in query_texts:
+        query = urllib.parse.parse_qs(query_text)
+        for name in ("noticeId", "projectCode", "bizCode"):
+            for value in query.get(name, []):
+                if value:
+                    keys.append(f"ygp-query:{name}:{value}")
+    return _dedupe(keys)
+
+
+def _route_attempt_url(record: Mapping[str, Any]) -> str:
+    route_attempt = record.get("route_attempt")
+    if isinstance(route_attempt, Mapping):
+        return str(route_attempt.get("url") or route_attempt.get("source_url") or "")
+    route_attempts = record.get("route_attempts")
+    if isinstance(route_attempts, list):
+        for item in route_attempts:
+            if isinstance(item, Mapping) and (item.get("url") or item.get("source_url")):
+                return str(item.get("url") or item.get("source_url") or "")
+    return ""
+
+
+def _ygp_readback_record_count(lookup: Mapping[str, Mapping[str, Any]]) -> int:
+    return len({_fingerprint(record) for record in lookup.values()})
+
+
+def _ygp_readback_text(record: Mapping[str, Any]) -> str:
+    for key in ("text_extractable", "text_probe", "body_text", "body_probe", "body"):
+        value = str(record.get(key) or "")
+        if value.strip():
+            return value
+    return ""
+
+
 def _fetch_record_from_ygp_readback(task: Mapping[str, Any], ygp_readback: Mapping[str, Any], *, created_at: str) -> dict[str, Any]:
-    text = str(ygp_readback.get("text_probe") or "")
+    text = _ygp_readback_text(ygp_readback)
     return {
         **dict(task),
         "execution_mode": "LOCAL_YGP_READBACK_CONSUMED",
@@ -302,12 +377,49 @@ def _fetch_record_from_ygp_readback(task: Mapping[str, Any], ygp_readback: Mappi
     }
 
 
+def _ygp_readback_missing_fetch_record(task: Mapping[str, Any], *, created_at: str) -> dict[str, Any]:
+    url = str(task.get("original_notice_url") or "")
+    return {
+        **dict(task),
+        "execution_mode": "LOCAL_YGP_READBACK_REQUIRED",
+        "fetch_state": "ORIGINAL_NOTICE_SOURCE_UNSUPPORTED",
+        "source_url": url,
+        "status_code": 0,
+        "content_type": "",
+        "body_sha256": "",
+        "body_probe": "",
+        "text_probe": "",
+        "text_probe_sha256": "",
+        "route_attempt": {
+            "route": "ygp_original_readback_missing",
+            "url": url,
+            "status_code": 0,
+            "content_type": "",
+            "body_sha256": "",
+            "error": "ygp_local_readback_missing",
+        },
+        "blocker_taxonomy": ["ygp_local_readback_missing"],
+        "created_at": created_at,
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
+
+
 def _extract_record_from_ygp_readback(task: Mapping[str, Any], ygp_readback: Mapping[str, Any], *, created_at: str) -> dict[str, Any]:
     people = _list(ygp_readback.get("extracted_responsible_person_names"))
     period = str(ygp_readback.get("extracted_period_text") or "")
     award_date = str(ygp_readback.get("extracted_award_date") or "")
     companies = _list(ygp_readback.get("extracted_company_names"))
-    text_probe = str(ygp_readback.get("text_probe") or "")
+    text_probe = _ygp_readback_text(ygp_readback)
+    if text_probe:
+        if not people:
+            people = _extract_responsible_people(text_probe)
+        if not period:
+            period = _extract_period_text(text_probe)
+        if not award_date:
+            award_date = _extract_award_date(text_probe)
+        if not companies:
+            companies = _extract_company_names(text_probe)
     if people and period:
         state = "ORIGINAL_NOTICE_PERSON_PERIOD_EXTRACTED"
     elif people or period or companies or text_probe:
@@ -324,7 +436,7 @@ def _extract_record_from_ygp_readback(task: Mapping[str, Any], ygp_readback: Map
         "extracted_award_date": award_date,
         "extracted_company_names": companies,
         "text_probe": text_probe[:600],
-        "text_probe_sha256": str(ygp_readback.get("text_probe_sha256") or ""),
+        "text_probe_sha256": str(ygp_readback.get("text_probe_sha256") or (_sha256(text_probe[:600]) if text_probe else "")),
         "record_payload_sha256": str(ygp_readback.get("record_payload_sha256") or ""),
         "blocker_taxonomy": [],
         "created_at": created_at,
@@ -491,6 +603,9 @@ def _overlap_record(task: Mapping[str, Any], extraction: Mapping[str, Any], *, c
         "original_notice_overlap_signal_state": state,
         "review_reasons": reasons,
         "release_evidence_probe_triggered": state == "ORIGINAL_NOTICE_OVERLAP_SIGNAL_REVIEW_REQUIRED",
+        "release_evidence_source_targets": RELEASE_EVIDENCE_SOURCE_TARGETS
+        if state == "ORIGINAL_NOTICE_OVERLAP_SIGNAL_REVIEW_REQUIRED"
+        else [],
         "created_at": created_at,
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,
@@ -507,7 +622,12 @@ def _manual_release_evidence_probe_table(overlap_records: list[dict[str, Any]]) 
                 "project_id": str(record.get("project_id") or ""),
                 "candidate_company_name": str(record.get("candidate_company_name") or ""),
                 "matched_person_names": _list(record.get("matched_person_names")),
+                "original_notice_url": str(record.get("original_notice_url") or ""),
                 "source_url": str(record.get("source_url") or ""),
+                "extracted_period_text": str(record.get("extracted_period_text") or ""),
+                "extracted_award_date": str(record.get("extracted_award_date") or ""),
+                "extracted_company_names": _list(record.get("extracted_company_names")),
+                "release_evidence_source_targets": RELEASE_EVIDENCE_SOURCE_TARGETS,
                 "release_evidence_probe_reason": "same_person_company_time_window_signal_from_original_notice",
                 "suggested_next_step": "targeted_release_evidence_probe",
                 "customer_visible_allowed": False,

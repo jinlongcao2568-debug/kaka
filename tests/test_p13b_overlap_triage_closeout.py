@@ -60,6 +60,7 @@ class P13BOverlapTriageCloseoutTests(unittest.TestCase):
             self.assertEqual(summary["project_state_counts"]["OVERLAP_SIGNAL_REVIEW_REQUIRED"], 1)
             triggers = result["manifest"]["release_evidence_trigger_records"]
             self.assertEqual(triggers[0]["suggested_next_step"], "targeted_release_evidence_probe")
+            self.assertIn("completion_or_acceptance_filing", triggers[0]["release_evidence_source_targets"])
 
     def test_limit_deferred_is_not_source_blocker(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

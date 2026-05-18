@@ -16,7 +16,7 @@
 4. Mandatory stop-and-report points:
    - After completing control package updates.
    - After generating all stage1-9 skeletons.
-   - After running release/governance scripts (validate-contracts, run-golden, run-governance-contracts, check-release).
+   - After running release/governance scripts (validate-contracts, run-golden, run-governance-contracts, check-final-gate).
 
 5. Actions requiring human confirmation before proceeding:
    - Any change to approval_chain_state.yaml or exception_chain_state.yaml real values.

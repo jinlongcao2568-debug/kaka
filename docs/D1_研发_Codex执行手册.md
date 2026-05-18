@@ -791,7 +791,7 @@ AI / Codex 一律不得：
 
 | 触发条件 | 级别 | 动作 |
 |---|---|---|
-| `validate-contracts.ps1` / `run-governance-contracts.ps1` / `run-golden.ps1` / `check-release.ps1` 失败 | P0 | 立即停机转人工 |
+| `validate-contracts.ps1` / `run-governance-contracts.ps1` / `run-golden.ps1` / `check-final-gate.ps1` 失败 | P0 | 立即停机转人工 |
 | 触及支付/交付/触达执行 | P0 | 立即停机转人工 |
 | 触及高限制字段外发 | P0 | 立即停机转人工 |
 | external-facing changes | P0 | 立即停机转人工 |
@@ -845,11 +845,11 @@ AI / Codex 一律不得：
 
 | 失败条件 | 正式处理 |
 |---|---|
-| 缺 task packet 或关键字段缺失 | `check-automation-readiness` 失败 |
-| declared `change_class` 低于 review gate matrix 计算结果 | `check-automation-readiness` / `check-release` 失败 |
-| `MANDATORY_HUMAN_REVIEW` 缺 human review 或缺 required owner review | `check-automation-readiness` / `check-release` 失败 |
+| 缺 task packet 或关键字段缺失 | `check-task-packet` 失败 |
+| declared `change_class` 低于 review gate matrix 计算结果 | `check-task-packet` / `check-final-gate` 失败 |
+| `MANDATORY_HUMAN_REVIEW` 缺 human review 或缺 required owner review | `check-task-packet` / `check-final-gate` 失败 |
 | 命中 `STOP_AND_ESCALATE` | 自动化停机转人工 |
-| review gate 断言未进入 regression / release checklist | `check-release` 失败 |
+| review gate 断言未进入 regression / release checklist | `check-final-gate` 失败 |
 
 ### D1-R-070-H 受控路线图导航补表
 
