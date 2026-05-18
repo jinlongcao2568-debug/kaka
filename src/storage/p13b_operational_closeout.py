@@ -62,6 +62,12 @@ DOWNSTREAM_RELEASE_EVIDENCE_POSSIBLE_ABCD_GRADES = [
 P13B_RELEASE_EVIDENCE_ABCD_POLICY = {
     "policy_id": "P13B_RELEASE_EVIDENCE_ABCD_GRADING_V1",
     "initial_signal_grade": INITIAL_RELEASE_EVIDENCE_ABCD_GRADE,
+    "primary_bcd_source_scope": "HISTORICAL_PROJECT_LOCAL_HOUSING_AUTHORITY_ONLY",
+    "auxiliary_sources_not_default_bcd": [
+        "national_jzsc_platform",
+        "province_project_approval_system",
+        "province_wide_credit_or_penalty_sources",
+    ],
     "grades": {
         "A_STRONG_TIME_OVERLAP_SIGNAL": {
             "trigger": "data_ggzy_bid_show_or_targeted_original_notice_same_person_company_time_window_overlap",
@@ -82,6 +88,8 @@ P13B_RELEASE_EVIDENCE_ABCD_POLICY = {
     },
     "region_rule": "query_historical_overlap_project_region_first_then_current_project_region_fallback",
 }
+P13B_PRIMARY_RELEASE_SOURCE_SCOPE = "HISTORICAL_PROJECT_LOCAL_HOUSING_AUTHORITY_ONLY"
+P13B_LOCAL_HOUSING_ADAPTER_REQUIRED = "LOCAL_HOUSING_AUTHORITY_ADAPTER_REQUIRED"
 REGION_CODE_BY_CITY_PREFIX = {
     "11": "CN-BJ",
     "12": "CN-TJ",
@@ -321,6 +329,12 @@ def _release_evidence_probe_plan_records(
                 "source_url": str(trigger.get("source_url") or ""),
             }
         )
+        primary_entries = _p13b_primary_release_source_entries(
+            source_plan,
+            city_code=city_code,
+            region_code=region_code,
+            region_context=region_context,
+        )
         rows.append(
             {
                 "release_evidence_probe_plan_id": _stable_id(
@@ -353,8 +367,20 @@ def _release_evidence_probe_plan_records(
                 "release_evidence_source_targets": source_targets,
                 "source_plan_state": str(source_plan.get("plan_state") or ""),
                 "source_plan_coverage_state": str(source_plan.get("coverage_state") or ""),
-                "source_entry_count": len(_list(source_plan.get("source_entries"))),
-                "next_required_runtime_adapters": _list(source_plan.get("next_required_runtime_adapters")),
+                "source_entry_count": len(primary_entries),
+                "source_plan_total_entry_count": len(_list(source_plan.get("source_entries"))),
+                "primary_release_evidence_source_scope": P13B_PRIMARY_RELEASE_SOURCE_SCOPE,
+                "primary_release_evidence_source_selection_state": (
+                    "PRIMARY_LOCAL_HOUSING_AUTHORITY_SOURCE_READY"
+                    if primary_entries
+                    else P13B_LOCAL_HOUSING_ADAPTER_REQUIRED
+                ),
+                "auxiliary_sources_not_default_bcd": [
+                    "national_jzsc_platform",
+                    "province_project_approval_system",
+                    "province_wide_credit_or_penalty_sources",
+                ],
+                "next_required_runtime_adapters": _next_adapters_for_primary_entries(primary_entries),
                 "initial_release_evidence_abcd_grade": INITIAL_RELEASE_EVIDENCE_ABCD_GRADE,
                 "initial_release_evidence_abcd_grade_basis": [
                     "same_person_company_time_window_overlap_from_data_ggzy_or_targeted_original_notice"
@@ -409,15 +435,14 @@ def _release_evidence_probe_task_records(
                 "source_url": str(trigger.get("source_url") or ""),
             }
         )
-        for entry in _list(source_plan.get("source_entries")):
+        primary_entries = _p13b_primary_release_source_entries(
+            source_plan,
+            city_code=city_code,
+            region_code=region_code,
+            region_context=region_context,
+        )
+        for entry in primary_entries:
             if not isinstance(entry, Mapping):
-                continue
-            if not _source_entry_is_immediate_for_project(
-                entry,
-                city_code=city_code,
-                region_code=region_code,
-                historical_area_code=str(region_context["historical_project_area_code"]),
-            ):
                 continue
             rows.extend(
                 _task_rows_for_source_entry(
@@ -656,6 +681,12 @@ def _source_entry_is_immediate_for_project(
     entry_region = str(entry.get("region_code") or "").upper()
     normalized_region = str(region_code or "").upper()
     if profile_id == "GUANGZHOU-ZFCJ-CREDIT-DOUBLE-PUBLICITY":
+        if str(historical_area_code or "").strip():
+            return _area_text_matches_city(
+                historical_area_code,
+                city_prefix="4401",
+                city_name="广州",
+            )
         return str(city_code or "").startswith("4401") or _area_text_matches_city(
             historical_area_code,
             city_prefix="4401",
@@ -664,6 +695,60 @@ def _source_entry_is_immediate_for_project(
     if entry_region and entry_region != normalized_region:
         return False
     return True
+
+
+def _p13b_primary_release_source_entries(
+    source_plan: Mapping[str, Any],
+    *,
+    city_code: str,
+    region_code: str,
+    region_context: Mapping[str, Any],
+) -> list[Mapping[str, Any]]:
+    entries: list[Mapping[str, Any]] = []
+    for entry in _list(source_plan.get("source_entries")):
+        if not isinstance(entry, Mapping):
+            continue
+        if not _source_entry_is_immediate_for_project(
+            entry,
+            city_code=city_code,
+            region_code=region_code,
+            historical_area_code=str(region_context.get("historical_project_area_code") or ""),
+        ):
+            continue
+        if not _source_entry_is_p13b_primary_release_source(entry, region_code=region_code):
+            continue
+        entries.append(entry)
+    return entries
+
+
+def _source_entry_is_p13b_primary_release_source(entry: Mapping[str, Any], *, region_code: str) -> bool:
+    entry_id = str(entry.get("entry_id") or "")
+    entry_region = str(entry.get("region_code") or "").upper()
+    source_family = str(entry.get("source_family") or "")
+    normalized_region = str(region_code or "").upper()
+    if entry_id == "GZ-ZFCJ-CREDIT-DOUBLE-PUBLICITY":
+        return normalized_region == "CN-GD"
+    if source_family == "regional_construction_market_public_service" and entry_region == normalized_region:
+        return True
+    return False
+
+
+def _next_adapters_for_primary_entries(entries: list[Mapping[str, Any]]) -> list[str]:
+    adapters = _dedupe(
+        [
+            str(entry.get("next_adapter") or "")
+            for entry in entries
+            if str(entry.get("next_adapter") or "").strip()
+        ]
+    )
+    for entry in entries:
+        for subsource in _list(entry.get("verified_public_subsources")):
+            if not isinstance(subsource, Mapping):
+                continue
+            adapter = str(subsource.get("next_adapter") or "").strip()
+            if adapter:
+                adapters = _dedupe([*adapters, adapter])
+    return adapters or ["local_housing_authority_release_evidence_adapter_required"]
 
 
 def _release_evidence_region_context(trigger: Mapping[str, Any], project: Mapping[str, Any]) -> dict[str, Any]:

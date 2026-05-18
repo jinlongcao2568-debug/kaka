@@ -326,7 +326,10 @@ def test_business_direction_doc_contains_final_analysis_strategy_rules() -> None
     assert "B_ENHANCEMENT_OFFICIAL_READBACK" in text
     assert "C_REVERSE_EXPLANATION_OFFICIAL_READBACK" in text
     assert "D_INSUFFICIENT_OR_BLOCKED_READBACK" in text
-    assert "历史重叠项目所在省/市" in text
+    assert "历史重叠项目所在地住建局" in text
+    assert "B/C/D 默认只查历史重叠项目所在地住建局或住建主管部门公开源" in text
+    assert "全国建筑市场监管公共服务平台只作身份/地区发现和辅助交叉验证" in text
+    assert "广东省工程建设项目审批管理系统只作辅助或人工挑战路线" in text
     assert "原文链接" in text
     assert "该阶段不是全量下载 01-12，也不是默认解析 `08`" in text
     assert "可能包含项目负责人、工期/服务期、合同履行期限、中标日期或释放证据" in text

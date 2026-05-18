@@ -69,7 +69,7 @@ class GuangdongLocalFieldQueryProbeTests(unittest.TestCase):
             self.assertEqual(summary["field_query_probe_state_counts"]["PLAN_ONLY_NOT_EXECUTED"], 3)
             self.assertEqual(summary["p13b_initial_release_evidence_abcd_grade_counts"]["A_STRONG_TIME_OVERLAP_SIGNAL"], 3)
             self.assertEqual(summary["p13b_downstream_release_evidence_abcd_grade_counts"]["PENDING_NOT_EXECUTED"], 3)
-            self.assertEqual(summary["source_profile_task_counts"]["GUANGZHOU-ZFCJ-CREDIT-DOUBLE-PUBLICITY"], 2)
+            self.assertEqual(summary["source_profile_task_counts"]["GUANGZHOU-ZFCJ-CREDIT-DOUBLE-PUBLICITY"], 3)
 
             tasks = result["manifest"]["field_task_records"]
             first = tasks[0]
@@ -92,33 +92,37 @@ class GuangdongLocalFieldQueryProbeTests(unittest.TestCase):
             p13b_root = root / "p13b"
             _write_p13b_operational_closeout(p13b_root)
 
-            def fake_getter(url: str, params: Mapping[str, Any]) -> Mapping[str, Any]:
-                if "PerformanceEvaluationProject/Indexgs" in url and params.get("search_name") == "广州测试建设有限公司":
+            def fake_getter(url: str, _params: Mapping[str, Any]) -> Mapping[str, Any]:
+                if "jzgdsgxkxxlb.ashx" in url and "sgdw=" in url:
                     return {
                         "http_status": 200,
-                        "content_type": "text/html; charset=utf-8",
-                        "text_probe": """
-                        <table><tbody>
-                        <tr>
-                          <td>1</td><td>广州测试项目</td><td>广州建设单位</td>
-                          <td>广州测试建设有限公司</td><td>广州勘察单位</td><td>广州设计单位</td>
-                          <td>广州监理单位</td><td><a onclick="ppDetaill('DG-001')">查看</a></td>
-                        </tr>
-                        </tbody></table>
-                        """,
+                        "content_type": "application/json; charset=utf-8",
+                        "json_payload": {
+                            "currentPage": 1,
+                            "totalNum": 1,
+                            "data": [
+                                {
+                                    "gcmc": "广州测试项目",
+                                    "sgdw": "广州测试建设有限公司",
+                                    "sgxkzh": "440106202605120101",
+                                    "pzrq": "2026/5/12 0:00:00",
+                                }
+                            ],
+                            "status": 1,
+                        },
+                        "text_probe": "",
                     }
-                if "Indexht" in url:
-                    return {
-                        "http_status": 200,
-                        "content_type": "text/html; charset=utf-8",
-                        "text_probe": "<script>top.window.location.href='http://210.76.80.152:8008/SSO/jrsso/auth'</script>",
-                    }
-                return {"http_status": 200, "content_type": "text/html; charset=utf-8", "text_probe": ""}
+                return {
+                    "http_status": 200,
+                    "content_type": "application/json; charset=utf-8",
+                    "json_payload": {"currentPage": 1, "totalNum": 0, "data": [], "status": 1},
+                    "text_probe": "",
+                }
 
             result = build_guangdong_local_field_query_probe(
                 p13b_operational_closeout_root=p13b_root,
                 output_root=root / "out",
-                source_profile_ids=["GUANGDONG-GDCIC-HOME"],
+                source_profile_ids=["GUANGZHOU-ZFCJ-CREDIT-DOUBLE-PUBLICITY"],
                 enable_live_public_query=True,
                 max_live_tasks=1,
                 http_getter=fake_getter,
@@ -1277,11 +1281,11 @@ def _write_p13b_operational_closeout(root: Path) -> None:
         ),
         _p13b_release_task(
             task_id="P13B-RELEASE-PROBE-TASK-3",
-            source_profile_id="GUANGDONG-GDCIC-HOME",
-            source_url="http://210.76.80.152:8008",
+            source_profile_id="GUANGZHOU-ZFCJ-CREDIT-DOUBLE-PUBLICITY",
+            source_url="https://113.108.173.251:8080/",
             target_source_types=["contract_public_info"],
-            subsource_id="",
-            next_adapter="guangdong_gdcic_contract_performance_public_page_v1",
+            subsource_id="gz_zfcj_contract_credit_public_portal",
+            next_adapter="guangzhou_zfcj_contract_credit_query_adapter",
         ),
     ]
     payload = {
@@ -1329,7 +1333,7 @@ def _p13b_release_task(
         "release_evidence_query_region_code": "CN-GD",
         "release_evidence_query_region_basis": "HISTORICAL_OVERLAP_PROJECT_REGION",
         "source_granularity": "verified_public_subsource" if subsource_id else "source_entry",
-        "source_entry_id": "GZ-ZFCJ-CREDIT-DOUBLE-PUBLICITY" if subsource_id else "GD-GDCIC-CONTRACT-PERFORMANCE",
+        "source_entry_id": "GZ-ZFCJ-CREDIT-DOUBLE-PUBLICITY",
         "subsource_id": subsource_id,
         "source_profile_id": source_profile_id,
         "source_name": "P13B测试源",

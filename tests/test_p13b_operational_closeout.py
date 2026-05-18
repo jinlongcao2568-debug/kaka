@@ -75,8 +75,11 @@ class P13BOperationalCloseoutTests(unittest.TestCase):
             self.assertEqual(release_plans[0]["historical_project_area_code"], "广州市")
             self.assertEqual(release_plans[0]["release_evidence_query_region_basis"], "HISTORICAL_OVERLAP_PROJECT_REGION")
             self.assertEqual(release_plans[0]["initial_release_evidence_abcd_grade"], "A_STRONG_TIME_OVERLAP_SIGNAL")
+            self.assertEqual(release_plans[0]["primary_release_evidence_source_scope"], "HISTORICAL_PROJECT_LOCAL_HOUSING_AUTHORITY_ONLY")
+            self.assertEqual(release_plans[0]["primary_release_evidence_source_selection_state"], "PRIMARY_LOCAL_HOUSING_AUTHORITY_SOURCE_READY")
             self.assertIn("construction_permit", release_plans[0]["release_evidence_source_targets"])
-            self.assertGreater(release_plans[0]["source_entry_count"], 0)
+            self.assertEqual(release_plans[0]["source_entry_count"], 1)
+            self.assertGreater(release_plans[0]["source_plan_total_entry_count"], release_plans[0]["source_entry_count"])
 
             release_tasks = result["manifest"]["release_evidence_probe_task_records"]
             self.assertEqual(len(release_tasks), summary["release_evidence_probe_task_count"])
@@ -88,6 +91,9 @@ class P13BOperationalCloseoutTests(unittest.TestCase):
             self.assertIn("contract_public_info", {source_type for task in release_tasks for source_type in task["matched_target_source_types"]})
             self.assertIn("completion_filing", {source_type for task in release_tasks for source_type in task["matched_target_source_types"]})
             self.assertNotIn("ZJ-JZSC-PUBLIC-SERVICE", {task["source_entry_id"] for task in release_tasks})
+            self.assertNotIn("NATIONAL-JZSC-PM-ACTIVE-CONFLICT", {task["source_entry_id"] for task in release_tasks})
+            self.assertNotIn("GD-GDCIC-SKYPT-PROJECT", {task["source_entry_id"] for task in release_tasks})
+            self.assertNotIn("GD-TZXM-PROJECT-PROGRESS", {task["source_entry_id"] for task in release_tasks})
             subsource_ids = {task["subsource_id"] for task in release_tasks}
             self.assertIn("gz_zfcj_construction_permit_public_api", subsource_ids)
             self.assertIn("gz_zfcj_completion_acceptance_public_api", subsource_ids)
@@ -130,9 +136,38 @@ class P13BOperationalCloseoutTests(unittest.TestCase):
             self.assertEqual(plan["region_code"], "CN-ZJ")
             self.assertEqual(plan["release_evidence_query_region_code"], "CN-ZJ")
             self.assertEqual(plan["release_evidence_query_region_basis"], "HISTORICAL_OVERLAP_PROJECT_REGION")
+            self.assertEqual(plan["primary_release_evidence_source_scope"], "HISTORICAL_PROJECT_LOCAL_HOUSING_AUTHORITY_ONLY")
             task_entry_ids = {task["source_entry_id"] for task in result["manifest"]["release_evidence_probe_task_records"]}
             self.assertIn("ZJ-JZSC-PUBLIC-SERVICE", task_entry_ids)
             self.assertNotIn("GZ-ZFCJ-CREDIT-DOUBLE-PUBLICITY", task_entry_ids)
+
+    def test_release_probe_does_not_fallback_to_guangzhou_for_non_guangzhou_history(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_company_history(root / "company")
+            _write_original_notice(root / "original")
+            _write_closeout(
+                root / "closeout",
+                historical_project_area_code="深圳市",
+                historical_project_region_code="CN-GD",
+            )
+
+            result = build_p13b_operational_closeout(
+                company_history_triage_root=root / "company",
+                original_notice_backtrace_root=root / "original",
+                overlap_triage_closeout_root=root / "closeout",
+                output_root=root / "out",
+                created_at="2026-05-17T00:00:00+08:00",
+            )
+
+            self.assertTrue(result["safe_to_execute"])
+            plan = result["manifest"]["release_evidence_probe_plan_records"][0]
+            self.assertEqual(plan["historical_project_area_code"], "深圳市")
+            self.assertEqual(plan["region_code"], "CN-GD")
+            self.assertEqual(plan["source_entry_count"], 0)
+            self.assertEqual(plan["primary_release_evidence_source_selection_state"], "LOCAL_HOUSING_AUTHORITY_ADAPTER_REQUIRED")
+            self.assertEqual(plan["next_required_runtime_adapters"], ["local_housing_authority_release_evidence_adapter_required"])
+            self.assertEqual(result["manifest"]["release_evidence_probe_task_records"], [])
 
     def test_forbidden_terms_are_still_blocked(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

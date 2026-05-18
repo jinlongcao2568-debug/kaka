@@ -699,6 +699,12 @@ class BusinessDirectionStrategyContractTests(unittest.TestCase):
             abcd_policy["query_region_rule"],
             "historical_overlap_project_region_first_then_current_project_region_fallback",
         )
+        self.assertEqual(abcd_policy["primary_bcd_source_scope"], "historical_project_local_housing_authority_only")
+        self.assertTrue(abcd_policy["default_single_source_mvp"])
+        self.assertEqual(
+            abcd_policy["national_jzsc_platform_role"],
+            "auxiliary_identity_and_region_discovery_not_default_bcd_release_source",
+        )
         self.assertTrue(abcd_policy["D_does_not_downgrade_A"])
         self.assertFalse(abcd_policy["downstream_probe_required_for_A_value"])
         self.assertIn("do_not_treat_prior_award_or_candidate_record_as_final_unreleased_proof", policy["must_not"])
@@ -707,6 +713,7 @@ class BusinessDirectionStrategyContractTests(unittest.TestCase):
         self.assertIn("do_not_backtrace_original_notice_when_data_ggzy_bid_show_has_person_and_contract_or_delivery_period", policy["must_not"])
         self.assertIn("do_not_downgrade_a_level_time_overlap_signal_only_because_release_sources_are_unavailable", policy["must_not"])
         self.assertIn("do_not_query_current_project_region_when_historical_overlap_project_region_is_known", policy["must_not"])
+        self.assertIn("do_not_generate_default_bcd_release_tasks_from_national_jzsc_or_province_project_approval_system", policy["must_not"])
         self.assertIn("do_not_default_download_all_01_to_12_flows_for_p13b_original_backtrace", policy["must_not"])
         self.assertIn("do_not_use_ygp_as_guangzhou_primary_source", policy["must_not"])
         self.assertIn("ygp.url_mapping_original_readback_when_data_ggzy_points_to_ygp", policy["primary_company_history_query_flow"])
