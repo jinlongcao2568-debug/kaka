@@ -109,6 +109,106 @@ class EvidenceOrchestrationStateMachineTests(unittest.TestCase):
                 )
             )
 
+    def test_design_survey_adapter_plan_promotes_project_to_stage4_inputs_ready(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            storage_json = root / "storage.json"
+            supplement_json = root / "stage4-inputs.json"
+            design_plan_root = root / "design-plan"
+            _write_stage16_storage(storage_json)
+            _write_company_first_inputs(supplement_json)
+            _write_design_survey_adapter_plan(design_plan_root)
+
+            result = build_evidence_orchestration_state(
+                stage16_storage_json=storage_json,
+                company_first_stage4_inputs_json=supplement_json,
+                design_survey_adapter_plan_root=design_plan_root,
+                output_root=root / "out",
+                created_at="2026-05-18T00:00:00+08:00",
+            )
+
+            by_project = _records_by_project(result["manifest"]["evidence_state_table"]["records"])
+            design = by_project["PROJ-CN-GD-JG2026-11327"]
+            self.assertEqual(design["evidence_state"], "DESIGN_SURVEY_STAGE4_INPUTS_READY")
+            self.assertEqual(design["evidence_grade"], "PENDING_DESIGN_SURVEY_STAGE4")
+            self.assertEqual(design["design_survey_adapter_counts"]["design_survey_plan_stage4_input_count"], 2)
+            batch_by_project = _records_by_project(result["manifest"]["batch_triage_table"]["records"])
+            self.assertEqual(
+                batch_by_project["PROJ-CN-GD-JG2026-11327"]["batch_triage_bucket"],
+                "RUN_DESIGN_SURVEY_STAGE4_PROVIDER_TASKS",
+            )
+            self.assertTrue(
+                any(
+                    job["project_id"] == "PROJ-CN-GD-JG2026-11327"
+                    and job["job_type"] == "design_survey_stage4_person_company_certificate_execution"
+                    for job in result["manifest"]["adapter_job_table"]["records"]
+                )
+            )
+
+    def test_design_survey_stage4_dry_run_keeps_provider_tasks_ready_not_identity_match(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            storage_json = root / "storage.json"
+            supplement_json = root / "stage4-inputs.json"
+            design_plan_root = root / "design-plan"
+            stage4_root = root / "design-stage4"
+            _write_stage16_storage(storage_json)
+            _write_company_first_inputs(supplement_json)
+            _write_design_survey_adapter_plan(design_plan_root)
+            _write_design_survey_stage4_execution(stage4_root, resolved=False)
+
+            result = build_evidence_orchestration_state(
+                stage16_storage_json=storage_json,
+                company_first_stage4_inputs_json=supplement_json,
+                design_survey_adapter_plan_root=design_plan_root,
+                design_survey_stage4_execution_root=stage4_root,
+                output_root=root / "out",
+                created_at="2026-05-18T00:00:00+08:00",
+            )
+
+            by_project = _records_by_project(result["manifest"]["evidence_state_table"]["records"])
+            design = by_project["PROJ-CN-GD-JG2026-11327"]
+            self.assertEqual(design["evidence_state"], "DESIGN_SURVEY_STAGE4_PROVIDER_TASKS_READY")
+            self.assertEqual(design["recommended_next_action"], "execute_design_survey_stage4_provider_tasks")
+            self.assertEqual(design["design_survey_adapter_counts"]["design_survey_stage4_queued_not_executed_count"], 2)
+            batch_by_project = _records_by_project(result["manifest"]["batch_triage_table"]["records"])
+            self.assertEqual(
+                batch_by_project["PROJ-CN-GD-JG2026-11327"]["batch_triage_bucket"],
+                "EXECUTE_DESIGN_SURVEY_STAGE4_PROVIDER_TASKS",
+            )
+
+    def test_design_survey_stage4_resolved_identity_becomes_internal_review_ready(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            storage_json = root / "storage.json"
+            supplement_json = root / "stage4-inputs.json"
+            design_plan_root = root / "design-plan"
+            stage4_root = root / "design-stage4"
+            _write_stage16_storage(storage_json)
+            _write_company_first_inputs(supplement_json)
+            _write_design_survey_adapter_plan(design_plan_root)
+            _write_design_survey_stage4_execution(stage4_root, resolved=True)
+
+            result = build_evidence_orchestration_state(
+                stage16_storage_json=storage_json,
+                company_first_stage4_inputs_json=supplement_json,
+                design_survey_adapter_plan_root=design_plan_root,
+                design_survey_stage4_execution_root=stage4_root,
+                output_root=root / "out",
+                created_at="2026-05-18T00:00:00+08:00",
+            )
+
+            by_project = _records_by_project(result["manifest"]["evidence_state_table"]["records"])
+            design = by_project["PROJ-CN-GD-JG2026-11327"]
+            self.assertEqual(design["evidence_state"], "DESIGN_SURVEY_RESPONSIBLE_IDENTITY_MATCH_READY")
+            self.assertEqual(design["stage6_fact_package_state"], "REVIEW_FACT_PACKAGE_READY")
+            self.assertEqual(result["summary"]["design_survey_identity_match_project_count"], 1)
+            batch_by_project = _records_by_project(result["manifest"]["batch_triage_table"]["records"])
+            self.assertEqual(
+                batch_by_project["PROJ-CN-GD-JG2026-11327"]["commercial_decision_state"],
+                "CONTINUE_INTERNAL_REVIEW_OR_STAGE6_FACT_PACKAGE",
+            )
+
     def test_data_ggzy_direct_overlap_creates_a_signal_and_release_probe_job(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -577,6 +677,141 @@ def _write_original_notice_browser_blocked(root: Path) -> None:
                     }
                 ],
                 "manual_release_evidence_probe_table": [],
+            }
+        },
+    )
+
+
+def _write_design_survey_adapter_plan(root: Path) -> None:
+    project_id = "PROJ-CN-GD-JG2026-11327"
+    companies = ["广州市城市规划勘测设计研究院有限公司", "广州湾区规划勘测设计院有限公司"]
+    stage4_items = [
+        {
+            "stage4_input_id": f"DESIGN-SURVEY-STAGE4-{index}",
+            "project_id": project_id,
+            "project_name": "规划测绘项目中标候选人公示",
+            "candidate_company_name": company,
+            "candidate_group_id": "CANDIDATE-GROUP-JG2026-11327-DESIGN-SURVEY-1",
+            "candidate_group_order": str(index),
+            "candidate_group_members": companies,
+            "candidate_group_match_mode": "ANY_CONSORTIUM_MEMBER",
+            "consortium_member_role": "lead" if index == 1 else "member",
+            "responsible_person_name": "胡昌华",
+            "responsible_role": "survey_design_project_lead",
+            "certificate_no": "",
+            "person_public_id_optional": "",
+            "customer_visible_allowed": False,
+            "no_legal_conclusion": True,
+        }
+        for index, company in enumerate(companies, start=1)
+    ]
+    _write_json(
+        root / "design-survey-responsible-adapter-plan-v1.json",
+        {
+            "manifest": {
+                "project_table": {
+                    "records": [
+                        {
+                            "design_survey_project_id": "DESIGN-SURVEY-PROJECT-1",
+                            "project_id": project_id,
+                            "project_name": "规划测绘项目中标候选人公示",
+                            "candidate_group_members": companies,
+                            "responsible_person_name": "胡昌华",
+                            "responsible_role": "survey_design_project_lead",
+                            "engineering_work_lane": "survey_design",
+                            "opportunity_priority_class": "C_MEDIUM_DESIGN_SURVEY",
+                            "adapter_readiness_state": "READY_FOR_DESIGN_SURVEY_STAGE4_PLAN",
+                            "review_reasons": [],
+                            "customer_visible_allowed": False,
+                            "no_legal_conclusion": True,
+                        }
+                    ]
+                },
+                "stage4_candidate_verification_inputs": {
+                    "items": stage4_items,
+                    "summary": {"stage4_input_count": len(stage4_items)},
+                },
+                "design_survey_verification_task_table": {
+                    "records": [
+                        {
+                            "design_survey_verification_task_id": "DESIGN-SURVEY-TASK-1",
+                            "project_id": project_id,
+                            "task_type": "DESIGN_SURVEY_PERSON_COMPANY_CERTIFICATE_MATCH",
+                            "execution_state": "PLAN_ONLY_NOT_EXECUTED",
+                        },
+                        {
+                            "design_survey_verification_task_id": "DESIGN-SURVEY-TASK-2",
+                            "project_id": project_id,
+                            "task_type": "CURRENT_PROJECT_DESIGN_SURVEY_SERVICE_CLOCK",
+                            "execution_state": "PLAN_ONLY_NOT_EXECUTED",
+                        },
+                    ]
+                },
+            }
+        },
+    )
+
+
+def _write_design_survey_stage4_execution(root: Path, *, resolved: bool) -> None:
+    project_id = "PROJ-CN-GD-JG2026-11327"
+    companies = ["广州市城市规划勘测设计研究院有限公司", "广州湾区规划勘测设计院有限公司"]
+    if resolved:
+        items = [
+            {
+                "job_id": "STAGE4-INPUT-JOB-1",
+                "project_id": project_id,
+                "candidate_company_name": companies[0],
+                "responsible_person_name": "胡昌华",
+                "certificate_no": "粤测绘-001",
+                "person_public_id_optional": "DESIGN-PERSON-001",
+                "candidate_group_id": "CANDIDATE-GROUP-JG2026-11327-DESIGN-SURVEY-1",
+                "stage4_execution_state": "EXECUTED",
+                "identity_resolution_state": "MATCHED_PERSON_COMPANY",
+                "supplement_after_execution_state": "COMPANY_FIRST_CERTIFICATE_RESOLVED",
+                "candidate_group_resolution_state": "RESOLVED_BY_THIS_MEMBER",
+                "fail_closed_reasons": [],
+            },
+            {
+                "job_id": "STAGE4-INPUT-JOB-2",
+                "project_id": project_id,
+                "candidate_company_name": companies[1],
+                "responsible_person_name": "胡昌华",
+                "candidate_group_id": "CANDIDATE-GROUP-JG2026-11327-DESIGN-SURVEY-1",
+                "stage4_execution_state": "EXECUTED",
+                "identity_resolution_state": "GROUP_ALREADY_RESOLVED",
+                "supplement_after_execution_state": "CONSORTIUM_MEMBER_NONMATCH_GROUP_RESOLVED",
+                "candidate_group_resolution_state": "RESOLVED_BY_CONSORTIUM_MEMBER",
+                "fail_closed_reasons": [],
+            },
+        ]
+    else:
+        items = [
+            {
+                "job_id": f"STAGE4-INPUT-JOB-{index}",
+                "project_id": project_id,
+                "candidate_company_name": company,
+                "responsible_person_name": "胡昌华",
+                "candidate_group_id": "CANDIDATE-GROUP-JG2026-11327-DESIGN-SURVEY-1",
+                "stage4_execution_state": "QUEUED_NOT_EXECUTED",
+                "identity_resolution_state": "NOT_RUN",
+                "supplement_after_execution_state": "COMPANY_FIRST_PROVIDER_TASKS_READY",
+                "candidate_group_resolution_state": "PENDING_EXECUTION",
+                "fail_closed_reasons": [],
+            }
+            for index, company in enumerate(companies, start=1)
+        ]
+    _write_json(
+        root / "company-first-stage4-execution.json",
+        {
+            "manifest": {
+                "items": items,
+                "stage4_candidate_verification_inputs": {"items": []},
+                "summary": {
+                    "project_count": 1,
+                    "job_count": len(items),
+                    "customer_visible_allowed": False,
+                    "no_legal_conclusion": True,
+                },
             }
         },
     )
