@@ -45,12 +45,14 @@ class P13BOperationalCloseoutTests(unittest.TestCase):
             self.assertEqual(summary["original_notice_backtrace_required_count"], 1)
             self.assertEqual(summary["release_evidence_trigger_count"], 1)
             self.assertEqual(summary["release_evidence_probe_plan_count"], 1)
+            self.assertGreater(summary["release_evidence_probe_task_count"], 0)
             self.assertEqual(summary["ygp_readback_blocked_or_unsupported_count"], 1)
             self.assertEqual(summary["no_overlap_signal_review_count"], 1)
             self.assertEqual(summary["forbidden_term_scan_state"], "PASS")
             self.assertTrue((root / "out" / "p13b-operational-closeout-v1.json").exists())
             self.assertTrue((root / "out" / "p13b-project-next-action-table.json").exists())
             self.assertTrue((root / "out" / "p13b-release-evidence-probe-plan-table.json").exists())
+            self.assertTrue((root / "out" / "p13b-release-evidence-probe-task-table.json").exists())
             self.assertTrue((root / "out" / "p13b-budget-audit-table.json").exists())
 
             next_actions = {
@@ -70,6 +72,22 @@ class P13BOperationalCloseoutTests(unittest.TestCase):
             self.assertEqual(release_plans[0]["region_code"], "CN-GD")
             self.assertIn("construction_permit", release_plans[0]["release_evidence_source_targets"])
             self.assertGreater(release_plans[0]["source_entry_count"], 0)
+
+            release_tasks = result["manifest"]["release_evidence_probe_task_records"]
+            self.assertEqual(len(release_tasks), summary["release_evidence_probe_task_count"])
+            self.assertTrue(all(task["execution_mode"] == "PLAN_ONLY_NOT_EXECUTED" for task in release_tasks))
+            self.assertTrue(all(task["readback_ready"] is False for task in release_tasks))
+            self.assertTrue(all(task["trigger_source_url"] == "https://data.ggzy.gov.cn/yjcx/index/bid_show?id=1" for task in release_tasks))
+            self.assertIn("contract_public_info", {source_type for task in release_tasks for source_type in task["matched_target_source_types"]})
+            self.assertIn("completion_filing", {source_type for task in release_tasks for source_type in task["matched_target_source_types"]})
+            self.assertNotIn("ZJ-JZSC-PUBLIC-SERVICE", {task["source_entry_id"] for task in release_tasks})
+            subsource_ids = {task["subsource_id"] for task in release_tasks}
+            self.assertIn("gz_zfcj_construction_permit_public_api", subsource_ids)
+            self.assertIn("gz_zfcj_completion_acceptance_public_api", subsource_ids)
+            self.assertIn("gz_zfcj_contract_credit_public_portal", subsource_ids)
+            next_adapters = {task["next_adapter"] for task in release_tasks}
+            self.assertIn("guangzhou_zfcj_construction_permit_public_api_v1", next_adapters)
+            self.assertIn("guangzhou_zfcj_completion_acceptance_public_api_v1", next_adapters)
 
             budget_rows = {
                 record["budget_scope"]: record
@@ -136,6 +154,7 @@ class P13BOperationalCloseoutTests(unittest.TestCase):
             self.assertTrue((run_root / "03-closeout" / "p13b-overlap-triage-closeout-v1.json").exists())
             self.assertTrue((run_root / "04-operational-closeout" / "p13b-operational-closeout-v1.json").exists())
             self.assertTrue((run_root / "04-operational-closeout" / "p13b-release-evidence-probe-plan-table.json").exists())
+            self.assertTrue((run_root / "04-operational-closeout" / "p13b-release-evidence-probe-task-table.json").exists())
 
             payload = json.loads(
                 (run_root / "04-operational-closeout" / "p13b-operational-closeout-v1.json").read_text(encoding="utf-8")

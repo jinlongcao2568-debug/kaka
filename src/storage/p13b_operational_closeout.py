@@ -34,6 +34,25 @@ NEXT_ACTION_BY_STATE = {
     "YGP_READBACK_BLOCKED_OR_UNSUPPORTED": "prepare_local_ygp_readback_or_keep_blocked_taxonomy",
     "NO_OVERLAP_SIGNAL_REVIEW": "keep_internal_review_no_clearance_conclusion",
 }
+DEFAULT_RELEASE_EVIDENCE_SOURCE_TARGETS = [
+    "construction_permit",
+    "contract_filing_or_contract_credit_info",
+    "completion_or_acceptance_filing",
+    "project_manager_change_notice",
+]
+RELEASE_EVIDENCE_SOURCE_TARGET_ALIASES = {
+    "contract_filing_or_contract_credit_info": ("contract_public_info",),
+    "contract_filing_or_contract_public_info": ("contract_public_info",),
+    "contract_credit_info": ("contract_public_info",),
+    "completion_or_acceptance_filing": ("completion_filing",),
+    "completion_acceptance_or_completion_filing": ("completion_filing",),
+    "construction_permit_change": ("construction_permit", "project_manager_change_notice"),
+    "project_manager_change_notice_or_permit_change": ("project_manager_change_notice", "construction_permit"),
+    "administrative_penalty_or_complaint_decision": (
+        "administrative_penalty_public_record",
+        "complaint_or_supervision_decision",
+    ),
+}
 
 
 def build_p13b_operational_closeout(
@@ -99,6 +118,12 @@ def build_p13b_operational_closeout(
         project_records=project_records,
         created_at=created,
     )
+    release_evidence_probe_task_records = _release_evidence_probe_task_records(
+        closeout_manifest=closeout_manifest,
+        project_records=project_records,
+        plan_records=release_evidence_probe_plan_records,
+        created_at=created,
+    )
     budget_audit_records = _budget_audit_records(
         company_manifest=company_manifest,
         original_manifest=original_manifest,
@@ -116,6 +141,7 @@ def build_p13b_operational_closeout(
         closeout_summary=closeout_summary,
         blocking_reasons=blocking_reasons,
     )
+    summary["release_evidence_probe_task_count"] = len(release_evidence_probe_task_records)
     manifest = {
         "manifest_version": P13B_OPERATIONAL_CLOSEOUT_VERSION,
         "manifest_kind": P13B_OPERATIONAL_CLOSEOUT_KIND,
@@ -129,6 +155,7 @@ def build_p13b_operational_closeout(
         "summary": summary,
         "project_next_action_records": project_next_action_records,
         "release_evidence_probe_plan_records": release_evidence_probe_plan_records,
+        "release_evidence_probe_task_records": release_evidence_probe_task_records,
         "budget_audit_records": budget_audit_records,
         "safety": {
             "network_enabled": False,
@@ -152,7 +179,14 @@ def build_p13b_operational_closeout(
         "manifest": manifest,
         "summary": summary,
     }
-    _finalize_and_write(out_dir, result, project_next_action_records, release_evidence_probe_plan_records, budget_audit_records)
+    _finalize_and_write(
+        out_dir,
+        result,
+        project_next_action_records,
+        release_evidence_probe_plan_records,
+        release_evidence_probe_task_records,
+        budget_audit_records,
+    )
     return result
 
 
@@ -191,14 +225,9 @@ def _release_evidence_probe_plan_records(
         project = project_by_id.get(project_id, {})
         candidate_company = str(trigger.get("candidate_company_name") or "")
         person_names = _list(trigger.get("matched_person_names")) or _list(trigger.get("responsible_person_names"))
-        city_code = str(project.get("city_code") or "")
-        region_code = _region_code_from_city_code(city_code)
-        source_targets = _list(trigger.get("release_evidence_source_targets")) or [
-            "construction_permit",
-            "contract_filing_or_contract_credit_info",
-            "completion_or_acceptance_filing",
-            "project_manager_change_notice",
-        ]
+        city_code = str(project.get("city_code") or trigger.get("city_code") or "")
+        region_code = str(trigger.get("region_code") or project.get("region_code") or _region_code_from_city_code(city_code))
+        source_targets = _list(trigger.get("release_evidence_source_targets")) or DEFAULT_RELEASE_EVIDENCE_SOURCE_TARGETS
         source_plan = build_regional_hard_defect_source_plan(
             {
                 "region_code": region_code,
@@ -245,6 +274,246 @@ def _release_evidence_probe_plan_records(
             }
         )
     return rows
+
+
+def _release_evidence_probe_task_records(
+    *,
+    closeout_manifest: Mapping[str, Any],
+    project_records: list[Mapping[str, Any]],
+    plan_records: list[Mapping[str, Any]],
+    created_at: str,
+) -> list[dict[str, Any]]:
+    project_by_id = {str(record.get("project_id") or ""): record for record in project_records}
+    plan_by_trigger_id = {
+        str(record.get("release_evidence_trigger_id") or ""): record
+        for record in plan_records
+    }
+    rows: list[dict[str, Any]] = []
+    for trigger in _list(closeout_manifest.get("release_evidence_trigger_records")):
+        if not isinstance(trigger, Mapping):
+            continue
+        project_id = str(trigger.get("project_id") or "")
+        project = project_by_id.get(project_id, {})
+        trigger_id = str(trigger.get("release_evidence_trigger_id") or "")
+        plan = plan_by_trigger_id.get(trigger_id, {})
+        candidate_company = str(trigger.get("candidate_company_name") or "")
+        person_names = _list(trigger.get("matched_person_names")) or _list(trigger.get("responsible_person_names"))
+        city_code = str(project.get("city_code") or trigger.get("city_code") or "")
+        region_code = str(trigger.get("region_code") or project.get("region_code") or _region_code_from_city_code(city_code))
+        raw_source_targets = _list(trigger.get("release_evidence_source_targets")) or DEFAULT_RELEASE_EVIDENCE_SOURCE_TARGETS
+        canonical_source_targets = _canonical_source_targets(raw_source_targets)
+        source_plan = build_regional_hard_defect_source_plan(
+            {
+                "region_code": region_code,
+                "project_id": project_id,
+                "project_name": str(trigger.get("project_name") or project.get("project_name") or trigger.get("bid_project_name") or ""),
+                "candidate_company": candidate_company,
+                "project_manager_name": str(person_names[0] if person_names else ""),
+                "source_url": str(trigger.get("source_url") or ""),
+            }
+        )
+        for entry in _list(source_plan.get("source_entries")):
+            if not isinstance(entry, Mapping):
+                continue
+            if not _source_entry_is_immediate_for_project(entry, city_code=city_code, region_code=region_code):
+                continue
+            rows.extend(
+                _task_rows_for_source_entry(
+                    trigger=trigger,
+                    plan=plan,
+                    project=project,
+                    entry=entry,
+                    raw_source_targets=raw_source_targets,
+                    canonical_source_targets=canonical_source_targets,
+                    person_names=person_names,
+                    created_at=created_at,
+                )
+            )
+    return rows
+
+
+def _task_rows_for_source_entry(
+    *,
+    trigger: Mapping[str, Any],
+    plan: Mapping[str, Any],
+    project: Mapping[str, Any],
+    entry: Mapping[str, Any],
+    raw_source_targets: list[Any],
+    canonical_source_targets: list[str],
+    person_names: list[Any],
+    created_at: str,
+) -> list[dict[str, Any]]:
+    rows = []
+    parent_row = _task_row_from_source(
+        trigger=trigger,
+        plan=plan,
+        project=project,
+        source=entry,
+        parent_entry=entry,
+        source_granularity="source_entry",
+        raw_source_targets=raw_source_targets,
+        canonical_source_targets=canonical_source_targets,
+        person_names=person_names,
+        created_at=created_at,
+    )
+    if parent_row:
+        rows.append(parent_row)
+    for subsource in _list(entry.get("verified_public_subsources")):
+        if not isinstance(subsource, Mapping):
+            continue
+        child_row = _task_row_from_source(
+            trigger=trigger,
+            plan=plan,
+            project=project,
+            source=subsource,
+            parent_entry=entry,
+            source_granularity="verified_public_subsource",
+            raw_source_targets=raw_source_targets,
+            canonical_source_targets=canonical_source_targets,
+            person_names=person_names,
+            created_at=created_at,
+        )
+        if child_row:
+            rows.append(child_row)
+    return rows
+
+
+def _task_row_from_source(
+    *,
+    trigger: Mapping[str, Any],
+    plan: Mapping[str, Any],
+    project: Mapping[str, Any],
+    source: Mapping[str, Any],
+    parent_entry: Mapping[str, Any],
+    source_granularity: str,
+    raw_source_targets: list[Any],
+    canonical_source_targets: list[str],
+    person_names: list[Any],
+    created_at: str,
+) -> dict[str, Any] | None:
+    source_target_types = _canonical_source_targets(_list(source.get("target_source_types")))
+    matched_target_types = sorted(set(source_target_types) & set(canonical_source_targets))
+    if not matched_target_types:
+        return None
+    project_id = str(trigger.get("project_id") or "")
+    source_entry_id = str(parent_entry.get("entry_id") or "")
+    subsource_id = str(source.get("subsource_id") or "")
+    source_profile_id = str(source.get("source_profile_id") or parent_entry.get("source_profile_id") or "")
+    candidate_company = str(trigger.get("candidate_company_name") or "")
+    project_name = str(trigger.get("project_name") or project.get("project_name") or "")
+    task_source_url = str(source.get("source_url") or parent_entry.get("source_url") or "")
+    task_id = _stable_id(
+        "P13B-RELEASE-PROBE-TASK",
+        trigger.get("release_evidence_trigger_id"),
+        project_id,
+        candidate_company,
+        source_entry_id,
+        subsource_id,
+        ",".join(matched_target_types),
+    )
+    return {
+        "release_evidence_probe_task_id": task_id,
+        "release_evidence_probe_plan_id": str(plan.get("release_evidence_probe_plan_id") or ""),
+        "release_evidence_trigger_id": str(trigger.get("release_evidence_trigger_id") or ""),
+        "source_stage": str(trigger.get("source_stage") or ""),
+        "project_id": project_id,
+        "project_name": project_name,
+        "city_code": str(project.get("city_code") or trigger.get("city_code") or ""),
+        "region_code": str(plan.get("region_code") or _region_code_from_city_code(str(project.get("city_code") or ""))),
+        "candidate_company_name": candidate_company,
+        "matched_person_names": person_names,
+        "trigger_source_url": str(trigger.get("source_url") or ""),
+        "extracted_period_text": str(trigger.get("extracted_period_text") or ""),
+        "extracted_award_date": str(trigger.get("extracted_award_date") or ""),
+        "time_window_review_state": str(trigger.get("time_window_review_state") or ""),
+        "estimated_performance_end_date": str(trigger.get("estimated_performance_end_date") or ""),
+        "source_granularity": source_granularity,
+        "source_entry_id": source_entry_id,
+        "subsource_id": subsource_id,
+        "source_profile_id": source_profile_id,
+        "source_profile_ids": _list(parent_entry.get("source_profile_ids")) or ([source_profile_id] if source_profile_id else []),
+        "source_name": str(source.get("source_name") or parent_entry.get("source_name") or ""),
+        "source_url": task_source_url,
+        "api_url": str(source.get("api_url") or ""),
+        "official_reference_url": str(
+            source.get("official_reference_url")
+            or source.get("official_parent_url")
+            or parent_entry.get("official_reference_url")
+            or parent_entry.get("official_parent_url")
+            or ""
+        ),
+        "source_family": str(source.get("source_family") or parent_entry.get("source_family") or ""),
+        "requested_release_evidence_source_targets": raw_source_targets,
+        "canonical_release_evidence_source_targets": canonical_source_targets,
+        "source_target_source_types": source_target_types,
+        "matched_target_source_types": matched_target_types,
+        "query_keys": _list(source.get("query_keys")) or _list(parent_entry.get("query_keys")),
+        "query_params": _release_evidence_query_params(
+            project_id=project_id,
+            project_name=project_name,
+            candidate_company=candidate_company,
+            person_names=person_names,
+            source_profile_id=source_profile_id,
+            source_target_types=matched_target_types,
+            trigger_source_url=str(trigger.get("source_url") or ""),
+        ),
+        "runtime_status": str(source.get("runtime_status") or parent_entry.get("runtime_status") or ""),
+        "next_adapter": str(source.get("next_adapter") or parent_entry.get("next_adapter") or ""),
+        "task_state": "PLAN_ONLY_NOT_EXECUTED",
+        "execution_mode": "PLAN_ONLY_NOT_EXECUTED",
+        "readback_ready": False,
+        "recommended_next_action": "run_targeted_release_evidence_probe_adapter_when_approved",
+        "query_miss_is_not_clearance": True,
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+        "created_at": created_at,
+    }
+
+
+def _release_evidence_query_params(
+    *,
+    project_id: str,
+    project_name: str,
+    candidate_company: str,
+    person_names: list[Any],
+    source_profile_id: str,
+    source_target_types: list[str],
+    trigger_source_url: str,
+) -> dict[str, Any]:
+    primary_person_name = str(person_names[0] if person_names else "")
+    return {
+        "projectId": project_id,
+        "projectName": project_name,
+        "candidateCompanyName": candidate_company,
+        "projectManagerName": primary_person_name,
+        "projectManagerNameVariants": _dedupe([str(item) for item in person_names if str(item)]),
+        "sourceProfileId": source_profile_id,
+        "targetSourceTypes": source_target_types,
+        "triggerSourceUrl": trigger_source_url,
+        "keywords": _dedupe([project_name, candidate_company, primary_person_name]),
+    }
+
+
+def _canonical_source_targets(values: list[Any]) -> list[str]:
+    targets: list[str] = []
+    for value in values:
+        key = str(value or "").strip()
+        if not key:
+            continue
+        aliases = RELEASE_EVIDENCE_SOURCE_TARGET_ALIASES.get(key, (key,))
+        targets.extend(str(alias) for alias in aliases if str(alias).strip())
+    return _dedupe(targets)
+
+
+def _source_entry_is_immediate_for_project(entry: Mapping[str, Any], *, city_code: str, region_code: str) -> bool:
+    profile_id = str(entry.get("source_profile_id") or "")
+    entry_region = str(entry.get("region_code") or "").upper()
+    normalized_region = str(region_code or "").upper()
+    if profile_id == "GUANGZHOU-ZFCJ-CREDIT-DOUBLE-PUBLICITY":
+        return str(city_code or "").startswith("4401")
+    if entry_region and entry_region != normalized_region:
+        return False
+    return True
 
 
 def _budget_audit_records(
@@ -367,6 +636,7 @@ def _finalize_and_write(
     result: dict[str, Any],
     project_next_action_records: list[Mapping[str, Any]],
     release_evidence_probe_plan_records: list[Mapping[str, Any]],
+    release_evidence_probe_task_records: list[Mapping[str, Any]],
     budget_audit_records: list[Mapping[str, Any]],
 ) -> None:
     text = json.dumps(result, ensure_ascii=False, indent=2)
@@ -385,6 +655,7 @@ def _finalize_and_write(
         result["manifest"]["summary"]["forbidden_term_scan_state"] = "PASS"
     _write_json(out_dir / "p13b-project-next-action-table.json", {"summary": result["summary"], "records": project_next_action_records})
     _write_json(out_dir / "p13b-release-evidence-probe-plan-table.json", {"summary": result["summary"], "records": release_evidence_probe_plan_records})
+    _write_json(out_dir / "p13b-release-evidence-probe-task-table.json", {"summary": result["summary"], "records": release_evidence_probe_task_records})
     _write_json(out_dir / "p13b-budget-audit-table.json", {"summary": result["summary"], "records": budget_audit_records})
     _write_json(out_dir / "p13b-operational-closeout-v1.json", result)
 
@@ -429,6 +700,18 @@ def _list(value: Any) -> list[Any]:
     if isinstance(value, tuple):
         return list(value)
     return [value]
+
+
+def _dedupe(values: Iterable[Any]) -> list[str]:
+    seen: set[str] = set()
+    result: list[str] = []
+    for value in values:
+        text = str(value or "").strip()
+        if not text or text in seen:
+            continue
+        seen.add(text)
+        result.append(text)
+    return result
 
 
 def _counts(values: Iterable[Any]) -> dict[str, int]:
