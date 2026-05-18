@@ -98,6 +98,36 @@ class EvidenceOrchestrationContinuationRunnerTests(unittest.TestCase):
                 "PROJ-CN-GD-JG2026-20002",
             )
 
+    def test_browser_readback_root_is_passed_to_original_backtrace_runner(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            storage_json = root / "storage.json"
+            p13b_root = root / "p13b"
+            browser_root = root / "browser"
+            _write_stage16_storage(storage_json)
+            _write_p13b_backtrace_required(p13b_root)
+            _write_browser_readback(browser_root)
+
+            result = run_evidence_orchestration_continuation(
+                stage16_storage_json=storage_json,
+                p13b_company_history_root=p13b_root,
+                browser_readback_root=browser_root,
+                output_root=root / "run",
+                created_at="2026-05-18T00:00:00+08:00",
+            )
+
+            self.assertEqual(result["summary"]["original_action_state"], "ORIGINAL_BACKTRACE_PLAN_BUILT")
+            self.assertEqual(
+                result["summary"]["state_after_evidence_state_counts"],
+                {"A_STRONG_TIME_OVERLAP_SIGNAL_READY": 1},
+            )
+            original = json.loads(
+                (root / "run" / "01-original-notice-backtrace" / "original-notice-backtrace-v1.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertEqual(original["summary"]["browser_readback_ready_count"], 1)
+
 
 def _write_stage16_storage(path: Path) -> None:
     candidates = [
@@ -278,6 +308,36 @@ def _write_two_project_p13b_backtrace_required(root: Path) -> None:
                         "backtrace_reason": "ORIGINAL_NOTICE_BACKTRACE_REQUIRED",
                     },
                 ],
+            }
+        },
+    )
+
+
+def _write_browser_readback(root: Path) -> None:
+    _write_json(
+        root / "browser-original-readback-v1.json",
+        {
+            "manifest": {
+                "browser_original_readback_records": [
+                    {
+                        "original_notice_task_id": "",
+                        "project_id": "PROJ-CN-GD-JG2026-20001",
+                        "candidate_company_name": "广东甲公司",
+                        "responsible_person_names": ["张三"],
+                        "bid_project_name": "历史道路工程",
+                        "original_notice_url": "https://example.test/history.html",
+                        "source_url": "https://example.test/history.html",
+                        "browser_readback_state": "BROWSER_ORIGINAL_READBACK_READY",
+                        "status_code": 200,
+                        "content_type": "text/plain",
+                        "extracted_responsible_person_names": ["张三"],
+                        "extracted_company_names": ["广东甲公司"],
+                        "extracted_period_text": "365日历天",
+                        "extracted_award_date": "2025年10月15日",
+                        "text_probe": "中标单位：广东甲公司\n项目经理：张三\n工期：365日历天",
+                        "record_payload_sha256": "browser-readback-record",
+                    }
+                ]
             }
         },
     )

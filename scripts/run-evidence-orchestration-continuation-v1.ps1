@@ -7,6 +7,8 @@ param(
     [string]$OriginalNoticeBacktraceRoot = "",
     [string]$YgpReadbackRoot = "",
     [string]$YgpReadbackJson = "",
+    [string]$BrowserReadbackRoot = "",
+    [string]$BrowserReadbackJson = "",
     [string]$OutputRoot = "",
     [string]$ProjectIds = "",
     [switch]$EnableLiveOriginalNoticeBacktrace,
@@ -65,6 +67,12 @@ if ($YgpReadbackRoot) {
 }
 if ($YgpReadbackJson) {
     $argsList += @("--ygp-readback-json", $YgpReadbackJson)
+}
+if ($BrowserReadbackRoot) {
+    $argsList += @("--browser-readback-root", $BrowserReadbackRoot)
+}
+if ($BrowserReadbackJson) {
+    $argsList += @("--browser-readback-json", $BrowserReadbackJson)
 }
 if ($ProjectIds) {
     $argsList += @("--project-ids", $ProjectIds)

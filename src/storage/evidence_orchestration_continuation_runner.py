@@ -27,6 +27,8 @@ def run_evidence_orchestration_continuation(
     original_notice_backtrace_root: str | Path | None = None,
     ygp_readback_root: str | Path | None = None,
     ygp_readback_json: str | Path | None = None,
+    browser_readback_root: str | Path | None = None,
+    browser_readback_json: str | Path | None = None,
     output_root: str | Path = DEFAULT_OUTPUT_ROOT,
     enable_live_original_notice_backtrace: bool = False,
     max_live_original_notices: int | None = None,
@@ -75,6 +77,8 @@ def run_evidence_orchestration_continuation(
             output_root=original_out_root,
             ygp_readback_root=ygp_readback_root,
             ygp_readback_json=ygp_readback_json,
+            browser_readback_root=browser_readback_root,
+            browser_readback_json=browser_readback_json,
             enable_live_public_query=enable_live_original_notice_backtrace,
             max_live_original_notices=max_live_original_notices,
             project_ids=project_ids,
@@ -119,6 +123,10 @@ def run_evidence_orchestration_continuation(
         "source_p13b_company_history_root": str(p13b_company_history_root or ""),
         "source_original_notice_backtrace_json": str(original_notice_backtrace_json or ""),
         "source_original_notice_backtrace_root": str(original_notice_backtrace_root or ""),
+        "source_ygp_readback_root": str(ygp_readback_root or ""),
+        "source_ygp_readback_json": str(ygp_readback_json or ""),
+        "source_browser_readback_root": str(browser_readback_root or ""),
+        "source_browser_readback_json": str(browser_readback_json or ""),
         "state_before_root": str(state_before_root),
         "original_notice_backtrace_root": str(original_source_root or ""),
         "state_after_root": str(state_after_root),
@@ -230,6 +238,8 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--original-notice-backtrace-root", default="")
     parser.add_argument("--ygp-readback-root", default="")
     parser.add_argument("--ygp-readback-json", default="")
+    parser.add_argument("--browser-readback-root", default="")
+    parser.add_argument("--browser-readback-json", default="")
     parser.add_argument("--output-root", default=str(DEFAULT_OUTPUT_ROOT))
     parser.add_argument("--enable-live-original-notice-backtrace", action="store_true")
     parser.add_argument("--max-live-original-notices", type=int, default=None)
@@ -249,6 +259,8 @@ def main(argv: list[str] | None = None) -> int:
         original_notice_backtrace_root=args.original_notice_backtrace_root or None,
         ygp_readback_root=args.ygp_readback_root or None,
         ygp_readback_json=args.ygp_readback_json or None,
+        browser_readback_root=args.browser_readback_root or None,
+        browser_readback_json=args.browser_readback_json or None,
         output_root=args.output_root,
         enable_live_original_notice_backtrace=bool(args.enable_live_original_notice_backtrace),
         max_live_original_notices=args.max_live_original_notices,
