@@ -29,7 +29,36 @@ DEFAULT_OUTPUT_ROOT = Path("tmp/evaluation-real-samples/p13b-company-history-ove
 DEFAULT_YGP_EXPANSION_ROOT = Path("tmp/evaluation-real-samples/p13b-ygp-original-readback-expansion-v1")
 DEFAULT_YGP_COVERAGE_CLOSEOUT_ROOT = Path("tmp/evaluation-real-samples/guangdong-ygp-city-coverage-closeout-v1")
 DEFAULT_HISTORY_WINDOW_YEARS = (1, 2, 3)
+DEFAULT_HISTORY_WINDOW_MONTHS = 36
 DEFAULT_MAX_BID_RECORDS_PER_COMPANY = 10
+DEFAULT_BID_LIST_PAGE_SIZE = 20
+DEFAULT_MAX_BID_LIST_PAGES_PER_COMPANY = 6
+DEFAULT_LONG_TAIL_CUTOFF_YEAR = 2019
+DEFAULT_MAX_LONG_TAIL_BID_SHOWS_PER_COMPANY = 3
+
+LONG_TAIL_PROJECT_KEYWORDS = (
+    "epc",
+    "工程总承包",
+    "设计施工总承包",
+    "施工总承包",
+    "总承包",
+    "高速",
+    "高速公路",
+    "市政",
+    "管网",
+    "道路",
+    "桥梁",
+    "隧道",
+    "轨道",
+    "铁路",
+    "水利",
+    "改扩建",
+    "迁改",
+    "三年",
+    "五年",
+    "年度",
+    "2026-2029",
+)
 
 FORBIDDEN_TERMS = ("无风险", "无冲突", "在建冲突成立", "违法成立", "确认本人", "造假成立", "是不是本人")
 
@@ -46,10 +75,21 @@ def build_p13b_company_history_overlap_triage(
     max_live_companies: int | None = None,
     max_bid_records_per_company: int = DEFAULT_MAX_BID_RECORDS_PER_COMPANY,
     history_window_years: list[int] | tuple[int, ...] = DEFAULT_HISTORY_WINDOW_YEARS,
+    history_window_months: int | None = None,
+    bid_list_page_size: int = DEFAULT_BID_LIST_PAGE_SIZE,
+    max_bid_list_pages_per_company: int = DEFAULT_MAX_BID_LIST_PAGES_PER_COMPANY,
+    long_tail_cutoff_year: int = DEFAULT_LONG_TAIL_CUTOFF_YEAR,
+    max_long_tail_bid_shows_per_company: int = DEFAULT_MAX_LONG_TAIL_BID_SHOWS_PER_COMPANY,
     http_getter: HttpGetter | None = None,
     created_at: str | None = None,
 ) -> dict[str, Any]:
     created = created_at or utc_now_iso()
+    history_years = tuple(sorted({int(item) for item in history_window_years if int(item) > 0})) or DEFAULT_HISTORY_WINDOW_YEARS
+    history_months = _positive_int(history_window_months, max(history_years) * 12)
+    bid_page_size = _positive_int(bid_list_page_size, DEFAULT_BID_LIST_PAGE_SIZE)
+    max_bid_pages = _positive_int(max_bid_list_pages_per_company, DEFAULT_MAX_BID_LIST_PAGES_PER_COMPANY)
+    long_tail_year = _positive_int(long_tail_cutoff_year, DEFAULT_LONG_TAIL_CUTOFF_YEAR)
+    max_long_tail_shows = max(0, _int(max_long_tail_bid_shows_per_company))
     in_dir = Path(input_root)
     ygp_expansion_dir = Path(ygp_expansion_root) if ygp_expansion_root else None
     ygp_coverage_dir = Path(ygp_coverage_closeout_root) if ygp_coverage_closeout_root else None
@@ -81,7 +121,11 @@ def build_p13b_company_history_overlap_triage(
         )
         ygp_inputs = _ygp_overlap_inputs(ygp_input_table, ygp_expansion)
         ygp_input_count = len(ygp_inputs)
-        project_task_records = _ygp_project_task_records(ygp_inputs, _coverage_by_project(_source_manifest(ygp_coverage)))
+        project_task_records = _ygp_project_task_records(
+            ygp_inputs,
+            _coverage_by_project(_source_manifest(ygp_coverage)),
+            created_at=created,
+        )
         company_query_tasks = _company_query_tasks(project_task_records, created_at=created, dedupe_by_company=True)
     else:
         project_table = _load_json(in_dir / "project-value-table.json", blocking_reasons, "project_value_table_missing")
@@ -107,7 +151,7 @@ def build_p13b_company_history_overlap_triage(
             project_id = str(record.get("project_id") or "")
             if project_id in selected_project_ids:
                 candidates_by_project.setdefault(project_id, []).append(record)
-        project_task_records = _project_task_records(selected_projects, candidates_by_project)
+        project_task_records = _project_task_records(selected_projects, candidates_by_project, created_at=created)
         company_query_tasks = _company_query_tasks(project_task_records, created_at=created)
 
     execution_mode = "LIVE_PUBLIC_QUERY_ATTEMPTED" if enable_live_public_query else "PLAN_ONLY_NOT_EXECUTED"
@@ -117,7 +161,12 @@ def build_p13b_company_history_overlap_triage(
         enable_live_public_query=enable_live_public_query,
         max_live_companies=max_live_companies,
         max_bid_records_per_company=max_bid_records_per_company,
-        history_window_years=tuple(sorted({int(item) for item in history_window_years if int(item) > 0})),
+        history_window_years=history_years,
+        history_window_months=history_months,
+        bid_list_page_size=bid_page_size,
+        max_bid_list_pages_per_company=max_bid_pages,
+        long_tail_cutoff_year=long_tail_year,
+        max_long_tail_bid_shows_per_company=max_long_tail_shows,
         http_getter=http_getter,
     )
     manual_original_url_backtrace_table = _manual_original_url_backtrace_table(bid_show_records, overlap_signal_records)
@@ -150,7 +199,23 @@ def build_p13b_company_history_overlap_triage(
         "live_public_query_enabled": bool(enable_live_public_query),
         "max_live_companies": max_live_companies,
         "max_bid_records_per_company": max_bid_records_per_company,
-        "history_window_years": list(history_window_years),
+        "history_window_years": list(history_years),
+        "history_window_months": history_months,
+        "history_window_cutoff_date": _date_iso(_history_cutoff_date(created, history_months)),
+        "bid_list_page_size": bid_page_size,
+        "max_bid_list_pages_per_company": max_bid_pages,
+        "long_tail_cutoff_year": long_tail_year,
+        "long_tail_cutoff_date": f"{long_tail_year:04d}-01-01",
+        "max_long_tail_bid_shows_per_company": max_long_tail_shows,
+        "history_window_policy": {
+            "policy_id": "P13B_COMPANY_HISTORY_PAGINATION_TIME_STRATEGY_V1",
+            "default_window_months": history_months,
+            "default_selection_rule": "select bid_list records whose createTime is within the default 36-month window, then read bid_show",
+            "pagination_rule": "page bid_list until default cutoff for normal projects; high-value long-tail projects may scan toward the 2019 cutoff within the page budget",
+            "long_tail_extension_rule": "for EPC/general-contracting/municipal/highway/long-period titles, select a small capped set of older records from 2019 onward for bid_show readback",
+            "overlap_formula": "historical_start <= current_project_end AND historical_end >= current_project_start; if current project window is missing, fall back to candidate notice or run date as review reference",
+            "query_miss_is_not_clearance": True,
+        },
         "project_task_records": project_task_records,
         "company_history_query_records": company_history_query_records,
         "bid_show_records": bid_show_records,
@@ -204,6 +269,8 @@ def build_p13b_company_history_overlap_triage(
 def _project_task_records(
     selected_projects: list[dict[str, Any]],
     candidates_by_project: Mapping[str, list[dict[str, Any]]],
+    *,
+    created_at: str,
 ) -> list[dict[str, Any]]:
     records: list[dict[str, Any]] = []
     for project in selected_projects:
@@ -229,6 +296,7 @@ def _project_task_records(
                 "candidate_group_ids": _dedupe(str(candidate.get("candidate_group_id") or "") for candidate in candidates),
                 "candidate_companies": companies,
                 "responsible_person_names": people,
+                "current_project_time_window": _current_project_time_window(project, candidates, created_at=created_at),
                 "candidate_notice_source_urls": _list(project.get("candidate_notice_source_urls")),
                 "project_source_urls": _list(project.get("project_source_urls")),
                 "value_closeout_state": str(project.get("value_closeout_state") or ""),
@@ -270,6 +338,8 @@ def _coverage_by_project(coverage_manifest: Mapping[str, Any]) -> dict[str, dict
 def _ygp_project_task_records(
     ygp_inputs: list[dict[str, Any]],
     coverage_by_project: Mapping[str, Mapping[str, Any]],
+    *,
+    created_at: str,
 ) -> list[dict[str, Any]]:
     grouped: dict[str, dict[str, Any]] = {}
     for item in ygp_inputs:
@@ -289,6 +359,7 @@ def _ygp_project_task_records(
                 "candidate_companies": [],
                 "candidate_company_input_counts": {},
                 "responsible_person_names": [],
+                "current_project_time_window": _current_project_time_window(item, [], created_at=created_at),
                 "candidate_notice_source_urls": [],
                 "project_source_urls": [],
                 "value_closeout_state": "YGP_COVERAGE_READY_FOR_P13B",
@@ -310,6 +381,10 @@ def _ygp_project_task_records(
             project["candidate_company_input_counts"] = counts
         project["responsible_person_names"] = _dedupe(
             [*project["responsible_person_names"], *_list(item.get("responsible_person_candidates"))]
+        )
+        project["current_project_time_window"] = _merge_current_project_time_window(
+            project.get("current_project_time_window"),
+            _current_project_time_window(item, [], created_at=created_at),
         )
         urls = _dedupe([*project["candidate_notice_source_urls"], item.get("source_07_url"), item.get("source_url")])
         project["candidate_notice_source_urls"] = urls
@@ -366,6 +441,7 @@ def _company_query_tasks(
                 "candidate_company_name": company_name,
                 "candidate_company_variants": _company_search_variants(company_name),
                 "responsible_person_names": _list(project.get("responsible_person_names")),
+                "current_project_time_window": dict(project.get("current_project_time_window") or {}),
                 "candidate_notice_source_urls": _list(project.get("candidate_notice_source_urls")),
                 "search_url": search_url,
                 "execution_mode": "PLAN_ONLY_NOT_EXECUTED",
@@ -391,6 +467,7 @@ def _project_ref_for_company(project: Mapping[str, Any], company_name: str) -> d
         "city_code": str(project.get("city_code") or ""),
         "candidate_company_name": company_name,
         "responsible_person_names": _list(project.get("responsible_person_names")),
+        "current_project_time_window": dict(project.get("current_project_time_window") or {}),
         "candidate_notice_source_urls": _list(project.get("candidate_notice_source_urls")),
         "ygp_city_coverage_state": str(project.get("ygp_city_coverage_state") or ""),
         "backlog_tracked": bool(project.get("backlog_tracked")),
@@ -417,6 +494,11 @@ def _execute_company_history_tasks(
     max_live_companies: int | None,
     max_bid_records_per_company: int,
     history_window_years: tuple[int, ...],
+    history_window_months: int,
+    bid_list_page_size: int,
+    max_bid_list_pages_per_company: int,
+    long_tail_cutoff_year: int,
+    max_long_tail_bid_shows_per_company: int,
     http_getter: HttpGetter | None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
     if not enable_live_public_query:
@@ -426,7 +508,8 @@ def _execute_company_history_tasks(
     bid_show_records: list[dict[str, Any]] = []
     overlap_records: list[dict[str, Any]] = []
     attempted = 0
-    cutoff_year = _created_year(created_at) - max(history_window_years or DEFAULT_HISTORY_WINDOW_YEARS)
+    history_window_cutoff_date = _history_cutoff_date(created_at, history_window_months)
+    long_tail_cutoff_date = datetime(long_tail_cutoff_year, 1, 1)
     for task in tasks:
         if max_live_companies is not None and attempted >= max_live_companies:
             company_records.append(
@@ -444,7 +527,13 @@ def _execute_company_history_tasks(
             task,
             getter=getter,
             max_bid_records_per_company=max_bid_records_per_company,
-            cutoff_year=cutoff_year,
+            history_window_years=history_window_years,
+            history_window_months=history_window_months,
+            history_window_cutoff_date=history_window_cutoff_date,
+            bid_list_page_size=bid_list_page_size,
+            max_bid_list_pages_per_company=max_bid_list_pages_per_company,
+            long_tail_cutoff_date=long_tail_cutoff_date,
+            max_long_tail_bid_shows_per_company=max_long_tail_bid_shows_per_company,
             created_at=created_at,
         )
         company_records.append(company_record)
@@ -458,7 +547,13 @@ def _execute_company_task(
     *,
     getter: HttpGetter,
     max_bid_records_per_company: int,
-    cutoff_year: int,
+    history_window_years: tuple[int, ...],
+    history_window_months: int,
+    history_window_cutoff_date: datetime,
+    bid_list_page_size: int,
+    max_bid_list_pages_per_company: int,
+    long_tail_cutoff_date: datetime,
+    max_long_tail_bid_shows_per_company: int,
     created_at: str,
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     company_name = str(task.get("candidate_company_name") or "")
@@ -532,34 +627,83 @@ def _execute_company_task(
             [],
         )
     uniscid = str(matched.get("uniscid") or "").strip()
-    bid_list_url = _bid_list_url(uniscid, page_size=max_bid_records_per_company)
-    bid_list_attempt = _http_json(bid_list_url, getter, route="bid_list", task=task)
-    bid_blocker = _blockers_from_attempt(bid_list_attempt)
-    if bid_blocker:
-        return (
-            {
-                **dict(task),
-                "execution_mode": "LIVE_PUBLIC_QUERY_ATTEMPTED",
-                "query_state": "SOURCE_BLOCKED_RETRY_REQUIRED",
-                "search_attempt": search_attempt,
-                "search_attempts": search_attempts,
-                "bid_list_attempt": bid_list_attempt,
-                "matched_search_keyword": matched_search_keyword,
-                "matched_company_name": str(matched.get("entname") or matched.get("name") or company_name),
-                "uniscid": uniscid,
-                "blocker_taxonomy": bid_blocker,
-            },
-            [],
+    long_tail_scan_enabled = _long_tail_scan_enabled(task)
+    bid_list_attempts: list[dict[str, Any]] = []
+    bid_records_scanned: list[dict[str, Any]] = []
+    bid_list_total = 0
+    bid_list_stop_reason = ""
+    bid_list_pagination_limited = False
+    for page_no in range(1, max(1, max_bid_list_pages_per_company) + 1):
+        bid_list_url = _bid_list_url(uniscid, page_no=page_no, page_size=bid_list_page_size)
+        bid_list_attempt = _http_json(
+            bid_list_url,
+            getter,
+            route="bid_list",
+            task={**dict(task), "bid_list_page_no": page_no},
         )
-    bid_records_raw = _extract_records(
-        bid_list_attempt.get("json_payload"),
-        preferred_paths=(("result", "data", "records"), ("result", "records")),
+        bid_list_attempt["page_no"] = page_no
+        bid_list_attempts.append(bid_list_attempt)
+        bid_blocker = _blockers_from_attempt(bid_list_attempt)
+        if bid_blocker:
+            return (
+                {
+                    **dict(task),
+                    "execution_mode": "LIVE_PUBLIC_QUERY_ATTEMPTED",
+                    "query_state": "SOURCE_BLOCKED_RETRY_REQUIRED",
+                    "search_attempt": search_attempt,
+                    "search_attempts": search_attempts,
+                    "bid_list_attempt": bid_list_attempt,
+                    "bid_list_attempts": bid_list_attempts,
+                    "matched_search_keyword": matched_search_keyword,
+                    "matched_company_name": str(matched.get("entname") or matched.get("name") or company_name),
+                    "uniscid": uniscid,
+                    "history_window_years": list(history_window_years),
+                    "history_window_months": history_window_months,
+                    "history_window_cutoff_date": _date_iso(history_window_cutoff_date),
+                    "bid_list_page_size": bid_list_page_size,
+                    "max_bid_list_pages_per_company": max_bid_list_pages_per_company,
+                    "long_tail_scan_enabled": long_tail_scan_enabled,
+                    "long_tail_cutoff_date": _date_iso(long_tail_cutoff_date),
+                    "blocker_taxonomy": bid_blocker,
+                },
+                [],
+            )
+        bid_list_total = max(bid_list_total, _extract_total(bid_list_attempt.get("json_payload")))
+        page_records = _extract_records(
+            bid_list_attempt.get("json_payload"),
+            preferred_paths=(("result", "data", "records"), ("result", "records")),
+        )
+        for record in page_records:
+            bid_records_scanned.append({**record, "_p13b_bid_list_page_no": page_no})
+        if not page_records:
+            bid_list_stop_reason = "bid_list_empty_page"
+            break
+        oldest_on_page = _oldest_record_date(page_records)
+        if len(page_records) < bid_list_page_size:
+            bid_list_stop_reason = "bid_list_last_page_short"
+            break
+        if oldest_on_page and not long_tail_scan_enabled and oldest_on_page < history_window_cutoff_date:
+            bid_list_stop_reason = "default_history_window_cutoff_reached"
+            break
+        if oldest_on_page and long_tail_scan_enabled and oldest_on_page < long_tail_cutoff_date:
+            bid_list_stop_reason = "long_tail_cutoff_reached"
+            break
+    else:
+        bid_list_pagination_limited = True
+        bid_list_stop_reason = "max_bid_list_pages_reached"
+
+    bid_list_attempt = bid_list_attempts[0] if bid_list_attempts else {}
+    selected_bid_records, selection_summary = _select_bid_records_for_readback(
+        bid_records_scanned,
+        task=task,
+        max_default_window_records=max(0, _int(max_bid_records_per_company)),
+        history_window_cutoff_date=history_window_cutoff_date,
+        long_tail_cutoff_date=long_tail_cutoff_date,
+        long_tail_scan_enabled=long_tail_scan_enabled,
+        max_long_tail_records=max_long_tail_bid_shows_per_company,
     )
-    selected_bid_records = [
-        record
-        for record in bid_records_raw[:max_bid_records_per_company]
-        if _within_history_window(str(record.get("createTime") or ""), cutoff_year)
-    ]
+    bid_list_oldest = _oldest_record_date(bid_records_scanned)
+    bid_list_newest = _newest_record_date(bid_records_scanned)
     bid_show_records: list[dict[str, Any]] = []
     for bid in selected_bid_records:
         bid_id = str(bid.get("id") or "").strip()
@@ -578,6 +722,9 @@ def _execute_company_task(
             )
         )
     query_state = "COMPANY_HISTORY_RECORD_FOUND" if selected_bid_records else "NO_PUBLIC_OVERLAP_SIGNAL_REVIEW"
+    blockers = [] if selected_bid_records else ["bid_list_no_recent_or_long_tail_record_review"]
+    if bid_list_pagination_limited:
+        blockers.append("bid_list_pagination_limit_reached_review")
     return (
         {
             **dict(task),
@@ -586,15 +733,31 @@ def _execute_company_task(
             "search_attempt": search_attempt,
             "search_attempts": search_attempts,
             "bid_list_attempt": bid_list_attempt,
+            "bid_list_attempts": bid_list_attempts,
             "matched_search_keyword": matched_search_keyword,
             "matched_company_name": str(matched.get("entname") or matched.get("name") or company_name),
             "uniscid": uniscid,
             "search_total": _extract_total(search_attempt.get("json_payload")),
-            "bid_list_total": _extract_total(bid_list_attempt.get("json_payload")),
+            "bid_list_total": bid_list_total,
+            "bid_list_page_size": bid_list_page_size,
+            "bid_list_page_count": len(bid_list_attempts),
+            "max_bid_list_pages_per_company": max_bid_list_pages_per_company,
+            "bid_list_stop_reason": bid_list_stop_reason,
+            "bid_list_scanned_record_count": len(bid_records_scanned),
+            "bid_list_oldest_create_time": _date_iso(bid_list_oldest),
+            "bid_list_newest_create_time": _date_iso(bid_list_newest),
             "selected_bid_record_count": len(selected_bid_records),
+            "selected_default_window_record_count": selection_summary["selected_default_window_record_count"],
+            "selected_long_tail_record_count": selection_summary["selected_long_tail_record_count"],
             "max_bid_records_per_company": max_bid_records_per_company,
+            "history_window_years": list(history_window_years),
+            "history_window_months": history_window_months,
+            "history_window_cutoff_date": _date_iso(history_window_cutoff_date),
+            "long_tail_scan_enabled": long_tail_scan_enabled,
+            "long_tail_cutoff_date": _date_iso(long_tail_cutoff_date),
+            "max_long_tail_bid_shows_per_company": max_long_tail_bid_shows_per_company,
             "query_miss_is_not_clearance": True,
-            "blocker_taxonomy": [] if selected_bid_records else ["bid_list_no_recent_record_review"],
+            "blocker_taxonomy": _dedupe(blockers),
         },
         bid_show_records,
     )
@@ -620,7 +783,8 @@ def _bid_show_record(
     time_window = _time_window_review_fields(
         period_text,
         award_date,
-        reference_date_text=created_at,
+        reference_date_text=_time_window_reference_date_text(task, created_at),
+        current_project_time_window=dict(task.get("current_project_time_window") or {}),
     )
     company_names = _dedupe(
         [
@@ -652,15 +816,25 @@ def _bid_show_record(
         "bid_area_code": str(result.get("areaCode") or bid_record.get("areaCode") or ""),
         "bid_create_time": str(bid_record.get("createTime") or ""),
         "bid_price": str(result.get("bidPrice") or bid_record.get("bidPrice") or ""),
+        "bid_list_page_no": _int(bid_record.get("_p13b_bid_list_page_no")),
+        "bid_list_selection_scope": str(bid_record.get("_p13b_selection_scope") or ""),
+        "bid_list_selection_reason": str(bid_record.get("_p13b_selection_reason") or ""),
         "bid_show_url": bid_show_url,
         "original_notice_url": original_url,
         "extracted_responsible_person_names": extracted_people,
         "extracted_period_text": period_text,
         "extracted_award_date": award_date,
+        "historical_performance_start_date": time_window["historical_performance_start_date"],
+        "historical_performance_end_date": time_window["historical_performance_end_date"],
         "time_window_review_state": time_window["time_window_review_state"],
         "time_window_reference_date": time_window["time_window_reference_date"],
         "estimated_performance_end_date": time_window["estimated_performance_end_date"],
         "time_window_review_basis": time_window["time_window_review_basis"],
+        "current_project_time_window": dict(task.get("current_project_time_window") or {}),
+        "current_project_time_window_state": time_window["current_project_time_window_state"],
+        "current_project_start_date": time_window["current_project_start_date"],
+        "current_project_end_date": time_window["current_project_end_date"],
+        "time_window_overlap_formula": time_window["time_window_overlap_formula"],
         "bid_show_state": state,
         "original_notice_backtrace_required": state == "ORIGINAL_NOTICE_BACKTRACE_REQUIRED",
         "text_probe": text_probe,
@@ -723,14 +897,23 @@ def _overlap_records_for_company(
                 "bid_project_name": str(show.get("bid_project_name") or ""),
                 "historical_project_area_code": str(show.get("bid_area_code") or ""),
                 "bid_area_code": str(show.get("bid_area_code") or ""),
+                "bid_list_selection_scope": str(show.get("bid_list_selection_scope") or ""),
+                "bid_list_selection_reason": str(show.get("bid_list_selection_reason") or ""),
                 "bid_show_url": str(show.get("bid_show_url") or ""),
                 "original_notice_url": str(show.get("original_notice_url") or ""),
                 "extracted_period_text": str(show.get("extracted_period_text") or ""),
                 "extracted_award_date": str(show.get("extracted_award_date") or ""),
+                "historical_performance_start_date": str(show.get("historical_performance_start_date") or ""),
+                "historical_performance_end_date": str(show.get("historical_performance_end_date") or ""),
                 "time_window_review_state": time_window_state,
                 "time_window_reference_date": str(show.get("time_window_reference_date") or ""),
                 "estimated_performance_end_date": str(show.get("estimated_performance_end_date") or ""),
                 "time_window_review_basis": str(show.get("time_window_review_basis") or ""),
+                "current_project_time_window": dict(show.get("current_project_time_window") or {}),
+                "current_project_time_window_state": str(show.get("current_project_time_window_state") or ""),
+                "current_project_start_date": str(show.get("current_project_start_date") or ""),
+                "current_project_end_date": str(show.get("current_project_end_date") or ""),
+                "time_window_overlap_formula": str(show.get("time_window_overlap_formula") or ""),
                 "overlap_signal_state": state,
                 "review_reasons": reasons,
                 "overlap_source_stage": "DATA_GGZY_BID_SHOW_DIRECT"
@@ -770,6 +953,9 @@ def _manual_original_url_backtrace_table(
                 "bid_project_name": str(show.get("bid_project_name") or ""),
                 "historical_project_area_code": str(show.get("bid_area_code") or ""),
                 "bid_area_code": str(show.get("bid_area_code") or ""),
+                "bid_list_selection_scope": str(show.get("bid_list_selection_scope") or ""),
+                "bid_list_selection_reason": str(show.get("bid_list_selection_reason") or ""),
+                "current_project_time_window": dict(show.get("current_project_time_window") or {}),
                 "original_notice_url": original_url,
                 "backtrace_reason": state,
                 "suggested_next_step": "targeted_original_notice_01_to_12_backtrace",
@@ -813,6 +999,15 @@ def _summary(
         "queried_company_count": queried_company_count,
         "company_search_hit_count": company_search_hit_count,
         "bid_list_hit_count": bid_list_hit_count,
+        "bid_list_page_attempt_count": sum(_int(record.get("bid_list_page_count")) for record in company_history_query_records),
+        "bid_list_scanned_record_count": sum(_int(record.get("bid_list_scanned_record_count")) for record in company_history_query_records),
+        "selected_default_window_record_count": sum(
+            _int(record.get("selected_default_window_record_count")) for record in company_history_query_records
+        ),
+        "selected_long_tail_record_count": sum(
+            _int(record.get("selected_long_tail_record_count")) for record in company_history_query_records
+        ),
+        "long_tail_scan_enabled_company_count": sum(1 for record in company_history_query_records if record.get("long_tail_scan_enabled")),
         "project_task_count": len(project_task_records),
         "company_history_query_task_count": len(company_history_query_records),
         "company_history_record_found_count": sum(
@@ -1025,6 +1220,280 @@ def _company_search_variants(company_name: str) -> list[str]:
     return _dedupe(variants)
 
 
+def _current_project_time_window(
+    project: Mapping[str, Any],
+    candidates: Iterable[Mapping[str, Any]],
+    *,
+    created_at: str,
+) -> dict[str, Any]:
+    records = [dict(project), *[dict(item) for item in candidates if isinstance(item, Mapping)]]
+    for record in records:
+        window = _current_project_window_from_mapping(record.get("current_project_time_window") or record.get("project_time_window"))
+        if window:
+            return window
+    for record in records:
+        start = _first_date_from_fields(
+            record,
+            (
+                "current_project_start_at",
+                "current_project_start_date",
+                "project_start_at",
+                "project_start_date",
+                "service_start_at",
+                "service_start_date",
+                "contract_start_at",
+                "contract_start_date",
+                "planned_start_at",
+                "planned_start_date",
+            ),
+        )
+        end = _first_date_from_fields(
+            record,
+            (
+                "current_project_end_at",
+                "current_project_end_date",
+                "project_end_at",
+                "project_end_date",
+                "service_end_at",
+                "service_end_date",
+                "contract_end_at",
+                "contract_end_date",
+                "planned_end_at",
+                "planned_end_date",
+            ),
+        )
+        if start or end:
+            return {
+                "window_state": "CURRENT_PROJECT_TIME_WINDOW_RESOLVED" if start and end else "CURRENT_PROJECT_TIME_WINDOW_PARTIAL_REVIEW",
+                "start_at": _date_iso(start),
+                "end_at": _date_iso(end),
+                "period_text": "",
+                "reference_date": _date_iso(start or end),
+                "basis": "current_project_explicit_start_end_fields",
+            }
+    for record in records:
+        period_text = _first_text_from_fields(
+            record,
+            (
+                "current_project_period_text",
+                "project_period_text",
+                "construction_period_text",
+                "service_period_text",
+                "contract_period_text",
+                "performance_period_text",
+                "period_text",
+                "duration_text",
+                "工期",
+                "服务期",
+            ),
+        )
+        if not period_text:
+            continue
+        reference_text = _first_text_from_fields(
+            record,
+            (
+                "candidate_notice_publish_date",
+                "candidate_notice_publish_time",
+                "notice_publish_date",
+                "notice_publish_time",
+                "publish_date",
+                "publish_time",
+                "created_at",
+            ),
+        ) or created_at
+        start, end, basis = _estimate_performance_window(period_text, reference_text)
+        if start or end:
+            return {
+                "window_state": "CURRENT_PROJECT_TIME_WINDOW_RESOLVED" if start and end else "CURRENT_PROJECT_TIME_WINDOW_PARTIAL_REVIEW",
+                "start_at": _date_iso(start),
+                "end_at": _date_iso(end),
+                "period_text": period_text,
+                "reference_date": _date_iso(start or _parse_date(reference_text) or _parse_date(created_at)),
+                "basis": f"current_project_period_text:{basis}",
+            }
+    reference = _parse_date(_first_text_from_fields(records[0] if records else {}, ("candidate_notice_publish_date", "notice_publish_date", "publish_date")) or created_at)
+    return {
+        "window_state": "CURRENT_PROJECT_TIME_WINDOW_MISSING_REFERENCE_DATE_FALLBACK",
+        "start_at": "",
+        "end_at": "",
+        "period_text": "",
+        "reference_date": _date_iso(reference),
+        "basis": "candidate_notice_or_run_date_reference_only",
+    }
+
+
+def _current_project_window_from_mapping(value: Any) -> dict[str, Any]:
+    if not isinstance(value, Mapping):
+        return {}
+    start = _parse_date(str(value.get("start_at") or value.get("start") or value.get("start_date") or ""))
+    end = _parse_date(str(value.get("end_at") or value.get("end") or value.get("end_date") or ""))
+    if not start and not end:
+        return {}
+    return {
+        "window_state": "CURRENT_PROJECT_TIME_WINDOW_RESOLVED" if start and end else "CURRENT_PROJECT_TIME_WINDOW_PARTIAL_REVIEW",
+        "start_at": _date_iso(start),
+        "end_at": _date_iso(end),
+        "period_text": str(value.get("period_text") or value.get("duration_text") or ""),
+        "reference_date": _date_iso(start or end),
+        "basis": str(value.get("basis") or "current_project_time_window_mapping"),
+    }
+
+
+def _merge_current_project_time_window(first: Any, second: Any) -> dict[str, Any]:
+    first_map = dict(first or {}) if isinstance(first, Mapping) else {}
+    second_map = dict(second or {}) if isinstance(second, Mapping) else {}
+    if str(first_map.get("window_state") or "") == "CURRENT_PROJECT_TIME_WINDOW_RESOLVED":
+        return first_map
+    if str(second_map.get("window_state") or "") == "CURRENT_PROJECT_TIME_WINDOW_RESOLVED":
+        return second_map
+    return first_map or second_map
+
+
+def _first_text_from_fields(record: Mapping[str, Any], names: Iterable[str]) -> str:
+    for name in names:
+        value = record.get(name)
+        if value is None:
+            continue
+        text = str(value).strip()
+        if text:
+            return text
+    return ""
+
+
+def _first_date_from_fields(record: Mapping[str, Any], names: Iterable[str]) -> datetime | None:
+    for name in names:
+        parsed = _parse_date(str(record.get(name) or ""))
+        if parsed:
+            return parsed
+    return None
+
+
+def _time_window_reference_date_text(task: Mapping[str, Any], created_at: str) -> str:
+    current_window = task.get("current_project_time_window")
+    if isinstance(current_window, Mapping):
+        return str(current_window.get("start_at") or current_window.get("reference_date") or created_at)
+    return created_at
+
+
+def _history_cutoff_date(created_at: str, history_window_months: int) -> datetime:
+    base = _parse_date(created_at) or datetime.utcnow()
+    return _subtract_months(base, max(1, history_window_months))
+
+
+def _subtract_months(value: datetime, months: int) -> datetime:
+    year = value.year
+    month = value.month - months
+    while month <= 0:
+        year -= 1
+        month += 12
+    day = min(value.day, _days_in_month(year, month))
+    return value.replace(year=year, month=month, day=day)
+
+
+def _days_in_month(year: int, month: int) -> int:
+    if month == 12:
+        next_month = datetime(year + 1, 1, 1)
+    else:
+        next_month = datetime(year, month + 1, 1)
+    return (next_month - timedelta(days=1)).day
+
+
+def _select_bid_records_for_readback(
+    records: list[dict[str, Any]],
+    *,
+    task: Mapping[str, Any],
+    max_default_window_records: int,
+    history_window_cutoff_date: datetime,
+    long_tail_cutoff_date: datetime,
+    long_tail_scan_enabled: bool,
+    max_long_tail_records: int,
+) -> tuple[list[dict[str, Any]], dict[str, int]]:
+    selected: list[dict[str, Any]] = []
+    seen_ids: set[str] = set()
+    default_count = 0
+    long_tail_count = 0
+    for record in records:
+        record_id = str(record.get("id") or record.get("bidId") or _fingerprint(record))
+        if record_id in seen_ids:
+            continue
+        create_date = _record_create_date(record)
+        if create_date is None or create_date >= history_window_cutoff_date:
+            if default_count >= max_default_window_records:
+                continue
+            default_count += 1
+            seen_ids.add(record_id)
+            selected.append(
+                {
+                    **record,
+                    "_p13b_selection_scope": "DEFAULT_36_MONTH_WINDOW",
+                    "_p13b_selection_reason": "create_time_within_default_history_window_or_missing",
+                }
+            )
+            continue
+        if (
+            long_tail_scan_enabled
+            and create_date >= long_tail_cutoff_date
+            and long_tail_count < max_long_tail_records
+            and _long_tail_record_candidate(record, task)
+        ):
+            long_tail_count += 1
+            seen_ids.add(record_id)
+            selected.append(
+                {
+                    **record,
+                    "_p13b_selection_scope": "LONG_TAIL_2019_EXTENSION",
+                    "_p13b_selection_reason": "high_value_long_period_project_title_within_2019_cutoff",
+                }
+            )
+    return selected, {
+        "selected_default_window_record_count": default_count,
+        "selected_long_tail_record_count": long_tail_count,
+    }
+
+
+def _long_tail_scan_enabled(task: Mapping[str, Any]) -> bool:
+    return _has_long_tail_keywords(
+        " ".join(
+            [
+                str(task.get("project_name") or ""),
+                str(task.get("candidate_company_name") or ""),
+                str((task.get("current_project_time_window") or {}).get("period_text") if isinstance(task.get("current_project_time_window"), Mapping) else ""),
+            ]
+        )
+    )
+
+
+def _long_tail_record_candidate(record: Mapping[str, Any], task: Mapping[str, Any]) -> bool:
+    text = " ".join(
+        [
+            str(record.get("projectName") or record.get("title") or record.get("bidProjectName") or ""),
+            str(task.get("project_name") or ""),
+        ]
+    )
+    return _has_long_tail_keywords(text)
+
+
+def _has_long_tail_keywords(text: str) -> bool:
+    lowered = str(text or "").lower()
+    return any(keyword.lower() in lowered for keyword in LONG_TAIL_PROJECT_KEYWORDS)
+
+
+def _record_create_date(record: Mapping[str, Any]) -> datetime | None:
+    return _parse_date(str(record.get("createTime") or record.get("publishTime") or record.get("bidTime") or ""))
+
+
+def _oldest_record_date(records: Iterable[Mapping[str, Any]]) -> datetime | None:
+    dates = [_record_create_date(record) for record in records if isinstance(record, Mapping)]
+    valid_dates = [date for date in dates if date is not None]
+    return min(valid_dates) if valid_dates else None
+
+
+def _newest_record_date(records: Iterable[Mapping[str, Any]]) -> datetime | None:
+    dates = [_record_create_date(record) for record in records if isinstance(record, Mapping)]
+    valid_dates = [date for date in dates if date is not None]
+    return max(valid_dates) if valid_dates else None
+
+
 def _extract_responsible_people(text: str) -> list[str]:
     patterns = [
         r"(?:项目负责人|项目经理|施工项目负责人|设计负责人|勘察负责人|总监理工程师|工程总承包项目经理)\s*[:：]\s*([\u4e00-\u9fa5·]{2,8})",
@@ -1048,43 +1517,86 @@ def _extract_period_text(text: str) -> str:
     return ""
 
 
-def _time_window_review_fields(period_text: str, award_date: str, *, reference_date_text: str) -> dict[str, str]:
+def _time_window_review_fields(
+    period_text: str,
+    award_date: str,
+    *,
+    reference_date_text: str,
+    current_project_time_window: Mapping[str, Any] | None = None,
+) -> dict[str, str]:
     reference_date = _parse_date(reference_date_text) or datetime.utcnow()
-    estimated_end, basis = _estimate_performance_end_date(period_text, award_date)
+    historical_start, historical_end, basis = _estimate_performance_window(period_text, award_date)
+    current_window = dict(current_project_time_window or {})
+    current_start = _parse_date(str(current_window.get("start_at") or ""))
+    current_end = _parse_date(str(current_window.get("end_at") or ""))
     if not str(period_text or "").strip():
         state = "TIME_WINDOW_NOT_AVAILABLE"
-    elif estimated_end is None:
+    elif historical_end is None:
         state = "TIME_WINDOW_REVIEW_REQUIRED"
-    elif estimated_end.date() >= reference_date.date():
+    elif current_start and current_end:
+        state = (
+            "TIME_WINDOW_OVERLAP_REVIEW"
+            if _date_ranges_overlap(historical_start or historical_end, historical_end, current_start, current_end)
+            else "TIME_WINDOW_NO_OVERLAP_REVIEW"
+        )
+    elif historical_end.date() >= reference_date.date():
         state = "TIME_WINDOW_OVERLAP_REVIEW"
     else:
         state = "TIME_WINDOW_NO_OVERLAP_REVIEW"
+    formula = (
+        "historical_start <= current_project_end AND historical_end >= current_project_start"
+        if current_start and current_end
+        else "historical_end >= candidate_notice_or_run_reference_date"
+    )
     return {
         "time_window_review_state": state,
         "time_window_reference_date": reference_date.date().isoformat(),
-        "estimated_performance_end_date": estimated_end.date().isoformat() if estimated_end else "",
+        "historical_performance_start_date": historical_start.date().isoformat() if historical_start else "",
+        "historical_performance_end_date": historical_end.date().isoformat() if historical_end else "",
+        "estimated_performance_end_date": historical_end.date().isoformat() if historical_end else "",
         "time_window_review_basis": basis,
+        "current_project_time_window_state": str(current_window.get("window_state") or "CURRENT_PROJECT_TIME_WINDOW_MISSING_REFERENCE_DATE_FALLBACK"),
+        "current_project_start_date": current_start.date().isoformat() if current_start else "",
+        "current_project_end_date": current_end.date().isoformat() if current_end else "",
+        "time_window_overlap_formula": formula,
     }
 
 
 def _estimate_performance_end_date(period_text: str, award_date: str) -> tuple[datetime | None, str]:
+    _start, end, basis = _estimate_performance_window(period_text, award_date)
+    return end, basis
+
+
+def _estimate_performance_window(period_text: str, award_date: str) -> tuple[datetime | None, datetime | None, str]:
     period = str(period_text or "")
     explicit_dates = _parse_dates(period)
-    if explicit_dates:
-        return max(explicit_dates), "period_text_explicit_end_date"
+    award = _parse_date(award_date)
+    if len(explicit_dates) >= 2:
+        return min(explicit_dates), max(explicit_dates), "period_text_explicit_start_end_dates"
+    if len(explicit_dates) == 1:
+        return award, explicit_dates[0], "award_date_to_period_text_explicit_end_date" if award else "period_text_explicit_end_date"
     start = _parse_date(award_date)
     if not start:
-        return None, "award_date_missing_for_duration_estimate"
+        return None, None, "award_date_missing_for_duration_estimate"
     days_match = re.search(r"([0-9]{1,5})\s*(?:日历天|天|日)", period)
     if days_match:
-        return start + timedelta(days=int(days_match.group(1))), "award_date_plus_duration_days"
+        return start, start + timedelta(days=int(days_match.group(1))), "award_date_plus_duration_days"
     months_match = re.search(r"([0-9]{1,3})\s*(?:个月|月)", period)
     if months_match:
-        return start + timedelta(days=int(months_match.group(1)) * 30), "award_date_plus_duration_months_approx"
+        return start, start + timedelta(days=int(months_match.group(1)) * 30), "award_date_plus_duration_months_approx"
     years_match = re.search(r"([0-9]{1,2})\s*年", period)
     if years_match:
-        return start + timedelta(days=int(years_match.group(1)) * 365), "award_date_plus_duration_years_approx"
-    return None, "period_text_not_machine_estimable"
+        return start, start + timedelta(days=int(years_match.group(1)) * 365), "award_date_plus_duration_years_approx"
+    return None, None, "period_text_not_machine_estimable"
+
+
+def _date_ranges_overlap(
+    historical_start: datetime,
+    historical_end: datetime,
+    current_start: datetime,
+    current_end: datetime,
+) -> bool:
+    return historical_start.date() <= current_end.date() and historical_end.date() >= current_start.date()
 
 
 def _parse_dates(text: str) -> list[datetime]:
@@ -1143,6 +1655,10 @@ def _created_year(created_at: str) -> int:
     return datetime.utcnow().year
 
 
+def _date_iso(value: datetime | None) -> str:
+    return value.date().isoformat() if value else ""
+
+
 def _contains_company(company_names: Any, candidate_company: str) -> bool:
     candidate = _norm(candidate_company)
     if not candidate:
@@ -1160,9 +1676,9 @@ def _company_search_url(company_name: str) -> str:
     )
 
 
-def _bid_list_url(uniscid: str, *, page_size: int) -> str:
+def _bid_list_url(uniscid: str, *, page_no: int = 1, page_size: int) -> str:
     return DATA_GGZY_BID_LIST_URL + "?" + urllib.parse.urlencode(
-        {"uniscid": uniscid, "tos": "", "pageNo": 1, "pageSize": page_size}
+        {"uniscid": uniscid, "tos": "", "pageNo": page_no, "pageSize": page_size}
     )
 
 
@@ -1234,6 +1750,11 @@ def _int(value: Any) -> int:
         return 0
 
 
+def _positive_int(value: Any, default: int) -> int:
+    parsed = _int(value)
+    return parsed if parsed > 0 else default
+
+
 def _stable_id(prefix: str, *parts: Any) -> str:
     return f"{prefix}-{_sha256('|'.join(str(part or '') for part in parts))[:12]}"
 
@@ -1268,6 +1789,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--max-live-companies", type=int, default=None)
     parser.add_argument("--max-bid-records-per-company", type=int, default=DEFAULT_MAX_BID_RECORDS_PER_COMPANY)
     parser.add_argument("--history-window-years", default="1,2,3")
+    parser.add_argument("--history-window-months", type=int, default=DEFAULT_HISTORY_WINDOW_MONTHS)
+    parser.add_argument("--bid-list-page-size", type=int, default=DEFAULT_BID_LIST_PAGE_SIZE)
+    parser.add_argument("--max-bid-list-pages-per-company", type=int, default=DEFAULT_MAX_BID_LIST_PAGES_PER_COMPANY)
+    parser.add_argument("--long-tail-cutoff-year", type=int, default=DEFAULT_LONG_TAIL_CUTOFF_YEAR)
+    parser.add_argument("--max-long-tail-bid-shows-per-company", type=int, default=DEFAULT_MAX_LONG_TAIL_BID_SHOWS_PER_COMPANY)
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
     result = build_p13b_company_history_overlap_triage(
@@ -1279,6 +1805,11 @@ def main(argv: list[str] | None = None) -> int:
         max_live_companies=args.max_live_companies,
         max_bid_records_per_company=args.max_bid_records_per_company,
         history_window_years=_parse_history_window_years(args.history_window_years),
+        history_window_months=args.history_window_months,
+        bid_list_page_size=args.bid_list_page_size,
+        max_bid_list_pages_per_company=args.max_bid_list_pages_per_company,
+        long_tail_cutoff_year=args.long_tail_cutoff_year,
+        max_long_tail_bid_shows_per_company=args.max_long_tail_bid_shows_per_company,
     )
     if args.json:
         print(json.dumps(result, ensure_ascii=False, indent=2))

@@ -7,6 +7,11 @@ param(
     [int]$MaxLiveCompanies = 0,
     [int]$MaxBidRecordsPerCompany = 10,
     [string]$HistoryWindowYears = "1,2,3",
+    [int]$HistoryWindowMonths = 36,
+    [int]$BidListPageSize = 20,
+    [int]$MaxBidListPagesPerCompany = 6,
+    [int]$LongTailCutoffYear = 2019,
+    [int]$MaxLongTailBidShowsPerCompany = 3,
     [switch]$EmitJson
 )
 
@@ -34,7 +39,12 @@ $argsList = @(
     "--input-root", $InputRoot,
     "--output-root", $OutputRoot,
     "--max-bid-records-per-company", "$MaxBidRecordsPerCompany",
-    "--history-window-years", $HistoryWindowYears
+    "--history-window-years", $HistoryWindowYears,
+    "--history-window-months", "$HistoryWindowMonths",
+    "--bid-list-page-size", "$BidListPageSize",
+    "--max-bid-list-pages-per-company", "$MaxBidListPagesPerCompany",
+    "--long-tail-cutoff-year", "$LongTailCutoffYear",
+    "--max-long-tail-bid-shows-per-company", "$MaxLongTailBidShowsPerCompany"
 )
 
 if ($YgpExpansionRoot) {

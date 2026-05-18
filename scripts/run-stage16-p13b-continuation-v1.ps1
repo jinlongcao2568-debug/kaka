@@ -6,6 +6,11 @@ param(
     [int]$MaxLiveCompanies = 2,
     [int]$MaxBidRecordsPerCompany = 10,
     [string]$HistoryWindowYears = "1,2,3",
+    [int]$HistoryWindowMonths = 36,
+    [int]$BidListPageSize = 20,
+    [int]$MaxBidListPagesPerCompany = 6,
+    [int]$LongTailCutoffYear = 2019,
+    [int]$MaxLongTailBidShowsPerCompany = 3,
     [switch]$EmitJson
 )
 
@@ -51,7 +56,12 @@ $p13bArgs = @(
     "-OutputRoot", $p13bRoot,
     "-MaxLiveCompanies", "$MaxLiveCompanies",
     "-MaxBidRecordsPerCompany", "$MaxBidRecordsPerCompany",
-    "-HistoryWindowYears", $HistoryWindowYears
+    "-HistoryWindowYears", $HistoryWindowYears,
+    "-HistoryWindowMonths", "$HistoryWindowMonths",
+    "-BidListPageSize", "$BidListPageSize",
+    "-MaxBidListPagesPerCompany", "$MaxBidListPagesPerCompany",
+    "-LongTailCutoffYear", "$LongTailCutoffYear",
+    "-MaxLongTailBidShowsPerCompany", "$MaxLongTailBidShowsPerCompany"
 )
 if ($EnableLivePublicQuery) {
     $p13bArgs += "-EnableLivePublicQuery"

@@ -684,6 +684,10 @@ class BusinessDirectionStrategyContractTests(unittest.TestCase):
         self.assertEqual(policy["primary_company_history_source_url"], "https://data.ggzy.gov.cn/")
         self.assertIn("data.ggzy.yjcx.index.search_by_company_name_or_unified_social_credit_code", policy["primary_company_history_query_flow"])
         self.assertIn("data.ggzy.yjcx.index.bid_show_by_record_id_for_notice_content_and_original_url", policy["primary_company_history_query_flow"])
+        self.assertIn(
+            "data.ggzy.yjcx.index.bid_list_by_uniscid_paginated_default_36_months_with_capped_2019_long_tail_for_high_value_projects",
+            policy["primary_company_history_query_flow"],
+        )
         self.assertIn("do_not_download_all_01_to_12_or_parse_flow_08_by_default_for_p13b", policy["primary_company_history_query_flow"])
         self.assertIn("data_ggzy_company_award_history_search_by_company_name_or_uniscid", policy["first_pass_sources"])
         self.assertIn("data_ggzy_bid_show_notice_content_and_original_url", policy["first_pass_sources"])
@@ -721,6 +725,15 @@ class BusinessDirectionStrategyContractTests(unittest.TestCase):
         self.assertIn("do_not_fallback_non_guangdong_history_project_to_guangdong_or_guangzhou_sources", policy["must_not"])
         self.assertIn("do_not_default_download_all_01_to_12_flows_for_p13b_original_backtrace", policy["must_not"])
         self.assertIn("do_not_use_ygp_as_guangzhou_primary_source", policy["must_not"])
+        lookup_policy = policy["company_history_lookup_window_policy"]
+        self.assertEqual(lookup_policy["policy_id"], "P13B_COMPANY_HISTORY_PAGINATION_TIME_STRATEGY_V1")
+        self.assertEqual(lookup_policy["default_window_months"], 36)
+        self.assertEqual(lookup_policy["long_tail_cutoff_year"], 2019)
+        self.assertEqual(
+            lookup_policy["overlap_formula"],
+            "historical_start <= current_project_end AND historical_end >= current_project_start",
+        )
+        self.assertIn("stop_when_max_bid_list_pages_per_company_reached_and_mark_pagination_limit_review", lookup_policy["pagination_stop_rules"])
         self.assertIn("ygp.url_mapping_original_readback_when_data_ggzy_points_to_ygp", policy["primary_company_history_query_flow"])
         self.assertIn(
             "use_original_notice_url_for_targeted_flow_backtrace_only_when_bid_show_is_insufficient_for_person_or_contract_or_delivery_period",

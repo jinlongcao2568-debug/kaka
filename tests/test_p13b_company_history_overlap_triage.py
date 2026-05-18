@@ -123,6 +123,83 @@ class P13BCompanyHistoryOverlapTriageTests(unittest.TestCase):
             self.assertEqual(overlap["overlap_signal_state"], "NO_PUBLIC_OVERLAP_SIGNAL_REVIEW")
             self.assertEqual(result["manifest"]["manual_original_url_backtrace_table"], [])
 
+    def test_current_project_window_is_used_for_overlap_formula(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_p12_tables(
+                root,
+                first_company="窗口公司",
+                first_person="钱九",
+                first_current_project_time_window={"start_at": "2026-08-01", "end_at": "2026-12-01"},
+            )
+
+            result = build_p13b_company_history_overlap_triage(
+                input_root=root,
+                output_root=root / "out",
+                enable_live_public_query=True,
+                max_live_companies=1,
+                http_getter=_fake_http_getter,
+                created_at="2026-05-15T00:00:00+08:00",
+            )
+
+            bid_show = result["manifest"]["bid_show_records"][0]
+            self.assertEqual(bid_show["historical_performance_start_date"], "2026-01-01")
+            self.assertEqual(bid_show["historical_performance_end_date"], "2026-06-01")
+            self.assertEqual(bid_show["current_project_start_date"], "2026-08-01")
+            self.assertEqual(bid_show["time_window_review_state"], "TIME_WINDOW_NO_OVERLAP_REVIEW")
+            self.assertIn("historical_start <= current_project_end", bid_show["time_window_overlap_formula"])
+            overlap = result["manifest"]["overlap_signal_records"][0]
+            self.assertEqual(overlap["overlap_signal_state"], "NO_PUBLIC_OVERLAP_SIGNAL_REVIEW")
+
+    def test_bid_list_paginates_until_recent_record_budget_or_stop_condition(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_p12_tables(root, first_company="分页公司", first_person="孙十")
+
+            result = build_p13b_company_history_overlap_triage(
+                input_root=root,
+                output_root=root / "out",
+                enable_live_public_query=True,
+                max_live_companies=1,
+                max_bid_records_per_company=3,
+                bid_list_page_size=2,
+                max_bid_list_pages_per_company=3,
+                http_getter=_fake_http_getter,
+                created_at="2026-05-15T00:00:00+08:00",
+            )
+
+            company = result["manifest"]["company_history_query_records"][0]
+            self.assertEqual(company["bid_list_page_count"], 2)
+            self.assertEqual(company["selected_default_window_record_count"], 3)
+            self.assertEqual(result["summary"]["bid_show_record_count"], 3)
+            self.assertEqual(result["summary"]["overlap_signal_review_required_count"], 1)
+
+    def test_high_value_projects_select_capped_long_tail_records_to_2019(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_p12_tables(root, first_company="长尾公司", first_person="郑十一")
+
+            result = build_p13b_company_history_overlap_triage(
+                input_root=root,
+                output_root=root / "out",
+                enable_live_public_query=True,
+                max_live_companies=1,
+                max_bid_records_per_company=0,
+                bid_list_page_size=1,
+                max_bid_list_pages_per_company=2,
+                max_long_tail_bid_shows_per_company=1,
+                http_getter=_fake_http_getter,
+                created_at="2026-05-15T00:00:00+08:00",
+            )
+
+            company = result["manifest"]["company_history_query_records"][0]
+            self.assertTrue(company["long_tail_scan_enabled"])
+            self.assertEqual(company["selected_default_window_record_count"], 0)
+            self.assertEqual(company["selected_long_tail_record_count"], 1)
+            bid_show = result["manifest"]["bid_show_records"][0]
+            self.assertEqual(bid_show["bid_list_selection_scope"], "LONG_TAIL_2019_EXTENSION")
+            self.assertEqual(bid_show["time_window_review_state"], "TIME_WINDOW_OVERLAP_REVIEW")
+
     def test_bid_show_original_url_without_person_triggers_backtrace_review(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -254,7 +331,13 @@ class P13BCompanyHistoryOverlapTriageTests(unittest.TestCase):
                 self.assertNotIn(term, text)
 
 
-def _write_p12_tables(root: Path, *, first_company: str = "广东甲公司", first_person: str = "张三") -> None:
+def _write_p12_tables(
+    root: Path,
+    *,
+    first_company: str = "广东甲公司",
+    first_person: str = "张三",
+    first_current_project_time_window: Mapping[str, Any] | None = None,
+) -> None:
     root.mkdir(parents=True, exist_ok=True)
     _write_json(
         root / "project-value-table.json",
@@ -265,6 +348,7 @@ def _write_p12_tables(root: Path, *, first_company: str = "广东甲公司", fir
                     "project_id": "PROJ-CN-GD-JG2026-20001",
                     "project_name": "广州道路工程施工中标候选人公示",
                     "value_closeout_state": "EXTERNAL_CONFLICT_SOURCE_REQUIRED",
+                    "current_project_time_window": dict(first_current_project_time_window or {}),
                     "candidate_notice_source_urls": ["https://ywtb.gzggzy.cn/jyfw/07-a.html"],
                     "project_source_urls": ["https://ywtb.gzggzy.cn/jyfw/07-a.html"],
                 },
@@ -426,6 +510,30 @@ def _fake_http_getter(url: str, context: Mapping[str, Any]) -> Mapping[str, Any]
                     "result": {"records": [{"uniscid": "914400000000000004", "entname": "完工公司", "bidCount": 1}], "total": 1},
                 }
             )
+        if keyword == "窗口公司":
+            return _json_response(
+                {
+                    "success": True,
+                    "code": 200,
+                    "result": {"records": [{"uniscid": "914400000000000005", "entname": "窗口公司", "bidCount": 1}], "total": 1},
+                }
+            )
+        if keyword == "分页公司":
+            return _json_response(
+                {
+                    "success": True,
+                    "code": 200,
+                    "result": {"records": [{"uniscid": "914400000000000006", "entname": "分页公司", "bidCount": 3}], "total": 1},
+                }
+            )
+        if keyword == "长尾公司":
+            return _json_response(
+                {
+                    "success": True,
+                    "code": 200,
+                    "result": {"records": [{"uniscid": "914400000000000007", "entname": "长尾公司", "bidCount": 1}], "total": 1},
+                }
+            )
         if keyword == "广东乙公司":
             return _json_response(
                 {
@@ -442,6 +550,51 @@ def _fake_http_getter(url: str, context: Mapping[str, Any]) -> Mapping[str, Any]
             record_id = "contract-period-record"
         if uniscid == "914400000000000004":
             record_id = "completed-period-record"
+        if uniscid == "914400000000000005":
+            record_id = "window-record"
+        if uniscid == "914400000000000006":
+            page_no = int(query.get("pageNo", ["1"])[0])
+            records = (
+                [
+                    {
+                        "id": "pagination-missing-1",
+                        "projectName": "分页历史道路工程一",
+                        "areaCode": "广州市",
+                        "createTime": "2026-05-03",
+                        "bidPrice": "1000.00",
+                    },
+                    {
+                        "id": "pagination-missing-2",
+                        "projectName": "分页历史道路工程二",
+                        "areaCode": "广州市",
+                        "createTime": "2026-05-02",
+                        "bidPrice": "1000.00",
+                    },
+                ]
+                if page_no == 1
+                else [
+                    {
+                        "id": "pagination-overlap-record",
+                        "projectName": "分页历史道路工程三",
+                        "areaCode": "广州市",
+                        "createTime": "2026-05-01",
+                        "bidPrice": "1000.00",
+                    }
+                ]
+            )
+            return _json_response({"success": True, "code": 200, "result": {"data": {"records": records, "total": 3}}})
+        if uniscid == "914400000000000007":
+            page_no = int(query.get("pageNo", ["1"])[0])
+            records = [
+                {
+                    "id": "long-tail-record",
+                    "projectName": "历史高速公路EPC工程总承包项目",
+                    "areaCode": "广州市",
+                    "createTime": "2022-06-01",
+                    "bidPrice": "1000.00",
+                }
+            ] if page_no == 1 else []
+            return _json_response({"success": True, "code": 200, "result": {"data": {"records": records, "total": 1}}})
         if uniscid == "91440000123456789X":
             record_id = "needs-original-record"
         return _json_response(
@@ -499,6 +652,42 @@ def _fake_http_getter(url: str, context: Mapping[str, Any]) -> Mapping[str, Any]
                         "title": "历史已完工项目中标结果公告",
                         "content": "<p>中标人：完工公司</p><p>项目经理：吴八</p><p>工期：30日历天</p><p>中标日期：2024年01月01日</p>",
                         "url": "https://example.gov.cn/original/completed-period.html",
+                    },
+                }
+            )
+        if record_id == "window-record":
+            return _json_response(
+                {
+                    "success": True,
+                    "code": 200,
+                    "result": {
+                        "title": "历史窗口项目中标结果公告",
+                        "content": "<p>中标人：窗口公司</p><p>项目经理：钱九</p><p>合同履行期限：2026年01月01日至2026年06月01日</p>",
+                        "url": "https://example.gov.cn/original/window.html",
+                    },
+                }
+            )
+        if record_id == "pagination-overlap-record":
+            return _json_response(
+                {
+                    "success": True,
+                    "code": 200,
+                    "result": {
+                        "title": "分页历史道路工程三中标结果公告",
+                        "content": "<p>中标人：分页公司</p><p>项目经理：孙十</p><p>工期：365日历天</p><p>中标日期：2026年05月01日</p>",
+                        "url": "https://example.gov.cn/original/pagination-overlap.html",
+                    },
+                }
+            )
+        if record_id == "long-tail-record":
+            return _json_response(
+                {
+                    "success": True,
+                    "code": 200,
+                    "result": {
+                        "title": "历史高速公路EPC工程总承包项目中标结果公告",
+                        "content": "<p>中标人：长尾公司</p><p>项目经理：郑十一</p><p>服务期：5年</p><p>中标日期：2022年06月01日</p>",
+                        "url": "https://example.gov.cn/original/long-tail.html",
                     },
                 }
             )
