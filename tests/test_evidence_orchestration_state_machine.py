@@ -139,6 +139,34 @@ class EvidenceOrchestrationStateMachineTests(unittest.TestCase):
             self.assertEqual(rqsg2["evidence_signal_source"], "ORIGINAL_NOTICE_BACKTRACE")
             self.assertIn("project_manager_change_notice", rqsg2["release_evidence_source_targets"])
 
+    def test_partial_live_backtrace_deferred_by_budget_stays_pending_not_d_grade(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            storage_json = root / "storage.json"
+            supplement_json = root / "stage4-inputs.json"
+            p13b_root = root / "p13b"
+            original_root = root / "original"
+            _write_stage16_storage(storage_json)
+            _write_company_first_inputs(supplement_json)
+            _write_p13b_two_backtrace_required(p13b_root)
+            _write_original_notice_partial_deferred(original_root)
+
+            result = build_evidence_orchestration_state(
+                stage16_storage_json=storage_json,
+                company_first_stage4_inputs_json=supplement_json,
+                p13b_company_history_root=p13b_root,
+                original_notice_backtrace_root=original_root,
+                output_root=root / "out",
+                created_at="2026-05-18T00:00:00+08:00",
+            )
+
+            by_project = _records_by_project(result["manifest"]["evidence_state_table"]["records"])
+            rqsg2 = by_project["PROJ-CN-GD-JG2026-11398-002"]
+            self.assertEqual(rqsg2["evidence_state"], "P13B_ORIGINAL_BACKTRACE_REQUIRED")
+            self.assertEqual(rqsg2["evidence_grade"], "PENDING_ORIGINAL_BACKTRACE")
+            self.assertEqual(rqsg2["recommended_next_action"], "continue_p13b_original_notice_backtrace")
+            self.assertIn("original_notice_backtrace_budget_deferred_or_incomplete", rqsg2["review_reasons"])
+
 
 def _write_stage16_storage(path: Path) -> None:
     candidates = [
@@ -297,6 +325,34 @@ def _write_p13b_direct_a_signal(root: Path) -> None:
     )
 
 
+def _write_p13b_two_backtrace_required(root: Path) -> None:
+    _write_json(
+        root / "company-history-overlap-triage-v1.json",
+        {
+            "manifest": {
+                "overlap_signal_records": [
+                    {
+                        "project_id": "PROJ-CN-GD-JG2026-11398-002",
+                        "candidate_company_name": "中国化学工程第六建设有限公司",
+                        "responsible_person_names": ["曾凡伟"],
+                        "bid_project_name": "历史项目一",
+                        "original_notice_url": "https://example.test/history-1.html",
+                        "overlap_signal_state": "ORIGINAL_NOTICE_BACKTRACE_REQUIRED",
+                    },
+                    {
+                        "project_id": "PROJ-CN-GD-JG2026-11398-002",
+                        "candidate_company_name": "中国化学工程第六建设有限公司",
+                        "responsible_person_names": ["曾凡伟"],
+                        "bid_project_name": "历史项目二",
+                        "original_notice_url": "https://example.test/history-2.html",
+                        "overlap_signal_state": "ORIGINAL_NOTICE_BACKTRACE_REQUIRED",
+                    },
+                ]
+            }
+        },
+    )
+
+
 def _write_original_notice_a_signal(root: Path) -> None:
     _write_json(
         root / "original-notice-backtrace-v1.json",
@@ -332,6 +388,38 @@ def _write_original_notice_a_signal(root: Path) -> None:
                         ],
                     }
                 ],
+            }
+        },
+    )
+
+
+def _write_original_notice_partial_deferred(root: Path) -> None:
+    _write_json(
+        root / "original-notice-backtrace-v1.json",
+        {
+            "manifest": {
+                "original_notice_fetch_records": [
+                    {
+                        "project_id": "PROJ-CN-GD-JG2026-11398-002",
+                        "fetch_state": "ORIGINAL_NOTICE_FETCHED",
+                        "execution_mode": "LIVE_PUBLIC_QUERY_ATTEMPTED",
+                    },
+                    {
+                        "project_id": "PROJ-CN-GD-JG2026-11398-002",
+                        "fetch_state": "ORIGINAL_NOTICE_FETCH_BLOCKED",
+                        "execution_mode": "LIVE_PUBLIC_QUERY_DEFERRED_BY_LIMIT",
+                        "blocker_taxonomy": ["max_live_original_notices_deferred"],
+                    },
+                ],
+                "original_notice_overlap_signal_records": [
+                    {
+                        "project_id": "PROJ-CN-GD-JG2026-11398-002",
+                        "candidate_company_name": "中国化学工程第六建设有限公司",
+                        "original_notice_overlap_signal_state": "ORIGINAL_NOTICE_NO_MATCH_REVIEW",
+                        "release_evidence_probe_triggered": False,
+                    }
+                ],
+                "manual_release_evidence_probe_table": [],
             }
         },
     )

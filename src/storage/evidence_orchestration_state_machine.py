@@ -310,6 +310,23 @@ def _project_evidence_state(
             "DATA_GGZY_BID_SHOW_DIRECT",
         )
 
+    backtrace_required = _records_with_state(
+        p13b_project.get("overlap_signal_records"),
+        "overlap_signal_state",
+        "ORIGINAL_NOTICE_BACKTRACE_REQUIRED",
+    )
+    if original_supplied and backtrace_required and not _original_backtrace_covers_required(
+        original_project,
+        required_count=len(backtrace_required),
+    ):
+        return (
+            "P13B_ORIGINAL_BACKTRACE_REQUIRED",
+            "PENDING_ORIGINAL_BACKTRACE",
+            "continue_p13b_original_notice_backtrace",
+            ["original_notice_backtrace_budget_deferred_or_incomplete"],
+            "ORIGINAL_NOTICE_BACKTRACE_PARTIAL",
+        )
+
     if original_supplied and _has_original_backtrace_processed(original_project):
         blocker_count = _count_blocked_original_records(original_project)
         if blocker_count:
@@ -328,11 +345,6 @@ def _project_evidence_state(
             "ORIGINAL_NOTICE_BACKTRACE",
         )
 
-    backtrace_required = _records_with_state(
-        p13b_project.get("overlap_signal_records"),
-        "overlap_signal_state",
-        "ORIGINAL_NOTICE_BACKTRACE_REQUIRED",
-    )
     if backtrace_required:
         return (
             "P13B_ORIGINAL_BACKTRACE_REQUIRED",
@@ -540,6 +552,22 @@ def _has_original_backtrace_processed(original_project: Mapping[str, Any]) -> bo
         or _list(original_project.get("original_notice_extraction_records"))
         or _list(original_project.get("original_notice_overlap_signal_records"))
     )
+
+
+def _original_backtrace_covers_required(original_project: Mapping[str, Any], *, required_count: int) -> bool:
+    if required_count <= 0:
+        return True
+    # Deferred-by-budget fetch records are not evidence attempts; they keep the project pending.
+    for record in _list(original_project.get("original_notice_fetch_records")):
+        if not isinstance(record, Mapping):
+            continue
+        blockers = {str(item) for item in _list(record.get("blocker_taxonomy"))}
+        if (
+            str(record.get("execution_mode") or "") == "LIVE_PUBLIC_QUERY_DEFERRED_BY_LIMIT"
+            or "max_live_original_notices_deferred" in blockers
+        ):
+            return False
+    return len(_list(original_project.get("original_notice_overlap_signal_records"))) >= required_count
 
 
 def _count_blocked_original_records(original_project: Mapping[str, Any]) -> int:
