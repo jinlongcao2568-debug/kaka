@@ -48,7 +48,7 @@ DISPATCH_SPECS = {
             "evidence_orchestration_state_root_or_json",
             "original_notice_backtrace_root_when_available",
         ],
-        "expected_output_artifact": "p13b-original-backtrace-continuation-controller-v2.json",
+        "expected_output_artifact": "evidence-orchestration-continuation-run-v1.json",
     },
     "DESIGN_SURVEY_QUALIFICATION_AND_SERVICE_CLOCK_REVIEW": {
         "dispatch_task_type": "RUN_DESIGN_SURVEY_QUALIFICATION_SERVICE_CLOCK_REVIEW",

@@ -51,6 +51,10 @@ class Stage6ReviewActionDispatchTests(unittest.TestCase):
                 "scripts/run-evidence-orchestration-continuation-v1.ps1",
             )
             self.assertEqual(
+                tasks["PROJ-D"]["expected_output_artifact"],
+                "evidence-orchestration-continuation-run-v1.json",
+            )
+            self.assertEqual(
                 tasks["PROJ-SURVEY"]["recommended_script"],
                 "scripts/build-design-survey-public-registry-readback-v1.ps1",
             )
