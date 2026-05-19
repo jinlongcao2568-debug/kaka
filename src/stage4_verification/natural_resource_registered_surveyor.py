@@ -47,6 +47,7 @@ def run_natural_resource_registered_surveyor_provider_task(
         or source_entry.get("entry_url")
     )
     snapshot_id = snapshot_ref or _clean_text(task.get("manual_snapshot_ref") or target.get("manual_snapshot_ref"))
+    snapshot_type = _clean_text(task.get("manual_snapshot_type") or target.get("manual_snapshot_type") or "HTML_OR_TEXT")
 
     if html:
         return _result_from_snapshot(
@@ -56,6 +57,7 @@ def run_natural_resource_registered_surveyor_provider_task(
             html=html,
             source_url=source_url,
             snapshot_ref=snapshot_id,
+            snapshot_type=snapshot_type,
         )
 
     if enable_live_entry_readback:
@@ -118,6 +120,7 @@ def _result_from_snapshot(
     html: str,
     source_url: str,
     snapshot_ref: str,
+    snapshot_type: str,
 ) -> dict[str, Any]:
     parsed = parse_registered_surveyor_snapshot(html, target)
     assessment = dict(parsed.get("match_assessment") or {})
@@ -145,6 +148,7 @@ def _result_from_snapshot(
             "source_entry": dict(source_entry),
             "source_url": source_url,
             "snapshot_ref": snapshot_ref,
+            "snapshot_type": snapshot_type or "HTML_OR_TEXT",
             "snapshot_html_sha256": _sha256(html),
             "snapshot_text_sha256": parsed.get("snapshot_text_sha256"),
             "redacted_text_probe": parsed.get("redacted_text_probe", ""),
@@ -349,7 +353,7 @@ def _candidate_rows(raw: str, plain_text: str) -> list[str]:
         rows = [line.strip() for line in re.split(r"[\r\n]+", plain_text) if line.strip()]
     if len(rows) <= 1 and len(plain_text) > 0:
         chunks = re.split(r"(?=姓名|注册单位|聘用单位|执业单位|注册证号|证书编号|注册测绘师)", plain_text)
-        rows = [chunk.strip() for chunk in chunks if chunk.strip()] or [plain_text]
+        rows = _dedupe_strings([plain_text, *[chunk.strip() for chunk in chunks if chunk.strip()]])
     return rows
 
 

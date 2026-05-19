@@ -69,6 +69,45 @@ class DesignSurveyPublicRegistryReadbackTests(unittest.TestCase):
             self.assertEqual(record["readback_state"], "PUBLIC_SNAPSHOT_OR_RUNTIME_ADAPTER_REQUIRED")
             self.assertTrue(record["policy"]["not_found_is_review_not_negative_fact"])
 
+    def test_structured_snapshot_json_executes_registered_surveyor_readback(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            fallback_root = root / "fallback"
+            snapshot_json = root / "snapshot.json"
+            _write_public_registry_fallback(fallback_root)
+            _write_json(
+                snapshot_json,
+                {
+                    "records": [
+                        {
+                            "snapshot_ref": "browser-export-row-1",
+                            "source_url": "https://rsurveyor.ch.mnr.gov.cn/XZSP/Classification.html",
+                            "姓名": "胡昌华",
+                            "注册单位": "广州市城市规划勘测设计研究院有限公司",
+                            "注册证号": "粤测绘20260001",
+                            "注册状态": "有效",
+                        }
+                    ]
+                },
+            )
+
+            result = build_design_survey_public_registry_readback(
+                public_registry_fallback_root=fallback_root,
+                snapshot_json=snapshot_json,
+                output_root=root / "out",
+                created_at="2026-05-19T00:00:00+08:00",
+            )
+
+            self.assertTrue(result["safe_to_execute"])
+            self.assertEqual(result["summary"]["matched_count"], 1)
+            self.assertEqual(result["summary"]["structured_snapshot_supplied_count"], 1)
+            record = result["manifest"]["public_registry_readback_table"]["records"][0]
+            self.assertEqual(record["verification_result"], "MATCHED")
+            self.assertEqual(
+                record["public_registry_readback"]["snapshot_type"],
+                "STRUCTURED_PUBLIC_REGISTRY_RECORD",
+            )
+
 
 def _write_public_registry_fallback(root: Path) -> None:
     project_id = "PROJ-CN-GD-JG2026-11327"

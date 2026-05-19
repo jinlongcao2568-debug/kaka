@@ -67,7 +67,7 @@ def build_design_survey_public_registry_readback(
             continue
         snapshot = _snapshot_for_job(job, snapshot_records)
         result = run_natural_resource_registered_surveyor_provider_task(
-            dict(job.get("payload") or {}),
+            _payload_with_snapshot_metadata(job, snapshot),
             snapshot_html=str(snapshot.get("html") or "") or None,
             snapshot_source_url=str(snapshot.get("source_url") or ""),
             snapshot_ref=str(snapshot.get("snapshot_ref") or ""),
@@ -192,6 +192,12 @@ def _readback_summary(records: list[Mapping[str, Any]]) -> dict[str, Any]:
         "matched_count": sum(1 for record in records if record.get("verification_result") == "MATCHED"),
         "review_required_count": sum(1 for record in records if record.get("verification_result") == "REVIEW_REQUIRED"),
         "snapshot_supplied_count": sum(1 for record in records if str(record.get("source_snapshot_sha256") or "")),
+        "structured_snapshot_supplied_count": sum(
+            1
+            for record in records
+            if str((record.get("public_registry_readback") or {}).get("snapshot_type") or "")
+            == "STRUCTURED_PUBLIC_REGISTRY_RECORD"
+        ),
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,
     }
@@ -206,8 +212,8 @@ def _snapshot_records(
     records: list[dict[str, Any]] = []
     if snapshot_json:
         payload = _load_json(Path(snapshot_json))
-        raw_records = (payload.get("snapshots") or payload.get("records")) if isinstance(payload, Mapping) else []
-        for record in raw_records if isinstance(raw_records, list) else []:
+        raw_records = _snapshot_payload_records(payload)
+        for record in raw_records:
             if isinstance(record, Mapping):
                 records.append(_snapshot_record_from_payload(record))
     if snapshot_html_path:
@@ -255,14 +261,26 @@ def _snapshot_for_job(job: Mapping[str, Any], snapshots: list[Mapping[str, Any]]
     return dict(snapshots[0]) if len(snapshots) == 1 else {}
 
 
+def _payload_with_snapshot_metadata(job: Mapping[str, Any], snapshot: Mapping[str, Any]) -> dict[str, Any]:
+    payload = dict(job.get("payload") or {})
+    if snapshot:
+        payload["manual_snapshot_type"] = str(snapshot.get("snapshot_type") or "")
+    return payload
+
+
 def _snapshot_record_from_payload(record: Mapping[str, Any]) -> dict[str, Any]:
     html = str(record.get("html") or record.get("body") or record.get("text") or "")
+    snapshot_type = "HTML_OR_TEXT"
+    if not html:
+        html = _structured_snapshot_text(record)
+        snapshot_type = "STRUCTURED_PUBLIC_REGISTRY_RECORD"
     return {
         **dict(record),
         "html": html,
         "snapshot_sha256": _sha256(html),
         "snapshot_ref": str(record.get("snapshot_ref") or record.get("snapshot_id") or ""),
         "source_url": str(record.get("source_url") or ""),
+        "snapshot_type": str(record.get("snapshot_type") or snapshot_type),
     }
 
 
@@ -273,7 +291,60 @@ def _snapshot_record(*, html: str, snapshot_path: Path, source_url: str, snapsho
         "snapshot_sha256": _sha256(html),
         "snapshot_ref": snapshot_ref,
         "source_url": source_url,
+        "snapshot_type": "HTML_OR_TEXT",
     }
+
+
+def _snapshot_payload_records(payload: Any) -> list[Mapping[str, Any]]:
+    if isinstance(payload, list):
+        return [record for record in payload if isinstance(record, Mapping)]
+    if not isinstance(payload, Mapping):
+        return []
+    for key in ("snapshots", "records", "items", "data", "rows", "results"):
+        value = payload.get(key)
+        if isinstance(value, list):
+            return [record for record in value if isinstance(record, Mapping)]
+        if isinstance(value, Mapping):
+            nested = _snapshot_payload_records(value)
+            if nested:
+                return nested
+    if any(key in payload for key in ("姓名", "name", "person_name", "注册单位", "registered_unit_name", "certificate_no")):
+        return [payload]
+    return []
+
+
+def _structured_snapshot_text(record: Mapping[str, Any]) -> str:
+    parts: list[str] = []
+    preferred_keys = (
+        "姓名",
+        "name",
+        "person_name",
+        "注册人员",
+        "注册单位",
+        "聘用单位",
+        "执业单位",
+        "单位名称",
+        "registered_unit_name",
+        "company",
+        "注册证号",
+        "注册编号",
+        "证书编号",
+        "certificate_no",
+        "certificate_no_or_registration_no",
+        "资格名称",
+        "证书类型",
+        "certificate_type",
+        "注册状态",
+        "状态",
+        "registration_status",
+    )
+    for key in preferred_keys:
+        value = record.get(key)
+        if value not in (None, "", [], {}):
+            parts.append(f"{key}: {value}")
+    if not parts:
+        parts.append(json.dumps(dict(record), ensure_ascii=False, default=str))
+    return " | ".join(parts)
 
 
 def _provider_jobs(payload: Mapping[str, Any]) -> list[dict[str, Any]]:
