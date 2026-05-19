@@ -193,6 +193,111 @@ class EvidenceOrchestrationContinuationRunnerTests(unittest.TestCase):
             )
             self.assertEqual(original["summary"]["browser_readback_ready_count"], 1)
 
+    def test_targeted_person_readback_plan_is_built_after_company_period_no_person(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            storage_json = root / "storage.json"
+            p13b_root = root / "p13b"
+            original_root = root / "original"
+            _write_stage16_storage(storage_json)
+            _write_p13b_backtrace_required(p13b_root)
+            _write_original_notice_period_company_no_person(original_root)
+
+            result = run_evidence_orchestration_continuation(
+                stage16_storage_json=storage_json,
+                p13b_company_history_root=p13b_root,
+                original_notice_backtrace_root=original_root,
+                output_root=root / "run",
+                created_at="2026-05-18T00:00:00+08:00",
+            )
+
+            summary = result["summary"]
+            self.assertTrue(result["safe_to_execute"])
+            self.assertEqual(summary["targeted_person_action_state"], "TARGETED_PERSON_READBACK_PLAN_BUILT")
+            self.assertEqual(summary["targeted_person_pre_continuation_required_count"], 1)
+            self.assertEqual(summary["targeted_person_task_count"], 1)
+            self.assertEqual(summary["targeted_person_readback_count"], 0)
+            self.assertEqual(summary["targeted_person_final_required_count"], 1)
+            self.assertEqual(
+                summary["state_after_evidence_state_counts"],
+                {"D_INSUFFICIENT_OR_BLOCKED_READBACK": 1},
+            )
+            self.assertTrue(
+                (
+                    root
+                    / "run"
+                    / "01aa-p13b-targeted-person-readback"
+                    / "p13b-targeted-person-readback-v1.json"
+                ).exists()
+            )
+
+    def test_existing_targeted_person_signal_promotes_state_after_to_a_signal(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            storage_json = root / "storage.json"
+            p13b_root = root / "p13b"
+            original_root = root / "original"
+            targeted_root = root / "targeted-person"
+            _write_stage16_storage(storage_json)
+            _write_p13b_backtrace_required(p13b_root)
+            _write_original_notice_period_company_no_person(original_root)
+            _write_targeted_person_readback_found(targeted_root)
+
+            result = run_evidence_orchestration_continuation(
+                stage16_storage_json=storage_json,
+                p13b_company_history_root=p13b_root,
+                original_notice_backtrace_root=original_root,
+                targeted_person_readback_root=targeted_root,
+                output_root=root / "run",
+                created_at="2026-05-18T00:00:00+08:00",
+            )
+
+            summary = result["summary"]
+            self.assertEqual(summary["targeted_person_action_state"], "EXISTING_TARGETED_PERSON_READBACK_CONSUMED")
+            self.assertEqual(summary["targeted_person_final_required_count"], 0)
+            self.assertEqual(summary["final_original_backtrace_release_evidence_ready_count"], 1)
+            self.assertEqual(
+                summary["final_original_backtrace_continuation_state_counts"],
+                {"RELEASE_EVIDENCE_READY": 1},
+            )
+            self.assertEqual(
+                summary["state_after_evidence_state_counts"],
+                {"A_STRONG_TIME_OVERLAP_SIGNAL_READY": 1},
+            )
+
+    def test_existing_targeted_person_not_found_is_parked_without_clearance_claim(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            storage_json = root / "storage.json"
+            p13b_root = root / "p13b"
+            original_root = root / "original"
+            targeted_root = root / "targeted-person"
+            _write_stage16_storage(storage_json)
+            _write_p13b_backtrace_required(p13b_root)
+            _write_original_notice_period_company_no_person(original_root)
+            _write_targeted_person_readback_not_found(targeted_root)
+
+            result = run_evidence_orchestration_continuation(
+                stage16_storage_json=storage_json,
+                p13b_company_history_root=p13b_root,
+                original_notice_backtrace_root=original_root,
+                targeted_person_readback_root=targeted_root,
+                output_root=root / "run",
+                created_at="2026-05-18T00:00:00+08:00",
+            )
+
+            summary = result["summary"]
+            self.assertEqual(summary["targeted_person_action_state"], "EXISTING_TARGETED_PERSON_READBACK_CONSUMED")
+            self.assertEqual(summary["targeted_person_final_required_count"], 0)
+            self.assertEqual(
+                summary["final_original_backtrace_continuation_state_counts"],
+                {"PARK_TARGETED_PERSON_NOT_FOUND": 1},
+            )
+            self.assertEqual(
+                summary["state_after_evidence_state_counts"],
+                {"D_INSUFFICIENT_OR_BLOCKED_READBACK": 1},
+            )
+
     def test_public_registry_readback_runs_from_existing_fallback_and_keeps_pending_without_snapshot(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -590,6 +695,125 @@ def _write_original_notice_a_signal(root: Path) -> None:
                         ],
                     }
                 ],
+            }
+        },
+    )
+
+
+def _write_original_notice_period_company_no_person(root: Path) -> None:
+    _write_json(
+        root / "original-notice-backtrace-v1.json",
+        {
+            "manifest": {
+                "original_notice_task_records": [
+                    {
+                        "original_notice_task_id": "TASK-PERIOD-NO-PERSON",
+                        "project_id": "PROJ-CN-GD-JG2026-20001",
+                        "project_name": "测试施工项目中标候选人公示",
+                        "candidate_company_name": "广东甲公司",
+                        "responsible_person_names": ["张三"],
+                        "bid_project_name": "历史道路工程",
+                        "historical_project_area_code": "广州市",
+                        "bid_area_code": "广州市",
+                        "original_notice_url": "https://example.test/company-period.html",
+                        "original_notice_route_class": "OFFICIAL_DIRECT_HTML",
+                        "original_notice_route_strategy": "OFFICIAL_DIRECT_HTML",
+                        "original_notice_live_budget_eligible": True,
+                        "original_notice_live_priority_score": 90,
+                        "original_notice_live_priority_rank": 1,
+                        "original_notice_source_order": 1,
+                    }
+                ],
+                "original_notice_fetch_records": [
+                    {
+                        "original_notice_task_id": "TASK-PERIOD-NO-PERSON",
+                        "project_id": "PROJ-CN-GD-JG2026-20001",
+                        "project_name": "测试施工项目中标候选人公示",
+                        "candidate_company_name": "广东甲公司",
+                        "responsible_person_names": ["张三"],
+                        "bid_project_name": "历史道路工程",
+                        "historical_project_area_code": "广州市",
+                        "original_notice_url": "https://example.test/company-period.html",
+                        "fetch_state": "ORIGINAL_NOTICE_FETCHED",
+                        "execution_mode": "LIVE_PUBLIC_QUERY_ATTEMPTED",
+                    }
+                ],
+                "original_notice_extraction_records": [
+                    {
+                        "original_notice_task_id": "TASK-PERIOD-NO-PERSON",
+                        "project_id": "PROJ-CN-GD-JG2026-20001",
+                        "original_notice_extraction_state": "ORIGINAL_NOTICE_FIELDS_EXTRACTED",
+                        "extracted_company_names": ["广东甲公司"],
+                        "extracted_period_text": "180日历天",
+                    }
+                ],
+                "original_notice_overlap_signal_records": [
+                    {
+                        "original_notice_task_id": "TASK-PERIOD-NO-PERSON",
+                        "project_id": "PROJ-CN-GD-JG2026-20001",
+                        "candidate_company_name": "广东甲公司",
+                        "responsible_person_names": ["张三"],
+                        "bid_project_name": "历史道路工程",
+                        "historical_project_area_code": "广州市",
+                        "original_notice_url": "https://example.test/company-period.html",
+                        "original_notice_backtrace_match_state": "PERIOD_AND_COMPANY_NO_PERSON",
+                        "original_notice_overlap_signal_state": "ORIGINAL_NOTICE_NO_MATCH_REVIEW",
+                        "candidate_company_matched": True,
+                        "performance_period_present": True,
+                        "extracted_period_text": "180日历天",
+                        "release_evidence_probe_triggered": False,
+                    }
+                ],
+                "manual_release_evidence_probe_table": [],
+            }
+        },
+    )
+
+
+def _write_targeted_person_readback_found(root: Path) -> None:
+    _write_json(
+        root / "p13b-targeted-person-readback-v1.json",
+        {
+            "manifest": {
+                "targeted_person_readback_records": [
+                    {
+                        "original_notice_task_id": "TASK-PERIOD-NO-PERSON",
+                        "project_id": "PROJ-CN-GD-JG2026-20001",
+                        "candidate_company_name": "广东甲公司",
+                        "responsible_person_names": ["张三"],
+                        "targeted_person_readback_state": "TARGETED_PERSON_FOUND_IN_TARGETED_READBACK",
+                        "page_target_person_hits": [{"person_name": "张三"}],
+                        "same_person_company_period_signal_ready": True,
+                        "review_reasons": ["target_person_found_in_attachment_or_detail_text"],
+                        "customer_visible_allowed": False,
+                        "no_legal_conclusion": True,
+                    }
+                ]
+            }
+        },
+    )
+
+
+def _write_targeted_person_readback_not_found(root: Path) -> None:
+    _write_json(
+        root / "p13b-targeted-person-readback-v1.json",
+        {
+            "manifest": {
+                "targeted_person_readback_records": [
+                    {
+                        "original_notice_task_id": "TASK-PERIOD-NO-PERSON",
+                        "project_id": "PROJ-CN-GD-JG2026-20001",
+                        "candidate_company_name": "广东甲公司",
+                        "responsible_person_names": ["张三"],
+                        "targeted_person_readback_state": "TARGETED_PERSON_NOT_FOUND_IN_TARGETED_READBACK",
+                        "page_target_person_hits": [],
+                        "same_person_company_period_signal_ready": False,
+                        "review_reasons": ["target_person_not_found_in_targeted_readback"],
+                        "blocker_taxonomy": ["query_miss_is_not_clearance"],
+                        "customer_visible_allowed": False,
+                        "no_legal_conclusion": True,
+                    }
+                ]
             }
         },
     )

@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
@@ -555,9 +556,10 @@ def _write_json(path: Path, payload: Mapping[str, Any]) -> None:
 
 def _project_key(value: Any) -> str:
     text = str(value or "").strip().upper()
-    if text.startswith("PROJ-"):
-        return text.rsplit("-", 1)[-1]
-    return text
+    match = re.search(r"JG\d{4}-\d+(?:-\d+)?", text)
+    if match:
+        return match.group(0)
+    return text.rsplit("-", 1)[-1] if text.startswith("PROJ-") else text
 
 
 def _continuation_sort_rank(state: str) -> int:

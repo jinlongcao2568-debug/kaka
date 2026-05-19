@@ -24,6 +24,8 @@ def build_evidence_orchestration_state(
     p13b_company_history_root: str | Path | None = None,
     original_notice_backtrace_json: str | Path | None = None,
     original_notice_backtrace_root: str | Path | None = None,
+    original_backtrace_continuation_json: str | Path | None = None,
+    original_backtrace_continuation_root: str | Path | None = None,
     design_survey_adapter_plan_json: str | Path | None = None,
     design_survey_adapter_plan_root: str | Path | None = None,
     design_survey_stage4_execution_json: str | Path | None = None,
@@ -65,6 +67,11 @@ def build_evidence_orchestration_state(
         root=original_notice_backtrace_root,
         default_file_name="original-notice-backtrace-v1.json",
     )
+    original_continuation_manifest = _optional_manifest(
+        explicit_json=original_backtrace_continuation_json,
+        root=original_backtrace_continuation_root,
+        default_file_name="p13b-original-backtrace-continuation-controller-v2.json",
+    )
     design_survey_plan_manifest = _optional_manifest(
         explicit_json=design_survey_adapter_plan_json,
         root=design_survey_adapter_plan_root,
@@ -97,6 +104,7 @@ def build_evidence_orchestration_state(
     )
     p13b_index = _p13b_index_by_project(p13b_manifest)
     original_index = _original_backtrace_index_by_project(original_manifest)
+    original_continuation_index = _original_backtrace_continuation_index_by_project(original_continuation_manifest)
     design_survey_plan_index = _design_survey_plan_index_by_project(design_survey_plan_manifest)
     design_survey_stage4_index = _design_survey_stage4_index_by_project(design_survey_stage4_manifest)
     design_survey_flow08_index = _design_survey_flow08_index_by_project(design_survey_flow08_manifest)
@@ -129,6 +137,7 @@ def build_evidence_orchestration_state(
             supplement=supplement,
             p13b_project=p13b_index.get(project_id, {}),
             original_project=original_index.get(project_id, {}),
+            original_continuation_project=original_continuation_index.get(project_id, {}),
             design_survey_project=design_survey_plan_index.get(project_id, {}),
             design_survey_stage4_project=design_survey_stage4_index.get(project_id, {}),
             design_survey_flow08_project=design_survey_flow08_index.get(project_id, {}),
@@ -137,6 +146,7 @@ def build_evidence_orchestration_state(
             design_survey_public_registry_readback_project=design_survey_public_registry_readback_index.get(project_id, {}),
             p13b_supplied=bool(p13b_manifest),
             original_supplied=bool(original_manifest),
+            original_continuation_supplied=bool(original_continuation_manifest),
             design_survey_plan_supplied=bool(design_survey_plan_manifest),
             design_survey_stage4_supplied=bool(design_survey_stage4_manifest),
             design_survey_flow08_supplied=bool(design_survey_flow08_manifest),
@@ -197,6 +207,7 @@ def build_evidence_orchestration_state(
         "source_company_first_stage4_inputs_json": str(company_first_stage4_inputs_json or ""),
         "source_p13b_company_history_json": _manifest_source_path(p13b_company_history_json, p13b_company_history_root, "company-history-overlap-triage-v1.json"),
         "source_original_notice_backtrace_json": _manifest_source_path(original_notice_backtrace_json, original_notice_backtrace_root, "original-notice-backtrace-v1.json"),
+        "source_original_backtrace_continuation_json": _manifest_source_path(original_backtrace_continuation_json, original_backtrace_continuation_root, "p13b-original-backtrace-continuation-controller-v2.json"),
         "source_design_survey_adapter_plan_json": _manifest_source_path(design_survey_adapter_plan_json, design_survey_adapter_plan_root, "design-survey-responsible-adapter-plan-v1.json"),
         "source_design_survey_stage4_execution_json": _manifest_source_path(design_survey_stage4_execution_json, design_survey_stage4_execution_root, "company-first-stage4-execution.json"),
         "source_design_survey_flow08_readback_json": _manifest_source_path(design_survey_flow08_readback_json, design_survey_flow08_readback_root, "design-survey-flow08-targeted-readback-v1.json"),
@@ -246,6 +257,7 @@ def _evidence_record(
     supplement: Mapping[str, Any] | None,
     p13b_project: Mapping[str, Any],
     original_project: Mapping[str, Any],
+    original_continuation_project: Mapping[str, Any],
     design_survey_project: Mapping[str, Any],
     design_survey_stage4_project: Mapping[str, Any],
     design_survey_flow08_project: Mapping[str, Any],
@@ -254,6 +266,7 @@ def _evidence_record(
     design_survey_public_registry_readback_project: Mapping[str, Any],
     p13b_supplied: bool,
     original_supplied: bool,
+    original_continuation_supplied: bool,
     design_survey_plan_supplied: bool,
     design_survey_stage4_supplied: bool,
     design_survey_flow08_supplied: bool,
@@ -280,6 +293,7 @@ def _evidence_record(
         base_reasons=base_reasons,
         p13b_project=p13b_project,
         original_project=original_project,
+        original_continuation_project=original_continuation_project,
         design_survey_project=design_survey_project,
         design_survey_stage4_project=design_survey_stage4_project,
         design_survey_flow08_project=design_survey_flow08_project,
@@ -288,6 +302,7 @@ def _evidence_record(
         design_survey_public_registry_readback_project=design_survey_public_registry_readback_project,
         p13b_supplied=p13b_supplied,
         original_supplied=original_supplied,
+        original_continuation_supplied=original_continuation_supplied,
         design_survey_plan_supplied=design_survey_plan_supplied,
         design_survey_stage4_supplied=design_survey_stage4_supplied,
         design_survey_flow08_supplied=design_survey_flow08_supplied,
@@ -295,7 +310,7 @@ def _evidence_record(
         design_survey_public_registry_supplied=design_survey_public_registry_supplied,
         design_survey_public_registry_readback_supplied=design_survey_public_registry_readback_supplied,
     )
-    signal_counts = _signal_counts(p13b_project, original_project)
+    signal_counts = _signal_counts(p13b_project, original_project, original_continuation_project)
     design_survey_counts = _design_survey_counts(
         design_survey_project,
         design_survey_stage4_project,
@@ -395,6 +410,7 @@ def _project_evidence_state(
     base_reasons: list[str],
     p13b_project: Mapping[str, Any],
     original_project: Mapping[str, Any],
+    original_continuation_project: Mapping[str, Any],
     design_survey_project: Mapping[str, Any],
     design_survey_stage4_project: Mapping[str, Any],
     design_survey_flow08_project: Mapping[str, Any],
@@ -403,6 +419,7 @@ def _project_evidence_state(
     design_survey_public_registry_readback_project: Mapping[str, Any],
     p13b_supplied: bool,
     original_supplied: bool,
+    original_continuation_supplied: bool,
     design_survey_plan_supplied: bool,
     design_survey_stage4_supplied: bool,
     design_survey_flow08_supplied: bool,
@@ -442,6 +459,25 @@ def _project_evidence_state(
             "build_release_evidence_regional_adapter_plan",
             ["same_person_company_time_window_signal_from_original_notice"],
             "ORIGINAL_NOTICE_BACKTRACE",
+        )
+
+    continuation_release = _records_with_state(
+        original_continuation_project.get("continuation_plan_records"),
+        "continuation_state",
+        "RELEASE_EVIDENCE_READY",
+    )
+    if original_continuation_supplied and continuation_release:
+        targeted_release = any(bool(record.get("targeted_person_signal_ready")) for record in continuation_release)
+        return (
+            "A_STRONG_TIME_OVERLAP_SIGNAL_READY",
+            "A_STRONG_SIGNAL",
+            "build_release_evidence_regional_adapter_plan",
+            [
+                "same_person_company_time_window_signal_from_targeted_person_readback"
+                if targeted_release
+                else "same_person_company_time_window_signal_from_original_backtrace_continuation"
+            ],
+            "P13B_TARGETED_PERSON_READBACK" if targeted_release else "ORIGINAL_BACKTRACE_CONTINUATION",
         )
 
     direct_overlap = _records_with_state(
@@ -1268,7 +1304,11 @@ def _stage6_fact_package_state(evidence_state: str) -> str:
     return "NOT_READY_PENDING_EVIDENCE_OR_ADAPTER"
 
 
-def _signal_counts(p13b_project: Mapping[str, Any], original_project: Mapping[str, Any]) -> dict[str, int]:
+def _signal_counts(
+    p13b_project: Mapping[str, Any],
+    original_project: Mapping[str, Any],
+    original_continuation_project: Mapping[str, Any],
+) -> dict[str, int]:
     p13b_states = _counts(
         record.get("overlap_signal_state")
         for record in _list(p13b_project.get("overlap_signal_records"))
@@ -1282,6 +1322,11 @@ def _signal_counts(p13b_project: Mapping[str, Any], original_project: Mapping[st
     original_match_states = _counts(
         record.get("original_notice_backtrace_match_state")
         for record in _list(original_project.get("original_notice_overlap_signal_records"))
+        if isinstance(record, Mapping)
+    )
+    continuation_states = _counts(
+        record.get("continuation_state")
+        for record in _list(original_continuation_project.get("continuation_plan_records"))
         if isinstance(record, Mapping)
     )
     return {
@@ -1301,6 +1346,15 @@ def _signal_counts(p13b_project: Mapping[str, Any], original_project: Mapping[st
         ),
         "original_notice_person_company_no_period_count": int(
             original_match_states.get("PERSON_AND_COMPANY_NO_PERIOD", 0)
+        ),
+        "original_backtrace_continuation_release_evidence_ready_count": int(
+            continuation_states.get("RELEASE_EVIDENCE_READY", 0)
+        ),
+        "original_backtrace_continuation_targeted_person_required_count": int(
+            continuation_states.get("TARGETED_PERSON_READBACK_REQUIRED", 0)
+        ),
+        "original_backtrace_continuation_targeted_person_not_found_count": int(
+            continuation_states.get("PARK_TARGETED_PERSON_NOT_FOUND", 0)
         ),
     }
 
@@ -1426,6 +1480,23 @@ def _original_backtrace_index_by_project(manifest: Mapping[str, Any]) -> dict[st
             if not project_id:
                 continue
             index.setdefault(project_id, {}).setdefault(key, []).append(dict(record))
+    return index
+
+
+def _original_backtrace_continuation_index_by_project(manifest: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
+    index: dict[str, dict[str, Any]] = {}
+    for record in _list(manifest.get("continuation_plan_records")):
+        if not isinstance(record, Mapping):
+            continue
+        project_id = str(record.get("project_id") or "")
+        if not project_id:
+            continue
+        index.setdefault(project_id, {}).setdefault("continuation_plan_records", []).append(dict(record))
+    for project in index.values():
+        records = [
+            item for item in _list(project.get("continuation_plan_records")) if isinstance(item, Mapping)
+        ]
+        project["continuation_state_counts"] = _counts(item.get("continuation_state") for item in records)
     return index
 
 
@@ -2370,6 +2441,8 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--p13b-company-history-root", default="")
     parser.add_argument("--original-notice-backtrace-json", default="")
     parser.add_argument("--original-notice-backtrace-root", default="")
+    parser.add_argument("--original-backtrace-continuation-json", default="")
+    parser.add_argument("--original-backtrace-continuation-root", default="")
     parser.add_argument("--design-survey-adapter-plan-json", default="")
     parser.add_argument("--design-survey-adapter-plan-root", default="")
     parser.add_argument("--design-survey-stage4-execution-json", default="")
@@ -2398,6 +2471,8 @@ def main(argv: list[str] | None = None) -> int:
         p13b_company_history_root=args.p13b_company_history_root or None,
         original_notice_backtrace_json=args.original_notice_backtrace_json or None,
         original_notice_backtrace_root=args.original_notice_backtrace_root or None,
+        original_backtrace_continuation_json=args.original_backtrace_continuation_json or None,
+        original_backtrace_continuation_root=args.original_backtrace_continuation_root or None,
         design_survey_adapter_plan_json=args.design_survey_adapter_plan_json or None,
         design_survey_adapter_plan_root=args.design_survey_adapter_plan_root or None,
         design_survey_stage4_execution_json=args.design_survey_stage4_execution_json or None,

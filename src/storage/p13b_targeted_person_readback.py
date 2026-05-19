@@ -624,7 +624,11 @@ def _counts(values: Iterable[Any]) -> dict[str, int]:
 
 
 def _project_key(value: Any) -> str:
-    return str(value or "").strip()
+    text = str(value or "").strip().upper()
+    match = re.search(r"JG\d{4}-\d+(?:-\d+)?", text)
+    if match:
+        return match.group(0)
+    return text.rsplit("-", 1)[-1] if text.startswith("PROJ-") else text
 
 
 def _safe_filename(value: str) -> str:

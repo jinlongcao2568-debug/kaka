@@ -9,6 +9,8 @@ param(
     [string]$YgpReadbackJson = "",
     [string]$BrowserReadbackRoot = "",
     [string]$BrowserReadbackJson = "",
+    [string]$TargetedPersonReadbackJson = "",
+    [string]$TargetedPersonReadbackRoot = "",
     [string]$DesignSurveyAdapterPlanJson = "",
     [string]$DesignSurveyAdapterPlanRoot = "",
     [string]$DesignSurveyStage4ExecutionJson = "",
@@ -27,8 +29,13 @@ param(
     [string]$OutputRoot = "",
     [string]$ProjectIds = "",
     [switch]$EnableLiveOriginalNoticeBacktrace,
+    [switch]$EnableLiveTargetedPersonReadback,
+    [switch]$DownloadTargetedPersonAttachments,
+    [switch]$EnableTargetedPersonOcr,
     [switch]$ExecuteLivePublicRegistryEntryReadback,
     [int]$MaxLiveOriginalNotices = 0,
+    [int]$MaxLiveTargetedPersonReadbacks = 0,
+    [int]$MaxTargetedPersonAttachmentsPerTask = 3,
     [switch]$EmitJson
 )
 
@@ -90,6 +97,12 @@ if ($BrowserReadbackRoot) {
 if ($BrowserReadbackJson) {
     $argsList += @("--browser-readback-json", $BrowserReadbackJson)
 }
+if ($TargetedPersonReadbackJson) {
+    $argsList += @("--targeted-person-readback-json", $TargetedPersonReadbackJson)
+}
+if ($TargetedPersonReadbackRoot) {
+    $argsList += @("--targeted-person-readback-root", $TargetedPersonReadbackRoot)
+}
 if ($DesignSurveyAdapterPlanJson) {
     $argsList += @("--design-survey-adapter-plan-json", $DesignSurveyAdapterPlanJson)
 }
@@ -141,11 +154,26 @@ if ($ProjectIds) {
 if ($EnableLiveOriginalNoticeBacktrace) {
     $argsList += "--enable-live-original-notice-backtrace"
 }
+if ($EnableLiveTargetedPersonReadback) {
+    $argsList += "--enable-live-targeted-person-readback"
+}
+if ($DownloadTargetedPersonAttachments) {
+    $argsList += "--download-targeted-person-attachments"
+}
+if ($EnableTargetedPersonOcr) {
+    $argsList += "--enable-targeted-person-ocr"
+}
 if ($ExecuteLivePublicRegistryEntryReadback) {
     $argsList += "--execute-live-public-registry-entry-readback"
 }
 if ($MaxLiveOriginalNotices -gt 0) {
     $argsList += @("--max-live-original-notices", "$MaxLiveOriginalNotices")
+}
+if ($MaxLiveTargetedPersonReadbacks -gt 0) {
+    $argsList += @("--max-live-targeted-person-readbacks", "$MaxLiveTargetedPersonReadbacks")
+}
+if ($MaxTargetedPersonAttachmentsPerTask -ge 0) {
+    $argsList += @("--max-targeted-person-attachments-per-task", "$MaxTargetedPersonAttachmentsPerTask")
 }
 if ($EmitJson) {
     $argsList += "--json"

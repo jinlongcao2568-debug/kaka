@@ -27,7 +27,7 @@ class P13BOriginalBacktraceContinuationControllerTests(unittest.TestCase):
             result = build_p13b_original_backtrace_continuation_controller(
                 original_notice_backtrace_root=original_root,
                 output_root=root / "out",
-                project_ids=["PROJ-CN-GD-JG2026-20001"],
+                project_ids=["JG2026-20001"],
                 created_at="2026-05-19T00:00:00+08:00",
             )
 

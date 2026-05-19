@@ -14,6 +14,7 @@ from storage.p13b_original_backtrace_continuation_controller import (
     build_p13b_original_backtrace_continuation_controller,
 )
 from storage.p13b_original_notice_backtrace import build_p13b_original_notice_backtrace
+from storage.p13b_targeted_person_readback import build_p13b_targeted_person_readback
 
 
 EVIDENCE_ORCHESTRATION_CONTINUATION_KIND = "evidence_orchestration_continuation_runner_v1_manifest"
@@ -34,6 +35,8 @@ def run_evidence_orchestration_continuation(
     ygp_readback_json: str | Path | None = None,
     browser_readback_root: str | Path | None = None,
     browser_readback_json: str | Path | None = None,
+    targeted_person_readback_json: str | Path | None = None,
+    targeted_person_readback_root: str | Path | None = None,
     design_survey_adapter_plan_json: str | Path | None = None,
     design_survey_adapter_plan_root: str | Path | None = None,
     design_survey_stage4_execution_json: str | Path | None = None,
@@ -51,8 +54,13 @@ def run_evidence_orchestration_continuation(
     public_registry_snapshot_json: str | Path | None = None,
     output_root: str | Path = DEFAULT_OUTPUT_ROOT,
     enable_live_original_notice_backtrace: bool = False,
+    enable_live_targeted_person_readback: bool = False,
+    download_targeted_person_attachments: bool = False,
+    enable_targeted_person_ocr: bool = False,
     execute_live_public_registry_entry_readback: bool = False,
     max_live_original_notices: int | None = None,
+    max_live_targeted_person_readbacks: int | None = None,
+    max_targeted_person_attachments_per_task: int = 3,
     project_ids: list[str] | tuple[str, ...] = (),
     created_at: str | None = None,
 ) -> dict[str, Any]:
@@ -61,6 +69,9 @@ def run_evidence_orchestration_continuation(
     state_before_root = out_dir / "00-evidence-state-before"
     original_continuation_root = out_dir / "00b-original-backtrace-continuation-plan"
     original_out_root = out_dir / "01-original-notice-backtrace"
+    targeted_person_continuation_root = out_dir / "01a-original-backtrace-continuation-for-targeted-person"
+    targeted_person_out_root = out_dir / "01aa-p13b-targeted-person-readback"
+    final_original_continuation_root = out_dir / "01ab-original-backtrace-continuation-final"
     public_registry_fallback_out_root = out_dir / "01b-design-survey-public-registry-fallback"
     public_registry_readback_out_root = out_dir / "01c-design-survey-public-registry-readback"
     state_after_root = out_dir / "02-evidence-state-after"
@@ -111,6 +122,14 @@ def run_evidence_orchestration_continuation(
     original_source_root = original_notice_backtrace_root
     original_action_state = "SKIPPED"
     original_skip_reason = ""
+    targeted_person_continuation_result: dict[str, Any] = {}
+    targeted_person_result: dict[str, Any] = {}
+    final_original_continuation_result: dict[str, Any] = {}
+    targeted_person_source_json = targeted_person_readback_json
+    targeted_person_source_root = targeted_person_readback_root
+    targeted_person_action_state = "SKIPPED"
+    targeted_person_skip_reason = ""
+    final_original_continuation_source_root: Path | None = None
 
     if backtrace_required_count <= 0:
         if original_notice_backtrace_json or original_notice_backtrace_root:
@@ -170,6 +189,63 @@ def run_evidence_orchestration_continuation(
             if original_notice_backtrace_json or original_notice_backtrace_root
             else "ORIGINAL_BACKTRACE_PLAN_BUILT"
         )
+
+    if original_source_json or original_source_root:
+        targeted_person_continuation_result = build_p13b_original_backtrace_continuation_controller(
+            original_notice_backtrace_json=original_source_json,
+            original_notice_backtrace_root=original_source_root,
+            targeted_person_readback_json=targeted_person_source_json,
+            targeted_person_readback_root=targeted_person_source_root,
+            output_root=targeted_person_continuation_root,
+            project_ids=original_project_ids,
+            created_at=created,
+        )
+        targeted_person_continuation_summary = _summary(targeted_person_continuation_result)
+        targeted_required_count = int(
+            targeted_person_continuation_summary.get("targeted_person_readback_required_count") or 0
+        )
+        if targeted_person_source_json or targeted_person_source_root:
+            targeted_person_action_state = "EXISTING_TARGETED_PERSON_READBACK_CONSUMED"
+            targeted_person_skip_reason = "existing_targeted_person_readback_input_supplied"
+        elif targeted_required_count > 0:
+            targeted_person_result = build_p13b_targeted_person_readback(
+                continuation_root=targeted_person_continuation_root,
+                output_root=targeted_person_out_root,
+                project_ids=original_project_ids,
+                enable_live_public_query=enable_live_targeted_person_readback,
+                download_target_attachments=download_targeted_person_attachments,
+                max_live_readbacks=max_live_targeted_person_readbacks,
+                max_attachments_per_task=max_targeted_person_attachments_per_task,
+                enable_ocr=enable_targeted_person_ocr,
+                created_at=created,
+            )
+            targeted_person_source_root = targeted_person_out_root
+            targeted_person_action_state = (
+                "TARGETED_PERSON_READBACK_LIVE_ATTEMPTED"
+                if enable_live_targeted_person_readback
+                else "TARGETED_PERSON_READBACK_PLAN_BUILT"
+            )
+        else:
+            targeted_person_action_state = "SKIPPED_NO_TARGETED_PERSON_READBACK_REQUIRED"
+            targeted_person_skip_reason = "continuation_controller_has_no_targeted_person_readback_required_record"
+
+        if targeted_person_source_json or targeted_person_source_root:
+            final_original_continuation_result = build_p13b_original_backtrace_continuation_controller(
+                original_notice_backtrace_json=original_source_json,
+                original_notice_backtrace_root=original_source_root,
+                targeted_person_readback_json=targeted_person_source_json,
+                targeted_person_readback_root=targeted_person_source_root,
+                output_root=final_original_continuation_root,
+                project_ids=original_project_ids,
+                created_at=created,
+            )
+            final_original_continuation_source_root = final_original_continuation_root
+        else:
+            final_original_continuation_result = targeted_person_continuation_result
+            final_original_continuation_source_root = targeted_person_continuation_root
+    else:
+        targeted_person_action_state = "SKIPPED_ORIGINAL_BACKTRACE_INPUT_MISSING"
+        targeted_person_skip_reason = "original_notice_backtrace_input_missing"
 
     public_registry_fallback_result: dict[str, Any] = {}
     public_registry_readback_result: dict[str, Any] = {}
@@ -246,6 +322,7 @@ def run_evidence_orchestration_continuation(
         p13b_company_history_root=p13b_company_history_root,
         original_notice_backtrace_json=original_source_json,
         original_notice_backtrace_root=original_source_root,
+        original_backtrace_continuation_root=final_original_continuation_source_root,
         design_survey_adapter_plan_json=design_survey_adapter_plan_json,
         design_survey_adapter_plan_root=design_survey_adapter_plan_root,
         design_survey_stage4_execution_json=design_survey_stage4_execution_json,
@@ -267,9 +344,14 @@ def run_evidence_orchestration_continuation(
         state_before=state_before,
         original_continuation_result=original_continuation_result,
         original_result=original_result,
+        targeted_person_continuation_result=targeted_person_continuation_result,
+        targeted_person_result=targeted_person_result,
+        final_original_continuation_result=final_original_continuation_result,
         state_after=state_after,
         original_action_state=original_action_state,
         original_skip_reason=original_skip_reason,
+        targeted_person_action_state=targeted_person_action_state,
+        targeted_person_skip_reason=targeted_person_skip_reason,
         public_registry_fallback_result=public_registry_fallback_result,
         public_registry_readback_result=public_registry_readback_result,
         public_registry_fallback_action_state=public_registry_fallback_action_state,
@@ -294,9 +376,16 @@ def run_evidence_orchestration_continuation(
         "source_ygp_readback_json": str(ygp_readback_json or ""),
         "source_browser_readback_root": str(browser_readback_root or ""),
         "source_browser_readback_json": str(browser_readback_json or ""),
+        "source_targeted_person_readback_json": str(targeted_person_readback_json or ""),
+        "source_targeted_person_readback_root": str(targeted_person_readback_root or ""),
         "original_backtrace_continuation_root": str(original_continuation_root)
         if original_continuation_result
         else "",
+        "targeted_person_backtrace_continuation_root": str(targeted_person_continuation_root)
+        if targeted_person_continuation_result
+        else "",
+        "p13b_targeted_person_readback_root": str(targeted_person_out_root) if targeted_person_result else "",
+        "final_original_backtrace_continuation_root": str(final_original_continuation_source_root or ""),
         "source_design_survey_adapter_plan_json": str(design_survey_adapter_plan_json or ""),
         "source_design_survey_adapter_plan_root": str(design_survey_adapter_plan_root or ""),
         "source_design_survey_stage4_execution_json": str(design_survey_stage4_execution_json or ""),
@@ -315,22 +404,34 @@ def run_evidence_orchestration_continuation(
         "state_before_root": str(state_before_root),
         "original_notice_backtrace_json": str(original_source_json or ""),
         "original_notice_backtrace_root": str(original_source_root or ""),
+        "p13b_targeted_person_readback_json": str(targeted_person_source_json or ""),
+        "p13b_targeted_person_readback_root": str(targeted_person_source_root or ""),
         "design_survey_public_registry_fallback_root": str(public_registry_fallback_source_root or ""),
         "design_survey_public_registry_readback_root": str(public_registry_readback_source_root or ""),
         "state_after_root": str(state_after_root),
         "state_before_summary": _summary(state_before),
         "original_backtrace_continuation_summary": _summary(original_continuation_result),
         "original_notice_backtrace_summary": _summary(original_result),
+        "targeted_person_backtrace_continuation_summary": _summary(targeted_person_continuation_result),
+        "p13b_targeted_person_readback_summary": _summary(targeted_person_result),
+        "final_original_backtrace_continuation_summary": _summary(final_original_continuation_result),
         "design_survey_public_registry_fallback_summary": _summary(public_registry_fallback_result),
         "design_survey_public_registry_readback_summary": _summary(public_registry_readback_result),
         "state_after_summary": _summary(state_after),
         "summary": summary,
         "safety": {
-            "network_enabled": bool(enable_live_original_notice_backtrace or execute_live_public_registry_entry_readback),
-            "download_enabled": False,
-            "parse_enabled": False,
+            "network_enabled": bool(
+                enable_live_original_notice_backtrace
+                or enable_live_targeted_person_readback
+                or execute_live_public_registry_entry_readback
+            ),
+            "download_enabled": bool(enable_live_targeted_person_readback and download_targeted_person_attachments),
+            "parse_enabled": bool(enable_live_targeted_person_readback and download_targeted_person_attachments),
             "stage4_live_provider_enabled": bool(execute_live_public_registry_entry_readback),
             "public_registry_live_entry_readback_enabled": bool(execute_live_public_registry_entry_readback),
+            "targeted_person_live_readback_enabled": bool(enable_live_targeted_person_readback),
+            "targeted_person_attachment_download_enabled": bool(download_targeted_person_attachments),
+            "targeted_person_ocr_enabled": bool(enable_targeted_person_ocr),
             "default_live_original_notice_budget": original_live_notice_limit
             if enable_live_original_notice_backtrace
             else 0,
@@ -351,12 +452,18 @@ def run_evidence_orchestration_continuation(
         "safe_to_execute": bool(state_before.get("safe_to_execute")) and bool(state_after.get("safe_to_execute"))
         and (not original_continuation_result or bool(original_continuation_result.get("safe_to_execute")))
         and (not original_result or bool(original_result.get("safe_to_execute")))
+        and (not targeted_person_continuation_result or bool(targeted_person_continuation_result.get("safe_to_execute")))
+        and (not targeted_person_result or bool(targeted_person_result.get("safe_to_execute")))
+        and (not final_original_continuation_result or bool(final_original_continuation_result.get("safe_to_execute")))
         and (not public_registry_fallback_result or bool(public_registry_fallback_result.get("safe_to_execute")))
         and (not public_registry_readback_result or bool(public_registry_readback_result.get("safe_to_execute"))),
         "blocking_reasons": [
             *_list(state_before.get("blocking_reasons")),
             *_list(original_continuation_result.get("blocking_reasons")),
             *_list(original_result.get("blocking_reasons")),
+            *_list(targeted_person_continuation_result.get("blocking_reasons")),
+            *_list(targeted_person_result.get("blocking_reasons")),
+            *_list(final_original_continuation_result.get("blocking_reasons")),
             *_list(public_registry_fallback_result.get("blocking_reasons")),
             *_list(public_registry_readback_result.get("blocking_reasons")),
             *_list(state_after.get("blocking_reasons")),
@@ -373,11 +480,16 @@ def _run_summary(
     state_before: Mapping[str, Any],
     original_continuation_result: Mapping[str, Any],
     original_result: Mapping[str, Any],
+    targeted_person_continuation_result: Mapping[str, Any],
+    targeted_person_result: Mapping[str, Any],
+    final_original_continuation_result: Mapping[str, Any],
     public_registry_fallback_result: Mapping[str, Any],
     public_registry_readback_result: Mapping[str, Any],
     state_after: Mapping[str, Any],
     original_action_state: str,
     original_skip_reason: str,
+    targeted_person_action_state: str,
+    targeted_person_skip_reason: str,
     public_registry_fallback_action_state: str,
     public_registry_fallback_skip_reason: str,
     public_registry_readback_action_state: str,
@@ -386,6 +498,9 @@ def _run_summary(
     before = _summary(state_before)
     original_continuation = _summary(original_continuation_result)
     original = _summary(original_result)
+    targeted_person_continuation = _summary(targeted_person_continuation_result)
+    targeted_person = _summary(targeted_person_result)
+    final_original_continuation = _summary(final_original_continuation_result)
     public_registry_fallback = _summary(public_registry_fallback_result)
     public_registry_readback = _summary(public_registry_readback_result)
     after = _summary(state_after)
@@ -407,6 +522,29 @@ def _run_summary(
         "original_notice_live_processed_count": int(original.get("live_processed_count") or 0),
         "original_notice_overlap_signal_review_required_count": int(
             original.get("original_notice_overlap_signal_review_required_count") or 0
+        ),
+        "targeted_person_action_state": targeted_person_action_state,
+        "targeted_person_skip_reason": targeted_person_skip_reason,
+        "targeted_person_pre_continuation_required_count": int(
+            targeted_person_continuation.get("targeted_person_readback_required_count") or 0
+        ),
+        "targeted_person_task_count": int(targeted_person.get("targeted_person_task_count") or 0),
+        "targeted_person_readback_count": int(targeted_person.get("targeted_person_readback_count") or 0),
+        "targeted_person_found_count": int(targeted_person.get("target_person_found_count") or 0),
+        "targeted_person_same_signal_ready_count": int(
+            targeted_person.get("same_person_company_period_signal_ready_count") or 0
+        ),
+        "targeted_person_final_required_count": int(
+            final_original_continuation.get("targeted_person_readback_required_count") or 0
+        ),
+        "final_original_backtrace_release_evidence_ready_count": int(
+            final_original_continuation.get("release_evidence_ready_count") or 0
+        ),
+        "final_original_backtrace_continuation_state_counts": dict(
+            final_original_continuation.get("continuation_state_counts") or {}
+        ),
+        "final_original_backtrace_continuation_recommended_next_action": str(
+            final_original_continuation.get("recommended_next_action") or ""
         ),
         "public_registry_fallback_action_state": public_registry_fallback_action_state,
         "public_registry_fallback_skip_reason": public_registry_fallback_skip_reason,
@@ -504,6 +642,8 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--ygp-readback-json", default="")
     parser.add_argument("--browser-readback-root", default="")
     parser.add_argument("--browser-readback-json", default="")
+    parser.add_argument("--targeted-person-readback-json", default="")
+    parser.add_argument("--targeted-person-readback-root", default="")
     parser.add_argument("--design-survey-adapter-plan-json", default="")
     parser.add_argument("--design-survey-adapter-plan-root", default="")
     parser.add_argument("--design-survey-stage4-execution-json", default="")
@@ -521,8 +661,13 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--public-registry-snapshot-json", default="")
     parser.add_argument("--output-root", default=str(DEFAULT_OUTPUT_ROOT))
     parser.add_argument("--enable-live-original-notice-backtrace", action="store_true")
+    parser.add_argument("--enable-live-targeted-person-readback", action="store_true")
+    parser.add_argument("--download-targeted-person-attachments", action="store_true")
+    parser.add_argument("--enable-targeted-person-ocr", action="store_true")
     parser.add_argument("--execute-live-public-registry-entry-readback", action="store_true")
     parser.add_argument("--max-live-original-notices", type=int, default=None)
+    parser.add_argument("--max-live-targeted-person-readbacks", type=int, default=None)
+    parser.add_argument("--max-targeted-person-attachments-per-task", type=int, default=3)
     parser.add_argument("--project-ids", default="")
     parser.add_argument("--json", action="store_true", dest="emit_json")
     return parser.parse_args(argv)
@@ -541,6 +686,8 @@ def main(argv: list[str] | None = None) -> int:
         ygp_readback_json=args.ygp_readback_json or None,
         browser_readback_root=args.browser_readback_root or None,
         browser_readback_json=args.browser_readback_json or None,
+        targeted_person_readback_json=args.targeted_person_readback_json or None,
+        targeted_person_readback_root=args.targeted_person_readback_root or None,
         design_survey_adapter_plan_json=args.design_survey_adapter_plan_json or None,
         design_survey_adapter_plan_root=args.design_survey_adapter_plan_root or None,
         design_survey_stage4_execution_json=args.design_survey_stage4_execution_json or None,
@@ -558,8 +705,13 @@ def main(argv: list[str] | None = None) -> int:
         public_registry_snapshot_json=args.public_registry_snapshot_json or None,
         output_root=args.output_root,
         enable_live_original_notice_backtrace=bool(args.enable_live_original_notice_backtrace),
+        enable_live_targeted_person_readback=bool(args.enable_live_targeted_person_readback),
+        download_targeted_person_attachments=bool(args.download_targeted_person_attachments),
+        enable_targeted_person_ocr=bool(args.enable_targeted_person_ocr),
         execute_live_public_registry_entry_readback=bool(args.execute_live_public_registry_entry_readback),
         max_live_original_notices=args.max_live_original_notices,
+        max_live_targeted_person_readbacks=args.max_live_targeted_person_readbacks,
+        max_targeted_person_attachments_per_task=max(0, int(args.max_targeted_person_attachments_per_task or 0)),
         project_ids=_parse_csv(args.project_ids),
     )
     if args.emit_json:

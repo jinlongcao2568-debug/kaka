@@ -26,7 +26,7 @@ class P13BTargetedPersonReadbackTests(unittest.TestCase):
             result = build_p13b_targeted_person_readback(
                 continuation_root=continuation_root,
                 output_root=root / "out",
-                project_ids=["PROJ-1"],
+                project_ids=["JG2026-20001"],
                 created_at="2026-05-19T00:00:00+08:00",
             )
 
@@ -124,7 +124,7 @@ def _write_continuation(root: Path) -> None:
             "continuation_plan_records": [
                 {
                     "original_notice_task_id": "TASK-1",
-                    "project_id": "PROJ-1",
+                    "project_id": "PROJ-CN-GD-JG2026-20001",
                     "candidate_company_name": "广东甲公司",
                     "responsible_person_names": ["张三"],
                     "bid_project_name": "历史工程",
@@ -137,7 +137,7 @@ def _write_continuation(root: Path) -> None:
                 },
                 {
                     "original_notice_task_id": "TASK-2",
-                    "project_id": "PROJ-1",
+                    "project_id": "PROJ-CN-GD-JG2026-20001",
                     "candidate_company_name": "广东乙公司",
                     "responsible_person_names": ["李四"],
                     "original_notice_url": "https://example.test/park.html",
