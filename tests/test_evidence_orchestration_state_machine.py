@@ -457,11 +457,17 @@ class EvidenceOrchestrationStateMachineTests(unittest.TestCase):
             self.assertEqual(design["stage6_fact_package_state"], "REVIEW_FACT_PACKAGE_READY")
             self.assertEqual(
                 design["design_survey_adapter_counts"]["design_survey_public_registry_readback_matched_count"],
-                1,
+                2,
             )
             artifacts = design["evidence_artifacts"]
-            self.assertEqual(len(artifacts), 1)
+            self.assertEqual(len(artifacts), 2)
             self.assertEqual(artifacts[0]["evidence_artifact_type"], "DESIGN_SURVEY_PUBLIC_REGISTRY_READBACK")
+            self.assertEqual(artifacts[0]["registered_unit_match_scope"], "DIRECT_CANDIDATE_COMPANY")
+            self.assertEqual(
+                artifacts[0]["matched_candidate_group_member_name"],
+                "广州市城市规划勘测设计研究院有限公司",
+            )
+            self.assertIn("广州湾区规划勘测设计院有限公司", artifacts[0]["candidate_group_members"])
             self.assertEqual(artifacts[0]["identity_fields"]["person_name"], "胡昌华")
             self.assertEqual(
                 artifacts[0]["identity_fields"]["registered_unit_name"],
@@ -472,6 +478,11 @@ class EvidenceOrchestrationStateMachineTests(unittest.TestCase):
                 "粤测绘20260001",
             )
             self.assertEqual(artifacts[0]["source_snapshot_sha256"], "snapshot-sha256")
+            self.assertEqual(artifacts[1]["registered_unit_match_scope"], "CANDIDATE_GROUP_MEMBER")
+            self.assertEqual(
+                artifacts[1]["matched_candidate_group_member_name"],
+                "广州市城市规划勘测设计研究院有限公司",
+            )
             self.assertEqual(result["summary"]["design_survey_identity_match_project_count"], 1)
 
     def test_design_survey_public_registry_pending_readback_stays_tasks_ready(self) -> None:
@@ -1571,60 +1582,65 @@ def _write_design_survey_public_registry_readback(root: Path, *, mode: str) -> N
         readback_state = "READBACK_READY"
         verification = "REVIEW_REQUIRED"
         review_reasons = ["registered_surveyor_registered_unit_not_matched_to_candidate_company"]
+    records = [
+        {
+            "public_registry_readback_id": f"READBACK-{mode}",
+            "source_job_id": "STAGE4-PUBLIC-REG-JOB-1",
+            "project_id": project_id,
+            "project_name": "规划测绘项目中标候选人公示",
+            "provider_id": "NATURAL_RESOURCE_REGISTERED_SURVEYOR",
+            "provider_result_state": provider_state,
+            "readback_state": readback_state,
+            "verification_result": verification,
+            "identity_resolution_state": "MATCHED_PERSON_COMPANY" if mode == "matched" else "REVIEW_REQUIRED",
+            "candidate_company_name": "广州市城市规划勘测设计研究院有限公司",
+            "responsible_person_name": "胡昌华",
+            "certificate_no_optional": "粤测绘20260001",
+            "identity_fields": {
+                "person_name": "胡昌华",
+                "registered_unit_name": "广州市城市规划勘测设计研究院有限公司",
+                "certificate_no_or_registration_no": "粤测绘20260001",
+                "registration_status": "有效",
+                "source_url_or_snapshot_id": "snapshot-1",
+            },
+            "public_registry_readback": {
+                "source_url": "https://rsurveyor.example.test/query",
+                "snapshot_ref": "snapshot-1",
+                "snapshot_text_sha256": "snapshot-sha256",
+                "redacted_text_probe": "姓名: 胡昌华 | 注册单位: 广州市城市规划勘测设计研究院有限公司",
+                "best_record": {
+                    "person_name": "胡昌华",
+                    "registered_unit_name": "广州市城市规划勘测设计研究院有限公司",
+                    "certificate_no_or_registration_no": "粤测绘20260001",
+                    "registration_status": "有效",
+                },
+            },
+            "source_refs": [
+                {
+                    "source_url": "https://rsurveyor.example.test/query",
+                    "source_snapshot_id": "snapshot-1",
+                    "source_role": "registered_surveyor_public_snapshot",
+                    "public_visible": True,
+                }
+            ],
+            "source_snapshot_sha256": "snapshot-sha256",
+            "review_reasons": review_reasons,
+            "customer_visible_allowed": False,
+            "no_legal_conclusion": True,
+        }
+    ]
+    if mode == "matched":
+        second = dict(records[0])
+        second["public_registry_readback_id"] = "READBACK-matched-group-member"
+        second["source_job_id"] = "STAGE4-PUBLIC-REG-JOB-2"
+        second["candidate_company_name"] = "广州湾区规划勘测设计院有限公司"
+        records.append(second)
     _write_json(
         root / "design-survey-public-registry-readback-v1.json",
         {
             "manifest": {
                 "public_registry_readback_table": {
-                    "records": [
-                        {
-                            "public_registry_readback_id": f"READBACK-{mode}",
-                            "source_job_id": "STAGE4-PUBLIC-REG-JOB-1",
-                            "project_id": project_id,
-                            "project_name": "规划测绘项目中标候选人公示",
-                            "provider_id": "NATURAL_RESOURCE_REGISTERED_SURVEYOR",
-                            "provider_result_state": provider_state,
-                            "readback_state": readback_state,
-                            "verification_result": verification,
-                            "identity_resolution_state": "MATCHED_PERSON_COMPANY"
-                            if mode == "matched"
-                            else "REVIEW_REQUIRED",
-                            "candidate_company_name": "广州市城市规划勘测设计研究院有限公司",
-                            "responsible_person_name": "胡昌华",
-                            "certificate_no_optional": "粤测绘20260001",
-                            "identity_fields": {
-                                "person_name": "胡昌华",
-                                "registered_unit_name": "广州市城市规划勘测设计研究院有限公司",
-                                "certificate_no_or_registration_no": "粤测绘20260001",
-                                "registration_status": "有效",
-                                "source_url_or_snapshot_id": "snapshot-1",
-                            },
-                            "public_registry_readback": {
-                                "source_url": "https://rsurveyor.example.test/query",
-                                "snapshot_ref": "snapshot-1",
-                                "snapshot_text_sha256": "snapshot-sha256",
-                                "redacted_text_probe": "姓名: 胡昌华 | 注册单位: 广州市城市规划勘测设计研究院有限公司",
-                                "best_record": {
-                                    "person_name": "胡昌华",
-                                    "registered_unit_name": "广州市城市规划勘测设计研究院有限公司",
-                                    "certificate_no_or_registration_no": "粤测绘20260001",
-                                    "registration_status": "有效",
-                                },
-                            },
-                            "source_refs": [
-                                {
-                                    "source_url": "https://rsurveyor.example.test/query",
-                                    "source_snapshot_id": "snapshot-1",
-                                    "source_role": "registered_surveyor_public_snapshot",
-                                    "public_visible": True,
-                                }
-                            ],
-                            "source_snapshot_sha256": "snapshot-sha256",
-                            "review_reasons": review_reasons,
-                            "customer_visible_allowed": False,
-                            "no_legal_conclusion": True,
-                        }
-                    ]
+                    "records": records
                 }
             }
         },

@@ -358,6 +358,7 @@ def _evidence_record(
         "signal_counts": signal_counts,
         "design_survey_adapter_counts": design_survey_counts,
         "evidence_artifacts": _evidence_artifacts(
+            candidate_group_members=candidate_companies,
             design_survey_public_registry_readback_project=design_survey_public_registry_readback_project
         ),
         "review_reasons": review_reasons,
@@ -1480,14 +1481,20 @@ def _design_survey_counts(
 
 def _evidence_artifacts(
     *,
+    candidate_group_members: list[str],
     design_survey_public_registry_readback_project: Mapping[str, Any],
 ) -> list[dict[str, Any]]:
     return _design_survey_public_registry_readback_artifacts(
-        design_survey_public_registry_readback_project
+        design_survey_public_registry_readback_project,
+        candidate_group_members=candidate_group_members,
     )
 
 
-def _design_survey_public_registry_readback_artifacts(project: Mapping[str, Any]) -> list[dict[str, Any]]:
+def _design_survey_public_registry_readback_artifacts(
+    project: Mapping[str, Any],
+    *,
+    candidate_group_members: list[str],
+) -> list[dict[str, Any]]:
     artifacts: list[dict[str, Any]] = []
     for record in _list(project.get("public_registry_readback_records")):
         if not isinstance(record, Mapping):
@@ -1497,6 +1504,13 @@ def _design_survey_public_registry_readback_artifacts(project: Mapping[str, Any]
         best_record = readback.get("best_record") if isinstance(readback.get("best_record"), Mapping) else {}
         identity_fields = record.get("identity_fields") if isinstance(record.get("identity_fields"), Mapping) else {}
         source_refs = _source_ref_summaries(record.get("source_refs"))
+        identity_summary = _identity_field_summary(identity_fields, best_record)
+        company_name = str(record.get("candidate_company_name") or "")
+        match_scope = _registered_unit_match_scope(
+            candidate_company_name=company_name,
+            registered_unit_name=identity_summary.get("registered_unit_name", ""),
+            candidate_group_members=candidate_group_members,
+        )
         artifacts.append(
             {
                 "evidence_artifact_id": str(record.get("public_registry_readback_id") or ""),
@@ -1509,10 +1523,13 @@ def _design_survey_public_registry_readback_artifacts(project: Mapping[str, Any]
                 "readback_state": str(record.get("readback_state") or ""),
                 "verification_result": str(record.get("verification_result") or ""),
                 "identity_resolution_state": str(record.get("identity_resolution_state") or ""),
-                "candidate_company_name": str(record.get("candidate_company_name") or ""),
+                "candidate_company_name": company_name,
+                "candidate_group_members": list(candidate_group_members),
+                "registered_unit_match_scope": match_scope["registered_unit_match_scope"],
+                "matched_candidate_group_member_name": match_scope["matched_candidate_group_member_name"],
                 "responsible_person_name": str(record.get("responsible_person_name") or ""),
                 "certificate_no_optional": str(record.get("certificate_no_optional") or ""),
-                "identity_fields": _identity_field_summary(identity_fields, best_record),
+                "identity_fields": identity_summary,
                 "source_url": _first_non_empty(
                     readback.get("source_url"),
                     _first_source_ref_url(source_refs),
@@ -1540,6 +1557,33 @@ def _design_survey_public_registry_readback_artifacts(project: Mapping[str, Any]
             }
         )
     return artifacts[:5]
+
+
+def _registered_unit_match_scope(
+    *,
+    candidate_company_name: str,
+    registered_unit_name: str,
+    candidate_group_members: list[str],
+) -> dict[str, str]:
+    normalized_registered = _normalize_company_for_match(registered_unit_name)
+    if not normalized_registered:
+        return {"registered_unit_match_scope": "REGISTERED_UNIT_MISSING", "matched_candidate_group_member_name": ""}
+    if _normalize_company_for_match(candidate_company_name) == normalized_registered:
+        return {
+            "registered_unit_match_scope": "DIRECT_CANDIDATE_COMPANY",
+            "matched_candidate_group_member_name": candidate_company_name,
+        }
+    for member in candidate_group_members:
+        if _normalize_company_for_match(member) == normalized_registered:
+            return {
+                "registered_unit_match_scope": "CANDIDATE_GROUP_MEMBER",
+                "matched_candidate_group_member_name": member,
+            }
+    return {"registered_unit_match_scope": "NOT_MATCHED_TO_CANDIDATE_GROUP", "matched_candidate_group_member_name": ""}
+
+
+def _normalize_company_for_match(value: Any) -> str:
+    return re.sub(r"\s+", "", str(value or "")).strip()
 
 
 def _identity_field_summary(identity_fields: Mapping[str, Any], best_record: Mapping[str, Any]) -> dict[str, str]:
