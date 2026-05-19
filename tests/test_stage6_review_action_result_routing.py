@@ -53,6 +53,8 @@ class Stage6ReviewActionResultRoutingTests(unittest.TestCase):
             self.assertIn("-Stage16StorageJson", records["PROJ-ORIG"]["recommended_command"])
             self.assertIn("-OriginalBacktraceContinuationJson", records["PROJ-ORIG"]["recommended_command"])
             self.assertIn("tmp/original-continuation.json", records["PROJ-ORIG"]["recommended_command"])
+            self.assertIn("scripts/build-evidence-orchestration-state-v1.ps1", records["PROJ-ORIG"]["recommended_command_argv"])
+            self.assertIn("tmp/original-continuation.json", records["PROJ-ORIG"]["recommended_command_argv"])
             self.assertEqual(
                 records["PROJ-SURVEY"]["next_task_type"],
                 "REBUILD_EVIDENCE_STATE_WITH_DESIGN_SURVEY_PUBLIC_REGISTRY_READBACK",
@@ -62,9 +64,11 @@ class Stage6ReviewActionResultRoutingTests(unittest.TestCase):
                 "DesignSurveyPublicRegistryReadbackJson",
             )
             self.assertIn("-DesignSurveyPublicRegistryReadbackJson", records["PROJ-SURVEY"]["recommended_command"])
+            self.assertIn("tmp/design-survey-readback.json", records["PROJ-SURVEY"]["recommended_command_argv"])
             self.assertEqual(records["PROJ-REL"]["next_task_type"], "RUN_RELEASE_EVIDENCE_FIELD_QUERY_PROBE")
             self.assertEqual(records["PROJ-REL"]["input_arg_name_for_result_json"], "ReleaseEvidenceAdapterPlanJson")
             self.assertIn("-ReleaseEvidenceAdapterPlanJson", records["PROJ-REL"]["recommended_command"])
+            self.assertIn("scripts/run-guangdong-local-field-query-probe-v1.ps1", records["PROJ-REL"]["recommended_command_argv"])
             self.assertEqual(
                 records["PROJ-WAIT"]["result_routing_state"],
                 "WAITING_FOR_CONTROLLED_EXECUTION",

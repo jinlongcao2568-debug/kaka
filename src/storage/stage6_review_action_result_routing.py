@@ -142,7 +142,7 @@ def _routing_record(
         closeout_state=str(record.get("dispatch_closeout_state") or ""),
         dispatch_task_type=dispatch_task_type,
     )
-    command = _recommended_command(
+    command_argv = _recommended_command_argv(
         next_task_type=next_task_type,
         input_arg_name=input_arg_name,
         result_json_path=result_json_path,
@@ -150,6 +150,7 @@ def _routing_record(
         evidence_state_rebuild_output_root=evidence_state_rebuild_output_root,
         release_evidence_field_query_output_root=release_evidence_field_query_output_root,
     )
+    command = _powershell_command(command_argv)
     return {
         "result_routing_id": _stable_id(
             "S6-RESULT-ROUTE",
@@ -168,6 +169,7 @@ def _routing_record(
         "recommended_script": script,
         "recommended_command_template": command_template,
         "recommended_command": command,
+        "recommended_command_argv": command_argv,
         "recommended_command_ready": bool(command),
         "result_json_path": result_json_path,
         "result_json_exists": bool(record.get("result_json_exists")),
@@ -188,7 +190,7 @@ def _routing_record(
     }
 
 
-def _recommended_command(
+def _recommended_command_argv(
     *,
     next_task_type: str,
     input_arg_name: str,
@@ -196,21 +198,21 @@ def _recommended_command(
     baseline_args: Mapping[str, str],
     evidence_state_rebuild_output_root: str,
     release_evidence_field_query_output_root: str,
-) -> str:
+) -> list[str]:
     if next_task_type.startswith("REBUILD_EVIDENCE_STATE_WITH_") and result_json_path:
         args = dict(baseline_args)
         args[input_arg_name] = result_json_path
         args["OutputRoot"] = evidence_state_rebuild_output_root
-        return _powershell_command("scripts/build-evidence-orchestration-state-v1.ps1", args)
+        return _powershell_argv("scripts/build-evidence-orchestration-state-v1.ps1", args)
     if next_task_type == "RUN_RELEASE_EVIDENCE_FIELD_QUERY_PROBE" and result_json_path:
-        return _powershell_command(
+        return _powershell_argv(
             "scripts/run-guangdong-local-field-query-probe-v1.ps1",
             {
                 input_arg_name: result_json_path,
                 "OutputRoot": release_evidence_field_query_output_root,
             },
         )
-    return ""
+    return []
 
 
 def _routing_decision(
@@ -357,8 +359,8 @@ def _baseline_evidence_state_args(manifest: Mapping[str, Any]) -> dict[str, str]
     return args
 
 
-def _powershell_command(script_path: str, args: Mapping[str, str]) -> str:
-    parts = [
+def _powershell_argv(script_path: str, args: Mapping[str, str]) -> list[str]:
+    argv = [
         "pwsh",
         "-NoProfile",
         "-ExecutionPolicy",
@@ -370,13 +372,22 @@ def _powershell_command(script_path: str, args: Mapping[str, str]) -> str:
         text = str(value or "").strip()
         if not text:
             continue
-        parts.append(f"-{key}")
-        parts.append(_ps_quote(text))
-    return " ".join(parts)
+        argv.append(f"-{key}")
+        argv.append(text)
+    return argv
 
 
-def _ps_quote(value: str) -> str:
-    return '"' + value.replace('"', '`"') + '"'
+def _powershell_command(argv: list[str]) -> str:
+    return " ".join(_ps_quote_arg(part) for part in argv)
+
+
+def _ps_quote_arg(value: str) -> str:
+    if not value:
+        return "''"
+    safe_chars = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_./:-")
+    if all(char in safe_chars for char in value):
+        return value
+    return "'" + value.replace("'", "''") + "'"
 
 
 def _summary(
