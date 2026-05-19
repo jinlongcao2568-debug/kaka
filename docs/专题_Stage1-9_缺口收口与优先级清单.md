@@ -1,6 +1,6 @@
 # 专题_Stage1-9_缺口收口与优先级清单
 
-**版本**: 2026-05-20 v15
+**版本**: 2026-05-20 v16
 
 ## 1. 文档定位
 
@@ -68,6 +68,7 @@
 ### P0-1 Stage4 释放证据链闭环
 
 - 现状：Stage4 是当前最大短板。身份核验和部分公开源 readback 已有，但“许可/合同/竣工/项目经理变更/处罚”多源交叉后的释放证据链仍不完整。
+- 当前进展：`GuangdongLocalFieldQueryProbe v1` 已把来自 `ReleaseEvidenceAdapterPlan v1` 的字段查询任务纳入统一 A/B/C/D 汇总；`Stage6ReviewLoopRunner v1` 已能在项目状态表里直接显示释放证据字段查询的 `MATCHED / NOT_FOUND / BLOCKED / NEEDS_BROWSER` 和 B/C/D 下游结果。
 - 直接症状：
   - `项目经理变更释放` 在矩阵里仍为 `MISSING_RUNTIME`
   - 真实候选经常落到 `PARTIAL_SOURCE_COVERAGE`

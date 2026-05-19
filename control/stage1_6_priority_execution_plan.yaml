@@ -9,9 +9,9 @@ customer_visible_actions_enabled: false
 automatic_refund_enabled: false
 ordering_rule: "先解决 owner 看不懂和 Stage4 证据链短板，再扩大 Stage1-3 稳定性，最后做 Stage5 校准和 Stage1-6 批量回归。"
 current_focus:
-  priority_id: P0_STAGE6_OBSERVABILITY
-  task: "Stage6 多项目/多批次总览 UI"
-  reason: "owner 需要先一眼看懂项目跑到哪、为什么停、下一步做什么。"
+  priority_id: P0_STAGE4_RELEASE_EVIDENCE_CHAIN
+  task: "释放证据字段查询结果接入 Stage6 loop 项目状态"
+  reason: "owner 已能通过 Stage6 总览看批次状态，下一步要把 P13B A 级线索后的 B/C/D 释放证据链接稳。"
 priorities:
   - priority_id: P0_STAGE6_OBSERVABILITY
     rank: 1
@@ -33,6 +33,7 @@ priorities:
       - "施工许可、竣工验收、项目经理变更、合同履约四类 adapter job"
       - "广东/广州最小闭环：MATCHED / NOT_FOUND / BLOCKED / NEEDS_BROWSER"
       - "非广东按归属地住建局 adapter registry"
+      - "字段查询输出统一汇总 B/C/D，并回显到 Stage6 loop 项目状态"
     done_when:
       - "P13B 重叠线索能自动生成 B/C/D 核验任务"
       - "未命中、阻断、缺备案不会被写成排除性结论"

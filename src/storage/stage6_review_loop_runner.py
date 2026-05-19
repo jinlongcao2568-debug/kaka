@@ -137,12 +137,14 @@ def run_stage6_review_loop_runner(
         result_runner,
         next_cycle,
     )
+    release_field_query_results = _release_field_query_results_by_project(result_runner)
     project_status_records = _project_status_records(
         readback=readback,
         closeout=closeout,
         routing=routing,
         result_runner=result_runner,
         next_cycle=next_cycle,
+        release_field_query_results=release_field_query_results,
     )
     summary = _summary(
         dispatch_runner=dispatch_runner,
@@ -235,6 +237,7 @@ def _project_status_records(
     routing: Mapping[str, Any],
     result_runner: Mapping[str, Any],
     next_cycle: Mapping[str, Any],
+    release_field_query_results: Mapping[str, Mapping[str, Any]],
 ) -> list[dict[str, Any]]:
     readbacks = _records_by_project(readback, "dispatch_readback_table")
     closeouts = _records_by_project(closeout, "dispatch_closeout_table")
@@ -243,7 +246,15 @@ def _project_status_records(
     next_dispatch = _next_cycle_dispatch_records_by_project(next_cycle)
     next_manual = _next_cycle_manual_only_records_by_project(next_cycle)
     project_ids = sorted(
-        {*readbacks.keys(), *closeouts.keys(), *routings.keys(), *runners.keys(), *next_dispatch.keys(), *next_manual.keys()}
+        {
+            *readbacks.keys(),
+            *closeouts.keys(),
+            *routings.keys(),
+            *runners.keys(),
+            *next_dispatch.keys(),
+            *next_manual.keys(),
+            *release_field_query_results.keys(),
+        }
     )
     records: list[dict[str, Any]] = []
     for project_id in project_ids:
@@ -253,6 +264,7 @@ def _project_status_records(
         runner_record = runners.get(project_id, {})
         next_dispatch_record = next_dispatch.get(project_id, {})
         next_manual_record = next_manual.get(project_id, {})
+        release_field_query_result = dict(release_field_query_results.get(project_id) or {})
         records.append(
             {
                 "project_id": project_id,
@@ -281,6 +293,16 @@ def _project_status_records(
                 ),
                 "result_runner_execution_state": str(runner_record.get("execution_state") or ""),
                 "result_runner_skip_reason": str(runner_record.get("skip_reason") or ""),
+                "release_field_query_state": str(release_field_query_result.get("release_field_query_state") or ""),
+                "release_field_query_result_json": str(release_field_query_result.get("result_json_path") or ""),
+                "release_field_query_manifest_id": str(release_field_query_result.get("result_manifest_id") or ""),
+                "release_field_query_task_count": int(release_field_query_result.get("field_query_task_count") or 0),
+                "release_field_query_adapter_result_state_counts": dict(
+                    release_field_query_result.get("adapter_result_state_counts") or {}
+                ),
+                "release_field_query_downstream_abcd_grade_counts": dict(
+                    release_field_query_result.get("downstream_release_evidence_abcd_grade_counts") or {}
+                ),
                 "next_cycle_dispatch_task_type": str(next_dispatch_record.get("dispatch_task_type") or ""),
                 "next_cycle_dispatch_readiness_state": str(next_dispatch_record.get("dispatch_readiness_state") or ""),
                 "next_cycle_manual_only_action_family": str(next_manual_record.get("action_family") or ""),
@@ -292,6 +314,7 @@ def _project_status_records(
                     runner_record=runner_record,
                     next_dispatch_record=next_dispatch_record,
                     next_manual_record=next_manual_record,
+                    release_field_query_result=release_field_query_result,
                 ),
                 "next_recommended_action": _loop_next_action(
                     readback_record=readback_record,
@@ -300,6 +323,7 @@ def _project_status_records(
                     routing_record=routing_record,
                     next_dispatch_record=next_dispatch_record,
                     next_manual_record=next_manual_record,
+                    release_field_query_result=release_field_query_result,
                 ),
                 "customer_visible_allowed": False,
                 "no_legal_conclusion": True,
@@ -309,18 +333,116 @@ def _project_status_records(
     return records
 
 
+def _release_field_query_results_by_project(result_runner: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
+    records = _table_records(result_runner, "result_runner_table")
+    by_project: dict[str, dict[str, Any]] = {}
+    for runner_record in records:
+        if str(runner_record.get("next_task_type") or "") != "RUN_RELEASE_EVIDENCE_FIELD_QUERY_PROBE":
+            continue
+        result_path = str(runner_record.get("expected_output_artifact_path") or "").strip()
+        if not result_path or not Path(result_path).exists():
+            project_id = str(runner_record.get("project_id") or "").strip()
+            if project_id and str(runner_record.get("execution_state") or "") == "EXECUTED_SUCCEEDED":
+                by_project[project_id] = _release_field_query_missing_result(runner_record, result_path)
+            continue
+        payload = _load_json_if_exists(Path(result_path))
+        manifest = _source_manifest(payload)
+        field_tasks = [
+            task
+            for task in _list(manifest.get("field_task_records"))
+            if isinstance(task, Mapping)
+        ]
+        grouped: dict[str, list[Mapping[str, Any]]] = {}
+        for task in field_tasks:
+            project_id = str(task.get("project_id") or "").strip()
+            if project_id:
+                grouped.setdefault(project_id, []).append(task)
+        if not grouped:
+            project_id = str(runner_record.get("project_id") or "").strip()
+            if project_id:
+                by_project[project_id] = _release_field_query_project_result(
+                    runner_record=runner_record,
+                    result_path=result_path,
+                    result_manifest=manifest,
+                    tasks=[],
+                )
+            continue
+        for project_id, tasks in grouped.items():
+            by_project[project_id] = _release_field_query_project_result(
+                runner_record=runner_record,
+                result_path=result_path,
+                result_manifest=manifest,
+                tasks=tasks,
+            )
+    return by_project
+
+
+def _release_field_query_missing_result(runner_record: Mapping[str, Any], result_path: str) -> dict[str, Any]:
+    return {
+        "release_field_query_state": "RELEASE_FIELD_QUERY_RESULT_MISSING",
+        "result_json_path": result_path,
+        "result_manifest_id": "",
+        "field_query_task_count": 0,
+        "adapter_result_state_counts": {},
+        "downstream_release_evidence_abcd_grade_counts": {},
+        "source_result_runner_execution_state": str(runner_record.get("execution_state") or ""),
+    }
+
+
+def _release_field_query_project_result(
+    *,
+    runner_record: Mapping[str, Any],
+    result_path: str,
+    result_manifest: Mapping[str, Any],
+    tasks: list[Mapping[str, Any]],
+) -> dict[str, Any]:
+    adapter_counts = _counts(task.get("adapter_result_state") for task in tasks)
+    downstream_counts = _counts(task.get("downstream_release_evidence_abcd_grade") for task in tasks)
+    return {
+        "release_field_query_state": _release_field_query_state(adapter_counts, downstream_counts, task_count=len(tasks)),
+        "result_json_path": result_path,
+        "result_manifest_id": str(result_manifest.get("manifest_id") or ""),
+        "field_query_task_count": len(tasks),
+        "adapter_result_state_counts": adapter_counts,
+        "downstream_release_evidence_abcd_grade_counts": downstream_counts,
+        "source_result_runner_execution_state": str(runner_record.get("execution_state") or ""),
+    }
+
+
+def _release_field_query_state(
+    adapter_counts: Mapping[str, int],
+    downstream_counts: Mapping[str, int],
+    *,
+    task_count: int,
+) -> str:
+    if task_count <= 0:
+        return "RELEASE_FIELD_QUERY_NO_PROJECT_TASKS"
+    if int(downstream_counts.get("B_ENHANCEMENT_OFFICIAL_READBACK") or 0) or int(
+        downstream_counts.get("C_REVERSE_EXPLANATION_OFFICIAL_READBACK") or 0
+    ):
+        return "RELEASE_FIELD_QUERY_REVIEW_READY"
+    if int(downstream_counts.get("D_INSUFFICIENT_OR_BLOCKED_READBACK") or 0) or int(
+        adapter_counts.get("BLOCKED") or 0
+    ) or int(adapter_counts.get("NOT_FOUND") or 0):
+        return "RELEASE_FIELD_QUERY_GAP_OR_BLOCKER_REVIEW"
+    return "RELEASE_FIELD_QUERY_PENDING_OR_NEEDS_BROWSER"
+
+
 def _records_by_project(result: Mapping[str, Any], table_name: str) -> dict[str, dict[str, Any]]:
-    manifest = result.get("manifest") if isinstance(result, Mapping) else {}
-    table = manifest.get(table_name) if isinstance(manifest, Mapping) else {}
-    records = _list(table.get("records") if isinstance(table, Mapping) else [])
     out: dict[str, dict[str, Any]] = {}
-    for record in records:
+    for record in _table_records(result, table_name):
         if not isinstance(record, Mapping):
             continue
         project_id = str(record.get("project_id") or "").strip()
         if project_id:
             out[project_id] = dict(record)
     return out
+
+
+def _table_records(result: Mapping[str, Any], table_name: str) -> list[Mapping[str, Any]]:
+    manifest = result.get("manifest") if isinstance(result, Mapping) else {}
+    table = manifest.get(table_name) if isinstance(manifest, Mapping) else {}
+    return [record for record in _list(table.get("records") if isinstance(table, Mapping) else []) if isinstance(record, Mapping)]
 
 
 def _next_cycle_dispatch_records_by_project(next_cycle: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
@@ -369,11 +491,15 @@ def _loop_terminal_state(
     runner_record: Mapping[str, Any],
     next_dispatch_record: Mapping[str, Any],
     next_manual_record: Mapping[str, Any],
+    release_field_query_result: Mapping[str, Any],
 ) -> str:
     if str(next_dispatch_record.get("dispatch_readiness_state") or "").strip():
         return "NEXT_CYCLE_DISPATCH_READY"
     if str(next_manual_record.get("dispatch_block_reason") or "").strip():
         return "MANUAL_REVIEW_HOLD_NO_AUTOMATED_DISPATCH"
+    release_state = str(release_field_query_result.get("release_field_query_state") or "").strip()
+    if release_state:
+        return release_state
 
     execution_state = str(runner_record.get("execution_state") or "").strip()
     if execution_state == "EXECUTED_SUCCEEDED":
@@ -423,11 +549,21 @@ def _loop_next_action(
     routing_record: Mapping[str, Any],
     next_dispatch_record: Mapping[str, Any],
     next_manual_record: Mapping[str, Any],
+    release_field_query_result: Mapping[str, Any],
 ) -> str:
     if str(next_dispatch_record.get("dispatch_readiness_state") or "").strip():
         return "run_next_cycle_dispatch_or_keep_internal_review_dry_run"
     if str(next_manual_record.get("dispatch_block_reason") or "").strip():
         return "manual_review_or_new_source_override_required_before_retry"
+    release_state = str(release_field_query_result.get("release_field_query_state") or "").strip()
+    if release_state == "RELEASE_FIELD_QUERY_REVIEW_READY":
+        return "manual_review_release_evidence_b_or_c_readback_before_stage7_preview"
+    if release_state == "RELEASE_FIELD_QUERY_GAP_OR_BLOCKER_REVIEW":
+        return "record_release_evidence_gap_or_retry_jurisdiction_source_without_clearance_claim"
+    if release_state == "RELEASE_FIELD_QUERY_PENDING_OR_NEEDS_BROWSER":
+        return "authorize_browser_or_live_release_field_query_or_keep_plan_only"
+    if release_state:
+        return "inspect_release_field_query_result_before_next_stage6_cycle"
 
     execution_state = str(runner_record.get("execution_state") or "").strip()
     if execution_state == "EXECUTED_SUCCEEDED":
@@ -508,6 +644,12 @@ def _summary(
         "next_cycle_stage6_project_fact_count": int(next_cycle_summary.get("stage6_project_fact_count") or 0),
         "next_cycle_dispatch_task_count": int(next_cycle_summary.get("dispatch_task_count") or 0),
         "project_status_record_count": len(project_status_records),
+        "release_field_query_project_count": sum(
+            1 for record in project_status_records if str(record.get("release_field_query_state") or "").strip()
+        ),
+        "release_field_query_state_counts": _counts(
+            record.get("release_field_query_state") for record in project_status_records
+        ),
         "loop_terminal_state_counts": _counts(record.get("loop_terminal_state") for record in project_status_records),
         "project_next_action_counts": _counts(record.get("next_recommended_action") for record in project_status_records),
         "live_execution_enabled": False,
@@ -585,6 +727,21 @@ def _finalize_and_write(out_dir: Path, result: dict[str, Any]) -> None:
 def _write_json(path: Path, payload: Mapping[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _load_json_if_exists(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return dict(payload) if isinstance(payload, Mapping) else {}
+
+
+def _source_manifest(payload: Mapping[str, Any]) -> dict[str, Any]:
+    manifest = payload.get("manifest") if isinstance(payload, Mapping) else {}
+    return dict(manifest) if isinstance(manifest, Mapping) else dict(payload)
 
 
 def _list(value: Any) -> list[Any]:

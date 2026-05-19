@@ -74,6 +74,10 @@ FORBIDDEN_TERMS = ("在建冲突成立", "无在建", "无风险", "无冲突", 
 ALLOWED_ADAPTER_RESULT_STATES = ["MATCHED", "NOT_FOUND", "BLOCKED", "NEEDS_BROWSER"]
 INITIAL_RELEASE_EVIDENCE_ABCD_GRADE = "A_STRONG_TIME_OVERLAP_SIGNAL"
 DOWNSTREAM_PENDING_RELEASE_EVIDENCE_ABCD_GRADE = "PENDING_NOT_EXECUTED"
+RELEASE_EVIDENCE_INPUT_SOURCE_KINDS = {
+    "p13b_release_evidence_probe_task",
+    "release_evidence_adapter_plan_task",
+}
 RELEASE_TARGET_TO_FIELD_SOURCE_TYPES = {
     "construction_permit": ["construction_permit"],
     "contract_performance": ["contract_public_info"],
@@ -3260,6 +3264,31 @@ def _summary(
         "project_count": len(project_task_records),
         "input_source_kind_counts": _counts(task.get("input_source_kind") for task in field_task_records),
         "source_profile_task_counts": _counts(task.get("source_profile_id") for task in field_task_records),
+        "release_evidence_task_count": sum(
+            1
+            for task in field_task_records
+            if str(task.get("input_source_kind") or "") in RELEASE_EVIDENCE_INPUT_SOURCE_KINDS
+        ),
+        "release_evidence_initial_abcd_grade_counts": _counts(
+            task.get("initial_release_evidence_abcd_grade")
+            for task in field_task_records
+            if str(task.get("input_source_kind") or "") in RELEASE_EVIDENCE_INPUT_SOURCE_KINDS
+        ),
+        "release_evidence_downstream_abcd_grade_counts": _counts(
+            task.get("downstream_release_evidence_abcd_grade")
+            for task in field_task_records
+            if str(task.get("input_source_kind") or "") in RELEASE_EVIDENCE_INPUT_SOURCE_KINDS
+        ),
+        "release_evidence_terminal_downstream_grade_count": sum(
+            1
+            for task in field_task_records
+            if str(task.get("input_source_kind") or "") in RELEASE_EVIDENCE_INPUT_SOURCE_KINDS
+            and str(task.get("downstream_release_evidence_abcd_grade") or "") in {
+                "B_ENHANCEMENT_OFFICIAL_READBACK",
+                "C_REVERSE_EXPLANATION_OFFICIAL_READBACK",
+                "D_INSUFFICIENT_OR_BLOCKED_READBACK",
+            }
+        ),
         "p13b_initial_release_evidence_abcd_grade_counts": _counts(
             task.get("initial_release_evidence_abcd_grade")
             for task in field_task_records

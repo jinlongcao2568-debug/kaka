@@ -69,6 +69,10 @@ class GuangdongLocalFieldQueryProbeTests(unittest.TestCase):
             summary = result["summary"]
             self.assertEqual(summary["guangdong_local_field_query_task_count"], 3)
             self.assertEqual(summary["input_source_kind_counts"]["p13b_release_evidence_probe_task"], 3)
+            self.assertEqual(summary["release_evidence_task_count"], 3)
+            self.assertEqual(summary["release_evidence_initial_abcd_grade_counts"]["A_STRONG_TIME_OVERLAP_SIGNAL"], 3)
+            self.assertEqual(summary["release_evidence_downstream_abcd_grade_counts"]["PENDING_NOT_EXECUTED"], 3)
+            self.assertEqual(summary["release_evidence_terminal_downstream_grade_count"], 0)
             self.assertEqual(summary["field_query_probe_state_counts"]["PLAN_ONLY_NOT_EXECUTED"], 3)
             self.assertEqual(summary["adapter_result_state_counts"]["NEEDS_BROWSER"], 3)
             self.assertEqual(summary["p13b_initial_release_evidence_abcd_grade_counts"]["A_STRONG_TIME_OVERLAP_SIGNAL"], 3)
@@ -108,6 +112,9 @@ class GuangdongLocalFieldQueryProbeTests(unittest.TestCase):
             summary = result["summary"]
             self.assertEqual(summary["guangdong_local_field_query_task_count"], 4)
             self.assertEqual(summary["input_source_kind_counts"]["release_evidence_adapter_plan_task"], 4)
+            self.assertEqual(summary["release_evidence_task_count"], 4)
+            self.assertEqual(summary["release_evidence_initial_abcd_grade_counts"]["A_STRONG_TIME_OVERLAP_SIGNAL"], 4)
+            self.assertEqual(summary["release_evidence_downstream_abcd_grade_counts"]["PENDING_NOT_EXECUTED"], 4)
             self.assertEqual(summary["adapter_result_state_counts"]["NEEDS_BROWSER"], 4)
             tasks = result["manifest"]["field_task_records"]
             self.assertEqual({task["adapter_result_state"] for task in tasks}, {"NEEDS_BROWSER"})

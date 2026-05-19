@@ -172,6 +172,56 @@ class Stage6ReviewLoopRunnerTests(unittest.TestCase):
                 "manual_review_or_new_source_override_required_before_retry",
             )
 
+    def test_release_evidence_field_query_result_is_visible_per_project(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            state_json = _write_evidence_state(root / "state")
+            _write_release_dispatch(root / "dispatch", evidence_state_json=state_json)
+            calls: list[tuple[list[str], Path]] = []
+
+            def fake_executor(argv: list[str], cwd: Path) -> Mapping[str, Any]:
+                calls.append((argv, cwd))
+                script = argv[argv.index("-File") + 1]
+                output_root = Path(_arg(argv, "-OutputRoot"))
+                if script == "scripts/build-release-evidence-adapter-plan-v1.ps1":
+                    _write_release_adapter_plan(output_root)
+                elif script == "scripts/run-guangdong-local-field-query-probe-v1.ps1":
+                    self.assertIn("-ReleaseEvidenceAdapterPlanJson", argv)
+                    _write_release_field_query_result(output_root)
+                else:
+                    raise AssertionError(f"unexpected script: {script}")
+                return {"exit_code": 0, "stdout": "ok", "stderr": ""}
+
+            result = run_stage6_review_loop_runner(
+                dispatch_root=root / "dispatch",
+                output_root=root / "out",
+                execute_dispatch=True,
+                execute_results=True,
+                cwd=root,
+                command_executor=fake_executor,
+                created_at="2026-05-19T00:00:00+08:00",
+            )
+
+            self.assertTrue(result["safe_to_execute"])
+            self.assertEqual(len(calls), 2)
+            summary = result["summary"]
+            self.assertEqual(summary["dispatch_executed_success_group_count"], 1)
+            self.assertEqual(summary["result_runner_executed_success_count"], 1)
+            self.assertEqual(summary["release_field_query_project_count"], 1)
+            self.assertEqual(summary["release_field_query_state_counts"], {"RELEASE_FIELD_QUERY_REVIEW_READY": 1})
+            records = result["manifest"]["project_status_table"]["records"]
+            self.assertEqual(records[0]["project_id"], "PROJ-REL")
+            self.assertEqual(records[0]["loop_terminal_state"], "RELEASE_FIELD_QUERY_REVIEW_READY")
+            self.assertEqual(records[0]["release_field_query_adapter_result_state_counts"], {"MATCHED": 1})
+            self.assertEqual(
+                records[0]["release_field_query_downstream_abcd_grade_counts"],
+                {"B_ENHANCEMENT_OFFICIAL_READBACK": 1},
+            )
+            self.assertEqual(
+                records[0]["next_recommended_action"],
+                "manual_review_release_evidence_b_or_c_readback_before_stage7_preview",
+            )
+
     def test_output_keeps_internal_safety_contract(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -236,6 +286,98 @@ def _write_dispatch(root: Path, *, evidence_state_json: str | Path) -> None:
                 },
             },
             "summary": {},
+        },
+    )
+
+
+def _write_release_dispatch(root: Path, *, evidence_state_json: str | Path) -> None:
+    _write_json(
+        root / "stage6-review-action-dispatch-v1.json",
+        {
+            "manifest": {
+                "manifest_id": "DISPATCH-RELEASE-1",
+                "dispatch_task_table": {
+                    "records": [
+                        {
+                            "dispatch_task_id": "DISPATCH-PROJ-REL",
+                            "project_id": "PROJ-REL",
+                            "project_name": "Release project",
+                            "dispatch_task_type": "BUILD_RELEASE_EVIDENCE_ADAPTER_PLAN",
+                            "dispatch_readiness_state": "READY_FOR_CONTROLLED_INTERNAL_DISPATCH_PLAN",
+                            "source_refs": {
+                                "evidence_state_json": str(evidence_state_json),
+                                "evidence_batch_closeout_json": str(root.parent / "closeout" / "evidence-batch-closeout-v1.json"),
+                                "p13b_operational_closeout_root": str(root.parent / "p13b-operational"),
+                            },
+                            "customer_visible_allowed": False,
+                            "no_legal_conclusion": True,
+                            "query_miss_is_not_clearance": True,
+                        }
+                    ],
+                    "summary": {},
+                },
+            },
+            "summary": {},
+        },
+    )
+
+
+def _write_release_adapter_plan(root: Path) -> None:
+    _write_json(
+        root / "release-evidence-adapter-plan-v1.json",
+        {
+            "safe_to_execute": True,
+            "blocking_reasons": [],
+            "manifest": {
+                "manifest_id": "RELEASE-PLAN-1",
+                "release_evidence_adapter_task_records": [
+                    {
+                        "release_evidence_adapter_task_id": "REL-TASK-1",
+                        "project_id": "PROJ-REL",
+                        "project_name": "Release project",
+                        "candidate_company_name": "A company",
+                        "matched_person_names": ["张三"],
+                        "release_evidence_target_type": "construction_permit",
+                        "source_profile_id": "GUANGZHOU-ZFCJ-CREDIT-DOUBLE-PUBLICITY",
+                        "query_params": {
+                            "projectName": "Release project",
+                            "companyName": "A company",
+                            "personName": "张三",
+                        },
+                        "customer_visible_allowed": False,
+                        "no_legal_conclusion": True,
+                    }
+                ],
+            },
+            "summary": {"release_evidence_adapter_task_count": 1},
+        },
+    )
+
+
+def _write_release_field_query_result(root: Path) -> None:
+    _write_json(
+        root / "guangdong-local-field-query-probe-v1.json",
+        {
+            "safe_to_execute": True,
+            "blocking_reasons": [],
+            "manifest": {
+                "manifest_id": "GD-FIELD-1",
+                "field_task_records": [
+                    {
+                        "field_query_task_id": "GD-FIELD-TASK-1",
+                        "project_id": "PROJ-REL",
+                        "project_name": "Release project",
+                        "adapter_result_state": "MATCHED",
+                        "downstream_release_evidence_abcd_grade": "B_ENHANCEMENT_OFFICIAL_READBACK",
+                        "customer_visible_allowed": False,
+                        "no_legal_conclusion": True,
+                    }
+                ],
+            },
+            "summary": {
+                "guangdong_local_field_query_task_count": 1,
+                "release_evidence_downstream_abcd_grade_counts": {"B_ENHANCEMENT_OFFICIAL_READBACK": 1},
+            },
         },
     )
 
