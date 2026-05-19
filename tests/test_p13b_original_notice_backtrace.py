@@ -132,6 +132,66 @@ class P13BOriginalNoticeBacktraceTests(unittest.TestCase):
             self.assertEqual(fetch["original_notice_route_class"], "OFFICIAL_DIRECT_HTML")
             self.assertEqual(fetch["original_notice_url"], direct_url)
 
+    def test_table_layout_project_responsible_person_is_extracted(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_p13b_input_from_rows(
+                root,
+                [
+                    {
+                        "project_id": "PROJ-CN-GD-JG2026-30001",
+                        "candidate_company_name": "中国化学工程第六建设有限公司",
+                        "responsible_person_names": ["尹家驹"],
+                        "bid_project_name": "10t/d 垃圾焚烧飞灰资源化综合利用中试研究项目施工标段中标结果公示",
+                        "original_notice_url": "https://example.gov.cn/original/table-person.html",
+                    },
+                ],
+            )
+
+            result = build_p13b_original_notice_backtrace(
+                input_root=root,
+                output_root=root / "out",
+                enable_live_public_query=True,
+                max_live_original_notices=1,
+                http_getter=_fake_http_getter,
+                created_at="2026-05-15T00:00:00+08:00",
+            )
+
+            extraction = result["manifest"]["original_notice_extraction_records"][0]
+            self.assertEqual(extraction["extracted_responsible_person_names"], ["尹家驹"])
+            self.assertEqual(extraction["extracted_period_text"], "150日历天")
+            self.assertEqual(result["summary"]["original_notice_overlap_signal_review_required_count"], 1)
+
+    def test_columnar_table_period_after_amount_is_extracted(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_p13b_input_from_rows(
+                root,
+                [
+                    {
+                        "project_id": "PROJ-CN-GD-JG2026-30001",
+                        "candidate_company_name": "中国化学工程第六建设有限公司",
+                        "responsible_person_names": ["胡琦"],
+                        "bid_project_name": "大型模块化深冷装备智能制造基地项目工程总承包（EPC）中标结果公告",
+                        "original_notice_url": "https://example.gov.cn/original/column-table-person.html",
+                    },
+                ],
+            )
+
+            result = build_p13b_original_notice_backtrace(
+                input_root=root,
+                output_root=root / "out",
+                enable_live_public_query=True,
+                max_live_original_notices=1,
+                http_getter=_fake_http_getter,
+                created_at="2026-05-15T00:00:00+08:00",
+            )
+
+            extraction = result["manifest"]["original_notice_extraction_records"][0]
+            self.assertEqual(extraction["extracted_responsible_person_names"], ["胡琦"])
+            self.assertEqual(extraction["extracted_period_text"], "270天")
+            self.assertEqual(result["summary"]["original_notice_overlap_signal_review_required_count"], 1)
+
     def test_plan_only_does_not_call_http_getter(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -806,6 +866,27 @@ def _fake_http_getter(url: str, context: Mapping[str, Any]) -> Mapping[str, Any]
             "status_code": 200,
             "content_type": "text/html",
             "body": body,
+        }
+    if url.endswith("/table-person.html"):
+        return {
+            "status_code": 200,
+            "content_type": "text/html",
+            "body": (
+                "<html><body><div>中标单位 中国化学工程第六建设有限公司</div>"
+                "<div>工期（交货期） 150日历天</div>"
+                "<div>项目负责人 姓名 执业或职业资格 职称 证书名称 证书编号 职称专业 职称级别 "
+                "尹家驹 一级注册建造师 鄂1422021202201042 市政公用工程 中级</div></body></html>"
+            ),
+        }
+    if url.endswith("/column-table-person.html"):
+        return {
+            "status_code": 200,
+            "content_type": "text/html",
+            "body": (
+                "<html><body><div>中标人 中标价 工期（或服务期、交货期） 质量承诺 项目负责人</div>"
+                "<div>中国化学工程第六建设有限公司 156,576,147.20元 270天 "
+                "设计质量要求：符合现行国家有关工程设计质量评定标准的合格要求 胡琦</div></body></html>"
+            ),
         }
     return {
         "status_code": 200,

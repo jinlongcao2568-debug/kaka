@@ -1294,16 +1294,78 @@ def _extract_responsible_people(text: str) -> list[str]:
             name = match.group(1).strip()
             if _looks_like_person_name(name):
                 people.append(name)
+    people.extend(_extract_people_from_role_table_windows(text))
     return _dedupe(people)
+
+
+def _extract_people_from_role_table_windows(text: str) -> list[str]:
+    people: list[str] = []
+    role_pattern = r"(?:项目负责人|项目经理|施工项目负责人|设计负责人|勘察负责人|总监理工程师|工程总承包项目经理)"
+    for match in re.finditer(role_pattern, text):
+        window = str(text[match.end() : match.end() + 520])
+        for candidate in re.findall(r"[\u4e00-\u9fa5·]{2,8}", window):
+            if _looks_like_person_name(candidate):
+                people.append(candidate)
+                break
+    return people
 
 
 def _looks_like_person_name(value: str) -> bool:
     name = str(value or "").strip()
     if not name:
         return False
-    if name in {"姓名", "负责人", "项目负责人", "项目经理"}:
+    if name in {
+        "姓名",
+        "负责人",
+        "项目负责人",
+        "项目经理",
+        "执业",
+        "职业资格",
+        "执业或职业",
+        "职称",
+        "证书名称",
+        "证书编号",
+        "职称专业",
+        "职称级别",
+        "质量",
+        "质量承诺",
+        "工期",
+        "服务期",
+        "中标内容",
+        "行政监督",
+        "定标时间",
+        "定标方法",
+    }:
         return False
-    if any(token in name for token in ("公司", "集团", "工程", "建设", "中标", "单位", "中国")):
+    if any(
+        token in name
+        for token in (
+            "公司",
+            "集团",
+            "工程",
+            "建设",
+            "中标",
+            "单位",
+            "中国",
+            "质量",
+            "标准",
+            "合格",
+            "现行",
+            "国家",
+            "有关",
+            "职称",
+            "证书",
+            "注册",
+            "专业",
+            "资格",
+            "编号",
+            "名称",
+            "电话",
+            "日期",
+            "机构",
+            "监督",
+        )
+    ):
         return False
     if "·" in name:
         return 2 <= len(name) <= 8
@@ -1319,12 +1381,26 @@ def _extract_period_text(text: str) -> str:
         return f"{duration_match.group(1).strip()}日历天"
     patterns = [
         r"(?:中标工期|工期（交货期）|工期\(交货期\)|工期|服务期|服务时间|合同履行期限|履行期限|服务期限)\s*[:：]\s*([^。；;\n]{2,80})",
+        r"(?:中标工期|工期（交货期）|工期\(交货期\)|工期（或服务期、交货期）|工期\(或服务期、交货期\)|工期|服务期|服务时间|合同履行期限|履行期限|服务期限)\s+([0-9]{1,5}\s*(?:天|日历天|个日历天|个月|月|年))",
         r"(?:计划工期)\s*[:：]\s*([^。；;\n]{2,80})",
     ]
     for pattern in patterns:
         match = re.search(pattern, text)
         if match:
             return match.group(1).strip()
+    table_period = _extract_period_from_table_windows(text)
+    if table_period:
+        return table_period
+    return ""
+
+
+def _extract_period_from_table_windows(text: str) -> str:
+    period_label = r"(?:工期（或服务期、交货期）|工期\(或服务期、交货期\)|工期（交货期）|工期\(交货期\)|工期|服务期|合同履行期限)"
+    for match in re.finditer(period_label, text):
+        window = str(text[match.end() : match.end() + 420])
+        duration_match = re.search(r"([0-9]{1,5}\s*(?:天|日历天|个日历天|个月|月|年))", window)
+        if duration_match:
+            return duration_match.group(1).strip()
     return ""
 
 
