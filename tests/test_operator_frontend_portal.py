@@ -38,6 +38,7 @@ class TestOperatorFrontendPortal(unittest.TestCase, IsolatedStorageTestMixin):
             set(app.state.operator_frontend_operations),
             {
                 "renderOwnerOperatorConsole",
+                "renderStage6ReviewLoopPage",
                 "renderCustomerArtifactPortal",
                 "renderCustomerArtifactPortalReadback",
                 "renderCustomerArtifactPortalDownload",
@@ -52,6 +53,8 @@ class TestOperatorFrontendPortal(unittest.TestCase, IsolatedStorageTestMixin):
         self.assertTrue(route_metadata["renderOwnerOperatorConsole"]["productized_owner_workbench"])
         self.assertTrue(route_metadata["renderOwnerOperatorConsole"]["stage1_to_stage9_operations_board"])
         self.assertTrue(route_metadata["renderOwnerOperatorConsole"]["business_closure_dashboard"])
+        self.assertTrue(route_metadata["renderStage6ReviewLoopPage"]["stage6_review_loop_frontend"])
+        self.assertTrue(route_metadata["renderStage6ReviewLoopPage"]["owner_can_observe_without_raw_json"])
         self.assertTrue(route_metadata["renderCustomerArtifactPortal"]["customer_artifact_empty_state"])
         self.assertTrue(
             route_metadata["renderCustomerArtifactPortalReadback"][
@@ -107,6 +110,7 @@ class TestOperatorFrontendPortal(unittest.TestCase, IsolatedStorageTestMixin):
         for expected in (
             "AX9S 运营操作台",
             "证据包运营操作台",
+            "Stage6批次复核 · 极简版",
             "阶段1-9 运营总览",
             "阶段1 调度",
             "阶段2 公开源",
@@ -210,6 +214,7 @@ class TestOperatorFrontendPortal(unittest.TestCase, IsolatedStorageTestMixin):
             "/go-live/readiness",
             "/operator-console/real-world-sellability",
             "/operator-console/stage6-review-loop-status",
+            "/operator-console/stage6-review-loop",
             "回归与受控放行状态",
             "默认实战搜索已接真实公开列表页候选发现",
             "内部测试发布模拟已打开",
@@ -409,6 +414,7 @@ class TestOperatorFrontendPortal(unittest.TestCase, IsolatedStorageTestMixin):
         self.assertIn('"/operator-console/user-acceptance-gap-matrix"', html)
         self.assertIn('"/operator-console/real-world-sellability"', html)
         self.assertIn('"/operator-console/stage6-review-loop-status"', html)
+        self.assertIn('href="/operator-console/stage6-review-loop"', html)
         self.assertIn('href="#autonomousWorkbench"', html)
         self.assertIn('data-workbench-opportunity', html)
         self.assertIn('id="selectAllRegions"', html)
@@ -446,6 +452,30 @@ class TestOperatorFrontendPortal(unittest.TestCase, IsolatedStorageTestMixin):
         self.assertIn('"/operator-console/real-source-runs"', html)
         self.assertIn('"/operator-console/real-source-task-runs"', html)
         self.assertIn("请先执行入口页或附件抓取。", html)
+
+    def test_stage6_review_loop_page_is_plain_owner_readback(self) -> None:
+        client = TestClient(create_app())
+
+        response = client.request("GET", "/operator-console/stage6-review-loop")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("text/html", response.headers["content-type"])
+        html = response.text
+        for expected in (
+            "Stage6 批次复核",
+            "现在这批项目到底到哪了",
+            "一句话结论",
+            "项目逐个看",
+            "我应该怎么用这个页面",
+            "不能继续自动空转",
+            "为什么停/卡在哪里",
+            "重新开启条件",
+            "/operator-console/stage6-review-loop-status",
+            "fetch(\"/operator-console/stage6-review-loop-status\")",
+            "不会写排除性结论",
+        ):
+            self.assertIn(expected, html)
+        self.assertNotIn("JSON.stringify(value, null, 2)", html)
 
     def test_operator_user_acceptance_contract_defines_owner_real_world_standard(self) -> None:
         client = TestClient(create_app())

@@ -98,6 +98,8 @@ MOUNTED_OPERATION_READBACK_KEYS = (
     "real_sample_flow_visible",
     "real_world_sellability_readiness",
     "stage6_review_loop_status_readback",
+    "stage6_review_loop_frontend",
+    "owner_can_observe_without_raw_json",
     "project_status_rows_visible",
     "productized_owner_workbench",
     "opportunity_queue_visible",

@@ -1009,6 +1009,7 @@ def render_operator_console(payload: Any) -> HTMLResponse:
 <div class="layout operator-shell">
   <nav aria-label="运营操作台导航">
     <h1>AX9S 运营操作台</h1>
+    <a class="external" href="/operator-console/stage6-review-loop">Stage6批次复核 · 极简版</a>
     <button class="nav-link active" type="button" data-view="overview" aria-current="page">阶段1-9 运营总览</button>
     <button class="nav-link" type="button" data-view="search" aria-current="false">实战搜索</button>
     <button class="nav-link" type="button" data-view="autonomousWorkbench" aria-current="false">机会工作台</button>
@@ -3165,6 +3166,140 @@ Promise.all([loadReadiness(false), loadAutonomousWorkbench(), loadRegionAdapters
     return _page("AX9S 运营操作台", body, script)
 
 
+def render_stage6_review_loop_page(payload: Any) -> HTMLResponse:
+    del payload
+    body = """
+<div class="layout">
+  <nav aria-label="Stage6批次复核导航">
+    <h1>Stage6 批次复核</h1>
+    <a href="/operator-console/stage6-review-loop">当前批次</a>
+    <a href="/operator-console">返回完整操作台</a>
+    <a href="/operator-console/stage6-review-loop-status" target="_blank" rel="noopener">查看机器读回</a>
+  </nav>
+  <main>
+    <div class="topbar">
+      <div>
+        <h2>现在这批项目到底到哪了</h2>
+        <p class="muted-text">这个页面只看 Stage6 复核循环，不看全系统。目标是让你不用问我，也能判断：哪些能继续跑，哪些停住了，为什么停，下一步要做什么。</p>
+      </div>
+      <div class="status" id="batchPlainDecision">正在读取批次状态...</div>
+    </div>
+    <section class="wide">
+      <h3>一句话结论</h3>
+      <div class="rail" id="batchMetrics">
+        <div class="metric"><strong>--</strong><span>项目数</span></div>
+        <div class="metric"><strong>--</strong><span>可继续自动/受控续跑</span></div>
+        <div class="metric"><strong>--</strong><span>人工停机</span></div>
+      </div>
+      <div id="batchNextActions" class="timeline"></div>
+    </section>
+    <section class="wide">
+      <h3>项目逐个看</h3>
+      <p class="muted-text">绿色表示可以继续受控续跑或进入下一步内部复核；黄色表示不能再自动跑，需要人工判断或补新来源。这里不会写排除性结论，只显示证据状态和下一步。</p>
+      <div id="projectCards" class="stage-grid"></div>
+    </section>
+    <section class="wide">
+      <h3>我应该怎么用这个页面</h3>
+      <div class="workflow">
+        <div><strong>1. 先看一句话结论</strong><p>判断这批是继续跑、人工停机，还是没有产物。</p></div>
+        <div><strong>2. 再看项目卡片</strong><p>每个项目都有“当前状态”和“下一步”。不要从 JSON 猜。</p></div>
+        <div><strong>3. 人工停机别硬跑</strong><p>出现人工停机时，需要新官方来源、人工确认范围或新的释放证据入口。</p></div>
+        <div><strong>4. Stage7 只做内部复核</strong><p>能进 Stage7 也只是内部商业承接复核，不代表外发客户。</p></div>
+      </div>
+    </section>
+  </main>
+</div>
+"""
+    script = """
+const $ = (id) => document.getElementById(id);
+function safeText(value) {
+  return String(value ?? "--")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+function badge(text, kind="") {
+  return `<span class="pill ${kind}">${safeText(text || "--")}</span>`;
+}
+function listHtml(items, emptyText="暂无") {
+  const rows = Array.isArray(items) ? items.filter(Boolean) : [];
+  return rows.length
+    ? rows.map((item) => `<li>${safeText(item)}</li>`).join("")
+    : `<li>${safeText(emptyText)}</li>`;
+}
+function plainDecision(surface) {
+  const summary = surface?.summary || {};
+  const state = summary.operator_batch_state || "EMPTY";
+  if (state === "ACTION_READY") {
+    return "这批项目里还有可以继续跑的任务，优先点开项目卡片看下一步。";
+  }
+  if (state === "MANUAL_REVIEW_HOLD") {
+    return "这批项目已经停在人工复核，不能继续自动空转。";
+  }
+  if (state === "STAGE7_INTERNAL_REVIEW_READY") {
+    return "这批已有项目可进入 Stage7 内部商业承接复核，但不能外发客户。";
+  }
+  if (state === "MIXED_REVIEW_REQUIRED") {
+    return "这批状态混合，需要逐个项目分拣。";
+  }
+  return "还没有读到 Stage6 批次状态表，请先运行 Stage6 review loop。";
+}
+function cardKind(row) {
+  if (row.manual_review_hold) { return "warn"; }
+  if (row.automated_dispatch_available || row.stage7_commercial_input_allowed) { return ""; }
+  return "warn";
+}
+function cardTitle(row) {
+  const name = row.project_name ? ` · ${row.project_name}` : "";
+  return `${row.project_id || "未知项目"}${name}`;
+}
+function render(surface) {
+  const summary = surface?.summary || {};
+  const rows = Array.isArray(surface?.project_status_rows) ? surface.project_status_rows : [];
+  $("batchPlainDecision").textContent = plainDecision(surface);
+  $("batchMetrics").innerHTML = [
+    `<div class="metric"><strong>${summary.project_count ?? 0}</strong><span>项目数</span></div>`,
+    `<div class="metric"><strong>${summary.automated_dispatch_available_count ?? 0}</strong><span>可继续自动/受控续跑</span></div>`,
+    `<div class="metric"><strong>${summary.manual_hold_count ?? 0}</strong><span>人工停机</span></div>`
+  ].join("");
+  const nextActions = surface?.operator_decision?.next_actions || [];
+  $("batchNextActions").innerHTML = nextActions.length
+    ? nextActions.map((item) => `<div>${safeText(item)}</div>`).join("")
+    : `<div>暂无下一步动作。</div>`;
+  $("projectCards").innerHTML = rows.length
+    ? rows.map((row) => {
+      const kind = cardKind(row);
+      const why = row.manual_hold_reason || row.lineage?.dispatch_closeout_state || row.lineage?.dispatch_readback_state || "暂无明确阻断原因";
+      return `<div class="stage-card">
+        <strong>${safeText(cardTitle(row))}</strong>
+        ${badge(row.owner_status_label || row.loop_terminal_state, kind)}
+        ${row.automated_dispatch_available ? badge("还能继续受控续跑") : badge("不能自动续跑", "warn")}
+        ${row.stage7_commercial_input_allowed ? badge("可进Stage7内部复核") : badge("暂不进Stage7", "warn")}
+        <p><strong>现在状态</strong></p>
+        <p>${safeText(row.owner_status_label || row.loop_terminal_state)}</p>
+        <p><strong>为什么停/卡在哪里</strong></p>
+        <p>${safeText(why)}</p>
+        <p><strong>下一步</strong></p>
+        <p>${safeText(row.owner_next_action_label || row.next_recommended_action || "--")}</p>
+        <p><strong>重新开启条件</strong></p>
+        <ul>${listHtml(row.reopen_conditions, "按下一步动作复核")}</ul>
+      </div>`;
+    }).join("")
+    : `<div class="empty-state">没有读到项目状态。先运行 Stage6 review loop，或确认 tmp/evaluation-real-samples 下是否有 stage6-review-loop-project-status-table.json。</div>`;
+}
+fetch("/operator-console/stage6-review-loop-status")
+  .then((response) => response.json())
+  .then(render)
+  .catch((error) => {
+    $("batchPlainDecision").textContent = `读取失败：${error}`;
+    $("projectCards").innerHTML = `<div class="empty-state">读取失败，请查看本地服务日志。</div>`;
+  });
+"""
+    return _page("Stage6 批次复核", body, script)
+
+
 def render_customer_artifact_portal(payload: dict[str, Any]) -> HTMLResponse:
     opportunity_id = escape(str(payload.get("opportunity_id") or ""))
     body = f"""
@@ -3615,6 +3750,16 @@ OPERATOR_FRONTEND_ROUTES = [
         **OPERATOR_FRONTEND_ROUTE_METADATA,
     },
     {
+        "operationId": "renderStage6ReviewLoopPage",
+        "method": "GET",
+        "path": "/operator-console/stage6-review-loop",
+        "handler": render_stage6_review_loop_page,
+        "stage6_review_loop_frontend": True,
+        "owner_can_observe_without_raw_json": True,
+        "repository_backed_readback": True,
+        **OPERATOR_FRONTEND_ROUTE_METADATA,
+    },
+    {
         "operationId": "renderCustomerArtifactPortal",
         "method": "GET",
         "path": "/customer-artifact-portal/{opportunity_id}",
@@ -3678,6 +3823,7 @@ __all__ = [
     "render_customer_artifact_portal_download",
     "render_customer_artifact_portal_readback",
     "render_operator_console",
+    "render_stage6_review_loop_page",
     "render_operator_user_acceptance_contract",
     "render_operator_user_acceptance_gap_matrix",
 ]
