@@ -52,6 +52,7 @@ def run_stage6_review_cycle_runner(
     )
     dispatch_result: dict[str, Any] = {}
     dispatch_runner_result: dict[str, Any] = {}
+    dispatch_runner_skip_reason = ""
     blocking_reasons: list[str] = [*_list(stage6_result.get("blocking_reasons"))]
 
     if bool(stage6_result.get("safe_to_execute")):
@@ -64,7 +65,8 @@ def run_stage6_review_cycle_runner(
     else:
         blocking_reasons.append("stage6_fact_package_not_safe_to_dispatch")
 
-    if dispatch_result and bool(dispatch_result.get("safe_to_execute")):
+    dispatch_task_count = _dispatch_task_count(dispatch_result)
+    if dispatch_result and bool(dispatch_result.get("safe_to_execute")) and dispatch_task_count > 0:
         dispatch_runner_result = run_stage6_review_action_dispatch_runner(
             dispatch_root=dispatch_root,
             baseline_evidence_state_json=baseline_evidence_state_json,
@@ -77,6 +79,8 @@ def run_stage6_review_cycle_runner(
             command_executor=command_executor,
         )
         blocking_reasons.extend(_list(dispatch_runner_result.get("blocking_reasons")))
+    elif dispatch_result and bool(dispatch_result.get("safe_to_execute")):
+        dispatch_runner_skip_reason = "stage6_dispatch_has_no_automated_tasks"
     elif dispatch_result:
         blocking_reasons.append("stage6_dispatch_not_safe_to_run")
 
@@ -84,6 +88,7 @@ def run_stage6_review_cycle_runner(
         stage6_result=stage6_result,
         dispatch_result=dispatch_result,
         dispatch_runner_result=dispatch_runner_result,
+        dispatch_runner_skip_reason=dispatch_runner_skip_reason,
         blocking_reasons=blocking_reasons,
         execute_dispatch=execute_dispatch,
     )
@@ -137,7 +142,9 @@ def run_stage6_review_cycle_runner(
     )
     result = {
         "stage6_review_cycle_runner_mode": "BUILT" if not blocking_reasons else "INPUT_BLOCKED_OR_PARTIAL",
-        "safe_to_execute": _safe(stage6_result) and _safe(dispatch_result) and _safe(dispatch_runner_result)
+        "safe_to_execute": _safe(stage6_result)
+        and _safe(dispatch_result)
+        and (_safe(dispatch_runner_result) if dispatch_task_count > 0 else True)
         and not blocking_reasons,
         "blocking_reasons": blocking_reasons,
         "manifest": manifest,
@@ -152,12 +159,14 @@ def _summary(
     stage6_result: Mapping[str, Any],
     dispatch_result: Mapping[str, Any],
     dispatch_runner_result: Mapping[str, Any],
+    dispatch_runner_skip_reason: str,
     blocking_reasons: list[str],
     execute_dispatch: bool,
 ) -> dict[str, Any]:
     stage6_summary = _result_summary(stage6_result)
     dispatch_summary = _result_summary(dispatch_result)
     dispatch_runner_summary = _result_summary(dispatch_runner_result)
+    dispatch_task_count = int(dispatch_summary.get("dispatch_task_count") or 0)
     return {
         "stage6_review_cycle_runner_state": (
             "STAGE6_REVIEW_CYCLE_READY" if not blocking_reasons else "STAGE6_REVIEW_CYCLE_PARTIAL_OR_BLOCKED"
@@ -165,12 +174,14 @@ def _summary(
         "execution_mode": "CONTROLLED_INTERNAL_DISPATCH_EXECUTION" if execute_dispatch else "DRY_RUN_DISPATCH_NOT_EXECUTED",
         "stage6_fact_package_safe": _safe(stage6_result),
         "stage6_dispatch_safe": _safe(dispatch_result),
-        "stage6_dispatch_runner_safe": _safe(dispatch_runner_result),
+        "stage6_dispatch_runner_safe": _safe(dispatch_runner_result) if dispatch_task_count > 0 else True,
+        "stage6_dispatch_runner_skip_reason": dispatch_runner_skip_reason,
         "stage6_input_closeout_project_count": int(stage6_summary.get("input_closeout_project_count") or 0),
         "stage6_project_fact_count": int(stage6_summary.get("project_fact_count") or 0),
         "stage6_review_action_plan_count": int(stage6_summary.get("review_action_plan_count") or 0),
         "stage6_review_action_family_counts": dict(stage6_summary.get("review_action_family_counts") or {}),
-        "dispatch_task_count": int(dispatch_summary.get("dispatch_task_count") or 0),
+        "dispatch_task_count": dispatch_task_count,
+        "manual_only_action_plan_count": int(dispatch_summary.get("manual_only_action_plan_count") or 0),
         "dispatch_task_type_counts": dict(dispatch_summary.get("dispatch_task_type_counts") or {}),
         "dispatch_runner_group_count": int(dispatch_runner_summary.get("dispatch_runner_group_count") or 0),
         "dispatch_runner_group_execution_state_counts": dict(
@@ -216,6 +227,10 @@ def _finalize_and_write(out_dir: Path, result: dict[str, Any]) -> None:
 def _result_summary(result: Mapping[str, Any]) -> dict[str, Any]:
     summary = result.get("summary") if isinstance(result, Mapping) else {}
     return dict(summary) if isinstance(summary, Mapping) else {}
+
+
+def _dispatch_task_count(dispatch_result: Mapping[str, Any]) -> int:
+    return int(_result_summary(dispatch_result).get("dispatch_task_count") or 0)
 
 
 def _manifest_id(result: Mapping[str, Any]) -> str:

@@ -283,6 +283,7 @@ def _review_action_plan_record(record: Mapping[str, Any]) -> dict[str, Any]:
     review_lane = _review_lane(record)
     action_family = _review_action_family(record, topic_code)
     action_items = _review_action_items(record, topic_code, action_family)
+    automated_dispatch_allowed = _automated_dispatch_allowed(record, action_family)
     return {
         "review_action_plan_id": _stable_id("S6-RAP", record.get("project_id"), record.get("closeout_state")),
         "project_id": str(record.get("project_id") or ""),
@@ -298,6 +299,8 @@ def _review_action_plan_record(record: Mapping[str, Any]) -> dict[str, Any]:
         "regional_routing_policy": _review_regional_routing_policy(topic_code, action_family),
         "action_items": action_items,
         "completion_criteria": _review_completion_criteria(record, topic_code, action_family),
+        "automated_dispatch_allowed": automated_dispatch_allowed,
+        "dispatch_block_reason": "" if automated_dispatch_allowed else _dispatch_block_reason(record, action_family),
         "blocked_or_not_found_policy": "record_as_evidence_gap_or_source_blocker_not_clearance",
         "acceptable_terminal_states": ["MATCHED", "NOT_FOUND", "BLOCKED", "NEEDS_BROWSER", "REVIEW_REQUIRED"],
         "source_refs": dict(record.get("source_refs") or {}),
@@ -732,6 +735,8 @@ def _review_next_action(record: Mapping[str, Any]) -> str:
     closeout_state = str(record.get("closeout_state") or "")
     if closeout_state == "PROMOTE_STAGE6_STAGE7_INTERNAL_PREVIEW":
         return "run_targeted_release_evidence_review_then_prepare_governed_stage7_preview"
+    if _is_terminal_source_gap_no_delta(record):
+        return "park_manual_review_until_new_source_or_operator_override_without_clearance_claim"
     if closeout_state == "PARK_D_INSUFFICIENT_OR_BLOCKED":
         return "manual_review_or_retry_source_without_clearance_claim"
     if closeout_state == "PARK_NO_CLEARANCE_CLAIM":
@@ -811,11 +816,18 @@ def _review_action_items(record: Mapping[str, Any], topic_code: str, action_fami
             "prepare_governed_stage7_preview_only_after_manual_internal_review",
         ]
     elif action_family == "SOURCE_GAP_TARGETED_RETRY_OR_MANUAL_REVIEW":
-        labels = [
-            "inspect_original_notice_readback_blocker_or_missing_fields",
-            "retry_official_direct_html_or_attachment_readback_with_small_budget",
-            "record_blocked_or_missing_source_as_evidence_gap_without_clearance_claim",
-        ]
+        if _is_terminal_source_gap_no_delta(record):
+            labels = [
+                "inspect_terminal_original_notice_source_gap_lineage",
+                "record_manual_review_hold_without_clearance_claim",
+                "do_not_auto_retry_until_new_source_or_operator_override",
+            ]
+        else:
+            labels = [
+                "inspect_original_notice_readback_blocker_or_missing_fields",
+                "retry_official_direct_html_or_attachment_readback_with_small_budget",
+                "record_blocked_or_missing_source_as_evidence_gap_without_clearance_claim",
+            ]
     elif action_family == "DESIGN_SURVEY_QUALIFICATION_AND_SERVICE_CLOCK_REVIEW":
         labels = [
             "verify_public_registry_snapshot_hash_and_redacted_readback",
@@ -852,6 +864,12 @@ def _review_completion_criteria(record: Mapping[str, Any], topic_code: str, acti
             "manual_reviewer_keeps_internal_only_boundary",
         ]
     if action_family == "SOURCE_GAP_TARGETED_RETRY_OR_MANUAL_REVIEW":
+        if _is_terminal_source_gap_no_delta(record):
+            return [
+                "terminal_source_gap_lineage_recorded",
+                "manual_review_or_new_source_override_required_before_retry",
+                "blocked_or_missing_fields_do_not_unlock_clearance",
+            ]
         return [
             "original_notice_retry_attempt_or_blocker_recorded",
             "person_and_period_field_presence_recorded",
@@ -864,6 +882,34 @@ def _review_completion_criteria(record: Mapping[str, Any], topic_code: str, acti
             "qualification_or_service_clock_followup_task_recorded_when_needed",
         ]
     return ["manual_review_decision_recorded"]
+
+
+def _automated_dispatch_allowed(record: Mapping[str, Any], action_family: str) -> bool:
+    if action_family == "SOURCE_GAP_TARGETED_RETRY_OR_MANUAL_REVIEW" and _is_terminal_source_gap_no_delta(record):
+        return False
+    return action_family in {
+        "P13B_RELEASE_EVIDENCE_TARGETED_REVIEW",
+        "SOURCE_GAP_TARGETED_RETRY_OR_MANUAL_REVIEW",
+        "DESIGN_SURVEY_QUALIFICATION_AND_SERVICE_CLOCK_REVIEW",
+    }
+
+
+def _dispatch_block_reason(record: Mapping[str, Any], action_family: str) -> str:
+    if action_family == "SOURCE_GAP_TARGETED_RETRY_OR_MANUAL_REVIEW" and _is_terminal_source_gap_no_delta(record):
+        return "terminal_source_gap_no_delta_manual_review_only"
+    return "action_family_not_automated_dispatchable"
+
+
+def _is_terminal_source_gap_no_delta(record: Mapping[str, Any]) -> bool:
+    if str(record.get("closeout_state") or "") != "PARK_D_INSUFFICIENT_OR_BLOCKED":
+        return False
+    if int(record.get("pending_adapter_job_count") or 0) > 0:
+        return False
+    lineage = record.get("continuation_lineage") if isinstance(record.get("continuation_lineage"), Mapping) else {}
+    final_action = str(lineage.get("final_original_backtrace_continuation_recommended_next_action") or "").strip()
+    if final_action != "PARK_OR_MANUAL_REVIEW_WITHOUT_CLEARANCE_CLAIM":
+        return False
+    return int(lineage.get("state_after_adapter_job_count") or 0) == 0
 
 
 def _project_output_dir(output_root: Path, project_id: str) -> Path:

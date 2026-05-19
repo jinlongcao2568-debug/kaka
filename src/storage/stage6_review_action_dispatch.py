@@ -99,12 +99,19 @@ def build_stage6_review_action_dispatch(
     if stage6_payload and not action_plan_records:
         blocking_reasons.append("stage6_review_action_plan_records_missing")
 
+    dispatchable_action_plan_records = [
+        record for record in action_plan_records if _automated_dispatch_allowed(record)
+    ]
+    manual_only_action_plan_records = [
+        record for record in action_plan_records if not _automated_dispatch_allowed(record)
+    ]
     dispatch_task_records = [
         _dispatch_task_record(record, created_at=created)
-        for record in action_plan_records
+        for record in dispatchable_action_plan_records
     ]
     summary = _summary(
         action_plan_records=action_plan_records,
+        manual_only_action_plan_records=manual_only_action_plan_records,
         dispatch_task_records=dispatch_task_records,
         blocking_reasons=blocking_reasons,
     )
@@ -118,6 +125,7 @@ def build_stage6_review_action_dispatch(
         "source_stage6_fact_package_json": str(stage6_path),
         "source_stage6_fact_package_manifest_id": str(stage6_manifest.get("manifest_id") or ""),
         "dispatch_task_table": {"records": dispatch_task_records, "summary": summary},
+        "manual_only_action_plan_table": {"records": manual_only_action_plan_records, "summary": summary},
         "summary": summary,
         "safety": {
             "network_enabled": False,
@@ -144,8 +152,12 @@ def build_stage6_review_action_dispatch(
         "manifest": manifest,
         "summary": summary,
     }
-    _finalize_and_write(out_dir, result, dispatch_task_records)
+    _finalize_and_write(out_dir, result, dispatch_task_records, manual_only_action_plan_records)
     return result
+
+
+def _automated_dispatch_allowed(record: Mapping[str, Any]) -> bool:
+    return bool(record.get("automated_dispatch_allowed", True))
 
 
 def _dispatch_task_record(record: Mapping[str, Any], *, created_at: str) -> dict[str, Any]:
@@ -199,6 +211,7 @@ def _dispatch_task_record(record: Mapping[str, Any], *, created_at: str) -> dict
 def _summary(
     *,
     action_plan_records: list[Mapping[str, Any]],
+    manual_only_action_plan_records: list[Mapping[str, Any]],
     dispatch_task_records: list[Mapping[str, Any]],
     blocking_reasons: list[str],
 ) -> dict[str, Any]:
@@ -207,6 +220,9 @@ def _summary(
         if not blocking_reasons
         else "STAGE6_REVIEW_ACTION_DISPATCH_INPUT_BLOCKED",
         "source_review_action_plan_count": len(action_plan_records),
+        "dispatchable_action_plan_count": len(dispatch_task_records),
+        "manual_only_action_plan_count": len(manual_only_action_plan_records),
+        "manual_only_action_family_counts": _counts(record.get("action_family") for record in manual_only_action_plan_records),
         "dispatch_task_count": len(dispatch_task_records),
         "dispatch_task_type_counts": _counts(record.get("dispatch_task_type") for record in dispatch_task_records),
         "dispatch_readiness_state_counts": _counts(record.get("dispatch_readiness_state") for record in dispatch_task_records),
@@ -225,6 +241,7 @@ def _finalize_and_write(
     out_dir: Path,
     result: dict[str, Any],
     dispatch_task_records: list[Mapping[str, Any]],
+    manual_only_action_plan_records: list[Mapping[str, Any]],
 ) -> None:
     text = json.dumps(result, ensure_ascii=False, indent=2)
     forbidden_hits = [term for term in FORBIDDEN_TERMS if term in text]
@@ -244,6 +261,10 @@ def _finalize_and_write(
         {key: value for key, value in result["manifest"].items() if key != "manifest_sha256"}
     )
     _write_json(out_dir / "stage6-review-dispatch-task-table.json", {"summary": result["summary"], "records": dispatch_task_records})
+    _write_json(
+        out_dir / "stage6-review-manual-only-action-plan-table.json",
+        {"summary": result["summary"], "records": manual_only_action_plan_records},
+    )
     _write_json(out_dir / "stage6-review-action-dispatch-v1.json", result)
 
 

@@ -81,6 +81,35 @@ class Stage6ReviewActionDispatchTests(unittest.TestCase):
                 "STAGE6_REVIEW_ACTION_DISPATCH_INPUT_BLOCKED",
             )
 
+    def test_skips_manual_only_action_plans_without_blocking_dispatch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            records = [
+                _action_plan(
+                    project_id="PROJ-MANUAL",
+                    action_family="SOURCE_GAP_TARGETED_RETRY_OR_MANUAL_REVIEW",
+                    target_adapter_scope="OriginalNoticeTaskTriageV1 + official_direct_html_or_attachment_readback",
+                    action_label="do_not_auto_retry_until_new_source_or_operator_override",
+                    automated_dispatch_allowed=False,
+                    dispatch_block_reason="terminal_source_gap_no_delta_manual_review_only",
+                )
+            ]
+            _write_stage6_fact_package(root / "stage6", records=records)
+
+            result = build_stage6_review_action_dispatch(
+                stage6_fact_package_root=root / "stage6",
+                output_root=root / "out",
+            )
+
+            self.assertTrue(result["safe_to_execute"])
+            self.assertEqual(result["summary"]["source_review_action_plan_count"], 1)
+            self.assertEqual(result["summary"]["dispatch_task_count"], 0)
+            self.assertEqual(result["summary"]["manual_only_action_plan_count"], 1)
+            self.assertEqual(result["manifest"]["dispatch_task_table"]["records"], [])
+            manual = result["manifest"]["manual_only_action_plan_table"]["records"][0]
+            self.assertEqual(manual["project_id"], "PROJ-MANUAL")
+            self.assertEqual(manual["dispatch_block_reason"], "terminal_source_gap_no_delta_manual_review_only")
+
     def test_output_keeps_internal_safety_contract(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -102,27 +131,28 @@ class Stage6ReviewActionDispatchTests(unittest.TestCase):
             self.assertEqual(manifest["manifest_sha256"], _fingerprint_without_manifest_sha(manifest))
 
 
-def _write_stage6_fact_package(root: Path) -> None:
-    records = [
-        _action_plan(
-            project_id="PROJ-A",
-            action_family="P13B_RELEASE_EVIDENCE_TARGETED_REVIEW",
-            target_adapter_scope="ReleaseEvidenceAdapterPlanV1 + jurisdiction_release_adapter_registry",
-            action_label="query_release_evidence_only_in_historical_overlap_project_local_public_source",
-        ),
-        _action_plan(
-            project_id="PROJ-D",
-            action_family="SOURCE_GAP_TARGETED_RETRY_OR_MANUAL_REVIEW",
-            target_adapter_scope="OriginalNoticeTaskTriageV1 + official_direct_html_or_attachment_readback",
-            action_label="retry_official_direct_html_or_attachment_readback_with_small_budget",
-        ),
-        _action_plan(
-            project_id="PROJ-SURVEY",
-            action_family="DESIGN_SURVEY_QUALIFICATION_AND_SERVICE_CLOCK_REVIEW",
-            target_adapter_scope="DesignSurveyPublicRegistryReadback + natural_resources_public_registry_adapter",
-            action_label="plan_qualification_service_clock_and_current_assignment_review",
-        ),
-    ]
+def _write_stage6_fact_package(root: Path, records: list[Mapping[str, Any]] | None = None) -> None:
+    if records is None:
+        records = [
+            _action_plan(
+                project_id="PROJ-A",
+                action_family="P13B_RELEASE_EVIDENCE_TARGETED_REVIEW",
+                target_adapter_scope="ReleaseEvidenceAdapterPlanV1 + jurisdiction_release_adapter_registry",
+                action_label="query_release_evidence_only_in_historical_overlap_project_local_public_source",
+            ),
+            _action_plan(
+                project_id="PROJ-D",
+                action_family="SOURCE_GAP_TARGETED_RETRY_OR_MANUAL_REVIEW",
+                target_adapter_scope="OriginalNoticeTaskTriageV1 + official_direct_html_or_attachment_readback",
+                action_label="retry_official_direct_html_or_attachment_readback_with_small_budget",
+            ),
+            _action_plan(
+                project_id="PROJ-SURVEY",
+                action_family="DESIGN_SURVEY_QUALIFICATION_AND_SERVICE_CLOCK_REVIEW",
+                target_adapter_scope="DesignSurveyPublicRegistryReadback + natural_resources_public_registry_adapter",
+                action_label="plan_qualification_service_clock_and_current_assignment_review",
+            ),
+        ]
     _write_json(
         root / "stage6-fact-package-v1.json",
         {
@@ -142,6 +172,8 @@ def _action_plan(
     action_family: str,
     target_adapter_scope: str,
     action_label: str,
+    automated_dispatch_allowed: bool = True,
+    dispatch_block_reason: str = "",
 ) -> dict[str, Any]:
     return {
         "review_action_plan_id": f"PLAN-{project_id}",
@@ -155,6 +187,8 @@ def _action_plan(
         "target_adapter_scope": target_adapter_scope,
         "target_source_scope": ["public_source"],
         "regional_routing_policy": "route_by_project_region_or_manual_review",
+        "automated_dispatch_allowed": automated_dispatch_allowed,
+        "dispatch_block_reason": dispatch_block_reason,
         "action_items": [
             {
                 "action_item_id": f"ITEM-{project_id}",

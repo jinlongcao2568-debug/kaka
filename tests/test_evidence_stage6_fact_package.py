@@ -83,6 +83,61 @@ class EvidenceStage6FactPackageTests(unittest.TestCase):
             self.assertFalse(pack["formal_customer_delivery_ready"])
             self.assertFalse(result["manifest"]["safety"]["stage7_to_stage9_live_execution_enabled"])
 
+    def test_terminal_source_gap_no_delta_is_manual_only_without_auto_retry(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_json(
+                root / "closeout" / "evidence-batch-closeout-v1.json",
+                {
+                    "manifest": {
+                        "manifest_id": "BATCH-CLOSEOUT-TERMINAL-D",
+                        "closeout_records": [
+                            {
+                                "project_id": "PROJ-TERMINAL-D",
+                                "project_name": "终态 D 项目",
+                                "engineering_work_lane": "construction_or_epc",
+                                "responsible_person_name": "王五",
+                                "evidence_state": "D_INSUFFICIENT_OR_BLOCKED_READBACK",
+                                "evidence_grade": "D_EVIDENCE_INSUFFICIENT",
+                                "evidence_signal_source": "ORIGINAL_BACKTRACE_CONTINUATION",
+                                "batch_triage_bucket": "D_BLOCKED_OR_INSUFFICIENT_REVIEW",
+                                "closeout_state": "PARK_D_INSUFFICIENT_OR_BLOCKED",
+                                "stage6_fact_package_state": "REVIEW_FACT_PACKAGE_READY",
+                                "stage6_ready": True,
+                                "stage7_commercial_input_allowed": False,
+                                "pending_adapter_job_count": 0,
+                                "review_reasons": ["original_notice_backtrace_no_a_signal"],
+                                "continuation_lineage": {
+                                    "state_after_adapter_job_count": 0,
+                                    "final_original_backtrace_continuation_recommended_next_action": (
+                                        "PARK_OR_MANUAL_REVIEW_WITHOUT_CLEARANCE_CLAIM"
+                                    ),
+                                },
+                                "customer_visible_allowed": False,
+                                "no_legal_conclusion": True,
+                                "query_miss_is_not_clearance": True,
+                            }
+                        ],
+                    },
+                    "summary": {"project_count": 1},
+                },
+            )
+
+            result = build_evidence_stage6_fact_package(batch_closeout_root=root / "closeout", output_root=root / "out")
+
+            plan = result["manifest"]["stage6_review_action_plan_table"]["records"][0]
+            review = result["manifest"]["review_queue_table"]["records"][0]
+            self.assertFalse(plan["automated_dispatch_allowed"])
+            self.assertEqual(plan["dispatch_block_reason"], "terminal_source_gap_no_delta_manual_review_only")
+            self.assertIn(
+                "do_not_auto_retry_until_new_source_or_operator_override",
+                [item["action_label"] for item in plan["action_items"]],
+            )
+            self.assertEqual(
+                review["recommended_next_action"],
+                "park_manual_review_until_new_source_or_operator_override_without_clearance_claim",
+            )
+
     def test_design_survey_registry_artifact_gets_qualification_service_clock_action_plan(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)

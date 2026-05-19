@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 from pathlib import Path
 from typing import Any, Iterable, Mapping
@@ -551,7 +552,16 @@ def _load_json(path: Path) -> dict[str, Any]:
 
 def _write_json(path: Path, payload: Mapping[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    _long_path(path).write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _long_path(path: Path) -> Path:
+    if os.name != "nt":
+        return path
+    text = str(path.resolve())
+    if text.startswith("\\\\?\\"):
+        return Path(text)
+    return Path(f"\\\\?\\{text}")
 
 
 def _project_key(value: Any) -> str:

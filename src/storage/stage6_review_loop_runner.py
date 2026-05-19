@@ -241,7 +241,10 @@ def _project_status_records(
     routings = _records_by_project(routing, "result_routing_table")
     runners = _records_by_project(result_runner, "result_runner_table")
     next_dispatch = _next_cycle_dispatch_records_by_project(next_cycle)
-    project_ids = sorted({*readbacks.keys(), *closeouts.keys(), *routings.keys(), *runners.keys(), *next_dispatch.keys()})
+    next_manual = _next_cycle_manual_only_records_by_project(next_cycle)
+    project_ids = sorted(
+        {*readbacks.keys(), *closeouts.keys(), *routings.keys(), *runners.keys(), *next_dispatch.keys(), *next_manual.keys()}
+    )
     records: list[dict[str, Any]] = []
     for project_id in project_ids:
         readback_record = readbacks.get(project_id, {})
@@ -249,6 +252,7 @@ def _project_status_records(
         routing_record = routings.get(project_id, {})
         runner_record = runners.get(project_id, {})
         next_dispatch_record = next_dispatch.get(project_id, {})
+        next_manual_record = next_manual.get(project_id, {})
         records.append(
             {
                 "project_id": project_id,
@@ -274,12 +278,15 @@ def _project_status_records(
                 "result_runner_skip_reason": str(runner_record.get("skip_reason") or ""),
                 "next_cycle_dispatch_task_type": str(next_dispatch_record.get("dispatch_task_type") or ""),
                 "next_cycle_dispatch_readiness_state": str(next_dispatch_record.get("dispatch_readiness_state") or ""),
+                "next_cycle_manual_only_action_family": str(next_manual_record.get("action_family") or ""),
+                "next_cycle_dispatch_block_reason": str(next_manual_record.get("dispatch_block_reason") or ""),
                 "loop_terminal_state": _loop_terminal_state(
                     readback_record=readback_record,
                     closeout_record=closeout_record,
                     routing_record=routing_record,
                     runner_record=runner_record,
                     next_dispatch_record=next_dispatch_record,
+                    next_manual_record=next_manual_record,
                 ),
                 "next_recommended_action": _loop_next_action(
                     readback_record=readback_record,
@@ -287,6 +294,7 @@ def _project_status_records(
                     runner_record=runner_record,
                     routing_record=routing_record,
                     next_dispatch_record=next_dispatch_record,
+                    next_manual_record=next_manual_record,
                 ),
                 "customer_visible_allowed": False,
                 "no_legal_conclusion": True,
@@ -311,6 +319,14 @@ def _records_by_project(result: Mapping[str, Any], table_name: str) -> dict[str,
 
 
 def _next_cycle_dispatch_records_by_project(next_cycle: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
+    return _next_cycle_records_by_project(next_cycle, "dispatch_task_table")
+
+
+def _next_cycle_manual_only_records_by_project(next_cycle: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
+    return _next_cycle_records_by_project(next_cycle, "manual_only_action_plan_table")
+
+
+def _next_cycle_records_by_project(next_cycle: Mapping[str, Any], table_name: str) -> dict[str, dict[str, Any]]:
     manifest = next_cycle.get("manifest") if isinstance(next_cycle, Mapping) else {}
     dispatch_json = str(manifest.get("stage6_dispatch_json") or "").strip() if isinstance(manifest, Mapping) else ""
     if not dispatch_json:
@@ -320,7 +336,7 @@ def _next_cycle_dispatch_records_by_project(next_cycle: Mapping[str, Any]) -> di
     except (OSError, json.JSONDecodeError):
         return {}
     payload_manifest = payload.get("manifest") if isinstance(payload, Mapping) else {}
-    table = payload_manifest.get("dispatch_task_table") if isinstance(payload_manifest, Mapping) else {}
+    table = payload_manifest.get(table_name) if isinstance(payload_manifest, Mapping) else {}
     records = _list(table.get("records") if isinstance(table, Mapping) else [])
     out: dict[str, dict[str, Any]] = {}
     for record in records:
@@ -347,9 +363,12 @@ def _loop_terminal_state(
     routing_record: Mapping[str, Any],
     runner_record: Mapping[str, Any],
     next_dispatch_record: Mapping[str, Any],
+    next_manual_record: Mapping[str, Any],
 ) -> str:
     if str(next_dispatch_record.get("dispatch_readiness_state") or "").strip():
         return "NEXT_CYCLE_DISPATCH_READY"
+    if str(next_manual_record.get("dispatch_block_reason") or "").strip():
+        return "MANUAL_REVIEW_HOLD_NO_AUTOMATED_DISPATCH"
 
     execution_state = str(runner_record.get("execution_state") or "").strip()
     if execution_state == "EXECUTED_SUCCEEDED":
@@ -398,9 +417,12 @@ def _loop_next_action(
     runner_record: Mapping[str, Any],
     routing_record: Mapping[str, Any],
     next_dispatch_record: Mapping[str, Any],
+    next_manual_record: Mapping[str, Any],
 ) -> str:
     if str(next_dispatch_record.get("dispatch_readiness_state") or "").strip():
         return "run_next_cycle_dispatch_or_keep_internal_review_dry_run"
+    if str(next_manual_record.get("dispatch_block_reason") or "").strip():
+        return "manual_review_or_new_source_override_required_before_retry"
 
     execution_state = str(runner_record.get("execution_state") or "").strip()
     if execution_state == "EXECUTED_SUCCEEDED":

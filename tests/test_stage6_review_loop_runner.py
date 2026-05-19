@@ -116,6 +116,62 @@ class Stage6ReviewLoopRunnerTests(unittest.TestCase):
                 "run_next_cycle_dispatch_or_keep_internal_review_dry_run",
             )
 
+    def test_terminal_next_cycle_manual_only_status_is_visible_per_project(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            state_json = _write_evidence_state(root / "state")
+            _write_dispatch(root / "dispatch", evidence_state_json=state_json)
+
+            def fake_executor(argv: list[str], cwd: Path) -> Mapping[str, Any]:
+                script = argv[argv.index("-File") + 1]
+                output_root = Path(_arg(argv, "-OutputRoot"))
+                if script == "scripts/run-evidence-orchestration-continuation-v1.ps1":
+                    state_after_root = output_root / "after"
+                    _write_evidence_state(state_after_root)
+                    _write_json(
+                        output_root / "evidence-orchestration-continuation-run-v1.json",
+                        {
+                            "safe_to_execute": True,
+                            "blocking_reasons": [],
+                            "manifest": {
+                                "manifest_id": "CONTINUATION-RUN-TERMINAL",
+                                "state_after_root": str(state_after_root),
+                            },
+                            "summary": {},
+                        },
+                    )
+                elif script == "scripts/build-evidence-batch-closeout-v1.ps1":
+                    evidence_state_root = Path(_arg(argv, "-EvidenceStateRoot"))
+                    _write_terminal_batch_closeout(
+                        output_root,
+                        evidence_state_json=evidence_state_root / "evidence-orchestration-state-v1.json",
+                    )
+                else:
+                    raise AssertionError(f"unexpected script: {script}")
+                return {"exit_code": 0, "stdout": "ok", "stderr": ""}
+
+            result = run_stage6_review_loop_runner(
+                dispatch_root=root / "dispatch",
+                output_root=root / "out",
+                execute_dispatch=True,
+                execute_results=True,
+                cwd=root,
+                command_executor=fake_executor,
+                created_at="2026-05-19T00:00:00+08:00",
+            )
+
+            self.assertTrue(result["safe_to_execute"])
+            summary = result["summary"]
+            self.assertEqual(summary["next_cycle_dispatch_task_count"], 0)
+            self.assertEqual(summary["loop_terminal_state_counts"], {"MANUAL_REVIEW_HOLD_NO_AUTOMATED_DISPATCH": 1})
+            record = result["manifest"]["project_status_table"]["records"][0]
+            self.assertEqual(record["loop_terminal_state"], "MANUAL_REVIEW_HOLD_NO_AUTOMATED_DISPATCH")
+            self.assertEqual(record["next_cycle_dispatch_block_reason"], "terminal_source_gap_no_delta_manual_review_only")
+            self.assertEqual(
+                record["next_recommended_action"],
+                "manual_review_or_new_source_override_required_before_retry",
+            )
+
     def test_output_keeps_internal_safety_contract(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -207,6 +263,48 @@ def _write_batch_closeout(root: Path, *, evidence_state_json: str | Path) -> Non
                         "stage7_commercial_input_allowed": False,
                         "review_reasons": ["original_notice_backtrace_no_a_signal"],
                         "source_refs": {"evidence_state_json": str(evidence_state_json)},
+                        "customer_visible_allowed": False,
+                        "no_legal_conclusion": True,
+                        "query_miss_is_not_clearance": True,
+                    }
+                ],
+                "summary": {"project_count": 1},
+            },
+            "summary": {"project_count": 1},
+        },
+    )
+
+
+def _write_terminal_batch_closeout(root: Path, *, evidence_state_json: str | Path) -> None:
+    _write_json(
+        root / "evidence-batch-closeout-v1.json",
+        {
+            "safe_to_execute": True,
+            "blocking_reasons": [],
+            "manifest": {
+                "manifest_id": "BATCH-CLOSEOUT-TERMINAL",
+                "closeout_records": [
+                    {
+                        "project_id": "PROJ-D",
+                        "project_name": "D project",
+                        "engineering_work_lane": "construction_or_epc",
+                        "evidence_state": "D_INSUFFICIENT_OR_BLOCKED_READBACK",
+                        "evidence_grade": "D_EVIDENCE_INSUFFICIENT",
+                        "evidence_signal_source": "ORIGINAL_BACKTRACE_CONTINUATION",
+                        "batch_triage_bucket": "D_BLOCKED_OR_INSUFFICIENT_REVIEW",
+                        "closeout_state": "PARK_D_INSUFFICIENT_OR_BLOCKED",
+                        "stage6_fact_package_state": "REVIEW_FACT_PACKAGE_READY",
+                        "stage6_ready": True,
+                        "stage7_commercial_input_allowed": False,
+                        "pending_adapter_job_count": 0,
+                        "review_reasons": ["original_notice_backtrace_no_a_signal"],
+                        "source_refs": {"evidence_state_json": str(evidence_state_json)},
+                        "continuation_lineage": {
+                            "state_after_adapter_job_count": 0,
+                            "final_original_backtrace_continuation_recommended_next_action": (
+                                "PARK_OR_MANUAL_REVIEW_WITHOUT_CLEARANCE_CLAIM"
+                            ),
+                        },
                         "customer_visible_allowed": False,
                         "no_legal_conclusion": True,
                         "query_miss_is_not_clearance": True,

@@ -75,6 +75,33 @@ class Stage6ReviewCycleRunnerTests(unittest.TestCase):
             self.assertEqual(result["summary"]["dispatch_runner_executed_success_group_count"], 3)
             self.assertTrue(all(call[0][0] == "pwsh" for call in calls))
 
+    def test_terminal_manual_only_cycle_does_not_call_dispatch_runner(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_terminal_manual_only_batch_closeout(root / "closeout")
+            calls: list[tuple[list[str], Path]] = []
+
+            def fake_executor(argv: list[str], cwd: Path) -> Mapping[str, Any]:
+                calls.append((argv, cwd))
+                return {"exit_code": 0, "stdout": "ok", "stderr": ""}
+
+            result = run_stage6_review_cycle_runner(
+                batch_closeout_root=root / "closeout",
+                output_root=root / "out",
+                execute_dispatch=True,
+                cwd=root,
+                command_executor=fake_executor,
+                created_at="2026-05-19T00:00:00+08:00",
+            )
+
+            self.assertTrue(result["safe_to_execute"])
+            self.assertEqual(calls, [])
+            summary = result["summary"]
+            self.assertEqual(summary["dispatch_task_count"], 0)
+            self.assertEqual(summary["manual_only_action_plan_count"], 1)
+            self.assertEqual(summary["stage6_dispatch_runner_skip_reason"], "stage6_dispatch_has_no_automated_tasks")
+            self.assertTrue(summary["stage6_dispatch_runner_safe"])
+
     def test_missing_batch_closeout_blocks_cycle(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -226,6 +253,46 @@ def _write_batch_closeout(root: Path, *, evidence_state_json: str | Path) -> Non
                 "summary": {"project_count": len(records)},
             },
             "summary": {"project_count": len(records)},
+        },
+    )
+
+
+def _write_terminal_manual_only_batch_closeout(root: Path) -> None:
+    _write_json(
+        root / "evidence-batch-closeout-v1.json",
+        {
+            "manifest": {
+                "manifest_id": "BATCH-CLOSEOUT-TERMINAL-D",
+                "closeout_records": [
+                    {
+                        "project_id": "PROJ-TERMINAL-D",
+                        "project_name": "Terminal D project",
+                        "engineering_work_lane": "construction_or_epc",
+                        "responsible_person_name": "王五",
+                        "evidence_state": "D_INSUFFICIENT_OR_BLOCKED_READBACK",
+                        "evidence_grade": "D_EVIDENCE_INSUFFICIENT",
+                        "evidence_signal_source": "ORIGINAL_BACKTRACE_CONTINUATION",
+                        "batch_triage_bucket": "D_BLOCKED_OR_INSUFFICIENT_REVIEW",
+                        "closeout_state": "PARK_D_INSUFFICIENT_OR_BLOCKED",
+                        "stage6_fact_package_state": "REVIEW_FACT_PACKAGE_READY",
+                        "stage6_ready": True,
+                        "stage7_commercial_input_allowed": False,
+                        "pending_adapter_job_count": 0,
+                        "review_reasons": ["original_notice_backtrace_no_a_signal"],
+                        "continuation_lineage": {
+                            "state_after_adapter_job_count": 0,
+                            "final_original_backtrace_continuation_recommended_next_action": (
+                                "PARK_OR_MANUAL_REVIEW_WITHOUT_CLEARANCE_CLAIM"
+                            ),
+                        },
+                        "customer_visible_allowed": False,
+                        "no_legal_conclusion": True,
+                        "query_miss_is_not_clearance": True,
+                    }
+                ],
+                "summary": {"project_count": 1},
+            },
+            "summary": {"project_count": 1},
         },
     )
 
