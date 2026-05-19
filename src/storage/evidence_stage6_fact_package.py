@@ -57,6 +57,7 @@ def build_evidence_stage6_fact_package(
     report_records = [_report_record(record, output_root=out_dir) for record in package_input_records]
     review_queue_records = [_review_queue_record(record) for record in package_input_records]
     legal_action_records = [_legal_action_record(record) for record in package_input_records]
+    review_action_plan_records = [_review_action_plan_record(record) for record in package_input_records]
     internal_pack_records = [
         _internal_pack_record(record, output_root=out_dir, created_at=created) for record in package_input_records
     ]
@@ -73,12 +74,14 @@ def build_evidence_stage6_fact_package(
         report_records=report_records,
         review_queue_records=review_queue_records,
         legal_action_records=legal_action_records,
+        review_action_plan_records=review_action_plan_records,
     )
     summary = _summary(
         closeout_records=closeout_records,
         stage6_intake_records=stage6_intake_records,
         project_fact_records=project_fact_records,
         review_queue_records=review_queue_records,
+        review_action_plan_records=review_action_plan_records,
         internal_pack_records=internal_pack_records,
         stage7_preview_seed_records=stage7_preview_seed_records,
         blocking_reasons=blocking_reasons,
@@ -97,6 +100,7 @@ def build_evidence_stage6_fact_package(
         "report_record_table": {"records": report_records},
         "review_queue_table": {"records": review_queue_records},
         "legal_action_recommendation_table": {"records": legal_action_records},
+        "stage6_review_action_plan_table": {"records": review_action_plan_records},
         "internal_evidence_pack_table": {"records": internal_pack_records},
         "stage7_governed_preview_seed_table": {"records": stage7_preview_seed_records},
         "summary": summary,
@@ -133,6 +137,7 @@ def build_evidence_stage6_fact_package(
         report_records=report_records,
         review_queue_records=review_queue_records,
         legal_action_records=legal_action_records,
+        review_action_plan_records=review_action_plan_records,
         internal_pack_records=internal_pack_records,
         stage7_preview_seed_records=stage7_preview_seed_records,
     )
@@ -229,6 +234,7 @@ def _report_record(record: Mapping[str, Any], *, output_root: Path) -> dict[str,
         "evidence_pack_path": str(project_dir / "stage6-internal-evidence-pack.json"),
         "review_summary_path": str(project_dir / "stage6-review-summary.json"),
         "review_summary_markdown_path": str(project_dir / "stage6-review-summary.md"),
+        "review_action_plan_path": str(project_dir / "stage6-review-action-plan.json"),
         "objection_draft_path": "",
         "review_task_status": "OPEN",
         "report_status": "READY",
@@ -269,6 +275,38 @@ def _legal_action_record(record: Mapping[str, Any]) -> dict[str, Any]:
         "recommended_next_step": _review_next_action(record),
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,
+    }
+
+
+def _review_action_plan_record(record: Mapping[str, Any]) -> dict[str, Any]:
+    topic_code = _primary_topic_code(record)
+    review_lane = _review_lane(record)
+    action_family = _review_action_family(record, topic_code)
+    action_items = _review_action_items(record, topic_code, action_family)
+    return {
+        "review_action_plan_id": _stable_id("S6-RAP", record.get("project_id"), record.get("closeout_state")),
+        "project_id": str(record.get("project_id") or ""),
+        "project_name": str(record.get("project_name") or ""),
+        "review_action_plan_state": "INTERNAL_ACTION_PLAN_READY",
+        "review_lane": review_lane,
+        "review_queue_bucket": _review_bucket(record),
+        "review_priority_score": _review_priority(record),
+        "primary_evidence_topic_code": topic_code,
+        "action_family": action_family,
+        "target_adapter_scope": _review_target_adapter_scope(record, topic_code, action_family),
+        "target_source_scope": _review_target_source_scope(record, topic_code, action_family),
+        "regional_routing_policy": _review_regional_routing_policy(topic_code, action_family),
+        "action_items": action_items,
+        "completion_criteria": _review_completion_criteria(record, topic_code, action_family),
+        "blocked_or_not_found_policy": "record_as_evidence_gap_or_source_blocker_not_clearance",
+        "acceptable_terminal_states": ["MATCHED", "NOT_FOUND", "BLOCKED", "NEEDS_BROWSER", "REVIEW_REQUIRED"],
+        "source_refs": dict(record.get("source_refs") or {}),
+        "continuation_lineage": dict(record.get("continuation_lineage") or {}),
+        "customer_visible_allowed": False,
+        "external_send_enabled": False,
+        "no_legal_conclusion": True,
+        "query_miss_is_not_clearance": True,
+        "formal_customer_delivery_ready": False,
     }
 
 
@@ -339,11 +377,13 @@ def _write_project_package_files(
     report_records: list[Mapping[str, Any]],
     review_queue_records: list[Mapping[str, Any]],
     legal_action_records: list[Mapping[str, Any]],
+    review_action_plan_records: list[Mapping[str, Any]],
 ) -> None:
     facts = _records_by_project(project_fact_records)
     reports = _records_by_project(report_records)
     queues = _records_by_project(review_queue_records)
     actions = _records_by_project(legal_action_records)
+    action_plans = _records_by_project(review_action_plan_records)
     for pack in internal_pack_records:
         project_id = str(pack.get("project_id") or "")
         project_dir = _project_output_dir(out_dir, project_id)
@@ -357,6 +397,7 @@ def _write_project_package_files(
             "package_scope": pack.get("package_scope"),
             "review_summary_path": reports.get(project_id, {}).get("review_summary_path", ""),
             "review_summary_markdown_path": reports.get(project_id, {}).get("review_summary_markdown_path", ""),
+            "review_action_plan_path": reports.get(project_id, {}).get("review_action_plan_path", ""),
             "closeout_state": pack.get("closeout_state"),
             "evidence_state": pack.get("evidence_state"),
             "evidence_grade": pack.get("evidence_grade"),
@@ -366,6 +407,8 @@ def _write_project_package_files(
             ),
             "review_lane": queues.get(project_id, {}).get("review_lane", ""),
             "recommended_next_action": actions.get(project_id, {}).get("recommended_next_step", ""),
+            "review_action_plan_state": action_plans.get(project_id, {}).get("review_action_plan_state", ""),
+            "review_action_family": action_plans.get(project_id, {}).get("action_family", ""),
             "customer_visible_allowed": False,
             "no_legal_conclusion": True,
             "query_miss_is_not_clearance": True,
@@ -376,6 +419,7 @@ def _write_project_package_files(
             report=reports.get(project_id, {}),
             review_queue=queues.get(project_id, {}),
             legal_action=actions.get(project_id, {}),
+            review_action_plan=action_plans.get(project_id, {}),
             evidence_artifacts=evidence_artifacts,
         )
         evidence_pack = {
@@ -384,6 +428,7 @@ def _write_project_package_files(
             "report_record": reports.get(project_id, {}),
             "review_queue": queues.get(project_id, {}),
             "legal_action_recommendation": actions.get(project_id, {}),
+            "stage6_review_action_plan": action_plans.get(project_id, {}),
             "internal_evidence_pack": dict(pack),
             "review_summary": review_summary,
             "customer_visible_allowed": False,
@@ -392,6 +437,7 @@ def _write_project_package_files(
         }
         _write_json(project_dir / "stage6-internal-brief.json", brief)
         _write_json(project_dir / "stage6-internal-evidence-pack.json", evidence_pack)
+        _write_json(project_dir / "stage6-review-action-plan.json", action_plans.get(project_id, {}))
         _write_json(project_dir / "stage6-review-summary.json", review_summary)
         (project_dir / "stage6-review-summary.md").write_text(
             _review_summary_markdown(review_summary),
@@ -406,6 +452,7 @@ def _review_summary_record(
     report: Mapping[str, Any],
     review_queue: Mapping[str, Any],
     legal_action: Mapping[str, Any],
+    review_action_plan: Mapping[str, Any],
     evidence_artifacts: list[Mapping[str, Any]],
 ) -> dict[str, Any]:
     return {
@@ -430,6 +477,15 @@ def _review_summary_record(
             or legal_action.get("recommended_next_step")
             or ""
         ),
+        "review_action_plan_state": str(review_action_plan.get("review_action_plan_state") or ""),
+        "review_action_family": str(review_action_plan.get("action_family") or ""),
+        "review_action_plan_path": str(report.get("review_action_plan_path") or ""),
+        "review_action_items": [
+            _review_action_item_summary(item)
+            for item in _list(review_action_plan.get("action_items"))
+            if isinstance(item, Mapping)
+        ],
+        "review_completion_criteria": _list(review_action_plan.get("completion_criteria")),
         "evidence_artifact_count": len(evidence_artifacts),
         "evidence_artifacts": [_review_artifact_summary(artifact) for artifact in evidence_artifacts[:10]],
         "source_refs": dict(pack.get("source_refs") or {}),
@@ -442,6 +498,18 @@ def _review_summary_record(
         "query_miss_is_not_clearance": True,
         "raw_blob_exported": False,
         "formal_customer_delivery_ready": False,
+    }
+
+
+def _review_action_item_summary(item: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "action_item_id": str(item.get("action_item_id") or ""),
+        "order": int(item.get("order") or 0),
+        "action_label": str(item.get("action_label") or ""),
+        "manual_review_required": bool(item.get("manual_review_required")),
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+        "query_miss_is_not_clearance": True,
     }
 
 
@@ -501,6 +569,7 @@ def _review_summary_markdown(summary: Mapping[str, Any]) -> str:
         f"Evidence Grade: {summary.get('evidence_grade') or ''}",
         f"Responsible Person: {summary.get('responsible_person_name') or ''}",
         f"Recommended Next Action: {summary.get('recommended_next_action') or ''}",
+        f"Review Action Family: {summary.get('review_action_family') or ''}",
         "",
         "Safety Boundary:",
         f"Customer Visible Allowed: {str(bool(summary.get('customer_visible_allowed'))).lower()}",
@@ -523,6 +592,22 @@ def _review_summary_markdown(summary: Mapping[str, Any]) -> str:
             + f"match_scope={artifact.get('registered_unit_match_scope') or ''}; "
             + f"snapshot_sha256={artifact.get('source_snapshot_sha256') or ''}"
         )
+    lines.extend(["", "Review Action Plan:"])
+    action_items = [item for item in _list(summary.get("review_action_items")) if isinstance(item, Mapping)]
+    if not action_items:
+        lines.append("- none")
+    for item in action_items:
+        lines.append(
+            "- "
+            + f"{item.get('order') or 0}. {item.get('action_label') or ''}; "
+            + f"manual_review={str(bool(item.get('manual_review_required'))).lower()}"
+        )
+    lines.extend(["", "Completion Criteria:"])
+    criteria = _list(summary.get("review_completion_criteria"))
+    if not criteria:
+        lines.append("- none")
+    for item in criteria:
+        lines.append(f"- {item}")
     lines.extend(["", "Review Checklist:"])
     for item in _list(summary.get("review_checklist")):
         lines.append(f"- {item}")
@@ -536,12 +621,14 @@ def _summary(
     stage6_intake_records: list[Mapping[str, Any]],
     project_fact_records: list[Mapping[str, Any]],
     review_queue_records: list[Mapping[str, Any]],
+    review_action_plan_records: list[Mapping[str, Any]],
     internal_pack_records: list[Mapping[str, Any]],
     stage7_preview_seed_records: list[Mapping[str, Any]],
     blocking_reasons: list[str],
 ) -> dict[str, Any]:
     intake_counts = _counts(record.get("stage6_intake_state") for record in stage6_intake_records)
     review_lane_counts = _counts(record.get("review_lane") for record in review_queue_records)
+    review_action_family_counts = _counts(record.get("action_family") for record in review_action_plan_records)
     return {
         "stage6_fact_package_state": "EVIDENCE_STAGE6_FACT_PACKAGE_READY" if not blocking_reasons else "EVIDENCE_STAGE6_INPUT_BLOCKED",
         "input_closeout_project_count": len(closeout_records),
@@ -550,10 +637,12 @@ def _summary(
         "project_fact_count": len(project_fact_records),
         "report_record_count": len(project_fact_records),
         "review_queue_count": len(review_queue_records),
+        "review_action_plan_count": len(review_action_plan_records),
         "internal_evidence_pack_count": len(internal_pack_records),
         "stage7_preview_seed_count": len(stage7_preview_seed_records),
         "formal_h06_handoff_ready_count": 0,
         "review_lane_counts": review_lane_counts,
+        "review_action_family_counts": review_action_family_counts,
         "blocking_reasons": blocking_reasons,
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,
@@ -572,6 +661,7 @@ def _finalize_and_write(
     report_records: list[Mapping[str, Any]],
     review_queue_records: list[Mapping[str, Any]],
     legal_action_records: list[Mapping[str, Any]],
+    review_action_plan_records: list[Mapping[str, Any]],
     internal_pack_records: list[Mapping[str, Any]],
     stage7_preview_seed_records: list[Mapping[str, Any]],
 ) -> None:
@@ -594,6 +684,7 @@ def _finalize_and_write(
     _write_json(out_dir / "report-record-table.json", {"summary": result["summary"], "records": report_records})
     _write_json(out_dir / "review-queue-table.json", {"summary": result["summary"], "records": review_queue_records})
     _write_json(out_dir / "legal-action-recommendation-table.json", {"summary": result["summary"], "records": legal_action_records})
+    _write_json(out_dir / "stage6-review-action-plan-table.json", {"summary": result["summary"], "records": review_action_plan_records})
     _write_json(out_dir / "internal-evidence-pack-table.json", {"summary": result["summary"], "records": internal_pack_records})
     _write_json(out_dir / "stage7-governed-preview-seed-table.json", {"summary": result["summary"], "records": stage7_preview_seed_records})
     _write_json(out_dir / "stage6-fact-package-v1.json", result)
@@ -646,6 +737,133 @@ def _review_next_action(record: Mapping[str, Any]) -> str:
     if closeout_state == "PARK_NO_CLEARANCE_CLAIM":
         return "park_or_manual_review_without_clearance_claim"
     return str(record.get("next_action_label") or "manual_review")
+
+
+def _review_action_family(record: Mapping[str, Any], topic_code: str) -> str:
+    closeout_state = str(record.get("closeout_state") or "")
+    artifacts = [artifact for artifact in _list(record.get("evidence_artifacts")) if isinstance(artifact, Mapping)]
+    if closeout_state == "PROMOTE_STAGE6_STAGE7_INTERNAL_PREVIEW":
+        return "P13B_RELEASE_EVIDENCE_TARGETED_REVIEW"
+    if closeout_state == "PARK_D_INSUFFICIENT_OR_BLOCKED":
+        return "SOURCE_GAP_TARGETED_RETRY_OR_MANUAL_REVIEW"
+    if topic_code == "DESIGN_SURVEY_RESPONSIBLE_PERSON_IDENTITY" or any(
+        str(artifact.get("evidence_artifact_type") or "") == "DESIGN_SURVEY_PUBLIC_REGISTRY_READBACK"
+        for artifact in artifacts
+    ):
+        return "DESIGN_SURVEY_QUALIFICATION_AND_SERVICE_CLOCK_REVIEW"
+    if closeout_state == "PARK_NO_CLEARANCE_CLAIM":
+        return "PARKED_LOW_CONFIDENCE_INTERNAL_REVIEW"
+    return "GENERAL_STAGE6_INTERNAL_REVIEW"
+
+
+def _review_target_adapter_scope(record: Mapping[str, Any], topic_code: str, action_family: str) -> str:
+    if action_family == "P13B_RELEASE_EVIDENCE_TARGETED_REVIEW":
+        return "ReleaseEvidenceAdapterPlanV1 + jurisdiction_release_adapter_registry"
+    if action_family == "SOURCE_GAP_TARGETED_RETRY_OR_MANUAL_REVIEW":
+        return "OriginalNoticeTaskTriageV1 + official_direct_html_or_attachment_readback"
+    if action_family == "DESIGN_SURVEY_QUALIFICATION_AND_SERVICE_CLOCK_REVIEW":
+        return "DesignSurveyPublicRegistryReadback + natural_resources_public_registry_adapter"
+    if topic_code == "P13B_RESPONSIBLE_PERSON_RELEASE":
+        return "EvidenceBatchCloseoutV1/manual_review"
+    return "Stage6FactPackageV1/manual_review"
+
+
+def _review_target_source_scope(record: Mapping[str, Any], topic_code: str, action_family: str) -> list[str]:
+    if action_family == "P13B_RELEASE_EVIDENCE_TARGETED_REVIEW":
+        return [
+            "data.ggzy.gov.cn_bid_show_confirmed_signal",
+            "historical_overlap_project_local_housing_construction_or_competent_authority_public_source",
+            "construction_permit_completion_acceptance_project_manager_change_contract_performance_public_records",
+        ]
+    if action_family == "SOURCE_GAP_TARGETED_RETRY_OR_MANUAL_REVIEW":
+        return [
+            "official_original_notice_url_or_attachment_snapshot",
+            "official_direct_html_when_available",
+            "ygp_readback_only_when_city_mapping_is_applicable",
+        ]
+    if action_family == "DESIGN_SURVEY_QUALIFICATION_AND_SERVICE_CLOCK_REVIEW":
+        return [
+            "registered_surveyor_or_natural_resources_public_registry_snapshot",
+            "candidate_group_member_binding_and_certificate_fields",
+            "prior_design_survey_award_history_when_service_clock_needs_review",
+        ]
+    return ["stage6_internal_review_sources"]
+
+
+def _review_regional_routing_policy(topic_code: str, action_family: str) -> str:
+    if action_family == "P13B_RELEASE_EVIDENCE_TARGETED_REVIEW":
+        return "route_by_historical_overlap_project_jurisdiction_no_guangdong_fallback_for_non_guangdong"
+    if action_family == "SOURCE_GAP_TARGETED_RETRY_OR_MANUAL_REVIEW":
+        return "route_by_original_notice_source_and_project_city_when_available"
+    if action_family == "DESIGN_SURVEY_QUALIFICATION_AND_SERVICE_CLOCK_REVIEW":
+        return "route_by_profession_registry_and_candidate_project_region_not_siku_only"
+    return "route_by_project_region_or_manual_review"
+
+
+def _review_action_items(record: Mapping[str, Any], topic_code: str, action_family: str) -> list[dict[str, Any]]:
+    project_id = str(record.get("project_id") or "")
+    responsible_person = str(record.get("responsible_person_name") or "")
+    if action_family == "P13B_RELEASE_EVIDENCE_TARGETED_REVIEW":
+        labels = [
+            "confirm_current_candidate_person_company_binding_from_stage3",
+            "review_data_ggzy_bid_show_person_and_time_window_overlap",
+            "query_release_evidence_only_in_historical_overlap_project_local_public_source",
+            "prepare_governed_stage7_preview_only_after_manual_internal_review",
+        ]
+    elif action_family == "SOURCE_GAP_TARGETED_RETRY_OR_MANUAL_REVIEW":
+        labels = [
+            "inspect_original_notice_readback_blocker_or_missing_fields",
+            "retry_official_direct_html_or_attachment_readback_with_small_budget",
+            "record_blocked_or_missing_source_as_evidence_gap_without_clearance_claim",
+        ]
+    elif action_family == "DESIGN_SURVEY_QUALIFICATION_AND_SERVICE_CLOCK_REVIEW":
+        labels = [
+            "verify_public_registry_snapshot_hash_and_redacted_readback",
+            "review_registered_unit_match_scope_against_candidate_group",
+            "plan_qualification_service_clock_and_current_assignment_review",
+        ]
+    else:
+        labels = [
+            "review_stage6_fact_record_and_source_refs",
+            "decide_manual_hold_or_next_adapter_task",
+        ]
+    return [
+        {
+            "action_item_id": _stable_id("S6-RAP-ITEM", project_id, label),
+            "order": index,
+            "action_label": label,
+            "responsible_person_name": responsible_person,
+            "manual_review_required": True,
+            "customer_visible_allowed": False,
+            "no_legal_conclusion": True,
+            "query_miss_is_not_clearance": True,
+        }
+        for index, label in enumerate(labels, start=1)
+    ]
+
+
+def _review_completion_criteria(record: Mapping[str, Any], topic_code: str, action_family: str) -> list[str]:
+    if action_family == "P13B_RELEASE_EVIDENCE_TARGETED_REVIEW":
+        return [
+            "stage3_candidate_binding_reviewed",
+            "historical_overlap_project_window_reviewed",
+            "release_evidence_adapter_terminal_state_recorded",
+            "source_url_snapshot_ref_and_hash_recorded",
+            "manual_reviewer_keeps_internal_only_boundary",
+        ]
+    if action_family == "SOURCE_GAP_TARGETED_RETRY_OR_MANUAL_REVIEW":
+        return [
+            "original_notice_retry_attempt_or_blocker_recorded",
+            "person_and_period_field_presence_recorded",
+            "blocked_or_missing_fields_do_not_unlock_clearance",
+        ]
+    if action_family == "DESIGN_SURVEY_QUALIFICATION_AND_SERVICE_CLOCK_REVIEW":
+        return [
+            "public_registry_snapshot_ref_and_hash_reviewed",
+            "registered_unit_match_scope_reviewed",
+            "qualification_or_service_clock_followup_task_recorded_when_needed",
+        ]
+    return ["manual_review_decision_recorded"]
 
 
 def _project_output_dir(output_root: Path, project_id: str) -> Path:
