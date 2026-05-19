@@ -36,12 +36,15 @@ class GuangdongLocalFieldQueryProbeTests(unittest.TestCase):
             self.assertEqual(summary["guangdong_local_field_query_task_count"], 6)
             self.assertEqual(summary["delegated_task_count"], 1)
             self.assertEqual(summary["field_query_probe_state_counts"]["PLAN_ONLY_NOT_EXECUTED"], 5)
+            self.assertEqual(summary["adapter_result_state_counts"]["NEEDS_BROWSER"], 6)
             delegated = result["manifest"]["field_task_records"][0]
             self.assertEqual(delegated["field_query_probe_state"], "DELEGATED_TO_SEPARATE_FIELD_ADAPTER")
             self.assertEqual(delegated["delegated_adapter_id"], "guangdong_gdcic_query_probe_v1")
+            self.assertEqual(delegated["adapter_result_state"], "NEEDS_BROWSER")
             pending = result["manifest"]["field_task_records"][1]
             self.assertTrue(pending["route_plan"])
             self.assertEqual(pending["field_readback_state"], "FIELD_READBACK_NOT_RUN")
+            self.assertEqual(pending["adapter_result_state"], "NEEDS_BROWSER")
             text = json.dumps(result, ensure_ascii=False)
             for term in ("在建冲突成立", "无在建", "无风险", "无冲突", "造假成立", "违法成立", "确认本人", "是不是本人"):
                 self.assertNotIn(term, text)
@@ -67,6 +70,7 @@ class GuangdongLocalFieldQueryProbeTests(unittest.TestCase):
             self.assertEqual(summary["guangdong_local_field_query_task_count"], 3)
             self.assertEqual(summary["input_source_kind_counts"]["p13b_release_evidence_probe_task"], 3)
             self.assertEqual(summary["field_query_probe_state_counts"]["PLAN_ONLY_NOT_EXECUTED"], 3)
+            self.assertEqual(summary["adapter_result_state_counts"]["NEEDS_BROWSER"], 3)
             self.assertEqual(summary["p13b_initial_release_evidence_abcd_grade_counts"]["A_STRONG_TIME_OVERLAP_SIGNAL"], 3)
             self.assertEqual(summary["p13b_downstream_release_evidence_abcd_grade_counts"]["PENDING_NOT_EXECUTED"], 3)
             self.assertEqual(summary["source_profile_task_counts"]["GUANGZHOU-ZFCJ-CREDIT-DOUBLE-PUBLICITY"], 3)
@@ -85,6 +89,32 @@ class GuangdongLocalFieldQueryProbeTests(unittest.TestCase):
             self.assertIn("completion_filing", {source_type for task in tasks for source_type in task["target_source_types"]})
             self.assertIn("contract_public_info", {source_type for task in tasks for source_type in task["target_source_types"]})
             self.assertTrue((output_root / "guangdong-local-field-query-probe-v1.json").exists())
+
+    def test_release_evidence_adapter_plan_tasks_feed_field_query_probe(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            plan_root = root / "release-plan"
+            output_root = root / "out"
+            _write_release_evidence_adapter_plan(plan_root)
+
+            result = build_guangdong_local_field_query_probe(
+                release_evidence_adapter_plan_root=plan_root,
+                output_root=output_root,
+                created_at="2026-05-19T00:00:00+08:00",
+            )
+
+            self.assertTrue(result["safe_to_execute"])
+            self.assertEqual(result["manifest"]["input_mode"], "RELEASE_EVIDENCE_ADAPTER_PLAN_TASKS")
+            summary = result["summary"]
+            self.assertEqual(summary["guangdong_local_field_query_task_count"], 4)
+            self.assertEqual(summary["input_source_kind_counts"]["release_evidence_adapter_plan_task"], 4)
+            self.assertEqual(summary["adapter_result_state_counts"]["NEEDS_BROWSER"], 4)
+            tasks = result["manifest"]["field_task_records"]
+            self.assertEqual({task["adapter_result_state"] for task in tasks}, {"NEEDS_BROWSER"})
+            self.assertIn("construction_permit", {source_type for task in tasks for source_type in task["target_source_types"]})
+            self.assertIn("contract_public_info", {source_type for task in tasks for source_type in task["target_source_types"]})
+            self.assertIn("completion_filing", {source_type for task in tasks for source_type in task["target_source_types"]})
+            self.assertIn("project_manager_change_notice", {source_type for task in tasks for source_type in task["target_source_types"]})
 
     def test_p13b_release_evidence_live_readback_grades_enhancement(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -132,6 +162,7 @@ class GuangdongLocalFieldQueryProbeTests(unittest.TestCase):
             self.assertTrue(result["safe_to_execute"])
             task = result["manifest"]["field_task_records"][0]
             self.assertEqual(task["field_query_probe_state"], "FIELD_READBACK_READY_PUBLIC_SOURCE")
+            self.assertEqual(task["adapter_result_state"], "MATCHED")
             self.assertEqual(task["initial_release_evidence_abcd_grade"], "A_STRONG_TIME_OVERLAP_SIGNAL")
             self.assertEqual(task["downstream_release_evidence_abcd_grade"], "B_ENHANCEMENT_OFFICIAL_READBACK")
 
@@ -187,6 +218,7 @@ class GuangdongLocalFieldQueryProbeTests(unittest.TestCase):
                 by_task_id["P13B-RELEASE-PROBE-TASK-2"]["downstream_release_evidence_abcd_grade"],
                 "C_REVERSE_EXPLANATION_OFFICIAL_READBACK",
             )
+            self.assertEqual(by_task_id["P13B-RELEASE-PROBE-TASK-2"]["adapter_result_state"], "MATCHED")
 
             miss_result = build_guangdong_local_field_query_probe(
                 p13b_operational_closeout_root=p13b_root,
@@ -206,7 +238,33 @@ class GuangdongLocalFieldQueryProbeTests(unittest.TestCase):
             self.assertTrue(miss_result["safe_to_execute"])
             miss_task = miss_result["manifest"]["field_task_records"][0]
             self.assertEqual(miss_task["downstream_release_evidence_abcd_grade"], "D_INSUFFICIENT_OR_BLOCKED_READBACK")
+            self.assertEqual(miss_task["adapter_result_state"], "NOT_FOUND")
             self.assertTrue(miss_task["initial_signal_remains_valid_when_downstream_is_d"])
+
+    def test_release_evidence_adapter_result_state_maps_blocked_source(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            plan_root = root / "release-plan"
+            _write_release_evidence_adapter_plan(plan_root)
+
+            result = build_guangdong_local_field_query_probe(
+                release_evidence_adapter_plan_root=plan_root,
+                output_root=root / "out",
+                source_profile_ids=["GUANGZHOU-ZFCJ-CREDIT-DOUBLE-PUBLICITY"],
+                enable_live_public_query=True,
+                max_live_tasks=1,
+                http_getter=lambda _url, _params: {
+                    "http_status": 403,
+                    "content_type": "text/html; charset=utf-8",
+                    "text_probe": "Forbidden",
+                },
+                created_at="2026-05-19T00:00:00+08:00",
+            )
+
+            self.assertTrue(result["safe_to_execute"])
+            first = result["manifest"]["field_task_records"][0]
+            self.assertEqual(first["adapter_result_state"], "BLOCKED")
+            self.assertIn("guangdong_local_field_query_forbidden_or_login_required", first["blocker_taxonomy"])
 
     def test_live_public_query_records_keyword_hit_without_final_conclusion(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -239,6 +297,7 @@ class GuangdongLocalFieldQueryProbeTests(unittest.TestCase):
             task = result["manifest"]["field_task_records"][0]
             self.assertEqual(task["field_query_probe_state"], "FIELD_READBACK_KEYWORD_HIT_PUBLIC_SOURCE")
             self.assertEqual(task["field_readback_state"], "PUBLIC_SOURCE_KEYWORD_HIT_REVIEW_REQUIRED")
+            self.assertEqual(task["adapter_result_state"], "MATCHED")
             self.assertTrue(task["field_match_summary"]["query_miss_is_not_clearance"])
 
     def test_guangzhou_zfcj_api_readback_records_source_specific_fields(self) -> None:
@@ -1301,6 +1360,65 @@ def _write_p13b_operational_closeout(root: Path) -> None:
         json.dumps(payload, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
+
+
+def _write_release_evidence_adapter_plan(root: Path) -> None:
+    root.mkdir(parents=True, exist_ok=True)
+    tasks = [
+        _release_plan_task("REL-TASK-1", "construction_permit", "B_ENHANCEMENT_OFFICIAL_READBACK"),
+        _release_plan_task("REL-TASK-2", "contract_performance", "B_ENHANCEMENT_OFFICIAL_READBACK"),
+        _release_plan_task("REL-TASK-3", "completion_acceptance", "C_REVERSE_EXPLANATION_OFFICIAL_READBACK"),
+        _release_plan_task("REL-TASK-4", "project_manager_change_notice", "C_REVERSE_EXPLANATION_OFFICIAL_READBACK"),
+    ]
+    payload = {
+        "manifest": {
+            "manifest_kind": "release_evidence_adapter_plan_v1_manifest",
+            "release_evidence_adapter_task_records": tasks,
+        },
+        "summary": {
+            "adapter_task_count": len(tasks),
+        },
+    }
+    (root / "release-evidence-adapter-plan-v1.json").write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+
+def _release_plan_task(task_id: str, target_type: str, grade_on_match: str) -> dict[str, Any]:
+    return {
+        "release_evidence_adapter_task_id": task_id,
+        "source_release_evidence_probe_task_id": "P13B-RELEASE-PROBE-TASK-1",
+        "source_release_evidence_probe_plan_id": "P13B-RELEASE-PROBE-PLAN-1",
+        "project_id": "PROJ-P13B-1",
+        "project_name": "广州测试项目中标候选人公示",
+        "candidate_company_name": "广州测试建设有限公司",
+        "matched_person_names": ["张三"],
+        "release_evidence_target_type": target_type,
+        "release_evidence_grade_on_match": grade_on_match,
+        "initial_release_evidence_abcd_grade": "A_STRONG_TIME_OVERLAP_SIGNAL",
+        "release_evidence_query_region_code": "CN-GD",
+        "release_evidence_query_region_basis": "HISTORICAL_OVERLAP_PROJECT_REGION",
+        "local_housing_authority_adapter_scope": "HISTORICAL_PROJECT_JURISDICTION",
+        "local_housing_authority_adapter_region_code": "CN-GD",
+        "source_entry_id": "GZ-ZFCJ-CREDIT-DOUBLE-PUBLICITY",
+        "subsource_id": "gz_zfcj_release_evidence_public_api",
+        "source_profile_id": "GUANGZHOU-ZFCJ-CREDIT-DOUBLE-PUBLICITY",
+        "source_name": "广州住建公开源",
+        "source_url": "https://zfcj.gz.gov.cn/zfcj/xyxx/",
+        "source_family": "guangzhou_local_housing_public_source",
+        "trigger_source_url": "https://data.ggzy.gov.cn/yjcx/index/bid_show?id=1",
+        "query_params": {
+            "projectId": "PROJ-P13B-1",
+            "projectName": "广州测试项目中标候选人公示",
+            "companyName": "广州测试建设有限公司",
+            "personName": "张三",
+            "keywords": ["广州测试项目中标候选人公示", "广州测试建设有限公司", "张三"],
+        },
+        "adapter_result_state": "PLAN_ONLY_NOT_EXECUTED",
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
 
 
 def _p13b_release_task(

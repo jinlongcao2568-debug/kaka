@@ -21,6 +21,7 @@ GUANGDONG_LOCAL_FIELD_QUERY_PROBE_ADAPTER_ID = "guangdong-local-field-query-prob
 
 DEFAULT_LOCAL_VERIFICATION_ROOT = Path("tmp/evaluation-real-samples/guangdong-local-verification-probe-v1")
 DEFAULT_P13B_OPERATIONAL_CLOSEOUT_ROOT = Path("tmp/evaluation-real-samples/p13b-operational-closeout-v1")
+DEFAULT_RELEASE_EVIDENCE_ADAPTER_PLAN_ROOT = Path("tmp/evaluation-real-samples/release-evidence-adapter-plan-v1")
 DEFAULT_OUTPUT_ROOT = Path("tmp/evaluation-real-samples/guangdong-local-field-query-probe-v1")
 
 DELEGATED_PROFILE_ADAPTERS = {
@@ -70,8 +71,15 @@ GUANGDONG_CREDIT_GD_DEFAULT_MAX_REQUESTS_PER_TASK = 4
 GUANGDONG_CREDIT_GD_DEFAULT_REQUEST_INTERVAL_SECONDS = 0.8
 
 FORBIDDEN_TERMS = ("在建冲突成立", "无在建", "无风险", "无冲突", "造假成立", "违法成立", "确认本人", "是不是本人")
+ALLOWED_ADAPTER_RESULT_STATES = ["MATCHED", "NOT_FOUND", "BLOCKED", "NEEDS_BROWSER"]
 INITIAL_RELEASE_EVIDENCE_ABCD_GRADE = "A_STRONG_TIME_OVERLAP_SIGNAL"
 DOWNSTREAM_PENDING_RELEASE_EVIDENCE_ABCD_GRADE = "PENDING_NOT_EXECUTED"
+RELEASE_TARGET_TO_FIELD_SOURCE_TYPES = {
+    "construction_permit": ["construction_permit"],
+    "contract_performance": ["contract_public_info"],
+    "completion_acceptance": ["completion_filing"],
+    "project_manager_change_notice": ["project_manager_change_notice"],
+}
 ENHANCEMENT_RELEASE_EVIDENCE_SOURCE_TYPES = {
     "construction_permit",
     "contract_public_info",
@@ -97,6 +105,8 @@ def build_guangdong_local_field_query_probe(
     local_verification_json: str | Path | None = None,
     p13b_operational_closeout_root: str | Path | None = None,
     p13b_operational_closeout_json: str | Path | None = None,
+    release_evidence_adapter_plan_root: str | Path | None = None,
+    release_evidence_adapter_plan_json: str | Path | None = None,
     output_root: str | Path = DEFAULT_OUTPUT_ROOT,
     source_profile_ids: list[str] | tuple[str, ...] | None = None,
     enable_live_public_query: bool = False,
@@ -122,9 +132,23 @@ def build_guangdong_local_field_query_probe(
         if p13b_operational_closeout_json
         else (p13b_dir / "p13b-operational-closeout-v1.json" if p13b_dir else None)
     )
+    release_plan_dir = Path(release_evidence_adapter_plan_root) if release_evidence_adapter_plan_root else None
+    release_plan_source_path = (
+        Path(release_evidence_adapter_plan_json)
+        if release_evidence_adapter_plan_json
+        else (release_plan_dir / "release-evidence-adapter-plan-v1.json" if release_plan_dir else None)
+    )
     blocking_reasons: list[str] = []
-    input_mode = "P13B_RELEASE_EVIDENCE_TASKS" if p13b_source_path else "GUANGDONG_LOCAL_VERIFICATION"
-    if p13b_source_path:
+    if release_plan_source_path:
+        input_mode = "RELEASE_EVIDENCE_ADAPTER_PLAN_TASKS"
+        release_plan_manifest = _source_manifest(
+            _load_json(release_plan_source_path, blocking_reasons, "release_evidence_adapter_plan_missing")
+        )
+        local_manifest = {
+            "query_task_records": _query_task_records_from_release_evidence_adapter_tasks(release_plan_manifest),
+        }
+    elif p13b_source_path:
+        input_mode = "P13B_RELEASE_EVIDENCE_TASKS"
         p13b_manifest = _source_manifest(
             _load_json(p13b_source_path, blocking_reasons, "p13b_operational_closeout_missing")
         )
@@ -132,6 +156,7 @@ def build_guangdong_local_field_query_probe(
             "query_task_records": _query_task_records_from_p13b_release_evidence_tasks(p13b_manifest),
         }
     else:
+        input_mode = "GUANGDONG_LOCAL_VERIFICATION"
         local_manifest = _source_manifest(
             _load_json(source_path, blocking_reasons, "guangdong_local_verification_probe_missing")
         )
@@ -168,9 +193,12 @@ def build_guangdong_local_field_query_probe(
         "source_local_verification_json": str(source_path),
         "source_p13b_operational_closeout_root": str(p13b_dir or ""),
         "source_p13b_operational_closeout_json": str(p13b_source_path or ""),
+        "source_release_evidence_adapter_plan_root": str(release_plan_dir or ""),
+        "source_release_evidence_adapter_plan_json": str(release_plan_source_path or ""),
         "execution_mode": execution_mode,
         "live_public_query_enabled": bool(enable_live_public_query),
         "max_live_tasks": max_live_tasks,
+        "allowed_adapter_result_states": list(ALLOWED_ADAPTER_RESULT_STATES),
         "source_profile_ids": sorted(selected_profiles) if selected_profiles else "ALL_GUANGDONG_LOCAL_SOURCES",
         "project_task_records": project_task_records,
         "field_task_records": field_task_records,
@@ -284,6 +312,73 @@ def _query_task_records_from_p13b_release_evidence_tasks(p13b_manifest: Mapping[
     return records
 
 
+def _query_task_records_from_release_evidence_adapter_tasks(release_plan_manifest: Mapping[str, Any]) -> list[dict[str, Any]]:
+    records: list[dict[str, Any]] = []
+    for task in _list(release_plan_manifest.get("release_evidence_adapter_task_records")):
+        if not isinstance(task, Mapping):
+            continue
+        source_profile_id = str(task.get("source_profile_id") or "").strip()
+        if not source_profile_id:
+            continue
+        query_params = _release_plan_query_params(task)
+        release_target = str(task.get("release_evidence_target_type") or "")
+        target_source_types = RELEASE_TARGET_TO_FIELD_SOURCE_TYPES.get(
+            release_target,
+            [release_target] if release_target else [],
+        )
+        release_task_id = str(task.get("release_evidence_adapter_task_id") or "")
+        candidate_company = str(task.get("candidate_company_name") or query_params.get("companyName") or "")
+        person = str(_first_text(_list(task.get("matched_person_names"))) or query_params.get("personName") or "")
+        records.append(
+            {
+                "query_task_id": release_task_id,
+                "input_source_kind": "release_evidence_adapter_plan_task",
+                "release_evidence_adapter_task_id": release_task_id,
+                "source_release_evidence_probe_task_id": str(task.get("source_release_evidence_probe_task_id") or ""),
+                "source_release_evidence_probe_plan_id": str(task.get("source_release_evidence_probe_plan_id") or ""),
+                "p13b_release_evidence_probe_task_id": str(task.get("source_release_evidence_probe_task_id") or ""),
+                "p13b_release_evidence_probe_plan_id": str(task.get("source_release_evidence_probe_plan_id") or ""),
+                "trigger_source_url": str(task.get("trigger_source_url") or ""),
+                "release_evidence_target_type": release_target,
+                "release_evidence_grade_on_match": str(task.get("release_evidence_grade_on_match") or ""),
+                "release_evidence_query_region_code": str(task.get("release_evidence_query_region_code") or ""),
+                "release_evidence_query_region_basis": str(task.get("release_evidence_query_region_basis") or ""),
+                "initial_release_evidence_abcd_grade": str(
+                    task.get("initial_release_evidence_abcd_grade") or INITIAL_RELEASE_EVIDENCE_ABCD_GRADE
+                ),
+                "initial_release_evidence_abcd_grade_basis": [
+                    "same_person_company_time_window_overlap_from_release_evidence_adapter_plan"
+                ],
+                "downstream_probe_role": "release_evidence_adapter_plan_field_readback",
+                "downstream_possible_release_evidence_abcd_grades": [
+                    "B_ENHANCEMENT_OFFICIAL_READBACK",
+                    "C_REVERSE_EXPLANATION_OFFICIAL_READBACK",
+                    "D_INSUFFICIENT_OR_BLOCKED_READBACK",
+                ],
+                "active_conflict_task_id": "",
+                "project_id": str(task.get("project_id") or ""),
+                "project_name": str(task.get("project_name") or query_params.get("projectName") or ""),
+                "candidate_group_id": str(task.get("source_release_evidence_probe_task_id") or ""),
+                "candidate_group_order": "",
+                "responsible_person_name": person,
+                "candidate_group_members": [candidate_company] if candidate_company else [],
+                "matched_company_names": [candidate_company] if candidate_company else [],
+                "company_query_variants": _dedupe([candidate_company]),
+                "certificate_no": str(query_params.get("certificateNo") or ""),
+                "query_keywords": _list(query_params.get("keywords")),
+                "source_profile_id": source_profile_id,
+                "source_family": str(task.get("source_family") or ""),
+                "source_url": str(task.get("source_url") or task.get("api_url") or ""),
+                "target_source_types": target_source_types,
+                "query_params": query_params,
+                "field_adapter_status": _field_adapter_status_for_profile(source_profile_id),
+                "customer_visible_allowed": False,
+                "no_legal_conclusion": True,
+            }
+        )
+    return records
+
+
 def _p13b_query_params(task: Mapping[str, Any]) -> dict[str, Any]:
     raw_params = dict(task.get("query_params") or {})
     project_id = str(raw_params.get("projectId") or task.get("project_id") or "")
@@ -325,6 +420,43 @@ def _p13b_query_params(task: Mapping[str, Any]) -> dict[str, Any]:
         "targetSourceTypes": _list(raw_params.get("targetSourceTypes")) or _list(task.get("matched_target_source_types")),
         "triggerSourceUrl": str(raw_params.get("triggerSourceUrl") or task.get("trigger_source_url") or ""),
         "keywords": keywords,
+    }
+
+
+def _release_plan_query_params(task: Mapping[str, Any]) -> dict[str, Any]:
+    raw_params = dict(task.get("query_params") or {})
+    project_id = str(raw_params.get("projectId") or task.get("project_id") or "")
+    project_name = str(raw_params.get("projectName") or task.get("project_name") or "")
+    company_name = str(
+        raw_params.get("companyName")
+        or raw_params.get("candidateCompanyName")
+        or task.get("candidate_company_name")
+        or ""
+    )
+    person_name = str(
+        raw_params.get("personName")
+        or raw_params.get("projectManagerName")
+        or _first_text(_list(task.get("matched_person_names")))
+        or ""
+    )
+    certificate_no = str(raw_params.get("certificateNo") or task.get("certificate_no") or "")
+    target_source_types = RELEASE_TARGET_TO_FIELD_SOURCE_TYPES.get(
+        str(task.get("release_evidence_target_type") or ""),
+        [str(task.get("release_evidence_target_type") or "")] if task.get("release_evidence_target_type") else [],
+    )
+    return {
+        **raw_params,
+        "projectId": project_id,
+        "projectName": project_name,
+        "companyName": company_name,
+        "companyVariants": _dedupe([*_list(raw_params.get("companyVariants")), company_name]),
+        "personName": person_name,
+        "certificateNo": certificate_no,
+        "sourceProfileId": str(task.get("source_profile_id") or raw_params.get("sourceProfileId") or ""),
+        "targetSourceTypes": target_source_types,
+        "releaseEvidenceTargetType": str(task.get("release_evidence_target_type") or ""),
+        "triggerSourceUrl": str(raw_params.get("triggerSourceUrl") or task.get("trigger_source_url") or ""),
+        "keywords": _dedupe([project_name, company_name, person_name, certificate_no, *_list(raw_params.get("keywords"))]),
     }
 
 
@@ -382,6 +514,7 @@ def _field_task_records_from_local_verification(
         else:
             readback = _plan_only_readback(route_plan)
         release_evidence_abcd = _release_evidence_abcd_fields(task, readback)
+        adapter_result_state = _adapter_result_state(readback)
         records.append(
             {
                 "field_query_task_id": _stable_id(
@@ -426,6 +559,9 @@ def _field_task_records_from_local_verification(
                     if enable_live_public_query
                     else "PLAN_ONLY_NOT_EXECUTED"
                 ),
+                "adapter_result_state": adapter_result_state,
+                "adapter_result_state_basis": _adapter_result_state_basis(adapter_result_state, readback),
+                "allowed_adapter_result_states": list(ALLOWED_ADAPTER_RESULT_STATES),
                 **readback,
                 **release_evidence_abcd,
                 "created_at": created_at,
@@ -437,7 +573,10 @@ def _field_task_records_from_local_verification(
 
 
 def _release_evidence_abcd_fields(task: Mapping[str, Any], readback: Mapping[str, Any]) -> dict[str, Any]:
-    if str(task.get("input_source_kind") or "") != "p13b_release_evidence_probe_task":
+    if str(task.get("input_source_kind") or "") not in {
+        "p13b_release_evidence_probe_task",
+        "release_evidence_adapter_plan_task",
+    }:
         return {}
     target_source_types = _list(task.get("target_source_types")) or _list(
         (task.get("query_params") or {}).get("targetSourceTypes")
@@ -496,6 +635,29 @@ def _downstream_release_evidence_abcd_grade(
             return "B_ENHANCEMENT_OFFICIAL_READBACK"
         return "B_ENHANCEMENT_OFFICIAL_READBACK"
     return DOWNSTREAM_PENDING_RELEASE_EVIDENCE_ABCD_GRADE
+
+
+def _adapter_result_state(readback: Mapping[str, Any]) -> str:
+    state = str(readback.get("field_query_probe_state") or "")
+    if state in {"FIELD_READBACK_KEYWORD_HIT_PUBLIC_SOURCE", "FIELD_READBACK_READY_PUBLIC_SOURCE"}:
+        return "MATCHED"
+    if state == "NO_FIELD_MATCH_REVIEW_REQUIRED":
+        return "NOT_FOUND"
+    if state.startswith("FAIL_CLOSED"):
+        return "BLOCKED"
+    return "NEEDS_BROWSER"
+
+
+def _adapter_result_state_basis(adapter_result_state: str, readback: Mapping[str, Any]) -> list[str]:
+    state = str(readback.get("field_query_probe_state") or "")
+    if adapter_result_state == "MATCHED":
+        return ["public_source_readback_has_keyword_or_structured_record", f"field_query_probe_state:{state}"]
+    if adapter_result_state == "NOT_FOUND":
+        return ["public_source_queried_no_field_match_not_clearance", f"field_query_probe_state:{state}"]
+    if adapter_result_state == "BLOCKED":
+        blockers = _list(readback.get("blocker_taxonomy"))
+        return ["public_source_blocked_or_transport_failed", f"field_query_probe_state:{state}", *blockers]
+    return ["browser_authorized_runtime_or_followup_adapter_required", f"field_query_probe_state:{state}"]
 
 
 def _downstream_release_evidence_abcd_basis(
@@ -3051,6 +3213,7 @@ def _project_task_records(field_task_records: list[Mapping[str, Any]]) -> list[d
                 "blocker_taxonomy_counts": _counts(
                     blocker for task in tasks for blocker in _list(task.get("blocker_taxonomy"))
                 ),
+                "adapter_result_state_counts": _counts(task.get("adapter_result_state") for task in tasks),
                 "probe_state": "READY" if tasks else "NO_GUANGDONG_LOCAL_FIELD_TASKS",
                 "customer_visible_allowed": False,
                 "no_legal_conclusion": True,
@@ -3074,6 +3237,7 @@ def _manual_check_table(field_task_records: list[Mapping[str, Any]]) -> list[dic
             "downstream_release_evidence_abcd_grade": task.get("downstream_release_evidence_abcd_grade"),
             "route_plan": task.get("route_plan"),
             "field_query_probe_state": task.get("field_query_probe_state"),
+            "adapter_result_state": task.get("adapter_result_state"),
             "manual_check_state": "PENDING_FIELD_SOURCE_REVIEW",
             "customer_visible_allowed": False,
             "no_legal_conclusion": True,
@@ -3109,6 +3273,8 @@ def _summary(
         "target_source_type_counts": _counts(
             source_type for task in field_task_records for source_type in _list(task.get("target_source_types"))
         ),
+        "adapter_result_state_counts": _counts(task.get("adapter_result_state") for task in field_task_records),
+        "allowed_adapter_result_states": list(ALLOWED_ADAPTER_RESULT_STATES),
         "readback_ready_count": sum(1 for task in field_task_records if bool(task.get("readback_ready"))),
         "keyword_hit_task_count": sum(
             1
@@ -3333,6 +3499,8 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--local-verification-json")
     parser.add_argument("--p13b-operational-closeout-root")
     parser.add_argument("--p13b-operational-closeout-json")
+    parser.add_argument("--release-evidence-adapter-plan-root")
+    parser.add_argument("--release-evidence-adapter-plan-json")
     parser.add_argument("--output-root", default=str(DEFAULT_OUTPUT_ROOT))
     parser.add_argument("--source-profile-ids", nargs="*", default=[])
     parser.add_argument("--enable-live-public-query", action="store_true")
@@ -3351,6 +3519,8 @@ def main(argv: list[str] | None = None) -> int:
         local_verification_json=args.local_verification_json,
         p13b_operational_closeout_root=args.p13b_operational_closeout_root,
         p13b_operational_closeout_json=args.p13b_operational_closeout_json,
+        release_evidence_adapter_plan_root=args.release_evidence_adapter_plan_root,
+        release_evidence_adapter_plan_json=args.release_evidence_adapter_plan_json,
         output_root=args.output_root,
         source_profile_ids=args.source_profile_ids,
         enable_live_public_query=args.enable_live_public_query,

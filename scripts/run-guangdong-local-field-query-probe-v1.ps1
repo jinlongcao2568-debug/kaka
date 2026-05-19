@@ -3,6 +3,8 @@ param(
     [string]$LocalVerificationJson = "",
     [string]$P13BOperationalCloseoutRoot = "",
     [string]$P13BOperationalCloseoutJson = "",
+    [string]$ReleaseEvidenceAdapterPlanRoot = "",
+    [string]$ReleaseEvidenceAdapterPlanJson = "",
     [string]$OutputRoot = "",
     [string[]]$SourceProfileIds = @(),
     [switch]$EnableLivePublicQuery,
@@ -42,6 +44,12 @@ if ($P13BOperationalCloseoutRoot) {
 }
 if ($P13BOperationalCloseoutJson) {
     $argsList += @("--p13b-operational-closeout-json", $P13BOperationalCloseoutJson)
+}
+if ($ReleaseEvidenceAdapterPlanRoot) {
+    $argsList += @("--release-evidence-adapter-plan-root", $ReleaseEvidenceAdapterPlanRoot)
+}
+if ($ReleaseEvidenceAdapterPlanJson) {
+    $argsList += @("--release-evidence-adapter-plan-json", $ReleaseEvidenceAdapterPlanJson)
 }
 if ($SourceProfileIds.Count -gt 0) {
     $argsList += "--source-profile-ids"
