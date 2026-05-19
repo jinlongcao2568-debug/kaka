@@ -1521,6 +1521,10 @@ def _looks_like_person_name(value: str) -> bool:
             "会议",
             "规程",
             "专家",
+            "万元",
+            "金额",
+            "报价",
+            "投标价",
         )
     ):
         return False

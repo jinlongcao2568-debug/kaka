@@ -19,6 +19,8 @@ def build_p13b_original_backtrace_continuation_controller(
     *,
     original_notice_backtrace_json: str | Path | None = None,
     original_notice_backtrace_root: str | Path | None = None,
+    targeted_person_readback_json: str | Path | None = None,
+    targeted_person_readback_root: str | Path | None = None,
     output_root: str | Path = DEFAULT_OUTPUT_ROOT,
     project_ids: list[str] | tuple[str, ...] = (),
     created_at: str | None = None,
@@ -35,9 +37,14 @@ def build_p13b_original_backtrace_continuation_controller(
         original_notice_backtrace_root=original_notice_backtrace_root,
         blocking_reasons=blocking_reasons,
     )
+    targeted_person_lookup = _load_targeted_person_readback_lookup(
+        targeted_person_readback_json=targeted_person_readback_json,
+        targeted_person_readback_root=targeted_person_readback_root,
+    )
     selected_projects = {_project_key(value) for value in project_ids if _project_key(value)}
     plan_records = _continuation_plan_records(
         original_manifest,
+        targeted_person_lookup=targeted_person_lookup,
         selected_projects=selected_projects,
         created_at=created,
     )
@@ -73,6 +80,9 @@ def build_p13b_original_backtrace_continuation_controller(
         "created_at": created,
         "source_original_notice_backtrace_json": str(original_notice_backtrace_json or ""),
         "source_original_notice_backtrace_root": str(original_notice_backtrace_root or ""),
+        "source_targeted_person_readback_json": str(targeted_person_readback_json or ""),
+        "source_targeted_person_readback_root": str(targeted_person_readback_root or ""),
+        "targeted_person_readback_record_count": len(targeted_person_lookup),
         "project_ids": list(project_ids),
         "continuation_company_history_triage_root": str(continuation_input_root),
         "continuation_company_history_triage_json": str(continuation_input_root / "company-history-overlap-triage-v1.json"),
@@ -108,6 +118,7 @@ def build_p13b_original_backtrace_continuation_controller(
 def _continuation_plan_records(
     original_manifest: Mapping[str, Any],
     *,
+    targeted_person_lookup: Mapping[str, Mapping[str, Any]],
     selected_projects: set[str],
     created_at: str,
 ) -> list[dict[str, Any]]:
@@ -138,6 +149,7 @@ def _continuation_plan_records(
             base={**dict(task_by_id.get(task_id, {})), **dict(fetch)},
             extraction=extraction_by_id.get(task_id, {}),
             overlap=overlap_by_id.get(task_id, {}),
+            targeted_person_readback=targeted_person_lookup.get(task_id, {}),
             created_at=created_at,
         )
         if selected_projects and _project_key(record.get("project_id")) not in selected_projects:
@@ -147,7 +159,13 @@ def _continuation_plan_records(
     for task_id, task in task_by_id.items():
         if task_id in seen:
             continue
-        record = _plan_record(base=task, extraction=extraction_by_id.get(task_id, {}), overlap=overlap_by_id.get(task_id, {}), created_at=created_at)
+        record = _plan_record(
+            base=task,
+            extraction=extraction_by_id.get(task_id, {}),
+            overlap=overlap_by_id.get(task_id, {}),
+            targeted_person_readback=targeted_person_lookup.get(task_id, {}),
+            created_at=created_at,
+        )
         if selected_projects and _project_key(record.get("project_id")) not in selected_projects:
             continue
         rows.append(record)
@@ -170,6 +188,7 @@ def _plan_record(
     base: Mapping[str, Any],
     extraction: Mapping[str, Any],
     overlap: Mapping[str, Any],
+    targeted_person_readback: Mapping[str, Any],
     created_at: str,
 ) -> dict[str, Any]:
     blockers = _dedupe([*_list(base.get("blocker_taxonomy")), *_list(extraction.get("blocker_taxonomy"))])
@@ -182,6 +201,12 @@ def _plan_record(
         live_budget_eligible=base.get("original_notice_live_budget_eligible") is not False,
         match_state=match_state,
         overlap_state=str(overlap.get("original_notice_overlap_signal_state") or ""),
+        targeted_person_readback_state=str(targeted_person_readback.get("targeted_person_readback_state") or ""),
+        targeted_person_signal_ready=bool(targeted_person_readback.get("same_person_company_period_signal_ready")),
+        targeted_person_blockers=[
+            *[str(item) for item in _list(targeted_person_readback.get("blocker_taxonomy"))],
+            *[str(item) for item in _list(targeted_person_readback.get("review_reasons"))],
+        ],
     )
     return {
         "original_notice_task_id": str(base.get("original_notice_task_id") or ""),
@@ -210,6 +235,8 @@ def _plan_record(
         "extracted_period_text": str(overlap.get("extracted_period_text") or extraction.get("extracted_period_text") or ""),
         "candidate_company_matched": bool(overlap.get("candidate_company_matched")),
         "performance_period_present": bool(overlap.get("performance_period_present")),
+        "targeted_person_readback_state": str(targeted_person_readback.get("targeted_person_readback_state") or ""),
+        "targeted_person_signal_ready": bool(targeted_person_readback.get("same_person_company_period_signal_ready")),
         "continuation_state": state,
         "recommended_next_action": action,
         "review_reasons": reasons,
@@ -230,14 +257,39 @@ def _continuation_decision(
     live_budget_eligible: bool,
     match_state: str,
     overlap_state: str,
+    targeted_person_readback_state: str,
+    targeted_person_signal_ready: bool,
+    targeted_person_blockers: list[str],
 ) -> tuple[str, str, list[str]]:
+    route_readback_consumed = execution_mode in {"LOCAL_YGP_READBACK_CONSUMED", "LOCAL_BROWSER_READBACK_CONSUMED"}
     if overlap_state == "ORIGINAL_NOTICE_OVERLAP_SIGNAL_REVIEW_REQUIRED" or match_state == "SAME_PERSON_COMPANY_PERIOD_SIGNAL":
         return (
             "RELEASE_EVIDENCE_READY",
             "build_release_evidence_regional_adapter_plan",
             ["same_person_company_performance_period_signal_already_found"],
         )
-    if route_class == "YGP_MAPPING_POINTER":
+    if targeted_person_signal_ready:
+        return (
+            "RELEASE_EVIDENCE_READY",
+            "build_release_evidence_regional_adapter_plan",
+            ["targeted_person_readback_found_same_person_company_period_signal"],
+        )
+    if targeted_person_readback_state in {
+        "TARGETED_PERSON_NOT_FOUND_IN_TARGETED_READBACK",
+        "TARGETED_PERSON_NOT_FOUND_NO_ATTACHMENT_LINKS",
+    }:
+        return (
+            "PARK_TARGETED_PERSON_NOT_FOUND",
+            "park_without_clearance_claim",
+            targeted_person_blockers or ["targeted_person_readback_executed_without_same_person_signal"],
+        )
+    if targeted_person_readback_state in {"TARGETED_PERSON_PAGE_FETCH_BLOCKED", "TARGETED_PERSON_READBACK_DEFERRED_BY_LIMIT"}:
+        return (
+            "BLOCKED_OR_SOURCE_UNSUPPORTED",
+            "manual_review_or_retry_targeted_person_readback_without_clearance_claim",
+            targeted_person_blockers or ["targeted_person_readback_blocked_or_deferred"],
+        )
+    if route_class == "YGP_MAPPING_POINTER" and not route_readback_consumed:
         return (
             "TARGETED_YGP_READBACK_REQUIRED",
             "run_ygp_original_readback_before_original_backtrace",
@@ -249,7 +301,7 @@ def _continuation_decision(
             "manual_review_missing_or_invalid_original_notice_url_without_clearance_claim",
             blockers or ["original_notice_url_missing_or_invalid"],
         )
-    if not live_budget_eligible:
+    if not live_budget_eligible and not route_readback_consumed:
         return (
             "ROUTE_SPECIFIC_READBACK_REQUIRED",
             "run_route_specific_readback_before_direct_live_retry",
@@ -404,6 +456,31 @@ def _load_original_manifest(
     return _merge_manifests(manifests)
 
 
+def _load_targeted_person_readback_lookup(
+    *,
+    targeted_person_readback_json: str | Path | None,
+    targeted_person_readback_root: str | Path | None,
+) -> dict[str, Mapping[str, Any]]:
+    source_paths: list[Path] = []
+    for path in _split_paths(targeted_person_readback_json):
+        source_paths.append(Path(path))
+    for root in _split_paths(targeted_person_readback_root):
+        source_paths.append(Path(root) / "p13b-targeted-person-readback-v1.json")
+    lookup: dict[str, Mapping[str, Any]] = {}
+    for path in source_paths:
+        payload = _load_json(path)
+        if not payload:
+            continue
+        manifest = _source_manifest(payload)
+        for record in _list(manifest.get("targeted_person_readback_records")):
+            if not isinstance(record, Mapping):
+                continue
+            task_id = str(record.get("original_notice_task_id") or "").strip()
+            if task_id:
+                lookup[task_id] = record
+    return lookup
+
+
 def _merge_manifests(manifests: list[Mapping[str, Any]]) -> dict[str, Any]:
     merged: dict[str, Any] = {}
     for manifest in manifests:
@@ -537,6 +614,8 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Build P13B original backtrace continuation controller v2 outputs.")
     parser.add_argument("--original-notice-backtrace-json", default="")
     parser.add_argument("--original-notice-backtrace-root", default="")
+    parser.add_argument("--targeted-person-readback-json", default="")
+    parser.add_argument("--targeted-person-readback-root", default="")
     parser.add_argument("--output-root", default=str(DEFAULT_OUTPUT_ROOT))
     parser.add_argument("--project-ids", default="")
     parser.add_argument("--json", action="store_true", dest="emit_json")
@@ -548,6 +627,8 @@ def main(argv: list[str] | None = None) -> int:
     result = build_p13b_original_backtrace_continuation_controller(
         original_notice_backtrace_json=args.original_notice_backtrace_json or None,
         original_notice_backtrace_root=args.original_notice_backtrace_root or None,
+        targeted_person_readback_json=args.targeted_person_readback_json or None,
+        targeted_person_readback_root=args.targeted_person_readback_root or None,
         output_root=args.output_root,
         project_ids=_parse_csv(args.project_ids),
     )

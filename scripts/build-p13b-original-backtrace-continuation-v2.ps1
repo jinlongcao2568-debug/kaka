@@ -1,6 +1,8 @@
 param(
     [string]$OriginalNoticeBacktraceJson = "",
     [string]$OriginalNoticeBacktraceRoot = "",
+    [string]$TargetedPersonReadbackJson = "",
+    [string]$TargetedPersonReadbackRoot = "",
     [string]$OutputRoot = "",
     [string]$ProjectIds = "",
     [switch]$EmitJson
@@ -32,6 +34,12 @@ if ($OriginalNoticeBacktraceJson) {
 }
 if ($OriginalNoticeBacktraceRoot) {
     $argsList += @("--original-notice-backtrace-root", $OriginalNoticeBacktraceRoot)
+}
+if ($TargetedPersonReadbackJson) {
+    $argsList += @("--targeted-person-readback-json", $TargetedPersonReadbackJson)
+}
+if ($TargetedPersonReadbackRoot) {
+    $argsList += @("--targeted-person-readback-root", $TargetedPersonReadbackRoot)
 }
 if ($ProjectIds) {
     $argsList += @("--project-ids", $ProjectIds)
