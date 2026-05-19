@@ -40,7 +40,97 @@ class P13BOriginalNoticeBacktraceTests(unittest.TestCase):
             self.assertEqual(summary["original_notice_fetch_count"], 0)
             tasks = result["manifest"]["original_notice_task_records"]
             self.assertTrue(any(task["ygp_original_url_pointer_only"] for task in tasks))
+            self.assertIn("original_notice_route_class_counts", summary)
+            self.assertTrue((root / "out" / "original-notice-task-triage-table.json").exists())
             self.assertTrue((root / "out" / "original-notice-backtrace-v1.json").exists())
+
+    def test_plan_only_prioritizes_direct_official_notice_before_bad_entries(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_p13b_input_from_rows(
+                root,
+                [
+                    {
+                        "project_id": "PROJ-CN-GD-JG2026-30001",
+                        "candidate_company_name": "广东甲公司",
+                        "responsible_person_names": ["张三"],
+                        "bid_project_name": "历史服务采购结果公告",
+                        "original_notice_url": "公告地址为空",
+                    },
+                    {
+                        "project_id": "PROJ-CN-GD-JG2026-30001",
+                        "candidate_company_name": "广东甲公司",
+                        "responsible_person_names": ["张三"],
+                        "bid_project_name": "历史道路工程施工中标结果公告",
+                        "original_notice_url": "https://ggzy.zj.gov.cn/jyxxgk/002001/002001005/20260501/direct.html",
+                    },
+                    {
+                        "project_id": "PROJ-CN-GD-JG2026-30001",
+                        "candidate_company_name": "广东甲公司",
+                        "responsible_person_names": ["张三"],
+                        "bid_project_name": "历史设计中标结果公告",
+                        "original_notice_url": "https://ygp.gdzwfw.gov.cn/ggzy-portal/center/apis/dt2c/url-mapping/123-3C52",
+                    },
+                ],
+            )
+
+            result = build_p13b_original_notice_backtrace(
+                input_root=root,
+                output_root=root / "out",
+                created_at="2026-05-15T00:00:00+08:00",
+            )
+
+            tasks = result["manifest"]["original_notice_task_records"]
+            self.assertEqual(tasks[0]["original_notice_route_class"], "OFFICIAL_DIRECT_HTML")
+            self.assertEqual(tasks[0]["original_notice_live_priority_band"], "P0_DIRECT_OFFICIAL_HTML")
+            self.assertEqual(tasks[-1]["original_notice_route_class"], "INVALID_OR_MISSING_URL")
+            triage = result["manifest"]["original_notice_task_triage_table"]
+            self.assertEqual(triage["summary"]["route_class_counts"]["OFFICIAL_DIRECT_HTML"], 1)
+            self.assertEqual(result["summary"]["original_notice_budget_eligible_count"], 1)
+
+    def test_live_budget_uses_prioritized_direct_notice_before_bad_first_row(self) -> None:
+        called_urls: list[str] = []
+
+        def getter(url: str, context: Mapping[str, Any]) -> Mapping[str, Any]:
+            called_urls.append(url)
+            return _fake_http_getter(url, context)
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            direct_url = "https://ggzy.zj.gov.cn/jyxxgk/002001/002001005/20260501/direct.html"
+            _write_p13b_input_from_rows(
+                root,
+                [
+                    {
+                        "project_id": "PROJ-CN-GD-JG2026-30001",
+                        "candidate_company_name": "广东甲公司",
+                        "responsible_person_names": ["张三"],
+                        "bid_project_name": "历史服务采购结果公告",
+                        "original_notice_url": "公告地址为空",
+                    },
+                    {
+                        "project_id": "PROJ-CN-GD-JG2026-30001",
+                        "candidate_company_name": "广东甲公司",
+                        "responsible_person_names": ["张三"],
+                        "bid_project_name": "历史道路工程施工中标结果公告",
+                        "original_notice_url": direct_url,
+                    },
+                ],
+            )
+
+            result = build_p13b_original_notice_backtrace(
+                input_root=root,
+                output_root=root / "out",
+                enable_live_public_query=True,
+                max_live_original_notices=1,
+                http_getter=getter,
+                created_at="2026-05-15T00:00:00+08:00",
+            )
+
+            self.assertEqual(called_urls, [direct_url])
+            fetch = result["manifest"]["original_notice_fetch_records"][0]
+            self.assertEqual(fetch["original_notice_route_class"], "OFFICIAL_DIRECT_HTML")
+            self.assertEqual(fetch["original_notice_url"], direct_url)
 
     def test_plan_only_does_not_call_http_getter(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -479,6 +569,7 @@ class P13BOriginalNoticeBacktraceTests(unittest.TestCase):
 
             for file_name in (
                 "original-notice-backtrace-v1.json",
+                "original-notice-task-triage-table.json",
                 "original-notice-fetch-records.json",
                 "original-notice-extraction-records.json",
                 "original-notice-overlap-signal-records.json",
@@ -559,6 +650,37 @@ def _write_p13b_input(root: Path, *, first_url: str = "https://example.gov.cn/or
         }
     }
     _write_json(root / "company-history-overlap-triage-v1.json", payload)
+
+
+def _write_p13b_input_from_rows(root: Path, rows: list[Mapping[str, Any]]) -> None:
+    root.mkdir(parents=True, exist_ok=True)
+    payload_rows = []
+    bid_show_records = []
+    for index, row in enumerate(rows, start=1):
+        record = {
+            "project_id": row.get("project_id") or "PROJ-CN-GD-JG2026-30001",
+            "candidate_company_name": row.get("candidate_company_name") or "广东甲公司",
+            "responsible_person_names": row.get("responsible_person_names") or ["张三"],
+            "bid_project_name": row.get("bid_project_name") or f"历史项目{index}",
+            "original_notice_url": row.get("original_notice_url") or "",
+            "backtrace_reason": "ORIGINAL_NOTICE_BACKTRACE_REQUIRED",
+            "suggested_next_step": "targeted_original_notice_01_to_12_backtrace",
+        }
+        payload_rows.append(record)
+        bid_show_records.append(
+            {
+                "project_id": record["project_id"],
+                "candidate_company_name": record["candidate_company_name"],
+                "bid_show_record_id": f"BID-SHOW-{index}",
+                "bid_show_url": f"https://data.ggzy.gov.cn/yjcx/index/bid_show?id={index}",
+                "bid_project_name": record["bid_project_name"],
+                "original_notice_url": record["original_notice_url"],
+            }
+        )
+    _write_json(
+        root / "company-history-overlap-triage-v1.json",
+        {"manifest": {"manual_original_url_backtrace_table": payload_rows, "bid_show_records": bid_show_records}},
+    )
 
 
 def _write_ygp_only_input(root: Path) -> None:

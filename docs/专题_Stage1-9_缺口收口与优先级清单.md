@@ -27,7 +27,7 @@
 - Stage1-3 主干链路已形成
 - Stage4 外部证据链最弱，仍是当前最大短板
 - Stage5 双闸门已实现，但真实样本规模和误报/漏报校准仍不足
-- Stage1-6 到 P13B 的证据编排状态机已新增第一版，可把真实项目归并到 P13B、原文回溯、A 级强线索、Stage6 事实包 readiness 等状态；一键续跑入口已能从 `P13B_ORIGINAL_BACKTRACE_REQUIRED` 自动生成原文回溯任务并回写状态；`batch-triage-table.json` 已能按批次给出继续跑、进入事实包/Stage7 内部预览、D 级内部复核或非主线暂存决策
+- Stage1-6 到 P13B 的证据编排状态机已新增第一版，可把真实项目归并到 P13B、原文回溯、A 级强线索、Stage6 事实包 readiness 等状态；一键续跑入口已能从 `P13B_ORIGINAL_BACKTRACE_REQUIRED` 自动生成原文回溯任务并回写状态；原文回溯任务已新增 URL/入口质量分层，能把官方直达 HTML 排在空地址、跳转壳、YGP mapping 之前，避免小预算 live 盲打低质量入口；`batch-triage-table.json` 已能按批次给出继续跑、进入事实包/Stage7 内部预览、D 级内部复核或非主线暂存决策
 - Stage6/7 内部对象和 readback 已存在；设计/测绘 `08` 定向人员档案抽取结果已能生成标准 `stage4_candidate_verification_inputs`，可继续喂给 Stage4 公司优先核验 dry-run/执行，不再只停在“人工应用字段”
 - Stage8/9 已有 governed readback 和受控开启语义，但真实 live execution 仍按受控开放边界保持关闭
 

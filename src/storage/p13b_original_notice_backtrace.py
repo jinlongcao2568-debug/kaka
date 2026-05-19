@@ -85,11 +85,14 @@ def build_p13b_original_notice_backtrace(
         browser_readback_json=browser_readback_json,
     )
     execution_mode = "LIVE_PUBLIC_QUERY_ATTEMPTED" if enable_live_public_query else "PLAN_ONLY_NOT_EXECUTED"
-    original_notice_task_records = _task_records_from_p13b(
-        source_manifest,
-        created_at=created,
-        project_ids=project_ids,
+    original_notice_task_records = _prioritize_original_notice_tasks(
+        _task_records_from_p13b(
+            source_manifest,
+            created_at=created,
+            project_ids=project_ids,
+        )
     )
+    original_notice_task_triage_table = _original_notice_task_triage_table(original_notice_task_records)
     fetch_records, extraction_records, overlap_records = _execute_original_notice_tasks(
         original_notice_task_records,
         created_at=created,
@@ -129,6 +132,7 @@ def build_p13b_original_notice_backtrace(
         "max_live_original_notices": max_live_original_notices,
         "project_ids": list(project_ids),
         "original_notice_task_records": original_notice_task_records,
+        "original_notice_task_triage_table": original_notice_task_triage_table,
         "original_notice_fetch_records": fetch_records,
         "original_notice_extraction_records": extraction_records,
         "original_notice_overlap_signal_records": overlap_records,
@@ -232,6 +236,171 @@ def _task_records_from_p13b(
             }
         )
     return tasks
+
+
+def _prioritize_original_notice_tasks(tasks: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    enriched: list[dict[str, Any]] = []
+    for index, task in enumerate(tasks, start=1):
+        triage = _triage_original_notice_task(task, source_order=index)
+        enriched.append({**task, **triage})
+    enriched.sort(
+        key=lambda task: (
+            -int(task.get("original_notice_live_priority_score") or 0),
+            int(task.get("original_notice_source_order") or 0),
+        )
+    )
+    for rank, task in enumerate(enriched, start=1):
+        task["original_notice_live_priority_rank"] = rank
+    return enriched
+
+
+def _triage_original_notice_task(task: Mapping[str, Any], *, source_order: int) -> dict[str, Any]:
+    raw_url = str(task.get("original_notice_url") or "").strip()
+    normalized_url, url_blockers = _canonical_original_notice_url(raw_url)
+    parsed = urllib.parse.urlsplit(normalized_url)
+    host = parsed.netloc.lower()
+    path = parsed.path.lower()
+    lowered_url = normalized_url.lower()
+    title = str(task.get("bid_project_name") or "")
+    title_score, title_reasons = _original_notice_title_priority(title)
+    score = 0
+    route_class = "PUBLIC_PAGE_REVIEW"
+    route_strategy = "direct_public_fetch"
+    budget_eligible = True
+    reasons: list[str] = []
+
+    if url_blockers:
+        score = -100 + title_score
+        route_class = "INVALID_OR_MISSING_URL"
+        route_strategy = "blocked_review"
+        budget_eligible = False
+        reasons.extend(url_blockers)
+    elif "ygp.gdzwfw.gov.cn" in lowered_url:
+        score = 20 + title_score
+        route_class = "YGP_MAPPING_POINTER"
+        route_strategy = "ygp_readback_required"
+        budget_eligible = False
+        reasons.append("ygp_original_pointer_should_use_ygp_readback_not_direct_fetch")
+    elif _looks_like_original_notice_jump_page(host, path, lowered_url):
+        score = 35 + title_score
+        route_class = "REDIRECT_OR_JUMP_PAGE"
+        route_strategy = "browser_or_platform_api_readback_preferred"
+        reasons.append("jump_or_redirect_shell_needs_route_specific_readback")
+    elif raw_url and not raw_url.lower().startswith(("http://", "https://")):
+        score = 50 + title_score
+        route_class = "SCHEME_LESS_PUBLIC_URL"
+        route_strategy = "normalize_then_direct_fetch"
+        reasons.append("scheme_less_public_url_normalized_before_live")
+    elif _looks_like_official_direct_html(host, path):
+        score = 90 + title_score
+        route_class = "OFFICIAL_DIRECT_HTML"
+        route_strategy = "direct_public_fetch_first"
+        reasons.append("official_direct_html_high_budget_value")
+    elif _looks_like_official_public_page(host):
+        score = 60 + title_score
+        route_class = "OFFICIAL_PUBLIC_PAGE"
+        route_strategy = "direct_public_fetch"
+        reasons.append("official_public_page")
+    else:
+        score = 40 + title_score
+        reasons.append("public_url_needs_live_quality_check")
+
+    if title_reasons:
+        reasons.extend(title_reasons)
+    band = _priority_band(score=score, route_class=route_class, budget_eligible=budget_eligible)
+    return {
+        "original_notice_source_order": source_order,
+        "original_notice_url_normalized_for_triage": normalized_url,
+        "original_notice_route_class": route_class,
+        "original_notice_route_strategy": route_strategy,
+        "original_notice_live_budget_eligible": budget_eligible,
+        "original_notice_live_priority_score": score,
+        "original_notice_live_priority_band": band,
+        "original_notice_priority_reasons": _dedupe(reasons),
+    }
+
+
+def _original_notice_task_triage_table(tasks: list[Mapping[str, Any]]) -> dict[str, Any]:
+    records = []
+    for task in tasks:
+        records.append(
+            {
+                "project_id": str(task.get("project_id") or ""),
+                "candidate_company_name": str(task.get("candidate_company_name") or ""),
+                "bid_project_name": str(task.get("bid_project_name") or ""),
+                "responsible_person_names": _list(task.get("responsible_person_names")),
+                "original_notice_task_id": str(task.get("original_notice_task_id") or ""),
+                "original_notice_url": str(task.get("original_notice_url") or ""),
+                "original_notice_url_normalized_for_triage": str(
+                    task.get("original_notice_url_normalized_for_triage") or ""
+                ),
+                "original_notice_route_class": str(task.get("original_notice_route_class") or ""),
+                "original_notice_route_strategy": str(task.get("original_notice_route_strategy") or ""),
+                "original_notice_live_budget_eligible": bool(task.get("original_notice_live_budget_eligible")),
+                "original_notice_live_priority_score": int(task.get("original_notice_live_priority_score") or 0),
+                "original_notice_live_priority_rank": int(task.get("original_notice_live_priority_rank") or 0),
+                "original_notice_live_priority_band": str(task.get("original_notice_live_priority_band") or ""),
+                "original_notice_priority_reasons": _list(task.get("original_notice_priority_reasons")),
+                "customer_visible_allowed": False,
+                "no_legal_conclusion": True,
+            }
+        )
+    return {
+        "summary": {
+            "task_count": len(records),
+            "budget_eligible_count": sum(1 for record in records if bool(record.get("original_notice_live_budget_eligible"))),
+            "route_class_counts": _counts(record.get("original_notice_route_class") for record in records),
+            "priority_band_counts": _counts(record.get("original_notice_live_priority_band") for record in records),
+        },
+        "records": records,
+    }
+
+
+def _original_notice_title_priority(title: str) -> tuple[int, list[str]]:
+    text = str(title or "")
+    score = 0
+    reasons: list[str] = []
+    if re.search(r"(施工|工程总承包|EPC|建设项目|改造|道路|桥梁|隧道|管网|码头|厂房|基础设施)", text, flags=re.I):
+        score += 12
+        reasons.append("title_suggests_construction_or_long_cycle_project")
+    if re.search(r"(中标结果|中标公告|中标结果公告|中标结果公示)", text):
+        score += 5
+        reasons.append("title_suggests_award_result_notice")
+    if re.search(r"(设计|勘察|咨询|服务|采购结果)", text) and not re.search(r"(施工|工程总承包|EPC)", text, flags=re.I):
+        score -= 6
+        reasons.append("title_suggests_design_survey_or_service_notice_lower_direct_budget")
+    return score, reasons
+
+
+def _looks_like_original_notice_jump_page(host: str, path: str, url: str) -> bool:
+    return any(marker in path or marker in url for marker in ("jump.html", "tiaozhuan", "redirectpage", "redirect"))
+
+
+def _looks_like_official_direct_html(host: str, path: str) -> bool:
+    if not path.endswith((".html", ".htm")) and "detailhtml" not in path:
+        return False
+    return _looks_like_official_public_page(host)
+
+
+def _looks_like_official_public_page(host: str) -> bool:
+    return (
+        host.endswith(".gov.cn")
+        or "ggzy" in host
+        or "ccgp" in host
+        or host.endswith(".cn") and any(token in host for token in ("zfcg", "bid", "jyzx", "jyxx"))
+    )
+
+
+def _priority_band(*, score: int, route_class: str, budget_eligible: bool) -> str:
+    if not budget_eligible:
+        return "P3_ROUTE_SPECIFIC_OR_BLOCKED"
+    if route_class == "OFFICIAL_DIRECT_HTML" and score >= 90:
+        return "P0_DIRECT_OFFICIAL_HTML"
+    if score >= 60:
+        return "P1_OFFICIAL_OR_NORMALIZED_PUBLIC_PAGE"
+    if score >= 35:
+        return "P2_REDIRECT_OR_LOWER_CONFIDENCE_PAGE"
+    return "P3_ROUTE_SPECIFIC_OR_BLOCKED"
 
 
 def _bid_show_lookup(source_manifest: Mapping[str, Any]) -> dict[str, Mapping[str, Any]]:
@@ -888,7 +1057,10 @@ def _write_outputs(
     manual_release_evidence_probe_table: list[Mapping[str, Any]],
 ) -> None:
     summary = result.get("summary") if isinstance(result.get("summary"), Mapping) else {}
+    manifest = result.get("manifest") if isinstance(result.get("manifest"), Mapping) else {}
+    triage_table = manifest.get("original_notice_task_triage_table") if isinstance(manifest, Mapping) else {}
     _write_json(out_dir / "original-notice-backtrace-v1.json", result)
+    _write_json(out_dir / "original-notice-task-triage-table.json", triage_table if isinstance(triage_table, Mapping) else {})
     _write_json(out_dir / "original-notice-fetch-records.json", {"summary": summary, "records": fetch_records})
     _write_json(out_dir / "original-notice-extraction-records.json", {"summary": summary, "records": extraction_records})
     _write_json(out_dir / "original-notice-overlap-signal-records.json", {"summary": summary, "records": overlap_records})
@@ -954,6 +1126,15 @@ def _summary(
         "fetch_state_counts": _counts(record.get("fetch_state") for record in fetch_records),
         "extraction_state_counts": _counts(record.get("original_notice_extraction_state") for record in extraction_records),
         "overlap_signal_state_counts": _counts(record.get("original_notice_overlap_signal_state") for record in overlap_records),
+        "original_notice_route_class_counts": _counts(
+            record.get("original_notice_route_class") for record in original_notice_task_records
+        ),
+        "original_notice_live_priority_band_counts": _counts(
+            record.get("original_notice_live_priority_band") for record in original_notice_task_records
+        ),
+        "original_notice_budget_eligible_count": sum(
+            1 for record in original_notice_task_records if bool(record.get("original_notice_live_budget_eligible"))
+        ),
         "blocker_taxonomy_counts": _counts(
             blocker
             for record in [*fetch_records, *extraction_records]
