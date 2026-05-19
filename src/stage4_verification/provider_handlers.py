@@ -15,6 +15,7 @@ from stage4_verification.provider_registry import (
     GUANGDONG_THREE_LIBRARY,
     JZSC_PERSON_IDENTITY,
     LOCAL_HOUSING_CONSTRUCTION,
+    NATURAL_RESOURCE_REGISTERED_SURVEYOR,
     PENALTY_CREDIT,
     PROJECT_MANAGER_CHANGE,
     SUPPLIER_QUALIFICATION_CREDIT,
@@ -104,6 +105,7 @@ def build_stage4_provider_handlers(
         COMPLETION_FILING: gdcic_handler,
         PROJECT_MANAGER_CHANGE: gdcic_handler,
         PENALTY_CREDIT: gdcic_handler,
+        NATURAL_RESOURCE_REGISTERED_SURVEYOR: run_pending_provider_task,
         SUPPLIER_QUALIFICATION_CREDIT: run_pending_provider_task,
     }
 
@@ -372,6 +374,7 @@ def run_pending_provider_task(payload: Mapping[str, Any]) -> dict[str, Any]:
     provider_id = _clean_text(task.get("provider_id"))
     reason = {
         LOCAL_HOUSING_CONSTRUCTION: "local_housing_construction_runtime_adapter_not_implemented",
+        NATURAL_RESOURCE_REGISTERED_SURVEYOR: "natural_resource_registered_surveyor_runtime_adapter_not_implemented",
         PROJECT_MANAGER_CHANGE: "project_manager_change_notice_runtime_adapter_not_implemented",
         SUPPLIER_QUALIFICATION_CREDIT: "supplier_qualification_credit_runtime_adapter_not_implemented",
     }.get(provider_id, "stage4_provider_runtime_adapter_not_implemented")

@@ -13,6 +13,8 @@ param(
     [string]$DesignSurveyFlow08ReadbackRoot = "",
     [string]$DesignSurveyFlow08AttachmentParseJson = "",
     [string]$DesignSurveyFlow08AttachmentParseRoot = "",
+    [string]$DesignSurveyPublicRegistryFallbackJson = "",
+    [string]$DesignSurveyPublicRegistryFallbackRoot = "",
     [string]$OutputRoot = "",
     [string]$ProjectIds = "",
     [switch]$EmitJson
@@ -90,6 +92,12 @@ if ($DesignSurveyFlow08AttachmentParseJson) {
 }
 if ($DesignSurveyFlow08AttachmentParseRoot) {
     $argsList += @("--design-survey-flow08-attachment-parse-root", $DesignSurveyFlow08AttachmentParseRoot)
+}
+if ($DesignSurveyPublicRegistryFallbackJson) {
+    $argsList += @("--design-survey-public-registry-fallback-json", $DesignSurveyPublicRegistryFallbackJson)
+}
+if ($DesignSurveyPublicRegistryFallbackRoot) {
+    $argsList += @("--design-survey-public-registry-fallback-root", $DesignSurveyPublicRegistryFallbackRoot)
 }
 if ($ProjectIds) {
     $argsList += @("--project-ids", $ProjectIds)

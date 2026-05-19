@@ -375,9 +375,44 @@ class EvidenceOrchestrationStateMachineTests(unittest.TestCase):
                 any(
                     job["project_id"] == "PROJ-CN-GD-JG2026-11327"
                     and job["job_type"] == "design_survey_public_registry_fallback_plan"
+                    and job["recommended_script"] == "scripts/build-design-survey-public-registry-fallback-v1.ps1"
                     for job in jobs
                 )
             )
+
+    def test_design_survey_public_registry_fallback_output_advances_to_tasks_ready(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            storage_json = root / "storage.json"
+            supplement_json = root / "stage4-inputs.json"
+            design_plan_root = root / "design-plan"
+            stage4_root = root / "design-stage4"
+            public_registry_root = root / "public-registry"
+            _write_stage16_storage(storage_json)
+            _write_company_first_inputs(supplement_json)
+            _write_design_survey_adapter_plan(design_plan_root)
+            _write_design_survey_stage4_public_registry_fallback_required(stage4_root)
+            _write_design_survey_public_registry_fallback(public_registry_root)
+
+            result = build_evidence_orchestration_state(
+                stage16_storage_json=storage_json,
+                company_first_stage4_inputs_json=supplement_json,
+                design_survey_adapter_plan_root=design_plan_root,
+                design_survey_stage4_execution_root=stage4_root,
+                design_survey_public_registry_fallback_root=public_registry_root,
+                output_root=root / "out",
+                created_at="2026-05-18T00:00:00+08:00",
+            )
+
+            design = _records_by_project(result["manifest"]["evidence_state_table"]["records"])[
+                "PROJ-CN-GD-JG2026-11327"
+            ]
+            self.assertEqual(design["evidence_state"], "DESIGN_SURVEY_PUBLIC_REGISTRY_TASKS_READY")
+            self.assertEqual(
+                design["recommended_next_action"],
+                "execute_registered_surveyor_public_registry_readback_or_manual_public_snapshot",
+            )
+            self.assertEqual(design["design_survey_adapter_counts"]["design_survey_public_registry_task_count"], 1)
 
     def test_design_survey_flow08_attachment_parse_ocr_required_stays_continuable(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -1191,6 +1226,57 @@ def _write_design_survey_flow08_attachment_parse(root: Path, *, state: str) -> N
                         "attachment_parse_state_counts": {state: 1},
                     },
                 }
+            }
+        },
+    )
+
+
+def _write_design_survey_public_registry_fallback(root: Path) -> None:
+    project_id = "PROJ-CN-GD-JG2026-11327"
+    task = {
+        "public_registry_task_id": "DESIGN-SURVEY-PUBLIC-REG-TASK-1",
+        "project_id": project_id,
+        "project_name": "规划测绘项目中标候选人公示",
+        "candidate_company_name": "广州市城市规划勘测设计研究院有限公司",
+        "responsible_person_name": "胡昌华",
+        "task_type": "NATURAL_RESOURCE_REGISTERED_SURVEYOR_PERSON_COMPANY_MATCH",
+        "task_state": "PLAN_ONLY_ENTRY_NEEDS_LIVE_VERIFY",
+        "provider_id": "NATURAL_RESOURCE_REGISTERED_SURVEYOR",
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
+    target = {
+        "public_registry_target_id": "DESIGN-SURVEY-PUBLIC-REG-TARGET-1",
+        "project_id": project_id,
+        "project_name": "规划测绘项目中标候选人公示",
+        "candidate_company_name": "广州市城市规划勘测设计研究院有限公司",
+        "responsible_person_name": "胡昌华",
+        "target_readiness_state": "READY_FOR_REGISTERED_SURVEYOR_PUBLIC_REGISTRY",
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
+    _write_json(
+        root / "design-survey-public-registry-fallback-v1.json",
+        {
+            "manifest": {
+                "public_registry_target_table": {
+                    "records": [target],
+                    "summary": {"target_record_count": 1},
+                },
+                "public_registry_task_table": {
+                    "records": [task],
+                    "summary": {"task_count": 1},
+                },
+                "stage4_provider_jobs": {
+                    "jobs": [
+                        {
+                            "job_id": "STAGE4-PUBLIC-REG-JOB-1",
+                            "provider_id": "NATURAL_RESOURCE_REGISTERED_SURVEYOR",
+                            "payload": {"source_probe_item": {"project_id": project_id}},
+                            "status": "QUEUED_NOT_EXECUTED",
+                        }
+                    ]
+                },
             }
         },
     )

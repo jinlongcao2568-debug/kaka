@@ -10,6 +10,7 @@ from typing import Any, Iterable, Mapping
 JZSC_PERSON_IDENTITY = "JZSC_PERSON_IDENTITY"
 GUANGDONG_THREE_LIBRARY = "GUANGDONG_THREE_LIBRARY"
 LOCAL_HOUSING_CONSTRUCTION = "LOCAL_HOUSING_CONSTRUCTION"
+NATURAL_RESOURCE_REGISTERED_SURVEYOR = "NATURAL_RESOURCE_REGISTERED_SURVEYOR"
 CONSTRUCTION_PERMIT = "CONSTRUCTION_PERMIT"
 CONTRACT_FILING = "CONTRACT_FILING"
 COMPLETION_FILING = "COMPLETION_FILING"
@@ -144,6 +145,32 @@ PROVIDER_SPECS: tuple[Stage4ProviderSpec, ...] = (
         ),
         output_project_fields=(),
         route_priority=30,
+        use_for_person_company_cert_identity=True,
+        use_for_performance_conflict=False,
+    ),
+    Stage4ProviderSpec(
+        provider_id=NATURAL_RESOURCE_REGISTERED_SURVEYOR,
+        display_name="自然资源注册测绘师公开注册核验",
+        source_family="natural_resource_registered_surveyor_public_registry",
+        provider_role="registered_surveyor_person_company_certificate_identity",
+        supported_priority_classes=("C_MEDIUM_DESIGN_SURVEY",),
+        expected_input_fields=(
+            "candidate_company_name",
+            "responsible_person_name",
+            "certificate_no_optional",
+        ),
+        output_identity_fields=(
+            "person_company_cert_matched",
+            "registered_unit_name",
+            "certificate_no_or_registration_no",
+            "certificate_type",
+            "registration_status",
+            "certificate_valid_from",
+            "certificate_valid_until",
+            "source_url_or_snapshot_id",
+        ),
+        output_project_fields=(),
+        route_priority=35,
         use_for_person_company_cert_identity=True,
         use_for_performance_conflict=False,
     ),
