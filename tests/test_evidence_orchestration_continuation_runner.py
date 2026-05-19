@@ -129,6 +129,40 @@ class EvidenceOrchestrationContinuationRunnerTests(unittest.TestCase):
             self.assertIn(str(original_root), result["manifest"]["original_notice_backtrace_root"])
             self.assertIn("01-original-notice-backtrace", result["manifest"]["original_notice_backtrace_root"])
 
+    def test_deferred_original_backtrace_continues_from_delta_plan(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            storage_json = root / "storage.json"
+            p13b_root = root / "p13b"
+            original_root = root / "original"
+            _write_stage16_storage(storage_json)
+            _write_two_url_p13b_backtrace_required(p13b_root)
+            _write_original_notice_partial_deferred(original_root)
+
+            result = run_evidence_orchestration_continuation(
+                stage16_storage_json=storage_json,
+                p13b_company_history_root=p13b_root,
+                original_notice_backtrace_root=original_root,
+                output_root=root / "run",
+                max_live_original_notices=1,
+                created_at="2026-05-18T00:00:00+08:00",
+            )
+
+            summary = result["summary"]
+            self.assertEqual(summary["original_action_state"], "ORIGINAL_BACKTRACE_CONTINUED_FROM_DEFERRED_TASK_PLAN")
+            self.assertEqual(summary["original_backtrace_continuation_run_task_count"], 1)
+            self.assertEqual(summary["original_notice_task_count"], 1)
+            generated = json.loads(
+                (
+                    root
+                    / "run"
+                    / "01-original-notice-backtrace"
+                    / "original-notice-backtrace-v1.json"
+                ).read_text(encoding="utf-8")
+            )
+            task = generated["manifest"]["original_notice_task_records"][0]
+            self.assertEqual(task["original_notice_url"], "https://example.test/history-deferred.html")
+
     def test_browser_readback_root_is_passed_to_original_backtrace_runner(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -407,6 +441,40 @@ def _write_p13b_backtrace_required(root: Path) -> None:
     )
 
 
+def _write_two_url_p13b_backtrace_required(root: Path) -> None:
+    rows = [
+        {
+            "project_id": "PROJ-CN-GD-JG2026-20001",
+            "candidate_company_name": "广东甲公司",
+            "responsible_person_names": ["张三"],
+            "bid_project_name": "历史道路工程一",
+            "historical_project_area_code": "广州市",
+            "original_notice_url": "https://example.test/history-done.html",
+            "overlap_signal_state": "ORIGINAL_NOTICE_BACKTRACE_REQUIRED",
+        },
+        {
+            "project_id": "PROJ-CN-GD-JG2026-20001",
+            "candidate_company_name": "广东甲公司",
+            "responsible_person_names": ["张三"],
+            "bid_project_name": "历史道路工程二",
+            "historical_project_area_code": "广州市",
+            "original_notice_url": "https://example.test/history-deferred.html",
+            "overlap_signal_state": "ORIGINAL_NOTICE_BACKTRACE_REQUIRED",
+        },
+    ]
+    _write_json(
+        root / "company-history-overlap-triage-v1.json",
+        {
+            "manifest": {
+                "overlap_signal_records": rows,
+                "manual_original_url_backtrace_table": [
+                    {**row, "backtrace_reason": "ORIGINAL_NOTICE_BACKTRACE_REQUIRED"} for row in rows
+                ],
+            }
+        },
+    )
+
+
 def _write_two_project_p13b_backtrace_required(root: Path) -> None:
     _write_json(
         root / "company-history-overlap-triage-v1.json",
@@ -522,6 +590,51 @@ def _write_original_notice_a_signal(root: Path) -> None:
                         ],
                     }
                 ],
+            }
+        },
+    )
+
+
+def _write_original_notice_partial_deferred(root: Path) -> None:
+    _write_json(
+        root / "original-notice-backtrace-v1.json",
+        {
+            "manifest": {
+                "original_notice_fetch_records": [
+                    {
+                        "original_notice_task_id": "TASK-DONE",
+                        "project_id": "PROJ-CN-GD-JG2026-20001",
+                        "candidate_company_name": "广东甲公司",
+                        "responsible_person_names": ["张三"],
+                        "bid_project_name": "历史道路工程一",
+                        "original_notice_url": "https://example.test/history-done.html",
+                        "fetch_state": "ORIGINAL_NOTICE_FETCHED",
+                        "execution_mode": "LIVE_PUBLIC_QUERY_ATTEMPTED",
+                    },
+                    {
+                        "original_notice_task_id": "TASK-DEFERRED",
+                        "project_id": "PROJ-CN-GD-JG2026-20001",
+                        "candidate_company_name": "广东甲公司",
+                        "responsible_person_names": ["张三"],
+                        "bid_project_name": "历史道路工程二",
+                        "original_notice_url": "https://example.test/history-deferred.html",
+                        "fetch_state": "ORIGINAL_NOTICE_FETCH_BLOCKED",
+                        "execution_mode": "LIVE_PUBLIC_QUERY_DEFERRED_BY_LIMIT",
+                        "blocker_taxonomy": ["max_live_original_notices_deferred"],
+                    },
+                ],
+                "original_notice_overlap_signal_records": [
+                    {
+                        "original_notice_task_id": "TASK-DONE",
+                        "project_id": "PROJ-CN-GD-JG2026-20001",
+                        "candidate_company_name": "广东甲公司",
+                        "responsible_person_names": ["张三"],
+                        "original_notice_backtrace_match_state": "NO_COMPANY_PERSON_PERIOD_MATCH",
+                        "original_notice_overlap_signal_state": "ORIGINAL_NOTICE_NO_MATCH_REVIEW",
+                        "release_evidence_probe_triggered": False,
+                    }
+                ],
+                "manual_release_evidence_probe_table": [],
             }
         },
     )

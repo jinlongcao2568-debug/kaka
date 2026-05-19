@@ -10,6 +10,9 @@ from shared.utils import utc_now_iso
 from storage.design_survey_public_registry_fallback import build_design_survey_public_registry_fallback
 from storage.design_survey_public_registry_readback import build_design_survey_public_registry_readback
 from storage.evidence_orchestration_state_machine import build_evidence_orchestration_state
+from storage.p13b_original_backtrace_continuation_controller import (
+    build_p13b_original_backtrace_continuation_controller,
+)
 from storage.p13b_original_notice_backtrace import build_p13b_original_notice_backtrace
 
 
@@ -56,6 +59,7 @@ def run_evidence_orchestration_continuation(
     created = created_at or utc_now_iso()
     out_dir = Path(output_root)
     state_before_root = out_dir / "00-evidence-state-before"
+    original_continuation_root = out_dir / "00b-original-backtrace-continuation-plan"
     original_out_root = out_dir / "01-original-notice-backtrace"
     public_registry_fallback_out_root = out_dir / "01b-design-survey-public-registry-fallback"
     public_registry_readback_out_root = out_dir / "01c-design-survey-public-registry-readback"
@@ -102,6 +106,7 @@ def run_evidence_orchestration_continuation(
     if enable_live_original_notice_backtrace and original_live_notice_limit is None:
         original_live_notice_limit = 3
     original_result: dict[str, Any] = {}
+    original_continuation_result: dict[str, Any] = {}
     original_source_json = original_notice_backtrace_json
     original_source_root = original_notice_backtrace_root
     original_action_state = "SKIPPED"
@@ -118,9 +123,27 @@ def run_evidence_orchestration_continuation(
         original_action_state = "SKIPPED_P13B_INPUT_MISSING"
         original_skip_reason = "p13b_company_history_input_missing"
     else:
+        continuation_source_json = p13b_company_history_json
+        continuation_source_root = p13b_company_history_root
+        continuation_from_delta_plan = False
+        if original_notice_backtrace_json or original_notice_backtrace_root:
+            original_continuation_result = build_p13b_original_backtrace_continuation_controller(
+                original_notice_backtrace_json=original_notice_backtrace_json,
+                original_notice_backtrace_root=original_notice_backtrace_root,
+                output_root=original_continuation_root,
+                project_ids=original_project_ids,
+                created_at=created,
+            )
+            continuation_summary = _summary(original_continuation_result)
+            if int(continuation_summary.get("continuation_run_task_count") or 0) > 0:
+                continuation_source_json = None
+                continuation_source_root = Path(
+                    original_continuation_result["manifest"]["continuation_company_history_triage_root"]
+                )
+                continuation_from_delta_plan = True
         original_result = build_p13b_original_notice_backtrace(
-            input_json=p13b_company_history_json,
-            company_history_triage_root=p13b_company_history_root,
+            input_json=continuation_source_json,
+            company_history_triage_root=continuation_source_root,
             output_root=original_out_root,
             ygp_readback_root=ygp_readback_root,
             ygp_readback_json=ygp_readback_json,
@@ -138,7 +161,11 @@ def run_evidence_orchestration_continuation(
         )
         original_action_state = (
             "ORIGINAL_BACKTRACE_LIVE_ATTEMPTED"
-            if enable_live_original_notice_backtrace
+            if enable_live_original_notice_backtrace and not continuation_from_delta_plan
+            else "ORIGINAL_BACKTRACE_DELTA_LIVE_ATTEMPTED"
+            if enable_live_original_notice_backtrace and continuation_from_delta_plan
+            else "ORIGINAL_BACKTRACE_CONTINUED_FROM_DEFERRED_TASK_PLAN"
+            if continuation_from_delta_plan
             else "ORIGINAL_BACKTRACE_CONTINUED_WITH_EXISTING_INPUT"
             if original_notice_backtrace_json or original_notice_backtrace_root
             else "ORIGINAL_BACKTRACE_PLAN_BUILT"
@@ -238,6 +265,7 @@ def run_evidence_orchestration_continuation(
 
     summary = _run_summary(
         state_before=state_before,
+        original_continuation_result=original_continuation_result,
         original_result=original_result,
         state_after=state_after,
         original_action_state=original_action_state,
@@ -266,6 +294,9 @@ def run_evidence_orchestration_continuation(
         "source_ygp_readback_json": str(ygp_readback_json or ""),
         "source_browser_readback_root": str(browser_readback_root or ""),
         "source_browser_readback_json": str(browser_readback_json or ""),
+        "original_backtrace_continuation_root": str(original_continuation_root)
+        if original_continuation_result
+        else "",
         "source_design_survey_adapter_plan_json": str(design_survey_adapter_plan_json or ""),
         "source_design_survey_adapter_plan_root": str(design_survey_adapter_plan_root or ""),
         "source_design_survey_stage4_execution_json": str(design_survey_stage4_execution_json or ""),
@@ -288,6 +319,7 @@ def run_evidence_orchestration_continuation(
         "design_survey_public_registry_readback_root": str(public_registry_readback_source_root or ""),
         "state_after_root": str(state_after_root),
         "state_before_summary": _summary(state_before),
+        "original_backtrace_continuation_summary": _summary(original_continuation_result),
         "original_notice_backtrace_summary": _summary(original_result),
         "design_survey_public_registry_fallback_summary": _summary(public_registry_fallback_result),
         "design_survey_public_registry_readback_summary": _summary(public_registry_readback_result),
@@ -317,11 +349,13 @@ def run_evidence_orchestration_continuation(
     result = {
         "evidence_orchestration_continuation_mode": "BUILT",
         "safe_to_execute": bool(state_before.get("safe_to_execute")) and bool(state_after.get("safe_to_execute"))
+        and (not original_continuation_result or bool(original_continuation_result.get("safe_to_execute")))
         and (not original_result or bool(original_result.get("safe_to_execute")))
         and (not public_registry_fallback_result or bool(public_registry_fallback_result.get("safe_to_execute")))
         and (not public_registry_readback_result or bool(public_registry_readback_result.get("safe_to_execute"))),
         "blocking_reasons": [
             *_list(state_before.get("blocking_reasons")),
+            *_list(original_continuation_result.get("blocking_reasons")),
             *_list(original_result.get("blocking_reasons")),
             *_list(public_registry_fallback_result.get("blocking_reasons")),
             *_list(public_registry_readback_result.get("blocking_reasons")),
@@ -337,6 +371,7 @@ def run_evidence_orchestration_continuation(
 def _run_summary(
     *,
     state_before: Mapping[str, Any],
+    original_continuation_result: Mapping[str, Any],
     original_result: Mapping[str, Any],
     public_registry_fallback_result: Mapping[str, Any],
     public_registry_readback_result: Mapping[str, Any],
@@ -349,6 +384,7 @@ def _run_summary(
     public_registry_readback_skip_reason: str,
 ) -> dict[str, Any]:
     before = _summary(state_before)
+    original_continuation = _summary(original_continuation_result)
     original = _summary(original_result)
     public_registry_fallback = _summary(public_registry_fallback_result)
     public_registry_readback = _summary(public_registry_readback_result)
@@ -358,6 +394,15 @@ def _run_summary(
         "state_before_evidence_state_counts": dict(before.get("evidence_state_counts") or {}),
         "original_action_state": original_action_state,
         "original_skip_reason": original_skip_reason,
+        "original_backtrace_continuation_run_task_count": int(
+            original_continuation.get("continuation_run_task_count") or 0
+        ),
+        "original_backtrace_continuation_state_counts": dict(
+            original_continuation.get("continuation_state_counts") or {}
+        ),
+        "original_backtrace_continuation_recommended_next_action": str(
+            original_continuation.get("recommended_next_action") or ""
+        ),
         "original_notice_task_count": int(original.get("original_notice_task_count") or 0),
         "original_notice_live_processed_count": int(original.get("live_processed_count") or 0),
         "original_notice_overlap_signal_review_required_count": int(
