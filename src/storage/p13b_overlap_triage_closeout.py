@@ -252,6 +252,7 @@ def _original_notice_row(
     fetch_state = str(base.get("fetch_state") or "")
     extraction_state = str(extraction.get("original_notice_extraction_state") or "")
     overlap_state = str(overlap.get("original_notice_overlap_signal_state") or "")
+    backtrace_match_state = str(overlap.get("original_notice_backtrace_match_state") or "")
     ygp_state = str(ygp.get("ygp_readback_state") or "")
     if overlap_state == "ORIGINAL_NOTICE_OVERLAP_SIGNAL_REVIEW_REQUIRED":
         closeout_state = "OVERLAP_SIGNAL_REVIEW_REQUIRED"
@@ -284,11 +285,16 @@ def _original_notice_row(
         "fetch_state": fetch_state,
         "original_notice_extraction_state": extraction_state,
         "original_notice_overlap_signal_state": overlap_state,
+        "original_notice_backtrace_match_state": backtrace_match_state,
         "ygp_readback_state": ygp_state,
         "extracted_responsible_person_names": _list(extraction.get("extracted_responsible_person_names") or ygp.get("extracted_responsible_person_names")),
         "extracted_period_text": str(extraction.get("extracted_period_text") or ygp.get("extracted_period_text") or ""),
         "extracted_award_date": str(extraction.get("extracted_award_date") or ygp.get("extracted_award_date") or ""),
         "matched_person_names": _list(overlap.get("matched_person_names")),
+        "different_person_names": _list(overlap.get("different_person_names")),
+        "candidate_company_matched": bool(overlap.get("candidate_company_matched")),
+        "performance_period_present": bool(overlap.get("performance_period_present")),
+        "period_or_award_date_present": bool(overlap.get("period_or_award_date_present")),
         "triage_closeout_state": closeout_state,
         "release_evidence_probe_triggered": bool(overlap.get("release_evidence_probe_triggered")),
         "blocker_taxonomy": blockers,
@@ -412,6 +418,17 @@ def _project_overlap_triage_table(
                 "company_history_record_found_count": sum(1 for row in company_rows if str(row.get("query_state") or "") == "COMPANY_HISTORY_RECORD_FOUND"),
                 "original_notice_readback_count": len(original_rows),
                 "original_notice_state_counts": _counts(row.get("triage_closeout_state") for row in original_rows),
+                "original_notice_backtrace_match_state_counts": _counts(
+                    row.get("original_notice_backtrace_match_state") for row in original_rows
+                ),
+                "original_notice_different_person_with_period_count": sum(
+                    1
+                    for row in original_rows
+                    if row.get("original_notice_backtrace_match_state") == "EXTRACTED_DIFFERENT_PERSON_WITH_PERIOD"
+                ),
+                "original_notice_company_period_no_person_count": sum(
+                    1 for row in original_rows if row.get("original_notice_backtrace_match_state") == "PERIOD_AND_COMPANY_NO_PERSON"
+                ),
                 "release_evidence_trigger_count": len(release_rows),
                 "source_limit_deferred_count": sum(1 for row in [*company_rows, *original_rows] if row.get("triage_closeout_state") == "SOURCE_LIMIT_DEFERRED"),
                 "ygp_readback_blocked_or_unsupported_count": sum(1 for row in original_rows if row.get("triage_closeout_state") == "YGP_READBACK_BLOCKED_OR_UNSUPPORTED"),
@@ -469,6 +486,17 @@ def _summary(
         "project_state_counts": _counts(row.get("project_overlap_triage_state") for row in project_records),
         "company_state_counts": _counts(row.get("triage_closeout_state") for row in company_records),
         "original_notice_state_counts": _counts(row.get("triage_closeout_state") for row in original_records),
+        "original_notice_backtrace_match_state_counts": _counts(
+            row.get("original_notice_backtrace_match_state") for row in original_records
+        ),
+        "original_notice_different_person_with_period_count": sum(
+            1
+            for row in original_records
+            if row.get("original_notice_backtrace_match_state") == "EXTRACTED_DIFFERENT_PERSON_WITH_PERIOD"
+        ),
+        "original_notice_company_period_no_person_count": sum(
+            1 for row in original_records if row.get("original_notice_backtrace_match_state") == "PERIOD_AND_COMPANY_NO_PERSON"
+        ),
         "blocking_reasons": missing_inputs,
         "query_miss_is_not_clearance": True,
         "customer_visible_allowed": False,

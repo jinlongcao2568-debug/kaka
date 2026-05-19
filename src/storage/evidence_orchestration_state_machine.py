@@ -489,7 +489,7 @@ def _project_evidence_state(
             "D_INSUFFICIENT_OR_BLOCKED_READBACK",
             "D_EVIDENCE_INSUFFICIENT",
             "manual_review_or_expand_targeted_backtrace_if_value_justifies",
-            ["original_notice_backtrace_no_same_person_company_time_window_signal"],
+            _original_backtrace_no_a_review_reasons(original_project),
             "ORIGINAL_NOTICE_BACKTRACE",
         )
 
@@ -1279,6 +1279,11 @@ def _signal_counts(p13b_project: Mapping[str, Any], original_project: Mapping[st
         for record in _list(original_project.get("original_notice_overlap_signal_records"))
         if isinstance(record, Mapping)
     )
+    original_match_states = _counts(
+        record.get("original_notice_backtrace_match_state")
+        for record in _list(original_project.get("original_notice_overlap_signal_records"))
+        if isinstance(record, Mapping)
+    )
     return {
         "p13b_overlap_signal_record_count": len(_list(p13b_project.get("overlap_signal_records"))),
         "p13b_original_backtrace_required_count": int(p13b_states.get("ORIGINAL_NOTICE_BACKTRACE_REQUIRED", 0)),
@@ -1288,6 +1293,15 @@ def _signal_counts(p13b_project: Mapping[str, Any], original_project: Mapping[st
             original_states.get("ORIGINAL_NOTICE_OVERLAP_SIGNAL_REVIEW_REQUIRED", 0)
         ),
         "original_notice_fetch_blocked_count": int(original_states.get("ORIGINAL_NOTICE_FETCH_BLOCKED", 0)),
+        "original_notice_different_person_with_period_count": int(
+            original_match_states.get("EXTRACTED_DIFFERENT_PERSON_WITH_PERIOD", 0)
+        ),
+        "original_notice_company_period_no_person_count": int(
+            original_match_states.get("PERIOD_AND_COMPANY_NO_PERSON", 0)
+        ),
+        "original_notice_person_company_no_period_count": int(
+            original_match_states.get("PERSON_AND_COMPANY_NO_PERIOD", 0)
+        ),
     }
 
 
@@ -1706,6 +1720,26 @@ def _count_blocked_original_records(original_project: Mapping[str, Any]) -> int:
         ):
             blocked += 1
     return blocked
+
+
+def _original_backtrace_no_a_review_reasons(original_project: Mapping[str, Any]) -> list[str]:
+    match_states = _counts(
+        record.get("original_notice_backtrace_match_state")
+        for record in _list(original_project.get("original_notice_overlap_signal_records"))
+        if isinstance(record, Mapping)
+    )
+    reasons: list[str] = []
+    if int(match_states.get("EXTRACTED_DIFFERENT_PERSON_WITH_PERIOD", 0)):
+        reasons.append("original_notice_extracted_different_responsible_person_with_period")
+    if int(match_states.get("PERIOD_AND_COMPANY_NO_PERSON", 0)):
+        reasons.append("original_notice_company_and_period_present_but_responsible_person_missing")
+    if int(match_states.get("PERSON_AND_COMPANY_NO_PERIOD", 0)):
+        reasons.append("original_notice_same_person_and_company_present_but_period_missing")
+    if int(match_states.get("COMPANY_ONLY_NO_PERSON_PERIOD", 0)):
+        reasons.append("original_notice_candidate_company_present_but_person_period_missing")
+    if not reasons:
+        reasons.append("original_notice_backtrace_no_same_person_company_time_window_signal")
+    return reasons
 
 
 def _records_with_state(records: Any, state_key: str, state_value: str) -> list[Mapping[str, Any]]:

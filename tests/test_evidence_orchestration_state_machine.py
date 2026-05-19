@@ -799,6 +799,35 @@ class EvidenceOrchestrationStateMachineTests(unittest.TestCase):
                 batch_by_project["PROJ-CN-GD-JG2026-11398-002"]["commercial_decision_state"],
                 "KEEP_INTERNAL_REVIEW_OR_MANUAL_RESOLVE",
             )
+
+    def test_original_notice_different_person_reason_is_visible(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            storage_json = root / "storage.json"
+            supplement_json = root / "stage4-inputs.json"
+            p13b_root = root / "p13b"
+            original_root = root / "original"
+            _write_stage16_storage(storage_json)
+            _write_company_first_inputs(supplement_json)
+            _write_p13b_backtrace_required(p13b_root)
+            _write_original_notice_different_person_with_period(original_root)
+
+            result = build_evidence_orchestration_state(
+                stage16_storage_json=storage_json,
+                company_first_stage4_inputs_json=supplement_json,
+                p13b_company_history_root=p13b_root,
+                original_notice_backtrace_root=original_root,
+                output_root=root / "out",
+                created_at="2026-05-18T00:00:00+08:00",
+            )
+
+            by_project = _records_by_project(result["manifest"]["evidence_state_table"]["records"])
+            rqsg2 = by_project["PROJ-CN-GD-JG2026-11398-002"]
+            self.assertEqual(rqsg2["evidence_state"], "D_INSUFFICIENT_OR_BLOCKED_READBACK")
+            self.assertIn("original_notice_extracted_different_responsible_person_with_period", rqsg2["review_reasons"])
+            self.assertEqual(rqsg2["signal_counts"]["original_notice_different_person_with_period_count"], 1)
+            batch_by_project = _records_by_project(result["manifest"]["batch_triage_table"]["records"])
+            self.assertEqual(batch_by_project["PROJ-CN-GD-JG2026-11398-002"]["batch_triage_bucket"], "D_BLOCKED_OR_INSUFFICIENT_REVIEW")
             self.assertFalse(batch_by_project["PROJ-CN-GD-JG2026-11398-002"]["continue_allowed"])
 
 
@@ -1086,6 +1115,40 @@ def _write_original_notice_browser_blocked(root: Path) -> None:
                         "project_id": "PROJ-CN-GD-JG2026-11398-002",
                         "candidate_company_name": "中国化学工程第六建设有限公司",
                         "original_notice_overlap_signal_state": "ORIGINAL_NOTICE_NO_MATCH_REVIEW",
+                        "release_evidence_probe_triggered": False,
+                    }
+                ],
+                "manual_release_evidence_probe_table": [],
+            }
+        },
+    )
+
+
+def _write_original_notice_different_person_with_period(root: Path) -> None:
+    _write_json(
+        root / "original-notice-backtrace-v1.json",
+        {
+            "manifest": {
+                "original_notice_fetch_records": [
+                    {
+                        "project_id": "PROJ-CN-GD-JG2026-11398-002",
+                        "fetch_state": "ORIGINAL_NOTICE_FETCHED",
+                        "execution_mode": "LIVE_PUBLIC_QUERY_ATTEMPTED",
+                    }
+                ],
+                "original_notice_overlap_signal_records": [
+                    {
+                        "project_id": "PROJ-CN-GD-JG2026-11398-002",
+                        "candidate_company_name": "中国化学工程第六建设有限公司",
+                        "responsible_person_names": ["曾凡伟"],
+                        "extracted_responsible_person_names": ["尹家驹"],
+                        "different_person_names": ["尹家驹"],
+                        "matched_person_names": [],
+                        "historical_project_area_code": "四川省",
+                        "original_notice_backtrace_match_state": "EXTRACTED_DIFFERENT_PERSON_WITH_PERIOD",
+                        "original_notice_overlap_signal_state": "ORIGINAL_NOTICE_NO_MATCH_REVIEW",
+                        "candidate_company_matched": True,
+                        "period_or_award_date_present": True,
                         "release_evidence_probe_triggered": False,
                     }
                 ],

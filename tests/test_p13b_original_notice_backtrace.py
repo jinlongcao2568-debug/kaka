@@ -161,6 +161,8 @@ class P13BOriginalNoticeBacktraceTests(unittest.TestCase):
             self.assertEqual(extraction["extracted_responsible_person_names"], ["尹家驹"])
             self.assertEqual(extraction["extracted_period_text"], "150日历天")
             self.assertEqual(result["summary"]["original_notice_overlap_signal_review_required_count"], 1)
+            overlap = result["manifest"]["original_notice_overlap_signal_records"][0]
+            self.assertEqual(overlap["original_notice_backtrace_match_state"], "SAME_PERSON_COMPANY_PERIOD_SIGNAL")
 
     def test_columnar_table_period_after_amount_is_extracted(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -191,6 +193,42 @@ class P13BOriginalNoticeBacktraceTests(unittest.TestCase):
             self.assertEqual(extraction["extracted_responsible_person_names"], ["胡琦"])
             self.assertEqual(extraction["extracted_period_text"], "270天")
             self.assertEqual(result["summary"]["original_notice_overlap_signal_review_required_count"], 1)
+            overlap = result["manifest"]["original_notice_overlap_signal_records"][0]
+            self.assertEqual(overlap["original_notice_backtrace_match_state"], "SAME_PERSON_COMPANY_PERIOD_SIGNAL")
+
+    def test_different_person_with_period_is_classified_without_release_probe(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_p13b_input_from_rows(
+                root,
+                [
+                    {
+                        "project_id": "PROJ-CN-GD-JG2026-30001",
+                        "candidate_company_name": "中国化学工程第六建设有限公司",
+                        "responsible_person_names": ["曾凡伟"],
+                        "bid_project_name": "10t/d 垃圾焚烧飞灰资源化综合利用中试研究项目施工标段中标结果公示",
+                        "original_notice_url": "https://example.gov.cn/original/table-person.html",
+                    },
+                ],
+            )
+
+            result = build_p13b_original_notice_backtrace(
+                input_root=root,
+                output_root=root / "out",
+                enable_live_public_query=True,
+                max_live_original_notices=1,
+                http_getter=_fake_http_getter,
+                created_at="2026-05-15T00:00:00+08:00",
+            )
+
+            summary = result["summary"]
+            self.assertEqual(summary["original_notice_overlap_signal_review_required_count"], 0)
+            self.assertEqual(summary["original_notice_different_person_with_period_count"], 1)
+            overlap = result["manifest"]["original_notice_overlap_signal_records"][0]
+            self.assertEqual(overlap["original_notice_backtrace_match_state"], "EXTRACTED_DIFFERENT_PERSON_WITH_PERIOD")
+            self.assertEqual(overlap["different_person_names"], ["尹家驹"])
+            self.assertEqual(overlap["matched_person_names"], [])
+            self.assertFalse(overlap["release_evidence_probe_triggered"])
 
     def test_plan_only_does_not_call_http_getter(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -402,6 +440,9 @@ class P13BOriginalNoticeBacktraceTests(unittest.TestCase):
             summary = result["summary"]
             self.assertEqual(summary["original_notice_overlap_signal_review_required_count"], 0)
             self.assertEqual(summary["overlap_signal_state_counts"]["ORIGINAL_NOTICE_NO_MATCH_REVIEW"], 1)
+            self.assertEqual(summary["original_notice_company_period_no_person_count"], 1)
+            overlap = result["manifest"]["original_notice_overlap_signal_records"][0]
+            self.assertEqual(overlap["original_notice_backtrace_match_state"], "PERIOD_AND_COMPANY_NO_PERSON")
             self.assertEqual(result["manifest"]["manual_release_evidence_probe_table"], [])
 
     def test_fetched_notice_without_extractable_fields_is_review_not_unsupported(self) -> None:
@@ -424,6 +465,47 @@ class P13BOriginalNoticeBacktraceTests(unittest.TestCase):
             self.assertEqual(summary["source_unsupported_count"], 0)
             extraction = result["manifest"]["original_notice_extraction_records"][0]
             self.assertIn("original_notice_person_period_not_extracted_review", extraction["blocker_taxonomy"])
+
+    def test_spurious_policy_words_are_not_extracted_as_person_or_period(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_p13b_input(root, first_url="https://example.gov.cn/original/spurious-person-period.html")
+
+            result = build_p13b_original_notice_backtrace(
+                input_root=root,
+                output_root=root / "out",
+                enable_live_public_query=True,
+                max_live_original_notices=1,
+                http_getter=_fake_http_getter,
+                created_at="2026-05-15T00:00:00+08:00",
+            )
+
+            extraction = result["manifest"]["original_notice_extraction_records"][0]
+            self.assertEqual(extraction["extracted_responsible_person_names"], [])
+            self.assertEqual(extraction["extracted_period_text"], "")
+            overlap = result["manifest"]["original_notice_overlap_signal_records"][0]
+            self.assertEqual(overlap["original_notice_backtrace_match_state"], "NO_COMPANY_PERSON_PERIOD_MATCH")
+
+    def test_award_date_only_does_not_trigger_time_window_signal(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_p13b_input(root, first_url="https://example.gov.cn/original/award-date-only.html")
+
+            result = build_p13b_original_notice_backtrace(
+                input_root=root,
+                output_root=root / "out",
+                enable_live_public_query=True,
+                max_live_original_notices=1,
+                http_getter=_fake_http_getter,
+                created_at="2026-05-15T00:00:00+08:00",
+            )
+
+            summary = result["summary"]
+            self.assertEqual(summary["original_notice_overlap_signal_review_required_count"], 0)
+            overlap = result["manifest"]["original_notice_overlap_signal_records"][0]
+            self.assertEqual(overlap["original_notice_backtrace_match_state"], "PERSON_AND_COMPANY_NO_PERIOD")
+            self.assertFalse(overlap["performance_period_present"])
+            self.assertTrue(overlap["period_or_award_date_present"])
 
     def test_fetched_notice_with_unextractable_body_keeps_blocker_reason(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -846,6 +928,18 @@ def _fake_http_getter(url: str, context: Mapping[str, Any]) -> Mapping[str, Any]
             "status_code": 200,
             "content_type": "text/html",
             "body": "<html><body>交易平台 window._AMapSecurityConfig = {}; We're sorry but 交易平台 doesn't work properly without JavaScript enabled. Please enable it to continue.</body></html>",
+        }
+    if url.endswith("/spurious-person-period.html"):
+        return {
+            "status_code": 200,
+            "content_type": "text/html",
+            "body": "<html><body><div>项目负责人 同意采购文件要求，服务期至2026年12月31日前完成，场的安排以通知为准，会议到场的人员遵守规程，评审专家类型另行公布。</div></body></html>",
+        }
+    if url.endswith("/award-date-only.html"):
+        return {
+            "status_code": 200,
+            "content_type": "text/html",
+            "body": "<html><body><p>中标人：广东甲公司</p><p>项目负责人：张三</p><p>公告日期：2026年05月01日</p></body></html>",
         }
     if url.endswith("/no-person.html"):
         return {

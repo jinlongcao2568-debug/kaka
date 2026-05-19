@@ -81,6 +81,28 @@ class P13BOverlapTriageCloseoutTests(unittest.TestCase):
             states = {row["project_overlap_triage_state"] for row in result["manifest"]["project_overlap_triage_records"]}
             self.assertIn("SOURCE_LIMIT_DEFERRED", states)
 
+    def test_original_notice_match_state_counts_are_preserved(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_inputs(root, overlap=False, original_match_state="EXTRACTED_DIFFERENT_PERSON_WITH_PERIOD")
+
+            result = build_p13b_overlap_triage_closeout(
+                company_history_triage_root=root / "company",
+                original_notice_backtrace_root=root / "original",
+                output_root=root / "out",
+                created_at="2026-05-15T00:00:00+08:00",
+            )
+
+            summary = result["summary"]
+            self.assertEqual(summary["original_notice_different_person_with_period_count"], 1)
+            original_rows = result["manifest"]["original_notice_readback_records"]
+            row = next(item for item in original_rows if item["original_notice_task_id"] == "NOTICE-1")
+            self.assertEqual(row["original_notice_backtrace_match_state"], "EXTRACTED_DIFFERENT_PERSON_WITH_PERIOD")
+            self.assertEqual(row["different_person_names"], ["王五"])
+            project_rows = result["manifest"]["project_overlap_triage_records"]
+            project = next(item for item in project_rows if item["project_id"] == "PROJ-1")
+            self.assertEqual(project["original_notice_different_person_with_period_count"], 1)
+
     def test_ygp_defaults_closed_when_not_explicitly_supplied(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -118,9 +140,15 @@ class P13BOverlapTriageCloseoutTests(unittest.TestCase):
                 self.assertNotIn(term, text)
 
 
-def _write_inputs(root: Path, *, overlap: bool, include_deferred: bool = False) -> None:
+def _write_inputs(
+    root: Path,
+    *,
+    overlap: bool,
+    include_deferred: bool = False,
+    original_match_state: str = "",
+) -> None:
     _write_company_history(root / "company", overlap=overlap, include_deferred=include_deferred)
-    _write_original_notice(root / "original", overlap=overlap)
+    _write_original_notice(root / "original", overlap=overlap, original_match_state=original_match_state)
     _write_ygp_readback(root / "ygp")
     _write_coverage(root / "coverage")
 
@@ -215,9 +243,13 @@ def _write_company_history(root: Path, *, overlap: bool, include_deferred: bool)
     _write_json(root / "company-history-overlap-triage-v1.json", payload)
 
 
-def _write_original_notice(root: Path, *, overlap: bool) -> None:
-    extraction_state = "ORIGINAL_NOTICE_PERSON_PERIOD_EXTRACTED" if overlap else "ORIGINAL_NOTICE_NO_MATCH_REVIEW"
+def _write_original_notice(root: Path, *, overlap: bool, original_match_state: str = "") -> None:
+    match_state = original_match_state or ("SAME_PERSON_COMPANY_PERIOD_SIGNAL" if overlap else "NO_COMPANY_PERSON_PERIOD_MATCH")
+    different_person = match_state == "EXTRACTED_DIFFERENT_PERSON_WITH_PERIOD"
+    extraction_state = "ORIGINAL_NOTICE_PERSON_PERIOD_EXTRACTED" if overlap or different_person else "ORIGINAL_NOTICE_NO_MATCH_REVIEW"
     overlap_state = "ORIGINAL_NOTICE_OVERLAP_SIGNAL_REVIEW_REQUIRED" if overlap else "ORIGINAL_NOTICE_NO_MATCH_REVIEW"
+    extracted_people = ["张三"] if overlap else (["王五"] if different_person else [])
+    period_text = "365日历天" if overlap else ("120日历天" if different_person else "")
     payload = {
         "manifest": {
             "original_notice_fetch_records": [
@@ -254,8 +286,8 @@ def _write_original_notice(root: Path, *, overlap: bool) -> None:
                     "original_notice_url": "https://example.gov.cn/original/1.html",
                     "source_url": "https://example.gov.cn/original/1.html",
                     "original_notice_extraction_state": extraction_state,
-                    "extracted_responsible_person_names": ["张三"] if overlap else [],
-                    "extracted_period_text": "365日历天" if overlap else "",
+                    "extracted_responsible_person_names": extracted_people,
+                    "extracted_period_text": period_text,
                 },
                 {
                     "original_notice_task_id": "NOTICE-2",
@@ -277,9 +309,14 @@ def _write_original_notice(root: Path, *, overlap: bool) -> None:
                     "candidate_company_name": "广东甲公司",
                     "responsible_person_names": ["张三"],
                     "matched_person_names": ["张三"] if overlap else [],
+                    "different_person_names": ["王五"] if different_person else [],
                     "source_url": "https://example.gov.cn/original/1.html",
-                    "extracted_period_text": "365日历天" if overlap else "",
+                    "extracted_responsible_person_names": extracted_people,
+                    "extracted_period_text": period_text,
                     "extracted_award_date": "2025年10月1日",
+                    "candidate_company_matched": overlap or different_person,
+                    "period_or_award_date_present": overlap or different_person,
+                    "original_notice_backtrace_match_state": match_state,
                     "original_notice_overlap_signal_state": overlap_state,
                     "release_evidence_probe_triggered": overlap,
                 }

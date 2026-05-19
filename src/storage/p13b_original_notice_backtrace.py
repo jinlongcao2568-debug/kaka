@@ -50,6 +50,7 @@ MISSING_ORIGINAL_NOTICE_URL_MARKERS = {
     "原文链接为空",
 }
 MISSING_ORIGINAL_NOTICE_URL_PHRASES = ("公告地址为空", "原文地址为空", "原文链接为空")
+_DURATION_TEXT_PATTERN = r"(?<![0-9])(?:[0-9]{1,5}\s*(?:个日历天|日历天|天(?:（日历天）|\(日历天\))?|个月|月)|[1-9][0-9]?\s*年)(?![0-9])"
 
 
 def build_p13b_original_notice_backtrace(
@@ -984,24 +985,37 @@ def _overlap_record(task: Mapping[str, Any], extraction: Mapping[str, Any], *, c
     candidate_people = {str(item).strip() for item in _list(task.get("responsible_person_names")) if str(item).strip()}
     extracted_people = {str(item).strip() for item in _list(extraction.get("extracted_responsible_person_names")) if str(item).strip()}
     matched_people = sorted(candidate_people & extracted_people)
+    different_people = sorted(extracted_people - candidate_people) if candidate_people else []
     company_match = _contains_company(extraction.get("extracted_company_names"), str(task.get("candidate_company_name") or ""))
-    period_present = bool(str(extraction.get("extracted_period_text") or "").strip() or str(extraction.get("extracted_award_date") or "").strip())
-    if str(extraction.get("original_notice_extraction_state") or "") == "ORIGINAL_NOTICE_FETCH_BLOCKED":
+    performance_period_present = bool(str(extraction.get("extracted_period_text") or "").strip())
+    award_date_present = bool(str(extraction.get("extracted_award_date") or "").strip())
+    extraction_state = str(extraction.get("original_notice_extraction_state") or "")
+    match_state = _original_notice_backtrace_match_state(
+        extraction_state=extraction_state,
+        matched_people=matched_people,
+        different_people=different_people,
+        extracted_people=sorted(extracted_people),
+        company_match=company_match,
+        period_present=performance_period_present,
+    )
+    if match_state == "FETCH_BLOCKED_OR_SOURCE_UNSUPPORTED":
         state = "ORIGINAL_NOTICE_FETCH_BLOCKED"
         reasons = _list(extraction.get("blocker_taxonomy")) or ["original_notice_fetch_blocked"]
-    elif matched_people and company_match and period_present:
+    elif match_state == "SAME_PERSON_COMPANY_PERIOD_SIGNAL":
         state = "ORIGINAL_NOTICE_OVERLAP_SIGNAL_REVIEW_REQUIRED"
-        reasons = ["same_responsible_person", "candidate_company_matched", "period_or_award_date_present"]
+        reasons = ["same_responsible_person", "candidate_company_matched", "performance_period_present"]
     else:
         state = "ORIGINAL_NOTICE_NO_MATCH_REVIEW"
-        reasons = ["original_notice_no_same_person_company_time_window_signal"]
+        reasons = _original_notice_backtrace_review_reasons(match_state)
     return {
         "original_notice_overlap_signal_id": _stable_id("P13B-ORIGINAL-OVERLAP", task.get("original_notice_task_id"), state),
         "original_notice_task_id": str(task.get("original_notice_task_id") or ""),
         "project_id": str(task.get("project_id") or ""),
         "candidate_company_name": str(task.get("candidate_company_name") or ""),
         "responsible_person_names": sorted(candidate_people),
+        "extracted_responsible_person_names": sorted(extracted_people),
         "matched_person_names": matched_people,
+        "different_person_names": different_people,
         "historical_project_area_code": str(task.get("historical_project_area_code") or task.get("bid_area_code") or ""),
         "bid_area_code": str(task.get("bid_area_code") or task.get("historical_project_area_code") or ""),
         "original_notice_url": str(task.get("original_notice_url") or ""),
@@ -1009,6 +1023,10 @@ def _overlap_record(task: Mapping[str, Any], extraction: Mapping[str, Any], *, c
         "extracted_company_names": _list(extraction.get("extracted_company_names")),
         "extracted_period_text": str(extraction.get("extracted_period_text") or ""),
         "extracted_award_date": str(extraction.get("extracted_award_date") or ""),
+        "candidate_company_matched": company_match,
+        "performance_period_present": performance_period_present,
+        "period_or_award_date_present": performance_period_present or award_date_present,
+        "original_notice_backtrace_match_state": match_state,
         "original_notice_overlap_signal_state": state,
         "review_reasons": reasons,
         "release_evidence_probe_triggered": state == "ORIGINAL_NOTICE_OVERLAP_SIGNAL_REVIEW_REQUIRED",
@@ -1019,6 +1037,90 @@ def _overlap_record(task: Mapping[str, Any], extraction: Mapping[str, Any], *, c
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,
     }
+
+
+def _original_notice_backtrace_match_state(
+    *,
+    extraction_state: str,
+    matched_people: list[str],
+    different_people: list[str],
+    extracted_people: list[str],
+    company_match: bool,
+    period_present: bool,
+) -> str:
+    if extraction_state in {"ORIGINAL_NOTICE_FETCH_BLOCKED", "ORIGINAL_NOTICE_SOURCE_UNSUPPORTED"}:
+        return "FETCH_BLOCKED_OR_SOURCE_UNSUPPORTED"
+    if matched_people and company_match and period_present:
+        return "SAME_PERSON_COMPANY_PERIOD_SIGNAL"
+    if different_people and company_match and period_present:
+        return "EXTRACTED_DIFFERENT_PERSON_WITH_PERIOD"
+    if different_people and company_match:
+        return "EXTRACTED_DIFFERENT_PERSON_NO_PERIOD"
+    if company_match and period_present and not extracted_people:
+        return "PERIOD_AND_COMPANY_NO_PERSON"
+    if matched_people and company_match:
+        return "PERSON_AND_COMPANY_NO_PERIOD"
+    if matched_people and period_present:
+        return "PERSON_AND_PERIOD_NO_COMPANY"
+    if extracted_people and period_present and company_match:
+        return "PERSON_COMPANY_PERIOD_TARGET_PERSON_MISSING"
+    if company_match:
+        return "COMPANY_ONLY_NO_PERSON_PERIOD"
+    if period_present:
+        return "PERIOD_ONLY_OR_COMPANY_NOT_MATCHED"
+    if extracted_people:
+        return "PERSON_ONLY_OR_COMPANY_NOT_MATCHED"
+    return "NO_COMPANY_PERSON_PERIOD_MATCH"
+
+
+def _original_notice_backtrace_review_reasons(match_state: str) -> list[str]:
+    reasons_by_state = {
+        "EXTRACTED_DIFFERENT_PERSON_WITH_PERIOD": [
+            "extracted_responsible_person_differs_from_candidate",
+            "candidate_company_matched",
+            "performance_period_present",
+        ],
+        "EXTRACTED_DIFFERENT_PERSON_NO_PERIOD": [
+            "extracted_responsible_person_differs_from_candidate",
+            "candidate_company_matched",
+            "performance_period_missing",
+        ],
+        "PERIOD_AND_COMPANY_NO_PERSON": [
+            "candidate_company_matched",
+            "performance_period_present",
+            "responsible_person_not_extracted_from_original_notice",
+        ],
+        "PERSON_AND_COMPANY_NO_PERIOD": [
+            "same_responsible_person",
+            "candidate_company_matched",
+            "performance_period_missing",
+        ],
+        "PERSON_AND_PERIOD_NO_COMPANY": [
+            "same_responsible_person",
+            "performance_period_present",
+            "candidate_company_not_extracted_or_not_matched",
+        ],
+        "PERSON_COMPANY_PERIOD_TARGET_PERSON_MISSING": [
+            "responsible_person_candidate_missing_for_comparison",
+            "candidate_company_matched",
+            "performance_period_present",
+        ],
+        "COMPANY_ONLY_NO_PERSON_PERIOD": [
+            "candidate_company_matched",
+            "responsible_person_not_extracted_from_original_notice",
+            "performance_period_missing",
+        ],
+        "PERIOD_ONLY_OR_COMPANY_NOT_MATCHED": [
+            "performance_period_present",
+            "candidate_company_not_extracted_or_not_matched",
+        ],
+        "PERSON_ONLY_OR_COMPANY_NOT_MATCHED": [
+            "responsible_person_extracted_but_company_not_matched",
+            "performance_period_missing",
+        ],
+        "NO_COMPANY_PERSON_PERIOD_MATCH": ["original_notice_no_same_person_company_time_window_signal"],
+    }
+    return reasons_by_state.get(match_state, ["original_notice_no_same_person_company_time_window_signal"])
 
 
 def _manual_release_evidence_probe_table(overlap_records: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -1092,6 +1194,7 @@ def _summary(
     no_match_review_count = sum(
         1 for record in overlap_records if str(record.get("original_notice_overlap_signal_state") or "") == "ORIGINAL_NOTICE_NO_MATCH_REVIEW"
     )
+    backtrace_match_state_counts = _counts(record.get("original_notice_backtrace_match_state") for record in overlap_records)
     source_unsupported_count = sum(
         1 for record in extraction_records if str(record.get("original_notice_extraction_state") or "") == "ORIGINAL_NOTICE_SOURCE_UNSUPPORTED"
     )
@@ -1126,6 +1229,13 @@ def _summary(
         "fetch_state_counts": _counts(record.get("fetch_state") for record in fetch_records),
         "extraction_state_counts": _counts(record.get("original_notice_extraction_state") for record in extraction_records),
         "overlap_signal_state_counts": _counts(record.get("original_notice_overlap_signal_state") for record in overlap_records),
+        "original_notice_backtrace_match_state_counts": backtrace_match_state_counts,
+        "original_notice_different_person_with_period_count": int(
+            backtrace_match_state_counts.get("EXTRACTED_DIFFERENT_PERSON_WITH_PERIOD", 0)
+        ),
+        "original_notice_company_period_no_person_count": int(
+            backtrace_match_state_counts.get("PERIOD_AND_COMPANY_NO_PERSON", 0)
+        ),
         "original_notice_route_class_counts": _counts(
             record.get("original_notice_route_class") for record in original_notice_task_records
         ),
@@ -1302,12 +1412,36 @@ def _extract_people_from_role_table_windows(text: str) -> list[str]:
     people: list[str] = []
     role_pattern = r"(?:项目负责人|项目经理|施工项目负责人|设计负责人|勘察负责人|总监理工程师|工程总承包项目经理)"
     for match in re.finditer(role_pattern, text):
-        window = str(text[match.end() : match.end() + 520])
-        for candidate in re.findall(r"[\u4e00-\u9fa5·]{2,8}", window):
-            if _looks_like_person_name(candidate):
-                people.append(candidate)
+        raw_window = str(text[match.end() : match.end() + 520])
+        windows = [re.split(r"[。；;\n]", raw_window, maxsplit=1)[0]]
+        if _looks_like_role_table_window(raw_window):
+            windows.append(raw_window)
+        for window in windows:
+            found = ""
+            for candidate in re.findall(r"[\u4e00-\u9fa5·]{2,8}", window):
+                if _looks_like_person_name(candidate):
+                    found = candidate
+                    break
+            if found:
+                people.append(found)
                 break
     return people
+
+
+def _looks_like_role_table_window(window: str) -> bool:
+    return any(
+        token in str(window or "")
+        for token in (
+            "姓名",
+            "执业",
+            "职业资格",
+            "职称",
+            "证书",
+            "中标人",
+            "中标价",
+            "质量承诺",
+        )
+    )
 
 
 def _looks_like_person_name(value: str) -> bool:
@@ -1335,7 +1469,18 @@ def _looks_like_person_name(value: str) -> bool:
         "行政监督",
         "定标时间",
         "定标方法",
+        "日历天",
+        "同意",
+        "场的",
+        "知后",
+        "规程",
+        "议到场的",
+        "类型",
+        "评审专家",
+        "公布",
     }:
+        return False
+    if name[-1:] in {"省", "市", "区", "县"}:
         return False
     if any(
         token in name
@@ -1364,6 +1509,18 @@ def _looks_like_person_name(value: str) -> bool:
             "日期",
             "机构",
             "监督",
+            "日历",
+            "采购",
+            "文件",
+            "要求",
+            "服务",
+            "期限",
+            "完成",
+            "通知",
+            "到场",
+            "会议",
+            "规程",
+            "专家",
         )
     ):
         return False
@@ -1381,13 +1538,15 @@ def _extract_period_text(text: str) -> str:
         return f"{duration_match.group(1).strip()}日历天"
     patterns = [
         r"(?:中标工期|工期（交货期）|工期\(交货期\)|工期|服务期|服务时间|合同履行期限|履行期限|服务期限)\s*[:：]\s*([^。；;\n]{2,80})",
-        r"(?:中标工期|工期（交货期）|工期\(交货期\)|工期（或服务期、交货期）|工期\(或服务期、交货期\)|工期|服务期|服务时间|合同履行期限|履行期限|服务期限)\s+([0-9]{1,5}\s*(?:天|日历天|个日历天|个月|月|年))",
+        rf"(?:中标工期|工期（交货期）|工期\(交货期\)|工期（或服务期、交货期）|工期\(或服务期、交货期\)|工期|服务期|服务时间|合同履行期限|履行期限|服务期限)\s+({_DURATION_TEXT_PATTERN})",
         r"(?:计划工期)\s*[:：]\s*([^。；;\n]{2,80})",
     ]
     for pattern in patterns:
         match = re.search(pattern, text)
         if match:
-            return match.group(1).strip()
+            period = _clean_period_candidate(match.group(1))
+            if period:
+                return period
     table_period = _extract_period_from_table_windows(text)
     if table_period:
         return table_period
@@ -1398,9 +1557,22 @@ def _extract_period_from_table_windows(text: str) -> str:
     period_label = r"(?:工期（或服务期、交货期）|工期\(或服务期、交货期\)|工期（交货期）|工期\(交货期\)|工期|服务期|合同履行期限)"
     for match in re.finditer(period_label, text):
         window = str(text[match.end() : match.end() + 420])
-        duration_match = re.search(r"([0-9]{1,5}\s*(?:天|日历天|个日历天|个月|月|年))", window)
+        duration_match = re.search(_DURATION_TEXT_PATTERN, window)
         if duration_match:
-            return duration_match.group(1).strip()
+            return duration_match.group(0).strip()
+    return ""
+
+
+def _clean_period_candidate(value: str) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    duration_match = re.search(_DURATION_TEXT_PATTERN, text)
+    if duration_match:
+        return duration_match.group(0).strip()
+    date = r"(?:[0-9]{4}年[0-9]{1,2}月[0-9]{1,2}日|[0-9]{4}-[0-9]{1,2}-[0-9]{1,2})"
+    if re.search(rf"{date}\s*(?:至|到|-|—|~)\s*{date}", text):
+        return text
     return ""
 
 
