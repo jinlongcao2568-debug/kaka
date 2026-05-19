@@ -15,6 +15,13 @@ STAGE6_REVIEW_ACTION_RESULT_ROUTING_ADAPTER_ID = "stage6-review-action-result-ro
 
 DEFAULT_DISPATCH_CLOSEOUT_ROOT = Path("tmp/evaluation-real-samples/stage6-review-action-dispatch-closeout-v1")
 DEFAULT_OUTPUT_ROOT = Path("tmp/evaluation-real-samples/stage6-review-action-result-routing-v1")
+DEFAULT_BASELINE_EVIDENCE_STATE_ROOT = Path("tmp/evaluation-real-samples/evidence-orchestration-state-v1")
+DEFAULT_EVIDENCE_STATE_REBUILD_OUTPUT_ROOT = Path(
+    "tmp/evaluation-real-samples/evidence-state-rebuild-from-stage6-routing-v1"
+)
+DEFAULT_RELEASE_EVIDENCE_FIELD_QUERY_OUTPUT_ROOT = Path(
+    "tmp/evaluation-real-samples/release-evidence-field-query-from-stage6-routing-v1"
+)
 
 FORBIDDEN_TERMS = ("无风险", "无冲突", "在建冲突成立", "违法成立", "确认本人", "造假成立", "是不是本人")
 
@@ -23,6 +30,10 @@ def build_stage6_review_action_result_routing(
     *,
     dispatch_closeout_json: str | Path | None = None,
     dispatch_closeout_root: str | Path = DEFAULT_DISPATCH_CLOSEOUT_ROOT,
+    baseline_evidence_state_json: str | Path | None = None,
+    baseline_evidence_state_root: str | Path | None = DEFAULT_BASELINE_EVIDENCE_STATE_ROOT,
+    evidence_state_rebuild_output_root: str | Path = DEFAULT_EVIDENCE_STATE_REBUILD_OUTPUT_ROOT,
+    release_evidence_field_query_output_root: str | Path = DEFAULT_RELEASE_EVIDENCE_FIELD_QUERY_OUTPUT_ROOT,
     output_root: str | Path = DEFAULT_OUTPUT_ROOT,
     created_at: str | None = None,
 ) -> dict[str, Any]:
@@ -54,7 +65,25 @@ def build_stage6_review_action_result_routing(
     if closeout_payload and not closeout_records:
         blocking_reasons.append("stage6_review_dispatch_closeout_records_missing")
 
-    routing_records = [_routing_record(record, created_at=created) for record in closeout_records]
+    baseline_path = _optional_json_path(
+        explicit_json=baseline_evidence_state_json,
+        root=baseline_evidence_state_root,
+        default_file_name="evidence-orchestration-state-v1.json",
+    )
+    baseline_payload = _load_json_if_exists(baseline_path)
+    baseline_manifest = _source_manifest(baseline_payload)
+    baseline_args = _baseline_evidence_state_args(baseline_manifest)
+
+    routing_records = [
+        _routing_record(
+            record,
+            baseline_args=baseline_args,
+            evidence_state_rebuild_output_root=str(evidence_state_rebuild_output_root),
+            release_evidence_field_query_output_root=str(release_evidence_field_query_output_root),
+            created_at=created,
+        )
+        for record in closeout_records
+    ]
     summary = _summary(routing_records=routing_records, blocking_reasons=blocking_reasons)
     manifest = {
         "manifest_version": STAGE6_REVIEW_ACTION_RESULT_ROUTING_VERSION,
@@ -65,6 +94,9 @@ def build_stage6_review_action_result_routing(
         "created_at": created,
         "source_dispatch_closeout_json": str(closeout_path),
         "source_dispatch_closeout_manifest_id": str(closeout_manifest.get("manifest_id") or ""),
+        "source_baseline_evidence_state_json": str(baseline_path or ""),
+        "source_baseline_evidence_state_manifest_id": str(baseline_manifest.get("manifest_id") or ""),
+        "baseline_evidence_state_args": baseline_args,
         "result_routing_table": {"records": routing_records, "summary": summary},
         "summary": summary,
         "safety": {
@@ -96,12 +128,27 @@ def build_stage6_review_action_result_routing(
     return result
 
 
-def _routing_record(record: Mapping[str, Any], *, created_at: str) -> dict[str, Any]:
+def _routing_record(
+    record: Mapping[str, Any],
+    *,
+    baseline_args: Mapping[str, str],
+    evidence_state_rebuild_output_root: str,
+    release_evidence_field_query_output_root: str,
+    created_at: str,
+) -> dict[str, Any]:
     dispatch_task_type = str(record.get("dispatch_task_type") or "")
     result_json_path = str(record.get("result_json_path") or "")
     routing_state, next_task_type, script, command_template, input_arg_name = _routing_decision(
         closeout_state=str(record.get("dispatch_closeout_state") or ""),
         dispatch_task_type=dispatch_task_type,
+    )
+    command = _recommended_command(
+        next_task_type=next_task_type,
+        input_arg_name=input_arg_name,
+        result_json_path=result_json_path,
+        baseline_args=baseline_args,
+        evidence_state_rebuild_output_root=evidence_state_rebuild_output_root,
+        release_evidence_field_query_output_root=release_evidence_field_query_output_root,
     )
     return {
         "result_routing_id": _stable_id(
@@ -120,11 +167,14 @@ def _routing_record(record: Mapping[str, Any], *, created_at: str) -> dict[str, 
         "next_task_type": next_task_type,
         "recommended_script": script,
         "recommended_command_template": command_template,
+        "recommended_command": command,
+        "recommended_command_ready": bool(command),
         "result_json_path": result_json_path,
         "result_json_exists": bool(record.get("result_json_exists")),
         "result_manifest_id": str(record.get("result_manifest_id") or ""),
         "input_arg_name_for_result_json": input_arg_name,
         "required_baseline_input_refs": _required_baseline_input_refs(next_task_type),
+        "resolved_baseline_input_refs": _resolved_baseline_input_refs(next_task_type, baseline_args),
         "next_required_input_refs": _next_required_input_refs(record, routing_state, input_arg_name, next_task_type),
         "next_recommended_action": _next_recommended_action(routing_state, next_task_type),
         "execution_mode": "PLAN_ONLY_NOT_EXECUTED",
@@ -136,6 +186,31 @@ def _routing_record(record: Mapping[str, Any], *, created_at: str) -> dict[str, 
         "query_miss_is_not_clearance": True,
         "created_at": created_at,
     }
+
+
+def _recommended_command(
+    *,
+    next_task_type: str,
+    input_arg_name: str,
+    result_json_path: str,
+    baseline_args: Mapping[str, str],
+    evidence_state_rebuild_output_root: str,
+    release_evidence_field_query_output_root: str,
+) -> str:
+    if next_task_type.startswith("REBUILD_EVIDENCE_STATE_WITH_") and result_json_path:
+        args = dict(baseline_args)
+        args[input_arg_name] = result_json_path
+        args["OutputRoot"] = evidence_state_rebuild_output_root
+        return _powershell_command("scripts/build-evidence-orchestration-state-v1.ps1", args)
+    if next_task_type == "RUN_RELEASE_EVIDENCE_FIELD_QUERY_PROBE" and result_json_path:
+        return _powershell_command(
+            "scripts/run-guangdong-local-field-query-probe-v1.ps1",
+            {
+                input_arg_name: result_json_path,
+                "OutputRoot": release_evidence_field_query_output_root,
+            },
+        )
+    return ""
 
 
 def _routing_decision(
@@ -228,6 +303,12 @@ def _required_baseline_input_refs(next_task_type: str) -> list[str]:
     return []
 
 
+def _resolved_baseline_input_refs(next_task_type: str, baseline_args: Mapping[str, str]) -> dict[str, str]:
+    if not next_task_type.startswith("REBUILD_EVIDENCE_STATE_WITH_"):
+        return {}
+    return {key: value for key, value in baseline_args.items() if value}
+
+
 def _next_required_input_refs(
     record: Mapping[str, Any],
     routing_state: str,
@@ -254,6 +335,50 @@ def _next_recommended_action(routing_state: str, next_task_type: str) -> str:
     return "resolve_routing_or_result_blocker_before_retry"
 
 
+def _baseline_evidence_state_args(manifest: Mapping[str, Any]) -> dict[str, str]:
+    source_fields = {
+        "Stage16StorageJson": "source_stage16_storage_json",
+        "CompanyFirstStage4InputsJson": "source_company_first_stage4_inputs_json",
+        "P13BCompanyHistoryJson": "source_p13b_company_history_json",
+        "OriginalNoticeBacktraceJson": "source_original_notice_backtrace_json",
+        "OriginalBacktraceContinuationJson": "source_original_backtrace_continuation_json",
+        "DesignSurveyAdapterPlanJson": "source_design_survey_adapter_plan_json",
+        "DesignSurveyStage4ExecutionJson": "source_design_survey_stage4_execution_json",
+        "DesignSurveyFlow08ReadbackJson": "source_design_survey_flow08_readback_json",
+        "DesignSurveyFlow08AttachmentParseJson": "source_design_survey_flow08_attachment_parse_json",
+        "DesignSurveyPublicRegistryFallbackJson": "source_design_survey_public_registry_fallback_json",
+        "DesignSurveyPublicRegistryReadbackJson": "source_design_survey_public_registry_readback_json",
+    }
+    args: dict[str, str] = {}
+    for arg_name, source_field in source_fields.items():
+        value = str(manifest.get(source_field) or "").strip()
+        if value:
+            args[arg_name] = value
+    return args
+
+
+def _powershell_command(script_path: str, args: Mapping[str, str]) -> str:
+    parts = [
+        "pwsh",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        script_path,
+    ]
+    for key, value in args.items():
+        text = str(value or "").strip()
+        if not text:
+            continue
+        parts.append(f"-{key}")
+        parts.append(_ps_quote(text))
+    return " ".join(parts)
+
+
+def _ps_quote(value: str) -> str:
+    return '"' + value.replace('"', '`"') + '"'
+
+
 def _summary(
     *,
     routing_records: list[Mapping[str, Any]],
@@ -273,6 +398,9 @@ def _summary(
         ),
         "release_evidence_field_query_ready_count": sum(
             1 for record in routing_records if record.get("result_routing_state") == "READY_FOR_RELEASE_EVIDENCE_FIELD_QUERY"
+        ),
+        "recommended_command_ready_count": sum(
+            1 for record in routing_records if record.get("recommended_command_ready")
         ),
         "waiting_for_controlled_execution_count": sum(
             1 for record in routing_records if record.get("result_routing_state") == "WAITING_FOR_CONTROLLED_EXECUTION"
@@ -328,6 +456,24 @@ def _load_json(path: Path, blocking_reasons: list[str], missing_reason: str) -> 
         blocking_reasons.append(missing_reason)
         return {}
     return payload if isinstance(payload, dict) else {}
+
+
+def _load_json_if_exists(path: Path | None) -> dict[str, Any]:
+    if not path or not path.exists():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def _optional_json_path(*, explicit_json: str | Path | None, root: str | Path | None, default_file_name: str) -> Path | None:
+    if explicit_json:
+        return Path(explicit_json)
+    if root:
+        return Path(root) / default_file_name
+    return None
 
 
 def _source_manifest(payload: Mapping[str, Any]) -> dict[str, Any]:
@@ -388,6 +534,13 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Route Stage6 dispatch closeout results to next controlled tasks.")
     parser.add_argument("--dispatch-closeout-json", default="")
     parser.add_argument("--dispatch-closeout-root", default=str(DEFAULT_DISPATCH_CLOSEOUT_ROOT))
+    parser.add_argument("--baseline-evidence-state-json", default="")
+    parser.add_argument("--baseline-evidence-state-root", default=str(DEFAULT_BASELINE_EVIDENCE_STATE_ROOT))
+    parser.add_argument("--evidence-state-rebuild-output-root", default=str(DEFAULT_EVIDENCE_STATE_REBUILD_OUTPUT_ROOT))
+    parser.add_argument(
+        "--release-evidence-field-query-output-root",
+        default=str(DEFAULT_RELEASE_EVIDENCE_FIELD_QUERY_OUTPUT_ROOT),
+    )
     parser.add_argument("--output-root", default=str(DEFAULT_OUTPUT_ROOT))
     parser.add_argument("--created-at", default="")
     parser.add_argument("--json", action="store_true", dest="emit_json")
@@ -399,6 +552,10 @@ def main(argv: list[str] | None = None) -> int:
     result = build_stage6_review_action_result_routing(
         dispatch_closeout_json=args.dispatch_closeout_json or None,
         dispatch_closeout_root=args.dispatch_closeout_root,
+        baseline_evidence_state_json=args.baseline_evidence_state_json or None,
+        baseline_evidence_state_root=args.baseline_evidence_state_root or None,
+        evidence_state_rebuild_output_root=args.evidence_state_rebuild_output_root,
+        release_evidence_field_query_output_root=args.release_evidence_field_query_output_root,
         output_root=args.output_root,
         created_at=args.created_at or None,
     )

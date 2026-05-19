@@ -1,6 +1,10 @@
 param(
     [string]$DispatchCloseoutJson = "",
     [string]$DispatchCloseoutRoot = "",
+    [string]$BaselineEvidenceStateJson = "",
+    [string]$BaselineEvidenceStateRoot = "",
+    [string]$EvidenceStateRebuildOutputRoot = "",
+    [string]$ReleaseEvidenceFieldQueryOutputRoot = "",
     [string]$OutputRoot = "",
     [switch]$EmitJson
 )
@@ -15,6 +19,15 @@ $repoRoot = Resolve-Path (Join-Path $scriptDir "..")
 if (-not $DispatchCloseoutRoot) {
     $DispatchCloseoutRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\stage6-review-action-dispatch-closeout-v1"
 }
+if (-not $BaselineEvidenceStateRoot) {
+    $BaselineEvidenceStateRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\evidence-orchestration-state-v1"
+}
+if (-not $EvidenceStateRebuildOutputRoot) {
+    $EvidenceStateRebuildOutputRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\evidence-state-rebuild-from-stage6-routing-v1"
+}
+if (-not $ReleaseEvidenceFieldQueryOutputRoot) {
+    $ReleaseEvidenceFieldQueryOutputRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\release-evidence-field-query-from-stage6-routing-v1"
+}
 if (-not $OutputRoot) {
     $OutputRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\stage6-review-action-result-routing-v1"
 }
@@ -27,11 +40,17 @@ $env:PYTHONIOENCODING = "utf-8"
 $argsList = @(
     "-m", "storage.stage6_review_action_result_routing",
     "--dispatch-closeout-root", $DispatchCloseoutRoot,
+    "--baseline-evidence-state-root", $BaselineEvidenceStateRoot,
+    "--evidence-state-rebuild-output-root", $EvidenceStateRebuildOutputRoot,
+    "--release-evidence-field-query-output-root", $ReleaseEvidenceFieldQueryOutputRoot,
     "--output-root", $OutputRoot
 )
 
 if ($DispatchCloseoutJson) {
     $argsList += @("--dispatch-closeout-json", $DispatchCloseoutJson)
+}
+if ($BaselineEvidenceStateJson) {
+    $argsList += @("--baseline-evidence-state-json", $BaselineEvidenceStateJson)
 }
 if ($EmitJson) {
     $argsList += "--json"

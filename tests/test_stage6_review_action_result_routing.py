@@ -24,9 +24,13 @@ class Stage6ReviewActionResultRoutingTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
             _write_closeout(root / "closeout")
+            _write_baseline_evidence_state(root / "state")
 
             result = build_stage6_review_action_result_routing(
                 dispatch_closeout_root=root / "closeout",
+                baseline_evidence_state_root=root / "state",
+                evidence_state_rebuild_output_root=root / "state-rebuild",
+                release_evidence_field_query_output_root=root / "field-query",
                 output_root=root / "out",
                 created_at="2026-05-19T00:00:00+08:00",
             )
@@ -36,6 +40,7 @@ class Stage6ReviewActionResultRoutingTests(unittest.TestCase):
             self.assertEqual(summary["result_routing_count"], 4)
             self.assertEqual(summary["evidence_state_rebuild_ready_count"], 2)
             self.assertEqual(summary["release_evidence_field_query_ready_count"], 1)
+            self.assertEqual(summary["recommended_command_ready_count"], 3)
             self.assertEqual(summary["waiting_for_controlled_execution_count"], 1)
             records = _records_by_project(result["manifest"]["result_routing_table"]["records"])
             self.assertEqual(
@@ -44,6 +49,10 @@ class Stage6ReviewActionResultRoutingTests(unittest.TestCase):
             )
             self.assertEqual(records["PROJ-ORIG"]["input_arg_name_for_result_json"], "OriginalBacktraceContinuationJson")
             self.assertIn("stage16_storage_json", records["PROJ-ORIG"]["required_baseline_input_refs"])
+            self.assertIn("Stage16StorageJson", records["PROJ-ORIG"]["resolved_baseline_input_refs"])
+            self.assertIn("-Stage16StorageJson", records["PROJ-ORIG"]["recommended_command"])
+            self.assertIn("-OriginalBacktraceContinuationJson", records["PROJ-ORIG"]["recommended_command"])
+            self.assertIn("tmp/original-continuation.json", records["PROJ-ORIG"]["recommended_command"])
             self.assertEqual(
                 records["PROJ-SURVEY"]["next_task_type"],
                 "REBUILD_EVIDENCE_STATE_WITH_DESIGN_SURVEY_PUBLIC_REGISTRY_READBACK",
@@ -52,8 +61,10 @@ class Stage6ReviewActionResultRoutingTests(unittest.TestCase):
                 records["PROJ-SURVEY"]["input_arg_name_for_result_json"],
                 "DesignSurveyPublicRegistryReadbackJson",
             )
+            self.assertIn("-DesignSurveyPublicRegistryReadbackJson", records["PROJ-SURVEY"]["recommended_command"])
             self.assertEqual(records["PROJ-REL"]["next_task_type"], "RUN_RELEASE_EVIDENCE_FIELD_QUERY_PROBE")
             self.assertEqual(records["PROJ-REL"]["input_arg_name_for_result_json"], "ReleaseEvidenceAdapterPlanJson")
+            self.assertIn("-ReleaseEvidenceAdapterPlanJson", records["PROJ-REL"]["recommended_command"])
             self.assertEqual(
                 records["PROJ-WAIT"]["result_routing_state"],
                 "WAITING_FOR_CONTROLLED_EXECUTION",
@@ -134,6 +145,23 @@ def _write_closeout(root: Path) -> None:
                 "summary": {"dispatch_closeout_count": len(records)},
             },
             "summary": {"dispatch_closeout_count": len(records)},
+        },
+    )
+
+
+def _write_baseline_evidence_state(root: Path) -> None:
+    _write_json(
+        root / "evidence-orchestration-state-v1.json",
+        {
+            "manifest": {
+                "manifest_id": "EVIDENCE-STATE-BASELINE",
+                "source_stage16_storage_json": "tmp/storage.json",
+                "source_p13b_company_history_json": "tmp/p13b/company-history-overlap-triage-v1.json",
+                "source_original_notice_backtrace_json": "tmp/original/original-notice-backtrace-v1.json",
+                "source_design_survey_adapter_plan_json": "tmp/design/design-survey-responsible-adapter-plan-v1.json",
+                "source_design_survey_public_registry_readback_json": "tmp/old-registry/design-survey-public-registry-readback-v1.json",
+            },
+            "summary": {},
         },
     )
 
