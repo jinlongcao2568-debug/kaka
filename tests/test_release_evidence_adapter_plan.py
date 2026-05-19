@@ -107,7 +107,35 @@ class ReleaseEvidenceAdapterPlanTests(unittest.TestCase):
                 task["non_guangdong_release_adapter_rule"],
                 "NON_GUANGDONG_HISTORY_PROJECT_USE_JURISDICTION_LOCAL_HOUSING_AUTHORITY_ADAPTER",
             )
+            self.assertEqual(task["jurisdiction_adapter_resolution_state"], "JURISDICTION_LOCAL_HOUSING_ADAPTER_PLANNED")
+            self.assertTrue(task["no_fallback_to_guangdong_or_guangzhou"])
             self.assertEqual(result["summary"]["local_housing_region_counts"]["CN-ZJ"], 4)
+            self.assertEqual(
+                result["summary"]["jurisdiction_adapter_resolution_state_counts"],
+                {"JURISDICTION_LOCAL_HOUSING_ADAPTER_PLANNED": 4},
+            )
+
+    def test_non_guangdong_registry_fills_source_fields_for_plan_only_stub(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_batch_closeout(root / "batch")
+            _write_p13b_operational(root / "p13b", region_code="CN-ZJ", include_source_fields=False)
+
+            result = build_release_evidence_adapter_plan(
+                batch_closeout_root=root / "batch",
+                p13b_operational_closeout_root=root / "p13b",
+                output_root=root / "out",
+            )
+
+            task = result["manifest"]["release_evidence_adapter_task_records"][0]
+            self.assertEqual(task["source_profile_id"], "ZHEJIANG-JZSC-PUBLIC-SERVICE")
+            self.assertEqual(task["source_entry_id"], "ZJ-JZSC-PUBLIC-SERVICE")
+            self.assertEqual(task["next_adapter"], "zhejiang_construction_market_public_service_query_adapter")
+            self.assertTrue(task["no_fallback_to_guangdong_or_guangzhou"])
+            self.assertEqual(
+                task["jurisdiction_local_housing_adapter"]["source_selection_scope"],
+                "HISTORICAL_PROJECT_JURISDICTION",
+            )
 
     def test_a_signal_without_source_tasks_is_explicitly_plan_required_not_success(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -184,7 +212,7 @@ def _write_batch_closeout(root: Path) -> None:
     )
 
 
-def _write_p13b_operational(root: Path, *, region_code: str = "CN-GD") -> None:
+def _write_p13b_operational(root: Path, *, region_code: str = "CN-GD", include_source_fields: bool = True) -> None:
     non_gd_rule = (
         "NON_GUANGDONG_HISTORY_PROJECT_USE_JURISDICTION_LOCAL_HOUSING_AUTHORITY_ADAPTER"
         if region_code != "CN-GD"
@@ -207,6 +235,7 @@ def _write_p13b_operational(root: Path, *, region_code: str = "CN-GD") -> None:
             subsource_id="permit_contract_public",
             region_code=region_code,
             non_gd_rule=non_gd_rule,
+            include_source_fields=include_source_fields,
         ),
         _task(
             task_id="TASK-A-CC",
@@ -214,6 +243,7 @@ def _write_p13b_operational(root: Path, *, region_code: str = "CN-GD") -> None:
             subsource_id="completion_change_public",
             region_code=region_code,
             non_gd_rule=non_gd_rule,
+            include_source_fields=include_source_fields,
         ),
     ]
     _write_json(
@@ -236,8 +266,9 @@ def _task(
     subsource_id: str,
     region_code: str,
     non_gd_rule: str,
+    include_source_fields: bool = True,
 ) -> dict[str, Any]:
-    return {
+    row = {
         "release_evidence_probe_task_id": task_id,
         "release_evidence_probe_plan_id": "PLAN-A",
         "project_id": "PROJ-A",
@@ -252,20 +283,26 @@ def _task(
         "local_housing_authority_adapter_scope": "HISTORICAL_PROJECT_JURISDICTION",
         "local_housing_authority_adapter_region_code": region_code,
         "non_guangdong_release_adapter_rule": non_gd_rule,
-        "source_entry_id": "LOCAL-HOUSING",
-        "subsource_id": subsource_id,
-        "source_profile_id": "LOCAL-HOUSING-PROFILE",
-        "source_name": "地方住建公开源",
-        "source_url": "https://example.test/local-housing",
         "trigger_source_url": "https://data.ggzy.gov.cn/yjcx/index/bid_show?id=1",
         "query_params": {
             "projectName": "A 项目",
             "candidateCompanyName": "A 公司",
             "projectManagerName": "张三",
         },
-        "next_adapter": "local_housing_authority_release_evidence_adapter_required",
         "runtime_status": "PLAN_ONLY_UNTIL_REGION_ADAPTER_VERIFIED",
     }
+    if include_source_fields:
+        row.update(
+            {
+                "source_entry_id": "LOCAL-HOUSING",
+                "subsource_id": subsource_id,
+                "source_profile_id": "LOCAL-HOUSING-PROFILE",
+                "source_name": "地方住建公开源",
+                "source_url": "https://example.test/local-housing",
+                "next_adapter": "local_housing_authority_release_evidence_adapter_required",
+            }
+        )
+    return row
 
 
 def _records_by_project(records: list[Mapping[str, Any]]) -> dict[str, Mapping[str, Any]]:

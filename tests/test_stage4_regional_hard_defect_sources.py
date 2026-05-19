@@ -12,6 +12,8 @@ if str(SRC) not in sys.path:
 
 from stage4_verification.regional_hard_defect_sources import (  # noqa: E402
     build_regional_hard_defect_source_plan,
+    list_release_evidence_local_housing_adapter_registry,
+    resolve_release_evidence_local_housing_adapter,
 )
 
 
@@ -117,6 +119,35 @@ class Stage4RegionalHardDefectSourcePlanTests(unittest.TestCase):
             "jiangsu_construction_market_integrated_platform_query_adapter",
             plan["next_required_runtime_adapters"],
         )
+
+    def test_release_evidence_registry_resolves_non_guangdong_jurisdiction_without_gd_fallback(self) -> None:
+        entry = resolve_release_evidence_local_housing_adapter("CN-ZJ")
+
+        self.assertEqual(entry["adapter_resolution_state"], "JURISDICTION_LOCAL_HOUSING_ADAPTER_PLANNED")
+        self.assertEqual(entry["region_code"], "CN-ZJ")
+        self.assertEqual(entry["source_selection_scope"], "HISTORICAL_PROJECT_JURISDICTION")
+        self.assertEqual(entry["source_profile_id"], "ZHEJIANG-JZSC-PUBLIC-SERVICE")
+        self.assertEqual(entry["next_adapter"], "zhejiang_construction_market_public_service_query_adapter")
+        self.assertTrue(entry["no_fallback_to_guangdong_or_guangzhou"])
+        self.assertIn("construction_permit", entry["target_source_types"])
+        self.assertIn("contract_public_info", entry["target_source_types"])
+        self.assertIn("completion_filing", entry["target_source_types"])
+        self.assertIn("project_manager_change_notice", entry["target_source_types"])
+
+    def test_release_evidence_registry_keeps_unknown_region_as_adapter_required(self) -> None:
+        entry = resolve_release_evidence_local_housing_adapter("CN-XJ")
+
+        self.assertEqual(entry["adapter_resolution_state"], "JURISDICTION_LOCAL_HOUSING_ADAPTER_NOT_REGISTERED")
+        self.assertEqual(entry["next_adapter"], "local_housing_authority_release_evidence_adapter_required")
+        self.assertEqual(entry["source_profile_id"], "")
+        self.assertTrue(entry["no_fallback_to_guangdong_or_guangzhou"])
+
+    def test_release_evidence_registry_lists_major_non_guangdong_regions(self) -> None:
+        registry = list_release_evidence_local_housing_adapter_registry()
+        regions = {entry["region_code"] for entry in registry}
+
+        for region_code in ("CN-ZJ", "CN-SC", "CN-JS", "CN-HB", "CN-SD", "CN-HN", "CN-HA"):
+            self.assertIn(region_code, regions)
 
 
 if __name__ == "__main__":

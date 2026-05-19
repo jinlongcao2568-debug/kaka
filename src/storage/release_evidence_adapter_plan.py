@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping
 
 from shared.utils import utc_now_iso
+from stage4_verification.regional_hard_defect_sources import resolve_release_evidence_local_housing_adapter
 
 
 RELEASE_EVIDENCE_ADAPTER_PLAN_KIND = "release_evidence_adapter_plan_v1_manifest"
@@ -187,6 +188,11 @@ def _project_plan_record(
     else:
         plan_state = "NO_A_SIGNAL_RELEASE_EVIDENCE_NOT_PLANNED"
         next_action = str(closeout.get("next_action_label") or "keep_internal_review_without_release_adapter_plan")
+    region_code = str(
+        source_plan.get("release_evidence_query_region_code")
+        or _first_non_empty(task.get("release_evidence_query_region_code") for task in source_tasks)
+    )
+    jurisdiction_adapter = resolve_release_evidence_local_housing_adapter(region_code) if region_code else {}
     return {
         "release_evidence_project_plan_id": _stable_id("REL-EVIDENCE-PROJECT-PLAN", project_id, closeout_state),
         "project_id": project_id,
@@ -197,10 +203,7 @@ def _project_plan_record(
         "release_evidence_project_plan_state": plan_state,
         "source_release_evidence_probe_task_count": len(source_tasks),
         "normalized_target_types": normalized_targets,
-        "release_evidence_query_region_code": str(
-            source_plan.get("release_evidence_query_region_code")
-            or _first_non_empty(task.get("release_evidence_query_region_code") for task in source_tasks)
-        ),
+        "release_evidence_query_region_code": region_code,
         "release_evidence_query_region_basis": str(
             source_plan.get("release_evidence_query_region_basis")
             or _first_non_empty(task.get("release_evidence_query_region_basis") for task in source_tasks)
@@ -216,6 +219,11 @@ def _project_plan_record(
         "non_guangdong_release_adapter_rule": str(
             source_plan.get("non_guangdong_release_adapter_rule")
             or _first_non_empty(task.get("non_guangdong_release_adapter_rule") for task in source_tasks)
+        ),
+        "jurisdiction_local_housing_adapter": jurisdiction_adapter,
+        "jurisdiction_adapter_resolution_state": str(jurisdiction_adapter.get("adapter_resolution_state") or ""),
+        "no_fallback_to_guangdong_or_guangzhou": bool(
+            jurisdiction_adapter.get("no_fallback_to_guangdong_or_guangzhou")
         ),
         "allowed_adapter_result_states": list(ALLOWED_ADAPTER_RESULT_STATES),
         "recommended_next_action": next_action,
@@ -239,6 +247,13 @@ def _adapter_tasks_for_project(
         return []
     rows: list[dict[str, Any]] = []
     for source_task in source_tasks:
+        region_code = str(
+            source_task.get("local_housing_authority_adapter_region_code")
+            or source_task.get("release_evidence_query_region_code")
+            or source_plan.get("release_evidence_query_region_code")
+            or ""
+        )
+        jurisdiction_adapter = resolve_release_evidence_local_housing_adapter(region_code) if region_code else {}
         for target_type in _normalized_target_types(source_task):
             policy = TARGET_POLICY.get(target_type)
             if not policy:
@@ -269,16 +284,47 @@ def _adapter_tasks_for_project(
                         source_task.get("local_housing_authority_adapter_region_code") or ""
                     ),
                     "non_guangdong_release_adapter_rule": str(source_task.get("non_guangdong_release_adapter_rule") or ""),
-                    "source_entry_id": str(source_task.get("source_entry_id") or ""),
+                    "jurisdiction_local_housing_adapter": jurisdiction_adapter,
+                    "jurisdiction_adapter_resolution_state": str(
+                        jurisdiction_adapter.get("adapter_resolution_state") or ""
+                    ),
+                    "no_fallback_to_guangdong_or_guangzhou": bool(
+                        jurisdiction_adapter.get("no_fallback_to_guangdong_or_guangzhou")
+                    ),
+                    "source_entry_id": str(
+                        source_task.get("source_entry_id")
+                        or jurisdiction_adapter.get("entry_id")
+                        or ""
+                    ),
                     "subsource_id": str(source_task.get("subsource_id") or ""),
-                    "source_profile_id": str(source_task.get("source_profile_id") or ""),
-                    "source_name": str(source_task.get("source_name") or ""),
-                    "source_url": str(source_task.get("source_url") or ""),
+                    "source_profile_id": str(
+                        source_task.get("source_profile_id")
+                        or jurisdiction_adapter.get("source_profile_id")
+                        or ""
+                    ),
+                    "source_name": str(
+                        source_task.get("source_name")
+                        or jurisdiction_adapter.get("source_name")
+                        or ""
+                    ),
+                    "source_url": str(
+                        source_task.get("source_url")
+                        or jurisdiction_adapter.get("source_url")
+                        or ""
+                    ),
                     "api_url": str(source_task.get("api_url") or ""),
-                    "official_reference_url": str(source_task.get("official_reference_url") or ""),
+                    "official_reference_url": str(
+                        source_task.get("official_reference_url")
+                        or jurisdiction_adapter.get("official_reference_url")
+                        or ""
+                    ),
                     "trigger_source_url": str(source_task.get("trigger_source_url") or ""),
                     "query_params": dict(source_task.get("query_params") or {}),
-                    "next_adapter": str(source_task.get("next_adapter") or ""),
+                    "next_adapter": str(
+                        source_task.get("next_adapter")
+                        or jurisdiction_adapter.get("next_adapter")
+                        or ""
+                    ),
                     "runtime_status": str(source_task.get("runtime_status") or ""),
                     "adapter_result_state": "PLAN_ONLY_NOT_EXECUTED",
                     "allowed_adapter_result_states": list(ALLOWED_ADAPTER_RESULT_STATES),
@@ -333,6 +379,9 @@ def _summary(
         "adapter_task_target_type_counts": _counts(record.get("release_evidence_target_type") for record in adapter_task_records),
         "adapter_task_grade_on_match_counts": _counts(record.get("release_evidence_grade_on_match") for record in adapter_task_records),
         "local_housing_region_counts": _counts(record.get("local_housing_authority_adapter_region_code") for record in adapter_task_records),
+        "jurisdiction_adapter_resolution_state_counts": _counts(
+            record.get("jurisdiction_adapter_resolution_state") for record in adapter_task_records
+        ),
         "operational_closeout_supplied": operational_supplied,
         "allowed_adapter_result_states": list(ALLOWED_ADAPTER_RESULT_STATES),
         "blocking_reasons": blocking_reasons,

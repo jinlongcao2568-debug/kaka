@@ -28,6 +28,15 @@ MAJOR_TARGET_REGION_REQUIRED_SOURCE_TYPES = (
     "personnel_public_record",
     "performance_public_record",
 )
+RELEASE_EVIDENCE_LOCAL_HOUSING_SOURCE_TYPES = (
+    "construction_permit",
+    "contract_public_info",
+    "completion_filing",
+    "project_manager_change_notice",
+)
+NON_GUANGDONG_RELEASE_ADAPTER_RULE = (
+    "NON_GUANGDONG_HISTORY_PROJECT_USE_JURISDICTION_LOCAL_HOUSING_AUTHORITY_ADAPTER"
+)
 
 MAJOR_TARGET_REGION_SOURCE_CATALOG = (
     {
@@ -474,6 +483,97 @@ def _major_target_region_next_adapters() -> list[str]:
     return [str(item["next_adapter"]) for item in MAJOR_TARGET_REGION_SOURCE_CATALOG]
 
 
+def list_release_evidence_local_housing_adapter_registry() -> list[dict[str, Any]]:
+    return [
+        resolve_release_evidence_local_housing_adapter(str(item["region_code"]))
+        for item in MAJOR_TARGET_REGION_SOURCE_CATALOG
+    ]
+
+
+def resolve_release_evidence_local_housing_adapter(region_code: str | None) -> dict[str, Any]:
+    normalized = str(region_code or "").strip().upper()
+    if not normalized:
+        return _release_evidence_adapter_missing(
+            requested_region_code="",
+            adapter_resolution_state="REGION_UNRESOLVED_ADAPTER_NOT_PLANNED",
+        )
+    if normalized == "CN-GD":
+        return {
+            "requested_region_code": normalized,
+            "region_code": "CN-GD",
+            "region_name": "广东",
+            "adapter_resolution_state": "GUANGDONG_LOCAL_FIELD_ADAPTER_AVAILABLE",
+            "source_selection_scope": "HISTORICAL_PROJECT_JURISDICTION",
+            "source_profile_id": "GUANGZHOU-ZFCJ-CREDIT-DOUBLE-PUBLICITY",
+            "source_name": "广州市住房和城乡建设局 / 信用信息双公示与项目信息公开",
+            "source_url": "https://zfcj.gz.gov.cn/zfcj/xyxx/",
+            "official_reference_url": "https://zfcj.gz.gov.cn/",
+            "source_family": "current_city_housing_credit_publicity",
+            "target_source_types": list(RELEASE_EVIDENCE_LOCAL_HOUSING_SOURCE_TYPES),
+            "runtime_status": "CITY_PUBLIC_API_QUERY_ADAPTER_AVAILABLE_WITH_VERIFIED_SUBSOURCES",
+            "next_adapter": "guangdong_local_field_query_probe_v1",
+            "non_guangdong_release_adapter_rule": "",
+            "no_fallback_to_guangdong_or_guangzhou": False,
+            "default_adapter_result_state_until_runtime": "NEEDS_BROWSER",
+            "query_miss_is_not_clearance": True,
+            "customer_visible_allowed": False,
+            "no_legal_conclusion": True,
+        }
+    for item in MAJOR_TARGET_REGION_SOURCE_CATALOG:
+        if str(item["region_code"]).upper() != normalized:
+            continue
+        return {
+            "requested_region_code": normalized,
+            "region_code": str(item["region_code"]),
+            "region_name": str(item["region_name"]),
+            "adapter_resolution_state": "JURISDICTION_LOCAL_HOUSING_ADAPTER_PLANNED",
+            "source_selection_scope": "HISTORICAL_PROJECT_JURISDICTION",
+            "entry_id": str(item["entry_id"]),
+            "source_profile_id": str(item["source_profile_id"]),
+            "source_name": str(item["source_name"]),
+            "source_url": str(item["source_url"]),
+            "official_reference_url": str(item["official_reference_url"]),
+            "source_family": "regional_construction_market_public_service",
+            "target_source_types": list(RELEASE_EVIDENCE_LOCAL_HOUSING_SOURCE_TYPES),
+            "runtime_status": str(item["runtime_status"]),
+            "next_adapter": str(item["next_adapter"]),
+            "non_guangdong_release_adapter_rule": NON_GUANGDONG_RELEASE_ADAPTER_RULE,
+            "no_fallback_to_guangdong_or_guangzhou": True,
+            "default_adapter_result_state_until_runtime": "NEEDS_BROWSER",
+            "query_miss_is_not_clearance": True,
+            "customer_visible_allowed": False,
+            "no_legal_conclusion": True,
+        }
+    return _release_evidence_adapter_missing(
+        requested_region_code=normalized,
+        adapter_resolution_state="JURISDICTION_LOCAL_HOUSING_ADAPTER_NOT_REGISTERED",
+    )
+
+
+def _release_evidence_adapter_missing(*, requested_region_code: str, adapter_resolution_state: str) -> dict[str, Any]:
+    return {
+        "requested_region_code": requested_region_code,
+        "region_code": requested_region_code,
+        "region_name": "",
+        "adapter_resolution_state": adapter_resolution_state,
+        "source_selection_scope": "HISTORICAL_PROJECT_JURISDICTION",
+        "source_profile_id": "",
+        "source_name": "",
+        "source_url": "",
+        "official_reference_url": "",
+        "source_family": "local_housing_authority_release_evidence_adapter_required",
+        "target_source_types": list(RELEASE_EVIDENCE_LOCAL_HOUSING_SOURCE_TYPES),
+        "runtime_status": "LOCAL_HOUSING_AUTHORITY_ADAPTER_REQUIRED",
+        "next_adapter": "local_housing_authority_release_evidence_adapter_required",
+        "non_guangdong_release_adapter_rule": NON_GUANGDONG_RELEASE_ADAPTER_RULE if requested_region_code != "CN-GD" else "",
+        "no_fallback_to_guangdong_or_guangzhou": requested_region_code != "CN-GD",
+        "default_adapter_result_state_until_runtime": "NEEDS_BROWSER",
+        "query_miss_is_not_clearance": True,
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
+
+
 def _normalized_source_types(values: list[str] | tuple[str, ...] | set[str] | None) -> set[str]:
     return {str(value) for value in (values or []) if str(value).strip()}
 
@@ -481,5 +581,8 @@ def _normalized_source_types(values: list[str] | tuple[str, ...] | set[str] | No
 __all__ = [
     "GUANGDONG_HARD_DEFECT_REQUIRED_SOURCE_TYPES",
     "MAJOR_TARGET_REGION_SOURCE_CATALOG",
+    "RELEASE_EVIDENCE_LOCAL_HOUSING_SOURCE_TYPES",
     "build_regional_hard_defect_source_plan",
+    "list_release_evidence_local_housing_adapter_registry",
+    "resolve_release_evidence_local_housing_adapter",
 ]
