@@ -127,6 +127,11 @@ class EvidenceStage6FactPackageTests(unittest.TestCase):
 
             plan = result["manifest"]["stage6_review_action_plan_table"]["records"][0]
             review = result["manifest"]["review_queue_table"]["records"][0]
+            report = result["manifest"]["report_record_table"]["records"][0]
+            brief = json.loads(Path(report["brief_path"]).read_text(encoding="utf-8"))
+            pack = json.loads(Path(report["evidence_pack_path"]).read_text(encoding="utf-8"))
+            summary = json.loads(Path(report["review_summary_path"]).read_text(encoding="utf-8"))
+            summary_md = Path(report["review_summary_markdown_path"]).read_text(encoding="utf-8")
             self.assertFalse(plan["automated_dispatch_allowed"])
             self.assertEqual(plan["dispatch_block_reason"], "terminal_source_gap_no_delta_manual_review_only")
             self.assertIn(
@@ -137,6 +142,16 @@ class EvidenceStage6FactPackageTests(unittest.TestCase):
                 review["recommended_next_action"],
                 "park_manual_review_until_new_source_or_operator_override_without_clearance_claim",
             )
+            self.assertEqual(brief["manual_hold_state"], "MANUAL_REVIEW_HOLD_NO_AUTOMATED_DISPATCH")
+            self.assertEqual(
+                pack["manual_hold"]["manual_hold_reason"],
+                "terminal_source_gap_no_delta_manual_review_only",
+            )
+            self.assertEqual(summary["manual_hold_state"], "MANUAL_REVIEW_HOLD_NO_AUTOMATED_DISPATCH")
+            self.assertIn("new_official_original_notice_source_or_snapshot_available", summary["manual_hold_reopen_conditions"])
+            self.assertIn("REOPEN_WITH_NEW_SOURCE", summary["operator_decision_options"])
+            self.assertIn("Manual Hold:", summary_md)
+            self.assertIn("MANUAL_REVIEW_HOLD_NO_AUTOMATED_DISPATCH", summary_md)
 
     def test_design_survey_registry_artifact_gets_qualification_service_clock_action_plan(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

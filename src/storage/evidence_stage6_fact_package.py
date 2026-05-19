@@ -394,6 +394,8 @@ def _write_project_package_files(
         evidence_artifacts = [
             artifact for artifact in _list(pack.get("evidence_artifacts")) if isinstance(artifact, Mapping)
         ]
+        action_plan = action_plans.get(project_id, {})
+        manual_hold = _manual_hold_record(pack=pack, review_action_plan=action_plan)
         brief = {
             "project_id": project_id,
             "project_name": str(pack.get("project_name") or ""),
@@ -410,8 +412,11 @@ def _write_project_package_files(
             ),
             "review_lane": queues.get(project_id, {}).get("review_lane", ""),
             "recommended_next_action": actions.get(project_id, {}).get("recommended_next_step", ""),
-            "review_action_plan_state": action_plans.get(project_id, {}).get("review_action_plan_state", ""),
-            "review_action_family": action_plans.get(project_id, {}).get("action_family", ""),
+            "review_action_plan_state": action_plan.get("review_action_plan_state", ""),
+            "review_action_family": action_plan.get("action_family", ""),
+            "manual_hold_state": manual_hold.get("manual_hold_state", ""),
+            "manual_hold_reason": manual_hold.get("manual_hold_reason", ""),
+            "manual_hold_reopen_conditions": _list(manual_hold.get("reopen_conditions")),
             "customer_visible_allowed": False,
             "no_legal_conclusion": True,
             "query_miss_is_not_clearance": True,
@@ -422,7 +427,7 @@ def _write_project_package_files(
             report=reports.get(project_id, {}),
             review_queue=queues.get(project_id, {}),
             legal_action=actions.get(project_id, {}),
-            review_action_plan=action_plans.get(project_id, {}),
+            review_action_plan=action_plan,
             evidence_artifacts=evidence_artifacts,
         )
         evidence_pack = {
@@ -431,8 +436,9 @@ def _write_project_package_files(
             "report_record": reports.get(project_id, {}),
             "review_queue": queues.get(project_id, {}),
             "legal_action_recommendation": actions.get(project_id, {}),
-            "stage6_review_action_plan": action_plans.get(project_id, {}),
+            "stage6_review_action_plan": action_plan,
             "internal_evidence_pack": dict(pack),
+            "manual_hold": manual_hold,
             "review_summary": review_summary,
             "customer_visible_allowed": False,
             "no_legal_conclusion": True,
@@ -440,7 +446,7 @@ def _write_project_package_files(
         }
         _write_json(project_dir / "stage6-internal-brief.json", brief)
         _write_json(project_dir / "stage6-internal-evidence-pack.json", evidence_pack)
-        _write_json(project_dir / "stage6-review-action-plan.json", action_plans.get(project_id, {}))
+        _write_json(project_dir / "stage6-review-action-plan.json", action_plan)
         _write_json(project_dir / "stage6-review-summary.json", review_summary)
         (project_dir / "stage6-review-summary.md").write_text(
             _review_summary_markdown(review_summary),
@@ -458,6 +464,7 @@ def _review_summary_record(
     review_action_plan: Mapping[str, Any],
     evidence_artifacts: list[Mapping[str, Any]],
 ) -> dict[str, Any]:
+    manual_hold = _manual_hold_record(pack=pack, review_action_plan=review_action_plan)
     return {
         "review_summary_state": "INTERNAL_REVIEW_SUMMARY_READY",
         "project_id": str(pack.get("project_id") or ""),
@@ -483,6 +490,11 @@ def _review_summary_record(
         "review_action_plan_state": str(review_action_plan.get("review_action_plan_state") or ""),
         "review_action_family": str(review_action_plan.get("action_family") or ""),
         "review_action_plan_path": str(report.get("review_action_plan_path") or ""),
+        "manual_hold": manual_hold,
+        "manual_hold_state": str(manual_hold.get("manual_hold_state") or ""),
+        "manual_hold_reason": str(manual_hold.get("manual_hold_reason") or ""),
+        "manual_hold_reopen_conditions": _list(manual_hold.get("reopen_conditions")),
+        "operator_decision_options": _list(manual_hold.get("operator_decision_options")),
         "review_action_items": [
             _review_action_item_summary(item)
             for item in _list(review_action_plan.get("action_items"))
@@ -494,7 +506,7 @@ def _review_summary_record(
         "source_refs": dict(pack.get("source_refs") or {}),
         "review_summary_path": str(report.get("review_summary_path") or ""),
         "review_summary_markdown_path": str(report.get("review_summary_markdown_path") or ""),
-        "review_checklist": _review_checklist(pack, evidence_artifacts),
+        "review_checklist": _review_checklist(pack, evidence_artifacts, manual_hold),
         "customer_visible_allowed": False,
         "external_send_enabled": False,
         "no_legal_conclusion": True,
@@ -543,7 +555,61 @@ def _review_artifact_summary(artifact: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
-def _review_checklist(pack: Mapping[str, Any], evidence_artifacts: list[Mapping[str, Any]]) -> list[str]:
+def _manual_hold_record(*, pack: Mapping[str, Any], review_action_plan: Mapping[str, Any]) -> dict[str, Any]:
+    dispatch_block_reason = str(review_action_plan.get("dispatch_block_reason") or "").strip()
+    automated_dispatch_allowed = bool(review_action_plan.get("automated_dispatch_allowed", True))
+    terminal_no_delta = (
+        _is_terminal_source_gap_no_delta(pack)
+        or dispatch_block_reason == "terminal_source_gap_no_delta_manual_review_only"
+    )
+    if terminal_no_delta:
+        return {
+            "manual_hold_state": "MANUAL_REVIEW_HOLD_NO_AUTOMATED_DISPATCH",
+            "manual_hold_reason": "terminal_source_gap_no_delta_manual_review_only",
+            "automated_dispatch_allowed": False,
+            "reopen_conditions": [
+                "new_official_original_notice_source_or_snapshot_available",
+                "operator_confirms_manual_retry_scope_and_budget",
+                "new_release_evidence_source_or_project_local_authority_path_available",
+                "prior_blocker_resolved_without_clearance_claim",
+            ],
+            "operator_decision_options": [
+                "KEEP_MANUAL_HOLD",
+                "REOPEN_WITH_NEW_SOURCE",
+                "CLOSE_AS_D_EVIDENCE_INSUFFICIENT_INTERNAL_ONLY",
+            ],
+            "customer_visible_allowed": False,
+            "no_legal_conclusion": True,
+            "query_miss_is_not_clearance": True,
+        }
+    if not automated_dispatch_allowed:
+        return {
+            "manual_hold_state": "MANUAL_ONLY_ACTION_PLAN",
+            "manual_hold_reason": dispatch_block_reason or "action_plan_marked_manual_only",
+            "automated_dispatch_allowed": False,
+            "reopen_conditions": ["operator_updates_action_plan_to_allow_controlled_dispatch"],
+            "operator_decision_options": ["KEEP_MANUAL_HOLD", "REOPEN_WITH_OPERATOR_OVERRIDE"],
+            "customer_visible_allowed": False,
+            "no_legal_conclusion": True,
+            "query_miss_is_not_clearance": True,
+        }
+    return {
+        "manual_hold_state": "AUTOMATED_DISPATCH_ALLOWED",
+        "manual_hold_reason": "",
+        "automated_dispatch_allowed": True,
+        "reopen_conditions": [],
+        "operator_decision_options": [],
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+        "query_miss_is_not_clearance": True,
+    }
+
+
+def _review_checklist(
+    pack: Mapping[str, Any],
+    evidence_artifacts: list[Mapping[str, Any]],
+    manual_hold: Mapping[str, Any],
+) -> list[str]:
     checks = [
         "review_current_candidate_binding_and_stage3_fields",
         "keep_internal_only_until_manual_review_completes",
@@ -558,6 +624,14 @@ def _review_checklist(pack: Mapping[str, Any], evidence_artifacts: list[Mapping[
         )
     if str(pack.get("evidence_state") or "").startswith("D_"):
         checks.append("record_source_blocker_or_missing_field_before_retry")
+    if str(manual_hold.get("manual_hold_state") or "") == "MANUAL_REVIEW_HOLD_NO_AUTOMATED_DISPATCH":
+        checks.extend(
+            [
+                "confirm_terminal_source_gap_lineage_before_closing_auto_loop",
+                "require_new_source_or_operator_override_before_retry",
+                "record_manual_hold_decision_without_clearance_claim",
+            ]
+        )
     return _dedupe(checks)
 
 
@@ -573,6 +647,8 @@ def _review_summary_markdown(summary: Mapping[str, Any]) -> str:
         f"Responsible Person: {summary.get('responsible_person_name') or ''}",
         f"Recommended Next Action: {summary.get('recommended_next_action') or ''}",
         f"Review Action Family: {summary.get('review_action_family') or ''}",
+        f"Manual Hold State: {summary.get('manual_hold_state') or ''}",
+        f"Manual Hold Reason: {summary.get('manual_hold_reason') or ''}",
         "",
         "Safety Boundary:",
         f"Customer Visible Allowed: {str(bool(summary.get('customer_visible_allowed'))).lower()}",
@@ -595,6 +671,21 @@ def _review_summary_markdown(summary: Mapping[str, Any]) -> str:
             + f"match_scope={artifact.get('registered_unit_match_scope') or ''}; "
             + f"snapshot_sha256={artifact.get('source_snapshot_sha256') or ''}"
         )
+    manual_hold = summary.get("manual_hold") if isinstance(summary.get("manual_hold"), Mapping) else {}
+    if str(manual_hold.get("manual_hold_state") or "") in {
+        "MANUAL_REVIEW_HOLD_NO_AUTOMATED_DISPATCH",
+        "MANUAL_ONLY_ACTION_PLAN",
+    }:
+        lines.extend(["", "Manual Hold:"])
+        lines.append(f"- State: {manual_hold.get('manual_hold_state') or ''}")
+        lines.append(f"- Reason: {manual_hold.get('manual_hold_reason') or ''}")
+        lines.append(f"- Automated Dispatch Allowed: {str(bool(manual_hold.get('automated_dispatch_allowed'))).lower()}")
+        lines.append("- Reopen Conditions:")
+        for item in _list(manual_hold.get("reopen_conditions")):
+            lines.append(f"- {item}")
+        lines.append("- Operator Decision Options:")
+        for item in _list(manual_hold.get("operator_decision_options")):
+            lines.append(f"- {item}")
     lines.extend(["", "Review Action Plan:"])
     action_items = [item for item in _list(summary.get("review_action_items")) if isinstance(item, Mapping)]
     if not action_items:
