@@ -1,0 +1,77 @@
+version: 1
+plan_id: STAGE1_6_PRIORITY_EXECUTION_PLAN
+status: ACTIVE
+updated_at: "2026-05-20"
+owner_directive: "按 Stage1-6 完整缺口清单，先按影响实战判断的优先级推进，不先跳 Stage7。"
+execution_mode: DIRECT_DEV_DEFAULT
+live_external_actions_enabled: false
+customer_visible_actions_enabled: false
+automatic_refund_enabled: false
+ordering_rule: "先解决 owner 看不懂和 Stage4 证据链短板，再扩大 Stage1-3 稳定性，最后做 Stage5 校准和 Stage1-6 批量回归。"
+current_focus:
+  priority_id: P0_STAGE6_OBSERVABILITY
+  task: "Stage6 多项目/多批次总览 UI"
+  reason: "owner 需要先一眼看懂项目跑到哪、为什么停、下一步做什么。"
+priorities:
+  - priority_id: P0_STAGE6_OBSERVABILITY
+    rank: 1
+    stage_scope: [Stage6]
+    title: "Stage6 可观测性和多批次总览"
+    tasks:
+      - "三项目/多项目总览 UI"
+      - "历史 run / status table 选择"
+      - "逐项目显示当前 Stage、证据等级、阻断原因、下一步动作、Stage7 gate"
+    done_when:
+      - "owner 打开页面能看懂三项目分别卡在哪里"
+      - "最新单项目终态不会遮住早一轮多项目批次"
+      - "不需要阅读 raw JSON 判断下一步"
+  - priority_id: P0_STAGE4_RELEASE_EVIDENCE_CHAIN
+    rank: 2
+    stage_scope: [Stage4, Stage5, Stage6]
+    title: "Stage4 释放证据主链"
+    tasks:
+      - "施工许可、竣工验收、项目经理变更、合同履约四类 adapter job"
+      - "广东/广州最小闭环：MATCHED / NOT_FOUND / BLOCKED / NEEDS_BROWSER"
+      - "非广东按归属地住建局 adapter registry"
+    done_when:
+      - "P13B 重叠线索能自动生成 B/C/D 核验任务"
+      - "未命中、阻断、缺备案不会被写成排除性结论"
+  - priority_id: P1_STAGE1_3_REAL_WORLD_STABILITY
+    rank: 3
+    stage_scope: [Stage1, Stage2, Stage3]
+    title: "Stage1-3 实战稳定性"
+    tasks:
+      - "山东、湖北等地区真实列表解析回归"
+      - "详情页、附件、snapshot、hash、失败分类强化"
+      - "PDF/OCR/人员材料页定位，含人员简历、身份证、职称、社保、学位证书"
+      - "设计测绘类、注册测绘师/自然资源公开源适配继续打磨"
+    done_when:
+      - "不同地区和附件类型能稳定产出候选公司、负责人、项目时间窗口和字段血缘"
+  - priority_id: P1_STAGE5_GATE_CALIBRATION
+    rank: 4
+    stage_scope: [Stage5]
+    title: "Stage5 规则门和证据门校准"
+    tasks:
+      - "固化 A/B/C/D 证据等级"
+      - "增强反向解释：已竣工、已变更、已退出、来源阻断"
+      - "记录误判样本，区分强线索、弱线索、证据不足"
+    done_when:
+      - "不会把查不到写成没问题"
+      - "不会把线索写成法律定性"
+  - priority_id: P1_STAGE1_6_BATCH_REGRESSION
+    rank: 5
+    stage_scope: [Stage1, Stage2, Stage3, Stage4, Stage5, Stage6]
+    title: "Stage1-6 批量实战回归"
+    tasks:
+      - "跑 20-50 个近期 07 中标候选人公示"
+      - "统计每个 Stage 成功率、阻断率、人工介入点"
+      - "形成 Stage1-6 readiness 表"
+    done_when:
+      - "能说清哪些省、哪些类型、哪些附件稳定，哪些只能人工复核"
+stage7_policy:
+  state: HOLD_AS_SKELETON
+  reason: "Stage7 可保留骨架，但在 Stage1-6 证据链打实前不作为主力开发方向。"
+references:
+  - docs/专题_Stage1-9_缺口收口与优先级清单.md
+  - docs/AX9S_Stage1-9_执行矩阵与子漏斗.md
+  - control/repo_status.md

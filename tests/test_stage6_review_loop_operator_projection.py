@@ -19,6 +19,7 @@ from api.main import create_app  # noqa: E402
 from storage.stage6_review_loop_operator_projection import (  # noqa: E402
     STAGE6_REVIEW_LOOP_STATUS_TABLE_FILENAME,
     build_stage6_review_loop_operator_projection,
+    list_stage6_review_loop_status_table_options,
     load_stage6_review_loop_operator_projection,
 )
 
@@ -81,6 +82,37 @@ class Stage6ReviewLoopOperatorProjectionTests(unittest.TestCase):
             self.assertEqual(projection["source_readback_state"], "READBACK_READY")
             self.assertTrue(str(projection["source_path"]).endswith(str(latest)))
             self.assertEqual(projection["summary"]["project_count"], 3)
+            self.assertEqual(projection["batch_option_count"], 2)
+            self.assertTrue(projection["batch_selector_visible"])
+            self.assertTrue(projection["multi_batch_review_available"])
+            self.assertTrue(projection["multi_project_batch_available"])
+            self.assertEqual(projection["selected_batch_index"], 0)
+            self.assertEqual(projection["batch_options"][0]["project_count"], 3)
+            self.assertEqual(projection["batch_options"][0]["batch_id"], "latest")
+
+    def test_status_table_options_summarize_multi_project_batches(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            single = root / "single" / STAGE6_REVIEW_LOOP_STATUS_TABLE_FILENAME
+            multi = root / "multi-project" / STAGE6_REVIEW_LOOP_STATUS_TABLE_FILENAME
+            single_payload = _status_table_payload()
+            single_payload["records"] = single_payload["records"][:1]
+            _write_json(single, single_payload)
+            _write_json(multi, _status_table_payload())
+            os.utime(single, (1, 1))
+            os.utime(multi, (2, 2))
+
+            options = list_stage6_review_loop_status_table_options(root)
+
+            self.assertEqual(len(options), 2)
+            self.assertEqual(options[0]["batch_id"], "multi-project")
+            self.assertEqual(options[0]["project_count"], 3)
+            self.assertEqual(
+                options[0]["project_ids"],
+                ["PROJ-A", "PROJ-B", "PROJ-C"],
+            )
+            self.assertEqual(options[0]["manual_hold_count"], 1)
+            self.assertEqual(options[0]["operator_batch_state_label"], "有项目可继续受控续跑")
 
     def test_operator_route_reads_status_table_without_live_execution(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -98,6 +130,10 @@ class Stage6ReviewLoopOperatorProjectionTests(unittest.TestCase):
             payload = response.json()
             self.assertEqual(payload["surface_id"], "stage6_review_loop_operator_status")
             self.assertEqual(payload["summary"]["manual_hold_count"], 1)
+            self.assertEqual(payload["batch_option_count"], 1)
+            self.assertEqual(payload["batch_options"][0]["project_count"], 3)
+            self.assertEqual(payload["selected_batch_index"], 0)
+            self.assertTrue(payload["batch_selector_visible"])
             self.assertFalse(payload["live_execution_enabled"])
             self.assertFalse(payload["external_release_enabled"])
             self.assertFalse(payload["real_provider_call_enabled"])

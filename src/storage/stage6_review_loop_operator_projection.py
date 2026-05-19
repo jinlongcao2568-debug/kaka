@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -41,18 +42,29 @@ def load_stage6_review_loop_operator_projection(
     search_root: str | Path = DEFAULT_STAGE6_REVIEW_LOOP_SEARCH_ROOT,
     created_at: str | None = None,
 ) -> dict[str, Any]:
-    resolved = Path(status_table_path) if status_table_path else find_latest_stage6_review_loop_status_table(search_root)
+    explicit_status_path = Path(status_table_path) if status_table_path else None
+    effective_search_root = Path(search_root)
+    if explicit_status_path and not search_root:
+        effective_search_root = explicit_status_path.parent
+    elif explicit_status_path and str(search_root) == str(DEFAULT_STAGE6_REVIEW_LOOP_SEARCH_ROOT):
+        default_root = Path(DEFAULT_STAGE6_REVIEW_LOOP_SEARCH_ROOT)
+        if not _path_under(explicit_status_path, default_root):
+            effective_search_root = explicit_status_path.parent
+    batch_options = list_stage6_review_loop_status_table_options(effective_search_root)
+    resolved = explicit_status_path if explicit_status_path else find_latest_stage6_review_loop_status_table(effective_search_root)
     if not resolved:
-        return build_stage6_review_loop_operator_projection(
+        surface = build_stage6_review_loop_operator_projection(
             {},
             source_path="",
             source_readback_state="EMPTY",
             created_at=created_at,
         )
+        _attach_batch_options(surface, batch_options, selected_path=None)
+        return surface
     try:
         payload = json.loads(resolved.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
-        return build_stage6_review_loop_operator_projection(
+        surface = build_stage6_review_loop_operator_projection(
             {
                 "summary": {},
                 "records": [],
@@ -62,12 +74,16 @@ def load_stage6_review_loop_operator_projection(
             source_readback_state="READBACK_FAILED",
             created_at=created_at,
         )
-    return build_stage6_review_loop_operator_projection(
+        _attach_batch_options(surface, batch_options, selected_path=resolved)
+        return surface
+    surface = build_stage6_review_loop_operator_projection(
         payload,
         source_path=str(resolved),
         source_readback_state="READBACK_READY",
         created_at=created_at,
     )
+    _attach_batch_options(surface, batch_options, selected_path=resolved)
+    return surface
 
 
 def find_latest_stage6_review_loop_status_table(
@@ -81,6 +97,19 @@ def find_latest_stage6_review_loop_status_table(
         return None
     candidates.sort(key=lambda path: path.stat().st_mtime, reverse=True)
     return candidates[0]
+
+
+def list_stage6_review_loop_status_table_options(
+    search_root: str | Path = DEFAULT_STAGE6_REVIEW_LOOP_SEARCH_ROOT,
+    *,
+    limit: int = 50,
+) -> list[dict[str, Any]]:
+    root = Path(search_root)
+    if not root.exists():
+        return []
+    candidates = [path for path in root.rglob(STAGE6_REVIEW_LOOP_STATUS_TABLE_FILENAME) if path.is_file()]
+    candidates.sort(key=lambda path: path.stat().st_mtime, reverse=True)
+    return [_status_table_option(path, root) for path in candidates[: max(0, limit)]]
 
 
 def build_stage6_review_loop_operator_projection(
@@ -174,6 +203,89 @@ def _extract_status_table(payload: Mapping[str, Any]) -> tuple[dict[str, Any], l
     )
     manifest_records = project_status_table.get("records") if isinstance(project_status_table.get("records"), list) else []
     return dict(manifest_summary), [record for record in manifest_records if isinstance(record, Mapping)]
+
+
+def _attach_batch_options(
+    surface: dict[str, Any],
+    batch_options: list[Mapping[str, Any]],
+    *,
+    selected_path: Path | None,
+) -> None:
+    surface.pop("projection_sha256", None)
+    selected_index = -1
+    for index, option in enumerate(batch_options):
+        if selected_path is not None and _same_path(option.get("status_table_path"), selected_path):
+            selected_index = index
+            break
+    surface["batch_options"] = [dict(option) for option in batch_options]
+    surface["batch_option_count"] = len(batch_options)
+    surface["selected_batch_path"] = str(selected_path or surface.get("source_path") or "")
+    surface["selected_batch_index"] = selected_index
+    surface["batch_selector_visible"] = bool(batch_options)
+    surface["multi_batch_review_available"] = len(batch_options) > 1
+    surface["multi_project_batch_available"] = any(
+        int(option.get("project_count") or 0) > 1 for option in batch_options
+    )
+    surface["projection_sha256"] = _fingerprint(surface)
+
+
+def _status_table_option(path: Path, root: Path) -> dict[str, Any]:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        summary, records = _extract_status_table(payload if isinstance(payload, Mapping) else {})
+        project_rows = [_project_row(record) for record in records]
+        readback_state = "READBACK_READY"
+        readback_error = ""
+    except (OSError, json.JSONDecodeError) as exc:
+        summary = {}
+        project_rows = []
+        readback_state = "READBACK_FAILED"
+        readback_error = str(exc)
+    operator_state = _owner_batch_state(project_rows)
+    modified_at = datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc).isoformat()
+    return {
+        "batch_id": path.parent.name,
+        "status_table_path": str(path),
+        "status_table_path_label": _relative_path_label(path, root),
+        "modified_at": modified_at,
+        "readback_state": readback_state,
+        "readback_error": readback_error,
+        "operator_batch_state": operator_state,
+        "operator_batch_state_label": _owner_batch_state_label(operator_state),
+        "project_count": len(project_rows),
+        "project_ids": [row["project_id"] for row in project_rows if row.get("project_id")],
+        "project_names": [row["project_name"] for row in project_rows if row.get("project_name")],
+        "manual_hold_count": sum(1 for row in project_rows if row["manual_review_hold"]),
+        "automated_dispatch_available_count": sum(
+            1 for row in project_rows if row["automated_dispatch_available"]
+        ),
+        "stage7_commercial_input_allowed_count": sum(
+            1 for row in project_rows if row["stage7_commercial_input_allowed"]
+        ),
+        "source_summary": dict(summary),
+    }
+
+
+def _relative_path_label(path: Path, root: Path) -> str:
+    try:
+        return str(path.relative_to(root))
+    except ValueError:
+        return str(path)
+
+
+def _same_path(left: Any, right: Path) -> bool:
+    try:
+        return Path(str(left)).resolve() == right.resolve()
+    except (OSError, RuntimeError, ValueError):
+        return str(left) == str(right)
+
+
+def _path_under(path: Path, root: Path) -> bool:
+    try:
+        path.resolve().relative_to(root.resolve())
+        return True
+    except (OSError, RuntimeError, ValueError):
+        return False
 
 
 def _project_row(record: Mapping[str, Any]) -> dict[str, Any]:
@@ -371,5 +483,6 @@ __all__ = [
     "STAGE6_REVIEW_LOOP_STATUS_TABLE_FILENAME",
     "build_stage6_review_loop_operator_projection",
     "find_latest_stage6_review_loop_status_table",
+    "list_stage6_review_loop_status_table_options",
     "load_stage6_review_loop_operator_projection",
 ]

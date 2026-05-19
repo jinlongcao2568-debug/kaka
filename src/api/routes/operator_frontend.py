@@ -3194,6 +3194,14 @@ def render_stage6_review_loop_page(payload: Any) -> HTMLResponse:
       <div id="batchNextActions" class="timeline"></div>
     </section>
     <section class="wide">
+      <h3>选择历史批次</h3>
+      <p class="muted-text">默认读取最新状态表；如果最新只剩一个终态项目，可以切到早一轮三项目批次，看完整批次是怎么分流的。</p>
+      <div class="summary-list" id="batchSource">正在读取批次来源...</div>
+      <label for="batchSelector" class="muted-text">批次状态表</label>
+      <select id="batchSelector" aria-label="选择第六阶段复核批次"></select>
+      <div id="batchOptionsList" class="stage-grid"></div>
+    </section>
+    <section class="wide">
       <h3>项目逐个看</h3>
       <p class="muted-text">绿色表示可以继续受控续跑或进入下一步内部复核；黄色表示不能再自动跑，需要人工判断或补新来源。这里不会写排除性结论，只显示证据状态和下一步。</p>
       <div id="projectCards" class="stage-grid"></div>
@@ -3255,6 +3263,46 @@ function cardTitle(row) {
   const name = row.project_name ? ` · ${row.project_name}` : "";
   return `${row.project_id || "未知项目"}${name}`;
 }
+function batchOptionLabel(option, index) {
+  const projectCount = option.project_count ?? 0;
+  const state = option.operator_batch_state_label || option.readback_state || "状态待读取";
+  return `${index + 1}. ${option.batch_id || "未命名批次"} ｜ ${projectCount} 个项目 ｜ ${state}`;
+}
+function renderBatchSource(surface) {
+  const selectedLabel = surface?.selected_batch_index >= 0
+    ? batchOptionLabel(surface.batch_options[surface.selected_batch_index], surface.selected_batch_index)
+    : "当前来源不在批次列表中";
+  $("batchSource").innerHTML = [
+    `<div class="summary-row"><strong>当前读取</strong><span>${safeText(selectedLabel)}</span></div>`,
+    `<div class="summary-row"><strong>状态表</strong><span>${safeText(surface?.source_path || "未读到")}</span></div>`,
+    `<div class="summary-row"><strong>可选批次</strong><span>${safeText(surface?.batch_option_count ?? 0)}</span></div>`
+  ].join("");
+}
+function renderBatchSelector(surface) {
+  const options = Array.isArray(surface?.batch_options) ? surface.batch_options : [];
+  const selector = $("batchSelector");
+  selector.innerHTML = options.length
+    ? options.map((option, index) => {
+      const selected = index === surface.selected_batch_index ? " selected" : "";
+      return `<option value="${safeText(option.status_table_path)}"${selected}>${safeText(batchOptionLabel(option, index))}</option>`;
+    }).join("")
+    : `<option value="">暂无可选批次</option>`;
+  selector.disabled = !options.length;
+  selector.onchange = (event) => loadBatch(event.target.value);
+  $("batchOptionsList").innerHTML = options.length
+    ? options.map((option, index) => {
+      const selected = index === surface.selected_batch_index;
+      const projects = (option.project_ids || []).join("、") || "项目编号待读取";
+      return `<div class="stage-card">
+        <strong>${safeText(batchOptionLabel(option, index))}</strong>
+        ${selected ? badge("当前查看") : badge("可切换")}
+        ${option.project_count > 1 ? badge("多项目批次") : badge("单项目终态", "warn")}
+        <p><strong>包含项目</strong></p>
+        <p>${safeText(projects)}</p>
+      </div>`;
+    }).join("")
+    : `<div class="empty-state">没有找到历史批次状态表。</div>`;
+}
 function render(surface) {
   const summary = surface?.summary || {};
   const rows = Array.isArray(surface?.project_status_rows) ? surface.project_status_rows : [];
@@ -3268,6 +3316,8 @@ function render(surface) {
   $("batchNextActions").innerHTML = nextActions.length
     ? nextActions.map((item) => `<div>${safeText(item)}</div>`).join("")
     : `<div>暂无下一步动作。</div>`;
+  renderBatchSource(surface);
+  renderBatchSelector(surface);
   $("projectCards").innerHTML = rows.length
     ? rows.map((row) => {
       const kind = cardKind(row);
@@ -3289,13 +3339,19 @@ function render(surface) {
     }).join("")
     : `<div class="empty-state">没有读到项目状态。先运行第六阶段复核循环，或确认本地产物目录下是否有批次状态表。</div>`;
 }
-fetch("/operator-console/stage6-review-loop-status")
+function loadBatch(statusTablePath="") {
+  const request = statusTablePath
+    ? fetch(`/operator-console/stage6-review-loop-status?status_table_path=${encodeURIComponent(statusTablePath)}`)
+    : fetch("/operator-console/stage6-review-loop-status");
+  return request
   .then((response) => response.json())
   .then(render)
   .catch((error) => {
     $("batchPlainDecision").textContent = `读取失败：${error}`;
     $("projectCards").innerHTML = `<div class="empty-state">读取失败，请查看本地服务日志。</div>`;
   });
+}
+loadBatch();
 """
     return _page("第六阶段批次复核", body, script)
 
