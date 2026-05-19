@@ -1068,6 +1068,16 @@ def render_operator_console(payload: Any) -> HTMLResponse:
             <div id="taskRunOverviewList" class="empty-state">暂无任务运行记录；在“采集运行”里创建内部任务后显示。</div>
           </section>
           <section>
+            <h3>Stage6 批次复核状态</h3>
+            <p class="muted-text" id="stage6ReviewLoopNarrative">正在读取 Stage6 批次状态：项目到了哪里、是否还能续跑、为什么停、下一步做什么。</p>
+            <div class="rail" id="stage6ReviewLoopMetrics">
+              <div class="metric"><strong>--</strong><span>项目数</span></div>
+              <div class="metric"><strong>--</strong><span>可续跑</span></div>
+              <div class="metric"><strong>--</strong><span>人工停机</span></div>
+            </div>
+            <div id="stage6ReviewLoopProjectList" class="compact-card-grid"></div>
+          </section>
+          <section>
             <h3>真实可卖性判断</h3>
             <p class="muted-text" id="sellabilityDecision">正在读取当前能卖到哪一步、还差哪些接入。</p>
             <div class="rail" id="sellabilityMetrics">
@@ -2482,6 +2492,36 @@ async function loadRealWorldSellability() {
   renderRealWorldSellability(surface);
   return surface;
 }
+function renderStage6ReviewLoopStatus(surface) {
+  const summary = surface?.summary || {};
+  const rows = Array.isArray(surface?.project_status_rows) ? surface.project_status_rows : [];
+  $("stage6ReviewLoopNarrative").textContent = `${summary.operator_batch_state_label || "Stage6 批次状态待读取"}：${surface?.operator_decision?.decision_label || "等待读回。"} `;
+  $("stage6ReviewLoopMetrics").innerHTML = [
+    `<div class="metric"><strong>${summary.project_count ?? 0}</strong><span>项目数</span></div>`,
+    `<div class="metric"><strong>${summary.automated_dispatch_available_count ?? 0}</strong><span>可续跑</span></div>`,
+    `<div class="metric"><strong>${summary.manual_hold_count ?? 0}</strong><span>人工停机</span></div>`
+  ].join("");
+  $("stage6ReviewLoopProjectList").innerHTML = rows.length
+    ? rows.map((row) => `<div class="stage-card">
+        <strong>${safeText(row.project_id || "--")} ${safeText(row.project_name || "")}</strong>
+        <p>${safeText(row.owner_status_label || row.loop_terminal_state || "--")}</p>
+        ${badge(row.loop_terminal_state || "--", row.manual_review_hold ? "warn" : "")}
+        ${row.automated_dispatch_available ? badge("可受控续跑") : badge("不可自动续跑", "warn")}
+        ${row.stage7_commercial_input_allowed ? badge("可进 Stage7 内部复核") : badge("暂不进 Stage7", "warn")}
+        <p><strong>下一步</strong></p>
+        <p>${safeText(row.owner_next_action_label || row.next_recommended_action || "--")}</p>
+        <p><strong>停机/阻断原因</strong></p>
+        <p>${safeText(row.manual_hold_reason || row.lineage?.dispatch_closeout_state || row.lineage?.dispatch_readback_state || "暂无")}</p>
+        <p><strong>重新开启条件</strong></p>
+        <ul>${renderListItems(row.reopen_conditions, "按下一步动作复核")}</ul>
+      </div>`).join("")
+    : `<div class="empty-state">暂无 Stage6 批次复核产物；先运行 Stage6 review loop 或指定状态表。</div>`;
+}
+async function loadStage6ReviewLoopStatus() {
+  const surface = await json("GET", "/operator-console/stage6-review-loop-status");
+  renderStage6ReviewLoopStatus(surface);
+  return surface;
+}
 function queueStatusTotal(counts) {
   return Object.values(counts || {}).reduce((total, value) => total + Number(value || 0), 0);
 }
@@ -3118,7 +3158,7 @@ window.addEventListener("hashchange", () => showView((window.location.hash || "#
 showView((window.location.hash || "#overview").slice(1));
 renderStageOverviewTelemetry();
 renderSelectChoices("searchProjectType", "searchProjectTypeChoices");
-Promise.all([loadReadiness(false), loadAutonomousWorkbench(), loadRegionAdapters(), loadAutonomousSearchRuns(), loadRealCandidateDiscoveryDiagnostics(), loadRealCandidateCatalog(), loadRealCandidateStage2Captures(), loadRealSourceProfiles(), loadRealSourceRuns(), loadUserAcceptanceContract(), loadAcceptanceGapMatrix(), loadRealWorldSellability()])
+Promise.all([loadReadiness(false), loadAutonomousWorkbench(), loadRegionAdapters(), loadAutonomousSearchRuns(), loadRealCandidateDiscoveryDiagnostics(), loadRealCandidateCatalog(), loadRealCandidateStage2Captures(), loadRealSourceProfiles(), loadRealSourceRuns(), loadUserAcceptanceContract(), loadAcceptanceGapMatrix(), loadRealWorldSellability(), loadStage6ReviewLoopStatus()])
   .then(() => { $("output").textContent = "等待操作..."; })
   .catch(out);
 """

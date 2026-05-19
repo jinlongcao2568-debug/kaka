@@ -274,6 +274,11 @@ def _project_status_records(
                 "dispatch_closeout_state": str(closeout_record.get("dispatch_closeout_state") or ""),
                 "result_routing_state": str(routing_record.get("result_routing_state") or ""),
                 "next_task_type": str(routing_record.get("next_task_type") or ""),
+                "stage6_fact_package_state": str(closeout_record.get("stage6_fact_package_state") or ""),
+                "stage6_ready": bool(closeout_record.get("stage6_ready", False)),
+                "stage7_commercial_input_allowed": bool(
+                    closeout_record.get("stage7_commercial_input_allowed", False)
+                ),
                 "result_runner_execution_state": str(runner_record.get("execution_state") or ""),
                 "result_runner_skip_reason": str(runner_record.get("skip_reason") or ""),
                 "next_cycle_dispatch_task_type": str(next_dispatch_record.get("dispatch_task_type") or ""),

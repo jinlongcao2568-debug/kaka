@@ -122,6 +122,8 @@ class TestOperatorFrontendPortal(unittest.TestCase, IsolatedStorageTestMixin):
             "最新运行的阶段对象",
             "阶段运行日志",
             "业务闭环摘要",
+            "Stage6 批次复核状态",
+            "项目到了哪里、是否还能续跑、为什么停、下一步做什么",
             "证据链",
             "证据风险",
             "销售闭环",
@@ -207,6 +209,7 @@ class TestOperatorFrontendPortal(unittest.TestCase, IsolatedStorageTestMixin):
             "/operator-console/readiness",
             "/go-live/readiness",
             "/operator-console/real-world-sellability",
+            "/operator-console/stage6-review-loop-status",
             "回归与受控放行状态",
             "默认实战搜索已接真实公开列表页候选发现",
             "内部测试发布模拟已打开",
@@ -249,6 +252,8 @@ class TestOperatorFrontendPortal(unittest.TestCase, IsolatedStorageTestMixin):
             "async function loadAcceptanceGapMatrix()",
             "function renderRealWorldSellability(surface)",
             "async function loadRealWorldSellability()",
+            "async function loadStage6ReviewLoopStatus()",
+            "renderStage6ReviewLoopStatus",
             "function showView(view)",
             "id=\"sellabilityDecision\"",
             "id=\"sellabilityMetrics\"",
@@ -391,7 +396,7 @@ class TestOperatorFrontendPortal(unittest.TestCase, IsolatedStorageTestMixin):
         client = TestClient(create_app())
         html = client.request("GET", "/operator-console").text
         self.assertIn(
-            'Promise.all([loadReadiness(false), loadAutonomousWorkbench(), loadRegionAdapters(), loadAutonomousSearchRuns(), loadRealCandidateDiscoveryDiagnostics(), loadRealCandidateCatalog(), loadRealCandidateStage2Captures(), loadRealSourceProfiles(), loadRealSourceRuns(), loadUserAcceptanceContract(), loadAcceptanceGapMatrix(), loadRealWorldSellability()])',
+            'Promise.all([loadReadiness(false), loadAutonomousWorkbench(), loadRegionAdapters(), loadAutonomousSearchRuns(), loadRealCandidateDiscoveryDiagnostics(), loadRealCandidateCatalog(), loadRealCandidateStage2Captures(), loadRealSourceProfiles(), loadRealSourceRuns(), loadUserAcceptanceContract(), loadAcceptanceGapMatrix(), loadRealWorldSellability(), loadStage6ReviewLoopStatus()])',
             html,
         )
         self.assertIn('"/operator-console/region-adapters"', html)
@@ -403,6 +408,7 @@ class TestOperatorFrontendPortal(unittest.TestCase, IsolatedStorageTestMixin):
         self.assertIn('"/operator-console/user-acceptance-contract"', html)
         self.assertIn('"/operator-console/user-acceptance-gap-matrix"', html)
         self.assertIn('"/operator-console/real-world-sellability"', html)
+        self.assertIn('"/operator-console/stage6-review-loop-status"', html)
         self.assertIn('href="#autonomousWorkbench"', html)
         self.assertIn('data-workbench-opportunity', html)
         self.assertIn('id="selectAllRegions"', html)

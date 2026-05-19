@@ -71,6 +71,7 @@ class TestOperatorCustomerAccess(unittest.TestCase, IsolatedStorageTestMixin):
             "previewAutonomousOperatorWorkbench",
             "previewRealSampleAutonomousOpportunityAcceptance",
             "previewOperatorRealWorldSellability",
+            "previewOperatorStage6ReviewLoopStatus",
             "createOperatorTask",
             "listRealPublicSourceProfiles",
             "listOperatorRegionAdapters",
@@ -119,6 +120,12 @@ class TestOperatorCustomerAccess(unittest.TestCase, IsolatedStorageTestMixin):
             ]
         )
         self.assertFalse(mounted_operations["previewOperatorRealWorldSellability"]["raw_json_required"])
+        self.assertTrue(
+            mounted_operations["previewOperatorStage6ReviewLoopStatus"][
+                "stage6_review_loop_status_readback"
+            ]
+        )
+        self.assertFalse(mounted_operations["previewOperatorStage6ReviewLoopStatus"]["raw_json_required"])
 
         access_bootstrap = bootstrap["operator_customer_access_bootstrap"]
         self.assertEqual(access_bootstrap["capability_state"], "APPROVAL_READY")
@@ -187,6 +194,7 @@ class TestOperatorCustomerAccess(unittest.TestCase, IsolatedStorageTestMixin):
         self.assertTrue(payload["operator_console"]["autonomous_operator_workbench"]["entry_visible"])
         self.assertTrue(payload["operator_console"]["real_sample_autonomous_acceptance"]["entry_visible"])
         self.assertTrue(payload["operator_console"]["real_world_sellability_readiness"]["entry_visible"])
+        self.assertTrue(payload["operator_console"]["stage6_review_loop_status"]["entry_visible"])
         self.assertFalse(payload["operator_console"]["real_world_sellability_readiness"]["ua11_satisfied"])
         self.assertFalse(
             payload["operator_console"]["real_world_sellability_readiness"][
@@ -194,6 +202,7 @@ class TestOperatorCustomerAccess(unittest.TestCase, IsolatedStorageTestMixin):
             ]
         )
         self.assertFalse(payload["operator_console"]["real_world_sellability_readiness"]["raw_json_required"])
+        self.assertFalse(payload["operator_console"]["stage6_review_loop_status"]["raw_json_required"])
         self.assertTrue(
             payload["operator_console"]["real_sample_autonomous_acceptance"][
                 "real_sample_flow_visible"

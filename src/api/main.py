@@ -97,6 +97,8 @@ MOUNTED_OPERATION_READBACK_KEYS = (
     "real_sample_autonomous_acceptance",
     "real_sample_flow_visible",
     "real_world_sellability_readiness",
+    "stage6_review_loop_status_readback",
+    "project_status_rows_visible",
     "productized_owner_workbench",
     "opportunity_queue_visible",
     "commercial_hook_review_visible",

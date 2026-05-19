@@ -64,6 +64,7 @@ from storage.repositories.object_storage_repo import ObjectStorageRepository
 from storage.repositories.operator_action_repo import OperatorActionRepository
 from storage.repositories.worker_queue_repo import WorkerQueueRepository
 from storage.repository_boundary import persist_stage_bundle
+from storage.stage6_review_loop_operator_projection import load_stage6_review_loop_operator_projection
 
 
 OPERATOR_CUSTOMER_ACCESS_ROUTE_METADATA = {
@@ -168,6 +169,7 @@ def _operator_operation_readback(routes: list[dict[str, Any]] | None = None) -> 
                 "real_sample_autonomous_acceptance",
                 "real_sample_flow_visible",
                 "real_world_sellability_readiness",
+                "stage6_review_loop_status_readback",
             )
             if key in route
         }
@@ -553,6 +555,22 @@ def preview_operator_real_world_sellability(payload: Mapping[str, Any] | None = 
             "remaining_blockers": list(go_live.get("remaining_blockers", [])),
         },
     }
+
+
+def preview_operator_stage6_review_loop_status(payload: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    payload = dict(payload or {})
+    status_table_path = str(
+        payload.get("status_table_path")
+        or payload.get("stage6_review_loop_status_table_path")
+        or ""
+    ).strip()
+    search_root = str(payload.get("search_root") or "").strip()
+    kwargs: dict[str, Any] = {}
+    if status_table_path:
+        kwargs["status_table_path"] = status_table_path
+    if search_root:
+        kwargs["search_root"] = search_root
+    return load_stage6_review_loop_operator_projection(**kwargs)
 
 
 def _queue_status_counts() -> dict[str, int]:
@@ -4627,6 +4645,19 @@ OPERATOR_CUSTOMER_ACCESS_ROUTES = [
         **OPERATOR_CUSTOMER_ACCESS_ROUTE_METADATA,
     },
     {
+        "operationId": "previewOperatorStage6ReviewLoopStatus",
+        "method": "GET",
+        "path": "/operator-console/stage6-review-loop-status",
+        "handler": preview_operator_stage6_review_loop_status,
+        "stage6_review_loop_status_readback": True,
+        "productized_owner_workbench": True,
+        "owner_can_observe_without_raw_json": True,
+        "project_status_rows_visible": True,
+        "next_action_visible": True,
+        "raw_json_required": False,
+        **OPERATOR_CUSTOMER_ACCESS_ROUTE_METADATA,
+    },
+    {
         "operationId": "createOperatorTask",
         "method": "POST",
         "path": "/operator-console/tasks",
@@ -4825,6 +4856,7 @@ __all__ = [
     "preview_go_live_readiness",
     "preview_operator_customer_access_readiness",
     "preview_operator_real_world_sellability",
+    "preview_operator_stage6_review_loop_status",
     "preview_real_sample_autonomous_opportunity_acceptance",
     "preview_scheduler_status",
     "read_owner_real_public_source_capture",
