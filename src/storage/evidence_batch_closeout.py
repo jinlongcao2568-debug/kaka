@@ -204,6 +204,7 @@ def _closeout_record(
         ),
         "signal_counts": dict(evidence.get("signal_counts") or {}),
         "design_survey_adapter_counts": dict(evidence.get("design_survey_adapter_counts") or {}),
+        "evidence_artifacts": _list(evidence.get("evidence_artifacts")),
         "source_refs": {
             "evidence_state_json": str(state_path or ""),
             "evidence_state_overlay_jsons": [str(path) for path in overlay_paths],

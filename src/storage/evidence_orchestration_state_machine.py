@@ -357,6 +357,9 @@ def _evidence_record(
         "release_evidence_source_targets": release_probe_targets,
         "signal_counts": signal_counts,
         "design_survey_adapter_counts": design_survey_counts,
+        "evidence_artifacts": _evidence_artifacts(
+            design_survey_public_registry_readback_project=design_survey_public_registry_readback_project
+        ),
         "review_reasons": review_reasons,
         "created_at": created_at,
         "customer_visible_allowed": False,
@@ -1473,6 +1476,122 @@ def _design_survey_counts(
             design_survey_public_registry_readback_project.get("fail_closed_readback_count") or 0
         ),
     }
+
+
+def _evidence_artifacts(
+    *,
+    design_survey_public_registry_readback_project: Mapping[str, Any],
+) -> list[dict[str, Any]]:
+    return _design_survey_public_registry_readback_artifacts(
+        design_survey_public_registry_readback_project
+    )
+
+
+def _design_survey_public_registry_readback_artifacts(project: Mapping[str, Any]) -> list[dict[str, Any]]:
+    artifacts: list[dict[str, Any]] = []
+    for record in _list(project.get("public_registry_readback_records")):
+        if not isinstance(record, Mapping):
+            continue
+        readback = record.get("public_registry_readback") if isinstance(record.get("public_registry_readback"), Mapping) else {}
+        source_entry = readback.get("source_entry") if isinstance(readback.get("source_entry"), Mapping) else {}
+        best_record = readback.get("best_record") if isinstance(readback.get("best_record"), Mapping) else {}
+        identity_fields = record.get("identity_fields") if isinstance(record.get("identity_fields"), Mapping) else {}
+        source_refs = _source_ref_summaries(record.get("source_refs"))
+        artifacts.append(
+            {
+                "evidence_artifact_id": str(record.get("public_registry_readback_id") or ""),
+                "evidence_artifact_type": "DESIGN_SURVEY_PUBLIC_REGISTRY_READBACK",
+                "source_family": str(
+                    source_entry.get("source_family") or "natural_resource_registered_surveyor_public_registry"
+                ),
+                "provider_id": str(record.get("provider_id") or ""),
+                "provider_result_state": str(record.get("provider_result_state") or ""),
+                "readback_state": str(record.get("readback_state") or ""),
+                "verification_result": str(record.get("verification_result") or ""),
+                "identity_resolution_state": str(record.get("identity_resolution_state") or ""),
+                "candidate_company_name": str(record.get("candidate_company_name") or ""),
+                "responsible_person_name": str(record.get("responsible_person_name") or ""),
+                "certificate_no_optional": str(record.get("certificate_no_optional") or ""),
+                "identity_fields": _identity_field_summary(identity_fields, best_record),
+                "source_url": _first_non_empty(
+                    readback.get("source_url"),
+                    _first_source_ref_url(source_refs),
+                    source_entry.get("entry_url"),
+                ),
+                "source_snapshot_ref": str(
+                    record.get("source_snapshot_ref") or readback.get("snapshot_ref") or ""
+                ),
+                "source_snapshot_path": str(record.get("source_snapshot_path") or ""),
+                "source_snapshot_sha256": str(
+                    record.get("source_snapshot_sha256")
+                    or readback.get("snapshot_text_sha256")
+                    or readback.get("snapshot_html_sha256")
+                    or ""
+                ),
+                "redacted_text_probe": str(readback.get("redacted_text_probe") or ""),
+                "source_refs": source_refs,
+                "review_reasons": _list(record.get("review_reasons")),
+                "failure_reasons": _list(record.get("failure_reasons")),
+                "policy": dict(record.get("policy") or {}) if isinstance(record.get("policy"), Mapping) else {},
+                "created_at": str(record.get("created_at") or ""),
+                "customer_visible_allowed": False,
+                "no_legal_conclusion": True,
+                "query_miss_is_not_clearance": True,
+            }
+        )
+    return artifacts[:5]
+
+
+def _identity_field_summary(identity_fields: Mapping[str, Any], best_record: Mapping[str, Any]) -> dict[str, str]:
+    return {
+        "person_name": _first_non_empty(identity_fields.get("person_name"), best_record.get("person_name")),
+        "registered_unit_name": _first_non_empty(
+            identity_fields.get("registered_unit_name"),
+            best_record.get("registered_unit_name"),
+        ),
+        "certificate_no_or_registration_no": _first_non_empty(
+            identity_fields.get("certificate_no_or_registration_no"),
+            best_record.get("certificate_no_or_registration_no"),
+        ),
+        "certificate_type": _first_non_empty(identity_fields.get("certificate_type"), best_record.get("certificate_type")),
+        "registration_status": _first_non_empty(
+            identity_fields.get("registration_status"),
+            best_record.get("registration_status"),
+        ),
+        "source_url_or_snapshot_id": str(identity_fields.get("source_url_or_snapshot_id") or ""),
+    }
+
+
+def _source_ref_summaries(value: Any) -> list[dict[str, Any]]:
+    refs: list[dict[str, Any]] = []
+    for ref in _list(value):
+        if not isinstance(ref, Mapping):
+            continue
+        refs.append(
+            {
+                "source_url": str(ref.get("source_url") or ""),
+                "source_snapshot_id": str(ref.get("source_snapshot_id") or ""),
+                "source_role": str(ref.get("source_role") or ""),
+                "public_visible": bool(ref.get("public_visible")),
+            }
+        )
+    return refs[:3]
+
+
+def _first_source_ref_url(source_refs: list[Mapping[str, Any]]) -> str:
+    for ref in source_refs:
+        value = str(ref.get("source_url") or "").strip()
+        if value:
+            return value
+    return ""
+
+
+def _first_non_empty(*values: Any) -> str:
+    for value in values:
+        text = str(value or "").strip()
+        if text:
+            return text
+    return ""
 
 
 def _release_probe_targets(original_project: Mapping[str, Any]) -> list[str]:

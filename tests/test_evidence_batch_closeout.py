@@ -57,6 +57,10 @@ class EvidenceBatchCloseoutTests(unittest.TestCase):
                 by_project["PROJ-D"]["next_action_type"],
                 "PARK_OR_MANUAL_REVIEW_WITHOUT_CLEARANCE_CLAIM",
             )
+            self.assertEqual(
+                by_project["PROJ-D"]["evidence_artifacts"][0]["evidence_artifact_type"],
+                "DESIGN_SURVEY_PUBLIC_REGISTRY_READBACK",
+            )
             self.assertTrue((root / "out" / "evidence-batch-closeout-v1.json").exists())
             self.assertTrue((root / "out" / "next-action-queue.json").exists())
             self.assertTrue((root / "out" / "project-closeout-records.json").exists())
@@ -182,6 +186,19 @@ def _write_evidence_state(root: Path) -> None:
             "recommended_next_action": "manual_review_or_retry_blocked_original_notice_backtrace_without_clearance_claim",
             "stage6_fact_package_state": "NOT_READY",
             "review_reasons": ["source_blocked_or_fields_missing"],
+            "evidence_artifacts": [
+                {
+                    "evidence_artifact_type": "DESIGN_SURVEY_PUBLIC_REGISTRY_READBACK",
+                    "verification_result": "MATCHED",
+                    "identity_fields": {
+                        "person_name": "胡昌华",
+                        "registered_unit_name": "广州市城市规划勘测设计研究院有限公司",
+                    },
+                    "source_snapshot_sha256": "snapshot-sha256",
+                    "customer_visible_allowed": False,
+                    "no_legal_conclusion": True,
+                }
+            ],
         },
     ]
     batch_records = [

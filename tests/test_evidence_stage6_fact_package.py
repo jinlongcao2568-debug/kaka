@@ -83,6 +83,15 @@ class EvidenceStage6FactPackageTests(unittest.TestCase):
             pack = json.loads(pack_path.read_text(encoding="utf-8"))
             self.assertEqual(brief["project_id"], "PROJ-A")
             self.assertEqual(pack["project_fact"]["project_id"], "PROJ-A")
+            self.assertEqual(brief["evidence_artifact_count"], 1)
+            self.assertEqual(
+                brief["evidence_artifact_types"],
+                ["DESIGN_SURVEY_PUBLIC_REGISTRY_READBACK"],
+            )
+            self.assertEqual(
+                pack["internal_evidence_pack"]["evidence_artifacts"][0]["identity_fields"]["person_name"],
+                "胡昌华",
+            )
             self.assertFalse(pack["customer_visible_allowed"])
 
     def test_missing_batch_closeout_blocks_execution(self) -> None:
@@ -134,6 +143,19 @@ def _write_batch_closeout(root: Path) -> None:
             "next_action_label": "build_release_evidence_regional_adapter_plan_and_stage6_fact_package",
             "review_reasons": ["same_person_company_time_window_overlap_review"],
             "signal_counts": {"p13b_a_strong_direct_signal_count": 1},
+            "evidence_artifacts": [
+                {
+                    "evidence_artifact_type": "DESIGN_SURVEY_PUBLIC_REGISTRY_READBACK",
+                    "verification_result": "MATCHED",
+                    "identity_fields": {
+                        "person_name": "胡昌华",
+                        "registered_unit_name": "广州市城市规划勘测设计研究院有限公司",
+                    },
+                    "source_snapshot_sha256": "snapshot-sha256",
+                    "customer_visible_allowed": False,
+                    "no_legal_conclusion": True,
+                }
+            ],
             "source_refs": {"evidence_state_json": "state.json"},
             "continuation_lineage": {},
             "customer_visible_allowed": False,

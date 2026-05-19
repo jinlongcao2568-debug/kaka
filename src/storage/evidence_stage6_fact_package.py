@@ -290,6 +290,7 @@ def _internal_pack_record(record: Mapping[str, Any], *, output_root: Path, creat
         "review_reasons": _dedupe([*_list(record.get("review_reasons")), str(record.get("batch_stop_reason") or "")]),
         "signal_counts": dict(record.get("signal_counts") or {}),
         "design_survey_adapter_counts": dict(record.get("design_survey_adapter_counts") or {}),
+        "evidence_artifacts": _list(record.get("evidence_artifacts")),
         "source_refs": dict(record.get("source_refs") or {}),
         "continuation_lineage": dict(record.get("continuation_lineage") or {}),
         "created_at": created_at,
@@ -345,6 +346,9 @@ def _write_project_package_files(
         project_id = str(pack.get("project_id") or "")
         project_dir = _project_output_dir(out_dir, project_id)
         project_dir.mkdir(parents=True, exist_ok=True)
+        evidence_artifacts = [
+            artifact for artifact in _list(pack.get("evidence_artifacts")) if isinstance(artifact, Mapping)
+        ]
         brief = {
             "project_id": project_id,
             "project_name": str(pack.get("project_name") or ""),
@@ -352,6 +356,10 @@ def _write_project_package_files(
             "closeout_state": pack.get("closeout_state"),
             "evidence_state": pack.get("evidence_state"),
             "evidence_grade": pack.get("evidence_grade"),
+            "evidence_artifact_count": len(evidence_artifacts),
+            "evidence_artifact_types": _dedupe(
+                artifact.get("evidence_artifact_type") for artifact in evidence_artifacts
+            ),
             "review_lane": queues.get(project_id, {}).get("review_lane", ""),
             "recommended_next_action": actions.get(project_id, {}).get("recommended_next_step", ""),
             "customer_visible_allowed": False,
