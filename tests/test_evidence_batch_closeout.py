@@ -85,6 +85,29 @@ class EvidenceBatchCloseoutTests(unittest.TestCase):
                 "PARK_OR_MANUAL_REVIEW_WITHOUT_CLEARANCE_CLAIM",
             )
 
+    def test_overlay_state_replaces_scoped_project_and_clears_stale_jobs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_evidence_state(root / "state")
+            _write_overlay_state(root / "overlay")
+
+            result = build_evidence_batch_closeout(
+                evidence_state_root=root / "state",
+                evidence_state_overlay_root=root / "overlay",
+                output_root=root / "out",
+            )
+
+            self.assertTrue(result["safe_to_execute"])
+            self.assertEqual(result["summary"]["project_count"], 3)
+            by_project = _records_by_project(result["manifest"]["closeout_records"])
+            self.assertEqual(by_project["PROJ-B"]["evidence_state"], "D_INSUFFICIENT_OR_BLOCKED_READBACK")
+            self.assertEqual(by_project["PROJ-B"]["closeout_state"], "PARK_D_INSUFFICIENT_OR_BLOCKED")
+            self.assertEqual(by_project["PROJ-B"]["pending_adapter_job_count"], 0)
+            self.assertEqual(
+                by_project["PROJ-B"]["source_refs"]["evidence_state_overlay_jsons"],
+                [str(root / "overlay" / "evidence-orchestration-state-v1.json")],
+            )
+
     def test_missing_state_input_blocks_execution(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -98,6 +121,20 @@ class EvidenceBatchCloseoutTests(unittest.TestCase):
             self.assertEqual(result["evidence_batch_closeout_mode"], "INPUT_BLOCKED")
             self.assertIn("evidence_orchestration_state_missing_or_invalid", result["blocking_reasons"])
             self.assertEqual(result["summary"]["closeout_state"], "EVIDENCE_BATCH_CLOSEOUT_INPUT_BLOCKED")
+
+    def test_missing_explicit_overlay_blocks_execution(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_evidence_state(root / "state")
+
+            result = build_evidence_batch_closeout(
+                evidence_state_root=root / "state",
+                evidence_state_overlay_root=root / "missing-overlay",
+                output_root=root / "out",
+            )
+
+            self.assertFalse(result["safe_to_execute"])
+            self.assertIn("evidence_orchestration_state_overlay_missing_or_invalid", result["blocking_reasons"])
 
     def test_output_keeps_internal_safety_contract(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -223,6 +260,47 @@ def _write_continuation(root: Path) -> None:
                 },
             },
             "summary": {"state_after_adapter_job_count": 0},
+        },
+    )
+
+
+def _write_overlay_state(root: Path) -> None:
+    evidence_records = [
+        {
+            "project_id": "PROJ-B",
+            "project_name": "B 项目",
+            "evidence_state": "D_INSUFFICIENT_OR_BLOCKED_READBACK",
+            "evidence_grade": "D_EVIDENCE_INSUFFICIENT",
+            "evidence_signal_source": "original_backtrace_continuation",
+            "recommended_next_action": "manual_review_or_retry_blocked_original_notice_backtrace",
+            "stage6_fact_package_state": "REVIEW_FACT_PACKAGE_READY",
+            "review_reasons": ["original_backtrace_continuation_closed_without_signal"],
+        }
+    ]
+    batch_records = [
+        {
+            "project_id": "PROJ-B",
+            "batch_triage_bucket": "D_BLOCKED_OR_INSUFFICIENT_REVIEW",
+            "commercial_decision_state": "KEEP_INTERNAL_REVIEW_OR_MANUAL_RESOLVE",
+            "recommended_next_action": "manual_review_or_retry_blocked_original_notice_backtrace_without_clearance_claim",
+            "stop_reason": "release_evidence_or_original_readback_insufficient_or_blocked",
+            "stage6_ready": True,
+            "stage7_commercial_input_allowed": False,
+        }
+    ]
+    stage6_records = [{"project_id": "PROJ-B", "stage6_fact_package_state": "REVIEW_FACT_PACKAGE_READY"}]
+    _write_json(
+        root / "evidence-orchestration-state-v1.json",
+        {
+            "manifest": {
+                "manifest_id": "STATE-OVERLAY",
+                "evidence_state_table": {"records": evidence_records},
+                "adapter_job_table": {"records": []},
+                "stage6_fact_package_readiness_table": {"records": stage6_records},
+                "batch_triage_table": {"records": batch_records},
+                "summary": {"project_count": 1},
+            },
+            "summary": {"project_count": 1},
         },
     )
 

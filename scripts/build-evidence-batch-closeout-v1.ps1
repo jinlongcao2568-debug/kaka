@@ -1,6 +1,8 @@
 param(
     [string]$EvidenceStateJson = "",
     [string]$EvidenceStateRoot = "",
+    [string]$EvidenceStateOverlayJson = "",
+    [string]$EvidenceStateOverlayRoot = "",
     [string]$ContinuationRunJson = "",
     [string]$ContinuationRunRoot = "",
     [string]$OutputRoot = "",
@@ -34,6 +36,12 @@ $argsList = @(
 
 if ($EvidenceStateJson) {
     $argsList += @("--evidence-state-json", $EvidenceStateJson)
+}
+if ($EvidenceStateOverlayJson) {
+    $argsList += @("--evidence-state-overlay-json", $EvidenceStateOverlayJson)
+}
+if ($EvidenceStateOverlayRoot) {
+    $argsList += @("--evidence-state-overlay-root", $EvidenceStateOverlayRoot)
 }
 if ($ContinuationRunJson) {
     $argsList += @("--continuation-run-json", $ContinuationRunJson)

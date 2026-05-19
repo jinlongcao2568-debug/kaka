@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
@@ -31,6 +32,8 @@ def build_evidence_batch_closeout(
     *,
     evidence_state_json: str | Path | None = None,
     evidence_state_root: str | Path = DEFAULT_EVIDENCE_STATE_ROOT,
+    evidence_state_overlay_json: str | Path | None = None,
+    evidence_state_overlay_root: str | Path | None = None,
     continuation_run_json: str | Path | None = None,
     continuation_run_root: str | Path | None = None,
     output_root: str | Path = DEFAULT_OUTPUT_ROOT,
@@ -50,6 +53,16 @@ def build_evidence_batch_closeout(
     state_manifest = _source_manifest(state_payload)
     if state_payload and not state_manifest:
         blocking_reasons.append("evidence_orchestration_state_manifest_missing")
+    overlay_paths = _resolve_input_jsons(
+        explicit_json=evidence_state_overlay_json,
+        root=evidence_state_overlay_root,
+        default_file_name="evidence-orchestration-state-v1.json",
+    )
+    overlay_manifests = [
+        _source_manifest(_load_json(path, blocking_reasons, "evidence_orchestration_state_overlay_missing_or_invalid"))
+        for path in overlay_paths
+    ]
+    state_manifest = _merge_state_manifests([state_manifest, *overlay_manifests])
 
     continuation_path = _resolve_input_json(
         explicit_json=continuation_run_json,
@@ -77,6 +90,7 @@ def build_evidence_batch_closeout(
             state_manifest=state_manifest,
             continuation_manifest=continuation_manifest,
             state_path=state_path,
+            overlay_paths=overlay_paths,
             continuation_path=continuation_path,
             created_at=created,
         )
@@ -98,6 +112,7 @@ def build_evidence_batch_closeout(
         "manifest_id": f"EVIDENCE-BATCH-CLOSEOUT-{_fingerprint({'summary': summary, 'records': closeout_records})[:16]}",
         "created_at": created,
         "source_evidence_state_json": str(state_path or ""),
+        "source_evidence_state_overlay_jsons": [str(path) for path in overlay_paths],
         "source_continuation_run_json": str(continuation_path or ""),
         "source_evidence_orchestration_manifest_id": str(state_manifest.get("manifest_id") or ""),
         "source_continuation_manifest_id": str(continuation_manifest.get("manifest_id") or ""),
@@ -142,6 +157,7 @@ def _closeout_record(
     state_manifest: Mapping[str, Any],
     continuation_manifest: Mapping[str, Any],
     state_path: Path | None,
+    overlay_paths: list[Path],
     continuation_path: Path | None,
     created_at: str,
 ) -> dict[str, Any]:
@@ -190,6 +206,7 @@ def _closeout_record(
         "design_survey_adapter_counts": dict(evidence.get("design_survey_adapter_counts") or {}),
         "source_refs": {
             "evidence_state_json": str(state_path or ""),
+            "evidence_state_overlay_jsons": [str(path) for path in overlay_paths],
             "continuation_run_json": str(continuation_path or ""),
             "evidence_orchestration_manifest_id": str(state_manifest.get("manifest_id") or ""),
             "continuation_manifest_id": str(continuation_manifest.get("manifest_id") or ""),
@@ -391,6 +408,92 @@ def _resolve_input_json(
     return None
 
 
+def _resolve_input_jsons(
+    *,
+    explicit_json: str | Path | None,
+    root: str | Path | None,
+    default_file_name: str,
+) -> list[Path]:
+    if explicit_json:
+        return [Path(value) for value in _split_path_values(explicit_json)]
+    if root:
+        return [Path(value) / default_file_name for value in _split_path_values(root)]
+    return []
+
+
+def _merge_state_manifests(manifests: list[Mapping[str, Any]]) -> dict[str, Any]:
+    merged: dict[str, Any] = {}
+    for manifest in manifests:
+        if not manifest:
+            continue
+        incoming_project_ids = _project_ids_from_manifest(manifest)
+        for key, value in manifest.items():
+            if key in {
+                "evidence_state_table",
+                "batch_triage_table",
+                "stage6_fact_package_readiness_table",
+            }:
+                existing = merged.get(key) if isinstance(merged.get(key), Mapping) else {}
+                existing_records = _list(existing.get("records")) if isinstance(existing, Mapping) else []
+                incoming_records = _records_from_table(manifest, key)
+                merged[key] = {
+                    **(dict(existing) if isinstance(existing, Mapping) else {}),
+                    **(dict(value) if isinstance(value, Mapping) else {}),
+                    "records": _merge_records_by_project(existing_records, incoming_records),
+                }
+                continue
+            if key == "adapter_job_table":
+                existing = merged.get(key) if isinstance(merged.get(key), Mapping) else {}
+                existing_records = [
+                    record
+                    for record in _list(existing.get("records")) if isinstance(record, Mapping)
+                    if str(record.get("project_id") or "") not in incoming_project_ids
+                ]
+                incoming_records = _records_from_table(manifest, key)
+                merged[key] = {
+                    **(dict(existing) if isinstance(existing, Mapping) else {}),
+                    **(dict(value) if isinstance(value, Mapping) else {}),
+                    "records": [*existing_records, *incoming_records],
+                }
+                continue
+            if isinstance(value, Mapping):
+                existing = merged.get(key)
+                merged[key] = {**(dict(existing) if isinstance(existing, Mapping) else {}), **dict(value)}
+                continue
+            if value not in ("", None, [], {}) or key not in merged:
+                merged[key] = value
+    return merged
+
+
+def _project_ids_from_manifest(manifest: Mapping[str, Any]) -> set[str]:
+    return {
+        str(record.get("project_id") or "")
+        for record in _records_from_table(manifest, "evidence_state_table")
+        if str(record.get("project_id") or "")
+    }
+
+
+def _merge_records_by_project(existing_records: list[Any], incoming_records: list[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
+    out: list[Mapping[str, Any]] = []
+    indexes: dict[str, int] = {}
+    for record in existing_records:
+        if not isinstance(record, Mapping):
+            continue
+        project_id = str(record.get("project_id") or "")
+        if project_id:
+            indexes[project_id] = len(out)
+        out.append(record)
+    for record in incoming_records:
+        project_id = str(record.get("project_id") or "")
+        if project_id and project_id in indexes:
+            out[indexes[project_id]] = record
+            continue
+        if project_id:
+            indexes[project_id] = len(out)
+        out.append(record)
+    return out
+
+
 def _load_json(path: Path | None, blocking_reasons: list[str], missing_reason: str) -> dict[str, Any]:
     if path is None or not path.exists():
         blocking_reasons.append(missing_reason)
@@ -493,6 +596,13 @@ def _list(value: Any) -> list[Any]:
     return [value]
 
 
+def _split_path_values(value: Any) -> list[str]:
+    text = str(value or "").strip()
+    if not text:
+        return []
+    return [item.strip() for item in re.split(r"[;,]", text) if item.strip()]
+
+
 def _dedupe(values: Iterable[Any]) -> list[str]:
     out: list[str] = []
     seen: set[str] = set()
@@ -529,6 +639,8 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Build Evidence Batch Closeout v1 from orchestration state tables.")
     parser.add_argument("--evidence-state-json", default="")
     parser.add_argument("--evidence-state-root", default=str(DEFAULT_EVIDENCE_STATE_ROOT))
+    parser.add_argument("--evidence-state-overlay-json", default="")
+    parser.add_argument("--evidence-state-overlay-root", default="")
     parser.add_argument("--continuation-run-json", default="")
     parser.add_argument("--continuation-run-root", default="")
     parser.add_argument("--output-root", default=str(DEFAULT_OUTPUT_ROOT))
@@ -542,6 +654,8 @@ def main(argv: list[str] | None = None) -> int:
     result = build_evidence_batch_closeout(
         evidence_state_json=args.evidence_state_json or None,
         evidence_state_root=args.evidence_state_root,
+        evidence_state_overlay_json=args.evidence_state_overlay_json or None,
+        evidence_state_overlay_root=args.evidence_state_overlay_root or None,
         continuation_run_json=args.continuation_run_json or None,
         continuation_run_root=args.continuation_run_root or None,
         output_root=args.output_root,
