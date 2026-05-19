@@ -58,6 +58,35 @@ class Stage6ReviewActionDispatchCloseoutTests(unittest.TestCase):
             self.assertTrue((root / "out" / "stage6-review-action-dispatch-closeout-v1.json").exists())
             self.assertTrue((root / "out" / "stage6-review-dispatch-closeout-table.json").exists())
 
+    def test_release_evidence_adapter_plan_ready_routes_to_field_query_not_evidence_state(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            records = [
+                _readback_record(
+                    "PROJ-REL",
+                    "EXECUTION_OUTPUT_READY",
+                    dispatch_task_type="BUILD_RELEASE_EVIDENCE_ADAPTER_PLAN",
+                    result_json_exists=True,
+                )
+            ]
+            _write_readback(root / "readback", records=records)
+
+            result = build_stage6_review_action_dispatch_closeout(
+                dispatch_readback_root=root / "readback",
+                output_root=root / "out",
+            )
+
+            record = result["manifest"]["dispatch_closeout_table"]["records"][0]
+            self.assertEqual(record["dispatch_closeout_state"], "READY_FOR_RELEASE_EVIDENCE_FIELD_QUERY")
+            self.assertFalse(record["ready_to_feed_back_to_evidence_state"])
+            self.assertTrue(record["ready_for_release_evidence_field_query"])
+            self.assertEqual(result["summary"]["ready_to_feed_back_count"], 0)
+            self.assertEqual(result["summary"]["ready_for_release_evidence_field_query_count"], 1)
+            self.assertEqual(
+                record["next_recommended_action"],
+                "run_release_evidence_field_query_probe_then_readback_before_evidence_state_rebuild",
+            )
+
     def test_missing_dispatch_readback_blocks_closeout(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -92,8 +121,8 @@ class Stage6ReviewActionDispatchCloseoutTests(unittest.TestCase):
             self.assertEqual(manifest["manifest_sha256"], _fingerprint_without_manifest_sha(manifest))
 
 
-def _write_readback(root: Path) -> None:
-    records = [
+def _write_readback(root: Path, *, records: list[Mapping[str, Any]] | None = None) -> None:
+    rows = records or [
         _readback_record("PROJ-A", "EXECUTION_OUTPUT_READY", result_json_exists=True),
         _readback_record("PROJ-D", "WAITING_FOR_CONTROLLED_EXECUTION"),
         _readback_record("PROJ-SKIP", "SKIPPED_BY_OPERATOR"),
@@ -109,10 +138,10 @@ def _write_readback(root: Path) -> None:
         {
             "manifest": {
                 "manifest_id": "DISPATCH-READBACK-1",
-                "dispatch_readback_table": {"records": records},
-                "summary": {"dispatch_readback_count": len(records)},
+                "dispatch_readback_table": {"records": rows},
+                "summary": {"dispatch_readback_count": len(rows)},
             },
-            "summary": {"dispatch_readback_count": len(records)},
+            "summary": {"dispatch_readback_count": len(rows)},
         },
     )
 
@@ -121,6 +150,7 @@ def _readback_record(
     project_id: str,
     state: str,
     *,
+    dispatch_task_type: str = "RUN_ORIGINAL_NOTICE_BACKTRACE_RETRY_OR_MANUAL_REVIEW",
     result_json_exists: bool = False,
     result_blocking_reasons: list[str] | None = None,
 ) -> dict[str, Any]:
@@ -129,7 +159,7 @@ def _readback_record(
         "dispatch_task_id": f"DISPATCH-{project_id}",
         "project_id": project_id,
         "project_name": f"{project_id} 项目",
-        "dispatch_task_type": "RUN_ORIGINAL_NOTICE_BACKTRACE_RETRY_OR_MANUAL_REVIEW",
+        "dispatch_task_type": dispatch_task_type,
         "dispatch_readback_state": state,
         "result_json_path": f"tmp/{project_id}.json" if result_json_exists else "",
         "result_json_exists": result_json_exists,

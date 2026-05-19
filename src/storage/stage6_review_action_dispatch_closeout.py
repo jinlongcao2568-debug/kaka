@@ -94,14 +94,16 @@ def build_stage6_review_action_dispatch_closeout(
 
 def _closeout_record(record: Mapping[str, Any], *, created_at: str) -> dict[str, Any]:
     readback_state = str(record.get("dispatch_readback_state") or "")
-    closeout_state = _closeout_state(readback_state)
+    dispatch_task_type = str(record.get("dispatch_task_type") or "")
+    closeout_state = _closeout_state(readback_state, dispatch_task_type)
+    ready_to_feed_back = closeout_state == "READY_TO_FEED_RESULT_BACK_TO_EVIDENCE_STATE"
     return {
         "dispatch_closeout_id": _stable_id("S6-DISPATCH-CLOSEOUT", record.get("dispatch_readback_id"), closeout_state),
         "dispatch_readback_id": str(record.get("dispatch_readback_id") or ""),
         "dispatch_task_id": str(record.get("dispatch_task_id") or ""),
         "project_id": str(record.get("project_id") or ""),
         "project_name": str(record.get("project_name") or ""),
-        "dispatch_task_type": str(record.get("dispatch_task_type") or ""),
+        "dispatch_task_type": dispatch_task_type,
         "dispatch_readback_state": readback_state,
         "dispatch_closeout_state": closeout_state,
         "result_json_path": str(record.get("result_json_path") or ""),
@@ -109,9 +111,10 @@ def _closeout_record(record: Mapping[str, Any], *, created_at: str) -> dict[str,
         "result_manifest_id": str(record.get("result_manifest_id") or ""),
         "result_blocking_reasons": _list(record.get("result_blocking_reasons")),
         "next_required_input_refs": _list(record.get("next_required_input_refs")),
-        "next_recommended_action": _closeout_next_action(closeout_state),
-        "ready_to_feed_back_to_evidence_state": closeout_state == "READY_TO_FEED_RESULT_BACK_TO_EVIDENCE_STATE",
-        "kept_in_internal_review_only": closeout_state != "READY_TO_FEED_RESULT_BACK_TO_EVIDENCE_STATE",
+        "next_recommended_action": _closeout_next_action(closeout_state, dispatch_task_type),
+        "ready_to_feed_back_to_evidence_state": ready_to_feed_back,
+        "ready_for_release_evidence_field_query": closeout_state == "READY_FOR_RELEASE_EVIDENCE_FIELD_QUERY",
+        "kept_in_internal_review_only": not ready_to_feed_back,
         "live_execution_enabled": False,
         "customer_visible_allowed": False,
         "external_send_enabled": False,
@@ -121,8 +124,10 @@ def _closeout_record(record: Mapping[str, Any], *, created_at: str) -> dict[str,
     }
 
 
-def _closeout_state(readback_state: str) -> str:
+def _closeout_state(readback_state: str, dispatch_task_type: str) -> str:
     if readback_state == "EXECUTION_OUTPUT_READY":
+        if dispatch_task_type == "BUILD_RELEASE_EVIDENCE_ADAPTER_PLAN":
+            return "READY_FOR_RELEASE_EVIDENCE_FIELD_QUERY"
         return "READY_TO_FEED_RESULT_BACK_TO_EVIDENCE_STATE"
     if readback_state == "WAITING_FOR_CONTROLLED_EXECUTION":
         return "WAITING_FOR_CONTROLLED_EXECUTION"
@@ -135,9 +140,11 @@ def _closeout_state(readback_state: str) -> str:
     return "MANUAL_REVIEW_REQUIRED"
 
 
-def _closeout_next_action(closeout_state: str) -> str:
+def _closeout_next_action(closeout_state: str, dispatch_task_type: str) -> str:
     if closeout_state == "READY_TO_FEED_RESULT_BACK_TO_EVIDENCE_STATE":
         return "feed_result_artifact_into_evidence_orchestration_state_and_rebuild_stage6"
+    if closeout_state == "READY_FOR_RELEASE_EVIDENCE_FIELD_QUERY":
+        return "run_release_evidence_field_query_probe_then_readback_before_evidence_state_rebuild"
     if closeout_state == "WAITING_FOR_CONTROLLED_EXECUTION":
         return "run_controlled_dispatch_task_or_record_operator_skip"
     if closeout_state == "PARKED_OPERATOR_SKIPPED_THIS_ROUND":
@@ -162,6 +169,9 @@ def _summary(
         "dispatch_closeout_state_counts": _counts(record.get("dispatch_closeout_state") for record in closeout_records),
         "ready_to_feed_back_count": sum(
             1 for record in closeout_records if record.get("ready_to_feed_back_to_evidence_state")
+        ),
+        "ready_for_release_evidence_field_query_count": sum(
+            1 for record in closeout_records if record.get("ready_for_release_evidence_field_query")
         ),
         "waiting_for_controlled_execution_count": sum(
             1
