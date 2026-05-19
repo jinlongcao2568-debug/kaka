@@ -5,7 +5,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
-from typing import Mapping
+from typing import Any, Mapping
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -98,6 +98,37 @@ class EvidenceOrchestrationContinuationRunnerTests(unittest.TestCase):
                 "PROJ-CN-GD-JG2026-20002",
             )
 
+    def test_existing_partial_original_backtrace_does_not_block_remaining_pending_projects(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            storage_json = root / "storage.json"
+            p13b_root = root / "p13b"
+            original_root = root / "original"
+            _write_two_project_stage16_storage(storage_json)
+            _write_two_project_p13b_backtrace_required(p13b_root)
+            _write_original_notice_a_signal(original_root)
+
+            result = run_evidence_orchestration_continuation(
+                stage16_storage_json=storage_json,
+                p13b_company_history_root=p13b_root,
+                original_notice_backtrace_root=original_root,
+                output_root=root / "run",
+                created_at="2026-05-18T00:00:00+08:00",
+            )
+
+            summary = result["summary"]
+            self.assertEqual(summary["original_action_state"], "ORIGINAL_BACKTRACE_CONTINUED_WITH_EXISTING_INPUT")
+            self.assertEqual(summary["original_notice_task_count"], 1)
+            self.assertEqual(
+                summary["state_after_evidence_state_counts"],
+                {
+                    "A_STRONG_TIME_OVERLAP_SIGNAL_READY": 1,
+                    "P13B_ORIGINAL_BACKTRACE_REQUIRED": 1,
+                },
+            )
+            self.assertIn(str(original_root), result["manifest"]["original_notice_backtrace_root"])
+            self.assertIn("01-original-notice-backtrace", result["manifest"]["original_notice_backtrace_root"])
+
     def test_browser_readback_root_is_passed_to_original_backtrace_runner(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -127,6 +158,119 @@ class EvidenceOrchestrationContinuationRunnerTests(unittest.TestCase):
                 )
             )
             self.assertEqual(original["summary"]["browser_readback_ready_count"], 1)
+
+    def test_public_registry_readback_runs_from_existing_fallback_and_keeps_pending_without_snapshot(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            storage_json = root / "storage.json"
+            plan_root = root / "design-plan"
+            stage4_root = root / "design-stage4"
+            fallback_root = root / "public-registry"
+            _write_design_stage16_storage(storage_json)
+            _write_design_survey_adapter_plan(plan_root)
+            _write_design_survey_stage4_public_registry_required(stage4_root)
+            _write_design_survey_public_registry_fallback(fallback_root)
+
+            result = run_evidence_orchestration_continuation(
+                stage16_storage_json=storage_json,
+                design_survey_adapter_plan_root=plan_root,
+                design_survey_stage4_execution_root=stage4_root,
+                design_survey_public_registry_fallback_root=fallback_root,
+                output_root=root / "run",
+                created_at="2026-05-18T00:00:00+08:00",
+            )
+
+            summary = result["summary"]
+            self.assertTrue(result["safe_to_execute"])
+            self.assertEqual(summary["public_registry_readback_action_state"], "PUBLIC_REGISTRY_READBACK_EXECUTED")
+            self.assertEqual(summary["public_registry_readback_record_count"], 1)
+            self.assertEqual(
+                summary["public_registry_readback_provider_result_state_counts"],
+                {"PENDING_IMPLEMENTATION_REVIEW": 1},
+            )
+            self.assertEqual(
+                summary["state_after_evidence_state_counts"],
+                {"DESIGN_SURVEY_PUBLIC_REGISTRY_TASKS_READY": 1},
+            )
+            self.assertTrue(
+                (
+                    root
+                    / "run"
+                    / "01c-design-survey-public-registry-readback"
+                    / "design-survey-public-registry-readback-v1.json"
+                ).exists()
+            )
+
+    def test_public_registry_snapshot_match_upgrades_design_project_to_review_ready(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            storage_json = root / "storage.json"
+            plan_root = root / "design-plan"
+            stage4_root = root / "design-stage4"
+            fallback_root = root / "public-registry"
+            snapshot_path = root / "registered-surveyor-snapshot.html"
+            _write_design_stage16_storage(storage_json)
+            _write_design_survey_adapter_plan(plan_root)
+            _write_design_survey_stage4_public_registry_required(stage4_root)
+            _write_design_survey_public_registry_fallback(fallback_root)
+            snapshot_path.write_text(
+                "<table><tr><td>胡昌华</td><td>广州市城市规划勘测设计研究院有限公司</td>"
+                "<td>粤测绘20260001</td><td>有效</td></tr></table>",
+                encoding="utf-8",
+            )
+
+            result = run_evidence_orchestration_continuation(
+                stage16_storage_json=storage_json,
+                design_survey_adapter_plan_root=plan_root,
+                design_survey_stage4_execution_root=stage4_root,
+                design_survey_public_registry_fallback_root=fallback_root,
+                public_registry_snapshot_html_path=snapshot_path,
+                output_root=root / "run",
+                created_at="2026-05-18T00:00:00+08:00",
+            )
+
+            summary = result["summary"]
+            self.assertEqual(summary["public_registry_readback_action_state"], "PUBLIC_REGISTRY_READBACK_EXECUTED")
+            self.assertEqual(summary["public_registry_readback_matched_count"], 1)
+            self.assertEqual(summary["public_registry_readback_snapshot_supplied_count"], 1)
+            self.assertEqual(
+                summary["state_after_evidence_state_counts"],
+                {"DESIGN_SURVEY_PUBLIC_REGISTRY_IDENTITY_MATCH_READY": 1},
+            )
+
+    def test_public_registry_fallback_is_built_then_readback_runs_when_stage4_requires_it(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            storage_json = root / "storage.json"
+            plan_root = root / "design-plan"
+            stage4_root = root / "design-stage4"
+            _write_design_stage16_storage(storage_json)
+            _write_design_survey_adapter_plan(plan_root)
+            _write_design_survey_stage4_public_registry_required(stage4_root)
+
+            result = run_evidence_orchestration_continuation(
+                stage16_storage_json=storage_json,
+                design_survey_adapter_plan_root=plan_root,
+                design_survey_stage4_execution_root=stage4_root,
+                output_root=root / "run",
+                created_at="2026-05-18T00:00:00+08:00",
+            )
+
+            summary = result["summary"]
+            self.assertEqual(summary["public_registry_fallback_action_state"], "PUBLIC_REGISTRY_FALLBACK_BUILT")
+            self.assertEqual(summary["public_registry_readback_action_state"], "PUBLIC_REGISTRY_READBACK_EXECUTED")
+            self.assertEqual(
+                summary["state_after_evidence_state_counts"],
+                {"DESIGN_SURVEY_PUBLIC_REGISTRY_TASKS_READY": 1},
+            )
+            self.assertTrue(
+                (
+                    root
+                    / "run"
+                    / "01b-design-survey-public-registry-fallback"
+                    / "design-survey-public-registry-fallback-v1.json"
+                ).exists()
+            )
 
 
 def _write_stage16_storage(path: Path) -> None:
@@ -383,7 +527,175 @@ def _write_original_notice_a_signal(root: Path) -> None:
     )
 
 
-def _write_json(path: Path, payload: Mapping[str, object]) -> None:
+def _write_design_stage16_storage(path: Path) -> None:
+    project_id = "PROJ-CN-GD-JG2026-11327"
+    candidates = [
+        {
+            "project_id": project_id,
+            "project_name": "规划测绘项目中标候选人公示",
+            "source_url": "https://example.test/design.html",
+            "candidate_company": "广州市城市规划勘测设计研究院有限公司",
+            "primary_responsible_person_name": "胡昌华",
+            "engineering_work_lane": "survey_design",
+            "opportunity_priority_class": "C_MEDIUM_DESIGN_SURVEY",
+            "stage2_detail_capture_state": "FETCHED",
+            "stage3_detail_parse_state": "PARSED_WITH_REVIEW",
+        }
+    ]
+    closed = [
+        {
+            "project_id": project_id,
+            "real_world_hard_defect_gate_state": "PARTIAL_SOURCE_COVERAGE",
+            "real_public_stage4_9_readback": {
+                "jzsc_company_first_identity_resolution_required": False,
+                "stage5_rule_gate_status": "REVIEW",
+                "stage5_evidence_gate_status": "PASS",
+            },
+        }
+    ]
+    _write_json(
+        path,
+        {
+            "operator_actions": {
+                "operator-autonomous-opportunity-search-runs": [
+                    {
+                        "object_refs": {
+                            "candidate_options_json": json.dumps(candidates, ensure_ascii=False),
+                            "closed_loop_results_json": json.dumps(closed, ensure_ascii=False),
+                        }
+                    }
+                ]
+            }
+        },
+    )
+
+
+def _write_design_survey_adapter_plan(root: Path) -> None:
+    project_id = "PROJ-CN-GD-JG2026-11327"
+    company = "广州市城市规划勘测设计研究院有限公司"
+    _write_json(
+        root / "design-survey-responsible-adapter-plan-v1.json",
+        {
+            "manifest": {
+                "project_table": {
+                    "records": [
+                        {
+                            "design_survey_project_id": "DESIGN-SURVEY-PROJECT-1",
+                            "project_id": project_id,
+                            "project_name": "规划测绘项目中标候选人公示",
+                            "candidate_group_members": [company],
+                            "responsible_person_name": "胡昌华",
+                            "engineering_work_lane": "survey_design",
+                            "opportunity_priority_class": "C_MEDIUM_DESIGN_SURVEY",
+                            "adapter_readiness_state": "READY_FOR_DESIGN_SURVEY_STAGE4_PLAN",
+                            "customer_visible_allowed": False,
+                            "no_legal_conclusion": True,
+                        }
+                    ]
+                }
+            }
+        },
+    )
+
+
+def _write_design_survey_stage4_public_registry_required(root: Path) -> None:
+    project_id = "PROJ-CN-GD-JG2026-11327"
+    _write_json(
+        root / "company-first-stage4-execution.json",
+        {
+            "manifest": {
+                "items": [
+                    {
+                        "job_id": "STAGE4-FLOW08-INPUT-JOB-1",
+                        "project_id": project_id,
+                        "project_name": "规划测绘项目中标候选人公示",
+                        "candidate_company_name": "广州市城市规划勘测设计研究院有限公司",
+                        "candidate_group_members": ["广州市城市规划勘测设计研究院有限公司"],
+                        "responsible_person_name": "胡昌华",
+                        "responsible_role": "survey_mapping_project_lead",
+                        "source_certificate_no_optional": "粤测绘20260001",
+                        "stage4_execution_state": "FAIL_CLOSED",
+                        "identity_resolution_state": "UNKNOWN",
+                        "supplement_after_execution_state": "DESIGN_SURVEY_PUBLIC_REGISTRY_FALLBACK_REQUIRED",
+                        "candidate_group_resolution_state": "UNRESOLVED_NO_MEMBER_MATCHED",
+                        "fail_closed_reasons": ["jzsc_does_not_cover_registered_surveyor_credential"],
+                    }
+                ],
+                "stage4_candidate_verification_inputs": {"items": []},
+                "summary": {"project_count": 1, "job_count": 1},
+            }
+        },
+    )
+
+
+def _write_design_survey_public_registry_fallback(root: Path) -> None:
+    project_id = "PROJ-CN-GD-JG2026-11327"
+    company = "广州市城市规划勘测设计研究院有限公司"
+    payload = {
+        "provider_id": "NATURAL_RESOURCE_REGISTERED_SURVEYOR",
+        "provider_role": "registered_surveyor_person_company_certificate_identity",
+        "source_probe_item": {
+            "project_id": project_id,
+            "project_name": "规划测绘项目中标候选人公示",
+        },
+        "target": {
+            "project_id": project_id,
+            "candidate_company_name": company,
+            "candidate_group_members": [company],
+            "responsible_person_name": "胡昌华",
+            "certificate_no_optional": "粤测绘20260001",
+        },
+        "source_public_registry_task": {
+            "public_registry_task_id": "DESIGN-SURVEY-PUBLIC-REG-TASK-1",
+            "query_fields": {
+                "person_name": "胡昌华",
+                "registered_unit_or_candidate_company": company,
+                "certificate_no_optional": "粤测绘20260001",
+                "candidate_group_members": [company],
+            },
+        },
+    }
+    _write_json(
+        root / "design-survey-public-registry-fallback-v1.json",
+        {
+            "manifest": {
+                "public_registry_target_table": {
+                    "records": [
+                        {
+                            "project_id": project_id,
+                            "candidate_company_name": company,
+                            "responsible_person_name": "胡昌华",
+                            "target_readiness_state": "READY_FOR_REGISTERED_SURVEYOR_PUBLIC_REGISTRY",
+                        }
+                    ]
+                },
+                "public_registry_task_table": {
+                    "records": [
+                        {
+                            "project_id": project_id,
+                            "provider_id": "NATURAL_RESOURCE_REGISTERED_SURVEYOR",
+                            "task_type": "NATURAL_RESOURCE_REGISTERED_SURVEYOR_PERSON_COMPANY_MATCH",
+                            "task_state": "PLAN_ONLY_ENTRY_NEEDS_LIVE_VERIFY",
+                        }
+                    ]
+                },
+                "stage4_provider_jobs": {
+                    "jobs": [
+                        {
+                            "job_id": "STAGE4-PUBLIC-REG-JOB-1",
+                            "project_id": project_id,
+                            "provider_id": "NATURAL_RESOURCE_REGISTERED_SURVEYOR",
+                            "payload": payload,
+                            "status": "QUEUED_NOT_EXECUTED",
+                        }
+                    ]
+                },
+            }
+        },
+    )
+
+
+def _write_json(path: Path, payload: Mapping[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 

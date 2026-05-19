@@ -9,9 +9,25 @@ param(
     [string]$YgpReadbackJson = "",
     [string]$BrowserReadbackRoot = "",
     [string]$BrowserReadbackJson = "",
+    [string]$DesignSurveyAdapterPlanJson = "",
+    [string]$DesignSurveyAdapterPlanRoot = "",
+    [string]$DesignSurveyStage4ExecutionJson = "",
+    [string]$DesignSurveyStage4ExecutionRoot = "",
+    [string]$DesignSurveyFlow08ReadbackJson = "",
+    [string]$DesignSurveyFlow08ReadbackRoot = "",
+    [string]$DesignSurveyFlow08AttachmentParseJson = "",
+    [string]$DesignSurveyFlow08AttachmentParseRoot = "",
+    [string]$DesignSurveyPublicRegistryFallbackJson = "",
+    [string]$DesignSurveyPublicRegistryFallbackRoot = "",
+    [string]$DesignSurveyPublicRegistryReadbackJson = "",
+    [string]$DesignSurveyPublicRegistryReadbackRoot = "",
+    [string]$PublicRegistrySnapshotHtmlPath = "",
+    [string]$PublicRegistrySnapshotHtmlRoot = "",
+    [string]$PublicRegistrySnapshotJson = "",
     [string]$OutputRoot = "",
     [string]$ProjectIds = "",
     [switch]$EnableLiveOriginalNoticeBacktrace,
+    [switch]$ExecuteLivePublicRegistryEntryReadback,
     [int]$MaxLiveOriginalNotices = 0,
     [switch]$EmitJson
 )
@@ -74,11 +90,59 @@ if ($BrowserReadbackRoot) {
 if ($BrowserReadbackJson) {
     $argsList += @("--browser-readback-json", $BrowserReadbackJson)
 }
+if ($DesignSurveyAdapterPlanJson) {
+    $argsList += @("--design-survey-adapter-plan-json", $DesignSurveyAdapterPlanJson)
+}
+if ($DesignSurveyAdapterPlanRoot) {
+    $argsList += @("--design-survey-adapter-plan-root", $DesignSurveyAdapterPlanRoot)
+}
+if ($DesignSurveyStage4ExecutionJson) {
+    $argsList += @("--design-survey-stage4-execution-json", $DesignSurveyStage4ExecutionJson)
+}
+if ($DesignSurveyStage4ExecutionRoot) {
+    $argsList += @("--design-survey-stage4-execution-root", $DesignSurveyStage4ExecutionRoot)
+}
+if ($DesignSurveyFlow08ReadbackJson) {
+    $argsList += @("--design-survey-flow08-readback-json", $DesignSurveyFlow08ReadbackJson)
+}
+if ($DesignSurveyFlow08ReadbackRoot) {
+    $argsList += @("--design-survey-flow08-readback-root", $DesignSurveyFlow08ReadbackRoot)
+}
+if ($DesignSurveyFlow08AttachmentParseJson) {
+    $argsList += @("--design-survey-flow08-attachment-parse-json", $DesignSurveyFlow08AttachmentParseJson)
+}
+if ($DesignSurveyFlow08AttachmentParseRoot) {
+    $argsList += @("--design-survey-flow08-attachment-parse-root", $DesignSurveyFlow08AttachmentParseRoot)
+}
+if ($DesignSurveyPublicRegistryFallbackJson) {
+    $argsList += @("--design-survey-public-registry-fallback-json", $DesignSurveyPublicRegistryFallbackJson)
+}
+if ($DesignSurveyPublicRegistryFallbackRoot) {
+    $argsList += @("--design-survey-public-registry-fallback-root", $DesignSurveyPublicRegistryFallbackRoot)
+}
+if ($DesignSurveyPublicRegistryReadbackJson) {
+    $argsList += @("--design-survey-public-registry-readback-json", $DesignSurveyPublicRegistryReadbackJson)
+}
+if ($DesignSurveyPublicRegistryReadbackRoot) {
+    $argsList += @("--design-survey-public-registry-readback-root", $DesignSurveyPublicRegistryReadbackRoot)
+}
+if ($PublicRegistrySnapshotHtmlPath) {
+    $argsList += @("--public-registry-snapshot-html-path", $PublicRegistrySnapshotHtmlPath)
+}
+if ($PublicRegistrySnapshotHtmlRoot) {
+    $argsList += @("--public-registry-snapshot-html-root", $PublicRegistrySnapshotHtmlRoot)
+}
+if ($PublicRegistrySnapshotJson) {
+    $argsList += @("--public-registry-snapshot-json", $PublicRegistrySnapshotJson)
+}
 if ($ProjectIds) {
     $argsList += @("--project-ids", $ProjectIds)
 }
 if ($EnableLiveOriginalNoticeBacktrace) {
     $argsList += "--enable-live-original-notice-backtrace"
+}
+if ($ExecuteLivePublicRegistryEntryReadback) {
+    $argsList += "--execute-live-public-registry-entry-readback"
 }
 if ($MaxLiveOriginalNotices -gt 0) {
     $argsList += @("--max-live-original-notices", "$MaxLiveOriginalNotices")
