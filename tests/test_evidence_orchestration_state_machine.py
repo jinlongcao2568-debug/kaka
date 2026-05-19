@@ -764,6 +764,47 @@ class EvidenceOrchestrationStateMachineTests(unittest.TestCase):
             )
             self.assertTrue(batch_by_project["PROJ-CN-GD-JG2026-11398-002"]["continue_allowed"])
 
+    def test_closed_original_backtrace_continuation_becomes_d_not_pending(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            storage_json = root / "storage.json"
+            supplement_json = root / "stage4-inputs.json"
+            p13b_root = root / "p13b"
+            original_root = root / "original"
+            continuation_root = root / "continuation"
+            _write_stage16_storage(storage_json)
+            _write_company_first_inputs(supplement_json)
+            _write_p13b_two_backtrace_required(p13b_root)
+            _write_original_notice_partial_deferred(original_root)
+            _write_original_backtrace_continuation_closed(continuation_root)
+
+            result = build_evidence_orchestration_state(
+                stage16_storage_json=storage_json,
+                company_first_stage4_inputs_json=supplement_json,
+                p13b_company_history_root=p13b_root,
+                original_notice_backtrace_root=original_root,
+                original_backtrace_continuation_root=continuation_root,
+                output_root=root / "out",
+                created_at="2026-05-18T00:00:00+08:00",
+            )
+
+            by_project = _records_by_project(result["manifest"]["evidence_state_table"]["records"])
+            rqsg2 = by_project["PROJ-CN-GD-JG2026-11398-002"]
+            self.assertEqual(rqsg2["evidence_state"], "D_INSUFFICIENT_OR_BLOCKED_READBACK")
+            self.assertEqual(rqsg2["evidence_signal_source"], "ORIGINAL_BACKTRACE_CONTINUATION")
+            self.assertEqual(rqsg2["recommended_next_action"], "manual_review_or_close_p13b_without_clearance_claim")
+            self.assertIn("targeted_person_readback_executed_without_same_person_signal", rqsg2["review_reasons"])
+            self.assertEqual(
+                rqsg2["signal_counts"]["original_backtrace_continuation_targeted_person_not_found_count"],
+                1,
+            )
+            batch_by_project = _records_by_project(result["manifest"]["batch_triage_table"]["records"])
+            self.assertEqual(
+                batch_by_project["PROJ-CN-GD-JG2026-11398-002"]["batch_triage_bucket"],
+                "D_BLOCKED_OR_INSUFFICIENT_REVIEW",
+            )
+            self.assertFalse(batch_by_project["PROJ-CN-GD-JG2026-11398-002"]["continue_allowed"])
+
     def test_browser_readback_blocker_keeps_d_state_retry_reason_visible(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -1083,6 +1124,31 @@ def _write_original_notice_partial_deferred(root: Path) -> None:
                     }
                 ],
                 "manual_release_evidence_probe_table": [],
+            }
+        },
+    )
+
+
+def _write_original_backtrace_continuation_closed(root: Path) -> None:
+    _write_json(
+        root / "p13b-original-backtrace-continuation-controller-v2.json",
+        {
+            "manifest": {
+                "continuation_plan_records": [
+                    {
+                        "original_notice_task_id": "TASK-DIFFERENT",
+                        "project_id": "PROJ-CN-GD-JG2026-11398-002",
+                        "candidate_company_name": "中国化学工程第六建设有限公司",
+                        "continuation_state": "PARK_DIFFERENT_PERSON_WITH_PERIOD",
+                    },
+                    {
+                        "original_notice_task_id": "TASK-TARGET-NOT-FOUND",
+                        "project_id": "PROJ-CN-GD-JG2026-11398-002",
+                        "candidate_company_name": "中国化学工程第六建设有限公司",
+                        "continuation_state": "PARK_TARGETED_PERSON_NOT_FOUND",
+                        "targeted_person_readback_state": "TARGETED_PERSON_NOT_FOUND_IN_TARGETED_READBACK",
+                    },
+                ]
             }
         },
     )

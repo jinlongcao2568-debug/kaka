@@ -145,6 +145,7 @@ def run_evidence_orchestration_continuation(
         continuation_source_json = p13b_company_history_json
         continuation_source_root = p13b_company_history_root
         continuation_from_delta_plan = False
+        skip_original_backtrace_build = False
         if original_notice_backtrace_json or original_notice_backtrace_root:
             original_continuation_result = build_p13b_original_backtrace_continuation_controller(
                 original_notice_backtrace_json=original_notice_backtrace_json,
@@ -154,41 +155,48 @@ def run_evidence_orchestration_continuation(
                 created_at=created,
             )
             continuation_summary = _summary(original_continuation_result)
-            if int(continuation_summary.get("continuation_run_task_count") or 0) > 0:
+            continuation_plan_count = int(continuation_summary.get("continuation_plan_record_count") or 0)
+            continuation_run_count = int(continuation_summary.get("continuation_run_task_count") or 0)
+            if continuation_run_count > 0:
                 continuation_source_json = None
                 continuation_source_root = Path(
                     original_continuation_result["manifest"]["continuation_company_history_triage_root"]
                 )
                 continuation_from_delta_plan = True
-        original_result = build_p13b_original_notice_backtrace(
-            input_json=continuation_source_json,
-            company_history_triage_root=continuation_source_root,
-            output_root=original_out_root,
-            ygp_readback_root=ygp_readback_root,
-            ygp_readback_json=ygp_readback_json,
-            browser_readback_root=browser_readback_root,
-            browser_readback_json=browser_readback_json,
-            enable_live_public_query=enable_live_original_notice_backtrace,
-            max_live_original_notices=original_live_notice_limit,
-            project_ids=original_project_ids,
-            created_at=created,
-        )
-        original_source_json, original_source_root = _merge_original_backtrace_sources(
-            existing_json=original_notice_backtrace_json,
-            existing_root=original_notice_backtrace_root,
-            generated_root=original_out_root,
-        )
-        original_action_state = (
-            "ORIGINAL_BACKTRACE_LIVE_ATTEMPTED"
-            if enable_live_original_notice_backtrace and not continuation_from_delta_plan
-            else "ORIGINAL_BACKTRACE_DELTA_LIVE_ATTEMPTED"
-            if enable_live_original_notice_backtrace and continuation_from_delta_plan
-            else "ORIGINAL_BACKTRACE_CONTINUED_FROM_DEFERRED_TASK_PLAN"
-            if continuation_from_delta_plan
-            else "ORIGINAL_BACKTRACE_CONTINUED_WITH_EXISTING_INPUT"
-            if original_notice_backtrace_json or original_notice_backtrace_root
-            else "ORIGINAL_BACKTRACE_PLAN_BUILT"
-        )
+            elif continuation_plan_count > 0:
+                skip_original_backtrace_build = True
+                original_action_state = "EXISTING_ORIGINAL_BACKTRACE_CONSUMED_NO_DELTA_TASKS"
+                original_skip_reason = "original_backtrace_continuation_has_no_delta_task"
+        if not skip_original_backtrace_build:
+            original_result = build_p13b_original_notice_backtrace(
+                input_json=continuation_source_json,
+                company_history_triage_root=continuation_source_root,
+                output_root=original_out_root,
+                ygp_readback_root=ygp_readback_root,
+                ygp_readback_json=ygp_readback_json,
+                browser_readback_root=browser_readback_root,
+                browser_readback_json=browser_readback_json,
+                enable_live_public_query=enable_live_original_notice_backtrace,
+                max_live_original_notices=original_live_notice_limit,
+                project_ids=original_project_ids,
+                created_at=created,
+            )
+            original_source_json, original_source_root = _merge_original_backtrace_sources(
+                existing_json=original_notice_backtrace_json,
+                existing_root=original_notice_backtrace_root,
+                generated_root=original_out_root,
+            )
+            original_action_state = (
+                "ORIGINAL_BACKTRACE_LIVE_ATTEMPTED"
+                if enable_live_original_notice_backtrace and not continuation_from_delta_plan
+                else "ORIGINAL_BACKTRACE_DELTA_LIVE_ATTEMPTED"
+                if enable_live_original_notice_backtrace and continuation_from_delta_plan
+                else "ORIGINAL_BACKTRACE_CONTINUED_FROM_DEFERRED_TASK_PLAN"
+                if continuation_from_delta_plan
+                else "ORIGINAL_BACKTRACE_CONTINUED_WITH_EXISTING_INPUT"
+                if original_notice_backtrace_json or original_notice_backtrace_root
+                else "ORIGINAL_BACKTRACE_PLAN_BUILT"
+            )
 
     if original_source_json or original_source_root:
         targeted_person_continuation_result = build_p13b_original_backtrace_continuation_controller(

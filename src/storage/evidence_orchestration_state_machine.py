@@ -499,6 +499,37 @@ def _project_evidence_state(
         "overlap_signal_state",
         "ORIGINAL_NOTICE_BACKTRACE_REQUIRED",
     )
+    continuation_records = [
+        record
+        for record in _list(original_continuation_project.get("continuation_plan_records"))
+        if isinstance(record, Mapping)
+    ]
+    if original_continuation_supplied and backtrace_required and continuation_records:
+        continuation_pending = _original_continuation_pending_records(original_continuation_project)
+        if continuation_pending:
+            return (
+                "P13B_ORIGINAL_BACKTRACE_REQUIRED",
+                "PENDING_ORIGINAL_BACKTRACE",
+                "continue_p13b_original_notice_backtrace",
+                ["original_backtrace_continuation_has_pending_followup_tasks"],
+                "ORIGINAL_BACKTRACE_CONTINUATION",
+            )
+        if _original_continuation_blocked_count(original_continuation_project):
+            return (
+                "D_INSUFFICIENT_OR_BLOCKED_READBACK",
+                "D_EVIDENCE_INSUFFICIENT",
+                "manual_review_or_retry_blocked_original_notice_backtrace",
+                _original_continuation_no_a_review_reasons(original_continuation_project),
+                "ORIGINAL_BACKTRACE_CONTINUATION",
+            )
+        return (
+            "D_INSUFFICIENT_OR_BLOCKED_READBACK",
+            "D_EVIDENCE_INSUFFICIENT",
+            "manual_review_or_close_p13b_without_clearance_claim",
+            _original_continuation_no_a_review_reasons(original_continuation_project),
+            "ORIGINAL_BACKTRACE_CONTINUATION",
+        )
+
     if original_supplied and backtrace_required and not _original_backtrace_covers_required(
         original_project,
         required_count=len(backtrace_required),
@@ -1771,6 +1802,54 @@ def _original_backtrace_covers_required(original_project: Mapping[str, Any], *, 
         ):
             return False
     return len(_list(original_project.get("original_notice_overlap_signal_records"))) >= required_count
+
+
+def _original_continuation_pending_records(original_continuation_project: Mapping[str, Any]) -> list[Mapping[str, Any]]:
+    pending_states = {
+        "CONTINUE_ORIGINAL_BACKTRACE_WITH_BUDGET_LIMIT",
+        "TARGETED_PERSON_READBACK_REQUIRED",
+        "TARGETED_YGP_READBACK_REQUIRED",
+        "ROUTE_SPECIFIC_READBACK_REQUIRED",
+    }
+    return [
+        record
+        for record in _list(original_continuation_project.get("continuation_plan_records"))
+        if isinstance(record, Mapping) and str(record.get("continuation_state") or "") in pending_states
+    ]
+
+
+def _original_continuation_blocked_count(original_continuation_project: Mapping[str, Any]) -> int:
+    return sum(
+        1
+        for record in _list(original_continuation_project.get("continuation_plan_records"))
+        if isinstance(record, Mapping) and str(record.get("continuation_state") or "") == "BLOCKED_OR_SOURCE_UNSUPPORTED"
+    )
+
+
+def _original_continuation_no_a_review_reasons(original_continuation_project: Mapping[str, Any]) -> list[str]:
+    state_counts = _counts(
+        record.get("continuation_state")
+        for record in _list(original_continuation_project.get("continuation_plan_records"))
+        if isinstance(record, Mapping)
+    )
+    reasons: list[str] = []
+    if int(state_counts.get("BLOCKED_OR_SOURCE_UNSUPPORTED", 0)):
+        reasons.append("original_backtrace_continuation_blocked_or_source_unsupported")
+    if int(state_counts.get("PARK_TARGETED_PERSON_NOT_FOUND", 0)):
+        reasons.append("targeted_person_readback_executed_without_same_person_signal")
+    if int(state_counts.get("PARK_DIFFERENT_PERSON_WITH_PERIOD", 0)):
+        reasons.append("original_notice_extracted_different_responsible_person_with_period")
+    if int(state_counts.get("PARK_DIFFERENT_PERSON_NO_PERIOD", 0)):
+        reasons.append("original_notice_extracted_different_responsible_person_without_period")
+    if int(state_counts.get("PARK_NO_EXTRACTED_MATCH_FIELDS", 0)):
+        reasons.append("original_notice_no_company_person_period_match")
+    if int(state_counts.get("LOW_VALUE_COMPANY_ONLY_REVIEW", 0)):
+        reasons.append("original_notice_candidate_company_present_but_person_period_missing")
+    if int(state_counts.get("PARK_LOW_VALUE_REVIEW", 0)):
+        reasons.append("original_notice_backtrace_no_a_signal")
+    if not reasons:
+        reasons.append("original_backtrace_continuation_closed_without_a_signal")
+    return reasons
 
 
 def _count_blocked_original_records(original_project: Mapping[str, Any]) -> int:
