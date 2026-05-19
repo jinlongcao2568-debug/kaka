@@ -1,0 +1,615 @@
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import re
+from pathlib import Path
+from typing import Any, Iterable, Mapping
+
+from shared.utils import utc_now_iso
+
+
+EVIDENCE_STAGE6_FACT_PACKAGE_KIND = "evidence_stage6_fact_package_v1_manifest"
+EVIDENCE_STAGE6_FACT_PACKAGE_VERSION = 1
+EVIDENCE_STAGE6_FACT_PACKAGE_ADAPTER_ID = "evidence-stage6-fact-package-v1"
+
+DEFAULT_BATCH_CLOSEOUT_ROOT = Path("tmp/evaluation-real-samples/evidence-batch-closeout-v1")
+DEFAULT_OUTPUT_ROOT = Path("tmp/evaluation-real-samples/evidence-stage6-fact-package-v1")
+
+FORBIDDEN_TERMS = ("无风险", "无冲突", "在建冲突成立", "违法成立", "确认本人", "造假成立", "是不是本人")
+
+STAGE6_INTAKE_DEFERRED = "DEFER_UNTIL_EVIDENCE_CONTINUED"
+STAGE6_FACT_PACKAGE_READY = "STAGE6_FACT_PACKAGE_READY"
+STAGE6_REVIEW_PACKAGE_READY = "STAGE6_REVIEW_PACKAGE_READY"
+
+
+def build_evidence_stage6_fact_package(
+    *,
+    batch_closeout_json: str | Path | None = None,
+    batch_closeout_root: str | Path = DEFAULT_BATCH_CLOSEOUT_ROOT,
+    output_root: str | Path = DEFAULT_OUTPUT_ROOT,
+    created_at: str | None = None,
+) -> dict[str, Any]:
+    created = created_at or utc_now_iso()
+    out_dir = Path(output_root)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    blocking_reasons: list[str] = []
+    closeout_path = Path(batch_closeout_json) if batch_closeout_json else Path(batch_closeout_root) / "evidence-batch-closeout-v1.json"
+    closeout_payload = _load_json(closeout_path, blocking_reasons, "evidence_batch_closeout_missing_or_invalid")
+    closeout_manifest = _source_manifest(closeout_payload)
+    closeout_records = [
+        dict(record)
+        for record in _list(closeout_manifest.get("closeout_records"))
+        if isinstance(record, Mapping)
+    ]
+    if closeout_payload and not closeout_records:
+        blocking_reasons.append("evidence_batch_closeout_records_missing")
+
+    stage6_intake_records = [_stage6_intake_record(record, created_at=created) for record in closeout_records]
+    package_input_records = [
+        record
+        for record in closeout_records
+        if _stage6_intake_state(record) != STAGE6_INTAKE_DEFERRED
+    ]
+    project_fact_records = [_project_fact_record(record) for record in package_input_records]
+    report_records = [_report_record(record, output_root=out_dir) for record in package_input_records]
+    review_queue_records = [_review_queue_record(record) for record in package_input_records]
+    legal_action_records = [_legal_action_record(record) for record in package_input_records]
+    internal_pack_records = [
+        _internal_pack_record(record, output_root=out_dir, created_at=created) for record in package_input_records
+    ]
+    stage7_preview_seed_records = [
+        _stage7_preview_seed_record(record)
+        for record in package_input_records
+        if _is_stage7_preview_seed(record)
+    ]
+
+    _write_project_package_files(
+        out_dir=out_dir,
+        internal_pack_records=internal_pack_records,
+        project_fact_records=project_fact_records,
+        report_records=report_records,
+        review_queue_records=review_queue_records,
+        legal_action_records=legal_action_records,
+    )
+    summary = _summary(
+        closeout_records=closeout_records,
+        stage6_intake_records=stage6_intake_records,
+        project_fact_records=project_fact_records,
+        review_queue_records=review_queue_records,
+        internal_pack_records=internal_pack_records,
+        stage7_preview_seed_records=stage7_preview_seed_records,
+        blocking_reasons=blocking_reasons,
+    )
+    manifest = {
+        "manifest_version": EVIDENCE_STAGE6_FACT_PACKAGE_VERSION,
+        "manifest_kind": EVIDENCE_STAGE6_FACT_PACKAGE_KIND,
+        "adapter_id": EVIDENCE_STAGE6_FACT_PACKAGE_ADAPTER_ID,
+        "pipeline_stage": "EvidenceStage6FactPackageV1",
+        "manifest_id": f"EVIDENCE-STAGE6-FACT-PACKAGE-{_fingerprint({'summary': summary, 'facts': project_fact_records})[:16]}",
+        "created_at": created,
+        "source_batch_closeout_json": str(closeout_path),
+        "source_batch_closeout_manifest_id": str(closeout_manifest.get("manifest_id") or ""),
+        "stage6_intake_table": {"records": stage6_intake_records, "summary": _counts_table(stage6_intake_records, "stage6_intake_state")},
+        "project_fact_table": {"records": project_fact_records},
+        "report_record_table": {"records": report_records},
+        "review_queue_table": {"records": review_queue_records},
+        "legal_action_recommendation_table": {"records": legal_action_records},
+        "internal_evidence_pack_table": {"records": internal_pack_records},
+        "stage7_governed_preview_seed_table": {"records": stage7_preview_seed_records},
+        "summary": summary,
+        "safety": {
+            "network_enabled": False,
+            "download_enabled": False,
+            "parse_enabled": False,
+            "llm_execution_enabled": False,
+            "customer_visible_allowed": False,
+            "no_legal_conclusion": True,
+            "query_miss_is_not_clearance": True,
+            "stage7_to_stage9_live_execution_enabled": False,
+            "formal_customer_delivery_enabled": False,
+        },
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+        "query_miss_is_not_clearance": True,
+    }
+    manifest["manifest_sha256"] = _fingerprint(
+        {key: value for key, value in manifest.items() if key != "manifest_sha256"}
+    )
+    result = {
+        "evidence_stage6_fact_package_mode": "BUILT" if not blocking_reasons else "INPUT_BLOCKED",
+        "safe_to_execute": not blocking_reasons,
+        "blocking_reasons": blocking_reasons,
+        "manifest": manifest,
+        "summary": summary,
+    }
+    _finalize_and_write(
+        out_dir=out_dir,
+        result=result,
+        stage6_intake_records=stage6_intake_records,
+        project_fact_records=project_fact_records,
+        report_records=report_records,
+        review_queue_records=review_queue_records,
+        legal_action_records=legal_action_records,
+        internal_pack_records=internal_pack_records,
+        stage7_preview_seed_records=stage7_preview_seed_records,
+    )
+    return result
+
+
+def _stage6_intake_record(record: Mapping[str, Any], *, created_at: str) -> dict[str, Any]:
+    state = _stage6_intake_state(record)
+    return {
+        "stage6_intake_id": _stable_id("STAGE6-INTAKE", record.get("project_id"), record.get("closeout_state")),
+        "project_id": str(record.get("project_id") or ""),
+        "project_name": str(record.get("project_name") or ""),
+        "closeout_state": str(record.get("closeout_state") or ""),
+        "evidence_state": str(record.get("evidence_state") or ""),
+        "evidence_grade": str(record.get("evidence_grade") or ""),
+        "stage6_fact_package_state": str(record.get("stage6_fact_package_state") or ""),
+        "stage6_ready": bool(record.get("stage6_ready")),
+        "stage7_commercial_input_allowed": bool(record.get("stage7_commercial_input_allowed")),
+        "stage6_intake_state": state,
+        "recommended_next_action": _stage6_intake_next_action(record, state),
+        "created_at": created_at,
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+        "query_miss_is_not_clearance": True,
+    }
+
+
+def _stage6_intake_state(record: Mapping[str, Any]) -> str:
+    if not bool(record.get("stage6_ready")):
+        return STAGE6_INTAKE_DEFERRED
+    if str(record.get("closeout_state") or "") == "PROMOTE_STAGE6_STAGE7_INTERNAL_PREVIEW":
+        return STAGE6_FACT_PACKAGE_READY
+    return STAGE6_REVIEW_PACKAGE_READY
+
+
+def _stage6_intake_next_action(record: Mapping[str, Any], state: str) -> str:
+    if state == STAGE6_INTAKE_DEFERRED:
+        return str(record.get("next_action_label") or "continue_upstream_evidence_run")
+    if state == STAGE6_FACT_PACKAGE_READY:
+        return "build_internal_fact_package_and_governed_stage7_preview_seed"
+    return "build_internal_review_package_and_review_queue"
+
+
+def _project_fact_record(record: Mapping[str, Any]) -> dict[str, Any]:
+    closeout_state = str(record.get("closeout_state") or "")
+    promote = closeout_state == "PROMOTE_STAGE6_STAGE7_INTERNAL_PREVIEW"
+    d_or_park = closeout_state in {"PARK_D_INSUFFICIENT_OR_BLOCKED", "PARK_NO_CLEARANCE_CLAIM"}
+    sale_gate_status = "REVIEW" if promote else "HOLD"
+    evidence_gate_status = "REVIEW"
+    if d_or_park:
+        evidence_gate_status = "BLOCK"
+    risk_summary = _dedupe(
+        [
+            str(record.get("evidence_state") or ""),
+            str(record.get("batch_stop_reason") or ""),
+            *_list(record.get("review_reasons")),
+        ]
+    )[:12]
+    clue_summary = _dedupe(
+        [
+            str(record.get("evidence_signal_source") or ""),
+            str(record.get("evidence_grade") or ""),
+            str(record.get("batch_triage_bucket") or ""),
+        ]
+    )
+    return {
+        "project_fact_id": _stable_id("PF", record.get("project_id"), record.get("closeout_state")),
+        "project_id": str(record.get("project_id") or ""),
+        "sale_gate_status": sale_gate_status,
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": evidence_gate_status,
+        "rule_hit_summary": [str(record.get("batch_triage_bucket") or "STAGE6_REVIEW_REQUIRED")],
+        "clue_summary": clue_summary,
+        "risk_summary": risk_summary,
+        "coverage_sellable_state": "RESTRICTED_INTERNAL_PREVIEW" if promote else "INTERNAL_REVIEW_ONLY",
+        "delivery_risk_state": "REVIEW_REQUIRED" if promote else "EVIDENCE_GAP_REVIEW",
+        "manual_override_status": "REQUIRED",
+        "real_competitor_count": 0,
+        "serviceable_competitor_count": 0,
+        "competitor_quality_grade": "D",
+        "primary_evidence_topic_code": _primary_topic_code(record),
+        "resolved_evidence_topic_codes": [_primary_topic_code(record)],
+        "project_value_score_optional": 70 if promote else 35,
+    }
+
+
+def _report_record(record: Mapping[str, Any], *, output_root: Path) -> dict[str, Any]:
+    project_id = str(record.get("project_id") or "")
+    project_dir = _project_output_dir(output_root, project_id)
+    return {
+        "report_id": _stable_id("RPT", project_id, record.get("closeout_state")),
+        "project_id": project_id,
+        "brief_path": str(project_dir / "stage6-internal-brief.json"),
+        "evidence_pack_path": str(project_dir / "stage6-internal-evidence-pack.json"),
+        "objection_draft_path": "",
+        "review_task_status": "OPEN",
+        "report_status": "READY",
+        "review_lane": _review_lane(record),
+        "review_sla_due_at": "",
+        "minimum_release_level": "INTERNAL_ONLY",
+    }
+
+
+def _review_queue_record(record: Mapping[str, Any]) -> dict[str, Any]:
+    review_reasons = _dedupe([*_list(record.get("review_reasons")), str(record.get("batch_stop_reason") or "")])
+    return {
+        "queue_profile_id": _stable_id("RQ", record.get("project_id"), record.get("closeout_state")),
+        "project_id": str(record.get("project_id") or ""),
+        "project_name": str(record.get("project_name") or ""),
+        "review_lane": _review_lane(record),
+        "review_task_status": "OPEN",
+        "review_priority_score": _review_priority(record),
+        "review_queue_bucket": _review_bucket(record),
+        "review_reasons": review_reasons,
+        "recommended_next_action": _review_next_action(record),
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+        "query_miss_is_not_clearance": True,
+    }
+
+
+def _legal_action_record(record: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "action_id": _stable_id("LAR", record.get("project_id"), record.get("closeout_state")),
+        "project_id": str(record.get("project_id") or ""),
+        "action_family": "REVIEW_ONLY",
+        "applicable_regime": "UNKNOWN",
+        "competent_authority_scope": "PROCUREMENT_AUTHORITY_OR_PROJECT_LOCAL_AUTHORITY_REVIEW",
+        "window_status": "REVIEW_REQUIRED",
+        "basis_summary": str(record.get("evidence_state") or record.get("closeout_state") or ""),
+        "blocking_reasons": _dedupe([*_list(record.get("review_reasons")), str(record.get("batch_stop_reason") or "")]),
+        "recommended_next_step": _review_next_action(record),
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
+
+
+def _internal_pack_record(record: Mapping[str, Any], *, output_root: Path, created_at: str) -> dict[str, Any]:
+    project_id = str(record.get("project_id") or "")
+    project_dir = _project_output_dir(output_root, project_id)
+    return {
+        "internal_evidence_pack_id": _stable_id("IEP", project_id, record.get("closeout_state")),
+        "project_id": project_id,
+        "project_name": str(record.get("project_name") or ""),
+        "package_scope": "INTERNAL_STAGE6_REVIEW_PACKAGE",
+        "brief_path": str(project_dir / "stage6-internal-brief.json"),
+        "evidence_pack_path": str(project_dir / "stage6-internal-evidence-pack.json"),
+        "closeout_state": str(record.get("closeout_state") or ""),
+        "evidence_state": str(record.get("evidence_state") or ""),
+        "evidence_grade": str(record.get("evidence_grade") or ""),
+        "evidence_signal_source": str(record.get("evidence_signal_source") or ""),
+        "stage6_intake_state": _stage6_intake_state(record),
+        "candidate_group_members": _list(record.get("candidate_group_members")),
+        "responsible_person_name": str(record.get("responsible_person_name") or ""),
+        "review_reasons": _dedupe([*_list(record.get("review_reasons")), str(record.get("batch_stop_reason") or "")]),
+        "signal_counts": dict(record.get("signal_counts") or {}),
+        "design_survey_adapter_counts": dict(record.get("design_survey_adapter_counts") or {}),
+        "source_refs": dict(record.get("source_refs") or {}),
+        "continuation_lineage": dict(record.get("continuation_lineage") or {}),
+        "created_at": created_at,
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+        "query_miss_is_not_clearance": True,
+        "raw_blob_exported": False,
+        "formal_customer_delivery_ready": False,
+    }
+
+
+def _stage7_preview_seed_record(record: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "stage7_preview_seed_id": _stable_id("S7-SEED", record.get("project_id"), record.get("closeout_state")),
+        "project_id": str(record.get("project_id") or ""),
+        "project_name": str(record.get("project_name") or ""),
+        "project_fact_id": _stable_id("PF", record.get("project_id"), record.get("closeout_state")),
+        "report_record_id": _stable_id("RPT", record.get("project_id"), record.get("closeout_state")),
+        "preview_seed_state": "RESTRICTED_GOVERNED_PREVIEW_SEED",
+        "formal_h06_handoff_ready": False,
+        "formal_h06_blockers": [
+            "real_competitor_profile_missing",
+            "buyer_fit_missing",
+            "external_release_not_enabled",
+        ],
+        "recommended_next_action": "identify_real_competitor_and_buyer_fit_before_formal_stage7",
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
+
+
+def _is_stage7_preview_seed(record: Mapping[str, Any]) -> bool:
+    return (
+        str(record.get("closeout_state") or "") == "PROMOTE_STAGE6_STAGE7_INTERNAL_PREVIEW"
+        and bool(record.get("stage7_commercial_input_allowed"))
+    )
+
+
+def _write_project_package_files(
+    *,
+    out_dir: Path,
+    internal_pack_records: list[Mapping[str, Any]],
+    project_fact_records: list[Mapping[str, Any]],
+    report_records: list[Mapping[str, Any]],
+    review_queue_records: list[Mapping[str, Any]],
+    legal_action_records: list[Mapping[str, Any]],
+) -> None:
+    facts = _records_by_project(project_fact_records)
+    reports = _records_by_project(report_records)
+    queues = _records_by_project(review_queue_records)
+    actions = _records_by_project(legal_action_records)
+    for pack in internal_pack_records:
+        project_id = str(pack.get("project_id") or "")
+        project_dir = _project_output_dir(out_dir, project_id)
+        project_dir.mkdir(parents=True, exist_ok=True)
+        brief = {
+            "project_id": project_id,
+            "project_name": str(pack.get("project_name") or ""),
+            "package_scope": pack.get("package_scope"),
+            "closeout_state": pack.get("closeout_state"),
+            "evidence_state": pack.get("evidence_state"),
+            "evidence_grade": pack.get("evidence_grade"),
+            "review_lane": queues.get(project_id, {}).get("review_lane", ""),
+            "recommended_next_action": actions.get(project_id, {}).get("recommended_next_step", ""),
+            "customer_visible_allowed": False,
+            "no_legal_conclusion": True,
+            "query_miss_is_not_clearance": True,
+        }
+        evidence_pack = {
+            "project_id": project_id,
+            "project_fact": facts.get(project_id, {}),
+            "report_record": reports.get(project_id, {}),
+            "review_queue": queues.get(project_id, {}),
+            "legal_action_recommendation": actions.get(project_id, {}),
+            "internal_evidence_pack": dict(pack),
+            "customer_visible_allowed": False,
+            "no_legal_conclusion": True,
+            "query_miss_is_not_clearance": True,
+        }
+        _write_json(project_dir / "stage6-internal-brief.json", brief)
+        _write_json(project_dir / "stage6-internal-evidence-pack.json", evidence_pack)
+
+
+def _summary(
+    *,
+    closeout_records: list[Mapping[str, Any]],
+    stage6_intake_records: list[Mapping[str, Any]],
+    project_fact_records: list[Mapping[str, Any]],
+    review_queue_records: list[Mapping[str, Any]],
+    internal_pack_records: list[Mapping[str, Any]],
+    stage7_preview_seed_records: list[Mapping[str, Any]],
+    blocking_reasons: list[str],
+) -> dict[str, Any]:
+    intake_counts = _counts(record.get("stage6_intake_state") for record in stage6_intake_records)
+    review_lane_counts = _counts(record.get("review_lane") for record in review_queue_records)
+    return {
+        "stage6_fact_package_state": "EVIDENCE_STAGE6_FACT_PACKAGE_READY" if not blocking_reasons else "EVIDENCE_STAGE6_INPUT_BLOCKED",
+        "input_closeout_project_count": len(closeout_records),
+        "stage6_intake_record_count": len(stage6_intake_records),
+        "stage6_intake_state_counts": intake_counts,
+        "project_fact_count": len(project_fact_records),
+        "report_record_count": len(project_fact_records),
+        "review_queue_count": len(review_queue_records),
+        "internal_evidence_pack_count": len(internal_pack_records),
+        "stage7_preview_seed_count": len(stage7_preview_seed_records),
+        "formal_h06_handoff_ready_count": 0,
+        "review_lane_counts": review_lane_counts,
+        "blocking_reasons": blocking_reasons,
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+        "query_miss_is_not_clearance": True,
+        "formal_customer_delivery_ready": False,
+        "forbidden_term_scan_state": "PENDING",
+    }
+
+
+def _finalize_and_write(
+    *,
+    out_dir: Path,
+    result: dict[str, Any],
+    stage6_intake_records: list[Mapping[str, Any]],
+    project_fact_records: list[Mapping[str, Any]],
+    report_records: list[Mapping[str, Any]],
+    review_queue_records: list[Mapping[str, Any]],
+    legal_action_records: list[Mapping[str, Any]],
+    internal_pack_records: list[Mapping[str, Any]],
+    stage7_preview_seed_records: list[Mapping[str, Any]],
+) -> None:
+    text = json.dumps(result, ensure_ascii=False, indent=2)
+    forbidden_hits = [term for term in FORBIDDEN_TERMS if term in text]
+    if forbidden_hits:
+        result["safe_to_execute"] = False
+        result["blocking_reasons"] = [
+            *list(result.get("blocking_reasons") or []),
+            *[f"forbidden_report_term:{term}" for term in forbidden_hits],
+        ]
+        result["summary"]["forbidden_term_scan_state"] = "FAIL"
+        result["summary"]["forbidden_term_hits"] = forbidden_hits
+        result["manifest"]["summary"]["forbidden_term_scan_state"] = "FAIL"
+    else:
+        result["summary"]["forbidden_term_scan_state"] = "PASS"
+        result["manifest"]["summary"]["forbidden_term_scan_state"] = "PASS"
+    _write_json(out_dir / "stage6-intake-table.json", {"summary": result["summary"], "records": stage6_intake_records})
+    _write_json(out_dir / "project-fact-table.json", {"summary": result["summary"], "records": project_fact_records})
+    _write_json(out_dir / "report-record-table.json", {"summary": result["summary"], "records": report_records})
+    _write_json(out_dir / "review-queue-table.json", {"summary": result["summary"], "records": review_queue_records})
+    _write_json(out_dir / "legal-action-recommendation-table.json", {"summary": result["summary"], "records": legal_action_records})
+    _write_json(out_dir / "internal-evidence-pack-table.json", {"summary": result["summary"], "records": internal_pack_records})
+    _write_json(out_dir / "stage7-governed-preview-seed-table.json", {"summary": result["summary"], "records": stage7_preview_seed_records})
+    _write_json(out_dir / "stage6-fact-package-v1.json", result)
+
+
+def _primary_topic_code(record: Mapping[str, Any]) -> str:
+    lane = str(record.get("engineering_work_lane") or "")
+    if "survey" in lane or "design" in lane:
+        return "DESIGN_SURVEY_RESPONSIBLE_PERSON_IDENTITY"
+    return "P13B_RESPONSIBLE_PERSON_RELEASE"
+
+
+def _review_lane(record: Mapping[str, Any]) -> str:
+    closeout_state = str(record.get("closeout_state") or "")
+    if closeout_state == "PROMOTE_STAGE6_STAGE7_INTERNAL_PREVIEW":
+        return "A_SIGNAL_RELEASE_EVIDENCE_REVIEW"
+    if closeout_state == "PARK_D_INSUFFICIENT_OR_BLOCKED":
+        return "D_EVIDENCE_GAP_REVIEW"
+    if closeout_state == "PARK_NO_CLEARANCE_CLAIM":
+        return "LOW_VALUE_PARK_REVIEW"
+    if closeout_state == "DEFER_NON_MAINLINE_OR_SCOPE":
+        return "NON_MAINLINE_ADAPTER_REVIEW"
+    return "GENERAL_STAGE6_REVIEW"
+
+
+def _review_bucket(record: Mapping[str, Any]) -> str:
+    closeout_state = str(record.get("closeout_state") or "")
+    if closeout_state == "PROMOTE_STAGE6_STAGE7_INTERNAL_PREVIEW":
+        return "RELEASE_EVIDENCE_AND_STAGE7_PREVIEW_PREP"
+    if closeout_state == "PARK_D_INSUFFICIENT_OR_BLOCKED":
+        return "EVIDENCE_GAP_OR_SOURCE_BLOCKER_REVIEW"
+    return "INTERNAL_FACT_REVIEW"
+
+
+def _review_priority(record: Mapping[str, Any]) -> int:
+    closeout_state = str(record.get("closeout_state") or "")
+    if closeout_state == "PROMOTE_STAGE6_STAGE7_INTERNAL_PREVIEW":
+        return 90
+    if closeout_state == "PARK_D_INSUFFICIENT_OR_BLOCKED":
+        return 55
+    return 45
+
+
+def _review_next_action(record: Mapping[str, Any]) -> str:
+    closeout_state = str(record.get("closeout_state") or "")
+    if closeout_state == "PROMOTE_STAGE6_STAGE7_INTERNAL_PREVIEW":
+        return "run_targeted_release_evidence_review_then_prepare_governed_stage7_preview"
+    if closeout_state == "PARK_D_INSUFFICIENT_OR_BLOCKED":
+        return "manual_review_or_retry_source_without_clearance_claim"
+    if closeout_state == "PARK_NO_CLEARANCE_CLAIM":
+        return "park_or_manual_review_without_clearance_claim"
+    return str(record.get("next_action_label") or "manual_review")
+
+
+def _project_output_dir(output_root: Path, project_id: str) -> Path:
+    safe_id = re.sub(r"[^A-Za-z0-9_.-]+", "_", project_id or "UNKNOWN")
+    return output_root / "packages" / safe_id
+
+
+def _records_by_project(records: list[Mapping[str, Any]]) -> dict[str, Mapping[str, Any]]:
+    out: dict[str, Mapping[str, Any]] = {}
+    for record in records:
+        project_id = str(record.get("project_id") or "").strip()
+        if project_id:
+            out[project_id] = record
+    return out
+
+
+def _counts_table(records: list[Mapping[str, Any]], field_name: str) -> dict[str, Any]:
+    return {
+        "record_count": len(records),
+        f"{field_name}_counts": _counts(record.get(field_name) for record in records),
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
+
+
+def _load_json(path: Path, blocking_reasons: list[str], missing_reason: str) -> dict[str, Any]:
+    if not path.exists():
+        blocking_reasons.append(missing_reason)
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        blocking_reasons.append(missing_reason)
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def _source_manifest(payload: Mapping[str, Any]) -> dict[str, Any]:
+    manifest = payload.get("manifest") if isinstance(payload, Mapping) else {}
+    if isinstance(manifest, Mapping):
+        return dict(manifest)
+    return dict(payload) if isinstance(payload, Mapping) else {}
+
+
+def _write_json(path: Path, payload: Mapping[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _list(value: Any) -> list[Any]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return value
+    if isinstance(value, tuple):
+        return list(value)
+    return [value]
+
+
+def _dedupe(values: Iterable[Any]) -> list[str]:
+    out: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        text = str(value or "").strip()
+        if not text or text in seen:
+            continue
+        seen.add(text)
+        out.append(text)
+    return out
+
+
+def _counts(values: Iterable[Any]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for value in values:
+        key = str(value or "").strip()
+        if not key:
+            continue
+        counts[key] = counts.get(key, 0) + 1
+    return dict(sorted(counts.items()))
+
+
+def _stable_id(prefix: str, *parts: Any) -> str:
+    return f"{prefix}-{_fingerprint('|'.join(str(part or '') for part in parts))[:12]}"
+
+
+def _fingerprint(payload: Any) -> str:
+    return hashlib.sha256(
+        json.dumps(payload, ensure_ascii=False, sort_keys=True, default=str, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+
+
+def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Build Stage6 fact/review package from EvidenceBatchCloseout v1.")
+    parser.add_argument("--batch-closeout-json", default="")
+    parser.add_argument("--batch-closeout-root", default=str(DEFAULT_BATCH_CLOSEOUT_ROOT))
+    parser.add_argument("--output-root", default=str(DEFAULT_OUTPUT_ROOT))
+    parser.add_argument("--created-at", default="")
+    parser.add_argument("--json", action="store_true", dest="emit_json")
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = _parse_args(argv)
+    result = build_evidence_stage6_fact_package(
+        batch_closeout_json=args.batch_closeout_json or None,
+        batch_closeout_root=args.batch_closeout_root,
+        output_root=args.output_root,
+        created_at=args.created_at or None,
+    )
+    if args.emit_json:
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+    else:
+        print(json.dumps(result["summary"], ensure_ascii=False, indent=2))
+    return 0 if result.get("safe_to_execute") else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+
+
+__all__ = [
+    "EVIDENCE_STAGE6_FACT_PACKAGE_KIND",
+    "build_evidence_stage6_fact_package",
+]
