@@ -5,6 +5,8 @@ param(
     [string]$P13BCompanyHistoryRoot = "",
     [string]$OriginalNoticeBacktraceJson = "",
     [string]$OriginalNoticeBacktraceRoot = "",
+    [string]$OriginalBacktraceContinuationJson = "",
+    [string]$OriginalBacktraceContinuationRoot = "",
     [string]$DesignSurveyAdapterPlanJson = "",
     [string]$DesignSurveyAdapterPlanRoot = "",
     [string]$DesignSurveyStage4ExecutionJson = "",
@@ -70,6 +72,12 @@ if ($OriginalNoticeBacktraceJson) {
 }
 if ($OriginalNoticeBacktraceRoot) {
     $argsList += @("--original-notice-backtrace-root", $OriginalNoticeBacktraceRoot)
+}
+if ($OriginalBacktraceContinuationJson) {
+    $argsList += @("--original-backtrace-continuation-json", $OriginalBacktraceContinuationJson)
+}
+if ($OriginalBacktraceContinuationRoot) {
+    $argsList += @("--original-backtrace-continuation-root", $OriginalBacktraceContinuationRoot)
 }
 if ($DesignSurveyAdapterPlanJson) {
     $argsList += @("--design-survey-adapter-plan-json", $DesignSurveyAdapterPlanJson)
