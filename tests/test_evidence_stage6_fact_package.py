@@ -77,12 +77,21 @@ class EvidenceStage6FactPackageTests(unittest.TestCase):
             report = _records_by_project(result["manifest"]["report_record_table"]["records"])["PROJ-A"]
             brief_path = Path(report["brief_path"])
             pack_path = Path(report["evidence_pack_path"])
+            review_summary_path = Path(report["review_summary_path"])
+            review_summary_markdown_path = Path(report["review_summary_markdown_path"])
             self.assertTrue(brief_path.exists())
             self.assertTrue(pack_path.exists())
+            self.assertTrue(review_summary_path.exists())
+            self.assertTrue(review_summary_markdown_path.exists())
             brief = json.loads(brief_path.read_text(encoding="utf-8"))
             pack = json.loads(pack_path.read_text(encoding="utf-8"))
+            review_summary = json.loads(review_summary_path.read_text(encoding="utf-8"))
+            review_summary_markdown = review_summary_markdown_path.read_text(encoding="utf-8")
             self.assertEqual(brief["project_id"], "PROJ-A")
             self.assertEqual(pack["project_fact"]["project_id"], "PROJ-A")
+            self.assertEqual(brief["review_summary_path"], str(review_summary_path))
+            self.assertEqual(pack["review_summary"]["project_id"], "PROJ-A")
+            self.assertEqual(review_summary["review_summary_state"], "INTERNAL_REVIEW_SUMMARY_READY")
             self.assertEqual(brief["evidence_artifact_count"], 1)
             self.assertEqual(
                 brief["evidence_artifact_types"],
@@ -92,6 +101,9 @@ class EvidenceStage6FactPackageTests(unittest.TestCase):
                 pack["internal_evidence_pack"]["evidence_artifacts"][0]["identity_fields"]["person_name"],
                 "胡昌华",
             )
+            self.assertEqual(review_summary["evidence_artifacts"][0]["person_name"], "胡昌华")
+            self.assertIn("Stage6 Internal Review Summary", review_summary_markdown)
+            self.assertIn("snapshot-sha256", review_summary_markdown)
             self.assertFalse(pack["customer_visible_allowed"])
 
     def test_missing_batch_closeout_blocks_execution(self) -> None:

@@ -227,6 +227,8 @@ def _report_record(record: Mapping[str, Any], *, output_root: Path) -> dict[str,
         "project_id": project_id,
         "brief_path": str(project_dir / "stage6-internal-brief.json"),
         "evidence_pack_path": str(project_dir / "stage6-internal-evidence-pack.json"),
+        "review_summary_path": str(project_dir / "stage6-review-summary.json"),
+        "review_summary_markdown_path": str(project_dir / "stage6-review-summary.md"),
         "objection_draft_path": "",
         "review_task_status": "OPEN",
         "report_status": "READY",
@@ -353,6 +355,8 @@ def _write_project_package_files(
             "project_id": project_id,
             "project_name": str(pack.get("project_name") or ""),
             "package_scope": pack.get("package_scope"),
+            "review_summary_path": reports.get(project_id, {}).get("review_summary_path", ""),
+            "review_summary_markdown_path": reports.get(project_id, {}).get("review_summary_markdown_path", ""),
             "closeout_state": pack.get("closeout_state"),
             "evidence_state": pack.get("evidence_state"),
             "evidence_grade": pack.get("evidence_grade"),
@@ -366,6 +370,14 @@ def _write_project_package_files(
             "no_legal_conclusion": True,
             "query_miss_is_not_clearance": True,
         }
+        review_summary = _review_summary_record(
+            pack=pack,
+            project_fact=facts.get(project_id, {}),
+            report=reports.get(project_id, {}),
+            review_queue=queues.get(project_id, {}),
+            legal_action=actions.get(project_id, {}),
+            evidence_artifacts=evidence_artifacts,
+        )
         evidence_pack = {
             "project_id": project_id,
             "project_fact": facts.get(project_id, {}),
@@ -373,12 +385,149 @@ def _write_project_package_files(
             "review_queue": queues.get(project_id, {}),
             "legal_action_recommendation": actions.get(project_id, {}),
             "internal_evidence_pack": dict(pack),
+            "review_summary": review_summary,
             "customer_visible_allowed": False,
             "no_legal_conclusion": True,
             "query_miss_is_not_clearance": True,
         }
         _write_json(project_dir / "stage6-internal-brief.json", brief)
         _write_json(project_dir / "stage6-internal-evidence-pack.json", evidence_pack)
+        _write_json(project_dir / "stage6-review-summary.json", review_summary)
+        (project_dir / "stage6-review-summary.md").write_text(
+            _review_summary_markdown(review_summary),
+            encoding="utf-8",
+        )
+
+
+def _review_summary_record(
+    *,
+    pack: Mapping[str, Any],
+    project_fact: Mapping[str, Any],
+    report: Mapping[str, Any],
+    review_queue: Mapping[str, Any],
+    legal_action: Mapping[str, Any],
+    evidence_artifacts: list[Mapping[str, Any]],
+) -> dict[str, Any]:
+    return {
+        "review_summary_state": "INTERNAL_REVIEW_SUMMARY_READY",
+        "project_id": str(pack.get("project_id") or ""),
+        "project_name": str(pack.get("project_name") or ""),
+        "review_lane": str(review_queue.get("review_lane") or ""),
+        "review_queue_bucket": str(review_queue.get("review_queue_bucket") or ""),
+        "evidence_state": str(pack.get("evidence_state") or ""),
+        "evidence_grade": str(pack.get("evidence_grade") or ""),
+        "evidence_signal_source": str(pack.get("evidence_signal_source") or ""),
+        "sale_gate_status": str(project_fact.get("sale_gate_status") or ""),
+        "rule_gate_status": str(project_fact.get("rule_gate_status") or ""),
+        "evidence_gate_status": str(project_fact.get("evidence_gate_status") or ""),
+        "coverage_sellable_state": str(project_fact.get("coverage_sellable_state") or ""),
+        "delivery_risk_state": str(project_fact.get("delivery_risk_state") or ""),
+        "responsible_person_name": str(pack.get("responsible_person_name") or ""),
+        "candidate_group_members": _list(pack.get("candidate_group_members")),
+        "review_reasons": _list(review_queue.get("review_reasons") or pack.get("review_reasons")),
+        "recommended_next_action": str(
+            review_queue.get("recommended_next_action")
+            or legal_action.get("recommended_next_step")
+            or ""
+        ),
+        "evidence_artifact_count": len(evidence_artifacts),
+        "evidence_artifacts": [_review_artifact_summary(artifact) for artifact in evidence_artifacts[:10]],
+        "source_refs": dict(pack.get("source_refs") or {}),
+        "review_summary_path": str(report.get("review_summary_path") or ""),
+        "review_summary_markdown_path": str(report.get("review_summary_markdown_path") or ""),
+        "review_checklist": _review_checklist(pack, evidence_artifacts),
+        "customer_visible_allowed": False,
+        "external_send_enabled": False,
+        "no_legal_conclusion": True,
+        "query_miss_is_not_clearance": True,
+        "raw_blob_exported": False,
+        "formal_customer_delivery_ready": False,
+    }
+
+
+def _review_artifact_summary(artifact: Mapping[str, Any]) -> dict[str, Any]:
+    identity_fields = artifact.get("identity_fields") if isinstance(artifact.get("identity_fields"), Mapping) else {}
+    return {
+        "evidence_artifact_type": str(artifact.get("evidence_artifact_type") or ""),
+        "provider_id": str(artifact.get("provider_id") or ""),
+        "provider_result_state": str(artifact.get("provider_result_state") or ""),
+        "readback_state": str(artifact.get("readback_state") or ""),
+        "verification_result": str(artifact.get("verification_result") or ""),
+        "identity_resolution_state": str(artifact.get("identity_resolution_state") or ""),
+        "responsible_person_name": str(artifact.get("responsible_person_name") or ""),
+        "candidate_company_name": str(artifact.get("candidate_company_name") or ""),
+        "registered_unit_match_scope": str(artifact.get("registered_unit_match_scope") or ""),
+        "matched_candidate_group_member_name": str(artifact.get("matched_candidate_group_member_name") or ""),
+        "person_name": str(identity_fields.get("person_name") or ""),
+        "registered_unit_name": str(identity_fields.get("registered_unit_name") or ""),
+        "certificate_no_or_registration_no": str(identity_fields.get("certificate_no_or_registration_no") or ""),
+        "registration_status": str(identity_fields.get("registration_status") or ""),
+        "source_url": str(artifact.get("source_url") or ""),
+        "source_snapshot_ref": str(artifact.get("source_snapshot_ref") or ""),
+        "source_snapshot_sha256": str(artifact.get("source_snapshot_sha256") or ""),
+        "redacted_text_probe": str(artifact.get("redacted_text_probe") or ""),
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+        "query_miss_is_not_clearance": True,
+    }
+
+
+def _review_checklist(pack: Mapping[str, Any], evidence_artifacts: list[Mapping[str, Any]]) -> list[str]:
+    checks = [
+        "review_current_candidate_binding_and_stage3_fields",
+        "keep_internal_only_until_manual_review_completes",
+        "do_not_treat_missing_query_as_clearance",
+    ]
+    if evidence_artifacts:
+        checks.extend(
+            [
+                "verify_artifact_source_url_snapshot_ref_and_hash",
+                "verify_person_company_certificate_fields_against_candidate_group",
+            ]
+        )
+    if str(pack.get("evidence_state") or "").startswith("D_"):
+        checks.append("record_source_blocker_or_missing_field_before_retry")
+    return _dedupe(checks)
+
+
+def _review_summary_markdown(summary: Mapping[str, Any]) -> str:
+    lines = [
+        "# Stage6 Internal Review Summary",
+        "",
+        f"Project ID: {summary.get('project_id') or ''}",
+        f"Project Name: {summary.get('project_name') or ''}",
+        f"Review Lane: {summary.get('review_lane') or ''}",
+        f"Evidence State: {summary.get('evidence_state') or ''}",
+        f"Evidence Grade: {summary.get('evidence_grade') or ''}",
+        f"Responsible Person: {summary.get('responsible_person_name') or ''}",
+        f"Recommended Next Action: {summary.get('recommended_next_action') or ''}",
+        "",
+        "Safety Boundary:",
+        f"Customer Visible Allowed: {str(bool(summary.get('customer_visible_allowed'))).lower()}",
+        f"No Legal Conclusion: {str(bool(summary.get('no_legal_conclusion'))).lower()}",
+        f"Query Miss Is Not Clearance: {str(bool(summary.get('query_miss_is_not_clearance'))).lower()}",
+        "",
+        "Evidence Artifacts:",
+    ]
+    artifacts = [artifact for artifact in _list(summary.get("evidence_artifacts")) if isinstance(artifact, Mapping)]
+    if not artifacts:
+        lines.append("- none")
+    for index, artifact in enumerate(artifacts, start=1):
+        lines.append(
+            "- "
+            + f"{index}. {artifact.get('evidence_artifact_type') or ''}; "
+            + f"verification={artifact.get('verification_result') or ''}; "
+            + f"person={artifact.get('person_name') or artifact.get('responsible_person_name') or ''}; "
+            + f"registered_unit={artifact.get('registered_unit_name') or ''}; "
+            + f"certificate={artifact.get('certificate_no_or_registration_no') or ''}; "
+            + f"match_scope={artifact.get('registered_unit_match_scope') or ''}; "
+            + f"snapshot_sha256={artifact.get('source_snapshot_sha256') or ''}"
+        )
+    lines.extend(["", "Review Checklist:"])
+    for item in _list(summary.get("review_checklist")):
+        lines.append(f"- {item}")
+    lines.append("")
+    return "\n".join(lines)
 
 
 def _summary(
