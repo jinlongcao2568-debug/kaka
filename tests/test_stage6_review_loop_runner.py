@@ -38,7 +38,17 @@ class Stage6ReviewLoopRunnerTests(unittest.TestCase):
             self.assertEqual(summary["closeout_ready_to_feed_back_count"], 0)
             self.assertEqual(summary["result_runner_dry_run_ready_count"], 0)
             self.assertEqual(summary["next_cycle_skip_reason"], "batch_closeout_rebuild_output_missing_or_results_not_executed")
+            self.assertEqual(summary["project_status_record_count"], 1)
+            self.assertEqual(summary["loop_terminal_state_counts"], {"WAITING_FOR_DISPATCH_EXECUTION": 1})
+            records = result["manifest"]["project_status_table"]["records"]
+            self.assertEqual(records[0]["project_id"], "PROJ-D")
+            self.assertEqual(records[0]["loop_terminal_state"], "WAITING_FOR_DISPATCH_EXECUTION")
+            self.assertEqual(
+                records[0]["next_recommended_action"],
+                "run_controlled_dispatch_task_or_record_operator_skip",
+            )
             self.assertTrue((root / "out" / "stage6-review-loop-runner-v1.json").exists())
+            self.assertTrue((root / "out" / "stage6-review-loop-project-status-table.json").exists())
 
     def test_execute_one_pass_rebuilds_batch_closeout_and_next_cycle(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -96,6 +106,15 @@ class Stage6ReviewLoopRunnerTests(unittest.TestCase):
             self.assertEqual(summary["result_runner_executed_success_count"], 1)
             self.assertEqual(summary["next_cycle_stage6_project_fact_count"], 1)
             self.assertEqual(summary["next_cycle_dispatch_task_count"], 1)
+            self.assertEqual(summary["project_status_record_count"], 1)
+            self.assertEqual(summary["loop_terminal_state_counts"], {"NEXT_CYCLE_DISPATCH_READY": 1})
+            records = result["manifest"]["project_status_table"]["records"]
+            self.assertEqual(records[0]["project_id"], "PROJ-D")
+            self.assertEqual(records[0]["loop_terminal_state"], "NEXT_CYCLE_DISPATCH_READY")
+            self.assertEqual(
+                records[0]["next_recommended_action"],
+                "run_next_cycle_dispatch_or_keep_internal_review_dry_run",
+            )
 
     def test_output_keeps_internal_safety_contract(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

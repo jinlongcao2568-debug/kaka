@@ -4,7 +4,7 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Iterable, Mapping
 
 from shared.utils import utc_now_iso
 from storage.stage6_review_action_dispatch_closeout import build_stage6_review_action_dispatch_closeout
@@ -137,6 +137,13 @@ def run_stage6_review_loop_runner(
         result_runner,
         next_cycle,
     )
+    project_status_records = _project_status_records(
+        readback=readback,
+        closeout=closeout,
+        routing=routing,
+        result_runner=result_runner,
+        next_cycle=next_cycle,
+    )
     summary = _summary(
         dispatch_runner=dispatch_runner,
         readback=readback,
@@ -144,6 +151,7 @@ def run_stage6_review_loop_runner(
         routing=routing,
         result_runner=result_runner,
         next_cycle=next_cycle,
+        project_status_records=project_status_records,
         next_cycle_skip_reason=next_cycle_skip_reason,
         blocking_reasons=blocking_reasons,
         execute_dispatch=execute_dispatch,
@@ -180,6 +188,7 @@ def run_stage6_review_loop_runner(
             "result_runner": _manifest_id(result_runner),
             "next_cycle": _manifest_id(next_cycle),
         },
+        "project_status_table": {"records": project_status_records},
         "summary": summary,
         "safety": {
             "network_enabled": False,
@@ -219,6 +228,208 @@ def run_stage6_review_loop_runner(
     return result
 
 
+def _project_status_records(
+    *,
+    readback: Mapping[str, Any],
+    closeout: Mapping[str, Any],
+    routing: Mapping[str, Any],
+    result_runner: Mapping[str, Any],
+    next_cycle: Mapping[str, Any],
+) -> list[dict[str, Any]]:
+    readbacks = _records_by_project(readback, "dispatch_readback_table")
+    closeouts = _records_by_project(closeout, "dispatch_closeout_table")
+    routings = _records_by_project(routing, "result_routing_table")
+    runners = _records_by_project(result_runner, "result_runner_table")
+    next_dispatch = _next_cycle_dispatch_records_by_project(next_cycle)
+    project_ids = sorted({*readbacks.keys(), *closeouts.keys(), *routings.keys(), *runners.keys(), *next_dispatch.keys()})
+    records: list[dict[str, Any]] = []
+    for project_id in project_ids:
+        readback_record = readbacks.get(project_id, {})
+        closeout_record = closeouts.get(project_id, {})
+        routing_record = routings.get(project_id, {})
+        runner_record = runners.get(project_id, {})
+        next_dispatch_record = next_dispatch.get(project_id, {})
+        records.append(
+            {
+                "project_id": project_id,
+                "project_name": _first_text(
+                    readback_record.get("project_name"),
+                    closeout_record.get("project_name"),
+                    routing_record.get("project_name"),
+                    runner_record.get("project_name"),
+                    next_dispatch_record.get("project_name"),
+                ),
+                "dispatch_task_type": _first_text(
+                    readback_record.get("dispatch_task_type"),
+                    closeout_record.get("dispatch_task_type"),
+                    routing_record.get("dispatch_task_type"),
+                    runner_record.get("dispatch_task_type"),
+                    next_dispatch_record.get("dispatch_task_type"),
+                ),
+                "dispatch_readback_state": str(readback_record.get("dispatch_readback_state") or ""),
+                "dispatch_closeout_state": str(closeout_record.get("dispatch_closeout_state") or ""),
+                "result_routing_state": str(routing_record.get("result_routing_state") or ""),
+                "next_task_type": str(routing_record.get("next_task_type") or ""),
+                "result_runner_execution_state": str(runner_record.get("execution_state") or ""),
+                "result_runner_skip_reason": str(runner_record.get("skip_reason") or ""),
+                "next_cycle_dispatch_task_type": str(next_dispatch_record.get("dispatch_task_type") or ""),
+                "next_cycle_dispatch_readiness_state": str(next_dispatch_record.get("dispatch_readiness_state") or ""),
+                "loop_terminal_state": _loop_terminal_state(
+                    readback_record=readback_record,
+                    closeout_record=closeout_record,
+                    routing_record=routing_record,
+                    runner_record=runner_record,
+                    next_dispatch_record=next_dispatch_record,
+                ),
+                "next_recommended_action": _loop_next_action(
+                    readback_record=readback_record,
+                    closeout_record=closeout_record,
+                    runner_record=runner_record,
+                    routing_record=routing_record,
+                    next_dispatch_record=next_dispatch_record,
+                ),
+                "customer_visible_allowed": False,
+                "no_legal_conclusion": True,
+                "query_miss_is_not_clearance": True,
+            }
+        )
+    return records
+
+
+def _records_by_project(result: Mapping[str, Any], table_name: str) -> dict[str, dict[str, Any]]:
+    manifest = result.get("manifest") if isinstance(result, Mapping) else {}
+    table = manifest.get(table_name) if isinstance(manifest, Mapping) else {}
+    records = _list(table.get("records") if isinstance(table, Mapping) else [])
+    out: dict[str, dict[str, Any]] = {}
+    for record in records:
+        if not isinstance(record, Mapping):
+            continue
+        project_id = str(record.get("project_id") or "").strip()
+        if project_id:
+            out[project_id] = dict(record)
+    return out
+
+
+def _next_cycle_dispatch_records_by_project(next_cycle: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
+    manifest = next_cycle.get("manifest") if isinstance(next_cycle, Mapping) else {}
+    dispatch_json = str(manifest.get("stage6_dispatch_json") or "").strip() if isinstance(manifest, Mapping) else ""
+    if not dispatch_json:
+        return {}
+    try:
+        payload = json.loads(Path(dispatch_json).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    payload_manifest = payload.get("manifest") if isinstance(payload, Mapping) else {}
+    table = payload_manifest.get("dispatch_task_table") if isinstance(payload_manifest, Mapping) else {}
+    records = _list(table.get("records") if isinstance(table, Mapping) else [])
+    out: dict[str, dict[str, Any]] = {}
+    for record in records:
+        if not isinstance(record, Mapping):
+            continue
+        project_id = str(record.get("project_id") or "").strip()
+        if project_id:
+            out[project_id] = dict(record)
+    return out
+
+
+def _first_text(*values: Any) -> str:
+    for value in values:
+        text = str(value or "").strip()
+        if text:
+            return text
+    return ""
+
+
+def _loop_terminal_state(
+    *,
+    readback_record: Mapping[str, Any],
+    closeout_record: Mapping[str, Any],
+    routing_record: Mapping[str, Any],
+    runner_record: Mapping[str, Any],
+    next_dispatch_record: Mapping[str, Any],
+) -> str:
+    if str(next_dispatch_record.get("dispatch_readiness_state") or "").strip():
+        return "NEXT_CYCLE_DISPATCH_READY"
+
+    execution_state = str(runner_record.get("execution_state") or "").strip()
+    if execution_state == "EXECUTED_SUCCEEDED":
+        return "RESULT_EXECUTED_NO_NEXT_DISPATCH"
+    if execution_state == "DRY_RUN_READY":
+        return "RESULT_COMMAND_READY_DRY_RUN"
+    if execution_state == "SKIPPED_DUPLICATE_COMMAND":
+        return "RESULT_DUPLICATE_COMMAND_SKIPPED"
+    if execution_state == "EXECUTED_FAILED":
+        return "RESULT_EXECUTION_FAILED"
+    if execution_state == "BLOCKED_BY_ALLOWLIST":
+        return "RESULT_COMMAND_BLOCKED_BY_ALLOWLIST"
+    if execution_state.startswith("SKIPPED_") and execution_state != "SKIPPED_NOT_READY":
+        return execution_state
+
+    routing_state = str(routing_record.get("result_routing_state") or "").strip()
+    if routing_state in {
+        "READY_FOR_EVIDENCE_STATE_REBUILD",
+        "READY_FOR_RELEASE_EVIDENCE_FIELD_QUERY",
+        "READY_FOR_BATCH_CLOSEOUT_REBUILD",
+    }:
+        return "RESULT_COMMAND_READY_NOT_EXECUTED"
+    if routing_state == "WAITING_FOR_CONTROLLED_EXECUTION":
+        return "WAITING_FOR_DISPATCH_EXECUTION"
+    if routing_state in {"PARKED_OPERATOR_SKIPPED_THIS_ROUND", "BLOCKED_OR_MANUAL_REVIEW_REQUIRED", "MANUAL_ROUTING_REVIEW_REQUIRED"}:
+        return routing_state
+
+    closeout_state = str(closeout_record.get("dispatch_closeout_state") or "").strip()
+    if closeout_state == "WAITING_FOR_CONTROLLED_EXECUTION":
+        return "WAITING_FOR_DISPATCH_EXECUTION"
+    if closeout_state:
+        return closeout_state
+
+    readback_state = str(readback_record.get("dispatch_readback_state") or "").strip()
+    if readback_state == "WAITING_FOR_CONTROLLED_EXECUTION":
+        return "WAITING_FOR_DISPATCH_EXECUTION"
+    if readback_state:
+        return readback_state
+    return "NO_PROJECT_STATUS_RECORD"
+
+
+def _loop_next_action(
+    *,
+    readback_record: Mapping[str, Any],
+    closeout_record: Mapping[str, Any],
+    runner_record: Mapping[str, Any],
+    routing_record: Mapping[str, Any],
+    next_dispatch_record: Mapping[str, Any],
+) -> str:
+    if str(next_dispatch_record.get("dispatch_readiness_state") or "").strip():
+        return "run_next_cycle_dispatch_or_keep_internal_review_dry_run"
+
+    execution_state = str(runner_record.get("execution_state") or "").strip()
+    if execution_state == "EXECUTED_SUCCEEDED":
+        return "review_result_artifact_and_close_project_or_generate_next_cycle_if_needed"
+    if execution_state == "DRY_RUN_READY":
+        return "execute_result_runner_or_keep_dry_run"
+    if execution_state == "SKIPPED_DUPLICATE_COMMAND":
+        return "use_first_identical_result_runner_output_for_this_project_group"
+    if execution_state == "EXECUTED_FAILED":
+        return "inspect_result_runner_failure_then_retry_or_park"
+    if execution_state == "BLOCKED_BY_ALLOWLIST":
+        return "fix_structured_command_allowlist_before_execution"
+    if execution_state.startswith("SKIPPED_") and execution_state != "SKIPPED_NOT_READY":
+        return str(runner_record.get("skip_reason") or "review_result_runner_skip_reason")
+
+    routing_action = str(routing_record.get("next_recommended_action") or "").strip()
+    if routing_action:
+        return routing_action
+
+    closeout_action = str(closeout_record.get("next_recommended_action") or "").strip()
+    if closeout_action:
+        return closeout_action
+
+    readback_action = str(readback_record.get("next_recommended_action") or "").strip()
+    if readback_action:
+        return readback_action
+    return "review_project_status_inputs"
+
+
 def _summary(
     *,
     dispatch_runner: Mapping[str, Any],
@@ -227,6 +438,7 @@ def _summary(
     routing: Mapping[str, Any],
     result_runner: Mapping[str, Any],
     next_cycle: Mapping[str, Any],
+    project_status_records: list[Mapping[str, Any]],
     next_cycle_skip_reason: str,
     blocking_reasons: list[str],
     execute_dispatch: bool,
@@ -268,6 +480,9 @@ def _summary(
         "next_cycle_skip_reason": next_cycle_skip_reason,
         "next_cycle_stage6_project_fact_count": int(next_cycle_summary.get("stage6_project_fact_count") or 0),
         "next_cycle_dispatch_task_count": int(next_cycle_summary.get("dispatch_task_count") or 0),
+        "project_status_record_count": len(project_status_records),
+        "loop_terminal_state_counts": _counts(record.get("loop_terminal_state") for record in project_status_records),
+        "project_next_action_counts": _counts(record.get("next_recommended_action") for record in project_status_records),
         "live_execution_enabled": False,
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,
@@ -330,6 +545,13 @@ def _finalize_and_write(out_dir: Path, result: dict[str, Any]) -> None:
     result["manifest"]["manifest_sha256"] = _fingerprint(
         {key: value for key, value in result["manifest"].items() if key != "manifest_sha256"}
     )
+    _write_json(
+        out_dir / "stage6-review-loop-project-status-table.json",
+        {
+            "summary": result["summary"],
+            "records": result["manifest"]["project_status_table"]["records"],
+        },
+    )
     _write_json(out_dir / "stage6-review-loop-runner-v1.json", result)
 
 
@@ -346,6 +568,16 @@ def _list(value: Any) -> list[Any]:
     if isinstance(value, tuple):
         return list(value)
     return [value]
+
+
+def _counts(values: Iterable[Any]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for value in values:
+        key = str(value or "").strip()
+        if not key:
+            continue
+        counts[key] = counts.get(key, 0) + 1
+    return dict(sorted(counts.items()))
 
 
 def _fingerprint(payload: Any) -> str:
