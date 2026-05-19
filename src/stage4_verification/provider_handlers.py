@@ -8,6 +8,9 @@ import json
 from collections.abc import Callable
 from typing import Any, Mapping
 
+from stage4_verification.natural_resource_registered_surveyor import (
+    run_natural_resource_registered_surveyor_provider_task,
+)
 from stage4_verification.provider_registry import (
     COMPLETION_FILING,
     CONSTRUCTION_PERMIT,
@@ -68,12 +71,17 @@ GDCIC_SOURCE_TYPES_BY_PROVIDER = {
 
 ProviderHandler = Callable[[Mapping[str, Any]], Mapping[str, Any]]
 JsonGetter = Callable[[str, Mapping[str, str]], Mapping[str, Any]]
+TextGetter = Callable[[str, Mapping[str, str]], str]
+SnapshotHtmlGetter = Callable[[Mapping[str, Any]], str | None]
 
 
 def build_stage4_provider_handlers(
     *,
     enable_live_gdcic: bool = False,
+    enable_live_natural_resource: bool = False,
     http_get_json: JsonGetter | None = None,
+    http_get_text: TextGetter | None = None,
+    natural_resource_snapshot_html_getter: SnapshotHtmlGetter | None = None,
     repository: Any | None = None,
 ) -> dict[str, ProviderHandler]:
     """Build provider handlers with explicit live-source opt in.
@@ -96,6 +104,15 @@ def build_stage4_provider_handlers(
             person_directory_cache=gdcic_person_directory_cache,
         )
 
+    def natural_resource_handler(payload: Mapping[str, Any]) -> Mapping[str, Any]:
+        snapshot_html = natural_resource_snapshot_html_getter(payload) if natural_resource_snapshot_html_getter else None
+        return run_natural_resource_registered_surveyor_provider_task(
+            payload,
+            snapshot_html=snapshot_html,
+            enable_live_entry_readback=enable_live_natural_resource,
+            http_get_text=http_get_text,
+        )
+
     return {
         JZSC_PERSON_IDENTITY: run_jzsc_identity_provider_task,
         GUANGDONG_THREE_LIBRARY: gdcic_handler,
@@ -105,7 +122,7 @@ def build_stage4_provider_handlers(
         COMPLETION_FILING: gdcic_handler,
         PROJECT_MANAGER_CHANGE: gdcic_handler,
         PENALTY_CREDIT: gdcic_handler,
-        NATURAL_RESOURCE_REGISTERED_SURVEYOR: run_pending_provider_task,
+        NATURAL_RESOURCE_REGISTERED_SURVEYOR: natural_resource_handler,
         SUPPLIER_QUALIFICATION_CREDIT: run_pending_provider_task,
     }
 

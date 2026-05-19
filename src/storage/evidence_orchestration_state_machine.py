@@ -34,6 +34,8 @@ def build_evidence_orchestration_state(
     design_survey_flow08_attachment_parse_root: str | Path | None = None,
     design_survey_public_registry_fallback_json: str | Path | None = None,
     design_survey_public_registry_fallback_root: str | Path | None = None,
+    design_survey_public_registry_readback_json: str | Path | None = None,
+    design_survey_public_registry_readback_root: str | Path | None = None,
     output_root: str | Path = DEFAULT_OUTPUT_ROOT,
     project_ids: list[str] | tuple[str, ...] = (),
     created_at: str | None = None,
@@ -88,6 +90,11 @@ def build_evidence_orchestration_state(
         root=design_survey_public_registry_fallback_root,
         default_file_name="design-survey-public-registry-fallback-v1.json",
     )
+    design_survey_public_registry_readback_manifest = _optional_manifest(
+        explicit_json=design_survey_public_registry_readback_json,
+        root=design_survey_public_registry_readback_root,
+        default_file_name="design-survey-public-registry-readback-v1.json",
+    )
     p13b_index = _p13b_index_by_project(p13b_manifest)
     original_index = _original_backtrace_index_by_project(original_manifest)
     design_survey_plan_index = _design_survey_plan_index_by_project(design_survey_plan_manifest)
@@ -98,6 +105,9 @@ def build_evidence_orchestration_state(
     )
     design_survey_public_registry_index = _design_survey_public_registry_index_by_project(
         design_survey_public_registry_manifest
+    )
+    design_survey_public_registry_readback_index = _design_survey_public_registry_readback_index_by_project(
+        design_survey_public_registry_readback_manifest
     )
     selected_projects = {_project_key(value) for value in project_ids if _project_key(value)}
 
@@ -124,6 +134,7 @@ def build_evidence_orchestration_state(
             design_survey_flow08_project=design_survey_flow08_index.get(project_id, {}),
             design_survey_flow08_parse_project=design_survey_flow08_parse_index.get(project_id, {}),
             design_survey_public_registry_project=design_survey_public_registry_index.get(project_id, {}),
+            design_survey_public_registry_readback_project=design_survey_public_registry_readback_index.get(project_id, {}),
             p13b_supplied=bool(p13b_manifest),
             original_supplied=bool(original_manifest),
             design_survey_plan_supplied=bool(design_survey_plan_manifest),
@@ -131,6 +142,7 @@ def build_evidence_orchestration_state(
             design_survey_flow08_supplied=bool(design_survey_flow08_manifest),
             design_survey_flow08_parse_supplied=bool(design_survey_flow08_parse_manifest),
             design_survey_public_registry_supplied=bool(design_survey_public_registry_manifest),
+            design_survey_public_registry_readback_supplied=bool(design_survey_public_registry_readback_manifest),
             created_at=created,
         )
         evidence_records.append(record)
@@ -190,6 +202,7 @@ def build_evidence_orchestration_state(
         "source_design_survey_flow08_readback_json": _manifest_source_path(design_survey_flow08_readback_json, design_survey_flow08_readback_root, "design-survey-flow08-targeted-readback-v1.json"),
         "source_design_survey_flow08_attachment_parse_json": _manifest_source_path(design_survey_flow08_attachment_parse_json, design_survey_flow08_attachment_parse_root, "design-survey-flow08-target-attachment-parse-v1.json"),
         "source_design_survey_public_registry_fallback_json": _manifest_source_path(design_survey_public_registry_fallback_json, design_survey_public_registry_fallback_root, "design-survey-public-registry-fallback-v1.json"),
+        "source_design_survey_public_registry_readback_json": _manifest_source_path(design_survey_public_registry_readback_json, design_survey_public_registry_readback_root, "design-survey-public-registry-readback-v1.json"),
         "evidence_state_table": evidence_table,
         "adapter_job_table": adapter_job_table,
         "stage6_fact_package_readiness_table": fact_package_table,
@@ -238,6 +251,7 @@ def _evidence_record(
     design_survey_flow08_project: Mapping[str, Any],
     design_survey_flow08_parse_project: Mapping[str, Any],
     design_survey_public_registry_project: Mapping[str, Any],
+    design_survey_public_registry_readback_project: Mapping[str, Any],
     p13b_supplied: bool,
     original_supplied: bool,
     design_survey_plan_supplied: bool,
@@ -245,6 +259,7 @@ def _evidence_record(
     design_survey_flow08_supplied: bool,
     design_survey_flow08_parse_supplied: bool,
     design_survey_public_registry_supplied: bool,
+    design_survey_public_registry_readback_supplied: bool,
     created_at: str,
 ) -> dict[str, Any]:
     project_id = str(candidate.get("project_id") or "").strip()
@@ -270,6 +285,7 @@ def _evidence_record(
         design_survey_flow08_project=design_survey_flow08_project,
         design_survey_flow08_parse_project=design_survey_flow08_parse_project,
         design_survey_public_registry_project=design_survey_public_registry_project,
+        design_survey_public_registry_readback_project=design_survey_public_registry_readback_project,
         p13b_supplied=p13b_supplied,
         original_supplied=original_supplied,
         design_survey_plan_supplied=design_survey_plan_supplied,
@@ -277,6 +293,7 @@ def _evidence_record(
         design_survey_flow08_supplied=design_survey_flow08_supplied,
         design_survey_flow08_parse_supplied=design_survey_flow08_parse_supplied,
         design_survey_public_registry_supplied=design_survey_public_registry_supplied,
+        design_survey_public_registry_readback_supplied=design_survey_public_registry_readback_supplied,
     )
     signal_counts = _signal_counts(p13b_project, original_project)
     design_survey_counts = _design_survey_counts(
@@ -285,6 +302,7 @@ def _evidence_record(
         design_survey_flow08_project,
         design_survey_flow08_parse_project,
         design_survey_public_registry_project,
+        design_survey_public_registry_readback_project,
     )
     release_probe_targets = _release_probe_targets(original_project)
     if not release_probe_targets and evidence_state == "A_STRONG_TIME_OVERLAP_SIGNAL_READY":
@@ -382,6 +400,7 @@ def _project_evidence_state(
     design_survey_flow08_project: Mapping[str, Any],
     design_survey_flow08_parse_project: Mapping[str, Any],
     design_survey_public_registry_project: Mapping[str, Any],
+    design_survey_public_registry_readback_project: Mapping[str, Any],
     p13b_supplied: bool,
     original_supplied: bool,
     design_survey_plan_supplied: bool,
@@ -389,6 +408,7 @@ def _project_evidence_state(
     design_survey_flow08_supplied: bool,
     design_survey_flow08_parse_supplied: bool,
     design_survey_public_registry_supplied: bool,
+    design_survey_public_registry_readback_supplied: bool,
 ) -> tuple[str, str, str, list[str], str]:
     if base_state == "DEFER_DESIGN_SURVEY_RESPONSIBLE_OVERLAP_ADAPTER":
         return _design_survey_evidence_state(
@@ -399,11 +419,13 @@ def _project_evidence_state(
             design_survey_flow08_project=design_survey_flow08_project,
             design_survey_flow08_parse_project=design_survey_flow08_parse_project,
             design_survey_public_registry_project=design_survey_public_registry_project,
+            design_survey_public_registry_readback_project=design_survey_public_registry_readback_project,
             design_survey_plan_supplied=design_survey_plan_supplied,
             design_survey_stage4_supplied=design_survey_stage4_supplied,
             design_survey_flow08_supplied=design_survey_flow08_supplied,
             design_survey_flow08_parse_supplied=design_survey_flow08_parse_supplied,
             design_survey_public_registry_supplied=design_survey_public_registry_supplied,
+            design_survey_public_registry_readback_supplied=design_survey_public_registry_readback_supplied,
         )
     if base_state != "READY_FOR_P13B_DATA_GGZY":
         return base_state, "NOT_EVIDENCE_READY", base_next_action, base_reasons, "BASE_READINESS"
@@ -507,11 +529,13 @@ def _design_survey_evidence_state(
     design_survey_flow08_project: Mapping[str, Any],
     design_survey_flow08_parse_project: Mapping[str, Any],
     design_survey_public_registry_project: Mapping[str, Any],
+    design_survey_public_registry_readback_project: Mapping[str, Any],
     design_survey_plan_supplied: bool,
     design_survey_stage4_supplied: bool,
     design_survey_flow08_supplied: bool,
     design_survey_flow08_parse_supplied: bool,
     design_survey_public_registry_supplied: bool,
+    design_survey_public_registry_readback_supplied: bool,
 ) -> tuple[str, str, str, list[str], str]:
     if not design_survey_plan_supplied:
         return (
@@ -589,9 +613,12 @@ def _design_survey_evidence_state(
         )
 
     if supplement_states.get("DESIGN_SURVEY_PUBLIC_REGISTRY_FALLBACK_REQUIRED", 0) > 0:
-        if design_survey_public_registry_supplied:
+        if design_survey_public_registry_supplied or design_survey_public_registry_readback_supplied:
             return _design_survey_public_registry_evidence_state(
                 design_survey_public_registry_project=design_survey_public_registry_project,
+                design_survey_public_registry_readback_project=design_survey_public_registry_readback_project,
+                design_survey_public_registry_supplied=design_survey_public_registry_supplied,
+                design_survey_public_registry_readback_supplied=design_survey_public_registry_readback_supplied,
             )
         return (
             "DESIGN_SURVEY_PUBLIC_REGISTRY_FALLBACK_REQUIRED",
@@ -706,8 +733,53 @@ def _design_survey_flow08_evidence_state(
 def _design_survey_public_registry_evidence_state(
     *,
     design_survey_public_registry_project: Mapping[str, Any],
+    design_survey_public_registry_readback_project: Mapping[str, Any],
+    design_survey_public_registry_supplied: bool,
+    design_survey_public_registry_readback_supplied: bool,
 ) -> tuple[str, str, str, list[str], str]:
-    if not design_survey_public_registry_project:
+    if design_survey_public_registry_readback_supplied:
+        if not design_survey_public_registry_readback_project:
+            return (
+                "DESIGN_SURVEY_PUBLIC_REGISTRY_NOT_COVERING_PROJECT",
+                "PENDING_DESIGN_SURVEY_STAGE4",
+                "rerun_design_survey_public_registry_readback_for_project",
+                ["design_survey_public_registry_readback_missing_project"],
+                "DESIGN_SURVEY_PUBLIC_REGISTRY_READBACK",
+            )
+        readback_matched = int(
+            design_survey_public_registry_readback_project.get("matched_public_registry_readback_count") or 0
+        )
+        readback_ready = int(design_survey_public_registry_readback_project.get("readback_ready_count") or 0)
+        fail_closed = int(design_survey_public_registry_readback_project.get("fail_closed_readback_count") or 0)
+        pending_snapshot = int(
+            design_survey_public_registry_readback_project.get("pending_snapshot_or_adapter_count") or 0
+        )
+        if readback_matched > 0:
+            return (
+                "DESIGN_SURVEY_PUBLIC_REGISTRY_IDENTITY_MATCH_READY",
+                "DESIGN_SURVEY_IDENTITY_MATCH_REVIEW",
+                "continue_design_survey_qualification_and_service_clock_review",
+                ["registered_surveyor_public_registry_person_company_match_ready_for_review"],
+                "DESIGN_SURVEY_PUBLIC_REGISTRY_READBACK",
+            )
+        if pending_snapshot > 0 and readback_ready == 0 and fail_closed == 0:
+            return (
+                "DESIGN_SURVEY_PUBLIC_REGISTRY_TASKS_READY",
+                "PENDING_DESIGN_SURVEY_STAGE4",
+                "provide_public_registry_snapshot_or_authorized_runtime_adapter",
+                ["registered_surveyor_public_registry_snapshot_or_runtime_adapter_missing"],
+                "DESIGN_SURVEY_PUBLIC_REGISTRY_READBACK",
+            )
+        if readback_ready > 0 or fail_closed > 0:
+            return (
+                "D_DESIGN_SURVEY_PUBLIC_REGISTRY_READBACK_BLOCKED_OR_INSUFFICIENT",
+                "D_EVIDENCE_INSUFFICIENT",
+                "manual_review_or_retry_registered_surveyor_public_registry_without_clearance_claim",
+                ["registered_surveyor_public_registry_readback_no_person_company_match_or_blocked"],
+                "DESIGN_SURVEY_PUBLIC_REGISTRY_READBACK",
+            )
+
+    if not design_survey_public_registry_supplied or not design_survey_public_registry_project:
         return (
             "DESIGN_SURVEY_PUBLIC_REGISTRY_NOT_COVERING_PROJECT",
             "PENDING_DESIGN_SURVEY_STAGE4",
@@ -965,7 +1037,7 @@ def _adapter_jobs_for_record(record: Mapping[str, Any], *, created_at: str) -> l
                 project_name=record.get("project_name"),
                 job_type="design_survey_public_registry_readback_or_manual_snapshot",
                 job_state="RUNTIME_ADAPTER_OR_MANUAL_PUBLIC_SNAPSHOT_REQUIRED",
-                recommended_script="scripts/build-design-survey-public-registry-fallback-v1.ps1",
+                recommended_script="scripts/build-design-survey-public-registry-readback-v1.ps1",
                 recommended_next_action=record.get("recommended_next_action"),
                 created_at=created_at,
                 adapter_source_targets=[
@@ -978,6 +1050,29 @@ def _adapter_jobs_for_record(record: Mapping[str, Any], *, created_at: str) -> l
                     "entry_reachability_is_not_field_success": True,
                     "no_name_only_final_proof": True,
                     "query_miss_is_not_clearance": True,
+                    "customer_visible_allowed": False,
+                },
+            )
+        )
+    elif state == "D_DESIGN_SURVEY_PUBLIC_REGISTRY_READBACK_BLOCKED_OR_INSUFFICIENT":
+        jobs.append(
+            _adapter_job(
+                project_id=project_id,
+                project_name=record.get("project_name"),
+                job_type="design_survey_public_registry_manual_review_or_retry",
+                job_state="BLOCKED_OR_INSUFFICIENT_REVIEW",
+                recommended_script="scripts/build-design-survey-public-registry-readback-v1.ps1",
+                recommended_next_action=record.get("recommended_next_action"),
+                created_at=created_at,
+                adapter_source_targets=[
+                    "registered_surveyor_public_page_or_snapshot",
+                    "alternate_natural_resource_public_snapshot",
+                    "authorized_browser_runtime_adapter",
+                ],
+                adapter_scope_guardrails={
+                    "not_found_is_not_clearance": True,
+                    "no_name_only_final_proof": True,
+                    "manual_review_required_before_external_use": True,
                     "customer_visible_allowed": False,
                 },
             )
@@ -1165,6 +1260,7 @@ def _stage6_fact_package_state(evidence_state: str) -> str:
         "D_DESIGN_SURVEY_FLOW08_OCR_RUNTIME_BLOCKED",
         "D_DESIGN_SURVEY_FLOW08_ATTACHMENT_PARSE_BLOCKED_OR_INSUFFICIENT",
         "D_DESIGN_SURVEY_PUBLIC_REGISTRY_TARGET_INSUFFICIENT",
+        "D_DESIGN_SURVEY_PUBLIC_REGISTRY_READBACK_BLOCKED_OR_INSUFFICIENT",
     }:
         return "REVIEW_FACT_PACKAGE_READY"
     if evidence_state == "DEFER_DESIGN_SURVEY_RESPONSIBLE_OVERLAP_ADAPTER":
@@ -1201,6 +1297,7 @@ def _design_survey_counts(
     design_survey_flow08_project: Mapping[str, Any],
     design_survey_flow08_parse_project: Mapping[str, Any],
     design_survey_public_registry_project: Mapping[str, Any],
+    design_survey_public_registry_readback_project: Mapping[str, Any],
 ) -> dict[str, int]:
     supplement_states = (
         design_survey_stage4_project.get("supplement_after_execution_state_counts")
@@ -1257,6 +1354,24 @@ def _design_survey_counts(
         "design_survey_public_registry_task_count": int(design_survey_public_registry_project.get("task_count") or 0),
         "design_survey_public_registry_provider_job_count": int(
             design_survey_public_registry_project.get("provider_job_count") or 0
+        ),
+        "design_survey_public_registry_readback_project_present": int(
+            bool(design_survey_public_registry_readback_project)
+        ),
+        "design_survey_public_registry_readback_record_count": int(
+            design_survey_public_registry_readback_project.get("readback_record_count") or 0
+        ),
+        "design_survey_public_registry_readback_ready_count": int(
+            design_survey_public_registry_readback_project.get("readback_ready_count") or 0
+        ),
+        "design_survey_public_registry_readback_matched_count": int(
+            design_survey_public_registry_readback_project.get("matched_public_registry_readback_count") or 0
+        ),
+        "design_survey_public_registry_readback_pending_snapshot_or_adapter_count": int(
+            design_survey_public_registry_readback_project.get("pending_snapshot_or_adapter_count") or 0
+        ),
+        "design_survey_public_registry_readback_fail_closed_count": int(
+            design_survey_public_registry_readback_project.get("fail_closed_readback_count") or 0
         ),
     }
 
@@ -1499,6 +1614,43 @@ def _design_survey_public_registry_index_by_project(manifest: Mapping[str, Any])
             for record in task_records
             if isinstance(record, Mapping)
             and str(record.get("task_state") or "").startswith(("BLOCKED", "FAIL_CLOSED"))
+        )
+    return index
+
+
+def _design_survey_public_registry_readback_index_by_project(manifest: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
+    index: dict[str, dict[str, Any]] = {}
+    table = (
+        manifest.get("public_registry_readback_table")
+        if isinstance(manifest.get("public_registry_readback_table"), Mapping)
+        else {}
+    )
+    for record in _list(table.get("records")):
+        _append_project_record(index, record, "public_registry_readback_records")
+    for project in index.values():
+        records = [record for record in _list(project.get("public_registry_readback_records")) if isinstance(record, Mapping)]
+        project["readback_record_count"] = len(records)
+        project["provider_result_state_counts"] = _counts(record.get("provider_result_state") for record in records)
+        project["readback_state_counts"] = _counts(record.get("readback_state") for record in records)
+        project["verification_result_counts"] = _counts(record.get("verification_result") for record in records)
+        project["matched_public_registry_readback_count"] = sum(
+            1 for record in records if str(record.get("verification_result") or "") == "MATCHED"
+        )
+        project["readback_ready_count"] = sum(
+            1 for record in records if str(record.get("provider_result_state") or "") == "READBACK_READY"
+        )
+        project["pending_snapshot_or_adapter_count"] = sum(
+            1
+            for record in records
+            if str(record.get("provider_result_state") or "") == "PENDING_IMPLEMENTATION_REVIEW"
+            or str(record.get("readback_state") or "")
+            in {"PUBLIC_SNAPSHOT_OR_RUNTIME_ADAPTER_REQUIRED", "ENTRY_READBACK_READY_PERSON_SEARCH_NOT_EXECUTED"}
+        )
+        project["fail_closed_readback_count"] = sum(
+            1
+            for record in records
+            if str(record.get("provider_result_state") or "").startswith("FAIL_CLOSED")
+            or str(record.get("readback_state") or "").startswith("FAIL_CLOSED")
         )
     return index
 
@@ -1822,6 +1974,7 @@ def _batch_triage_bucket(record: Mapping[str, Any]) -> str:
         "D_DESIGN_SURVEY_FLOW08_OCR_RUNTIME_BLOCKED",
         "D_DESIGN_SURVEY_FLOW08_ATTACHMENT_PARSE_BLOCKED_OR_INSUFFICIENT",
         "D_DESIGN_SURVEY_PUBLIC_REGISTRY_TARGET_INSUFFICIENT",
+        "D_DESIGN_SURVEY_PUBLIC_REGISTRY_READBACK_BLOCKED_OR_INSUFFICIENT",
     }:
         return "D_BLOCKED_OR_INSUFFICIENT_REVIEW"
     if state == "WAIT_STAGE2_CAPTURE":
@@ -1878,6 +2031,8 @@ def _batch_recommended_next_action(record: Mapping[str, Any], bucket: str) -> st
     if bucket == "CONTINUE_DESIGN_SURVEY_FLOW08_READBACK":
         return str(record.get("recommended_next_action") or "continue_design_survey_flow08_targeted_readback")
     if bucket == "D_BLOCKED_OR_INSUFFICIENT_REVIEW":
+        if str(record.get("evidence_state") or "") == "D_DESIGN_SURVEY_PUBLIC_REGISTRY_READBACK_BLOCKED_OR_INSUFFICIENT":
+            return "manual_review_or_retry_registered_surveyor_public_registry_without_clearance_claim"
         return "manual_review_or_retry_blocked_original_notice_backtrace_without_clearance_claim"
     if bucket == "LOW_VALUE_REVIEW_NO_CLEARANCE_CLAIM":
         return "park_or_manual_review_p13b_without_clearance_claim"
@@ -2040,6 +2195,7 @@ def _record_identity(record: Any) -> str:
             "stage4_input_id",
             "design_survey_verification_task_id",
             "target_attachment_parse_id",
+            "public_registry_readback_id",
             "job_id",
             "adapter_job_id",
             "stage6_fact_package_readiness_id",
@@ -2190,6 +2346,8 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--design-survey-flow08-attachment-parse-root", default="")
     parser.add_argument("--design-survey-public-registry-fallback-json", default="")
     parser.add_argument("--design-survey-public-registry-fallback-root", default="")
+    parser.add_argument("--design-survey-public-registry-readback-json", default="")
+    parser.add_argument("--design-survey-public-registry-readback-root", default="")
     parser.add_argument("--output-root", default=str(DEFAULT_OUTPUT_ROOT))
     parser.add_argument("--project-ids", default="")
     parser.add_argument("--output-json")
@@ -2216,6 +2374,8 @@ def main(argv: list[str] | None = None) -> int:
         design_survey_flow08_attachment_parse_root=args.design_survey_flow08_attachment_parse_root or None,
         design_survey_public_registry_fallback_json=args.design_survey_public_registry_fallback_json or None,
         design_survey_public_registry_fallback_root=args.design_survey_public_registry_fallback_root or None,
+        design_survey_public_registry_readback_json=args.design_survey_public_registry_readback_json or None,
+        design_survey_public_registry_readback_root=args.design_survey_public_registry_readback_root or None,
         output_root=args.output_root,
         project_ids=_parse_csv(args.project_ids),
     )

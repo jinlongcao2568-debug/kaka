@@ -413,6 +413,136 @@ class EvidenceOrchestrationStateMachineTests(unittest.TestCase):
                 "execute_registered_surveyor_public_registry_readback_or_manual_public_snapshot",
             )
             self.assertEqual(design["design_survey_adapter_counts"]["design_survey_public_registry_task_count"], 1)
+            jobs = result["manifest"]["adapter_job_table"]["records"]
+            self.assertTrue(
+                any(
+                    job["project_id"] == "PROJ-CN-GD-JG2026-11327"
+                    and job["job_type"] == "design_survey_public_registry_readback_or_manual_snapshot"
+                    and job["recommended_script"] == "scripts/build-design-survey-public-registry-readback-v1.ps1"
+                    for job in jobs
+                )
+            )
+
+    def test_design_survey_public_registry_readback_match_becomes_internal_review_ready(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            storage_json = root / "storage.json"
+            supplement_json = root / "stage4-inputs.json"
+            design_plan_root = root / "design-plan"
+            stage4_root = root / "design-stage4"
+            public_registry_root = root / "public-registry"
+            readback_root = root / "public-registry-readback"
+            _write_stage16_storage(storage_json)
+            _write_company_first_inputs(supplement_json)
+            _write_design_survey_adapter_plan(design_plan_root)
+            _write_design_survey_stage4_public_registry_fallback_required(stage4_root)
+            _write_design_survey_public_registry_fallback(public_registry_root)
+            _write_design_survey_public_registry_readback(readback_root, mode="matched")
+
+            result = build_evidence_orchestration_state(
+                stage16_storage_json=storage_json,
+                company_first_stage4_inputs_json=supplement_json,
+                design_survey_adapter_plan_root=design_plan_root,
+                design_survey_stage4_execution_root=stage4_root,
+                design_survey_public_registry_fallback_root=public_registry_root,
+                design_survey_public_registry_readback_root=readback_root,
+                output_root=root / "out",
+                created_at="2026-05-18T00:00:00+08:00",
+            )
+
+            design = _records_by_project(result["manifest"]["evidence_state_table"]["records"])[
+                "PROJ-CN-GD-JG2026-11327"
+            ]
+            self.assertEqual(design["evidence_state"], "DESIGN_SURVEY_PUBLIC_REGISTRY_IDENTITY_MATCH_READY")
+            self.assertEqual(design["stage6_fact_package_state"], "REVIEW_FACT_PACKAGE_READY")
+            self.assertEqual(
+                design["design_survey_adapter_counts"]["design_survey_public_registry_readback_matched_count"],
+                1,
+            )
+            self.assertEqual(result["summary"]["design_survey_identity_match_project_count"], 1)
+
+    def test_design_survey_public_registry_pending_readback_stays_tasks_ready(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            storage_json = root / "storage.json"
+            supplement_json = root / "stage4-inputs.json"
+            design_plan_root = root / "design-plan"
+            stage4_root = root / "design-stage4"
+            public_registry_root = root / "public-registry"
+            readback_root = root / "public-registry-readback"
+            _write_stage16_storage(storage_json)
+            _write_company_first_inputs(supplement_json)
+            _write_design_survey_adapter_plan(design_plan_root)
+            _write_design_survey_stage4_public_registry_fallback_required(stage4_root)
+            _write_design_survey_public_registry_fallback(public_registry_root)
+            _write_design_survey_public_registry_readback(readback_root, mode="pending")
+
+            result = build_evidence_orchestration_state(
+                stage16_storage_json=storage_json,
+                company_first_stage4_inputs_json=supplement_json,
+                design_survey_adapter_plan_root=design_plan_root,
+                design_survey_stage4_execution_root=stage4_root,
+                design_survey_public_registry_fallback_root=public_registry_root,
+                design_survey_public_registry_readback_root=readback_root,
+                output_root=root / "out",
+                created_at="2026-05-18T00:00:00+08:00",
+            )
+
+            design = _records_by_project(result["manifest"]["evidence_state_table"]["records"])[
+                "PROJ-CN-GD-JG2026-11327"
+            ]
+            self.assertEqual(design["evidence_state"], "DESIGN_SURVEY_PUBLIC_REGISTRY_TASKS_READY")
+            self.assertEqual(
+                design["recommended_next_action"],
+                "provide_public_registry_snapshot_or_authorized_runtime_adapter",
+            )
+            self.assertEqual(
+                design["design_survey_adapter_counts"][
+                    "design_survey_public_registry_readback_pending_snapshot_or_adapter_count"
+                ],
+                1,
+            )
+
+    def test_design_survey_public_registry_readback_no_match_becomes_d_review(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            storage_json = root / "storage.json"
+            supplement_json = root / "stage4-inputs.json"
+            design_plan_root = root / "design-plan"
+            stage4_root = root / "design-stage4"
+            public_registry_root = root / "public-registry"
+            readback_root = root / "public-registry-readback"
+            _write_stage16_storage(storage_json)
+            _write_company_first_inputs(supplement_json)
+            _write_design_survey_adapter_plan(design_plan_root)
+            _write_design_survey_stage4_public_registry_fallback_required(stage4_root)
+            _write_design_survey_public_registry_fallback(public_registry_root)
+            _write_design_survey_public_registry_readback(readback_root, mode="no_match")
+
+            result = build_evidence_orchestration_state(
+                stage16_storage_json=storage_json,
+                company_first_stage4_inputs_json=supplement_json,
+                design_survey_adapter_plan_root=design_plan_root,
+                design_survey_stage4_execution_root=stage4_root,
+                design_survey_public_registry_fallback_root=public_registry_root,
+                design_survey_public_registry_readback_root=readback_root,
+                output_root=root / "out",
+                created_at="2026-05-18T00:00:00+08:00",
+            )
+
+            design = _records_by_project(result["manifest"]["evidence_state_table"]["records"])[
+                "PROJ-CN-GD-JG2026-11327"
+            ]
+            self.assertEqual(
+                design["evidence_state"],
+                "D_DESIGN_SURVEY_PUBLIC_REGISTRY_READBACK_BLOCKED_OR_INSUFFICIENT",
+            )
+            self.assertEqual(design["stage6_fact_package_state"], "REVIEW_FACT_PACKAGE_READY")
+            batch = _records_by_project(result["manifest"]["batch_triage_table"]["records"])[
+                "PROJ-CN-GD-JG2026-11327"
+            ]
+            self.assertEqual(batch["batch_triage_bucket"], "D_BLOCKED_OR_INSUFFICIENT_REVIEW")
+            self.assertFalse(batch["continue_allowed"])
 
     def test_design_survey_flow08_attachment_parse_ocr_required_stays_continuable(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -1277,6 +1407,55 @@ def _write_design_survey_public_registry_fallback(root: Path) -> None:
                         }
                     ]
                 },
+            }
+        },
+    )
+
+
+def _write_design_survey_public_registry_readback(root: Path, *, mode: str) -> None:
+    project_id = "PROJ-CN-GD-JG2026-11327"
+    if mode == "matched":
+        provider_state = "READBACK_READY"
+        readback_state = "READBACK_READY"
+        verification = "MATCHED"
+        review_reasons: list[str] = []
+    elif mode == "pending":
+        provider_state = "PENDING_IMPLEMENTATION_REVIEW"
+        readback_state = "PUBLIC_SNAPSHOT_OR_RUNTIME_ADAPTER_REQUIRED"
+        verification = "REVIEW_REQUIRED"
+        review_reasons = ["registered_surveyor_public_snapshot_or_authorized_live_adapter_missing"]
+    else:
+        provider_state = "READBACK_READY"
+        readback_state = "READBACK_READY"
+        verification = "REVIEW_REQUIRED"
+        review_reasons = ["registered_surveyor_registered_unit_not_matched_to_candidate_company"]
+    _write_json(
+        root / "design-survey-public-registry-readback-v1.json",
+        {
+            "manifest": {
+                "public_registry_readback_table": {
+                    "records": [
+                        {
+                            "public_registry_readback_id": f"READBACK-{mode}",
+                            "source_job_id": "STAGE4-PUBLIC-REG-JOB-1",
+                            "project_id": project_id,
+                            "project_name": "规划测绘项目中标候选人公示",
+                            "provider_id": "NATURAL_RESOURCE_REGISTERED_SURVEYOR",
+                            "provider_result_state": provider_state,
+                            "readback_state": readback_state,
+                            "verification_result": verification,
+                            "identity_resolution_state": "MATCHED_PERSON_COMPANY"
+                            if mode == "matched"
+                            else "REVIEW_REQUIRED",
+                            "candidate_company_name": "广州市城市规划勘测设计研究院有限公司",
+                            "responsible_person_name": "胡昌华",
+                            "certificate_no_optional": "粤测绘20260001",
+                            "review_reasons": review_reasons,
+                            "customer_visible_allowed": False,
+                            "no_legal_conclusion": True,
+                        }
+                    ]
+                }
             }
         },
     )
