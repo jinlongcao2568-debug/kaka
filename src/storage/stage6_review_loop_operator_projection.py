@@ -202,12 +202,20 @@ def _project_row(record: Mapping[str, Any]) -> dict[str, Any]:
         "stage6_fact_package_state": str(record.get("stage6_fact_package_state") or ""),
         "stage6_ready": bool(record.get("stage6_ready", False)),
         "stage7_commercial_input_allowed": stage7_allowed,
-        "stage7_gate_label": "允许进入 Stage7 内部商业承接" if stage7_allowed else "暂不进入 Stage7，先复核证据缺口",
+        "stage7_gate_label": "允许进入第七阶段内部商业承接" if stage7_allowed else "暂不进入第七阶段，先复核证据缺口",
         "reopen_conditions": _reopen_conditions(
             terminal_state=terminal_state,
             next_action=next_action,
             stage7_allowed=stage7_allowed,
         ),
+        "reopen_condition_labels": [
+            _reopen_condition_label(condition)
+            for condition in _reopen_conditions(
+                terminal_state=terminal_state,
+                next_action=next_action,
+                stage7_allowed=stage7_allowed,
+            )
+        ],
         "lineage": {
             "dispatch_readback_state": str(record.get("dispatch_readback_state") or ""),
             "dispatch_closeout_state": str(record.get("dispatch_closeout_state") or ""),
@@ -248,9 +256,9 @@ def _owner_batch_state(project_rows: list[Mapping[str, Any]]) -> str:
 
 def _owner_batch_state_label(state: str) -> str:
     return {
-        "EMPTY": "暂无 Stage6 批次复核产物",
+        "EMPTY": "暂无第六阶段批次复核产物",
         "ACTION_READY": "有项目可继续受控续跑",
-        "STAGE7_INTERNAL_REVIEW_READY": "有项目可进入 Stage7 内部商业承接复核",
+        "STAGE7_INTERNAL_REVIEW_READY": "有项目可进入第七阶段内部商业承接复核",
         "MANUAL_REVIEW_HOLD": "全部项目停在人工复核",
         "MIXED_REVIEW_REQUIRED": "批次需要人工分拣复核",
     }.get(state, state)
@@ -260,8 +268,9 @@ def _operator_decision(summary: Mapping[str, Any], project_rows: list[Mapping[st
     if not project_rows:
         return {
             "decision_state": "NO_STAGE6_LOOP_STATUS_TABLE",
-            "decision_label": "还没有可读的 Stage6 批次状态表",
+            "decision_label": "还没有可读的第六阶段批次状态表",
             "next_actions": ["run_stage6_review_loop_or_select_existing_status_table"],
+            "next_action_labels": ["先运行第六阶段复核循环，或选择已有批次状态表"],
         }
     next_actions: list[str] = []
     if int(summary.get("automated_dispatch_available_count") or 0):
@@ -276,6 +285,7 @@ def _operator_decision(summary: Mapping[str, Any], project_rows: list[Mapping[st
         "decision_state": str(summary.get("operator_batch_state") or ""),
         "decision_label": str(summary.get("operator_batch_state_label") or ""),
         "next_actions": next_actions,
+        "next_action_labels": [_operator_decision_action_label(action) for action in next_actions],
     }
 
 
@@ -307,6 +317,29 @@ def _next_action_label(action: str) -> str:
         "inspect_result_runner_failure_then_retry_or_park": "排查执行失败，再重试或暂存",
         "fix_structured_command_allowlist_before_execution": "先修结构化命令白名单再执行",
     }.get(action, action)
+
+
+def _operator_decision_action_label(action: str) -> str:
+    return {
+        "run_ready_internal_dispatch_or_keep_dry_run": "运行已准备好的内部受控续跑任务，或者保持试运行复核。",
+        "manual_review_hold_requires_new_source_or_operator_override": "人工停机项目需要补新官方来源，或由操作者确认重开范围和预算。",
+        "review_stage7_commercial_boundary_before_sales_use": "进入第七阶段前先复核商业展示边界，不能外发客户。",
+        "review_project_status_rows": "逐个查看项目卡片，确认下一步动作。",
+        "run_stage6_review_loop_or_select_existing_status_table": "先运行第六阶段复核循环，或选择已有批次状态表。",
+    }.get(action, action)
+
+
+def _reopen_condition_label(condition: str) -> str:
+    return {
+        "new_official_original_notice_source_or_snapshot_available": "拿到新的官方原文来源或可回放快照。",
+        "operator_confirms_manual_retry_scope_and_budget": "操作者确认本次人工重试范围和预算。",
+        "new_release_evidence_source_or_project_local_authority_path_available": "找到新的释放证据来源，或项目所在地主管部门公开查询入口。",
+        "prior_blocker_resolved_without_clearance_claim": "前一轮阻断已解决，但不能写成排除性结论。",
+        "operator_reviews_stage7_commercial_boundary_before_sales_use": "操作者先复核第七阶段商业展示边界。",
+        "operator_runs_internal_allowlisted_dispatch_or_keeps_dry_run": "执行内部白名单受控任务，或继续保持试运行。",
+        "operator_reviews_next_action_and_records_decision": "操作者复核下一步动作并记录决定。",
+        "operator_reviews_project_status_inputs": "操作者复核项目状态输入。",
+    }.get(condition, condition)
 
 
 def _first_text(*values: Any) -> str:

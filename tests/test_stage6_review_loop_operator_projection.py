@@ -52,9 +52,15 @@ class Stage6ReviewLoopOperatorProjectionTests(unittest.TestCase):
             "new_official_original_notice_source_or_snapshot_available",
             rows["PROJ-B"]["reopen_conditions"],
         )
+        self.assertIn(
+            "拿到新的官方原文来源或可回放快照。",
+            rows["PROJ-B"]["reopen_condition_labels"],
+        )
         self.assertFalse(rows["PROJ-B"]["stage7_commercial_input_allowed"])
+        self.assertIn("暂不进入第七阶段", rows["PROJ-B"]["stage7_gate_label"])
         self.assertTrue(rows["PROJ-C"]["stage7_commercial_input_allowed"])
         self.assertIn("review_stage7_commercial_boundary_before_sales_use", projection["operator_decision"]["next_actions"])
+        self.assertIn("进入第七阶段前先复核商业展示边界，不能外发客户。", projection["operator_decision"]["next_action_labels"])
 
         text = json.dumps(projection, ensure_ascii=False)
         for forbidden in ("无风险", "无冲突", "确认本人", "违法成立", "是不是本人"):

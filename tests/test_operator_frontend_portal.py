@@ -110,7 +110,7 @@ class TestOperatorFrontendPortal(unittest.TestCase, IsolatedStorageTestMixin):
         for expected in (
             "AX9S 运营操作台",
             "证据包运营操作台",
-            "Stage6批次复核 · 极简版",
+            "第六阶段批次复核 · 极简版",
             "阶段1-9 运营总览",
             "阶段1 调度",
             "阶段2 公开源",
@@ -126,7 +126,7 @@ class TestOperatorFrontendPortal(unittest.TestCase, IsolatedStorageTestMixin):
             "最新运行的阶段对象",
             "阶段运行日志",
             "业务闭环摘要",
-            "Stage6 批次复核状态",
+            "第六阶段批次复核状态",
             "项目到了哪里、是否还能续跑、为什么停、下一步做什么",
             "证据链",
             "证据风险",
@@ -462,7 +462,7 @@ class TestOperatorFrontendPortal(unittest.TestCase, IsolatedStorageTestMixin):
         self.assertIn("text/html", response.headers["content-type"])
         html = response.text
         for expected in (
-            "Stage6 批次复核",
+            "第六阶段批次复核",
             "现在这批项目到底到哪了",
             "一句话结论",
             "项目逐个看",
@@ -470,6 +470,7 @@ class TestOperatorFrontendPortal(unittest.TestCase, IsolatedStorageTestMixin):
             "不能继续自动空转",
             "为什么停/卡在哪里",
             "重新开启条件",
+            "第七阶段只做内部复核",
             "/operator-console/stage6-review-loop-status",
             "fetch(\"/operator-console/stage6-review-loop-status\")",
             "不会写排除性结论",

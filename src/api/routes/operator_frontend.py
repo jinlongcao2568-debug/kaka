@@ -1009,7 +1009,7 @@ def render_operator_console(payload: Any) -> HTMLResponse:
 <div class="layout operator-shell">
   <nav aria-label="运营操作台导航">
     <h1>AX9S 运营操作台</h1>
-    <a class="external" href="/operator-console/stage6-review-loop">Stage6批次复核 · 极简版</a>
+    <a class="external" href="/operator-console/stage6-review-loop">第六阶段批次复核 · 极简版</a>
     <button class="nav-link active" type="button" data-view="overview" aria-current="page">阶段1-9 运营总览</button>
     <button class="nav-link" type="button" data-view="search" aria-current="false">实战搜索</button>
     <button class="nav-link" type="button" data-view="autonomousWorkbench" aria-current="false">机会工作台</button>
@@ -1069,8 +1069,8 @@ def render_operator_console(payload: Any) -> HTMLResponse:
             <div id="taskRunOverviewList" class="empty-state">暂无任务运行记录；在“采集运行”里创建内部任务后显示。</div>
           </section>
           <section>
-            <h3>Stage6 批次复核状态</h3>
-            <p class="muted-text" id="stage6ReviewLoopNarrative">正在读取 Stage6 批次状态：项目到了哪里、是否还能续跑、为什么停、下一步做什么。</p>
+            <h3>第六阶段批次复核状态</h3>
+            <p class="muted-text" id="stage6ReviewLoopNarrative">正在读取第六阶段批次状态：项目到了哪里、是否还能续跑、为什么停、下一步做什么。</p>
             <div class="rail" id="stage6ReviewLoopMetrics">
               <div class="metric"><strong>--</strong><span>项目数</span></div>
               <div class="metric"><strong>--</strong><span>可续跑</span></div>
@@ -2496,7 +2496,7 @@ async function loadRealWorldSellability() {
 function renderStage6ReviewLoopStatus(surface) {
   const summary = surface?.summary || {};
   const rows = Array.isArray(surface?.project_status_rows) ? surface.project_status_rows : [];
-  $("stage6ReviewLoopNarrative").textContent = `${summary.operator_batch_state_label || "Stage6 批次状态待读取"}：${surface?.operator_decision?.decision_label || "等待读回。"} `;
+  $("stage6ReviewLoopNarrative").textContent = `${summary.operator_batch_state_label || "第六阶段批次状态待读取"}：${surface?.operator_decision?.decision_label || "等待读回。"} `;
   $("stage6ReviewLoopMetrics").innerHTML = [
     `<div class="metric"><strong>${summary.project_count ?? 0}</strong><span>项目数</span></div>`,
     `<div class="metric"><strong>${summary.automated_dispatch_available_count ?? 0}</strong><span>可续跑</span></div>`,
@@ -2506,17 +2506,17 @@ function renderStage6ReviewLoopStatus(surface) {
     ? rows.map((row) => `<div class="stage-card">
         <strong>${safeText(row.project_id || "--")} ${safeText(row.project_name || "")}</strong>
         <p>${safeText(row.owner_status_label || row.loop_terminal_state || "--")}</p>
-        ${badge(row.loop_terminal_state || "--", row.manual_review_hold ? "warn" : "")}
+        ${badge(row.owner_status_label || row.loop_terminal_state || "--", row.manual_review_hold ? "warn" : "")}
         ${row.automated_dispatch_available ? badge("可受控续跑") : badge("不可自动续跑", "warn")}
-        ${row.stage7_commercial_input_allowed ? badge("可进 Stage7 内部复核") : badge("暂不进 Stage7", "warn")}
+        ${badge(row.stage7_gate_label || (row.stage7_commercial_input_allowed ? "可进第七阶段内部复核" : "暂不进第七阶段"), row.stage7_commercial_input_allowed ? "" : "warn")}
         <p><strong>下一步</strong></p>
         <p>${safeText(row.owner_next_action_label || row.next_recommended_action || "--")}</p>
         <p><strong>停机/阻断原因</strong></p>
         <p>${safeText(row.manual_hold_reason || row.lineage?.dispatch_closeout_state || row.lineage?.dispatch_readback_state || "暂无")}</p>
         <p><strong>重新开启条件</strong></p>
-        <ul>${renderListItems(row.reopen_conditions, "按下一步动作复核")}</ul>
+        <ul>${renderListItems(row.reopen_condition_labels || row.reopen_conditions, "按下一步动作复核")}</ul>
       </div>`).join("")
-    : `<div class="empty-state">暂无 Stage6 批次复核产物；先运行 Stage6 review loop 或指定状态表。</div>`;
+    : `<div class="empty-state">暂无第六阶段批次复核产物；先运行第六阶段复核循环或指定状态表。</div>`;
 }
 async function loadStage6ReviewLoopStatus() {
   const surface = await json("GET", "/operator-console/stage6-review-loop-status");
@@ -3170,8 +3170,8 @@ def render_stage6_review_loop_page(payload: Any) -> HTMLResponse:
     del payload
     body = """
 <div class="layout">
-  <nav aria-label="Stage6批次复核导航">
-    <h1>Stage6 批次复核</h1>
+  <nav aria-label="第六阶段批次复核导航">
+    <h1>第六阶段批次复核</h1>
     <a href="/operator-console/stage6-review-loop">当前批次</a>
     <a href="/operator-console">返回完整操作台</a>
     <a href="/operator-console/stage6-review-loop-status" target="_blank" rel="noopener">查看机器读回</a>
@@ -3180,7 +3180,7 @@ def render_stage6_review_loop_page(payload: Any) -> HTMLResponse:
     <div class="topbar">
       <div>
         <h2>现在这批项目到底到哪了</h2>
-        <p class="muted-text">这个页面只看 Stage6 复核循环，不看全系统。目标是让你不用问我，也能判断：哪些能继续跑，哪些停住了，为什么停，下一步要做什么。</p>
+      <p class="muted-text">这个页面只看第六阶段复核循环，不看全系统。目标是让你不用问我，也能判断：哪些能继续跑，哪些停住了，为什么停，下一步要做什么。</p>
       </div>
       <div class="status" id="batchPlainDecision">正在读取批次状态...</div>
     </div>
@@ -3204,7 +3204,7 @@ def render_stage6_review_loop_page(payload: Any) -> HTMLResponse:
         <div><strong>1. 先看一句话结论</strong><p>判断这批是继续跑、人工停机，还是没有产物。</p></div>
         <div><strong>2. 再看项目卡片</strong><p>每个项目都有“当前状态”和“下一步”。不要从 JSON 猜。</p></div>
         <div><strong>3. 人工停机别硬跑</strong><p>出现人工停机时，需要新官方来源、人工确认范围或新的释放证据入口。</p></div>
-        <div><strong>4. Stage7 只做内部复核</strong><p>能进 Stage7 也只是内部商业承接复核，不代表外发客户。</p></div>
+        <div><strong>4. 第七阶段只做内部复核</strong><p>能进第七阶段也只是内部商业承接复核，不代表外发客户。</p></div>
       </div>
     </section>
   </main>
@@ -3239,12 +3239,12 @@ function plainDecision(surface) {
     return "这批项目已经停在人工复核，不能继续自动空转。";
   }
   if (state === "STAGE7_INTERNAL_REVIEW_READY") {
-    return "这批已有项目可进入 Stage7 内部商业承接复核，但不能外发客户。";
+    return "这批已有项目可进入第七阶段内部商业承接复核，但不能外发客户。";
   }
   if (state === "MIXED_REVIEW_REQUIRED") {
     return "这批状态混合，需要逐个项目分拣。";
   }
-  return "还没有读到 Stage6 批次状态表，请先运行 Stage6 review loop。";
+  return "还没有读到第六阶段批次状态表，请先运行第六阶段复核循环。";
 }
 function cardKind(row) {
   if (row.manual_review_hold) { return "warn"; }
@@ -3264,7 +3264,7 @@ function render(surface) {
     `<div class="metric"><strong>${summary.automated_dispatch_available_count ?? 0}</strong><span>可继续自动/受控续跑</span></div>`,
     `<div class="metric"><strong>${summary.manual_hold_count ?? 0}</strong><span>人工停机</span></div>`
   ].join("");
-  const nextActions = surface?.operator_decision?.next_actions || [];
+  const nextActions = surface?.operator_decision?.next_action_labels || surface?.operator_decision?.next_actions || [];
   $("batchNextActions").innerHTML = nextActions.length
     ? nextActions.map((item) => `<div>${safeText(item)}</div>`).join("")
     : `<div>暂无下一步动作。</div>`;
@@ -3276,7 +3276,7 @@ function render(surface) {
         <strong>${safeText(cardTitle(row))}</strong>
         ${badge(row.owner_status_label || row.loop_terminal_state, kind)}
         ${row.automated_dispatch_available ? badge("还能继续受控续跑") : badge("不能自动续跑", "warn")}
-        ${row.stage7_commercial_input_allowed ? badge("可进Stage7内部复核") : badge("暂不进Stage7", "warn")}
+        ${badge(row.stage7_gate_label || (row.stage7_commercial_input_allowed ? "可进第七阶段内部复核" : "暂不进第七阶段"), row.stage7_commercial_input_allowed ? "" : "warn")}
         <p><strong>现在状态</strong></p>
         <p>${safeText(row.owner_status_label || row.loop_terminal_state)}</p>
         <p><strong>为什么停/卡在哪里</strong></p>
@@ -3284,10 +3284,10 @@ function render(surface) {
         <p><strong>下一步</strong></p>
         <p>${safeText(row.owner_next_action_label || row.next_recommended_action || "--")}</p>
         <p><strong>重新开启条件</strong></p>
-        <ul>${listHtml(row.reopen_conditions, "按下一步动作复核")}</ul>
+        <ul>${listHtml(row.reopen_condition_labels || row.reopen_conditions, "按下一步动作复核")}</ul>
       </div>`;
     }).join("")
-    : `<div class="empty-state">没有读到项目状态。先运行 Stage6 review loop，或确认 tmp/evaluation-real-samples 下是否有 stage6-review-loop-project-status-table.json。</div>`;
+    : `<div class="empty-state">没有读到项目状态。先运行第六阶段复核循环，或确认本地产物目录下是否有批次状态表。</div>`;
 }
 fetch("/operator-console/stage6-review-loop-status")
   .then((response) => response.json())
@@ -3297,7 +3297,7 @@ fetch("/operator-console/stage6-review-loop-status")
     $("projectCards").innerHTML = `<div class="empty-state">读取失败，请查看本地服务日志。</div>`;
   });
 """
-    return _page("Stage6 批次复核", body, script)
+    return _page("第六阶段批次复核", body, script)
 
 
 def render_customer_artifact_portal(payload: dict[str, Any]) -> HTMLResponse:
