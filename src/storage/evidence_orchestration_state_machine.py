@@ -564,6 +564,15 @@ def _design_survey_evidence_state(
             "DESIGN_SURVEY_STAGE4_EXECUTION",
         )
 
+    if supplement_states.get("DESIGN_SURVEY_PUBLIC_REGISTRY_FALLBACK_REQUIRED", 0) > 0:
+        return (
+            "DESIGN_SURVEY_PUBLIC_REGISTRY_FALLBACK_REQUIRED",
+            "PENDING_DESIGN_SURVEY_STAGE4",
+            "run_design_survey_natural_resource_or_local_public_registry_fallback",
+            ["flow08_current_binding_found_but_jzsc_public_registration_unresolved"],
+            "DESIGN_SURVEY_STAGE4_EXECUTION",
+        )
+
     if supplement_states.get("FLOW_08_TARGETED_PARSE_REQUIRED", 0) > 0:
         if design_survey_flow08_supplied:
             return _design_survey_flow08_evidence_state(
@@ -835,28 +844,39 @@ def _adapter_jobs_for_record(record: Mapping[str, Any], *, created_at: str) -> l
                 },
             )
         )
-    elif state in {"DESIGN_SURVEY_NAME_ENUMERATION_FALLBACK_REQUIRED", "DESIGN_SURVEY_FLOW08_TARGETED_PARSE_REQUIRED"}:
+    elif state in {
+        "DESIGN_SURVEY_NAME_ENUMERATION_FALLBACK_REQUIRED",
+        "DESIGN_SURVEY_FLOW08_TARGETED_PARSE_REQUIRED",
+        "DESIGN_SURVEY_PUBLIC_REGISTRY_FALLBACK_REQUIRED",
+    }:
         jobs.append(
             _adapter_job(
                 project_id=project_id,
                 project_name=record.get("project_name"),
                 job_type="design_survey_flow08_targeted_readback"
                 if state == "DESIGN_SURVEY_FLOW08_TARGETED_PARSE_REQUIRED"
+                else "design_survey_public_registry_fallback_plan"
+                if state == "DESIGN_SURVEY_PUBLIC_REGISTRY_FALLBACK_REQUIRED"
                 else "design_survey_identity_fallback_plan",
                 job_state="PLAN_ONLY_ADAPTER_REQUIRED",
                 recommended_script="scripts/build-design-survey-flow08-targeted-readback-v1.ps1"
                 if state == "DESIGN_SURVEY_FLOW08_TARGETED_PARSE_REQUIRED"
+                else "scripts/build-design-survey-responsible-adapter-plan-v1.ps1"
+                if state == "DESIGN_SURVEY_PUBLIC_REGISTRY_FALLBACK_REQUIRED"
                 else "scripts/build-evidence-verification-strategy-v1.ps1",
                 recommended_next_action=record.get("recommended_next_action"),
                 created_at=created_at,
                 adapter_source_targets=[
                     "name_enumeration_public_personnel_registry",
                     "local_design_survey_personnel_registry",
+                    "natural_resource_registered_surveyor_public_registry",
                     "flow_08_targeted_parse_only_if_triggered",
                 ],
                 adapter_scope_guardrails={
                     "do_not_parse_flow_08_by_default": True,
                     "no_name_only_final_proof": True,
+                    "flow08_current_binding_does_not_need_reparse": state
+                    == "DESIGN_SURVEY_PUBLIC_REGISTRY_FALLBACK_REQUIRED",
                     "query_miss_is_not_clearance": True,
                 },
             )
@@ -1483,6 +1503,7 @@ def _evidence_summary(records: list[Mapping[str, Any]], blocking_reasons: list[s
                 "DESIGN_SURVEY_STAGE4_PROVIDER_TASKS_READY",
                 "DESIGN_SURVEY_NAME_ENUMERATION_FALLBACK_REQUIRED",
                 "DESIGN_SURVEY_FLOW08_TARGETED_PARSE_REQUIRED",
+                "DESIGN_SURVEY_PUBLIC_REGISTRY_FALLBACK_REQUIRED",
                 "DESIGN_SURVEY_FLOW08_READBACK_NOT_COVERING_PROJECT",
                 "DESIGN_SURVEY_FLOW08_READBACK_READY_NOT_EXECUTED",
                 "DESIGN_SURVEY_FLOW08_TARGET_ATTACHMENT_READY",
@@ -1605,7 +1626,11 @@ def _batch_triage_bucket(record: Mapping[str, Any]) -> str:
         return "RUN_DESIGN_SURVEY_STAGE4_PROVIDER_TASKS"
     if state == "DESIGN_SURVEY_STAGE4_PROVIDER_TASKS_READY":
         return "EXECUTE_DESIGN_SURVEY_STAGE4_PROVIDER_TASKS"
-    if state in {"DESIGN_SURVEY_NAME_ENUMERATION_FALLBACK_REQUIRED", "DESIGN_SURVEY_FLOW08_TARGETED_PARSE_REQUIRED"}:
+    if state in {
+        "DESIGN_SURVEY_NAME_ENUMERATION_FALLBACK_REQUIRED",
+        "DESIGN_SURVEY_FLOW08_TARGETED_PARSE_REQUIRED",
+        "DESIGN_SURVEY_PUBLIC_REGISTRY_FALLBACK_REQUIRED",
+    }:
         return "CONTINUE_DESIGN_SURVEY_IDENTITY_FALLBACK"
     if state in {
         "DESIGN_SURVEY_FLOW08_READBACK_NOT_COVERING_PROJECT",

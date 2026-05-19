@@ -180,6 +180,7 @@ def _execute_job(
     payload = dict(job.get("payload") or {})
     target = dict(payload.get("target") or {})
     source_probe_item = dict(payload.get("source_probe_item") or {})
+    source_probe_adapter_id = str(target.get("source_probe_adapter_id") or source_probe_item.get("source_probe_adapter_id") or "")
     project_id = str(source_probe_item.get("project_id") or "")
     project_name = str(source_probe_item.get("project_name") or "")
     company = _normalize_company_name(target.get("candidate_company_name"))
@@ -197,6 +198,11 @@ def _execute_job(
         "flow_no": "07",
         "flow_title": "中标候选人公示",
         "source_07_detail_path": source_probe_item.get("source_07_detail_path", ""),
+        "source_probe_adapter_id": source_probe_adapter_id,
+        "source_flow08_attachment_url": target.get("source_flow08_attachment_url") or source_probe_item.get("source_flow08_attachment_url") or "",
+        "source_flow08_attachment_snapshot_id": target.get("source_flow08_attachment_snapshot_id")
+        or source_probe_item.get("source_flow08_attachment_snapshot_id")
+        or "",
         "candidate_company_name": company,
         "responsible_person_name": person,
         "source_certificate_no_optional": certificate_no,
@@ -306,6 +312,11 @@ def _execute_job(
             browser_runner=browser_runner,
         )
         prior_stage4_fail_closed_reasons = list(stage4_result.get("fail_closed_reasons") or [])
+    state = _flow08_current_binding_fallback_state_if_needed(
+        state,
+        target=target,
+        source_probe_item=source_probe_item,
+    )
     carrier = dict(stage4_result.get("personnel_carrier") or {})
     resolved_certificate = carrier.get("project_manager_certificate_no_optional") or stage4_result.get(
         "resolved_public_identifier_optional", ""
@@ -463,6 +474,43 @@ def _post_execution_state(stage4_result: Mapping[str, Any]) -> dict[str, Any]:
         "certificate_category_review_required": False,
         "public_registration_match_basis": "",
     }
+
+
+def _flow08_current_binding_fallback_state_if_needed(
+    state: Mapping[str, Any],
+    *,
+    target: Mapping[str, Any],
+    source_probe_item: Mapping[str, Any],
+) -> dict[str, Any]:
+    if str(state.get("supplement_after_execution_state") or "") != "FLOW_08_TARGETED_PARSE_REQUIRED":
+        return dict(state)
+    if not _is_flow08_current_binding_stage4_input(target=target, source_probe_item=source_probe_item):
+        return dict(state)
+    return {
+        "supplement_after_execution_state": "DESIGN_SURVEY_PUBLIC_REGISTRY_FALLBACK_REQUIRED",
+        "stage4_readiness_state": "STAGE4_BLOCKED_FLOW08_CURRENT_BINDING_FOUND_BUT_PUBLIC_REGISTRY_UNRESOLVED",
+        "next_actions": [
+            "RUN_DESIGN_SURVEY_NATURAL_RESOURCE_OR_LOCAL_PUBLIC_REGISTRY_FALLBACK",
+            "EXTRACT_REGISTERED_SURVEYOR_CERTIFICATE_FROM_FLOW08_DOSSIER_IF_PRESENT",
+            "DO_NOT_OUTPUT_FINAL_IDENTITY_MATCH",
+        ],
+        "risk_escalation_state": "MEDIUM_CLUE_REVIEW",
+        "flow_08_targeted_parse_required": False,
+        "certificate_category_review_required": True,
+        "public_registration_match_basis": "flow08_current_candidate_binding_found_jzsc_unresolved",
+    }
+
+
+def _is_flow08_current_binding_stage4_input(
+    *,
+    target: Mapping[str, Any],
+    source_probe_item: Mapping[str, Any],
+) -> bool:
+    source_adapter = str(target.get("source_probe_adapter_id") or source_probe_item.get("source_probe_adapter_id") or "")
+    if source_adapter == "design-survey-flow08-stage4-inputs-v1":
+        return True
+    evidence = target.get("flow08_current_candidate_binding_evidence")
+    return isinstance(evidence, Mapping) and bool(evidence)
 
 
 def _should_try_highway_market(
@@ -888,11 +936,19 @@ def _jobs_from_stage4_inputs(payload: Mapping[str, Any]) -> list[Mapping[str, An
                         "candidate_group_order": item.get("candidate_group_order") or "",
                         "candidate_group_members": item.get("candidate_group_members") or [],
                         "consortium_member_role": item.get("consortium_member_role") or "",
+                        "source_probe_adapter_id": item.get("source_probe_adapter_id") or "",
+                        "source_flow08_attachment_url": item.get("source_flow08_attachment_url") or "",
+                        "source_flow08_attachment_snapshot_id": item.get("source_flow08_attachment_snapshot_id") or "",
+                        "flow08_current_candidate_binding_evidence": item.get("flow08_current_candidate_binding_evidence")
+                        or {},
                     },
                     "source_probe_item": {
                         "project_id": project_id,
                         "project_name": item.get("project_name", ""),
                         "source_07_detail_path": item.get("source_07_detail_path", ""),
+                        "source_probe_adapter_id": item.get("source_probe_adapter_id") or "",
+                        "source_flow08_attachment_url": item.get("source_flow08_attachment_url") or "",
+                        "source_flow08_attachment_snapshot_id": item.get("source_flow08_attachment_snapshot_id") or "",
                     },
                 },
                 "status": "QUEUED_FROM_STAGE4_INPUT",

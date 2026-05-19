@@ -538,6 +538,73 @@ class CompanyFirstStage4ExecutionTest(unittest.TestCase):
         self.assertTrue(item["flow_08_targeted_parse_required"])
         self.assertIn("FLOW_08_TARGETED_PARSE", item["next_actions"])
 
+    def test_flow08_stage4_input_does_not_loop_back_to_flow08_when_jzsc_unresolved(self) -> None:
+        def fake_exhausted_runner(capture_plan: dict[str, object]) -> dict[str, object]:
+            return {
+                "browser_runner_id": "fake-jzsc-browser",
+                "live_browser_executed": True,
+                "company_personnel_source_url": str(capture_plan.get("entry_url") or ""),
+                "rendered_company_personnel_rows": [],
+                "failure_reasons": ["project_manager_not_found_by_company_name_person_name_after_1_attempts"],
+                "browser_attempts": [
+                    {
+                        "attempt_type": "person_search_name_only_paginated_company_filter",
+                        "result_count": 10,
+                        "matched_count": 0,
+                    }
+                ],
+            }
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_root = Path(temp_dir) / "out"
+            inputs_path = Path(temp_dir) / "flow08-inputs.json"
+            inputs_path.write_text(
+                json.dumps(
+                    {
+                        "items": [
+                            {
+                                "source_probe_adapter_id": "design-survey-flow08-stage4-inputs-v1",
+                                "project_id": "PROJ-CN-GD-JG2026-11327",
+                                "project_name": "规划测绘项目中标候选人公示",
+                                "candidate_company_name": "广州市城市规划勘测设计研究院有限公司",
+                                "candidate_group_id": "FLOW08-GROUP",
+                                "candidate_group_members": ["广州市城市规划勘测设计研究院有限公司"],
+                                "responsible_person_name": "胡昌华",
+                                "responsible_role": "survey_design_project_lead",
+                                "source_flow08_attachment_snapshot_id": "SNAP-FLOW08",
+                                "flow08_current_candidate_binding_evidence": {
+                                    "current_project_binding_state": "CURRENT_PROJECT_PERSONNEL_DOSSIER_FOUND",
+                                    "not_public_registration_proof": True,
+                                },
+                            }
+                        ]
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+
+            result = build_company_first_stage4_execution(
+                input_root=Path(temp_dir) / "missing-jobs",
+                output_root=output_root,
+                stage4_inputs_json=inputs_path,
+                execute=True,
+                browser_runner=fake_exhausted_runner,
+            )
+
+        item = result["manifest"]["items"][0]
+        self.assertEqual(item["source_probe_adapter_id"], "design-survey-flow08-stage4-inputs-v1")
+        self.assertEqual(
+            item["supplement_after_execution_state"],
+            "DESIGN_SURVEY_PUBLIC_REGISTRY_FALLBACK_REQUIRED",
+        )
+        self.assertFalse(item["flow_08_targeted_parse_required"])
+        self.assertTrue(item["certificate_category_review_required"])
+        self.assertIn(
+            "RUN_DESIGN_SURVEY_NATURAL_RESOURCE_OR_LOCAL_PUBLIC_REGISTRY_FALLBACK",
+            item["next_actions"],
+        )
+
     def test_stage4_inputs_can_be_executed_with_light_company_normalization(self) -> None:
         def fake_browser_runner(capture_plan: dict[str, object]) -> dict[str, object]:
             self.assertEqual(capture_plan["target"]["company_name"], "广东水电二局集团有限公司")
