@@ -23,12 +23,14 @@ ALLOWED_SCRIPT_BY_NEXT_TASK = {
     "REBUILD_EVIDENCE_STATE_WITH_ORIGINAL_BACKTRACE_CONTINUATION": "scripts/build-evidence-orchestration-state-v1.ps1",
     "REBUILD_EVIDENCE_STATE_WITH_DESIGN_SURVEY_PUBLIC_REGISTRY_READBACK": "scripts/build-evidence-orchestration-state-v1.ps1",
     "RUN_RELEASE_EVIDENCE_FIELD_QUERY_PROBE": "scripts/run-guangdong-local-field-query-probe-v1.ps1",
+    "REBUILD_BATCH_CLOSEOUT_WITH_CONTINUATION_RUN": "scripts/build-evidence-batch-closeout-v1.ps1",
 }
 
 EXPECTED_ARTIFACT_BY_NEXT_TASK = {
     "REBUILD_EVIDENCE_STATE_WITH_ORIGINAL_BACKTRACE_CONTINUATION": "evidence-orchestration-state-v1.json",
     "REBUILD_EVIDENCE_STATE_WITH_DESIGN_SURVEY_PUBLIC_REGISTRY_READBACK": "evidence-orchestration-state-v1.json",
     "RUN_RELEASE_EVIDENCE_FIELD_QUERY_PROBE": "guangdong-local-field-query-probe-v1.json",
+    "REBUILD_BATCH_CLOSEOUT_WITH_CONTINUATION_RUN": "evidence-batch-closeout-v1.json",
 }
 
 LIVE_OR_EXTERNAL_FLAGS = {
@@ -92,11 +94,13 @@ def run_stage6_review_action_result_runner(
     executor = command_executor or _execute_subprocess
     command_limit = None if max_commands is None else max(0, int(max_commands))
     selected_command_count = 0
+    seen_command_keys: set[str] = set()
     runner_records: list[dict[str, Any]] = []
 
     for record in routing_records:
         project_id = str(record.get("project_id") or "").strip()
         argv = _recommended_argv(record)
+        command_key = _command_key(argv)
         execution_state = ""
         skip_reason = ""
         allowlist_state = "NOT_APPLICABLE"
@@ -109,10 +113,14 @@ def run_stage6_review_action_result_runner(
         elif not bool(record.get("recommended_command_ready")):
             execution_state = "SKIPPED_NOT_READY"
             skip_reason = "recommended_command_not_ready"
+        elif command_key in seen_command_keys:
+            execution_state = "SKIPPED_DUPLICATE_COMMAND"
+            skip_reason = "same_recommended_command_already_selected"
         elif command_limit is not None and selected_command_count >= command_limit:
             execution_state = "SKIPPED_BY_MAX_COMMANDS"
             skip_reason = "max_commands_reached"
         else:
+            seen_command_keys.add(command_key)
             allowlist_state, allowlist_reason = _allowlist_state(record, argv)
             if allowlist_state != "ALLOWLIST_PASS":
                 selected_command_count += 1
@@ -337,6 +345,9 @@ def _summary(
         "executed_failed_count": sum(1 for record in runner_records if record.get("execution_state") == "EXECUTED_FAILED"),
         "allowlist_blocked_count": sum(1 for record in runner_records if record.get("execution_state") == "BLOCKED_BY_ALLOWLIST"),
         "skipped_not_ready_count": sum(1 for record in runner_records if record.get("execution_state") == "SKIPPED_NOT_READY"),
+        "skipped_duplicate_command_count": sum(
+            1 for record in runner_records if record.get("execution_state") == "SKIPPED_DUPLICATE_COMMAND"
+        ),
         "live_execution_enabled": False,
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,
@@ -418,6 +429,10 @@ def _counts(values: Iterable[Any]) -> dict[str, int]:
 
 def _stable_id(prefix: str, *parts: Any) -> str:
     return f"{prefix}-{_fingerprint('|'.join(str(part or '') for part in parts))[:12]}"
+
+
+def _command_key(argv: list[str]) -> str:
+    return _fingerprint(argv)
 
 
 def _fingerprint(payload: Any) -> str:

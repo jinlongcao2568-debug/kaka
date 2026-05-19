@@ -22,6 +22,9 @@ DEFAULT_EVIDENCE_STATE_REBUILD_OUTPUT_ROOT = Path(
 DEFAULT_RELEASE_EVIDENCE_FIELD_QUERY_OUTPUT_ROOT = Path(
     "tmp/evaluation-real-samples/release-evidence-field-query-from-stage6-routing-v1"
 )
+DEFAULT_BATCH_CLOSEOUT_REBUILD_OUTPUT_ROOT = Path(
+    "tmp/evaluation-real-samples/evidence-batch-closeout-from-stage6-routing-v1"
+)
 
 FORBIDDEN_TERMS = ("无风险", "无冲突", "在建冲突成立", "违法成立", "确认本人", "造假成立", "是不是本人")
 
@@ -34,6 +37,7 @@ def build_stage6_review_action_result_routing(
     baseline_evidence_state_root: str | Path | None = DEFAULT_BASELINE_EVIDENCE_STATE_ROOT,
     evidence_state_rebuild_output_root: str | Path = DEFAULT_EVIDENCE_STATE_REBUILD_OUTPUT_ROOT,
     release_evidence_field_query_output_root: str | Path = DEFAULT_RELEASE_EVIDENCE_FIELD_QUERY_OUTPUT_ROOT,
+    batch_closeout_rebuild_output_root: str | Path = DEFAULT_BATCH_CLOSEOUT_REBUILD_OUTPUT_ROOT,
     output_root: str | Path = DEFAULT_OUTPUT_ROOT,
     created_at: str | None = None,
 ) -> dict[str, Any]:
@@ -80,6 +84,7 @@ def build_stage6_review_action_result_routing(
             baseline_args=baseline_args,
             evidence_state_rebuild_output_root=str(evidence_state_rebuild_output_root),
             release_evidence_field_query_output_root=str(release_evidence_field_query_output_root),
+            batch_closeout_rebuild_output_root=str(batch_closeout_rebuild_output_root),
             created_at=created,
         )
         for record in closeout_records
@@ -134,6 +139,7 @@ def _routing_record(
     baseline_args: Mapping[str, str],
     evidence_state_rebuild_output_root: str,
     release_evidence_field_query_output_root: str,
+    batch_closeout_rebuild_output_root: str,
     created_at: str,
 ) -> dict[str, Any]:
     dispatch_task_type = str(record.get("dispatch_task_type") or "")
@@ -149,6 +155,7 @@ def _routing_record(
         baseline_args=baseline_args,
         evidence_state_rebuild_output_root=evidence_state_rebuild_output_root,
         release_evidence_field_query_output_root=release_evidence_field_query_output_root,
+        batch_closeout_rebuild_output_root=batch_closeout_rebuild_output_root,
     )
     command = _powershell_command(command_argv)
     return {
@@ -198,6 +205,7 @@ def _recommended_command_argv(
     baseline_args: Mapping[str, str],
     evidence_state_rebuild_output_root: str,
     release_evidence_field_query_output_root: str,
+    batch_closeout_rebuild_output_root: str,
 ) -> list[str]:
     if next_task_type.startswith("REBUILD_EVIDENCE_STATE_WITH_") and result_json_path:
         args = dict(baseline_args)
@@ -212,6 +220,18 @@ def _recommended_command_argv(
                 "OutputRoot": release_evidence_field_query_output_root,
             },
         )
+    if next_task_type == "REBUILD_BATCH_CLOSEOUT_WITH_CONTINUATION_RUN" and result_json_path:
+        state_after_root = _continuation_state_after_root(result_json_path)
+        args = {
+            input_arg_name: result_json_path,
+            "OutputRoot": batch_closeout_rebuild_output_root,
+        }
+        if state_after_root:
+            args["EvidenceStateRoot"] = state_after_root
+        return _powershell_argv(
+            "scripts/build-evidence-batch-closeout-v1.ps1",
+            args,
+        )
     return []
 
 
@@ -223,17 +243,16 @@ def _routing_decision(
     if closeout_state == "READY_TO_FEED_RESULT_BACK_TO_EVIDENCE_STATE":
         if dispatch_task_type == "RUN_ORIGINAL_NOTICE_BACKTRACE_RETRY_OR_MANUAL_REVIEW":
             return (
-                "READY_FOR_EVIDENCE_STATE_REBUILD",
-                "REBUILD_EVIDENCE_STATE_WITH_ORIGINAL_BACKTRACE_CONTINUATION",
-                "scripts/build-evidence-orchestration-state-v1.ps1",
+                "READY_FOR_BATCH_CLOSEOUT_REBUILD",
+                "REBUILD_BATCH_CLOSEOUT_WITH_CONTINUATION_RUN",
+                "scripts/build-evidence-batch-closeout-v1.ps1",
                 (
                     "pwsh -NoProfile -ExecutionPolicy Bypass -File "
-                    "scripts/build-evidence-orchestration-state-v1.ps1 "
-                    "-Stage16StorageJson <stage16_storage_json> "
-                    "-OriginalBacktraceContinuationJson <result_json_path> "
-                    "-OutputRoot <evidence_state_rebuild_output_root>"
+                    "scripts/build-evidence-batch-closeout-v1.ps1 "
+                    "-ContinuationRunJson <result_json_path> "
+                    "-OutputRoot <batch_closeout_rebuild_output_root>"
                 ),
-                "OriginalBacktraceContinuationJson",
+                "ContinuationRunJson",
             )
         if dispatch_task_type == "RUN_DESIGN_SURVEY_QUALIFICATION_SERVICE_CLOCK_REVIEW":
             return (
@@ -302,6 +321,8 @@ def _required_baseline_input_refs(next_task_type: str) -> list[str]:
         ]
     if next_task_type == "RUN_RELEASE_EVIDENCE_FIELD_QUERY_PROBE":
         return ["release_evidence_adapter_plan_json"]
+    if next_task_type == "REBUILD_BATCH_CLOSEOUT_WITH_CONTINUATION_RUN":
+        return ["continuation_run_json", "evidence_state_root_from_continuation_run"]
     return []
 
 
@@ -320,6 +341,7 @@ def _next_required_input_refs(
     if routing_state in {
         "READY_FOR_EVIDENCE_STATE_REBUILD",
         "READY_FOR_RELEASE_EVIDENCE_FIELD_QUERY",
+        "READY_FOR_BATCH_CLOSEOUT_REBUILD",
     }:
         return _dedupe([input_arg_name, *_required_baseline_input_refs(next_task_type)])
     return _dedupe(_list(record.get("next_required_input_refs")))
@@ -330,6 +352,8 @@ def _next_recommended_action(routing_state: str, next_task_type: str) -> str:
         return "rebuild_evidence_orchestration_state_then_rebuild_batch_closeout_and_stage6"
     if routing_state == "READY_FOR_RELEASE_EVIDENCE_FIELD_QUERY":
         return "run_release_evidence_field_query_probe_then_dispatch_readback_again"
+    if routing_state == "READY_FOR_BATCH_CLOSEOUT_REBUILD":
+        return "rebuild_batch_closeout_from_continuation_run_then_rebuild_stage6_fact_package"
     if routing_state == "WAITING_FOR_CONTROLLED_EXECUTION":
         return "run_controlled_dispatch_task_or_record_operator_skip"
     if routing_state == "PARKED_OPERATOR_SKIPPED_THIS_ROUND":
@@ -357,6 +381,13 @@ def _baseline_evidence_state_args(manifest: Mapping[str, Any]) -> dict[str, str]
         if value:
             args[arg_name] = value
     return args
+
+
+def _continuation_state_after_root(result_json_path: str) -> str:
+    payload = _load_json_if_exists(Path(result_json_path))
+    manifest = _source_manifest(payload)
+    value = str(manifest.get("state_after_root") or "").strip()
+    return value
 
 
 def _powershell_argv(script_path: str, args: Mapping[str, str]) -> list[str]:
@@ -409,6 +440,9 @@ def _summary(
         ),
         "release_evidence_field_query_ready_count": sum(
             1 for record in routing_records if record.get("result_routing_state") == "READY_FOR_RELEASE_EVIDENCE_FIELD_QUERY"
+        ),
+        "batch_closeout_rebuild_ready_count": sum(
+            1 for record in routing_records if record.get("result_routing_state") == "READY_FOR_BATCH_CLOSEOUT_REBUILD"
         ),
         "recommended_command_ready_count": sum(
             1 for record in routing_records if record.get("recommended_command_ready")
@@ -552,6 +586,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--release-evidence-field-query-output-root",
         default=str(DEFAULT_RELEASE_EVIDENCE_FIELD_QUERY_OUTPUT_ROOT),
     )
+    parser.add_argument("--batch-closeout-rebuild-output-root", default=str(DEFAULT_BATCH_CLOSEOUT_REBUILD_OUTPUT_ROOT))
     parser.add_argument("--output-root", default=str(DEFAULT_OUTPUT_ROOT))
     parser.add_argument("--created-at", default="")
     parser.add_argument("--json", action="store_true", dest="emit_json")
@@ -567,6 +602,7 @@ def main(argv: list[str] | None = None) -> int:
         baseline_evidence_state_root=args.baseline_evidence_state_root or None,
         evidence_state_rebuild_output_root=args.evidence_state_rebuild_output_root,
         release_evidence_field_query_output_root=args.release_evidence_field_query_output_root,
+        batch_closeout_rebuild_output_root=args.batch_closeout_rebuild_output_root,
         output_root=args.output_root,
         created_at=args.created_at or None,
     )

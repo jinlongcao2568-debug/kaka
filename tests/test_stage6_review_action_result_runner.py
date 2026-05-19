@@ -40,7 +40,7 @@ class Stage6ReviewActionResultRunnerTests(unittest.TestCase):
             self.assertEqual(summary["skipped_not_ready_count"], 1)
             self.assertEqual(summary["allowlist_blocked_count"], 0)
             records = _records_by_project(result["manifest"]["result_runner_table"]["records"])
-            self.assertEqual(records["PROJ-ORIG"]["expected_output_artifact"], "evidence-orchestration-state-v1.json")
+            self.assertEqual(records["PROJ-ORIG"]["expected_output_artifact"], "evidence-batch-closeout-v1.json")
             self.assertEqual(records["PROJ-FIELD"]["expected_output_artifact"], "guangdong-local-field-query-probe-v1.json")
             self.assertTrue((root / "out" / "stage6-review-action-result-runner-v1.json").exists())
             self.assertTrue((root / "out" / "stage6-review-result-runner-table.json").exists())
@@ -67,7 +67,7 @@ class Stage6ReviewActionResultRunnerTests(unittest.TestCase):
 
             self.assertTrue(result["safe_to_execute"])
             self.assertEqual(len(calls), 1)
-            self.assertIn("scripts/build-evidence-orchestration-state-v1.ps1", calls[0][0])
+            self.assertIn("scripts/build-evidence-batch-closeout-v1.ps1", calls[0][0])
             summary = result["summary"]
             self.assertEqual(summary["executed_success_count"], 1)
             self.assertEqual(summary["execution_state_counts"]["SKIPPED_BY_PROJECT_FILTER"], 2)
@@ -118,6 +118,56 @@ class Stage6ReviewActionResultRunnerTests(unittest.TestCase):
             self.assertEqual(records["PROJ-NO-ARGV"]["allowlist_reason"], "structured_recommended_command_argv_missing")
             self.assertEqual(records["PROJ-LIVE"]["allowlist_reason"], "live_or_external_execution_flag_present")
 
+    def test_execute_skips_duplicate_commands(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            duplicate_argv = [
+                "pwsh",
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "scripts/build-evidence-batch-closeout-v1.ps1",
+                "-ContinuationRunJson",
+                "tmp/continuation-run.json",
+                "-OutputRoot",
+                "tmp/batch",
+            ]
+            _write_routing(
+                root / "routing",
+                records=[
+                    _routing_record(
+                        "PROJ-DUP-1",
+                        next_task_type="REBUILD_BATCH_CLOSEOUT_WITH_CONTINUATION_RUN",
+                        argv=duplicate_argv,
+                    ),
+                    _routing_record(
+                        "PROJ-DUP-2",
+                        next_task_type="REBUILD_BATCH_CLOSEOUT_WITH_CONTINUATION_RUN",
+                        argv=duplicate_argv,
+                    ),
+                ],
+            )
+            calls: list[tuple[list[str], Path]] = []
+
+            def fake_executor(argv: list[str], cwd: Path) -> Mapping[str, Any]:
+                calls.append((argv, cwd))
+                return {"exit_code": 0, "stdout": "ok", "stderr": ""}
+
+            result = run_stage6_review_action_result_runner(
+                result_routing_root=root / "routing",
+                output_root=root / "out",
+                execute_commands=True,
+                command_executor=fake_executor,
+            )
+
+            self.assertTrue(result["safe_to_execute"])
+            self.assertEqual(len(calls), 1)
+            self.assertEqual(result["summary"]["executed_success_count"], 1)
+            self.assertEqual(result["summary"]["skipped_duplicate_command_count"], 1)
+            records = _records_by_project(result["manifest"]["result_runner_table"]["records"])
+            self.assertEqual(records["PROJ-DUP-2"]["execution_state"], "SKIPPED_DUPLICATE_COMMAND")
+
     def test_output_keeps_internal_safety_contract(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -144,20 +194,18 @@ def _write_routing(root: Path, *, records: list[Mapping[str, Any]] | None = None
     routing_records = records or [
         _routing_record(
             "PROJ-ORIG",
-            next_task_type="REBUILD_EVIDENCE_STATE_WITH_ORIGINAL_BACKTRACE_CONTINUATION",
+            next_task_type="REBUILD_BATCH_CLOSEOUT_WITH_CONTINUATION_RUN",
             argv=[
                 "pwsh",
                 "-NoProfile",
                 "-ExecutionPolicy",
                 "Bypass",
                 "-File",
-                "scripts/build-evidence-orchestration-state-v1.ps1",
-                "-Stage16StorageJson",
-                "tmp/storage.json",
-                "-OriginalBacktraceContinuationJson",
-                "tmp/original-continuation.json",
+                "scripts/build-evidence-batch-closeout-v1.ps1",
+                "-ContinuationRunJson",
+                "tmp/continuation-run.json",
                 "-OutputRoot",
-                "tmp/state",
+                "tmp/batch",
             ],
         ),
         _routing_record(

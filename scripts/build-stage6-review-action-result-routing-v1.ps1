@@ -5,6 +5,7 @@ param(
     [string]$BaselineEvidenceStateRoot = "",
     [string]$EvidenceStateRebuildOutputRoot = "",
     [string]$ReleaseEvidenceFieldQueryOutputRoot = "",
+    [string]$BatchCloseoutRebuildOutputRoot = "",
     [string]$OutputRoot = "",
     [switch]$EmitJson
 )
@@ -28,6 +29,9 @@ if (-not $EvidenceStateRebuildOutputRoot) {
 if (-not $ReleaseEvidenceFieldQueryOutputRoot) {
     $ReleaseEvidenceFieldQueryOutputRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\release-evidence-field-query-from-stage6-routing-v1"
 }
+if (-not $BatchCloseoutRebuildOutputRoot) {
+    $BatchCloseoutRebuildOutputRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\evidence-batch-closeout-from-stage6-routing-v1"
+}
 if (-not $OutputRoot) {
     $OutputRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\stage6-review-action-result-routing-v1"
 }
@@ -43,6 +47,7 @@ $argsList = @(
     "--baseline-evidence-state-root", $BaselineEvidenceStateRoot,
     "--evidence-state-rebuild-output-root", $EvidenceStateRebuildOutputRoot,
     "--release-evidence-field-query-output-root", $ReleaseEvidenceFieldQueryOutputRoot,
+    "--batch-closeout-rebuild-output-root", $BatchCloseoutRebuildOutputRoot,
     "--output-root", $OutputRoot
 )
 

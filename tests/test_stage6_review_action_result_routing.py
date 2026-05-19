@@ -31,6 +31,7 @@ class Stage6ReviewActionResultRoutingTests(unittest.TestCase):
                 baseline_evidence_state_root=root / "state",
                 evidence_state_rebuild_output_root=root / "state-rebuild",
                 release_evidence_field_query_output_root=root / "field-query",
+                batch_closeout_rebuild_output_root=root / "batch-closeout",
                 output_root=root / "out",
                 created_at="2026-05-19T00:00:00+08:00",
             )
@@ -38,23 +39,25 @@ class Stage6ReviewActionResultRoutingTests(unittest.TestCase):
             self.assertTrue(result["safe_to_execute"])
             summary = result["summary"]
             self.assertEqual(summary["result_routing_count"], 4)
-            self.assertEqual(summary["evidence_state_rebuild_ready_count"], 2)
+            self.assertEqual(summary["evidence_state_rebuild_ready_count"], 1)
             self.assertEqual(summary["release_evidence_field_query_ready_count"], 1)
+            self.assertEqual(summary["batch_closeout_rebuild_ready_count"], 1)
             self.assertEqual(summary["recommended_command_ready_count"], 3)
             self.assertEqual(summary["waiting_for_controlled_execution_count"], 1)
             records = _records_by_project(result["manifest"]["result_routing_table"]["records"])
             self.assertEqual(
                 records["PROJ-ORIG"]["next_task_type"],
-                "REBUILD_EVIDENCE_STATE_WITH_ORIGINAL_BACKTRACE_CONTINUATION",
+                "REBUILD_BATCH_CLOSEOUT_WITH_CONTINUATION_RUN",
             )
-            self.assertEqual(records["PROJ-ORIG"]["input_arg_name_for_result_json"], "OriginalBacktraceContinuationJson")
-            self.assertIn("stage16_storage_json", records["PROJ-ORIG"]["required_baseline_input_refs"])
-            self.assertIn("Stage16StorageJson", records["PROJ-ORIG"]["resolved_baseline_input_refs"])
-            self.assertIn("-Stage16StorageJson", records["PROJ-ORIG"]["recommended_command"])
-            self.assertIn("-OriginalBacktraceContinuationJson", records["PROJ-ORIG"]["recommended_command"])
-            self.assertIn("tmp/original-continuation.json", records["PROJ-ORIG"]["recommended_command"])
-            self.assertIn("scripts/build-evidence-orchestration-state-v1.ps1", records["PROJ-ORIG"]["recommended_command_argv"])
-            self.assertIn("tmp/original-continuation.json", records["PROJ-ORIG"]["recommended_command_argv"])
+            self.assertEqual(records["PROJ-ORIG"]["input_arg_name_for_result_json"], "ContinuationRunJson")
+            self.assertIn("continuation_run_json", records["PROJ-ORIG"]["required_baseline_input_refs"])
+            self.assertEqual(records["PROJ-ORIG"]["resolved_baseline_input_refs"], {})
+            self.assertIn("scripts/build-evidence-batch-closeout-v1.ps1", records["PROJ-ORIG"]["recommended_command"])
+            self.assertIn("-ContinuationRunJson", records["PROJ-ORIG"]["recommended_command"])
+            self.assertIn("-EvidenceStateRoot", records["PROJ-ORIG"]["recommended_command"])
+            self.assertIn("tmp/state-after", records["PROJ-ORIG"]["recommended_command"])
+            self.assertIn("scripts/build-evidence-batch-closeout-v1.ps1", records["PROJ-ORIG"]["recommended_command_argv"])
+            self.assertIn("tmp/state-after", records["PROJ-ORIG"]["recommended_command_argv"])
             self.assertEqual(
                 records["PROJ-SURVEY"]["next_task_type"],
                 "REBUILD_EVIDENCE_STATE_WITH_DESIGN_SURVEY_PUBLIC_REGISTRY_READBACK",
@@ -111,12 +114,23 @@ class Stage6ReviewActionResultRoutingTests(unittest.TestCase):
 
 
 def _write_closeout(root: Path) -> None:
+    continuation_path = root.parent / "continuation" / "evidence-orchestration-continuation-run-v1.json"
+    _write_json(
+        continuation_path,
+        {
+            "manifest": {
+                "manifest_id": "CONTINUATION-RUN-1",
+                "state_after_root": "tmp/state-after",
+            },
+            "summary": {},
+        },
+    )
     records = [
         _closeout_record(
             "PROJ-ORIG",
             dispatch_task_type="RUN_ORIGINAL_NOTICE_BACKTRACE_RETRY_OR_MANUAL_REVIEW",
             closeout_state="READY_TO_FEED_RESULT_BACK_TO_EVIDENCE_STATE",
-            result_json_path="tmp/original-continuation.json",
+            result_json_path=str(continuation_path),
             result_json_exists=True,
         ),
         _closeout_record(
