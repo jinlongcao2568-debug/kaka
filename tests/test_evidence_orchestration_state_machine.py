@@ -289,7 +289,7 @@ class EvidenceOrchestrationStateMachineTests(unittest.TestCase):
             )
             self.assertEqual(
                 design["recommended_next_action"],
-                "apply_flow08_extracted_fields_to_design_survey_stage4_or_manual_review",
+                "build_design_survey_flow08_stage4_inputs_from_extracted_fields",
             )
             self.assertEqual(
                 design["design_survey_adapter_counts"]["design_survey_flow08_field_extracted_record_count"],
@@ -299,7 +299,8 @@ class EvidenceOrchestrationStateMachineTests(unittest.TestCase):
             self.assertTrue(
                 any(
                     job["project_id"] == "PROJ-CN-GD-JG2026-11327"
-                    and job["job_type"] == "design_survey_stage4_apply_flow08_fields"
+                    and job["job_type"] == "design_survey_flow08_build_stage4_inputs"
+                    and job["recommended_script"] == "scripts/build-design-survey-flow08-stage4-inputs-v1.ps1"
                     for job in jobs
                 )
             )
@@ -337,7 +338,7 @@ class EvidenceOrchestrationStateMachineTests(unittest.TestCase):
             self.assertEqual(design["evidence_state"], "DESIGN_SURVEY_FLOW08_IDENTITY_FIELDS_EXTRACTED_REVIEW_READY")
             self.assertEqual(
                 design["recommended_next_action"],
-                "apply_flow08_person_dossier_fields_to_design_survey_stage4_or_manual_review",
+                "build_design_survey_flow08_stage4_inputs_from_person_dossier",
             )
 
     def test_design_survey_flow08_attachment_parse_ocr_required_stays_continuable(self) -> None:

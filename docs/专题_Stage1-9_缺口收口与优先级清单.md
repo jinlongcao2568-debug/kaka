@@ -1,6 +1,6 @@
 # 专题_Stage1-9_缺口收口与优先级清单
 
-**版本**: 2026-05-18 v4
+**版本**: 2026-05-19 v5
 
 ## 1. 文档定位
 
@@ -28,7 +28,7 @@
 - Stage4 外部证据链最弱，仍是当前最大短板
 - Stage5 双闸门已实现，但真实样本规模和误报/漏报校准仍不足
 - Stage1-6 到 P13B 的证据编排状态机已新增第一版，可把真实项目归并到 P13B、原文回溯、A 级强线索、Stage6 事实包 readiness 等状态；一键续跑入口已能从 `P13B_ORIGINAL_BACKTRACE_REQUIRED` 自动生成原文回溯任务并回写状态；`batch-triage-table.json` 已能按批次给出继续跑、进入事实包/Stage7 内部预览、D 级内部复核或非主线暂存决策
-- Stage6/7 内部对象和 readback 已存在
+- Stage6/7 内部对象和 readback 已存在；设计/测绘 `08` 定向人员档案抽取结果已能生成标准 `stage4_candidate_verification_inputs`，可继续喂给 Stage4 公司优先核验 dry-run/执行，不再只停在“人工应用字段”
 - Stage8/9 已有 governed readback 和受控开启语义，但真实 live execution 仍按受控开放边界保持关闭
 
 ## 3. 投影方法
@@ -70,7 +70,7 @@
 
 ### P0-2 Stage6/7 真实候选 formal real_public 闭环
 
-- 现状：Stage6/7 内部对象已存在；`evidence_orchestration_state_machine_v1` 已能消费 Stage1-6 storage、公司优先补证、P13B 和原文回溯产物，生成 `evidence-state-table`、`adapter-job-table`、`stage6-fact-package-readiness-table` 和 `batch-triage-table`；设计/测绘候选已由 `DesignSurveyResponsibleAdapterPlan v1` 从纯暂存改为可生成 Stage4 负责人/资质/服务期计划；`evidence_orchestration_continuation_runner_v1` 已能一键生成原文回溯任务并重建状态，但真实候选仍常被 Stage4 释放证据链缺口挡在 formal real_public 闭环之前。
+- 现状：Stage6/7 内部对象已存在；`evidence_orchestration_state_machine_v1` 已能消费 Stage1-6 storage、公司优先补证、P13B 和原文回溯产物，生成 `evidence-state-table`、`adapter-job-table`、`stage6-fact-package-readiness-table` 和 `batch-triage-table`；设计/测绘候选已由 `DesignSurveyResponsibleAdapterPlan v1` 从纯暂存改为可生成 Stage4 负责人/资质/服务期计划；`Flow08TargetAttachmentParse v1` 抽到人员档案后，可由 `DesignSurveyFlow08Stage4Inputs v1` 生成标准 Stage4 输入并进入 `build-company-first-stage4-execution-v1.ps1` dry-run/执行；`evidence_orchestration_continuation_runner_v1` 已能一键生成原文回溯任务并重建状态，但真实候选仍常被 Stage4 释放证据链缺口挡在 formal real_public 闭环之前。
 - 直接症状：
   - `real_public_sellable_gate_ready=false`
   - formal real_public 路径存在，但常因 source coverage、原文回溯和释放证据链不足停下

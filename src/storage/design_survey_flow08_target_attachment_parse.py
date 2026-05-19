@@ -337,7 +337,7 @@ def _parse_state(
     if str(dossier.get("current_project_binding_state") or "") == "CURRENT_PROJECT_PERSONNEL_DOSSIER_FOUND":
         return (
             TARGET_ATTACHMENT_PERSON_DOSSIER_EXTRACTED,
-            "apply_flow08_person_dossier_fields_to_design_survey_stage4_or_manual_review",
+            "build_design_survey_flow08_stage4_inputs_from_person_dossier",
             ["current_project_person_dossier_extracted_from_target_flow08_attachment"],
         )
     failures = {str(item) for item in _list(extraction.get("failure_reasons"))}
@@ -345,7 +345,7 @@ def _parse_state(
     if str(fields.get("extraction_state") or "") == "FIELDS_EXTRACTED":
         return (
             TARGET_ATTACHMENT_TEXT_FIELDS_EXTRACTED,
-            "apply_flow08_extracted_fields_to_design_survey_stage4_or_manual_review",
+            "build_design_survey_flow08_stage4_inputs_from_extracted_fields",
             ["responsible_person_fields_extracted_from_target_flow08_attachment"],
         )
     text = str(extraction.get("text") or "").strip()

@@ -681,9 +681,9 @@ def _design_survey_flow08_attachment_parse_evidence_state(
         return (
             "DESIGN_SURVEY_FLOW08_IDENTITY_FIELDS_EXTRACTED_REVIEW_READY",
             "PENDING_DESIGN_SURVEY_STAGE4",
-            "apply_flow08_person_dossier_fields_to_design_survey_stage4_or_manual_review"
+            "build_design_survey_flow08_stage4_inputs_from_person_dossier"
             if parse_counts.get("TARGET_ATTACHMENT_PERSON_DOSSIER_EXTRACTED", 0) > 0
-            else "apply_flow08_extracted_fields_to_design_survey_stage4_or_manual_review",
+            else "build_design_survey_flow08_stage4_inputs_from_extracted_fields",
             ["design_survey_flow08_target_attachment_fields_extracted"],
             "DESIGN_SURVEY_FLOW08_TARGET_ATTACHMENT_PARSE",
         )
@@ -916,18 +916,19 @@ def _adapter_jobs_for_record(record: Mapping[str, Any], *, created_at: str) -> l
             _adapter_job(
                 project_id=project_id,
                 project_name=record.get("project_name"),
-                job_type="design_survey_stage4_apply_flow08_fields",
-                job_state="READY_FOR_INTERNAL_REVIEW_OR_STAGE4_REPLAY",
-                recommended_script="scripts/build-company-first-stage4-execution-v1.ps1",
+                job_type="design_survey_flow08_build_stage4_inputs",
+                job_state="READY_TO_BUILD_STAGE4_INPUTS",
+                recommended_script="scripts/build-design-survey-flow08-stage4-inputs-v1.ps1",
                 recommended_next_action=record.get("recommended_next_action"),
                 created_at=created_at,
                 adapter_source_targets=[
-                    "flow08_target_attachment_extracted_fields",
-                    "design_survey_stage4_identity_replay",
+                    "flow08_target_attachment_extracted_fields_or_person_dossier",
+                    "stage4_candidate_verification_inputs",
                 ],
                 adapter_scope_guardrails={
                     "extracted_field_is_review_input_not_legal_conclusion": True,
                     "no_name_only_final_proof": True,
+                    "next_stage4_public_registration_replay_required": True,
                     "customer_visible_allowed": False,
                 },
             )
