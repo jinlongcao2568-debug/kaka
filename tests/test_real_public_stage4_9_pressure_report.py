@@ -156,6 +156,97 @@ class RealPublicStage49PressureReportTests(unittest.TestCase):
         self.assertFalse(report["safe_to_execute"])
         self.assertEqual(report["summary"]["forbidden_term_scan_state"], "FAIL")
 
+    def test_stage1_6_readiness_uses_field_signals_when_stage3_state_is_missing(self) -> None:
+        run_result = _fake_run_result()
+        run_result["candidate_options"].append(
+            {
+                "project_id": "PROJ-REAL-005",
+                "project_name": "广州真实候选项目五",
+                "source_url": "https://example.invalid/005",
+                "notice_stage": "candidate_notice",
+                "candidate_company": "广东戊公司",
+                "stage2_detail_capture_state": "FETCHED",
+                "stage3_parse_state": "",
+                "engineering_work_lane": "construction_or_epc",
+                "opportunity_priority_class": "A_HIGH_CONSTRUCTION_EPC",
+                "expected_responsible_role_present": True,
+                "primary_responsible_person_name": "王五",
+                "project_manager_name": "王五",
+                "stage2_detail_capture_pending": False,
+                "stage1_6_time_budget_pending": False,
+                "responsible_role_gap_code": "",
+            }
+        )
+        run_result["search_scope"]["candidate_count"] = 5
+        run_result["search_scope"]["selected_candidate_count"] = 4
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            (root / "run-result.json").write_text(json.dumps(run_result, ensure_ascii=False, indent=2), encoding="utf-8")
+            report = build_real_public_stage4_9_pressure_report(
+                run_result_json=root / "run-result.json",
+                output_root=root,
+            )
+
+        rows = {
+            row["project_id"]: row
+            for row in report["manifest"]["stage1_6_readiness_records"]
+        }
+        row = rows["PROJ-REAL-005"]
+        self.assertEqual(row["stage3_field_parse_state"], "PARSED_FROM_FIELD_SIGNALS")
+        self.assertEqual(row["stage4_public_verification_state"], "NOT_ATTEMPTED_BY_STAGE1_6_SELECTION_OR_CHAIN_LIMIT")
+        self.assertEqual(row["bottleneck_stage"], "Stage4")
+        self.assertEqual(row["stage1_6_readiness_state"], "STAGE4_PUBLIC_SOURCE_REVIEW_REQUIRED")
+        self.assertEqual(
+            row["recommended_next_action"],
+            "run_stage1_6_closed_loop_for_candidate_or_increase_attempt_budget",
+        )
+
+    def test_stage1_6_readiness_marks_review_only_candidates_at_stage1(self) -> None:
+        run_result = _fake_run_result()
+        run_result["candidate_options"].append(
+            {
+                "project_id": "PROJ-REAL-006",
+                "project_name": "广州真实候选项目六",
+                "source_url": "https://example.invalid/006",
+                "notice_stage": "candidate_notice",
+                "candidate_company": "广东己公司",
+                "stage2_detail_capture_state": "FETCHED",
+                "engineering_work_lane": "construction_or_epc",
+                "opportunity_priority_class": "A_HIGH_CONSTRUCTION_EPC",
+                "expected_responsible_role_present": True,
+                "primary_responsible_person_name": "赵六",
+                "project_manager_name": "赵六",
+                "analysis_priority": "REVIEW",
+                "review_reasons": [
+                    "source_candidate_preserved_for_review:objection_window_expired",
+                    "candidate_publicity_window_expired",
+                ],
+            }
+        )
+        run_result["search_scope"]["candidate_count"] = 5
+        run_result["search_scope"]["selected_candidate_count"] = 4
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            (root / "run-result.json").write_text(json.dumps(run_result, ensure_ascii=False, indent=2), encoding="utf-8")
+            report = build_real_public_stage4_9_pressure_report(
+                run_result_json=root / "run-result.json",
+                output_root=root,
+            )
+
+        row = {
+            item["project_id"]: item
+            for item in report["manifest"]["stage1_6_readiness_records"]
+        }["PROJ-REAL-006"]
+        self.assertEqual(row["stage1_candidate_discovery_state"], "CANDIDATE_REVIEW_ONLY_NOT_SELECTED_FOR_STAGE1_6")
+        self.assertEqual(row["bottleneck_stage"], "Stage1")
+        self.assertEqual(row["stage1_6_readiness_state"], "STAGE1_REVIEW_ONLY_NOT_SELECTED")
+        self.assertEqual(
+            row["recommended_next_action"],
+            "skip_or_owner_select_candidate_for_manual_stage1_6_reopen",
+        )
+
 
 def _fake_run_result(project_name: str = "广州真实候选项目") -> dict:
     return {

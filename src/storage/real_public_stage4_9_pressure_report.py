@@ -440,7 +440,20 @@ def _stage1_6_stage_states(
     evidence_gate = str(readback.get("stage5_evidence_gate_status") or "")
     remaining_gaps = _string_list(readback.get("remaining_real_world_gaps"))
     fail_reasons = _string_list(closed_loop.get("fail_closed_reasons") or readback.get("fail_closed_reasons"))
-    stage1 = "CANDIDATE_DISCOVERED" if row.get("project_id") or row.get("source_url") else "CANDIDATE_SOURCE_MISSING"
+    review_reasons = _string_list(row.get("review_reasons"))
+    review_only_not_selected = (
+        not closed_loop
+        and not chain_state
+        and (
+            str(row.get("analysis_priority") or "").upper() == "REVIEW"
+            or any("candidate_publicity_window_expired" in reason for reason in review_reasons)
+            or any("source_candidate_preserved_for_review" in reason for reason in review_reasons)
+        )
+    )
+    if review_only_not_selected:
+        stage1 = "CANDIDATE_REVIEW_ONLY_NOT_SELECTED_FOR_STAGE1_6"
+    else:
+        stage1 = "CANDIDATE_DISCOVERED" if row.get("project_id") or row.get("source_url") else "CANDIDATE_SOURCE_MISSING"
     if bool(row.get("stage2_detail_capture_pending")) or "PENDING_STAGE2_DETAIL_CAPTURE" in chain_state:
         stage2 = "PENDING_DETAIL_CAPTURE"
     elif "FAIL" in stage2_state.upper() or any("detail_capture" in reason and "pending" not in reason for reason in fail_reasons):
@@ -457,9 +470,15 @@ def _stage1_6_stage_states(
         stage3 = "RESPONSIBLE_ROLE_GAP_REVIEW_REQUIRED"
     elif stage3_state:
         stage3 = stage3_state
+    elif _has_stage3_field_signals(row):
+        stage3 = "PARSED_FROM_FIELD_SIGNALS"
     else:
         stage3 = "FIELD_PARSE_STATE_UNKNOWN_REVIEW_REQUIRED"
-    if bool(row.get("stage1_6_time_budget_pending")) or "PENDING_TIME_BUDGET" in chain_state:
+    if stage3 in {"PENDING_DETAIL_CAPTURE", "FIELD_PARSE_FAILED_REVIEW_REQUIRED", "FIELD_PARSE_STATE_UNKNOWN_REVIEW_REQUIRED"}:
+        stage4 = "NOT_ATTEMPTED_STAGE3_NOT_READY"
+    elif not closed_loop and not chain_state:
+        stage4 = "NOT_ATTEMPTED_BY_STAGE1_6_SELECTION_OR_CHAIN_LIMIT"
+    elif bool(row.get("stage1_6_time_budget_pending")) or "PENDING_TIME_BUDGET" in chain_state:
         stage4 = "PENDING_TIME_BUDGET"
     elif remaining_gaps:
         stage4 = "SOURCE_GAP_REVIEW_REQUIRED"
@@ -491,6 +510,34 @@ def _stage1_6_stage_states(
     }
 
 
+def _has_stage3_field_signals(row: Mapping[str, Any]) -> bool:
+    signal_keys = (
+        "candidate_company",
+        "winner_name",
+        "engineering_work_lane",
+        "opportunity_priority_class",
+        "expected_responsible_role_present",
+        "primary_responsible_person_name",
+        "project_manager_name",
+        "chief_supervision_engineer_name",
+        "design_lead_name",
+        "survey_lead_name",
+        "project_manager_certificate_no",
+        "project_manager_certificate_type",
+        "project_manager_cert_specialty",
+    )
+    for key in signal_keys:
+        value = row.get(key)
+        if isinstance(value, bool):
+            return True
+        if str(value or "").strip():
+            return True
+    detail_fields = row.get("detail_fields")
+    if isinstance(detail_fields, Mapping):
+        return any(str(detail_fields.get(key) or "").strip() for key in signal_keys)
+    return False
+
+
 def _stage1_6_bottleneck_stage(stage_states: Mapping[str, str]) -> str:
     if stage_states.get("stage1") != "CANDIDATE_DISCOVERED":
         return "Stage1"
@@ -501,7 +548,7 @@ def _stage1_6_bottleneck_stage(stage_states: Mapping[str, str]) -> str:
     if "PENDING" in stage3 or "FAILED" in stage3 or "GAP" in stage3 or "UNKNOWN" in stage3:
         return "Stage3"
     stage4 = str(stage_states.get("stage4") or "")
-    if "PENDING" in stage4 or "GAP" in stage4 or "UNKNOWN" in stage4:
+    if "PENDING" in stage4 or "GAP" in stage4 or "UNKNOWN" in stage4 or "NOT_ATTEMPTED" in stage4:
         return "Stage4"
     stage5 = str(stage_states.get("stage5") or "")
     if stage5 not in {"PASS", "PASS_OR_NOT_REQUIRED_BY_CURRENT_READBACK"}:
@@ -523,6 +570,8 @@ def _stage1_6_readiness_state(
         return "PENDING_STAGE2_DETAIL_CAPTURE"
     if bool(row.get("stage1_6_time_budget_pending")):
         return "PENDING_TIME_BUDGET"
+    if bottleneck_stage == "Stage1":
+        return "STAGE1_REVIEW_ONLY_NOT_SELECTED"
     if bool(row.get("stage1_6_closed_loop_ready") or closed_loop.get("stage1_6_closed_loop_ready")):
         return "STAGE1_6_INTERNAL_READY"
     if str(row.get("real_public_stage1_6_chain_state") or closed_loop.get("real_public_stage1_6_chain_state") or "") == "INTERNAL_READY":
@@ -552,9 +601,13 @@ def _stage1_6_next_action(
         return "increase_detail_capture_limit_or_stage2_detail_capture_time_budget"
     if readiness_state == "PENDING_TIME_BUDGET":
         return "increase_stage1_6_time_budget"
+    if readiness_state == "STAGE1_REVIEW_ONLY_NOT_SELECTED":
+        return "skip_or_owner_select_candidate_for_manual_stage1_6_reopen"
     if str(row.get("responsible_role_gap_code") or "") or bool(readback.get("jzsc_company_first_identity_resolution_required")):
         return "run_company_first_identifier_resolution_before_stage4_or_stage6"
     if bottleneck_stage == "Stage4":
+        if str(row.get("real_public_stage1_6_chain_state") or closed_loop.get("real_public_stage1_6_chain_state") or "") == "":
+            return "run_stage1_6_closed_loop_for_candidate_or_increase_attempt_budget"
         return "run_release_evidence_or_source_gap_adapter_for_stage4"
     if bottleneck_stage == "Stage5":
         return "review_stage5_rule_and_evidence_gate_inputs"
