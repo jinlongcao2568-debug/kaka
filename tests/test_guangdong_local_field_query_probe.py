@@ -589,6 +589,73 @@ class GuangdongLocalFieldQueryProbeTests(unittest.TestCase):
                 "contract_public_record",
             )
 
+    def test_gdcic_openplatform_contract_release_allows_project_code_match(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            plan_root = root / "release-plan"
+            _write_release_evidence_adapter_plan(plan_root)
+            path = plan_root / "release-evidence-adapter-plan-v1.json"
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            task = payload["manifest"]["release_evidence_adapter_task_records"][1]
+            task["project_id"] = "PROJ-CN-GD-JG2026-11337"
+            task["source_profile_id"] = "GUANGDONG-GDCIC-SKYPT-OPENPLATFORM"
+            task["source_url"] = "https://skypt.gdcic.net/openplatform/"
+            task["query_params"]["projectId"] = task["project_id"]
+            task["query_params"]["sourceProjectCode"] = "440100202605190001"
+            path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+            def fake_getter(url: str, params: Mapping[str, Any]) -> Mapping[str, Any]:
+                if url.endswith("/openplatform/projectContract/list") and params.get("projectCode") == "440100202605190001":
+                    return {
+                        "http_status": 200,
+                        "content_type": "application/json",
+                        "payload": {
+                            "rows": [
+                                {
+                                    "projectCode": "440100202605190001",
+                                    "projectName": "GDCIC返回名称与公告标题不完全一致",
+                                    "contractOrgName": "广州测试建设有限公司",
+                                    "contractBeginDate": "2025-08-01",
+                                    "contractEndDate": "2026-08-01",
+                                }
+                            ]
+                        },
+                    }
+                return {
+                    "http_status": 200,
+                    "content_type": "application/json",
+                    "payload": {"rows": []},
+                }
+
+            result = build_guangdong_local_field_query_probe(
+                release_evidence_adapter_plan_root=plan_root,
+                output_root=root / "out",
+                source_profile_ids=["GUANGDONG-GDCIC-SKYPT-OPENPLATFORM"],
+                enable_live_public_query=True,
+                max_live_tasks=1,
+                http_getter=fake_getter,
+                created_at="2026-05-20T00:00:00+08:00",
+            )
+
+            self.assertTrue(result["safe_to_execute"])
+            task = result["manifest"]["field_task_records"][0]
+            self.assertEqual(
+                task["query_params"]["projectCodeVariants"],
+                ["440100202605190001", "JG2026-11337"],
+            )
+            self.assertEqual(task["query_params"]["gdcicProjectCodeVariants"], ["440100202605190001"])
+            self.assertEqual(task["query_params"]["projectCode"], "440100202605190001")
+            self.assertEqual(task["query_params"]["tradeProjectCode"], "JG2026-11337")
+            self.assertEqual(task["adapter_result_state"], "MATCHED")
+            self.assertEqual(
+                task["downstream_release_evidence_abcd_grade"],
+                "B_ENHANCEMENT_OFFICIAL_READBACK",
+            )
+            self.assertEqual(
+                task["field_match_summary"]["source_specific_records"][0]["record_type"],
+                "contract_public_record",
+            )
+
     def test_p13b_release_evidence_live_readback_grades_enhancement(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)

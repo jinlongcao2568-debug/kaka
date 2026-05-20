@@ -278,6 +278,8 @@ class RealPublicStage49PressureReportTests(unittest.TestCase):
 
     def test_stage4_release_bridge_uses_gdcic_openplatform_for_contract_performance(self) -> None:
         run_result = _fake_run_result()
+        run_result["candidate_options"][1]["project_id"] = "PROJ-CN-GD-JG2026-11337"
+        run_result["closed_loop_results"][1]["project_id"] = "PROJ-CN-GD-JG2026-11337"
         run_result["candidate_options"][1]["candidate_company"] = "(主)广东乙公司;(成)广东联合设计有限公司"
         run_result["closed_loop_results"][1]["real_public_stage4_9_readback"]["remaining_real_world_gaps"] = [
             "missing_stage4_5_source_type:contract_public_info",
@@ -294,11 +296,16 @@ class RealPublicStage49PressureReportTests(unittest.TestCase):
         bridge_rows = report["manifest"]["stage4_release_adapter_bridge_records"]
         self.assertEqual(len(bridge_rows), 1)
         row = bridge_rows[0]
+        self.assertEqual(row["project_id"], "PROJ-CN-GD-JG2026-11337")
         self.assertEqual(row["release_evidence_source_type"], "contract_public_info")
         self.assertEqual(row["release_evidence_target_type"], "contract_performance")
         self.assertEqual(row["source_profile_id"], "GUANGDONG-GDCIC-SKYPT-OPENPLATFORM")
         self.assertEqual(row["next_adapter"], "guangdong_gdcic_openplatform_public_api_query_v1")
         self.assertEqual(row["runtime_status"], "PUBLIC_API_VERIFIED_ANONYMOUS_READBACK")
+        self.assertEqual(row["query_params"]["projectCode"], "")
+        self.assertEqual(row["query_params"]["projectCodeVariants"], ["JG2026-11337"])
+        self.assertEqual(row["query_params"]["gdcicProjectCodeVariants"], [])
+        self.assertEqual(row["query_params"]["tradeProjectCode"], "JG2026-11337")
         self.assertEqual(row["query_params"]["targetSourceTypes"], ["contract_public_info"])
         self.assertEqual(
             row["query_params"]["companyVariants"],

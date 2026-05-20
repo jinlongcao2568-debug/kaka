@@ -385,6 +385,73 @@ class GuangdongGdcicQueryProbeTests(unittest.TestCase):
                 )
             )
 
+    def test_project_code_variants_trigger_project_code_routes(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            active_root = root / "active"
+            _write_active_conflict_probe(active_root, task_count=1)
+            active_path = active_root / "guangzhou-active-conflict-probe-v1.json"
+            payload = json.loads(active_path.read_text(encoding="utf-8"))
+            payload["manifest"]["task_records"][0]["source_project_code"] = "440100202605190001"
+            active_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+            requested: list[tuple[str, Mapping[str, Any]]] = []
+
+            def fake_getter(url: str, params: Mapping[str, Any]) -> Mapping[str, Any]:
+                requested.append((url, dict(params)))
+                if url.endswith("/openplatform/projectContract/list") and params.get("projectCode") == "440100202605190001":
+                    return {
+                        "http_status": 200,
+                        "content_type": "application/json",
+                        "payload": {
+                            "rows": [
+                                {
+                                    "projectCode": "440100202605190001",
+                                    "projectName": "广州测试项目合同",
+                                    "contractOrgName": "广州测试建设有限公司01",
+                                }
+                            ]
+                        },
+                    }
+                return {
+                    "http_status": 200,
+                    "content_type": "application/json",
+                    "payload": {"rows": []},
+                }
+
+            result = build_guangdong_gdcic_query_probe(
+                active_conflict_root=active_root,
+                output_root=root / "out",
+                enable_live_public_query=True,
+                http_getter=fake_getter,
+                created_at="2026-05-20T00:00:00+08:00",
+            )
+
+            task = result["manifest"]["query_task_records"][0]
+            self.assertEqual(
+                task["query_params"]["projectCodeVariants"],
+                ["JG2026-10815", "440100202605190001"],
+            )
+            self.assertEqual(task["query_params"]["gdcicProjectCodeVariants"], ["440100202605190001"])
+            self.assertEqual(task["query_params"]["projectCode"], "440100202605190001")
+            self.assertEqual(task["query_params"]["tradeProjectCode"], "JG2026-10815")
+            self.assertTrue(
+                any(
+                    url.endswith("/openplatform/project/list")
+                    and params.get("projectCode") == "440100202605190001"
+                    for url, params in requested
+                )
+            )
+            self.assertTrue(
+                any(
+                    url.endswith("/openplatform/projectContract/list")
+                    and params.get("projectCode") == "440100202605190001"
+                    for url, params in requested
+                )
+            )
+            self.assertFalse(
+                any(params.get("projectCode") == "JG2026-10815" for _url, params in requested)
+            )
+
     def test_masked_id_card_values_do_not_trigger_followup_queries(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)

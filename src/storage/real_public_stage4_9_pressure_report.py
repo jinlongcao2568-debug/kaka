@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping
 
@@ -441,6 +442,18 @@ def _stage4_release_adapter_bridge_records(result: Mapping[str, Any], *, created
             ]
         )
         trigger_source_url = _first_text([candidate.get("source_url"), query_context.get("source_url")])
+        project_code_variants = _project_code_variants(
+            [
+                project_id,
+                candidate.get("project_code"),
+                candidate.get("source_project_code"),
+                candidate.get("trade_project_code"),
+                query_context.get("project_code"),
+                query_context.get("source_project_code"),
+                query_context.get("trade_project_code"),
+            ]
+        )
+        gdcic_project_code_variants = _gdcic_project_code_variants(project_code_variants)
         for source_type in release_source_types:
             release_target = SOURCE_TARGET_ALIASES.get(source_type, source_type)
             policy = TARGET_POLICY.get(release_target)
@@ -467,6 +480,12 @@ def _stage4_release_adapter_bridge_records(result: Mapping[str, Any], *, created
             query_params = {
                 "projectId": project_id,
                 "projectName": project_name_core or project_name,
+                "projectCode": _first_text(gdcic_project_code_variants),
+                "projectCodeVariants": project_code_variants,
+                "gdcicProjectCodeVariants": gdcic_project_code_variants,
+                "tradeProjectCode": _first_text(
+                    code for code in project_code_variants if code.upper().startswith("JG")
+                ),
                 "candidateNoticeTitle": project_name,
                 "companyName": candidate_company,
                 "candidateCompanyName": candidate_company,
@@ -482,6 +501,7 @@ def _stage4_release_adapter_bridge_records(result: Mapping[str, Any], *, created
                     [
                         project_name_core,
                         project_name,
+                        *project_code_variants,
                         *company_variants,
                         person_name,
                         certificate_no,
@@ -700,6 +720,27 @@ def _notice_core_project_name(value: str) -> str:
         if text.endswith(suffix):
             return text[: -len(suffix)].strip()
     return text
+
+
+def _project_code_variants(values: Iterable[Any]) -> list[str]:
+    out: list[str] = []
+    for value in values:
+        text = str(value or "").strip()
+        if not text:
+            continue
+        for match in re.findall(r"\b[A-Z]{1,8}\d{4}-\d{3,8}(?:-\d{3})?\b", text, flags=re.IGNORECASE):
+            out.append(match.upper())
+        for match in re.findall(r"\b\d{12,22}\b", text):
+            out.append(match)
+    return _dedupe_strings(out)
+
+
+def _gdcic_project_code_variants(values: Iterable[Any]) -> list[str]:
+    return _dedupe_strings(
+        code
+        for code in _project_code_variants(values)
+        if re.fullmatch(r"\d{12,22}", code)
+    )
 
 
 def _company_name_variants(value: Any) -> list[str]:

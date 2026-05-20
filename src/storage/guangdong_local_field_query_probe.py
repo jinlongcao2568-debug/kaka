@@ -685,6 +685,21 @@ def _release_plan_query_params(task: Mapping[str, Any]) -> dict[str, Any]:
         *_list(raw_params.get("companyVariants")),
         *_company_name_variants(company_name),
     ])
+    project_code_variants = _project_code_variants(
+        [
+            *_list(raw_params.get("projectCodeVariants")),
+            *_list(raw_params.get("gdcicProjectCodeVariants")),
+            *_list(raw_params.get("projectCodes")),
+            raw_params.get("projectCode"),
+            raw_params.get("sourceProjectCode"),
+            raw_params.get("tradeProjectCode"),
+            project_id,
+            task.get("project_code"),
+            task.get("source_project_code"),
+            task.get("trade_project_code"),
+        ]
+    )
+    gdcic_project_code_variants = _gdcic_project_code_variants(project_code_variants)
     target_source_types = RELEASE_TARGET_TO_FIELD_SOURCE_TYPES.get(
         str(task.get("release_evidence_target_type") or ""),
         [str(task.get("release_evidence_target_type") or "")] if task.get("release_evidence_target_type") else [],
@@ -693,6 +708,10 @@ def _release_plan_query_params(task: Mapping[str, Any]) -> dict[str, Any]:
         **raw_params,
         "projectId": project_id,
         "projectName": project_name,
+        "projectCode": _first_text(gdcic_project_code_variants),
+        "projectCodeVariants": project_code_variants,
+        "gdcicProjectCodeVariants": gdcic_project_code_variants,
+        "tradeProjectCode": _first_text(code for code in project_code_variants if code.upper().startswith("JG")),
         "companyName": company_name,
         "companyVariants": company_variants,
         "personName": person_name,
@@ -701,7 +720,14 @@ def _release_plan_query_params(task: Mapping[str, Any]) -> dict[str, Any]:
         "targetSourceTypes": target_source_types,
         "releaseEvidenceTargetType": str(task.get("release_evidence_target_type") or ""),
         "triggerSourceUrl": str(raw_params.get("triggerSourceUrl") or task.get("trigger_source_url") or ""),
-        "keywords": _dedupe([project_name, *company_variants, person_name, certificate_no, *_list(raw_params.get("keywords"))]),
+        "keywords": _dedupe([
+            project_name,
+            *project_code_variants,
+            *company_variants,
+            person_name,
+            certificate_no,
+            *_list(raw_params.get("keywords")),
+        ]),
     }
 
 
@@ -1247,6 +1273,17 @@ def _route_plan_for_task(task: Mapping[str, Any], query_params: Mapping[str, Any
         )
     elif profile_id == GUANGDONG_GDCIC_SKYPT_OPENPLATFORM_PROFILE_ID:
         project_keyword = _clean_project_title(query_params.get("projectName"))
+        project_code_keywords = _gdcic_project_code_variants(
+            [
+                *_list(query_params.get("gdcicProjectCodeVariants")),
+                *_list(query_params.get("projectCodeVariants")),
+                *_list(query_params.get("projectCodes")),
+                query_params.get("projectCode"),
+                query_params.get("sourceProjectCode"),
+                query_params.get("tradeProjectCode"),
+                query_params.get("projectId"),
+            ]
+        )[:2]
         company_keywords = _dedupe(
             [
                 *_list(query_params.get("companyVariants")),
@@ -1291,6 +1328,29 @@ def _route_plan_for_task(task: Mapping[str, Any], query_params: Mapping[str, Any
                     keywords,
                     route_group="gd_gdcic_openplatform_project_lookup",
                 )
+            )
+        for idx, project_code in enumerate(project_code_keywords):
+            routes.extend(
+                [
+                    _guangdong_gdcic_openplatform_route(
+                        "gd_gdcic_openplatform_project_by_project_code"
+                        if idx == 0
+                        else f"gd_gdcic_openplatform_project_by_project_code_variant_{idx + 1}",
+                        "/openplatform/project/list",
+                        {"projectCode": project_code},
+                        keywords,
+                        route_group="gd_gdcic_openplatform_project_lookup",
+                    ),
+                    _guangdong_gdcic_openplatform_route(
+                        "gd_gdcic_openplatform_contract_by_project_code"
+                        if idx == 0
+                        else f"gd_gdcic_openplatform_contract_by_project_code_variant_{idx + 1}",
+                        "/openplatform/projectContract/list",
+                        {"projectCode": project_code},
+                        keywords,
+                        route_group="gd_gdcic_openplatform_project_lookup",
+                    ),
+                ]
             )
         if wants_contract:
             routes.append(
@@ -2708,6 +2768,27 @@ def _gdcic_openplatform_project_title_variants(value: Any) -> list[str]:
     return _dedupe(variants)
 
 
+def _project_code_variants(values: Iterable[Any]) -> list[str]:
+    out: list[str] = []
+    for value in values:
+        text = str(value or "").strip()
+        if not text:
+            continue
+        for match in re.findall(r"\b[A-Z]{1,8}\d{4}-\d{3,8}(?:-\d{3})?\b", text, flags=re.IGNORECASE):
+            out.append(match.upper())
+        for match in re.findall(r"\b\d{12,22}\b", text):
+            out.append(match)
+    return _dedupe(out)
+
+
+def _gdcic_project_code_variants(values: Iterable[Any]) -> list[str]:
+    return _dedupe(
+        code
+        for code in _project_code_variants(values)
+        if re.fullmatch(r"\d{12,22}", code)
+    )
+
+
 def _gdcic_openplatform_http_getter(getter: HttpGetter) -> HttpGetter:
     def wrapped(url: str, params: Mapping[str, Any]) -> Mapping[str, Any]:
         translated = dict(params or {})
@@ -2775,6 +2856,7 @@ def _gdcic_openplatform_target_specific_records(
     if not allowed_record_types:
         return []
     project_names = _gdcic_openplatform_target_project_names(query_params)
+    project_codes = _gdcic_openplatform_target_project_codes(query_params)
     out: list[dict[str, Any]] = []
     for record in records:
         record_type = str(record.get("record_type") or "")
@@ -2784,7 +2866,7 @@ def _gdcic_openplatform_target_specific_records(
             "contract_public_record",
             "construction_permit_public_record",
             "completion_filing_public_record",
-        } and not _gdcic_openplatform_record_project_matches(record, project_names):
+        } and not _gdcic_openplatform_record_project_matches(record, project_names, project_codes):
             continue
         out.append(dict(record))
     return out
@@ -2799,7 +2881,38 @@ def _gdcic_openplatform_target_project_names(query_params: Mapping[str, Any]) ->
     )
 
 
-def _gdcic_openplatform_record_project_matches(record: Mapping[str, Any], project_names: list[str]) -> bool:
+def _gdcic_openplatform_target_project_codes(query_params: Mapping[str, Any]) -> list[str]:
+    return _gdcic_project_code_variants(
+        [
+            *_list(query_params.get("gdcicProjectCodeVariants")),
+            *_list(query_params.get("projectCodeVariants")),
+            *_list(query_params.get("projectCodes")),
+            query_params.get("projectCode"),
+            query_params.get("sourceProjectCode"),
+            query_params.get("tradeProjectCode"),
+            query_params.get("projectId"),
+        ]
+    )
+
+
+def _gdcic_openplatform_record_project_matches(
+    record: Mapping[str, Any],
+    project_names: list[str],
+    project_codes: list[str],
+) -> bool:
+    record_project_codes = _gdcic_project_code_variants(
+        [
+            record.get("projectCode"),
+            record.get("project_code"),
+            record.get("prjNum"),
+            record.get("prjCode"),
+            record.get("itemCode"),
+            record.get("bdCode"),
+            record.get("proofOrSerialCode"),
+        ]
+    )
+    if record_project_codes and set(record_project_codes) & set(project_codes):
+        return True
     record_project = _clean_project_title(
         _first_text(
             [

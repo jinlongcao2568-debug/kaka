@@ -207,15 +207,28 @@ def _query_params(task: Mapping[str, Any]) -> dict[str, Any]:
     companies = _list(task.get("company_query_variants"))
     company_variants = _dedupe([*companies, *_list(task.get("candidate_group_members")), *_list(task.get("matched_company_names"))])
     project_name_variants = _project_title_variants(project_name)
+    project_code_variants = _project_code_variants(
+        [
+            task.get("project_id"),
+            task.get("project_code"),
+            task.get("source_project_code"),
+            task.get("trade_project_code"),
+        ]
+    )
+    gdcic_project_code_variants = _gdcic_project_code_variants(project_code_variants)
     return {
         "projectId": str(task.get("project_id") or ""),
         "projectName": project_name,
         "projectNameVariants": project_name_variants,
+        "projectCode": _first_text(gdcic_project_code_variants),
+        "projectCodeVariants": project_code_variants,
+        "gdcicProjectCodeVariants": gdcic_project_code_variants,
+        "tradeProjectCode": _first_text(code for code in project_code_variants if code.upper().startswith("JG")),
         "companyName": _first_text(companies),
         "companyVariants": company_variants,
         "personName": person,
         "certificateNo": certificate_no,
-        "keywords": _dedupe([*project_name_variants, *company_variants, person, certificate_no]),
+        "keywords": _dedupe([*project_name_variants, *project_code_variants, *company_variants, person, certificate_no]),
     }
 
 
@@ -505,6 +518,17 @@ def _initial_route_specs(query_params: Mapping[str, Any]) -> list[dict[str, Any]
             str(query_params.get("projectName") or "").strip(),
         ]
     )
+    project_codes = _gdcic_project_code_variants(
+        [
+            *_list(query_params.get("gdcicProjectCodeVariants")),
+            *_list(query_params.get("projectCodeVariants")),
+            *_list(query_params.get("projectCodes")),
+            query_params.get("projectCode"),
+            query_params.get("sourceProjectCode"),
+            query_params.get("tradeProjectCode"),
+            query_params.get("projectId"),
+        ]
+    )
     companies = _dedupe(_list(query_params.get("companyVariants")) or [query_params.get("companyName")])
     routes: list[dict[str, Any]] = []
     if person:
@@ -564,6 +588,35 @@ def _initial_route_specs(query_params: Mapping[str, Any]) -> list[dict[str, Any]
                     "construction_permit_by_project_title",
                     "/openplatform/constructionPermit/list",
                     {"projectName": clean_project_name},
+                    route_group="project_public_record",
+                ),
+            ]
+        )
+    for project_code in project_codes[:2]:
+        routes.extend(
+            [
+                _route_spec(
+                    "project_lookup_by_project_code",
+                    "/openplatform/project/list",
+                    {"projectCode": project_code},
+                    route_group="project_public_record",
+                ),
+                _route_spec(
+                    "construction_permit_by_project_code",
+                    "/openplatform/constructionPermit/list",
+                    {"projectCode": project_code},
+                    route_group="project_public_record",
+                ),
+                _route_spec(
+                    "project_bidding_by_project_code",
+                    "/openplatform/projectBidding/list",
+                    {"projectCode": project_code},
+                    route_group="project_public_record",
+                ),
+                _route_spec(
+                    "project_contract_by_project_code",
+                    "/openplatform/projectContract/list",
+                    {"projectCode": project_code},
                     route_group="project_public_record",
                 ),
             ]
@@ -1030,6 +1083,27 @@ def _project_title_variants(value: Any) -> list[str]:
         if text.endswith(suffix) and len(text) - len(suffix) >= 6:
             variants.append(_clean_project_title(text[: -len(suffix)]))
     return _dedupe(variants)
+
+
+def _project_code_variants(values: Iterable[Any]) -> list[str]:
+    out: list[str] = []
+    for value in values:
+        text = str(value or "").strip()
+        if not text:
+            continue
+        for match in re.findall(r"\b[A-Z]{1,8}\d{4}-\d{3,8}(?:-\d{3})?\b", text, flags=re.IGNORECASE):
+            out.append(match.upper())
+        for match in re.findall(r"\b\d{12,22}\b", text):
+            out.append(match)
+    return _dedupe(out)
+
+
+def _gdcic_project_code_variants(values: Iterable[Any]) -> list[str]:
+    return _dedupe(
+        code
+        for code in _project_code_variants(values)
+        if re.fullmatch(r"\d{12,22}", code)
+    )
 
 
 def _url_with_query(url: str, params: Mapping[str, Any]) -> str:
