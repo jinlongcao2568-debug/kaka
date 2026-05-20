@@ -107,6 +107,7 @@ def _capture_single_candidate_from_html(
     html: bytes,
     source_profile_id: str = "GUANGZHOU-YWTB-CONSTRUCTION-LIST",
     document_kind: str = "",
+    candidate_overrides: dict | None = None,
 ) -> dict:
     transport = FakeRealPublicFetchTransport(
         {
@@ -135,6 +136,8 @@ def _capture_single_candidate_from_html(
         "key_fields_present": ["project_name", "notice_stage"],
         "candidate_count": 0,
     }
+    if candidate_overrides:
+        candidate.update(candidate_overrides)
     with tempfile.TemporaryDirectory() as tmp_dir:
         service = RealCandidateStage2CaptureService(
             stage2_service=FakeStage2Service(transport),
@@ -2276,6 +2279,37 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
         self.assertNotEqual(enriched["primary_responsible_person_name"], "按招标文件的要求")
         self.assertNotEqual(enriched.get("project_manager_certificate_no", ""), "详见投标文件公开")
 
+    def test_guangzhou_publicity_table_extracts_plain_tender_file_placeholder_name(self) -> None:
+        title = "茂名临空经济区标准化厂房二期建设项目监理中标候选人公示"
+        enriched = _capture_single_candidate_from_html(
+            detail_url="https://ywtb.gzggzy.cn/notice/gz-publicity-plain-placeholder-001.html",
+            title=title,
+            html=_guangzhou_publicity_table_html(
+                title,
+                first_row=(
+                    "广东省建筑工程监理有限公司 914400001903464231 1 2134907.20元 "
+                    "按招标文件要求 按招标文件要求 详见投标文件 "
+                    "详见投标文件 谯锋 详见投标文件 详见投标文件"
+                ),
+            ),
+            candidate_overrides={
+                "responsible_role_gap_code": "B_CHIEF_SUPERVISION_ENGINEER_MISSING_REQUIRES_COMPANY_FIRST_IDENTITY",
+                "responsible_role_gap_review_required": True,
+                "stage4_identity_completion_required": True,
+            },
+        )
+
+        self.assertEqual(enriched["engineering_work_lane"], "supervision")
+        self.assertEqual(enriched["candidate_company"], "广东省建筑工程监理有限公司")
+        self.assertEqual(enriched["primary_responsible_role"], "chief_supervision_engineer")
+        self.assertEqual(enriched["primary_responsible_person_name"], "谯锋")
+        self.assertEqual(enriched["chief_supervision_engineer_name"], "谯锋")
+        self.assertEqual(enriched.get("project_manager_certificate_no", ""), "")
+        self.assertEqual(enriched["responsible_role_gap_code"], "")
+        self.assertFalse(enriched["responsible_role_gap_review_required"])
+        self.assertFalse(enriched["stage4_identity_completion_required"])
+        self.assertNotEqual(enriched["primary_responsible_person_name"], "栋宿舍楼")
+
     def test_guangzhou_publicity_table_binds_first_candidate_when_short_attachment_placeholders(self) -> None:
         title = "燃气管道迁改工程设计施工总承包RQSG2标段中标候选人公示"
         enriched = _capture_single_candidate_from_html(
@@ -3023,6 +3057,11 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
         self.assertEqual(enriched.get("project_manager_name", ""), "")
         self.assertEqual(enriched.get("project_manager_certificate_no", ""), "")
         self.assertEqual(enriched["project_manager_certificate_no_parse_state"], "DETAIL_TEXT_NOT_FOUND")
+
+    def test_ocr_table_header_and_commitment_fragments_are_not_person_names(self) -> None:
+        for value in ("姓名", "工期", "按要", "按要求", "对应", "总监", "总工", "万元", "平方米", "公里", "值抽取", "年养护"):
+            with self.subTest(value=value):
+                self.assertFalse(_looks_like_person_name(value))
 
     def test_company_fragment_after_manager_label_is_not_project_manager_name(self) -> None:
         detail_url = "https://ywtb.gzggzy.cn/notice/company-fragment-manager-001.html"

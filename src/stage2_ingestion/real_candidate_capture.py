@@ -1089,7 +1089,7 @@ def _extract_guangzhou_candidate_publicity_row_role(row_text: str) -> dict[str, 
             }
 
     filler = (
-        r"(?:见附件|详见(?:投标文件公开|中标候选人公示|附件)|满足招标文件要求|完全响应|"
+        r"(?:见附件|详见(?:投标文件公开|投标文件|中标候选人公示|附件)|满足招标文件要求|完全响应|"
         r"无业绩要求|按招标文件要求|/)"
     )
     role_only_pattern = (
@@ -1509,10 +1509,12 @@ def _looks_like_person_name(value: str) -> bool:
         "公示",
         "公告",
         "名称",
+        "姓名",
         "代码",
         "排名",
         "结束",
         "时间",
+        "工期",
         "日历",
         "日历天",
         "日内",
@@ -1542,6 +1544,11 @@ def _looks_like_person_name(value: str) -> bool:
         "变更",
         "下浮",
         "报价",
+        "万元",
+        "亿元",
+        "平方",
+        "平方米",
+        "公里",
         "投标",
         "开标",
         "评标",
@@ -1551,6 +1558,11 @@ def _looks_like_person_name(value: str) -> bool:
         "序号",
         "招标",
         "按招",
+        "按要",
+        "按要求",
+        "对应",
+        "抽取",
+        "养护",
         "联系",
         "地址",
         "部门",
@@ -1595,6 +1607,8 @@ def _looks_like_person_name(value: str) -> bool:
         "标段",
         "施工",
         "监理",
+        "总监",
+        "总工",
         "附件",
         "以上",
         "以下",
@@ -3408,20 +3422,20 @@ class RealCandidateStage2CaptureService:
             "survey_lead_name",
             "survey_lead_name_parse_state",
         ):
-            if fields.get(key):
-                row[key] = str(fields[key])
+            if key in fields:
+                row[key] = str(fields.get(key) or "")
         row["responsible_role_gap_token_hits"] = list(fields.get("responsible_role_gap_token_hits") or [])
         row["stage4_identity_completion_targets"] = list(fields.get("stage4_identity_completion_targets") or [])
         row["expected_responsible_role_present"] = bool(fields.get("expected_responsible_role_present"))
         row["responsible_role_gap_review_required"] = bool(fields.get("responsible_role_gap_review_required"))
         row["stage4_identity_completion_required"] = bool(fields.get("stage4_identity_completion_required"))
-        if fields.get("project_manager_name"):
-            row["project_manager_name"] = str(fields["project_manager_name"])
+        if "project_manager_name" in fields:
+            row["project_manager_name"] = str(fields.get("project_manager_name") or "")
             row["project_manager_name_parse_state"] = fields.get("project_manager_name_parse_state") or "DETAIL_TEXT"
         else:
             row["project_manager_name_parse_state"] = fields.get("project_manager_name_parse_state") or "DETAIL_TEXT_NOT_FOUND"
-        if fields.get("project_manager_certificate_no"):
-            row["project_manager_certificate_no"] = str(fields["project_manager_certificate_no"])
+        if "project_manager_certificate_no" in fields:
+            row["project_manager_certificate_no"] = str(fields.get("project_manager_certificate_no") or "")
             row["project_manager_certificate_no_parse_state"] = (
                 fields.get("project_manager_certificate_no_parse_state") or "DETAIL_TEXT"
             )
@@ -3429,8 +3443,8 @@ class RealCandidateStage2CaptureService:
             row["project_manager_certificate_no_parse_state"] = (
                 fields.get("project_manager_certificate_no_parse_state") or "DETAIL_TEXT_NOT_FOUND"
             )
-        if fields.get("project_manager_certificate_type"):
-            row["project_manager_certificate_type"] = str(fields["project_manager_certificate_type"])
+        if "project_manager_certificate_type" in fields:
+            row["project_manager_certificate_type"] = str(fields.get("project_manager_certificate_type") or "")
             row["project_manager_certificate_type_parse_state"] = (
                 fields.get("project_manager_certificate_type_parse_state") or "DETAIL_TEXT"
             )
@@ -3438,8 +3452,8 @@ class RealCandidateStage2CaptureService:
             row["project_manager_certificate_type_parse_state"] = (
                 fields.get("project_manager_certificate_type_parse_state") or "DETAIL_TEXT_NOT_FOUND"
             )
-        if fields.get("project_manager_cert_specialty"):
-            row["project_manager_cert_specialty"] = str(fields["project_manager_cert_specialty"])
+        if "project_manager_cert_specialty" in fields:
+            row["project_manager_cert_specialty"] = str(fields.get("project_manager_cert_specialty") or "")
             row["project_manager_cert_specialty_parse_state"] = (
                 fields.get("project_manager_cert_specialty_parse_state") or "DETAIL_TEXT"
             )
@@ -3447,8 +3461,8 @@ class RealCandidateStage2CaptureService:
             row["project_manager_cert_specialty_parse_state"] = (
                 fields.get("project_manager_cert_specialty_parse_state") or "DETAIL_TEXT_NOT_FOUND"
             )
-        if fields.get("project_manager_professional_title"):
-            row["project_manager_professional_title"] = str(fields["project_manager_professional_title"])
+        if "project_manager_professional_title" in fields:
+            row["project_manager_professional_title"] = str(fields.get("project_manager_professional_title") or "")
             row["project_manager_professional_title_parse_state"] = (
                 fields.get("project_manager_professional_title_parse_state") or "DETAIL_TEXT"
             )

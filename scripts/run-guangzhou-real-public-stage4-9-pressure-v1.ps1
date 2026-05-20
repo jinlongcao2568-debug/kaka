@@ -10,6 +10,9 @@ param(
     [double]$Stage16TimeBudgetSeconds = 600,
     [int]$DiscoveryProfileLimitPerRegion = 1,
     [switch]$AttemptAllStage16Candidates,
+    [switch]$EnableAttachmentChallengeResolver,
+    [int]$ChallengeTimeoutMs = 90000,
+    [switch]$ChallengeBrowserHeaded,
     [switch]$EmitJson
 )
 
@@ -25,6 +28,22 @@ if (-not $OutputRoot) {
 New-Item -ItemType Directory -Force -Path $OutputRoot | Out-Null
 
 $env:PYTHONPATH = "$repoRoot\src;$repoRoot\tests"
+
+$challengeEnvNames = @(
+    "KAKA_STAGE2_ENABLE_ATTACHMENT_CHALLENGE_RESOLVER",
+    "KAKA_CHALLENGE_TIMEOUT_MS",
+    "KAKA_CHALLENGE_BROWSER_HEADLESS"
+)
+$previousChallengeEnv = @{}
+foreach ($name in $challengeEnvNames) {
+    $previousChallengeEnv[$name] = [Environment]::GetEnvironmentVariable($name, "Process")
+}
+
+if ($EnableAttachmentChallengeResolver) {
+    $env:KAKA_STAGE2_ENABLE_ATTACHMENT_CHALLENGE_RESOLVER = "1"
+    $env:KAKA_CHALLENGE_TIMEOUT_MS = "$ChallengeTimeoutMs"
+    $env:KAKA_CHALLENGE_BROWSER_HEADLESS = if ($ChallengeBrowserHeaded) { "0" } else { "1" }
+}
 
 $argsList = @(
     "-m", "storage.real_public_stage4_9_pressure_report",
@@ -60,5 +79,13 @@ try {
         exit $pythonExitCode
     }
 } finally {
+    foreach ($name in $challengeEnvNames) {
+        $previous = $previousChallengeEnv[$name]
+        if ($null -eq $previous) {
+            Remove-Item -Path "Env:$name" -ErrorAction SilentlyContinue
+        } else {
+            Set-Item -Path "Env:$name" -Value $previous
+        }
+    }
     Pop-Location
 }
