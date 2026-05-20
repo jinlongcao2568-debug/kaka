@@ -2421,6 +2421,18 @@ def _stage4_scrapling_get_transport() -> Any:
     return _STAGE4_SCRAPLING_GET_TRANSPORT
 
 
+def _login_required_capability_assessment() -> dict[str, Any]:
+    return {
+        "required_capability": "AUTHORIZED_SESSION_STORAGE_STATE_OR_USER_DATA_DIR",
+        "http_fetcher_applicable": False,
+        "dynamic_fetcher_applicable": False,
+        "stealthy_fetcher_applicable": False,
+        "http_dynamic_stealthy_can_replace_login_state": False,
+        "reason": "login_or_sso_gate_requires_valid_authorized_session_cookie_or_user_profile",
+        "scrapling_can_reuse_authorized_browser_profile_if_provided": True,
+    }
+
+
 def _execute_guangzhou_zfcj_field_query(
     task: Mapping[str, Any],
     route_plan: list[Mapping[str, Any]],
@@ -2640,6 +2652,7 @@ def _execute_guangdong_gdcic_home_field_query(
     if browser_readback:
         return browser_readback
     if "gd_gdcic_contract_system_sso_login_required" in blockers:
+        auth_capability = _login_required_capability_assessment()
         return {
             "field_query_probe_state": "LIVE_FIELD_QUERY_NEEDS_BROWSER",
             "field_readback_state": "FIELD_READBACK_BROWSER_OR_AUTHORIZED_RUNTIME_REQUIRED",
@@ -2652,10 +2665,20 @@ def _execute_guangdong_gdcic_home_field_query(
                 "source_profile_id": GUANGDONG_GDCIC_HOME_PROFILE_ID,
                 "contract_system_sso_route_seen": sso_route_seen,
                 "browser_or_authorized_runtime_required": True,
+                "authorization_readiness_state": "LOGIN_OR_SSO_REQUIRED",
+                "field_surface_state": "LOGIN_OR_SSO_BLOCKED_BEFORE_FIELD_SURFACE",
+                "required_runtime_capability": "AUTHORIZED_SESSION_STORAGE_STATE_OR_USER_DATA_DIR",
+                "browser_capability_assessment": auth_capability,
+                "operator_next_actions": [
+                    "provide_gdcic_authorized_storage_state_or_user_data_dir_then_rerun",
+                    "do_not_treat_http_dynamic_stealthy_as_login_state_replacement",
+                ],
             },
             "field_match_summary": {
                 "query_miss_is_not_clearance": True,
                 "browser_or_authorized_runtime_required_before_readback": True,
+                "login_or_sso_required_before_field_surface": True,
+                "http_dynamic_stealthy_can_replace_login_state": False,
                 "readback_is_line_clue_not_final_conclusion": True,
             },
             "route_plan": list(route_plan),
@@ -2755,6 +2778,12 @@ def _gdcic_browser_authorized_readback_for_task(
         if isinstance(artifact, Mapping)
         for action in _list(artifact.get("operator_next_actions"))
     )
+    browser_capability_assessments = [
+        dict(artifact.get("browser_capability_assessment") or {})
+        for artifact in artifacts
+        if isinstance(artifact, Mapping) and isinstance(artifact.get("browser_capability_assessment"), Mapping)
+    ]
+    login_or_sso_required = "LOGIN_OR_SSO_REQUIRED" in authorization_states
     for artifact in artifacts:
         state = _gdcic_browser_artifact_state(artifact)
         if _gdcic_browser_state_is_blocked(state):
@@ -2820,11 +2849,18 @@ def _gdcic_browser_authorized_readback_for_task(
         ),
         "authorization_readiness_state_counts": _counts(authorization_states),
         "operator_next_actions": operator_next_actions,
+        "browser_capability_assessments": browser_capability_assessments[:5],
+        "required_runtime_capability": (
+            "AUTHORIZED_SESSION_STORAGE_STATE_OR_USER_DATA_DIR" if login_or_sso_required else ""
+        ),
+        "http_dynamic_stealthy_can_replace_login_state": False,
     }
     common_match_summary = {
         "query_miss_is_not_clearance": True,
         "browser_authorized_readback_consumed": True,
         "authorization_readiness_state": _first_text(authorization_states),
+        "login_or_sso_required_before_field_surface": login_or_sso_required,
+        "http_dynamic_stealthy_can_replace_login_state": False,
         "readback_is_line_clue_not_final_conclusion": True,
     }
     blocker_taxonomy = _dedupe(

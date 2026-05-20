@@ -1243,6 +1243,18 @@ class GuangdongLocalFieldQueryProbeTests(unittest.TestCase):
             task = result["manifest"]["field_task_records"][0]
             self.assertEqual(task["field_query_probe_state"], "LIVE_FIELD_QUERY_NEEDS_BROWSER")
             self.assertEqual(task["adapter_result_state"], "NEEDS_BROWSER")
+            self.assertEqual(task["field_summary"]["authorization_readiness_state"], "LOGIN_OR_SSO_REQUIRED")
+            self.assertEqual(
+                task["field_summary"]["required_runtime_capability"],
+                "AUTHORIZED_SESSION_STORAGE_STATE_OR_USER_DATA_DIR",
+            )
+            self.assertFalse(
+                task["field_summary"]["browser_capability_assessment"][
+                    "http_dynamic_stealthy_can_replace_login_state"
+                ]
+            )
+            self.assertFalse(task["field_match_summary"]["http_dynamic_stealthy_can_replace_login_state"])
+            self.assertTrue(task["field_match_summary"]["login_or_sso_required_before_field_surface"])
             self.assertTrue(task["field_match_summary"]["query_miss_is_not_clearance"])
             self.assertIn("gd_gdcic_contract_system_sso_login_required", task["blocker_taxonomy"])
 

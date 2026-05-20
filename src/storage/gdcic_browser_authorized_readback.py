@@ -336,6 +336,7 @@ def _blocked_record(
         "adapter_result_state": "BLOCKED" if readback_state != "LIVE_BROWSER_EXECUTION_DEFERRED_BY_LIMIT" else "NEEDS_BROWSER",
         "authorization_readiness_state": authorization_state,
         "field_surface_state": _field_surface_state_from_authorization_state(authorization_state),
+        "browser_capability_assessment": _browser_capability_assessment(authorization_state),
         "operator_next_actions": _operator_next_actions_for_authorization_state(authorization_state),
         "source_url": str(task.get("source_url") or ""),
         "final_url": final_url or str(task.get("source_url") or ""),
@@ -620,7 +621,10 @@ def _field_surface_state_from_authorization_state(authorization_state: str) -> s
 
 def _operator_next_actions_for_authorization_state(authorization_state: str) -> list[str]:
     if authorization_state == "LOGIN_OR_SSO_REQUIRED":
-        return ["provide_gdcic_authorized_storage_state_or_user_data_dir_then_rerun"]
+        return [
+            "provide_gdcic_authorized_storage_state_or_user_data_dir_then_rerun",
+            "do_not_treat_http_dynamic_stealthy_as_login_state_replacement",
+        ]
     if authorization_state == "LOCAL_BROWSER_RUNTIME_UNAVAILABLE":
         return ["install_or_enable_playwright_browser_runtime_then_rerun"]
     if authorization_state == "NOT_EXECUTED_DEFERRED_BY_LIMIT":
@@ -628,6 +632,35 @@ def _operator_next_actions_for_authorization_state(authorization_state: str) -> 
     if authorization_state == "BROWSER_PAYLOAD_EMPTY_REVIEW_REQUIRED":
         return ["rerun_with_headed_browser_or_longer_wait_budget"]
     return ["review_gdcic_browser_execution_blocker_then_rerun"]
+
+
+def _browser_capability_assessment(authorization_state: str) -> dict[str, Any]:
+    if authorization_state == "LOGIN_OR_SSO_REQUIRED":
+        return {
+            "required_capability": "AUTHORIZED_SESSION_STORAGE_STATE_OR_USER_DATA_DIR",
+            "http_fetcher_applicable": False,
+            "dynamic_fetcher_applicable": False,
+            "stealthy_fetcher_applicable": False,
+            "http_dynamic_stealthy_can_replace_login_state": False,
+            "reason": "login_or_sso_gate_requires_valid_authorized_session_cookie_or_user_profile",
+        }
+    if authorization_state in {"BROWSER_PAYLOAD_EMPTY_REVIEW_REQUIRED", "BROWSER_EXECUTION_BLOCKED_REVIEW_REQUIRED"}:
+        return {
+            "required_capability": "BROWSER_RENDERING_OR_CHALLENGE_REVIEW",
+            "http_fetcher_applicable": True,
+            "dynamic_fetcher_applicable": True,
+            "stealthy_fetcher_applicable": True,
+            "http_dynamic_stealthy_can_replace_login_state": False,
+            "reason": "browser_or_challenge_issue_may_be_helped_by_scrapling_but_does_not_bypass_login",
+        }
+    return {
+        "required_capability": "REVIEW_RUNTIME_STATE",
+        "http_fetcher_applicable": True,
+        "dynamic_fetcher_applicable": True,
+        "stealthy_fetcher_applicable": False,
+        "http_dynamic_stealthy_can_replace_login_state": False,
+        "reason": "scrapling_capabilities_improve_fetch_or_rendering_not_account_authorization",
+    }
 
 
 def _looks_like_login_or_challenge(text: str, url: str) -> bool:

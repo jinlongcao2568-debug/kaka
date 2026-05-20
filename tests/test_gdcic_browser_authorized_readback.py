@@ -187,8 +187,19 @@ class GDCICBrowserAuthorizedReadbackTests(unittest.TestCase):
             self.assertEqual(record["adapter_result_state"], "BLOCKED")
             self.assertEqual(record["authorization_readiness_state"], "LOGIN_OR_SSO_REQUIRED")
             self.assertEqual(record["field_surface_state"], "LOGIN_OR_SSO_BLOCKED_BEFORE_FIELD_SURFACE")
+            self.assertFalse(
+                record["browser_capability_assessment"]["http_dynamic_stealthy_can_replace_login_state"]
+            )
+            self.assertEqual(
+                record["browser_capability_assessment"]["required_capability"],
+                "AUTHORIZED_SESSION_STORAGE_STATE_OR_USER_DATA_DIR",
+            )
             self.assertIn(
                 "provide_gdcic_authorized_storage_state_or_user_data_dir_then_rerun",
+                record["operator_next_actions"],
+            )
+            self.assertIn(
+                "do_not_treat_http_dynamic_stealthy_as_login_state_replacement",
                 record["operator_next_actions"],
             )
             self.assertEqual(result["summary"]["gdcic_authorized_session_overall_state"], "LOGIN_OR_SSO_REQUIRED")
@@ -216,6 +227,9 @@ class GDCICBrowserAuthorizedReadbackTests(unittest.TestCase):
             self.assertEqual(record["readback_state"], "LOGIN_OR_SSO_REQUIRED_BLOCKED")
             self.assertEqual(record["adapter_result_state"], "BLOCKED")
             self.assertEqual(record["authorization_readiness_state"], "LOGIN_OR_SSO_REQUIRED")
+            self.assertFalse(
+                record["browser_capability_assessment"]["http_dynamic_stealthy_can_replace_login_state"]
+            )
             self.assertEqual(result["summary"]["gdcic_authorized_session_overall_state"], "LOGIN_OR_SSO_REQUIRED")
             self.assertIn("gdcic_login_or_sso_required_for_authorized_readback", record["blocker_taxonomy"])
 
