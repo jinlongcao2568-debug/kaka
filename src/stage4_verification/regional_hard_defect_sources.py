@@ -113,7 +113,7 @@ MAJOR_TARGET_REGION_SOURCE_CATALOG = (
         "source_name": "河南省建筑市场监管公共服务平台",
         "source_url": "https://hngcjs.hnjs.henan.gov.cn/site/",
         "official_reference_url": "https://hngcjs.hnjs.henan.gov.cn/site/",
-        "runtime_status": "ENTRY_PORTAL_VERIFIED_ADAPTER_PENDING",
+        "runtime_status": "OFFICIAL_PLATFORM_REFERENCED_STRUCTURED_READBACK_MINIMUM_LOOP",
         "next_adapter": "henan_construction_market_public_service_query_adapter",
     },
 )

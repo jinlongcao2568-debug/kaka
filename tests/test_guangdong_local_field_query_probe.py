@@ -541,7 +541,7 @@ class GuangdongLocalFieldQueryProbeTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
             plan_root = root / "release-plan"
-            _write_henan_release_evidence_adapter_plan(plan_root)
+            _write_anhui_release_evidence_adapter_plan(plan_root)
             live_calls: list[str] = []
 
             def fake_getter(url: str, _params: Mapping[str, Any]) -> Mapping[str, Any]:
@@ -549,7 +549,7 @@ class GuangdongLocalFieldQueryProbeTests(unittest.TestCase):
                 return {
                     "http_status": 200,
                     "content_type": "text/html; charset=utf-8",
-                    "text_probe": "河南省建筑市场监管公共服务平台 河南测试建设有限公司",
+                    "text_probe": "安徽省建筑市场监管公共服务平台 安徽测试建设有限公司",
                 }
 
             result = build_guangdong_local_field_query_probe(
@@ -562,7 +562,7 @@ class GuangdongLocalFieldQueryProbeTests(unittest.TestCase):
             )
 
             self.assertTrue(result["safe_to_execute"])
-            self.assertEqual(result["summary"]["release_evidence_query_region_counts"]["CN-HA"], 1)
+            self.assertEqual(result["summary"]["release_evidence_query_region_counts"]["CN-AH"], 1)
             self.assertEqual(result["summary"]["region_adapter_required_count"], 1)
             self.assertEqual(live_calls, [])
             task = result["manifest"]["field_task_records"][0]
@@ -716,6 +716,150 @@ class GuangdongLocalFieldQueryProbeTests(unittest.TestCase):
             self.assertTrue(task["field_match_summary"]["browser_or_authorized_runtime_required_before_readback"])
             self.assertIn(
                 "hunan_jzsc_public_service_returned_html_shell_without_field_rows",
+                task["blocker_taxonomy"],
+            )
+
+    def test_henan_release_plan_live_uses_public_service_adapter_without_homepage_match(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            plan_root = root / "release-plan"
+            _write_henan_release_evidence_adapter_plan(plan_root)
+            live_route_groups: list[str] = []
+
+            def fake_getter(_url: str, params: Mapping[str, Any]) -> Mapping[str, Any]:
+                live_route_groups.append(str(params.get("_route_group") or ""))
+                if params.get("_route_group") == "ha_jzsc_public_service_structured_query":
+                    return {
+                        "http_status": 200,
+                        "content_type": "application/json; charset=utf-8",
+                        "json_payload": {
+                            "data": {
+                                "records": [
+                                    {
+                                        "projectName": "河南测试项目中标候选人公示",
+                                        "companyName": "河南测试建设有限公司",
+                                        "projectManagerName": "张三",
+                                        "permitNo": "豫建施许2026001",
+                                        "permitDate": "2026-05-20",
+                                    }
+                                ]
+                            },
+                        },
+                        "text_probe": "",
+                    }
+                return {
+                    "http_status": 200,
+                    "content_type": "text/html; charset=utf-8",
+                    "text_probe": "河南省建筑市场监管公共服务平台 建筑工程施工许可证电子证照查询",
+                }
+
+            result = build_guangdong_local_field_query_probe(
+                release_evidence_adapter_plan_root=plan_root,
+                output_root=root / "out",
+                enable_live_public_query=True,
+                max_live_tasks=1,
+                http_getter=fake_getter,
+                created_at="2026-05-20T00:00:00+08:00",
+            )
+
+            self.assertTrue(result["safe_to_execute"])
+            summary = result["summary"]
+            self.assertEqual(summary["release_evidence_query_region_counts"]["CN-HA"], 1)
+            self.assertEqual(summary.get("region_adapter_required_count", 0), 0)
+            self.assertEqual(summary["henan_jzsc_readback_ready_count"], 1)
+            self.assertIn("ha_jzsc_public_service_structured_query", live_route_groups)
+            task = result["manifest"]["field_task_records"][0]
+            self.assertEqual(task["source_profile_id"], "HENAN-JZSC-PUBLIC-SERVICE")
+            self.assertEqual(
+                task["field_adapter_status"],
+                "IMPLEMENTED_INLINE:henan_construction_market_public_service_query_adapter_v1",
+            )
+            self.assertEqual(task["local_housing_authority_adapter_region_code"], "CN-HA")
+            self.assertTrue(task["no_fallback_to_guangdong_or_guangzhou"])
+            self.assertEqual(task["field_query_probe_state"], "FIELD_READBACK_READY_PUBLIC_SOURCE")
+            self.assertEqual(task["adapter_result_state"], "MATCHED")
+            self.assertEqual(task["downstream_release_evidence_abcd_grade"], "B_ENHANCEMENT_OFFICIAL_READBACK")
+            self.assertTrue(task["field_match_summary"]["entry_portal_reachability_is_not_field_verification"])
+            self.assertEqual(
+                task["field_summary"]["source_specific_adapter_id"],
+                "henan_construction_market_public_service_query_adapter_v1",
+            )
+            record = task["field_match_summary"]["source_specific_records"][0]
+            self.assertEqual(record["record_type"], "construction_permit_public_record")
+            self.assertEqual(record["permit_or_record_no"], "豫建施许2026001")
+
+    def test_henan_project_manager_change_requires_browser_runtime(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            plan_root = root / "release-plan"
+            _write_henan_release_evidence_adapter_plan(
+                plan_root,
+                target_type="project_manager_change_notice",
+                grade_on_match="C_REVERSE_EXPLANATION_OFFICIAL_READBACK",
+            )
+            live_calls: list[str] = []
+
+            def fake_getter(url: str, _params: Mapping[str, Any]) -> Mapping[str, Any]:
+                live_calls.append(url)
+                return {"http_status": 200, "content_type": "text/html", "text_probe": ""}
+
+            result = build_guangdong_local_field_query_probe(
+                release_evidence_adapter_plan_root=plan_root,
+                output_root=root / "out",
+                enable_live_public_query=True,
+                max_live_tasks=1,
+                http_getter=fake_getter,
+                created_at="2026-05-20T00:00:00+08:00",
+            )
+
+            self.assertTrue(result["safe_to_execute"])
+            self.assertEqual(live_calls, [])
+            task = result["manifest"]["field_task_records"][0]
+            self.assertEqual(task["adapter_result_state"], "NEEDS_BROWSER")
+            self.assertEqual(task["field_query_probe_state"], "LIVE_FIELD_QUERY_NEEDS_BROWSER")
+            self.assertEqual(
+                task["downstream_release_evidence_abcd_grade"],
+                "D_INSUFFICIENT_OR_BLOCKED_READBACK",
+            )
+            self.assertIn(
+                "henan_project_manager_change_notice_requires_browser_or_authorized_runtime",
+                task["blocker_taxonomy"],
+            )
+            self.assertIn(
+                "henan_project_manager_change_notice_browser_required_v1",
+                _route_adapter_ids(task),
+            )
+
+    def test_henan_html_shell_needs_browser_not_not_found(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            plan_root = root / "release-plan"
+            _write_henan_release_evidence_adapter_plan(plan_root)
+
+            def fake_getter(_url: str, _params: Mapping[str, Any]) -> Mapping[str, Any]:
+                return {
+                    "http_status": 200,
+                    "content_type": "text/html; charset=utf-8",
+                    "text_probe": "<html><body>河南省建筑市场监管公共服务平台 电子证照 工程项目数据</body></html>",
+                }
+
+            result = build_guangdong_local_field_query_probe(
+                release_evidence_adapter_plan_root=plan_root,
+                output_root=root / "out",
+                enable_live_public_query=True,
+                max_live_tasks=1,
+                http_getter=fake_getter,
+                created_at="2026-05-20T00:00:00+08:00",
+            )
+
+            self.assertTrue(result["safe_to_execute"])
+            task = result["manifest"]["field_task_records"][0]
+            self.assertEqual(task["field_query_probe_state"], "LIVE_FIELD_QUERY_NEEDS_BROWSER")
+            self.assertEqual(task["adapter_result_state"], "NEEDS_BROWSER")
+            self.assertEqual(task["downstream_release_evidence_abcd_grade"], "D_INSUFFICIENT_OR_BLOCKED_READBACK")
+            self.assertTrue(task["field_match_summary"]["browser_or_authorized_runtime_required_before_readback"])
+            self.assertIn(
+                "henan_jzsc_public_service_returned_html_shell_without_field_rows",
                 task["blocker_taxonomy"],
             )
 
@@ -2922,9 +3066,14 @@ def _write_hunan_release_evidence_adapter_plan(
     )
 
 
-def _write_henan_release_evidence_adapter_plan(root: Path) -> None:
+def _write_henan_release_evidence_adapter_plan(
+    root: Path,
+    *,
+    target_type: str = "construction_permit",
+    grade_on_match: str = "B_ENHANCEMENT_OFFICIAL_READBACK",
+) -> None:
     root.mkdir(parents=True, exist_ok=True)
-    task = _release_plan_task("REL-HA-TASK-1", "construction_permit", "B_ENHANCEMENT_OFFICIAL_READBACK")
+    task = _release_plan_task("REL-HA-TASK-1", target_type, grade_on_match)
     task.update(
         {
             "project_id": "PROJ-HA-P13B-1",
@@ -2952,7 +3101,7 @@ def _write_henan_release_evidence_adapter_plan(root: Path) -> None:
             "official_reference_url": "https://hngcjs.hnjs.henan.gov.cn/site/",
             "source_family": "regional_construction_market_public_service",
             "next_adapter": "henan_construction_market_public_service_query_adapter",
-            "runtime_status": "ENTRY_PORTAL_VERIFIED_ADAPTER_PENDING",
+            "runtime_status": "OFFICIAL_PLATFORM_REFERENCED_STRUCTURED_READBACK_MINIMUM_LOOP",
             "query_params": {
                 "projectId": "PROJ-HA-P13B-1",
                 "projectName": "河南测试项目中标候选人公示",
@@ -2970,6 +3119,62 @@ def _write_henan_release_evidence_adapter_plan(root: Path) -> None:
         "summary": {
             "adapter_task_count": 1,
             "local_housing_region_counts": {"CN-HA": 1},
+        },
+    }
+    (root / "release-evidence-adapter-plan-v1.json").write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+
+def _write_anhui_release_evidence_adapter_plan(root: Path) -> None:
+    root.mkdir(parents=True, exist_ok=True)
+    task = _release_plan_task("REL-AH-TASK-1", "construction_permit", "B_ENHANCEMENT_OFFICIAL_READBACK")
+    task.update(
+        {
+            "project_id": "PROJ-AH-P13B-1",
+            "project_name": "安徽测试项目中标候选人公示",
+            "candidate_company_name": "安徽测试建设有限公司",
+            "release_evidence_query_region_code": "CN-AH",
+            "local_housing_authority_adapter_region_code": "CN-AH",
+            "non_guangdong_release_adapter_rule": (
+                "NON_GUANGDONG_HISTORY_PROJECT_USE_JURISDICTION_LOCAL_HOUSING_AUTHORITY_ADAPTER"
+            ),
+            "jurisdiction_adapter_resolution_state": "JURISDICTION_LOCAL_HOUSING_ADAPTER_PLANNED",
+            "jurisdiction_local_housing_adapter": {
+                "region_code": "CN-AH",
+                "source_selection_scope": "HISTORICAL_PROJECT_JURISDICTION",
+                "source_profile_id": "ANHUI-JZSC-PUBLIC-SERVICE",
+                "next_adapter": "anhui_construction_market_public_service_query_adapter",
+                "no_fallback_to_guangdong_or_guangzhou": True,
+            },
+            "no_fallback_to_guangdong_or_guangzhou": True,
+            "source_entry_id": "AH-JZSC-PUBLIC-SERVICE",
+            "subsource_id": "",
+            "source_profile_id": "ANHUI-JZSC-PUBLIC-SERVICE",
+            "source_name": "安徽省建筑市场监管公共服务平台",
+            "source_url": "https://dohurd.ah.gov.cn/",
+            "official_reference_url": "https://dohurd.ah.gov.cn/",
+            "source_family": "regional_construction_market_public_service",
+            "next_adapter": "anhui_construction_market_public_service_query_adapter",
+            "runtime_status": "ENTRY_PORTAL_VERIFIED_ADAPTER_PENDING",
+            "query_params": {
+                "projectId": "PROJ-AH-P13B-1",
+                "projectName": "安徽测试项目中标候选人公示",
+                "companyName": "安徽测试建设有限公司",
+                "personName": "张三",
+                "keywords": ["安徽测试项目中标候选人公示", "安徽测试建设有限公司", "张三"],
+            },
+        }
+    )
+    payload = {
+        "manifest": {
+            "manifest_kind": "release_evidence_adapter_plan_v1_manifest",
+            "release_evidence_adapter_task_records": [task],
+        },
+        "summary": {
+            "adapter_task_count": 1,
+            "local_housing_region_counts": {"CN-AH": 1},
         },
     }
     (root / "release-evidence-adapter-plan-v1.json").write_text(
