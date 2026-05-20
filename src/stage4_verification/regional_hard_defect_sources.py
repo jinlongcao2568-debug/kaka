@@ -91,7 +91,7 @@ MAJOR_TARGET_REGION_SOURCE_CATALOG = (
         "source_name": "山东省住房城乡建设服务监管与信用信息综合平台 / 建筑市场监管与诚信信息一体化平台",
         "source_url": "https://zjt.shandong.gov.cn/",
         "official_reference_url": "https://zwfwzx.jining.gov.cn/art/2022/5/26/art_32745_2707826.html",
-        "runtime_status": "SOURCE_ANALYSIS_REQUIRED_ADAPTER_PENDING",
+        "runtime_status": "SOURCE_REFERENCED_STRUCTURED_READBACK_MINIMUM_LOOP",
         "next_adapter": "shandong_construction_market_credit_supervision_query_adapter",
     },
     {
