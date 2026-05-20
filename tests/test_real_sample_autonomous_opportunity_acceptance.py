@@ -186,6 +186,16 @@ class _FakeTwoAcceptedRealCandidateDiscoveryService:
         return base
 
 
+class _FakeMixedStage1SelectionRealCandidateDiscoveryService:
+    def discover(self, payload: dict, *, now: str | None = None) -> dict:
+        base = _FakeTwoAcceptedRealCandidateDiscoveryService().discover(payload, now=now)
+        second = dict(base["candidates"][1])
+        second["objection_deadline_at_optional"] = "2026-04-01T00:00:00+08:00"
+        second["candidate_key"] = "real-list-ready-expired-002"
+        base["candidates"] = [dict(base["candidates"][0]), second]
+        return base
+
+
 class _FakeReviewCandidateStage2CaptureService:
     def capture_candidates(
         self,
@@ -851,6 +861,103 @@ class RealSampleAutonomousOpportunityAcceptanceTests(
         self.assertEqual(
             runs["latest_customer_artifact_portal_path"],
             "/customer-artifact-portal/OPP-REAL-PUBLIC-001",
+        )
+
+    @patch(
+        "api.routes.operator_customer_access.RealPublicCandidateDiscoveryService",
+        return_value=_FakeMixedStage1SelectionRealCandidateDiscoveryService(),
+    )
+    @patch(
+        "api.routes.operator_customer_access.RealCandidateStage2CaptureService",
+        return_value=_FakeReviewCandidateStage2CaptureService(),
+    )
+    @patch(
+        "api.routes.operator_customer_access._build_real_public_stage4_9_readback_from_candidate",
+        side_effect=_partial_real_public_stage4_9_readback,
+    )
+    def test_real_public_search_marks_stage1_review_only_candidates_when_not_attempting_all(
+        self,
+        _real_public_readback: object,
+        _stage2_capture_service: object,
+        _discovery_service: object,
+    ) -> None:
+        client = TestClient(create_app())
+
+        response = client.request(
+            "POST",
+            "/operator-console/autonomous-opportunity-search",
+            json={
+                "region_codes": ["CN-GD"],
+                "query": "市政道路",
+                "project_types": ["municipal"],
+                "amount_min": 8000000,
+                "amount_max": 30000000,
+                "now": "2026-05-01T00:00:00+00:00",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["search_scope"]["candidate_count"], 2)
+        self.assertEqual(payload["search_scope"]["selected_candidate_count"], 1)
+        self.assertEqual(payload["search_scope"]["stage1_6_loop_candidate_count"], 1)
+        self.assertFalse(payload["search_scope"]["stage1_6_attempt_all_candidates_enabled"])
+        self.assertEqual(len(payload["closed_loop_results"]), 1)
+        self.assertEqual(payload["candidate_options"][1]["stage1_6_selection_state"], "NOT_SELECTED_FOR_STAGE1_6_LOOP")
+        self.assertEqual(
+            payload["candidate_options"][1]["stage1_6_selection_reason"],
+            "not_selected_by_stage1_market_scan_threshold_or_budget",
+        )
+
+    @patch(
+        "api.routes.operator_customer_access.RealPublicCandidateDiscoveryService",
+        return_value=_FakeMixedStage1SelectionRealCandidateDiscoveryService(),
+    )
+    @patch(
+        "api.routes.operator_customer_access.RealCandidateStage2CaptureService",
+        return_value=_FakeReviewCandidateStage2CaptureService(),
+    )
+    @patch(
+        "api.routes.operator_customer_access._build_real_public_stage4_9_readback_from_candidate",
+        side_effect=_partial_real_public_stage4_9_readback,
+    )
+    def test_real_public_search_attempts_all_stage1_6_candidates_when_explicitly_enabled(
+        self,
+        _real_public_readback: object,
+        _stage2_capture_service: object,
+        _discovery_service: object,
+    ) -> None:
+        client = TestClient(create_app())
+
+        response = client.request(
+            "POST",
+            "/operator-console/autonomous-opportunity-search",
+            json={
+                "region_codes": ["CN-GD"],
+                "query": "市政道路",
+                "project_types": ["municipal"],
+                "amount_min": 8000000,
+                "amount_max": 30000000,
+                "attempt_all_stage1_6_candidates": True,
+                "now": "2026-05-01T00:00:00+00:00",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["search_scope"]["candidate_count"], 2)
+        self.assertEqual(payload["search_scope"]["selected_candidate_count"], 1)
+        self.assertEqual(payload["search_scope"]["stage1_6_loop_candidate_count"], 2)
+        self.assertTrue(payload["search_scope"]["stage1_6_attempt_all_candidates_enabled"])
+        self.assertEqual(
+            payload["search_scope"]["stage1_6_candidate_selection_source"],
+            "ALL_REAL_PUBLIC_CANDIDATES_EXPLICIT_OPT_IN",
+        )
+        self.assertEqual(len(payload["closed_loop_results"]), 2)
+        self.assertEqual(payload["candidate_options"][1]["stage1_6_selection_state"], "SELECTED_FOR_STAGE1_6_LOOP")
+        self.assertEqual(
+            payload["candidate_options"][1]["stage1_6_selection_reason"],
+            "attempt_all_real_public_candidates_for_stage1_6_enabled",
         )
 
     @patch(

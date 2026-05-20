@@ -9,6 +9,7 @@ param(
     [double]$Stage2DetailCaptureTimeBudgetSeconds = 600,
     [double]$Stage16TimeBudgetSeconds = 600,
     [int]$DiscoveryProfileLimitPerRegion = 1,
+    [switch]$AttemptAllStage16Candidates,
     [switch]$EmitJson
 )
 
@@ -46,6 +47,9 @@ foreach ($profileId in $SourceProfileIds) {
 }
 if ($EmitJson) {
     $argsList += "--json"
+}
+if ($AttemptAllStage16Candidates) {
+    $argsList += "--attempt-all-stage1-6-candidates"
 }
 
 Push-Location $repoRoot

@@ -2682,16 +2682,33 @@ def _merge_selected_candidate(
 def _candidate_options_with_closed_loop_results(
     options: list[dict[str, Any]],
     closed_loop_results: list[dict[str, Any]],
+    *,
+    stage1_6_loop_project_ids: set[str] | None = None,
+    stage1_6_selection_reason_by_project_id: Mapping[str, str] | None = None,
 ) -> list[dict[str, Any]]:
     by_project_id = {
         str(result.get("project_id") or ""): result
         for result in closed_loop_results
         if str(result.get("project_id") or "").strip()
     }
+    loop_ids = stage1_6_loop_project_ids or set()
+    reason_by_project_id = dict(stage1_6_selection_reason_by_project_id or {})
     enriched: list[dict[str, Any]] = []
     for option in options:
         row = dict(option)
-        result = by_project_id.get(str(row.get("project_id") or ""))
+        project_id = str(row.get("project_id") or "")
+        result = by_project_id.get(project_id)
+        selected_for_stage1_6_loop = project_id in loop_ids or bool(result)
+        row["stage1_6_selected_for_loop"] = selected_for_stage1_6_loop
+        if selected_for_stage1_6_loop:
+            row["stage1_6_selection_state"] = "SELECTED_FOR_STAGE1_6_LOOP"
+            row["stage1_6_selection_reason"] = reason_by_project_id.get(
+                project_id,
+                "closed_loop_result_present" if result else "market_scan_opportunity_candidate_selected",
+            )
+        else:
+            row["stage1_6_selection_state"] = "NOT_SELECTED_FOR_STAGE1_6_LOOP"
+            row["stage1_6_selection_reason"] = "not_selected_by_stage1_market_scan_threshold_or_budget"
         if result:
             row["opportunity_id"] = result.get("opportunity_id")
             row["operator_workbench_readback_path"] = result.get("operator_workbench_readback_path")
@@ -2815,6 +2832,7 @@ def _stage1_6_validation_ledger(
     real_candidate_stage2_capture: Mapping[str, Any],
     raw_candidates: list[dict[str, Any]],
     selected_candidate_count: int,
+    stage1_6_loop_input_count: int,
     closed_loop_results: list[dict[str, Any]],
     stage1_6_attempted_count: int,
     stage1_6_pending_count: int,
@@ -2963,7 +2981,7 @@ def _stage1_6_validation_ledger(
             {
                 "stage": 4,
                 "name": "公开核验与项目经理身份补全",
-                "input_count": selected_candidate_count,
+                "input_count": stage1_6_loop_input_count,
                 "effective_count": stage1_6_attempted_count,
                 "invalid_count": sum(stage4_fail_reason_counts.values()),
                 "pending_count": stage1_6_pending_count,
@@ -3153,6 +3171,7 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
             real_candidate_stage2_capture=real_candidate_stage2_capture,
             raw_candidates=[],
             selected_candidate_count=0,
+            stage1_6_loop_input_count=0,
             closed_loop_results=[],
             stage1_6_attempted_count=0,
             stage1_6_pending_count=0,
@@ -3317,11 +3336,47 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
         }
     )
     selected = list(market_scan.get("opportunity_candidates", []))
+    market_scan_candidates = [
+        dict(item)
+        for item in list(market_scan.get("market_scan_candidates", []) or [])
+        if isinstance(item, Mapping)
+    ]
     raw_by_project_id = {str(item.get("project_id") or ""): item for item in raw_candidates}
     region_rank = {region: index for index, region in enumerate(requested_region_codes)}
     project_type_rank = {project_type_item: index for index, project_type_item in enumerate(requested_project_types)}
+    source_candidate_mode = (
+        "EXPLICIT_CANDIDATES"
+        if explicit_candidate_list
+        else "OFFLINE_SAMPLE_CANDIDATES"
+        if offline_sample_candidates_enabled
+        else REAL_PUBLIC_SOURCE_CANDIDATE_MODE
+    )
+    stage1_6_attempt_all_candidates_enabled = (
+        source_candidate_mode == REAL_PUBLIC_SOURCE_CANDIDATE_MODE
+        and _truthy(
+            _first_present(
+                payload.get("attempt_all_stage1_6_candidates"),
+                payload.get("attempt_all_candidates_for_stage1_6"),
+                payload.get("attempt_all_real_public_candidates_for_stage1_6"),
+            )
+        )
+    )
+    stage1_6_loop_candidates = [
+        dict(item)
+        for item in (market_scan_candidates if stage1_6_attempt_all_candidates_enabled else selected)
+    ]
+    stage1_6_selection_reason = (
+        "attempt_all_real_public_candidates_for_stage1_6_enabled"
+        if stage1_6_attempt_all_candidates_enabled
+        else "market_scan_opportunity_candidate_selected"
+    )
+    stage1_6_selection_reason_by_project_id = {
+        str(item.get("project_id") or ""): stage1_6_selection_reason
+        for item in stage1_6_loop_candidates
+        if str(item.get("project_id") or "").strip()
+    }
     selected_ranked = sorted(
-        [dict(item) for item in selected],
+        stage1_6_loop_candidates,
         key=lambda item: _candidate_selection_key(
             item,
             region_rank=region_rank,
@@ -3329,14 +3384,12 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
         ),
         reverse=True,
     )
+    selected_ranked_project_ids = {
+        str(item.get("project_id") or "")
+        for item in selected_ranked
+        if str(item.get("project_id") or "").strip()
+    }
     if not selected_ranked:
-        source_candidate_mode = (
-            "EXPLICIT_CANDIDATES"
-            if explicit_candidate_list
-            else "OFFLINE_SAMPLE_CANDIDATES"
-            if offline_sample_candidates_enabled
-            else REAL_PUBLIC_SOURCE_CANDIDATE_MODE
-        )
         offline_sample_mode = source_candidate_mode == "OFFLINE_SAMPLE_CANDIDATES"
         review_response = {
             "surface_id": "operator_autonomous_opportunity_search",
@@ -3352,6 +3405,12 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
                 "project_types": requested_project_types,
                 "candidate_count": len(raw_candidates),
                 "selected_candidate_count": len(selected),
+                "stage1_6_loop_candidate_count": len(selected_ranked),
+                "stage1_6_attempt_all_candidates_enabled": stage1_6_attempt_all_candidates_enabled,
+                "stage1_6_candidate_selection_source": "ALL_REAL_PUBLIC_CANDIDATES_EXPLICIT_OPT_IN"
+                if stage1_6_attempt_all_candidates_enabled
+                else "MARKET_SCAN_OPPORTUNITY_CANDIDATES",
+                "stage1_6_not_selected_candidate_count": max(len(raw_candidates) - len(selected_ranked), 0),
                 "closed_loop_generated_count": 0,
                 "selection_semantics": "CANDIDATE_PUBLICITY_WINDOW_LAYER_NOT_SINGLE_PICK",
                 "stage1_policy": "所有候选先入池，真实候选优先保留；Stage1 以中标候选公示/异议窗口作第一层分流，金额、项目类型、证据字段只作为复核/优先级标签；明确无效链接才跳过。",
@@ -3409,9 +3468,14 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
                 if source_candidate_mode == REAL_PUBLIC_SOURCE_CANDIDATE_MODE
                 else "候选进入 Stage1 评分，但未入选闭环生成。",
             },
-            "candidate_options": _candidate_option_surface(
-                market_scan=market_scan,
-                raw_candidates=raw_candidates,
+            "candidate_options": _candidate_options_with_closed_loop_results(
+                _candidate_option_surface(
+                    market_scan=market_scan,
+                    raw_candidates=raw_candidates,
+                ),
+                [],
+                stage1_6_loop_project_ids=selected_ranked_project_ids,
+                stage1_6_selection_reason_by_project_id=stage1_6_selection_reason_by_project_id,
             ),
             "selected_candidate_count": 0,
             "reason": "market_scan_did_not_select_candidate",
@@ -3861,6 +3925,8 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
             raw_candidates=raw_candidates,
         ),
         closed_loop_results,
+        stage1_6_loop_project_ids=selected_ranked_project_ids,
+        stage1_6_selection_reason_by_project_id=stage1_6_selection_reason_by_project_id,
     )
     capability_state = str(acceptance.get("capability_state") or "")
     if primary_real_public_mode:
@@ -3876,6 +3942,7 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
         real_candidate_stage2_capture=real_candidate_stage2_capture,
         raw_candidates=raw_candidates,
         selected_candidate_count=len(selected),
+        stage1_6_loop_input_count=len(selected_ranked),
         closed_loop_results=closed_loop_results,
         stage1_6_attempted_count=stage1_6_attempted_count,
         stage1_6_pending_count=stage1_6_pending_count,
@@ -3907,6 +3974,12 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
             "project_types": requested_project_types,
             "candidate_count": len(raw_candidates),
             "selected_candidate_count": len(selected),
+            "stage1_6_loop_candidate_count": len(selected_ranked),
+            "stage1_6_attempt_all_candidates_enabled": stage1_6_attempt_all_candidates_enabled,
+            "stage1_6_candidate_selection_source": "ALL_REAL_PUBLIC_CANDIDATES_EXPLICIT_OPT_IN"
+            if stage1_6_attempt_all_candidates_enabled
+            else "MARKET_SCAN_OPPORTUNITY_CANDIDATES",
+            "stage1_6_not_selected_candidate_count": max(len(raw_candidates) - len(selected_ranked), 0),
             "closed_loop_generated_count": closed_loop_generated_count,
             "stage1_6_closed_loop_count": stage1_6_closed_loop_count,
             "stage1_6_attempted_count": stage1_6_attempted_count,
@@ -3977,6 +4050,11 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
             "customer_sellable_evidence_ready": customer_sellable_evidence_ready,
             "real_public_stage4_9_chain_state": primary_real_public_chain_state,
             "real_public_stage1_6_chain_state": primary_real_public_stage1_6_chain_state,
+            "stage1_6_loop_candidate_count": len(selected_ranked),
+            "stage1_6_attempt_all_candidates_enabled": stage1_6_attempt_all_candidates_enabled,
+            "stage1_6_candidate_selection_source": "ALL_REAL_PUBLIC_CANDIDATES_EXPLICIT_OPT_IN"
+            if stage1_6_attempt_all_candidates_enabled
+            else "MARKET_SCAN_OPPORTUNITY_CANDIDATES",
             "stage1_6_attempted_count": stage1_6_attempted_count,
             "stage1_6_pending_count": stage1_6_pending_count,
             "stage2_detail_pending_for_stage1_6_count": stage2_detail_pending_for_stage1_6_count,

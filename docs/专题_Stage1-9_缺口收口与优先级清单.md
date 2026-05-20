@@ -1,6 +1,6 @@
 # 专题_Stage1-9_缺口收口与优先级清单
 
-**版本**: 2026-05-20 v44
+**版本**: 2026-05-20 v45
 
 ## 1. 文档定位
 
@@ -46,15 +46,22 @@
 4. 校准 Stage5 A/B/C/D 双闸门，避免把证据不足写成排除性结论。
 5. 最后做 Stage1-6 批量实战回归，形成省份、项目类型、附件类型的 readiness 表。
 
+### 2.0 2026-05-20 v45 实战增量
+
+- 已新增显式全候选 Stage1-6 压测开关：`run-guangzhou-real-public-stage4-9-pressure-v1.ps1 -AttemptAllStage16Candidates`。广州近期 `07` live30 复跑后，30/30 候选全部进入 Stage1-6，原来 15 个候选停在 Stage1 未入选的问题已不再是当前批次卡点。
+- 本轮 r2 结果：Stage2 详情快照 30/30，Stage3 parse 30/30，Stage1-6 readiness 分布为 Stage3 字段/角色缺口 8、Stage4 公开源/释放证据链缺口 22，Stage4 释放证据 bridge 扩为 120 条任务，客户可售证据包仍为 0/30。
+- Stage4 字段核验 live16：广州住建施工许可命中 `MATCHED/B` 1 条，广州公开源 `NOT_FOUND/D` 7 条，GDCIC 合同履约/项目经理变更 `NEEDS_BROWSER/D` 8 条，剩余 104 条因预算延后；Stage6 回灌后 30 个项目都有状态行，其中 1 个 `RELEASE_FIELD_QUERY_REVIEW_READY`、29 个 `RELEASE_FIELD_QUERY_GAP_OR_BLOCKER_REVIEW`。
+- 当前新的主卡点不是 Stage1，而是 Stage3 负责人/角色补全和 Stage4 释放证据真实源命中；GDCIC 仍需要授权 `storage_state` 或 `user_data_dir` 才能验证登录后字段面，HTTP / Dynamic / Stealthy 不能替代登录态。
+
 ## 2.1 当前五项进展快照
 
 | 优先级 | 当前完成度 | 代码与实战判断 |
 |---|---:|---|
-| Stage6 可观测性 | 90%-93% | 多项目/多批次总览、历史 run、中文标签、当前阶段、证据等级、阻断原因、下一步和 Stage7 gate 已完成第一轮 owner 可读化；Stage4 字段查询结果现在可单独导入 Stage6 状态表，live8 回放生成 15 个项目状态行，并把 `LOGIN_OR_SSO_REQUIRED` 和 operator next actions 投影到中文 owner 视图；Stage1-6 readiness 行已补 `stage1_6_bottleneck_stage` 与 `next_recommended_action` 兼容字段，后续随真实样本补字段。 |
-| Stage4 释放证据主链 | 91%-94% | 广东/广州施工许可、竣工验收 live canary 已可达可解析；GDCIC 已有 browser-authorized readback 产物消费和真实浏览器执行器，未授权登录壳实测会落 `BLOCKED`/D，并显式回传授权状态、字段面状态、所需登录态能力，以及 HTTP/Dynamic/Stealthy 不能替代登录态；项目经理变更授权回读已能结构化原项目经理、新项目经理、变更日期、变更原因和责任窗口解释；浙江、四川、江苏、湖北、山东、湖南、河南七个重点省份第一版字段 adapter 已接入；Stage4 real_public pressure 已能把释放证据缺口桥接成 plan-only 字段查询任务，广州 live30 生成 60 条 bridge 任务，dry-run 消费 60 条，live8 canary 得到施工许可/竣工 `NOT_FOUND/D` 4 条与合同/变更 `NEEDS_BROWSER/D` 4 条，并已回灌到 Stage6 多项目状态；Stage4 GET/readback 已桥接 Scrapling escalation，POST/cookie/session 路径保持原逻辑。 |
+| Stage6 可观测性 | 92%-95% | 多项目/多批次总览、历史 run、中文标签、当前阶段、证据等级、阻断原因、下一步和 Stage7 gate 已完成第一轮 owner 可读化；Stage4 字段查询结果现在可单独导入 Stage6 状态表，live16 回放生成 30 个项目状态行，1 个 `RELEASE_FIELD_QUERY_REVIEW_READY`、29 个 `RELEASE_FIELD_QUERY_GAP_OR_BLOCKER_REVIEW`，并把 `LOGIN_OR_SSO_REQUIRED` 和 operator next actions 投影到中文 owner 视图；Stage1-6 readiness 行已补 `stage1_6_bottleneck_stage` 与 `next_recommended_action` 兼容字段，后续随真实样本补字段。 |
+| Stage4 释放证据主链 | 93%-95% | 广东/广州施工许可、竣工验收 live canary 已可达可解析；GDCIC 已有 browser-authorized readback 产物消费和真实浏览器执行器，未授权登录壳实测会落 `BLOCKED`/D，并显式回传授权状态、字段面状态、所需登录态能力，以及 HTTP/Dynamic/Stealthy 不能替代登录态；项目经理变更授权回读已能结构化原项目经理、新项目经理、变更日期、变更原因和责任窗口解释；浙江、四川、江苏、湖北、山东、湖南、河南七个重点省份第一版字段 adapter 已接入；Stage4 real_public pressure 已能把释放证据缺口桥接成 plan-only 字段查询任务，广州 live30 attempt-all 生成 120 条 bridge 任务，live16 canary 得到施工许可 `MATCHED/B` 1 条、广州公开源 `NOT_FOUND/D` 7 条、合同履约/项目经理变更 `NEEDS_BROWSER/D` 8 条，并已回灌到 Stage6 多项目状态；Stage4 GET/readback 已桥接 Scrapling escalation，POST/cookie/session 路径保持原逻辑。 |
 | Stage1-3 实战稳定性 | 68%-74% | Stage2 已新增 Scrapling parser-only snapshot 增强、单目录 comparison 和多目录 readiness 回放脚本；44 个历史目录中 9 个有 HTML snapshot、33 个 HTML snapshot 被比较，严格附件候选 9/9 稳定；2026-05-20 广州 live30 里 Stage2 详情快照 30/30、Stage3 parse 30/30，说明广州主链可批量跑；Stage3 人名质量门已补 live20 误抽词拦截，无网络回放确认“厦门重、质量目标、幢游泳馆、投资、年以上、国电电力、万千瓦、陕西榆林”等不再产出，同时保留 `曾凡伟`、`胡昌华` 等正样本；剩余缺口是更多省份/附件/OCR/复杂表格压测。 |
 | Stage5 规则门校准 | 50%-60% | A/B/C/D 与“查不到不是没问题”口径已固化；仍缺 20-50 个真实样本误判/漏判校准。 |
-| Stage1-6 批量实战回归 | 55%-62% | 已跑广州近期 `07` live30，并修正 readiness 账本分类：15 条 Stage1 复核暂存、5 条 Stage3 负责人角色缺口、10 条 Stage4 公开源/释放证据链缺口；客户可售证据包 0/30。Stage4 主链接入释放证据 bridge 已完成第一版并经 live8 验证；Stage3 负责人误抽已完成第一轮硬化和 live20 无网络回放；字段查询结果已回灌 Stage6 多项目状态，下一步扩大到 50 个或切换山东/湖北等地区实战，并补授权会话命中样本。 |
+| Stage1-6 批量实战回归 | 65%-72% | 已跑广州近期 `07` live30 attempt-all 复跑：30 条候选全部进入 Stage1-6，Stage2 详情 30/30，Stage3 parse 30/30，readiness 分布 Stage3 字段/角色缺口 8、Stage4 公开源/释放证据链缺口 22；客户可售证据包 0/30。Stage4 主链接入释放证据 bridge 已完成第一版并经 live16 验证；Stage3 负责人误抽已完成第一轮硬化和 live20 无网络回放；字段查询结果已回灌 Stage6 多项目状态，下一步扩大到 50 个或切换山东/湖北等地区实战，并补 GDCIC 授权会话命中样本。 |
 
 ## 3. 投影方法
 

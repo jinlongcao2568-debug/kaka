@@ -58,6 +58,7 @@ def run_real_public_stage4_9_pressure(
     attachment_capture_limit: int = DEFAULT_ATTACHMENT_CAPTURE_LIMIT,
     stage2_detail_capture_time_budget_seconds: float = DEFAULT_STAGE2_DETAIL_CAPTURE_TIME_BUDGET_SECONDS,
     stage1_6_time_budget_seconds: float = DEFAULT_STAGE1_6_TIME_BUDGET_SECONDS,
+    attempt_all_stage1_6_candidates: bool = False,
     discovery_profile_limit_per_region: int = 1,
     search_runner: SearchRunner | None = None,
     created_at: str | None = None,
@@ -77,6 +78,7 @@ def run_real_public_stage4_9_pressure(
         "attachment_capture_limit": attachment_capture_limit,
         "stage2_detail_capture_time_budget_seconds": stage2_detail_capture_time_budget_seconds,
         "stage1_6_time_budget_seconds": stage1_6_time_budget_seconds,
+        "attempt_all_stage1_6_candidates": attempt_all_stage1_6_candidates,
         "allow_offline_sample_candidates": False,
         "trace_mode": "GUANGZHOU_REAL_PUBLIC_STAGE4_9_PRESSURE",
         "now": created,
@@ -155,9 +157,19 @@ def build_real_public_stage4_9_pressure_summary(
         1 for readback in readbacks if bool(readback.get("jzsc_company_first_identity_resolution_required"))
     )
     selected_candidate_count = _as_int(search_scope.get("selected_candidate_count"), len(raw_candidates))
+    stage1_6_loop_candidate_count = _as_int(
+        search_scope.get("stage1_6_loop_candidate_count"),
+        len(closed_loop_results),
+    )
+    stage1_6_attempt_all_candidates_enabled = bool(search_scope.get("stage1_6_attempt_all_candidates_enabled"))
+    coverage_candidate_count = (
+        stage1_6_loop_candidate_count
+        if stage1_6_attempt_all_candidates_enabled
+        else selected_candidate_count
+    )
     coverage_state = (
         "FULL_TARGET_COVERAGE"
-        if selected_candidate_count >= target_accepted_candidate_count
+        if coverage_candidate_count >= target_accepted_candidate_count
         else "PARTIAL_SOURCE_COVERAGE"
     )
     summary = {
@@ -167,6 +179,13 @@ def build_real_public_stage4_9_pressure_summary(
         "coverage_state": coverage_state,
         "candidate_count": _as_int(search_scope.get("candidate_count"), len(raw_candidates)),
         "selected_candidate_count": selected_candidate_count,
+        "stage1_6_loop_candidate_count": stage1_6_loop_candidate_count,
+        "stage1_6_attempt_all_candidates_enabled": stage1_6_attempt_all_candidates_enabled,
+        "stage1_6_candidate_selection_source": str(search_scope.get("stage1_6_candidate_selection_source") or ""),
+        "stage1_6_not_selected_candidate_count": _as_int(
+            search_scope.get("stage1_6_not_selected_candidate_count"),
+            max(len(raw_candidates) - stage1_6_loop_candidate_count, 0),
+        ),
         "closed_loop_results_count": len(closed_loop_results),
         "real_public_stage4_9_chain_state_counts": _status_counts(closed_loop_results, "real_public_stage4_9_chain_state"),
         "real_public_stage1_6_chain_state_counts": _status_counts(closed_loop_results, "real_public_stage1_6_chain_state"),
@@ -775,6 +794,8 @@ def _stage1_6_readiness_records(result: Mapping[str, Any]) -> list[dict[str, Any
                 "source_url": str(row.get("source_url") or ""),
                 "notice_stage": str(row.get("notice_stage") or ""),
                 "candidate_company": str(row.get("candidate_company") or row.get("winner_name") or ""),
+                "stage1_6_selection_state": str(row.get("stage1_6_selection_state") or ""),
+                "stage1_6_selection_reason": str(row.get("stage1_6_selection_reason") or ""),
                 "stage1_candidate_discovery_state": stage_states["stage1"],
                 "stage2_detail_capture_state": stage_states["stage2"],
                 "stage3_field_parse_state": stage_states["stage3"],
@@ -1184,6 +1205,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         type=float,
         default=DEFAULT_STAGE1_6_TIME_BUDGET_SECONDS,
     )
+    parser.add_argument("--attempt-all-stage1-6-candidates", action="store_true")
     parser.add_argument("--discovery-profile-limit-per-region", type=int, default=1)
     parser.add_argument("--json", action="store_true", dest="emit_json")
     return parser.parse_args(argv)
@@ -1202,6 +1224,7 @@ def main(argv: list[str] | None = None) -> int:
             attachment_capture_limit=args.attachment_capture_limit,
             stage2_detail_capture_time_budget_seconds=args.stage2_detail_capture_time_budget_seconds,
             stage1_6_time_budget_seconds=args.stage1_6_time_budget_seconds,
+            attempt_all_stage1_6_candidates=args.attempt_all_stage1_6_candidates,
             discovery_profile_limit_per_region=args.discovery_profile_limit_per_region,
         )
         payload: Mapping[str, Any] = result if args.emit_json else result["summary"]
