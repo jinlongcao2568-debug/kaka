@@ -407,6 +407,18 @@ def _query_task_records_from_release_evidence_adapter_tasks(release_plan_manifes
                 "release_evidence_grade_on_match": str(task.get("release_evidence_grade_on_match") or ""),
                 "release_evidence_query_region_code": str(task.get("release_evidence_query_region_code") or ""),
                 "release_evidence_query_region_basis": str(task.get("release_evidence_query_region_basis") or ""),
+                "local_housing_authority_adapter_scope": str(task.get("local_housing_authority_adapter_scope") or ""),
+                "local_housing_authority_adapter_region_code": str(
+                    task.get("local_housing_authority_adapter_region_code") or ""
+                ),
+                "non_guangdong_release_adapter_rule": str(task.get("non_guangdong_release_adapter_rule") or ""),
+                "jurisdiction_adapter_resolution_state": str(
+                    task.get("jurisdiction_adapter_resolution_state") or ""
+                ),
+                "jurisdiction_local_housing_adapter": dict(task.get("jurisdiction_local_housing_adapter") or {}),
+                "no_fallback_to_guangdong_or_guangzhou": bool(
+                    task.get("no_fallback_to_guangdong_or_guangzhou")
+                ),
                 "initial_release_evidence_abcd_grade": str(
                     task.get("initial_release_evidence_abcd_grade") or INITIAL_RELEASE_EVIDENCE_ABCD_GRADE
                 ),
@@ -437,6 +449,7 @@ def _query_task_records_from_release_evidence_adapter_tasks(release_plan_manifes
                 "source_family": str(source_fields.get("source_family") or ""),
                 "source_url": str(source_fields.get("source_url") or source_fields.get("api_url") or ""),
                 "api_url": str(source_fields.get("api_url") or ""),
+                "official_reference_url": str(source_fields.get("official_reference_url") or ""),
                 "next_adapter": str(source_fields.get("next_adapter") or ""),
                 "runtime_status": str(source_fields.get("runtime_status") or ""),
                 "release_evidence_minimum_loop_source_selection": str(
@@ -466,6 +479,7 @@ def _release_plan_source_fields(task: Mapping[str, Any], release_target: str) ->
         "source_family": str(task.get("source_family") or ""),
         "source_url": str(task.get("source_url") or ""),
         "api_url": str(task.get("api_url") or ""),
+        "official_reference_url": str(task.get("official_reference_url") or ""),
         "next_adapter": str(task.get("next_adapter") or ""),
         "runtime_status": str(task.get("runtime_status") or ""),
         "release_evidence_minimum_loop_source_selection": "UPSTREAM_SOURCE_PRESERVED",
@@ -643,6 +657,18 @@ def _field_task_records_from_local_verification(
                 "historical_project_region_code": str(task.get("historical_project_region_code") or ""),
                 "release_evidence_query_region_code": str(task.get("release_evidence_query_region_code") or ""),
                 "release_evidence_query_region_basis": str(task.get("release_evidence_query_region_basis") or ""),
+                "local_housing_authority_adapter_scope": str(task.get("local_housing_authority_adapter_scope") or ""),
+                "local_housing_authority_adapter_region_code": str(
+                    task.get("local_housing_authority_adapter_region_code") or ""
+                ),
+                "non_guangdong_release_adapter_rule": str(task.get("non_guangdong_release_adapter_rule") or ""),
+                "jurisdiction_adapter_resolution_state": str(
+                    task.get("jurisdiction_adapter_resolution_state") or ""
+                ),
+                "jurisdiction_local_housing_adapter": dict(task.get("jurisdiction_local_housing_adapter") or {}),
+                "no_fallback_to_guangdong_or_guangzhou": bool(
+                    task.get("no_fallback_to_guangdong_or_guangzhou")
+                ),
                 "project_id": str(task.get("project_id") or ""),
                 "project_name": str(task.get("project_name") or ""),
                 "candidate_group_id": str(task.get("candidate_group_id") or ""),
@@ -660,6 +686,7 @@ def _field_task_records_from_local_verification(
                 "source_family": str(task.get("source_family") or ""),
                 "source_url": str(task.get("source_url") or ""),
                 "api_url": str(task.get("api_url") or ""),
+                "official_reference_url": str(task.get("official_reference_url") or ""),
                 "next_adapter": str(task.get("next_adapter") or ""),
                 "runtime_status": str(task.get("runtime_status") or ""),
                 "release_evidence_minimum_loop_source_selection": str(
@@ -737,7 +764,11 @@ def _downstream_release_evidence_abcd_grade(
     state = str(field_query_probe_state or "")
     if state in {"PLAN_ONLY_NOT_EXECUTED", "DELEGATED_TO_SEPARATE_FIELD_ADAPTER"}:
         return DOWNSTREAM_PENDING_RELEASE_EVIDENCE_ABCD_GRADE
-    if state in {"LIVE_FIELD_QUERY_DEFERRED_BY_LIMIT", "LIVE_FIELD_QUERY_NEEDS_BROWSER"} or state.startswith("FAIL_CLOSED"):
+    if state in {
+        "LIVE_FIELD_QUERY_DEFERRED_BY_LIMIT",
+        "LIVE_FIELD_QUERY_NEEDS_BROWSER",
+        "LIVE_FIELD_QUERY_NEEDS_REGION_ADAPTER",
+    } or state.startswith("FAIL_CLOSED"):
         return "D_INSUFFICIENT_OR_BLOCKED_READBACK"
     if state == "NO_FIELD_MATCH_REVIEW_REQUIRED":
         return "D_INSUFFICIENT_OR_BLOCKED_READBACK"
@@ -1081,6 +1112,23 @@ def _is_release_evidence_task(task: Mapping[str, Any]) -> bool:
     return str(task.get("input_source_kind") or "") in RELEASE_EVIDENCE_INPUT_SOURCE_KINDS or bool(
         str(task.get("release_evidence_target_type") or "")
     )
+
+
+def _requires_region_adapter_readback(task: Mapping[str, Any]) -> bool:
+    if not _is_release_evidence_task(task):
+        return False
+    region_code = str(
+        task.get("local_housing_authority_adapter_region_code")
+        or task.get("release_evidence_query_region_code")
+        or ""
+    ).strip().upper()
+    if not region_code or region_code == "CN-GD":
+        return False
+    if bool(task.get("no_fallback_to_guangdong_or_guangzhou")):
+        return True
+    if str(task.get("non_guangdong_release_adapter_rule") or "").strip():
+        return True
+    return str(task.get("jurisdiction_adapter_resolution_state") or "").startswith("JURISDICTION_LOCAL_HOUSING_ADAPTER")
 
 
 def _browser_required_route(
@@ -1476,6 +1524,46 @@ def _browser_required_readback(adapter_id: str, route_plan: list[Mapping[str, An
     }
 
 
+def _region_adapter_required_readback(task: Mapping[str, Any], route_plan: list[Mapping[str, Any]]) -> dict[str, Any]:
+    region_code = str(
+        task.get("local_housing_authority_adapter_region_code")
+        or task.get("release_evidence_query_region_code")
+        or ""
+    )
+    next_adapter = str(task.get("next_adapter") or "local_housing_authority_release_evidence_adapter_required")
+    resolution_state = str(task.get("jurisdiction_adapter_resolution_state") or "")
+    return {
+        "field_query_probe_state": "LIVE_FIELD_QUERY_NEEDS_REGION_ADAPTER",
+        "field_readback_state": "FIELD_READBACK_REGION_ADAPTER_REQUIRED",
+        "readback_ready": False,
+        "readback_status_code": None,
+        "field_summary": {
+            "source_specific_adapter_id": next_adapter,
+            "record_count": 0,
+            "source_profile_id": str(task.get("source_profile_id") or ""),
+            "release_evidence_query_region_code": region_code,
+            "jurisdiction_adapter_resolution_state": resolution_state,
+            "no_fallback_to_guangdong_or_guangzhou": bool(task.get("no_fallback_to_guangdong_or_guangzhou")),
+            "region_adapter_required_before_readback": True,
+        },
+        "field_match_summary": {
+            "query_miss_is_not_clearance": True,
+            "entry_portal_reachability_is_not_field_verification": True,
+            "region_adapter_required_before_readback": True,
+        },
+        "route_plan": list(route_plan),
+        "route_attempts": [],
+        "blocker_taxonomy": _dedupe(
+            [
+                "non_guangdong_release_evidence_requires_jurisdiction_adapter",
+                "do_not_fallback_non_guangdong_history_project_to_guangdong_or_guangzhou_sources",
+                f"jurisdiction_adapter_resolution_state:{resolution_state}" if resolution_state else "",
+                f"release_evidence_query_region_code:{region_code}" if region_code else "",
+            ]
+        ),
+    }
+
+
 def _execute_live_field_query(
     task: Mapping[str, Any],
     route_plan: list[Mapping[str, Any]],
@@ -1485,6 +1573,8 @@ def _execute_live_field_query(
     credit_gd_max_requests_per_task: int | None,
     credit_gd_request_interval_seconds: float | None,
 ) -> dict[str, Any]:
+    if _requires_region_adapter_readback(task):
+        return _region_adapter_required_readback(task, route_plan)
     source_specific_adapter_ids = {
         str(route.get("source_specific_adapter_id") or "")
         for route in route_plan
@@ -3586,6 +3676,23 @@ def _summary(
             if str(task.get("input_source_kind") or "") in RELEASE_EVIDENCE_INPUT_SOURCE_KINDS
             and str(task.get("release_evidence_target_type") or "")
         ),
+        "release_evidence_query_region_counts": _counts(
+            task.get("local_housing_authority_adapter_region_code") or task.get("release_evidence_query_region_code")
+            for task in field_task_records
+            if str(task.get("input_source_kind") or "") in RELEASE_EVIDENCE_INPUT_SOURCE_KINDS
+        ),
+        "jurisdiction_adapter_resolution_state_counts": _counts(
+            task.get("jurisdiction_adapter_resolution_state")
+            for task in field_task_records
+            if str(task.get("input_source_kind") or "") in RELEASE_EVIDENCE_INPUT_SOURCE_KINDS
+            and str(task.get("jurisdiction_adapter_resolution_state") or "")
+        ),
+        "no_fallback_to_guangdong_or_guangzhou_task_count": sum(
+            1
+            for task in field_task_records
+            if str(task.get("input_source_kind") or "") in RELEASE_EVIDENCE_INPUT_SOURCE_KINDS
+            and bool(task.get("no_fallback_to_guangdong_or_guangzhou"))
+        ),
         "adapter_result_state_counts": _counts(task.get("adapter_result_state") for task in field_task_records),
         "allowed_adapter_result_states": list(ALLOWED_ADAPTER_RESULT_STATES),
         "readback_ready_count": sum(1 for task in field_task_records if bool(task.get("readback_ready"))),
@@ -3668,6 +3775,11 @@ def _summary(
         ),
         "review_required_count": sum(
             1 for task in field_task_records if str(task.get("field_query_probe_state") or "") == "NO_FIELD_MATCH_REVIEW_REQUIRED"
+        ),
+        "region_adapter_required_count": sum(
+            1
+            for task in field_task_records
+            if str(task.get("field_query_probe_state") or "") == "LIVE_FIELD_QUERY_NEEDS_REGION_ADAPTER"
         ),
         "fail_closed_count": sum(
             1 for task in field_task_records if str(task.get("field_query_probe_state") or "").startswith("FAIL_CLOSED")
