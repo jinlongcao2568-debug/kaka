@@ -91,16 +91,29 @@ ZHEJIANG_JZSC_FIELD_ADAPTER_ID = "zhejiang_construction_market_public_service_qu
 ZHEJIANG_JZSC_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID = (
     "zhejiang_project_manager_change_notice_browser_required_v1"
 )
+SICHUAN_JZSC_PROFILE_ID = "SICHUAN-JZSC-PUBLIC-SERVICE"
+SICHUAN_JZSC_BASE_URL = "https://sjfw.scjs.net.cn:8801"
+SICHUAN_JZSC_INDEX_URL = f"{SICHUAN_JZSC_BASE_URL}/xxgx/index.aspx"
+SICHUAN_JZSC_PROJECT_LIST_PAGE_URL = f"{SICHUAN_JZSC_BASE_URL}/xxgx/Project/pList.aspx"
+SICHUAN_JZSC_API_BASE_URL = f"{SICHUAN_JZSC_BASE_URL}/xxgx/api/getdata"
+SICHUAN_JZSC_PROJECT_SEARCH_API_URL = f"{SICHUAN_JZSC_API_BASE_URL}/GetPerjectList"
+SICHUAN_JZSC_FIELD_ADAPTER_ID = "sichuan_construction_market_public_service_query_adapter_v1"
+SICHUAN_JZSC_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID = (
+    "sichuan_project_manager_change_notice_browser_required_v1"
+)
 BROWSER_REQUIRED_FIELD_ADAPTER_IDS = {
     GUANGZHOU_ZFCJ_CONTRACT_CREDIT_BROWSER_ADAPTER_ID,
     GUANGZHOU_ZFCJ_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID,
     GUANGDONG_GDCIC_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID,
     ZHEJIANG_JZSC_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID,
+    SICHUAN_JZSC_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID,
 }
-SUPPORTED_REGION_FIELD_ADAPTER_PROFILE_IDS = {ZHEJIANG_JZSC_PROFILE_ID}
+SUPPORTED_REGION_FIELD_ADAPTER_PROFILE_IDS = {ZHEJIANG_JZSC_PROFILE_ID, SICHUAN_JZSC_PROFILE_ID}
 SUPPORTED_REGION_FIELD_ADAPTER_IDS = {
     "zhejiang_construction_market_public_service_query_adapter",
     ZHEJIANG_JZSC_FIELD_ADAPTER_ID,
+    "sichuan_construction_market_public_service_query_adapter",
+    SICHUAN_JZSC_FIELD_ADAPTER_ID,
 }
 
 FORBIDDEN_TERMS = ("在建冲突成立", "无在建", "无风险", "无冲突", "造假成立", "违法成立", "确认本人", "是不是本人")
@@ -625,6 +638,8 @@ def _field_adapter_status_for_profile(source_profile_id: str) -> str:
         return f"IMPLEMENTED_SEPARATE:{DELEGATED_PROFILE_ADAPTERS[profile_id]}"
     if profile_id == ZHEJIANG_JZSC_PROFILE_ID:
         return f"IMPLEMENTED_INLINE:{ZHEJIANG_JZSC_FIELD_ADAPTER_ID}"
+    if profile_id == SICHUAN_JZSC_PROFILE_ID:
+        return f"IMPLEMENTED_INLINE:{SICHUAN_JZSC_FIELD_ADAPTER_ID}"
     return "FIELD_ADAPTER_PENDING"
 
 
@@ -1204,6 +1219,63 @@ def _route_plan_for_task(task: Mapping[str, Any], query_params: Mapping[str, Any
                     "zhejiang_project_manager_change_notice_requires_browser_or_authorized_runtime",
                 )
             )
+    elif profile_id == SICHUAN_JZSC_PROFILE_ID:
+        company_keyword = str(query_params.get("companyName") or "").strip()
+        project_keyword = _clean_project_title(query_params.get("projectName"))
+        person_keyword = str(query_params.get("personName") or "").strip()
+        target_source_types = _target_source_type_set(task, query_params)
+        wants_project_manager_change = "project_manager_change_notice" in target_source_types
+        routes.extend(
+            [
+                _sichuan_jzsc_public_page_route("sc_jzsc_public_platform_home", SICHUAN_JZSC_INDEX_URL, keywords),
+                _sichuan_jzsc_public_page_route(
+                    "sc_jzsc_project_list_page",
+                    SICHUAN_JZSC_PROJECT_LIST_PAGE_URL,
+                    keywords,
+                ),
+            ]
+        )
+        if project_keyword:
+            routes.append(
+                _sichuan_jzsc_project_search_route(
+                    "sc_jzsc_project_search_project_name",
+                    company_keyword="",
+                    project_keyword=project_keyword,
+                    person_keyword=person_keyword,
+                    query_keywords=keywords,
+                )
+            )
+        if company_keyword:
+            routes.append(
+                _sichuan_jzsc_project_search_route(
+                    "sc_jzsc_project_search_company_unit",
+                    company_keyword=company_keyword,
+                    project_keyword="",
+                    person_keyword=person_keyword,
+                    query_keywords=keywords,
+                )
+            )
+        if company_keyword and project_keyword:
+            routes.append(
+                _sichuan_jzsc_project_search_route(
+                    "sc_jzsc_project_search_company_project",
+                    company_keyword=company_keyword,
+                    project_keyword=project_keyword,
+                    person_keyword=person_keyword,
+                    query_keywords=keywords,
+                )
+            )
+        if wants_project_manager_change:
+            routes.append(
+                _browser_required_route(
+                    "sc_jzsc_project_manager_change_browser_required",
+                    SICHUAN_JZSC_PROJECT_LIST_PAGE_URL,
+                    "sc_jzsc_project_manager_change_browser_required",
+                    keywords,
+                    SICHUAN_JZSC_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID,
+                    "sichuan_project_manager_change_notice_requires_browser_or_authorized_runtime",
+                )
+            )
     else:
         routes.append(_route("source_home", source_url, "source_home_probe", keywords))
     return [route for route in routes if route["url"]]
@@ -1463,6 +1535,67 @@ def _zhejiang_jzsc_api_route(
         "zhejiang_endpoint": endpoint,
         "zhejiang_target_source_type": target,
         "referer": ZHEJIANG_JZSC_PUBLIC_WEB_URL,
+    }
+
+
+def _sichuan_jzsc_public_page_route(route_id: str, url: str, query_keywords: list[str]) -> dict[str, Any]:
+    route = _route(route_id, url, "sc_jzsc_public_page_probe", query_keywords)
+    route["source_specific_adapter_id"] = SICHUAN_JZSC_FIELD_ADAPTER_ID
+    route["referer"] = SICHUAN_JZSC_INDEX_URL
+    route["field_verification_role"] = "reachability_only_not_field_match"
+    return route
+
+
+def _sichuan_jzsc_project_search_route(
+    route_id: str,
+    *,
+    company_keyword: str,
+    project_keyword: str,
+    person_keyword: str,
+    query_keywords: list[str],
+) -> dict[str, Any]:
+    search = {
+        "lb": "",
+        "bh": "",
+        "mc": project_keyword,
+        "dw": company_keyword,
+        "dq": "",
+        "validate": "",
+    }
+    return {
+        "route_id": route_id,
+        "route_group": "sc_jzsc_project_search_api",
+        "url": SICHUAN_JZSC_PROJECT_SEARCH_API_URL,
+        "method": "GET",
+        "params": {"id": json.dumps(search, ensure_ascii=False, separators=(",", ":"))},
+        "keyword_count": len(query_keywords),
+        "query_keyword_probe": query_keywords[:5],
+        "source_specific_adapter_id": SICHUAN_JZSC_FIELD_ADAPTER_ID,
+        "sichuan_project_search": search,
+        "sichuan_person_name_probe": person_keyword,
+        "referer": SICHUAN_JZSC_PROJECT_LIST_PAGE_URL,
+    }
+
+
+def _sichuan_jzsc_detail_route(
+    route_id: str,
+    endpoint: str,
+    project_token: str,
+    target_source_type: str,
+    query_keywords: list[str],
+) -> dict[str, Any]:
+    return {
+        "route_id": route_id,
+        "route_group": f"sc_jzsc_{target_source_type}_api",
+        "url": f"{SICHUAN_JZSC_API_BASE_URL}/{endpoint}/{urllib.parse.quote(project_token)}",
+        "method": "GET",
+        "params": {},
+        "keyword_count": len(query_keywords),
+        "query_keyword_probe": query_keywords[:5],
+        "source_specific_adapter_id": SICHUAN_JZSC_FIELD_ADAPTER_ID,
+        "sichuan_endpoint": endpoint,
+        "sichuan_target_source_type": target_source_type,
+        "referer": SICHUAN_JZSC_PROJECT_LIST_PAGE_URL,
     }
 
 
@@ -1790,6 +1923,11 @@ def _execute_live_field_query(
         for route in route_plan
     ):
         return _execute_zhejiang_jzsc_public_service_field_query(task, route_plan, http_getter=http_getter)
+    if any(
+        str(route.get("source_specific_adapter_id") or "") == SICHUAN_JZSC_FIELD_ADAPTER_ID
+        for route in route_plan
+    ):
+        return _execute_sichuan_jzsc_public_service_field_query(task, route_plan, http_getter=http_getter)
     if any(
         str(route.get("source_specific_adapter_id") or "")
         == "guangdong_zfcxjst_penalty_publicity_page_v1"
@@ -2297,6 +2435,17 @@ def _gdcic_browser_authorized_readback_for_task(
     raw_records: list[Mapping[str, Any]] = []
     blocked_artifacts: list[Mapping[str, Any]] = []
     no_record_artifacts: list[Mapping[str, Any]] = []
+    authorization_states = _dedupe(
+        str(artifact.get("authorization_readiness_state") or "")
+        for artifact in artifacts
+        if isinstance(artifact, Mapping)
+    )
+    operator_next_actions = _dedupe(
+        action
+        for artifact in artifacts
+        if isinstance(artifact, Mapping)
+        for action in _list(artifact.get("operator_next_actions"))
+    )
     for artifact in artifacts:
         state = _gdcic_browser_artifact_state(artifact)
         if _gdcic_browser_state_is_blocked(state):
@@ -2344,6 +2493,8 @@ def _gdcic_browser_authorized_readback_for_task(
         )[:10],
         "source_manifest_kind": manifest_kind,
         "source_manifest_id": manifest_id,
+        "authorization_readiness_states": authorization_states,
+        "operator_next_actions": operator_next_actions,
         "blocker_taxonomy": [],
     }
     common_summary = {
@@ -2355,10 +2506,16 @@ def _gdcic_browser_authorized_readback_for_task(
         "target_source_types": target_source_types,
         "contract_system_sso_route_seen": sso_route_seen,
         "browser_authorized_readback_consumed": True,
+        "browser_authorized_readback_state_counts": _counts(
+            _gdcic_browser_artifact_state(artifact) for artifact in artifacts
+        ),
+        "authorization_readiness_state_counts": _counts(authorization_states),
+        "operator_next_actions": operator_next_actions,
     }
     common_match_summary = {
         "query_miss_is_not_clearance": True,
         "browser_authorized_readback_consumed": True,
+        "authorization_readiness_state": _first_text(authorization_states),
         "readback_is_line_clue_not_final_conclusion": True,
     }
     blocker_taxonomy = _dedupe(
@@ -2877,6 +3034,204 @@ def _execute_zhejiang_jzsc_public_service_field_query(
         "route_plan": list(route_plan),
         "route_attempts": attempts,
         "blocker_taxonomy": blockers or ["zhejiang_jzsc_public_service_no_structured_record_review"],
+    }
+
+
+def _execute_sichuan_jzsc_public_service_field_query(
+    task: Mapping[str, Any],
+    route_plan: list[Mapping[str, Any]],
+    *,
+    http_getter: HttpGetter | None,
+) -> dict[str, Any]:
+    target_source_types = _target_source_type_set(task, dict(task.get("query_params") or {}))
+    wants_all = not target_source_types
+    wants_construction = wants_all or "construction_permit" in target_source_types
+    wants_contract = wants_all or bool(target_source_types & {"contract_public_info", "contract_performance"})
+    wants_completion = wants_all or bool(
+        target_source_types
+        & {"completion_filing", "completion_acceptance", "completion_acceptance_or_completion_filing"}
+    )
+    wants_project_manager_change_only = "project_manager_change_notice" in target_source_types and not (
+        wants_construction or wants_contract or wants_completion
+    )
+    if wants_project_manager_change_only:
+        return _browser_required_readback(SICHUAN_JZSC_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID, route_plan)
+
+    getter = http_getter or _default_http_getter
+    query_params = dict(task.get("query_params") or {})
+    keywords = _query_keywords(query_params)
+    attempts: list[dict[str, Any]] = []
+    source_records: list[dict[str, Any]] = []
+    api_attempts: list[dict[str, Any]] = []
+    project_search_record_count = 0
+    public_page_reachable = False
+    browser_required_seen = False
+    seen_project_tokens: set[str] = set()
+
+    for route in route_plan:
+        route_group = str(route.get("route_group") or "")
+        if route_group == "sc_jzsc_project_manager_change_browser_required":
+            browser_required_seen = True
+            continue
+        response = _safe_get(route, getter=getter)
+        attempt = _route_attempt(route, response, keywords)
+        if route_group == "sc_jzsc_public_page_probe":
+            if _int(attempt.get("http_status")) == 200 and attempt.get("blocker_taxonomy") == [
+                "guangdong_local_field_query_captcha_or_login_required"
+            ]:
+                attempt["route_state"] = "PUBLIC_SOURCE_QUERIED"
+                attempt["blocker_taxonomy"] = []
+                attempt["navigation_login_text_suppressed"] = True
+            if attempt["route_state"] == "PUBLIC_SOURCE_QUERIED":
+                public_page_reachable = True
+                attempt["field_verification_role"] = "reachability_only_not_field_match"
+        attempts.append(attempt)
+        if route_group != "sc_jzsc_project_search_api":
+            continue
+        api_attempts.append(attempt)
+        project_records = _sichuan_jzsc_records_from_response(response)
+        project_search_record_count += len(project_records)
+        attempt["json_record_count"] = len(project_records)
+        for project_record in project_records[:5]:
+            project_token = _sichuan_project_token(project_record)
+            if not project_token:
+                continue
+            if project_token in seen_project_tokens:
+                continue
+            seen_project_tokens.add(project_token)
+            participant_record: Mapping[str, Any] = {}
+            participant_route = _sichuan_jzsc_detail_route(
+                f"sc_jzsc_project_participant_{_sha256_text(project_token)[:8]}",
+                "GetProjEnteList",
+                project_token,
+                "project_participant",
+                keywords,
+            )
+            participant_response = _safe_get(participant_route, getter=getter)
+            participant_attempt = _route_attempt(participant_route, participant_response, keywords)
+            participant_records = _sichuan_jzsc_records_from_response(participant_response)
+            participant_attempt["json_record_count"] = len(participant_records)
+            attempts.append(participant_attempt)
+            api_attempts.append(participant_attempt)
+            participant_record = _sichuan_best_participant_record(participant_records, keywords)
+            detail_routes: list[dict[str, Any]] = []
+            if wants_construction:
+                detail_routes.append(
+                    _sichuan_jzsc_detail_route(
+                        f"sc_jzsc_construction_permit_{_sha256_text(project_token)[:8]}",
+                        "GetProjSgxkzList",
+                        project_token,
+                        "construction_permit",
+                        keywords,
+                    )
+                )
+            if wants_contract:
+                detail_routes.append(
+                    _sichuan_jzsc_detail_route(
+                        f"sc_jzsc_contract_filing_{_sha256_text(project_token)[:8]}",
+                        "GetProjHtbaList",
+                        project_token,
+                        "contract_public_info",
+                        keywords,
+                    )
+                )
+            if wants_completion:
+                detail_routes.append(
+                    _sichuan_jzsc_detail_route(
+                        f"sc_jzsc_completion_acceptance_{_sha256_text(project_token)[:8]}",
+                        "GetProjJgbaList",
+                        project_token,
+                        "completion_filing",
+                        keywords,
+                    )
+                )
+            for detail_route in detail_routes:
+                detail_response = _safe_get(detail_route, getter=getter)
+                detail_attempt = _route_attempt(detail_route, detail_response, keywords)
+                detail_records = _sichuan_jzsc_records_from_response(detail_response)
+                detail_attempt["json_record_count"] = len(detail_records)
+                attempts.append(detail_attempt)
+                api_attempts.append(detail_attempt)
+                for detail_record in detail_records[:10]:
+                    compact = _compact_sichuan_jzsc_record(
+                        {**dict(project_record), **dict(participant_record), **dict(detail_record)},
+                        detail_route,
+                        keywords,
+                    )
+                    if compact.get("matched_keywords"):
+                        source_records.append(compact)
+
+    blockers = _dedupe(blocker for attempt in attempts for blocker in _list(attempt.get("blocker_taxonomy")))
+    status_codes = [_int(attempt.get("http_status")) for attempt in attempts if _int(attempt.get("http_status"))]
+    matched_keyword_count = len(
+        _dedupe(keyword for record in source_records for keyword in _list(record.get("matched_keywords")))
+    )
+    if source_records:
+        return {
+            "field_query_probe_state": "FIELD_READBACK_READY_PUBLIC_SOURCE",
+            "field_readback_state": "PUBLIC_SOURCE_FIELD_READBACK_READY_REVIEW_REQUIRED",
+            "readback_ready": True,
+            "readback_status_code": status_codes[0] if status_codes else 200,
+            "field_summary": {
+                "source_specific_adapter_id": SICHUAN_JZSC_FIELD_ADAPTER_ID,
+                "record_count": len(source_records),
+                "matched_keyword_count": matched_keyword_count,
+                "source_profile_keyword_hit": bool(matched_keyword_count),
+                "source_profile_id": SICHUAN_JZSC_PROFILE_ID,
+                "project_search_record_count": project_search_record_count,
+                "public_page_reachable": public_page_reachable,
+            },
+            "field_match_summary": {
+                "source_specific_records": source_records[:10],
+                "query_miss_is_not_clearance": True,
+                "readback_is_line_clue_not_final_conclusion": True,
+                "entry_portal_reachability_is_not_field_verification": True,
+            },
+            "route_plan": list(route_plan),
+            "route_attempts": attempts,
+            "blocker_taxonomy": blockers,
+        }
+    if api_attempts and all(str(attempt.get("route_state") or "").startswith("FAIL_CLOSED") for attempt in api_attempts):
+        return {
+            "field_query_probe_state": "FAIL_CLOSED_PUBLIC_SOURCE_BLOCKED",
+            "field_readback_state": "FIELD_READBACK_BLOCKED",
+            "readback_ready": False,
+            "readback_status_code": status_codes[0] if status_codes else None,
+            "field_summary": {
+                "source_specific_adapter_id": SICHUAN_JZSC_FIELD_ADAPTER_ID,
+                "project_search_record_count": project_search_record_count,
+                "public_page_reachable": public_page_reachable,
+            },
+            "field_match_summary": {
+                "query_miss_is_not_clearance": True,
+                "entry_portal_reachability_is_not_field_verification": True,
+            },
+            "route_plan": list(route_plan),
+            "route_attempts": attempts,
+            "blocker_taxonomy": blockers or ["sichuan_jzsc_public_service_all_api_routes_blocked"],
+        }
+    if browser_required_seen:
+        return _browser_required_readback(SICHUAN_JZSC_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID, route_plan)
+    return {
+        "field_query_probe_state": "NO_FIELD_MATCH_REVIEW_REQUIRED",
+        "field_readback_state": "PUBLIC_SOURCE_QUERIED_NO_FIELD_RECORD",
+        "readback_ready": False,
+        "readback_status_code": status_codes[0] if status_codes else None,
+        "field_summary": {
+            "source_specific_adapter_id": SICHUAN_JZSC_FIELD_ADAPTER_ID,
+            "record_count": 0,
+            "source_profile_keyword_hit": False,
+            "project_search_record_count": project_search_record_count,
+            "public_page_reachable": public_page_reachable,
+        },
+        "field_match_summary": {
+            "query_miss_is_not_clearance": True,
+            "entry_portal_reachability_is_not_field_verification": True,
+            "readback_is_line_clue_not_final_conclusion": True,
+        },
+        "route_plan": list(route_plan),
+        "route_attempts": attempts,
+        "blocker_taxonomy": blockers or ["sichuan_jzsc_public_service_no_structured_record_review"],
     }
 
 
@@ -3968,6 +4323,120 @@ def _compact_zhejiang_jzsc_record(
     }
 
 
+def _sichuan_jzsc_records_from_response(response: Mapping[str, Any]) -> list[Mapping[str, Any]]:
+    payload = _json_payload(response)
+    if isinstance(payload, list):
+        return [row for row in payload if isinstance(row, Mapping)]
+    if not isinstance(payload, Mapping):
+        return []
+    for candidate in (payload.get("Data"), payload.get("data"), payload.get("rows"), payload.get("list"), payload.get("result")):
+        if isinstance(candidate, list):
+            return [row for row in candidate if isinstance(row, Mapping)]
+        if isinstance(candidate, Mapping):
+            for key in ("Data", "data", "list", "rows", "records"):
+                nested = candidate.get(key)
+                if isinstance(nested, list):
+                    return [row for row in nested if isinstance(row, Mapping)]
+    return []
+
+
+def _sichuan_project_token(record: Mapping[str, Any]) -> str:
+    return _record_text(record, "dXMBH", "dxmbh", "DXMBH", "id", "XMBH")
+
+
+def _sichuan_best_participant_record(
+    records: list[Mapping[str, Any]],
+    keywords: list[str],
+) -> Mapping[str, Any]:
+    best: Mapping[str, Any] = {}
+    best_score = 0
+    for record in records:
+        text = _compact_mapping_text(record)
+        score = sum(1 for keyword in keywords if keyword and keyword in text)
+        role = _record_text(record, "EmpType", "CType")
+        if "项目负责人" in role or "项目经理" in role:
+            score += 1
+        if score > best_score:
+            best = record
+            best_score = score
+    return best
+
+
+def _compact_sichuan_jzsc_record(
+    record: Mapping[str, Any],
+    route: Mapping[str, Any],
+    keywords: list[str],
+) -> dict[str, Any]:
+    text = _compact_mapping_text(record)
+    matched = [keyword for keyword in keywords if keyword and keyword in text][:10]
+    target_source_type = str(route.get("sichuan_target_source_type") or "")
+    if target_source_type == "construction_permit":
+        record_type = "construction_permit_public_record"
+    elif target_source_type == "completion_filing":
+        record_type = "completion_acceptance_public_record"
+    elif target_source_type == "contract_public_info":
+        record_type = "contract_public_record"
+    else:
+        record_type = "regional_project_public_record"
+    project_name = _record_text(
+        record,
+        "XMMC",
+        "ProjectName",
+        "PrjItemName",
+        "GCMC",
+        "conPrjName",
+    )
+    company_name = _record_text(
+        record,
+        "ContractorCorpName",
+        "ConsCorpName",
+        "ConstructorName",
+        "QYMC",
+        "SGDW",
+        "sgdw",
+        "JSDW",
+        "PropietorCorpName",
+        "BuildCorpName",
+    )
+    record_no = _record_text(
+        record,
+        "XKZBH",
+        "BH",
+        "RecordNum",
+        "BAH",
+        "SGXKZH",
+        "ProjectHTNum",
+        "ContractNum",
+    )
+    return {
+        "source_profile_id": SICHUAN_JZSC_PROFILE_ID,
+        "source_specific_adapter_id": SICHUAN_JZSC_FIELD_ADAPTER_ID,
+        "source_page_url": SICHUAN_JZSC_PROJECT_LIST_PAGE_URL,
+        "route_id": str(route.get("route_id") or ""),
+        "endpoint": str(route.get("sichuan_endpoint") or ""),
+        "target_source_type": target_source_type,
+        "record_type": record_type,
+        "project_name_probe": project_name[:500],
+        "company_name_probe": company_name[:300],
+        "project_manager_name_probe": _record_text(record, "FHumanName", "ProjectManager", "ConstructorName")[:120],
+        "project_role_probe": _record_text(record, "EmpType", "CType")[:120],
+        "permit_or_record_no": record_no[:200],
+        "contract_date_probe": _record_text(record, "ContractDate")[:80],
+        "contract_money_probe": _record_text(record, "ContractMoney", "HTJG", "GCZJ")[:80],
+        "permit_issue_date_probe": _record_text(record, "FZRQ", "IssueDate")[:80],
+        "completion_acceptance_date_probe": _record_text(record, "JGYSRQ", "BASJ")[:80],
+        "project_start_date_probe": _record_text(record, "Bdate", "SJStartDate", "HTKGRQ")[:80],
+        "project_end_date_probe": _record_text(record, "Edate", "SJEndDate", "HTJGRQ")[:80],
+        "project_region_probe": _record_text(record, "XMSDMC")[:200],
+        "data_level_probe": _record_text(record, "DataLevel")[:80],
+        "matched_keywords": matched,
+        "detail_keys": sorted(str(key) for key in record.keys())[:24],
+        "record_sha256": _sha256_text(text),
+        "query_miss_is_not_clearance": True,
+        "readback_is_line_clue_not_final_conclusion": True,
+    }
+
+
 def _compact_guangzhou_zfcj_detail(record: Mapping[str, Any]) -> dict[str, Any]:
     if not record:
         return {}
@@ -4685,6 +5154,18 @@ def _summary(
             1
             for task in field_task_records
             if str(task.get("source_profile_id") or "").upper() == ZHEJIANG_JZSC_PROFILE_ID
+            and str(task.get("field_query_probe_state") or "") == "LIVE_FIELD_QUERY_NEEDS_BROWSER"
+        ),
+        "sichuan_jzsc_readback_ready_count": sum(
+            1
+            for task in field_task_records
+            if str(task.get("source_profile_id") or "").upper() == SICHUAN_JZSC_PROFILE_ID
+            and str(task.get("field_query_probe_state") or "") == "FIELD_READBACK_READY_PUBLIC_SOURCE"
+        ),
+        "sichuan_jzsc_browser_or_authorized_runtime_required_count": sum(
+            1
+            for task in field_task_records
+            if str(task.get("source_profile_id") or "").upper() == SICHUAN_JZSC_PROFILE_ID
             and str(task.get("field_query_probe_state") or "") == "LIVE_FIELD_QUERY_NEEDS_BROWSER"
         ),
         "guangdong_zfcxjst_penalty_readback_ready_count": sum(

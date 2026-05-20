@@ -69,6 +69,18 @@ class Stage6ReviewLoopOperatorProjectionTests(unittest.TestCase):
         self.assertFalse(rows["PROJ-B"]["stage7_commercial_input_allowed"])
         self.assertIn("暂不进入第七阶段", rows["PROJ-B"]["stage7_gate_label"])
         self.assertTrue(rows["PROJ-C"]["stage7_commercial_input_allowed"])
+        self.assertEqual(
+            rows["PROJ-C"]["release_field_query_authorization_state_counts"],
+            {"LOGIN_OR_SSO_REQUIRED": 1},
+        )
+        self.assertEqual(
+            rows["PROJ-C"]["release_field_query_operator_next_actions"],
+            ["provide_gdcic_authorized_storage_state_or_user_data_dir_then_rerun"],
+        )
+        self.assertIn(
+            "提供 GDCIC 已授权浏览器会话后重跑。",
+            rows["PROJ-C"]["release_field_query_operator_next_action_labels"],
+        )
         self.assertIn("review_stage7_commercial_boundary_before_sales_use", projection["operator_decision"]["next_actions"])
         self.assertIn("进入第七阶段前先复核商业展示边界，不能外发客户。", projection["operator_decision"]["next_action_labels"])
 
@@ -216,6 +228,10 @@ def _status_table_payload() -> dict:
                 "stage6_fact_package_state": "REVIEW_FACT_PACKAGE_READY",
                 "stage6_ready": True,
                 "stage7_commercial_input_allowed": True,
+                "release_field_query_authorization_state_counts": {"LOGIN_OR_SSO_REQUIRED": 1},
+                "release_field_query_operator_next_actions": [
+                    "provide_gdcic_authorized_storage_state_or_user_data_dir_then_rerun"
+                ],
             },
         ],
     }

@@ -416,6 +416,16 @@ def _project_row(record: Mapping[str, Any]) -> dict[str, Any]:
         )
         if isinstance(record.get("release_field_query_downstream_abcd_grade_counts"), Mapping)
         else {},
+        "release_field_query_authorization_state_counts": dict(
+            record.get("release_field_query_authorization_state_counts") or {}
+        )
+        if isinstance(record.get("release_field_query_authorization_state_counts"), Mapping)
+        else {},
+        "release_field_query_operator_next_actions": _list(record.get("release_field_query_operator_next_actions")),
+        "release_field_query_operator_next_action_labels": [
+            _release_field_query_operator_action_label(action)
+            for action in _list(record.get("release_field_query_operator_next_actions"))
+        ],
         "reopen_conditions": _reopen_conditions(
             terminal_state=terminal_state,
             next_action=next_action,
@@ -652,6 +662,21 @@ def _next_action_label(action: str) -> str:
     }.get(action, action)
 
 
+def _release_field_query_operator_action_label(action: str) -> str:
+    return {
+        "provide_gdcic_authorized_storage_state_or_user_data_dir_then_rerun": (
+            "提供 GDCIC 已授权浏览器会话后重跑。"
+        ),
+        "review_gdcic_authorized_query_terms_or_capture_more_precise_field_page": (
+            "复核 GDCIC 查询关键词，或捕获更精确的字段页面。"
+        ),
+        "install_or_enable_playwright_browser_runtime_then_rerun": "安装或启用 Playwright 浏览器运行时后重跑。",
+        "increase_max_live_browser_tasks_or_run_specific_task": "提高浏览器任务预算，或只运行指定任务。",
+        "rerun_with_headed_browser_or_longer_wait_budget": "用可视浏览器或更长等待预算重跑。",
+        "review_gdcic_browser_execution_blocker_then_rerun": "复核 GDCIC 浏览器执行阻断后重跑。",
+    }.get(action, action)
+
+
 def _operator_decision_action_label(action: str) -> str:
     return {
         "run_ready_internal_dispatch_or_keep_dry_run": "运行已准备好的内部受控续跑任务，或者保持试运行复核。",
@@ -681,6 +706,16 @@ def _first_text(*values: Any) -> str:
         if text:
             return text
     return ""
+
+
+def _list(value: Any) -> list[Any]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return value
+    if isinstance(value, tuple):
+        return list(value)
+    return [value]
 
 
 def _counts(values: Any) -> dict[str, int]:

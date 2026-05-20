@@ -5,6 +5,8 @@ param(
     [string]$P13BOperationalCloseoutJson = "",
     [string]$ReleaseEvidenceAdapterPlanRoot = "",
     [string]$ReleaseEvidenceAdapterPlanJson = "",
+    [string]$GdcicBrowserReadbackRoot = "",
+    [string]$GdcicBrowserReadbackJson = "",
     [string]$OutputRoot = "",
     [string[]]$SourceProfileIds = @(),
     [switch]$EnableLivePublicQuery,
@@ -50,6 +52,12 @@ if ($ReleaseEvidenceAdapterPlanRoot) {
 }
 if ($ReleaseEvidenceAdapterPlanJson) {
     $argsList += @("--release-evidence-adapter-plan-json", $ReleaseEvidenceAdapterPlanJson)
+}
+if ($GdcicBrowserReadbackRoot) {
+    $argsList += @("--gdcic-browser-readback-root", $GdcicBrowserReadbackRoot)
+}
+if ($GdcicBrowserReadbackJson) {
+    $argsList += @("--gdcic-browser-readback-json", $GdcicBrowserReadbackJson)
 }
 if ($SourceProfileIds.Count -gt 0) {
     $argsList += "--source-profile-ids"

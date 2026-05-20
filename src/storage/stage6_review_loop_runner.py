@@ -584,6 +584,8 @@ def _bootstrap_manual_project_status_records(records: list[Mapping[str, Any]]) -
                 "release_field_query_task_count": 0,
                 "release_field_query_adapter_result_state_counts": {},
                 "release_field_query_downstream_abcd_grade_counts": {},
+                "release_field_query_authorization_state_counts": {},
+                "release_field_query_operator_next_actions": [],
                 "next_cycle_dispatch_task_type": "",
                 "next_cycle_dispatch_readiness_state": "",
                 "next_cycle_manual_only_action_family": str(record.get("action_family") or ""),
@@ -673,6 +675,12 @@ def _project_status_records(
                 "release_field_query_downstream_abcd_grade_counts": dict(
                     release_field_query_result.get("downstream_release_evidence_abcd_grade_counts") or {}
                 ),
+                "release_field_query_authorization_state_counts": dict(
+                    release_field_query_result.get("authorization_readiness_state_counts") or {}
+                ),
+                "release_field_query_operator_next_actions": _list(
+                    release_field_query_result.get("operator_next_actions")
+                ),
                 "next_cycle_dispatch_task_type": str(next_dispatch_record.get("dispatch_task_type") or ""),
                 "next_cycle_dispatch_readiness_state": str(next_dispatch_record.get("dispatch_readiness_state") or ""),
                 "next_cycle_manual_only_action_family": str(next_manual_record.get("action_family") or ""),
@@ -755,6 +763,8 @@ def _release_field_query_missing_result(runner_record: Mapping[str, Any], result
         "field_query_task_count": 0,
         "adapter_result_state_counts": {},
         "downstream_release_evidence_abcd_grade_counts": {},
+        "authorization_readiness_state_counts": {},
+        "operator_next_actions": [],
         "source_result_runner_execution_state": str(runner_record.get("execution_state") or ""),
     }
 
@@ -768,6 +778,8 @@ def _release_field_query_project_result(
 ) -> dict[str, Any]:
     adapter_counts = _counts(task.get("adapter_result_state") for task in tasks)
     downstream_counts = _counts(task.get("downstream_release_evidence_abcd_grade") for task in tasks)
+    authorization_counts = _field_query_authorization_counts(tasks)
+    operator_next_actions = _field_query_operator_next_actions(tasks)
     return {
         "release_field_query_state": _release_field_query_state(adapter_counts, downstream_counts, task_count=len(tasks)),
         "result_json_path": result_path,
@@ -775,8 +787,39 @@ def _release_field_query_project_result(
         "field_query_task_count": len(tasks),
         "adapter_result_state_counts": adapter_counts,
         "downstream_release_evidence_abcd_grade_counts": downstream_counts,
+        "authorization_readiness_state_counts": authorization_counts,
+        "operator_next_actions": operator_next_actions,
         "source_result_runner_execution_state": str(runner_record.get("execution_state") or ""),
     }
+
+
+def _field_query_authorization_counts(tasks: list[Mapping[str, Any]]) -> dict[str, int]:
+    merged: dict[str, int] = {}
+    fallback_states: list[Any] = []
+    for task in tasks:
+        field_summary = task.get("field_summary") if isinstance(task.get("field_summary"), Mapping) else {}
+        counts = field_summary.get("authorization_readiness_state_counts") if isinstance(field_summary, Mapping) else {}
+        if isinstance(counts, Mapping):
+            for key, value in counts.items():
+                text = str(key or "").strip()
+                if text:
+                    merged[text] = merged.get(text, 0) + _int(value)
+        field_match_summary = task.get("field_match_summary") if isinstance(task.get("field_match_summary"), Mapping) else {}
+        if isinstance(field_match_summary, Mapping):
+            fallback_states.append(field_match_summary.get("authorization_readiness_state"))
+    return merged or _counts(fallback_states)
+
+
+def _field_query_operator_next_actions(tasks: list[Mapping[str, Any]]) -> list[str]:
+    return _dedupe(
+        action
+        for task in tasks
+        for action in _list(
+            (task.get("field_summary") if isinstance(task.get("field_summary"), Mapping) else {}).get(
+                "operator_next_actions"
+            )
+        )
+    )
 
 
 def _release_field_query_state(
@@ -1029,6 +1072,14 @@ def _summary(
         "release_field_query_state_counts": _counts(
             record.get("release_field_query_state") for record in project_status_records
         ),
+        "release_field_query_authorization_state_counts": _merge_count_maps(
+            record.get("release_field_query_authorization_state_counts") for record in project_status_records
+        ),
+        "release_field_query_operator_next_action_counts": _counts(
+            action
+            for record in project_status_records
+            for action in _list(record.get("release_field_query_operator_next_actions"))
+        ),
         "loop_terminal_state_counts": _counts(record.get("loop_terminal_state") for record in project_status_records),
         "project_next_action_counts": _counts(record.get("next_recommended_action") for record in project_status_records),
         "live_execution_enabled": False,
@@ -1143,6 +1194,18 @@ def _counts(values: Iterable[Any]) -> dict[str, int]:
     return dict(sorted(counts.items()))
 
 
+def _merge_count_maps(values: Iterable[Any]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for value in values:
+        if not isinstance(value, Mapping):
+            continue
+        for key, count in value.items():
+            text = str(key or "").strip()
+            if text:
+                counts[text] = counts.get(text, 0) + _int(count)
+    return dict(sorted(counts.items()))
+
+
 def _dedupe(values: Iterable[Any]) -> list[str]:
     out: list[str] = []
     seen: set[str] = set()
@@ -1152,6 +1215,13 @@ def _dedupe(values: Iterable[Any]) -> list[str]:
             seen.add(text)
             out.append(text)
     return out
+
+
+def _int(value: Any) -> int:
+    try:
+        return int(float(value))
+    except (TypeError, ValueError):
+        return 0
 
 
 def _fingerprint(payload: Any) -> str:

@@ -1,6 +1,6 @@
 # 专题_Stage1-9_缺口收口与优先级清单
 
-**版本**: 2026-05-20 v24
+**版本**: 2026-05-20 v30
 
 ## 1. 文档定位
 
@@ -28,8 +28,9 @@
 - Stage4 外部证据链最弱，仍是当前最大短板
 - Stage5 双闸门已实现，但真实样本规模和误报/漏报校准仍不足
 - Stage1-6 到 P13B 的证据编排状态机已新增第一版，可把真实项目归并到 P13B、原文回溯、A 级强线索、Stage6 事实包 readiness 等状态；一键续跑入口已能从 `P13B_ORIGINAL_BACKTRACE_REQUIRED` 自动生成原文回溯任务并回写状态；原文回溯任务已新增 URL/入口质量分层，能把官方直达 HTML 排在空地址、跳转壳、YGP mapping 之前，避免小预算 live 盲打低质量入口；`batch-triage-table.json` 已能按批次给出继续跑、进入事实包/Stage7 内部预览、D 级内部复核或非主线暂存决策；`EvidenceStage6FactPackage v1` 已能生成内部复核 summary 和 `stage6_review_action_plan_table`，并能把 terminal source gap / no-delta 的 D 级项目标成 `automated_dispatch_allowed=false`，同时把 `manual_hold_state`、停靠原因、重新开启条件和 operator decision options 写入 brief、evidence pack、review summary JSON/Markdown；`Stage6ReviewActionDispatch v1` 已能把 P13B 释放证据、原文回溯重试、设计/测绘资质服务期复核映射成受控续跑任务，同时跳过 manual-only action plan，避免 D 级项目无限自动重试；释放证据 dispatch 现在必须显式携带 `evidence_batch_closeout` 与 `p13b_operational_closeout` 来源引用，缺任一来源会被标为 `BLOCKED_REQUIRED_SOURCE_REFS_MISSING`，runner 也会二次拒绝生成默认路径命令，避免误读旧 tmp 产物；`ReleaseEvidenceAdapterPlan -> GuangdongLocalFieldQueryProbe` 对广东/广州四类释放证据已有最小路由闭环：施工许可定向广州住建施工许可公开 API，竣工验收定向广州住建竣工验收公开 API，合同履约转广东建设信息网合同履约公开页并检查合同系统 SSO，项目经理变更明确标为浏览器/授权运行时必需，不再误打施工许可或竣工 API；2026-05-20 小预算 live canary 已验证广州住建施工许可和竣工验收公开 API 可达且可解析，GDCIC 合同履约/项目经理变更当前正确收口为 `NEEDS_BROWSER`，不会再把 SSO 阻断写成 `NOT_FOUND`；字段任务会输出 `MATCHED / NOT_FOUND / BLOCKED / NEEDS_BROWSER`、目标类型和 B/C/D 下游等级；`Stage6ReviewActionDispatchRunner v1` 已能按任务类型分组执行白名单本地 dispatch 任务，避免多项目重复覆盖输出；`Stage6ReviewActionDispatchReadback v1` 已能把这些任务读回为已产出、等待受控执行、人工跳过或阻断复核状态；`Stage6ReviewActionDispatchCloseout v1` 已能把读回明细按项目收口成可回灌、等待、跳过、阻断的项目级状态，且释放证据 adapter plan 不再直接误标为 evidence state 可回灌；`Stage6ReviewActionResultRouting v1` 已能把 closeout 结果路由到 evidence state rebuild、batch closeout rebuild 或释放证据字段查询的下一条受控任务，并输出结构化 argv；`Stage6ReviewActionResultRunner v1` 已能在 dry-run / `-Execute` 受控模式下执行白名单本地续跑命令，且会跳过重复 argv；`Stage6ReviewCycleRunner v1` 已能把新的 `EvidenceBatchCloseout` 自动串到下一轮 Stage6 fact package、dispatch 和 dispatch runner，且在无自动任务时安全停在 manual-only 复核；`Stage6ReviewLoopRunner v1` 已能把 dispatch runner、readback、closeout、routing、result runner、next cycle 汇总成 `stage6-review-loop-project-status-table.json`，按项目回答当前终态和下一步动作，包括 `MANUAL_REVIEW_HOLD_NO_AUTOMATED_DISPATCH`；`run-stage6-review-loop-v1.ps1` 默认可在缺 dispatch 时从 batch closeout bootstrap，并可自动发现最新 batch closeout；若 bootstrap 后没有自动任务，会把 manual-only 项目直接投到项目状态表，而不是误报下游缺文件；`Stage6ReviewLoopOperatorProjection v1` 已能把该状态表投影成 owner 可读的批次状态、项目行、可续跑/人工停机/Stage7 gate、重新开启条件和下一步动作，并通过 `/operator-console/stage6-review-loop-status`、操作台 overview 和独立极简页 `/operator-console/stage6-review-loop` 展示；极简页已把状态、下一步和重新开启条件翻译成中文标签，不再要求 owner 直接读 raw JSON、英文枚举或在大操作台里找状态；默认批次选择已改为 owner 总览策略：若最新产物只是单项目终态，会优先展示最近的多项目批次，同时保留最新单项目批次在历史选择器中；项目卡片也已补 `当前阶段`、`证据等级`、`为什么停/阻断原因` 和 `下一步`，证据等级未投影时会明确提示需回看 batch closeout / evidence state，不会伪装成“没问题”
-- GDCIC/browser-authorized readback 已从“只能停在 `NEEDS_BROWSER`”推进到“可消费受控浏览器授权回读产物”：`GuangdongLocalFieldQueryProbe v1` 新增 `gdcic-browser-authorized-readback-v1.json` 输入，可把合同履约或项目经理变更的授权浏览器 readback 记录转成 `MATCHED` + B/C，或把显式空结果转成 `NOT_FOUND` + D，且继续保留 `query_miss_is_not_clearance=true`；没有 readback 产物时仍保持 `NEEDS_BROWSER`，不把 SSO/登录页误写成字段未命中。本轮只完成产物消费和单测回归，尚未完成真实自动登录/浏览器执行器。
-- 非广东释放证据字段查询已从纯 registry 防误判推进到浙江第一版字段 adapter：当 `ReleaseEvidenceAdapterPlan` 产出 `CN-ZJ / ZHEJIANG-JZSC-PUBLIC-SERVICE` 时，`GuangdongLocalFieldQueryProbe v1` 不再停在 `LIVE_FIELD_QUERY_NEEDS_REGION_ADAPTER`，而是定向浙江省建筑市场监管公共服务系统 `PublicWeb` 与 `ProjectInfo/re/GetProjectSGXK / GetProjectHTBA / GetProjectJGYS` 结构化接口，且仍禁止把门户首页关键词命中当字段核验成功；2026-05-20 小预算 canary 显示浙江公开页可达，施工许可结构化接口在 6 秒预算下可能超时阻断、12 秒预算下返回 200 但 `data=[]`，当前只能形成 `D_INSUFFICIENT_OR_BLOCKED_READBACK`，不能写成排除性结论；四川、江苏、湖北、山东、湖南、河南等未实现字段 adapter 的地区仍输出 `LIVE_FIELD_QUERY_NEEDS_REGION_ADAPTER` 并保留 `no_fallback_to_guangdong_or_guangzhou=true`
+- GDCIC/browser-authorized readback 已从“只能停在 `NEEDS_BROWSER`”推进到“可消费受控浏览器授权回读产物 + 可执行真实浏览器 canary + 授权状态显式回传”：`GuangdongLocalFieldQueryProbe v1` 新增 `gdcic-browser-authorized-readback-v1.json` 输入，可把合同履约或项目经理变更的授权浏览器 readback 记录转成 `MATCHED` + B/C，或把显式空结果转成 `NOT_FOUND` + D，且继续保留 `query_miss_is_not_clearance=true`；新增 `build-gdcic-browser-authorized-readback-v1.ps1` 和 Playwright 执行器，支持 storage state / user data dir / headed。2026-05-20 真实 canary 打到 GDCIC 合同履约系统登录壳，已修正为 `LOGIN_OR_SSO_REQUIRED_BLOCKED` / `BLOCKED` / D，不再误写成字段未命中；最新 canary 产物额外写入 `authorization_readiness_state=LOGIN_OR_SSO_REQUIRED`、`field_surface_state=LOGIN_OR_SSO_BLOCKED_BEFORE_FIELD_SURFACE` 和 `operator_next_actions=provide_gdcic_authorized_storage_state_or_user_data_dir_then_rerun`，field probe 已能把这些状态带到 `field_summary`，Stage6 loop 项目状态表和 operator projection 也会继续展示授权状态与下一步动作；尚未取得授权会话后的字段命中样本。
+- 非广东释放证据字段查询已从纯 registry 防误判推进到浙江 + 四川两个省份第一版字段 adapter：浙江定向浙江省建筑市场监管公共服务系统 `PublicWeb` 与 `ProjectInfo/re/GetProjectSGXK / GetProjectHTBA / GetProjectJGYS` 结构化接口，仍禁止把门户首页关键词命中当字段核验成功；2026-05-20 浙江 canary 显示公开页可达但施工许可字段接口在小预算下可能超时阻断或返回空结果，当前只形成 D 级补查结果。四川已接入四川省建筑市场监管公共服务平台 `https://sjfw.scjs.net.cn:8801/xxgx/index.aspx`，按项目名优先、公司名辅助查询 `GetPerjectList`，再用项目 token 回读 `GetProjSgxkzList / GetProjHtbaList / GetProjJgbaList`；2026-05-20 真实 canary 命中“誉川商品混凝土2号生产厂房”的施工许可详情并输出 `MATCHED` + `B_ENHANCEMENT_OFFICIAL_READBACK`。江苏、湖北、山东、湖南、河南等未实现字段 adapter 的地区仍输出 `LIVE_FIELD_QUERY_NEEDS_REGION_ADAPTER` 并保留 `no_fallback_to_guangdong_or_guangzhou=true`
+- Stage2 已接入 `Scrapling` parser-only snapshot 增强层：`stage2.scrapling_snapshot_parser.v1` 只解析已获取 HTML/snapshot，不发外部请求；能输出 `snapshot_parser_summary`、附件候选、同站链接、关键词命中、`table_extraction_summary`、`table_records`、`field_signal_summary` 和字段候选记录，并已合并进详情页附件发现诊断。新增 `Stage2SnapshotParserComparison v1` 和 `Stage2SnapshotParserReadiness v1` 可读取本地 snapshot manifest/object，对比旧规则与 Scrapling parser 的附件候选差异，并把 Scrapling 字段信号与现有 Stage3 HTML baseline 做覆盖对比；2026-05-20 批量回放 44 个 `stage1-5-limit3-*` 历史目录，其中 9 个有 HTML snapshot、33 个 HTML snapshot 被比较，严格附件候选 9/9 稳定，`legacy_extra_strict_attachment_total=0`、`parser_extra_attachment_total=0`、`no_live_request_all_true=true`；字段信号 `parser_field_candidate_total=331`，表格信号 `parser_table_total=310`、`parser_table_label_value_pair_total=288`、`parser_table_candidate_row_signal_total=825`，旧 Stage3 有效字段名缺口 `stage3_field_name_missing_from_parser_total=0`；剩余 16 个附件差异是旧规则把答疑/日程列表页当附件候选，Scrapling 不复制该宽口径。`stage2.scrapling_adaptive_selector_registry.v1` 已新增本地 selector drift PoC：训练公告标题、正文、附件入口 3 个选择器，重放时原 CSS 全部失效但 adaptive relocate 找回 3 个目标，`no_live_request_all_true=true`。`ScraplingRealPublicFetchTransport`、`ScraplingRealPublicDynamicFetchTransport`、`ScraplingRealPublicStealthyFetchTransport` 已全部新增为受控 transport wrapper；`requirements.txt` 已切到 `scrapling[fetchers]==0.4.8`，当前环境已安装 `curl_cffi 0.15.0`、`playwright 1.59.0`、`patchright 1.59.1`、`browserforge 1.2.4`，并完成 localhost smoke：Dynamic/Stealthy wrapper 均返回 200。`ScraplingBottomLayerEscalationPolicy v1` 已把 owner 授权口径固化到代码，`SCRAPLING_BOTTOM_LAYER_DEFAULT_CALL_STRATEGY` 明确 HTTP 默认自动升级、Dynamic 默认条件触发、Stealthy 不作普通默认只作挑战面触发；`RealPublicEntryFetcher` 默认先普通抓取，再按需要升级 HTTP / Dynamic / Stealthy，并把升级原因写入 `x-ax9s-scrapling-escalation-*`；仍不绕过 allowlist/snapshot/hash/failure taxonomy。
 - Stage6/7 内部对象和 readback 已存在；设计/测绘 `08` 定向人员档案抽取结果已能生成标准 `stage4_candidate_verification_inputs`，可继续喂给 Stage4 公司优先核验 dry-run/执行，不再只停在“人工应用字段”
 - Stage8/9 已有 governed readback 和受控开启语义，但真实 live execution 仍按受控开放边界保持关闭
 
@@ -46,8 +47,8 @@
 | 优先级 | 当前完成度 | 代码与实战判断 |
 |---|---:|---|
 | Stage6 可观测性 | 85%-90% | 多项目/多批次总览、历史 run、中文标签、当前阶段、证据等级、阻断原因、下一步和 Stage7 gate 已完成第一轮 owner 可读化；后续随真实样本补字段。 |
-| Stage4 释放证据主链 | 65%-68% | 广东/广州施工许可、竣工验收 live canary 已可达可解析；GDCIC 合同履约/项目经理变更已新增 browser-authorized readback 产物消费，可把受控浏览器回读转成 MATCHED/NOT_FOUND 与 B/C/D，未提供产物仍保持 `NEEDS_BROWSER`；浙江第一版字段 adapter 已接入并经 canary 验证可区分门户可达、结构化接口阻断、结构化空结果，仍只输出 B/C/D，不抹掉 A 级线索。 |
-| Stage1-3 实战稳定性 | 35%-45% | 最近这轮未主攻；设计测绘/人员材料策略已有基础，但山东、湖北、OCR、复杂 PDF、人员材料页仍缺系统压测。 |
+| Stage4 释放证据主链 | 72%-76% | 广东/广州施工许可、竣工验收 live canary 已可达可解析；GDCIC 已有 browser-authorized readback 产物消费和真实浏览器执行器，未授权登录壳实测会落 `BLOCKED`/D，并显式回传授权状态与下一步动作；浙江第一版字段 adapter 已接入并可区分门户可达、结构化接口阻断、结构化空结果；四川第一版字段 adapter 已经真实命中项目列表 + 施工许可详情并输出 B 级增强证据。 |
+| Stage1-3 实战稳定性 | 54%-64% | Stage2 已新增 Scrapling parser-only snapshot 增强、单目录 comparison 和多目录 readiness 回放脚本；44 个历史目录中 9 个有 HTML snapshot、33 个 HTML snapshot 被比较，严格附件候选 9/9 稳定，字段信号候选 331 条、表格 310 张、label-value 字段对 288 条、候选表行信号 825 条，旧 Stage3 有效字段名缺口为 0；新增 Scrapling adaptive selector registry 本地 PoC，已验证页面选择器漂移时可找回公告标题、正文和附件入口；Scrapling HTTP/Dynamic/Stealthy transport wrappers 已全部接入，默认由 `ScraplingBottomLayerEscalationPolicy v1` 按异常、JS 壳和挑战面触发升级；设计测绘/人员材料策略已有基础，但山东、湖北、OCR、复杂 PDF、人员材料页仍缺系统压测。 |
 | Stage5 规则门校准 | 50%-60% | A/B/C/D 与“查不到不是没问题”口径已固化；仍缺 20-50 个真实样本误判/漏判校准。 |
 | Stage1-6 批量实战回归 | 10%-20% | 仍是三项目链路 + 小 canary，不是 20-50 个近期 `07` 批量回归；需要等 Stage4 主链再稳一轮后扩大。 |
 
@@ -65,7 +66,7 @@
 | 阶段 | 矩阵目标 | 当前代码 / 测试 / 脚本投影 | 当前缺口判断 | 优先级 |
 |---|---|---|---|---|
 | Stage1 候选发现 | 多省多城真实候选稳定发现 | `operator` 搜索入口、region adapter、real candidate discovery 已存在；GD/SC/JS/ZJ 路径较清楚 | SD/HB discoverer 和真实列表解析回归仍不足 | P1 |
-| Stage2 公开采集 | 列表/详情/附件可回放、可审计 | 快照、hash、来源 URL、失败 taxonomy 已进入正式链路 | SPA 壳、验证码、超大附件、长尾下载阻断仍要继续打磨 | P1 |
+| Stage2 公开采集 | 列表/详情/附件可回放、可审计 | 快照、hash、来源 URL、失败 taxonomy 已进入正式链路；Scrapling parser-only snapshot 增强已接入详情页 metadata、附件候选诊断和字段信号；Scrapling adaptive selector registry 已能在本地 selector drift PoC 中找回标题、正文和附件入口；`run-stage2-snapshot-parser-comparison-v1.ps1`、`run-stage2-snapshot-parser-readiness-v1.ps1` 和 `run-stage2-scrapling-adaptive-selector-poc-v1.ps1` 已能输出回放/PoC 产物 | SPA 壳、验证码、超大附件、长尾下载阻断、adaptive selector 对真实站点批量训练/回放仍要继续打磨 | P1 |
 | Stage2.5 AnalysisStrategyPlan | 下载和解析前先做策略分流 | 双线文档和 contracts 已固定口径 | 需要继续防止长尾实现绕过策略层 | P2 |
 | Stage3 字段血缘 | 主流载体字段抽取与 lineage | HTML/PDF/Word/Excel 主链已通 | OCR、复杂表格、多候选行绑定、`08` 定向解析仍未完全稳 | P1 |
 | Stage4 公开核验 | 多源公开核验与释放证据链 | 广东/广州已有部分 query/readback；`ResponsiblePersonEarlyProbe`、`MajorRegionQueryProbe`、`GuangdongLocalVerificationProbe` 已存在 | 多省地方源、项目经理变更释放、命中后的释放证据深查仍最弱 | P0 |
@@ -80,7 +81,7 @@
 ### P0-1 Stage4 释放证据链闭环
 
 - 现状：Stage4 是当前最大短板。身份核验和部分公开源 readback 已有，但“许可/合同/竣工/项目经理变更/处罚”多源交叉后的释放证据链仍不完整。
-- 当前进展：`GuangdongLocalFieldQueryProbe v1` 已把来自 `ReleaseEvidenceAdapterPlan v1` 的字段查询任务纳入统一 A/B/C/D 汇总；广东/广州最小查询闭环已按四类目标分流，施工许可和竣工验收可走广州住建公开 API fake-live 与小预算 live 回读，合同履约可走广东 GDCIC 公开页 fake-live 回读，live canary 中 GDCIC 合同系统 SSO 阻断已收口为 `NEEDS_BROWSER`；GDCIC/browser-authorized readback 产物消费已接入，合同履约和项目经理变更可以在有受控浏览器产物时进入 `MATCHED` 或显式 `NOT_FOUND`，并映射到 B/C/D；没有授权回读产物时仍然停在 `NEEDS_BROWSER` / D 级证据不足；非广东归属地 adapter registry 已能被字段查询层读回并阻止入口门户关键词误判，浙江第一版字段 adapter 已能定向 `ProjectInfo/re/GetProjectSGXK / GetProjectHTBA / GetProjectJGYS`，2026-05-20 canary 证明浙江公开页可达但施工许可字段接口在小预算下不稳定或返回空结果，因此只形成 D 级补查结果，不形成排除性结论；`Stage6ReviewLoopRunner v1` 已能在项目状态表里直接显示释放证据字段查询的 `MATCHED / NOT_FOUND / BLOCKED / NEEDS_BROWSER` 和 B/C/D 下游结果；释放证据 dispatch / runner 已收紧输入约束，必须显式带 `evidence_batch_closeout` 与 `p13b_operational_closeout` 来源引用，防止回退到默认旧产物。
+- 当前进展：`GuangdongLocalFieldQueryProbe v1` 已把来自 `ReleaseEvidenceAdapterPlan v1` 的字段查询任务纳入统一 A/B/C/D 汇总；广东/广州最小查询闭环已按四类目标分流，施工许可和竣工验收可走广州住建公开 API fake-live 与小预算 live 回读，合同履约可走广东 GDCIC 公开页 fake-live 回读，live canary 中 GDCIC 合同系统 SSO 阻断已收口为 `NEEDS_BROWSER`；GDCIC/browser-authorized readback 产物消费和真实浏览器执行器已接入，合同履约和项目经理变更可以在有受控浏览器产物时进入 `MATCHED` 或显式 `NOT_FOUND`，未授权登录壳则进入 `BLOCKED` / D，不再误写成字段未命中；最新 readback 产物会显式写出授权状态、字段面状态和 operator 下一步动作，field probe、Stage6 loop 项目状态表和 operator projection 都已带出这些状态，因此后续 UI/状态机不用从 blocker 字符串反推；非广东归属地 adapter registry 已能被字段查询层读回并阻止入口门户关键词误判，浙江第一版字段 adapter 已能定向 `ProjectInfo/re/GetProjectSGXK / GetProjectHTBA / GetProjectJGYS`，四川第一版字段 adapter 已能定向 `GetPerjectList` + `GetProjSgxkzList / GetProjHtbaList / GetProjJgbaList`；2026-05-20 四川真实 canary 已命中施工许可详情并输出 B 级增强证据，浙江 canary 仍只形成 D 级补查结果，不形成排除性结论；`Stage6ReviewLoopRunner v1` 已能在项目状态表里直接显示释放证据字段查询的 `MATCHED / NOT_FOUND / BLOCKED / NEEDS_BROWSER` 和 B/C/D 下游结果；释放证据 dispatch / runner 已收紧输入约束，必须显式带 `evidence_batch_closeout` 与 `p13b_operational_closeout` 来源引用，防止回退到默认旧产物。
 - 直接症状：
   - `项目经理变更释放` 在矩阵里仍为 `MISSING_RUNTIME`
   - 真实候选经常落到 `PARTIAL_SOURCE_COVERAGE`
@@ -88,7 +89,7 @@
 - 完成标准：
   - 命中重叠信号后，能稳定补查 `construction_permit`、`contract_public_info`、`completion_filing`、`project_manager_change_notice`
   - 释放证据链可回放，且不会把“未命中/源阻断”写成“无风险”
-  - 下一步仍需补 GDCIC 真实浏览器/授权执行器，以及浙江以外具体省份 adapter 的真实字段 readback；不能因为广州住建 API 已通、GDCIC readback 产物可消费或浙江第一版 adapter 已接入，就误判四类释放证据都已实战稳定
+  - 下一步仍需补 GDCIC 授权会话后的字段命中样本、项目经理变更释放证据路径，以及江苏/湖北/山东等更多省份 adapter 的真实字段 readback；不能因为广州住建 API 已通、GDCIC 未授权浏览器 canary 已能 BLOCKED、浙江/四川第一版 adapter 已接入，就误判四类释放证据都已实战稳定
 
 ### P0-2 Stage6/7 真实候选 formal real_public 闭环
 
@@ -113,7 +114,7 @@
 
 ### P1-2 Stage2/3 长尾文件链补强
 
-- 现状：主流文件已通，但 OCR、复杂表格、多候选行绑定、`08` 定向解析仍未完全稳。
+- 现状：主流文件已通；Stage2 已新增 Scrapling parser-only snapshot 增强，能对已采集 HTML 进行更稳的 title/h1、link、attachment candidate、keyword、表格、项目编号、公告日期、候选单位、负责人和时间窗口信号 readback，并在失败时退回 stdlib parser；`Stage2SnapshotParserComparison v1` / `Stage2SnapshotParserReadiness v1` 已用本地历史 snapshot 验证严格附件候选稳定，且字段信号覆盖现有 Stage3 HTML 有效字段名；`Stage2ScraplingAdaptiveSelectorPoC v1` 已验证 selector drift 后仍可从本地 HTML 找回公告标题、正文和附件入口；但 OCR、复杂表格、多候选行绑定、`08` 定向解析、adaptive selector 对真实站点批量训练/回放仍未完全稳。
 - 完成标准：
   - OCR 状态机更清楚
   - 多候选行和联合体绑定不串行

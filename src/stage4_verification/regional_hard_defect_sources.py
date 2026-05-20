@@ -56,9 +56,9 @@ MAJOR_TARGET_REGION_SOURCE_CATALOG = (
         "entry_id": "SC-JZSC-PUBLIC-SERVICE",
         "source_profile_id": "SICHUAN-JZSC-PUBLIC-SERVICE",
         "source_name": "四川省建筑市场监管公共服务平台",
-        "source_url": "https://jst.sc.gov.cn/scjst/businesSys/sys_list.shtml",
+        "source_url": "https://sjfw.scjs.net.cn:8801/xxgx/index.aspx",
         "official_reference_url": "https://jst.sc.gov.cn/scjst/c101428/2020/12/16/524a5e292df5461996313971cdf85f3f.shtml",
-        "runtime_status": "ENTRY_PORTAL_VERIFIED_ADAPTER_PENDING",
+        "runtime_status": "PUBLIC_PROJECT_API_VERIFIED_ADAPTER_MINIMUM_LOOP",
         "next_adapter": "sichuan_construction_market_public_service_query_adapter",
     },
     {

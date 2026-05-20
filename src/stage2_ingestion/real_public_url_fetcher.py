@@ -18,6 +18,10 @@ from urllib.parse import parse_qs, quote, unquote, urlencode, urljoin, urlsplit,
 from urllib.request import Request, urlopen
 
 from shared.utils import utc_now_iso
+from stage2_ingestion.scrapling_snapshot_parser import (
+    build_scrapling_snapshot_parser_summary,
+    parse_snapshot_html_with_scrapling,
+)
 from storage.repositories.object_storage_repo import ObjectStorageRepository
 
 
@@ -29,6 +33,35 @@ REAL_PUBLIC_DETAIL_SNAPSHOT_KIND = "real_public_detail_html_snapshot"
 REAL_PUBLIC_ATTACHMENT_SNAPSHOT_KIND = "real_public_attachment_original_file"
 REAL_PUBLIC_ENTRY_USER_AGENT = (
     "AX9S-RealPublicEntryFetcher/0.1 (+public-readonly-validation)"
+)
+SCRAPLING_BOTTOM_LAYER_OWNER_APPROVAL_ID = "OWNER_APPROVED_NEEDS_BASED_SCRAPLING_BOTTOM_LAYER_USE_2026_05_20"
+SCRAPLING_BOTTOM_LAYER_ESCALATION_POLICY_ID = "stage2.scrapling_bottom_layer_escalation_policy.v1"
+SCRAPLING_BOTTOM_LAYER_ESCALATION_ENABLED_BY_DEFAULT = True
+SCRAPLING_BOTTOM_LAYER_DEFAULT_CALL_STRATEGY: tuple[dict[str, Any], ...] = (
+    {
+        "capability": "HTTP Fetcher",
+        "default_enabled": True,
+        "activation_mode": "automatic_escalation_after_primary_failure",
+        "target_transport": "scrapling_http",
+        "best_position": "after_urllib_curl_failure",
+        "reason": "low_cost_fast_headers_tls_protocol_fallback",
+    },
+    {
+        "capability": "DynamicFetcher",
+        "default_enabled": True,
+        "activation_mode": "conditional_response_escalation",
+        "target_transport": "scrapling_dynamic",
+        "best_position": "spa_js_shell_small_html_or_missing_body",
+        "reason": "dynamic_rendering_replay_without_using_browser_for_every_page",
+    },
+    {
+        "capability": "StealthyFetcher",
+        "default_enabled": False,
+        "activation_mode": "challenge_surface_only",
+        "target_transport": "scrapling_stealthy",
+        "best_position": "waf_captcha_human_verification_or_403_429_with_challenge_marker",
+        "reason": "highest_cost_sensitive_path_requires_explicit_challenge_reason_and_audit",
+    },
 )
 HTTP_PUBLIC_ENTRY_ALLOWLIST_PROFILE_IDS = {
     "JIANGSU-GGZY-HOME",
@@ -1021,6 +1054,229 @@ class CurlCommandRealPublicFetchTransport:
             )
 
 
+class ScraplingRealPublicFetchTransport:
+    """Optional Scrapling HTTP transport wrapped by the existing Stage2 boundary.
+
+    This class does not perform allowlist, snapshot, or evidence decisions by itself.
+    It only adapts Scrapling's Fetcher response into RealPublicFetchResponse so the
+    existing RealPublicEntryFetcher can keep owning boundary checks and auditing.
+    """
+
+    def __init__(
+        self,
+        *,
+        fetcher_factory: Any | None = None,
+        stealthy_headers: bool = False,
+        impersonate: str | None = None,
+    ) -> None:
+        self.fetcher_factory = fetcher_factory
+        self.stealthy_headers = stealthy_headers
+        self.impersonate = impersonate
+
+    def fetch(
+        self,
+        url: str,
+        *,
+        timeout_seconds: float,
+        user_agent: str,
+    ) -> RealPublicFetchResponse:
+        fetcher = self.fetcher_factory
+        if fetcher is None:
+            try:
+                from scrapling.fetchers import Fetcher  # type: ignore
+
+                fetcher = Fetcher
+            except Exception as exc:
+                raise RuntimeError(f"scrapling_fetcher_unavailable:{type(exc).__name__}") from exc
+
+        request_headers = {
+            "User-Agent": user_agent,
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.6",
+        }
+        response = fetcher.get(
+            url,
+            timeout=max(1, float(timeout_seconds)),
+            headers=request_headers,
+            stealthy_headers=self.stealthy_headers,
+            impersonate=self.impersonate,
+            follow_redirects=True,
+        )
+        headers = {
+            str(key): str(value)
+            for key, value in dict(getattr(response, "headers", {}) or {}).items()
+        }
+        headers["x-ax9s-fetch-transport"] = "scrapling_fetcher"
+        headers["x-ax9s-scrapling-stealthy-headers"] = str(self.stealthy_headers).lower()
+        headers["x-ax9s-scrapling-impersonate"] = str(self.impersonate or "none")
+        return RealPublicFetchResponse(
+            url=url,
+            status_code=int(getattr(response, "status", getattr(response, "status_code", 0)) or 0),
+            content=_scrapling_response_body(response),
+            content_type=headers.get("Content-Type", headers.get("content-type", "text/html")),
+            final_url=str(getattr(response, "url", "") or url),
+            headers=headers,
+        )
+
+
+class ScraplingRealPublicBrowserFetchTransport:
+    """Optional Scrapling browser transport for authorized dynamic/stealth readback.
+
+    The browser transport is intentionally not a default fallback. Callers must opt in
+    and pass operator_authorized=True so live browser behavior stays explicit and
+    auditable at the RealPublicEntryFetcher boundary.
+    """
+
+    def __init__(
+        self,
+        *,
+        mode: str,
+        fetcher_factory: Any | None = None,
+        operator_authorized: bool = False,
+        headless: bool = True,
+        disable_resources: bool = True,
+        network_idle: bool = True,
+        load_dom: bool = True,
+        wait_ms: int = 0,
+        wait_selector: str | None = None,
+        real_chrome: bool = False,
+        cdp_url: str | None = None,
+        user_data_dir: str | None = None,
+        solve_cloudflare: bool = False,
+        hide_canvas: bool = False,
+        block_webrtc: bool = True,
+        allow_webgl: bool = True,
+    ) -> None:
+        normalized_mode = str(mode or "").strip().lower()
+        if normalized_mode not in {"dynamic", "stealthy"}:
+            raise ValueError("Scrapling browser fetch mode must be 'dynamic' or 'stealthy'")
+        self.mode = normalized_mode
+        self.fetcher_factory = fetcher_factory
+        self.operator_authorized = operator_authorized
+        self.headless = headless
+        self.disable_resources = disable_resources
+        self.network_idle = network_idle
+        self.load_dom = load_dom
+        self.wait_ms = max(0, int(wait_ms))
+        self.wait_selector = wait_selector
+        self.real_chrome = real_chrome
+        self.cdp_url = cdp_url
+        self.user_data_dir = user_data_dir
+        self.solve_cloudflare = solve_cloudflare
+        self.hide_canvas = hide_canvas
+        self.block_webrtc = block_webrtc
+        self.allow_webgl = allow_webgl
+
+    def fetch(
+        self,
+        url: str,
+        *,
+        timeout_seconds: float,
+        user_agent: str,
+    ) -> RealPublicFetchResponse:
+        if not self.operator_authorized:
+            raise RuntimeError(f"scrapling_{self.mode}_fetcher_requires_operator_authorization")
+
+        fetcher = self.fetcher_factory or self._load_fetcher()
+        request_kwargs = self._request_kwargs(
+            timeout_seconds=timeout_seconds,
+            user_agent=user_agent,
+        )
+        response = fetcher.fetch(url, **request_kwargs)
+        headers = {
+            str(key): str(value)
+            for key, value in dict(getattr(response, "headers", {}) or {}).items()
+        }
+        headers["x-ax9s-fetch-transport"] = f"scrapling_{self.mode}_fetcher"
+        headers["x-ax9s-scrapling-browser-authorized"] = "true"
+        headers["x-ax9s-scrapling-headless"] = str(self.headless).lower()
+        headers["x-ax9s-scrapling-disable-resources"] = str(self.disable_resources).lower()
+        headers["x-ax9s-scrapling-real-chrome"] = str(self.real_chrome).lower()
+        headers["x-ax9s-scrapling-cdp-url"] = "present" if self.cdp_url else "none"
+        headers["x-ax9s-scrapling-user-data-dir"] = "present" if self.user_data_dir else "none"
+        if self.mode == "stealthy":
+            headers["x-ax9s-scrapling-solve-cloudflare"] = str(self.solve_cloudflare).lower()
+            headers["x-ax9s-scrapling-hide-canvas"] = str(self.hide_canvas).lower()
+            headers["x-ax9s-scrapling-block-webrtc"] = str(self.block_webrtc).lower()
+        return RealPublicFetchResponse(
+            url=url,
+            status_code=int(getattr(response, "status", getattr(response, "status_code", 0)) or 0),
+            content=_scrapling_response_body(response),
+            content_type=headers.get("Content-Type", headers.get("content-type", "text/html")),
+            final_url=str(getattr(response, "url", "") or url),
+            headers=headers,
+        )
+
+    def _load_fetcher(self) -> Any:
+        try:
+            if self.mode == "dynamic":
+                from scrapling.fetchers.chrome import DynamicFetcher  # type: ignore
+
+                return DynamicFetcher
+            from scrapling.fetchers.stealth_chrome import StealthyFetcher  # type: ignore
+
+            return StealthyFetcher
+        except Exception as exc:
+            raise RuntimeError(f"scrapling_{self.mode}_fetcher_unavailable:{type(exc).__name__}") from exc
+
+    def _request_kwargs(self, *, timeout_seconds: float, user_agent: str) -> dict[str, Any]:
+        timeout_ms = max(1000, int(float(timeout_seconds) * 1000))
+        kwargs: dict[str, Any] = {
+            "headless": self.headless,
+            "disable_resources": self.disable_resources,
+            "network_idle": self.network_idle,
+            "load_dom": self.load_dom,
+            "timeout": timeout_ms,
+            "wait": self.wait_ms,
+            "useragent": user_agent,
+            "google_search": False,
+            "extra_headers": {
+                "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.6",
+            },
+            "real_chrome": self.real_chrome,
+        }
+        if self.wait_selector:
+            kwargs["wait_selector"] = self.wait_selector
+        if self.cdp_url:
+            kwargs["cdp_url"] = self.cdp_url
+        if self.user_data_dir:
+            kwargs["user_data_dir"] = self.user_data_dir
+        if self.mode == "stealthy":
+            kwargs.update(
+                {
+                    "solve_cloudflare": self.solve_cloudflare,
+                    "hide_canvas": self.hide_canvas,
+                    "block_webrtc": self.block_webrtc,
+                    "allow_webgl": self.allow_webgl,
+                }
+            )
+        return kwargs
+
+
+class ScraplingRealPublicDynamicFetchTransport(ScraplingRealPublicBrowserFetchTransport):
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(mode="dynamic", **kwargs)
+
+
+class ScraplingRealPublicStealthyFetchTransport(ScraplingRealPublicBrowserFetchTransport):
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(mode="stealthy", **kwargs)
+
+
+def _scrapling_response_body(response: Any) -> bytes:
+    body = getattr(response, "body", None)
+    if isinstance(body, bytes):
+        return body
+    if isinstance(body, str):
+        return body.encode("utf-8")
+    content = getattr(response, "content", b"")
+    if isinstance(content, bytes):
+        return content
+    if isinstance(content, str):
+        return content.encode("utf-8")
+    return b""
+
+
 class HybridRealPublicFetchTransport:
     def __init__(
         self,
@@ -1063,6 +1319,313 @@ class HybridRealPublicFetchTransport:
                 final_url=response.final_url,
                 headers=headers,
             )
+
+
+@dataclass(frozen=True)
+class ScraplingBottomLayerEscalationDecision:
+    target_transport: str
+    trigger_kind: str
+    reason_codes: tuple[str, ...]
+    requires_operator_authorization: bool = False
+
+
+class ScraplingBottomLayerEscalationPolicy:
+    """Codifies when Stage2 may call Scrapling bottom-layer capabilities."""
+
+    policy_id = SCRAPLING_BOTTOM_LAYER_ESCALATION_POLICY_ID
+    owner_approval_id = SCRAPLING_BOTTOM_LAYER_OWNER_APPROVAL_ID
+
+    def __init__(self, *, owner_approved: bool = SCRAPLING_BOTTOM_LAYER_ESCALATION_ENABLED_BY_DEFAULT) -> None:
+        self.owner_approved = owner_approved
+
+    def decide_for_exception(self, exc: Exception) -> ScraplingBottomLayerEscalationDecision:
+        text = str(exc).lower()
+        reasons: list[str] = []
+        if any(token in text for token in ("ssl", "tls", "bad_ecpoint", "certificate")):
+            reasons.append("PRIMARY_TRANSPORT_TLS_OR_SSL_FAILURE")
+        if any(token in text for token in ("timeout", "timed out", "read operation timed out")):
+            reasons.append("PRIMARY_TRANSPORT_TIMEOUT")
+        if any(token in text for token in ("connection reset", "remote end closed", "eof", "broken pipe")):
+            reasons.append("PRIMARY_TRANSPORT_CONNECTION_CLOSED")
+        if any(token in text for token in ("http2", "http/2", "protocol", "decompress", "brotli", "gzip")):
+            reasons.append("PRIMARY_TRANSPORT_PROTOCOL_OR_DECODE_FAILURE")
+        if not reasons and _should_try_fetch_fallback(exc):
+            reasons.append("PRIMARY_TRANSPORT_FALLBACK_CLASSIFIED_FAILURE")
+        if reasons:
+            return ScraplingBottomLayerEscalationDecision(
+                target_transport="scrapling_http",
+                trigger_kind="exception",
+                reason_codes=tuple(dict.fromkeys(reasons)),
+                requires_operator_authorization=False,
+            )
+        return ScraplingBottomLayerEscalationDecision(
+            target_transport="none",
+            trigger_kind="exception",
+            reason_codes=("NO_SCRAPLING_ESCALATION_FOR_EXCEPTION",),
+        )
+
+    def decide_for_response(self, response: RealPublicFetchResponse) -> ScraplingBottomLayerEscalationDecision:
+        body_probe = _normalize_transport_body_probe(response.content)
+        challenge_reasons = _scrapling_challenge_reason_codes(body_probe, response.status_code)
+        if challenge_reasons:
+            return ScraplingBottomLayerEscalationDecision(
+                target_transport="scrapling_stealthy",
+                trigger_kind="response",
+                reason_codes=challenge_reasons,
+                requires_operator_authorization=True,
+            )
+
+        dynamic_reasons = _scrapling_dynamic_reason_codes(body_probe, response.status_code)
+        if dynamic_reasons:
+            return ScraplingBottomLayerEscalationDecision(
+                target_transport="scrapling_dynamic",
+                trigger_kind="response",
+                reason_codes=dynamic_reasons,
+                requires_operator_authorization=True,
+            )
+
+        http_reasons = _scrapling_http_reason_codes(response.status_code)
+        if http_reasons:
+            return ScraplingBottomLayerEscalationDecision(
+                target_transport="scrapling_http",
+                trigger_kind="response",
+                reason_codes=http_reasons,
+                requires_operator_authorization=False,
+            )
+        return ScraplingBottomLayerEscalationDecision(
+            target_transport="none",
+            trigger_kind="response",
+            reason_codes=("NO_SCRAPLING_ESCALATION_FOR_RESPONSE",),
+        )
+
+
+class ScraplingEscalatingRealPublicFetchTransport:
+    """Primary transport with needs-based Scrapling escalation.
+
+    It keeps normal Stage2 behavior first. Scrapling is only called when the
+    policy classifies a concrete exception/response as needing HTTP, dynamic,
+    or stealth browser assistance.
+    """
+
+    def __init__(
+        self,
+        *,
+        primary: RealPublicFetchTransport | None = None,
+        scrapling_http: RealPublicFetchTransport | None = None,
+        scrapling_dynamic: RealPublicFetchTransport | None = None,
+        scrapling_stealthy: RealPublicFetchTransport | None = None,
+        policy: ScraplingBottomLayerEscalationPolicy | None = None,
+    ) -> None:
+        self.primary = primary or HybridRealPublicFetchTransport()
+        self.policy = policy or ScraplingBottomLayerEscalationPolicy()
+        self.scrapling_http = scrapling_http or ScraplingRealPublicFetchTransport(
+            stealthy_headers=True,
+            impersonate="chrome",
+        )
+        self.scrapling_dynamic = scrapling_dynamic or ScraplingRealPublicDynamicFetchTransport(
+            operator_authorized=self.policy.owner_approved,
+            network_idle=False,
+        )
+        self.scrapling_stealthy = scrapling_stealthy or ScraplingRealPublicStealthyFetchTransport(
+            operator_authorized=self.policy.owner_approved,
+            network_idle=False,
+            solve_cloudflare=False,
+        )
+
+    def fetch(
+        self,
+        url: str,
+        *,
+        timeout_seconds: float,
+        user_agent: str,
+    ) -> RealPublicFetchResponse:
+        try:
+            primary_response = self.primary.fetch(
+                url,
+                timeout_seconds=timeout_seconds,
+                user_agent=user_agent,
+            )
+        except Exception as exc:
+            decision = self.policy.decide_for_exception(exc)
+            if decision.target_transport == "none":
+                raise
+            try:
+                response = self._fetch_with_decision(
+                    decision,
+                    url=url,
+                    timeout_seconds=timeout_seconds,
+                    user_agent=user_agent,
+                )
+            except Exception as bottom_exc:
+                raise RuntimeError(
+                    f"scrapling_escalation_failed:{decision.target_transport}:{type(bottom_exc).__name__}:{bottom_exc}"
+                ) from exc
+            return _with_scrapling_escalation_headers(
+                response,
+                decision=decision,
+                primary_error=str(exc),
+                owner_approved=self.policy.owner_approved,
+            )
+
+        decision = self.policy.decide_for_response(primary_response)
+        if decision.target_transport == "none":
+            return primary_response
+        if decision.requires_operator_authorization and not self.policy.owner_approved:
+            return _with_scrapling_escalation_skipped_headers(
+                primary_response,
+                decision=decision,
+                skip_reason="OPERATOR_AUTHORIZATION_NOT_APPROVED",
+            )
+        try:
+            response = self._fetch_with_decision(
+                decision,
+                url=url,
+                timeout_seconds=timeout_seconds,
+                user_agent=user_agent,
+            )
+        except Exception as exc:
+            return _with_scrapling_escalation_skipped_headers(
+                primary_response,
+                decision=decision,
+                skip_reason=f"SCRAPLING_ESCALATION_FAILED:{type(exc).__name__}",
+            )
+        return _with_scrapling_escalation_headers(
+            response,
+            decision=decision,
+            primary_response=primary_response,
+            owner_approved=self.policy.owner_approved,
+        )
+
+    def _fetch_with_decision(
+        self,
+        decision: ScraplingBottomLayerEscalationDecision,
+        *,
+        url: str,
+        timeout_seconds: float,
+        user_agent: str,
+    ) -> RealPublicFetchResponse:
+        transport = {
+            "scrapling_http": self.scrapling_http,
+            "scrapling_dynamic": self.scrapling_dynamic,
+            "scrapling_stealthy": self.scrapling_stealthy,
+        }.get(decision.target_transport)
+        if transport is None:
+            raise RuntimeError(f"unsupported_scrapling_target_transport:{decision.target_transport}")
+        return transport.fetch(
+            url,
+            timeout_seconds=timeout_seconds,
+            user_agent=user_agent,
+        )
+
+
+def _with_scrapling_escalation_headers(
+    response: RealPublicFetchResponse,
+    *,
+    decision: ScraplingBottomLayerEscalationDecision,
+    owner_approved: bool,
+    primary_response: RealPublicFetchResponse | None = None,
+    primary_error: str = "",
+) -> RealPublicFetchResponse:
+    headers = dict(response.headers or {})
+    headers["x-ax9s-scrapling-escalation-policy-id"] = SCRAPLING_BOTTOM_LAYER_ESCALATION_POLICY_ID
+    headers["x-ax9s-scrapling-owner-approval-id"] = SCRAPLING_BOTTOM_LAYER_OWNER_APPROVAL_ID
+    headers["x-ax9s-scrapling-owner-approved"] = str(owner_approved).lower()
+    headers["x-ax9s-scrapling-escalation-target"] = decision.target_transport
+    headers["x-ax9s-scrapling-escalation-trigger"] = decision.trigger_kind
+    headers["x-ax9s-scrapling-escalation-reasons"] = ",".join(decision.reason_codes)
+    if primary_response is not None:
+        headers["x-ax9s-primary-status-code"] = str(primary_response.status_code)
+        headers["x-ax9s-primary-fetch-transport"] = str(
+            dict(primary_response.headers or {}).get("x-ax9s-fetch-transport") or "unknown"
+        )
+    if primary_error:
+        headers["x-ax9s-primary-transport-error"] = primary_error
+    return RealPublicFetchResponse(
+        url=response.url,
+        status_code=response.status_code,
+        content=response.content,
+        content_type=response.content_type,
+        final_url=response.final_url,
+        headers=headers,
+    )
+
+
+def _with_scrapling_escalation_skipped_headers(
+    response: RealPublicFetchResponse,
+    *,
+    decision: ScraplingBottomLayerEscalationDecision,
+    skip_reason: str,
+) -> RealPublicFetchResponse:
+    headers = dict(response.headers or {})
+    headers["x-ax9s-scrapling-escalation-policy-id"] = SCRAPLING_BOTTOM_LAYER_ESCALATION_POLICY_ID
+    headers["x-ax9s-scrapling-escalation-target"] = decision.target_transport
+    headers["x-ax9s-scrapling-escalation-trigger"] = decision.trigger_kind
+    headers["x-ax9s-scrapling-escalation-reasons"] = ",".join(decision.reason_codes)
+    headers["x-ax9s-scrapling-escalation-skipped"] = skip_reason
+    return RealPublicFetchResponse(
+        url=response.url,
+        status_code=response.status_code,
+        content=response.content,
+        content_type=response.content_type,
+        final_url=response.final_url,
+        headers=headers,
+    )
+
+
+def _normalize_transport_body_probe(content: bytes) -> str:
+    return content[:5000].decode("utf-8", errors="ignore").lower()
+
+
+def _scrapling_http_reason_codes(status_code: int) -> tuple[str, ...]:
+    if status_code in {406, 412, 418, 421, 425}:
+        return (f"HTTP_STATUS_{status_code}_MAY_REQUIRE_BROWSER_HEADERS",)
+    return ()
+
+
+def _scrapling_dynamic_reason_codes(body_probe: str, status_code: int) -> tuple[str, ...]:
+    reasons: list[str] = []
+    if status_code == 200 and len(body_probe.strip()) < 220:
+        reasons.append("HTML_BODY_TOO_SMALL_MAY_REQUIRE_JS_RENDER")
+    dynamic_markers = (
+        "<div id=\"app\"",
+        "<div id='app'",
+        "id=\"root\"",
+        "id='root'",
+        "__nuxt__",
+        "__next_data__",
+        "webpackjsonp",
+        "window.__initial_state__",
+        "please enable javascript",
+        "请开启javascript",
+        "请开启 javascript",
+    )
+    if any(marker in body_probe for marker in dynamic_markers):
+        reasons.append("SPA_OR_JS_RENDERED_SHELL_DETECTED")
+    return tuple(dict.fromkeys(reasons))
+
+
+def _scrapling_challenge_reason_codes(body_probe: str, status_code: int) -> tuple[str, ...]:
+    reasons: list[str] = []
+    challenge_markers = (
+        "cloudflare",
+        "turnstile",
+        "captcha",
+        "waf",
+        "security check",
+        "access denied",
+        "robot verification",
+        "人机验证",
+        "访问验证",
+        "安全验证",
+        "滑块",
+        "验证码",
+        "页面验证",
+    )
+    if any(marker in body_probe for marker in challenge_markers):
+        reasons.append("CHALLENGE_OR_WAF_MARKER_DETECTED")
+    if status_code in {401, 403, 429} and reasons:
+        reasons.append(f"HTTP_STATUS_{status_code}_WITH_CHALLENGE_MARKER")
+    return tuple(dict.fromkeys(reasons))
 
 
 class RealPublicUrlBoundaryError(ValueError):
@@ -1134,7 +1697,7 @@ class RealPublicEntryFetcher:
         attachment_challenge_resolver: RealPublicAttachmentChallengeResolver | None = None,
         automated_challenge_resolution_enabled: bool = False,
     ) -> None:
-        self.transport = transport or HybridRealPublicFetchTransport()
+        self.transport = transport or ScraplingEscalatingRealPublicFetchTransport()
         self.repository = repository
         self.timeout_seconds = timeout_seconds
         self.user_agent = user_agent
@@ -1863,6 +2426,12 @@ class RealPublicEntryFetcher:
             base_url=response.final_url or profile.url,
             host=profile.host,
         )
+        snapshot_parser_readback = parse_snapshot_html_with_scrapling(
+            text,
+            base_url=response.final_url or profile.url,
+            keywords=[profile.profile_id, profile.site_name, title],
+        )
+        snapshot_parser_summary = build_scrapling_snapshot_parser_summary(snapshot_parser_readback)
         same_site_links = [item["url"] for item in same_site_link_items]
         degraded_reasons: list[str] = []
         if response.status_code != 200:
@@ -1948,6 +2517,7 @@ class RealPublicEntryFetcher:
             "entry_validation_level": validation_level,
             "same_site_detail_links": same_site_links,
             "same_site_detail_link_items": same_site_link_items,
+            "snapshot_parser_summary": snapshot_parser_summary,
             "sample_detail_url": profile.sample_detail_url,
             "browser_verified": True,
             "browser_verified_at": profile.browser_verified_at,
@@ -2011,6 +2581,7 @@ class RealPublicEntryFetcher:
             "entry_validation_level": validation_level,
             "same_site_detail_links": same_site_links,
             "same_site_detail_link_items": same_site_link_items,
+            "snapshot_parser_summary": snapshot_parser_summary,
             "sample_detail_url": profile.sample_detail_url,
             "snapshot_id_optional": snapshot_id if manifest_payload else None,
             "manifest_optional": manifest_payload,
@@ -2050,6 +2621,27 @@ class RealPublicEntryFetcher:
         attachment_link_items = _discover_same_site_attachment_link_items(text, base_url=final_url, host=host)
         attachment_discovery_taxonomy: list[str] = []
         attachment_discovery_diagnostics: dict[str, Any] = {}
+        snapshot_parser_readback = parse_snapshot_html_with_scrapling(
+            text,
+            base_url=final_url,
+            keywords=[profile.profile_id, profile.site_name, title],
+        )
+        snapshot_parser_summary = build_scrapling_snapshot_parser_summary(snapshot_parser_readback)
+        snapshot_parser_attachment_items = [
+            {
+                "url": str(record.get("url") or ""),
+                "text": str(record.get("text") or ""),
+            }
+            for record in list(snapshot_parser_readback.get("attachment_link_records") or [])
+            if isinstance(record, Mapping) and str(record.get("url") or "").strip()
+        ]
+        if snapshot_parser_attachment_items:
+            attachment_link_items = _merge_link_items(snapshot_parser_attachment_items, attachment_link_items)
+            attachment_discovery_taxonomy.append("scrapling_snapshot_parser_attachment_candidates")
+        attachment_discovery_diagnostics["scrapling_snapshot_parser"] = {
+            **snapshot_parser_summary,
+            "attachment_link_records": list(snapshot_parser_readback.get("attachment_link_records") or [])[:20],
+        }
         if profile.profile_id == "GUANGZHOU-YWTB-CONSTRUCTION-LIST":
             guangzhou_static_diagnosis = _guangzhou_ywtb_download_discovery_from_html(
                 text,
@@ -2218,6 +2810,7 @@ class RealPublicEntryFetcher:
             "same_site_detail_link_items": same_site_link_items,
             "same_site_attachment_links": [item["url"] for item in attachment_link_items],
             "same_site_attachment_link_items": attachment_link_items,
+            "snapshot_parser_summary": snapshot_parser_summary,
             "attachment_discovery_taxonomy": list(dict.fromkeys(attachment_discovery_taxonomy)),
             "attachment_discovery_diagnostics": attachment_discovery_diagnostics,
             "entry_unavailable_body_patterns_observed": entry_unavailable_body_patterns,
@@ -2276,6 +2869,7 @@ class RealPublicEntryFetcher:
             "same_site_detail_link_items": same_site_link_items,
             "same_site_attachment_links": [item["url"] for item in attachment_link_items],
             "same_site_attachment_link_items": attachment_link_items,
+            "snapshot_parser_summary": snapshot_parser_summary,
             "attachment_discovery_taxonomy": list(dict.fromkeys(attachment_discovery_taxonomy)),
             "attachment_discovery_diagnostics": attachment_discovery_diagnostics,
             "snapshot_id_optional": snapshot_id if manifest_payload else None,

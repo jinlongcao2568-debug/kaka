@@ -26,12 +26,21 @@ from stage2_ingestion.real_public_url_fetcher import (
     REAL_PUBLIC_ENTRY_PROFILES,
     REAL_PUBLIC_ENTRY_SNAPSHOT_KIND,
     REPRESENTATIVE_LOCAL_PLATFORM_ENTRY_PROFILE_IDS,
+    SCRAPLING_BOTTOM_LAYER_DEFAULT_CALL_STRATEGY,
+    SCRAPLING_BOTTOM_LAYER_OWNER_APPROVAL_ID,
+    SCRAPLING_BOTTOM_LAYER_ESCALATION_POLICY_ID,
     HybridRealPublicFetchTransport,
     RealPublicEntryFetcher,
     RealPublicFetchResponse,
     RealPublicUrlBoundaryError,
+    ScraplingBottomLayerEscalationPolicy,
+    ScraplingEscalatingRealPublicFetchTransport,
+    ScraplingRealPublicDynamicFetchTransport,
+    ScraplingRealPublicFetchTransport,
+    ScraplingRealPublicStealthyFetchTransport,
     _discover_same_site_attachment_link_items,
 )
+from stage2_ingestion.scrapling_snapshot_parser import SCRAPLING_SNAPSHOT_PARSER_ADAPTER_ID
 from stage2_ingestion.service import Stage2Service
 from storage.db import DatabaseSession
 from storage.download_archive_manifest import DOWNLOAD_RUN_MANIFEST_OBJECT_TYPE
@@ -110,6 +119,47 @@ class AlwaysFailTransport:
     ) -> RealPublicFetchResponse:
         self.call_log.append(url)
         raise self.error
+
+
+class FakeScraplingResponse:
+    def __init__(
+        self,
+        *,
+        url: str,
+        status: int = 200,
+        body: bytes = b"",
+        headers: dict[str, str] | None = None,
+    ) -> None:
+        self.url = url
+        self.status = status
+        self.body = body
+        self.headers = headers or {"Content-Type": "text/html; charset=utf-8"}
+
+
+class FakeScraplingFetcher:
+    calls: list[dict[str, object]] = []
+
+    @classmethod
+    def get(cls, url: str, **kwargs: object) -> FakeScraplingResponse:
+        cls.calls.append({"url": url, **kwargs})
+        return FakeScraplingResponse(
+            url=url,
+            status=200,
+            body=b"<html><body>scrapling ok</body></html>",
+        )
+
+
+class FakeScraplingBrowserFetcher:
+    calls: list[dict[str, object]] = []
+
+    @classmethod
+    def fetch(cls, url: str, **kwargs: object) -> FakeScraplingResponse:
+        cls.calls.append({"url": url, **kwargs})
+        return FakeScraplingResponse(
+            url=url,
+            status=200,
+            body=b"<html><body>browser ok</body></html>",
+        )
 
 
 class FakeAttachmentChallengeResolver:
@@ -418,6 +468,36 @@ class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
             {"BEIJING-STANDARD-BIDDING-PDF", "BEIJING-TOOLING-PDF"},
         )
 
+    def test_default_fetcher_uses_scrapling_escalation_policy_transport(self) -> None:
+        fetcher = RealPublicEntryFetcher(repository=None)
+
+        self.assertIsInstance(fetcher.transport, ScraplingEscalatingRealPublicFetchTransport)
+        self.assertTrue(fetcher.transport.policy.owner_approved)
+        self.assertEqual(fetcher.transport.policy.policy_id, SCRAPLING_BOTTOM_LAYER_ESCALATION_POLICY_ID)
+        self.assertEqual(fetcher.transport.policy.owner_approval_id, SCRAPLING_BOTTOM_LAYER_OWNER_APPROVAL_ID)
+
+    def test_default_scrapling_bottom_layer_call_strategy_matches_owner_decision(self) -> None:
+        by_capability = {
+            item["capability"]: item
+            for item in SCRAPLING_BOTTOM_LAYER_DEFAULT_CALL_STRATEGY
+        }
+
+        self.assertEqual(by_capability["HTTP Fetcher"]["default_enabled"], True)
+        self.assertEqual(
+            by_capability["HTTP Fetcher"]["activation_mode"],
+            "automatic_escalation_after_primary_failure",
+        )
+        self.assertEqual(by_capability["DynamicFetcher"]["default_enabled"], True)
+        self.assertEqual(
+            by_capability["DynamicFetcher"]["activation_mode"],
+            "conditional_response_escalation",
+        )
+        self.assertEqual(by_capability["StealthyFetcher"]["default_enabled"], False)
+        self.assertEqual(
+            by_capability["StealthyFetcher"]["activation_mode"],
+            "challenge_surface_only",
+        )
+
     def test_hybrid_transport_falls_back_for_tls_handshake_errors(self) -> None:
         fallback_body = _beijing_platform_html()
         fallback = FakeRealPublicFetchTransport(
@@ -477,6 +557,291 @@ class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
         self.assertIn("timed out", response.headers["x-ax9s-primary-transport-error"])
         self.assertEqual(primary.call_log, [BEIJING_HOME_URL])
         self.assertEqual(fallback.call_log[0]["url"], BEIJING_HOME_URL)
+
+    def test_scrapling_transport_wraps_fetcher_without_owning_boundary_or_audit(self) -> None:
+        FakeScraplingFetcher.calls = []
+        transport = ScraplingRealPublicFetchTransport(fetcher_factory=FakeScraplingFetcher)
+
+        response = transport.fetch(
+            CCGP_DETAIL_URL,
+            timeout_seconds=5,
+            user_agent="AX9S-Test/0.1",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.content, b"<html><body>scrapling ok</body></html>")
+        self.assertEqual(response.content_type, "text/html; charset=utf-8")
+        self.assertEqual(response.final_url, CCGP_DETAIL_URL)
+        self.assertEqual(response.headers["x-ax9s-fetch-transport"], "scrapling_fetcher")
+        self.assertEqual(response.headers["x-ax9s-scrapling-stealthy-headers"], "false")
+        self.assertEqual(response.headers["x-ax9s-scrapling-impersonate"], "none")
+        self.assertEqual(FakeScraplingFetcher.calls[0]["url"], CCGP_DETAIL_URL)
+        self.assertEqual(FakeScraplingFetcher.calls[0]["timeout"], 5.0)
+        self.assertEqual(FakeScraplingFetcher.calls[0]["stealthy_headers"], False)
+        self.assertIsNone(FakeScraplingFetcher.calls[0]["impersonate"])
+        self.assertEqual(
+            FakeScraplingFetcher.calls[0]["headers"]["User-Agent"],
+            "AX9S-Test/0.1",
+        )
+
+    def test_scrapling_dynamic_transport_requires_explicit_operator_authorization(self) -> None:
+        transport = ScraplingRealPublicDynamicFetchTransport(fetcher_factory=FakeScraplingBrowserFetcher)
+
+        with self.assertRaisesRegex(RuntimeError, "requires_operator_authorization"):
+            transport.fetch(
+                CCGP_DETAIL_URL,
+                timeout_seconds=5,
+                user_agent="AX9S-Test/0.1",
+            )
+
+    def test_scrapling_dynamic_transport_wraps_authorized_browser_fetcher(self) -> None:
+        FakeScraplingBrowserFetcher.calls = []
+        transport = ScraplingRealPublicDynamicFetchTransport(
+            fetcher_factory=FakeScraplingBrowserFetcher,
+            operator_authorized=True,
+            wait_selector="body",
+        )
+
+        response = transport.fetch(
+            CCGP_DETAIL_URL,
+            timeout_seconds=5,
+            user_agent="AX9S-Test/0.1",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.content, b"<html><body>browser ok</body></html>")
+        self.assertEqual(response.headers["x-ax9s-fetch-transport"], "scrapling_dynamic_fetcher")
+        self.assertEqual(response.headers["x-ax9s-scrapling-browser-authorized"], "true")
+        self.assertEqual(response.headers["x-ax9s-scrapling-headless"], "true")
+        self.assertEqual(FakeScraplingBrowserFetcher.calls[0]["url"], CCGP_DETAIL_URL)
+        self.assertEqual(FakeScraplingBrowserFetcher.calls[0]["timeout"], 5000)
+        self.assertEqual(FakeScraplingBrowserFetcher.calls[0]["useragent"], "AX9S-Test/0.1")
+        self.assertEqual(FakeScraplingBrowserFetcher.calls[0]["wait_selector"], "body")
+        self.assertFalse(FakeScraplingBrowserFetcher.calls[0]["google_search"])
+
+    def test_scrapling_stealthy_transport_wraps_authorized_browser_fetcher(self) -> None:
+        FakeScraplingBrowserFetcher.calls = []
+        transport = ScraplingRealPublicStealthyFetchTransport(
+            fetcher_factory=FakeScraplingBrowserFetcher,
+            operator_authorized=True,
+            solve_cloudflare=False,
+            hide_canvas=True,
+            block_webrtc=True,
+        )
+
+        response = transport.fetch(
+            CCGP_DETAIL_URL,
+            timeout_seconds=6,
+            user_agent="AX9S-Test/0.1",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers["x-ax9s-fetch-transport"], "scrapling_stealthy_fetcher")
+        self.assertEqual(response.headers["x-ax9s-scrapling-solve-cloudflare"], "false")
+        self.assertEqual(response.headers["x-ax9s-scrapling-hide-canvas"], "true")
+        self.assertEqual(response.headers["x-ax9s-scrapling-block-webrtc"], "true")
+        self.assertEqual(FakeScraplingBrowserFetcher.calls[0]["timeout"], 6000)
+        self.assertEqual(FakeScraplingBrowserFetcher.calls[0]["solve_cloudflare"], False)
+        self.assertEqual(FakeScraplingBrowserFetcher.calls[0]["hide_canvas"], True)
+        self.assertEqual(FakeScraplingBrowserFetcher.calls[0]["block_webrtc"], True)
+
+    def test_scrapling_escalation_policy_uses_http_after_primary_transport_failure(self) -> None:
+        scrapling_http_body = b"<html><body>http escalation ok</body></html>"
+        primary = AlwaysFailTransport(TimeoutError("The read operation timed out"))
+        scrapling_http = FakeRealPublicFetchTransport(
+            {
+                CCGP_DETAIL_URL: RealPublicFetchResponse(
+                    url=CCGP_DETAIL_URL,
+                    status_code=200,
+                    content=scrapling_http_body,
+                    content_type="text/html; charset=utf-8",
+                    final_url=CCGP_DETAIL_URL,
+                    headers={"x-ax9s-fetch-transport": "scrapling_fetcher"},
+                )
+            }
+        )
+        transport = ScraplingEscalatingRealPublicFetchTransport(
+            primary=primary,
+            scrapling_http=scrapling_http,
+        )
+
+        response = transport.fetch(
+            CCGP_DETAIL_URL,
+            timeout_seconds=5,
+            user_agent="AX9S-Test/0.1",
+        )
+
+        self.assertEqual(response.content, scrapling_http_body)
+        self.assertEqual(response.headers["x-ax9s-scrapling-escalation-target"], "scrapling_http")
+        self.assertEqual(response.headers["x-ax9s-scrapling-escalation-trigger"], "exception")
+        self.assertIn("PRIMARY_TRANSPORT_TIMEOUT", response.headers["x-ax9s-scrapling-escalation-reasons"])
+        self.assertEqual(response.headers["x-ax9s-scrapling-escalation-policy-id"], SCRAPLING_BOTTOM_LAYER_ESCALATION_POLICY_ID)
+        self.assertEqual(response.headers["x-ax9s-scrapling-owner-approval-id"], SCRAPLING_BOTTOM_LAYER_OWNER_APPROVAL_ID)
+        self.assertEqual(primary.call_log, [CCGP_DETAIL_URL])
+        self.assertEqual(scrapling_http.call_log[0]["url"], CCGP_DETAIL_URL)
+
+    def test_scrapling_escalation_policy_uses_dynamic_for_js_shell(self) -> None:
+        primary = FakeRealPublicFetchTransport(
+            {
+                CCGP_DETAIL_URL: RealPublicFetchResponse(
+                    url=CCGP_DETAIL_URL,
+                    status_code=200,
+                    content=b"<html><body><div id='app'></div><script src='/app.js'></script></body></html>",
+                    content_type="text/html; charset=utf-8",
+                    final_url=CCGP_DETAIL_URL,
+                    headers={"x-ax9s-fetch-transport": "urllib"},
+                )
+            }
+        )
+        dynamic = FakeRealPublicFetchTransport(
+            {
+                CCGP_DETAIL_URL: RealPublicFetchResponse(
+                    url=CCGP_DETAIL_URL,
+                    status_code=200,
+                    content=b"<html><body>dynamic rendered ok</body></html>",
+                    content_type="text/html; charset=utf-8",
+                    final_url=CCGP_DETAIL_URL,
+                    headers={"x-ax9s-fetch-transport": "scrapling_dynamic_fetcher"},
+                )
+            }
+        )
+        transport = ScraplingEscalatingRealPublicFetchTransport(
+            primary=primary,
+            scrapling_dynamic=dynamic,
+        )
+
+        response = transport.fetch(
+            CCGP_DETAIL_URL,
+            timeout_seconds=5,
+            user_agent="AX9S-Test/0.1",
+        )
+
+        self.assertEqual(response.content, b"<html><body>dynamic rendered ok</body></html>")
+        self.assertEqual(response.headers["x-ax9s-scrapling-escalation-target"], "scrapling_dynamic")
+        self.assertIn("SPA_OR_JS_RENDERED_SHELL_DETECTED", response.headers["x-ax9s-scrapling-escalation-reasons"])
+        self.assertEqual(response.headers["x-ax9s-primary-status-code"], "200")
+        self.assertEqual(dynamic.call_log[0]["url"], CCGP_DETAIL_URL)
+
+    def test_scrapling_escalation_policy_uses_stealthy_for_challenge_surface(self) -> None:
+        primary = FakeRealPublicFetchTransport(
+            {
+                CCGP_DETAIL_URL: RealPublicFetchResponse(
+                    url=CCGP_DETAIL_URL,
+                    status_code=403,
+                    content=b"<html><body>Access denied captcha security check</body></html>",
+                    content_type="text/html; charset=utf-8",
+                    final_url=CCGP_DETAIL_URL,
+                    headers={"x-ax9s-fetch-transport": "curl_command"},
+                )
+            }
+        )
+        stealthy = FakeRealPublicFetchTransport(
+            {
+                CCGP_DETAIL_URL: RealPublicFetchResponse(
+                    url=CCGP_DETAIL_URL,
+                    status_code=200,
+                    content=b"<html><body>stealthy authorized ok</body></html>",
+                    content_type="text/html; charset=utf-8",
+                    final_url=CCGP_DETAIL_URL,
+                    headers={"x-ax9s-fetch-transport": "scrapling_stealthy_fetcher"},
+                )
+            }
+        )
+        transport = ScraplingEscalatingRealPublicFetchTransport(
+            primary=primary,
+            scrapling_stealthy=stealthy,
+        )
+
+        response = transport.fetch(
+            CCGP_DETAIL_URL,
+            timeout_seconds=5,
+            user_agent="AX9S-Test/0.1",
+        )
+
+        self.assertEqual(response.content, b"<html><body>stealthy authorized ok</body></html>")
+        self.assertEqual(response.headers["x-ax9s-scrapling-escalation-target"], "scrapling_stealthy")
+        self.assertIn("CHALLENGE_OR_WAF_MARKER_DETECTED", response.headers["x-ax9s-scrapling-escalation-reasons"])
+        self.assertIn("HTTP_STATUS_403_WITH_CHALLENGE_MARKER", response.headers["x-ax9s-scrapling-escalation-reasons"])
+        self.assertEqual(stealthy.call_log[0]["url"], CCGP_DETAIL_URL)
+
+    def test_scrapling_escalation_policy_does_not_use_stealthy_for_plain_403_without_challenge_marker(self) -> None:
+        primary_body = b"<html><body>Forbidden</body></html>"
+        primary = FakeRealPublicFetchTransport(
+            {
+                CCGP_DETAIL_URL: RealPublicFetchResponse(
+                    url=CCGP_DETAIL_URL,
+                    status_code=403,
+                    content=primary_body,
+                    content_type="text/html; charset=utf-8",
+                    final_url=CCGP_DETAIL_URL,
+                    headers={"x-ax9s-fetch-transport": "curl_command"},
+                )
+            }
+        )
+        stealthy = FakeRealPublicFetchTransport(
+            {
+                CCGP_DETAIL_URL: RealPublicFetchResponse(
+                    url=CCGP_DETAIL_URL,
+                    status_code=200,
+                    content=b"<html><body>should not run</body></html>",
+                )
+            }
+        )
+        transport = ScraplingEscalatingRealPublicFetchTransport(
+            primary=primary,
+            scrapling_stealthy=stealthy,
+        )
+
+        response = transport.fetch(
+            CCGP_DETAIL_URL,
+            timeout_seconds=5,
+            user_agent="AX9S-Test/0.1",
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.content, primary_body)
+        self.assertNotIn("x-ax9s-scrapling-escalation-target", response.headers or {})
+        self.assertEqual(stealthy.call_log, [])
+
+    def test_scrapling_escalation_policy_skips_browser_when_owner_approval_disabled(self) -> None:
+        primary_body = b"<html><body><div id='app'></div></body></html>"
+        primary = FakeRealPublicFetchTransport(
+            {
+                CCGP_DETAIL_URL: RealPublicFetchResponse(
+                    url=CCGP_DETAIL_URL,
+                    status_code=200,
+                    content=primary_body,
+                    content_type="text/html; charset=utf-8",
+                    final_url=CCGP_DETAIL_URL,
+                    headers={"x-ax9s-fetch-transport": "urllib"},
+                )
+            }
+        )
+        dynamic = FakeRealPublicFetchTransport(
+            {
+                CCGP_DETAIL_URL: RealPublicFetchResponse(
+                    url=CCGP_DETAIL_URL,
+                    status_code=200,
+                    content=b"<html><body>should not run</body></html>",
+                )
+            }
+        )
+        transport = ScraplingEscalatingRealPublicFetchTransport(
+            primary=primary,
+            scrapling_dynamic=dynamic,
+            policy=ScraplingBottomLayerEscalationPolicy(owner_approved=False),
+        )
+
+        response = transport.fetch(
+            CCGP_DETAIL_URL,
+            timeout_seconds=5,
+            user_agent="AX9S-Test/0.1",
+        )
+
+        self.assertEqual(response.content, primary_body)
+        self.assertEqual(response.headers["x-ax9s-scrapling-escalation-target"], "scrapling_dynamic")
+        self.assertEqual(response.headers["x-ax9s-scrapling-escalation-skipped"], "OPERATOR_AUTHORIZATION_NOT_APPROVED")
+        self.assertEqual(dynamic.call_log, [])
 
     def test_visible_public_page_with_weak_captcha_token_is_not_misclassified(self) -> None:
         body = _ggzy_entry_html().replace(
@@ -601,6 +966,11 @@ class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
             self.assertEqual(carrier["entry_profile_id"], "CCGP-CENTRAL-NOTICES")
             self.assertEqual(carrier["detail_url"], CCGP_DETAIL_URL)
             self.assertEqual(carrier["same_site_attachment_link_items"][0]["url"], "https://www.ccgp.gov.cn/cggg/zygg/zbgg/202604/files/notice.pdf")
+            self.assertEqual(
+                carrier["snapshot_parser_summary"]["parser_adapter_id"],
+                SCRAPLING_SNAPSHOT_PARSER_ADAPTER_ID,
+            )
+            self.assertTrue(carrier["snapshot_parser_summary"]["no_live_request"])
             snapshot_id = carrier["snapshot_id_optional"]
             replay = repo.replay_snapshot(snapshot_id)
             self.assertTrue(replay["replayable"])
@@ -611,6 +981,14 @@ class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
             self.assertEqual(
                 manifest["raw_snapshot_metadata"]["same_site_attachment_links"],
                 ["https://www.ccgp.gov.cn/cggg/zygg/zbgg/202604/files/notice.pdf"],
+            )
+            self.assertEqual(
+                manifest["raw_snapshot_metadata"]["snapshot_parser_summary"]["parser_adapter_id"],
+                SCRAPLING_SNAPSHOT_PARSER_ADAPTER_ID,
+            )
+            self.assertIn(
+                "scrapling_snapshot_parser",
+                manifest["raw_snapshot_metadata"]["attachment_discovery_diagnostics"],
             )
 
         self.assertEqual(len(transport.call_log), 1)

@@ -7,3 +7,6 @@ uvicorn==0.29.0
 httpx==0.27.0
 PyYAML==6.0.1
 markitdown[all]==0.1.5
+# Stage1/2 parser/adaptive selector enrichment plus gated HTTP/browser transports.
+# Fetcher/browser extras stay non-default and must run behind our allowlist/audit/snapshot boundary.
+scrapling[fetchers]==0.4.8

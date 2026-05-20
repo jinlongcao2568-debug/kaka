@@ -10,8 +10,8 @@ automatic_refund_enabled: false
 ordering_rule: "先解决 owner 看不懂和 Stage4 证据链短板，再扩大 Stage1-3 稳定性，最后做 Stage5 校准和 Stage1-6 批量回归。"
 current_focus:
   priority_id: P0_STAGE4_RELEASE_EVIDENCE_CHAIN
-  task: "释放证据主链继续闭环：广东/广州最小查询闭环已 live canary，浙江第一版字段 adapter 已接入并做 canary，GDCIC browser-authorized readback 已能消费受控产物；下一步做 GDCIC 真实浏览器执行器或第二个非广东省份字段 adapter"
-  reason: "Stage6 总览已能默认展示最近多项目批次，并把当前阶段、证据等级、阻断原因、下一步和 Stage7 gate 投到项目卡片；释放证据 dispatch 输入约束已收紧，不能再误用默认旧产物；GuangdongLocalFieldQueryProbe 已能把 ReleaseEvidenceAdapterPlan 的施工许可、合同履约、竣工验收、项目经理变更四类目标分流到广州住建/GDCIC 最小 adapter，并输出 MATCHED / NOT_FOUND / BLOCKED / NEEDS_BROWSER；2026-05-20 小预算 live canary 已验证广州住建施工许可/竣工验收可达可解析，GDCIC 合同履约和项目经理变更无授权产物时收口为 NEEDS_BROWSER；GDCIC browser-authorized readback 现已能消费 gdcic-browser-authorized-readback-v1.json，把合同履约或项目经理变更授权回读转为 MATCHED/NOT_FOUND 与 B/C/D，但尚未实现真实自动登录/浏览器执行器；非广东归属地 adapter registry 已能防误判，浙江第一版字段 adapter 已接入 PublicWeb 与 ProjectInfo/re/GetProjectSGXK、GetProjectHTBA、GetProjectJGYS，canary 显示公开页可达但施工许可字段接口在 6 秒预算下可超时阻断、12 秒预算下返回 200 空结果，当前只形成 D 级补查结果且不抹掉 A 级线索；下一步推进 GDCIC 真实浏览器执行器或第二个非广东省份字段 adapter。"
+  task: "释放证据主链继续闭环：广东/广州最小查询闭环已 live canary，GDCIC browser-authorized readback 已有真实浏览器执行器并能显式输出授权状态/下一步动作，浙江和四川第一版非广东字段 adapter 已接入；下一步做 GDCIC 授权会话字段命中样本、项目经理变更释放证据和第三个非广东省份 adapter"
+  reason: "Stage6 总览已能默认展示最近多项目批次，并把当前阶段、证据等级、阻断原因、下一步和 Stage7 gate 投到项目卡片；释放证据 dispatch 输入约束已收紧，不能再误用默认旧产物；GuangdongLocalFieldQueryProbe 已能把 ReleaseEvidenceAdapterPlan 的施工许可、合同履约、竣工验收、项目经理变更四类目标分流到广州住建/GDCIC/非广东归属地 adapter，并输出 MATCHED / NOT_FOUND / BLOCKED / NEEDS_BROWSER；2026-05-20 小预算 live canary 已验证广州住建施工许可/竣工验收可达可解析；GDCIC browser-authorized readback 现已能消费 gdcic-browser-authorized-readback-v1.json，也能通过 build-gdcic-browser-authorized-readback-v1.ps1 执行真实 Playwright canary，未授权合同履约系统登录壳会落 LOGIN_OR_SSO_REQUIRED_BLOCKED / BLOCKED / D，并显式回传 authorization_readiness_state=LOGIN_OR_SSO_REQUIRED 与 operator_next_actions，field probe、Stage6 loop 项目状态表和 operator projection 均可继续展示该状态，不再写成字段未命中；非广东归属地 adapter registry 已能防误判，浙江第一版字段 adapter 已接入 PublicWeb 与 ProjectInfo/re/GetProjectSGXK、GetProjectHTBA、GetProjectJGYS，canary 显示公开页可达但施工许可字段接口小预算下可超时阻断或返回空结果；四川第一版字段 adapter 已接入四川省建筑市场监管公共服务平台 GetPerjectList 与 GetProjSgxkzList/GetProjHtbaList/GetProjJgbaList，真实 canary 已命中施工许可详情并输出 MATCHED/B；下一步推进 GDCIC 授权会话后的字段命中、项目经理变更释放证据和第三个非广东省份 adapter。"
 priorities:
   - priority_id: P0_STAGE6_OBSERVABILITY
     rank: 1
@@ -40,13 +40,14 @@ priorities:
       - "2026-05-20 canary 结果：广州住建施工许可 MATCHED、竣工验收 MATCHED、GDCIC 合同履约 NEEDS_BROWSER、项目经理变更 NEEDS_BROWSER"
       - "非广东归属地 registry readback：未实现字段 adapter 的地区 live 模式输出 LIVE_FIELD_QUERY_NEEDS_REGION_ADAPTER，保留 region/no-fallback/next_adapter，不访问门户首页做伪字段核验"
       - "浙江第一版字段 adapter：已定向 PublicWeb 与 ProjectInfo/re/GetProjectSGXK、GetProjectHTBA、GetProjectJGYS；2026-05-20 canary 显示公开页可达，字段接口小预算下超时阻断或返回空结果，输出 BLOCKED / NOT_FOUND + D，不输出排除性结论"
-      - "GDCIC browser-authorized readback：已新增 gdcic-browser-authorized-readback-v1.json 受控产物消费路径；合同履约/项目经理变更可从授权浏览器回读转为 MATCHED/NOT_FOUND 与 B/C/D，无产物仍停在 NEEDS_BROWSER"
+      - "GDCIC browser-authorized readback：已新增 gdcic-browser-authorized-readback-v1.json 受控产物消费路径和 build-gdcic-browser-authorized-readback-v1.ps1 执行入口；合同履约/项目经理变更可从授权浏览器回读转为 MATCHED/NOT_FOUND 与 B/C/D，未授权登录壳真实 canary 收口为 BLOCKED/D，并显式输出授权状态与下一步动作，无产物仍停在 NEEDS_BROWSER"
+      - "四川第一版字段 adapter：已定向四川省建筑市场监管公共服务平台 GetPerjectList 与 GetProjSgxkzList/GetProjHtbaList/GetProjJgbaList；2026-05-20 真实 canary 命中施工许可详情并输出 MATCHED/B，且查询策略改为项目名优先、公司名辅助"
     done_when:
       - "P13B 重叠线索能自动生成 B/C/D 核验任务"
       - "未命中、阻断、缺备案不会被写成排除性结论"
       - "小预算真实 canary 能说明广州住建/GDCIC 当前可达性和字段变化，不只停留在 fake-live"
       - "GDCIC 真实浏览器执行器和具体非广东省份字段 adapter readback 后，释放证据链才可进入批量实战回归"
-    current_state: "IN_PROGRESS_GD_GZ_MINIMUM_LOOP_LIVE_CANARY_DONE; ZHEJIANG_FIELD_ADAPTER_V1_CANARY_DONE_D_ONLY; GDCIC_BROWSER_AUTHORIZED_ARTIFACT_CONSUMPTION_DONE; GDCIC_REAL_BROWSER_EXECUTOR_AND_SECOND_REGION_FIELD_ADAPTERS_PENDING"
+    current_state: "IN_PROGRESS_GD_GZ_MINIMUM_LOOP_LIVE_CANARY_DONE; ZHEJIANG_FIELD_ADAPTER_V1_CANARY_DONE_D_ONLY; GDCIC_REAL_BROWSER_EXECUTOR_CANARY_DONE_BLOCKED_D; SICHUAN_FIELD_ADAPTER_V1_CANARY_DONE_MATCHED_B; GDCIC_AUTHORIZED_FIELD_HIT_AND_THIRD_REGION_ADAPTER_PENDING"
   - priority_id: P1_STAGE1_3_REAL_WORLD_STABILITY
     rank: 3
     stage_scope: [Stage1, Stage2, Stage3]
@@ -54,6 +55,13 @@ priorities:
     tasks:
       - "山东、湖北等地区真实列表解析回归"
       - "详情页、附件、snapshot、hash、失败分类强化"
+      - "Scrapling parser-only snapshot 增强已接入 Stage2；Stage2SnapshotParserComparison v1 可回放本地 snapshot 并对比旧规则/新 parser，2026-05-20 广州真实 HTML snapshot 去重回放结果为旧规则 3 个附件、Scrapling 3 个附件、0 漏掉、0 多余，并输出 table_extraction_summary/table_records/field_signal_summary/field_candidate_records"
+      - "Stage2SnapshotParserReadiness v1 已批量回放 44 个 stage1-5-limit3-* 历史目录：9 个有 HTML snapshot、33 个 HTML snapshot 被比较；严格附件候选 9/9 稳定，字段信号候选 331 条、表格 310 张、label-value 字段对 288 条、候选表行信号 825 条，旧 Stage3 有效字段名缺口为 0；剩余 16 个差异是旧规则宽口径答疑/日程列表页，Scrapling 不复制为附件"
+      - "Scrapling adaptive selector registry 已新增本地 PoC：训练公告标题、正文、附件入口 3 个选择器，重放时原 CSS 选择器全部失效但 adaptive relocate 找回 3 个目标，no_live_request_all_true=true；后续再做真实站点批量训练/回放，不启用 Scrapling fetcher/browser/stealth 默认链路"
+      - "ScraplingRealPublicFetchTransport / ScraplingRealPublicDynamicFetchTransport / ScraplingRealPublicStealthyFetchTransport 已新增为非默认受控 transport wrapper；只在 RealPublicEntryFetcher 边界之后转换 Scrapling 响应，不拥有 allowlist、snapshot、hash、failure taxonomy 或证据判断；Dynamic/Stealthy 调用必须 operator_authorized=true"
+      - "Scrapling fetchers extras 已进入 requirements：scrapling[fetchers]==0.4.8；当前环境已安装 curl_cffi 0.15.0、playwright 1.59.0、patchright 1.59.1、browserforge 1.2.4，并用 localhost smoke 验证 Dynamic/Stealthy wrapper 均可返回 200"
+      - "ScraplingBottomLayerEscalationPolicy v1 已把 owner 授权口径写入代码：OWNER_APPROVED_NEEDS_BASED_SCRAPLING_BOTTOM_LAYER_USE_2026_05_20；RealPublicEntryFetcher 默认先普通 Hybrid 抓取，遇到 TLS/timeout/protocol 异常升级 HTTP，遇到 HTML 过小或 SPA/JS 壳升级 Dynamic，遇到 WAF/验证码/人机验证/Cloudflare/Turnstile 标记升级 Stealthy，并把 x-ax9s-scrapling-escalation-* 写入响应头"
+      - "SCRAPLING_BOTTOM_LAYER_DEFAULT_CALL_STRATEGY 已固化默认策略表：HTTP Fetcher 默认自动升级、DynamicFetcher 默认条件触发、StealthyFetcher 不作普通默认只作挑战面触发；普通 403 无挑战 marker 不升级 Stealthy"
       - "PDF/OCR/人员材料页定位，含人员简历、身份证、职称、社保、学位证书"
       - "设计测绘类、注册测绘师/自然资源公开源适配继续打磨"
     done_when:

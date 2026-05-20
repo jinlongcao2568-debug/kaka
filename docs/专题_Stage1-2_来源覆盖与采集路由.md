@@ -66,6 +66,22 @@
 
 在 `AttachmentList` 之后、真实下载或解析之前，必须生成 `AnalysisStrategyPlan v1` 口径的分析计划，明确每个流程和文件是否下载、是否解析、解析深度、规则核验和大模型触发条件。候选后证据包主线需要全面识别控标、围标、串标、陪标和真实买家线索，但仍必须按证据价值分层解析，不允许发现文件就全部深解析。
 
+### 2.3 Parser-only HTML snapshot 增强口径
+
+`Scrapling` 在本系统中只作为 Stage1/2 已采集 HTML/snapshot 的 parser 增强层，不作为默认抓取器、动态浏览器、反阻断入口或证据判断器。
+
+- 当前落点是 `stage2.scrapling_snapshot_parser.v1`，只消费已经由 allowlist fetcher 获取到的 HTML/snapshot，本层自身必须保持 `no_live_request=true`。
+- 适配器输出 `snapshot_parser_summary`、同站链接、附件候选、关键词命中、`table_extraction_summary`、`table_records`、`field_signal_summary` 和 `field_candidate_records`，用来补强详情页/附件发现、标题/h1、表格结构、项目编号、公告日期、候选单位、负责人和时间窗口的 parser-only 信号；不得覆盖原有 snapshot、hash、readback、failure taxonomy 和来源审计链。
+- `stage2.scrapling_adaptive_selector_registry.v1` 只用于本地 HTML/snapshot 的选择器训练与回放：保存公告标题、正文、附件入口、表格、候选行等元素特征后，可在页面 class/DOM 小幅漂移时尝试 adaptive relocate；该能力只产出 parser-only/readback 诊断，不能替代原始来源、不能直接进入客户证据结论。
+- `Stage2ScraplingAdaptiveSelectorPoC v1` 已用本地 HTML 验证 selector drift 场景：训练 3 个选择器，重放时原 CSS 选择器全部失效，Scrapling adaptive relocate 找回 3 个目标，且 `no_live_request_all_true=true`。
+- `ScraplingRealPublicFetchTransport` 只作为可选 HTTP transport wrapper 存在，不是默认抓取链路；它不得自行决定 URL、重试、保存、证据判断或失败降级，只能在 `RealPublicEntryFetcher` 已完成 allowlist/boundary 后把 Scrapling Fetcher 响应转换为 `RealPublicFetchResponse`。依赖缺失时必须显式报 `scrapling_fetcher_unavailable`，不得静默降级为成功。
+- `ScraplingRealPublicDynamicFetchTransport` 与 `ScraplingRealPublicStealthyFetchTransport` 只作为授权 browser transport wrapper 存在，调用时必须显式传入 `operator_authorized=true`；二者仍不拥有 allowlist、证据判断或客户输出权。2026-05-20 本地 localhost smoke 已验证 Dynamic/Stealthy wrapper 可返回 200，并写入 `x-ax9s-fetch-transport=scrapling_dynamic_fetcher / scrapling_stealthy_fetcher`。
+- `ScraplingBottomLayerEscalationPolicy v1` 已把 owner 授权口径写入代码：`OWNER_APPROVED_NEEDS_BASED_SCRAPLING_BOTTOM_LAYER_USE_2026_05_20`。`RealPublicEntryFetcher` 默认使用 `ScraplingEscalatingRealPublicFetchTransport`，先走普通 `HybridRealPublicFetchTransport`；普通 transport 异常、TLS/timeout/protocol 失败时升级 `scrapling_http`；HTML 过小或 SPA/JS 壳升级 `scrapling_dynamic`；WAF、验证码、人机验证、Cloudflare/Turnstile 等挑战面升级 `scrapling_stealthy`。所有升级都会写入 `x-ax9s-scrapling-escalation-*` 头，方便 snapshot/audit/readback 回看。
+- 机器可读默认策略已固化为 `SCRAPLING_BOTTOM_LAYER_DEFAULT_CALL_STRATEGY`：HTTP Fetcher 默认自动升级；DynamicFetcher 默认条件触发；StealthyFetcher 不作为普通默认，只在挑战面触发。普通 `403` 但没有 WAF/验证码/人机验证等 marker 时不得直接升级 Stealthy。
+- 依赖缺失或 Scrapling 解析失败时必须退回 stdlib parser，并记录 `parser_backend`、`parser_state` 和 `failure_taxonomy`；不能因为 parser fallback 成功就推断字段核验成功。
+- `Stage2SnapshotParserComparison v1` / `Stage2SnapshotParserReadiness v1` 只做本地 snapshot 回放，用来区分严格附件候选、parser 多余候选、旧规则宽口径导航差异，并把 Scrapling 字段信号与现有 Stage3 HTML baseline 做字段名覆盖对比；通用站点标题、模板占位符和无日期的旧 baseline 字段不得计为 parser 漏抽。
+- Browser/DynamicFetcher/StealthyFetcher 等 fetcher 能力后续如需启用，必须另走受控 adapter、allowlist、审批语义和审计链，不能随 parser 包默认开启。
+
 广东来源固定口径：
 
 - 广东主动采集和校准主源使用广州交易集团相关 source profile。

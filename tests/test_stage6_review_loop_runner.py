@@ -218,6 +218,18 @@ class Stage6ReviewLoopRunnerTests(unittest.TestCase):
                 {"B_ENHANCEMENT_OFFICIAL_READBACK": 1},
             )
             self.assertEqual(
+                records[0]["release_field_query_authorization_state_counts"],
+                {"FIELD_SURFACE_REACHED_REVIEW_REQUIRED": 1},
+            )
+            self.assertEqual(
+                records[0]["release_field_query_operator_next_actions"],
+                ["review_gdcic_authorized_query_terms_or_capture_more_precise_field_page"],
+            )
+            self.assertEqual(
+                summary["release_field_query_authorization_state_counts"],
+                {"FIELD_SURFACE_REACHED_REVIEW_REQUIRED": 1},
+            )
+            self.assertEqual(
                 records[0]["next_recommended_action"],
                 "manual_review_release_evidence_b_or_c_readback_before_stage7_preview",
             )
@@ -436,6 +448,14 @@ def _write_release_field_query_result(root: Path) -> None:
                         "project_name": "Release project",
                         "adapter_result_state": "MATCHED",
                         "downstream_release_evidence_abcd_grade": "B_ENHANCEMENT_OFFICIAL_READBACK",
+                        "field_summary": {
+                            "authorization_readiness_state_counts": {
+                                "FIELD_SURFACE_REACHED_REVIEW_REQUIRED": 1,
+                            },
+                            "operator_next_actions": [
+                                "review_gdcic_authorized_query_terms_or_capture_more_precise_field_page",
+                            ],
+                        },
                         "customer_visible_allowed": False,
                         "no_legal_conclusion": True,
                     }
