@@ -16,7 +16,11 @@ from stage4_verification.regional_hard_defect_sources import (  # noqa: E402
 from stage4_verification.service import Stage4Service  # noqa: E402
 from stage4_verification.verification_scope_policy import (  # noqa: E402
     ACTIVE_CONFLICT_SCOPE_MODE,
+    CURRENT_PROJECT_MAINLINE_PRIORITY_MODE,
+    CURRENT_PROJECT_MAINLINE_PRIORITY_REGION_CODE,
+    RELEASE_EVIDENCE_QUERY_REGION_RULE,
     build_stage45_verification_scope_policy,
+    build_stage4_execution_priority_policy,
     scope_rule_by_key,
 )
 
@@ -53,6 +57,46 @@ class Stage4VerificationScopePolicyTests(unittest.TestCase):
         self.assertIn("company_manager_project_region_discovery", policy["expanded_scope_keys"])
         self.assertIn("project_manager_active_conflict", policy["expanded_scope_keys"])
         self.assertIn("current_project_permit_contract_completion", policy["fixed_scope_keys"])
+
+    def test_guangdong_priority_does_not_force_release_evidence_to_guangdong(self) -> None:
+        policy = build_stage45_verification_scope_policy(
+            {
+                "project_id": "PROJ-GD-001",
+                "project_name": "广东当前候选项目",
+                "region_code": "CN-GD",
+            }
+        )
+
+        priority = policy["current_project_execution_priority_policy"]
+        self.assertEqual(priority["current_project_mainline_priority_mode"], CURRENT_PROJECT_MAINLINE_PRIORITY_MODE)
+        self.assertEqual(
+            priority["current_project_mainline_priority_region_code"],
+            CURRENT_PROJECT_MAINLINE_PRIORITY_REGION_CODE,
+        )
+        self.assertTrue(priority["guangdong_current_project_mainline_first"])
+        self.assertEqual(priority["release_evidence_query_region_rule"], RELEASE_EVIDENCE_QUERY_REGION_RULE)
+        self.assertTrue(priority["release_evidence_follows_historical_overlap_project_jurisdiction"])
+        self.assertTrue(priority["do_not_force_release_evidence_to_current_project_region"])
+        self.assertTrue(priority["cross_region_information_checks_allowed"])
+        self.assertIn("performance_public_record", priority["cross_region_information_source_types"])
+        self.assertIn("administrative_penalty_public_record", priority["cross_region_information_source_types"])
+        self.assertIn("credit_penalty_blacklist", priority["cross_region_information_source_types"])
+
+    def test_non_guangdong_current_project_is_secondary_but_release_evidence_still_jurisdictional(self) -> None:
+        priority = build_stage4_execution_priority_policy(
+            {
+                "project_id": "PROJ-ZJ-001",
+                "current_project_region_code": "CN-ZJ",
+            }
+        )
+
+        self.assertEqual(
+            priority["current_project_mainline_priority_mode"],
+            "NON_GUANGDONG_CURRENT_PROJECT_SECONDARY_UNTIL_GUANGDONG_MAINLINE_STABLE",
+        )
+        self.assertFalse(priority["guangdong_current_project_mainline_first"])
+        self.assertEqual(priority["release_evidence_query_region_rule"], RELEASE_EVIDENCE_QUERY_REGION_RULE)
+        self.assertTrue(priority["release_evidence_follows_historical_overlap_project_jurisdiction"])
 
     def test_guangdong_source_plan_exposes_national_active_conflict_entry(self) -> None:
         plan = build_regional_hard_defect_source_plan(

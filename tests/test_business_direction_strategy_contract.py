@@ -553,6 +553,21 @@ class BusinessDirectionStrategyContractTests(unittest.TestCase):
         self.assertIn("ZHEJIANG-GGZY-JYXXGK-LIST", primary_profile_ids)
         self.assertIn("SICHUAN-GGZY-TRANSACTION-INFO", primary_profile_ids)
         self.assertNotIn("GUANGDONG-PROVINCE-INCOMPLETE-SUMMARY-SOURCE", primary_profile_ids)
+        priority_policy = source_policy["current_execution_priority_policy"]
+        self.assertEqual(priority_policy["policy_id"], "GUANGDONG-CURRENT-PROJECT-MAINLINE-FIRST-V1")
+        self.assertEqual(priority_policy["current_candidate_project_mainline_first_region_code"], "CN-GD")
+        self.assertTrue(priority_policy["does_not_mean_release_evidence_limited_to_guangdong"])
+        self.assertEqual(
+            priority_policy["release_evidence_query_region_rule"],
+            "historical_overlap_project_region_first_then_current_project_region_fallback",
+        )
+        self.assertTrue(priority_policy["cross_region_information_checks_allowed"])
+        self.assertIn("performance_public_record", priority_policy["cross_region_information_source_types"])
+        self.assertIn("administrative_penalty_public_record", priority_policy["cross_region_information_source_types"])
+        self.assertIn(
+            "do_not_force_historical_overlap_release_evidence_to_guangdong_sources",
+            priority_policy["must_not"],
+        )
 
     def test_run_modes_distinguish_pre_bid_smoke_from_available_backtrace(self) -> None:
         contract = self._contract()

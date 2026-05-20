@@ -7,18 +7,27 @@ execution_mode: DIRECT_DEV_DEFAULT
 live_external_actions_enabled: false
 customer_visible_actions_enabled: false
 automatic_refund_enabled: false
-ordering_rule: "先解决 owner 看不懂和 Stage4 证据链短板，再扩大 Stage1-3 稳定性，最后做 Stage5 校准和 Stage1-6 批量回归。"
+ordering_rule: "先把广东/广州当前候选项目 Stage1-6 主线跑稳定；P13B 命中历史重叠项目后，释放证据按历史项目所在地走；业绩、处罚、信用等信息类核验可跨省扩展。"
 current_focus:
   priority_id: P0_STAGE4_RELEASE_EVIDENCE_CHAIN
-  task: "释放证据主链继续闭环：广东/广州最小查询闭环已 live canary，GDCIC browser-authorized readback 已有真实浏览器执行器并能显式输出授权状态/下一步动作，项目经理变更释放字段已结构化，浙江、四川、江苏、湖北、山东、湖南、河南七个重点省份第一版非广东字段 adapter 已接入；Stage1-6 批量回归 readiness 账本已接入并完成广州近期 07 live30；Stage4 real_public pressure 已能自动生成释放证据 bridge plan；Stage3 负责人非自然人误抽已完成第二轮硬化，广州 YWTB 附件 challenge resolver 已实战抓取 gap8 附件 23/23，并把 11373 推进到 广东省建筑工程监理有限公司 + 谯锋；Stage2 附件文本缓存已把 gap8 全量 reparse 从超时降到约 5 秒；字段查询结果已能独立回灌到 Stage6 多项目状态；下一步扩大到 live50 或切换山东/湖北地区实战，并补 GDCIC 授权会话命中样本"
-  reason: "Stage6 总览已能默认展示最近多项目批次，并把当前阶段、证据等级、阻断原因、下一步和 Stage7 gate 投到项目卡片；释放证据 dispatch 输入约束已收紧，不能再误用默认旧产物；GuangdongLocalFieldQueryProbe 已能把 ReleaseEvidenceAdapterPlan 的施工许可、合同履约、竣工验收、项目经理变更四类目标分流到广州住建/GDCIC/非广东归属地 adapter，并输出 MATCHED / NOT_FOUND / BLOCKED / NEEDS_BROWSER；2026-05-20 小预算 live canary 已验证广州住建施工许可/竣工验收可达可解析；GDCIC browser-authorized readback 现已能消费 gdcic-browser-authorized-readback-v1.json，也能通过 build-gdcic-browser-authorized-readback-v1.ps1 执行真实 Playwright canary，未授权合同履约系统登录壳会落 LOGIN_OR_SSO_REQUIRED_BLOCKED / BLOCKED / D，并显式回传 authorization_readiness_state=LOGIN_OR_SSO_REQUIRED、required_runtime_capability=AUTHORIZED_SESSION_STORAGE_STATE_OR_USER_DATA_DIR、http_dynamic_stealthy_can_replace_login_state=false 与 operator_next_actions，field probe、Stage6 loop 项目状态表和 operator projection 均可继续展示该状态，不再写成字段未命中；项目经理变更 browser-authorized readback 已能结构化抽取原项目经理、新项目经理、变更日期、变更原因和责任窗口解释，并在 Stage4 字段记录中输出 C 级反向解释候选；非广东归属地 adapter registry 已能防误判，浙江、四川、江苏、湖北、山东、湖南、河南七个重点省份第一版字段 adapter 已接入；Stage4 GET/readback 默认已桥接 ScraplingEscalatingRealPublicFetchTransport；RealPublicStage49PressureReport 现已输出 stage1-6-readiness-table.json、stage1-6-gap-summary-table.json、stage4-release-adapter-bridge-table.json 与 stage4-release-adapter-bridge-plan.json，并已完成广州近期 07 live30：Stage1 从 88 条原始行中取 30 条有效候选，Stage2 详情快照 30/30，Stage3 parse 30/30，15 条进入 Stage4-6 但全部 REVIEW_REQUIRED，15 条只作 Stage1 复核暂存；readiness 分布为 Stage1 复核暂存 15、Stage3 负责人角色缺口 5、Stage4 公开源/释放证据链缺口 10；释放证据 bridge 生成 60 条 plan-only 任务，GuangdongLocalFieldQueryProbe dry-run 可消费 60 条，live8 canary 得到施工许可/竣工 NOT_FOUND/D 4 条与合同履约/项目经理变更 NEEDS_BROWSER/D 4 条，剩余 52 条因预算延后；GuangdongLocalFieldQueryProbe 顶层 summary 已能直接输出 authorization_readiness_state_counts 与 operator_next_action_counts；Stage6ReviewLoopRunner 现已能把独立 guangdong-local-field-query-probe-v1.json 导入项目状态表，live8 产物回放生成 15 个项目状态行，全部正确停在 RELEASE_FIELD_QUERY_GAP_OR_BLOCKER_REVIEW，并把 LOGIN_OR_SSO_REQUIRED 与 operator_next_actions 投到中文 operator projection；Stage1-6 readiness 行已补 stage1_6_bottleneck_stage 与 next_recommended_action 兼容字段；Stage3 负责人误抽已完成第一轮硬化，live20 无网络回放确认“厦门重、质量目标、幢游泳馆、投资、年以上、国电电力、万千瓦、陕西榆林”等不再产出，RQSG2 曾凡伟和规划测绘胡昌华仍保留；客户可售证据包仍为 0/30。当前最大缺口已转为 live50 或山东/湖北地区实战、GDCIC 授权会话后的真实字段命中样本，以及 Stage1-3 更多省份/附件/OCR/复杂表格实战压测。"
-  reason_delta: "2026-05-20 v47: Stage2 附件文本缓存已落地，gap8 全量 reparse 8/8 复用、23/23 附件保留、8/8 命中缓存，耗时约 5 秒；11373 命中 广东省建筑工程监理有限公司 + 谯锋，11386 回到 广东华路交通科技有限公司 + B 类总监缺失补证。下一步转向 live50/山东湖北实战和 GDCIC 授权会话命中样本。"
+  task: >
+    广东当前候选项目主线继续闭环：广州/广东 Stage1-6、GDCIC 授权字段命中、P13B 回灌和 Stage6 状态可读化优先。
+    释放证据不限制广东；P13B 命中历史重叠项目后，施工许可、合同履约、竣工验收、项目经理变更按历史项目所在地公开源查询。
+    项目经理业绩、公司/项目经理处罚、信用、投诉监管决定等信息类核验可以跨省/全国扩展，但不等于当前候选项目主线切换到山东/湖北。
+  reason: >
+    Stage6 总览已能展示多项目批次、当前阶段、证据等级、阻断原因、下一步和 Stage7 gate。
+    ReleaseEvidenceAdapterPlan 到字段查询层已经能保留历史项目所在地、no-fallback 和 B/C/D 结果，非广东归属地 adapter registry 已能防误判。
+    广州近期 07 live30 已完成：Stage2 详情 30/30，Stage3 parse 30/30，Stage4 字段 live16 得到施工许可 MATCHED/B 1 条、广州公开源 NOT_FOUND/D 7 条、GDCIC 合同履约/项目经理变更 NEEDS_BROWSER/D 8 条。
+    Stage2 附件文本缓存已把 gap8 全量 reparse 缩到约 5 秒，11373 已抽到 广东省建筑工程监理有限公司 + 谯锋，11386 停在 广东华路交通科技有限公司 + B 类总监缺失补证。
+    当前最大缺口是广东/广州 GDCIC 授权会话后的真实字段命中样本、P13B 结果回灌、广东 Stage1-6 闭环稳定性，以及 Stage3 负责人/OCR/人员材料页继续压测。
+  reason_delta: >
+    2026-05-20 v48: 修正优先级口径。广东优先指当前候选项目实战主线优先广东，不表示释放证据只查广东；释放证据按历史重叠项目所在地，业绩/处罚/信用信息类核验允许跨省扩展。
   latest_live_validation:
     run_id: "guangzhou-real-public-stage1-6-live30-attemptall-20260520-r2"
     summary: "已新增显式全候选 Stage1-6 压测开关；广州近期 07 live30 复跑后 30/30 候选全部进入 Stage1-6，Stage1 未入选卡点清零。Stage2 详情快照 30/30，Stage3 parse 30/30，readiness 分布为 Stage3 字段/角色缺口 8、Stage4 公开源/释放证据链缺口 22，客户可售证据包仍为 0/30。"
     release_evidence_live16: "基于 120 条释放证据任务做 live16：广州住建施工许可 MATCHED/B 1 条、广州公开源 NOT_FOUND/D 7 条、GDCIC 合同履约/项目经理变更 NEEDS_BROWSER/D 8 条，剩余 104 条按预算延后；Stage6 回灌生成 30 个项目状态，1 个 RELEASE_FIELD_QUERY_REVIEW_READY，29 个 RELEASE_FIELD_QUERY_GAP_OR_BLOCKER_REVIEW，GDCIC 4 个项目明确 LOGIN_OR_SSO_REQUIRED。"
     stage2_ywtb_attachment_gap8: "广州 YWTB attachment challenge resolver 已通过 canary 和 gap8 实战：单附件 PDF 返回 FETCHED/application_pdf，gap8 同站附件 23/23 抓取为 RESOLVED_AND_SNAPSHOT_CAPTURED；cache-r2 全量复用回放确认 8/8 existing capture 复用、23/23 附件保留、8/8 缓存命中，11373 抽到 广东省建筑工程监理有限公司 + 谯锋 并清空 stale gap，11386 不再产出假姓名或错绑第二候选人，停在 广东华路交通科技有限公司 + B 类总监缺失补证。"
-    next_best_task: "补 GDCIC 授权 storage_state/user_data_dir 的真实命中回放；同时继续扩大 live50 或切换山东/湖北实战，验证非广东归属地 adapter registry。"
+    next_best_task: "继续广东/广州：补 GDCIC 授权 storage_state/user_data_dir 的真实命中回放，回灌 P13B/字段查询到 Stage6；非广东只在历史项目所在地释放证据或业绩/处罚/信用信息类核验触发时扩展。"
 priorities:
   - priority_id: P0_STAGE6_OBSERVABILITY
     rank: 1
@@ -36,8 +45,11 @@ priorities:
   - priority_id: P0_STAGE4_RELEASE_EVIDENCE_CHAIN
     rank: 2
     stage_scope: [Stage4, Stage5, Stage6]
-    title: "Stage4 释放证据主链"
+    title: "Stage4 广东当前项目核验与 P13B 释放证据链"
     tasks:
+      - "广东当前候选项目主线优先：广州/广东 Stage1-6、P13B、字段回灌和状态可读化先跑稳定"
+      - "释放证据按历史重叠项目所在地查询，不因当前候选项目在广东而强制查广东"
+      - "项目经理业绩、公司/项目经理处罚、信用、投诉监管决定等信息类核验允许跨省/全国扩展"
       - "施工许可、竣工验收、项目经理变更、合同履约四类 adapter job"
       - "广东/广州最小闭环：MATCHED / NOT_FOUND / BLOCKED / NEEDS_BROWSER"
       - "非广东按归属地住建局 adapter registry"
@@ -65,15 +77,15 @@ priorities:
       - "P13B 重叠线索能自动生成 B/C/D 核验任务"
       - "未命中、阻断、缺备案不会被写成排除性结论"
       - "小预算真实 canary 能说明广州住建/GDCIC 当前可达性和字段变化，不只停留在 fake-live"
-      - "GDCIC 真实浏览器授权字段命中样本和 live50 或跨地区批量实战回归后，释放证据链才可判断是否进入更大规模实战"
-      - "批量实战回归账本第一版已能输出 stage1-6-readiness-table.json 和 stage1-6-gap-summary-table.json；广州近期 07 live30 已执行，但尚未执行 live50 或山东/湖北等跨地区批量"
+      - "GDCIC 真实浏览器授权字段命中样本和广东/广州 Stage1-6 闭环回归后，才判断是否进入更大规模实战"
+      - "批量实战回归账本第一版已能输出 stage1-6-readiness-table.json 和 stage1-6-gap-summary-table.json；广州近期 07 live30 已执行，下一步继续广东/广州，不切换当前候选项目主线到山东/湖北"
     current_state: "IN_PROGRESS_GD_GZ_MINIMUM_LOOP_LIVE_CANARY_DONE; ZHEJIANG_FIELD_ADAPTER_V1_CANARY_DONE_D_ONLY; GDCIC_REAL_BROWSER_EXECUTOR_CANARY_DONE_BLOCKED_D; GDCIC_LOGIN_STATE_BOUNDARY_EXPLICIT; GDCIC_PROJECT_MANAGER_CHANGE_RELEASE_FIELDS_DONE; SICHUAN_FIELD_ADAPTER_V1_CANARY_DONE_MATCHED_B; JIANGSU_FIELD_ADAPTER_V1_CANARY_DONE_NEEDS_BROWSER_D; HUBEI_FIELD_ADAPTER_V1_CANARY_DONE_NEEDS_BROWSER_D; SHANDONG_FIELD_ADAPTER_V1_CANARY_DONE_NEEDS_BROWSER_D; HUNAN_FIELD_ADAPTER_V1_CANARY_DONE_NEEDS_BROWSER_D; HENAN_FIELD_ADAPTER_V1_CANARY_DONE_NEEDS_BROWSER_D; STAGE4_SCRAPLING_GET_BRIDGE_DONE; STAGE1_6_BATCH_READINESS_LEDGER_V1_DONE; GUANGZHOU_07_LIVE30_BATCH_REGRESSION_DONE_REVIEW_REQUIRED_15_OF_30; STAGE1_6_ATTEMPT_ALL_CANDIDATES_SWITCH_DONE; GUANGZHOU_07_LIVE30_ATTEMPT_ALL_DONE_30_OF_30; STAGE4_REAL_PUBLIC_RELEASE_ADAPTER_BRIDGE_V1_DONE_LIVE16_CANARY_DONE_MATCHED_B_1; STAGE3_PERSON_NAME_FALSE_POSITIVE_HARDENING_V2_DONE_YWTB_GAP8_ATTACHMENT_23_OF_23_LIVE2_R6_DONE; STAGE2_ATTACHMENT_TEXT_CACHE_DONE_GAP8_CACHE_R2_8_OF_8_REUSE_23_OF_23_ATTACHMENTS; YWTB_ATTACHMENT_CHALLENGE_RESOLVER_PRESSURE_SWITCH_DONE; STAGE4_FIELD_QUERY_RESULT_TO_STAGE6_STATUS_BACKFILL_V1_DONE_LIVE16_STATUS_PROJECTION_DONE; FIELD_QUERY_SUMMARY_AUTH_COUNTS_V1_DONE; STAGE1_6_READINESS_ROW_COMPAT_FIELDS_DONE"
   - priority_id: P1_STAGE1_3_REAL_WORLD_STABILITY
     rank: 3
     stage_scope: [Stage1, Stage2, Stage3]
     title: "Stage1-3 实战稳定性"
     tasks:
-      - "山东、湖北等地区真实列表解析回归"
+      - "广东/广州真实列表、详情、附件和人员材料页优先压测；山东、湖北等非广东候选发现器后置，不抢当前主线"
       - "详情页、附件、snapshot、hash、失败分类强化"
       - "Scrapling parser-only snapshot 增强已接入 Stage2；Stage2SnapshotParserComparison v1 可回放本地 snapshot 并对比旧规则/新 parser，2026-05-20 广州真实 HTML snapshot 去重回放结果为旧规则 3 个附件、Scrapling 3 个附件、0 漏掉、0 多余，并输出 table_extraction_summary/table_records/field_signal_summary/field_candidate_records"
       - "Stage2SnapshotParserReadiness v1 已批量回放 44 个 stage1-5-limit3-* 历史目录：9 个有 HTML snapshot、33 个 HTML snapshot 被比较；严格附件候选 9/9 稳定，字段信号候选 331 条、表格 310 张、label-value 字段对 288 条、候选表行信号 825 条，旧 Stage3 有效字段名缺口为 0；剩余 16 个差异是旧规则宽口径答疑/日程列表页，Scrapling 不复制为附件"
@@ -107,7 +119,7 @@ priorities:
     stage_scope: [Stage1, Stage2, Stage3, Stage4, Stage5, Stage6]
     title: "Stage1-6 批量实战回归"
     tasks:
-      - "跑 20-50 个近期 07 中标候选人公示"
+      - "优先跑广东/广州 20-50 个近期 07 中标候选人公示"
       - "统计每个 Stage 成功率、阻断率、人工介入点"
       - "形成 Stage1-6 readiness 表"
       - "RealPublicStage49PressureReport v1 已新增 stage1-6-readiness-table.json / stage1-6-gap-summary-table.json，本地 fake-run 测试已覆盖 READY、Stage2 pending、Stage3 role gap、Stage4 time budget 四类状态"

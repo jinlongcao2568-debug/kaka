@@ -59,6 +59,19 @@ class ReleaseEvidenceAdapterPlanTests(unittest.TestCase):
             self.assertEqual(task_by_type["contract_performance"]["release_evidence_grade_on_match"], "B_ENHANCEMENT_OFFICIAL_READBACK")
             self.assertEqual(task_by_type["completion_acceptance"]["release_evidence_grade_on_match"], "C_REVERSE_EXPLANATION_OFFICIAL_READBACK")
             self.assertEqual(task_by_type["project_manager_change_notice"]["release_evidence_grade_on_match"], "C_REVERSE_EXPLANATION_OFFICIAL_READBACK")
+            self.assertEqual(
+                result["manifest"]["execution_priority_policy"]["release_evidence_query_region_rule"],
+                "HISTORICAL_OVERLAP_PROJECT_JURISDICTION_FIRST",
+            )
+            self.assertTrue(
+                result["manifest"]["execution_priority_policy"][
+                    "release_evidence_follows_historical_overlap_project_jurisdiction"
+                ]
+            )
+            self.assertEqual(
+                result["manifest"]["execution_priority_policy"]["current_project_mainline_priority_region_code"],
+                "CN-GD",
+            )
             self.assertTrue(
                 all(
                     task["allowed_adapter_result_states"] == ["MATCHED", "NOT_FOUND", "BLOCKED", "NEEDS_BROWSER"]
@@ -103,6 +116,13 @@ class ReleaseEvidenceAdapterPlanTests(unittest.TestCase):
             task = result["manifest"]["release_evidence_adapter_task_records"][0]
             self.assertEqual(task["local_housing_authority_adapter_scope"], "HISTORICAL_PROJECT_JURISDICTION")
             self.assertEqual(task["local_housing_authority_adapter_region_code"], "CN-ZJ")
+            self.assertEqual(task["release_evidence_query_region_rule"], "HISTORICAL_OVERLAP_PROJECT_JURISDICTION_FIRST")
+            self.assertTrue(task["release_evidence_follows_historical_overlap_project_jurisdiction"])
+            self.assertTrue(task["do_not_force_release_evidence_to_current_project_region"])
+            self.assertEqual(task["current_project_mainline_priority_region_code"], "CN-GD")
+            self.assertTrue(task["cross_region_information_checks_allowed"])
+            self.assertIn("performance_public_record", task["cross_region_information_source_types"])
+            self.assertIn("administrative_penalty_public_record", task["cross_region_information_source_types"])
             self.assertEqual(
                 task["non_guangdong_release_adapter_rule"],
                 "NON_GUANGDONG_HISTORY_PROJECT_USE_JURISDICTION_LOCAL_HOUSING_AUTHORITY_ADAPTER",

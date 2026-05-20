@@ -8,6 +8,12 @@ from typing import Any, Iterable, Mapping
 
 from shared.utils import utc_now_iso
 from stage4_verification.regional_hard_defect_sources import resolve_release_evidence_local_housing_adapter
+from stage4_verification.verification_scope_policy import (
+    CROSS_REGION_INFORMATION_SOURCE_TYPES,
+    CURRENT_PROJECT_MAINLINE_PRIORITY_MODE,
+    CURRENT_PROJECT_MAINLINE_PRIORITY_REGION_CODE,
+    RELEASE_EVIDENCE_QUERY_REGION_RULE,
+)
 
 
 RELEASE_EVIDENCE_ADAPTER_PLAN_KIND = "release_evidence_adapter_plan_v1_manifest"
@@ -54,6 +60,21 @@ TARGET_POLICY = {
         "evidence_family": "C_REVERSE_EXPLANATION_OFFICIAL_READBACK",
         "source_role": "project_manager_change_or_responsibility_window_split",
     },
+}
+
+EXECUTION_PRIORITY_POLICY = {
+    "policy_id": "RELEASE-EVIDENCE-QUERY-REGION-PRIORITY-V1",
+    "current_project_mainline_priority_mode": CURRENT_PROJECT_MAINLINE_PRIORITY_MODE,
+    "current_project_mainline_priority_region_code": CURRENT_PROJECT_MAINLINE_PRIORITY_REGION_CODE,
+    "current_project_mainline_priority_note": "Guangdong priority applies to current candidate project live closeout, not to forcing historical release evidence into Guangdong sources.",
+    "release_evidence_query_region_rule": RELEASE_EVIDENCE_QUERY_REGION_RULE,
+    "release_evidence_follows_historical_overlap_project_jurisdiction": True,
+    "do_not_force_release_evidence_to_current_project_region": True,
+    "cross_region_information_checks_allowed": True,
+    "cross_region_information_source_types": list(CROSS_REGION_INFORMATION_SOURCE_TYPES),
+    "query_miss_is_not_clearance": True,
+    "customer_visible_allowed": False,
+    "no_legal_conclusion": True,
 }
 
 
@@ -138,6 +159,7 @@ def build_release_evidence_adapter_plan(
         "source_p13b_operational_closeout_manifest_id": str(operational_manifest.get("manifest_id") or ""),
         "allowed_adapter_result_states": list(ALLOWED_ADAPTER_RESULT_STATES),
         "target_policy": TARGET_POLICY,
+        "execution_priority_policy": EXECUTION_PRIORITY_POLICY,
         "project_release_evidence_plan_records": project_plan_records,
         "release_evidence_adapter_task_records": adapter_task_records,
         "summary": summary,
@@ -226,6 +248,7 @@ def _project_plan_record(
             jurisdiction_adapter.get("no_fallback_to_guangdong_or_guangzhou")
         ),
         "allowed_adapter_result_states": list(ALLOWED_ADAPTER_RESULT_STATES),
+        "execution_priority_policy": EXECUTION_PRIORITY_POLICY,
         "recommended_next_action": next_action,
         "query_miss_is_not_clearance": True,
         "customer_visible_allowed": False,
@@ -279,6 +302,13 @@ def _adapter_tasks_for_project(
                     ),
                     "release_evidence_query_region_code": str(source_task.get("release_evidence_query_region_code") or ""),
                     "release_evidence_query_region_basis": str(source_task.get("release_evidence_query_region_basis") or ""),
+                    "release_evidence_query_region_rule": RELEASE_EVIDENCE_QUERY_REGION_RULE,
+                    "release_evidence_follows_historical_overlap_project_jurisdiction": True,
+                    "do_not_force_release_evidence_to_current_project_region": True,
+                    "current_project_mainline_priority_mode": CURRENT_PROJECT_MAINLINE_PRIORITY_MODE,
+                    "current_project_mainline_priority_region_code": CURRENT_PROJECT_MAINLINE_PRIORITY_REGION_CODE,
+                    "cross_region_information_checks_allowed": True,
+                    "cross_region_information_source_types": list(CROSS_REGION_INFORMATION_SOURCE_TYPES),
                     "local_housing_authority_adapter_scope": str(source_task.get("local_housing_authority_adapter_scope") or ""),
                     "local_housing_authority_adapter_region_code": str(
                         source_task.get("local_housing_authority_adapter_region_code") or ""
@@ -384,6 +414,7 @@ def _summary(
         ),
         "operational_closeout_supplied": operational_supplied,
         "allowed_adapter_result_states": list(ALLOWED_ADAPTER_RESULT_STATES),
+        "execution_priority_policy": EXECUTION_PRIORITY_POLICY,
         "blocking_reasons": blocking_reasons,
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,
@@ -566,6 +597,7 @@ if __name__ == "__main__":
 
 
 __all__ = [
+    "EXECUTION_PRIORITY_POLICY",
     "RELEASE_EVIDENCE_ADAPTER_PLAN_KIND",
     "build_release_evidence_adapter_plan",
 ]

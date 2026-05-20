@@ -13,6 +13,23 @@ NATIONAL_VERIFICATION_PROFILE_IDS = (
     "GSXT-HOME",
 )
 ACTIVE_CONFLICT_SCOPE_MODE = "NATIONAL_DISCOVERY_THEN_TARGETED_REGIONAL_VERIFICATION"
+CURRENT_PROJECT_MAINLINE_PRIORITY_REGION_CODE = "CN-GD"
+CURRENT_PROJECT_MAINLINE_PRIORITY_MODE = "GUANGDONG_CURRENT_PROJECT_MAINLINE_FIRST"
+RELEASE_EVIDENCE_QUERY_REGION_RULE = "HISTORICAL_OVERLAP_PROJECT_JURISDICTION_FIRST"
+RELEASE_EVIDENCE_SOURCE_TYPES = (
+    "construction_permit",
+    "contract_public_info",
+    "completion_filing",
+    "project_manager_change_notice",
+)
+CROSS_REGION_INFORMATION_SOURCE_TYPES = (
+    "performance_public_record",
+    "administrative_penalty_public_record",
+    "credit_penalty_blacklist",
+    "complaint_or_supervision_decision",
+    "personnel_public_record",
+    "enterprise_public_record",
+)
 
 
 def build_stage45_verification_scope_policy(candidate: Mapping[str, Any]) -> dict[str, Any]:
@@ -21,12 +38,19 @@ def build_stage45_verification_scope_policy(candidate: Mapping[str, Any]) -> dic
         region_code = "CN-NATIONAL"
     project_id = str(candidate.get("project_id") or candidate.get("current_project_id") or "GENERIC")
     policy_id = build_id("ST45SCOPE", project_id, region_code)
+    execution_priority_policy = build_stage4_execution_priority_policy(
+        {
+            **dict(candidate),
+            "current_project_region_code": region_code,
+        }
+    )
     return {
         "scope_policy_id": policy_id,
         "policy_version": "stage45-verification-scope-v1",
         "principle": "verification_scope_follows_target_object_not_search_region",
         "current_project_region_code": region_code,
         "current_project_region_is_not_person_conflict_boundary": True,
+        "current_project_execution_priority_policy": execution_priority_policy,
         "scope_rules": [
             _scope_rule(
                 scope_key="current_project_notice_chain",
@@ -162,6 +186,34 @@ def build_stage45_verification_scope_policy(candidate: Mapping[str, Any]) -> dic
     }
 
 
+def build_stage4_execution_priority_policy(candidate: Mapping[str, Any]) -> dict[str, Any]:
+    region_code = str(candidate.get("current_project_region_code") or candidate.get("region_code") or "").upper()
+    if not region_code:
+        region_code = "CN-NATIONAL"
+    current_project_is_guangdong = region_code == CURRENT_PROJECT_MAINLINE_PRIORITY_REGION_CODE
+    return {
+        "policy_id": "STAGE4-GUANGDONG-CURRENT-PROJECT-MAINLINE-PRIORITY-V1",
+        "current_project_region_code": region_code,
+        "current_project_mainline_priority_mode": CURRENT_PROJECT_MAINLINE_PRIORITY_MODE
+        if current_project_is_guangdong
+        else "NON_GUANGDONG_CURRENT_PROJECT_SECONDARY_UNTIL_GUANGDONG_MAINLINE_STABLE",
+        "guangdong_current_project_mainline_first": current_project_is_guangdong,
+        "current_project_mainline_priority_region_code": CURRENT_PROJECT_MAINLINE_PRIORITY_REGION_CODE,
+        "release_evidence_query_region_rule": RELEASE_EVIDENCE_QUERY_REGION_RULE,
+        "release_evidence_follows_historical_overlap_project_jurisdiction": True,
+        "do_not_force_release_evidence_to_current_project_region": True,
+        "release_evidence_source_types": list(RELEASE_EVIDENCE_SOURCE_TYPES),
+        "cross_region_information_checks_allowed": True,
+        "cross_region_information_source_types": list(CROSS_REGION_INFORMATION_SOURCE_TYPES),
+        "cross_region_information_scope_note": (
+            "Performance, penalty, credit and public personnel/company information checks may expand across "
+            "regions; B/C/D release evidence still follows the historical overlap project's jurisdiction."
+        ),
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
+
+
 def _scope_rule(
     *,
     scope_key: str,
@@ -206,7 +258,13 @@ def scope_rule_by_key(policy: Mapping[str, Any], scope_key: str) -> dict[str, An
 
 __all__ = [
     "ACTIVE_CONFLICT_SCOPE_MODE",
+    "CROSS_REGION_INFORMATION_SOURCE_TYPES",
+    "CURRENT_PROJECT_MAINLINE_PRIORITY_MODE",
+    "CURRENT_PROJECT_MAINLINE_PRIORITY_REGION_CODE",
     "NATIONAL_VERIFICATION_PROFILE_IDS",
+    "RELEASE_EVIDENCE_QUERY_REGION_RULE",
+    "RELEASE_EVIDENCE_SOURCE_TYPES",
     "build_stage45_verification_scope_policy",
+    "build_stage4_execution_priority_policy",
     "scope_rule_by_key",
 ]
