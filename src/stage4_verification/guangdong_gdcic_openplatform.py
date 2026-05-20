@@ -185,7 +185,8 @@ def query_guangdong_gdcic_openplatform_hard_defect_sources(
     source_results: list[dict[str, Any]] = []
     failure_reasons: list[str] = []
     project_code_candidates: list[str] = _candidate_project_codes(candidate)
-    project_codes: list[str] = list(project_code_candidates)
+    trade_project_codes: list[str] = _trade_project_codes(project_code_candidates)
+    project_codes: list[str] = _direct_gdcic_project_codes(project_code_candidates)
     project_name_query_candidates = _project_name_query_candidates(project_name)
 
     if not project_codes and project_name_query_candidates:
@@ -327,10 +328,12 @@ def query_guangdong_gdcic_openplatform_hard_defect_sources(
             "candidate_company": company_name,
             "project_code_candidates": project_code_candidates,
             "project_codes": project_codes,
+            "trade_project_codes": trade_project_codes,
             "project_code_resolution_failure_reasons": project_code_resolution_failure_reasons,
         },
         "project_code_candidates": project_code_candidates,
         "project_codes": project_codes,
+        "trade_project_codes": trade_project_codes,
         "project_name_query_candidates": project_name_query_candidates,
         "project_code_resolution_failure_reasons": project_code_resolution_failure_reasons,
         "covered_source_types": covered,
@@ -1188,6 +1191,25 @@ def _candidate_project_codes(candidate: Mapping[str, Any]) -> list[str]:
     ):
         codes.extend(_extract_codes_from_text(value))
     return list(dict.fromkeys(codes))
+
+
+def _direct_gdcic_project_codes(values: Iterable[Any]) -> list[str]:
+    codes: list[str] = []
+    for value in values:
+        text = _clean_text(value)
+        if not text or _looks_like_trade_project_code(text):
+            continue
+        codes.append(text)
+    return list(dict.fromkeys(codes))
+
+
+def _trade_project_codes(values: Iterable[Any]) -> list[str]:
+    return list(dict.fromkeys(_clean_text(value) for value in values if _looks_like_trade_project_code(value)))
+
+
+def _looks_like_trade_project_code(value: Any) -> bool:
+    text = _clean_text(value).upper()
+    return bool(re.fullmatch(r"[A-Z]{1,8}\d{4}-\d{3,8}(?:-\d{3})?", text))
 
 
 def _append_code_values(codes: list[str], value: Any) -> None:

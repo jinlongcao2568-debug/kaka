@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 import re
+import urllib.parse
 from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping
 
@@ -405,6 +406,7 @@ def _stage4_release_adapter_bridge_records(result: Mapping[str, Any], *, created
         if not release_source_types:
             continue
         source_plan = dict(readback.get("regional_hard_defect_source_plan") or {})
+        source_readback = dict(readback.get("regional_hard_defect_source_readback") or {})
         query_context = dict(source_plan.get("query_context") or {})
         region_code = str(
             source_plan.get("region_code")
@@ -443,15 +445,13 @@ def _stage4_release_adapter_bridge_records(result: Mapping[str, Any], *, created
         )
         trigger_source_url = _first_text([candidate.get("source_url"), query_context.get("source_url")])
         project_code_variants = _project_code_variants(
-            [
-                project_id,
-                candidate.get("project_code"),
-                candidate.get("source_project_code"),
-                candidate.get("trade_project_code"),
-                query_context.get("project_code"),
-                query_context.get("source_project_code"),
-                query_context.get("trade_project_code"),
-            ]
+            _bridge_project_code_values(
+                candidate=candidate,
+                source_plan=source_plan,
+                source_readback=source_readback,
+                readback=readback,
+                project_id=project_id,
+            )
         )
         gdcic_project_code_variants = _gdcic_project_code_variants(project_code_variants)
         for source_type in release_source_types:
@@ -720,6 +720,190 @@ def _notice_core_project_name(value: str) -> str:
         if text.endswith(suffix):
             return text[: -len(suffix)].strip()
     return text
+
+
+PROJECT_CODE_FIELD_KEYS = {
+    "projectcode",
+    "projectcodes",
+    "projectcodevariants",
+    "gdcicprojectcode",
+    "gdcicprojectcodes",
+    "gdcicprojectcodevariants",
+    "gdcicprojectcodecandidates",
+    "sourceprojectcode",
+    "sourceprojectcodes",
+    "tradeprojectcode",
+    "tradeprojectcodes",
+    "projectpubliccode",
+    "projectpubliccodes",
+    "projectno",
+    "projectnum",
+    "prjnum",
+    "prjcode",
+    "tenderprojectcode",
+    "sectioncode",
+    "bidsectioncode",
+}
+
+PROJECT_CODE_URL_QUERY_KEYS = {
+    "projectcode",
+    "project_code",
+    "gdcic_project_code",
+    "project_public_code",
+    "source_project_code",
+    "trade_project_code",
+    "projectno",
+    "projectnum",
+    "prjnum",
+    "prjcode",
+    "tenderprojectcode",
+    "sectioncode",
+    "bidsectioncode",
+}
+
+
+def _bridge_project_code_values(
+    *,
+    candidate: Mapping[str, Any],
+    source_plan: Mapping[str, Any],
+    source_readback: Mapping[str, Any],
+    readback: Mapping[str, Any],
+    project_id: str,
+) -> list[Any]:
+    source_plan_context = dict(source_plan.get("query_context") or {})
+    source_readback_context = dict(source_readback.get("query_context") or {})
+    values: list[Any] = [
+        project_id,
+        candidate.get("project_id"),
+        candidate.get("project_code"),
+        candidate.get("source_project_code"),
+        candidate.get("trade_project_code"),
+        candidate.get("project_public_code"),
+        candidate.get("gdcic_project_code"),
+        source_plan_context.get("project_id"),
+        source_plan_context.get("project_code"),
+        source_plan_context.get("source_project_code"),
+        source_plan_context.get("trade_project_code"),
+        source_plan_context.get("project_public_code"),
+        source_plan_context.get("gdcic_project_code"),
+        source_readback_context.get("project_code"),
+        source_readback_context.get("source_project_code"),
+        source_readback_context.get("trade_project_code"),
+        source_readback_context.get("project_public_code"),
+        source_readback_context.get("gdcic_project_code"),
+    ]
+    for payload in (
+        candidate,
+        source_plan_context,
+        source_readback_context,
+        source_readback.get("project_code_candidates"),
+        source_readback.get("gdcic_project_code_candidates"),
+        source_readback.get("project_codes"),
+        source_readback.get("gdcic_project_codes"),
+        source_readback.get("source_results"),
+        readback.get("source_refs"),
+    ):
+        values.extend(_collect_project_code_values(payload))
+    return _dedupe_strings(str(value).strip() for value in values if str(value or "").strip())
+
+
+def _collect_project_code_values(value: Any) -> list[str]:
+    out: list[str] = []
+    if value is None:
+        return out
+    if isinstance(value, Mapping):
+        field_name = _first_text(
+            [
+                value.get("field_name"),
+                value.get("fieldName"),
+                value.get("field_key"),
+                value.get("fieldKey"),
+                value.get("label"),
+                value.get("name"),
+            ]
+        )
+        if _looks_like_project_code_field(field_name):
+            for key in ("field_value", "fieldValue", "field_value_optional", "value", "raw_value", "text"):
+                out.extend(_collect_project_code_values(value.get(key)))
+        for raw_key, nested_value in value.items():
+            key = _normalize_key(raw_key)
+            if key in PROJECT_CODE_FIELD_KEYS:
+                out.extend(_flatten_project_code_values(nested_value))
+                continue
+            if key in {"sourceurl", "triggerurl", "url", "apiurl", "officialreferenceurl"}:
+                out.extend(_project_code_values_from_url(nested_value))
+                continue
+            if key in {"querycontext", "queryinput", "source_results", "sourceresults", "samplerecords", "limitedreadback"}:
+                out.extend(_collect_project_code_values(nested_value))
+                continue
+            if isinstance(nested_value, Mapping) or (
+                isinstance(nested_value, (list, tuple))
+                and any(isinstance(item, Mapping) for item in nested_value)
+            ):
+                out.extend(_collect_project_code_values(nested_value))
+        return _dedupe_strings(out)
+    if isinstance(value, (list, tuple, set)):
+        for item in value:
+            out.extend(_collect_project_code_values(item))
+        return _dedupe_strings(out)
+    text = str(value or "").strip()
+    return [text] if text else []
+
+
+def _flatten_project_code_values(value: Any) -> list[str]:
+    if isinstance(value, Mapping):
+        out: list[str] = []
+        for nested_value in value.values():
+            out.extend(_flatten_project_code_values(nested_value))
+        return _dedupe_strings(out)
+    if isinstance(value, (list, tuple, set)):
+        out: list[str] = []
+        for item in value:
+            out.extend(_flatten_project_code_values(item))
+        return _dedupe_strings(out)
+    text = str(value or "").strip()
+    return [text] if text else []
+
+
+def _project_code_values_from_url(value: Any) -> list[str]:
+    text = str(value or "").strip()
+    if not text:
+        return []
+    parsed = urllib.parse.urlparse(text)
+    query_texts = [parsed.query]
+    if "?" in parsed.fragment:
+        query_texts.append(parsed.fragment.split("?", 1)[1])
+    out: list[str] = []
+    for query_text in query_texts:
+        for key, values in urllib.parse.parse_qs(query_text).items():
+            if key in PROJECT_CODE_URL_QUERY_KEYS or _normalize_key(key) in PROJECT_CODE_FIELD_KEYS:
+                out.extend(values)
+    return _dedupe_strings(out)
+
+
+def _looks_like_project_code_field(value: Any) -> bool:
+    text = str(value or "").strip()
+    if not text:
+        return False
+    normalized = _normalize_key(text)
+    if normalized in PROJECT_CODE_FIELD_KEYS:
+        return True
+    markers = (
+        "项目代码",
+        "项目编号",
+        "项目编码",
+        "工程代码",
+        "工程编号",
+        "工程编码",
+        "招标项目编号",
+        "招标编号",
+        "标段编号",
+    )
+    return any(marker in text for marker in markers)
+
+
+def _normalize_key(value: Any) -> str:
+    return re.sub(r"[^a-z0-9]+", "", str(value or "").lower())
 
 
 def _project_code_variants(values: Iterable[Any]) -> list[str]:

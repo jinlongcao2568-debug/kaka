@@ -312,6 +312,64 @@ class RealPublicStage49PressureReportTests(unittest.TestCase):
             ["(主)广东乙公司;(成)广东联合设计有限公司", "广东乙公司", "广东联合设计有限公司"],
         )
 
+    def test_stage4_release_bridge_extracts_numeric_gdcic_project_code_from_readback(self) -> None:
+        run_result = _fake_run_result()
+        numeric_project_code = "440100202605190001"
+        enterprise_credit_code = "914400001903237820"
+        run_result["candidate_options"][1]["project_id"] = "PROJ-CN-GD-JG2026-11337"
+        run_result["closed_loop_results"][1]["project_id"] = "PROJ-CN-GD-JG2026-11337"
+        readback = run_result["closed_loop_results"][1]["real_public_stage4_9_readback"]
+        readback["remaining_real_world_gaps"] = ["missing_stage4_5_source_type:contract_public_info"]
+        readback["regional_hard_defect_source_readback"] = {
+            "query_context": {
+                "project_codes": [numeric_project_code],
+            },
+            "source_results": [
+                {
+                    "query_input": {"project_code": numeric_project_code},
+                    "sample_records": [
+                        {
+                            "projectCode": numeric_project_code,
+                            "unifiedSocialCreditCode": enterprise_credit_code,
+                        }
+                    ],
+                }
+            ],
+        }
+        readback["source_refs"] = {
+            "stage6": {
+                "parsed_field_refs": [
+                    {
+                        "field_name": "统一社会信用代码",
+                        "field_value_optional": enterprise_credit_code,
+                    },
+                    {
+                        "field_name": "项目代码",
+                        "field_value_optional": numeric_project_code,
+                    },
+                ]
+            }
+        }
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            (root / "run-result.json").write_text(json.dumps(run_result, ensure_ascii=False, indent=2), encoding="utf-8")
+            report = build_real_public_stage4_9_pressure_report(
+                run_result_json=root / "run-result.json",
+                output_root=root,
+            )
+
+        row = report["manifest"]["stage4_release_adapter_bridge_records"][0]
+        self.assertEqual(row["query_params"]["projectCode"], numeric_project_code)
+        self.assertEqual(
+            row["query_params"]["projectCodeVariants"],
+            ["JG2026-11337", numeric_project_code],
+        )
+        self.assertEqual(row["query_params"]["gdcicProjectCodeVariants"], [numeric_project_code])
+        self.assertEqual(row["query_params"]["tradeProjectCode"], "JG2026-11337")
+        self.assertNotIn(enterprise_credit_code, row["query_params"]["projectCodeVariants"])
+        self.assertNotIn(enterprise_credit_code, row["query_params"]["gdcicProjectCodeVariants"])
+
 
 def _fake_run_result(project_name: str = "广州真实候选项目") -> dict:
     return {
