@@ -119,6 +119,23 @@ def _guangzhou_ywtb_failure_from_state(state: str) -> str:
     return mapping.get(str(state or ""), "")
 
 
+def _attachment_discovery_taxonomy_values(
+    capture: Mapping[str, Any],
+    fields: Mapping[str, Any],
+) -> list[str]:
+    return [
+        str(item)
+        for item in list(capture.get("detail_attachment_discovery_taxonomy") or fields.get("attachment_discovery_taxonomy") or [])
+        if str(item or "").strip()
+    ]
+
+
+def _is_blocking_attachment_discovery_taxonomy(value: str) -> bool:
+    return str(value or "").strip() not in {
+        "scrapling_snapshot_parser_attachment_candidates",
+    }
+
+
 def _guangzhou_ywtb_attachment_challenge_state(attachment_captures: list[Mapping[str, Any]]) -> tuple[str, list[str]]:
     attempted = False
     failed = False
@@ -1151,6 +1168,7 @@ def _candidate_role_amount_person_pattern() -> str:
     return (
         r"(?:\d[\d,.]*\s*(?:元|%)?(?:[/／]\s*\d[\d,.]*\s*(?:元)?)?[\s，,、]*){1,6}"
         r"(?P<name>[\u4e00-\u9fff·]{2,8})"
+        r"(?![\u4e00-\u9fff·]{0,16}(?:公司|集团|项目|工程|电厂|能源|电力|机组|扩建|合同|服务))"
         r"(?:(?:\s*/\s*|\s+)(?P<cert>[\u4e00-\u9fff]{0,4}[A-Za-z0-9][A-Za-z0-9\-]{3,39}))?"
     )
 
@@ -1490,6 +1508,9 @@ def _looks_like_person_name(value: str) -> bool:
         "候选",
         "公示",
         "公告",
+        "名称",
+        "代码",
+        "排名",
         "结束",
         "时间",
         "日历",
@@ -1498,6 +1519,10 @@ def _looks_like_person_name(value: str) -> bool:
         "年度",
         "年版",
         "合格",
+        "质量",
+        "目标",
+        "标准",
+        "承诺",
         "书面",
         "答复",
         "答疑",
@@ -1522,13 +1547,19 @@ def _looks_like_person_name(value: str) -> bool:
         "评标",
         "情况",
         "采购",
+        "投资",
         "序号",
         "招标",
         "按招",
         "联系",
         "地址",
+        "部门",
+        "电话",
         "广场",
         "广州",
+        "厦门",
+        "陕西",
+        "榆林",
         "建造师",
         "工程师",
         "文件",
@@ -1545,10 +1576,16 @@ def _looks_like_person_name(value: str) -> bool:
         "建设",
         "工程",
         "建筑",
+        "电力",
+        "能源",
+        "国电",
         "装修",
         "咨询",
         "管理",
         "有限",
+        "设备",
+        "机电",
+        "港机",
         "注册",
         "证书",
         "资格",
@@ -1559,7 +1596,12 @@ def _looks_like_person_name(value: str) -> bool:
         "施工",
         "监理",
         "附件",
+        "以上",
+        "以下",
+        "不少于",
+        "游泳",
         "千伏",
+        "千瓦",
         "电厂",
         "号",
         "号楼",
@@ -2112,9 +2154,9 @@ def _document_completeness_summary(capture: Mapping[str, Any]) -> dict[str, Any]
         if str(item or "").strip()
     )
     failure_reasons.extend(
-        str(item)
-        for item in list(capture.get("detail_attachment_discovery_taxonomy") or fields.get("attachment_discovery_taxonomy") or [])
-        if str(item or "").strip()
+        item
+        for item in _attachment_discovery_taxonomy_values(capture, fields)
+        if _is_blocking_attachment_discovery_taxonomy(item)
     )
     for attachment in attachment_captures:
         if not isinstance(attachment, Mapping):
@@ -2198,10 +2240,7 @@ def _document_completeness_summary(capture: Mapping[str, Any]) -> dict[str, Any]
         failure_reasons = [reason for reason in failure_reasons if reason not in stale_guangzhou_failures]
         review_reasons = [reason for reason in review_reasons if reason not in stale_guangzhou_failures]
     if source_profile_id == "SICHUAN-GGZY-TRANSACTION-INFO":
-        for reason in list(capture.get("detail_attachment_discovery_taxonomy") or fields.get("attachment_discovery_taxonomy") or []):
-            text_reason = str(reason or "").strip()
-            if text_reason:
-                review_reasons.append(text_reason)
+        review_reasons.extend(_attachment_discovery_taxonomy_values(capture, fields))
     if readback_failure_states:
         review_reasons.append("attachment_snapshot_readback_missing")
     if attachment_parse_errors:

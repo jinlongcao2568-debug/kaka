@@ -2643,6 +2643,7 @@ class RealPublicEntryFetcher:
             "attachment_link_records": list(snapshot_parser_readback.get("attachment_link_records") or [])[:20],
         }
         if profile.profile_id == "GUANGZHOU-YWTB-CONSTRUCTION-LIST":
+            attachment_link_items = _guangzhou_ywtb_actionable_attachment_link_items(attachment_link_items)
             guangzhou_static_diagnosis = _guangzhou_ywtb_download_discovery_from_html(
                 text,
                 detail_url=final_url,
@@ -2673,6 +2674,7 @@ class RealPublicEntryFetcher:
                             for item in list(rendered_diagnosis.get("same_site_attachment_link_items") or [])
                             if isinstance(item, Mapping) and str(item.get("url") or "").strip()
                         ]
+                        rendered_items = _guangzhou_ywtb_actionable_attachment_link_items(rendered_items)
                         attachment_link_items = _merge_link_items(rendered_items, attachment_link_items)
                         attachment_discovery_diagnostics["guangzhou_ywtb_rendered"] = dict(rendered_diagnosis)
                         rendered_state = str(
@@ -3466,6 +3468,39 @@ def _merge_link_items(primary: list[Mapping[str, Any]], secondary: list[Mapping[
         seen.add(url)
         merged.append({"url": url, "text": str(item.get("text") or "")})
     return merged[:50]
+
+
+def _guangzhou_ywtb_actionable_attachment_link_items(items: list[Mapping[str, Any]]) -> list[dict[str, str]]:
+    actionable: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for item in items:
+        if not isinstance(item, Mapping):
+            continue
+        url = str(item.get("url") or "").strip()
+        if not url:
+            continue
+        parsed = urlsplit(url)
+        path = unquote(parsed.path or "").lower()
+        query_keys = {str(key).lower() for key in parse_qs(parsed.query)}
+        link_text = str(item.get("text") or "")
+        if path.endswith(_SUPPORTED_ATTACHMENT_EXTENSIONS):
+            keep = True
+        elif "downloadztbattach" in path or "guangzhoutempdownattach4webaction/download" in path:
+            keep = True
+        elif {"attachguid", "appurlflag"} & query_keys and any(token in path for token in ("download", "attach")):
+            keep = True
+        elif path.endswith(_SUPPORTED_HTML_ATTACHMENT_EXTENSIONS):
+            keep = False
+        else:
+            keep = _attachment_url_has_resumable_download_signal(url)
+        if not keep or _is_non_attachment_navigation_link(url, link_text=link_text):
+            continue
+        clean = url.split("#", 1)[0]
+        if clean in seen:
+            continue
+        seen.add(clean)
+        actionable.append({"url": clean, "text": link_text})
+    return actionable[:10]
 
 
 def _has_template_placeholder(*values: Any) -> bool:

@@ -22,6 +22,7 @@ from stage2_ingestion.real_candidate_capture import (
     RealCandidateStage2CaptureService,
     _guangzhou_ywtb_attachment_challenge_state,
     _infer_attachment_role_type,
+    _looks_like_person_name,
     list_real_candidate_stage2_captures,
 )
 from stage2_ingestion.real_public_url_fetcher import (
@@ -715,6 +716,16 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
             else:
                 os.environ[key] = value
         self._tmp_dir.cleanup()
+
+    def test_person_name_quality_gate_rejects_live20_false_positive_tokens(self) -> None:
+        false_positive_tokens = ["厦门重", "质量目标", "幢游泳馆", "投资", "年以上", "国电电力", "万千瓦", "陕西榆林"]
+        for value in false_positive_tokens:
+            with self.subTest(value=value):
+                self.assertFalse(_looks_like_person_name(value))
+
+        for value in ["谯锋", "张合力", "陈丽丽", "曾凡伟", "颜健"]:
+            with self.subTest(value=value):
+                self.assertTrue(_looks_like_person_name(value))
 
     def test_captures_detail_snapshot_parses_fields_enriches_candidate_and_persists_readback(self) -> None:
         transport = FakeRealPublicFetchTransport(
