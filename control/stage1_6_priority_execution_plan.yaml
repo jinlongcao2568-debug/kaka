@@ -10,8 +10,8 @@ automatic_refund_enabled: false
 ordering_rule: "先解决 owner 看不懂和 Stage4 证据链短板，再扩大 Stage1-3 稳定性，最后做 Stage5 校准和 Stage1-6 批量回归。"
 current_focus:
   priority_id: P0_STAGE4_RELEASE_EVIDENCE_CHAIN
-  task: "释放证据字段查询结果接入 Stage6 loop 项目状态"
-  reason: "owner 已能通过 Stage6 总览看批次状态，下一步要把 P13B A 级线索后的 B/C/D 释放证据链接稳。"
+  task: "释放证据主链继续闭环：adapter 输入约束、广东/广州最小查询闭环、非广东归属地适配器读回"
+  reason: "Stage6 总览已能默认展示最近多项目批次，并把当前阶段、证据等级、阻断原因、下一步和 Stage7 gate 投到项目卡片；下一步继续把 P13B A 级线索后的 B/C/D 释放证据链接稳。"
 priorities:
   - priority_id: P0_STAGE6_OBSERVABILITY
     rank: 1
@@ -25,6 +25,7 @@ priorities:
       - "owner 打开页面能看懂三项目分别卡在哪里"
       - "最新单项目终态不会遮住早一轮多项目批次"
       - "不需要阅读 raw JSON 判断下一步"
+    current_state: "DONE_FIRST_PASS_OWNER_READABLE; follow-up fields only when real samples expose new gaps"
   - priority_id: P0_STAGE4_RELEASE_EVIDENCE_CHAIN
     rank: 2
     stage_scope: [Stage4, Stage5, Stage6]

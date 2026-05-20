@@ -3195,7 +3195,7 @@ def render_stage6_review_loop_page(payload: Any) -> HTMLResponse:
     </section>
     <section class="wide">
       <h3>选择历史批次</h3>
-      <p class="muted-text">默认读取最新状态表；如果最新只剩一个终态项目，可以切到早一轮三项目批次，看完整批次是怎么分流的。</p>
+      <p class="muted-text">默认优先显示最新多项目批次；如果最新只剩一个终态项目，也会保留在这里供你切换查看。</p>
       <div class="summary-list" id="batchSource">正在读取批次来源...</div>
       <label for="batchSelector" class="muted-text">批次状态表</label>
       <select id="batchSelector" aria-label="选择第六阶段复核批次"></select>
@@ -3274,6 +3274,7 @@ function renderBatchSource(surface) {
     : "当前来源不在批次列表中";
   $("batchSource").innerHTML = [
     `<div class="summary-row"><strong>当前读取</strong><span>${safeText(selectedLabel)}</span></div>`,
+    `<div class="summary-row"><strong>默认策略</strong><span>${safeText(surface?.batch_default_selection_label || "按 owner 总览策略选择批次")}</span></div>`,
     `<div class="summary-row"><strong>状态表</strong><span>${safeText(surface?.source_path || "未读到")}</span></div>`,
     `<div class="summary-row"><strong>可选批次</strong><span>${safeText(surface?.batch_option_count ?? 0)}</span></div>`
   ].join("");
@@ -3321,16 +3322,24 @@ function render(surface) {
   $("projectCards").innerHTML = rows.length
     ? rows.map((row) => {
       const kind = cardKind(row);
-      const why = row.manual_hold_reason || row.lineage?.dispatch_closeout_state || row.lineage?.dispatch_readback_state || "暂无明确阻断原因";
+      const why = row.blocker_reason_label || row.manual_hold_reason || row.lineage?.dispatch_closeout_state || row.lineage?.dispatch_readback_state || "暂无明确阻断原因";
+      const whyDetail = row.blocker_reason_detail && row.blocker_reason_detail !== row.blocker_reason
+        ? `<p class="muted-text">${safeText(row.blocker_reason_detail)}</p>`
+        : "";
       return `<div class="stage-card">
         <strong>${safeText(cardTitle(row))}</strong>
         ${badge(row.owner_status_label || row.loop_terminal_state, kind)}
         ${row.automated_dispatch_available ? badge("还能继续受控续跑") : badge("不能自动续跑", "warn")}
         ${badge(row.stage7_gate_label || (row.stage7_commercial_input_allowed ? "可进第七阶段内部复核" : "暂不进第七阶段"), row.stage7_commercial_input_allowed ? "" : "warn")}
+        <p><strong>当前阶段</strong></p>
+        <p>${safeText(row.current_stage_label || row.current_stage || "--")}</p>
+        <p><strong>证据等级</strong></p>
+        <p>${safeText(row.evidence_grade_label || row.evidence_grade || "--")}</p>
         <p><strong>现在状态</strong></p>
         <p>${safeText(row.owner_status_label || row.loop_terminal_state)}</p>
         <p><strong>为什么停/卡在哪里</strong></p>
         <p>${safeText(why)}</p>
+        ${whyDetail}
         <p><strong>下一步</strong></p>
         <p>${safeText(row.owner_next_action_label || row.next_recommended_action || "--")}</p>
         <p><strong>重新开启条件</strong></p>

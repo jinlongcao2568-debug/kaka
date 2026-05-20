@@ -45,10 +45,19 @@ class Stage6ReviewLoopOperatorProjectionTests(unittest.TestCase):
         rows = {row["project_id"]: row for row in projection["project_status_rows"]}
         self.assertEqual(rows["PROJ-A"]["owner_status_label"], "下一轮受控任务已准备")
         self.assertTrue(rows["PROJ-A"]["automated_dispatch_available"])
+        self.assertEqual(rows["PROJ-A"]["current_stage"], "Stage4_ORIGINAL_NOTICE_BACKTRACE")
+        self.assertEqual(rows["PROJ-A"]["blocker_reason"], "not_blocked_controlled_dispatch_ready")
+        self.assertEqual(rows["PROJ-A"]["evidence_grade"], "GRADE_NOT_PROJECTED_TO_STATUS_TABLE")
+        self.assertIn("未投影证据等级", rows["PROJ-A"]["evidence_grade_label"])
         self.assertEqual(
             rows["PROJ-B"]["manual_hold_reason"],
             "terminal_source_gap_no_delta_manual_review_only",
         )
+        self.assertEqual(rows["PROJ-B"]["current_stage"], "Stage4_ORIGINAL_NOTICE_BACKTRACE")
+        self.assertEqual(rows["PROJ-B"]["evidence_grade"], "D_INSUFFICIENT_OR_BLOCKED_READBACK")
+        self.assertIn("证据不足", rows["PROJ-B"]["evidence_grade_label"])
+        self.assertEqual(rows["PROJ-B"]["blocker_reason"], "terminal_source_gap_no_delta_manual_review_only")
+        self.assertIn("人工复核", rows["PROJ-B"]["blocker_reason_label"])
         self.assertIn(
             "new_official_original_notice_source_or_snapshot_available",
             rows["PROJ-B"]["reopen_conditions"],
@@ -89,6 +98,33 @@ class Stage6ReviewLoopOperatorProjectionTests(unittest.TestCase):
             self.assertEqual(projection["selected_batch_index"], 0)
             self.assertEqual(projection["batch_options"][0]["project_count"], 3)
             self.assertEqual(projection["batch_options"][0]["batch_id"], "latest")
+            self.assertEqual(projection["batch_default_selection_strategy"], "LATEST_STATUS_TABLE")
+
+    def test_loader_defaults_to_latest_multi_project_batch_over_newer_single_terminal(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            single = root / "newer-single-terminal" / STAGE6_REVIEW_LOOP_STATUS_TABLE_FILENAME
+            multi = root / "older-three-project-overview" / STAGE6_REVIEW_LOOP_STATUS_TABLE_FILENAME
+            single_payload = _status_table_payload()
+            single_payload["records"] = single_payload["records"][:1]
+            _write_json(single, single_payload)
+            _write_json(multi, _status_table_payload())
+            os.utime(multi, (1, 1))
+            os.utime(single, (2, 2))
+
+            projection = load_stage6_review_loop_operator_projection(search_root=root)
+
+            self.assertTrue(str(projection["source_path"]).endswith(str(multi)))
+            self.assertEqual(projection["summary"]["project_count"], 3)
+            self.assertEqual(projection["selected_batch_index"], 1)
+            self.assertFalse(projection["selected_batch_is_latest"])
+            self.assertEqual(projection["latest_batch_option"]["batch_id"], "newer-single-terminal")
+            self.assertEqual(projection["latest_batch_option"]["project_count"], 1)
+            self.assertEqual(
+                projection["batch_default_selection_strategy"],
+                "LATEST_MULTI_PROJECT_OVERVIEW_OVER_NEWER_SINGLE_PROJECT_TERMINAL",
+            )
+            self.assertIn("默认优先显示最新多项目批次", projection["batch_default_selection_label"])
 
     def test_status_table_options_summarize_multi_project_batches(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

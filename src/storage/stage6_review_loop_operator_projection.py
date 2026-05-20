@@ -51,7 +51,8 @@ def load_stage6_review_loop_operator_projection(
         if not _path_under(explicit_status_path, default_root):
             effective_search_root = explicit_status_path.parent
     batch_options = list_stage6_review_loop_status_table_options(effective_search_root)
-    resolved = explicit_status_path if explicit_status_path else find_latest_stage6_review_loop_status_table(effective_search_root)
+    resolved = explicit_status_path if explicit_status_path else _select_default_status_table_from_options(batch_options)
+    selection_mode = "EXPLICIT_STATUS_TABLE" if explicit_status_path else "DEFAULT_OWNER_OVERVIEW"
     if not resolved:
         surface = build_stage6_review_loop_operator_projection(
             {},
@@ -59,7 +60,7 @@ def load_stage6_review_loop_operator_projection(
             source_readback_state="EMPTY",
             created_at=created_at,
         )
-        _attach_batch_options(surface, batch_options, selected_path=None)
+        _attach_batch_options(surface, batch_options, selected_path=None, selection_mode=selection_mode)
         return surface
     try:
         payload = json.loads(resolved.read_text(encoding="utf-8"))
@@ -74,7 +75,7 @@ def load_stage6_review_loop_operator_projection(
             source_readback_state="READBACK_FAILED",
             created_at=created_at,
         )
-        _attach_batch_options(surface, batch_options, selected_path=resolved)
+        _attach_batch_options(surface, batch_options, selected_path=resolved, selection_mode=selection_mode)
         return surface
     surface = build_stage6_review_loop_operator_projection(
         payload,
@@ -82,7 +83,7 @@ def load_stage6_review_loop_operator_projection(
         source_readback_state="READBACK_READY",
         created_at=created_at,
     )
-    _attach_batch_options(surface, batch_options, selected_path=resolved)
+    _attach_batch_options(surface, batch_options, selected_path=resolved, selection_mode=selection_mode)
     return surface
 
 
@@ -110,6 +111,18 @@ def list_stage6_review_loop_status_table_options(
     candidates = [path for path in root.rglob(STAGE6_REVIEW_LOOP_STATUS_TABLE_FILENAME) if path.is_file()]
     candidates.sort(key=lambda path: path.stat().st_mtime, reverse=True)
     return [_status_table_option(path, root) for path in candidates[: max(0, limit)]]
+
+
+def _select_default_status_table_from_options(batch_options: list[Mapping[str, Any]]) -> Path | None:
+    if not batch_options:
+        return None
+    latest = batch_options[0]
+    if int(latest.get("project_count") or 0) > 1:
+        return Path(str(latest.get("status_table_path") or ""))
+    for option in batch_options:
+        if int(option.get("project_count") or 0) > 1:
+            return Path(str(option.get("status_table_path") or ""))
+    return Path(str(latest.get("status_table_path") or ""))
 
 
 def build_stage6_review_loop_operator_projection(
@@ -210,6 +223,7 @@ def _attach_batch_options(
     batch_options: list[Mapping[str, Any]],
     *,
     selected_path: Path | None,
+    selection_mode: str,
 ) -> None:
     surface.pop("projection_sha256", None)
     selected_index = -1
@@ -217,16 +231,75 @@ def _attach_batch_options(
         if selected_path is not None and _same_path(option.get("status_table_path"), selected_path):
             selected_index = index
             break
+    latest_option = dict(batch_options[0]) if batch_options else {}
+    selected_option = dict(batch_options[selected_index]) if selected_index >= 0 else {}
+    recommended_multi_project_option = next(
+        (dict(option) for option in batch_options if int(option.get("project_count") or 0) > 1),
+        {},
+    )
+    selected_is_latest = selected_index == 0 if selected_index >= 0 else False
     surface["batch_options"] = [dict(option) for option in batch_options]
     surface["batch_option_count"] = len(batch_options)
     surface["selected_batch_path"] = str(selected_path or surface.get("source_path") or "")
     surface["selected_batch_index"] = selected_index
+    surface["selected_batch_is_latest"] = selected_is_latest
+    surface["latest_batch_option"] = latest_option
+    surface["recommended_multi_project_batch_option"] = recommended_multi_project_option
+    surface["batch_default_selection_mode"] = selection_mode
+    surface["batch_default_selection_strategy"] = _batch_default_selection_strategy(
+        selection_mode=selection_mode,
+        selected_option=selected_option,
+        latest_option=latest_option,
+        recommended_multi_project_option=recommended_multi_project_option,
+        selected_is_latest=selected_is_latest,
+    )
+    surface["batch_default_selection_label"] = _batch_default_selection_label(
+        str(surface["batch_default_selection_strategy"])
+    )
     surface["batch_selector_visible"] = bool(batch_options)
     surface["multi_batch_review_available"] = len(batch_options) > 1
     surface["multi_project_batch_available"] = any(
         int(option.get("project_count") or 0) > 1 for option in batch_options
     )
     surface["projection_sha256"] = _fingerprint(surface)
+
+
+def _batch_default_selection_strategy(
+    *,
+    selection_mode: str,
+    selected_option: Mapping[str, Any],
+    latest_option: Mapping[str, Any],
+    recommended_multi_project_option: Mapping[str, Any],
+    selected_is_latest: bool,
+) -> str:
+    if not selected_option:
+        return "NO_STATUS_TABLE"
+    if selection_mode == "EXPLICIT_STATUS_TABLE":
+        return "EXPLICIT_OPERATOR_SELECTED_STATUS_TABLE"
+    if selected_is_latest:
+        return "LATEST_STATUS_TABLE"
+    selected_path = str(selected_option.get("status_table_path") or "")
+    recommended_path = str(recommended_multi_project_option.get("status_table_path") or "")
+    if (
+        selected_path
+        and recommended_path
+        and selected_path == recommended_path
+        and int(latest_option.get("project_count") or 0) <= 1
+    ):
+        return "LATEST_MULTI_PROJECT_OVERVIEW_OVER_NEWER_SINGLE_PROJECT_TERMINAL"
+    return "DEFAULT_OWNER_OVERVIEW_STATUS_TABLE"
+
+
+def _batch_default_selection_label(strategy: str) -> str:
+    return {
+        "NO_STATUS_TABLE": "没有读到第六阶段批次状态表。",
+        "EXPLICIT_OPERATOR_SELECTED_STATUS_TABLE": "正在查看你手动选择的历史批次。",
+        "LATEST_STATUS_TABLE": "默认查看最新批次状态表。",
+        "LATEST_MULTI_PROJECT_OVERVIEW_OVER_NEWER_SINGLE_PROJECT_TERMINAL": (
+            "默认优先显示最新多项目批次；较新的单项目终态仍可在历史批次里切换查看。"
+        ),
+        "DEFAULT_OWNER_OVERVIEW_STATUS_TABLE": "默认按 owner 总览策略选择批次状态表。",
+    }.get(strategy, strategy)
 
 
 def _status_table_option(path: Path, root: Path) -> dict[str, Any]:
@@ -294,27 +367,55 @@ def _project_row(record: Mapping[str, Any]) -> dict[str, Any]:
     manual_hold = terminal_state == "MANUAL_REVIEW_HOLD_NO_AUTOMATED_DISPATCH"
     stage7_allowed = bool(record.get("stage7_commercial_input_allowed", False))
     automated_available = terminal_state in ACTIONABLE_AUTOMATED_STATES
-    hold_reason = _first_text(
+    blocker_reason_detail = _first_text(
         record.get("next_cycle_dispatch_block_reason"),
         record.get("result_runner_skip_reason"),
         record.get("dispatch_closeout_state"),
         record.get("dispatch_readback_state"),
     )
+    current_stage = _current_stage(record, terminal_state, stage7_allowed)
+    evidence_grade = _evidence_grade(record, terminal_state)
+    blocker_reason = _blocker_reason(
+        record=record,
+        terminal_state=terminal_state,
+        stage7_allowed=stage7_allowed,
+        automated_available=automated_available,
+    )
     return {
         "project_id": str(record.get("project_id") or ""),
         "project_name": str(record.get("project_name") or ""),
         "dispatch_task_type": str(record.get("dispatch_task_type") or ""),
+        "dispatch_task_type_label": _dispatch_task_type_label(str(record.get("dispatch_task_type") or "")),
+        "current_stage": current_stage,
+        "current_stage_label": _current_stage_label(current_stage),
+        "evidence_grade": evidence_grade,
+        "evidence_grade_label": _evidence_grade_label(evidence_grade),
+        "blocker_reason": blocker_reason,
+        "blocker_reason_label": _blocker_reason_label(blocker_reason),
+        "blocker_reason_detail": blocker_reason_detail,
         "loop_terminal_state": terminal_state,
         "owner_status_label": _terminal_state_label(terminal_state),
         "next_recommended_action": next_action,
         "owner_next_action_label": _next_action_label(next_action),
         "automated_dispatch_available": automated_available,
         "manual_review_hold": manual_hold,
-        "manual_hold_reason": hold_reason if manual_hold else "",
+        "manual_hold_reason": blocker_reason_detail if manual_hold else "",
         "stage6_fact_package_state": str(record.get("stage6_fact_package_state") or ""),
         "stage6_ready": bool(record.get("stage6_ready", False)),
         "stage7_commercial_input_allowed": stage7_allowed,
         "stage7_gate_label": "允许进入第七阶段内部商业承接" if stage7_allowed else "暂不进入第七阶段，先复核证据缺口",
+        "release_field_query_state": str(record.get("release_field_query_state") or ""),
+        "release_field_query_task_count": int(record.get("release_field_query_task_count") or 0),
+        "release_field_query_adapter_result_state_counts": dict(
+            record.get("release_field_query_adapter_result_state_counts") or {}
+        )
+        if isinstance(record.get("release_field_query_adapter_result_state_counts"), Mapping)
+        else {},
+        "release_field_query_downstream_abcd_grade_counts": dict(
+            record.get("release_field_query_downstream_abcd_grade_counts") or {}
+        )
+        if isinstance(record.get("release_field_query_downstream_abcd_grade_counts"), Mapping)
+        else {},
         "reopen_conditions": _reopen_conditions(
             terminal_state=terminal_state,
             next_action=next_action,
@@ -340,6 +441,126 @@ def _project_row(record: Mapping[str, Any]) -> dict[str, Any]:
         "no_legal_conclusion": True,
         "query_miss_is_not_clearance": True,
     }
+
+
+def _current_stage(record: Mapping[str, Any], terminal_state: str, stage7_allowed: bool) -> str:
+    if stage7_allowed:
+        return "Stage7_INTERNAL_COMMERCIAL_REVIEW"
+    release_state = str(record.get("release_field_query_state") or "")
+    if release_state:
+        return "Stage4_RELEASE_EVIDENCE_FIELD_QUERY"
+    task_text = " ".join(
+        str(record.get(key) or "")
+        for key in ("dispatch_task_type", "next_task_type", "next_cycle_dispatch_task_type")
+    )
+    if "DESIGN_SURVEY" in task_text:
+        return "Stage4_DESIGN_SURVEY_PUBLIC_REGISTRY"
+    if "RELEASE_EVIDENCE" in task_text:
+        return "Stage4_RELEASE_EVIDENCE_CHAIN"
+    if "ORIGINAL_NOTICE" in task_text or "BACKTRACE" in task_text:
+        return "Stage4_ORIGINAL_NOTICE_BACKTRACE"
+    if terminal_state == "NEXT_CYCLE_DISPATCH_READY":
+        return "Stage6_NEXT_CYCLE_DISPATCH"
+    if terminal_state == "MANUAL_REVIEW_HOLD_NO_AUTOMATED_DISPATCH":
+        return "Stage6_MANUAL_REVIEW_HOLD"
+    if terminal_state.startswith("RESULT_"):
+        return "Stage6_RESULT_CLOSEOUT"
+    return "Stage6_REVIEW_LOOP"
+
+
+def _current_stage_label(stage: str) -> str:
+    return {
+        "Stage4_DESIGN_SURVEY_PUBLIC_REGISTRY": "Stage4 设计/测绘公开资质与服务期复核",
+        "Stage4_RELEASE_EVIDENCE_CHAIN": "Stage4 释放证据链：施工许可/竣工/变更/合同履约",
+        "Stage4_RELEASE_EVIDENCE_FIELD_QUERY": "Stage4 释放证据字段查询读回",
+        "Stage4_ORIGINAL_NOTICE_BACKTRACE": "Stage4 原文回溯或定向补字段",
+        "Stage6_NEXT_CYCLE_DISPATCH": "Stage6 下一轮受控续跑已生成",
+        "Stage6_MANUAL_REVIEW_HOLD": "Stage6 人工复核停机",
+        "Stage6_RESULT_CLOSEOUT": "Stage6 结果读回与收口",
+        "Stage6_REVIEW_LOOP": "Stage6 复核循环",
+        "Stage7_INTERNAL_COMMERCIAL_REVIEW": "Stage7 内部商业承接复核",
+    }.get(stage, stage)
+
+
+def _evidence_grade(record: Mapping[str, Any], terminal_state: str) -> str:
+    direct_grade = _first_text(
+        record.get("evidence_grade"),
+        record.get("evidence_abcd_grade"),
+        record.get("current_evidence_grade"),
+        record.get("downstream_abcd_grade"),
+        record.get("initial_abcd_grade"),
+    )
+    if direct_grade:
+        return direct_grade
+    downstream_counts = record.get("release_field_query_downstream_abcd_grade_counts")
+    if isinstance(downstream_counts, Mapping) and downstream_counts:
+        for prefix in ("A_", "B_", "C_", "D_"):
+            match = next((str(key) for key in downstream_counts if str(key).startswith(prefix)), "")
+            if match:
+                return match
+    if terminal_state == "MANUAL_REVIEW_HOLD_NO_AUTOMATED_DISPATCH":
+        return "D_INSUFFICIENT_OR_BLOCKED_READBACK"
+    return "GRADE_NOT_PROJECTED_TO_STATUS_TABLE"
+
+
+def _evidence_grade_label(grade: str) -> str:
+    if grade.startswith("A_"):
+        return "A 级强线索：同人/同主体/时间窗口重叠，需继续释放证据补查。"
+    if grade.startswith("B_"):
+        return "B 级增强证据：施工许可、合同履约等官方读回可补强。"
+    if grade.startswith("C_"):
+        return "C 级反向解释：竣工、变更、退出等材料可解释或切分窗口。"
+    if grade.startswith("D_"):
+        return "D 级证据不足/来源阻断：不能写成没问题。"
+    return {
+        "GRADE_NOT_PROJECTED_TO_STATUS_TABLE": "当前状态表未投影证据等级，需回看 batch closeout 或 evidence state。",
+    }.get(grade, grade)
+
+
+def _blocker_reason(
+    *,
+    record: Mapping[str, Any],
+    terminal_state: str,
+    stage7_allowed: bool,
+    automated_available: bool,
+) -> str:
+    if automated_available:
+        return "not_blocked_controlled_dispatch_ready"
+    if stage7_allowed:
+        return "not_blocked_stage7_internal_review_allowed"
+    explicit = _first_text(record.get("next_cycle_dispatch_block_reason"), record.get("result_runner_skip_reason"))
+    if explicit:
+        return explicit
+    if terminal_state == "MANUAL_REVIEW_HOLD_NO_AUTOMATED_DISPATCH":
+        return "manual_hold_requires_new_source_or_operator_override"
+    if terminal_state == "RESULT_EXECUTED_NO_NEXT_DISPATCH":
+        return "result_executed_no_next_automated_task"
+    if terminal_state in BLOCKED_OR_MANUAL_STATES:
+        return "blocked_or_manual_review_required"
+    return "stage7_gate_not_allowed_pending_evidence_review"
+
+
+def _blocker_reason_label(reason: str) -> str:
+    return {
+        "not_blocked_controlled_dispatch_ready": "没有停死：已有下一轮内部受控续跑任务。",
+        "not_blocked_stage7_internal_review_allowed": "没有停死：允许进入 Stage7 内部商业承接复核。",
+        "same_recommended_command_already_selected": "同一组命令已执行/已选中，避免重复跑。",
+        "terminal_source_gap_no_delta_manual_review_only": "官方来源缺口且本轮没有新增证据，已转人工复核。",
+        "manual_hold_requires_new_source_or_operator_override": "人工停机：需要新官方来源，或操作者确认重开范围和预算。",
+        "result_executed_no_next_automated_task": "本轮结果已执行，暂时没有下一条自动任务，需要复核产物后决定关闭或重开。",
+        "blocked_or_manual_review_required": "阻断或需人工复核，不能继续自动空转。",
+        "stage7_gate_not_allowed_pending_evidence_review": "Stage7 暂未放行，需先复核证据缺口。",
+    }.get(reason, reason)
+
+
+def _dispatch_task_type_label(task_type: str) -> str:
+    return {
+        "RUN_ORIGINAL_NOTICE_BACKTRACE_RETRY_OR_MANUAL_REVIEW": "原文回溯重试/人工复核",
+        "RUN_DESIGN_SURVEY_QUALIFICATION_SERVICE_CLOCK_REVIEW": "设计测绘资质与服务期复核",
+        "RUN_RELEASE_EVIDENCE_ADAPTER_PLAN": "释放证据 adapter 任务计划",
+        "RUN_RELEASE_EVIDENCE_FIELD_QUERY": "释放证据字段查询",
+        "": "无当前派发任务",
+    }.get(task_type, task_type)
 
 
 def _reopen_conditions(*, terminal_state: str, next_action: str, stage7_allowed: bool) -> list[str]:
