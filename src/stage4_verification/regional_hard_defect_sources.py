@@ -80,7 +80,7 @@ MAJOR_TARGET_REGION_SOURCE_CATALOG = (
         "source_name": "湖北省建筑市场监督与诚信一体化平台",
         "source_url": "https://hbjz.hbcic.net.cn/",
         "official_reference_url": "https://hbjz.hbcic.net.cn/",
-        "runtime_status": "ENTRY_PORTAL_VERIFIED_ADAPTER_PENDING",
+        "runtime_status": "ENTRY_PORTAL_VERIFIED_STRUCTURED_READBACK_MINIMUM_LOOP",
         "next_adapter": "hubei_construction_market_integrity_platform_query_adapter",
     },
     {

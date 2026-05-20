@@ -541,7 +541,7 @@ class GuangdongLocalFieldQueryProbeTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
             plan_root = root / "release-plan"
-            _write_hubei_release_evidence_adapter_plan(plan_root)
+            _write_shandong_release_evidence_adapter_plan(plan_root)
             live_calls: list[str] = []
 
             def fake_getter(url: str, _params: Mapping[str, Any]) -> Mapping[str, Any]:
@@ -549,7 +549,7 @@ class GuangdongLocalFieldQueryProbeTests(unittest.TestCase):
                 return {
                     "http_status": 200,
                     "content_type": "text/html; charset=utf-8",
-                    "text_probe": "湖北省建筑市场监督与诚信一体化平台 湖北测试建设有限公司",
+                    "text_probe": "山东省住房城乡建设服务监管与信用信息综合平台 山东测试建设有限公司",
                 }
 
             result = build_guangdong_local_field_query_probe(
@@ -562,7 +562,7 @@ class GuangdongLocalFieldQueryProbeTests(unittest.TestCase):
             )
 
             self.assertTrue(result["safe_to_execute"])
-            self.assertEqual(result["summary"]["release_evidence_query_region_counts"]["CN-HB"], 1)
+            self.assertEqual(result["summary"]["release_evidence_query_region_counts"]["CN-SD"], 1)
             self.assertEqual(result["summary"]["region_adapter_required_count"], 1)
             self.assertEqual(live_calls, [])
             task = result["manifest"]["field_task_records"][0]
@@ -765,6 +765,115 @@ class GuangdongLocalFieldQueryProbeTests(unittest.TestCase):
             )
             self.assertIn(
                 "jiangsu_project_manager_change_notice_browser_required_v1",
+                _route_adapter_ids(task),
+            )
+
+    def test_hubei_release_plan_live_uses_integrity_platform_adapter_without_homepage_match(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            plan_root = root / "release-plan"
+            _write_hubei_release_evidence_adapter_plan(plan_root)
+            live_route_groups: list[str] = []
+
+            def fake_getter(_url: str, params: Mapping[str, Any]) -> Mapping[str, Any]:
+                live_route_groups.append(str(params.get("_route_group") or ""))
+                if params.get("_route_group") == "hb_jzsc_integrity_platform_structured_query":
+                    return {
+                        "http_status": 200,
+                        "content_type": "application/json; charset=utf-8",
+                        "json_payload": {
+                            "rows": [
+                                {
+                                    "projectName": "湖北测试项目中标候选人公示",
+                                    "companyName": "湖北测试建设有限公司",
+                                    "projectManagerName": "张三",
+                                    "permitNo": "鄂建施许2026001",
+                                    "permitDate": "2026-05-20",
+                                }
+                            ],
+                        },
+                        "text_probe": "",
+                    }
+                return {
+                    "http_status": 200,
+                    "content_type": "text/html; charset=utf-8",
+                    "text_probe": "湖北省建筑市场监督与诚信一体化平台",
+                }
+
+            result = build_guangdong_local_field_query_probe(
+                release_evidence_adapter_plan_root=plan_root,
+                output_root=root / "out",
+                enable_live_public_query=True,
+                max_live_tasks=1,
+                http_getter=fake_getter,
+                created_at="2026-05-20T00:00:00+08:00",
+            )
+
+            self.assertTrue(result["safe_to_execute"])
+            summary = result["summary"]
+            self.assertEqual(summary["release_evidence_query_region_counts"]["CN-HB"], 1)
+            self.assertEqual(summary.get("region_adapter_required_count", 0), 0)
+            self.assertEqual(summary["hubei_jzsc_readback_ready_count"], 1)
+            self.assertIn("hb_jzsc_integrity_platform_structured_query", live_route_groups)
+            task = result["manifest"]["field_task_records"][0]
+            self.assertEqual(task["source_profile_id"], "HUBEI-JZSC-INTEGRITY-PLATFORM")
+            self.assertEqual(
+                task["field_adapter_status"],
+                "IMPLEMENTED_INLINE:hubei_construction_market_integrity_platform_query_adapter_v1",
+            )
+            self.assertEqual(task["local_housing_authority_adapter_region_code"], "CN-HB")
+            self.assertTrue(task["no_fallback_to_guangdong_or_guangzhou"])
+            self.assertEqual(task["field_query_probe_state"], "FIELD_READBACK_READY_PUBLIC_SOURCE")
+            self.assertEqual(task["adapter_result_state"], "MATCHED")
+            self.assertEqual(task["downstream_release_evidence_abcd_grade"], "B_ENHANCEMENT_OFFICIAL_READBACK")
+            self.assertTrue(task["field_match_summary"]["entry_portal_reachability_is_not_field_verification"])
+            self.assertEqual(
+                task["field_summary"]["source_specific_adapter_id"],
+                "hubei_construction_market_integrity_platform_query_adapter_v1",
+            )
+            record = task["field_match_summary"]["source_specific_records"][0]
+            self.assertEqual(record["record_type"], "construction_permit_public_record")
+            self.assertEqual(record["permit_or_record_no"], "鄂建施许2026001")
+
+    def test_hubei_project_manager_change_requires_browser_runtime(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            plan_root = root / "release-plan"
+            _write_hubei_release_evidence_adapter_plan(
+                plan_root,
+                target_type="project_manager_change_notice",
+                grade_on_match="C_REVERSE_EXPLANATION_OFFICIAL_READBACK",
+            )
+            live_calls: list[str] = []
+
+            def fake_getter(url: str, _params: Mapping[str, Any]) -> Mapping[str, Any]:
+                live_calls.append(url)
+                return {"http_status": 200, "content_type": "text/html", "text_probe": ""}
+
+            result = build_guangdong_local_field_query_probe(
+                release_evidence_adapter_plan_root=plan_root,
+                output_root=root / "out",
+                enable_live_public_query=True,
+                max_live_tasks=1,
+                http_getter=fake_getter,
+                created_at="2026-05-20T00:00:00+08:00",
+            )
+
+            self.assertTrue(result["safe_to_execute"])
+            self.assertEqual(live_calls, [])
+            task = result["manifest"]["field_task_records"][0]
+            self.assertEqual(task["adapter_result_state"], "NEEDS_BROWSER")
+            self.assertEqual(task["field_query_probe_state"], "LIVE_FIELD_QUERY_NEEDS_BROWSER")
+            self.assertEqual(
+                task["downstream_release_evidence_abcd_grade"],
+                "D_INSUFFICIENT_OR_BLOCKED_READBACK",
+            )
+            self.assertIn(
+                "hubei_project_manager_change_notice_requires_browser_or_authorized_runtime",
+                task["blocker_taxonomy"],
+            )
+            self.assertIn(
+                "hubei_project_manager_change_notice_browser_required_v1",
                 _route_adapter_ids(task),
             )
 
@@ -2328,9 +2437,14 @@ def _write_jiangsu_release_evidence_adapter_plan(
     )
 
 
-def _write_hubei_release_evidence_adapter_plan(root: Path) -> None:
+def _write_hubei_release_evidence_adapter_plan(
+    root: Path,
+    *,
+    target_type: str = "construction_permit",
+    grade_on_match: str = "B_ENHANCEMENT_OFFICIAL_READBACK",
+) -> None:
     root.mkdir(parents=True, exist_ok=True)
-    task = _release_plan_task("REL-HB-TASK-1", "construction_permit", "B_ENHANCEMENT_OFFICIAL_READBACK")
+    task = _release_plan_task("REL-HB-TASK-1", target_type, grade_on_match)
     task.update(
         {
             "project_id": "PROJ-HB-P13B-1",
@@ -2376,6 +2490,62 @@ def _write_hubei_release_evidence_adapter_plan(root: Path) -> None:
         "summary": {
             "adapter_task_count": 1,
             "local_housing_region_counts": {"CN-HB": 1},
+        },
+    }
+    (root / "release-evidence-adapter-plan-v1.json").write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+
+def _write_shandong_release_evidence_adapter_plan(root: Path) -> None:
+    root.mkdir(parents=True, exist_ok=True)
+    task = _release_plan_task("REL-SD-TASK-1", "construction_permit", "B_ENHANCEMENT_OFFICIAL_READBACK")
+    task.update(
+        {
+            "project_id": "PROJ-SD-P13B-1",
+            "project_name": "山东测试项目中标候选人公示",
+            "candidate_company_name": "山东测试建设有限公司",
+            "release_evidence_query_region_code": "CN-SD",
+            "local_housing_authority_adapter_region_code": "CN-SD",
+            "non_guangdong_release_adapter_rule": (
+                "NON_GUANGDONG_HISTORY_PROJECT_USE_JURISDICTION_LOCAL_HOUSING_AUTHORITY_ADAPTER"
+            ),
+            "jurisdiction_adapter_resolution_state": "JURISDICTION_LOCAL_HOUSING_ADAPTER_PLANNED",
+            "jurisdiction_local_housing_adapter": {
+                "region_code": "CN-SD",
+                "source_selection_scope": "HISTORICAL_PROJECT_JURISDICTION",
+                "source_profile_id": "SHANDONG-JZSC-CREDIT-SUPERVISION-PLATFORM",
+                "next_adapter": "shandong_construction_market_credit_supervision_query_adapter",
+                "no_fallback_to_guangdong_or_guangzhou": True,
+            },
+            "no_fallback_to_guangdong_or_guangzhou": True,
+            "source_entry_id": "SD-JZSC-CREDIT-SUPERVISION-PLATFORM",
+            "subsource_id": "",
+            "source_profile_id": "SHANDONG-JZSC-CREDIT-SUPERVISION-PLATFORM",
+            "source_name": "山东省住房城乡建设服务监管与信用信息综合平台",
+            "source_url": "https://zjt.shandong.gov.cn/",
+            "official_reference_url": "https://zwfwzx.jining.gov.cn/art/2022/5/26/art_32745_2707826.html",
+            "source_family": "regional_construction_market_public_service",
+            "next_adapter": "shandong_construction_market_credit_supervision_query_adapter",
+            "runtime_status": "SOURCE_ANALYSIS_REQUIRED_ADAPTER_PENDING",
+            "query_params": {
+                "projectId": "PROJ-SD-P13B-1",
+                "projectName": "山东测试项目中标候选人公示",
+                "companyName": "山东测试建设有限公司",
+                "personName": "张三",
+                "keywords": ["山东测试项目中标候选人公示", "山东测试建设有限公司", "张三"],
+            },
+        }
+    )
+    payload = {
+        "manifest": {
+            "manifest_kind": "release_evidence_adapter_plan_v1_manifest",
+            "release_evidence_adapter_task_records": [task],
+        },
+        "summary": {
+            "adapter_task_count": 1,
+            "local_housing_region_counts": {"CN-SD": 1},
         },
     }
     (root / "release-evidence-adapter-plan-v1.json").write_text(

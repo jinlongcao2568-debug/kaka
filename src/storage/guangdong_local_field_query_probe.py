@@ -113,6 +113,12 @@ JIANGSU_JZSC_FIELD_ADAPTER_ID = "jiangsu_construction_market_integrated_platform
 JIANGSU_JZSC_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID = (
     "jiangsu_project_manager_change_notice_browser_required_v1"
 )
+HUBEI_JZSC_PROFILE_ID = "HUBEI-JZSC-INTEGRITY-PLATFORM"
+HUBEI_JZSC_HOME_URL = "https://hbjz.hbcic.net.cn/"
+HUBEI_JZSC_FIELD_ADAPTER_ID = "hubei_construction_market_integrity_platform_query_adapter_v1"
+HUBEI_JZSC_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID = (
+    "hubei_project_manager_change_notice_browser_required_v1"
+)
 BROWSER_REQUIRED_FIELD_ADAPTER_IDS = {
     GUANGZHOU_ZFCJ_CONTRACT_CREDIT_BROWSER_ADAPTER_ID,
     GUANGZHOU_ZFCJ_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID,
@@ -120,11 +126,13 @@ BROWSER_REQUIRED_FIELD_ADAPTER_IDS = {
     ZHEJIANG_JZSC_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID,
     SICHUAN_JZSC_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID,
     JIANGSU_JZSC_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID,
+    HUBEI_JZSC_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID,
 }
 SUPPORTED_REGION_FIELD_ADAPTER_PROFILE_IDS = {
     ZHEJIANG_JZSC_PROFILE_ID,
     SICHUAN_JZSC_PROFILE_ID,
     JIANGSU_JZSC_PROFILE_ID,
+    HUBEI_JZSC_PROFILE_ID,
 }
 SUPPORTED_REGION_FIELD_ADAPTER_IDS = {
     "zhejiang_construction_market_public_service_query_adapter",
@@ -133,6 +141,8 @@ SUPPORTED_REGION_FIELD_ADAPTER_IDS = {
     SICHUAN_JZSC_FIELD_ADAPTER_ID,
     "jiangsu_construction_market_integrated_platform_query_adapter",
     JIANGSU_JZSC_FIELD_ADAPTER_ID,
+    "hubei_construction_market_integrity_platform_query_adapter",
+    HUBEI_JZSC_FIELD_ADAPTER_ID,
 }
 
 FORBIDDEN_TERMS = ("在建冲突成立", "无在建", "无风险", "无冲突", "造假成立", "违法成立", "确认本人", "是不是本人")
@@ -661,6 +671,8 @@ def _field_adapter_status_for_profile(source_profile_id: str) -> str:
         return f"IMPLEMENTED_INLINE:{SICHUAN_JZSC_FIELD_ADAPTER_ID}"
     if profile_id == JIANGSU_JZSC_PROFILE_ID:
         return f"IMPLEMENTED_INLINE:{JIANGSU_JZSC_FIELD_ADAPTER_ID}"
+    if profile_id == HUBEI_JZSC_PROFILE_ID:
+        return f"IMPLEMENTED_INLINE:{HUBEI_JZSC_FIELD_ADAPTER_ID}"
     return "FIELD_ADAPTER_PENDING"
 
 
@@ -1362,6 +1374,69 @@ def _route_plan_for_task(task: Mapping[str, Any], query_params: Mapping[str, Any
                     "jiangsu_project_manager_change_notice_requires_browser_or_authorized_runtime",
                 )
             )
+    elif profile_id == HUBEI_JZSC_PROFILE_ID:
+        company_keyword = str(query_params.get("companyName") or "").strip()
+        project_keyword = _clean_project_title(query_params.get("projectName"))
+        person_keyword = str(query_params.get("personName") or "").strip()
+        target_source_types = _target_source_type_set(task, query_params)
+        wants_all = not target_source_types
+        wants_construction = wants_all or "construction_permit" in target_source_types
+        wants_contract = wants_all or bool(target_source_types & {"contract_public_info", "contract_performance"})
+        wants_completion = wants_all or bool(
+            target_source_types
+            & {"completion_filing", "completion_acceptance", "completion_acceptance_or_completion_filing"}
+        )
+        wants_project_manager_change = "project_manager_change_notice" in target_source_types
+        routes.append(
+            _hubei_jzsc_public_page_route("hb_jzsc_integrity_platform_home", source_url or HUBEI_JZSC_HOME_URL, keywords)
+        )
+        if wants_construction:
+            routes.append(
+                _hubei_jzsc_structured_query_route(
+                    "hb_jzsc_construction_permit_query",
+                    "construction_permit",
+                    company_keyword=company_keyword,
+                    project_keyword=project_keyword,
+                    person_keyword=person_keyword,
+                    query_keywords=keywords,
+                    source_url=source_url,
+                )
+            )
+        if wants_contract:
+            routes.append(
+                _hubei_jzsc_structured_query_route(
+                    "hb_jzsc_contract_filing_query",
+                    "contract_public_info",
+                    company_keyword=company_keyword,
+                    project_keyword=project_keyword,
+                    person_keyword=person_keyword,
+                    query_keywords=keywords,
+                    source_url=source_url,
+                )
+            )
+        if wants_completion:
+            routes.append(
+                _hubei_jzsc_structured_query_route(
+                    "hb_jzsc_completion_acceptance_query",
+                    "completion_filing",
+                    company_keyword=company_keyword,
+                    project_keyword=project_keyword,
+                    person_keyword=person_keyword,
+                    query_keywords=keywords,
+                    source_url=source_url,
+                )
+            )
+        if wants_project_manager_change:
+            routes.append(
+                _browser_required_route(
+                    "hb_jzsc_project_manager_change_browser_required",
+                    source_url or HUBEI_JZSC_HOME_URL,
+                    "hb_jzsc_project_manager_change_browser_required",
+                    keywords,
+                    HUBEI_JZSC_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID,
+                    "hubei_project_manager_change_notice_requires_browser_or_authorized_runtime",
+                )
+            )
     else:
         routes.append(_route("source_home", source_url, "source_home_probe", keywords))
     return [route for route in routes if route["url"]]
@@ -1723,6 +1798,44 @@ def _jiangsu_jzsc_structured_query_route(
     }
 
 
+def _hubei_jzsc_public_page_route(route_id: str, url: str, query_keywords: list[str]) -> dict[str, Any]:
+    route = _route(route_id, url or HUBEI_JZSC_HOME_URL, "hb_jzsc_public_page_probe", query_keywords)
+    route["source_specific_adapter_id"] = HUBEI_JZSC_FIELD_ADAPTER_ID
+    route["referer"] = HUBEI_JZSC_HOME_URL
+    route["field_verification_role"] = "reachability_only_not_field_match"
+    return route
+
+
+def _hubei_jzsc_structured_query_route(
+    route_id: str,
+    target_source_type: str,
+    *,
+    company_keyword: str,
+    project_keyword: str,
+    person_keyword: str,
+    query_keywords: list[str],
+    source_url: str,
+) -> dict[str, Any]:
+    return {
+        "route_id": route_id,
+        "route_group": "hb_jzsc_integrity_platform_structured_query",
+        "url": source_url or HUBEI_JZSC_HOME_URL,
+        "method": "GET",
+        "params": {
+            "projectName": project_keyword,
+            "companyName": company_keyword,
+            "personName": person_keyword,
+            "targetSourceType": target_source_type,
+        },
+        "keyword_count": len(query_keywords),
+        "query_keyword_probe": query_keywords[:5],
+        "source_specific_adapter_id": HUBEI_JZSC_FIELD_ADAPTER_ID,
+        "hubei_target_source_type": target_source_type,
+        "referer": HUBEI_JZSC_HOME_URL,
+        "public_endpoint_verification_state": "OFFICIAL_PLATFORM_REFERENCED_ROUTE_DISCOVERY_PENDING",
+    }
+
+
 def _guangdong_zfcxjst_penalty_list_route(page: int, query_keywords: list[str]) -> dict[str, Any]:
     suffix = "index.html" if page <= 1 else f"index_{page}.html"
     return {
@@ -2057,6 +2170,11 @@ def _execute_live_field_query(
         for route in route_plan
     ):
         return _execute_jiangsu_jzsc_integrated_platform_field_query(task, route_plan, http_getter=http_getter)
+    if any(
+        str(route.get("source_specific_adapter_id") or "") == HUBEI_JZSC_FIELD_ADAPTER_ID
+        for route in route_plan
+    ):
+        return _execute_hubei_jzsc_integrity_platform_field_query(task, route_plan, http_getter=http_getter)
     if any(
         str(route.get("source_specific_adapter_id") or "")
         == "guangdong_zfcxjst_penalty_publicity_page_v1"
@@ -3600,6 +3718,176 @@ def _execute_jiangsu_jzsc_integrated_platform_field_query(
     }
 
 
+def _execute_hubei_jzsc_integrity_platform_field_query(
+    task: Mapping[str, Any],
+    route_plan: list[Mapping[str, Any]],
+    *,
+    http_getter: HttpGetter | None,
+) -> dict[str, Any]:
+    target_source_types = _target_source_type_set(task, dict(task.get("query_params") or {}))
+    wants_all = not target_source_types
+    wants_construction = wants_all or "construction_permit" in target_source_types
+    wants_contract = wants_all or bool(target_source_types & {"contract_public_info", "contract_performance"})
+    wants_completion = wants_all or bool(
+        target_source_types
+        & {"completion_filing", "completion_acceptance", "completion_acceptance_or_completion_filing"}
+    )
+    wants_project_manager_change_only = "project_manager_change_notice" in target_source_types and not (
+        wants_construction or wants_contract or wants_completion
+    )
+    if wants_project_manager_change_only:
+        return _browser_required_readback(HUBEI_JZSC_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID, route_plan)
+
+    getter = http_getter or _default_http_getter
+    query_params = dict(task.get("query_params") or {})
+    keywords = _query_keywords(query_params)
+    attempts: list[dict[str, Any]] = []
+    source_records: list[dict[str, Any]] = []
+    structured_attempts: list[dict[str, Any]] = []
+    public_page_reachable = False
+    browser_required_seen = False
+    non_structured_shell_count = 0
+
+    for route in route_plan:
+        route_group = str(route.get("route_group") or "")
+        if route_group == "hb_jzsc_project_manager_change_browser_required":
+            browser_required_seen = True
+            continue
+        response = _safe_get(route, getter=getter)
+        attempt = _route_attempt(route, response, keywords)
+        if route_group == "hb_jzsc_public_page_probe":
+            if _int(attempt.get("http_status")) == 200 and attempt.get("blocker_taxonomy") == [
+                "guangdong_local_field_query_captcha_or_login_required"
+            ]:
+                attempt["route_state"] = "PUBLIC_SOURCE_QUERIED"
+                attempt["blocker_taxonomy"] = []
+                attempt["navigation_login_text_suppressed"] = True
+            if attempt["route_state"] == "PUBLIC_SOURCE_QUERIED":
+                public_page_reachable = True
+                attempt["field_verification_role"] = "reachability_only_not_field_match"
+        attempts.append(attempt)
+        if route_group != "hb_jzsc_integrity_platform_structured_query":
+            continue
+        structured_attempts.append(attempt)
+        records = _hubei_jzsc_records_from_response(response)
+        attempt["structured_record_count"] = len(records)
+        content_type = str(response.get("content_type") or "").lower()
+        raw_text = str(response.get("text_probe") or response.get("body_probe") or "").strip()
+        if not records and _int(response.get("http_status") or response.get("status_code")) == 200:
+            if "json" not in content_type and (not raw_text or raw_text[0] not in "[{"):
+                non_structured_shell_count += 1
+        for record in records[:20]:
+            compact = _compact_hubei_jzsc_record(record, route, keywords)
+            if compact.get("matched_keywords"):
+                source_records.append(compact)
+
+    blockers = _dedupe(blocker for attempt in attempts for blocker in _list(attempt.get("blocker_taxonomy")))
+    status_codes = [_int(attempt.get("http_status")) for attempt in attempts if _int(attempt.get("http_status"))]
+    matched_keyword_count = len(
+        _dedupe(keyword for record in source_records for keyword in _list(record.get("matched_keywords")))
+    )
+    if source_records:
+        return {
+            "field_query_probe_state": "FIELD_READBACK_READY_PUBLIC_SOURCE",
+            "field_readback_state": "PUBLIC_SOURCE_FIELD_READBACK_READY_REVIEW_REQUIRED",
+            "readback_ready": True,
+            "readback_status_code": status_codes[0] if status_codes else 200,
+            "field_summary": {
+                "source_specific_adapter_id": HUBEI_JZSC_FIELD_ADAPTER_ID,
+                "record_count": len(source_records),
+                "matched_keyword_count": matched_keyword_count,
+                "source_profile_keyword_hit": bool(matched_keyword_count),
+                "source_profile_id": HUBEI_JZSC_PROFILE_ID,
+                "structured_route_count": len(structured_attempts),
+                "public_page_reachable": public_page_reachable,
+            },
+            "field_match_summary": {
+                "source_specific_records": source_records[:10],
+                "query_miss_is_not_clearance": True,
+                "readback_is_line_clue_not_final_conclusion": True,
+                "entry_portal_reachability_is_not_field_verification": True,
+            },
+            "route_plan": list(route_plan),
+            "route_attempts": attempts,
+            "blocker_taxonomy": blockers,
+        }
+    if structured_attempts and all(
+        str(attempt.get("route_state") or "").startswith("FAIL_CLOSED") for attempt in structured_attempts
+    ):
+        return {
+            "field_query_probe_state": "FAIL_CLOSED_PUBLIC_SOURCE_BLOCKED",
+            "field_readback_state": "FIELD_READBACK_BLOCKED",
+            "readback_ready": False,
+            "readback_status_code": status_codes[0] if status_codes else None,
+            "field_summary": {
+                "source_specific_adapter_id": HUBEI_JZSC_FIELD_ADAPTER_ID,
+                "record_count": 0,
+                "structured_route_count": len(structured_attempts),
+                "public_page_reachable": public_page_reachable,
+            },
+            "field_match_summary": {
+                "query_miss_is_not_clearance": True,
+                "entry_portal_reachability_is_not_field_verification": True,
+            },
+            "route_plan": list(route_plan),
+            "route_attempts": attempts,
+            "blocker_taxonomy": blockers or ["hubei_jzsc_integrity_platform_structured_query_blocked_or_unavailable"],
+        }
+    if structured_attempts and non_structured_shell_count >= len(structured_attempts) and public_page_reachable:
+        return {
+            "field_query_probe_state": "LIVE_FIELD_QUERY_NEEDS_BROWSER",
+            "field_readback_state": "FIELD_READBACK_BROWSER_OR_AUTHORIZED_RUNTIME_REQUIRED",
+            "readback_ready": False,
+            "readback_status_code": status_codes[0] if status_codes else None,
+            "field_summary": {
+                "source_specific_adapter_id": HUBEI_JZSC_FIELD_ADAPTER_ID,
+                "record_count": 0,
+                "source_profile_id": HUBEI_JZSC_PROFILE_ID,
+                "structured_route_count": len(structured_attempts),
+                "public_page_reachable": public_page_reachable,
+                "browser_or_authorized_runtime_required": True,
+            },
+            "field_match_summary": {
+                "query_miss_is_not_clearance": True,
+                "entry_portal_reachability_is_not_field_verification": True,
+                "browser_or_authorized_runtime_required_before_readback": True,
+            },
+            "route_plan": list(route_plan),
+            "route_attempts": attempts,
+            "blocker_taxonomy": _dedupe(
+                [
+                    *blockers,
+                    "hubei_jzsc_integrity_platform_returned_html_shell_without_field_rows",
+                    "hubei_jzsc_requires_browser_or_authorized_runtime_context",
+                ]
+            ),
+        }
+    if browser_required_seen:
+        return _browser_required_readback(HUBEI_JZSC_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID, route_plan)
+    return {
+        "field_query_probe_state": "NO_FIELD_MATCH_REVIEW_REQUIRED",
+        "field_readback_state": "PUBLIC_SOURCE_QUERIED_NO_FIELD_RECORD",
+        "readback_ready": False,
+        "readback_status_code": status_codes[0] if status_codes else None,
+        "field_summary": {
+            "source_specific_adapter_id": HUBEI_JZSC_FIELD_ADAPTER_ID,
+            "record_count": 0,
+            "source_profile_keyword_hit": False,
+            "source_profile_id": HUBEI_JZSC_PROFILE_ID,
+            "structured_route_count": len(structured_attempts),
+            "public_page_reachable": public_page_reachable,
+        },
+        "field_match_summary": {
+            "query_miss_is_not_clearance": True,
+            "entry_portal_reachability_is_not_field_verification": True,
+            "readback_is_line_clue_not_final_conclusion": True,
+        },
+        "route_plan": list(route_plan),
+        "route_attempts": attempts,
+        "blocker_taxonomy": blockers or ["hubei_jzsc_integrity_platform_no_structured_record_review"],
+    }
+
+
 def _execute_guangdong_zfcxjst_penalty_field_query(
     task: Mapping[str, Any],
     route_plan: list[Mapping[str, Any]],
@@ -4974,6 +5262,111 @@ def _compact_jiangsu_jzsc_record(
     }
 
 
+def _hubei_jzsc_records_from_response(response: Mapping[str, Any]) -> list[Mapping[str, Any]]:
+    payload = _json_payload(response)
+    json_records = _records_from_nested_payload(payload)
+    if json_records:
+        return json_records
+    return _jiangsu_jzsc_records_from_html(str(response.get("text_probe") or response.get("body_probe") or ""))
+
+
+def _compact_hubei_jzsc_record(
+    record: Mapping[str, Any],
+    route: Mapping[str, Any],
+    keywords: list[str],
+) -> dict[str, Any]:
+    text = _compact_mapping_text(record)
+    matched = [keyword for keyword in keywords if keyword and keyword in text][:10]
+    target_source_type = str(route.get("hubei_target_source_type") or "")
+    if target_source_type == "construction_permit":
+        record_type = "construction_permit_public_record"
+    elif target_source_type == "completion_filing":
+        record_type = "completion_acceptance_public_record"
+    elif target_source_type == "contract_public_info":
+        record_type = "contract_public_record"
+    else:
+        record_type = "regional_project_public_record"
+    project_name = _record_text(
+        record,
+        "projectName",
+        "ProjectName",
+        "PrjName",
+        "PRJNAME",
+        "xmmc",
+        "XMMC",
+        "gcmc",
+        "GCMC",
+        "project_name",
+        "raw_row_text",
+    )
+    company_name = _record_text(
+        record,
+        "companyName",
+        "CorpName",
+        "CORPNAME",
+        "BuildCorpName",
+        "BUILDCORPNAME",
+        "constructionCompany",
+        "constructorName",
+        "sgdw",
+        "SGDW",
+        "contractor",
+        "contractorName",
+        "company_name",
+        "raw_row_text",
+    )
+    record_no = _record_text(
+        record,
+        "permitNo",
+        "constructionPermitNo",
+        "sgxkzh",
+        "SGXKZH",
+        "licenseNo",
+        "contractNo",
+        "contractRecordNo",
+        "completionNo",
+        "filingNo",
+        "recordNo",
+        "raw_row_text",
+    )
+    return {
+        "source_profile_id": HUBEI_JZSC_PROFILE_ID,
+        "source_specific_adapter_id": HUBEI_JZSC_FIELD_ADAPTER_ID,
+        "source_page_url": str(route.get("url") or HUBEI_JZSC_HOME_URL),
+        "route_id": str(route.get("route_id") or ""),
+        "target_source_type": target_source_type,
+        "record_type": record_type,
+        "project_name_probe": project_name[:500],
+        "company_name_probe": company_name[:300],
+        "project_manager_name_probe": _record_text(
+            record,
+            "projectManagerName",
+            "project_manager_name",
+            "managerName",
+            "personName",
+            "FHumanName",
+            "pmName",
+        )[:120],
+        "permit_or_record_no": record_no[:200],
+        "contract_start_date_probe": _record_text(record, "contractStartDate", "startDate", "Bdate")[:80],
+        "contract_end_date_probe": _record_text(record, "contractEndDate", "endDate", "Edate")[:80],
+        "permit_issue_date_probe": _record_text(record, "permitDate", "issueDate", "fzrq", "FZRQ")[:80],
+        "completion_acceptance_date_probe": _record_text(
+            record,
+            "completionDate",
+            "acceptanceDate",
+            "filingDate",
+            "jgrq",
+            "JGYSRQ",
+        )[:80],
+        "matched_keywords": matched,
+        "detail_keys": sorted(str(key) for key in record.keys())[:24],
+        "record_sha256": _sha256_text(text),
+        "query_miss_is_not_clearance": True,
+        "readback_is_line_clue_not_final_conclusion": True,
+    }
+
+
 def _compact_guangzhou_zfcj_detail(record: Mapping[str, Any]) -> dict[str, Any]:
     if not record:
         return {}
@@ -5715,6 +6108,18 @@ def _summary(
             1
             for task in field_task_records
             if str(task.get("source_profile_id") or "").upper() == JIANGSU_JZSC_PROFILE_ID
+            and str(task.get("field_query_probe_state") or "") == "LIVE_FIELD_QUERY_NEEDS_BROWSER"
+        ),
+        "hubei_jzsc_readback_ready_count": sum(
+            1
+            for task in field_task_records
+            if str(task.get("source_profile_id") or "").upper() == HUBEI_JZSC_PROFILE_ID
+            and str(task.get("field_query_probe_state") or "") == "FIELD_READBACK_READY_PUBLIC_SOURCE"
+        ),
+        "hubei_jzsc_browser_or_authorized_runtime_required_count": sum(
+            1
+            for task in field_task_records
+            if str(task.get("source_profile_id") or "").upper() == HUBEI_JZSC_PROFILE_ID
             and str(task.get("field_query_probe_state") or "") == "LIVE_FIELD_QUERY_NEEDS_BROWSER"
         ),
         "guangdong_zfcxjst_penalty_readback_ready_count": sum(
