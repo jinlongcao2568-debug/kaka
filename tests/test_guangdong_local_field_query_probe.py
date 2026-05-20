@@ -13,10 +13,70 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
+import storage.guangdong_local_field_query_probe as field_query_probe  # noqa: E402
 from storage.guangdong_local_field_query_probe import build_guangdong_local_field_query_probe  # noqa: E402
 
 
 class GuangdongLocalFieldQueryProbeTests(unittest.TestCase):
+    def test_default_getter_uses_scrapling_bridge_for_get_readback(self) -> None:
+        class FakeResponse:
+            url = "https://example.test/query?a=1"
+            final_url = "https://example.test/query?a=1"
+            status_code = 200
+            content_type = "text/html; charset=utf-8"
+            content = "江苏测试建设有限公司".encode("utf-8")
+            headers = {
+                "x-ax9s-fetch-transport": "fake_primary",
+                "x-ax9s-scrapling-escalation-target": "scrapling_dynamic",
+                "x-ax9s-scrapling-escalation-trigger": "response",
+                "x-ax9s-scrapling-escalation-reasons": "SPA_OR_JS_RENDERED_SHELL_DETECTED",
+            }
+
+        class FakeTransport:
+            def __init__(self) -> None:
+                self.calls: list[dict[str, Any]] = []
+
+            def fetch(self, url: str, *, timeout_seconds: float, user_agent: str) -> FakeResponse:
+                self.calls.append(
+                    {
+                        "url": url,
+                        "timeout_seconds": timeout_seconds,
+                        "user_agent": user_agent,
+                    }
+                )
+                return FakeResponse()
+
+        fake_transport = FakeTransport()
+        original_transport = field_query_probe._STAGE4_SCRAPLING_GET_TRANSPORT
+        try:
+            field_query_probe._STAGE4_SCRAPLING_GET_TRANSPORT = fake_transport
+            response = field_query_probe._default_http_getter("https://example.test/query", {"a": "1"})
+            attempt = field_query_probe._route_attempt(
+                {"route_id": "r1", "route_group": "g1", "url": "https://example.test/query"},
+                response,
+                ["江苏测试建设有限公司"],
+            )
+        finally:
+            field_query_probe._STAGE4_SCRAPLING_GET_TRANSPORT = original_transport
+
+        self.assertEqual(fake_transport.calls[0]["url"], "https://example.test/query?a=1")
+        self.assertEqual(response["http_status"], 200)
+        self.assertTrue(response["stage4_scrapling_get_bridge_used"])
+        self.assertEqual(attempt["keyword_hit_count"], 1)
+        self.assertTrue(attempt["stage4_scrapling_get_bridge_used"])
+        self.assertEqual(attempt["scrapling_escalation_target"], "scrapling_dynamic")
+        self.assertEqual(attempt["fetch_transport"], "fake_primary")
+
+    def test_default_getter_skips_scrapling_bridge_for_post_api(self) -> None:
+        self.assertFalse(
+            field_query_probe._should_use_stage4_scrapling_get_bridge(
+                "POST",
+                {},
+                json_body=True,
+                form_body=False,
+            )
+        )
+
     def test_plan_only_delegates_gdcic_and_builds_pending_field_tasks(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)

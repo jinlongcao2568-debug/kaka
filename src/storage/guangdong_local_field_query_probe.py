@@ -18,6 +18,12 @@ from shared.utils import utc_now_iso
 GUANGDONG_LOCAL_FIELD_QUERY_PROBE_KIND = "guangdong_local_field_query_probe_v1_manifest"
 GUANGDONG_LOCAL_FIELD_QUERY_PROBE_VERSION = 1
 GUANGDONG_LOCAL_FIELD_QUERY_PROBE_ADAPTER_ID = "guangdong-local-field-query-probe-v1-builder"
+STAGE4_SCRAPLING_GET_BRIDGE_ID = "stage4.scrapling_get_transport_bridge.v1"
+STAGE4_SCRAPLING_GET_BRIDGE_ENABLED = True
+STAGE4_SCRAPLING_GET_BRIDGE_SCOPE = (
+    "GET/readback routes only; POST JSON/form APIs and cookie/session routes keep the legacy urllib path."
+)
+_STAGE4_SCRAPLING_GET_TRANSPORT: Any | None = None
 
 DEFAULT_LOCAL_VERIFICATION_ROOT = Path("tmp/evaluation-real-samples/guangdong-local-verification-probe-v1")
 DEFAULT_P13B_OPERATIONAL_CLOSEOUT_ROOT = Path("tmp/evaluation-real-samples/p13b-operational-closeout-v1")
@@ -2189,6 +2195,10 @@ def _default_http_getter(url: str, params: Mapping[str, Any]) -> Mapping[str, An
         data = urllib.parse.urlencode(request_params).encode("utf-8")
     elif request_params:
         request_url = f"{url}?{urllib.parse.urlencode(request_params)}"
+    if _should_use_stage4_scrapling_get_bridge(method, params, json_body=json_body, form_body=form_body):
+        bridged = _stage4_scrapling_get(request_url)
+        if bridged:
+            return bridged
     if method == "POST" and data is None:
         data = b""
     request = urllib.request.Request(
@@ -2233,6 +2243,64 @@ def _default_http_getter(url: str, params: Mapping[str, Any]) -> Mapping[str, An
             "text_probe": text,
             "json_payload": _loads_json_or_empty(text),
         }
+
+
+def _should_use_stage4_scrapling_get_bridge(
+    method: str,
+    params: Mapping[str, Any],
+    *,
+    json_body: bool,
+    form_body: bool,
+) -> bool:
+    if not STAGE4_SCRAPLING_GET_BRIDGE_ENABLED:
+        return False
+    if str(method or "").upper() != "GET":
+        return False
+    if json_body or form_body:
+        return False
+    if params.get("_cookie_header") or params.get("_credit_gd_repair_action"):
+        return False
+    return True
+
+
+def _stage4_scrapling_get(request_url: str) -> dict[str, Any]:
+    try:
+        transport = _stage4_scrapling_get_transport()
+        response = transport.fetch(
+            request_url,
+            timeout_seconds=_http_timeout_seconds(),
+            user_agent=(
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
+            ),
+        )
+    except Exception:
+        return {}
+    body = bytes(getattr(response, "content", b"") or b"")[:80_000]
+    content_type = str(getattr(response, "content_type", "") or "")
+    text = _decode_probe(body, content_type)
+    headers = dict(getattr(response, "headers", {}) or {})
+    return {
+        "http_status": _int(getattr(response, "status_code", None)),
+        "content_type": content_type,
+        "text_probe": text,
+        "json_payload": _loads_json_or_empty(text),
+        "headers": headers,
+        "final_url": str(getattr(response, "final_url", "") or getattr(response, "url", "") or request_url),
+        "fetch_transport": str(headers.get("x-ax9s-fetch-transport") or ""),
+        "stage4_scrapling_get_bridge_id": STAGE4_SCRAPLING_GET_BRIDGE_ID,
+        "stage4_scrapling_get_bridge_used": True,
+        "stage4_scrapling_get_bridge_scope": STAGE4_SCRAPLING_GET_BRIDGE_SCOPE,
+    }
+
+
+def _stage4_scrapling_get_transport() -> Any:
+    global _STAGE4_SCRAPLING_GET_TRANSPORT
+    if _STAGE4_SCRAPLING_GET_TRANSPORT is None:
+        from stage2_ingestion.real_public_url_fetcher import ScraplingEscalatingRealPublicFetchTransport
+
+        _STAGE4_SCRAPLING_GET_TRANSPORT = ScraplingEscalatingRealPublicFetchTransport()
+    return _STAGE4_SCRAPLING_GET_TRANSPORT
 
 
 def _execute_guangzhou_zfcj_field_query(
@@ -4371,6 +4439,28 @@ def _route_attempt(route: Mapping[str, Any], response: Mapping[str, Any], keywor
         "text_probe_sha256": _sha256_text(text),
         "text_probe_length": len(text),
         "blocker_taxonomy": blockers,
+        **_stage4_scrapling_attempt_audit(response),
+    }
+
+
+def _stage4_scrapling_attempt_audit(response: Mapping[str, Any]) -> dict[str, Any]:
+    if not response.get("stage4_scrapling_get_bridge_used"):
+        return {}
+    headers = dict(response.get("headers") or {})
+    return {
+        "stage4_scrapling_get_bridge_id": str(
+            response.get("stage4_scrapling_get_bridge_id") or STAGE4_SCRAPLING_GET_BRIDGE_ID
+        ),
+        "stage4_scrapling_get_bridge_used": True,
+        "stage4_scrapling_get_bridge_scope": str(
+            response.get("stage4_scrapling_get_bridge_scope") or STAGE4_SCRAPLING_GET_BRIDGE_SCOPE
+        ),
+        "fetch_transport": str(response.get("fetch_transport") or headers.get("x-ax9s-fetch-transport") or ""),
+        "scrapling_escalation_target": str(headers.get("x-ax9s-scrapling-escalation-target") or ""),
+        "scrapling_escalation_trigger": str(headers.get("x-ax9s-scrapling-escalation-trigger") or ""),
+        "scrapling_escalation_reasons": str(headers.get("x-ax9s-scrapling-escalation-reasons") or ""),
+        "scrapling_escalation_skipped": str(headers.get("x-ax9s-scrapling-escalation-skipped") or ""),
+        "final_url": str(response.get("final_url") or ""),
     }
 
 
