@@ -73,6 +73,10 @@ class RealPublicStage49PressureReportTests(unittest.TestCase):
         self.assertEqual(summary["stage1_6_readiness_state_counts"]["STAGE3_FIELD_OR_ROLE_REVIEW_REQUIRED"], 1)
         self.assertEqual(summary["stage1_6_readiness_state_counts"]["PENDING_STAGE2_DETAIL_CAPTURE"], 1)
         self.assertEqual(summary["stage1_6_readiness_state_counts"]["PENDING_TIME_BUDGET"], 1)
+        self.assertEqual(summary["stage4_release_adapter_bridge_task_count"], 1)
+        self.assertEqual(summary["stage4_release_adapter_bridge_project_count"], 1)
+        self.assertEqual(summary["stage4_release_adapter_bridge_target_type_counts"]["construction_permit"], 1)
+        self.assertEqual(summary["stage4_release_adapter_bridge_execution_mode_counts"]["PLAN_ONLY_NOT_EXECUTED"], 1)
         self.assertEqual(summary["stage1_6_bottleneck_stage_counts"]["READY"], 1)
         self.assertEqual(summary["stage1_6_bottleneck_stage_counts"]["Stage2"], 1)
         self.assertEqual(summary["stage1_6_bottleneck_stage_counts"]["Stage3"], 1)
@@ -92,9 +96,12 @@ class RealPublicStage49PressureReportTests(unittest.TestCase):
             self.assertTrue((root / "candidate-pressure-table.json").exists())
             self.assertTrue((root / "stage1-6-readiness-table.json").exists())
             self.assertTrue((root / "stage1-6-gap-summary-table.json").exists())
+            self.assertTrue((root / "stage4-release-adapter-bridge-table.json").exists())
+            self.assertTrue((root / "stage4-release-adapter-bridge-plan.json").exists())
             self.assertTrue((root / "gap-summary-table.json").exists())
             candidate_rows = report["manifest"]["candidate_pressure_records"]
             readiness_rows = report["manifest"]["stage1_6_readiness_records"]
+            bridge_rows = report["manifest"]["stage4_release_adapter_bridge_records"]
             readiness_by_project = {row["project_id"]: row for row in readiness_rows}
             self.assertEqual(
                 readiness_by_project["PROJ-REAL-001"]["stage1_6_readiness_state"],
@@ -143,6 +150,22 @@ class RealPublicStage49PressureReportTests(unittest.TestCase):
             self.assertIn(("stage1_6_bottleneck_stage", "Stage4"), stage16_gap_index)
             self.assertIn(("stage1_6_readiness_state", "PENDING_STAGE2_DETAIL_CAPTURE"), stage16_gap_index)
             self.assertIn(("stage1_6_readiness_state", "PENDING_TIME_BUDGET"), stage16_gap_index)
+            self.assertEqual(len(bridge_rows), 1)
+            bridge_row = bridge_rows[0]
+            self.assertEqual(bridge_row["project_id"], "PROJ-REAL-002")
+            self.assertEqual(bridge_row["release_evidence_source_type"], "construction_permit")
+            self.assertEqual(bridge_row["release_evidence_target_type"], "construction_permit")
+            self.assertEqual(bridge_row["source_profile_id"], "GUANGZHOU-ZFCJ-CREDIT-DOUBLE-PUBLICITY")
+            self.assertEqual(bridge_row["execution_mode"], "PLAN_ONLY_NOT_EXECUTED")
+            self.assertFalse(bridge_row["readback_ready"])
+            self.assertTrue(bridge_row["query_miss_is_not_clearance"])
+            bridge_plan = json.loads((root / "stage4-release-adapter-bridge-plan.json").read_text(encoding="utf-8"))
+            self.assertEqual(bridge_plan["manifest_kind"], "real_public_stage4_release_adapter_bridge_plan_v1_manifest")
+            self.assertEqual(len(bridge_plan["release_evidence_adapter_task_records"]), 1)
+            self.assertEqual(
+                bridge_plan["release_evidence_adapter_task_records"][0]["query_params"]["targetSourceTypes"],
+                ["construction_permit"],
+            )
 
     def test_forbidden_terms_still_fail_closed(self) -> None:
         run_result = _fake_run_result(project_name="无风险项目")

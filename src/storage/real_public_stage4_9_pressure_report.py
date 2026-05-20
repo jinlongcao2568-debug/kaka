@@ -8,12 +8,21 @@ from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping
 
 from api.routes.operator_customer_access import run_operator_autonomous_opportunity_search
-from shared.utils import utc_now_iso
+from shared.utils import build_id, utc_now_iso
+from stage4_verification.regional_hard_defect_sources import resolve_release_evidence_local_housing_adapter
+from storage.guangdong_local_field_query_probe import (
+    ALLOWED_ADAPTER_RESULT_STATES,
+    GUANGDONG_RELEASE_TARGET_SOURCE_OVERRIDES,
+    RELEASE_TARGET_TO_FIELD_SOURCE_TYPES,
+)
+from storage.release_evidence_adapter_plan import SOURCE_TARGET_ALIASES, TARGET_POLICY
 
 
 REAL_PUBLIC_STAGE4_9_PRESSURE_REPORT_KIND = "real_public_stage4_9_pressure_report_v1_manifest"
 REAL_PUBLIC_STAGE4_9_PRESSURE_REPORT_VERSION = 1
 REAL_PUBLIC_STAGE4_9_PRESSURE_REPORT_ADAPTER_ID = "real-public-stage4-9-pressure-report-v1-builder"
+REAL_PUBLIC_STAGE4_RELEASE_ADAPTER_BRIDGE_KIND = "real_public_stage4_release_adapter_bridge_plan_v1_manifest"
+REAL_PUBLIC_STAGE4_RELEASE_ADAPTER_BRIDGE_ADAPTER_ID = "real-public-stage4-release-adapter-bridge-v1"
 
 DEFAULT_OUTPUT_ROOT = Path("tmp/evaluation-real-samples/guangzhou-real-public-stage4-9-pressure-v1")
 DEFAULT_RUN_RESULT_JSON = DEFAULT_OUTPUT_ROOT / "run-result.json"
@@ -27,6 +36,13 @@ DEFAULT_STAGE2_DETAIL_CAPTURE_TIME_BUDGET_SECONDS = 600
 DEFAULT_STAGE1_6_TIME_BUDGET_SECONDS = 600
 
 FORBIDDEN_TERMS = ("无风险", "无冲突", "在建冲突成立", "违法成立", "确认本人", "造假成立", "是不是本人")
+BRIDGE_GAP_PREFIX = "missing_stage4_5_source_type:"
+BRIDGE_RELEASE_SOURCE_TYPES = (
+    "construction_permit",
+    "contract_public_info",
+    "completion_filing",
+    "project_manager_change_notice",
+)
 SearchRunner = Callable[[Mapping[str, Any]], dict[str, Any]]
 
 
@@ -134,6 +150,7 @@ def build_real_public_stage4_9_pressure_summary(
     fail_closed_reason_counts = _flatten_count(readbacks, "fail_closed_reasons")
     stage1_6_readiness_records = _stage1_6_readiness_records(result)
     stage1_6_gap_summary_records = _stage1_6_gap_summary_records(stage1_6_readiness_records)
+    stage4_release_adapter_bridge_records = _stage4_release_adapter_bridge_records(result, created_at="")
     company_first_required_count = sum(
         1 for readback in readbacks if bool(readback.get("jzsc_company_first_identity_resolution_required"))
     )
@@ -163,6 +180,18 @@ def build_real_public_stage4_9_pressure_summary(
         "stage1_6_bottleneck_stage_counts": _status_counts(stage1_6_readiness_records, "bottleneck_stage"),
         "stage1_6_readiness_record_count": len(stage1_6_readiness_records),
         "stage1_6_gap_summary_record_count": len(stage1_6_gap_summary_records),
+        "stage4_release_adapter_bridge_task_count": len(stage4_release_adapter_bridge_records),
+        "stage4_release_adapter_bridge_project_count": len(
+            {str(row.get("project_id") or "") for row in stage4_release_adapter_bridge_records if str(row.get("project_id") or "")}
+        ),
+        "stage4_release_adapter_bridge_target_type_counts": _status_counts(
+            stage4_release_adapter_bridge_records,
+            "release_evidence_target_type",
+        ),
+        "stage4_release_adapter_bridge_execution_mode_counts": _status_counts(
+            stage4_release_adapter_bridge_records,
+            "execution_mode",
+        ),
         "customer_sellable_evidence_ready_count": sum(
             1 for readback in readbacks if bool(readback.get("customer_sellable_evidence_ready"))
         ),
@@ -198,6 +227,12 @@ def build_real_public_stage4_9_pressure_report(
     candidate_records = _candidate_pressure_records(result)
     stage1_6_readiness_records = _stage1_6_readiness_records(result)
     stage1_6_gap_summary_records = _stage1_6_gap_summary_records(stage1_6_readiness_records)
+    stage4_release_adapter_bridge_records = _stage4_release_adapter_bridge_records(result, created_at=created)
+    stage4_release_adapter_bridge_manifest = _stage4_release_adapter_bridge_manifest(
+        records=stage4_release_adapter_bridge_records,
+        source_run_result_json=run_result_path,
+        created_at=created,
+    )
     gap_records = _gap_summary_records(candidate_records)
     manifest = {
         "manifest_version": REAL_PUBLIC_STAGE4_9_PRESSURE_REPORT_VERSION,
@@ -211,6 +246,14 @@ def build_real_public_stage4_9_pressure_report(
         "candidate_pressure_records": candidate_records,
         "stage1_6_readiness_records": stage1_6_readiness_records,
         "stage1_6_gap_summary_records": stage1_6_gap_summary_records,
+        "stage4_release_adapter_bridge_records": stage4_release_adapter_bridge_records,
+        "stage4_release_adapter_bridge_plan_ref": {
+            "path": str(out_dir / "stage4-release-adapter-bridge-plan.json"),
+            "manifest_kind": REAL_PUBLIC_STAGE4_RELEASE_ADAPTER_BRIDGE_KIND,
+            "task_count": len(stage4_release_adapter_bridge_records),
+            "execution_mode": "PLAN_ONLY_NOT_EXECUTED",
+            "query_miss_is_not_clearance": True,
+        },
         "gap_summary_records": gap_records,
         "safety": {
             "network_enabled": False,
@@ -235,6 +278,11 @@ def build_real_public_stage4_9_pressure_report(
     _write_json(out_dir / "candidate-pressure-table.json", {"summary": summary, "records": candidate_records})
     _write_json(out_dir / "stage1-6-readiness-table.json", {"summary": summary, "records": stage1_6_readiness_records})
     _write_json(out_dir / "stage1-6-gap-summary-table.json", {"summary": summary, "records": stage1_6_gap_summary_records})
+    _write_json(
+        out_dir / "stage4-release-adapter-bridge-table.json",
+        {"summary": summary, "records": stage4_release_adapter_bridge_records},
+    )
+    _write_json(out_dir / "stage4-release-adapter-bridge-plan.json", stage4_release_adapter_bridge_manifest)
     _write_json(out_dir / "gap-summary-table.json", {"summary": summary, "records": gap_records})
     return report
 
@@ -315,6 +363,342 @@ def _candidate_next_action(
     ):
         return "advance_to_stage7_9_internal_review"
     return "keep_internal_review_and_register_source_gap"
+
+
+def _stage4_release_adapter_bridge_records(result: Mapping[str, Any], *, created_at: str) -> list[dict[str, Any]]:
+    closed_loop_by_project_id = {
+        str(item.get("project_id") or ""): dict(item)
+        for item in list(result.get("closed_loop_results") or [])
+        if isinstance(item, Mapping) and str(item.get("project_id") or "").strip()
+    }
+    rows: list[dict[str, Any]] = []
+    for option in list(result.get("candidate_options") or []):
+        if not isinstance(option, Mapping):
+            continue
+        candidate = dict(option)
+        project_id = str(candidate.get("project_id") or "")
+        closed_loop = dict(closed_loop_by_project_id.get(project_id) or {})
+        readback = dict(closed_loop.get("real_public_stage4_9_readback") or {})
+        if not readback:
+            continue
+        release_source_types = _bridge_release_source_types(readback.get("remaining_real_world_gaps"))
+        if not release_source_types:
+            continue
+        source_plan = dict(readback.get("regional_hard_defect_source_plan") or {})
+        query_context = dict(source_plan.get("query_context") or {})
+        region_code = str(
+            source_plan.get("region_code")
+            or candidate.get("region_code")
+            or query_context.get("region_code")
+            or "CN-GD"
+        ).upper()
+        jurisdiction_adapter = resolve_release_evidence_local_housing_adapter(region_code)
+        project_name = _first_text(
+            [
+                candidate.get("project_name"),
+                query_context.get("project_name"),
+            ]
+        )
+        project_name_core = _notice_core_project_name(project_name)
+        candidate_company = _first_text(
+            [
+                candidate.get("candidate_company"),
+                candidate.get("winner_name"),
+                query_context.get("candidate_company"),
+            ]
+        )
+        person_name = _first_text(
+            [
+                candidate.get("project_manager_name"),
+                candidate.get("primary_responsible_person_name"),
+                query_context.get("project_manager_name"),
+            ]
+        )
+        certificate_no = _first_text(
+            [
+                candidate.get("project_manager_certificate_no"),
+                query_context.get("project_manager_certificate_no"),
+            ]
+        )
+        trigger_source_url = _first_text([candidate.get("source_url"), query_context.get("source_url")])
+        for source_type in release_source_types:
+            release_target = SOURCE_TARGET_ALIASES.get(source_type, source_type)
+            policy = TARGET_POLICY.get(release_target)
+            if not policy:
+                continue
+            source_fields = _stage4_release_adapter_source_fields(
+                source_plan=source_plan,
+                jurisdiction_adapter=jurisdiction_adapter,
+                region_code=region_code,
+                source_type=source_type,
+                release_target=release_target,
+            )
+            source_profile_id = str(source_fields.get("source_profile_id") or "")
+            source_gap_task_id = build_id(
+                "REALPUBLIC-ST4-SOURCE-GAP",
+                project_id or "UNKNOWN",
+                source_type,
+            )
+            release_task_id = build_id(
+                "REL-EVIDENCE-ADAPTER-TASK",
+                project_id or "UNKNOWN",
+                f"{release_target}-{_fingerprint([project_id, source_type, release_target])[:10]}",
+            )
+            query_params = {
+                "projectId": project_id,
+                "projectName": project_name_core or project_name,
+                "candidateNoticeTitle": project_name,
+                "companyName": candidate_company,
+                "candidateCompanyName": candidate_company,
+                "personName": person_name,
+                "projectManagerName": person_name,
+                "certificateNo": certificate_no,
+                "sourceProfileId": source_profile_id,
+                "targetSourceTypes": RELEASE_TARGET_TO_FIELD_SOURCE_TYPES.get(release_target, [source_type]),
+                "releaseEvidenceTargetType": release_target,
+                "triggerSourceUrl": trigger_source_url,
+                "keywords": _dedupe_strings(
+                    [
+                        project_name_core,
+                        project_name,
+                        candidate_company,
+                        person_name,
+                        certificate_no,
+                    ]
+                ),
+            }
+            prerequisite_flags = _stage4_release_adapter_prerequisite_flags(
+                release_target=release_target,
+                source_profile_id=source_profile_id,
+                person_name=person_name,
+            )
+            rows.append(
+                {
+                    "release_evidence_adapter_task_id": release_task_id,
+                    "source_release_evidence_probe_task_id": source_gap_task_id,
+                    "source_release_evidence_probe_plan_id": str(source_plan.get("source_plan_id") or ""),
+                    "input_source_kind": "real_public_stage4_9_pressure_source_gap",
+                    "project_id": project_id,
+                    "project_name": project_name,
+                    "candidate_company_name": candidate_company,
+                    "matched_person_names": [person_name] if person_name else [],
+                    "release_evidence_source_type": source_type,
+                    "release_evidence_target_type": release_target,
+                    "release_evidence_grade_on_match": str(policy.get("evidence_family") or ""),
+                    "release_evidence_source_role": str(policy.get("source_role") or ""),
+                    "initial_release_evidence_abcd_grade": "STAGE4_SOURCE_GAP_PENDING_NOT_A_SIGNAL",
+                    "release_evidence_query_region_code": region_code,
+                    "release_evidence_query_region_basis": "stage4_regional_hard_defect_source_plan_region",
+                    "local_housing_authority_adapter_scope": str(
+                        jurisdiction_adapter.get("source_selection_scope") or "HISTORICAL_PROJECT_JURISDICTION"
+                    ),
+                    "local_housing_authority_adapter_region_code": region_code,
+                    "non_guangdong_release_adapter_rule": str(
+                        jurisdiction_adapter.get("non_guangdong_release_adapter_rule") or ""
+                    ),
+                    "jurisdiction_local_housing_adapter": jurisdiction_adapter,
+                    "jurisdiction_adapter_resolution_state": str(
+                        jurisdiction_adapter.get("adapter_resolution_state") or ""
+                    ),
+                    "no_fallback_to_guangdong_or_guangzhou": bool(
+                        jurisdiction_adapter.get("no_fallback_to_guangdong_or_guangzhou")
+                    ),
+                    "source_entry_id": str(source_fields.get("source_entry_id") or source_fields.get("entry_id") or ""),
+                    "subsource_id": str(source_fields.get("subsource_id") or ""),
+                    "source_profile_id": source_profile_id,
+                    "source_name": str(source_fields.get("source_name") or ""),
+                    "source_family": str(source_fields.get("source_family") or ""),
+                    "source_url": str(source_fields.get("source_url") or ""),
+                    "api_url": str(source_fields.get("api_url") or ""),
+                    "official_reference_url": str(
+                        source_fields.get("official_reference_url")
+                        or source_fields.get("official_parent_url")
+                        or ""
+                    ),
+                    "trigger_source_url": trigger_source_url,
+                    "query_params": query_params,
+                    "next_adapter": str(source_fields.get("next_adapter") or ""),
+                    "runtime_status": str(source_fields.get("runtime_status") or ""),
+                    "bridge_readiness_state": prerequisite_flags["bridge_readiness_state"],
+                    "bridge_prerequisite_flags": prerequisite_flags,
+                    "adapter_result_state": "PLAN_ONLY_NOT_EXECUTED",
+                    "allowed_adapter_result_states": list(ALLOWED_ADAPTER_RESULT_STATES),
+                    "matched_means": "official_public_readback_may_enhance_or_explain_release_state_not_legal_conclusion",
+                    "not_found_means": "source_query_miss_or_no_public_match_not_clearance",
+                    "blocked_means": "source_blocked_or_unavailable_needs_review",
+                    "needs_browser_means": "browser_or_authorized_runtime_required_before_field_readback",
+                    "execution_mode": "PLAN_ONLY_NOT_EXECUTED",
+                    "readback_ready": False,
+                    "recommended_next_action": "run_guangdong_local_field_query_probe_with_stage4_release_adapter_bridge_plan",
+                    "query_miss_is_not_clearance": True,
+                    "customer_visible_allowed": False,
+                    "no_legal_conclusion": True,
+                    "created_at": created_at,
+                }
+            )
+    return _dedupe_records(rows, ("release_evidence_adapter_task_id",))
+
+
+def _stage4_release_adapter_bridge_manifest(
+    *,
+    records: list[Mapping[str, Any]],
+    source_run_result_json: Path,
+    created_at: str,
+) -> dict[str, Any]:
+    manifest = {
+        "manifest_version": 1,
+        "manifest_kind": REAL_PUBLIC_STAGE4_RELEASE_ADAPTER_BRIDGE_KIND,
+        "adapter_id": REAL_PUBLIC_STAGE4_RELEASE_ADAPTER_BRIDGE_ADAPTER_ID,
+        "pipeline_stage": "RealPublicStage4ReleaseAdapterBridgeV1",
+        "manifest_id": f"REALPUBLIC-ST4-RELEASE-BRIDGE-{_fingerprint(records)[:16]}",
+        "created_at": created_at,
+        "source_run_result_json": str(source_run_result_json),
+        "summary": {
+            "bridge_plan_state": "READY" if records else "NO_RELEASE_SOURCE_GAPS",
+            "release_evidence_adapter_task_count": len(records),
+            "project_count": len({str(row.get("project_id") or "") for row in records if str(row.get("project_id") or "")}),
+            "target_type_counts": _status_counts(list(records), "release_evidence_target_type"),
+            "source_profile_counts": _status_counts(list(records), "source_profile_id"),
+            "bridge_readiness_state_counts": _status_counts(list(records), "bridge_readiness_state"),
+            "execution_mode_counts": _status_counts(list(records), "execution_mode"),
+            "customer_visible_allowed": False,
+            "no_legal_conclusion": True,
+            "query_miss_is_not_clearance": True,
+        },
+        "release_evidence_adapter_task_records": [dict(row) for row in records],
+        "safety": {
+            "network_enabled": False,
+            "download_enabled": False,
+            "parse_enabled": False,
+            "execution_mode": "PLAN_ONLY_NOT_EXECUTED",
+            "customer_visible_allowed": False,
+            "no_legal_conclusion": True,
+            "query_miss_is_not_clearance": True,
+        },
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+        "query_miss_is_not_clearance": True,
+    }
+    manifest["manifest_sha256"] = _fingerprint({key: value for key, value in manifest.items() if key != "manifest_sha256"})
+    return manifest
+
+
+def _bridge_release_source_types(value: Any) -> list[str]:
+    source_types: list[str] = []
+    for gap in _string_list(value):
+        raw = gap[len(BRIDGE_GAP_PREFIX) :] if gap.startswith(BRIDGE_GAP_PREFIX) else gap
+        if raw in BRIDGE_RELEASE_SOURCE_TYPES:
+            source_types.append(raw)
+            continue
+        normalized_target = SOURCE_TARGET_ALIASES.get(raw, raw)
+        for source_type in BRIDGE_RELEASE_SOURCE_TYPES:
+            if SOURCE_TARGET_ALIASES.get(source_type, source_type) == normalized_target:
+                source_types.append(source_type)
+                break
+    return _dedupe_strings(source_types)
+
+
+def _stage4_release_adapter_source_fields(
+    *,
+    source_plan: Mapping[str, Any],
+    jurisdiction_adapter: Mapping[str, Any],
+    region_code: str,
+    source_type: str,
+    release_target: str,
+) -> dict[str, Any]:
+    if region_code == "CN-GD":
+        override = dict(GUANGDONG_RELEASE_TARGET_SOURCE_OVERRIDES.get(release_target) or {})
+        if override:
+            return {**dict(jurisdiction_adapter), **override}
+    preferred = _preferred_source_entry_for_release_source(source_plan, source_type=source_type)
+    if preferred:
+        return preferred
+    return dict(jurisdiction_adapter)
+
+
+def _preferred_source_entry_for_release_source(source_plan: Mapping[str, Any], *, source_type: str) -> dict[str, Any]:
+    entries = [item for item in list(source_plan.get("source_entries") or []) if isinstance(item, Mapping)]
+    for entry in entries:
+        for subsource in list(entry.get("verified_public_subsources") or []):
+            if not isinstance(subsource, Mapping):
+                continue
+            if source_type not in _string_list(subsource.get("target_source_types")):
+                continue
+            return {
+                **dict(entry),
+                **dict(subsource),
+                "source_entry_id": str(entry.get("entry_id") or ""),
+                "source_family": str(entry.get("source_family") or ""),
+                "official_reference_url": str(
+                    subsource.get("official_reference_url")
+                    or subsource.get("official_parent_url")
+                    or entry.get("official_reference_url")
+                    or entry.get("official_parent_url")
+                    or ""
+                ),
+            }
+    for entry in entries:
+        if source_type not in _string_list(entry.get("target_source_types")):
+            continue
+        source_profile_id = str(entry.get("source_profile_id") or "")
+        if source_profile_id.startswith("JZSC-NATIONAL"):
+            continue
+        return {**dict(entry), "source_entry_id": str(entry.get("entry_id") or "")}
+    return {}
+
+
+def _stage4_release_adapter_prerequisite_flags(
+    *,
+    release_target: str,
+    source_profile_id: str,
+    person_name: str,
+) -> dict[str, Any]:
+    missing: list[str] = []
+    if not source_profile_id:
+        missing.append("source_profile_id_missing_or_region_adapter_not_registered")
+    if release_target == "project_manager_change_notice" and not person_name:
+        missing.append("person_name_missing_for_project_manager_change_notice_interpretation")
+    if not missing:
+        state = "READY_FOR_FIELD_QUERY_PROBE_PLAN_ONLY"
+    elif missing == ["person_name_missing_for_project_manager_change_notice_interpretation"]:
+        state = "READY_FOR_PROJECT_COMPANY_QUERY_PERSON_INTERPRETATION_REVIEW_REQUIRED"
+    else:
+        state = "BLOCKED_REGION_ADAPTER_OR_QUERY_KEY_MISSING"
+    return {
+        "bridge_readiness_state": state,
+        "missing_prerequisites": missing,
+        "can_feed_guangdong_local_field_query_probe": bool(source_profile_id),
+        "requires_operator_approved_live_run": True,
+        "query_miss_is_not_clearance": True,
+    }
+
+
+def _notice_core_project_name(value: str) -> str:
+    text = str(value or "").strip()
+    for suffix in ("中标候选人公示", "中标结果公示", "中标结果公告", "招标公告", "招标文件", "资格审查结果公示"):
+        if text.endswith(suffix):
+            return text[: -len(suffix)].strip()
+    return text
+
+
+def _first_text(values: Iterable[Any]) -> str:
+    for value in values:
+        text = str(value or "").strip()
+        if text:
+            return text
+    return ""
+
+
+def _dedupe_records(rows: Iterable[Mapping[str, Any]], keys: tuple[str, ...]) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    seen: set[tuple[str, ...]] = set()
+    for row in rows:
+        key = tuple(str(row.get(item) or "") for item in keys)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(dict(row))
+    return out
 
 
 def _gap_summary_records(candidate_records: list[Mapping[str, Any]]) -> list[dict[str, Any]]:
