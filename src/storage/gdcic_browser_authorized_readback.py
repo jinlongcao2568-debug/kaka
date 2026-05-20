@@ -55,6 +55,11 @@ def build_gdcic_browser_authorized_readback(
     source_manifest = _source_manifest(payload)
     task_records = _task_records_from_release_plan(source_manifest, created_at=created)
     execution_mode = "LIVE_BROWSER_EXECUTION_ATTEMPTED" if enable_live_browser_execution else "PLAN_ONLY_NOT_EXECUTED"
+    authorized_session_input_state = _authorized_session_input_state(
+        storage_state_json=storage_state_json,
+        user_data_dir=user_data_dir,
+        browser_runner_supplied=browser_runner is not None,
+    )
     active_runner = browser_runner
     if active_runner is None and enable_live_browser_execution:
         active_runner = _make_playwright_browser_runner(
@@ -75,6 +80,7 @@ def build_gdcic_browser_authorized_readback(
         readback_records=readback_records,
         execution_mode=execution_mode,
         blocking_reasons=blocking_reasons,
+        authorized_session_input_state=authorized_session_input_state,
     )
     manifest = {
         "manifest_version": GDCIC_BROWSER_AUTHORIZED_READBACK_VERSION,
@@ -90,6 +96,7 @@ def build_gdcic_browser_authorized_readback(
         "max_live_browser_tasks": max_live_browser_tasks,
         "storage_state_json_used": str(storage_state_json or ""),
         "user_data_dir_used": str(user_data_dir or ""),
+        "authorized_session_input_state": authorized_session_input_state,
         "headed_browser_requested": bool(headed),
         "browser_readback_task_records": task_records,
         "browser_readback_records": readback_records,
@@ -134,6 +141,33 @@ def build_gdcic_browser_authorized_readback(
         encoding="utf-8",
     )
     return result
+
+
+def _authorized_session_input_state(
+    *,
+    storage_state_json: str | Path | None,
+    user_data_dir: str | Path | None,
+    browser_runner_supplied: bool,
+) -> str:
+    if browser_runner_supplied:
+        return "INJECTED_BROWSER_RUNNER"
+    storage_path = Path(storage_state_json) if storage_state_json else None
+    user_data_path = Path(user_data_dir) if user_data_dir else None
+    storage_ready = bool(storage_path and storage_path.exists() and storage_path.is_file())
+    user_data_ready = bool(user_data_path and user_data_path.exists() and user_data_path.is_dir())
+    if storage_path and user_data_path:
+        if storage_ready and user_data_ready:
+            return "USER_DATA_DIR_AND_STORAGE_STATE_JSON_SUPPLIED"
+        if user_data_ready:
+            return "USER_DATA_DIR_SUPPLIED_STORAGE_STATE_JSON_MISSING"
+        if storage_ready:
+            return "STORAGE_STATE_JSON_SUPPLIED_USER_DATA_DIR_MISSING"
+        return "AUTHORIZED_SESSION_INPUT_SUPPLIED_BUT_MISSING"
+    if user_data_path:
+        return "USER_DATA_DIR_SUPPLIED" if user_data_ready else "USER_DATA_DIR_SUPPLIED_BUT_MISSING"
+    if storage_path:
+        return "STORAGE_STATE_JSON_SUPPLIED" if storage_ready else "STORAGE_STATE_JSON_SUPPLIED_BUT_MISSING"
+    return "NO_AUTHORIZED_SESSION_INPUT"
 
 
 def _task_records_from_release_plan(source_manifest: Mapping[str, Any], *, created_at: str) -> list[dict[str, Any]]:
@@ -739,10 +773,23 @@ def _summary(
     readback_records: list[Mapping[str, Any]],
     execution_mode: str,
     blocking_reasons: list[str],
+    authorized_session_input_state: str,
 ) -> dict[str, Any]:
     authorization_state_counts = _counts(record.get("authorization_readiness_state") for record in readback_records)
     return {
         "execution_mode": execution_mode,
+        "authorized_session_input_state": authorized_session_input_state,
+        "authorized_session_input_ready": authorized_session_input_state
+        in {
+            "INJECTED_BROWSER_RUNNER",
+            "STORAGE_STATE_JSON_SUPPLIED",
+            "USER_DATA_DIR_SUPPLIED",
+            "USER_DATA_DIR_AND_STORAGE_STATE_JSON_SUPPLIED",
+            "USER_DATA_DIR_SUPPLIED_STORAGE_STATE_JSON_MISSING",
+            "STORAGE_STATE_JSON_SUPPLIED_USER_DATA_DIR_MISSING",
+        },
+        "requires_authorized_session_for_login_protected_pages": True,
+        "http_dynamic_stealthy_can_replace_login_state": False,
         "gdcic_browser_readback_task_count": len(task_records),
         "gdcic_browser_readback_record_count": len(readback_records),
         "gdcic_browser_readback_ready_count": sum(

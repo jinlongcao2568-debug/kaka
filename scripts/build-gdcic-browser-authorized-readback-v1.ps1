@@ -16,13 +16,62 @@ $ErrorActionPreference = "Stop"
 $OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$repoRoot = Resolve-Path (Join-Path $scriptDir "..")
+$repoRoot = (Resolve-Path (Join-Path $scriptDir "..")).Path
+
+function Get-FirstExistingPath {
+    param(
+        [string[]]$Candidates,
+        [ValidateSet("Leaf", "Container")]
+        [string]$PathType
+    )
+    foreach ($candidate in $Candidates) {
+        if ($candidate -and (Test-Path -LiteralPath $candidate -PathType $PathType)) {
+            return (Resolve-Path -LiteralPath $candidate).Path
+        }
+    }
+    return ""
+}
+
+function Get-FirstEnvValue {
+    param([string[]]$Names)
+    foreach ($name in $Names) {
+        $value = [Environment]::GetEnvironmentVariable($name)
+        if ($value) {
+            return $value
+        }
+    }
+    return ""
+}
 
 if (-not $ReleaseEvidenceAdapterPlanRoot) {
     $ReleaseEvidenceAdapterPlanRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\release-evidence-adapter-plan-v1"
 }
 if (-not $OutputRoot) {
     $OutputRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\gdcic-browser-authorized-readback-v1"
+}
+if (-not $StorageStateJson) {
+    $StorageStateJson = Get-FirstEnvValue @("KAKA_GDCIC_STORAGE_STATE_JSON", "GDCIC_STORAGE_STATE_JSON")
+}
+if (-not $StorageStateJson) {
+    $StorageStateJson = Get-FirstExistingPath `
+        -PathType Leaf `
+        -Candidates @(
+            (Join-Path $repoRoot ".auth\gdcic-storage-state.json"),
+            (Join-Path $repoRoot "local\auth\gdcic-storage-state.json"),
+            (Join-Path $repoRoot "tmp\auth\gdcic-storage-state.json")
+        )
+}
+if (-not $UserDataDir) {
+    $UserDataDir = Get-FirstEnvValue @("KAKA_GDCIC_USER_DATA_DIR", "GDCIC_USER_DATA_DIR")
+}
+if (-not $UserDataDir) {
+    $UserDataDir = Get-FirstExistingPath `
+        -PathType Container `
+        -Candidates @(
+            (Join-Path $repoRoot ".auth\gdcic-user-data"),
+            (Join-Path $repoRoot "local\auth\gdcic-user-data"),
+            (Join-Path $repoRoot "tmp\auth\gdcic-user-data")
+        )
 }
 
 New-Item -ItemType Directory -Force -Path $OutputRoot | Out-Null

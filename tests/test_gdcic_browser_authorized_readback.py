@@ -38,15 +38,63 @@ class GDCICBrowserAuthorizedReadbackTests(unittest.TestCase):
             self.assertTrue(result["safe_to_execute"])
             summary = result["summary"]
             self.assertEqual(summary["execution_mode"], "PLAN_ONLY_NOT_EXECUTED")
+            self.assertEqual(summary["authorized_session_input_state"], "NO_AUTHORIZED_SESSION_INPUT")
+            self.assertFalse(summary["authorized_session_input_ready"])
+            self.assertFalse(summary["http_dynamic_stealthy_can_replace_login_state"])
             self.assertEqual(summary["gdcic_browser_readback_task_count"], 2)
             self.assertEqual(summary["gdcic_browser_readback_record_count"], 0)
             self.assertEqual(summary["gdcic_authorized_session_overall_state"], "NOT_ATTEMPTED_PLAN_ONLY")
+            self.assertEqual(result["manifest"]["authorized_session_input_state"], "NO_AUTHORIZED_SESSION_INPUT")
             tasks = result["manifest"]["browser_readback_task_records"]
             self.assertEqual(
                 {task["release_evidence_target_type"] for task in tasks},
                 {"contract_performance", "project_manager_change_notice"},
             )
             self.assertTrue((out_root / "gdcic-browser-authorized-readback-v1.json").exists())
+
+    def test_authorized_session_input_state_reports_supplied_paths(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            plan_root = root / "release-plan"
+            out_root = root / "gdcic-readback"
+            storage_state = root / "gdcic-storage-state.json"
+            user_data_dir = root / "gdcic-user-data"
+            missing_storage_state = root / "missing-storage-state.json"
+            _write_release_evidence_adapter_plan(plan_root)
+            storage_state.write_text("{}", encoding="utf-8")
+            user_data_dir.mkdir()
+
+            storage_result = build_gdcic_browser_authorized_readback(
+                release_evidence_adapter_plan_root=plan_root,
+                output_root=out_root / "storage",
+                storage_state_json=storage_state,
+                created_at="2026-05-20T00:00:00+08:00",
+            )
+            self.assertEqual(storage_result["summary"]["authorized_session_input_state"], "STORAGE_STATE_JSON_SUPPLIED")
+            self.assertTrue(storage_result["summary"]["authorized_session_input_ready"])
+            self.assertEqual(storage_result["manifest"]["storage_state_json_used"], str(storage_state))
+
+            user_data_result = build_gdcic_browser_authorized_readback(
+                release_evidence_adapter_plan_root=plan_root,
+                output_root=out_root / "user-data",
+                user_data_dir=user_data_dir,
+                created_at="2026-05-20T00:00:00+08:00",
+            )
+            self.assertEqual(user_data_result["summary"]["authorized_session_input_state"], "USER_DATA_DIR_SUPPLIED")
+            self.assertTrue(user_data_result["summary"]["authorized_session_input_ready"])
+            self.assertEqual(user_data_result["manifest"]["user_data_dir_used"], str(user_data_dir))
+
+            missing_result = build_gdcic_browser_authorized_readback(
+                release_evidence_adapter_plan_root=plan_root,
+                output_root=out_root / "missing",
+                storage_state_json=missing_storage_state,
+                created_at="2026-05-20T00:00:00+08:00",
+            )
+            self.assertEqual(
+                missing_result["summary"]["authorized_session_input_state"],
+                "STORAGE_STATE_JSON_SUPPLIED_BUT_MISSING",
+            )
+            self.assertFalse(missing_result["summary"]["authorized_session_input_ready"])
 
     def test_live_fake_runner_ready_artifact_flows_into_local_field_probe(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -66,6 +114,8 @@ class GDCICBrowserAuthorizedReadbackTests(unittest.TestCase):
             )
 
             self.assertTrue(readback["safe_to_execute"])
+            self.assertEqual(readback["summary"]["authorized_session_input_state"], "INJECTED_BROWSER_RUNNER")
+            self.assertTrue(readback["summary"]["authorized_session_input_ready"])
             self.assertEqual(readback["summary"]["gdcic_browser_readback_ready_count"], 1)
             self.assertEqual(
                 readback["summary"]["gdcic_authorized_session_overall_state"],
