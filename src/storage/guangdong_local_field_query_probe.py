@@ -2666,11 +2666,42 @@ def _gdcic_openplatform_project_title_variants(value: Any) -> list[str]:
     if not text:
         return []
     variants = [text]
+    without_rebid_marker = re.sub(
+        r"[（(](?:第?[一二三四五六七八九十\d]+次|重新招标|重招|二次)[）)]$",
+        "",
+        text,
+    ).strip()
+    if without_rebid_marker and without_rebid_marker != text and len(without_rebid_marker) >= 6:
+        variants.append(_clean_project_title(without_rebid_marker))
     for separator in ("、", "，", ",", "；", ";", "及"):
         if separator in text:
             head = _clean_project_title(text.split(separator, 1)[0])
             if len(head) >= 6:
                 variants.append(head)
+    for suffix in (
+        "工程设计施工总承包",
+        "设计施工总承包",
+        "勘察设计施工总承包",
+        "设计采购施工总承包",
+        "工程总承包（EPC）",
+        "工程总承包(EPC)",
+        "工程总承包",
+        "施工总承包",
+        "施工总价承包招标",
+        "施工总价承包",
+        "施工监理",
+        "初步设计",
+        "施工图设计",
+        "勘察设计",
+        "设计",
+        "监理",
+        "施工",
+        "招标",
+    ):
+        source = without_rebid_marker or text
+        if source.endswith(suffix) and len(source) - len(suffix) >= 6:
+            variants.append(_clean_project_title(source[: -len(suffix)]))
+            break
     for suffix in ("生产建设项目", "建设项目", "项目"):
         if text.endswith(suffix) and len(text) - len(suffix) >= 6:
             variants.append(_clean_project_title(text[: -len(suffix)]))

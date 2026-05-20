@@ -274,6 +274,80 @@ class GuangdongLocalFieldQueryProbeTests(unittest.TestCase):
                 )
             )
 
+    def test_live_gdcic_openplatform_uses_service_suffix_stripped_project_title_variants(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            local_root = root / "local"
+            output_root = root / "out"
+            _write_local_verification(local_root)
+            local_path = local_root / "guangdong-local-verification-probe-v1.json"
+            payload = json.loads(local_path.read_text(encoding="utf-8"))
+            task = payload["manifest"]["query_task_records"][0]
+            task["project_name"] = "珠海市-阳江市产业转移合作园区新材料厂房项目工程设计施工总承包"
+            task["query_params"]["projectName"] = task["project_name"]
+            local_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+            requested: list[tuple[str, Mapping[str, Any]]] = []
+
+            def fake_getter(url: str, params: Mapping[str, Any]) -> Mapping[str, Any]:
+                requested.append((url, dict(params)))
+                if (
+                    url.endswith("/openplatform/project/list")
+                    and params.get("projectName") == "珠海市-阳江市产业转移合作园区新材料厂房项目"
+                ):
+                    return {
+                        "http_status": 200,
+                        "content_type": "application/json",
+                        "payload": {
+                            "rows": [
+                                {
+                                    "id": "8801",
+                                    "projectCode": "441702202605200001",
+                                    "projectName": "珠海市-阳江市产业转移合作园区新材料厂房项目",
+                                }
+                            ]
+                        },
+                    }
+                if url.endswith("/openplatform/publicityPeriod/getContract"):
+                    return {
+                        "http_status": 200,
+                        "content_type": "application/json",
+                        "payload": {
+                            "rows": [
+                                {
+                                    "id": "8801",
+                                    "projectName": "珠海市-阳江市产业转移合作园区新材料厂房项目",
+                                    "contractOrgName": "广州测试建设有限公司",
+                                }
+                            ]
+                        },
+                    }
+                return {
+                    "http_status": 200,
+                    "content_type": "application/json",
+                    "payload": {"rows": []},
+                }
+
+            result = build_guangdong_local_field_query_probe(
+                local_verification_root=local_root,
+                output_root=output_root,
+                source_profile_ids=["GUANGDONG-GDCIC-SKYPT-OPENPLATFORM"],
+                enable_live_public_query=True,
+                max_live_tasks=1,
+                http_getter=fake_getter,
+                created_at="2026-05-20T00:00:00+08:00",
+            )
+
+            self.assertTrue(result["safe_to_execute"])
+            field_task = result["manifest"]["field_task_records"][0]
+            self.assertEqual(field_task["adapter_result_state"], "MATCHED")
+            self.assertTrue(
+                any(
+                    url.endswith("/openplatform/project/list")
+                    and params.get("projectName") == "珠海市-阳江市产业转移合作园区新材料厂房项目"
+                    for url, params in requested
+                )
+            )
+
     def test_p13b_release_evidence_tasks_feed_field_query_probe(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)

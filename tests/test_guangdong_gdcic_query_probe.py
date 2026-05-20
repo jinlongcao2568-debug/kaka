@@ -329,6 +329,62 @@ class GuangdongGdcicQueryProbeTests(unittest.TestCase):
                 )
             )
 
+    def test_project_title_variants_strip_service_suffix_for_project_lookup(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            active_root = root / "active"
+            _write_active_conflict_probe(active_root, task_count=1)
+            active_path = active_root / "guangzhou-active-conflict-probe-v1.json"
+            payload = json.loads(active_path.read_text(encoding="utf-8"))
+            payload["manifest"]["task_records"][0]["project_name"] = (
+                "白云湖街城市更新片区周边基础设施配套建设工程监理"
+            )
+            active_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+            requested: list[tuple[str, Mapping[str, Any]]] = []
+
+            def fake_getter(url: str, params: Mapping[str, Any]) -> Mapping[str, Any]:
+                requested.append((url, dict(params)))
+                if (
+                    url.endswith("/openplatform/project/list")
+                    and params.get("projectName") == "白云湖街城市更新片区周边基础设施配套建设工程"
+                ):
+                    return {
+                        "http_status": 200,
+                        "content_type": "application/json",
+                        "payload": {
+                            "rows": [
+                                {
+                                    "id": "9917",
+                                    "projectCode": "440100202605200001",
+                                    "projectName": "白云湖街城市更新片区周边基础设施配套建设工程",
+                                }
+                            ]
+                        },
+                    }
+                return {
+                    "http_status": 200,
+                    "content_type": "application/json",
+                    "payload": {"rows": []},
+                }
+
+            result = build_guangdong_gdcic_query_probe(
+                active_conflict_root=active_root,
+                output_root=root / "out",
+                enable_live_public_query=True,
+                http_getter=fake_getter,
+                created_at="2026-05-20T00:00:00+08:00",
+            )
+
+            task = result["manifest"]["query_task_records"][0]
+            self.assertIn("白云湖街城市更新片区周边基础设施配套建设工程", task["query_params"]["projectNameVariants"])
+            self.assertTrue(
+                any(
+                    url.endswith("/openplatform/project/list")
+                    and params.get("projectName") == "白云湖街城市更新片区周边基础设施配套建设工程"
+                    for url, params in requested
+                )
+            )
+
     def test_masked_id_card_values_do_not_trigger_followup_queries(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
