@@ -21,6 +21,7 @@ REAL_CANDIDATE_STAGE2_CAPTURE_MODE = "REAL_PUBLIC_CANDIDATE_DETAIL_CAPTURE"
 DEFAULT_DETAIL_CAPTURE_LIMIT: int | None = None
 DEFAULT_ATTACHMENT_CAPTURE_LIMIT: int | None = None
 DEFAULT_DETAIL_CAPTURE_TIME_BUDGET_SECONDS = 90.0
+DEFAULT_ATTACHMENT_TEXT_CACHE_CHAR_LIMIT = 20000
 SECTION_MARKERS = {
     "qualification_section_found": ("资格条件", "资格要求", "投标人资格", "供应商资格", "投标人资格要求"),
     "scoring_section_found": ("评分办法", "评标办法", "评分标准", "综合评分", "综合评估法"),
@@ -210,6 +211,33 @@ def _file_parse_attribution(
         "section_flags": _section_flags_for_text(cleaned),
         "text_sha256": hashlib.sha256(cleaned.encode("utf-8")).hexdigest() if cleaned else "",
         "text_probe": _clip_text(cleaned),
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
+
+
+def _attachment_text_cache_record(
+    *,
+    project_id: str,
+    snapshot_id: str,
+    source_url: str,
+    file_role: str,
+    parse_state: str,
+    text: str,
+) -> dict[str, Any]:
+    cleaned = _clean_text(text)
+    cached_text = _clip_text(cleaned, limit=DEFAULT_ATTACHMENT_TEXT_CACHE_CHAR_LIMIT)
+    return {
+        "project_id": str(project_id or ""),
+        "snapshot_id": str(snapshot_id or ""),
+        "source_url": str(source_url or ""),
+        "file_role": str(file_role or ""),
+        "parse_state": str(parse_state or ""),
+        "text_sha256": hashlib.sha256(cleaned.encode("utf-8")).hexdigest() if cleaned else "",
+        "text_char_count": len(cleaned),
+        "text_cache_char_limit": DEFAULT_ATTACHMENT_TEXT_CACHE_CHAR_LIMIT,
+        "text_cache_truncated": len(cleaned) > DEFAULT_ATTACHMENT_TEXT_CACHE_CHAR_LIMIT,
+        "text_cache": cached_text,
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,
     }
@@ -1610,6 +1638,7 @@ def _looks_like_person_name(value: str) -> bool:
         "总监",
         "总工",
         "附件",
+        "附表",
         "以上",
         "以下",
         "不少于",
@@ -2667,8 +2696,9 @@ class RealCandidateStage2CaptureService:
             qualification_text_candidate_blocks,
             attachment_text_probes,
             attachment_file_attributions,
-        ) = self._attachment_text_bundle(
-            list(capture.get("attachment_captures", []) or []),
+            attachment_text_cache_records,
+        ) = self._cached_or_extract_attachment_text_bundle(
+            capture,
             project_id=str(candidate.get("project_id") or capture.get("project_id") or ""),
         )
         combined_readback_text = "\n".join(
@@ -2704,6 +2734,7 @@ class RealCandidateStage2CaptureService:
             *attachment_file_attributions,
         ]
         refreshed["detail_fields"]["attachment_text_probes"] = attachment_text_probes
+        refreshed["detail_fields"]["attachment_text_cache_records"] = attachment_text_cache_records
         if attachment_text_states:
             refreshed["detail_fields"]["attachment_text_parse_states"] = attachment_text_states
             refreshed["detail_fields"]["attachment_text_merge_state"] = (
@@ -2724,6 +2755,122 @@ class RealCandidateStage2CaptureService:
         refreshed["parsed_field_count"] = len(parser_carrier.get("parsed_fields", []) or [])
         refreshed["attachment_snapshot_count"] = len(attachment_snapshot_refs)
         return _with_document_completeness(refreshed)
+
+    def _cached_or_extract_attachment_text_bundle(
+        self,
+        capture: Mapping[str, Any],
+        *,
+        project_id: str,
+    ) -> tuple[str, list[str], list[dict[str, Any]], list[str], list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
+        cached = self._cached_attachment_text_bundle(capture, project_id=project_id)
+        if cached is not None:
+            return cached
+        return self._attachment_text_bundle(
+            list(capture.get("attachment_captures", []) or []),
+            project_id=project_id,
+        )
+
+    def _cached_attachment_text_bundle(
+        self,
+        capture: Mapping[str, Any],
+        *,
+        project_id: str,
+    ) -> tuple[str, list[str], list[dict[str, Any]], list[str], list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]] | None:
+        fields = dict(capture.get("detail_fields") or {})
+        snapshot_refs = [
+            dict(ref)
+            for ref in list(fields.get("attachment_snapshot_refs") or [])
+            if isinstance(ref, Mapping) and str(ref.get("snapshot_id") or "").strip()
+        ]
+        if not snapshot_refs:
+            return None
+        for ref in snapshot_refs:
+            snapshot_id = str(ref.get("snapshot_id") or "").strip()
+            try:
+                replay = self.object_repository.replay_snapshot(snapshot_id)
+            except Exception:
+                return None
+            if not bool(replay.get("replayable")):
+                return None
+
+        cache_records = [
+            dict(item)
+            for item in list(fields.get("attachment_text_cache_records") or [])
+            if isinstance(item, Mapping) and str(item.get("snapshot_id") or "").strip()
+        ]
+        texts = [
+            _clean_text(item.get("text_cache"))
+            for item in cache_records
+            if str(item.get("file_role") or "") == "attachment" and _clean_text(item.get("text_cache"))
+        ]
+        if not texts:
+            probe_records = [
+                dict(item)
+                for item in list(fields.get("attachment_text_probes") or [])
+                if isinstance(item, Mapping) and str(item.get("snapshot_id") or "").strip()
+            ]
+            texts = [
+                _clean_text(item.get("text_probe"))
+                for item in probe_records
+                if str(item.get("file_role") or "") == "attachment" and _clean_text(item.get("text_probe"))
+            ]
+            cache_records = [
+                _attachment_text_cache_record(
+                    project_id=str(item.get("project_id") or project_id),
+                    snapshot_id=str(item.get("snapshot_id") or ""),
+                    source_url=str(item.get("source_url") or ""),
+                    file_role="attachment",
+                    parse_state=str(item.get("parse_state") or "ATTACHMENT_TEXT_PROBE_CACHE_REUSED"),
+                    text=str(item.get("text_probe") or ""),
+                )
+                for item in probe_records
+                if _clean_text(item.get("text_probe"))
+            ]
+
+        qualification_blocks = [
+            _clean_text(item)
+            for item in list(fields.get("qualification_text_candidate_blocks") or [])
+            if _clean_text(item)
+        ]
+        combined_texts = _dedupe_texts([*texts, *qualification_blocks])
+        if not combined_texts:
+            return None
+
+        states = [
+            state if "ATTACHMENT_TEXT_CACHE_REUSED" in state else f"{state}:ATTACHMENT_TEXT_CACHE_REUSED"
+            for state in [
+                str(item)
+                for item in list(fields.get("attachment_text_parse_states") or [])
+                if str(item or "").strip()
+            ]
+        ]
+        if not states:
+            states = [
+                f"{str(ref.get('snapshot_id') or '')}:ATTACHMENT_TEXT_CACHE_REUSED"
+                for ref in snapshot_refs
+                if str(ref.get("snapshot_id") or "").strip()
+            ]
+        attributions = [
+            _file_parse_attribution(
+                project_id=str(item.get("project_id") or project_id),
+                snapshot_id=str(item.get("snapshot_id") or ""),
+                source_url=str(item.get("source_url") or ""),
+                file_role="attachment",
+                parse_state=str(item.get("parse_state") or "ATTACHMENT_TEXT_CACHE_REUSED"),
+                text=str(item.get("text_cache") or item.get("text_probe") or ""),
+            )
+            for item in cache_records
+            if str(item.get("snapshot_id") or "").strip()
+        ]
+        return (
+            "\n".join(combined_texts),
+            states,
+            snapshot_refs,
+            _dedupe_texts(qualification_blocks)[:20],
+            attributions[:20],
+            attributions[:30],
+            cache_records[:30],
+        )
 
     def capture_candidate(
         self,
@@ -2820,6 +2967,7 @@ class RealCandidateStage2CaptureService:
             qualification_text_candidate_blocks,
             attachment_text_probes,
             attachment_file_attributions,
+            attachment_text_cache_records,
         ) = self._attachment_text_bundle(
             attachment_captures,
             project_id=str(candidate.get("project_id") or ""),
@@ -2845,6 +2993,7 @@ class RealCandidateStage2CaptureService:
             *attachment_file_attributions,
         ]
         detail_fields["attachment_text_probes"] = attachment_text_probes
+        detail_fields["attachment_text_cache_records"] = attachment_text_cache_records
         attachment_discovery_taxonomy = [
             str(item)
             for item in list(detail_carrier.get("attachment_discovery_taxonomy") or [])
@@ -2931,13 +3080,14 @@ class RealCandidateStage2CaptureService:
         attachment_captures: list[Mapping[str, Any]],
         *,
         project_id: str,
-    ) -> tuple[str, list[str], list[dict[str, Any]], list[str], list[dict[str, Any]], list[dict[str, Any]]]:
+    ) -> tuple[str, list[str], list[dict[str, Any]], list[str], list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
         texts: list[str] = []
         states: list[str] = []
         snapshot_refs: list[dict[str, Any]] = []
         qualification_blocks: list[str] = []
         text_probes: list[dict[str, Any]] = []
         file_attributions: list[dict[str, Any]] = []
+        text_cache_records: list[dict[str, Any]] = []
         for attachment in attachment_captures:
             snapshot_id = str(attachment.get("attachment_snapshot_id_optional") or "").strip()
             if not snapshot_id:
@@ -3016,6 +3166,16 @@ class RealCandidateStage2CaptureService:
                     )
                     text_probes.append(attribution)
                     file_attributions.append(attribution)
+                    text_cache_records.append(
+                        _attachment_text_cache_record(
+                            project_id=project_id,
+                            snapshot_id=snapshot_id,
+                            source_url=str(attachment.get("attachment_url") or ""),
+                            file_role="attachment",
+                            parse_state=parse_state,
+                            text=text,
+                        )
+                    )
                     qualification_blocks.extend(_qualification_text_candidate_blocks(text))
                 continue
             parser_carrier: dict[str, Any] = {}
@@ -3070,6 +3230,16 @@ class RealCandidateStage2CaptureService:
                 )
                 text_probes.append(attribution)
                 file_attributions.append(attribution)
+                text_cache_records.append(
+                    _attachment_text_cache_record(
+                        project_id=project_id,
+                        snapshot_id=snapshot_id,
+                        source_url=str(attachment.get("attachment_url") or ""),
+                        file_role="attachment",
+                        parse_state=parse_state,
+                        text=parsed_text,
+                    )
+                )
                 qualification_blocks.extend(_qualification_text_candidate_blocks(parsed_text))
                 continue
             decoded_text = _decode_snapshot_text(readback)
@@ -3087,6 +3257,16 @@ class RealCandidateStage2CaptureService:
                 )
                 text_probes.append(attribution)
                 file_attributions.append(attribution)
+                text_cache_records.append(
+                    _attachment_text_cache_record(
+                        project_id=project_id,
+                        snapshot_id=snapshot_id,
+                        source_url=str(attachment.get("attachment_url") or ""),
+                        file_role="attachment",
+                        parse_state=decoded_state,
+                        text=decoded_text,
+                    )
+                )
                 qualification_blocks.extend(_qualification_text_candidate_blocks(decoded_text))
         return (
             "\n".join(texts),
@@ -3095,6 +3275,7 @@ class RealCandidateStage2CaptureService:
             _dedupe_texts(qualification_blocks)[:20],
             text_probes[:20],
             file_attributions[:30],
+            text_cache_records[:30],
         )
 
     def _capture_same_site_attachments(

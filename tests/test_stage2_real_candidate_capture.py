@@ -1036,6 +1036,95 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
             second["captures"][0]["document_completeness_summary"]["failure_reasons"],
         )
 
+    def test_capture_reuse_uses_cached_attachment_text_without_reparsing_pdf(self) -> None:
+        detail_url = "https://ywtb.gzggzy.cn/notice/cached-attachment-text-001.html"
+        attachment_url = "https://ywtb.gzggzy.cn/files/cached-attachment-text-001.pdf"
+        detail_html = f"""
+        <html>
+          <head><title>广东学校扩建工程监理中标候选人公示</title></head>
+          <body>
+            <h1>广东学校扩建工程监理中标候选人公示</h1>
+            <p>第一中标候选人 广东省工程监理有限公司 投标报价 980000.00 元</p>
+            <p><a href="{attachment_url}">中标候选人公示.pdf</a></p>
+          </body>
+        </html>
+        """.encode("utf-8")
+        transport = FakeRealPublicFetchTransport(
+            {
+                detail_url: RealPublicFetchResponse(
+                    url=detail_url,
+                    status_code=200,
+                    content=detail_html,
+                    content_type="text/html; charset=utf-8",
+                    final_url=detail_url,
+                ),
+                attachment_url: RealPublicFetchResponse(
+                    url=attachment_url,
+                    status_code=200,
+                    content=b"%PDF-1.4\ncached attachment text\n",
+                    content_type="application/pdf",
+                    final_url=attachment_url,
+                ),
+            }
+        )
+        candidate = {
+            "candidate_key": "real-candidate-cached-attachment-text-001",
+            "notice_id": "NOTICE-CACHED-ATTACHMENT-TEXT-001",
+            "project_id": "PROJ-CACHED-ATTACHMENT-TEXT-001",
+            "project_name": "广东学校扩建工程监理中标候选人公示",
+            "region_code": "CN-GD",
+            "project_type": "construction",
+            "notice_stage": "candidate_notice",
+            "source_url": detail_url,
+            "source_profile_id": "GUANGZHOU-YWTB-CONSTRUCTION-LIST",
+            "source_candidate_mode": "REAL_PUBLIC_SOURCE_CANDIDATES",
+            "key_fields_present": ["project_name", "notice_stage"],
+            "candidate_count": 0,
+        }
+        attachment_text = "总监理工程师：李明 注册监理工程师 注册号: 44030186 职称：高级工程师"
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = _repo(tmp_dir)
+            with patch(
+                "stage2_ingestion.real_candidate_capture.extract_pdf_text_with_ocr",
+                return_value=ExtractedText(
+                    text=attachment_text,
+                    state=PDF_TEXT_OCR_EXTRACTED,
+                    extractor="test",
+                    confidence=0.9,
+                    warnings=[OCR_REQUIRED],
+                ),
+            ):
+                first = RealCandidateStage2CaptureService(
+                    stage2_service=FakeStage2Service(transport),
+                    object_repository=repo,
+                    repository=RealCandidateStage2CaptureRepository(),
+                ).capture_candidates([candidate], now="2026-05-01T00:00:00+00:00")
+
+            with patch(
+                "stage2_ingestion.real_candidate_capture.extract_pdf_text_with_ocr",
+                side_effect=AssertionError("cached attachment text should avoid PDF reparse"),
+            ):
+                second = RealCandidateStage2CaptureService(
+                    stage2_service=FakeStage2Service(FakeRealPublicFetchTransport({})),
+                    object_repository=repo,
+                    repository=RealCandidateStage2CaptureRepository(),
+                ).capture_candidates([candidate], now="2026-05-01T00:05:00+00:00")
+
+        self.assertTrue(first["captures"][0]["detail_fields"]["attachment_text_cache_records"])
+        self.assertEqual(second["existing_capture_reused_count"], 1)
+        self.assertEqual(second["new_detail_capture_attempted_count"], 0)
+        enriched = second["enriched_candidates"][0]
+        self.assertEqual(enriched["primary_responsible_person_name"], "李明")
+        self.assertEqual(enriched["chief_supervision_engineer_name"], "李明")
+        self.assertEqual(enriched["project_manager_certificate_no"], "44030186")
+        self.assertTrue(
+            any(
+                "ATTACHMENT_TEXT_CACHE_REUSED" in state
+                for state in second["captures"][0]["detail_fields"]["attachment_text_parse_states"]
+            )
+        )
+
     def test_candidate_table_detail_extracts_clean_company_and_project_manager(self) -> None:
         detail_url = "https://www.ccgp.gov.cn/cggg/zygg/zbgg/202604/t20260430_candidate.htm"
         transport = FakeRealPublicFetchTransport(
@@ -3059,7 +3148,7 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
         self.assertEqual(enriched["project_manager_certificate_no_parse_state"], "DETAIL_TEXT_NOT_FOUND")
 
     def test_ocr_table_header_and_commitment_fragments_are_not_person_names(self) -> None:
-        for value in ("姓名", "工期", "按要", "按要求", "对应", "总监", "总工", "万元", "平方米", "公里", "值抽取", "年养护"):
+        for value in ("姓名", "工期", "按要", "按要求", "对应", "总监", "总工", "万元", "平方米", "公里", "附表", "值抽取", "年养护"):
             with self.subTest(value=value):
                 self.assertFalse(_looks_like_person_name(value))
 
