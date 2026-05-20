@@ -76,10 +76,26 @@ GUANGZHOU_ZFCJ_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID = (
 GUANGDONG_GDCIC_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID = (
     "guangdong_gdcic_project_manager_change_notice_browser_required_v1"
 )
+ZHEJIANG_JZSC_PROFILE_ID = "ZHEJIANG-JZSC-PUBLIC-SERVICE"
+ZHEJIANG_JZSC_PUBLIC_WEB_URL = "https://jzsc.jst.zj.gov.cn/PublicWeb/index.html"
+ZHEJIANG_JZSC_SOURCE_HOME_URL = "https://jzsc.jst.zj.gov.cn/webserver/app/index.html"
+ZHEJIANG_JZSC_PUBLISH_BASE_URL = (
+    "https://jzsc.jst.zj.gov.cn/publishserver/OTMrUAFRMmbqxqyQqdBkj/OTMokba"
+)
+ZHEJIANG_JZSC_FIELD_ADAPTER_ID = "zhejiang_construction_market_public_service_query_adapter_v1"
+ZHEJIANG_JZSC_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID = (
+    "zhejiang_project_manager_change_notice_browser_required_v1"
+)
 BROWSER_REQUIRED_FIELD_ADAPTER_IDS = {
     GUANGZHOU_ZFCJ_CONTRACT_CREDIT_BROWSER_ADAPTER_ID,
     GUANGZHOU_ZFCJ_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID,
     GUANGDONG_GDCIC_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID,
+    ZHEJIANG_JZSC_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID,
+}
+SUPPORTED_REGION_FIELD_ADAPTER_PROFILE_IDS = {ZHEJIANG_JZSC_PROFILE_ID}
+SUPPORTED_REGION_FIELD_ADAPTER_IDS = {
+    "zhejiang_construction_market_public_service_query_adapter",
+    ZHEJIANG_JZSC_FIELD_ADAPTER_ID,
 }
 
 FORBIDDEN_TERMS = ("在建冲突成立", "无在建", "无风险", "无冲突", "造假成立", "违法成立", "确认本人", "是不是本人")
@@ -581,6 +597,8 @@ def _field_adapter_status_for_profile(source_profile_id: str) -> str:
     profile_id = str(source_profile_id or "").upper()
     if profile_id in DELEGATED_PROFILE_ADAPTERS:
         return f"IMPLEMENTED_SEPARATE:{DELEGATED_PROFILE_ADAPTERS[profile_id]}"
+    if profile_id == ZHEJIANG_JZSC_PROFILE_ID:
+        return f"IMPLEMENTED_INLINE:{ZHEJIANG_JZSC_FIELD_ADAPTER_ID}"
     return "FIELD_ADAPTER_PENDING"
 
 
@@ -1082,6 +1100,82 @@ def _route_plan_for_task(task: Mapping[str, Any], query_params: Mapping[str, Any
                     routes.append(route)
         if wants_project_manager_change:
             routes.append(_guangdong_gdcic_project_manager_change_browser_required_route(keywords))
+    elif profile_id == ZHEJIANG_JZSC_PROFILE_ID:
+        company_keyword = str(query_params.get("companyName") or "").strip()
+        project_keyword = _clean_project_title(query_params.get("projectName"))
+        person_keyword = str(query_params.get("personName") or "").strip()
+        wants_all = not target_source_types
+        wants_construction = wants_all or "construction_permit" in target_source_types
+        wants_contract = wants_all or bool(target_source_types & {"contract_public_info", "contract_performance"})
+        wants_completion = wants_all or bool(
+            target_source_types
+            & {"completion_filing", "completion_acceptance", "completion_acceptance_or_completion_filing"}
+        )
+        wants_project_manager_change = "project_manager_change_notice" in target_source_types
+        routes.extend(
+            [
+                _zhejiang_jzsc_public_page_route("zj_jzsc_public_web_home", keywords),
+                _route("source_home", source_url or ZHEJIANG_JZSC_SOURCE_HOME_URL, "source_home_probe", keywords),
+            ]
+        )
+        if wants_all:
+            routes.append(
+                _zhejiang_jzsc_api_route(
+                    "zj_jzsc_project_basic_company",
+                    "ProjectInfo/re/GetProjectInfo",
+                    company_keyword,
+                    keywords,
+                    project_name=project_keyword,
+                    person_name=person_keyword,
+                )
+            )
+        if wants_construction:
+            routes.append(
+                _zhejiang_jzsc_api_route(
+                    "zj_jzsc_construction_permit_company",
+                    "ProjectInfo/re/GetProjectSGXK",
+                    company_keyword,
+                    keywords,
+                    project_name=project_keyword,
+                    person_name=person_keyword,
+                    target="construction_permit",
+                )
+            )
+        if wants_contract:
+            routes.append(
+                _zhejiang_jzsc_api_route(
+                    "zj_jzsc_contract_filing_company",
+                    "ProjectInfo/re/GetProjectHTBA",
+                    company_keyword,
+                    keywords,
+                    project_name=project_keyword,
+                    person_name=person_keyword,
+                    target="contract_public_info",
+                )
+            )
+        if wants_completion:
+            routes.append(
+                _zhejiang_jzsc_api_route(
+                    "zj_jzsc_completion_acceptance_company",
+                    "ProjectInfo/re/GetProjectJGYS",
+                    company_keyword,
+                    keywords,
+                    project_name=project_keyword,
+                    person_name=person_keyword,
+                    target="completion_filing",
+                )
+            )
+        if wants_project_manager_change:
+            routes.append(
+                _browser_required_route(
+                    "zj_jzsc_project_manager_change_browser_required",
+                    ZHEJIANG_JZSC_PUBLIC_WEB_URL,
+                    "zj_jzsc_project_manager_change_browser_required",
+                    keywords,
+                    ZHEJIANG_JZSC_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID,
+                    "zhejiang_project_manager_change_notice_requires_browser_or_authorized_runtime",
+                )
+            )
     else:
         routes.append(_route("source_home", source_url, "source_home_probe", keywords))
     return [route for route in routes if route["url"]]
@@ -1116,6 +1210,10 @@ def _is_release_evidence_task(task: Mapping[str, Any]) -> bool:
 
 def _requires_region_adapter_readback(task: Mapping[str, Any]) -> bool:
     if not _is_release_evidence_task(task):
+        return False
+    profile_id = str(task.get("source_profile_id") or "").strip().upper()
+    next_adapter = str(task.get("next_adapter") or "").strip()
+    if profile_id in SUPPORTED_REGION_FIELD_ADAPTER_PROFILE_IDS or next_adapter in SUPPORTED_REGION_FIELD_ADAPTER_IDS:
         return False
     region_code = str(
         task.get("local_housing_authority_adapter_region_code")
@@ -1296,6 +1394,48 @@ def _guangdong_gdcic_project_manager_change_browser_required_route(query_keyword
         GUANGDONG_GDCIC_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID,
         "guangdong_project_manager_change_notice_requires_browser_or_authorized_runtime",
     )
+
+
+def _zhejiang_jzsc_public_page_route(route_id: str, query_keywords: list[str]) -> dict[str, Any]:
+    route = _route(route_id, ZHEJIANG_JZSC_PUBLIC_WEB_URL, "zj_jzsc_public_web_page_probe", query_keywords)
+    route["source_specific_adapter_id"] = ZHEJIANG_JZSC_FIELD_ADAPTER_ID
+    route["referer"] = ZHEJIANG_JZSC_PUBLIC_WEB_URL
+    route["field_verification_role"] = "reachability_only_not_field_match"
+    return route
+
+
+def _zhejiang_jzsc_api_route(
+    route_id: str,
+    endpoint: str,
+    company_keyword: str,
+    query_keywords: list[str],
+    *,
+    project_name: str,
+    person_name: str,
+    target: str = "",
+) -> dict[str, Any]:
+    params = {
+        "pageIndex": 1,
+        "pageSize": 5,
+        "CorpName": company_keyword,
+        "Buildcorpname": company_keyword,
+        "PrjName": project_name,
+        "Personname": person_name,
+    }
+    return {
+        "route_id": route_id,
+        "route_group": "zj_jzsc_structured_public_api",
+        "url": f"{ZHEJIANG_JZSC_PUBLISH_BASE_URL}/{endpoint}",
+        "method": "POST",
+        "json_body": True,
+        "params": params,
+        "keyword_count": len(query_keywords),
+        "query_keyword_probe": query_keywords[:5],
+        "source_specific_adapter_id": ZHEJIANG_JZSC_FIELD_ADAPTER_ID,
+        "zhejiang_endpoint": endpoint,
+        "zhejiang_target_source_type": target,
+        "referer": ZHEJIANG_JZSC_PUBLIC_WEB_URL,
+    }
 
 
 def _guangdong_zfcxjst_penalty_list_route(page: int, query_keywords: list[str]) -> dict[str, Any]:
@@ -1603,6 +1743,11 @@ def _execute_live_field_query(
         for route in route_plan
     ):
         return _execute_guangdong_gdcic_home_field_query(task, route_plan, http_getter=http_getter)
+    if any(
+        str(route.get("source_specific_adapter_id") or "") == ZHEJIANG_JZSC_FIELD_ADAPTER_ID
+        for route in route_plan
+    ):
+        return _execute_zhejiang_jzsc_public_service_field_query(task, route_plan, http_getter=http_getter)
     if any(
         str(route.get("source_specific_adapter_id") or "")
         == "guangdong_zfcxjst_penalty_publicity_page_v1"
@@ -2048,6 +2193,195 @@ def _execute_guangdong_gdcic_home_field_query(
         "route_plan": list(route_plan),
         "route_attempts": attempts,
         "blocker_taxonomy": blockers or ["gd_gdcic_contract_performance_public_no_record_review"],
+    }
+
+
+def _execute_zhejiang_jzsc_public_service_field_query(
+    task: Mapping[str, Any],
+    route_plan: list[Mapping[str, Any]],
+    *,
+    http_getter: HttpGetter | None,
+) -> dict[str, Any]:
+    target_source_types = _target_source_type_set(task, dict(task.get("query_params") or {}))
+    if "project_manager_change_notice" in target_source_types and not any(
+        str(route.get("route_group") or "") == "zj_jzsc_structured_public_api" for route in route_plan
+    ):
+        return _browser_required_readback(ZHEJIANG_JZSC_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID, route_plan)
+
+    getter = http_getter or _default_http_getter
+    query_params = dict(task.get("query_params") or {})
+    keywords = _query_keywords(query_params)
+    attempts: list[dict[str, Any]] = []
+    source_records: list[dict[str, Any]] = []
+    api_attempts: list[dict[str, Any]] = []
+    api_route_count = 0
+    non_json_api_count = 0
+    public_page_reachable = False
+    browser_required_seen = False
+    for route in route_plan:
+        route_group = str(route.get("route_group") or "")
+        if route_group == "zj_jzsc_project_manager_change_browser_required":
+            browser_required_seen = True
+            continue
+        response = _safe_get(route, getter=getter)
+        attempt = _route_attempt(route, response, keywords)
+        if route_group == "zj_jzsc_public_web_page_probe" and attempt["route_state"] == "PUBLIC_SOURCE_QUERIED":
+            public_page_reachable = True
+            attempt["field_verification_role"] = "reachability_only_not_field_match"
+        if route_group == "source_home_probe" and attempt["route_state"] == "PUBLIC_SOURCE_QUERIED":
+            attempt["field_verification_role"] = "source_home_reachability_only_not_field_match"
+        if route_group == "zj_jzsc_structured_public_api":
+            api_route_count += 1
+            api_attempts.append(attempt)
+            records = _zhejiang_jzsc_records_from_response(response)
+            content_type = str(response.get("content_type") or "").lower()
+            raw_text = str(response.get("text_probe") or response.get("body_probe") or "").strip()
+            if (
+                not records
+                and _int(response.get("http_status") or response.get("status_code")) == 200
+                and "json" not in content_type
+                and (not raw_text or raw_text[0] not in "[{")
+            ):
+                non_json_api_count += 1
+            compact_records = [
+                compact
+                for record in records
+                if (
+                    compact := _compact_zhejiang_jzsc_record(record, route, keywords)
+                )
+                and compact.get("matched_keywords")
+            ]
+            if compact_records:
+                attempt["structured_record_count"] = len(compact_records)
+                source_records.extend(compact_records[:5])
+        attempts.append(attempt)
+
+    blockers = _dedupe(blocker for attempt in attempts for blocker in _list(attempt.get("blocker_taxonomy")))
+    status_codes = [_int(attempt.get("http_status")) for attempt in attempts if _int(attempt.get("http_status"))]
+    matched_keyword_count = len(
+        _dedupe(keyword for record in source_records for keyword in _list(record.get("matched_keywords")))
+    )
+    if source_records:
+        return {
+            "field_query_probe_state": "FIELD_READBACK_READY_PUBLIC_SOURCE",
+            "field_readback_state": "PUBLIC_SOURCE_FIELD_READBACK_READY_REVIEW_REQUIRED",
+            "readback_ready": True,
+            "readback_status_code": status_codes[0] if status_codes else 200,
+            "field_summary": {
+                "source_specific_adapter_id": ZHEJIANG_JZSC_FIELD_ADAPTER_ID,
+                "record_count": len(source_records),
+                "matched_keyword_count": matched_keyword_count,
+                "source_profile_keyword_hit": bool(matched_keyword_count),
+                "source_profile_id": ZHEJIANG_JZSC_PROFILE_ID,
+                "api_route_count": api_route_count,
+                "public_page_reachable": public_page_reachable,
+            },
+            "field_match_summary": {
+                "source_specific_records": source_records[:10],
+                "query_miss_is_not_clearance": True,
+                "readback_is_line_clue_not_final_conclusion": True,
+                "entry_portal_reachability_is_not_field_verification": True,
+            },
+            "route_plan": list(route_plan),
+            "route_attempts": attempts,
+            "blocker_taxonomy": blockers,
+        }
+    if api_attempts and all(str(attempt.get("route_state") or "").startswith("FAIL_CLOSED") for attempt in api_attempts):
+        return {
+            "field_query_probe_state": "FAIL_CLOSED_PUBLIC_SOURCE_BLOCKED",
+            "field_readback_state": "FIELD_READBACK_BLOCKED",
+            "readback_ready": False,
+            "readback_status_code": status_codes[0] if status_codes else None,
+            "field_summary": {
+                "source_specific_adapter_id": ZHEJIANG_JZSC_FIELD_ADAPTER_ID,
+                "api_route_count": api_route_count,
+                "public_page_reachable": public_page_reachable,
+            },
+            "field_match_summary": {
+                "query_miss_is_not_clearance": True,
+                "entry_portal_reachability_is_not_field_verification": True,
+                "structured_api_timeout_or_blocked_before_field_readback": True,
+            },
+            "route_plan": list(route_plan),
+            "route_attempts": attempts,
+            "blocker_taxonomy": _dedupe(
+                [
+                    *blockers,
+                    "zhejiang_jzsc_structured_api_timeout_or_unavailable",
+                ]
+            ),
+        }
+    if api_route_count and non_json_api_count >= api_route_count and public_page_reachable:
+        return {
+            "field_query_probe_state": "LIVE_FIELD_QUERY_NEEDS_BROWSER",
+            "field_readback_state": "FIELD_READBACK_BROWSER_OR_AUTHORIZED_RUNTIME_REQUIRED",
+            "readback_ready": False,
+            "readback_status_code": status_codes[0] if status_codes else None,
+            "field_summary": {
+                "source_specific_adapter_id": ZHEJIANG_JZSC_FIELD_ADAPTER_ID,
+                "record_count": 0,
+                "source_profile_id": ZHEJIANG_JZSC_PROFILE_ID,
+                "api_route_count": api_route_count,
+                "non_json_api_count": non_json_api_count,
+                "public_page_reachable": public_page_reachable,
+                "browser_or_authorized_runtime_required": True,
+            },
+            "field_match_summary": {
+                "query_miss_is_not_clearance": True,
+                "entry_portal_reachability_is_not_field_verification": True,
+                "browser_or_authorized_runtime_required_before_readback": True,
+            },
+            "route_plan": list(route_plan),
+            "route_attempts": attempts,
+            "blocker_taxonomy": _dedupe(
+                [
+                    *blockers,
+                    "zhejiang_jzsc_structured_api_returned_non_json_or_spa_shell",
+                    "zhejiang_jzsc_requires_browser_or_authorized_runtime_context",
+                ]
+            ),
+        }
+    if browser_required_seen:
+        return _browser_required_readback(ZHEJIANG_JZSC_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID, route_plan)
+    if attempts and all(str(attempt.get("route_state") or "").startswith("FAIL_CLOSED") for attempt in attempts):
+        return {
+            "field_query_probe_state": "FAIL_CLOSED_PUBLIC_SOURCE_BLOCKED",
+            "field_readback_state": "FIELD_READBACK_BLOCKED",
+            "readback_ready": False,
+            "readback_status_code": status_codes[0] if status_codes else None,
+            "field_summary": {
+                "source_specific_adapter_id": ZHEJIANG_JZSC_FIELD_ADAPTER_ID,
+                "api_route_count": api_route_count,
+                "public_page_reachable": public_page_reachable,
+            },
+            "field_match_summary": {
+                "query_miss_is_not_clearance": True,
+                "entry_portal_reachability_is_not_field_verification": True,
+            },
+            "route_plan": list(route_plan),
+            "route_attempts": attempts,
+            "blocker_taxonomy": blockers or ["zhejiang_jzsc_public_service_all_routes_blocked"],
+        }
+    return {
+        "field_query_probe_state": "NO_FIELD_MATCH_REVIEW_REQUIRED",
+        "field_readback_state": "PUBLIC_SOURCE_QUERIED_NO_FIELD_RECORD",
+        "readback_ready": False,
+        "readback_status_code": status_codes[0] if status_codes else None,
+        "field_summary": {
+            "source_specific_adapter_id": ZHEJIANG_JZSC_FIELD_ADAPTER_ID,
+            "record_count": 0,
+            "source_profile_keyword_hit": False,
+            "api_route_count": api_route_count,
+            "public_page_reachable": public_page_reachable,
+        },
+        "field_match_summary": {
+            "query_miss_is_not_clearance": True,
+            "entry_portal_reachability_is_not_field_verification": True,
+            "readback_is_line_clue_not_final_conclusion": True,
+        },
+        "route_plan": list(route_plan),
+        "route_attempts": attempts,
+        "blocker_taxonomy": blockers or ["zhejiang_jzsc_public_service_no_structured_record_review"],
     }
 
 
@@ -3067,6 +3401,78 @@ def _compact_guangzhou_zfcj_completion_acceptance_record(
     }
 
 
+def _zhejiang_jzsc_records_from_response(response: Mapping[str, Any]) -> list[Mapping[str, Any]]:
+    payload = _json_payload(response)
+    if isinstance(payload, list):
+        return [row for row in payload if isinstance(row, Mapping)]
+    if not isinstance(payload, Mapping):
+        return []
+    for candidate in (payload.get("data"), payload.get("rows"), payload.get("list"), payload.get("result")):
+        if isinstance(candidate, list):
+            return [row for row in candidate if isinstance(row, Mapping)]
+        if isinstance(candidate, Mapping):
+            for key in ("list", "rows", "data", "records"):
+                nested = candidate.get(key)
+                if isinstance(nested, list):
+                    return [row for row in nested if isinstance(row, Mapping)]
+    return []
+
+
+def _compact_zhejiang_jzsc_record(
+    record: Mapping[str, Any],
+    route: Mapping[str, Any],
+    keywords: list[str],
+) -> dict[str, Any]:
+    text = _compact_mapping_text(record)
+    matched = [keyword for keyword in keywords if keyword and keyword in text][:10]
+    if not matched:
+        return {}
+    project_name = _record_text(
+        record,
+        "PRJNAME",
+        "PrjName",
+        "PROJECTNAME",
+        "PROJECT_NAME",
+        "gcmc",
+        "PROJECTNAME_CHN",
+    )
+    company_name = _record_text(
+        record,
+        "CORPNAME",
+        "CorpName",
+        "BUILDCORPNAME",
+        "BuildCorpName",
+        "BUILDCORPNAME",
+        "SGDW",
+        "CONTRACTOR",
+        "corpName",
+    )
+    permit_no = _record_text(
+        record,
+        "BUILDERLICENCENUM",
+        "BuilderLicenceNum",
+        "SGXKZH",
+        "LICENSE_NUM",
+        "CONSTRUCTIONPERMITNO",
+    )
+    return {
+        "source_profile_id": ZHEJIANG_JZSC_PROFILE_ID,
+        "source_specific_adapter_id": ZHEJIANG_JZSC_FIELD_ADAPTER_ID,
+        "source_page_url": ZHEJIANG_JZSC_PUBLIC_WEB_URL,
+        "route_id": str(route.get("route_id") or ""),
+        "endpoint": str(route.get("zhejiang_endpoint") or ""),
+        "target_source_type": str(route.get("zhejiang_target_source_type") or ""),
+        "project_name_probe": project_name[:500],
+        "company_name_probe": company_name[:300],
+        "permit_or_record_no": permit_no[:200],
+        "matched_keywords": matched,
+        "detail_keys": sorted(str(key) for key in record.keys())[:20],
+        "record_sha256": _sha256_text(text),
+        "query_miss_is_not_clearance": True,
+        "readback_is_line_clue_not_final_conclusion": True,
+    }
+
+
 def _compact_guangzhou_zfcj_detail(record: Mapping[str, Any]) -> dict[str, Any]:
     if not record:
         return {}
@@ -3751,6 +4157,18 @@ def _summary(
             for task in field_task_records
             if str(task.get("source_profile_id") or "").upper() == GUANGDONG_GDCIC_HOME_PROFILE_ID
             and str(task.get("field_query_probe_state") or "") == "FIELD_READBACK_READY_PUBLIC_SOURCE"
+        ),
+        "zhejiang_jzsc_readback_ready_count": sum(
+            1
+            for task in field_task_records
+            if str(task.get("source_profile_id") or "").upper() == ZHEJIANG_JZSC_PROFILE_ID
+            and str(task.get("field_query_probe_state") or "") == "FIELD_READBACK_READY_PUBLIC_SOURCE"
+        ),
+        "zhejiang_jzsc_browser_or_authorized_runtime_required_count": sum(
+            1
+            for task in field_task_records
+            if str(task.get("source_profile_id") or "").upper() == ZHEJIANG_JZSC_PROFILE_ID
+            and str(task.get("field_query_probe_state") or "") == "LIVE_FIELD_QUERY_NEEDS_BROWSER"
         ),
         "guangdong_zfcxjst_penalty_readback_ready_count": sum(
             1

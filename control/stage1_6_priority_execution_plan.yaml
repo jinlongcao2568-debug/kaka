@@ -10,8 +10,8 @@ automatic_refund_enabled: false
 ordering_rule: "先解决 owner 看不懂和 Stage4 证据链短板，再扩大 Stage1-3 稳定性，最后做 Stage5 校准和 Stage1-6 批量回归。"
 current_focus:
   priority_id: P0_STAGE4_RELEASE_EVIDENCE_CHAIN
-  task: "释放证据主链继续闭环：广东/广州最小查询闭环已 live canary，非广东 registry readback 已防误判，下一步做 GDCIC/browser 与具体省份字段 adapter"
-  reason: "Stage6 总览已能默认展示最近多项目批次，并把当前阶段、证据等级、阻断原因、下一步和 Stage7 gate 投到项目卡片；释放证据 dispatch 输入约束已收紧，不能再误用默认旧产物；GuangdongLocalFieldQueryProbe 已能把 ReleaseEvidenceAdapterPlan 的施工许可、合同履约、竣工验收、项目经理变更四类目标分流到广州住建/GDCIC 最小 adapter，并输出 MATCHED / NOT_FOUND / BLOCKED / NEEDS_BROWSER；2026-05-20 小预算 live canary 已验证广州住建施工许可/竣工验收可达可解析，GDCIC 合同履约和项目经理变更当前收口为 NEEDS_BROWSER；非广东归属地 adapter registry 已能读回为 LIVE_FIELD_QUERY_NEEDS_REGION_ADAPTER，避免把门户首页关键词命中当成字段核验成功；下一步推进 GDCIC/browser-authorized readback 与具体省份字段 adapter。"
+  task: "释放证据主链继续闭环：广东/广州最小查询闭环已 live canary，浙江第一版字段 adapter 已接入并做 canary，下一步做 GDCIC/browser 与第二个非广东省份字段 adapter"
+  reason: "Stage6 总览已能默认展示最近多项目批次，并把当前阶段、证据等级、阻断原因、下一步和 Stage7 gate 投到项目卡片；释放证据 dispatch 输入约束已收紧，不能再误用默认旧产物；GuangdongLocalFieldQueryProbe 已能把 ReleaseEvidenceAdapterPlan 的施工许可、合同履约、竣工验收、项目经理变更四类目标分流到广州住建/GDCIC 最小 adapter，并输出 MATCHED / NOT_FOUND / BLOCKED / NEEDS_BROWSER；2026-05-20 小预算 live canary 已验证广州住建施工许可/竣工验收可达可解析，GDCIC 合同履约和项目经理变更当前收口为 NEEDS_BROWSER；非广东归属地 adapter registry 已能防误判，浙江第一版字段 adapter 已接入 PublicWeb 与 ProjectInfo/re/GetProjectSGXK、GetProjectHTBA、GetProjectJGYS，canary 显示公开页可达但施工许可字段接口在 6 秒预算下可超时阻断、12 秒预算下返回 200 空结果，当前只形成 D 级补查结果且不抹掉 A 级线索；下一步推进 GDCIC/browser-authorized readback 与第二个非广东省份字段 adapter。"
 priorities:
   - priority_id: P0_STAGE6_OBSERVABILITY
     rank: 1
@@ -38,13 +38,14 @@ priorities:
       - "释放证据 dispatch 必须显式携带 evidence_batch_closeout 与 p13b_operational_closeout 来源引用，缺任一来源不得回退默认 tmp 产物"
       - "广东/广州四类目标已第一版分流：施工许可/竣工走广州住建公开 API，合同履约走 GDCIC 公开页，项目经理变更输出 NEEDS_BROWSER 而非伪核验"
       - "2026-05-20 canary 结果：广州住建施工许可 MATCHED、竣工验收 MATCHED、GDCIC 合同履约 NEEDS_BROWSER、项目经理变更 NEEDS_BROWSER"
-      - "非广东归属地 registry readback：live 模式输出 LIVE_FIELD_QUERY_NEEDS_REGION_ADAPTER，保留 region/no-fallback/next_adapter，不访问门户首页做伪字段核验"
+      - "非广东归属地 registry readback：未实现字段 adapter 的地区 live 模式输出 LIVE_FIELD_QUERY_NEEDS_REGION_ADAPTER，保留 region/no-fallback/next_adapter，不访问门户首页做伪字段核验"
+      - "浙江第一版字段 adapter：已定向 PublicWeb 与 ProjectInfo/re/GetProjectSGXK、GetProjectHTBA、GetProjectJGYS；2026-05-20 canary 显示公开页可达，字段接口小预算下超时阻断或返回空结果，输出 BLOCKED / NOT_FOUND + D，不输出排除性结论"
     done_when:
       - "P13B 重叠线索能自动生成 B/C/D 核验任务"
       - "未命中、阻断、缺备案不会被写成排除性结论"
       - "小预算真实 canary 能说明广州住建/GDCIC 当前可达性和字段变化，不只停留在 fake-live"
       - "GDCIC/browser-authorized readback 和具体非广东省份字段 adapter readback 后，释放证据链才可进入批量实战回归"
-    current_state: "IN_PROGRESS_GD_GZ_MINIMUM_LOOP_LIVE_CANARY_DONE; NON_GD_REGISTRY_READBACK_DONE; GDCIC_BROWSER_AND_REGION_FIELD_ADAPTERS_PENDING"
+    current_state: "IN_PROGRESS_GD_GZ_MINIMUM_LOOP_LIVE_CANARY_DONE; ZHEJIANG_FIELD_ADAPTER_V1_CANARY_DONE_D_ONLY; GDCIC_BROWSER_AND_SECOND_REGION_FIELD_ADAPTERS_PENDING"
   - priority_id: P1_STAGE1_3_REAL_WORLD_STABILITY
     rank: 3
     stage_scope: [Stage1, Stage2, Stage3]
