@@ -10,8 +10,8 @@ automatic_refund_enabled: false
 ordering_rule: "先解决 owner 看不懂和 Stage4 证据链短板，再扩大 Stage1-3 稳定性，最后做 Stage5 校准和 Stage1-6 批量回归。"
 current_focus:
   priority_id: P0_STAGE4_RELEASE_EVIDENCE_CHAIN
-  task: "释放证据主链继续闭环：广东/广州最小查询闭环、非广东归属地适配器读回"
-  reason: "Stage6 总览已能默认展示最近多项目批次，并把当前阶段、证据等级、阻断原因、下一步和 Stage7 gate 投到项目卡片；释放证据 dispatch 输入约束已收紧，不能再误用默认旧产物；下一步继续把 P13B A 级线索后的 B/C/D 释放证据查询闭环做实。"
+  task: "释放证据主链继续闭环：广东/广州最小查询闭环已落第一版，下一步做小预算真实 canary 与非广东归属地读回"
+  reason: "Stage6 总览已能默认展示最近多项目批次，并把当前阶段、证据等级、阻断原因、下一步和 Stage7 gate 投到项目卡片；释放证据 dispatch 输入约束已收紧，不能再误用默认旧产物；GuangdongLocalFieldQueryProbe 已能把 ReleaseEvidenceAdapterPlan 的施工许可、合同履约、竣工验收、项目经理变更四类目标分流到广州住建/GDCIC 最小 adapter，并输出 MATCHED / NOT_FOUND / BLOCKED / NEEDS_BROWSER；下一步用真实小预算 canary 校验 live 可达性，再推进非广东归属地 adapter registry readback。"
 priorities:
   - priority_id: P0_STAGE6_OBSERVABILITY
     rank: 1
@@ -36,9 +36,12 @@ priorities:
       - "非广东按归属地住建局 adapter registry"
       - "字段查询输出统一汇总 B/C/D，并回显到 Stage6 loop 项目状态"
       - "释放证据 dispatch 必须显式携带 evidence_batch_closeout 与 p13b_operational_closeout 来源引用，缺任一来源不得回退默认 tmp 产物"
+      - "广东/广州四类目标已第一版分流：施工许可/竣工走广州住建公开 API，合同履约走 GDCIC 公开页，项目经理变更输出 NEEDS_BROWSER 而非伪核验"
     done_when:
       - "P13B 重叠线索能自动生成 B/C/D 核验任务"
       - "未命中、阻断、缺备案不会被写成排除性结论"
+      - "小预算真实 canary 能说明广州住建/GDCIC 当前可达性和字段变化，不只停留在 fake-live"
+    current_state: "IN_PROGRESS_GD_GZ_MINIMUM_LOOP_CODED_AND_FAKE_LIVE_TESTED; LIVE_CANARY_PENDING"
   - priority_id: P1_STAGE1_3_REAL_WORLD_STABILITY
     rank: 3
     stage_scope: [Stage1, Stage2, Stage3]

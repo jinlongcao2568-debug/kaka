@@ -122,6 +122,30 @@ class GuangdongLocalFieldQueryProbeTests(unittest.TestCase):
             self.assertIn("contract_public_info", {source_type for task in tasks for source_type in task["target_source_types"]})
             self.assertIn("completion_filing", {source_type for task in tasks for source_type in task["target_source_types"]})
             self.assertIn("project_manager_change_notice", {source_type for task in tasks for source_type in task["target_source_types"]})
+            by_target = {task["release_evidence_target_type"]: task for task in tasks}
+            self.assertEqual(by_target["construction_permit"]["source_profile_id"], "GUANGZHOU-ZFCJ-CREDIT-DOUBLE-PUBLICITY")
+            self.assertEqual(by_target["completion_acceptance"]["source_profile_id"], "GUANGZHOU-ZFCJ-CREDIT-DOUBLE-PUBLICITY")
+            self.assertEqual(by_target["contract_performance"]["source_profile_id"], "GUANGDONG-GDCIC-HOME")
+            self.assertEqual(by_target["project_manager_change_notice"]["source_profile_id"], "GUANGDONG-GDCIC-HOME")
+            self.assertEqual(
+                _route_adapter_ids(by_target["construction_permit"]),
+                {
+                    "guangzhou_zfcj_construction_permit_public_api_v1",
+                    "guangzhou_zfcj_xyxx_api_query_v1",
+                },
+            )
+            self.assertEqual(
+                _route_adapter_ids(by_target["completion_acceptance"]),
+                {"guangzhou_zfcj_completion_acceptance_public_api_v1"},
+            )
+            self.assertIn(
+                "guangdong_gdcic_contract_performance_public_page_v1",
+                _route_adapter_ids(by_target["contract_performance"]),
+            )
+            self.assertIn(
+                "guangdong_gdcic_project_manager_change_notice_browser_required_v1",
+                _route_adapter_ids(by_target["project_manager_change_notice"]),
+            )
 
     def test_p13b_release_evidence_live_readback_grades_enhancement(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -272,6 +296,117 @@ class GuangdongLocalFieldQueryProbeTests(unittest.TestCase):
             first = result["manifest"]["field_task_records"][0]
             self.assertEqual(first["adapter_result_state"], "BLOCKED")
             self.assertIn("guangdong_local_field_query_forbidden_or_login_required", first["blocker_taxonomy"])
+
+    def test_release_evidence_adapter_plan_live_minimum_loop_grades_four_targets(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            plan_root = root / "release-plan"
+            _write_release_evidence_adapter_plan(plan_root)
+
+            def fake_getter(url: str, params: Mapping[str, Any]) -> Mapping[str, Any]:
+                if "jzgdsgxkxxlb.ashx" in url and "sgdw=" in url:
+                    return {
+                        "http_status": 200,
+                        "content_type": "application/json; charset=utf-8",
+                        "json_payload": {
+                            "currentPage": 1,
+                            "totalNum": 1,
+                            "data": [
+                                {
+                                    "gcmc": "广州测试项目",
+                                    "sgdw": "广州测试建设有限公司",
+                                    "sgxkzh": "440106202605120101",
+                                    "pzrq": "2026/5/12 0:00:00",
+                                }
+                            ],
+                            "status": 1,
+                        },
+                        "text_probe": "",
+                    }
+                if "gcjgysxxlb.ashx" in url and "sgdw=" in url:
+                    return {
+                        "http_status": 200,
+                        "content_type": "application/json; charset=utf-8",
+                        "json_payload": {
+                            "currentPage": 1,
+                            "totalNum": 1,
+                            "data": [
+                                {
+                                    "pegcmc": "广州测试项目",
+                                    "babh": "穗竣备2026-001",
+                                    "sgdw": "广州测试建设有限公司",
+                                    "peblrq": "2026/5/13 0:00:00",
+                                }
+                            ],
+                            "status": 1,
+                        },
+                        "text_probe": "",
+                    }
+                if "PerformanceEvaluationProject/Indexgs" in url and params.get("search_name") == "广州测试建设有限公司":
+                    return {
+                        "http_status": 200,
+                        "content_type": "text/html; charset=utf-8",
+                        "text_probe": """
+                        <table><tbody>
+                        <tr>
+                          <td>1</td><td>广州测试项目</td><td>广州建设单位</td>
+                          <td>广州测试建设有限公司</td><td>广州勘察单位</td><td>广州设计单位</td>
+                          <td>广州监理单位</td><td><a onclick="ppDetaill('DG-001')">查看</a></td>
+                        </tr>
+                        </tbody></table>
+                        """,
+                    }
+                if "Indexht" in url:
+                    return {
+                        "http_status": 200,
+                        "content_type": "text/html; charset=utf-8",
+                        "text_probe": "<script>top.window.location.href='http://210.76.80.152:8008/SSO/jrsso/auth'</script>",
+                    }
+                return {
+                    "http_status": 200,
+                    "content_type": "application/json; charset=utf-8",
+                    "json_payload": {"currentPage": 1, "totalNum": 0, "data": [], "status": 1},
+                    "text_probe": "",
+                }
+
+            result = build_guangdong_local_field_query_probe(
+                release_evidence_adapter_plan_root=plan_root,
+                output_root=root / "out",
+                enable_live_public_query=True,
+                max_live_tasks=4,
+                http_getter=fake_getter,
+                created_at="2026-05-19T00:00:00+08:00",
+            )
+
+            self.assertTrue(result["safe_to_execute"])
+            by_target = {
+                task["release_evidence_target_type"]: task
+                for task in result["manifest"]["field_task_records"]
+            }
+            self.assertEqual(by_target["construction_permit"]["adapter_result_state"], "MATCHED")
+            self.assertEqual(
+                by_target["construction_permit"]["downstream_release_evidence_abcd_grade"],
+                "B_ENHANCEMENT_OFFICIAL_READBACK",
+            )
+            self.assertEqual(by_target["contract_performance"]["adapter_result_state"], "MATCHED")
+            self.assertEqual(
+                by_target["contract_performance"]["downstream_release_evidence_abcd_grade"],
+                "B_ENHANCEMENT_OFFICIAL_READBACK",
+            )
+            self.assertEqual(by_target["completion_acceptance"]["adapter_result_state"], "MATCHED")
+            self.assertEqual(
+                by_target["completion_acceptance"]["downstream_release_evidence_abcd_grade"],
+                "C_REVERSE_EXPLANATION_OFFICIAL_READBACK",
+            )
+            self.assertEqual(by_target["project_manager_change_notice"]["adapter_result_state"], "NEEDS_BROWSER")
+            self.assertEqual(
+                by_target["project_manager_change_notice"]["downstream_release_evidence_abcd_grade"],
+                "D_INSUFFICIENT_OR_BLOCKED_READBACK",
+            )
+            self.assertIn(
+                "guangdong_project_manager_change_notice_requires_browser_or_authorized_runtime",
+                by_target["project_manager_change_notice"]["blocker_taxonomy"],
+            )
 
     def test_live_public_query_records_keyword_hit_without_final_conclusion(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -1425,6 +1560,14 @@ def _release_plan_task(task_id: str, target_type: str, grade_on_match: str) -> d
         "adapter_result_state": "PLAN_ONLY_NOT_EXECUTED",
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,
+    }
+
+
+def _route_adapter_ids(task: Mapping[str, Any]) -> set[str]:
+    return {
+        str(route.get("source_specific_adapter_id") or "")
+        for route in task.get("route_plan", [])
+        if str(route.get("source_specific_adapter_id") or "")
     }
 
 

@@ -69,6 +69,18 @@ GUANGDONG_CREDIT_GD_LICENSE_PAGE_URL = f"{GUANGDONG_CREDIT_GD_BASE_URL}/page/cre
 GUANGDONG_CREDIT_GD_API_PATH_RE = re.compile(r"/[^\"'\s<>]*company/web/booleanQueryListByPageSimple")
 GUANGDONG_CREDIT_GD_DEFAULT_MAX_REQUESTS_PER_TASK = 4
 GUANGDONG_CREDIT_GD_DEFAULT_REQUEST_INTERVAL_SECONDS = 0.8
+GUANGZHOU_ZFCJ_CONTRACT_CREDIT_BROWSER_ADAPTER_ID = "guangzhou_zfcj_contract_credit_browser_required_v1"
+GUANGZHOU_ZFCJ_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID = (
+    "guangzhou_zfcj_project_manager_change_notice_browser_required_v1"
+)
+GUANGDONG_GDCIC_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID = (
+    "guangdong_gdcic_project_manager_change_notice_browser_required_v1"
+)
+BROWSER_REQUIRED_FIELD_ADAPTER_IDS = {
+    GUANGZHOU_ZFCJ_CONTRACT_CREDIT_BROWSER_ADAPTER_ID,
+    GUANGZHOU_ZFCJ_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID,
+    GUANGDONG_GDCIC_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID,
+}
 
 FORBIDDEN_TERMS = ("在建冲突成立", "无在建", "无风险", "无冲突", "造假成立", "违法成立", "确认本人", "是不是本人")
 ALLOWED_ADAPTER_RESULT_STATES = ["MATCHED", "NOT_FOUND", "BLOCKED", "NEEDS_BROWSER"]
@@ -83,6 +95,50 @@ RELEASE_TARGET_TO_FIELD_SOURCE_TYPES = {
     "contract_performance": ["contract_public_info"],
     "completion_acceptance": ["completion_filing"],
     "project_manager_change_notice": ["project_manager_change_notice"],
+}
+GUANGDONG_RELEASE_TARGET_SOURCE_OVERRIDES = {
+    "construction_permit": {
+        "source_profile_id": GUANGZHOU_ZFCJ_PROFILE_ID,
+        "source_name": "广州市住房和城乡建设局 / 建筑工程施工许可证公示信息",
+        "source_url": GUANGZHOU_ZFCJ_CONSTRUCTION_PERMIT_PAGE_URL,
+        "api_url": GUANGZHOU_ZFCJ_CONSTRUCTION_PERMIT_API_URL,
+        "source_family": "current_city_housing_credit_publicity",
+        "source_entry_id": "GZ-ZFCJ-CREDIT-DOUBLE-PUBLICITY",
+        "subsource_id": "gz_zfcj_construction_permit_public_api",
+        "next_adapter": "guangzhou_zfcj_construction_permit_public_api_v1",
+        "runtime_status": "PUBLIC_POST_JSON_API_VERIFIED",
+    },
+    "completion_acceptance": {
+        "source_profile_id": GUANGZHOU_ZFCJ_PROFILE_ID,
+        "source_name": "广州市住房和城乡建设局 / 工程竣工验收信息",
+        "source_url": GUANGZHOU_ZFCJ_COMPLETION_ACCEPTANCE_PAGE_URL,
+        "api_url": GUANGZHOU_ZFCJ_COMPLETION_ACCEPTANCE_API_URL,
+        "source_family": "current_city_housing_credit_publicity",
+        "source_entry_id": "GZ-ZFCJ-CREDIT-DOUBLE-PUBLICITY",
+        "subsource_id": "gz_zfcj_completion_acceptance_public_api",
+        "next_adapter": "guangzhou_zfcj_completion_acceptance_public_api_v1",
+        "runtime_status": "PUBLIC_POST_JSON_API_VERIFIED",
+    },
+    "contract_performance": {
+        "source_profile_id": GUANGDONG_GDCIC_HOME_PROFILE_ID,
+        "source_name": "广东建设信息网 / 招投标及合同履约监管系统",
+        "source_url": GUANGDONG_GDCIC_HOME_BASE_URL,
+        "source_family": "industry_authority_filing_page",
+        "source_entry_id": "GD-GDCIC-CONTRACT-PERFORMANCE",
+        "subsource_id": "gd_gdcic_contract_performance_public_page",
+        "next_adapter": "guangdong_gdcic_contract_performance_public_page_v1",
+        "runtime_status": "PUBLIC_PAGE_QUERY_WITH_CONTRACT_SYSTEM_SSO_CHECK",
+    },
+    "project_manager_change_notice": {
+        "source_profile_id": GUANGDONG_GDCIC_HOME_PROFILE_ID,
+        "source_name": "广东建设信息网 / 项目经理变更或合同履约监管入口",
+        "source_url": GUANGDONG_GDCIC_CONTRACT_SYSTEM_URL,
+        "source_family": "industry_authority_filing_page",
+        "source_entry_id": "GD-GDCIC-CONTRACT-PERFORMANCE",
+        "subsource_id": "gd_gdcic_project_manager_change_notice_browser_required",
+        "next_adapter": GUANGDONG_GDCIC_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID,
+        "runtime_status": "BROWSER_OR_AUTHORIZED_RUNTIME_REQUIRED",
+    },
 }
 ENHANCEMENT_RELEASE_EVIDENCE_SOURCE_TYPES = {
     "construction_permit",
@@ -267,6 +323,7 @@ def _query_task_records_from_p13b_release_evidence_tasks(p13b_manifest: Mapping[
                 "p13b_release_evidence_trigger_id": str(task.get("release_evidence_trigger_id") or ""),
                 "p13b_release_evidence_probe_plan_id": str(task.get("release_evidence_probe_plan_id") or ""),
                 "trigger_source_url": str(task.get("trigger_source_url") or ""),
+                "release_evidence_target_type": str(task.get("release_evidence_target_type") or ""),
                 "time_window_review_state": str(task.get("time_window_review_state") or ""),
                 "estimated_performance_end_date": str(task.get("estimated_performance_end_date") or ""),
                 "historical_project_area_code": str(task.get("historical_project_area_code") or ""),
@@ -321,15 +378,18 @@ def _query_task_records_from_release_evidence_adapter_tasks(release_plan_manifes
     for task in _list(release_plan_manifest.get("release_evidence_adapter_task_records")):
         if not isinstance(task, Mapping):
             continue
-        source_profile_id = str(task.get("source_profile_id") or "").strip()
+        release_target = str(task.get("release_evidence_target_type") or "")
+        source_fields = _release_plan_source_fields(task, release_target)
+        source_profile_id = str(source_fields.get("source_profile_id") or "").strip()
         if not source_profile_id:
             continue
         query_params = _release_plan_query_params(task)
-        release_target = str(task.get("release_evidence_target_type") or "")
         target_source_types = RELEASE_TARGET_TO_FIELD_SOURCE_TYPES.get(
             release_target,
             [release_target] if release_target else [],
         )
+        query_params["sourceProfileId"] = source_profile_id
+        query_params["targetSourceTypes"] = target_source_types
         release_task_id = str(task.get("release_evidence_adapter_task_id") or "")
         candidate_company = str(task.get("candidate_company_name") or query_params.get("companyName") or "")
         person = str(_first_text(_list(task.get("matched_person_names"))) or query_params.get("personName") or "")
@@ -371,8 +431,17 @@ def _query_task_records_from_release_evidence_adapter_tasks(release_plan_manifes
                 "certificate_no": str(query_params.get("certificateNo") or ""),
                 "query_keywords": _list(query_params.get("keywords")),
                 "source_profile_id": source_profile_id,
-                "source_family": str(task.get("source_family") or ""),
-                "source_url": str(task.get("source_url") or task.get("api_url") or ""),
+                "source_entry_id": str(source_fields.get("source_entry_id") or ""),
+                "subsource_id": str(source_fields.get("subsource_id") or ""),
+                "source_name": str(source_fields.get("source_name") or ""),
+                "source_family": str(source_fields.get("source_family") or ""),
+                "source_url": str(source_fields.get("source_url") or source_fields.get("api_url") or ""),
+                "api_url": str(source_fields.get("api_url") or ""),
+                "next_adapter": str(source_fields.get("next_adapter") or ""),
+                "runtime_status": str(source_fields.get("runtime_status") or ""),
+                "release_evidence_minimum_loop_source_selection": str(
+                    source_fields.get("release_evidence_minimum_loop_source_selection") or ""
+                ),
                 "target_source_types": target_source_types,
                 "query_params": query_params,
                 "field_adapter_status": _field_adapter_status_for_profile(source_profile_id),
@@ -381,6 +450,36 @@ def _query_task_records_from_release_evidence_adapter_tasks(release_plan_manifes
             }
         )
     return records
+
+
+def _release_plan_source_fields(task: Mapping[str, Any], release_target: str) -> dict[str, Any]:
+    region_code = str(
+        task.get("local_housing_authority_adapter_region_code")
+        or task.get("release_evidence_query_region_code")
+        or ""
+    ).strip().upper()
+    base = {
+        "source_profile_id": str(task.get("source_profile_id") or ""),
+        "source_entry_id": str(task.get("source_entry_id") or ""),
+        "subsource_id": str(task.get("subsource_id") or ""),
+        "source_name": str(task.get("source_name") or ""),
+        "source_family": str(task.get("source_family") or ""),
+        "source_url": str(task.get("source_url") or ""),
+        "api_url": str(task.get("api_url") or ""),
+        "next_adapter": str(task.get("next_adapter") or ""),
+        "runtime_status": str(task.get("runtime_status") or ""),
+        "release_evidence_minimum_loop_source_selection": "UPSTREAM_SOURCE_PRESERVED",
+    }
+    if region_code != "CN-GD":
+        return base
+    override = GUANGDONG_RELEASE_TARGET_SOURCE_OVERRIDES.get(str(release_target or ""))
+    if not override:
+        return base
+    return {
+        **base,
+        **override,
+        "release_evidence_minimum_loop_source_selection": "CN_GD_TARGET_TYPE_MINIMUM_LOOP_OVERRIDE",
+    }
 
 
 def _p13b_query_params(task: Mapping[str, Any]) -> dict[str, Any]:
@@ -536,6 +635,8 @@ def _field_task_records_from_local_verification(
                 "p13b_release_evidence_trigger_id": str(task.get("p13b_release_evidence_trigger_id") or ""),
                 "p13b_release_evidence_probe_plan_id": str(task.get("p13b_release_evidence_probe_plan_id") or ""),
                 "trigger_source_url": str(task.get("trigger_source_url") or ""),
+                "release_evidence_adapter_task_id": str(task.get("release_evidence_adapter_task_id") or ""),
+                "release_evidence_target_type": str(task.get("release_evidence_target_type") or ""),
                 "time_window_review_state": str(task.get("time_window_review_state") or ""),
                 "estimated_performance_end_date": str(task.get("estimated_performance_end_date") or ""),
                 "historical_project_area_code": str(task.get("historical_project_area_code") or ""),
@@ -553,8 +654,17 @@ def _field_task_records_from_local_verification(
                 "certificate_no": str(task.get("certificate_no") or ""),
                 "query_keywords": _list(task.get("query_keywords")),
                 "source_profile_id": str(task.get("source_profile_id") or ""),
+                "source_entry_id": str(task.get("source_entry_id") or ""),
+                "subsource_id": str(task.get("subsource_id") or ""),
+                "source_name": str(task.get("source_name") or ""),
                 "source_family": str(task.get("source_family") or ""),
                 "source_url": str(task.get("source_url") or ""),
+                "api_url": str(task.get("api_url") or ""),
+                "next_adapter": str(task.get("next_adapter") or ""),
+                "runtime_status": str(task.get("runtime_status") or ""),
+                "release_evidence_minimum_loop_source_selection": str(
+                    task.get("release_evidence_minimum_loop_source_selection") or ""
+                ),
                 "target_source_types": _list(task.get("target_source_types")),
                 "query_params": query_params,
                 "field_adapter_status": str(task.get("field_adapter_status") or ""),
@@ -627,7 +737,7 @@ def _downstream_release_evidence_abcd_grade(
     state = str(field_query_probe_state or "")
     if state in {"PLAN_ONLY_NOT_EXECUTED", "DELEGATED_TO_SEPARATE_FIELD_ADAPTER"}:
         return DOWNSTREAM_PENDING_RELEASE_EVIDENCE_ABCD_GRADE
-    if state == "LIVE_FIELD_QUERY_DEFERRED_BY_LIMIT" or state.startswith("FAIL_CLOSED"):
+    if state in {"LIVE_FIELD_QUERY_DEFERRED_BY_LIMIT", "LIVE_FIELD_QUERY_NEEDS_BROWSER"} or state.startswith("FAIL_CLOSED"):
         return "D_INSUFFICIENT_OR_BLOCKED_READBACK"
     if state == "NO_FIELD_MATCH_REVIEW_REQUIRED":
         return "D_INSUFFICIENT_OR_BLOCKED_READBACK"
@@ -684,6 +794,7 @@ def _route_plan_for_task(task: Mapping[str, Any], query_params: Mapping[str, Any
     profile_id = str(task.get("source_profile_id") or "").upper()
     source_url = str(task.get("source_url") or "")
     keywords = _query_keywords(query_params)
+    target_source_types = _target_source_type_set(task, query_params) if _is_release_evidence_task(task) else set()
     primary_keyword = _first_text(keywords)
     encoded = urllib.parse.quote(primary_keyword)
     routes: list[dict[str, Any]] = []
@@ -691,86 +802,140 @@ def _route_plan_for_task(task: Mapping[str, Any], query_params: Mapping[str, Any
         company_keyword = str(query_params.get("companyName") or "").strip()
         project_keyword = _clean_project_title(query_params.get("projectName"))
         person_keyword = str(query_params.get("personName") or "").strip()
-        routes.extend(
-            [
-                _route("source_home", source_url, "source_home_probe", keywords),
-                _route("city_double_publicity_keyword_url", f"https://zfcj.gz.gov.cn/zfcj/xyxx/index.html?keywords={encoded}", "city_double_publicity_keyword_probe", keywords),
-                _route("city_construction_permit_category", f"https://zfcj.gz.gov.cn/zfcj/xyxx/index.html?subcategory=1&keywords={encoded}", "city_double_publicity_permit_probe", keywords),
+        wants_all = not target_source_types
+        wants_construction = wants_all or "construction_permit" in target_source_types
+        wants_completion = wants_all or bool(
+            target_source_types
+            & {"completion_filing", "completion_acceptance", "completion_acceptance_or_completion_filing"}
+        )
+        wants_contract = bool(target_source_types & {"contract_public_info", "contract_performance"})
+        wants_project_manager_change = "project_manager_change_notice" in target_source_types
+        routes.append(_route("source_home", source_url, "source_home_probe", keywords))
+        if wants_all:
+            routes.append(
                 _route(
-                    "city_construction_permit_public_page",
-                    GUANGZHOU_ZFCJ_CONSTRUCTION_PERMIT_PAGE_URL,
-                    "city_construction_permit_public_page_probe",
+                    "city_double_publicity_keyword_url",
+                    f"https://zfcj.gz.gov.cn/zfcj/xyxx/index.html?keywords={encoded}",
+                    "city_double_publicity_keyword_probe",
+                    keywords,
+                )
+            )
+        if wants_construction:
+            routes.extend(
+                [
+                    _route(
+                        "city_construction_permit_category",
+                        f"https://zfcj.gz.gov.cn/zfcj/xyxx/index.html?subcategory=1&keywords={encoded}",
+                        "city_double_publicity_permit_probe",
+                        keywords,
+                    ),
+                    _route(
+                        "city_construction_permit_public_page",
+                        GUANGZHOU_ZFCJ_CONSTRUCTION_PERMIT_PAGE_URL,
+                        "city_construction_permit_public_page_probe",
+                        keywords,
+                    ),
+                ]
+            )
+            for route in (
+                _guangzhou_zfcj_construction_permit_route(
+                    "gz_zfcj_construction_permit_sgdw_company",
+                    "sgdw",
+                    company_keyword,
                     keywords,
                 ),
+                _guangzhou_zfcj_construction_permit_route(
+                    "gz_zfcj_construction_permit_jsdw_company",
+                    "jsdw",
+                    company_keyword,
+                    keywords,
+                ),
+                _guangzhou_zfcj_construction_permit_route(
+                    "gz_zfcj_construction_permit_project",
+                    "gcmc",
+                    project_keyword,
+                    keywords,
+                ),
+                _guangzhou_zfcj_api_route(
+                    "gz_zfcj_xyxx_api_company_construction_permit",
+                    "gz_zfcj_xyxx_api_construction_permit",
+                    company_keyword,
+                    keywords,
+                    subcategory=1,
+                ),
+                _guangzhou_zfcj_api_route(
+                    "gz_zfcj_xyxx_api_project_construction_permit",
+                    "gz_zfcj_xyxx_api_construction_permit",
+                    project_keyword,
+                    keywords,
+                    subcategory=1,
+                ),
+            ):
+                if route:
+                    routes.append(route)
+        if wants_completion:
+            routes.append(
                 _route(
                     "city_completion_acceptance_public_page",
                     GUANGZHOU_ZFCJ_COMPLETION_ACCEPTANCE_PAGE_URL,
                     "city_completion_acceptance_public_page_probe",
                     keywords,
+                )
+            )
+            for route in (
+                _guangzhou_zfcj_completion_acceptance_route(
+                    "gz_zfcj_completion_acceptance_sgdw_company",
+                    "sgdw",
+                    company_keyword,
+                    keywords,
                 ),
-            ]
-        )
-        for route in (
-            _guangzhou_zfcj_construction_permit_route(
-                "gz_zfcj_construction_permit_sgdw_company",
-                "sgdw",
-                company_keyword,
-                keywords,
-            ),
-            _guangzhou_zfcj_construction_permit_route(
-                "gz_zfcj_construction_permit_jsdw_company",
-                "jsdw",
-                company_keyword,
-                keywords,
-            ),
-            _guangzhou_zfcj_construction_permit_route(
-                "gz_zfcj_construction_permit_project",
-                "gcmc",
-                project_keyword,
-                keywords,
-            ),
-            _guangzhou_zfcj_completion_acceptance_route(
-                "gz_zfcj_completion_acceptance_sgdw_company",
-                "sgdw",
-                company_keyword,
-                keywords,
-            ),
-            _guangzhou_zfcj_completion_acceptance_route(
-                "gz_zfcj_completion_acceptance_jsdw_company",
-                "jsdw",
-                company_keyword,
-                keywords,
-            ),
-            _guangzhou_zfcj_completion_acceptance_route(
-                "gz_zfcj_completion_acceptance_project",
-                "gcmc",
-                project_keyword,
-                keywords,
-            ),
-            _guangzhou_zfcj_api_route(
-                "gz_zfcj_xyxx_api_company_construction_permit",
-                "gz_zfcj_xyxx_api_construction_permit",
-                company_keyword,
-                keywords,
-                subcategory=1,
-            ),
-            _guangzhou_zfcj_api_route(
-                "gz_zfcj_xyxx_api_project_construction_permit",
-                "gz_zfcj_xyxx_api_construction_permit",
-                project_keyword,
-                keywords,
-                subcategory=1,
-            ),
-            _guangzhou_zfcj_api_route(
+                _guangzhou_zfcj_completion_acceptance_route(
+                    "gz_zfcj_completion_acceptance_jsdw_company",
+                    "jsdw",
+                    company_keyword,
+                    keywords,
+                ),
+                _guangzhou_zfcj_completion_acceptance_route(
+                    "gz_zfcj_completion_acceptance_project",
+                    "gcmc",
+                    project_keyword,
+                    keywords,
+                ),
+            ):
+                if route:
+                    routes.append(route)
+        if wants_all and person_keyword:
+            route = _guangzhou_zfcj_api_route(
                 "gz_zfcj_xyxx_api_person_all_categories",
                 "gz_zfcj_xyxx_api_all_categories",
                 person_keyword,
                 keywords,
                 subcategory=0,
-            ),
-        ):
+            )
             if route:
                 routes.append(route)
+        if wants_contract:
+            routes.append(
+                _browser_required_route(
+                    "gz_zfcj_contract_credit_browser_required",
+                    GUANGZHOU_ZFCJ_CONTRACT_CREDIT_URL,
+                    "gz_zfcj_contract_credit_browser_required",
+                    keywords,
+                    GUANGZHOU_ZFCJ_CONTRACT_CREDIT_BROWSER_ADAPTER_ID,
+                    "guangzhou_contract_credit_portal_requires_browser_or_authorized_runtime",
+                )
+            )
+        if wants_project_manager_change:
+            routes.append(
+                _browser_required_route(
+                    "gz_zfcj_project_manager_change_browser_required",
+                    GUANGZHOU_ZFCJ_CONTRACT_CREDIT_URL,
+                    "gz_zfcj_project_manager_change_browser_required",
+                    keywords,
+                    GUANGZHOU_ZFCJ_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID,
+                    "guangzhou_project_manager_change_notice_public_api_not_verified",
+                )
+            )
     elif profile_id == GUANGDONG_ZFCXJST_PENALTY_PROFILE_ID:
         company_keyword = str(query_params.get("companyName") or "").strip()
         person_keyword = str(query_params.get("personName") or "").strip()
@@ -859,27 +1024,33 @@ def _route_plan_for_task(task: Mapping[str, Any], query_params: Mapping[str, Any
     elif profile_id == GUANGDONG_GDCIC_HOME_PROFILE_ID:
         company_keyword = str(query_params.get("companyName") or "").strip()
         project_keyword = _clean_project_title(query_params.get("projectName"))
+        wants_all = not target_source_types
+        wants_contract = wants_all or bool(target_source_types & {"contract_public_info", "contract_performance"})
+        wants_project_manager_change = "project_manager_change_notice" in target_source_types
         routes.extend(
             [
                 _route("source_home", source_url, "source_home_probe", keywords),
                 _route("gdcic_home_keyword", f"{source_url.rstrip('/')}?keywords={encoded}" if source_url else "", "gdcic_contract_performance_keyword_probe", keywords),
             ]
         )
-        for route in (
-            _guangdong_gdcic_home_performance_route(
-                "gd_gdcic_performance_public_project",
-                project_keyword,
-                keywords,
-            ),
-            _guangdong_gdcic_home_performance_route(
-                "gd_gdcic_performance_public_company",
-                company_keyword,
-                keywords,
-            ),
-            _guangdong_gdcic_home_contract_sso_route(keywords),
-        ):
-            if route:
-                routes.append(route)
+        if wants_contract:
+            for route in (
+                _guangdong_gdcic_home_performance_route(
+                    "gd_gdcic_performance_public_project",
+                    project_keyword,
+                    keywords,
+                ),
+                _guangdong_gdcic_home_performance_route(
+                    "gd_gdcic_performance_public_company",
+                    company_keyword,
+                    keywords,
+                ),
+                _guangdong_gdcic_home_contract_sso_route(keywords),
+            ):
+                if route:
+                    routes.append(route)
+        if wants_project_manager_change:
+            routes.append(_guangdong_gdcic_project_manager_change_browser_required_route(keywords))
     else:
         routes.append(_route("source_home", source_url, "source_home_probe", keywords))
     return [route for route in routes if route["url"]]
@@ -892,6 +1063,44 @@ def _route(route_id: str, url: str, route_group: str, keywords: list[str]) -> di
         "url": url,
         "keyword_count": len(keywords),
         "query_keyword_probe": keywords[:5],
+    }
+
+
+def _target_source_type_set(task: Mapping[str, Any], query_params: Mapping[str, Any]) -> set[str]:
+    return {
+        str(item)
+        for item in [
+            *_list(task.get("target_source_types")),
+            *_list(query_params.get("targetSourceTypes")),
+        ]
+        if str(item or "").strip()
+    }
+
+
+def _is_release_evidence_task(task: Mapping[str, Any]) -> bool:
+    return str(task.get("input_source_kind") or "") in RELEASE_EVIDENCE_INPUT_SOURCE_KINDS or bool(
+        str(task.get("release_evidence_target_type") or "")
+    )
+
+
+def _browser_required_route(
+    route_id: str,
+    url: str,
+    route_group: str,
+    keywords: list[str],
+    adapter_id: str,
+    reason: str,
+) -> dict[str, Any]:
+    return {
+        "route_id": route_id,
+        "route_group": route_group,
+        "url": url,
+        "method": "BROWSER_REQUIRED",
+        "params": {},
+        "keyword_count": len(keywords),
+        "query_keyword_probe": keywords[:5],
+        "source_specific_adapter_id": adapter_id,
+        "browser_required_reason": reason,
     }
 
 
@@ -1028,6 +1237,17 @@ def _guangdong_gdcic_home_contract_sso_route(query_keywords: list[str]) -> dict[
         "query_keyword_probe": query_keywords[:5],
         "source_specific_adapter_id": "guangdong_gdcic_contract_performance_public_page_v1",
     }
+
+
+def _guangdong_gdcic_project_manager_change_browser_required_route(query_keywords: list[str]) -> dict[str, Any]:
+    return _browser_required_route(
+        "gd_gdcic_project_manager_change_browser_required",
+        GUANGDONG_GDCIC_CONTRACT_SYSTEM_URL,
+        "gd_gdcic_project_manager_change_browser_required",
+        query_keywords,
+        GUANGDONG_GDCIC_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID,
+        "guangdong_project_manager_change_notice_requires_browser_or_authorized_runtime",
+    )
 
 
 def _guangdong_zfcxjst_penalty_list_route(page: int, query_keywords: list[str]) -> dict[str, Any]:
@@ -1234,6 +1454,28 @@ def _live_deferred_readback(max_live_tasks: int, route_plan: list[Mapping[str, A
     }
 
 
+def _browser_required_readback(adapter_id: str, route_plan: list[Mapping[str, Any]]) -> dict[str, Any]:
+    reasons = _dedupe(route.get("browser_required_reason") for route in route_plan)
+    return {
+        "field_query_probe_state": "LIVE_FIELD_QUERY_NEEDS_BROWSER",
+        "field_readback_state": "FIELD_READBACK_BROWSER_OR_AUTHORIZED_RUNTIME_REQUIRED",
+        "readback_ready": False,
+        "readback_status_code": None,
+        "field_summary": {
+            "source_specific_adapter_id": adapter_id,
+            "record_count": 0,
+            "browser_or_authorized_runtime_required": True,
+        },
+        "field_match_summary": {
+            "query_miss_is_not_clearance": True,
+            "browser_or_authorized_runtime_required_before_readback": True,
+        },
+        "route_plan": list(route_plan),
+        "route_attempts": [],
+        "blocker_taxonomy": reasons or ["browser_or_authorized_runtime_required_for_release_evidence_readback"],
+    }
+
+
 def _execute_live_field_query(
     task: Mapping[str, Any],
     route_plan: list[Mapping[str, Any]],
@@ -1243,6 +1485,18 @@ def _execute_live_field_query(
     credit_gd_max_requests_per_task: int | None,
     credit_gd_request_interval_seconds: float | None,
 ) -> dict[str, Any]:
+    source_specific_adapter_ids = {
+        str(route.get("source_specific_adapter_id") or "")
+        for route in route_plan
+        if str(route.get("source_specific_adapter_id") or "")
+    }
+    browser_required_adapter_id = _first_text(
+        adapter_id
+        for adapter_id in source_specific_adapter_ids
+        if adapter_id in BROWSER_REQUIRED_FIELD_ADAPTER_IDS
+    )
+    if browser_required_adapter_id and source_specific_adapter_ids <= BROWSER_REQUIRED_FIELD_ADAPTER_IDS:
+        return _browser_required_readback(browser_required_adapter_id, route_plan)
     if any(
         str(route.get("source_specific_adapter_id") or "")
         in {
@@ -3236,6 +3490,7 @@ def _manual_check_table(field_task_records: list[Mapping[str, Any]]) -> list[dic
             "responsible_person_name": task.get("responsible_person_name"),
             "certificate_no": task.get("certificate_no"),
             "source_profile_id": task.get("source_profile_id"),
+            "release_evidence_target_type": task.get("release_evidence_target_type"),
             "target_source_types": task.get("target_source_types"),
             "initial_release_evidence_abcd_grade": task.get("initial_release_evidence_abcd_grade"),
             "downstream_release_evidence_abcd_grade": task.get("downstream_release_evidence_abcd_grade"),
@@ -3301,6 +3556,12 @@ def _summary(
         ),
         "target_source_type_counts": _counts(
             source_type for task in field_task_records for source_type in _list(task.get("target_source_types"))
+        ),
+        "release_evidence_target_type_counts": _counts(
+            task.get("release_evidence_target_type")
+            for task in field_task_records
+            if str(task.get("input_source_kind") or "") in RELEASE_EVIDENCE_INPUT_SOURCE_KINDS
+            and str(task.get("release_evidence_target_type") or "")
         ),
         "adapter_result_state_counts": _counts(task.get("adapter_result_state") for task in field_task_records),
         "allowed_adapter_result_states": list(ALLOWED_ADAPTER_RESULT_STATES),

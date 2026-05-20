@@ -1,6 +1,6 @@
 # 专题_Stage1-9_缺口收口与优先级清单
 
-**版本**: 2026-05-20 v19
+**版本**: 2026-05-20 v20
 
 ## 1. 文档定位
 
@@ -27,7 +27,7 @@
 - Stage1-3 主干链路已形成
 - Stage4 外部证据链最弱，仍是当前最大短板
 - Stage5 双闸门已实现，但真实样本规模和误报/漏报校准仍不足
-- Stage1-6 到 P13B 的证据编排状态机已新增第一版，可把真实项目归并到 P13B、原文回溯、A 级强线索、Stage6 事实包 readiness 等状态；一键续跑入口已能从 `P13B_ORIGINAL_BACKTRACE_REQUIRED` 自动生成原文回溯任务并回写状态；原文回溯任务已新增 URL/入口质量分层，能把官方直达 HTML 排在空地址、跳转壳、YGP mapping 之前，避免小预算 live 盲打低质量入口；`batch-triage-table.json` 已能按批次给出继续跑、进入事实包/Stage7 内部预览、D 级内部复核或非主线暂存决策；`EvidenceStage6FactPackage v1` 已能生成内部复核 summary 和 `stage6_review_action_plan_table`，并能把 terminal source gap / no-delta 的 D 级项目标成 `automated_dispatch_allowed=false`，同时把 `manual_hold_state`、停靠原因、重新开启条件和 operator decision options 写入 brief、evidence pack、review summary JSON/Markdown；`Stage6ReviewActionDispatch v1` 已能把 P13B 释放证据、原文回溯重试、设计/测绘资质服务期复核映射成受控续跑任务，同时跳过 manual-only action plan，避免 D 级项目无限自动重试；释放证据 dispatch 现在必须显式携带 `evidence_batch_closeout` 与 `p13b_operational_closeout` 来源引用，缺任一来源会被标为 `BLOCKED_REQUIRED_SOURCE_REFS_MISSING`，runner 也会二次拒绝生成默认路径命令，避免误读旧 tmp 产物；`Stage6ReviewActionDispatchRunner v1` 已能按任务类型分组执行白名单本地 dispatch 任务，避免多项目重复覆盖输出；`Stage6ReviewActionDispatchReadback v1` 已能把这些任务读回为已产出、等待受控执行、人工跳过或阻断复核状态；`Stage6ReviewActionDispatchCloseout v1` 已能把读回明细按项目收口成可回灌、等待、跳过、阻断的项目级状态，且释放证据 adapter plan 不再直接误标为 evidence state 可回灌；`Stage6ReviewActionResultRouting v1` 已能把 closeout 结果路由到 evidence state rebuild、batch closeout rebuild 或释放证据字段查询的下一条受控任务，并输出结构化 argv；`Stage6ReviewActionResultRunner v1` 已能在 dry-run / `-Execute` 受控模式下执行白名单本地续跑命令，且会跳过重复 argv；`Stage6ReviewCycleRunner v1` 已能把新的 `EvidenceBatchCloseout` 自动串到下一轮 Stage6 fact package、dispatch 和 dispatch runner，且在无自动任务时安全停在 manual-only 复核；`Stage6ReviewLoopRunner v1` 已能把 dispatch runner、readback、closeout、routing、result runner、next cycle 汇总成 `stage6-review-loop-project-status-table.json`，按项目回答当前终态和下一步动作，包括 `MANUAL_REVIEW_HOLD_NO_AUTOMATED_DISPATCH`；`run-stage6-review-loop-v1.ps1` 默认可在缺 dispatch 时从 batch closeout bootstrap，并可自动发现最新 batch closeout；若 bootstrap 后没有自动任务，会把 manual-only 项目直接投到项目状态表，而不是误报下游缺文件；`Stage6ReviewLoopOperatorProjection v1` 已能把该状态表投影成 owner 可读的批次状态、项目行、可续跑/人工停机/Stage7 gate、重新开启条件和下一步动作，并通过 `/operator-console/stage6-review-loop-status`、操作台 overview 和独立极简页 `/operator-console/stage6-review-loop` 展示；极简页已把状态、下一步和重新开启条件翻译成中文标签，不再要求 owner 直接读 raw JSON、英文枚举或在大操作台里找状态；默认批次选择已改为 owner 总览策略：若最新产物只是单项目终态，会优先展示最近的多项目批次，同时保留最新单项目批次在历史选择器中；项目卡片也已补 `当前阶段`、`证据等级`、`为什么停/阻断原因` 和 `下一步`，证据等级未投影时会明确提示需回看 batch closeout / evidence state，不会伪装成“没问题”
+- Stage1-6 到 P13B 的证据编排状态机已新增第一版，可把真实项目归并到 P13B、原文回溯、A 级强线索、Stage6 事实包 readiness 等状态；一键续跑入口已能从 `P13B_ORIGINAL_BACKTRACE_REQUIRED` 自动生成原文回溯任务并回写状态；原文回溯任务已新增 URL/入口质量分层，能把官方直达 HTML 排在空地址、跳转壳、YGP mapping 之前，避免小预算 live 盲打低质量入口；`batch-triage-table.json` 已能按批次给出继续跑、进入事实包/Stage7 内部预览、D 级内部复核或非主线暂存决策；`EvidenceStage6FactPackage v1` 已能生成内部复核 summary 和 `stage6_review_action_plan_table`，并能把 terminal source gap / no-delta 的 D 级项目标成 `automated_dispatch_allowed=false`，同时把 `manual_hold_state`、停靠原因、重新开启条件和 operator decision options 写入 brief、evidence pack、review summary JSON/Markdown；`Stage6ReviewActionDispatch v1` 已能把 P13B 释放证据、原文回溯重试、设计/测绘资质服务期复核映射成受控续跑任务，同时跳过 manual-only action plan，避免 D 级项目无限自动重试；释放证据 dispatch 现在必须显式携带 `evidence_batch_closeout` 与 `p13b_operational_closeout` 来源引用，缺任一来源会被标为 `BLOCKED_REQUIRED_SOURCE_REFS_MISSING`，runner 也会二次拒绝生成默认路径命令，避免误读旧 tmp 产物；`ReleaseEvidenceAdapterPlan -> GuangdongLocalFieldQueryProbe` 对广东/广州四类释放证据已有最小路由闭环：施工许可定向广州住建施工许可公开 API，竣工验收定向广州住建竣工验收公开 API，合同履约转广东建设信息网合同履约公开页并检查合同系统 SSO，项目经理变更明确标为浏览器/授权运行时必需，不再误打施工许可或竣工 API；字段任务会输出 `MATCHED / NOT_FOUND / BLOCKED / NEEDS_BROWSER`、目标类型和 B/C/D 下游等级；`Stage6ReviewActionDispatchRunner v1` 已能按任务类型分组执行白名单本地 dispatch 任务，避免多项目重复覆盖输出；`Stage6ReviewActionDispatchReadback v1` 已能把这些任务读回为已产出、等待受控执行、人工跳过或阻断复核状态；`Stage6ReviewActionDispatchCloseout v1` 已能把读回明细按项目收口成可回灌、等待、跳过、阻断的项目级状态，且释放证据 adapter plan 不再直接误标为 evidence state 可回灌；`Stage6ReviewActionResultRouting v1` 已能把 closeout 结果路由到 evidence state rebuild、batch closeout rebuild 或释放证据字段查询的下一条受控任务，并输出结构化 argv；`Stage6ReviewActionResultRunner v1` 已能在 dry-run / `-Execute` 受控模式下执行白名单本地续跑命令，且会跳过重复 argv；`Stage6ReviewCycleRunner v1` 已能把新的 `EvidenceBatchCloseout` 自动串到下一轮 Stage6 fact package、dispatch 和 dispatch runner，且在无自动任务时安全停在 manual-only 复核；`Stage6ReviewLoopRunner v1` 已能把 dispatch runner、readback、closeout、routing、result runner、next cycle 汇总成 `stage6-review-loop-project-status-table.json`，按项目回答当前终态和下一步动作，包括 `MANUAL_REVIEW_HOLD_NO_AUTOMATED_DISPATCH`；`run-stage6-review-loop-v1.ps1` 默认可在缺 dispatch 时从 batch closeout bootstrap，并可自动发现最新 batch closeout；若 bootstrap 后没有自动任务，会把 manual-only 项目直接投到项目状态表，而不是误报下游缺文件；`Stage6ReviewLoopOperatorProjection v1` 已能把该状态表投影成 owner 可读的批次状态、项目行、可续跑/人工停机/Stage7 gate、重新开启条件和下一步动作，并通过 `/operator-console/stage6-review-loop-status`、操作台 overview 和独立极简页 `/operator-console/stage6-review-loop` 展示；极简页已把状态、下一步和重新开启条件翻译成中文标签，不再要求 owner 直接读 raw JSON、英文枚举或在大操作台里找状态；默认批次选择已改为 owner 总览策略：若最新产物只是单项目终态，会优先展示最近的多项目批次，同时保留最新单项目批次在历史选择器中；项目卡片也已补 `当前阶段`、`证据等级`、`为什么停/阻断原因` 和 `下一步`，证据等级未投影时会明确提示需回看 batch closeout / evidence state，不会伪装成“没问题”
 - Stage6/7 内部对象和 readback 已存在；设计/测绘 `08` 定向人员档案抽取结果已能生成标准 `stage4_candidate_verification_inputs`，可继续喂给 Stage4 公司优先核验 dry-run/执行，不再只停在“人工应用字段”
 - Stage8/9 已有 governed readback 和受控开启语义，但真实 live execution 仍按受控开放边界保持关闭
 
@@ -68,7 +68,7 @@
 ### P0-1 Stage4 释放证据链闭环
 
 - 现状：Stage4 是当前最大短板。身份核验和部分公开源 readback 已有，但“许可/合同/竣工/项目经理变更/处罚”多源交叉后的释放证据链仍不完整。
-- 当前进展：`GuangdongLocalFieldQueryProbe v1` 已把来自 `ReleaseEvidenceAdapterPlan v1` 的字段查询任务纳入统一 A/B/C/D 汇总；`Stage6ReviewLoopRunner v1` 已能在项目状态表里直接显示释放证据字段查询的 `MATCHED / NOT_FOUND / BLOCKED / NEEDS_BROWSER` 和 B/C/D 下游结果；释放证据 dispatch / runner 已收紧输入约束，必须显式带 `evidence_batch_closeout` 与 `p13b_operational_closeout` 来源引用，防止回退到默认旧产物。
+- 当前进展：`GuangdongLocalFieldQueryProbe v1` 已把来自 `ReleaseEvidenceAdapterPlan v1` 的字段查询任务纳入统一 A/B/C/D 汇总；广东/广州最小查询闭环已按四类目标分流，施工许可和竣工验收可走广州住建公开 API fake-live 回读，合同履约可走广东 GDCIC 公开页 fake-live 回读，项目经理变更明确输出 `NEEDS_BROWSER` / D 级证据不足而不是误写已核验；`Stage6ReviewLoopRunner v1` 已能在项目状态表里直接显示释放证据字段查询的 `MATCHED / NOT_FOUND / BLOCKED / NEEDS_BROWSER` 和 B/C/D 下游结果；释放证据 dispatch / runner 已收紧输入约束，必须显式带 `evidence_batch_closeout` 与 `p13b_operational_closeout` 来源引用，防止回退到默认旧产物。
 - 直接症状：
   - `项目经理变更释放` 在矩阵里仍为 `MISSING_RUNTIME`
   - 真实候选经常落到 `PARTIAL_SOURCE_COVERAGE`
@@ -76,6 +76,7 @@
 - 完成标准：
   - 命中重叠信号后，能稳定补查 `construction_permit`、`contract_public_info`、`completion_filing`、`project_manager_change_notice`
   - 释放证据链可回放，且不会把“未命中/源阻断”写成“无风险”
+  - 下一步仍需小预算真实 canary 验证广州住建/GDCIC 当前 live 可达性，并把真实阻断或字段变化现场回补到 adapter
 
 ### P0-2 Stage6/7 真实候选 formal real_public 闭环
 
