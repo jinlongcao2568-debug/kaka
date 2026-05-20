@@ -21,13 +21,23 @@ current_focus:
     Stage2 附件文本缓存已把 gap8 全量 reparse 缩到约 5 秒，11373 已抽到 广东省建筑工程监理有限公司 + 谯锋，11386 停在 广东华路交通科技有限公司 + B 类总监缺失补证。
     当前最大缺口是广东/广州 GDCIC 授权会话后的真实字段命中样本、P13B 结果回灌、广东 Stage1-6 闭环稳定性，以及 Stage3 负责人/OCR/人员材料页继续压测。
   reason_delta: >
-    2026-05-20 v48: 修正优先级口径。广东优先指当前候选项目实战主线优先广东，不表示释放证据只查广东；释放证据按历史重叠项目所在地，业绩/处罚/信用信息类核验允许跨省扩展。
+    2026-05-20 v53: 在 GDCIC openplatform 匿名详情接口基础上，进一步把 real_public release bridge 的合同履约默认入口从 GDCIC-HOME 登录壳切到
+    GUANGDONG-GDCIC-SKYPT-OPENPLATFORM 匿名合同公开接口；项目经理变更仍保留 GDCIC-HOME 授权浏览器路径。
+    字段查询层新增联合体公司拆分策略，`(主)A;(成)B` 会同时生成 A/B 独立公司变体，避免只用整段联合体字符串查 openplatform。
+    同时收紧证据门：合同、施工许可、竣工等项目级记录必须匹配目标项目名或项目名变体；只按公司查到的其他项目合同只进入 context_source_specific_records，
+    不进入 source_specific_records，不给 B 级增强证据。
+    2026-05-20 live3 project-strict canary 验证合同履约前 3 条均为 NOT_FOUND/D，且公司其他项目合同未被误算成本项目合同。
+    HOME 入口仍跳 SSO；HTTP/Dynamic/Stealthy 不能替代登录态，只有项目经理变更等 HOME 登录壳继续走授权 storage_state/user_data_dir。
   latest_live_validation:
     run_id: "guangzhou-real-public-stage1-6-live30-attemptall-20260520-r2"
     summary: "已新增显式全候选 Stage1-6 压测开关；广州近期 07 live30 复跑后 30/30 候选全部进入 Stage1-6，Stage1 未入选卡点清零。Stage2 详情快照 30/30，Stage3 parse 30/30，readiness 分布为 Stage3 字段/角色缺口 8、Stage4 公开源/释放证据链缺口 22，客户可售证据包仍为 0/30。"
     release_evidence_live16: "基于 120 条释放证据任务做 live16：广州住建施工许可 MATCHED/B 1 条、广州公开源 NOT_FOUND/D 7 条、GDCIC 合同履约/项目经理变更 NEEDS_BROWSER/D 8 条，剩余 104 条按预算延后；Stage6 回灌生成 30 个项目状态，1 个 RELEASE_FIELD_QUERY_REVIEW_READY，29 个 RELEASE_FIELD_QUERY_GAP_OR_BLOCKER_REVIEW，GDCIC 4 个项目明确 LOGIN_OR_SSO_REQUIRED。"
     stage2_ywtb_attachment_gap8: "广州 YWTB attachment challenge resolver 已通过 canary 和 gap8 实战：单附件 PDF 返回 FETCHED/application_pdf，gap8 同站附件 23/23 抓取为 RESOLVED_AND_SNAPSHOT_CAPTURED；cache-r2 全量复用回放确认 8/8 existing capture 复用、23/23 附件保留、8/8 缓存命中，11373 抽到 广东省建筑工程监理有限公司 + 谯锋 并清空 stale gap，11386 不再产出假姓名或错绑第二候选人，停在 广东华路交通科技有限公司 + B 类总监缺失补证。"
     gdcic_noauth_canary: "2026-05-20 小预算真实 GDCIC browser readback 复跑 1 条：无 storage_state/user_data_dir 时产物显式输出 NO_AUTHORIZED_SESSION_INPUT；浏览器回读落 LOGIN_OR_SSO_REQUIRED，字段查询回灌 BLOCKED/D，Stage6 项目状态表同步显示 release_field_query_authorized_session_input_state_counts={NO_AUTHORIZED_SESSION_INPUT:1}，不再只显示模糊 NEEDS_BROWSER。"
+    gdcic_openplatform_publicity_canary: "2026-05-20 实测官方 skypt openplatform 匿名接口：project/list 精确命中“广州科玛生物科技有限公司日用品”后，publicityPeriod/listApplyProjectPerson?id=1573 返回 东莞市建工集团有限公司 + 王先耀 + 粤1332006200810171 + 441900202206061001；代码已把 publicityPeriod getBaseInfo/getContract/getConstructPermitInfo/getFinishProjectInfo/listApplyProjectPerson 作为项目列表命中后的 follow-up，并新增 gdcic_publicity_period_readback_ready_count；字段查询层真实 canary 已输出 FIELD_READBACK_READY_PUBLIC_SOURCE / MATCHED，summary 显示 guangdong_gdcic_openplatform_readback_ready_count=1、guangdong_gdcic_openplatform_publicity_period_readback_ready_count=1，且输出中不保留原始身份证号。"
+    stage6_openplatform_projection_canary: "2026-05-20 将真实 GDCIC openplatform 字段查询产物单独导入 Stage6：状态表输出 RELEASE_FIELD_QUERY_PUBLIC_READBACK_REVIEW_READY，下一步为 manual_review_public_field_readback_before_stage7_preview，owner projection 显示“公开源字段已有读回，需人工补齐证据等级”，并展示“广东建设信息网三库一平台匿名公开源”摘要和 ID_CARD_HASH_OR_REDACTED_ONLY。"
+    gdcic_openplatform_title_variant_r2: "2026-05-20 r2 真实字段查询 canary：长标题“广州科玛生物科技有限公司日用品、化妆品、药品及食品生产建设项目”自动补查短标题“广州科玛生物科技有限公司日用品”，publicityPeriod ready count 从 0 推进到 1；Stage6 摘要显示 王先耀、粤1332006200810171、441900202206061001，并继续只保留身份证 hash/脱敏状态。"
+    gdcic_openplatform_contract_projectstrict_live3: "2026-05-20 live30 release bridge 重建后，120 条任务中合同履约 30 条全部走 GUANGDONG-GDCIC-SKYPT-OPENPLATFORM，项目经理变更 30 条仍走 GUANGDONG-GDCIC-HOME；live3 project-strict 实测合同履约前 3 条均为 NOT_FOUND/D，且同公司其他项目合同被保留为上下文，不形成 B 级增强。"
     next_best_task: "继续广东/广州：补 GDCIC 授权 storage_state/user_data_dir 的真实命中回放，回灌 P13B/字段查询到 Stage6；非广东只在历史项目所在地释放证据或业绩/处罚/信用信息类核验触发时扩展。"
 priorities:
   - priority_id: P0_STAGE6_OBSERVABILITY
@@ -42,7 +52,7 @@ priorities:
       - "owner 打开页面能看懂三项目分别卡在哪里"
       - "最新单项目终态不会遮住早一轮多项目批次"
       - "不需要阅读 raw JSON 判断下一步"
-    current_state: "DONE_FIRST_PASS_OWNER_READABLE; follow-up fields only when real samples expose new gaps"
+    current_state: "DONE_FIRST_PASS_OWNER_READABLE; GDCIC_OPENPLATFORM_MATCHED_SOURCE_HIT_PROJECTION_DONE; GDCIC_OPENPLATFORM_PUBLICITY_DETAIL_PRIORITY_SUMMARY_DONE; follow-up fields only when real samples expose new gaps"
   - priority_id: P0_STAGE4_RELEASE_EVIDENCE_CHAIN
     rank: 2
     stage_scope: [Stage4, Stage5, Stage6]
@@ -62,6 +72,10 @@ priorities:
       - "浙江第一版字段 adapter：已定向 PublicWeb 与 ProjectInfo/re/GetProjectSGXK、GetProjectHTBA、GetProjectJGYS；2026-05-20 canary 显示公开页可达，字段接口小预算下超时阻断或返回空结果，输出 BLOCKED / NOT_FOUND + D，不输出排除性结论"
       - "GDCIC browser-authorized readback：已新增 gdcic-browser-authorized-readback-v1.json 受控产物消费路径和 build-gdcic-browser-authorized-readback-v1.ps1 执行入口；合同履约/项目经理变更可从授权浏览器回读转为 MATCHED/NOT_FOUND 与 B/C/D，未授权登录壳真实 canary 收口为 BLOCKED/D，并显式输出授权状态与下一步动作，无产物仍停在 NEEDS_BROWSER"
       - "GDCIC 登录态边界：HTTP / Dynamic / Stealthy 只用于抓取、渲染或挑战面增强；遇到 LOGIN_OR_SSO_REQUIRED 时必须提供授权 storage_state 或 user_data_dir，字段任务会显式输出 http_dynamic_stealthy_can_replace_login_state=false"
+      - "GDCIC openplatform 匿名详情 follow-up：project/list 命中项目 id 后，自动补跑 publicityPeriod/getBaseInfo、getContract、getConstructPermitInfo、getFinishProjectInfo、listApplyProjectPerson；2026-05-20 canary 已回读项目经理、注册证书号和施工许可证号，GitHub 未命中 HOME 免登录方案，HOME 仍按 SSO/授权浏览器处理"
+      - "GDCIC openplatform 字段查询回灌：GuangdongLocalFieldQueryProbe live 模式已直接调用 guangdong_gdcic_query_probe_v1 并转换为 FIELD_READBACK_READY_PUBLIC_SOURCE/MATCHED；summary 新增 guangdong_gdcic_openplatform_readback_ready_count 与 guangdong_gdcic_openplatform_publicity_period_readback_ready_count；身份证类字段只输出 hash/脱敏探针"
+      - "GDCIC openplatform 项目名变体：长标题会自动生成短标题补查，真实 r2 canary 已把 publicityPeriod ready count 从 0 推进到 1，并在 Stage6 摘要中优先显示项目详情人员、注册证书号和施工许可证号"
+      - "GDCIC openplatform 合同履约桥接：合同履约默认从 GDCIC-HOME 切到匿名 openplatform；联合体公司会拆成独立公司变体；合同/施工许可/竣工项目级记录必须匹配目标项目名或项目名变体，live3 project-strict 已验证公司其他项目合同不会被算成本项目 B 级增强"
       - "项目经理变更释放字段：GDCIC browser-authorized readback 已能从授权页面文本抽取原项目经理、新项目经理、变更日期、变更原因和责任窗口解释；GuangdongLocalFieldQueryProbe 已能把这些字段投到 project_manager_change_browser_authorized_record，并输出 C_REVERSE_EXPLANATION_OFFICIAL_READBACK"
       - "四川第一版字段 adapter：已定向四川省建筑市场监管公共服务平台 GetPerjectList 与 GetProjSgxkzList/GetProjHtbaList/GetProjJgbaList；2026-05-20 真实 canary 命中施工许可详情并输出 MATCHED/B，且查询策略改为项目名优先、公司名辅助"
       - "江苏第一版字段 adapter：已纳入归属地 adapter 支持集，结构化 readback 可解析 JSON/表格行并输出施工许可/合同/竣工 MATCHED/NOT_FOUND/B/C/D；项目经理变更先输出 NEEDS_BROWSER/D；2026-05-20 官方入口 live canary 返回 200 但字段面为 HTML 壳，正确归类 NEEDS_BROWSER/D，不把入口可达写成字段成功"
@@ -70,7 +84,7 @@ priorities:
       - "湖南第一版字段 adapter：已纳入归属地 adapter 支持集，结构化 readback 可解析 JSON/表格行并输出施工许可/合同/竣工 MATCHED/NOT_FOUND/B/C/D；项目经理变更先输出 NEEDS_BROWSER/D；2026-05-20 live canary 显示 HTTPS 入口 200 但字段面为数字城建档案馆/SPA HTML 壳，正确归类 NEEDS_BROWSER/D，不把入口可达写成字段成功"
       - "河南第一版字段 adapter：已纳入归属地 adapter 支持集，施工许可优先定向 electronic/electronicInfo 电子证照入口，合同/竣工定向 newTBProjectInfo/projectData 工程项目数据入口，结构化 readback 可解析 JSON/表格行并输出施工许可/合同/竣工 MATCHED/NOT_FOUND/B/C/D；项目经理变更先输出 NEEDS_BROWSER/D；2026-05-20 live canary 显示首页和电子证照入口 200 但字段面为 HTML 壳，正确归类 NEEDS_BROWSER/D，不把入口可达写成字段成功"
       - "Scrapling Stage4 bridge：GuangdongLocalFieldQueryProbe 默认 GET/readback 路由已桥接 ScraplingEscalatingRealPublicFetchTransport；HTTP/Dynamic/Stealthy 只按底层 escalation policy 触发，POST JSON/form、cookie/session 路径保持原逻辑，避免破坏广州住建等已验证接口"
-      - "RealPublicStage49PressureReport Stage4 release bridge：已把 real_public pressure 缺口自动投影成 stage4-release-adapter-bridge-plan.json；广州 live30 生成 60 条 plan-only 任务，字段查询 dry-run 消费 60 条，live8 canary 输出施工许可/竣工 NOT_FOUND/D 4 条、合同履约/项目经理变更 NEEDS_BROWSER/D 4 条，剩余 52 条按预算延后"
+      - "RealPublicStage49PressureReport Stage4 release bridge：已把 real_public pressure 缺口自动投影成 stage4-release-adapter-bridge-plan.json；广州 live30 attempt-all 生成 120 条 plan-only 任务，施工许可/竣工走广州住建，合同履约走 GDCIC openplatform，项目经理变更走 GDCIC HOME 授权浏览器路径"
       - "Stage1-6 全候选压测开关：run-guangzhou-real-public-stage4-9-pressure-v1.ps1 已支持 -AttemptAllStage16Candidates；2026-05-20 r2 live30 复跑 30/30 候选全部进入 Stage1-6，Stage1 未入选卡点清零，释放证据 bridge 扩为 120 条任务"
       - "Stage4 字段核验 live16：广州住建施工许可 MATCHED/B 1 条，广州公开源 NOT_FOUND/D 7 条，GDCIC 合同履约/项目经理变更 NEEDS_BROWSER/D 8 条，Stage6 状态回灌后 1 个项目可人工复核 B 级增强证据、29 个项目仍为释放证据缺口/阻断"
       - "GuangdongLocalFieldQueryProbe 顶层 summary：已直接输出 authorization_readiness_state_counts、operator_next_action_counts 和 operator_next_actions，不再只能通过 Stage6 回灌看登录态缺口"
@@ -80,7 +94,7 @@ priorities:
       - "小预算真实 canary 能说明广州住建/GDCIC 当前可达性和字段变化，不只停留在 fake-live"
       - "GDCIC 真实浏览器授权字段命中样本和广东/广州 Stage1-6 闭环回归后，才判断是否进入更大规模实战"
       - "批量实战回归账本第一版已能输出 stage1-6-readiness-table.json 和 stage1-6-gap-summary-table.json；广州近期 07 live30 已执行，下一步继续广东/广州，不切换当前候选项目主线到山东/湖北"
-    current_state: "IN_PROGRESS_GD_GZ_MINIMUM_LOOP_LIVE_CANARY_DONE; ZHEJIANG_FIELD_ADAPTER_V1_CANARY_DONE_D_ONLY; GDCIC_REAL_BROWSER_EXECUTOR_CANARY_DONE_BLOCKED_D; GDCIC_AUTHORIZED_SESSION_INPUT_DIAGNOSTICS_DONE_NOAUTH_CANARY_DONE; GDCIC_LOGIN_STATE_BOUNDARY_EXPLICIT; GDCIC_PROJECT_MANAGER_CHANGE_RELEASE_FIELDS_DONE; SICHUAN_FIELD_ADAPTER_V1_CANARY_DONE_MATCHED_B; JIANGSU_FIELD_ADAPTER_V1_CANARY_DONE_NEEDS_BROWSER_D; HUBEI_FIELD_ADAPTER_V1_CANARY_DONE_NEEDS_BROWSER_D; SHANDONG_FIELD_ADAPTER_V1_CANARY_DONE_NEEDS_BROWSER_D; HUNAN_FIELD_ADAPTER_V1_CANARY_DONE_NEEDS_BROWSER_D; HENAN_FIELD_ADAPTER_V1_CANARY_DONE_NEEDS_BROWSER_D; STAGE4_SCRAPLING_GET_BRIDGE_DONE; STAGE1_6_BATCH_READINESS_LEDGER_V1_DONE; GUANGZHOU_07_LIVE30_BATCH_REGRESSION_DONE_REVIEW_REQUIRED_15_OF_30; STAGE1_6_ATTEMPT_ALL_CANDIDATES_SWITCH_DONE; GUANGZHOU_07_LIVE30_ATTEMPT_ALL_DONE_30_OF_30; STAGE4_REAL_PUBLIC_RELEASE_ADAPTER_BRIDGE_V1_DONE_LIVE16_CANARY_DONE_MATCHED_B_1; STAGE3_PERSON_NAME_FALSE_POSITIVE_HARDENING_V2_DONE_YWTB_GAP8_ATTACHMENT_23_OF_23_LIVE2_R6_DONE; STAGE2_ATTACHMENT_TEXT_CACHE_DONE_GAP8_CACHE_R2_8_OF_8_REUSE_23_OF_23_ATTACHMENTS; YWTB_ATTACHMENT_CHALLENGE_RESOLVER_PRESSURE_SWITCH_DONE; STAGE4_FIELD_QUERY_RESULT_TO_STAGE6_STATUS_BACKFILL_V1_DONE_LIVE16_STATUS_PROJECTION_DONE; FIELD_QUERY_SUMMARY_AUTH_COUNTS_V1_DONE; STAGE1_6_READINESS_ROW_COMPAT_FIELDS_DONE"
+    current_state: "IN_PROGRESS_GD_GZ_MINIMUM_LOOP_LIVE_CANARY_DONE; ZHEJIANG_FIELD_ADAPTER_V1_CANARY_DONE_D_ONLY; GDCIC_OPENPLATFORM_PUBLICITY_PERIOD_FOLLOWUP_DONE_CANARY_MATCHED_PERSON_CERT_PERMIT; GDCIC_OPENPLATFORM_FIELD_QUERY_BACKFILL_DONE_MATCHED_CANARY_PII_REDACTED; GDCIC_OPENPLATFORM_TITLE_VARIANTS_DONE_PUBLICITY_R2_MATCHED; GDCIC_OPENPLATFORM_CONTRACT_BRIDGE_DEFAULT_DONE; GDCIC_OPENPLATFORM_UNION_COMPANY_VARIANTS_DONE; GDCIC_OPENPLATFORM_PROJECT_LEVEL_TARGET_MATCH_REQUIRED_DONE_LIVE3_PROJECTSTRICT_NOT_FOUND_D; GDCIC_OPENPLATFORM_STAGE6_SOURCE_HIT_PROJECTION_DONE; GDCIC_REAL_BROWSER_EXECUTOR_CANARY_DONE_BLOCKED_D; GDCIC_AUTHORIZED_SESSION_INPUT_DIAGNOSTICS_DONE_NOAUTH_CANARY_DONE; GDCIC_LOGIN_STATE_BOUNDARY_EXPLICIT; GDCIC_PROJECT_MANAGER_CHANGE_RELEASE_FIELDS_DONE; SICHUAN_FIELD_ADAPTER_V1_CANARY_DONE_MATCHED_B; JIANGSU_FIELD_ADAPTER_V1_CANARY_DONE_NEEDS_BROWSER_D; HUBEI_FIELD_ADAPTER_V1_CANARY_DONE_NEEDS_BROWSER_D; SHANDONG_FIELD_ADAPTER_V1_CANARY_DONE_NEEDS_BROWSER_D; HUNAN_FIELD_ADAPTER_V1_CANARY_DONE_NEEDS_BROWSER_D; HENAN_FIELD_ADAPTER_V1_CANARY_DONE_NEEDS_BROWSER_D; STAGE4_SCRAPLING_GET_BRIDGE_DONE; STAGE1_6_BATCH_READINESS_LEDGER_V1_DONE; GUANGZHOU_07_LIVE30_BATCH_REGRESSION_DONE_REVIEW_REQUIRED_15_OF_30; STAGE1_6_ATTEMPT_ALL_CANDIDATES_SWITCH_DONE; GUANGZHOU_07_LIVE30_ATTEMPT_ALL_DONE_30_OF_30; STAGE4_REAL_PUBLIC_RELEASE_ADAPTER_BRIDGE_V1_DONE_LIVE16_CANARY_DONE_MATCHED_B_1; STAGE3_PERSON_NAME_FALSE_POSITIVE_HARDENING_V2_DONE_YWTB_GAP8_ATTACHMENT_23_OF_23_LIVE2_R6_DONE; STAGE2_ATTACHMENT_TEXT_CACHE_DONE_GAP8_CACHE_R2_8_OF_8_REUSE_23_OF_23_ATTACHMENTS; YWTB_ATTACHMENT_CHALLENGE_RESOLVER_PRESSURE_SWITCH_DONE; STAGE4_FIELD_QUERY_RESULT_TO_STAGE6_STATUS_BACKFILL_V1_DONE_LIVE16_STATUS_PROJECTION_DONE; FIELD_QUERY_SUMMARY_AUTH_COUNTS_V1_DONE; STAGE1_6_READINESS_ROW_COMPAT_FIELDS_DONE"
   - priority_id: P1_STAGE1_3_REAL_WORLD_STABILITY
     rank: 3
     stage_scope: [Stage1, Stage2, Stage3]

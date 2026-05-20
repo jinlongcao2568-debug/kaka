@@ -230,6 +230,14 @@ class Stage6ReviewLoopRunnerTests(unittest.TestCase):
                 ["review_gdcic_authorized_query_terms_or_capture_more_precise_field_page"],
             )
             self.assertEqual(
+                records[0]["release_field_query_source_hit_summary_labels"],
+                ["广东建设信息网三库一平台匿名公开源；样例人员：王先耀；证书：粤1332006200810171；施工许可：441900202206061001"],
+            )
+            self.assertEqual(
+                records[0]["release_field_query_source_hit_summaries"][0]["pii_redaction_state"],
+                "ID_CARD_HASH_OR_REDACTED_ONLY",
+            )
+            self.assertEqual(
                 summary["release_field_query_authorization_state_counts"],
                 {"FIELD_SURFACE_REACHED_REVIEW_REQUIRED": 1},
             )
@@ -276,6 +284,10 @@ class Stage6ReviewLoopRunnerTests(unittest.TestCase):
                 {"B_ENHANCEMENT_OFFICIAL_READBACK": 1},
             )
             self.assertEqual(
+                records["PROJ-REL"]["release_field_query_source_hit_summary_labels"],
+                ["广东建设信息网三库一平台匿名公开源；样例人员：王先耀；证书：粤1332006200810171；施工许可：441900202206061001"],
+            )
+            self.assertEqual(
                 records["PROJ-REL"]["next_recommended_action"],
                 "manual_review_release_evidence_b_or_c_readback_before_stage7_preview",
             )
@@ -303,6 +315,34 @@ class Stage6ReviewLoopRunnerTests(unittest.TestCase):
             self.assertEqual(record["project_id"], "PROJ-REL")
             self.assertEqual(record["loop_terminal_state"], "RELEASE_FIELD_QUERY_REVIEW_READY")
             self.assertEqual(record["release_field_query_result_json"], str(root / "field-query" / "guangdong-local-field-query-probe-v1.json"))
+            self.assertEqual(record["release_field_query_source_hit_summaries"][0]["source_label"], "广东建设信息网三库一平台匿名公开源")
+
+    def test_standalone_public_source_matched_without_abcd_grade_is_review_ready(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_matched_field_query_without_downstream_grade(root / "field-query")
+
+            result = run_stage6_review_loop_runner(
+                dispatch_root=root / "missing-dispatch",
+                batch_closeout_root=root / "missing-closeout",
+                release_field_query_root=root / "field-query",
+                output_root=root / "out",
+                auto_discover_latest_batch_closeout=False,
+                created_at="2026-05-20T00:00:00+08:00",
+            )
+
+            record = result["manifest"]["project_status_table"]["records"][0]
+            self.assertEqual(record["release_field_query_adapter_result_state_counts"], {"MATCHED": 1})
+            self.assertEqual(record["release_field_query_state"], "RELEASE_FIELD_QUERY_PUBLIC_READBACK_REVIEW_READY")
+            self.assertEqual(record["loop_terminal_state"], "RELEASE_FIELD_QUERY_PUBLIC_READBACK_REVIEW_READY")
+            self.assertEqual(
+                record["next_recommended_action"],
+                "manual_review_public_field_readback_before_stage7_preview",
+            )
+            self.assertEqual(
+                record["release_field_query_source_hit_summary_labels"],
+                ["广东建设信息网三库一平台匿名公开源；样例人员：王先耀；证书：粤1332006200810171；施工许可：441900202206061001"],
+            )
 
     def test_standalone_release_field_query_imports_live_style_authorization_state(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -555,9 +595,17 @@ def _write_release_field_query_result(root: Path) -> None:
                         "field_query_task_id": "GD-FIELD-TASK-1",
                         "project_id": "PROJ-REL",
                         "project_name": "Release project",
+                        "source_profile_id": "GUANGDONG-GDCIC-SKYPT-OPENPLATFORM",
                         "adapter_result_state": "MATCHED",
                         "downstream_release_evidence_abcd_grade": "B_ENHANCEMENT_OFFICIAL_READBACK",
                         "field_summary": {
+                            "source_specific_adapter_id": "guangdong_gdcic_openplatform_public_api_query_v1",
+                            "gdcic_query_probe_state": "FIELD_READBACK_READY_PUBLIC_SOURCE",
+                            "gdcic_publicity_period_readback_ready_count": 1,
+                            "sample_person_names": ["王先耀"],
+                            "sample_certificate_nos": ["粤1332006200810171"],
+                            "sample_permit_codes": ["441900202206061001"],
+                            "sample_id_card_hashes": ["sha256:abc123"],
                             "authorized_session_input_state": "INJECTED_BROWSER_RUNNER",
                             "authorized_session_input_ready": True,
                             "authorization_readiness_state_counts": {
@@ -575,6 +623,51 @@ def _write_release_field_query_result(root: Path) -> None:
             "summary": {
                 "guangdong_local_field_query_task_count": 1,
                 "release_evidence_downstream_abcd_grade_counts": {"B_ENHANCEMENT_OFFICIAL_READBACK": 1},
+            },
+        },
+    )
+
+
+def _write_matched_field_query_without_downstream_grade(root: Path) -> None:
+    _write_json(
+        root / "guangdong-local-field-query-probe-v1.json",
+        {
+            "safe_to_execute": True,
+            "blocking_reasons": [],
+            "manifest": {
+                "manifest_id": "GD-FIELD-MATCHED-NO-ABCD",
+                "field_task_records": [
+                    {
+                        "field_query_task_id": "GD-FIELD-TASK-MATCHED-NO-ABCD",
+                        "project_id": "PROJ-MATCHED-NO-ABCD",
+                        "project_name": "Matched public readback",
+                        "source_profile_id": "GUANGDONG-GDCIC-SKYPT-OPENPLATFORM",
+                        "adapter_result_state": "MATCHED",
+                        "field_query_probe_state": "FIELD_READBACK_READY_PUBLIC_SOURCE",
+                        "field_summary": {
+                            "source_specific_adapter_id": "guangdong_gdcic_openplatform_public_api_query_v1",
+                            "gdcic_query_probe_state": "READBACK_READY_PUBLIC_SOURCE",
+                            "sample_person_names": ["廖伟文"],
+                        },
+                        "field_match_summary": {
+                            "source_specific_records": [
+                                {
+                                    "route_id": "publicity_period_project_person_by_project_id",
+                                    "record_type": "personnel_public_record",
+                                    "name": "王先耀",
+                                    "regCertNum": "粤1332006200810171",
+                                    "certNum": "441900202206061001",
+                                }
+                            ]
+                        },
+                        "customer_visible_allowed": False,
+                        "no_legal_conclusion": True,
+                    }
+                ],
+            },
+            "summary": {
+                "guangdong_local_field_query_task_count": 1,
+                "adapter_result_state_counts": {"MATCHED": 1},
             },
         },
     )

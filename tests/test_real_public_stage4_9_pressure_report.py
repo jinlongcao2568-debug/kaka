@@ -276,6 +276,35 @@ class RealPublicStage49PressureReportTests(unittest.TestCase):
             "skip_or_owner_select_candidate_for_manual_stage1_6_reopen",
         )
 
+    def test_stage4_release_bridge_uses_gdcic_openplatform_for_contract_performance(self) -> None:
+        run_result = _fake_run_result()
+        run_result["candidate_options"][1]["candidate_company"] = "(主)广东乙公司;(成)广东联合设计有限公司"
+        run_result["closed_loop_results"][1]["real_public_stage4_9_readback"]["remaining_real_world_gaps"] = [
+            "missing_stage4_5_source_type:contract_public_info",
+        ]
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            (root / "run-result.json").write_text(json.dumps(run_result, ensure_ascii=False, indent=2), encoding="utf-8")
+            report = build_real_public_stage4_9_pressure_report(
+                run_result_json=root / "run-result.json",
+                output_root=root,
+            )
+
+        bridge_rows = report["manifest"]["stage4_release_adapter_bridge_records"]
+        self.assertEqual(len(bridge_rows), 1)
+        row = bridge_rows[0]
+        self.assertEqual(row["release_evidence_source_type"], "contract_public_info")
+        self.assertEqual(row["release_evidence_target_type"], "contract_performance")
+        self.assertEqual(row["source_profile_id"], "GUANGDONG-GDCIC-SKYPT-OPENPLATFORM")
+        self.assertEqual(row["next_adapter"], "guangdong_gdcic_openplatform_public_api_query_v1")
+        self.assertEqual(row["runtime_status"], "PUBLIC_API_VERIFIED_ANONYMOUS_READBACK")
+        self.assertEqual(row["query_params"]["targetSourceTypes"], ["contract_public_info"])
+        self.assertEqual(
+            row["query_params"]["companyVariants"],
+            ["(主)广东乙公司;(成)广东联合设计有限公司", "广东乙公司", "广东联合设计有限公司"],
+        )
+
 
 def _fake_run_result(project_name: str = "广州真实候选项目") -> dict:
     return {

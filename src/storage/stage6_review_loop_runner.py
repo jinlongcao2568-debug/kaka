@@ -617,6 +617,8 @@ def _bootstrap_manual_project_status_records(records: list[Mapping[str, Any]]) -
                 "release_field_query_authorized_session_input_state_counts": {},
                 "release_field_query_authorization_state_counts": {},
                 "release_field_query_operator_next_actions": [],
+                "release_field_query_source_hit_summaries": [],
+                "release_field_query_source_hit_summary_labels": [],
                 "next_cycle_dispatch_task_type": "",
                 "next_cycle_dispatch_readiness_state": "",
                 "next_cycle_manual_only_action_family": str(record.get("action_family") or ""),
@@ -714,6 +716,12 @@ def _project_status_records(
                 ),
                 "release_field_query_operator_next_actions": _list(
                     release_field_query_result.get("operator_next_actions")
+                ),
+                "release_field_query_source_hit_summaries": _list(
+                    release_field_query_result.get("source_hit_summaries")
+                ),
+                "release_field_query_source_hit_summary_labels": _list(
+                    release_field_query_result.get("source_hit_summary_labels")
                 ),
                 "next_cycle_dispatch_task_type": str(next_dispatch_record.get("dispatch_task_type") or ""),
                 "next_cycle_dispatch_readiness_state": str(next_dispatch_record.get("dispatch_readiness_state") or ""),
@@ -839,6 +847,8 @@ def _release_field_query_missing_result(runner_record: Mapping[str, Any], result
         "authorized_session_input_state_counts": {},
         "authorization_readiness_state_counts": {},
         "operator_next_actions": [],
+        "source_hit_summaries": [],
+        "source_hit_summary_labels": [],
         "source_result_runner_execution_state": str(runner_record.get("execution_state") or ""),
     }
 
@@ -855,6 +865,7 @@ def _release_field_query_project_result(
     session_input_counts = _field_query_authorized_session_input_state_counts(tasks)
     authorization_counts = _field_query_authorization_counts(tasks)
     operator_next_actions = _field_query_operator_next_actions(tasks)
+    source_hit_summaries = _field_query_source_hit_summaries(tasks)
     return {
         "release_field_query_state": _release_field_query_state(adapter_counts, downstream_counts, task_count=len(tasks)),
         "result_json_path": result_path,
@@ -865,8 +876,163 @@ def _release_field_query_project_result(
         "authorized_session_input_state_counts": session_input_counts,
         "authorization_readiness_state_counts": authorization_counts,
         "operator_next_actions": operator_next_actions,
+        "source_hit_summaries": source_hit_summaries,
+        "source_hit_summary_labels": _field_query_source_hit_summary_labels(source_hit_summaries),
         "source_result_runner_execution_state": str(runner_record.get("execution_state") or ""),
     }
+
+
+def _field_query_source_hit_summaries(tasks: list[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    summaries: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for task in tasks:
+        field_summary = task.get("field_summary") if isinstance(task.get("field_summary"), Mapping) else {}
+        field_match_summary = (
+            task.get("field_match_summary") if isinstance(task.get("field_match_summary"), Mapping) else {}
+        )
+        adapter_id = _first_text(
+            task.get("source_specific_adapter_id"),
+            field_summary.get("source_specific_adapter_id") if isinstance(field_summary, Mapping) else "",
+            field_match_summary.get("source_specific_adapter_id") if isinstance(field_match_summary, Mapping) else "",
+        )
+        source_profile_id = _first_text(
+            task.get("source_profile_id"),
+            field_summary.get("source_profile_id") if isinstance(field_summary, Mapping) else "",
+            field_match_summary.get("source_profile_id") if isinstance(field_match_summary, Mapping) else "",
+        )
+        if not _is_gdcic_openplatform_source(adapter_id=adapter_id, source_profile_id=source_profile_id):
+            continue
+        adapter_state = str(task.get("adapter_result_state") or "").strip()
+        field_state = _first_text(
+            task.get("field_query_probe_state"),
+            field_summary.get("gdcic_query_probe_state") if isinstance(field_summary, Mapping) else "",
+            field_summary.get("field_query_probe_state") if isinstance(field_summary, Mapping) else "",
+        )
+        if adapter_state != "MATCHED" and field_state != "FIELD_READBACK_READY_PUBLIC_SOURCE":
+            continue
+        source_specific_records = [
+            record
+            for record in _list(field_match_summary.get("source_specific_records"))
+            if isinstance(record, Mapping)
+        ]
+        specific_person_names = _gdcic_openplatform_specific_person_names(source_specific_records)
+        specific_certificate_nos = _gdcic_openplatform_specific_certificate_nos(source_specific_records)
+        specific_permit_codes = _gdcic_openplatform_specific_permit_codes(source_specific_records)
+        person_names = _dedupe(specific_person_names) or _dedupe(
+            [
+                *_list(field_summary.get("sample_person_names") if isinstance(field_summary, Mapping) else []),
+                *_list(field_match_summary.get("matched_person_names") if isinstance(field_match_summary, Mapping) else []),
+                *_list(task.get("matched_person_names")),
+            ]
+        )
+        certificate_nos = _dedupe(
+            [
+                *specific_certificate_nos,
+                *_list(field_summary.get("sample_certificate_nos") if isinstance(field_summary, Mapping) else []),
+                *_list(field_match_summary.get("sample_certificate_nos") if isinstance(field_match_summary, Mapping) else []),
+            ]
+        )
+        permit_codes = _dedupe(
+            [
+                *specific_permit_codes,
+                *_list(field_summary.get("sample_permit_codes") if isinstance(field_summary, Mapping) else []),
+                *_list(field_match_summary.get("sample_permit_codes") if isinstance(field_match_summary, Mapping) else []),
+            ]
+        )
+        ready_count = _int(
+            field_summary.get("gdcic_publicity_period_readback_ready_count")
+            if isinstance(field_summary, Mapping)
+            else 0
+        )
+        key = "|".join([source_profile_id, adapter_id, ",".join(person_names), ",".join(certificate_nos), ",".join(permit_codes)])
+        if key in seen:
+            continue
+        seen.add(key)
+        summaries.append(
+            {
+                "source_profile_id": source_profile_id or "GUANGDONG-GDCIC-SKYPT-OPENPLATFORM",
+                "source_specific_adapter_id": adapter_id or "guangdong_gdcic_openplatform_public_api_query_v1",
+                "source_label": "广东建设信息网三库一平台匿名公开源",
+                "match_state": "MATCHED_PUBLIC_READBACK",
+                "match_label": "GDCIC 匿名公开源命中：公开记录可读回，目标字段仍需按记录类型复核",
+                "matched_person_names": person_names[:5],
+                "sample_person_names": person_names[:5],
+                "sample_certificate_nos": certificate_nos[:5],
+                "sample_permit_codes": permit_codes[:5],
+                "gdcic_publicity_period_readback_ready_count": ready_count,
+                "pii_redaction_state": "ID_CARD_HASH_OR_REDACTED_ONLY",
+                "customer_visible_allowed": False,
+                "no_legal_conclusion": True,
+                "query_miss_is_not_clearance": True,
+            }
+        )
+    return summaries
+
+
+def _gdcic_openplatform_specific_person_names(records: list[Mapping[str, Any]]) -> list[str]:
+    return _dedupe(
+        _first_text(record.get("name"), record.get("memberName"), record.get("personName"))
+        for record in records
+        if _is_gdcic_openplatform_specific_record(record)
+    )
+
+
+def _gdcic_openplatform_specific_certificate_nos(records: list[Mapping[str, Any]]) -> list[str]:
+    values: list[str] = []
+    for record in records:
+        if not _is_gdcic_openplatform_specific_record(record):
+            continue
+        values.extend(
+            [
+                _first_text(record.get("regCertNum"), record.get("certNum"), record.get("certNo"), record.get("certificateNo")),
+            ]
+        )
+    return _dedupe(values)
+
+
+def _gdcic_openplatform_specific_permit_codes(records: list[Mapping[str, Any]]) -> list[str]:
+    values: list[str] = []
+    for record in records:
+        if not _is_gdcic_openplatform_specific_record(record):
+            continue
+        values.extend(
+            [
+                _first_text(record.get("permitCode"), record.get("certNum"), record.get("施工许可证号")),
+            ]
+        )
+    return _dedupe(values)
+
+
+def _is_gdcic_openplatform_specific_record(record: Mapping[str, Any]) -> bool:
+    route_id = str(record.get("route_id") or "")
+    record_type = str(record.get("record_type") or "")
+    return route_id.startswith("publicity_period_") or record_type in {
+        "personnel_public_record",
+        "construction_permit_public_record",
+    }
+
+
+def _is_gdcic_openplatform_source(*, adapter_id: str, source_profile_id: str) -> bool:
+    return adapter_id == "guangdong_gdcic_openplatform_public_api_query_v1" or (
+        source_profile_id == "GUANGDONG-GDCIC-SKYPT-OPENPLATFORM"
+    )
+
+
+def _field_query_source_hit_summary_labels(source_hit_summaries: list[Mapping[str, Any]]) -> list[str]:
+    labels: list[str] = []
+    for summary in source_hit_summaries:
+        parts = [str(summary.get("source_label") or "公开源")]
+        person_names = _list(summary.get("matched_person_names"))
+        certificate_nos = _list(summary.get("sample_certificate_nos"))
+        permit_codes = _list(summary.get("sample_permit_codes"))
+        if person_names:
+            parts.append("样例人员：" + "、".join(str(name) for name in person_names[:3] if str(name or "").strip()))
+        if certificate_nos:
+            parts.append("证书：" + "、".join(str(no) for no in certificate_nos[:3] if str(no or "").strip()))
+        if permit_codes:
+            parts.append("施工许可：" + "、".join(str(code) for code in permit_codes[:3] if str(code or "").strip()))
+        labels.append("；".join(part for part in parts if part))
+    return _dedupe(labels)
 
 
 def _field_query_authorization_counts(tasks: list[Mapping[str, Any]]) -> dict[str, int]:
@@ -926,6 +1092,8 @@ def _release_field_query_state(
         adapter_counts.get("BLOCKED") or 0
     ) or int(adapter_counts.get("NOT_FOUND") or 0):
         return "RELEASE_FIELD_QUERY_GAP_OR_BLOCKER_REVIEW"
+    if int(adapter_counts.get("MATCHED") or 0):
+        return "RELEASE_FIELD_QUERY_PUBLIC_READBACK_REVIEW_READY"
     return "RELEASE_FIELD_QUERY_PENDING_OR_NEEDS_BROWSER"
 
 
@@ -1057,6 +1225,8 @@ def _loop_next_action(
     if str(next_manual_record.get("dispatch_block_reason") or "").strip():
         return "manual_review_or_new_source_override_required_before_retry"
     release_state = str(release_field_query_result.get("release_field_query_state") or "").strip()
+    if release_state == "RELEASE_FIELD_QUERY_PUBLIC_READBACK_REVIEW_READY":
+        return "manual_review_public_field_readback_before_stage7_preview"
     if release_state == "RELEASE_FIELD_QUERY_REVIEW_READY":
         return "manual_review_release_evidence_b_or_c_readback_before_stage7_preview"
     if release_state == "RELEASE_FIELD_QUERY_GAP_OR_BLOCKER_REVIEW":

@@ -13,6 +13,11 @@ from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping
 
 from shared.utils import utc_now_iso
+from storage.guangdong_gdcic_query_probe import (
+    GDCIC_API_BASE_URL,
+    GDCIC_OPENPLATFORM_PAGE_URL,
+    _execute_live_query as _execute_gdcic_openplatform_live_query,
+)
 
 
 GUANGDONG_LOCAL_FIELD_QUERY_PROBE_KIND = "guangdong_local_field_query_probe_v1_manifest"
@@ -33,8 +38,10 @@ DEFAULT_GDCIC_BROWSER_AUTHORIZED_READBACK_ROOT = Path(
 )
 DEFAULT_OUTPUT_ROOT = Path("tmp/evaluation-real-samples/guangdong-local-field-query-probe-v1")
 
+GUANGDONG_GDCIC_SKYPT_OPENPLATFORM_PROFILE_ID = "GUANGDONG-GDCIC-SKYPT-OPENPLATFORM"
+GUANGDONG_GDCIC_SKYPT_OPENPLATFORM_ADAPTER_ID = "guangdong_gdcic_openplatform_public_api_query_v1"
 DELEGATED_PROFILE_ADAPTERS = {
-    "GUANGDONG-GDCIC-SKYPT-OPENPLATFORM": "guangdong_gdcic_query_probe_v1",
+    GUANGDONG_GDCIC_SKYPT_OPENPLATFORM_PROFILE_ID: "guangdong_gdcic_query_probe_v1",
 }
 
 GUANGZHOU_ZFCJ_PROFILE_ID = "GUANGZHOU-ZFCJ-CREDIT-DOUBLE-PUBLICITY"
@@ -215,14 +222,15 @@ GUANGDONG_RELEASE_TARGET_SOURCE_OVERRIDES = {
         "runtime_status": "PUBLIC_POST_JSON_API_VERIFIED",
     },
     "contract_performance": {
-        "source_profile_id": GUANGDONG_GDCIC_HOME_PROFILE_ID,
-        "source_name": "广东建设信息网 / 招投标及合同履约监管系统",
-        "source_url": GUANGDONG_GDCIC_HOME_BASE_URL,
-        "source_family": "industry_authority_filing_page",
-        "source_entry_id": "GD-GDCIC-CONTRACT-PERFORMANCE",
-        "subsource_id": "gd_gdcic_contract_performance_public_page",
-        "next_adapter": "guangdong_gdcic_contract_performance_public_page_v1",
-        "runtime_status": "PUBLIC_PAGE_QUERY_WITH_CONTRACT_SYSTEM_SSO_CHECK",
+        "source_profile_id": GUANGDONG_GDCIC_SKYPT_OPENPLATFORM_PROFILE_ID,
+        "source_name": "广东建设信息网 / 三库一平台项目合同公开信息",
+        "source_url": GDCIC_OPENPLATFORM_PAGE_URL,
+        "api_url": GDCIC_API_BASE_URL,
+        "source_family": "provincial_construction_openplatform_public_api",
+        "source_entry_id": "GD-GDCIC-SKYPT-OPENPLATFORM",
+        "subsource_id": "gd_gdcic_openplatform_publicity_contract_public_api",
+        "next_adapter": GUANGDONG_GDCIC_SKYPT_OPENPLATFORM_ADAPTER_ID,
+        "runtime_status": "PUBLIC_API_VERIFIED_ANONYMOUS_READBACK",
     },
     "project_manager_change_notice": {
         "source_profile_id": GUANGDONG_GDCIC_HOME_PROFILE_ID,
@@ -631,12 +639,12 @@ def _p13b_query_params(task: Mapping[str, Any]) -> dict[str, Any]:
     certificate_no = str(raw_params.get("certificateNo") or "")
     company_variants = _dedupe([
         *_list(raw_params.get("companyVariants")),
-        company_name,
+        *_company_name_variants(company_name),
     ])
     keywords = _dedupe(
         [
             project_name,
-            company_name,
+            *company_variants,
             person_name,
             certificate_no,
             *_list(raw_params.get("keywords")),
@@ -673,6 +681,10 @@ def _release_plan_query_params(task: Mapping[str, Any]) -> dict[str, Any]:
         or ""
     )
     certificate_no = str(raw_params.get("certificateNo") or task.get("certificate_no") or "")
+    company_variants = _dedupe([
+        *_list(raw_params.get("companyVariants")),
+        *_company_name_variants(company_name),
+    ])
     target_source_types = RELEASE_TARGET_TO_FIELD_SOURCE_TYPES.get(
         str(task.get("release_evidence_target_type") or ""),
         [str(task.get("release_evidence_target_type") or "")] if task.get("release_evidence_target_type") else [],
@@ -682,15 +694,47 @@ def _release_plan_query_params(task: Mapping[str, Any]) -> dict[str, Any]:
         "projectId": project_id,
         "projectName": project_name,
         "companyName": company_name,
-        "companyVariants": _dedupe([*_list(raw_params.get("companyVariants")), company_name]),
+        "companyVariants": company_variants,
         "personName": person_name,
         "certificateNo": certificate_no,
         "sourceProfileId": str(task.get("source_profile_id") or raw_params.get("sourceProfileId") or ""),
         "targetSourceTypes": target_source_types,
         "releaseEvidenceTargetType": str(task.get("release_evidence_target_type") or ""),
         "triggerSourceUrl": str(raw_params.get("triggerSourceUrl") or task.get("trigger_source_url") or ""),
-        "keywords": _dedupe([project_name, company_name, person_name, certificate_no, *_list(raw_params.get("keywords"))]),
+        "keywords": _dedupe([project_name, *company_variants, person_name, certificate_no, *_list(raw_params.get("keywords"))]),
     }
+
+
+def _company_name_variants(value: Any) -> list[str]:
+    text = str(value or "").strip()
+    if not text:
+        return []
+    normalized = (
+        text.replace("（", "(")
+        .replace("）", ")")
+        .replace("；", ";")
+        .replace("，", ";")
+        .replace(",", ";")
+        .replace("、", ";")
+    )
+    variants = [text]
+    for part in normalized.split(";"):
+        item = part.strip()
+        for marker in (
+            "(主)",
+            "(成)",
+            "(牵头)",
+            "(联合体成员)",
+            "主:",
+            "成:",
+            "主：",
+            "成：",
+        ):
+            item = item.replace(marker, "")
+        item = item.strip(" -_，,。；;")
+        if len(item) >= 4:
+            variants.append(item)
+    return _dedupe(variants)
 
 
 def _field_adapter_status_for_profile(source_profile_id: str) -> str:
@@ -739,7 +783,24 @@ def _field_task_records_from_local_verification(
         query_params = dict(task.get("query_params") or {})
         route_plan = _route_plan_for_task(task, query_params)
         if profile_id in DELEGATED_PROFILE_ADAPTERS:
-            readback = _delegated_readback(profile_id, route_plan)
+            if enable_live_public_query and profile_id == GUANGDONG_GDCIC_SKYPT_OPENPLATFORM_PROFILE_ID:
+                cache_key = _cache_key(task, route_plan)
+                if cache_key in cache:
+                    readback = _copy_jsonable(cache[cache_key])
+                    readback["field_query_cache_hit"] = True
+                elif max_live_tasks is not None and live_attempted >= max_live_tasks:
+                    readback = _live_deferred_readback(max_live_tasks, route_plan)
+                    cache[cache_key] = _copy_jsonable(readback)
+                else:
+                    live_attempted += 1
+                    readback = _execute_guangdong_gdcic_openplatform_delegated_field_query(
+                        task,
+                        route_plan,
+                        http_getter=http_getter,
+                    )
+                    cache[cache_key] = _copy_jsonable(readback)
+            else:
+                readback = _delegated_readback(profile_id, route_plan)
         elif enable_live_public_query:
             cache_key = _cache_key(task, route_plan)
             if cache_key in cache:
@@ -1183,6 +1244,97 @@ def _route_plan_for_task(task: Mapping[str, Any], query_params: Mapping[str, Any
                 _guangdong_tzxm_publicity_list_route("sp", "7", "project_review_notice", keywords),
                 _guangdong_tzxm_publicity_list_route("jn", "13", "energy_saving_review_notice", keywords),
             ]
+        )
+    elif profile_id == GUANGDONG_GDCIC_SKYPT_OPENPLATFORM_PROFILE_ID:
+        project_keyword = _clean_project_title(query_params.get("projectName"))
+        company_keywords = _dedupe(
+            [
+                *_list(query_params.get("companyVariants")),
+                str(query_params.get("companyName") or "").strip(),
+            ]
+        )[:3]
+        person_keyword = str(query_params.get("personName") or "").strip()
+        wants_all = not target_source_types
+        wants_construction = wants_all or "construction_permit" in target_source_types
+        wants_contract = wants_all or bool(target_source_types & {"contract_public_info", "contract_performance"})
+        wants_completion = wants_all or bool(
+            target_source_types
+            & {"completion_filing", "completion_acceptance", "completion_acceptance_or_completion_filing"}
+        )
+        routes.extend(
+            [
+                _route("source_home", source_url or GDCIC_OPENPLATFORM_PAGE_URL, "source_home_probe", keywords),
+                _guangdong_gdcic_openplatform_route(
+                    "gd_gdcic_openplatform_project_lookup",
+                    "/openplatform/project/list",
+                    {"projectName": project_keyword},
+                    keywords,
+                    route_group="gd_gdcic_openplatform_project_lookup",
+                ),
+                _guangdong_gdcic_openplatform_route(
+                    "gd_gdcic_openplatform_person_by_name",
+                    "/openplatform/personInGd/list",
+                    {"name": person_keyword},
+                    keywords,
+                    route_group="gd_gdcic_openplatform_person_directory",
+                ),
+            ]
+        )
+        for idx, company_keyword in enumerate(company_keywords):
+            routes.append(
+                _guangdong_gdcic_openplatform_route(
+                    "gd_gdcic_openplatform_project_by_company"
+                    if idx == 0
+                    else f"gd_gdcic_openplatform_project_by_company_variant_{idx + 1}",
+                    "/openplatform/project/list",
+                    {"projectName": company_keyword},
+                    keywords,
+                    route_group="gd_gdcic_openplatform_project_lookup",
+                )
+            )
+        if wants_contract:
+            routes.append(
+                _guangdong_gdcic_openplatform_route(
+                    "gd_gdcic_openplatform_publicity_contract_followup",
+                    "/openplatform/publicityPeriod/getContract",
+                    {"id": "{project_id_from_project_lookup}"},
+                    keywords,
+                    route_group="gd_gdcic_openplatform_publicity_period",
+                    method="POST",
+                    plan_only_template=True,
+                )
+            )
+        if wants_construction:
+            routes.append(
+                _guangdong_gdcic_openplatform_route(
+                    "gd_gdcic_openplatform_publicity_construction_permit_followup",
+                    "/openplatform/publicityPeriod/getConstructPermitInfo",
+                    {"id": "{project_id_from_project_lookup}"},
+                    keywords,
+                    route_group="gd_gdcic_openplatform_publicity_period",
+                    plan_only_template=True,
+                )
+            )
+        if wants_completion:
+            routes.append(
+                _guangdong_gdcic_openplatform_route(
+                    "gd_gdcic_openplatform_publicity_completion_followup",
+                    "/openplatform/publicityPeriod/getFinishProjectInfo",
+                    {"id": "{project_id_from_project_lookup}"},
+                    keywords,
+                    route_group="gd_gdcic_openplatform_publicity_period",
+                    plan_only_template=True,
+                )
+            )
+        routes.append(
+            _guangdong_gdcic_openplatform_route(
+                "gd_gdcic_openplatform_publicity_project_person_followup",
+                "/openplatform/publicityPeriod/listApplyProjectPerson",
+                {"id": "{project_id_from_project_lookup}"},
+                keywords,
+                route_group="gd_gdcic_openplatform_publicity_period",
+                plan_only_template=True,
+            )
         )
     elif profile_id == GUANGDONG_GDCIC_HOME_PROFILE_ID:
         company_keyword = str(query_params.get("companyName") or "").strip()
@@ -1689,6 +1841,30 @@ def _route(route_id: str, url: str, route_group: str, keywords: list[str]) -> di
         "url": url,
         "keyword_count": len(keywords),
         "query_keyword_probe": keywords[:5],
+    }
+
+
+def _guangdong_gdcic_openplatform_route(
+    route_id: str,
+    endpoint: str,
+    params: Mapping[str, Any],
+    query_keywords: list[str],
+    *,
+    route_group: str,
+    method: str = "GET",
+    plan_only_template: bool = False,
+) -> dict[str, Any]:
+    return {
+        "route_id": route_id,
+        "route_group": route_group,
+        "url": f"{GDCIC_API_BASE_URL}{endpoint}",
+        "method": method,
+        "params": {str(key): str(value) for key, value in params.items() if str(value or "").strip()},
+        "keyword_count": len(query_keywords),
+        "query_keyword_probe": query_keywords[:5],
+        "source_specific_adapter_id": GUANGDONG_GDCIC_SKYPT_OPENPLATFORM_ADAPTER_ID,
+        "delegated_adapter_id": DELEGATED_PROFILE_ADAPTERS[GUANGDONG_GDCIC_SKYPT_OPENPLATFORM_PROFILE_ID],
+        "plan_only_template": bool(plan_only_template),
     }
 
 
@@ -2371,6 +2547,272 @@ def _delegated_readback(profile_id: str, route_plan: list[Mapping[str, Any]]) ->
         "blocker_taxonomy": [],
         "delegated_adapter_id": DELEGATED_PROFILE_ADAPTERS[profile_id],
     }
+
+
+def _execute_guangdong_gdcic_openplatform_delegated_field_query(
+    task: Mapping[str, Any],
+    route_plan: list[Mapping[str, Any]],
+    *,
+    http_getter: HttpGetter | None,
+) -> dict[str, Any]:
+    getter = _gdcic_openplatform_http_getter(http_getter or _default_http_getter)
+    query_params = _gdcic_openplatform_query_params(task)
+    gdcic_result = _execute_gdcic_openplatform_live_query(
+        str(task.get("source_url") or GDCIC_OPENPLATFORM_PAGE_URL),
+        query_params,
+        http_getter=getter,
+    )
+    gdcic_state = str(gdcic_result.get("query_probe_state") or "")
+    route_attempts = _gdcic_openplatform_route_attempts(gdcic_result)
+    source_specific_records = _gdcic_openplatform_source_specific_records(route_attempts)
+    target_source_types = _target_source_type_set(task, query_params) if _is_release_evidence_task(task) else set()
+    target_specific_records = _gdcic_openplatform_target_specific_records(
+        source_specific_records,
+        target_source_types,
+        query_params,
+    )
+    field_summary = {
+        **dict(gdcic_result.get("field_summary") or {}),
+        "source_specific_adapter_id": GUANGDONG_GDCIC_SKYPT_OPENPLATFORM_ADAPTER_ID,
+        "delegated_adapter_id": DELEGATED_PROFILE_ADAPTERS[GUANGDONG_GDCIC_SKYPT_OPENPLATFORM_PROFILE_ID],
+        "gdcic_query_probe_state": gdcic_state,
+        "gdcic_publicity_period_readback_ready_count": sum(
+            1
+            for route in route_attempts
+            if str(route.get("route_group") or "") == "project_publicity_period"
+            and str(route.get("route_state") or "") == "READBACK_READY_PUBLIC_SOURCE"
+        ),
+        "gdcic_target_specific_record_count": len(target_specific_records),
+    }
+    field_match_summary = {
+        "source_specific_records": target_specific_records[:10],
+        "context_source_specific_records": source_specific_records[:10],
+        "query_miss_is_not_clearance": True,
+        "delegated_adapter_id": DELEGATED_PROFILE_ADAPTERS[GUANGDONG_GDCIC_SKYPT_OPENPLATFORM_PROFILE_ID],
+        "gdcic_reachability_diagnostic_state": str(gdcic_result.get("reachability_diagnostic_state") or ""),
+        "target_source_types": sorted(target_source_types),
+        "target_specific_record_required": bool(target_source_types),
+    }
+    status_code = _int(gdcic_result.get("readback_status_code")) or None
+    if gdcic_state == "READBACK_READY_PUBLIC_SOURCE" and (not target_source_types or target_specific_records):
+        return {
+            "field_query_probe_state": "FIELD_READBACK_READY_PUBLIC_SOURCE",
+            "field_readback_state": "PUBLIC_SOURCE_STRUCTURED_READBACK_READY",
+            "readback_ready": True,
+            "readback_status_code": status_code or 200,
+            "field_summary": field_summary,
+            "field_match_summary": field_match_summary,
+            "route_plan": list(route_plan),
+            "route_attempts": route_attempts,
+            "blocker_taxonomy": _list(gdcic_result.get("blocker_taxonomy")),
+            "delegated_adapter_id": DELEGATED_PROFILE_ADAPTERS[GUANGDONG_GDCIC_SKYPT_OPENPLATFORM_PROFILE_ID],
+        }
+    if gdcic_state in {"READBACK_READY_PUBLIC_SOURCE", "REVIEW_REQUIRED"}:
+        return {
+            "field_query_probe_state": "NO_FIELD_MATCH_REVIEW_REQUIRED",
+            "field_readback_state": "PUBLIC_SOURCE_QUERIED_NO_STRUCTURED_FIELD_MATCH",
+            "readback_ready": False,
+            "readback_status_code": status_code,
+            "field_summary": field_summary,
+            "field_match_summary": field_match_summary,
+            "route_plan": list(route_plan),
+            "route_attempts": route_attempts,
+            "blocker_taxonomy": _list(gdcic_result.get("blocker_taxonomy"))
+            or ["gdcic_openplatform_target_source_type_no_match_review"],
+            "delegated_adapter_id": DELEGATED_PROFILE_ADAPTERS[GUANGDONG_GDCIC_SKYPT_OPENPLATFORM_PROFILE_ID],
+        }
+    if gdcic_state == "LIVE_PUBLIC_QUERY_DEFERRED_BY_LIMIT":
+        return _live_deferred_readback(0, route_plan)
+    return {
+        "field_query_probe_state": (
+            gdcic_state if gdcic_state.startswith("FAIL_CLOSED") else "FAIL_CLOSED_PUBLIC_SOURCE_BLOCKED"
+        ),
+        "field_readback_state": "FIELD_READBACK_BLOCKED",
+        "readback_ready": False,
+        "readback_status_code": status_code,
+        "field_summary": field_summary,
+        "field_match_summary": field_match_summary,
+        "route_plan": list(route_plan),
+        "route_attempts": route_attempts,
+        "blocker_taxonomy": _list(gdcic_result.get("blocker_taxonomy"))
+        or ["gdcic_openplatform_public_source_blocked"],
+        "delegated_adapter_id": DELEGATED_PROFILE_ADAPTERS[GUANGDONG_GDCIC_SKYPT_OPENPLATFORM_PROFILE_ID],
+    }
+
+
+def _gdcic_openplatform_query_params(task: Mapping[str, Any]) -> dict[str, Any]:
+    query_params = dict(task.get("query_params") or {})
+    project_name = _first_text(
+        [
+            query_params.get("projectName"),
+            task.get("project_name"),
+        ]
+    )
+    variants = _dedupe(
+        [
+            *_list(query_params.get("projectNameVariants")),
+            *_gdcic_openplatform_project_title_variants(project_name),
+        ]
+    )
+    if project_name and not query_params.get("projectName"):
+        query_params["projectName"] = project_name
+    if variants:
+        query_params["projectNameVariants"] = variants
+    return query_params
+
+
+def _gdcic_openplatform_project_title_variants(value: Any) -> list[str]:
+    text = _clean_project_title(value)
+    if not text:
+        return []
+    variants = [text]
+    for separator in ("、", "，", ",", "；", ";", "及"):
+        if separator in text:
+            head = _clean_project_title(text.split(separator, 1)[0])
+            if len(head) >= 6:
+                variants.append(head)
+    for suffix in ("生产建设项目", "建设项目", "项目"):
+        if text.endswith(suffix) and len(text) - len(suffix) >= 6:
+            variants.append(_clean_project_title(text[: -len(suffix)]))
+    return _dedupe(variants)
+
+
+def _gdcic_openplatform_http_getter(getter: HttpGetter) -> HttpGetter:
+    def wrapped(url: str, params: Mapping[str, Any]) -> Mapping[str, Any]:
+        translated = dict(params or {})
+        if "__method" in translated and "_method" not in translated:
+            translated["_method"] = translated.pop("__method")
+        response = dict(getter(url, translated))
+        if "payload" not in response and "json_payload" in response:
+            response["payload"] = response.get("json_payload")
+        return response
+
+    return wrapped
+
+
+def _gdcic_openplatform_route_attempts(gdcic_result: Mapping[str, Any]) -> list[dict[str, Any]]:
+    attempts: list[dict[str, Any]] = []
+    for route in _list(gdcic_result.get("route_attempts")):
+        if not isinstance(route, Mapping):
+            continue
+        attempt = dict(route)
+        attempt.setdefault("source_specific_adapter_id", GUANGDONG_GDCIC_SKYPT_OPENPLATFORM_ADAPTER_ID)
+        attempt.setdefault("delegated_adapter_id", DELEGATED_PROFILE_ADAPTERS[GUANGDONG_GDCIC_SKYPT_OPENPLATFORM_PROFILE_ID])
+        if "url" not in attempt and attempt.get("api_url"):
+            attempt["url"] = str(attempt.get("api_url") or "")
+        attempts.append(attempt)
+    return attempts
+
+
+def _gdcic_openplatform_source_specific_records(route_attempts: list[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    records: list[dict[str, Any]] = []
+    for attempt in route_attempts:
+        for record in _list(attempt.get("sample_records")):
+            if not isinstance(record, Mapping):
+                continue
+            records.append(
+                {
+                    **dict(record),
+                    "route_id": str(attempt.get("route_id") or ""),
+                    "record_type": _gdcic_openplatform_record_type(attempt),
+                    "source_specific_adapter_id": GUANGDONG_GDCIC_SKYPT_OPENPLATFORM_ADAPTER_ID,
+                    "source_profile_id": GUANGDONG_GDCIC_SKYPT_OPENPLATFORM_PROFILE_ID,
+                    "source_url": str(attempt.get("api_url") or attempt.get("url") or ""),
+                }
+            )
+    return records
+
+
+def _gdcic_openplatform_target_specific_records(
+    records: list[Mapping[str, Any]],
+    target_source_types: set[str],
+    query_params: Mapping[str, Any],
+) -> list[dict[str, Any]]:
+    if not target_source_types:
+        return [dict(record) for record in records]
+    allowed_record_types: set[str] = set()
+    if target_source_types & {"contract_public_info", "contract_performance"}:
+        allowed_record_types.add("contract_public_record")
+    if "construction_permit" in target_source_types:
+        allowed_record_types.add("construction_permit_public_record")
+    if target_source_types & {"completion_filing", "completion_acceptance", "completion_acceptance_or_completion_filing"}:
+        allowed_record_types.add("completion_filing_public_record")
+    if "personnel_public_record" in target_source_types:
+        allowed_record_types.add("personnel_public_record")
+    if "performance_public_record" in target_source_types:
+        allowed_record_types.update({"project_public_record", "contract_public_record"})
+    if not allowed_record_types:
+        return []
+    project_names = _gdcic_openplatform_target_project_names(query_params)
+    out: list[dict[str, Any]] = []
+    for record in records:
+        record_type = str(record.get("record_type") or "")
+        if record_type not in allowed_record_types:
+            continue
+        if record_type in {
+            "contract_public_record",
+            "construction_permit_public_record",
+            "completion_filing_public_record",
+        } and not _gdcic_openplatform_record_project_matches(record, project_names):
+            continue
+        out.append(dict(record))
+    return out
+
+
+def _gdcic_openplatform_target_project_names(query_params: Mapping[str, Any]) -> list[str]:
+    return _dedupe(
+        [
+            *_list(query_params.get("projectNameVariants")),
+            *_gdcic_openplatform_project_title_variants(query_params.get("projectName")),
+        ]
+    )
+
+
+def _gdcic_openplatform_record_project_matches(record: Mapping[str, Any], project_names: list[str]) -> bool:
+    record_project = _clean_project_title(
+        _first_text(
+            [
+                record.get("projectName"),
+                record.get("project_name"),
+                record.get("prjName"),
+                record.get("工程名称"),
+                record.get("项目名称"),
+            ]
+        )
+    )
+    record_compact = _compact_project_name(record_project)
+    if not record_compact:
+        return False
+    for project_name in project_names:
+        target_compact = _compact_project_name(project_name)
+        if not target_compact:
+            continue
+        if record_compact == target_compact:
+            return True
+        if len(record_compact) >= 8 and len(target_compact) >= 8 and (
+            record_compact in target_compact or target_compact in record_compact
+        ):
+            return True
+    return False
+
+
+def _compact_project_name(value: Any) -> str:
+    return re.sub(r"[\s\-_—（）()，,。；;、:：]+", "", _clean_project_title(value))
+
+
+def _gdcic_openplatform_record_type(attempt: Mapping[str, Any]) -> str:
+    route_id = str(attempt.get("route_id") or "")
+    if "project_person" in route_id or "person" in route_id:
+        return "personnel_public_record"
+    if "construction_permit" in route_id:
+        return "construction_permit_public_record"
+    if "completion" in route_id or "finish" in route_id:
+        return "completion_filing_public_record"
+    if "contract" in route_id:
+        return "contract_public_record"
+    if "project" in route_id:
+        return "project_public_record"
+    return "gdcic_openplatform_public_record"
 
 
 def _plan_only_readback(route_plan: list[Mapping[str, Any]]) -> dict[str, Any]:
@@ -7346,6 +7788,18 @@ def _summary(
             for task in field_task_records
             if str(task.get("source_profile_id") or "").upper() == GUANGDONG_GDCIC_HOME_PROFILE_ID
             and str(task.get("field_query_probe_state") or "") == "FIELD_READBACK_READY_PUBLIC_SOURCE"
+        ),
+        "guangdong_gdcic_openplatform_readback_ready_count": sum(
+            1
+            for task in field_task_records
+            if str(task.get("source_profile_id") or "").upper() == GUANGDONG_GDCIC_SKYPT_OPENPLATFORM_PROFILE_ID
+            and str(task.get("field_query_probe_state") or "") == "FIELD_READBACK_READY_PUBLIC_SOURCE"
+        ),
+        "guangdong_gdcic_openplatform_publicity_period_readback_ready_count": sum(
+            _int((task.get("field_summary") or {}).get("gdcic_publicity_period_readback_ready_count"))
+            for task in field_task_records
+            if str(task.get("source_profile_id") or "").upper() == GUANGDONG_GDCIC_SKYPT_OPENPLATFORM_PROFILE_ID
+            and isinstance(task.get("field_summary"), Mapping)
         ),
         "guangdong_gdcic_browser_authorized_readback_ready_count": sum(
             1

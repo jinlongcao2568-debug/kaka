@@ -81,6 +81,11 @@ class Stage6ReviewLoopOperatorProjectionTests(unittest.TestCase):
             rows["PROJ-C"]["release_field_query_operator_next_actions"],
             ["provide_gdcic_authorized_storage_state_or_user_data_dir_then_rerun"],
         )
+        self.assertEqual(
+            rows["PROJ-C"]["release_field_query_source_hit_summary_labels"],
+            ["广东建设信息网三库一平台匿名公开源；样例人员：王先耀；证书：粤1332006200810171；施工许可：441900202206061001"],
+        )
+        self.assertEqual(projection["summary"]["release_field_query_source_hit_summary_count"], 1)
         self.assertIn(
             "提供 GDCIC 已授权浏览器会话后重跑。",
             rows["PROJ-C"]["release_field_query_operator_next_action_labels"],
@@ -180,6 +185,28 @@ class Stage6ReviewLoopOperatorProjectionTests(unittest.TestCase):
             row["release_field_query_operator_next_action_labels"][0],
         )
 
+    def test_public_field_readback_review_state_has_distinct_label(self) -> None:
+        projection = build_stage6_review_loop_operator_projection(
+            {
+                "summary": {},
+                "records": [
+                    {
+                        "project_id": "PROJ-PUBLIC-READBACK",
+                        "project_name": "Public readback project",
+                        "loop_terminal_state": "RELEASE_FIELD_QUERY_PUBLIC_READBACK_REVIEW_READY",
+                        "next_recommended_action": "manual_review_public_field_readback_before_stage7_preview",
+                        "release_field_query_state": "RELEASE_FIELD_QUERY_PUBLIC_READBACK_REVIEW_READY",
+                        "release_field_query_adapter_result_state_counts": {"MATCHED": 1},
+                    }
+                ],
+            },
+            created_at="2026-05-20T12:00:00+08:00",
+        )
+
+        row = projection["project_status_rows"][0]
+        self.assertIn("公开源字段已有读回", row["owner_status_label"])
+        self.assertIn("补齐证据等级", row["owner_next_action_label"])
+
     def test_status_table_options_summarize_multi_project_batches(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -276,6 +303,21 @@ def _status_table_payload() -> dict:
                 "release_field_query_authorization_state_counts": {"LOGIN_OR_SSO_REQUIRED": 1},
                 "release_field_query_operator_next_actions": [
                     "provide_gdcic_authorized_storage_state_or_user_data_dir_then_rerun"
+                ],
+                "release_field_query_source_hit_summaries": [
+                    {
+                        "source_profile_id": "GUANGDONG-GDCIC-SKYPT-OPENPLATFORM",
+                        "source_specific_adapter_id": "guangdong_gdcic_openplatform_public_api_query_v1",
+                        "source_label": "广东建设信息网三库一平台匿名公开源",
+                        "match_state": "MATCHED_PUBLIC_READBACK",
+                        "matched_person_names": ["王先耀"],
+                        "sample_certificate_nos": ["粤1332006200810171"],
+                        "sample_permit_codes": ["441900202206061001"],
+                        "pii_redaction_state": "ID_CARD_HASH_OR_REDACTED_ONLY",
+                    }
+                ],
+                "release_field_query_source_hit_summary_labels": [
+                    "广东建设信息网三库一平台匿名公开源；样例人员：王先耀；证书：粤1332006200810171；施工许可：441900202206061001"
                 ],
             },
         ],

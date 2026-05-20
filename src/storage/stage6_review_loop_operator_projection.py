@@ -155,6 +155,9 @@ def build_stage6_review_loop_operator_projection(
         "blocked_or_manual_review_count": sum(
             1 for row in project_rows if row["loop_terminal_state"] in BLOCKED_OR_MANUAL_STATES
         ),
+        "release_field_query_source_hit_summary_count": sum(
+            len(_list(row.get("release_field_query_source_hit_summaries"))) for row in project_rows
+        ),
         "next_cycle_dispatch_ready_count": sum(
             1 for row in project_rows if row["loop_terminal_state"] == "NEXT_CYCLE_DISPATCH_READY"
         ),
@@ -434,6 +437,14 @@ def _project_row(record: Mapping[str, Any]) -> dict[str, Any]:
             _release_field_query_operator_action_label(action)
             for action in _list(record.get("release_field_query_operator_next_actions"))
         ],
+        "release_field_query_source_hit_summaries": [
+            dict(summary)
+            for summary in _list(record.get("release_field_query_source_hit_summaries"))
+            if isinstance(summary, Mapping)
+        ],
+        "release_field_query_source_hit_summary_labels": _list(
+            record.get("release_field_query_source_hit_summary_labels")
+        ),
         "reopen_conditions": _reopen_conditions(
             terminal_state=terminal_state,
             next_action=next_action,
@@ -655,6 +666,9 @@ def _terminal_state_label(state: str) -> str:
         "BLOCKED_OR_MANUAL_REVIEW_REQUIRED": "阻断或需人工复核",
         "MANUAL_ROUTING_REVIEW_REQUIRED": "路由需要人工复核",
         "RELEASE_FIELD_QUERY_REVIEW_READY": "释放证据字段查询已有 B/C 读回，需人工复核后再决定是否进入 Stage7",
+        "RELEASE_FIELD_QUERY_PUBLIC_READBACK_REVIEW_READY": (
+            "公开源字段已有读回，需人工补齐证据等级后再决定是否进入 Stage7"
+        ),
         "RELEASE_FIELD_QUERY_GAP_OR_BLOCKER_REVIEW": "释放证据字段查询仍是缺口或来源阻断，不能写成已排除风险",
         "RELEASE_FIELD_QUERY_PENDING_OR_NEEDS_BROWSER": "释放证据字段查询待补浏览器/授权环境后重跑",
         "RELEASE_FIELD_QUERY_RESULT_MISSING": "释放证据字段查询结果缺失，需先找回或重跑产物",
@@ -674,6 +688,9 @@ def _next_action_label(action: str) -> str:
         "fix_structured_command_allowlist_before_execution": "先修结构化命令白名单再执行",
         "manual_review_release_evidence_b_or_c_readback_before_stage7_preview": (
             "先人工复核释放证据 B/C 读回，再决定是否进入 Stage7 内部预览。"
+        ),
+        "manual_review_public_field_readback_before_stage7_preview": (
+            "先人工复核公开源字段读回，补齐证据等级后再决定是否进入 Stage7 内部预览。"
         ),
         "record_release_evidence_gap_or_retry_jurisdiction_source_without_clearance_claim": (
             "记录释放证据缺口或阻断；可重试项目所在地主管部门来源，但不能写成已排除风险。"

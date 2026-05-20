@@ -426,6 +426,7 @@ def _stage4_release_adapter_bridge_records(result: Mapping[str, Any], *, created
                 query_context.get("candidate_company"),
             ]
         )
+        company_variants = _company_name_variants(candidate_company)
         person_name = _first_text(
             [
                 candidate.get("project_manager_name"),
@@ -469,6 +470,7 @@ def _stage4_release_adapter_bridge_records(result: Mapping[str, Any], *, created
                 "candidateNoticeTitle": project_name,
                 "companyName": candidate_company,
                 "candidateCompanyName": candidate_company,
+                "companyVariants": company_variants,
                 "personName": person_name,
                 "projectManagerName": person_name,
                 "certificateNo": certificate_no,
@@ -480,7 +482,7 @@ def _stage4_release_adapter_bridge_records(result: Mapping[str, Any], *, created
                     [
                         project_name_core,
                         project_name,
-                        candidate_company,
+                        *company_variants,
                         person_name,
                         certificate_no,
                     ]
@@ -698,6 +700,38 @@ def _notice_core_project_name(value: str) -> str:
         if text.endswith(suffix):
             return text[: -len(suffix)].strip()
     return text
+
+
+def _company_name_variants(value: Any) -> list[str]:
+    text = str(value or "").strip()
+    if not text:
+        return []
+    normalized = (
+        text.replace("（", "(")
+        .replace("）", ")")
+        .replace("；", ";")
+        .replace("，", ";")
+        .replace(",", ";")
+        .replace("、", ";")
+    )
+    variants = [text]
+    for part in normalized.split(";"):
+        item = part.strip()
+        for marker in (
+            "(主)",
+            "(成)",
+            "(牵头)",
+            "(联合体成员)",
+            "主:",
+            "成:",
+            "主：",
+            "成：",
+        ):
+            item = item.replace(marker, "")
+        item = item.strip(" -_，,。；;")
+        if len(item) >= 4:
+            variants.append(item)
+    return _dedupe_strings(variants)
 
 
 def _first_text(values: Iterable[Any]) -> str:
