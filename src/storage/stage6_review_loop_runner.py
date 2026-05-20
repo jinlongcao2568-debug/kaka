@@ -30,6 +30,7 @@ DEFAULT_DISPATCH_ROOT = Path("tmp/evaluation-real-samples/stage6-review-action-d
 DEFAULT_BATCH_CLOSEOUT_ROOT = Path("tmp/evaluation-real-samples/evidence-batch-closeout-v1")
 DEFAULT_BATCH_CLOSEOUT_DISCOVERY_ROOT = Path("tmp/evaluation-real-samples")
 DEFAULT_OUTPUT_ROOT = Path("tmp/evaluation-real-samples/stage6-review-loop-runner-v1")
+DEFAULT_RELEASE_FIELD_QUERY_FILENAME = "guangdong-local-field-query-probe-v1.json"
 
 FORBIDDEN_TERMS = ("无风险", "无冲突", "在建冲突成立", "违法成立", "确认本人", "造假成立", "是不是本人")
 
@@ -44,6 +45,8 @@ def run_stage6_review_loop_runner(
     batch_closeout_root: str | Path = DEFAULT_BATCH_CLOSEOUT_ROOT,
     baseline_evidence_state_json: str | Path | None = None,
     baseline_evidence_state_root: str | Path | None = None,
+    release_field_query_json: str | Path | None = None,
+    release_field_query_root: str | Path | None = None,
     output_root: str | Path = DEFAULT_OUTPUT_ROOT,
     auto_bootstrap_from_batch_closeout: bool = True,
     auto_discover_latest_batch_closeout: bool = False,
@@ -65,7 +68,7 @@ def run_stage6_review_loop_runner(
     routing_root = out_dir / "4-routing"
     evidence_state_rebuild_root = out_dir / "5-state"
     batch_closeout_rebuild_root = out_dir / "5-batch"
-    release_field_query_root = out_dir / "5-field"
+    release_field_query_result_root = out_dir / "5-field"
     result_run_root = out_dir / "6-result-run"
     next_cycle_root = out_dir / "7-cycle"
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -112,7 +115,7 @@ def run_stage6_review_loop_runner(
             routing_root=routing_root,
             evidence_state_rebuild_root=evidence_state_rebuild_root,
             batch_closeout_rebuild_root=batch_closeout_rebuild_root,
-            release_field_query_root=release_field_query_root,
+            release_field_query_root=release_field_query_result_root,
             result_run_root=result_run_root,
             execute_dispatch=execute_dispatch,
             execute_results=execute_results,
@@ -131,8 +134,26 @@ def run_stage6_review_loop_runner(
         next_cycle = dict(dispatch_runner.pop("_loop_next_cycle"))
         next_cycle_skip_reason = str(dispatch_runner.pop("_loop_next_cycle_skip_reason"))
 
+    standalone_release_field_query_path = _release_field_query_path(
+        release_field_query_json=release_field_query_json,
+        release_field_query_root=release_field_query_root,
+    )
+    standalone_release_field_query_results = _standalone_release_field_query_results_by_project(
+        standalone_release_field_query_path
+    )
+    release_field_query_results = {
+        **standalone_release_field_query_results,
+        **_release_field_query_results_by_project(result_runner),
+    }
+    standalone_status_only = input_blocked and bool(standalone_release_field_query_results)
+    summary_bootstrap = dict(bootstrap)
+    if standalone_status_only:
+        summary_bootstrap["loop_input_state"] = "STANDALONE_RELEASE_FIELD_QUERY_STATUS_ONLY"
+        summary_bootstrap["blocking_reasons"] = []
+        next_cycle_skip_reason = "standalone_release_field_query_status_only"
+
     blocking_reasons = [
-        *_list(bootstrap.get("blocking_reasons")),
+        *_list(summary_bootstrap.get("blocking_reasons")),
         *_all_blocking_reasons(
             dispatch_runner,
             readback,
@@ -142,11 +163,10 @@ def run_stage6_review_loop_runner(
             next_cycle,
         ),
     ]
-    release_field_query_results = _release_field_query_results_by_project(result_runner)
     project_status_records = [
         *[
             dict(record)
-            for record in _list(bootstrap.get("bootstrap_project_status_records"))
+            for record in _list(summary_bootstrap.get("bootstrap_project_status_records"))
             if isinstance(record, Mapping)
         ],
         *_project_status_records(
@@ -167,7 +187,7 @@ def run_stage6_review_loop_runner(
         next_cycle=next_cycle,
         project_status_records=project_status_records,
         next_cycle_skip_reason=next_cycle_skip_reason,
-        bootstrap=bootstrap,
+        bootstrap=summary_bootstrap,
         blocking_reasons=blocking_reasons,
         execute_dispatch=execute_dispatch,
         execute_results=execute_results,
@@ -184,8 +204,8 @@ def run_stage6_review_loop_runner(
         "created_at": created,
         "source_dispatch_json": str(dispatch_path),
         "initial_dispatch_json": str(initial_dispatch_path),
-        "source_batch_closeout_json": str(bootstrap.get("source_batch_closeout_json") or ""),
-        "bootstrap": bootstrap,
+        "source_batch_closeout_json": str(summary_bootstrap.get("source_batch_closeout_json") or ""),
+        "bootstrap": summary_bootstrap,
         "baseline_evidence_state_json": str(baseline_evidence_state_json or ""),
         "baseline_evidence_state_root": str(baseline_evidence_state_root or ""),
         "roots": {
@@ -196,10 +216,15 @@ def run_stage6_review_loop_runner(
             "result_routing": str(routing_root),
             "evidence_state_rebuild": str(evidence_state_rebuild_root),
             "batch_closeout_rebuild": str(batch_closeout_rebuild_root),
-            "release_field_query": str(release_field_query_root),
+            "release_field_query": str(release_field_query_result_root),
             "result_runner": str(result_run_root),
             "next_cycle": str(next_cycle_root),
+            "standalone_release_field_query": str(
+                standalone_release_field_query_path.parent if standalone_release_field_query_path else ""
+            ),
         },
+        "source_standalone_release_field_query_json": str(standalone_release_field_query_path or ""),
+        "standalone_release_field_query_imported_project_count": len(standalone_release_field_query_results),
         "source_manifest_ids": {
             "bootstrap_stage6_fact_package": str(bootstrap.get("bootstrap_stage6_fact_package_manifest_id") or ""),
             "bootstrap_dispatch": str(bootstrap.get("bootstrap_dispatch_manifest_id") or ""),
@@ -237,16 +262,21 @@ def run_stage6_review_loop_runner(
     )
     result = {
         "stage6_review_loop_runner_mode": "BUILT" if not blocking_reasons else "INPUT_BLOCKED_OR_PARTIAL",
-        "safe_to_execute": not input_blocked
-        and (
-            bootstrap_no_automated_tasks
+        "safe_to_execute": (
+            standalone_status_only
             or (
-                _safe(dispatch_runner)
-                and _safe(readback)
-                and _safe(closeout)
-                and _safe(routing)
-                and _safe(result_runner)
-                and (not next_cycle or _safe(next_cycle))
+                not input_blocked
+                and (
+                    bootstrap_no_automated_tasks
+                    or (
+                        _safe(dispatch_runner)
+                        and _safe(readback)
+                        and _safe(closeout)
+                        and _safe(routing)
+                        and _safe(result_runner)
+                        and (not next_cycle or _safe(next_cycle))
+                    )
+                )
             )
         )
         and not blocking_reasons,
@@ -755,6 +785,45 @@ def _release_field_query_results_by_project(result_runner: Mapping[str, Any]) ->
     return by_project
 
 
+def _release_field_query_path(
+    *,
+    release_field_query_json: str | Path | None,
+    release_field_query_root: str | Path | None,
+) -> Path | None:
+    if release_field_query_json:
+        return Path(release_field_query_json)
+    if release_field_query_root:
+        return Path(release_field_query_root) / DEFAULT_RELEASE_FIELD_QUERY_FILENAME
+    return None
+
+
+def _standalone_release_field_query_results_by_project(path: Path | None) -> dict[str, dict[str, Any]]:
+    if path is None or not path.exists():
+        return {}
+    payload = _load_json_if_exists(path)
+    manifest = _source_manifest(payload)
+    field_tasks = [
+        task
+        for task in _list(manifest.get("field_task_records"))
+        if isinstance(task, Mapping)
+    ]
+    grouped: dict[str, list[Mapping[str, Any]]] = {}
+    for task in field_tasks:
+        project_id = str(task.get("project_id") or "").strip()
+        if project_id:
+            grouped.setdefault(project_id, []).append(task)
+    runner_record = {"execution_state": "IMPORTED_STANDALONE_RELEASE_FIELD_QUERY"}
+    return {
+        project_id: _release_field_query_project_result(
+            runner_record=runner_record,
+            result_path=str(path),
+            result_manifest=manifest,
+            tasks=tasks,
+        )
+        for project_id, tasks in grouped.items()
+    }
+
+
 def _release_field_query_missing_result(runner_record: Mapping[str, Any], result_path: str) -> dict[str, Any]:
     return {
         "release_field_query_state": "RELEASE_FIELD_QUERY_RESULT_MISSING",
@@ -807,6 +876,9 @@ def _field_query_authorization_counts(tasks: list[Mapping[str, Any]]) -> dict[st
         field_match_summary = task.get("field_match_summary") if isinstance(task.get("field_match_summary"), Mapping) else {}
         if isinstance(field_match_summary, Mapping):
             fallback_states.append(field_match_summary.get("authorization_readiness_state"))
+        fallback_states.append(task.get("authorization_readiness_state"))
+        if isinstance(field_summary, Mapping):
+            fallback_states.append(field_summary.get("authorization_readiness_state"))
     return merged or _counts(fallback_states)
 
 
@@ -1242,6 +1314,8 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--batch-closeout-root", default=str(DEFAULT_BATCH_CLOSEOUT_ROOT))
     parser.add_argument("--baseline-evidence-state-json", default="")
     parser.add_argument("--baseline-evidence-state-root", default="")
+    parser.add_argument("--release-field-query-json", default="")
+    parser.add_argument("--release-field-query-root", default="")
     parser.add_argument("--output-root", default=str(DEFAULT_OUTPUT_ROOT))
     parser.add_argument("--disable-bootstrap-from-batch-closeout", action="store_true")
     parser.add_argument("--auto-discover-latest-batch-closeout", action="store_true")
@@ -1266,6 +1340,8 @@ def main(argv: list[str] | None = None) -> int:
         batch_closeout_root=args.batch_closeout_root,
         baseline_evidence_state_json=args.baseline_evidence_state_json or None,
         baseline_evidence_state_root=args.baseline_evidence_state_root or None,
+        release_field_query_json=args.release_field_query_json or None,
+        release_field_query_root=args.release_field_query_root or None,
         output_root=args.output_root,
         auto_bootstrap_from_batch_closeout=not bool(args.disable_bootstrap_from_batch_closeout),
         auto_discover_latest_batch_closeout=bool(args.auto_discover_latest_batch_closeout),

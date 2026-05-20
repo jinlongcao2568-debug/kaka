@@ -33,6 +33,9 @@ BLOCKED_OR_MANUAL_STATES = {
     "MANUAL_ROUTING_REVIEW_REQUIRED",
     "RESULT_EXECUTION_FAILED",
     "RESULT_COMMAND_BLOCKED_BY_ALLOWLIST",
+    "RELEASE_FIELD_QUERY_GAP_OR_BLOCKER_REVIEW",
+    "RELEASE_FIELD_QUERY_PENDING_OR_NEEDS_BROWSER",
+    "RELEASE_FIELD_QUERY_RESULT_MISSING",
 }
 
 
@@ -646,6 +649,11 @@ def _terminal_state_label(state: str) -> str:
         "PARKED_OPERATOR_SKIPPED_THIS_ROUND": "本轮由操作者跳过",
         "BLOCKED_OR_MANUAL_REVIEW_REQUIRED": "阻断或需人工复核",
         "MANUAL_ROUTING_REVIEW_REQUIRED": "路由需要人工复核",
+        "RELEASE_FIELD_QUERY_REVIEW_READY": "释放证据字段查询已有 B/C 读回，需人工复核后再决定是否进入 Stage7",
+        "RELEASE_FIELD_QUERY_GAP_OR_BLOCKER_REVIEW": "释放证据字段查询仍是缺口或来源阻断，不能写成已排除风险",
+        "RELEASE_FIELD_QUERY_PENDING_OR_NEEDS_BROWSER": "释放证据字段查询待补浏览器/授权环境后重跑",
+        "RELEASE_FIELD_QUERY_RESULT_MISSING": "释放证据字段查询结果缺失，需先找回或重跑产物",
+        "RELEASE_FIELD_QUERY_NO_PROJECT_TASKS": "释放证据字段查询没有项目任务",
     }.get(state, state)
 
 
@@ -659,6 +667,18 @@ def _next_action_label(action: str) -> str:
         "review_result_artifact_and_close_project_or_generate_next_cycle_if_needed": "复核结果产物，再决定关闭或开下一轮",
         "inspect_result_runner_failure_then_retry_or_park": "排查执行失败，再重试或暂存",
         "fix_structured_command_allowlist_before_execution": "先修结构化命令白名单再执行",
+        "manual_review_release_evidence_b_or_c_readback_before_stage7_preview": (
+            "先人工复核释放证据 B/C 读回，再决定是否进入 Stage7 内部预览。"
+        ),
+        "record_release_evidence_gap_or_retry_jurisdiction_source_without_clearance_claim": (
+            "记录释放证据缺口或阻断；可重试项目所在地主管部门来源，但不能写成已排除风险。"
+        ),
+        "authorize_browser_or_live_release_field_query_or_keep_plan_only": (
+            "补授权浏览器环境后重跑释放证据字段查询，或者保持计划态。"
+        ),
+        "inspect_release_field_query_result_before_next_stage6_cycle": (
+            "先检查释放证据字段查询产物，再决定下一轮 Stage6 动作。"
+        ),
     }.get(action, action)
 
 
@@ -666,6 +686,9 @@ def _release_field_query_operator_action_label(action: str) -> str:
     return {
         "provide_gdcic_authorized_storage_state_or_user_data_dir_then_rerun": (
             "提供 GDCIC 已授权浏览器会话后重跑。"
+        ),
+        "do_not_treat_http_dynamic_stealthy_as_login_state_replacement": (
+            "不要把 HTTP/Dynamic/Stealthy 当作登录态替代；登录态缺口必须单独处理。"
         ),
         "review_gdcic_authorized_query_terms_or_capture_more_precise_field_page": (
             "复核 GDCIC 查询关键词，或捕获更精确的字段页面。"

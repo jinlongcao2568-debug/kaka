@@ -5,6 +5,8 @@ param(
     [string]$BatchCloseoutRoot = "",
     [string]$BaselineEvidenceStateJson = "",
     [string]$BaselineEvidenceStateRoot = "",
+    [string]$ReleaseFieldQueryJson = "",
+    [string]$ReleaseFieldQueryRoot = "",
     [string]$OutputRoot = "",
     [string]$ProjectIds = "",
     [int]$DispatchMaxGroups = -1,
@@ -57,6 +59,12 @@ if ($BaselineEvidenceStateJson) {
 }
 if ($BaselineEvidenceStateRoot) {
     $argsList += @("--baseline-evidence-state-root", $BaselineEvidenceStateRoot)
+}
+if ($ReleaseFieldQueryJson) {
+    $argsList += @("--release-field-query-json", $ReleaseFieldQueryJson)
+}
+if ($ReleaseFieldQueryRoot) {
+    $argsList += @("--release-field-query-root", $ReleaseFieldQueryRoot)
 }
 if ($ProjectIds) {
     $argsList += @("--project-ids", $ProjectIds)

@@ -234,6 +234,99 @@ class Stage6ReviewLoopRunnerTests(unittest.TestCase):
                 "manual_review_release_evidence_b_or_c_readback_before_stage7_preview",
             )
 
+    def test_standalone_release_field_query_result_can_be_imported_into_status_table(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            state_json = _write_evidence_state(root / "state")
+            _write_batch_closeout(root / "closeout", evidence_state_json=state_json)
+            _write_release_field_query_result(root / "field-query")
+
+            result = run_stage6_review_loop_runner(
+                dispatch_root=root / "missing-dispatch",
+                batch_closeout_root=root / "closeout",
+                release_field_query_root=root / "field-query",
+                output_root=root / "out",
+                created_at="2026-05-19T00:00:00+08:00",
+            )
+
+            self.assertTrue(result["safe_to_execute"])
+            self.assertEqual(result["manifest"]["standalone_release_field_query_imported_project_count"], 1)
+            self.assertTrue(
+                result["manifest"]["source_standalone_release_field_query_json"].endswith(
+                    "guangdong-local-field-query-probe-v1.json"
+                )
+            )
+            self.assertEqual(result["summary"]["release_field_query_project_count"], 1)
+            records = {
+                record["project_id"]: record
+                for record in result["manifest"]["project_status_table"]["records"]
+            }
+            self.assertEqual(records["PROJ-REL"]["loop_terminal_state"], "RELEASE_FIELD_QUERY_REVIEW_READY")
+            self.assertEqual(records["PROJ-REL"]["release_field_query_task_count"], 1)
+            self.assertEqual(
+                records["PROJ-REL"]["release_field_query_downstream_abcd_grade_counts"],
+                {"B_ENHANCEMENT_OFFICIAL_READBACK": 1},
+            )
+            self.assertEqual(
+                records["PROJ-REL"]["next_recommended_action"],
+                "manual_review_release_evidence_b_or_c_readback_before_stage7_preview",
+            )
+
+    def test_standalone_release_field_query_only_builds_status_projection(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_release_field_query_result(root / "field-query")
+
+            result = run_stage6_review_loop_runner(
+                dispatch_root=root / "missing-dispatch",
+                batch_closeout_root=root / "missing-closeout",
+                release_field_query_root=root / "field-query",
+                output_root=root / "out",
+                auto_discover_latest_batch_closeout=False,
+                created_at="2026-05-19T00:00:00+08:00",
+            )
+
+            self.assertTrue(result["safe_to_execute"])
+            self.assertEqual(result["summary"]["loop_input_state"], "STANDALONE_RELEASE_FIELD_QUERY_STATUS_ONLY")
+            self.assertEqual(result["summary"]["next_cycle_skip_reason"], "standalone_release_field_query_status_only")
+            self.assertEqual(result["blocking_reasons"], [])
+            self.assertEqual(result["summary"]["project_status_record_count"], 1)
+            record = result["manifest"]["project_status_table"]["records"][0]
+            self.assertEqual(record["project_id"], "PROJ-REL")
+            self.assertEqual(record["loop_terminal_state"], "RELEASE_FIELD_QUERY_REVIEW_READY")
+            self.assertEqual(record["release_field_query_result_json"], str(root / "field-query" / "guangdong-local-field-query-probe-v1.json"))
+
+    def test_standalone_release_field_query_imports_live_style_authorization_state(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_live_style_release_field_query_result(root / "field-query")
+
+            result = run_stage6_review_loop_runner(
+                dispatch_root=root / "missing-dispatch",
+                batch_closeout_root=root / "missing-closeout",
+                release_field_query_root=root / "field-query",
+                output_root=root / "out",
+                auto_discover_latest_batch_closeout=False,
+                created_at="2026-05-19T00:00:00+08:00",
+            )
+
+            record = result["manifest"]["project_status_table"]["records"][0]
+            self.assertEqual(
+                record["release_field_query_authorization_state_counts"],
+                {"LOGIN_OR_SSO_REQUIRED": 1},
+            )
+            self.assertEqual(
+                result["summary"]["release_field_query_authorization_state_counts"],
+                {"LOGIN_OR_SSO_REQUIRED": 1},
+            )
+            self.assertEqual(
+                record["release_field_query_operator_next_actions"],
+                [
+                    "provide_gdcic_authorized_storage_state_or_user_data_dir_then_rerun",
+                    "do_not_treat_http_dynamic_stealthy_as_login_state_replacement",
+                ],
+            )
+
     def test_bootstraps_dispatch_from_batch_closeout_when_dispatch_is_missing(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -464,6 +557,42 @@ def _write_release_field_query_result(root: Path) -> None:
             "summary": {
                 "guangdong_local_field_query_task_count": 1,
                 "release_evidence_downstream_abcd_grade_counts": {"B_ENHANCEMENT_OFFICIAL_READBACK": 1},
+            },
+        },
+    )
+
+
+def _write_live_style_release_field_query_result(root: Path) -> None:
+    _write_json(
+        root / "guangdong-local-field-query-probe-v1.json",
+        {
+            "safe_to_execute": True,
+            "blocking_reasons": [],
+            "manifest": {
+                "manifest_id": "GD-FIELD-LIVE-STYLE-1",
+                "field_task_records": [
+                    {
+                        "field_query_task_id": "GD-FIELD-TASK-LIVE-1",
+                        "project_id": "PROJ-LIVE-AUTH",
+                        "project_name": "Live auth project",
+                        "adapter_result_state": "NEEDS_BROWSER",
+                        "downstream_release_evidence_abcd_grade": "D_INSUFFICIENT_OR_BLOCKED_READBACK",
+                        "field_summary": {
+                            "authorization_readiness_state": "LOGIN_OR_SSO_REQUIRED",
+                            "required_runtime_capability": "AUTHORIZED_SESSION_STORAGE_STATE_OR_USER_DATA_DIR",
+                            "operator_next_actions": [
+                                "provide_gdcic_authorized_storage_state_or_user_data_dir_then_rerun",
+                                "do_not_treat_http_dynamic_stealthy_as_login_state_replacement",
+                            ],
+                        },
+                        "customer_visible_allowed": False,
+                        "no_legal_conclusion": True,
+                    }
+                ],
+            },
+            "summary": {
+                "guangdong_local_field_query_task_count": 1,
+                "release_evidence_downstream_abcd_grade_counts": {"D_INSUFFICIENT_OR_BLOCKED_READBACK": 1},
             },
         },
     )

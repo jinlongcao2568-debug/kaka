@@ -138,6 +138,41 @@ class Stage6ReviewLoopOperatorProjectionTests(unittest.TestCase):
             )
             self.assertIn("默认优先显示最新多项目批次", projection["batch_default_selection_label"])
 
+    def test_release_field_query_gap_counts_as_blocked_review_with_chinese_labels(self) -> None:
+        projection = build_stage6_review_loop_operator_projection(
+            {
+                "summary": {},
+                "records": [
+                    {
+                        "project_id": "PROJ-D",
+                        "project_name": "D project",
+                        "loop_terminal_state": "RELEASE_FIELD_QUERY_GAP_OR_BLOCKER_REVIEW",
+                        "next_recommended_action": (
+                            "record_release_evidence_gap_or_retry_jurisdiction_source_without_clearance_claim"
+                        ),
+                        "release_field_query_state": "RELEASE_FIELD_QUERY_GAP_OR_BLOCKER_REVIEW",
+                        "release_field_query_downstream_abcd_grade_counts": {
+                            "D_INSUFFICIENT_OR_BLOCKED_READBACK": 4
+                        },
+                        "release_field_query_authorization_state_counts": {"LOGIN_OR_SSO_REQUIRED": 1},
+                        "release_field_query_operator_next_actions": [
+                            "do_not_treat_http_dynamic_stealthy_as_login_state_replacement",
+                        ],
+                    }
+                ],
+            },
+            created_at="2026-05-19T12:00:00+08:00",
+        )
+
+        self.assertEqual(projection["summary"]["blocked_or_manual_review_count"], 1)
+        row = projection["project_status_rows"][0]
+        self.assertIn("释放证据字段查询仍是缺口", row["owner_status_label"])
+        self.assertIn("不能写成已排除风险", row["owner_next_action_label"])
+        self.assertIn(
+            "不要把 HTTP/Dynamic/Stealthy 当作登录态替代",
+            row["release_field_query_operator_next_action_labels"][0],
+        )
+
     def test_status_table_options_summarize_multi_project_batches(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
