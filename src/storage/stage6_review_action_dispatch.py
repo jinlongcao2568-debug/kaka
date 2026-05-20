@@ -164,11 +164,14 @@ def _dispatch_task_record(record: Mapping[str, Any], *, created_at: str) -> dict
     action_family = str(record.get("action_family") or "")
     spec = DISPATCH_SPECS.get(action_family, {})
     action_items = [item for item in _list(record.get("action_items")) if isinstance(item, Mapping)]
-    readiness_state = (
-        "READY_FOR_CONTROLLED_INTERNAL_DISPATCH_PLAN"
-        if spec and action_items
-        else "BLOCKED_DISPATCH_SPEC_OR_ACTION_ITEMS_MISSING"
-    )
+    source_refs = dict(record.get("source_refs") or {})
+    input_blockers = _dispatch_input_blocking_reasons(action_family=action_family, source_refs=source_refs)
+    if not spec or not action_items:
+        readiness_state = "BLOCKED_DISPATCH_SPEC_OR_ACTION_ITEMS_MISSING"
+    elif input_blockers:
+        readiness_state = "BLOCKED_REQUIRED_SOURCE_REFS_MISSING"
+    else:
+        readiness_state = "READY_FOR_CONTROLLED_INTERNAL_DISPATCH_PLAN"
     return {
         "dispatch_task_id": _stable_id(
             "S6-DISPATCH",
@@ -193,7 +196,8 @@ def _dispatch_task_record(record: Mapping[str, Any], *, created_at: str) -> dict
         "target_adapter_scope": str(record.get("target_adapter_scope") or ""),
         "target_source_scope": _list(record.get("target_source_scope")),
         "regional_routing_policy": str(record.get("regional_routing_policy") or ""),
-        "source_refs": dict(record.get("source_refs") or {}),
+        "source_refs": source_refs,
+        "dispatch_input_blocking_reasons": input_blockers,
         "continuation_lineage": dict(record.get("continuation_lineage") or {}),
         "execution_mode": "PLAN_ONLY_NOT_EXECUTED",
         "live_execution_enabled": False,
@@ -206,6 +210,27 @@ def _dispatch_task_record(record: Mapping[str, Any], *, created_at: str) -> dict
         "query_miss_is_not_clearance": True,
         "created_at": created_at,
     }
+
+
+def _dispatch_input_blocking_reasons(*, action_family: str, source_refs: Mapping[str, Any]) -> list[str]:
+    if action_family != "P13B_RELEASE_EVIDENCE_TARGETED_REVIEW":
+        return []
+    blockers: list[str] = []
+    if not _has_any_source_ref(source_refs, ("evidence_batch_closeout_json", "evidence_batch_closeout_root")):
+        blockers.append("release_evidence_batch_closeout_ref_missing")
+    if not _has_any_source_ref(
+        source_refs,
+        (
+            "p13b_operational_closeout_json",
+            "p13b_operational_closeout_root",
+        ),
+    ):
+        blockers.append("p13b_operational_closeout_ref_missing")
+    return blockers
+
+
+def _has_any_source_ref(source_refs: Mapping[str, Any], keys: tuple[str, ...]) -> bool:
+    return any(str(source_refs.get(key) or "").strip() for key in keys)
 
 
 def _summary(

@@ -247,6 +247,9 @@ def _argv_for_task_type(
         return [], "BLOCKED_MULTIPLE_BASELINE_EVIDENCE_STATE_SOURCES", "multiple_evidence_state_sources_for_task_type"
     if task_type == TASK_TYPE_RELEASE_PLAN:
         args = _release_plan_args(task_records)
+        release_input_blocker = _release_plan_input_blocking_reason(args)
+        if release_input_blocker:
+            return [], "BLOCKED_RELEASE_EVIDENCE_INPUTS_MISSING", release_input_blocker
         args["OutputRoot"] = str(output_root)
         return _powershell_argv("scripts/build-release-evidence-adapter-plan-v1.ps1", args), "READY_FOR_CONTROLLED_INTERNAL_DISPATCH_RUN", ""
     if task_type in {TASK_TYPE_ORIGINAL, TASK_TYPE_DESIGN_SURVEY} and not baseline_evidence_state_json:
@@ -290,6 +293,23 @@ def _release_plan_args(task_records: list[Mapping[str, Any]]) -> dict[str, str]:
         if value:
             args[arg_name] = value
     return args
+
+
+def _release_plan_input_blocking_reason(args: Mapping[str, str]) -> str:
+    missing: list[str] = []
+    if not _has_any_arg(args, ("BatchCloseoutJson", "BatchCloseoutRoot")):
+        missing.append("release_evidence_batch_closeout_ref_missing")
+    if not _has_any_arg(args, ("P13BOperationalCloseoutJson", "P13BOperationalCloseoutRoot")):
+        missing.append("p13b_operational_closeout_ref_missing")
+    if not missing:
+        return ""
+    if len(missing) == 1:
+        return missing[0]
+    return "release_evidence_batch_closeout_and_p13b_operational_refs_missing"
+
+
+def _has_any_arg(args: Mapping[str, str], names: tuple[str, ...]) -> bool:
+    return any(str(args.get(name) or "").strip() for name in names)
 
 
 def _group_record_from_spec(

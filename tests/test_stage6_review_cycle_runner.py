@@ -175,6 +175,7 @@ def _write_batch_closeout(root: Path, *, evidence_state_json: str | Path) -> Non
             "source_refs": {
                 "evidence_state_json": str(evidence_state_json),
                 "evidence_batch_closeout_json": str(root / "evidence-batch-closeout-v1.json"),
+                "p13b_operational_closeout_root": str(root.parent / "p13b-operational-closeout-v1"),
             },
             "customer_visible_allowed": False,
             "no_legal_conclusion": True,
