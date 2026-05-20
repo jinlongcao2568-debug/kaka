@@ -1902,6 +1902,29 @@ def _execute_guangdong_gdcic_home_field_query(
             "route_attempts": attempts,
             "blocker_taxonomy": blockers,
         }
+    if "gd_gdcic_contract_system_sso_login_required" in blockers:
+        return {
+            "field_query_probe_state": "LIVE_FIELD_QUERY_NEEDS_BROWSER",
+            "field_readback_state": "FIELD_READBACK_BROWSER_OR_AUTHORIZED_RUNTIME_REQUIRED",
+            "readback_ready": False,
+            "readback_status_code": status_codes[0] if status_codes else None,
+            "field_summary": {
+                "source_specific_adapter_id": "guangdong_gdcic_contract_performance_public_page_v1",
+                "record_count": 0,
+                "source_profile_keyword_hit": False,
+                "source_profile_id": GUANGDONG_GDCIC_HOME_PROFILE_ID,
+                "contract_system_sso_route_seen": sso_route_seen,
+                "browser_or_authorized_runtime_required": True,
+            },
+            "field_match_summary": {
+                "query_miss_is_not_clearance": True,
+                "browser_or_authorized_runtime_required_before_readback": True,
+                "readback_is_line_clue_not_final_conclusion": True,
+            },
+            "route_plan": list(route_plan),
+            "route_attempts": attempts,
+            "blocker_taxonomy": blockers,
+        }
     if attempts and all(str(attempt.get("route_state") or "").startswith("FAIL_CLOSED") for attempt in attempts):
         return {
             "field_query_probe_state": "FAIL_CLOSED_PUBLIC_SOURCE_BLOCKED",

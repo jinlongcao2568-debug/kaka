@@ -704,6 +704,42 @@ class GuangdongLocalFieldQueryProbeTests(unittest.TestCase):
             self.assertEqual(record["construction_company_probe"], "广州测试建设有限公司")
             self.assertIn("Detailgs", record["detail_url"])
 
+    def test_gdcic_contract_sso_without_public_rows_needs_browser_not_clearance(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            local_root = root / "local"
+            _write_local_verification(local_root)
+
+            def fake_getter(url: str, _params: Mapping[str, Any]) -> Mapping[str, Any]:
+                if "Indexht" in url:
+                    return {
+                        "http_status": 200,
+                        "content_type": "text/html; charset=utf-8",
+                        "text_probe": "<script>top.window.location.href='http://210.76.80.152:8008/SSO/jrsso/auth'</script>",
+                    }
+                return {
+                    "http_status": 200,
+                    "content_type": "text/html; charset=utf-8",
+                    "text_probe": "<table><tbody></tbody></table>",
+                }
+
+            result = build_guangdong_local_field_query_probe(
+                local_verification_root=local_root,
+                output_root=root / "out",
+                source_profile_ids=["GUANGDONG-GDCIC-HOME"],
+                enable_live_public_query=True,
+                max_live_tasks=1,
+                http_getter=fake_getter,
+                created_at="2026-05-12T00:00:00+08:00",
+            )
+
+            self.assertTrue(result["safe_to_execute"])
+            task = result["manifest"]["field_task_records"][0]
+            self.assertEqual(task["field_query_probe_state"], "LIVE_FIELD_QUERY_NEEDS_BROWSER")
+            self.assertEqual(task["adapter_result_state"], "NEEDS_BROWSER")
+            self.assertTrue(task["field_match_summary"]["query_miss_is_not_clearance"])
+            self.assertIn("gd_gdcic_contract_system_sso_login_required", task["blocker_taxonomy"])
+
     def test_zfcxjst_penalty_publicity_readback_records_decision(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
