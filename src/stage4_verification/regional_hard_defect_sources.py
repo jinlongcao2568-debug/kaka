@@ -102,7 +102,7 @@ MAJOR_TARGET_REGION_SOURCE_CATALOG = (
         "source_name": "湖南省建筑市场监管公共服务平台 / 智慧住建云",
         "source_url": "https://www.hunanjs.gov.cn/",
         "official_reference_url": "https://zjt.hunan.gov.cn/xxgk/xinxigongkaimulu/tzgg/tzgg2jzgl/201906/t20190614_5357245.html",
-        "runtime_status": "ENTRY_PORTAL_VERIFIED_ADAPTER_PENDING",
+        "runtime_status": "OFFICIAL_PLATFORM_REFERENCED_STRUCTURED_READBACK_MINIMUM_LOOP",
         "next_adapter": "hunan_construction_market_public_service_query_adapter",
     },
     {
