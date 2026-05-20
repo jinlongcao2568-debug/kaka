@@ -7166,6 +7166,9 @@ def _project_task_records(field_task_records: list[Mapping[str, Any]]) -> list[d
                     blocker for task in tasks for blocker in _list(task.get("blocker_taxonomy"))
                 ),
                 "adapter_result_state_counts": _counts(task.get("adapter_result_state") for task in tasks),
+                "authorization_readiness_state_counts": _field_task_authorization_readiness_state_counts(tasks),
+                "operator_next_action_counts": _field_task_operator_next_action_counts(tasks),
+                "operator_next_actions": _field_task_operator_next_actions(tasks),
                 "probe_state": "READY" if tasks else "NO_GUANGDONG_LOCAL_FIELD_TASKS",
                 "customer_visible_allowed": False,
                 "no_legal_conclusion": True,
@@ -7473,6 +7476,9 @@ def _summary(
         ),
         "field_query_probe_state_counts": _counts(task.get("field_query_probe_state") for task in field_task_records),
         "field_readback_state_counts": _counts(task.get("field_readback_state") for task in field_task_records),
+        "authorization_readiness_state_counts": _field_task_authorization_readiness_state_counts(field_task_records),
+        "operator_next_action_counts": _field_task_operator_next_action_counts(field_task_records),
+        "operator_next_actions": _field_task_operator_next_actions(field_task_records),
         "blocker_taxonomy_counts": _counts(
             blocker for task in field_task_records for blocker in _list(task.get("blocker_taxonomy"))
         ),
@@ -7481,6 +7487,63 @@ def _summary(
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,
     }
+
+
+def _field_task_authorization_readiness_state_counts(tasks: list[Mapping[str, Any]] | list[Any]) -> dict[str, int]:
+    merged: dict[str, int] = {}
+    for task in tasks:
+        if not isinstance(task, Mapping):
+            continue
+        task_counts: dict[str, int] = {}
+        field_summary = task.get("field_summary") if isinstance(task.get("field_summary"), Mapping) else {}
+        summary_counts = field_summary.get("authorization_readiness_state_counts") if isinstance(field_summary, Mapping) else {}
+        if isinstance(summary_counts, Mapping):
+            for key, value in summary_counts.items():
+                text = str(key or "").strip()
+                if text:
+                    task_counts[text] = task_counts.get(text, 0) + _int(value)
+        if not task_counts:
+            field_match_summary = (
+                task.get("field_match_summary") if isinstance(task.get("field_match_summary"), Mapping) else {}
+            )
+            task_counts = _counts(
+                [
+                    task.get("authorization_readiness_state"),
+                    field_summary.get("authorization_readiness_state") if isinstance(field_summary, Mapping) else "",
+                    field_match_summary.get("authorization_readiness_state")
+                    if isinstance(field_match_summary, Mapping)
+                    else "",
+                ]
+            )
+        for key, value in task_counts.items():
+            merged[key] = merged.get(key, 0) + value
+    return dict(sorted(merged.items()))
+
+
+def _field_task_operator_next_actions(tasks: list[Mapping[str, Any]] | list[Any]) -> list[str]:
+    return _dedupe(
+        action
+        for task in tasks
+        if isinstance(task, Mapping)
+        for action in _list(
+            (task.get("field_summary") if isinstance(task.get("field_summary"), Mapping) else {}).get(
+                "operator_next_actions"
+            )
+        )
+    )
+
+
+def _field_task_operator_next_action_counts(tasks: list[Mapping[str, Any]] | list[Any]) -> dict[str, int]:
+    return _counts(
+        action
+        for task in tasks
+        if isinstance(task, Mapping)
+        for action in _list(
+            (task.get("field_summary") if isinstance(task.get("field_summary"), Mapping) else {}).get(
+                "operator_next_actions"
+            )
+        )
+    )
 
 
 def _load_json(path: Path, blocking_reasons: list[str], missing_reason: str) -> dict[str, Any]:

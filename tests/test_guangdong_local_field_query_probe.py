@@ -1674,6 +1674,17 @@ class GuangdongLocalFieldQueryProbeTests(unittest.TestCase):
             )
 
             self.assertTrue(result["safe_to_execute"])
+            self.assertEqual(
+                result["summary"]["authorization_readiness_state_counts"],
+                {"LOGIN_OR_SSO_REQUIRED": 1},
+            )
+            self.assertEqual(
+                result["summary"]["operator_next_action_counts"],
+                {
+                    "do_not_treat_http_dynamic_stealthy_as_login_state_replacement": 1,
+                    "provide_gdcic_authorized_storage_state_or_user_data_dir_then_rerun": 1,
+                },
+            )
             task = result["manifest"]["field_task_records"][0]
             self.assertEqual(task["field_query_probe_state"], "LIVE_FIELD_QUERY_NEEDS_BROWSER")
             self.assertEqual(task["adapter_result_state"], "NEEDS_BROWSER")
@@ -1691,6 +1702,11 @@ class GuangdongLocalFieldQueryProbeTests(unittest.TestCase):
             self.assertTrue(task["field_match_summary"]["login_or_sso_required_before_field_surface"])
             self.assertTrue(task["field_match_summary"]["query_miss_is_not_clearance"])
             self.assertIn("gd_gdcic_contract_system_sso_login_required", task["blocker_taxonomy"])
+            project_record = result["manifest"]["project_task_records"][0]
+            self.assertEqual(
+                project_record["authorization_readiness_state_counts"],
+                {"LOGIN_OR_SSO_REQUIRED": 1},
+            )
 
     def test_gdcic_browser_authorized_readback_consumes_contract_artifact(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

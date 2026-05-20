@@ -761,6 +761,13 @@ def _stage1_6_readiness_records(result: Mapping[str, Any]) -> list[dict[str, Any
             readback=readback,
             bottleneck_stage=bottleneck_stage,
         )
+        next_action = _stage1_6_next_action(
+            row=row,
+            closed_loop=closed_loop,
+            readback=readback,
+            bottleneck_stage=bottleneck_stage,
+            readiness_state=readiness_state,
+        )
         rows.append(
             {
                 "project_id": project_id,
@@ -775,6 +782,7 @@ def _stage1_6_readiness_records(result: Mapping[str, Any]) -> list[dict[str, Any
                 "stage5_gate_state": stage_states["stage5"],
                 "stage6_fact_package_state": stage_states["stage6"],
                 "bottleneck_stage": bottleneck_stage,
+                "stage1_6_bottleneck_stage": bottleneck_stage,
                 "stage1_6_readiness_state": readiness_state,
                 "stage1_6_closed_loop_ready": bool(
                     row.get("stage1_6_closed_loop_ready")
@@ -787,13 +795,8 @@ def _stage1_6_readiness_records(result: Mapping[str, Any]) -> list[dict[str, Any
                 "fail_closed_reasons": _string_list(closed_loop.get("fail_closed_reasons") or readback.get("fail_closed_reasons")),
                 "stage5_rule_gate_status": str(readback.get("stage5_rule_gate_status") or ""),
                 "stage5_evidence_gate_status": str(readback.get("stage5_evidence_gate_status") or ""),
-                "recommended_next_action": _stage1_6_next_action(
-                    row=row,
-                    closed_loop=closed_loop,
-                    readback=readback,
-                    bottleneck_stage=bottleneck_stage,
-                    readiness_state=readiness_state,
-                ),
+                "recommended_next_action": next_action,
+                "next_recommended_action": next_action,
                 "query_miss_is_not_clearance": True,
                 "customer_visible_allowed": False,
                 "no_legal_conclusion": True,

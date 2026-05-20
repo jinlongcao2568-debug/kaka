@@ -108,13 +108,19 @@ class RealPublicStage49PressureReportTests(unittest.TestCase):
                 "STAGE1_6_INTERNAL_READY",
             )
             self.assertEqual(readiness_by_project["PROJ-REAL-001"]["bottleneck_stage"], "READY")
+            self.assertEqual(readiness_by_project["PROJ-REAL-001"]["stage1_6_bottleneck_stage"], "READY")
             self.assertEqual(
                 readiness_by_project["PROJ-REAL-002"]["stage1_6_readiness_state"],
                 "STAGE3_FIELD_OR_ROLE_REVIEW_REQUIRED",
             )
             self.assertEqual(readiness_by_project["PROJ-REAL-002"]["bottleneck_stage"], "Stage3")
+            self.assertEqual(readiness_by_project["PROJ-REAL-002"]["stage1_6_bottleneck_stage"], "Stage3")
             self.assertEqual(
                 readiness_by_project["PROJ-REAL-003"]["recommended_next_action"],
+                "increase_detail_capture_limit_or_stage2_detail_capture_time_budget",
+            )
+            self.assertEqual(
+                readiness_by_project["PROJ-REAL-003"]["next_recommended_action"],
                 "increase_detail_capture_limit_or_stage2_detail_capture_time_budget",
             )
             self.assertEqual(
