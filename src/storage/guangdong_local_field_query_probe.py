@@ -22,6 +22,9 @@ GUANGDONG_LOCAL_FIELD_QUERY_PROBE_ADAPTER_ID = "guangdong-local-field-query-prob
 DEFAULT_LOCAL_VERIFICATION_ROOT = Path("tmp/evaluation-real-samples/guangdong-local-verification-probe-v1")
 DEFAULT_P13B_OPERATIONAL_CLOSEOUT_ROOT = Path("tmp/evaluation-real-samples/p13b-operational-closeout-v1")
 DEFAULT_RELEASE_EVIDENCE_ADAPTER_PLAN_ROOT = Path("tmp/evaluation-real-samples/release-evidence-adapter-plan-v1")
+DEFAULT_GDCIC_BROWSER_AUTHORIZED_READBACK_ROOT = Path(
+    "tmp/evaluation-real-samples/gdcic-browser-authorized-readback-v1"
+)
 DEFAULT_OUTPUT_ROOT = Path("tmp/evaluation-real-samples/guangdong-local-field-query-probe-v1")
 
 DELEGATED_PROFILE_ADAPTERS = {
@@ -49,6 +52,8 @@ GUANGDONG_GDCIC_PERFORMANCE_PUBLIC_URL = (
 GUANGDONG_GDCIC_CONTRACT_SYSTEM_URL = (
     f"{GUANGDONG_GDCIC_HOME_BASE_URL}/JG/home/Indexht"
 )
+GUANGDONG_GDCIC_BROWSER_AUTHORIZED_READBACK_KIND = "gdcic_browser_authorized_readback_v1_manifest"
+GUANGDONG_GDCIC_BROWSER_AUTHORIZED_READBACK_ADAPTER_ID = "guangdong_gdcic_browser_authorized_readback_v1"
 GUANGDONG_ZFCXJST_PENALTY_PROFILE_ID = "GUANGDONG-ZFCXJST-PENALTY-PUBLICITY"
 GUANGDONG_ZFCXJST_GSGG_BASE_URL = "https://zfcxjst.gd.gov.cn/xxgk/gsgg/"
 GUANGDONG_ZFCXJST_SITE_SEARCH_URL = "https://search.gd.gov.cn/search/all/233"
@@ -183,6 +188,8 @@ def build_guangdong_local_field_query_probe(
     p13b_operational_closeout_json: str | Path | None = None,
     release_evidence_adapter_plan_root: str | Path | None = None,
     release_evidence_adapter_plan_json: str | Path | None = None,
+    gdcic_browser_readback_root: str | Path | None = None,
+    gdcic_browser_readback_json: str | Path | None = None,
     output_root: str | Path = DEFAULT_OUTPUT_ROOT,
     source_profile_ids: list[str] | tuple[str, ...] | None = None,
     enable_live_public_query: bool = False,
@@ -214,7 +221,22 @@ def build_guangdong_local_field_query_probe(
         if release_evidence_adapter_plan_json
         else (release_plan_dir / "release-evidence-adapter-plan-v1.json" if release_plan_dir else None)
     )
+    gdcic_browser_dir = Path(gdcic_browser_readback_root) if gdcic_browser_readback_root else None
+    gdcic_browser_source_path = (
+        Path(gdcic_browser_readback_json)
+        if gdcic_browser_readback_json
+        else (gdcic_browser_dir / "gdcic-browser-authorized-readback-v1.json" if gdcic_browser_dir else None)
+    )
     blocking_reasons: list[str] = []
+    gdcic_browser_manifest: dict[str, Any] = {}
+    if gdcic_browser_source_path:
+        gdcic_browser_manifest = _source_manifest(
+            _load_json(
+                gdcic_browser_source_path,
+                blocking_reasons,
+                "gdcic_browser_authorized_readback_missing",
+            )
+        )
     if release_plan_source_path:
         input_mode = "RELEASE_EVIDENCE_ADAPTER_PLAN_TASKS"
         release_plan_manifest = _source_manifest(
@@ -248,6 +270,7 @@ def build_guangdong_local_field_query_probe(
         credit_gd_session_getter=credit_gd_session_getter,
         credit_gd_max_requests_per_task=credit_gd_max_requests_per_task,
         credit_gd_request_interval_seconds=credit_gd_request_interval_seconds,
+        gdcic_browser_readback_manifest=gdcic_browser_manifest,
     )
     project_task_records = _project_task_records(field_task_records)
     manual_check_table = _manual_check_table(field_task_records)
@@ -271,6 +294,9 @@ def build_guangdong_local_field_query_probe(
         "source_p13b_operational_closeout_json": str(p13b_source_path or ""),
         "source_release_evidence_adapter_plan_root": str(release_plan_dir or ""),
         "source_release_evidence_adapter_plan_json": str(release_plan_source_path or ""),
+        "source_gdcic_browser_authorized_readback_root": str(gdcic_browser_dir or ""),
+        "source_gdcic_browser_authorized_readback_json": str(gdcic_browser_source_path or ""),
+        "gdcic_browser_authorized_readback_manifest_loaded": bool(gdcic_browser_manifest),
         "execution_mode": execution_mode,
         "live_public_query_enabled": bool(enable_live_public_query),
         "max_live_tasks": max_live_tasks,
@@ -613,6 +639,7 @@ def _field_task_records_from_local_verification(
     credit_gd_session_getter: CreditGdSessionGetter | None,
     credit_gd_max_requests_per_task: int | None,
     credit_gd_request_interval_seconds: float | None,
+    gdcic_browser_readback_manifest: Mapping[str, Any] | None,
 ) -> list[dict[str, Any]]:
     records: list[dict[str, Any]] = []
     live_attempted = 0
@@ -644,6 +671,7 @@ def _field_task_records_from_local_verification(
                     credit_gd_session_getter=credit_gd_session_getter,
                     credit_gd_max_requests_per_task=credit_gd_max_requests_per_task,
                     credit_gd_request_interval_seconds=credit_gd_request_interval_seconds,
+                    gdcic_browser_readback_manifest=gdcic_browser_readback_manifest,
                 )
                 cache[cache_key] = _copy_jsonable(readback)
         else:
@@ -1712,6 +1740,7 @@ def _execute_live_field_query(
     credit_gd_session_getter: CreditGdSessionGetter | None,
     credit_gd_max_requests_per_task: int | None,
     credit_gd_request_interval_seconds: float | None,
+    gdcic_browser_readback_manifest: Mapping[str, Any] | None,
 ) -> dict[str, Any]:
     if _requires_region_adapter_readback(task):
         return _region_adapter_required_readback(task, route_plan)
@@ -1726,6 +1755,14 @@ def _execute_live_field_query(
         if adapter_id in BROWSER_REQUIRED_FIELD_ADAPTER_IDS
     )
     if browser_required_adapter_id and source_specific_adapter_ids <= BROWSER_REQUIRED_FIELD_ADAPTER_IDS:
+        browser_readback = _gdcic_browser_authorized_readback_for_task(
+            task,
+            route_plan,
+            gdcic_browser_readback_manifest,
+            fallback_adapter_id=browser_required_adapter_id,
+        )
+        if browser_readback:
+            return browser_readback
         return _browser_required_readback(browser_required_adapter_id, route_plan)
     if any(
         str(route.get("source_specific_adapter_id") or "")
@@ -1742,7 +1779,12 @@ def _execute_live_field_query(
         == "guangdong_gdcic_contract_performance_public_page_v1"
         for route in route_plan
     ):
-        return _execute_guangdong_gdcic_home_field_query(task, route_plan, http_getter=http_getter)
+        return _execute_guangdong_gdcic_home_field_query(
+            task,
+            route_plan,
+            http_getter=http_getter,
+            gdcic_browser_readback_manifest=gdcic_browser_readback_manifest,
+        )
     if any(
         str(route.get("source_specific_adapter_id") or "") == ZHEJIANG_JZSC_FIELD_ADAPTER_ID
         for route in route_plan
@@ -2081,6 +2123,7 @@ def _execute_guangdong_gdcic_home_field_query(
     route_plan: list[Mapping[str, Any]],
     *,
     http_getter: HttpGetter | None,
+    gdcic_browser_readback_manifest: Mapping[str, Any] | None,
 ) -> dict[str, Any]:
     getter = http_getter or _default_http_getter
     query_params = dict(task.get("query_params") or {})
@@ -2137,6 +2180,18 @@ def _execute_guangdong_gdcic_home_field_query(
             "route_attempts": attempts,
             "blocker_taxonomy": blockers,
         }
+    browser_readback = _gdcic_browser_authorized_readback_for_task(
+        task,
+        route_plan,
+        gdcic_browser_readback_manifest,
+        fallback_adapter_id=GUANGDONG_GDCIC_BROWSER_AUTHORIZED_READBACK_ADAPTER_ID,
+        route_attempts=attempts,
+        blockers=blockers,
+        sso_route_seen=sso_route_seen,
+        readback_status_code=status_codes[0] if status_codes else None,
+    )
+    if browser_readback:
+        return browser_readback
     if "gd_gdcic_contract_system_sso_login_required" in blockers:
         return {
             "field_query_probe_state": "LIVE_FIELD_QUERY_NEEDS_BROWSER",
@@ -2193,6 +2248,446 @@ def _execute_guangdong_gdcic_home_field_query(
         "route_plan": list(route_plan),
         "route_attempts": attempts,
         "blocker_taxonomy": blockers or ["gd_gdcic_contract_performance_public_no_record_review"],
+    }
+
+
+def _gdcic_browser_authorized_readback_for_task(
+    task: Mapping[str, Any],
+    route_plan: list[Mapping[str, Any]],
+    manifest: Mapping[str, Any] | None,
+    *,
+    fallback_adapter_id: str,
+    route_attempts: list[Mapping[str, Any]] | None = None,
+    blockers: list[str] | None = None,
+    sso_route_seen: bool = False,
+    readback_status_code: int | None = None,
+) -> dict[str, Any] | None:
+    if not manifest:
+        return None
+    artifacts = [
+        artifact
+        for artifact in _gdcic_browser_authorized_artifacts(manifest)
+        if _gdcic_browser_artifact_matches_task(task, artifact)
+    ]
+    if not artifacts:
+        return None
+
+    query_params = dict(task.get("query_params") or {})
+    keywords = _query_keywords(query_params)
+    target_source_types = _dedupe(
+        [
+            *_target_source_type_set(task, query_params),
+            *_list(query_params.get("targetSourceTypes")),
+            *_list(task.get("target_source_types")),
+            str(task.get("release_evidence_target_type") or ""),
+        ]
+    )
+    prior_attempts = [dict(attempt) for attempt in (route_attempts or []) if isinstance(attempt, Mapping)]
+    source_url = _first_text(
+        artifact.get("source_url") or artifact.get("browser_url") for artifact in artifacts if isinstance(artifact, Mapping)
+    ) or GUANGDONG_GDCIC_CONTRACT_SYSTEM_URL
+    manifest_kind = str(manifest.get("manifest_kind") or GUANGDONG_GDCIC_BROWSER_AUTHORIZED_READBACK_KIND)
+    manifest_id = str(manifest.get("manifest_id") or "")
+    status_codes = [
+        _int(artifact.get("http_status") or artifact.get("status_code"))
+        for artifact in artifacts
+        if _int(artifact.get("http_status") or artifact.get("status_code"))
+    ]
+    status_code = readback_status_code or (status_codes[0] if status_codes else None)
+    raw_records: list[Mapping[str, Any]] = []
+    blocked_artifacts: list[Mapping[str, Any]] = []
+    no_record_artifacts: list[Mapping[str, Any]] = []
+    for artifact in artifacts:
+        state = _gdcic_browser_artifact_state(artifact)
+        if _gdcic_browser_state_is_blocked(state):
+            blocked_artifacts.append(artifact)
+        records = _gdcic_browser_records_from_artifact(artifact)
+        if records:
+            raw_records.extend(records)
+        elif _gdcic_browser_state_is_no_record(state):
+            no_record_artifacts.append(artifact)
+
+    compact_records = [
+        record
+        for record in (
+            _compact_gdcic_browser_authorized_record(
+                record,
+                keywords,
+                target_source_types,
+                artifact_source_url=source_url,
+            )
+            for record in raw_records
+        )
+        if record
+    ][:10]
+    matched_keyword_count = len(
+        _dedupe(keyword for record in compact_records for keyword in _list(record.get("matched_keywords")))
+    )
+    artifact_attempt = {
+        "route_id": "gd_gdcic_browser_authorized_readback_artifact",
+        "route_group": "gd_gdcic_browser_authorized_readback",
+        "url": source_url,
+        "route_state": (
+            "BROWSER_AUTHORIZED_READBACK_CONSUMED"
+            if compact_records
+            else "BROWSER_AUTHORIZED_READBACK_NO_FIELD_RECORD"
+            if no_record_artifacts
+            else "FAIL_CLOSED_BROWSER_AUTHORIZED_READBACK_BLOCKED"
+            if blocked_artifacts
+            else "BROWSER_AUTHORIZED_READBACK_NO_APPLICABLE_RECORD"
+        ),
+        "http_status": status_code,
+        "content_type_probe": "application/json",
+        "keyword_hit_count": matched_keyword_count,
+        "matched_keywords": _dedupe(
+            keyword for record in compact_records for keyword in _list(record.get("matched_keywords"))
+        )[:10],
+        "source_manifest_kind": manifest_kind,
+        "source_manifest_id": manifest_id,
+        "blocker_taxonomy": [],
+    }
+    common_summary = {
+        "source_specific_adapter_id": GUANGDONG_GDCIC_BROWSER_AUTHORIZED_READBACK_ADAPTER_ID,
+        "fallback_adapter_id": fallback_adapter_id,
+        "source_profile_id": GUANGDONG_GDCIC_HOME_PROFILE_ID,
+        "source_manifest_kind": manifest_kind,
+        "source_manifest_id": manifest_id,
+        "target_source_types": target_source_types,
+        "contract_system_sso_route_seen": sso_route_seen,
+        "browser_authorized_readback_consumed": True,
+    }
+    common_match_summary = {
+        "query_miss_is_not_clearance": True,
+        "browser_authorized_readback_consumed": True,
+        "readback_is_line_clue_not_final_conclusion": True,
+    }
+    blocker_taxonomy = _dedupe(
+        [
+            *(blockers or []),
+            "gd_gdcic_browser_authorized_readback_consumed" if compact_records or no_record_artifacts else "",
+            "gd_gdcic_browser_authorized_readback_blocked" if blocked_artifacts and not compact_records else "",
+        ]
+    )
+    if compact_records:
+        return {
+            "field_query_probe_state": "FIELD_READBACK_READY_PUBLIC_SOURCE",
+            "field_readback_state": "BROWSER_AUTHORIZED_SOURCE_FIELD_READBACK_READY_REVIEW_REQUIRED",
+            "readback_ready": True,
+            "readback_status_code": status_code or 200,
+            "field_summary": {
+                **common_summary,
+                "record_count": len(compact_records),
+                "matched_keyword_count": matched_keyword_count,
+                "source_profile_keyword_hit": bool(matched_keyword_count),
+            },
+            "field_match_summary": {
+                **common_match_summary,
+                "source_specific_records": compact_records,
+            },
+            "route_plan": list(route_plan),
+            "route_attempts": [*prior_attempts, artifact_attempt],
+            "blocker_taxonomy": blocker_taxonomy,
+        }
+    if no_record_artifacts:
+        return {
+            "field_query_probe_state": "NO_FIELD_MATCH_REVIEW_REQUIRED",
+            "field_readback_state": "BROWSER_AUTHORIZED_SOURCE_QUERIED_NO_FIELD_RECORD",
+            "readback_ready": False,
+            "readback_status_code": status_code,
+            "field_summary": {
+                **common_summary,
+                "record_count": 0,
+                "source_profile_keyword_hit": False,
+            },
+            "field_match_summary": common_match_summary,
+            "route_plan": list(route_plan),
+            "route_attempts": [*prior_attempts, artifact_attempt],
+            "blocker_taxonomy": blocker_taxonomy
+            or ["gd_gdcic_browser_authorized_readback_no_record_review"],
+        }
+    if blocked_artifacts:
+        artifact_attempt["blocker_taxonomy"] = ["gd_gdcic_browser_authorized_readback_blocked"]
+        return {
+            "field_query_probe_state": "FAIL_CLOSED_PUBLIC_SOURCE_BLOCKED",
+            "field_readback_state": "FIELD_READBACK_BLOCKED",
+            "readback_ready": False,
+            "readback_status_code": status_code,
+            "field_summary": {
+                **common_summary,
+                "record_count": 0,
+                "source_profile_keyword_hit": False,
+            },
+            "field_match_summary": common_match_summary,
+            "route_plan": list(route_plan),
+            "route_attempts": [*prior_attempts, artifact_attempt],
+            "blocker_taxonomy": blocker_taxonomy
+            or ["gd_gdcic_browser_authorized_readback_blocked"],
+        }
+    return None
+
+
+def _gdcic_browser_authorized_artifacts(manifest: Mapping[str, Any]) -> list[Mapping[str, Any]]:
+    records: list[Mapping[str, Any]] = []
+    for key in (
+        "browser_readback_records",
+        "gdcic_browser_authorized_readback_records",
+        "readback_records",
+        "field_readback_records",
+        "records",
+    ):
+        for record in _list(manifest.get(key)):
+            if isinstance(record, Mapping):
+                records.append(record)
+    if isinstance(manifest.get("browser_readback_table"), Mapping):
+        for record in _list((manifest.get("browser_readback_table") or {}).get("records")):
+            if isinstance(record, Mapping):
+                records.append(record)
+    if not records and _looks_like_gdcic_browser_artifact(manifest):
+        records.append(manifest)
+    return records
+
+
+def _looks_like_gdcic_browser_artifact(record: Mapping[str, Any]) -> bool:
+    text = " ".join(
+        str(record.get(key) or "")
+        for key in (
+            "source_profile_id",
+            "source_specific_adapter_id",
+            "readback_adapter_id",
+            "release_evidence_target_type",
+            "readback_state",
+        )
+    )
+    return "GDCIC" in text.upper() or "gdcic" in text or "project_manager_change_notice" in text
+
+
+def _gdcic_browser_artifact_matches_task(task: Mapping[str, Any], artifact: Mapping[str, Any]) -> bool:
+    profile_id = str(artifact.get("source_profile_id") or "").strip().upper()
+    if profile_id and profile_id != GUANGDONG_GDCIC_HOME_PROFILE_ID:
+        return False
+    task_targets = _gdcic_task_target_tokens(task)
+    artifact_targets = _gdcic_artifact_target_tokens(artifact)
+    if artifact_targets and task_targets and not bool(task_targets & artifact_targets):
+        return False
+    task_ids = {
+        str(task.get(key) or "").strip()
+        for key in (
+            "query_task_id",
+            "release_evidence_adapter_task_id",
+            "p13b_release_evidence_probe_task_id",
+            "source_release_evidence_probe_task_id",
+            "project_id",
+        )
+        if str(task.get(key) or "").strip()
+    }
+    artifact_ids = {
+        str(artifact.get(key) or "").strip()
+        for key in (
+            "query_task_id",
+            "field_query_task_id",
+            "release_evidence_adapter_task_id",
+            "source_release_evidence_probe_task_id",
+            "p13b_release_evidence_probe_task_id",
+            "project_id",
+        )
+        if str(artifact.get(key) or "").strip()
+    }
+    if task_ids & artifact_ids:
+        return True
+
+    query_params = dict(task.get("query_params") or {})
+    task_project = _clean_project_title(task.get("project_name") or query_params.get("projectName"))
+    artifact_project = _clean_project_title(
+        artifact.get("project_name")
+        or artifact.get("projectName")
+        or artifact.get("project_name_probe")
+        or artifact.get("projectNameProbe")
+    )
+    task_companies = _dedupe(
+        [
+            *_list(task.get("matched_company_names")),
+            *_list(task.get("candidate_group_members")),
+            *_list(task.get("company_query_variants")),
+            query_params.get("companyName"),
+            query_params.get("candidateCompanyName"),
+        ]
+    )
+    artifact_company = _first_text(
+        (
+            artifact.get("candidate_company_name"),
+            artifact.get("company_name"),
+            artifact.get("companyName"),
+            artifact.get("construction_company_probe"),
+            artifact.get("contractor_name"),
+        )
+    )
+    task_person = _first_text(
+        (
+            task.get("responsible_person_name"),
+            query_params.get("personName"),
+            query_params.get("projectManagerName"),
+        )
+    )
+    artifact_person = _first_text(
+        (
+            artifact.get("person_name"),
+            artifact.get("project_manager_name"),
+            artifact.get("projectManagerName"),
+            artifact.get("original_project_manager_name"),
+            artifact.get("new_project_manager_name"),
+        )
+    )
+    identity_hits = 0
+    if task_project and artifact_project and (task_project in artifact_project or artifact_project in task_project):
+        identity_hits += 1
+    if artifact_company and any(company and (company in artifact_company or artifact_company in company) for company in task_companies):
+        identity_hits += 1
+    if task_person and artifact_person and task_person == artifact_person:
+        identity_hits += 1
+    return identity_hits >= 2
+
+
+def _gdcic_task_target_tokens(task: Mapping[str, Any]) -> set[str]:
+    query_params = dict(task.get("query_params") or {})
+    tokens = {
+        *_target_source_type_set(task, query_params),
+        str(task.get("release_evidence_target_type") or ""),
+    }
+    release_target = str(task.get("release_evidence_target_type") or "")
+    tokens.update(RELEASE_TARGET_TO_FIELD_SOURCE_TYPES.get(release_target, []))
+    if "contract_performance" in tokens:
+        tokens.add("contract_public_info")
+    return {token for token in tokens if token}
+
+
+def _gdcic_artifact_target_tokens(artifact: Mapping[str, Any]) -> set[str]:
+    tokens = {
+        str(artifact.get("release_evidence_target_type") or ""),
+        str(artifact.get("target_source_type") or ""),
+        *[str(item) for item in _list(artifact.get("target_source_types"))],
+        *[str(item) for item in _list(artifact.get("source_target_source_types"))],
+    }
+    release_target = str(artifact.get("release_evidence_target_type") or "")
+    tokens.update(RELEASE_TARGET_TO_FIELD_SOURCE_TYPES.get(release_target, []))
+    if "contract_performance" in tokens:
+        tokens.add("contract_public_info")
+    return {token for token in tokens if token}
+
+
+def _gdcic_browser_artifact_state(artifact: Mapping[str, Any]) -> str:
+    return str(
+        artifact.get("readback_state")
+        or artifact.get("adapter_result_state")
+        or artifact.get("field_query_probe_state")
+        or artifact.get("result_state")
+        or artifact.get("state")
+        or ""
+    ).strip().upper()
+
+
+def _gdcic_browser_state_is_no_record(state: str) -> bool:
+    return any(token in state for token in ("NO_FIELD", "NO_RECORD", "NOT_FOUND", "NO_MATCH", "EMPTY_RESULT"))
+
+
+def _gdcic_browser_state_is_blocked(state: str) -> bool:
+    return any(token in state for token in ("BLOCK", "CAPTCHA", "LOGIN_REQUIRED", "SSO_REQUIRED", "ERROR", "FAILED"))
+
+
+def _gdcic_browser_records_from_artifact(artifact: Mapping[str, Any]) -> list[Mapping[str, Any]]:
+    records: list[Mapping[str, Any]] = []
+    for key in ("records", "source_specific_records", "field_records", "readback_records", "browser_records"):
+        for record in _list(artifact.get(key)):
+            if isinstance(record, Mapping):
+                records.append({**artifact, **record})
+    state = _gdcic_browser_artifact_state(artifact)
+    if records:
+        return records
+    if _gdcic_browser_state_is_no_record(state) or _gdcic_browser_state_is_blocked(state):
+        return []
+    if _gdcic_browser_state_has_record(state) or any(
+        str(artifact.get(key) or "").strip()
+        for key in (
+            "record_text",
+            "project_name",
+            "company_name",
+            "project_manager_name",
+            "original_project_manager_name",
+            "new_project_manager_name",
+            "contract_status",
+        )
+    ):
+        return [artifact]
+    return []
+
+
+def _gdcic_browser_state_has_record(state: str) -> bool:
+    return any(token in state for token in ("MATCH", "READY", "SUCCESS", "FOUND")) and not _gdcic_browser_state_is_no_record(state)
+
+
+def _compact_gdcic_browser_authorized_record(
+    record: Mapping[str, Any],
+    keywords: list[str],
+    target_source_types: list[str],
+    *,
+    artifact_source_url: str,
+) -> dict[str, Any]:
+    record_text = _compact_mapping_text(record)
+    matched_keywords = [keyword for keyword in keywords if keyword and keyword in record_text][:10]
+    target_tokens = set(target_source_types)
+    if "project_manager_change_notice" in target_tokens:
+        record_type = "project_manager_change_browser_authorized_record"
+    elif "completion_filing" in target_tokens or "completion_acceptance" in target_tokens:
+        record_type = "completion_release_browser_authorized_record"
+    else:
+        record_type = "contract_performance_browser_authorized_record"
+    source_url = _first_text((record.get("source_url"), record.get("browser_url"), artifact_source_url))
+    return {
+        "record_type": record_type,
+        "source_profile_id": GUANGDONG_GDCIC_HOME_PROFILE_ID,
+        "source_specific_adapter_id": GUANGDONG_GDCIC_BROWSER_AUTHORIZED_READBACK_ADAPTER_ID,
+        "source_url": source_url,
+        "captured_at": str(record.get("captured_at") or record.get("readback_captured_at") or ""),
+        "project_name_probe": _first_text(
+            (
+                record.get("project_name"),
+                record.get("projectName"),
+                record.get("project_name_probe"),
+                record.get("projectNameProbe"),
+            )
+        )[:500],
+        "company_name_probe": _first_text(
+            (
+                record.get("candidate_company_name"),
+                record.get("company_name"),
+                record.get("companyName"),
+                record.get("construction_company_probe"),
+                record.get("contractor_name"),
+            )
+        )[:300],
+        "project_manager_name_probe": _first_text(
+            (
+                record.get("project_manager_name"),
+                record.get("projectManagerName"),
+                record.get("person_name"),
+            )
+        )[:80],
+        "original_project_manager_name_probe": _first_text(
+            (record.get("original_project_manager_name"), record.get("old_project_manager_name"))
+        )[:80],
+        "new_project_manager_name_probe": _first_text(
+            (record.get("new_project_manager_name"), record.get("changed_project_manager_name"))
+        )[:80],
+        "contract_start_date_probe": _first_text(
+            (record.get("contract_start_date"), record.get("start_date"), record.get("begin_date"))
+        )[:80],
+        "contract_end_date_probe": _first_text(
+            (record.get("contract_end_date"), record.get("end_date"), record.get("completion_date"))
+        )[:80],
+        "change_date_probe": _first_text((record.get("change_date"), record.get("approval_date")))[:80],
+        "record_sha256": _sha256_text(record_text),
+        "matched_keywords": matched_keywords,
+        "query_miss_is_not_clearance": True,
+        "readback_is_line_clue_not_final_conclusion": True,
     }
 
 
@@ -4158,6 +4653,28 @@ def _summary(
             if str(task.get("source_profile_id") or "").upper() == GUANGDONG_GDCIC_HOME_PROFILE_ID
             and str(task.get("field_query_probe_state") or "") == "FIELD_READBACK_READY_PUBLIC_SOURCE"
         ),
+        "guangdong_gdcic_browser_authorized_readback_ready_count": sum(
+            1
+            for task in field_task_records
+            if str(task.get("source_profile_id") or "").upper() == GUANGDONG_GDCIC_HOME_PROFILE_ID
+            and str((task.get("field_summary") or {}).get("source_specific_adapter_id") or "")
+            == GUANGDONG_GDCIC_BROWSER_AUTHORIZED_READBACK_ADAPTER_ID
+            and str(task.get("field_query_probe_state") or "") == "FIELD_READBACK_READY_PUBLIC_SOURCE"
+        ),
+        "guangdong_gdcic_browser_authorized_not_found_count": sum(
+            1
+            for task in field_task_records
+            if str(task.get("source_profile_id") or "").upper() == GUANGDONG_GDCIC_HOME_PROFILE_ID
+            and str((task.get("field_summary") or {}).get("source_specific_adapter_id") or "")
+            == GUANGDONG_GDCIC_BROWSER_AUTHORIZED_READBACK_ADAPTER_ID
+            and str(task.get("field_query_probe_state") or "") == "NO_FIELD_MATCH_REVIEW_REQUIRED"
+        ),
+        "guangdong_gdcic_browser_or_authorized_runtime_required_count": sum(
+            1
+            for task in field_task_records
+            if str(task.get("source_profile_id") or "").upper() == GUANGDONG_GDCIC_HOME_PROFILE_ID
+            and str(task.get("field_query_probe_state") or "") == "LIVE_FIELD_QUERY_NEEDS_BROWSER"
+        ),
         "zhejiang_jzsc_readback_ready_count": sum(
             1
             for task in field_task_records
@@ -4344,6 +4861,8 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--p13b-operational-closeout-json")
     parser.add_argument("--release-evidence-adapter-plan-root")
     parser.add_argument("--release-evidence-adapter-plan-json")
+    parser.add_argument("--gdcic-browser-readback-root")
+    parser.add_argument("--gdcic-browser-readback-json")
     parser.add_argument("--output-root", default=str(DEFAULT_OUTPUT_ROOT))
     parser.add_argument("--source-profile-ids", nargs="*", default=[])
     parser.add_argument("--enable-live-public-query", action="store_true")
@@ -4364,6 +4883,8 @@ def main(argv: list[str] | None = None) -> int:
         p13b_operational_closeout_json=args.p13b_operational_closeout_json,
         release_evidence_adapter_plan_root=args.release_evidence_adapter_plan_root,
         release_evidence_adapter_plan_json=args.release_evidence_adapter_plan_json,
+        gdcic_browser_readback_root=args.gdcic_browser_readback_root,
+        gdcic_browser_readback_json=args.gdcic_browser_readback_json,
         output_root=args.output_root,
         source_profile_ids=args.source_profile_ids,
         enable_live_public_query=args.enable_live_public_query,

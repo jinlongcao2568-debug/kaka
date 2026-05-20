@@ -884,6 +884,142 @@ class GuangdongLocalFieldQueryProbeTests(unittest.TestCase):
             self.assertTrue(task["field_match_summary"]["query_miss_is_not_clearance"])
             self.assertIn("gd_gdcic_contract_system_sso_login_required", task["blocker_taxonomy"])
 
+    def test_gdcic_browser_authorized_readback_consumes_contract_artifact(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            plan_root = root / "release-plan"
+            readback_root = root / "gdcic-readback"
+            _write_release_evidence_adapter_plan(plan_root)
+            _write_gdcic_browser_authorized_readback(
+                readback_root,
+                task_id="REL-TASK-2",
+                target_type="contract_performance",
+                records=[
+                    {
+                        "project_name": "广州测试项目",
+                        "company_name": "广州测试建设有限公司",
+                        "project_manager_name": "张三",
+                        "contract_start_date": "2025-08-01",
+                        "contract_end_date": "2026-08-01",
+                        "contract_status": "履约中",
+                    }
+                ],
+            )
+
+            result = build_guangdong_local_field_query_probe(
+                release_evidence_adapter_plan_root=plan_root,
+                gdcic_browser_readback_root=readback_root,
+                output_root=root / "out",
+                source_profile_ids=["GUANGDONG-GDCIC-HOME"],
+                enable_live_public_query=True,
+                max_live_tasks=1,
+                http_getter=_gdcic_sso_empty_getter,
+                created_at="2026-05-20T00:00:00+08:00",
+            )
+
+            self.assertTrue(result["safe_to_execute"])
+            summary = result["summary"]
+            self.assertEqual(summary["guangdong_gdcic_browser_authorized_readback_ready_count"], 1)
+            task = result["manifest"]["field_task_records"][0]
+            self.assertEqual(task["release_evidence_target_type"], "contract_performance")
+            self.assertEqual(task["field_query_probe_state"], "FIELD_READBACK_READY_PUBLIC_SOURCE")
+            self.assertEqual(task["field_readback_state"], "BROWSER_AUTHORIZED_SOURCE_FIELD_READBACK_READY_REVIEW_REQUIRED")
+            self.assertEqual(task["adapter_result_state"], "MATCHED")
+            self.assertEqual(task["downstream_release_evidence_abcd_grade"], "B_ENHANCEMENT_OFFICIAL_READBACK")
+            self.assertEqual(
+                task["field_summary"]["source_specific_adapter_id"],
+                "guangdong_gdcic_browser_authorized_readback_v1",
+            )
+            self.assertTrue(task["field_match_summary"]["browser_authorized_readback_consumed"])
+            record = task["field_match_summary"]["source_specific_records"][0]
+            self.assertEqual(record["record_type"], "contract_performance_browser_authorized_record")
+            self.assertEqual(record["company_name_probe"], "广州测试建设有限公司")
+            self.assertEqual(record["contract_end_date_probe"], "2026-08-01")
+            self.assertIn("gd_gdcic_contract_system_sso_login_required", task["blocker_taxonomy"])
+
+    def test_gdcic_browser_authorized_readback_consumes_project_manager_change_artifact(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            plan_root = root / "release-plan"
+            readback_root = root / "gdcic-readback"
+            _write_release_evidence_adapter_plan(plan_root)
+            _write_gdcic_browser_authorized_readback(
+                readback_root,
+                task_id="REL-TASK-4",
+                target_type="project_manager_change_notice",
+                records=[
+                    {
+                        "project_name": "广州测试项目",
+                        "company_name": "广州测试建设有限公司",
+                        "original_project_manager_name": "张三",
+                        "new_project_manager_name": "李四",
+                        "change_date": "2026-01-15",
+                    }
+                ],
+            )
+
+            result = build_guangdong_local_field_query_probe(
+                release_evidence_adapter_plan_root=plan_root,
+                gdcic_browser_readback_root=readback_root,
+                output_root=root / "out",
+                source_profile_ids=["GUANGDONG-GDCIC-HOME"],
+                enable_live_public_query=True,
+                max_live_tasks=2,
+                http_getter=_gdcic_sso_empty_getter,
+                created_at="2026-05-20T00:00:00+08:00",
+            )
+
+            self.assertTrue(result["safe_to_execute"])
+            by_target = {
+                task["release_evidence_target_type"]: task
+                for task in result["manifest"]["field_task_records"]
+            }
+            task = by_target["project_manager_change_notice"]
+            self.assertEqual(task["field_query_probe_state"], "FIELD_READBACK_READY_PUBLIC_SOURCE")
+            self.assertEqual(task["adapter_result_state"], "MATCHED")
+            self.assertEqual(task["downstream_release_evidence_abcd_grade"], "C_REVERSE_EXPLANATION_OFFICIAL_READBACK")
+            record = task["field_match_summary"]["source_specific_records"][0]
+            self.assertEqual(record["record_type"], "project_manager_change_browser_authorized_record")
+            self.assertEqual(record["original_project_manager_name_probe"], "张三")
+            self.assertEqual(record["new_project_manager_name_probe"], "李四")
+
+    def test_gdcic_browser_authorized_no_record_is_d_not_clearance(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            plan_root = root / "release-plan"
+            readback_root = root / "gdcic-readback"
+            _write_release_evidence_adapter_plan(plan_root)
+            _write_gdcic_browser_authorized_readback(
+                readback_root,
+                task_id="REL-TASK-4",
+                target_type="project_manager_change_notice",
+                readback_state="NO_FIELD_MATCH_REVIEW_REQUIRED",
+                records=[],
+            )
+
+            result = build_guangdong_local_field_query_probe(
+                release_evidence_adapter_plan_root=plan_root,
+                gdcic_browser_readback_root=readback_root,
+                output_root=root / "out",
+                source_profile_ids=["GUANGDONG-GDCIC-HOME"],
+                enable_live_public_query=True,
+                max_live_tasks=2,
+                http_getter=_gdcic_sso_empty_getter,
+                created_at="2026-05-20T00:00:00+08:00",
+            )
+
+            self.assertTrue(result["safe_to_execute"])
+            by_target = {
+                task["release_evidence_target_type"]: task
+                for task in result["manifest"]["field_task_records"]
+            }
+            task = by_target["project_manager_change_notice"]
+            self.assertEqual(task["field_query_probe_state"], "NO_FIELD_MATCH_REVIEW_REQUIRED")
+            self.assertEqual(task["adapter_result_state"], "NOT_FOUND")
+            self.assertEqual(task["downstream_release_evidence_abcd_grade"], "D_INSUFFICIENT_OR_BLOCKED_READBACK")
+            self.assertTrue(task["initial_signal_remains_valid_when_downstream_is_d"])
+            self.assertTrue(task["field_match_summary"]["query_miss_is_not_clearance"])
+
     def test_zfcxjst_penalty_publicity_readback_records_decision(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -1707,6 +1843,45 @@ def _write_release_evidence_adapter_plan(root: Path) -> None:
     )
 
 
+def _write_gdcic_browser_authorized_readback(
+    root: Path,
+    *,
+    task_id: str,
+    target_type: str,
+    records: list[Mapping[str, Any]],
+    readback_state: str = "BROWSER_AUTHORIZED_READBACK_READY",
+) -> None:
+    root.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "manifest": {
+            "manifest_kind": "gdcic_browser_authorized_readback_v1_manifest",
+            "manifest_id": "GDCIC-BROWSER-READBACK-TEST",
+            "browser_readback_records": [
+                {
+                    "release_evidence_adapter_task_id": task_id,
+                    "project_id": "PROJ-P13B-1",
+                    "project_name": "广州测试项目中标候选人公示",
+                    "candidate_company_name": "广州测试建设有限公司",
+                    "person_name": "张三",
+                    "source_profile_id": "GUANGDONG-GDCIC-HOME",
+                    "release_evidence_target_type": target_type,
+                    "readback_state": readback_state,
+                    "source_url": "http://210.76.80.152:8008/JG/home/Indexht",
+                    "captured_at": "2026-05-20T00:00:00+08:00",
+                    "records": records,
+                    "customer_visible_allowed": False,
+                    "no_legal_conclusion": True,
+                }
+            ],
+        },
+        "summary": {"browser_readback_count": 1},
+    }
+    (root / "gdcic-browser-authorized-readback-v1.json").write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+
 def _write_non_guangdong_release_evidence_adapter_plan(root: Path) -> None:
     root.mkdir(parents=True, exist_ok=True)
     task = _release_plan_task("REL-ZJ-TASK-1", "construction_permit", "B_ENHANCEMENT_OFFICIAL_READBACK")
@@ -1860,6 +2035,20 @@ def _route_adapter_ids(task: Mapping[str, Any]) -> set[str]:
         str(route.get("source_specific_adapter_id") or "")
         for route in task.get("route_plan", [])
         if str(route.get("source_specific_adapter_id") or "")
+    }
+
+
+def _gdcic_sso_empty_getter(url: str, _params: Mapping[str, Any]) -> Mapping[str, Any]:
+    if "Indexht" in url:
+        return {
+            "http_status": 200,
+            "content_type": "text/html; charset=utf-8",
+            "text_probe": "<script>top.window.location.href='http://210.76.80.152:8008/SSO/jrsso/auth'</script>",
+        }
+    return {
+        "http_status": 200,
+        "content_type": "text/html; charset=utf-8",
+        "text_probe": "<table><tbody></tbody></table>",
     }
 
 
