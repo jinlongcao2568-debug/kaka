@@ -69,7 +69,7 @@ MAJOR_TARGET_REGION_SOURCE_CATALOG = (
         "source_name": "江苏省建筑市场监管与诚信管理一体化平台",
         "source_url": "https://jsszfhcxjst.jiangsu.gov.cn/",
         "official_reference_url": "https://jsszfhcxjst.jiangsu.gov.cn/art/2025/2/20/art_49384_11496246.html",
-        "runtime_status": "OFFICIAL_PLATFORM_REFERENCED_ADAPTER_PENDING",
+        "runtime_status": "OFFICIAL_PLATFORM_REFERENCED_STRUCTURED_READBACK_MINIMUM_LOOP",
         "next_adapter": "jiangsu_construction_market_integrated_platform_query_adapter",
     },
     {

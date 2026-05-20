@@ -10,8 +10,8 @@ automatic_refund_enabled: false
 ordering_rule: "先解决 owner 看不懂和 Stage4 证据链短板，再扩大 Stage1-3 稳定性，最后做 Stage5 校准和 Stage1-6 批量回归。"
 current_focus:
   priority_id: P0_STAGE4_RELEASE_EVIDENCE_CHAIN
-  task: "释放证据主链继续闭环：广东/广州最小查询闭环已 live canary，GDCIC browser-authorized readback 已有真实浏览器执行器并能显式输出授权状态/下一步动作，浙江和四川第一版非广东字段 adapter 已接入；下一步做 GDCIC 授权会话字段命中样本、项目经理变更释放证据和第三个非广东省份 adapter"
-  reason: "Stage6 总览已能默认展示最近多项目批次，并把当前阶段、证据等级、阻断原因、下一步和 Stage7 gate 投到项目卡片；释放证据 dispatch 输入约束已收紧，不能再误用默认旧产物；GuangdongLocalFieldQueryProbe 已能把 ReleaseEvidenceAdapterPlan 的施工许可、合同履约、竣工验收、项目经理变更四类目标分流到广州住建/GDCIC/非广东归属地 adapter，并输出 MATCHED / NOT_FOUND / BLOCKED / NEEDS_BROWSER；2026-05-20 小预算 live canary 已验证广州住建施工许可/竣工验收可达可解析；GDCIC browser-authorized readback 现已能消费 gdcic-browser-authorized-readback-v1.json，也能通过 build-gdcic-browser-authorized-readback-v1.ps1 执行真实 Playwright canary，未授权合同履约系统登录壳会落 LOGIN_OR_SSO_REQUIRED_BLOCKED / BLOCKED / D，并显式回传 authorization_readiness_state=LOGIN_OR_SSO_REQUIRED 与 operator_next_actions，field probe、Stage6 loop 项目状态表和 operator projection 均可继续展示该状态，不再写成字段未命中；非广东归属地 adapter registry 已能防误判，浙江第一版字段 adapter 已接入 PublicWeb 与 ProjectInfo/re/GetProjectSGXK、GetProjectHTBA、GetProjectJGYS，canary 显示公开页可达但施工许可字段接口小预算下可超时阻断或返回空结果；四川第一版字段 adapter 已接入四川省建筑市场监管公共服务平台 GetPerjectList 与 GetProjSgxkzList/GetProjHtbaList/GetProjJgbaList，真实 canary 已命中施工许可详情并输出 MATCHED/B；下一步推进 GDCIC 授权会话后的字段命中、项目经理变更释放证据和第三个非广东省份 adapter。"
+  task: "释放证据主链继续闭环：广东/广州最小查询闭环已 live canary，GDCIC browser-authorized readback 已有真实浏览器执行器并能显式输出授权状态/下一步动作，浙江、四川、江苏第一版非广东字段 adapter 已接入；下一步做 GDCIC 授权会话字段命中样本、项目经理变更释放证据和湖北/山东等后续省份 adapter"
+  reason: "Stage6 总览已能默认展示最近多项目批次，并把当前阶段、证据等级、阻断原因、下一步和 Stage7 gate 投到项目卡片；释放证据 dispatch 输入约束已收紧，不能再误用默认旧产物；GuangdongLocalFieldQueryProbe 已能把 ReleaseEvidenceAdapterPlan 的施工许可、合同履约、竣工验收、项目经理变更四类目标分流到广州住建/GDCIC/非广东归属地 adapter，并输出 MATCHED / NOT_FOUND / BLOCKED / NEEDS_BROWSER；2026-05-20 小预算 live canary 已验证广州住建施工许可/竣工验收可达可解析；GDCIC browser-authorized readback 现已能消费 gdcic-browser-authorized-readback-v1.json，也能通过 build-gdcic-browser-authorized-readback-v1.ps1 执行真实 Playwright canary，未授权合同履约系统登录壳会落 LOGIN_OR_SSO_REQUIRED_BLOCKED / BLOCKED / D，并显式回传 authorization_readiness_state=LOGIN_OR_SSO_REQUIRED 与 operator_next_actions，field probe、Stage6 loop 项目状态表和 operator projection 均可继续展示该状态，不再写成字段未命中；非广东归属地 adapter registry 已能防误判，浙江第一版字段 adapter 已接入 PublicWeb 与 ProjectInfo/re/GetProjectSGXK、GetProjectHTBA、GetProjectJGYS，canary 显示公开页可达但施工许可字段接口小预算下可超时阻断或返回空结果；四川第一版字段 adapter 已接入四川省建筑市场监管公共服务平台 GetPerjectList 与 GetProjSgxkzList/GetProjHtbaList/GetProjJgbaList，真实 canary 已命中施工许可详情并输出 MATCHED/B；江苏第一版字段 adapter 已接入江苏省建筑市场监管与诚信管理一体化平台归属地链路，结构化 readback 可输出 MATCHED/B，项目经理变更先收口为 NEEDS_BROWSER/D，2026-05-20 官方入口 live canary 返回 200 但字段面为 HTML 壳，正确归类 NEEDS_BROWSER/D，不误判字段命中；下一步推进 GDCIC 授权会话后的字段命中、项目经理变更释放证据和湖北/山东等后续省份 adapter。"
 priorities:
   - priority_id: P0_STAGE6_OBSERVABILITY
     rank: 1
@@ -42,12 +42,13 @@ priorities:
       - "浙江第一版字段 adapter：已定向 PublicWeb 与 ProjectInfo/re/GetProjectSGXK、GetProjectHTBA、GetProjectJGYS；2026-05-20 canary 显示公开页可达，字段接口小预算下超时阻断或返回空结果，输出 BLOCKED / NOT_FOUND + D，不输出排除性结论"
       - "GDCIC browser-authorized readback：已新增 gdcic-browser-authorized-readback-v1.json 受控产物消费路径和 build-gdcic-browser-authorized-readback-v1.ps1 执行入口；合同履约/项目经理变更可从授权浏览器回读转为 MATCHED/NOT_FOUND 与 B/C/D，未授权登录壳真实 canary 收口为 BLOCKED/D，并显式输出授权状态与下一步动作，无产物仍停在 NEEDS_BROWSER"
       - "四川第一版字段 adapter：已定向四川省建筑市场监管公共服务平台 GetPerjectList 与 GetProjSgxkzList/GetProjHtbaList/GetProjJgbaList；2026-05-20 真实 canary 命中施工许可详情并输出 MATCHED/B，且查询策略改为项目名优先、公司名辅助"
+      - "江苏第一版字段 adapter：已纳入归属地 adapter 支持集，结构化 readback 可解析 JSON/表格行并输出施工许可/合同/竣工 MATCHED/NOT_FOUND/B/C/D；项目经理变更先输出 NEEDS_BROWSER/D；2026-05-20 官方入口 live canary 返回 200 但字段面为 HTML 壳，正确归类 NEEDS_BROWSER/D，不把入口可达写成字段成功"
     done_when:
       - "P13B 重叠线索能自动生成 B/C/D 核验任务"
       - "未命中、阻断、缺备案不会被写成排除性结论"
       - "小预算真实 canary 能说明广州住建/GDCIC 当前可达性和字段变化，不只停留在 fake-live"
-      - "GDCIC 真实浏览器执行器和具体非广东省份字段 adapter readback 后，释放证据链才可进入批量实战回归"
-    current_state: "IN_PROGRESS_GD_GZ_MINIMUM_LOOP_LIVE_CANARY_DONE; ZHEJIANG_FIELD_ADAPTER_V1_CANARY_DONE_D_ONLY; GDCIC_REAL_BROWSER_EXECUTOR_CANARY_DONE_BLOCKED_D; SICHUAN_FIELD_ADAPTER_V1_CANARY_DONE_MATCHED_B; GDCIC_AUTHORIZED_FIELD_HIT_AND_THIRD_REGION_ADAPTER_PENDING"
+      - "GDCIC 真实浏览器执行器和更多具体非广东省份字段 adapter readback 后，释放证据链才可进入批量实战回归"
+    current_state: "IN_PROGRESS_GD_GZ_MINIMUM_LOOP_LIVE_CANARY_DONE; ZHEJIANG_FIELD_ADAPTER_V1_CANARY_DONE_D_ONLY; GDCIC_REAL_BROWSER_EXECUTOR_CANARY_DONE_BLOCKED_D; SICHUAN_FIELD_ADAPTER_V1_CANARY_DONE_MATCHED_B; JIANGSU_FIELD_ADAPTER_V1_CANARY_DONE_NEEDS_BROWSER_D; GDCIC_AUTHORIZED_FIELD_HIT_AND_PROJECT_MANAGER_CHANGE_RELEASE_PENDING"
   - priority_id: P1_STAGE1_3_REAL_WORLD_STABILITY
     rank: 3
     stage_scope: [Stage1, Stage2, Stage3]
