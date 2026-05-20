@@ -393,7 +393,7 @@ def _matched_record_from_text(
     if identity_hits <= 0 or not any(token in text for token in target_tokens):
         return None
     selected_text = _selected_record_text(text, keywords=[*keywords, *target_tokens])
-    return {
+    record = {
         "source_url": str(task.get("source_url") or ""),
         "browser_url": final_url,
         "captured_at": captured_at,
@@ -405,6 +405,51 @@ def _matched_record_from_text(
         "matched_keywords": [keyword for keyword in keywords if keyword and keyword in text][:10],
         "query_miss_is_not_clearance": True,
         "readback_is_line_clue_not_final_conclusion": True,
+    }
+    if target_type == "project_manager_change_notice":
+        record.update(_project_manager_change_fields_from_text(text, person_name=person_name))
+    return record
+
+
+def _project_manager_change_fields_from_text(text: str, *, person_name: str) -> dict[str, Any]:
+    original = _first_text(
+        (
+            _match_text(r"(?:原|变更前)(?:项目经理|项目负责人)[:：\s]*([\u4e00-\u9fa5]{2,6})", text),
+            _match_text(r"(?:项目经理|项目负责人)[:：\s]*([\u4e00-\u9fa5]{2,6})\s*(?:变更为|调整为|更换为)", text),
+        )
+    )
+    new = _first_text(
+        (
+            _match_text(r"(?:新|现|变更后)(?:项目经理|项目负责人)[:：\s]*([\u4e00-\u9fa5]{2,6})", text),
+            _match_text(r"(?:变更为|调整为|更换为)\s*([\u4e00-\u9fa5]{2,6})", text),
+        )
+    )
+    change_date = _first_text(
+        (
+            _match_text(r"(?:变更日期|批准日期|审批日期|公示日期)[:：\s]*(\d{4}[-年]\d{1,2}[-月]\d{1,2}日?)", text),
+            _match_text(r"(\d{4}[-年]\d{1,2}[-月]\d{1,2}日?).{0,30}(?:项目经理|项目负责人).{0,20}变更", text),
+        )
+    )
+    reason = _match_text(r"变更原因[:：\s]*(.{2,120}?)(?=原项目经理|新项目经理|变更日期|公示日期|$)", text)
+    original_matches = bool(person_name and original == person_name)
+    new_matches = bool(person_name and new == person_name)
+    if original_matches and new and change_date:
+        interpretation = "ORIGINAL_MANAGER_CHANGED_OUT_REVIEW_REQUIRED"
+    elif new_matches and original and change_date:
+        interpretation = "CANDIDATE_MANAGER_CHANGED_IN_REVIEW_REQUIRED"
+    elif original or new or change_date:
+        interpretation = "PROJECT_MANAGER_CHANGE_NOTICE_FIELDS_EXTRACTED_REVIEW_REQUIRED"
+    else:
+        interpretation = "PROJECT_MANAGER_CHANGE_NOTICE_TEXT_ONLY_REVIEW_REQUIRED"
+    return {
+        "original_project_manager_name": original,
+        "new_project_manager_name": new,
+        "change_date": change_date,
+        "change_reason_probe": reason[:300],
+        "project_manager_change_release_evidence_role": "project_manager_responsibility_window_split",
+        "project_manager_change_release_window_interpretation": interpretation,
+        "original_project_manager_matches_query_person": original_matches,
+        "new_project_manager_matches_query_person": new_matches,
     }
 
 
@@ -630,6 +675,13 @@ def _html_to_text(value: str) -> str:
     text = re.sub(r"<style[\s\S]*?</style>", " ", text, flags=re.I)
     text = re.sub(r"<[^>]+>", " ", text)
     return " ".join(text.replace("&nbsp;", " ").split())
+
+
+def _match_text(pattern: str, text: str) -> str:
+    match = re.search(pattern, str(text or ""), flags=re.I | re.S)
+    if not match:
+        return ""
+    return " ".join(str(match.group(1) or "").split())
 
 
 def _selected_record_text(text: str, *, keywords: list[Any]) -> str:

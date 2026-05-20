@@ -103,6 +103,68 @@ class GDCICBrowserAuthorizedReadbackTests(unittest.TestCase):
                 {"FIELD_SURFACE_REACHED_REVIEW_REQUIRED": 1},
             )
 
+    def test_project_manager_change_runner_extracts_release_fields_and_flows_into_field_probe(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            plan_root = root / "release-plan"
+            readback_root = root / "gdcic-readback"
+            field_root = root / "field"
+            _write_release_evidence_adapter_plan(plan_root)
+
+            readback = build_gdcic_browser_authorized_readback(
+                release_evidence_adapter_plan_root=plan_root,
+                output_root=readback_root,
+                enable_live_browser_execution=True,
+                max_live_browser_tasks=2,
+                browser_runner=_target_aware_browser_runner,
+                created_at="2026-05-20T00:00:00+08:00",
+            )
+
+            self.assertTrue(readback["safe_to_execute"])
+            by_target = {
+                record["release_evidence_target_type"]: record
+                for record in readback["manifest"]["browser_readback_records"]
+            }
+            change_record = by_target["project_manager_change_notice"]
+            self.assertEqual(change_record["readback_state"], "BROWSER_AUTHORIZED_READBACK_READY")
+            extracted = change_record["records"][0]
+            self.assertEqual(extracted["original_project_manager_name"], "张三")
+            self.assertEqual(extracted["new_project_manager_name"], "李四")
+            self.assertEqual(extracted["change_date"], "2026-01-15")
+            self.assertEqual(
+                extracted["project_manager_change_release_window_interpretation"],
+                "ORIGINAL_MANAGER_CHANGED_OUT_REVIEW_REQUIRED",
+            )
+            self.assertTrue(extracted["original_project_manager_matches_query_person"])
+
+            field = build_guangdong_local_field_query_probe(
+                release_evidence_adapter_plan_root=plan_root,
+                gdcic_browser_readback_root=readback_root,
+                output_root=field_root,
+                source_profile_ids=["GUANGDONG-GDCIC-HOME"],
+                enable_live_public_query=True,
+                max_live_tasks=2,
+                http_getter=_gdcic_sso_empty_getter,
+                created_at="2026-05-20T00:00:00+08:00",
+            )
+
+            self.assertTrue(field["safe_to_execute"])
+            field_by_target = {
+                task["release_evidence_target_type"]: task
+                for task in field["manifest"]["field_task_records"]
+            }
+            task = field_by_target["project_manager_change_notice"]
+            self.assertEqual(task["adapter_result_state"], "MATCHED")
+            self.assertEqual(task["downstream_release_evidence_abcd_grade"], "C_REVERSE_EXPLANATION_OFFICIAL_READBACK")
+            compact = task["field_match_summary"]["source_specific_records"][0]
+            self.assertEqual(compact["original_project_manager_name_probe"], "张三")
+            self.assertEqual(compact["new_project_manager_name_probe"], "李四")
+            self.assertEqual(compact["change_date_probe"], "2026-01-15")
+            self.assertEqual(
+                compact["project_manager_change_release_window_interpretation"],
+                "ORIGINAL_MANAGER_CHANGED_OUT_REVIEW_REQUIRED",
+            )
+
     def test_login_or_sso_text_is_blocked_not_field_miss(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -250,6 +312,20 @@ def _contract_text_runner(task: Mapping[str, Any]) -> Mapping[str, Any]:
             "广州测试建设有限公司 项目经理 张三 合同开始 2025-08-01 合同结束 2026-08-01"
         ),
     }
+
+
+def _target_aware_browser_runner(task: Mapping[str, Any]) -> Mapping[str, Any]:
+    if task.get("release_evidence_target_type") == "project_manager_change_notice":
+        return {
+            "status_code": 200,
+            "final_url": str(task.get("source_url") or ""),
+            "body_text": (
+                "广东建设信息网 项目经理变更 广州测试项目中标候选人公示 "
+                "广州测试建设有限公司 原项目经理：张三 新项目经理：李四 "
+                "变更日期：2026-01-15 变更原因：建设单位申请调整项目负责人"
+            ),
+        }
+    return _contract_text_runner(task)
 
 
 def _sso_text_runner(task: Mapping[str, Any]) -> Mapping[str, Any]:

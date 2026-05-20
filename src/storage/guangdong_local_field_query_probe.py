@@ -3032,6 +3032,17 @@ def _compact_gdcic_browser_authorized_record(
             (record.get("contract_end_date"), record.get("end_date"), record.get("completion_date"))
         )[:80],
         "change_date_probe": _first_text((record.get("change_date"), record.get("approval_date")))[:80],
+        "change_reason_probe": _first_text((record.get("change_reason"), record.get("change_reason_probe")))[:300],
+        "project_manager_change_release_evidence_role": str(
+            record.get("project_manager_change_release_evidence_role") or ""
+        ),
+        "project_manager_change_release_window_interpretation": str(
+            record.get("project_manager_change_release_window_interpretation") or ""
+        ),
+        "original_project_manager_matches_query_person": bool(
+            record.get("original_project_manager_matches_query_person")
+        ),
+        "new_project_manager_matches_query_person": bool(record.get("new_project_manager_matches_query_person")),
         "record_sha256": _sha256_text(record_text),
         "matched_keywords": matched_keywords,
         "query_miss_is_not_clearance": True,
