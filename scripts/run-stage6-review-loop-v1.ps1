@@ -1,6 +1,8 @@
 param(
     [string]$DispatchJson = "",
     [string]$DispatchRoot = "",
+    [string]$BatchCloseoutJson = "",
+    [string]$BatchCloseoutRoot = "",
     [string]$BaselineEvidenceStateJson = "",
     [string]$BaselineEvidenceStateRoot = "",
     [string]$OutputRoot = "",
@@ -10,6 +12,8 @@ param(
     [switch]$ExecuteDispatch,
     [switch]$ExecuteResults,
     [switch]$ExecuteNextCycleDispatch,
+    [switch]$DisableBootstrapFromBatchCloseout,
+    [switch]$DisableAutoDiscoverLatestBatchCloseout,
     [switch]$EmitJson
 )
 
@@ -42,6 +46,12 @@ $argsList = @(
 if ($DispatchJson) {
     $argsList += @("--dispatch-json", $DispatchJson)
 }
+if ($BatchCloseoutJson) {
+    $argsList += @("--batch-closeout-json", $BatchCloseoutJson)
+}
+if ($BatchCloseoutRoot) {
+    $argsList += @("--batch-closeout-root", $BatchCloseoutRoot)
+}
 if ($BaselineEvidenceStateJson) {
     $argsList += @("--baseline-evidence-state-json", $BaselineEvidenceStateJson)
 }
@@ -56,6 +66,12 @@ if ($DispatchMaxGroups -ge 0) {
 }
 if ($ResultMaxCommands -ge 0) {
     $argsList += @("--result-max-commands", "$ResultMaxCommands")
+}
+if ($DisableBootstrapFromBatchCloseout) {
+    $argsList += "--disable-bootstrap-from-batch-closeout"
+}
+if (-not $DisableAutoDiscoverLatestBatchCloseout) {
+    $argsList += "--auto-discover-latest-batch-closeout"
 }
 if ($ExecuteDispatch) {
     $argsList += "--execute-dispatch"

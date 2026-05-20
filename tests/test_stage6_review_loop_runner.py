@@ -222,6 +222,73 @@ class Stage6ReviewLoopRunnerTests(unittest.TestCase):
                 "manual_review_release_evidence_b_or_c_readback_before_stage7_preview",
             )
 
+    def test_bootstraps_dispatch_from_batch_closeout_when_dispatch_is_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            state_json = _write_evidence_state(root / "state")
+            _write_batch_closeout(root / "closeout", evidence_state_json=state_json)
+
+            result = run_stage6_review_loop_runner(
+                dispatch_root=root / "missing-dispatch",
+                batch_closeout_root=root / "closeout",
+                output_root=root / "out",
+                created_at="2026-05-19T00:00:00+08:00",
+            )
+
+            self.assertTrue(result["safe_to_execute"])
+            summary = result["summary"]
+            self.assertEqual(summary["loop_input_state"], "BOOTSTRAPPED_DISPATCH_FROM_BATCH_CLOSEOUT")
+            self.assertEqual(summary["bootstrap_from_batch_closeout_count"], 1)
+            self.assertEqual(summary["dispatch_dry_run_ready_group_count"], 1)
+            self.assertEqual(summary["project_status_record_count"], 1)
+            self.assertTrue((root / "out" / "0-bootstrap" / "2-stage6-dispatch" / "stage6-review-action-dispatch-v1.json").exists())
+            record = result["manifest"]["project_status_table"]["records"][0]
+            self.assertEqual(record["project_id"], "PROJ-D")
+            self.assertEqual(record["loop_terminal_state"], "WAITING_FOR_DISPATCH_EXECUTION")
+
+    def test_bootstrap_no_automated_tasks_surfaces_manual_only_status(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            state_json = _write_evidence_state(root / "state")
+            _write_terminal_batch_closeout(root / "closeout", evidence_state_json=state_json)
+
+            result = run_stage6_review_loop_runner(
+                dispatch_root=root / "missing-dispatch",
+                batch_closeout_root=root / "closeout",
+                output_root=root / "out",
+                created_at="2026-05-19T00:00:00+08:00",
+            )
+
+            self.assertTrue(result["safe_to_execute"])
+            summary = result["summary"]
+            self.assertEqual(summary["loop_input_state"], "BOOTSTRAPPED_DISPATCH_NO_AUTOMATED_TASKS")
+            self.assertEqual(summary["bootstrap_dispatch_task_count"], 0)
+            self.assertEqual(summary["bootstrap_manual_only_action_plan_count"], 1)
+            self.assertEqual(summary["project_status_record_count"], 1)
+            self.assertEqual(summary["next_cycle_skip_reason"], "bootstrap_dispatch_has_no_automated_tasks")
+            record = result["manifest"]["project_status_table"]["records"][0]
+            self.assertEqual(record["project_id"], "PROJ-D")
+            self.assertEqual(record["loop_terminal_state"], "MANUAL_REVIEW_HOLD_NO_AUTOMATED_DISPATCH")
+            self.assertEqual(record["next_cycle_dispatch_block_reason"], "terminal_source_gap_no_delta_manual_review_only")
+
+    def test_missing_dispatch_and_batch_closeout_reports_single_input_blocker(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+
+            result = run_stage6_review_loop_runner(
+                dispatch_root=root / "missing-dispatch",
+                batch_closeout_root=root / "missing-closeout",
+                output_root=root / "out",
+                auto_discover_latest_batch_closeout=False,
+                created_at="2026-05-19T00:00:00+08:00",
+            )
+
+            self.assertFalse(result["safe_to_execute"])
+            self.assertEqual(result["blocking_reasons"], ["stage6_loop_input_missing_dispatch_or_batch_closeout"])
+            self.assertEqual(result["summary"]["loop_input_state"], "INPUT_BLOCKED_NO_DISPATCH_OR_BATCH_CLOSEOUT")
+            self.assertEqual(result["summary"]["project_status_record_count"], 0)
+            self.assertEqual(result["summary"]["next_cycle_skip_reason"], "dispatch_or_batch_closeout_input_missing")
+
     def test_output_keeps_internal_safety_contract(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)

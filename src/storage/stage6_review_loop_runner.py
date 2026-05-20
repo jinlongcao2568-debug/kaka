@@ -7,6 +7,8 @@ from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping
 
 from shared.utils import utc_now_iso
+from storage.evidence_stage6_fact_package import build_evidence_stage6_fact_package
+from storage.stage6_review_action_dispatch import build_stage6_review_action_dispatch
 from storage.stage6_review_action_dispatch_closeout import build_stage6_review_action_dispatch_closeout
 from storage.stage6_review_action_dispatch_readback import build_stage6_review_action_dispatch_readback
 from storage.stage6_review_action_dispatch_runner import (
@@ -25,6 +27,8 @@ STAGE6_REVIEW_LOOP_RUNNER_VERSION = 1
 STAGE6_REVIEW_LOOP_RUNNER_ADAPTER_ID = "stage6-review-loop-runner-v1"
 
 DEFAULT_DISPATCH_ROOT = Path("tmp/evaluation-real-samples/stage6-review-action-dispatch-v1")
+DEFAULT_BATCH_CLOSEOUT_ROOT = Path("tmp/evaluation-real-samples/evidence-batch-closeout-v1")
+DEFAULT_BATCH_CLOSEOUT_DISCOVERY_ROOT = Path("tmp/evaluation-real-samples")
 DEFAULT_OUTPUT_ROOT = Path("tmp/evaluation-real-samples/stage6-review-loop-runner-v1")
 
 FORBIDDEN_TERMS = ("无风险", "无冲突", "在建冲突成立", "违法成立", "确认本人", "造假成立", "是不是本人")
@@ -36,9 +40,13 @@ def run_stage6_review_loop_runner(
     *,
     dispatch_json: str | Path | None = None,
     dispatch_root: str | Path = DEFAULT_DISPATCH_ROOT,
+    batch_closeout_json: str | Path | None = None,
+    batch_closeout_root: str | Path = DEFAULT_BATCH_CLOSEOUT_ROOT,
     baseline_evidence_state_json: str | Path | None = None,
     baseline_evidence_state_root: str | Path | None = None,
     output_root: str | Path = DEFAULT_OUTPUT_ROOT,
+    auto_bootstrap_from_batch_closeout: bool = True,
+    auto_discover_latest_batch_closeout: bool = False,
     execute_dispatch: bool = False,
     execute_results: bool = False,
     execute_next_cycle_dispatch: bool = False,
@@ -62,90 +70,94 @@ def run_stage6_review_loop_runner(
     next_cycle_root = out_dir / "7-cycle"
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    dispatch_runner = run_stage6_review_action_dispatch_runner(
+    bootstrap = _prepare_dispatch_input(
         dispatch_json=dispatch_json,
         dispatch_root=dispatch_root,
-        baseline_evidence_state_json=baseline_evidence_state_json,
-        output_root=dispatch_run_root,
-        execute_commands=execute_dispatch,
-        max_groups=dispatch_max_groups,
+        batch_closeout_json=batch_closeout_json,
+        batch_closeout_root=batch_closeout_root,
+        output_root=out_dir / "0-bootstrap",
+        auto_bootstrap_from_batch_closeout=auto_bootstrap_from_batch_closeout,
+        auto_discover_latest_batch_closeout=auto_discover_latest_batch_closeout,
         project_ids=project_ids,
-        cwd=cwd,
-        created_at=created,
-        command_executor=command_executor,
-    )
-    result_roots = _result_roots_by_task_type(dispatch_runner)
-
-    readback = build_stage6_review_action_dispatch_readback(
-        dispatch_json=dispatch_json,
-        dispatch_root=dispatch_root,
-        release_evidence_adapter_plan_root=result_roots.get(TASK_TYPE_RELEASE_PLAN) or out_dir / "missing-release-plan",
-        evidence_orchestration_continuation_root=result_roots.get(TASK_TYPE_ORIGINAL) or out_dir / "missing-continuation",
-        design_survey_public_registry_readback_root=result_roots.get(TASK_TYPE_DESIGN_SURVEY) or out_dir / "missing-design",
-        output_root=readback_root,
-        created_at=created,
-    )
-    closeout = build_stage6_review_action_dispatch_closeout(
-        dispatch_readback_root=readback_root,
-        output_root=closeout_root,
-        created_at=created,
-    )
-    routing = build_stage6_review_action_result_routing(
-        dispatch_closeout_root=closeout_root,
         baseline_evidence_state_json=baseline_evidence_state_json,
-        baseline_evidence_state_root=baseline_evidence_state_root,
-        evidence_state_rebuild_output_root=evidence_state_rebuild_root,
-        release_evidence_field_query_output_root=release_field_query_root,
-        batch_closeout_rebuild_output_root=batch_closeout_rebuild_root,
-        output_root=routing_root,
         created_at=created,
     )
-    result_runner = run_stage6_review_action_result_runner(
-        result_routing_root=routing_root,
-        output_root=result_run_root,
-        execute_commands=execute_results,
-        max_commands=result_max_commands,
-        project_ids=project_ids,
-        cwd=cwd,
-        created_at=created,
-        command_executor=command_executor,
-    )
+    effective_dispatch_json = str(bootstrap.get("effective_dispatch_json") or "")
+    effective_dispatch_root = str(bootstrap.get("effective_dispatch_root") or dispatch_root)
+    loop_input_state = str(bootstrap.get("loop_input_state") or "")
+    input_blocked = loop_input_state.startswith("INPUT_BLOCKED")
+    bootstrap_no_automated_tasks = loop_input_state == "BOOTSTRAPPED_DISPATCH_NO_AUTOMATED_TASKS"
 
+    dispatch_runner: dict[str, Any] = {}
+    readback: dict[str, Any] = {}
+    closeout: dict[str, Any] = {}
+    routing: dict[str, Any] = {}
+    result_runner: dict[str, Any] = {}
     next_cycle: dict[str, Any] = {}
     next_cycle_skip_reason = ""
-    batch_closeout_json = batch_closeout_rebuild_root / "evidence-batch-closeout-v1.json"
-    if batch_closeout_json.exists():
-        next_cycle = run_stage6_review_cycle_runner(
-            batch_closeout_root=batch_closeout_rebuild_root,
-            output_root=next_cycle_root,
-            execute_dispatch=execute_next_cycle_dispatch,
-            dispatch_max_groups=dispatch_max_groups,
-            project_ids=project_ids,
+
+    if input_blocked:
+        next_cycle_skip_reason = "dispatch_or_batch_closeout_input_missing"
+    elif bootstrap_no_automated_tasks:
+        next_cycle_skip_reason = "bootstrap_dispatch_has_no_automated_tasks"
+    else:
+        dispatch_runner = _run_loop_children(
+            dispatch_json=effective_dispatch_json,
+            dispatch_root=effective_dispatch_root,
             baseline_evidence_state_json=baseline_evidence_state_json,
+            baseline_evidence_state_root=baseline_evidence_state_root,
+            dispatch_run_root=dispatch_run_root,
+            readback_root=readback_root,
+            closeout_root=closeout_root,
+            routing_root=routing_root,
+            evidence_state_rebuild_root=evidence_state_rebuild_root,
+            batch_closeout_rebuild_root=batch_closeout_rebuild_root,
+            release_field_query_root=release_field_query_root,
+            result_run_root=result_run_root,
+            execute_dispatch=execute_dispatch,
+            execute_results=execute_results,
+            execute_next_cycle_dispatch=execute_next_cycle_dispatch,
+            dispatch_max_groups=dispatch_max_groups,
+            result_max_commands=result_max_commands,
+            project_ids=project_ids,
             cwd=cwd,
             created_at=created,
             command_executor=command_executor,
         )
-    else:
-        next_cycle_skip_reason = "batch_closeout_rebuild_output_missing_or_results_not_executed"
+        readback = dict(dispatch_runner.pop("_loop_readback"))
+        closeout = dict(dispatch_runner.pop("_loop_closeout"))
+        routing = dict(dispatch_runner.pop("_loop_routing"))
+        result_runner = dict(dispatch_runner.pop("_loop_result_runner"))
+        next_cycle = dict(dispatch_runner.pop("_loop_next_cycle"))
+        next_cycle_skip_reason = str(dispatch_runner.pop("_loop_next_cycle_skip_reason"))
 
-    blocking_reasons = _all_blocking_reasons(
-        dispatch_runner,
-        readback,
-        closeout,
-        routing,
-        result_runner,
-        next_cycle,
-    )
+    blocking_reasons = [
+        *_list(bootstrap.get("blocking_reasons")),
+        *_all_blocking_reasons(
+            dispatch_runner,
+            readback,
+            closeout,
+            routing,
+            result_runner,
+            next_cycle,
+        ),
+    ]
     release_field_query_results = _release_field_query_results_by_project(result_runner)
-    project_status_records = _project_status_records(
-        readback=readback,
-        closeout=closeout,
-        routing=routing,
-        result_runner=result_runner,
-        next_cycle=next_cycle,
-        release_field_query_results=release_field_query_results,
-    )
+    project_status_records = [
+        *[
+            dict(record)
+            for record in _list(bootstrap.get("bootstrap_project_status_records"))
+            if isinstance(record, Mapping)
+        ],
+        *_project_status_records(
+            readback=readback,
+            closeout=closeout,
+            routing=routing,
+            result_runner=result_runner,
+            next_cycle=next_cycle,
+            release_field_query_results=release_field_query_results,
+        ),
+    ]
     summary = _summary(
         dispatch_runner=dispatch_runner,
         readback=readback,
@@ -155,12 +167,14 @@ def run_stage6_review_loop_runner(
         next_cycle=next_cycle,
         project_status_records=project_status_records,
         next_cycle_skip_reason=next_cycle_skip_reason,
+        bootstrap=bootstrap,
         blocking_reasons=blocking_reasons,
         execute_dispatch=execute_dispatch,
         execute_results=execute_results,
         execute_next_cycle_dispatch=execute_next_cycle_dispatch,
     )
-    dispatch_path = Path(dispatch_json) if dispatch_json else Path(dispatch_root) / "stage6-review-action-dispatch-v1.json"
+    dispatch_path = Path(effective_dispatch_json) if effective_dispatch_json else Path(effective_dispatch_root) / "stage6-review-action-dispatch-v1.json"
+    initial_dispatch_path = Path(dispatch_json) if dispatch_json else Path(dispatch_root) / "stage6-review-action-dispatch-v1.json"
     manifest = {
         "manifest_version": STAGE6_REVIEW_LOOP_RUNNER_VERSION,
         "manifest_kind": STAGE6_REVIEW_LOOP_RUNNER_KIND,
@@ -169,9 +183,13 @@ def run_stage6_review_loop_runner(
         "manifest_id": f"STAGE6-REVIEW-LOOP-RUNNER-{_fingerprint({'summary': summary})[:16]}",
         "created_at": created,
         "source_dispatch_json": str(dispatch_path),
+        "initial_dispatch_json": str(initial_dispatch_path),
+        "source_batch_closeout_json": str(bootstrap.get("source_batch_closeout_json") or ""),
+        "bootstrap": bootstrap,
         "baseline_evidence_state_json": str(baseline_evidence_state_json or ""),
         "baseline_evidence_state_root": str(baseline_evidence_state_root or ""),
         "roots": {
+            "bootstrap": str(out_dir / "0-bootstrap"),
             "dispatch_runner": str(dispatch_run_root),
             "dispatch_readback": str(readback_root),
             "dispatch_closeout": str(closeout_root),
@@ -183,6 +201,8 @@ def run_stage6_review_loop_runner(
             "next_cycle": str(next_cycle_root),
         },
         "source_manifest_ids": {
+            "bootstrap_stage6_fact_package": str(bootstrap.get("bootstrap_stage6_fact_package_manifest_id") or ""),
+            "bootstrap_dispatch": str(bootstrap.get("bootstrap_dispatch_manifest_id") or ""),
             "dispatch_runner": _manifest_id(dispatch_runner),
             "dispatch_readback": _manifest_id(readback),
             "dispatch_closeout": _manifest_id(closeout),
@@ -204,6 +224,8 @@ def run_stage6_review_loop_runner(
             "stage7_to_stage9_live_execution_enabled": False,
             "dispatch_execution_enabled": bool(execute_dispatch or execute_next_cycle_dispatch),
             "result_execution_enabled": bool(execute_results),
+            "bootstrap_from_batch_closeout_enabled": bool(auto_bootstrap_from_batch_closeout),
+            "auto_discover_latest_batch_closeout_enabled": bool(auto_discover_latest_batch_closeout),
             "execution_is_internal_allowlisted": True,
         },
         "customer_visible_allowed": False,
@@ -215,12 +237,18 @@ def run_stage6_review_loop_runner(
     )
     result = {
         "stage6_review_loop_runner_mode": "BUILT" if not blocking_reasons else "INPUT_BLOCKED_OR_PARTIAL",
-        "safe_to_execute": _safe(dispatch_runner)
-        and _safe(readback)
-        and _safe(closeout)
-        and _safe(routing)
-        and _safe(result_runner)
-        and (not next_cycle or _safe(next_cycle))
+        "safe_to_execute": not input_blocked
+        and (
+            bootstrap_no_automated_tasks
+            or (
+                _safe(dispatch_runner)
+                and _safe(readback)
+                and _safe(closeout)
+                and _safe(routing)
+                and _safe(result_runner)
+                and (not next_cycle or _safe(next_cycle))
+            )
+        )
         and not blocking_reasons,
         "blocking_reasons": blocking_reasons,
         "manifest": manifest,
@@ -228,6 +256,348 @@ def run_stage6_review_loop_runner(
     }
     _finalize_and_write(out_dir, result)
     return result
+
+
+def _run_loop_children(
+    *,
+    dispatch_json: str | Path | None,
+    dispatch_root: str | Path,
+    baseline_evidence_state_json: str | Path | None,
+    baseline_evidence_state_root: str | Path | None,
+    dispatch_run_root: Path,
+    readback_root: Path,
+    closeout_root: Path,
+    routing_root: Path,
+    evidence_state_rebuild_root: Path,
+    batch_closeout_rebuild_root: Path,
+    release_field_query_root: Path,
+    result_run_root: Path,
+    execute_dispatch: bool,
+    execute_results: bool,
+    execute_next_cycle_dispatch: bool,
+    dispatch_max_groups: int | None,
+    result_max_commands: int | None,
+    project_ids: list[str] | tuple[str, ...],
+    cwd: str | Path | None,
+    created_at: str,
+    command_executor: CommandExecutor | None,
+) -> dict[str, Any]:
+    loop_root = dispatch_run_root.parent
+    dispatch_runner = run_stage6_review_action_dispatch_runner(
+        dispatch_json=dispatch_json,
+        dispatch_root=dispatch_root,
+        baseline_evidence_state_json=baseline_evidence_state_json,
+        output_root=dispatch_run_root,
+        execute_commands=execute_dispatch,
+        max_groups=dispatch_max_groups,
+        project_ids=project_ids,
+        cwd=cwd,
+        created_at=created_at,
+        command_executor=command_executor,
+    )
+    result_roots = _result_roots_by_task_type(dispatch_runner)
+
+    readback = build_stage6_review_action_dispatch_readback(
+        dispatch_json=dispatch_json,
+        dispatch_root=dispatch_root,
+        release_evidence_adapter_plan_root=result_roots.get(TASK_TYPE_RELEASE_PLAN) or loop_root / "missing-release-plan",
+        evidence_orchestration_continuation_root=result_roots.get(TASK_TYPE_ORIGINAL) or loop_root / "missing-continuation",
+        design_survey_public_registry_readback_root=result_roots.get(TASK_TYPE_DESIGN_SURVEY) or loop_root / "missing-design",
+        output_root=readback_root,
+        created_at=created_at,
+    )
+    closeout = build_stage6_review_action_dispatch_closeout(
+        dispatch_readback_root=readback_root,
+        output_root=closeout_root,
+        created_at=created_at,
+    )
+    routing = build_stage6_review_action_result_routing(
+        dispatch_closeout_root=closeout_root,
+        baseline_evidence_state_json=baseline_evidence_state_json,
+        baseline_evidence_state_root=baseline_evidence_state_root,
+        evidence_state_rebuild_output_root=evidence_state_rebuild_root,
+        release_evidence_field_query_output_root=release_field_query_root,
+        batch_closeout_rebuild_output_root=batch_closeout_rebuild_root,
+        output_root=routing_root,
+        created_at=created_at,
+    )
+    result_runner = run_stage6_review_action_result_runner(
+        result_routing_root=routing_root,
+        output_root=result_run_root,
+        execute_commands=execute_results,
+        max_commands=result_max_commands,
+        project_ids=project_ids,
+        cwd=cwd,
+        created_at=created_at,
+        command_executor=command_executor,
+    )
+
+    next_cycle: dict[str, Any] = {}
+    next_cycle_skip_reason = ""
+    batch_closeout_json = batch_closeout_rebuild_root / "evidence-batch-closeout-v1.json"
+    if batch_closeout_json.exists():
+        next_cycle = run_stage6_review_cycle_runner(
+            batch_closeout_root=batch_closeout_rebuild_root,
+            output_root=loop_root / "7-cycle",
+            execute_dispatch=execute_next_cycle_dispatch,
+            dispatch_max_groups=dispatch_max_groups,
+            project_ids=project_ids,
+            baseline_evidence_state_json=baseline_evidence_state_json,
+            cwd=cwd,
+            created_at=created_at,
+            command_executor=command_executor,
+        )
+    else:
+        next_cycle_skip_reason = "batch_closeout_rebuild_output_missing_or_results_not_executed"
+    dispatch_runner["_loop_readback"] = readback
+    dispatch_runner["_loop_closeout"] = closeout
+    dispatch_runner["_loop_routing"] = routing
+    dispatch_runner["_loop_result_runner"] = result_runner
+    dispatch_runner["_loop_next_cycle"] = next_cycle
+    dispatch_runner["_loop_next_cycle_skip_reason"] = next_cycle_skip_reason
+    return dispatch_runner
+
+
+def _prepare_dispatch_input(
+    *,
+    dispatch_json: str | Path | None,
+    dispatch_root: str | Path,
+    batch_closeout_json: str | Path | None,
+    batch_closeout_root: str | Path,
+    output_root: Path,
+    auto_bootstrap_from_batch_closeout: bool,
+    auto_discover_latest_batch_closeout: bool,
+    project_ids: list[str] | tuple[str, ...],
+    baseline_evidence_state_json: str | Path | None,
+    created_at: str,
+) -> dict[str, Any]:
+    dispatch_path = _dispatch_path(dispatch_json, dispatch_root)
+    explicit_dispatch = bool(dispatch_json)
+    batch_path, batch_selection_state = _batch_closeout_path(
+        batch_closeout_json=batch_closeout_json,
+        batch_closeout_root=batch_closeout_root,
+        auto_discover_latest_batch_closeout=auto_discover_latest_batch_closeout,
+    )
+    base = {
+        "loop_input_state": "",
+        "initial_dispatch_json": str(dispatch_path),
+        "initial_dispatch_exists": dispatch_path.exists(),
+        "effective_dispatch_json": "",
+        "effective_dispatch_root": str(dispatch_path.parent),
+        "source_batch_closeout_json": str(batch_path),
+        "source_batch_closeout_exists": batch_path.exists(),
+        "batch_closeout_selection_state": batch_selection_state,
+        "auto_bootstrap_from_batch_closeout": bool(auto_bootstrap_from_batch_closeout),
+        "auto_discover_latest_batch_closeout": bool(auto_discover_latest_batch_closeout),
+        "bootstrap_output_root": str(output_root),
+        "bootstrap_stage6_fact_package_root": "",
+        "bootstrap_stage6_fact_package_json": "",
+        "bootstrap_stage6_fact_package_manifest_id": "",
+        "bootstrap_dispatch_root": "",
+        "bootstrap_dispatch_json": "",
+        "bootstrap_dispatch_manifest_id": "",
+        "bootstrap_dispatch_task_count": 0,
+        "bootstrap_manual_only_action_plan_count": 0,
+        "bootstrap_project_status_records": [],
+        "blocking_reasons": [],
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+        "query_miss_is_not_clearance": True,
+    }
+    if dispatch_path.exists():
+        return {
+            **base,
+            "loop_input_state": "DISPATCH_INPUT_READY_NO_BOOTSTRAP",
+            "effective_dispatch_json": str(dispatch_path),
+        }
+    if explicit_dispatch:
+        return {
+            **base,
+            "loop_input_state": "INPUT_BLOCKED_EXPLICIT_DISPATCH_MISSING",
+            "blocking_reasons": ["explicit_stage6_dispatch_json_missing"],
+        }
+    if not auto_bootstrap_from_batch_closeout:
+        return {
+            **base,
+            "loop_input_state": "INPUT_BLOCKED_DISPATCH_MISSING_BOOTSTRAP_DISABLED",
+            "blocking_reasons": ["stage6_dispatch_missing_and_batch_closeout_bootstrap_disabled"],
+        }
+    if not batch_path.exists():
+        return {
+            **base,
+            "loop_input_state": "INPUT_BLOCKED_NO_DISPATCH_OR_BATCH_CLOSEOUT",
+            "blocking_reasons": ["stage6_loop_input_missing_dispatch_or_batch_closeout"],
+        }
+
+    stage6_root = output_root / "1-stage6-fact-package"
+    dispatch_out_root = output_root / "2-stage6-dispatch"
+    stage6_result = build_evidence_stage6_fact_package(
+        batch_closeout_json=batch_path,
+        output_root=stage6_root,
+        created_at=created_at,
+    )
+    dispatch_result: dict[str, Any] = {}
+    if _safe(stage6_result):
+        dispatch_result = build_stage6_review_action_dispatch(
+            stage6_fact_package_root=stage6_root,
+            output_root=dispatch_out_root,
+            created_at=created_at,
+        )
+    dispatch_out_path = dispatch_out_root / "stage6-review-action-dispatch-v1.json"
+    dispatch_summary = _result_summary(dispatch_result)
+    dispatch_manifest = _source_manifest(dispatch_result)
+    dispatch_task_count = int(dispatch_summary.get("dispatch_task_count") or 0)
+    manual_only_records = [
+        record
+        for record in _list(
+            (dispatch_manifest.get("manual_only_action_plan_table") or {}).get("records")
+            if isinstance(dispatch_manifest.get("manual_only_action_plan_table"), Mapping)
+            else []
+        )
+        if isinstance(record, Mapping)
+    ]
+    blocking_reasons = [
+        *_list(stage6_result.get("blocking_reasons")),
+        *_list(dispatch_result.get("blocking_reasons")),
+    ]
+    if not _safe(stage6_result):
+        blocking_reasons.append("bootstrap_stage6_fact_package_not_safe")
+    if stage6_result and not dispatch_result:
+        blocking_reasons.append("bootstrap_dispatch_not_built")
+    elif dispatch_result and not _safe(dispatch_result):
+        blocking_reasons.append("bootstrap_stage6_dispatch_not_safe")
+    if not dispatch_out_path.exists():
+        blocking_reasons.append("bootstrap_stage6_dispatch_json_missing")
+    if blocking_reasons:
+        return {
+            **base,
+            "loop_input_state": "INPUT_BLOCKED_BOOTSTRAP_FAILED",
+            "bootstrap_stage6_fact_package_root": str(stage6_root),
+            "bootstrap_stage6_fact_package_json": str(stage6_root / "stage6-fact-package-v1.json"),
+            "bootstrap_stage6_fact_package_manifest_id": _manifest_id(stage6_result),
+            "bootstrap_dispatch_root": str(dispatch_out_root),
+            "bootstrap_dispatch_json": str(dispatch_out_path),
+            "bootstrap_dispatch_manifest_id": _manifest_id(dispatch_result),
+            "bootstrap_dispatch_task_count": dispatch_task_count,
+            "bootstrap_manual_only_action_plan_count": len(manual_only_records),
+            "bootstrap_project_status_records": _bootstrap_manual_project_status_records(manual_only_records),
+            "blocking_reasons": _dedupe(blocking_reasons),
+        }
+    if dispatch_task_count == 0:
+        return {
+            **base,
+            "loop_input_state": "BOOTSTRAPPED_DISPATCH_NO_AUTOMATED_TASKS",
+            "effective_dispatch_json": str(dispatch_out_path),
+            "effective_dispatch_root": str(dispatch_out_root),
+            "bootstrap_stage6_fact_package_root": str(stage6_root),
+            "bootstrap_stage6_fact_package_json": str(stage6_root / "stage6-fact-package-v1.json"),
+            "bootstrap_stage6_fact_package_manifest_id": _manifest_id(stage6_result),
+            "bootstrap_dispatch_root": str(dispatch_out_root),
+            "bootstrap_dispatch_json": str(dispatch_out_path),
+            "bootstrap_dispatch_manifest_id": _manifest_id(dispatch_result),
+            "bootstrap_dispatch_task_count": dispatch_task_count,
+            "bootstrap_manual_only_action_plan_count": len(manual_only_records),
+            "bootstrap_project_status_records": _bootstrap_manual_project_status_records(manual_only_records),
+            "project_ids": list(project_ids),
+            "baseline_evidence_state_json": str(baseline_evidence_state_json or ""),
+            "blocking_reasons": [],
+        }
+    return {
+        **base,
+        "loop_input_state": "BOOTSTRAPPED_DISPATCH_FROM_BATCH_CLOSEOUT",
+        "effective_dispatch_json": str(dispatch_out_path),
+        "effective_dispatch_root": str(dispatch_out_root),
+        "bootstrap_stage6_fact_package_root": str(stage6_root),
+        "bootstrap_stage6_fact_package_json": str(stage6_root / "stage6-fact-package-v1.json"),
+        "bootstrap_stage6_fact_package_manifest_id": _manifest_id(stage6_result),
+        "bootstrap_dispatch_root": str(dispatch_out_root),
+        "bootstrap_dispatch_json": str(dispatch_out_path),
+        "bootstrap_dispatch_manifest_id": _manifest_id(dispatch_result),
+        "bootstrap_dispatch_task_count": dispatch_task_count,
+        "bootstrap_manual_only_action_plan_count": len(manual_only_records),
+        "bootstrap_project_status_records": _bootstrap_manual_project_status_records(manual_only_records),
+        "project_ids": list(project_ids),
+        "baseline_evidence_state_json": str(baseline_evidence_state_json or ""),
+        "blocking_reasons": [],
+    }
+
+
+def _dispatch_path(dispatch_json: str | Path | None, dispatch_root: str | Path) -> Path:
+    return Path(dispatch_json) if dispatch_json else Path(dispatch_root) / "stage6-review-action-dispatch-v1.json"
+
+
+def _batch_closeout_path(
+    *,
+    batch_closeout_json: str | Path | None,
+    batch_closeout_root: str | Path,
+    auto_discover_latest_batch_closeout: bool,
+) -> tuple[Path, str]:
+    if batch_closeout_json:
+        return Path(batch_closeout_json), "EXPLICIT_BATCH_CLOSEOUT_JSON"
+    root_path = Path(batch_closeout_root) / "evidence-batch-closeout-v1.json"
+    if root_path.exists():
+        return root_path, "BATCH_CLOSEOUT_ROOT_READY"
+    if auto_discover_latest_batch_closeout and Path(batch_closeout_root) == DEFAULT_BATCH_CLOSEOUT_ROOT:
+        latest = _latest_batch_closeout_path(DEFAULT_BATCH_CLOSEOUT_DISCOVERY_ROOT)
+        if latest:
+            return latest, "AUTO_DISCOVERED_LATEST_BATCH_CLOSEOUT"
+    return root_path, "BATCH_CLOSEOUT_MISSING"
+
+
+def _latest_batch_closeout_path(search_root: Path) -> Path | None:
+    if not search_root.exists():
+        return None
+    candidates: list[Path] = []
+    try:
+        candidates = [path for path in search_root.rglob("evidence-batch-closeout-v1.json") if path.is_file()]
+    except OSError:
+        return None
+    if not candidates:
+        return None
+    return max(candidates, key=lambda path: (path.stat().st_mtime, str(path)))
+
+
+def _bootstrap_manual_project_status_records(records: list[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    for record in records:
+        project_id = str(record.get("project_id") or "").strip()
+        if not project_id:
+            continue
+        dispatch_block_reason = str(record.get("dispatch_block_reason") or "").strip()
+        out.append(
+            {
+                "project_id": project_id,
+                "project_name": str(record.get("project_name") or ""),
+                "dispatch_task_type": "",
+                "dispatch_readback_state": "",
+                "dispatch_closeout_state": "",
+                "result_routing_state": "",
+                "next_task_type": "",
+                "stage6_fact_package_state": "",
+                "stage6_ready": False,
+                "stage7_commercial_input_allowed": False,
+                "result_runner_execution_state": "",
+                "result_runner_skip_reason": "",
+                "release_field_query_state": "",
+                "release_field_query_result_json": "",
+                "release_field_query_manifest_id": "",
+                "release_field_query_task_count": 0,
+                "release_field_query_adapter_result_state_counts": {},
+                "release_field_query_downstream_abcd_grade_counts": {},
+                "next_cycle_dispatch_task_type": "",
+                "next_cycle_dispatch_readiness_state": "",
+                "next_cycle_manual_only_action_family": str(record.get("action_family") or ""),
+                "next_cycle_dispatch_block_reason": dispatch_block_reason,
+                "loop_terminal_state": "MANUAL_REVIEW_HOLD_NO_AUTOMATED_DISPATCH",
+                "next_recommended_action": "manual_review_or_new_source_override_required_before_retry"
+                if dispatch_block_reason
+                else "no_automated_stage6_dispatch_task_keep_internal_review",
+                "customer_visible_allowed": False,
+                "no_legal_conclusion": True,
+                "query_miss_is_not_clearance": True,
+            }
+        )
+    return out
 
 
 def _project_status_records(
@@ -603,6 +973,7 @@ def _summary(
     next_cycle: Mapping[str, Any],
     project_status_records: list[Mapping[str, Any]],
     next_cycle_skip_reason: str,
+    bootstrap: Mapping[str, Any],
     blocking_reasons: list[str],
     execute_dispatch: bool,
     execute_results: bool,
@@ -618,6 +989,14 @@ def _summary(
         "stage6_review_loop_runner_state": (
             "STAGE6_REVIEW_LOOP_READY" if not blocking_reasons else "STAGE6_REVIEW_LOOP_PARTIAL_OR_BLOCKED"
         ),
+        "loop_input_state": str(bootstrap.get("loop_input_state") or ""),
+        "bootstrap_batch_closeout_selection_state": str(bootstrap.get("batch_closeout_selection_state") or ""),
+        "bootstrap_from_batch_closeout_count": 1
+        if str(bootstrap.get("loop_input_state") or "").startswith("BOOTSTRAPPED_")
+        else 0,
+        "bootstrap_dispatch_task_count": int(bootstrap.get("bootstrap_dispatch_task_count") or 0),
+        "bootstrap_manual_only_action_plan_count": int(bootstrap.get("bootstrap_manual_only_action_plan_count") or 0),
+        "source_batch_closeout_json": str(bootstrap.get("source_batch_closeout_json") or ""),
         "execution_mode": _execution_mode(execute_dispatch, execute_results, execute_next_cycle_dispatch),
         "dispatch_runner_safe": _safe(dispatch_runner),
         "readback_safe": _safe(readback),
@@ -764,6 +1143,17 @@ def _counts(values: Iterable[Any]) -> dict[str, int]:
     return dict(sorted(counts.items()))
 
 
+def _dedupe(values: Iterable[Any]) -> list[str]:
+    out: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        text = str(value or "").strip()
+        if text and text not in seen:
+            seen.add(text)
+            out.append(text)
+    return out
+
+
 def _fingerprint(payload: Any) -> str:
     return hashlib.sha256(
         json.dumps(payload, ensure_ascii=False, sort_keys=True, default=str, separators=(",", ":")).encode("utf-8")
@@ -778,9 +1168,13 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run one controlled Stage6 review loop pass.")
     parser.add_argument("--dispatch-json", default="")
     parser.add_argument("--dispatch-root", default=str(DEFAULT_DISPATCH_ROOT))
+    parser.add_argument("--batch-closeout-json", default="")
+    parser.add_argument("--batch-closeout-root", default=str(DEFAULT_BATCH_CLOSEOUT_ROOT))
     parser.add_argument("--baseline-evidence-state-json", default="")
     parser.add_argument("--baseline-evidence-state-root", default="")
     parser.add_argument("--output-root", default=str(DEFAULT_OUTPUT_ROOT))
+    parser.add_argument("--disable-bootstrap-from-batch-closeout", action="store_true")
+    parser.add_argument("--auto-discover-latest-batch-closeout", action="store_true")
     parser.add_argument("--execute-dispatch", action="store_true")
     parser.add_argument("--execute-results", action="store_true")
     parser.add_argument("--execute-next-cycle-dispatch", action="store_true")
@@ -798,9 +1192,13 @@ def main(argv: list[str] | None = None) -> int:
     result = run_stage6_review_loop_runner(
         dispatch_json=args.dispatch_json or None,
         dispatch_root=args.dispatch_root,
+        batch_closeout_json=args.batch_closeout_json or None,
+        batch_closeout_root=args.batch_closeout_root,
         baseline_evidence_state_json=args.baseline_evidence_state_json or None,
         baseline_evidence_state_root=args.baseline_evidence_state_root or None,
         output_root=args.output_root,
+        auto_bootstrap_from_batch_closeout=not bool(args.disable_bootstrap_from_batch_closeout),
+        auto_discover_latest_batch_closeout=bool(args.auto_discover_latest_batch_closeout),
         execute_dispatch=bool(args.execute_dispatch),
         execute_results=bool(args.execute_results),
         execute_next_cycle_dispatch=bool(args.execute_next_cycle_dispatch),
