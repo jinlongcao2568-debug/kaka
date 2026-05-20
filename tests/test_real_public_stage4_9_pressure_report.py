@@ -68,6 +68,15 @@ class RealPublicStage49PressureReportTests(unittest.TestCase):
         self.assertEqual(summary["stage5_rule_gate_status_counts"]["REVIEW"], 1)
         self.assertEqual(summary["fail_closed_reason_counts"]["stage2_detail_capture_pending"], 1)
         self.assertEqual(summary["remaining_real_world_gap_counts"]["missing_stage4_5_source_type:construction_permit"], 1)
+        self.assertEqual(summary["stage1_6_readiness_record_count"], 4)
+        self.assertEqual(summary["stage1_6_readiness_state_counts"]["STAGE1_6_INTERNAL_READY"], 1)
+        self.assertEqual(summary["stage1_6_readiness_state_counts"]["STAGE3_FIELD_OR_ROLE_REVIEW_REQUIRED"], 1)
+        self.assertEqual(summary["stage1_6_readiness_state_counts"]["PENDING_STAGE2_DETAIL_CAPTURE"], 1)
+        self.assertEqual(summary["stage1_6_readiness_state_counts"]["PENDING_TIME_BUDGET"], 1)
+        self.assertEqual(summary["stage1_6_bottleneck_stage_counts"]["READY"], 1)
+        self.assertEqual(summary["stage1_6_bottleneck_stage_counts"]["Stage2"], 1)
+        self.assertEqual(summary["stage1_6_bottleneck_stage_counts"]["Stage3"], 1)
+        self.assertEqual(summary["stage1_6_bottleneck_stage_counts"]["Stage4"], 1)
 
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -81,8 +90,30 @@ class RealPublicStage49PressureReportTests(unittest.TestCase):
             self.assertTrue(report["safe_to_execute"])
             self.assertTrue((root / "real-public-stage4-9-pressure-report-v1.json").exists())
             self.assertTrue((root / "candidate-pressure-table.json").exists())
+            self.assertTrue((root / "stage1-6-readiness-table.json").exists())
+            self.assertTrue((root / "stage1-6-gap-summary-table.json").exists())
             self.assertTrue((root / "gap-summary-table.json").exists())
             candidate_rows = report["manifest"]["candidate_pressure_records"]
+            readiness_rows = report["manifest"]["stage1_6_readiness_records"]
+            readiness_by_project = {row["project_id"]: row for row in readiness_rows}
+            self.assertEqual(
+                readiness_by_project["PROJ-REAL-001"]["stage1_6_readiness_state"],
+                "STAGE1_6_INTERNAL_READY",
+            )
+            self.assertEqual(readiness_by_project["PROJ-REAL-001"]["bottleneck_stage"], "READY")
+            self.assertEqual(
+                readiness_by_project["PROJ-REAL-002"]["stage1_6_readiness_state"],
+                "STAGE3_FIELD_OR_ROLE_REVIEW_REQUIRED",
+            )
+            self.assertEqual(readiness_by_project["PROJ-REAL-002"]["bottleneck_stage"], "Stage3")
+            self.assertEqual(
+                readiness_by_project["PROJ-REAL-003"]["recommended_next_action"],
+                "increase_detail_capture_limit_or_stage2_detail_capture_time_budget",
+            )
+            self.assertEqual(
+                readiness_by_project["PROJ-REAL-004"]["recommended_next_action"],
+                "increase_stage1_6_time_budget",
+            )
             next_actions = {row["project_id"]: row["recommended_next_action"] for row in candidate_rows}
             self.assertEqual(
                 next_actions["PROJ-REAL-001"],
@@ -105,6 +136,13 @@ class RealPublicStage49PressureReportTests(unittest.TestCase):
             self.assertIn(("remaining_real_world_gap", "missing_stage4_5_source_type:construction_permit"), gap_index)
             self.assertIn(("fail_closed_reason", "stage2_detail_capture_pending"), gap_index)
             self.assertIn(("responsible_role_gap_code", "A_ROLE_MISSING_REQUIRES_COMPANY_FIRST_IDENTITY"), gap_index)
+            stage16_gap_rows = report["manifest"]["stage1_6_gap_summary_records"]
+            stage16_gap_index = {(row["gap_family"], row["gap_value"]): row for row in stage16_gap_rows}
+            self.assertIn(("stage1_6_bottleneck_stage", "Stage2"), stage16_gap_index)
+            self.assertIn(("stage1_6_bottleneck_stage", "Stage3"), stage16_gap_index)
+            self.assertIn(("stage1_6_bottleneck_stage", "Stage4"), stage16_gap_index)
+            self.assertIn(("stage1_6_readiness_state", "PENDING_STAGE2_DETAIL_CAPTURE"), stage16_gap_index)
+            self.assertIn(("stage1_6_readiness_state", "PENDING_TIME_BUDGET"), stage16_gap_index)
 
     def test_forbidden_terms_still_fail_closed(self) -> None:
         run_result = _fake_run_result(project_name="无风险项目")
