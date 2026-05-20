@@ -419,6 +419,11 @@ def _project_row(record: Mapping[str, Any]) -> dict[str, Any]:
         )
         if isinstance(record.get("release_field_query_downstream_abcd_grade_counts"), Mapping)
         else {},
+        "release_field_query_authorized_session_input_state_counts": dict(
+            record.get("release_field_query_authorized_session_input_state_counts") or {}
+        )
+        if isinstance(record.get("release_field_query_authorized_session_input_state_counts"), Mapping)
+        else {},
         "release_field_query_authorization_state_counts": dict(
             record.get("release_field_query_authorization_state_counts") or {}
         )

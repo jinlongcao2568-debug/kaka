@@ -222,12 +222,20 @@ class Stage6ReviewLoopRunnerTests(unittest.TestCase):
                 {"FIELD_SURFACE_REACHED_REVIEW_REQUIRED": 1},
             )
             self.assertEqual(
+                records[0]["release_field_query_authorized_session_input_state_counts"],
+                {"INJECTED_BROWSER_RUNNER": 1},
+            )
+            self.assertEqual(
                 records[0]["release_field_query_operator_next_actions"],
                 ["review_gdcic_authorized_query_terms_or_capture_more_precise_field_page"],
             )
             self.assertEqual(
                 summary["release_field_query_authorization_state_counts"],
                 {"FIELD_SURFACE_REACHED_REVIEW_REQUIRED": 1},
+            )
+            self.assertEqual(
+                summary["release_field_query_authorized_session_input_state_counts"],
+                {"INJECTED_BROWSER_RUNNER": 1},
             )
             self.assertEqual(
                 records[0]["next_recommended_action"],
@@ -316,8 +324,16 @@ class Stage6ReviewLoopRunnerTests(unittest.TestCase):
                 {"LOGIN_OR_SSO_REQUIRED": 1},
             )
             self.assertEqual(
+                record["release_field_query_authorized_session_input_state_counts"],
+                {"NO_AUTHORIZED_SESSION_INPUT": 1},
+            )
+            self.assertEqual(
                 result["summary"]["release_field_query_authorization_state_counts"],
                 {"LOGIN_OR_SSO_REQUIRED": 1},
+            )
+            self.assertEqual(
+                result["summary"]["release_field_query_authorized_session_input_state_counts"],
+                {"NO_AUTHORIZED_SESSION_INPUT": 1},
             )
             self.assertEqual(
                 record["release_field_query_operator_next_actions"],
@@ -542,6 +558,8 @@ def _write_release_field_query_result(root: Path) -> None:
                         "adapter_result_state": "MATCHED",
                         "downstream_release_evidence_abcd_grade": "B_ENHANCEMENT_OFFICIAL_READBACK",
                         "field_summary": {
+                            "authorized_session_input_state": "INJECTED_BROWSER_RUNNER",
+                            "authorized_session_input_ready": True,
                             "authorization_readiness_state_counts": {
                                 "FIELD_SURFACE_REACHED_REVIEW_REQUIRED": 1,
                             },
@@ -578,6 +596,8 @@ def _write_live_style_release_field_query_result(root: Path) -> None:
                         "adapter_result_state": "NEEDS_BROWSER",
                         "downstream_release_evidence_abcd_grade": "D_INSUFFICIENT_OR_BLOCKED_READBACK",
                         "field_summary": {
+                            "authorized_session_input_state": "NO_AUTHORIZED_SESSION_INPUT",
+                            "authorized_session_input_ready": False,
                             "authorization_readiness_state": "LOGIN_OR_SSO_REQUIRED",
                             "required_runtime_capability": "AUTHORIZED_SESSION_STORAGE_STATE_OR_USER_DATA_DIR",
                             "operator_next_actions": [

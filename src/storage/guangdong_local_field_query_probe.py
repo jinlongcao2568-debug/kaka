@@ -3135,6 +3135,13 @@ def _gdcic_browser_authorized_readback_for_task(
     ) or GUANGDONG_GDCIC_CONTRACT_SYSTEM_URL
     manifest_kind = str(manifest.get("manifest_kind") or GUANGDONG_GDCIC_BROWSER_AUTHORIZED_READBACK_KIND)
     manifest_id = str(manifest.get("manifest_id") or "")
+    manifest_summary = manifest.get("summary") if isinstance(manifest.get("summary"), Mapping) else {}
+    authorized_session_input_state = str(
+        manifest.get("authorized_session_input_state")
+        or manifest_summary.get("authorized_session_input_state")
+        or ""
+    )
+    authorized_session_input_ready = bool(manifest_summary.get("authorized_session_input_ready"))
     status_codes = [
         _int(artifact.get("http_status") or artifact.get("status_code"))
         for artifact in artifacts
@@ -3208,6 +3215,8 @@ def _gdcic_browser_authorized_readback_for_task(
         )[:10],
         "source_manifest_kind": manifest_kind,
         "source_manifest_id": manifest_id,
+        "authorized_session_input_state": authorized_session_input_state,
+        "authorized_session_input_ready": authorized_session_input_ready,
         "authorization_readiness_states": authorization_states,
         "operator_next_actions": operator_next_actions,
         "blocker_taxonomy": [],
@@ -3224,6 +3233,8 @@ def _gdcic_browser_authorized_readback_for_task(
         "browser_authorized_readback_state_counts": _counts(
             _gdcic_browser_artifact_state(artifact) for artifact in artifacts
         ),
+        "authorized_session_input_state": authorized_session_input_state,
+        "authorized_session_input_ready": authorized_session_input_ready,
         "authorization_readiness_state_counts": _counts(authorization_states),
         "operator_next_actions": operator_next_actions,
         "browser_capability_assessments": browser_capability_assessments[:5],
@@ -7476,6 +7487,7 @@ def _summary(
         ),
         "field_query_probe_state_counts": _counts(task.get("field_query_probe_state") for task in field_task_records),
         "field_readback_state_counts": _counts(task.get("field_readback_state") for task in field_task_records),
+        "authorized_session_input_state_counts": _field_task_authorized_session_input_state_counts(field_task_records),
         "authorization_readiness_state_counts": _field_task_authorization_readiness_state_counts(field_task_records),
         "operator_next_action_counts": _field_task_operator_next_action_counts(field_task_records),
         "operator_next_actions": _field_task_operator_next_actions(field_task_records),
@@ -7518,6 +7530,16 @@ def _field_task_authorization_readiness_state_counts(tasks: list[Mapping[str, An
         for key, value in task_counts.items():
             merged[key] = merged.get(key, 0) + value
     return dict(sorted(merged.items()))
+
+
+def _field_task_authorized_session_input_state_counts(tasks: list[Mapping[str, Any]] | list[Any]) -> dict[str, int]:
+    return _counts(
+        (task.get("field_summary") if isinstance(task.get("field_summary"), Mapping) else {}).get(
+            "authorized_session_input_state"
+        )
+        for task in tasks
+        if isinstance(task, Mapping)
+    )
 
 
 def _field_task_operator_next_actions(tasks: list[Mapping[str, Any]] | list[Any]) -> list[str]:

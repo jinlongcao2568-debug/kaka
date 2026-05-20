@@ -148,6 +148,12 @@ class GDCICBrowserAuthorizedReadbackTests(unittest.TestCase):
                 "B_ENHANCEMENT_OFFICIAL_READBACK",
             )
             self.assertTrue(task["field_match_summary"]["browser_authorized_readback_consumed"])
+            self.assertEqual(task["field_summary"]["authorized_session_input_state"], "INJECTED_BROWSER_RUNNER")
+            self.assertTrue(task["field_summary"]["authorized_session_input_ready"])
+            self.assertEqual(
+                field["summary"]["authorized_session_input_state_counts"],
+                {"INJECTED_BROWSER_RUNNER": 1},
+            )
             self.assertEqual(
                 task["field_summary"]["authorization_readiness_state_counts"],
                 {"FIELD_SURFACE_REACHED_REVIEW_REQUIRED": 1},

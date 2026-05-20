@@ -614,6 +614,7 @@ def _bootstrap_manual_project_status_records(records: list[Mapping[str, Any]]) -
                 "release_field_query_task_count": 0,
                 "release_field_query_adapter_result_state_counts": {},
                 "release_field_query_downstream_abcd_grade_counts": {},
+                "release_field_query_authorized_session_input_state_counts": {},
                 "release_field_query_authorization_state_counts": {},
                 "release_field_query_operator_next_actions": [],
                 "next_cycle_dispatch_task_type": "",
@@ -704,6 +705,9 @@ def _project_status_records(
                 ),
                 "release_field_query_downstream_abcd_grade_counts": dict(
                     release_field_query_result.get("downstream_release_evidence_abcd_grade_counts") or {}
+                ),
+                "release_field_query_authorized_session_input_state_counts": dict(
+                    release_field_query_result.get("authorized_session_input_state_counts") or {}
                 ),
                 "release_field_query_authorization_state_counts": dict(
                     release_field_query_result.get("authorization_readiness_state_counts") or {}
@@ -832,6 +836,7 @@ def _release_field_query_missing_result(runner_record: Mapping[str, Any], result
         "field_query_task_count": 0,
         "adapter_result_state_counts": {},
         "downstream_release_evidence_abcd_grade_counts": {},
+        "authorized_session_input_state_counts": {},
         "authorization_readiness_state_counts": {},
         "operator_next_actions": [],
         "source_result_runner_execution_state": str(runner_record.get("execution_state") or ""),
@@ -847,6 +852,7 @@ def _release_field_query_project_result(
 ) -> dict[str, Any]:
     adapter_counts = _counts(task.get("adapter_result_state") for task in tasks)
     downstream_counts = _counts(task.get("downstream_release_evidence_abcd_grade") for task in tasks)
+    session_input_counts = _field_query_authorized_session_input_state_counts(tasks)
     authorization_counts = _field_query_authorization_counts(tasks)
     operator_next_actions = _field_query_operator_next_actions(tasks)
     return {
@@ -856,6 +862,7 @@ def _release_field_query_project_result(
         "field_query_task_count": len(tasks),
         "adapter_result_state_counts": adapter_counts,
         "downstream_release_evidence_abcd_grade_counts": downstream_counts,
+        "authorized_session_input_state_counts": session_input_counts,
         "authorization_readiness_state_counts": authorization_counts,
         "operator_next_actions": operator_next_actions,
         "source_result_runner_execution_state": str(runner_record.get("execution_state") or ""),
@@ -880,6 +887,15 @@ def _field_query_authorization_counts(tasks: list[Mapping[str, Any]]) -> dict[st
         if isinstance(field_summary, Mapping):
             fallback_states.append(field_summary.get("authorization_readiness_state"))
     return merged or _counts(fallback_states)
+
+
+def _field_query_authorized_session_input_state_counts(tasks: list[Mapping[str, Any]]) -> dict[str, int]:
+    return _counts(
+        (task.get("field_summary") if isinstance(task.get("field_summary"), Mapping) else {}).get(
+            "authorized_session_input_state"
+        )
+        for task in tasks
+    )
 
 
 def _field_query_operator_next_actions(tasks: list[Mapping[str, Any]]) -> list[str]:
@@ -1143,6 +1159,10 @@ def _summary(
         ),
         "release_field_query_state_counts": _counts(
             record.get("release_field_query_state") for record in project_status_records
+        ),
+        "release_field_query_authorized_session_input_state_counts": _merge_count_maps(
+            record.get("release_field_query_authorized_session_input_state_counts")
+            for record in project_status_records
         ),
         "release_field_query_authorization_state_counts": _merge_count_maps(
             record.get("release_field_query_authorization_state_counts") for record in project_status_records

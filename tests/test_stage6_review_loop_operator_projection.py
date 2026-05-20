@@ -74,6 +74,10 @@ class Stage6ReviewLoopOperatorProjectionTests(unittest.TestCase):
             {"LOGIN_OR_SSO_REQUIRED": 1},
         )
         self.assertEqual(
+            rows["PROJ-C"]["release_field_query_authorized_session_input_state_counts"],
+            {"NO_AUTHORIZED_SESSION_INPUT": 1},
+        )
+        self.assertEqual(
             rows["PROJ-C"]["release_field_query_operator_next_actions"],
             ["provide_gdcic_authorized_storage_state_or_user_data_dir_then_rerun"],
         )
@@ -155,6 +159,9 @@ class Stage6ReviewLoopOperatorProjectionTests(unittest.TestCase):
                             "D_INSUFFICIENT_OR_BLOCKED_READBACK": 4
                         },
                         "release_field_query_authorization_state_counts": {"LOGIN_OR_SSO_REQUIRED": 1},
+                        "release_field_query_authorized_session_input_state_counts": {
+                            "NO_AUTHORIZED_SESSION_INPUT": 1
+                        },
                         "release_field_query_operator_next_actions": [
                             "do_not_treat_http_dynamic_stealthy_as_login_state_replacement",
                         ],
@@ -263,6 +270,9 @@ def _status_table_payload() -> dict:
                 "stage6_fact_package_state": "REVIEW_FACT_PACKAGE_READY",
                 "stage6_ready": True,
                 "stage7_commercial_input_allowed": True,
+                "release_field_query_authorized_session_input_state_counts": {
+                    "NO_AUTHORIZED_SESSION_INPUT": 1
+                },
                 "release_field_query_authorization_state_counts": {"LOGIN_OR_SSO_REQUIRED": 1},
                 "release_field_query_operator_next_actions": [
                     "provide_gdcic_authorized_storage_state_or_user_data_dir_then_rerun"
