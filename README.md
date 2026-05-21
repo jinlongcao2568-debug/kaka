@@ -9,7 +9,7 @@
 - `docs/`：L0、裁决总表、D1-D14、清单、状态板、体检报告
 - `contracts/`：正式机器契约层
 - `handoff/`：stage1-stage9 handoff 机器资产
-- `scripts/`：统一校验/回归/发布前检查入口
+- `scripts/`：薄入口/运维按钮，包括校验、回归、诊断、受控运行和状态生成；脚本不是状态机本体，正式自动化入口以 `control/automation_entrypoint_registry.yaml` 登记为准
 - `control/`：owner、current task、审批链、例外链、引用索引
 - `archive/`：历史生成稿、round 包、zip 导出、迁移说明
 
@@ -42,6 +42,17 @@
 - `archive/non_current_docs/*` 不是普通开发默认入口；只在历史复核、task packet / scoped subpacket 或文档治理时读取
 
 文档角色有疑问时，以 `docs/文档与资产状态板.md` 的 `AX9S / 专题文档单源归属表` 为准：L1 产品主图只讲总口径，L2 矩阵只讲验收和回退，L3 SOP 只讲 Stage4/5 操作细节，导航图只负责阅读入口提示，不决定执行顺序或任务源，专题文档只负责各自专题边界。
+
+## 自动化入口和状态机
+
+- 当前系统不应靠人工记忆或某一次会话继续推进；正式自动化入口登记在 `control/automation_entrypoint_registry.yaml`，并由 `scripts/audit-automation-entrypoints.ps1` 审计。
+- `scripts/*.ps1` 只作为薄入口/运维按钮：负责设置路径、环境变量和调用 Python 模块；业务状态机、证据门、匹配门、调度和投影逻辑应落在 `src/`、`contracts/`、`handoff/`、`control/`。
+- Stage1-6 当前已有内部预览 orchestration route，但仍是 `SANITIZED_OFFLINE_INTERNAL` 边界；真实 Stage1-5 transport 未因此自动放开，对外触达、支付、交付、退款仍受 release gate、审批链、审计链和 operator action 控制。
+- 日常继续开发时，优先运行入口审计确认“下一步从机器状态接续，而不是从人脑接续”：
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/audit-automation-entrypoints.ps1
+```
 
 ## 本地运行与测试存储后端
 

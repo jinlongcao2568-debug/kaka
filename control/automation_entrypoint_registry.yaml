@@ -1,0 +1,214 @@
+registry_id: automation-entrypoint-registry-v1
+registry_version: 1
+updated_at: "2026-05-21"
+purpose: >
+  Machine-readable registry for automation entrypoints. Scripts are treated as
+  thin launchers; durable workflow decisions must live in src runners,
+  contracts, handoff assets, and control state.
+
+architecture_decision:
+  scripts_are_thin_launchers: true
+  scripts_are_not_the_system_brain: true
+  system_brain_layers:
+    - src/storage state builders and runners
+    - src/api internal orchestration routes
+    - contracts and handoff schemas
+    - control registries and gates
+  direct_dev_default_allowed: true
+  live_customer_actions_require_release_gate: true
+  external_touch_payment_delivery_refund_auto_execution_allowed: false
+  human_memory_replacement_policy: >
+    Formal workflow continuation must be discoverable from this registry and
+    from generated state artifacts, not from an operator remembering which
+    script to run next.
+
+required_audit:
+  script: scripts/audit-automation-entrypoints.ps1
+  module_or_command: storage.automation_entrypoint_audit
+  output_root: tmp/evaluation-real-samples/automation-entrypoint-audit-v1
+  expected_state: PASS
+
+allowed_entrypoint_roles:
+  - orchestrator
+  - controlled_live_runner
+  - state_builder
+  - field_query
+  - readback
+  - dispatch_runner
+  - validation
+  - diagnostic
+  - migration
+  - planning
+  - utility
+
+allowed_status_values:
+  - FORMAL_CURRENT
+  - INTERNAL_PREVIEW_ONLY
+  - SUPPORTING_TOOL
+  - DIAGNOSTIC_ONLY
+  - LEGACY_COMPATIBLE
+
+formal_entrypoints:
+  - entrypoint_id: stage4_9_real_public_pressure_runner
+    kind: script
+    script: scripts/run-guangzhou-real-public-stage4-9-pressure-v1.ps1
+    entrypoint_role: controlled_live_runner
+    status: FORMAL_CURRENT
+    automation_layer: stage1_6_public_source_pressure_loop
+    module_or_command: storage.real_public_stage4_9_pressure_report
+    state_inputs:
+      - public source candidate windows
+      - analysis strategy plan outputs
+      - bounded execution budget
+    state_outputs:
+      - real public stage4-9 pressure run result
+      - bridgeable release evidence task candidates
+    manual_gate_required: false
+    external_customer_action_enabled: false
+    replaces_human_memory: true
+    purpose: Run controlled public-source Guangzhou pressure batches and emit machine-readable state.
+
+  - entrypoint_id: stage4_9_release_bridge_builder
+    kind: script
+    script: scripts/build-real-public-stage4-9-pressure-report-v1.ps1
+    entrypoint_role: state_builder
+    status: FORMAL_CURRENT
+    automation_layer: stage4_release_evidence_bridge
+    module_or_command: storage.real_public_stage4_9_pressure_report
+    state_inputs:
+      - stage4-9 pressure run result
+      - Stage6 review loop policy
+    state_outputs:
+      - bridge plan
+      - release evidence query task queue
+      - review-ready report
+    manual_gate_required: false
+    external_customer_action_enabled: false
+    replaces_human_memory: true
+    purpose: Convert pressure run results into reviewable release evidence bridge tasks.
+
+  - entrypoint_id: guangdong_local_field_query_probe
+    kind: script
+    script: scripts/run-guangdong-local-field-query-probe-v1.ps1
+    entrypoint_role: field_query
+    status: FORMAL_CURRENT
+    automation_layer: stage4_release_field_query
+    module_or_command: storage.guangdong_local_field_query_probe
+    state_inputs:
+      - release evidence bridge tasks
+      - project/company/person identifiers
+      - source-specific query budgets
+    state_outputs:
+      - local public source field query results
+      - matched/not_found/review_required source states
+    manual_gate_required: false
+    external_customer_action_enabled: false
+    replaces_human_memory: true
+    purpose: Query Guangdong local public sources with evidence-grade matching gates.
+
+  - entrypoint_id: guangdong_gdcic_openplatform_query_probe
+    kind: script
+    script: scripts/run-guangdong-gdcic-query-probe-v1.ps1
+    entrypoint_role: field_query
+    status: FORMAL_CURRENT
+    automation_layer: stage4_gdcic_openplatform_query
+    module_or_command: storage.guangdong_gdcic_query_probe
+    state_inputs:
+      - company identifiers
+      - project identifiers and title variants
+      - bounded public-source query budget
+    state_outputs:
+      - GDCIC openplatform readback
+      - source-specific evidence candidates
+    manual_gate_required: false
+    external_customer_action_enabled: false
+    replaces_human_memory: true
+    purpose: Query anonymous GDCIC openplatform sources without treating unrelated company records as project evidence.
+
+  - entrypoint_id: stage6_review_loop_runner
+    kind: script
+    script: scripts/run-stage6-review-loop-v1.ps1
+    entrypoint_role: orchestrator
+    status: FORMAL_CURRENT
+    automation_layer: stage6_review_loop
+    module_or_command: storage.stage6_review_loop_runner
+    state_inputs:
+      - review action dispatch
+      - batch closeout
+      - release field query results
+      - baseline evidence state
+    state_outputs:
+      - Stage6 review loop manifest
+      - operator projection
+      - next-cycle dispatch tasks
+    manual_gate_required: false
+    external_customer_action_enabled: false
+    replaces_human_memory: true
+    purpose: Continue Stage6 review from machine state instead of ad-hoc human prompting.
+
+  - entrypoint_id: stage16_p13b_continuation_runner
+    kind: script
+    script: scripts/run-stage16-p13b-continuation-v1.ps1
+    entrypoint_role: orchestrator
+    status: FORMAL_CURRENT
+    automation_layer: stage16_p13b_continuation
+    module_or_command: storage.stage16_p13b_continuation_controller
+    state_inputs:
+      - P13B overlap triage state
+      - original readback targets
+      - bounded continuation budget
+    state_outputs:
+      - P13B continuation results
+      - next readback task candidates
+    manual_gate_required: false
+    external_customer_action_enabled: false
+    replaces_human_memory: true
+    purpose: Continue P13B overlap/readback work from persisted state and budgets.
+
+  - entrypoint_id: stage1_6_internal_http_orchestration_preview
+    kind: http_route
+    route: /internal/stage1-6/orchestrations
+    entrypoint_role: orchestrator
+    status: INTERNAL_PREVIEW_ONLY
+    automation_layer: stage1_6_internal_preview
+    module_or_command: src/api/routes/stage6.py
+    state_inputs:
+      - sanitized offline internal payload
+      - repository-backed Stage6 preview inputs
+    state_outputs:
+      - internal orchestration preview result
+      - blocked transport state for Stage1-5 real execution
+    manual_gate_required: false
+    external_customer_action_enabled: false
+    replaces_human_memory: true
+    limitations:
+      - Does not execute real Stage1-5 transport.
+      - External live transport remains disabled.
+      - Payload boundary must stay SANITIZED_OFFLINE_INTERNAL.
+    purpose: Provide internal preview orchestration without implying external live automation is enabled.
+
+script_classification_rules:
+  exact:
+    run-golden.ps1: validation
+    run-governance-contracts.ps1: validation
+    run-storage-migrations.ps1: migration
+    invoke-local-json-test-env.ps1: validation
+    clean-python-cache.ps1: utility
+    cleanup-local-artifacts.ps1: utility
+  prefixes:
+    analyze-: diagnostic
+    audit-: diagnostic
+    build-: state_builder
+    check-: validation
+    diagnose-: diagnostic
+    doctor: validation
+    extract-: utility
+    lint-: validation
+    migrate-: migration
+    parse-: utility
+    plan-: planning
+    qa-: diagnostic
+    run-: controlled_live_runner
+    trace-: diagnostic
+    triage-: diagnostic
+    validate-: validation
