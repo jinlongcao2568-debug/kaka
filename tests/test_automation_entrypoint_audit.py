@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+import subprocess
 import unittest
 from pathlib import Path
 
@@ -62,6 +63,36 @@ class TestAutomationEntrypointAudit(unittest.TestCase):
 
         self.assertIn("automation_entrypoint_registry.yaml", readme)
         self.assertIn("脚本不是状态机本体", readme)
+
+    def test_powershell_wrapper_emits_final_gate_compatible_json(self) -> None:
+        script = ROOT / "scripts" / "audit-automation-entrypoints.ps1"
+        completed = subprocess.run(
+            [
+                "pwsh",
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                str(script),
+                "-RepoRoot",
+                str(ROOT),
+                "-EmitJson",
+            ],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
+        self.assertEqual(completed.returncode, 0, msg=completed.stdout + completed.stderr)
+        self.assertIn('"script"', completed.stdout)
+        self.assertIn('"ok"', completed.stdout)
+        self.assertIn('"issues"', completed.stdout)
+
+    def test_final_gate_runs_automation_entrypoint_audit(self) -> None:
+        final_gate = (ROOT / "scripts" / "check-final-gate.ps1").read_text(encoding="utf-8")
+
+        self.assertIn("audit-automation-entrypoints.ps1", final_gate)
 
 
 if __name__ == "__main__":

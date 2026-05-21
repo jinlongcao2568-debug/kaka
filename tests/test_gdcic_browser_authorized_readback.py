@@ -140,23 +140,29 @@ class GDCICBrowserAuthorizedReadbackTests(unittest.TestCase):
 
             self.assertTrue(field["safe_to_execute"])
             task = field["manifest"]["field_task_records"][0]
-            self.assertEqual(task["release_evidence_target_type"], "contract_performance")
-            self.assertEqual(task["field_query_probe_state"], "FIELD_READBACK_READY_PUBLIC_SOURCE")
-            self.assertEqual(task["adapter_result_state"], "MATCHED")
+            self.assertEqual(task["release_evidence_target_type"], "project_manager_change_notice")
+            self.assertEqual(task["field_query_probe_state"], "LIVE_FIELD_QUERY_NEEDS_BROWSER")
+            self.assertEqual(task["adapter_result_state"], "NEEDS_BROWSER")
             self.assertEqual(
                 task["downstream_release_evidence_abcd_grade"],
-                "B_ENHANCEMENT_OFFICIAL_READBACK",
+                "D_INSUFFICIENT_OR_BLOCKED_READBACK",
             )
             self.assertTrue(task["field_match_summary"]["browser_authorized_readback_consumed"])
+            self.assertTrue(task["field_match_summary"]["browser_authorized_readback_pending_or_not_executed"])
             self.assertEqual(task["field_summary"]["authorized_session_input_state"], "INJECTED_BROWSER_RUNNER")
             self.assertTrue(task["field_summary"]["authorized_session_input_ready"])
+            self.assertEqual(task["field_summary"]["record_count"], 0)
             self.assertEqual(
                 field["summary"]["authorized_session_input_state_counts"],
                 {"INJECTED_BROWSER_RUNNER": 1},
             )
             self.assertEqual(
                 task["field_summary"]["authorization_readiness_state_counts"],
-                {"FIELD_SURFACE_REACHED_REVIEW_REQUIRED": 1},
+                {"NOT_EXECUTED_DEFERRED_BY_LIMIT": 1},
+            )
+            self.assertIn(
+                "gd_gdcic_browser_authorized_readback_pending_or_not_executed",
+                task["blocker_taxonomy"],
             )
 
     def test_project_manager_change_runner_extracts_release_fields_and_flows_into_field_probe(self) -> None:

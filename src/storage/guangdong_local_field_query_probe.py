@@ -3737,6 +3737,7 @@ def _gdcic_browser_authorized_readback_for_task(
     raw_records: list[Mapping[str, Any]] = []
     blocked_artifacts: list[Mapping[str, Any]] = []
     no_record_artifacts: list[Mapping[str, Any]] = []
+    pending_artifacts: list[Mapping[str, Any]] = []
     authorization_states = _dedupe(
         str(artifact.get("authorization_readiness_state") or "")
         for artifact in artifacts
@@ -3756,6 +3757,9 @@ def _gdcic_browser_authorized_readback_for_task(
     login_or_sso_required = "LOGIN_OR_SSO_REQUIRED" in authorization_states
     for artifact in artifacts:
         state = _gdcic_browser_artifact_state(artifact)
+        if _gdcic_browser_state_is_pending_or_not_executed(state):
+            pending_artifacts.append(artifact)
+            continue
         if _gdcic_browser_state_is_blocked(state):
             blocked_artifacts.append(artifact)
         records = _gdcic_browser_records_from_artifact(artifact)
@@ -3789,6 +3793,8 @@ def _gdcic_browser_authorized_readback_for_task(
             if compact_records
             else "BROWSER_AUTHORIZED_READBACK_NO_FIELD_RECORD"
             if no_record_artifacts
+            else "BROWSER_AUTHORIZED_READBACK_PENDING_OR_NOT_EXECUTED"
+            if pending_artifacts
             else "FAIL_CLOSED_BROWSER_AUTHORIZED_READBACK_BLOCKED"
             if blocked_artifacts
             else "BROWSER_AUTHORIZED_READBACK_NO_APPLICABLE_RECORD"
@@ -3841,6 +3847,9 @@ def _gdcic_browser_authorized_readback_for_task(
         [
             *(blockers or []),
             "gd_gdcic_browser_authorized_readback_consumed" if compact_records or no_record_artifacts else "",
+            "gd_gdcic_browser_authorized_readback_pending_or_not_executed"
+            if pending_artifacts and not compact_records
+            else "",
             "gd_gdcic_browser_authorized_readback_blocked" if blocked_artifacts and not compact_records else "",
         ]
     )
@@ -3880,6 +3889,28 @@ def _gdcic_browser_authorized_readback_for_task(
             "route_attempts": [*prior_attempts, artifact_attempt],
             "blocker_taxonomy": blocker_taxonomy
             or ["gd_gdcic_browser_authorized_readback_no_record_review"],
+        }
+    if pending_artifacts:
+        artifact_attempt["blocker_taxonomy"] = ["gd_gdcic_browser_authorized_readback_pending_or_not_executed"]
+        return {
+            "field_query_probe_state": "LIVE_FIELD_QUERY_NEEDS_BROWSER",
+            "field_readback_state": "FIELD_READBACK_BROWSER_OR_AUTHORIZED_RUNTIME_REQUIRED",
+            "readback_ready": False,
+            "readback_status_code": status_code,
+            "field_summary": {
+                **common_summary,
+                "record_count": 0,
+                "source_profile_keyword_hit": False,
+                "browser_or_authorized_runtime_required": True,
+            },
+            "field_match_summary": {
+                **common_match_summary,
+                "browser_authorized_readback_pending_or_not_executed": True,
+            },
+            "route_plan": list(route_plan),
+            "route_attempts": [*prior_attempts, artifact_attempt],
+            "blocker_taxonomy": blocker_taxonomy
+            or ["gd_gdcic_browser_authorized_readback_pending_or_not_executed"],
         }
     if blocked_artifacts:
         artifact_attempt["blocker_taxonomy"] = ["gd_gdcic_browser_authorized_readback_blocked"]
@@ -4069,6 +4100,20 @@ def _gdcic_browser_state_is_blocked(state: str) -> bool:
     return any(token in state for token in ("BLOCK", "CAPTCHA", "LOGIN_REQUIRED", "SSO_REQUIRED", "ERROR", "FAILED"))
 
 
+def _gdcic_browser_state_is_pending_or_not_executed(state: str) -> bool:
+    return any(
+        token in state
+        for token in (
+            "DEFERRED",
+            "NOT_EXECUTED",
+            "PLAN_ONLY",
+            "NEEDS_BROWSER",
+            "NOT_ATTEMPTED",
+            "PENDING",
+        )
+    )
+
+
 def _gdcic_browser_records_from_artifact(artifact: Mapping[str, Any]) -> list[Mapping[str, Any]]:
     records: list[Mapping[str, Any]] = []
     for key in ("records", "source_specific_records", "field_records", "readback_records", "browser_records"):
@@ -4076,6 +4121,8 @@ def _gdcic_browser_records_from_artifact(artifact: Mapping[str, Any]) -> list[Ma
             if isinstance(record, Mapping):
                 records.append({**artifact, **record})
     state = _gdcic_browser_artifact_state(artifact)
+    if _gdcic_browser_state_is_pending_or_not_executed(state):
+        return []
     if records:
         return records
     if _gdcic_browser_state_is_no_record(state) or _gdcic_browser_state_is_blocked(state):
