@@ -466,7 +466,7 @@ def _write_stage16_storage(path: Path) -> None:
         {
             "project_id": "PROJ-CN-GD-JG2026-20001",
             "real_world_hard_defect_gate_state": "PARTIAL_SOURCE_COVERAGE",
-            "real_public_stage4_9_readback": {
+            "real_public_stage1_6_readback": {
                 "jzsc_company_first_identity_resolution_required": False,
                 "stage5_rule_gate_status": "REVIEW",
                 "stage5_evidence_gate_status": "PASS",
@@ -523,7 +523,7 @@ def _write_two_project_stage16_storage(path: Path) -> None:
         {
             "project_id": candidate["project_id"],
             "real_world_hard_defect_gate_state": "PARTIAL_SOURCE_COVERAGE",
-            "real_public_stage4_9_readback": {
+            "real_public_stage1_6_readback": {
                 "jzsc_company_first_identity_resolution_required": False,
                 "stage5_rule_gate_status": "REVIEW",
                 "stage5_evidence_gate_status": "PASS",
@@ -959,7 +959,7 @@ def _write_design_stage16_storage(path: Path) -> None:
         {
             "project_id": project_id,
             "real_world_hard_defect_gate_state": "PARTIAL_SOURCE_COVERAGE",
-            "real_public_stage4_9_readback": {
+            "real_public_stage1_6_readback": {
                 "jzsc_company_first_identity_resolution_required": False,
                 "stage5_rule_gate_status": "REVIEW",
                 "stage5_evidence_gate_status": "PASS",

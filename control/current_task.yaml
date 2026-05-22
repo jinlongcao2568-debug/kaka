@@ -316,6 +316,11 @@ currentTask:
     - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-final-gate.ps1
 notes:
 - current_task -> product_task_library -> repo_status remains the active-source priority.
+- This currentTask is a completed historical controlled packet carrier, not an active ordinary direct-dev target while repo_status is NO_ACTIVE_PRODUCT_MAINLINE_PACKET.
+- Ordinary Stage1-6 direct-dev current focus is control/stage1_6_priority_execution_plan.yaml#current_focus, currently P0_STAGE4_RELEASE_EVIDENCE_CHAIN.
+- Formal Stage1-6/P0 entrypoint names must be read from control/automation_entrypoint_registry.yaml; do not infer product_autonomous_* entrypoints from conceptual wording.
+- control/product_runtime_agent_registry.yaml is not present in this repo and must not be treated as an existing required state source.
+- Authorization/login gaps should follow active contracts; if top-level NEEDS_AUTH is not supported, use BLOCKED/NEEDS_BROWSER plus authorization_readiness_state=LOGIN_OR_SSO_REQUIRED and operator_next_action.
 - This packet implements the real sample autonomous opportunity acceptance projection and route; automated refund execution remains excluded.
 - Owner deferred python tests/run_tests.py and check-final-gate.ps1 until PTL-I100-147, PTL-I100-148, and PTL-I100-149 were complete; both long gates passed after 149 completion.
 - No unapproved real external execution is performed by this packet.

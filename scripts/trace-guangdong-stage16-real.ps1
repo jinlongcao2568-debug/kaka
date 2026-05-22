@@ -160,9 +160,9 @@ def build_summary(result: Mapping[str, Any], *, payload: Mapping[str, Any], full
         if isinstance(row, Mapping)
     ]
     readbacks = [
-        dict(row.get("real_public_stage4_9_readback") or {})
+        dict(row.get("real_public_stage1_6_readback") or {})
         for row in closed
-        if isinstance(row.get("real_public_stage4_9_readback"), Mapping)
+        if isinstance(row.get("real_public_stage1_6_readback"), Mapping)
     ]
 
     fail_reasons: Counter[str] = Counter()

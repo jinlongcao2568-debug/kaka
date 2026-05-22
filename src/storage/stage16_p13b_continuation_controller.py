@@ -140,7 +140,7 @@ def _project_continuation_record(
 ) -> dict[str, Any]:
     project_id = str(candidate.get("project_id") or "").strip()
     project_name = str(candidate.get("project_name") or "").strip()
-    readback = closed.get("real_public_stage4_9_readback") if isinstance(closed.get("real_public_stage4_9_readback"), Mapping) else {}
+    readback = closed.get("real_public_stage1_6_readback") if isinstance(closed.get("real_public_stage1_6_readback"), Mapping) else {}
     priority_class = str(candidate.get("opportunity_priority_class") or "").strip()
     lane = str(candidate.get("engineering_work_lane") or "").strip()
     source_url = str(candidate.get("source_url") or "").strip()

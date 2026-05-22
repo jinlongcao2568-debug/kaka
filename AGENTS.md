@@ -30,6 +30,7 @@
 **Operating Mode and State Sources**
 - 本文件不冻结任何动态项目状态；需要时读取 `control/repo_status.md`、`control/current_task.yaml`、`control/milestone_status.yaml` 和相关 control 状态资产。
 - 默认执行模式：真实公开市场机会发现与证据包商业化产品开发以 `DIRECT_DEV_DEFAULT` 为默认入口；task packet / scoped subpacket 仅用于高风险、对外/live、机器契约或大批量治理窗口，不再作为普通开发前置门槛。
+- 当 `control/repo_status.md` 显示 `NO_ACTIVE_PRODUCT_MAINLINE_PACKET` 或 `control/current_task.yaml#currentTask.task_packet.status` 为 `COMPLETED` 时，`current_task.yaml` 只保留历史完成包和受控窗口形状；普通 Stage1-6 direct-dev 当前 focus 以 `control/stage1_6_priority_execution_plan.yaml#current_focus` 为准，不得重新激活已完成包。
 - 产品完成标准：真实公开来源候选能进料、可解析、可核验、可形成可验证证据包和商业钩子；内部/样本链路只作为开发回归、安全演练和受控验证环境，不再单独构成实战完成。
 - 受控开放边界：外部软件 release、真实触达、真实支付、真实交付、真实退款均可作为受控开放能力推进；线索包外发仍需审批链 + 审计链；自动退款执行仍为 `EXCLUDED`。
 - 允许：真实市场候选发现、公开来源采集、证据包商业化主线开发与受控实现、必要的文档/机器资产最小补齐、运行脚本校验并如实汇报结果。
@@ -59,6 +60,9 @@
 - 动作矩阵：`control/automation_action_matrix.yaml`
 - 停机条件：`control/automation_stop_conditions.yaml`
 - 任务包规则：`control/automation_task_packet_rules.yaml`
+- 正式自动化入口以 `control/automation_entrypoint_registry.yaml` 的实际 `entrypoint_id` 为准；不得用概念名、聊天记忆或未登记名称替代。当前 Stage1-6/P0 相关入口包括 `stage1_6_real_public_pressure_runner`、`stage4_release_evidence_bridge_builder`、`guangdong_local_field_query_probe`、`guangdong_gdcic_openplatform_query_probe`、`stage6_review_loop_runner`、`stage16_p13b_continuation_runner`。
+- 当前仓库没有 `control/product_runtime_agent_registry.yaml`；除非先明确建立并登记该机器资产，否则不得把它当成必须维护的状态源。
+- Stage4 授权缺失应按当前契约表达；若没有顶层 `NEEDS_AUTH` 枚举，不得强行新增，使用现有 `BLOCKED` / `NEEDS_BROWSER` 加 `authorization_readiness_state=LOGIN_OR_SSO_REQUIRED` 和 `operator_next_action` 表达。
 - 真实 live 的触达/支付/交付/退款/高限制字段放行动作，必须先满足门禁、审批、审计与 operator action；自动退款执行必须停机并转人工拒绝。
 
 **Direct Development Default**

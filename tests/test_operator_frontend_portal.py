@@ -642,7 +642,7 @@ class TestOperatorFrontendPortal(unittest.TestCase, IsolatedStorageTestMixin):
             "PASS",
         )
         self.assertIn(
-            "真实候选 Stage4-9 formal 回链",
+            "真实候选 Stage1-6 formal 回链",
             [item["title"] for item in matrix["topPriorities"]],
         )
 

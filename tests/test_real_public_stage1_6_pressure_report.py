@@ -13,23 +13,23 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from storage.real_public_stage4_9_pressure_report import (  # noqa: E402
-    build_real_public_stage4_9_pressure_report,
-    build_real_public_stage4_9_pressure_summary,
-    run_real_public_stage4_9_pressure,
+from storage.real_public_stage1_6_pressure_report import (  # noqa: E402
+    build_stage1_6_real_public_pressure_report,
+    build_stage1_6_real_public_pressure_summary,
+    run_stage1_6_real_public_pressure,
 )
 
 
-class RealPublicStage49PressureReportTests(unittest.TestCase):
+class StageOneSixRealPublicPressureReportTests(unittest.TestCase):
     def test_run_helper_reuses_operator_search_and_writes_outputs(self) -> None:
         fake_result = _fake_run_result()
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
             with patch(
-                "storage.real_public_stage4_9_pressure_report.run_operator_autonomous_opportunity_search",
+                "storage.real_public_stage1_6_pressure_report.run_operator_autonomous_opportunity_search",
                 return_value=fake_result,
             ) as runner:
-                result = run_real_public_stage4_9_pressure(output_root=root)
+                result = run_stage1_6_real_public_pressure(output_root=root)
 
             runner.assert_called_once()
             payload = runner.call_args.args[0]
@@ -49,7 +49,7 @@ class RealPublicStage49PressureReportTests(unittest.TestCase):
 
     def test_summary_and_report_classify_states_and_next_actions(self) -> None:
         run_result = _fake_run_result()
-        summary = build_real_public_stage4_9_pressure_summary(
+        summary = build_stage1_6_real_public_pressure_summary(
             run_result,
             payload={"source_profile_ids": ["GUANGZHOU-YWTB-CONSTRUCTION-LIST"]},
             target_accepted_candidate_count=10,
@@ -59,10 +59,10 @@ class RealPublicStage49PressureReportTests(unittest.TestCase):
         self.assertEqual(summary["selected_candidate_count"], 4)
         self.assertEqual(summary["closed_loop_results_count"], 4)
         self.assertEqual(summary["coverage_state"], "PARTIAL_SOURCE_COVERAGE")
-        self.assertEqual(summary["real_public_stage4_9_chain_state_counts"]["INTERNAL_READY"], 1)
-        self.assertEqual(summary["real_public_stage4_9_chain_state_counts"]["REVIEW_REQUIRED"], 1)
-        self.assertEqual(summary["real_public_stage4_9_chain_state_counts"]["PENDING_STAGE2_DETAIL_CAPTURE"], 1)
-        self.assertEqual(summary["real_public_stage4_9_chain_state_counts"]["PENDING_TIME_BUDGET"], 1)
+        self.assertEqual(summary["real_public_stage1_6_chain_state_counts"]["INTERNAL_READY"], 1)
+        self.assertEqual(summary["real_public_stage1_6_chain_state_counts"]["REVIEW_REQUIRED"], 1)
+        self.assertEqual(summary["real_public_stage1_6_chain_state_counts"]["PENDING_STAGE2_DETAIL_CAPTURE"], 1)
+        self.assertEqual(summary["real_public_stage1_6_chain_state_counts"]["PENDING_TIME_BUDGET"], 1)
         self.assertEqual(summary["company_first_identity_resolution_required_count"], 1)
         self.assertEqual(summary["stage5_rule_gate_status_counts"]["PASS"], 1)
         self.assertEqual(summary["stage5_rule_gate_status_counts"]["REVIEW"], 1)
@@ -85,14 +85,14 @@ class RealPublicStage49PressureReportTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
             (root / "run-result.json").write_text(json.dumps(run_result, ensure_ascii=False, indent=2), encoding="utf-8")
-            report = build_real_public_stage4_9_pressure_report(
+            report = build_stage1_6_real_public_pressure_report(
                 run_result_json=root / "run-result.json",
                 output_root=root,
                 target_accepted_candidate_count=10,
             )
 
             self.assertTrue(report["safe_to_execute"])
-            self.assertTrue((root / "real-public-stage4-9-pressure-report-v1.json").exists())
+            self.assertTrue((root / "stage1-6-real-public-pressure-report-v1.json").exists())
             self.assertTrue((root / "candidate-pressure-table.json").exists())
             self.assertTrue((root / "stage1-6-readiness-table.json").exists())
             self.assertTrue((root / "stage1-6-gap-summary-table.json").exists())
@@ -178,7 +178,7 @@ class RealPublicStage49PressureReportTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
             (root / "run-result.json").write_text(json.dumps(run_result, ensure_ascii=False, indent=2), encoding="utf-8")
-            report = build_real_public_stage4_9_pressure_report(
+            report = build_stage1_6_real_public_pressure_report(
                 run_result_json=root / "run-result.json",
                 output_root=root,
             )
@@ -212,7 +212,7 @@ class RealPublicStage49PressureReportTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
             (root / "run-result.json").write_text(json.dumps(run_result, ensure_ascii=False, indent=2), encoding="utf-8")
-            report = build_real_public_stage4_9_pressure_report(
+            report = build_stage1_6_real_public_pressure_report(
                 run_result_json=root / "run-result.json",
                 output_root=root,
             )
@@ -259,7 +259,7 @@ class RealPublicStage49PressureReportTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
             (root / "run-result.json").write_text(json.dumps(run_result, ensure_ascii=False, indent=2), encoding="utf-8")
-            report = build_real_public_stage4_9_pressure_report(
+            report = build_stage1_6_real_public_pressure_report(
                 run_result_json=root / "run-result.json",
                 output_root=root,
             )
@@ -281,14 +281,14 @@ class RealPublicStage49PressureReportTests(unittest.TestCase):
         run_result["candidate_options"][1]["project_id"] = "PROJ-CN-GD-JG2026-11337"
         run_result["closed_loop_results"][1]["project_id"] = "PROJ-CN-GD-JG2026-11337"
         run_result["candidate_options"][1]["candidate_company"] = "(主)广东乙公司;(成)广东联合设计有限公司"
-        run_result["closed_loop_results"][1]["real_public_stage4_9_readback"]["remaining_real_world_gaps"] = [
+        run_result["closed_loop_results"][1]["real_public_stage1_6_readback"]["remaining_real_world_gaps"] = [
             "missing_stage4_5_source_type:contract_public_info",
         ]
 
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
             (root / "run-result.json").write_text(json.dumps(run_result, ensure_ascii=False, indent=2), encoding="utf-8")
-            report = build_real_public_stage4_9_pressure_report(
+            report = build_stage1_6_real_public_pressure_report(
                 run_result_json=root / "run-result.json",
                 output_root=root,
             )
@@ -318,7 +318,7 @@ class RealPublicStage49PressureReportTests(unittest.TestCase):
         enterprise_credit_code = "914400001903237820"
         run_result["candidate_options"][1]["project_id"] = "PROJ-CN-GD-JG2026-11337"
         run_result["closed_loop_results"][1]["project_id"] = "PROJ-CN-GD-JG2026-11337"
-        readback = run_result["closed_loop_results"][1]["real_public_stage4_9_readback"]
+        readback = run_result["closed_loop_results"][1]["real_public_stage1_6_readback"]
         readback["remaining_real_world_gaps"] = ["missing_stage4_5_source_type:contract_public_info"]
         readback["regional_hard_defect_source_readback"] = {
             "query_context": {
@@ -354,7 +354,7 @@ class RealPublicStage49PressureReportTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
             (root / "run-result.json").write_text(json.dumps(run_result, ensure_ascii=False, indent=2), encoding="utf-8")
-            report = build_real_public_stage4_9_pressure_report(
+            report = build_stage1_6_real_public_pressure_report(
                 run_result_json=root / "run-result.json",
                 output_root=root,
             )
@@ -386,7 +386,6 @@ def _fake_run_result(project_name: str = "广州真实候选项目") -> dict:
                 "candidate_company": "广东甲公司",
                 "stage2_detail_capture_state": "FETCHED",
                 "stage3_parse_state": "PARSED_WITH_REVIEW",
-                "real_public_stage4_9_chain_state": "INTERNAL_READY",
                 "real_public_stage1_6_chain_state": "INTERNAL_READY",
                 "real_world_hard_defect_gate_state": "PARTIAL_SOURCE_COVERAGE",
                 "customer_sellable_evidence_ready": False,
@@ -402,7 +401,6 @@ def _fake_run_result(project_name: str = "广州真实候选项目") -> dict:
                 "candidate_company": "广东乙公司",
                 "stage2_detail_capture_state": "FETCHED",
                 "stage3_parse_state": "PARSED_WITH_REVIEW",
-                "real_public_stage4_9_chain_state": "REVIEW_REQUIRED",
                 "real_public_stage1_6_chain_state": "REVIEW_REQUIRED",
                 "real_world_hard_defect_gate_state": "SOURCE_COVERAGE_PENDING",
                 "customer_sellable_evidence_ready": False,
@@ -418,7 +416,6 @@ def _fake_run_result(project_name: str = "广州真实候选项目") -> dict:
                 "candidate_company": "广东丙公司",
                 "stage2_detail_capture_state": "PENDING_DETAIL_CAPTURE",
                 "stage3_parse_state": "PENDING_DETAIL_CAPTURE",
-                "real_public_stage4_9_chain_state": "PENDING_STAGE2_DETAIL_CAPTURE",
                 "real_public_stage1_6_chain_state": "PENDING_STAGE2_DETAIL_CAPTURE",
                 "real_world_hard_defect_gate_state": "SOURCE_COVERAGE_PENDING",
                 "customer_sellable_evidence_ready": False,
@@ -434,7 +431,6 @@ def _fake_run_result(project_name: str = "广州真实候选项目") -> dict:
                 "candidate_company": "广东丁公司",
                 "stage2_detail_capture_state": "FETCHED",
                 "stage3_parse_state": "PARSED_WITH_REVIEW",
-                "real_public_stage4_9_chain_state": "PENDING_TIME_BUDGET",
                 "real_public_stage1_6_chain_state": "PENDING_TIME_BUDGET",
                 "real_world_hard_defect_gate_state": "SOURCE_COVERAGE_PENDING",
                 "customer_sellable_evidence_ready": False,
@@ -446,12 +442,11 @@ def _fake_run_result(project_name: str = "广州真实候选项目") -> dict:
         "closed_loop_results": [
             {
                 "project_id": "PROJ-REAL-001",
-                "real_public_stage4_9_chain_state": "INTERNAL_READY",
                 "real_public_stage1_6_chain_state": "INTERNAL_READY",
                 "real_world_hard_defect_gate_state": "PARTIAL_SOURCE_COVERAGE",
                 "customer_sellable_evidence_ready": False,
                 "fail_closed_reasons": [],
-                "real_public_stage4_9_readback": {
+                "real_public_stage1_6_readback": {
                     "stage5_rule_gate_status": "PASS",
                     "stage5_evidence_gate_status": "PASS",
                     "jzsc_company_first_identity_resolution_required": False,
@@ -462,12 +457,11 @@ def _fake_run_result(project_name: str = "广州真实候选项目") -> dict:
             },
             {
                 "project_id": "PROJ-REAL-002",
-                "real_public_stage4_9_chain_state": "REVIEW_REQUIRED",
                 "real_public_stage1_6_chain_state": "REVIEW_REQUIRED",
                 "real_world_hard_defect_gate_state": "SOURCE_COVERAGE_PENDING",
                 "customer_sellable_evidence_ready": False,
                 "fail_closed_reasons": ["source_gap_review_required"],
-                "real_public_stage4_9_readback": {
+                "real_public_stage1_6_readback": {
                     "stage5_rule_gate_status": "REVIEW",
                     "stage5_evidence_gate_status": "REVIEW",
                     "jzsc_company_first_identity_resolution_required": True,
@@ -478,12 +472,11 @@ def _fake_run_result(project_name: str = "广州真实候选项目") -> dict:
             },
             {
                 "project_id": "PROJ-REAL-003",
-                "real_public_stage4_9_chain_state": "PENDING_STAGE2_DETAIL_CAPTURE",
                 "real_public_stage1_6_chain_state": "PENDING_STAGE2_DETAIL_CAPTURE",
                 "real_world_hard_defect_gate_state": "SOURCE_COVERAGE_PENDING",
                 "customer_sellable_evidence_ready": False,
                 "fail_closed_reasons": ["stage2_detail_capture_pending"],
-                "real_public_stage4_9_readback": {
+                "real_public_stage1_6_readback": {
                     "stage5_rule_gate_status": "",
                     "stage5_evidence_gate_status": "",
                     "jzsc_company_first_identity_resolution_required": False,
@@ -494,12 +487,11 @@ def _fake_run_result(project_name: str = "广州真实候选项目") -> dict:
             },
             {
                 "project_id": "PROJ-REAL-004",
-                "real_public_stage4_9_chain_state": "PENDING_TIME_BUDGET",
                 "real_public_stage1_6_chain_state": "PENDING_TIME_BUDGET",
                 "real_world_hard_defect_gate_state": "SOURCE_COVERAGE_PENDING",
                 "customer_sellable_evidence_ready": False,
                 "fail_closed_reasons": ["stage1_6_loop_time_budget_pending"],
-                "real_public_stage4_9_readback": {
+                "real_public_stage1_6_readback": {
                     "stage5_rule_gate_status": "",
                     "stage5_evidence_gate_status": "",
                     "jzsc_company_first_identity_resolution_required": False,

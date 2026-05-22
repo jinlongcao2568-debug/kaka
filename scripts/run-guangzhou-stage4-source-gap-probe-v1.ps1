@@ -14,10 +14,10 @@ if (-not $OutputRoot) {
     $OutputRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\guangzhou-stage4-source-gap-probe-v1"
 }
 if (-not $RunResultJson) {
-    $RunResultJson = Join-Path $repoRoot "tmp\evaluation-real-samples\guangzhou-real-public-stage4-9-pressure-v1\run-result.json"
+    $RunResultJson = Join-Path $repoRoot "tmp\evaluation-real-samples\guangzhou-stage1-6-real-public-pressure-v1\run-result.json"
 }
 if (-not $CandidatePressureJson) {
-    $CandidatePressureJson = Join-Path $repoRoot "tmp\evaluation-real-samples\guangzhou-real-public-stage4-9-pressure-v1\candidate-pressure-table.json"
+    $CandidatePressureJson = Join-Path $repoRoot "tmp\evaluation-real-samples\guangzhou-stage1-6-real-public-pressure-v1\candidate-pressure-table.json"
 }
 
 New-Item -ItemType Directory -Force -Path $OutputRoot | Out-Null

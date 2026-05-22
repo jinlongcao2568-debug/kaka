@@ -15,7 +15,7 @@ GUANGZHOU_STAGE4_COMPANY_FIRST_REMEDIATION_KIND = "guangzhou_stage4_company_firs
 GUANGZHOU_STAGE4_COMPANY_FIRST_REMEDIATION_VERSION = 1
 GUANGZHOU_STAGE4_COMPANY_FIRST_REMEDIATION_ADAPTER_ID = "guangzhou-stage4-company-first-remediation-v1-builder"
 
-DEFAULT_PRESSURE_ROOT = Path("tmp/evaluation-real-samples/guangzhou-real-public-stage4-9-pressure-v1")
+DEFAULT_PRESSURE_ROOT = Path("tmp/evaluation-real-samples/guangzhou-stage1-6-real-public-pressure-v1")
 DEFAULT_RUN_RESULT_JSON = DEFAULT_PRESSURE_ROOT / "run-result.json"
 DEFAULT_CANDIDATE_PRESSURE_JSON = DEFAULT_PRESSURE_ROOT / "candidate-pressure-table.json"
 DEFAULT_OUTPUT_ROOT = Path("tmp/evaluation-real-samples/guangzhou-stage4-company-first-remediation-v1")

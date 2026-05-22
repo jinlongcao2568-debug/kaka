@@ -3677,10 +3677,10 @@ class RealCandidateStage2CaptureService:
             else "REAL_LIST_PAGE_CANDIDATE_NEEDS_DETAIL_CAPTURE"
         )
         row["truth_boundary"] = (
-            "真实详情页和同站附件快照已保存；客户可售前仍需 Stage4-9 消费快照并完成证据回链。"
+            "真实详情页和同站附件快照已保存；客户可售前仍需 Stage1-6 消费快照并完成证据回链。"
             if detail_snapshot_id and attachment_snapshot_ids
             else
-            "真实详情页快照已保存并完成 Stage3 读回；客户可售前仍需 Stage4-9 消费该快照并完成证据回链。"
+            "真实详情页快照已保存并完成 Stage3 读回；客户可售前仍需 Stage1-6 消费该快照并完成证据回链。"
             if detail_snapshot_id
             else "真实列表页候选已入库；详情页快照未完成，不能形成客户可售证据。"
         )

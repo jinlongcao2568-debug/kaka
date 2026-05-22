@@ -10,17 +10,17 @@ from typing import Any, Callable, Iterable, Mapping
 
 from api.routes.operator_customer_access import run_operator_autonomous_opportunity_search
 from shared.utils import utc_now_iso
-from storage.real_public_stage4_9_pressure_report import (
-    build_real_public_stage4_9_pressure_report,
-    build_real_public_stage4_9_pressure_summary,
+from storage.real_public_stage1_6_pressure_report import (
+    build_stage1_6_real_public_pressure_report,
+    build_stage1_6_real_public_pressure_summary,
 )
 
 
-GUANGZHOU_STAGE4_9_REMEDIATION_DELTA_KIND = "guangzhou_stage4_9_remediation_delta_report_v1_manifest"
-GUANGZHOU_STAGE4_9_REMEDIATION_DELTA_VERSION = 1
-GUANGZHOU_STAGE4_9_REMEDIATION_DELTA_ADAPTER_ID = "guangzhou-stage4-9-remediation-delta-report-v1-builder"
+GUANGZHOU_STAGE1_6_REMEDIATION_DELTA_KIND = "guangzhou_stage1_6_remediation_delta_report_v1_manifest"
+GUANGZHOU_STAGE1_6_REMEDIATION_DELTA_VERSION = 1
+GUANGZHOU_STAGE1_6_REMEDIATION_DELTA_ADAPTER_ID = "guangzhou-stage1-6-remediation-delta-report-v1-builder"
 
-DEFAULT_BASELINE_ROOT = Path("tmp/evaluation-real-samples/guangzhou-real-public-stage4-9-pressure-v1")
+DEFAULT_BASELINE_ROOT = Path("tmp/evaluation-real-samples/guangzhou-stage1-6-real-public-pressure-v1")
 DEFAULT_BASELINE_RUN_RESULT_JSON = DEFAULT_BASELINE_ROOT / "run-result.json"
 DEFAULT_BASELINE_CANDIDATE_PRESSURE_JSON = DEFAULT_BASELINE_ROOT / "candidate-pressure-table.json"
 DEFAULT_COMPANY_FIRST_REMEDIATION_JSON = Path(
@@ -29,13 +29,13 @@ DEFAULT_COMPANY_FIRST_REMEDIATION_JSON = Path(
 DEFAULT_SOURCE_GAP_PROBE_JSON = Path(
     "tmp/evaluation-real-samples/guangzhou-stage4-source-gap-probe-v1/stage4-source-gap-probe-v1.json"
 )
-DEFAULT_OUTPUT_ROOT = Path("tmp/evaluation-real-samples/guangzhou-stage4-9-remediation-replay-v1")
+DEFAULT_OUTPUT_ROOT = Path("tmp/evaluation-real-samples/guangzhou-stage1-6-remediation-replay-v1")
 
 FORBIDDEN_TERMS = ("无风险", "无冲突", "在建冲突成立", "违法成立", "确认本人", "造假成立", "是不是本人")
 SearchRunner = Callable[[Mapping[str, Any]], dict[str, Any]]
 
 
-def run_guangzhou_stage4_9_remediation_replay(
+def run_guangzhou_stage1_6_remediation_replay(
     *,
     baseline_run_result_json: str | Path = DEFAULT_BASELINE_RUN_RESULT_JSON,
     baseline_candidate_pressure_json: str | Path = DEFAULT_BASELINE_CANDIDATE_PRESSURE_JSON,
@@ -82,7 +82,7 @@ def run_guangzhou_stage4_9_remediation_replay(
         "stage2_detail_capture_time_budget_seconds": stage2_detail_capture_time_budget_seconds,
         "stage1_6_time_budget_seconds": stage1_6_time_budget_seconds,
         "allow_offline_sample_candidates": False,
-        "trace_mode": "GUANGZHOU_STAGE4_9_REMEDIATION_REPLAY",
+        "trace_mode": "GUANGZHOU_STAGE1_6_REMEDIATION_REPLAY",
         "notice_candidates": replay_candidates,
         "now": created,
     }
@@ -114,7 +114,7 @@ def run_guangzhou_stage4_9_remediation_replay(
         else:
             os.environ["KAKA_STORAGE_DATABASE_URL"] = old_database_url
 
-    replay_summary = build_real_public_stage4_9_pressure_summary(
+    replay_summary = build_stage1_6_real_public_pressure_summary(
         replay_result,
         payload=payload,
         target_accepted_candidate_count=candidate_limit,
@@ -122,12 +122,12 @@ def run_guangzhou_stage4_9_remediation_replay(
     _write_json(out_dir / "replay-input-candidates.json", {"records": replay_candidates})
     _write_json(out_dir / "run-result.json", replay_result)
     _write_json(out_dir / "pressure-summary.json", replay_summary)
-    build_real_public_stage4_9_pressure_report(
+    build_stage1_6_real_public_pressure_report(
         run_result_json=out_dir / "run-result.json",
         output_root=out_dir,
         target_accepted_candidate_count=candidate_limit,
     )
-    delta_report = build_guangzhou_stage4_9_remediation_delta_report(
+    delta_report = build_guangzhou_stage1_6_remediation_delta_report(
         baseline_run_result_json=baseline_run_path,
         baseline_candidate_pressure_json=baseline_candidate_path,
         company_first_remediation_json=remediation_path,
@@ -149,7 +149,7 @@ def run_guangzhou_stage4_9_remediation_replay(
     }
 
 
-def build_guangzhou_stage4_9_remediation_delta_report(
+def build_guangzhou_stage1_6_remediation_delta_report(
     *,
     baseline_run_result_json: str | Path = DEFAULT_BASELINE_RUN_RESULT_JSON,
     baseline_candidate_pressure_json: str | Path = DEFAULT_BASELINE_CANDIDATE_PRESSURE_JSON,
@@ -173,12 +173,12 @@ def build_guangzhou_stage4_9_remediation_delta_report(
     remediation = _load_json(Path(company_first_remediation_json), blocking_reasons, "company_first_remediation_missing")
     source_gap = _load_json(Path(source_gap_probe_json), blocking_reasons, "source_gap_probe_missing")
 
-    baseline_summary = build_real_public_stage4_9_pressure_summary(
+    baseline_summary = build_stage1_6_real_public_pressure_summary(
         baseline_run,
         payload=dict(baseline_run.get("search_scope") or {}),
         target_accepted_candidate_count=target_accepted_candidate_count,
     )
-    replay_summary = build_real_public_stage4_9_pressure_summary(
+    replay_summary = build_stage1_6_real_public_pressure_summary(
         replay_run,
         payload=dict(replay_run.get("search_scope") or {}),
         target_accepted_candidate_count=target_accepted_candidate_count,
@@ -258,11 +258,11 @@ def build_guangzhou_stage4_9_remediation_delta_report(
         "forbidden_term_scan_state": "PENDING",
     }
     manifest = {
-        "manifest_version": GUANGZHOU_STAGE4_9_REMEDIATION_DELTA_VERSION,
-        "manifest_kind": GUANGZHOU_STAGE4_9_REMEDIATION_DELTA_KIND,
-        "adapter_id": GUANGZHOU_STAGE4_9_REMEDIATION_DELTA_ADAPTER_ID,
-        "pipeline_stage": "GuangzhouStage49RemediationDeltaV1",
-        "manifest_id": f"GUANGZHOU-STAGE49-DELTA-{_fingerprint({'summary': summary, 'candidates': candidate_delta_records})[:16]}",
+        "manifest_version": GUANGZHOU_STAGE1_6_REMEDIATION_DELTA_VERSION,
+        "manifest_kind": GUANGZHOU_STAGE1_6_REMEDIATION_DELTA_KIND,
+        "adapter_id": GUANGZHOU_STAGE1_6_REMEDIATION_DELTA_ADAPTER_ID,
+        "pipeline_stage": "GuangzhouStageOneSixRemediationDeltaV1",
+        "manifest_id": f"GUANGZHOU-STAGE1-6-DELTA-{_fingerprint({'summary': summary, 'candidates': candidate_delta_records})[:16]}",
         "created_at": created,
         "source_baseline_run_result_json": str(baseline_run_result_json),
         "source_replay_run_result_json": str(replay_run_result_json),
@@ -283,14 +283,14 @@ def build_guangzhou_stage4_9_remediation_delta_report(
     }
     manifest["manifest_sha256"] = _fingerprint({key: value for key, value in manifest.items() if key != "manifest_sha256"})
     result = {
-        "guangzhou_stage4_9_remediation_delta_report_mode": "BUILT" if not blocking_reasons else "INPUT_BLOCKED",
+        "guangzhou_stage1_6_remediation_delta_report_mode": "BUILT" if not blocking_reasons else "INPUT_BLOCKED",
         "safe_to_execute": not blocking_reasons,
         "blocking_reasons": blocking_reasons,
         "manifest": manifest,
         "summary": summary,
     }
     _apply_forbidden_term_scan(result)
-    _write_json(out_dir / "stage4-9-remediation-delta-report-v1.json", result)
+    _write_json(out_dir / "stage1-6-remediation-delta-report-v1.json", result)
     _write_json(out_dir / "candidate-delta-table.json", {"summary": summary, "records": candidate_delta_records})
     _write_json(out_dir / "gap-delta-table.json", {"summary": summary, "records": gap_delta_records})
     return result
@@ -354,7 +354,7 @@ def _build_replay_candidates(
         row["p2_replay_writeback_fields_applied"] = sorted(set(applied_fields))
         row["p2_company_first_remediation_state"] = remediation_row.get("remediation_state", "")
         row["p2_source_gap_probe_action"] = source_gap_row.get("recommended_next_action", "")
-        row["p2_baseline_real_public_stage4_9_chain_state"] = baseline_row.get("real_public_stage4_9_chain_state", "")
+        row["p2_baseline_real_public_stage1_6_chain_state"] = baseline_row.get("real_public_stage1_6_chain_state", "")
         replay_rows.append(row)
     return replay_rows
 
@@ -416,14 +416,14 @@ def _candidate_delta_record(
         else "ROLE_GAP_IMPROVED"
         if before_gap and not after_gap
         else "CHAIN_STATE_CHANGED"
-        if str(baseline.get("real_public_stage4_9_chain_state") or "") != str(replay.get("real_public_stage4_9_chain_state") or "")
+        if str(baseline.get("real_public_stage1_6_chain_state") or "") != str(replay.get("real_public_stage1_6_chain_state") or "")
         else "UNCHANGED_OR_STILL_REVIEW"
     )
     return {
         "project_id": project_id,
         "project_name": _first_non_empty(replay.get("project_name"), baseline.get("project_name")),
-        "baseline_real_public_stage4_9_chain_state": baseline.get("real_public_stage4_9_chain_state", ""),
-        "replay_real_public_stage4_9_chain_state": replay.get("real_public_stage4_9_chain_state", ""),
+        "baseline_real_public_stage1_6_chain_state": baseline.get("real_public_stage1_6_chain_state", ""),
+        "replay_real_public_stage1_6_chain_state": replay.get("real_public_stage1_6_chain_state", ""),
         "baseline_stage5_rule_gate_status": baseline.get("stage5_rule_gate_status", ""),
         "replay_stage5_rule_gate_status": replay.get("stage5_rule_gate_status", ""),
         "baseline_stage5_evidence_gate_status": baseline.get("stage5_evidence_gate_status", ""),
@@ -623,7 +623,7 @@ def _apply_forbidden_term_scan(payload: dict[str, Any]) -> None:
 
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run Guangzhou Stage4-9 remediation replay and build delta report.")
+    parser = argparse.ArgumentParser(description="Run Guangzhou Stage1-6 remediation replay and build delta report.")
     parser.add_argument("--mode", choices=("run-replay", "build-delta"), required=True)
     parser.add_argument("--baseline-run-result-json", default=str(DEFAULT_BASELINE_RUN_RESULT_JSON))
     parser.add_argument("--baseline-candidate-pressure-json", default=str(DEFAULT_BASELINE_CANDIDATE_PRESSURE_JSON))
@@ -644,7 +644,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
     if args.mode == "run-replay":
-        result = run_guangzhou_stage4_9_remediation_replay(
+        result = run_guangzhou_stage1_6_remediation_replay(
             baseline_run_result_json=args.baseline_run_result_json,
             baseline_candidate_pressure_json=args.baseline_candidate_pressure_json,
             company_first_remediation_json=args.company_first_remediation_json,
@@ -659,7 +659,7 @@ def main(argv: list[str] | None = None) -> int:
     else:
         replay_run_result_json = args.replay_run_result_json or str(Path(args.output_root) / "run-result.json")
         replay_candidate_pressure_json = args.replay_candidate_pressure_json or str(Path(args.output_root) / "candidate-pressure-table.json")
-        result = build_guangzhou_stage4_9_remediation_delta_report(
+        result = build_guangzhou_stage1_6_remediation_delta_report(
             baseline_run_result_json=args.baseline_run_result_json,
             baseline_candidate_pressure_json=args.baseline_candidate_pressure_json,
             company_first_remediation_json=args.company_first_remediation_json,

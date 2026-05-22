@@ -1786,7 +1786,7 @@ function searchBoundaryMessage(run) {
     return {
       title: count ? "真实列表页候选" : "真实列表页未命中",
       body: count
-        ? "已从真实公开列表页解析候选，并自动尝试详情页与同站附件原文进入 Stage2/Stage3；客户可售前还需要 Stage4-9 证据回链。"
+        ? "已从真实公开列表页解析候选，并自动尝试详情页与同站附件原文进入 Stage2/Stage3；客户可售前还需要 Stage1-6 证据回链。"
         : "已调用真实公开列表页候选发现器，但本次没有解析到符合条件的候选。",
       kind: count ? "" : "warn",
     };
@@ -2161,7 +2161,7 @@ function renderStageRunBoundary(telemetry) {
   const offlineSample = Boolean(telemetry?.offline_sample_validation) || sourceMode === "OFFLINE_SAMPLE_CANDIDATES";
   const noRealCandidate = sourceMode === "REAL_SOURCE_REQUIRED" || telemetry?.test_path_unblocked === false;
   const customerReady = Boolean(telemetry?.customer_sellable_evidence_ready);
-  const realPublicReadback = telemetry?.real_public_stage4_9_readback || {};
+  const realPublicReadback = telemetry?.real_public_stage1_6_readback || {};
   const hardDefectPlan = realPublicReadback?.regional_hard_defect_source_plan || telemetry?.data_boundary?.regional_hard_defect_source_plan || {};
   const hardDefectReadback = realPublicReadback?.regional_hard_defect_source_readback || {};
   const missingSourceTypes = Array.isArray(hardDefectPlan?.missing_source_types) ? hardDefectPlan.missing_source_types : [];
@@ -2279,7 +2279,7 @@ function renderCapabilityExposure(readiness, scheduler, goLive) {
   const items = [
     ["阶段1-9数据流", "已展示", "运营总览显示阶段产出、有效数据、无效数据和运行日志。"],
     ["真实候选发现器", "已接入首段", "默认实战搜索会调用真实公开列表页候选发现器，解析候选、去重入库并送入 Stage1。"],
-    ["详情页/附件快照读回", "最小接入", "真实候选会自动尝试抓取同站详情页和同站附件原文，保存 Stage2 快照并运行 Stage3 parser；Stage4-9 正式消费仍需继续补。"],
+    ["详情页/附件快照读回", "最小接入", "真实候选会自动尝试抓取同站详情页和同站附件原文，保存 Stage2 快照并运行 Stage3 parser；Stage1-6 正式消费仍需继续补。"],
     ["实战搜索与地区适配器", "部分接入", "UI 支持地区多选、项目类型多选、金额区间、搜索运行记录和真实候选读回；部分地区本省实时源仍待补，全国平台只用于全国搜索。"],
     ["机会评分与商业钩子", "已展示", "机会工作台可查看等级、评分、证据强度、报价、买家排序和下一步动作。"],
     ["证据包清单/下载预览", "已展示", "内部证据包预览页可看拟邮件包、证据项、字段策略，并可下载内部证据包文件。"],
@@ -2627,7 +2627,7 @@ async function loadReadiness(writeOutput = true) {
   $("capability").textContent = labelOf(readiness.capability_state || "--");
   $("provider").textContent = readiness.provider_status?.mode ? "读回模式" : "读回";
   $("scheduler").textContent = labelOf(scheduler.readiness_state || "--");
-  $("summary").textContent = "运营操作台已就绪。默认实战搜索已接真实公开列表页候选发现、去重入库和详情页快照读回；真实附件原文、Stage4-9 正式消费、真实邮件/电话/支付/退款服务商仍未接入。";
+  $("summary").textContent = "运营操作台已就绪。默认实战搜索已接真实公开列表页候选发现、去重入库和详情页快照读回；真实附件原文、Stage1-6 正式消费、真实邮件/电话/支付/退款服务商仍未接入。";
   $("workbenchStatus").innerHTML = [
     badge("阶段6 产品包"),
     badge("阶段7 客户关系/报价"),

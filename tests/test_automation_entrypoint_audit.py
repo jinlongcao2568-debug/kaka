@@ -5,6 +5,8 @@ import subprocess
 import unittest
 from pathlib import Path
 
+import yaml
+
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
@@ -63,6 +65,58 @@ class TestAutomationEntrypointAudit(unittest.TestCase):
 
         self.assertIn("automation_entrypoint_registry.yaml", readme)
         self.assertIn("脚本不是状态机本体", readme)
+
+    def test_stage1_6_direct_dev_focus_guardrails_are_explicit(self) -> None:
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+        repo_status = (ROOT / "control" / "repo_status.md").read_text(encoding="utf-8")
+        registry_text = (ROOT / "control" / "automation_entrypoint_registry.yaml").read_text(encoding="utf-8")
+        operability_gap_matrix = (
+            ROOT / "control" / "product_operability_gap_matrix.yaml"
+        ).read_text(encoding="utf-8")
+        current_task = yaml.safe_load((ROOT / "control" / "current_task.yaml").read_text(encoding="utf-8"))
+        stage1_6_plan = yaml.safe_load(
+            (ROOT / "control" / "stage1_6_priority_execution_plan.yaml").read_text(encoding="utf-8")
+        )
+
+        self.assertIn("NO_ACTIVE_PRODUCT_MAINLINE_PACKET", repo_status)
+        self.assertEqual(current_task["currentTask"]["task_packet"]["status"], "COMPLETED")
+        self.assertIn("HISTORICAL_COMPLETED_NOT_ACTIVE_FOR_ORDINARY_DIRECT_DEV", str(stage1_6_plan))
+        self.assertEqual(stage1_6_plan["current_focus"]["priority_id"], "P0_STAGE4_RELEASE_EVIDENCE_CHAIN")
+        self.assertIn("control/stage1_6_priority_execution_plan.yaml#current_focus", readme)
+        self.assertIn("control/stage1_6_priority_execution_plan.yaml#current_focus", agents)
+        self.assertIn("No product mainline packet is active", operability_gap_matrix)
+        self.assertIn("P0_STAGE4_RELEASE_EVIDENCE_CHAIN", operability_gap_matrix)
+        self.assertNotIn("PTL-I100-148 as the active", operability_gap_matrix)
+
+        guardrails = stage1_6_plan["agent_execution_guardrails"]
+        self.assertEqual(
+            guardrails["ordinary_direct_dev_current_focus_ref"],
+            "control/stage1_6_priority_execution_plan.yaml#current_focus",
+        )
+        self.assertIn("control/product_runtime_agent_registry.yaml", guardrails["absent_state_sources"])
+        self.assertIn("authorization_readiness_state=LOGIN_OR_SSO_REQUIRED", guardrails["authorization_gap_policy"])
+        self.assertIn("do_not_invent_product_autonomous_entrypoint_names_when_registry_has_formal_entrypoints", guardrails["forbidden_inference"])
+        self.assertIn("do_not_use_legacy_stage_range_entrypoint_names", guardrails["forbidden_inference"])
+
+        actual_entrypoints = {
+            item["entrypoint_id"]
+            for item in build_automation_entrypoint_audit(repo_root=ROOT)["manifest"]["formal_entrypoints"]
+        }
+        self.assertTrue(set(guardrails["stage1_6_p0_formal_entrypoints"]).issubset(actual_entrypoints))
+        self.assertIn("stage1_6_real_public_pressure_runner", readme)
+        self.assertIn("stage4_release_evidence_bridge_builder", readme)
+        self.assertIn("stage1_6_real_public_pressure_runner", registry_text)
+        self.assertIn("stage4_release_evidence_bridge_builder", registry_text)
+        old_pressure_entrypoint = "stage4" + "_9_real_public_pressure_runner"
+        old_bridge_entrypoint = "stage4" + "_9_release_bridge_builder"
+        self.assertNotIn(old_pressure_entrypoint, registry_text)
+        self.assertNotIn(old_bridge_entrypoint, registry_text)
+        removed_compat_status = "LEGACY" + "_COMPATIBLE"
+        self.assertNotIn(removed_compat_status, registry_text)
+        self.assertIn("guangdong_local_field_query_probe", repo_status)
+        self.assertIn("NEEDS_AUTH", readme)
+        self.assertIn("authorization_readiness_state=LOGIN_OR_SSO_REQUIRED", readme)
 
     def test_powershell_wrapper_emits_final_gate_compatible_json(self) -> None:
         script = ROOT / "scripts" / "audit-automation-entrypoints.ps1"

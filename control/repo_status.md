@@ -4,6 +4,7 @@ Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
 Current Workstream: NO_ACTIVE_PRODUCT_MAINLINE_PACKET (PTL-I100-149-real-sample-autonomous-opportunity-acceptance completed locally through 53e0d1b; post-149 direct-dev practical operator hardening completed through e6286b0. No next product mainline packet is auto-activated. Follow-up ordinary development uses AGENTS direct-dev unless live/release/high-risk controlled semantics require a task packet.)
+Current Stage1-6 Direct-Dev Focus: control/stage1_6_priority_execution_plan.yaml#current_focus = P0_STAGE4_RELEASE_EVIDENCE_CHAIN
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -70,9 +71,14 @@ State Semantics:
 - current_task -> product_task_library -> repo_status is the active-source priority for task packet / scoped subpacket windows.
 - DIRECT_DEV_DEFAULT is the default for ordinary internal development and does not require switching control/current_task.yaml before work.
 - control/current_task.yaml is the active execution source only when a task packet / scoped subpacket window is active.
+- When Current Workstream is NO_ACTIVE_PRODUCT_MAINLINE_PACKET, control/current_task.yaml is a historical completed packet carrier, not an active ordinary direct-dev target.
+- Ordinary Stage1-6 direct-dev must use control/stage1_6_priority_execution_plan.yaml#current_focus as the current product runtime focus unless a new controlled task packet is explicitly activated.
 - control/product_task_library.yaml remains the product mainline task pool and candidate source; it does not replace control/current_task.yaml inside task packet windows and does not block ordinary direct-dev.
 - docs/AX9S_当前主线导航图.md is a pure route-map candidate navigation asset; it does not act as current task source, state source, execution log, full backlog, or execution-order authority.
 - Execution-level management and reporting should use the P1 -> P8 ladder in control/product_task_library.yaml rather than direction labels such as Stage8 governed touch 深化 / Stage9 governed delivery 深化.
+- Stage1-6/P0 formal entrypoint names come from control/automation_entrypoint_registry.yaml. Current relevant entrypoints are stage1_6_real_public_pressure_runner, stage4_release_evidence_bridge_builder, guangdong_local_field_query_probe, guangdong_gdcic_openplatform_query_probe, stage6_review_loop_runner, and stage16_p13b_continuation_runner.
+- control/product_runtime_agent_registry.yaml is not present in this repo; do not treat it as a required state source unless a future change explicitly creates it.
+- Authorization gaps should follow existing Stage4 contract fields. If NEEDS_AUTH is not part of the active enum/schema, represent login or SSO gaps with BLOCKED/NEEDS_BROWSER plus authorization_readiness_state=LOGIN_OR_SSO_REQUIRED and operator_next_action.
 
 Current Scoped-Execution Required Checks:
 - git status --short --untracked-files=all
@@ -104,6 +110,7 @@ Automation Guardrails:
 
 Navigation Assets:
 - Execution routing map (candidate navigation asset, not status source): docs/AX9S_当前主线导航图.md
+- Stage1-6 priority execution plan (ordinary direct-dev current focus): control/stage1_6_priority_execution_plan.yaml
 - Product mainline task pool: control/product_task_library.yaml
 - Product module registry (execution map, not status source): control/product_module_registry.yaml
 - Product operability gap matrix: control/product_operability_gap_matrix.yaml

@@ -11,7 +11,7 @@ $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = Resolve-Path (Join-Path $scriptDir "..")
 
 if (-not $OutputRoot) {
-    $OutputRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\guangzhou-real-public-stage4-9-pressure-v1"
+    $OutputRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\guangzhou-stage1-6-real-public-pressure-v1"
 }
 if (-not $RunResultJson) {
     $RunResultJson = Join-Path $OutputRoot "run-result.json"
@@ -22,7 +22,7 @@ New-Item -ItemType Directory -Force -Path $OutputRoot | Out-Null
 $env:PYTHONPATH = "$repoRoot\src;$repoRoot\tests"
 
 $argsList = @(
-    "-m", "storage.real_public_stage4_9_pressure_report",
+    "-m", "storage.real_public_stage1_6_pressure_report",
     "--mode", "build",
     "--output-root", $OutputRoot,
     "--run-result-json", $RunResultJson,

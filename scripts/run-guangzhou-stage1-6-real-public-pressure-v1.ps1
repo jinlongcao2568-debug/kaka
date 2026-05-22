@@ -22,7 +22,7 @@ $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = Resolve-Path (Join-Path $scriptDir "..")
 
 if (-not $OutputRoot) {
-    $OutputRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\guangzhou-real-public-stage4-9-pressure-v1"
+    $OutputRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\guangzhou-stage1-6-real-public-pressure-v1"
 }
 
 New-Item -ItemType Directory -Force -Path $OutputRoot | Out-Null
@@ -46,7 +46,7 @@ if ($EnableAttachmentChallengeResolver) {
 }
 
 $argsList = @(
-    "-m", "storage.real_public_stage4_9_pressure_report",
+    "-m", "storage.real_public_stage1_6_pressure_report",
     "--mode", "run",
     "--output-root", $OutputRoot,
     "--query", $Query,

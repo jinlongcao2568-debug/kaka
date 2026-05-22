@@ -423,10 +423,10 @@ def preview_operator_real_world_sellability(payload: Mapping[str, Any] | None = 
                 "/customer-artifact-portal-download/{opportunity_id}",
             ],
             gaps=[] if customer_sellable_ready_count else [
-                "需要真实详情页/附件快照正式进入 Stage4-9 解析、核验、证据包链路。",
+                "需要真实详情页/附件快照正式进入 Stage1-6 解析、核验、证据包链路。",
                 "需要来源网址、快照哈希、字段策略和可售判断同时就绪。"
             ],
-            next_actions=["把真实公开来源快照接入 Stage4-9，再核对来源网址、字段策略和下载审计。"],
+            next_actions=["把真实公开来源快照接入 Stage1-6，再核对来源网址、字段策略和下载审计。"],
         ),
         _sellability_lane(
             lane_id="commercial_hook",
@@ -513,7 +513,7 @@ def preview_operator_real_world_sellability(payload: Mapping[str, Any] | None = 
             else "真实实战未完成：缺真实市场候选进料",
             "owner_decision": (
                 "内部/样本链路可用于回归、观察和证据包预览；"
-                "真实列表页候选发现、详情快照读回和同站附件原文快照已进入最小闭环，但客户可售前仍需 Stage4-9 证据回链。"
+                "真实列表页候选发现、详情快照读回和同站附件原文快照已进入最小闭环，但客户可售前仍需 Stage1-6 证据回链。"
                 if real_market_run_count or stage2_detail_snapshot_count
                 else "默认实战搜索尚未命中真实公开来源候选，不能宣称真实可售。"
             ),
@@ -542,7 +542,7 @@ def preview_operator_real_world_sellability(payload: Mapping[str, Any] | None = 
         "lanes": lanes,
         "remaining_real_world_closures": [
             "真实公开来源候选发现器硬化：更多列表页搜索、公告解析、候选去重入库",
-            "真实详情页/附件快照已接首段；继续补 Stage4-9 正式消费",
+            "真实详情页/附件快照已接首段；继续补 Stage1-6 正式消费",
             "重点地区本地适配器覆盖",
             "真实触达 provider sandbox 与审批审计",
             "真实支付/交付 provider sandbox 与回写治理",
@@ -822,7 +822,7 @@ def _overlay_stage2_capture_on_candidate(
         else row.get("sellability_evidence_state")
     )
     row["truth_boundary"] = (
-        "真实候选库已合并最新详情/附件快照读回；客户可售前仍需 Stage4-9 正式消费快照并完成证据回链。"
+        "真实候选库已合并最新详情/附件快照读回；客户可售前仍需 Stage1-6 正式消费快照并完成证据回链。"
         if detail_snapshot_id
         else row.get("truth_boundary")
     )
@@ -1632,7 +1632,7 @@ def _stage5_with_public_verification_refs(
     )
 
 
-def _build_review_required_real_public_stage4_9_summary(
+def _build_review_required_real_public_stage1_6_summary(
     *,
     snapshot_id: str,
     source_url: str,
@@ -1640,9 +1640,9 @@ def _build_review_required_real_public_stage4_9_summary(
 ) -> dict[str, Any]:
     reasons = [str(reason) for reason in fail_closed_reasons if str(reason).strip()]
     return {
-        "surface_id": "operator_real_public_stage4_9_readback",
+        "surface_id": "operator_real_public_stage1_6_readback",
         "readback_state": "REVIEW_REQUIRED",
-        "real_public_stage4_9_chain_state": "REVIEW_REQUIRED",
+        "real_public_stage1_6_chain_state": "REVIEW_REQUIRED",
         "real_public_stage1_6_chain_state": "REVIEW_REQUIRED",
         "stage1_6_closed_loop_ready": False,
         "stage_scope": "STAGE1_6_ONLY",
@@ -1670,7 +1670,7 @@ def _build_review_required_real_public_stage4_9_summary(
     }
 
 
-def _build_real_public_stage4_9_readback_from_candidate(
+def _build_real_public_stage1_6_readback_from_candidate(
     *,
     candidate: Mapping[str, Any],
     chain: Mapping[str, Any],
@@ -1686,7 +1686,7 @@ def _build_real_public_stage4_9_readback_from_candidate(
     ).strip()
     source_url = str(candidate.get("source_url") or "").strip()
     if not snapshot_id:
-        return _build_review_required_real_public_stage4_9_summary(
+        return _build_review_required_real_public_stage1_6_summary(
             snapshot_id="",
             source_url=source_url,
             fail_closed_reasons=["stage2_detail_snapshot_missing"],
@@ -1695,7 +1695,7 @@ def _build_real_public_stage4_9_readback_from_candidate(
     repository = object_repository or ObjectStorageRepository()
     snapshot_readback = dict(repository.replay_snapshot(snapshot_id))
     if not bool(snapshot_readback.get("replayable")):
-        return _build_review_required_real_public_stage4_9_summary(
+        return _build_review_required_real_public_stage1_6_summary(
             snapshot_id=snapshot_id,
             source_url=source_url,
             fail_closed_reasons=[
@@ -1705,7 +1705,7 @@ def _build_real_public_stage4_9_readback_from_candidate(
 
     base_stage4 = chain.get("stage4")
     if base_stage4 is None:
-        return _build_review_required_real_public_stage4_9_summary(
+        return _build_review_required_real_public_stage1_6_summary(
             snapshot_id=snapshot_id,
             source_url=source_url,
             fail_closed_reasons=["base_stage4_bundle_missing"],
@@ -1723,7 +1723,7 @@ def _build_real_public_stage4_9_readback_from_candidate(
             or str(candidate.get("project_name") or "").strip()
         )
         if not target_identifier:
-            return _build_review_required_real_public_stage4_9_summary(
+            return _build_review_required_real_public_stage1_6_summary(
                 snapshot_id=snapshot_id,
                 source_url=source_url,
                 fail_closed_reasons=["stage4_verification_target_identifier_missing"],
@@ -1768,7 +1768,7 @@ def _build_real_public_stage4_9_readback_from_candidate(
         stage6 = Stage6Service().run_real_public_rule_evidence_readback(stage5)
         persist_stage_bundle(stage6)
     except Exception as exc:
-        return _build_review_required_real_public_stage4_9_summary(
+        return _build_review_required_real_public_stage1_6_summary(
             snapshot_id=snapshot_id,
             source_url=source_url,
             fail_closed_reasons=[f"real_public_stage1_6_exception:{exc}"],
@@ -1964,10 +1964,10 @@ def _build_real_public_stage4_9_readback_from_candidate(
     elif formal_chain_state == "INTERNAL_READY":
         final_chain_state = "REVIEW_REQUIRED"
     return {
-        "surface_id": "operator_real_public_stage4_9_readback",
+        "surface_id": "operator_real_public_stage1_6_readback",
         "stage_scope": stage_scope,
         "readback_state": "READBACK_READY" if final_chain_state == "INTERNAL_READY" else "REVIEW_REQUIRED",
-        "real_public_stage4_9_chain_state": final_chain_state,
+        "real_public_stage1_6_chain_state": final_chain_state,
         "real_public_stage1_6_chain_state": formal_chain_state,
         "stage1_6_closed_loop_ready": formal_chain_state == "INTERNAL_READY",
         "stage4_public_verification_run_id": stage4_verification.get("verification_run_id"),
@@ -2129,7 +2129,7 @@ def _build_autonomous_runtime_flow(
     source_blueprint: Mapping[str, Any],
     chain: Mapping[str, Any],
     acceptance: Mapping[str, Any],
-    real_public_stage4_9_readback: Mapping[str, Any] | None = None,
+    real_public_stage1_6_readback: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     capture_plan = dict(source_blueprint.get("stage2_capture_plan", {}) or {})
     capture_steps = list(capture_plan.get("capture_steps", []) or [])
@@ -2162,8 +2162,8 @@ def _build_autonomous_runtime_flow(
     source_profile_id = str(candidate.get("source_profile_id") or "")
     source_candidate_mode = str(candidate.get("source_candidate_mode") or "EXPLICIT_CANDIDATES")
     offline_sample_validation = bool(candidate.get("is_offline_sample_candidate")) or source_candidate_mode == "OFFLINE_SAMPLE_CANDIDATES"
-    real_public_readback = dict(real_public_stage4_9_readback or {})
-    real_public_chain_state = str(real_public_readback.get("real_public_stage4_9_chain_state") or "")
+    real_public_readback = dict(real_public_stage1_6_readback or {})
+    real_public_chain_state = str(real_public_readback.get("real_public_stage1_6_chain_state") or "")
     real_public_stage7_chain_state = str(
         real_public_readback.get("stage7_real_public_sales_package_chain_state") or ""
     )
@@ -2465,7 +2465,7 @@ def _build_autonomous_runtime_flow(
         "surface_id": "autonomous_search_runtime_flow",
         "flow_mode": "真实候选内部闭环" if source_candidate_mode == REAL_PUBLIC_SOURCE_CANDIDATE_MODE else "内部实战测试闭环",
         "direction": (
-            "地区机会扫描 -> 真实详情快照 -> Stage4-9正式readback"
+            "地区机会扫描 -> 真实详情快照 -> Stage1-6正式readback"
             if customer_sellable_evidence_ready
             else "地区机会扫描 -> 真实详情快照 -> Stage4-6核验与产品包读回"
             if real_public_readback
@@ -2476,7 +2476,7 @@ def _build_autonomous_runtime_flow(
         "real_candidate_discovery_attempted": source_candidate_mode == REAL_PUBLIC_SOURCE_CANDIDATE_MODE,
         "offline_sample_validation": offline_sample_validation,
         "customer_sellable_evidence_ready": customer_sellable_evidence_ready,
-        "real_public_stage4_9_readback": real_public_readback,
+        "real_public_stage1_6_readback": real_public_readback,
         "data_boundary_message": data_boundary_message,
         "test_path_unblocked": True,
         "live_delivery_gates_preserved": True,
@@ -2718,7 +2718,7 @@ def _candidate_options_with_closed_loop_results(
             row["stage1_6_time_budget_pending"] = bool(result.get("stage1_6_time_budget_pending"))
             row["stage2_detail_capture_pending"] = bool(result.get("stage2_detail_capture_pending"))
             row["closed_loop_state"] = result.get("search_state")
-            row["real_public_stage4_9_chain_state"] = result.get("real_public_stage4_9_chain_state")
+            row["real_public_stage1_6_chain_state"] = result.get("real_public_stage1_6_chain_state")
             row["real_public_stage1_6_chain_state"] = result.get("real_public_stage1_6_chain_state")
             row["real_world_hard_defect_gate_state"] = result.get("real_world_hard_defect_gate_state")
             row["customer_sellable_evidence_ready"] = bool(result.get("customer_sellable_evidence_ready"))
@@ -2849,7 +2849,7 @@ def _stage1_6_validation_ledger(
         if isinstance(item, Mapping)
     ]
     readbacks = [
-        dict(item.get("real_public_stage4_9_readback", {}) or {})
+        dict(item.get("real_public_stage1_6_readback", {}) or {})
         for item in closed_loop_results
         if isinstance(item, Mapping)
     ]
@@ -3490,7 +3490,7 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
                 "real_candidate_discovery_attempted": bool(real_candidate_discovery),
                 "offline_sample_validation": offline_sample_mode,
                 "customer_sellable_evidence_ready": False,
-                "data_boundary_message": "已发现真实列表页候选并尝试 Stage2 详情页快照；客户可售前还要完成真实详情字段、附件和 Stage4-9 证据回链。"
+                "data_boundary_message": "已发现真实列表页候选并尝试 Stage2 详情页快照；客户可售前还要完成真实详情字段、附件和 Stage1-6 证据回链。"
                 if source_candidate_mode == REAL_PUBLIC_SOURCE_CANDIDATE_MODE
                 else "候选未入选闭环生成。",
                 "test_path_unblocked": bool(raw_candidates),
@@ -3505,7 +3505,7 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
                         state="候选待复核",
                         note="真实候选已送入 Stage1，但未满足自动闭环阈值。",
                         failure_reasons=["candidate_fields_need_detail_capture"],
-                        next_action="把真实详情/附件快照送入 Stage4-9，并继续补字段解析硬化。",
+                        next_action="把真实详情/附件快照送入 Stage1-6，并继续补字段解析硬化。",
                     ),
                     _runtime_stage(
                         stage=2,
@@ -3560,7 +3560,7 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
                             dict(real_candidate_stage2_capture.get("detail_capture_failure_summary", {}) or {}).keys()
                         )
                         or ["detail_snapshot_missing_or_degraded"],
-                        next_action="把 detail/attachment snapshot 的解析字段作为 Stage4-9 正式输入。",
+                        next_action="把 detail/attachment snapshot 的解析字段作为 Stage1-6 正式输入。",
                     )
                 ],
                 "totals": {
@@ -3607,7 +3607,7 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
     primary_region_adapter: dict[str, Any] = {}
     primary_entry_profile: dict[str, Any] = {}
     primary_candidate: dict[str, Any] = {}
-    primary_real_public_stage4_9_readback: dict[str, Any] = {}
+    primary_real_public_stage1_6_readback: dict[str, Any] = {}
     stage1_6_time_budget_seconds = (
         _as_float(
             _first_present(
@@ -3657,15 +3657,15 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
             if loop_real_public_mode and not loop_snapshot_id:
                 stage1_6_pending_count += 1
                 stage2_detail_pending_for_stage1_6_count += 1
-                loop_real_public_stage4_9_readback = _build_review_required_real_public_stage4_9_summary(
+                loop_real_public_stage1_6_readback = _build_review_required_real_public_stage1_6_summary(
                     snapshot_id="",
                     source_url=str(loop_candidate.get("source_url") or ""),
                     fail_closed_reasons=["stage2_detail_capture_pending"],
                 )
-                loop_real_public_stage4_9_readback.update(
+                loop_real_public_stage1_6_readback.update(
                     {
                         "readback_state": "PENDING_STAGE2_DETAIL_CAPTURE",
-                        "real_public_stage4_9_chain_state": "PENDING_STAGE2_DETAIL_CAPTURE",
+                        "real_public_stage1_6_chain_state": "PENDING_STAGE2_DETAIL_CAPTURE",
                         "real_public_stage1_6_chain_state": "PENDING_STAGE2_DETAIL_CAPTURE",
                         "stage2_detail_capture_pending": True,
                     }
@@ -3685,10 +3685,10 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
                         "stage1_6_closed_loop_ready": False,
                         "stage1_6_time_budget_pending": False,
                         "stage2_detail_capture_pending": True,
-                        "real_public_stage4_9_readback": loop_real_public_stage4_9_readback,
-                        "real_public_stage4_9_chain_state": "PENDING_STAGE2_DETAIL_CAPTURE",
+                        "real_public_stage1_6_readback": loop_real_public_stage1_6_readback,
                         "real_public_stage1_6_chain_state": "PENDING_STAGE2_DETAIL_CAPTURE",
-                        "real_world_hard_defect_gate_state": loop_real_public_stage4_9_readback.get(
+                        "real_public_stage1_6_chain_state": "PENDING_STAGE2_DETAIL_CAPTURE",
+                        "real_world_hard_defect_gate_state": loop_real_public_stage1_6_readback.get(
                             "real_world_hard_defect_gate_state"
                         ),
                         "customer_sellable_evidence_ready": False,
@@ -3702,7 +3702,7 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
                     primary_source_blueprint = loop_source_blueprint
                     primary_chain = {}
                     primary_acceptance = {}
-                    primary_real_public_stage4_9_readback = loop_real_public_stage4_9_readback
+                    primary_real_public_stage1_6_readback = loop_real_public_stage1_6_readback
                 continue
             if (
                 loop_real_public_mode
@@ -3712,15 +3712,15 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
             ):
                 stage1_6_time_budget_exhausted = True
                 stage1_6_pending_count += 1
-                loop_real_public_stage4_9_readback = _build_review_required_real_public_stage4_9_summary(
+                loop_real_public_stage1_6_readback = _build_review_required_real_public_stage1_6_summary(
                     snapshot_id=loop_snapshot_id,
                     source_url=str(loop_candidate.get("source_url") or ""),
                     fail_closed_reasons=["stage1_6_loop_time_budget_pending"],
                 )
-                loop_real_public_stage4_9_readback.update(
+                loop_real_public_stage1_6_readback.update(
                     {
                         "readback_state": "PENDING_TIME_BUDGET",
-                        "real_public_stage4_9_chain_state": "PENDING_TIME_BUDGET",
+                        "real_public_stage1_6_chain_state": "PENDING_TIME_BUDGET",
                         "real_public_stage1_6_chain_state": "PENDING_TIME_BUDGET",
                         "stage1_6_time_budget_pending": True,
                     }
@@ -3740,10 +3740,10 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
                         "stage1_6_closed_loop_ready": False,
                         "stage1_6_time_budget_pending": True,
                         "stage2_detail_capture_pending": False,
-                        "real_public_stage4_9_readback": loop_real_public_stage4_9_readback,
-                        "real_public_stage4_9_chain_state": "PENDING_TIME_BUDGET",
+                        "real_public_stage1_6_readback": loop_real_public_stage1_6_readback,
                         "real_public_stage1_6_chain_state": "PENDING_TIME_BUDGET",
-                        "real_world_hard_defect_gate_state": loop_real_public_stage4_9_readback.get(
+                        "real_public_stage1_6_chain_state": "PENDING_TIME_BUDGET",
+                        "real_world_hard_defect_gate_state": loop_real_public_stage1_6_readback.get(
                             "real_world_hard_defect_gate_state"
                         ),
                         "customer_sellable_evidence_ready": False,
@@ -3767,13 +3767,13 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
                     stage1_6_attempted_count += 1
                     loop_chain = run_internal_chain_until_stage6(chain_payload)
                     persist_stage_bundle(loop_chain["stage6"])
-                    loop_real_public_stage4_9_readback = _build_real_public_stage4_9_readback_from_candidate(
+                    loop_real_public_stage1_6_readback = _build_real_public_stage1_6_readback_from_candidate(
                         candidate=loop_candidate,
                         chain=loop_chain,
                     )
                     loop_acceptance = _build_real_public_stage1_6_acceptance_surface(
                         chain=loop_chain,
-                        readback=loop_real_public_stage4_9_readback,
+                        readback=loop_real_public_stage1_6_readback,
                     )
                     opportunity_ref = dict(
                         loop_acceptance.get("stage_refs", {}).get(
@@ -3786,7 +3786,7 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
                     loop_chain = run_internal_chain(chain_payload)
                     for stage_key in ("stage6", "stage7", "stage8", "stage9"):
                         persist_stage_bundle(loop_chain[stage_key])
-                    loop_real_public_stage4_9_readback = _build_real_public_stage4_9_readback_from_candidate(
+                    loop_real_public_stage1_6_readback = _build_real_public_stage1_6_readback_from_candidate(
                         candidate=loop_candidate,
                         chain=loop_chain,
                     )
@@ -3803,7 +3803,7 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
                 loop_chain = {}
                 loop_acceptance = {}
                 loop_opportunity_id = ""
-                loop_real_public_stage4_9_readback = _build_review_required_real_public_stage4_9_summary(
+                loop_real_public_stage1_6_readback = _build_review_required_real_public_stage1_6_summary(
                     snapshot_id=str(
                         loop_candidate.get("stage2_detail_snapshot_id_optional")
                         or loop_candidate.get("source_document_ref")
@@ -3813,10 +3813,10 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
                     fail_closed_reasons=[f"stage1_6_candidate_chain_exception:{exc}"],
                 )
             loop_real_public_chain_state = str(
-                loop_real_public_stage4_9_readback.get("real_public_stage4_9_chain_state") or ""
+                loop_real_public_stage1_6_readback.get("real_public_stage1_6_chain_state") or ""
             )
             loop_real_public_sellable_gate_ready = bool(
-                loop_real_public_stage4_9_readback.get("real_public_sellable_gate_ready")
+                loop_real_public_stage1_6_readback.get("real_public_sellable_gate_ready")
             )
             loop_search_state = (
                 "AUTONOMOUS_SEARCH_ACCEPTED"
@@ -3844,30 +3844,30 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
                     if loop_opportunity_id
                     else "",
                     "stage1_6_closed_loop_ready": bool(
-                        loop_real_public_stage4_9_readback.get("stage1_6_closed_loop_ready")
-                        or loop_real_public_stage4_9_readback.get("real_public_stage1_6_chain_state") == "INTERNAL_READY"
-                        or loop_real_public_stage4_9_readback.get("real_public_stage4_9_chain_state") == "INTERNAL_READY"
+                        loop_real_public_stage1_6_readback.get("stage1_6_closed_loop_ready")
+                        or loop_real_public_stage1_6_readback.get("real_public_stage1_6_chain_state") == "INTERNAL_READY"
+                        or loop_real_public_stage1_6_readback.get("real_public_stage1_6_chain_state") == "INTERNAL_READY"
                     )
                     if loop_real_public_mode
                     else bool(loop_opportunity_id),
                     "stage1_6_time_budget_pending": bool(
-                        loop_real_public_stage4_9_readback.get("stage1_6_time_budget_pending")
+                        loop_real_public_stage1_6_readback.get("stage1_6_time_budget_pending")
                     ),
                     "stage2_detail_capture_pending": bool(
-                        loop_real_public_stage4_9_readback.get("stage2_detail_capture_pending")
+                        loop_real_public_stage1_6_readback.get("stage2_detail_capture_pending")
                     ),
-                    "real_public_stage4_9_readback": loop_real_public_stage4_9_readback,
-                    "real_public_stage4_9_chain_state": loop_real_public_chain_state,
-                    "real_public_stage1_6_chain_state": loop_real_public_stage4_9_readback.get(
+                    "real_public_stage1_6_readback": loop_real_public_stage1_6_readback,
+                    "real_public_stage1_6_chain_state": loop_real_public_chain_state,
+                    "real_public_stage1_6_chain_state": loop_real_public_stage1_6_readback.get(
                         "real_public_stage1_6_chain_state"
                     ),
-                    "real_world_hard_defect_gate_state": loop_real_public_stage4_9_readback.get(
+                    "real_world_hard_defect_gate_state": loop_real_public_stage1_6_readback.get(
                         "real_world_hard_defect_gate_state"
                     ),
                     "customer_sellable_evidence_ready": bool(
-                        loop_real_public_stage4_9_readback.get("customer_sellable_evidence_ready")
+                        loop_real_public_stage1_6_readback.get("customer_sellable_evidence_ready")
                     ),
-                    "fail_closed_reasons": list(loop_real_public_stage4_9_readback.get("fail_closed_reasons", []) or []),
+                    "fail_closed_reasons": list(loop_real_public_stage1_6_readback.get("fail_closed_reasons", []) or []),
                 }
             )
             if not primary_candidate:
@@ -3877,7 +3877,7 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
                 primary_source_blueprint = loop_source_blueprint
                 primary_chain = loop_chain
                 primary_acceptance = loop_acceptance
-                primary_real_public_stage4_9_readback = loop_real_public_stage4_9_readback
+                primary_real_public_stage1_6_readback = loop_real_public_stage1_6_readback
     closed_loop_generated_count = sum(1 for item in closed_loop_results if item.get("opportunity_id"))
     stage1_6_closed_loop_count = sum(1 for item in closed_loop_results if item.get("stage1_6_closed_loop_ready"))
     candidate = primary_candidate or primary_candidate_seed
@@ -3897,18 +3897,18 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
     offline_sample_mode = source_candidate_mode == "OFFLINE_SAMPLE_CANDIDATES"
     primary_real_public_mode = source_candidate_mode == REAL_PUBLIC_SOURCE_CANDIDATE_MODE
     primary_real_public_chain_state = str(
-        primary_real_public_stage4_9_readback.get("real_public_stage4_9_chain_state") or ""
+        primary_real_public_stage1_6_readback.get("real_public_stage1_6_chain_state") or ""
     )
     primary_real_public_stage1_6_chain_state = str(
-        primary_real_public_stage4_9_readback.get("real_public_stage1_6_chain_state")
+        primary_real_public_stage1_6_readback.get("real_public_stage1_6_chain_state")
         or primary_real_public_chain_state
         or ""
     )
     primary_real_public_sellable_gate_ready = bool(
-        primary_real_public_stage4_9_readback.get("real_public_sellable_gate_ready")
+        primary_real_public_stage1_6_readback.get("real_public_sellable_gate_ready")
     )
     customer_sellable_evidence_ready = bool(
-        primary_real_public_stage4_9_readback.get("customer_sellable_evidence_ready")
+        primary_real_public_stage1_6_readback.get("customer_sellable_evidence_ready")
     )
     search_state = (
         "AUTONOMOUS_SEARCH_ACCEPTED"
@@ -4036,9 +4036,9 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
             "real_candidate_discovery_attempted": bool(real_candidate_discovery),
             "offline_sample_candidates_enabled": offline_sample_mode,
             "stage1_6_validation_ledger": validation_ledger,
-            "real_public_stage4_9_chain_state": primary_real_public_chain_state,
+            "real_public_stage1_6_chain_state": primary_real_public_chain_state,
             "real_public_stage1_6_chain_state": primary_real_public_stage1_6_chain_state,
-            "real_world_hard_defect_gate_state": primary_real_public_stage4_9_readback.get(
+            "real_world_hard_defect_gate_state": primary_real_public_stage1_6_readback.get(
                 "real_world_hard_defect_gate_state"
             ),
         },
@@ -4048,7 +4048,7 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
             "real_candidate_discovery_attempted": bool(real_candidate_discovery),
             "offline_sample_validation": offline_sample_mode,
             "customer_sellable_evidence_ready": customer_sellable_evidence_ready,
-            "real_public_stage4_9_chain_state": primary_real_public_chain_state,
+            "real_public_stage1_6_chain_state": primary_real_public_chain_state,
             "real_public_stage1_6_chain_state": primary_real_public_stage1_6_chain_state,
             "stage1_6_loop_candidate_count": len(selected_ranked),
             "stage1_6_attempt_all_candidates_enabled": stage1_6_attempt_all_candidates_enabled,
@@ -4060,26 +4060,26 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
             "stage2_detail_pending_for_stage1_6_count": stage2_detail_pending_for_stage1_6_count,
             "stage1_6_time_budget_exhausted": stage1_6_time_budget_exhausted,
             "stage1_6_validation_ledger": validation_ledger,
-            "real_world_hard_defect_gate_state": primary_real_public_stage4_9_readback.get(
+            "real_world_hard_defect_gate_state": primary_real_public_stage1_6_readback.get(
                 "real_world_hard_defect_gate_state"
             ),
             "remaining_real_world_gaps": list(
-                primary_real_public_stage4_9_readback.get("remaining_real_world_gaps", []) or []
+                primary_real_public_stage1_6_readback.get("remaining_real_world_gaps", []) or []
             ),
-            "project_manager_identifier_resolution_state": primary_real_public_stage4_9_readback.get(
+            "project_manager_identifier_resolution_state": primary_real_public_stage1_6_readback.get(
                 "project_manager_identifier_resolution_state"
             ),
-            "project_manager_identifier_resolution_next_action": primary_real_public_stage4_9_readback.get(
+            "project_manager_identifier_resolution_next_action": primary_real_public_stage1_6_readback.get(
                 "project_manager_identifier_resolution_next_action"
             ),
-            "jzsc_company_first_identity_resolution_required": primary_real_public_stage4_9_readback.get(
+            "jzsc_company_first_identity_resolution_required": primary_real_public_stage1_6_readback.get(
                 "jzsc_company_first_identity_resolution_required"
             ),
             "jzsc_company_first_identity_resolution_plan": dict(
-                primary_real_public_stage4_9_readback.get("jzsc_company_first_identity_resolution_plan", {}) or {}
+                primary_real_public_stage1_6_readback.get("jzsc_company_first_identity_resolution_plan", {}) or {}
             ),
             "regional_hard_defect_source_plan": dict(
-                primary_real_public_stage4_9_readback.get("regional_hard_defect_source_plan", {}) or {}
+                primary_real_public_stage1_6_readback.get("regional_hard_defect_source_plan", {}) or {}
             ),
             "display_message": (
                 "离线样本只验证 Stage1-9、工作台和证据包链路；不能当作真实市场发现或客户可售证据。"
@@ -4097,7 +4097,7 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
         "market_scan": market_scan,
         "source_blueprint_plan": source_blueprint,
         "acceptance": acceptance,
-        "real_public_stage4_9_readback": primary_real_public_stage4_9_readback,
+        "real_public_stage1_6_readback": primary_real_public_stage1_6_readback,
         "runtime_flow": _build_autonomous_runtime_flow(
             payload=payload,
             candidate=candidate,
@@ -4105,7 +4105,7 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
             source_blueprint=source_blueprint,
             chain=chain,
             acceptance=acceptance,
-            real_public_stage4_9_readback=primary_real_public_stage4_9_readback,
+            real_public_stage1_6_readback=primary_real_public_stage1_6_readback,
         ),
         "opportunity_id": opportunity_id,
         "source_candidate_mode": source_candidate_mode,

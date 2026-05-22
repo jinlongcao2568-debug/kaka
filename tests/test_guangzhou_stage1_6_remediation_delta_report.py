@@ -13,13 +13,13 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from storage.guangzhou_stage4_9_remediation_delta_report import (  # noqa: E402
-    build_guangzhou_stage4_9_remediation_delta_report,
-    run_guangzhou_stage4_9_remediation_replay,
+from storage.guangzhou_stage1_6_remediation_delta_report import (  # noqa: E402
+    build_guangzhou_stage1_6_remediation_delta_report,
+    run_guangzhou_stage1_6_remediation_replay,
 )
 
 
-class GuangzhouStage49RemediationDeltaReportTests(unittest.TestCase):
+class GuangzhouStageOneSixRemediationDeltaReportTests(unittest.TestCase):
     def test_replay_uses_explicit_notice_candidates_and_applies_writebacks(self) -> None:
         baseline_run = _baseline_run_result()
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -30,10 +30,10 @@ class GuangzhouStage49RemediationDeltaReportTests(unittest.TestCase):
             _write_json(root / "source-gap-probe.json", _source_gap_probe())
 
             with patch(
-                "storage.guangzhou_stage4_9_remediation_delta_report.run_operator_autonomous_opportunity_search",
+                "storage.guangzhou_stage1_6_remediation_delta_report.run_operator_autonomous_opportunity_search",
                 return_value=_replay_run_result(),
             ) as runner:
-                result = run_guangzhou_stage4_9_remediation_replay(
+                result = run_guangzhou_stage1_6_remediation_replay(
                     baseline_run_result_json=root / "baseline-run.json",
                     baseline_candidate_pressure_json=root / "baseline-candidate-table.json",
                     company_first_remediation_json=root / "company-first-remediation.json",
@@ -58,7 +58,7 @@ class GuangzhouStage49RemediationDeltaReportTests(unittest.TestCase):
             self.assertEqual(payload["notice_candidates"][0]["source_candidate_mode"], "REAL_PUBLIC_SOURCE_CANDIDATES")
             self.assertTrue((root / "out" / "run-result.json").exists())
             self.assertTrue((root / "out" / "pressure-summary.json").exists())
-            self.assertTrue((root / "out" / "stage4-9-remediation-delta-report-v1.json").exists())
+            self.assertTrue((root / "out" / "stage1-6-remediation-delta-report-v1.json").exists())
             self.assertTrue(result["delta_report"]["safe_to_execute"])
 
     def test_delta_report_computes_before_after_counts(self) -> None:
@@ -71,7 +71,7 @@ class GuangzhouStage49RemediationDeltaReportTests(unittest.TestCase):
             _write_json(root / "replay-run.json", _replay_run_result())
             _write_json(root / "replay-candidate-table.json", _replay_candidate_table())
 
-            result = build_guangzhou_stage4_9_remediation_delta_report(
+            result = build_guangzhou_stage1_6_remediation_delta_report(
                 baseline_run_result_json=root / "baseline-run.json",
                 baseline_candidate_pressure_json=root / "baseline-candidate-table.json",
                 company_first_remediation_json=root / "company-first-remediation.json",
@@ -138,12 +138,12 @@ def _baseline_run_result() -> dict:
         "closed_loop_results": [
             {
                 "project_id": "PROJ-1",
-                "real_public_stage4_9_chain_state": "REVIEW_REQUIRED",
+                "real_public_stage1_6_chain_state": "REVIEW_REQUIRED",
                 "real_public_stage1_6_chain_state": "REVIEW_REQUIRED",
                 "real_world_hard_defect_gate_state": "PARTIAL_SOURCE_COVERAGE",
                 "customer_sellable_evidence_ready": False,
                 "fail_closed_reasons": ["source_gap_review_required"],
-                "real_public_stage4_9_readback": {
+                "real_public_stage1_6_readback": {
                     "stage5_rule_gate_status": "REVIEW",
                     "stage5_evidence_gate_status": "REVIEW",
                     "jzsc_company_first_identity_resolution_required": True,
@@ -154,12 +154,12 @@ def _baseline_run_result() -> dict:
             },
             {
                 "project_id": "PROJ-2",
-                "real_public_stage4_9_chain_state": "REVIEW_REQUIRED",
+                "real_public_stage1_6_chain_state": "REVIEW_REQUIRED",
                 "real_public_stage1_6_chain_state": "REVIEW_REQUIRED",
                 "real_world_hard_defect_gate_state": "PARTIAL_SOURCE_COVERAGE",
                 "customer_sellable_evidence_ready": False,
                 "fail_closed_reasons": ["source_gap_review_required"],
-                "real_public_stage4_9_readback": {
+                "real_public_stage1_6_readback": {
                     "stage5_rule_gate_status": "REVIEW",
                     "stage5_evidence_gate_status": "PASS",
                     "jzsc_company_first_identity_resolution_required": False,
@@ -181,7 +181,7 @@ def _replay_run_result() -> dict:
                 "source_url": "https://example.invalid/1",
                 "notice_stage": "candidate_notice",
                 "candidate_company": "广州甲公司",
-                "real_public_stage4_9_chain_state": "REVIEW_REQUIRED",
+                "real_public_stage1_6_chain_state": "REVIEW_REQUIRED",
                 "real_public_stage1_6_chain_state": "REVIEW_REQUIRED",
                 "real_world_hard_defect_gate_state": "PARTIAL_SOURCE_COVERAGE",
                 "jzsc_company_first_identity_resolution_required": False,
@@ -194,7 +194,7 @@ def _replay_run_result() -> dict:
                 "source_url": "https://example.invalid/2",
                 "notice_stage": "candidate_notice",
                 "candidate_company": "广州乙公司",
-                "real_public_stage4_9_chain_state": "REVIEW_REQUIRED",
+                "real_public_stage1_6_chain_state": "REVIEW_REQUIRED",
                 "real_public_stage1_6_chain_state": "REVIEW_REQUIRED",
                 "real_world_hard_defect_gate_state": "PARTIAL_SOURCE_COVERAGE",
                 "jzsc_company_first_identity_resolution_required": False,
@@ -206,12 +206,12 @@ def _replay_run_result() -> dict:
         "closed_loop_results": [
             {
                 "project_id": "PROJ-1",
-                "real_public_stage4_9_chain_state": "REVIEW_REQUIRED",
+                "real_public_stage1_6_chain_state": "REVIEW_REQUIRED",
                 "real_public_stage1_6_chain_state": "REVIEW_REQUIRED",
                 "real_world_hard_defect_gate_state": "PARTIAL_SOURCE_COVERAGE",
                 "customer_sellable_evidence_ready": False,
                 "fail_closed_reasons": ["source_gap_review_required"],
-                "real_public_stage4_9_readback": {
+                "real_public_stage1_6_readback": {
                     "stage5_rule_gate_status": "REVIEW",
                     "stage5_evidence_gate_status": "PASS",
                     "jzsc_company_first_identity_resolution_required": False,
@@ -222,12 +222,12 @@ def _replay_run_result() -> dict:
             },
             {
                 "project_id": "PROJ-2",
-                "real_public_stage4_9_chain_state": "REVIEW_REQUIRED",
+                "real_public_stage1_6_chain_state": "REVIEW_REQUIRED",
                 "real_public_stage1_6_chain_state": "REVIEW_REQUIRED",
                 "real_world_hard_defect_gate_state": "PARTIAL_SOURCE_COVERAGE",
                 "customer_sellable_evidence_ready": False,
                 "fail_closed_reasons": ["source_gap_review_required"],
-                "real_public_stage4_9_readback": {
+                "real_public_stage1_6_readback": {
                     "stage5_rule_gate_status": "REVIEW",
                     "stage5_evidence_gate_status": "PASS",
                     "jzsc_company_first_identity_resolution_required": False,
@@ -246,7 +246,7 @@ def _baseline_candidate_table() -> dict:
             {
                 "project_id": "PROJ-1",
                 "project_name": "广州候选项目一",
-                "real_public_stage4_9_chain_state": "REVIEW_REQUIRED",
+                "real_public_stage1_6_chain_state": "REVIEW_REQUIRED",
                 "stage5_rule_gate_status": "REVIEW",
                 "stage5_evidence_gate_status": "REVIEW",
                 "jzsc_company_first_identity_resolution_required": True,
@@ -257,7 +257,7 @@ def _baseline_candidate_table() -> dict:
             {
                 "project_id": "PROJ-2",
                 "project_name": "广州候选项目二",
-                "real_public_stage4_9_chain_state": "REVIEW_REQUIRED",
+                "real_public_stage1_6_chain_state": "REVIEW_REQUIRED",
                 "stage5_rule_gate_status": "REVIEW",
                 "stage5_evidence_gate_status": "PASS",
                 "jzsc_company_first_identity_resolution_required": False,
@@ -275,7 +275,7 @@ def _replay_candidate_table() -> dict:
             {
                 "project_id": "PROJ-1",
                 "project_name": "广州候选项目一",
-                "real_public_stage4_9_chain_state": "REVIEW_REQUIRED",
+                "real_public_stage1_6_chain_state": "REVIEW_REQUIRED",
                 "stage5_rule_gate_status": "REVIEW",
                 "stage5_evidence_gate_status": "PASS",
                 "jzsc_company_first_identity_resolution_required": False,
@@ -287,7 +287,7 @@ def _replay_candidate_table() -> dict:
             {
                 "project_id": "PROJ-2",
                 "project_name": "广州候选项目二",
-                "real_public_stage4_9_chain_state": "REVIEW_REQUIRED",
+                "real_public_stage1_6_chain_state": "REVIEW_REQUIRED",
                 "stage5_rule_gate_status": "REVIEW",
                 "stage5_evidence_gate_status": "PASS",
                 "jzsc_company_first_identity_resolution_required": False,

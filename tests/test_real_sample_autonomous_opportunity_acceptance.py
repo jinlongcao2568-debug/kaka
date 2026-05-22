@@ -273,11 +273,11 @@ class _FakePartialCandidateStage2CaptureService:
         }
 
 
-def _partial_real_public_stage4_9_readback(*args: object, **kwargs: object) -> dict:
+def _partial_real_public_stage1_6_readback(*args: object, **kwargs: object) -> dict:
     return {
-        "surface_id": "operator_real_public_stage4_9_readback",
+        "surface_id": "operator_real_public_stage1_6_readback",
         "readback_state": "READBACK_READY",
-        "real_public_stage4_9_chain_state": "INTERNAL_READY",
+        "real_public_stage1_6_chain_state": "INTERNAL_READY",
         "real_public_stage1_6_chain_state": "INTERNAL_READY",
         "stage1_6_closed_loop_ready": True,
         "stage4_public_verification_result": "MATCHED",
@@ -302,9 +302,9 @@ def _partial_real_public_stage4_9_readback(*args: object, **kwargs: object) -> d
 
 def _stable_real_public_stage7_9_readback(*args: object, **kwargs: object) -> dict:
     return {
-        "surface_id": "operator_real_public_stage4_9_readback",
+        "surface_id": "operator_real_public_stage1_6_readback",
         "readback_state": "READBACK_READY",
-        "real_public_stage4_9_chain_state": "INTERNAL_READY",
+        "real_public_stage1_6_chain_state": "INTERNAL_READY",
         "real_public_stage1_6_chain_state": "INTERNAL_READY",
         "stage1_6_closed_loop_ready": True,
         "stage4_public_verification_result": "MATCHED",
@@ -732,8 +732,8 @@ class RealSampleAutonomousOpportunityAcceptanceTests(
         return_value=_FakeReviewCandidateStage2CaptureService(),
     )
     @patch(
-        "api.routes.operator_customer_access._build_real_public_stage4_9_readback_from_candidate",
-        side_effect=_partial_real_public_stage4_9_readback,
+        "api.routes.operator_customer_access._build_real_public_stage1_6_readback_from_candidate",
+        side_effect=_partial_real_public_stage1_6_readback,
     )
     def test_real_public_search_does_not_accept_when_hard_defect_sources_are_partial(
         self,
@@ -767,14 +767,14 @@ class RealSampleAutonomousOpportunityAcceptanceTests(
         self.assertEqual(payload["search_scope"]["stage1_6_closed_loop_count"], 1)
         self.assertEqual(payload["opportunity_id"], "")
         self.assertEqual(
-            payload["real_public_stage4_9_readback"]["real_public_stage4_9_chain_state"],
+            payload["real_public_stage1_6_readback"]["real_public_stage1_6_chain_state"],
             "INTERNAL_READY",
         )
         self.assertEqual(
-            payload["real_public_stage4_9_readback"]["real_public_stage1_6_chain_state"],
+            payload["real_public_stage1_6_readback"]["real_public_stage1_6_chain_state"],
             "INTERNAL_READY",
         )
-        self.assertFalse(payload["real_public_stage4_9_readback"]["real_public_sellable_gate_ready"])
+        self.assertFalse(payload["real_public_stage1_6_readback"]["real_public_sellable_gate_ready"])
         self.assertEqual(
             payload["closed_loop_results"][0]["real_world_hard_defect_gate_state"],
             "PARTIAL_SOURCE_COVERAGE",
@@ -807,7 +807,7 @@ class RealSampleAutonomousOpportunityAcceptanceTests(
         return_value=_FakeReviewCandidateStage2CaptureService(),
     )
     @patch(
-        "api.routes.operator_customer_access._build_real_public_stage4_9_readback_from_candidate",
+        "api.routes.operator_customer_access._build_real_public_stage1_6_readback_from_candidate",
         side_effect=_stable_real_public_stage7_9_readback,
     )
     def test_real_public_search_accepts_when_stage7_8_9_readback_is_internal_ready(
@@ -837,18 +837,18 @@ class RealSampleAutonomousOpportunityAcceptanceTests(
         self.assertEqual(payload["capability_state"], "REAL_PUBLIC_SELLABLE_EVIDENCE_READY")
         self.assertEqual(payload["opportunity_id"], "OPP-REAL-PUBLIC-001")
         self.assertEqual(
-            payload["real_public_stage4_9_readback"]["stage7_real_public_sales_package_chain_state"],
+            payload["real_public_stage1_6_readback"]["stage7_real_public_sales_package_chain_state"],
             "INTERNAL_READY",
         )
         self.assertEqual(
-            payload["real_public_stage4_9_readback"]["stage8_real_public_outreach_chain_state"],
+            payload["real_public_stage1_6_readback"]["stage8_real_public_outreach_chain_state"],
             "INTERNAL_READY",
         )
         self.assertEqual(
-            payload["real_public_stage4_9_readback"]["stage9_real_public_order_payment_delivery_chain_state"],
+            payload["real_public_stage1_6_readback"]["stage9_real_public_order_payment_delivery_chain_state"],
             "INTERNAL_READY",
         )
-        self.assertTrue(payload["real_public_stage4_9_readback"]["real_public_sellable_gate_ready"])
+        self.assertTrue(payload["real_public_stage1_6_readback"]["real_public_sellable_gate_ready"])
         self.assertTrue(payload["runtime_flow"]["customer_sellable_evidence_ready"])
         self.assertTrue(payload["data_boundary"]["customer_sellable_evidence_ready"])
         self.assertEqual(
@@ -872,8 +872,8 @@ class RealSampleAutonomousOpportunityAcceptanceTests(
         return_value=_FakeReviewCandidateStage2CaptureService(),
     )
     @patch(
-        "api.routes.operator_customer_access._build_real_public_stage4_9_readback_from_candidate",
-        side_effect=_partial_real_public_stage4_9_readback,
+        "api.routes.operator_customer_access._build_real_public_stage1_6_readback_from_candidate",
+        side_effect=_partial_real_public_stage1_6_readback,
     )
     def test_real_public_search_marks_stage1_review_only_candidates_when_not_attempting_all(
         self,
@@ -918,8 +918,8 @@ class RealSampleAutonomousOpportunityAcceptanceTests(
         return_value=_FakeReviewCandidateStage2CaptureService(),
     )
     @patch(
-        "api.routes.operator_customer_access._build_real_public_stage4_9_readback_from_candidate",
-        side_effect=_partial_real_public_stage4_9_readback,
+        "api.routes.operator_customer_access._build_real_public_stage1_6_readback_from_candidate",
+        side_effect=_partial_real_public_stage1_6_readback,
     )
     def test_real_public_search_attempts_all_stage1_6_candidates_when_explicitly_enabled(
         self,
@@ -969,8 +969,8 @@ class RealSampleAutonomousOpportunityAcceptanceTests(
         return_value=_FakeReviewCandidateStage2CaptureService(),
     )
     @patch(
-        "api.routes.operator_customer_access._build_real_public_stage4_9_readback_from_candidate",
-        side_effect=_partial_real_public_stage4_9_readback,
+        "api.routes.operator_customer_access._build_real_public_stage1_6_readback_from_candidate",
+        side_effect=_partial_real_public_stage1_6_readback,
     )
     def test_real_public_search_keeps_all_candidates_when_stage1_6_budget_expires(
         self,
@@ -1014,8 +1014,8 @@ class RealSampleAutonomousOpportunityAcceptanceTests(
         return_value=_FakePartialCandidateStage2CaptureService(),
     )
     @patch(
-        "api.routes.operator_customer_access._build_real_public_stage4_9_readback_from_candidate",
-        side_effect=_partial_real_public_stage4_9_readback,
+        "api.routes.operator_customer_access._build_real_public_stage1_6_readback_from_candidate",
+        side_effect=_partial_real_public_stage1_6_readback,
     )
     def test_real_public_search_keeps_stage2_pending_candidates_out_of_stage1_6(
         self,
@@ -1061,8 +1061,8 @@ class RealSampleAutonomousOpportunityAcceptanceTests(
                 return_value=fake_stage2,
             ),
             patch(
-                "api.routes.operator_customer_access._build_real_public_stage4_9_readback_from_candidate",
-                side_effect=_partial_real_public_stage4_9_readback,
+                "api.routes.operator_customer_access._build_real_public_stage1_6_readback_from_candidate",
+                side_effect=_partial_real_public_stage1_6_readback,
             ),
         ):
             response = client.request(

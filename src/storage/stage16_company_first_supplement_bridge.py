@@ -401,7 +401,7 @@ def _readbacks_by_project(closed_loop_results: Any) -> dict[str, Mapping[str, An
         if not isinstance(row, Mapping):
             continue
         project_id = str(row.get("project_id") or "").strip()
-        readback = row.get("real_public_stage4_9_readback")
+        readback = row.get("real_public_stage1_6_readback")
         if project_id and isinstance(readback, Mapping):
             out[project_id] = readback
     return out

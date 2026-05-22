@@ -71,7 +71,7 @@ class Stage16CompanyFirstSupplementBridgeTests(unittest.TestCase):
                 closed_loop_results=[
                     {
                         "project_id": "PROJ-CN-GD-JG2026-11327",
-                        "real_public_stage4_9_readback": {
+                        "real_public_stage1_6_readback": {
                             "jzsc_company_first_identity_resolution_required": False,
                         },
                     }
@@ -110,7 +110,7 @@ def _write_storage(
     closed = closed_loop_results or [
         {
             "project_id": "PROJ-CN-GD-JG2026-11398-002",
-            "real_public_stage4_9_readback": {
+            "real_public_stage1_6_readback": {
                 "jzsc_company_first_identity_resolution_required": True,
                 "project_manager_identifier_resolution_state": "JZSC_COMPANY_FIRST_REQUIRED",
             },

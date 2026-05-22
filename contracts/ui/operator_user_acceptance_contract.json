@@ -93,7 +93,7 @@
       "gateId": "AUTH-06-public-verification-before-rules",
       "title": "公开核验进入规则证据",
       "requirement": "Stage4 的 public_attack_surface、focus_bidder_verification_profile、evidence_grade_profile 必须进入 Stage5/6，不能只停留在页面展示。",
-      "failSignal": "真实详情页和附件已经抓取，但 Stage4-9 仍跑内部样本或通用链路，没有消费真实快照。",
+      "failSignal": "真实详情页和附件已经抓取，但 Stage1-6 仍跑内部样本或通用链路，没有消费真实快照。",
       "sourceRefs": ["L0 13.3", "D13 A-04/A-07/A-08", "D11 P4"]
     },
     {
@@ -394,7 +394,7 @@
   ],
   "currentOptimizationPriorities": [
     "先按 L0/D2-D14 权威硬门复核 UI、API、测试和证据包，不再让临时 UI 矩阵升级 readiness。",
-    "把真实候选详情页、附件原文和 parser readback 接入 Stage4-9 real_public readback，不再用内部样本链路代表实战完成。",
+    "把真实候选详情页、附件原文和 parser readback 接入 Stage1-6 real_public readback，不再用内部样本链路代表实战完成。",
     "修正公告日期、发布时间、截止时间、异议窗口等时钟字段解析，避免真实机会被误选或误淘汰。",
     "按 D13 首批地区继续补强 SC/JS/ZJ/SD/GD/HB 的本地公开源 profile、详情页、附件入口和失败诊断。",
     "把 Stage6 project_fact、Stage5 双门、Stage7 saleable_opportunity 与证据包预览显式关联，避免 Stage1 选中候选直接看起来像正式可售。",
@@ -407,7 +407,7 @@
     "owner 需要 raw JSON 才能完成日常运营判断。",
     "客户被引导使用工作台而不是接收成交后的证据包。",
     "证据包无法查看、无法下载或无法回到公开来源验证。",
-    "真实候选没有进入 Stage4-9 real_public readback，却被展示成正式可售机会。",
+    "真实候选没有进入 Stage1-6 real_public readback，却被展示成正式可售机会。",
     "公告发布日期、项目编号或模型推断被当成异议截止时间。",
     "缺少 project_fact、rule_gate_decision 或 evidence_gate_decision 时生成正式机会或客户交付结论。",
     "真实外部触达、支付、交付或退款绕过审批、审计和 operator action。",

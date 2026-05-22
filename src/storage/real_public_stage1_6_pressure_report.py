@@ -20,13 +20,13 @@ from storage.guangdong_local_field_query_probe import (
 from storage.release_evidence_adapter_plan import SOURCE_TARGET_ALIASES, TARGET_POLICY
 
 
-REAL_PUBLIC_STAGE4_9_PRESSURE_REPORT_KIND = "real_public_stage4_9_pressure_report_v1_manifest"
-REAL_PUBLIC_STAGE4_9_PRESSURE_REPORT_VERSION = 1
-REAL_PUBLIC_STAGE4_9_PRESSURE_REPORT_ADAPTER_ID = "real-public-stage4-9-pressure-report-v1-builder"
+STAGE1_6_REAL_PUBLIC_PRESSURE_REPORT_KIND = "stage1_6_real_public_pressure_report_v1_manifest"
+STAGE1_6_REAL_PUBLIC_PRESSURE_REPORT_VERSION = 1
+STAGE1_6_REAL_PUBLIC_PRESSURE_REPORT_ADAPTER_ID = "stage1-6-real-public-pressure-report-v1-builder"
 REAL_PUBLIC_STAGE4_RELEASE_ADAPTER_BRIDGE_KIND = "real_public_stage4_release_adapter_bridge_plan_v1_manifest"
 REAL_PUBLIC_STAGE4_RELEASE_ADAPTER_BRIDGE_ADAPTER_ID = "real-public-stage4-release-adapter-bridge-v1"
 
-DEFAULT_OUTPUT_ROOT = Path("tmp/evaluation-real-samples/guangzhou-real-public-stage4-9-pressure-v1")
+DEFAULT_OUTPUT_ROOT = Path("tmp/evaluation-real-samples/guangzhou-stage1-6-real-public-pressure-v1")
 DEFAULT_RUN_RESULT_JSON = DEFAULT_OUTPUT_ROOT / "run-result.json"
 DEFAULT_PRESSURE_SUMMARY_JSON = DEFAULT_OUTPUT_ROOT / "pressure-summary.json"
 DEFAULT_SOURCE_PROFILE_IDS = ("GUANGZHOU-YWTB-CONSTRUCTION-LIST",)
@@ -48,7 +48,7 @@ BRIDGE_RELEASE_SOURCE_TYPES = (
 SearchRunner = Callable[[Mapping[str, Any]], dict[str, Any]]
 
 
-def run_real_public_stage4_9_pressure(
+def run_stage1_6_real_public_pressure(
     *,
     output_root: str | Path = DEFAULT_OUTPUT_ROOT,
     region_codes: list[str] | tuple[str, ...] = ("CN-GD",),
@@ -82,7 +82,7 @@ def run_real_public_stage4_9_pressure(
         "stage1_6_time_budget_seconds": stage1_6_time_budget_seconds,
         "attempt_all_stage1_6_candidates": attempt_all_stage1_6_candidates,
         "allow_offline_sample_candidates": False,
-        "trace_mode": "GUANGZHOU_REAL_PUBLIC_STAGE4_9_PRESSURE",
+        "trace_mode": "GUANGZHOU_STAGE1_6_REAL_PUBLIC_PRESSURE",
         "now": created,
     }
     runner = search_runner or run_operator_autonomous_opportunity_search
@@ -109,7 +109,7 @@ def run_real_public_stage4_9_pressure(
         else:
             os.environ["KAKA_STORAGE_DATABASE_URL"] = old_database_url
 
-    summary = build_real_public_stage4_9_pressure_summary(
+    summary = build_stage1_6_real_public_pressure_summary(
         result,
         payload=payload,
         target_accepted_candidate_count=candidate_limit,
@@ -126,7 +126,7 @@ def run_real_public_stage4_9_pressure(
     }
 
 
-def build_real_public_stage4_9_pressure_summary(
+def build_stage1_6_real_public_pressure_summary(
     result: Mapping[str, Any],
     *,
     payload: Mapping[str, Any],
@@ -144,9 +144,9 @@ def build_real_public_stage4_9_pressure_summary(
         if isinstance(item, Mapping)
     ]
     readbacks = [
-        dict(item.get("real_public_stage4_9_readback") or {})
+        dict(item.get("real_public_stage1_6_readback") or {})
         for item in closed_loop_results
-        if isinstance(item.get("real_public_stage4_9_readback"), Mapping)
+        if isinstance(item.get("real_public_stage1_6_readback"), Mapping)
     ]
     remaining_real_world_gap_counts = _flatten_count(
         readbacks, "remaining_real_world_gaps"
@@ -175,7 +175,7 @@ def build_real_public_stage4_9_pressure_summary(
         else "PARTIAL_SOURCE_COVERAGE"
     )
     summary = {
-        "surface_id": "guangzhou_real_public_stage4_9_pressure_summary",
+        "surface_id": "guangzhou_stage1_6_real_public_pressure_summary",
         "generated_at": utc_now_iso(),
         "target_accepted_candidate_count": target_accepted_candidate_count,
         "coverage_state": coverage_state,
@@ -189,7 +189,6 @@ def build_real_public_stage4_9_pressure_summary(
             max(len(raw_candidates) - stage1_6_loop_candidate_count, 0),
         ),
         "closed_loop_results_count": len(closed_loop_results),
-        "real_public_stage4_9_chain_state_counts": _status_counts(closed_loop_results, "real_public_stage4_9_chain_state"),
         "real_public_stage1_6_chain_state_counts": _status_counts(closed_loop_results, "real_public_stage1_6_chain_state"),
         "real_world_hard_defect_gate_state_counts": _status_counts(closed_loop_results, "real_world_hard_defect_gate_state"),
         "stage5_rule_gate_status_counts": _status_counts(readbacks, "stage5_rule_gate_status"),
@@ -225,7 +224,7 @@ def build_real_public_stage4_9_pressure_summary(
     return summary
 
 
-def build_real_public_stage4_9_pressure_report(
+def build_stage1_6_real_public_pressure_report(
     *,
     run_result_json: str | Path = DEFAULT_RUN_RESULT_JSON,
     output_root: str | Path = DEFAULT_OUTPUT_ROOT,
@@ -240,7 +239,7 @@ def build_real_public_stage4_9_pressure_report(
     blocking_reasons: list[str] = []
     result = _load_json(run_result_path, blocking_reasons, "run_result_missing")
     payload = dict(result.get("search_scope") or {})
-    summary = build_real_public_stage4_9_pressure_summary(
+    summary = build_stage1_6_real_public_pressure_summary(
         result,
         payload=payload,
         target_accepted_candidate_count=target_accepted_candidate_count,
@@ -256,11 +255,11 @@ def build_real_public_stage4_9_pressure_report(
     )
     gap_records = _gap_summary_records(candidate_records)
     manifest = {
-        "manifest_version": REAL_PUBLIC_STAGE4_9_PRESSURE_REPORT_VERSION,
-        "manifest_kind": REAL_PUBLIC_STAGE4_9_PRESSURE_REPORT_KIND,
-        "adapter_id": REAL_PUBLIC_STAGE4_9_PRESSURE_REPORT_ADAPTER_ID,
-        "pipeline_stage": "GuangzhouRealPublicStage49PressureV1",
-        "manifest_id": f"REAL-PUBLIC-STAGE49-PRESSURE-{_fingerprint({'summary': summary, 'candidates': candidate_records})[:16]}",
+        "manifest_version": STAGE1_6_REAL_PUBLIC_PRESSURE_REPORT_VERSION,
+        "manifest_kind": STAGE1_6_REAL_PUBLIC_PRESSURE_REPORT_KIND,
+        "adapter_id": STAGE1_6_REAL_PUBLIC_PRESSURE_REPORT_ADAPTER_ID,
+        "pipeline_stage": "GuangzhouStageOneSixRealPublicPressureV1",
+        "manifest_id": f"REAL-PUBLIC-STAGE1-6-PRESSURE-{_fingerprint({'summary': summary, 'candidates': candidate_records})[:16]}",
         "created_at": created,
         "source_run_result_json": str(run_result_path),
         "summary": summary,
@@ -288,14 +287,14 @@ def build_real_public_stage4_9_pressure_report(
     }
     manifest["manifest_sha256"] = _fingerprint({key: value for key, value in manifest.items() if key != "manifest_sha256"})
     report = {
-        "real_public_stage4_9_pressure_report_mode": "BUILT" if not blocking_reasons else "INPUT_BLOCKED",
+        "stage1_6_real_public_pressure_report_mode": "BUILT" if not blocking_reasons else "INPUT_BLOCKED",
         "safe_to_execute": not blocking_reasons,
         "blocking_reasons": blocking_reasons,
         "manifest": manifest,
         "summary": summary,
     }
     _apply_forbidden_term_scan(report)
-    _write_json(out_dir / "real-public-stage4-9-pressure-report-v1.json", report)
+    _write_json(out_dir / "stage1-6-real-public-pressure-report-v1.json", report)
     _write_json(out_dir / "candidate-pressure-table.json", {"summary": summary, "records": candidate_records})
     _write_json(out_dir / "stage1-6-readiness-table.json", {"summary": summary, "records": stage1_6_readiness_records})
     _write_json(out_dir / "stage1-6-gap-summary-table.json", {"summary": summary, "records": stage1_6_gap_summary_records})
@@ -321,7 +320,7 @@ def _candidate_pressure_records(result: Mapping[str, Any]) -> list[dict[str, Any
         row = dict(option)
         project_id = str(row.get("project_id") or "")
         closed_loop = dict(closed_loop_by_project_id.get(project_id) or {})
-        readback = dict(closed_loop.get("real_public_stage4_9_readback") or {})
+        readback = dict(closed_loop.get("real_public_stage1_6_readback") or {})
         rows.append(
             {
                 "project_id": project_id,
@@ -331,9 +330,6 @@ def _candidate_pressure_records(result: Mapping[str, Any]) -> list[dict[str, Any
                 "candidate_company": str(row.get("candidate_company") or row.get("winner_name") or ""),
                 "stage2_detail_capture_state": str(row.get("stage2_detail_capture_state") or ""),
                 "stage3_parse_state": str(row.get("stage3_parse_state") or ""),
-                "real_public_stage4_9_chain_state": str(
-                    row.get("real_public_stage4_9_chain_state") or closed_loop.get("real_public_stage4_9_chain_state") or ""
-                ),
                 "real_public_stage1_6_chain_state": str(
                     row.get("real_public_stage1_6_chain_state") or closed_loop.get("real_public_stage1_6_chain_state") or ""
                 ),
@@ -379,7 +375,7 @@ def _candidate_next_action(
         return "run_company_first_identifier_resolution_before_sellable_evidence"
     if _string_list(readback.get("remaining_real_world_gaps")):
         return "keep_internal_review_and_register_source_gap"
-    if str(closed_loop.get("real_public_stage4_9_chain_state") or "") == "INTERNAL_READY" and not bool(
+    if str(closed_loop.get("real_public_stage1_6_chain_state") or "") == "INTERNAL_READY" and not bool(
         closed_loop.get("customer_sellable_evidence_ready")
     ):
         return "advance_to_stage7_9_internal_review"
@@ -399,7 +395,7 @@ def _stage4_release_adapter_bridge_records(result: Mapping[str, Any], *, created
         candidate = dict(option)
         project_id = str(candidate.get("project_id") or "")
         closed_loop = dict(closed_loop_by_project_id.get(project_id) or {})
-        readback = dict(closed_loop.get("real_public_stage4_9_readback") or {})
+        readback = dict(closed_loop.get("real_public_stage1_6_readback") or {})
         if not readback:
             continue
         release_source_types = _bridge_release_source_types(readback.get("remaining_real_world_gaps"))
@@ -518,7 +514,7 @@ def _stage4_release_adapter_bridge_records(result: Mapping[str, Any], *, created
                     "release_evidence_adapter_task_id": release_task_id,
                     "source_release_evidence_probe_task_id": source_gap_task_id,
                     "source_release_evidence_probe_plan_id": str(source_plan.get("source_plan_id") or ""),
-                    "input_source_kind": "real_public_stage4_9_pressure_source_gap",
+                    "input_source_kind": "real_public_stage1_6_pressure_source_gap",
                     "project_id": project_id,
                     "project_name": project_name,
                     "candidate_company_name": candidate_company,
@@ -1030,7 +1026,7 @@ def _stage1_6_readiness_records(result: Mapping[str, Any]) -> list[dict[str, Any
         row = dict(option)
         project_id = str(row.get("project_id") or "")
         closed_loop = dict(closed_loop_by_project_id.get(project_id) or {})
-        readback = dict(closed_loop.get("real_public_stage4_9_readback") or {})
+        readback = dict(closed_loop.get("real_public_stage1_6_readback") or {})
         stage_states = _stage1_6_stage_states(row=row, closed_loop=closed_loop, readback=readback)
         bottleneck_stage = _stage1_6_bottleneck_stage(stage_states)
         readiness_state = _stage1_6_readiness_state(
@@ -1444,7 +1440,7 @@ def _apply_forbidden_term_scan(payload: dict[str, Any]) -> None:
 
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run or build Guangzhou real-public Stage4-9 pressure artifacts.")
+    parser = argparse.ArgumentParser(description="Run or build Guangzhou real-public Stage1-6 pressure artifacts.")
     parser.add_argument("--mode", choices=("run", "build"), required=True)
     parser.add_argument("--output-root", default=str(DEFAULT_OUTPUT_ROOT))
     parser.add_argument("--run-result-json", default=str(DEFAULT_RUN_RESULT_JSON))
@@ -1473,7 +1469,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
     if args.mode == "run":
-        result = run_real_public_stage4_9_pressure(
+        result = run_stage1_6_real_public_pressure(
             output_root=args.output_root,
             query=args.query,
             source_profile_ids=args.source_profile_id or list(DEFAULT_SOURCE_PROFILE_IDS),
@@ -1488,7 +1484,7 @@ def main(argv: list[str] | None = None) -> int:
         )
         payload: Mapping[str, Any] = result if args.emit_json else result["summary"]
     else:
-        result = build_real_public_stage4_9_pressure_report(
+        result = build_stage1_6_real_public_pressure_report(
             run_result_json=args.run_result_json,
             output_root=args.output_root,
             target_accepted_candidate_count=args.candidate_limit,

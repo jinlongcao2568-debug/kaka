@@ -118,7 +118,7 @@ Stage4/5 不得把四库一平台当成唯一核验源。四库/JZSC 更适合�
 | 广州市住房和城乡建设局信用信息双公示 `GUANGZHOU-ZFCJ-CREDIT-DOUBLE-PUBLICITY` | `construction_permit`, `contract_public_info`, `completion_filing`, `administrative_license_public_record`, `administrative_penalty_public_record`, `complaint_or_supervision_decision` | 候选企业、项目经理、统一社会信用代码、项目名 | 已接入 `guangzhou_zfcj_xyxx_api_query_v1`、`guangzhou_zfcj_construction_permit_public_api_v1`、`guangzhou_zfcj_completion_acceptance_public_api_v1`，作为广东省级源之外的城市级线索补充 |
 
 **当前验收口径**
-- 公共资源详情页能进入 Stage4-9 真实读回，只能证明公告/详情快照已被正式消费。
+- 公共资源详情页能进入 Stage1-6 真实读回，只能证明公告/详情快照已被正式消费。
 - 以上任一硬伤源未完成项目级查询、快照、parser 和 readback 前，顶层状态必须保持 `REVIEW_REQUIRED`；广东三库一平台已命中的来源可以减少对应缺口，但查不到不能变成无风险结论。
 - `GuangdongLocalVerificationProbe v1` 负责把上述广东省级源和广州城市补强源转成任务和可达性诊断；入口可达不等于字段级核验成功，字段级 adapter 仍需逐源实现。
 - 不允许把 `run_internal_chain` 或公告详情快照 `MATCHED` 当作客户可售证据闭合。

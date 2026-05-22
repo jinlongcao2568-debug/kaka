@@ -46,37 +46,36 @@ allowed_status_values:
   - INTERNAL_PREVIEW_ONLY
   - SUPPORTING_TOOL
   - DIAGNOSTIC_ONLY
-  - LEGACY_COMPATIBLE
 
 formal_entrypoints:
-  - entrypoint_id: stage4_9_real_public_pressure_runner
+  - entrypoint_id: stage1_6_real_public_pressure_runner
     kind: script
-    script: scripts/run-guangzhou-real-public-stage4-9-pressure-v1.ps1
+    script: scripts/run-guangzhou-stage1-6-real-public-pressure-v1.ps1
     entrypoint_role: controlled_live_runner
     status: FORMAL_CURRENT
     automation_layer: stage1_6_public_source_pressure_loop
-    module_or_command: storage.real_public_stage4_9_pressure_report
+    module_or_command: storage.real_public_stage1_6_pressure_report
     state_inputs:
       - public source candidate windows
       - analysis strategy plan outputs
       - bounded execution budget
     state_outputs:
-      - real public stage4-9 pressure run result
+      - Stage1-6 real public pressure run result
       - bridgeable release evidence task candidates
     manual_gate_required: false
     external_customer_action_enabled: false
     replaces_human_memory: true
     purpose: Run controlled public-source Guangzhou pressure batches and emit machine-readable state.
 
-  - entrypoint_id: stage4_9_release_bridge_builder
+  - entrypoint_id: stage4_release_evidence_bridge_builder
     kind: script
-    script: scripts/build-real-public-stage4-9-pressure-report-v1.ps1
+    script: scripts/build-stage4-release-evidence-bridge-v1.ps1
     entrypoint_role: state_builder
     status: FORMAL_CURRENT
     automation_layer: stage4_release_evidence_bridge
-    module_or_command: storage.real_public_stage4_9_pressure_report
+    module_or_command: storage.real_public_stage1_6_pressure_report
     state_inputs:
-      - stage4-9 pressure run result
+      - Stage1-6 real public pressure run result
       - Stage6 review loop policy
     state_outputs:
       - bridge plan

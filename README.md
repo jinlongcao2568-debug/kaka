@@ -47,6 +47,10 @@
 
 - 当前系统不应靠人工记忆或某一次会话继续推进；正式自动化入口登记在 `control/automation_entrypoint_registry.yaml`，并由 `scripts/audit-automation-entrypoints.ps1` 审计。
 - `scripts/*.ps1` 只作为薄入口/运维按钮：负责设置路径、环境变量和调用 Python 模块；业务状态机、证据门、匹配门、调度和投影逻辑应落在 `src/`、`contracts/`、`handoff/`、`control/`。
+- 当前没有 active product mainline packet 时，`control/current_task.yaml` 可能仍保留最近完成的受控包形状；普通 Stage1-6 direct-dev 不以该历史包为执行目标，而以 `control/stage1_6_priority_execution_plan.yaml#current_focus` 为当前产品运行时 focus。
+- 当前 Stage1-6/P0 相关正式入口以 registry 实际登记为准：`stage1_6_real_public_pressure_runner`、`stage4_release_evidence_bridge_builder`、`guangdong_local_field_query_probe`、`guangdong_gdcic_openplatform_query_probe`、`stage6_review_loop_runner`、`stage16_p13b_continuation_runner`。不要用未登记的概念入口名替代。
+- 当前仓库没有 `control/product_runtime_agent_registry.yaml`；新增可复用 runtime 单元时，先使用现有 `control/automation_entrypoint_registry.yaml`、`control/product_module_registry.yaml` 和相关 control 资产登记，不要假设该文件已经存在。
+- 授权/登录态缺失按现有契约表达。若顶层状态枚举没有 `NEEDS_AUTH`，使用 `BLOCKED` / `NEEDS_BROWSER` 加 `authorization_readiness_state=LOGIN_OR_SSO_REQUIRED` 和 `operator_next_action`，不要为了口号新增 enum。
 - Stage1-6 当前已有内部预览 orchestration route，但仍是 `SANITIZED_OFFLINE_INTERNAL` 边界；真实 Stage1-5 transport 未因此自动放开，对外触达、支付、交付、退款仍受 release gate、审批链、审计链和 operator action 控制。
 - 日常继续开发时，优先运行入口审计确认“下一步从机器状态接续，而不是从人脑接续”：
 

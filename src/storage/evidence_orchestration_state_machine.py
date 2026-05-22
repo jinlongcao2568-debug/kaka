@@ -276,7 +276,7 @@ def _evidence_record(
     created_at: str,
 ) -> dict[str, Any]:
     project_id = str(candidate.get("project_id") or "").strip()
-    readback = closed.get("real_public_stage4_9_readback") if isinstance(closed.get("real_public_stage4_9_readback"), Mapping) else {}
+    readback = closed.get("real_public_stage1_6_readback") if isinstance(closed.get("real_public_stage1_6_readback"), Mapping) else {}
     responsible_person = _responsible_person(candidate, supplement)
     certificate_no = _certificate_no(candidate, supplement)
     candidate_companies = _group_members(_split_companies(candidate.get("candidate_company")), supplement)
