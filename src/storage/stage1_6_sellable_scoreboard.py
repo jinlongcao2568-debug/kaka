@@ -296,6 +296,11 @@ def _scoreboard_counts(
             for row in project_rows
             for signal in _as_list(row.get("stage5_operational_signal_flags"))
         ),
+        "stage5_operational_review_queue_counts": _counts(
+            queue
+            for row in project_rows
+            for queue in _as_list(row.get("stage5_operational_review_queues"))
+        ),
         "stage6_fact_ready_count": stage6_fact_ready_count,
         "stage6_limited_sellable_review_candidate_count": _int(
             stage6_summary.get("limited_sellable_review_candidate_count")
@@ -570,6 +575,11 @@ def _blocker_summary(
             signal
             for row in project_rows
             for signal in _as_list(row.get("stage5_operational_signal_flags"))
+        ),
+        "stage5_operational_review_queue_counts": _counts(
+            queue
+            for row in project_rows
+            for queue in _as_list(row.get("stage5_operational_review_queues"))
         ),
     }
 
@@ -1070,6 +1080,42 @@ def _stage5_operational_review(
     if has_evidence_insufficient:
         signals.append("evidence_insufficient")
 
+    queues: list[str] = []
+    if has_official_b_or_c or has_original_notice_match:
+        queues.append("STRONG_LEAD_INTERNAL_REVIEW")
+    if has_weak_official_signal:
+        queues.append("WEAK_LEAD_OFFICIAL_SIGNAL_REVIEW")
+    if has_authorization_block:
+        queues.append("AUTHORIZATION_BLOCKED_REVIEW")
+    if has_public_source_blocked:
+        queues.append("PUBLIC_SOURCE_BLOCKED_REVIEW")
+    if has_source_not_found:
+        queues.append("SOURCE_NOT_FOUND_REVIEW")
+    if has_public_source_not_found:
+        queues.append("PUBLIC_SOURCE_NOT_FOUND_REVIEW")
+    if has_certificate_gap:
+        queues.append("RESPONSIBLE_PERSON_CERTIFICATE_GAP_REVIEW")
+    if has_responsible_role_gap:
+        queues.append("RESPONSIBLE_ROLE_GAP_REVIEW")
+    if has_field_ambiguity:
+        queues.append("FIELD_AMBIGUITY_REVIEW")
+    if has_project_code_backfill_gap:
+        queues.append("PROJECT_CODE_BACKFILL_GAP_REVIEW")
+    if has_original_backtrace_required:
+        queues.append("ORIGINAL_NOTICE_BACKTRACE_REQUIRED_REVIEW")
+    if has_original_notice_not_found:
+        queues.append("ORIGINAL_NOTICE_NOT_FOUND_REVIEW")
+    if has_original_notice_blocked:
+        queues.append("ORIGINAL_NOTICE_BLOCKED_REVIEW")
+    if has_ygp_stage4_backfill_ready:
+        queues.append("YGP_STAGE4_BACKFILL_READY_REVIEW")
+    if has_ygp_ready:
+        queues.append("YGP_READBACK_READY_REVIEW")
+    if has_ygp_blocked:
+        queues.append("YGP_READBACK_BLOCKED_REVIEW")
+    if has_evidence_insufficient:
+        queues.append("EVIDENCE_INSUFFICIENT_REVIEW")
+
     if has_official_b_or_c:
         bucket = "STRONG_LEAD_INTERNAL_REVIEW"
         action = "manual_stage5_stage6_review_before_limited_sellable_internal_package"
@@ -1133,6 +1179,7 @@ def _stage5_operational_review(
 
     return {
         "stage5_operational_review_bucket": bucket,
+        "stage5_operational_review_queues": queues or [bucket],
         "stage5_operational_signal_flags": signals or ["unclassified_review_required"],
         "stage5_operational_review_reason": "|".join(signals) if signals else "stage5_review_requires_manual_triage",
         "stage5_operational_next_action": action,

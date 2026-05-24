@@ -691,6 +691,24 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
             },
         )
         self.assertEqual(
+            result["scoreboard"]["stage5_operational_review_queue_counts"],
+            {
+                "RESPONSIBLE_PERSON_CERTIFICATE_GAP_REVIEW": 1,
+                "FIELD_AMBIGUITY_REVIEW": 2,
+                "EVIDENCE_INSUFFICIENT_REVIEW": 4,
+                "RESPONSIBLE_ROLE_GAP_REVIEW": 1,
+                "PROJECT_CODE_BACKFILL_GAP_REVIEW": 1,
+            },
+        )
+        self.assertEqual(
+            rows["PROJ-CERT"]["stage5_operational_review_queues"],
+            [
+                "RESPONSIBLE_PERSON_CERTIFICATE_GAP_REVIEW",
+                "FIELD_AMBIGUITY_REVIEW",
+                "EVIDENCE_INSUFFICIENT_REVIEW",
+            ],
+        )
+        self.assertEqual(
             rows["PROJ-CERT"]["stage5_operational_next_action"],
             "run_company_first_certificate_supplement_and_attachment_ocr_without_identity_confirmation",
         )
