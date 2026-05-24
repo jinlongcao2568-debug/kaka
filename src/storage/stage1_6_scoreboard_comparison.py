@@ -122,6 +122,12 @@ def _comparison_row(path: Path) -> dict[str, Any]:
         "stage4_project_code_backfill_state_counts": dict(
             scoreboard.get("stage4_project_code_backfill_state_counts") or {}
         ),
+        "stage4_public_identifier_backfill_source_counts": dict(
+            scoreboard.get("stage4_public_identifier_backfill_source_counts") or {}
+        ),
+        "stage4_gdcic_project_code_route_policy_counts": dict(
+            scoreboard.get("stage4_gdcic_project_code_route_policy_counts") or {}
+        ),
         "stage6_limited_sellable_review_public_source_chain_counts": dict(
             scoreboard.get("stage6_limited_sellable_review_public_source_chain_counts") or {}
         ),
@@ -170,6 +176,15 @@ def _delta_row(row: Mapping[str, Any], baseline: Mapping[str, Any]) -> dict[str,
         ),
         "stage4_public_readback_ready_delta": _count_delta(
             row, baseline, "stage4_public_readback_outcome_counts", "READBACK_READY"
+        ),
+        "stage4_public_identifier_backfilled_delta": _count_delta(
+            row,
+            baseline,
+            "stage4_project_code_backfill_state_counts",
+            "PUBLIC_SOURCE_IDENTIFIER_BACKFILLED_FOR_P13B_OR_STAGE4_BRIDGE_ONLY",
+        ),
+        "stage4_project_code_missing_backfill_input_delta": _count_delta(
+            row, baseline, "stage4_project_code_backfill_state_counts", "MISSING_PROJECT_CODE_BACKFILL_INPUT"
         ),
         "stage6_ygp_original_readback_backfill_delta": ygp_delta,
         "regression_flags": _regression_flags(
@@ -259,8 +274,8 @@ def _write_markdown(path: Path, payload: Mapping[str, Any]) -> None:
     lines = [
         "# Stage1-6 Scoreboard Comparison v1",
         "",
-        "| run | candidates | limited | rate | stage4 | public readback outcomes | stage5 queues | stage1-3 long tail | stage6 public source chain | auth state |",
-        "| --- | ---: | ---: | ---: | --- | --- | --- | --- | --- | --- |",
+        "| run | candidates | limited | rate | stage4 | public readback outcomes | code backfill | code route policy | stage5 queues | stage1-3 long tail | stage6 public source chain | auth state |",
+        "| --- | ---: | ---: | ---: | --- | --- | --- | --- | --- | --- | --- | --- |",
     ]
     for row in rows:
         auth_status = row.get("gdcic_authorized_readback_status")
@@ -268,7 +283,7 @@ def _write_markdown(path: Path, payload: Mapping[str, Any]) -> None:
         if isinstance(auth_status, Mapping):
             auth_state = str(auth_status.get("authorization_readiness_state") or "")
         lines.append(
-            "| {run} | {candidates} | {limited} | {rate} | `{stage4}` | `{readback}` | `{stage5}` | `{tail}` | `{chain}` | {auth_state} |".format(
+            "| {run} | {candidates} | {limited} | {rate} | `{stage4}` | `{readback}` | `{code_backfill}` | `{route_policy}` | `{stage5}` | `{tail}` | `{chain}` | {auth_state} |".format(
                 run=str(row.get("run_label") or ""),
                 candidates=_int(row.get("candidate_count")),
                 limited=_int(row.get("limited_sellable_review_candidate_count")),
@@ -276,6 +291,16 @@ def _write_markdown(path: Path, payload: Mapping[str, Any]) -> None:
                 stage4=json.dumps(row.get("stage4_adapter_result_state_counts") or {}, ensure_ascii=False, sort_keys=True),
                 readback=json.dumps(
                     row.get("stage4_public_readback_outcome_counts") or {},
+                    ensure_ascii=False,
+                    sort_keys=True,
+                ),
+                code_backfill=json.dumps(
+                    row.get("stage4_project_code_backfill_state_counts") or {},
+                    ensure_ascii=False,
+                    sort_keys=True,
+                ),
+                route_policy=json.dumps(
+                    row.get("stage4_gdcic_project_code_route_policy_counts") or {},
                     ensure_ascii=False,
                     sort_keys=True,
                 ),

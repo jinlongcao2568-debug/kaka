@@ -1135,6 +1135,9 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
                                 "project_id": "PROJ-YGP",
                                 "p13b_backfill_state": "P13B_YGP_STAGE4_BACKFILL_READY",
                                 "ygp_project_code": "E4401002701501867001",
+                                "ygp_biz_code": "3C52",
+                                "ygp_site_code": "440100",
+                                "ygp_notice_id": "notice-3C52",
                                 "gdcic_project_code_route_allowed": False,
                                 "recommended_next_action": "feed_ygp_identifiers_to_p13b_or_stage4_bridge_without_gdcic_route_claim",
                             }
@@ -1189,6 +1192,20 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
         self.assertEqual(
             result["scoreboard"]["stage4_project_code_backfill_state_counts"],
             {"PUBLIC_SOURCE_IDENTIFIER_BACKFILLED_FOR_P13B_OR_STAGE4_BRIDGE_ONLY": 1},
+        )
+        self.assertEqual(
+            result["scoreboard"]["stage4_public_identifier_backfill_source_counts"],
+            {
+                "YGP_PROJECT_CODE": 1,
+                "YGP_BIZ_CODE": 1,
+                "YGP_SITE_CODE": 1,
+                "YGP_NOTICE_ID": 1,
+                "P13B_YGP_STAGE4_BACKFILL": 1,
+            },
+        )
+        self.assertEqual(
+            result["scoreboard"]["stage4_gdcic_project_code_route_policy_counts"],
+            {"YGP_OR_TRADE_IDENTIFIERS_NOT_SENT_TO_GDCIC_PROJECT_CODE": 1},
         )
         self.assertEqual(result["scoreboard"]["stage4_public_identifier_backfill_project_count"], 1)
         self.assertEqual(result["scoreboard"]["stage4_gdcic_project_code_route_ready_project_count"], 0)
