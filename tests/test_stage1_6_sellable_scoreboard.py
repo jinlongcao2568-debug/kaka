@@ -538,9 +538,10 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
             result["blocker_summary"]["blocking_bucket_counts"],
             {
                 "stage4_matched_needs_manual_limited_sellable_review": 1,
-                "authorization_or_browser_blocked": 1,
-                "official_source_not_found_or_field_missing": 1,
-                "stage5_rule_review": 2,
+                "original_notice_blocked_review": 1,
+                "source_not_found_review": 1,
+                "original_notice_not_found_review": 1,
+                "weak_lead_official_signal_review": 1,
             },
         )
         self.assertEqual(
@@ -735,6 +736,112 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
             {"authorization_or_browser_blocked_with_source_not_found": 1},
         )
         self.assertTrue(row["stage5_query_miss_is_not_clearance"])
+
+    def test_blocking_bucket_uses_p13b_stage5_public_source_classification(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            pressure = root / "pressure"
+            field_query = root / "field-query"
+            p13b_history = root / "p13b-history"
+            p13b_original = root / "p13b-original"
+            out = root / "out"
+            pressure.mkdir()
+            field_query.mkdir()
+            p13b_history.mkdir()
+            p13b_original.mkdir()
+
+            _write_json(pressure / "pressure-summary.json", {"candidate_count": 2})
+            _write_json(
+                pressure / "stage1-6-readiness-table.json",
+                {
+                    "records": [
+                        {
+                            "project_id": "PROJ-BLOCKED",
+                            "stage2_detail_capture_state": "FETCHED",
+                            "stage3_field_parse_state": "PARSED_FROM_FIELD_SIGNALS",
+                            "stage5_rule_gate_status": "REVIEW",
+                            "stage5_gate_state": "REVIEW_REQUIRED",
+                        },
+                        {
+                            "project_id": "PROJ-NOTFOUND",
+                            "stage2_detail_capture_state": "FETCHED",
+                            "stage3_field_parse_state": "PARSED_FROM_FIELD_SIGNALS",
+                            "stage5_rule_gate_status": "REVIEW",
+                            "stage5_gate_state": "REVIEW_REQUIRED",
+                        },
+                    ]
+                },
+            )
+            _write_json(pressure / "stage1-6-gap-summary-table.json", {"records": []})
+            _write_json(
+                field_query / "guangdong-local-field-query-probe-v1.json",
+                {
+                    "manifest": {
+                        "field_task_records": [
+                            {"project_id": "PROJ-BLOCKED", "adapter_result_state": "NEEDS_BROWSER"},
+                            {"project_id": "PROJ-BLOCKED", "adapter_result_state": "NOT_FOUND"},
+                            {"project_id": "PROJ-NOTFOUND", "adapter_result_state": "NEEDS_BROWSER"},
+                            {"project_id": "PROJ-NOTFOUND", "adapter_result_state": "NOT_FOUND"},
+                        ]
+                    }
+                },
+            )
+            _write_json(
+                p13b_history / "company-history-overlap-triage-v1.json",
+                {
+                    "manifest": {
+                        "company_history_query_records": [
+                            {"project_id": "PROJ-BLOCKED", "query_state": "SOURCE_BLOCKED_RETRY_REQUIRED"}
+                        ],
+                        "overlap_signal_records": [
+                            {
+                                "project_id": "PROJ-BLOCKED",
+                                "overlap_signal_state": "PUBLIC_SOURCE_BLOCKED_REVIEW",
+                            },
+                            {
+                                "project_id": "PROJ-NOTFOUND",
+                                "overlap_signal_state": "ORIGINAL_NOTICE_BACKTRACE_REQUIRED",
+                            },
+                        ],
+                    },
+                },
+            )
+            _write_json(
+                p13b_original / "original-notice-backtrace-v1.json",
+                {
+                    "manifest": {
+                        "original_notice_overlap_signal_records": [
+                            {
+                                "project_id": "PROJ-NOTFOUND",
+                                "original_notice_overlap_signal_state": "ORIGINAL_NOTICE_NO_MATCH_REVIEW",
+                                "original_notice_backtrace_match_state": "NO_COMPANY_PERSON_PERIOD_MATCH",
+                            }
+                        ],
+                    },
+                },
+            )
+
+            result = build_stage1_6_sellable_scoreboard(
+                pressure_root=pressure,
+                field_query_root=field_query,
+                p13b_company_history_root=p13b_history,
+                p13b_original_notice_backtrace_root=p13b_original,
+                output_root=out,
+                created_at="2026-05-24T00:00:00+08:00",
+            )
+
+        rows = {row["project_id"]: row for row in result["project_rows"]}
+        self.assertEqual(rows["PROJ-BLOCKED"]["stage5_operational_review_bucket"], "PUBLIC_SOURCE_BLOCKED_REVIEW")
+        self.assertEqual(rows["PROJ-BLOCKED"]["blocking_bucket"], "public_source_blocked_review")
+        self.assertEqual(rows["PROJ-NOTFOUND"]["stage5_operational_review_bucket"], "ORIGINAL_NOTICE_NOT_FOUND_REVIEW")
+        self.assertEqual(rows["PROJ-NOTFOUND"]["blocking_bucket"], "original_notice_not_found_review")
+        self.assertEqual(
+            result["blocker_summary"]["blocking_bucket_counts"],
+            {
+                "public_source_blocked_review": 1,
+                "original_notice_not_found_review": 1,
+            },
+        )
 
 
 def _write_json(path: Path, payload: dict) -> None:

@@ -399,7 +399,12 @@ def _project_scoreboard_row(
         "p13b_ygp_site_code_variants": _as_list(p13b_ygp_signal.get("ygp_site_code_variants")),
         "p13b_ygp_notice_id_variants": _as_list(p13b_ygp_signal.get("ygp_notice_id_variants")),
         "operator_next_actions": [str(item) for item in _as_list(stage6_record.get("release_field_query_operator_next_actions")) if str(item or "").strip()],
-        "blocking_bucket": _project_blocking_bucket(readiness_record, stage6_record, field_records),
+        "blocking_bucket": _project_blocking_bucket(
+            readiness_record,
+            stage6_record,
+            field_records,
+            stage5_operational_review.get("stage5_operational_review_bucket"),
+        ),
         "strong_lead_candidate_state": strong_lead_candidate_state,
         "limited_sellable_review_candidate_state": limited_sellable_review_candidate_state,
         "limited_sellable_review_reason": str(
@@ -820,11 +825,34 @@ def _project_blocking_bucket(
     readiness_record: Mapping[str, Any],
     stage6_record: Mapping[str, Any],
     field_records: list[Mapping[str, Any]],
+    stage5_operational_review_bucket: object = None,
 ) -> str:
     if _has_grade(stage6_record, ("B_", "C_")) or any(
         _field_record_downstream_grade(record).startswith(("B_", "C_")) for record in field_records
     ):
         return "stage4_matched_needs_manual_limited_sellable_review"
+    stage5_bucket = str(stage5_operational_review_bucket or "")
+    stage5_blocking_bucket = {
+        "STRONG_LEAD_INTERNAL_REVIEW": "stage4_matched_needs_manual_limited_sellable_review",
+        "WEAK_LEAD_OFFICIAL_SIGNAL_REVIEW": "weak_lead_official_signal_review",
+        "ORIGINAL_NOTICE_BLOCKED_REVIEW": "original_notice_blocked_review",
+        "ORIGINAL_NOTICE_NOT_FOUND_REVIEW": "original_notice_not_found_review",
+        "ORIGINAL_NOTICE_BACKTRACE_REQUIRED_REVIEW": "original_notice_backtrace_required_review",
+        "PUBLIC_SOURCE_BLOCKED_REVIEW": "public_source_blocked_review",
+        "PUBLIC_SOURCE_NOT_FOUND_REVIEW": "public_source_not_found_review",
+        "AUTHORIZATION_AND_SOURCE_NOT_FOUND_REVIEW": "authorization_or_browser_blocked_with_source_not_found",
+        "AUTHORIZATION_BLOCKED_REVIEW": "authorization_or_browser_blocked",
+        "SOURCE_NOT_FOUND_REVIEW": "source_not_found_review",
+        "RESPONSIBLE_PERSON_CERTIFICATE_GAP_REVIEW": "responsible_person_certificate_gap_review",
+        "RESPONSIBLE_ROLE_GAP_REVIEW": "responsible_role_gap_review",
+        "PROJECT_CODE_BACKFILL_GAP_REVIEW": "project_code_backfill_gap_review",
+        "FIELD_AMBIGUITY_REVIEW": "field_ambiguity_review",
+        "EVIDENCE_INSUFFICIENT_REVIEW": "evidence_insufficient_review",
+        "YGP_READBACK_READY_REVIEW": "ygp_readback_ready_review",
+        "YGP_READBACK_BLOCKED_REVIEW": "ygp_readback_blocked_review",
+    }.get(stage5_bucket)
+    if stage5_blocking_bucket:
+        return stage5_blocking_bucket
     has_needs_browser = any(str(record.get("adapter_result_state") or "") == "NEEDS_BROWSER" for record in field_records)
     has_not_found = any(str(record.get("adapter_result_state") or "") == "NOT_FOUND" for record in field_records)
     if has_needs_browser and has_not_found:
