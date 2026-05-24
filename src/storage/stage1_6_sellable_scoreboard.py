@@ -704,6 +704,10 @@ def _p13b_overlap_triage_closeout_status(summary: Mapping[str, Any]) -> dict[str
         "ygp_stage4_backfill_candidate_count": _int(summary.get("ygp_stage4_backfill_candidate_count")),
         "ygp_stage4_backfill_ready_count": _int(summary.get("ygp_stage4_backfill_ready_count")),
         "ygp_stage4_backfill_state_counts": dict(summary.get("ygp_stage4_backfill_state_counts") or {}),
+        "ygp_stage4_release_adapter_task_count": _int(summary.get("ygp_stage4_release_adapter_task_count")),
+        "ygp_stage4_release_adapter_task_state_counts": dict(
+            summary.get("ygp_stage4_release_adapter_task_state_counts") or {}
+        ),
         "ygp_stage4_gdcic_route_allowed_count": _int(summary.get("ygp_stage4_gdcic_route_allowed_count")),
         "project_state_counts": dict(summary.get("project_state_counts") or {}),
         "original_notice_state_counts": dict(summary.get("original_notice_state_counts") or {}),

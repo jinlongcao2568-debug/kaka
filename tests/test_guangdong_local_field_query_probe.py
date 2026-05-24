@@ -666,6 +666,51 @@ class GuangdongLocalFieldQueryProbeTests(unittest.TestCase):
                 "contract_public_record",
             )
 
+    def test_release_plan_can_disable_gdcic_project_code_route_for_ygp_backfill(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            plan_root = root / "release-plan"
+            task = _release_plan_task(
+                "REL-YGP-BACKFILL-1",
+                "ygp_original_readback_backfill",
+                "D_INSUFFICIENT_OR_BLOCKED_READBACK",
+            )
+            task.update(
+                {
+                    "source_profile_id": "GUANGDONG-YGP-ORIGINAL-READBACK-BACKFILL",
+                    "source_entry_id": "P13B-YGP-STAGE4-BACKFILL",
+                    "local_housing_authority_adapter_region_code": "CN-GD-YGP",
+                    "release_evidence_query_region_code": "CN-GD-YGP",
+                    "gdcic_project_code_route_allowed": False,
+                    "query_params": {
+                        "projectId": "PROJ-CN-GD-JG2026-11366",
+                        "projectName": "YGP 回灌候选",
+                        "projectCodeVariants": ["E4420002712020339001"],
+                        "gdcicProjectCodeVariants": [],
+                        "ygpProjectCodeVariants": ["E4420002712020339001"],
+                        "targetSourceTypes": ["ygp_original_readback_backfill"],
+                    },
+                }
+            )
+            _write_release_plan_payload(plan_root, [task])
+
+            result = build_guangdong_local_field_query_probe(
+                release_evidence_adapter_plan_root=plan_root,
+                output_root=root / "out",
+                created_at="2026-05-20T00:00:00+08:00",
+            )
+
+            field_task = result["manifest"]["field_task_records"][0]
+            self.assertEqual(
+                field_task["query_params"]["projectCodeVariants"],
+                ["E4420002712020339001", "JG2026-11366"],
+            )
+            self.assertEqual(field_task["query_params"]["gdcicProjectCodeVariants"], [])
+            self.assertEqual(field_task["query_params"]["tradeProjectCode"], "JG2026-11366")
+            self.assertFalse(field_task["query_params"]["gdcicProjectCodeRouteAllowed"])
+            self.assertEqual(field_task["adapter_result_state"], "NEEDS_BROWSER")
+            self.assertEqual(result["summary"]["adapter_result_state_counts"], {"NEEDS_BROWSER": 1})
+
     def test_p13b_release_evidence_live_readback_grades_enhancement(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -3207,6 +3252,21 @@ def _write_release_evidence_adapter_plan(root: Path) -> None:
         "summary": {
             "adapter_task_count": len(tasks),
         },
+    }
+    (root / "release-evidence-adapter-plan-v1.json").write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+
+def _write_release_plan_payload(root: Path, tasks: list[Mapping[str, Any]]) -> None:
+    root.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "manifest": {
+            "manifest_kind": "release_evidence_adapter_plan_v1_manifest",
+            "release_evidence_adapter_task_records": list(tasks),
+        },
+        "summary": {"adapter_task_count": len(tasks)},
     }
     (root / "release-evidence-adapter-plan-v1.json").write_text(
         json.dumps(payload, ensure_ascii=False, indent=2),

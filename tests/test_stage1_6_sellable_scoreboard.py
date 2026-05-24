@@ -348,6 +348,10 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
                         "ygp_stage4_backfill_state_counts": {
                             "P13B_YGP_STAGE4_BACKFILL_READY": 1,
                         },
+                        "ygp_stage4_release_adapter_task_count": 1,
+                        "ygp_stage4_release_adapter_task_state_counts": {
+                            "PLAN_ONLY_NOT_EXECUTED": 1,
+                        },
                         "ygp_stage4_gdcic_route_allowed_count": 0,
                         "project_state_counts": {
                             "YGP_STAGE4_BACKFILL_READY_FOR_P13B_OR_STAGE4_BRIDGE": 1,
@@ -481,6 +485,10 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
         self.assertEqual(
             scoreboard["p13b_overlap_triage_closeout_status"]["ygp_stage4_gdcic_route_allowed_count"],
             0,
+        )
+        self.assertEqual(
+            scoreboard["p13b_overlap_triage_closeout_status"]["ygp_stage4_release_adapter_task_count"],
+            1,
         )
         self.assertEqual(scoreboard["p13b_original_notice_readback_status"]["fetch_blocked_count"], 1)
         rows = {row["project_id"]: row for row in result["project_rows"]}

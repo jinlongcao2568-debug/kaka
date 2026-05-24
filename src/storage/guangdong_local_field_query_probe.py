@@ -712,7 +712,14 @@ def _release_plan_query_params(task: Mapping[str, Any]) -> dict[str, Any]:
             task.get("trade_project_code"),
         ]
     )
-    gdcic_project_code_variants = _gdcic_project_code_variants(project_code_variants)
+    gdcic_route_allowed = bool(task.get("gdcic_project_code_route_allowed", True))
+    if "gdcic_project_code_route_allowed" in raw_params:
+        gdcic_route_allowed = bool(raw_params.get("gdcic_project_code_route_allowed"))
+    gdcic_project_code_variants = (
+        _gdcic_project_code_variants(project_code_variants)
+        if gdcic_route_allowed
+        else []
+    )
     target_source_types = RELEASE_TARGET_TO_FIELD_SOURCE_TYPES.get(
         str(task.get("release_evidence_target_type") or ""),
         [str(task.get("release_evidence_target_type") or "")] if task.get("release_evidence_target_type") else [],
@@ -732,6 +739,7 @@ def _release_plan_query_params(task: Mapping[str, Any]) -> dict[str, Any]:
         "sourceProfileId": str(task.get("source_profile_id") or raw_params.get("sourceProfileId") or ""),
         "targetSourceTypes": target_source_types,
         "releaseEvidenceTargetType": str(task.get("release_evidence_target_type") or ""),
+        "gdcicProjectCodeRouteAllowed": gdcic_route_allowed,
         "triggerSourceUrl": str(raw_params.get("triggerSourceUrl") or task.get("trigger_source_url") or ""),
         "keywords": _dedupe([
             project_name,

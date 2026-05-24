@@ -38,17 +38,24 @@ class P13BOverlapTriageCloseoutTests(unittest.TestCase):
             self.assertEqual(summary["ygp_readback_ready_count"], 0)
             self.assertEqual(summary["ygp_stage4_backfill_candidate_count"], 1)
             self.assertEqual(summary["ygp_stage4_backfill_ready_count"], 1)
+            self.assertEqual(summary["ygp_stage4_release_adapter_task_count"], 1)
             self.assertEqual(summary["ygp_stage4_gdcic_route_allowed_count"], 0)
             self.assertEqual(summary["release_evidence_trigger_count"], 0)
             self.assertEqual(summary["project_state_counts"]["YGP_STAGE4_BACKFILL_READY_FOR_P13B_OR_STAGE4_BRIDGE"], 1)
             self.assertEqual(summary["project_state_counts"]["YGP_READBACK_BLOCKED_OR_UNSUPPORTED"], 1)
             self.assertTrue((root / "out" / "project-overlap-triage-table.json").exists())
             self.assertTrue((root / "out" / "ygp-stage4-backfill-candidate-table.json").exists())
+            self.assertTrue((root / "out" / "release-evidence-adapter-task-table.json").exists())
             self.assertTrue((root / "out" / "release-evidence-trigger-table.json").exists())
             backfill = result["manifest"]["ygp_stage4_backfill_candidate_records"][0]
             self.assertEqual(backfill["p13b_backfill_state"], "P13B_YGP_STAGE4_BACKFILL_READY")
             self.assertFalse(backfill["gdcic_project_code_route_allowed"])
             self.assertTrue(backfill["must_not_extract_from_full_text_numbers"])
+            adapter_task = result["manifest"]["release_evidence_adapter_task_records"][0]
+            self.assertEqual(adapter_task["release_evidence_target_type"], "ygp_original_readback_backfill")
+            self.assertEqual(adapter_task["query_params"]["gdcicProjectCodeVariants"], [])
+            self.assertFalse(adapter_task["gdcic_project_code_route_allowed"])
+            self.assertTrue(adapter_task["must_not_extract_from_full_text_numbers"])
 
     def test_overlap_signal_generates_release_trigger(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

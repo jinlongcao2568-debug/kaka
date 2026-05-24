@@ -93,12 +93,17 @@ def build_p13b_overlap_triage_closeout(
     )
     ygp_stage4_backfill_table = _ygp_stage4_backfill_table(ygp_manifest, created_at=created)
     release_table = _release_evidence_trigger_table(company_manifest, original_manifest, created_at=created)
+    ygp_stage4_adapter_tasks = _ygp_stage4_release_adapter_task_records(
+        ygp_stage4_backfill_table,
+        created_at=created,
+    )
     project_table = _project_overlap_triage_table(
         company_manifest=company_manifest,
         original_table=original_table,
         company_table=company_table,
         release_table=release_table,
         ygp_stage4_backfill_table=ygp_stage4_backfill_table,
+        ygp_stage4_adapter_tasks=ygp_stage4_adapter_tasks,
         coverage_manifest=coverage_manifest,
         created_at=created,
     )
@@ -108,6 +113,7 @@ def build_p13b_overlap_triage_closeout(
         original_records=original_table,
         release_records=release_table,
         ygp_stage4_backfill_records=ygp_stage4_backfill_table,
+        ygp_stage4_adapter_task_records=ygp_stage4_adapter_tasks,
         company_manifest=company_manifest,
         original_manifest=original_manifest,
         ygp_manifest=ygp_manifest,
@@ -128,6 +134,7 @@ def build_p13b_overlap_triage_closeout(
         "company_history_readback_records": company_table,
         "original_notice_readback_records": original_table,
         "ygp_stage4_backfill_candidate_records": ygp_stage4_backfill_table,
+        "release_evidence_adapter_task_records": ygp_stage4_adapter_tasks,
         "release_evidence_trigger_records": release_table,
         "summary": summary,
         "safety": {
@@ -153,7 +160,16 @@ def build_p13b_overlap_triage_closeout(
         "manifest": manifest,
         "summary": summary,
     }
-    _finalize_and_write(out_dir, result, project_table, company_table, original_table, release_table, ygp_stage4_backfill_table)
+    _finalize_and_write(
+        out_dir,
+        result,
+        project_table,
+        company_table,
+        original_table,
+        release_table,
+        ygp_stage4_backfill_table,
+        ygp_stage4_adapter_tasks,
+    )
     return result
 
 
@@ -382,6 +398,103 @@ def _ygp_stage4_backfill_table(ygp_manifest: Mapping[str, Any], *, created_at: s
     return _dedupe_records(rows, ("ygp_stage4_backfill_candidate_id",))
 
 
+def _ygp_stage4_release_adapter_task_records(
+    ygp_stage4_backfill_table: list[Mapping[str, Any]],
+    *,
+    created_at: str,
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for record in ygp_stage4_backfill_table:
+        if record.get("p13b_backfill_state") != "P13B_YGP_STAGE4_BACKFILL_READY":
+            continue
+        project_id = str(record.get("project_id") or "")
+        ygp_project_code = str(record.get("ygp_project_code") or "")
+        source_url = str(record.get("source_url") or "")
+        rows.append(
+            {
+                "release_evidence_adapter_task_id": _stable_id(
+                    "REL-EVIDENCE-ADAPTER-TASK-YGP-BACKFILL",
+                    project_id,
+                    ygp_project_code,
+                    record.get("ygp_notice_id"),
+                ),
+                "source_release_evidence_probe_task_id": str(record.get("ygp_stage4_backfill_candidate_id") or ""),
+                "source_release_evidence_probe_plan_id": "P13B-YGP-STAGE4-BACKFILL-CLOSEOUT",
+                "input_source_kind": "p13b_ygp_stage4_backfill_closeout",
+                "project_id": project_id,
+                "project_name": str(record.get("bid_project_name") or ""),
+                "candidate_company_name": str(record.get("candidate_company_name") or ""),
+                "matched_person_names": [],
+                "release_evidence_target_type": "ygp_original_readback_backfill",
+                "release_evidence_grade_on_match": "D_INSUFFICIENT_OR_BLOCKED_READBACK",
+                "release_evidence_source_role": "source_identifier_backfill_not_release_evidence",
+                "initial_release_evidence_abcd_grade": "STAGE4_YGP_BACKFILL_READY_NOT_A_SIGNAL",
+                "release_evidence_query_region_code": "CN-GD-YGP",
+                "release_evidence_query_region_basis": "ygp_original_readback_local_route_identifiers",
+                "local_housing_authority_adapter_scope": "YGP_ORIGINAL_READBACK_BACKFILL_ONLY",
+                "local_housing_authority_adapter_region_code": "CN-GD-YGP",
+                "non_guangdong_release_adapter_rule": "",
+                "jurisdiction_local_housing_adapter": {},
+                "jurisdiction_adapter_resolution_state": "YGP_BACKFILL_POINTER_ONLY",
+                "no_fallback_to_guangdong_or_guangzhou": True,
+                "source_entry_id": "P13B-YGP-STAGE4-BACKFILL",
+                "subsource_id": "p13b_ygp_original_readback",
+                "source_profile_id": "GUANGDONG-YGP-ORIGINAL-READBACK-BACKFILL",
+                "source_name": "广东一体化平台 YGP 原文回读回灌线索",
+                "source_family": "public_original_notice_readback_backfill",
+                "source_url": source_url,
+                "api_url": source_url,
+                "official_reference_url": source_url,
+                "trigger_source_url": source_url,
+                "query_params": {
+                    "projectId": project_id,
+                    "projectName": str(record.get("bid_project_name") or ""),
+                    "projectCode": "",
+                    "sourceProjectCode": "",
+                    "projectCodeVariants": _dedupe([ygp_project_code]),
+                    "gdcicProjectCodeVariants": [],
+                    "tradeProjectCode": "",
+                    "ygpProjectCodeVariants": _dedupe([ygp_project_code]),
+                    "ygpBizCode": str(record.get("ygp_biz_code") or ""),
+                    "ygpSiteCode": str(record.get("ygp_site_code") or ""),
+                    "ygpNoticeId": str(record.get("ygp_notice_id") or ""),
+                    "ygpNodeId": str(record.get("ygp_node_id") or ""),
+                    "candidateCompanyName": str(record.get("candidate_company_name") or ""),
+                    "sourceProfileId": "GUANGDONG-YGP-ORIGINAL-READBACK-BACKFILL",
+                    "targetSourceTypes": ["ygp_original_readback_backfill"],
+                    "triggerSourceUrl": source_url,
+                    "keywords": _dedupe(
+                        [
+                            str(record.get("bid_project_name") or ""),
+                            ygp_project_code,
+                            str(record.get("candidate_company_name") or ""),
+                            str(record.get("ygp_notice_id") or ""),
+                        ]
+                    ),
+                },
+                "next_adapter": "p13b_or_stage4_bridge_backfill",
+                "runtime_status": "PLAN_ONLY_BACKFILL_READY",
+                "adapter_result_state": "PLAN_ONLY_NOT_EXECUTED",
+                "allowed_adapter_result_states": ["MATCHED", "NOT_FOUND", "BLOCKED", "NEEDS_BROWSER"],
+                "matched_means": "ygp_backfill_can_support_followup_readback_not_legal_conclusion",
+                "not_found_means": "source_query_miss_or_no_public_match_not_clearance",
+                "blocked_means": "source_blocked_or_unavailable_needs_review",
+                "needs_browser_means": "browser_or_authorized_runtime_required_before_field_readback",
+                "execution_mode": "PLAN_ONLY_NOT_EXECUTED",
+                "readback_ready": False,
+                "gdcic_project_code_route_allowed": False,
+                "gdcic_route_block_reason": str(record.get("gdcic_route_block_reason") or ""),
+                "must_not_extract_from_full_text_numbers": True,
+                "recommended_next_action": "run_stage4_bridge_or_p13b_backfill_without_gdcic_project_code_route",
+                "query_miss_is_not_clearance": True,
+                "customer_visible_allowed": False,
+                "no_legal_conclusion": True,
+                "created_at": created_at,
+            }
+        )
+    return _dedupe_records(rows, ("release_evidence_adapter_task_id",))
+
+
 def _release_key(record: Mapping[str, Any]) -> str:
     people = _list(record.get("matched_person_names")) or _list(record.get("responsible_person_names"))
     normalized_people = ",".join(sorted(str(item) for item in people if str(item)))
@@ -430,6 +543,7 @@ def _project_overlap_triage_table(
     company_table: list[Mapping[str, Any]],
     release_table: list[Mapping[str, Any]],
     ygp_stage4_backfill_table: list[Mapping[str, Any]],
+    ygp_stage4_adapter_tasks: list[Mapping[str, Any]],
     coverage_manifest: Mapping[str, Any],
     created_at: str,
 ) -> list[dict[str, Any]]:
@@ -467,6 +581,9 @@ def _project_overlap_triage_table(
         ygp_backfill_rows = [
             row for row in ygp_stage4_backfill_table if str(row.get("project_id") or "") == project_id
         ]
+        ygp_adapter_task_rows = [
+            row for row in ygp_stage4_adapter_tasks if str(row.get("project_id") or "") == project_id
+        ]
         state = _project_state(company_rows, original_rows, release_rows, ygp_backfill_rows)
         rows.append(
             {
@@ -498,6 +615,7 @@ def _project_overlap_triage_table(
                     for row in ygp_backfill_rows
                     if row.get("p13b_backfill_state") == "P13B_YGP_STAGE4_BACKFILL_READY"
                 ),
+                "ygp_stage4_release_adapter_task_count": len(ygp_adapter_task_rows),
                 "ygp_stage4_gdcic_route_allowed_count": sum(
                     1 for row in ygp_backfill_rows if bool(row.get("gdcic_project_code_route_allowed"))
                 ),
@@ -539,6 +657,7 @@ def _summary(
     original_records: list[Mapping[str, Any]],
     release_records: list[Mapping[str, Any]],
     ygp_stage4_backfill_records: list[Mapping[str, Any]],
+    ygp_stage4_adapter_task_records: list[Mapping[str, Any]],
     company_manifest: Mapping[str, Any],
     original_manifest: Mapping[str, Any],
     ygp_manifest: Mapping[str, Any],
@@ -564,6 +683,10 @@ def _summary(
         ),
         "ygp_stage4_backfill_state_counts": _counts(
             row.get("p13b_backfill_state") for row in ygp_stage4_backfill_records
+        ),
+        "ygp_stage4_release_adapter_task_count": len(ygp_stage4_adapter_task_records),
+        "ygp_stage4_release_adapter_task_state_counts": _counts(
+            row.get("adapter_result_state") for row in ygp_stage4_adapter_task_records
         ),
         "ygp_stage4_gdcic_route_allowed_count": sum(
             1 for row in ygp_stage4_backfill_records if bool(row.get("gdcic_project_code_route_allowed"))
@@ -604,6 +727,7 @@ def _finalize_and_write(
     original_records: list[Mapping[str, Any]],
     release_records: list[Mapping[str, Any]],
     ygp_stage4_backfill_records: list[Mapping[str, Any]],
+    ygp_stage4_adapter_task_records: list[Mapping[str, Any]],
 ) -> None:
     text = json.dumps(result, ensure_ascii=False, indent=2)
     forbidden_hits = [term for term in FORBIDDEN_TERMS if term in text]
@@ -620,6 +744,7 @@ def _finalize_and_write(
     _write_json(out_dir / "company-history-readback-table.json", {"summary": result["summary"], "records": company_records})
     _write_json(out_dir / "original-notice-readback-table.json", {"summary": result["summary"], "records": original_records})
     _write_json(out_dir / "ygp-stage4-backfill-candidate-table.json", {"summary": result["summary"], "records": ygp_stage4_backfill_records})
+    _write_json(out_dir / "release-evidence-adapter-task-table.json", {"summary": result["summary"], "records": ygp_stage4_adapter_task_records})
     _write_json(out_dir / "release-evidence-trigger-table.json", {"summary": result["summary"], "records": release_records})
 
 
