@@ -23,12 +23,14 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
             field_query = root / "field-query"
             gdcic_readback = root / "gdcic-readback"
             p13b_history = root / "p13b-history"
+            p13b_original = root / "p13b-original"
             stage6 = root / "stage6"
             out = root / "out"
             pressure.mkdir()
             field_query.mkdir()
             gdcic_readback.mkdir()
             p13b_history.mkdir()
+            p13b_original.mkdir()
             stage6.mkdir()
 
             _write_json(
@@ -253,12 +255,52 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
                     },
                 },
             )
+            _write_json(
+                p13b_original / "original-notice-backtrace-v1.json",
+                {
+                    "manifest": {
+                        "original_notice_fetch_records": [
+                            {"project_id": "PROJ-D", "fetch_state": "ORIGINAL_NOTICE_FETCHED"},
+                            {"project_id": "PROJ-B", "fetch_state": "ORIGINAL_NOTICE_FETCH_BLOCKED"},
+                        ],
+                        "original_notice_overlap_signal_records": [
+                            {
+                                "project_id": "PROJ-D",
+                                "original_notice_overlap_signal_state": "ORIGINAL_NOTICE_NO_MATCH_REVIEW",
+                                "original_notice_backtrace_match_state": "NO_COMPANY_PERSON_PERIOD_MATCH",
+                            }
+                        ],
+                    },
+                    "summary": {
+                        "execution_mode": "LIVE_PUBLIC_QUERY_ATTEMPTED",
+                        "original_notice_task_count": 2,
+                        "live_processed_count": 1,
+                        "fetched_count": 1,
+                        "fetch_blocked_count": 1,
+                        "original_notice_overlap_signal_review_required_count": 0,
+                        "no_match_review_count": 1,
+                        "source_unsupported_count": 0,
+                        "fetch_state_counts": {
+                            "ORIGINAL_NOTICE_FETCHED": 1,
+                            "ORIGINAL_NOTICE_FETCH_BLOCKED": 1,
+                        },
+                        "overlap_signal_state_counts": {"ORIGINAL_NOTICE_NO_MATCH_REVIEW": 1},
+                        "original_notice_backtrace_match_state_counts": {
+                            "NO_COMPANY_PERSON_PERIOD_MATCH": 1,
+                        },
+                        "query_miss_is_not_clearance": True,
+                        "customer_visible_allowed": False,
+                        "no_legal_conclusion": True,
+                    },
+                },
+            )
 
             result = build_stage1_6_sellable_scoreboard(
                 pressure_root=pressure,
                 field_query_root=field_query,
                 gdcic_browser_readback_root=gdcic_readback,
                 p13b_company_history_root=p13b_history,
+                p13b_original_notice_backtrace_root=p13b_original,
                 stage6_status_root=stage6,
                 output_root=out,
                 created_at="2026-05-24T00:00:00+08:00",
@@ -310,9 +352,9 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
             scoreboard["stage5_operational_review_bucket_counts"],
             {
                 "STRONG_LEAD_INTERNAL_REVIEW": 1,
-                "AUTHORIZATION_BLOCKED_REVIEW": 1,
+                "ORIGINAL_NOTICE_BLOCKED_REVIEW": 1,
                 "SOURCE_NOT_FOUND_REVIEW": 1,
-                "ORIGINAL_NOTICE_BACKTRACE_REQUIRED_REVIEW": 1,
+                "ORIGINAL_NOTICE_NOT_FOUND_REVIEW": 1,
                 "WEAK_LEAD_OFFICIAL_SIGNAL_REVIEW": 1,
             },
         )
@@ -324,6 +366,8 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
                 "source_not_found": 1,
                 "evidence_insufficient": 5,
                 "original_notice_backtrace_required": 1,
+                "original_notice_not_found": 1,
+                "original_notice_blocked": 1,
                 "public_source_blocked": 1,
                 "weak_lead": 1,
                 "public_source_not_found": 1,
@@ -340,6 +384,11 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
                 "NO_PUBLIC_OVERLAP_SIGNAL_REVIEW": 1,
             },
         )
+        self.assertEqual(
+            scoreboard["stage4_original_notice_readback_state_counts"],
+            {"BLOCKED": 1, "NOT_FOUND": 1},
+        )
+        self.assertEqual(scoreboard["p13b_original_notice_readback_status"]["fetch_blocked_count"], 1)
         rows = {row["project_id"]: row for row in result["project_rows"]}
         self.assertEqual(rows["PROJ-A"]["limited_sellable_review_candidate_state"], "REVIEW_CANDIDATE")
         self.assertEqual(rows["PROJ-A"]["stage5_operational_review_bucket"], "STRONG_LEAD_INTERNAL_REVIEW")
@@ -351,10 +400,11 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
             rows["PROJ-A"]["commercialization_boundary_state"],
             "INTERNAL_REVIEW_ONLY_NOT_CUSTOMER_DELIVERABLE",
         )
-        self.assertEqual(rows["PROJ-B"]["stage5_operational_review_bucket"], "AUTHORIZATION_BLOCKED_REVIEW")
+        self.assertEqual(rows["PROJ-B"]["stage5_operational_review_bucket"], "ORIGINAL_NOTICE_BLOCKED_REVIEW")
         self.assertEqual(rows["PROJ-C"]["stage5_operational_review_bucket"], "SOURCE_NOT_FOUND_REVIEW")
-        self.assertEqual(rows["PROJ-D"]["stage5_operational_review_bucket"], "ORIGINAL_NOTICE_BACKTRACE_REQUIRED_REVIEW")
+        self.assertEqual(rows["PROJ-D"]["stage5_operational_review_bucket"], "ORIGINAL_NOTICE_NOT_FOUND_REVIEW")
         self.assertEqual(rows["PROJ-D"]["p13b_public_source_readback_state"], "ORIGINAL_NOTICE_BACKTRACE_REQUIRED")
+        self.assertEqual(rows["PROJ-D"]["p13b_original_notice_readback_state"], "NOT_FOUND")
         self.assertEqual(rows["PROJ-E"]["stage5_operational_review_bucket"], "WEAK_LEAD_OFFICIAL_SIGNAL_REVIEW")
         self.assertTrue(all(row["stage5_query_miss_is_not_clearance"] for row in rows.values()))
         self.assertEqual(
@@ -367,6 +417,7 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
             },
         )
         self.assertIn("run_p13b_original_notice_backtrace_for_bid_show_records", result["recommended_next_actions"])
+        self.assertIn("continue_p13b_original_notice_backtrace_or_route_blocked_sources", result["recommended_next_actions"])
         self.assertFalse(result["safety"]["customer_visible_allowed"])
         self.assertTrue(result["safety"]["query_miss_is_not_clearance"])
 
