@@ -105,6 +105,9 @@ def _comparison_row(path: Path) -> dict[str, Any]:
         "stage4_ygp_original_readback_state_counts": dict(
             scoreboard.get("stage4_ygp_original_readback_state_counts") or {}
         ),
+        "stage4_public_readback_outcome_counts": dict(
+            scoreboard.get("stage4_public_readback_outcome_counts") or {}
+        ),
         "stage5_operational_review_bucket_counts": dict(
             scoreboard.get("stage5_operational_review_bucket_counts") or {}
         ),
@@ -159,6 +162,15 @@ def _delta_row(row: Mapping[str, Any], baseline: Mapping[str, Any]) -> dict[str,
             row, baseline, "stage4_adapter_result_state_counts", "NEEDS_BROWSER"
         ),
         "stage4_not_found_delta": _count_delta(row, baseline, "stage4_adapter_result_state_counts", "NOT_FOUND"),
+        "stage4_public_readback_not_found_delta": _count_delta(
+            row, baseline, "stage4_public_readback_outcome_counts", "NOT_FOUND"
+        ),
+        "stage4_public_readback_blocked_delta": _count_delta(
+            row, baseline, "stage4_public_readback_outcome_counts", "BLOCKED"
+        ),
+        "stage4_public_readback_ready_delta": _count_delta(
+            row, baseline, "stage4_public_readback_outcome_counts", "READBACK_READY"
+        ),
         "stage6_ygp_original_readback_backfill_delta": ygp_delta,
         "regression_flags": _regression_flags(
             rate_delta=rate_delta,
@@ -247,8 +259,8 @@ def _write_markdown(path: Path, payload: Mapping[str, Any]) -> None:
     lines = [
         "# Stage1-6 Scoreboard Comparison v1",
         "",
-        "| run | candidates | limited | rate | stage4 | stage5 queues | stage1-3 long tail | stage6 public source chain | auth state |",
-        "| --- | ---: | ---: | ---: | --- | --- | --- | --- | --- |",
+        "| run | candidates | limited | rate | stage4 | public readback outcomes | stage5 queues | stage1-3 long tail | stage6 public source chain | auth state |",
+        "| --- | ---: | ---: | ---: | --- | --- | --- | --- | --- | --- |",
     ]
     for row in rows:
         auth_status = row.get("gdcic_authorized_readback_status")
@@ -256,12 +268,17 @@ def _write_markdown(path: Path, payload: Mapping[str, Any]) -> None:
         if isinstance(auth_status, Mapping):
             auth_state = str(auth_status.get("authorization_readiness_state") or "")
         lines.append(
-            "| {run} | {candidates} | {limited} | {rate} | `{stage4}` | `{stage5}` | `{tail}` | `{chain}` | {auth_state} |".format(
+            "| {run} | {candidates} | {limited} | {rate} | `{stage4}` | `{readback}` | `{stage5}` | `{tail}` | `{chain}` | {auth_state} |".format(
                 run=str(row.get("run_label") or ""),
                 candidates=_int(row.get("candidate_count")),
                 limited=_int(row.get("limited_sellable_review_candidate_count")),
                 rate=float(row.get("real_public_sellable_pack_rate") or 0),
                 stage4=json.dumps(row.get("stage4_adapter_result_state_counts") or {}, ensure_ascii=False, sort_keys=True),
+                readback=json.dumps(
+                    row.get("stage4_public_readback_outcome_counts") or {},
+                    ensure_ascii=False,
+                    sort_keys=True,
+                ),
                 stage5=json.dumps(row.get("stage5_operational_review_queue_counts") or {}, ensure_ascii=False, sort_keys=True),
                 tail=json.dumps(row.get("stage1_3_long_tail_bucket_counts") or {}, ensure_ascii=False, sort_keys=True),
                 chain=json.dumps(

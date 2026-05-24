@@ -31,6 +31,7 @@ class StageOneSixScoreboardComparisonTests(unittest.TestCase):
                 stage5={"RESPONSIBLE_PERSON_CERTIFICATE_GAP_REVIEW": 6},
                 long_tail={"COMPANY_FIRST_CERTIFICATE_SUPPLEMENT_REQUIRED": 6},
                 public_source_chain={"LOCAL_AUTHORITY_PUBLIC_API_READBACK": 4},
+                public_readback_outcomes={"NOT_FOUND": 3, "READBACK_READY": 2},
             )
             _write_scoreboard(
                 run_b / "scoreboard" / "stage1-6-sellable-scoreboard-v1.json",
@@ -44,6 +45,7 @@ class StageOneSixScoreboardComparisonTests(unittest.TestCase):
                     "LOCAL_AUTHORITY_PUBLIC_API_READBACK": 4,
                     "YGP_ORIGINAL_READBACK_BACKFILL": 7,
                 },
+                public_readback_outcomes={"NOT_FOUND": 3, "READBACK_READY": 3},
             )
 
             result = build_stage1_6_scoreboard_comparison(
@@ -72,7 +74,12 @@ class StageOneSixScoreboardComparisonTests(unittest.TestCase):
                     "YGP_ORIGINAL_READBACK_BACKFILL": 7,
                 },
             )
+            self.assertEqual(
+                result["comparison_rows"][1]["stage4_public_readback_outcome_counts"],
+                {"NOT_FOUND": 3, "READBACK_READY": 3},
+            )
             self.assertEqual(result["delta_from_first_row"][1]["stage4_matched_delta"], 2)
+            self.assertEqual(result["delta_from_first_row"][1]["stage4_public_readback_ready_delta"], 1)
             self.assertEqual(result["delta_from_previous_row"][1]["previous_run_label"], "stage1-6-sellable-rate-regression-live12")
             self.assertEqual(result["delta_from_previous_row"][1]["stage6_ygp_original_readback_backfill_delta"], 7)
             self.assertEqual(result["delta_from_previous_row"][1]["regression_flags"], [])
@@ -81,6 +88,7 @@ class StageOneSixScoreboardComparisonTests(unittest.TestCase):
             self.assertTrue((out / "stage1-6-scoreboard-comparison-v1.json").exists())
             markdown = (out / "stage1-6-scoreboard-comparison-v1.md").read_text(encoding="utf-8")
             self.assertIn("stage6 public source chain", markdown)
+            self.assertIn("public readback outcomes", markdown)
             self.assertIn("YGP_ORIGINAL_READBACK_BACKFILL", markdown)
 
 
@@ -94,6 +102,7 @@ def _write_scoreboard(
     stage5: dict[str, int],
     long_tail: dict[str, int],
     public_source_chain: dict[str, int],
+    public_readback_outcomes: dict[str, int],
 ) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = {
@@ -108,6 +117,7 @@ def _write_scoreboard(
             "stage5_operational_review_queue_counts": stage5,
             "stage1_3_long_tail_bucket_counts": long_tail,
             "stage6_limited_sellable_review_public_source_chain_counts": public_source_chain,
+            "stage4_public_readback_outcome_counts": public_readback_outcomes,
             "gdcic_authorized_readback_status": {
                 "authorization_readiness_state": "LOGIN_OR_SSO_REQUIRED",
             },

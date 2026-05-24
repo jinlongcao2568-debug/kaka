@@ -574,6 +574,10 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
             scoreboard["stage4_ygp_original_readback_state_counts"],
             {"YGP_BLOCKED": 1, "YGP_READBACK_READY": 1},
         )
+        self.assertEqual(
+            scoreboard["stage4_public_readback_outcome_counts"],
+            {"BLOCKED": 2, "NOT_FOUND": 1, "READBACK_READY": 1},
+        )
         self.assertEqual(scoreboard["p13b_ygp_original_readback_status"]["ygp_readback_ready_count"], 1)
         self.assertEqual(
             scoreboard["p13b_ygp_original_readback_status"]["stage4_ygp_backfill_state_counts"],

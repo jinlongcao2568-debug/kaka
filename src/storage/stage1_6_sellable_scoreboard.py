@@ -385,6 +385,7 @@ def _scoreboard_counts(
         "stage4_ygp_original_readback_state_counts": _counts(
             row.get("p13b_ygp_original_readback_state") for row in project_rows
         ),
+        "stage4_public_readback_outcome_counts": _stage4_public_readback_outcome_counts(project_rows),
         "stage6_loop_terminal_state_counts": dict(stage6_summary.get("loop_terminal_state_counts") or {})
         or _counts(record.get("loop_terminal_state") for record in stage6_records),
     }
@@ -1653,6 +1654,24 @@ def _distinct_count(records: list[Mapping[str, Any]], field: str) -> int:
     return len({str(record.get(field) or "").strip() for record in records if str(record.get(field) or "").strip()})
 
 
+def _stage4_public_readback_outcome_counts(project_rows: list[Mapping[str, Any]]) -> dict[str, int]:
+    outcomes: list[str] = []
+    for row in project_rows:
+        original_state = str(row.get("p13b_original_notice_readback_state") or "").strip().upper()
+        ygp_state = str(row.get("p13b_ygp_original_readback_state") or "").strip().upper()
+        if original_state == "MATCHED":
+            outcomes.append("MATCHED")
+        elif original_state == "NOT_FOUND":
+            outcomes.append("NOT_FOUND")
+        elif original_state == "BLOCKED":
+            outcomes.append("BLOCKED")
+        if ygp_state == "YGP_READBACK_READY":
+            outcomes.append("READBACK_READY")
+        elif ygp_state == "YGP_BLOCKED":
+            outcomes.append("BLOCKED")
+    return _counts(outcomes)
+
+
 def _as_list(value: Any) -> list[Any]:
     if value is None:
         return []
@@ -1715,6 +1734,7 @@ def _write_markdown(path: Path, payload: Mapping[str, Any]) -> None:
         f"- stage4_public_source_readback_state_counts: {json.dumps(scoreboard.get('stage4_public_source_readback_state_counts', {}), ensure_ascii=False, sort_keys=True)}",
         f"- stage4_original_notice_readback_state_counts: {json.dumps(scoreboard.get('stage4_original_notice_readback_state_counts', {}), ensure_ascii=False, sort_keys=True)}",
         f"- stage4_ygp_original_readback_state_counts: {json.dumps(scoreboard.get('stage4_ygp_original_readback_state_counts', {}), ensure_ascii=False, sort_keys=True)}",
+        f"- stage4_public_readback_outcome_counts: {json.dumps(scoreboard.get('stage4_public_readback_outcome_counts', {}), ensure_ascii=False, sort_keys=True)}",
         "",
         "## Blockers",
     ]
