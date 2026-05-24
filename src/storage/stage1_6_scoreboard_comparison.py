@@ -23,6 +23,7 @@ def build_stage1_6_scoreboard_comparison(
     rows = [_comparison_row(path) for path in inputs]
     baseline = rows[0] if rows else {}
     deltas = [_delta_row(row, baseline) for row in rows]
+    adjacent_deltas = _adjacent_delta_rows(rows)
     result = {
         "comparison_kind": COMPARISON_KIND,
         "comparison_version": 1,
@@ -30,6 +31,7 @@ def build_stage1_6_scoreboard_comparison(
         "input_refs": [str(path) for path in inputs],
         "comparison_rows": rows,
         "delta_from_first_row": deltas,
+        "delta_from_previous_row": adjacent_deltas,
         "summary": _summary(rows),
         "safety": {
             "customer_visible_allowed": False,
@@ -132,28 +134,73 @@ def _comparison_row(path: Path) -> dict[str, Any]:
 
 
 def _delta_row(row: Mapping[str, Any], baseline: Mapping[str, Any]) -> dict[str, Any]:
+    rate_delta = round(
+        float(row.get("real_public_sellable_pack_rate") or 0)
+        - float(baseline.get("real_public_sellable_pack_rate") or 0),
+        4,
+    )
+    limited_delta = _int(row.get("limited_sellable_review_candidate_count")) - _int(
+        baseline.get("limited_sellable_review_candidate_count")
+    )
+    matched_delta = _count_delta(row, baseline, "stage4_adapter_result_state_counts", "MATCHED")
+    ygp_delta = _count_delta(
+        row,
+        baseline,
+        "stage6_limited_sellable_review_public_source_chain_counts",
+        "YGP_ORIGINAL_READBACK_BACKFILL",
+    )
     return {
         "run_label": str(row.get("run_label") or ""),
         "candidate_count_delta": _int(row.get("candidate_count")) - _int(baseline.get("candidate_count")),
-        "limited_sellable_review_candidate_count_delta": _int(
-            row.get("limited_sellable_review_candidate_count")
-        )
-        - _int(baseline.get("limited_sellable_review_candidate_count")),
-        "real_public_sellable_pack_rate_delta": round(
-            float(row.get("real_public_sellable_pack_rate") or 0)
-            - float(baseline.get("real_public_sellable_pack_rate") or 0),
-            4,
-        ),
-        "stage4_matched_delta": _count_delta(row, baseline, "stage4_adapter_result_state_counts", "MATCHED"),
+        "limited_sellable_review_candidate_count_delta": limited_delta,
+        "real_public_sellable_pack_rate_delta": rate_delta,
+        "stage4_matched_delta": matched_delta,
         "stage4_needs_browser_delta": _count_delta(
             row, baseline, "stage4_adapter_result_state_counts", "NEEDS_BROWSER"
         ),
         "stage4_not_found_delta": _count_delta(row, baseline, "stage4_adapter_result_state_counts", "NOT_FOUND"),
+        "stage6_ygp_original_readback_backfill_delta": ygp_delta,
+        "regression_flags": _regression_flags(
+            rate_delta=rate_delta,
+            limited_delta=limited_delta,
+            matched_delta=matched_delta,
+            ygp_delta=ygp_delta,
+        ),
     }
+
+
+def _adjacent_delta_rows(rows: list[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    deltas: list[dict[str, Any]] = []
+    for idx, row in enumerate(rows):
+        previous = rows[idx - 1] if idx > 0 else row
+        delta = _delta_row(row, previous)
+        delta["previous_run_label"] = str(previous.get("run_label") or "")
+        deltas.append(delta)
+    return deltas
+
+
+def _regression_flags(
+    *,
+    rate_delta: float,
+    limited_delta: int,
+    matched_delta: int,
+    ygp_delta: int,
+) -> list[str]:
+    flags: list[str] = []
+    if rate_delta < 0:
+        flags.append("SELLABLE_RATE_DECREASED")
+    if limited_delta < 0:
+        flags.append("LIMITED_SELLABLE_COUNT_DECREASED")
+    if matched_delta < 0:
+        flags.append("STAGE4_MATCHED_COUNT_DECREASED")
+    if ygp_delta < 0:
+        flags.append("YGP_BACKFILL_COUNT_DECREASED")
+    return flags
 
 
 def _summary(rows: list[Mapping[str, Any]]) -> dict[str, Any]:
     best = max(rows, key=lambda row: float(row.get("real_public_sellable_pack_rate") or 0), default={})
+    latest = rows[-1] if rows else {}
     return {
         "run_count": len(rows),
         "total_candidate_count": sum(_int(row.get("candidate_count")) for row in rows),
@@ -162,6 +209,11 @@ def _summary(rows: list[Mapping[str, Any]]) -> dict[str, Any]:
         ),
         "best_rate_run_label": str(best.get("run_label") or ""),
         "best_real_public_sellable_pack_rate": float(best.get("real_public_sellable_pack_rate") or 0),
+        "latest_run_label": str(latest.get("run_label") or ""),
+        "latest_real_public_sellable_pack_rate": float(latest.get("real_public_sellable_pack_rate") or 0),
+        "latest_limited_sellable_review_candidate_count": _int(
+            latest.get("limited_sellable_review_candidate_count")
+        ),
         "customer_visible_allowed": False,
         "query_miss_is_not_clearance": True,
         "no_legal_conclusion": True,

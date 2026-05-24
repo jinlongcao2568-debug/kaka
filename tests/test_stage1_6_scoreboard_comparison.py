@@ -73,6 +73,10 @@ class StageOneSixScoreboardComparisonTests(unittest.TestCase):
                 },
             )
             self.assertEqual(result["delta_from_first_row"][1]["stage4_matched_delta"], 2)
+            self.assertEqual(result["delta_from_previous_row"][1]["previous_run_label"], "stage1-6-sellable-rate-regression-live12")
+            self.assertEqual(result["delta_from_previous_row"][1]["stage6_ygp_original_readback_backfill_delta"], 7)
+            self.assertEqual(result["delta_from_previous_row"][1]["regression_flags"], [])
+            self.assertEqual(result["summary"]["latest_run_label"], "stage1-6-sellable-rate-regression-live15")
             self.assertFalse(result["safety"]["customer_visible_allowed"])
             self.assertTrue((out / "stage1-6-scoreboard-comparison-v1.json").exists())
             markdown = (out / "stage1-6-scoreboard-comparison-v1.md").read_text(encoding="utf-8")
