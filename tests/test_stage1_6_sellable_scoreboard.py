@@ -173,6 +173,15 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
                             "RELEASE_FIELD_QUERY_REVIEW_READY": 1,
                             "RELEASE_FIELD_QUERY_GAP_OR_BLOCKER_REVIEW": 1,
                         },
+                        "limited_sellable_review_candidate_count": 1,
+                        "limited_sellable_review_candidate_state_counts": {
+                            "REVIEW_CANDIDATE": 1,
+                            "NOT_READY": 4,
+                        },
+                        "strong_lead_candidate_state_counts": {
+                            "STRONG_LEAD_REVIEW_CANDIDATE": 1,
+                            "NOT_READY": 4,
+                        },
                     },
                     "records": [
                         {
@@ -393,6 +402,15 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
         self.assertEqual(scoreboard["stage4_needs_browser_task_count"], 1)
         self.assertEqual(scoreboard["stage5_review_count"], 5)
         self.assertEqual(scoreboard["stage6_fact_ready_count"], 0)
+        self.assertEqual(scoreboard["stage6_limited_sellable_review_candidate_count"], 1)
+        self.assertEqual(
+            scoreboard["stage6_limited_sellable_review_candidate_state_counts"],
+            {"REVIEW_CANDIDATE": 1, "NOT_READY": 4},
+        )
+        self.assertEqual(
+            scoreboard["stage6_strong_lead_candidate_state_counts"],
+            {"STRONG_LEAD_REVIEW_CANDIDATE": 1, "NOT_READY": 4},
+        )
         self.assertEqual(scoreboard["stage7_sellable_count"], 0)
         self.assertEqual(scoreboard["limited_sellable_review_candidate_count"], 1)
         self.assertEqual(scoreboard["real_public_sellable_pack_rate"], 0.2)

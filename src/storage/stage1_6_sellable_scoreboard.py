@@ -276,6 +276,15 @@ def _scoreboard_counts(
             for signal in _as_list(row.get("stage5_operational_signal_flags"))
         ),
         "stage6_fact_ready_count": stage6_fact_ready_count,
+        "stage6_limited_sellable_review_candidate_count": _int(
+            stage6_summary.get("limited_sellable_review_candidate_count")
+        ),
+        "stage6_limited_sellable_review_candidate_state_counts": dict(
+            stage6_summary.get("limited_sellable_review_candidate_state_counts") or {}
+        ),
+        "stage6_strong_lead_candidate_state_counts": dict(
+            stage6_summary.get("strong_lead_candidate_state_counts") or {}
+        ),
         "stage7_sellable_count": stage7_sellable_count,
         "limited_sellable_review_candidate_count": limited_sellable_review_candidate_count,
         "strong_lead_review_candidate_count": strong_lead_review_candidate_count,
