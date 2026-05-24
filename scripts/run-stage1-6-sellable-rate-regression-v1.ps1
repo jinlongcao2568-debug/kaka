@@ -5,6 +5,8 @@ param(
     [switch]$RunStage6Cycle,
     [switch]$RunGdcicAuthorizedReadback,
     [switch]$RunP13BPublicSourceChain,
+    [switch]$RunYgpBackfillFieldQuery,
+    [switch]$RunStage6MergedProjection,
     [string]$SupplementalFieldQueryRoot = "",
     [string]$SupplementalFieldQueryJson = "",
     [switch]$EnableLivePublicQuery,
@@ -20,6 +22,7 @@ param(
     [int]$MaxLongTailBidShowsPerCompany = 1,
     [int]$MaxLiveOriginalNotices = 12,
     [int]$MaxLiveYgpOriginalNotices = 8,
+    [int]$MaxLiveYgpBackfillTasks = 8,
     [switch]$AttemptAllStage16Candidates,
     [switch]$EmitJson
 )
@@ -37,7 +40,9 @@ if (-not $RunRoot) {
 
 $pressureRoot = Join-Path $RunRoot "pressure"
 $fieldQueryRoot = Join-Path $RunRoot "field-query"
+$ygpBackfillFieldQueryRoot = Join-Path $RunRoot "field-query-ygp-backfill"
 $stage6Root = Join-Path $RunRoot "stage6-cycle"
+$stage6MergedRoot = Join-Path $RunRoot "stage6-loop-merged"
 $gdcicReadbackRoot = Join-Path $RunRoot "gdcic-browser-authorized-readback"
 $p13bCompanyHistoryRoot = Join-Path $RunRoot "p13b-company-history"
 $p13bOriginalNoticeRoot = Join-Path $RunRoot "p13b-original-notice"
@@ -214,9 +219,75 @@ if ($RunP13BPublicSourceChain) {
     }
 }
 
-$stage6StatusJson = Join-Path $stage6Root "stage6-review-loop-project-status-table.json"
+$ygpBackfillFieldQueryJson = Join-Path $ygpBackfillFieldQueryRoot "guangdong-local-field-query-probe-v1.json"
+if ($RunYgpBackfillFieldQuery) {
+    if (-not (Test-Path $p13bCloseoutJson)) {
+        Write-Error "RunYgpBackfillFieldQuery requires p13b-overlap-triage-closeout-v1.json. Use -RunP13BPublicSourceChain first or provide an existing run root."
+        exit 1
+    }
+    $ygpBackfillArgs = @(
+        "-NoProfile", "-ExecutionPolicy", "Bypass",
+        "-File", (Join-Path $repoRoot "scripts\run-guangdong-local-field-query-probe-v1.ps1"),
+        "-ReleaseEvidenceAdapterPlanJson", $p13bCloseoutJson,
+        "-OutputRoot", $ygpBackfillFieldQueryRoot,
+        "-SourceProfileIds", "GUANGDONG-YGP-ORIGINAL-READBACK-BACKFILL",
+        "-MaxLiveTasks", "$MaxLiveYgpBackfillTasks"
+    )
+    if ($EnableLivePublicQuery) {
+        $ygpBackfillArgs += "-EnableLivePublicQuery"
+    }
+    if ($EmitJson) {
+        $ygpBackfillArgs += "-EmitJson"
+    }
+    & pwsh @ygpBackfillArgs
+    if ($LASTEXITCODE -ne 0) {
+        exit $LASTEXITCODE
+    }
+}
+
+if (-not $SupplementalFieldQueryRoot -and (Test-Path $ygpBackfillFieldQueryJson)) {
+    $SupplementalFieldQueryRoot = $ygpBackfillFieldQueryRoot
+}
+if (-not $SupplementalFieldQueryJson -and (Test-Path $ygpBackfillFieldQueryJson)) {
+    $SupplementalFieldQueryJson = $ygpBackfillFieldQueryJson
+}
+
+if ($RunStage6MergedProjection) {
+    if (-not (Test-Path $fieldQueryJson)) {
+        Write-Error "RunStage6MergedProjection requires primary guangdong-local-field-query-probe-v1.json. Use -RunFieldQuery first or provide an existing run root."
+        exit 1
+    }
+    $stage6MergedArgs = @(
+        "-NoProfile", "-ExecutionPolicy", "Bypass",
+        "-File", (Join-Path $repoRoot "scripts\run-stage6-review-loop-v1.ps1"),
+        "-DispatchRoot", (Join-Path $RunRoot "missing-dispatch"),
+        "-BatchCloseoutRoot", (Join-Path $RunRoot "missing-closeout"),
+        "-ReleaseFieldQueryJson", $fieldQueryJson,
+        "-OutputRoot", $stage6MergedRoot,
+        "-DisableAutoDiscoverLatestBatchCloseout"
+    )
+    if ($SupplementalFieldQueryJson) {
+        $stage6MergedArgs += @("-SupplementalReleaseFieldQueryJson", $SupplementalFieldQueryJson)
+    } elseif ($SupplementalFieldQueryRoot) {
+        $stage6MergedArgs += @("-SupplementalReleaseFieldQueryRoot", $SupplementalFieldQueryRoot)
+    }
+    if ($EmitJson) {
+        $stage6MergedArgs += "-EmitJson"
+    }
+    & pwsh @stage6MergedArgs
+    if ($LASTEXITCODE -ne 0) {
+        exit $LASTEXITCODE
+    }
+}
+
+$effectiveStage6Root = $stage6Root
+if (Test-Path (Join-Path $stage6MergedRoot "stage6-review-loop-project-status-table.json")) {
+    $effectiveStage6Root = $stage6MergedRoot
+}
+
+$stage6StatusJson = Join-Path $effectiveStage6Root "stage6-review-loop-project-status-table.json"
 if (-not (Test-Path $stage6StatusJson)) {
-    $stage6StatusJson = Join-Path $stage6Root "stage6-review-cycle-runner-v1.json"
+    $stage6StatusJson = Join-Path $effectiveStage6Root "stage6-review-cycle-runner-v1.json"
 }
 
 $scoreboardArgs = @(
@@ -229,7 +300,7 @@ $scoreboardArgs = @(
     "-P13BOriginalNoticeBacktraceRoot", $p13bOriginalNoticeRoot,
     "-P13BYgpOriginalReadbackRoot", $p13bYgpReadbackRoot,
     "-P13BOverlapTriageCloseoutRoot", $p13bCloseoutRoot,
-    "-Stage6StatusRoot", $stage6Root,
+    "-Stage6StatusRoot", $effectiveStage6Root,
     "-OutputRoot", $scoreboardRoot
 )
 if (Test-Path $fieldQueryJson) {
