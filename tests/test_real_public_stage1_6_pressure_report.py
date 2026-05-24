@@ -73,6 +73,15 @@ class StageOneSixRealPublicPressureReportTests(unittest.TestCase):
         self.assertEqual(summary["stage1_6_readiness_state_counts"]["STAGE3_FIELD_OR_ROLE_REVIEW_REQUIRED"], 1)
         self.assertEqual(summary["stage1_6_readiness_state_counts"]["PENDING_STAGE2_DETAIL_CAPTURE"], 1)
         self.assertEqual(summary["stage1_6_readiness_state_counts"]["PENDING_TIME_BUDGET"], 1)
+        self.assertEqual(summary["stage1_3_long_tail_record_count"], 1)
+        self.assertEqual(
+            summary["stage1_3_long_tail_bucket_counts"],
+            {"COMPANY_FIRST_RESPONSIBLE_ROLE_RESOLUTION_REQUIRED": 1},
+        )
+        self.assertEqual(
+            summary["stage1_3_identity_confirmation_state_counts"],
+            {"REVIEW_REQUIRED_NOT_CONFIRMED": 1},
+        )
         self.assertEqual(summary["stage4_release_adapter_bridge_task_count"], 1)
         self.assertEqual(summary["stage4_release_adapter_bridge_project_count"], 1)
         self.assertEqual(
@@ -113,7 +122,16 @@ class StageOneSixRealPublicPressureReportTests(unittest.TestCase):
             self.assertTrue((root / "stage1-6-real-public-pressure-report-v1.json").exists())
             self.assertTrue((root / "candidate-pressure-table.json").exists())
             self.assertTrue((root / "stage1-6-readiness-table.json").exists())
+            self.assertTrue((root / "stage1-3-long-tail-table.json").exists())
             self.assertTrue((root / "stage4-project-code-backfill-table.json").exists())
+            long_tail_records = report["manifest"]["stage1_3_long_tail_records"]
+            self.assertEqual(
+                long_tail_records[0]["stage1_3_long_tail_bucket"],
+                "COMPANY_FIRST_RESPONSIBLE_ROLE_RESOLUTION_REQUIRED",
+            )
+            self.assertTrue(long_tail_records[0]["company_first_before_name_enum"])
+            self.assertFalse(long_tail_records[0]["same_name_only_accepted"])
+            self.assertFalse(long_tail_records[0]["missing_certificate_confirms_identity"])
             backfill_records = report["manifest"]["stage4_project_code_backfill_records"]
             self.assertEqual(backfill_records[0]["project_code_backfill_state"], "GDCIC_PROJECT_CODE_BACKFILL_REQUIRED")
             self.assertEqual(
@@ -637,6 +655,59 @@ class StageOneSixRealPublicPressureReportTests(unittest.TestCase):
         backfill_records = report["manifest"]["stage4_project_code_backfill_records"]
         self.assertEqual(backfill_records[0]["project_code_backfill_state"], "GDCIC_PROJECT_CODE_BACKFILL_READY")
         self.assertTrue(backfill_records[0]["must_not_extract_from_full_text_numbers"])
+
+    def test_stage1_3_long_tail_keeps_missing_certificate_and_same_name_in_review(self) -> None:
+        run_result = _fake_run_result()
+        run_result["closed_loop_results"][0]["fail_closed_reasons"] = [
+            "notice_has_company_and_project_manager_but_missing_certificate_no",
+            "same_name_not_disambiguated",
+        ]
+        run_result["closed_loop_results"][0]["real_public_stage1_6_readback"]["fail_closed_reasons"] = [
+            "notice_has_company_and_project_manager_but_missing_certificate_no",
+            "same_name_not_disambiguated",
+        ]
+        run_result["candidate_options"][3]["stage123_stability_summary"] = {
+            "stage2_attachment_capture_attempted_count": 1,
+            "stage2_attachment_snapshot_count": 1,
+            "stage3_attachment_ocr_required_count": 1,
+            "stage3_attachment_ocr_extracted_count": 0,
+        }
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            (root / "run-result.json").write_text(json.dumps(run_result, ensure_ascii=False, indent=2), encoding="utf-8")
+            report = build_stage1_6_real_public_pressure_report(
+                run_result_json=root / "run-result.json",
+                output_root=root,
+            )
+
+        records = {
+            row["project_id"]: row
+            for row in report["manifest"]["stage1_3_long_tail_records"]
+        }
+        self.assertEqual(
+            records["PROJ-REAL-001"]["stage1_3_long_tail_bucket"],
+            "COMPANY_FIRST_CERTIFICATE_SUPPLEMENT_REQUIRED",
+        )
+        self.assertEqual(
+            records["PROJ-REAL-001"]["identity_confirmation_blockers"],
+            ["certificate_missing", "same_name_not_disambiguated"],
+        )
+        self.assertFalse(records["PROJ-REAL-001"]["same_name_only_accepted"])
+        self.assertFalse(records["PROJ-REAL-001"]["missing_certificate_confirms_identity"])
+        self.assertEqual(
+            records["PROJ-REAL-004"]["stage1_3_long_tail_bucket"],
+            "TARGET_ATTACHMENT_OCR_PRESSURE_REQUIRED",
+        )
+        self.assertTrue(records["PROJ-REAL-004"]["attachment_or_ocr_pressure_required"])
+        self.assertEqual(
+            report["summary"]["stage1_3_long_tail_bucket_counts"],
+            {
+                "COMPANY_FIRST_CERTIFICATE_SUPPLEMENT_REQUIRED": 1,
+                "COMPANY_FIRST_RESPONSIBLE_ROLE_RESOLUTION_REQUIRED": 1,
+                "TARGET_ATTACHMENT_OCR_PRESSURE_REQUIRED": 1,
+            },
+        )
 
     def test_stage5_calibration_flags_pass_with_active_stage4_gap_as_review_sample(self) -> None:
         run_result = _fake_run_result()

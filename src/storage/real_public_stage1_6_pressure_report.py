@@ -154,6 +154,7 @@ def build_stage1_6_real_public_pressure_summary(
     fail_closed_reason_counts = _flatten_count(readbacks, "fail_closed_reasons")
     stage1_6_readiness_records = _stage1_6_readiness_records(result)
     stage1_6_gap_summary_records = _stage1_6_gap_summary_records(stage1_6_readiness_records)
+    stage1_3_long_tail_records = _stage1_3_long_tail_records(stage1_6_readiness_records)
     stage4_release_adapter_bridge_records = _stage4_release_adapter_bridge_records(result, created_at="")
     stage4_project_code_recall_summary = _stage4_release_adapter_bridge_project_code_recall_summary(
         stage4_release_adapter_bridge_records
@@ -206,6 +207,13 @@ def build_stage1_6_real_public_pressure_summary(
         "stage1_6_readiness_record_count": len(stage1_6_readiness_records),
         "stage1_6_gap_summary_record_count": len(stage1_6_gap_summary_records),
         "stage1_3_stability_summary": _stage1_3_stability_summary(stage1_6_readiness_records),
+        "stage1_3_long_tail_record_count": len(stage1_3_long_tail_records),
+        "stage1_3_long_tail_bucket_counts": _status_counts(stage1_3_long_tail_records, "stage1_3_long_tail_bucket"),
+        "stage1_3_long_tail_signal_counts": _flatten_count(stage1_3_long_tail_records, "stage1_3_long_tail_signals"),
+        "stage1_3_identity_confirmation_state_counts": _status_counts(
+            stage1_3_long_tail_records,
+            "identity_confirmation_state",
+        ),
         "stage4_release_adapter_bridge_task_count": len(stage4_release_adapter_bridge_records),
         "stage4_release_adapter_bridge_project_count": len(
             {str(row.get("project_id") or "") for row in stage4_release_adapter_bridge_records if str(row.get("project_id") or "")}
@@ -271,6 +279,7 @@ def build_stage1_6_real_public_pressure_report(
     candidate_records = _candidate_pressure_records(result)
     stage1_6_readiness_records = _stage1_6_readiness_records(result)
     stage1_6_gap_summary_records = _stage1_6_gap_summary_records(stage1_6_readiness_records)
+    stage1_3_long_tail_records = _stage1_3_long_tail_records(stage1_6_readiness_records)
     stage4_release_adapter_bridge_records = _stage4_release_adapter_bridge_records(result, created_at=created)
     stage4_project_code_backfill_records = _stage4_project_code_backfill_records(stage4_release_adapter_bridge_records)
     stage5_calibration_records = _stage5_calibration_records(result)
@@ -292,6 +301,7 @@ def build_stage1_6_real_public_pressure_report(
         "candidate_pressure_records": candidate_records,
         "stage1_6_readiness_records": stage1_6_readiness_records,
         "stage1_6_gap_summary_records": stage1_6_gap_summary_records,
+        "stage1_3_long_tail_records": stage1_3_long_tail_records,
         "stage4_release_adapter_bridge_records": stage4_release_adapter_bridge_records,
         "stage4_project_code_backfill_records": stage4_project_code_backfill_records,
         "stage5_calibration_records": stage5_calibration_records,
@@ -325,6 +335,7 @@ def build_stage1_6_real_public_pressure_report(
     _write_json(out_dir / "stage1-6-real-public-pressure-report-v1.json", report)
     _write_json(out_dir / "candidate-pressure-table.json", {"summary": summary, "records": candidate_records})
     _write_json(out_dir / "stage1-6-readiness-table.json", {"summary": summary, "records": stage1_6_readiness_records})
+    _write_json(out_dir / "stage1-3-long-tail-table.json", {"summary": summary, "records": stage1_3_long_tail_records})
     _write_json(out_dir / "stage1-6-gap-summary-table.json", {"summary": summary, "records": stage1_6_gap_summary_records})
     _write_json(
         out_dir / "stage4-release-adapter-bridge-table.json",
@@ -542,6 +553,107 @@ def _stage1_3_stability_summary(readiness_records: list[Mapping[str, Any]]) -> d
         key: sum(_as_int(row.get(key)) for row in readiness_records)
         for key in _STAGE1_3_STABILITY_METRIC_KEYS
     }
+
+
+def _stage1_3_long_tail_records(readiness_records: list[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    records: list[dict[str, Any]] = []
+    for row in readiness_records:
+        signals = _stage1_3_long_tail_signals(row)
+        if not signals:
+            continue
+        bucket = _stage1_3_long_tail_bucket(signals)
+        project_id = str(row.get("project_id") or "")
+        records.append(
+            {
+                "stage1_3_long_tail_record_id": build_id("STAGE1-3-LONG-TAIL", project_id or "UNKNOWN", bucket),
+                "project_id": project_id,
+                "project_name": str(row.get("project_name") or ""),
+                "candidate_company": str(row.get("candidate_company") or ""),
+                "source_url": str(row.get("source_url") or ""),
+                "responsible_role_gap_code": str(row.get("responsible_role_gap_code") or ""),
+                "stage1_3_long_tail_bucket": bucket,
+                "stage1_3_long_tail_signals": signals,
+                "recommended_next_action": _stage1_3_long_tail_next_action(bucket),
+                "company_first_certificate_supplement_required": bucket
+                in {
+                    "COMPANY_FIRST_RESPONSIBLE_ROLE_RESOLUTION_REQUIRED",
+                    "COMPANY_FIRST_CERTIFICATE_SUPPLEMENT_REQUIRED",
+                },
+                "company_first_before_name_enum": True,
+                "name_enum_fallback_allowed_after_company_first": True,
+                "attachment_or_ocr_pressure_required": "attachment_or_ocr_gap" in signals,
+                "flow_08_default_parse_allowed": False,
+                "same_name_only_accepted": False,
+                "missing_certificate_confirms_identity": False,
+                "identity_confirmation_state": "REVIEW_REQUIRED_NOT_CONFIRMED",
+                "identity_confirmation_blockers": _stage1_3_identity_confirmation_blockers(signals),
+                "query_miss_is_not_clearance": True,
+                "customer_visible_allowed": False,
+                "no_legal_conclusion": True,
+            }
+        )
+    return records
+
+
+def _stage1_3_long_tail_signals(row: Mapping[str, Any]) -> list[str]:
+    signals: list[str] = []
+    fail_reasons = _string_list(row.get("fail_closed_reasons"))
+    if str(row.get("responsible_role_gap_code") or "") or _as_int(row.get("stage3_responsible_role_gap_count")) > 0:
+        signals.append("responsible_role_missing_company_first_required")
+    if any(
+        reason in fail_reasons
+        for reason in (
+            "notice_has_company_and_project_manager_but_missing_certificate_no",
+            "project_manager_certificate_missing_jzsc_company_first_identity_resolution_pending",
+        )
+    ):
+        signals.append("certificate_missing_company_first_supplement_required")
+    if "same_name_not_disambiguated" in fail_reasons:
+        signals.append("same_name_not_disambiguated_review_required")
+    if (
+        _as_int(row.get("stage2_attachment_snapshot_missing_count")) > 0
+        or _as_int(row.get("attachment_snapshot_readback_missing_count")) > 0
+        or _as_int(row.get("stage3_attachment_ocr_pending_count")) > 0
+        or _as_int(row.get("stage3_parse_blocker_count")) > 0
+    ):
+        signals.append("attachment_or_ocr_gap")
+    return _dedupe_strings(signals)
+
+
+def _stage1_3_long_tail_bucket(signals: list[str]) -> str:
+    if "responsible_role_missing_company_first_required" in signals:
+        return "COMPANY_FIRST_RESPONSIBLE_ROLE_RESOLUTION_REQUIRED"
+    if (
+        "certificate_missing_company_first_supplement_required" in signals
+        or "same_name_not_disambiguated_review_required" in signals
+    ):
+        return "COMPANY_FIRST_CERTIFICATE_SUPPLEMENT_REQUIRED"
+    if "attachment_or_ocr_gap" in signals:
+        return "TARGET_ATTACHMENT_OCR_PRESSURE_REQUIRED"
+    return "STAGE1_3_LONG_TAIL_REVIEW_REQUIRED"
+
+
+def _stage1_3_long_tail_next_action(bucket: str) -> str:
+    if bucket == "COMPANY_FIRST_RESPONSIBLE_ROLE_RESOLUTION_REQUIRED":
+        return "run_company_first_identifier_resolution_before_name_enum_fallback"
+    if bucket == "COMPANY_FIRST_CERTIFICATE_SUPPLEMENT_REQUIRED":
+        return "run_company_first_certificate_supplement_before_identity_confirmation"
+    if bucket == "TARGET_ATTACHMENT_OCR_PRESSURE_REQUIRED":
+        return "rerun_target_attachment_capture_and_ocr_for_missing_responsible_fields"
+    return "review_stage1_3_long_tail_classifier"
+
+
+def _stage1_3_identity_confirmation_blockers(signals: list[str]) -> list[str]:
+    blockers: list[str] = []
+    if "responsible_role_missing_company_first_required" in signals:
+        blockers.append("responsible_role_missing")
+    if "certificate_missing_company_first_supplement_required" in signals:
+        blockers.append("certificate_missing")
+    if "same_name_not_disambiguated_review_required" in signals:
+        blockers.append("same_name_not_disambiguated")
+    if "attachment_or_ocr_gap" in signals:
+        blockers.append("attachment_or_ocr_gap")
+    return blockers or ["stage1_3_long_tail_review_required"]
 
 
 def _stage5_calibration_records(result: Mapping[str, Any]) -> list[dict[str, Any]]:
@@ -1565,6 +1677,15 @@ def _stage1_6_readiness_records(result: Mapping[str, Any]) -> list[dict[str, Any
             bottleneck_stage=bottleneck_stage,
             readiness_state=readiness_state,
         )
+        long_tail_signals = _stage1_3_long_tail_signals(
+            {
+                **row,
+                **stability_metrics,
+                "fail_closed_reasons": _string_list(
+                    closed_loop.get("fail_closed_reasons") or readback.get("fail_closed_reasons")
+                ),
+            }
+        )
         rows.append(
             {
                 "project_id": project_id,
@@ -1591,6 +1712,13 @@ def _stage1_6_readiness_records(result: Mapping[str, Any]) -> list[dict[str, Any
                 ),
                 **stability_metrics,
                 "responsible_role_gap_code": str(row.get("responsible_role_gap_code") or ""),
+                "stage1_3_long_tail_bucket": _stage1_3_long_tail_bucket(long_tail_signals)
+                if long_tail_signals
+                else "",
+                "stage1_3_long_tail_signals": long_tail_signals,
+                "identity_confirmation_state": "REVIEW_REQUIRED_NOT_CONFIRMED" if long_tail_signals else "",
+                "same_name_only_accepted": False,
+                "missing_certificate_confirms_identity": False,
                 "remaining_real_world_gaps": _string_list(readback.get("remaining_real_world_gaps")),
                 "fail_closed_reasons": _string_list(closed_loop.get("fail_closed_reasons") or readback.get("fail_closed_reasons")),
                 "stage5_rule_gate_status": str(readback.get("stage5_rule_gate_status") or ""),
