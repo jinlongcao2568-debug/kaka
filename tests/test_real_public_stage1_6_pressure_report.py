@@ -334,6 +334,41 @@ class StageOneSixRealPublicPressureReportTests(unittest.TestCase):
             "skip_or_owner_select_candidate_for_manual_stage1_6_reopen",
         )
 
+    def test_stage4_bridge_rejects_non_person_responsible_tokens(self) -> None:
+        run_result = _fake_run_result()
+        candidate = run_result["candidate_options"][1]
+        candidate["project_manager_name"] = "通过"
+        candidate["primary_responsible_person_name"] = "通过"
+        candidate["responsible_role_gap_code"] = ""
+        readback = run_result["closed_loop_results"][1]["real_public_stage1_6_readback"]
+        readback["remaining_real_world_gaps"] = ["missing_stage4_5_source_type:project_manager_change_notice"]
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            (root / "run-result.json").write_text(json.dumps(run_result, ensure_ascii=False, indent=2), encoding="utf-8")
+            report = build_stage1_6_real_public_pressure_report(
+                run_result_json=root / "run-result.json",
+                output_root=root,
+            )
+
+        bridge_rows = report["manifest"]["stage4_release_adapter_bridge_records"]
+        row = next(item for item in bridge_rows if item["project_id"] == "PROJ-REAL-002")
+        self.assertEqual(row["release_evidence_target_type"], "project_manager_change_notice")
+        self.assertEqual(row["raw_person_name"], "通过")
+        self.assertEqual(row["person_name_quality_state"], "REJECTED_NON_PERSON_TOKEN")
+        self.assertEqual(row["matched_person_names"], [])
+        self.assertEqual(row["query_params"]["personName"], "")
+        self.assertEqual(row["query_params"]["projectManagerName"], "")
+        self.assertNotIn("通过", row["query_params"]["keywords"])
+        self.assertEqual(
+            row["bridge_prerequisite_flags"]["bridge_readiness_state"],
+            "READY_FOR_PROJECT_COMPANY_QUERY_PERSON_INTERPRETATION_REVIEW_REQUIRED",
+        )
+        self.assertIn(
+            "person_name_missing_for_project_manager_change_notice_interpretation",
+            row["bridge_prerequisite_flags"]["missing_prerequisites"],
+        )
+
     def test_stage1_3_stability_gaps_are_promoted_to_stage1_6_readiness(self) -> None:
         run_result = _fake_run_result()
         run_result["candidate_options"].append(

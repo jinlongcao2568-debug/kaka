@@ -819,13 +819,15 @@ def _stage4_release_adapter_bridge_records(result: Mapping[str, Any], *, created
             ]
         )
         company_variants = _company_name_variants(candidate_company)
-        person_name = _first_text(
+        raw_person_name = _first_text(
             [
                 candidate.get("project_manager_name"),
                 candidate.get("primary_responsible_person_name"),
                 query_context.get("project_manager_name"),
             ]
         )
+        person_name_quality = _responsible_person_name_quality(raw_person_name)
+        person_name = raw_person_name if person_name_quality["accepted"] else ""
         certificate_no = _first_text(
             [
                 candidate.get("project_manager_certificate_no"),
@@ -881,6 +883,9 @@ def _stage4_release_adapter_bridge_records(result: Mapping[str, Any], *, created
                 "companyVariants": company_variants,
                 "personName": person_name,
                 "projectManagerName": person_name,
+                "rawPersonName": raw_person_name,
+                "personNameQualityState": person_name_quality["quality_state"],
+                "personNameRejectReason": person_name_quality["reject_reason"],
                 "certificateNo": certificate_no,
                 "sourceProfileId": source_profile_id,
                 "targetSourceTypes": RELEASE_TARGET_TO_FIELD_SOURCE_TYPES.get(release_target, [source_type]),
@@ -912,6 +917,9 @@ def _stage4_release_adapter_bridge_records(result: Mapping[str, Any], *, created
                     "project_name": project_name,
                     "candidate_company_name": candidate_company,
                     "matched_person_names": [person_name] if person_name else [],
+                    "raw_person_name": raw_person_name,
+                    "person_name_quality_state": person_name_quality["quality_state"],
+                    "person_name_reject_reason": person_name_quality["reject_reason"],
                     "release_evidence_source_type": source_type,
                     "release_evidence_target_type": release_target,
                     "release_evidence_grade_on_match": str(policy.get("evidence_family") or ""),
@@ -1236,6 +1244,48 @@ def _stage4_release_adapter_prerequisite_flags(
         "requires_operator_approved_live_run": True,
         "query_miss_is_not_clearance": True,
     }
+
+
+NON_PERSON_RESPONSIBLE_TOKENS = {
+    "通过",
+    "不通过",
+    "公开",
+    "单元",
+    "达到国家",
+    "质量目标",
+    "投资",
+    "年以上",
+    "幢游泳馆",
+    "国电电力",
+    "万千瓦",
+    "陕西榆林",
+}
+
+
+def _responsible_person_name_quality(value: str) -> dict[str, Any]:
+    text = str(value or "").strip()
+    if not text:
+        return {"accepted": False, "quality_state": "MISSING", "reject_reason": "person_name_missing"}
+    compact = re.sub(r"\s+", "", text)
+    if compact in NON_PERSON_RESPONSIBLE_TOKENS:
+        return {
+            "accepted": False,
+            "quality_state": "REJECTED_NON_PERSON_TOKEN",
+            "reject_reason": "stage3_non_person_token_must_not_be_used_as_responsible_person",
+        }
+    if not re.fullmatch(r"[\u4e00-\u9fa5·]{2,6}", compact):
+        return {
+            "accepted": False,
+            "quality_state": "REJECTED_PERSON_NAME_SHAPE",
+            "reject_reason": "responsible_person_name_shape_invalid",
+        }
+    if any(token in compact for token in ("国家", "工程", "项目", "投标", "招标", "公开", "通过", "质量", "单元")):
+        return {
+            "accepted": False,
+            "quality_state": "REJECTED_NON_PERSON_PHRASE",
+            "reject_reason": "responsible_person_name_contains_business_phrase",
+        }
+    return {"accepted": True, "quality_state": "ACCEPTED_PERSON_NAME_SHAPE", "reject_reason": ""}
 
 
 def _notice_core_project_name(value: str) -> str:
