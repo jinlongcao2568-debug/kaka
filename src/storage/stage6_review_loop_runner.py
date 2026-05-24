@@ -20,6 +20,10 @@ from storage.stage6_review_action_dispatch_runner import (
 from storage.stage6_review_action_result_routing import build_stage6_review_action_result_routing
 from storage.stage6_review_action_result_runner import run_stage6_review_action_result_runner
 from storage.stage6_review_cycle_runner import run_stage6_review_cycle_runner
+from storage.stage6_status_projection import (
+    limited_sellable_review_projection,
+    runtime_blocker_projection_fields,
+)
 from storage.runtime_closeout_precedence import (
     build_runtime_blocker_next_subqueue_table,
     is_original_readback_projection_only_terminal_state,
@@ -754,6 +758,7 @@ def _bootstrap_manual_project_status_records(records: list[Mapping[str, Any]]) -
             or closeout_precedence.get("next_action")
             or ""
         )
+        runtime_blocker_projection = runtime_blocker_projection_fields(runtime_blockers)
         out.append(
             {
                 "project_id": project_id,
@@ -794,15 +799,7 @@ def _bootstrap_manual_project_status_records(records: list[Mapping[str, Any]]) -
                 ),
                 "closeout_precedence_marker_source_refs": _list(closeout_precedence.get("marker_source_refs")),
                 "closeout_precedence_terminal_marker": dict(closeout_precedence.get("terminal_marker") or {}),
-                "runtime_blocker_ledger_records": runtime_blockers,
-                "runtime_blocker_ledger_state_counts": _counts(
-                    item.get("blocker_state") for item in runtime_blockers
-                ),
-                "runtime_blocker_ledger_layer_counts": _counts(
-                    item.get("runtime_layer") for item in runtime_blockers
-                ),
-                "runtime_blocker_subqueue_routes": _runtime_blocker_subqueue_routes(runtime_blockers),
-                "runtime_blocker_subqueue_counts": _counts(_runtime_blocker_subqueue_routes(runtime_blockers)),
+                **runtime_blocker_projection,
                 "loop_terminal_state": "MANUAL_REVIEW_HOLD_NO_AUTOMATED_DISPATCH",
                 "next_recommended_action": operator_next_action
                 or (
@@ -871,10 +868,11 @@ def _project_status_records(
             closeout_precedence=closeout_precedence,
         )
         stage7_commercial_input_allowed = bool(closeout_record.get("stage7_commercial_input_allowed", False))
-        limited_sellable_review_projection = _limited_sellable_review_projection(
+        limited_sellable_projection = limited_sellable_review_projection(
             release_field_query_result.get("downstream_release_evidence_abcd_grade_counts") or {},
             stage7_commercial_input_allowed=stage7_commercial_input_allowed,
         )
+        runtime_blocker_projection = runtime_blocker_projection_fields(runtime_blockers)
         records.append(
             {
                 "project_id": project_id,
@@ -911,7 +909,7 @@ def _project_status_records(
                 "stage6_fact_package_state": str(closeout_record.get("stage6_fact_package_state") or ""),
                 "stage6_ready": bool(closeout_record.get("stage6_ready", False)),
                 "stage7_commercial_input_allowed": stage7_commercial_input_allowed,
-                **limited_sellable_review_projection,
+                **limited_sellable_projection,
                 "result_runner_execution_state": str(runner_record.get("execution_state") or ""),
                 "result_runner_skip_reason": str(runner_record.get("skip_reason") or ""),
                 "release_field_query_state": str(release_field_query_result.get("release_field_query_state") or ""),
@@ -955,15 +953,7 @@ def _project_status_records(
                 "closeout_precedence_blocker_taxonomy": _list(closeout_precedence.get("blocker_taxonomy")),
                 "closeout_precedence_marker_source_refs": _list(closeout_precedence.get("marker_source_refs")),
                 "closeout_precedence_terminal_marker": dict(closeout_precedence.get("terminal_marker") or {}),
-                "runtime_blocker_ledger_records": runtime_blockers,
-                "runtime_blocker_ledger_state_counts": _counts(
-                    item.get("blocker_state") for item in runtime_blockers
-                ),
-                "runtime_blocker_ledger_layer_counts": _counts(
-                    item.get("runtime_layer") for item in runtime_blockers
-                ),
-                "runtime_blocker_subqueue_routes": _runtime_blocker_subqueue_routes(runtime_blockers),
-                "runtime_blocker_subqueue_counts": _counts(_runtime_blocker_subqueue_routes(runtime_blockers)),
+                **runtime_blocker_projection,
                 "runtime_blocker_worker_followup_records": runtime_followup_records,
                 "runtime_blocker_worker_followup_count": len(runtime_followup_records),
                 "loop_terminal_state": _loop_terminal_state(
@@ -2145,37 +2135,6 @@ def _release_field_query_state(
     if int(adapter_counts.get("MATCHED") or 0):
         return "RELEASE_FIELD_QUERY_PUBLIC_READBACK_REVIEW_READY"
     return "RELEASE_FIELD_QUERY_PENDING_OR_NEEDS_BROWSER"
-
-
-def _limited_sellable_review_projection(
-    downstream_counts: Mapping[str, Any],
-    *,
-    stage7_commercial_input_allowed: bool,
-) -> dict[str, Any]:
-    has_official_b_or_c = any(
-        str(grade).startswith(("B_", "C_")) and _int(count) > 0
-        for grade, count in downstream_counts.items()
-    )
-    if has_official_b_or_c and not stage7_commercial_input_allowed:
-        return {
-            "strong_lead_candidate_state": "STRONG_LEAD_REVIEW_CANDIDATE",
-            "limited_sellable_review_candidate_state": "REVIEW_CANDIDATE",
-            "limited_sellable_review_reason": "official_b_or_c_readback_requires_manual_stage5_stage6_review",
-            "commercialization_boundary_state": "INTERNAL_REVIEW_ONLY_NOT_CUSTOMER_DELIVERABLE",
-        }
-    if has_official_b_or_c:
-        return {
-            "strong_lead_candidate_state": "STRONG_LEAD_REVIEW_CANDIDATE",
-            "limited_sellable_review_candidate_state": "NOT_READY",
-            "limited_sellable_review_reason": "stage7_commercial_input_already_allowed_by_closeout_gate",
-            "commercialization_boundary_state": "CUSTOMER_DELIVERABLE_ONLY_AFTER_STAGE7_GATE",
-        }
-    return {
-        "strong_lead_candidate_state": "NOT_READY",
-        "limited_sellable_review_candidate_state": "NOT_READY",
-        "limited_sellable_review_reason": "",
-        "commercialization_boundary_state": "INTERNAL_REVIEW_ONLY_NOT_CUSTOMER_DELIVERABLE",
-    }
 
 
 def _records_by_project(result: Mapping[str, Any], table_name: str) -> dict[str, dict[str, Any]]:
