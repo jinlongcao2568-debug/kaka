@@ -272,6 +272,26 @@ formal_entrypoints:
     replaces_human_memory: true
     purpose: Build and persist GDCIC authorized browser readback state for Stage4 release evidence without enabling customer-visible actions.
 
+  - entrypoint_id: stage1_6_scoreboard_comparison_builder
+    kind: script
+    script: scripts/build-stage1-6-scoreboard-comparison-v1.ps1
+    entrypoint_role: state_builder
+    status: FORMAL_CURRENT
+    automation_layer: stage1_6_scoreboard_comparison
+    module_or_command: storage.stage1_6_scoreboard_comparison
+    state_inputs:
+      - Stage1-6 sellable scoreboard artifacts
+      - optional Stage1-6 regression run roots
+    state_outputs:
+      - cross-run sellable rate comparison table
+      - Stage4 readback state comparison table
+      - Stage5 operational queue comparison table
+      - Stage1-3 long-tail comparison table
+    manual_gate_required: false
+    external_customer_action_enabled: false
+    replaces_human_memory: true
+    purpose: Compare live12/live15/live30/live50 Stage1-6 scoreboard artifacts without executing live or customer-visible actions.
+
   - entrypoint_id: stage1_6_internal_http_orchestration_preview
     kind: http_route
     route: /internal/stage1-6/orchestrations
