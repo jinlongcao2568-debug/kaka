@@ -93,6 +93,10 @@ if ($RunFieldQuery) {
 
 $fieldQueryJson = Join-Path $fieldQueryRoot "guangdong-local-field-query-probe-v1.json"
 if ($RunStage6Cycle) {
+    if (-not (Test-Path $fieldQueryJson)) {
+        Write-Error "RunStage6Cycle requires guangdong-local-field-query-probe-v1.json. Use -RunFieldQuery first or provide an existing run root."
+        exit 1
+    }
     & pwsh -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot "scripts\run-stage6-review-cycle-v1.ps1") `
         -ReleaseFieldQueryJson $fieldQueryJson `
         -OutputRoot $stage6Root
@@ -107,10 +111,12 @@ if ($RunGdcicAuthorizedReadback) {
         "-NoProfile", "-ExecutionPolicy", "Bypass",
         "-File", (Join-Path $repoRoot "scripts\build-gdcic-browser-authorized-readback-v1.ps1"),
         "-ReleaseEvidenceAdapterPlanJson", $releasePlanJson,
-        "-FieldQueryJson", $fieldQueryJson,
         "-OutputRoot", $gdcicReadbackRoot,
         "-MaxLiveBrowserTasks", "$MaxLiveBrowserTasks"
     )
+    if (Test-Path $fieldQueryJson) {
+        $gdcicArgs += @("-FieldQueryJson", $fieldQueryJson)
+    }
     if ($EnableLiveBrowserExecution) {
         $gdcicArgs += "-EnableLiveBrowserExecution"
     }
