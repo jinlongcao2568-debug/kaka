@@ -103,6 +103,7 @@ def build_stage1_6_sellable_scoreboard(
     p13b_project_signals = _p13b_project_signals(p13b_company_history)
     p13b_original_notice_project_signals = _p13b_original_notice_project_signals(p13b_original_notice_backtrace)
     p13b_ygp_project_signals = _p13b_ygp_project_signals(p13b_ygp_original_readback)
+    p13b_overlap_closeout_project_signals = _p13b_overlap_closeout_project_signals(p13b_overlap_triage_closeout)
     stage6_records = _records(stage6_status)
 
     stage6_by_project = {
@@ -123,6 +124,7 @@ def build_stage1_6_sellable_scoreboard(
         list(p13b_project_signals.values()),
         list(p13b_original_notice_project_signals.values()),
         list(p13b_ygp_project_signals.values()),
+        list(p13b_overlap_closeout_project_signals.values()),
     )
     project_rows = [
         _project_scoreboard_row(
@@ -133,6 +135,7 @@ def build_stage1_6_sellable_scoreboard(
             p13b_project_signals.get(project_id, {}),
             p13b_original_notice_project_signals.get(project_id, {}),
             p13b_ygp_project_signals.get(project_id, {}),
+            p13b_overlap_closeout_project_signals.get(project_id, {}),
         )
         for project_id in project_ids
     ]
@@ -302,6 +305,18 @@ def _scoreboard_counts(
         "p13b_overlap_triage_closeout_status": _p13b_overlap_triage_closeout_status(
             p13b_overlap_closeout_summary
         ),
+        "stage4_ygp_backfill_ready_project_count": sum(
+            1 for row in project_rows if _int(row.get("p13b_ygp_stage4_backfill_ready_count")) > 0
+        ),
+        "stage4_ygp_backfill_ready_task_count": _int(
+            p13b_overlap_closeout_summary.get("ygp_stage4_backfill_ready_count")
+        ),
+        "stage4_ygp_release_adapter_task_count": _int(
+            p13b_overlap_closeout_summary.get("ygp_stage4_release_adapter_task_count")
+        ),
+        "stage4_ygp_gdcic_route_allowed_count": _int(
+            p13b_overlap_closeout_summary.get("ygp_stage4_gdcic_route_allowed_count")
+        ),
         "stage4_public_source_readback_state_counts": _counts(
             row.get("p13b_public_source_readback_state") for row in project_rows
         ),
@@ -324,6 +339,7 @@ def _project_scoreboard_row(
     p13b_project_signal: Mapping[str, Any],
     p13b_original_notice_signal: Mapping[str, Any],
     p13b_ygp_signal: Mapping[str, Any],
+    p13b_overlap_closeout_signal: Mapping[str, Any],
 ) -> dict[str, Any]:
     adapter_counts = _counts(record.get("adapter_result_state") for record in field_records)
     grade_counts = _counts(
@@ -354,6 +370,7 @@ def _project_scoreboard_row(
         p13b_project_signal=p13b_project_signal,
         p13b_original_notice_signal=p13b_original_notice_signal,
         p13b_ygp_signal=p13b_ygp_signal,
+        p13b_overlap_closeout_signal=p13b_overlap_closeout_signal,
         adapter_counts=adapter_counts,
         combined_grade_counts=combined_grade_counts,
         has_official_b_or_c=has_official_b_or_c,
@@ -398,6 +415,24 @@ def _project_scoreboard_row(
         "p13b_ygp_biz_code_variants": _as_list(p13b_ygp_signal.get("ygp_biz_code_variants")),
         "p13b_ygp_site_code_variants": _as_list(p13b_ygp_signal.get("ygp_site_code_variants")),
         "p13b_ygp_notice_id_variants": _as_list(p13b_ygp_signal.get("ygp_notice_id_variants")),
+        "p13b_overlap_triage_state": str(
+            p13b_overlap_closeout_signal.get("p13b_overlap_triage_state") or ""
+        ),
+        "p13b_ygp_stage4_backfill_ready_count": _int(
+            p13b_overlap_closeout_signal.get("ygp_stage4_backfill_ready_count")
+        ),
+        "p13b_ygp_stage4_backfill_state_counts": dict(
+            p13b_overlap_closeout_signal.get("ygp_stage4_backfill_state_counts") or {}
+        ),
+        "p13b_ygp_stage4_release_adapter_task_count": _int(
+            p13b_overlap_closeout_signal.get("ygp_stage4_release_adapter_task_count")
+        ),
+        "p13b_ygp_gdcic_route_allowed_count": _int(
+            p13b_overlap_closeout_signal.get("ygp_stage4_gdcic_route_allowed_count")
+        ),
+        "p13b_ygp_stage4_backfill_recommended_next_actions": _as_list(
+            p13b_overlap_closeout_signal.get("ygp_stage4_backfill_recommended_next_actions")
+        ),
         "operator_next_actions": [str(item) for item in _as_list(stage6_record.get("release_field_query_operator_next_actions")) if str(item or "").strip()],
         "blocking_bucket": _project_blocking_bucket(
             readiness_record,
@@ -849,6 +884,7 @@ def _project_blocking_bucket(
         "FIELD_AMBIGUITY_REVIEW": "field_ambiguity_review",
         "EVIDENCE_INSUFFICIENT_REVIEW": "evidence_insufficient_review",
         "YGP_READBACK_READY_REVIEW": "ygp_readback_ready_review",
+        "YGP_STAGE4_BACKFILL_READY_REVIEW": "ygp_stage4_backfill_ready_review",
         "YGP_READBACK_BLOCKED_REVIEW": "ygp_readback_blocked_review",
     }.get(stage5_bucket)
     if stage5_blocking_bucket:
@@ -885,6 +921,7 @@ def _stage5_operational_review(
     p13b_project_signal: Mapping[str, Any],
     p13b_original_notice_signal: Mapping[str, Any],
     p13b_ygp_signal: Mapping[str, Any],
+    p13b_overlap_closeout_signal: Mapping[str, Any],
     adapter_counts: Mapping[str, int],
     combined_grade_counts: Mapping[str, int],
     has_official_b_or_c: bool,
@@ -918,6 +955,9 @@ def _stage5_operational_review(
     ygp_state = str(p13b_ygp_signal.get("p13b_ygp_original_readback_state") or "")
     has_ygp_ready = ygp_state == "YGP_READBACK_READY"
     has_ygp_blocked = ygp_state == "YGP_BLOCKED"
+    has_ygp_stage4_backfill_ready = _int(
+        p13b_overlap_closeout_signal.get("ygp_stage4_backfill_ready_count")
+    ) > 0
     has_weak_official_signal = _int(adapter_counts.get("MATCHED")) > 0 and not has_official_b_or_c
     fail_closed_reasons = {str(item) for item in _as_list(readiness_record.get("fail_closed_reasons"))}
     remaining_gaps = {str(item) for item in _as_list(readiness_record.get("remaining_real_world_gaps"))}
@@ -969,6 +1009,8 @@ def _stage5_operational_review(
         signals.append("original_notice_blocked")
     if has_ygp_ready:
         signals.append("ygp_readback_ready")
+    if has_ygp_stage4_backfill_ready:
+        signals.append("ygp_stage4_backfill_ready")
     if has_ygp_blocked:
         signals.append("ygp_readback_blocked")
     if has_source_not_found:
@@ -998,6 +1040,9 @@ def _stage5_operational_review(
     elif has_original_notice_blocked:
         bucket = "ORIGINAL_NOTICE_BLOCKED_REVIEW"
         action = "continue_p13b_original_notice_backtrace_or_route_blocked_sources"
+    elif has_ygp_stage4_backfill_ready:
+        bucket = "YGP_STAGE4_BACKFILL_READY_REVIEW"
+        action = "feed_ygp_stage4_backfill_candidates_to_p13b_or_stage4_bridge_without_gdcic_route_claim"
     elif has_ygp_ready:
         bucket = "YGP_READBACK_READY_REVIEW"
         action = "feed_ygp_original_readback_into_p13b_original_backtrace"
@@ -1217,6 +1262,55 @@ def _p13b_ygp_project_signals(payload: Mapping[str, Any]) -> dict[str, dict[str,
             "ygp_biz_code_variants": _dedupe(record.get("ygp_biz_code") for record in project_records),
             "ygp_site_code_variants": _dedupe(record.get("ygp_site_code") for record in project_records),
             "ygp_notice_id_variants": _dedupe(record.get("ygp_notice_id") for record in project_records),
+            "query_miss_is_not_clearance": True,
+            "customer_visible_allowed": False,
+            "no_legal_conclusion": True,
+        }
+    return signals
+
+
+def _p13b_overlap_closeout_project_signals(payload: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
+    manifest = payload.get("manifest") if isinstance(payload.get("manifest"), Mapping) else {}
+    if not manifest:
+        return {}
+    project_records = _manifest_records(manifest, "project_overlap_triage_records")
+    backfill_records = _manifest_records(manifest, "ygp_stage4_backfill_candidate_records")
+    adapter_task_records = _manifest_records(manifest, "release_evidence_adapter_task_records")
+    project_ids = _ordered_project_ids(project_records, backfill_records, adapter_task_records)
+    signals: dict[str, dict[str, Any]] = {}
+    for project_id in project_ids:
+        project_closeouts = [
+            record for record in project_records if str(record.get("project_id") or "").strip() == project_id
+        ]
+        project_backfills = [
+            record for record in backfill_records if str(record.get("project_id") or "").strip() == project_id
+        ]
+        project_adapter_tasks = [
+            record for record in adapter_task_records if str(record.get("project_id") or "").strip() == project_id
+        ]
+        closeout = project_closeouts[0] if project_closeouts else {}
+        backfill_state_counts = _counts(
+            record.get("p13b_backfill_state") or record.get("stage4_ygp_backfill_state")
+            for record in project_backfills
+        )
+        signals[project_id] = {
+            "project_id": project_id,
+            "p13b_overlap_triage_state": str(closeout.get("project_overlap_triage_state") or ""),
+            "ygp_stage4_backfill_ready_count": sum(
+                1
+                for record in project_backfills
+                if str(record.get("p13b_backfill_state") or record.get("stage4_ygp_backfill_state") or "")
+                in {"P13B_YGP_STAGE4_BACKFILL_READY", "YGP_STAGE4_BACKFILL_READY"}
+            ),
+            "ygp_stage4_backfill_state_counts": backfill_state_counts,
+            "ygp_stage4_release_adapter_task_count": len(project_adapter_tasks),
+            "ygp_stage4_gdcic_route_allowed_count": sum(
+                1 for record in project_backfills if bool(record.get("gdcic_project_code_route_allowed"))
+            ),
+            "ygp_stage4_backfill_recommended_next_actions": _dedupe(
+                record.get("recommended_next_action")
+                for record in [*project_backfills, *project_adapter_tasks]
+            ),
             "query_miss_is_not_clearance": True,
             "customer_visible_allowed": False,
             "no_legal_conclusion": True,

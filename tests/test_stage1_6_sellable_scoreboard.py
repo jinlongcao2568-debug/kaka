@@ -843,6 +843,123 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
             },
         )
 
+    def test_ygp_stage4_backfill_ready_is_projected_without_limited_sellable_claim(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            pressure = root / "pressure"
+            field_query = root / "field-query"
+            p13b_ygp = root / "p13b-ygp"
+            p13b_overlap = root / "p13b-overlap"
+            out = root / "out"
+            pressure.mkdir()
+            field_query.mkdir()
+            p13b_ygp.mkdir()
+            p13b_overlap.mkdir()
+
+            _write_json(pressure / "pressure-summary.json", {"candidate_count": 1})
+            _write_json(
+                pressure / "stage1-6-readiness-table.json",
+                {
+                    "records": [
+                        {
+                            "project_id": "PROJ-YGP",
+                            "project_name": "YGP candidate",
+                            "stage2_detail_capture_state": "FETCHED",
+                            "stage3_field_parse_state": "PARSED_FROM_FIELD_SIGNALS",
+                            "stage5_rule_gate_status": "REVIEW",
+                            "stage5_gate_state": "REVIEW_REQUIRED",
+                            "fail_closed_reasons": ["gdcic_project_code_not_resolved"],
+                        }
+                    ]
+                },
+            )
+            _write_json(pressure / "stage1-6-gap-summary-table.json", {"records": []})
+            _write_json(
+                field_query / "guangdong-local-field-query-probe-v1.json",
+                {"manifest": {"field_task_records": [{"project_id": "PROJ-YGP", "adapter_result_state": "NEEDS_BROWSER"}]}},
+            )
+            _write_json(
+                p13b_ygp / "ygp-original-readback-v1.json",
+                {
+                    "manifest": {
+                        "ygp_original_readback_records": [
+                            {
+                                "project_id": "PROJ-YGP",
+                                "ygp_readback_state": "YGP_ORIGINAL_URL_READBACK_READY",
+                                "ygp_project_code": "E4401002701501867001",
+                                "ygp_biz_code": "3C52",
+                                "ygp_site_code": "440100",
+                                "ygp_notice_id": "notice-3C52",
+                            }
+                        ],
+                    },
+                    "summary": {
+                        "ygp_readback_ready_count": 1,
+                        "stage4_ygp_project_code_backfill_record_count": 1,
+                        "stage4_ygp_backfill_state_counts": {"YGP_STAGE4_BACKFILL_READY": 1},
+                        "stage4_ygp_gdcic_route_allowed_count": 0,
+                    },
+                },
+            )
+            _write_json(
+                p13b_overlap / "p13b-overlap-triage-closeout-v1.json",
+                {
+                    "manifest": {
+                        "project_overlap_triage_records": [
+                            {
+                                "project_id": "PROJ-YGP",
+                                "project_overlap_triage_state": "YGP_STAGE4_BACKFILL_READY_FOR_P13B_OR_STAGE4_BRIDGE",
+                                "ygp_stage4_backfill_ready_count": 1,
+                                "ygp_stage4_gdcic_route_allowed_count": 0,
+                            }
+                        ],
+                        "ygp_stage4_backfill_candidate_records": [
+                            {
+                                "project_id": "PROJ-YGP",
+                                "p13b_backfill_state": "P13B_YGP_STAGE4_BACKFILL_READY",
+                                "ygp_project_code": "E4401002701501867001",
+                                "gdcic_project_code_route_allowed": False,
+                                "recommended_next_action": "feed_ygp_identifiers_to_p13b_or_stage4_bridge_without_gdcic_route_claim",
+                            }
+                        ],
+                        "release_evidence_adapter_task_records": [
+                            {
+                                "project_id": "PROJ-YGP",
+                                "release_evidence_target_type": "ygp_original_readback_backfill",
+                                "initial_release_evidence_abcd_grade": "STAGE4_YGP_BACKFILL_READY_NOT_A_SIGNAL",
+                                "adapter_result_state": "PLAN_ONLY_NOT_EXECUTED",
+                            }
+                        ],
+                    },
+                    "summary": {
+                        "ygp_stage4_backfill_ready_count": 1,
+                        "ygp_stage4_release_adapter_task_count": 1,
+                        "ygp_stage4_gdcic_route_allowed_count": 0,
+                    },
+                },
+            )
+
+            result = build_stage1_6_sellable_scoreboard(
+                pressure_root=pressure,
+                field_query_root=field_query,
+                p13b_ygp_original_readback_root=p13b_ygp,
+                p13b_overlap_triage_closeout_root=p13b_overlap,
+                output_root=out,
+                created_at="2026-05-24T00:00:00+08:00",
+            )
+
+        row = result["project_rows"][0]
+        self.assertEqual(row["stage5_operational_review_bucket"], "YGP_STAGE4_BACKFILL_READY_REVIEW")
+        self.assertEqual(row["blocking_bucket"], "ygp_stage4_backfill_ready_review")
+        self.assertEqual(row["p13b_ygp_stage4_backfill_ready_count"], 1)
+        self.assertEqual(row["p13b_ygp_gdcic_route_allowed_count"], 0)
+        self.assertEqual(result["scoreboard"]["stage4_ygp_backfill_ready_project_count"], 1)
+        self.assertEqual(result["scoreboard"]["stage4_ygp_backfill_ready_task_count"], 1)
+        self.assertEqual(result["scoreboard"]["stage4_ygp_gdcic_route_allowed_count"], 0)
+        self.assertEqual(result["scoreboard"]["limited_sellable_review_candidate_count"], 0)
+        self.assertEqual(result["scoreboard"]["real_public_sellable_pack_rate"], 0.0)
+        self.assertFalse(result["safety"]["customer_visible_allowed"])
+
 
 def _write_json(path: Path, payload: dict) -> None:
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
