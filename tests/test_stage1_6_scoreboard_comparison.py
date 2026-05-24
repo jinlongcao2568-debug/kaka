@@ -33,6 +33,10 @@ class StageOneSixScoreboardComparisonTests(unittest.TestCase):
                 public_source_chain={"LOCAL_AUTHORITY_PUBLIC_API_READBACK": 4},
                 public_readback_outcomes={"NOT_FOUND": 3, "READBACK_READY": 2},
                 code_backfill={"MISSING_PROJECT_CODE_BACKFILL_INPUT": 10},
+                code_backfill_gap_detail={
+                    "NO_PUBLIC_OVERLAP_SIGNAL_FALLBACK_LOCAL_AUTHORITY_REQUIRED": 4,
+                    "PUBLIC_SOURCE_BLOCKED_RETRY_OR_LOCAL_AUTHORITY_REQUIRED": 6,
+                },
                 route_policy={
                     "BACKFILL_NOTICE_DATA_GGZY_BID_SHOW_OR_LOCAL_SOURCE_WITHOUT_DIGIT_GUESSING": 10,
                 },
@@ -53,6 +57,10 @@ class StageOneSixScoreboardComparisonTests(unittest.TestCase):
                 code_backfill={
                     "MISSING_PROJECT_CODE_BACKFILL_INPUT": 12,
                     "PUBLIC_SOURCE_IDENTIFIER_BACKFILLED_FOR_P13B_OR_STAGE4_BRIDGE_ONLY": 3,
+                },
+                code_backfill_gap_detail={
+                    "NO_PUBLIC_OVERLAP_SIGNAL_FALLBACK_LOCAL_AUTHORITY_REQUIRED": 3,
+                    "PUBLIC_SOURCE_BLOCKED_RETRY_OR_LOCAL_AUTHORITY_REQUIRED": 9,
                 },
                 route_policy={
                     "BACKFILL_NOTICE_DATA_GGZY_BID_SHOW_OR_LOCAL_SOURCE_WITHOUT_DIGIT_GUESSING": 12,
@@ -94,6 +102,13 @@ class StageOneSixScoreboardComparisonTests(unittest.TestCase):
             self.assertEqual(result["delta_from_first_row"][1]["stage4_public_readback_ready_delta"], 1)
             self.assertEqual(result["delta_from_first_row"][1]["stage4_public_identifier_backfilled_delta"], 3)
             self.assertEqual(result["delta_from_first_row"][1]["stage4_project_code_missing_backfill_input_delta"], 2)
+            self.assertEqual(
+                result["comparison_rows"][1]["stage4_project_code_backfill_gap_detail_counts"],
+                {
+                    "NO_PUBLIC_OVERLAP_SIGNAL_FALLBACK_LOCAL_AUTHORITY_REQUIRED": 3,
+                    "PUBLIC_SOURCE_BLOCKED_RETRY_OR_LOCAL_AUTHORITY_REQUIRED": 9,
+                },
+            )
             self.assertEqual(result["delta_from_previous_row"][1]["previous_run_label"], "stage1-6-sellable-rate-regression-live12")
             self.assertEqual(result["delta_from_previous_row"][1]["stage6_ygp_original_readback_backfill_delta"], 7)
             self.assertEqual(result["delta_from_previous_row"][1]["regression_flags"], [])
@@ -104,6 +119,7 @@ class StageOneSixScoreboardComparisonTests(unittest.TestCase):
             self.assertIn("stage6 public source chain", markdown)
             self.assertIn("public readback outcomes", markdown)
             self.assertIn("code route policy", markdown)
+            self.assertIn("gap_detail", markdown)
             self.assertIn("YGP_ORIGINAL_READBACK_BACKFILL", markdown)
 
 
@@ -119,6 +135,7 @@ def _write_scoreboard(
     public_source_chain: dict[str, int],
     public_readback_outcomes: dict[str, int],
     code_backfill: dict[str, int],
+    code_backfill_gap_detail: dict[str, int],
     route_policy: dict[str, int],
 ) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -136,6 +153,7 @@ def _write_scoreboard(
             "stage6_limited_sellable_review_public_source_chain_counts": public_source_chain,
             "stage4_public_readback_outcome_counts": public_readback_outcomes,
             "stage4_project_code_backfill_state_counts": code_backfill,
+            "stage4_project_code_backfill_gap_detail_counts": code_backfill_gap_detail,
             "stage4_gdcic_project_code_route_policy_counts": route_policy,
             "gdcic_authorized_readback_status": {
                 "authorization_readiness_state": "LOGIN_OR_SSO_REQUIRED",

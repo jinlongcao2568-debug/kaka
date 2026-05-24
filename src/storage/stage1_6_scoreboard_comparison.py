@@ -122,6 +122,9 @@ def _comparison_row(path: Path) -> dict[str, Any]:
         "stage4_project_code_backfill_state_counts": dict(
             scoreboard.get("stage4_project_code_backfill_state_counts") or {}
         ),
+        "stage4_project_code_backfill_gap_detail_counts": dict(
+            scoreboard.get("stage4_project_code_backfill_gap_detail_counts") or {}
+        ),
         "stage4_public_identifier_backfill_source_counts": dict(
             scoreboard.get("stage4_public_identifier_backfill_source_counts") or {}
         ),
@@ -283,7 +286,7 @@ def _write_markdown(path: Path, payload: Mapping[str, Any]) -> None:
         if isinstance(auth_status, Mapping):
             auth_state = str(auth_status.get("authorization_readiness_state") or "")
         lines.append(
-            "| {run} | {candidates} | {limited} | {rate} | `{stage4}` | `{readback}` | `{code_backfill}` | `{route_policy}` | `{stage5}` | `{tail}` | `{chain}` | {auth_state} |".format(
+            "| {run} | {candidates} | {limited} | {rate} | `{stage4}` | `{readback}` | `{code_backfill}` gap_detail=`{gap_detail}` | `{route_policy}` | `{stage5}` | `{tail}` | `{chain}` | {auth_state} |".format(
                 run=str(row.get("run_label") or ""),
                 candidates=_int(row.get("candidate_count")),
                 limited=_int(row.get("limited_sellable_review_candidate_count")),
@@ -296,6 +299,11 @@ def _write_markdown(path: Path, payload: Mapping[str, Any]) -> None:
                 ),
                 code_backfill=json.dumps(
                     row.get("stage4_project_code_backfill_state_counts") or {},
+                    ensure_ascii=False,
+                    sort_keys=True,
+                ),
+                gap_detail=json.dumps(
+                    row.get("stage4_project_code_backfill_gap_detail_counts") or {},
                     ensure_ascii=False,
                     sort_keys=True,
                 ),

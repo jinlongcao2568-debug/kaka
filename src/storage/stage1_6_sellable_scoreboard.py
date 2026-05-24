@@ -360,6 +360,9 @@ def _scoreboard_counts(
         "stage4_project_code_backfill_state_counts": _counts(
             row.get("stage4_project_code_backfill_state") for row in project_rows
         ),
+        "stage4_project_code_backfill_gap_detail_counts": _counts(
+            row.get("stage4_project_code_backfill_gap_detail") for row in project_rows
+        ),
         "stage4_public_identifier_backfill_source_counts": _multi_value_counts(
             row.get("stage4_public_identifier_backfill_source") for row in project_rows
         ),
@@ -453,6 +456,12 @@ def _project_scoreboard_row(
         p13b_ygp_signal=p13b_ygp_signal,
         p13b_overlap_closeout_signal=p13b_overlap_closeout_signal,
     )
+    project_code_backfill_gap_detail = _stage4_project_code_backfill_gap_detail(
+        project_code_backfill_state=project_code_backfill_state,
+        p13b_project_signal=p13b_project_signal,
+        p13b_original_notice_signal=p13b_original_notice_signal,
+        p13b_overlap_closeout_signal=p13b_overlap_closeout_signal,
+    )
     return {
         "project_id": project_id,
         "project_name": str(readiness_record.get("project_name") or stage6_record.get("project_name") or ""),
@@ -530,6 +539,7 @@ def _project_scoreboard_row(
             p13b_overlap_closeout_signal.get("ygp_stage4_backfill_recommended_next_actions")
         ),
         "stage4_project_code_backfill_state": project_code_backfill_state,
+        "stage4_project_code_backfill_gap_detail": project_code_backfill_gap_detail,
         "stage4_public_identifier_backfill_source": _stage4_public_identifier_backfill_source(
             p13b_project_signal=p13b_project_signal,
             p13b_ygp_signal=p13b_ygp_signal,
@@ -1069,6 +1079,31 @@ def _stage4_project_code_backfill_state(
     }:
         return "MISSING_PROJECT_CODE_BACKFILL_INPUT"
     return "NOT_FLAGGED_FOR_PROJECT_CODE_BACKFILL"
+
+
+def _stage4_project_code_backfill_gap_detail(
+    *,
+    project_code_backfill_state: str,
+    p13b_project_signal: Mapping[str, Any],
+    p13b_original_notice_signal: Mapping[str, Any],
+    p13b_overlap_closeout_signal: Mapping[str, Any],
+) -> str:
+    if project_code_backfill_state != "MISSING_PROJECT_CODE_BACKFILL_INPUT":
+        return ""
+    p13b_state = str(p13b_project_signal.get("p13b_public_source_readback_state") or "")
+    original_notice_state = str(p13b_original_notice_signal.get("p13b_original_notice_readback_state") or "")
+    overlap_state = str(p13b_overlap_closeout_signal.get("p13b_overlap_triage_state") or "")
+    if p13b_state == "PUBLIC_SOURCE_BLOCKED_REVIEW" or _int(p13b_project_signal.get("source_blocked_count")) > 0:
+        return "PUBLIC_SOURCE_BLOCKED_RETRY_OR_LOCAL_AUTHORITY_REQUIRED"
+    if original_notice_state == "BLOCKED" or overlap_state == "SOURCE_LIMIT_DEFERRED":
+        return "ORIGINAL_NOTICE_OR_SOURCE_LIMIT_DEFERRED_RETRY_REQUIRED"
+    if original_notice_state == "NOT_FOUND":
+        return "ORIGINAL_NOTICE_NOT_FOUND_FALLBACK_LOCAL_AUTHORITY_REQUIRED"
+    if p13b_state == "NO_PUBLIC_OVERLAP_SIGNAL_REVIEW" or overlap_state == "NO_OVERLAP_SIGNAL_REVIEW":
+        return "NO_PUBLIC_OVERLAP_SIGNAL_FALLBACK_LOCAL_AUTHORITY_REQUIRED"
+    if p13b_state == "PUBLIC_SOURCE_READBACK_PENDING_OR_NOT_RUN":
+        return "PUBLIC_SOURCE_READBACK_NOT_RUN_REQUIRED"
+    return "GDCIC_IDENTIFIER_UNRESOLVED_AFTER_PUBLIC_BACKFILL_REQUIRED"
 
 
 def _stage4_public_identifier_backfill_source(
@@ -1808,6 +1843,7 @@ def _write_markdown(path: Path, payload: Mapping[str, Any]) -> None:
         f"- p13b_ygp_original_readback_status: {json.dumps(scoreboard.get('p13b_ygp_original_readback_status', {}), ensure_ascii=False, sort_keys=True)}",
         f"- p13b_overlap_triage_closeout_status: {json.dumps(scoreboard.get('p13b_overlap_triage_closeout_status', {}), ensure_ascii=False, sort_keys=True)}",
         f"- stage4_public_source_readback_state_counts: {json.dumps(scoreboard.get('stage4_public_source_readback_state_counts', {}), ensure_ascii=False, sort_keys=True)}",
+        f"- stage4_project_code_backfill_gap_detail_counts: {json.dumps(scoreboard.get('stage4_project_code_backfill_gap_detail_counts', {}), ensure_ascii=False, sort_keys=True)}",
         f"- stage4_original_notice_readback_state_counts: {json.dumps(scoreboard.get('stage4_original_notice_readback_state_counts', {}), ensure_ascii=False, sort_keys=True)}",
         f"- stage4_ygp_original_readback_state_counts: {json.dumps(scoreboard.get('stage4_ygp_original_readback_state_counts', {}), ensure_ascii=False, sort_keys=True)}",
         f"- stage4_public_readback_outcome_counts: {json.dumps(scoreboard.get('stage4_public_readback_outcome_counts', {}), ensure_ascii=False, sort_keys=True)}",

@@ -978,6 +978,7 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
                             "stage3_field_parse_state": "PARSED_FROM_FIELD_SIGNALS",
                             "stage5_rule_gate_status": "REVIEW",
                             "stage5_gate_state": "REVIEW_REQUIRED",
+                            "fail_closed_reasons": ["gdcic_project_code_not_resolved"],
                         },
                         {
                             "project_id": "PROJ-NOTFOUND",
@@ -985,6 +986,7 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
                             "stage3_field_parse_state": "PARSED_FROM_FIELD_SIGNALS",
                             "stage5_rule_gate_status": "REVIEW",
                             "stage5_gate_state": "REVIEW_REQUIRED",
+                            "fail_closed_reasons": ["gdcic_project_code_not_resolved"],
                         },
                     ]
                 },
@@ -1050,8 +1052,23 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
         rows = {row["project_id"]: row for row in result["project_rows"]}
         self.assertEqual(rows["PROJ-BLOCKED"]["stage5_operational_review_bucket"], "PUBLIC_SOURCE_BLOCKED_REVIEW")
         self.assertEqual(rows["PROJ-BLOCKED"]["blocking_bucket"], "public_source_blocked_review")
+        self.assertEqual(
+            rows["PROJ-BLOCKED"]["stage4_project_code_backfill_gap_detail"],
+            "PUBLIC_SOURCE_BLOCKED_RETRY_OR_LOCAL_AUTHORITY_REQUIRED",
+        )
         self.assertEqual(rows["PROJ-NOTFOUND"]["stage5_operational_review_bucket"], "ORIGINAL_NOTICE_NOT_FOUND_REVIEW")
         self.assertEqual(rows["PROJ-NOTFOUND"]["blocking_bucket"], "original_notice_not_found_review")
+        self.assertEqual(
+            rows["PROJ-NOTFOUND"]["stage4_project_code_backfill_gap_detail"],
+            "ORIGINAL_NOTICE_NOT_FOUND_FALLBACK_LOCAL_AUTHORITY_REQUIRED",
+        )
+        self.assertEqual(
+            result["scoreboard"]["stage4_project_code_backfill_gap_detail_counts"],
+            {
+                "PUBLIC_SOURCE_BLOCKED_RETRY_OR_LOCAL_AUTHORITY_REQUIRED": 1,
+                "ORIGINAL_NOTICE_NOT_FOUND_FALLBACK_LOCAL_AUTHORITY_REQUIRED": 1,
+            },
+        )
         self.assertEqual(
             result["blocker_summary"]["blocking_bucket_counts"],
             {
