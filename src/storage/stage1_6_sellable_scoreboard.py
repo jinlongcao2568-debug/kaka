@@ -466,6 +466,12 @@ def _blocker_summary(
         "gdcic_project_code_candidates_present_but_not_matched_resolved_by_public_readback_count": _int(
             resolved_fail_closed_reason_counts.get("gdcic_project_code_candidates_present_but_not_matched")
         ),
+        "gdcic_project_code_not_resolved_active_count": _int(
+            active_fail_closed_reason_counts.get("gdcic_project_code_not_resolved")
+        ),
+        "gdcic_project_code_not_resolved_resolved_by_public_readback_count": _int(
+            resolved_fail_closed_reason_counts.get("gdcic_project_code_not_resolved")
+        ),
         "field_blocker_taxonomy_counts": blocker_taxonomy_counts,
         "operator_next_action_counts": dict(field_summary.get("operator_next_action_counts") or {}),
         "gdcic_authorized_readback_blocker": _gdcic_authorized_readback_status(gdcic_readback_summary),
@@ -572,7 +578,11 @@ def _fail_closed_reason_resolved_by_public_readback(
     reason: str,
     project_row: Mapping[str, Any],
 ) -> bool:
-    if reason != "gdcic_project_code_candidates_present_but_not_matched":
+    if reason not in {
+        "gdcic_project_code_candidates_present_but_not_matched",
+        "gdcic_project_code_not_resolved",
+        "gdcic_project_code_not_resolved_after_project_name_candidate_queries",
+    }:
         return False
     if project_row.get("limited_sellable_review_candidate_state") != "REVIEW_CANDIDATE":
         return False

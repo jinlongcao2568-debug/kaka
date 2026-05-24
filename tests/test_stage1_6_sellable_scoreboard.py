@@ -60,6 +60,7 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
                             "fail_closed_reasons": [
                                 "contract_public_info_empty_result",
                                 "gdcic_project_code_candidates_present_but_not_matched",
+                                "gdcic_project_code_not_resolved",
                             ],
                         },
                         {
@@ -538,6 +539,14 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
             result["blocker_summary"][
                 "gdcic_project_code_candidates_present_but_not_matched_resolved_by_public_readback_count"
             ],
+            1,
+        )
+        self.assertNotIn(
+            "gdcic_project_code_not_resolved",
+            result["blocker_summary"]["active_fail_closed_reason_counts"],
+        )
+        self.assertEqual(
+            result["blocker_summary"]["gdcic_project_code_not_resolved_resolved_by_public_readback_count"],
             1,
         )
         self.assertIn("run_p13b_original_notice_backtrace_for_bid_show_records", result["recommended_next_actions"])

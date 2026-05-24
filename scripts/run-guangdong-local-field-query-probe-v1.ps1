@@ -49,6 +49,12 @@ if ($P13BOperationalCloseoutJson) {
 }
 if ($ReleaseEvidenceAdapterPlanRoot) {
     $argsList += @("--release-evidence-adapter-plan-root", $ReleaseEvidenceAdapterPlanRoot)
+    if (-not $ReleaseEvidenceAdapterPlanJson) {
+        $stage4BridgePlan = Join-Path $ReleaseEvidenceAdapterPlanRoot "stage4-release-adapter-bridge-plan.json"
+        if (Test-Path -LiteralPath $stage4BridgePlan) {
+            $argsList += @("--release-evidence-adapter-plan-json", $stage4BridgePlan)
+        }
+    }
 }
 if ($ReleaseEvidenceAdapterPlanJson) {
     $argsList += @("--release-evidence-adapter-plan-json", $ReleaseEvidenceAdapterPlanJson)
