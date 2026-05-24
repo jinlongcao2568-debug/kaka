@@ -93,7 +93,7 @@ class GDCICBrowserAuthorizedReadbackTests(unittest.TestCase, IsolatedStorageTest
             )
             self.assertEqual(summary["gdcic_browser_readback_task_count"], 2)
             self.assertEqual(summary["gdcic_browser_readback_record_count"], 0)
-            self.assertEqual(summary["gdcic_authorized_session_overall_state"], "NOT_ATTEMPTED_PLAN_ONLY")
+            self.assertEqual(summary["gdcic_authorized_session_overall_state"], "LOGIN_OR_SSO_REQUIRED")
             self.assertEqual(summary["project_manager_change_readback_task_count"], 1)
             self.assertEqual(summary["project_manager_change_readback_record_count"], 0)
             self.assertEqual(summary["project_manager_change_ready_count"], 0)

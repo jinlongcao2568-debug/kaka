@@ -691,7 +691,15 @@ def _gdcic_authorized_readback_status(summary: Mapping[str, Any]) -> dict[str, A
             "query_miss_is_not_clearance": True,
         }
     authorized_session_ready = bool(summary.get("authorized_session_input_ready"))
-    overall_state = str(summary.get("gdcic_authorized_session_overall_state") or "")
+    authorized_session_input_state = str(summary.get("authorized_session_input_state") or "")
+    raw_overall_state = str(summary.get("gdcic_authorized_session_overall_state") or "")
+    overall_state = raw_overall_state
+    if (
+        not authorized_session_ready
+        and authorized_session_input_state == "NO_AUTHORIZED_SESSION_INPUT"
+        and raw_overall_state in {"", "NOT_ATTEMPTED_PLAN_ONLY", "NO_BROWSER_READBACK_RECORDS"}
+    ):
+        overall_state = "LOGIN_OR_SSO_REQUIRED"
     success_count = _int(
         summary.get("target_real_readback_success_count")
         if "target_real_readback_success_count" in summary
@@ -708,9 +716,10 @@ def _gdcic_authorized_readback_status(summary: Mapping[str, Any]) -> dict[str, A
         operator_action = "provide_gdcic_authorized_storage_state_or_user_data_dir_then_rerun"
     return {
         "artifact_state": "BUILT",
-        "authorized_session_input_state": str(summary.get("authorized_session_input_state") or ""),
+        "authorized_session_input_state": authorized_session_input_state,
         "authorized_session_input_ready": authorized_session_ready,
         "authorization_readiness_state": overall_state,
+        "authorization_readiness_state_raw": raw_overall_state,
         "target_real_readback_success_count": success_count,
         "target_project_manager_change_real_readback_success_count": project_manager_success_count,
         "real_readback_success_not_faked": bool(summary.get("real_readback_success_not_faked", True)),

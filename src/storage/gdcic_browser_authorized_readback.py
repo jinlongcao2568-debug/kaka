@@ -1099,6 +1099,8 @@ def _summary(
         readback_records=readback_records,
         authorization_state_counts=authorization_state_counts,
     )
+    if not authorized_session_input_ready and ready_count == 0:
+        overall_state = "LOGIN_OR_SSO_REQUIRED"
     return {
         "execution_mode": execution_mode,
         "authorized_session_input_state": authorized_session_input_state,
