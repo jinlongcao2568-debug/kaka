@@ -669,6 +669,73 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
         )
         self.assertTrue(all(row["stage5_query_miss_is_not_clearance"] for row in rows.values()))
 
+    def test_stage5_keeps_authorization_and_source_not_found_as_compound_operational_bucket(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            pressure = root / "pressure"
+            field_query = root / "field-query"
+            out = root / "out"
+            pressure.mkdir()
+            field_query.mkdir()
+
+            _write_json(pressure / "pressure-summary.json", {"candidate_count": 1})
+            _write_json(
+                pressure / "stage1-6-readiness-table.json",
+                {
+                    "records": [
+                        {
+                            "project_id": "PROJ-COMPOUND",
+                            "project_name": "compound blocked candidate",
+                            "stage2_detail_capture_state": "FETCHED",
+                            "stage3_field_parse_state": "PARSED_FROM_FIELD_SIGNALS",
+                            "stage5_rule_gate_status": "REVIEW",
+                            "stage5_gate_state": "REVIEW_REQUIRED",
+                        }
+                    ]
+                },
+            )
+            _write_json(pressure / "stage1-6-gap-summary-table.json", {"records": []})
+            _write_json(
+                field_query / "guangdong-local-field-query-probe-v1.json",
+                {
+                    "manifest": {
+                        "field_task_records": [
+                            {
+                                "project_id": "PROJ-COMPOUND",
+                                "adapter_result_state": "NOT_FOUND",
+                                "downstream_release_evidence_abcd_grade": "D_INSUFFICIENT_OR_BLOCKED_READBACK",
+                            },
+                            {
+                                "project_id": "PROJ-COMPOUND",
+                                "adapter_result_state": "NEEDS_BROWSER",
+                                "blocker_taxonomy": [
+                                    "guangdong_project_manager_change_notice_requires_browser_or_authorized_runtime"
+                                ],
+                            },
+                        ]
+                    }
+                },
+            )
+
+            result = build_stage1_6_sellable_scoreboard(
+                pressure_root=pressure,
+                field_query_root=field_query,
+                output_root=out,
+                created_at="2026-05-24T00:00:00+08:00",
+            )
+
+        row = result["project_rows"][0]
+        self.assertEqual(row["stage5_operational_review_bucket"], "AUTHORIZATION_AND_SOURCE_NOT_FOUND_REVIEW")
+        self.assertEqual(
+            row["stage5_operational_next_action"],
+            "provide_authorized_session_or_fallback_source_without_treating_not_found_as_clearance",
+        )
+        self.assertEqual(
+            result["blocker_summary"]["blocking_bucket_counts"],
+            {"authorization_or_browser_blocked_with_source_not_found": 1},
+        )
+        self.assertTrue(row["stage5_query_miss_is_not_clearance"])
+
 
 def _write_json(path: Path, payload: dict) -> None:
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")

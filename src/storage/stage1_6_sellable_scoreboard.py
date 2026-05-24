@@ -825,9 +825,13 @@ def _project_blocking_bucket(
         _field_record_downstream_grade(record).startswith(("B_", "C_")) for record in field_records
     ):
         return "stage4_matched_needs_manual_limited_sellable_review"
-    if any(str(record.get("adapter_result_state") or "") == "NEEDS_BROWSER" for record in field_records):
+    has_needs_browser = any(str(record.get("adapter_result_state") or "") == "NEEDS_BROWSER" for record in field_records)
+    has_not_found = any(str(record.get("adapter_result_state") or "") == "NOT_FOUND" for record in field_records)
+    if has_needs_browser and has_not_found:
+        return "authorization_or_browser_blocked_with_source_not_found"
+    if has_needs_browser:
         return "authorization_or_browser_blocked"
-    if any(str(record.get("adapter_result_state") or "") == "NOT_FOUND" for record in field_records):
+    if has_not_found:
         return "official_source_not_found_or_field_missing"
     if str(readiness_record.get("stage5_rule_gate_status") or "").upper() == "REVIEW":
         return "stage5_rule_review"
@@ -981,6 +985,9 @@ def _stage5_operational_review(
     elif has_public_source_blocked:
         bucket = "PUBLIC_SOURCE_BLOCKED_REVIEW"
         action = "retry_public_source_or_route_to_local_authority_readback"
+    elif has_authorization_block and (has_source_not_found or has_public_source_not_found):
+        bucket = "AUTHORIZATION_AND_SOURCE_NOT_FOUND_REVIEW"
+        action = "provide_authorized_session_or_fallback_source_without_treating_not_found_as_clearance"
     elif has_authorization_block:
         bucket = "AUTHORIZATION_BLOCKED_REVIEW"
         action = "provide_authorized_browser_session_then_rerun_release_field_query"
