@@ -158,6 +158,7 @@ def build_stage1_6_real_public_pressure_summary(
     stage4_project_code_recall_summary = _stage4_release_adapter_bridge_project_code_recall_summary(
         stage4_release_adapter_bridge_records
     )
+    stage4_project_code_backfill_records = _stage4_project_code_backfill_records(stage4_release_adapter_bridge_records)
     stage5_calibration_records = _stage5_calibration_records(result)
     company_first_required_count = sum(
         1 for readback in readbacks if bool(readback.get("jzsc_company_first_identity_resolution_required"))
@@ -210,6 +211,18 @@ def build_stage1_6_real_public_pressure_summary(
             {str(row.get("project_id") or "") for row in stage4_release_adapter_bridge_records if str(row.get("project_id") or "")}
         ),
         "stage4_release_adapter_bridge_project_code_recall_summary": stage4_project_code_recall_summary,
+        "stage4_project_code_backfill_record_count": len(stage4_project_code_backfill_records),
+        "stage4_project_code_backfill_project_count": len(
+            {str(record.get("project_id") or "") for record in stage4_project_code_backfill_records if str(record.get("project_id") or "")}
+        ),
+        "stage4_project_code_backfill_state_counts": _status_counts(
+            stage4_project_code_backfill_records,
+            "project_code_backfill_state",
+        ),
+        "stage4_project_code_backfill_next_action_counts": _status_counts(
+            stage4_project_code_backfill_records,
+            "recommended_next_action",
+        ),
         "stage5_calibration_sample_count": len(stage5_calibration_records),
         "stage5_calibration_review_bucket_counts": _status_counts(
             stage5_calibration_records,
@@ -259,6 +272,7 @@ def build_stage1_6_real_public_pressure_report(
     stage1_6_readiness_records = _stage1_6_readiness_records(result)
     stage1_6_gap_summary_records = _stage1_6_gap_summary_records(stage1_6_readiness_records)
     stage4_release_adapter_bridge_records = _stage4_release_adapter_bridge_records(result, created_at=created)
+    stage4_project_code_backfill_records = _stage4_project_code_backfill_records(stage4_release_adapter_bridge_records)
     stage5_calibration_records = _stage5_calibration_records(result)
     stage4_release_adapter_bridge_manifest = _stage4_release_adapter_bridge_manifest(
         records=stage4_release_adapter_bridge_records,
@@ -279,6 +293,7 @@ def build_stage1_6_real_public_pressure_report(
         "stage1_6_readiness_records": stage1_6_readiness_records,
         "stage1_6_gap_summary_records": stage1_6_gap_summary_records,
         "stage4_release_adapter_bridge_records": stage4_release_adapter_bridge_records,
+        "stage4_project_code_backfill_records": stage4_project_code_backfill_records,
         "stage5_calibration_records": stage5_calibration_records,
         "stage4_release_adapter_bridge_plan_ref": {
             "path": str(out_dir / "stage4-release-adapter-bridge-plan.json"),
@@ -314,6 +329,10 @@ def build_stage1_6_real_public_pressure_report(
     _write_json(
         out_dir / "stage4-release-adapter-bridge-table.json",
         {"summary": summary, "records": stage4_release_adapter_bridge_records},
+    )
+    _write_json(
+        out_dir / "stage4-project-code-backfill-table.json",
+        {"summary": summary, "records": stage4_project_code_backfill_records},
     )
     _write_json(
         out_dir / "stage5-calibration-sample-table.json",
@@ -891,12 +910,84 @@ def _stage4_release_adapter_bridge_project_code_recall_summary(
     }
 
 
+def _stage4_project_code_backfill_records(rows: list[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    by_project: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        project_id = str(row.get("project_id") or "").strip()
+        if not project_id or project_id in by_project:
+            continue
+        params = row.get("query_params") if isinstance(row.get("query_params"), Mapping) else {}
+        project_code_variants = _string_list(params.get("projectCodeVariants"))
+        gdcic_project_code_variants = _string_list(params.get("gdcicProjectCodeVariants"))
+        trade_project_code = str(params.get("tradeProjectCode") or "").strip()
+        candidate_company = str(row.get("candidate_company_name") or params.get("candidateCompanyName") or "").strip()
+        project_name = str(params.get("projectName") or row.get("project_name") or "").strip()
+        trigger_source_url = str(row.get("trigger_source_url") or params.get("triggerSourceUrl") or "").strip()
+        if gdcic_project_code_variants:
+            state = "GDCIC_PROJECT_CODE_BACKFILL_READY"
+            next_action = "rerun_stage4_bridge_and_field_query_with_gdcic_project_code_variants"
+        else:
+            state = "GDCIC_PROJECT_CODE_BACKFILL_REQUIRED"
+            next_action = "run_data_ggzy_company_history_overlap_triage_and_bid_show_project_code_backfill"
+        by_project[project_id] = {
+            "project_code_backfill_record_id": build_id("STAGE4-PROJECT-CODE-BACKFILL", project_id),
+            "project_id": project_id,
+            "project_name": project_name,
+            "candidate_company_name": candidate_company,
+            "trade_project_code": trade_project_code,
+            "project_code_variants": project_code_variants,
+            "gdcic_project_code_variants": gdcic_project_code_variants,
+            "project_code_backfill_state": state,
+            "recommended_next_action": next_action,
+            "backfill_source_priority": [
+                "data_ggzy_company_award_history_search_by_company_name_or_uniscid",
+                "data_ggzy_bid_show_notice_content_and_original_url",
+                "ygp_original_url_readback_from_data_ggzy_pointer_when_bid_show_is_insufficient",
+            ],
+            "accepted_explicit_project_code_fields": [
+                "project_code",
+                "source_project_code",
+                "gdcic_project_code",
+                "project_public_code",
+                "projectCode",
+                "projectNo",
+                "projectNum",
+                "tenderProjectCode",
+                "bidProjectCode",
+                "bidProjectNo",
+                "sectionCode",
+                "bidSectionCode",
+            ],
+            "must_not_extract_from_full_text_numbers": True,
+            "trade_project_code_not_sent_to_gdcic_project_code_route": bool(
+                trade_project_code and not gdcic_project_code_variants
+            ),
+            "target_stage4_bridge_fields": [
+                "projectCodeVariants",
+                "gdcicProjectCodeVariants",
+                "tradeProjectCode",
+            ],
+            "target_p13b_fields": [
+                "data_ggzy_bid_show_records",
+                "bid_show_records",
+                "original_notice_url",
+                "time_window_review_state",
+            ],
+            "trigger_source_url": trigger_source_url,
+            "query_miss_is_not_clearance": True,
+            "customer_visible_allowed": False,
+            "no_legal_conclusion": True,
+        }
+    return list(by_project.values())
+
+
 def _stage4_release_adapter_bridge_manifest(
     *,
     records: list[Mapping[str, Any]],
     source_run_result_json: Path,
     created_at: str,
 ) -> dict[str, Any]:
+    project_code_backfill_records = _stage4_project_code_backfill_records(records)
     manifest = {
         "manifest_version": 1,
         "manifest_kind": REAL_PUBLIC_STAGE4_RELEASE_ADAPTER_BRIDGE_KIND,
@@ -913,11 +1004,21 @@ def _stage4_release_adapter_bridge_manifest(
             "source_profile_counts": _status_counts(list(records), "source_profile_id"),
             "bridge_readiness_state_counts": _status_counts(list(records), "bridge_readiness_state"),
             "execution_mode_counts": _status_counts(list(records), "execution_mode"),
+            "project_code_backfill_record_count": len(project_code_backfill_records),
+            "project_code_backfill_state_counts": _status_counts(
+                project_code_backfill_records,
+                "project_code_backfill_state",
+            ),
+            "project_code_backfill_next_action_counts": _status_counts(
+                project_code_backfill_records,
+                "recommended_next_action",
+            ),
             "customer_visible_allowed": False,
             "no_legal_conclusion": True,
             "query_miss_is_not_clearance": True,
         },
         "release_evidence_adapter_task_records": [dict(row) for row in records],
+        "project_code_backfill_records": project_code_backfill_records,
         "safety": {
             "network_enabled": False,
             "download_enabled": False,
@@ -1059,11 +1160,20 @@ PROJECT_CODE_FIELD_KEYS = {
     "prjcode",
     "tenderprojectcode",
     "tenderprojectcodes",
+    "tenderprojectid",
+    "tenderprojectids",
     "tenderprojectno",
     "tenderprojectnum",
     "bidprojectcode",
+    "bidprojectid",
+    "bidprojectno",
+    "bidsectionno",
     "sectioncode",
     "bidsectioncode",
+    "projectserialcode",
+    "projectserialno",
+    "publicprojectcode",
+    "engineeringprojectcode",
 }
 
 PROJECT_CODE_URL_QUERY_KEYS = {
@@ -1080,8 +1190,12 @@ PROJECT_CODE_URL_QUERY_KEYS = {
     "prjnum",
     "prjcode",
     "tenderprojectcode",
+    "tenderprojectid",
     "sectioncode",
     "bidsectioncode",
+    "bidprojectcode",
+    "bidprojectid",
+    "bidsectionno",
 }
 
 

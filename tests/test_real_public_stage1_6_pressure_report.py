@@ -79,6 +79,11 @@ class StageOneSixRealPublicPressureReportTests(unittest.TestCase):
             summary["stage4_release_adapter_bridge_project_code_recall_summary"]["project_code_recall_state"],
             "ONLY_TRADE_OR_NO_GDCIC_PROJECT_CODE_VARIANTS",
         )
+        self.assertEqual(summary["stage4_project_code_backfill_record_count"], 1)
+        self.assertEqual(
+            summary["stage4_project_code_backfill_state_counts"],
+            {"GDCIC_PROJECT_CODE_BACKFILL_REQUIRED": 1},
+        )
         self.assertEqual(summary["stage5_calibration_sample_count"], 4)
         self.assertEqual(
             summary["stage5_calibration_review_bucket_counts"],
@@ -108,6 +113,14 @@ class StageOneSixRealPublicPressureReportTests(unittest.TestCase):
             self.assertTrue((root / "stage1-6-real-public-pressure-report-v1.json").exists())
             self.assertTrue((root / "candidate-pressure-table.json").exists())
             self.assertTrue((root / "stage1-6-readiness-table.json").exists())
+            self.assertTrue((root / "stage4-project-code-backfill-table.json").exists())
+            backfill_records = report["manifest"]["stage4_project_code_backfill_records"]
+            self.assertEqual(backfill_records[0]["project_code_backfill_state"], "GDCIC_PROJECT_CODE_BACKFILL_REQUIRED")
+            self.assertEqual(
+                backfill_records[0]["recommended_next_action"],
+                "run_data_ggzy_company_history_overlap_triage_and_bid_show_project_code_backfill",
+            )
+            self.assertTrue(backfill_records[0]["must_not_extract_from_full_text_numbers"])
             self.assertTrue((root / "stage1-6-gap-summary-table.json").exists())
             self.assertTrue((root / "stage4-release-adapter-bridge-table.json").exists())
             self.assertTrue((root / "stage4-release-adapter-bridge-plan.json").exists())
@@ -581,6 +594,49 @@ class StageOneSixRealPublicPressureReportTests(unittest.TestCase):
         self.assertEqual(recall["project_code_recall_state"], "GDCIC_PROJECT_CODE_VARIANTS_PRESENT")
         self.assertEqual(recall["with_gdcic_project_code_variant_task_count"], 1)
         self.assertEqual(recall["missing_gdcic_project_code_variant_task_count"], 0)
+        backfill_records = report["manifest"]["stage4_project_code_backfill_records"]
+        self.assertEqual(backfill_records[0]["project_code_backfill_state"], "GDCIC_PROJECT_CODE_BACKFILL_READY")
+        self.assertEqual(backfill_records[0]["gdcic_project_code_variants"], [gdcic_url_project_code, ygp_project_code])
+        self.assertTrue(backfill_records[0]["must_not_extract_from_full_text_numbers"])
+        self.assertNotIn(enterprise_credit_code, backfill_records[0]["project_code_variants"])
+        self.assertNotIn(certificate_no, backfill_records[0]["project_code_variants"])
+
+    def test_stage4_project_code_backfill_accepts_bid_show_aliases_without_full_text_digits(self) -> None:
+        run_result = _fake_run_result()
+        numeric_project_code = "440100202605190088"
+        enterprise_credit_code = "914400001903237820"
+        certificate_no = "粤1332006200810171"
+        run_result["candidate_options"][1]["project_id"] = "PROJ-CN-GD-JG2026-11337"
+        run_result["closed_loop_results"][1]["project_id"] = "PROJ-CN-GD-JG2026-11337"
+        readback = run_result["closed_loop_results"][1]["real_public_stage1_6_readback"]
+        readback["remaining_real_world_gaps"] = ["missing_stage4_5_source_type:contract_public_info"]
+        readback["data_ggzy_bid_show_records"] = [
+            {
+                "bid_show_url": "https://data.ggzy.gov.cn/yjcx/index/bid_show?id=abc",
+                "bidProjectNo": numeric_project_code,
+                "notice_content": (
+                    f"正文里有统一社会信用代码 {enterprise_credit_code}、证书编号 {certificate_no}、"
+                    "金额 123456789012345678，但这些不是项目代码字段"
+                ),
+            }
+        ]
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            (root / "run-result.json").write_text(json.dumps(run_result, ensure_ascii=False, indent=2), encoding="utf-8")
+            report = build_stage1_6_real_public_pressure_report(
+                run_result_json=root / "run-result.json",
+                output_root=root,
+            )
+
+        row = report["manifest"]["stage4_release_adapter_bridge_records"][0]
+        self.assertIn(numeric_project_code, row["query_params"]["gdcicProjectCodeVariants"])
+        self.assertNotIn(enterprise_credit_code, row["query_params"]["projectCodeVariants"])
+        self.assertNotIn(certificate_no, row["query_params"]["projectCodeVariants"])
+        self.assertNotIn("123456789012345678", row["query_params"]["projectCodeVariants"])
+        backfill_records = report["manifest"]["stage4_project_code_backfill_records"]
+        self.assertEqual(backfill_records[0]["project_code_backfill_state"], "GDCIC_PROJECT_CODE_BACKFILL_READY")
+        self.assertTrue(backfill_records[0]["must_not_extract_from_full_text_numbers"])
 
     def test_stage5_calibration_flags_pass_with_active_stage4_gap_as_review_sample(self) -> None:
         run_result = _fake_run_result()
