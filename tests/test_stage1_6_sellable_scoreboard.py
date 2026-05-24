@@ -30,8 +30,8 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
             _write_json(
                 pressure / "pressure-summary.json",
                 {
-                    "candidate_count": 2,
-                    "stage5_rule_gate_status_counts": {"REVIEW": 2},
+                    "candidate_count": 5,
+                    "stage5_rule_gate_status_counts": {"REVIEW": 5},
                     "customer_sellable_evidence_ready_count": 0,
                 },
             )
@@ -57,6 +57,31 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
                             "stage5_rule_gate_status": "REVIEW",
                             "stage5_gate_state": "REVIEW_REQUIRED",
                         },
+                        {
+                            "project_id": "PROJ-C",
+                            "project_name": "C candidate",
+                            "stage2_detail_capture_state": "FETCHED",
+                            "stage3_field_parse_state": "PARSED_FROM_FIELD_SIGNALS",
+                            "stage5_rule_gate_status": "REVIEW",
+                            "stage5_gate_state": "REVIEW_REQUIRED",
+                        },
+                        {
+                            "project_id": "PROJ-D",
+                            "project_name": "D candidate",
+                            "stage2_detail_capture_state": "FETCHED",
+                            "stage3_field_parse_state": "PARSED_FROM_FIELD_SIGNALS",
+                            "stage5_rule_gate_status": "REVIEW",
+                            "stage5_gate_state": "REVIEW_REQUIRED",
+                            "remaining_real_world_gaps": ["missing_stage4_5_source_type:completion_filing"],
+                        },
+                        {
+                            "project_id": "PROJ-E",
+                            "project_name": "E candidate",
+                            "stage2_detail_capture_state": "FETCHED",
+                            "stage3_field_parse_state": "PARSED_FROM_FIELD_SIGNALS",
+                            "stage5_rule_gate_status": "REVIEW",
+                            "stage5_gate_state": "REVIEW_REQUIRED",
+                        },
                     ]
                 },
             )
@@ -76,13 +101,22 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
                                 "adapter_result_state": "NEEDS_BROWSER",
                                 "blocker_taxonomy": ["gd_gdcic_contract_system_sso_login_required"],
                             },
+                            {
+                                "project_id": "PROJ-C",
+                                "adapter_result_state": "NOT_FOUND",
+                                "downstream_abcd_grade": "D_INSUFFICIENT_OR_BLOCKED_READBACK",
+                            },
+                            {
+                                "project_id": "PROJ-E",
+                                "adapter_result_state": "MATCHED",
+                            },
                         ]
                     },
                     "summary": {
-                        "adapter_result_state_counts": {"MATCHED": 1, "NEEDS_BROWSER": 1},
+                        "adapter_result_state_counts": {"MATCHED": 2, "NEEDS_BROWSER": 1, "NOT_FOUND": 1},
                         "release_evidence_downstream_abcd_grade_counts": {
                             "B_ENHANCEMENT_OFFICIAL_READBACK": 1,
-                            "D_INSUFFICIENT_OR_BLOCKED_READBACK": 1,
+                            "D_INSUFFICIENT_OR_BLOCKED_READBACK": 2,
                         },
                         "operator_next_action_counts": {
                             "provide_gdcic_authorized_storage_state_or_user_data_dir_then_rerun": 1,
@@ -118,6 +152,29 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
                             "stage6_ready": False,
                             "stage7_commercial_input_allowed": False,
                             "release_field_query_adapter_result_state_counts": {"NEEDS_BROWSER": 1},
+                            "release_field_query_operator_next_actions": [
+                                "provide_gdcic_authorized_storage_state_or_user_data_dir_then_rerun",
+                            ],
+                        },
+                        {
+                            "project_id": "PROJ-C",
+                            "stage6_ready": False,
+                            "stage7_commercial_input_allowed": False,
+                            "release_field_query_adapter_result_state_counts": {"NOT_FOUND": 1},
+                            "release_field_query_downstream_abcd_grade_counts": {
+                                "D_INSUFFICIENT_OR_BLOCKED_READBACK": 1
+                            },
+                        },
+                        {
+                            "project_id": "PROJ-D",
+                            "stage6_ready": False,
+                            "stage7_commercial_input_allowed": False,
+                        },
+                        {
+                            "project_id": "PROJ-E",
+                            "stage6_ready": False,
+                            "stage7_commercial_input_allowed": False,
+                            "release_field_query_adapter_result_state_counts": {"MATCHED": 1},
                         },
                     ],
                 },
@@ -132,18 +189,39 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
             )
 
         scoreboard = result["scoreboard"]
-        self.assertEqual(scoreboard["candidate_count"], 2)
-        self.assertEqual(scoreboard["stage2_success_count"], 2)
-        self.assertEqual(scoreboard["stage3_success_count"], 2)
-        self.assertEqual(scoreboard["stage4_matched_task_count"], 1)
+        self.assertEqual(scoreboard["candidate_count"], 5)
+        self.assertEqual(scoreboard["stage2_success_count"], 5)
+        self.assertEqual(scoreboard["stage3_success_count"], 5)
+        self.assertEqual(scoreboard["stage4_matched_task_count"], 2)
         self.assertEqual(scoreboard["stage4_needs_browser_task_count"], 1)
-        self.assertEqual(scoreboard["stage5_review_count"], 2)
+        self.assertEqual(scoreboard["stage5_review_count"], 5)
         self.assertEqual(scoreboard["stage6_fact_ready_count"], 0)
         self.assertEqual(scoreboard["stage7_sellable_count"], 0)
         self.assertEqual(scoreboard["limited_sellable_review_candidate_count"], 1)
-        self.assertEqual(scoreboard["real_public_sellable_pack_rate"], 0.5)
+        self.assertEqual(scoreboard["real_public_sellable_pack_rate"], 0.2)
+        self.assertEqual(
+            scoreboard["stage5_operational_review_bucket_counts"],
+            {
+                "STRONG_LEAD_INTERNAL_REVIEW": 1,
+                "AUTHORIZATION_BLOCKED_REVIEW": 1,
+                "SOURCE_NOT_FOUND_REVIEW": 1,
+                "EVIDENCE_INSUFFICIENT_REVIEW": 1,
+                "WEAK_LEAD_OFFICIAL_SIGNAL_REVIEW": 1,
+            },
+        )
+        self.assertEqual(
+            scoreboard["stage5_operational_signal_counts"],
+            {
+                "strong_lead": 1,
+                "authorization_blocked": 1,
+                "source_not_found": 1,
+                "evidence_insufficient": 5,
+                "weak_lead": 1,
+            },
+        )
         rows = {row["project_id"]: row for row in result["project_rows"]}
         self.assertEqual(rows["PROJ-A"]["limited_sellable_review_candidate_state"], "REVIEW_CANDIDATE")
+        self.assertEqual(rows["PROJ-A"]["stage5_operational_review_bucket"], "STRONG_LEAD_INTERNAL_REVIEW")
         self.assertEqual(
             rows["PROJ-A"]["limited_sellable_review_reason"],
             "official_b_or_c_readback_requires_manual_stage5_stage6_review",
@@ -152,11 +230,18 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
             rows["PROJ-A"]["commercialization_boundary_state"],
             "INTERNAL_REVIEW_ONLY_NOT_CUSTOMER_DELIVERABLE",
         )
+        self.assertEqual(rows["PROJ-B"]["stage5_operational_review_bucket"], "AUTHORIZATION_BLOCKED_REVIEW")
+        self.assertEqual(rows["PROJ-C"]["stage5_operational_review_bucket"], "SOURCE_NOT_FOUND_REVIEW")
+        self.assertEqual(rows["PROJ-D"]["stage5_operational_review_bucket"], "EVIDENCE_INSUFFICIENT_REVIEW")
+        self.assertEqual(rows["PROJ-E"]["stage5_operational_review_bucket"], "WEAK_LEAD_OFFICIAL_SIGNAL_REVIEW")
+        self.assertTrue(all(row["stage5_query_miss_is_not_clearance"] for row in rows.values()))
         self.assertEqual(
             result["blocker_summary"]["blocking_bucket_counts"],
             {
                 "stage4_matched_needs_manual_limited_sellable_review": 1,
                 "authorization_or_browser_blocked": 1,
+                "official_source_not_found_or_field_missing": 1,
+                "stage5_rule_review": 2,
             },
         )
         self.assertFalse(result["safety"]["customer_visible_allowed"])

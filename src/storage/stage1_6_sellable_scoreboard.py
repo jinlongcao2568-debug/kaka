@@ -167,6 +167,14 @@ def _scoreboard_counts(
         "stage4_matched_task_count": stage4_matched_count,
         "stage4_needs_browser_task_count": stage4_needs_browser_count,
         "stage5_review_count": stage5_review_count,
+        "stage5_operational_review_bucket_counts": _counts(
+            row.get("stage5_operational_review_bucket") for row in project_rows
+        ),
+        "stage5_operational_signal_counts": _counts(
+            signal
+            for row in project_rows
+            for signal in _as_list(row.get("stage5_operational_signal_flags"))
+        ),
         "stage6_fact_ready_count": stage6_fact_ready_count,
         "stage7_sellable_count": stage7_sellable_count,
         "limited_sellable_review_candidate_count": limited_sellable_review_candidate_count,
@@ -212,6 +220,14 @@ def _project_scoreboard_row(
         if stage6_limited_review_state
         else "REVIEW_CANDIDATE" if has_official_b_or_c and not stage7_allowed else "NOT_READY"
     )
+    stage5_operational_review = _stage5_operational_review(
+        readiness_record=readiness_record,
+        stage6_record=stage6_record,
+        field_records=field_records,
+        adapter_counts=adapter_counts,
+        combined_grade_counts=combined_grade_counts,
+        has_official_b_or_c=has_official_b_or_c,
+    )
     return {
         "project_id": project_id,
         "project_name": str(readiness_record.get("project_name") or stage6_record.get("project_name") or ""),
@@ -219,6 +235,7 @@ def _project_scoreboard_row(
         "stage3_field_parse_state": str(readiness_record.get("stage3_field_parse_state") or ""),
         "stage5_gate_state": str(readiness_record.get("stage5_gate_state") or ""),
         "stage5_rule_gate_status": str(readiness_record.get("stage5_rule_gate_status") or ""),
+        **stage5_operational_review,
         "stage6_fact_package_state": str(stage6_record.get("stage6_fact_package_state") or readiness_record.get("stage6_fact_package_state") or ""),
         "stage6_ready": bool(stage6_record.get("stage6_ready")),
         "stage7_commercial_input_allowed": stage7_allowed,
@@ -279,6 +296,14 @@ def _blocker_summary(
         "fail_closed_reason_counts": _flatten_counts(readiness_records, "fail_closed_reasons"),
         "field_blocker_taxonomy_counts": blocker_taxonomy_counts,
         "operator_next_action_counts": dict(field_summary.get("operator_next_action_counts") or {}),
+        "stage5_operational_review_bucket_counts": _counts(
+            row.get("stage5_operational_review_bucket") for row in project_rows
+        ),
+        "stage5_operational_signal_counts": _counts(
+            signal
+            for row in project_rows
+            for signal in _as_list(row.get("stage5_operational_signal_flags"))
+        ),
     }
 
 
@@ -313,6 +338,75 @@ def _project_blocking_bucket(
     if str(readiness_record.get("stage3_field_parse_state") or "").upper() and not str(readiness_record.get("stage3_field_parse_state") or "").upper().startswith("PARSED"):
         return "stage3_parse_gap"
     return "unclassified_review_required"
+
+
+def _stage5_operational_review(
+    *,
+    readiness_record: Mapping[str, Any],
+    stage6_record: Mapping[str, Any],
+    field_records: list[Mapping[str, Any]],
+    adapter_counts: Mapping[str, int],
+    combined_grade_counts: Mapping[str, int],
+    has_official_b_or_c: bool,
+) -> dict[str, Any]:
+    operator_actions = [
+        str(item)
+        for item in _as_list(stage6_record.get("release_field_query_operator_next_actions"))
+        if str(item or "").strip()
+    ]
+    authorization_counts = dict(stage6_record.get("release_field_query_authorization_state_counts") or {})
+    has_authorization_block = (
+        _int(adapter_counts.get("NEEDS_BROWSER")) > 0
+        or any("LOGIN_OR_SSO_REQUIRED" in str(key) and _int(value) > 0 for key, value in authorization_counts.items())
+        or any("authorized_storage_state_or_user_data_dir" in action for action in operator_actions)
+    )
+    has_source_not_found = _int(adapter_counts.get("NOT_FOUND")) > 0
+    has_weak_official_signal = _int(adapter_counts.get("MATCHED")) > 0 and not has_official_b_or_c
+    has_evidence_insufficient = (
+        any(str(key).startswith("D_") and _int(value) > 0 for key, value in combined_grade_counts.items())
+        or bool(_as_list(readiness_record.get("remaining_real_world_gaps")))
+        or bool(_as_list(readiness_record.get("fail_closed_reasons")))
+        or str(readiness_record.get("stage5_rule_gate_status") or "").upper() == "REVIEW"
+        or str(readiness_record.get("stage5_gate_state") or "").upper() == "REVIEW_REQUIRED"
+    )
+    signals: list[str] = []
+    if has_official_b_or_c:
+        signals.append("strong_lead")
+    if has_weak_official_signal:
+        signals.append("weak_lead")
+    if has_authorization_block:
+        signals.append("authorization_blocked")
+    if has_source_not_found:
+        signals.append("source_not_found")
+    if has_evidence_insufficient:
+        signals.append("evidence_insufficient")
+
+    if has_official_b_or_c:
+        bucket = "STRONG_LEAD_INTERNAL_REVIEW"
+        action = "manual_stage5_stage6_review_before_limited_sellable_internal_package"
+    elif has_weak_official_signal:
+        bucket = "WEAK_LEAD_OFFICIAL_SIGNAL_REVIEW"
+        action = "strengthen_official_readback_before_any_commercial_projection"
+    elif has_authorization_block:
+        bucket = "AUTHORIZATION_BLOCKED_REVIEW"
+        action = "provide_authorized_browser_session_then_rerun_release_field_query"
+    elif has_source_not_found:
+        bucket = "SOURCE_NOT_FOUND_REVIEW"
+        action = "try_project_code_backfill_or_jurisdiction_source_without_clearance_claim"
+    elif has_evidence_insufficient:
+        bucket = "EVIDENCE_INSUFFICIENT_REVIEW"
+        action = "keep_internal_evidence_gap_and_collect_more_official_readback"
+    else:
+        bucket = "UNCLASSIFIED_STAGE5_REVIEW"
+        action = "review_stage5_inputs_and_classifier_coverage"
+
+    return {
+        "stage5_operational_review_bucket": bucket,
+        "stage5_operational_signal_flags": signals or ["unclassified_review_required"],
+        "stage5_operational_review_reason": "|".join(signals) if signals else "stage5_review_requires_manual_triage",
+        "stage5_operational_next_action": action,
+        "stage5_query_miss_is_not_clearance": True,
+    }
 
 
 def _resolve_stage6_status_path(value: str | Path | None, root: Path) -> Path:
@@ -479,6 +573,8 @@ def _write_markdown(path: Path, payload: Mapping[str, Any]) -> None:
         f"- stage4_matched_task_count: {scoreboard.get('stage4_matched_task_count', 0)}",
         f"- stage4_needs_browser_task_count: {scoreboard.get('stage4_needs_browser_task_count', 0)}",
         f"- stage5_review_count: {scoreboard.get('stage5_review_count', 0)}",
+        f"- stage5_operational_review_bucket_counts: {json.dumps(scoreboard.get('stage5_operational_review_bucket_counts', {}), ensure_ascii=False, sort_keys=True)}",
+        f"- stage5_operational_signal_counts: {json.dumps(scoreboard.get('stage5_operational_signal_counts', {}), ensure_ascii=False, sort_keys=True)}",
         f"- stage6_fact_ready_count: {scoreboard.get('stage6_fact_ready_count', 0)}",
         f"- stage7_sellable_count: {scoreboard.get('stage7_sellable_count', 0)}",
         f"- limited_sellable_review_candidate_count: {scoreboard.get('limited_sellable_review_candidate_count', 0)}",
