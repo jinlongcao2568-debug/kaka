@@ -21,10 +21,12 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
             root = Path(tmp_dir)
             pressure = root / "pressure"
             field_query = root / "field-query"
+            gdcic_readback = root / "gdcic-readback"
             stage6 = root / "stage6"
             out = root / "out"
             pressure.mkdir()
             field_query.mkdir()
+            gdcic_readback.mkdir()
             stage6.mkdir()
 
             _write_json(
@@ -125,6 +127,23 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
                 },
             )
             _write_json(
+                gdcic_readback / "gdcic-browser-authorized-readback-v1.json",
+                {
+                    "summary": {
+                        "authorized_session_input_state": "NO_AUTHORIZED_SESSION_INPUT",
+                        "authorized_session_input_ready": False,
+                        "gdcic_authorized_session_overall_state": "NOT_ATTEMPTED_PLAN_ONLY",
+                        "target_real_readback_success_count": 0,
+                        "target_project_manager_change_real_readback_success_count": 0,
+                        "real_readback_success_not_faked": True,
+                        "real_readback_success_proof_state": "NO_REAL_AUTHORIZED_READBACK_SUCCESS",
+                        "authorization_blocker_operator_next_action": (
+                            "provide_gdcic_authorized_storage_state_or_user_data_dir_then_rerun"
+                        ),
+                    }
+                },
+            )
+            _write_json(
                 stage6 / "stage6-review-loop-project-status-table.json",
                 {
                     "summary": {
@@ -183,6 +202,7 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
             result = build_stage1_6_sellable_scoreboard(
                 pressure_root=pressure,
                 field_query_root=field_query,
+                gdcic_browser_readback_root=gdcic_readback,
                 stage6_status_root=stage6,
                 output_root=out,
                 created_at="2026-05-24T00:00:00+08:00",
@@ -199,6 +219,26 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
         self.assertEqual(scoreboard["stage7_sellable_count"], 0)
         self.assertEqual(scoreboard["limited_sellable_review_candidate_count"], 1)
         self.assertEqual(scoreboard["real_public_sellable_pack_rate"], 0.2)
+        self.assertEqual(
+            scoreboard["gdcic_authorized_readback_status"],
+            {
+                "artifact_state": "BUILT",
+                "authorized_session_input_state": "NO_AUTHORIZED_SESSION_INPUT",
+                "authorized_session_input_ready": False,
+                "authorization_readiness_state": "NOT_ATTEMPTED_PLAN_ONLY",
+                "target_real_readback_success_count": 0,
+                "target_project_manager_change_real_readback_success_count": 0,
+                "real_readback_success_not_faked": True,
+                "real_readback_success_proof_state": "NO_REAL_AUTHORIZED_READBACK_SUCCESS",
+                "operator_next_action": "provide_gdcic_authorized_storage_state_or_user_data_dir_then_rerun",
+                "customer_visible_allowed": False,
+                "query_miss_is_not_clearance": True,
+            },
+        )
+        self.assertIn(
+            "provide_gdcic_authorized_storage_state_or_user_data_dir_then_rerun",
+            result["recommended_next_actions"],
+        )
         self.assertEqual(
             scoreboard["stage5_operational_review_bucket_counts"],
             {

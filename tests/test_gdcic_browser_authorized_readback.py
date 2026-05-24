@@ -52,6 +52,18 @@ class GDCICBrowserAuthorizedReadbackTests(unittest.TestCase, IsolatedStorageTest
             self.assertEqual(summary["authorized_session_input_state"], "NO_AUTHORIZED_SESSION_INPUT")
             self.assertFalse(summary["authorized_session_input_ready"])
             self.assertFalse(summary["http_dynamic_stealthy_can_replace_login_state"])
+            self.assertEqual(summary["target_real_readback_success_count"], 0)
+            self.assertEqual(summary["target_project_manager_change_real_readback_success_count"], 0)
+            self.assertTrue(summary["real_readback_success_not_faked"])
+            self.assertEqual(summary["real_readback_success_proof_state"], "NO_REAL_AUTHORIZED_READBACK_SUCCESS")
+            self.assertEqual(
+                summary["authorization_blocker_operator_next_action"],
+                "provide_gdcic_authorized_storage_state_or_user_data_dir_then_rerun",
+            )
+            self.assertEqual(
+                summary["operator_next_action_counts"],
+                {"provide_gdcic_authorized_storage_state_or_user_data_dir_then_rerun": 1},
+            )
             self.assertEqual(summary["gdcic_browser_readback_task_count"], 2)
             self.assertEqual(summary["gdcic_browser_readback_record_count"], 0)
             self.assertEqual(summary["gdcic_authorized_session_overall_state"], "NOT_ATTEMPTED_PLAN_ONLY")
@@ -350,6 +362,12 @@ class GDCICBrowserAuthorizedReadbackTests(unittest.TestCase, IsolatedStorageTest
                 record["operator_next_actions"],
             )
             self.assertEqual(result["summary"]["gdcic_authorized_session_overall_state"], "LOGIN_OR_SSO_REQUIRED")
+            self.assertEqual(result["summary"]["target_real_readback_success_count"], 0)
+            self.assertTrue(result["summary"]["real_readback_success_not_faked"])
+            self.assertEqual(
+                result["summary"]["authorization_blocker_operator_next_action"],
+                "provide_gdcic_authorized_storage_state_or_user_data_dir_then_rerun",
+            )
             self.assertEqual(result["summary"]["project_manager_change_ready_count"], 0)
             self.assertIn("gdcic_login_or_sso_required_for_authorized_readback", record["blocker_taxonomy"])
             self.assertTrue(record["query_miss_is_not_clearance"])

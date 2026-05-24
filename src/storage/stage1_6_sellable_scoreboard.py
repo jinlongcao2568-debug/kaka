@@ -14,6 +14,7 @@ SCOREBOARD_VERSION = 1
 
 DEFAULT_PRESSURE_ROOT = Path("tmp/evaluation-real-samples/guangzhou-stage1-6-real-public-pressure-v1")
 DEFAULT_FIELD_QUERY_ROOT = Path("tmp/evaluation-real-samples/guangdong-local-field-query-probe-v1")
+DEFAULT_GDCIC_BROWSER_READBACK_ROOT = Path("tmp/evaluation-real-samples/gdcic-browser-authorized-readback-v1")
 DEFAULT_STAGE6_STATUS_ROOT = Path("tmp/evaluation-real-samples/stage6-review-cycle-runner-v1")
 DEFAULT_OUTPUT_ROOT = Path("tmp/evaluation-real-samples/stage1-6-sellable-scoreboard-v1")
 
@@ -26,6 +27,8 @@ def build_stage1_6_sellable_scoreboard(
     gap_summary_json: str | Path | None = None,
     field_query_root: str | Path | None = None,
     field_query_json: str | Path | None = None,
+    gdcic_browser_readback_root: str | Path | None = None,
+    gdcic_browser_readback_json: str | Path | None = None,
     stage6_status_root: str | Path | None = None,
     stage6_status_json: str | Path | None = None,
     output_root: str | Path | None = None,
@@ -34,6 +37,7 @@ def build_stage1_6_sellable_scoreboard(
     created = created_at or utc_now_iso()
     pressure_dir = Path(pressure_root or DEFAULT_PRESSURE_ROOT)
     field_dir = Path(field_query_root or DEFAULT_FIELD_QUERY_ROOT)
+    gdcic_readback_dir = Path(gdcic_browser_readback_root or DEFAULT_GDCIC_BROWSER_READBACK_ROOT)
     stage6_dir = Path(stage6_status_root or DEFAULT_STAGE6_STATUS_ROOT)
     out_dir = Path(output_root or DEFAULT_OUTPUT_ROOT)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -42,12 +46,17 @@ def build_stage1_6_sellable_scoreboard(
     readiness_path = _resolve_path(readiness_json, pressure_dir / "stage1-6-readiness-table.json")
     gap_summary_path = _resolve_path(gap_summary_json, pressure_dir / "stage1-6-gap-summary-table.json")
     field_query_path = _resolve_path(field_query_json, field_dir / "guangdong-local-field-query-probe-v1.json")
+    gdcic_browser_readback_path = _resolve_path(
+        gdcic_browser_readback_json,
+        gdcic_readback_dir / "gdcic-browser-authorized-readback-v1.json",
+    )
     stage6_status_path = _resolve_stage6_status_path(stage6_status_json, stage6_dir)
 
     pressure_summary = _read_json_mapping(pressure_summary_path)
     readiness = _read_json_mapping(readiness_path)
     gap_summary = _read_json_mapping(gap_summary_path)
     field_query = _read_json_mapping(field_query_path)
+    gdcic_browser_readback = _read_json_mapping(gdcic_browser_readback_path)
     stage6_status = _read_json_mapping(stage6_status_path)
 
     readiness_records = _records(readiness)
@@ -76,8 +85,25 @@ def build_stage1_6_sellable_scoreboard(
         )
         for project_id in project_ids
     ]
-    counts = _scoreboard_counts(pressure_summary, readiness_records, field_query, field_records, stage6_status, stage6_records, project_rows)
-    blocker_summary = _blocker_summary(readiness_records, gap_records, field_query, field_records, stage6_records, project_rows)
+    counts = _scoreboard_counts(
+        pressure_summary,
+        readiness_records,
+        field_query,
+        gdcic_browser_readback,
+        field_records,
+        stage6_status,
+        stage6_records,
+        project_rows,
+    )
+    blocker_summary = _blocker_summary(
+        readiness_records,
+        gap_records,
+        field_query,
+        gdcic_browser_readback,
+        field_records,
+        stage6_records,
+        project_rows,
+    )
     recommended_next_actions = _recommended_next_actions(blocker_summary, counts)
 
     result = {
@@ -89,6 +115,7 @@ def build_stage1_6_sellable_scoreboard(
             "stage1_6_readiness_json": str(readiness_path),
             "stage1_6_gap_summary_json": str(gap_summary_path),
             "release_field_query_json": str(field_query_path),
+            "gdcic_browser_authorized_readback_json": str(gdcic_browser_readback_path),
             "stage6_status_json": str(stage6_status_path),
         },
         "scoreboard": counts,
@@ -114,6 +141,7 @@ def _scoreboard_counts(
     pressure_summary: Mapping[str, Any],
     readiness_records: list[Mapping[str, Any]],
     field_query: Mapping[str, Any],
+    gdcic_browser_readback: Mapping[str, Any],
     field_records: list[Mapping[str, Any]],
     stage6_status: Mapping[str, Any],
     stage6_records: list[Mapping[str, Any]],
@@ -132,6 +160,7 @@ def _scoreboard_counts(
         if _stage3_parse_attempt_succeeded(record.get("stage3_field_parse_state"))
     )
     field_summary = _summary(field_query)
+    gdcic_readback_summary = _summary(gdcic_browser_readback)
     stage6_summary = _summary(stage6_status)
     stage4_matched_count = _count_state(field_summary, field_records, "adapter_result_state", "MATCHED")
     stage4_needs_browser_count = _count_state(field_summary, field_records, "adapter_result_state", "NEEDS_BROWSER")
@@ -186,6 +215,7 @@ def _scoreboard_counts(
         or _counts(record.get("release_field_query_state") for record in stage6_records),
         "stage4_adapter_result_state_counts": dict(field_summary.get("adapter_result_state_counts") or {}),
         "stage4_downstream_abcd_grade_counts": dict(field_summary.get("release_evidence_downstream_abcd_grade_counts") or {}),
+        "gdcic_authorized_readback_status": _gdcic_authorized_readback_status(gdcic_readback_summary),
         "stage6_loop_terminal_state_counts": dict(stage6_summary.get("loop_terminal_state_counts") or {})
         or _counts(record.get("loop_terminal_state") for record in stage6_records),
     }
@@ -262,11 +292,13 @@ def _blocker_summary(
     readiness_records: list[Mapping[str, Any]],
     gap_records: list[Mapping[str, Any]],
     field_query: Mapping[str, Any],
+    gdcic_browser_readback: Mapping[str, Any],
     field_records: list[Mapping[str, Any]],
     stage6_records: list[Mapping[str, Any]],
     project_rows: list[Mapping[str, Any]],
 ) -> dict[str, Any]:
     field_summary = _summary(field_query)
+    gdcic_readback_summary = _summary(gdcic_browser_readback)
     blocker_taxonomy_counts = dict(field_summary.get("blocker_taxonomy_counts") or {})
     if not blocker_taxonomy_counts:
         blocker_taxonomy_counts = _flatten_counts(field_records, "blocker_taxonomy")
@@ -296,6 +328,7 @@ def _blocker_summary(
         "fail_closed_reason_counts": _flatten_counts(readiness_records, "fail_closed_reasons"),
         "field_blocker_taxonomy_counts": blocker_taxonomy_counts,
         "operator_next_action_counts": dict(field_summary.get("operator_next_action_counts") or {}),
+        "gdcic_authorized_readback_blocker": _gdcic_authorized_readback_status(gdcic_readback_summary),
         "stage5_operational_review_bucket_counts": _counts(
             row.get("stage5_operational_review_bucket") for row in project_rows
         ),
@@ -311,13 +344,68 @@ def _recommended_next_actions(blocker_summary: Mapping[str, Any], counts: Mappin
     actions: list[str] = []
     if _int(blocker_summary.get("authorization_blocked_task_count")):
         actions.append("provide_gdcic_authorized_storage_state_or_user_data_dir_then_rerun_field_query")
+    gdcic_blocker = blocker_summary.get("gdcic_authorized_readback_blocker")
+    if isinstance(gdcic_blocker, Mapping) and str(gdcic_blocker.get("operator_next_action") or "").strip():
+        actions.append(str(gdcic_blocker.get("operator_next_action")))
     if _int(blocker_summary.get("field_missing_or_not_found_task_count")):
         actions.append("extend_stage4_project_code_and_source_readback_before_claiming_clearance")
     if _int(blocker_summary.get("stage4_matched_without_stage7_saleable_project_count")):
         actions.append("review_b_or_c_official_readback_for_limited_sellable_internal_package")
     if _int(counts.get("stage7_sellable_count")) == 0 and _int(counts.get("limited_sellable_review_candidate_count")) == 0:
         actions.append("do_not_expand_stage8_stage9_until_stage4_sellable_inventory_exists")
-    return actions
+    return _dedupe(actions)
+
+
+def _gdcic_authorized_readback_status(summary: Mapping[str, Any]) -> dict[str, Any]:
+    if not summary:
+        return {
+            "artifact_state": "MISSING_OR_NOT_BUILT",
+            "authorized_session_input_state": "",
+            "authorized_session_input_ready": False,
+            "authorization_readiness_state": "",
+            "target_real_readback_success_count": 0,
+            "target_project_manager_change_real_readback_success_count": 0,
+            "real_readback_success_not_faked": True,
+            "real_readback_success_proof_state": "NO_REAL_AUTHORIZED_READBACK_SUCCESS",
+            "operator_next_action": "build_gdcic_browser_authorized_readback_artifact_then_rerun_scoreboard",
+            "customer_visible_allowed": False,
+            "query_miss_is_not_clearance": True,
+        }
+    authorized_session_ready = bool(summary.get("authorized_session_input_ready"))
+    overall_state = str(summary.get("gdcic_authorized_session_overall_state") or "")
+    success_count = _int(
+        summary.get("target_real_readback_success_count")
+        if "target_real_readback_success_count" in summary
+        else summary.get("gdcic_browser_readback_ready_count")
+    )
+    project_manager_success_count = _int(
+        summary.get("target_project_manager_change_real_readback_success_count")
+        if "target_project_manager_change_real_readback_success_count" in summary
+        else summary.get("project_manager_change_ready_count")
+    )
+    operator_action = str(summary.get("authorization_blocker_operator_next_action") or "").strip()
+    if not operator_action and (not authorized_session_ready or overall_state == "LOGIN_OR_SSO_REQUIRED"):
+        operator_action = "provide_gdcic_authorized_storage_state_or_user_data_dir_then_rerun"
+    return {
+        "artifact_state": "BUILT",
+        "authorized_session_input_state": str(summary.get("authorized_session_input_state") or ""),
+        "authorized_session_input_ready": authorized_session_ready,
+        "authorization_readiness_state": overall_state,
+        "target_real_readback_success_count": success_count,
+        "target_project_manager_change_real_readback_success_count": project_manager_success_count,
+        "real_readback_success_not_faked": bool(summary.get("real_readback_success_not_faked", True)),
+        "real_readback_success_proof_state": str(
+            summary.get("real_readback_success_proof_state")
+            or (
+                "PROVEN_BY_BROWSER_AUTHORIZED_READBACK_READY_RECORDS"
+                if success_count
+                else "NO_REAL_AUTHORIZED_READBACK_SUCCESS"
+            )
+        ),
+        "operator_next_action": operator_action,
+        "customer_visible_allowed": False,
+        "query_miss_is_not_clearance": True,
+    }
 
 
 def _project_blocking_bucket(
@@ -544,6 +632,15 @@ def _as_list(value: Any) -> list[Any]:
     return [value]
 
 
+def _dedupe(values: list[str]) -> list[str]:
+    out: list[str] = []
+    for value in values:
+        text = str(value or "").strip()
+        if text and text not in out:
+            out.append(text)
+    return out
+
+
 def _int(value: Any) -> int:
     try:
         return int(value or 0)
@@ -579,6 +676,7 @@ def _write_markdown(path: Path, payload: Mapping[str, Any]) -> None:
         f"- stage7_sellable_count: {scoreboard.get('stage7_sellable_count', 0)}",
         f"- limited_sellable_review_candidate_count: {scoreboard.get('limited_sellable_review_candidate_count', 0)}",
         f"- real_public_sellable_pack_rate: {scoreboard.get('real_public_sellable_pack_rate', 0)}",
+        f"- gdcic_authorized_readback_status: {json.dumps(scoreboard.get('gdcic_authorized_readback_status', {}), ensure_ascii=False, sort_keys=True)}",
         "",
         "## Blockers",
     ]

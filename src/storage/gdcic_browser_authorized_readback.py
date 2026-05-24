@@ -979,44 +979,70 @@ def _summary(
         for source_record in _list(record.get("records"))
         if isinstance(source_record, Mapping)
     ]
+    authorized_session_input_ready = authorized_session_input_state in {
+        "INJECTED_BROWSER_RUNNER",
+        "STORAGE_STATE_JSON_SUPPLIED",
+        "USER_DATA_DIR_SUPPLIED",
+        "USER_DATA_DIR_AND_STORAGE_STATE_JSON_SUPPLIED",
+        "USER_DATA_DIR_SUPPLIED_STORAGE_STATE_JSON_MISSING",
+        "STORAGE_STATE_JSON_SUPPLIED_USER_DATA_DIR_MISSING",
+    }
+    ready_count = sum(
+        1 for record in readback_records if str(record.get("readback_state") or "") == "BROWSER_AUTHORIZED_READBACK_READY"
+    )
+    login_or_sso_required_count = sum(
+        1 for record in readback_records if str(record.get("readback_state") or "") == "LOGIN_OR_SSO_REQUIRED_BLOCKED"
+    )
+    no_field_match_count = sum(
+        1 for record in readback_records if str(record.get("readback_state") or "") == "NO_FIELD_MATCH_REVIEW_REQUIRED"
+    )
+    operator_next_action_counts = _counts(
+        action
+        for record in readback_records
+        for action in _list(record.get("operator_next_actions"))
+    )
+    if not authorized_session_input_ready:
+        operator_next_action_counts = {
+            **operator_next_action_counts,
+            "provide_gdcic_authorized_storage_state_or_user_data_dir_then_rerun": max(
+                int(operator_next_action_counts.get("provide_gdcic_authorized_storage_state_or_user_data_dir_then_rerun") or 0),
+                1,
+            ),
+        }
+    overall_state = _overall_authorization_state(
+        execution_mode=execution_mode,
+        readback_records=readback_records,
+        authorization_state_counts=authorization_state_counts,
+    )
     return {
         "execution_mode": execution_mode,
         "authorized_session_input_state": authorized_session_input_state,
-        "authorized_session_input_ready": authorized_session_input_state
-        in {
-            "INJECTED_BROWSER_RUNNER",
-            "STORAGE_STATE_JSON_SUPPLIED",
-            "USER_DATA_DIR_SUPPLIED",
-            "USER_DATA_DIR_AND_STORAGE_STATE_JSON_SUPPLIED",
-            "USER_DATA_DIR_SUPPLIED_STORAGE_STATE_JSON_MISSING",
-            "STORAGE_STATE_JSON_SUPPLIED_USER_DATA_DIR_MISSING",
-        },
+        "authorized_session_input_ready": authorized_session_input_ready,
         "requires_authorized_session_for_login_protected_pages": True,
         "http_dynamic_stealthy_can_replace_login_state": False,
+        "target_real_readback_success_count": ready_count,
+        "target_project_manager_change_real_readback_success_count": sum(
+            1
+            for record in project_manager_change_records
+            if str(record.get("readback_state") or "") == "BROWSER_AUTHORIZED_READBACK_READY"
+        ),
+        "real_readback_success_not_faked": True,
+        "real_readback_success_proof_state": "PROVEN_BY_BROWSER_AUTHORIZED_READBACK_READY_RECORDS"
+        if ready_count
+        else "NO_REAL_AUTHORIZED_READBACK_SUCCESS",
+        "authorization_blocker_operator_next_action": "provide_gdcic_authorized_storage_state_or_user_data_dir_then_rerun"
+        if (not authorized_session_input_ready or overall_state == "LOGIN_OR_SSO_REQUIRED")
+        else "",
         "gdcic_browser_readback_task_count": len(task_records),
         "gdcic_browser_readback_record_count": len(readback_records),
-        "gdcic_browser_readback_ready_count": sum(
-            1 for record in readback_records if str(record.get("readback_state") or "") == "BROWSER_AUTHORIZED_READBACK_READY"
-        ),
-        "gdcic_browser_login_or_sso_required_count": sum(
-            1 for record in readback_records if str(record.get("readback_state") or "") == "LOGIN_OR_SSO_REQUIRED_BLOCKED"
-        ),
-        "gdcic_browser_no_field_match_count": sum(
-            1 for record in readback_records if str(record.get("readback_state") or "") == "NO_FIELD_MATCH_REVIEW_REQUIRED"
-        ),
+        "gdcic_browser_readback_ready_count": ready_count,
+        "gdcic_browser_login_or_sso_required_count": login_or_sso_required_count,
+        "gdcic_browser_no_field_match_count": no_field_match_count,
         "readback_state_counts": _counts(record.get("readback_state") for record in readback_records),
         "adapter_result_state_counts": _counts(record.get("adapter_result_state") for record in readback_records),
         "authorization_readiness_state_counts": authorization_state_counts,
-        "gdcic_authorized_session_overall_state": _overall_authorization_state(
-            execution_mode=execution_mode,
-            readback_records=readback_records,
-            authorization_state_counts=authorization_state_counts,
-        ),
-        "operator_next_action_counts": _counts(
-            action
-            for record in readback_records
-            for action in _list(record.get("operator_next_actions"))
-        ),
+        "gdcic_authorized_session_overall_state": overall_state,
+        "operator_next_action_counts": operator_next_action_counts,
         "release_evidence_target_type_counts": _counts(task.get("release_evidence_target_type") for task in task_records),
         "project_manager_change_readback_task_count": sum(
             1 for task in task_records if str(task.get("release_evidence_target_type") or "") == "project_manager_change_notice"
