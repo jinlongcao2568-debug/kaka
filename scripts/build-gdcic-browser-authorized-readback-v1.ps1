@@ -1,6 +1,7 @@
 param(
     [string]$ReleaseEvidenceAdapterPlanRoot = "",
     [string]$ReleaseEvidenceAdapterPlanJson = "",
+    [string]$FieldQueryJson = "",
     [string]$OutputRoot = "",
     [switch]$EnableLiveBrowserExecution,
     [int]$MaxLiveBrowserTasks = 0,
@@ -78,6 +79,13 @@ New-Item -ItemType Directory -Force -Path $OutputRoot | Out-Null
 
 $env:PYTHONPATH = "$repoRoot\src;$repoRoot\tests"
 $env:PYTHONIOENCODING = "utf-8"
+if ($env:KAKA_GDCIC_READBACK_PRESERVE_STORAGE_ENV -ne "1") {
+    $env:KAKA_STORAGE_BACKEND = "json-file"
+    $env:KAKA_STORAGE_SCOPE = "process"
+    $env:KAKA_STORAGE_PATH = Join-Path $OutputRoot "runtime-state.json"
+    $env:KAKA_OBJECT_STORAGE_BACKEND = "local-filesystem"
+    $env:KAKA_OBJECT_STORAGE_PATH = Join-Path $OutputRoot "objects"
+}
 
 $argsList = @(
     "-m", "storage.gdcic_browser_authorized_readback",
@@ -87,6 +95,9 @@ $argsList = @(
 
 if ($ReleaseEvidenceAdapterPlanJson) {
     $argsList += @("--release-evidence-adapter-plan-json", $ReleaseEvidenceAdapterPlanJson)
+}
+if ($FieldQueryJson) {
+    $argsList += @("--field-query-json", $FieldQueryJson)
 }
 if ($EnableLiveBrowserExecution) {
     $argsList += "--enable-live-browser-execution"

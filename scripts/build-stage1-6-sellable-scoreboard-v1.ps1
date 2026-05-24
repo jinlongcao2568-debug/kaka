@@ -5,6 +5,8 @@ param(
     [string]$GapSummaryJson = "",
     [string]$FieldQueryRoot = "",
     [string]$FieldQueryJson = "",
+    [string]$GdcicBrowserReadbackRoot = "",
+    [string]$GdcicBrowserReadbackJson = "",
     [string]$Stage6StatusRoot = "",
     [string]$Stage6StatusJson = "",
     [string]$OutputRoot = "",
@@ -24,6 +26,9 @@ if (-not $PressureRoot) {
 if (-not $FieldQueryRoot) {
     $FieldQueryRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\guangdong-local-field-query-probe-v1"
 }
+if (-not $GdcicBrowserReadbackRoot) {
+    $GdcicBrowserReadbackRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\gdcic-browser-authorized-readback-v1"
+}
 if (-not $Stage6StatusRoot) {
     $Stage6StatusRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\stage6-review-cycle-runner-v1"
 }
@@ -40,6 +45,7 @@ $argsList = @(
     "-m", "storage.stage1_6_sellable_scoreboard",
     "--pressure-root", $PressureRoot,
     "--field-query-root", $FieldQueryRoot,
+    "--gdcic-browser-readback-root", $GdcicBrowserReadbackRoot,
     "--stage6-status-root", $Stage6StatusRoot,
     "--output-root", $OutputRoot
 )
@@ -55,6 +61,9 @@ if ($GapSummaryJson) {
 }
 if ($FieldQueryJson) {
     $argsList += @("--field-query-json", $FieldQueryJson)
+}
+if ($GdcicBrowserReadbackJson) {
+    $argsList += @("--gdcic-browser-readback-json", $GdcicBrowserReadbackJson)
 }
 if ($Stage6StatusJson) {
     $argsList += @("--stage6-status-json", $Stage6StatusJson)

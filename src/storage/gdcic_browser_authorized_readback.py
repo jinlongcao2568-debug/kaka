@@ -33,6 +33,7 @@ def build_gdcic_browser_authorized_readback(
     *,
     release_evidence_adapter_plan_root: str | Path = DEFAULT_RELEASE_EVIDENCE_ADAPTER_PLAN_ROOT,
     release_evidence_adapter_plan_json: str | Path | None = None,
+    field_query_json: str | Path | None = None,
     output_root: str | Path = DEFAULT_OUTPUT_ROOT,
     enable_live_browser_execution: bool = False,
     max_live_browser_tasks: int | None = None,
@@ -55,6 +56,13 @@ def build_gdcic_browser_authorized_readback(
     blocking_reasons: list[str] = []
     payload = _load_json(source_path, blocking_reasons, "release_evidence_adapter_plan_missing")
     source_manifest = _source_manifest(payload)
+    field_query_path = Path(field_query_json) if field_query_json else None
+    field_query_payload = _load_json(field_query_path, blocking_reasons, "field_query_json_missing") if field_query_path else {}
+    if field_query_payload:
+        blocking_reasons = [
+            reason for reason in blocking_reasons if reason != "release_evidence_adapter_plan_missing"
+        ]
+        source_manifest = _source_manifest_with_field_query_records(source_manifest, field_query_payload)
     source_plan_manifest_id = str(source_manifest.get("manifest_id") or "")
     source_plan_manifest_sha256 = str(source_manifest.get("manifest_sha256") or "")
     task_records = _task_records_from_release_plan(source_manifest, created_at=created)
@@ -104,6 +112,7 @@ def build_gdcic_browser_authorized_readback(
         "created_at": created,
         "source_release_evidence_adapter_plan_root": str(plan_dir),
         "source_release_evidence_adapter_plan_json": str(source_path),
+        "source_field_query_json": str(field_query_path or ""),
         "source_release_evidence_adapter_plan_manifest_id": source_plan_manifest_id,
         "source_release_evidence_adapter_plan_manifest_sha256": source_plan_manifest_sha256,
         "execution_mode": execution_mode,
@@ -1114,6 +1123,41 @@ def _source_manifest(payload: Mapping[str, Any]) -> dict[str, Any]:
     return dict(manifest) if isinstance(manifest, Mapping) else dict(payload)
 
 
+def _source_manifest_with_field_query_records(
+    source_manifest: Mapping[str, Any],
+    field_query_payload: Mapping[str, Any],
+) -> dict[str, Any]:
+    field_manifest = field_query_payload.get("manifest") if isinstance(field_query_payload.get("manifest"), Mapping) else {}
+    field_records = field_manifest.get("field_task_records") if isinstance(field_manifest, Mapping) else []
+    if not isinstance(field_records, list):
+        return dict(source_manifest)
+    existing_records = _list(source_manifest.get("release_evidence_adapter_task_records"))
+    merged_records: list[dict[str, Any]] = [
+        dict(record) for record in existing_records if isinstance(record, Mapping)
+    ]
+    seen = {
+        str(record.get("release_evidence_adapter_task_id") or record.get("query_task_id") or "")
+        for record in merged_records
+        if str(record.get("release_evidence_adapter_task_id") or record.get("query_task_id") or "").strip()
+    }
+    for record in field_records:
+        if not isinstance(record, Mapping):
+            continue
+        record_id = str(record.get("release_evidence_adapter_task_id") or record.get("query_task_id") or "").strip()
+        if record_id and record_id in seen:
+            continue
+        merged_records.append(dict(record))
+        if record_id:
+            seen.add(record_id)
+    return {
+        **dict(source_manifest),
+        "release_evidence_adapter_task_records": merged_records,
+        "field_query_task_records_consumed": len(field_records),
+        "field_query_manifest_id": str(field_manifest.get("manifest_id") or ""),
+        "field_query_manifest_sha256": str(field_manifest.get("manifest_sha256") or ""),
+    }
+
+
 def _load_json(path: Path, blocking_reasons: list[str], missing_reason: str) -> dict[str, Any]:
     if not path.exists():
         blocking_reasons.append(missing_reason)
@@ -1190,6 +1234,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Build GDCIC browser authorized readback v1.")
     parser.add_argument("--release-evidence-adapter-plan-root", default=str(DEFAULT_RELEASE_EVIDENCE_ADAPTER_PLAN_ROOT))
     parser.add_argument("--release-evidence-adapter-plan-json")
+    parser.add_argument("--field-query-json")
     parser.add_argument("--output-root", default=str(DEFAULT_OUTPUT_ROOT))
     parser.add_argument("--enable-live-browser-execution", action="store_true")
     parser.add_argument("--max-live-browser-tasks", type=int)
@@ -1207,6 +1252,7 @@ def main(argv: list[str] | None = None) -> int:
     result = build_gdcic_browser_authorized_readback(
         release_evidence_adapter_plan_root=args.release_evidence_adapter_plan_root,
         release_evidence_adapter_plan_json=args.release_evidence_adapter_plan_json,
+        field_query_json=args.field_query_json,
         output_root=args.output_root,
         enable_live_browser_execution=args.enable_live_browser_execution,
         max_live_browser_tasks=args.max_live_browser_tasks,

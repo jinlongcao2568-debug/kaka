@@ -127,6 +127,36 @@ class GDCICBrowserAuthorizedReadbackTests(unittest.TestCase, IsolatedStorageTest
             )
             self.assertFalse(missing_result["summary"]["authorized_session_input_ready"])
 
+    def test_field_query_artifact_can_seed_live30_authorized_readback_tasks_without_release_plan(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            field_query_json = root / "field" / "guangdong-local-field-query-probe-v1.json"
+            missing_plan_root = root / "missing-release-plan"
+            out_root = root / "gdcic-readback"
+            _write_field_query_artifact(field_query_json)
+
+            result = build_gdcic_browser_authorized_readback(
+                release_evidence_adapter_plan_root=missing_plan_root,
+                field_query_json=field_query_json,
+                output_root=out_root,
+                created_at="2026-05-20T00:00:00+08:00",
+            )
+
+            self.assertTrue(result["safe_to_execute"])
+            self.assertEqual(result["blocking_reasons"], [])
+            self.assertEqual(result["manifest"]["source_field_query_json"], str(field_query_json))
+            self.assertEqual(result["summary"]["gdcic_browser_readback_task_count"], 2)
+            self.assertEqual(
+                result["summary"]["release_evidence_target_type_counts"],
+                {"contract_performance": 1, "project_manager_change_notice": 1},
+            )
+            self.assertEqual(result["summary"]["target_real_readback_success_count"], 0)
+            tasks = result["manifest"]["browser_readback_task_records"]
+            self.assertEqual(
+                {task["project_id"] for task in tasks},
+                {"PROJ-CN-GD-JG2026-11366"},
+            )
+
     def test_live_fake_runner_ready_artifact_flows_into_local_field_probe(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -457,6 +487,40 @@ def _write_release_evidence_adapter_plan(root: Path) -> None:
         json.dumps(payload, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
+
+
+def _write_field_query_artifact(path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    records = [
+        {
+            **_release_plan_task("FIELD-TASK-1", "contract_performance", "B_ENHANCEMENT_OFFICIAL_READBACK"),
+            "project_id": "PROJ-CN-GD-JG2026-11366",
+            "source_profile_id": "GUANGDONG-GDCIC-HOME",
+            "adapter_result_state": "NEEDS_BROWSER",
+        },
+        {
+            **_release_plan_task("FIELD-TASK-2", "project_manager_change_notice", "C_REVERSE_EXPLANATION_OFFICIAL_READBACK"),
+            "project_id": "PROJ-CN-GD-JG2026-11366",
+            "source_profile_id": "GUANGDONG-GDCIC-HOME",
+            "adapter_result_state": "NEEDS_BROWSER",
+        },
+        {
+            **_release_plan_task("FIELD-TASK-3", "completion_acceptance", "D_INSUFFICIENT_OR_BLOCKED_READBACK"),
+            "project_id": "PROJ-CN-GD-JG2026-11366",
+            "source_profile_id": "GUANGZHOU-ZFCJ-CREDIT-DOUBLE-PUBLICITY",
+            "adapter_result_state": "NOT_FOUND",
+        },
+    ]
+    payload = {
+        "manifest": {
+            "manifest_kind": "guangdong_local_field_query_probe_v1_manifest",
+            "manifest_id": "FIELD-QUERY-FIXTURE-1",
+            "manifest_sha256": "field-query-sha",
+            "field_task_records": records,
+        },
+        "summary": {"field_task_count": len(records)},
+    }
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def _release_plan_task(task_id: str, target_type: str, grade_on_match: str) -> dict[str, Any]:
