@@ -11,6 +11,8 @@ param(
     [string]$P13BCompanyHistoryJson = "",
     [string]$P13BOriginalNoticeBacktraceRoot = "",
     [string]$P13BOriginalNoticeBacktraceJson = "",
+    [string]$P13BYgpOriginalReadbackRoot = "",
+    [string]$P13BYgpOriginalReadbackJson = "",
     [string]$Stage6StatusRoot = "",
     [string]$Stage6StatusJson = "",
     [string]$OutputRoot = "",
@@ -39,6 +41,9 @@ if (-not $P13BCompanyHistoryRoot) {
 if (-not $P13BOriginalNoticeBacktraceRoot) {
     $P13BOriginalNoticeBacktraceRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\p13b-original-notice-backtrace-v1"
 }
+if (-not $P13BYgpOriginalReadbackRoot) {
+    $P13BYgpOriginalReadbackRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\p13b-ygp-original-readback-v1"
+}
 if (-not $Stage6StatusRoot) {
     $Stage6StatusRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\stage6-review-cycle-runner-v1"
 }
@@ -58,6 +63,7 @@ $argsList = @(
     "--gdcic-browser-readback-root", $GdcicBrowserReadbackRoot,
     "--p13b-company-history-root", $P13BCompanyHistoryRoot,
     "--p13b-original-notice-backtrace-root", $P13BOriginalNoticeBacktraceRoot,
+    "--p13b-ygp-original-readback-root", $P13BYgpOriginalReadbackRoot,
     "--stage6-status-root", $Stage6StatusRoot,
     "--output-root", $OutputRoot
 )
@@ -82,6 +88,9 @@ if ($P13BCompanyHistoryJson) {
 }
 if ($P13BOriginalNoticeBacktraceJson) {
     $argsList += @("--p13b-original-notice-backtrace-json", $P13BOriginalNoticeBacktraceJson)
+}
+if ($P13BYgpOriginalReadbackJson) {
+    $argsList += @("--p13b-ygp-original-readback-json", $P13BYgpOriginalReadbackJson)
 }
 if ($Stage6StatusJson) {
     $argsList += @("--stage6-status-json", $Stage6StatusJson)

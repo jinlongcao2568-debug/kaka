@@ -24,6 +24,7 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
             gdcic_readback = root / "gdcic-readback"
             p13b_history = root / "p13b-history"
             p13b_original = root / "p13b-original"
+            p13b_ygp = root / "p13b-ygp"
             stage6 = root / "stage6"
             out = root / "out"
             pressure.mkdir()
@@ -31,6 +32,7 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
             gdcic_readback.mkdir()
             p13b_history.mkdir()
             p13b_original.mkdir()
+            p13b_ygp.mkdir()
             stage6.mkdir()
 
             _write_json(
@@ -294,6 +296,42 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
                     },
                 },
             )
+            _write_json(
+                p13b_ygp / "ygp-original-readback-v1.json",
+                {
+                    "manifest": {
+                        "ygp_original_readback_records": [
+                            {
+                                "project_id": "PROJ-D",
+                                "ygp_readback_state": "YGP_ORIGINAL_URL_READBACK_READY",
+                                "ygp_project_code": "E4401002701500571001",
+                                "ygp_biz_code": "3C52",
+                                "ygp_site_code": "440900",
+                                "ygp_notice_id": "notice-1",
+                            },
+                            {
+                                "project_id": "PROJ-B",
+                                "ygp_readback_state": "YGP_ORIGINAL_URL_BLOCKED",
+                            },
+                        ],
+                    },
+                    "summary": {
+                        "execution_mode": "LIVE_PUBLIC_QUERY_ATTEMPTED",
+                        "ygp_original_readback_task_count": 2,
+                        "ygp_readback_ready_count": 1,
+                        "ygp_person_period_extracted_count": 0,
+                        "ygp_readback_state_counts": {
+                            "YGP_ORIGINAL_URL_READBACK_READY": 1,
+                            "YGP_ORIGINAL_URL_BLOCKED": 1,
+                        },
+                        "ygp_api_discovery_state_counts": {"YGP_DETAIL_API_DISCOVERED": 1},
+                        "blocker_taxonomy_counts": {"max_live_original_notices_deferred": 1},
+                        "query_miss_is_not_clearance": True,
+                        "customer_visible_allowed": False,
+                        "no_legal_conclusion": True,
+                    },
+                },
+            )
 
             result = build_stage1_6_sellable_scoreboard(
                 pressure_root=pressure,
@@ -301,6 +339,7 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
                 gdcic_browser_readback_root=gdcic_readback,
                 p13b_company_history_root=p13b_history,
                 p13b_original_notice_backtrace_root=p13b_original,
+                p13b_ygp_original_readback_root=p13b_ygp,
                 stage6_status_root=stage6,
                 output_root=out,
                 created_at="2026-05-24T00:00:00+08:00",
@@ -368,6 +407,8 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
                 "original_notice_backtrace_required": 1,
                 "original_notice_not_found": 1,
                 "original_notice_blocked": 1,
+                "ygp_readback_ready": 1,
+                "ygp_readback_blocked": 1,
                 "public_source_blocked": 1,
                 "weak_lead": 1,
                 "public_source_not_found": 1,
@@ -388,6 +429,11 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
             scoreboard["stage4_original_notice_readback_state_counts"],
             {"BLOCKED": 1, "NOT_FOUND": 1},
         )
+        self.assertEqual(
+            scoreboard["stage4_ygp_original_readback_state_counts"],
+            {"YGP_BLOCKED": 1, "YGP_READBACK_READY": 1},
+        )
+        self.assertEqual(scoreboard["p13b_ygp_original_readback_status"]["ygp_readback_ready_count"], 1)
         self.assertEqual(scoreboard["p13b_original_notice_readback_status"]["fetch_blocked_count"], 1)
         rows = {row["project_id"]: row for row in result["project_rows"]}
         self.assertEqual(rows["PROJ-A"]["limited_sellable_review_candidate_state"], "REVIEW_CANDIDATE")
@@ -405,6 +451,7 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
         self.assertEqual(rows["PROJ-D"]["stage5_operational_review_bucket"], "ORIGINAL_NOTICE_NOT_FOUND_REVIEW")
         self.assertEqual(rows["PROJ-D"]["p13b_public_source_readback_state"], "ORIGINAL_NOTICE_BACKTRACE_REQUIRED")
         self.assertEqual(rows["PROJ-D"]["p13b_original_notice_readback_state"], "NOT_FOUND")
+        self.assertEqual(rows["PROJ-D"]["p13b_ygp_project_code_variants"], ["E4401002701500571001"])
         self.assertEqual(rows["PROJ-E"]["stage5_operational_review_bucket"], "WEAK_LEAD_OFFICIAL_SIGNAL_REVIEW")
         self.assertTrue(all(row["stage5_query_miss_is_not_clearance"] for row in rows.values()))
         self.assertEqual(

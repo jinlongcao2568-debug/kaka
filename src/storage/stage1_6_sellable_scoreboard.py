@@ -18,6 +18,7 @@ DEFAULT_GDCIC_BROWSER_READBACK_ROOT = Path("tmp/evaluation-real-samples/gdcic-br
 DEFAULT_STAGE6_STATUS_ROOT = Path("tmp/evaluation-real-samples/stage6-review-cycle-runner-v1")
 DEFAULT_P13B_COMPANY_HISTORY_ROOT = Path("tmp/evaluation-real-samples/p13b-company-history-overlap-triage-v1")
 DEFAULT_P13B_ORIGINAL_NOTICE_BACKTRACE_ROOT = Path("tmp/evaluation-real-samples/p13b-original-notice-backtrace-v1")
+DEFAULT_P13B_YGP_ORIGINAL_READBACK_ROOT = Path("tmp/evaluation-real-samples/p13b-ygp-original-readback-v1")
 DEFAULT_OUTPUT_ROOT = Path("tmp/evaluation-real-samples/stage1-6-sellable-scoreboard-v1")
 
 
@@ -35,6 +36,8 @@ def build_stage1_6_sellable_scoreboard(
     p13b_company_history_json: str | Path | None = None,
     p13b_original_notice_backtrace_root: str | Path | None = None,
     p13b_original_notice_backtrace_json: str | Path | None = None,
+    p13b_ygp_original_readback_root: str | Path | None = None,
+    p13b_ygp_original_readback_json: str | Path | None = None,
     stage6_status_root: str | Path | None = None,
     stage6_status_json: str | Path | None = None,
     output_root: str | Path | None = None,
@@ -48,6 +51,7 @@ def build_stage1_6_sellable_scoreboard(
     p13b_original_notice_dir = Path(
         p13b_original_notice_backtrace_root or DEFAULT_P13B_ORIGINAL_NOTICE_BACKTRACE_ROOT
     )
+    p13b_ygp_original_dir = Path(p13b_ygp_original_readback_root or DEFAULT_P13B_YGP_ORIGINAL_READBACK_ROOT)
     stage6_dir = Path(stage6_status_root or DEFAULT_STAGE6_STATUS_ROOT)
     out_dir = Path(output_root or DEFAULT_OUTPUT_ROOT)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -68,6 +72,10 @@ def build_stage1_6_sellable_scoreboard(
         p13b_original_notice_backtrace_json,
         p13b_original_notice_dir / "original-notice-backtrace-v1.json",
     )
+    p13b_ygp_original_readback_path = _resolve_path(
+        p13b_ygp_original_readback_json,
+        p13b_ygp_original_dir / "ygp-original-readback-v1.json",
+    )
     stage6_status_path = _resolve_stage6_status_path(stage6_status_json, stage6_dir)
 
     pressure_summary = _read_json_mapping(pressure_summary_path)
@@ -77,6 +85,7 @@ def build_stage1_6_sellable_scoreboard(
     gdcic_browser_readback = _read_json_mapping(gdcic_browser_readback_path)
     p13b_company_history = _read_json_mapping(p13b_company_history_path)
     p13b_original_notice_backtrace = _read_json_mapping(p13b_original_notice_backtrace_path)
+    p13b_ygp_original_readback = _read_json_mapping(p13b_ygp_original_readback_path)
     stage6_status = _read_json_mapping(stage6_status_path)
 
     readiness_records = _records(readiness)
@@ -84,6 +93,7 @@ def build_stage1_6_sellable_scoreboard(
     field_records = _field_task_records(field_query)
     p13b_project_signals = _p13b_project_signals(p13b_company_history)
     p13b_original_notice_project_signals = _p13b_original_notice_project_signals(p13b_original_notice_backtrace)
+    p13b_ygp_project_signals = _p13b_ygp_project_signals(p13b_ygp_original_readback)
     stage6_records = _records(stage6_status)
 
     stage6_by_project = {
@@ -103,6 +113,7 @@ def build_stage1_6_sellable_scoreboard(
         field_records,
         list(p13b_project_signals.values()),
         list(p13b_original_notice_project_signals.values()),
+        list(p13b_ygp_project_signals.values()),
     )
     project_rows = [
         _project_scoreboard_row(
@@ -112,6 +123,7 @@ def build_stage1_6_sellable_scoreboard(
             [record for record in field_records if str(record.get("project_id") or "").strip() == project_id],
             p13b_project_signals.get(project_id, {}),
             p13b_original_notice_project_signals.get(project_id, {}),
+            p13b_ygp_project_signals.get(project_id, {}),
         )
         for project_id in project_ids
     ]
@@ -122,6 +134,7 @@ def build_stage1_6_sellable_scoreboard(
         gdcic_browser_readback,
         p13b_company_history,
         p13b_original_notice_backtrace,
+        p13b_ygp_original_readback,
         field_records,
         stage6_status,
         stage6_records,
@@ -134,6 +147,7 @@ def build_stage1_6_sellable_scoreboard(
         gdcic_browser_readback,
         p13b_company_history,
         p13b_original_notice_backtrace,
+        p13b_ygp_original_readback,
         field_records,
         stage6_records,
         project_rows,
@@ -152,6 +166,7 @@ def build_stage1_6_sellable_scoreboard(
             "gdcic_browser_authorized_readback_json": str(gdcic_browser_readback_path),
             "p13b_company_history_json": str(p13b_company_history_path),
             "p13b_original_notice_backtrace_json": str(p13b_original_notice_backtrace_path),
+            "p13b_ygp_original_readback_json": str(p13b_ygp_original_readback_path),
             "stage6_status_json": str(stage6_status_path),
         },
         "scoreboard": counts,
@@ -180,6 +195,7 @@ def _scoreboard_counts(
     gdcic_browser_readback: Mapping[str, Any],
     p13b_company_history: Mapping[str, Any],
     p13b_original_notice_backtrace: Mapping[str, Any],
+    p13b_ygp_original_readback: Mapping[str, Any],
     field_records: list[Mapping[str, Any]],
     stage6_status: Mapping[str, Any],
     stage6_records: list[Mapping[str, Any]],
@@ -201,6 +217,7 @@ def _scoreboard_counts(
     gdcic_readback_summary = _summary(gdcic_browser_readback)
     p13b_summary = _summary(p13b_company_history)
     p13b_original_summary = _summary(p13b_original_notice_backtrace)
+    p13b_ygp_summary = _summary(p13b_ygp_original_readback)
     stage6_summary = _summary(stage6_status)
     stage4_matched_count = _count_state(field_summary, field_records, "adapter_result_state", "MATCHED")
     stage4_needs_browser_count = _count_state(field_summary, field_records, "adapter_result_state", "NEEDS_BROWSER")
@@ -258,11 +275,15 @@ def _scoreboard_counts(
         "gdcic_authorized_readback_status": _gdcic_authorized_readback_status(gdcic_readback_summary),
         "p13b_public_source_readback_status": _p13b_public_source_readback_status(p13b_summary),
         "p13b_original_notice_readback_status": _p13b_original_notice_readback_status(p13b_original_summary),
+        "p13b_ygp_original_readback_status": _p13b_ygp_original_readback_status(p13b_ygp_summary),
         "stage4_public_source_readback_state_counts": _counts(
             row.get("p13b_public_source_readback_state") for row in project_rows
         ),
         "stage4_original_notice_readback_state_counts": _counts(
             row.get("p13b_original_notice_readback_state") for row in project_rows
+        ),
+        "stage4_ygp_original_readback_state_counts": _counts(
+            row.get("p13b_ygp_original_readback_state") for row in project_rows
         ),
         "stage6_loop_terminal_state_counts": dict(stage6_summary.get("loop_terminal_state_counts") or {})
         or _counts(record.get("loop_terminal_state") for record in stage6_records),
@@ -276,6 +297,7 @@ def _project_scoreboard_row(
     field_records: list[Mapping[str, Any]],
     p13b_project_signal: Mapping[str, Any],
     p13b_original_notice_signal: Mapping[str, Any],
+    p13b_ygp_signal: Mapping[str, Any],
 ) -> dict[str, Any]:
     adapter_counts = _counts(record.get("adapter_result_state") for record in field_records)
     grade_counts = _counts(
@@ -306,6 +328,7 @@ def _project_scoreboard_row(
         field_records=field_records,
         p13b_project_signal=p13b_project_signal,
         p13b_original_notice_signal=p13b_original_notice_signal,
+        p13b_ygp_signal=p13b_ygp_signal,
         adapter_counts=adapter_counts,
         combined_grade_counts=combined_grade_counts,
         has_official_b_or_c=has_official_b_or_c,
@@ -344,6 +367,12 @@ def _project_scoreboard_row(
         "p13b_original_notice_match_state_counts": dict(
             p13b_original_notice_signal.get("original_notice_backtrace_match_state_counts") or {}
         ),
+        "p13b_ygp_original_readback_state": str(p13b_ygp_signal.get("p13b_ygp_original_readback_state") or ""),
+        "p13b_ygp_readback_state_counts": dict(p13b_ygp_signal.get("ygp_readback_state_counts") or {}),
+        "p13b_ygp_project_code_variants": _as_list(p13b_ygp_signal.get("ygp_project_code_variants")),
+        "p13b_ygp_biz_code_variants": _as_list(p13b_ygp_signal.get("ygp_biz_code_variants")),
+        "p13b_ygp_site_code_variants": _as_list(p13b_ygp_signal.get("ygp_site_code_variants")),
+        "p13b_ygp_notice_id_variants": _as_list(p13b_ygp_signal.get("ygp_notice_id_variants")),
         "operator_next_actions": [str(item) for item in _as_list(stage6_record.get("release_field_query_operator_next_actions")) if str(item or "").strip()],
         "blocking_bucket": _project_blocking_bucket(readiness_record, stage6_record, field_records),
         "strong_lead_candidate_state": strong_lead_candidate_state,
@@ -365,6 +394,7 @@ def _blocker_summary(
     gdcic_browser_readback: Mapping[str, Any],
     p13b_company_history: Mapping[str, Any],
     p13b_original_notice_backtrace: Mapping[str, Any],
+    p13b_ygp_original_readback: Mapping[str, Any],
     field_records: list[Mapping[str, Any]],
     stage6_records: list[Mapping[str, Any]],
     project_rows: list[Mapping[str, Any]],
@@ -373,6 +403,7 @@ def _blocker_summary(
     gdcic_readback_summary = _summary(gdcic_browser_readback)
     p13b_summary = _summary(p13b_company_history)
     p13b_original_summary = _summary(p13b_original_notice_backtrace)
+    p13b_ygp_summary = _summary(p13b_ygp_original_readback)
     blocker_taxonomy_counts = dict(field_summary.get("blocker_taxonomy_counts") or {})
     if not blocker_taxonomy_counts:
         blocker_taxonomy_counts = _flatten_counts(field_records, "blocker_taxonomy")
@@ -405,6 +436,7 @@ def _blocker_summary(
         "gdcic_authorized_readback_blocker": _gdcic_authorized_readback_status(gdcic_readback_summary),
         "p13b_public_source_readback_blocker": _p13b_public_source_readback_status(p13b_summary),
         "p13b_original_notice_readback_blocker": _p13b_original_notice_readback_status(p13b_original_summary),
+        "p13b_ygp_original_readback_blocker": _p13b_ygp_original_readback_status(p13b_ygp_summary),
         "stage5_operational_review_bucket_counts": _counts(
             row.get("stage5_operational_review_bucket") for row in project_rows
         ),
@@ -433,6 +465,11 @@ def _recommended_next_actions(blocker_summary: Mapping[str, Any], counts: Mappin
     p13b_original_blocker = blocker_summary.get("p13b_original_notice_readback_blocker")
     if isinstance(p13b_original_blocker, Mapping) and _int(p13b_original_blocker.get("fetch_blocked_count")):
         actions.append("continue_p13b_original_notice_backtrace_or_route_blocked_sources")
+    p13b_ygp_blocker = blocker_summary.get("p13b_ygp_original_readback_blocker")
+    if isinstance(p13b_ygp_blocker, Mapping) and _int(p13b_ygp_blocker.get("ygp_readback_ready_count")):
+        actions.append("feed_ygp_original_readback_into_p13b_original_backtrace")
+    if isinstance(p13b_ygp_blocker, Mapping) and _int(p13b_ygp_blocker.get("ygp_blocked_count")):
+        actions.append("continue_ygp_original_readback_or_route_to_city_source")
     if _int(blocker_summary.get("field_missing_or_not_found_task_count")):
         actions.append("extend_stage4_project_code_and_source_readback_before_claiming_clearance")
     if _int(blocker_summary.get("stage4_matched_without_stage7_saleable_project_count")):
@@ -586,6 +623,36 @@ def _p13b_original_notice_readback_status(summary: Mapping[str, Any]) -> dict[st
     }
 
 
+def _p13b_ygp_original_readback_status(summary: Mapping[str, Any]) -> dict[str, Any]:
+    if not summary:
+        return {
+            "artifact_state": "MISSING_OR_NOT_BUILT",
+            "execution_mode": "",
+            "ygp_original_readback_task_count": 0,
+            "ygp_readback_ready_count": 0,
+            "ygp_person_period_extracted_count": 0,
+            "ygp_blocked_count": 0,
+            "query_miss_is_not_clearance": True,
+            "customer_visible_allowed": False,
+            "no_legal_conclusion": True,
+        }
+    state_counts = dict(summary.get("ygp_readback_state_counts") or {})
+    return {
+        "artifact_state": "BUILT",
+        "execution_mode": str(summary.get("execution_mode") or ""),
+        "ygp_original_readback_task_count": _int(summary.get("ygp_original_readback_task_count")),
+        "ygp_readback_ready_count": _int(summary.get("ygp_readback_ready_count")),
+        "ygp_person_period_extracted_count": _int(summary.get("ygp_person_period_extracted_count")),
+        "ygp_blocked_count": _int(state_counts.get("YGP_ORIGINAL_URL_BLOCKED")),
+        "ygp_readback_state_counts": state_counts,
+        "ygp_api_discovery_state_counts": dict(summary.get("ygp_api_discovery_state_counts") or {}),
+        "blocker_taxonomy_counts": dict(summary.get("blocker_taxonomy_counts") or {}),
+        "query_miss_is_not_clearance": bool(summary.get("query_miss_is_not_clearance", True)),
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
+
+
 def _project_blocking_bucket(
     readiness_record: Mapping[str, Any],
     stage6_record: Mapping[str, Any],
@@ -613,6 +680,7 @@ def _stage5_operational_review(
     field_records: list[Mapping[str, Any]],
     p13b_project_signal: Mapping[str, Any],
     p13b_original_notice_signal: Mapping[str, Any],
+    p13b_ygp_signal: Mapping[str, Any],
     adapter_counts: Mapping[str, int],
     combined_grade_counts: Mapping[str, int],
     has_official_b_or_c: bool,
@@ -643,6 +711,9 @@ def _stage5_operational_review(
     has_original_notice_match = original_notice_state == "MATCHED"
     has_original_notice_not_found = original_notice_state == "NOT_FOUND"
     has_original_notice_blocked = original_notice_state == "BLOCKED"
+    ygp_state = str(p13b_ygp_signal.get("p13b_ygp_original_readback_state") or "")
+    has_ygp_ready = ygp_state == "YGP_READBACK_READY"
+    has_ygp_blocked = ygp_state == "YGP_BLOCKED"
     has_weak_official_signal = _int(adapter_counts.get("MATCHED")) > 0 and not has_official_b_or_c
     has_evidence_insufficient = (
         any(str(key).startswith("D_") and _int(value) > 0 for key, value in combined_grade_counts.items())
@@ -668,6 +739,10 @@ def _stage5_operational_review(
         signals.append("original_notice_not_found")
     if has_original_notice_blocked:
         signals.append("original_notice_blocked")
+    if has_ygp_ready:
+        signals.append("ygp_readback_ready")
+    if has_ygp_blocked:
+        signals.append("ygp_readback_blocked")
     if has_source_not_found:
         signals.append("source_not_found")
     if has_public_source_not_found:
@@ -687,6 +762,12 @@ def _stage5_operational_review(
     elif has_original_notice_blocked:
         bucket = "ORIGINAL_NOTICE_BLOCKED_REVIEW"
         action = "continue_p13b_original_notice_backtrace_or_route_blocked_sources"
+    elif has_ygp_ready:
+        bucket = "YGP_READBACK_READY_REVIEW"
+        action = "feed_ygp_original_readback_into_p13b_original_backtrace"
+    elif has_ygp_blocked:
+        bucket = "YGP_READBACK_BLOCKED_REVIEW"
+        action = "continue_ygp_original_readback_or_route_to_city_source"
     elif has_weak_official_signal:
         bucket = "WEAK_LEAD_OFFICIAL_SIGNAL_REVIEW"
         action = "strengthen_official_readback_before_any_commercial_projection"
@@ -855,6 +936,43 @@ def _p13b_original_notice_project_signals(payload: Mapping[str, Any]) -> dict[st
     return signals
 
 
+def _p13b_ygp_project_signals(payload: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
+    manifest = payload.get("manifest") if isinstance(payload.get("manifest"), Mapping) else {}
+    if not manifest:
+        return {}
+    readback_records = _manifest_records(manifest, "ygp_original_readback_records")
+    project_ids = _ordered_project_ids(readback_records)
+    signals: dict[str, dict[str, Any]] = {}
+    for project_id in project_ids:
+        project_records = [record for record in readback_records if str(record.get("project_id") or "").strip() == project_id]
+        state_counts = _counts(record.get("ygp_readback_state") for record in project_records)
+        ready_count = _int(state_counts.get("YGP_ORIGINAL_URL_READBACK_READY")) + _int(
+            state_counts.get("YGP_BROWSER_NETWORK_READBACK_READY")
+        )
+        blocked_count = _int(state_counts.get("YGP_ORIGINAL_URL_BLOCKED")) + _int(
+            state_counts.get("YGP_ORIGINAL_URL_UNSUPPORTED")
+        )
+        if ready_count:
+            readback_state = "YGP_READBACK_READY"
+        elif blocked_count:
+            readback_state = "YGP_BLOCKED"
+        else:
+            readback_state = "YGP_PENDING_OR_NOT_RUN"
+        signals[project_id] = {
+            "project_id": project_id,
+            "p13b_ygp_original_readback_state": readback_state,
+            "ygp_readback_state_counts": state_counts,
+            "ygp_project_code_variants": _dedupe(record.get("ygp_project_code") for record in project_records),
+            "ygp_biz_code_variants": _dedupe(record.get("ygp_biz_code") for record in project_records),
+            "ygp_site_code_variants": _dedupe(record.get("ygp_site_code") for record in project_records),
+            "ygp_notice_id_variants": _dedupe(record.get("ygp_notice_id") for record in project_records),
+            "query_miss_is_not_clearance": True,
+            "customer_visible_allowed": False,
+            "no_legal_conclusion": True,
+        }
+    return signals
+
+
 def _manifest_records(manifest: Mapping[str, Any], key: str) -> list[dict[str, Any]]:
     records = manifest.get(key)
     return [dict(record) for record in records if isinstance(record, Mapping)] if isinstance(records, list) else []
@@ -996,8 +1114,10 @@ def _write_markdown(path: Path, payload: Mapping[str, Any]) -> None:
         f"- gdcic_authorized_readback_status: {json.dumps(scoreboard.get('gdcic_authorized_readback_status', {}), ensure_ascii=False, sort_keys=True)}",
         f"- p13b_public_source_readback_status: {json.dumps(scoreboard.get('p13b_public_source_readback_status', {}), ensure_ascii=False, sort_keys=True)}",
         f"- p13b_original_notice_readback_status: {json.dumps(scoreboard.get('p13b_original_notice_readback_status', {}), ensure_ascii=False, sort_keys=True)}",
+        f"- p13b_ygp_original_readback_status: {json.dumps(scoreboard.get('p13b_ygp_original_readback_status', {}), ensure_ascii=False, sort_keys=True)}",
         f"- stage4_public_source_readback_state_counts: {json.dumps(scoreboard.get('stage4_public_source_readback_state_counts', {}), ensure_ascii=False, sort_keys=True)}",
         f"- stage4_original_notice_readback_state_counts: {json.dumps(scoreboard.get('stage4_original_notice_readback_state_counts', {}), ensure_ascii=False, sort_keys=True)}",
+        f"- stage4_ygp_original_readback_state_counts: {json.dumps(scoreboard.get('stage4_ygp_original_readback_state_counts', {}), ensure_ascii=False, sort_keys=True)}",
         "",
         "## Blockers",
     ]
@@ -1024,6 +1144,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--p13b-company-history-json", default="")
     parser.add_argument("--p13b-original-notice-backtrace-root", default=str(DEFAULT_P13B_ORIGINAL_NOTICE_BACKTRACE_ROOT))
     parser.add_argument("--p13b-original-notice-backtrace-json", default="")
+    parser.add_argument("--p13b-ygp-original-readback-root", default=str(DEFAULT_P13B_YGP_ORIGINAL_READBACK_ROOT))
+    parser.add_argument("--p13b-ygp-original-readback-json", default="")
     parser.add_argument("--stage6-status-root", default=str(DEFAULT_STAGE6_STATUS_ROOT))
     parser.add_argument("--stage6-status-json", default="")
     parser.add_argument("--output-root", default=str(DEFAULT_OUTPUT_ROOT))
@@ -1042,6 +1164,8 @@ def main(argv: list[str] | None = None) -> int:
         p13b_company_history_json=args.p13b_company_history_json or None,
         p13b_original_notice_backtrace_root=args.p13b_original_notice_backtrace_root,
         p13b_original_notice_backtrace_json=args.p13b_original_notice_backtrace_json or None,
+        p13b_ygp_original_readback_root=args.p13b_ygp_original_readback_root,
+        p13b_ygp_original_readback_json=args.p13b_ygp_original_readback_json or None,
         stage6_status_root=args.stage6_status_root,
         stage6_status_json=args.stage6_status_json or None,
         output_root=args.output_root,

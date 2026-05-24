@@ -597,6 +597,7 @@ def _ready_record(
         extraction_state = "YGP_ORIGINAL_NOTICE_PERSON_PERIOD_EXTRACTED"
     else:
         extraction_state = "YGP_ORIGINAL_URL_READBACK_READY"
+    ygp_detail_params = _ygp_detail_query_params(source_url)
     return {
         **dict(task),
         "execution_mode": "LIVE_PUBLIC_QUERY_ATTEMPTED",
@@ -604,6 +605,12 @@ def _ready_record(
         "ygp_api_discovery_state": api_discovery_state,
         "ygp_extraction_state": extraction_state,
         "source_url": source_url,
+        "ygp_detail_query_params": ygp_detail_params,
+        "ygp_notice_id": str(ygp_detail_params.get("noticeId") or ""),
+        "ygp_project_code": str(ygp_detail_params.get("projectCode") or ""),
+        "ygp_biz_code": str(ygp_detail_params.get("bizCode") or ""),
+        "ygp_site_code": str(ygp_detail_params.get("siteCode") or ""),
+        "ygp_node_id": str(ygp_detail_params.get("nodeId") or ""),
         "status_code": status_code,
         "content_type": content_type,
         "readback_payload_sha256": _sha256(payload) if payload else "",
@@ -618,6 +625,7 @@ def _ready_record(
         "record_payload_sha256": _fingerprint(
             {
                 "source_url": source_url,
+                "ygp_detail_query_params": ygp_detail_params,
                 "title": extraction.get("extracted_notice_title"),
                 "project": extraction.get("extracted_project_name"),
                 "people": extraction.get("extracted_responsible_person_names"),
@@ -631,6 +639,16 @@ def _ready_record(
         "created_at": created_at,
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,
+    }
+
+
+def _ygp_detail_query_params(source_url: str) -> dict[str, str]:
+    parsed = urllib.parse.urlparse(str(source_url or ""))
+    query = urllib.parse.parse_qs(parsed.query, keep_blank_values=True)
+    return {
+        key: str(values[0] if values else "")
+        for key, values in query.items()
+        if key in {"noticeId", "projectCode", "bizCode", "siteCode", "nodeId", "version", "tradingType"}
     }
 
 

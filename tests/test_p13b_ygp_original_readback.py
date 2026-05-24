@@ -85,6 +85,7 @@ class P13BYgpOriginalReadbackTests(unittest.TestCase):
             self.assertEqual(record["extracted_responsible_person_names"], ["李四"])
             self.assertIn("365日历天", record["extracted_period_text"])
             self.assertEqual(record["extracted_award_date"], "2025年10月15日")
+            self.assertIn("ygp_detail_query_params", record)
 
     def test_url_mapping_redirect_uses_flow_matrix_node_list_and_detail(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -107,6 +108,10 @@ class P13BYgpOriginalReadbackTests(unittest.TestCase):
             self.assertEqual(record["ygp_readback_state"], "YGP_ORIGINAL_URL_READBACK_READY")
             self.assertEqual(record["ygp_api_discovery_state"], "YGP_DETAIL_API_DISCOVERED")
             self.assertIn("trading-notice/new/detail", record["source_url"])
+            self.assertEqual(record["ygp_notice_id"], "notice-123-3C52")
+            self.assertEqual(record["ygp_project_code"], "A4406010001000001")
+            self.assertEqual(record["ygp_biz_code"], "3C52")
+            self.assertEqual(record["ygp_site_code"], "440600")
             self.assertEqual(record["extracted_responsible_person_names"], ["李四"])
             self.assertIn("180日历天", record["extracted_period_text"])
             self.assertEqual(
