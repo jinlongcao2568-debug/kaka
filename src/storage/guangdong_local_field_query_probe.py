@@ -48,6 +48,8 @@ GUANGDONG_GDCIC_SKYPT_OPENPLATFORM_ADAPTER_ID = "guangdong_gdcic_openplatform_pu
 DELEGATED_PROFILE_ADAPTERS = {
     GUANGDONG_GDCIC_SKYPT_OPENPLATFORM_PROFILE_ID: "guangdong_gdcic_query_probe_v1",
 }
+GUANGDONG_YGP_ORIGINAL_READBACK_BACKFILL_PROFILE_ID = "GUANGDONG-YGP-ORIGINAL-READBACK-BACKFILL"
+GUANGDONG_YGP_ORIGINAL_READBACK_BACKFILL_ADAPTER_ID = "guangdong_ygp_original_readback_backfill_adapter_v1"
 
 GUANGZHOU_ZFCJ_PROFILE_ID = "GUANGZHOU-ZFCJ-CREDIT-DOUBLE-PUBLICITY"
 GUANGZHOU_ZFCJ_XYXX_API_URL = "https://zfcj.gz.gov.cn/ysqgk/Api/WebApi/xyxxzhlb.ashx"
@@ -164,6 +166,7 @@ BROWSER_REQUIRED_FIELD_ADAPTER_IDS = {
     HENAN_JZSC_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID,
 }
 SUPPORTED_REGION_FIELD_ADAPTER_PROFILE_IDS = {
+    GUANGDONG_YGP_ORIGINAL_READBACK_BACKFILL_PROFILE_ID,
     ZHEJIANG_JZSC_PROFILE_ID,
     SICHUAN_JZSC_PROFILE_ID,
     JIANGSU_JZSC_PROFILE_ID,
@@ -788,6 +791,8 @@ def _field_adapter_status_for_profile(source_profile_id: str) -> str:
     profile_id = str(source_profile_id or "").upper()
     if profile_id in DELEGATED_PROFILE_ADAPTERS:
         return f"IMPLEMENTED_SEPARATE:{DELEGATED_PROFILE_ADAPTERS[profile_id]}"
+    if profile_id == GUANGDONG_YGP_ORIGINAL_READBACK_BACKFILL_PROFILE_ID:
+        return f"IMPLEMENTED_INLINE:{GUANGDONG_YGP_ORIGINAL_READBACK_BACKFILL_ADAPTER_ID}"
     if profile_id == ZHEJIANG_JZSC_PROFILE_ID:
         return f"IMPLEMENTED_INLINE:{ZHEJIANG_JZSC_FIELD_ADAPTER_ID}"
     if profile_id == SICHUAN_JZSC_PROFILE_ID:
@@ -3203,6 +3208,8 @@ def _execute_live_field_query(
         if browser_readback:
             return browser_readback
         return _browser_required_readback(browser_required_adapter_id, route_plan)
+    if str(task.get("source_profile_id") or "").upper() == GUANGDONG_YGP_ORIGINAL_READBACK_BACKFILL_PROFILE_ID:
+        return _execute_ygp_original_readback_backfill_field_query(task, route_plan, http_getter=http_getter)
     if any(
         str(route.get("source_specific_adapter_id") or "")
         in {
@@ -3348,6 +3355,114 @@ def _execute_live_field_query(
         "route_plan": list(route_plan),
         "route_attempts": attempts,
         "blocker_taxonomy": blockers or ["guangdong_local_field_query_no_keyword_hit_review"],
+    }
+
+
+def _execute_ygp_original_readback_backfill_field_query(
+    task: Mapping[str, Any],
+    route_plan: list[Mapping[str, Any]],
+    *,
+    http_getter: HttpGetter | None,
+) -> dict[str, Any]:
+    getter = http_getter or _default_http_getter
+    query_params = dict(task.get("query_params") or {})
+    keywords = _query_keywords(query_params)
+    identifiers = _dedupe(
+        [
+            *_list(query_params.get("ygpProjectCodeVariants")),
+            query_params.get("ygpBizCode"),
+            query_params.get("ygpSiteCode"),
+            query_params.get("ygpNoticeId"),
+            query_params.get("ygpNodeId"),
+            *_list(query_params.get("projectCodeVariants")),
+        ]
+    )
+    attempts: list[dict[str, Any]] = []
+    match_records: list[dict[str, Any]] = []
+    for route in route_plan:
+        response = _safe_get(route, getter=getter)
+        attempt = _route_attempt(route, response, _dedupe([*keywords, *identifiers]))
+        attempts.append(attempt)
+        if attempt["keyword_hit_count"]:
+            match_records.append(
+                {
+                    "route_id": attempt["route_id"],
+                    "url": attempt["url"],
+                    "matched_keywords": attempt["matched_keywords"],
+                    "source_text_sha256": attempt["text_probe_sha256"],
+                    "record_type": "ygp_original_notice_readback",
+                    "ygp_project_code_variants": _list(query_params.get("ygpProjectCodeVariants")),
+                    "ygp_biz_code": str(query_params.get("ygpBizCode") or ""),
+                    "ygp_site_code": str(query_params.get("ygpSiteCode") or ""),
+                    "ygp_notice_id": str(query_params.get("ygpNoticeId") or ""),
+                    "ygp_node_id": str(query_params.get("ygpNodeId") or ""),
+                }
+            )
+    blockers = _dedupe(blocker for attempt in attempts for blocker in _list(attempt.get("blocker_taxonomy")))
+    status_codes = [_int(attempt.get("http_status")) for attempt in attempts if _int(attempt.get("http_status"))]
+    if match_records:
+        return {
+            "field_query_probe_state": "FIELD_READBACK_READY_PUBLIC_SOURCE",
+            "field_readback_state": "YGP_ORIGINAL_NOTICE_READBACK_READY_REVIEW_REQUIRED",
+            "readback_ready": True,
+            "readback_status_code": status_codes[0] if status_codes else 200,
+            "field_summary": {
+                "source_specific_adapter_id": GUANGDONG_YGP_ORIGINAL_READBACK_BACKFILL_ADAPTER_ID,
+                "record_count": len(match_records),
+                "ygp_original_readback_ready": True,
+                "keyword_hit_route_count": len(match_records),
+                "matched_keyword_count": len(
+                    _dedupe(keyword for row in match_records for keyword in row["matched_keywords"])
+                ),
+                "gdcic_project_code_route_allowed": bool(query_params.get("gdcicProjectCodeRouteAllowed")),
+                "gdcic_project_code_variants": _list(query_params.get("gdcicProjectCodeVariants")),
+            },
+            "field_match_summary": {
+                "source_specific_records": match_records[:10],
+                "query_miss_is_not_clearance": True,
+                "ygp_original_readback_is_official_source_backfill": True,
+                "not_gdcic_project_code_route": not bool(query_params.get("gdcicProjectCodeRouteAllowed")),
+            },
+            "route_plan": list(route_plan),
+            "route_attempts": attempts,
+            "blocker_taxonomy": blockers,
+        }
+    if attempts and all(str(attempt.get("route_state") or "").startswith("FAIL_CLOSED") for attempt in attempts):
+        return {
+            "field_query_probe_state": "FAIL_CLOSED_PUBLIC_SOURCE_BLOCKED",
+            "field_readback_state": "YGP_ORIGINAL_NOTICE_READBACK_BLOCKED",
+            "readback_ready": False,
+            "readback_status_code": status_codes[0] if status_codes else None,
+            "field_summary": {
+                "source_specific_adapter_id": GUANGDONG_YGP_ORIGINAL_READBACK_BACKFILL_ADAPTER_ID,
+                "record_count": 0,
+                "ygp_original_readback_ready": False,
+            },
+            "field_match_summary": {
+                "query_miss_is_not_clearance": True,
+                "ygp_original_readback_blocked_before_match": True,
+            },
+            "route_plan": list(route_plan),
+            "route_attempts": attempts,
+            "blocker_taxonomy": blockers or ["ygp_original_readback_public_source_blocked"],
+        }
+    return {
+        "field_query_probe_state": "NO_FIELD_MATCH_REVIEW_REQUIRED",
+        "field_readback_state": "YGP_ORIGINAL_NOTICE_QUERIED_NO_KEYWORD_MATCH",
+        "readback_ready": False,
+        "readback_status_code": status_codes[0] if status_codes else None,
+        "field_summary": {
+            "source_specific_adapter_id": GUANGDONG_YGP_ORIGINAL_READBACK_BACKFILL_ADAPTER_ID,
+            "record_count": 0,
+            "ygp_original_readback_ready": False,
+        },
+        "field_match_summary": {
+            "query_miss_is_not_clearance": True,
+            "ygp_original_readback_no_keyword_match": True,
+        },
+        "route_plan": list(route_plan),
+        "route_attempts": attempts,
+        "blocker_taxonomy": blockers or ["ygp_original_readback_no_keyword_hit_review"],
     }
 
 
