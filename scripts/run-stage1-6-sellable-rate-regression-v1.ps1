@@ -49,6 +49,7 @@ $p13bOriginalNoticeRoot = Join-Path $RunRoot "p13b-original-notice"
 $p13bYgpReadbackRoot = Join-Path $RunRoot "p13b-ygp-original-readback"
 $p13bCloseoutRoot = Join-Path $RunRoot "p13b-overlap-closeout"
 $scoreboardRoot = Join-Path $RunRoot "scoreboard"
+$stage4BackfillFollowupQueueRoot = Join-Path $RunRoot "stage4-backfill-followup-queue"
 
 New-Item -ItemType Directory -Force -Path $RunRoot | Out-Null
 $env:PYTHONPATH = "$repoRoot\src;$repoRoot\tests"
@@ -337,4 +338,21 @@ if ($EmitJson) {
 & pwsh @scoreboardArgs
 if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
+}
+
+$scoreboardJson = Join-Path $scoreboardRoot "stage1-6-sellable-scoreboard-v1.json"
+if (Test-Path $scoreboardJson) {
+    $stage4BackfillFollowupArgs = @(
+        "-NoProfile", "-ExecutionPolicy", "Bypass",
+        "-File", (Join-Path $repoRoot "scripts\build-stage4-backfill-followup-queue-v1.ps1"),
+        "-ScoreboardJson", $scoreboardJson,
+        "-OutputRoot", $stage4BackfillFollowupQueueRoot
+    )
+    if ($EmitJson) {
+        $stage4BackfillFollowupArgs += "-EmitJson"
+    }
+    & pwsh @stage4BackfillFollowupArgs
+    if ($LASTEXITCODE -ne 0) {
+        exit $LASTEXITCODE
+    }
 }
