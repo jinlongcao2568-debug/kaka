@@ -1,5 +1,6 @@
 param(
     [string]$ScoreboardJson = "",
+    [string]$ScoreboardComparisonJson = "",
     [string]$OutputRoot = "",
     [switch]$EmitJson
 )
@@ -28,6 +29,9 @@ $argsList = @(
     "--scoreboard-json", $ScoreboardJson,
     "--output-root", $OutputRoot
 )
+if ($ScoreboardComparisonJson) {
+    $argsList += @("--scoreboard-comparison-json", $ScoreboardComparisonJson)
+}
 if ($EmitJson) {
     $argsList += "--json"
 }
