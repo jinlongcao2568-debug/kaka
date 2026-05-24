@@ -451,6 +451,8 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
                 "public_source_blocked": 1,
                 "weak_lead": 1,
                 "public_source_not_found": 1,
+                "responsible_role_gap": 1,
+                "project_code_backfill_gap": 1,
             },
         )
         self.assertEqual(
@@ -546,6 +548,99 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
         )
         self.assertFalse(result["safety"]["customer_visible_allowed"])
         self.assertTrue(result["safety"]["query_miss_is_not_clearance"])
+
+    def test_stage5_review_buckets_split_stage1_3_and_backfill_gaps(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            pressure = root / "pressure"
+            field_query = root / "field-query"
+            out = root / "out"
+            pressure.mkdir()
+            field_query.mkdir()
+
+            _write_json(
+                pressure / "pressure-summary.json",
+                {
+                    "candidate_count": 4,
+                    "stage5_rule_gate_status_counts": {"REVIEW": 4},
+                    "customer_sellable_evidence_ready_count": 0,
+                },
+            )
+            _write_json(
+                pressure / "stage1-6-readiness-table.json",
+                {
+                    "records": [
+                        {
+                            "project_id": "PROJ-CERT",
+                            "project_name": "certificate gap",
+                            "stage2_detail_capture_state": "FETCHED",
+                            "stage3_field_parse_state": "PARSED_FROM_FIELD_SIGNALS",
+                            "stage5_rule_gate_status": "REVIEW",
+                            "stage5_gate_state": "REVIEW_REQUIRED",
+                            "fail_closed_reasons": [
+                                "notice_has_company_and_project_manager_but_missing_certificate_no",
+                                "same_name_not_disambiguated",
+                            ],
+                        },
+                        {
+                            "project_id": "PROJ-ROLE",
+                            "project_name": "role gap",
+                            "stage2_detail_capture_state": "FETCHED",
+                            "stage3_field_parse_state": "RESPONSIBLE_ROLE_GAP_REVIEW_REQUIRED",
+                            "stage5_rule_gate_status": "REVIEW",
+                            "stage5_gate_state": "REVIEW_REQUIRED",
+                            "fail_closed_reasons": ["notice_has_company_but_missing_responsible_role_name"],
+                        },
+                        {
+                            "project_id": "PROJ-CODE",
+                            "project_name": "project code gap",
+                            "stage2_detail_capture_state": "FETCHED",
+                            "stage3_field_parse_state": "PARSED_FROM_FIELD_SIGNALS",
+                            "stage5_rule_gate_status": "REVIEW",
+                            "stage5_gate_state": "REVIEW_REQUIRED",
+                            "fail_closed_reasons": ["gdcic_project_code_not_resolved"],
+                        },
+                        {
+                            "project_id": "PROJ-AMB",
+                            "project_name": "ambiguity gap",
+                            "stage2_detail_capture_state": "FETCHED",
+                            "stage3_field_parse_state": "PARSED_FROM_FIELD_SIGNALS",
+                            "stage5_rule_gate_status": "REVIEW",
+                            "stage5_gate_state": "REVIEW_REQUIRED",
+                            "fail_closed_reasons": ["same_name_not_disambiguated"],
+                        },
+                    ]
+                },
+            )
+            _write_json(pressure / "stage1-6-gap-summary-table.json", {"records": []})
+            _write_json(field_query / "guangdong-local-field-query-probe-v1.json", {"manifest": {}})
+
+            result = build_stage1_6_sellable_scoreboard(
+                pressure_root=pressure,
+                field_query_root=field_query,
+                output_root=out,
+                created_at="2026-05-24T00:00:00+08:00",
+            )
+
+        rows = {row["project_id"]: row for row in result["project_rows"]}
+        self.assertEqual(
+            result["scoreboard"]["stage5_operational_review_bucket_counts"],
+            {
+                "RESPONSIBLE_PERSON_CERTIFICATE_GAP_REVIEW": 1,
+                "RESPONSIBLE_ROLE_GAP_REVIEW": 1,
+                "PROJECT_CODE_BACKFILL_GAP_REVIEW": 1,
+                "FIELD_AMBIGUITY_REVIEW": 1,
+            },
+        )
+        self.assertEqual(
+            rows["PROJ-CERT"]["stage5_operational_next_action"],
+            "run_company_first_certificate_supplement_and_attachment_ocr_without_identity_confirmation",
+        )
+        self.assertEqual(
+            rows["PROJ-CODE"]["stage5_operational_next_action"],
+            "backfill_project_code_from_notice_data_ggzy_bid_show_or_local_source_without_digit_guessing",
+        )
+        self.assertTrue(all(row["stage5_query_miss_is_not_clearance"] for row in rows.values()))
 
 
 def _write_json(path: Path, payload: dict) -> None:

@@ -868,6 +868,30 @@ def _stage5_operational_review(
     has_ygp_ready = ygp_state == "YGP_READBACK_READY"
     has_ygp_blocked = ygp_state == "YGP_BLOCKED"
     has_weak_official_signal = _int(adapter_counts.get("MATCHED")) > 0 and not has_official_b_or_c
+    fail_closed_reasons = {str(item) for item in _as_list(readiness_record.get("fail_closed_reasons"))}
+    remaining_gaps = {str(item) for item in _as_list(readiness_record.get("remaining_real_world_gaps"))}
+    stage3_parse_state = str(readiness_record.get("stage3_field_parse_state") or "").upper()
+    responsible_gap_code = str(readiness_record.get("responsible_role_gap_code") or "").strip()
+    has_responsible_role_gap = (
+        "RESPONSIBLE_ROLE_GAP" in stage3_parse_state
+        or bool(responsible_gap_code)
+        or "notice_has_company_but_missing_responsible_role_name" in fail_closed_reasons
+        or any("responsible_role_missing" in gap for gap in remaining_gaps)
+    )
+    has_certificate_gap = (
+        "notice_has_company_and_project_manager_but_missing_certificate_no" in fail_closed_reasons
+        or any("certificate_missing" in gap for gap in remaining_gaps)
+    )
+    has_field_ambiguity = (
+        "same_name_not_disambiguated" in fail_closed_reasons
+        or "target_identifier_missing" in fail_closed_reasons
+        or any("ambiguous" in reason.lower() or "ambiguity" in reason.lower() for reason in fail_closed_reasons)
+    )
+    has_project_code_backfill_gap = (
+        "gdcic_project_code_not_resolved" in fail_closed_reasons
+        or "gdcic_project_code_not_resolved_after_project_name_candidate_queries" in fail_closed_reasons
+        or "gdcic_project_code_candidates_present_but_not_matched" in fail_closed_reasons
+    )
     has_evidence_insufficient = (
         any(str(key).startswith("D_") and _int(value) > 0 for key, value in combined_grade_counts.items())
         or bool(_as_list(readiness_record.get("remaining_real_world_gaps")))
@@ -900,6 +924,14 @@ def _stage5_operational_review(
         signals.append("source_not_found")
     if has_public_source_not_found:
         signals.append("public_source_not_found")
+    if has_responsible_role_gap:
+        signals.append("responsible_role_gap")
+    if has_certificate_gap:
+        signals.append("responsible_person_certificate_gap")
+    if has_field_ambiguity:
+        signals.append("field_ambiguity")
+    if has_project_code_backfill_gap:
+        signals.append("project_code_backfill_gap")
     if has_evidence_insufficient:
         signals.append("evidence_insufficient")
 
@@ -939,6 +971,18 @@ def _stage5_operational_review(
     elif has_public_source_not_found:
         bucket = "PUBLIC_SOURCE_NOT_FOUND_REVIEW"
         action = "keep_no_public_overlap_signal_as_non_clearance_and_manual_review"
+    elif has_certificate_gap:
+        bucket = "RESPONSIBLE_PERSON_CERTIFICATE_GAP_REVIEW"
+        action = "run_company_first_certificate_supplement_and_attachment_ocr_without_identity_confirmation"
+    elif has_responsible_role_gap:
+        bucket = "RESPONSIBLE_ROLE_GAP_REVIEW"
+        action = "run_company_first_responsible_role_completion_before_stage4_release_readback"
+    elif has_project_code_backfill_gap:
+        bucket = "PROJECT_CODE_BACKFILL_GAP_REVIEW"
+        action = "backfill_project_code_from_notice_data_ggzy_bid_show_or_local_source_without_digit_guessing"
+    elif has_field_ambiguity:
+        bucket = "FIELD_AMBIGUITY_REVIEW"
+        action = "keep_same_name_or_missing_identifier_as_manual_disambiguation_required"
     elif has_evidence_insufficient:
         bucket = "EVIDENCE_INSUFFICIENT_REVIEW"
         action = "keep_internal_evidence_gap_and_collect_more_official_readback"
