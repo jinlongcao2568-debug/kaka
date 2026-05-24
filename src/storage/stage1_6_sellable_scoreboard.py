@@ -16,6 +16,7 @@ DEFAULT_PRESSURE_ROOT = Path("tmp/evaluation-real-samples/guangzhou-stage1-6-rea
 DEFAULT_FIELD_QUERY_ROOT = Path("tmp/evaluation-real-samples/guangdong-local-field-query-probe-v1")
 DEFAULT_GDCIC_BROWSER_READBACK_ROOT = Path("tmp/evaluation-real-samples/gdcic-browser-authorized-readback-v1")
 DEFAULT_STAGE6_STATUS_ROOT = Path("tmp/evaluation-real-samples/stage6-review-cycle-runner-v1")
+DEFAULT_P13B_COMPANY_HISTORY_ROOT = Path("tmp/evaluation-real-samples/p13b-company-history-overlap-triage-v1")
 DEFAULT_OUTPUT_ROOT = Path("tmp/evaluation-real-samples/stage1-6-sellable-scoreboard-v1")
 
 
@@ -29,6 +30,8 @@ def build_stage1_6_sellable_scoreboard(
     field_query_json: str | Path | None = None,
     gdcic_browser_readback_root: str | Path | None = None,
     gdcic_browser_readback_json: str | Path | None = None,
+    p13b_company_history_root: str | Path | None = None,
+    p13b_company_history_json: str | Path | None = None,
     stage6_status_root: str | Path | None = None,
     stage6_status_json: str | Path | None = None,
     output_root: str | Path | None = None,
@@ -38,6 +41,7 @@ def build_stage1_6_sellable_scoreboard(
     pressure_dir = Path(pressure_root or DEFAULT_PRESSURE_ROOT)
     field_dir = Path(field_query_root or DEFAULT_FIELD_QUERY_ROOT)
     gdcic_readback_dir = Path(gdcic_browser_readback_root or DEFAULT_GDCIC_BROWSER_READBACK_ROOT)
+    p13b_company_history_dir = Path(p13b_company_history_root or DEFAULT_P13B_COMPANY_HISTORY_ROOT)
     stage6_dir = Path(stage6_status_root or DEFAULT_STAGE6_STATUS_ROOT)
     out_dir = Path(output_root or DEFAULT_OUTPUT_ROOT)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -50,6 +54,10 @@ def build_stage1_6_sellable_scoreboard(
         gdcic_browser_readback_json,
         gdcic_readback_dir / "gdcic-browser-authorized-readback-v1.json",
     )
+    p13b_company_history_path = _resolve_path(
+        p13b_company_history_json,
+        p13b_company_history_dir / "company-history-overlap-triage-v1.json",
+    )
     stage6_status_path = _resolve_stage6_status_path(stage6_status_json, stage6_dir)
 
     pressure_summary = _read_json_mapping(pressure_summary_path)
@@ -57,11 +65,13 @@ def build_stage1_6_sellable_scoreboard(
     gap_summary = _read_json_mapping(gap_summary_path)
     field_query = _read_json_mapping(field_query_path)
     gdcic_browser_readback = _read_json_mapping(gdcic_browser_readback_path)
+    p13b_company_history = _read_json_mapping(p13b_company_history_path)
     stage6_status = _read_json_mapping(stage6_status_path)
 
     readiness_records = _records(readiness)
     gap_records = _records(gap_summary)
     field_records = _field_task_records(field_query)
+    p13b_project_signals = _p13b_project_signals(p13b_company_history)
     stage6_records = _records(stage6_status)
 
     stage6_by_project = {
@@ -75,13 +85,14 @@ def build_stage1_6_sellable_scoreboard(
         if str(record.get("project_id") or "").strip()
     }
 
-    project_ids = _ordered_project_ids(readiness_records, stage6_records, field_records)
+    project_ids = _ordered_project_ids(readiness_records, stage6_records, field_records, list(p13b_project_signals.values()))
     project_rows = [
         _project_scoreboard_row(
             project_id,
             readiness_by_project.get(project_id, {}),
             stage6_by_project.get(project_id, {}),
             [record for record in field_records if str(record.get("project_id") or "").strip() == project_id],
+            p13b_project_signals.get(project_id, {}),
         )
         for project_id in project_ids
     ]
@@ -90,6 +101,7 @@ def build_stage1_6_sellable_scoreboard(
         readiness_records,
         field_query,
         gdcic_browser_readback,
+        p13b_company_history,
         field_records,
         stage6_status,
         stage6_records,
@@ -100,6 +112,7 @@ def build_stage1_6_sellable_scoreboard(
         gap_records,
         field_query,
         gdcic_browser_readback,
+        p13b_company_history,
         field_records,
         stage6_records,
         project_rows,
@@ -116,6 +129,7 @@ def build_stage1_6_sellable_scoreboard(
             "stage1_6_gap_summary_json": str(gap_summary_path),
             "release_field_query_json": str(field_query_path),
             "gdcic_browser_authorized_readback_json": str(gdcic_browser_readback_path),
+            "p13b_company_history_json": str(p13b_company_history_path),
             "stage6_status_json": str(stage6_status_path),
         },
         "scoreboard": counts,
@@ -142,6 +156,7 @@ def _scoreboard_counts(
     readiness_records: list[Mapping[str, Any]],
     field_query: Mapping[str, Any],
     gdcic_browser_readback: Mapping[str, Any],
+    p13b_company_history: Mapping[str, Any],
     field_records: list[Mapping[str, Any]],
     stage6_status: Mapping[str, Any],
     stage6_records: list[Mapping[str, Any]],
@@ -161,6 +176,7 @@ def _scoreboard_counts(
     )
     field_summary = _summary(field_query)
     gdcic_readback_summary = _summary(gdcic_browser_readback)
+    p13b_summary = _summary(p13b_company_history)
     stage6_summary = _summary(stage6_status)
     stage4_matched_count = _count_state(field_summary, field_records, "adapter_result_state", "MATCHED")
     stage4_needs_browser_count = _count_state(field_summary, field_records, "adapter_result_state", "NEEDS_BROWSER")
@@ -216,6 +232,10 @@ def _scoreboard_counts(
         "stage4_adapter_result_state_counts": dict(field_summary.get("adapter_result_state_counts") or {}),
         "stage4_downstream_abcd_grade_counts": dict(field_summary.get("release_evidence_downstream_abcd_grade_counts") or {}),
         "gdcic_authorized_readback_status": _gdcic_authorized_readback_status(gdcic_readback_summary),
+        "p13b_public_source_readback_status": _p13b_public_source_readback_status(p13b_summary),
+        "stage4_public_source_readback_state_counts": _counts(
+            row.get("p13b_public_source_readback_state") for row in project_rows
+        ),
         "stage6_loop_terminal_state_counts": dict(stage6_summary.get("loop_terminal_state_counts") or {})
         or _counts(record.get("loop_terminal_state") for record in stage6_records),
     }
@@ -226,6 +246,7 @@ def _project_scoreboard_row(
     readiness_record: Mapping[str, Any],
     stage6_record: Mapping[str, Any],
     field_records: list[Mapping[str, Any]],
+    p13b_project_signal: Mapping[str, Any],
 ) -> dict[str, Any]:
     adapter_counts = _counts(record.get("adapter_result_state") for record in field_records)
     grade_counts = _counts(
@@ -254,6 +275,7 @@ def _project_scoreboard_row(
         readiness_record=readiness_record,
         stage6_record=stage6_record,
         field_records=field_records,
+        p13b_project_signal=p13b_project_signal,
         adapter_counts=adapter_counts,
         combined_grade_counts=combined_grade_counts,
         has_official_b_or_c=has_official_b_or_c,
@@ -274,6 +296,15 @@ def _project_scoreboard_row(
         "stage4_adapter_result_state_counts": adapter_counts or dict(stage6_record.get("release_field_query_adapter_result_state_counts") or {}),
         "stage4_downstream_abcd_grade_counts": combined_grade_counts,
         "authorization_state_counts": dict(stage6_record.get("release_field_query_authorization_state_counts") or {}),
+        "p13b_public_source_readback_state": str(
+            p13b_project_signal.get("p13b_public_source_readback_state") or ""
+        ),
+        "p13b_original_notice_backtrace_required_count": _int(
+            p13b_project_signal.get("original_notice_backtrace_required_count")
+        ),
+        "p13b_company_query_state_counts": dict(p13b_project_signal.get("company_query_state_counts") or {}),
+        "p13b_bid_show_state_counts": dict(p13b_project_signal.get("bid_show_state_counts") or {}),
+        "p13b_overlap_signal_state_counts": dict(p13b_project_signal.get("overlap_signal_state_counts") or {}),
         "operator_next_actions": [str(item) for item in _as_list(stage6_record.get("release_field_query_operator_next_actions")) if str(item or "").strip()],
         "blocking_bucket": _project_blocking_bucket(readiness_record, stage6_record, field_records),
         "strong_lead_candidate_state": strong_lead_candidate_state,
@@ -293,12 +324,14 @@ def _blocker_summary(
     gap_records: list[Mapping[str, Any]],
     field_query: Mapping[str, Any],
     gdcic_browser_readback: Mapping[str, Any],
+    p13b_company_history: Mapping[str, Any],
     field_records: list[Mapping[str, Any]],
     stage6_records: list[Mapping[str, Any]],
     project_rows: list[Mapping[str, Any]],
 ) -> dict[str, Any]:
     field_summary = _summary(field_query)
     gdcic_readback_summary = _summary(gdcic_browser_readback)
+    p13b_summary = _summary(p13b_company_history)
     blocker_taxonomy_counts = dict(field_summary.get("blocker_taxonomy_counts") or {})
     if not blocker_taxonomy_counts:
         blocker_taxonomy_counts = _flatten_counts(field_records, "blocker_taxonomy")
@@ -329,6 +362,7 @@ def _blocker_summary(
         "field_blocker_taxonomy_counts": blocker_taxonomy_counts,
         "operator_next_action_counts": dict(field_summary.get("operator_next_action_counts") or {}),
         "gdcic_authorized_readback_blocker": _gdcic_authorized_readback_status(gdcic_readback_summary),
+        "p13b_public_source_readback_blocker": _p13b_public_source_readback_status(p13b_summary),
         "stage5_operational_review_bucket_counts": _counts(
             row.get("stage5_operational_review_bucket") for row in project_rows
         ),
@@ -349,6 +383,11 @@ def _recommended_next_actions(blocker_summary: Mapping[str, Any], counts: Mappin
         actions.append(str(gdcic_blocker.get("operator_next_action")))
     if isinstance(gdcic_blocker, Mapping) and str(gdcic_blocker.get("alternative_operator_next_action") or "").strip():
         actions.append(str(gdcic_blocker.get("alternative_operator_next_action")))
+    p13b_blocker = blocker_summary.get("p13b_public_source_readback_blocker")
+    if isinstance(p13b_blocker, Mapping) and _int(p13b_blocker.get("original_notice_backtrace_required_count")):
+        actions.append("run_p13b_original_notice_backtrace_for_bid_show_records")
+    if isinstance(p13b_blocker, Mapping) and _int(p13b_blocker.get("source_blocked_count")):
+        actions.append("retry_or_route_public_source_blockers_to_local_authority_readback")
     if _int(blocker_summary.get("field_missing_or_not_found_task_count")):
         actions.append("extend_stage4_project_code_and_source_readback_before_claiming_clearance")
     if _int(blocker_summary.get("stage4_matched_without_stage7_saleable_project_count")):
@@ -424,6 +463,45 @@ def _gdcic_authorized_readback_status(summary: Mapping[str, Any]) -> dict[str, A
     }
 
 
+def _p13b_public_source_readback_status(summary: Mapping[str, Any]) -> dict[str, Any]:
+    if not summary:
+        return {
+            "artifact_state": "MISSING_OR_NOT_BUILT",
+            "input_mode": "",
+            "execution_mode": "",
+            "gdcic_alternative_public_source_route_count": 0,
+            "queried_company_count": 0,
+            "company_search_hit_count": 0,
+            "bid_show_record_count": 0,
+            "overlap_signal_review_required_count": 0,
+            "original_notice_backtrace_required_count": 0,
+            "source_blocked_count": 0,
+            "query_miss_is_not_clearance": True,
+            "customer_visible_allowed": False,
+            "no_legal_conclusion": True,
+        }
+    return {
+        "artifact_state": "BUILT",
+        "input_mode": str(summary.get("input_mode") or ""),
+        "execution_mode": str(summary.get("execution_mode") or ""),
+        "gdcic_alternative_public_source_route_count": _int(
+            summary.get("gdcic_alternative_public_source_route_count")
+        ),
+        "queried_company_count": _int(summary.get("queried_company_count")),
+        "company_search_hit_count": _int(summary.get("company_search_hit_count")),
+        "bid_show_record_count": _int(summary.get("bid_show_record_count")),
+        "overlap_signal_review_required_count": _int(summary.get("overlap_signal_review_required_count")),
+        "original_notice_backtrace_required_count": _int(summary.get("original_notice_backtrace_required_count")),
+        "source_blocked_count": _int(summary.get("source_blocked_count")),
+        "company_query_state_counts": dict(summary.get("company_query_state_counts") or {}),
+        "bid_show_state_counts": dict(summary.get("bid_show_state_counts") or {}),
+        "overlap_signal_state_counts": dict(summary.get("overlap_signal_state_counts") or {}),
+        "query_miss_is_not_clearance": bool(summary.get("query_miss_is_not_clearance", True)),
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
+
+
 def _project_blocking_bucket(
     readiness_record: Mapping[str, Any],
     stage6_record: Mapping[str, Any],
@@ -449,6 +527,7 @@ def _stage5_operational_review(
     readiness_record: Mapping[str, Any],
     stage6_record: Mapping[str, Any],
     field_records: list[Mapping[str, Any]],
+    p13b_project_signal: Mapping[str, Any],
     adapter_counts: Mapping[str, int],
     combined_grade_counts: Mapping[str, int],
     has_official_b_or_c: bool,
@@ -465,6 +544,16 @@ def _stage5_operational_review(
         or any("authorized_storage_state_or_user_data_dir" in action for action in operator_actions)
     )
     has_source_not_found = _int(adapter_counts.get("NOT_FOUND")) > 0
+    p13b_state = str(p13b_project_signal.get("p13b_public_source_readback_state") or "")
+    has_public_source_blocked = (
+        p13b_state == "PUBLIC_SOURCE_BLOCKED_REVIEW"
+        or _int(p13b_project_signal.get("source_blocked_count")) > 0
+    )
+    has_original_backtrace_required = (
+        p13b_state == "ORIGINAL_NOTICE_BACKTRACE_REQUIRED"
+        or _int(p13b_project_signal.get("original_notice_backtrace_required_count")) > 0
+    )
+    has_public_source_not_found = p13b_state == "NO_PUBLIC_OVERLAP_SIGNAL_REVIEW"
     has_weak_official_signal = _int(adapter_counts.get("MATCHED")) > 0 and not has_official_b_or_c
     has_evidence_insufficient = (
         any(str(key).startswith("D_") and _int(value) > 0 for key, value in combined_grade_counts.items())
@@ -480,8 +569,14 @@ def _stage5_operational_review(
         signals.append("weak_lead")
     if has_authorization_block:
         signals.append("authorization_blocked")
+    if has_public_source_blocked:
+        signals.append("public_source_blocked")
+    if has_original_backtrace_required:
+        signals.append("original_notice_backtrace_required")
     if has_source_not_found:
         signals.append("source_not_found")
+    if has_public_source_not_found:
+        signals.append("public_source_not_found")
     if has_evidence_insufficient:
         signals.append("evidence_insufficient")
 
@@ -491,12 +586,21 @@ def _stage5_operational_review(
     elif has_weak_official_signal:
         bucket = "WEAK_LEAD_OFFICIAL_SIGNAL_REVIEW"
         action = "strengthen_official_readback_before_any_commercial_projection"
+    elif has_original_backtrace_required:
+        bucket = "ORIGINAL_NOTICE_BACKTRACE_REQUIRED_REVIEW"
+        action = "run_p13b_original_notice_backtrace_without_clearance_claim"
+    elif has_public_source_blocked:
+        bucket = "PUBLIC_SOURCE_BLOCKED_REVIEW"
+        action = "retry_public_source_or_route_to_local_authority_readback"
     elif has_authorization_block:
         bucket = "AUTHORIZATION_BLOCKED_REVIEW"
         action = "provide_authorized_browser_session_then_rerun_release_field_query"
     elif has_source_not_found:
         bucket = "SOURCE_NOT_FOUND_REVIEW"
         action = "try_project_code_backfill_or_jurisdiction_source_without_clearance_claim"
+    elif has_public_source_not_found:
+        bucket = "PUBLIC_SOURCE_NOT_FOUND_REVIEW"
+        action = "keep_no_public_overlap_signal_as_non_clearance_and_manual_review"
     elif has_evidence_insufficient:
         bucket = "EVIDENCE_INSUFFICIENT_REVIEW"
         action = "keep_internal_evidence_gap_and_collect_more_official_readback"
@@ -556,6 +660,60 @@ def _records(payload: Mapping[str, Any]) -> list[dict[str, Any]]:
 def _field_task_records(payload: Mapping[str, Any]) -> list[dict[str, Any]]:
     manifest = payload.get("manifest") if isinstance(payload.get("manifest"), Mapping) else {}
     records = manifest.get("field_task_records")
+    return [dict(record) for record in records if isinstance(record, Mapping)] if isinstance(records, list) else []
+
+
+def _p13b_project_signals(payload: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
+    manifest = payload.get("manifest") if isinstance(payload.get("manifest"), Mapping) else {}
+    if not manifest:
+        return {}
+    project_records = _manifest_records(manifest, "project_task_records")
+    query_records = _manifest_records(manifest, "company_history_query_records")
+    bid_show_records = _manifest_records(manifest, "bid_show_records")
+    overlap_records = _manifest_records(manifest, "overlap_signal_records")
+    project_ids = _ordered_project_ids(project_records, query_records, bid_show_records, overlap_records)
+    signals: dict[str, dict[str, Any]] = {}
+    for project_id in project_ids:
+        project_queries = [record for record in query_records if str(record.get("project_id") or "").strip() == project_id]
+        project_bid_shows = [record for record in bid_show_records if str(record.get("project_id") or "").strip() == project_id]
+        project_overlaps = [record for record in overlap_records if str(record.get("project_id") or "").strip() == project_id]
+        company_query_counts = _counts(record.get("query_state") for record in project_queries)
+        bid_show_counts = _counts(record.get("bid_show_state") for record in project_bid_shows)
+        overlap_counts = _counts(record.get("overlap_signal_state") for record in project_overlaps)
+        original_backtrace_required = _int(overlap_counts.get("ORIGINAL_NOTICE_BACKTRACE_REQUIRED")) + _int(
+            bid_show_counts.get("ORIGINAL_NOTICE_BACKTRACE_REQUIRED")
+        )
+        source_blocked = _int(company_query_counts.get("SOURCE_BLOCKED_RETRY_REQUIRED"))
+        overlap_review_required = _int(overlap_counts.get("OVERLAP_SIGNAL_REVIEW_REQUIRED"))
+        no_public_signal = _int(overlap_counts.get("NO_PUBLIC_OVERLAP_SIGNAL_REVIEW"))
+        if overlap_review_required:
+            readback_state = "MATCHED_OVERLAP_SIGNAL_REVIEW_REQUIRED"
+        elif original_backtrace_required:
+            readback_state = "ORIGINAL_NOTICE_BACKTRACE_REQUIRED"
+        elif source_blocked:
+            readback_state = "PUBLIC_SOURCE_BLOCKED_REVIEW"
+        elif no_public_signal or _int(company_query_counts.get("NO_PUBLIC_OVERLAP_SIGNAL_REVIEW")):
+            readback_state = "NO_PUBLIC_OVERLAP_SIGNAL_REVIEW"
+        else:
+            readback_state = "PUBLIC_SOURCE_READBACK_PENDING_OR_NOT_RUN"
+        signals[project_id] = {
+            "project_id": project_id,
+            "p13b_public_source_readback_state": readback_state,
+            "company_query_state_counts": company_query_counts,
+            "bid_show_state_counts": bid_show_counts,
+            "overlap_signal_state_counts": overlap_counts,
+            "original_notice_backtrace_required_count": original_backtrace_required,
+            "source_blocked_count": source_blocked,
+            "overlap_signal_review_required_count": overlap_review_required,
+            "query_miss_is_not_clearance": True,
+            "customer_visible_allowed": False,
+            "no_legal_conclusion": True,
+        }
+    return signals
+
+
+def _manifest_records(manifest: Mapping[str, Any], key: str) -> list[dict[str, Any]]:
+    records = manifest.get(key)
     return [dict(record) for record in records if isinstance(record, Mapping)] if isinstance(records, list) else []
 
 
@@ -693,6 +851,8 @@ def _write_markdown(path: Path, payload: Mapping[str, Any]) -> None:
         f"- limited_sellable_review_candidate_count: {scoreboard.get('limited_sellable_review_candidate_count', 0)}",
         f"- real_public_sellable_pack_rate: {scoreboard.get('real_public_sellable_pack_rate', 0)}",
         f"- gdcic_authorized_readback_status: {json.dumps(scoreboard.get('gdcic_authorized_readback_status', {}), ensure_ascii=False, sort_keys=True)}",
+        f"- p13b_public_source_readback_status: {json.dumps(scoreboard.get('p13b_public_source_readback_status', {}), ensure_ascii=False, sort_keys=True)}",
+        f"- stage4_public_source_readback_state_counts: {json.dumps(scoreboard.get('stage4_public_source_readback_state_counts', {}), ensure_ascii=False, sort_keys=True)}",
         "",
         "## Blockers",
     ]
@@ -715,6 +875,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--field-query-json", default="")
     parser.add_argument("--gdcic-browser-readback-root", default=str(DEFAULT_GDCIC_BROWSER_READBACK_ROOT))
     parser.add_argument("--gdcic-browser-readback-json", default="")
+    parser.add_argument("--p13b-company-history-root", default=str(DEFAULT_P13B_COMPANY_HISTORY_ROOT))
+    parser.add_argument("--p13b-company-history-json", default="")
     parser.add_argument("--stage6-status-root", default=str(DEFAULT_STAGE6_STATUS_ROOT))
     parser.add_argument("--stage6-status-json", default="")
     parser.add_argument("--output-root", default=str(DEFAULT_OUTPUT_ROOT))
@@ -729,6 +891,8 @@ def main(argv: list[str] | None = None) -> int:
         field_query_json=args.field_query_json or None,
         gdcic_browser_readback_root=args.gdcic_browser_readback_root,
         gdcic_browser_readback_json=args.gdcic_browser_readback_json or None,
+        p13b_company_history_root=args.p13b_company_history_root,
+        p13b_company_history_json=args.p13b_company_history_json or None,
         stage6_status_root=args.stage6_status_root,
         stage6_status_json=args.stage6_status_json or None,
         output_root=args.output_root,

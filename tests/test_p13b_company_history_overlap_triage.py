@@ -286,6 +286,33 @@ class P13BCompanyHistoryOverlapTriageTests(unittest.TestCase):
             tasks = result["manifest"]["company_history_query_records"]
             self.assertEqual(len([task for task in tasks if task["candidate_company_name"] == "广东甲公司"]), 1)
 
+    def test_gdcic_alternative_public_routes_seed_company_history_tasks(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            readback_json = root / "gdcic" / "gdcic-browser-authorized-readback-v1.json"
+            _write_gdcic_alternative_readback(readback_json)
+
+            result = build_p13b_company_history_overlap_triage(
+                gdcic_browser_readback_json=readback_json,
+                output_root=root / "out",
+                created_at="2026-05-25T00:00:00+08:00",
+            )
+
+            summary = result["summary"]
+            self.assertTrue(result["safe_to_execute"])
+            self.assertEqual(summary["input_mode"], "GDCIC_ALTERNATIVE_PUBLIC_SOURCE_ROUTES")
+            self.assertEqual(summary["gdcic_alternative_public_source_route_count"], 2)
+            self.assertEqual(summary["project_task_count"], 1)
+            self.assertEqual(summary["company_history_query_task_count"], 2)
+            project = result["manifest"]["project_task_records"][0]
+            self.assertEqual(project["gdcic_alternative_target_types"], ["contract_performance", "project_manager_change_notice"])
+            self.assertIn("https://ywtb.gzggzy.cn/jyfw/07-a.html", project["candidate_notice_source_urls"])
+            companies = {task["candidate_company_name"] for task in result["manifest"]["company_history_query_records"]}
+            self.assertEqual(companies, {"广东甲公司", "广东乙公司"})
+            for task in result["manifest"]["company_history_query_records"]:
+                self.assertIn("张三", task["responsible_person_names"])
+                self.assertEqual(task["query_state"], "PLAN_ONLY_NOT_EXECUTED")
+
     def test_ygp_live_fake_query_extracts_overlap_and_backtrace_inputs(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -467,6 +494,63 @@ def _coverage_record(project_suffix: str, city_code: str, state: str, *, oversiz
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,
     }
+
+
+def _write_gdcic_alternative_readback(path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    task_base = {
+        "project_id": "PROJ-GDCIC-ALT-1",
+        "project_name": "广州测试项目中标候选人公示",
+        "candidate_company_name": "(主)广东甲公司;(成)广东乙公司",
+        "person_name": "张三",
+        "query_params": {
+            "triggerSourceUrl": "https://ywtb.gzggzy.cn/jyfw/07-a.html",
+            "personName": "张三",
+            "projectManagerName": "张三",
+        },
+        "source_url": "http://210.76.80.152:8008/JG/home/Indexht",
+    }
+    payload = {
+        "manifest": {
+            "manifest_kind": "gdcic_browser_authorized_readback_v1_manifest",
+            "browser_readback_task_records": [
+                {
+                    **task_base,
+                    "gdcic_browser_readback_task_id": "GDCIC-ALT-CONTRACT",
+                    "release_evidence_target_type": "contract_performance",
+                },
+                {
+                    **task_base,
+                    "gdcic_browser_readback_task_id": "GDCIC-ALT-PM",
+                    "release_evidence_target_type": "project_manager_change_notice",
+                },
+            ],
+        },
+        "summary": {
+            "alternative_public_source_route_count": 2,
+            "alternative_public_source_route_records": [
+                {
+                    "gdcic_browser_readback_task_id": "GDCIC-ALT-CONTRACT",
+                    "project_id": "PROJ-GDCIC-ALT-1",
+                    "project_name": "广州测试项目中标候选人公示",
+                    "candidate_company_name": "(主)广东甲公司;(成)广东乙公司",
+                    "person_name": "张三",
+                    "release_evidence_target_type": "contract_performance",
+                    "route_state": "ALTERNATIVE_PUBLIC_SOURCE_ROUTE_READY",
+                },
+                {
+                    "gdcic_browser_readback_task_id": "GDCIC-ALT-PM",
+                    "project_id": "PROJ-GDCIC-ALT-1",
+                    "project_name": "广州测试项目中标候选人公示",
+                    "candidate_company_name": "(主)广东甲公司;(成)广东乙公司",
+                    "person_name": "张三",
+                    "release_evidence_target_type": "project_manager_change_notice",
+                    "route_state": "ALTERNATIVE_PUBLIC_SOURCE_ROUTE_READY",
+                },
+            ],
+        },
+    }
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def _fake_http_getter(url: str, context: Mapping[str, Any]) -> Mapping[str, Any]:

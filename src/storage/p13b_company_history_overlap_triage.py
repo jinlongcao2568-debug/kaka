@@ -70,6 +70,8 @@ def build_p13b_company_history_overlap_triage(
     input_root: str | Path = DEFAULT_INPUT_ROOT,
     ygp_expansion_root: str | Path | None = None,
     ygp_coverage_closeout_root: str | Path | None = None,
+    gdcic_browser_readback_json: str | Path | None = None,
+    gdcic_browser_readback_root: str | Path | None = None,
     output_root: str | Path = DEFAULT_OUTPUT_ROOT,
     enable_live_public_query: bool = False,
     max_live_companies: int | None = None,
@@ -93,13 +95,41 @@ def build_p13b_company_history_overlap_triage(
     in_dir = Path(input_root)
     ygp_expansion_dir = Path(ygp_expansion_root) if ygp_expansion_root else None
     ygp_coverage_dir = Path(ygp_coverage_closeout_root) if ygp_coverage_closeout_root else None
+    gdcic_readback_path = _gdcic_readback_path(
+        gdcic_browser_readback_json=gdcic_browser_readback_json,
+        gdcic_browser_readback_root=gdcic_browser_readback_root,
+    )
     out_dir = Path(output_root)
     out_dir.mkdir(parents=True, exist_ok=True)
 
     blocking_reasons: list[str] = []
-    input_mode = "YGP_ORIGINAL_READBACK_EXPANSION" if ygp_expansion_dir else "P12_VALUE_CLOSEOUT"
+    input_mode = (
+        "GDCIC_ALTERNATIVE_PUBLIC_SOURCE_ROUTES"
+        if gdcic_readback_path
+        else "YGP_ORIGINAL_READBACK_EXPANSION"
+        if ygp_expansion_dir
+        else "P12_VALUE_CLOSEOUT"
+    )
     ygp_input_count = 0
-    if ygp_expansion_dir:
+    gdcic_alternative_route_count = 0
+    if gdcic_readback_path:
+        gdcic_readback = _load_json(
+            gdcic_readback_path,
+            blocking_reasons,
+            "gdcic_browser_authorized_readback_missing",
+        )
+        source_manifest = _source_manifest(gdcic_readback)
+        project_task_records = _gdcic_alternative_route_project_task_records(
+            gdcic_readback,
+            source_manifest,
+            created_at=created,
+        )
+        gdcic_alternative_route_count = sum(
+            _int(record.get("gdcic_alternative_public_source_route_count"))
+            for record in project_task_records
+        )
+        company_query_tasks = _company_query_tasks(project_task_records, created_at=created)
+    elif ygp_expansion_dir:
         ygp_input_table = _load_json(
             ygp_expansion_dir / "p13b-ygp-overlap-triage-input-table.json",
             blocking_reasons,
@@ -179,6 +209,7 @@ def build_p13b_company_history_overlap_triage(
         blocking_reasons=blocking_reasons,
         input_mode=input_mode,
         ygp_input_count=ygp_input_count,
+        gdcic_alternative_route_count=gdcic_alternative_route_count,
     )
     manifest = {
         "manifest_version": P13B_COMPANY_HISTORY_OVERLAP_TRIAGE_VERSION,
@@ -190,6 +221,7 @@ def build_p13b_company_history_overlap_triage(
         "source_input_root": str(in_dir),
         "source_ygp_expansion_root": str(ygp_expansion_dir or ""),
         "source_ygp_coverage_closeout_root": str(ygp_coverage_dir or ""),
+        "source_gdcic_browser_readback_json": str(gdcic_readback_path or ""),
         "source_project_value_table": str(in_dir / "project-value-table.json"),
         "source_candidate_group_verification_table": str(in_dir / "candidate-group-verification-table.json"),
         "source_profile_id": "NATIONAL-GGZY-DATA-SERVICE-COMPANY-AWARD-HISTORY",
@@ -390,6 +422,94 @@ def _ygp_project_task_records(
         project["candidate_notice_source_urls"] = urls
         project["project_source_urls"] = urls
         project["ygp_overlap_input_count"] = _int(project.get("ygp_overlap_input_count")) + 1
+    return list(grouped.values())
+
+
+def _gdcic_alternative_route_project_task_records(
+    gdcic_readback: Mapping[str, Any],
+    source_manifest: Mapping[str, Any],
+    *,
+    created_at: str,
+) -> list[dict[str, Any]]:
+    summary = gdcic_readback.get("summary") if isinstance(gdcic_readback.get("summary"), Mapping) else {}
+    route_records = [
+        dict(record)
+        for record in _list(summary.get("alternative_public_source_route_records"))
+        if isinstance(record, Mapping)
+        and str(record.get("route_state") or "") == "ALTERNATIVE_PUBLIC_SOURCE_ROUTE_READY"
+    ]
+    tasks_by_id = {
+        str(task.get("gdcic_browser_readback_task_id") or ""): dict(task)
+        for task in _list(source_manifest.get("browser_readback_task_records"))
+        if isinstance(task, Mapping)
+    }
+    grouped: dict[str, dict[str, Any]] = {}
+    for route in route_records:
+        task = tasks_by_id.get(str(route.get("gdcic_browser_readback_task_id") or ""), {})
+        project_id = str(route.get("project_id") or task.get("project_id") or "").strip()
+        if not project_id:
+            continue
+        query_params = task.get("query_params") if isinstance(task.get("query_params"), Mapping) else {}
+        project = grouped.setdefault(
+            project_id,
+            {
+                "project_task_id": _stable_id("P13B-GDCIC-ALT-PROJECT", project_id),
+                "project_id": project_id,
+                "project_name": str(route.get("project_name") or task.get("project_name") or ""),
+                "candidate_group_count": 0,
+                "candidate_group_ids": [],
+                "candidate_companies": [],
+                "candidate_company_input_counts": {},
+                "responsible_person_names": [],
+                "current_project_time_window": _current_project_time_window(task or route, [], created_at=created_at),
+                "candidate_notice_source_urls": [],
+                "project_source_urls": [],
+                "value_closeout_state": "GDCIC_AUTH_BLOCKED_ALTERNATIVE_PUBLIC_SOURCE_REQUIRED",
+                "p13b_triage_state": "P13B_COMPANY_HISTORY_TRIAGE_REQUIRED",
+                "gdcic_alternative_public_source_route_count": 0,
+                "gdcic_alternative_target_types": [],
+                "gdcic_alternative_route_policy": "data_ggzy_bid_show_then_ygp_or_local_authority_public_readback",
+                "customer_visible_allowed": False,
+                "no_legal_conclusion": True,
+            },
+        )
+        companies = _candidate_company_members(
+            str(route.get("candidate_company_name") or task.get("candidate_company_name") or "")
+        )
+        for company in companies:
+            project["candidate_companies"] = _dedupe([*project["candidate_companies"], company])
+            counts = dict(project.get("candidate_company_input_counts") or {})
+            counts[company] = _int(counts.get(company)) + 1
+            project["candidate_company_input_counts"] = counts
+        people = _dedupe(
+            [
+                *_list(project.get("responsible_person_names")),
+                route.get("person_name"),
+                task.get("person_name"),
+                query_params.get("personName"),
+                query_params.get("projectManagerName"),
+            ]
+        )
+        project["responsible_person_names"] = [str(person) for person in people if str(person or "").strip()]
+        urls = _dedupe(
+            [
+                *_list(project.get("candidate_notice_source_urls")),
+                query_params.get("triggerSourceUrl"),
+                task.get("trigger_source_url"),
+                task.get("source_url") if "ywtb.gzggzy.cn" in str(task.get("source_url") or "") else "",
+            ]
+        )
+        project["candidate_notice_source_urls"] = urls
+        project["project_source_urls"] = urls
+        project["gdcic_alternative_public_source_route_count"] = _int(
+            project.get("gdcic_alternative_public_source_route_count")
+        ) + 1
+        project["gdcic_alternative_target_types"] = _dedupe(
+            [
+                *_list(project.get("gdcic_alternative_target_types")),
+                route.get("release_evidence_target_type"),
+            ]
+        )
     return list(grouped.values())
 
 
@@ -976,6 +1096,7 @@ def _summary(
     blocking_reasons: list[str],
     input_mode: str = "P12_VALUE_CLOSEOUT",
     ygp_input_count: int = 0,
+    gdcic_alternative_route_count: int = 0,
 ) -> dict[str, Any]:
     queried_company_count = sum(
         1
@@ -995,6 +1116,7 @@ def _summary(
         "input_mode": input_mode,
         "execution_mode": execution_mode,
         "ygp_input_count": ygp_input_count,
+        "gdcic_alternative_public_source_route_count": gdcic_alternative_route_count,
         "unique_company_count": len(company_history_query_records),
         "queried_company_count": queried_company_count,
         "company_search_hit_count": company_search_hit_count,
@@ -1218,6 +1340,23 @@ def _company_search_variants(company_name: str) -> list[str]:
             if len(current) >= 6:
                 variants.append(current)
     return _dedupe(variants)
+
+
+def _candidate_company_members(company_name: str) -> list[str]:
+    text = str(company_name or "").strip()
+    if not text:
+        return []
+    cleaned = re.sub(r"[（(]\s*(?:主|成|联合体成员|牵头人)\s*[)）]", "", text)
+    parts = [
+        part.strip()
+        for part in re.split(r"[;；、，,]\s*", cleaned)
+        if part.strip()
+    ]
+    return [
+        part
+        for part in _dedupe(parts or [cleaned])
+        if part and not re.fullmatch(r"[（(]?\s*(?:主|成)\s*[)）]?", part)
+    ]
 
 
 def _current_project_time_window(
@@ -1741,6 +1880,18 @@ def _source_manifest(payload: Mapping[str, Any]) -> Mapping[str, Any]:
     return manifest if isinstance(manifest, Mapping) else payload
 
 
+def _gdcic_readback_path(
+    *,
+    gdcic_browser_readback_json: str | Path | None,
+    gdcic_browser_readback_root: str | Path | None,
+) -> Path | None:
+    if gdcic_browser_readback_json:
+        return Path(gdcic_browser_readback_json)
+    if gdcic_browser_readback_root:
+        return Path(gdcic_browser_readback_root) / "gdcic-browser-authorized-readback-v1.json"
+    return None
+
+
 def _int(value: Any) -> int:
     try:
         if isinstance(value, bool):
@@ -1784,6 +1935,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--input-root", default=str(DEFAULT_INPUT_ROOT))
     parser.add_argument("--ygp-expansion-root", default="")
     parser.add_argument("--ygp-coverage-closeout-root", default="")
+    parser.add_argument("--gdcic-browser-readback-json", default="")
+    parser.add_argument("--gdcic-browser-readback-root", default="")
     parser.add_argument("--output-root", default=str(DEFAULT_OUTPUT_ROOT))
     parser.add_argument("--enable-live-public-query", action="store_true")
     parser.add_argument("--max-live-companies", type=int, default=None)
@@ -1800,6 +1953,8 @@ def main(argv: list[str] | None = None) -> int:
         input_root=args.input_root,
         ygp_expansion_root=args.ygp_expansion_root or None,
         ygp_coverage_closeout_root=args.ygp_coverage_closeout_root or None,
+        gdcic_browser_readback_json=args.gdcic_browser_readback_json or None,
+        gdcic_browser_readback_root=args.gdcic_browser_readback_root or None,
         output_root=args.output_root,
         enable_live_public_query=args.enable_live_public_query,
         max_live_companies=args.max_live_companies,

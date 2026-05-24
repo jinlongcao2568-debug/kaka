@@ -22,11 +22,13 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
             pressure = root / "pressure"
             field_query = root / "field-query"
             gdcic_readback = root / "gdcic-readback"
+            p13b_history = root / "p13b-history"
             stage6 = root / "stage6"
             out = root / "out"
             pressure.mkdir()
             field_query.mkdir()
             gdcic_readback.mkdir()
+            p13b_history.mkdir()
             stage6.mkdir()
 
             _write_json(
@@ -207,11 +209,56 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
                     ],
                 },
             )
+            _write_json(
+                p13b_history / "company-history-overlap-triage-v1.json",
+                {
+                    "manifest": {
+                        "company_history_query_records": [
+                            {"project_id": "PROJ-D", "query_state": "COMPANY_HISTORY_RECORD_FOUND"},
+                            {"project_id": "PROJ-D", "query_state": "SOURCE_BLOCKED_RETRY_REQUIRED"},
+                        ],
+                        "bid_show_records": [
+                            {"project_id": "PROJ-D", "bid_show_state": "ORIGINAL_NOTICE_BACKTRACE_REQUIRED"},
+                        ],
+                        "overlap_signal_records": [
+                            {
+                                "project_id": "PROJ-D",
+                                "overlap_signal_state": "ORIGINAL_NOTICE_BACKTRACE_REQUIRED",
+                            },
+                            {"project_id": "PROJ-E", "overlap_signal_state": "NO_PUBLIC_OVERLAP_SIGNAL_REVIEW"},
+                        ],
+                    },
+                    "summary": {
+                        "input_mode": "GDCIC_ALTERNATIVE_PUBLIC_SOURCE_ROUTES",
+                        "execution_mode": "LIVE_PUBLIC_QUERY_ATTEMPTED",
+                        "gdcic_alternative_public_source_route_count": 2,
+                        "queried_company_count": 2,
+                        "company_search_hit_count": 1,
+                        "bid_show_record_count": 1,
+                        "overlap_signal_review_required_count": 0,
+                        "original_notice_backtrace_required_count": 1,
+                        "source_blocked_count": 1,
+                        "company_query_state_counts": {
+                            "COMPANY_HISTORY_RECORD_FOUND": 1,
+                            "SOURCE_BLOCKED_RETRY_REQUIRED": 1,
+                        },
+                        "bid_show_state_counts": {"ORIGINAL_NOTICE_BACKTRACE_REQUIRED": 1},
+                        "overlap_signal_state_counts": {
+                            "ORIGINAL_NOTICE_BACKTRACE_REQUIRED": 1,
+                            "NO_PUBLIC_OVERLAP_SIGNAL_REVIEW": 1,
+                        },
+                        "query_miss_is_not_clearance": True,
+                        "customer_visible_allowed": False,
+                        "no_legal_conclusion": True,
+                    },
+                },
+            )
 
             result = build_stage1_6_sellable_scoreboard(
                 pressure_root=pressure,
                 field_query_root=field_query,
                 gdcic_browser_readback_root=gdcic_readback,
+                p13b_company_history_root=p13b_history,
                 stage6_status_root=stage6,
                 output_root=out,
                 created_at="2026-05-24T00:00:00+08:00",
@@ -265,7 +312,7 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
                 "STRONG_LEAD_INTERNAL_REVIEW": 1,
                 "AUTHORIZATION_BLOCKED_REVIEW": 1,
                 "SOURCE_NOT_FOUND_REVIEW": 1,
-                "EVIDENCE_INSUFFICIENT_REVIEW": 1,
+                "ORIGINAL_NOTICE_BACKTRACE_REQUIRED_REVIEW": 1,
                 "WEAK_LEAD_OFFICIAL_SIGNAL_REVIEW": 1,
             },
         )
@@ -276,7 +323,21 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
                 "authorization_blocked": 1,
                 "source_not_found": 1,
                 "evidence_insufficient": 5,
+                "original_notice_backtrace_required": 1,
+                "public_source_blocked": 1,
                 "weak_lead": 1,
+                "public_source_not_found": 1,
+            },
+        )
+        self.assertEqual(
+            scoreboard["p13b_public_source_readback_status"]["original_notice_backtrace_required_count"],
+            1,
+        )
+        self.assertEqual(
+            scoreboard["stage4_public_source_readback_state_counts"],
+            {
+                "ORIGINAL_NOTICE_BACKTRACE_REQUIRED": 1,
+                "NO_PUBLIC_OVERLAP_SIGNAL_REVIEW": 1,
             },
         )
         rows = {row["project_id"]: row for row in result["project_rows"]}
@@ -292,7 +353,8 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
         )
         self.assertEqual(rows["PROJ-B"]["stage5_operational_review_bucket"], "AUTHORIZATION_BLOCKED_REVIEW")
         self.assertEqual(rows["PROJ-C"]["stage5_operational_review_bucket"], "SOURCE_NOT_FOUND_REVIEW")
-        self.assertEqual(rows["PROJ-D"]["stage5_operational_review_bucket"], "EVIDENCE_INSUFFICIENT_REVIEW")
+        self.assertEqual(rows["PROJ-D"]["stage5_operational_review_bucket"], "ORIGINAL_NOTICE_BACKTRACE_REQUIRED_REVIEW")
+        self.assertEqual(rows["PROJ-D"]["p13b_public_source_readback_state"], "ORIGINAL_NOTICE_BACKTRACE_REQUIRED")
         self.assertEqual(rows["PROJ-E"]["stage5_operational_review_bucket"], "WEAK_LEAD_OFFICIAL_SIGNAL_REVIEW")
         self.assertTrue(all(row["stage5_query_miss_is_not_clearance"] for row in rows.values()))
         self.assertEqual(
@@ -304,6 +366,7 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
                 "stage5_rule_review": 2,
             },
         )
+        self.assertIn("run_p13b_original_notice_backtrace_for_bid_show_records", result["recommended_next_actions"])
         self.assertFalse(result["safety"]["customer_visible_allowed"])
         self.assertTrue(result["safety"]["query_miss_is_not_clearance"])
 

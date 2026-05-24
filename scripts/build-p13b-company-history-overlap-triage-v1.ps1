@@ -2,6 +2,8 @@ param(
     [string]$InputRoot = "",
     [string]$YgpExpansionRoot = "",
     [string]$YgpCoverageCloseoutRoot = "",
+    [string]$GdcicBrowserReadbackJson = "",
+    [string]$GdcicBrowserReadbackRoot = "",
     [string]$OutputRoot = "",
     [switch]$EnableLivePublicQuery,
     [int]$MaxLiveCompanies = 0,
@@ -52,6 +54,12 @@ if ($YgpExpansionRoot) {
 }
 if ($YgpCoverageCloseoutRoot) {
     $argsList += @("--ygp-coverage-closeout-root", $YgpCoverageCloseoutRoot)
+}
+if ($GdcicBrowserReadbackJson) {
+    $argsList += @("--gdcic-browser-readback-json", $GdcicBrowserReadbackJson)
+}
+if ($GdcicBrowserReadbackRoot) {
+    $argsList += @("--gdcic-browser-readback-root", $GdcicBrowserReadbackRoot)
 }
 if ($EnableLivePublicQuery) {
     $argsList += "--enable-live-public-query"
