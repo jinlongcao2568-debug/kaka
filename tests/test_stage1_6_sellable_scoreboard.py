@@ -1103,9 +1103,29 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
         self.assertEqual(row["blocking_bucket"], "ygp_stage4_backfill_ready_review")
         self.assertEqual(row["p13b_ygp_stage4_backfill_ready_count"], 1)
         self.assertEqual(row["p13b_ygp_gdcic_route_allowed_count"], 0)
+        self.assertEqual(
+            row["stage4_project_code_backfill_state"],
+            "PUBLIC_SOURCE_IDENTIFIER_BACKFILLED_FOR_P13B_OR_STAGE4_BRIDGE_ONLY",
+        )
+        self.assertEqual(
+            row["stage4_public_identifier_backfill_source"],
+            "YGP_PROJECT_CODE|YGP_BIZ_CODE|YGP_SITE_CODE|YGP_NOTICE_ID|P13B_YGP_STAGE4_BACKFILL",
+        )
+        self.assertFalse(row["stage4_gdcic_project_code_route_allowed"])
+        self.assertEqual(
+            row["stage4_gdcic_project_code_route_policy"],
+            "YGP_OR_TRADE_IDENTIFIERS_NOT_SENT_TO_GDCIC_PROJECT_CODE",
+        )
         self.assertEqual(result["scoreboard"]["stage4_ygp_backfill_ready_project_count"], 1)
         self.assertEqual(result["scoreboard"]["stage4_ygp_backfill_ready_task_count"], 1)
         self.assertEqual(result["scoreboard"]["stage4_ygp_gdcic_route_allowed_count"], 0)
+        self.assertEqual(
+            result["scoreboard"]["stage4_project_code_backfill_state_counts"],
+            {"PUBLIC_SOURCE_IDENTIFIER_BACKFILLED_FOR_P13B_OR_STAGE4_BRIDGE_ONLY": 1},
+        )
+        self.assertEqual(result["scoreboard"]["stage4_public_identifier_backfill_project_count"], 1)
+        self.assertEqual(result["scoreboard"]["stage4_gdcic_project_code_route_ready_project_count"], 0)
+        self.assertEqual(result["scoreboard"]["stage4_gdcic_route_blocked_by_policy_project_count"], 1)
         self.assertEqual(result["scoreboard"]["limited_sellable_review_candidate_count"], 0)
         self.assertEqual(result["scoreboard"]["real_public_sellable_pack_rate"], 0.0)
         self.assertFalse(result["safety"]["customer_visible_allowed"])

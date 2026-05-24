@@ -340,6 +340,25 @@ def _scoreboard_counts(
         "stage4_ygp_gdcic_route_allowed_count": _int(
             p13b_overlap_closeout_summary.get("ygp_stage4_gdcic_route_allowed_count")
         ),
+        "stage4_project_code_backfill_state_counts": _counts(
+            row.get("stage4_project_code_backfill_state") for row in project_rows
+        ),
+        "stage4_public_identifier_backfill_project_count": sum(
+            1
+            for row in project_rows
+            if row.get("stage4_project_code_backfill_state")
+            == "PUBLIC_SOURCE_IDENTIFIER_BACKFILLED_FOR_P13B_OR_STAGE4_BRIDGE_ONLY"
+        ),
+        "stage4_gdcic_project_code_route_ready_project_count": sum(
+            1 for row in project_rows if row.get("stage4_project_code_backfill_state") == "GDCIC_PROJECT_CODE_ROUTE_READY"
+        ),
+        "stage4_gdcic_route_blocked_by_policy_project_count": sum(
+            1
+            for row in project_rows
+            if row.get("stage4_project_code_backfill_state")
+            == "PUBLIC_SOURCE_IDENTIFIER_BACKFILLED_FOR_P13B_OR_STAGE4_BRIDGE_ONLY"
+            and not bool(row.get("stage4_gdcic_project_code_route_allowed"))
+        ),
         "stage4_public_source_readback_state_counts": _counts(
             row.get("p13b_public_source_readback_state") for row in project_rows
         ),
@@ -397,6 +416,11 @@ def _project_scoreboard_row(
         adapter_counts=adapter_counts,
         combined_grade_counts=combined_grade_counts,
         has_official_b_or_c=has_official_b_or_c,
+    )
+    project_code_backfill_state = _stage4_project_code_backfill_state(
+        readiness_record=readiness_record,
+        p13b_ygp_signal=p13b_ygp_signal,
+        p13b_overlap_closeout_signal=p13b_overlap_closeout_signal,
     )
     return {
         "project_id": project_id,
@@ -456,6 +480,13 @@ def _project_scoreboard_row(
         "p13b_ygp_stage4_backfill_recommended_next_actions": _as_list(
             p13b_overlap_closeout_signal.get("ygp_stage4_backfill_recommended_next_actions")
         ),
+        "stage4_project_code_backfill_state": project_code_backfill_state,
+        "stage4_public_identifier_backfill_source": _stage4_public_identifier_backfill_source(
+            p13b_ygp_signal=p13b_ygp_signal,
+            p13b_overlap_closeout_signal=p13b_overlap_closeout_signal,
+        ),
+        "stage4_gdcic_project_code_route_allowed": project_code_backfill_state == "GDCIC_PROJECT_CODE_ROUTE_READY",
+        "stage4_gdcic_project_code_route_policy": _stage4_gdcic_project_code_route_policy(project_code_backfill_state),
         "operator_next_actions": [str(item) for item in _as_list(stage6_record.get("release_field_query_operator_next_actions")) if str(item or "").strip()],
         "blocking_bucket": _project_blocking_bucket(
             readiness_record,
@@ -954,6 +985,62 @@ def _project_blocking_bucket(
     if str(readiness_record.get("stage3_field_parse_state") or "").upper() and not str(readiness_record.get("stage3_field_parse_state") or "").upper().startswith("PARSED"):
         return "stage3_parse_gap"
     return "unclassified_review_required"
+
+
+def _stage4_project_code_backfill_state(
+    *,
+    readiness_record: Mapping[str, Any],
+    p13b_ygp_signal: Mapping[str, Any],
+    p13b_overlap_closeout_signal: Mapping[str, Any],
+) -> str:
+    if _int(p13b_overlap_closeout_signal.get("ygp_stage4_gdcic_route_allowed_count")) > 0:
+        return "GDCIC_PROJECT_CODE_ROUTE_READY"
+    if (
+        _as_list(p13b_ygp_signal.get("ygp_project_code_variants"))
+        or _as_list(p13b_ygp_signal.get("ygp_biz_code_variants"))
+        or _as_list(p13b_ygp_signal.get("ygp_site_code_variants"))
+        or _as_list(p13b_ygp_signal.get("ygp_notice_id_variants"))
+        or _int(p13b_overlap_closeout_signal.get("ygp_stage4_backfill_ready_count")) > 0
+        or _int(p13b_overlap_closeout_signal.get("ygp_stage4_release_adapter_task_count")) > 0
+    ):
+        return "PUBLIC_SOURCE_IDENTIFIER_BACKFILLED_FOR_P13B_OR_STAGE4_BRIDGE_ONLY"
+    fail_closed_reasons = {str(item) for item in _as_list(readiness_record.get("fail_closed_reasons"))}
+    if fail_closed_reasons & {
+        "gdcic_project_code_not_resolved",
+        "gdcic_project_code_not_resolved_after_project_name_candidate_queries",
+        "gdcic_project_code_candidates_present_but_not_matched",
+    }:
+        return "MISSING_PROJECT_CODE_BACKFILL_INPUT"
+    return "NOT_FLAGGED_FOR_PROJECT_CODE_BACKFILL"
+
+
+def _stage4_public_identifier_backfill_source(
+    *,
+    p13b_ygp_signal: Mapping[str, Any],
+    p13b_overlap_closeout_signal: Mapping[str, Any],
+) -> str:
+    sources: list[str] = []
+    if _as_list(p13b_ygp_signal.get("ygp_project_code_variants")):
+        sources.append("YGP_PROJECT_CODE")
+    if _as_list(p13b_ygp_signal.get("ygp_biz_code_variants")):
+        sources.append("YGP_BIZ_CODE")
+    if _as_list(p13b_ygp_signal.get("ygp_site_code_variants")):
+        sources.append("YGP_SITE_CODE")
+    if _as_list(p13b_ygp_signal.get("ygp_notice_id_variants")):
+        sources.append("YGP_NOTICE_ID")
+    if _int(p13b_overlap_closeout_signal.get("ygp_stage4_backfill_ready_count")) > 0:
+        sources.append("P13B_YGP_STAGE4_BACKFILL")
+    return "|".join(_dedupe(sources))
+
+
+def _stage4_gdcic_project_code_route_policy(project_code_backfill_state: str) -> str:
+    if project_code_backfill_state == "GDCIC_PROJECT_CODE_ROUTE_READY":
+        return "ONLY_EXPLICIT_PROVINCIAL_OR_URL_PROJECT_CODE_ALLOWED"
+    if project_code_backfill_state == "PUBLIC_SOURCE_IDENTIFIER_BACKFILLED_FOR_P13B_OR_STAGE4_BRIDGE_ONLY":
+        return "YGP_OR_TRADE_IDENTIFIERS_NOT_SENT_TO_GDCIC_PROJECT_CODE"
+    if project_code_backfill_state == "MISSING_PROJECT_CODE_BACKFILL_INPUT":
+        return "BACKFILL_NOTICE_DATA_GGZY_BID_SHOW_OR_LOCAL_SOURCE_WITHOUT_DIGIT_GUESSING"
+    return "NO_GDCIC_PROJECT_CODE_ROUTE"
 
 
 def _field_record_downstream_grade(record: Mapping[str, Any]) -> str:
