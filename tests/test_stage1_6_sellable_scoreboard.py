@@ -140,6 +140,15 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
                         "authorization_blocker_operator_next_action": (
                             "provide_gdcic_authorized_storage_state_or_user_data_dir_then_rerun"
                         ),
+                        "authorization_blocker_alternative_operator_next_action": (
+                            "run_alternative_public_source_release_evidence_readback_chain"
+                        ),
+                        "authorization_blocker_is_not_terminal_if_alternative_public_sources_exist": True,
+                        "alternative_public_source_route_count": 2,
+                        "alternative_public_source_route_records": [
+                            {"release_evidence_target_type": "contract_performance"},
+                            {"release_evidence_target_type": "project_manager_change_notice"},
+                        ],
                     }
                 },
             )
@@ -231,12 +240,23 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
                 "real_readback_success_not_faked": True,
                 "real_readback_success_proof_state": "NO_REAL_AUTHORIZED_READBACK_SUCCESS",
                 "operator_next_action": "provide_gdcic_authorized_storage_state_or_user_data_dir_then_rerun",
+                "alternative_operator_next_action": "run_alternative_public_source_release_evidence_readback_chain",
+                "authorization_blocker_is_not_terminal_if_alternative_public_sources_exist": True,
+                "alternative_public_source_route_count": 2,
+                "alternative_public_source_route_target_type_counts": {
+                    "contract_performance": 1,
+                    "project_manager_change_notice": 1,
+                },
                 "customer_visible_allowed": False,
                 "query_miss_is_not_clearance": True,
             },
         )
         self.assertIn(
             "provide_gdcic_authorized_storage_state_or_user_data_dir_then_rerun",
+            result["recommended_next_actions"],
+        )
+        self.assertIn(
+            "run_alternative_public_source_release_evidence_readback_chain",
             result["recommended_next_actions"],
         )
         self.assertEqual(

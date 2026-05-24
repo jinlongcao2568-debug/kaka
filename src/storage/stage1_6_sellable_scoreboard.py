@@ -347,6 +347,8 @@ def _recommended_next_actions(blocker_summary: Mapping[str, Any], counts: Mappin
     gdcic_blocker = blocker_summary.get("gdcic_authorized_readback_blocker")
     if isinstance(gdcic_blocker, Mapping) and str(gdcic_blocker.get("operator_next_action") or "").strip():
         actions.append(str(gdcic_blocker.get("operator_next_action")))
+    if isinstance(gdcic_blocker, Mapping) and str(gdcic_blocker.get("alternative_operator_next_action") or "").strip():
+        actions.append(str(gdcic_blocker.get("alternative_operator_next_action")))
     if _int(blocker_summary.get("field_missing_or_not_found_task_count")):
         actions.append("extend_stage4_project_code_and_source_readback_before_claiming_clearance")
     if _int(blocker_summary.get("stage4_matched_without_stage7_saleable_project_count")):
@@ -368,6 +370,9 @@ def _gdcic_authorized_readback_status(summary: Mapping[str, Any]) -> dict[str, A
             "real_readback_success_not_faked": True,
             "real_readback_success_proof_state": "NO_REAL_AUTHORIZED_READBACK_SUCCESS",
             "operator_next_action": "build_gdcic_browser_authorized_readback_artifact_then_rerun_scoreboard",
+            "alternative_operator_next_action": "",
+            "authorization_blocker_is_not_terminal_if_alternative_public_sources_exist": False,
+            "alternative_public_source_route_count": 0,
             "customer_visible_allowed": False,
             "query_miss_is_not_clearance": True,
         }
@@ -384,6 +389,7 @@ def _gdcic_authorized_readback_status(summary: Mapping[str, Any]) -> dict[str, A
         else summary.get("project_manager_change_ready_count")
     )
     operator_action = str(summary.get("authorization_blocker_operator_next_action") or "").strip()
+    alternative_operator_action = str(summary.get("authorization_blocker_alternative_operator_next_action") or "").strip()
     if not operator_action and (not authorized_session_ready or overall_state == "LOGIN_OR_SSO_REQUIRED"):
         operator_action = "provide_gdcic_authorized_storage_state_or_user_data_dir_then_rerun"
     return {
@@ -403,6 +409,16 @@ def _gdcic_authorized_readback_status(summary: Mapping[str, Any]) -> dict[str, A
             )
         ),
         "operator_next_action": operator_action,
+        "alternative_operator_next_action": alternative_operator_action,
+        "authorization_blocker_is_not_terminal_if_alternative_public_sources_exist": bool(
+            summary.get("authorization_blocker_is_not_terminal_if_alternative_public_sources_exist")
+        ),
+        "alternative_public_source_route_count": _int(summary.get("alternative_public_source_route_count")),
+        "alternative_public_source_route_target_type_counts": _counts(
+            record.get("release_evidence_target_type")
+            for record in _as_list(summary.get("alternative_public_source_route_records"))
+            if isinstance(record, Mapping)
+        ),
         "customer_visible_allowed": False,
         "query_miss_is_not_clearance": True,
     }

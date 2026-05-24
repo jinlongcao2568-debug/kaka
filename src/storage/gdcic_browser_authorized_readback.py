@@ -926,6 +926,7 @@ def _operator_next_actions_for_authorization_state(authorization_state: str) -> 
     if authorization_state == "LOGIN_OR_SSO_REQUIRED":
         return [
             "provide_gdcic_authorized_storage_state_or_user_data_dir_then_rerun",
+            "run_alternative_public_source_release_evidence_readback_chain",
             "do_not_treat_http_dynamic_stealthy_as_login_state_replacement",
         ]
     if authorization_state == "LOCAL_BROWSER_RUNTIME_UNAVAILABLE":
@@ -1067,6 +1068,7 @@ def _summary(
     no_field_match_count = sum(
         1 for record in readback_records if str(record.get("readback_state") or "") == "NO_FIELD_MATCH_REVIEW_REQUIRED"
     )
+    alternative_route_records = _alternative_public_source_route_records(task_records)
     operator_next_action_counts = _counts(
         action
         for record in readback_records
@@ -1078,6 +1080,18 @@ def _summary(
             "provide_gdcic_authorized_storage_state_or_user_data_dir_then_rerun": max(
                 int(operator_next_action_counts.get("provide_gdcic_authorized_storage_state_or_user_data_dir_then_rerun") or 0),
                 1,
+            ),
+        }
+    if alternative_route_records and (
+        not authorized_session_input_ready
+        or login_or_sso_required_count
+        or execution_mode == "PLAN_ONLY_NOT_EXECUTED"
+    ):
+        operator_next_action_counts = {
+            **operator_next_action_counts,
+            "run_alternative_public_source_release_evidence_readback_chain": max(
+                int(operator_next_action_counts.get("run_alternative_public_source_release_evidence_readback_chain") or 0),
+                len(alternative_route_records),
             ),
         }
     overall_state = _overall_authorization_state(
@@ -1107,6 +1121,15 @@ def _summary(
         "authorization_blocker_operator_next_action": "provide_gdcic_authorized_storage_state_or_user_data_dir_then_rerun"
         if (not authorized_session_input_ready or overall_state == "LOGIN_OR_SSO_REQUIRED")
         else "",
+        "authorization_blocker_alternative_operator_next_action": (
+            "run_alternative_public_source_release_evidence_readback_chain"
+            if alternative_route_records
+            and (not authorized_session_input_ready or overall_state in {"LOGIN_OR_SSO_REQUIRED", "NOT_ATTEMPTED_PLAN_ONLY"})
+            else ""
+        ),
+        "authorization_blocker_is_not_terminal_if_alternative_public_sources_exist": bool(alternative_route_records),
+        "alternative_public_source_route_count": len(alternative_route_records),
+        "alternative_public_source_route_records": alternative_route_records,
         "gdcic_browser_readback_task_count": len(task_records),
         "gdcic_browser_readback_record_count": len(readback_records),
         "gdcic_browser_readback_ready_count": ready_count,
@@ -1160,6 +1183,59 @@ def _summary(
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,
     }
+
+
+def _alternative_public_source_route_records(task_records: list[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    records: list[dict[str, Any]] = []
+    for task in task_records:
+        target_type = str(task.get("release_evidence_target_type") or "")
+        if target_type not in TARGET_TYPES:
+            continue
+        records.append(
+            {
+                "gdcic_browser_readback_task_id": str(task.get("gdcic_browser_readback_task_id") or ""),
+                "release_evidence_adapter_task_id": str(task.get("release_evidence_adapter_task_id") or ""),
+                "project_id": str(task.get("project_id") or ""),
+                "project_name": str(task.get("project_name") or ""),
+                "candidate_company_name": str(task.get("candidate_company_name") or ""),
+                "person_name": str(task.get("person_name") or ""),
+                "release_evidence_target_type": target_type,
+                "route_state": "ALTERNATIVE_PUBLIC_SOURCE_ROUTE_READY",
+                "route_reason": "gdcic_authorized_login_absent_or_blocked_is_not_terminal_for_evidence_search",
+                "route_policy": "try_public_original_notice_and_local_authority_sources_before_suspending",
+                "recommended_source_chain": _alternative_source_chain_for_target(target_type),
+                "recommended_entrypoints": [
+                    "stage16_p13b_continuation_runner",
+                    "stage4_release_evidence_bridge_builder",
+                    "guangdong_local_field_query_probe",
+                    "stage6_review_cycle_runner",
+                ],
+                "operator_next_action": "run_alternative_public_source_release_evidence_readback_chain",
+                "query_miss_is_not_clearance": True,
+                "customer_visible_allowed": False,
+                "no_legal_conclusion": True,
+            }
+        )
+    return records
+
+
+def _alternative_source_chain_for_target(target_type: str) -> list[str]:
+    common = [
+        "data_ggzy_company_award_history_search_by_company_or_uniscid",
+        "data_ggzy_bid_show_notice_content_and_original_url",
+        "ygp_original_url_readback_from_data_ggzy_pointer",
+    ]
+    if target_type == "project_manager_change_notice":
+        return [
+            *common,
+            "historical_overlap_project_region_local_housing_authority_project_manager_change_public_source",
+            "current_project_region_local_housing_authority_project_manager_change_public_source_if_historical_region_unknown",
+        ]
+    return [
+        *common,
+        "historical_overlap_project_region_local_housing_authority_contract_performance_public_source",
+        "current_project_region_local_housing_authority_contract_performance_public_source_if_historical_region_unknown",
+    ]
 
 
 def _overall_authorization_state(

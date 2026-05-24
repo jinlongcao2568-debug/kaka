@@ -72,7 +72,24 @@ class GDCICBrowserAuthorizedReadbackTests(unittest.TestCase, IsolatedStorageTest
             )
             self.assertEqual(
                 summary["operator_next_action_counts"],
-                {"provide_gdcic_authorized_storage_state_or_user_data_dir_then_rerun": 1},
+                {
+                    "provide_gdcic_authorized_storage_state_or_user_data_dir_then_rerun": 1,
+                    "run_alternative_public_source_release_evidence_readback_chain": 2,
+                },
+            )
+            self.assertTrue(summary["authorization_blocker_is_not_terminal_if_alternative_public_sources_exist"])
+            self.assertEqual(
+                summary["authorization_blocker_alternative_operator_next_action"],
+                "run_alternative_public_source_release_evidence_readback_chain",
+            )
+            self.assertEqual(summary["alternative_public_source_route_count"], 2)
+            self.assertEqual(
+                {record["release_evidence_target_type"] for record in summary["alternative_public_source_route_records"]},
+                {"contract_performance", "project_manager_change_notice"},
+            )
+            self.assertIn(
+                "data_ggzy_bid_show_notice_content_and_original_url",
+                summary["alternative_public_source_route_records"][0]["recommended_source_chain"],
             )
             self.assertEqual(summary["gdcic_browser_readback_task_count"], 2)
             self.assertEqual(summary["gdcic_browser_readback_record_count"], 0)
@@ -415,7 +432,16 @@ class GDCICBrowserAuthorizedReadbackTests(unittest.TestCase, IsolatedStorageTest
                 "do_not_treat_http_dynamic_stealthy_as_login_state_replacement",
                 record["operator_next_actions"],
             )
+            self.assertIn(
+                "run_alternative_public_source_release_evidence_readback_chain",
+                record["operator_next_actions"],
+            )
             self.assertEqual(result["summary"]["gdcic_authorized_session_overall_state"], "LOGIN_OR_SSO_REQUIRED")
+            self.assertEqual(result["summary"]["alternative_public_source_route_count"], 2)
+            self.assertEqual(
+                result["summary"]["authorization_blocker_alternative_operator_next_action"],
+                "run_alternative_public_source_release_evidence_readback_chain",
+            )
             self.assertEqual(result["summary"]["target_real_readback_success_count"], 0)
             self.assertTrue(result["summary"]["real_readback_success_not_faked"])
             self.assertEqual(
