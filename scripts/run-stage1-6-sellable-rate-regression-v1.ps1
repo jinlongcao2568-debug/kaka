@@ -5,6 +5,8 @@ param(
     [switch]$RunStage6Cycle,
     [switch]$RunGdcicAuthorizedReadback,
     [switch]$RunP13BPublicSourceChain,
+    [string]$SupplementalFieldQueryRoot = "",
+    [string]$SupplementalFieldQueryJson = "",
     [switch]$EnableLivePublicQuery,
     [switch]$EnableLiveBrowserExecution,
     [int]$CandidateLimit = 30,
@@ -232,6 +234,12 @@ $scoreboardArgs = @(
 )
 if (Test-Path $fieldQueryJson) {
     $scoreboardArgs += @("-FieldQueryJson", $fieldQueryJson)
+}
+if ($SupplementalFieldQueryRoot) {
+    $scoreboardArgs += @("-SupplementalFieldQueryRoot", $SupplementalFieldQueryRoot)
+}
+if ($SupplementalFieldQueryJson) {
+    $scoreboardArgs += @("-SupplementalFieldQueryJson", $SupplementalFieldQueryJson)
 }
 if (Test-Path $stage6StatusJson) {
     $scoreboardArgs += @("-Stage6StatusJson", $stage6StatusJson)

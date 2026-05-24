@@ -31,6 +31,8 @@ def build_stage1_6_sellable_scoreboard(
     gap_summary_json: str | Path | None = None,
     field_query_root: str | Path | None = None,
     field_query_json: str | Path | None = None,
+    supplemental_field_query_root: str | Path | None = None,
+    supplemental_field_query_json: str | Path | None = None,
     gdcic_browser_readback_root: str | Path | None = None,
     gdcic_browser_readback_json: str | Path | None = None,
     p13b_company_history_root: str | Path | None = None,
@@ -49,6 +51,7 @@ def build_stage1_6_sellable_scoreboard(
     created = created_at or utc_now_iso()
     pressure_dir = Path(pressure_root or DEFAULT_PRESSURE_ROOT)
     field_dir = Path(field_query_root or DEFAULT_FIELD_QUERY_ROOT)
+    supplemental_field_dir = Path(supplemental_field_query_root) if supplemental_field_query_root else None
     gdcic_readback_dir = Path(gdcic_browser_readback_root or DEFAULT_GDCIC_BROWSER_READBACK_ROOT)
     p13b_company_history_dir = Path(p13b_company_history_root or DEFAULT_P13B_COMPANY_HISTORY_ROOT)
     p13b_original_notice_dir = Path(
@@ -64,6 +67,14 @@ def build_stage1_6_sellable_scoreboard(
     readiness_path = _resolve_path(readiness_json, pressure_dir / "stage1-6-readiness-table.json")
     gap_summary_path = _resolve_path(gap_summary_json, pressure_dir / "stage1-6-gap-summary-table.json")
     field_query_path = _resolve_path(field_query_json, field_dir / "guangdong-local-field-query-probe-v1.json")
+    supplemental_field_query_path = (
+        _resolve_path(
+            supplemental_field_query_json,
+            (supplemental_field_dir or field_dir) / "guangdong-local-field-query-probe-v1.json",
+        )
+        if supplemental_field_query_root or supplemental_field_query_json
+        else None
+    )
     gdcic_browser_readback_path = _resolve_path(
         gdcic_browser_readback_json,
         gdcic_readback_dir / "gdcic-browser-authorized-readback-v1.json",
@@ -90,6 +101,10 @@ def build_stage1_6_sellable_scoreboard(
     readiness = _read_json_mapping(readiness_path)
     gap_summary = _read_json_mapping(gap_summary_path)
     field_query = _read_json_mapping(field_query_path)
+    supplemental_field_query = (
+        _read_json_mapping(supplemental_field_query_path) if supplemental_field_query_path is not None else {}
+    )
+    field_query = _merge_field_query_payloads(field_query, supplemental_field_query)
     gdcic_browser_readback = _read_json_mapping(gdcic_browser_readback_path)
     p13b_company_history = _read_json_mapping(p13b_company_history_path)
     p13b_original_notice_backtrace = _read_json_mapping(p13b_original_notice_backtrace_path)
@@ -177,6 +192,9 @@ def build_stage1_6_sellable_scoreboard(
             "stage1_6_readiness_json": str(readiness_path),
             "stage1_6_gap_summary_json": str(gap_summary_path),
             "release_field_query_json": str(field_query_path),
+            "supplemental_release_field_query_json": str(supplemental_field_query_path)
+            if supplemental_field_query_path is not None
+            else "",
             "gdcic_browser_authorized_readback_json": str(gdcic_browser_readback_path),
             "p13b_company_history_json": str(p13b_company_history_path),
             "p13b_original_notice_backtrace_json": str(p13b_original_notice_backtrace_path),
@@ -1144,6 +1162,64 @@ def _field_task_records(payload: Mapping[str, Any]) -> list[dict[str, Any]]:
     return [dict(record) for record in records if isinstance(record, Mapping)] if isinstance(records, list) else []
 
 
+def _merge_field_query_payloads(primary: Mapping[str, Any], supplemental: Mapping[str, Any]) -> dict[str, Any]:
+    if not supplemental:
+        return dict(primary)
+    primary_records = _field_task_records(primary)
+    supplemental_records = _field_task_records(supplemental)
+    merged_records = [
+        {**record, "scoreboard_field_query_source": "primary"} for record in primary_records
+    ] + [
+        {**record, "scoreboard_field_query_source": "supplemental"} for record in supplemental_records
+    ]
+    primary_manifest = primary.get("manifest") if isinstance(primary.get("manifest"), Mapping) else {}
+    merged_manifest = dict(primary_manifest)
+    merged_manifest["field_task_records"] = merged_records
+    merged = dict(primary)
+    merged["manifest"] = merged_manifest
+    merged["summary"] = _merged_field_query_summary(primary, supplemental, merged_records)
+    return merged
+
+
+def _merged_field_query_summary(
+    primary: Mapping[str, Any],
+    supplemental: Mapping[str, Any],
+    merged_records: list[Mapping[str, Any]],
+) -> dict[str, Any]:
+    summary = dict(_summary(primary))
+    supplemental_summary = _summary(supplemental)
+    for key, value in supplemental_summary.items():
+        if key.endswith("_counts") and isinstance(value, Mapping):
+            summary[key] = _sum_count_maps(summary.get(key), value)
+        elif key not in summary:
+            summary[key] = value
+    summary["field_task_count"] = len(merged_records)
+    summary["field_task_source_counts"] = _counts(
+        record.get("scoreboard_field_query_source") for record in merged_records
+    )
+    summary["adapter_result_state_counts"] = _counts(
+        record.get("adapter_result_state") for record in merged_records
+    )
+    summary["release_evidence_downstream_abcd_grade_counts"] = _counts(
+        _field_record_downstream_grade(record) for record in merged_records
+    )
+    summary["authorization_readiness_state_counts"] = _counts(
+        record.get("authorization_readiness_state") for record in merged_records
+    )
+    summary["blocker_taxonomy_counts"] = _flatten_counts(merged_records, "blocker_taxonomy")
+    return summary
+
+
+def _sum_count_maps(left: Any, right: Mapping[str, Any]) -> dict[str, int]:
+    out: dict[str, int] = {}
+    if isinstance(left, Mapping):
+        for key, value in left.items():
+            out[str(key)] = int(out.get(str(key), 0)) + _int(value)
+    for key, value in right.items():
+        out[str(key)] = int(out.get(str(key), 0)) + _int(value)
+    return out
+
+
 def _p13b_project_signals(payload: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
     manifest = payload.get("manifest") if isinstance(payload.get("manifest"), Mapping) else {}
     if not manifest:
@@ -1484,6 +1560,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--gap-summary-json", default="")
     parser.add_argument("--field-query-root", default=str(DEFAULT_FIELD_QUERY_ROOT))
     parser.add_argument("--field-query-json", default="")
+    parser.add_argument("--supplemental-field-query-root", default="")
+    parser.add_argument("--supplemental-field-query-json", default="")
     parser.add_argument("--gdcic-browser-readback-root", default=str(DEFAULT_GDCIC_BROWSER_READBACK_ROOT))
     parser.add_argument("--gdcic-browser-readback-json", default="")
     parser.add_argument("--p13b-company-history-root", default=str(DEFAULT_P13B_COMPANY_HISTORY_ROOT))
@@ -1506,6 +1584,8 @@ def main(argv: list[str] | None = None) -> int:
         gap_summary_json=args.gap_summary_json or None,
         field_query_root=args.field_query_root,
         field_query_json=args.field_query_json or None,
+        supplemental_field_query_root=args.supplemental_field_query_root or None,
+        supplemental_field_query_json=args.supplemental_field_query_json or None,
         gdcic_browser_readback_root=args.gdcic_browser_readback_root,
         gdcic_browser_readback_json=args.gdcic_browser_readback_json or None,
         p13b_company_history_root=args.p13b_company_history_root,

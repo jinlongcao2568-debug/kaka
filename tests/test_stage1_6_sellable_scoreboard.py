@@ -737,6 +737,108 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
         )
         self.assertTrue(row["stage5_query_miss_is_not_clearance"])
 
+    def test_supplemental_field_query_merges_ygp_backfill_without_replacing_primary_blockers(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            pressure = root / "pressure"
+            field_query = root / "field-query"
+            supplemental_field_query = root / "field-query-ygp-backfill"
+            out = root / "out"
+            pressure.mkdir()
+            field_query.mkdir()
+            supplemental_field_query.mkdir()
+
+            _write_json(pressure / "pressure-summary.json", {"candidate_count": 2})
+            _write_json(
+                pressure / "stage1-6-readiness-table.json",
+                {
+                    "records": [
+                        {
+                            "project_id": "PROJ-BLOCKED",
+                            "project_name": "blocked then ygp matched",
+                            "stage2_detail_capture_state": "FETCHED",
+                            "stage3_field_parse_state": "PARSED_FROM_FIELD_SIGNALS",
+                            "stage5_rule_gate_status": "REVIEW",
+                            "stage5_gate_state": "REVIEW_REQUIRED",
+                        },
+                        {
+                            "project_id": "PROJ-ONLY-BLOCKED",
+                            "project_name": "still blocked",
+                            "stage2_detail_capture_state": "FETCHED",
+                            "stage3_field_parse_state": "PARSED_FROM_FIELD_SIGNALS",
+                            "stage5_rule_gate_status": "REVIEW",
+                            "stage5_gate_state": "REVIEW_REQUIRED",
+                        },
+                    ]
+                },
+            )
+            _write_json(pressure / "stage1-6-gap-summary-table.json", {"records": []})
+            _write_json(
+                field_query / "guangdong-local-field-query-probe-v1.json",
+                {
+                    "manifest": {
+                        "field_task_records": [
+                            {
+                                "project_id": "PROJ-BLOCKED",
+                                "adapter_result_state": "NEEDS_BROWSER",
+                                "authorization_readiness_state": "LOGIN_OR_SSO_REQUIRED",
+                                "blocker_taxonomy": ["gd_gdcic_contract_system_sso_login_required"],
+                            },
+                            {
+                                "project_id": "PROJ-ONLY-BLOCKED",
+                                "adapter_result_state": "NEEDS_BROWSER",
+                                "authorization_readiness_state": "LOGIN_OR_SSO_REQUIRED",
+                            },
+                        ]
+                    },
+                    "summary": {"adapter_result_state_counts": {"NEEDS_BROWSER": 2}},
+                },
+            )
+            _write_json(
+                supplemental_field_query / "guangdong-local-field-query-probe-v1.json",
+                {
+                    "manifest": {
+                        "field_task_records": [
+                            {
+                                "project_id": "PROJ-BLOCKED",
+                                "adapter_result_state": "MATCHED",
+                                "field_readback_state": "YGP_ORIGINAL_NOTICE_READBACK_READY_REVIEW_REQUIRED",
+                                "downstream_release_evidence_abcd_grade": "B_ENHANCEMENT_OFFICIAL_READBACK",
+                            }
+                        ]
+                    },
+                    "summary": {"adapter_result_state_counts": {"MATCHED": 1}},
+                },
+            )
+
+            result = build_stage1_6_sellable_scoreboard(
+                pressure_root=pressure,
+                field_query_root=field_query,
+                supplemental_field_query_root=supplemental_field_query,
+                output_root=out,
+                created_at="2026-05-24T00:00:00+08:00",
+            )
+
+        rows = {row["project_id"]: row for row in result["project_rows"]}
+        self.assertEqual(
+            result["scoreboard"]["stage4_adapter_result_state_counts"],
+            {"NEEDS_BROWSER": 2, "MATCHED": 1},
+        )
+        self.assertEqual(
+            rows["PROJ-BLOCKED"]["stage4_adapter_result_state_counts"],
+            {"NEEDS_BROWSER": 1, "MATCHED": 1},
+        )
+        self.assertEqual(
+            rows["PROJ-BLOCKED"]["limited_sellable_review_candidate_state"],
+            "REVIEW_CANDIDATE",
+        )
+        self.assertFalse(rows["PROJ-BLOCKED"]["customer_visible_allowed"])
+        self.assertTrue(rows["PROJ-BLOCKED"]["query_miss_is_not_clearance"])
+        self.assertEqual(
+            result["blocker_summary"]["authorization_blocked_task_count"],
+            2,
+        )
+
     def test_blocking_bucket_uses_p13b_stage5_public_source_classification(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)

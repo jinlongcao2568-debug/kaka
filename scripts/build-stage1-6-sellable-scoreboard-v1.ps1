@@ -5,6 +5,8 @@ param(
     [string]$GapSummaryJson = "",
     [string]$FieldQueryRoot = "",
     [string]$FieldQueryJson = "",
+    [string]$SupplementalFieldQueryRoot = "",
+    [string]$SupplementalFieldQueryJson = "",
     [string]$GdcicBrowserReadbackRoot = "",
     [string]$GdcicBrowserReadbackJson = "",
     [string]$P13BCompanyHistoryRoot = "",
@@ -85,6 +87,12 @@ if ($GapSummaryJson) {
 }
 if ($FieldQueryJson) {
     $argsList += @("--field-query-json", $FieldQueryJson)
+}
+if ($SupplementalFieldQueryRoot) {
+    $argsList += @("--supplemental-field-query-root", $SupplementalFieldQueryRoot)
+}
+if ($SupplementalFieldQueryJson) {
+    $argsList += @("--supplemental-field-query-json", $SupplementalFieldQueryJson)
 }
 if ($GdcicBrowserReadbackJson) {
     $argsList += @("--gdcic-browser-readback-json", $GdcicBrowserReadbackJson)
