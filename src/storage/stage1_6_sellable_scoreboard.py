@@ -646,6 +646,11 @@ def _p13b_ygp_original_readback_status(summary: Mapping[str, Any]) -> dict[str, 
         "ygp_blocked_count": _int(state_counts.get("YGP_ORIGINAL_URL_BLOCKED")),
         "ygp_readback_state_counts": state_counts,
         "ygp_api_discovery_state_counts": dict(summary.get("ygp_api_discovery_state_counts") or {}),
+        "stage4_ygp_project_code_backfill_record_count": _int(
+            summary.get("stage4_ygp_project_code_backfill_record_count")
+        ),
+        "stage4_ygp_backfill_state_counts": dict(summary.get("stage4_ygp_backfill_state_counts") or {}),
+        "stage4_ygp_gdcic_route_allowed_count": _int(summary.get("stage4_ygp_gdcic_route_allowed_count")),
         "blocker_taxonomy_counts": dict(summary.get("blocker_taxonomy_counts") or {}),
         "query_miss_is_not_clearance": bool(summary.get("query_miss_is_not_clearance", True)),
         "customer_visible_allowed": False,

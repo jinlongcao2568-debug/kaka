@@ -325,6 +325,9 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
                             "YGP_ORIGINAL_URL_BLOCKED": 1,
                         },
                         "ygp_api_discovery_state_counts": {"YGP_DETAIL_API_DISCOVERED": 1},
+                        "stage4_ygp_project_code_backfill_record_count": 1,
+                        "stage4_ygp_backfill_state_counts": {"YGP_STAGE4_BACKFILL_READY": 1},
+                        "stage4_ygp_gdcic_route_allowed_count": 0,
                         "blocker_taxonomy_counts": {"max_live_original_notices_deferred": 1},
                         "query_miss_is_not_clearance": True,
                         "customer_visible_allowed": False,
@@ -434,6 +437,14 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
             {"YGP_BLOCKED": 1, "YGP_READBACK_READY": 1},
         )
         self.assertEqual(scoreboard["p13b_ygp_original_readback_status"]["ygp_readback_ready_count"], 1)
+        self.assertEqual(
+            scoreboard["p13b_ygp_original_readback_status"]["stage4_ygp_backfill_state_counts"],
+            {"YGP_STAGE4_BACKFILL_READY": 1},
+        )
+        self.assertEqual(
+            scoreboard["p13b_ygp_original_readback_status"]["stage4_ygp_gdcic_route_allowed_count"],
+            0,
+        )
         self.assertEqual(scoreboard["p13b_original_notice_readback_status"]["fetch_blocked_count"], 1)
         rows = {row["project_id"]: row for row in result["project_rows"]}
         self.assertEqual(rows["PROJ-A"]["limited_sellable_review_candidate_state"], "REVIEW_CANDIDATE")

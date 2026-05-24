@@ -58,9 +58,14 @@ def build_p13b_ygp_original_readback(
         http_getter=http_getter,
         browser_readback_getter=browser_readback_getter,
     )
+    stage4_ygp_project_code_backfill_records = _stage4_ygp_project_code_backfill_records(
+        readback_records,
+        created_at=created,
+    )
     summary = _summary(
         task_records=task_records,
         readback_records=readback_records,
+        stage4_ygp_project_code_backfill_records=stage4_ygp_project_code_backfill_records,
         execution_mode=execution_mode,
         blocking_reasons=blocking_reasons,
     )
@@ -78,6 +83,7 @@ def build_p13b_ygp_original_readback(
         "max_live_original_notices": max_live_original_notices,
         "ygp_original_readback_task_records": task_records,
         "ygp_original_readback_records": readback_records,
+        "stage4_ygp_project_code_backfill_records": stage4_ygp_project_code_backfill_records,
         "summary": summary,
         "safety": {
             "download_enabled": False,
@@ -652,6 +658,85 @@ def _ygp_detail_query_params(source_url: str) -> dict[str, str]:
     }
 
 
+def _stage4_ygp_project_code_backfill_records(
+    readback_records: list[Mapping[str, Any]],
+    *,
+    created_at: str,
+) -> list[dict[str, Any]]:
+    records: list[dict[str, Any]] = []
+    for record in readback_records:
+        project_id = str(record.get("project_id") or "").strip()
+        if not project_id:
+            continue
+        ygp_project_code = str(record.get("ygp_project_code") or "").strip()
+        ygp_biz_code = str(record.get("ygp_biz_code") or "").strip()
+        ygp_site_code = str(record.get("ygp_site_code") or "").strip()
+        ygp_notice_id = str(record.get("ygp_notice_id") or "").strip()
+        readback_state = str(record.get("ygp_readback_state") or "").strip()
+        ready = readback_state in {"YGP_ORIGINAL_URL_READBACK_READY", "YGP_BROWSER_NETWORK_READBACK_READY"}
+        has_route_identifiers = bool(ygp_project_code and ygp_biz_code and ygp_site_code)
+        if ready and has_route_identifiers:
+            backfill_state = "YGP_STAGE4_BACKFILL_READY"
+            next_action = "feed_ygp_identifiers_to_p13b_or_stage4_bridge_without_gdcic_route_claim"
+        elif ready:
+            backfill_state = "YGP_STAGE4_BACKFILL_IDENTIFIER_GAP"
+            next_action = "continue_ygp_detail_route_discovery_before_stage4_bridge_backfill"
+        else:
+            backfill_state = "YGP_STAGE4_BACKFILL_BLOCKED"
+            next_action = "route_to_city_source_or_retry_ygp_readback_without_clearance_claim"
+        records.append(
+            {
+                "stage4_ygp_project_code_backfill_record_id": _stable_id(
+                    "STAGE4-YGP-PROJECT-CODE-BACKFILL",
+                    project_id,
+                    ygp_project_code,
+                    ygp_notice_id,
+                    readback_state,
+                ),
+                "project_id": project_id,
+                "candidate_company_name": str(record.get("candidate_company_name") or ""),
+                "bid_project_name": str(record.get("bid_project_name") or ""),
+                "source_url": str(record.get("source_url") or record.get("original_notice_url") or ""),
+                "ygp_readback_state": readback_state,
+                "ygp_api_discovery_state": str(record.get("ygp_api_discovery_state") or ""),
+                "ygp_project_code": ygp_project_code,
+                "ygp_biz_code": ygp_biz_code,
+                "ygp_site_code": ygp_site_code,
+                "ygp_notice_id": ygp_notice_id,
+                "ygp_node_id": str(record.get("ygp_node_id") or ""),
+                "ygp_detail_query_params": dict(record.get("ygp_detail_query_params") or {}),
+                "stage4_ygp_backfill_state": backfill_state,
+                "target_p13b_fields": [
+                    "ygp_project_code",
+                    "ygp_biz_code",
+                    "ygp_site_code",
+                    "ygp_notice_id",
+                    "ygp_original_url",
+                    "ygp_detail_query_params",
+                ],
+                "target_stage4_bridge_fields": [
+                    "projectCodeVariants",
+                    "triggerSourceUrl",
+                    "sourceProfileId",
+                    "keywords",
+                ],
+                "gdcic_project_code_route_allowed": False,
+                "gdcic_route_block_reason": (
+                    "YGP identifiers are local YGP/P13B backfill hints only; do not send to GDCIC projectCode "
+                    "unless an explicit provincial or GDCIC projectCode field is later read back."
+                ),
+                "jg_trade_code_not_sent_to_gdcic_project_code_route": True,
+                "must_not_extract_from_full_text_numbers": True,
+                "recommended_next_action": next_action,
+                "query_miss_is_not_clearance": True,
+                "customer_visible_allowed": False,
+                "no_legal_conclusion": True,
+                "created_at": created_at,
+            }
+        )
+    return _dedupe_records(records, ("stage4_ygp_project_code_backfill_record_id",))
+
+
 def _discover_api_candidates(
     shell_body: str,
     shell_url: str,
@@ -1057,6 +1142,7 @@ def _summary(
     *,
     task_records: list[Mapping[str, Any]],
     readback_records: list[Mapping[str, Any]],
+    stage4_ygp_project_code_backfill_records: list[Mapping[str, Any]],
     execution_mode: str,
     blocking_reasons: list[str],
 ) -> dict[str, Any]:
@@ -1077,6 +1163,16 @@ def _summary(
         ),
         "ygp_readback_state_counts": _counts(record.get("ygp_readback_state") for record in readback_records),
         "ygp_api_discovery_state_counts": _counts(record.get("ygp_api_discovery_state") for record in readback_records),
+        "stage4_ygp_project_code_backfill_record_count": len(stage4_ygp_project_code_backfill_records),
+        "stage4_ygp_backfill_state_counts": _counts(
+            record.get("stage4_ygp_backfill_state")
+            for record in stage4_ygp_project_code_backfill_records
+        ),
+        "stage4_ygp_gdcic_route_allowed_count": sum(
+            1
+            for record in stage4_ygp_project_code_backfill_records
+            if bool(record.get("gdcic_project_code_route_allowed"))
+        ),
         "blocker_taxonomy_counts": _counts(
             blocker for record in readback_records for blocker in _list(record.get("blocker_taxonomy"))
         ),
@@ -1119,6 +1215,18 @@ def _counts(values: Iterable[Any]) -> dict[str, int]:
             continue
         counts[key] = counts.get(key, 0) + 1
     return dict(sorted(counts.items()))
+
+
+def _dedupe_records(records: Iterable[Mapping[str, Any]], key_fields: tuple[str, ...]) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for record in records:
+        key = "|".join(str(record.get(field) or "") for field in key_fields)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(dict(record))
+    return out
 
 
 def _stable_id(prefix: str, *parts: Any) -> str:

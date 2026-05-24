@@ -114,6 +114,14 @@ class P13BYgpOriginalReadbackTests(unittest.TestCase):
             self.assertEqual(record["ygp_site_code"], "440600")
             self.assertEqual(record["extracted_responsible_person_names"], ["李四"])
             self.assertIn("180日历天", record["extracted_period_text"])
+            backfill = result["manifest"]["stage4_ygp_project_code_backfill_records"][0]
+            self.assertEqual(backfill["stage4_ygp_backfill_state"], "YGP_STAGE4_BACKFILL_READY")
+            self.assertEqual(backfill["ygp_project_code"], "A4406010001000001")
+            self.assertFalse(backfill["gdcic_project_code_route_allowed"])
+            self.assertTrue(backfill["must_not_extract_from_full_text_numbers"])
+            self.assertEqual(summary["stage4_ygp_project_code_backfill_record_count"], 1)
+            self.assertEqual(summary["stage4_ygp_backfill_state_counts"], {"YGP_STAGE4_BACKFILL_READY": 1})
+            self.assertEqual(summary["stage4_ygp_gdcic_route_allowed_count"], 0)
             self.assertEqual(
                 [attempt["route"] for attempt in record["route_attempts"]],
                 ["ygp_url_mapping_no_redirect", "ygp_node_list_fetch", "ygp_flow_matrix_detail_fetch"],
