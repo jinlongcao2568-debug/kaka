@@ -318,8 +318,7 @@ def _project_scoreboard_row(
 ) -> dict[str, Any]:
     adapter_counts = _counts(record.get("adapter_result_state") for record in field_records)
     grade_counts = _counts(
-        record.get("downstream_abcd_grade") or record.get("release_evidence_downstream_abcd_grade")
-        for record in field_records
+        _field_record_downstream_grade(record) for record in field_records
     )
     stage6_grade_counts = dict(stage6_record.get("release_field_query_downstream_abcd_grade_counts") or {})
     combined_grade_counts = {**grade_counts}
@@ -331,12 +330,12 @@ def _project_scoreboard_row(
     stage6_limited_review_state = str(stage6_record.get("limited_sellable_review_candidate_state") or "").strip()
     strong_lead_candidate_state = (
         stage6_strong_lead_state
-        if stage6_strong_lead_state
+        if stage6_strong_lead_state and stage6_strong_lead_state != "NOT_READY"
         else "STRONG_LEAD_REVIEW_CANDIDATE" if has_official_b_or_c else "NOT_READY"
     )
     limited_sellable_review_candidate_state = (
         stage6_limited_review_state
-        if stage6_limited_review_state
+        if stage6_limited_review_state and stage6_limited_review_state != "NOT_READY"
         else "REVIEW_CANDIDATE" if has_official_b_or_c and not stage7_allowed else "NOT_READY"
     )
     stage5_operational_review = _stage5_operational_review(
@@ -394,7 +393,14 @@ def _project_scoreboard_row(
         "blocking_bucket": _project_blocking_bucket(readiness_record, stage6_record, field_records),
         "strong_lead_candidate_state": strong_lead_candidate_state,
         "limited_sellable_review_candidate_state": limited_sellable_review_candidate_state,
-        "limited_sellable_review_reason": str(stage6_record.get("limited_sellable_review_reason") or ""),
+        "limited_sellable_review_reason": str(
+            stage6_record.get("limited_sellable_review_reason")
+            or (
+                "official_b_or_c_readback_requires_manual_stage5_stage6_review"
+                if limited_sellable_review_candidate_state == "REVIEW_CANDIDATE"
+                else ""
+            )
+        ),
         "commercialization_boundary_state": str(
             stage6_record.get("commercialization_boundary_state")
             or "INTERNAL_REVIEW_ONLY_NOT_CUSTOMER_DELIVERABLE"
@@ -727,7 +733,7 @@ def _project_blocking_bucket(
     field_records: list[Mapping[str, Any]],
 ) -> str:
     if _has_grade(stage6_record, ("B_", "C_")) or any(
-        str(record.get("downstream_abcd_grade") or "").startswith(("B_", "C_")) for record in field_records
+        _field_record_downstream_grade(record).startswith(("B_", "C_")) for record in field_records
     ):
         return "stage4_matched_needs_manual_limited_sellable_review"
     if any(str(record.get("adapter_result_state") or "") == "NEEDS_BROWSER" for record in field_records):
@@ -739,6 +745,15 @@ def _project_blocking_bucket(
     if str(readiness_record.get("stage3_field_parse_state") or "").upper() and not str(readiness_record.get("stage3_field_parse_state") or "").upper().startswith("PARSED"):
         return "stage3_parse_gap"
     return "unclassified_review_required"
+
+
+def _field_record_downstream_grade(record: Mapping[str, Any]) -> str:
+    return str(
+        record.get("downstream_release_evidence_abcd_grade")
+        or record.get("release_evidence_downstream_abcd_grade")
+        or record.get("downstream_abcd_grade")
+        or ""
+    )
 
 
 def _stage5_operational_review(

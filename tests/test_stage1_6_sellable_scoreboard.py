@@ -104,7 +104,7 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
                             {
                                 "project_id": "PROJ-A",
                                 "adapter_result_state": "MATCHED",
-                                "downstream_abcd_grade": "B_ENHANCEMENT_OFFICIAL_READBACK",
+                                "downstream_release_evidence_abcd_grade": "B_ENHANCEMENT_OFFICIAL_READBACK",
                             },
                             {
                                 "project_id": "PROJ-B",
