@@ -23,6 +23,7 @@ def build_stage123_runtime_front_chain(
     created = created_at or utc_now_iso()
     payload_map = dict(payload)
     out_dir = Path(output_root or payload_map.get("stage123_front_chain_output_root") or DEFAULT_STAGE123_FRONT_CHAIN_OUTPUT_ROOT)
+    input_artifact_diagnostics = _input_artifact_diagnostics(payload_map)
     market_scan = _market_scan_result(payload_map, created_at=created)
     source_blueprint = _source_blueprint_result(payload_map, market_scan=market_scan, created_at=created)
     stage2_records = _stage2_capture_records(payload_map, source_blueprint=source_blueprint)
@@ -32,7 +33,14 @@ def build_stage123_runtime_front_chain(
         _stage2_record(stage2_records),
         _stage3_record(stage3_records),
     ]
-    summary = _summary(stage_records, market_scan, source_blueprint, stage2_records, stage3_records)
+    summary = _summary(
+        stage_records,
+        market_scan,
+        source_blueprint,
+        stage2_records,
+        stage3_records,
+        input_artifact_diagnostics=input_artifact_diagnostics,
+    )
     manifest = {
         "manifest_kind": STAGE123_FRONT_CHAIN_KIND,
         "manifest_version": STAGE123_FRONT_CHAIN_VERSION,
@@ -62,6 +70,7 @@ def build_stage123_runtime_front_chain(
         "manifest": manifest,
         "summary": summary,
     }
+    result["blocking_reasons"] = list(summary.get("blocking_reasons") or [])
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "stage123-runtime-front-chain-v1.json").write_text(
         json.dumps(result, ensure_ascii=False, indent=2),
@@ -258,11 +267,20 @@ def _summary(
     source_blueprint: Mapping[str, Any],
     stage2_records: list[Mapping[str, Any]],
     stage3_records: list[Mapping[str, Any]],
+    *,
+    input_artifact_diagnostics: list[Mapping[str, Any]] | None = None,
 ) -> dict[str, Any]:
+    diagnostics = [dict(item) for item in (input_artifact_diagnostics or []) if isinstance(item, Mapping)]
     blocking_reasons = _dedupe(
         reason
-        for record in stage_records
-        for reason in _list(record.get("blocking_reasons"))
+        for reason in [
+            *(
+                reason
+                for record in stage_records
+                for reason in _list(record.get("blocking_reasons"))
+            ),
+            *(diagnostic.get("blocking_reason") for diagnostic in diagnostics),
+        ]
     )
     return {
         "stage123_front_chain_state": "READY_WITH_BLOCKERS" if blocking_reasons else "READY",
@@ -273,6 +291,7 @@ def _summary(
         "stage3_parse_record_count": len(stage3_records),
         "stage123_stability_summary": _stage123_stability_summary(stage2_records, stage3_records),
         "stage_run_state_counts": _counts(record.get("run_state") for record in stage_records),
+        "input_artifact_diagnostics": diagnostics,
         "blocking_reasons": blocking_reasons,
         "live_execution_enabled": False,
         "customer_visible_allowed": False,
@@ -361,6 +380,48 @@ def _json_mapping(value: Any) -> dict[str, Any]:
     except (OSError, json.JSONDecodeError):
         return {}
     return dict(loaded) if isinstance(loaded, Mapping) else {}
+
+
+def _input_artifact_diagnostics(payload: Mapping[str, Any]) -> list[dict[str, Any]]:
+    diagnostics: list[dict[str, Any]] = []
+    for field_name in (
+        "stage1_market_scan_json",
+        "stage1_source_blueprint_json",
+        "stage2_capture_json",
+        "stage3_parse_json",
+    ):
+        diagnostic = _json_artifact_diagnostic(payload.get(field_name), field_name=field_name)
+        if diagnostic:
+            diagnostics.append(diagnostic)
+    return diagnostics
+
+
+def _json_artifact_diagnostic(value: Any, *, field_name: str) -> dict[str, Any]:
+    path_text = str(value or "").strip()
+    if not path_text:
+        return {}
+    path = Path(path_text)
+    if not path.exists():
+        code = "BLOCKED_INPUT_MISSING"
+        detail = "input_artifact_path_missing"
+    else:
+        try:
+            loaded = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            code = "BLOCKED_INPUT_INVALID_JSON"
+            detail = f"{type(exc).__name__}: {exc}"
+        else:
+            if isinstance(loaded, Mapping):
+                return {}
+            code = "BLOCKED_INPUT_NOT_OBJECT"
+            detail = f"json_root_type={type(loaded).__name__}"
+    return {
+        "blocker_code": code,
+        "blocking_reason": f"{code}:{field_name}",
+        "input_field": field_name,
+        "input_path": path_text,
+        "detail": detail,
+    }
 
 
 def _records_from_json(value: Any) -> list[dict[str, Any]]:

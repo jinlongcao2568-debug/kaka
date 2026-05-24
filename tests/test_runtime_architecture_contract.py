@@ -989,6 +989,87 @@ class RuntimeArchitectureContractTests(unittest.TestCase, IsolatedStorageTestMix
         self.assertEqual(record.trace_refs["stage123_responsible_role_gap_count"], "1")
         self.assertIn("memory://stage3/PROJ-STAGE123-RUNTIME/parsed", record.trace_refs["output_artifact_refs_json"])
 
+    def test_runtime_cycle_records_explicit_stage123_input_artifact_failures_as_blockers(self) -> None:
+        from runtime.run_controller import RunController
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            controller = RunController(
+                stage6_preview_executor=lambda payload: {},
+                stage6_cycle_runner=lambda **kwargs: {
+                    "safe_to_execute": True,
+                    "summary": {},
+                    "manifest": {},
+                    "blocking_reasons": [],
+                },
+            )
+
+            result = controller.start_stage1_6_runtime_cycle(
+                {
+                    "project_id": "PROJ-STAGE123-BAD-INPUT",
+                    "entrypoint_id": "stage6_review_cycle_runner",
+                    "stage123_front_chain_output_root": str(root / "stage123-out"),
+                    "stage1_market_scan_json": str(root / "missing-market-scan.json"),
+                },
+                created_at="2026-05-24T00:00:00+08:00",
+            )
+
+        summary = result["run_state"]["stage123_front_chain_summary"]
+        self.assertIn("BLOCKED_INPUT_MISSING:stage1_market_scan_json", summary["blocking_reasons"])
+        self.assertIn("BLOCKED_INPUT_MISSING:stage1_market_scan_json", result["run_state"]["blocking_reasons"])
+        diagnostic = summary["input_artifact_diagnostics"][0]
+        self.assertEqual(diagnostic["blocker_code"], "BLOCKED_INPUT_MISSING")
+        self.assertEqual(diagnostic["input_field"], "stage1_market_scan_json")
+        event = next(event for event in result["audit_ledger"]["events"] if event["event_type"] == "STAGE123_FRONT_CHAIN_RECORDED")
+        self.assertIn("BLOCKED_INPUT_MISSING:stage1_market_scan_json", event["details"]["summary"]["blocking_reasons"])
+
+    def test_runtime_cycle_records_explicit_controller_json_failures_as_blockers(self) -> None:
+        from runtime.run_controller import RunController
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            bad_json = root / "bad-readiness.json"
+            bad_json.write_text("{not-json", encoding="utf-8")
+            non_object_json = root / "non-object-gap.json"
+            non_object_json.write_text(json.dumps(["not", "an", "object"]), encoding="utf-8")
+            controller = RunController(
+                stage6_preview_executor=lambda payload: {},
+                stage6_cycle_runner=lambda **kwargs: {
+                    "safe_to_execute": True,
+                    "summary": {},
+                    "manifest": {},
+                    "blocking_reasons": [],
+                },
+            )
+
+            result = controller.start_stage1_6_runtime_cycle(
+                {
+                    "project_id": "PROJ-RUNTIME-BAD-INPUT",
+                    "entrypoint_id": "stage6_review_cycle_runner",
+                    "stage1_6_readiness_json": str(bad_json),
+                    "stage1_6_gap_summary_json": str(non_object_json),
+                },
+                created_at="2026-05-24T00:00:00+08:00",
+            )
+
+        self.assertIn("BLOCKED_INPUT_INVALID_JSON:stage1_6_readiness_json", result["run_state"]["blocking_reasons"])
+        self.assertIn("BLOCKED_INPUT_NOT_OBJECT:stage1_6_gap_summary_json", result["run_state"]["blocking_reasons"])
+        self.assertEqual(
+            result["run_state"]["input_artifact_diagnostics"][0]["blocker_code"],
+            "BLOCKED_INPUT_INVALID_JSON",
+        )
+        self.assertEqual(
+            result["run_state"]["input_artifact_diagnostics"][1]["blocker_code"],
+            "BLOCKED_INPUT_NOT_OBJECT",
+        )
+        event = next(
+            event
+            for event in result["audit_ledger"]["events"]
+            if event["event_type"] == "RUNTIME_INPUT_ARTIFACT_BLOCKER_RECORDED"
+        )
+        self.assertIn("BLOCKED_INPUT_INVALID_JSON:stage1_6_readiness_json", event["details"]["blocking_reasons"])
+        self.assertIn("BLOCKED_INPUT_NOT_OBJECT:stage1_6_gap_summary_json", event["details"]["blocking_reasons"])
+
     def test_runtime_state_repository_indexes_controller_consumed_artifact_trace_refs(self) -> None:
         from runtime.run_controller import RunController
         from storage.db import DatabaseSession

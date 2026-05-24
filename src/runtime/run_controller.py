@@ -183,6 +183,26 @@ class RunController:
             },
         )
 
+        runtime_input_artifact_diagnostics = _runtime_input_artifact_diagnostics(payload)
+        if runtime_input_artifact_diagnostics:
+            ledger.record(
+                event_type="RUNTIME_INPUT_ARTIFACT_BLOCKER_RECORDED",
+                run_id=run_id,
+                stage_id="stage1_tasking",
+                created_at=created_at,
+                details={
+                    "input_artifact_diagnostics": runtime_input_artifact_diagnostics,
+                    "blocking_reasons": [
+                        diagnostic["blocking_reason"]
+                        for diagnostic in runtime_input_artifact_diagnostics
+                        if diagnostic.get("blocking_reason")
+                    ],
+                    "customer_visible_allowed": False,
+                    "no_legal_conclusion": True,
+                    "query_miss_is_not_clearance": True,
+                },
+            )
+
         stage1_6_readiness_summary = _stage1_6_readiness_summary(payload)
         if stage1_6_readiness_summary:
             ledger.record(
@@ -245,6 +265,7 @@ class RunController:
         blocking_reasons = [
             str(reason)
             for reason in [
+                *(diagnostic.get("blocking_reason") for diagnostic in runtime_input_artifact_diagnostics),
                 *stage123_blocking_reasons,
                 *list(cycle_result.get("blocking_reasons") or []),
                 *list(cycle_summary.get("blocking_reasons") or []),
@@ -510,6 +531,7 @@ class RunController:
             "output_artifact_refs": output_refs,
             "audit_refs": [event["event_id"] for event in audit["events"]],
             "current_focus": dict(current_focus),
+            "input_artifact_diagnostics": list(runtime_input_artifact_diagnostics),
             "stage1_6_readiness_summary": dict(stage1_6_readiness_summary),
             "stage123_front_chain_summary": dict(stage123_front_chain.get("summary") or {}) if stage123_front_chain else {},
             "stage4_release_field_query_summary": dict(stage4_release_field_query_summary),
@@ -1426,6 +1448,49 @@ def _json_payload(path_value: Any) -> dict[str, Any]:
     except (OSError, json.JSONDecodeError):
         return {}
     return dict(payload) if isinstance(payload, Mapping) else {}
+
+
+def _runtime_input_artifact_diagnostics(payload: Mapping[str, Any]) -> list[dict[str, Any]]:
+    diagnostics: list[dict[str, Any]] = []
+    for field_name in (
+        "release_evidence_adapter_plan_json",
+        "gdcic_browser_readback_json",
+        "stage1_6_readiness_json",
+        "stage1_6_gap_summary_json",
+        "stage1_6_real_public_pressure_report_json",
+    ):
+        diagnostic = _json_payload_diagnostic(payload.get(field_name), field_name=field_name)
+        if diagnostic:
+            diagnostics.append(diagnostic)
+    return diagnostics
+
+
+def _json_payload_diagnostic(path_value: Any, *, field_name: str) -> dict[str, Any]:
+    path_text = str(path_value or "").strip()
+    if not path_text:
+        return {}
+    path = Path(path_text)
+    if not path.exists():
+        code = "BLOCKED_INPUT_MISSING"
+        detail = "input_artifact_path_missing"
+    else:
+        try:
+            loaded = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            code = "BLOCKED_INPUT_INVALID_JSON"
+            detail = f"{type(exc).__name__}: {exc}"
+        else:
+            if isinstance(loaded, Mapping):
+                return {}
+            code = "BLOCKED_INPUT_NOT_OBJECT"
+            detail = f"json_root_type={type(loaded).__name__}"
+    return {
+        "blocker_code": code,
+        "blocking_reason": f"{code}:{field_name}",
+        "input_field": field_name,
+        "input_path": path_text,
+        "detail": detail,
+    }
 
 
 def _stage1_6_table_records(path_value: Any) -> list[dict[str, Any]]:

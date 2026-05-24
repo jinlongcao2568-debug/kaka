@@ -5,6 +5,7 @@ import json
 import sys
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
@@ -54,6 +55,7 @@ from api.routes.stage9 import (
     submit_stage9_operator_action,
 )
 from storage import persist_stage_bundle, reset_default_storage
+from storage.repository_boundary import OperationalContractError
 
 
 def read_json(relative_path: str) -> dict:
@@ -63,6 +65,57 @@ def read_json(relative_path: str) -> dict:
 class TestInternalSurfacePreview(unittest.TestCase):
     def setUp(self) -> None:
         reset_default_storage()
+
+    def test_stage7_operator_action_secondary_surface_failure_is_fail_closed(self) -> None:
+        with patch(
+            "api.routes.stage7.record_operator_action",
+            side_effect=OperationalContractError("operator_action_contract_failed"),
+        ), patch(
+            "api.routes.stage7.build_stage7_preview_surface",
+            side_effect=RuntimeError("preview boom"),
+        ):
+            response = submit_stage7_operator_action({})
+
+        self.assertTrue(response["internal_only"])
+        self.assertFalse(response["live_execution_enabled"])
+        self.assertTrue(response["blocked_by_default"])
+        self.assertTrue(response["error"]["fail_closed"])
+        self.assertEqual(response["error"]["secondary_error"]["type"], "RuntimeError")
+        self.assertEqual(response["error"]["secondary_error"]["detail"], "preview boom")
+
+    def test_stage8_operator_action_secondary_surface_failure_is_fail_closed(self) -> None:
+        with patch(
+            "api.routes.stage8.record_operator_action",
+            side_effect=OperationalContractError("operator_action_contract_failed"),
+        ), patch(
+            "api.routes.stage8.build_stage8_preview_surface",
+            side_effect=RuntimeError("preview boom"),
+        ):
+            response = submit_stage8_operator_action({})
+
+        self.assertTrue(response["internal_only"])
+        self.assertFalse(response["live_execution_enabled"])
+        self.assertTrue(response["blocked_by_default"])
+        self.assertTrue(response["error"]["fail_closed"])
+        self.assertEqual(response["error"]["secondary_error"]["type"], "RuntimeError")
+        self.assertEqual(response["error"]["secondary_error"]["detail"], "preview boom")
+
+    def test_stage9_operator_action_secondary_surface_failure_is_fail_closed(self) -> None:
+        with patch(
+            "api.routes.stage9.record_operator_action",
+            side_effect=OperationalContractError("operator_action_contract_failed"),
+        ), patch(
+            "api.routes.stage9.build_stage9_preview_surface",
+            side_effect=RuntimeError("preview boom"),
+        ):
+            response = submit_stage9_operator_action({})
+
+        self.assertTrue(response["internal_only"])
+        self.assertFalse(response["live_execution_enabled"])
+        self.assertTrue(response["blocked_by_default"])
+        self.assertTrue(response["error"]["fail_closed"])
+        self.assertEqual(response["error"]["secondary_error"]["type"], "RuntimeError")
+        self.assertEqual(response["error"]["secondary_error"]["detail"], "preview boom")
 
     def test_stage6_preview_surface_consumes_repository_backed_formal_objects(self) -> None:
         stage6 = run_internal_chain(load_fixture("internal_chain_happy.json"))["stage6"]
