@@ -1214,6 +1214,107 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
         self.assertEqual(result["scoreboard"]["real_public_sellable_pack_rate"], 0.0)
         self.assertFalse(result["safety"]["customer_visible_allowed"])
 
+    def test_data_ggzy_bid_show_original_url_is_backfill_input_not_gdcic_code(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            pressure = root / "pressure"
+            field_query = root / "field-query"
+            p13b_history = root / "p13b-history"
+            out = root / "out"
+            for path in (pressure, field_query, p13b_history, out):
+                path.mkdir(parents=True, exist_ok=True)
+
+            _write_json(
+                pressure / "pressure-summary.json",
+                {
+                    "candidate_count": 1,
+                    "stage1_6_readiness_state_counts": {"STAGE4_PUBLIC_SOURCE_REVIEW_REQUIRED": 1},
+                    "stage1_6_bottleneck_stage_counts": {"Stage4": 1},
+                },
+            )
+            _write_json(
+                pressure / "stage1-6-readiness-table.json",
+                {
+                    "records": [
+                        {
+                            "project_id": "PROJ-BIDSHOW",
+                            "project_name": "bid show candidate",
+                            "stage2_detail_capture_state": "FETCHED",
+                            "stage3_field_parse_state": "PARSED_FROM_FIELD_SIGNALS",
+                            "stage5_rule_gate_status": "REVIEW",
+                            "fail_closed_reasons": ["gdcic_project_code_not_resolved"],
+                        }
+                    ]
+                },
+            )
+            _write_json(pressure / "stage1-6-gap-summary-table.json", {"records": []})
+            _write_json(
+                field_query / "guangdong-local-field-query-probe-v1.json",
+                {"manifest": {"field_task_records": [{"project_id": "PROJ-BIDSHOW", "adapter_result_state": "NEEDS_BROWSER"}]}},
+            )
+            _write_json(
+                p13b_history / "company-history-overlap-triage-v1.json",
+                {
+                    "manifest": {
+                        "bid_show_records": [
+                            {
+                                "project_id": "PROJ-BIDSHOW",
+                                "bid_show_state": "ORIGINAL_NOTICE_BACKTRACE_REQUIRED",
+                                "original_notice_url": "https://example.gov.cn/original-notice.html",
+                                "responsible_person_names": ["张三"],
+                            }
+                        ],
+                        "overlap_signal_records": [
+                            {
+                                "project_id": "PROJ-BIDSHOW",
+                                "overlap_signal_state": "ORIGINAL_NOTICE_BACKTRACE_REQUIRED",
+                            }
+                        ],
+                    },
+                    "summary": {"bid_show_record_count": 1},
+                },
+            )
+
+            result = build_stage1_6_sellable_scoreboard(
+                pressure_root=pressure,
+                field_query_root=field_query,
+                p13b_company_history_root=p13b_history,
+                output_root=out,
+                created_at="2026-05-24T00:00:00+08:00",
+            )
+
+        row = result["project_rows"][0]
+        self.assertEqual(row["p13b_bid_show_original_notice_url_count"], 1)
+        self.assertEqual(row["p13b_bid_show_responsible_person_present_count"], 1)
+        self.assertEqual(
+            row["stage4_project_code_backfill_state"],
+            "DATA_GGZY_BID_SHOW_ORIGINAL_URL_BACKFILLED_FOR_P13B_OR_STAGE4_BRIDGE_ONLY",
+        )
+        self.assertEqual(
+            row["stage4_public_identifier_backfill_source"],
+            "DATA_GGZY_BID_SHOW_ORIGINAL_URL|DATA_GGZY_BID_SHOW_RESPONSIBLE_PERSON",
+        )
+        self.assertFalse(row["stage4_gdcic_project_code_route_allowed"])
+        self.assertEqual(
+            row["stage4_gdcic_project_code_route_policy"],
+            "DATA_GGZY_BID_SHOW_ORIGINAL_URL_NOT_SENT_TO_GDCIC_PROJECT_CODE",
+        )
+        self.assertEqual(
+            result["scoreboard"]["stage4_project_code_backfill_state_counts"],
+            {"DATA_GGZY_BID_SHOW_ORIGINAL_URL_BACKFILLED_FOR_P13B_OR_STAGE4_BRIDGE_ONLY": 1},
+        )
+        self.assertEqual(
+            result["scoreboard"]["stage4_public_identifier_backfill_source_counts"],
+            {
+                "DATA_GGZY_BID_SHOW_ORIGINAL_URL": 1,
+                "DATA_GGZY_BID_SHOW_RESPONSIBLE_PERSON": 1,
+            },
+        )
+        self.assertEqual(
+            result["scoreboard"]["stage4_gdcic_project_code_route_policy_counts"],
+            {"DATA_GGZY_BID_SHOW_ORIGINAL_URL_NOT_SENT_TO_GDCIC_PROJECT_CODE": 1},
+        )
+
 
 def _write_json(path: Path, payload: dict) -> None:
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")

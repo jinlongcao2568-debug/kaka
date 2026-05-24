@@ -370,7 +370,10 @@ def _scoreboard_counts(
             1
             for row in project_rows
             if row.get("stage4_project_code_backfill_state")
-            == "PUBLIC_SOURCE_IDENTIFIER_BACKFILLED_FOR_P13B_OR_STAGE4_BRIDGE_ONLY"
+            in {
+                "PUBLIC_SOURCE_IDENTIFIER_BACKFILLED_FOR_P13B_OR_STAGE4_BRIDGE_ONLY",
+                "DATA_GGZY_BID_SHOW_ORIGINAL_URL_BACKFILLED_FOR_P13B_OR_STAGE4_BRIDGE_ONLY",
+            }
         ),
         "stage4_gdcic_project_code_route_ready_project_count": sum(
             1 for row in project_rows if row.get("stage4_project_code_backfill_state") == "GDCIC_PROJECT_CODE_ROUTE_READY"
@@ -379,7 +382,10 @@ def _scoreboard_counts(
             1
             for row in project_rows
             if row.get("stage4_project_code_backfill_state")
-            == "PUBLIC_SOURCE_IDENTIFIER_BACKFILLED_FOR_P13B_OR_STAGE4_BRIDGE_ONLY"
+            in {
+                "PUBLIC_SOURCE_IDENTIFIER_BACKFILLED_FOR_P13B_OR_STAGE4_BRIDGE_ONLY",
+                "DATA_GGZY_BID_SHOW_ORIGINAL_URL_BACKFILLED_FOR_P13B_OR_STAGE4_BRIDGE_ONLY",
+            }
             and not bool(row.get("stage4_gdcic_project_code_route_allowed"))
         ),
         "stage4_public_source_readback_state_counts": _counts(
@@ -443,6 +449,7 @@ def _project_scoreboard_row(
     )
     project_code_backfill_state = _stage4_project_code_backfill_state(
         readiness_record=readiness_record,
+        p13b_project_signal=p13b_project_signal,
         p13b_ygp_signal=p13b_ygp_signal,
         p13b_overlap_closeout_signal=p13b_overlap_closeout_signal,
     )
@@ -470,6 +477,12 @@ def _project_scoreboard_row(
         ),
         "p13b_company_query_state_counts": dict(p13b_project_signal.get("company_query_state_counts") or {}),
         "p13b_bid_show_state_counts": dict(p13b_project_signal.get("bid_show_state_counts") or {}),
+        "p13b_bid_show_original_notice_url_count": _int(
+            p13b_project_signal.get("bid_show_original_notice_url_count")
+        ),
+        "p13b_bid_show_responsible_person_present_count": _int(
+            p13b_project_signal.get("bid_show_responsible_person_present_count")
+        ),
         "p13b_overlap_signal_state_counts": dict(p13b_project_signal.get("overlap_signal_state_counts") or {}),
         "p13b_original_notice_readback_state": str(
             p13b_original_notice_signal.get("p13b_original_notice_readback_state") or ""
@@ -518,6 +531,7 @@ def _project_scoreboard_row(
         ),
         "stage4_project_code_backfill_state": project_code_backfill_state,
         "stage4_public_identifier_backfill_source": _stage4_public_identifier_backfill_source(
+            p13b_project_signal=p13b_project_signal,
             p13b_ygp_signal=p13b_ygp_signal,
             p13b_overlap_closeout_signal=p13b_overlap_closeout_signal,
         ),
@@ -1026,6 +1040,7 @@ def _project_blocking_bucket(
 def _stage4_project_code_backfill_state(
     *,
     readiness_record: Mapping[str, Any],
+    p13b_project_signal: Mapping[str, Any],
     p13b_ygp_signal: Mapping[str, Any],
     p13b_overlap_closeout_signal: Mapping[str, Any],
 ) -> str:
@@ -1044,6 +1059,8 @@ def _stage4_project_code_backfill_state(
         or _int(p13b_overlap_closeout_signal.get("ygp_stage4_release_adapter_task_count")) > 0
     ):
         return "PUBLIC_SOURCE_IDENTIFIER_BACKFILLED_FOR_P13B_OR_STAGE4_BRIDGE_ONLY"
+    if _int(p13b_project_signal.get("bid_show_original_notice_url_count")) > 0:
+        return "DATA_GGZY_BID_SHOW_ORIGINAL_URL_BACKFILLED_FOR_P13B_OR_STAGE4_BRIDGE_ONLY"
     fail_closed_reasons = {str(item) for item in _as_list(readiness_record.get("fail_closed_reasons"))}
     if fail_closed_reasons & {
         "gdcic_project_code_not_resolved",
@@ -1056,10 +1073,15 @@ def _stage4_project_code_backfill_state(
 
 def _stage4_public_identifier_backfill_source(
     *,
+    p13b_project_signal: Mapping[str, Any],
     p13b_ygp_signal: Mapping[str, Any],
     p13b_overlap_closeout_signal: Mapping[str, Any],
 ) -> str:
     sources: list[str] = []
+    if _int(p13b_project_signal.get("bid_show_original_notice_url_count")) > 0:
+        sources.append("DATA_GGZY_BID_SHOW_ORIGINAL_URL")
+    if _int(p13b_project_signal.get("bid_show_responsible_person_present_count")) > 0:
+        sources.append("DATA_GGZY_BID_SHOW_RESPONSIBLE_PERSON")
     if _as_list(p13b_ygp_signal.get("ygp_project_code_variants")) or _as_list(
         p13b_overlap_closeout_signal.get("ygp_project_code_variants")
     ):
@@ -1086,6 +1108,8 @@ def _stage4_gdcic_project_code_route_policy(project_code_backfill_state: str) ->
         return "ONLY_EXPLICIT_PROVINCIAL_OR_URL_PROJECT_CODE_ALLOWED"
     if project_code_backfill_state == "PUBLIC_SOURCE_IDENTIFIER_BACKFILLED_FOR_P13B_OR_STAGE4_BRIDGE_ONLY":
         return "YGP_OR_TRADE_IDENTIFIERS_NOT_SENT_TO_GDCIC_PROJECT_CODE"
+    if project_code_backfill_state == "DATA_GGZY_BID_SHOW_ORIGINAL_URL_BACKFILLED_FOR_P13B_OR_STAGE4_BRIDGE_ONLY":
+        return "DATA_GGZY_BID_SHOW_ORIGINAL_URL_NOT_SENT_TO_GDCIC_PROJECT_CODE"
     if project_code_backfill_state == "MISSING_PROJECT_CODE_BACKFILL_INPUT":
         return "BACKFILL_NOTICE_DATA_GGZY_BID_SHOW_OR_LOCAL_SOURCE_WITHOUT_DIGIT_GUESSING"
     return "NO_GDCIC_PROJECT_CODE_ROUTE"
@@ -1442,6 +1466,12 @@ def _p13b_project_signals(payload: Mapping[str, Any]) -> dict[str, dict[str, Any
         project_overlaps = [record for record in overlap_records if str(record.get("project_id") or "").strip() == project_id]
         company_query_counts = _counts(record.get("query_state") for record in project_queries)
         bid_show_counts = _counts(record.get("bid_show_state") for record in project_bid_shows)
+        bid_show_original_notice_url_count = sum(
+            1 for record in project_bid_shows if str(record.get("original_notice_url") or "").strip()
+        )
+        bid_show_responsible_person_present_count = sum(
+            1 for record in project_bid_shows if _as_list(record.get("responsible_person_names"))
+        )
         overlap_counts = _counts(record.get("overlap_signal_state") for record in project_overlaps)
         original_backtrace_required = _int(overlap_counts.get("ORIGINAL_NOTICE_BACKTRACE_REQUIRED")) + _int(
             bid_show_counts.get("ORIGINAL_NOTICE_BACKTRACE_REQUIRED")
@@ -1464,6 +1494,8 @@ def _p13b_project_signals(payload: Mapping[str, Any]) -> dict[str, dict[str, Any
             "p13b_public_source_readback_state": readback_state,
             "company_query_state_counts": company_query_counts,
             "bid_show_state_counts": bid_show_counts,
+            "bid_show_original_notice_url_count": bid_show_original_notice_url_count,
+            "bid_show_responsible_person_present_count": bid_show_responsible_person_present_count,
             "overlap_signal_state_counts": overlap_counts,
             "original_notice_backtrace_required_count": original_backtrace_required,
             "source_blocked_count": source_blocked,
