@@ -1008,6 +1008,36 @@ class Stage6ReviewCycleRunnerTests(unittest.TestCase):
                 {"AUTHORIZATION_HOLD_NEEDS_BROWSER_WORKER_OR_OPERATOR_SESSION": 1},
             )
 
+    def test_release_field_query_b_grade_projects_to_limited_review_summary(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            field_query_json = _write_standalone_release_field_query_limited_review(root / "field-query")
+
+            result = run_stage6_review_cycle_runner(
+                batch_closeout_root=root / "missing-closeout",
+                release_field_query_json=field_query_json,
+                output_root=root / "out",
+                created_at="2026-05-24T00:00:00+08:00",
+            )
+
+            self.assertTrue(result["safe_to_execute"])
+            projection_table = result["manifest"]["operator_projection_status_table"]
+            self.assertEqual(projection_table["summary"]["limited_sellable_review_candidate_count"], 1)
+            self.assertEqual(
+                projection_table["summary"]["limited_sellable_review_candidate_state_counts"],
+                {"REVIEW_CANDIDATE": 1},
+            )
+            self.assertEqual(
+                projection_table["summary"]["commercialization_boundary_state_counts"],
+                {"INTERNAL_REVIEW_ONLY_NOT_CUSTOMER_DELIVERABLE": 1},
+            )
+            row = projection_table["records"][0]
+            self.assertEqual(row["project_id"], "PROJ-FIELD-B-GRADE")
+            self.assertEqual(row["limited_sellable_review_candidate_state"], "REVIEW_CANDIDATE")
+            self.assertEqual(row["strong_lead_candidate_state"], "STRONG_LEAD_REVIEW_CANDIDATE")
+            self.assertFalse(row["stage7_commercial_input_allowed"])
+            self.assertFalse(row["customer_visible_allowed"])
+
     def test_release_field_query_project_code_hit_and_not_found_are_projected_safely(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -2098,6 +2128,43 @@ def _write_standalone_release_field_query_result(root: Path) -> Path:
                 "guangdong_local_field_query_task_count": 1,
                 "release_evidence_downstream_abcd_grade_counts": {
                     "D_INSUFFICIENT_OR_BLOCKED_READBACK": 1,
+                },
+            },
+        },
+    )
+    return path
+
+
+def _write_standalone_release_field_query_limited_review(root: Path) -> Path:
+    path = root / "guangdong-local-field-query-probe-v1.json"
+    _write_json(
+        path,
+        {
+            "safe_to_execute": True,
+            "blocking_reasons": [],
+            "manifest": {
+                "manifest_id": "GD-FIELD-LIMITED-REVIEW-1",
+                "field_task_records": [
+                    {
+                        "field_query_task_id": "GD-FIELD-B-GRADE",
+                        "project_id": "PROJ-FIELD-B-GRADE",
+                        "project_name": "B grade official readback project",
+                        "source_profile_id": "GUANGZHOU-OFFICIAL-READBACK",
+                        "adapter_result_state": "MATCHED",
+                        "downstream_release_evidence_abcd_grade": "B_ENHANCEMENT_OFFICIAL_READBACK",
+                        "field_summary": {
+                            "field_query_probe_state": "FIELD_READBACK_READY_PUBLIC_SOURCE",
+                            "source_profile_id": "GUANGZHOU-OFFICIAL-READBACK",
+                        },
+                        "customer_visible_allowed": False,
+                        "no_legal_conclusion": True,
+                    }
+                ],
+            },
+            "summary": {
+                "guangdong_local_field_query_task_count": 1,
+                "release_evidence_downstream_abcd_grade_counts": {
+                    "B_ENHANCEMENT_OFFICIAL_READBACK": 1,
                 },
             },
         },

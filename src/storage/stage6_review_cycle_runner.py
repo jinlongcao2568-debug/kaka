@@ -990,6 +990,20 @@ def _operator_projection_status_table(
             int(record.get("gdcic_browser_target_real_readback_success_count") or 0)
             for record in gdcic_projection_by_project.values()
         ),
+        "limited_sellable_review_candidate_count": sum(
+            1
+            for record in project_records
+            if record.get("limited_sellable_review_candidate_state") == "REVIEW_CANDIDATE"
+        ),
+        "limited_sellable_review_candidate_state_counts": _counts(
+            record.get("limited_sellable_review_candidate_state") for record in project_records
+        ),
+        "strong_lead_candidate_state_counts": _counts(
+            record.get("strong_lead_candidate_state") for record in project_records
+        ),
+        "commercialization_boundary_state_counts": _counts(
+            record.get("commercialization_boundary_state") for record in project_records
+        ),
         "runtime_blocker_worker_followup_count": len(followup_records),
         "runtime_blocker_worker_followup_project_count": followup_project_count,
         "runtime_blocker_worker_followup_entrypoint_counts": _counts(
