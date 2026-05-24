@@ -285,6 +285,14 @@ def _scoreboard_counts(
         "candidate_count": candidate_count,
         "stage2_success_count": stage2_success_count,
         "stage3_success_count": stage3_success_count,
+        "stage1_6_readiness_state_counts": dict(pressure_summary.get("stage1_6_readiness_state_counts") or {}),
+        "stage1_6_bottleneck_stage_counts": dict(pressure_summary.get("stage1_6_bottleneck_stage_counts") or {}),
+        "stage1_3_stability_summary": dict(pressure_summary.get("stage1_3_stability_summary") or {}),
+        "stage1_3_long_tail_bucket_counts": dict(pressure_summary.get("stage1_3_long_tail_bucket_counts") or {}),
+        "stage1_3_long_tail_signal_counts": dict(pressure_summary.get("stage1_3_long_tail_signal_counts") or {}),
+        "stage1_3_identity_confirmation_state_counts": dict(
+            pressure_summary.get("stage1_3_identity_confirmation_state_counts") or {}
+        ),
         "stage4_matched_task_count": stage4_matched_count,
         "stage4_needs_browser_task_count": stage4_needs_browser_count,
         "stage5_review_count": stage5_review_count,

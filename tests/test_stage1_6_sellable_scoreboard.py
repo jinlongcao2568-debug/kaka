@@ -43,6 +43,24 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
                     "candidate_count": 5,
                     "stage5_rule_gate_status_counts": {"REVIEW": 5},
                     "customer_sellable_evidence_ready_count": 0,
+                    "stage1_6_readiness_state_counts": {
+                        "STAGE3_FIELD_OR_ROLE_REVIEW_REQUIRED": 1,
+                        "STAGE4_PUBLIC_SOURCE_REVIEW_REQUIRED": 4,
+                    },
+                    "stage1_6_bottleneck_stage_counts": {"Stage3": 1, "Stage4": 4},
+                    "stage1_3_stability_summary": {
+                        "stage3_responsible_role_gap_count": 1,
+                        "stage3_parse_blocker_count": 0,
+                    },
+                    "stage1_3_long_tail_bucket_counts": {
+                        "COMPANY_FIRST_RESPONSIBLE_ROLE_RESOLUTION_REQUIRED": 1,
+                    },
+                    "stage1_3_long_tail_signal_counts": {
+                        "responsible_role_missing_company_first_required": 1,
+                    },
+                    "stage1_3_identity_confirmation_state_counts": {
+                        "REVIEW_REQUIRED_NOT_CONFIRMED": 1,
+                    },
                 },
             )
             _write_json(
@@ -415,6 +433,30 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
         self.assertEqual(scoreboard["candidate_count"], 5)
         self.assertEqual(scoreboard["stage2_success_count"], 5)
         self.assertEqual(scoreboard["stage3_success_count"], 5)
+        self.assertEqual(
+            scoreboard["stage1_6_readiness_state_counts"],
+            {
+                "STAGE3_FIELD_OR_ROLE_REVIEW_REQUIRED": 1,
+                "STAGE4_PUBLIC_SOURCE_REVIEW_REQUIRED": 4,
+            },
+        )
+        self.assertEqual(scoreboard["stage1_6_bottleneck_stage_counts"], {"Stage3": 1, "Stage4": 4})
+        self.assertEqual(
+            scoreboard["stage1_3_stability_summary"],
+            {"stage3_responsible_role_gap_count": 1, "stage3_parse_blocker_count": 0},
+        )
+        self.assertEqual(
+            scoreboard["stage1_3_long_tail_bucket_counts"],
+            {"COMPANY_FIRST_RESPONSIBLE_ROLE_RESOLUTION_REQUIRED": 1},
+        )
+        self.assertEqual(
+            scoreboard["stage1_3_long_tail_signal_counts"],
+            {"responsible_role_missing_company_first_required": 1},
+        )
+        self.assertEqual(
+            scoreboard["stage1_3_identity_confirmation_state_counts"],
+            {"REVIEW_REQUIRED_NOT_CONFIRMED": 1},
+        )
         self.assertEqual(scoreboard["stage4_matched_task_count"], 2)
         self.assertEqual(scoreboard["stage4_needs_browser_task_count"], 1)
         self.assertEqual(scoreboard["stage5_review_count"], 5)
