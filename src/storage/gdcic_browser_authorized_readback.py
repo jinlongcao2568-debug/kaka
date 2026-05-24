@@ -72,6 +72,11 @@ def build_gdcic_browser_authorized_readback(
         user_data_dir=user_data_dir,
         browser_runner_supplied=browser_runner is not None,
     )
+    authorized_session_preflight = _authorized_session_preflight(
+        authorized_session_input_state=authorized_session_input_state,
+        storage_state_json=storage_state_json,
+        user_data_dir=user_data_dir,
+    )
     active_runner = browser_runner
     if active_runner is None and enable_live_browser_execution:
         active_runner = _make_playwright_browser_runner(
@@ -93,6 +98,7 @@ def build_gdcic_browser_authorized_readback(
         execution_mode=execution_mode,
         blocking_reasons=blocking_reasons,
         authorized_session_input_state=authorized_session_input_state,
+        authorized_session_preflight=authorized_session_preflight,
     )
     stage5_calibration_sample_records = _stage5_calibration_samples_from_readback(
         readback_records,
@@ -121,6 +127,7 @@ def build_gdcic_browser_authorized_readback(
         "storage_state_json_used": str(storage_state_json or ""),
         "user_data_dir_used": str(user_data_dir or ""),
         "authorized_session_input_state": authorized_session_input_state,
+        "authorized_session_preflight": authorized_session_preflight,
         "headed_browser_requested": bool(headed),
         "browser_readback_task_records": task_records,
         "browser_readback_records": readback_records,
@@ -226,6 +233,8 @@ def _runtime_worker_result_from_readback(result: Mapping[str, Any], *, created_a
         ),
         "authorization_readiness_state": str(summary.get("gdcic_authorized_session_overall_state") or ""),
         "authorized_session_input_state": str(summary.get("authorized_session_input_state") or ""),
+        "authorized_session_preflight_state": str(summary.get("authorized_session_preflight_state") or ""),
+        "authorized_session_required_input": _list(summary.get("authorized_session_required_input")),
         "operator_next_action_counts": dict(
             summary.get("operator_next_action_counts")
             if isinstance(summary.get("operator_next_action_counts"), Mapping)
@@ -369,6 +378,65 @@ def _authorized_session_input_state(
     if storage_path:
         return "STORAGE_STATE_JSON_SUPPLIED" if storage_ready else "STORAGE_STATE_JSON_SUPPLIED_BUT_MISSING"
     return "NO_AUTHORIZED_SESSION_INPUT"
+
+
+def _authorized_session_input_ready(state: str) -> bool:
+    return state in {
+        "INJECTED_BROWSER_RUNNER",
+        "STORAGE_STATE_JSON_SUPPLIED",
+        "USER_DATA_DIR_SUPPLIED",
+        "USER_DATA_DIR_AND_STORAGE_STATE_JSON_SUPPLIED",
+        "USER_DATA_DIR_SUPPLIED_STORAGE_STATE_JSON_MISSING",
+        "STORAGE_STATE_JSON_SUPPLIED_USER_DATA_DIR_MISSING",
+    }
+
+
+def _authorized_session_preflight(
+    *,
+    authorized_session_input_state: str,
+    storage_state_json: str | Path | None,
+    user_data_dir: str | Path | None,
+) -> dict[str, Any]:
+    ready = _authorized_session_input_ready(authorized_session_input_state)
+    storage_path = Path(storage_state_json) if storage_state_json else None
+    user_data_path = Path(user_data_dir) if user_data_dir else None
+    if ready:
+        preflight_state = "AUTHORIZED_SESSION_INPUT_READY"
+        operator_next_action = ""
+    elif authorized_session_input_state == "NO_AUTHORIZED_SESSION_INPUT":
+        preflight_state = "NO_AUTHORIZED_SESSION_INPUT"
+        operator_next_action = "provide_gdcic_authorized_storage_state_or_user_data_dir_then_rerun"
+    else:
+        preflight_state = "AUTHORIZED_SESSION_INPUT_SUPPLIED_BUT_NOT_READABLE"
+        operator_next_action = "fix_gdcic_authorized_session_input_path_then_rerun"
+    return {
+        "preflight_state": preflight_state,
+        "authorized_session_input_state": authorized_session_input_state,
+        "authorized_session_input_ready": ready,
+        "storage_state_json_path": str(storage_path or ""),
+        "storage_state_json_exists": bool(storage_path and storage_path.exists() and storage_path.is_file()),
+        "user_data_dir_path": str(user_data_path or ""),
+        "user_data_dir_exists": bool(user_data_path and user_data_path.exists() and user_data_path.is_dir()),
+        "required_input": [] if ready else ["authorized_browser_storage_state_or_user_data_dir"],
+        "operator_next_action": operator_next_action,
+        "discovery_env_names": [
+            "KAKA_GDCIC_STORAGE_STATE_JSON",
+            "GDCIC_STORAGE_STATE_JSON",
+            "KAKA_GDCIC_USER_DATA_DIR",
+            "GDCIC_USER_DATA_DIR",
+        ],
+        "default_discovery_paths": [
+            ".auth/gdcic-storage-state.json",
+            "local/auth/gdcic-storage-state.json",
+            "tmp/auth/gdcic-storage-state.json",
+            ".auth/gdcic-user-data",
+            "local/auth/gdcic-user-data",
+            "tmp/auth/gdcic-user-data",
+        ],
+        "http_dynamic_stealthy_can_replace_login_state": False,
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
 
 
 def _task_records_from_release_plan(source_manifest: Mapping[str, Any], *, created_at: str) -> list[dict[str, Any]]:
@@ -975,6 +1043,7 @@ def _summary(
     execution_mode: str,
     blocking_reasons: list[str],
     authorized_session_input_state: str,
+    authorized_session_preflight: Mapping[str, Any],
 ) -> dict[str, Any]:
     authorization_state_counts = _counts(record.get("authorization_readiness_state") for record in readback_records)
     project_manager_change_records = [
@@ -988,14 +1057,7 @@ def _summary(
         for source_record in _list(record.get("records"))
         if isinstance(source_record, Mapping)
     ]
-    authorized_session_input_ready = authorized_session_input_state in {
-        "INJECTED_BROWSER_RUNNER",
-        "STORAGE_STATE_JSON_SUPPLIED",
-        "USER_DATA_DIR_SUPPLIED",
-        "USER_DATA_DIR_AND_STORAGE_STATE_JSON_SUPPLIED",
-        "USER_DATA_DIR_SUPPLIED_STORAGE_STATE_JSON_MISSING",
-        "STORAGE_STATE_JSON_SUPPLIED_USER_DATA_DIR_MISSING",
-    }
+    authorized_session_input_ready = _authorized_session_input_ready(authorized_session_input_state)
     ready_count = sum(
         1 for record in readback_records if str(record.get("readback_state") or "") == "BROWSER_AUTHORIZED_READBACK_READY"
     )
@@ -1027,6 +1089,9 @@ def _summary(
         "execution_mode": execution_mode,
         "authorized_session_input_state": authorized_session_input_state,
         "authorized_session_input_ready": authorized_session_input_ready,
+        "authorized_session_preflight_state": str(authorized_session_preflight.get("preflight_state") or ""),
+        "authorized_session_preflight": dict(authorized_session_preflight),
+        "authorized_session_required_input": _list(authorized_session_preflight.get("required_input")),
         "requires_authorized_session_for_login_protected_pages": True,
         "http_dynamic_stealthy_can_replace_login_state": False,
         "target_real_readback_success_count": ready_count,

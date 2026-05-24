@@ -51,6 +51,16 @@ class GDCICBrowserAuthorizedReadbackTests(unittest.TestCase, IsolatedStorageTest
             self.assertEqual(summary["execution_mode"], "PLAN_ONLY_NOT_EXECUTED")
             self.assertEqual(summary["authorized_session_input_state"], "NO_AUTHORIZED_SESSION_INPUT")
             self.assertFalse(summary["authorized_session_input_ready"])
+            self.assertEqual(summary["authorized_session_preflight_state"], "NO_AUTHORIZED_SESSION_INPUT")
+            self.assertEqual(summary["authorized_session_required_input"], ["authorized_browser_storage_state_or_user_data_dir"])
+            self.assertEqual(
+                summary["authorized_session_preflight"]["operator_next_action"],
+                "provide_gdcic_authorized_storage_state_or_user_data_dir_then_rerun",
+            )
+            self.assertIn(
+                ".auth/gdcic-storage-state.json",
+                summary["authorized_session_preflight"]["default_discovery_paths"],
+            )
             self.assertFalse(summary["http_dynamic_stealthy_can_replace_login_state"])
             self.assertEqual(summary["target_real_readback_success_count"], 0)
             self.assertEqual(summary["target_project_manager_change_real_readback_success_count"], 0)
@@ -71,6 +81,7 @@ class GDCICBrowserAuthorizedReadbackTests(unittest.TestCase, IsolatedStorageTest
             self.assertEqual(summary["project_manager_change_readback_record_count"], 0)
             self.assertEqual(summary["project_manager_change_ready_count"], 0)
             self.assertEqual(result["manifest"]["authorized_session_input_state"], "NO_AUTHORIZED_SESSION_INPUT")
+            self.assertEqual(result["manifest"]["authorized_session_preflight"]["preflight_state"], "NO_AUTHORIZED_SESSION_INPUT")
             self.assertEqual(
                 result["manifest"]["source_release_evidence_adapter_plan_manifest_id"],
                 "RELEASE-PLAN-FIXTURE-1",
@@ -103,6 +114,9 @@ class GDCICBrowserAuthorizedReadbackTests(unittest.TestCase, IsolatedStorageTest
             )
             self.assertEqual(storage_result["summary"]["authorized_session_input_state"], "STORAGE_STATE_JSON_SUPPLIED")
             self.assertTrue(storage_result["summary"]["authorized_session_input_ready"])
+            self.assertEqual(storage_result["summary"]["authorized_session_preflight_state"], "AUTHORIZED_SESSION_INPUT_READY")
+            self.assertEqual(storage_result["summary"]["authorized_session_required_input"], [])
+            self.assertTrue(storage_result["summary"]["authorized_session_preflight"]["storage_state_json_exists"])
             self.assertEqual(storage_result["manifest"]["storage_state_json_used"], str(storage_state))
 
             user_data_result = build_gdcic_browser_authorized_readback(
@@ -113,6 +127,8 @@ class GDCICBrowserAuthorizedReadbackTests(unittest.TestCase, IsolatedStorageTest
             )
             self.assertEqual(user_data_result["summary"]["authorized_session_input_state"], "USER_DATA_DIR_SUPPLIED")
             self.assertTrue(user_data_result["summary"]["authorized_session_input_ready"])
+            self.assertEqual(user_data_result["summary"]["authorized_session_preflight_state"], "AUTHORIZED_SESSION_INPUT_READY")
+            self.assertTrue(user_data_result["summary"]["authorized_session_preflight"]["user_data_dir_exists"])
             self.assertEqual(user_data_result["manifest"]["user_data_dir_used"], str(user_data_dir))
 
             missing_result = build_gdcic_browser_authorized_readback(
@@ -126,6 +142,14 @@ class GDCICBrowserAuthorizedReadbackTests(unittest.TestCase, IsolatedStorageTest
                 "STORAGE_STATE_JSON_SUPPLIED_BUT_MISSING",
             )
             self.assertFalse(missing_result["summary"]["authorized_session_input_ready"])
+            self.assertEqual(
+                missing_result["summary"]["authorized_session_preflight_state"],
+                "AUTHORIZED_SESSION_INPUT_SUPPLIED_BUT_NOT_READABLE",
+            )
+            self.assertEqual(
+                missing_result["summary"]["authorized_session_preflight"]["operator_next_action"],
+                "fix_gdcic_authorized_session_input_path_then_rerun",
+            )
 
     def test_field_query_artifact_can_seed_live30_authorized_readback_tasks_without_release_plan(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
