@@ -57,7 +57,10 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
                             "stage5_rule_gate_status": "REVIEW",
                             "stage5_gate_state": "REVIEW_REQUIRED",
                             "remaining_real_world_gaps": ["missing_stage4_5_source_type:contract_public_info"],
-                            "fail_closed_reasons": ["contract_public_info_empty_result"],
+                            "fail_closed_reasons": [
+                                "contract_public_info_empty_result",
+                                "gdcic_project_code_candidates_present_but_not_matched",
+                            ],
                         },
                         {
                             "project_id": "PROJ-B",
@@ -518,6 +521,22 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
                 "official_source_not_found_or_field_missing": 1,
                 "stage5_rule_review": 2,
             },
+        )
+        self.assertEqual(
+            result["blocker_summary"]["fail_closed_reason_counts"][
+                "gdcic_project_code_candidates_present_but_not_matched"
+            ],
+            1,
+        )
+        self.assertNotIn(
+            "gdcic_project_code_candidates_present_but_not_matched",
+            result["blocker_summary"]["active_fail_closed_reason_counts"],
+        )
+        self.assertEqual(
+            result["blocker_summary"][
+                "gdcic_project_code_candidates_present_but_not_matched_resolved_by_public_readback_count"
+            ],
+            1,
         )
         self.assertIn("run_p13b_original_notice_backtrace_for_bid_show_records", result["recommended_next_actions"])
         self.assertIn("continue_p13b_original_notice_backtrace_or_route_blocked_sources", result["recommended_next_actions"])

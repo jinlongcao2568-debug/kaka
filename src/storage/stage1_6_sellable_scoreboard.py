@@ -432,6 +432,8 @@ def _blocker_summary(
     blocker_taxonomy_counts = dict(field_summary.get("blocker_taxonomy_counts") or {})
     if not blocker_taxonomy_counts:
         blocker_taxonomy_counts = _flatten_counts(field_records, "blocker_taxonomy")
+    active_fail_closed_reason_counts = _active_fail_closed_reason_counts(readiness_records, project_rows)
+    resolved_fail_closed_reason_counts = _resolved_fail_closed_reason_counts(readiness_records, project_rows)
     return {
         "blocking_bucket_counts": _counts(row.get("blocking_bucket") for row in project_rows),
         "field_missing_or_not_found_task_count": sum(1 for record in field_records if str(record.get("adapter_result_state") or "") == "NOT_FOUND"),
@@ -456,6 +458,14 @@ def _blocker_summary(
         "gap_record_count": len(gap_records),
         "remaining_real_world_gap_counts": _flatten_counts(readiness_records, "remaining_real_world_gaps"),
         "fail_closed_reason_counts": _flatten_counts(readiness_records, "fail_closed_reasons"),
+        "active_fail_closed_reason_counts": active_fail_closed_reason_counts,
+        "resolved_by_public_readback_fail_closed_reason_counts": resolved_fail_closed_reason_counts,
+        "gdcic_project_code_candidates_present_but_not_matched_active_count": _int(
+            active_fail_closed_reason_counts.get("gdcic_project_code_candidates_present_but_not_matched")
+        ),
+        "gdcic_project_code_candidates_present_but_not_matched_resolved_by_public_readback_count": _int(
+            resolved_fail_closed_reason_counts.get("gdcic_project_code_candidates_present_but_not_matched")
+        ),
         "field_blocker_taxonomy_counts": blocker_taxonomy_counts,
         "operator_next_action_counts": dict(field_summary.get("operator_next_action_counts") or {}),
         "gdcic_authorized_readback_blocker": _gdcic_authorized_readback_status(gdcic_readback_summary),
@@ -508,6 +518,66 @@ def _recommended_next_actions(blocker_summary: Mapping[str, Any], counts: Mappin
     if _int(counts.get("stage7_sellable_count")) == 0 and _int(counts.get("limited_sellable_review_candidate_count")) == 0:
         actions.append("do_not_expand_stage8_stage9_until_stage4_sellable_inventory_exists")
     return _dedupe(actions)
+
+
+def _active_fail_closed_reason_counts(
+    readiness_records: list[Mapping[str, Any]],
+    project_rows: list[Mapping[str, Any]],
+) -> dict[str, int]:
+    return _classified_fail_closed_reason_counts(
+        readiness_records,
+        project_rows,
+        want_resolved=False,
+    )
+
+
+def _resolved_fail_closed_reason_counts(
+    readiness_records: list[Mapping[str, Any]],
+    project_rows: list[Mapping[str, Any]],
+) -> dict[str, int]:
+    return _classified_fail_closed_reason_counts(
+        readiness_records,
+        project_rows,
+        want_resolved=True,
+    )
+
+
+def _classified_fail_closed_reason_counts(
+    readiness_records: list[Mapping[str, Any]],
+    project_rows: list[Mapping[str, Any]],
+    *,
+    want_resolved: bool,
+) -> dict[str, int]:
+    rows_by_project = {
+        str(row.get("project_id") or "").strip(): row
+        for row in project_rows
+        if str(row.get("project_id") or "").strip()
+    }
+    counts: dict[str, int] = {}
+    for record in readiness_records:
+        project_id = str(record.get("project_id") or "").strip()
+        project_row = rows_by_project.get(project_id, {})
+        for reason in _as_list(record.get("fail_closed_reasons")):
+            reason_text = str(reason or "").strip()
+            if not reason_text:
+                continue
+            resolved = _fail_closed_reason_resolved_by_public_readback(reason_text, project_row)
+            if resolved != want_resolved:
+                continue
+            counts[reason_text] = counts.get(reason_text, 0) + 1
+    return counts
+
+
+def _fail_closed_reason_resolved_by_public_readback(
+    reason: str,
+    project_row: Mapping[str, Any],
+) -> bool:
+    if reason != "gdcic_project_code_candidates_present_but_not_matched":
+        return False
+    if project_row.get("limited_sellable_review_candidate_state") != "REVIEW_CANDIDATE":
+        return False
+    grade_counts = dict(project_row.get("stage4_downstream_abcd_grade_counts") or {})
+    return any(str(key).startswith(("B_", "C_")) and _int(value) > 0 for key, value in grade_counts.items())
 
 
 def _gdcic_authorized_readback_status(summary: Mapping[str, Any]) -> dict[str, Any]:
