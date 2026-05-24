@@ -7,6 +7,8 @@ param(
     [string]$BaselineEvidenceStateRoot = "",
     [string]$ReleaseFieldQueryJson = "",
     [string]$ReleaseFieldQueryRoot = "",
+    [string]$SupplementalReleaseFieldQueryJson = "",
+    [string]$SupplementalReleaseFieldQueryRoot = "",
     [string]$ReleaseEvidenceAdapterPlanJson = "",
     [string]$ReleaseEvidenceAdapterPlanRoot = "",
     [string]$OriginalBacktraceContinuationJson = "",
@@ -73,6 +75,12 @@ if ($ReleaseFieldQueryJson) {
 }
 if ($ReleaseFieldQueryRoot) {
     $argsList += @("--release-field-query-root", $ReleaseFieldQueryRoot)
+}
+if ($SupplementalReleaseFieldQueryJson) {
+    $argsList += @("--supplemental-release-field-query-json", $SupplementalReleaseFieldQueryJson)
+}
+if ($SupplementalReleaseFieldQueryRoot) {
+    $argsList += @("--supplemental-release-field-query-root", $SupplementalReleaseFieldQueryRoot)
 }
 if ($ReleaseEvidenceAdapterPlanJson) {
     $argsList += @("--release-evidence-adapter-plan-json", $ReleaseEvidenceAdapterPlanJson)

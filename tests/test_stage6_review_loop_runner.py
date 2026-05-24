@@ -311,6 +311,53 @@ class Stage6ReviewLoopRunnerTests(unittest.TestCase):
                 "manual_review_release_evidence_b_or_c_readback_before_stage7_preview",
             )
 
+    def test_supplemental_release_field_query_merges_into_stage6_limited_sellable_projection(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_blocked_release_field_query_result(root / "field-query")
+            _write_release_field_query_result(root / "field-query-ygp-backfill")
+
+            result = run_stage6_review_loop_runner(
+                dispatch_root=root / "missing-dispatch",
+                batch_closeout_root=root / "missing-closeout",
+                release_field_query_root=root / "field-query",
+                supplemental_release_field_query_root=root / "field-query-ygp-backfill",
+                output_root=root / "out",
+                auto_discover_latest_batch_closeout=False,
+                created_at="2026-05-19T00:00:00+08:00",
+            )
+
+            self.assertTrue(result["safe_to_execute"])
+            self.assertEqual(result["manifest"]["standalone_release_field_query_imported_project_count"], 1)
+            self.assertTrue(
+                result["manifest"]["source_standalone_supplemental_release_field_query_json"].endswith(
+                    "guangdong-local-field-query-probe-v1.json"
+                )
+            )
+            self.assertEqual(result["summary"]["release_field_query_project_count"], 1)
+            self.assertEqual(result["summary"]["limited_sellable_review_candidate_count"], 1)
+            records = {
+                record["project_id"]: record
+                for record in result["manifest"]["project_status_table"]["records"]
+            }
+            self.assertEqual(
+                records["PROJ-REL"]["release_field_query_adapter_result_state_counts"],
+                {"NEEDS_BROWSER": 1, "MATCHED": 1},
+            )
+            self.assertEqual(
+                records["PROJ-REL"]["release_field_query_downstream_abcd_grade_counts"],
+                {
+                    "D_INSUFFICIENT_OR_BLOCKED_READBACK": 1,
+                    "B_ENHANCEMENT_OFFICIAL_READBACK": 1,
+                },
+            )
+            self.assertEqual(
+                records["PROJ-REL"]["limited_sellable_review_candidate_state"],
+                "REVIEW_CANDIDATE",
+            )
+            self.assertFalse(records["PROJ-REL"]["customer_visible_allowed"])
+            self.assertTrue(records["PROJ-REL"]["query_miss_is_not_clearance"])
+
     def test_standalone_release_field_query_only_builds_status_projection(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -1698,6 +1745,41 @@ def _write_release_field_query_result(root: Path) -> None:
             "summary": {
                 "guangdong_local_field_query_task_count": 1,
                 "release_evidence_downstream_abcd_grade_counts": {"B_ENHANCEMENT_OFFICIAL_READBACK": 1},
+            },
+        },
+    )
+
+
+def _write_blocked_release_field_query_result(root: Path) -> None:
+    _write_json(
+        root / "guangdong-local-field-query-probe-v1.json",
+        {
+            "safe_to_execute": True,
+            "blocking_reasons": [],
+            "manifest": {
+                "manifest_id": "GD-FIELD-BLOCKED-1",
+                "field_task_records": [
+                    {
+                        "field_query_task_id": "GD-FIELD-TASK-BLOCKED-1",
+                        "project_id": "PROJ-REL",
+                        "project_name": "Release project",
+                        "source_profile_id": "GUANGDONG-GDCIC-HOME",
+                        "adapter_result_state": "NEEDS_BROWSER",
+                        "authorization_readiness_state": "LOGIN_OR_SSO_REQUIRED",
+                        "downstream_release_evidence_abcd_grade": "D_INSUFFICIENT_OR_BLOCKED_READBACK",
+                        "blocker_taxonomy": ["gd_gdcic_contract_system_sso_login_required"],
+                        "operator_next_action": "provide_gdcic_authorized_storage_state_or_user_data_dir_then_rerun",
+                        "customer_visible_allowed": False,
+                        "no_legal_conclusion": True,
+                    }
+                ],
+            },
+            "summary": {
+                "guangdong_local_field_query_task_count": 1,
+                "adapter_result_state_counts": {"NEEDS_BROWSER": 1},
+                "release_evidence_downstream_abcd_grade_counts": {
+                    "D_INSUFFICIENT_OR_BLOCKED_READBACK": 1
+                },
             },
         },
     )
