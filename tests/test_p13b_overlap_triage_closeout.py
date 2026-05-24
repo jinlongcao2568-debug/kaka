@@ -36,10 +36,19 @@ class P13BOverlapTriageCloseoutTests(unittest.TestCase):
             self.assertEqual(summary["project_count"], 2)
             self.assertEqual(summary["company_history_record_found_count"], 2)
             self.assertEqual(summary["ygp_readback_ready_count"], 0)
+            self.assertEqual(summary["ygp_stage4_backfill_candidate_count"], 1)
+            self.assertEqual(summary["ygp_stage4_backfill_ready_count"], 1)
+            self.assertEqual(summary["ygp_stage4_gdcic_route_allowed_count"], 0)
             self.assertEqual(summary["release_evidence_trigger_count"], 0)
+            self.assertEqual(summary["project_state_counts"]["YGP_STAGE4_BACKFILL_READY_FOR_P13B_OR_STAGE4_BRIDGE"], 1)
             self.assertEqual(summary["project_state_counts"]["YGP_READBACK_BLOCKED_OR_UNSUPPORTED"], 1)
             self.assertTrue((root / "out" / "project-overlap-triage-table.json").exists())
+            self.assertTrue((root / "out" / "ygp-stage4-backfill-candidate-table.json").exists())
             self.assertTrue((root / "out" / "release-evidence-trigger-table.json").exists())
+            backfill = result["manifest"]["ygp_stage4_backfill_candidate_records"][0]
+            self.assertEqual(backfill["p13b_backfill_state"], "P13B_YGP_STAGE4_BACKFILL_READY")
+            self.assertFalse(backfill["gdcic_project_code_route_allowed"])
+            self.assertTrue(backfill["must_not_extract_from_full_text_numbers"])
 
     def test_overlap_signal_generates_release_trigger(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -341,6 +350,23 @@ def _write_ygp_readback(root: Path) -> None:
                     "source_url": "https://ygp.gdzwfw.gov.cn/detail/123",
                     "ygp_readback_state": "YGP_ORIGINAL_URL_UNSUPPORTED",
                     "blocker_taxonomy": ["ygp_original_detail_payload_not_discovered"],
+                }
+            ],
+            "stage4_ygp_project_code_backfill_records": [
+                {
+                    "project_id": "PROJ-1",
+                    "candidate_company_name": "广东甲公司",
+                    "source_url": "https://ygp.gdzwfw.gov.cn/detail/ready",
+                    "ygp_readback_state": "YGP_ORIGINAL_URL_READBACK_READY",
+                    "ygp_project_code": "E4401002701500571001",
+                    "ygp_biz_code": "3C52",
+                    "ygp_site_code": "440100",
+                    "ygp_notice_id": "notice-ready",
+                    "stage4_ygp_backfill_state": "YGP_STAGE4_BACKFILL_READY",
+                    "target_p13b_fields": ["ygp_project_code", "ygp_notice_id"],
+                    "target_stage4_bridge_fields": ["projectCodeVariants", "triggerSourceUrl"],
+                    "gdcic_project_code_route_allowed": False,
+                    "must_not_extract_from_full_text_numbers": True,
                 }
             ],
             "summary": {"ygp_readback_ready_count": 0},

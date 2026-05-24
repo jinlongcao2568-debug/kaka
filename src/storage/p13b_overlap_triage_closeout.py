@@ -91,12 +91,14 @@ def build_p13b_overlap_triage_closeout(
         created_at=created,
         ygp_enabled=ygp_enabled,
     )
+    ygp_stage4_backfill_table = _ygp_stage4_backfill_table(ygp_manifest, created_at=created)
     release_table = _release_evidence_trigger_table(company_manifest, original_manifest, created_at=created)
     project_table = _project_overlap_triage_table(
         company_manifest=company_manifest,
         original_table=original_table,
         company_table=company_table,
         release_table=release_table,
+        ygp_stage4_backfill_table=ygp_stage4_backfill_table,
         coverage_manifest=coverage_manifest,
         created_at=created,
     )
@@ -105,6 +107,7 @@ def build_p13b_overlap_triage_closeout(
         company_records=company_table,
         original_records=original_table,
         release_records=release_table,
+        ygp_stage4_backfill_records=ygp_stage4_backfill_table,
         company_manifest=company_manifest,
         original_manifest=original_manifest,
         ygp_manifest=ygp_manifest,
@@ -124,6 +127,7 @@ def build_p13b_overlap_triage_closeout(
         "project_overlap_triage_records": project_table,
         "company_history_readback_records": company_table,
         "original_notice_readback_records": original_table,
+        "ygp_stage4_backfill_candidate_records": ygp_stage4_backfill_table,
         "release_evidence_trigger_records": release_table,
         "summary": summary,
         "safety": {
@@ -149,7 +153,7 @@ def build_p13b_overlap_triage_closeout(
         "manifest": manifest,
         "summary": summary,
     }
-    _finalize_and_write(out_dir, result, project_table, company_table, original_table, release_table)
+    _finalize_and_write(out_dir, result, project_table, company_table, original_table, release_table, ygp_stage4_backfill_table)
     return result
 
 
@@ -327,6 +331,57 @@ def _release_evidence_trigger_table(
     return list(rows_by_key.values())
 
 
+def _ygp_stage4_backfill_table(ygp_manifest: Mapping[str, Any], *, created_at: str) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for record in _list(ygp_manifest.get("stage4_ygp_project_code_backfill_records")):
+        if not isinstance(record, Mapping):
+            continue
+        project_id = str(record.get("project_id") or "").strip()
+        if not project_id:
+            continue
+        state = str(record.get("stage4_ygp_backfill_state") or "")
+        rows.append(
+            {
+                "ygp_stage4_backfill_candidate_id": _stable_id(
+                    "P13B-YGP-STAGE4-BACKFILL",
+                    project_id,
+                    record.get("ygp_project_code"),
+                    record.get("ygp_notice_id"),
+                    state,
+                ),
+                "project_id": project_id,
+                "candidate_company_name": str(record.get("candidate_company_name") or ""),
+                "bid_project_name": str(record.get("bid_project_name") or ""),
+                "source_url": str(record.get("source_url") or ""),
+                "ygp_project_code": str(record.get("ygp_project_code") or ""),
+                "ygp_biz_code": str(record.get("ygp_biz_code") or ""),
+                "ygp_site_code": str(record.get("ygp_site_code") or ""),
+                "ygp_notice_id": str(record.get("ygp_notice_id") or ""),
+                "ygp_node_id": str(record.get("ygp_node_id") or ""),
+                "stage4_ygp_backfill_state": state,
+                "p13b_backfill_state": (
+                    "P13B_YGP_STAGE4_BACKFILL_READY"
+                    if state == "YGP_STAGE4_BACKFILL_READY"
+                    else "P13B_YGP_STAGE4_BACKFILL_BLOCKED_OR_PARTIAL"
+                ),
+                "target_p13b_fields": _list(record.get("target_p13b_fields")),
+                "target_stage4_bridge_fields": _list(record.get("target_stage4_bridge_fields")),
+                "gdcic_project_code_route_allowed": bool(record.get("gdcic_project_code_route_allowed")),
+                "gdcic_route_block_reason": str(record.get("gdcic_route_block_reason") or ""),
+                "must_not_extract_from_full_text_numbers": bool(record.get("must_not_extract_from_full_text_numbers", True)),
+                "recommended_next_action": str(
+                    record.get("recommended_next_action")
+                    or "feed_ygp_identifiers_to_p13b_or_stage4_bridge_without_gdcic_route_claim"
+                ),
+                "query_miss_is_not_clearance": True,
+                "created_at": created_at,
+                "customer_visible_allowed": False,
+                "no_legal_conclusion": True,
+            }
+        )
+    return _dedupe_records(rows, ("ygp_stage4_backfill_candidate_id",))
+
+
 def _release_key(record: Mapping[str, Any]) -> str:
     people = _list(record.get("matched_person_names")) or _list(record.get("responsible_person_names"))
     normalized_people = ",".join(sorted(str(item) for item in people if str(item)))
@@ -374,6 +429,7 @@ def _project_overlap_triage_table(
     original_table: list[Mapping[str, Any]],
     company_table: list[Mapping[str, Any]],
     release_table: list[Mapping[str, Any]],
+    ygp_stage4_backfill_table: list[Mapping[str, Any]],
     coverage_manifest: Mapping[str, Any],
     created_at: str,
 ) -> list[dict[str, Any]]:
@@ -408,7 +464,10 @@ def _project_overlap_triage_table(
         company_rows = [row for row in company_table if str(row.get("project_id") or "") == project_id]
         original_rows = [row for row in original_table if str(row.get("project_id") or "") == project_id]
         release_rows = [row for row in release_table if str(row.get("project_id") or "") == project_id]
-        state = _project_state(company_rows, original_rows, release_rows)
+        ygp_backfill_rows = [
+            row for row in ygp_stage4_backfill_table if str(row.get("project_id") or "") == project_id
+        ]
+        state = _project_state(company_rows, original_rows, release_rows, ygp_backfill_rows)
         rows.append(
             {
                 **project,
@@ -430,6 +489,18 @@ def _project_overlap_triage_table(
                     1 for row in original_rows if row.get("original_notice_backtrace_match_state") == "PERIOD_AND_COMPANY_NO_PERSON"
                 ),
                 "release_evidence_trigger_count": len(release_rows),
+                "ygp_stage4_backfill_candidate_count": len(ygp_backfill_rows),
+                "ygp_stage4_backfill_state_counts": _counts(
+                    row.get("p13b_backfill_state") for row in ygp_backfill_rows
+                ),
+                "ygp_stage4_backfill_ready_count": sum(
+                    1
+                    for row in ygp_backfill_rows
+                    if row.get("p13b_backfill_state") == "P13B_YGP_STAGE4_BACKFILL_READY"
+                ),
+                "ygp_stage4_gdcic_route_allowed_count": sum(
+                    1 for row in ygp_backfill_rows if bool(row.get("gdcic_project_code_route_allowed"))
+                ),
                 "source_limit_deferred_count": sum(1 for row in [*company_rows, *original_rows] if row.get("triage_closeout_state") == "SOURCE_LIMIT_DEFERRED"),
                 "ygp_readback_blocked_or_unsupported_count": sum(1 for row in original_rows if row.get("triage_closeout_state") == "YGP_READBACK_BLOCKED_OR_UNSUPPORTED"),
                 "query_miss_is_not_clearance": True,
@@ -441,9 +512,16 @@ def _project_overlap_triage_table(
     return rows
 
 
-def _project_state(company_rows: list[Mapping[str, Any]], original_rows: list[Mapping[str, Any]], release_rows: list[Mapping[str, Any]]) -> str:
+def _project_state(
+    company_rows: list[Mapping[str, Any]],
+    original_rows: list[Mapping[str, Any]],
+    release_rows: list[Mapping[str, Any]],
+    ygp_stage4_backfill_rows: list[Mapping[str, Any]],
+) -> str:
     if release_rows:
         return "OVERLAP_SIGNAL_REVIEW_REQUIRED"
+    if any(row.get("p13b_backfill_state") == "P13B_YGP_STAGE4_BACKFILL_READY" for row in ygp_stage4_backfill_rows):
+        return "YGP_STAGE4_BACKFILL_READY_FOR_P13B_OR_STAGE4_BRIDGE"
     states = {str(row.get("triage_closeout_state") or "") for row in [*company_rows, *original_rows]}
     if "YGP_READBACK_BLOCKED_OR_UNSUPPORTED" in states:
         return "YGP_READBACK_BLOCKED_OR_UNSUPPORTED"
@@ -460,6 +538,7 @@ def _summary(
     company_records: list[Mapping[str, Any]],
     original_records: list[Mapping[str, Any]],
     release_records: list[Mapping[str, Any]],
+    ygp_stage4_backfill_records: list[Mapping[str, Any]],
     company_manifest: Mapping[str, Any],
     original_manifest: Mapping[str, Any],
     ygp_manifest: Mapping[str, Any],
@@ -477,6 +556,18 @@ def _summary(
         "original_notice_extraction_count": _int(_summary_field(original_manifest, "original_notice_extraction_count")),
         "ygp_original_readback_count": _int(_summary_field(ygp_manifest, "ygp_original_readback_count")),
         "ygp_readback_ready_count": _int(_summary_field(ygp_manifest, "ygp_readback_ready_count")),
+        "ygp_stage4_backfill_candidate_count": len(ygp_stage4_backfill_records),
+        "ygp_stage4_backfill_ready_count": sum(
+            1
+            for row in ygp_stage4_backfill_records
+            if row.get("p13b_backfill_state") == "P13B_YGP_STAGE4_BACKFILL_READY"
+        ),
+        "ygp_stage4_backfill_state_counts": _counts(
+            row.get("p13b_backfill_state") for row in ygp_stage4_backfill_records
+        ),
+        "ygp_stage4_gdcic_route_allowed_count": sum(
+            1 for row in ygp_stage4_backfill_records if bool(row.get("gdcic_project_code_route_allowed"))
+        ),
         "overlap_signal_review_required_count": len(release_records),
         "release_evidence_trigger_count": len(release_records),
         "manual_release_evidence_probe_count": len(release_records),
@@ -512,6 +603,7 @@ def _finalize_and_write(
     company_records: list[Mapping[str, Any]],
     original_records: list[Mapping[str, Any]],
     release_records: list[Mapping[str, Any]],
+    ygp_stage4_backfill_records: list[Mapping[str, Any]],
 ) -> None:
     text = json.dumps(result, ensure_ascii=False, indent=2)
     forbidden_hits = [term for term in FORBIDDEN_TERMS if term in text]
@@ -527,6 +619,7 @@ def _finalize_and_write(
     _write_json(out_dir / "project-overlap-triage-table.json", {"summary": result["summary"], "records": project_records})
     _write_json(out_dir / "company-history-readback-table.json", {"summary": result["summary"], "records": company_records})
     _write_json(out_dir / "original-notice-readback-table.json", {"summary": result["summary"], "records": original_records})
+    _write_json(out_dir / "ygp-stage4-backfill-candidate-table.json", {"summary": result["summary"], "records": ygp_stage4_backfill_records})
     _write_json(out_dir / "release-evidence-trigger-table.json", {"summary": result["summary"], "records": release_records})
 
 
@@ -602,6 +695,18 @@ def _dedupe(values: Iterable[Any]) -> list[str]:
         if text and text not in seen:
             seen.add(text)
             out.append(text)
+    return out
+
+
+def _dedupe_records(records: Iterable[Mapping[str, Any]], key_fields: tuple[str, ...]) -> list[dict[str, Any]]:
+    seen: set[str] = set()
+    out: list[dict[str, Any]] = []
+    for record in records:
+        key = "|".join(str(record.get(field) or "") for field in key_fields)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(dict(record))
     return out
 
 

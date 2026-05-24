@@ -19,6 +19,7 @@ DEFAULT_STAGE6_STATUS_ROOT = Path("tmp/evaluation-real-samples/stage6-review-cyc
 DEFAULT_P13B_COMPANY_HISTORY_ROOT = Path("tmp/evaluation-real-samples/p13b-company-history-overlap-triage-v1")
 DEFAULT_P13B_ORIGINAL_NOTICE_BACKTRACE_ROOT = Path("tmp/evaluation-real-samples/p13b-original-notice-backtrace-v1")
 DEFAULT_P13B_YGP_ORIGINAL_READBACK_ROOT = Path("tmp/evaluation-real-samples/p13b-ygp-original-readback-v1")
+DEFAULT_P13B_OVERLAP_TRIAGE_CLOSEOUT_ROOT = Path("tmp/evaluation-real-samples/p13b-overlap-triage-closeout-v1")
 DEFAULT_OUTPUT_ROOT = Path("tmp/evaluation-real-samples/stage1-6-sellable-scoreboard-v1")
 
 
@@ -38,6 +39,8 @@ def build_stage1_6_sellable_scoreboard(
     p13b_original_notice_backtrace_json: str | Path | None = None,
     p13b_ygp_original_readback_root: str | Path | None = None,
     p13b_ygp_original_readback_json: str | Path | None = None,
+    p13b_overlap_triage_closeout_root: str | Path | None = None,
+    p13b_overlap_triage_closeout_json: str | Path | None = None,
     stage6_status_root: str | Path | None = None,
     stage6_status_json: str | Path | None = None,
     output_root: str | Path | None = None,
@@ -52,6 +55,7 @@ def build_stage1_6_sellable_scoreboard(
         p13b_original_notice_backtrace_root or DEFAULT_P13B_ORIGINAL_NOTICE_BACKTRACE_ROOT
     )
     p13b_ygp_original_dir = Path(p13b_ygp_original_readback_root or DEFAULT_P13B_YGP_ORIGINAL_READBACK_ROOT)
+    p13b_overlap_closeout_dir = Path(p13b_overlap_triage_closeout_root or DEFAULT_P13B_OVERLAP_TRIAGE_CLOSEOUT_ROOT)
     stage6_dir = Path(stage6_status_root or DEFAULT_STAGE6_STATUS_ROOT)
     out_dir = Path(output_root or DEFAULT_OUTPUT_ROOT)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -76,6 +80,10 @@ def build_stage1_6_sellable_scoreboard(
         p13b_ygp_original_readback_json,
         p13b_ygp_original_dir / "ygp-original-readback-v1.json",
     )
+    p13b_overlap_triage_closeout_path = _resolve_path(
+        p13b_overlap_triage_closeout_json,
+        p13b_overlap_closeout_dir / "p13b-overlap-triage-closeout-v1.json",
+    )
     stage6_status_path = _resolve_stage6_status_path(stage6_status_json, stage6_dir)
 
     pressure_summary = _read_json_mapping(pressure_summary_path)
@@ -86,6 +94,7 @@ def build_stage1_6_sellable_scoreboard(
     p13b_company_history = _read_json_mapping(p13b_company_history_path)
     p13b_original_notice_backtrace = _read_json_mapping(p13b_original_notice_backtrace_path)
     p13b_ygp_original_readback = _read_json_mapping(p13b_ygp_original_readback_path)
+    p13b_overlap_triage_closeout = _read_json_mapping(p13b_overlap_triage_closeout_path)
     stage6_status = _read_json_mapping(stage6_status_path)
 
     readiness_records = _records(readiness)
@@ -135,6 +144,7 @@ def build_stage1_6_sellable_scoreboard(
         p13b_company_history,
         p13b_original_notice_backtrace,
         p13b_ygp_original_readback,
+        p13b_overlap_triage_closeout,
         field_records,
         stage6_status,
         stage6_records,
@@ -148,6 +158,7 @@ def build_stage1_6_sellable_scoreboard(
         p13b_company_history,
         p13b_original_notice_backtrace,
         p13b_ygp_original_readback,
+        p13b_overlap_triage_closeout,
         field_records,
         stage6_records,
         project_rows,
@@ -167,6 +178,7 @@ def build_stage1_6_sellable_scoreboard(
             "p13b_company_history_json": str(p13b_company_history_path),
             "p13b_original_notice_backtrace_json": str(p13b_original_notice_backtrace_path),
             "p13b_ygp_original_readback_json": str(p13b_ygp_original_readback_path),
+            "p13b_overlap_triage_closeout_json": str(p13b_overlap_triage_closeout_path),
             "stage6_status_json": str(stage6_status_path),
         },
         "scoreboard": counts,
@@ -196,6 +208,7 @@ def _scoreboard_counts(
     p13b_company_history: Mapping[str, Any],
     p13b_original_notice_backtrace: Mapping[str, Any],
     p13b_ygp_original_readback: Mapping[str, Any],
+    p13b_overlap_triage_closeout: Mapping[str, Any],
     field_records: list[Mapping[str, Any]],
     stage6_status: Mapping[str, Any],
     stage6_records: list[Mapping[str, Any]],
@@ -218,6 +231,7 @@ def _scoreboard_counts(
     p13b_summary = _summary(p13b_company_history)
     p13b_original_summary = _summary(p13b_original_notice_backtrace)
     p13b_ygp_summary = _summary(p13b_ygp_original_readback)
+    p13b_overlap_closeout_summary = _summary(p13b_overlap_triage_closeout)
     stage6_summary = _summary(stage6_status)
     stage4_matched_count = _count_state(field_summary, field_records, "adapter_result_state", "MATCHED")
     stage4_needs_browser_count = _count_state(field_summary, field_records, "adapter_result_state", "NEEDS_BROWSER")
@@ -276,6 +290,9 @@ def _scoreboard_counts(
         "p13b_public_source_readback_status": _p13b_public_source_readback_status(p13b_summary),
         "p13b_original_notice_readback_status": _p13b_original_notice_readback_status(p13b_original_summary),
         "p13b_ygp_original_readback_status": _p13b_ygp_original_readback_status(p13b_ygp_summary),
+        "p13b_overlap_triage_closeout_status": _p13b_overlap_triage_closeout_status(
+            p13b_overlap_closeout_summary
+        ),
         "stage4_public_source_readback_state_counts": _counts(
             row.get("p13b_public_source_readback_state") for row in project_rows
         ),
@@ -395,6 +412,7 @@ def _blocker_summary(
     p13b_company_history: Mapping[str, Any],
     p13b_original_notice_backtrace: Mapping[str, Any],
     p13b_ygp_original_readback: Mapping[str, Any],
+    p13b_overlap_triage_closeout: Mapping[str, Any],
     field_records: list[Mapping[str, Any]],
     stage6_records: list[Mapping[str, Any]],
     project_rows: list[Mapping[str, Any]],
@@ -404,6 +422,7 @@ def _blocker_summary(
     p13b_summary = _summary(p13b_company_history)
     p13b_original_summary = _summary(p13b_original_notice_backtrace)
     p13b_ygp_summary = _summary(p13b_ygp_original_readback)
+    p13b_overlap_closeout_summary = _summary(p13b_overlap_triage_closeout)
     blocker_taxonomy_counts = dict(field_summary.get("blocker_taxonomy_counts") or {})
     if not blocker_taxonomy_counts:
         blocker_taxonomy_counts = _flatten_counts(field_records, "blocker_taxonomy")
@@ -437,6 +456,9 @@ def _blocker_summary(
         "p13b_public_source_readback_blocker": _p13b_public_source_readback_status(p13b_summary),
         "p13b_original_notice_readback_blocker": _p13b_original_notice_readback_status(p13b_original_summary),
         "p13b_ygp_original_readback_blocker": _p13b_ygp_original_readback_status(p13b_ygp_summary),
+        "p13b_overlap_triage_closeout_blocker": _p13b_overlap_triage_closeout_status(
+            p13b_overlap_closeout_summary
+        ),
         "stage5_operational_review_bucket_counts": _counts(
             row.get("stage5_operational_review_bucket") for row in project_rows
         ),
@@ -470,6 +492,9 @@ def _recommended_next_actions(blocker_summary: Mapping[str, Any], counts: Mappin
         actions.append("feed_ygp_original_readback_into_p13b_original_backtrace")
     if isinstance(p13b_ygp_blocker, Mapping) and _int(p13b_ygp_blocker.get("ygp_blocked_count")):
         actions.append("continue_ygp_original_readback_or_route_to_city_source")
+    p13b_overlap_closeout = blocker_summary.get("p13b_overlap_triage_closeout_blocker")
+    if isinstance(p13b_overlap_closeout, Mapping) and _int(p13b_overlap_closeout.get("ygp_stage4_backfill_ready_count")):
+        actions.append("feed_ygp_stage4_backfill_candidates_to_p13b_or_stage4_bridge_without_gdcic_route_claim")
     if _int(blocker_summary.get("field_missing_or_not_found_task_count")):
         actions.append("extend_stage4_project_code_and_source_readback_before_claiming_clearance")
     if _int(blocker_summary.get("stage4_matched_without_stage7_saleable_project_count")):
@@ -652,6 +677,40 @@ def _p13b_ygp_original_readback_status(summary: Mapping[str, Any]) -> dict[str, 
         "stage4_ygp_backfill_state_counts": dict(summary.get("stage4_ygp_backfill_state_counts") or {}),
         "stage4_ygp_gdcic_route_allowed_count": _int(summary.get("stage4_ygp_gdcic_route_allowed_count")),
         "blocker_taxonomy_counts": dict(summary.get("blocker_taxonomy_counts") or {}),
+        "query_miss_is_not_clearance": bool(summary.get("query_miss_is_not_clearance", True)),
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
+
+
+def _p13b_overlap_triage_closeout_status(summary: Mapping[str, Any]) -> dict[str, Any]:
+    if not summary:
+        return {
+            "artifact_state": "MISSING_OR_NOT_BUILT",
+            "p13b_overlap_triage_closeout_state": "",
+            "project_count": 0,
+            "ygp_stage4_backfill_candidate_count": 0,
+            "ygp_stage4_backfill_ready_count": 0,
+            "ygp_stage4_gdcic_route_allowed_count": 0,
+            "project_state_counts": {},
+            "query_miss_is_not_clearance": True,
+            "customer_visible_allowed": False,
+            "no_legal_conclusion": True,
+        }
+    return {
+        "artifact_state": "BUILT",
+        "p13b_overlap_triage_closeout_state": str(summary.get("p13b_overlap_triage_closeout_state") or ""),
+        "project_count": _int(summary.get("project_count")),
+        "ygp_stage4_backfill_candidate_count": _int(summary.get("ygp_stage4_backfill_candidate_count")),
+        "ygp_stage4_backfill_ready_count": _int(summary.get("ygp_stage4_backfill_ready_count")),
+        "ygp_stage4_backfill_state_counts": dict(summary.get("ygp_stage4_backfill_state_counts") or {}),
+        "ygp_stage4_gdcic_route_allowed_count": _int(summary.get("ygp_stage4_gdcic_route_allowed_count")),
+        "project_state_counts": dict(summary.get("project_state_counts") or {}),
+        "original_notice_state_counts": dict(summary.get("original_notice_state_counts") or {}),
+        "original_notice_backtrace_match_state_counts": dict(
+            summary.get("original_notice_backtrace_match_state_counts") or {}
+        ),
+        "release_evidence_trigger_count": _int(summary.get("release_evidence_trigger_count")),
         "query_miss_is_not_clearance": bool(summary.get("query_miss_is_not_clearance", True)),
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,
@@ -1120,6 +1179,7 @@ def _write_markdown(path: Path, payload: Mapping[str, Any]) -> None:
         f"- p13b_public_source_readback_status: {json.dumps(scoreboard.get('p13b_public_source_readback_status', {}), ensure_ascii=False, sort_keys=True)}",
         f"- p13b_original_notice_readback_status: {json.dumps(scoreboard.get('p13b_original_notice_readback_status', {}), ensure_ascii=False, sort_keys=True)}",
         f"- p13b_ygp_original_readback_status: {json.dumps(scoreboard.get('p13b_ygp_original_readback_status', {}), ensure_ascii=False, sort_keys=True)}",
+        f"- p13b_overlap_triage_closeout_status: {json.dumps(scoreboard.get('p13b_overlap_triage_closeout_status', {}), ensure_ascii=False, sort_keys=True)}",
         f"- stage4_public_source_readback_state_counts: {json.dumps(scoreboard.get('stage4_public_source_readback_state_counts', {}), ensure_ascii=False, sort_keys=True)}",
         f"- stage4_original_notice_readback_state_counts: {json.dumps(scoreboard.get('stage4_original_notice_readback_state_counts', {}), ensure_ascii=False, sort_keys=True)}",
         f"- stage4_ygp_original_readback_state_counts: {json.dumps(scoreboard.get('stage4_ygp_original_readback_state_counts', {}), ensure_ascii=False, sort_keys=True)}",
@@ -1151,6 +1211,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--p13b-original-notice-backtrace-json", default="")
     parser.add_argument("--p13b-ygp-original-readback-root", default=str(DEFAULT_P13B_YGP_ORIGINAL_READBACK_ROOT))
     parser.add_argument("--p13b-ygp-original-readback-json", default="")
+    parser.add_argument("--p13b-overlap-triage-closeout-root", default=str(DEFAULT_P13B_OVERLAP_TRIAGE_CLOSEOUT_ROOT))
+    parser.add_argument("--p13b-overlap-triage-closeout-json", default="")
     parser.add_argument("--stage6-status-root", default=str(DEFAULT_STAGE6_STATUS_ROOT))
     parser.add_argument("--stage6-status-json", default="")
     parser.add_argument("--output-root", default=str(DEFAULT_OUTPUT_ROOT))
@@ -1171,6 +1233,8 @@ def main(argv: list[str] | None = None) -> int:
         p13b_original_notice_backtrace_json=args.p13b_original_notice_backtrace_json or None,
         p13b_ygp_original_readback_root=args.p13b_ygp_original_readback_root,
         p13b_ygp_original_readback_json=args.p13b_ygp_original_readback_json or None,
+        p13b_overlap_triage_closeout_root=args.p13b_overlap_triage_closeout_root,
+        p13b_overlap_triage_closeout_json=args.p13b_overlap_triage_closeout_json or None,
         stage6_status_root=args.stage6_status_root,
         stage6_status_json=args.stage6_status_json or None,
         output_root=args.output_root,

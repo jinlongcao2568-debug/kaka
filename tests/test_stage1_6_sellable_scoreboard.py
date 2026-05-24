@@ -25,6 +25,7 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
             p13b_history = root / "p13b-history"
             p13b_original = root / "p13b-original"
             p13b_ygp = root / "p13b-ygp"
+            p13b_overlap = root / "p13b-overlap"
             stage6 = root / "stage6"
             out = root / "out"
             pressure.mkdir()
@@ -33,6 +34,7 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
             p13b_history.mkdir()
             p13b_original.mkdir()
             p13b_ygp.mkdir()
+            p13b_overlap.mkdir()
             stage6.mkdir()
 
             _write_json(
@@ -335,6 +337,32 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
                     },
                 },
             )
+            _write_json(
+                p13b_overlap / "p13b-overlap-triage-closeout-v1.json",
+                {
+                    "summary": {
+                        "p13b_overlap_triage_closeout_state": "P13B_OVERLAP_TRIAGE_CLOSEOUT_READY",
+                        "project_count": 5,
+                        "ygp_stage4_backfill_candidate_count": 1,
+                        "ygp_stage4_backfill_ready_count": 1,
+                        "ygp_stage4_backfill_state_counts": {
+                            "P13B_YGP_STAGE4_BACKFILL_READY": 1,
+                        },
+                        "ygp_stage4_gdcic_route_allowed_count": 0,
+                        "project_state_counts": {
+                            "YGP_STAGE4_BACKFILL_READY_FOR_P13B_OR_STAGE4_BRIDGE": 1,
+                        },
+                        "original_notice_state_counts": {"NO_OVERLAP_SIGNAL_REVIEW": 1},
+                        "original_notice_backtrace_match_state_counts": {
+                            "NO_COMPANY_PERSON_PERIOD_MATCH": 1,
+                        },
+                        "release_evidence_trigger_count": 0,
+                        "query_miss_is_not_clearance": True,
+                        "customer_visible_allowed": False,
+                        "no_legal_conclusion": True,
+                    },
+                },
+            )
 
             result = build_stage1_6_sellable_scoreboard(
                 pressure_root=pressure,
@@ -343,6 +371,7 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
                 p13b_company_history_root=p13b_history,
                 p13b_original_notice_backtrace_root=p13b_original,
                 p13b_ygp_original_readback_root=p13b_ygp,
+                p13b_overlap_triage_closeout_root=p13b_overlap,
                 stage6_status_root=stage6,
                 output_root=out,
                 created_at="2026-05-24T00:00:00+08:00",
@@ -445,6 +474,14 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
             scoreboard["p13b_ygp_original_readback_status"]["stage4_ygp_gdcic_route_allowed_count"],
             0,
         )
+        self.assertEqual(
+            scoreboard["p13b_overlap_triage_closeout_status"]["ygp_stage4_backfill_ready_count"],
+            1,
+        )
+        self.assertEqual(
+            scoreboard["p13b_overlap_triage_closeout_status"]["ygp_stage4_gdcic_route_allowed_count"],
+            0,
+        )
         self.assertEqual(scoreboard["p13b_original_notice_readback_status"]["fetch_blocked_count"], 1)
         rows = {row["project_id"]: row for row in result["project_rows"]}
         self.assertEqual(rows["PROJ-A"]["limited_sellable_review_candidate_state"], "REVIEW_CANDIDATE")
@@ -476,6 +513,10 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
         )
         self.assertIn("run_p13b_original_notice_backtrace_for_bid_show_records", result["recommended_next_actions"])
         self.assertIn("continue_p13b_original_notice_backtrace_or_route_blocked_sources", result["recommended_next_actions"])
+        self.assertIn(
+            "feed_ygp_stage4_backfill_candidates_to_p13b_or_stage4_bridge_without_gdcic_route_claim",
+            result["recommended_next_actions"],
+        )
         self.assertFalse(result["safety"]["customer_visible_allowed"])
         self.assertTrue(result["safety"]["query_miss_is_not_clearance"])
 

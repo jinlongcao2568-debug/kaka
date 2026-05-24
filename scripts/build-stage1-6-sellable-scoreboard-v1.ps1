@@ -13,6 +13,8 @@ param(
     [string]$P13BOriginalNoticeBacktraceJson = "",
     [string]$P13BYgpOriginalReadbackRoot = "",
     [string]$P13BYgpOriginalReadbackJson = "",
+    [string]$P13BOverlapTriageCloseoutRoot = "",
+    [string]$P13BOverlapTriageCloseoutJson = "",
     [string]$Stage6StatusRoot = "",
     [string]$Stage6StatusJson = "",
     [string]$OutputRoot = "",
@@ -44,6 +46,9 @@ if (-not $P13BOriginalNoticeBacktraceRoot) {
 if (-not $P13BYgpOriginalReadbackRoot) {
     $P13BYgpOriginalReadbackRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\p13b-ygp-original-readback-v1"
 }
+if (-not $P13BOverlapTriageCloseoutRoot) {
+    $P13BOverlapTriageCloseoutRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\p13b-overlap-triage-closeout-v1"
+}
 if (-not $Stage6StatusRoot) {
     $Stage6StatusRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\stage6-review-cycle-runner-v1"
 }
@@ -64,6 +69,7 @@ $argsList = @(
     "--p13b-company-history-root", $P13BCompanyHistoryRoot,
     "--p13b-original-notice-backtrace-root", $P13BOriginalNoticeBacktraceRoot,
     "--p13b-ygp-original-readback-root", $P13BYgpOriginalReadbackRoot,
+    "--p13b-overlap-triage-closeout-root", $P13BOverlapTriageCloseoutRoot,
     "--stage6-status-root", $Stage6StatusRoot,
     "--output-root", $OutputRoot
 )
@@ -91,6 +97,9 @@ if ($P13BOriginalNoticeBacktraceJson) {
 }
 if ($P13BYgpOriginalReadbackJson) {
     $argsList += @("--p13b-ygp-original-readback-json", $P13BYgpOriginalReadbackJson)
+}
+if ($P13BOverlapTriageCloseoutJson) {
+    $argsList += @("--p13b-overlap-triage-closeout-json", $P13BOverlapTriageCloseoutJson)
 }
 if ($Stage6StatusJson) {
     $argsList += @("--stage6-status-json", $Stage6StatusJson)
