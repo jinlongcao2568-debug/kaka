@@ -638,6 +638,7 @@ def run_stage6_review_cycle_runner(
         runtime_blocker_controller_dispatch_table=runtime_blocker_controller_dispatch_table,
         runtime_blocker_controller_dispatch_runner_result=runtime_blocker_controller_dispatch_runner_result,
         source_stage6_review_loop_status_path=effective_stage6_review_loop_status_path,
+        source_gdcic_browser_readback_path=gdcic_browser_readback_path,
     )
     stage5_calibration_summary = _stage5_calibration_projection_summary(
         operator_projection_status_table.get("records")
@@ -910,6 +911,7 @@ def _operator_projection_status_table(
     runtime_blocker_controller_dispatch_table: Mapping[str, Any],
     runtime_blocker_controller_dispatch_runner_result: Mapping[str, Any],
     source_stage6_review_loop_status_path: Path | None,
+    source_gdcic_browser_readback_path: Path | None,
 ) -> dict[str, Any]:
     followup_records = [
         dict(record)
@@ -965,10 +967,29 @@ def _operator_projection_status_table(
         else:
             project_records = []
             operator_projection_source = "stage6_review_cycle_runtime_blocker_controller_queue"
+    gdcic_projection_by_project = _gdcic_readback_projection_by_project(source_gdcic_browser_readback_path)
+    if gdcic_projection_by_project:
+        project_records = _merge_gdcic_readback_projection(
+            project_records,
+            gdcic_projection_by_project,
+        )
     projection_summary = {
         **dict(summary),
         "operator_projection_source": operator_projection_source,
         "project_status_record_count": len(project_records),
+        "gdcic_browser_authorized_readback_project_count": len(gdcic_projection_by_project),
+        "gdcic_browser_authorized_readback_state_counts": _counts(
+            record.get("gdcic_browser_authorized_readback_state")
+            for record in gdcic_projection_by_project.values()
+        ),
+        "gdcic_browser_authorized_session_input_state_counts": _counts(
+            record.get("gdcic_browser_authorized_session_input_state")
+            for record in gdcic_projection_by_project.values()
+        ),
+        "gdcic_browser_target_real_readback_success_count": sum(
+            int(record.get("gdcic_browser_target_real_readback_success_count") or 0)
+            for record in gdcic_projection_by_project.values()
+        ),
         "runtime_blocker_worker_followup_count": len(followup_records),
         "runtime_blocker_worker_followup_project_count": followup_project_count,
         "runtime_blocker_worker_followup_entrypoint_counts": _counts(
@@ -1018,6 +1039,135 @@ def _stage5_calibration_projection_summary(records: list[Any]) -> dict[str, Any]
             record.get("suggested_calibration_action") for record in rows
         ),
     }
+
+
+def _gdcic_readback_projection_by_project(path: Path | None) -> dict[str, dict[str, Any]]:
+    if not path or not path.exists():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    manifest = payload.get("manifest") if isinstance(payload.get("manifest"), Mapping) else {}
+    summary = payload.get("summary") if isinstance(payload.get("summary"), Mapping) else {}
+    if not summary and isinstance(manifest.get("summary"), Mapping):
+        summary = dict(manifest["summary"])
+    task_records = [
+        dict(record)
+        for record in _list(manifest.get("browser_readback_task_records"))
+        if isinstance(record, Mapping)
+    ]
+    readback_records = [
+        dict(record)
+        for record in _list(manifest.get("browser_readback_records"))
+        if isinstance(record, Mapping)
+    ]
+    project_ids = _dedupe(
+        [
+            *[record.get("project_id") for record in task_records],
+            *[record.get("project_id") for record in readback_records],
+        ]
+    )
+    overall_state = str(summary.get("gdcic_authorized_session_overall_state") or "")
+    session_input_state = str(
+        summary.get("authorized_session_input_state")
+        or manifest.get("authorized_session_input_state")
+        or ""
+    )
+    session_ready = bool(summary.get("authorized_session_input_ready"))
+    real_not_faked = bool(summary.get("real_readback_success_not_faked", True))
+    proof_state = str(
+        summary.get("real_readback_success_proof_state")
+        or "NO_REAL_AUTHORIZED_READBACK_SUCCESS"
+    )
+    summary_operator_next_actions = _dedupe(
+        [
+            summary.get("authorization_blocker_operator_next_action"),
+            *[
+                action
+                for action, count in (
+                    summary.get("operator_next_action_counts", {}).items()
+                    if isinstance(summary.get("operator_next_action_counts"), Mapping)
+                    else []
+                )
+                if int(count or 0) > 0
+            ],
+        ]
+    )
+    if not summary_operator_next_actions and not session_ready:
+        summary_operator_next_actions = ["provide_gdcic_authorized_storage_state_or_user_data_dir_then_rerun"]
+    out: dict[str, dict[str, Any]] = {}
+    for project_id in project_ids:
+        project_tasks = [record for record in task_records if str(record.get("project_id") or "").strip() == project_id]
+        project_records = [record for record in readback_records if str(record.get("project_id") or "").strip() == project_id]
+        ready_count = sum(
+            1
+            for record in project_records
+            if str(record.get("readback_state") or "") == "BROWSER_AUTHORIZED_READBACK_READY"
+        )
+        out[project_id] = {
+            "project_id": project_id,
+            "gdcic_browser_authorized_readback_state": overall_state or "UNKNOWN_REVIEW_REQUIRED",
+            "gdcic_browser_authorized_readback_json": str(path),
+            "gdcic_browser_readback_task_count": len(project_tasks),
+            "gdcic_browser_readback_record_count": len(project_records),
+            "gdcic_browser_readback_adapter_result_state_counts": _counts(
+                record.get("adapter_result_state") for record in project_records
+            ),
+            "gdcic_browser_authorization_readiness_state_counts": _counts(
+                record.get("authorization_readiness_state") for record in project_records
+            ),
+            "gdcic_browser_authorized_session_input_state": session_input_state,
+            "gdcic_browser_authorized_session_input_ready": session_ready,
+            "gdcic_browser_target_real_readback_success_count": ready_count,
+            "gdcic_browser_real_readback_success_not_faked": real_not_faked,
+            "gdcic_browser_real_readback_success_proof_state": (
+                "PROVEN_BY_BROWSER_AUTHORIZED_READBACK_READY_RECORDS"
+                if ready_count
+                else proof_state
+            ),
+            "gdcic_browser_operator_next_actions": _dedupe(
+                [
+                    *summary_operator_next_actions,
+                    *[
+                        action
+                        for record in project_records
+                        for action in _list(record.get("operator_next_actions"))
+                    ],
+                ]
+            ),
+            "customer_visible_allowed": False,
+            "query_miss_is_not_clearance": True,
+            "no_legal_conclusion": True,
+        }
+    return out
+
+
+def _merge_gdcic_readback_projection(
+    project_records: list[dict[str, Any]],
+    gdcic_projection_by_project: Mapping[str, Mapping[str, Any]],
+) -> list[dict[str, Any]]:
+    out = [dict(record) for record in project_records]
+    by_project_id = {
+        str(record.get("project_id") or "").strip(): record
+        for record in out
+        if str(record.get("project_id") or "").strip()
+    }
+    for project_id, projection in gdcic_projection_by_project.items():
+        if project_id in by_project_id:
+            target = by_project_id[project_id]
+            target.update({key: value for key, value in projection.items() if key != "project_id"})
+            refs = _dedupe(
+                [
+                    *_list(target.get("input_artifact_refs")),
+                    projection.get("gdcic_browser_authorized_readback_json"),
+                ]
+            )
+            if refs:
+                target["input_artifact_refs"] = refs
+        else:
+            out.append(dict(projection))
+    return out
 
 
 def _status_projection_records_from_status_table(path: Path | None) -> list[dict[str, Any]]:

@@ -1277,6 +1277,22 @@ class Stage6ReviewCycleRunnerTests(unittest.TestCase):
             )
             self.assertIn("原项目经理：张三", row["release_field_query_source_hit_summary_labels"][0])
             self.assertIn("新项目经理：李四", row["release_field_query_source_hit_summary_labels"][0])
+            self.assertEqual(row["gdcic_browser_authorized_readback_state"], "UNKNOWN_REVIEW_REQUIRED")
+            self.assertEqual(row["gdcic_browser_authorized_session_input_state"], "INJECTED_BROWSER_RUNNER")
+            self.assertTrue(row["gdcic_browser_authorized_session_input_ready"])
+            self.assertEqual(row["gdcic_browser_target_real_readback_success_count"], 1)
+            self.assertTrue(row["gdcic_browser_real_readback_success_not_faked"])
+            self.assertEqual(
+                row["gdcic_browser_real_readback_success_proof_state"],
+                "PROVEN_BY_BROWSER_AUTHORIZED_READBACK_READY_RECORDS",
+            )
+            self.assertIn(str(gdcic_readback_json), row["input_artifact_refs"])
+            self.assertEqual(
+                result["manifest"]["operator_projection_status_table"]["summary"][
+                    "gdcic_browser_target_real_readback_success_count"
+                ],
+                1,
+            )
             projection = load_stage6_review_loop_operator_projection(
                 status_table_path=root / "out" / "stage6-review-loop-project-status-table.json"
             )
