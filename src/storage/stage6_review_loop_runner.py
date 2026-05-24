@@ -881,6 +881,7 @@ def _project_status_records(
         limited_sellable_projection = limited_sellable_review_projection(
             release_field_query_result.get("downstream_release_evidence_abcd_grade_counts") or {},
             stage7_commercial_input_allowed=stage7_commercial_input_allowed,
+            field_tasks=release_field_query_result.get("field_query_tasks") or [],
         )
         runtime_blocker_projection = runtime_blocker_projection_fields(runtime_blockers)
         records.append(
@@ -1606,6 +1607,7 @@ def _release_field_query_project_result(
         "result_json_path": result_path,
         "result_manifest_id": str(result_manifest.get("manifest_id") or ""),
         "field_query_task_count": len(tasks),
+        "field_query_tasks": [dict(task) for task in tasks],
         "adapter_result_state_counts": adapter_counts,
         "downstream_release_evidence_abcd_grade_counts": downstream_counts,
         "authorized_session_input_state_counts": session_input_counts,
@@ -2781,6 +2783,21 @@ def _summary(
             1
             for record in project_status_records
             if record.get("limited_sellable_review_candidate_state") == "REVIEW_CANDIDATE"
+        ),
+        "limited_sellable_review_official_readback_task_count": sum(
+            int(record.get("limited_sellable_review_official_readback_task_count") or 0)
+            for record in project_status_records
+        ),
+        "limited_sellable_review_required_action_counts": _counts(
+            action
+            for record in project_status_records
+            for action in _list(record.get("limited_sellable_review_required_actions"))
+        ),
+        "limited_sellable_review_evidence_grade_counts": _merge_count_maps(
+            record.get("limited_sellable_review_evidence_grade_counts") for record in project_status_records
+        ),
+        "limited_sellable_review_gap_grade_counts": _merge_count_maps(
+            record.get("limited_sellable_review_gap_grade_counts") for record in project_status_records
         ),
         "limited_sellable_review_candidate_state_counts": _counts(
             record.get("limited_sellable_review_candidate_state") for record in project_status_records

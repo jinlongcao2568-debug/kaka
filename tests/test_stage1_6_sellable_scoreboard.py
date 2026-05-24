@@ -192,6 +192,23 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
                             "limited_sellable_review_candidate_state": "REVIEW_CANDIDATE",
                             "limited_sellable_review_reason": "official_b_or_c_readback_requires_manual_stage5_stage6_review",
                             "commercialization_boundary_state": "INTERNAL_REVIEW_ONLY_NOT_CUSTOMER_DELIVERABLE",
+                            "limited_sellable_review_official_readback_task_count": 1,
+                            "limited_sellable_review_evidence_grade_counts": {
+                                "B_ENHANCEMENT_OFFICIAL_READBACK": 1
+                            },
+                            "limited_sellable_review_gap_grade_counts": {},
+                            "limited_sellable_review_required_actions": [
+                                "manual_stage5_stage6_review_before_limited_sellable_internal_package",
+                                "keep_customer_download_delivery_payment_refund_disabled",
+                            ],
+                            "limited_sellable_review_official_readback_records": [
+                                {
+                                    "field_query_task_id": "GD-FIELD-TASK-1",
+                                    "downstream_release_evidence_abcd_grade": "B_ENHANCEMENT_OFFICIAL_READBACK",
+                                    "customer_visible_allowed": False,
+                                    "query_miss_is_not_clearance": True,
+                                }
+                            ],
                             "release_field_query_downstream_abcd_grade_counts": {
                                 "B_ENHANCEMENT_OFFICIAL_READBACK": 1
                             },
@@ -525,6 +542,18 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
         self.assertEqual(
             rows["PROJ-A"]["commercialization_boundary_state"],
             "INTERNAL_REVIEW_ONLY_NOT_CUSTOMER_DELIVERABLE",
+        )
+        self.assertEqual(rows["PROJ-A"]["limited_sellable_review_official_readback_task_count"], 1)
+        self.assertEqual(
+            rows["PROJ-A"]["limited_sellable_review_evidence_grade_counts"],
+            {"B_ENHANCEMENT_OFFICIAL_READBACK": 1},
+        )
+        self.assertIn(
+            "keep_customer_download_delivery_payment_refund_disabled",
+            rows["PROJ-A"]["limited_sellable_review_required_actions"],
+        )
+        self.assertFalse(
+            rows["PROJ-A"]["limited_sellable_review_official_readback_records"][0]["customer_visible_allowed"]
         )
         self.assertEqual(rows["PROJ-B"]["stage5_operational_review_bucket"], "ORIGINAL_NOTICE_BLOCKED_REVIEW")
         self.assertEqual(rows["PROJ-C"]["stage5_operational_review_bucket"], "SOURCE_NOT_FOUND_REVIEW")

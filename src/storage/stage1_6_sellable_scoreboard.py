@@ -468,6 +468,21 @@ def _project_scoreboard_row(
                 else ""
             )
         ),
+        "limited_sellable_review_official_readback_task_count": _int(
+            stage6_record.get("limited_sellable_review_official_readback_task_count")
+        ),
+        "limited_sellable_review_evidence_grade_counts": dict(
+            stage6_record.get("limited_sellable_review_evidence_grade_counts") or {}
+        ),
+        "limited_sellable_review_gap_grade_counts": dict(
+            stage6_record.get("limited_sellable_review_gap_grade_counts") or {}
+        ),
+        "limited_sellable_review_required_actions": _as_list(
+            stage6_record.get("limited_sellable_review_required_actions")
+        ),
+        "limited_sellable_review_official_readback_records": _as_list(
+            stage6_record.get("limited_sellable_review_official_readback_records")
+        ),
         "commercialization_boundary_state": str(
             stage6_record.get("commercialization_boundary_state")
             or "INTERNAL_REVIEW_ONLY_NOT_CUSTOMER_DELIVERABLE"

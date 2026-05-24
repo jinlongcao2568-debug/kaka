@@ -336,6 +336,15 @@ class Stage6ReviewLoopRunnerTests(unittest.TestCase):
             )
             self.assertEqual(result["summary"]["release_field_query_project_count"], 1)
             self.assertEqual(result["summary"]["limited_sellable_review_candidate_count"], 1)
+            self.assertEqual(result["summary"]["limited_sellable_review_official_readback_task_count"], 1)
+            self.assertEqual(
+                result["summary"]["limited_sellable_review_evidence_grade_counts"],
+                {"B_ENHANCEMENT_OFFICIAL_READBACK": 1},
+            )
+            self.assertEqual(
+                result["summary"]["limited_sellable_review_gap_grade_counts"],
+                {"D_INSUFFICIENT_OR_BLOCKED_READBACK": 1},
+            )
             records = {
                 record["project_id"]: record
                 for record in result["manifest"]["project_status_table"]["records"]
@@ -354,6 +363,21 @@ class Stage6ReviewLoopRunnerTests(unittest.TestCase):
             self.assertEqual(
                 records["PROJ-REL"]["limited_sellable_review_candidate_state"],
                 "REVIEW_CANDIDATE",
+            )
+            self.assertEqual(records["PROJ-REL"]["limited_sellable_review_official_readback_task_count"], 1)
+            self.assertIn(
+                "manual_stage5_stage6_review_before_limited_sellable_internal_package",
+                records["PROJ-REL"]["limited_sellable_review_required_actions"],
+            )
+            self.assertIn(
+                "keep_customer_download_delivery_payment_refund_disabled",
+                records["PROJ-REL"]["limited_sellable_review_required_actions"],
+            )
+            self.assertEqual(
+                records["PROJ-REL"]["limited_sellable_review_official_readback_records"][0][
+                    "downstream_release_evidence_abcd_grade"
+                ],
+                "B_ENHANCEMENT_OFFICIAL_READBACK",
             )
             self.assertFalse(records["PROJ-REL"]["customer_visible_allowed"])
             self.assertTrue(records["PROJ-REL"]["query_miss_is_not_clearance"])
