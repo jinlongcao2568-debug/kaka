@@ -601,18 +601,20 @@ class GuangdongLocalFieldQueryProbeTests(unittest.TestCase):
             task["source_profile_id"] = "GUANGDONG-GDCIC-SKYPT-OPENPLATFORM"
             task["source_url"] = "https://skypt.gdcic.net/openplatform/"
             task["query_params"]["projectId"] = task["project_id"]
-            task["query_params"]["sourceProjectCode"] = "440100202605190001"
+            task["query_params"]["sourceProjectCode"] = (
+                "E4401002701502243001 441900029-2025-00741 2605-440100-04-01-000001"
+            )
             path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
             def fake_getter(url: str, params: Mapping[str, Any]) -> Mapping[str, Any]:
-                if url.endswith("/openplatform/projectContract/list") and params.get("projectCode") == "440100202605190001":
+                if url.endswith("/openplatform/projectContract/list") and params.get("projectCode") == "E4401002701502243001":
                     return {
                         "http_status": 200,
                         "content_type": "application/json",
                         "payload": {
                             "rows": [
                                 {
-                                    "projectCode": "440100202605190001",
+                                    "projectCode": "E4401002701502243001",
                                     "projectName": "GDCIC返回名称与公告标题不完全一致",
                                     "contractOrgName": "广州测试建设有限公司",
                                     "contractBeginDate": "2025-08-01",
@@ -641,10 +643,18 @@ class GuangdongLocalFieldQueryProbeTests(unittest.TestCase):
             task = result["manifest"]["field_task_records"][0]
             self.assertEqual(
                 task["query_params"]["projectCodeVariants"],
-                ["440100202605190001", "JG2026-11337"],
+                [
+                    "E4401002701502243001",
+                    "441900029-2025-00741",
+                    "2605-440100-04-01-000001",
+                    "JG2026-11337",
+                ],
             )
-            self.assertEqual(task["query_params"]["gdcicProjectCodeVariants"], ["440100202605190001"])
-            self.assertEqual(task["query_params"]["projectCode"], "440100202605190001")
+            self.assertEqual(
+                task["query_params"]["gdcicProjectCodeVariants"],
+                ["E4401002701502243001", "441900029-2025-00741"],
+            )
+            self.assertEqual(task["query_params"]["projectCode"], "E4401002701502243001")
             self.assertEqual(task["query_params"]["tradeProjectCode"], "JG2026-11337")
             self.assertEqual(task["adapter_result_state"], "MATCHED")
             self.assertEqual(
@@ -3034,6 +3044,62 @@ class GuangdongLocalFieldQueryProbeTests(unittest.TestCase):
             task = result["manifest"]["field_task_records"][0]
             self.assertEqual(task["field_query_probe_state"], "FAIL_CLOSED_PUBLIC_SOURCE_BLOCKED")
             self.assertIn("guangdong_local_field_query_captcha_or_login_required", task["blocker_taxonomy"])
+
+    def test_terminal_closeout_marker_suppresses_release_field_query_without_live_call(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            release_plan_root = root / "release-plan"
+            release_plan_root.mkdir(parents=True, exist_ok=True)
+            task = _release_plan_task("REL-TERMINAL-NOT-FOUND", "construction_permit", "B_ENHANCEMENT_OFFICIAL_READBACK")
+            task["terminal_closeout_markers"] = [
+                {
+                    "task_family": "release_evidence_query",
+                    "marker_state": "NOT_FOUND",
+                    "artifact_ref": "tmp/field-query/guangdong-local-field-query-probe-v1.json",
+                }
+            ]
+            (release_plan_root / "release-evidence-adapter-plan-v1.json").write_text(
+                json.dumps(
+                    {
+                        "manifest": {
+                            "manifest_kind": "release_evidence_adapter_plan_v1_manifest",
+                            "release_evidence_adapter_task_records": [task],
+                        },
+                        "summary": {"adapter_task_count": 1},
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                ),
+                encoding="utf-8",
+            )
+
+            def fail_if_called(_url: str, _params: Mapping[str, Any]) -> Mapping[str, Any]:
+                raise AssertionError("terminal closeout marker should suppress live field query")
+
+            result = build_guangdong_local_field_query_probe(
+                release_evidence_adapter_plan_root=release_plan_root,
+                output_root=root / "out",
+                enable_live_public_query=True,
+                max_live_tasks=1,
+                http_getter=fail_if_called,
+                created_at="2026-05-12T00:00:00+08:00",
+            )
+
+            self.assertTrue(result["safe_to_execute"])
+            summary = result["summary"]
+            self.assertEqual(summary["guangdong_local_field_query_task_count"], 1)
+            self.assertEqual(summary["closeout_precedence_suppressed_count"], 1)
+            self.assertEqual(summary["runtime_blocker_ledger_count"], 1)
+            record = result["manifest"]["field_task_records"][0]
+            self.assertTrue(record["closeout_precedence_suppressed"])
+            self.assertEqual(record["execution_mode"], "TERMINAL_CLOSEOUT_SUPPRESSED_NO_WORKER_DISPATCH")
+            self.assertEqual(record["field_readback_state"], "FIELD_READBACK_SUPPRESSED_BY_TERMINAL_CLOSEOUT")
+            self.assertEqual(record["adapter_result_state"], "NOT_FOUND")
+            self.assertEqual(record["downstream_release_evidence_abcd_grade"], "D_INSUFFICIENT_OR_BLOCKED_READBACK")
+            self.assertEqual(
+                record["runtime_blocker_ledger_record"]["blocker_state"],
+                "TERMINAL_CLOSEOUT_SUPPRESSED_DUPLICATE_DISPATCH",
+            )
 
     def test_missing_local_verification_fails_closed(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

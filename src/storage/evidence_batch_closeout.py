@@ -203,6 +203,40 @@ def _closeout_record(
             ]
         ),
         "signal_counts": dict(evidence.get("signal_counts") or {}),
+        "original_readback_next_queue_counts": dict(evidence.get("original_readback_next_queue_counts") or {}),
+        "original_readback_closeout_state_counts": dict(
+            evidence.get("original_readback_closeout_state_counts") or {}
+        ),
+        "original_readback_operator_projections": [
+            dict(item)
+            for item in _list(evidence.get("original_readback_operator_projections"))
+            if isinstance(item, Mapping)
+        ],
+        "runtime_blocker_ledger_records": [
+            dict(item)
+            for item in _list(evidence.get("runtime_blocker_ledger_records"))
+            if isinstance(item, Mapping)
+        ],
+        "terminal_closeout_markers": [
+            dict(item)
+            for item in _list(evidence.get("terminal_closeout_markers"))
+            if isinstance(item, Mapping)
+        ],
+        "runtime_closeout_markers": [
+            dict(item)
+            for item in _list(evidence.get("runtime_closeout_markers"))
+            if isinstance(item, Mapping)
+        ],
+        "closeout_backfill_markers": [
+            dict(item)
+            for item in _list(evidence.get("closeout_backfill_markers"))
+            if isinstance(item, Mapping)
+        ],
+        "terminal_backfill_markers": [
+            dict(item)
+            for item in _list(evidence.get("terminal_backfill_markers"))
+            if isinstance(item, Mapping)
+        ],
         "design_survey_adapter_counts": dict(evidence.get("design_survey_adapter_counts") or {}),
         "evidence_artifacts": _list(evidence.get("evidence_artifacts")),
         "source_refs": {
@@ -578,6 +612,22 @@ def _continuation_lineage(continuation_manifest: Mapping[str, Any]) -> dict[str,
         "final_original_backtrace_continuation_recommended_next_action": str(
             (continuation_manifest.get("summary") or {}).get("final_original_backtrace_continuation_recommended_next_action")
             or ""
+        ),
+        "final_original_backtrace_next_queue_counts": dict(
+            (continuation_manifest.get("summary") or {}).get("final_original_backtrace_next_queue_counts") or {}
+        ),
+        "final_original_backtrace_closeout_precedence_suppressed_count": int(
+            (continuation_manifest.get("summary") or {}).get(
+                "final_original_backtrace_closeout_precedence_suppressed_count"
+            )
+            or 0
+        ),
+        "final_original_backtrace_terminal_marker_count": int(
+            (continuation_manifest.get("summary") or {}).get("final_original_backtrace_terminal_marker_count") or 0
+        ),
+        "final_original_backtrace_runtime_blocker_ledger_count": int(
+            (continuation_manifest.get("summary") or {}).get("final_original_backtrace_runtime_blocker_ledger_count")
+            or 0
         ),
     }
 

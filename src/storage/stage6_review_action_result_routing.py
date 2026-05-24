@@ -7,6 +7,10 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping
 
 from shared.utils import utc_now_iso
+from storage.runtime_closeout_precedence import (
+    closeout_precedence_decision,
+    closeout_precedence_summary,
+)
 
 
 STAGE6_REVIEW_ACTION_RESULT_ROUTING_KIND = "stage6_review_action_result_routing_v1_manifest"
@@ -148,6 +152,31 @@ def _routing_record(
         closeout_state=str(record.get("dispatch_closeout_state") or ""),
         dispatch_task_type=dispatch_task_type,
     )
+    precedence = closeout_precedence_decision(
+        {**dict(record), "dispatch_task_type": next_task_type},
+        runtime_layer="controller decision:stage6_review_action_result_routing",
+    )
+    if precedence.get("suppressed_dispatch"):
+        terminal_marker = (
+            precedence.get("terminal_marker")
+            if isinstance(precedence.get("terminal_marker"), Mapping)
+            else {}
+        )
+        terminal_state = str(
+            terminal_marker.get("terminal_state") or terminal_marker.get("terminal_grade") or ""
+        ).strip()
+        if _is_release_evidence_projection_only_terminal(precedence, terminal_state):
+            routing_state = "READY_FOR_RELEASE_EVIDENCE_STATUS_PROJECTION"
+            next_task_type = "STATUS_PROJECTION_ONLY"
+            script = ""
+            command_template = ""
+            input_arg_name = ""
+        else:
+            routing_state = "SUPPRESSED_BY_TERMINAL_CLOSEOUT_PRECEDENCE"
+            next_task_type = "MANUAL_HOLD_OR_STATUS_PROJECTION"
+            script = ""
+            command_template = ""
+            input_arg_name = ""
     command_argv = _recommended_command_argv(
         next_task_type=next_task_type,
         input_arg_name=input_arg_name,
@@ -158,6 +187,11 @@ def _routing_record(
         batch_closeout_rebuild_output_root=batch_closeout_rebuild_output_root,
     )
     command = _powershell_command(command_argv)
+    next_recommended_action = (
+        str(precedence.get("operator_next_action") or "")
+        if precedence.get("suppressed_dispatch")
+        else _next_recommended_action(routing_state, next_task_type)
+    )
     return {
         "result_routing_id": _stable_id(
             "S6-RESULT-ROUTE",
@@ -185,10 +219,20 @@ def _routing_record(
         "required_baseline_input_refs": _required_baseline_input_refs(next_task_type),
         "resolved_baseline_input_refs": _resolved_baseline_input_refs(next_task_type, baseline_args),
         "next_required_input_refs": _next_required_input_refs(record, routing_state, input_arg_name, next_task_type),
-        "next_recommended_action": _next_recommended_action(routing_state, next_task_type),
+        "next_recommended_action": next_recommended_action,
+        "closeout_precedence": precedence,
+        "closeout_precedence_state": str(precedence.get("closeout_precedence_state") or ""),
+        "closeout_precedence_suppressed": bool(precedence.get("suppressed_dispatch")),
         "execution_mode": "PLAN_ONLY_NOT_EXECUTED",
         "live_execution_enabled": False,
         "requires_operator_action_before_live": True,
+        "requires_operator_approval_before_execution": any(
+            str(token or "").lower() in {
+                "-enablelivepublicquery",
+                "-enablelivebrowserexecution",
+            }
+            for token in command_argv
+        ),
         "customer_visible_allowed": False,
         "external_send_enabled": False,
         "no_legal_conclusion": True,
@@ -313,6 +357,24 @@ def _routing_decision(
     )
 
 
+def _is_release_evidence_projection_only_terminal(
+    precedence: Mapping[str, Any],
+    terminal_state: str,
+) -> bool:
+    return bool(
+        str(precedence.get("task_scope") or "") == "release_evidence_query"
+        and (
+            terminal_state in {
+                "MATCHED",
+                "REVIEW_READY",
+                "RELEASE_FIELD_QUERY_REVIEW_READY",
+                "RELEASE_FIELD_QUERY_PUBLIC_READBACK_REVIEW_READY",
+            }
+            or terminal_state.startswith(("B_", "C_"))
+        )
+    )
+
+
 def _required_baseline_input_refs(next_task_type: str) -> list[str]:
     if next_task_type.startswith("REBUILD_EVIDENCE_STATE_WITH_"):
         return [
@@ -354,6 +416,8 @@ def _next_recommended_action(routing_state: str, next_task_type: str) -> str:
         return "run_release_evidence_field_query_probe_then_dispatch_readback_again"
     if routing_state == "READY_FOR_BATCH_CLOSEOUT_REBUILD":
         return "rebuild_batch_closeout_from_continuation_run_then_rebuild_stage6_fact_package"
+    if routing_state == "READY_FOR_RELEASE_EVIDENCE_STATUS_PROJECTION":
+        return "project_to_review_ready_status_projection_without_duplicate_dispatch"
     if routing_state == "WAITING_FOR_CONTROLLED_EXECUTION":
         return "run_controlled_dispatch_task_or_record_operator_skip"
     if routing_state == "PARKED_OPERATOR_SKIPPED_THIS_ROUND":
@@ -426,6 +490,9 @@ def _summary(
     routing_records: list[Mapping[str, Any]],
     blocking_reasons: list[str],
 ) -> dict[str, Any]:
+    precedence = closeout_precedence_summary(
+        record.get("closeout_precedence") for record in routing_records if isinstance(record.get("closeout_precedence"), Mapping)
+    )
     return {
         "stage6_review_action_result_routing_state": (
             "STAGE6_REVIEW_ACTION_RESULT_ROUTING_READY"
@@ -460,6 +527,7 @@ def _summary(
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,
         "query_miss_is_not_clearance": True,
+        **precedence,
         "blocking_reasons": list(blocking_reasons),
         "forbidden_term_scan_state": "PENDING",
     }

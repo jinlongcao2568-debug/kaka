@@ -192,11 +192,12 @@ def _group_specs(
 ) -> list[dict[str, Any]]:
     grouped: dict[str, list[Mapping[str, Any]]] = {}
     for record in records:
-        task_type = str(record.get("dispatch_task_type") or "")
-        grouped.setdefault(task_type, []).append(record)
+        group_key = _dispatch_group_key(record, explicit_baseline_evidence_state_json=explicit_baseline_evidence_state_json)
+        grouped.setdefault(group_key, []).append(record)
 
     specs: list[dict[str, Any]] = []
-    for order, (task_type, task_records) in enumerate(sorted(grouped.items()), start=1):
+    for order, (_, task_records) in enumerate(sorted(grouped.items()), start=1):
+        task_type = str(task_records[0].get("dispatch_task_type") or "") if task_records else ""
         project_ids = _dedupe(record.get("project_id") for record in task_records)
         source_evidence_state_jsons = _dedupe(
             _source_refs(record).get("evidence_state_json") for record in task_records
@@ -232,6 +233,26 @@ def _group_specs(
             }
         )
     return specs
+
+
+def _dispatch_group_key(
+    record: Mapping[str, Any],
+    *,
+    explicit_baseline_evidence_state_json: str | Path | None,
+) -> str:
+    task_type = str(record.get("dispatch_task_type") or "")
+    if explicit_baseline_evidence_state_json:
+        return _stable_id("S6-DISPATCH-GROUP", task_type, explicit_baseline_evidence_state_json)
+    source_refs = _source_refs(record)
+    return _stable_id(
+        "S6-DISPATCH-GROUP",
+        task_type,
+        source_refs.get("evidence_state_json"),
+        source_refs.get("evidence_batch_closeout_json"),
+        source_refs.get("evidence_batch_closeout_root"),
+        source_refs.get("p13b_operational_closeout_json"),
+        source_refs.get("p13b_operational_closeout_root"),
+    )
 
 
 def _argv_for_task_type(
@@ -359,6 +380,11 @@ def _task_records(
                 "dispatch_task_id": str(task.get("dispatch_task_id") or ""),
                 "project_id": str(task.get("project_id") or ""),
                 "project_name": str(task.get("project_name") or ""),
+                "assigned_owner": str(task.get("assigned_owner") or ""),
+                "assigned_owner_role": str(task.get("assigned_owner_role") or ""),
+                "reviewer": str(task.get("reviewer") or ""),
+                "reviewer_role": str(task.get("reviewer_role") or ""),
+                "owner_assignment_source_ref": str(task.get("owner_assignment_source_ref") or ""),
                 "dispatch_task_type": task_type,
                 "execution_state": str(group.get("execution_state") or "SKIPPED_NO_GROUP"),
                 "output_root": str(group.get("output_root") or ""),

@@ -117,6 +117,7 @@ class Stage6ReviewActionResultRunnerTests(unittest.TestCase):
             records = _records_by_project(result["manifest"]["result_runner_table"]["records"])
             self.assertEqual(records["PROJ-NO-ARGV"]["allowlist_reason"], "structured_recommended_command_argv_missing")
             self.assertEqual(records["PROJ-LIVE"]["allowlist_reason"], "live_or_external_execution_flag_present")
+            self.assertTrue(records["PROJ-LIVE"]["requires_operator_approval_before_execution"])
 
     def test_execute_skips_duplicate_commands(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

@@ -311,6 +311,7 @@ def _evidence_record(
         design_survey_public_registry_readback_supplied=design_survey_public_registry_readback_supplied,
     )
     signal_counts = _signal_counts(p13b_project, original_project, original_continuation_project)
+    original_readback_runtime = _original_readback_runtime_projection(original_continuation_project)
     design_survey_counts = _design_survey_counts(
         design_survey_project,
         design_survey_stage4_project,
@@ -356,6 +357,14 @@ def _evidence_record(
         "release_evidence_probe_required": evidence_state == "A_STRONG_TIME_OVERLAP_SIGNAL_READY",
         "release_evidence_source_targets": release_probe_targets,
         "signal_counts": signal_counts,
+        "original_readback_next_queue_counts": original_readback_runtime["next_queue_counts"],
+        "original_readback_closeout_state_counts": original_readback_runtime["closeout_state_counts"],
+        "original_readback_operator_projections": original_readback_runtime["operator_projections"],
+        "runtime_blocker_ledger_records": original_readback_runtime["runtime_blocker_ledger_records"],
+        "terminal_closeout_markers": original_readback_runtime["terminal_closeout_markers"],
+        "runtime_closeout_markers": original_readback_runtime["runtime_closeout_markers"],
+        "closeout_backfill_markers": original_readback_runtime["closeout_backfill_markers"],
+        "terminal_backfill_markers": original_readback_runtime["terminal_backfill_markers"],
         "design_survey_adapter_counts": design_survey_counts,
         "evidence_artifacts": _evidence_artifacts(
             candidate_group_members=candidate_companies,
@@ -1392,6 +1401,42 @@ def _signal_counts(
             continuation_states.get("PARK_TARGETED_PERSON_NOT_FOUND", 0)
         ),
     }
+
+
+def _original_readback_runtime_projection(original_continuation_project: Mapping[str, Any]) -> dict[str, Any]:
+    records = [
+        record
+        for record in _list(original_continuation_project.get("continuation_plan_records"))
+        if isinstance(record, Mapping)
+    ]
+    return {
+        "next_queue_counts": _counts(record.get("next_queue") for record in records),
+        "closeout_state_counts": _counts(record.get("original_readback_closeout_state") for record in records),
+        "operator_projections": [
+            dict(record.get("operator_projection"))
+            for record in records
+            if isinstance(record.get("operator_projection"), Mapping)
+        ],
+        "runtime_blocker_ledger_records": [
+            dict(record.get("runtime_blocker_ledger_record"))
+            for record in records
+            if isinstance(record.get("runtime_blocker_ledger_record"), Mapping)
+            and record.get("runtime_blocker_ledger_record")
+        ],
+        "terminal_closeout_markers": _collect_runtime_markers(records, "terminal_closeout_markers"),
+        "runtime_closeout_markers": _collect_runtime_markers(records, "runtime_closeout_markers"),
+        "closeout_backfill_markers": _collect_runtime_markers(records, "closeout_backfill_markers"),
+        "terminal_backfill_markers": _collect_runtime_markers(records, "terminal_backfill_markers"),
+    }
+
+
+def _collect_runtime_markers(records: Iterable[Mapping[str, Any]], marker_key: str) -> list[dict[str, Any]]:
+    markers: list[dict[str, Any]] = []
+    for record in records:
+        for marker in _list(record.get(marker_key)):
+            if isinstance(marker, Mapping) and marker:
+                markers.append(dict(marker))
+    return _dedupe_records(markers)
 
 
 def _design_survey_counts(

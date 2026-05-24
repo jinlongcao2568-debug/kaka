@@ -392,20 +392,23 @@ class GuangdongGdcicQueryProbeTests(unittest.TestCase):
             _write_active_conflict_probe(active_root, task_count=1)
             active_path = active_root / "guangzhou-active-conflict-probe-v1.json"
             payload = json.loads(active_path.read_text(encoding="utf-8"))
-            payload["manifest"]["task_records"][0]["source_project_code"] = "440100202605190001"
+            payload["manifest"]["task_records"][0]["source_project_code"] = (
+                "JG2026-10815 E4401002701502243001 441900029-2025-00741 "
+                "2605-440100-04-01-000001"
+            )
             active_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
             requested: list[tuple[str, Mapping[str, Any]]] = []
 
             def fake_getter(url: str, params: Mapping[str, Any]) -> Mapping[str, Any]:
                 requested.append((url, dict(params)))
-                if url.endswith("/openplatform/projectContract/list") and params.get("projectCode") == "440100202605190001":
+                if url.endswith("/openplatform/projectContract/list") and params.get("projectCode") == "E4401002701502243001":
                     return {
                         "http_status": 200,
                         "content_type": "application/json",
                         "payload": {
                             "rows": [
                                 {
-                                    "projectCode": "440100202605190001",
+                                    "projectCode": "E4401002701502243001",
                                     "projectName": "广州测试项目合同",
                                     "contractOrgName": "广州测试建设有限公司01",
                                 }
@@ -429,27 +432,38 @@ class GuangdongGdcicQueryProbeTests(unittest.TestCase):
             task = result["manifest"]["query_task_records"][0]
             self.assertEqual(
                 task["query_params"]["projectCodeVariants"],
-                ["JG2026-10815", "440100202605190001"],
+                [
+                    "JG2026-10815",
+                    "E4401002701502243001",
+                    "441900029-2025-00741",
+                    "2605-440100-04-01-000001",
+                ],
             )
-            self.assertEqual(task["query_params"]["gdcicProjectCodeVariants"], ["440100202605190001"])
-            self.assertEqual(task["query_params"]["projectCode"], "440100202605190001")
+            self.assertEqual(
+                task["query_params"]["gdcicProjectCodeVariants"],
+                ["E4401002701502243001", "441900029-2025-00741"],
+            )
+            self.assertEqual(task["query_params"]["projectCode"], "E4401002701502243001")
             self.assertEqual(task["query_params"]["tradeProjectCode"], "JG2026-10815")
             self.assertTrue(
                 any(
                     url.endswith("/openplatform/project/list")
-                    and params.get("projectCode") == "440100202605190001"
+                    and params.get("projectCode") == "E4401002701502243001"
                     for url, params in requested
                 )
             )
             self.assertTrue(
                 any(
                     url.endswith("/openplatform/projectContract/list")
-                    and params.get("projectCode") == "440100202605190001"
+                    and params.get("projectCode") == "E4401002701502243001"
                     for url, params in requested
                 )
             )
             self.assertFalse(
                 any(params.get("projectCode") == "JG2026-10815" for _url, params in requested)
+            )
+            self.assertFalse(
+                any(params.get("projectCode") == "2605-440100-04-01-000001" for _url, params in requested)
             )
 
     def test_masked_id_card_values_do_not_trigger_followup_queries(self) -> None:

@@ -1,6 +1,6 @@
 registry_id: automation-entrypoint-registry-v1
 registry_version: 1
-updated_at: "2026-05-21"
+updated_at: "2026-05-23"
 purpose: >
   Machine-readable registry for automation entrypoints. Scripts are treated as
   thin launchers; durable workflow decisions must live in src runners,
@@ -10,6 +10,7 @@ architecture_decision:
   scripts_are_thin_launchers: true
   scripts_are_not_the_system_brain: true
   system_brain_layers:
+    - src/runtime controller, state machine, dispatcher, transition guard, and audit ledger
     - src/storage state builders and runners
     - src/api internal orchestration routes
     - contracts and handoff schemas
@@ -128,9 +129,11 @@ formal_entrypoints:
     kind: script
     script: scripts/run-stage6-review-loop-v1.ps1
     entrypoint_role: orchestrator
-    status: FORMAL_CURRENT
+    status: SUPPORTING_TOOL
     automation_layer: stage6_review_loop
     module_or_command: storage.stage6_review_loop_runner
+    superseded_by_entrypoint_id: stage6_review_cycle_runner
+    cleanup_state: retained_for_compatibility_and_sample_replay_only
     state_inputs:
       - review action dispatch
       - batch closeout
@@ -143,7 +146,34 @@ formal_entrypoints:
     manual_gate_required: false
     external_customer_action_enabled: false
     replaces_human_memory: true
-    purpose: Continue Stage6 review from machine state instead of ad-hoc human prompting.
+    purpose: Compatibility runner for older Stage6 review-loop artifacts; new continuation should use stage6_review_cycle_runner or runtime_controller_entrypoint_transport.
+
+  - entrypoint_id: stage6_review_cycle_runner
+    kind: script
+    script: scripts/run-stage6-review-cycle-v1.ps1
+    entrypoint_role: orchestrator
+    status: FORMAL_CURRENT
+    automation_layer: stage6_review_cycle
+    module_or_command: storage.stage6_review_cycle_runner
+    state_inputs:
+      - evidence batch closeout
+      - runtime blocker next subqueue
+      - Stage6 review loop runner artifact
+      - Stage6 review loop status artifact
+      - release field query results
+      - release evidence adapter plan
+      - original backtrace continuation
+      - P13B continuation results
+    state_outputs:
+      - Stage6 review cycle manifest
+      - runtime blocker controller queue
+      - runtime blocker controller dispatch tasks
+      - runtime blocker worker follow-up queue
+      - operator projection status table
+    manual_gate_required: false
+    external_customer_action_enabled: false
+    replaces_human_memory: true
+    purpose: Continue Stage6 controller/subqueue routing from formal or standalone machine-readable artifacts instead of manual runner chaining.
 
   - entrypoint_id: stage16_p13b_continuation_runner
     kind: script
@@ -163,6 +193,84 @@ formal_entrypoints:
     external_customer_action_enabled: false
     replaces_human_memory: true
     purpose: Continue P13B overlap/readback work from persisted state and budgets.
+
+  - entrypoint_id: runtime_controller_entrypoint_transport
+    kind: script
+    script: scripts/run-runtime-entrypoint.ps1
+    entrypoint_role: orchestrator
+    status: SUPPORTING_TOOL
+    automation_layer: runtime_controller_entrypoint_transport
+    module_or_command: runtime.entrypoint_cli
+    state_inputs:
+      - entrypoint_id
+      - structured runtime payload JSON
+      - optional Stage1 market scan/source blueprint payload
+      - optional Stage2 capture records/readbacks
+      - optional Stage3 parse records/readbacks
+      - optional evidence batch closeout artifact
+      - optional runtime blocker next subqueue artifact
+      - optional Stage6 review loop artifact
+      - optional Stage6 review loop status artifact
+      - optional release field query artifact
+      - optional release evidence adapter plan artifact
+      - optional original backtrace continuation artifact
+      - optional Stage16 P13B continuation artifact
+      - optional Stage1-6 readiness table artifact
+      - optional Stage1-6 gap summary artifact
+      - optional Stage5 calibration sample artifact
+      - optional output JSON path
+    state_outputs:
+      - controller-owned run state
+      - internal dispatch queue
+      - audit replay ledger
+      - runtime_run_state repository record
+      - runtime_audit_event repository records
+      - runtime_operator_projection repository record
+    manual_gate_required: false
+    external_customer_action_enabled: false
+    replaces_human_memory: true
+    purpose: Route generic entrypoint_id payloads, including Stage1-3 front-chain inputs, through the runtime controller instead of script-owned business flow.
+
+  - entrypoint_id: stage1_3_repair_worker
+    kind: script
+    script: scripts/run-runtime-entrypoint.ps1
+    entrypoint_role: dispatch_runner
+    status: FORMAL_CURRENT
+    automation_layer: stage1_3_repair_worker
+    module_or_command: runtime.stage13_repair_worker
+    state_inputs:
+      - controller dispatch queue records
+      - Stage1-3 repair review tasks
+      - source metric counts
+      - input artifact refs
+    state_outputs:
+      - internal Stage1-3 repair workplan
+      - repair metric counts
+      - worker family routing summary
+    manual_gate_required: false
+    external_customer_action_enabled: false
+    replaces_human_memory: true
+    purpose: Convert controller-derived Stage1-3 repair review tasks into internal repair workplans without executing live external actions.
+
+  - entrypoint_id: gdcic_browser_authorized_readback_builder
+    kind: script
+    script: scripts/build-gdcic-browser-authorized-readback-v1.ps1
+    entrypoint_role: state_builder
+    status: FORMAL_CURRENT
+    automation_layer: stage4_gdcic_browser_authorized_readback
+    module_or_command: storage.gdcic_browser_authorized_readback
+    state_inputs:
+      - release evidence adapter plan
+      - optional authorized browser storage state
+      - bounded browser readback budget
+    state_outputs:
+      - GDCIC browser authorized readback manifest
+      - runtime worker result ledger
+      - project manager change readback summary
+    manual_gate_required: false
+    external_customer_action_enabled: false
+    replaces_human_memory: true
+    purpose: Build and persist GDCIC authorized browser readback state for Stage4 release evidence without enabling customer-visible actions.
 
   - entrypoint_id: stage1_6_internal_http_orchestration_preview
     kind: http_route
@@ -191,6 +299,7 @@ script_classification_rules:
     run-golden.ps1: validation
     run-governance-contracts.ps1: validation
     run-storage-migrations.ps1: migration
+    run-runtime-entrypoint.ps1: orchestrator
     invoke-local-json-test-env.ps1: validation
     clean-python-cache.ps1: utility
     cleanup-local-artifacts.ps1: utility

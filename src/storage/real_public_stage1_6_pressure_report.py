@@ -155,6 +155,10 @@ def build_stage1_6_real_public_pressure_summary(
     stage1_6_readiness_records = _stage1_6_readiness_records(result)
     stage1_6_gap_summary_records = _stage1_6_gap_summary_records(stage1_6_readiness_records)
     stage4_release_adapter_bridge_records = _stage4_release_adapter_bridge_records(result, created_at="")
+    stage4_project_code_recall_summary = _stage4_release_adapter_bridge_project_code_recall_summary(
+        stage4_release_adapter_bridge_records
+    )
+    stage5_calibration_records = _stage5_calibration_records(result)
     company_first_required_count = sum(
         1 for readback in readbacks if bool(readback.get("jzsc_company_first_identity_resolution_required"))
     )
@@ -200,9 +204,16 @@ def build_stage1_6_real_public_pressure_summary(
         "stage1_6_bottleneck_stage_counts": _status_counts(stage1_6_readiness_records, "bottleneck_stage"),
         "stage1_6_readiness_record_count": len(stage1_6_readiness_records),
         "stage1_6_gap_summary_record_count": len(stage1_6_gap_summary_records),
+        "stage1_3_stability_summary": _stage1_3_stability_summary(stage1_6_readiness_records),
         "stage4_release_adapter_bridge_task_count": len(stage4_release_adapter_bridge_records),
         "stage4_release_adapter_bridge_project_count": len(
             {str(row.get("project_id") or "") for row in stage4_release_adapter_bridge_records if str(row.get("project_id") or "")}
+        ),
+        "stage4_release_adapter_bridge_project_code_recall_summary": stage4_project_code_recall_summary,
+        "stage5_calibration_sample_count": len(stage5_calibration_records),
+        "stage5_calibration_review_bucket_counts": _status_counts(
+            stage5_calibration_records,
+            "stage5_calibration_review_bucket",
         ),
         "stage4_release_adapter_bridge_target_type_counts": _status_counts(
             stage4_release_adapter_bridge_records,
@@ -248,6 +259,7 @@ def build_stage1_6_real_public_pressure_report(
     stage1_6_readiness_records = _stage1_6_readiness_records(result)
     stage1_6_gap_summary_records = _stage1_6_gap_summary_records(stage1_6_readiness_records)
     stage4_release_adapter_bridge_records = _stage4_release_adapter_bridge_records(result, created_at=created)
+    stage5_calibration_records = _stage5_calibration_records(result)
     stage4_release_adapter_bridge_manifest = _stage4_release_adapter_bridge_manifest(
         records=stage4_release_adapter_bridge_records,
         source_run_result_json=run_result_path,
@@ -267,6 +279,7 @@ def build_stage1_6_real_public_pressure_report(
         "stage1_6_readiness_records": stage1_6_readiness_records,
         "stage1_6_gap_summary_records": stage1_6_gap_summary_records,
         "stage4_release_adapter_bridge_records": stage4_release_adapter_bridge_records,
+        "stage5_calibration_records": stage5_calibration_records,
         "stage4_release_adapter_bridge_plan_ref": {
             "path": str(out_dir / "stage4-release-adapter-bridge-plan.json"),
             "manifest_kind": REAL_PUBLIC_STAGE4_RELEASE_ADAPTER_BRIDGE_KIND,
@@ -301,6 +314,10 @@ def build_stage1_6_real_public_pressure_report(
     _write_json(
         out_dir / "stage4-release-adapter-bridge-table.json",
         {"summary": summary, "records": stage4_release_adapter_bridge_records},
+    )
+    _write_json(
+        out_dir / "stage5-calibration-sample-table.json",
+        {"summary": summary, "records": stage5_calibration_records},
     )
     _write_json(out_dir / "stage4-release-adapter-bridge-plan.json", stage4_release_adapter_bridge_manifest)
     _write_json(out_dir / "gap-summary-table.json", {"summary": summary, "records": gap_records})
@@ -380,6 +397,251 @@ def _candidate_next_action(
     ):
         return "advance_to_stage7_9_internal_review"
     return "keep_internal_review_and_register_source_gap"
+
+
+_STAGE1_3_STABILITY_METRIC_KEYS = (
+    "stage2_attachment_capture_attempted_count",
+    "stage2_attachment_snapshot_count",
+    "stage2_attachment_snapshot_missing_count",
+    "attachment_snapshot_readback_missing_count",
+    "stage3_attachment_ocr_required_count",
+    "stage3_attachment_ocr_extracted_count",
+    "stage3_attachment_ocr_pending_count",
+    "attachment_text_cache_hit_count",
+    "stage3_responsible_role_gap_count",
+    "stage3_parse_blocker_count",
+)
+
+_STAGE1_3_STABILITY_GAP_SPECS = (
+    {
+        "metric": "stage2_attachment_snapshot_missing_count",
+        "gap_family": "stage1_3_stability_gap",
+        "gap_value": "attachment_snapshot_gap",
+        "next_action": "rerun_stage2_attachment_capture_or_repair_snapshot_readback",
+    },
+    {
+        "metric": "attachment_snapshot_readback_missing_count",
+        "gap_family": "stage1_3_stability_gap",
+        "gap_value": "attachment_snapshot_readback_gap",
+        "next_action": "rerun_stage2_attachment_capture_or_repair_snapshot_readback",
+    },
+    {
+        "metric": "stage3_attachment_ocr_pending_count",
+        "gap_family": "stage1_3_stability_gap",
+        "gap_value": "attachment_ocr_gap",
+        "next_action": "rerun_target_attachment_parse_with_ocr",
+    },
+    {
+        "metric": "stage3_responsible_role_gap_count",
+        "gap_family": "stage1_3_stability_gap",
+        "gap_value": "stage3_responsible_role_gap",
+        "next_action": "run_company_first_identifier_resolution_before_stage4_or_stage6",
+    },
+    {
+        "metric": "stage3_parse_blocker_count",
+        "gap_family": "stage1_3_stability_gap",
+        "gap_value": "stage3_parse_blocker",
+        "next_action": "rerun_target_attachment_parse_with_ocr",
+    },
+)
+
+
+def _stage1_3_stability_metrics(
+    *,
+    row: Mapping[str, Any],
+    closed_loop: Mapping[str, Any],
+    readback: Mapping[str, Any],
+) -> dict[str, int]:
+    source_payloads = _stage1_3_stability_sources(row=row, closed_loop=closed_loop, readback=readback)
+    attempted = _first_int(source_payloads, "stage2_attachment_capture_attempted_count", "attachment_capture_attempted_count")
+    snapshots = _first_int(source_payloads, "stage2_attachment_snapshot_count", "attachment_snapshot_count")
+    snapshot_missing = _first_int(source_payloads, "stage2_attachment_snapshot_missing_count")
+    if snapshot_missing == 0 and attempted > snapshots:
+        snapshot_missing = attempted - snapshots
+    ocr_required = _first_int(source_payloads, "stage3_attachment_ocr_required_count", "attachment_ocr_required_count")
+    ocr_extracted = _first_int(source_payloads, "stage3_attachment_ocr_extracted_count", "attachment_ocr_extracted_count")
+    ocr_pending = _first_int(source_payloads, "stage3_attachment_ocr_pending_count", "attachment_ocr_pending_count")
+    if ocr_pending == 0 and ocr_required > ocr_extracted:
+        ocr_pending = ocr_required - ocr_extracted
+    readback_missing = _first_int(source_payloads, "attachment_snapshot_readback_missing_count")
+    if readback_missing == 0 and _contains_stage1_3_reason(source_payloads, "attachment_snapshot_readback_missing"):
+        readback_missing = 1
+    responsible_gap = _first_int(source_payloads, "stage3_responsible_role_gap_count")
+    if responsible_gap == 0 and (
+        bool(row.get("responsible_role_gap_review_required"))
+        or bool(readback.get("responsible_role_gap_review_required"))
+        or str(row.get("responsible_role_gap_code") or "").strip()
+    ):
+        responsible_gap = 1
+    parse_blocker = _first_int(source_payloads, "stage3_parse_blocker_count")
+    return {
+        "stage2_attachment_capture_attempted_count": attempted,
+        "stage2_attachment_snapshot_count": snapshots,
+        "stage2_attachment_snapshot_missing_count": max(snapshot_missing, 0),
+        "attachment_snapshot_readback_missing_count": max(readback_missing, 0),
+        "stage3_attachment_ocr_required_count": ocr_required,
+        "stage3_attachment_ocr_extracted_count": ocr_extracted,
+        "stage3_attachment_ocr_pending_count": max(ocr_pending, 0),
+        "attachment_text_cache_hit_count": _first_int(source_payloads, "attachment_text_cache_hit_count"),
+        "stage3_responsible_role_gap_count": max(responsible_gap, 0),
+        "stage3_parse_blocker_count": max(parse_blocker, 0),
+    }
+
+
+def _stage1_3_stability_sources(
+    *,
+    row: Mapping[str, Any],
+    closed_loop: Mapping[str, Any],
+    readback: Mapping[str, Any],
+) -> list[Mapping[str, Any]]:
+    sources: list[Mapping[str, Any]] = [row, readback, closed_loop]
+    for payload in (row, readback, closed_loop):
+        nested = payload.get("stage123_stability_summary") if isinstance(payload, Mapping) else None
+        if isinstance(nested, Mapping):
+            sources.append(nested)
+    return sources
+
+
+def _first_int(sources: list[Mapping[str, Any]], *keys: str) -> int:
+    for source in sources:
+        for key in keys:
+            if key in source:
+                return _as_int(source.get(key))
+    return 0
+
+
+def _contains_stage1_3_reason(sources: list[Mapping[str, Any]], reason: str) -> bool:
+    for source in sources:
+        for key in ("blocking_reasons", "degraded_reasons", "fail_closed_reasons", "review_reasons"):
+            if reason in _string_list(source.get(key)):
+                return True
+    return False
+
+
+def _stage1_3_stability_summary(readiness_records: list[Mapping[str, Any]]) -> dict[str, int]:
+    return {
+        key: sum(_as_int(row.get(key)) for row in readiness_records)
+        for key in _STAGE1_3_STABILITY_METRIC_KEYS
+    }
+
+
+def _stage5_calibration_records(result: Mapping[str, Any]) -> list[dict[str, Any]]:
+    closed_loop_by_project_id = {
+        str(item.get("project_id") or ""): dict(item)
+        for item in list(result.get("closed_loop_results") or [])
+        if isinstance(item, Mapping) and str(item.get("project_id") or "").strip()
+    }
+    records: list[dict[str, Any]] = []
+    for option in list(result.get("candidate_options") or []):
+        if not isinstance(option, Mapping):
+            continue
+        candidate = dict(option)
+        project_id = str(candidate.get("project_id") or "")
+        closed_loop = dict(closed_loop_by_project_id.get(project_id) or {})
+        readback = dict(closed_loop.get("real_public_stage1_6_readback") or {})
+        if not readback:
+            continue
+        rule_status = str(readback.get("stage5_rule_gate_status") or "")
+        evidence_status = str(readback.get("stage5_evidence_gate_status") or "")
+        remaining_gaps = _string_list(readback.get("remaining_real_world_gaps"))
+        fail_closed_reasons = _string_list(closed_loop.get("fail_closed_reasons") or readback.get("fail_closed_reasons"))
+        bucket = _stage5_calibration_review_bucket(
+            rule_status=rule_status,
+            evidence_status=evidence_status,
+            remaining_gaps=remaining_gaps,
+            fail_closed_reasons=fail_closed_reasons,
+            closed_loop=closed_loop,
+        )
+        records.append(
+            {
+                "stage5_calibration_sample_id": build_id(
+                    "STAGE5-CALIBRATION-SAMPLE",
+                    project_id or "UNKNOWN",
+                    bucket,
+                ),
+                "project_id": project_id,
+                "project_name": str(candidate.get("project_name") or ""),
+                "source_url": str(candidate.get("source_url") or ""),
+                "candidate_company": str(candidate.get("candidate_company") or candidate.get("winner_name") or ""),
+                "stage5_rule_gate_status": rule_status,
+                "stage5_evidence_gate_status": evidence_status,
+                "stage5_calibration_review_bucket": bucket,
+                "stage5_calibration_review_reasons": _stage5_calibration_review_reasons(
+                    bucket=bucket,
+                    remaining_gaps=remaining_gaps,
+                    fail_closed_reasons=fail_closed_reasons,
+                ),
+                "remaining_real_world_gaps": remaining_gaps,
+                "fail_closed_reasons": fail_closed_reasons,
+                "customer_sellable_evidence_ready": bool(
+                    candidate.get("customer_sellable_evidence_ready")
+                    or closed_loop.get("customer_sellable_evidence_ready")
+                    or readback.get("customer_sellable_evidence_ready")
+                ),
+                "calibration_truth_label_required": bucket
+                not in ("STAGE5_PASS_WITH_NO_ACTIVE_GAP_BASELINE", "STAGE5_REVIEW_WITH_ACTIVE_SOURCE_GAP_BASELINE"),
+                "suggested_calibration_action": _stage5_calibration_next_action(bucket),
+                "query_miss_is_not_clearance": True,
+                "customer_visible_allowed": False,
+                "no_legal_conclusion": True,
+            }
+        )
+    return records
+
+
+def _stage5_calibration_review_bucket(
+    *,
+    rule_status: str,
+    evidence_status: str,
+    remaining_gaps: list[str],
+    fail_closed_reasons: list[str],
+    closed_loop: Mapping[str, Any],
+) -> str:
+    has_gap = bool(remaining_gaps or fail_closed_reasons)
+    if rule_status == "PASS" and evidence_status == "PASS" and not has_gap:
+        return "STAGE5_PASS_WITH_NO_ACTIVE_GAP_BASELINE"
+    if rule_status == "PASS" and evidence_status == "PASS" and has_gap:
+        return "POTENTIAL_FALSE_POSITIVE_REVIEW"
+    if rule_status in ("REVIEW", "BLOCK") or evidence_status in ("REVIEW", "BLOCK"):
+        if has_gap:
+            return "STAGE5_REVIEW_WITH_ACTIVE_SOURCE_GAP_BASELINE"
+        if str(closed_loop.get("real_public_stage1_6_chain_state") or "") == "INTERNAL_READY":
+            return "POTENTIAL_FALSE_NEGATIVE_REVIEW"
+        return "STAGE5_REVIEW_WITHOUT_EXPLICIT_GAP_REVIEW"
+    return "STAGE5_CALIBRATION_INPUT_INCOMPLETE"
+
+
+def _stage5_calibration_review_reasons(
+    *,
+    bucket: str,
+    remaining_gaps: list[str],
+    fail_closed_reasons: list[str],
+) -> list[str]:
+    if bucket == "POTENTIAL_FALSE_POSITIVE_REVIEW":
+        return [
+            "stage5_passed_while_stage4_or_runtime_gap_still_exists",
+            *remaining_gaps,
+            *fail_closed_reasons,
+        ]
+    if bucket == "POTENTIAL_FALSE_NEGATIVE_REVIEW":
+        return ["stage5_review_or_block_without_explicit_stage4_gap_on_internal_ready_chain"]
+    if bucket == "STAGE5_REVIEW_WITH_ACTIVE_SOURCE_GAP_BASELINE":
+        return [*remaining_gaps, *fail_closed_reasons]
+    if bucket == "STAGE5_CALIBRATION_INPUT_INCOMPLETE":
+        return ["stage5_gate_status_missing_or_incomplete"]
+    return []
+
+
+def _stage5_calibration_next_action(bucket: str) -> str:
+    if bucket == "POTENTIAL_FALSE_POSITIVE_REVIEW":
+        return "review_stage5_pass_against_stage4_source_gap_before_rule_relaxation"
+    if bucket == "POTENTIAL_FALSE_NEGATIVE_REVIEW":
+        return "review_stage5_review_or_block_against_internal_ready_sample_before_rule_tightening"
+    if bucket == "STAGE5_REVIEW_WITH_ACTIVE_SOURCE_GAP_BASELINE":
+        return "keep_review_until_stage4_source_gap_resolved_or_truth_label_added"
+    if bucket == "STAGE5_CALIBRATION_INPUT_INCOMPLETE":
+        return "rerun_or_backfill_stage5_gate_status_before_calibration"
+    return "keep_as_stage5_calibration_baseline"
 
 
 def _stage4_release_adapter_bridge_records(result: Mapping[str, Any], *, created_at: str) -> list[dict[str, Any]]:
@@ -576,6 +838,59 @@ def _stage4_release_adapter_bridge_records(result: Mapping[str, Any], *, created
     return _dedupe_records(rows, ("release_evidence_adapter_task_id",))
 
 
+def _stage4_release_adapter_bridge_project_code_recall_summary(
+    rows: list[Mapping[str, Any]]
+) -> dict[str, Any]:
+    task_count = len(rows)
+    with_any_project_code = 0
+    with_gdcic_project_code = 0
+    with_trade_project_code = 0
+    trade_only = 0
+    missing_gdcic_project_code = 0
+    gdcic_project_code_project_ids: set[str] = set()
+    missing_gdcic_project_code_project_ids: set[str] = set()
+    for row in rows:
+        params = row.get("query_params") if isinstance(row.get("query_params"), Mapping) else {}
+        project_code_variants = _string_list(params.get("projectCodeVariants"))
+        gdcic_project_code_variants = _string_list(params.get("gdcicProjectCodeVariants"))
+        trade_project_code = str(params.get("tradeProjectCode") or "").strip()
+        project_id = str(row.get("project_id") or "").strip()
+        if project_code_variants:
+            with_any_project_code += 1
+        if gdcic_project_code_variants:
+            with_gdcic_project_code += 1
+            if project_id:
+                gdcic_project_code_project_ids.add(project_id)
+        else:
+            missing_gdcic_project_code += 1
+            if project_id:
+                missing_gdcic_project_code_project_ids.add(project_id)
+        if trade_project_code:
+            with_trade_project_code += 1
+        if trade_project_code and project_code_variants and not gdcic_project_code_variants:
+            trade_only += 1
+    return {
+        "bridge_task_count": task_count,
+        "with_any_project_code_variant_task_count": with_any_project_code,
+        "with_gdcic_project_code_variant_task_count": with_gdcic_project_code,
+        "with_trade_project_code_task_count": with_trade_project_code,
+        "trade_project_code_only_task_count": trade_only,
+        "missing_gdcic_project_code_variant_task_count": missing_gdcic_project_code,
+        "gdcic_project_code_variant_project_count": len(gdcic_project_code_project_ids),
+        "missing_gdcic_project_code_variant_project_count": len(missing_gdcic_project_code_project_ids),
+        "project_code_recall_state": (
+            "NO_STAGE4_RELEASE_BRIDGE_TASKS"
+            if task_count <= 0
+            else "GDCIC_PROJECT_CODE_VARIANTS_PRESENT"
+            if with_gdcic_project_code > 0
+            else "ONLY_TRADE_OR_NO_GDCIC_PROJECT_CODE_VARIANTS"
+        ),
+        "query_miss_is_not_clearance": True,
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
+
+
 def _stage4_release_adapter_bridge_manifest(
     *,
     records: list[Mapping[str, Any]],
@@ -732,11 +1047,21 @@ PROJECT_CODE_FIELD_KEYS = {
     "tradeprojectcodes",
     "projectpubliccode",
     "projectpubliccodes",
+    "prooforserialcode",
+    "proofcode",
     "projectno",
+    "projectnos",
     "projectnum",
+    "projectnums",
+    "projectid",
+    "projectids",
     "prjnum",
     "prjcode",
     "tenderprojectcode",
+    "tenderprojectcodes",
+    "tenderprojectno",
+    "tenderprojectnum",
+    "bidprojectcode",
     "sectioncode",
     "bidsectioncode",
 }
@@ -750,6 +1075,8 @@ PROJECT_CODE_URL_QUERY_KEYS = {
     "trade_project_code",
     "projectno",
     "projectnum",
+    "projectId",
+    "project_id",
     "prjnum",
     "prjcode",
     "tenderprojectcode",
@@ -797,6 +1124,22 @@ def _bridge_project_code_values(
         source_readback.get("project_codes"),
         source_readback.get("gdcic_project_codes"),
         source_readback.get("source_results"),
+        source_readback.get("bid_show_records"),
+        source_readback.get("data_ggzy_bid_show_records"),
+        source_readback.get("ygp_project_records"),
+        source_readback.get("ygp_flow_matrix_records"),
+        source_readback.get("ygp_flow_bucket_records"),
+        source_readback.get("ygp_flow_item_records"),
+        source_readback.get("ygp_detail_readback_records"),
+        readback.get("bid_show_records"),
+        readback.get("data_ggzy_bid_show_records"),
+        readback.get("ygp_project_records"),
+        readback.get("ygp_flow_matrix_records"),
+        readback.get("ygp_flow_bucket_records"),
+        readback.get("ygp_flow_item_records"),
+        readback.get("ygp_detail_readback_records"),
+        readback.get("guangdong_ygp_flow_matrix"),
+        readback.get("ygp_flow_matrix"),
         readback.get("source_refs"),
     ):
         values.extend(_collect_project_code_values(payload))
@@ -829,7 +1172,25 @@ def _collect_project_code_values(value: Any) -> list[str]:
             if key in {"sourceurl", "triggerurl", "url", "apiurl", "officialreferenceurl"}:
                 out.extend(_project_code_values_from_url(nested_value))
                 continue
-            if key in {"querycontext", "queryinput", "source_results", "sourceresults", "samplerecords", "limitedreadback"}:
+            if key in {
+                "querycontext",
+                "queryinput",
+                "source_results",
+                "sourceresults",
+                "samplerecords",
+                "limitedreadback",
+                "bidshowrecords",
+                "dataggzybidshowrecords",
+                "ygpprojectrecords",
+                "ygpflowmatrixrecords",
+                "ygpflowbucketrecords",
+                "ygpflowitemrecords",
+                "ygpdetailreadbackrecords",
+                "nodelist",
+                "dslist",
+                "detail",
+                "manifest",
+            }:
                 out.extend(_collect_project_code_values(nested_value))
                 continue
             if isinstance(nested_value, Mapping) or (
@@ -908,8 +1269,17 @@ def _project_code_variants(values: Iterable[Any]) -> list[str]:
         text = str(value or "").strip()
         if not text:
             continue
+        if _looks_like_explicit_project_code(text):
+            out.append(text.upper() if re.search(r"[A-Za-z]", text) else text)
+            continue
         for match in re.findall(r"\b[A-Z]{1,8}\d{4}-\d{3,8}(?:-\d{3})?\b", text, flags=re.IGNORECASE):
             out.append(match.upper())
+        for match in re.findall(r"\bE\d{12,22}\b", text, flags=re.IGNORECASE):
+            out.append(match.upper())
+        for match in re.findall(r"\b\d{6,12}-\d{4}-\d{3,8}(?:-\d{1,8})?\b", text):
+            out.append(match)
+        for match in re.findall(r"\b\d{4}-\d{6}-\d{2}-\d{2}-\d{6}\b", text):
+            out.append(match)
         for match in re.findall(r"\b\d{12,22}\b", text):
             out.append(match)
     return _dedupe_strings(out)
@@ -919,8 +1289,40 @@ def _gdcic_project_code_variants(values: Iterable[Any]) -> list[str]:
     return _dedupe_strings(
         code
         for code in _project_code_variants(values)
-        if re.fullmatch(r"\d{12,22}", code)
+        if _looks_like_gdcic_project_code_variant(code)
     )
+
+
+def _looks_like_explicit_project_code(value: Any) -> bool:
+    text = str(value or "").strip()
+    if not text or len(text) > 48:
+        return False
+    if _looks_like_trade_project_code(text):
+        return True
+    if re.fullmatch(r"\d{12,22}", text):
+        return True
+    if re.fullmatch(r"E\d{12,22}", text, flags=re.IGNORECASE):
+        return True
+    if re.fullmatch(r"\d{6,12}-\d{4}-\d{3,8}(?:-\d{1,8})?", text):
+        return True
+    if re.fullmatch(r"\d{4}-\d{6}-\d{2}-\d{2}-\d{6}", text):
+        return True
+    return False
+
+
+def _looks_like_gdcic_project_code_variant(value: Any) -> bool:
+    text = str(value or "").strip()
+    if not text or _looks_like_trade_project_code(text):
+        return False
+    return bool(
+        re.fullmatch(r"\d{12,22}", text)
+        or re.fullmatch(r"E\d{12,22}", text, flags=re.IGNORECASE)
+        or re.fullmatch(r"\d{6,12}-\d{4}-\d{3,8}(?:-\d{1,8})?", text)
+    )
+
+
+def _looks_like_trade_project_code(value: Any) -> bool:
+    return bool(re.fullmatch(r"[A-Z]{1,8}\d{4}-\d{3,8}(?:-\d{3})?", str(value or "").strip().upper()))
 
 
 def _company_name_variants(value: Any) -> list[str]:
@@ -1027,7 +1429,14 @@ def _stage1_6_readiness_records(result: Mapping[str, Any]) -> list[dict[str, Any
         project_id = str(row.get("project_id") or "")
         closed_loop = dict(closed_loop_by_project_id.get(project_id) or {})
         readback = dict(closed_loop.get("real_public_stage1_6_readback") or {})
-        stage_states = _stage1_6_stage_states(row=row, closed_loop=closed_loop, readback=readback)
+        stability_metrics = _stage1_3_stability_metrics(row=row, closed_loop=closed_loop, readback=readback)
+        row_with_stability = {**row, **stability_metrics}
+        stage_states = _stage1_6_stage_states(
+            row=row,
+            closed_loop=closed_loop,
+            readback=readback,
+            stability_metrics=stability_metrics,
+        )
         bottleneck_stage = _stage1_6_bottleneck_stage(stage_states)
         readiness_state = _stage1_6_readiness_state(
             row=row,
@@ -1036,7 +1445,7 @@ def _stage1_6_readiness_records(result: Mapping[str, Any]) -> list[dict[str, Any
             bottleneck_stage=bottleneck_stage,
         )
         next_action = _stage1_6_next_action(
-            row=row,
+            row=row_with_stability,
             closed_loop=closed_loop,
             readback=readback,
             bottleneck_stage=bottleneck_stage,
@@ -1066,6 +1475,7 @@ def _stage1_6_readiness_records(result: Mapping[str, Any]) -> list[dict[str, Any
                     or str(closed_loop.get("real_public_stage1_6_chain_state") or "") == "INTERNAL_READY"
                     or str(row.get("real_public_stage1_6_chain_state") or "") == "INTERNAL_READY"
                 ),
+                **stability_metrics,
                 "responsible_role_gap_code": str(row.get("responsible_role_gap_code") or ""),
                 "remaining_real_world_gaps": _string_list(readback.get("remaining_real_world_gaps")),
                 "fail_closed_reasons": _string_list(closed_loop.get("fail_closed_reasons") or readback.get("fail_closed_reasons")),
@@ -1086,7 +1496,9 @@ def _stage1_6_stage_states(
     row: Mapping[str, Any],
     closed_loop: Mapping[str, Any],
     readback: Mapping[str, Any],
+    stability_metrics: Mapping[str, Any] | None = None,
 ) -> dict[str, str]:
+    stability = dict(stability_metrics or {})
     stage2_state = str(row.get("stage2_detail_capture_state") or "")
     stage3_state = str(row.get("stage3_parse_state") or "")
     chain_state = str(
@@ -1119,6 +1531,10 @@ def _stage1_6_stage_states(
         stage1 = "CANDIDATE_DISCOVERED" if row.get("project_id") or row.get("source_url") else "CANDIDATE_SOURCE_MISSING"
     if bool(row.get("stage2_detail_capture_pending")) or "PENDING_STAGE2_DETAIL_CAPTURE" in chain_state:
         stage2 = "PENDING_DETAIL_CAPTURE"
+    elif _as_int(stability.get("stage2_attachment_snapshot_missing_count")) > 0:
+        stage2 = "ATTACHMENT_SNAPSHOT_MISSING_REVIEW_REQUIRED"
+    elif _as_int(stability.get("attachment_snapshot_readback_missing_count")) > 0:
+        stage2 = "ATTACHMENT_SNAPSHOT_READBACK_MISSING_REVIEW_REQUIRED"
     elif "FAIL" in stage2_state.upper() or any("detail_capture" in reason and "pending" not in reason for reason in fail_reasons):
         stage2 = "DETAIL_CAPTURE_FAILED_REVIEW_REQUIRED"
     elif stage2_state:
@@ -1129,6 +1545,10 @@ def _stage1_6_stage_states(
         stage3 = "PENDING_DETAIL_CAPTURE"
     elif "FAIL" in stage3_state.upper():
         stage3 = "FIELD_PARSE_FAILED_REVIEW_REQUIRED"
+    elif _as_int(stability.get("stage3_attachment_ocr_pending_count")) > 0:
+        stage3 = "ATTACHMENT_OCR_PENDING_REVIEW_REQUIRED"
+    elif _as_int(stability.get("stage3_parse_blocker_count")) > 0:
+        stage3 = "FIELD_PARSE_BLOCKER_REVIEW_REQUIRED"
     elif str(row.get("responsible_role_gap_code") or ""):
         stage3 = "RESPONSIBLE_ROLE_GAP_REVIEW_REQUIRED"
     elif stage3_state:
@@ -1205,7 +1625,7 @@ def _stage1_6_bottleneck_stage(stage_states: Mapping[str, str]) -> str:
     if stage_states.get("stage1") != "CANDIDATE_DISCOVERED":
         return "Stage1"
     stage2 = str(stage_states.get("stage2") or "")
-    if "PENDING" in stage2 or "FAILED" in stage2 or "UNKNOWN" in stage2:
+    if "PENDING" in stage2 or "FAILED" in stage2 or "UNKNOWN" in stage2 or "MISSING" in stage2:
         return "Stage2"
     stage3 = str(stage_states.get("stage3") or "")
     if "PENDING" in stage3 or "FAILED" in stage3 or "GAP" in stage3 or "UNKNOWN" in stage3:
@@ -1239,6 +1659,8 @@ def _stage1_6_readiness_state(
         return "STAGE1_6_INTERNAL_READY"
     if str(row.get("real_public_stage1_6_chain_state") or closed_loop.get("real_public_stage1_6_chain_state") or "") == "INTERNAL_READY":
         return "STAGE1_6_INTERNAL_READY"
+    if bottleneck_stage == "Stage2":
+        return "STAGE2_ATTACHMENT_CAPTURE_REVIEW_REQUIRED"
     if bottleneck_stage == "Stage3":
         return "STAGE3_FIELD_OR_ROLE_REVIEW_REQUIRED"
     if bottleneck_stage == "Stage4":
@@ -1266,6 +1688,10 @@ def _stage1_6_next_action(
         return "increase_stage1_6_time_budget"
     if readiness_state == "STAGE1_REVIEW_ONLY_NOT_SELECTED":
         return "skip_or_owner_select_candidate_for_manual_stage1_6_reopen"
+    if _as_int(row.get("stage2_attachment_snapshot_missing_count")) > 0 or _as_int(row.get("attachment_snapshot_readback_missing_count")) > 0:
+        return "rerun_stage2_attachment_capture_or_repair_snapshot_readback"
+    if _as_int(row.get("stage3_attachment_ocr_pending_count")) > 0 or _as_int(row.get("stage3_parse_blocker_count")) > 0:
+        return "rerun_target_attachment_parse_with_ocr"
     if str(row.get("responsible_role_gap_code") or "") or bool(readback.get("jzsc_company_first_identity_resolution_required")):
         return "run_company_first_identifier_resolution_before_stage4_or_stage6"
     if bottleneck_stage == "Stage4":
@@ -1310,6 +1736,17 @@ def _stage1_6_gap_summary_records(readiness_records: list[Mapping[str, Any]]) ->
                 gap_value=str(row.get("responsible_role_gap_code") or ""),
                 project_id=project_id,
                 next_action="run_company_first_identifier_resolution_before_stage4_or_stage6",
+            )
+        for spec in _STAGE1_3_STABILITY_GAP_SPECS:
+            count = _as_int(row.get(spec["metric"]))
+            if count <= 0:
+                continue
+            _accumulate_gap(
+                grouped,
+                gap_family=spec["gap_family"],
+                gap_value=spec["gap_value"],
+                project_id=project_id,
+                next_action=spec["next_action"],
             )
         for gap in _string_list(row.get("remaining_real_world_gaps")):
             _accumulate_gap(

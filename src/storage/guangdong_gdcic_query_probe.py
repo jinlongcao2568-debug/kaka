@@ -1093,6 +1093,12 @@ def _project_code_variants(values: Iterable[Any]) -> list[str]:
             continue
         for match in re.findall(r"\b[A-Z]{1,8}\d{4}-\d{3,8}(?:-\d{3})?\b", text, flags=re.IGNORECASE):
             out.append(match.upper())
+        for match in re.findall(r"\bE\d{12,22}\b", text, flags=re.IGNORECASE):
+            out.append(match.upper())
+        for match in re.findall(r"\b\d{6,12}-\d{4}-\d{3,8}(?:-\d{1,8})?\b", text):
+            out.append(match)
+        for match in re.findall(r"\b\d{4}-\d{6}-\d{2}-\d{2}-\d{6}\b", text):
+            out.append(match)
         for match in re.findall(r"\b\d{12,22}\b", text):
             out.append(match)
     return _dedupe(out)
@@ -1103,6 +1109,8 @@ def _gdcic_project_code_variants(values: Iterable[Any]) -> list[str]:
         code
         for code in _project_code_variants(values)
         if re.fullmatch(r"\d{12,22}", code)
+        or re.fullmatch(r"E\d{12,22}", code, flags=re.IGNORECASE)
+        or re.fullmatch(r"\d{6,12}-\d{4}-\d{3,8}(?:-\d{1,8})?", code)
     )
 
 

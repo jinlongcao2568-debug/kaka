@@ -1,0 +1,185 @@
+contract_id: RUNTIME_ARCHITECTURE_CONTRACT_V1
+version: 1
+status: ACTIVE
+updated_at: "2026-05-24"
+purpose: >
+  Machine-readable target runtime architecture for moving the product from
+  stage services plus scripts into a controller-owned run graph with explicit
+  state, dispatch, transition guards, and audit replay.
+
+system_brain_components:
+  - component_id: run_controller
+    runtime_responsibility: Own run_id, current stage, run state, next action, and safety envelope.
+    target_module: src/runtime/run_controller.py
+  - component_id: stage_state_machine
+    runtime_responsibility: Load the Stage1-9 graph and answer allowed next-stage transitions.
+    target_module: src/runtime/stage_state_machine.py
+  - component_id: work_queue_dispatcher
+    runtime_responsibility: Convert controller next actions into internal dispatch tasks keyed by entrypoint_id.
+    target_module: src/runtime/dispatcher.py
+  - component_id: transition_guard
+    runtime_responsibility: Keep weak evidence, authorization gaps, external actions, payment, delivery, and refund blocked until gates pass.
+    target_module: src/runtime/transition_guard.py
+  - component_id: audit_replay_ledger
+    runtime_responsibility: Record run starts, stage outputs, dispatch tasks, blocker reasons, input refs, and output refs.
+    target_module: src/runtime/audit_ledger.py
+  - component_id: runtime_state_repository
+    runtime_responsibility: Persist run_state, audit events, and operator projection as formal storage records queryable by run_id, project_id, and entrypoint_id.
+    target_module: src/storage/repositories/runtime_state_repo.py
+  - component_id: stage123_front_chain
+    runtime_responsibility: Convert Stage1 market scan, Stage1 source blueprint, Stage2 capture, and Stage3 parse inputs into controller-consumable front-chain records before Stage4-6 continuation.
+    target_module: src/runtime/stage123_front_chain.py
+  - component_id: operator_runtime_projection
+    runtime_responsibility: Expose the latest controller run projection, blocker queue, controller dispatch queue records, worker follow-up, operator action, and closed safety boundary to the operator frontend.
+    target_module: src/api/routes/operator_frontend.py#/operator-console/runtime-projection
+  - component_id: stage1_3_repair_worker
+    runtime_responsibility: Convert controller-derived Stage1-3 repair review tasks into internal repair workplans without live external execution.
+    target_module: src/runtime/stage13_repair_worker.py
+  - component_id: gdcic_browser_authorized_readback_worker
+    runtime_responsibility: Persist Stage4 GDCIC authorized readback state into runtime worker-result ledger for operator and Stage5 calibration review.
+    target_module: src/storage/gdcic_browser_authorized_readback.py
+
+stage_graph:
+  - stage_id: stage1_tasking
+    stage_index: 1
+    owner_module: src/stage1_tasking
+    next_stage_id: stage2_ingestion
+  - stage_id: stage2_ingestion
+    stage_index: 2
+    owner_module: src/stage2_ingestion
+    next_stage_id: stage3_parsing
+  - stage_id: stage3_parsing
+    stage_index: 3
+    owner_module: src/stage3_parsing
+    next_stage_id: stage4_verification
+  - stage_id: stage4_verification
+    stage_index: 4
+    owner_module: src/stage4_verification
+    next_stage_id: stage5_rules_evidence
+  - stage_id: stage5_rules_evidence
+    stage_index: 5
+    owner_module: src/stage5_rules_evidence
+    next_stage_id: stage6_fact_review
+  - stage_id: stage6_fact_review
+    stage_index: 6
+    owner_module: src/stage6_fact_review
+    next_stage_id: stage7_sales
+  - stage_id: stage7_sales
+    stage_index: 7
+    owner_module: src/stage7_sales
+    next_stage_id: stage8_outreach
+  - stage_id: stage8_outreach
+    stage_index: 8
+    owner_module: src/stage8_outreach
+    next_stage_id: stage9_delivery
+  - stage_id: stage9_delivery
+    stage_index: 9
+    owner_module: src/stage9_delivery
+    next_stage_id: DONE
+
+run_state_values:
+  - READY
+  - RUNNING
+  - REVIEW_REQUIRED
+  - BLOCKED
+  - SUSPENDED
+  - DONE
+  - DEAD_LETTER
+
+next_action_types:
+  - ENTRYPOINT
+  - OPERATOR_ACTION
+  - REVIEW
+  - SUSPEND
+  - DONE
+
+blocker_taxonomy:
+  - blocker_id: missing_required_input
+    default_state: BLOCKED
+  - blocker_id: weak_or_missing_public_evidence
+    default_state: REVIEW_REQUIRED
+  - blocker_id: source_not_found_not_clearance
+    default_state: REVIEW_REQUIRED
+  - blocker_id: needs_browser
+    default_state: BLOCKED
+  - blocker_id: login_or_sso_required
+    default_state: BLOCKED
+    authorization_readiness_state: LOGIN_OR_SSO_REQUIRED
+  - blocker_id: approval_or_audit_required
+    default_state: BLOCKED
+  - blocker_id: live_external_action_not_gated
+    default_state: BLOCKED
+
+script_boundary:
+  scripts_are_transport_only: true
+  formal_continuation_uses_entrypoint_id: true
+  script_may_set_environment: true
+  script_may_parse_cli_args: true
+  script_must_not_own_business_state: true
+  forbidden_patterns:
+    - recommended_script_as_state_truth
+    - tmp_json_path_as_next_step_authority
+    - shell_command_string_as_dispatch_contract
+    - live_action_enabled_by_script_flag_only
+
+live_boundary:
+  external_customer_action_enabled: false
+  customer_visible_download_enabled: false
+  real_outreach_enabled: false
+  real_payment_enabled: false
+  real_delivery_enabled: false
+  real_refund_enabled: false
+  automatic_refund_enabled: false
+
+current_migration_slice:
+  scope: stage1_6_runtime_cycle_controller
+  keeps_existing_stage_services: true
+  wraps_existing_internal_chain_before_replacing_it: false
+  controller_consumes_stage123_front_chain: true
+  controller_consumes_current_focus: true
+  controller_consumes_runtime_blocker_queue: true
+  controller_consumes_stage45_replay_samples: true
+  controller_consumes_stage4_release_field_query_ledger: true
+  controller_consumes_stage4_release_chain_bootstrap_ledger: true
+  controller_consumes_stage5_calibration_ledger: true
+  controller_consumes_stage1_6_batch_readiness_ledger: true
+  controller_derives_stage1_3_repair_worker_dispatch: true
+  gdcic_authorized_readback_persisted_as_runtime_worker_result: true
+  gdcic_authorized_readback_emits_stage5_calibration_samples: true
+  runtime_operator_projection_merges_worker_stage5_calibration_ledger: true
+  controller_records_stage8_stage9_controlled_boundary: true
+  runtime_entrypoint_transport_accepts_controller_consumed_artifact_refs: true
+  runtime_state_persisted_by_repository: true
+  operator_frontend_reads_runtime_projection: true
+  operator_frontend_reads_controller_dispatch_queue_records: true
+  required_output_fields:
+    - run_id
+    - entrypoint_id
+    - current_stage_id
+    - run_state
+    - next_action
+    - blocking_reasons
+    - input_refs
+    - output_artifact_refs
+    - audit_refs
+  formal_storage_object_types:
+    - runtime_run_state
+    - runtime_audit_event
+    - runtime_operator_projection
+    - runtime_worker_result
+  formal_query_keys:
+    - run_id
+    - project_id
+    - entrypoint_id
+
+compatibility_cleanup:
+  retained_supporting_entrypoints:
+    - entrypoint_id: stage6_review_loop_runner
+      replacement_entrypoint_id: stage6_review_cycle_runner
+      retained_for:
+        - old Stage6 review-loop artifact replay
+        - regression tests
+      cleanup_rule: >
+        Do not use as the formal continuation brain. Keep only while older
+        artifacts and tests still require loop-runner compatibility.
+  deleted_without_replacement_allowed: false

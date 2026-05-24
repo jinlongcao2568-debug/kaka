@@ -16,8 +16,10 @@ agent_execution_guardrails:
     - stage4_release_evidence_bridge_builder
     - guangdong_local_field_query_probe
     - guangdong_gdcic_openplatform_query_probe
-    - stage6_review_loop_runner
+    - stage6_review_cycle_runner
     - stage16_p13b_continuation_runner
+  supporting_compat_entrypoints:
+    - stage6_review_loop_runner
   absent_state_sources:
     - control/product_runtime_agent_registry.yaml
   authorization_gap_policy: "If top-level NEEDS_AUTH is not supported by active schema/contract, represent login or SSO gaps with BLOCKED/NEEDS_BROWSER plus authorization_readiness_state=LOGIN_OR_SSO_REQUIRED and operator_next_action."

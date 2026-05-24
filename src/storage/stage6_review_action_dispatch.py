@@ -7,6 +7,10 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping
 
 from shared.utils import utc_now_iso
+from storage.runtime_closeout_precedence import (
+    closeout_precedence_decision,
+    closeout_precedence_summary,
+)
 
 
 STAGE6_REVIEW_ACTION_DISPATCH_KIND = "stage6_review_action_dispatch_v1_manifest"
@@ -88,7 +92,7 @@ def build_stage6_review_action_dispatch(
     stage6_payload = _load_json(stage6_path, blocking_reasons, "stage6_fact_package_missing_or_invalid")
     stage6_manifest = _source_manifest(stage6_payload)
     action_plan_records = [
-        dict(record)
+        _action_plan_with_closeout_precedence(record)
         for record in _list(
             (stage6_manifest.get("stage6_review_action_plan_table") or {}).get("records")
             if isinstance(stage6_manifest.get("stage6_review_action_plan_table"), Mapping)
@@ -160,6 +164,38 @@ def _automated_dispatch_allowed(record: Mapping[str, Any]) -> bool:
     return bool(record.get("automated_dispatch_allowed", True))
 
 
+def _action_plan_with_closeout_precedence(record: Mapping[str, Any]) -> dict[str, Any]:
+    copied = dict(record)
+    existing_decision = (
+        copied.get("closeout_precedence")
+        if isinstance(copied.get("closeout_precedence"), Mapping)
+        else {}
+    )
+    decision = (
+        dict(existing_decision)
+        if (
+            str(existing_decision.get("task_scope") or "") == "p13b_follow_up"
+            and (existing_decision.get("should_suppress_dispatch") or existing_decision.get("suppressed_dispatch"))
+        )
+        else closeout_precedence_decision(
+            copied,
+            runtime_layer="controller decision:stage6_review_action_dispatch",
+        )
+    )
+    copied["closeout_precedence"] = decision
+    copied["closeout_precedence_state"] = str(decision.get("closeout_precedence_state") or "")
+    copied["closeout_precedence_suppressed"] = bool(
+        decision.get("suppressed_dispatch") or decision.get("should_suppress_dispatch")
+    )
+    if decision.get("suppressed_dispatch"):
+        copied["automated_dispatch_allowed"] = False
+        copied["dispatch_block_reason"] = str(
+            decision.get("suppression_reason") or "terminal_closeout_or_backfill_marker_present"
+        )
+        copied["operator_next_action"] = str(decision.get("operator_next_action") or "")
+    return copied
+
+
 def _dispatch_task_record(record: Mapping[str, Any], *, created_at: str) -> dict[str, Any]:
     action_family = str(record.get("action_family") or "")
     spec = DISPATCH_SPECS.get(action_family, {})
@@ -182,6 +218,11 @@ def _dispatch_task_record(record: Mapping[str, Any], *, created_at: str) -> dict
         "source_review_action_plan_id": str(record.get("review_action_plan_id") or ""),
         "project_id": str(record.get("project_id") or ""),
         "project_name": str(record.get("project_name") or ""),
+        "assigned_owner": str(record.get("assigned_owner") or ""),
+        "assigned_owner_role": str(record.get("assigned_owner_role") or ""),
+        "reviewer": str(record.get("reviewer") or ""),
+        "reviewer_role": str(record.get("reviewer_role") or ""),
+        "owner_assignment_source_ref": str(record.get("owner_assignment_source_ref") or ""),
         "review_lane": str(record.get("review_lane") or ""),
         "review_queue_bucket": str(record.get("review_queue_bucket") or ""),
         "review_priority_score": int(record.get("review_priority_score") or 0),
@@ -199,6 +240,8 @@ def _dispatch_task_record(record: Mapping[str, Any], *, created_at: str) -> dict
         "source_refs": source_refs,
         "dispatch_input_blocking_reasons": input_blockers,
         "continuation_lineage": dict(record.get("continuation_lineage") or {}),
+        "closeout_precedence": dict(record.get("closeout_precedence") or {}),
+        "closeout_precedence_state": str(record.get("closeout_precedence_state") or ""),
         "execution_mode": "PLAN_ONLY_NOT_EXECUTED",
         "live_execution_enabled": False,
         "requires_operator_action_before_live": True,
@@ -240,6 +283,9 @@ def _summary(
     dispatch_task_records: list[Mapping[str, Any]],
     blocking_reasons: list[str],
 ) -> dict[str, Any]:
+    precedence = closeout_precedence_summary(
+        record.get("closeout_precedence") for record in action_plan_records if isinstance(record.get("closeout_precedence"), Mapping)
+    )
     return {
         "stage6_review_action_dispatch_state": "STAGE6_REVIEW_ACTION_DISPATCH_READY"
         if not blocking_reasons
@@ -257,6 +303,7 @@ def _summary(
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,
         "query_miss_is_not_clearance": True,
+        **precedence,
         "blocking_reasons": list(blocking_reasons),
         "forbidden_term_scan_state": "PENDING",
     }

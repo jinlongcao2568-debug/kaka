@@ -8,6 +8,11 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping
 
 from shared.utils import utc_now_iso
+from storage.runtime_closeout_precedence import (
+    blocker_ledger_record,
+    closeout_precedence_decision,
+    closeout_precedence_for_record,
+)
 
 
 EVIDENCE_STAGE6_FACT_PACKAGE_KIND = "evidence_stage6_fact_package_v1_manifest"
@@ -284,10 +289,21 @@ def _review_action_plan_record(record: Mapping[str, Any]) -> dict[str, Any]:
     action_family = _review_action_family(record, topic_code)
     action_items = _review_action_items(record, topic_code, action_family)
     automated_dispatch_allowed = _automated_dispatch_allowed(record, action_family)
+    precedence = _closeout_precedence(record, action_family)
+    blocker_record = blocker_ledger_record(record, precedence, ledger_scope="stage6_review_action_plan") if precedence.get("should_suppress_dispatch") else {}
     return {
         "review_action_plan_id": _stable_id("S6-RAP", record.get("project_id"), record.get("closeout_state")),
         "project_id": str(record.get("project_id") or ""),
         "project_name": str(record.get("project_name") or ""),
+        "assigned_owner": _first_text(record.get("assigned_owner"), record.get("project_owner"), record.get("operator_owner")),
+        "assigned_owner_role": _first_text(
+            record.get("assigned_owner_role"),
+            record.get("project_owner_role"),
+            record.get("operator_owner_role"),
+        ),
+        "reviewer": str(record.get("reviewer") or ""),
+        "reviewer_role": str(record.get("reviewer_role") or ""),
+        "owner_assignment_source_ref": str(record.get("owner_assignment_source_ref") or ""),
         "review_action_plan_state": "INTERNAL_ACTION_PLAN_READY",
         "review_lane": review_lane,
         "review_queue_bucket": _review_bucket(record),
@@ -301,8 +317,16 @@ def _review_action_plan_record(record: Mapping[str, Any]) -> dict[str, Any]:
         "completion_criteria": _review_completion_criteria(record, topic_code, action_family),
         "automated_dispatch_allowed": automated_dispatch_allowed,
         "dispatch_block_reason": "" if automated_dispatch_allowed else _dispatch_block_reason(record, action_family),
+        "closeout_precedence": precedence,
+        "runtime_blocker_ledger_record": blocker_record,
         "blocked_or_not_found_policy": "record_as_evidence_gap_or_source_blocker_not_clearance",
         "acceptable_terminal_states": ["MATCHED", "NOT_FOUND", "BLOCKED", "NEEDS_BROWSER", "REVIEW_REQUIRED"],
+        "runtime_closeout_markers": _list(record.get("runtime_closeout_markers")),
+        "terminal_closeout_markers": _list(record.get("terminal_closeout_markers")),
+        "closeout_backfill_markers": _list(record.get("closeout_backfill_markers")),
+        "terminal_backfill_markers": _list(record.get("terminal_backfill_markers")),
+        "original_readback_operator_projections": _list(record.get("original_readback_operator_projections")),
+        "runtime_blocker_ledger_records": _list(record.get("runtime_blocker_ledger_records")),
         "source_refs": dict(record.get("source_refs") or {}),
         "continuation_lineage": dict(record.get("continuation_lineage") or {}),
         "customer_visible_allowed": False,
@@ -332,6 +356,14 @@ def _internal_pack_record(record: Mapping[str, Any], *, output_root: Path, creat
         "responsible_person_name": str(record.get("responsible_person_name") or ""),
         "review_reasons": _dedupe([*_list(record.get("review_reasons")), str(record.get("batch_stop_reason") or "")]),
         "signal_counts": dict(record.get("signal_counts") or {}),
+        "original_readback_next_queue_counts": dict(record.get("original_readback_next_queue_counts") or {}),
+        "original_readback_closeout_state_counts": dict(
+            record.get("original_readback_closeout_state_counts") or {}
+        ),
+        "original_readback_operator_projections": _list(record.get("original_readback_operator_projections")),
+        "runtime_blocker_ledger_records": _list(record.get("runtime_blocker_ledger_records")),
+        "terminal_closeout_markers": _list(record.get("terminal_closeout_markers")),
+        "terminal_backfill_markers": _list(record.get("terminal_backfill_markers")),
         "design_survey_adapter_counts": dict(record.get("design_survey_adapter_counts") or {}),
         "evidence_artifacts": _list(record.get("evidence_artifacts")),
         "source_refs": dict(record.get("source_refs") or {}),
@@ -976,7 +1008,7 @@ def _review_completion_criteria(record: Mapping[str, Any], topic_code: str, acti
 
 
 def _automated_dispatch_allowed(record: Mapping[str, Any], action_family: str) -> bool:
-    if action_family == "SOURCE_GAP_TARGETED_RETRY_OR_MANUAL_REVIEW" and _is_terminal_source_gap_no_delta(record):
+    if _closeout_precedence(record, action_family).get("should_suppress_dispatch"):
         return False
     return action_family in {
         "P13B_RELEASE_EVIDENCE_TARGETED_REVIEW",
@@ -986,21 +1018,27 @@ def _automated_dispatch_allowed(record: Mapping[str, Any], action_family: str) -
 
 
 def _dispatch_block_reason(record: Mapping[str, Any], action_family: str) -> str:
-    if action_family == "SOURCE_GAP_TARGETED_RETRY_OR_MANUAL_REVIEW" and _is_terminal_source_gap_no_delta(record):
-        return "terminal_source_gap_no_delta_manual_review_only"
+    precedence = _closeout_precedence(record, action_family)
+    if precedence.get("should_suppress_dispatch"):
+        return str(precedence.get("suppression_reason") or "terminal_closeout_marker_present")
     return "action_family_not_automated_dispatchable"
 
 
 def _is_terminal_source_gap_no_delta(record: Mapping[str, Any]) -> bool:
-    if str(record.get("closeout_state") or "") != "PARK_D_INSUFFICIENT_OR_BLOCKED":
-        return False
-    if int(record.get("pending_adapter_job_count") or 0) > 0:
-        return False
-    lineage = record.get("continuation_lineage") if isinstance(record.get("continuation_lineage"), Mapping) else {}
-    final_action = str(lineage.get("final_original_backtrace_continuation_recommended_next_action") or "").strip()
-    if final_action != "PARK_OR_MANUAL_REVIEW_WITHOUT_CLEARANCE_CLAIM":
-        return False
-    return int(lineage.get("state_after_adapter_job_count") or 0) == 0
+    return bool(closeout_precedence_for_record(record, task_scope="original_readback").get("should_suppress_dispatch"))
+
+
+def _closeout_precedence(record: Mapping[str, Any], action_family: str) -> dict[str, Any]:
+    generic_decision = closeout_precedence_decision({**dict(record), "action_family": action_family})
+    if generic_decision.get("should_suppress_dispatch") and generic_decision.get("task_scope") == "p13b_follow_up":
+        return generic_decision
+    if action_family == "P13B_RELEASE_EVIDENCE_TARGETED_REVIEW":
+        return closeout_precedence_for_record(record, task_scope="release_evidence_query", task_type=action_family)
+    if action_family == "SOURCE_GAP_TARGETED_RETRY_OR_MANUAL_REVIEW":
+        return closeout_precedence_for_record(record, task_scope="original_readback", task_type=action_family)
+    if action_family == "DESIGN_SURVEY_QUALIFICATION_AND_SERVICE_CLOCK_REVIEW":
+        return closeout_precedence_for_record(record, task_scope="stage4_field_task", task_type=action_family)
+    return closeout_precedence_for_record(record, task_scope="project", task_type=action_family)
 
 
 def _project_output_dir(output_root: Path, project_id: str) -> Path:
@@ -1070,6 +1108,14 @@ def _dedupe(values: Iterable[Any]) -> list[str]:
         seen.add(text)
         out.append(text)
     return out
+
+
+def _first_text(*values: Any) -> str:
+    for value in values:
+        text = str(value or "").strip()
+        if text:
+            return text
+    return ""
 
 
 def _counts(values: Iterable[Any]) -> dict[str, int]:

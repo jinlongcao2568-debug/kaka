@@ -260,10 +260,29 @@ class EvidenceOrchestrationContinuationRunnerTests(unittest.TestCase):
                 summary["final_original_backtrace_continuation_state_counts"],
                 {"RELEASE_EVIDENCE_READY": 1},
             )
+            self.assertEqual(summary["final_original_backtrace_next_queue_counts"], {"release_evidence_query": 1})
+            self.assertEqual(summary["final_original_backtrace_closeout_precedence_suppressed_count"], 1)
+            self.assertEqual(summary["final_original_backtrace_terminal_marker_count"], 1)
+            self.assertEqual(summary["final_original_backtrace_runtime_blocker_ledger_count"], 1)
             self.assertEqual(
                 summary["state_after_evidence_state_counts"],
                 {"A_STRONG_TIME_OVERLAP_SIGNAL_READY": 1},
             )
+            final_continuation = json.loads(
+                (
+                    root
+                    / "run"
+                    / "01ab-original-backtrace-continuation-final"
+                    / "p13b-original-backtrace-continuation-controller-v2.json"
+                ).read_text(encoding="utf-8")
+            )
+            record = final_continuation["manifest"]["continuation_plan_records"][0]
+            self.assertEqual(record["next_queue"], "release_evidence_query")
+            self.assertEqual(
+                record["operator_projection"]["projection_state"],
+                "RELEASE_EVIDENCE_QUERY_READY_FROM_ORIGINAL_READBACK",
+            )
+            self.assertTrue(record["terminal_closeout_markers"])
 
     def test_existing_targeted_person_not_found_is_parked_without_clearance_claim(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

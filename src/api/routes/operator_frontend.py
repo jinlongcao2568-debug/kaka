@@ -10,10 +10,12 @@ from html import escape
 from pathlib import Path
 from typing import Any, Mapping
 
+from fastapi import HTTPException
 from fastapi.responses import HTMLResponse, Response
 
 from api.projections import build_customer_artifact_access_candidate_surface, register_route_table
 from storage.repositories.operator_action_repo import OperatorActionRepository
+from storage.repositories.runtime_state_repo import RuntimeStateRepository
 
 
 OPERATOR_FRONTEND_ROUTE_METADATA = {
@@ -421,8 +423,12 @@ def _localized_evidence_item(
     }
 
 
-def _internal_evidence_package_download_payload(payload: dict[str, Any]) -> dict[str, Any]:
-    surface = _customer_artifact_surface_with_search_context(payload)
+def _internal_evidence_package_download_payload(
+    payload: dict[str, Any],
+    *,
+    surface: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    surface = dict(surface or _customer_artifact_surface_with_search_context(payload))
     formal = dict(surface.get("source_formal_client_export_page_layer_readiness", {}) or {})
     artifact = dict(surface.get("customer_artifact_readback", {}) or {})
     manifest = dict(formal.get("package_manifest", {}) or {})
@@ -1067,6 +1073,17 @@ def render_operator_console(payload: Any) -> HTMLResponse:
               <div class="metric"><strong>--</strong><span>最新任务</span></div>
             </div>
             <div id="taskRunOverviewList" class="empty-state">暂无任务运行记录；在“采集运行”里创建内部任务后显示。</div>
+          </section>
+          <section>
+            <h3>Runtime Controller 投影</h3>
+            <p class="muted-text" id="runtimeProjectionNarrative">正在读取统一 RunController 状态、阻断队列、worker follow-up、operator action 和安全边界。</p>
+            <div class="rail" id="runtimeProjectionMetrics">
+              <div class="metric"><strong>--</strong><span>运行状态</span></div>
+              <div class="metric"><strong>--</strong><span>当前阶段</span></div>
+              <div class="metric"><strong>--</strong><span>下一动作</span></div>
+            </div>
+            <div id="runtimeProjectionBoundary"></div>
+            <div id="runtimeProjectionDetails" class="compact-card-grid"></div>
           </section>
           <section>
             <h3>第六阶段批次复核状态</h3>
@@ -1728,6 +1745,12 @@ function renderRows(rows) {
     .filter(([, value]) => value !== undefined && value !== null && String(value).length)
     .map(([label, value]) => `<div class="detail-row"><strong>${label}</strong><span>${labelOf(value)}</span></div>`)
     .join("")}</div>`;
+}
+function countMapText(counts, emptyText="暂无") {
+  const entries = Object.entries(counts || {}).filter(([, count]) => Number(count || 0) > 0);
+  return entries.length
+    ? entries.map(([name, count]) => `${labelOf(name)} ${count}`).join(" / ")
+    : emptyText;
 }
 function listText(items) {
   const rows = Array.isArray(items) ? items.filter(Boolean) : [];
@@ -2523,6 +2546,156 @@ async function loadStage6ReviewLoopStatus() {
   renderStage6ReviewLoopStatus(surface);
   return surface;
 }
+function renderRuntimeProjection(surface) {
+  const projection = surface?.latest_projection || {};
+  const blocker = surface?.runtime_blocker_queue || {};
+  const dispatchRecords = Array.isArray(surface?.controller_dispatch_queue?.records)
+    ? surface.controller_dispatch_queue.records
+    : [];
+  const followup = surface?.worker_followup || {};
+  const action = surface?.operator_action || {};
+  const stage4Next = surface?.stage4_next_actions || {};
+  const stage4ProjectCodeRecall = surface?.stage4_project_code_recall || {};
+  const stage4GdcicAuthorized = surface?.stage4_gdcic_authorized_readback || {};
+  const stage4GdcicWorker = surface?.stage4_gdcic_authorized_readback_worker_result || {};
+  const stage16Readiness = surface?.stage1_6_readiness || {};
+  const stage16Stability = surface?.stage1_6_stability || {};
+  const stage13Repair = surface?.stage1_3_repair_tasks || {};
+  const stage13RepairWorker = surface?.stage1_3_repair_worker_result || {};
+  const stage5Calibration = surface?.stage5_calibration || {};
+  const stage45Replay = surface?.stage45_replay || {};
+  const controlledBoundary = surface?.controlled_boundary || {};
+  const auditReplay = surface?.runtime_audit_replay || {};
+  const safety = surface?.safety || {};
+  $("runtimeProjectionNarrative").textContent = projection.run_id
+    ? `最新 run ${projection.run_id}：${projection.run_state || "--"}，当前阶段 ${projection.current_stage_id || "--"}。`
+    : "暂无 RunController 持久化投影；运行统一 runtime 入口后这里会显示最新 run graph 状态。";
+  $("runtimeProjectionMetrics").innerHTML = [
+    `<div class="metric"><strong>${projection.run_state || "待运行"}</strong><span>运行状态</span></div>`,
+    `<div class="metric"><strong>${projection.current_stage_id || "--"}</strong><span>当前阶段</span></div>`,
+    `<div class="metric"><strong>${action.next_action_type || "--"}</strong><span>下一动作</span></div>`
+  ].join("");
+  $("runtimeProjectionBoundary").innerHTML = renderRows([
+    ["投影来源", surface?.projection_source || "--"],
+    ["Run ID", projection.run_id || "--"],
+    ["项目", projection.project_id || "--"],
+    ["入口", projection.entrypoint_id || "--"],
+    ["外部客户动作", safety.external_customer_action_enabled ? "已开放" : "关闭"],
+    ["真实支付", safety.real_payment_enabled ? "已开放" : "关闭"],
+    ["真实交付", safety.real_delivery_enabled ? "已开放" : "关闭"],
+    ["自动退款", safety.automatic_refund_enabled ? "已开放" : "关闭"],
+  ]);
+  $("runtimeProjectionDetails").innerHTML = [
+    `<div class="stage-card">
+      <strong>Stage1-3 前置链路</strong>
+      ${badge(projection.stage123_front_chain_summary?.stage123_front_chain_state || "待读取")}
+      <p>候选：${safeText(projection.stage123_front_chain_summary?.stage1_selected_candidate_count ?? 0)}；采集：${safeText(projection.stage123_front_chain_summary?.stage2_capture_record_count ?? 0)}；解析：${safeText(projection.stage123_front_chain_summary?.stage3_parse_record_count ?? 0)}</p>
+    </div>`,
+    `<div class="stage-card">
+      <strong>Stage1-6 批量稳定性</strong>
+      ${badge((Number(stage16Stability.stage2_attachment_snapshot_missing_count || 0) || Number(stage16Stability.stage3_attachment_ocr_pending_count || 0) || Number(stage16Stability.stage3_responsible_role_gap_count || 0)) ? "仍有采集/解析缺口" : "暂无稳定性缺口", (Number(stage16Stability.stage2_attachment_snapshot_missing_count || 0) || Number(stage16Stability.stage3_attachment_ocr_pending_count || 0) || Number(stage16Stability.stage3_responsible_role_gap_count || 0)) ? "warn" : "")}
+      <p>批量覆盖：${safeText(stage16Readiness.stage1_6_pressure_coverage_state || "--")}；候选 ${safeText(stage16Readiness.stage1_6_pressure_candidate_count ?? 0)}；闭环 ${safeText(stage16Readiness.stage1_6_pressure_closed_loop_results_count ?? 0)}</p>
+      <p>附件快照缺口：${safeText(stage16Stability.stage2_attachment_snapshot_missing_count ?? 0)}；读回缺口：${safeText(stage16Stability.attachment_snapshot_readback_missing_count ?? 0)}</p>
+      <p>OCR 待处理：${safeText(stage16Stability.stage3_attachment_ocr_pending_count ?? 0)}；负责人角色缺口：${safeText(stage16Stability.stage3_responsible_role_gap_count ?? 0)}</p>
+      <p>解析阻断：${safeText(stage16Stability.stage3_parse_blocker_count ?? 0)}</p>
+      <p>repair 任务：${safeText(stage13Repair.stage1_3_repair_task_count ?? 0)}；指标：${safeText(countMapText(stage13Repair.stage1_3_repair_metric_counts))}</p>
+      <p>repair worker：${safeText(stage13RepairWorker.repair_worker_state || "未运行")}；计划 ${safeText(stage13RepairWorker.repair_task_count ?? 0)}；worker ${safeText(countMapText(stage13RepairWorker.repair_worker_family_counts))}</p>
+      <p>推荐动作：${safeText(countMapText(stage16Readiness.stage1_6_next_action_counts))}</p>
+      <p>缺口动作：${safeText(countMapText(stage16Readiness.stage1_6_gap_next_action_counts))}</p>
+    </div>`,
+    `<div class="stage-card">
+      <strong>Runtime Blocker Queue</strong>
+      ${badge(blocker.next_subqueue_input_state || "待读取")}
+      <p>controller dispatch：${safeText(blocker.controller_dispatch_task_count ?? 0)}；ready：${safeText(blocker.dispatch_ready_count ?? 0)}</p>
+      <p>controller 派生任务：${safeText(blocker.controller_derived_dispatch_task_count ?? 0)}；ready：${safeText(blocker.controller_derived_dispatch_ready_count ?? 0)}</p>
+      <p>派生入口：${safeText(countMapText(blocker.controller_derived_dispatch_entrypoint_counts))}</p>
+      <p>人工复核族：${safeText(countMapText(blocker.controller_derived_dispatch_review_family_counts))}</p>
+      <p>Stage1-3 repair：${safeText(blocker.stage1_3_repair_task_count ?? 0)}；${safeText(countMapText(blocker.stage1_3_repair_metric_counts))}</p>
+    </div>`,
+    `<div class="stage-card">
+      <strong>Controller 派生任务明细</strong>
+      ${badge(dispatchRecords.length ? String(dispatchRecords.length) + " 个内部任务" : "暂无派生任务", dispatchRecords.length ? "" : "warn")}
+      ${dispatchRecords.length ? `<ul>${dispatchRecords.slice(0, 8).map((task) => `<li>${safeText(task.dispatch_task_id || task.task_id || "--")} · ${safeText(task.dispatch_state || "--")} · ${safeText(task.entrypoint_id || task.review_family || "--")} · ${task.source_metric ? `指标 ${safeText(task.source_metric)}=${safeText(task.metric_count ?? 0)} · ` : ""}客户动作：${task.external_customer_action_enabled ? "开启" : "关闭"}</li>`).join("")}</ul>` : `<p>等待 RunController 生成 dispatch queue。</p>`}
+    </div>`,
+    `<div class="stage-card">
+      <strong>Worker Follow-up</strong>
+      ${badge(String(followup.dispatch_runner_followup_task_count ?? 0) + " 个 follow-up")}
+      <p>runner tasks：${safeText(followup.dispatch_runner_task_count ?? 0)}</p>
+    </div>`,
+    `<div class="stage-card">
+      <strong>Stage4 释放证据下一步</strong>
+      ${badge(stage4Next.requires_authorized_browser_session ? "需要授权浏览器" : "按证据链复核", stage4Next.requires_authorized_browser_session ? "warn" : "")}
+      <p>字段动作：${safeText(Object.keys(stage4Next.field_query_operator_next_action_counts || {})[0] || "--")}</p>
+      <p>释放链动作：${safeText(Object.keys(stage4Next.release_chain_next_action_counts || {})[0] || "--")}</p>
+      <p>人工动作族：${safeText(Object.keys(stage4Next.release_chain_manual_action_family_counts || {})[0] || "--")}</p>
+      <p>项目经理变更命中：${safeText(surface?.stage4_release_field_query?.release_field_query_project_manager_change_ready_count ?? 0)}；解释：${safeText(countMapText(surface?.stage4_release_field_query?.release_field_query_project_manager_change_interpretation_counts))}</p>
+    </div>`,
+    `<div class="stage-card">
+      <strong>Stage4 项目码召回</strong>
+      ${badge(stage4ProjectCodeRecall.project_code_recall_state || "待读取", stage4ProjectCodeRecall.missing_gdcic_project_code_variant_task_count ? "warn" : "")}
+      <p>GDCIC projectCode 可路由任务：${safeText(stage4ProjectCodeRecall.with_gdcic_project_code_variant_task_count ?? 0)}</p>
+      <p>缺 GDCIC projectCode 任务：${safeText(stage4ProjectCodeRecall.missing_gdcic_project_code_variant_task_count ?? 0)}</p>
+      <p>交易编号-only 任务：${safeText(stage4ProjectCodeRecall.trade_project_code_only_task_count ?? stage4ProjectCodeRecall.trade_only_project_code_task_count ?? 0)}</p>
+      <p>说明：缺项目码只代表需回链补证，不得外推排除性结论。</p>
+    </div>`,
+    `<div class="stage-card">
+      <strong>Stage4 GDCIC 授权读回</strong>
+      ${badge(Number(stage4GdcicAuthorized.project_manager_change_ready_count || 0) ? "项目经理变更命中" : "待读回", Number(stage4GdcicAuthorized.project_manager_change_ready_count || 0) ? "" : "warn")}
+      <p>授权状态：${safeText(stage4GdcicAuthorized.authorized_session_input_state || stage4GdcicAuthorized.gdcic_authorized_session_overall_state || "--")}</p>
+      <p>读回 ready：${safeText(stage4GdcicAuthorized.gdcic_browser_readback_ready_count ?? 0)}；项目经理变更 ready：${safeText(stage4GdcicAuthorized.project_manager_change_ready_count ?? 0)}</p>
+      <p>runtime ledger：${safeText(stage4GdcicWorker.worker_result_state || "未持久化")}；worker ready ${safeText(stage4GdcicWorker.gdcic_browser_readback_ready_count ?? 0)}；项目经理变更 ${safeText(stage4GdcicWorker.project_manager_change_ready_count ?? 0)}</p>
+      <p>Stage5 校准样本：${safeText(stage4GdcicWorker.stage5_calibration_sample_count ?? 0)}；A/B/C/D ${safeText(countMapText(stage4GdcicWorker.stage5_abcd_calibration_counts))}</p>
+      <p>窗口解释：${safeText(countMapText(stage4GdcicAuthorized.project_manager_change_interpretation_counts))}</p>
+      <p>来源：${safeText(stage4GdcicAuthorized.source_gdcic_browser_readback_json || "--")}</p>
+    </div>`,
+    `<div class="stage-card">
+      <strong>Stage5 规则门校准</strong>
+      ${badge(Number(stage5Calibration.stage5_calibration_truth_label_required_count || 0) ? "需要真值标注" : "等待校准样本", Number(stage5Calibration.stage5_calibration_truth_label_required_count || 0) ? "warn" : "")}
+      <p>样本：${safeText(stage5Calibration.stage5_calibration_sample_count ?? 0)}；真值待标注：${safeText(stage5Calibration.stage5_calibration_truth_label_required_count ?? 0)}</p>
+      <p>证据等级：${safeText(countMapText(stage5Calibration.stage5_abcd_calibration_counts))}</p>
+      <p>证据强度：${safeText(countMapText(stage5Calibration.stage5_calibration_evidence_strength_counts))}</p>
+      <p>复核桶：${safeText(countMapText(stage5Calibration.stage5_calibration_review_bucket_counts))}</p>
+      <p>复核族：${safeText(countMapText(stage5Calibration.stage5_calibration_review_family_counts))}</p>
+      <p>建议动作：${safeText(countMapText(stage5Calibration.stage5_calibration_suggested_action_counts))}</p>
+    </div>`,
+    `<div class="stage-card">
+      <strong>Stage4/5 样本回放</strong>
+      ${badge(Number(stage45Replay.stage4_blocker_ledger_count || 0) ? "存在阻断样本" : "暂无回放阻断", Number(stage45Replay.stage4_blocker_ledger_count || 0) ? "warn" : "")}
+      <p>Stage4 回放：${safeText(stage45Replay.stage4_probe_replay_count ?? 0)}；阻断账本：${safeText(stage45Replay.stage4_blocker_ledger_count ?? 0)}；操作动作：${safeText(stage45Replay.operator_action_count ?? 0)}</p>
+      <p>阻断路由：${safeText(countMapText(stage45Replay.runtime_blocker_subqueue_route_counts))}</p>
+      <p>Stage5 规则：执行 ${safeText(listText(stage45Replay.stage5_executed_rule_codes || []))}；跳过 ${safeText(listText(stage45Replay.stage5_skipped_rule_codes || []))}；缺读回 ${safeText(stage45Replay.stage5_missing_readback_count ?? 0)}</p>
+      <p>Stage5 回放校准：样本 ${safeText(stage45Replay.stage5_calibration_sample_count ?? 0)}；真值待标注 ${safeText(stage45Replay.stage5_calibration_truth_label_required_count ?? 0)}；A/B/C/D ${safeText(countMapText(stage45Replay.stage5_abcd_calibration_counts))}</p>
+    </div>`,
+    `<div class="stage-card">
+      <strong>Runtime 审计回放</strong>
+      ${badge(auditReplay.replay_state || "待读取", auditReplay.replay_state === "REPLAY_READY" ? "" : "warn")}
+      <p>事件数：${safeText(auditReplay.event_count ?? 0)}；Run：${safeText(auditReplay.run_id || "--")}</p>
+      <p>事件类型：${safeText(countMapText(auditReplay.event_type_counts))}</p>
+      <p>阶段分布：${safeText(countMapText(auditReplay.stage_id_counts))}</p>
+      <p>外部客户动作：${auditReplay.external_customer_action_enabled ? "开启" : "关闭"}；自动退款：${auditReplay.automatic_refund_enabled ? "开启" : "关闭"}</p>
+      <p>说明：审计回放只用于内部复核，不输出排除性结论。</p>
+    </div>`,
+    `<div class="stage-card">
+      <strong>Stage8/9 受控开放边界</strong>
+      ${badge(controlledBoundary.automatic_refund_policy_state === "EXCLUDED" ? "自动退款排除" : "边界待读取", "warn")}
+      <p>触达：${safeText(controlledBoundary.stage8_outreach_boundary_state || "--")}</p>
+      <p>支付/交付/退款：${safeText(controlledBoundary.stage9_payment_delivery_refund_boundary_state || "--")}</p>
+      <p>放行前置门禁：${safeText(listText(controlledBoundary.required_before_live_execution || []))}</p>
+      <p>阻断动作：${safeText(listText(controlledBoundary.blocked_action_families || []))}</p>
+      <p>下一步：${safeText(controlledBoundary.operator_next_action || "--")}</p>
+    </div>`,
+    `<div class="stage-card">
+      <strong>Operator Action</strong>
+      ${badge(action.operator_action_required ? "需要人工动作" : "暂无人工动作", action.operator_action_required ? "warn" : "")}
+      <p>${safeText(action.next_action_entrypoint_id || action.next_action_reason || "等待下一次 runtime 读回。")}</p>
+    </div>`
+  ].join("");
+}
+async function loadRuntimeProjection() {
+  const surface = await json("GET", "/operator-console/runtime-projection");
+  renderRuntimeProjection(surface);
+  return surface;
+}
 function queueStatusTotal(counts) {
   return Object.values(counts || {}).reduce((total, value) => total + Number(value || 0), 0);
 }
@@ -3159,7 +3332,7 @@ window.addEventListener("hashchange", () => showView((window.location.hash || "#
 showView((window.location.hash || "#overview").slice(1));
 renderStageOverviewTelemetry();
 renderSelectChoices("searchProjectType", "searchProjectTypeChoices");
-Promise.all([loadReadiness(false), loadAutonomousWorkbench(), loadRegionAdapters(), loadAutonomousSearchRuns(), loadRealCandidateDiscoveryDiagnostics(), loadRealCandidateCatalog(), loadRealCandidateStage2Captures(), loadRealSourceProfiles(), loadRealSourceRuns(), loadUserAcceptanceContract(), loadAcceptanceGapMatrix(), loadRealWorldSellability(), loadStage6ReviewLoopStatus()])
+Promise.all([loadReadiness(false), loadAutonomousWorkbench(), loadRegionAdapters(), loadAutonomousSearchRuns(), loadRealCandidateDiscoveryDiagnostics(), loadRealCandidateCatalog(), loadRealCandidateStage2Captures(), loadRealSourceProfiles(), loadRealSourceRuns(), loadUserAcceptanceContract(), loadAcceptanceGapMatrix(), loadRealWorldSellability(), loadStage6ReviewLoopStatus(), loadRuntimeProjection()])
   .then(() => { $("output").textContent = "等待操作..."; })
   .catch(out);
 """
@@ -3783,13 +3956,62 @@ def render_customer_artifact_portal_readback(payload: dict[str, Any]) -> dict[st
 
 def render_customer_artifact_portal_download(payload: dict[str, Any]) -> Response:
     opportunity_id = str(payload.get("opportunity_id") or "")
-    package = _internal_evidence_package_download_payload(payload)
+    surface = _customer_artifact_surface_with_search_context(payload)
+    _assert_internal_evidence_package_download_allowed(payload, surface)
+    package = _internal_evidence_package_download_payload(payload, surface=surface)
     filename = f"internal-evidence-package-{_safe_filename_token(opportunity_id)}.json"
     return Response(
         json.dumps(package, ensure_ascii=False, indent=2),
         media_type="application/json; charset=utf-8",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+def _assert_internal_evidence_package_download_allowed(
+    payload: Mapping[str, Any],
+    surface: Mapping[str, Any],
+) -> None:
+    download_auth = dict(surface.get("download_auth") or {})
+    field_policy = dict(surface.get("field_allowlist_masking") or {})
+    required_flags = {
+        "operator_authenticated": bool(payload.get("operator_authenticated")),
+        "internal_preview_download_authorized": bool(payload.get("internal_preview_download_authorized")),
+        "approval_audit_confirmed": bool(payload.get("approval_audit_confirmed")),
+        "field_allowlist_masking_confirmed": bool(payload.get("field_allowlist_masking_confirmed")),
+    }
+    field_policy_ready = bool(field_policy.get("allowlist_enforced")) and bool(field_policy.get("masking_required"))
+    blocked_reasons = [
+        name
+        for name, passed in required_flags.items()
+        if not passed
+    ]
+    if bool(download_auth.get("customer_download_enabled")) or bool(payload.get("customer_download_requested")):
+        blocked_reasons.append("customer_download_remains_hard_disabled")
+    if not field_policy_ready:
+        blocked_reasons.append("field_allowlist_or_masking_not_ready")
+    if blocked_reasons:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "download_state": "BLOCKED_INTERNAL_PREVIEW_DOWNLOAD_REQUIRES_OPERATOR_AUTH_APPROVAL_AUDIT_AND_MASKING",
+                "blocked_reasons": blocked_reasons,
+                "customer_download_enabled": False,
+                "internal_preview_only": True,
+                "download_auth": {
+                    "auth_required": True,
+                    "approval_required": True,
+                    "audit_required": True,
+                    "customer_download_enabled": False,
+                },
+                "field_allowlist_masking": {
+                    "allowlist_enforced": bool(field_policy.get("allowlist_enforced")),
+                    "masking_required": bool(field_policy.get("masking_required")),
+                    "internal_blackbox_fields_exposed": bool(
+                        field_policy.get("internal_blackbox_fields_exposed")
+                    ),
+                },
+            },
+        )
 
 
 def render_operator_user_acceptance_contract(payload: Any) -> dict[str, Any]:
@@ -3800,6 +4022,458 @@ def render_operator_user_acceptance_contract(payload: Any) -> dict[str, Any]:
 def render_operator_user_acceptance_gap_matrix(payload: Any) -> dict[str, Any]:
     del payload
     return _load_user_acceptance_gap_matrix()
+
+
+def render_runtime_projection_readback(payload: Any) -> dict[str, Any]:
+    del payload
+    repository = RuntimeStateRepository()
+    projection = repository.latest_operator_projection()
+    projection_history = repository.list_operator_projections()[:10]
+    projection_trace_refs = dict(projection.get("trace_refs") or {})
+    latest_stage1_3_repair_worker = repository.latest_worker_result(worker_id="stage1_3_repair_worker")
+    latest_gdcic_readback_worker = repository.latest_worker_result(worker_id="gdcic_browser_authorized_readback_worker")
+    stage5_cycle_calibration = dict(projection.get("stage5_calibration_summary") or {})
+    stage5_gdcic_calibration = _runtime_gdcic_stage5_calibration(latest_gdcic_readback_worker)
+    stage5_source_summaries = dict(projection.get("stage5_calibration_source_summaries") or {})
+    if "gdcic_authorized_readback_worker" in stage5_source_summaries:
+        stage5_combined_calibration = stage5_cycle_calibration
+    else:
+        stage5_combined_calibration = _merge_stage5_calibration_summaries(
+            stage5_cycle_calibration,
+            stage5_gdcic_calibration,
+        )
+        stage5_source_summaries = {
+            "cycle_summary": stage5_cycle_calibration,
+            "gdcic_authorized_readback_worker": stage5_gdcic_calibration,
+        }
+    audit_replay = repository.audit_replay(str(projection.get("run_id") or ""))
+    return {
+        "surface_id": "runtime_controller_operator_projection",
+        "projection_source": "runtime_operator_projection_repository",
+        "runtime_projection_frontend": True,
+        "runtime_audit_replay": audit_replay,
+        "latest_projection": projection,
+        "projection_trace_refs": projection_trace_refs,
+        "projection_object_refs": dict(projection.get("object_refs") or {}),
+        "projection_decision_states": dict(projection.get("decision_states") or {}),
+        "controller_dispatch_queue": dict(projection.get("controller_dispatch_queue") or {}),
+        "projection_history": [
+            {
+                "run_id": str(item.get("run_id") or ""),
+                "project_id": str(item.get("project_id") or ""),
+                "entrypoint_id": str(item.get("entrypoint_id") or ""),
+                "run_state": str(item.get("run_state") or ""),
+                "current_stage_id": str(item.get("current_stage_id") or ""),
+                "next_action_type": str(item.get("next_action_type") or ""),
+                "next_action_entrypoint_id": str(item.get("next_action_entrypoint_id") or ""),
+                "persisted_at": str(item.get("persisted_at") or ""),
+                "trace_refs": dict(item.get("trace_refs") or {}),
+                "object_refs": dict(item.get("object_refs") or {}),
+                "controller_dispatch_queue": dict(item.get("controller_dispatch_queue") or {}),
+            }
+            for item in projection_history
+        ],
+        "stage1_6_readiness": dict(projection.get("stage1_6_readiness_summary") or {}),
+        "stage1_6_stability": dict(
+            dict(projection.get("stage1_6_readiness_summary") or {}).get("stage1_3_stability_summary") or {}
+        ),
+        "stage1_3_repair_tasks": {
+            "stage1_3_repair_task_count": int(
+                dict(projection.get("runtime_blocker_controller_summary") or {}).get("stage1_3_repair_task_count")
+                or dict(dict(projection.get("controller_dispatch_queue") or {}).get("summary") or {}).get(
+                    "stage1_3_repair_task_count",
+                    0,
+                )
+                or 0
+            ),
+            "stage1_3_repair_metric_counts": dict(
+                dict(projection.get("runtime_blocker_controller_summary") or {}).get("stage1_3_repair_metric_counts")
+                or dict(dict(projection.get("controller_dispatch_queue") or {}).get("summary") or {}).get(
+                    "stage1_3_repair_metric_counts",
+                    {},
+                )
+                or {}
+            ),
+            "stage1_3_repair_review_family_counts": dict(
+                dict(projection.get("runtime_blocker_controller_summary") or {}).get(
+                    "stage1_3_repair_review_family_counts"
+                )
+                or dict(dict(projection.get("controller_dispatch_queue") or {}).get("summary") or {}).get(
+                    "stage1_3_repair_review_family_counts",
+                    {},
+                )
+                or {}
+            ),
+            "customer_visible_allowed": False,
+            "external_customer_action_enabled": False,
+            "query_miss_is_not_clearance": True,
+        },
+        "stage1_3_repair_worker_result": {
+            "worker_id": str(latest_stage1_3_repair_worker.get("worker_id") or ""),
+            "repair_worker_state": str(latest_stage1_3_repair_worker.get("repair_worker_state") or ""),
+            "repair_task_count": int(latest_stage1_3_repair_worker.get("repair_task_count") or 0),
+            "repair_metric_counts": dict(latest_stage1_3_repair_worker.get("repair_metric_counts") or {}),
+            "repair_worker_family_counts": dict(
+                latest_stage1_3_repair_worker.get("repair_worker_family_counts") or {}
+            ),
+            "repair_review_family_counts": dict(
+                latest_stage1_3_repair_worker.get("repair_review_family_counts") or {}
+            ),
+            "trace_refs": dict(latest_stage1_3_repair_worker.get("trace_refs") or {}),
+            "governed_state": dict(latest_stage1_3_repair_worker.get("governed_state") or {}),
+            "customer_visible_allowed": False,
+            "external_customer_action_enabled": False,
+            "live_execution_enabled": False,
+            "query_miss_is_not_clearance": True,
+        },
+        "stage123_front_chain": dict(projection.get("stage123_front_chain_summary") or {}),
+        "stage123_stability": dict(
+            dict(projection.get("stage123_front_chain_summary") or {}).get("stage123_stability_summary") or {}
+        ),
+        "stage4_release_field_query": dict(projection.get("stage4_release_field_query_summary") or {}),
+        "stage4_release_chain_bootstrap": dict(
+            projection.get("stage4_release_chain_bootstrap_summary") or {}
+        ),
+        "stage4_gdcic_authorized_readback": _runtime_stage4_gdcic_authorized_readback(
+            projection,
+            projection_trace_refs,
+        ),
+        "stage4_gdcic_authorized_readback_worker_result": {
+            "worker_id": str(latest_gdcic_readback_worker.get("worker_id") or ""),
+            "worker_result_state": str(latest_gdcic_readback_worker.get("worker_result_state") or ""),
+            "gdcic_browser_readback_task_count": int(
+                latest_gdcic_readback_worker.get("gdcic_browser_readback_task_count") or 0
+            ),
+            "gdcic_browser_readback_record_count": int(
+                latest_gdcic_readback_worker.get("gdcic_browser_readback_record_count") or 0
+            ),
+            "gdcic_browser_readback_ready_count": int(
+                latest_gdcic_readback_worker.get("gdcic_browser_readback_ready_count") or 0
+            ),
+            "project_manager_change_ready_count": int(
+                latest_gdcic_readback_worker.get("project_manager_change_ready_count") or 0
+            ),
+            "project_manager_change_interpretation_counts": dict(
+                latest_gdcic_readback_worker.get("project_manager_change_interpretation_counts") or {}
+            ),
+            "stage5_calibration_sample_count": int(
+                latest_gdcic_readback_worker.get("stage5_calibration_sample_count") or 0
+            ),
+            "stage5_calibration_truth_label_required_count": int(
+                latest_gdcic_readback_worker.get("stage5_calibration_truth_label_required_count") or 0
+            ),
+            "stage5_abcd_calibration_counts": dict(
+                latest_gdcic_readback_worker.get("stage5_abcd_calibration_counts") or {}
+            ),
+            "stage5_calibration_review_bucket_counts": dict(
+                latest_gdcic_readback_worker.get("stage5_calibration_review_bucket_counts") or {}
+            ),
+            "stage5_calibration_evidence_strength_counts": dict(
+                latest_gdcic_readback_worker.get("stage5_calibration_evidence_strength_counts") or {}
+            ),
+            "stage5_calibration_review_family_counts": dict(
+                latest_gdcic_readback_worker.get("stage5_calibration_review_family_counts") or {}
+            ),
+            "authorized_session_input_state": str(
+                latest_gdcic_readback_worker.get("authorized_session_input_state") or ""
+            ),
+            "trace_refs": dict(latest_gdcic_readback_worker.get("trace_refs") or {}),
+            "governed_state": dict(latest_gdcic_readback_worker.get("governed_state") or {}),
+            "customer_visible_allowed": False,
+            "external_customer_action_enabled": False,
+            "query_miss_is_not_clearance": True,
+        },
+        "stage4_next_actions": _runtime_stage4_next_actions(projection, projection_trace_refs),
+        "stage4_project_code_recall": _runtime_stage4_project_code_recall(
+            projection,
+            projection_trace_refs,
+        ),
+        "stage5_calibration": stage5_combined_calibration,
+        "stage5_calibration_source_summaries": {
+            **stage5_source_summaries,
+            "customer_visible_allowed": False,
+            "query_miss_is_not_clearance": True,
+        },
+        "stage45_replay": dict(projection.get("stage45_replay_summary") or {}),
+        "controlled_boundary": dict(projection.get("controlled_boundary_summary") or {}),
+        "runtime_blocker_queue": dict(projection.get("runtime_blocker_controller_summary") or {}),
+        "worker_followup": {
+            "dispatch_runner_task_count": int(
+                dict(projection.get("runtime_blocker_controller_summary") or {}).get(
+                    "dispatch_runner_task_count",
+                    0,
+                )
+                or 0
+            ),
+            "dispatch_runner_followup_task_count": int(
+                dict(projection.get("runtime_blocker_controller_summary") or {}).get(
+                    "dispatch_runner_followup_task_count",
+                    0,
+                )
+                or 0
+            ),
+        },
+        "operator_action": {
+            "operator_action_required": bool(projection.get("operator_action_required")),
+            "next_action_type": str(projection.get("next_action_type") or ""),
+            "next_action_entrypoint_id": str(projection.get("next_action_entrypoint_id") or ""),
+            "next_action_reason": str(projection.get("next_action_reason") or ""),
+        },
+        "safety": {
+            **dict(projection.get("safety") or {}),
+            "customer_visible_allowed": False,
+            "external_customer_action_enabled": False,
+            "real_payment_enabled": False,
+            "real_delivery_enabled": False,
+            "automatic_refund_enabled": False,
+        },
+        "customer_visible_allowed": False,
+        "external_customer_action_enabled": False,
+        "real_payment_enabled": False,
+        "real_delivery_enabled": False,
+        "automatic_refund_enabled": False,
+        "no_legal_conclusion": True,
+        "query_miss_is_not_clearance": True,
+    }
+
+
+def _runtime_stage4_next_actions(
+    projection: Mapping[str, Any],
+    projection_trace_refs: Mapping[str, Any],
+) -> dict[str, Any]:
+    field_summary = dict(projection.get("stage4_release_field_query_summary") or {})
+    chain_summary = dict(projection.get("stage4_release_chain_bootstrap_summary") or {})
+    field_operator_counts = _mapping_from_summary_or_trace(
+        field_summary,
+        projection_trace_refs,
+        "release_field_query_operator_next_action_counts",
+        "stage4_release_field_query_operator_next_action_counts_json",
+    )
+    chain_next_counts = _mapping_from_summary_or_trace(
+        chain_summary,
+        projection_trace_refs,
+        "stage4_release_chain_next_action_counts",
+        "stage4_release_chain_next_action_counts_json",
+    )
+    chain_manual_counts = _mapping_from_summary_or_trace(
+        chain_summary,
+        projection_trace_refs,
+        "stage4_release_chain_manual_action_family_counts",
+        "stage4_release_chain_manual_action_family_counts_json",
+    )
+    chain_blocker_counts = _mapping_from_summary_or_trace(
+        chain_summary,
+        projection_trace_refs,
+        "stage4_release_chain_runtime_blocker_state_counts",
+        "stage4_release_chain_runtime_blocker_state_counts_json",
+    )
+    return {
+        "field_query_operator_next_action_counts": field_operator_counts,
+        "release_chain_next_action_counts": chain_next_counts,
+        "release_chain_manual_action_family_counts": chain_manual_counts,
+        "release_chain_runtime_blocker_state_counts": chain_blocker_counts,
+        "requires_authorized_browser_session": bool(
+            dict(field_summary.get("release_field_query_authorization_state_counts") or {}).get("LOGIN_OR_SSO_REQUIRED")
+            or "LOGIN_OR_SSO_REQUIRED" in str(projection_trace_refs.get("stage4_release_field_query_authorization_state_counts_json") or "")
+        ),
+        "query_miss_is_not_clearance": True,
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
+
+
+def _runtime_stage4_project_code_recall(
+    projection: Mapping[str, Any],
+    projection_trace_refs: Mapping[str, Any],
+) -> dict[str, Any]:
+    readiness_summary = dict(projection.get("stage1_6_readiness_summary") or {})
+    summary = readiness_summary.get("stage4_release_adapter_bridge_project_code_recall_summary")
+    if isinstance(summary, Mapping) and summary:
+        result = dict(summary)
+    else:
+        result = _json_mapping_from_trace(
+            projection_trace_refs,
+            "stage4_release_adapter_bridge_project_code_recall_summary_json",
+        )
+    if not result:
+        result = {
+            "project_code_recall_state": str(
+                projection_trace_refs.get("stage4_release_adapter_bridge_project_code_recall_state")
+                or projection_trace_refs.get("stage4_release_adapter_plan_project_code_recall_state")
+                or ""
+            ),
+            "with_gdcic_project_code_variant_task_count": _int_trace_ref(
+                projection_trace_refs,
+                "stage4_release_adapter_bridge_gdcic_project_code_variant_task_count",
+            )
+            or _int_trace_ref(
+                projection_trace_refs,
+                "stage4_release_adapter_plan_gdcic_project_code_variant_task_count",
+            ),
+            "missing_gdcic_project_code_variant_task_count": _int_trace_ref(
+                projection_trace_refs,
+                "stage4_release_adapter_bridge_missing_gdcic_project_code_variant_task_count",
+            )
+            or _int_trace_ref(
+                projection_trace_refs,
+                "stage4_release_adapter_plan_missing_gdcic_project_code_variant_task_count",
+            ),
+        }
+    result.setdefault("customer_visible_allowed", False)
+    result.setdefault("no_legal_conclusion", True)
+    result.setdefault("query_miss_is_not_clearance", True)
+    if "trade_project_code_only_task_count" not in result and "trade_only_project_code_task_count" in result:
+        result["trade_project_code_only_task_count"] = result["trade_only_project_code_task_count"]
+    return result
+
+
+def _runtime_stage4_gdcic_authorized_readback(
+    projection: Mapping[str, Any],
+    projection_trace_refs: Mapping[str, Any],
+) -> dict[str, Any]:
+    chain_summary = dict(projection.get("stage4_release_chain_bootstrap_summary") or {})
+    summary = chain_summary.get("stage4_gdcic_authorized_readback_summary")
+    result = dict(summary) if isinstance(summary, Mapping) else {}
+    if not result:
+        result = _json_mapping_from_trace(
+            projection_trace_refs,
+            "stage4_gdcic_authorized_readback_summary_json",
+        )
+    if not result:
+        result = {
+            "source_gdcic_browser_readback_json": str(
+                projection_trace_refs.get("stage4_gdcic_authorized_readback_source_json") or ""
+            ),
+            "gdcic_browser_readback_ready_count": _int_trace_ref(
+                projection_trace_refs,
+                "stage4_gdcic_authorized_readback_ready_count",
+            ),
+            "project_manager_change_ready_count": _int_trace_ref(
+                projection_trace_refs,
+                "stage4_gdcic_authorized_readback_project_manager_change_ready_count",
+            ),
+            "project_manager_change_interpretation_counts": _json_mapping_from_trace(
+                projection_trace_refs,
+                "stage4_gdcic_authorized_readback_project_manager_change_interpretation_counts_json",
+            ),
+        }
+    result.setdefault("customer_visible_allowed", False)
+    result.setdefault("no_legal_conclusion", True)
+    result.setdefault("query_miss_is_not_clearance", True)
+    return result
+
+
+def _mapping_from_summary_or_trace(
+    summary: Mapping[str, Any],
+    trace_refs: Mapping[str, Any],
+    summary_key: str,
+    trace_key: str,
+) -> dict[str, int]:
+    summary_value = summary.get(summary_key)
+    if isinstance(summary_value, Mapping) and summary_value:
+        return {str(key): int(value or 0) for key, value in summary_value.items()}
+    trace_value = trace_refs.get(trace_key)
+    if not str(trace_value or "").strip():
+        return {}
+    try:
+        parsed = json.loads(str(trace_value))
+    except json.JSONDecodeError:
+        return {}
+    if not isinstance(parsed, Mapping):
+        return {}
+    return {str(key): int(value or 0) for key, value in parsed.items()}
+
+
+def _runtime_gdcic_stage5_calibration(worker: Mapping[str, Any]) -> dict[str, Any]:
+    sample_count = int(worker.get("stage5_calibration_sample_count") or 0)
+    truth_label_required_count = int(worker.get("stage5_calibration_truth_label_required_count") or 0)
+    if sample_count <= 0 and truth_label_required_count <= 0:
+        return {}
+    return {
+        "stage5_calibration_sample_count": sample_count,
+        "stage5_calibration_truth_label_required_count": truth_label_required_count,
+        "stage5_abcd_calibration_counts": _int_mapping(worker.get("stage5_abcd_calibration_counts")),
+        "stage5_calibration_review_bucket_counts": _int_mapping(
+            worker.get("stage5_calibration_review_bucket_counts") or worker.get("stage5_abcd_calibration_counts")
+        ),
+        "stage5_calibration_evidence_strength_counts": _int_mapping(
+            worker.get("stage5_calibration_evidence_strength_counts")
+        ),
+        "stage5_calibration_review_family_counts": _int_mapping(worker.get("stage5_calibration_review_family_counts")),
+        "stage5_calibration_suggested_action_counts": _int_mapping(
+            worker.get("stage5_calibration_suggested_action_counts")
+        ),
+        "source_worker_id": str(worker.get("worker_id") or ""),
+        "customer_visible_allowed": False,
+        "query_miss_is_not_clearance": True,
+    }
+
+
+def _merge_stage5_calibration_summaries(*summaries: Mapping[str, Any]) -> dict[str, Any]:
+    merged = {
+        "stage5_calibration_sample_count": 0,
+        "stage5_calibration_truth_label_required_count": 0,
+        "stage5_abcd_calibration_counts": {},
+        "stage5_calibration_review_bucket_counts": {},
+        "stage5_calibration_evidence_strength_counts": {},
+        "stage5_calibration_review_family_counts": {},
+        "stage5_calibration_suggested_action_counts": {},
+        "merged_source_count": 0,
+        "customer_visible_allowed": False,
+        "query_miss_is_not_clearance": True,
+    }
+    for summary in summaries:
+        if not isinstance(summary, Mapping) or not summary:
+            continue
+        if int(summary.get("stage5_calibration_sample_count") or 0) <= 0 and int(
+            summary.get("stage5_calibration_truth_label_required_count") or 0
+        ) <= 0:
+            continue
+        merged["merged_source_count"] += 1
+        merged["stage5_calibration_sample_count"] += int(summary.get("stage5_calibration_sample_count") or 0)
+        merged["stage5_calibration_truth_label_required_count"] += int(
+            summary.get("stage5_calibration_truth_label_required_count") or 0
+        )
+        for key in (
+            "stage5_abcd_calibration_counts",
+            "stage5_calibration_review_bucket_counts",
+            "stage5_calibration_evidence_strength_counts",
+            "stage5_calibration_review_family_counts",
+            "stage5_calibration_suggested_action_counts",
+        ):
+            merged[key] = _merge_count_maps(merged[key], summary.get(key))
+    return merged
+
+
+def _merge_count_maps(left: Mapping[str, Any], right: Any) -> dict[str, int]:
+    out = _int_mapping(left)
+    for key, value in _int_mapping(right).items():
+        out[key] = out.get(key, 0) + value
+    return out
+
+
+def _int_mapping(value: Any) -> dict[str, int]:
+    if not isinstance(value, Mapping):
+        return {}
+    return {str(key): int(count or 0) for key, count in value.items() if int(count or 0) > 0}
+
+
+def _json_mapping_from_trace(trace_refs: Mapping[str, Any], trace_key: str) -> dict[str, Any]:
+    trace_value = trace_refs.get(trace_key)
+    if not str(trace_value or "").strip():
+        return {}
+    try:
+        parsed = json.loads(str(trace_value))
+    except json.JSONDecodeError:
+        return {}
+    return dict(parsed) if isinstance(parsed, Mapping) else {}
+
+
+def _int_trace_ref(trace_refs: Mapping[str, Any], trace_key: str) -> int:
+    try:
+        return int(trace_refs.get(trace_key) or 0)
+    except (TypeError, ValueError):
+        return 0
 
 
 OPERATOR_FRONTEND_ROUTES = [
@@ -3874,6 +4548,16 @@ OPERATOR_FRONTEND_ROUTES = [
         "repository_backed_readback": False,
         **OPERATOR_FRONTEND_ROUTE_METADATA,
     },
+    {
+        "operationId": "renderRuntimeProjectionReadback",
+        "method": "GET",
+        "path": "/operator-console/runtime-projection",
+        "handler": render_runtime_projection_readback,
+        "runtime_projection_frontend": True,
+        "runtime_controller_projection_readback": True,
+        "repository_backed_readback": True,
+        **OPERATOR_FRONTEND_ROUTE_METADATA,
+    },
 ]
 
 
@@ -3891,4 +4575,5 @@ __all__ = [
     "render_stage6_review_loop_page",
     "render_operator_user_acceptance_contract",
     "render_operator_user_acceptance_gap_matrix",
+    "render_runtime_projection_readback",
 ]

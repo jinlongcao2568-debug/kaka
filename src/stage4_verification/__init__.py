@@ -23,6 +23,7 @@ from stage4_verification.public_evidence_readback import (
     evaluate_public_evidence_gate,
     normalize_public_evidence_readbacks,
 )
+from stage4_verification.blocker_taxonomy import classify_stage4_probe_result
 
 __all__ = [
     "EvidenceRiskHardDefectStrategyCarrier",
@@ -34,6 +35,7 @@ __all__ = [
     "build_project_manager_active_conflict_readback",
     "build_public_evidence_readback",
     "build_public_verification_readback",
+    "classify_stage4_probe_result",
     "evaluate_public_evidence_gate",
     "evaluate_project_manager_active_conflict",
     "normalize_public_evidence_readbacks",

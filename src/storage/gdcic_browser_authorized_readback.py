@@ -8,11 +8,13 @@ from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping
 
 from shared.utils import utc_now_iso
+from storage.repositories.runtime_state_repo import RuntimeStateRepository
 
 
 GDCIC_BROWSER_AUTHORIZED_READBACK_KIND = "gdcic_browser_authorized_readback_v1_manifest"
 GDCIC_BROWSER_AUTHORIZED_READBACK_VERSION = 1
 GDCIC_BROWSER_AUTHORIZED_READBACK_ADAPTER_ID = "gdcic-browser-authorized-readback-v1-builder"
+GDCIC_BROWSER_AUTHORIZED_READBACK_WORKER_ID = "gdcic_browser_authorized_readback_worker"
 
 DEFAULT_RELEASE_EVIDENCE_ADAPTER_PLAN_ROOT = Path("tmp/evaluation-real-samples/release-evidence-adapter-plan-v1")
 DEFAULT_OUTPUT_ROOT = Path("tmp/evaluation-real-samples/gdcic-browser-authorized-readback-v1")
@@ -53,6 +55,8 @@ def build_gdcic_browser_authorized_readback(
     blocking_reasons: list[str] = []
     payload = _load_json(source_path, blocking_reasons, "release_evidence_adapter_plan_missing")
     source_manifest = _source_manifest(payload)
+    source_plan_manifest_id = str(source_manifest.get("manifest_id") or "")
+    source_plan_manifest_sha256 = str(source_manifest.get("manifest_sha256") or "")
     task_records = _task_records_from_release_plan(source_manifest, created_at=created)
     execution_mode = "LIVE_BROWSER_EXECUTION_ATTEMPTED" if enable_live_browser_execution else "PLAN_ONLY_NOT_EXECUTED"
     authorized_session_input_state = _authorized_session_input_state(
@@ -82,6 +86,15 @@ def build_gdcic_browser_authorized_readback(
         blocking_reasons=blocking_reasons,
         authorized_session_input_state=authorized_session_input_state,
     )
+    stage5_calibration_sample_records = _stage5_calibration_samples_from_readback(
+        readback_records,
+        created_at=created,
+    )
+    stage5_calibration_summary = _stage5_calibration_summary(stage5_calibration_sample_records)
+    summary = {
+        **summary,
+        **stage5_calibration_summary,
+    }
     manifest = {
         "manifest_version": GDCIC_BROWSER_AUTHORIZED_READBACK_VERSION,
         "manifest_kind": GDCIC_BROWSER_AUTHORIZED_READBACK_KIND,
@@ -91,6 +104,8 @@ def build_gdcic_browser_authorized_readback(
         "created_at": created,
         "source_release_evidence_adapter_plan_root": str(plan_dir),
         "source_release_evidence_adapter_plan_json": str(source_path),
+        "source_release_evidence_adapter_plan_manifest_id": source_plan_manifest_id,
+        "source_release_evidence_adapter_plan_manifest_sha256": source_plan_manifest_sha256,
         "execution_mode": execution_mode,
         "live_browser_execution_enabled": bool(enable_live_browser_execution),
         "max_live_browser_tasks": max_live_browser_tasks,
@@ -100,6 +115,7 @@ def build_gdcic_browser_authorized_readback(
         "headed_browser_requested": bool(headed),
         "browser_readback_task_records": task_records,
         "browser_readback_records": readback_records,
+        "stage5_calibration_sample_records": stage5_calibration_sample_records,
         "summary": summary,
         "safety": {
             "network_enabled": bool(enable_live_browser_execution),
@@ -131,6 +147,10 @@ def build_gdcic_browser_authorized_readback(
         ]
         result["summary"]["forbidden_term_hits"] = forbidden_hits
         text = json.dumps(result, ensure_ascii=False, indent=2)
+    result["runtime_persistence"] = RuntimeStateRepository().save_worker_result(
+        _runtime_worker_result_from_readback(result, created_at=created)
+    )
+    text = json.dumps(result, ensure_ascii=False, indent=2)
     (out_dir / "gdcic-browser-authorized-readback-v1.json").write_text(text, encoding="utf-8")
     (out_dir / "gdcic-browser-authorized-readback-tasks.json").write_text(
         json.dumps(task_records, ensure_ascii=False, indent=2),
@@ -141,6 +161,178 @@ def build_gdcic_browser_authorized_readback(
         encoding="utf-8",
     )
     return result
+
+
+def _runtime_worker_result_from_readback(result: Mapping[str, Any], *, created_at: str) -> dict[str, Any]:
+    manifest = result.get("manifest") if isinstance(result.get("manifest"), Mapping) else {}
+    summary = result.get("summary") if isinstance(result.get("summary"), Mapping) else {}
+    records = [
+        dict(record)
+        for record in _list(manifest.get("browser_readback_records"))
+        if isinstance(record, Mapping)
+    ]
+    return {
+        "worker_id": GDCIC_BROWSER_AUTHORIZED_READBACK_WORKER_ID,
+        "worker_mode": str(manifest.get("execution_mode") or ""),
+        "repair_worker_state": str(summary.get("gdcic_authorized_session_overall_state") or ""),
+        "worker_result_state": str(summary.get("gdcic_authorized_session_overall_state") or ""),
+        "worker_result_id": str(manifest.get("manifest_id") or ""),
+        "created_at": created_at,
+        "project_id": _first_text(record.get("project_id") for record in records),
+        "source_release_evidence_adapter_plan_json": str(
+            manifest.get("source_release_evidence_adapter_plan_json") or ""
+        ),
+        "gdcic_browser_readback_task_count": int(summary.get("gdcic_browser_readback_task_count") or 0),
+        "gdcic_browser_readback_record_count": int(summary.get("gdcic_browser_readback_record_count") or 0),
+        "gdcic_browser_readback_ready_count": int(summary.get("gdcic_browser_readback_ready_count") or 0),
+        "project_manager_change_ready_count": int(summary.get("project_manager_change_ready_count") or 0),
+        "project_manager_change_interpretation_counts": dict(
+            summary.get("project_manager_change_interpretation_counts")
+            if isinstance(summary.get("project_manager_change_interpretation_counts"), Mapping)
+            else {}
+        ),
+        "stage5_calibration_sample_count": int(summary.get("stage5_calibration_sample_count") or 0),
+        "stage5_calibration_truth_label_required_count": int(
+            summary.get("stage5_calibration_truth_label_required_count") or 0
+        ),
+        "stage5_abcd_calibration_counts": dict(
+            summary.get("stage5_abcd_calibration_counts")
+            if isinstance(summary.get("stage5_abcd_calibration_counts"), Mapping)
+            else {}
+        ),
+        "stage5_calibration_review_bucket_counts": dict(
+            summary.get("stage5_calibration_review_bucket_counts")
+            if isinstance(summary.get("stage5_calibration_review_bucket_counts"), Mapping)
+            else {}
+        ),
+        "stage5_calibration_evidence_strength_counts": dict(
+            summary.get("stage5_calibration_evidence_strength_counts")
+            if isinstance(summary.get("stage5_calibration_evidence_strength_counts"), Mapping)
+            else {}
+        ),
+        "stage5_calibration_review_family_counts": dict(
+            summary.get("stage5_calibration_review_family_counts")
+            if isinstance(summary.get("stage5_calibration_review_family_counts"), Mapping)
+            else {}
+        ),
+        "authorization_readiness_state": str(summary.get("gdcic_authorized_session_overall_state") or ""),
+        "authorized_session_input_state": str(summary.get("authorized_session_input_state") or ""),
+        "operator_next_action_counts": dict(
+            summary.get("operator_next_action_counts")
+            if isinstance(summary.get("operator_next_action_counts"), Mapping)
+            else {}
+        ),
+        "readback_record_count": len(records),
+        "readback_records": records,
+        "live_execution_enabled": bool(manifest.get("live_browser_execution_enabled")),
+        "customer_visible_allowed": False,
+        "external_customer_action_enabled": False,
+        "real_payment_enabled": False,
+        "real_delivery_enabled": False,
+        "automatic_refund_enabled": False,
+        "no_legal_conclusion": True,
+        "query_miss_is_not_clearance": True,
+    }
+
+
+def _stage5_calibration_samples_from_readback(
+    readback_records: list[Mapping[str, Any]],
+    *,
+    created_at: str,
+) -> list[dict[str, Any]]:
+    samples: list[dict[str, Any]] = []
+    for record in readback_records:
+        if str(record.get("release_evidence_target_type") or "") != "project_manager_change_notice":
+            continue
+        if str(record.get("adapter_result_state") or "") != "MATCHED":
+            continue
+        source_records = [item for item in _list(record.get("records")) if isinstance(item, Mapping)]
+        for index, source_record in enumerate(source_records, start=1):
+            interpretation = str(
+                source_record.get("project_manager_change_release_window_interpretation") or ""
+            ).strip()
+            if not interpretation:
+                continue
+            bucket = _stage5_bucket_for_project_manager_change(interpretation)
+            samples.append(
+                {
+                    "stage5_calibration_sample_id": _stable_id(
+                        "GDCIC-STAGE5-CAL",
+                        record.get("gdcic_browser_readback_task_id"),
+                        interpretation,
+                        index,
+                    ),
+                    "source_worker_id": GDCIC_BROWSER_AUTHORIZED_READBACK_WORKER_ID,
+                    "source_readback_id": str(record.get("gdcic_browser_readback_task_id") or ""),
+                    "release_evidence_target_type": "project_manager_change_notice",
+                    "rule_code": "P13B_PROJECT_MANAGER_CHANGE_READBACK",
+                    "stage5_rule_gate_status": "REVIEW",
+                    "stage5_evidence_gate_status": "REVIEW",
+                    "stage5_calibration_review_bucket": bucket,
+                    "stage5_abcd_calibration_bucket": bucket,
+                    "stage5_calibration_evidence_strength": _stage5_evidence_strength(bucket),
+                    "stage5_calibration_review_family": _stage5_review_family(bucket),
+                    "stage5_calibration_review_reasons": [interpretation],
+                    "calibration_truth_label_required": True,
+                    "suggested_calibration_action": "manual_review_gdcic_project_manager_change_readback_before_stage5_rule_change",
+                    "project_id": str(record.get("project_id") or ""),
+                    "project_name": str(record.get("project_name") or ""),
+                    "candidate_company_name": str(record.get("candidate_company_name") or ""),
+                    "person_name": str(record.get("person_name") or ""),
+                    "original_project_manager_name": str(source_record.get("original_project_manager_name") or ""),
+                    "new_project_manager_name": str(source_record.get("new_project_manager_name") or ""),
+                    "change_date": str(source_record.get("change_date") or ""),
+                    "query_miss_is_not_clearance": True,
+                    "customer_visible_allowed": False,
+                    "no_legal_conclusion": True,
+                    "created_at": created_at,
+                }
+            )
+    return samples
+
+
+def _stage5_calibration_summary(samples: list[Mapping[str, Any]]) -> dict[str, Any]:
+    return {
+        "stage5_calibration_sample_count": len(samples),
+        "stage5_calibration_truth_label_required_count": sum(
+            1 for sample in samples if bool(sample.get("calibration_truth_label_required"))
+        ),
+        "stage5_abcd_calibration_counts": _counts(
+            sample.get("stage5_abcd_calibration_bucket") for sample in samples
+        ),
+        "stage5_calibration_review_bucket_counts": _counts(
+            sample.get("stage5_calibration_review_bucket") for sample in samples
+        ),
+        "stage5_calibration_evidence_strength_counts": _counts(
+            sample.get("stage5_calibration_evidence_strength") for sample in samples
+        ),
+        "stage5_calibration_review_family_counts": _counts(
+            sample.get("stage5_calibration_review_family") for sample in samples
+        ),
+        "stage5_calibration_suggested_action_counts": _counts(
+            sample.get("suggested_calibration_action") for sample in samples
+        ),
+    }
+
+
+def _stage5_bucket_for_project_manager_change(interpretation: str) -> str:
+    if interpretation == "ORIGINAL_MANAGER_CHANGED_OUT_REVIEW_REQUIRED":
+        return "C_REVERSE_EXPLANATION_OFFICIAL_READBACK"
+    return "B_PUBLIC_READBACK_REVIEW_REQUIRED"
+
+
+def _stage5_evidence_strength(bucket: str) -> str:
+    if bucket.startswith("C_"):
+        return "OFFICIAL_REVERSE_EXPLANATION_REVIEW_REQUIRED"
+    if bucket.startswith("B_"):
+        return "PUBLIC_READBACK_PRESENT_REVIEW_REQUIRED"
+    return "BLOCKED_OR_INSUFFICIENT_REVIEW_REQUIRED"
+
+
+def _stage5_review_family(bucket: str) -> str:
+    if bucket.startswith("C_"):
+        return "gdcic_project_manager_change_reverse_explanation_review"
+    return "gdcic_project_manager_change_public_readback_review"
 
 
 def _authorized_session_input_state(
@@ -776,6 +968,17 @@ def _summary(
     authorized_session_input_state: str,
 ) -> dict[str, Any]:
     authorization_state_counts = _counts(record.get("authorization_readiness_state") for record in readback_records)
+    project_manager_change_records = [
+        record
+        for record in readback_records
+        if str(record.get("release_evidence_target_type") or "") == "project_manager_change_notice"
+    ]
+    project_manager_change_source_records = [
+        source_record
+        for record in project_manager_change_records
+        for source_record in _list(record.get("records"))
+        if isinstance(source_record, Mapping)
+    ]
     return {
         "execution_mode": execution_mode,
         "authorized_session_input_state": authorized_session_input_state,
@@ -815,6 +1018,38 @@ def _summary(
             for action in _list(record.get("operator_next_actions"))
         ),
         "release_evidence_target_type_counts": _counts(task.get("release_evidence_target_type") for task in task_records),
+        "project_manager_change_readback_task_count": sum(
+            1 for task in task_records if str(task.get("release_evidence_target_type") or "") == "project_manager_change_notice"
+        ),
+        "project_manager_change_readback_record_count": len(project_manager_change_records),
+        "project_manager_change_ready_count": sum(
+            1
+            for record in project_manager_change_records
+            if str(record.get("readback_state") or "") == "BROWSER_AUTHORIZED_READBACK_READY"
+        ),
+        "project_manager_change_not_found_count": sum(
+            1
+            for record in project_manager_change_records
+            if str(record.get("readback_state") or "") == "NO_FIELD_MATCH_REVIEW_REQUIRED"
+        ),
+        "project_manager_change_login_or_sso_required_count": sum(
+            1
+            for record in project_manager_change_records
+            if str(record.get("readback_state") or "") == "LOGIN_OR_SSO_REQUIRED_BLOCKED"
+        ),
+        "project_manager_change_interpretation_counts": _counts(
+            source_record.get("project_manager_change_release_window_interpretation")
+            for source_record in project_manager_change_source_records
+        ),
+        "project_manager_change_date_count": sum(
+            1 for source_record in project_manager_change_source_records if str(source_record.get("change_date") or "").strip()
+        ),
+        "project_manager_change_original_manager_matches_query_count": sum(
+            1 for source_record in project_manager_change_source_records if bool(source_record.get("original_project_manager_matches_query_person"))
+        ),
+        "project_manager_change_new_manager_matches_query_count": sum(
+            1 for source_record in project_manager_change_source_records if bool(source_record.get("new_project_manager_matches_query_person"))
+        ),
         "blocker_taxonomy_counts": _counts(
             blocker
             for record in readback_records

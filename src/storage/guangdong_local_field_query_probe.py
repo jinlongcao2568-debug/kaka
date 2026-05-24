@@ -18,6 +18,11 @@ from storage.guangdong_gdcic_query_probe import (
     GDCIC_OPENPLATFORM_PAGE_URL,
     _execute_live_query as _execute_gdcic_openplatform_live_query,
 )
+from storage.runtime_closeout_precedence import (
+    blocker_ledger_record,
+    closeout_precedence_decision,
+    closeout_precedence_summary,
+)
 
 
 GUANGDONG_LOCAL_FIELD_QUERY_PROBE_KIND = "guangdong_local_field_query_probe_v1_manifest"
@@ -490,6 +495,10 @@ def _query_task_records_from_p13b_release_evidence_tasks(p13b_manifest: Mapping[
                 "target_source_types": _list(task.get("matched_target_source_types")) or _list(task.get("source_target_source_types")),
                 "query_params": query_params,
                 "field_adapter_status": _field_adapter_status_for_profile(source_profile_id),
+                "runtime_closeout_markers": _list(task.get("runtime_closeout_markers")),
+                "terminal_closeout_markers": _list(task.get("terminal_closeout_markers")),
+                "closeout_backfill_markers": _list(task.get("closeout_backfill_markers")),
+                "terminal_backfill_markers": _list(task.get("terminal_backfill_markers")),
                 "customer_visible_allowed": False,
                 "no_legal_conclusion": True,
             }
@@ -582,6 +591,10 @@ def _query_task_records_from_release_evidence_adapter_tasks(release_plan_manifes
                 "target_source_types": target_source_types,
                 "query_params": query_params,
                 "field_adapter_status": _field_adapter_status_for_profile(source_profile_id),
+                "runtime_closeout_markers": _list(task.get("runtime_closeout_markers")),
+                "terminal_closeout_markers": _list(task.get("terminal_closeout_markers")),
+                "closeout_backfill_markers": _list(task.get("closeout_backfill_markers")),
+                "terminal_backfill_markers": _list(task.get("terminal_backfill_markers")),
                 "customer_visible_allowed": False,
                 "no_legal_conclusion": True,
             }
@@ -808,7 +821,14 @@ def _field_task_records_from_local_verification(
             continue
         query_params = dict(task.get("query_params") or {})
         route_plan = _route_plan_for_task(task, query_params)
-        if profile_id in DELEGATED_PROFILE_ADAPTERS:
+        closeout_precedence = closeout_precedence_decision(
+            task,
+            task_family="release_evidence_query",
+            runtime_layer="controller decision:guangdong_local_field_query_probe",
+        )
+        if closeout_precedence.get("suppressed_dispatch"):
+            readback = _terminal_closeout_suppressed_readback(task, route_plan, closeout_precedence)
+        elif profile_id in DELEGATED_PROFILE_ADAPTERS:
             if enable_live_public_query and profile_id == GUANGDONG_GDCIC_SKYPT_OPENPLATFORM_PROFILE_ID:
                 cache_key = _cache_key(task, route_plan)
                 if cache_key in cache:
@@ -851,6 +871,11 @@ def _field_task_records_from_local_verification(
             readback = _plan_only_readback(route_plan)
         release_evidence_abcd = _release_evidence_abcd_fields(task, readback)
         adapter_result_state = _adapter_result_state(readback)
+        runtime_blocker = (
+            blocker_ledger_record(task, closeout_precedence, ledger_scope="stage4_release_evidence_query")
+            if closeout_precedence.get("suppressed_dispatch")
+            else {}
+        )
         records.append(
             {
                 "field_query_task_id": _stable_id(
@@ -924,6 +949,10 @@ def _field_task_records_from_local_verification(
                 "allowed_adapter_result_states": list(ALLOWED_ADAPTER_RESULT_STATES),
                 **readback,
                 **release_evidence_abcd,
+                "closeout_precedence": closeout_precedence,
+                "closeout_precedence_state": str(closeout_precedence.get("closeout_precedence_state") or ""),
+                "closeout_precedence_suppressed": bool(closeout_precedence.get("suppressed_dispatch")),
+                "runtime_blocker_ledger_record": runtime_blocker,
                 "created_at": created_at,
                 "customer_visible_allowed": False,
                 "no_legal_conclusion": True,
@@ -2776,6 +2805,12 @@ def _project_code_variants(values: Iterable[Any]) -> list[str]:
             continue
         for match in re.findall(r"\b[A-Z]{1,8}\d{4}-\d{3,8}(?:-\d{3})?\b", text, flags=re.IGNORECASE):
             out.append(match.upper())
+        for match in re.findall(r"\bE\d{12,22}\b", text, flags=re.IGNORECASE):
+            out.append(match.upper())
+        for match in re.findall(r"\b\d{6,12}-\d{4}-\d{3,8}(?:-\d{1,8})?\b", text):
+            out.append(match)
+        for match in re.findall(r"\b\d{4}-\d{6}-\d{2}-\d{2}-\d{6}\b", text):
+            out.append(match)
         for match in re.findall(r"\b\d{12,22}\b", text):
             out.append(match)
     return _dedupe(out)
@@ -2786,6 +2821,8 @@ def _gdcic_project_code_variants(values: Iterable[Any]) -> list[str]:
         code
         for code in _project_code_variants(values)
         if re.fullmatch(r"\d{12,22}", code)
+        or re.fullmatch(r"E\d{12,22}", code, flags=re.IGNORECASE)
+        or re.fullmatch(r"\d{6,12}-\d{4}-\d{3,8}(?:-\d{1,8})?", code)
     )
 
 
@@ -2971,6 +3008,82 @@ def _plan_only_readback(route_plan: list[Mapping[str, Any]]) -> dict[str, Any]:
         "route_attempts": [],
         "blocker_taxonomy": [],
     }
+
+
+def _terminal_closeout_suppressed_readback(
+    task: Mapping[str, Any],
+    route_plan: list[Mapping[str, Any]],
+    closeout_precedence: Mapping[str, Any],
+) -> dict[str, Any]:
+    marker = dict(closeout_precedence.get("terminal_marker") or {})
+    terminal_state = str(
+        marker.get("terminal_state")
+        or marker.get("marker_state")
+        or marker.get("terminal_grade")
+        or closeout_precedence.get("closeout_precedence_state")
+        or ""
+    ).strip()
+    adapter_state = _suppressed_terminal_adapter_result_state(terminal_state)
+    authorization_state = "LOGIN_OR_SSO_REQUIRED" if adapter_state == "NEEDS_BROWSER" else ""
+    operator_next_action = str(closeout_precedence.get("operator_next_action") or "")
+    blocker_taxonomy = _dedupe(
+        [
+            *_list(closeout_precedence.get("blocker_taxonomy")),
+            closeout_precedence.get("suppression_reason"),
+            "terminal_closeout_or_backfill_marker_present",
+        ]
+    )
+    return {
+        "field_query_probe_state": _suppressed_terminal_probe_state(adapter_state),
+        "field_readback_state": "FIELD_READBACK_SUPPRESSED_BY_TERMINAL_CLOSEOUT",
+        "readback_ready": adapter_state == "MATCHED",
+        "readback_status_code": None,
+        "field_summary": {
+            "source_specific_adapter_id": str(task.get("next_adapter") or task.get("source_profile_id") or ""),
+            "record_count": 0,
+            "terminal_closeout_suppressed_duplicate_dispatch": True,
+            "terminal_state": terminal_state,
+            "closeout_precedence_state": str(closeout_precedence.get("closeout_precedence_state") or ""),
+            "terminal_marker": marker,
+            "operator_next_actions": [operator_next_action] if operator_next_action else [],
+            "authorization_readiness_state": authorization_state,
+            "authorization_readiness_state_counts": {authorization_state: 1} if authorization_state else {},
+        },
+        "field_match_summary": {
+            "query_miss_is_not_clearance": True,
+            "terminal_closeout_suppressed_duplicate_dispatch": True,
+            "terminal_state": terminal_state,
+            "terminal_marker": marker,
+            "release_evidence_query_not_reexecuted": True,
+        },
+        "route_plan": list(route_plan),
+        "route_attempts": [],
+        "blocker_taxonomy": blocker_taxonomy,
+        "authorization_readiness_state": authorization_state,
+        "operator_next_actions": [operator_next_action] if operator_next_action else [],
+        "execution_mode": "TERMINAL_CLOSEOUT_SUPPRESSED_NO_WORKER_DISPATCH",
+    }
+
+
+def _suppressed_terminal_adapter_result_state(terminal_state: str) -> str:
+    state = str(terminal_state or "").strip()
+    if state in {"MATCHED", "REVIEW_READY", "RELEASE_FIELD_QUERY_REVIEW_READY"} or state.startswith(("B_", "C_")):
+        return "MATCHED"
+    if state == "NOT_FOUND":
+        return "NOT_FOUND"
+    if state in {"NEEDS_BROWSER", "RELEASE_FIELD_QUERY_AUTHORIZATION_HOLD"}:
+        return "NEEDS_BROWSER"
+    return "BLOCKED"
+
+
+def _suppressed_terminal_probe_state(adapter_state: str) -> str:
+    if adapter_state == "MATCHED":
+        return "FIELD_READBACK_READY_PUBLIC_SOURCE"
+    if adapter_state == "NOT_FOUND":
+        return "NO_FIELD_MATCH_REVIEW_REQUIRED"
+    if adapter_state == "NEEDS_BROWSER":
+        return "LIVE_FIELD_QUERY_NEEDS_BROWSER"
+    return "FAIL_CLOSED_TERMINAL_CLOSEOUT_SUPPRESSED"
 
 
 def _live_deferred_readback(max_live_tasks: int, route_plan: list[Mapping[str, Any]]) -> dict[str, Any]:
@@ -7853,6 +7966,17 @@ def _summary(
     execution_mode: str,
     blocking_reasons: list[str],
 ) -> dict[str, Any]:
+    precedence = closeout_precedence_summary(
+        task.get("closeout_precedence")
+        for task in field_task_records
+        if isinstance(task.get("closeout_precedence"), Mapping)
+    )
+    blocker_ledger_records = [
+        task.get("runtime_blocker_ledger_record")
+        for task in field_task_records
+        if isinstance(task.get("runtime_blocker_ledger_record"), Mapping)
+        and task.get("runtime_blocker_ledger_record")
+    ]
     return {
         "probe_state": "READY" if not blocking_reasons else "INPUT_BLOCKED",
         "execution_mode": execution_mode,
@@ -8000,6 +8124,25 @@ def _summary(
             == GUANGDONG_GDCIC_BROWSER_AUTHORIZED_READBACK_ADAPTER_ID
             and str(task.get("field_query_probe_state") or "") == "FIELD_READBACK_READY_PUBLIC_SOURCE"
         ),
+        "guangdong_gdcic_browser_authorized_project_manager_change_ready_count": sum(
+            1
+            for task in field_task_records
+            if str(task.get("source_profile_id") or "").upper() == GUANGDONG_GDCIC_HOME_PROFILE_ID
+            and str(task.get("release_evidence_target_type") or "") == "project_manager_change_notice"
+            and str((task.get("field_summary") or {}).get("source_specific_adapter_id") or "")
+            == GUANGDONG_GDCIC_BROWSER_AUTHORIZED_READBACK_ADAPTER_ID
+            and str(task.get("field_query_probe_state") or "") == "FIELD_READBACK_READY_PUBLIC_SOURCE"
+        ),
+        "guangdong_gdcic_browser_authorized_project_manager_change_interpretation_counts": _counts(
+            record.get("project_manager_change_release_window_interpretation")
+            for task in field_task_records
+            if str(task.get("source_profile_id") or "").upper() == GUANGDONG_GDCIC_HOME_PROFILE_ID
+            and str(task.get("release_evidence_target_type") or "") == "project_manager_change_notice"
+            and str((task.get("field_summary") or {}).get("source_specific_adapter_id") or "")
+            == GUANGDONG_GDCIC_BROWSER_AUTHORIZED_READBACK_ADAPTER_ID
+            for record in _list((task.get("field_match_summary") or {}).get("source_specific_records"))
+            if isinstance(record, Mapping)
+        ),
         "guangdong_gdcic_browser_authorized_not_found_count": sum(
             1
             for task in field_task_records
@@ -8138,6 +8281,14 @@ def _summary(
         "operator_next_actions": _field_task_operator_next_actions(field_task_records),
         "blocker_taxonomy_counts": _counts(
             blocker for task in field_task_records for blocker in _list(task.get("blocker_taxonomy"))
+        ),
+        **precedence,
+        "runtime_blocker_ledger_count": len(blocker_ledger_records),
+        "runtime_blocker_ledger_state_counts": _counts(
+            record.get("blocker_state") for record in blocker_ledger_records if isinstance(record, Mapping)
+        ),
+        "runtime_blocker_ledger_layer_counts": _counts(
+            record.get("runtime_layer") for record in blocker_ledger_records if isinstance(record, Mapping)
         ),
         "delegated_adapter_counts": _counts(task.get("delegated_adapter_id") for task in field_task_records),
         "blocking_reasons": list(blocking_reasons),

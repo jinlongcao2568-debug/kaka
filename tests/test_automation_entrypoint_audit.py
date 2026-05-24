@@ -29,7 +29,7 @@ class TestAutomationEntrypointAudit(unittest.TestCase):
             all(item["replaces_human_memory"] for item in result["manifest"]["formal_entrypoints"])
         )
 
-    def test_stage6_loop_and_gdcic_openplatform_are_formal_entrypoints(self) -> None:
+    def test_stage6_loop_cycle_and_gdcic_openplatform_are_formal_entrypoints(self) -> None:
         result = build_automation_entrypoint_audit(repo_root=ROOT)
         entrypoints = {
             item["entrypoint_id"]: item
@@ -38,7 +38,25 @@ class TestAutomationEntrypointAudit(unittest.TestCase):
 
         self.assertIn("stage6_review_loop_runner", entrypoints)
         self.assertTrue(entrypoints["stage6_review_loop_runner"]["script_exists"])
+        self.assertEqual(entrypoints["stage6_review_loop_runner"]["status"], "SUPPORTING_TOOL")
         self.assertEqual(entrypoints["stage6_review_loop_runner"]["module_or_command"], "storage.stage6_review_loop_runner")
+        self.assertEqual(
+            entrypoints["stage6_review_loop_runner"]["superseded_by_entrypoint_id"],
+            "stage6_review_cycle_runner",
+        )
+        self.assertEqual(
+            entrypoints["stage6_review_loop_runner"]["cleanup_state"],
+            "retained_for_compatibility_and_sample_replay_only",
+        )
+        self.assertEqual(
+            entrypoints["stage6_review_loop_runner"]["purpose"],
+            "Compatibility runner for older Stage6 review-loop artifacts; new continuation should use stage6_review_cycle_runner or runtime_controller_entrypoint_transport.",
+        )
+
+        self.assertIn("stage6_review_cycle_runner", entrypoints)
+        self.assertTrue(entrypoints["stage6_review_cycle_runner"]["script_exists"])
+        self.assertEqual(entrypoints["stage6_review_cycle_runner"]["status"], "FORMAL_CURRENT")
+        self.assertEqual(entrypoints["stage6_review_cycle_runner"]["module_or_command"], "storage.stage6_review_cycle_runner")
 
         self.assertIn("guangdong_gdcic_openplatform_query_probe", entrypoints)
         self.assertTrue(entrypoints["guangdong_gdcic_openplatform_query_probe"]["script_exists"])
@@ -59,6 +77,60 @@ class TestAutomationEntrypointAudit(unittest.TestCase):
         self.assertEqual(route["status"], "INTERNAL_PREVIEW_ONLY")
         self.assertTrue(route["route_exists"])
         self.assertFalse(route["external_customer_action_enabled"])
+
+    def test_runtime_controller_entrypoint_transport_is_formal_supporting_tool(self) -> None:
+        result = build_automation_entrypoint_audit(repo_root=ROOT)
+        entrypoints = {
+            item["entrypoint_id"]: item
+            for item in result["manifest"]["formal_entrypoints"]
+        }
+        transport = entrypoints["runtime_controller_entrypoint_transport"]
+
+        self.assertEqual(transport["kind"], "script")
+        self.assertEqual(transport["status"], "SUPPORTING_TOOL")
+        self.assertEqual(transport["entrypoint_role"], "orchestrator")
+        self.assertEqual(transport["script"], "scripts/run-runtime-entrypoint.ps1")
+        self.assertTrue(transport["script_exists"])
+        self.assertEqual(transport["module_or_command"], "runtime.entrypoint_cli")
+        self.assertTrue(transport["module_exists"])
+        self.assertFalse(transport["external_customer_action_enabled"])
+        self.assertTrue(transport["replaces_human_memory"])
+
+    def test_stage1_3_repair_worker_is_registered_internal_dispatch_runner(self) -> None:
+        result = build_automation_entrypoint_audit(repo_root=ROOT)
+        entrypoints = {
+            item["entrypoint_id"]: item
+            for item in result["manifest"]["formal_entrypoints"]
+        }
+        worker = entrypoints["stage1_3_repair_worker"]
+
+        self.assertEqual(worker["kind"], "script")
+        self.assertEqual(worker["status"], "FORMAL_CURRENT")
+        self.assertEqual(worker["entrypoint_role"], "dispatch_runner")
+        self.assertEqual(worker["script"], "scripts/run-runtime-entrypoint.ps1")
+        self.assertTrue(worker["script_exists"])
+        self.assertEqual(worker["module_or_command"], "runtime.stage13_repair_worker")
+        self.assertTrue(worker["module_exists"])
+        self.assertFalse(worker["external_customer_action_enabled"])
+        self.assertTrue(worker["replaces_human_memory"])
+
+    def test_gdcic_authorized_readback_builder_is_registered_state_builder(self) -> None:
+        result = build_automation_entrypoint_audit(repo_root=ROOT)
+        entrypoints = {
+            item["entrypoint_id"]: item
+            for item in result["manifest"]["formal_entrypoints"]
+        }
+        builder = entrypoints["gdcic_browser_authorized_readback_builder"]
+
+        self.assertEqual(builder["kind"], "script")
+        self.assertEqual(builder["status"], "FORMAL_CURRENT")
+        self.assertEqual(builder["entrypoint_role"], "state_builder")
+        self.assertEqual(builder["script"], "scripts/build-gdcic-browser-authorized-readback-v1.ps1")
+        self.assertTrue(builder["script_exists"])
+        self.assertEqual(builder["module_or_command"], "storage.gdcic_browser_authorized_readback")
+        self.assertTrue(builder["module_exists"])
+        self.assertFalse(builder["external_customer_action_enabled"])
+        self.assertTrue(builder["replaces_human_memory"])
 
     def test_readme_documents_scripts_as_thin_entrypoints(self) -> None:
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
@@ -106,8 +178,11 @@ class TestAutomationEntrypointAudit(unittest.TestCase):
         self.assertTrue(set(guardrails["stage1_6_p0_formal_entrypoints"]).issubset(actual_entrypoints))
         self.assertIn("stage1_6_real_public_pressure_runner", readme)
         self.assertIn("stage4_release_evidence_bridge_builder", readme)
+        self.assertIn("stage6_review_cycle_runner", readme)
         self.assertIn("stage1_6_real_public_pressure_runner", registry_text)
         self.assertIn("stage4_release_evidence_bridge_builder", registry_text)
+        self.assertIn("stage6_review_cycle_runner", registry_text)
+        self.assertIn("stage6_review_cycle_runner", repo_status)
         old_pressure_entrypoint = "stage4" + "_9_real_public_pressure_runner"
         old_bridge_entrypoint = "stage4" + "_9_release_bridge_builder"
         self.assertNotIn(old_pressure_entrypoint, registry_text)

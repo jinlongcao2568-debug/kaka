@@ -37,6 +37,8 @@ def build_stage6_review_action_dispatch_readback(
     *,
     dispatch_json: str | Path | None = None,
     dispatch_root: str | Path = DEFAULT_DISPATCH_ROOT,
+    dispatch_runner_json: str | Path | None = None,
+    dispatch_runner_root: str | Path | None = None,
     release_evidence_adapter_plan_json: str | Path | None = None,
     release_evidence_adapter_plan_root: str | Path | None = DEFAULT_RELEASE_EVIDENCE_ADAPTER_PLAN_ROOT,
     evidence_orchestration_continuation_json: str | Path | None = None,
@@ -67,7 +69,12 @@ def build_stage6_review_action_dispatch_readback(
     if dispatch_payload and not dispatch_records:
         blocking_reasons.append("stage6_review_dispatch_task_records_missing")
 
+    task_type_counts = _counts(record.get("dispatch_task_type") for record in dispatch_records)
     decisions = _decision_index(dispatch_decision_json)
+    dispatch_runner_index = _dispatch_runner_index(
+        dispatch_runner_json=dispatch_runner_json,
+        dispatch_runner_root=dispatch_runner_root,
+    )
     result_sources = _result_sources(
         release_evidence_adapter_plan_json=release_evidence_adapter_plan_json,
         release_evidence_adapter_plan_root=release_evidence_adapter_plan_root,
@@ -81,6 +88,9 @@ def build_stage6_review_action_dispatch_readback(
             task,
             decision=decisions.get(str(task.get("dispatch_task_id") or ""))
             or decisions.get(str(task.get("project_id") or "")),
+            dispatch_runner_result=dispatch_runner_index.get(str(task.get("dispatch_task_id") or ""))
+            or dispatch_runner_index.get(str(task.get("project_id") or "")),
+            task_type_count=int(task_type_counts.get(str(task.get("dispatch_task_type") or ""), 0) or 0),
             result_sources=result_sources,
             created_at=created,
         )
@@ -100,6 +110,7 @@ def build_stage6_review_action_dispatch_readback(
         "created_at": created,
         "source_dispatch_json": str(dispatch_path),
         "source_dispatch_manifest_id": str(dispatch_manifest.get("manifest_id") or ""),
+        "source_dispatch_runner_json": str(dispatch_runner_json or ""),
         "source_dispatch_decision_json": str(dispatch_decision_json or ""),
         "result_source_paths": {key: str(value.get("path") or "") for key, value in result_sources.items()},
         "dispatch_readback_table": {"records": readback_records, "summary": summary},
@@ -137,29 +148,48 @@ def _readback_record(
     task: Mapping[str, Any],
     *,
     decision: Mapping[str, Any] | None,
+    dispatch_runner_result: Mapping[str, Any] | None,
+    task_type_count: int,
     result_sources: Mapping[str, Mapping[str, Any]],
     created_at: str,
 ) -> dict[str, Any]:
     dispatch_task_type = str(task.get("dispatch_task_type") or "")
     source = result_sources.get(dispatch_task_type, {})
-    output_payload = source.get("payload") if isinstance(source.get("payload"), Mapping) else {}
-    output_manifest = _source_manifest(output_payload)
     decision_state = str((decision or {}).get("dispatch_decision") or "").upper()
-    output_path = Path(str(source.get("path") or "")) if source.get("path") else None
+    runner_result = dict(dispatch_runner_result or {})
+    output_path = (
+        Path(str(runner_result.get("expected_output_artifact_path") or ""))
+        if runner_result.get("expected_output_artifact_path")
+        else Path(str(source.get("path") or ""))
+        if source.get("path")
+        else None
+    )
     output_exists = bool(output_path and output_path.exists())
+    output_payload = _load_json_if_exists(output_path)
+    output_manifest = _source_manifest(output_payload)
     readback_state = _readback_state(
         task=task,
         decision_state=decision_state,
         output_exists=output_exists,
         output_payload=output_payload,
+        task_type_count=task_type_count,
+        dispatch_runner_result_supplied=bool(runner_result),
+    )
+    source_binding_blockers = _source_binding_blockers(
+        task=task,
+        task_type_count=task_type_count,
+        dispatch_runner_result_supplied=bool(runner_result),
+        output_exists=output_exists,
     )
     output_blocking_reasons = _dedupe(
         [
             *_list(output_payload.get("blocking_reasons")),
             *_list((output_payload.get("summary") or {}).get("blocking_reasons") if isinstance(output_payload.get("summary"), Mapping) else []),
             *_list((output_manifest.get("summary") or {}).get("blocking_reasons") if isinstance(output_manifest.get("summary"), Mapping) else []),
+            *source_binding_blockers,
         ]
     )
+    terminal_closeout_markers = _terminal_closeout_markers(task, output_payload, output_manifest)
     return {
         "dispatch_readback_id": _stable_id(
             "S6-DISPATCH-READBACK",
@@ -170,6 +200,11 @@ def _readback_record(
         "dispatch_task_id": str(task.get("dispatch_task_id") or ""),
         "project_id": str(task.get("project_id") or ""),
         "project_name": str(task.get("project_name") or ""),
+        "assigned_owner": str(task.get("assigned_owner") or ""),
+        "assigned_owner_role": str(task.get("assigned_owner_role") or ""),
+        "reviewer": str(task.get("reviewer") or ""),
+        "reviewer_role": str(task.get("reviewer_role") or ""),
+        "owner_assignment_source_ref": str(task.get("owner_assignment_source_ref") or ""),
         "dispatch_task_type": dispatch_task_type,
         "action_family": str(task.get("action_family") or ""),
         "dispatch_readiness_state": str(task.get("dispatch_readiness_state") or ""),
@@ -188,6 +223,7 @@ def _readback_record(
         "result_manifest_id": str(output_manifest.get("manifest_id") or ""),
         "result_safe_to_execute": bool(output_payload.get("safe_to_execute")) if output_payload else False,
         "result_blocking_reasons": output_blocking_reasons,
+        "terminal_closeout_markers": terminal_closeout_markers,
         "next_required_input_refs": _next_required_input_refs(task, readback_state),
         "next_recommended_action": _next_recommended_action(task, readback_state),
         "execution_mode": "READBACK_ONLY_NOT_EXECUTED",
@@ -207,6 +243,8 @@ def _readback_state(
     decision_state: str,
     output_exists: bool,
     output_payload: Mapping[str, Any],
+    task_type_count: int,
+    dispatch_runner_result_supplied: bool,
 ) -> str:
     if str(task.get("dispatch_readiness_state") or "") != "READY_FOR_CONTROLLED_INTERNAL_DISPATCH_PLAN":
         return "BLOCKED_DISPATCH_NOT_READY"
@@ -216,6 +254,8 @@ def _readback_state(
         return "BLOCKED_BY_OPERATOR_DECISION"
     if not output_exists:
         return "WAITING_FOR_CONTROLLED_EXECUTION"
+    if task_type_count > 1 and not dispatch_runner_result_supplied:
+        return "EXECUTION_OUTPUT_BLOCKED_OR_REVIEW_REQUIRED"
     if not output_payload:
         return "EXECUTION_OUTPUT_BLOCKED_OR_REVIEW_REQUIRED"
     if output_payload and not bool(output_payload.get("safe_to_execute", True)):
@@ -229,6 +269,18 @@ def _readback_state(
     if blocking_reasons:
         return "EXECUTION_OUTPUT_BLOCKED_OR_REVIEW_REQUIRED"
     return "EXECUTION_OUTPUT_READY"
+
+
+def _source_binding_blockers(
+    *,
+    task: Mapping[str, Any],
+    task_type_count: int,
+    dispatch_runner_result_supplied: bool,
+    output_exists: bool,
+) -> list[str]:
+    if task_type_count > 1 and output_exists and not dispatch_runner_result_supplied:
+        return ["dispatch_runner_task_index_required_for_duplicate_task_type_result_binding"]
+    return []
 
 
 def _next_required_input_refs(task: Mapping[str, Any], readback_state: str) -> list[str]:
@@ -284,6 +336,35 @@ def _result_sources(
     }
 
 
+def _dispatch_runner_index(
+    *,
+    dispatch_runner_json: str | Path | None,
+    dispatch_runner_root: str | Path | None,
+) -> dict[str, Mapping[str, Any]]:
+    path: Path | None = None
+    if dispatch_runner_json:
+        path = Path(dispatch_runner_json)
+    elif dispatch_runner_root:
+        path = Path(dispatch_runner_root) / "stage6-review-action-dispatch-runner-v1.json"
+    payload = _load_json_if_exists(path)
+    manifest = _source_manifest(payload)
+    table = (
+        manifest.get("dispatch_runner_task_table")
+        if isinstance(manifest.get("dispatch_runner_task_table"), Mapping)
+        else {}
+    )
+    records = [record for record in _list(table.get("records")) if isinstance(record, Mapping)]
+    out: dict[str, Mapping[str, Any]] = {}
+    for record in records:
+        dispatch_task_id = str(record.get("dispatch_task_id") or "").strip()
+        project_id = str(record.get("project_id") or "").strip()
+        if dispatch_task_id:
+            out[dispatch_task_id] = record
+        if project_id:
+            out[project_id] = record
+    return out
+
+
 def _optional_result_source(
     *,
     explicit_json: str | Path | None,
@@ -297,6 +378,25 @@ def _optional_result_source(
         path = Path(root) / default_file_name
     payload = _load_json_if_exists(path)
     return {"path": path, "payload": payload}
+
+
+def _terminal_closeout_markers(
+    task: Mapping[str, Any],
+    output_payload: Mapping[str, Any],
+    output_manifest: Mapping[str, Any],
+) -> list[Any]:
+    markers: list[Any] = []
+    for source in (task, output_payload, output_manifest):
+        if not isinstance(source, Mapping):
+            continue
+        for key in (
+            "runtime_closeout_markers",
+            "terminal_closeout_markers",
+            "closeout_backfill_markers",
+            "terminal_backfill_markers",
+        ):
+            markers.extend(_list(source.get(key)))
+    return markers
 
 
 def _decision_index(dispatch_decision_json: str | Path | None) -> dict[str, Mapping[str, Any]]:

@@ -10,8 +10,11 @@ from typing import Any, Mapping
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
+TESTS = ROOT / "tests"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
+if str(TESTS) not in sys.path:
+    sys.path.insert(0, str(TESTS))
 
 from storage.gdcic_browser_authorized_readback import (  # noqa: E402
     build_gdcic_browser_authorized_readback,
@@ -19,9 +22,17 @@ from storage.gdcic_browser_authorized_readback import (  # noqa: E402
 from storage.guangdong_local_field_query_probe import (  # noqa: E402
     build_guangdong_local_field_query_probe,
 )
+from storage.repositories.runtime_state_repo import RuntimeStateRepository  # noqa: E402
+from storage_test_support import IsolatedStorageTestMixin  # noqa: E402
 
 
-class GDCICBrowserAuthorizedReadbackTests(unittest.TestCase):
+class GDCICBrowserAuthorizedReadbackTests(unittest.TestCase, IsolatedStorageTestMixin):
+    def setUp(self) -> None:
+        self.setUp_storage_test_env(storage_filename="gdcic-browser-authorized-readback.json")
+
+    def tearDown(self) -> None:
+        self.tearDown_storage_test_env()
+
     def test_plan_only_builds_gdcic_contract_and_project_manager_tasks(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -44,7 +55,15 @@ class GDCICBrowserAuthorizedReadbackTests(unittest.TestCase):
             self.assertEqual(summary["gdcic_browser_readback_task_count"], 2)
             self.assertEqual(summary["gdcic_browser_readback_record_count"], 0)
             self.assertEqual(summary["gdcic_authorized_session_overall_state"], "NOT_ATTEMPTED_PLAN_ONLY")
+            self.assertEqual(summary["project_manager_change_readback_task_count"], 1)
+            self.assertEqual(summary["project_manager_change_readback_record_count"], 0)
+            self.assertEqual(summary["project_manager_change_ready_count"], 0)
             self.assertEqual(result["manifest"]["authorized_session_input_state"], "NO_AUTHORIZED_SESSION_INPUT")
+            self.assertEqual(
+                result["manifest"]["source_release_evidence_adapter_plan_manifest_id"],
+                "RELEASE-PLAN-FIXTURE-1",
+            )
+            self.assertTrue(result["manifest"]["source_release_evidence_adapter_plan_manifest_sha256"])
             tasks = result["manifest"]["browser_readback_task_records"]
             self.assertEqual(
                 {task["release_evidence_target_type"] for task in tasks},
@@ -198,6 +217,62 @@ class GDCICBrowserAuthorizedReadbackTests(unittest.TestCase):
                 "ORIGINAL_MANAGER_CHANGED_OUT_REVIEW_REQUIRED",
             )
             self.assertTrue(extracted["original_project_manager_matches_query_person"])
+            self.assertEqual(readback["summary"]["project_manager_change_readback_task_count"], 1)
+            self.assertEqual(readback["summary"]["project_manager_change_readback_record_count"], 1)
+            self.assertEqual(readback["summary"]["project_manager_change_ready_count"], 1)
+            self.assertEqual(readback["summary"]["project_manager_change_not_found_count"], 0)
+            self.assertEqual(readback["summary"]["project_manager_change_login_or_sso_required_count"], 0)
+            self.assertEqual(
+                readback["summary"]["project_manager_change_interpretation_counts"],
+                {"ORIGINAL_MANAGER_CHANGED_OUT_REVIEW_REQUIRED": 1},
+            )
+            self.assertEqual(readback["summary"]["project_manager_change_date_count"], 1)
+            self.assertEqual(readback["summary"]["project_manager_change_original_manager_matches_query_count"], 1)
+            self.assertEqual(readback["summary"]["project_manager_change_new_manager_matches_query_count"], 0)
+            self.assertEqual(readback["summary"]["stage5_calibration_sample_count"], 1)
+            self.assertEqual(readback["summary"]["stage5_calibration_truth_label_required_count"], 1)
+            self.assertEqual(
+                readback["summary"]["stage5_abcd_calibration_counts"],
+                {"C_REVERSE_EXPLANATION_OFFICIAL_READBACK": 1},
+            )
+            self.assertEqual(
+                readback["summary"]["stage5_calibration_review_bucket_counts"],
+                {"C_REVERSE_EXPLANATION_OFFICIAL_READBACK": 1},
+            )
+            calibration_sample = readback["manifest"]["stage5_calibration_sample_records"][0]
+            self.assertEqual(calibration_sample["rule_code"], "P13B_PROJECT_MANAGER_CHANGE_READBACK")
+            self.assertEqual(
+                calibration_sample["stage5_abcd_calibration_bucket"],
+                "C_REVERSE_EXPLANATION_OFFICIAL_READBACK",
+            )
+            self.assertTrue(calibration_sample["calibration_truth_label_required"])
+            persisted = RuntimeStateRepository().latest_worker_result(
+                worker_id="gdcic_browser_authorized_readback_worker"
+            )
+            self.assertEqual(persisted["worker_id"], "gdcic_browser_authorized_readback_worker")
+            self.assertEqual(persisted["worker_result_state"], "FIELD_SURFACE_REACHED_REVIEW_REQUIRED")
+            self.assertEqual(persisted["project_manager_change_ready_count"], 1)
+            self.assertEqual(persisted["stage5_calibration_sample_count"], 1)
+            self.assertEqual(
+                persisted["stage5_abcd_calibration_counts"],
+                {"C_REVERSE_EXPLANATION_OFFICIAL_READBACK": 1},
+            )
+            self.assertEqual(
+                persisted["stage5_calibration_review_bucket_counts"],
+                {"C_REVERSE_EXPLANATION_OFFICIAL_READBACK": 1},
+            )
+            self.assertEqual(persisted["project_id"], "PROJ-P13B-1")
+            self.assertEqual(persisted["trace_refs"]["stage5_calibration_sample_count"], "1")
+            self.assertIn(
+                "C_REVERSE_EXPLANATION_OFFICIAL_READBACK",
+                persisted["trace_refs"]["stage5_calibration_review_bucket_counts_json"],
+            )
+            self.assertEqual(persisted["trace_refs"]["project_manager_change_ready_count"], "1")
+            self.assertIn(
+                "ORIGINAL_MANAGER_CHANGED_OUT_REVIEW_REQUIRED",
+                persisted["trace_refs"]["project_manager_change_interpretation_counts_json"],
+            )
+            self.assertFalse(persisted["governed_state"]["external_customer_action_enabled"])
 
             field = build_guangdong_local_field_query_probe(
                 release_evidence_adapter_plan_root=plan_root,
@@ -218,6 +293,16 @@ class GDCICBrowserAuthorizedReadbackTests(unittest.TestCase):
             task = field_by_target["project_manager_change_notice"]
             self.assertEqual(task["adapter_result_state"], "MATCHED")
             self.assertEqual(task["downstream_release_evidence_abcd_grade"], "C_REVERSE_EXPLANATION_OFFICIAL_READBACK")
+            self.assertEqual(
+                field["summary"]["guangdong_gdcic_browser_authorized_project_manager_change_ready_count"],
+                1,
+            )
+            self.assertEqual(
+                field["summary"][
+                    "guangdong_gdcic_browser_authorized_project_manager_change_interpretation_counts"
+                ],
+                {"ORIGINAL_MANAGER_CHANGED_OUT_REVIEW_REQUIRED": 1},
+            )
             compact = task["field_match_summary"]["source_specific_records"][0]
             self.assertEqual(compact["original_project_manager_name_probe"], "张三")
             self.assertEqual(compact["new_project_manager_name_probe"], "李四")
@@ -265,6 +350,7 @@ class GDCICBrowserAuthorizedReadbackTests(unittest.TestCase):
                 record["operator_next_actions"],
             )
             self.assertEqual(result["summary"]["gdcic_authorized_session_overall_state"], "LOGIN_OR_SSO_REQUIRED")
+            self.assertEqual(result["summary"]["project_manager_change_ready_count"], 0)
             self.assertIn("gdcic_login_or_sso_required_for_authorized_readback", record["blocker_taxonomy"])
             self.assertTrue(record["query_miss_is_not_clearance"])
 
@@ -336,10 +422,19 @@ def _write_release_evidence_adapter_plan(root: Path) -> None:
     payload = {
         "manifest": {
             "manifest_kind": "release_evidence_adapter_plan_v1_manifest",
+            "manifest_id": "RELEASE-PLAN-FIXTURE-1",
             "release_evidence_adapter_task_records": tasks,
         },
         "summary": {"adapter_task_count": len(tasks)},
     }
+    payload["manifest"]["manifest_sha256"] = __import__("hashlib").sha256(
+        json.dumps(
+            {key: value for key, value in payload["manifest"].items() if key != "manifest_sha256"},
+            ensure_ascii=False,
+            sort_keys=True,
+            default=str,
+        ).encode("utf-8")
+    ).hexdigest()
     (root / "release-evidence-adapter-plan-v1.json").write_text(
         json.dumps(payload, ensure_ascii=False, indent=2),
         encoding="utf-8",

@@ -822,6 +822,23 @@ class EvidenceOrchestrationStateMachineTests(unittest.TestCase):
                 rqsg2["signal_counts"]["original_backtrace_continuation_targeted_person_not_found_count"],
                 1,
             )
+            self.assertEqual(rqsg2["original_readback_next_queue_counts"], {"manual_hold": 2})
+            self.assertEqual(
+                rqsg2["original_readback_closeout_state_counts"],
+                {"TERMINAL_ORIGINAL_READBACK_CLOSEOUT": 2},
+            )
+            self.assertEqual(
+                rqsg2["terminal_closeout_markers"][0]["task_family"],
+                "original_readback",
+            )
+            self.assertEqual(
+                rqsg2["runtime_blocker_ledger_records"][0]["ledger_scope"],
+                "p13b_original_readback",
+            )
+            self.assertEqual(
+                rqsg2["original_readback_operator_projections"][0]["raw_json_required_for_next_step"],
+                False,
+            )
             batch_by_project = _records_by_project(result["manifest"]["batch_triage_table"]["records"])
             self.assertEqual(
                 batch_by_project["PROJ-CN-GD-JG2026-11398-002"]["batch_triage_bucket"],
@@ -1164,6 +1181,33 @@ def _write_original_backtrace_continuation_closed(root: Path) -> None:
                         "project_id": "PROJ-CN-GD-JG2026-11398-002",
                         "candidate_company_name": "中国化学工程第六建设有限公司",
                         "continuation_state": "PARK_DIFFERENT_PERSON_WITH_PERIOD",
+                        "original_readback_closeout_state": "TERMINAL_ORIGINAL_READBACK_CLOSEOUT",
+                        "next_queue": "manual_hold",
+                        "operator_projection": {
+                            "projection_state": "ORIGINAL_READBACK_MANUAL_HOLD",
+                            "raw_json_required_for_next_step": False,
+                            "output_artifact": "p13b-original-backtrace-continuation-controller-v2.json",
+                        },
+                        "runtime_blocker_ledger_record": {
+                            "ledger_scope": "p13b_original_readback",
+                            "blocker_state": "TERMINAL_CLOSEOUT_SUPPRESSED_DUPLICATE_DISPATCH",
+                        },
+                        "terminal_closeout_markers": [
+                            {
+                                "task_family": "original_readback",
+                                "terminal": True,
+                                "marker_state": "PARK_DIFFERENT_PERSON_WITH_PERIOD",
+                                "artifact_ref": "p13b-original-backtrace-continuation-controller-v2.json",
+                            }
+                        ],
+                        "terminal_backfill_markers": [
+                            {
+                                "task_family": "original_readback",
+                                "terminal": True,
+                                "marker_state": "PARK_DIFFERENT_PERSON_WITH_PERIOD",
+                                "artifact_ref": "p13b-original-backtrace-continuation-controller-v2.json",
+                            }
+                        ],
                     },
                     {
                         "original_notice_task_id": "TASK-TARGET-NOT-FOUND",
@@ -1171,6 +1215,33 @@ def _write_original_backtrace_continuation_closed(root: Path) -> None:
                         "candidate_company_name": "中国化学工程第六建设有限公司",
                         "continuation_state": "PARK_TARGETED_PERSON_NOT_FOUND",
                         "targeted_person_readback_state": "TARGETED_PERSON_NOT_FOUND_IN_TARGETED_READBACK",
+                        "original_readback_closeout_state": "TERMINAL_ORIGINAL_READBACK_CLOSEOUT",
+                        "next_queue": "manual_hold",
+                        "operator_projection": {
+                            "projection_state": "ORIGINAL_READBACK_MANUAL_HOLD",
+                            "raw_json_required_for_next_step": False,
+                            "output_artifact": "p13b-original-backtrace-continuation-controller-v2.json",
+                        },
+                        "runtime_blocker_ledger_record": {
+                            "ledger_scope": "p13b_original_readback",
+                            "blocker_state": "TERMINAL_CLOSEOUT_SUPPRESSED_DUPLICATE_DISPATCH",
+                        },
+                        "terminal_closeout_markers": [
+                            {
+                                "task_family": "original_readback",
+                                "terminal": True,
+                                "marker_state": "PARK_TARGETED_PERSON_NOT_FOUND",
+                                "artifact_ref": "p13b-original-backtrace-continuation-controller-v2.json",
+                            }
+                        ],
+                        "terminal_backfill_markers": [
+                            {
+                                "task_family": "original_readback",
+                                "terminal": True,
+                                "marker_state": "PARK_TARGETED_PERSON_NOT_FOUND",
+                                "artifact_ref": "p13b-original-backtrace-continuation-controller-v2.json",
+                            }
+                        ],
                     },
                 ]
             }

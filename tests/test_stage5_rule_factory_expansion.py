@@ -368,6 +368,18 @@ class Stage5RuleFactoryExpansionTests(unittest.TestCase):
         self.assertTrue(
             any("public evidence readback missing" in reason for reason in trace["public_evidence_gate_reasons"])
         )
+        bundle_execution = stage5.inputs["stage5_rule_bundle_execution"]
+        self.assertEqual(bundle_execution["executed_rule_codes"], ["CREDIT-001"])
+        self.assertNotIn("CREDIT-001", bundle_execution["skipped_rule_codes"])
+        self.assertTrue(bundle_execution["skipped_rule_codes"])
+        self.assertIn("CREDIT-001", bundle_execution["missing_readback_reasons"])
+        self.assertTrue(
+            any(
+                "public evidence readback missing" in reason
+                for reason in bundle_execution["missing_readback_reasons"]["CREDIT-001"]
+            )
+        )
+        self.assertFalse(bundle_execution["customer_visible_allowed"])
         self.assertEqual(stage5.record("rule_gate_decision").get("rule_gate_status"), "REVIEW")
         self.assertIn("review_request", stage5.records)
 
@@ -689,6 +701,12 @@ class Stage5RuleFactoryExpansionTests(unittest.TestCase):
         self.assertEqual(readback["rule_gate_decision_id"], stage5.record("rule_gate_decision").get("gate_id"))
         self.assertEqual(readback["evidence_gate_decision_id"], stage5.record("evidence_gate_decision").get("gate_id"))
         self.assertTrue(readback["golden_case_refs"])
+        self.assertEqual(
+            readback["rule_bundle_execution"]["stage5_abcd_calibration_counts"],
+            stage5.inputs["stage5_rule_bundle_execution"]["summary"]["stage5_abcd_calibration_counts"],
+        )
+        self.assertIn("stage5_abcd_calibration", readback)
+        self.assertTrue(readback["stage5_abcd_calibration"]["calibration_rows"])
 
     def test_requested_116a_active_conflict_rule_degrades_to_review_with_evidence_binding(self) -> None:
         active_conflict_readback = {
@@ -955,6 +973,10 @@ class Stage5RuleFactoryExpansionTests(unittest.TestCase):
         readback = stage5.inputs["stage5_rule_readback_summary"]
         self.assertIn(verification["verification_run_id"], readback["stage4_public_verification_refs"])
         self.assertIn(verification["source_snapshot_id"], readback["stage4_public_verification_refs"])
+        self.assertIn("stage5_abcd_calibration", readback)
+        self.assertFalse(readback["stage5_abcd_calibration"]["customer_visible_allowed"])
+        self.assertTrue(readback["stage5_abcd_calibration"]["no_legal_conclusion"])
+        self.assertTrue(readback["stage5_abcd_calibration"]["query_miss_is_not_clearance"])
         self.assertEqual(
             stage5.inputs["stage4_public_verification_readback_summary"]["readback_state"],
             "READBACK_READY",
