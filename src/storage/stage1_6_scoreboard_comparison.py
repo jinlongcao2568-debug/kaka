@@ -24,6 +24,7 @@ def build_stage1_6_scoreboard_comparison(
     baseline = rows[0] if rows else {}
     deltas = [_delta_row(row, baseline) for row in rows]
     adjacent_deltas = _adjacent_delta_rows(rows)
+    public_source_deepening_recommendations = _public_source_deepening_recommendations(adjacent_deltas)
     result = {
         "comparison_kind": COMPARISON_KIND,
         "comparison_version": 1,
@@ -32,6 +33,7 @@ def build_stage1_6_scoreboard_comparison(
         "comparison_rows": rows,
         "delta_from_first_row": deltas,
         "delta_from_previous_row": adjacent_deltas,
+        "public_source_deepening_recommendations": public_source_deepening_recommendations,
         "summary": _summary(rows),
         "safety": {
             "customer_visible_allowed": False,
@@ -161,8 +163,16 @@ def _delta_row(row: Mapping[str, Any], baseline: Mapping[str, Any]) -> dict[str,
         "stage6_limited_sellable_review_public_source_chain_counts",
         "YGP_ORIGINAL_READBACK_BACKFILL",
     )
+    public_readback_ready_delta = _count_delta(
+        row, baseline, "stage4_public_readback_outcome_counts", "READBACK_READY"
+    )
+    public_readback_blocked_delta = _count_delta(row, baseline, "stage4_public_readback_outcome_counts", "BLOCKED")
+    missing_backfill_input_delta = _count_delta(
+        row, baseline, "stage4_project_code_backfill_state_counts", "MISSING_PROJECT_CODE_BACKFILL_INPUT"
+    )
     return {
         "run_label": str(row.get("run_label") or ""),
+        "previous_run_label": str(baseline.get("run_label") or ""),
         "candidate_count_delta": _int(row.get("candidate_count")) - _int(baseline.get("candidate_count")),
         "limited_sellable_review_candidate_count_delta": limited_delta,
         "real_public_sellable_pack_rate_delta": rate_delta,
@@ -174,22 +184,25 @@ def _delta_row(row: Mapping[str, Any], baseline: Mapping[str, Any]) -> dict[str,
         "stage4_public_readback_not_found_delta": _count_delta(
             row, baseline, "stage4_public_readback_outcome_counts", "NOT_FOUND"
         ),
-        "stage4_public_readback_blocked_delta": _count_delta(
-            row, baseline, "stage4_public_readback_outcome_counts", "BLOCKED"
-        ),
-        "stage4_public_readback_ready_delta": _count_delta(
-            row, baseline, "stage4_public_readback_outcome_counts", "READBACK_READY"
-        ),
+        "stage4_public_readback_blocked_delta": public_readback_blocked_delta,
+        "stage4_public_readback_ready_delta": public_readback_ready_delta,
         "stage4_public_identifier_backfilled_delta": _count_delta(
             row,
             baseline,
             "stage4_project_code_backfill_state_counts",
             "PUBLIC_SOURCE_IDENTIFIER_BACKFILLED_FOR_P13B_OR_STAGE4_BRIDGE_ONLY",
         ),
-        "stage4_project_code_missing_backfill_input_delta": _count_delta(
-            row, baseline, "stage4_project_code_backfill_state_counts", "MISSING_PROJECT_CODE_BACKFILL_INPUT"
-        ),
+        "stage4_project_code_missing_backfill_input_delta": missing_backfill_input_delta,
         "stage6_ygp_original_readback_backfill_delta": ygp_delta,
+        "public_source_deepening_effect_state": _public_source_deepening_effect_state(
+            candidate_count_delta=_int(row.get("candidate_count")) - _int(baseline.get("candidate_count")),
+            rate_delta=rate_delta,
+            limited_delta=limited_delta,
+            matched_delta=matched_delta,
+            public_readback_ready_delta=public_readback_ready_delta,
+            public_readback_blocked_delta=public_readback_blocked_delta,
+            ygp_delta=ygp_delta,
+        ),
         "regression_flags": _regression_flags(
             rate_delta=rate_delta,
             limited_delta=limited_delta,
@@ -226,6 +239,60 @@ def _regression_flags(
     if ygp_delta < 0:
         flags.append("YGP_BACKFILL_COUNT_DECREASED")
     return flags
+
+
+def _public_source_deepening_effect_state(
+    *,
+    candidate_count_delta: int,
+    rate_delta: float,
+    limited_delta: int,
+    matched_delta: int,
+    public_readback_ready_delta: int,
+    public_readback_blocked_delta: int,
+    ygp_delta: int,
+) -> str:
+    if candidate_count_delta != 0:
+        return "NOT_COMPARABLE_CANDIDATE_COUNT_CHANGED"
+    if (
+        rate_delta > 0
+        and limited_delta > 0
+        and matched_delta > 0
+        and public_readback_ready_delta > 0
+        and ygp_delta > 0
+        and public_readback_blocked_delta <= 0
+    ):
+        return "PUBLIC_SOURCE_DEEPENING_EFFECTIVE"
+    if rate_delta < 0 or limited_delta < 0 or matched_delta < 0:
+        return "PUBLIC_SOURCE_DEEPENING_REGRESSED"
+    return "PUBLIC_SOURCE_DEEPENING_INCONCLUSIVE"
+
+
+def _public_source_deepening_recommendations(adjacent_deltas: list[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    recommendations: list[dict[str, Any]] = []
+    for delta in adjacent_deltas:
+        if delta.get("public_source_deepening_effect_state") != "PUBLIC_SOURCE_DEEPENING_EFFECTIVE":
+            continue
+        recommendations.append(
+            {
+                "run_label": str(delta.get("run_label") or ""),
+                "previous_run_label": str(delta.get("previous_run_label") or ""),
+                "decision": "CONTINUE_PUBLIC_SOURCE_DEEPENING",
+                "reason": "same_candidate_count_improved_rate_limited_stage4_matched_readback_ready_and_ygp_backfill",
+                "recommended_budget_focus": [
+                    "increase_p13b_prior_award_and_candidate_overlap_budget",
+                    "increase_original_notice_readback_budget",
+                    "increase_ygp_original_readback_backfill_budget",
+                    "continue_remaining_stage4_backfill_followup_queue_before_gdcic_project_code_guessing",
+                ],
+                "safety_invariants": {
+                    "customer_visible_allowed": False,
+                    "query_miss_is_not_clearance": True,
+                    "no_legal_conclusion": True,
+                    "gdcic_project_code_digit_guessing_allowed": False,
+                },
+            }
+        )
+    return recommendations
 
 
 def _summary(rows: list[Mapping[str, Any]]) -> dict[str, Any]:
@@ -322,6 +389,25 @@ def _write_markdown(path: Path, payload: Mapping[str, Any]) -> None:
                 auth_state=auth_state,
             )
         )
+    lines.extend(
+        [
+            "",
+            "## Public Source Deepening Recommendations",
+            "",
+        ]
+    )
+    recommendations = payload.get("public_source_deepening_recommendations")
+    if isinstance(recommendations, list) and recommendations:
+        for item in recommendations:
+            lines.append(
+                "- {run}: {decision}; focus=`{focus}`".format(
+                    run=str(item.get("run_label") or ""),
+                    decision=str(item.get("decision") or ""),
+                    focus=json.dumps(item.get("recommended_budget_focus") or [], ensure_ascii=False),
+                )
+            )
+    else:
+        lines.append("- none")
     lines.extend(
         [
             "",

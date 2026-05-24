@@ -111,6 +111,10 @@ class StageOneSixScoreboardComparisonTests(unittest.TestCase):
             )
             self.assertEqual(result["delta_from_previous_row"][1]["previous_run_label"], "stage1-6-sellable-rate-regression-live12")
             self.assertEqual(result["delta_from_previous_row"][1]["stage6_ygp_original_readback_backfill_delta"], 7)
+            self.assertEqual(
+                result["delta_from_previous_row"][1]["public_source_deepening_effect_state"],
+                "NOT_COMPARABLE_CANDIDATE_COUNT_CHANGED",
+            )
             self.assertEqual(result["delta_from_previous_row"][1]["regression_flags"], [])
             self.assertEqual(result["summary"]["latest_run_label"], "stage1-6-sellable-rate-regression-live15")
             self.assertFalse(result["safety"]["customer_visible_allowed"])
@@ -121,6 +125,88 @@ class StageOneSixScoreboardComparisonTests(unittest.TestCase):
             self.assertIn("code route policy", markdown)
             self.assertIn("gap_detail", markdown)
             self.assertIn("YGP_ORIGINAL_READBACK_BACKFILL", markdown)
+            self.assertIn("Public Source Deepening Recommendations", markdown)
+
+    def test_same_candidate_public_source_deepening_recommendation(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            run_a = root / "stage1-6-sellable-rate-regression-live20-r1"
+            run_b = root / "stage1-6-sellable-rate-regression-live20-r2"
+            out = root / "out"
+            _write_scoreboard(
+                run_a / "scoreboard" / "stage1-6-sellable-scoreboard-v1.json",
+                candidate_count=20,
+                limited_count=5,
+                rate=0.25,
+                stage4={"MATCHED": 10, "NEEDS_BROWSER": 8, "NOT_FOUND": 2},
+                stage5={"PUBLIC_SOURCE_BLOCKED_REVIEW": 8},
+                long_tail={"COMPANY_FIRST_CERTIFICATE_SUPPLEMENT_REQUIRED": 4},
+                public_source_chain={"YGP_ORIGINAL_READBACK_BACKFILL": 6},
+                public_readback_outcomes={"READBACK_READY": 4, "BLOCKED": 8, "NOT_FOUND": 2},
+                code_backfill={"MISSING_PROJECT_CODE_BACKFILL_INPUT": 8},
+                code_backfill_gap_detail={
+                    "NO_PUBLIC_OVERLAP_SIGNAL_FALLBACK_LOCAL_AUTHORITY_REQUIRED": 2,
+                    "PUBLIC_SOURCE_BLOCKED_RETRY_OR_LOCAL_AUTHORITY_REQUIRED": 6,
+                },
+                route_policy={
+                    "BACKFILL_NOTICE_DATA_GGZY_BID_SHOW_OR_LOCAL_SOURCE_WITHOUT_DIGIT_GUESSING": 8,
+                },
+            )
+            _write_scoreboard(
+                run_b / "scoreboard" / "stage1-6-sellable-scoreboard-v1.json",
+                candidate_count=20,
+                limited_count=9,
+                rate=0.45,
+                stage4={"MATCHED": 18, "NEEDS_BROWSER": 6, "NOT_FOUND": 2},
+                stage5={"PUBLIC_SOURCE_BLOCKED_REVIEW": 6, "LIMITED_SELLABLE_OFFICIAL_READBACK_REVIEW": 9},
+                long_tail={"COMPANY_FIRST_CERTIFICATE_SUPPLEMENT_REQUIRED": 4},
+                public_source_chain={"YGP_ORIGINAL_READBACK_BACKFILL": 14},
+                public_readback_outcomes={"READBACK_READY": 8, "BLOCKED": 6, "NOT_FOUND": 2},
+                code_backfill={
+                    "MISSING_PROJECT_CODE_BACKFILL_INPUT": 4,
+                    "PUBLIC_SOURCE_IDENTIFIER_BACKFILLED_FOR_P13B_OR_STAGE4_BRIDGE_ONLY": 14,
+                },
+                code_backfill_gap_detail={
+                    "NO_PUBLIC_OVERLAP_SIGNAL_FALLBACK_LOCAL_AUTHORITY_REQUIRED": 1,
+                    "PUBLIC_SOURCE_BLOCKED_RETRY_OR_LOCAL_AUTHORITY_REQUIRED": 3,
+                },
+                route_policy={
+                    "BACKFILL_NOTICE_DATA_GGZY_BID_SHOW_OR_LOCAL_SOURCE_WITHOUT_DIGIT_GUESSING": 4,
+                    "YGP_OR_TRADE_IDENTIFIERS_NOT_SENT_TO_GDCIC_PROJECT_CODE": 14,
+                },
+            )
+
+            result = build_stage1_6_scoreboard_comparison(
+                run_roots=[run_a, run_b],
+                output_root=out,
+                created_at="2026-05-25T00:00:00+08:00",
+            )
+
+            delta = result["delta_from_previous_row"][1]
+            self.assertEqual(delta["candidate_count_delta"], 0)
+            self.assertGreater(delta["real_public_sellable_pack_rate_delta"], 0)
+            self.assertGreater(delta["limited_sellable_review_candidate_count_delta"], 0)
+            self.assertGreater(delta["stage4_matched_delta"], 0)
+            self.assertGreater(delta["stage4_public_readback_ready_delta"], 0)
+            self.assertLess(delta["stage4_public_readback_blocked_delta"], 0)
+            self.assertEqual(delta["stage6_ygp_original_readback_backfill_delta"], 8)
+            self.assertEqual(delta["public_source_deepening_effect_state"], "PUBLIC_SOURCE_DEEPENING_EFFECTIVE")
+
+            recommendations = result["public_source_deepening_recommendations"]
+            self.assertEqual(len(recommendations), 1)
+            self.assertEqual(recommendations[0]["decision"], "CONTINUE_PUBLIC_SOURCE_DEEPENING")
+            self.assertIn(
+                "increase_p13b_prior_award_and_candidate_overlap_budget",
+                recommendations[0]["recommended_budget_focus"],
+            )
+            self.assertIn(
+                "continue_remaining_stage4_backfill_followup_queue_before_gdcic_project_code_guessing",
+                recommendations[0]["recommended_budget_focus"],
+            )
+            self.assertFalse(recommendations[0]["safety_invariants"]["customer_visible_allowed"])
+            self.assertFalse(recommendations[0]["safety_invariants"]["gdcic_project_code_digit_guessing_allowed"])
+            markdown = (out / "stage1-6-scoreboard-comparison-v1.md").read_text(encoding="utf-8")
+            self.assertIn("CONTINUE_PUBLIC_SOURCE_DEEPENING", markdown)
 
 
 def _write_scoreboard(
