@@ -870,6 +870,11 @@ def _project_status_records(
             release_field_query_result,
             closeout_precedence=closeout_precedence,
         )
+        stage7_commercial_input_allowed = bool(closeout_record.get("stage7_commercial_input_allowed", False))
+        limited_sellable_review_projection = _limited_sellable_review_projection(
+            release_field_query_result.get("downstream_release_evidence_abcd_grade_counts") or {},
+            stage7_commercial_input_allowed=stage7_commercial_input_allowed,
+        )
         records.append(
             {
                 "project_id": project_id,
@@ -905,9 +910,8 @@ def _project_status_records(
                 "next_task_type": str(routing_record.get("next_task_type") or ""),
                 "stage6_fact_package_state": str(closeout_record.get("stage6_fact_package_state") or ""),
                 "stage6_ready": bool(closeout_record.get("stage6_ready", False)),
-                "stage7_commercial_input_allowed": bool(
-                    closeout_record.get("stage7_commercial_input_allowed", False)
-                ),
+                "stage7_commercial_input_allowed": stage7_commercial_input_allowed,
+                **limited_sellable_review_projection,
                 "result_runner_execution_state": str(runner_record.get("execution_state") or ""),
                 "result_runner_skip_reason": str(runner_record.get("skip_reason") or ""),
                 "release_field_query_state": str(release_field_query_result.get("release_field_query_state") or ""),
@@ -2143,6 +2147,37 @@ def _release_field_query_state(
     return "RELEASE_FIELD_QUERY_PENDING_OR_NEEDS_BROWSER"
 
 
+def _limited_sellable_review_projection(
+    downstream_counts: Mapping[str, Any],
+    *,
+    stage7_commercial_input_allowed: bool,
+) -> dict[str, Any]:
+    has_official_b_or_c = any(
+        str(grade).startswith(("B_", "C_")) and _int(count) > 0
+        for grade, count in downstream_counts.items()
+    )
+    if has_official_b_or_c and not stage7_commercial_input_allowed:
+        return {
+            "strong_lead_candidate_state": "STRONG_LEAD_REVIEW_CANDIDATE",
+            "limited_sellable_review_candidate_state": "REVIEW_CANDIDATE",
+            "limited_sellable_review_reason": "official_b_or_c_readback_requires_manual_stage5_stage6_review",
+            "commercialization_boundary_state": "INTERNAL_REVIEW_ONLY_NOT_CUSTOMER_DELIVERABLE",
+        }
+    if has_official_b_or_c:
+        return {
+            "strong_lead_candidate_state": "STRONG_LEAD_REVIEW_CANDIDATE",
+            "limited_sellable_review_candidate_state": "NOT_READY",
+            "limited_sellable_review_reason": "stage7_commercial_input_already_allowed_by_closeout_gate",
+            "commercialization_boundary_state": "CUSTOMER_DELIVERABLE_ONLY_AFTER_STAGE7_GATE",
+        }
+    return {
+        "strong_lead_candidate_state": "NOT_READY",
+        "limited_sellable_review_candidate_state": "NOT_READY",
+        "limited_sellable_review_reason": "",
+        "commercialization_boundary_state": "INTERNAL_REVIEW_ONLY_NOT_CUSTOMER_DELIVERABLE",
+    }
+
+
 def _records_by_project(result: Mapping[str, Any], table_name: str) -> dict[str, dict[str, Any]]:
     out: dict[str, dict[str, Any]] = {}
     for record in _table_records(result, table_name):
@@ -2734,6 +2769,20 @@ def _summary(
         ),
         "stage5_calibration_suggested_action_counts": _counts(
             record.get("suggested_calibration_action") for record in project_status_records
+        ),
+        "limited_sellable_review_candidate_count": sum(
+            1
+            for record in project_status_records
+            if record.get("limited_sellable_review_candidate_state") == "REVIEW_CANDIDATE"
+        ),
+        "limited_sellable_review_candidate_state_counts": _counts(
+            record.get("limited_sellable_review_candidate_state") for record in project_status_records
+        ),
+        "strong_lead_candidate_state_counts": _counts(
+            record.get("strong_lead_candidate_state") for record in project_status_records
+        ),
+        "commercialization_boundary_state_counts": _counts(
+            record.get("commercialization_boundary_state") for record in project_status_records
         ),
         "runtime_blocker_ledger_count": sum(
             len(_list(record.get("runtime_blocker_ledger_records"))) for record in project_status_records

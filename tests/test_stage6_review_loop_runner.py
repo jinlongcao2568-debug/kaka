@@ -218,6 +218,16 @@ class Stage6ReviewLoopRunnerTests(unittest.TestCase):
                 records[0]["release_field_query_downstream_abcd_grade_counts"],
                 {"B_ENHANCEMENT_OFFICIAL_READBACK": 1},
             )
+            self.assertEqual(records[0]["strong_lead_candidate_state"], "STRONG_LEAD_REVIEW_CANDIDATE")
+            self.assertEqual(records[0]["limited_sellable_review_candidate_state"], "REVIEW_CANDIDATE")
+            self.assertEqual(
+                records[0]["limited_sellable_review_reason"],
+                "official_b_or_c_readback_requires_manual_stage5_stage6_review",
+            )
+            self.assertEqual(
+                records[0]["commercialization_boundary_state"],
+                "INTERNAL_REVIEW_ONLY_NOT_CUSTOMER_DELIVERABLE",
+            )
             self.assertEqual(
                 records[0]["release_field_query_authorization_state_counts"],
                 {"FIELD_SURFACE_REACHED_REVIEW_REQUIRED": 1},
@@ -283,6 +293,14 @@ class Stage6ReviewLoopRunnerTests(unittest.TestCase):
             self.assertEqual(
                 records["PROJ-REL"]["release_field_query_downstream_abcd_grade_counts"],
                 {"B_ENHANCEMENT_OFFICIAL_READBACK": 1},
+            )
+            self.assertEqual(
+                records["PROJ-REL"]["limited_sellable_review_candidate_state"],
+                "REVIEW_CANDIDATE",
+            )
+            self.assertEqual(
+                result["summary"]["limited_sellable_review_candidate_count"],
+                1,
             )
             self.assertEqual(
                 records["PROJ-REL"]["release_field_query_source_hit_summary_labels"],

@@ -106,6 +106,9 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
                             "stage6_ready": False,
                             "stage6_fact_package_state": "RUNTIME_BLOCKER_WORKER_FOLLOWUP_READY",
                             "stage7_commercial_input_allowed": False,
+                            "limited_sellable_review_candidate_state": "REVIEW_CANDIDATE",
+                            "limited_sellable_review_reason": "official_b_or_c_readback_requires_manual_stage5_stage6_review",
+                            "commercialization_boundary_state": "INTERNAL_REVIEW_ONLY_NOT_CUSTOMER_DELIVERABLE",
                             "release_field_query_downstream_abcd_grade_counts": {
                                 "B_ENHANCEMENT_OFFICIAL_READBACK": 1
                             },
@@ -139,6 +142,16 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
         self.assertEqual(scoreboard["stage7_sellable_count"], 0)
         self.assertEqual(scoreboard["limited_sellable_review_candidate_count"], 1)
         self.assertEqual(scoreboard["real_public_sellable_pack_rate"], 0.5)
+        rows = {row["project_id"]: row for row in result["project_rows"]}
+        self.assertEqual(rows["PROJ-A"]["limited_sellable_review_candidate_state"], "REVIEW_CANDIDATE")
+        self.assertEqual(
+            rows["PROJ-A"]["limited_sellable_review_reason"],
+            "official_b_or_c_readback_requires_manual_stage5_stage6_review",
+        )
+        self.assertEqual(
+            rows["PROJ-A"]["commercialization_boundary_state"],
+            "INTERNAL_REVIEW_ONLY_NOT_CUSTOMER_DELIVERABLE",
+        )
         self.assertEqual(
             result["blocker_summary"]["blocking_bucket_counts"],
             {

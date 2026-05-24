@@ -200,6 +200,18 @@ def _project_scoreboard_row(
         combined_grade_counts[key] = max(int(combined_grade_counts.get(key) or 0), int(value or 0))
     has_official_b_or_c = any(str(key).startswith(("B_", "C_")) and int(value or 0) > 0 for key, value in combined_grade_counts.items())
     stage7_allowed = bool(stage6_record.get("stage7_commercial_input_allowed"))
+    stage6_strong_lead_state = str(stage6_record.get("strong_lead_candidate_state") or "").strip()
+    stage6_limited_review_state = str(stage6_record.get("limited_sellable_review_candidate_state") or "").strip()
+    strong_lead_candidate_state = (
+        stage6_strong_lead_state
+        if stage6_strong_lead_state
+        else "STRONG_LEAD_REVIEW_CANDIDATE" if has_official_b_or_c else "NOT_READY"
+    )
+    limited_sellable_review_candidate_state = (
+        stage6_limited_review_state
+        if stage6_limited_review_state
+        else "REVIEW_CANDIDATE" if has_official_b_or_c and not stage7_allowed else "NOT_READY"
+    )
     return {
         "project_id": project_id,
         "project_name": str(readiness_record.get("project_name") or stage6_record.get("project_name") or ""),
@@ -217,8 +229,13 @@ def _project_scoreboard_row(
         "authorization_state_counts": dict(stage6_record.get("release_field_query_authorization_state_counts") or {}),
         "operator_next_actions": [str(item) for item in _as_list(stage6_record.get("release_field_query_operator_next_actions")) if str(item or "").strip()],
         "blocking_bucket": _project_blocking_bucket(readiness_record, stage6_record, field_records),
-        "strong_lead_candidate_state": "STRONG_LEAD_REVIEW_CANDIDATE" if has_official_b_or_c else "NOT_READY",
-        "limited_sellable_review_candidate_state": "REVIEW_CANDIDATE" if has_official_b_or_c and not stage7_allowed else "NOT_READY",
+        "strong_lead_candidate_state": strong_lead_candidate_state,
+        "limited_sellable_review_candidate_state": limited_sellable_review_candidate_state,
+        "limited_sellable_review_reason": str(stage6_record.get("limited_sellable_review_reason") or ""),
+        "commercialization_boundary_state": str(
+            stage6_record.get("commercialization_boundary_state")
+            or "INTERNAL_REVIEW_ONLY_NOT_CUSTOMER_DELIVERABLE"
+        ),
         "customer_visible_allowed": False,
         "query_miss_is_not_clearance": True,
     }
