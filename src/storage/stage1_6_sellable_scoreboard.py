@@ -316,6 +316,15 @@ def _scoreboard_counts(
         "stage6_limited_sellable_review_candidate_state_counts": dict(
             stage6_summary.get("limited_sellable_review_candidate_state_counts") or {}
         ),
+        "stage6_limited_sellable_review_public_source_chain_counts": dict(
+            stage6_summary.get("limited_sellable_review_public_source_chain_counts") or {}
+        ),
+        "stage6_limited_sellable_review_stage4_bridge_backfill_state_counts": dict(
+            stage6_summary.get("limited_sellable_review_stage4_bridge_backfill_state_counts") or {}
+        ),
+        "stage6_limited_sellable_review_gdcic_project_code_route_policy_counts": dict(
+            stage6_summary.get("limited_sellable_review_gdcic_project_code_route_policy_counts") or {}
+        ),
         "stage6_strong_lead_candidate_state_counts": dict(
             stage6_summary.get("strong_lead_candidate_state_counts") or {}
         ),

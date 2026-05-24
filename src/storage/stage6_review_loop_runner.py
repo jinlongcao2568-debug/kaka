@@ -2799,6 +2799,17 @@ def _summary(
         "limited_sellable_review_gap_grade_counts": _merge_count_maps(
             record.get("limited_sellable_review_gap_grade_counts") for record in project_status_records
         ),
+        "limited_sellable_review_public_source_chain_counts": _merge_count_maps(
+            record.get("limited_sellable_review_public_source_chain_counts") for record in project_status_records
+        ),
+        "limited_sellable_review_stage4_bridge_backfill_state_counts": _merge_count_maps(
+            record.get("limited_sellable_review_stage4_bridge_backfill_state_counts")
+            for record in project_status_records
+        ),
+        "limited_sellable_review_gdcic_project_code_route_policy_counts": _merge_count_maps(
+            record.get("limited_sellable_review_gdcic_project_code_route_policy_counts")
+            for record in project_status_records
+        ),
         "limited_sellable_review_candidate_state_counts": _counts(
             record.get("limited_sellable_review_candidate_state") for record in project_status_records
         ),

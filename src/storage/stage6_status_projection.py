@@ -86,6 +86,15 @@ def limited_sellable_review_detail_projection(
         "limited_sellable_review_official_readback_task_count": len(official_readback_records),
         "limited_sellable_review_evidence_grade_counts": evidence_grade_counts,
         "limited_sellable_review_gap_grade_counts": gap_grade_counts,
+        "limited_sellable_review_public_source_chain_counts": _counts(
+            record.get("public_source_chain") for record in official_readback_records
+        ),
+        "limited_sellable_review_stage4_bridge_backfill_state_counts": _counts(
+            record.get("stage4_bridge_backfill_state") for record in official_readback_records
+        ),
+        "limited_sellable_review_gdcic_project_code_route_policy_counts": _counts(
+            record.get("gdcic_project_code_route_policy") for record in official_readback_records
+        ),
         "limited_sellable_review_official_readback_records": official_readback_records,
         "limited_sellable_review_required_actions": _dedupe(required_actions),
         "limited_sellable_review_customer_visible_allowed": False,
@@ -103,6 +112,12 @@ def _limited_sellable_official_readback_record(task: Mapping[str, Any]) -> dict[
     source_records = [
         record for record in _list(field_match_summary.get("source_specific_records")) if isinstance(record, Mapping)
     ]
+    public_source_chain = _public_source_chain(task, source_records)
+    gdcic_route_allowed = bool(
+        task.get("gdcic_project_code_route_allowed")
+        or field_summary.get("gdcic_project_code_route_allowed")
+        or field_match_summary.get("gdcic_project_code_route_allowed")
+    )
     return {
         "field_query_task_id": str(task.get("field_query_task_id") or task.get("release_evidence_adapter_task_id") or ""),
         "project_id": str(task.get("project_id") or ""),
@@ -131,16 +146,51 @@ def _limited_sellable_official_readback_record(task: Mapping[str, Any]) -> dict[
         "ygp_biz_code_variants": _dedupe(record.get("ygp_biz_code") for record in source_records),
         "ygp_site_code_variants": _dedupe(record.get("ygp_site_code") for record in source_records),
         "ygp_notice_id_variants": _dedupe(record.get("ygp_notice_id") for record in source_records),
-        "gdcic_project_code_route_allowed": bool(
-            task.get("gdcic_project_code_route_allowed")
-            or field_summary.get("gdcic_project_code_route_allowed")
-            or field_match_summary.get("gdcic_project_code_route_allowed")
-        ),
+        "public_source_chain": public_source_chain,
+        "stage4_bridge_backfill_state": _stage4_bridge_backfill_state(public_source_chain, gdcic_route_allowed),
+        "gdcic_project_code_route_allowed": gdcic_route_allowed,
+        "gdcic_project_code_route_policy": _gdcic_project_code_route_policy(public_source_chain, gdcic_route_allowed),
         "review_boundary_state": "INTERNAL_REVIEW_ONLY_NOT_CUSTOMER_DELIVERABLE",
         "query_miss_is_not_clearance": True,
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,
     }
+
+
+def _public_source_chain(task: Mapping[str, Any], source_records: Iterable[Mapping[str, Any]]) -> str:
+    source_profile_id = str(task.get("source_profile_id") or "")
+    adapter_id = str(task.get("source_specific_adapter_id") or "")
+    target_type = str(task.get("release_evidence_target_type") or "")
+    records = [record for record in source_records if isinstance(record, Mapping)]
+    if (
+        "YGP" in source_profile_id.upper()
+        or "ygp" in adapter_id.lower()
+        or any(record.get("ygp_project_code") or record.get("ygp_project_code_variants") for record in records)
+    ):
+        return "YGP_ORIGINAL_READBACK_BACKFILL"
+    if "zfcj" in adapter_id.lower() or "ZFCJ" in source_profile_id.upper():
+        return "LOCAL_AUTHORITY_PUBLIC_API_READBACK"
+    if "gdcic" in adapter_id.lower() or "GDCIC" in source_profile_id.upper():
+        return "GDCIC_OPENPLATFORM_PUBLIC_READBACK"
+    if target_type:
+        return f"PUBLIC_SOURCE_READBACK:{target_type}"
+    return "PUBLIC_SOURCE_READBACK"
+
+
+def _stage4_bridge_backfill_state(public_source_chain: str, gdcic_route_allowed: bool) -> str:
+    if gdcic_route_allowed:
+        return "GDCIC_PROJECT_CODE_ROUTE_READY"
+    if public_source_chain == "YGP_ORIGINAL_READBACK_BACKFILL":
+        return "PUBLIC_SOURCE_IDENTIFIER_BACKFILLED_FOR_P13B_OR_STAGE4_BRIDGE_ONLY"
+    return "OFFICIAL_READBACK_READY_FOR_STAGE5_STAGE6_REVIEW"
+
+
+def _gdcic_project_code_route_policy(public_source_chain: str, gdcic_route_allowed: bool) -> str:
+    if gdcic_route_allowed:
+        return "ONLY_EXPLICIT_PROVINCIAL_OR_URL_PROJECT_CODE_ALLOWED"
+    if public_source_chain == "YGP_ORIGINAL_READBACK_BACKFILL":
+        return "YGP_OR_TRADE_IDENTIFIERS_NOT_SENT_TO_GDCIC_PROJECT_CODE"
+    return "NO_GDCIC_PROJECT_CODE_ROUTE_FROM_THIS_READBACK"
 
 
 def runtime_blocker_projection_fields(runtime_blockers: Iterable[Mapping[str, Any]]) -> dict[str, Any]:

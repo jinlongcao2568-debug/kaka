@@ -196,6 +196,15 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
                             "REVIEW_CANDIDATE": 1,
                             "NOT_READY": 4,
                         },
+                        "limited_sellable_review_public_source_chain_counts": {
+                            "YGP_ORIGINAL_READBACK_BACKFILL": 1,
+                        },
+                        "limited_sellable_review_stage4_bridge_backfill_state_counts": {
+                            "PUBLIC_SOURCE_IDENTIFIER_BACKFILLED_FOR_P13B_OR_STAGE4_BRIDGE_ONLY": 1,
+                        },
+                        "limited_sellable_review_gdcic_project_code_route_policy_counts": {
+                            "YGP_OR_TRADE_IDENTIFIERS_NOT_SENT_TO_GDCIC_PROJECT_CODE": 1,
+                        },
                         "strong_lead_candidate_state_counts": {
                             "STRONG_LEAD_REVIEW_CANDIDATE": 1,
                             "NOT_READY": 4,
@@ -465,6 +474,18 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
         self.assertEqual(
             scoreboard["stage6_limited_sellable_review_candidate_state_counts"],
             {"REVIEW_CANDIDATE": 1, "NOT_READY": 4},
+        )
+        self.assertEqual(
+            scoreboard["stage6_limited_sellable_review_public_source_chain_counts"],
+            {"YGP_ORIGINAL_READBACK_BACKFILL": 1},
+        )
+        self.assertEqual(
+            scoreboard["stage6_limited_sellable_review_stage4_bridge_backfill_state_counts"],
+            {"PUBLIC_SOURCE_IDENTIFIER_BACKFILLED_FOR_P13B_OR_STAGE4_BRIDGE_ONLY": 1},
+        )
+        self.assertEqual(
+            scoreboard["stage6_limited_sellable_review_gdcic_project_code_route_policy_counts"],
+            {"YGP_OR_TRADE_IDENTIFIERS_NOT_SENT_TO_GDCIC_PROJECT_CODE": 1},
         )
         self.assertEqual(
             scoreboard["stage6_strong_lead_candidate_state_counts"],

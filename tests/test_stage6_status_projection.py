@@ -43,6 +43,60 @@ class Stage6StatusProjectionTests(unittest.TestCase):
             "CUSTOMER_DELIVERABLE_ONLY_AFTER_STAGE7_GATE",
         )
 
+    def test_limited_review_records_public_source_chain_and_gdcic_route_policy(self) -> None:
+        projection = limited_sellable_review_projection(
+            {"B_ENHANCEMENT_OFFICIAL_READBACK": 1, "D_INSUFFICIENT_OR_BLOCKED_READBACK": 1},
+            stage7_commercial_input_allowed=False,
+            field_tasks=[
+                {
+                    "field_query_task_id": "FIELD-1",
+                    "project_id": "PROJ-YGP",
+                    "release_evidence_target_type": "ygp_original_readback_backfill",
+                    "source_profile_id": "GUANGDONG-YGP-ORIGINAL-READBACK-BACKFILL",
+                    "source_specific_adapter_id": "guangdong_ygp_original_readback_backfill_adapter_v1",
+                    "adapter_result_state": "MATCHED",
+                    "field_readback_state": "YGP_ORIGINAL_NOTICE_READBACK_READY_REVIEW_REQUIRED",
+                    "downstream_release_evidence_abcd_grade": "B_ENHANCEMENT_OFFICIAL_READBACK",
+                    "field_match_summary": {
+                        "source_specific_records": [
+                            {
+                                "url": "https://ygp.example/detail?projectCode=E4401002701501867001",
+                                "source_text_sha256": "abc123",
+                                "ygp_project_code_variants": ["E4401002701501867001"],
+                                "ygp_biz_code": "3C52",
+                                "ygp_site_code": "440100",
+                                "ygp_notice_id": "notice-1",
+                            }
+                        ],
+                    },
+                }
+            ],
+        )
+
+        record = projection["limited_sellable_review_official_readback_records"][0]
+        self.assertEqual(record["public_source_chain"], "YGP_ORIGINAL_READBACK_BACKFILL")
+        self.assertEqual(
+            record["stage4_bridge_backfill_state"],
+            "PUBLIC_SOURCE_IDENTIFIER_BACKFILLED_FOR_P13B_OR_STAGE4_BRIDGE_ONLY",
+        )
+        self.assertFalse(record["gdcic_project_code_route_allowed"])
+        self.assertEqual(
+            record["gdcic_project_code_route_policy"],
+            "YGP_OR_TRADE_IDENTIFIERS_NOT_SENT_TO_GDCIC_PROJECT_CODE",
+        )
+        self.assertEqual(
+            projection["limited_sellable_review_public_source_chain_counts"],
+            {"YGP_ORIGINAL_READBACK_BACKFILL": 1},
+        )
+        self.assertEqual(
+            projection["limited_sellable_review_stage4_bridge_backfill_state_counts"],
+            {"PUBLIC_SOURCE_IDENTIFIER_BACKFILLED_FOR_P13B_OR_STAGE4_BRIDGE_ONLY": 1},
+        )
+        self.assertEqual(
+            projection["limited_sellable_review_gdcic_project_code_route_policy_counts"],
+            {"YGP_OR_TRADE_IDENTIFIERS_NOT_SENT_TO_GDCIC_PROJECT_CODE": 1},
+        )
+
     def test_runtime_blocker_projection_keeps_routes_and_counts_together(self) -> None:
         projection = runtime_blocker_projection_fields(
             [
