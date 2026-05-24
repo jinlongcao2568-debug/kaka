@@ -46,6 +46,14 @@ if ($RunPressure) {
     if ($LASTEXITCODE -ne 0) {
         exit $LASTEXITCODE
     }
+    & python -m storage.real_public_stage1_6_pressure_report `
+        --mode build `
+        --output-root $pressureRoot `
+        --run-result-json (Join-Path $pressureRoot "run-result.json") `
+        --candidate-limit $CandidateLimit
+    if ($LASTEXITCODE -ne 0) {
+        exit $LASTEXITCODE
+    }
 }
 
 $releasePlanJson = Join-Path $pressureRoot "stage4-release-adapter-bridge-plan.json"
