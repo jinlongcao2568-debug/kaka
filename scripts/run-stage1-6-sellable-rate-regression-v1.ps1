@@ -107,6 +107,8 @@ function Expand-StringList {
 
 $ExcludeProjectId = Expand-StringList $ExcludeProjectId
 $ExcludeScoreboardJson = Expand-StringList $ExcludeScoreboardJson
+$followupQueue = $null
+$executionPlan = $null
 
 if ($ApplyStage4FollowupExecutionPlan) {
     if (-not $Stage4BackfillFollowupQueueJson) {
@@ -166,9 +168,22 @@ if ($ApplyStage4FollowupExecutionPlan) {
     }
     Write-Host "[stage1-6-regression] applied Stage4 follow-up execution plan from $Stage4BackfillFollowupQueueJson"
     Write-Host "[stage1-6-regression] live public query remains explicit; EnableLivePublicQuery=$($EnableLivePublicQuery.IsPresent)"
+} elseif ($Stage4BackfillFollowupQueueJson) {
+    $resolvedFollowupQueueJson = Resolve-RepoPath "$Stage4BackfillFollowupQueueJson"
+    if (-not (Test-Path $resolvedFollowupQueueJson)) {
+        Write-Error "Stage4BackfillFollowupQueueJson not found: $Stage4BackfillFollowupQueueJson"
+        exit 1
+    }
+    $Stage4BackfillFollowupQueueJson = $resolvedFollowupQueueJson
+    $followupQueue = Get-Content -LiteralPath $Stage4BackfillFollowupQueueJson -Raw -Encoding UTF8 | ConvertFrom-Json -Depth 100
+    $executionPlan = $followupQueue.next_regression_execution_plan
+    if (-not $ProjectIds -and $executionPlan -and $executionPlan.target_project_ids) {
+        $ProjectIds = @($executionPlan.target_project_ids) -join ","
+    }
+    Write-Host "[stage1-6-regression] loaded Stage4 follow-up queue for incremental scoreboard merge: $Stage4BackfillFollowupQueueJson"
 }
 
-if ($ApplyStage4FollowupExecutionPlan -and $SourceRegressionRunRoot) {
+if ($followupQueue -and $SourceRegressionRunRoot) {
     $scoreboardPayload = $null
     if ($followupQueue -and $followupQueue.input_refs -and $followupQueue.input_refs.scoreboard_json) {
         $scoreboardPath = Resolve-RepoPath "$($followupQueue.input_refs.scoreboard_json)"
