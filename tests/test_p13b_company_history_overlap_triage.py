@@ -403,6 +403,34 @@ class P13BCompanyHistoryOverlapTriageTests(unittest.TestCase):
             self.assertFalse(readback["customer_visible_allowed"])
             self.assertTrue(readback["query_miss_is_not_clearance"])
 
+    def test_stage4_followup_queue_local_authority_timeout_is_blocked_not_crash(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            queue_json = root / "followup" / "stage4-backfill-followup-queue-v1.json"
+            field_json = root / "field-query" / "guangdong-local-field-query-probe-v1.json"
+            _write_stage4_followup_queue(queue_json)
+            _write_release_field_query(field_json)
+
+            def timeout_getter(url: str, context: dict[str, object]) -> dict[str, object]:
+                raise TimeoutError("read timed out")
+
+            result = build_p13b_company_history_overlap_triage(
+                stage4_backfill_followup_queue_json=queue_json,
+                release_field_query_json=field_json,
+                output_root=root / "out",
+                enable_live_public_query=True,
+                http_getter=timeout_getter,
+                created_at="2026-05-25T00:00:00+08:00",
+            )
+
+            summary = result["summary"]
+            self.assertEqual(summary["local_authority_source_readback_state_counts"], {"BLOCKED": 1})
+            readback = result["manifest"]["local_authority_source_readback_records"][0]
+            self.assertEqual(readback["local_authority_readback_state"], "BLOCKED")
+            self.assertIn("local_authority_source_http_timeout_or_unavailable", readback["blocker_taxonomy"])
+            self.assertFalse(readback["customer_visible_allowed"])
+            self.assertTrue(readback["query_miss_is_not_clearance"])
+
     def test_ygp_live_fake_query_extracts_overlap_and_backtrace_inputs(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)

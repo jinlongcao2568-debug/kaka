@@ -879,7 +879,21 @@ def _execute_local_authority_source_tasks(
                 }
             )
             continue
-        response = getter(source_url, {"task": task, "source_kind": "local_authority_public_source"})
+        try:
+            response = getter(source_url, {"task": task, "source_kind": "local_authority_public_source"})
+        except (TimeoutError, OSError, urllib.error.URLError) as exc:
+            rows.append(
+                {
+                    **base,
+                    "local_authority_readback_state": "BLOCKED",
+                    "http_status_code": 0,
+                    "match_basis": "",
+                    "blocker_taxonomy": ["local_authority_source_http_timeout_or_unavailable"],
+                    "error_type": type(exc).__name__,
+                    "recommended_next_action": "retry_project_local_authority_source_or_choose_alternate_official_entry",
+                }
+            )
+            continue
         status = _int(response.get("status_code"))
         body = str(response.get("body") or "")
         if status <= 0 or status >= 400:
@@ -1630,7 +1644,20 @@ def _default_http_getter(url: str, context: Mapping[str, Any]) -> Mapping[str, A
 
 
 def _http_json(url: str, getter: HttpGetter, *, route: str, task: Mapping[str, Any]) -> dict[str, Any]:
-    response = dict(getter(url, {"route": route, "task": dict(task)}))
+    try:
+        response = dict(getter(url, {"route": route, "task": dict(task)}))
+    except (TimeoutError, OSError, urllib.error.URLError) as exc:
+        return {
+            "route": route,
+            "url": url,
+            "status_code": 0,
+            "content_type": "",
+            "body_sha256": "",
+            "body_probe": "",
+            "json_payload": {},
+            "json_parse_error": "",
+            "error": f"{type(exc).__name__}: {exc}",
+        }
     status = int(response.get("status_code") or response.get("status") or 0)
     body = str(response.get("body") or response.get("content") or response.get("text") or "")
     parsed: Any = {}

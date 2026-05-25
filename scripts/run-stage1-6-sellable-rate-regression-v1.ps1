@@ -610,8 +610,12 @@ if (-not $SupplementalFieldQueryJson -and (Test-Path $ygpBackfillFieldQueryJson)
 }
 
 if ($RunStage6MergedProjection) {
-    if (-not (Test-Path $fieldQueryJson)) {
-        Write-Error "RunStage6MergedProjection requires primary guangdong-local-field-query-probe-v1.json. Use -RunFieldQuery first or provide an existing run root."
+    $hasPrimaryFieldQuery = Test-Path $fieldQueryJson
+    $hasSupplementalFieldQuery = ($SupplementalFieldQueryJson -and (Test-Path $SupplementalFieldQueryJson)) -or (
+        $SupplementalFieldQueryRoot -and (Test-Path (Join-Path $SupplementalFieldQueryRoot "guangdong-local-field-query-probe-v1.json"))
+    )
+    if (-not $hasPrimaryFieldQuery -and -not $hasSupplementalFieldQuery) {
+        Write-Error "RunStage6MergedProjection requires primary or supplemental guangdong-local-field-query-probe-v1.json. Use -RunFieldQuery, -RunYgpBackfillFieldQuery, or provide an existing run root."
         exit 1
     }
     $stage6MergedArgs = @(
@@ -619,10 +623,12 @@ if ($RunStage6MergedProjection) {
         "-File", (Join-Path $repoRoot "scripts\run-stage6-review-loop-v1.ps1"),
         "-DispatchRoot", (Join-Path $RunRoot "missing-dispatch"),
         "-BatchCloseoutRoot", (Join-Path $RunRoot "missing-closeout"),
-        "-ReleaseFieldQueryJson", $fieldQueryJson,
         "-OutputRoot", $stage6MergedRoot,
         "-DisableAutoDiscoverLatestBatchCloseout"
     )
+    if ($hasPrimaryFieldQuery) {
+        $stage6MergedArgs += @("-ReleaseFieldQueryJson", $fieldQueryJson)
+    }
     if ($ProjectIds) {
         $stage6MergedArgs += @("-ProjectIds", $ProjectIds)
     }
@@ -635,8 +641,15 @@ if ($RunStage6MergedProjection) {
         $stage6MergedArgs += "-EmitJson"
     }
     & pwsh @stage6MergedArgs
-    if ($LASTEXITCODE -ne 0) {
-        exit $LASTEXITCODE
+    $stage6MergedExitCode = $LASTEXITCODE
+    if ($stage6MergedExitCode -ne 0) {
+        $stage6MergedStatusJson = Join-Path $stage6MergedRoot "stage6-review-loop-project-status-table.json"
+        $stage6MergedRunnerJson = Join-Path $stage6MergedRoot "stage6-review-loop-runner-v1.json"
+        if ((Test-Path $stage6MergedStatusJson) -or (Test-Path $stage6MergedRunnerJson)) {
+            Write-Warning "RunStage6MergedProjection returned exit code $stage6MergedExitCode but emitted a status artifact; continuing so scoreboard can record the blocked state."
+        } else {
+            exit $stage6MergedExitCode
+        }
     }
 }
 
