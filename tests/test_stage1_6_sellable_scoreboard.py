@@ -1681,6 +1681,79 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
         self.assertEqual(result["scoreboard"]["real_public_sellable_pack_rate"], 0.0)
         self.assertFalse(result["safety"]["customer_visible_allowed"])
 
+    def test_executed_ygp_backfill_not_found_overrides_bridge_ready_bucket(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            pressure = root / "pressure"
+            field_query = root / "field-query"
+            p13b_ygp = root / "p13b-ygp"
+            out = root / "out"
+            for path in (pressure, field_query, p13b_ygp, out):
+                path.mkdir(parents=True, exist_ok=True)
+
+            _write_json(pressure / "pressure-summary.json", {"candidate_count": 1})
+            _write_json(
+                pressure / "stage1-6-readiness-table.json",
+                {"records": [{"project_id": "PROJ-YGP-NOT-FOUND", "stage5_rule_gate_status": "REVIEW"}]},
+            )
+            _write_json(pressure / "stage1-6-gap-summary-table.json", {"records": []})
+            _write_json(
+                field_query / "guangdong-local-field-query-probe-v1.json",
+                {
+                    "manifest": {
+                        "field_task_records": [
+                            {
+                                "project_id": "PROJ-YGP-NOT-FOUND",
+                                "adapter_result_state": "NOT_FOUND",
+                                "field_readback_state": "YGP_ORIGINAL_NOTICE_QUERIED_NO_KEYWORD_MATCH",
+                                "release_evidence_target_type": "ygp_original_readback_backfill",
+                            }
+                        ]
+                    }
+                },
+            )
+            _write_json(
+                p13b_ygp / "ygp-original-readback-v1.json",
+                {
+                    "manifest": {
+                        "ygp_original_readback_records": [
+                            {
+                                "project_id": "PROJ-YGP-NOT-FOUND",
+                                "ygp_readback_state": "YGP_ORIGINAL_URL_READBACK_READY",
+                            }
+                        ],
+                        "stage4_ygp_project_code_backfill_records": [
+                            {
+                                "project_id": "PROJ-YGP-NOT-FOUND",
+                                "stage4_ygp_backfill_state": "YGP_STAGE4_BACKFILL_READY",
+                                "gdcic_project_code_route_allowed": False,
+                            }
+                        ],
+                    },
+                    "summary": {
+                        "ygp_readback_ready_count": 1,
+                        "stage4_ygp_project_code_backfill_record_count": 1,
+                        "stage4_ygp_backfill_state_counts": {"YGP_STAGE4_BACKFILL_READY": 1},
+                    },
+                },
+            )
+
+            result = build_stage1_6_sellable_scoreboard(
+                pressure_root=pressure,
+                field_query_root=field_query,
+                p13b_ygp_original_readback_root=p13b_ygp,
+                output_root=out,
+                created_at="2026-05-24T00:00:00+08:00",
+            )
+
+        row = result["project_rows"][0]
+        self.assertEqual(row["stage5_operational_review_bucket"], "SOURCE_NOT_FOUND_REVIEW")
+        self.assertEqual(row["stage5_operational_primary_track"], "source_not_found")
+        self.assertIn("YGP_STAGE4_BACKFILL_READY_REVIEW", row["stage5_operational_review_queues"])
+        self.assertIn("SOURCE_NOT_FOUND_REVIEW", row["stage5_operational_review_queues"])
+        self.assertTrue(row["stage5_query_miss_is_not_clearance"])
+        self.assertFalse(row["customer_visible_allowed"])
+
     def test_data_ggzy_bid_show_original_url_is_backfill_input_not_gdcic_code(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)

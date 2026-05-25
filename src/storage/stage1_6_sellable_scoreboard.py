@@ -1820,6 +1820,15 @@ def _stage5_operational_review(
     elif has_original_notice_blocked:
         bucket = "ORIGINAL_NOTICE_BLOCKED_REVIEW"
         action = "continue_p13b_original_notice_backtrace_or_route_blocked_sources"
+    elif has_public_source_blocked:
+        bucket = "PUBLIC_SOURCE_BLOCKED_REVIEW"
+        action = "retry_public_source_or_route_to_local_authority_readback"
+    elif has_authorization_block and (has_source_not_found or has_public_source_not_found):
+        bucket = "AUTHORIZATION_AND_SOURCE_NOT_FOUND_REVIEW"
+        action = "provide_authorized_session_or_fallback_source_without_treating_not_found_as_clearance"
+    elif has_source_not_found:
+        bucket = "SOURCE_NOT_FOUND_REVIEW"
+        action = "try_project_code_backfill_or_jurisdiction_source_without_clearance_claim"
     elif has_ygp_stage4_backfill_ready:
         bucket = "YGP_STAGE4_BACKFILL_READY_REVIEW"
         action = "feed_ygp_stage4_backfill_candidates_to_p13b_or_stage4_bridge_without_gdcic_route_claim"
@@ -1859,9 +1868,6 @@ def _stage5_operational_review(
     elif has_original_backtrace_required:
         bucket = "ORIGINAL_NOTICE_BACKTRACE_REQUIRED_REVIEW"
         action = "run_p13b_original_notice_backtrace_without_clearance_claim"
-    elif has_public_source_blocked:
-        bucket = "PUBLIC_SOURCE_BLOCKED_REVIEW"
-        action = "retry_public_source_or_route_to_local_authority_readback"
     elif has_local_authority_match:
         bucket = "LOCAL_AUTHORITY_MATCHED_REVIEW"
         action = "manual_stage5_stage6_review_for_local_authority_keyword_match"
@@ -1874,15 +1880,9 @@ def _stage5_operational_review(
     elif has_local_authority_plan_ready:
         bucket = "LOCAL_AUTHORITY_SOURCE_PLAN_REVIEW"
         action = "run_project_local_authority_adapter_or_keep_plan_only_without_clearance_claim"
-    elif has_authorization_block and (has_source_not_found or has_public_source_not_found):
-        bucket = "AUTHORIZATION_AND_SOURCE_NOT_FOUND_REVIEW"
-        action = "provide_authorized_session_or_fallback_source_without_treating_not_found_as_clearance"
     elif has_authorization_block:
         bucket = "AUTHORIZATION_BLOCKED_REVIEW"
         action = "provide_authorized_browser_session_then_rerun_release_field_query"
-    elif has_source_not_found:
-        bucket = "SOURCE_NOT_FOUND_REVIEW"
-        action = "try_project_code_backfill_or_jurisdiction_source_without_clearance_claim"
     elif has_public_source_not_found:
         bucket = "PUBLIC_SOURCE_NOT_FOUND_REVIEW"
         action = "keep_no_public_overlap_signal_as_non_clearance_and_manual_review"
