@@ -64,6 +64,10 @@ def build_stage4_backfill_followup_queue(
 
 
 def _needs_backfill_followup(row: Mapping[str, Any]) -> bool:
+    if str(row.get("p13b_original_notice_readback_state") or "").upper() == "BLOCKED":
+        return True
+    if str(row.get("p13b_ygp_original_readback_state") or "").upper() == "YGP_BLOCKED":
+        return True
     if str(row.get("stage5_operational_review_bucket") or "") in {
         "PUBLIC_SOURCE_BLOCKED_REVIEW",
         "ORIGINAL_NOTICE_BLOCKED_REVIEW",
@@ -120,6 +124,10 @@ def _followup_gap_detail(row: Mapping[str, Any]) -> str:
     detail = str(row.get("stage4_project_code_backfill_gap_detail") or "").strip()
     if detail:
         return detail
+    if str(row.get("p13b_ygp_original_readback_state") or "").upper() == "YGP_BLOCKED":
+        return "YGP_READBACK_BLOCKED_RETRY_OR_LOCAL_AUTHORITY_REQUIRED"
+    if str(row.get("p13b_original_notice_readback_state") or "").upper() == "BLOCKED":
+        return "ORIGINAL_NOTICE_OR_SOURCE_LIMIT_DEFERRED_RETRY_REQUIRED"
     bucket = str(row.get("stage5_operational_review_bucket") or "")
     if bucket == "PUBLIC_SOURCE_BLOCKED_REVIEW":
         return "PUBLIC_SOURCE_BLOCKED_RETRY_OR_LOCAL_AUTHORITY_REQUIRED"

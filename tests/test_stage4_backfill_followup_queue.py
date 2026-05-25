@@ -67,6 +67,28 @@ class Stage4BackfillFollowupQueueTests(unittest.TestCase):
                             "p13b_overlap_triage_state": "ORIGINAL_NOTICE_BACKTRACE_REQUIRED",
                             "p13b_bid_show_original_notice_url_count": 1,
                         },
+                        {
+                            "project_id": "PROJ-STRONG-ORIGINAL-BLOCKED",
+                            "project_name": "Strong signal but original notice blocked",
+                            "stage4_project_code_backfill_state": "PUBLIC_SOURCE_IDENTIFIER_BACKFILLED_FOR_P13B_OR_STAGE4_BRIDGE_ONLY",
+                            "stage4_project_code_backfill_gap_detail": "",
+                            "stage5_operational_review_bucket": "STRONG_LEAD_INTERNAL_REVIEW",
+                            "p13b_public_source_readback_state": "ORIGINAL_NOTICE_BACKTRACE_REQUIRED",
+                            "p13b_original_notice_readback_state": "BLOCKED",
+                            "p13b_ygp_original_readback_state": "YGP_READBACK_READY",
+                            "p13b_overlap_triage_state": "YGP_STAGE4_BACKFILL_READY_FOR_P13B_OR_STAGE4_BRIDGE",
+                        },
+                        {
+                            "project_id": "PROJ-YGP-BLOCKED",
+                            "project_name": "YGP blocked after bid show backfill",
+                            "stage4_project_code_backfill_state": "DATA_GGZY_BID_SHOW_ORIGINAL_URL_BACKFILLED_FOR_P13B_OR_STAGE4_BRIDGE_ONLY",
+                            "stage4_project_code_backfill_gap_detail": "",
+                            "stage5_operational_review_bucket": "YGP_READBACK_BLOCKED_REVIEW",
+                            "p13b_public_source_readback_state": "ORIGINAL_NOTICE_BACKTRACE_REQUIRED",
+                            "p13b_original_notice_readback_state": "PENDING_OR_NOT_RUN",
+                            "p13b_ygp_original_readback_state": "YGP_BLOCKED",
+                            "p13b_overlap_triage_state": "SOURCE_LIMIT_DEFERRED",
+                        },
                     ]
                 },
             )
@@ -77,13 +99,15 @@ class Stage4BackfillFollowupQueueTests(unittest.TestCase):
                 created_at="2026-05-25T00:00:00+00:00",
             )
 
-        self.assertEqual(result["summary"]["followup_record_count"], 4)
+        self.assertEqual(result["summary"]["followup_record_count"], 6)
         self.assertEqual(
             result["summary"]["gap_detail_counts"],
             {
                 "NO_PUBLIC_OVERLAP_SIGNAL_FALLBACK_LOCAL_AUTHORITY_REQUIRED": 1,
                 "PUBLIC_SOURCE_BLOCKED_RETRY_OR_LOCAL_AUTHORITY_REQUIRED": 2,
                 "GDCIC_IDENTIFIER_UNRESOLVED_AFTER_PUBLIC_BACKFILL_REQUIRED": 1,
+                "ORIGINAL_NOTICE_OR_SOURCE_LIMIT_DEFERRED_RETRY_REQUIRED": 1,
+                "YGP_READBACK_BLOCKED_RETRY_OR_LOCAL_AUTHORITY_REQUIRED": 1,
             },
         )
         routes = {record["project_id"]: record["followup_route"] for record in result["records"]}
@@ -94,6 +118,11 @@ class Stage4BackfillFollowupQueueTests(unittest.TestCase):
             "public_source_retry_then_local_authority_fallback",
         )
         self.assertEqual(routes["PROJ-GDCIC-UNRESOLVED"], "local_authority_fallback_source_planning")
+        self.assertEqual(
+            routes["PROJ-STRONG-ORIGINAL-BLOCKED"],
+            "original_notice_retry_then_local_authority_fallback",
+        )
+        self.assertEqual(routes["PROJ-YGP-BLOCKED"], "ygp_retry_then_local_authority_fallback")
         unresolved = next(record for record in result["records"] if record["project_id"] == "PROJ-GDCIC-UNRESOLVED")
         self.assertEqual(
             [step["source_kind"] for step in unresolved["public_source_fallback_sequence"]],
@@ -117,6 +146,8 @@ class Stage4BackfillFollowupQueueTests(unittest.TestCase):
                 "PROJ-BLOCKED",
                 "PROJ-SOURCE-BLOCKED-NO-CODE-GAP",
                 "PROJ-GDCIC-UNRESOLVED",
+                "PROJ-STRONG-ORIGINAL-BLOCKED",
+                "PROJ-YGP-BLOCKED",
             ],
         )
         self.assertEqual(
