@@ -312,6 +312,28 @@ formal_entrypoints:
     replaces_human_memory: true
     purpose: Explain why one real sample batch produced limited-sellable review candidates while another batch only reached public identifier readback, without executing live or customer-visible actions.
 
+  - entrypoint_id: runtime_blocker_controller_diagnostic_builder
+    kind: script
+    script: scripts/build-runtime-blocker-controller-diagnostic-v1.ps1
+    entrypoint_role: diagnostic
+    status: FORMAL_CURRENT
+    automation_layer: runtime_blocker_controller_diagnostic
+    module_or_command: storage.runtime_blocker_controller_diagnostic
+    state_inputs:
+      - Stage6 review cycle runner artifact
+      - runtime blocker controller queue
+      - runtime blocker controller dispatch tasks
+      - runtime blocker worker follow-up queue
+      - operator projection status table
+    state_outputs:
+      - compact runtime blocker controller diagnostic
+      - route/readiness/follow-up/safety summary
+      - owner next-action work queues
+    manual_gate_required: false
+    external_customer_action_enabled: false
+    replaces_human_memory: true
+    purpose: Summarize Stage4/Stage6 runtime blocker controller routing and remaining P0 queues without relying on huge raw JSON artifacts.
+
   - entrypoint_id: stage4_backfill_followup_queue_builder
     kind: script
     script: scripts/build-stage4-backfill-followup-queue-v1.ps1
