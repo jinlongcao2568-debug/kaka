@@ -1834,6 +1834,94 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
         self.assertEqual(result["scoreboard"]["stage5_operational_review_family_counts"]["strong_lead"], 1)
         self.assertFalse(result["safety"]["customer_visible_allowed"])
 
+    def test_incremental_target_preserves_prior_public_identifier_when_retry_regresses(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            pressure = root / "pressure"
+            field_query = root / "field-query"
+            prior = root / "prior-scoreboard.json"
+            out = root / "out"
+            for path in (pressure, field_query, out):
+                path.mkdir(parents=True, exist_ok=True)
+
+            _write_json(pressure / "pressure-summary.json", {"candidate_count": 1})
+            _write_json(
+                pressure / "stage1-6-readiness-table.json",
+                {
+                    "records": [
+                        {
+                            "project_id": "PROJ-TARGET",
+                            "stage2_detail_capture_state": "FETCHED",
+                            "stage3_field_parse_state": "PARSED_FROM_FIELD_SIGNALS",
+                            "stage5_rule_gate_status": "REVIEW",
+                            "fail_closed_reasons": ["gdcic_project_code_not_resolved"],
+                        }
+                    ]
+                },
+            )
+            _write_json(pressure / "stage1-6-gap-summary-table.json", {"records": []})
+            _write_json(field_query / "guangdong-local-field-query-probe-v1.json", {"manifest": {"field_task_records": []}})
+            _write_json(
+                prior,
+                {
+                    "project_rows": [
+                        {
+                            "project_id": "PROJ-TARGET",
+                            "stage5_operational_review_bucket": "YGP_STAGE4_BACKFILL_READY_REVIEW",
+                            "stage5_operational_review_family": "official_readback_ready",
+                            "stage5_operational_review_families": ["official_readback_ready"],
+                            "stage5_operational_review_queues": ["YGP_STAGE4_BACKFILL_READY_REVIEW"],
+                            "stage5_operational_signal_flags": ["ygp_stage4_backfill_ready"],
+                            "stage5_operational_primary_track": "official_readback_ready",
+                            "stage5_operational_priority_bucket": "P1_OFFICIAL_READBACK_DEEPENING",
+                            "stage5_operational_priority_rank": 1,
+                            "stage5_operational_safety_boundary": "INTERNAL_REVIEW_ONLY_NOT_CLEARANCE",
+                            "p13b_public_source_readback_state": "ORIGINAL_NOTICE_BACKTRACE_REQUIRED",
+                            "p13b_ygp_original_readback_state": "YGP_READBACK_READY",
+                            "p13b_ygp_project_code_variants": ["E4401002701502338001"],
+                            "stage4_project_code_backfill_state": (
+                                "PUBLIC_SOURCE_IDENTIFIER_BACKFILLED_FOR_P13B_OR_STAGE4_BRIDGE_ONLY"
+                            ),
+                            "stage4_project_code_backfill_gap_detail": "",
+                            "stage4_public_identifier_backfill_source": "YGP_PROJECT_CODE",
+                            "stage4_gdcic_project_code_route_allowed": False,
+                            "stage4_gdcic_project_code_route_policy": (
+                                "YGP_OR_TRADE_IDENTIFIERS_NOT_SENT_TO_GDCIC_PROJECT_CODE"
+                            ),
+                            "blocking_bucket": "ygp_stage4_backfill_ready_review",
+                            "customer_visible_allowed": False,
+                            "query_miss_is_not_clearance": True,
+                            "no_legal_conclusion": True,
+                        }
+                    ]
+                },
+            )
+
+            result = build_stage1_6_sellable_scoreboard(
+                pressure_root=pressure,
+                field_query_root=field_query,
+                prior_scoreboard_json=prior,
+                incremental_project_ids=["PROJ-TARGET"],
+                output_root=out,
+                created_at="2026-05-24T00:00:00+08:00",
+            )
+
+        row = result["project_rows"][0]
+        self.assertEqual(
+            row["incremental_scoreboard_merge_state"],
+            "CURRENT_INCREMENTAL_TARGET_WITH_PRIOR_PUBLIC_SOURCE_EVIDENCE",
+        )
+        self.assertTrue(row["incremental_scoreboard_preserved_public_source_evidence"])
+        self.assertEqual(row["stage5_operational_primary_track"], "official_readback_ready")
+        self.assertEqual(row["p13b_ygp_original_readback_state"], "YGP_READBACK_READY")
+        self.assertEqual(
+            row["stage4_project_code_backfill_state"],
+            "PUBLIC_SOURCE_IDENTIFIER_BACKFILLED_FOR_P13B_OR_STAGE4_BRIDGE_ONLY",
+        )
+        self.assertEqual(row["stage4_public_identifier_backfill_source"], "YGP_PROJECT_CODE")
+        self.assertFalse(row["customer_visible_allowed"])
+        self.assertTrue(row["query_miss_is_not_clearance"])
+
     def test_company_first_flow08_targeted_parse_required_is_stage5_operational_queue(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)

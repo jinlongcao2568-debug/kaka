@@ -525,6 +525,87 @@ class StageOneSixScoreboardComparisonTests(unittest.TestCase):
         )
         self.assertFalse(recommendations[0]["safety_invariants"]["customer_visible_allowed"])
 
+    def test_same_candidate_blocker_reduced_readback_ready_increased_recommendation(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            run_a = root / "stage1-6-sellable-rate-regression-live15-r3"
+            run_b = root / "stage1-6-sellable-rate-regression-live15-r4"
+            out = root / "out"
+            _write_scoreboard(
+                run_a / "scoreboard" / "stage1-6-sellable-scoreboard-v1.json",
+                candidate_count=15,
+                limited_count=0,
+                rate=0.0,
+                stage4={},
+                stage5={"YGP_READBACK_BLOCKED_REVIEW": 3, "YGP_STAGE4_BACKFILL_READY_REVIEW": 7},
+                stage5_family={"public_source_blocked": 3, "official_readback_ready": 7},
+                stage5_primary={"public_source_blocked": 3, "official_readback_ready": 7},
+                stage5_priority={
+                    "P1_BLOCKER_RETRY_OR_ALTERNATE_SOURCE": 3,
+                    "P1_OFFICIAL_READBACK_DEEPENING": 7,
+                },
+                stage5_safety={"INTERNAL_REVIEW_ONLY_NOT_CLEARANCE": 15},
+                long_tail={},
+                public_source_chain={},
+                public_readback_outcomes={"READBACK_READY": 10, "BLOCKED": 5, "NOT_FOUND": 5},
+                public_readback_channel_outcomes={
+                    "YGP:YGP_READBACK_READY": 10,
+                    "YGP:YGP_BLOCKED": 2,
+                    "ORIGINAL_NOTICE:BLOCKED": 1,
+                },
+                design_registry_status={},
+                code_backfill={"PUBLIC_SOURCE_IDENTIFIER_BACKFILLED_FOR_P13B_OR_STAGE4_BRIDGE_ONLY": 10},
+                code_backfill_gap_detail={},
+                route_policy={"YGP_OR_TRADE_IDENTIFIERS_NOT_SENT_TO_GDCIC_PROJECT_CODE": 10},
+            )
+            _write_scoreboard(
+                run_b / "scoreboard" / "stage1-6-sellable-scoreboard-v1.json",
+                candidate_count=15,
+                limited_count=0,
+                rate=0.0,
+                stage4={},
+                stage5={"YGP_STAGE4_BACKFILL_READY_REVIEW": 9, "ORIGINAL_NOTICE_BLOCKED_REVIEW": 1},
+                stage5_family={"official_readback_ready": 9, "public_source_blocked": 1},
+                stage5_primary={"official_readback_ready": 9, "public_source_blocked": 1},
+                stage5_priority={
+                    "P1_OFFICIAL_READBACK_DEEPENING": 9,
+                    "P1_BLOCKER_RETRY_OR_ALTERNATE_SOURCE": 1,
+                },
+                stage5_safety={"INTERNAL_REVIEW_ONLY_NOT_CLEARANCE": 15},
+                long_tail={},
+                public_source_chain={},
+                public_readback_outcomes={"READBACK_READY": 12, "BLOCKED": 3, "NOT_FOUND": 5},
+                public_readback_channel_outcomes={
+                    "YGP:YGP_READBACK_READY": 12,
+                    "ORIGINAL_NOTICE:BLOCKED": 1,
+                },
+                design_registry_status={},
+                code_backfill={"PUBLIC_SOURCE_IDENTIFIER_BACKFILLED_FOR_P13B_OR_STAGE4_BRIDGE_ONLY": 12},
+                code_backfill_gap_detail={},
+                route_policy={"YGP_OR_TRADE_IDENTIFIERS_NOT_SENT_TO_GDCIC_PROJECT_CODE": 12},
+            )
+
+            result = build_stage1_6_scoreboard_comparison(
+                run_roots=[run_a, run_b],
+                output_root=out,
+                created_at="2026-05-25T00:00:00+08:00",
+            )
+
+        delta = result["delta_from_previous_row"][1]
+        self.assertEqual(delta["stage4_public_readback_ready_delta"], 2)
+        self.assertEqual(delta["stage4_public_readback_blocked_delta"], -2)
+        self.assertEqual(
+            delta["public_source_deepening_effect_state"],
+            "PUBLIC_SOURCE_BLOCKER_REDUCED_READBACK_READY_INCREASED",
+        )
+        recommendations = result["public_source_deepening_recommendations"]
+        self.assertEqual(len(recommendations), 1)
+        self.assertIn(
+            "continue_remaining_blocked_original_notice_or_ygp_retry_queue",
+            recommendations[0]["recommended_budget_focus"],
+        )
+        self.assertFalse(recommendations[0]["safety_invariants"]["customer_visible_allowed"])
+
 
 def _write_scoreboard(
     path: Path,

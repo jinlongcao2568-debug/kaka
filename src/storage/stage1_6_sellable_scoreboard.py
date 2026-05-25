@@ -2518,12 +2518,94 @@ def _merge_incremental_prior_project_rows(
             merged.append(row)
             continue
         row = dict(current_by_project.get(project_id) or prior_by_project.get(project_id) or {})
-        if row:
-            row["incremental_scoreboard_merge_state"] = (
-                "CURRENT_INCREMENTAL_TARGET" if project_id in incremental_project_ids else "CURRENT_FULL_OR_NO_PRIOR"
+        if project_id in incremental_project_ids and project_id in prior_by_project:
+            row = _merge_incremental_target_prior_public_source_evidence(
+                row,
+                prior_by_project[project_id],
             )
+        if row:
+            if project_id in incremental_project_ids:
+                row["incremental_scoreboard_merge_state"] = row.get(
+                    "incremental_scoreboard_merge_state",
+                    "CURRENT_INCREMENTAL_TARGET",
+                )
+            else:
+                row["incremental_scoreboard_merge_state"] = "CURRENT_FULL_OR_NO_PRIOR"
             merged.append(row)
     return merged
+
+
+def _merge_incremental_target_prior_public_source_evidence(
+    current: Mapping[str, Any],
+    prior: Mapping[str, Any],
+) -> dict[str, Any]:
+    row = dict(current)
+    current_backfill = str(row.get("stage4_project_code_backfill_state") or "")
+    prior_backfill = str(prior.get("stage4_project_code_backfill_state") or "")
+    if current_backfill != "MISSING_PROJECT_CODE_BACKFILL_INPUT" or not _is_public_identifier_backfilled(prior_backfill):
+        return row
+    preserve_fields = [
+        "stage5_operational_review_bucket",
+        "stage5_operational_review_family",
+        "stage5_operational_review_families",
+        "stage5_operational_review_queues",
+        "stage5_operational_signal_flags",
+        "stage5_operational_review_reason",
+        "stage5_operational_next_action",
+        "stage5_operational_primary_track",
+        "stage5_operational_priority_bucket",
+        "stage5_operational_priority_rank",
+        "stage5_operational_safety_boundary",
+        "p13b_public_source_readback_state",
+        "p13b_original_notice_backtrace_required_count",
+        "p13b_company_query_state_counts",
+        "p13b_bid_show_state_counts",
+        "p13b_bid_show_original_notice_url_count",
+        "p13b_bid_show_responsible_person_present_count",
+        "p13b_overlap_signal_state_counts",
+        "p13b_original_notice_readback_state",
+        "p13b_original_notice_fetch_state_counts",
+        "p13b_original_notice_match_state_counts",
+        "p13b_ygp_original_readback_state",
+        "p13b_ygp_readback_state_counts",
+        "p13b_ygp_project_code_variants",
+        "p13b_ygp_biz_code_variants",
+        "p13b_ygp_site_code_variants",
+        "p13b_ygp_notice_id_variants",
+        "p13b_overlap_ygp_project_code_variants",
+        "p13b_overlap_ygp_biz_code_variants",
+        "p13b_overlap_ygp_site_code_variants",
+        "p13b_overlap_ygp_notice_id_variants",
+        "p13b_overlap_triage_state",
+        "p13b_ygp_stage4_backfill_ready_count",
+        "p13b_ygp_stage4_backfill_state_counts",
+        "p13b_ygp_stage4_release_adapter_task_count",
+        "p13b_ygp_gdcic_route_allowed_count",
+        "p13b_ygp_stage4_backfill_recommended_next_actions",
+        "stage4_project_code_backfill_state",
+        "stage4_project_code_backfill_gap_detail",
+        "stage4_public_identifier_backfill_source",
+        "stage4_gdcic_project_code_route_allowed",
+        "stage4_gdcic_project_code_route_policy",
+        "blocking_bucket",
+    ]
+    for field in preserve_fields:
+        if field in prior:
+            row[field] = prior[field]
+    row["incremental_scoreboard_merge_state"] = "CURRENT_INCREMENTAL_TARGET_WITH_PRIOR_PUBLIC_SOURCE_EVIDENCE"
+    row["incremental_scoreboard_preserved_public_source_evidence"] = True
+    row["incremental_scoreboard_preservation_reason"] = (
+        "current_incremental_public_source_retry_missing_identifier_preserved_prior_backfill"
+    )
+    return row
+
+
+def _is_public_identifier_backfilled(state: str) -> bool:
+    return state in {
+        "PUBLIC_SOURCE_IDENTIFIER_BACKFILLED_FOR_P13B_OR_STAGE4_BRIDGE_ONLY",
+        "DATA_GGZY_BID_SHOW_ORIGINAL_URL_BACKFILLED_FOR_P13B_OR_STAGE4_BRIDGE_ONLY",
+        "GDCIC_PROJECT_CODE_ROUTE_READY",
+    }
 
 
 def _stage5_review_count(summary: Mapping[str, Any], records: list[Mapping[str, Any]]) -> int:

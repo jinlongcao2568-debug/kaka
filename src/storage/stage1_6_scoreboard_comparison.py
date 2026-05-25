@@ -369,6 +369,14 @@ def _public_source_deepening_effect_state(
         candidate_count_delta == 0
         and limited_delta == 0
         and matched_delta == 0
+        and public_readback_ready_delta > 0
+        and public_readback_blocked_delta < 0
+    ):
+        return "PUBLIC_SOURCE_BLOCKER_REDUCED_READBACK_READY_INCREASED"
+    if (
+        candidate_count_delta == 0
+        and limited_delta == 0
+        and matched_delta == 0
         and public_readback_ready_delta == 0
         and (public_readback_blocked_delta > 0 or public_readback_not_found_delta > 0)
         and missing_backfill_input_delta >= 0
@@ -384,6 +392,7 @@ def _public_source_deepening_recommendations(adjacent_deltas: list[Mapping[str, 
         if effect_state not in {
             "PUBLIC_SOURCE_DEEPENING_EFFECTIVE",
             "PUBLIC_SOURCE_IDENTIFIER_BACKFILL_EFFECTIVE",
+            "PUBLIC_SOURCE_BLOCKER_REDUCED_READBACK_READY_INCREASED",
             "PUBLIC_SOURCE_FOLLOWUP_CLASSIFIED_NON_TERMINAL",
         }:
             continue
@@ -402,6 +411,14 @@ def _public_source_deepening_recommendations(adjacent_deltas: list[Mapping[str, 
                 "feed_ygp_and_bid_show_identifiers_to_stage4_bridge_without_gdcic_digit_guessing",
                 "promote_only_b_or_c_official_release_readback_to_limited_sellable_review",
                 "keep_identifier_backfill_as_internal_review_not_customer_deliverable",
+            ]
+        elif effect_state == "PUBLIC_SOURCE_BLOCKER_REDUCED_READBACK_READY_INCREASED":
+            reason = "same_candidate_count_public_source_blockers_reduced_and_readback_ready_increased"
+            focus = [
+                "continue_remaining_blocked_original_notice_or_ygp_retry_queue",
+                "review_new_readback_ready_rows_for_b_or_c_release_evidence_only",
+                "keep_not_found_blocked_as_internal_review_not_clearance",
+                "do_not_expand_customer_delivery_until_limited_sellable_review_candidates_exist",
             ]
         else:
             reason = "same_candidate_count_public_source_followup_classified_blocked_or_not_found_without_clearance"
