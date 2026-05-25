@@ -74,6 +74,17 @@ New-Item -ItemType Directory -Force -Path $RunRoot | Out-Null
 $env:PYTHONPATH = "$repoRoot\src;$repoRoot\tests"
 $env:PYTHONIOENCODING = "utf-8"
 
+function Resolve-RepoPath {
+    param([string]$Value)
+    if (-not $Value) {
+        return ""
+    }
+    if ([System.IO.Path]::IsPathRooted($Value)) {
+        return [System.IO.Path]::GetFullPath($Value)
+    }
+    return [System.IO.Path]::GetFullPath((Join-Path $repoRoot $Value))
+}
+
 if ($ApplyStage4FollowupExecutionPlan) {
     if (-not $Stage4BackfillFollowupQueueJson) {
         Write-Error "ApplyStage4FollowupExecutionPlan requires -Stage4BackfillFollowupQueueJson."
@@ -134,6 +145,23 @@ if ($ApplyStage4FollowupExecutionPlan) {
     Write-Host "[stage1-6-regression] live public query remains explicit; EnableLivePublicQuery=$($EnableLivePublicQuery.IsPresent)"
 }
 
+if ($ApplyStage4FollowupExecutionPlan -and $SourceRegressionRunRoot) {
+    $sourceGdcicJson = Join-Path $sourceGdcicReadbackRoot "gdcic-browser-authorized-readback-v1.json"
+    if (-not (Test-Path $sourceGdcicJson) -and $followupQueue -and $followupQueue.input_refs -and $followupQueue.input_refs.scoreboard_json) {
+        $scoreboardPath = Resolve-RepoPath "$($followupQueue.input_refs.scoreboard_json)"
+        if (Test-Path $scoreboardPath) {
+            $scoreboardPayload = Get-Content -LiteralPath $scoreboardPath -Raw -Encoding UTF8 | ConvertFrom-Json -Depth 100
+            if ($scoreboardPayload.input_refs -and $scoreboardPayload.input_refs.gdcic_browser_authorized_readback_json) {
+                $scoreboardGdcicJson = Resolve-RepoPath "$($scoreboardPayload.input_refs.gdcic_browser_authorized_readback_json)"
+                if (Test-Path $scoreboardGdcicJson) {
+                    $sourceGdcicReadbackRoot = Split-Path -Parent $scoreboardGdcicJson
+                    Write-Host "[stage1-6-regression] reused gdcic-browser-authorized-readback from scoreboard input_refs: $scoreboardGdcicJson"
+                }
+            }
+        }
+    }
+}
+
 if ($DescribeEffectivePlanAndExit) {
     $effectivePlan = [ordered]@{
         run_root = "$RunRoot"
@@ -166,6 +194,7 @@ if ($DescribeEffectivePlanAndExit) {
         input_refs = [ordered]@{
             ScoreboardComparisonJson = "$ScoreboardComparisonJson"
             Stage4BackfillFollowupQueueJson = "$Stage4BackfillFollowupQueueJson"
+            EffectiveGdcicBrowserReadbackRoot = "$sourceGdcicReadbackRoot"
         }
         target = [ordered]@{
             ProjectIds = "$ProjectIds"

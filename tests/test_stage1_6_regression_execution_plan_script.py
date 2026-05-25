@@ -93,6 +93,72 @@ class StageOneSixRegressionExecutionPlanScriptTests(unittest.TestCase):
         self.assertTrue(payload["safety"]["live_public_query_requires_explicit_switch"])
         self.assertTrue(payload["safety"]["query_miss_is_not_clearance"])
 
+    def test_reuses_gdcic_readback_ref_from_scoreboard_when_source_run_lacks_artifact(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            queue_json = root / "stage4-backfill-followup-queue-v1.json"
+            scoreboard_json = root / "scoreboard" / "stage1-6-sellable-scoreboard-v1.json"
+            gdcic_json = root / "reused-gdcic" / "gdcic-browser-authorized-readback-v1.json"
+            gdcic_json.parent.mkdir(parents=True)
+            gdcic_json.write_text(json.dumps({"summary": {"authorized_session_input_state": "NO_AUTHORIZED_SESSION_INPUT"}}), encoding="utf-8")
+            scoreboard_json.parent.mkdir(parents=True)
+            scoreboard_json.write_text(
+                json.dumps(
+                    {
+                        "input_refs": {
+                            "gdcic_browser_authorized_readback_json": str(gdcic_json),
+                        },
+                        "scoreboard": {},
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                ),
+                encoding="utf-8",
+            )
+            queue_json.write_text(
+                json.dumps(
+                    {
+                        "input_refs": {"scoreboard_json": str(scoreboard_json)},
+                        "next_regression_execution_plan": {
+                            "recommended_switches": ["RunP13BPublicSourceChain"],
+                            "target_project_ids": ["PROJ-CN-GD-JG2026-11408"],
+                            "live_execution_enabled_by_default": False,
+                        },
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                ),
+                encoding="utf-8",
+            )
+
+            completed = subprocess.run(
+                [
+                    "pwsh",
+                    "-NoProfile",
+                    "-ExecutionPolicy",
+                    "Bypass",
+                    "-File",
+                    str(ROOT / "scripts" / "run-stage1-6-sellable-rate-regression-v1.ps1"),
+                    "-RunRoot",
+                    str(root / "run"),
+                    "-SourceRegressionRunRoot",
+                    str(root / "source-run-without-gdcic"),
+                    "-Stage4BackfillFollowupQueueJson",
+                    str(queue_json),
+                    "-ApplyStage4FollowupExecutionPlan",
+                    "-DescribeEffectivePlanAndExit",
+                ],
+                cwd=ROOT,
+                check=True,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+            )
+
+        payload = _json_from_stdout(completed.stdout)
+        self.assertEqual(payload["input_refs"]["EffectiveGdcicBrowserReadbackRoot"], str(gdcic_json.parent))
+        self.assertTrue(payload["run_switches"]["RunP13BPublicSourceChain"])
+
 
 def _json_from_stdout(stdout: str) -> dict:
     start = stdout.find("{")

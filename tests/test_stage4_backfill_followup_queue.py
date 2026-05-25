@@ -56,6 +56,7 @@ class Stage4BackfillFollowupQueueTests(unittest.TestCase):
                             "stage5_operational_review_bucket": "AUTHORIZATION_BLOCKED_REVIEW",
                             "p13b_public_source_readback_state": "ORIGINAL_NOTICE_BACKTRACE_REQUIRED",
                             "p13b_overlap_triage_state": "ORIGINAL_NOTICE_BACKTRACE_REQUIRED",
+                            "p13b_bid_show_original_notice_url_count": 1,
                         },
                     ]
                 },
@@ -80,6 +81,36 @@ class Stage4BackfillFollowupQueueTests(unittest.TestCase):
         self.assertEqual(routes["PROJ-NO-SIGNAL"], "local_authority_fallback_source_planning")
         self.assertEqual(routes["PROJ-BLOCKED"], "public_source_retry_then_local_authority_fallback")
         self.assertEqual(routes["PROJ-GDCIC-UNRESOLVED"], "local_authority_fallback_source_planning")
+        unresolved = next(record for record in result["records"] if record["project_id"] == "PROJ-GDCIC-UNRESOLVED")
+        self.assertEqual(
+            [step["source_kind"] for step in unresolved["public_source_fallback_sequence"]],
+            [
+                "data_ggzy_company_history_search",
+                "data_ggzy_bid_list_pagination",
+                "data_ggzy_bid_show_readback",
+                "ygp_original_notice_readback",
+                "project_local_authority_public_source",
+            ],
+        )
+        self.assertEqual(
+            unresolved["public_source_fallback_sequence"][2]["input_state"],
+            "BID_SHOW_ORIGINAL_NOTICE_URL_PRESENT",
+        )
+        self.assertIn("data_ggzy_bid_show_or_ygp_backfill_input", unresolved["required_input"])
+        self.assertEqual(
+            result["next_regression_execution_plan"]["target_project_ids"],
+            ["PROJ-NO-SIGNAL", "PROJ-BLOCKED", "PROJ-GDCIC-UNRESOLVED"],
+        )
+        self.assertEqual(
+            result["next_regression_execution_plan"]["public_source_fallback_sequence"],
+            [
+                "data_ggzy_company_history_search",
+                "data_ggzy_bid_list_pagination",
+                "data_ggzy_bid_show_readback",
+                "ygp_original_notice_readback",
+                "project_local_authority_public_source",
+            ],
+        )
         for record in result["records"]:
             self.assertTrue(record["controller_consumable"])
             self.assertFalse(record["customer_visible_allowed"])
@@ -172,6 +203,16 @@ class Stage4BackfillFollowupQueueTests(unittest.TestCase):
         self.assertEqual(
             execution_plan["target_project_ids"],
             ["PROJ-PUBLIC-RETRY", "PROJ-LOCAL-FALLBACK"],
+        )
+        self.assertEqual(
+            execution_plan["public_source_fallback_sequence"],
+            [
+                "data_ggzy_company_history_search",
+                "data_ggzy_bid_list_pagination",
+                "data_ggzy_bid_show_readback",
+                "ygp_original_notice_readback",
+                "project_local_authority_public_source",
+            ],
         )
         self.assertTrue(execution_plan["operator_live_public_query_decision_required"])
         self.assertFalse(execution_plan["live_execution_enabled_by_default"])

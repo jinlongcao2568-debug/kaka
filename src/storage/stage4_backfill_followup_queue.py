@@ -94,6 +94,7 @@ def _followup_record(
         "followup_route": route,
         "followup_queue_state": _followup_queue_state(route),
         "worker_family": _worker_family(route),
+        "public_source_fallback_sequence": _public_source_fallback_sequence(row, route),
         "required_input": _required_input(route),
         "recommended_next_action": _recommended_next_action(route),
         "execution_priority": _execution_priority(route, deepening_recommended=deepening_recommended),
@@ -146,7 +147,55 @@ def _required_input(route: str) -> list[str]:
         return ["public_source_readback_budget"]
     if route == "operator_classify_backfill_gap":
         return ["operator_classification_reason"]
-    return ["project_local_authority_source_url_or_adapter"]
+    return ["data_ggzy_bid_show_or_ygp_backfill_input", "project_local_authority_source_url_or_adapter"]
+
+
+def _public_source_fallback_sequence(row: Mapping[str, Any], route: str) -> list[dict[str, Any]]:
+    return [
+        _fallback_step(
+            "data_ggzy_company_history_search",
+            "search_data_ggzy_company_history_before_local_authority_fallback",
+            row,
+        ),
+        _fallback_step("data_ggzy_bid_list_pagination", "page_bid_list_with_bounded_budget", row),
+        _fallback_step("data_ggzy_bid_show_readback", "read_bid_show_text_and_original_notice_url", row),
+        _fallback_step("ygp_original_notice_readback", "read_ygp_original_notice_identifiers_for_p13b_or_stage4_bridge", row),
+        _fallback_step(
+            "project_local_authority_public_source",
+            "query_historical_project_location_housing_or_supervisory_authority",
+            row,
+        ),
+    ] if route != "operator_classify_backfill_gap" else []
+
+
+def _fallback_step(source_kind: str, action: str, row: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "source_kind": source_kind,
+        "action": action,
+        "project_id": str(row.get("project_id") or ""),
+        "input_state": _fallback_input_state(source_kind, row),
+        "gdcic_project_code_route_allowed": False,
+        "gdcic_project_code_route_policy": "PUBLIC_SOURCE_IDENTIFIER_NOT_SENT_TO_GDCIC_UNLESS_EXPLICIT_PROVINCIAL_CODE",
+        "customer_visible_allowed": False,
+        "query_miss_is_not_clearance": True,
+        "no_legal_conclusion": True,
+    }
+
+
+def _fallback_input_state(source_kind: str, row: Mapping[str, Any]) -> str:
+    if source_kind == "data_ggzy_bid_show_readback":
+        if int(row.get("p13b_bid_show_original_notice_url_count") or 0) > 0:
+            return "BID_SHOW_ORIGINAL_NOTICE_URL_PRESENT"
+        if int(row.get("p13b_bid_show_responsible_person_present_count") or 0) > 0:
+            return "BID_SHOW_RESPONSIBLE_PERSON_PRESENT"
+    if source_kind == "ygp_original_notice_readback":
+        if row.get("p13b_ygp_original_readback_state") == "YGP_READBACK_READY":
+            return "YGP_READBACK_READY"
+        if row.get("p13b_ygp_project_code_variants"):
+            return "YGP_IDENTIFIER_PRESENT"
+    if source_kind == "project_local_authority_public_source":
+        return "LOCAL_AUTHORITY_FALLBACK_REQUIRED"
+    return "INPUT_REQUIRED_OR_RETRY_WITH_BUDGET"
 
 
 def _recommended_next_action(route: str) -> str:
@@ -252,8 +301,7 @@ def _next_regression_execution_plan(
     target_project_ids = [
         str(record.get("project_id") or "")
         for record in records
-        if record.get("execution_priority")
-        in {"HIGH_PUBLIC_SOURCE_DEEPENING", "MEDIUM_LOCAL_AUTHORITY_FALLBACK"}
+        if record.get("followup_route") != "operator_classify_backfill_gap"
     ]
     if not records:
         return {
@@ -280,6 +328,13 @@ def _next_regression_execution_plan(
         "runner_entrypoint": "scripts/run-stage1-6-sellable-rate-regression-v1.ps1",
         "target_project_ids": target_project_ids,
         "target_project_count": len(target_project_ids),
+        "public_source_fallback_sequence": [
+            "data_ggzy_company_history_search",
+            "data_ggzy_bid_list_pagination",
+            "data_ggzy_bid_show_readback",
+            "ygp_original_notice_readback",
+            "project_local_authority_public_source",
+        ],
         "recommended_switches": [
             "RunP13BPublicSourceChain",
             "RunYgpBackfillFieldQuery",
