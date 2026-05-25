@@ -1117,6 +1117,15 @@ def _operator_projection_status_table(
             for record in scoreboard_alternative_route_by_project.values()
             if str(record.get("stage6_official_readback_internal_review_state") or "").strip()
         ),
+        "p13b_public_source_readback_state_counts_from_scoreboard": _counts(
+            record.get("p13b_public_source_readback_state")
+            for record in scoreboard_alternative_route_by_project.values()
+            if str(record.get("p13b_public_source_readback_state") or "").strip()
+        ),
+        "p13b_local_authority_executed_readback_state_counts_from_scoreboard": _sum_count_maps(
+            record.get("p13b_local_authority_executed_readback_state_counts")
+            for record in scoreboard_alternative_route_by_project.values()
+        ),
         "design_survey_public_registry_readback_project_count": len(
             design_registry_projection_by_project
         ),
@@ -1437,6 +1446,16 @@ def _stage1_6_scoreboard_gdcic_alternative_route_projection_by_project(
             "stage1_6_scoreboard_json": str(path),
             "stage5_operational_primary_track": str(row.get("stage5_operational_primary_track") or ""),
             "stage5_operational_review_bucket": str(row.get("stage5_operational_review_bucket") or ""),
+            "p13b_public_source_readback_state": str(row.get("p13b_public_source_readback_state") or ""),
+            "p13b_local_authority_source_task_count": int(
+                row.get("p13b_local_authority_source_task_count") or 0
+            ),
+            "p13b_local_authority_source_readback_count": int(
+                row.get("p13b_local_authority_source_readback_count") or 0
+            ),
+            "p13b_local_authority_executed_readback_state_counts": dict(
+                row.get("p13b_local_authority_executed_readback_state_counts") or {}
+            ),
             "limited_sellable_review_candidate_state": str(
                 row.get("limited_sellable_review_candidate_state") or ""
             ),

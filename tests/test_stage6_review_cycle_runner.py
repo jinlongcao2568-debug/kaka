@@ -1729,7 +1729,10 @@ class Stage6ReviewCycleRunnerTests(unittest.TestCase):
                             "project_id": "PROJ-AUTH-ALT",
                             "p13b_bid_show_original_notice_url_count": 1,
                             "p13b_bid_show_responsible_person_present_count": 1,
+                            "p13b_public_source_readback_state": "LOCAL_AUTHORITY_BLOCKED_REVIEW",
                             "p13b_local_authority_source_task_count": 1,
+                            "p13b_local_authority_source_readback_count": 1,
+                            "p13b_local_authority_executed_readback_state_counts": {"BLOCKED": 1},
                             "p13b_original_notice_readback_state": "BLOCKED",
                             "p13b_ygp_stage4_release_adapter_task_count": 1,
                             "p13b_ygp_project_code_variants": ["E4401002701500571001"],
@@ -1771,6 +1774,10 @@ class Stage6ReviewCycleRunnerTests(unittest.TestCase):
         self.assertEqual(row["gdcic_real_readback_success_proof_state"], "NO_REAL_AUTHORIZED_READBACK_SUCCESS")
         self.assertTrue(row["gdcic_authorization_blocker_is_not_terminal_if_alternative_public_sources_exist"])
         self.assertEqual(row["gdcic_alternative_public_source_route_count"], 4)
+        self.assertEqual(row["p13b_public_source_readback_state"], "LOCAL_AUTHORITY_BLOCKED_REVIEW")
+        self.assertEqual(row["p13b_local_authority_source_task_count"], 1)
+        self.assertEqual(row["p13b_local_authority_source_readback_count"], 1)
+        self.assertEqual(row["p13b_local_authority_executed_readback_state_counts"], {"BLOCKED": 1})
         self.assertFalse(row["stage4_gdcic_project_code_route_allowed"])
         self.assertEqual(
             row["stage4_gdcic_project_code_route_guardrail"],
@@ -1833,6 +1840,14 @@ class Stage6ReviewCycleRunnerTests(unittest.TestCase):
                 "YGP_PROJECT_CODE": 1,
                 "YGP_SITE_CODE": 1,
             },
+        )
+        self.assertEqual(
+            table["summary"]["p13b_public_source_readback_state_counts_from_scoreboard"],
+            {"LOCAL_AUTHORITY_BLOCKED_REVIEW": 1},
+        )
+        self.assertEqual(
+            table["summary"]["p13b_local_authority_executed_readback_state_counts_from_scoreboard"],
+            {"BLOCKED": 1},
         )
 
     def test_operator_projection_marks_ygp_backfill_ready_for_stage4_bridge_internal_review(self) -> None:
