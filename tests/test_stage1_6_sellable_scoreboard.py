@@ -1801,6 +1801,118 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
         )
         self.assertFalse(result["safety"]["customer_visible_allowed"])
 
+    def test_design_survey_public_registry_not_found_readback_replaces_fallback_queue_without_sale(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            pressure = root / "pressure"
+            field_query = root / "field-query"
+            company_first = root / "company-first"
+            registry_readback = root / "registry-readback"
+            out = root / "out"
+            for path in (pressure, field_query, company_first, registry_readback, out):
+                path.mkdir(parents=True, exist_ok=True)
+
+            _write_json(pressure / "pressure-summary.json", {"candidate_count": 1})
+            _write_json(
+                pressure / "stage1-6-readiness-table.json",
+                {
+                    "records": [
+                        {
+                            "project_id": "PROJ-DESIGN-NOT-FOUND",
+                            "project_name": "design survey fallback candidate",
+                            "stage2_detail_capture_state": "FETCHED",
+                            "stage3_field_parse_state": "PARSED_FROM_FIELD_SIGNALS",
+                            "stage5_rule_gate_status": "REVIEW",
+                            "stage5_gate_state": "REVIEW_REQUIRED",
+                        }
+                    ]
+                },
+            )
+            _write_json(pressure / "stage1-6-gap-summary-table.json", {"records": []})
+            _write_json(field_query / "guangdong-local-field-query-probe-v1.json", {"manifest": {}})
+            _write_json(
+                company_first / "company-first-stage4-execution.json",
+                {
+                    "summary": {
+                        "project_count": 1,
+                        "job_count": 1,
+                        "supplement_after_execution_state_counts": {
+                            "DESIGN_SURVEY_PUBLIC_REGISTRY_FALLBACK_REQUIRED": 1,
+                        },
+                    },
+                    "manifest": {
+                        "items": [
+                            {
+                                "project_id": "PROJ-DESIGN-NOT-FOUND",
+                                "stage4_execution_state": "FAIL_CLOSED",
+                                "supplement_after_execution_state": (
+                                    "DESIGN_SURVEY_PUBLIC_REGISTRY_FALLBACK_REQUIRED"
+                                ),
+                                "customer_visible_allowed": False,
+                                "no_legal_conclusion": True,
+                            }
+                        ]
+                    },
+                },
+            )
+            _write_json(
+                registry_readback / "design-survey-public-registry-readback-v1.json",
+                {
+                    "summary": {
+                        "readback_record_count": 1,
+                        "project_count": 1,
+                        "provider_result_state_counts": {"READBACK_READY": 1},
+                        "readback_state_counts": {"NOT_FOUND": 1},
+                        "verification_result_counts": {"REVIEW_REQUIRED": 1},
+                        "matched_count": 0,
+                        "review_required_count": 1,
+                    },
+                    "manifest": {
+                        "public_registry_readback_table": {
+                            "records": [
+                                {
+                                    "project_id": "PROJ-DESIGN-NOT-FOUND",
+                                    "provider_result_state": "READBACK_READY",
+                                    "readback_state": "NOT_FOUND",
+                                    "verification_result": "REVIEW_REQUIRED",
+                                    "customer_visible_allowed": False,
+                                    "no_legal_conclusion": True,
+                                }
+                            ]
+                        }
+                    },
+                },
+            )
+
+            result = build_stage1_6_sellable_scoreboard(
+                pressure_root=pressure,
+                field_query_root=field_query,
+                company_first_stage4_execution_root=company_first,
+                design_survey_public_registry_readback_root=registry_readback,
+                output_root=out,
+                created_at="2026-05-24T00:00:00+08:00",
+            )
+
+        row = result["project_rows"][0]
+        self.assertEqual(row["design_survey_public_registry_readback_state"], "NOT_FOUND")
+        self.assertEqual(row["stage5_operational_review_bucket"], "DESIGN_SURVEY_PUBLIC_REGISTRY_NOT_FOUND_REVIEW")
+        self.assertEqual(row["blocking_bucket"], "design_survey_public_registry_not_found_review")
+        self.assertIn("design_survey_public_registry_not_found", row["stage5_operational_signal_flags"])
+        self.assertEqual(result["scoreboard"]["limited_sellable_review_candidate_count"], 0)
+        self.assertEqual(result["scoreboard"]["sellable_or_limited_review_candidate_count"], 0)
+        self.assertEqual(
+            result["scoreboard"]["design_survey_public_registry_readback_status"]["readback_state_counts"],
+            {"NOT_FOUND": 1},
+        )
+        self.assertEqual(
+            result["scoreboard"]["design_survey_public_registry_readback_status"]["projected_stage5_queue_counts"],
+            {
+                "DESIGN_SURVEY_PUBLIC_REGISTRY_FALLBACK_REVIEW": 1,
+                "DESIGN_SURVEY_PUBLIC_REGISTRY_NOT_FOUND_REVIEW": 1,
+            },
+        )
+        self.assertFalse(result["safety"]["customer_visible_allowed"])
+
 
 def _write_json(path: Path, payload: dict) -> None:
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")

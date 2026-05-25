@@ -6,6 +6,7 @@ import json
 import re
 from pathlib import Path
 from typing import Any, Mapping
+from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 from shared.utils import utc_now_iso
@@ -73,6 +74,7 @@ def build_design_survey_public_registry_readback(
             snapshot_ref=str(snapshot.get("snapshot_ref") or ""),
             enable_live_entry_readback=execute_live_entry_readback,
             http_get_text=_http_get_text if execute_live_entry_readback else None,
+            http_post_form=_http_post_form if execute_live_entry_readback else None,
         )
         readback_records.append(_readback_record(job, provider_result=result, snapshot=snapshot, created_at=created))
 
@@ -403,6 +405,17 @@ def _manifest_source_path(explicit_json: str | Path | None, root: str | Path | N
 
 def _http_get_text(url: str, headers: Mapping[str, str]) -> str:
     request = Request(url, headers=dict(headers or {}))
+    with urlopen(request, timeout=20) as response:  # noqa: S310 - explicit operator opt-in public readback.
+        return response.read().decode("utf-8", errors="replace")
+
+
+def _http_post_form(url: str, headers: Mapping[str, str], form: Mapping[str, str]) -> str:
+    body = urlencode(dict(form or {})).encode("utf-8")
+    request_headers = {
+        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+        **dict(headers or {}),
+    }
+    request = Request(url, data=body, headers=request_headers, method="POST")
     with urlopen(request, timeout=20) as response:  # noqa: S310 - explicit operator opt-in public readback.
         return response.read().decode("utf-8", errors="replace")
 

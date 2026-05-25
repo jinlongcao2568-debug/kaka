@@ -71,6 +71,54 @@ class NaturalResourceRegisteredSurveyorTests(unittest.TestCase):
             result["review_reasons"],
         )
 
+    def test_live_public_person_query_no_qualification_is_not_found_review_not_clearance(self) -> None:
+        posted: list[tuple[str, dict[str, str]]] = []
+
+        def fake_get(url: str, headers: object) -> str:
+            return "<html>注册测绘师资格查询</html>"
+
+        def fake_post(url: str, headers: object, form: object) -> str:
+            posted.append((url, dict(form)))
+            return '{"username":"胡昌华","zhige":"无","idnumber":"","success":true}'
+
+        result = run_natural_resource_registered_surveyor_provider_task(
+            _payload(),
+            enable_live_entry_readback=True,
+            http_get_text=fake_get,
+            http_post_form=fake_post,
+        )
+
+        self.assertEqual(result["provider_result_state"], "READBACK_READY")
+        self.assertEqual(result["readback_state"], "NOT_FOUND")
+        self.assertEqual(result["verification_result"], "REVIEW_REQUIRED")
+        self.assertIn("public_query_not_found_is_review_not_clearance", result["review_reasons"])
+        self.assertEqual(posted[0][1]["username"], "胡昌华")
+        self.assertTrue(result["policy"]["not_found_is_review_not_negative_fact"])
+
+    def test_live_public_person_query_person_and_company_match_becomes_matched(self) -> None:
+        def fake_get(url: str, headers: object) -> str:
+            return "<html>注册测绘师资格查询</html>"
+
+        def fake_post(url: str, headers: object, form: object) -> str:
+            return (
+                '{"username":"胡昌华","zhige":"注册测绘师",'
+                '"company_name":"广州市城市规划勘测设计研究院有限公司",'
+                '"zsnumber":"粤测绘20260001","zczt":"有效","success":true}'
+            )
+
+        result = run_natural_resource_registered_surveyor_provider_task(
+            _payload(),
+            enable_live_entry_readback=True,
+            http_get_text=fake_get,
+            http_post_form=fake_post,
+        )
+
+        self.assertEqual(result["provider_result_state"], "READBACK_READY")
+        self.assertEqual(result["readback_state"], "MATCHED")
+        self.assertEqual(result["verification_result"], "MATCHED")
+        self.assertEqual(result["identity_resolution_state"], "MATCHED_PERSON_COMPANY")
+        self.assertFalse(result["customer_sellable_evidence_ready"])
+
 
 def _payload() -> dict[str, object]:
     companies = ["广州市城市规划勘测设计研究院有限公司", "广州湾区规划勘测设计院有限公司"]

@@ -20,6 +20,9 @@ DEFAULT_P13B_COMPANY_HISTORY_ROOT = Path("tmp/evaluation-real-samples/p13b-compa
 DEFAULT_P13B_ORIGINAL_NOTICE_BACKTRACE_ROOT = Path("tmp/evaluation-real-samples/p13b-original-notice-backtrace-v1")
 DEFAULT_P13B_YGP_ORIGINAL_READBACK_ROOT = Path("tmp/evaluation-real-samples/p13b-ygp-original-readback-v1")
 DEFAULT_P13B_OVERLAP_TRIAGE_CLOSEOUT_ROOT = Path("tmp/evaluation-real-samples/p13b-overlap-triage-closeout-v1")
+DEFAULT_DESIGN_SURVEY_PUBLIC_REGISTRY_READBACK_ROOT = Path(
+    "tmp/evaluation-real-samples/design-survey-public-registry-readback-v1"
+)
 DEFAULT_OUTPUT_ROOT = Path("tmp/evaluation-real-samples/stage1-6-sellable-scoreboard-v1")
 
 
@@ -45,6 +48,8 @@ def build_stage1_6_sellable_scoreboard(
     p13b_overlap_triage_closeout_json: str | Path | None = None,
     company_first_stage4_execution_root: str | Path | None = None,
     company_first_stage4_execution_json: str | Path | None = None,
+    design_survey_public_registry_readback_root: str | Path | None = None,
+    design_survey_public_registry_readback_json: str | Path | None = None,
     stage6_status_root: str | Path | None = None,
     stage6_status_json: str | Path | None = None,
     prior_scoreboard_json: str | Path | None = None,
@@ -63,6 +68,9 @@ def build_stage1_6_sellable_scoreboard(
     )
     p13b_ygp_original_dir = Path(p13b_ygp_original_readback_root or DEFAULT_P13B_YGP_ORIGINAL_READBACK_ROOT)
     p13b_overlap_closeout_dir = Path(p13b_overlap_triage_closeout_root or DEFAULT_P13B_OVERLAP_TRIAGE_CLOSEOUT_ROOT)
+    design_survey_public_registry_readback_dir = Path(
+        design_survey_public_registry_readback_root or DEFAULT_DESIGN_SURVEY_PUBLIC_REGISTRY_READBACK_ROOT
+    )
     stage6_dir = Path(stage6_status_root or DEFAULT_STAGE6_STATUS_ROOT)
     out_dir = Path(output_root or DEFAULT_OUTPUT_ROOT)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -104,6 +112,11 @@ def build_stage1_6_sellable_scoreboard(
         artifact_root=company_first_stage4_execution_root,
         artifact_name="company-first-stage4-execution.json",
     )
+    design_survey_public_registry_readback_path = _resolve_optional_artifact_path(
+        artifact_json=design_survey_public_registry_readback_json,
+        artifact_root=design_survey_public_registry_readback_dir,
+        artifact_name="design-survey-public-registry-readback-v1.json",
+    )
     stage6_status_path = _resolve_stage6_status_path(stage6_status_json, stage6_dir)
 
     pressure_summary = _read_json_mapping(pressure_summary_path)
@@ -122,6 +135,11 @@ def build_stage1_6_sellable_scoreboard(
     company_first_stage4_execution = (
         _read_json_mapping(company_first_stage4_execution_path) if company_first_stage4_execution_path else {}
     )
+    design_survey_public_registry_readback = (
+        _read_json_mapping(design_survey_public_registry_readback_path)
+        if design_survey_public_registry_readback_path
+        else {}
+    )
     stage6_status = _read_json_mapping(stage6_status_path)
     prior_scoreboard = _read_json_mapping(Path(prior_scoreboard_json)) if prior_scoreboard_json else {}
     incremental_targets = _string_set(incremental_project_ids)
@@ -135,6 +153,9 @@ def build_stage1_6_sellable_scoreboard(
     p13b_overlap_closeout_project_signals = _p13b_overlap_closeout_project_signals(p13b_overlap_triage_closeout)
     company_first_stage4_execution_signals = _company_first_stage4_execution_project_signals(
         company_first_stage4_execution
+    )
+    design_survey_public_registry_readback_signals = _design_survey_public_registry_readback_project_signals(
+        design_survey_public_registry_readback
     )
     stage6_records = _records(stage6_status)
 
@@ -158,6 +179,7 @@ def build_stage1_6_sellable_scoreboard(
         list(p13b_ygp_project_signals.values()),
         list(p13b_overlap_closeout_project_signals.values()),
         list(company_first_stage4_execution_signals.values()),
+        list(design_survey_public_registry_readback_signals.values()),
     )
     project_rows = [
         _project_scoreboard_row(
@@ -170,6 +192,7 @@ def build_stage1_6_sellable_scoreboard(
             p13b_ygp_project_signals.get(project_id, {}),
             p13b_overlap_closeout_project_signals.get(project_id, {}),
             company_first_stage4_execution_signals.get(project_id, {}),
+            design_survey_public_registry_readback_signals.get(project_id, {}),
         )
         for project_id in project_ids
     ]
@@ -188,6 +211,7 @@ def build_stage1_6_sellable_scoreboard(
         p13b_ygp_original_readback,
         p13b_overlap_triage_closeout,
         company_first_stage4_execution,
+        design_survey_public_registry_readback,
         field_records,
         stage6_status,
         stage6_records,
@@ -227,6 +251,9 @@ def build_stage1_6_sellable_scoreboard(
             "p13b_ygp_original_readback_json": str(p13b_ygp_original_readback_path),
             "p13b_overlap_triage_closeout_json": str(p13b_overlap_triage_closeout_path),
             "company_first_stage4_execution_json": str(company_first_stage4_execution_path or ""),
+            "design_survey_public_registry_readback_json": str(
+                design_survey_public_registry_readback_path or ""
+            ),
             "stage6_status_json": str(stage6_status_path),
             "prior_scoreboard_json": str(prior_scoreboard_json or ""),
             "incremental_project_ids": sorted(incremental_targets),
@@ -260,6 +287,7 @@ def _scoreboard_counts(
     p13b_ygp_original_readback: Mapping[str, Any],
     p13b_overlap_triage_closeout: Mapping[str, Any],
     company_first_stage4_execution: Mapping[str, Any],
+    design_survey_public_registry_readback: Mapping[str, Any],
     field_records: list[Mapping[str, Any]],
     stage6_status: Mapping[str, Any],
     stage6_records: list[Mapping[str, Any]],
@@ -284,6 +312,7 @@ def _scoreboard_counts(
     p13b_ygp_summary = _summary(p13b_ygp_original_readback)
     p13b_overlap_closeout_summary = _summary(p13b_overlap_triage_closeout)
     company_first_summary = _summary(company_first_stage4_execution)
+    design_registry_readback_summary = _summary(design_survey_public_registry_readback)
     stage6_summary = _summary(stage6_status)
     stage4_matched_count = _count_state(field_summary, field_records, "adapter_result_state", "MATCHED")
     stage4_needs_browser_count = _count_state(field_summary, field_records, "adapter_result_state", "NEEDS_BROWSER")
@@ -385,6 +414,10 @@ def _scoreboard_counts(
             company_first_summary,
             project_rows,
         ),
+        "design_survey_public_registry_readback_status": _design_survey_public_registry_readback_status(
+            design_registry_readback_summary,
+            project_rows,
+        ),
         "stage4_ygp_backfill_ready_project_count": sum(
             1 for row in project_rows if _int(row.get("p13b_ygp_stage4_backfill_ready_count")) > 0
         ),
@@ -456,6 +489,7 @@ def _project_scoreboard_row(
     p13b_ygp_signal: Mapping[str, Any],
     p13b_overlap_closeout_signal: Mapping[str, Any],
     company_first_stage4_execution_signal: Mapping[str, Any],
+    design_survey_public_registry_readback_signal: Mapping[str, Any],
 ) -> dict[str, Any]:
     adapter_counts = _counts(record.get("adapter_result_state") for record in field_records)
     grade_counts = _counts(
@@ -488,6 +522,7 @@ def _project_scoreboard_row(
         p13b_ygp_signal=p13b_ygp_signal,
         p13b_overlap_closeout_signal=p13b_overlap_closeout_signal,
         company_first_stage4_execution_signal=company_first_stage4_execution_signal,
+        design_survey_public_registry_readback_signal=design_survey_public_registry_readback_signal,
         adapter_counts=adapter_counts,
         combined_grade_counts=combined_grade_counts,
         has_official_b_or_c=has_official_b_or_c,
@@ -613,6 +648,18 @@ def _project_scoreboard_row(
             company_first_stage4_execution_signal.get("flow_08_targeted_parse_required")
         ),
         "company_first_next_actions": _as_list(company_first_stage4_execution_signal.get("next_actions")),
+        "design_survey_public_registry_readback_state": str(
+            design_survey_public_registry_readback_signal.get("readback_state") or ""
+        ),
+        "design_survey_public_registry_verification_result": str(
+            design_survey_public_registry_readback_signal.get("verification_result") or ""
+        ),
+        "design_survey_public_registry_provider_result_state": str(
+            design_survey_public_registry_readback_signal.get("provider_result_state") or ""
+        ),
+        "design_survey_public_registry_readback_record_count": _int(
+            design_survey_public_registry_readback_signal.get("readback_record_count")
+        ),
         "stage4_project_code_backfill_state": project_code_backfill_state,
         "stage4_project_code_backfill_gap_detail": project_code_backfill_gap_detail,
         "stage4_public_identifier_backfill_source": _stage4_public_identifier_backfill_source(
@@ -1137,6 +1184,44 @@ def _company_first_stage4_execution_status(
     }
 
 
+def _design_survey_public_registry_readback_status(
+    summary: Mapping[str, Any],
+    project_rows: list[Mapping[str, Any]],
+) -> dict[str, Any]:
+    if not summary:
+        return {
+            "artifact_state": "MISSING_OR_NOT_BUILT",
+            "readback_record_count": 0,
+            "project_count": 0,
+            "provider_result_state_counts": {},
+            "readback_state_counts": {},
+            "verification_result_counts": {},
+            "matched_count": 0,
+            "review_required_count": 0,
+            "projected_stage5_queue_counts": {},
+            "customer_visible_allowed": False,
+            "no_legal_conclusion": True,
+        }
+    return {
+        "artifact_state": "BUILT",
+        "readback_record_count": _int(summary.get("readback_record_count")),
+        "project_count": _int(summary.get("project_count")),
+        "provider_result_state_counts": dict(summary.get("provider_result_state_counts") or {}),
+        "readback_state_counts": dict(summary.get("readback_state_counts") or {}),
+        "verification_result_counts": dict(summary.get("verification_result_counts") or {}),
+        "matched_count": _int(summary.get("matched_count")),
+        "review_required_count": _int(summary.get("review_required_count")),
+        "projected_stage5_queue_counts": _counts(
+            queue
+            for row in project_rows
+            for queue in _as_list(row.get("stage5_operational_review_queues"))
+            if str(queue).startswith("DESIGN_SURVEY_PUBLIC_REGISTRY_")
+        ),
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
+
+
 def _project_blocking_bucket(
     readiness_record: Mapping[str, Any],
     stage6_record: Mapping[str, Any],
@@ -1168,6 +1253,9 @@ def _project_blocking_bucket(
         "YGP_STAGE4_BACKFILL_READY_REVIEW": "ygp_stage4_backfill_ready_review",
         "YGP_READBACK_BLOCKED_REVIEW": "ygp_readback_blocked_review",
         "DESIGN_SURVEY_PUBLIC_REGISTRY_FALLBACK_REVIEW": "design_survey_public_registry_fallback_review",
+        "DESIGN_SURVEY_PUBLIC_REGISTRY_MATCHED_REVIEW": "design_survey_public_registry_matched_review",
+        "DESIGN_SURVEY_PUBLIC_REGISTRY_NOT_FOUND_REVIEW": "design_survey_public_registry_not_found_review",
+        "DESIGN_SURVEY_PUBLIC_REGISTRY_BLOCKED_REVIEW": "design_survey_public_registry_blocked_review",
         "LOCAL_AUTHORITY_SOURCE_PLAN_REVIEW": "local_authority_source_plan_review",
         "LOCAL_AUTHORITY_MATCHED_REVIEW": "local_authority_matched_review",
         "LOCAL_AUTHORITY_NOT_FOUND_REVIEW": "local_authority_not_found_review",
@@ -1312,6 +1400,7 @@ def _stage5_operational_review(
     p13b_ygp_signal: Mapping[str, Any],
     p13b_overlap_closeout_signal: Mapping[str, Any],
     company_first_stage4_execution_signal: Mapping[str, Any],
+    design_survey_public_registry_readback_signal: Mapping[str, Any],
     adapter_counts: Mapping[str, int],
     combined_grade_counts: Mapping[str, int],
     has_official_b_or_c: bool,
@@ -1368,6 +1457,21 @@ def _stage5_operational_review(
     has_design_survey_public_registry_fallback_required = (
         company_first_supplement_state == "DESIGN_SURVEY_PUBLIC_REGISTRY_FALLBACK_REQUIRED"
     )
+    design_registry_readback_state = str(
+        design_survey_public_registry_readback_signal.get("readback_state") or ""
+    ).upper()
+    design_registry_verification = str(
+        design_survey_public_registry_readback_signal.get("verification_result") or ""
+    ).upper()
+    has_design_survey_public_registry_matched = (
+        design_registry_readback_state == "MATCHED" or design_registry_verification == "MATCHED"
+    )
+    has_design_survey_public_registry_not_found = design_registry_readback_state == "NOT_FOUND"
+    has_design_survey_public_registry_blocked = design_registry_readback_state in {
+        "FAIL_CLOSED_QUERY_ERROR",
+        "PUBLIC_SNAPSHOT_OR_RUNTIME_ADAPTER_REQUIRED",
+        "ENTRY_READBACK_READY_PERSON_SEARCH_NOT_EXECUTED",
+    }
     has_weak_official_signal = _int(adapter_counts.get("MATCHED")) > 0 and not has_official_b_or_c
     fail_closed_reasons = {str(item) for item in _as_list(readiness_record.get("fail_closed_reasons"))}
     remaining_gaps = {str(item) for item in _as_list(readiness_record.get("remaining_real_world_gaps"))}
@@ -1431,6 +1535,12 @@ def _stage5_operational_review(
         signals.append("company_first_flow08_targeted_parse_required")
     if has_design_survey_public_registry_fallback_required:
         signals.append("design_survey_public_registry_fallback_required")
+    if has_design_survey_public_registry_matched:
+        signals.append("design_survey_public_registry_matched")
+    if has_design_survey_public_registry_not_found:
+        signals.append("design_survey_public_registry_not_found")
+    if has_design_survey_public_registry_blocked:
+        signals.append("design_survey_public_registry_blocked")
     if has_ygp_blocked:
         signals.append("ygp_readback_blocked")
     if has_source_not_found:
@@ -1503,6 +1613,12 @@ def _stage5_operational_review(
         queues.append("COMPANY_FIRST_FLOW08_TARGETED_PARSE_REVIEW")
     if has_design_survey_public_registry_fallback_required:
         queues.append("DESIGN_SURVEY_PUBLIC_REGISTRY_FALLBACK_REVIEW")
+    if has_design_survey_public_registry_matched:
+        queues.append("DESIGN_SURVEY_PUBLIC_REGISTRY_MATCHED_REVIEW")
+    if has_design_survey_public_registry_not_found:
+        queues.append("DESIGN_SURVEY_PUBLIC_REGISTRY_NOT_FOUND_REVIEW")
+    if has_design_survey_public_registry_blocked:
+        queues.append("DESIGN_SURVEY_PUBLIC_REGISTRY_BLOCKED_REVIEW")
     if has_ygp_ready:
         queues.append("YGP_READBACK_READY_REVIEW")
     if has_ygp_blocked:
@@ -1537,6 +1653,15 @@ def _stage5_operational_review(
     elif has_company_first_flow08_required:
         bucket = "COMPANY_FIRST_FLOW08_TARGETED_PARSE_REVIEW"
         action = "run_flow08_targeted_parse_without_treating_company_first_no_match_as_clearance"
+    elif has_design_survey_public_registry_matched:
+        bucket = "DESIGN_SURVEY_PUBLIC_REGISTRY_MATCHED_REVIEW"
+        action = "manual_stage5_stage6_review_for_registered_surveyor_public_registry_match"
+    elif has_design_survey_public_registry_not_found:
+        bucket = "DESIGN_SURVEY_PUBLIC_REGISTRY_NOT_FOUND_REVIEW"
+        action = "keep_public_registry_not_found_as_non_clearance_and_retry_or_review_alternate_source"
+    elif has_design_survey_public_registry_blocked:
+        bucket = "DESIGN_SURVEY_PUBLIC_REGISTRY_BLOCKED_REVIEW"
+        action = "provide_public_registry_snapshot_or_retry_public_registry_adapter_without_clearance_claim"
     elif has_design_survey_public_registry_fallback_required:
         bucket = "DESIGN_SURVEY_PUBLIC_REGISTRY_FALLBACK_REVIEW"
         action = "run_design_survey_public_registry_fallback_without_identity_or_clearance_claim"
@@ -1634,6 +1759,9 @@ def _stage5_operational_bucket_family(bucket: str) -> str:
         "COMPANY_FIRST_TARGET_FIELDS_MISSING_REVIEW": "responsible_person_certificate_gap",
         "COMPANY_FIRST_FLOW08_TARGETED_PARSE_REVIEW": "responsible_person_certificate_gap",
         "DESIGN_SURVEY_PUBLIC_REGISTRY_FALLBACK_REVIEW": "public_registration_fallback_required",
+        "DESIGN_SURVEY_PUBLIC_REGISTRY_MATCHED_REVIEW": "official_readback_ready",
+        "DESIGN_SURVEY_PUBLIC_REGISTRY_NOT_FOUND_REVIEW": "source_not_found",
+        "DESIGN_SURVEY_PUBLIC_REGISTRY_BLOCKED_REVIEW": "public_source_blocked",
         "LOCAL_AUTHORITY_SOURCE_PLAN_REVIEW": "local_authority_source_planned",
         "LOCAL_AUTHORITY_MATCHED_REVIEW": "official_readback_ready",
         "LOCAL_AUTHORITY_NOT_FOUND_REVIEW": "source_not_found",
@@ -2047,6 +2175,37 @@ def _company_first_stage4_execution_project_signals(payload: Mapping[str, Any]) 
     return signals
 
 
+def _design_survey_public_registry_readback_project_signals(payload: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
+    manifest = payload.get("manifest") if isinstance(payload.get("manifest"), Mapping) else payload
+    table = manifest.get("public_registry_readback_table") if isinstance(manifest.get("public_registry_readback_table"), Mapping) else {}
+    records = table.get("records") if isinstance(table.get("records"), list) else []
+    signals: dict[str, dict[str, Any]] = {}
+    for project_id in _ordered_project_ids([record for record in records if isinstance(record, Mapping)]):
+        project_records = [
+            record
+            for record in records
+            if isinstance(record, Mapping) and str(record.get("project_id") or "").strip() == project_id
+        ]
+        if not project_records:
+            continue
+        provider_counts = _counts(record.get("provider_result_state") for record in project_records)
+        readback_counts = _counts(record.get("readback_state") for record in project_records)
+        verification_counts = _counts(record.get("verification_result") for record in project_records)
+        signals[project_id] = {
+            "project_id": project_id,
+            "provider_result_state": _dominant_state(provider_counts),
+            "readback_state": _dominant_state(readback_counts),
+            "verification_result": _dominant_state(verification_counts),
+            "readback_record_count": len(project_records),
+            "provider_result_state_counts": provider_counts,
+            "readback_state_counts": readback_counts,
+            "verification_result_counts": verification_counts,
+            "customer_visible_allowed": False,
+            "no_legal_conclusion": True,
+        }
+    return signals
+
+
 def _dominant_state(counts: Mapping[str, int]) -> str:
     ranked = [
         (str(key), _int(value))
@@ -2332,6 +2491,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--p13b-overlap-triage-closeout-json", default="")
     parser.add_argument("--company-first-stage4-execution-root", default="")
     parser.add_argument("--company-first-stage4-execution-json", default="")
+    parser.add_argument(
+        "--design-survey-public-registry-readback-root",
+        default=str(DEFAULT_DESIGN_SURVEY_PUBLIC_REGISTRY_READBACK_ROOT),
+    )
+    parser.add_argument("--design-survey-public-registry-readback-json", default="")
     parser.add_argument("--stage6-status-root", default=str(DEFAULT_STAGE6_STATUS_ROOT))
     parser.add_argument("--stage6-status-json", default="")
     parser.add_argument("--prior-scoreboard-json", default="")
@@ -2360,6 +2524,8 @@ def main(argv: list[str] | None = None) -> int:
         p13b_overlap_triage_closeout_json=args.p13b_overlap_triage_closeout_json or None,
         company_first_stage4_execution_root=args.company_first_stage4_execution_root or None,
         company_first_stage4_execution_json=args.company_first_stage4_execution_json or None,
+        design_survey_public_registry_readback_root=args.design_survey_public_registry_readback_root or None,
+        design_survey_public_registry_readback_json=args.design_survey_public_registry_readback_json or None,
         stage6_status_root=args.stage6_status_root,
         stage6_status_json=args.stage6_status_json or None,
         prior_scoreboard_json=args.prior_scoreboard_json or None,

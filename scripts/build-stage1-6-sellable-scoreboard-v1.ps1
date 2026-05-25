@@ -19,6 +19,8 @@ param(
     [string]$P13BOverlapTriageCloseoutJson = "",
     [string]$CompanyFirstStage4ExecutionRoot = "",
     [string]$CompanyFirstStage4ExecutionJson = "",
+    [string]$DesignSurveyPublicRegistryReadbackRoot = "",
+    [string]$DesignSurveyPublicRegistryReadbackJson = "",
     [string]$Stage6StatusRoot = "",
     [string]$Stage6StatusJson = "",
     [string]$PriorScoreboardJson = "",
@@ -118,6 +120,12 @@ if ($CompanyFirstStage4ExecutionRoot) {
 }
 if ($CompanyFirstStage4ExecutionJson) {
     $argsList += @("--company-first-stage4-execution-json", $CompanyFirstStage4ExecutionJson)
+}
+if ($DesignSurveyPublicRegistryReadbackRoot) {
+    $argsList += @("--design-survey-public-registry-readback-root", $DesignSurveyPublicRegistryReadbackRoot)
+}
+if ($DesignSurveyPublicRegistryReadbackJson) {
+    $argsList += @("--design-survey-public-registry-readback-json", $DesignSurveyPublicRegistryReadbackJson)
 }
 if ($Stage6StatusJson) {
     $argsList += @("--stage6-status-json", $Stage6StatusJson)
