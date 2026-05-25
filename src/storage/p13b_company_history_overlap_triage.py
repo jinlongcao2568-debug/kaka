@@ -1171,6 +1171,9 @@ def _needs_local_authority_source_task(project: Mapping[str, Any]) -> bool:
 
 
 def _infer_local_authority_region_code(project: Mapping[str, Any]) -> str:
+    from_ygp_site_code = _infer_local_authority_region_code_from_ygp_site_code(project)
+    if from_ygp_site_code:
+        return from_ygp_site_code
     text = " ".join(
         str(item or "")
         for item in [
@@ -1198,7 +1201,28 @@ def _infer_local_authority_region_code(project: Mapping[str, Any]) -> str:
     return ""
 
 
+def _infer_local_authority_region_code_from_ygp_site_code(project: Mapping[str, Any]) -> str:
+    context = project.get("stage4_official_readback_context")
+    if not isinstance(context, Mapping):
+        return ""
+    site_codes = [str(item or "").strip() for item in _list(context.get("ygp_site_code_variants"))]
+    site_code_map = {
+        "440100": "CN-GD-GZ",
+        "440700": "CN-GD-JM",
+        "440900": "CN-GD-MM",
+        "441300": "CN-GD-HZ",
+        "441500": "CN-GD-SW",
+        "441600": "CN-GD-HY",
+    }
+    for site_code in site_codes:
+        if site_code in site_code_map:
+            return site_code_map[site_code]
+    return ""
+
+
 def _local_authority_region_basis(project: Mapping[str, Any]) -> str:
+    if _infer_local_authority_region_code_from_ygp_site_code(project):
+        return "ygp_site_code_public_identifier"
     if _infer_local_authority_region_code(project):
         return "project_name_or_source_url_city_marker"
     return "region_unresolved_operator_source_selection_required"

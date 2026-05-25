@@ -634,6 +634,50 @@ class P13BCompanyHistoryOverlapTriageTests(unittest.TestCase):
         readbacks = result["manifest"]["local_authority_source_readback_records"]
         self.assertEqual({record["local_authority_readback_state"] for record in readbacks}, {"PLAN_ONLY_NOT_EXECUTED"})
 
+    def test_stage4_followup_ygp_site_code_infers_city_local_authority_source(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            queue_json = root / "followup" / "stage4-backfill-followup-queue-v1.json"
+            _write_json(
+                queue_json,
+                {
+                    "records": [
+                        {
+                            "followup_record_id": "FOLLOWUP-YGP-SITE",
+                            "project_id": "PROJ-CN-GD-JG2026-HZ",
+                            "followup_route": "local_authority_fallback_after_ygp_not_found",
+                            "followup_queue_state": "FOLLOWUP_SOURCE_PLAN_REQUIRED",
+                            "stage4_official_readback_context": {
+                                "ygp_project_code_variants": ["E4413000835979563001"],
+                                "ygp_site_code_variants": ["441300"],
+                                "ygp_notice_id_variants": ["notice-hz"],
+                                "gdcic_project_code_route_allowed": False,
+                                "must_not_extract_from_full_text_numbers": True,
+                            },
+                            "customer_visible_allowed": False,
+                            "query_miss_is_not_clearance": True,
+                            "no_legal_conclusion": True,
+                        }
+                    ]
+                },
+            )
+
+            result = build_p13b_company_history_overlap_triage(
+                stage4_backfill_followup_queue_json=queue_json,
+                output_root=root / "out",
+                created_at="2026-05-25T00:00:00+08:00",
+            )
+
+        task = result["manifest"]["local_authority_source_task_records"][0]
+        self.assertEqual(task["local_authority_region_code"], "CN-GD-HZ")
+        self.assertEqual(task["local_authority_region_basis"], "ygp_site_code_public_identifier")
+        self.assertEqual(task["source_profile_id"], "HUIZHOU-ZJJ-OFFICIAL-PORTAL")
+        self.assertEqual(task["source_url"], "https://zjj.huizhou.gov.cn/")
+        self.assertEqual(task["jurisdiction_adapter_resolution_state"], "JURISDICTION_LOCAL_HOUSING_ADAPTER_PLANNED")
+        self.assertTrue(task["no_fallback_to_guangdong_or_guangzhou"])
+        self.assertFalse(task["customer_visible_allowed"])
+        self.assertTrue(task["query_miss_is_not_clearance"])
+
     def test_stage4_followup_queue_live_local_authority_readback_emits_match_without_customer_claim(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
