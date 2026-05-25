@@ -34,17 +34,17 @@ def build_runtime_blocker_fallback_source_plan(
         or stage4_refs.get("effective_release_field_query_json")
         or stage4_refs.get("effective_supplemental_release_field_query_json")
     )
-    field_query_path = Path(str(inferred_field_query)) if str(inferred_field_query or "").strip() else None
-    field_query = _read_json(field_query_path) if field_query_path and field_query_path.exists() else {}
-    field_manifest = _mapping(field_query.get("manifest") or field_query)
-    field_context = _field_context(field_manifest)
+    field_query_paths = _existing_paths(inferred_field_query)
+    field_context = _merged_field_context(field_query_paths)
     stage4_followup_context = _stage4_followup_context(manifest)
     continuation_input_refs = _continuation_input_refs(
         cycle=cycle,
         manifest=manifest,
-        field_query_path=field_query_path,
+        field_query_paths=field_query_paths,
         stage4_refs=stage4_refs,
     )
+    scoreboard_context = _scoreboard_project_context(continuation_input_refs.get("prior_scoreboard_json"))
+    project_context = _merge_context_maps(field_context, scoreboard_context)
 
     source_records = [
         dict(record)
@@ -54,7 +54,7 @@ def build_runtime_blocker_fallback_source_plan(
     records = [
         _plan_record(
             record,
-            field_context=field_context,
+            field_context=project_context,
             stage4_followup_context=stage4_followup_context,
             cycle_ref=str(cycle_path),
             created_at=created_at,
@@ -67,7 +67,7 @@ def build_runtime_blocker_fallback_source_plan(
         "created_at": created_at or datetime.now(timezone.utc).isoformat(),
         "input_refs": {
             "stage6_review_cycle_json": str(cycle_path),
-            "release_field_query_json": str(field_query_path or ""),
+            "release_field_query_json": ";".join(str(path) for path in field_query_paths),
         },
         "continuation_input_refs": continuation_input_refs,
         "summary": _summary(records),
@@ -208,6 +208,127 @@ def _field_context(manifest: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
     return by_key
 
 
+def _merged_field_context(paths: list[Path]) -> dict[str, dict[str, Any]]:
+    out: dict[str, dict[str, Any]] = {}
+    for path in paths:
+        field_query = _read_json(path)
+        field_manifest = _mapping(field_query.get("manifest") or field_query)
+        for key, context in _field_context(field_manifest).items():
+            out[key] = _merge_context(out.get(key, {}), context)
+    return out
+
+
+def _merge_context_maps(
+    left: Mapping[str, Mapping[str, Any]],
+    right: Mapping[str, Mapping[str, Any]],
+) -> dict[str, dict[str, Any]]:
+    out: dict[str, dict[str, Any]] = {}
+    for source in (left, right):
+        for key, context in source.items():
+            out[str(key)] = _merge_context(out.get(str(key), {}), context)
+    return out
+
+
+def _scoreboard_project_context(scoreboard_json: Any) -> dict[str, dict[str, Any]]:
+    path_text = str(scoreboard_json or "").strip()
+    if not path_text:
+        return {}
+    path = Path(path_text)
+    if not path.exists():
+        return {}
+    payload = _read_json(path)
+    rows = payload.get("project_rows")
+    if not isinstance(rows, list):
+        return {}
+    out: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        if not isinstance(row, Mapping):
+            continue
+        project_id = str(row.get("project_id") or "").strip()
+        if not project_id:
+            continue
+        context = _scoreboard_row_context(row)
+        out[project_id] = _merge_context(out.get(project_id, {}), context)
+    return out
+
+
+def _scoreboard_row_context(row: Mapping[str, Any]) -> dict[str, Any]:
+    official_context = {
+        "stage4_official_readback_context_state": (
+            "OFFICIAL_READBACK_READY_STAGE4_BRIDGE_FOLLOWUP_REQUIRED"
+            if _dedupe(
+                [
+                    *_list(row.get("p13b_ygp_project_code_variants")),
+                    *_list(row.get("p13b_overlap_ygp_project_code_variants")),
+                    *_list(row.get("p13b_ygp_biz_code_variants")),
+                    *_list(row.get("p13b_overlap_ygp_biz_code_variants")),
+                    *_list(row.get("p13b_ygp_site_code_variants")),
+                    *_list(row.get("p13b_overlap_ygp_site_code_variants")),
+                    *_list(row.get("p13b_ygp_notice_id_variants")),
+                    *_list(row.get("p13b_overlap_ygp_notice_id_variants")),
+                ]
+            )
+            else ""
+        ),
+        "project_id": str(row.get("project_id") or ""),
+        "project_name": str(row.get("project_name") or ""),
+        "ygp_project_code_variants": _dedupe(
+            [*_list(row.get("p13b_ygp_project_code_variants")), *_list(row.get("p13b_overlap_ygp_project_code_variants"))]
+        ),
+        "ygp_biz_code_variants": _dedupe(
+            [*_list(row.get("p13b_ygp_biz_code_variants")), *_list(row.get("p13b_overlap_ygp_biz_code_variants"))]
+        ),
+        "ygp_site_code_variants": _dedupe(
+            [*_list(row.get("p13b_ygp_site_code_variants")), *_list(row.get("p13b_overlap_ygp_site_code_variants"))]
+        ),
+        "ygp_notice_id_variants": _dedupe(
+            [*_list(row.get("p13b_ygp_notice_id_variants")), *_list(row.get("p13b_overlap_ygp_notice_id_variants"))]
+        ),
+        "gdcic_project_code_route_allowed": False,
+        "gdcic_project_code_route_policy": str(
+            row.get("stage4_gdcic_project_code_route_policy")
+            or "PUBLIC_SOURCE_IDENTIFIER_NOT_SENT_TO_GDCIC_UNLESS_EXPLICIT_PROVINCIAL_CODE"
+        ),
+        "must_not_extract_from_full_text_numbers": True,
+    }
+    return {
+        "project_name": str(row.get("project_name") or ""),
+        "candidate_companies": _dedupe(
+            [
+                *_list(row.get("candidate_companies")),
+                *_list(row.get("candidate_company_names")),
+                *_list(row.get("candidate_group_members")),
+            ]
+        ),
+        "responsible_person_names": _dedupe(
+            [
+                *_list(row.get("responsible_person_names")),
+                *_list(row.get("project_manager_names")),
+                row.get("responsible_person_name"),
+                row.get("project_manager_name"),
+            ]
+        ),
+        "candidate_notice_source_urls": _dedupe(
+            [
+                *_list(row.get("candidate_notice_source_urls")),
+                *_list(row.get("source_urls")),
+                row.get("candidate_notice_source_url"),
+                row.get("source_url"),
+            ]
+        ),
+        "project_source_urls": _dedupe(
+            [
+                *_list(row.get("project_source_urls")),
+                *_list(row.get("source_urls")),
+                row.get("source_url"),
+                row.get("candidate_notice_source_url"),
+            ]
+        ),
+        "context_source": "stage1_6_scoreboard_project_rows",
+        "stage4_official_readback_context": official_context,
+    }
+
+
 def _stage4_followup_context(manifest: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
     queue_path_text = str(manifest.get("source_stage4_backfill_followup_queue_json") or "").strip()
     if not queue_path_text:
@@ -261,7 +382,7 @@ def _merge_context(left: Mapping[str, Any], right: Mapping[str, Any]) -> dict[st
         "project_source_urls": _dedupe([*_list(left.get("project_source_urls")), *_list(right.get("project_source_urls"))]),
         "context_source": str(left.get("context_source") or right.get("context_source") or "release_field_query_field_task_records"),
         "followup_route": str(left.get("followup_route") or right.get("followup_route") or ""),
-        "stage4_official_readback_context": _merge_mapping(
+        "stage4_official_readback_context": _merge_official_readback_context(
             left.get("stage4_official_readback_context"),
             right.get("stage4_official_readback_context"),
         ),
@@ -287,11 +408,19 @@ def _stage4_official_readback_context_from_field_task(task: Mapping[str, Any]) -
         [
             *_list(params.get("ygpProjectCodeVariants")),
             *_list(params.get("ygp_project_code_variants")),
+            params.get("ygpProjectCode"),
+            params.get("ygp_project_code"),
         ]
     )
-    ygp_biz_codes = _dedupe([*_list(params.get("ygpBizCodeVariants")), *_list(params.get("ygp_biz_code_variants"))])
-    ygp_site_codes = _dedupe([*_list(params.get("ygpSiteCodeVariants")), *_list(params.get("ygp_site_code_variants"))])
-    ygp_notice_ids = _dedupe([*_list(params.get("ygpNoticeIdVariants")), *_list(params.get("ygp_notice_id_variants"))])
+    ygp_biz_codes = _dedupe(
+        [*_list(params.get("ygpBizCodeVariants")), *_list(params.get("ygp_biz_code_variants")), params.get("ygpBizCode")]
+    )
+    ygp_site_codes = _dedupe(
+        [*_list(params.get("ygpSiteCodeVariants")), *_list(params.get("ygp_site_code_variants")), params.get("ygpSiteCode")]
+    )
+    ygp_notice_ids = _dedupe(
+        [*_list(params.get("ygpNoticeIdVariants")), *_list(params.get("ygp_notice_id_variants")), params.get("ygpNoticeId")]
+    )
     if not any([ygp_project_codes, ygp_biz_codes, ygp_site_codes, ygp_notice_ids]):
         return {}
     return {
@@ -415,7 +544,7 @@ def _continuation_input_refs(
     *,
     cycle: Mapping[str, Any],
     manifest: Mapping[str, Any],
-    field_query_path: Path | None,
+    field_query_paths: list[Path],
     stage4_refs: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     existing = _nested_continuation_input_refs(cycle=cycle, manifest=manifest)
@@ -427,7 +556,8 @@ def _continuation_input_refs(
         or manifest.get("stage6_status_json")
     )
     stage6_status_root = existing.get("effective_stage6_status_root") or _parent_if_file_exists(stage6_status_json)
-    field_query_root = existing.get("effective_release_field_query_root") or _parent_if_file_exists(field_query_path)
+    field_query_json = ";".join(str(path) for path in field_query_paths)
+    field_query_root = existing.get("effective_release_field_query_root") or _joined_parent_paths(field_query_paths)
     gdcic_json = existing.get("effective_gdcic_browser_readback_json") or manifest.get("source_gdcic_browser_readback_json")
     gdcic_root = existing.get("effective_gdcic_browser_readback_root") or _parent_if_file_exists(gdcic_json)
     scoreboard_json = (
@@ -440,7 +570,7 @@ def _continuation_input_refs(
     return {
         "prior_scoreboard_json": str(scoreboard_path or ""),
         "effective_pressure_root": str(pressure_root or ""),
-        "effective_release_field_query_json": str(field_query_path or existing.get("effective_release_field_query_json") or ""),
+        "effective_release_field_query_json": str(field_query_json or existing.get("effective_release_field_query_json") or ""),
         "effective_release_field_query_root": str(field_query_root or ""),
         "effective_supplemental_release_field_query_json": str(
             existing.get("effective_supplemental_release_field_query_json") or ""
@@ -529,6 +659,22 @@ def _parent_if_file_exists(value: Any) -> str:
     return ""
 
 
+def _existing_paths(value: Any) -> list[Path]:
+    out: list[Path] = []
+    for part in str(value or "").split(";"):
+        text = part.strip()
+        if not text:
+            continue
+        path = Path(text)
+        if path.exists() and path.is_file():
+            out.append(path)
+    return out
+
+
+def _joined_parent_paths(paths: list[Path]) -> str:
+    return ";".join(str(path.parent) for path in paths)
+
+
 def _resolution_state(value: Any) -> str:
     return "RESOLVED_FROM_STAGE6_OR_SCOREBOARD_INPUT_REFS" if str(value or "").strip() else "UNRESOLVED"
 
@@ -540,10 +686,32 @@ def _summary(records: list[Mapping[str, Any]]) -> dict[str, Any]:
         "followup_route_counts": _counts(record.get("followup_route") for record in records),
         "task_type_counts": _counts(record.get("task_type") for record in records),
         "candidate_company_present_count": sum(1 for record in records if _list(record.get("candidate_companies"))),
+        "responsible_person_present_count": sum(1 for record in records if _list(record.get("responsible_person_names"))),
         "candidate_notice_url_present_count": sum(1 for record in records if _list(record.get("candidate_notice_source_urls"))),
+        "public_identifier_present_count": sum(1 for record in records if _has_public_identifier_context(record)),
+        "p13b_query_input_present_count": sum(
+            1
+            for record in records
+            if _list(record.get("candidate_companies"))
+            or _list(record.get("candidate_notice_source_urls"))
+            or _has_public_identifier_context(record)
+        ),
         "records_are_p13b_consumable": True,
         **_safety(),
     }
+
+
+def _has_public_identifier_context(record: Mapping[str, Any]) -> bool:
+    context = _mapping(record.get("stage4_official_readback_context"))
+    return any(
+        _list(context.get(key))
+        for key in (
+            "ygp_project_code_variants",
+            "ygp_biz_code_variants",
+            "ygp_site_code_variants",
+            "ygp_notice_id_variants",
+        )
+    )
 
 
 def _safety() -> dict[str, Any]:
@@ -586,6 +754,25 @@ def _merge_mapping(*values: Any) -> Mapping[str, Any]:
     out: dict[str, Any] = {}
     for value in values:
         out.update(dict(_mapping(value)))
+    return out
+
+
+def _merge_official_readback_context(*values: Any) -> Mapping[str, Any]:
+    out = dict(_merge_mapping(*values))
+    for key in (
+        "ygp_project_code_variants",
+        "ygp_biz_code_variants",
+        "ygp_site_code_variants",
+        "ygp_notice_id_variants",
+    ):
+        out[key] = _dedupe(item for value in values for item in _list(_mapping(value).get(key)))
+    if any(out.get(key) for key in ("ygp_project_code_variants", "ygp_biz_code_variants", "ygp_site_code_variants", "ygp_notice_id_variants")):
+        out["stage4_official_readback_context_state"] = (
+            out.get("stage4_official_readback_context_state")
+            or "OFFICIAL_READBACK_READY_STAGE4_BRIDGE_FOLLOWUP_REQUIRED"
+        )
+        out["gdcic_project_code_route_allowed"] = False
+        out["must_not_extract_from_full_text_numbers"] = True
     return out
 
 

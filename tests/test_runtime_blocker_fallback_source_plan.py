@@ -124,6 +124,42 @@ class RuntimeBlockerFallbackSourcePlanTests(unittest.TestCase):
         self.assertFalse(context["gdcic_project_code_route_allowed"])
         self.assertTrue(context["must_not_extract_from_full_text_numbers"])
 
+    def test_semicolon_field_queries_and_scoreboard_rows_seed_fallback_query_inputs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            empty_field_query = root / "field-query-empty.json"
+            ygp_field_query = root / "field-query-ygp.json"
+            cycle = root / "cycle.json"
+            stage4_queue = root / "stage4-followup-queue.json"
+            scoreboard = root / "scoreboard" / "stage1-6-sellable-scoreboard-v1.json"
+            out = root / "out"
+            _write_json(empty_field_query, {"manifest": {"field_task_records": []}})
+            _write_field_query_with_singular_ygp_params(ygp_field_query)
+            _write_stage4_queue_without_official_context(stage4_queue)
+            _write_scoreboard_project_rows(scoreboard)
+            _write_cycle(cycle, Path(f"{empty_field_query};{ygp_field_query}"), scoreboard, stage4_queue)
+
+            result = build_runtime_blocker_fallback_source_plan(
+                stage6_review_cycle_json=cycle,
+                output_root=out,
+                created_at="2026-05-25T00:00:00+08:00",
+            )
+
+        self.assertEqual(result["summary"]["candidate_company_present_count"], 1)
+        self.assertEqual(result["summary"]["responsible_person_present_count"], 1)
+        self.assertEqual(result["summary"]["candidate_notice_url_present_count"], 1)
+        self.assertEqual(result["summary"]["public_identifier_present_count"], 1)
+        self.assertEqual(result["summary"]["p13b_query_input_present_count"], 1)
+        record = result["records"][0]
+        self.assertEqual(record["candidate_companies"], ["广州补齐工程有限公司"])
+        self.assertEqual(record["responsible_person_names"], ["李四"])
+        self.assertEqual(record["candidate_notice_source_urls"], ["https://ywtb.gzggzy.cn/context.html"])
+        self.assertEqual(
+            record["stage4_official_readback_context"]["ygp_notice_id_variants"],
+            ["notice-singular", "notice-scoreboard"],
+        )
+        self.assertIn(";", result["input_refs"]["release_field_query_json"])
+
 
 def _write_cycle(path: Path, field_query: Path, scoreboard: Path, stage4_queue: Path) -> None:
     _write_json(
@@ -233,6 +269,51 @@ def _write_field_query(path: Path) -> None:
                     }
                 ]
             }
+        },
+    )
+
+
+def _write_field_query_with_singular_ygp_params(path: Path) -> None:
+    _write_json(
+        path,
+        {
+            "manifest": {
+                "field_task_records": [
+                    {
+                        "field_query_task_id": "TASK-FALLBACK",
+                        "project_id": "PROJ-FALLBACK",
+                        "query_params": {
+                            "ygpProjectCode": "E4413000835979563001",
+                            "ygpBizCode": "3C52",
+                            "ygpSiteCode": "441300",
+                            "ygpNoticeId": "notice-singular",
+                            "gdcicProjectCodeVariants": [],
+                        },
+                    }
+                ]
+            }
+        },
+    )
+
+
+def _write_scoreboard_project_rows(path: Path) -> None:
+    _write_json(
+        path,
+        {
+            "project_rows": [
+                {
+                    "project_id": "PROJ-FALLBACK",
+                    "project_name": "补齐上下文样本",
+                    "candidate_companies": ["广州补齐工程有限公司"],
+                    "responsible_person_names": ["李四"],
+                    "candidate_notice_source_urls": ["https://ywtb.gzggzy.cn/context.html"],
+                    "p13b_overlap_ygp_project_code_variants": ["E4413000835979563001"],
+                    "p13b_overlap_ygp_biz_code_variants": ["3C52"],
+                    "p13b_overlap_ygp_site_code_variants": ["441300"],
+                    "p13b_overlap_ygp_notice_id_variants": ["notice-scoreboard"],
+                    "stage4_gdcic_project_code_route_policy": "YGP_OR_TRADE_IDENTIFIERS_NOT_SENT_TO_GDCIC_PROJECT_CODE",
+                }
+            ]
         },
     )
 
