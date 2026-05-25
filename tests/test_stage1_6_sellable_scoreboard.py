@@ -444,6 +444,8 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
                         "original_notice_overlap_signal_review_required_count": 0,
                         "no_match_review_count": 1,
                         "source_unsupported_count": 0,
+                        "ygp_readback_ready_count": 1,
+                        "browser_readback_ready_count": 1,
                         "fetch_state_counts": {
                             "ORIGINAL_NOTICE_FETCHED": 1,
                             "ORIGINAL_NOTICE_FETCH_BLOCKED": 1,
@@ -769,6 +771,8 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
             1,
         )
         self.assertEqual(scoreboard["p13b_original_notice_readback_status"]["fetch_blocked_count"], 1)
+        self.assertEqual(scoreboard["p13b_original_notice_readback_status"]["ygp_readback_ready_count"], 1)
+        self.assertEqual(scoreboard["p13b_original_notice_readback_status"]["browser_readback_ready_count"], 1)
         rows = {row["project_id"]: row for row in result["project_rows"]}
         self.assertEqual(rows["PROJ-A"]["limited_sellable_review_candidate_state"], "REVIEW_CANDIDATE")
         self.assertEqual(rows["PROJ-A"]["stage5_operational_review_bucket"], "STRONG_LEAD_INTERNAL_REVIEW")

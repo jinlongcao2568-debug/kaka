@@ -1182,6 +1182,8 @@ def _p13b_original_notice_readback_status(summary: Mapping[str, Any]) -> dict[st
             "original_notice_overlap_signal_review_required_count": 0,
             "no_match_review_count": 0,
             "source_unsupported_count": 0,
+            "ygp_readback_ready_count": 0,
+            "browser_readback_ready_count": 0,
             "query_miss_is_not_clearance": True,
             "customer_visible_allowed": False,
             "no_legal_conclusion": True,
@@ -1198,6 +1200,8 @@ def _p13b_original_notice_readback_status(summary: Mapping[str, Any]) -> dict[st
         ),
         "no_match_review_count": _int(summary.get("no_match_review_count")),
         "source_unsupported_count": _int(summary.get("source_unsupported_count")),
+        "ygp_readback_ready_count": _int(summary.get("ygp_readback_ready_count")),
+        "browser_readback_ready_count": _int(summary.get("browser_readback_ready_count")),
         "fetch_state_counts": dict(summary.get("fetch_state_counts") or {}),
         "overlap_signal_state_counts": dict(summary.get("overlap_signal_state_counts") or {}),
         "original_notice_backtrace_match_state_counts": dict(
