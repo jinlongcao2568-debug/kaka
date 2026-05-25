@@ -682,6 +682,8 @@ def run_stage6_review_cycle_runner(
         source_stage1_6_scoreboard_path=Path(stage1_6_scoreboard_json) if stage1_6_scoreboard_json else None,
         source_supplemental_release_field_query_path=supplemental_release_field_query_path,
     )
+    if isinstance(operator_projection_status_table.get("summary"), Mapping):
+        summary.update(_operator_projection_controller_summary(operator_projection_status_table["summary"]))
     stage5_calibration_summary = _stage5_calibration_projection_summary(
         operator_projection_status_table.get("records")
         if isinstance(operator_projection_status_table.get("records"), list)
@@ -1196,6 +1198,19 @@ def _operator_projection_status_table(
         "no_legal_conclusion": True,
         "query_miss_is_not_clearance": True,
     }
+
+
+def _operator_projection_controller_summary(summary: Mapping[str, Any]) -> dict[str, Any]:
+    keys = (
+        "stage5_operational_review_bucket_counts_from_scoreboard",
+        "stage5_operational_primary_track_counts_from_scoreboard",
+        "p13b_local_authority_resolution_state_counts_from_scoreboard",
+        "p13b_public_source_readback_state_counts_from_scoreboard",
+        "p13b_local_authority_executed_readback_state_counts_from_scoreboard",
+        "stage4_ygp_backfill_bridge_projection_state_counts_from_scoreboard",
+        "stage4_ygp_backfill_bridge_ready_project_count_from_scoreboard",
+    )
+    return {key: summary[key] for key in keys if key in summary}
 
 
 def _stage5_calibration_projection_summary(records: list[Any]) -> dict[str, Any]:

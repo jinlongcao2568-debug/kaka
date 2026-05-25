@@ -205,6 +205,46 @@ class StageOneSixLatestScoreboardDiagnosticTests(unittest.TestCase):
         self.assertEqual(result["p0_gap_summary"]["followup_queue_remaining_count"], 1)
         self.assertEqual(result["stage5_diagnosis"]["diagnosis_state"], "LIMITED_SELLABLE_REVIEW_CANDIDATES_PRESENT")
 
+    def test_diagnostic_surfaces_local_authority_region_resolution_blockers(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            latest = root / "latest.json"
+            out = root / "out"
+            _write_scoreboard(
+                latest,
+                missing_backfill=0,
+                public_identifier_backfilled=0,
+                official_ready=0,
+                public_blocked=0,
+                source_not_found=9,
+                limited=0,
+                rate=0.0,
+                local_authority_region_resolution_required=6,
+            )
+
+            result = build_stage1_6_latest_scoreboard_diagnostic(
+                latest_scoreboard_json=latest,
+                output_root=out,
+                created_at="2026-05-25T00:00:00+08:00",
+            )
+
+        self.assertEqual(
+            result["stage5_diagnosis"]["diagnosis_state"],
+            "LOCAL_AUTHORITY_REGION_RESOLUTION_REQUIRED_BEFORE_READBACK",
+        )
+        self.assertEqual(result["stage5_diagnosis"]["local_authority_region_resolution_required_count"], 6)
+        self.assertEqual(
+            result["stage5_diagnosis"]["local_authority_resolution_state_counts"],
+            {"LOCAL_AUTHORITY_REGION_RESOLUTION_REQUIRED": 6},
+        )
+        self.assertEqual(result["p0_gap_summary"]["local_authority_region_resolution_required_count"], 6)
+        self.assertIn(
+            "resolve_local_authority_region_before_retrying_public_readback",
+            result["recommended_next_actions"],
+        )
+        self.assertFalse(result["safety"]["customer_visible_allowed"])
+        self.assertTrue(result["safety"]["query_miss_is_not_clearance"])
+
 
 def _write_scoreboard(
     path: Path,
@@ -216,7 +256,20 @@ def _write_scoreboard(
     source_not_found: int,
     limited: int,
     rate: float,
+    local_authority_region_resolution_required: int = 0,
 ) -> None:
+    primary_track_counts = {
+        "official_readback_ready": official_ready,
+        "public_source_blocked": public_blocked,
+        "source_not_found": source_not_found,
+    }
+    priority_bucket_counts = {
+        "P1_OFFICIAL_READBACK_DEEPENING": official_ready,
+        "P1_BLOCKER_RETRY_OR_ALTERNATE_SOURCE": public_blocked + local_authority_region_resolution_required,
+        "P2_NOT_FOUND_NON_CLEARANCE_DEEPENING": source_not_found,
+    }
+    if local_authority_region_resolution_required:
+        primary_track_counts["local_authority_region_resolution_required"] = local_authority_region_resolution_required
     _write_json(
         path,
         {
@@ -226,16 +279,8 @@ def _write_scoreboard(
                 "stage3_success_count": 15,
                 "limited_sellable_review_candidate_count": limited,
                 "real_public_sellable_pack_rate": rate,
-                "stage5_operational_primary_track_counts": {
-                    "official_readback_ready": official_ready,
-                    "public_source_blocked": public_blocked,
-                    "source_not_found": source_not_found,
-                },
-                "stage5_operational_priority_bucket_counts": {
-                    "P1_OFFICIAL_READBACK_DEEPENING": official_ready,
-                    "P1_BLOCKER_RETRY_OR_ALTERNATE_SOURCE": public_blocked,
-                    "P2_NOT_FOUND_NON_CLEARANCE_DEEPENING": source_not_found,
-                },
+                "stage5_operational_primary_track_counts": primary_track_counts,
+                "stage5_operational_priority_bucket_counts": priority_bucket_counts,
                 "stage4_public_readback_channel_outcome_counts": {
                     "YGP:YGP_READBACK_READY": official_ready,
                     "LOCAL_AUTHORITY:BLOCKED": public_blocked,
@@ -272,7 +317,26 @@ def _write_scoreboard(
                     "customer_visible_allowed": False,
                     "query_miss_is_not_clearance": True,
                 }
-            ],
+            ]
+            + (
+                [
+                    {
+                        "project_id": f"PROJ-REGION-{index}",
+                        "project_name": "地方源地区待解析样本",
+                        "stage5_operational_primary_track": "local_authority_region_resolution_required",
+                        "stage5_operational_review_bucket": "LOCAL_AUTHORITY_REGION_RESOLUTION_REQUIRED_REVIEW",
+                        "p13b_public_source_readback_state": "LOCAL_AUTHORITY_BLOCKED_REVIEW",
+                        "p13b_local_authority_resolution_state_counts": {
+                            "LOCAL_AUTHORITY_REGION_RESOLUTION_REQUIRED": 1
+                        },
+                        "customer_visible_allowed": False,
+                        "query_miss_is_not_clearance": True,
+                    }
+                    for index in range(local_authority_region_resolution_required)
+                ]
+                if local_authority_region_resolution_required
+                else []
+            ),
         },
     )
 

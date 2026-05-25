@@ -124,6 +124,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--stage1-6-real-public-pressure-report-json", default="")
     parser.add_argument("--stage1-6-readiness-json", default="")
     parser.add_argument("--stage1-6-gap-summary-json", default="")
+    parser.add_argument("--stage1-6-scoreboard-json", default="")
     parser.add_argument("--stage1-market-scan-json", default="")
     parser.add_argument("--stage1-source-blueprint-json", default="")
     parser.add_argument("--stage2-capture-json", default="")
@@ -174,6 +175,7 @@ def _load_payload(args: argparse.Namespace) -> dict[str, Any]:
         "stage1_6_real_public_pressure_report_json": args.stage1_6_real_public_pressure_report_json,
         "stage1_6_readiness_json": args.stage1_6_readiness_json,
         "stage1_6_gap_summary_json": args.stage1_6_gap_summary_json,
+        "stage1_6_scoreboard_json": args.stage1_6_scoreboard_json,
         "stage1_market_scan_json": args.stage1_market_scan_json,
         "stage1_source_blueprint_json": args.stage1_source_blueprint_json,
         "stage2_capture_json": args.stage2_capture_json,

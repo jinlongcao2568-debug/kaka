@@ -632,6 +632,7 @@ def _stage6_cycle_kwargs(payload: Mapping[str, Any], *, created_at: str) -> dict
         "stage5_calibration_sample_root": "stage5_calibration_sample_root",
         "stage4_backfill_followup_queue_json": "stage4_backfill_followup_queue_json",
         "stage4_backfill_followup_queue_root": "stage4_backfill_followup_queue_root",
+        "stage1_6_scoreboard_json": "stage1_6_scoreboard_json",
         "output_root": "output_root",
         "baseline_evidence_state_json": "baseline_evidence_state_json",
         "cwd": "cwd",
@@ -752,6 +753,19 @@ def _stage6_cycle_next_action(
             "entrypoint_id": "stage4_release_evidence_bridge_builder",
             "reason": "stage1_6_readiness_release_evidence_bridge_required",
         }
+    local_region_resolution_required = _local_authority_region_resolution_required_count(cycle_summary)
+    if local_region_resolution_required > 0:
+        return {
+            "action_type": "REVIEW",
+            "entrypoint_id": "",
+            "reason": "local_authority_region_resolution_required_before_public_readback",
+            "review_family": "stage4_local_authority_region_resolution_review",
+            "review_state": "WAITING_FOR_LOCAL_AUTHORITY_REGION_RESOLUTION",
+            "dispatch_task_id_suffix": "local-authority-region-resolution-review",
+            "source_metric": "LOCAL_AUTHORITY_REGION_RESOLUTION_REQUIRED",
+            "metric_count": str(local_region_resolution_required),
+            "operator_next_action": "resolve_local_authority_region_before_retrying_public_readback",
+        }
     if int(cycle_summary.get("runtime_blocker_dispatch_runner_followup_task_count") or 0) > 0:
         return {
             "action_type": "REVIEW",
@@ -769,6 +783,29 @@ def _stage6_cycle_next_action(
         "entrypoint_id": "",
         "reason": "stage1_6_runtime_cycle_operator_review_or_no_dispatch_ready",
     }
+
+
+def _local_authority_region_resolution_required_count(cycle_summary: Mapping[str, Any]) -> int:
+    primary = (
+        cycle_summary.get("stage5_operational_primary_track_counts_from_scoreboard")
+        if isinstance(cycle_summary.get("stage5_operational_primary_track_counts_from_scoreboard"), Mapping)
+        else {}
+    )
+    review_buckets = (
+        cycle_summary.get("stage5_operational_review_bucket_counts_from_scoreboard")
+        if isinstance(cycle_summary.get("stage5_operational_review_bucket_counts_from_scoreboard"), Mapping)
+        else {}
+    )
+    resolution = (
+        cycle_summary.get("p13b_local_authority_resolution_state_counts_from_scoreboard")
+        if isinstance(cycle_summary.get("p13b_local_authority_resolution_state_counts_from_scoreboard"), Mapping)
+        else {}
+    )
+    return max(
+        int(primary.get("local_authority_region_resolution_required") or 0),
+        int(review_buckets.get("LOCAL_AUTHORITY_REGION_RESOLUTION_REQUIRED_REVIEW") or 0),
+        int(resolution.get("LOCAL_AUTHORITY_REGION_RESOLUTION_REQUIRED") or 0),
+    )
 
 
 def _stage5_calibration_review_action(cycle_summary: Mapping[str, Any]) -> dict[str, str]:
@@ -1287,6 +1324,7 @@ def _stage6_cycle_input_refs(payload: Mapping[str, Any], *, focus_path: Path) ->
         "stage45_replay_samples_json",
         "stage1_6_readiness_json",
         "stage1_6_gap_summary_json",
+        "stage1_6_scoreboard_json",
         "stage1_6_real_public_pressure_report_json",
         "baseline_evidence_state_json",
         "stage1_market_scan_json",

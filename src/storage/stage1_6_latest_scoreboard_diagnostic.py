@@ -76,7 +76,7 @@ def build_stage1_6_latest_scoreboard_diagnostic(
         },
         "latest_run": _run_summary(latest_board),
         "delta_from_previous": _delta_summary(latest_board, previous_board),
-        "stage5_diagnosis": _stage5_diagnosis(latest_board),
+        "stage5_diagnosis": _stage5_diagnosis(latest_board, latest_rows),
         "official_readback_ready_review_queue": _official_readback_ready_review_queue(latest_rows),
         "release_evidence_promotion_queue": _release_evidence_promotion_queue(latest_rows),
         "stage4_readback_diagnosis": _stage4_readback_diagnosis(latest_board),
@@ -189,31 +189,45 @@ def _delta_summary(latest: Mapping[str, Any], previous: Mapping[str, Any]) -> di
     }
 
 
-def _stage5_diagnosis(scoreboard: Mapping[str, Any]) -> dict[str, Any]:
+def _stage5_diagnosis(scoreboard: Mapping[str, Any], rows: list[Mapping[str, Any]]) -> dict[str, Any]:
     primary = dict(scoreboard.get("stage5_operational_primary_track_counts") or {})
     priority = dict(scoreboard.get("stage5_operational_priority_bucket_counts") or {})
+    local_authority_resolution_counts = _sum_row_count_maps(rows, "p13b_local_authority_resolution_state_counts")
     return {
         "primary_track_counts": primary,
         "priority_bucket_counts": priority,
         "official_readback_ready_count": _int(primary.get("official_readback_ready")),
         "public_source_blocked_count": _int(primary.get("public_source_blocked")),
         "source_not_found_count": _int(primary.get("source_not_found")),
+        "local_authority_region_resolution_required_count": _int(
+            primary.get("local_authority_region_resolution_required")
+        )
+        or _int(local_authority_resolution_counts.get("LOCAL_AUTHORITY_REGION_RESOLUTION_REQUIRED")),
+        "local_authority_resolution_state_counts": local_authority_resolution_counts,
         "limited_sellable_review_candidate_count": _int(
             scoreboard.get("limited_sellable_review_candidate_count")
         ),
-        "diagnosis_state": _stage5_diagnosis_state(scoreboard),
+        "diagnosis_state": _stage5_diagnosis_state(scoreboard, rows),
     }
 
 
-def _stage5_diagnosis_state(scoreboard: Mapping[str, Any]) -> str:
+def _stage5_diagnosis_state(scoreboard: Mapping[str, Any], rows: list[Mapping[str, Any]] | None = None) -> str:
     limited = _int(scoreboard.get("limited_sellable_review_candidate_count"))
-    official_ready = _int(
-        dict(scoreboard.get("stage5_operational_primary_track_counts") or {}).get("official_readback_ready")
-    )
+    primary = dict(scoreboard.get("stage5_operational_primary_track_counts") or {})
+    official_ready = _int(primary.get("official_readback_ready"))
+    region_resolution_required = _int(primary.get("local_authority_region_resolution_required"))
+    if not region_resolution_required and rows:
+        region_resolution_required = _int(
+            _sum_row_count_maps(rows, "p13b_local_authority_resolution_state_counts").get(
+                "LOCAL_AUTHORITY_REGION_RESOLUTION_REQUIRED"
+            )
+        )
     if limited > 0:
         return "LIMITED_SELLABLE_REVIEW_CANDIDATES_PRESENT"
     if official_ready > 0:
         return "OFFICIAL_READBACK_READY_NEEDS_B_OR_C_RELEASE_EVIDENCE_REVIEW"
+    if region_resolution_required > 0:
+        return "LOCAL_AUTHORITY_REGION_RESOLUTION_REQUIRED_BEFORE_READBACK"
     return "NO_LIMITED_SELLABLE_OR_OFFICIAL_READBACK_READY"
 
 
@@ -396,9 +410,15 @@ def _p0_gap_summary(
     comparison: Mapping[str, Any],
 ) -> dict[str, Any]:
     primary = dict(scoreboard.get("stage5_operational_primary_track_counts") or {})
+    local_authority_resolution_counts = _sum_row_count_maps(rows, "p13b_local_authority_resolution_state_counts")
+    local_authority_region_resolution_required_count = _int(
+        primary.get("local_authority_region_resolution_required")
+    ) or _int(local_authority_resolution_counts.get("LOCAL_AUTHORITY_REGION_RESOLUTION_REQUIRED"))
     return {
         "local_source_blocked_or_not_found_remaining_count": _int(primary.get("public_source_blocked"))
         + _int(primary.get("source_not_found")),
+        "local_authority_region_resolution_required_count": local_authority_region_resolution_required_count,
+        "local_authority_resolution_state_counts": local_authority_resolution_counts,
         "official_readback_ready_not_limited_count": max(
             0,
             _int(primary.get("official_readback_ready"))
@@ -425,9 +445,16 @@ def _recommended_next_actions(
     official_ready = _int(
         dict(scoreboard.get("stage5_operational_primary_track_counts") or {}).get("official_readback_ready")
     )
+    region_resolution_required = _int(
+        dict(scoreboard.get("stage5_operational_primary_track_counts") or {}).get(
+            "local_authority_region_resolution_required"
+        )
+    )
     limited = _int(scoreboard.get("limited_sellable_review_candidate_count"))
     if queue_count:
         actions.append("run_stage4_followup_queue_through_controller_before_manual_triage")
+    if region_resolution_required:
+        actions.append("resolve_local_authority_region_before_retrying_public_readback")
     if official_ready > limited:
         actions.append("review_official_readback_ready_rows_for_b_or_c_release_evidence_only")
         actions.append("promote_public_identifiers_to_b_or_c_release_evidence_readback_before_limited_projection")
@@ -455,6 +482,20 @@ def _rows(payload: Mapping[str, Any]) -> list[Mapping[str, Any]]:
 
 def _count_delta(latest: Mapping[str, Any], previous: Mapping[str, Any], key: str, count_key: str) -> int:
     return _int(dict(latest.get(key) or {}).get(count_key)) - _int(dict(previous.get(key) or {}).get(count_key))
+
+
+def _sum_row_count_maps(rows: list[Mapping[str, Any]], key: str) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for row in rows:
+        value = row.get(key)
+        if not isinstance(value, Mapping):
+            continue
+        for item_key, item_count in value.items():
+            text = str(item_key or "")
+            if not text:
+                continue
+            counts[text] = counts.get(text, 0) + _int(item_count)
+    return counts
 
 
 def _read_json(path: Path | None) -> dict[str, Any]:

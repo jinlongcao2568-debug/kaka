@@ -494,6 +494,64 @@ class RuntimeArchitectureContractTests(unittest.TestCase, IsolatedStorageTestMix
         self.assertEqual(status_rows[0]["loop_terminal_state"], "STAGE5_CALIBRATION_REVIEW_READY")
         self.assertFalse(result["customer_visible_allowed"])
 
+    def test_run_controller_routes_local_authority_region_resolution_to_specific_review(self) -> None:
+        from runtime.run_controller import RunController
+
+        def fake_stage6_cycle_runner(**_: Any) -> dict[str, Any]:
+            return {
+                "safe_to_execute": True,
+                "summary": {
+                    "stage5_operational_primary_track_counts_from_scoreboard": {
+                        "local_authority_region_resolution_required": 6,
+                    },
+                    "stage5_operational_review_bucket_counts_from_scoreboard": {
+                        "LOCAL_AUTHORITY_REGION_RESOLUTION_REQUIRED_REVIEW": 6,
+                    },
+                    "p13b_local_authority_resolution_state_counts_from_scoreboard": {
+                        "LOCAL_AUTHORITY_REGION_RESOLUTION_REQUIRED": 6,
+                    },
+                },
+                "manifest": {},
+                "blocking_reasons": [],
+            }
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            controller = RunController(
+                stage6_preview_executor=lambda payload: {},
+                stage6_cycle_runner=fake_stage6_cycle_runner,
+            )
+            result = controller.start_stage1_6_runtime_cycle(
+                {
+                    "project_id": "PROJ-LOCAL-AUTHORITY-REGION",
+                    "entrypoint_id": "stage6_review_cycle_runner",
+                    "batch_closeout_root": str(root / "missing-closeout"),
+                    "output_root": str(root / "out"),
+                },
+                created_at="2026-05-26T00:00:00+08:00",
+            )
+
+        run_state = result["run_state"]
+        next_action = run_state["next_action"]
+        self.assertEqual(next_action["action_type"], "REVIEW")
+        self.assertEqual(next_action["entrypoint_id"], "")
+        self.assertEqual(
+            next_action["reason"],
+            "local_authority_region_resolution_required_before_public_readback",
+        )
+        self.assertEqual(next_action["review_family"], "stage4_local_authority_region_resolution_review")
+        self.assertEqual(next_action["metric_count"], "6")
+        dispatch_record = result["dispatch_queue"]["records"][0]
+        self.assertEqual(dispatch_record["dispatch_state"], "WAITING_FOR_REVIEW")
+        self.assertEqual(
+            dispatch_record["operator_next_action"],
+            "resolve_local_authority_region_before_retrying_public_readback",
+        )
+        self.assertEqual(dispatch_record["metric_count"], 6)
+        self.assertFalse(result["customer_visible_allowed"])
+        self.assertTrue(result["query_miss_is_not_clearance"])
+        self.assertNotIn("无风险", json.dumps(result, ensure_ascii=False))
+
     def test_run_controller_records_stage4_release_field_query_ledger_from_runtime_cycle(self) -> None:
         from runtime.run_controller import RunController
         from tests.test_stage6_review_cycle_runner import _write_batch_closeout, _write_evidence_state
