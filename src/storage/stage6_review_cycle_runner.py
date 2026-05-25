@@ -1040,6 +1040,22 @@ def _operator_projection_status_table(
             record.get("gdcic_authorization_readiness_state")
             for record in scoreboard_alternative_route_by_project.values()
         ),
+        "stage4_gdcic_project_code_route_policy_counts_from_scoreboard": _counts(
+            record.get("stage4_gdcic_project_code_route_policy")
+            for record in scoreboard_alternative_route_by_project.values()
+        ),
+        "stage4_gdcic_route_blocked_by_policy_project_count_from_scoreboard": sum(
+            1
+            for record in scoreboard_alternative_route_by_project.values()
+            if record.get("stage4_public_identifier_refs")
+            and not bool(record.get("stage4_gdcic_project_code_route_allowed"))
+        ),
+        "stage4_public_identifier_source_counts_from_scoreboard": _counts(
+            ref.get("source")
+            for record in scoreboard_alternative_route_by_project.values()
+            for ref in _list(record.get("stage4_public_identifier_refs"))
+            if isinstance(ref, Mapping)
+        ),
         "design_survey_public_registry_readback_project_count": len(
             design_registry_projection_by_project
         ),
@@ -1357,6 +1373,17 @@ def _stage1_6_scoreboard_gdcic_alternative_route_projection_by_project(
         out[project_id] = {
             "project_id": project_id,
             "stage1_6_scoreboard_json": str(path),
+            "stage4_public_identifier_backfill_source": str(
+                row.get("stage4_public_identifier_backfill_source") or ""
+            ),
+            "stage4_gdcic_project_code_route_allowed": bool(
+                row.get("stage4_gdcic_project_code_route_allowed")
+            ),
+            "stage4_gdcic_project_code_route_policy": str(
+                row.get("stage4_gdcic_project_code_route_policy") or ""
+            ),
+            "stage4_gdcic_project_code_route_guardrail": _scoreboard_gdcic_route_guardrail(row),
+            "stage4_public_identifier_refs": _scoreboard_public_identifier_refs(row),
             "gdcic_authorization_readiness_state": auth_state,
             "gdcic_authorized_session_input_ready": bool(
                 gdcic_status.get("authorized_session_input_ready")
@@ -1418,6 +1445,60 @@ def _scoreboard_gdcic_alternative_route_target_type_counts_for_row(
     if int(row.get("design_survey_public_registry_readback_record_count") or 0):
         _add_count(counts, "design_survey_public_registry", 1)
     return counts
+
+
+def _scoreboard_public_identifier_refs(row: Mapping[str, Any]) -> list[dict[str, Any]]:
+    refs: list[dict[str, Any]] = []
+    if int(row.get("p13b_bid_show_original_notice_url_count") or 0):
+        refs.append(
+            {
+                "source": "DATA_GGZY_BID_SHOW_ORIGINAL_URL",
+                "count": int(row.get("p13b_bid_show_original_notice_url_count") or 0),
+                "target": "P13B_OR_STAGE4_BRIDGE_ONLY",
+                "gdcic_project_code_route_allowed": False,
+            }
+        )
+    if int(row.get("p13b_bid_show_responsible_person_present_count") or 0):
+        refs.append(
+            {
+                "source": "DATA_GGZY_BID_SHOW_RESPONSIBLE_PERSON",
+                "count": int(row.get("p13b_bid_show_responsible_person_present_count") or 0),
+                "target": "P13B_OR_STAGE4_BRIDGE_ONLY",
+                "gdcic_project_code_route_allowed": False,
+            }
+        )
+    for source, field in (
+        ("YGP_PROJECT_CODE", "p13b_ygp_project_code_variants"),
+        ("YGP_BIZ_CODE", "p13b_ygp_biz_code_variants"),
+        ("YGP_SITE_CODE", "p13b_ygp_site_code_variants"),
+        ("YGP_NOTICE_ID", "p13b_ygp_notice_id_variants"),
+        ("P13B_OVERLAP_YGP_PROJECT_CODE", "p13b_overlap_ygp_project_code_variants"),
+        ("P13B_OVERLAP_YGP_BIZ_CODE", "p13b_overlap_ygp_biz_code_variants"),
+        ("P13B_OVERLAP_YGP_SITE_CODE", "p13b_overlap_ygp_site_code_variants"),
+        ("P13B_OVERLAP_YGP_NOTICE_ID", "p13b_overlap_ygp_notice_id_variants"),
+    ):
+        values = _dedupe(_list(row.get(field)))
+        if values:
+            refs.append(
+                {
+                    "source": source,
+                    "values": values,
+                    "target": "P13B_OR_STAGE4_BRIDGE_ONLY",
+                    "gdcic_project_code_route_allowed": False,
+                }
+            )
+    return refs
+
+
+def _scoreboard_gdcic_route_guardrail(row: Mapping[str, Any]) -> str:
+    if bool(row.get("stage4_gdcic_project_code_route_allowed")):
+        return "ONLY_EXPLICIT_PROVINCIAL_OR_URL_PROJECT_CODE_ALLOWED"
+    policy = str(row.get("stage4_gdcic_project_code_route_policy") or "")
+    if policy:
+        return policy
+    if _scoreboard_public_identifier_refs(row):
+        return "PUBLIC_IDENTIFIERS_NOT_SENT_TO_GDCIC_PROJECT_CODE_ROUTE"
+    return "NO_GDCIC_PROJECT_CODE_ROUTE"
 
 
 def _merge_stage1_6_scoreboard_gdcic_alternative_route_projection(

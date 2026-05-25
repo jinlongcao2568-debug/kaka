@@ -1562,9 +1562,18 @@ class Stage6ReviewCycleRunnerTests(unittest.TestCase):
                         {
                             "project_id": "PROJ-AUTH-ALT",
                             "p13b_bid_show_original_notice_url_count": 1,
+                            "p13b_bid_show_responsible_person_present_count": 1,
                             "p13b_local_authority_source_task_count": 1,
                             "p13b_original_notice_readback_state": "BLOCKED",
                             "p13b_ygp_stage4_release_adapter_task_count": 1,
+                            "p13b_ygp_project_code_variants": ["E4401002701500571001"],
+                            "p13b_ygp_biz_code_variants": ["3C52"],
+                            "p13b_ygp_site_code_variants": ["440100"],
+                            "p13b_ygp_notice_id_variants": ["notice-1"],
+                            "stage4_public_identifier_backfill_source": (
+                                "DATA_GGZY_BID_SHOW_ORIGINAL_URL|YGP_PROJECT_CODE|YGP_BIZ_CODE"
+                            ),
+                            "stage4_gdcic_project_code_route_allowed": False,
                             "stage4_gdcic_project_code_route_policy": (
                                 "YGP_OR_TRADE_IDENTIFIERS_NOT_SENT_TO_GDCIC_PROJECT_CODE"
                             ),
@@ -1596,6 +1605,33 @@ class Stage6ReviewCycleRunnerTests(unittest.TestCase):
         self.assertEqual(row["gdcic_real_readback_success_proof_state"], "NO_REAL_AUTHORIZED_READBACK_SUCCESS")
         self.assertTrue(row["gdcic_authorization_blocker_is_not_terminal_if_alternative_public_sources_exist"])
         self.assertEqual(row["gdcic_alternative_public_source_route_count"], 4)
+        self.assertFalse(row["stage4_gdcic_project_code_route_allowed"])
+        self.assertEqual(
+            row["stage4_gdcic_project_code_route_guardrail"],
+            "YGP_OR_TRADE_IDENTIFIERS_NOT_SENT_TO_GDCIC_PROJECT_CODE",
+        )
+        self.assertEqual(
+            row["stage4_gdcic_project_code_route_policy"],
+            "YGP_OR_TRADE_IDENTIFIERS_NOT_SENT_TO_GDCIC_PROJECT_CODE",
+        )
+        self.assertIn(
+            {
+                "source": "YGP_PROJECT_CODE",
+                "values": ["E4401002701500571001"],
+                "target": "P13B_OR_STAGE4_BRIDGE_ONLY",
+                "gdcic_project_code_route_allowed": False,
+            },
+            row["stage4_public_identifier_refs"],
+        )
+        self.assertIn(
+            {
+                "source": "DATA_GGZY_BID_SHOW_ORIGINAL_URL",
+                "count": 1,
+                "target": "P13B_OR_STAGE4_BRIDGE_ONLY",
+                "gdcic_project_code_route_allowed": False,
+            },
+            row["stage4_public_identifier_refs"],
+        )
         self.assertEqual(
             row["gdcic_alternative_public_source_route_target_type_counts"],
             {
@@ -1612,6 +1648,25 @@ class Stage6ReviewCycleRunnerTests(unittest.TestCase):
         self.assertEqual(
             table["summary"]["gdcic_authorization_readiness_state_counts_from_scoreboard"],
             {"LOGIN_OR_SSO_REQUIRED": 1},
+        )
+        self.assertEqual(
+            table["summary"]["stage4_gdcic_project_code_route_policy_counts_from_scoreboard"],
+            {"YGP_OR_TRADE_IDENTIFIERS_NOT_SENT_TO_GDCIC_PROJECT_CODE": 1},
+        )
+        self.assertEqual(
+            table["summary"]["stage4_gdcic_route_blocked_by_policy_project_count_from_scoreboard"],
+            1,
+        )
+        self.assertEqual(
+            table["summary"]["stage4_public_identifier_source_counts_from_scoreboard"],
+            {
+                "DATA_GGZY_BID_SHOW_ORIGINAL_URL": 1,
+                "DATA_GGZY_BID_SHOW_RESPONSIBLE_PERSON": 1,
+                "YGP_BIZ_CODE": 1,
+                "YGP_NOTICE_ID": 1,
+                "YGP_PROJECT_CODE": 1,
+                "YGP_SITE_CODE": 1,
+            },
         )
 
 
