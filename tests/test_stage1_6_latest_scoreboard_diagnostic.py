@@ -103,7 +103,22 @@ class StageOneSixLatestScoreboardDiagnosticTests(unittest.TestCase):
             result["official_readback_ready_review_queue"]["records"][0]["recommended_next_action"],
             "feed_public_identifier_to_release_evidence_adapter_before_limited_review",
         )
+        self.assertEqual(result["release_evidence_promotion_queue"]["record_count"], 1)
+        self.assertEqual(
+            result["release_evidence_promotion_queue"]["records"][0]["promotion_state"],
+            "PUBLIC_IDENTIFIER_READY_NEEDS_B_OR_C_RELEASE_EVIDENCE_READBACK",
+        )
+        self.assertEqual(
+            result["release_evidence_promotion_queue"]["records"][0]["ygp_project_code_variants"],
+            ["E4413000835979563001"],
+        )
+        self.assertFalse(result["release_evidence_promotion_queue"]["records"][0]["gdcic_project_code_route_allowed"])
+        self.assertIn(
+            "promote_public_identifiers_to_b_or_c_release_evidence_readback_before_limited_projection",
+            result["recommended_next_actions"],
+        )
         self.assertEqual(result["p0_gap_summary"]["followup_queue_remaining_count"], 3)
+        self.assertEqual(result["p0_gap_summary"]["release_evidence_promotion_required_count"], 1)
         self.assertTrue(result["p0_gap_summary"]["comparison_recommends_deepening"])
         self.assertIn(
             "run_stage4_followup_queue_through_controller_before_manual_triage",
@@ -169,6 +184,11 @@ def _write_scoreboard(
                         "PUBLIC_SOURCE_IDENTIFIER_BACKFILLED_FOR_P13B_OR_STAGE4_BRIDGE_ONLY"
                     ),
                     "stage4_public_identifier_backfill_source": "YGP_PROJECT_CODE",
+                    "p13b_overlap_ygp_project_code_variants": ["E4413000835979563001"],
+                    "p13b_overlap_ygp_biz_code_variants": ["3C52"],
+                    "p13b_overlap_ygp_site_code_variants": ["441300"],
+                    "p13b_overlap_ygp_notice_id_variants": ["notice-1"],
+                    "stage4_gdcic_project_code_route_policy": "YGP_OR_TRADE_IDENTIFIERS_NOT_SENT_TO_GDCIC_PROJECT_CODE",
                     "p13b_public_source_readback_state": "ORIGINAL_NOTICE_BACKTRACE_REQUIRED",
                     "p13b_original_notice_readback_state": "PENDING_OR_NOT_RUN",
                     "p13b_ygp_original_readback_state": "YGP_READBACK_READY",

@@ -48,6 +48,7 @@ def build_stage1_6_latest_scoreboard_diagnostic(
         "delta_from_previous": _delta_summary(latest_board, previous_board),
         "stage5_diagnosis": _stage5_diagnosis(latest_board),
         "official_readback_ready_review_queue": _official_readback_ready_review_queue(latest_rows),
+        "release_evidence_promotion_queue": _release_evidence_promotion_queue(latest_rows),
         "stage4_readback_diagnosis": _stage4_readback_diagnosis(latest_board),
         "followup_queue_diagnosis": _followup_queue_diagnosis(followup),
         "comparison_diagnosis": _comparison_diagnosis(comparison),
@@ -187,6 +188,74 @@ def _official_readback_ready_review_queue(rows: list[Mapping[str, Any]]) -> dict
     }
 
 
+def _release_evidence_promotion_queue(rows: list[Mapping[str, Any]]) -> dict[str, Any]:
+    records = []
+    for row in rows:
+        if str(row.get("stage5_operational_primary_track") or "") != "official_readback_ready":
+            continue
+        if str(row.get("limited_sellable_review_candidate_state") or "") == "REVIEW_CANDIDATE":
+            continue
+        blocker = _official_readback_ready_blocker_state(row)
+        if blocker != "PUBLIC_IDENTIFIER_READY_NOT_RELEASE_EVIDENCE":
+            continue
+        record = {
+            "project_id": str(row.get("project_id") or ""),
+            "project_name": str(row.get("project_name") or ""),
+            "promotion_state": "PUBLIC_IDENTIFIER_READY_NEEDS_B_OR_C_RELEASE_EVIDENCE_READBACK",
+            "stage4_project_code_backfill_state": str(row.get("stage4_project_code_backfill_state") or ""),
+            "stage4_public_identifier_backfill_source": str(row.get("stage4_public_identifier_backfill_source") or ""),
+            "ygp_project_code_variants": _dedupe(
+                [
+                    *_as_list(row.get("p13b_ygp_project_code_variants")),
+                    *_as_list(row.get("p13b_overlap_ygp_project_code_variants")),
+                ]
+            ),
+            "ygp_biz_code_variants": _dedupe(
+                [
+                    *_as_list(row.get("p13b_ygp_biz_code_variants")),
+                    *_as_list(row.get("p13b_overlap_ygp_biz_code_variants")),
+                ]
+            ),
+            "ygp_site_code_variants": _dedupe(
+                [
+                    *_as_list(row.get("p13b_ygp_site_code_variants")),
+                    *_as_list(row.get("p13b_overlap_ygp_site_code_variants")),
+                ]
+            ),
+            "ygp_notice_id_variants": _dedupe(
+                [
+                    *_as_list(row.get("p13b_ygp_notice_id_variants")),
+                    *_as_list(row.get("p13b_overlap_ygp_notice_id_variants")),
+                ]
+            ),
+            "gdcic_project_code_route_allowed": False,
+            "gdcic_project_code_route_policy": str(
+                row.get("stage4_gdcic_project_code_route_policy")
+                or "YGP_OR_TRADE_IDENTIFIERS_NOT_SENT_TO_GDCIC_PROJECT_CODE"
+            ),
+            "required_input": [
+                "stage4_release_adapter_bridge_or_ygp_backfill_field_query_budget",
+                "b_or_c_official_release_evidence_readback",
+            ],
+            "recommended_next_action": "run_stage4_release_adapter_bridge_for_b_or_c_official_readback_before_limited_projection",
+            "customer_visible_allowed": False,
+            "query_miss_is_not_clearance": True,
+            "no_legal_conclusion": True,
+        }
+        records.append(record)
+    return {
+        "record_count": len(records),
+        "promotion_state_counts": _counts(record.get("promotion_state") for record in records),
+        "gdcic_project_code_route_policy_counts": _counts(
+            record.get("gdcic_project_code_route_policy") for record in records
+        ),
+        "records": records,
+        "customer_visible_allowed": False,
+        "query_miss_is_not_clearance": True,
+        "no_legal_conclusion": True,
+    }
+
+
 def _official_readback_ready_blocker_state(row: Mapping[str, Any]) -> str:
     evidence_grades = dict(row.get("limited_sellable_review_evidence_grade_counts") or {})
     if _int(evidence_grades.get("B_ENHANCEMENT_OFFICIAL_READBACK")) or _int(
@@ -224,8 +293,10 @@ def _stage4_readback_diagnosis(scoreboard: Mapping[str, Any]) -> dict[str, Any]:
 
 def _followup_queue_diagnosis(followup: Mapping[str, Any]) -> dict[str, Any]:
     summary = followup.get("summary") if isinstance(followup.get("summary"), Mapping) else {}
+    record_count = _int(summary.get("followup_record_count")) or _int(summary.get("fallback_source_plan_record_count"))
     return {
-        "followup_record_count": _int(summary.get("followup_record_count")),
+        "followup_record_count": record_count,
+        "source_plan_record_count": _int(summary.get("fallback_source_plan_record_count")),
         "followup_route_counts": dict(summary.get("followup_route_counts") or {}),
         "execution_priority_counts": dict(summary.get("execution_priority_counts") or {}),
         "public_source_deepening_recommended_counts": dict(
@@ -270,11 +341,8 @@ def _p0_gap_summary(
             _int(primary.get("official_readback_ready"))
             - _int(scoreboard.get("limited_sellable_review_candidate_count")),
         ),
-        "followup_queue_remaining_count": _int(
-            (followup.get("summary") or {}).get("followup_record_count")
-            if isinstance(followup.get("summary"), Mapping)
-            else 0
-        ),
+        "followup_queue_remaining_count": _followup_record_count(followup),
+        "release_evidence_promotion_required_count": _release_evidence_promotion_queue(rows)["record_count"],
         "project_rows_with_customer_visible_allowed_count": sum(
             1 for row in rows if bool(row.get("customer_visible_allowed"))
         ),
@@ -290,11 +358,7 @@ def _recommended_next_actions(
     comparison: Mapping[str, Any],
 ) -> list[str]:
     actions: list[str] = []
-    queue_count = _int(
-        (followup.get("summary") or {}).get("followup_record_count")
-        if isinstance(followup.get("summary"), Mapping)
-        else 0
-    )
+    queue_count = _followup_record_count(followup)
     official_ready = _int(
         dict(scoreboard.get("stage5_operational_primary_track_counts") or {}).get("official_readback_ready")
     )
@@ -303,11 +367,17 @@ def _recommended_next_actions(
         actions.append("run_stage4_followup_queue_through_controller_before_manual_triage")
     if official_ready > limited:
         actions.append("review_official_readback_ready_rows_for_b_or_c_release_evidence_only")
+        actions.append("promote_public_identifiers_to_b_or_c_release_evidence_readback_before_limited_projection")
     if comparison.get("public_source_deepening_recommendations"):
         actions.append("continue_public_source_deepening_from_comparison_recommendation")
     actions.append("keep_customer_delivery_payment_refund_disabled")
     actions.append("keep_not_found_blocked_as_non_clearance")
     return actions
+
+
+def _followup_record_count(followup: Mapping[str, Any]) -> int:
+    summary = followup.get("summary") if isinstance(followup.get("summary"), Mapping) else {}
+    return _int(summary.get("followup_record_count")) or _int(summary.get("fallback_source_plan_record_count"))
 
 
 def _scoreboard(payload: Mapping[str, Any]) -> Mapping[str, Any]:
@@ -342,6 +412,7 @@ def _write_markdown(path: Path, payload: Mapping[str, Any]) -> None:
         f"- delta_from_previous: {json.dumps(payload.get('delta_from_previous', {}), ensure_ascii=False, sort_keys=True)}",
         f"- stage5_diagnosis: {json.dumps(payload.get('stage5_diagnosis', {}), ensure_ascii=False, sort_keys=True)}",
         f"- official_readback_ready_review_queue: {json.dumps(payload.get('official_readback_ready_review_queue', {}), ensure_ascii=False, sort_keys=True)}",
+        f"- release_evidence_promotion_queue: {json.dumps(payload.get('release_evidence_promotion_queue', {}), ensure_ascii=False, sort_keys=True)}",
         f"- followup_queue_diagnosis: {json.dumps(payload.get('followup_queue_diagnosis', {}), ensure_ascii=False, sort_keys=True)}",
         f"- p0_gap_summary: {json.dumps(payload.get('p0_gap_summary', {}), ensure_ascii=False, sort_keys=True)}",
         f"- recommended_next_actions: {json.dumps(payload.get('recommended_next_actions', []), ensure_ascii=False)}",
@@ -368,6 +439,28 @@ def _counts(values: Any) -> dict[str, int]:
             continue
         counts[key] = counts.get(key, 0) + 1
     return counts
+
+
+def _as_list(value: Any) -> list[Any]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return value
+    if isinstance(value, tuple):
+        return list(value)
+    return [value]
+
+
+def _dedupe(values: Any) -> list[str]:
+    out: list[str] = []
+    seen: set[str] = set()
+    for value in _as_list(values):
+        text = str(value or "").strip()
+        if not text or text in seen:
+            continue
+        seen.add(text)
+        out.append(text)
+    return out
 
 
 def main(argv: list[str] | None = None) -> int:
