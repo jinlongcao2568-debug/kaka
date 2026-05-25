@@ -9,17 +9,39 @@ from typing import Any, Mapping
 
 ATTRIBUTION_KIND = "stage1_6_limited_success_attribution_v1"
 DEFAULT_OUTPUT_ROOT = Path("tmp/evaluation-real-samples/stage1-6-limited-success-attribution-v1")
+DEFAULT_SEARCH_ROOT = Path("tmp/evaluation-real-samples")
+DEFAULT_SCOREBOARD_FILENAME = "stage1-6-sellable-scoreboard-v1.json"
 
 
 def build_stage1_6_limited_success_attribution(
     *,
-    success_scoreboard_json: str | Path,
-    target_scoreboard_json: str | Path,
+    success_scoreboard_json: str | Path | None = None,
+    target_scoreboard_json: str | Path | None = None,
+    search_root: str | Path = DEFAULT_SEARCH_ROOT,
     output_root: str | Path = DEFAULT_OUTPUT_ROOT,
     created_at: str | None = None,
 ) -> dict[str, Any]:
-    success_path = Path(success_scoreboard_json)
-    target_path = Path(target_scoreboard_json)
+    explicit_success_path = Path(success_scoreboard_json) if success_scoreboard_json else None
+    explicit_target_path = Path(target_scoreboard_json) if target_scoreboard_json else None
+    discovery = (
+        _explicit_attribution_context(
+            search_root=search_root,
+            success_scoreboard_json=explicit_success_path,
+            target_scoreboard_json=explicit_target_path,
+        )
+        if explicit_success_path is not None and explicit_target_path is not None
+        else discover_limited_success_attribution_context(search_root=search_root)
+    )
+    success_path = Path(success_scoreboard_json) if success_scoreboard_json else _path_or_none(
+        discovery.get("success_scoreboard_json")
+    )
+    target_path = Path(target_scoreboard_json) if target_scoreboard_json else _path_or_none(
+        discovery.get("target_scoreboard_json")
+    )
+    if success_path is None:
+        raise ValueError("success_scoreboard_json_required_or_discoverable")
+    if target_path is None:
+        raise ValueError("target_scoreboard_json_required_or_discoverable")
     success = _read_json(success_path)
     target = _read_json(target_path)
     success_rows = _rows(success)
@@ -39,6 +61,15 @@ def build_stage1_6_limited_success_attribution(
         "input_refs": {
             "success_scoreboard_json": str(success_path),
             "target_scoreboard_json": str(target_path),
+            "search_root": str(search_root),
+        },
+        "discovery": {
+            **discovery,
+            "discovery_state": (
+                "EXPLICIT_SCOREBOARDS"
+                if success_scoreboard_json and target_scoreboard_json
+                else "AUTO_DISCOVERED_LIMITED_SUCCESS_ATTRIBUTION_CONTEXT"
+            ),
         },
         "success_run": _run_summary(success),
         "target_run": _run_summary(target),
@@ -60,6 +91,60 @@ def build_stage1_6_limited_success_attribution(
     _write_json(out_dir / "stage1-6-limited-success-attribution-v1.json", result)
     _write_markdown(out_dir / "stage1-6-limited-success-attribution-v1.md", result)
     return result
+
+
+def _explicit_attribution_context(
+    *,
+    search_root: str | Path,
+    success_scoreboard_json: Path,
+    target_scoreboard_json: Path,
+) -> dict[str, Any]:
+    success = _candidate_from_path(success_scoreboard_json)
+    target = _candidate_from_path(target_scoreboard_json)
+    return {
+        "search_root": str(search_root),
+        "success_scoreboard_json": str(success_scoreboard_json),
+        "target_scoreboard_json": str(target_scoreboard_json),
+        "scoreboard_candidate_count": 2,
+        "success_selection_state": "EXPLICIT_SUCCESS_SCOREBOARD",
+        "target_selection_state": "EXPLICIT_TARGET_SCOREBOARD",
+        "success_candidate_summary": _candidate_summary(success),
+        "target_candidate_summary": _candidate_summary(target),
+    }
+
+
+def discover_limited_success_attribution_context(
+    *,
+    search_root: str | Path = DEFAULT_SEARCH_ROOT,
+) -> dict[str, Any]:
+    root = Path(search_root)
+    candidates = _scoreboard_candidates(root)
+    success = _select_success_candidate(candidates)
+    target = _select_target_candidate(candidates, success)
+    return {
+        "search_root": str(root),
+        "success_scoreboard_json": str(success.get("path") or "") if success else "",
+        "target_scoreboard_json": str(target.get("path") or "") if target else "",
+        "scoreboard_candidate_count": len(candidates),
+        "success_selection_state": success.get("selection_state", "") if success else "NO_LIMITED_SUCCESS_SCOREBOARD_FOUND",
+        "target_selection_state": target.get("selection_state", "") if target else "NO_ZERO_OR_LOWER_LIMITED_TARGET_FOUND",
+        "success_candidate_summary": _candidate_summary(success),
+        "target_candidate_summary": _candidate_summary(target),
+    }
+
+
+def _candidate_from_path(path: Path) -> dict[str, Any]:
+    payload = _read_json(path)
+    board = _scoreboard(payload)
+    return {
+        "path": path,
+        "mtime": path.stat().st_mtime if path.exists() else 0,
+        "candidate_count": _int(board.get("candidate_count")),
+        "limited_count": _int(board.get("limited_sellable_review_candidate_count")),
+        "real_public_sellable_pack_rate": float(board.get("real_public_sellable_pack_rate") or 0),
+        "stage4_matched_task_count": _int(board.get("stage4_matched_task_count")),
+        "stage4_needs_browser_task_count": _int(board.get("stage4_needs_browser_task_count")),
+    }
 
 
 def _run_summary(payload: Mapping[str, Any]) -> dict[str, Any]:
@@ -352,6 +437,100 @@ def _read_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def _path_or_none(value: Any) -> Path | None:
+    text = str(value or "").strip()
+    return Path(text) if text else None
+
+
+def _scoreboard_candidates(root: Path) -> list[dict[str, Any]]:
+    if not root.exists():
+        return []
+    candidates: list[dict[str, Any]] = []
+    for path in root.rglob(DEFAULT_SCOREBOARD_FILENAME):
+        if not path.is_file():
+            continue
+        payload = _read_json(path)
+        if not _scoreboard(payload):
+            continue
+        candidates.append(_candidate_from_path(path))
+    return sorted(candidates, key=lambda item: (float(item["mtime"]), str(item["path"])), reverse=True)
+
+
+def _select_success_candidate(candidates: list[dict[str, Any]]) -> dict[str, Any]:
+    eligible = [item for item in candidates if _int(item.get("candidate_count")) and _int(item.get("limited_count")) > 0]
+    if not eligible:
+        return {}
+    selected = sorted(
+        eligible,
+        key=lambda item: (
+            _int(item.get("limited_count")),
+            float(item.get("real_public_sellable_pack_rate") or 0),
+            float(item.get("mtime") or 0),
+            str(item.get("path") or ""),
+        ),
+        reverse=True,
+    )[0]
+    return {**selected, "selection_state": "HIGHEST_LIMITED_SELLABLE_SUCCESS_SCOREBOARD"}
+
+
+def _select_target_candidate(candidates: list[dict[str, Any]], success: Mapping[str, Any]) -> dict[str, Any]:
+    if not success:
+        return {}
+    success_path = str(success.get("path") or "")
+    success_limited = _int(success.get("limited_count"))
+    zero_limited = [
+        item
+        for item in candidates
+        if str(item.get("path") or "") != success_path
+        and _int(item.get("candidate_count")) > 0
+        and _int(item.get("limited_count")) == 0
+    ]
+    if zero_limited:
+        selected = sorted(
+            zero_limited,
+            key=lambda item: (
+                _int(item.get("candidate_count")),
+                float(item.get("mtime") or 0),
+                str(item.get("path") or ""),
+            ),
+            reverse=True,
+        )[0]
+        return {**selected, "selection_state": "LATEST_ZERO_LIMITED_TARGET_SCOREBOARD"}
+    lower_limited = [
+        item
+        for item in candidates
+        if str(item.get("path") or "") != success_path
+        and _int(item.get("candidate_count")) > 0
+        and _int(item.get("limited_count")) < success_limited
+    ]
+    if lower_limited:
+        selected = sorted(
+            lower_limited,
+            key=lambda item: (
+                -_int(item.get("limited_count")),
+                _int(item.get("candidate_count")),
+                float(item.get("mtime") or 0),
+                str(item.get("path") or ""),
+            ),
+            reverse=True,
+        )[0]
+        return {**selected, "selection_state": "LOWER_LIMITED_TARGET_SCOREBOARD"}
+    return {}
+
+
+def _candidate_summary(candidate: Mapping[str, Any]) -> dict[str, Any]:
+    if not candidate:
+        return {}
+    return {
+        "path": str(candidate.get("path") or ""),
+        "candidate_count": _int(candidate.get("candidate_count")),
+        "limited_sellable_review_candidate_count": _int(candidate.get("limited_count")),
+        "real_public_sellable_pack_rate": float(candidate.get("real_public_sellable_pack_rate") or 0),
+        "stage4_matched_task_count": _int(candidate.get("stage4_matched_task_count")),
+        "stage4_needs_browser_task_count": _int(candidate.get("stage4_needs_browser_task_count")),
+    }
+
+
 def _write_json(path: Path, payload: Mapping[str, Any]) -> None:
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
@@ -380,14 +559,16 @@ def _int(value: Any) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--success-scoreboard-json", required=True)
-    parser.add_argument("--target-scoreboard-json", required=True)
+    parser.add_argument("--success-scoreboard-json", default="")
+    parser.add_argument("--target-scoreboard-json", default="")
+    parser.add_argument("--search-root", default=str(DEFAULT_SEARCH_ROOT))
     parser.add_argument("--output-root", default=str(DEFAULT_OUTPUT_ROOT))
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
     result = build_stage1_6_limited_success_attribution(
-        success_scoreboard_json=args.success_scoreboard_json,
-        target_scoreboard_json=args.target_scoreboard_json,
+        success_scoreboard_json=args.success_scoreboard_json or None,
+        target_scoreboard_json=args.target_scoreboard_json or None,
+        search_root=args.search_root,
         output_root=args.output_root,
     )
     if args.json:

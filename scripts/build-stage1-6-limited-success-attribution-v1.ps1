@@ -1,6 +1,7 @@
 param(
     [string]$SuccessScoreboardJson = "",
     [string]$TargetScoreboardJson = "",
+    [string]$SearchRoot = "",
     [string]$OutputRoot = "",
     [switch]$EmitJson
 )
@@ -12,16 +13,11 @@ $OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = Resolve-Path (Join-Path $scriptDir "..")
 
-if (-not $SuccessScoreboardJson) {
-    Write-Error "SuccessScoreboardJson is required."
-    exit 1
-}
-if (-not $TargetScoreboardJson) {
-    Write-Error "TargetScoreboardJson is required."
-    exit 1
-}
 if (-not $OutputRoot) {
     $OutputRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\stage1-6-limited-success-attribution-v1"
+}
+if (-not $SearchRoot) {
+    $SearchRoot = Join-Path $repoRoot "tmp\evaluation-real-samples"
 }
 
 New-Item -ItemType Directory -Force -Path $OutputRoot | Out-Null
@@ -31,10 +27,15 @@ $env:PYTHONIOENCODING = "utf-8"
 
 $argsList = @(
     "-m", "storage.stage1_6_limited_success_attribution",
-    "--success-scoreboard-json", $SuccessScoreboardJson,
-    "--target-scoreboard-json", $TargetScoreboardJson,
+    "--search-root", $SearchRoot,
     "--output-root", $OutputRoot
 )
+if ($SuccessScoreboardJson) {
+    $argsList += @("--success-scoreboard-json", $SuccessScoreboardJson)
+}
+if ($TargetScoreboardJson) {
+    $argsList += @("--target-scoreboard-json", $TargetScoreboardJson)
+}
 if ($EmitJson) {
     $argsList += "--json"
 }

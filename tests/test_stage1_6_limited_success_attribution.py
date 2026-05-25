@@ -12,7 +12,10 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from storage.stage1_6_limited_success_attribution import build_stage1_6_limited_success_attribution
+from storage.stage1_6_limited_success_attribution import (
+    build_stage1_6_limited_success_attribution,
+    discover_limited_success_attribution_context,
+)
 
 
 class StageOneSixLimitedSuccessAttributionTests(unittest.TestCase):
@@ -214,6 +217,84 @@ class StageOneSixLimitedSuccessAttributionTests(unittest.TestCase):
             "continue_fallback_readback_or_browser_authorized_replay_before_limited_review",
         )
         self.assertTrue(result["attribution_summary"]["query_miss_is_not_clearance"])
+
+    def test_auto_discovers_success_and_target_scoreboards_for_attribution(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            success = root / "stage1-6-sellable-rate-regression-live12-r64" / "scoreboard" / "stage1-6-sellable-scoreboard-v1.json"
+            target = root / "stage1-6-sellable-rate-regression-live15-r67" / "scoreboard" / "stage1-6-sellable-scoreboard-v1.json"
+            out = root / "out"
+            _write_json(
+                success,
+                {
+                    "scoreboard": {
+                        "candidate_count": 12,
+                        "limited_sellable_review_candidate_count": 5,
+                        "real_public_sellable_pack_rate": 0.4167,
+                        "stage4_matched_task_count": 12,
+                        "stage4_needs_browser_task_count": 39,
+                    },
+                    "project_rows": [
+                        {
+                            "project_id": "PROJ-LIVE12",
+                            "project_name": "live12 success",
+                            "limited_sellable_review_candidate_state": "REVIEW_CANDIDATE",
+                            "limited_sellable_review_evidence_grade_counts": {
+                                "B_ENHANCEMENT_OFFICIAL_READBACK": 1,
+                            },
+                            "stage4_public_identifier_backfill_source": "YGP_PROJECT_CODE",
+                        }
+                    ],
+                },
+            )
+            _write_json(
+                target,
+                {
+                    "scoreboard": {
+                        "candidate_count": 15,
+                        "limited_sellable_review_candidate_count": 0,
+                        "real_public_sellable_pack_rate": 0.0,
+                        "stage4_matched_task_count": 0,
+                        "stage4_needs_browser_task_count": 3,
+                    },
+                    "project_rows": [
+                        {
+                            "project_id": "PROJ-LIVE15",
+                            "project_name": "live15 blocked",
+                            "limited_sellable_review_candidate_state": "NOT_READY",
+                            "stage4_adapter_result_state_counts": {"NEEDS_BROWSER": 1},
+                            "stage4_downstream_abcd_grade_counts": {
+                                "D_INSUFFICIENT_OR_BLOCKED_READBACK": 1,
+                            },
+                            "limited_sellable_review_gap_grade_counts": {
+                                "D_INSUFFICIENT_OR_BLOCKED_READBACK": 1,
+                            },
+                        }
+                    ],
+                },
+            )
+
+            discovered = discover_limited_success_attribution_context(search_root=root)
+            result = build_stage1_6_limited_success_attribution(
+                search_root=root,
+                output_root=out,
+                created_at="2026-05-26T00:00:00+08:00",
+            )
+
+        self.assertEqual(discovered["success_scoreboard_json"], str(success))
+        self.assertEqual(discovered["target_scoreboard_json"], str(target))
+        self.assertEqual(result["discovery"]["discovery_state"], "AUTO_DISCOVERED_LIMITED_SUCCESS_ATTRIBUTION_CONTEXT")
+        self.assertEqual(result["input_refs"]["success_scoreboard_json"], str(success))
+        self.assertEqual(result["input_refs"]["target_scoreboard_json"], str(target))
+        self.assertEqual(
+            result["discovery"]["success_candidate_summary"]["limited_sellable_review_candidate_count"],
+            5,
+        )
+        self.assertEqual(
+            result["target_not_limited_path"]["failure_mode_counts"],
+            {"TARGET_EXECUTED_BUT_ONLY_D_OR_BROWSER_BLOCKED": 1, "NEEDS_BROWSER_OR_AUTH_SESSION": 1},
+        )
+        self.assertFalse(result["safety"]["customer_visible_allowed"])
 
 
 def _write_json(path: Path, payload: dict) -> None:
