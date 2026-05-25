@@ -1780,6 +1780,102 @@ class Stage6ReviewCycleRunnerTests(unittest.TestCase):
             },
         )
 
+    def test_operator_projection_marks_ygp_backfill_ready_for_stage4_bridge_internal_review(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            scoreboard_path = root / "scoreboard" / "stage1-6-sellable-scoreboard-v1.json"
+            _write_json(
+                scoreboard_path,
+                {
+                    "scoreboard": {
+                        "gdcic_authorized_readback_status": {
+                            "authorization_readiness_state": "LOGIN_OR_SSO_REQUIRED",
+                            "authorized_session_input_ready": False,
+                            "target_real_readback_success_count": 0,
+                            "real_readback_success_proof_state": "NO_REAL_AUTHORIZED_READBACK_SUCCESS",
+                        }
+                    },
+                    "project_rows": [
+                        {
+                            "project_id": "PROJ-YGP-BRIDGE-READY",
+                            "stage5_operational_primary_track": "official_readback_ready",
+                            "stage5_operational_review_bucket": "YGP_STAGE4_BACKFILL_READY_REVIEW",
+                            "limited_sellable_review_candidate_state": "NOT_READY",
+                            "p13b_ygp_original_readback_state": "YGP_READBACK_READY",
+                            "p13b_ygp_stage4_backfill_ready_count": 1,
+                            "p13b_ygp_stage4_release_adapter_task_count": 0,
+                            "p13b_ygp_project_code_variants": ["E4413000835979563001"],
+                            "p13b_ygp_biz_code_variants": ["3C52"],
+                            "p13b_ygp_site_code_variants": ["441300"],
+                            "p13b_ygp_notice_id_variants": ["notice-1"],
+                            "stage4_public_identifier_backfill_source": (
+                                "YGP_PROJECT_CODE|YGP_BIZ_CODE|YGP_SITE_CODE|YGP_NOTICE_ID"
+                            ),
+                            "stage4_gdcic_project_code_route_allowed": False,
+                            "stage4_gdcic_project_code_route_policy": (
+                                "YGP_OR_TRADE_IDENTIFIERS_NOT_SENT_TO_GDCIC_PROJECT_CODE"
+                            ),
+                            "customer_visible_allowed": False,
+                            "query_miss_is_not_clearance": True,
+                            "no_legal_conclusion": True,
+                        }
+                    ],
+                },
+            )
+
+            table = cycle_runner._operator_projection_status_table(
+                summary={},
+                stage6_result={},
+                runtime_blocker_worker_followup_queue={"records": []},
+                runtime_blocker_subqueue_controller_table={},
+                runtime_blocker_controller_dispatch_table={},
+                runtime_blocker_controller_dispatch_runner_result={},
+                source_stage6_review_loop_status_path=None,
+                source_gdcic_browser_readback_path=None,
+                source_design_survey_public_registry_readback_path=None,
+                source_stage1_6_scoreboard_path=scoreboard_path,
+            )
+
+        row = table["records"][0]
+        self.assertEqual(row["project_id"], "PROJ-YGP-BRIDGE-READY")
+        self.assertEqual(row["stage5_operational_primary_track"], "official_readback_ready")
+        self.assertEqual(row["stage5_operational_review_bucket"], "YGP_STAGE4_BACKFILL_READY_REVIEW")
+        self.assertEqual(row["limited_sellable_review_candidate_state"], "NOT_READY")
+        self.assertEqual(row["p13b_ygp_original_readback_state"], "YGP_READBACK_READY")
+        self.assertEqual(row["p13b_ygp_stage4_backfill_ready_count"], 1)
+        self.assertEqual(
+            row["stage4_ygp_backfill_bridge_projection_state"],
+            "YGP_STAGE4_BACKFILL_READY_FOR_STAGE4_BRIDGE",
+        )
+        self.assertEqual(
+            row["stage6_official_readback_internal_review_state"],
+            "OFFICIAL_READBACK_READY_STAGE4_BRIDGE_INTERNAL_REVIEW",
+        )
+        self.assertEqual(
+            row["stage6_official_readback_internal_next_action"],
+            "feed_public_identifier_to_release_evidence_adapter_before_limited_review",
+        )
+        self.assertFalse(row["stage6_official_readback_customer_visible_allowed"])
+        self.assertTrue(row["stage6_official_readback_query_miss_is_not_clearance"])
+        self.assertFalse(row["stage4_gdcic_project_code_route_allowed"])
+        self.assertEqual(
+            row["stage4_gdcic_project_code_route_guardrail"],
+            "YGP_OR_TRADE_IDENTIFIERS_NOT_SENT_TO_GDCIC_PROJECT_CODE",
+        )
+        self.assertEqual(
+            table["summary"]["stage4_ygp_backfill_bridge_projection_state_counts_from_scoreboard"],
+            {"YGP_STAGE4_BACKFILL_READY_FOR_STAGE4_BRIDGE": 1},
+        )
+        self.assertEqual(
+            table["summary"]["stage4_ygp_backfill_bridge_ready_project_count_from_scoreboard"],
+            1,
+        )
+        self.assertEqual(
+            table["summary"]["stage6_official_readback_internal_review_state_counts_from_scoreboard"],
+            {"OFFICIAL_READBACK_READY_STAGE4_BRIDGE_INTERNAL_REVIEW": 1},
+        )
+        self.assertEqual(table["summary"]["limited_sellable_review_candidate_count"], 0)
+
 
 def _write_evidence_state(root: Path) -> Path:
     path = root / "evidence-orchestration-state-v1.json"

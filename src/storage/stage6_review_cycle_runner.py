@@ -1094,6 +1094,22 @@ def _operator_projection_status_table(
             for ref in _list(record.get("stage4_public_identifier_refs"))
             if isinstance(ref, Mapping)
         ),
+        "stage4_ygp_backfill_bridge_projection_state_counts_from_scoreboard": _counts(
+            record.get("stage4_ygp_backfill_bridge_projection_state")
+            for record in scoreboard_alternative_route_by_project.values()
+            if str(record.get("stage4_ygp_backfill_bridge_projection_state") or "").strip()
+        ),
+        "stage4_ygp_backfill_bridge_ready_project_count_from_scoreboard": sum(
+            1
+            for record in scoreboard_alternative_route_by_project.values()
+            if record.get("stage4_ygp_backfill_bridge_projection_state")
+            == "YGP_STAGE4_BACKFILL_READY_FOR_STAGE4_BRIDGE"
+        ),
+        "stage6_official_readback_internal_review_state_counts_from_scoreboard": _counts(
+            record.get("stage6_official_readback_internal_review_state")
+            for record in scoreboard_alternative_route_by_project.values()
+            if str(record.get("stage6_official_readback_internal_review_state") or "").strip()
+        ),
         "design_survey_public_registry_readback_project_count": len(
             design_registry_projection_by_project
         ),
@@ -1412,6 +1428,23 @@ def _stage1_6_scoreboard_gdcic_alternative_route_projection_by_project(
         out[project_id] = {
             "project_id": project_id,
             "stage1_6_scoreboard_json": str(path),
+            "stage5_operational_primary_track": str(row.get("stage5_operational_primary_track") or ""),
+            "stage5_operational_review_bucket": str(row.get("stage5_operational_review_bucket") or ""),
+            "limited_sellable_review_candidate_state": str(
+                row.get("limited_sellable_review_candidate_state") or ""
+            ),
+            "p13b_ygp_original_readback_state": str(row.get("p13b_ygp_original_readback_state") or ""),
+            "p13b_ygp_stage4_backfill_ready_count": int(
+                row.get("p13b_ygp_stage4_backfill_ready_count") or 0
+            ),
+            "p13b_ygp_stage4_release_adapter_task_count": int(
+                row.get("p13b_ygp_stage4_release_adapter_task_count") or 0
+            ),
+            "stage4_ygp_backfill_bridge_projection_state": _scoreboard_ygp_stage4_bridge_projection_state(row),
+            "stage6_official_readback_internal_review_state": _scoreboard_official_readback_internal_review_state(row),
+            "stage6_official_readback_internal_next_action": _scoreboard_official_readback_internal_next_action(row),
+            "stage6_official_readback_customer_visible_allowed": False,
+            "stage6_official_readback_query_miss_is_not_clearance": True,
             "stage4_public_identifier_backfill_source": str(
                 row.get("stage4_public_identifier_backfill_source") or ""
             ),
@@ -1447,6 +1480,49 @@ def _stage1_6_scoreboard_gdcic_alternative_route_projection_by_project(
             "no_legal_conclusion": True,
         }
     return out
+
+
+def _scoreboard_ygp_stage4_bridge_projection_state(row: Mapping[str, Any]) -> str:
+    if _scoreboard_int(row.get("p13b_ygp_stage4_release_adapter_task_count")) > 0:
+        return "YGP_STAGE4_RELEASE_ADAPTER_TASK_READY"
+    if _scoreboard_int(row.get("p13b_ygp_stage4_backfill_ready_count")) > 0:
+        return "YGP_STAGE4_BACKFILL_READY_FOR_STAGE4_BRIDGE"
+    if str(row.get("p13b_ygp_original_readback_state") or "").upper() == "YGP_READBACK_READY":
+        return "YGP_READBACK_READY_NEEDS_STAGE4_BRIDGE_TASK"
+    return ""
+
+
+def _scoreboard_official_readback_internal_review_state(row: Mapping[str, Any]) -> str:
+    if str(row.get("limited_sellable_review_candidate_state") or "") == "REVIEW_CANDIDATE":
+        return "LIMITED_SELLABLE_INTERNAL_REVIEW_CANDIDATE"
+    if str(row.get("stage5_operational_primary_track") or "") == "official_readback_ready":
+        bridge_state = _scoreboard_ygp_stage4_bridge_projection_state(row)
+        if bridge_state:
+            return "OFFICIAL_READBACK_READY_STAGE4_BRIDGE_INTERNAL_REVIEW"
+        return "OFFICIAL_READBACK_READY_NEEDS_STAGE4_BRIDGE_INPUT"
+    if str(row.get("p13b_ygp_original_readback_state") or "").upper() == "YGP_BLOCKED":
+        return "YGP_READBACK_BLOCKED_INTERNAL_RETRY_OR_LOCAL_AUTHORITY_REVIEW"
+    return ""
+
+
+def _scoreboard_official_readback_internal_next_action(row: Mapping[str, Any]) -> str:
+    state = _scoreboard_official_readback_internal_review_state(row)
+    if state == "LIMITED_SELLABLE_INTERNAL_REVIEW_CANDIDATE":
+        return "keep_internal_review_candidate_until_approval_audit_and_customer_delivery_gate"
+    if state == "OFFICIAL_READBACK_READY_STAGE4_BRIDGE_INTERNAL_REVIEW":
+        return "feed_public_identifier_to_release_evidence_adapter_before_limited_review"
+    if state == "OFFICIAL_READBACK_READY_NEEDS_STAGE4_BRIDGE_INPUT":
+        return "build_stage4_bridge_task_from_official_readback_context"
+    if state == "YGP_READBACK_BLOCKED_INTERNAL_RETRY_OR_LOCAL_AUTHORITY_REVIEW":
+        return "retry_ygp_readback_or_route_to_project_local_authority_without_clearance_claim"
+    return ""
+
+
+def _scoreboard_int(value: Any) -> int:
+    try:
+        return int(value or 0)
+    except (TypeError, ValueError):
+        return 0
 
 
 def _scoreboard_gdcic_alternative_route_count_for_row(row: Mapping[str, Any]) -> int:
