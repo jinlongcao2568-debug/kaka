@@ -21,6 +21,7 @@ class RuntimeBlockerFallbackSourcePlanTests(unittest.TestCase):
             root = Path(tmp_dir)
             field_query = root / "field-query.json"
             cycle = root / "cycle.json"
+            stage4_queue = root / "stage4-followup-queue.json"
             scoreboard = root / "scoreboard" / "stage1-6-sellable-scoreboard-v1.json"
             pressure_root = root / "pressure"
             out = root / "out"
@@ -35,7 +36,8 @@ class RuntimeBlockerFallbackSourcePlanTests(unittest.TestCase):
                 },
             )
             _write_field_query(field_query)
-            _write_cycle(cycle, field_query, scoreboard)
+            _write_stage4_queue(stage4_queue)
+            _write_cycle(cycle, field_query, scoreboard, stage4_queue)
 
             result = build_runtime_blocker_fallback_source_plan(
                 stage6_review_cycle_json=cycle,
@@ -54,7 +56,13 @@ class RuntimeBlockerFallbackSourcePlanTests(unittest.TestCase):
         self.assertEqual(record["candidate_companies"], ["广州样本工程有限公司"])
         self.assertEqual(record["candidate_notice_source_urls"], ["https://ywtb.gzggzy.cn/sample.html"])
         self.assertEqual(record["followup_queue_state"], "FOLLOWUP_SOURCE_PLAN_REQUIRED")
-        self.assertEqual(record["followup_route"], "local_authority_fallback_source_planning")
+        self.assertEqual(record["followup_route"], "official_readback_ready_stage4_bridge_followup")
+        self.assertEqual(record["stage4_followup_route"], "official_readback_ready_stage4_bridge_followup")
+        self.assertEqual(
+            record["stage4_official_readback_context"]["ygp_project_code_variants"],
+            ["E4413000835979563001"],
+        )
+        self.assertIn("p13b_ygp_or_public_identifier_backfill_task", record["required_input"])
         self.assertEqual(
             [step["source_kind"] for step in record["public_source_fallback_sequence"]],
             [
@@ -63,6 +71,8 @@ class RuntimeBlockerFallbackSourcePlanTests(unittest.TestCase):
                 "data_ggzy_bid_show_readback",
                 "ygp_original_notice_readback",
                 "project_local_authority_public_source",
+                "stage4_release_adapter_bridge",
+                "stage6_limited_sellable_projection",
             ],
         )
         self.assertFalse(record["gdcic_project_code_digit_guessing_allowed"])
@@ -86,23 +96,25 @@ class RuntimeBlockerFallbackSourcePlanTests(unittest.TestCase):
         self.assertTrue(markdown_exists)
 
 
-def _write_cycle(path: Path, field_query: Path, scoreboard: Path) -> None:
+def _write_cycle(path: Path, field_query: Path, scoreboard: Path, stage4_queue: Path) -> None:
     _write_json(
         path,
         {
             "manifest": {
                 "source_release_field_query_json": str(field_query),
                 "source_stage1_6_scoreboard_json": str(scoreboard),
+                "source_stage4_backfill_followup_queue_json": str(stage4_queue),
                 "runtime_blocker_subqueue_controller_table": {
                     "records": [
                         {
                             "controller_queue_record_id": "QUEUE-1",
                             "source_next_subqueue_record_id": "SUBQUEUE-1",
                             "project_id": "PROJ-FALLBACK",
-                            "task_id": "TASK-FALLBACK",
+                            "task_id": "STAGE4-BACKFILL-FOLLOWUP-1",
                             "task_type": "completion_acceptance",
                             "subqueue_route": "fallback_source",
                             "blocker_state": "NOT_FOUND_REVIEW_OR_FALLBACK_SOURCE_REQUIRED",
+                            "required_input": ["stage4_release_adapter_bridge_or_ygp_backfill_field_query_budget"],
                         },
                         {
                             "project_id": "PROJ-BROWSER",
@@ -112,6 +124,40 @@ def _write_cycle(path: Path, field_query: Path, scoreboard: Path) -> None:
                     ]
                 },
             }
+        },
+    )
+
+
+def _write_stage4_queue(path: Path) -> None:
+    _write_json(
+        path,
+        {
+            "records": [
+                {
+                    "followup_record_id": "STAGE4-BACKFILL-FOLLOWUP-1",
+                    "project_id": "PROJ-FALLBACK",
+                    "followup_route": "official_readback_ready_stage4_bridge_followup",
+                    "required_input": ["p13b_ygp_or_public_identifier_backfill_task"],
+                    "stage4_official_readback_context": {
+                        "ygp_project_code_variants": ["E4413000835979563001"],
+                        "gdcic_project_code_route_allowed": False,
+                    },
+                    "public_source_fallback_sequence": [
+                        {
+                            "source_kind": "ygp_original_notice_readback",
+                            "action": "read_ygp_original_notice_identifiers_for_p13b_or_stage4_bridge",
+                        },
+                        {
+                            "source_kind": "stage4_release_adapter_bridge",
+                            "action": "feed_public_identifier_to_release_evidence_adapter_before_limited_review",
+                        },
+                        {
+                            "source_kind": "stage6_limited_sellable_projection",
+                            "action": "project_b_or_c_official_readback_to_internal_limited_review",
+                        },
+                    ],
+                }
+            ]
         },
     )
 
