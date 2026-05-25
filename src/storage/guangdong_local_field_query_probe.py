@@ -18,6 +18,13 @@ from storage.guangdong_gdcic_query_probe import (
     GDCIC_OPENPLATFORM_PAGE_URL,
     _execute_live_query as _execute_gdcic_openplatform_live_query,
 )
+from storage.guangdong_local_field_query_result_mapper import (
+    ALLOWED_ADAPTER_RESULT_STATES,
+    adapter_result_state as _adapter_result_state,
+    adapter_result_state_basis as _adapter_result_state_basis,
+    downstream_release_evidence_abcd_basis as _downstream_release_evidence_abcd_basis,
+    downstream_release_evidence_abcd_grade as _downstream_release_evidence_abcd_grade,
+)
 from storage.runtime_closeout_precedence import (
     blocker_ledger_record,
     closeout_precedence_decision,
@@ -193,9 +200,7 @@ SUPPORTED_REGION_FIELD_ADAPTER_IDS = {
 }
 
 FORBIDDEN_TERMS = ("在建冲突成立", "无在建", "无风险", "无冲突", "造假成立", "违法成立", "确认本人", "是不是本人")
-ALLOWED_ADAPTER_RESULT_STATES = ["MATCHED", "NOT_FOUND", "BLOCKED", "NEEDS_BROWSER"]
 INITIAL_RELEASE_EVIDENCE_ABCD_GRADE = "A_STRONG_TIME_OVERLAP_SIGNAL"
-DOWNSTREAM_PENDING_RELEASE_EVIDENCE_ABCD_GRADE = "PENDING_NOT_EXECUTED"
 RELEASE_EVIDENCE_INPUT_SOURCE_KINDS = {
     "p13b_release_evidence_probe_task",
     "release_evidence_adapter_plan_task",
@@ -251,21 +256,6 @@ GUANGDONG_RELEASE_TARGET_SOURCE_OVERRIDES = {
         "runtime_status": "BROWSER_OR_AUTHORIZED_RUNTIME_REQUIRED",
     },
 }
-ENHANCEMENT_RELEASE_EVIDENCE_SOURCE_TYPES = {
-    "construction_permit",
-    "contract_public_info",
-    "performance_public_record",
-    "personnel_public_record",
-    "administrative_license_public_record",
-}
-REVERSE_RELEASE_EVIDENCE_SOURCE_TYPES = {
-    "completion_filing",
-    "project_manager_change_notice",
-    "completion_acceptance_or_completion_filing",
-    "owner_approved_non_contractor_shutdown_over_120_days",
-    "same_project_adjacent_section_or_phase_exception",
-}
-
 HttpGetter = Callable[[str, Mapping[str, Any]], Mapping[str, Any]]
 CreditGdSessionGetter = Callable[[list[Mapping[str, Any]]], Mapping[str, Any]]
 
@@ -1014,72 +1004,6 @@ def _release_evidence_abcd_fields(task: Mapping[str, Any], readback: Mapping[str
         ),
         "initial_signal_remains_valid_when_downstream_is_d": downstream_grade == "D_INSUFFICIENT_OR_BLOCKED_READBACK",
     }
-
-
-def _downstream_release_evidence_abcd_grade(
-    target_source_types: list[Any],
-    *,
-    field_query_probe_state: str,
-    readback_ready: bool,
-) -> str:
-    state = str(field_query_probe_state or "")
-    if state in {"PLAN_ONLY_NOT_EXECUTED", "DELEGATED_TO_SEPARATE_FIELD_ADAPTER"}:
-        return DOWNSTREAM_PENDING_RELEASE_EVIDENCE_ABCD_GRADE
-    if state in {
-        "LIVE_FIELD_QUERY_DEFERRED_BY_LIMIT",
-        "LIVE_FIELD_QUERY_NEEDS_BROWSER",
-        "LIVE_FIELD_QUERY_NEEDS_REGION_ADAPTER",
-    } or state.startswith("FAIL_CLOSED"):
-        return "D_INSUFFICIENT_OR_BLOCKED_READBACK"
-    if state == "NO_FIELD_MATCH_REVIEW_REQUIRED":
-        return "D_INSUFFICIENT_OR_BLOCKED_READBACK"
-    if readback_ready or state in {"FIELD_READBACK_KEYWORD_HIT_PUBLIC_SOURCE", "FIELD_READBACK_READY_PUBLIC_SOURCE"}:
-        normalized = {str(item) for item in target_source_types if str(item).strip()}
-        if normalized & REVERSE_RELEASE_EVIDENCE_SOURCE_TYPES:
-            return "C_REVERSE_EXPLANATION_OFFICIAL_READBACK"
-        if normalized & ENHANCEMENT_RELEASE_EVIDENCE_SOURCE_TYPES:
-            return "B_ENHANCEMENT_OFFICIAL_READBACK"
-        return "B_ENHANCEMENT_OFFICIAL_READBACK"
-    return DOWNSTREAM_PENDING_RELEASE_EVIDENCE_ABCD_GRADE
-
-
-def _adapter_result_state(readback: Mapping[str, Any]) -> str:
-    state = str(readback.get("field_query_probe_state") or "")
-    if state in {"FIELD_READBACK_KEYWORD_HIT_PUBLIC_SOURCE", "FIELD_READBACK_READY_PUBLIC_SOURCE"}:
-        return "MATCHED"
-    if state == "NO_FIELD_MATCH_REVIEW_REQUIRED":
-        return "NOT_FOUND"
-    if state.startswith("FAIL_CLOSED"):
-        return "BLOCKED"
-    return "NEEDS_BROWSER"
-
-
-def _adapter_result_state_basis(adapter_result_state: str, readback: Mapping[str, Any]) -> list[str]:
-    state = str(readback.get("field_query_probe_state") or "")
-    if adapter_result_state == "MATCHED":
-        return ["public_source_readback_has_keyword_or_structured_record", f"field_query_probe_state:{state}"]
-    if adapter_result_state == "NOT_FOUND":
-        return ["public_source_queried_no_field_match_not_clearance", f"field_query_probe_state:{state}"]
-    if adapter_result_state == "BLOCKED":
-        blockers = _list(readback.get("blocker_taxonomy"))
-        return ["public_source_blocked_or_transport_failed", f"field_query_probe_state:{state}", *blockers]
-    return ["browser_authorized_runtime_or_followup_adapter_required", f"field_query_probe_state:{state}"]
-
-
-def _downstream_release_evidence_abcd_basis(
-    grade: str,
-    target_source_types: list[Any],
-    *,
-    field_query_probe_state: str,
-) -> list[str]:
-    normalized = sorted({str(item) for item in target_source_types if str(item).strip()})
-    if grade == DOWNSTREAM_PENDING_RELEASE_EVIDENCE_ABCD_GRADE:
-        return ["downstream_probe_not_executed_in_this_run", f"field_query_probe_state:{field_query_probe_state}"]
-    if grade == "D_INSUFFICIENT_OR_BLOCKED_READBACK":
-        return ["targeted_source_no_hit_blocked_or_deferred_review", f"field_query_probe_state:{field_query_probe_state}"]
-    if grade == "C_REVERSE_EXPLANATION_OFFICIAL_READBACK":
-        return ["reverse_explanation_source_type_hit", *[f"target_source_type:{item}" for item in normalized]]
-    return ["enhancement_source_type_hit", *[f"target_source_type:{item}" for item in normalized]]
 
 
 def _route_plan_for_task(task: Mapping[str, Any], query_params: Mapping[str, Any]) -> list[dict[str, Any]]:
