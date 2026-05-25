@@ -29,6 +29,7 @@ class StageOneSixScoreboardComparisonTests(unittest.TestCase):
                 rate=0.25,
                 stage4={"MATCHED": 9, "NEEDS_BROWSER": 39, "NOT_FOUND": 5},
                 stage5={"RESPONSIBLE_PERSON_CERTIFICATE_GAP_REVIEW": 6},
+                stage5_family={},
                 long_tail={"COMPANY_FIRST_CERTIFICATE_SUPPLEMENT_REQUIRED": 6},
                 public_source_chain={"LOCAL_AUTHORITY_PUBLIC_API_READBACK": 4},
                 public_readback_outcomes={"NOT_FOUND": 3, "READBACK_READY": 2},
@@ -48,6 +49,7 @@ class StageOneSixScoreboardComparisonTests(unittest.TestCase):
                 rate=0.2667,
                 stage4={"MATCHED": 11, "NEEDS_BROWSER": 45, "NOT_FOUND": 11},
                 stage5={"RESPONSIBLE_PERSON_CERTIFICATE_GAP_REVIEW": 9},
+                stage5_family={"responsible_person_certificate_gap": 9, "evidence_insufficient": 2},
                 long_tail={"COMPANY_FIRST_CERTIFICATE_SUPPLEMENT_REQUIRED": 9},
                 public_source_chain={
                     "LOCAL_AUTHORITY_PUBLIC_API_READBACK": 4,
@@ -84,6 +86,14 @@ class StageOneSixScoreboardComparisonTests(unittest.TestCase):
                 {"RESPONSIBLE_PERSON_CERTIFICATE_GAP_REVIEW": 9},
             )
             self.assertEqual(
+                result["comparison_rows"][1]["stage5_operational_review_family_counts"],
+                {"responsible_person_certificate_gap": 9, "evidence_insufficient": 2},
+            )
+            self.assertEqual(
+                result["delta_from_first_row"][1]["stage5_operational_review_family_count_deltas"],
+                {"evidence_insufficient": 2, "responsible_person_certificate_gap": 3},
+            )
+            self.assertEqual(
                 result["comparison_rows"][1]["stage1_3_long_tail_bucket_counts"],
                 {"COMPANY_FIRST_CERTIFICATE_SUPPLEMENT_REQUIRED": 9},
             )
@@ -117,6 +127,10 @@ class StageOneSixScoreboardComparisonTests(unittest.TestCase):
             )
             self.assertEqual(result["delta_from_previous_row"][1]["regression_flags"], [])
             self.assertEqual(result["summary"]["latest_run_label"], "stage1-6-sellable-rate-regression-live15")
+            self.assertEqual(
+                result["summary"]["latest_stage5_operational_review_family_counts"],
+                {"responsible_person_certificate_gap": 9, "evidence_insufficient": 2},
+            )
             self.assertFalse(result["safety"]["customer_visible_allowed"])
             self.assertTrue((out / "stage1-6-scoreboard-comparison-v1.json").exists())
             markdown = (out / "stage1-6-scoreboard-comparison-v1.md").read_text(encoding="utf-8")
@@ -124,6 +138,7 @@ class StageOneSixScoreboardComparisonTests(unittest.TestCase):
             self.assertIn("public readback outcomes", markdown)
             self.assertIn("code route policy", markdown)
             self.assertIn("gap_detail", markdown)
+            self.assertIn("stage5 family", markdown)
             self.assertIn("YGP_ORIGINAL_READBACK_BACKFILL", markdown)
             self.assertIn("Public Source Deepening Recommendations", markdown)
 
@@ -140,6 +155,7 @@ class StageOneSixScoreboardComparisonTests(unittest.TestCase):
                 rate=0.25,
                 stage4={"MATCHED": 10, "NEEDS_BROWSER": 8, "NOT_FOUND": 2},
                 stage5={"PUBLIC_SOURCE_BLOCKED_REVIEW": 8},
+                stage5_family={"public_source_blocked": 8},
                 long_tail={"COMPANY_FIRST_CERTIFICATE_SUPPLEMENT_REQUIRED": 4},
                 public_source_chain={"YGP_ORIGINAL_READBACK_BACKFILL": 6},
                 public_readback_outcomes={"READBACK_READY": 4, "BLOCKED": 8, "NOT_FOUND": 2},
@@ -159,6 +175,7 @@ class StageOneSixScoreboardComparisonTests(unittest.TestCase):
                 rate=0.45,
                 stage4={"MATCHED": 18, "NEEDS_BROWSER": 6, "NOT_FOUND": 2},
                 stage5={"PUBLIC_SOURCE_BLOCKED_REVIEW": 6, "LIMITED_SELLABLE_OFFICIAL_READBACK_REVIEW": 9},
+                stage5_family={"public_source_blocked": 6, "strong_lead": 9},
                 long_tail={"COMPANY_FIRST_CERTIFICATE_SUPPLEMENT_REQUIRED": 4},
                 public_source_chain={"YGP_ORIGINAL_READBACK_BACKFILL": 14},
                 public_readback_outcomes={"READBACK_READY": 8, "BLOCKED": 6, "NOT_FOUND": 2},
@@ -217,6 +234,7 @@ def _write_scoreboard(
     rate: float,
     stage4: dict[str, int],
     stage5: dict[str, int],
+    stage5_family: dict[str, int],
     long_tail: dict[str, int],
     public_source_chain: dict[str, int],
     public_readback_outcomes: dict[str, int],
@@ -234,6 +252,7 @@ def _write_scoreboard(
             "strong_lead_review_candidate_count": limited_count,
             "real_public_sellable_pack_rate": rate,
             "stage4_adapter_result_state_counts": stage4,
+            "stage5_operational_review_family_counts": stage5_family,
             "stage5_operational_review_queue_counts": stage5,
             "stage1_3_long_tail_bucket_counts": long_tail,
             "stage6_limited_sellable_review_public_source_chain_counts": public_source_chain,

@@ -113,6 +113,7 @@ def _comparison_row(path: Path) -> dict[str, Any]:
         "stage5_operational_review_bucket_counts": dict(
             scoreboard.get("stage5_operational_review_bucket_counts") or {}
         ),
+        "stage5_operational_review_family_counts": _stage5_family_counts_from_scoreboard(scoreboard),
         "stage5_operational_review_queue_counts": dict(
             scoreboard.get("stage5_operational_review_queue_counts") or {}
         ),
@@ -194,6 +195,11 @@ def _delta_row(row: Mapping[str, Any], baseline: Mapping[str, Any]) -> dict[str,
         ),
         "stage4_project_code_missing_backfill_input_delta": missing_backfill_input_delta,
         "stage6_ygp_original_readback_backfill_delta": ygp_delta,
+        "stage5_operational_review_family_count_deltas": _map_delta(
+            row,
+            baseline,
+            "stage5_operational_review_family_counts",
+        ),
         "public_source_deepening_effect_state": _public_source_deepening_effect_state(
             candidate_count_delta=_int(row.get("candidate_count")) - _int(baseline.get("candidate_count")),
             rate_delta=rate_delta,
@@ -311,6 +317,9 @@ def _summary(rows: list[Mapping[str, Any]]) -> dict[str, Any]:
         "latest_limited_sellable_review_candidate_count": _int(
             latest.get("limited_sellable_review_candidate_count")
         ),
+        "latest_stage5_operational_review_family_counts": dict(
+            latest.get("stage5_operational_review_family_counts") or {}
+        ),
         "customer_visible_allowed": False,
         "query_miss_is_not_clearance": True,
         "no_legal_conclusion": True,
@@ -326,6 +335,52 @@ def _count_delta(
     current = row.get(field) if isinstance(row.get(field), Mapping) else {}
     base = baseline.get(field) if isinstance(baseline.get(field), Mapping) else {}
     return _int(current.get(key)) - _int(base.get(key))
+
+
+def _map_delta(row: Mapping[str, Any], baseline: Mapping[str, Any], field: str) -> dict[str, int]:
+    current = row.get(field) if isinstance(row.get(field), Mapping) else {}
+    base = baseline.get(field) if isinstance(baseline.get(field), Mapping) else {}
+    keys = sorted({str(key) for key in current.keys()} | {str(key) for key in base.keys()})
+    return {key: _int(current.get(key)) - _int(base.get(key)) for key in keys}
+
+
+def _stage5_family_counts_from_scoreboard(scoreboard: Mapping[str, Any]) -> dict[str, int]:
+    existing = scoreboard.get("stage5_operational_review_family_counts")
+    if isinstance(existing, Mapping) and existing:
+        return {str(key): _int(value) for key, value in existing.items()}
+    queue_counts = scoreboard.get("stage5_operational_review_queue_counts")
+    if not isinstance(queue_counts, Mapping):
+        return {}
+    counts: dict[str, int] = {}
+    for queue, count in queue_counts.items():
+        family = _stage5_queue_family(str(queue or ""))
+        counts[family] = counts.get(family, 0) + _int(count)
+    return counts
+
+
+def _stage5_queue_family(queue: str) -> str:
+    mapping = {
+        "STRONG_LEAD_INTERNAL_REVIEW": "strong_lead",
+        "WEAK_LEAD_OFFICIAL_SIGNAL_REVIEW": "weak_lead",
+        "AUTHORIZATION_BLOCKED_REVIEW": "authorization_blocked",
+        "AUTHORIZATION_AND_SOURCE_NOT_FOUND_REVIEW": "authorization_blocked",
+        "PUBLIC_SOURCE_BLOCKED_REVIEW": "public_source_blocked",
+        "SOURCE_NOT_FOUND_REVIEW": "source_not_found",
+        "PUBLIC_SOURCE_NOT_FOUND_REVIEW": "source_not_found",
+        "ORIGINAL_NOTICE_NOT_FOUND_REVIEW": "source_not_found",
+        "ORIGINAL_NOTICE_BACKTRACE_REQUIRED_REVIEW": "original_notice_backtrace_required",
+        "ORIGINAL_NOTICE_BLOCKED_REVIEW": "public_source_blocked",
+        "YGP_READBACK_BLOCKED_REVIEW": "public_source_blocked",
+        "YGP_READBACK_READY_REVIEW": "official_readback_ready",
+        "YGP_STAGE4_BACKFILL_READY_REVIEW": "official_readback_ready",
+        "RESPONSIBLE_PERSON_CERTIFICATE_GAP_REVIEW": "responsible_person_certificate_gap",
+        "RESPONSIBLE_ROLE_GAP_REVIEW": "responsible_role_gap",
+        "FIELD_AMBIGUITY_REVIEW": "field_ambiguity",
+        "PROJECT_CODE_BACKFILL_GAP_REVIEW": "project_code_backfill_gap",
+        "EVIDENCE_INSUFFICIENT_REVIEW": "evidence_insufficient",
+        "UNCLASSIFIED_STAGE5_REVIEW": "unclassified_review_required",
+    }
+    return mapping.get(queue, "unclassified_review_required")
 
 
 def _run_label(path: Path) -> str:
@@ -344,8 +399,8 @@ def _write_markdown(path: Path, payload: Mapping[str, Any]) -> None:
     lines = [
         "# Stage1-6 Scoreboard Comparison v1",
         "",
-        "| run | candidates | limited | rate | stage4 | public readback outcomes | code backfill | code route policy | stage5 queues | stage1-3 long tail | stage6 public source chain | auth state |",
-        "| --- | ---: | ---: | ---: | --- | --- | --- | --- | --- | --- | --- | --- |",
+        "| run | candidates | limited | rate | stage4 | public readback outcomes | code backfill | code route policy | stage5 family | stage5 queues | stage1-3 long tail | stage6 public source chain | auth state |",
+        "| --- | ---: | ---: | ---: | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ]
     for row in rows:
         auth_status = row.get("gdcic_authorized_readback_status")
@@ -353,7 +408,7 @@ def _write_markdown(path: Path, payload: Mapping[str, Any]) -> None:
         if isinstance(auth_status, Mapping):
             auth_state = str(auth_status.get("authorization_readiness_state") or "")
         lines.append(
-            "| {run} | {candidates} | {limited} | {rate} | `{stage4}` | `{readback}` | `{code_backfill}` gap_detail=`{gap_detail}` | `{route_policy}` | `{stage5}` | `{tail}` | `{chain}` | {auth_state} |".format(
+            "| {run} | {candidates} | {limited} | {rate} | `{stage4}` | `{readback}` | `{code_backfill}` gap_detail=`{gap_detail}` | `{route_policy}` | `{stage5_family}` | `{stage5}` | `{tail}` | `{chain}` | {auth_state} |".format(
                 run=str(row.get("run_label") or ""),
                 candidates=_int(row.get("candidate_count")),
                 limited=_int(row.get("limited_sellable_review_candidate_count")),
@@ -376,6 +431,11 @@ def _write_markdown(path: Path, payload: Mapping[str, Any]) -> None:
                 ),
                 route_policy=json.dumps(
                     row.get("stage4_gdcic_project_code_route_policy_counts") or {},
+                    ensure_ascii=False,
+                    sort_keys=True,
+                ),
+                stage5_family=json.dumps(
+                    row.get("stage5_operational_review_family_counts") or {},
                     ensure_ascii=False,
                     sort_keys=True,
                 ),
