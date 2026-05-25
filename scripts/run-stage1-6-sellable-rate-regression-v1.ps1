@@ -433,7 +433,7 @@ if ($RunPressure) {
     }
 }
 
-$effectivePressureRoot = if ($RunPressure -or -not $SourceRegressionRunRoot) { $pressureRoot } else { $sourcePressureRoot }
+$effectivePressureRoot = if ($RunPressure) { $pressureRoot } else { $sourcePressureRoot }
 $releasePlanJson = Join-Path $effectivePressureRoot "stage4-release-adapter-bridge-plan.json"
 if ($RunFieldQuery) {
     $fieldArgs = @(
@@ -452,7 +452,7 @@ if ($RunFieldQuery) {
     }
 }
 
-$effectiveFieldQueryRoot = if ($RunFieldQuery -or -not $SourceRegressionRunRoot) { $fieldQueryRoot } else { $sourceFieldQueryRoot }
+$effectiveFieldQueryRoot = if ($RunFieldQuery) { $fieldQueryRoot } else { $sourceFieldQueryRoot }
 $fieldQueryJson = Join-Path $effectiveFieldQueryRoot "guangdong-local-field-query-probe-v1.json"
 if ($RunStage6Cycle) {
     if (-not (Test-Path $fieldQueryJson)) {
@@ -467,7 +467,7 @@ if ($RunStage6Cycle) {
     }
 }
 
-$effectiveGdcicReadbackRoot = if ($RunGdcicAuthorizedReadback -or -not $SourceRegressionRunRoot) { $gdcicReadbackRoot } else { $sourceGdcicReadbackRoot }
+$effectiveGdcicReadbackRoot = if ($RunGdcicAuthorizedReadback) { $gdcicReadbackRoot } else { $sourceGdcicReadbackRoot }
 $gdcicReadbackJson = Join-Path $effectiveGdcicReadbackRoot "gdcic-browser-authorized-readback-v1.json"
 if ($RunGdcicAuthorizedReadback) {
     $gdcicArgs = @(
@@ -674,7 +674,7 @@ if ($RunStage6MergedProjection) {
     }
 }
 
-$effectiveStage6Root = if ($SourceRegressionRunRoot) { $sourceStage6Root } else { $stage6Root }
+$effectiveStage6Root = $sourceStage6Root
 if (Test-Path (Join-Path $stage6MergedRoot "stage6-review-loop-project-status-table.json")) {
     $effectiveStage6Root = $stage6MergedRoot
 } elseif ($SourceRegressionRunRoot -and (Test-Path (Join-Path $sourceStage6MergedRoot "stage6-review-loop-project-status-table.json"))) {

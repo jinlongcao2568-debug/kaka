@@ -378,6 +378,66 @@ class StageOneSixRegressionExecutionPlanScriptTests(unittest.TestCase):
         self.assertEqual(payload["target"]["ProjectIds"], "PROJ-CN-GD-JG2026-11463-002")
         self.assertFalse(payload["safety"]["customer_visible_allowed"])
 
+    def test_continuation_field_query_refs_are_effective_without_source_run_root(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            field_root = root / "machine-refs" / "field-query"
+            supplemental_field_root = root / "machine-refs" / "field-query-gdcic"
+            queue_json = root / "queue" / "runtime-blocker-fallback-source-plan-v1.json"
+            _write_json(field_root / "guangdong-local-field-query-probe-v1.json", {"summary": {"adapter": "primary"}})
+            _write_json(
+                supplemental_field_root / "guangdong-local-field-query-probe-v1.json",
+                {"summary": {"adapter": "supplemental"}},
+            )
+            _write_json(
+                queue_json,
+                {
+                    "continuation_input_refs": {
+                        "effective_release_field_query_root": str(field_root),
+                        "effective_supplemental_release_field_query_root": str(supplemental_field_root),
+                        "effective_supplemental_release_field_query_json": str(
+                            supplemental_field_root / "guangdong-local-field-query-probe-v1.json"
+                        ),
+                        "customer_visible_allowed": False,
+                        "query_miss_is_not_clearance": True,
+                        "no_legal_conclusion": True,
+                    },
+                    "next_regression_execution_plan": {
+                        "recommended_switches": ["RunStage6MergedProjection"],
+                        "target_project_ids": ["PROJ-CN-GD-JG2026-11414"],
+                        "live_execution_enabled_by_default": False,
+                    },
+                },
+            )
+
+            completed = subprocess.run(
+                [
+                    "pwsh",
+                    "-NoProfile",
+                    "-ExecutionPolicy",
+                    "Bypass",
+                    "-File",
+                    str(ROOT / "scripts" / "run-stage1-6-sellable-rate-regression-v1.ps1"),
+                    "-RunRoot",
+                    str(root / "run"),
+                    "-RuntimeBlockerFallbackSourcePlanJson",
+                    str(queue_json),
+                    "-ApplyStage4FollowupExecutionPlan",
+                    "-DescribeEffectivePlanAndExit",
+                ],
+                cwd=ROOT,
+                check=True,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+            )
+
+        payload = _json_from_stdout(completed.stdout)
+        self.assertEqual(payload["input_refs"]["EffectiveFieldQueryRoot"], str(field_root))
+        self.assertEqual(payload["input_refs"]["EffectiveSupplementalFieldQueryRoot"], str(supplemental_field_root))
+        self.assertTrue(payload["run_switches"]["RunStage6MergedProjection"])
+        self.assertEqual(payload["target"]["ProjectIds"], "PROJ-CN-GD-JG2026-11414")
+
 
 def _json_from_stdout(stdout: str) -> dict:
     start = stdout.find("{")
