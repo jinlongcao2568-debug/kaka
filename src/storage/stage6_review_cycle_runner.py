@@ -1110,7 +1110,10 @@ def _operator_projection_status_table(
             1
             for record in scoreboard_alternative_route_by_project.values()
             if record.get("stage4_ygp_backfill_bridge_projection_state")
-            == "YGP_STAGE4_BACKFILL_READY_FOR_STAGE4_BRIDGE"
+            in {
+                "YGP_STAGE4_BACKFILL_READY_FOR_STAGE4_BRIDGE",
+                "YGP_STAGE4_RELEASE_ADAPTER_TASK_READY",
+            }
         ),
         "stage6_official_readback_internal_review_state_counts_from_scoreboard": _counts(
             record.get("stage6_official_readback_internal_review_state")

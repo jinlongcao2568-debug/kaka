@@ -184,6 +184,33 @@ class P13BOverlapTriageCloseoutTests(unittest.TestCase):
             self.assertEqual(result["manifest"]["source_ygp_readback_root"], "")
             self.assertEqual(result["manifest"]["source_ygp_coverage_closeout_root"], "")
 
+    def test_ygp_readback_can_drive_bridge_when_original_notice_artifact_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_company_history(root / "company", overlap=False, include_deferred=False)
+            _write_ygp_readback(root / "ygp")
+
+            result = build_p13b_overlap_triage_closeout(
+                company_history_triage_root=root / "company",
+                original_notice_backtrace_root=root / "missing-original",
+                ygp_readback_root=root / "ygp",
+                output_root=root / "out",
+                created_at="2026-05-15T00:00:00+08:00",
+            )
+
+            summary = result["summary"]
+            self.assertTrue(result["safe_to_execute"])
+            self.assertEqual(result["blocking_reasons"], [])
+            self.assertEqual(summary["blocking_reasons"], [])
+            self.assertEqual(summary["p13b_overlap_triage_closeout_state"], "P13B_OVERLAP_TRIAGE_CLOSEOUT_READY")
+            self.assertEqual(summary["ygp_stage4_backfill_ready_count"], 1)
+            self.assertEqual(summary["ygp_stage4_release_adapter_task_count"], 1)
+            adapter_task = result["manifest"]["release_evidence_adapter_task_records"][0]
+            self.assertEqual(adapter_task["release_evidence_target_type"], "ygp_original_readback_backfill")
+            self.assertFalse(adapter_task["gdcic_project_code_route_allowed"])
+            self.assertFalse(adapter_task["customer_visible_allowed"])
+            self.assertTrue(adapter_task["query_miss_is_not_clearance"])
+
     def test_report_never_contains_forbidden_terms(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)

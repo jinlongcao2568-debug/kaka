@@ -83,6 +83,7 @@ def build_p13b_overlap_triage_closeout(
     ygp_manifest = _source_manifest(ygp_readback)
     coverage_manifest = _source_manifest(ygp_coverage)
     ygp_enabled = bool(ygp_dir or coverage_dir)
+    blocking_inputs = _effective_blocking_inputs(missing_inputs, ygp_manifest=ygp_manifest)
 
     company_table = _company_history_readback_table(company_manifest, created_at=created)
     original_table = _original_notice_readback_table(
@@ -123,7 +124,7 @@ def build_p13b_overlap_triage_closeout(
         company_manifest=company_manifest,
         original_manifest=original_manifest,
         ygp_manifest=ygp_manifest,
-        missing_inputs=missing_inputs,
+        missing_inputs=blocking_inputs,
     )
     manifest = {
         "manifest_version": P13B_OVERLAP_TRIAGE_CLOSEOUT_VERSION,
@@ -160,9 +161,9 @@ def build_p13b_overlap_triage_closeout(
     }
     manifest["manifest_sha256"] = _fingerprint({key: value for key, value in manifest.items() if key != "manifest_sha256"})
     result = {
-        "p13b_overlap_triage_closeout_mode": "BUILT" if not missing_inputs else "INPUT_BLOCKED",
-        "safe_to_execute": not missing_inputs,
-        "blocking_reasons": missing_inputs,
+        "p13b_overlap_triage_closeout_mode": "BUILT" if not blocking_inputs else "INPUT_BLOCKED",
+        "safe_to_execute": not blocking_inputs,
+        "blocking_reasons": blocking_inputs,
         "manifest": manifest,
         "summary": summary,
     }
@@ -177,6 +178,26 @@ def build_p13b_overlap_triage_closeout(
         ygp_stage4_adapter_tasks,
     )
     return result
+
+
+def _effective_blocking_inputs(
+    missing_inputs: list[str],
+    *,
+    ygp_manifest: Mapping[str, Any],
+) -> list[str]:
+    if not missing_inputs:
+        return []
+    ygp_has_readback_or_backfill = bool(
+        _list(ygp_manifest.get("ygp_original_readback_records"))
+        or _list(ygp_manifest.get("stage4_ygp_project_code_backfill_records"))
+    )
+    if not ygp_has_readback_or_backfill:
+        return list(missing_inputs)
+    return [
+        reason
+        for reason in missing_inputs
+        if reason != "p13b_original_notice_backtrace_missing"
+    ]
 
 
 def _company_history_readback_table(company_manifest: Mapping[str, Any], *, created_at: str) -> list[dict[str, Any]]:

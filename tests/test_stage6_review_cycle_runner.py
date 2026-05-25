@@ -1849,6 +1849,14 @@ class Stage6ReviewCycleRunnerTests(unittest.TestCase):
             table["summary"]["p13b_local_authority_executed_readback_state_counts_from_scoreboard"],
             {"BLOCKED": 1},
         )
+        self.assertEqual(
+            table["summary"]["stage4_ygp_backfill_bridge_projection_state_counts_from_scoreboard"],
+            {"YGP_STAGE4_RELEASE_ADAPTER_TASK_READY": 1},
+        )
+        self.assertEqual(
+            table["summary"]["stage4_ygp_backfill_bridge_ready_project_count_from_scoreboard"],
+            1,
+        )
 
     def test_operator_projection_marks_ygp_backfill_ready_for_stage4_bridge_internal_review(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
