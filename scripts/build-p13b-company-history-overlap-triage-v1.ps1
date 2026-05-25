@@ -14,6 +14,7 @@ param(
     [int]$MaxBidListPagesPerCompany = 6,
     [int]$LongTailCutoffYear = 2019,
     [int]$MaxLongTailBidShowsPerCompany = 3,
+    [string]$ProjectIds = "",
     [switch]$EmitJson
 )
 
@@ -66,6 +67,9 @@ if ($EnableLivePublicQuery) {
 }
 if ($MaxLiveCompanies -gt 0) {
     $argsList += @("--max-live-companies", "$MaxLiveCompanies")
+}
+if ($ProjectIds) {
+    $argsList += @("--project-ids", $ProjectIds)
 }
 if ($EmitJson) {
     $argsList += "--json"

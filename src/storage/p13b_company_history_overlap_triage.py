@@ -82,10 +82,12 @@ def build_p13b_company_history_overlap_triage(
     max_bid_list_pages_per_company: int = DEFAULT_MAX_BID_LIST_PAGES_PER_COMPANY,
     long_tail_cutoff_year: int = DEFAULT_LONG_TAIL_CUTOFF_YEAR,
     max_long_tail_bid_shows_per_company: int = DEFAULT_MAX_LONG_TAIL_BID_SHOWS_PER_COMPANY,
+    project_ids: list[str] | tuple[str, ...] = (),
     http_getter: HttpGetter | None = None,
     created_at: str | None = None,
 ) -> dict[str, Any]:
     created = created_at or utc_now_iso()
+    selected_project_ids = _project_id_set(project_ids)
     history_years = tuple(sorted({int(item) for item in history_window_years if int(item) > 0})) or DEFAULT_HISTORY_WINDOW_YEARS
     history_months = _positive_int(history_window_months, max(history_years) * 12)
     bid_page_size = _positive_int(bid_list_page_size, DEFAULT_BID_LIST_PAGE_SIZE)
@@ -124,6 +126,7 @@ def build_p13b_company_history_overlap_triage(
             source_manifest,
             created_at=created,
         )
+        project_task_records = _filter_project_task_records(project_task_records, selected_project_ids)
         gdcic_alternative_route_count = sum(
             _int(record.get("gdcic_alternative_public_source_route_count"))
             for record in project_task_records
@@ -156,6 +159,7 @@ def build_p13b_company_history_overlap_triage(
             _coverage_by_project(_source_manifest(ygp_coverage)),
             created_at=created,
         )
+        project_task_records = _filter_project_task_records(project_task_records, selected_project_ids)
         company_query_tasks = _company_query_tasks(project_task_records, created_at=created, dedupe_by_company=True)
     else:
         project_table = _load_json(in_dir / "project-value-table.json", blocking_reasons, "project_value_table_missing")
@@ -175,13 +179,14 @@ def build_p13b_company_history_overlap_triage(
             for record in _list(candidate_table.get("records"))
             if isinstance(record, Mapping)
         ]
-        selected_project_ids = {str(record.get("project_id") or "") for record in selected_projects}
+        available_project_ids = {str(record.get("project_id") or "") for record in selected_projects}
         candidates_by_project: dict[str, list[dict[str, Any]]] = {}
         for record in candidate_records:
             project_id = str(record.get("project_id") or "")
-            if project_id in selected_project_ids:
+            if project_id in available_project_ids:
                 candidates_by_project.setdefault(project_id, []).append(record)
         project_task_records = _project_task_records(selected_projects, candidates_by_project, created_at=created)
+        project_task_records = _filter_project_task_records(project_task_records, selected_project_ids)
         company_query_tasks = _company_query_tasks(project_task_records, created_at=created)
 
     execution_mode = "LIVE_PUBLIC_QUERY_ATTEMPTED" if enable_live_public_query else "PLAN_ONLY_NOT_EXECUTED"
@@ -210,6 +215,7 @@ def build_p13b_company_history_overlap_triage(
         input_mode=input_mode,
         ygp_input_count=ygp_input_count,
         gdcic_alternative_route_count=gdcic_alternative_route_count,
+        selected_project_ids=sorted(selected_project_ids),
     )
     manifest = {
         "manifest_version": P13B_COMPANY_HISTORY_OVERLAP_TRIAGE_VERSION,
@@ -225,6 +231,7 @@ def build_p13b_company_history_overlap_triage(
         "source_project_value_table": str(in_dir / "project-value-table.json"),
         "source_candidate_group_verification_table": str(in_dir / "candidate-group-verification-table.json"),
         "source_profile_id": "NATIONAL-GGZY-DATA-SERVICE-COMPANY-AWARD-HISTORY",
+        "selected_project_ids": sorted(selected_project_ids),
         "input_mode": input_mode,
         "source_base_url": DATA_GGZY_BASE_URL,
         "execution_mode": execution_mode,
@@ -1097,6 +1104,7 @@ def _summary(
     input_mode: str = "P12_VALUE_CLOSEOUT",
     ygp_input_count: int = 0,
     gdcic_alternative_route_count: int = 0,
+    selected_project_ids: list[str] | tuple[str, ...] = (),
 ) -> dict[str, Any]:
     queried_company_count = sum(
         1
@@ -1117,6 +1125,8 @@ def _summary(
         "execution_mode": execution_mode,
         "ygp_input_count": ygp_input_count,
         "gdcic_alternative_public_source_route_count": gdcic_alternative_route_count,
+        "selected_project_ids": list(selected_project_ids),
+        "selected_project_count": len(selected_project_ids),
         "unique_company_count": len(company_history_query_records),
         "queried_company_count": queried_company_count,
         "company_search_hit_count": company_search_hit_count,
@@ -1837,6 +1847,23 @@ def _load_json(path: Path, blocking_reasons: list[str], missing_reason: str) -> 
     return data if isinstance(data, dict) else {}
 
 
+def _project_id_set(project_ids: list[str] | tuple[str, ...]) -> set[str]:
+    return {str(item or "").strip() for item in project_ids if str(item or "").strip()}
+
+
+def _filter_project_task_records(
+    project_task_records: list[dict[str, Any]],
+    selected_project_ids: set[str],
+) -> list[dict[str, Any]]:
+    if not selected_project_ids:
+        return project_task_records
+    return [
+        record
+        for record in project_task_records
+        if str(record.get("project_id") or "").strip() in selected_project_ids
+    ]
+
+
 def _list(value: Any) -> list[Any]:
     if value is None:
         return []
@@ -1930,6 +1957,10 @@ def _parse_history_window_years(value: str) -> list[int]:
     return years or list(DEFAULT_HISTORY_WINDOW_YEARS)
 
 
+def _parse_csv(value: str) -> list[str]:
+    return [part.strip() for part in re.split(r"[,，\s]+", str(value or "")) if part.strip()]
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Build P13B company history overlap triage manifest.")
     parser.add_argument("--input-root", default=str(DEFAULT_INPUT_ROOT))
@@ -1947,6 +1978,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--max-bid-list-pages-per-company", type=int, default=DEFAULT_MAX_BID_LIST_PAGES_PER_COMPANY)
     parser.add_argument("--long-tail-cutoff-year", type=int, default=DEFAULT_LONG_TAIL_CUTOFF_YEAR)
     parser.add_argument("--max-long-tail-bid-shows-per-company", type=int, default=DEFAULT_MAX_LONG_TAIL_BID_SHOWS_PER_COMPANY)
+    parser.add_argument("--project-ids", default="")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
     result = build_p13b_company_history_overlap_triage(
@@ -1965,6 +1997,7 @@ def main(argv: list[str] | None = None) -> int:
         max_bid_list_pages_per_company=args.max_bid_list_pages_per_company,
         long_tail_cutoff_year=args.long_tail_cutoff_year,
         max_long_tail_bid_shows_per_company=args.max_long_tail_bid_shows_per_company,
+        project_ids=_parse_csv(args.project_ids),
     )
     if args.json:
         print(json.dumps(result, ensure_ascii=False, indent=2))

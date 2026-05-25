@@ -35,6 +35,10 @@ class StageOneSixRegressionExecutionPlanScriptTests(unittest.TestCase):
                                 "MaxLiveYgpOriginalNotices": 9,
                                 "MaxLiveYgpBackfillTasks": 9,
                             },
+                            "target_project_ids": [
+                                "PROJ-CN-GD-JG2026-11408",
+                                "PROJ-CN-GD-JG2026-11526",
+                            ],
                             "live_execution_enabled_by_default": False,
                         }
                     },
@@ -78,6 +82,10 @@ class StageOneSixRegressionExecutionPlanScriptTests(unittest.TestCase):
         self.assertEqual(payload["budget_parameters"]["MaxLiveOriginalNotices"], 14)
         self.assertEqual(payload["budget_parameters"]["MaxLiveYgpOriginalNotices"], 9)
         self.assertEqual(payload["budget_parameters"]["MaxLiveYgpBackfillTasks"], 9)
+        self.assertEqual(
+            payload["target"]["ProjectIds"],
+            "PROJ-CN-GD-JG2026-11408,PROJ-CN-GD-JG2026-11526",
+        )
         self.assertFalse(payload["safety"]["customer_visible_allowed"])
         self.assertTrue(payload["safety"]["live_public_query_requires_explicit_switch"])
         self.assertTrue(payload["safety"]["query_miss_is_not_clearance"])

@@ -12,6 +12,7 @@ param(
     [string]$ScoreboardComparisonJson = "",
     [string]$Stage4BackfillFollowupQueueJson = "",
     [switch]$ApplyStage4FollowupExecutionPlan,
+    [string]$ProjectIds = "",
     [switch]$EnableLivePublicQuery,
     [switch]$EnableLiveBrowserExecution,
     [int]$CandidateLimit = 30,
@@ -77,6 +78,9 @@ if ($ApplyStage4FollowupExecutionPlan) {
     if ($executionPlan.live_execution_enabled_by_default -eq $true) {
         Write-Error "Refusing execution plan with live_execution_enabled_by_default=true."
         exit 1
+    }
+    if (-not $ProjectIds -and $executionPlan.target_project_ids) {
+        $ProjectIds = @($executionPlan.target_project_ids) -join ","
     }
     $overrides = $executionPlan.recommended_parameter_overrides
     if ($overrides) {
@@ -147,6 +151,9 @@ if ($DescribeEffectivePlanAndExit) {
         input_refs = [ordered]@{
             ScoreboardComparisonJson = "$ScoreboardComparisonJson"
             Stage4BackfillFollowupQueueJson = "$Stage4BackfillFollowupQueueJson"
+        }
+        target = [ordered]@{
+            ProjectIds = "$ProjectIds"
         }
         safety = [ordered]@{
             customer_visible_allowed = $false
@@ -264,6 +271,9 @@ if ($RunP13BPublicSourceChain) {
         "-MaxBidListPagesPerCompany", "$MaxBidListPagesPerCompany",
         "-MaxLongTailBidShowsPerCompany", "$MaxLongTailBidShowsPerCompany"
     )
+    if ($ProjectIds) {
+        $p13bArgs += @("-ProjectIds", $ProjectIds)
+    }
     if ($EnableLivePublicQuery) {
         $p13bArgs += "-EnableLivePublicQuery"
     }
@@ -282,6 +292,9 @@ if ($RunP13BPublicSourceChain) {
         "-OutputRoot", $p13bOriginalNoticeRoot,
         "-MaxLiveOriginalNotices", "$MaxLiveOriginalNotices"
     )
+    if ($ProjectIds) {
+        $originalArgs += @("-ProjectIds", $ProjectIds)
+    }
     if ($EnableLivePublicQuery) {
         $originalArgs += "-EnableLivePublicQuery"
     }
@@ -375,6 +388,9 @@ if ($RunStage6MergedProjection) {
         "-OutputRoot", $stage6MergedRoot,
         "-DisableAutoDiscoverLatestBatchCloseout"
     )
+    if ($ProjectIds) {
+        $stage6MergedArgs += @("-ProjectIds", $ProjectIds)
+    }
     if ($SupplementalFieldQueryJson) {
         $stage6MergedArgs += @("-SupplementalReleaseFieldQueryJson", $SupplementalFieldQueryJson)
     } elseif ($SupplementalFieldQueryRoot) {

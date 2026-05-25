@@ -38,6 +38,32 @@ class P13BCompanyHistoryOverlapTriageTests(unittest.TestCase):
             self.assertEqual(states, {"PLAN_ONLY_NOT_EXECUTED"})
             self.assertTrue((root / "out" / "company-history-overlap-triage-v1.json").exists())
 
+    def test_project_ids_filter_limits_project_and_company_tasks(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_p12_tables(root)
+
+            result = build_p13b_company_history_overlap_triage(
+                input_root=root,
+                output_root=root / "out",
+                project_ids=["PROJ-CN-GD-JG2026-20002"],
+                created_at="2026-05-15T00:00:00+08:00",
+            )
+
+            summary = result["summary"]
+            self.assertEqual(summary["selected_project_ids"], ["PROJ-CN-GD-JG2026-20002"])
+            self.assertEqual(summary["selected_project_count"], 1)
+            self.assertEqual(summary["project_task_count"], 1)
+            self.assertEqual(summary["company_history_query_task_count"], 2)
+            self.assertEqual(
+                [record["project_id"] for record in result["manifest"]["project_task_records"]],
+                ["PROJ-CN-GD-JG2026-20002"],
+            )
+            self.assertEqual(
+                {record["project_id"] for record in result["manifest"]["company_history_query_records"]},
+                {"PROJ-CN-GD-JG2026-20002"},
+            )
+
     def test_live_fake_query_extracts_person_period_and_overlap_signal(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
