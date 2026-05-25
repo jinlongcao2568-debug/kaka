@@ -768,12 +768,27 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
             },
         )
         self.assertEqual(
+            result["scoreboard"]["stage5_operational_review_family_counts"],
+            {
+                "responsible_person_certificate_gap": 1,
+                "field_ambiguity": 2,
+                "evidence_insufficient": 4,
+                "responsible_role_gap": 1,
+                "project_code_backfill_gap": 1,
+            },
+        )
+        self.assertEqual(
             rows["PROJ-CERT"]["stage5_operational_review_queues"],
             [
                 "RESPONSIBLE_PERSON_CERTIFICATE_GAP_REVIEW",
                 "FIELD_AMBIGUITY_REVIEW",
                 "EVIDENCE_INSUFFICIENT_REVIEW",
             ],
+        )
+        self.assertEqual(rows["PROJ-CERT"]["stage5_operational_review_family"], "responsible_person_certificate_gap")
+        self.assertEqual(
+            rows["PROJ-CERT"]["stage5_operational_review_families"],
+            ["responsible_person_certificate_gap", "field_ambiguity", "evidence_insufficient"],
         )
         self.assertEqual(
             rows["PROJ-CERT"]["stage5_operational_next_action"],
@@ -849,6 +864,10 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
         self.assertEqual(
             result["blocker_summary"]["blocking_bucket_counts"],
             {"authorization_or_browser_blocked_with_source_not_found": 1},
+        )
+        self.assertEqual(
+            result["scoreboard"]["stage5_operational_review_family_counts"],
+            {"authorization_blocked": 1, "source_not_found": 1, "evidence_insufficient": 1},
         )
         self.assertTrue(row["stage5_query_miss_is_not_clearance"])
 

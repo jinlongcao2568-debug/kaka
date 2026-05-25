@@ -299,6 +299,11 @@ def _scoreboard_counts(
         "stage5_operational_review_bucket_counts": _counts(
             row.get("stage5_operational_review_bucket") for row in project_rows
         ),
+        "stage5_operational_review_family_counts": _counts(
+            family
+            for row in project_rows
+            for family in _as_list(row.get("stage5_operational_review_families"))
+        ),
         "stage5_operational_signal_counts": _counts(
             signal
             for row in project_rows
@@ -661,6 +666,11 @@ def _blocker_summary(
         ),
         "stage5_operational_review_bucket_counts": _counts(
             row.get("stage5_operational_review_bucket") for row in project_rows
+        ),
+        "stage5_operational_review_family_counts": _counts(
+            family
+            for row in project_rows
+            for family in _as_list(row.get("stage5_operational_review_families"))
         ),
         "stage5_operational_signal_counts": _counts(
             signal
@@ -1373,12 +1383,43 @@ def _stage5_operational_review(
 
     return {
         "stage5_operational_review_bucket": bucket,
+        "stage5_operational_review_family": _stage5_operational_bucket_family(bucket),
+        "stage5_operational_review_families": _stage5_operational_queue_families(queues or [bucket]),
         "stage5_operational_review_queues": queues or [bucket],
         "stage5_operational_signal_flags": signals or ["unclassified_review_required"],
         "stage5_operational_review_reason": "|".join(signals) if signals else "stage5_review_requires_manual_triage",
         "stage5_operational_next_action": action,
         "stage5_query_miss_is_not_clearance": True,
     }
+
+
+def _stage5_operational_queue_families(queues: list[str]) -> list[str]:
+    return _dedupe(_stage5_operational_bucket_family(queue) for queue in queues)
+
+
+def _stage5_operational_bucket_family(bucket: str) -> str:
+    mapping = {
+        "STRONG_LEAD_INTERNAL_REVIEW": "strong_lead",
+        "WEAK_LEAD_OFFICIAL_SIGNAL_REVIEW": "weak_lead",
+        "AUTHORIZATION_BLOCKED_REVIEW": "authorization_blocked",
+        "AUTHORIZATION_AND_SOURCE_NOT_FOUND_REVIEW": "authorization_blocked",
+        "PUBLIC_SOURCE_BLOCKED_REVIEW": "public_source_blocked",
+        "SOURCE_NOT_FOUND_REVIEW": "source_not_found",
+        "PUBLIC_SOURCE_NOT_FOUND_REVIEW": "source_not_found",
+        "ORIGINAL_NOTICE_NOT_FOUND_REVIEW": "source_not_found",
+        "ORIGINAL_NOTICE_BACKTRACE_REQUIRED_REVIEW": "original_notice_backtrace_required",
+        "ORIGINAL_NOTICE_BLOCKED_REVIEW": "public_source_blocked",
+        "YGP_READBACK_BLOCKED_REVIEW": "public_source_blocked",
+        "YGP_READBACK_READY_REVIEW": "official_readback_ready",
+        "YGP_STAGE4_BACKFILL_READY_REVIEW": "official_readback_ready",
+        "RESPONSIBLE_PERSON_CERTIFICATE_GAP_REVIEW": "responsible_person_certificate_gap",
+        "RESPONSIBLE_ROLE_GAP_REVIEW": "responsible_role_gap",
+        "FIELD_AMBIGUITY_REVIEW": "field_ambiguity",
+        "PROJECT_CODE_BACKFILL_GAP_REVIEW": "project_code_backfill_gap",
+        "EVIDENCE_INSUFFICIENT_REVIEW": "evidence_insufficient",
+        "UNCLASSIFIED_STAGE5_REVIEW": "unclassified_review_required",
+    }
+    return mapping.get(str(bucket or ""), "unclassified_review_required")
 
 
 def _resolve_stage6_status_path(value: str | Path | None, root: Path) -> Path:
@@ -1832,6 +1873,7 @@ def _write_markdown(path: Path, payload: Mapping[str, Any]) -> None:
         f"- stage4_needs_browser_task_count: {scoreboard.get('stage4_needs_browser_task_count', 0)}",
         f"- stage5_review_count: {scoreboard.get('stage5_review_count', 0)}",
         f"- stage5_operational_review_bucket_counts: {json.dumps(scoreboard.get('stage5_operational_review_bucket_counts', {}), ensure_ascii=False, sort_keys=True)}",
+        f"- stage5_operational_review_family_counts: {json.dumps(scoreboard.get('stage5_operational_review_family_counts', {}), ensure_ascii=False, sort_keys=True)}",
         f"- stage5_operational_signal_counts: {json.dumps(scoreboard.get('stage5_operational_signal_counts', {}), ensure_ascii=False, sort_keys=True)}",
         f"- stage6_fact_ready_count: {scoreboard.get('stage6_fact_ready_count', 0)}",
         f"- stage7_sellable_count: {scoreboard.get('stage7_sellable_count', 0)}",
