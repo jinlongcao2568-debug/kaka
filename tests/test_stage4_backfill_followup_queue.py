@@ -545,6 +545,75 @@ class Stage4BackfillFollowupQueueTests(unittest.TestCase):
             self.assertFalse(record["customer_visible_allowed"])
             self.assertTrue(record["query_miss_is_not_clearance"])
 
+    def test_official_readback_ready_rows_queue_stage4_bridge_promotion(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            scoreboard = root / "scoreboard" / "stage1-6-sellable-scoreboard-v1.json"
+            out = root / "out"
+            _write_json(
+                scoreboard,
+                {
+                    "project_rows": [
+                        {
+                            "project_id": "PROJ-OFFICIAL-READY",
+                            "project_name": "Official ready project",
+                            "stage5_operational_primary_track": "official_readback_ready",
+                            "stage5_operational_review_bucket": "YGP_STAGE4_BACKFILL_READY_REVIEW",
+                            "limited_sellable_review_candidate_state": "NOT_READY",
+                            "p13b_ygp_original_readback_state": "YGP_READBACK_READY",
+                            "p13b_ygp_stage4_backfill_ready_count": 1,
+                            "p13b_ygp_stage4_release_adapter_task_count": 1,
+                            "stage4_project_code_backfill_state": "PUBLIC_SOURCE_IDENTIFIER_BACKFILLED_FOR_P13B_OR_STAGE4_BRIDGE_ONLY",
+                            "stage4_project_code_backfill_gap_detail": "",
+                            "p13b_overlap_triage_state": "YGP_STAGE4_BACKFILL_READY_FOR_P13B_OR_STAGE4_BRIDGE",
+                        },
+                        {
+                            "project_id": "PROJ-ALREADY-LIMITED",
+                            "stage5_operational_primary_track": "official_readback_ready",
+                            "limited_sellable_review_candidate_state": "REVIEW_CANDIDATE",
+                            "p13b_ygp_stage4_release_adapter_task_count": 1,
+                        },
+                    ]
+                },
+            )
+
+            result = build_stage4_backfill_followup_queue(
+                scoreboard_json=scoreboard,
+                output_root=out,
+                created_at="2026-05-25T00:00:00+00:00",
+            )
+
+        self.assertEqual(result["summary"]["followup_record_count"], 1)
+        record = result["records"][0]
+        self.assertEqual(record["project_id"], "PROJ-OFFICIAL-READY")
+        self.assertEqual(
+            record["stage4_project_code_backfill_gap_detail"],
+            "OFFICIAL_READBACK_READY_STAGE4_BRIDGE_FOLLOWUP_REQUIRED",
+        )
+        self.assertEqual(record["followup_route"], "official_readback_ready_stage4_bridge_followup")
+        self.assertEqual(record["execution_priority"], "NORMAL_STAGE4_BRIDGE_PROMOTION")
+        self.assertEqual(
+            record["recommended_next_action"],
+            "feed_public_identifier_to_release_evidence_adapter_before_limited_review",
+        )
+        self.assertEqual(
+            [step["source_kind"] for step in record["public_source_fallback_sequence"]],
+            [
+                "ygp_original_notice_readback",
+                "stage4_release_adapter_bridge",
+                "stage6_limited_sellable_projection",
+            ],
+        )
+        self.assertEqual(
+            record["public_source_fallback_sequence"][1]["input_state"],
+            "P13B_RELEASE_ADAPTER_TASK_READY",
+        )
+        plan = result["next_regression_execution_plan"]
+        self.assertEqual(plan["target_project_ids"], ["PROJ-OFFICIAL-READY"])
+        self.assertEqual(plan["recommended_parameter_overrides"]["MaxLiveYgpBackfillTasks"], 8)
+        self.assertFalse(record["customer_visible_allowed"])
+        self.assertTrue(record["query_miss_is_not_clearance"])
+
     def test_followup_records_include_pressure_context_for_p13b_consumers(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)

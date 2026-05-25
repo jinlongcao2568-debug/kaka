@@ -602,7 +602,10 @@ if ($RunYgpBackfillFieldQuery) {
     }
 }
 
-if (-not $SupplementalFieldQueryRoot -and (Test-Path $ygpBackfillFieldQueryJson)) {
+if ($RunYgpBackfillFieldQuery -and (Test-Path $ygpBackfillFieldQueryJson)) {
+    $SupplementalFieldQueryRoot = $ygpBackfillFieldQueryRoot
+    $SupplementalFieldQueryJson = $ygpBackfillFieldQueryJson
+} elseif (-not $SupplementalFieldQueryRoot -and (Test-Path $ygpBackfillFieldQueryJson)) {
     $SupplementalFieldQueryRoot = $ygpBackfillFieldQueryRoot
 }
 if (-not $SupplementalFieldQueryJson -and (Test-Path $ygpBackfillFieldQueryJson)) {

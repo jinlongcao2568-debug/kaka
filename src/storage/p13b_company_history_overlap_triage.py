@@ -643,6 +643,7 @@ def _stage4_followup_queue_project_task_records(
                 "stage4_followup_context_source": str(record.get("context_source") or ""),
                 "stage4_public_source_fallback_sequence": _list(record.get("public_source_fallback_sequence")),
                 "local_authority_readback_context": {},
+                "stage4_official_readback_context": {},
                 "alternate_local_authority_source_candidates": [],
                 "stage4_gdcic_project_code_route_allowed": False,
                 "stage4_gdcic_project_code_route_policy": "PUBLIC_SOURCE_IDENTIFIER_NOT_SENT_TO_GDCIC_UNLESS_EXPLICIT_PROVINCIAL_CODE",
@@ -663,6 +664,11 @@ def _stage4_followup_queue_project_task_records(
             project["local_authority_readback_context"] = {
                 **dict(project.get("local_authority_readback_context") or {}),
                 **dict(record.get("local_authority_readback_context") or {}),
+            }
+        if isinstance(record.get("stage4_official_readback_context"), Mapping):
+            project["stage4_official_readback_context"] = {
+                **dict(project.get("stage4_official_readback_context") or {}),
+                **dict(record.get("stage4_official_readback_context") or {}),
             }
         project["alternate_local_authority_source_candidates"] = _dedupe_local_authority_alternate_candidates(
             [

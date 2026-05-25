@@ -86,6 +86,8 @@ def _needs_backfill_followup(row: Mapping[str, Any]) -> bool:
     local_authority_counts = _local_authority_executed_counts(row)
     if _int(local_authority_counts.get("BLOCKED")) or _int(local_authority_counts.get("NOT_FOUND")):
         return True
+    if _needs_official_readback_stage4_bridge_followup(row):
+        return True
     if str(row.get("p13b_original_notice_readback_state") or "").upper() == "BLOCKED":
         return True
     if str(row.get("p13b_ygp_original_readback_state") or "").upper() == "YGP_BLOCKED":
@@ -101,6 +103,18 @@ def _needs_backfill_followup(row: Mapping[str, Any]) -> bool:
         == "MISSING_PROJECT_CODE_BACKFILL_INPUT"
         and bool(str(row.get("stage4_project_code_backfill_gap_detail") or "").strip())
     )
+
+
+def _needs_official_readback_stage4_bridge_followup(row: Mapping[str, Any]) -> bool:
+    if str(row.get("limited_sellable_review_candidate_state") or "") == "REVIEW_CANDIDATE":
+        return False
+    if str(row.get("stage5_operational_primary_track") or "") != "official_readback_ready":
+        return False
+    if _int(row.get("p13b_ygp_stage4_release_adapter_task_count")) > 0:
+        return True
+    if _int(row.get("p13b_ygp_stage4_backfill_ready_count")) > 0:
+        return True
+    return bool(_list(row.get("p13b_ygp_project_code_variants")) or _list(row.get("p13b_overlap_ygp_project_code_variants")))
 
 
 def _followup_record(
@@ -131,6 +145,7 @@ def _followup_record(
         "project_source_urls": _dedupe(_list(pressure_context.get("project_source_urls"))),
         "context_source": str(pressure_context.get("context_source") or ""),
         "local_authority_readback_context": dict(local_authority_context),
+        "stage4_official_readback_context": _stage4_official_readback_context(row),
         "alternate_local_authority_source_candidates": _alternate_local_authority_source_candidates(
             row,
             local_authority_context,
@@ -160,6 +175,8 @@ def _followup_gap_detail(row: Mapping[str, Any]) -> str:
         return "LOCAL_AUTHORITY_BLOCKED_RETRY_OR_ALTERNATE_SOURCE_REQUIRED"
     if _int(local_authority_counts.get("NOT_FOUND")):
         return "LOCAL_AUTHORITY_NOT_FOUND_DEEPENING_REQUIRED"
+    if _needs_official_readback_stage4_bridge_followup(row):
+        return "OFFICIAL_READBACK_READY_STAGE4_BRIDGE_FOLLOWUP_REQUIRED"
     public_readback_state = str(row.get("p13b_public_source_readback_state") or "")
     if public_readback_state == "LOCAL_AUTHORITY_BLOCKED_REVIEW":
         return "LOCAL_AUTHORITY_BLOCKED_RETRY_OR_ALTERNATE_SOURCE_REQUIRED"
@@ -185,6 +202,52 @@ def _followup_gap_detail(row: Mapping[str, Any]) -> str:
 def _local_authority_executed_counts(row: Mapping[str, Any]) -> Mapping[str, Any]:
     value = row.get("p13b_local_authority_executed_readback_state_counts")
     return value if isinstance(value, Mapping) else {}
+
+
+def _stage4_official_readback_context(row: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "stage4_official_readback_context_state": (
+            "OFFICIAL_READBACK_READY_STAGE4_BRIDGE_FOLLOWUP_REQUIRED"
+            if _needs_official_readback_stage4_bridge_followup(row)
+            else ""
+        ),
+        "project_id": str(row.get("project_id") or ""),
+        "project_name": str(row.get("project_name") or ""),
+        "stage5_operational_primary_track": str(row.get("stage5_operational_primary_track") or ""),
+        "stage5_operational_review_bucket": str(row.get("stage5_operational_review_bucket") or ""),
+        "p13b_overlap_triage_state": str(row.get("p13b_overlap_triage_state") or ""),
+        "ygp_project_code_variants": _dedupe(
+            [
+                *_list(row.get("p13b_ygp_project_code_variants")),
+                *_list(row.get("p13b_overlap_ygp_project_code_variants")),
+            ]
+        ),
+        "ygp_biz_code_variants": _dedupe(
+            [
+                *_list(row.get("p13b_ygp_biz_code_variants")),
+                *_list(row.get("p13b_overlap_ygp_biz_code_variants")),
+            ]
+        ),
+        "ygp_site_code_variants": _dedupe(
+            [
+                *_list(row.get("p13b_ygp_site_code_variants")),
+                *_list(row.get("p13b_overlap_ygp_site_code_variants")),
+            ]
+        ),
+        "ygp_notice_id_variants": _dedupe(
+            [
+                *_list(row.get("p13b_ygp_notice_id_variants")),
+                *_list(row.get("p13b_overlap_ygp_notice_id_variants")),
+            ]
+        ),
+        "stage4_public_identifier_backfill_source": str(row.get("stage4_public_identifier_backfill_source") or ""),
+        "gdcic_project_code_route_allowed": False,
+        "gdcic_route_block_reason": "YGP_OR_TRADE_IDENTIFIERS_NOT_SENT_TO_GDCIC_PROJECT_CODE",
+        "recommended_next_action": "feed_public_identifier_to_release_evidence_adapter_before_limited_review",
+        "customer_visible_allowed": False,
+        "query_miss_is_not_clearance": True,
+        "no_legal_conclusion": True,
+    }
 
 
 def _local_authority_readback_context_by_project(scoreboard_payload: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
@@ -293,6 +356,8 @@ def _alternate_local_authority_source_candidates(
 
 
 def _followup_route(detail: str) -> str:
+    if detail == "OFFICIAL_READBACK_READY_STAGE4_BRIDGE_FOLLOWUP_REQUIRED":
+        return "official_readback_ready_stage4_bridge_followup"
     if detail == "LOCAL_AUTHORITY_BLOCKED_RETRY_OR_ALTERNATE_SOURCE_REQUIRED":
         return "local_authority_blocked_retry_or_alternate_source"
     if detail == "LOCAL_AUTHORITY_NOT_FOUND_DEEPENING_REQUIRED":
@@ -327,6 +392,8 @@ def _worker_family(route: str) -> str:
 
 
 def _required_input(route: str) -> list[str]:
+    if route == "official_readback_ready_stage4_bridge_followup":
+        return ["p13b_ygp_or_public_identifier_backfill_task", "stage4_release_adapter_bridge_or_ygp_backfill_field_query_budget"]
     if route == "local_authority_blocked_retry_or_alternate_source":
         return ["alternate_project_local_authority_source_url_or_adapter", "retry_budget_with_timeout_blocker_capture"]
     if route == "local_authority_not_found_specific_endpoint_or_manual_source":
@@ -345,6 +412,12 @@ def _required_input(route: str) -> list[str]:
 
 
 def _public_source_fallback_sequence(row: Mapping[str, Any], route: str) -> list[dict[str, Any]]:
+    if route == "official_readback_ready_stage4_bridge_followup":
+        return [
+            _fallback_step("ygp_original_notice_readback", "read_ygp_original_notice_identifiers_for_p13b_or_stage4_bridge", row),
+            _fallback_step("stage4_release_adapter_bridge", "feed_public_identifier_to_release_evidence_adapter_before_limited_review", row),
+            _fallback_step("stage6_limited_sellable_projection", "project_b_or_c_official_readback_to_internal_limited_review", row),
+        ]
     return [
         _fallback_step(
             "data_ggzy_company_history_search",
@@ -377,6 +450,16 @@ def _fallback_step(source_kind: str, action: str, row: Mapping[str, Any]) -> dic
 
 
 def _fallback_input_state(source_kind: str, row: Mapping[str, Any]) -> str:
+    if source_kind == "stage4_release_adapter_bridge":
+        if _int(row.get("p13b_ygp_stage4_release_adapter_task_count")) > 0:
+            return "P13B_RELEASE_ADAPTER_TASK_READY"
+        if _int(row.get("p13b_ygp_stage4_backfill_ready_count")) > 0:
+            return "YGP_STAGE4_BACKFILL_READY"
+        return "PUBLIC_IDENTIFIER_READY_NOT_RELEASE_EVIDENCE"
+    if source_kind == "stage6_limited_sellable_projection":
+        if str(row.get("limited_sellable_review_candidate_state") or "") == "REVIEW_CANDIDATE":
+            return "LIMITED_SELLABLE_REVIEW_ALREADY_PROJECTED"
+        return "LIMITED_SELLABLE_REVIEW_PROJECTION_REQUIRED"
     if source_kind == "data_ggzy_bid_show_readback":
         if int(row.get("p13b_bid_show_original_notice_url_count") or 0) > 0:
             return "BID_SHOW_ORIGINAL_NOTICE_URL_PRESENT"
@@ -457,6 +540,7 @@ def _pressure_context_by_project(pressure_root: Any) -> dict[str, dict[str, Any]
 
 def _recommended_next_action(route: str) -> str:
     actions = {
+        "official_readback_ready_stage4_bridge_followup": "feed_public_identifier_to_release_evidence_adapter_before_limited_review",
         "local_authority_blocked_retry_or_alternate_source": "retry_blocked_local_authority_source_or_choose_alternate_official_entry_without_clearance_claim",
         "local_authority_not_found_specific_endpoint_or_manual_source": "keep_not_found_as_non_clearance_and_try_specific_search_endpoint_or_manual_source_path",
         "public_source_retry_then_local_authority_fallback": "retry_public_source_or_route_to_project_local_authority_without_clearance_claim",
@@ -470,6 +554,8 @@ def _recommended_next_action(route: str) -> str:
 
 
 def _execution_priority(route: str, *, deepening_recommended: bool) -> str:
+    if route == "official_readback_ready_stage4_bridge_followup":
+        return "HIGH_STAGE4_BRIDGE_PROMOTION" if deepening_recommended else "NORMAL_STAGE4_BRIDGE_PROMOTION"
     if not deepening_recommended:
         return "NORMAL"
     if route in {
@@ -648,6 +734,9 @@ def _next_regression_execution_plan(
     medium_count = sum(
         1 for record in records if record.get("execution_priority") == "MEDIUM_LOCAL_AUTHORITY_FALLBACK"
     )
+    official_bridge_count = sum(
+        1 for record in records if record.get("followup_route") == "official_readback_ready_stage4_bridge_followup"
+    )
     target_project_ids = [
         str(record.get("project_id") or "")
         for record in records
@@ -673,7 +762,7 @@ def _next_regression_execution_plan(
     p13b_company_budget = max(8, high_count * 3 + medium_count)
     original_notice_budget = max(12, high_count * 4 + medium_count * 2)
     ygp_notice_budget = max(8, high_count * 3)
-    ygp_backfill_budget = max(8, high_count * 3)
+    ygp_backfill_budget = max(8, high_count * 3, official_bridge_count + 3)
     return {
         "plan_state": plan_state,
         "runner_entrypoint": "scripts/run-stage1-6-sellable-rate-regression-v1.ps1",

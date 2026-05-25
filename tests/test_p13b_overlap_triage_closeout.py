@@ -119,6 +119,53 @@ class P13BOverlapTriageCloseoutTests(unittest.TestCase):
             project = next(item for item in project_rows if item["project_id"] == "PROJ-1")
             self.assertEqual(project["original_notice_different_person_with_period_count"], 1)
 
+    def test_followup_official_readback_context_generates_stage4_backfill_tasks(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_inputs(root, overlap=False)
+            company_json = root / "company" / "company-history-overlap-triage-v1.json"
+            payload = json.loads(company_json.read_text(encoding="utf-8"))
+            payload["manifest"]["project_task_records"] = [
+                {
+                    "project_id": "PROJ-FOLLOWUP",
+                    "project_name": "公开标识回灌项目",
+                    "candidate_companies": ["广东甲公司"],
+                    "candidate_notice_source_urls": ["https://ywtb.gzggzy.cn/jyfw/followup.html"],
+                    "stage4_official_readback_context": {
+                        "stage4_official_readback_context_state": "OFFICIAL_READBACK_READY_STAGE4_BRIDGE_FOLLOWUP_REQUIRED",
+                        "project_id": "PROJ-FOLLOWUP",
+                        "project_name": "公开标识回灌项目",
+                        "ygp_project_code_variants": ["E4401000000000001"],
+                        "ygp_biz_code_variants": ["3C52"],
+                        "ygp_site_code_variants": ["440100"],
+                        "ygp_notice_id_variants": ["notice-followup"],
+                    },
+                }
+            ]
+            payload["manifest"]["company_history_query_records"] = []
+            payload["manifest"]["overlap_signal_records"] = []
+            company_json.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+            result = build_p13b_overlap_triage_closeout(
+                company_history_triage_root=root / "company",
+                original_notice_backtrace_root=root / "original",
+                output_root=root / "out",
+                created_at="2026-05-15T00:00:00+08:00",
+            )
+
+        summary = result["summary"]
+        self.assertEqual(summary["ygp_stage4_backfill_candidate_count"], 1)
+        self.assertEqual(summary["ygp_stage4_release_adapter_task_count"], 1)
+        backfill = result["manifest"]["ygp_stage4_backfill_candidate_records"][0]
+        self.assertEqual(backfill["project_id"], "PROJ-FOLLOWUP")
+        self.assertEqual(backfill["ygp_project_code"], "E4401000000000001")
+        self.assertFalse(backfill["gdcic_project_code_route_allowed"])
+        adapter = result["manifest"]["release_evidence_adapter_task_records"][0]
+        self.assertEqual(adapter["query_params"]["ygpProjectCodeVariants"], ["E4401000000000001"])
+        self.assertEqual(adapter["query_params"]["gdcicProjectCodeVariants"], [])
+        self.assertTrue(adapter["must_not_extract_from_full_text_numbers"])
+        self.assertFalse(adapter["customer_visible_allowed"])
+
     def test_ygp_defaults_closed_when_not_explicitly_supplied(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)

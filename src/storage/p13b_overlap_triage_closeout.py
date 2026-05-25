@@ -91,7 +91,13 @@ def build_p13b_overlap_triage_closeout(
         created_at=created,
         ygp_enabled=ygp_enabled,
     )
-    ygp_stage4_backfill_table = _ygp_stage4_backfill_table(ygp_manifest, created_at=created)
+    ygp_stage4_backfill_table = _dedupe_records(
+        [
+            *_ygp_stage4_backfill_table(ygp_manifest, created_at=created),
+            *_stage4_followup_official_readback_backfill_table(company_manifest, created_at=created),
+        ],
+        ("ygp_stage4_backfill_candidate_id",),
+    )
     release_table = _release_evidence_trigger_table(company_manifest, original_manifest, created_at=created)
     ygp_stage4_adapter_tasks = _ygp_stage4_release_adapter_task_records(
         ygp_stage4_backfill_table,
@@ -395,6 +401,69 @@ def _ygp_stage4_backfill_table(ygp_manifest: Mapping[str, Any], *, created_at: s
                 "no_legal_conclusion": True,
             }
         )
+    return _dedupe_records(rows, ("ygp_stage4_backfill_candidate_id",))
+
+
+def _stage4_followup_official_readback_backfill_table(
+    company_manifest: Mapping[str, Any],
+    *,
+    created_at: str,
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for record in _list(company_manifest.get("project_task_records")):
+        if not isinstance(record, Mapping):
+            continue
+        context = record.get("stage4_official_readback_context")
+        if not isinstance(context, Mapping):
+            continue
+        if str(context.get("stage4_official_readback_context_state") or "") != "OFFICIAL_READBACK_READY_STAGE4_BRIDGE_FOLLOWUP_REQUIRED":
+            continue
+        project_id = str(record.get("project_id") or context.get("project_id") or "").strip()
+        if not project_id:
+            continue
+        project_codes = _list(context.get("ygp_project_code_variants"))
+        biz_codes = _list(context.get("ygp_biz_code_variants"))
+        site_codes = _list(context.get("ygp_site_code_variants"))
+        notice_ids = _list(context.get("ygp_notice_id_variants"))
+        max_len = max(len(project_codes), len(biz_codes), len(site_codes), len(notice_ids), 1)
+        for index in range(max_len):
+            project_code = str(project_codes[index] if index < len(project_codes) else _first(project_codes) or "")
+            notice_id = str(notice_ids[index] if index < len(notice_ids) else _first(notice_ids) or "")
+            if not project_code and not notice_id:
+                continue
+            rows.append(
+                {
+                    "ygp_stage4_backfill_candidate_id": _stable_id(
+                        "P13B-FOLLOWUP-OFFICIAL-READBACK-STAGE4-BACKFILL",
+                        project_id,
+                        project_code,
+                        notice_id,
+                    ),
+                    "project_id": project_id,
+                    "candidate_company_name": _first(_list(record.get("candidate_companies"))) or "",
+                    "bid_project_name": str(
+                        context.get("project_name") or record.get("project_name") or ""
+                    ),
+                    "source_url": _first(_list(record.get("candidate_notice_source_urls"))) or "",
+                    "ygp_project_code": project_code,
+                    "ygp_biz_code": str(biz_codes[index] if index < len(biz_codes) else _first(biz_codes) or ""),
+                    "ygp_site_code": str(site_codes[index] if index < len(site_codes) else _first(site_codes) or ""),
+                    "ygp_notice_id": notice_id,
+                    "ygp_node_id": "",
+                    "stage4_ygp_backfill_state": "YGP_STAGE4_BACKFILL_READY",
+                    "p13b_backfill_state": "P13B_YGP_STAGE4_BACKFILL_READY",
+                    "target_p13b_fields": ["projectCode", "bizCode", "siteCode", "noticeId"],
+                    "target_stage4_bridge_fields": ["ygpProjectCodeVariants", "ygpBizCode", "ygpSiteCode", "ygpNoticeId"],
+                    "gdcic_project_code_route_allowed": False,
+                    "gdcic_route_block_reason": "YGP_OR_TRADE_IDENTIFIERS_NOT_SENT_TO_GDCIC_PROJECT_CODE",
+                    "must_not_extract_from_full_text_numbers": True,
+                    "recommended_next_action": "feed_public_identifier_to_release_evidence_adapter_before_limited_review",
+                    "query_miss_is_not_clearance": True,
+                    "created_at": created_at,
+                    "customer_visible_allowed": False,
+                    "no_legal_conclusion": True,
+                }
+            )
     return _dedupe_records(rows, ("ygp_stage4_backfill_candidate_id",))
 
 
@@ -794,6 +863,13 @@ def _list(value: Any) -> list[Any]:
     if isinstance(value, tuple):
         return list(value)
     return []
+
+
+def _first(values: Iterable[Any]) -> Any:
+    for value in values:
+        if str(value or "").strip():
+            return value
+    return ""
 
 
 def _int(value: Any) -> int:
