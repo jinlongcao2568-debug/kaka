@@ -375,6 +375,65 @@ class P13BCompanyHistoryOverlapTriageTests(unittest.TestCase):
             self.assertIn("张三", task["responsible_person_names"])
             self.assertIn("https://ywtb.gzggzy.cn/jyfw/07-a.html", task["candidate_notice_source_urls"])
 
+    def test_stage4_followup_queue_embedded_context_seeds_company_tasks_without_field_query(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            queue_json = root / "followup" / "stage4-backfill-followup-queue-v1.json"
+            _write_json(
+                queue_json,
+                {
+                    "records": [
+                        {
+                            "followup_record_id": "FOLLOWUP-CONTEXT",
+                            "project_id": "PROJ-CN-GD-JG2026-QUEUE-CONTEXT",
+                            "project_name": "广州队列上下文项目中标候选人公示",
+                            "followup_route": "local_authority_blocked_retry_or_alternate_source",
+                            "followup_queue_state": "FOLLOWUP_SOURCE_PLAN_REQUIRED",
+                            "execution_priority": "HIGH_PUBLIC_SOURCE_DEEPENING",
+                            "required_input": ["alternate_project_local_authority_source_url_or_adapter"],
+                            "recommended_next_action": "retry_blocked_local_authority_source_or_choose_alternate_official_entry_without_clearance_claim",
+                            "candidate_companies": ["广东甲公司"],
+                            "responsible_person_names": ["张三"],
+                            "candidate_notice_source_urls": ["https://ywtb.gzggzy.cn/jyfw/context.html"],
+                            "project_source_urls": ["https://ywtb.gzggzy.cn/jyfw/context.html"],
+                            "context_source": "stage4_release_adapter_bridge_plan",
+                            "public_source_fallback_sequence": [
+                                {"source_kind": "data_ggzy_company_history_search"},
+                                {"source_kind": "project_local_authority_public_source"},
+                            ],
+                            "customer_visible_allowed": False,
+                            "query_miss_is_not_clearance": True,
+                            "no_legal_conclusion": True,
+                        }
+                    ]
+                },
+            )
+
+            result = build_p13b_company_history_overlap_triage(
+                stage4_backfill_followup_queue_json=queue_json,
+                output_root=root / "out",
+                created_at="2026-05-25T00:00:00+08:00",
+            )
+
+        summary = result["summary"]
+        self.assertTrue(result["safe_to_execute"])
+        self.assertEqual(summary["company_history_query_task_count"], 1)
+        self.assertEqual(summary["local_authority_source_task_count"], 1)
+        project = result["manifest"]["project_task_records"][0]
+        self.assertEqual(project["stage4_followup_execution_priority"], "HIGH_PUBLIC_SOURCE_DEEPENING")
+        self.assertEqual(project["stage4_followup_context_source"], "stage4_release_adapter_bridge_plan")
+        task = result["manifest"]["company_history_query_records"][0]
+        self.assertEqual(task["candidate_company_name"], "广东甲公司")
+        self.assertIn("张三", task["responsible_person_names"])
+        self.assertIn("https://ywtb.gzggzy.cn/jyfw/context.html", task["candidate_notice_source_urls"])
+        local_authority_task = result["manifest"]["local_authority_source_task_records"][0]
+        self.assertEqual(local_authority_task["stage4_followup_execution_priority"], "HIGH_PUBLIC_SOURCE_DEEPENING")
+        self.assertIn(
+            "alternate_project_local_authority_source_url_or_adapter",
+            local_authority_task["stage4_followup_required_input"],
+        )
+        self.assertFalse(local_authority_task["customer_visible_allowed"])
+
     def test_stage4_followup_queue_live_local_authority_readback_emits_match_without_customer_claim(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)

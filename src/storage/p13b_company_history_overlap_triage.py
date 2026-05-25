@@ -599,13 +599,22 @@ def _stage4_followup_queue_project_task_records(
         context = field_by_project.get(project_id, {})
         companies = _dedupe(
             [
+                *_list(record.get("candidate_companies")),
                 *_list(context.get("candidate_companies")),
+                record.get("candidate_company_name"),
                 *_candidate_company_members(str(context.get("candidate_company_name") or "")),
             ]
         )
-        people = _dedupe([*_list(context.get("responsible_person_names"))])
+        people = _dedupe(
+            [
+                *_list(record.get("responsible_person_names")),
+                *_list(context.get("responsible_person_names")),
+            ]
+        )
         urls = _dedupe(
             [
+                *_list(record.get("candidate_notice_source_urls")),
+                *_list(record.get("project_source_urls")),
                 *_list(context.get("candidate_notice_source_urls")),
                 *_list(context.get("project_source_urls")),
             ]
@@ -628,6 +637,10 @@ def _stage4_followup_queue_project_task_records(
                 "p13b_triage_state": "P13B_COMPANY_HISTORY_TRIAGE_REQUIRED",
                 "stage4_followup_route": str(record.get("followup_route") or ""),
                 "stage4_followup_queue_state": str(record.get("followup_queue_state") or ""),
+                "stage4_followup_execution_priority": str(record.get("execution_priority") or ""),
+                "stage4_followup_required_input": _list(record.get("required_input")),
+                "stage4_followup_recommended_next_action": str(record.get("recommended_next_action") or ""),
+                "stage4_followup_context_source": str(record.get("context_source") or ""),
                 "stage4_public_source_fallback_sequence": _list(record.get("public_source_fallback_sequence")),
                 "stage4_gdcic_project_code_route_allowed": False,
                 "stage4_gdcic_project_code_route_policy": "PUBLIC_SOURCE_IDENTIFIER_NOT_SENT_TO_GDCIC_UNLESS_EXPLICIT_PROVINCIAL_CODE",
@@ -790,6 +803,12 @@ def _local_authority_source_task_records(
                 "project_name": str(project.get("project_name") or ""),
                 "stage4_followup_route": str(project.get("stage4_followup_route") or ""),
                 "stage4_followup_queue_state": str(project.get("stage4_followup_queue_state") or ""),
+                "stage4_followup_execution_priority": str(project.get("stage4_followup_execution_priority") or ""),
+                "stage4_followup_required_input": _list(project.get("stage4_followup_required_input")),
+                "stage4_followup_recommended_next_action": str(
+                    project.get("stage4_followup_recommended_next_action") or ""
+                ),
+                "stage4_followup_context_source": str(project.get("stage4_followup_context_source") or ""),
                 "candidate_companies": _list(project.get("candidate_companies")),
                 "responsible_person_names": _list(project.get("responsible_person_names")),
                 "candidate_notice_source_urls": _list(project.get("candidate_notice_source_urls")),

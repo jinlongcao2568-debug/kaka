@@ -433,6 +433,60 @@ class Stage4BackfillFollowupQueueTests(unittest.TestCase):
             self.assertFalse(record["customer_visible_allowed"])
             self.assertTrue(record["query_miss_is_not_clearance"])
 
+    def test_followup_records_include_pressure_context_for_p13b_consumers(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            pressure_root = root / "pressure"
+            scoreboard = root / "scoreboard" / "stage1-6-sellable-scoreboard-v1.json"
+            out = root / "out"
+            pressure_summary = pressure_root / "pressure-summary.json"
+            release_plan = pressure_root / "stage4-release-adapter-bridge-plan.json"
+            _write_json(pressure_summary, {"summary": {"candidate_count": 1}})
+            _write_json(
+                release_plan,
+                {
+                    "release_evidence_adapter_task_records": [
+                        {
+                            "project_id": "PROJ-CONTEXT",
+                            "candidate_company_name": "广东甲公司",
+                            "matched_person_names": ["张三"],
+                            "trigger_source_url": "https://ywtb.gzggzy.cn/jyfw/context.html",
+                            "query_params": {
+                                "companyVariants": ["广东甲公司", "广东甲公司"],
+                                "projectManagerName": "张三",
+                            },
+                        }
+                    ]
+                },
+            )
+            _write_json(
+                scoreboard,
+                {
+                    "input_refs": {"pressure_summary_json": str(pressure_summary)},
+                    "project_rows": [
+                        {
+                            "project_id": "PROJ-CONTEXT",
+                            "project_name": "广州上下文项目中标候选人公示",
+                            "stage4_project_code_backfill_state": "MISSING_PROJECT_CODE_BACKFILL_INPUT",
+                            "stage4_project_code_backfill_gap_detail": "NO_PUBLIC_OVERLAP_SIGNAL_FALLBACK_LOCAL_AUTHORITY_REQUIRED",
+                        }
+                    ],
+                },
+            )
+
+            result = build_stage4_backfill_followup_queue(
+                scoreboard_json=scoreboard,
+                output_root=out,
+                created_at="2026-05-25T00:00:00+00:00",
+            )
+
+        record = result["records"][0]
+        self.assertEqual(record["candidate_companies"], ["广东甲公司"])
+        self.assertEqual(record["responsible_person_names"], ["张三"])
+        self.assertEqual(record["candidate_notice_source_urls"], ["https://ywtb.gzggzy.cn/jyfw/context.html"])
+        self.assertEqual(record["context_source"], "stage4_release_adapter_bridge_plan")
+        self.assertFalse(record["customer_visible_allowed"])
+
 
 def _write_json(path: Path, payload: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)

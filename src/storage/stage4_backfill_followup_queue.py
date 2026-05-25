@@ -25,12 +25,20 @@ def build_stage4_backfill_followup_queue(
     payload = _read_json(scoreboard_path)
     rows = payload.get("project_rows") if isinstance(payload.get("project_rows"), list) else []
     continuation_input_refs = _continuation_input_refs(payload, scoreboard_path)
+    pressure_context_by_project = _pressure_context_by_project(
+        continuation_input_refs.get("effective_pressure_root")
+    )
     deepening_policy = _public_source_deepening_policy(
         scoreboard_path=scoreboard_path,
         comparison_json=scoreboard_comparison_json,
     )
     records = [
-        _followup_record(row, scoreboard_ref=str(scoreboard_path), deepening_policy=deepening_policy)
+        _followup_record(
+            row,
+            scoreboard_ref=str(scoreboard_path),
+            deepening_policy=deepening_policy,
+            pressure_context=pressure_context_by_project.get(str(row.get("project_id") or "").strip(), {}),
+        )
         for row in rows
         if isinstance(row, Mapping) and _needs_backfill_followup(row)
     ]
@@ -92,6 +100,7 @@ def _followup_record(
     *,
     scoreboard_ref: str,
     deepening_policy: Mapping[str, Any],
+    pressure_context: Mapping[str, Any],
 ) -> dict[str, Any]:
     project_id = str(row.get("project_id") or "").strip()
     detail = _followup_gap_detail(row)
@@ -107,6 +116,11 @@ def _followup_record(
         "p13b_public_source_readback_state": str(row.get("p13b_public_source_readback_state") or ""),
         "p13b_original_notice_readback_state": str(row.get("p13b_original_notice_readback_state") or ""),
         "p13b_overlap_triage_state": str(row.get("p13b_overlap_triage_state") or ""),
+        "candidate_companies": _dedupe(_list(pressure_context.get("candidate_companies"))),
+        "responsible_person_names": _dedupe(_list(pressure_context.get("responsible_person_names"))),
+        "candidate_notice_source_urls": _dedupe(_list(pressure_context.get("candidate_notice_source_urls"))),
+        "project_source_urls": _dedupe(_list(pressure_context.get("project_source_urls"))),
+        "context_source": str(pressure_context.get("context_source") or ""),
         "followup_route": route,
         "followup_queue_state": _followup_queue_state(route),
         "worker_family": _worker_family(route),
@@ -247,6 +261,69 @@ def _fallback_input_state(source_kind: str, row: Mapping[str, Any]) -> str:
     if source_kind == "project_local_authority_public_source":
         return "LOCAL_AUTHORITY_FALLBACK_REQUIRED"
     return "INPUT_REQUIRED_OR_RETRY_WITH_BUDGET"
+
+
+def _pressure_context_by_project(pressure_root: Any) -> dict[str, dict[str, Any]]:
+    root = Path(str(pressure_root or ""))
+    if not str(pressure_root or "").strip() or not root.exists():
+        return {}
+    plan = _read_json(root / "stage4-release-adapter-bridge-plan.json")
+    contexts: dict[str, dict[str, Any]] = {}
+    records = [
+        *_list(plan.get("release_evidence_adapter_task_records")),
+        *_list(plan.get("project_code_backfill_records")),
+    ]
+    for record in records:
+        if not isinstance(record, Mapping):
+            continue
+        project_id = str(record.get("project_id") or "").strip()
+        if not project_id:
+            continue
+        query_params = record.get("query_params") if isinstance(record.get("query_params"), Mapping) else {}
+        context = contexts.setdefault(
+            project_id,
+            {
+                "candidate_companies": [],
+                "responsible_person_names": [],
+                "candidate_notice_source_urls": [],
+                "project_source_urls": [],
+                "context_source": "stage4_release_adapter_bridge_plan",
+            },
+        )
+        context["candidate_companies"] = _dedupe(
+            [
+                *context.get("candidate_companies", []),
+                record.get("candidate_company_name"),
+                query_params.get("candidateCompanyName"),
+                query_params.get("companyName"),
+                *_list(query_params.get("companyVariants")),
+            ]
+        )
+        context["responsible_person_names"] = _dedupe(
+            [
+                *context.get("responsible_person_names", []),
+                record.get("raw_person_name"),
+                *_list(record.get("matched_person_names")),
+                query_params.get("personName"),
+                query_params.get("projectManagerName"),
+                query_params.get("rawPersonName"),
+            ]
+        )
+        context["candidate_notice_source_urls"] = _dedupe(
+            [
+                *context.get("candidate_notice_source_urls", []),
+                record.get("trigger_source_url"),
+                query_params.get("triggerSourceUrl"),
+            ]
+        )
+        context["project_source_urls"] = _dedupe(
+            [
+                *context.get("project_source_urls", []),
+                record.get("trigger_source_url"),
+                query_params.get("triggerSourceUrl"),
+            ]
+        )
+    return contexts
 
 
 def _recommended_next_action(route: str) -> str:
@@ -491,6 +568,28 @@ def _counts(values: Any) -> dict[str, int]:
             continue
         counts[key] = counts.get(key, 0) + 1
     return counts
+
+
+def _list(value: Any) -> list[Any]:
+    if isinstance(value, list):
+        return value
+    if isinstance(value, tuple):
+        return list(value)
+    if value in (None, ""):
+        return []
+    return [value]
+
+
+def _dedupe(values: Any) -> list[str]:
+    out: list[str] = []
+    seen: set[str] = set()
+    for value in _list(values):
+        text = str(value or "").strip()
+        if not text or text in seen:
+            continue
+        seen.add(text)
+        out.append(text)
+    return out
 
 
 def _stable_id(prefix: str, *parts: Any) -> str:
