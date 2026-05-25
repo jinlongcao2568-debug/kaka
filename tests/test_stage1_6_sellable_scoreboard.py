@@ -12,10 +12,46 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from storage.stage1_6_sellable_scoreboard import build_stage1_6_sellable_scoreboard
+from storage.stage1_6_sellable_scoreboard import (
+    _merge_incremental_target_prior_public_source_evidence,
+    build_stage1_6_sellable_scoreboard,
+)
 
 
 class StageOneSixSellableScoreboardTests(unittest.TestCase):
+    def test_incremental_public_source_preservation_does_not_overwrite_limited_projection(self) -> None:
+        current = {
+            "project_id": "PROJ-A",
+            "stage5_operational_primary_track": "strong_lead",
+            "stage5_operational_review_bucket": "STRONG_LEAD_INTERNAL_REVIEW",
+            "limited_sellable_review_candidate_state": "REVIEW_CANDIDATE",
+            "strong_lead_candidate_state": "STRONG_LEAD_REVIEW_CANDIDATE",
+            "stage4_project_code_backfill_state": "MISSING_PROJECT_CODE_BACKFILL_INPUT",
+        }
+        prior = {
+            "project_id": "PROJ-A",
+            "stage5_operational_primary_track": "official_readback_ready",
+            "stage5_operational_review_bucket": "YGP_STAGE4_BACKFILL_READY_REVIEW",
+            "stage4_project_code_backfill_state": (
+                "PUBLIC_SOURCE_IDENTIFIER_BACKFILLED_FOR_P13B_OR_STAGE4_BRIDGE_ONLY"
+            ),
+            "stage4_public_identifier_backfill_source": "YGP_PROJECT_CODE",
+            "p13b_ygp_original_readback_state": "YGP_READBACK_READY",
+            "blocking_bucket": "ygp_stage4_backfill_ready_review",
+        }
+
+        row = _merge_incremental_target_prior_public_source_evidence(current, prior)
+
+        self.assertEqual(row["stage5_operational_primary_track"], "strong_lead")
+        self.assertEqual(row["stage5_operational_review_bucket"], "STRONG_LEAD_INTERNAL_REVIEW")
+        self.assertEqual(row["limited_sellable_review_candidate_state"], "REVIEW_CANDIDATE")
+        self.assertEqual(
+            row["stage4_project_code_backfill_state"],
+            "PUBLIC_SOURCE_IDENTIFIER_BACKFILLED_FOR_P13B_OR_STAGE4_BRIDGE_ONLY",
+        )
+        self.assertEqual(row["stage4_public_identifier_backfill_source"], "YGP_PROJECT_CODE")
+        self.assertNotEqual(row.get("blocking_bucket"), "ygp_stage4_backfill_ready_review")
+
     def test_scoreboard_emits_continuation_input_refs_for_followup_runners(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)

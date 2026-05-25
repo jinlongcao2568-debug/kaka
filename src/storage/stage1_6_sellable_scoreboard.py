@@ -2545,17 +2545,7 @@ def _merge_incremental_target_prior_public_source_evidence(
     if current_backfill != "MISSING_PROJECT_CODE_BACKFILL_INPUT" or not _is_public_identifier_backfilled(prior_backfill):
         return row
     preserve_fields = [
-        "stage5_operational_review_bucket",
-        "stage5_operational_review_family",
-        "stage5_operational_review_families",
-        "stage5_operational_review_queues",
-        "stage5_operational_signal_flags",
-        "stage5_operational_review_reason",
-        "stage5_operational_next_action",
-        "stage5_operational_primary_track",
-        "stage5_operational_priority_bucket",
-        "stage5_operational_priority_rank",
-        "stage5_operational_safety_boundary",
+        *_prior_stage5_fields_to_preserve(row),
         "p13b_public_source_readback_state",
         "p13b_original_notice_backtrace_required_count",
         "p13b_company_query_state_counts",
@@ -2587,7 +2577,7 @@ def _merge_incremental_target_prior_public_source_evidence(
         "stage4_public_identifier_backfill_source",
         "stage4_gdcic_project_code_route_allowed",
         "stage4_gdcic_project_code_route_policy",
-        "blocking_bucket",
+        *_prior_blocking_fields_to_preserve(row),
     ]
     for field in preserve_fields:
         if field in prior:
@@ -2598,6 +2588,40 @@ def _merge_incremental_target_prior_public_source_evidence(
         "current_incremental_public_source_retry_missing_identifier_preserved_prior_backfill"
     )
     return row
+
+
+def _prior_stage5_fields_to_preserve(current: Mapping[str, Any]) -> list[str]:
+    if _has_current_limited_or_strong_lead_projection(current):
+        return []
+    return [
+        "stage5_operational_review_bucket",
+        "stage5_operational_review_family",
+        "stage5_operational_review_families",
+        "stage5_operational_review_queues",
+        "stage5_operational_signal_flags",
+        "stage5_operational_review_reason",
+        "stage5_operational_next_action",
+        "stage5_operational_primary_track",
+        "stage5_operational_priority_bucket",
+        "stage5_operational_priority_rank",
+        "stage5_operational_safety_boundary",
+    ]
+
+
+def _prior_blocking_fields_to_preserve(current: Mapping[str, Any]) -> list[str]:
+    if _has_current_limited_or_strong_lead_projection(current):
+        return []
+    return ["blocking_bucket"]
+
+
+def _has_current_limited_or_strong_lead_projection(current: Mapping[str, Any]) -> bool:
+    if str(current.get("limited_sellable_review_candidate_state") or "") == "REVIEW_CANDIDATE":
+        return True
+    if str(current.get("strong_lead_candidate_state") or "") == "STRONG_LEAD_REVIEW_CANDIDATE":
+        return True
+    if str(current.get("stage5_operational_primary_track") or "") == "strong_lead":
+        return True
+    return False
 
 
 def _is_public_identifier_backfilled(state: str) -> bool:
