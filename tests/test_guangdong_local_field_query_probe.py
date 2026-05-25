@@ -783,6 +783,72 @@ class GuangdongLocalFieldQueryProbeTests(unittest.TestCase):
             self.assertEqual(result["summary"]["adapter_result_state_counts"], {"MATCHED": 1})
             self.assertEqual(result["summary"]["readback_ready_count"], 1)
 
+    def test_ygp_backfill_synthesizes_detail_route_from_runtime_bridge_variants(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            plan_root = root / "release-plan"
+            task = _release_plan_task(
+                "REL-YGP-BACKFILL-RUNTIME-1",
+                "ygp_original_readback_backfill",
+                "D_INSUFFICIENT_OR_BLOCKED_READBACK",
+            )
+            task.update(
+                {
+                    "source_profile_id": "GUANGDONG-YGP-ORIGINAL-READBACK-BACKFILL",
+                    "source_entry_id": "RUNTIME-BLOCKER-YGP-STAGE4-BACKFILL",
+                    "local_housing_authority_adapter_region_code": "CN-GD-YGP",
+                    "release_evidence_query_region_code": "CN-GD-YGP",
+                    "gdcic_project_code_route_allowed": False,
+                    "query_params": {
+                        "projectId": "PROJ-CN-GD-JG2026-11111",
+                        "projectName": "YGP 运行阻断回灌候选",
+                        "projectCodeVariants": ["E4413000835979563001"],
+                        "gdcicProjectCodeVariants": [],
+                        "ygpProjectCodeVariants": ["E4413000835979563001"],
+                        "ygpBizCodeVariants": ["3C52"],
+                        "ygpSiteCodeVariants": ["441300"],
+                        "ygpNoticeIdVariants": ["notice-runtime-1"],
+                        "targetSourceTypes": ["ygp_original_readback_backfill"],
+                    },
+                }
+            )
+            _write_release_plan_payload(plan_root, [task])
+
+            def fake_getter(url: str, params: Mapping[str, Any]) -> Mapping[str, Any]:
+                self.assertIn("trading-notice/new/detail", url)
+                self.assertEqual(params["projectCode"], "E4413000835979563001")
+                self.assertEqual(params["bizCode"], "3C52")
+                self.assertEqual(params["siteCode"], "441300")
+                self.assertEqual(params["noticeId"], "notice-runtime-1")
+                return {
+                    "http_status": 200,
+                    "content_type": "application/json; charset=utf-8",
+                    "text_probe": "YGP 运行阻断回灌候选 E4413000835979563001 3C52 441300 notice-runtime-1",
+                }
+
+            result = build_guangdong_local_field_query_probe(
+                release_evidence_adapter_plan_root=plan_root,
+                output_root=root / "out",
+                source_profile_ids=["GUANGDONG-YGP-ORIGINAL-READBACK-BACKFILL"],
+                enable_live_public_query=True,
+                max_live_tasks=1,
+                http_getter=fake_getter,
+                created_at="2026-05-25T00:00:00+08:00",
+            )
+
+            field_task = result["manifest"]["field_task_records"][0]
+            self.assertEqual(field_task["field_query_probe_state"], "FIELD_READBACK_READY_PUBLIC_SOURCE")
+            self.assertEqual(field_task["adapter_result_state"], "MATCHED")
+            route = field_task["route_plan"][0]
+            self.assertEqual(route["route_id"], "ygp_original_readback_backfill_detail")
+            self.assertEqual(route["params"]["projectCode"], "E4413000835979563001")
+            self.assertFalse(field_task["query_params"]["gdcicProjectCodeRouteAllowed"])
+            self.assertEqual(field_task["query_params"]["gdcicProjectCodeVariants"], [])
+            self.assertTrue(field_task["field_match_summary"]["not_gdcic_project_code_route"])
+            self.assertFalse(field_task["customer_visible_allowed"])
+            self.assertTrue(field_task["field_match_summary"]["query_miss_is_not_clearance"])
+            self.assertEqual(result["summary"]["readback_ready_count"], 1)
+
     def test_p13b_release_evidence_live_readback_grades_enhancement(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)

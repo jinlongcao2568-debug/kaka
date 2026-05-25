@@ -66,12 +66,17 @@ class RuntimeBlockerFallbackSourcePlanTests(unittest.TestCase):
         bridge_record = bridge_plan["release_evidence_adapter_task_records"][0]
         self.assertEqual(bridge_record["input_source_kind"], "runtime_blocker_fallback_source_plan")
         self.assertEqual(bridge_record["project_id"], "PROJ-FALLBACK")
+        self.assertEqual(bridge_record["source_profile_id"], "GUANGDONG-YGP-ORIGINAL-READBACK-BACKFILL")
         self.assertEqual(bridge_record["release_evidence_target_type"], "ygp_original_readback_backfill")
         self.assertEqual(
             bridge_record["query_params"]["ygpProjectCodeVariants"],
             ["E4413000835979563001"],
         )
         self.assertEqual(bridge_record["query_params"]["gdcicProjectCodeVariants"], [])
+        self.assertEqual(
+            bridge_record["query_params"]["sourceProfileId"],
+            "GUANGDONG-YGP-ORIGINAL-READBACK-BACKFILL",
+        )
         self.assertFalse(bridge_record["gdcic_project_code_route_allowed"])
         self.assertTrue(bridge_record["must_not_extract_from_full_text_numbers"])
         self.assertFalse(bridge_record["customer_visible_allowed"])

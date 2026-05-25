@@ -57,6 +57,9 @@ DELEGATED_PROFILE_ADAPTERS = {
 }
 GUANGDONG_YGP_ORIGINAL_READBACK_BACKFILL_PROFILE_ID = "GUANGDONG-YGP-ORIGINAL-READBACK-BACKFILL"
 GUANGDONG_YGP_ORIGINAL_READBACK_BACKFILL_ADAPTER_ID = "guangdong_ygp_original_readback_backfill_adapter_v1"
+GUANGDONG_YGP_TRADING_NOTICE_DETAIL_API_URL = (
+    "https://ygp.gdzwfw.gov.cn/ggzy-portal/center/apis/trading-notice/new/detail"
+)
 
 GUANGZHOU_ZFCJ_PROFILE_ID = "GUANGZHOU-ZFCJ-CREDIT-DOUBLE-PUBLICITY"
 GUANGZHOU_ZFCJ_XYXX_API_URL = "https://zfcj.gz.gov.cn/ysqgk/Api/WebApi/xyxxzhlb.ashx"
@@ -1014,7 +1017,9 @@ def _route_plan_for_task(task: Mapping[str, Any], query_params: Mapping[str, Any
     primary_keyword = _first_text(keywords)
     encoded = urllib.parse.quote(primary_keyword)
     routes: list[dict[str, Any]] = []
-    if profile_id == GUANGZHOU_ZFCJ_PROFILE_ID:
+    if profile_id == GUANGDONG_YGP_ORIGINAL_READBACK_BACKFILL_PROFILE_ID:
+        routes.append(_ygp_original_readback_backfill_route(source_url, query_params, keywords))
+    elif profile_id == GUANGZHOU_ZFCJ_PROFILE_ID:
         company_keyword = str(query_params.get("companyName") or "").strip()
         project_keyword = _clean_project_title(query_params.get("projectName"))
         person_keyword = str(query_params.get("personName") or "").strip()
@@ -1867,6 +1872,46 @@ def _route(route_id: str, url: str, route_group: str, keywords: list[str]) -> di
         "url": url,
         "keyword_count": len(keywords),
         "query_keyword_probe": keywords[:5],
+    }
+
+
+def _ygp_original_readback_backfill_route(
+    source_url: str,
+    query_params: Mapping[str, Any],
+    keywords: list[str],
+) -> dict[str, Any]:
+    project_code = _first_text(
+        [
+            *_list(query_params.get("ygpProjectCodeVariants")),
+            *_list(query_params.get("projectCodeVariants")),
+            query_params.get("ygpProjectCode"),
+            query_params.get("projectCode"),
+        ]
+    )
+    params = {
+        "nodeId": _first_text([*_list(query_params.get("ygpNodeIdVariants")), query_params.get("ygpNodeId")]),
+        "version": str(query_params.get("ygpVersion") or query_params.get("version") or "v3"),
+        "tradingType": str(query_params.get("ygpTradingType") or query_params.get("tradingType") or ""),
+        "noticeId": _first_text([*_list(query_params.get("ygpNoticeIdVariants")), query_params.get("ygpNoticeId")]),
+        "bizCode": _first_text([*_list(query_params.get("ygpBizCodeVariants")), query_params.get("ygpBizCode")]),
+        "projectCode": project_code,
+        "siteCode": _first_text([*_list(query_params.get("ygpSiteCodeVariants")), query_params.get("ygpSiteCode")]),
+    }
+    url = (
+        source_url
+        if "ygp.gdzwfw.gov.cn" in str(source_url or "")
+        else GUANGDONG_YGP_TRADING_NOTICE_DETAIL_API_URL
+    )
+    return {
+        "route_id": "ygp_original_readback_backfill_detail",
+        "route_group": "ygp_original_readback_backfill",
+        "url": url,
+        "method": "GET",
+        "params": {key: value for key, value in params.items() if str(value or "").strip()},
+        "keyword_count": len(keywords),
+        "query_keyword_probe": keywords[:5],
+        "source_specific_adapter_id": GUANGDONG_YGP_ORIGINAL_READBACK_BACKFILL_ADAPTER_ID,
+        "gdcic_project_code_route_allowed": False,
     }
 
 
@@ -3294,6 +3339,10 @@ def _execute_ygp_original_readback_backfill_field_query(
     identifiers = _dedupe(
         [
             *_list(query_params.get("ygpProjectCodeVariants")),
+            *_list(query_params.get("ygpBizCodeVariants")),
+            *_list(query_params.get("ygpSiteCodeVariants")),
+            *_list(query_params.get("ygpNoticeIdVariants")),
+            *_list(query_params.get("ygpNodeIdVariants")),
             query_params.get("ygpBizCode"),
             query_params.get("ygpSiteCode"),
             query_params.get("ygpNoticeId"),
@@ -3316,10 +3365,10 @@ def _execute_ygp_original_readback_backfill_field_query(
                     "source_text_sha256": attempt["text_probe_sha256"],
                     "record_type": "ygp_original_notice_readback",
                     "ygp_project_code_variants": _list(query_params.get("ygpProjectCodeVariants")),
-                    "ygp_biz_code": str(query_params.get("ygpBizCode") or ""),
-                    "ygp_site_code": str(query_params.get("ygpSiteCode") or ""),
-                    "ygp_notice_id": str(query_params.get("ygpNoticeId") or ""),
-                    "ygp_node_id": str(query_params.get("ygpNodeId") or ""),
+                    "ygp_biz_code": _first_text([*_list(query_params.get("ygpBizCodeVariants")), query_params.get("ygpBizCode")]),
+                    "ygp_site_code": _first_text([*_list(query_params.get("ygpSiteCodeVariants")), query_params.get("ygpSiteCode")]),
+                    "ygp_notice_id": _first_text([*_list(query_params.get("ygpNoticeIdVariants")), query_params.get("ygpNoticeId")]),
+                    "ygp_node_id": _first_text([*_list(query_params.get("ygpNodeIdVariants")), query_params.get("ygpNodeId")]),
                 }
             )
     blockers = _dedupe(blocker for attempt in attempts for blocker in _list(attempt.get("blocker_taxonomy")))

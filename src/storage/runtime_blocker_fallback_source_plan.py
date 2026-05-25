@@ -798,7 +798,7 @@ def _stage4_release_adapter_bridge_records(
                 "no_fallback_to_guangdong_or_guangzhou": True,
                 "source_entry_id": "RUNTIME-BLOCKER-YGP-STAGE4-BACKFILL",
                 "subsource_id": "runtime_blocker_fallback_source_plan",
-                "source_profile_id": "GUANGDONG-YGP-RUNTIME-FALLBACK-BACKFILL",
+                "source_profile_id": "GUANGDONG-YGP-ORIGINAL-READBACK-BACKFILL",
                 "source_name": "运行阻断队列 YGP 原文回读回灌线索",
                 "source_family": "public_original_notice_readback_backfill",
                 "source_url": source_url,
@@ -818,7 +818,7 @@ def _stage4_release_adapter_bridge_records(
                     "ygpSiteCodeVariants": ygp_site_codes,
                     "ygpNoticeIdVariants": ygp_notice_ids,
                     "candidateCompanyName": _first_text(record.get("candidate_companies")),
-                    "sourceProfileId": "GUANGDONG-YGP-RUNTIME-FALLBACK-BACKFILL",
+                    "sourceProfileId": "GUANGDONG-YGP-ORIGINAL-READBACK-BACKFILL",
                     "targetSourceTypes": ["ygp_original_readback_backfill"],
                     "triggerSourceUrl": source_url,
                     "keywords": _dedupe(
