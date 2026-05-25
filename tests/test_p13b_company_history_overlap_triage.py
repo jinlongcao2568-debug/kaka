@@ -434,6 +434,91 @@ class P13BCompanyHistoryOverlapTriageTests(unittest.TestCase):
         )
         self.assertFalse(local_authority_task["customer_visible_allowed"])
 
+    def test_stage4_followup_queue_alternate_sources_expand_local_authority_tasks(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            queue_json = root / "followup" / "stage4-backfill-followup-queue-v1.json"
+            _write_json(
+                queue_json,
+                {
+                    "records": [
+                        {
+                            "followup_record_id": "FOLLOWUP-ALTERNATES",
+                            "project_id": "PROJ-CN-GD-JG2026-QUEUE-ALT",
+                            "project_name": "广州备用入口队列项目中标候选人公示",
+                            "followup_route": "local_authority_not_found_specific_endpoint_or_manual_source",
+                            "followup_queue_state": "FOLLOWUP_SOURCE_PLAN_REQUIRED",
+                            "candidate_companies": ["广东甲公司"],
+                            "responsible_person_names": ["张三"],
+                            "candidate_notice_source_urls": ["https://ywtb.gzggzy.cn/jyfw/alt.html"],
+                            "project_source_urls": ["https://ywtb.gzggzy.cn/jyfw/alt.html"],
+                            "local_authority_readback_context": {
+                                "local_authority_region_code": "CN-GD-GZ",
+                                "local_authority_readback_state": "NOT_FOUND",
+                                "query_miss_is_not_clearance": True,
+                                "customer_visible_allowed": False,
+                                "no_legal_conclusion": True,
+                            },
+                            "alternate_local_authority_source_candidates": [
+                                {
+                                    "candidate_source_id": "gz_zfcj_construction_permit_public_api",
+                                    "source_name": "广州市住房和城乡建设局 / 建筑工程施工许可证公示信息",
+                                    "source_url": "https://zfcj.gz.gov.cn/zfcj/gczlaq/constructionPermitInformation/",
+                                    "api_url": "https://zfcj.gz.gov.cn/ysqgk/Api/WebApi/sgxkxxlb.ashx",
+                                    "recommended_query_mode": "specific_project_or_company_keyword_search",
+                                },
+                                {
+                                    "candidate_source_id": "gz_zfcj_completion_acceptance_public_api",
+                                    "source_name": "广州市住房和城乡建设局 / 工程竣工验收信息",
+                                    "source_url": "https://zfcj.gz.gov.cn/zfcj/gczlaq/completionAcceptance/",
+                                    "api_url": "https://zfcj.gz.gov.cn/ysqgk/Api/WebApi/gcjgysxxlb.ashx",
+                                    "recommended_query_mode": "specific_project_or_company_keyword_search",
+                                },
+                                {
+                                    "candidate_source_id": "gz_zfcj_credit_double_publicity",
+                                    "source_name": "广州市住房和城乡建设局 / 信用信息双公示",
+                                    "source_url": "https://zfcj.gz.gov.cn/zfcj/xyxx/",
+                                    "api_url": "",
+                                    "recommended_query_mode": "specific_search_endpoint_or_manual_source_path",
+                                },
+                            ],
+                            "customer_visible_allowed": False,
+                            "query_miss_is_not_clearance": True,
+                            "no_legal_conclusion": True,
+                        }
+                    ]
+                },
+            )
+
+            result = build_p13b_company_history_overlap_triage(
+                stage4_backfill_followup_queue_json=queue_json,
+                output_root=root / "out",
+                created_at="2026-05-25T00:00:00+08:00",
+            )
+
+        summary = result["summary"]
+        self.assertEqual(summary["local_authority_source_task_count"], 3)
+        self.assertEqual(summary["local_authority_source_readback_count"], 3)
+        tasks = result["manifest"]["local_authority_source_task_records"]
+        self.assertEqual(
+            {task["alternate_source_candidate_id"] for task in tasks},
+            {
+                "gz_zfcj_construction_permit_public_api",
+                "gz_zfcj_completion_acceptance_public_api",
+                "gz_zfcj_credit_double_publicity",
+            },
+        )
+        for task in tasks:
+            self.assertEqual(task["local_authority_region_code"], "CN-GD-GZ")
+            self.assertEqual(task["local_authority_region_basis"], "stage4_followup_alternate_candidate")
+            self.assertEqual(task["local_authority_readback_state"], "PLAN_ONLY_NOT_EXECUTED")
+            self.assertFalse(task["customer_visible_allowed"])
+            self.assertTrue(task["query_miss_is_not_clearance"])
+            self.assertIn("source_url", task)
+            self.assertIn("api_url", task)
+        readbacks = result["manifest"]["local_authority_source_readback_records"]
+        self.assertEqual({record["local_authority_readback_state"] for record in readbacks}, {"PLAN_ONLY_NOT_EXECUTED"})
+
     def test_stage4_followup_queue_live_local_authority_readback_emits_match_without_customer_claim(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)

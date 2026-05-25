@@ -642,6 +642,8 @@ def _stage4_followup_queue_project_task_records(
                 "stage4_followup_recommended_next_action": str(record.get("recommended_next_action") or ""),
                 "stage4_followup_context_source": str(record.get("context_source") or ""),
                 "stage4_public_source_fallback_sequence": _list(record.get("public_source_fallback_sequence")),
+                "local_authority_readback_context": {},
+                "alternate_local_authority_source_candidates": [],
                 "stage4_gdcic_project_code_route_allowed": False,
                 "stage4_gdcic_project_code_route_policy": "PUBLIC_SOURCE_IDENTIFIER_NOT_SENT_TO_GDCIC_UNLESS_EXPLICIT_PROVINCIAL_CODE",
                 "customer_visible_allowed": False,
@@ -657,6 +659,17 @@ def _stage4_followup_queue_project_task_records(
         project["responsible_person_names"] = _dedupe([*project["responsible_person_names"], *people])
         project["candidate_notice_source_urls"] = _dedupe([*project["candidate_notice_source_urls"], *urls])
         project["project_source_urls"] = _dedupe([*project["project_source_urls"], *urls])
+        if isinstance(record.get("local_authority_readback_context"), Mapping):
+            project["local_authority_readback_context"] = {
+                **dict(project.get("local_authority_readback_context") or {}),
+                **dict(record.get("local_authority_readback_context") or {}),
+            }
+        project["alternate_local_authority_source_candidates"] = _dedupe_local_authority_alternate_candidates(
+            [
+                *_list(project.get("alternate_local_authority_source_candidates")),
+                *_list(record.get("alternate_local_authority_source_candidates")),
+            ]
+        )
         project["candidate_group_count"] = len(project["candidate_companies"])
     return list(grouped.values())
 
@@ -789,56 +802,124 @@ def _local_authority_source_task_records(
         project_id = str(project.get("project_id") or "").strip()
         if not project_id:
             continue
-        region_code = _infer_local_authority_region_code(project)
-        jurisdiction_adapter = resolve_release_evidence_local_housing_adapter(region_code) if region_code else {}
-        rows.append(
-            {
-                "local_authority_source_task_id": _stable_id(
-                    "P13B-LOCAL-AUTHORITY-SOURCE",
-                    project_id,
-                    region_code,
-                    project.get("stage4_followup_route"),
-                ),
-                "project_id": project_id,
-                "project_name": str(project.get("project_name") or ""),
-                "stage4_followup_route": str(project.get("stage4_followup_route") or ""),
-                "stage4_followup_queue_state": str(project.get("stage4_followup_queue_state") or ""),
-                "stage4_followup_execution_priority": str(project.get("stage4_followup_execution_priority") or ""),
-                "stage4_followup_required_input": _list(project.get("stage4_followup_required_input")),
-                "stage4_followup_recommended_next_action": str(
-                    project.get("stage4_followup_recommended_next_action") or ""
-                ),
-                "stage4_followup_context_source": str(project.get("stage4_followup_context_source") or ""),
-                "candidate_companies": _list(project.get("candidate_companies")),
-                "responsible_person_names": _list(project.get("responsible_person_names")),
-                "candidate_notice_source_urls": _list(project.get("candidate_notice_source_urls")),
-                "project_source_urls": _list(project.get("project_source_urls")),
-                "source_task_state": "LOCAL_AUTHORITY_SOURCE_PLAN_READY",
-                "local_authority_readback_state": "PLAN_ONLY_NOT_EXECUTED",
-                "local_authority_region_code": region_code,
-                "local_authority_region_basis": _local_authority_region_basis(project),
-                "local_authority_source_role": "historical_project_location_housing_or_supervisory_authority",
-                "jurisdiction_local_housing_adapter": jurisdiction_adapter,
-                "jurisdiction_adapter_resolution_state": str(
-                    jurisdiction_adapter.get("adapter_resolution_state") or "UNRESOLVED"
-                ),
-                "source_entry_id": str(jurisdiction_adapter.get("entry_id") or ""),
-                "source_profile_id": str(jurisdiction_adapter.get("source_profile_id") or ""),
-                "source_name": str(jurisdiction_adapter.get("source_name") or ""),
-                "source_url": str(jurisdiction_adapter.get("source_url") or ""),
-                "official_reference_url": str(jurisdiction_adapter.get("official_reference_url") or ""),
-                "no_fallback_to_guangdong_or_guangzhou": bool(
-                    jurisdiction_adapter.get("no_fallback_to_guangdong_or_guangzhou")
-                ),
-                "allowed_readback_states": ["MATCHED", "NOT_FOUND", "BLOCKED", "NEEDS_BROWSER"],
-                "recommended_next_action": "run_project_local_authority_adapter_or_keep_plan_only_without_clearance_claim",
-                "query_miss_is_not_clearance": True,
-                "customer_visible_allowed": False,
-                "no_legal_conclusion": True,
-                "created_at": created_at,
-            }
+        alternates = _dedupe_local_authority_alternate_candidates(
+            _list(project.get("alternate_local_authority_source_candidates"))
         )
+        if alternates:
+            for alternate in alternates:
+                rows.append(_local_authority_source_task_record(project, created_at=created_at, alternate=alternate))
+            continue
+        rows.append(_local_authority_source_task_record(project, created_at=created_at))
     return rows
+
+
+def _local_authority_source_task_record(
+    project: Mapping[str, Any],
+    *,
+    created_at: str,
+    alternate: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    project_id = str(project.get("project_id") or "").strip()
+    readback_context = project.get("local_authority_readback_context")
+    if not isinstance(readback_context, Mapping):
+        readback_context = {}
+    alternate_source_id = str((alternate or {}).get("candidate_source_id") or "").strip()
+    alternate_region_code = str((alternate or {}).get("local_authority_region_code") or "").strip()
+    context_region_code = str(readback_context.get("local_authority_region_code") or "").strip()
+    region_code = alternate_region_code or context_region_code or _infer_local_authority_region_code(project)
+    jurisdiction_adapter = resolve_release_evidence_local_housing_adapter(region_code) if region_code else {}
+    source_url = str((alternate or {}).get("source_url") or jurisdiction_adapter.get("source_url") or "").strip()
+    api_url = str((alternate or {}).get("api_url") or "").strip()
+    source_name = str((alternate or {}).get("source_name") or jurisdiction_adapter.get("source_name") or "").strip()
+    source_profile_id = str(
+        (alternate or {}).get("source_profile_id")
+        or jurisdiction_adapter.get("source_profile_id")
+        or alternate_source_id
+        or ""
+    )
+    return {
+        "local_authority_source_task_id": _stable_id(
+            "P13B-LOCAL-AUTHORITY-SOURCE",
+            project_id,
+            region_code,
+            project.get("stage4_followup_route"),
+            alternate_source_id,
+            source_url,
+            api_url,
+        ),
+        "project_id": project_id,
+        "project_name": str(project.get("project_name") or ""),
+        "stage4_followup_route": str(project.get("stage4_followup_route") or ""),
+        "stage4_followup_queue_state": str(project.get("stage4_followup_queue_state") or ""),
+        "stage4_followup_execution_priority": str(project.get("stage4_followup_execution_priority") or ""),
+        "stage4_followup_required_input": _list(project.get("stage4_followup_required_input")),
+        "stage4_followup_recommended_next_action": str(project.get("stage4_followup_recommended_next_action") or ""),
+        "stage4_followup_context_source": str(project.get("stage4_followup_context_source") or ""),
+        "candidate_companies": _list(project.get("candidate_companies")),
+        "responsible_person_names": _list(project.get("responsible_person_names")),
+        "candidate_notice_source_urls": _list(project.get("candidate_notice_source_urls")),
+        "project_source_urls": _list(project.get("project_source_urls")),
+        "source_task_state": "LOCAL_AUTHORITY_SOURCE_PLAN_READY",
+        "local_authority_readback_state": "PLAN_ONLY_NOT_EXECUTED",
+        "local_authority_region_code": region_code,
+        "local_authority_region_basis": (
+            "stage4_followup_alternate_candidate"
+            if alternate_source_id
+            else _local_authority_region_basis(project)
+        ),
+        "local_authority_readback_context": dict(readback_context),
+        "local_authority_source_role": "historical_project_location_housing_or_supervisory_authority",
+        "alternate_source_candidate_id": alternate_source_id,
+        "alternate_source_candidate": dict(alternate or {}),
+        "recommended_query_mode": str((alternate or {}).get("recommended_query_mode") or ""),
+        "jurisdiction_local_housing_adapter": jurisdiction_adapter,
+        "jurisdiction_adapter_resolution_state": str(
+            jurisdiction_adapter.get("adapter_resolution_state") or ("ALTERNATE_CANDIDATE_PROVIDED" if alternate_source_id else "UNRESOLVED")
+        ),
+        "source_entry_id": str(jurisdiction_adapter.get("entry_id") or ""),
+        "source_profile_id": source_profile_id,
+        "source_name": source_name,
+        "source_url": source_url,
+        "api_url": api_url,
+        "official_reference_url": str(jurisdiction_adapter.get("official_reference_url") or ""),
+        "no_fallback_to_guangdong_or_guangzhou": bool(
+            jurisdiction_adapter.get("no_fallback_to_guangdong_or_guangzhou")
+        ),
+        "allowed_readback_states": ["MATCHED", "NOT_FOUND", "BLOCKED", "NEEDS_BROWSER"],
+        "recommended_next_action": str(
+            (alternate or {}).get("recommended_query_mode")
+            or "run_project_local_authority_adapter_or_keep_plan_only_without_clearance_claim"
+        ),
+        "query_miss_is_not_clearance": True,
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+        "created_at": created_at,
+    }
+
+
+def _dedupe_local_authority_alternate_candidates(values: Iterable[Any]) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for value in values:
+        if not isinstance(value, Mapping):
+            continue
+        row = dict(value)
+        key = "|".join(
+            [
+                str(row.get("candidate_source_id") or "").strip(),
+                str(row.get("source_url") or "").strip(),
+                str(row.get("api_url") or "").strip(),
+                str(row.get("recommended_query_mode") or "").strip(),
+            ]
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        row["customer_visible_allowed"] = False
+        row["query_miss_is_not_clearance"] = True
+        row["no_legal_conclusion"] = True
+        out.append(row)
+    return out
 
 
 def _execute_local_authority_source_tasks(
