@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import http.client
 import html
 import json
 import re
@@ -459,7 +460,17 @@ def _fetch_url(
     task: Mapping[str, Any],
     no_redirect: bool = False,
 ) -> dict[str, Any]:
-    response = dict(getter(url, {"route": route, "task": dict(task), "no_redirect": no_redirect}))
+    try:
+        response = dict(getter(url, {"route": route, "task": dict(task), "no_redirect": no_redirect}))
+    except (TimeoutError, OSError, urllib.error.URLError, http.client.HTTPException) as exc:
+        response = {
+            "status_code": 0,
+            "content_type": "",
+            "headers": {},
+            "body": "",
+            "url": url,
+            "error": f"{type(exc).__name__}:{exc}",
+        }
     status_code = int(response.get("status_code") or response.get("status") or 0)
     body = str(response.get("body") or response.get("content") or response.get("text") or "")
     headers = response.get("headers") if isinstance(response.get("headers"), Mapping) else {}
@@ -1296,6 +1307,11 @@ def _summary(
             1
             for record in readback_records
             if str(record.get("ygp_extraction_state") or "") == "YGP_ORIGINAL_NOTICE_PERSON_PERIOD_EXTRACTED"
+        ),
+        "ygp_blocked_count": sum(
+            1
+            for record in readback_records
+            if str(record.get("ygp_readback_state") or "") == "YGP_ORIGINAL_URL_BLOCKED"
         ),
         "ygp_readback_state_counts": _counts(record.get("ygp_readback_state") for record in readback_records),
         "ygp_api_discovery_state_counts": _counts(record.get("ygp_api_discovery_state") for record in readback_records),

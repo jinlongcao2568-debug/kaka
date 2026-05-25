@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import http.client
 import json
 import sys
 import tempfile
@@ -203,6 +204,26 @@ class P13BYgpOriginalReadbackTests(unittest.TestCase):
             record = result["manifest"]["ygp_original_readback_records"][0]
             self.assertEqual(record["ygp_readback_state"], "YGP_BROWSER_NETWORK_READBACK_READY")
             self.assertEqual(record["extracted_responsible_person_names"], ["李四"])
+
+    def test_transport_disconnect_is_taxonomized_without_crashing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_original_backtrace_input(root)
+
+            result = build_p13b_ygp_original_readback(
+                input_root=root,
+                output_root=root / "ygp",
+                enable_live_public_query=True,
+                max_live_original_notices=1,
+                http_getter=_disconnecting_ygp_http_getter,
+                created_at="2026-05-15T00:00:00+08:00",
+            )
+
+            self.assertTrue(result["safe_to_execute"])
+            self.assertEqual(result["summary"]["ygp_blocked_count"], 1)
+            record = result["manifest"]["ygp_original_readback_records"][0]
+            self.assertEqual(record["ygp_readback_state"], "YGP_ORIGINAL_URL_BLOCKED")
+            self.assertIn("ygp_original_transport_error_retry_required", record["blocker_taxonomy"])
 
     def test_p13b_original_notice_backtrace_consumes_ygp_readback(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -491,6 +512,10 @@ def _fake_browser_readback_getter(url: str, context: Mapping[str, Any]) -> Mappi
         ),
         "url": "https://ygp.gdzwfw.gov.cn/ggzy-portal/center/apis/browser/detail",
     }
+
+
+def _disconnecting_ygp_http_getter(url: str, context: Mapping[str, Any]) -> Mapping[str, Any]:
+    raise http.client.RemoteDisconnected("remote end closed connection without response")
 
 
 def _fake_spa_shell_original_getter(url: str, context: Mapping[str, Any]) -> Mapping[str, Any]:
