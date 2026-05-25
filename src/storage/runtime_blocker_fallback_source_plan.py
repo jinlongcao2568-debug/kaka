@@ -199,6 +199,7 @@ def _field_context(manifest: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
                 ]
             ),
             "context_source": "release_field_query_field_task_records",
+            "stage4_official_readback_context": _stage4_official_readback_context_from_field_task(task),
         }
         if task_id:
             by_key[task_id] = context
@@ -260,11 +261,11 @@ def _merge_context(left: Mapping[str, Any], right: Mapping[str, Any]) -> dict[st
         "project_source_urls": _dedupe([*_list(left.get("project_source_urls")), *_list(right.get("project_source_urls"))]),
         "context_source": str(left.get("context_source") or right.get("context_source") or "release_field_query_field_task_records"),
         "followup_route": str(left.get("followup_route") or right.get("followup_route") or ""),
-        "stage4_official_readback_context": _first_mapping(
+        "stage4_official_readback_context": _merge_mapping(
             left.get("stage4_official_readback_context"),
             right.get("stage4_official_readback_context"),
         ),
-        "local_authority_readback_context": _first_mapping(
+        "local_authority_readback_context": _merge_mapping(
             left.get("local_authority_readback_context"),
             right.get("local_authority_readback_context"),
         ),
@@ -277,6 +278,33 @@ def _merge_context(left: Mapping[str, Any], right: Mapping[str, Any]) -> dict[st
             *_list(right.get("public_source_fallback_sequence")),
         ],
         "required_input": _dedupe([*_list(left.get("required_input")), *_list(right.get("required_input"))]),
+    }
+
+
+def _stage4_official_readback_context_from_field_task(task: Mapping[str, Any]) -> Mapping[str, Any]:
+    params = _mapping(task.get("query_params"))
+    ygp_project_codes = _dedupe(
+        [
+            *_list(params.get("ygpProjectCodeVariants")),
+            *_list(params.get("ygp_project_code_variants")),
+        ]
+    )
+    ygp_biz_codes = _dedupe([*_list(params.get("ygpBizCodeVariants")), *_list(params.get("ygp_biz_code_variants"))])
+    ygp_site_codes = _dedupe([*_list(params.get("ygpSiteCodeVariants")), *_list(params.get("ygp_site_code_variants"))])
+    ygp_notice_ids = _dedupe([*_list(params.get("ygpNoticeIdVariants")), *_list(params.get("ygp_notice_id_variants"))])
+    if not any([ygp_project_codes, ygp_biz_codes, ygp_site_codes, ygp_notice_ids]):
+        return {}
+    return {
+        "stage4_official_readback_context_state": "OFFICIAL_READBACK_READY_STAGE4_BRIDGE_FOLLOWUP_REQUIRED",
+        "project_id": str(task.get("project_id") or params.get("projectId") or ""),
+        "project_name": str(task.get("project_name") or params.get("projectName") or ""),
+        "ygp_project_code_variants": ygp_project_codes,
+        "ygp_biz_code_variants": ygp_biz_codes,
+        "ygp_site_code_variants": ygp_site_codes,
+        "ygp_notice_id_variants": ygp_notice_ids,
+        "gdcic_project_code_route_allowed": False,
+        "gdcic_project_code_route_policy": "PUBLIC_SOURCE_IDENTIFIER_NOT_SENT_TO_GDCIC_UNLESS_EXPLICIT_PROVINCIAL_CODE",
+        "must_not_extract_from_full_text_numbers": True,
     }
 
 
@@ -552,6 +580,13 @@ def _first_mapping(*values: Any) -> Mapping[str, Any]:
         if mapped:
             return mapped
     return {}
+
+
+def _merge_mapping(*values: Any) -> Mapping[str, Any]:
+    out: dict[str, Any] = {}
+    for value in values:
+        out.update(dict(_mapping(value)))
+    return out
 
 
 def _mapping(value: Any) -> Mapping[str, Any]:

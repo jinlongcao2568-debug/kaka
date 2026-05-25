@@ -95,6 +95,35 @@ class RuntimeBlockerFallbackSourcePlanTests(unittest.TestCase):
         self.assertTrue(json_exists)
         self.assertTrue(markdown_exists)
 
+    def test_field_query_ygp_identifiers_seed_stage4_official_backfill_context(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            field_query = root / "field-query.json"
+            cycle = root / "cycle.json"
+            stage4_queue = root / "stage4-followup-queue.json"
+            out = root / "out"
+            _write_field_query(field_query)
+            _write_stage4_queue_without_official_context(stage4_queue)
+            _write_cycle(cycle, field_query, root / "missing-scoreboard.json", stage4_queue)
+
+            result = build_runtime_blocker_fallback_source_plan(
+                stage6_review_cycle_json=cycle,
+                output_root=out,
+                created_at="2026-05-25T00:00:00+08:00",
+            )
+
+        context = result["records"][0]["stage4_official_readback_context"]
+        self.assertEqual(
+            context["stage4_official_readback_context_state"],
+            "OFFICIAL_READBACK_READY_STAGE4_BRIDGE_FOLLOWUP_REQUIRED",
+        )
+        self.assertEqual(context["ygp_project_code_variants"], ["E4413000835979563001"])
+        self.assertEqual(context["ygp_biz_code_variants"], ["3C52"])
+        self.assertEqual(context["ygp_site_code_variants"], ["441300"])
+        self.assertEqual(context["ygp_notice_id_variants"], ["7fcdf98f7cd04bc5b2a0167b4f1c5733"])
+        self.assertFalse(context["gdcic_project_code_route_allowed"])
+        self.assertTrue(context["must_not_extract_from_full_text_numbers"])
+
 
 def _write_cycle(path: Path, field_query: Path, scoreboard: Path, stage4_queue: Path) -> None:
     _write_json(
@@ -162,6 +191,22 @@ def _write_stage4_queue(path: Path) -> None:
     )
 
 
+def _write_stage4_queue_without_official_context(path: Path) -> None:
+    _write_json(
+        path,
+        {
+            "records": [
+                {
+                    "followup_record_id": "STAGE4-BACKFILL-FOLLOWUP-1",
+                    "project_id": "PROJ-FALLBACK",
+                    "followup_route": "official_readback_ready_stage4_bridge_followup",
+                    "required_input": ["p13b_ygp_or_public_identifier_backfill_task"],
+                }
+            ]
+        },
+    )
+
+
 def _write_field_query(path: Path) -> None:
     _write_json(
         path,
@@ -178,6 +223,13 @@ def _write_field_query(path: Path) -> None:
                         "responsible_person_name": "张三",
                         "trigger_source_url": "https://ywtb.gzggzy.cn/sample.html",
                         "source_url": "https://zfcj.gz.gov.cn/sample",
+                        "query_params": {
+                            "ygpProjectCodeVariants": ["E4413000835979563001"],
+                            "ygpBizCodeVariants": ["3C52"],
+                            "ygpSiteCodeVariants": ["441300"],
+                            "ygpNoticeIdVariants": ["7fcdf98f7cd04bc5b2a0167b4f1c5733"],
+                            "gdcicProjectCodeVariants": [],
+                        },
                     }
                 ]
             }
