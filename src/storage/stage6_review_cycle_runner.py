@@ -433,6 +433,8 @@ def run_stage6_review_cycle_runner(
     stage6_review_loop_status_root: str | Path | None = None,
     release_field_query_json: str | Path | None = None,
     release_field_query_root: str | Path | None = None,
+    supplemental_release_field_query_json: str | Path | None = None,
+    supplemental_release_field_query_root: str | Path | None = None,
     release_evidence_adapter_plan_json: str | Path | None = None,
     release_evidence_adapter_plan_root: str | Path | None = None,
     gdcic_browser_readback_json: str | Path | None = None,
@@ -505,6 +507,10 @@ def run_stage6_review_cycle_runner(
     stage6_review_loop_path = candidate_by_kind.get("STAGE6_REVIEW_LOOP_JSON", {}).get("source_path")
     stage6_review_loop_status_path = candidate_by_kind.get("STAGE6_REVIEW_LOOP_STATUS_JSON", {}).get("source_path")
     release_field_query_path = candidate_by_kind.get("RELEASE_FIELD_QUERY_JSON", {}).get("source_path")
+    supplemental_release_field_query_path = _release_field_query_path(
+        release_field_query_json=supplemental_release_field_query_json,
+        release_field_query_root=supplemental_release_field_query_root,
+    )
     release_evidence_adapter_plan_path = candidate_by_kind.get("RELEASE_EVIDENCE_ADAPTER_PLAN_JSON", {}).get("source_path")
     gdcic_browser_readback_path = candidate_by_kind.get("GDCIC_BROWSER_READBACK_JSON", {}).get("source_path")
     derived_release_field_query_path = _derive_release_field_query_from_gdcic_readback(
@@ -542,6 +548,7 @@ def run_stage6_review_cycle_runner(
         candidates=bootstrap_candidates,
         stage6_loop_output_root=out_dir / "0-stage6-loop-bootstrap",
         derived_output_path=derived_next_subqueue_path,
+        supplemental_release_field_query_path=supplemental_release_field_query_path,
     )
     standalone_runtime_blocker_queue_only = _standalone_runtime_blocker_queue_only_mode(
         stage6_result=stage6_result,
@@ -666,6 +673,7 @@ def run_stage6_review_cycle_runner(
         source_gdcic_browser_readback_path=gdcic_browser_readback_path,
         source_design_survey_public_registry_readback_path=design_survey_public_registry_readback_path,
         source_stage1_6_scoreboard_path=Path(stage1_6_scoreboard_json) if stage1_6_scoreboard_json else None,
+        source_supplemental_release_field_query_path=supplemental_release_field_query_path,
     )
     stage5_calibration_summary = _stage5_calibration_projection_summary(
         operator_projection_status_table.get("records")
@@ -704,6 +712,7 @@ def run_stage6_review_cycle_runner(
         "stage6_review_cycle_bootstrap_handler_registry": _bootstrap_source_handler_registry_rows(),
         "stage6_review_cycle_bootstrap_resolution_trace": bootstrap_resolution_trace,
         "source_release_field_query_json": str(release_field_query_path or ""),
+        "source_supplemental_release_field_query_json": str(supplemental_release_field_query_path or ""),
         "source_release_evidence_adapter_plan_json": str(release_evidence_adapter_plan_path or ""),
         "source_gdcic_browser_readback_json": str(gdcic_browser_readback_path or ""),
         "derived_release_field_query_from_gdcic_browser_readback_json": str(derived_release_field_query_path or ""),
@@ -948,6 +957,7 @@ def _operator_projection_status_table(
     source_stage1_6_scoreboard_path: Path | None = None,
     output_root: Path = DEFAULT_OUTPUT_ROOT,
     source_release_field_query_path: Path | None = None,
+    source_supplemental_release_field_query_path: Path | None = None,
     source_runtime_blocker_next_subqueue_path: Path | None = None,
 ) -> dict[str, Any]:
     followup_records = [
@@ -1029,6 +1039,7 @@ def _operator_projection_status_table(
     continuation_input_refs = build_stage6_review_cycle_continuation_input_refs(
         output_root=output_root,
         release_field_query_json=source_release_field_query_path,
+        supplemental_release_field_query_json=source_supplemental_release_field_query_path,
         runtime_blocker_next_subqueue_json=source_runtime_blocker_next_subqueue_path,
         stage6_review_loop_status_json=source_stage6_review_loop_status_path,
         gdcic_browser_readback_json=source_gdcic_browser_readback_path,
@@ -1738,8 +1749,11 @@ def _merge_projection_records(
         if project_id and project_id in by_project_id:
             existing = by_project_id[project_id]
             for key, value in record.items():
-                if key not in existing or (
-                    _is_empty_projection_value(existing.get(key)) and not _is_empty_projection_value(value)
+                if _should_merge_projection_value(
+                    key=key,
+                    existing_value=existing.get(key) if key in existing else None,
+                    supplemental_value=value,
+                    key_exists=key in existing,
                 ):
                     existing[key] = value
             continue
@@ -1747,6 +1761,30 @@ def _merge_projection_records(
         if project_id:
             by_project_id[project_id] = out[-1]
     return out
+
+
+def _should_merge_projection_value(
+    *,
+    key: str,
+    existing_value: Any,
+    supplemental_value: Any,
+    key_exists: bool,
+) -> bool:
+    if not key_exists:
+        return True
+    if _is_empty_projection_value(existing_value) and not _is_empty_projection_value(supplemental_value):
+        return True
+    if (
+        key.endswith("_count")
+        and isinstance(existing_value, int)
+        and not isinstance(existing_value, bool)
+        and existing_value == 0
+        and isinstance(supplemental_value, int)
+        and not isinstance(supplemental_value, bool)
+        and supplemental_value > 0
+    ):
+        return True
+    return False
 
 
 def _is_empty_projection_value(value: Any) -> bool:
@@ -2460,6 +2498,7 @@ def _resolve_loop_bootstrap_candidate(
     source_path: Path,
     stage6_loop_output_root: Path,
     derived_output_path: Path,
+    supplemental_release_field_query_path: Path | None = None,
 ) -> tuple[dict[str, Any], str, str, Path | None, Path | None, str]:
     source_kind = str(candidate.get("source_kind") or "")
     missing_reason = str(candidate.get("missing_reason") or "")
@@ -2483,6 +2522,12 @@ def _resolve_loop_bootstrap_candidate(
         "auto_discover_latest_batch_closeout": False,
         loop_runner_arg: source_path,
     }
+    if (
+        source_kind == "RELEASE_FIELD_QUERY_JSON"
+        and supplemental_release_field_query_path is not None
+        and supplemental_release_field_query_path.exists()
+    ):
+        loop_kwargs["supplemental_release_field_query_json"] = supplemental_release_field_query_path
     loop_result = run_stage6_review_loop_runner(**loop_kwargs)
     status_path = stage6_loop_output_root / "stage6-review-loop-project-status-table.json"
     if not loop_result.get("safe_to_execute") or not status_path.exists():
@@ -2711,6 +2756,7 @@ def _resolve_runtime_blocker_next_subqueue_input(
     candidates: list[Mapping[str, Any]],
     stage6_loop_output_root: Path,
     derived_output_path: Path,
+    supplemental_release_field_query_path: Path | None = None,
 ) -> tuple[dict[str, Any], str, str, Path | None, Path | None, str]:
     dispatch_map = _bootstrap_handler_dispatch_map()
     for candidate in candidates:
@@ -2722,6 +2768,14 @@ def _resolve_runtime_blocker_next_subqueue_input(
         handler = dispatch_map.get(handler_kind)
         if handler is None:
             continue
+        if handler_kind == "loop_runner_bootstrap":
+            return handler(
+                candidate=candidate,
+                source_path=Path(source_path),
+                stage6_loop_output_root=stage6_loop_output_root,
+                derived_output_path=derived_output_path,
+                supplemental_release_field_query_path=supplemental_release_field_query_path,
+            )
         return handler(
             candidate=candidate,
             source_path=Path(source_path),
@@ -2855,6 +2909,8 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--stage6-review-loop-status-root", default="")
     parser.add_argument("--release-field-query-json", default="")
     parser.add_argument("--release-field-query-root", default="")
+    parser.add_argument("--supplemental-release-field-query-json", default="")
+    parser.add_argument("--supplemental-release-field-query-root", default="")
     parser.add_argument("--release-evidence-adapter-plan-json", default="")
     parser.add_argument("--release-evidence-adapter-plan-root", default="")
     parser.add_argument("--gdcic-browser-readback-json", default="")
@@ -2896,6 +2952,8 @@ def main(argv: list[str] | None = None) -> int:
         stage6_review_loop_status_root=args.stage6_review_loop_status_root or None,
         release_field_query_json=args.release_field_query_json or None,
         release_field_query_root=args.release_field_query_root or None,
+        supplemental_release_field_query_json=args.supplemental_release_field_query_json or None,
+        supplemental_release_field_query_root=args.supplemental_release_field_query_root or None,
         release_evidence_adapter_plan_json=args.release_evidence_adapter_plan_json or None,
         release_evidence_adapter_plan_root=args.release_evidence_adapter_plan_root or None,
         gdcic_browser_readback_json=args.gdcic_browser_readback_json or None,

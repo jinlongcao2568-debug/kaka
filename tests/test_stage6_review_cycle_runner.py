@@ -1253,6 +1253,54 @@ class Stage6ReviewCycleRunnerTests(unittest.TestCase):
             self.assertIn("PROJ-FIELD-AUTH", controller_queue_projects)
             self.assertIn("PROJ-FIELD-NOTFOUND", controller_queue_projects)
 
+    def test_cycle_bootstrap_merges_supplemental_release_field_query_projection_counts(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            loop_runner_test_support._write_blocked_release_field_query_result(root / "field-query")
+            loop_runner_test_support._write_release_field_query_result(root / "field-query-public-backfill")
+
+            result = run_stage6_review_cycle_runner(
+                release_field_query_root=root / "field-query",
+                supplemental_release_field_query_root=root / "field-query-public-backfill",
+                output_root=root / "out",
+                created_at="2026-05-25T00:00:00+08:00",
+            )
+
+            self.assertTrue(result["safe_to_execute"])
+            self.assertTrue(
+                result["manifest"]["source_supplemental_release_field_query_json"].endswith(
+                    "guangdong-local-field-query-probe-v1.json"
+                )
+            )
+            self.assertTrue(
+                result["manifest"]["operator_projection_status_table"]["summary"]["continuation_input_refs"][
+                    "effective_supplemental_release_field_query_json"
+                ].endswith("guangdong-local-field-query-probe-v1.json")
+            )
+            status_records = {
+                record["project_id"]: record
+                for record in result["manifest"]["operator_projection_status_table"]["records"]
+            }
+            projection = status_records["PROJ-REL"]
+            self.assertEqual(projection["release_field_query_task_count"], 2)
+            self.assertEqual(
+                projection["release_field_query_adapter_result_state_counts"],
+                {"NEEDS_BROWSER": 1, "MATCHED": 1},
+            )
+            self.assertEqual(
+                projection["release_field_query_downstream_abcd_grade_counts"],
+                {
+                    "D_INSUFFICIENT_OR_BLOCKED_READBACK": 1,
+                    "B_ENHANCEMENT_OFFICIAL_READBACK": 1,
+                },
+            )
+            self.assertEqual(
+                projection["limited_sellable_review_candidate_state"],
+                "REVIEW_CANDIDATE",
+            )
+            self.assertFalse(projection["customer_visible_allowed"])
+            self.assertTrue(projection["query_miss_is_not_clearance"])
+
     def test_runtime_blocker_dispatch_execution_output_feeds_field_query_followup_queue(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
