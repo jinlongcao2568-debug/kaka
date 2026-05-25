@@ -30,6 +30,9 @@ class StageOneSixScoreboardComparisonTests(unittest.TestCase):
                 stage4={"MATCHED": 9, "NEEDS_BROWSER": 39, "NOT_FOUND": 5},
                 stage5={"RESPONSIBLE_PERSON_CERTIFICATE_GAP_REVIEW": 6},
                 stage5_family={},
+                stage5_primary={"responsible_person_certificate_gap": 6},
+                stage5_priority={"P2_INPUT_REPAIR_AND_DISAMBIGUATION": 6},
+                stage5_safety={"INTERNAL_REVIEW_ONLY_NOT_CLEARANCE": 6},
                 long_tail={"COMPANY_FIRST_CERTIFICATE_SUPPLEMENT_REQUIRED": 6},
                 public_source_chain={"LOCAL_AUTHORITY_PUBLIC_API_READBACK": 4},
                 public_readback_outcomes={"NOT_FOUND": 3, "READBACK_READY": 2},
@@ -55,6 +58,12 @@ class StageOneSixScoreboardComparisonTests(unittest.TestCase):
                 stage4={"MATCHED": 11, "NEEDS_BROWSER": 45, "NOT_FOUND": 11},
                 stage5={"RESPONSIBLE_PERSON_CERTIFICATE_GAP_REVIEW": 9},
                 stage5_family={"responsible_person_certificate_gap": 9, "evidence_insufficient": 2},
+                stage5_primary={"responsible_person_certificate_gap": 9, "evidence_insufficient": 2},
+                stage5_priority={
+                    "P2_INPUT_REPAIR_AND_DISAMBIGUATION": 9,
+                    "P3_EVIDENCE_INSUFFICIENT_PARK_OR_SAMPLE": 2,
+                },
+                stage5_safety={"INTERNAL_REVIEW_ONLY_NOT_CLEARANCE": 11},
                 long_tail={"COMPANY_FIRST_CERTIFICATE_SUPPLEMENT_REQUIRED": 9},
                 public_source_chain={
                     "LOCAL_AUTHORITY_PUBLIC_API_READBACK": 4,
@@ -112,6 +121,17 @@ class StageOneSixScoreboardComparisonTests(unittest.TestCase):
             self.assertEqual(
                 result["delta_from_first_row"][1]["stage5_operational_review_family_count_deltas"],
                 {"evidence_insufficient": 2, "responsible_person_certificate_gap": 3},
+            )
+            self.assertEqual(
+                result["delta_from_first_row"][1]["stage5_operational_primary_track_count_deltas"],
+                {"evidence_insufficient": 2, "responsible_person_certificate_gap": 3},
+            )
+            self.assertEqual(
+                result["delta_from_first_row"][1]["stage5_operational_priority_bucket_count_deltas"],
+                {
+                    "P2_INPUT_REPAIR_AND_DISAMBIGUATION": 3,
+                    "P3_EVIDENCE_INSUFFICIENT_PARK_OR_SAMPLE": 2,
+                },
             )
             self.assertEqual(
                 result["comparison_rows"][1]["stage1_3_long_tail_bucket_counts"],
@@ -181,6 +201,13 @@ class StageOneSixScoreboardComparisonTests(unittest.TestCase):
                 {"responsible_person_certificate_gap": 9, "evidence_insufficient": 2},
             )
             self.assertEqual(
+                result["summary"]["latest_stage5_operational_priority_bucket_counts"],
+                {
+                    "P2_INPUT_REPAIR_AND_DISAMBIGUATION": 9,
+                    "P3_EVIDENCE_INSUFFICIENT_PARK_OR_SAMPLE": 2,
+                },
+            )
+            self.assertEqual(
                 result["summary"]["latest_stage4_public_readback_channel_outcome_counts"],
                 {
                     "DESIGN_SURVEY_PUBLIC_REGISTRY:NOT_FOUND": 1,
@@ -203,6 +230,8 @@ class StageOneSixScoreboardComparisonTests(unittest.TestCase):
             self.assertIn("code route policy", markdown)
             self.assertIn("gap_detail", markdown)
             self.assertIn("stage5 family", markdown)
+            self.assertIn("stage5 priority", markdown)
+            self.assertIn("P2_INPUT_REPAIR_AND_DISAMBIGUATION", markdown)
             self.assertIn("YGP_ORIGINAL_READBACK_BACKFILL", markdown)
             self.assertIn("Public Source Deepening Recommendations", markdown)
 
@@ -220,6 +249,9 @@ class StageOneSixScoreboardComparisonTests(unittest.TestCase):
                 stage4={"MATCHED": 10, "NEEDS_BROWSER": 8, "NOT_FOUND": 2},
                 stage5={"PUBLIC_SOURCE_BLOCKED_REVIEW": 8},
                 stage5_family={"public_source_blocked": 8},
+                stage5_primary={"public_source_blocked": 8},
+                stage5_priority={"P1_BLOCKER_RETRY_OR_ALTERNATE_SOURCE": 8},
+                stage5_safety={"INTERNAL_REVIEW_ONLY_NOT_CLEARANCE": 8},
                 long_tail={"COMPANY_FIRST_CERTIFICATE_SUPPLEMENT_REQUIRED": 4},
                 public_source_chain={"YGP_ORIGINAL_READBACK_BACKFILL": 6},
                 public_readback_outcomes={"READBACK_READY": 4, "BLOCKED": 8, "NOT_FOUND": 2},
@@ -246,6 +278,15 @@ class StageOneSixScoreboardComparisonTests(unittest.TestCase):
                 stage4={"MATCHED": 18, "NEEDS_BROWSER": 6, "NOT_FOUND": 2},
                 stage5={"PUBLIC_SOURCE_BLOCKED_REVIEW": 6, "LIMITED_SELLABLE_OFFICIAL_READBACK_REVIEW": 9},
                 stage5_family={"public_source_blocked": 6, "strong_lead": 9},
+                stage5_primary={"public_source_blocked": 6, "strong_lead": 9},
+                stage5_priority={
+                    "P0_LIMITED_SELLABLE_REVIEW": 9,
+                    "P1_BLOCKER_RETRY_OR_ALTERNATE_SOURCE": 6,
+                },
+                stage5_safety={
+                    "INTERNAL_LIMITED_SELLABLE_REVIEW_ONLY_NOT_CUSTOMER_DELIVERABLE": 9,
+                    "INTERNAL_REVIEW_ONLY_NOT_CLEARANCE": 6,
+                },
                 long_tail={"COMPANY_FIRST_CERTIFICATE_SUPPLEMENT_REQUIRED": 4},
                 public_source_chain={"YGP_ORIGINAL_READBACK_BACKFILL": 14},
                 public_readback_outcomes={"READBACK_READY": 8, "BLOCKED": 6, "NOT_FOUND": 2},
@@ -322,6 +363,9 @@ def _write_scoreboard(
     stage4: dict[str, int],
     stage5: dict[str, int],
     stage5_family: dict[str, int],
+    stage5_primary: dict[str, int],
+    stage5_priority: dict[str, int],
+    stage5_safety: dict[str, int],
     long_tail: dict[str, int],
     public_source_chain: dict[str, int],
     public_readback_outcomes: dict[str, int],
@@ -343,6 +387,9 @@ def _write_scoreboard(
             "stage4_adapter_result_state_counts": stage4,
             "stage5_operational_review_family_counts": stage5_family,
             "stage5_operational_review_queue_counts": stage5,
+            "stage5_operational_primary_track_counts": stage5_primary,
+            "stage5_operational_priority_bucket_counts": stage5_priority,
+            "stage5_operational_safety_boundary_counts": stage5_safety,
             "stage1_3_long_tail_bucket_counts": long_tail,
             "stage6_limited_sellable_review_public_source_chain_counts": public_source_chain,
             "stage4_public_readback_outcome_counts": public_readback_outcomes,

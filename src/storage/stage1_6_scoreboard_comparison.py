@@ -135,6 +135,15 @@ def _comparison_row(path: Path) -> dict[str, Any]:
         "stage5_operational_review_queue_counts": dict(
             scoreboard.get("stage5_operational_review_queue_counts") or {}
         ),
+        "stage5_operational_primary_track_counts": dict(
+            scoreboard.get("stage5_operational_primary_track_counts") or {}
+        ),
+        "stage5_operational_priority_bucket_counts": dict(
+            scoreboard.get("stage5_operational_priority_bucket_counts") or {}
+        ),
+        "stage5_operational_safety_boundary_counts": dict(
+            scoreboard.get("stage5_operational_safety_boundary_counts") or {}
+        ),
         "stage1_3_long_tail_bucket_counts": dict(scoreboard.get("stage1_3_long_tail_bucket_counts") or {}),
         "stage1_3_long_tail_signal_counts": dict(scoreboard.get("stage1_3_long_tail_signal_counts") or {}),
         "stage1_3_identity_confirmation_state_counts": dict(
@@ -253,6 +262,21 @@ def _delta_row(row: Mapping[str, Any], baseline: Mapping[str, Any]) -> dict[str,
             row,
             baseline,
             "stage5_operational_review_family_counts",
+        ),
+        "stage5_operational_primary_track_count_deltas": _map_delta(
+            row,
+            baseline,
+            "stage5_operational_primary_track_counts",
+        ),
+        "stage5_operational_priority_bucket_count_deltas": _map_delta(
+            row,
+            baseline,
+            "stage5_operational_priority_bucket_counts",
+        ),
+        "stage5_operational_safety_boundary_count_deltas": _map_delta(
+            row,
+            baseline,
+            "stage5_operational_safety_boundary_counts",
         ),
         "public_source_deepening_effect_state": _public_source_deepening_effect_state(
             candidate_count_delta=_int(row.get("candidate_count")) - _int(baseline.get("candidate_count")),
@@ -374,6 +398,15 @@ def _summary(rows: list[Mapping[str, Any]]) -> dict[str, Any]:
         "latest_stage5_operational_review_family_counts": dict(
             latest.get("stage5_operational_review_family_counts") or {}
         ),
+        "latest_stage5_operational_primary_track_counts": dict(
+            latest.get("stage5_operational_primary_track_counts") or {}
+        ),
+        "latest_stage5_operational_priority_bucket_counts": dict(
+            latest.get("stage5_operational_priority_bucket_counts") or {}
+        ),
+        "latest_stage5_operational_safety_boundary_counts": dict(
+            latest.get("stage5_operational_safety_boundary_counts") or {}
+        ),
         "latest_stage4_public_readback_channel_outcome_counts": dict(
             latest.get("stage4_public_readback_channel_outcome_counts") or {}
         ),
@@ -471,8 +504,8 @@ def _write_markdown(path: Path, payload: Mapping[str, Any]) -> None:
     lines = [
         "# Stage1-6 Scoreboard Comparison v1",
         "",
-        "| run | candidates | limited | rate | stage4 | public readback outcomes | channel outcomes | design registry | code backfill | code route policy | stage5 family | stage5 queues | stage1-3 long tail | stage6 public source chain | auth state |",
-        "| --- | ---: | ---: | ---: | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+        "| run | candidates | limited | rate | stage4 | public readback outcomes | channel outcomes | design registry | code backfill | code route policy | stage5 family | stage5 primary | stage5 priority | stage5 safety | stage5 queues | stage1-3 long tail | stage6 public source chain | auth state |",
+        "| --- | ---: | ---: | ---: | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ]
     for row in rows:
         auth_status = row.get("gdcic_authorized_readback_status")
@@ -480,7 +513,7 @@ def _write_markdown(path: Path, payload: Mapping[str, Any]) -> None:
         if isinstance(auth_status, Mapping):
             auth_state = str(auth_status.get("authorization_readiness_state") or "")
         lines.append(
-            "| {run} | {candidates} | {limited} | {rate} | `{stage4}` | `{readback}` | `{channel}` | `{design_registry}` | `{code_backfill}` gap_detail=`{gap_detail}` | `{route_policy}` | `{stage5_family}` | `{stage5}` | `{tail}` | `{chain}` | {auth_state} |".format(
+            "| {run} | {candidates} | {limited} | {rate} | `{stage4}` | `{readback}` | `{channel}` | `{design_registry}` | `{code_backfill}` gap_detail=`{gap_detail}` | `{route_policy}` | `{stage5_family}` | `{stage5_primary}` | `{stage5_priority}` | `{stage5_safety}` | `{stage5}` | `{tail}` | `{chain}` | {auth_state} |".format(
                 run=str(row.get("run_label") or ""),
                 candidates=_int(row.get("candidate_count")),
                 limited=_int(row.get("limited_sellable_review_candidate_count")),
@@ -528,6 +561,21 @@ def _write_markdown(path: Path, payload: Mapping[str, Any]) -> None:
                 ),
                 stage5_family=json.dumps(
                     row.get("stage5_operational_review_family_counts") or {},
+                    ensure_ascii=False,
+                    sort_keys=True,
+                ),
+                stage5_primary=json.dumps(
+                    row.get("stage5_operational_primary_track_counts") or {},
+                    ensure_ascii=False,
+                    sort_keys=True,
+                ),
+                stage5_priority=json.dumps(
+                    row.get("stage5_operational_priority_bucket_counts") or {},
+                    ensure_ascii=False,
+                    sort_keys=True,
+                ),
+                stage5_safety=json.dumps(
+                    row.get("stage5_operational_safety_boundary_counts") or {},
                     ensure_ascii=False,
                     sort_keys=True,
                 ),
