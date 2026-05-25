@@ -164,6 +164,84 @@ class StageOneSixRegressionExecutionPlanScriptTests(unittest.TestCase):
         self.assertEqual(payload["input_refs"]["EffectiveGdcicBrowserReadbackRoot"], str(gdcic_json.parent))
         self.assertTrue(payload["run_switches"]["RunP13BPublicSourceChain"])
 
+    def test_reuses_pressure_root_from_prior_scoreboard_when_source_run_is_followup_only(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            pressure_root = root / "baseline" / "pressure"
+            pressure_summary_json = pressure_root / "pressure-summary.json"
+            release_plan_json = pressure_root / "stage4-release-adapter-bridge-plan.json"
+            queue_json = root / "followup" / "stage4-backfill-followup-queue-v1.json"
+            scoreboard_json = root / "followup" / "scoreboard" / "stage1-6-sellable-scoreboard-v1.json"
+            source_run_followup_only = root / "source-followup-only"
+            (source_run_followup_only / "field-query").mkdir(parents=True)
+            pressure_root.mkdir(parents=True)
+            pressure_summary_json.write_text(json.dumps({"summary": {"candidate_count": 1}}), encoding="utf-8")
+            release_plan_json.write_text(json.dumps({"tasks": []}), encoding="utf-8")
+            scoreboard_json.parent.mkdir(parents=True)
+            scoreboard_json.write_text(
+                json.dumps(
+                    {
+                        "input_refs": {
+                            "pressure_summary_json": str(pressure_summary_json),
+                        },
+                        "scoreboard": {},
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                ),
+                encoding="utf-8",
+            )
+            queue_json.parent.mkdir(parents=True, exist_ok=True)
+            queue_json.write_text(
+                json.dumps(
+                    {
+                        "input_refs": {"scoreboard_json": str(scoreboard_json)},
+                        "next_regression_execution_plan": {
+                            "recommended_switches": ["RunP13BPublicSourceChain"],
+                            "target_project_ids": ["PROJ-CN-GD-JG2026-11526"],
+                            "live_execution_enabled_by_default": False,
+                        },
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                ),
+                encoding="utf-8",
+            )
+
+            completed = subprocess.run(
+                [
+                    "pwsh",
+                    "-NoProfile",
+                    "-ExecutionPolicy",
+                    "Bypass",
+                    "-File",
+                    str(ROOT / "scripts" / "run-stage1-6-sellable-rate-regression-v1.ps1"),
+                    "-RunRoot",
+                    str(root / "run"),
+                    "-SourceRegressionRunRoot",
+                    str(source_run_followup_only),
+                    "-Stage4BackfillFollowupQueueJson",
+                    str(queue_json),
+                    "-ApplyStage4FollowupExecutionPlan",
+                    "-DescribeEffectivePlanAndExit",
+                ],
+                cwd=ROOT,
+                check=True,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+            )
+
+        payload = _json_from_stdout(completed.stdout)
+        self.assertEqual(payload["input_refs"]["EffectivePressureRoot"], str(pressure_root))
+        self.assertEqual(
+            payload["target"]["ProjectIds"],
+            "PROJ-CN-GD-JG2026-11526",
+        )
+        self.assertTrue(payload["run_switches"]["RunP13BPublicSourceChain"])
+        self.assertFalse(payload["safety"]["customer_visible_allowed"])
+        self.assertTrue(payload["safety"]["query_miss_is_not_clearance"])
+
 
 def _json_from_stdout(stdout: str) -> dict:
     start = stdout.find("{")

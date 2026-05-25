@@ -193,6 +193,31 @@ if ($followupQueue -and $SourceRegressionRunRoot) {
         }
     }
 
+    $sourceReleasePlanJson = Join-Path $sourcePressureRoot "stage4-release-adapter-bridge-plan.json"
+    if (-not (Test-Path $sourceReleasePlanJson) -and $scoreboardPayload -and $scoreboardPayload.input_refs) {
+        $pressureRefCandidates = @(
+            $scoreboardPayload.input_refs.pressure_summary_json,
+            $scoreboardPayload.input_refs.stage1_6_readiness_json,
+            $scoreboardPayload.input_refs.stage1_6_gap_summary_json
+        )
+        foreach ($pressureRef in $pressureRefCandidates) {
+            if (-not $pressureRef) {
+                continue
+            }
+            $resolvedPressureRef = Resolve-RepoPath "$pressureRef"
+            if (-not (Test-Path $resolvedPressureRef)) {
+                continue
+            }
+            $candidatePressureRoot = Split-Path -Parent $resolvedPressureRef
+            $candidateReleasePlanJson = Join-Path $candidatePressureRoot "stage4-release-adapter-bridge-plan.json"
+            if (Test-Path $candidateReleasePlanJson) {
+                $sourcePressureRoot = $candidatePressureRoot
+                Write-Host "[stage1-6-regression] reused pressure root from scoreboard input_refs: $sourcePressureRoot"
+                break
+            }
+        }
+    }
+
     $sourceFieldQueryJson = Join-Path $sourceFieldQueryRoot "guangdong-local-field-query-probe-v1.json"
     if (-not (Test-Path $sourceFieldQueryJson) -and $scoreboardPayload -and $scoreboardPayload.input_refs -and $scoreboardPayload.input_refs.release_field_query_json) {
         $scoreboardFieldQueryJson = Resolve-RepoPath "$($scoreboardPayload.input_refs.release_field_query_json)"
@@ -246,6 +271,7 @@ if ($DescribeEffectivePlanAndExit) {
         input_refs = [ordered]@{
             ScoreboardComparisonJson = "$ScoreboardComparisonJson"
             Stage4BackfillFollowupQueueJson = "$Stage4BackfillFollowupQueueJson"
+            EffectivePressureRoot = "$sourcePressureRoot"
             EffectiveFieldQueryRoot = "$sourceFieldQueryRoot"
             EffectiveGdcicBrowserReadbackRoot = "$sourceGdcicReadbackRoot"
         }
