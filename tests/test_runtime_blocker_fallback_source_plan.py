@@ -199,6 +199,49 @@ class RuntimeBlockerFallbackSourcePlanTests(unittest.TestCase):
         )
         self.assertIn(";", result["input_refs"]["release_field_query_json"])
 
+    def test_ygp_retry_fallback_with_identifiers_emits_bridge_readback_task(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            field_query = root / "field-query.json"
+            cycle = root / "cycle.json"
+            stage4_queue = root / "stage4-followup-queue.json"
+            out = root / "out"
+            _write_json(field_query, {"manifest": {"field_task_records": []}})
+            _write_stage4_queue_for_ygp_retry(stage4_queue)
+            _write_cycle(cycle, field_query, root / "missing-scoreboard.json", stage4_queue)
+
+            result = build_runtime_blocker_fallback_source_plan(
+                stage6_review_cycle_json=cycle,
+                output_root=out,
+                created_at="2026-05-25T00:00:00+08:00",
+            )
+
+        self.assertEqual(result["summary"]["stage4_release_adapter_bridge_task_count"], 1)
+        self.assertEqual(
+            result["summary"]["stage4_release_adapter_bridge_target_type_counts"],
+            {"ygp_original_readback_backfill": 1},
+        )
+        record = result["records"][0]
+        self.assertEqual(record["followup_route"], "ygp_retry_then_local_authority_fallback")
+        bridge_record = result["stage4_release_adapter_bridge_plan"]["release_evidence_adapter_task_records"][0]
+        self.assertEqual(bridge_record["project_id"], "PROJ-FALLBACK")
+        self.assertEqual(
+            bridge_record["bridge_readiness_state"],
+            "YGP_RETRY_STAGE4_BACKFILL_READY_FOR_PUBLIC_READBACK",
+        )
+        self.assertEqual(
+            bridge_record["local_housing_authority_adapter_scope"],
+            "YGP_RETRY_THEN_LOCAL_AUTHORITY_FALLBACK",
+        )
+        self.assertEqual(
+            bridge_record["query_params"]["ygpProjectCodeVariants"],
+            ["E4413000835979563001"],
+        )
+        self.assertEqual(bridge_record["query_params"]["gdcicProjectCodeVariants"], [])
+        self.assertFalse(bridge_record["gdcic_project_code_route_allowed"])
+        self.assertTrue(bridge_record["query_miss_is_not_clearance"])
+        self.assertFalse(bridge_record["customer_visible_allowed"])
+
 
 def _write_cycle(path: Path, field_query: Path, scoreboard: Path, stage4_queue: Path) -> None:
     _write_json(
@@ -276,6 +319,43 @@ def _write_stage4_queue_without_official_context(path: Path) -> None:
                     "project_id": "PROJ-FALLBACK",
                     "followup_route": "official_readback_ready_stage4_bridge_followup",
                     "required_input": ["p13b_ygp_or_public_identifier_backfill_task"],
+                }
+            ]
+        },
+    )
+
+
+def _write_stage4_queue_for_ygp_retry(path: Path) -> None:
+    _write_json(
+        path,
+        {
+            "records": [
+                {
+                    "followup_record_id": "STAGE4-BACKFILL-FOLLOWUP-1",
+                    "project_id": "PROJ-FALLBACK",
+                    "followup_route": "ygp_retry_then_local_authority_fallback",
+                    "required_input": ["ygp_retry_budget_or_project_local_authority_adapter"],
+                    "stage4_official_readback_context": {
+                        "stage4_official_readback_context_state": "",
+                        "ygp_project_code_variants": ["E4413000835979563001"],
+                        "ygp_biz_code_variants": ["3C52"],
+                        "ygp_site_code_variants": ["441300"],
+                        "ygp_notice_id_variants": ["7fcdf98f7cd04bc5b2a0167b4f1c5733"],
+                        "gdcic_project_code_route_allowed": False,
+                        "gdcic_route_block_reason": "YGP_OR_TRADE_IDENTIFIERS_NOT_SENT_TO_GDCIC_PROJECT_CODE",
+                    },
+                    "public_source_fallback_sequence": [
+                        {
+                            "source_kind": "ygp_original_notice_readback",
+                            "action": "read_ygp_original_notice_identifiers_for_p13b_or_stage4_bridge",
+                            "input_state": "YGP_IDENTIFIER_PRESENT",
+                        },
+                        {
+                            "source_kind": "project_local_authority_public_source",
+                            "action": "query_historical_project_location_housing_or_supervisory_authority",
+                            "input_state": "LOCAL_AUTHORITY_FALLBACK_REQUIRED",
+                        },
+                    ],
                 }
             ]
         },

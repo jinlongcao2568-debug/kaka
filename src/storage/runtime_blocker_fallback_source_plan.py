@@ -752,7 +752,11 @@ def _stage4_release_adapter_bridge_records(
 ) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for record in records:
-        if str(record.get("followup_route") or "") != "official_readback_ready_stage4_bridge_followup":
+        followup_route = str(record.get("followup_route") or "")
+        if followup_route not in {
+            "official_readback_ready_stage4_bridge_followup",
+            "ygp_retry_then_local_authority_fallback",
+        }:
             continue
         context = _mapping(record.get("stage4_official_readback_context"))
         ygp_project_codes = _dedupe(context.get("ygp_project_code_variants"))
@@ -762,6 +766,7 @@ def _stage4_release_adapter_bridge_records(
         if not any([ygp_project_codes, ygp_biz_codes, ygp_site_codes, ygp_notice_ids]):
             continue
         project_id = str(record.get("project_id") or "")
+        is_retry_fallback = followup_route == "ygp_retry_then_local_authority_fallback"
         ygp_project_code = str(ygp_project_codes[0] if ygp_project_codes else "")
         source_url = _first_text(
             [
@@ -787,10 +792,22 @@ def _stage4_release_adapter_bridge_records(
                 "release_evidence_target_type": "ygp_original_readback_backfill",
                 "release_evidence_grade_on_match": "D_INSUFFICIENT_OR_BLOCKED_READBACK",
                 "release_evidence_source_role": "source_identifier_backfill_not_release_evidence",
-                "initial_release_evidence_abcd_grade": "STAGE4_YGP_BACKFILL_READY_NOT_A_SIGNAL",
+                "initial_release_evidence_abcd_grade": (
+                    "STAGE4_YGP_RETRY_FALLBACK_READY_NOT_A_SIGNAL"
+                    if is_retry_fallback
+                    else "STAGE4_YGP_BACKFILL_READY_NOT_A_SIGNAL"
+                ),
                 "release_evidence_query_region_code": "CN-GD-YGP",
-                "release_evidence_query_region_basis": "runtime_blocker_fallback_ygp_public_identifier",
-                "local_housing_authority_adapter_scope": "YGP_ORIGINAL_READBACK_BACKFILL_ONLY",
+                "release_evidence_query_region_basis": (
+                    "runtime_blocker_ygp_retry_public_identifier_before_local_authority_fallback"
+                    if is_retry_fallback
+                    else "runtime_blocker_fallback_ygp_public_identifier"
+                ),
+                "local_housing_authority_adapter_scope": (
+                    "YGP_RETRY_THEN_LOCAL_AUTHORITY_FALLBACK"
+                    if is_retry_fallback
+                    else "YGP_ORIGINAL_READBACK_BACKFILL_ONLY"
+                ),
                 "local_housing_authority_adapter_region_code": "CN-GD-YGP",
                 "non_guangdong_release_adapter_rule": "",
                 "jurisdiction_local_housing_adapter": {},
@@ -835,7 +852,11 @@ def _stage4_release_adapter_bridge_records(
                 },
                 "next_adapter": "p13b_or_stage4_bridge_backfill",
                 "runtime_status": "PLAN_ONLY_BACKFILL_READY",
-                "bridge_readiness_state": "YGP_STAGE4_BACKFILL_READY_FOR_STAGE4_BRIDGE",
+                "bridge_readiness_state": (
+                    "YGP_RETRY_STAGE4_BACKFILL_READY_FOR_PUBLIC_READBACK"
+                    if is_retry_fallback
+                    else "YGP_STAGE4_BACKFILL_READY_FOR_STAGE4_BRIDGE"
+                ),
                 "adapter_result_state": "PLAN_ONLY_NOT_EXECUTED",
                 "allowed_adapter_result_states": ["MATCHED", "NOT_FOUND", "BLOCKED", "NEEDS_BROWSER"],
                 "matched_means": "ygp_backfill_can_support_followup_readback_not_legal_conclusion",
@@ -847,7 +868,11 @@ def _stage4_release_adapter_bridge_records(
                 "gdcic_project_code_route_allowed": False,
                 "gdcic_route_block_reason": "YGP_OR_TRADE_IDENTIFIERS_NOT_SENT_TO_GDCIC_PROJECT_CODE",
                 "must_not_extract_from_full_text_numbers": True,
-                "recommended_next_action": "run_stage4_bridge_or_p13b_backfill_without_gdcic_project_code_route",
+                "recommended_next_action": (
+                    "run_ygp_retry_public_readback_then_project_local_authority_fallback_without_gdcic_project_code_route"
+                    if is_retry_fallback
+                    else "run_stage4_bridge_or_p13b_backfill_without_gdcic_project_code_route"
+                ),
                 "query_miss_is_not_clearance": True,
                 "customer_visible_allowed": False,
                 "no_legal_conclusion": True,
