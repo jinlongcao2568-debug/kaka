@@ -33,6 +33,11 @@ class StageOneSixScoreboardComparisonTests(unittest.TestCase):
                 long_tail={"COMPANY_FIRST_CERTIFICATE_SUPPLEMENT_REQUIRED": 6},
                 public_source_chain={"LOCAL_AUTHORITY_PUBLIC_API_READBACK": 4},
                 public_readback_outcomes={"NOT_FOUND": 3, "READBACK_READY": 2},
+                public_readback_channel_outcomes={
+                    "LOCAL_AUTHORITY:NOT_FOUND": 3,
+                    "YGP:YGP_READBACK_READY": 2,
+                },
+                design_registry_status={},
                 code_backfill={"MISSING_PROJECT_CODE_BACKFILL_INPUT": 10},
                 code_backfill_gap_detail={
                     "NO_PUBLIC_OVERLAP_SIGNAL_FALLBACK_LOCAL_AUTHORITY_REQUIRED": 4,
@@ -56,6 +61,21 @@ class StageOneSixScoreboardComparisonTests(unittest.TestCase):
                     "YGP_ORIGINAL_READBACK_BACKFILL": 7,
                 },
                 public_readback_outcomes={"NOT_FOUND": 3, "READBACK_READY": 3},
+                public_readback_channel_outcomes={
+                    "DESIGN_SURVEY_PUBLIC_REGISTRY:NOT_FOUND": 1,
+                    "LOCAL_AUTHORITY:NOT_FOUND": 3,
+                    "YGP:YGP_READBACK_READY": 3,
+                },
+                design_registry_status={
+                    "artifact_state": "BUILT",
+                    "customer_visible_allowed": False,
+                    "no_legal_conclusion": True,
+                    "readback_state_counts": {"NOT_FOUND": 1},
+                    "verification_result_counts": {"REVIEW_REQUIRED": 1},
+                    "projected_stage5_queue_counts": {
+                        "DESIGN_SURVEY_PUBLIC_REGISTRY_NOT_FOUND_REVIEW": 1,
+                    },
+                },
                 code_backfill={
                     "MISSING_PROJECT_CODE_BACKFILL_INPUT": 12,
                     "PUBLIC_SOURCE_IDENTIFIER_BACKFILLED_FOR_P13B_OR_STAGE4_BRIDGE_ONLY": 3,
@@ -108,8 +128,37 @@ class StageOneSixScoreboardComparisonTests(unittest.TestCase):
                 result["comparison_rows"][1]["stage4_public_readback_outcome_counts"],
                 {"NOT_FOUND": 3, "READBACK_READY": 3},
             )
+            self.assertEqual(
+                result["comparison_rows"][1]["stage4_public_readback_channel_outcome_counts"],
+                {
+                    "DESIGN_SURVEY_PUBLIC_REGISTRY:NOT_FOUND": 1,
+                    "LOCAL_AUTHORITY:NOT_FOUND": 3,
+                    "YGP:YGP_READBACK_READY": 3,
+                },
+            )
+            self.assertEqual(
+                result["comparison_rows"][1]["design_survey_public_registry_readback_state_counts"],
+                {"NOT_FOUND": 1},
+            )
+            self.assertEqual(
+                result["comparison_rows"][1]["design_survey_public_registry_verification_result_counts"],
+                {"REVIEW_REQUIRED": 1},
+            )
             self.assertEqual(result["delta_from_first_row"][1]["stage4_matched_delta"], 2)
             self.assertEqual(result["delta_from_first_row"][1]["stage4_public_readback_ready_delta"], 1)
+            self.assertEqual(
+                result["delta_from_first_row"][1]["stage4_public_readback_channel_outcome_count_deltas"],
+                {
+                    "DESIGN_SURVEY_PUBLIC_REGISTRY:NOT_FOUND": 1,
+                    "LOCAL_AUTHORITY:NOT_FOUND": 0,
+                    "YGP:YGP_READBACK_READY": 1,
+                },
+            )
+            self.assertEqual(result["delta_from_first_row"][1]["design_survey_public_registry_not_found_delta"], 1)
+            self.assertEqual(
+                result["delta_from_first_row"][1]["design_survey_public_registry_readback_state_count_deltas"],
+                {"NOT_FOUND": 1},
+            )
             self.assertEqual(result["delta_from_first_row"][1]["stage4_public_identifier_backfilled_delta"], 3)
             self.assertEqual(result["delta_from_first_row"][1]["stage4_project_code_missing_backfill_input_delta"], 2)
             self.assertEqual(
@@ -131,11 +180,26 @@ class StageOneSixScoreboardComparisonTests(unittest.TestCase):
                 result["summary"]["latest_stage5_operational_review_family_counts"],
                 {"responsible_person_certificate_gap": 9, "evidence_insufficient": 2},
             )
+            self.assertEqual(
+                result["summary"]["latest_stage4_public_readback_channel_outcome_counts"],
+                {
+                    "DESIGN_SURVEY_PUBLIC_REGISTRY:NOT_FOUND": 1,
+                    "LOCAL_AUTHORITY:NOT_FOUND": 3,
+                    "YGP:YGP_READBACK_READY": 3,
+                },
+            )
+            self.assertEqual(
+                result["summary"]["latest_design_survey_public_registry_readback_state_counts"],
+                {"NOT_FOUND": 1},
+            )
             self.assertFalse(result["safety"]["customer_visible_allowed"])
             self.assertTrue((out / "stage1-6-scoreboard-comparison-v1.json").exists())
             markdown = (out / "stage1-6-scoreboard-comparison-v1.md").read_text(encoding="utf-8")
             self.assertIn("stage6 public source chain", markdown)
             self.assertIn("public readback outcomes", markdown)
+            self.assertIn("channel outcomes", markdown)
+            self.assertIn("design registry", markdown)
+            self.assertIn("DESIGN_SURVEY_PUBLIC_REGISTRY:NOT_FOUND", markdown)
             self.assertIn("code route policy", markdown)
             self.assertIn("gap_detail", markdown)
             self.assertIn("stage5 family", markdown)
@@ -159,6 +223,12 @@ class StageOneSixScoreboardComparisonTests(unittest.TestCase):
                 long_tail={"COMPANY_FIRST_CERTIFICATE_SUPPLEMENT_REQUIRED": 4},
                 public_source_chain={"YGP_ORIGINAL_READBACK_BACKFILL": 6},
                 public_readback_outcomes={"READBACK_READY": 4, "BLOCKED": 8, "NOT_FOUND": 2},
+                public_readback_channel_outcomes={
+                    "LOCAL_AUTHORITY:BLOCKED": 8,
+                    "LOCAL_AUTHORITY:NOT_FOUND": 2,
+                    "YGP:YGP_READBACK_READY": 4,
+                },
+                design_registry_status={},
                 code_backfill={"MISSING_PROJECT_CODE_BACKFILL_INPUT": 8},
                 code_backfill_gap_detail={
                     "NO_PUBLIC_OVERLAP_SIGNAL_FALLBACK_LOCAL_AUTHORITY_REQUIRED": 2,
@@ -179,6 +249,22 @@ class StageOneSixScoreboardComparisonTests(unittest.TestCase):
                 long_tail={"COMPANY_FIRST_CERTIFICATE_SUPPLEMENT_REQUIRED": 4},
                 public_source_chain={"YGP_ORIGINAL_READBACK_BACKFILL": 14},
                 public_readback_outcomes={"READBACK_READY": 8, "BLOCKED": 6, "NOT_FOUND": 2},
+                public_readback_channel_outcomes={
+                    "DESIGN_SURVEY_PUBLIC_REGISTRY:MATCHED": 2,
+                    "LOCAL_AUTHORITY:BLOCKED": 6,
+                    "LOCAL_AUTHORITY:NOT_FOUND": 2,
+                    "YGP:YGP_READBACK_READY": 8,
+                },
+                design_registry_status={
+                    "artifact_state": "BUILT",
+                    "customer_visible_allowed": False,
+                    "no_legal_conclusion": True,
+                    "readback_state_counts": {"MATCHED": 2},
+                    "verification_result_counts": {"REVIEW_REQUIRED": 2},
+                    "projected_stage5_queue_counts": {
+                        "DESIGN_SURVEY_PUBLIC_REGISTRY_MATCHED_REVIEW": 2,
+                    },
+                },
                 code_backfill={
                     "MISSING_PROJECT_CODE_BACKFILL_INPUT": 4,
                     "PUBLIC_SOURCE_IDENTIFIER_BACKFILLED_FOR_P13B_OR_STAGE4_BRIDGE_ONLY": 14,
@@ -207,6 +293,7 @@ class StageOneSixScoreboardComparisonTests(unittest.TestCase):
             self.assertGreater(delta["stage4_public_readback_ready_delta"], 0)
             self.assertLess(delta["stage4_public_readback_blocked_delta"], 0)
             self.assertEqual(delta["stage6_ygp_original_readback_backfill_delta"], 8)
+            self.assertEqual(delta["design_survey_public_registry_matched_delta"], 2)
             self.assertEqual(delta["public_source_deepening_effect_state"], "PUBLIC_SOURCE_DEEPENING_EFFECTIVE")
 
             recommendations = result["public_source_deepening_recommendations"]
@@ -238,6 +325,8 @@ def _write_scoreboard(
     long_tail: dict[str, int],
     public_source_chain: dict[str, int],
     public_readback_outcomes: dict[str, int],
+    public_readback_channel_outcomes: dict[str, int],
+    design_registry_status: dict[str, object],
     code_backfill: dict[str, int],
     code_backfill_gap_detail: dict[str, int],
     route_policy: dict[str, int],
@@ -257,6 +346,8 @@ def _write_scoreboard(
             "stage1_3_long_tail_bucket_counts": long_tail,
             "stage6_limited_sellable_review_public_source_chain_counts": public_source_chain,
             "stage4_public_readback_outcome_counts": public_readback_outcomes,
+            "stage4_public_readback_channel_outcome_counts": public_readback_channel_outcomes,
+            "design_survey_public_registry_readback_status": design_registry_status,
             "stage4_project_code_backfill_state_counts": code_backfill,
             "stage4_project_code_backfill_gap_detail_counts": code_backfill_gap_detail,
             "stage4_gdcic_project_code_route_policy_counts": route_policy,

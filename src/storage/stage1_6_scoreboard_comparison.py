@@ -110,6 +110,24 @@ def _comparison_row(path: Path) -> dict[str, Any]:
         "stage4_public_readback_outcome_counts": dict(
             scoreboard.get("stage4_public_readback_outcome_counts") or {}
         ),
+        "stage4_public_readback_channel_outcome_counts": dict(
+            scoreboard.get("stage4_public_readback_channel_outcome_counts") or {}
+        ),
+        "design_survey_public_registry_readback_status": dict(
+            scoreboard.get("design_survey_public_registry_readback_status") or {}
+        ),
+        "design_survey_public_registry_readback_state_counts": _nested_counts(
+            scoreboard.get("design_survey_public_registry_readback_status"),
+            "readback_state_counts",
+        ),
+        "design_survey_public_registry_verification_result_counts": _nested_counts(
+            scoreboard.get("design_survey_public_registry_readback_status"),
+            "verification_result_counts",
+        ),
+        "design_survey_public_registry_projected_stage5_queue_counts": _nested_counts(
+            scoreboard.get("design_survey_public_registry_readback_status"),
+            "projected_stage5_queue_counts",
+        ),
         "stage5_operational_review_bucket_counts": dict(
             scoreboard.get("stage5_operational_review_bucket_counts") or {}
         ),
@@ -168,6 +186,24 @@ def _delta_row(row: Mapping[str, Any], baseline: Mapping[str, Any]) -> dict[str,
         row, baseline, "stage4_public_readback_outcome_counts", "READBACK_READY"
     )
     public_readback_blocked_delta = _count_delta(row, baseline, "stage4_public_readback_outcome_counts", "BLOCKED")
+    design_registry_not_found_delta = _count_delta(
+        row,
+        baseline,
+        "stage4_public_readback_channel_outcome_counts",
+        "DESIGN_SURVEY_PUBLIC_REGISTRY:NOT_FOUND",
+    )
+    design_registry_matched_delta = _count_delta(
+        row,
+        baseline,
+        "stage4_public_readback_channel_outcome_counts",
+        "DESIGN_SURVEY_PUBLIC_REGISTRY:MATCHED",
+    )
+    design_registry_blocked_delta = _count_delta(
+        row,
+        baseline,
+        "stage4_public_readback_channel_outcome_counts",
+        "DESIGN_SURVEY_PUBLIC_REGISTRY:BLOCKED",
+    )
     missing_backfill_input_delta = _count_delta(
         row, baseline, "stage4_project_code_backfill_state_counts", "MISSING_PROJECT_CODE_BACKFILL_INPUT"
     )
@@ -187,6 +223,24 @@ def _delta_row(row: Mapping[str, Any], baseline: Mapping[str, Any]) -> dict[str,
         ),
         "stage4_public_readback_blocked_delta": public_readback_blocked_delta,
         "stage4_public_readback_ready_delta": public_readback_ready_delta,
+        "stage4_public_readback_channel_outcome_count_deltas": _map_delta(
+            row,
+            baseline,
+            "stage4_public_readback_channel_outcome_counts",
+        ),
+        "design_survey_public_registry_not_found_delta": design_registry_not_found_delta,
+        "design_survey_public_registry_matched_delta": design_registry_matched_delta,
+        "design_survey_public_registry_blocked_delta": design_registry_blocked_delta,
+        "design_survey_public_registry_readback_state_count_deltas": _map_delta(
+            row,
+            baseline,
+            "design_survey_public_registry_readback_state_counts",
+        ),
+        "design_survey_public_registry_verification_result_count_deltas": _map_delta(
+            row,
+            baseline,
+            "design_survey_public_registry_verification_result_counts",
+        ),
         "stage4_public_identifier_backfilled_delta": _count_delta(
             row,
             baseline,
@@ -320,6 +374,15 @@ def _summary(rows: list[Mapping[str, Any]]) -> dict[str, Any]:
         "latest_stage5_operational_review_family_counts": dict(
             latest.get("stage5_operational_review_family_counts") or {}
         ),
+        "latest_stage4_public_readback_channel_outcome_counts": dict(
+            latest.get("stage4_public_readback_channel_outcome_counts") or {}
+        ),
+        "latest_design_survey_public_registry_readback_state_counts": dict(
+            latest.get("design_survey_public_registry_readback_state_counts") or {}
+        ),
+        "latest_design_survey_public_registry_verification_result_counts": dict(
+            latest.get("design_survey_public_registry_verification_result_counts") or {}
+        ),
         "customer_visible_allowed": False,
         "query_miss_is_not_clearance": True,
         "no_legal_conclusion": True,
@@ -342,6 +405,15 @@ def _map_delta(row: Mapping[str, Any], baseline: Mapping[str, Any], field: str) 
     base = baseline.get(field) if isinstance(baseline.get(field), Mapping) else {}
     keys = sorted({str(key) for key in current.keys()} | {str(key) for key in base.keys()})
     return {key: _int(current.get(key)) - _int(base.get(key)) for key in keys}
+
+
+def _nested_counts(value: Any, key: str) -> dict[str, int]:
+    if not isinstance(value, Mapping):
+        return {}
+    nested = value.get(key)
+    if not isinstance(nested, Mapping):
+        return {}
+    return {str(nested_key): _int(nested_value) for nested_key, nested_value in nested.items()}
 
 
 def _stage5_family_counts_from_scoreboard(scoreboard: Mapping[str, Any]) -> dict[str, int]:
@@ -399,8 +471,8 @@ def _write_markdown(path: Path, payload: Mapping[str, Any]) -> None:
     lines = [
         "# Stage1-6 Scoreboard Comparison v1",
         "",
-        "| run | candidates | limited | rate | stage4 | public readback outcomes | code backfill | code route policy | stage5 family | stage5 queues | stage1-3 long tail | stage6 public source chain | auth state |",
-        "| --- | ---: | ---: | ---: | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+        "| run | candidates | limited | rate | stage4 | public readback outcomes | channel outcomes | design registry | code backfill | code route policy | stage5 family | stage5 queues | stage1-3 long tail | stage6 public source chain | auth state |",
+        "| --- | ---: | ---: | ---: | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ]
     for row in rows:
         auth_status = row.get("gdcic_authorized_readback_status")
@@ -408,7 +480,7 @@ def _write_markdown(path: Path, payload: Mapping[str, Any]) -> None:
         if isinstance(auth_status, Mapping):
             auth_state = str(auth_status.get("authorization_readiness_state") or "")
         lines.append(
-            "| {run} | {candidates} | {limited} | {rate} | `{stage4}` | `{readback}` | `{code_backfill}` gap_detail=`{gap_detail}` | `{route_policy}` | `{stage5_family}` | `{stage5}` | `{tail}` | `{chain}` | {auth_state} |".format(
+            "| {run} | {candidates} | {limited} | {rate} | `{stage4}` | `{readback}` | `{channel}` | `{design_registry}` | `{code_backfill}` gap_detail=`{gap_detail}` | `{route_policy}` | `{stage5_family}` | `{stage5}` | `{tail}` | `{chain}` | {auth_state} |".format(
                 run=str(row.get("run_label") or ""),
                 candidates=_int(row.get("candidate_count")),
                 limited=_int(row.get("limited_sellable_review_candidate_count")),
@@ -416,6 +488,26 @@ def _write_markdown(path: Path, payload: Mapping[str, Any]) -> None:
                 stage4=json.dumps(row.get("stage4_adapter_result_state_counts") or {}, ensure_ascii=False, sort_keys=True),
                 readback=json.dumps(
                     row.get("stage4_public_readback_outcome_counts") or {},
+                    ensure_ascii=False,
+                    sort_keys=True,
+                ),
+                channel=json.dumps(
+                    row.get("stage4_public_readback_channel_outcome_counts") or {},
+                    ensure_ascii=False,
+                    sort_keys=True,
+                ),
+                design_registry=json.dumps(
+                    {
+                        "readback": row.get("design_survey_public_registry_readback_state_counts") or {},
+                        "verification": row.get(
+                            "design_survey_public_registry_verification_result_counts"
+                        )
+                        or {},
+                        "stage5": row.get(
+                            "design_survey_public_registry_projected_stage5_queue_counts"
+                        )
+                        or {},
+                    },
                     ensure_ascii=False,
                     sort_keys=True,
                 ),
