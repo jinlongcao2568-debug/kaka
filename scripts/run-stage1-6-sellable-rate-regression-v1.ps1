@@ -10,6 +10,8 @@ param(
     [string]$SupplementalFieldQueryRoot = "",
     [string]$SupplementalFieldQueryJson = "",
     [string]$ScoreboardComparisonJson = "",
+    [string]$Stage4BackfillFollowupQueueJson = "",
+    [switch]$ApplyStage4FollowupExecutionPlan,
     [switch]$EnableLivePublicQuery,
     [switch]$EnableLiveBrowserExecution,
     [int]$CandidateLimit = 30,
@@ -25,6 +27,7 @@ param(
     [int]$MaxLiveYgpOriginalNotices = 8,
     [int]$MaxLiveYgpBackfillTasks = 8,
     [switch]$AttemptAllStage16Candidates,
+    [switch]$DescribeEffectivePlanAndExit,
     [switch]$EmitJson
 )
 
@@ -55,6 +58,110 @@ $stage4BackfillFollowupQueueRoot = Join-Path $RunRoot "stage4-backfill-followup-
 New-Item -ItemType Directory -Force -Path $RunRoot | Out-Null
 $env:PYTHONPATH = "$repoRoot\src;$repoRoot\tests"
 $env:PYTHONIOENCODING = "utf-8"
+
+if ($ApplyStage4FollowupExecutionPlan) {
+    if (-not $Stage4BackfillFollowupQueueJson) {
+        Write-Error "ApplyStage4FollowupExecutionPlan requires -Stage4BackfillFollowupQueueJson."
+        exit 1
+    }
+    if (-not (Test-Path $Stage4BackfillFollowupQueueJson)) {
+        Write-Error "Stage4BackfillFollowupQueueJson not found: $Stage4BackfillFollowupQueueJson"
+        exit 1
+    }
+    $followupQueue = Get-Content -LiteralPath $Stage4BackfillFollowupQueueJson -Raw -Encoding UTF8 | ConvertFrom-Json -Depth 100
+    $executionPlan = $followupQueue.next_regression_execution_plan
+    if (-not $executionPlan) {
+        Write-Error "Stage4BackfillFollowupQueueJson has no next_regression_execution_plan."
+        exit 1
+    }
+    if ($executionPlan.live_execution_enabled_by_default -eq $true) {
+        Write-Error "Refusing execution plan with live_execution_enabled_by_default=true."
+        exit 1
+    }
+    $overrides = $executionPlan.recommended_parameter_overrides
+    if ($overrides) {
+        if ($overrides.MaxLiveP13BCompanies -and -not $PSBoundParameters.ContainsKey("MaxLiveP13BCompanies")) {
+            $MaxLiveP13BCompanies = [int]$overrides.MaxLiveP13BCompanies
+        }
+        if ($overrides.MaxBidRecordsPerCompany -and -not $PSBoundParameters.ContainsKey("MaxBidRecordsPerCompany")) {
+            $MaxBidRecordsPerCompany = [int]$overrides.MaxBidRecordsPerCompany
+        }
+        if ($overrides.MaxBidListPagesPerCompany -and -not $PSBoundParameters.ContainsKey("MaxBidListPagesPerCompany")) {
+            $MaxBidListPagesPerCompany = [int]$overrides.MaxBidListPagesPerCompany
+        }
+        if ($overrides.MaxLongTailBidShowsPerCompany -and -not $PSBoundParameters.ContainsKey("MaxLongTailBidShowsPerCompany")) {
+            $MaxLongTailBidShowsPerCompany = [int]$overrides.MaxLongTailBidShowsPerCompany
+        }
+        if ($overrides.MaxLiveOriginalNotices -and -not $PSBoundParameters.ContainsKey("MaxLiveOriginalNotices")) {
+            $MaxLiveOriginalNotices = [int]$overrides.MaxLiveOriginalNotices
+        }
+        if ($overrides.MaxLiveYgpOriginalNotices -and -not $PSBoundParameters.ContainsKey("MaxLiveYgpOriginalNotices")) {
+            $MaxLiveYgpOriginalNotices = [int]$overrides.MaxLiveYgpOriginalNotices
+        }
+        if ($overrides.MaxLiveYgpBackfillTasks -and -not $PSBoundParameters.ContainsKey("MaxLiveYgpBackfillTasks")) {
+            $MaxLiveYgpBackfillTasks = [int]$overrides.MaxLiveYgpBackfillTasks
+        }
+    }
+    $recommendedSwitches = @($executionPlan.recommended_switches)
+    if ($recommendedSwitches -contains "RunP13BPublicSourceChain" -and -not $PSBoundParameters.ContainsKey("RunP13BPublicSourceChain")) {
+        $RunP13BPublicSourceChain = $true
+    }
+    if ($recommendedSwitches -contains "RunYgpBackfillFieldQuery" -and -not $PSBoundParameters.ContainsKey("RunYgpBackfillFieldQuery")) {
+        $RunYgpBackfillFieldQuery = $true
+    }
+    if ($recommendedSwitches -contains "RunStage6MergedProjection" -and -not $PSBoundParameters.ContainsKey("RunStage6MergedProjection")) {
+        $RunStage6MergedProjection = $true
+    }
+    Write-Host "[stage1-6-regression] applied Stage4 follow-up execution plan from $Stage4BackfillFollowupQueueJson"
+    Write-Host "[stage1-6-regression] live public query remains explicit; EnableLivePublicQuery=$($EnableLivePublicQuery.IsPresent)"
+}
+
+if ($DescribeEffectivePlanAndExit) {
+    $effectivePlan = [ordered]@{
+        run_root = "$RunRoot"
+        run_switches = [ordered]@{
+            RunPressure = [bool]$RunPressure
+            RunFieldQuery = [bool]$RunFieldQuery
+            RunStage6Cycle = [bool]$RunStage6Cycle
+            RunGdcicAuthorizedReadback = [bool]$RunGdcicAuthorizedReadback
+            RunP13BPublicSourceChain = [bool]$RunP13BPublicSourceChain
+            RunYgpBackfillFieldQuery = [bool]$RunYgpBackfillFieldQuery
+            RunStage6MergedProjection = [bool]$RunStage6MergedProjection
+            EnableLivePublicQuery = [bool]$EnableLivePublicQuery
+            EnableLiveBrowserExecution = [bool]$EnableLiveBrowserExecution
+        }
+        budget_parameters = [ordered]@{
+            CandidateLimit = $CandidateLimit
+            DetailCaptureLimit = $DetailCaptureLimit
+            AttachmentCaptureLimit = $AttachmentCaptureLimit
+            MaxLiveFieldTasks = $MaxLiveFieldTasks
+            MaxLiveBrowserTasks = $MaxLiveBrowserTasks
+            MaxLiveP13BCompanies = $MaxLiveP13BCompanies
+            MaxBidRecordsPerCompany = $MaxBidRecordsPerCompany
+            MaxBidListPagesPerCompany = $MaxBidListPagesPerCompany
+            MaxLongTailBidShowsPerCompany = $MaxLongTailBidShowsPerCompany
+            MaxLiveOriginalNotices = $MaxLiveOriginalNotices
+            MaxLiveYgpOriginalNotices = $MaxLiveYgpOriginalNotices
+            MaxLiveYgpBackfillTasks = $MaxLiveYgpBackfillTasks
+        }
+        input_refs = [ordered]@{
+            ScoreboardComparisonJson = "$ScoreboardComparisonJson"
+            Stage4BackfillFollowupQueueJson = "$Stage4BackfillFollowupQueueJson"
+        }
+        safety = [ordered]@{
+            customer_visible_allowed = $false
+            external_send_enabled = $false
+            payment_execution_enabled = $false
+            delivery_execution_enabled = $false
+            automatic_refund_enabled = $false
+            live_public_query_requires_explicit_switch = $true
+            query_miss_is_not_clearance = $true
+            no_legal_conclusion = $true
+        }
+    }
+    $effectivePlan | ConvertTo-Json -Depth 20
+    exit 0
+}
 
 if ($RunPressure) {
     $pressureArgs = @(
