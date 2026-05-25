@@ -25,11 +25,28 @@ class StageOneSixRealPublicPressureReportTests(unittest.TestCase):
         fake_result = _fake_run_result()
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
+            scoreboard = root / "prior-scoreboard.json"
+            scoreboard.write_text(
+                json.dumps(
+                    {
+                        "project_rows": [
+                            {"project_id": "PROJ-CN-GD-JG2026-11001"},
+                            {"project_id": "PROJ-CN-GD-JG2026-11002"},
+                        ]
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
             with patch(
                 "storage.real_public_stage1_6_pressure_report.run_operator_autonomous_opportunity_search",
                 return_value=fake_result,
             ) as runner:
-                result = run_stage1_6_real_public_pressure(output_root=root)
+                result = run_stage1_6_real_public_pressure(
+                    output_root=root,
+                    exclude_project_ids=["PROJ-CN-GD-JG2026-11003"],
+                    exclude_scoreboard_jsons=[str(scoreboard)],
+                )
 
             runner.assert_called_once()
             payload = runner.call_args.args[0]
@@ -39,6 +56,14 @@ class StageOneSixRealPublicPressureReportTests(unittest.TestCase):
             self.assertEqual(payload["candidate_limit"], 10)
             self.assertEqual(payload["detail_capture_limit"], 10)
             self.assertEqual(payload["attachment_capture_limit"], 20)
+            self.assertEqual(
+                payload["exclude_project_ids"],
+                [
+                    "PROJ-CN-GD-JG2026-11003",
+                    "PROJ-CN-GD-JG2026-11001",
+                    "PROJ-CN-GD-JG2026-11002",
+                ],
+            )
             self.assertEqual(payload["notice_stage"], "candidate_notice")
             self.assertFalse(payload["allow_offline_sample_candidates"])
             self.assertTrue((root / "run-result.json").exists())

@@ -28,6 +28,8 @@ param(
     [int]$MaxLiveOriginalNotices = 12,
     [int]$MaxLiveYgpOriginalNotices = 8,
     [int]$MaxLiveYgpBackfillTasks = 8,
+    [string[]]$ExcludeProjectId = @(),
+    [string[]]$ExcludeScoreboardJson = @(),
     [switch]$AttemptAllStage16Candidates,
     [switch]$DescribeEffectivePlanAndExit,
     [switch]$EmitJson
@@ -85,6 +87,26 @@ function Resolve-RepoPath {
     }
     return [System.IO.Path]::GetFullPath((Join-Path $repoRoot $Value))
 }
+
+function Expand-StringList {
+    param([string[]]$Values)
+    $items = @()
+    foreach ($value in $Values) {
+        if (-not $value) {
+            continue
+        }
+        foreach ($part in ($value -split "[;,]")) {
+            $text = $part.Trim().Trim('"')
+            if ($text) {
+                $items += $text
+            }
+        }
+    }
+    return $items
+}
+
+$ExcludeProjectId = Expand-StringList $ExcludeProjectId
+$ExcludeScoreboardJson = Expand-StringList $ExcludeScoreboardJson
 
 if ($ApplyStage4FollowupExecutionPlan) {
     if (-not $Stage4BackfillFollowupQueueJson) {
@@ -203,6 +225,8 @@ if ($DescribeEffectivePlanAndExit) {
             MaxLiveOriginalNotices = $MaxLiveOriginalNotices
             MaxLiveYgpOriginalNotices = $MaxLiveYgpOriginalNotices
             MaxLiveYgpBackfillTasks = $MaxLiveYgpBackfillTasks
+            ExcludeProjectId = @($ExcludeProjectId)
+            ExcludeScoreboardJson = @($ExcludeScoreboardJson)
         }
         input_refs = [ordered]@{
             ScoreboardComparisonJson = "$ScoreboardComparisonJson"
@@ -237,6 +261,16 @@ if ($RunPressure) {
         "-DetailCaptureLimit", "$DetailCaptureLimit",
         "-AttachmentCaptureLimit", "$AttachmentCaptureLimit"
     )
+    foreach ($projectId in $ExcludeProjectId) {
+        if ($projectId) {
+            $pressureArgs += @("-ExcludeProjectId", $projectId)
+        }
+    }
+    foreach ($scoreboardJson in $ExcludeScoreboardJson) {
+        if ($scoreboardJson) {
+            $pressureArgs += @("-ExcludeScoreboardJson", (Resolve-RepoPath "$scoreboardJson"))
+        }
+    }
     if ($AttemptAllStage16Candidates) {
         $pressureArgs += "-AttemptAllStage16Candidates"
     }

@@ -9,6 +9,8 @@ param(
     [double]$Stage2DetailCaptureTimeBudgetSeconds = 600,
     [double]$Stage16TimeBudgetSeconds = 600,
     [int]$DiscoveryProfileLimitPerRegion = 1,
+    [string[]]$ExcludeProjectId = @(),
+    [string[]]$ExcludeScoreboardJson = @(),
     [switch]$AttemptAllStage16Candidates,
     [switch]$EnableAttachmentChallengeResolver,
     [int]$ChallengeTimeoutMs = 90000,
@@ -28,6 +30,26 @@ if (-not $OutputRoot) {
 New-Item -ItemType Directory -Force -Path $OutputRoot | Out-Null
 
 $env:PYTHONPATH = "$repoRoot\src;$repoRoot\tests"
+
+function Expand-StringList {
+    param([string[]]$Values)
+    $items = @()
+    foreach ($value in $Values) {
+        if (-not $value) {
+            continue
+        }
+        foreach ($part in ($value -split "[;,]")) {
+            $text = $part.Trim().Trim('"')
+            if ($text) {
+                $items += $text
+            }
+        }
+    }
+    return $items
+}
+
+$ExcludeProjectId = Expand-StringList $ExcludeProjectId
+$ExcludeScoreboardJson = Expand-StringList $ExcludeScoreboardJson
 
 $challengeEnvNames = @(
     "KAKA_STAGE2_ENABLE_ATTACHMENT_CHALLENGE_RESOLVER",
@@ -63,6 +85,16 @@ foreach ($projectType in $ProjectTypes) {
 }
 foreach ($profileId in $SourceProfileIds) {
     $argsList += @("--source-profile-id", $profileId)
+}
+foreach ($projectId in $ExcludeProjectId) {
+    if ($projectId) {
+        $argsList += @("--exclude-project-id", $projectId)
+    }
+}
+foreach ($scoreboardJson in $ExcludeScoreboardJson) {
+    if ($scoreboardJson) {
+        $argsList += @("--exclude-scoreboard-json", $scoreboardJson)
+    }
 }
 if ($EmitJson) {
     $argsList += "--json"

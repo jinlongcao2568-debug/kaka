@@ -2056,6 +2056,15 @@ def _candidate_key(candidate: Mapping[str, Any]) -> str:
     return _hash_text(basis.lower(), 24)
 
 
+def _candidate_project_id(candidate: Mapping[str, Any]) -> str:
+    return str(
+        candidate.get("project_id")
+        or candidate.get("opportunity_project_id")
+        or candidate.get("source_project_id")
+        or ""
+    ).strip()
+
+
 def _profile_ids_for_region(region_code: str) -> list[str]:
     adapter = resolve_region_source_adapter(region_code)
     profile_ids = list(adapter.get("entry_profile_ids", []) or [])
@@ -2515,6 +2524,16 @@ class RealPublicCandidateDiscoveryService:
         profile_limit = max(1, _as_int(payload.get("discovery_profile_limit_per_region"), DEFAULT_DISCOVERY_PROFILE_LIMIT_PER_REGION))
         query = str(payload.get("query") or payload.get("project_keyword") or payload.get("keyword") or "").strip()
         selection_filters = _as_string_list(payload.get("selection_filters"), [])
+        excluded_project_ids = set(
+            _as_string_list(
+                _first_present(
+                    payload.get("exclude_project_ids"),
+                    payload.get("excluded_project_ids"),
+                    payload.get("stage1_6_exclude_project_ids"),
+                ),
+                [],
+            )
+        )
         run_id = str(payload.get("candidate_discovery_run_id") or build_id("REAL-CANDIDATE-DISCOVERY", _hash_text(discovered_at, 12)))
         per_region_candidate_limit = (
             None
@@ -2621,6 +2640,7 @@ class RealPublicCandidateDiscoveryService:
                 diagnostics = dict(parsed_result["diagnostics"])
                 new_rows: list[dict[str, Any]] = []
                 candidate_limit_truncated_count = 0
+                excluded_project_count = 0
                 for index, row in enumerate(parsed):
                     if (
                         (candidate_limit is not None and len(candidates) >= candidate_limit)
@@ -2631,6 +2651,9 @@ class RealPublicCandidateDiscoveryService:
                     ):
                         candidate_limit_truncated_count = max(len(parsed) - index, 0)
                         break
+                    if excluded_project_ids and _candidate_project_id(row) in excluded_project_ids:
+                        excluded_project_count += 1
+                        continue
                     key = str(row.get("candidate_key") or _candidate_key(row))
                     if key in seen_candidate_keys:
                         continue
@@ -2688,8 +2711,9 @@ class RealPublicCandidateDiscoveryService:
                         "candidate_count": len(new_rows),
                         "accepted_candidate_count": len(parsed),
                         "candidate_limit_truncated_count": candidate_limit_truncated_count,
+                        "excluded_project_filtered_count": excluded_project_count,
                         "duplicate_filtered_count": max(
-                            len(parsed) - len(new_rows) - candidate_limit_truncated_count,
+                            len(parsed) - len(new_rows) - candidate_limit_truncated_count - excluded_project_count,
                             0,
                         ),
                     }
@@ -2722,6 +2746,7 @@ class RealPublicCandidateDiscoveryService:
             if candidate_limit is not None
             else "ALL_FETCHED_WINDOW_CANDIDATES",
             "stage1_6_validation_mode": guangdong_stage1_6_validation_scope,
+            "excluded_project_id_count": len(excluded_project_ids),
             "stage1_6_validation_caps": {
                 "candidate_limit": candidate_limit
                 if candidate_limit is not None
@@ -2735,6 +2760,10 @@ class RealPublicCandidateDiscoveryService:
                 else "",
                 "candidate_limit_truncated_count": sum(
                     _as_int(row.get("candidate_limit_truncated_count"), 0)
+                    for row in profile_reports
+                ),
+                "excluded_project_filtered_count": sum(
+                    _as_int(row.get("excluded_project_filtered_count"), 0)
                     for row in profile_reports
                 ),
             },

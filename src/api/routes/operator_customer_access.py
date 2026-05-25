@@ -3044,8 +3044,20 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
     offline_sample_candidates_enabled = _truthy(payload.get("allow_offline_sample_candidates")) or _truthy(
         payload.get("offline_sample_candidates_enabled")
     )
+    excluded_project_ids = set(
+        _as_string_list(
+            _first_present(
+                payload.get("exclude_project_ids"),
+                payload.get("excluded_project_ids"),
+                payload.get("stage1_6_exclude_project_ids"),
+            ),
+            [],
+        )
+    )
     resolved_by_region: dict[str, dict[str, Any]] = {}
     raw_candidates: list[dict[str, Any]] = []
+    raw_candidate_count_before_project_exclusion = 0
+    excluded_project_filtered_count = 0
     real_candidate_discovery: dict[str, Any] = {}
     real_candidate_stage2_capture: dict[str, Any] = {}
     for requested_region_code in requested_region_codes:
@@ -3149,6 +3161,14 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
                 for candidate in list(real_candidate_stage2_capture.get("enriched_candidates", []) or raw_candidates)
                 if isinstance(candidate, Mapping)
             ]
+    raw_candidate_count_before_project_exclusion = len(raw_candidates)
+    if excluded_project_ids and raw_candidates:
+        raw_candidates = [
+            candidate
+            for candidate in raw_candidates
+            if str(candidate.get("project_id") or "").strip() not in excluded_project_ids
+        ]
+        excluded_project_filtered_count = raw_candidate_count_before_project_exclusion - len(raw_candidates)
     if not raw_candidates:
         discovery_attempted = bool(real_candidate_discovery)
         no_candidate_mode = REAL_PUBLIC_SOURCE_CANDIDATE_MODE if discovery_attempted else "REAL_SOURCE_REQUIRED"
@@ -3196,6 +3216,9 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
                 "region_codes": requested_region_codes,
                 "project_types": requested_project_types,
                 "candidate_count": 0,
+                "candidate_count_before_project_exclusion": raw_candidate_count_before_project_exclusion,
+                "excluded_project_id_count": len(excluded_project_ids),
+                "excluded_project_filtered_count": excluded_project_filtered_count,
                 "selected_candidate_count": 0,
                 "closed_loop_generated_count": 0,
                 "selection_semantics": "CANDIDATE_PUBLICITY_WINDOW_LAYER_NOT_SINGLE_PICK",
@@ -3404,6 +3427,9 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
                 "region_codes": requested_region_codes,
                 "project_types": requested_project_types,
                 "candidate_count": len(raw_candidates),
+                "candidate_count_before_project_exclusion": raw_candidate_count_before_project_exclusion,
+                "excluded_project_id_count": len(excluded_project_ids),
+                "excluded_project_filtered_count": excluded_project_filtered_count,
                 "selected_candidate_count": len(selected),
                 "stage1_6_loop_candidate_count": len(selected_ranked),
                 "stage1_6_attempt_all_candidates_enabled": stage1_6_attempt_all_candidates_enabled,
@@ -3973,6 +3999,9 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
             "region_codes": requested_region_codes,
             "project_types": requested_project_types,
             "candidate_count": len(raw_candidates),
+            "candidate_count_before_project_exclusion": raw_candidate_count_before_project_exclusion,
+            "excluded_project_id_count": len(excluded_project_ids),
+            "excluded_project_filtered_count": excluded_project_filtered_count,
             "selected_candidate_count": len(selected),
             "stage1_6_loop_candidate_count": len(selected_ranked),
             "stage1_6_attempt_all_candidates_enabled": stage1_6_attempt_all_candidates_enabled,

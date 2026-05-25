@@ -1524,6 +1524,41 @@ class RealCandidateDiscoveryTests(unittest.TestCase):
             5,
         )
 
+    def test_excluded_project_ids_do_not_consume_discovery_candidate_limit(self) -> None:
+        service = RealPublicCandidateDiscoveryService(
+            fetcher=FakeGuangdongShellFetcher(),
+            repository=RealPublicCandidateRepository(),
+            profile_api_link_discoverer=fake_guangzhou_many_candidate_publicity_api_link_discoverer,
+        )
+
+        result = service.discover(
+            {
+                "region_codes": ["CN-GD"],
+                "project_types": ["municipal"],
+                "amount_min": 0,
+                "amount_max": 200_000_000,
+                "discovery_profile_limit_per_region": 1,
+                "discovery_candidate_limit": 3,
+                "exclude_project_ids": [
+                    "PROJ-CN-GD-JG2026-11000",
+                    "PROJ-CN-GD-JG2026-11001",
+                ],
+                "now": "2026-05-01T00:00:00+00:00",
+            },
+            now="2026-05-01T00:00:00+00:00",
+        )
+
+        self.assertEqual(result["candidate_count"], 3)
+        self.assertEqual(result["excluded_project_id_count"], 2)
+        self.assertEqual(result["stage1_6_validation_caps"]["excluded_project_filtered_count"], 2)
+        project_ids = {row["project_id"] for row in result["candidates"]}
+        self.assertNotIn("PROJ-CN-GD-JG2026-11000", project_ids)
+        self.assertNotIn("PROJ-CN-GD-JG2026-11001", project_ids)
+        self.assertIn("PROJ-CN-GD-JG2026-11002", project_ids)
+        report = result["profile_reports"][0]
+        self.assertEqual(report["excluded_project_filtered_count"], 2)
+        self.assertEqual(report["candidate_count"], 3)
+
     def test_real_candidate_discovery_preserves_old_publish_time_for_review(self) -> None:
         service = RealPublicCandidateDiscoveryService(
             fetcher=FakeGuangdongShellFetcher(),

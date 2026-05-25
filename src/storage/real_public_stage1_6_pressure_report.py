@@ -62,6 +62,8 @@ def run_stage1_6_real_public_pressure(
     stage1_6_time_budget_seconds: float = DEFAULT_STAGE1_6_TIME_BUDGET_SECONDS,
     attempt_all_stage1_6_candidates: bool = False,
     discovery_profile_limit_per_region: int = 1,
+    exclude_project_ids: list[str] | tuple[str, ...] = (),
+    exclude_scoreboard_jsons: list[str] | tuple[str, ...] = (),
     search_runner: SearchRunner | None = None,
     created_at: str | None = None,
 ) -> dict[str, Any]:
@@ -81,6 +83,11 @@ def run_stage1_6_real_public_pressure(
         "stage2_detail_capture_time_budget_seconds": stage2_detail_capture_time_budget_seconds,
         "stage1_6_time_budget_seconds": stage1_6_time_budget_seconds,
         "attempt_all_stage1_6_candidates": attempt_all_stage1_6_candidates,
+        "exclude_project_ids": _excluded_project_ids_from_inputs(
+            explicit_project_ids=exclude_project_ids,
+            scoreboard_jsons=exclude_scoreboard_jsons,
+        ),
+        "exclude_scoreboard_jsons": [str(item) for item in exclude_scoreboard_jsons if str(item or "").strip()],
         "allow_offline_sample_candidates": False,
         "trace_mode": "GUANGZHOU_STAGE1_6_REAL_PUBLIC_PRESSURE",
         "now": created,
@@ -2108,6 +2115,42 @@ def _string_list(value: Any) -> list[str]:
     return []
 
 
+def _excluded_project_ids_from_inputs(
+    *,
+    explicit_project_ids: Iterable[Any] = (),
+    scoreboard_jsons: Iterable[Any] = (),
+) -> list[str]:
+    project_ids: list[str] = [str(item or "").strip() for item in explicit_project_ids if str(item or "").strip()]
+    for raw_path in scoreboard_jsons:
+        text = str(raw_path or "").strip()
+        if not text:
+            continue
+        path = Path(text)
+        if not path.exists():
+            continue
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        project_ids.extend(_project_ids_from_scoreboard_payload(payload))
+    return _dedupe_strings(project_ids)
+
+
+def _project_ids_from_scoreboard_payload(payload: Any) -> list[str]:
+    if not isinstance(payload, Mapping):
+        return []
+    rows = payload.get("project_rows")
+    if not isinstance(rows, list):
+        rows = dict(payload.get("manifest") or {}).get("project_rows")
+    if not isinstance(rows, list):
+        return []
+    return _dedupe_strings(
+        row.get("project_id")
+        for row in rows
+        if isinstance(row, Mapping)
+    )
+
+
 def _load_json(path: Path, blocking_reasons: list[str], missing_reason: str) -> dict[str, Any]:
     if not path.exists():
         blocking_reasons.append(missing_reason)
@@ -2191,6 +2234,8 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--attempt-all-stage1-6-candidates", action="store_true")
     parser.add_argument("--discovery-profile-limit-per-region", type=int, default=1)
+    parser.add_argument("--exclude-project-id", action="append", default=[])
+    parser.add_argument("--exclude-scoreboard-json", action="append", default=[])
     parser.add_argument("--json", action="store_true", dest="emit_json")
     return parser.parse_args(argv)
 
@@ -2210,6 +2255,8 @@ def main(argv: list[str] | None = None) -> int:
             stage1_6_time_budget_seconds=args.stage1_6_time_budget_seconds,
             attempt_all_stage1_6_candidates=args.attempt_all_stage1_6_candidates,
             discovery_profile_limit_per_region=args.discovery_profile_limit_per_region,
+            exclude_project_ids=args.exclude_project_id,
+            exclude_scoreboard_jsons=args.exclude_scoreboard_json,
         )
         payload: Mapping[str, Any] = result if args.emit_json else result["summary"]
     else:
