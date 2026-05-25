@@ -353,6 +353,87 @@ class StageOneSixScoreboardComparisonTests(unittest.TestCase):
             markdown = (out / "stage1-6-scoreboard-comparison-v1.md").read_text(encoding="utf-8")
             self.assertIn("CONTINUE_PUBLIC_SOURCE_DEEPENING", markdown)
 
+    def test_same_candidate_public_source_followup_classified_non_terminal_recommendation(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            run_a = root / "stage1-6-sellable-rate-regression-live15-r1"
+            run_b = root / "stage1-6-sellable-rate-regression-live15-r2"
+            out = root / "out"
+            _write_scoreboard(
+                run_a / "scoreboard" / "stage1-6-sellable-scoreboard-v1.json",
+                candidate_count=15,
+                limited_count=0,
+                rate=0.0,
+                stage4={},
+                stage5={"PROJECT_CODE_BACKFILL_GAP_REVIEW": 15},
+                stage5_family={"project_code_backfill_gap": 15},
+                stage5_primary={"project_code_backfill_gap": 15},
+                stage5_priority={"P2_INPUT_REPAIR_AND_DISAMBIGUATION": 15},
+                stage5_safety={"INTERNAL_REVIEW_ONLY_NOT_CLEARANCE": 15},
+                long_tail={},
+                public_source_chain={},
+                public_readback_outcomes={},
+                public_readback_channel_outcomes={},
+                design_registry_status={},
+                code_backfill={"MISSING_PROJECT_CODE_BACKFILL_INPUT": 15},
+                code_backfill_gap_detail={"NO_PUBLIC_OVERLAP_SIGNAL_FALLBACK_LOCAL_AUTHORITY_REQUIRED": 15},
+                route_policy={"BACKFILL_NOTICE_DATA_GGZY_BID_SHOW_OR_LOCAL_SOURCE_WITHOUT_DIGIT_GUESSING": 15},
+            )
+            _write_scoreboard(
+                run_b / "scoreboard" / "stage1-6-sellable-scoreboard-v1.json",
+                candidate_count=15,
+                limited_count=0,
+                rate=0.0,
+                stage4={},
+                stage5={"LOCAL_AUTHORITY_BLOCKED_REVIEW": 5, "LOCAL_AUTHORITY_NOT_FOUND_REVIEW": 10},
+                stage5_family={"public_source_blocked": 5, "source_not_found": 10},
+                stage5_primary={"public_source_blocked": 5, "source_not_found": 10},
+                stage5_priority={
+                    "P1_BLOCKER_RETRY_OR_ALTERNATE_SOURCE": 5,
+                    "P2_NOT_FOUND_NON_CLEARANCE_DEEPENING": 10,
+                },
+                stage5_safety={"INTERNAL_REVIEW_ONLY_NOT_CLEARANCE": 15},
+                long_tail={},
+                public_source_chain={},
+                public_readback_outcomes={"BLOCKED": 5, "NOT_FOUND": 10},
+                public_readback_channel_outcomes={
+                    "LOCAL_AUTHORITY:BLOCKED": 5,
+                    "LOCAL_AUTHORITY:NOT_FOUND": 10,
+                },
+                design_registry_status={},
+                code_backfill={"MISSING_PROJECT_CODE_BACKFILL_INPUT": 15},
+                code_backfill_gap_detail={"NO_PUBLIC_OVERLAP_SIGNAL_FALLBACK_LOCAL_AUTHORITY_REQUIRED": 15},
+                route_policy={"BACKFILL_NOTICE_DATA_GGZY_BID_SHOW_OR_LOCAL_SOURCE_WITHOUT_DIGIT_GUESSING": 15},
+            )
+
+            result = build_stage1_6_scoreboard_comparison(
+                run_roots=[run_a, run_b],
+                output_root=out,
+                created_at="2026-05-25T00:00:00+08:00",
+            )
+
+        delta = result["delta_from_previous_row"][1]
+        self.assertEqual(delta["candidate_count_delta"], 0)
+        self.assertEqual(delta["limited_sellable_review_candidate_count_delta"], 0)
+        self.assertEqual(delta["stage4_public_readback_blocked_delta"], 5)
+        self.assertEqual(delta["stage4_public_readback_not_found_delta"], 10)
+        self.assertEqual(
+            delta["public_source_deepening_effect_state"],
+            "PUBLIC_SOURCE_FOLLOWUP_CLASSIFIED_NON_TERMINAL",
+        )
+        recommendations = result["public_source_deepening_recommendations"]
+        self.assertEqual(len(recommendations), 1)
+        self.assertEqual(recommendations[0]["decision"], "CONTINUE_PUBLIC_SOURCE_DEEPENING")
+        self.assertEqual(
+            recommendations[0]["effect_state"],
+            "PUBLIC_SOURCE_FOLLOWUP_CLASSIFIED_NON_TERMINAL",
+        )
+        self.assertIn(
+            "keep_not_found_blocked_as_internal_review_not_clearance",
+            recommendations[0]["recommended_budget_focus"],
+        )
+        self.assertFalse(recommendations[0]["safety_invariants"]["customer_visible_allowed"])
+
 
 def _write_scoreboard(
     path: Path,

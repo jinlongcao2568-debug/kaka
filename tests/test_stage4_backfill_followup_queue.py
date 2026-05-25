@@ -348,6 +348,91 @@ class Stage4BackfillFollowupQueueTests(unittest.TestCase):
         self.assertIn("CONTINUE_PUBLIC_SOURCE_DEEPENING", markdown)
         self.assertIn("next_regression_execution_plan", markdown)
 
+    def test_executed_local_authority_readbacks_get_actionable_followup_routes(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            run_root = root / "stage1-6-sellable-rate-regression-live15-r2"
+            scoreboard = run_root / "scoreboard" / "stage1-6-sellable-scoreboard-v1.json"
+            comparison = root / "comparison.json"
+            out = root / "out"
+            _write_json(
+                scoreboard,
+                {
+                    "project_rows": [
+                        {
+                            "project_id": "PROJ-LOCAL-BLOCKED",
+                            "project_name": "Local authority blocked project",
+                            "stage4_project_code_backfill_state": "MISSING_PROJECT_CODE_BACKFILL_INPUT",
+                            "stage4_project_code_backfill_gap_detail": "NO_PUBLIC_OVERLAP_SIGNAL_FALLBACK_LOCAL_AUTHORITY_REQUIRED",
+                            "stage5_operational_review_bucket": "LOCAL_AUTHORITY_BLOCKED_REVIEW",
+                            "p13b_public_source_readback_state": "LOCAL_AUTHORITY_BLOCKED_REVIEW",
+                            "p13b_overlap_triage_state": "NO_OVERLAP_SIGNAL_REVIEW",
+                        },
+                        {
+                            "project_id": "PROJ-LOCAL-NOT-FOUND",
+                            "project_name": "Local authority not found project",
+                            "stage4_project_code_backfill_state": "MISSING_PROJECT_CODE_BACKFILL_INPUT",
+                            "stage4_project_code_backfill_gap_detail": "NO_PUBLIC_OVERLAP_SIGNAL_FALLBACK_LOCAL_AUTHORITY_REQUIRED",
+                            "stage5_operational_review_bucket": "LOCAL_AUTHORITY_NOT_FOUND_REVIEW",
+                            "p13b_public_source_readback_state": "LOCAL_AUTHORITY_NOT_FOUND_REVIEW",
+                            "p13b_overlap_triage_state": "NO_OVERLAP_SIGNAL_REVIEW",
+                        },
+                    ]
+                },
+            )
+            _write_json(
+                comparison,
+                {
+                    "public_source_deepening_recommendations": [
+                        {
+                            "run_label": "stage1-6-sellable-rate-regression-live15-r2",
+                            "previous_run_label": "stage1-6-sellable-rate-regression-live15-r1",
+                            "decision": "CONTINUE_PUBLIC_SOURCE_DEEPENING",
+                            "reason": "same_candidate_count_public_source_followup_classified_blocked_or_not_found_without_clearance",
+                            "recommended_budget_focus": [
+                                "retry_blocked_local_authority_sources_with_alternate_official_entries",
+                                "deepen_not_found_with_specific_search_endpoint_or_manual_source_path",
+                            ],
+                        }
+                    ]
+                },
+            )
+
+            result = build_stage4_backfill_followup_queue(
+                scoreboard_json=scoreboard,
+                scoreboard_comparison_json=comparison,
+                output_root=out,
+                created_at="2026-05-25T00:00:00+00:00",
+            )
+
+        records = {record["project_id"]: record for record in result["records"]}
+        self.assertEqual(
+            records["PROJ-LOCAL-BLOCKED"]["stage4_project_code_backfill_gap_detail"],
+            "LOCAL_AUTHORITY_BLOCKED_RETRY_OR_ALTERNATE_SOURCE_REQUIRED",
+        )
+        self.assertEqual(
+            records["PROJ-LOCAL-BLOCKED"]["followup_route"],
+            "local_authority_blocked_retry_or_alternate_source",
+        )
+        self.assertEqual(records["PROJ-LOCAL-BLOCKED"]["execution_priority"], "HIGH_PUBLIC_SOURCE_DEEPENING")
+        self.assertEqual(
+            records["PROJ-LOCAL-NOT-FOUND"]["stage4_project_code_backfill_gap_detail"],
+            "LOCAL_AUTHORITY_NOT_FOUND_DEEPENING_REQUIRED",
+        )
+        self.assertEqual(
+            records["PROJ-LOCAL-NOT-FOUND"]["followup_route"],
+            "local_authority_not_found_specific_endpoint_or_manual_source",
+        )
+        self.assertEqual(records["PROJ-LOCAL-NOT-FOUND"]["execution_priority"], "MEDIUM_LOCAL_AUTHORITY_FALLBACK")
+        self.assertEqual(
+            result["summary"]["execution_priority_counts"],
+            {"HIGH_PUBLIC_SOURCE_DEEPENING": 1, "MEDIUM_LOCAL_AUTHORITY_FALLBACK": 1},
+        )
+        for record in result["records"]:
+            self.assertTrue(record["public_source_deepening_recommended"])
+            self.assertFalse(record["customer_visible_allowed"])
+            self.assertTrue(record["query_miss_is_not_clearance"])
+
 
 def _write_json(path: Path, payload: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)

@@ -127,6 +127,11 @@ def _followup_record(
 
 
 def _followup_gap_detail(row: Mapping[str, Any]) -> str:
+    public_readback_state = str(row.get("p13b_public_source_readback_state") or "")
+    if public_readback_state == "LOCAL_AUTHORITY_BLOCKED_REVIEW":
+        return "LOCAL_AUTHORITY_BLOCKED_RETRY_OR_ALTERNATE_SOURCE_REQUIRED"
+    if public_readback_state == "LOCAL_AUTHORITY_NOT_FOUND_REVIEW":
+        return "LOCAL_AUTHORITY_NOT_FOUND_DEEPENING_REQUIRED"
     detail = str(row.get("stage4_project_code_backfill_gap_detail") or "").strip()
     if detail:
         return detail
@@ -145,6 +150,10 @@ def _followup_gap_detail(row: Mapping[str, Any]) -> str:
 
 
 def _followup_route(detail: str) -> str:
+    if detail == "LOCAL_AUTHORITY_BLOCKED_RETRY_OR_ALTERNATE_SOURCE_REQUIRED":
+        return "local_authority_blocked_retry_or_alternate_source"
+    if detail == "LOCAL_AUTHORITY_NOT_FOUND_DEEPENING_REQUIRED":
+        return "local_authority_not_found_specific_endpoint_or_manual_source"
     if detail == "PUBLIC_SOURCE_BLOCKED_RETRY_OR_LOCAL_AUTHORITY_REQUIRED":
         return "public_source_retry_then_local_authority_fallback"
     if detail == "YGP_READBACK_BLOCKED_RETRY_OR_LOCAL_AUTHORITY_REQUIRED":
@@ -175,6 +184,10 @@ def _worker_family(route: str) -> str:
 
 
 def _required_input(route: str) -> list[str]:
+    if route == "local_authority_blocked_retry_or_alternate_source":
+        return ["alternate_project_local_authority_source_url_or_adapter", "retry_budget_with_timeout_blocker_capture"]
+    if route == "local_authority_not_found_specific_endpoint_or_manual_source":
+        return ["specific_project_local_authority_search_endpoint_or_manual_source_path"]
     if route == "public_source_retry_then_local_authority_fallback":
         return ["public_source_retry_budget_or_project_local_authority_adapter"]
     if route == "ygp_retry_then_local_authority_fallback":
@@ -238,6 +251,8 @@ def _fallback_input_state(source_kind: str, row: Mapping[str, Any]) -> str:
 
 def _recommended_next_action(route: str) -> str:
     actions = {
+        "local_authority_blocked_retry_or_alternate_source": "retry_blocked_local_authority_source_or_choose_alternate_official_entry_without_clearance_claim",
+        "local_authority_not_found_specific_endpoint_or_manual_source": "keep_not_found_as_non_clearance_and_try_specific_search_endpoint_or_manual_source_path",
         "public_source_retry_then_local_authority_fallback": "retry_public_source_or_route_to_project_local_authority_without_clearance_claim",
         "local_authority_fallback_source_planning": "plan_project_local_authority_readback_without_treating_not_found_as_clearance",
         "original_notice_retry_then_local_authority_fallback": "retry_original_notice_or_route_to_project_local_authority_without_clearance_claim",
@@ -252,13 +267,17 @@ def _execution_priority(route: str, *, deepening_recommended: bool) -> str:
     if not deepening_recommended:
         return "NORMAL"
     if route in {
+        "local_authority_blocked_retry_or_alternate_source",
         "public_source_retry_then_local_authority_fallback",
         "original_notice_retry_then_local_authority_fallback",
         "ygp_retry_then_local_authority_fallback",
         "public_source_readback_required",
     }:
         return "HIGH_PUBLIC_SOURCE_DEEPENING"
-    if route == "local_authority_fallback_source_planning":
+    if route in {
+        "local_authority_fallback_source_planning",
+        "local_authority_not_found_specific_endpoint_or_manual_source",
+    }:
         return "MEDIUM_LOCAL_AUTHORITY_FALLBACK"
     return "NORMAL_OPERATOR_REVIEW"
 
