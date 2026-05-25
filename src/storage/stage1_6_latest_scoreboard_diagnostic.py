@@ -47,6 +47,7 @@ def build_stage1_6_latest_scoreboard_diagnostic(
         "latest_run": _run_summary(latest_board),
         "delta_from_previous": _delta_summary(latest_board, previous_board),
         "stage5_diagnosis": _stage5_diagnosis(latest_board),
+        "official_readback_ready_review_queue": _official_readback_ready_review_queue(latest_rows),
         "stage4_readback_diagnosis": _stage4_readback_diagnosis(latest_board),
         "followup_queue_diagnosis": _followup_queue_diagnosis(followup),
         "comparison_diagnosis": _comparison_diagnosis(comparison),
@@ -150,6 +151,64 @@ def _stage5_diagnosis_state(scoreboard: Mapping[str, Any]) -> str:
     if official_ready > 0:
         return "OFFICIAL_READBACK_READY_NEEDS_B_OR_C_RELEASE_EVIDENCE_REVIEW"
     return "NO_LIMITED_SELLABLE_OR_OFFICIAL_READBACK_READY"
+
+
+def _official_readback_ready_review_queue(rows: list[Mapping[str, Any]]) -> dict[str, Any]:
+    records = []
+    for row in rows:
+        if str(row.get("stage5_operational_primary_track") or "") != "official_readback_ready":
+            continue
+        if str(row.get("limited_sellable_review_candidate_state") or "") == "REVIEW_CANDIDATE":
+            continue
+        record = {
+            "project_id": str(row.get("project_id") or ""),
+            "project_name": str(row.get("project_name") or ""),
+            "stage5_operational_review_bucket": str(row.get("stage5_operational_review_bucket") or ""),
+            "stage4_project_code_backfill_state": str(row.get("stage4_project_code_backfill_state") or ""),
+            "stage4_public_identifier_backfill_source": str(row.get("stage4_public_identifier_backfill_source") or ""),
+            "p13b_public_source_readback_state": str(row.get("p13b_public_source_readback_state") or ""),
+            "p13b_original_notice_readback_state": str(row.get("p13b_original_notice_readback_state") or ""),
+            "p13b_ygp_original_readback_state": str(row.get("p13b_ygp_original_readback_state") or ""),
+            "p13b_overlap_triage_state": str(row.get("p13b_overlap_triage_state") or ""),
+            "review_blocker_state": _official_readback_ready_blocker_state(row),
+            "recommended_next_action": _official_readback_ready_next_action(row),
+            "customer_visible_allowed": False,
+            "query_miss_is_not_clearance": True,
+            "no_legal_conclusion": True,
+        }
+        records.append(record)
+    return {
+        "record_count": len(records),
+        "review_blocker_state_counts": _counts(record.get("review_blocker_state") for record in records),
+        "records": records,
+        "customer_visible_allowed": False,
+        "query_miss_is_not_clearance": True,
+        "no_legal_conclusion": True,
+    }
+
+
+def _official_readback_ready_blocker_state(row: Mapping[str, Any]) -> str:
+    evidence_grades = dict(row.get("limited_sellable_review_evidence_grade_counts") or {})
+    if _int(evidence_grades.get("B_ENHANCEMENT_OFFICIAL_READBACK")) or _int(
+        evidence_grades.get("C_REVERSE_EXPLANATION_OFFICIAL_READBACK")
+    ):
+        return "B_OR_C_EVIDENCE_PRESENT_BUT_NOT_PROJECTED"
+    if str(row.get("p13b_overlap_triage_state") or "") == "YGP_STAGE4_BACKFILL_READY_FOR_P13B_OR_STAGE4_BRIDGE":
+        return "PUBLIC_IDENTIFIER_READY_NOT_RELEASE_EVIDENCE"
+    if "evidence_insufficient" in set(row.get("stage5_operational_review_families") or []):
+        return "EVIDENCE_INSUFFICIENT_NOT_LIMITED_SELLABLE"
+    return "B_OR_C_RELEASE_EVIDENCE_REVIEW_REQUIRED"
+
+
+def _official_readback_ready_next_action(row: Mapping[str, Any]) -> str:
+    blocker = _official_readback_ready_blocker_state(row)
+    if blocker == "B_OR_C_EVIDENCE_PRESENT_BUT_NOT_PROJECTED":
+        return "inspect_stage6_projection_for_missing_limited_sellable_mapping"
+    if blocker == "PUBLIC_IDENTIFIER_READY_NOT_RELEASE_EVIDENCE":
+        return "feed_public_identifier_to_release_evidence_adapter_before_limited_review"
+    if blocker == "EVIDENCE_INSUFFICIENT_NOT_LIMITED_SELLABLE":
+        return "continue_b_or_c_release_evidence_readback_or_keep_internal_evidence_insufficient"
+    return "review_for_b_or_c_official_release_evidence_only"
 
 
 def _stage4_readback_diagnosis(scoreboard: Mapping[str, Any]) -> dict[str, Any]:
@@ -282,6 +341,7 @@ def _write_markdown(path: Path, payload: Mapping[str, Any]) -> None:
         f"- latest_run: {json.dumps(payload.get('latest_run', {}), ensure_ascii=False, sort_keys=True)}",
         f"- delta_from_previous: {json.dumps(payload.get('delta_from_previous', {}), ensure_ascii=False, sort_keys=True)}",
         f"- stage5_diagnosis: {json.dumps(payload.get('stage5_diagnosis', {}), ensure_ascii=False, sort_keys=True)}",
+        f"- official_readback_ready_review_queue: {json.dumps(payload.get('official_readback_ready_review_queue', {}), ensure_ascii=False, sort_keys=True)}",
         f"- followup_queue_diagnosis: {json.dumps(payload.get('followup_queue_diagnosis', {}), ensure_ascii=False, sort_keys=True)}",
         f"- p0_gap_summary: {json.dumps(payload.get('p0_gap_summary', {}), ensure_ascii=False, sort_keys=True)}",
         f"- recommended_next_actions: {json.dumps(payload.get('recommended_next_actions', []), ensure_ascii=False)}",
@@ -298,6 +358,16 @@ def _int(value: Any) -> int:
         return int(value or 0)
     except Exception:
         return 0
+
+
+def _counts(values: Any) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for value in values:
+        key = str(value or "")
+        if not key:
+            continue
+        counts[key] = counts.get(key, 0) + 1
+    return counts
 
 
 def main(argv: list[str] | None = None) -> int:

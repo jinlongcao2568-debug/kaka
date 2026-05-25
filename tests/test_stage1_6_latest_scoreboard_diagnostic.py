@@ -94,6 +94,15 @@ class StageOneSixLatestScoreboardDiagnosticTests(unittest.TestCase):
             "OFFICIAL_READBACK_READY_NEEDS_B_OR_C_RELEASE_EVIDENCE_REVIEW",
         )
         self.assertEqual(result["p0_gap_summary"]["official_readback_ready_not_limited_count"], 7)
+        self.assertEqual(result["official_readback_ready_review_queue"]["record_count"], 1)
+        self.assertEqual(
+            result["official_readback_ready_review_queue"]["review_blocker_state_counts"],
+            {"PUBLIC_IDENTIFIER_READY_NOT_RELEASE_EVIDENCE": 1},
+        )
+        self.assertEqual(
+            result["official_readback_ready_review_queue"]["records"][0]["recommended_next_action"],
+            "feed_public_identifier_to_release_evidence_adapter_before_limited_review",
+        )
         self.assertEqual(result["p0_gap_summary"]["followup_queue_remaining_count"], 3)
         self.assertTrue(result["p0_gap_summary"]["comparison_recommends_deepening"])
         self.assertIn(
@@ -149,6 +158,21 @@ def _write_scoreboard(
             "project_rows": [
                 {
                     "project_id": "PROJ-A",
+                    "project_name": "样本项目",
+                    "stage5_operational_primary_track": "official_readback_ready",
+                    "stage5_operational_review_bucket": "YGP_STAGE4_BACKFILL_READY_REVIEW",
+                    "stage5_operational_review_families": [
+                        "official_readback_ready",
+                        "evidence_insufficient",
+                    ],
+                    "stage4_project_code_backfill_state": (
+                        "PUBLIC_SOURCE_IDENTIFIER_BACKFILLED_FOR_P13B_OR_STAGE4_BRIDGE_ONLY"
+                    ),
+                    "stage4_public_identifier_backfill_source": "YGP_PROJECT_CODE",
+                    "p13b_public_source_readback_state": "ORIGINAL_NOTICE_BACKTRACE_REQUIRED",
+                    "p13b_original_notice_readback_state": "PENDING_OR_NOT_RUN",
+                    "p13b_ygp_original_readback_state": "YGP_READBACK_READY",
+                    "p13b_overlap_triage_state": "YGP_STAGE4_BACKFILL_READY_FOR_P13B_OR_STAGE4_BRIDGE",
                     "customer_visible_allowed": False,
                     "query_miss_is_not_clearance": True,
                 }
