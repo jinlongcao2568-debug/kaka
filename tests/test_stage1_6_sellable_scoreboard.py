@@ -637,6 +637,15 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
             scoreboard["stage4_public_readback_outcome_counts"],
             {"BLOCKED": 2, "NOT_FOUND": 1, "READBACK_READY": 1},
         )
+        self.assertEqual(
+            scoreboard["stage4_public_readback_channel_outcome_counts"],
+            {
+                "ORIGINAL_NOTICE:BLOCKED": 1,
+                "ORIGINAL_NOTICE:NOT_FOUND": 1,
+                "YGP:YGP_BLOCKED": 1,
+                "YGP:YGP_READBACK_READY": 1,
+            },
+        )
         self.assertEqual(scoreboard["p13b_ygp_original_readback_status"]["ygp_readback_ready_count"], 1)
         self.assertEqual(
             scoreboard["p13b_ygp_original_readback_status"]["stage4_ygp_backfill_state_counts"],
@@ -1903,6 +1912,14 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
         self.assertEqual(
             result["scoreboard"]["design_survey_public_registry_readback_status"]["readback_state_counts"],
             {"NOT_FOUND": 1},
+        )
+        self.assertEqual(
+            result["scoreboard"]["stage4_public_readback_outcome_counts"],
+            {"NOT_FOUND": 1},
+        )
+        self.assertEqual(
+            result["scoreboard"]["stage4_public_readback_channel_outcome_counts"],
+            {"DESIGN_SURVEY_PUBLIC_REGISTRY:NOT_FOUND": 1},
         )
         self.assertEqual(
             result["scoreboard"]["design_survey_public_registry_readback_status"]["projected_stage5_queue_counts"],

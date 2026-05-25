@@ -474,6 +474,7 @@ def _scoreboard_counts(
             row.get("p13b_ygp_original_readback_state") for row in project_rows
         ),
         "stage4_public_readback_outcome_counts": _stage4_public_readback_outcome_counts(project_rows),
+        "stage4_public_readback_channel_outcome_counts": _stage4_public_readback_channel_outcome_counts(project_rows),
         "stage6_loop_terminal_state_counts": dict(stage6_summary.get("loop_terminal_state_counts") or {})
         or _counts(record.get("loop_terminal_state") for record in stage6_records),
     }
@@ -2361,6 +2362,7 @@ def _stage4_public_readback_outcome_counts(project_rows: list[Mapping[str, Any]]
         ygp_state = str(row.get("p13b_ygp_original_readback_state") or "").strip().upper()
         local_authority_count = _int(row.get("p13b_local_authority_source_task_count"))
         local_authority_readback_counts = dict(row.get("p13b_local_authority_executed_readback_state_counts") or {})
+        design_registry_state = str(row.get("design_survey_public_registry_readback_state") or "").strip().upper()
         if original_state == "MATCHED":
             outcomes.append("MATCHED")
         elif original_state == "NOT_FOUND":
@@ -2376,6 +2378,29 @@ def _stage4_public_readback_outcome_counts(project_rows: list[Mapping[str, Any]]
         for state in ("MATCHED", "NOT_FOUND", "BLOCKED", "NEEDS_BROWSER"):
             for _ in range(_int(local_authority_readback_counts.get(state))):
                 outcomes.append(state)
+        if design_registry_state in {"MATCHED", "NOT_FOUND", "BLOCKED", "NEEDS_BROWSER"}:
+            outcomes.append(design_registry_state)
+        elif design_registry_state in {"FAIL_CLOSED_QUERY_ERROR", "PUBLIC_SNAPSHOT_OR_RUNTIME_ADAPTER_REQUIRED"}:
+            outcomes.append("BLOCKED")
+    return _counts(outcomes)
+
+
+def _stage4_public_readback_channel_outcome_counts(project_rows: list[Mapping[str, Any]]) -> dict[str, int]:
+    outcomes: list[str] = []
+    for row in project_rows:
+        original_state = str(row.get("p13b_original_notice_readback_state") or "").strip().upper()
+        ygp_state = str(row.get("p13b_ygp_original_readback_state") or "").strip().upper()
+        local_authority_readback_counts = dict(row.get("p13b_local_authority_executed_readback_state_counts") or {})
+        design_registry_state = str(row.get("design_survey_public_registry_readback_state") or "").strip().upper()
+        if original_state:
+            outcomes.append(f"ORIGINAL_NOTICE:{original_state}")
+        if ygp_state:
+            outcomes.append(f"YGP:{ygp_state}")
+        for state, count in local_authority_readback_counts.items():
+            for _ in range(_int(count)):
+                outcomes.append(f"LOCAL_AUTHORITY:{state}")
+        if design_registry_state:
+            outcomes.append(f"DESIGN_SURVEY_PUBLIC_REGISTRY:{design_registry_state}")
     return _counts(outcomes)
 
 
@@ -2457,6 +2482,7 @@ def _write_markdown(path: Path, payload: Mapping[str, Any]) -> None:
         f"- stage4_original_notice_readback_state_counts: {json.dumps(scoreboard.get('stage4_original_notice_readback_state_counts', {}), ensure_ascii=False, sort_keys=True)}",
         f"- stage4_ygp_original_readback_state_counts: {json.dumps(scoreboard.get('stage4_ygp_original_readback_state_counts', {}), ensure_ascii=False, sort_keys=True)}",
         f"- stage4_public_readback_outcome_counts: {json.dumps(scoreboard.get('stage4_public_readback_outcome_counts', {}), ensure_ascii=False, sort_keys=True)}",
+        f"- stage4_public_readback_channel_outcome_counts: {json.dumps(scoreboard.get('stage4_public_readback_channel_outcome_counts', {}), ensure_ascii=False, sort_keys=True)}",
         "",
         "## Blockers",
     ]
