@@ -1435,6 +1435,90 @@ class Stage6ReviewCycleRunnerTests(unittest.TestCase):
                 result["blocking_reasons"],
             )
 
+    def test_operator_projection_merges_design_survey_public_registry_not_found_readback(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            status_path = root / "status" / "stage6-review-loop-project-status-table.json"
+            registry_readback = root / "registry" / "design-survey-public-registry-readback-v1.json"
+            _write_json(
+                status_path,
+                {
+                    "records": [
+                        {
+                            "project_id": "PROJ-DESIGN-NOTFOUND",
+                            "project_name": "Design registry not found project",
+                            "loop_terminal_state": "MANUAL_REVIEW_HOLD_NO_AUTOMATED_DISPATCH",
+                            "limited_sellable_review_candidate_state": "NOT_READY",
+                            "customer_visible_allowed": False,
+                            "query_miss_is_not_clearance": True,
+                            "no_legal_conclusion": True,
+                        }
+                    ]
+                },
+            )
+            _write_json(
+                registry_readback,
+                {
+                    "summary": {
+                        "readback_record_count": 1,
+                        "project_count": 1,
+                        "provider_result_state_counts": {"READBACK_READY": 1},
+                        "readback_state_counts": {"NOT_FOUND": 1},
+                        "verification_result_counts": {"REVIEW_REQUIRED": 1},
+                        "matched_count": 0,
+                        "review_required_count": 1,
+                    },
+                    "manifest": {
+                        "public_registry_readback_table": {
+                            "records": [
+                                {
+                                    "project_id": "PROJ-DESIGN-NOTFOUND",
+                                    "provider_result_state": "READBACK_READY",
+                                    "readback_state": "NOT_FOUND",
+                                    "verification_result": "REVIEW_REQUIRED",
+                                    "customer_visible_allowed": False,
+                                    "query_miss_is_not_clearance": True,
+                                    "no_legal_conclusion": True,
+                                }
+                            ]
+                        }
+                    },
+                },
+            )
+
+            table = cycle_runner._operator_projection_status_table(
+                summary={},
+                stage6_result={},
+                runtime_blocker_worker_followup_queue={"records": []},
+                runtime_blocker_subqueue_controller_table={},
+                runtime_blocker_controller_dispatch_table={},
+                runtime_blocker_controller_dispatch_runner_result={},
+                source_stage6_review_loop_status_path=status_path,
+                source_gdcic_browser_readback_path=None,
+                source_design_survey_public_registry_readback_path=registry_readback,
+            )
+
+        row = table["records"][0]
+        self.assertEqual(row["project_id"], "PROJ-DESIGN-NOTFOUND")
+        self.assertEqual(row["design_survey_public_registry_readback_state"], "NOT_FOUND")
+        self.assertEqual(row["design_survey_public_registry_verification_result"], "REVIEW_REQUIRED")
+        self.assertEqual(
+            row["design_survey_public_registry_stage6_review_bucket"],
+            "DESIGN_SURVEY_PUBLIC_REGISTRY_NOT_FOUND_REVIEW",
+        )
+        self.assertTrue(row["design_survey_public_registry_query_miss_is_not_clearance"])
+        self.assertFalse(row["customer_visible_allowed"])
+        self.assertEqual(
+            table["summary"]["design_survey_public_registry_readback_state_counts"],
+            {"NOT_FOUND": 1},
+        )
+        self.assertEqual(
+            table["summary"]["design_survey_public_registry_verification_result_counts"],
+            {"REVIEW_REQUIRED": 1},
+        )
+        self.assertEqual(table["summary"]["design_survey_public_registry_not_found_review_count"], 1)
+        self.assertEqual(table["summary"]["limited_sellable_review_candidate_count"], 0)
+
 
 def _write_evidence_state(root: Path) -> Path:
     path = root / "evidence-orchestration-state-v1.json"

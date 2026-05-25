@@ -29,6 +29,9 @@ STAGE6_REVIEW_CYCLE_RUNNER_ADAPTER_ID = "stage6-review-cycle-runner-v1"
 
 DEFAULT_BATCH_CLOSEOUT_ROOT = Path("tmp/evaluation-real-samples/evidence-batch-closeout-v1")
 DEFAULT_OUTPUT_ROOT = Path("tmp/evaluation-real-samples/stage6-review-cycle-runner-v1")
+DEFAULT_DESIGN_SURVEY_PUBLIC_REGISTRY_READBACK_ROOT = Path(
+    "tmp/evaluation-real-samples/design-survey-public-registry-readback-v1"
+)
 DEFAULT_RUNTIME_BLOCKER_NEXT_SUBQUEUE_FILENAME = "stage6-review-loop-runtime-blocker-next-subqueues.json"
 DEFAULT_STAGE6_REVIEW_LOOP_STATUS_FILENAME = "stage6-review-loop-project-status-table.json"
 DEFAULT_STAGE6_REVIEW_CYCLE_BOOTSTRAP_REGISTRY_PATH = Path("control") / "stage6_review_cycle_bootstrap_registry.yaml"
@@ -434,6 +437,8 @@ def run_stage6_review_cycle_runner(
     stage16_p13b_continuation_root: str | Path | None = None,
     stage5_calibration_sample_json: str | Path | None = None,
     stage5_calibration_sample_root: str | Path | None = None,
+    design_survey_public_registry_readback_json: str | Path | None = None,
+    design_survey_public_registry_readback_root: str | Path | None = None,
     output_root: str | Path = DEFAULT_OUTPUT_ROOT,
     execute_dispatch: bool = False,
     dispatch_max_groups: int | None = None,
@@ -508,6 +513,11 @@ def run_stage6_review_cycle_runner(
     original_backtrace_continuation_path = candidate_by_kind.get("ORIGINAL_BACKTRACE_CONTINUATION_JSON", {}).get("source_path")
     stage16_p13b_continuation_path = candidate_by_kind.get("STAGE16_P13B_CONTINUATION_JSON", {}).get("source_path")
     stage5_calibration_sample_path = candidate_by_kind.get("STAGE5_CALIBRATION_SAMPLE_JSON", {}).get("source_path")
+    design_survey_public_registry_readback_path = _optional_json_path(
+        explicit_json=design_survey_public_registry_readback_json,
+        root=design_survey_public_registry_readback_root or DEFAULT_DESIGN_SURVEY_PUBLIC_REGISTRY_READBACK_ROOT,
+        default_filename="design-survey-public-registry-readback-v1.json",
+    )
     derived_next_subqueue_path = out_dir / "stage6-review-cycle-runtime-blocker-next-subqueues.json"
     (
         runtime_blocker_next_subqueue_table,
@@ -639,6 +649,7 @@ def run_stage6_review_cycle_runner(
         runtime_blocker_controller_dispatch_runner_result=runtime_blocker_controller_dispatch_runner_result,
         source_stage6_review_loop_status_path=effective_stage6_review_loop_status_path,
         source_gdcic_browser_readback_path=gdcic_browser_readback_path,
+        source_design_survey_public_registry_readback_path=design_survey_public_registry_readback_path,
     )
     stage5_calibration_summary = _stage5_calibration_projection_summary(
         operator_projection_status_table.get("records")
@@ -683,6 +694,9 @@ def run_stage6_review_cycle_runner(
         "source_original_backtrace_continuation_json": str(original_backtrace_continuation_path or ""),
         "source_stage16_p13b_continuation_json": str(stage16_p13b_continuation_path or ""),
         "source_stage5_calibration_sample_json": str(stage5_calibration_sample_path or ""),
+        "source_design_survey_public_registry_readback_json": str(
+            design_survey_public_registry_readback_path or ""
+        ),
         "runtime_blocker_next_subqueue_input_state": next_subqueue_input_state,
         "stage6_fact_package_root": str(stage6_root),
         "stage6_fact_package_json": str(stage6_root / "stage6-fact-package-v1.json"),
@@ -912,6 +926,7 @@ def _operator_projection_status_table(
     runtime_blocker_controller_dispatch_runner_result: Mapping[str, Any],
     source_stage6_review_loop_status_path: Path | None,
     source_gdcic_browser_readback_path: Path | None,
+    source_design_survey_public_registry_readback_path: Path | None,
 ) -> dict[str, Any]:
     followup_records = [
         dict(record)
@@ -973,6 +988,14 @@ def _operator_projection_status_table(
             project_records,
             gdcic_projection_by_project,
         )
+    design_registry_projection_by_project = _design_survey_public_registry_readback_projection_by_project(
+        source_design_survey_public_registry_readback_path
+    )
+    if design_registry_projection_by_project:
+        project_records = _merge_design_survey_public_registry_readback_projection(
+            project_records,
+            design_registry_projection_by_project,
+        )
     projection_summary = {
         **dict(summary),
         "operator_projection_source": operator_projection_source,
@@ -989,6 +1012,22 @@ def _operator_projection_status_table(
         "gdcic_browser_target_real_readback_success_count": sum(
             int(record.get("gdcic_browser_target_real_readback_success_count") or 0)
             for record in gdcic_projection_by_project.values()
+        ),
+        "design_survey_public_registry_readback_project_count": len(
+            design_registry_projection_by_project
+        ),
+        "design_survey_public_registry_readback_state_counts": _counts(
+            record.get("design_survey_public_registry_readback_state")
+            for record in design_registry_projection_by_project.values()
+        ),
+        "design_survey_public_registry_verification_result_counts": _counts(
+            record.get("design_survey_public_registry_verification_result")
+            for record in design_registry_projection_by_project.values()
+        ),
+        "design_survey_public_registry_not_found_review_count": sum(
+            1
+            for record in design_registry_projection_by_project.values()
+            if record.get("design_survey_public_registry_readback_state") == "NOT_FOUND"
         ),
         "limited_sellable_review_candidate_count": sum(
             1
@@ -1182,6 +1221,90 @@ def _merge_gdcic_readback_projection(
         else:
             out.append(dict(projection))
     return out
+
+
+def _design_survey_public_registry_readback_projection_by_project(path: Path | None) -> dict[str, dict[str, Any]]:
+    if not path or not path.exists():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    manifest = payload.get("manifest") if isinstance(payload.get("manifest"), Mapping) else {}
+    table = (
+        manifest.get("public_registry_readback_table")
+        if isinstance(manifest.get("public_registry_readback_table"), Mapping)
+        else {}
+    )
+    records = [dict(record) for record in _list(table.get("records")) if isinstance(record, Mapping)]
+    out: dict[str, dict[str, Any]] = {}
+    for project_id in _dedupe(record.get("project_id") for record in records):
+        project_records = [
+            record for record in records if str(record.get("project_id") or "").strip() == project_id
+        ]
+        readback_state_counts = _counts(record.get("readback_state") for record in project_records)
+        verification_counts = _counts(record.get("verification_result") for record in project_records)
+        provider_counts = _counts(record.get("provider_result_state") for record in project_records)
+        readback_state = _dominant_count_key(readback_state_counts)
+        verification_result = _dominant_count_key(verification_counts)
+        out[project_id] = {
+            "project_id": project_id,
+            "design_survey_public_registry_readback_json": str(path),
+            "design_survey_public_registry_readback_record_count": len(project_records),
+            "design_survey_public_registry_provider_result_state_counts": provider_counts,
+            "design_survey_public_registry_readback_state_counts": readback_state_counts,
+            "design_survey_public_registry_verification_result_counts": verification_counts,
+            "design_survey_public_registry_provider_result_state": _dominant_count_key(provider_counts),
+            "design_survey_public_registry_readback_state": readback_state,
+            "design_survey_public_registry_verification_result": verification_result,
+            "design_survey_public_registry_stage6_review_bucket": (
+                "DESIGN_SURVEY_PUBLIC_REGISTRY_MATCHED_REVIEW"
+                if verification_result == "MATCHED" or readback_state == "MATCHED"
+                else "DESIGN_SURVEY_PUBLIC_REGISTRY_NOT_FOUND_REVIEW"
+                if readback_state == "NOT_FOUND"
+                else "DESIGN_SURVEY_PUBLIC_REGISTRY_BLOCKED_REVIEW"
+            ),
+            "design_survey_public_registry_query_miss_is_not_clearance": True,
+            "customer_visible_allowed": False,
+            "query_miss_is_not_clearance": True,
+            "no_legal_conclusion": True,
+        }
+    return out
+
+
+def _merge_design_survey_public_registry_readback_projection(
+    project_records: list[dict[str, Any]],
+    design_registry_projection_by_project: Mapping[str, Mapping[str, Any]],
+) -> list[dict[str, Any]]:
+    out = [dict(record) for record in project_records]
+    by_project_id = {
+        str(record.get("project_id") or "").strip(): record
+        for record in out
+        if str(record.get("project_id") or "").strip()
+    }
+    for project_id, projection in design_registry_projection_by_project.items():
+        if project_id in by_project_id:
+            target = by_project_id[project_id]
+            target.update({key: value for key, value in projection.items() if key != "project_id"})
+            refs = _dedupe(
+                [
+                    *_list(target.get("input_artifact_refs")),
+                    projection.get("design_survey_public_registry_readback_json"),
+                ]
+            )
+            if refs:
+                target["input_artifact_refs"] = refs
+        else:
+            out.append(dict(projection))
+    return out
+
+
+def _dominant_count_key(counts: Mapping[str, int]) -> str:
+    ranked = sorted(
+        ((str(key), int(value or 0)) for key, value in counts.items() if str(key or "").strip()),
+        key=lambda item: (-item[1], item[0]),
+    )
+    return ranked[0][0] if ranked else ""
 
 
 def _status_projection_records_from_status_table(path: Path | None) -> list[dict[str, Any]]:
@@ -1776,6 +1899,19 @@ def _bootstrap_source_path(
     return None
 
 
+def _optional_json_path(
+    *,
+    explicit_json: str | Path | None,
+    root: str | Path | None,
+    default_filename: str,
+) -> Path | None:
+    if explicit_json:
+        return Path(explicit_json)
+    if root:
+        return Path(root) / default_filename
+    return None
+
+
 def _runtime_blocker_next_subqueue_path(
     *,
     runtime_blocker_next_subqueue_json: str | Path | None,
@@ -2337,6 +2473,8 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--stage16-p13b-continuation-root", default="")
     parser.add_argument("--stage5-calibration-sample-json", default="")
     parser.add_argument("--stage5-calibration-sample-root", default="")
+    parser.add_argument("--design-survey-public-registry-readback-json", default="")
+    parser.add_argument("--design-survey-public-registry-readback-root", default="")
     parser.add_argument("--output-root", default=str(DEFAULT_OUTPUT_ROOT))
     parser.add_argument("--execute-dispatch", action="store_true")
     parser.add_argument("--dispatch-max-groups", type=int, default=None)
@@ -2373,6 +2511,8 @@ def main(argv: list[str] | None = None) -> int:
         stage16_p13b_continuation_root=args.stage16_p13b_continuation_root or None,
         stage5_calibration_sample_json=args.stage5_calibration_sample_json or None,
         stage5_calibration_sample_root=args.stage5_calibration_sample_root or None,
+        design_survey_public_registry_readback_json=args.design_survey_public_registry_readback_json or None,
+        design_survey_public_registry_readback_root=args.design_survey_public_registry_readback_root or None,
         output_root=args.output_root,
         execute_dispatch=bool(args.execute_dispatch),
         dispatch_max_groups=args.dispatch_max_groups,
