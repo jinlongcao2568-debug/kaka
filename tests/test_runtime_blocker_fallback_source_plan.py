@@ -277,6 +277,39 @@ class RuntimeBlockerFallbackSourcePlanTests(unittest.TestCase):
         self.assertTrue(record["query_miss_is_not_clearance"])
         self.assertFalse(record["customer_visible_allowed"])
 
+    def test_scoreboard_official_readback_context_overrides_stale_not_found_route(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            field_query = root / "field-query.json"
+            cycle = root / "cycle.json"
+            stage4_queue = root / "missing-stage4-followup-queue.json"
+            scoreboard = root / "scoreboard" / "stage1-6-sellable-scoreboard-v1.json"
+            out = root / "out"
+            _write_json(field_query, {"manifest": {"field_task_records": []}})
+            _write_scoreboard_project_rows(scoreboard)
+            _write_cycle(cycle, field_query, scoreboard, stage4_queue)
+
+            result = build_runtime_blocker_fallback_source_plan(
+                stage6_review_cycle_json=cycle,
+                output_root=out,
+                created_at="2026-05-25T00:00:00+08:00",
+            )
+
+        self.assertEqual(result["summary"]["stage4_release_adapter_bridge_task_count"], 1)
+        record = result["records"][0]
+        self.assertEqual(record["followup_route"], "official_readback_ready_stage4_bridge_followup")
+        self.assertIn("p13b_ygp_or_public_identifier_backfill_task", record["required_input"])
+        self.assertNotIn(
+            "project_local_authority_public_source_endpoint_or_alternate_official_source",
+            record["required_input"],
+        )
+        bridge_record = result["stage4_release_adapter_bridge_plan"]["release_evidence_adapter_task_records"][0]
+        self.assertEqual(bridge_record["release_evidence_target_type"], "ygp_original_readback_backfill")
+        self.assertFalse(bridge_record["gdcic_project_code_route_allowed"])
+        self.assertTrue(bridge_record["must_not_extract_from_full_text_numbers"])
+        self.assertFalse(bridge_record["customer_visible_allowed"])
+        self.assertTrue(bridge_record["query_miss_is_not_clearance"])
+
 
 def _write_cycle(path: Path, field_query: Path, scoreboard: Path, stage4_queue: Path) -> None:
     _write_json(

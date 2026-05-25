@@ -342,6 +342,7 @@ def _scoreboard_row_context(row: Mapping[str, Any]) -> dict[str, Any]:
                 row.get("candidate_notice_source_url"),
             ]
         ),
+        "required_input": ["p13b_ygp_or_public_identifier_backfill_task"] if _has_ygp_identifier_context(official_context) else [],
         "context_source": "stage1_6_scoreboard_project_rows",
         "stage4_official_readback_context": official_context,
     }
@@ -462,9 +463,18 @@ def _gap_detail(record: Mapping[str, Any]) -> str:
 
 
 def _route(record: Mapping[str, Any], context: Mapping[str, Any] | None = None) -> str:
-    context_route = str(_mapping(context).get("followup_route") or "")
+    mapped_context = _mapping(context)
+    context_route = str(mapped_context.get("followup_route") or "")
     if context_route:
         return context_route
+    official_context = _mapping(mapped_context.get("stage4_official_readback_context"))
+    if (
+        str(mapped_context.get("context_source") or "") == "stage1_6_scoreboard_project_rows"
+        and str(official_context.get("stage4_official_readback_context_state") or "")
+        == "OFFICIAL_READBACK_READY_STAGE4_BRIDGE_FOLLOWUP_REQUIRED"
+        and _has_ygp_identifier_context(official_context)
+    ):
+        return "official_readback_ready_stage4_bridge_followup"
     task_type = str(record.get("task_type") or "")
     if (
         task_type == "ygp_original_readback_backfill"
@@ -476,6 +486,18 @@ def _route(record: Mapping[str, Any], context: Mapping[str, Any] | None = None) 
     if str(record.get("blocker_state") or "") == "NOT_FOUND_REVIEW_OR_FALLBACK_SOURCE_REQUIRED":
         return "local_authority_fallback_source_planning"
     return "public_source_retry_then_local_authority_fallback"
+
+
+def _has_ygp_identifier_context(context: Mapping[str, Any]) -> bool:
+    return any(
+        _dedupe(context.get(key))
+        for key in (
+            "ygp_project_code_variants",
+            "ygp_biz_code_variants",
+            "ygp_site_code_variants",
+            "ygp_notice_id_variants",
+        )
+    )
 
 
 def _recommended_next_action_for_route(route: str) -> str:
