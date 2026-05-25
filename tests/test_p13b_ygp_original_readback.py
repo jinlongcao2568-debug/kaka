@@ -127,6 +127,64 @@ class P13BYgpOriginalReadbackTests(unittest.TestCase):
                 ["ygp_url_mapping_no_redirect", "ygp_node_list_fetch", "ygp_flow_matrix_detail_fetch"],
             )
 
+    def test_stage4_official_readback_inputs_feed_ygp_flow_matrix_readback(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            input_json = root / "p13b" / "company-history-overlap-triage-v1.json"
+            _write_json(
+                input_json,
+                {
+                    "manifest": {
+                        "stage4_official_readback_input_records": [
+                            {
+                                "stage4_official_readback_input_record_id": "P13B-STAGE4-OFFICIAL-READBACK-INPUT-1",
+                                "project_id": "PROJ-CN-GD-JG2026-YGP-1",
+                                "project_name": "广州YGP回读项目中标候选人公示",
+                                "source_kind": "ygp_original_notice_readback",
+                                "readback_input_state": "YGP_PUBLIC_IDENTIFIER_READY_FOR_ORIGINAL_READBACK",
+                                "ygp_project_code": "A4406010001000001",
+                                "ygp_biz_code": "3C52",
+                                "ygp_site_code": "440600",
+                                "ygp_notice_id": "notice-123-3C52",
+                                "responsible_person_names": ["李四"],
+                                "gdcic_project_code_route_allowed": False,
+                                "must_not_extract_from_full_text_numbers": True,
+                                "customer_visible_allowed": False,
+                                "query_miss_is_not_clearance": True,
+                                "no_legal_conclusion": True,
+                            }
+                        ]
+                    }
+                },
+            )
+
+            result = build_p13b_ygp_original_readback(
+                input_json=input_json,
+                output_root=root / "ygp",
+                enable_live_public_query=True,
+                max_live_original_notices=1,
+                http_getter=_fake_ygp_redirect_flow_getter,
+                created_at="2026-05-15T00:00:00+08:00",
+            )
+
+            summary = result["summary"]
+            self.assertEqual(summary["ygp_original_readback_task_count"], 1)
+            self.assertEqual(summary["ygp_readback_ready_count"], 1)
+            task = result["manifest"]["ygp_original_readback_task_records"][0]
+            self.assertEqual(task["input_source"], "stage4_official_readback_input_records")
+            self.assertEqual(task["ygp_project_code"], "A4406010001000001")
+            self.assertFalse(task["gdcic_project_code_route_allowed"])
+            self.assertTrue(task["must_not_extract_from_full_text_numbers"])
+            record = result["manifest"]["ygp_original_readback_records"][0]
+            self.assertEqual(record["ygp_readback_state"], "YGP_ORIGINAL_URL_READBACK_READY")
+            self.assertEqual(record["project_id"], "PROJ-CN-GD-JG2026-YGP-1")
+            self.assertEqual(record["ygp_project_code"], "A4406010001000001")
+            self.assertFalse(record["customer_visible_allowed"])
+            self.assertTrue(record["query_miss_is_not_clearance"])
+            backfill = result["manifest"]["stage4_ygp_project_code_backfill_records"][0]
+            self.assertEqual(backfill["stage4_ygp_backfill_state"], "YGP_STAGE4_BACKFILL_READY")
+            self.assertFalse(backfill["gdcic_project_code_route_allowed"])
+
     def test_browser_network_fallback_can_supply_public_detail_payload(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
