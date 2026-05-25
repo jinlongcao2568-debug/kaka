@@ -204,6 +204,87 @@ class CompanyFirstCertificateSupplementProbeTests(unittest.TestCase):
             self.assertTrue((output_root / "stage4_provider_jobs.json").exists())
             self.assertTrue((output_root / "stage4_candidate_verification_inputs.json").exists())
 
+    def test_builds_company_first_jobs_from_stage1_3_long_tail_and_stage4_bridge(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            long_tail = root / "stage1-3-long-tail-table.json"
+            bridge = root / "stage4-release-adapter-bridge-table.json"
+            long_tail.write_text(
+                json.dumps(
+                    {
+                        "records": [
+                            {
+                                "stage1_3_long_tail_record_id": "LT-1",
+                                "project_id": "PROJ-CN-GD-JG2026-11408",
+                                "project_name": "施工图审查服务中标候选人公示",
+                                "candidate_company": "广州珠江设计咨询有限公司",
+                                "source_url": "https://example.test/notice",
+                                "responsible_role_gap_code": "",
+                                "stage1_3_long_tail_bucket": "COMPANY_FIRST_CERTIFICATE_SUPPLEMENT_REQUIRED",
+                            },
+                            {
+                                "stage1_3_long_tail_record_id": "LT-2",
+                                "project_id": "PROJ-CN-GD-JG2026-11495",
+                                "project_name": "勘察设计中标候选人公示",
+                                "candidate_company": "广东省交通规划设计研究院",
+                                "source_url": "https://example.test/design",
+                                "responsible_role_gap_code": "C_DESIGN_SURVEY_RESPONSIBLE_MISSING_REQUIRES_COMPANY_FIRST_IDENTITY",
+                                "stage1_3_long_tail_bucket": "COMPANY_FIRST_RESPONSIBLE_ROLE_RESOLUTION_REQUIRED",
+                            },
+                        ]
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+            bridge.write_text(
+                json.dumps(
+                    {
+                        "records": [
+                            {
+                                "project_id": "PROJ-CN-GD-JG2026-11408",
+                                "matched_person_names": ["黄彤斌"],
+                                "raw_person_name": "黄彤斌",
+                                "person_name_quality_state": "ACCEPTED_PERSON_NAME_SHAPE",
+                            },
+                            {
+                                "project_id": "PROJ-CN-GD-JG2026-11495",
+                                "matched_person_names": [],
+                                "raw_person_name": "达到国家",
+                                "person_name_quality_state": "REJECTED_NON_PERSON_TOKEN",
+                            }
+                        ]
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+
+            result = build_company_first_certificate_supplement_probe(
+                input_root=root / "missing-early",
+                output_root=root / "out",
+                stage1_3_long_tail_json=long_tail,
+                stage4_bridge_table_json=bridge,
+                created_at="2026-05-25T00:00:00+08:00",
+            )
+
+            self.assertTrue(result["safe_to_execute"])
+            self.assertEqual(result["summary"]["project_count"], 2)
+            self.assertEqual(result["summary"]["provider_job_count"], 1)
+            items = result["manifest"]["items"]
+            by_project = {item["project_id"]: item for item in items}
+            self.assertEqual(
+                by_project["PROJ-CN-GD-JG2026-11408"]["supplement_probe_state"],
+                "COMPANY_FIRST_PROVIDER_TASKS_READY",
+            )
+            self.assertEqual(
+                by_project["PROJ-CN-GD-JG2026-11495"]["supplement_probe_state"],
+                "COMPANY_FIRST_TARGET_FIELDS_MISSING",
+            )
+            self.assertEqual(by_project["PROJ-CN-GD-JG2026-11495"]["responsible_person_candidates"], [])
+            self.assertEqual(by_project["PROJ-CN-GD-JG2026-11495"]["responsible_role"], "survey_design_project_lead")
+            self.assertFalse(result["manifest"]["safety"]["stage4_live_provider_enabled"])
+
 
 def _write_early_probe(input_root: Path, *, project_ids: tuple[str, ...] | None = None) -> None:
     ids = project_ids or ("PROJ-CN-GD-JG2026-10815", "PROJ-CN-GD-JG2026-11021", "PROJ-CN-GD-JG2026-11029")
