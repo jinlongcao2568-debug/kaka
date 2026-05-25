@@ -48,6 +48,15 @@ class Stage4BackfillFollowupQueueTests(unittest.TestCase):
                             "stage4_project_code_backfill_state": "PUBLIC_SOURCE_IDENTIFIER_BACKFILLED_FOR_P13B_OR_STAGE4_BRIDGE_ONLY",
                             "stage4_project_code_backfill_gap_detail": "",
                         },
+                        {
+                            "project_id": "PROJ-GDCIC-UNRESOLVED",
+                            "project_name": "GDCIC unresolved after public backfill",
+                            "stage4_project_code_backfill_state": "MISSING_PROJECT_CODE_BACKFILL_INPUT",
+                            "stage4_project_code_backfill_gap_detail": "GDCIC_IDENTIFIER_UNRESOLVED_AFTER_PUBLIC_BACKFILL_REQUIRED",
+                            "stage5_operational_review_bucket": "AUTHORIZATION_BLOCKED_REVIEW",
+                            "p13b_public_source_readback_state": "ORIGINAL_NOTICE_BACKTRACE_REQUIRED",
+                            "p13b_overlap_triage_state": "ORIGINAL_NOTICE_BACKTRACE_REQUIRED",
+                        },
                     ]
                 },
             )
@@ -58,17 +67,19 @@ class Stage4BackfillFollowupQueueTests(unittest.TestCase):
                 created_at="2026-05-25T00:00:00+00:00",
             )
 
-        self.assertEqual(result["summary"]["followup_record_count"], 2)
+        self.assertEqual(result["summary"]["followup_record_count"], 3)
         self.assertEqual(
             result["summary"]["gap_detail_counts"],
             {
                 "NO_PUBLIC_OVERLAP_SIGNAL_FALLBACK_LOCAL_AUTHORITY_REQUIRED": 1,
                 "PUBLIC_SOURCE_BLOCKED_RETRY_OR_LOCAL_AUTHORITY_REQUIRED": 1,
+                "GDCIC_IDENTIFIER_UNRESOLVED_AFTER_PUBLIC_BACKFILL_REQUIRED": 1,
             },
         )
         routes = {record["project_id"]: record["followup_route"] for record in result["records"]}
         self.assertEqual(routes["PROJ-NO-SIGNAL"], "local_authority_fallback_source_planning")
         self.assertEqual(routes["PROJ-BLOCKED"], "public_source_retry_then_local_authority_fallback")
+        self.assertEqual(routes["PROJ-GDCIC-UNRESOLVED"], "local_authority_fallback_source_planning")
         for record in result["records"]:
             self.assertTrue(record["controller_consumable"])
             self.assertFalse(record["customer_visible_allowed"])
