@@ -43,6 +43,8 @@ def build_stage1_6_sellable_scoreboard(
     p13b_ygp_original_readback_json: str | Path | None = None,
     p13b_overlap_triage_closeout_root: str | Path | None = None,
     p13b_overlap_triage_closeout_json: str | Path | None = None,
+    company_first_stage4_execution_root: str | Path | None = None,
+    company_first_stage4_execution_json: str | Path | None = None,
     stage6_status_root: str | Path | None = None,
     stage6_status_json: str | Path | None = None,
     prior_scoreboard_json: str | Path | None = None,
@@ -97,6 +99,11 @@ def build_stage1_6_sellable_scoreboard(
         p13b_overlap_triage_closeout_json,
         p13b_overlap_closeout_dir / "p13b-overlap-triage-closeout-v1.json",
     )
+    company_first_stage4_execution_path = _resolve_optional_artifact_path(
+        artifact_json=company_first_stage4_execution_json,
+        artifact_root=company_first_stage4_execution_root,
+        artifact_name="company-first-stage4-execution.json",
+    )
     stage6_status_path = _resolve_stage6_status_path(stage6_status_json, stage6_dir)
 
     pressure_summary = _read_json_mapping(pressure_summary_path)
@@ -112,6 +119,9 @@ def build_stage1_6_sellable_scoreboard(
     p13b_original_notice_backtrace = _read_json_mapping(p13b_original_notice_backtrace_path)
     p13b_ygp_original_readback = _read_json_mapping(p13b_ygp_original_readback_path)
     p13b_overlap_triage_closeout = _read_json_mapping(p13b_overlap_triage_closeout_path)
+    company_first_stage4_execution = (
+        _read_json_mapping(company_first_stage4_execution_path) if company_first_stage4_execution_path else {}
+    )
     stage6_status = _read_json_mapping(stage6_status_path)
     prior_scoreboard = _read_json_mapping(Path(prior_scoreboard_json)) if prior_scoreboard_json else {}
     incremental_targets = _string_set(incremental_project_ids)
@@ -123,6 +133,9 @@ def build_stage1_6_sellable_scoreboard(
     p13b_original_notice_project_signals = _p13b_original_notice_project_signals(p13b_original_notice_backtrace)
     p13b_ygp_project_signals = _p13b_ygp_project_signals(p13b_ygp_original_readback)
     p13b_overlap_closeout_project_signals = _p13b_overlap_closeout_project_signals(p13b_overlap_triage_closeout)
+    company_first_stage4_execution_signals = _company_first_stage4_execution_project_signals(
+        company_first_stage4_execution
+    )
     stage6_records = _records(stage6_status)
 
     stage6_by_project = {
@@ -144,6 +157,7 @@ def build_stage1_6_sellable_scoreboard(
         list(p13b_original_notice_project_signals.values()),
         list(p13b_ygp_project_signals.values()),
         list(p13b_overlap_closeout_project_signals.values()),
+        list(company_first_stage4_execution_signals.values()),
     )
     project_rows = [
         _project_scoreboard_row(
@@ -155,6 +169,7 @@ def build_stage1_6_sellable_scoreboard(
             p13b_original_notice_project_signals.get(project_id, {}),
             p13b_ygp_project_signals.get(project_id, {}),
             p13b_overlap_closeout_project_signals.get(project_id, {}),
+            company_first_stage4_execution_signals.get(project_id, {}),
         )
         for project_id in project_ids
     ]
@@ -172,6 +187,7 @@ def build_stage1_6_sellable_scoreboard(
         p13b_original_notice_backtrace,
         p13b_ygp_original_readback,
         p13b_overlap_triage_closeout,
+        company_first_stage4_execution,
         field_records,
         stage6_status,
         stage6_records,
@@ -186,6 +202,7 @@ def build_stage1_6_sellable_scoreboard(
         p13b_original_notice_backtrace,
         p13b_ygp_original_readback,
         p13b_overlap_triage_closeout,
+        company_first_stage4_execution,
         field_records,
         stage6_records,
         project_rows,
@@ -209,6 +226,7 @@ def build_stage1_6_sellable_scoreboard(
             "p13b_original_notice_backtrace_json": str(p13b_original_notice_backtrace_path),
             "p13b_ygp_original_readback_json": str(p13b_ygp_original_readback_path),
             "p13b_overlap_triage_closeout_json": str(p13b_overlap_triage_closeout_path),
+            "company_first_stage4_execution_json": str(company_first_stage4_execution_path or ""),
             "stage6_status_json": str(stage6_status_path),
             "prior_scoreboard_json": str(prior_scoreboard_json or ""),
             "incremental_project_ids": sorted(incremental_targets),
@@ -241,6 +259,7 @@ def _scoreboard_counts(
     p13b_original_notice_backtrace: Mapping[str, Any],
     p13b_ygp_original_readback: Mapping[str, Any],
     p13b_overlap_triage_closeout: Mapping[str, Any],
+    company_first_stage4_execution: Mapping[str, Any],
     field_records: list[Mapping[str, Any]],
     stage6_status: Mapping[str, Any],
     stage6_records: list[Mapping[str, Any]],
@@ -264,6 +283,7 @@ def _scoreboard_counts(
     p13b_original_summary = _summary(p13b_original_notice_backtrace)
     p13b_ygp_summary = _summary(p13b_ygp_original_readback)
     p13b_overlap_closeout_summary = _summary(p13b_overlap_triage_closeout)
+    company_first_summary = _summary(company_first_stage4_execution)
     stage6_summary = _summary(stage6_status)
     stage4_matched_count = _count_state(field_summary, field_records, "adapter_result_state", "MATCHED")
     stage4_needs_browser_count = _count_state(field_summary, field_records, "adapter_result_state", "NEEDS_BROWSER")
@@ -361,6 +381,10 @@ def _scoreboard_counts(
         "p13b_overlap_triage_closeout_status": _p13b_overlap_triage_closeout_status(
             p13b_overlap_closeout_summary
         ),
+        "company_first_stage4_execution_status": _company_first_stage4_execution_status(
+            company_first_summary,
+            project_rows,
+        ),
         "stage4_ygp_backfill_ready_project_count": sum(
             1 for row in project_rows if _int(row.get("p13b_ygp_stage4_backfill_ready_count")) > 0
         ),
@@ -431,6 +455,7 @@ def _project_scoreboard_row(
     p13b_original_notice_signal: Mapping[str, Any],
     p13b_ygp_signal: Mapping[str, Any],
     p13b_overlap_closeout_signal: Mapping[str, Any],
+    company_first_stage4_execution_signal: Mapping[str, Any],
 ) -> dict[str, Any]:
     adapter_counts = _counts(record.get("adapter_result_state") for record in field_records)
     grade_counts = _counts(
@@ -462,6 +487,7 @@ def _project_scoreboard_row(
         p13b_original_notice_signal=p13b_original_notice_signal,
         p13b_ygp_signal=p13b_ygp_signal,
         p13b_overlap_closeout_signal=p13b_overlap_closeout_signal,
+        company_first_stage4_execution_signal=company_first_stage4_execution_signal,
         adapter_counts=adapter_counts,
         combined_grade_counts=combined_grade_counts,
         has_official_b_or_c=has_official_b_or_c,
@@ -569,6 +595,24 @@ def _project_scoreboard_row(
         "p13b_ygp_stage4_backfill_recommended_next_actions": _as_list(
             p13b_overlap_closeout_signal.get("ygp_stage4_backfill_recommended_next_actions")
         ),
+        "company_first_stage4_execution_state": str(
+            company_first_stage4_execution_signal.get("stage4_execution_state") or ""
+        ),
+        "company_first_identity_resolution_state": str(
+            company_first_stage4_execution_signal.get("identity_resolution_state") or ""
+        ),
+        "company_first_supplement_after_execution_state": str(
+            company_first_stage4_execution_signal.get("supplement_after_execution_state") or ""
+        ),
+        "company_first_stage4_readiness_state": str(
+            company_first_stage4_execution_signal.get("stage4_readiness_state") or ""
+        ),
+        "company_first_provider_job_count": _int(company_first_stage4_execution_signal.get("provider_job_count")),
+        "company_first_stage4_input_count": _int(company_first_stage4_execution_signal.get("stage4_input_count")),
+        "company_first_flow_08_targeted_parse_required": bool(
+            company_first_stage4_execution_signal.get("flow_08_targeted_parse_required")
+        ),
+        "company_first_next_actions": _as_list(company_first_stage4_execution_signal.get("next_actions")),
         "stage4_project_code_backfill_state": project_code_backfill_state,
         "stage4_project_code_backfill_gap_detail": project_code_backfill_gap_detail,
         "stage4_public_identifier_backfill_source": _stage4_public_identifier_backfill_source(
@@ -628,6 +672,7 @@ def _blocker_summary(
     p13b_original_notice_backtrace: Mapping[str, Any],
     p13b_ygp_original_readback: Mapping[str, Any],
     p13b_overlap_triage_closeout: Mapping[str, Any],
+    company_first_stage4_execution: Mapping[str, Any],
     field_records: list[Mapping[str, Any]],
     stage6_records: list[Mapping[str, Any]],
     project_rows: list[Mapping[str, Any]],
@@ -707,6 +752,12 @@ def _blocker_summary(
             queue
             for row in project_rows
             for queue in _as_list(row.get("stage5_operational_review_queues"))
+        ),
+        "company_first_stage4_execution_state_counts": _counts(
+            row.get("company_first_stage4_execution_state") for row in project_rows
+        ),
+        "company_first_supplement_after_execution_state_counts": _counts(
+            row.get("company_first_supplement_after_execution_state") for row in project_rows
         ),
     }
 
@@ -1035,6 +1086,48 @@ def _p13b_overlap_triage_closeout_status(summary: Mapping[str, Any]) -> dict[str
     }
 
 
+def _company_first_stage4_execution_status(
+    summary: Mapping[str, Any],
+    project_rows: list[Mapping[str, Any]],
+) -> dict[str, Any]:
+    if not summary:
+        return {
+            "artifact_state": "MISSING_OR_NOT_BUILT",
+            "project_count": 0,
+            "job_count": 0,
+            "provider_tasks_ready_project_count": 0,
+            "target_fields_missing_project_count": 0,
+            "certificate_resolved_project_count": 0,
+            "stage4_execution_state_counts": {},
+            "supplement_after_execution_state_counts": {},
+            "customer_visible_allowed": False,
+            "no_legal_conclusion": True,
+        }
+    supplement_counts = dict(summary.get("supplement_after_execution_state_counts") or {})
+    execution_counts = dict(summary.get("stage4_execution_state_counts") or {})
+    return {
+        "artifact_state": "BUILT",
+        "project_count": _int(summary.get("project_count")),
+        "job_count": _int(summary.get("job_count")),
+        "provider_tasks_ready_project_count": _int(supplement_counts.get("COMPANY_FIRST_PROVIDER_TASKS_READY")),
+        "target_fields_missing_project_count": _int(supplement_counts.get("COMPANY_FIRST_TARGET_FIELDS_MISSING")),
+        "certificate_resolved_project_count": _int(supplement_counts.get("COMPANY_FIRST_CERTIFICATE_RESOLVED")),
+        "stage4_input_count": _int(summary.get("stage4_input_count")),
+        "flow_08_targeted_parse_required_count": _int(summary.get("flow_08_targeted_parse_required_count")),
+        "stage4_execution_state_counts": execution_counts,
+        "identity_resolution_state_counts": dict(summary.get("identity_resolution_state_counts") or {}),
+        "supplement_after_execution_state_counts": supplement_counts,
+        "projected_stage5_queue_counts": _counts(
+            queue
+            for row in project_rows
+            for queue in _as_list(row.get("stage5_operational_review_queues"))
+            if str(queue).startswith("COMPANY_FIRST_")
+        ),
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
+
+
 def _project_blocking_bucket(
     readiness_record: Mapping[str, Any],
     stage6_record: Mapping[str, Any],
@@ -1208,6 +1301,7 @@ def _stage5_operational_review(
     p13b_original_notice_signal: Mapping[str, Any],
     p13b_ygp_signal: Mapping[str, Any],
     p13b_overlap_closeout_signal: Mapping[str, Any],
+    company_first_stage4_execution_signal: Mapping[str, Any],
     adapter_counts: Mapping[str, int],
     combined_grade_counts: Mapping[str, int],
     has_official_b_or_c: bool,
@@ -1251,6 +1345,12 @@ def _stage5_operational_review(
     has_ygp_stage4_backfill_ready = _int(
         p13b_overlap_closeout_signal.get("ygp_stage4_backfill_ready_count")
     ) > 0
+    company_first_supplement_state = str(
+        company_first_stage4_execution_signal.get("supplement_after_execution_state") or ""
+    )
+    has_company_first_provider_ready = company_first_supplement_state == "COMPANY_FIRST_PROVIDER_TASKS_READY"
+    has_company_first_target_missing = company_first_supplement_state == "COMPANY_FIRST_TARGET_FIELDS_MISSING"
+    has_company_first_resolved = company_first_supplement_state == "COMPANY_FIRST_CERTIFICATE_RESOLVED"
     has_weak_official_signal = _int(adapter_counts.get("MATCHED")) > 0 and not has_official_b_or_c
     fail_closed_reasons = {str(item) for item in _as_list(readiness_record.get("fail_closed_reasons"))}
     remaining_gaps = {str(item) for item in _as_list(readiness_record.get("remaining_real_world_gaps"))}
@@ -1304,6 +1404,12 @@ def _stage5_operational_review(
         signals.append("ygp_readback_ready")
     if has_ygp_stage4_backfill_ready:
         signals.append("ygp_stage4_backfill_ready")
+    if has_company_first_resolved:
+        signals.append("company_first_certificate_resolved")
+    if has_company_first_provider_ready:
+        signals.append("company_first_provider_tasks_ready")
+    if has_company_first_target_missing:
+        signals.append("company_first_target_fields_missing")
     if has_ygp_blocked:
         signals.append("ygp_readback_blocked")
     if has_source_not_found:
@@ -1366,6 +1472,12 @@ def _stage5_operational_review(
         queues.append("ORIGINAL_NOTICE_BLOCKED_REVIEW")
     if has_ygp_stage4_backfill_ready:
         queues.append("YGP_STAGE4_BACKFILL_READY_REVIEW")
+    if has_company_first_resolved:
+        queues.append("COMPANY_FIRST_CERTIFICATE_RESOLVED_REVIEW")
+    if has_company_first_provider_ready:
+        queues.append("COMPANY_FIRST_PROVIDER_TASKS_READY_REVIEW")
+    if has_company_first_target_missing:
+        queues.append("COMPANY_FIRST_TARGET_FIELDS_MISSING_REVIEW")
     if has_ygp_ready:
         queues.append("YGP_READBACK_READY_REVIEW")
     if has_ygp_blocked:
@@ -1388,6 +1500,15 @@ def _stage5_operational_review(
     elif has_ygp_stage4_backfill_ready:
         bucket = "YGP_STAGE4_BACKFILL_READY_REVIEW"
         action = "feed_ygp_stage4_backfill_candidates_to_p13b_or_stage4_bridge_without_gdcic_route_claim"
+    elif has_company_first_resolved:
+        bucket = "COMPANY_FIRST_CERTIFICATE_RESOLVED_REVIEW"
+        action = "feed_company_first_certificate_fields_to_stage4_stage6_internal_review"
+    elif has_company_first_provider_ready:
+        bucket = "COMPANY_FIRST_PROVIDER_TASKS_READY_REVIEW"
+        action = "execute_or_review_company_first_provider_jobs_without_identity_confirmation"
+    elif has_company_first_target_missing:
+        bucket = "COMPANY_FIRST_TARGET_FIELDS_MISSING_REVIEW"
+        action = "repair_responsible_person_or_role_inputs_before_company_first_provider_execution"
     elif has_ygp_ready:
         bucket = "YGP_READBACK_READY_REVIEW"
         action = "feed_ygp_original_readback_into_p13b_original_backtrace"
@@ -1477,6 +1598,9 @@ def _stage5_operational_bucket_family(bucket: str) -> str:
         "YGP_READBACK_BLOCKED_REVIEW": "public_source_blocked",
         "YGP_READBACK_READY_REVIEW": "official_readback_ready",
         "YGP_STAGE4_BACKFILL_READY_REVIEW": "official_readback_ready",
+        "COMPANY_FIRST_CERTIFICATE_RESOLVED_REVIEW": "responsible_person_certificate_resolved",
+        "COMPANY_FIRST_PROVIDER_TASKS_READY_REVIEW": "responsible_person_certificate_gap",
+        "COMPANY_FIRST_TARGET_FIELDS_MISSING_REVIEW": "responsible_person_certificate_gap",
         "LOCAL_AUTHORITY_SOURCE_PLAN_REVIEW": "local_authority_source_planned",
         "LOCAL_AUTHORITY_MATCHED_REVIEW": "official_readback_ready",
         "LOCAL_AUTHORITY_NOT_FOUND_REVIEW": "source_not_found",
@@ -1507,6 +1631,19 @@ def _resolve_stage6_status_path(value: str | Path | None, root: Path) -> Path:
 
 def _resolve_path(value: str | Path | None, default: Path) -> Path:
     return Path(value) if value else default
+
+
+def _resolve_optional_artifact_path(
+    *,
+    artifact_json: str | Path | None,
+    artifact_root: str | Path | None,
+    artifact_name: str,
+) -> Path | None:
+    if artifact_json:
+        return Path(artifact_json)
+    if artifact_root:
+        return Path(artifact_root) / artifact_name
+    return None
 
 
 def _read_json_mapping(path: Path) -> dict[str, Any]:
@@ -1815,6 +1952,80 @@ def _p13b_overlap_closeout_project_signals(payload: Mapping[str, Any]) -> dict[s
     return signals
 
 
+def _company_first_stage4_execution_project_signals(payload: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
+    manifest = payload.get("manifest") if isinstance(payload.get("manifest"), Mapping) else {}
+    records = manifest.get("items") if isinstance(manifest.get("items"), list) else []
+    signals: dict[str, dict[str, Any]] = {}
+    for project_id in _ordered_project_ids([record for record in records if isinstance(record, Mapping)]):
+        project_records = [
+            record
+            for record in records
+            if isinstance(record, Mapping) and str(record.get("project_id") or "").strip() == project_id
+        ]
+        if not project_records:
+            continue
+        first = project_records[0]
+        execution_counts = _counts(record.get("stage4_execution_state") for record in project_records)
+        identity_counts = _counts(record.get("identity_resolution_state") for record in project_records)
+        supplement_counts = _counts(record.get("supplement_after_execution_state") for record in project_records)
+        resolved = next(
+            (
+                record
+                for record in project_records
+                if str(record.get("supplement_after_execution_state") or "") == "COMPANY_FIRST_CERTIFICATE_RESOLVED"
+            ),
+            {},
+        )
+        signals[project_id] = {
+            "project_id": project_id,
+            "stage4_execution_state": _dominant_state(execution_counts),
+            "identity_resolution_state": _dominant_state(identity_counts),
+            "supplement_after_execution_state": _dominant_state(supplement_counts),
+            "stage4_readiness_state": _dominant_state(
+                _counts(record.get("stage4_readiness_state") for record in project_records)
+            ),
+            "stage4_execution_state_counts": execution_counts,
+            "identity_resolution_state_counts": identity_counts,
+            "supplement_after_execution_state_counts": supplement_counts,
+            "provider_job_count": len(project_records),
+            "stage4_input_count": sum(
+                1
+                for record in project_records
+                if str(record.get("supplement_after_execution_state") or "")
+                == "COMPANY_FIRST_CERTIFICATE_RESOLVED"
+            ),
+            "flow_08_targeted_parse_required": any(
+                bool(record.get("flow_08_targeted_parse_required")) for record in project_records
+            ),
+            "next_actions": _dedupe(
+                action
+                for record in project_records
+                for action in _as_list(record.get("next_actions"))
+            ),
+            "resolved_certificate_no_optional": str(resolved.get("resolved_certificate_no_optional") or ""),
+            "registered_unit_name_optional": str(resolved.get("registered_unit_name_optional") or ""),
+            "customer_visible_allowed": False,
+            "no_legal_conclusion": True,
+        }
+        if not signals[project_id]["supplement_after_execution_state"]:
+            signals[project_id]["supplement_after_execution_state"] = str(
+                first.get("supplement_after_execution_state") or ""
+            )
+    return signals
+
+
+def _dominant_state(counts: Mapping[str, int]) -> str:
+    ranked = [
+        (str(key), _int(value))
+        for key, value in counts.items()
+        if str(key or "").strip() and _int(value) > 0
+    ]
+    if not ranked:
+        return ""
+    ranked.sort(key=lambda item: (-item[1], item[0]))
+    return ranked[0][0]
+
+
 def _manifest_records(manifest: Mapping[str, Any], key: str) -> list[dict[str, Any]]:
     records = manifest.get(key)
     return [dict(record) for record in records if isinstance(record, Mapping)] if isinstance(records, list) else []
@@ -2086,6 +2297,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--p13b-ygp-original-readback-json", default="")
     parser.add_argument("--p13b-overlap-triage-closeout-root", default=str(DEFAULT_P13B_OVERLAP_TRIAGE_CLOSEOUT_ROOT))
     parser.add_argument("--p13b-overlap-triage-closeout-json", default="")
+    parser.add_argument("--company-first-stage4-execution-root", default="")
+    parser.add_argument("--company-first-stage4-execution-json", default="")
     parser.add_argument("--stage6-status-root", default=str(DEFAULT_STAGE6_STATUS_ROOT))
     parser.add_argument("--stage6-status-json", default="")
     parser.add_argument("--prior-scoreboard-json", default="")
@@ -2112,6 +2325,8 @@ def main(argv: list[str] | None = None) -> int:
         p13b_ygp_original_readback_json=args.p13b_ygp_original_readback_json or None,
         p13b_overlap_triage_closeout_root=args.p13b_overlap_triage_closeout_root,
         p13b_overlap_triage_closeout_json=args.p13b_overlap_triage_closeout_json or None,
+        company_first_stage4_execution_root=args.company_first_stage4_execution_root or None,
+        company_first_stage4_execution_json=args.company_first_stage4_execution_json or None,
         stage6_status_root=args.stage6_status_root,
         stage6_status_json=args.stage6_status_json or None,
         prior_scoreboard_json=args.prior_scoreboard_json or None,

@@ -26,6 +26,7 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
             p13b_original = root / "p13b-original"
             p13b_ygp = root / "p13b-ygp"
             p13b_overlap = root / "p13b-overlap"
+            company_first = root / "company-first-stage4"
             stage6 = root / "stage6"
             out = root / "out"
             pressure.mkdir()
@@ -35,6 +36,7 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
             p13b_original.mkdir()
             p13b_ygp.mkdir()
             p13b_overlap.mkdir()
+            company_first.mkdir()
             stage6.mkdir()
 
             _write_json(
@@ -424,6 +426,36 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
                     },
                 },
             )
+            _write_json(
+                company_first / "company-first-stage4-execution.json",
+                {
+                    "summary": {
+                        "project_count": 1,
+                        "job_count": 1,
+                        "stage4_execution_state_counts": {"QUEUED_NOT_EXECUTED": 1},
+                        "identity_resolution_state_counts": {"NOT_RUN": 1},
+                        "supplement_after_execution_state_counts": {
+                            "COMPANY_FIRST_PROVIDER_TASKS_READY": 1,
+                        },
+                        "stage4_input_count": 0,
+                        "flow_08_targeted_parse_required_count": 0,
+                    },
+                    "manifest": {
+                        "items": [
+                            {
+                                "project_id": "PROJ-B",
+                                "stage4_execution_state": "QUEUED_NOT_EXECUTED",
+                                "identity_resolution_state": "NOT_RUN",
+                                "supplement_after_execution_state": "COMPANY_FIRST_PROVIDER_TASKS_READY",
+                                "stage4_readiness_state": "STAGE4_PROVIDER_TASKS_READY_NOT_EXECUTED",
+                                "next_actions": ["EXECUTE_AUTHORIZED_COMPANY_FIRST_PROVIDER_TASKS"],
+                                "customer_visible_allowed": False,
+                                "no_legal_conclusion": True,
+                            }
+                        ]
+                    },
+                },
+            )
 
             result = build_stage1_6_sellable_scoreboard(
                 pressure_root=pressure,
@@ -433,6 +465,7 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
                 p13b_original_notice_backtrace_root=p13b_original,
                 p13b_ygp_original_readback_root=p13b_ygp,
                 p13b_overlap_triage_closeout_root=p13b_overlap,
+                company_first_stage4_execution_root=company_first,
                 stage6_status_root=stage6,
                 output_root=out,
                 created_at="2026-05-24T00:00:00+08:00",
@@ -553,6 +586,30 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
                 "public_source_not_found": 1,
                 "responsible_role_gap": 1,
                 "project_code_backfill_gap": 1,
+                "company_first_provider_tasks_ready": 1,
+            },
+        )
+        self.assertEqual(
+            scoreboard["company_first_stage4_execution_status"],
+            {
+                "artifact_state": "BUILT",
+                "project_count": 1,
+                "job_count": 1,
+                "provider_tasks_ready_project_count": 1,
+                "target_fields_missing_project_count": 0,
+                "certificate_resolved_project_count": 0,
+                "stage4_input_count": 0,
+                "flow_08_targeted_parse_required_count": 0,
+                "stage4_execution_state_counts": {"QUEUED_NOT_EXECUTED": 1},
+                "identity_resolution_state_counts": {"NOT_RUN": 1},
+                "supplement_after_execution_state_counts": {
+                    "COMPANY_FIRST_PROVIDER_TASKS_READY": 1,
+                },
+                "projected_stage5_queue_counts": {
+                    "COMPANY_FIRST_PROVIDER_TASKS_READY_REVIEW": 1,
+                },
+                "customer_visible_allowed": False,
+                "no_legal_conclusion": True,
             },
         )
         self.assertEqual(
@@ -624,6 +681,12 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
             rows["PROJ-A"]["limited_sellable_review_official_readback_records"][0]["customer_visible_allowed"]
         )
         self.assertEqual(rows["PROJ-B"]["stage5_operational_review_bucket"], "ORIGINAL_NOTICE_BLOCKED_REVIEW")
+        self.assertEqual(rows["PROJ-B"]["company_first_stage4_execution_state"], "QUEUED_NOT_EXECUTED")
+        self.assertEqual(
+            rows["PROJ-B"]["company_first_supplement_after_execution_state"],
+            "COMPANY_FIRST_PROVIDER_TASKS_READY",
+        )
+        self.assertIn("COMPANY_FIRST_PROVIDER_TASKS_READY_REVIEW", rows["PROJ-B"]["stage5_operational_review_queues"])
         self.assertEqual(rows["PROJ-C"]["stage5_operational_review_bucket"], "SOURCE_NOT_FOUND_REVIEW")
         self.assertEqual(rows["PROJ-D"]["stage5_operational_review_bucket"], "ORIGINAL_NOTICE_NOT_FOUND_REVIEW")
         self.assertEqual(rows["PROJ-D"]["p13b_public_source_readback_state"], "ORIGINAL_NOTICE_BACKTRACE_REQUIRED")

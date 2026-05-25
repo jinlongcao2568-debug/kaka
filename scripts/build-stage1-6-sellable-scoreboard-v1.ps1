@@ -17,6 +17,8 @@ param(
     [string]$P13BYgpOriginalReadbackJson = "",
     [string]$P13BOverlapTriageCloseoutRoot = "",
     [string]$P13BOverlapTriageCloseoutJson = "",
+    [string]$CompanyFirstStage4ExecutionRoot = "",
+    [string]$CompanyFirstStage4ExecutionJson = "",
     [string]$Stage6StatusRoot = "",
     [string]$Stage6StatusJson = "",
     [string]$PriorScoreboardJson = "",
@@ -110,6 +112,12 @@ if ($P13BYgpOriginalReadbackJson) {
 }
 if ($P13BOverlapTriageCloseoutJson) {
     $argsList += @("--p13b-overlap-triage-closeout-json", $P13BOverlapTriageCloseoutJson)
+}
+if ($CompanyFirstStage4ExecutionRoot) {
+    $argsList += @("--company-first-stage4-execution-root", $CompanyFirstStage4ExecutionRoot)
+}
+if ($CompanyFirstStage4ExecutionJson) {
+    $argsList += @("--company-first-stage4-execution-json", $CompanyFirstStage4ExecutionJson)
 }
 if ($Stage6StatusJson) {
     $argsList += @("--stage6-status-json", $Stage6StatusJson)
