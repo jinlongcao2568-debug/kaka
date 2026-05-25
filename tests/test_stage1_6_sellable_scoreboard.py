@@ -1830,7 +1830,23 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
                                 "customer_visible_allowed": False,
                                 "query_miss_is_not_clearance": True,
                             }
-                        ]
+                        ],
+                        "stage4_official_readback_input_records": [
+                            {
+                                "project_id": "PROJ-LOCAL-AUTH",
+                                "readback_input_state": "YGP_PUBLIC_IDENTIFIER_READY_FOR_ORIGINAL_READBACK",
+                                "ygp_project_code": "E4417000000000001001",
+                                "ygp_biz_code": "3C52",
+                                "ygp_site_code": "441700",
+                                "ygp_notice_id": "notice-local-auth",
+                                "gdcic_project_code_route_allowed": False,
+                                "gdcic_project_code_route_policy": (
+                                    "YGP_OR_TRADE_IDENTIFIERS_NOT_SENT_TO_GDCIC_PROJECT_CODE"
+                                ),
+                                "customer_visible_allowed": False,
+                                "query_miss_is_not_clearance": True,
+                            }
+                        ],
                     },
                     "summary": {"local_authority_source_task_count": 1},
                 },
@@ -1851,6 +1867,23 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
         self.assertEqual(row["stage5_operational_review_bucket"], "LOCAL_AUTHORITY_NOT_FOUND_REVIEW")
         self.assertIn("local_authority_source_plan_ready", row["stage5_operational_signal_flags"])
         self.assertIn("local_authority_not_found", row["stage5_operational_signal_flags"])
+        self.assertEqual(row["p13b_ygp_project_code_variants"], ["E4417000000000001001"])
+        self.assertEqual(row["p13b_ygp_biz_code_variants"], ["3C52"])
+        self.assertEqual(row["p13b_ygp_site_code_variants"], ["441700"])
+        self.assertEqual(row["p13b_ygp_notice_id_variants"], ["notice-local-auth"])
+        self.assertEqual(
+            row["stage4_project_code_backfill_state"],
+            "PUBLIC_SOURCE_IDENTIFIER_BACKFILLED_FOR_P13B_OR_STAGE4_BRIDGE_ONLY",
+        )
+        self.assertEqual(
+            row["stage4_public_identifier_backfill_source"],
+            "YGP_PROJECT_CODE|YGP_BIZ_CODE|YGP_SITE_CODE|YGP_NOTICE_ID",
+        )
+        self.assertFalse(row["stage4_gdcic_project_code_route_allowed"])
+        self.assertEqual(
+            row["stage4_gdcic_project_code_route_policy"],
+            "YGP_OR_TRADE_IDENTIFIERS_NOT_SENT_TO_GDCIC_PROJECT_CODE",
+        )
         self.assertEqual(
             result["scoreboard"]["stage4_public_readback_outcome_counts"],
             {"LOCAL_AUTHORITY_PLAN_READY": 1, "NOT_FOUND": 1},

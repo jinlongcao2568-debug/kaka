@@ -654,10 +654,22 @@ def _project_scoreboard_row(
         ),
         "p13b_ygp_original_readback_state": str(p13b_ygp_signal.get("p13b_ygp_original_readback_state") or ""),
         "p13b_ygp_readback_state_counts": dict(p13b_ygp_signal.get("ygp_readback_state_counts") or {}),
-        "p13b_ygp_project_code_variants": _as_list(p13b_ygp_signal.get("ygp_project_code_variants")),
-        "p13b_ygp_biz_code_variants": _as_list(p13b_ygp_signal.get("ygp_biz_code_variants")),
-        "p13b_ygp_site_code_variants": _as_list(p13b_ygp_signal.get("ygp_site_code_variants")),
-        "p13b_ygp_notice_id_variants": _as_list(p13b_ygp_signal.get("ygp_notice_id_variants")),
+        "p13b_ygp_project_code_variants": _as_list(
+            p13b_ygp_signal.get("ygp_project_code_variants")
+            or p13b_project_signal.get("ygp_project_code_variants")
+        ),
+        "p13b_ygp_biz_code_variants": _as_list(
+            p13b_ygp_signal.get("ygp_biz_code_variants")
+            or p13b_project_signal.get("ygp_biz_code_variants")
+        ),
+        "p13b_ygp_site_code_variants": _as_list(
+            p13b_ygp_signal.get("ygp_site_code_variants")
+            or p13b_project_signal.get("ygp_site_code_variants")
+        ),
+        "p13b_ygp_notice_id_variants": _as_list(
+            p13b_ygp_signal.get("ygp_notice_id_variants")
+            or p13b_project_signal.get("ygp_notice_id_variants")
+        ),
         "p13b_overlap_ygp_project_code_variants": _as_list(
             p13b_overlap_closeout_signal.get("ygp_project_code_variants")
         ),
@@ -1442,12 +1454,16 @@ def _stage4_project_code_backfill_state(
         return "GDCIC_PROJECT_CODE_ROUTE_READY"
     if (
         _as_list(p13b_ygp_signal.get("ygp_project_code_variants"))
+        or _as_list(p13b_project_signal.get("ygp_project_code_variants"))
         or _as_list(p13b_overlap_closeout_signal.get("ygp_project_code_variants"))
         or _as_list(p13b_ygp_signal.get("ygp_biz_code_variants"))
+        or _as_list(p13b_project_signal.get("ygp_biz_code_variants"))
         or _as_list(p13b_overlap_closeout_signal.get("ygp_biz_code_variants"))
         or _as_list(p13b_ygp_signal.get("ygp_site_code_variants"))
+        or _as_list(p13b_project_signal.get("ygp_site_code_variants"))
         or _as_list(p13b_overlap_closeout_signal.get("ygp_site_code_variants"))
         or _as_list(p13b_ygp_signal.get("ygp_notice_id_variants"))
+        or _as_list(p13b_project_signal.get("ygp_notice_id_variants"))
         or _as_list(p13b_overlap_closeout_signal.get("ygp_notice_id_variants"))
         or _int(p13b_ygp_signal.get("ygp_stage4_backfill_ready_count")) > 0
         or _int(p13b_overlap_closeout_signal.get("ygp_stage4_backfill_ready_count")) > 0
@@ -1502,20 +1518,28 @@ def _stage4_public_identifier_backfill_source(
         sources.append("DATA_GGZY_BID_SHOW_ORIGINAL_URL")
     if _int(p13b_project_signal.get("bid_show_responsible_person_present_count")) > 0:
         sources.append("DATA_GGZY_BID_SHOW_RESPONSIBLE_PERSON")
-    if _as_list(p13b_ygp_signal.get("ygp_project_code_variants")) or _as_list(
-        p13b_overlap_closeout_signal.get("ygp_project_code_variants")
+    if (
+        _as_list(p13b_ygp_signal.get("ygp_project_code_variants"))
+        or _as_list(p13b_project_signal.get("ygp_project_code_variants"))
+        or _as_list(p13b_overlap_closeout_signal.get("ygp_project_code_variants"))
     ):
         sources.append("YGP_PROJECT_CODE")
-    if _as_list(p13b_ygp_signal.get("ygp_biz_code_variants")) or _as_list(
-        p13b_overlap_closeout_signal.get("ygp_biz_code_variants")
+    if (
+        _as_list(p13b_ygp_signal.get("ygp_biz_code_variants"))
+        or _as_list(p13b_project_signal.get("ygp_biz_code_variants"))
+        or _as_list(p13b_overlap_closeout_signal.get("ygp_biz_code_variants"))
     ):
         sources.append("YGP_BIZ_CODE")
-    if _as_list(p13b_ygp_signal.get("ygp_site_code_variants")) or _as_list(
-        p13b_overlap_closeout_signal.get("ygp_site_code_variants")
+    if (
+        _as_list(p13b_ygp_signal.get("ygp_site_code_variants"))
+        or _as_list(p13b_project_signal.get("ygp_site_code_variants"))
+        or _as_list(p13b_overlap_closeout_signal.get("ygp_site_code_variants"))
     ):
         sources.append("YGP_SITE_CODE")
-    if _as_list(p13b_ygp_signal.get("ygp_notice_id_variants")) or _as_list(
-        p13b_overlap_closeout_signal.get("ygp_notice_id_variants")
+    if (
+        _as_list(p13b_ygp_signal.get("ygp_notice_id_variants"))
+        or _as_list(p13b_project_signal.get("ygp_notice_id_variants"))
+        or _as_list(p13b_overlap_closeout_signal.get("ygp_notice_id_variants"))
     ):
         sources.append("YGP_NOTICE_ID")
     if (
@@ -2202,6 +2226,7 @@ def _p13b_project_signals(payload: Mapping[str, Any]) -> dict[str, dict[str, Any
     overlap_records = _manifest_records(manifest, "overlap_signal_records")
     local_authority_records = _manifest_records(manifest, "local_authority_source_task_records")
     local_authority_readback_records = _manifest_records(manifest, "local_authority_source_readback_records")
+    stage4_official_readback_input_records = _manifest_records(manifest, "stage4_official_readback_input_records")
     project_ids = _ordered_project_ids(
         project_records,
         query_records,
@@ -2209,6 +2234,7 @@ def _p13b_project_signals(payload: Mapping[str, Any]) -> dict[str, dict[str, Any
         overlap_records,
         local_authority_records,
         local_authority_readback_records,
+        stage4_official_readback_input_records,
     )
     signals: dict[str, dict[str, Any]] = {}
     for project_id in project_ids:
@@ -2220,6 +2246,11 @@ def _p13b_project_signals(payload: Mapping[str, Any]) -> dict[str, dict[str, Any
         ]
         project_local_authority_readbacks = [
             record for record in local_authority_readback_records if str(record.get("project_id") or "").strip() == project_id
+        ]
+        project_stage4_official_inputs = [
+            record
+            for record in stage4_official_readback_input_records
+            if str(record.get("project_id") or "").strip() == project_id
         ]
         company_query_counts = _counts(record.get("query_state") for record in project_queries)
         bid_show_counts = _counts(record.get("bid_show_state") for record in project_bid_shows)
@@ -2273,6 +2304,22 @@ def _p13b_project_signals(payload: Mapping[str, Any]) -> dict[str, dict[str, Any
             "local_authority_executed_readback_state_counts": local_authority_executed_readback_counts,
             "local_authority_source_task_count": len(project_local_authority),
             "local_authority_source_readback_count": len(project_local_authority_readbacks),
+            "stage4_official_readback_input_count": len(project_stage4_official_inputs),
+            "stage4_official_readback_input_state_counts": _counts(
+                record.get("readback_input_state") for record in project_stage4_official_inputs
+            ),
+            "ygp_project_code_variants": _dedupe(
+                record.get("ygp_project_code") for record in project_stage4_official_inputs
+            ),
+            "ygp_biz_code_variants": _dedupe(
+                record.get("ygp_biz_code") for record in project_stage4_official_inputs
+            ),
+            "ygp_site_code_variants": _dedupe(
+                record.get("ygp_site_code") for record in project_stage4_official_inputs
+            ),
+            "ygp_notice_id_variants": _dedupe(
+                record.get("ygp_notice_id") for record in project_stage4_official_inputs
+            ),
             "original_notice_backtrace_required_count": original_backtrace_required,
             "source_blocked_count": source_blocked,
             "overlap_signal_review_required_count": overlap_review_required,
