@@ -1958,6 +1958,64 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
         self.assertFalse(row["customer_visible_allowed"])
         self.assertTrue(row["query_miss_is_not_clearance"])
 
+    def test_incremental_scoreboard_preserves_top_level_stage123_counts_from_prior_rows(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            pressure = root / "pressure"
+            field_query = root / "field-query"
+            prior = root / "prior-scoreboard.json"
+            out = root / "out"
+            for path in (pressure, field_query, out):
+                path.mkdir(parents=True, exist_ok=True)
+
+            _write_json(pressure / "pressure-summary.json", {"candidate_count": 1})
+            _write_json(
+                pressure / "stage1-6-readiness-table.json",
+                {
+                    "records": [
+                        {
+                            "project_id": "PROJ-TARGET",
+                            "stage2_detail_capture_state": "FETCHED",
+                            "stage3_field_parse_state": "PARSED_FROM_FIELD_SIGNALS",
+                            "stage5_rule_gate_status": "REVIEW",
+                        }
+                    ]
+                },
+            )
+            _write_json(pressure / "stage1-6-gap-summary-table.json", {"records": []})
+            _write_json(field_query / "guangdong-local-field-query-probe-v1.json", {"manifest": {"field_task_records": []}})
+            _write_json(
+                prior,
+                {
+                    "scoreboard": {
+                        "candidate_count": 15,
+                        "stage2_success_count": 15,
+                        "stage3_success_count": 15,
+                    },
+                    "project_rows": [
+                        {
+                            "project_id": "PROJ-KEEP",
+                            "stage5_operational_review_bucket": "ORIGINAL_NOTICE_NOT_FOUND_REVIEW",
+                            "customer_visible_allowed": False,
+                            "query_miss_is_not_clearance": True,
+                        }
+                    ]
+                },
+            )
+
+            result = build_stage1_6_sellable_scoreboard(
+                pressure_root=pressure,
+                field_query_root=field_query,
+                prior_scoreboard_json=prior,
+                incremental_project_ids=["PROJ-TARGET"],
+                output_root=out,
+                created_at="2026-05-24T00:00:00+08:00",
+            )
+
+        self.assertEqual(result["scoreboard"]["candidate_count"], 15)
+        self.assertEqual(result["scoreboard"]["stage2_success_count"], 15)
+        self.assertEqual(result["scoreboard"]["stage3_success_count"], 15)
+
     def test_company_first_flow08_targeted_parse_required_is_stage5_operational_queue(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)

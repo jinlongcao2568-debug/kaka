@@ -195,7 +195,7 @@ if ($ApplyStage4FollowupExecutionPlan) {
     Write-Host "[stage1-6-regression] loaded Stage4 follow-up queue for incremental scoreboard merge: $Stage4BackfillFollowupQueueJson"
 }
 
-if ($followupQueue -and $SourceRegressionRunRoot) {
+if ($followupQueue) {
     $scoreboardPayload = $null
     if ($followupQueue -and $followupQueue.input_refs -and $followupQueue.input_refs.scoreboard_json) {
         $scoreboardPath = Resolve-RepoPath "$($followupQueue.input_refs.scoreboard_json)"

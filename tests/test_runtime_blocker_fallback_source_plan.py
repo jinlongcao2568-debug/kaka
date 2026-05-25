@@ -21,9 +21,21 @@ class RuntimeBlockerFallbackSourcePlanTests(unittest.TestCase):
             root = Path(tmp_dir)
             field_query = root / "field-query.json"
             cycle = root / "cycle.json"
+            scoreboard = root / "scoreboard" / "stage1-6-sellable-scoreboard-v1.json"
+            pressure_root = root / "pressure"
             out = root / "out"
+            _write_json(pressure_root / "stage4-release-adapter-bridge-plan.json", {"tasks": []})
+            _write_json(pressure_root / "pressure-summary.json", {"summary": {"candidate_count": 1}})
+            _write_json(
+                scoreboard,
+                {
+                    "input_refs": {
+                        "pressure_summary_json": str(pressure_root / "pressure-summary.json"),
+                    }
+                },
+            )
             _write_field_query(field_query)
-            _write_cycle(cycle, field_query)
+            _write_cycle(cycle, field_query, scoreboard)
 
             result = build_runtime_blocker_fallback_source_plan(
                 stage6_review_cycle_json=cycle,
@@ -57,17 +69,30 @@ class RuntimeBlockerFallbackSourcePlanTests(unittest.TestCase):
         self.assertFalse(record["customer_visible_allowed"])
         self.assertTrue(record["query_miss_is_not_clearance"])
         self.assertEqual(result["next_regression_execution_plan"]["plan_state"], "FALLBACK_SOURCE_PLAN_READY_FOR_P13B")
+        refs = result["continuation_input_refs"]
+        self.assertEqual(refs["prior_scoreboard_json"], str(scoreboard))
+        self.assertEqual(refs["effective_pressure_root"], str(pressure_root))
+        self.assertEqual(refs["effective_release_field_query_root"], str(field_query.parent))
+        self.assertEqual(
+            result["next_regression_execution_plan"]["continuation_input_refs"],
+            refs,
+        )
+        self.assertEqual(
+            result["next_regression_execution_plan"]["runner_entrypoint"],
+            "scripts/run-stage1-6-sellable-rate-regression-v1.ps1",
+        )
         self.assertFalse(result["next_regression_execution_plan"]["live_execution_enabled_by_default"])
         self.assertTrue(json_exists)
         self.assertTrue(markdown_exists)
 
 
-def _write_cycle(path: Path, field_query: Path) -> None:
+def _write_cycle(path: Path, field_query: Path, scoreboard: Path) -> None:
     _write_json(
         path,
         {
             "manifest": {
                 "source_release_field_query_json": str(field_query),
+                "source_stage1_6_scoreboard_json": str(scoreboard),
                 "runtime_blocker_subqueue_controller_table": {
                     "records": [
                         {

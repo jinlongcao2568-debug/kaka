@@ -217,6 +217,11 @@ def build_stage1_6_sellable_scoreboard(
         stage6_records,
         project_rows,
     )
+    counts = _preserve_incremental_prior_topline_counts(
+        counts,
+        prior_scoreboard=prior_scoreboard,
+        incremental_project_ids=incremental_targets,
+    )
     blocker_summary = _blocker_summary(
         readiness_records,
         gap_records,
@@ -277,6 +282,26 @@ def build_stage1_6_sellable_scoreboard(
     return result
 
 
+def _preserve_incremental_prior_topline_counts(
+    counts: Mapping[str, Any],
+    *,
+    prior_scoreboard: Mapping[str, Any],
+    incremental_project_ids: set[str],
+) -> dict[str, Any]:
+    out = dict(counts)
+    if not incremental_project_ids:
+        return out
+    prior_counts = prior_scoreboard.get("scoreboard")
+    if not isinstance(prior_counts, Mapping):
+        return out
+    for key in ("candidate_count", "stage2_success_count", "stage3_success_count"):
+        out[key] = max(_int(out.get(key)), _int(prior_counts.get(key)))
+    denominator = _int(out.get("candidate_count"))
+    sellable_or_limited = _int(out.get("sellable_or_limited_review_candidate_count"))
+    out["real_public_sellable_pack_rate"] = _ratio(sellable_or_limited, denominator)
+    return out
+
+
 def _scoreboard_counts(
     pressure_summary: Mapping[str, Any],
     readiness_records: list[Mapping[str, Any]],
@@ -294,17 +319,34 @@ def _scoreboard_counts(
     project_rows: list[Mapping[str, Any]],
 ) -> dict[str, Any]:
     pressure_candidate_count = _int(pressure_summary.get("candidate_count"))
-    candidate_count = pressure_candidate_count or len(readiness_records) or _distinct_count(field_records, "project_id")
-    stage2_success_count = sum(
+    candidate_count = max(
+        pressure_candidate_count,
+        len(project_rows),
+        len(readiness_records),
+        _distinct_count(field_records, "project_id"),
+    )
+    readiness_stage2_success_count = sum(
         1
         for record in readiness_records
         if str(record.get("stage2_detail_capture_state") or "").upper() in {"FETCHED", "CAPTURED", "DETAIL_CAPTURED", "READBACK_READY"}
     )
-    stage3_success_count = sum(
+    row_stage2_success_count = sum(
+        1
+        for row in project_rows
+        if str(row.get("stage2_detail_capture_state") or "").upper() in {"FETCHED", "CAPTURED", "DETAIL_CAPTURED", "READBACK_READY"}
+    )
+    stage2_success_count = max(readiness_stage2_success_count, row_stage2_success_count)
+    readiness_stage3_success_count = sum(
         1
         for record in readiness_records
         if _stage3_parse_attempt_succeeded(record.get("stage3_field_parse_state"))
     )
+    row_stage3_success_count = sum(
+        1
+        for row in project_rows
+        if _stage3_parse_attempt_succeeded(row.get("stage3_field_parse_state"))
+    )
+    stage3_success_count = max(readiness_stage3_success_count, row_stage3_success_count)
     field_summary = _summary(field_query)
     gdcic_readback_summary = _summary(gdcic_browser_readback)
     p13b_summary = _summary(p13b_company_history)

@@ -28,6 +28,11 @@ def build_runtime_blocker_fallback_source_plan(
     field_query = _read_json(field_query_path) if field_query_path and field_query_path.exists() else {}
     field_manifest = _mapping(field_query.get("manifest") or field_query)
     field_context = _field_context(field_manifest)
+    continuation_input_refs = _continuation_input_refs(
+        cycle=cycle,
+        manifest=manifest,
+        field_query_path=field_query_path,
+    )
 
     source_records = [
         dict(record)
@@ -46,9 +51,13 @@ def build_runtime_blocker_fallback_source_plan(
             "stage6_review_cycle_json": str(cycle_path),
             "release_field_query_json": str(field_query_path or ""),
         },
+        "continuation_input_refs": continuation_input_refs,
         "summary": _summary(records),
         "records": records,
-        "next_regression_execution_plan": _next_regression_execution_plan(records),
+        "next_regression_execution_plan": _next_regression_execution_plan(
+            records,
+            continuation_input_refs=continuation_input_refs,
+        ),
         "stage4_backfill_followup_queue_compatibility": {
             "queue_kind": "stage4_backfill_followup_queue_v1",
             "records_are_p13b_consumable": True,
@@ -207,10 +216,16 @@ def _fallback_step(project_id: str, source_kind: str, action: str) -> dict[str, 
     }
 
 
-def _next_regression_execution_plan(records: list[Mapping[str, Any]]) -> dict[str, Any]:
+def _next_regression_execution_plan(
+    records: list[Mapping[str, Any]],
+    *,
+    continuation_input_refs: Mapping[str, Any],
+) -> dict[str, Any]:
     project_ids = _dedupe(record.get("project_id") for record in records)
     return {
         "plan_state": "FALLBACK_SOURCE_PLAN_READY_FOR_P13B" if records else "NO_FALLBACK_SOURCE_RECORDS",
+        "runner_entrypoint": "scripts/run-stage1-6-sellable-rate-regression-v1.ps1",
+        "continuation_input_refs": dict(continuation_input_refs),
         "target_project_ids": project_ids,
         "target_project_count": len(project_ids),
         "public_source_fallback_sequence": [
@@ -232,6 +247,111 @@ def _next_regression_execution_plan(records: list[Mapping[str, Any]]) -> dict[st
         "operator_live_public_query_decision_required": True,
         "safety_invariants": _safety(),
     }
+
+
+def _continuation_input_refs(
+    *,
+    cycle: Mapping[str, Any],
+    manifest: Mapping[str, Any],
+    field_query_path: Path | None,
+) -> dict[str, Any]:
+    existing = _nested_continuation_input_refs(cycle=cycle, manifest=manifest)
+    stage6_status_json = (
+        existing.get("prior_stage6_status_json")
+        or manifest.get("source_stage6_review_loop_status_json")
+        or manifest.get("stage6_status_json")
+    )
+    stage6_status_root = existing.get("effective_stage6_status_root") or _parent_if_file_exists(stage6_status_json)
+    field_query_root = existing.get("effective_release_field_query_root") or _parent_if_file_exists(field_query_path)
+    gdcic_json = existing.get("effective_gdcic_browser_readback_json") or manifest.get("source_gdcic_browser_readback_json")
+    gdcic_root = existing.get("effective_gdcic_browser_readback_root") or _parent_if_file_exists(gdcic_json)
+    scoreboard_json = (
+        existing.get("prior_scoreboard_json")
+        or existing.get("effective_stage1_6_scoreboard_json")
+        or manifest.get("source_stage1_6_scoreboard_json")
+    )
+    scoreboard_path = Path(str(scoreboard_json)) if str(scoreboard_json or "").strip() else None
+    pressure_root = existing.get("effective_pressure_root") or _pressure_root_from_scoreboard(scoreboard_path)
+    return {
+        "prior_scoreboard_json": str(scoreboard_path or ""),
+        "effective_pressure_root": str(pressure_root or ""),
+        "effective_release_field_query_json": str(field_query_path or existing.get("effective_release_field_query_json") or ""),
+        "effective_release_field_query_root": str(field_query_root or ""),
+        "effective_supplemental_release_field_query_json": str(
+            existing.get("effective_supplemental_release_field_query_json") or ""
+        ),
+        "effective_supplemental_release_field_query_root": str(
+            existing.get("effective_supplemental_release_field_query_root") or ""
+        ),
+        "effective_runtime_blocker_next_subqueue_json": str(
+            existing.get("effective_runtime_blocker_next_subqueue_json")
+            or manifest.get("source_runtime_blocker_next_subqueue_json")
+            or ""
+        ),
+        "effective_runtime_blocker_next_subqueue_root": str(
+            existing.get("effective_runtime_blocker_next_subqueue_root")
+            or _parent_if_file_exists(manifest.get("source_runtime_blocker_next_subqueue_json"))
+            or ""
+        ),
+        "effective_gdcic_browser_readback_json": str(gdcic_json or ""),
+        "effective_gdcic_browser_readback_root": str(gdcic_root or ""),
+        "effective_stage6_status_root": str(stage6_status_root or ""),
+        "pressure_root_resolution_state": "RESOLVED_FROM_SCOREBOARD_INPUT_REFS" if pressure_root else "UNRESOLVED",
+        "release_field_query_root_resolution_state": _resolution_state(field_query_root),
+        "supplemental_release_field_query_root_resolution_state": _resolution_state(
+            existing.get("effective_supplemental_release_field_query_root")
+        ),
+        "runtime_blocker_next_subqueue_root_resolution_state": _resolution_state(
+            existing.get("effective_runtime_blocker_next_subqueue_root")
+        ),
+        "gdcic_browser_readback_root_resolution_state": _resolution_state(gdcic_root),
+        "stage6_status_root_resolution_state": _resolution_state(stage6_status_root),
+        "stage1_6_scoreboard_resolution_state": _resolution_state(scoreboard_path),
+        "customer_visible_allowed": False,
+        "query_miss_is_not_clearance": True,
+        "no_legal_conclusion": True,
+    }
+
+
+def _nested_continuation_input_refs(*, cycle: Mapping[str, Any], manifest: Mapping[str, Any]) -> Mapping[str, Any]:
+    candidates = [
+        cycle.get("continuation_input_refs"),
+        manifest.get("continuation_input_refs"),
+        _mapping(manifest.get("operator_projection_status_table")).get("continuation_input_refs"),
+        _mapping(_mapping(manifest.get("operator_projection_status_table")).get("summary")).get("continuation_input_refs"),
+        _mapping(cycle.get("summary")).get("continuation_input_refs"),
+    ]
+    for candidate in candidates:
+        mapped = _mapping(candidate)
+        if mapped:
+            return mapped
+    return {}
+
+
+def _pressure_root_from_scoreboard(scoreboard_path: Path | None) -> str:
+    if not scoreboard_path or not scoreboard_path.exists():
+        return ""
+    payload = _read_json(scoreboard_path)
+    input_refs = _mapping(payload.get("input_refs"))
+    for key in ("pressure_summary_json", "stage1_6_readiness_json", "stage1_6_gap_summary_json"):
+        root = _parent_if_file_exists(input_refs.get(key))
+        if root and (Path(root) / "stage4-release-adapter-bridge-plan.json").exists():
+            return root
+    return ""
+
+
+def _parent_if_file_exists(value: Any) -> str:
+    path_text = str(value or "").strip()
+    if not path_text:
+        return ""
+    path = Path(path_text)
+    if path.exists() and path.is_file():
+        return str(path.parent)
+    return ""
+
+
+def _resolution_state(value: Any) -> str:
+    return "RESOLVED_FROM_STAGE6_OR_SCOREBOARD_INPUT_REFS" if str(value or "").strip() else "UNRESOLVED"
 
 
 def _summary(records: list[Mapping[str, Any]]) -> dict[str, Any]:
