@@ -1047,6 +1047,133 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
             2,
         )
 
+    def test_gdcic_authorization_blocker_projects_alternative_public_routes_without_auth_artifact(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            pressure = root / "pressure"
+            field_query = root / "field-query"
+            gdcic_readback = root / "missing-gdcic-readback"
+            p13b_history = root / "p13b-history"
+            p13b_original = root / "p13b-original"
+            p13b_ygp = root / "p13b-ygp"
+            out = root / "out"
+            pressure.mkdir()
+            field_query.mkdir()
+            gdcic_readback.mkdir()
+            p13b_history.mkdir()
+            p13b_original.mkdir()
+            p13b_ygp.mkdir()
+
+            _write_json(pressure / "pressure-summary.json", {"candidate_count": 1})
+            _write_json(
+                pressure / "stage1-6-readiness-table.json",
+                {
+                    "records": [
+                        {
+                            "project_id": "PROJ-AUTH-BLOCKED",
+                            "project_name": "auth blocked but public routes exist",
+                            "stage2_detail_capture_state": "FETCHED",
+                            "stage3_field_parse_state": "PARSED_FROM_FIELD_SIGNALS",
+                            "stage5_rule_gate_status": "REVIEW",
+                            "stage5_gate_state": "REVIEW_REQUIRED",
+                        }
+                    ]
+                },
+            )
+            _write_json(pressure / "stage1-6-gap-summary-table.json", {"records": []})
+            _write_json(
+                field_query / "guangdong-local-field-query-probe-v1.json",
+                {
+                    "manifest": {
+                        "field_task_records": [
+                            {
+                                "project_id": "PROJ-AUTH-BLOCKED",
+                                "adapter_result_state": "NEEDS_BROWSER",
+                                "authorization_readiness_state": "LOGIN_OR_SSO_REQUIRED",
+                            }
+                        ]
+                    },
+                    "summary": {"adapter_result_state_counts": {"NEEDS_BROWSER": 1}},
+                },
+            )
+            _write_json(
+                p13b_history / "company-history-overlap-triage-v1.json",
+                {
+                    "manifest": {
+                        "bid_show_records": [
+                            {
+                                "project_id": "PROJ-AUTH-BLOCKED",
+                                "bid_show_state": "ORIGINAL_NOTICE_BACKTRACE_REQUIRED",
+                            }
+                        ],
+                        "local_authority_source_tasks": [
+                            {
+                                "project_id": "PROJ-AUTH-BLOCKED",
+                                "source_task_state": "PLAN_READY",
+                            }
+                        ],
+                    },
+                    "summary": {
+                        "input_mode": "GDCIC_ALTERNATIVE_PUBLIC_SOURCE_ROUTES",
+                        "gdcic_alternative_public_source_route_count": 2,
+                        "bid_show_record_count": 1,
+                        "local_authority_source_task_count": 1,
+                        "query_miss_is_not_clearance": True,
+                        "customer_visible_allowed": False,
+                    },
+                },
+            )
+            _write_json(
+                p13b_original / "original-notice-backtrace-v1.json",
+                {
+                    "records": [
+                        {
+                            "project_id": "PROJ-AUTH-BLOCKED",
+                            "p13b_original_notice_readback_state": "BLOCKED",
+                        }
+                    ],
+                    "summary": {"fetch_blocked_count": 1},
+                },
+            )
+            _write_json(
+                p13b_ygp / "ygp-original-readback-v1.json",
+                {
+                    "records": [
+                        {
+                            "project_id": "PROJ-AUTH-BLOCKED",
+                            "p13b_ygp_original_readback_state": "YGP_READBACK_READY",
+                        }
+                    ],
+                    "summary": {"ygp_readback_ready_count": 1},
+                },
+            )
+
+            result = build_stage1_6_sellable_scoreboard(
+                pressure_root=pressure,
+                field_query_root=field_query,
+                gdcic_browser_readback_root=gdcic_readback,
+                p13b_company_history_root=p13b_history,
+                p13b_original_notice_backtrace_root=p13b_original,
+                p13b_ygp_original_readback_root=p13b_ygp,
+                output_root=out,
+                created_at="2026-05-25T00:00:00+08:00",
+            )
+
+        status = result["scoreboard"]["gdcic_authorized_readback_status"]
+        self.assertEqual(status["artifact_state"], "MISSING_OR_NOT_BUILT")
+        self.assertEqual(status["authorization_readiness_state"], "LOGIN_OR_SSO_REQUIRED")
+        self.assertEqual(status["target_real_readback_success_count"], 0)
+        self.assertEqual(status["real_readback_success_proof_state"], "NO_REAL_AUTHORIZED_READBACK_SUCCESS")
+        self.assertTrue(status["authorization_blocker_is_not_terminal_if_alternative_public_sources_exist"])
+        self.assertGreaterEqual(status["alternative_public_source_route_count"], 2)
+        self.assertEqual(
+            status["alternative_operator_next_action"],
+            "continue_alternative_public_source_release_evidence_readback_chain",
+        )
+        self.assertFalse(status["customer_visible_allowed"])
+        self.assertTrue(status["query_miss_is_not_clearance"])
+        self.assertIn("data_ggzy_bid_show", status["alternative_public_source_route_target_type_counts"])
+
     def test_blocking_bucket_uses_p13b_stage5_public_source_classification(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)

@@ -403,7 +403,11 @@ def _scoreboard_counts(
         or _counts(record.get("release_field_query_state") for record in stage6_records),
         "stage4_adapter_result_state_counts": dict(field_summary.get("adapter_result_state_counts") or {}),
         "stage4_downstream_abcd_grade_counts": dict(field_summary.get("release_evidence_downstream_abcd_grade_counts") or {}),
-        "gdcic_authorized_readback_status": _gdcic_authorized_readback_status(gdcic_readback_summary),
+        "gdcic_authorized_readback_status": _gdcic_authorized_readback_status(
+            gdcic_readback_summary,
+            p13b_summary=p13b_summary,
+            project_rows=project_rows,
+        ),
         "p13b_public_source_readback_status": _p13b_public_source_readback_status(p13b_summary),
         "p13b_original_notice_readback_status": _p13b_original_notice_readback_status(p13b_original_summary),
         "p13b_ygp_original_readback_status": _p13b_ygp_original_readback_status(p13b_ygp_summary),
@@ -908,21 +912,39 @@ def _fail_closed_reason_resolved_by_public_readback(
     return any(str(key).startswith(("B_", "C_")) and _int(value) > 0 for key, value in grade_counts.items())
 
 
-def _gdcic_authorized_readback_status(summary: Mapping[str, Any]) -> dict[str, Any]:
+def _gdcic_authorized_readback_status(
+    summary: Mapping[str, Any],
+    *,
+    p13b_summary: Mapping[str, Any] | None = None,
+    project_rows: list[Mapping[str, Any]] | None = None,
+) -> dict[str, Any]:
+    alternative_count = _gdcic_alternative_public_source_route_count(
+        p13b_summary=p13b_summary or {},
+        project_rows=project_rows or [],
+    )
+    alternative_target_type_counts = _gdcic_alternative_public_source_route_target_type_counts(
+        p13b_summary=p13b_summary or {},
+        project_rows=project_rows or [],
+    )
     if not summary:
         return {
             "artifact_state": "MISSING_OR_NOT_BUILT",
             "authorized_session_input_state": "",
             "authorized_session_input_ready": False,
-            "authorization_readiness_state": "",
+            "authorization_readiness_state": "LOGIN_OR_SSO_REQUIRED" if alternative_count else "",
             "target_real_readback_success_count": 0,
             "target_project_manager_change_real_readback_success_count": 0,
             "real_readback_success_not_faked": True,
             "real_readback_success_proof_state": "NO_REAL_AUTHORIZED_READBACK_SUCCESS",
             "operator_next_action": "build_gdcic_browser_authorized_readback_artifact_then_rerun_scoreboard",
-            "alternative_operator_next_action": "",
-            "authorization_blocker_is_not_terminal_if_alternative_public_sources_exist": False,
-            "alternative_public_source_route_count": 0,
+            "alternative_operator_next_action": (
+                "continue_alternative_public_source_release_evidence_readback_chain"
+                if alternative_count
+                else ""
+            ),
+            "authorization_blocker_is_not_terminal_if_alternative_public_sources_exist": alternative_count > 0,
+            "alternative_public_source_route_count": alternative_count,
+            "alternative_public_source_route_target_type_counts": alternative_target_type_counts,
             "customer_visible_allowed": False,
             "query_miss_is_not_clearance": True,
         }
@@ -948,8 +970,21 @@ def _gdcic_authorized_readback_status(summary: Mapping[str, Any]) -> dict[str, A
     )
     operator_action = str(summary.get("authorization_blocker_operator_next_action") or "").strip()
     alternative_operator_action = str(summary.get("authorization_blocker_alternative_operator_next_action") or "").strip()
+    explicit_alternative_count = _int(summary.get("alternative_public_source_route_count"))
+    alternative_count = max(explicit_alternative_count, alternative_count)
     if not operator_action and (not authorized_session_ready or overall_state == "LOGIN_OR_SSO_REQUIRED"):
         operator_action = "provide_gdcic_authorized_storage_state_or_user_data_dir_then_rerun"
+    if not alternative_operator_action and alternative_count:
+        alternative_operator_action = "continue_alternative_public_source_release_evidence_readback_chain"
+    explicit_target_type_counts = _counts(
+        record.get("release_evidence_target_type")
+        for record in _as_list(summary.get("alternative_public_source_route_records"))
+        if isinstance(record, Mapping)
+    )
+    if explicit_target_type_counts:
+        target_type_counts = explicit_target_type_counts
+    else:
+        target_type_counts = alternative_target_type_counts
     return {
         "artifact_state": "BUILT",
         "authorized_session_input_state": authorized_session_input_state,
@@ -971,16 +1006,71 @@ def _gdcic_authorized_readback_status(summary: Mapping[str, Any]) -> dict[str, A
         "alternative_operator_next_action": alternative_operator_action,
         "authorization_blocker_is_not_terminal_if_alternative_public_sources_exist": bool(
             summary.get("authorization_blocker_is_not_terminal_if_alternative_public_sources_exist")
-        ),
-        "alternative_public_source_route_count": _int(summary.get("alternative_public_source_route_count")),
-        "alternative_public_source_route_target_type_counts": _counts(
-            record.get("release_evidence_target_type")
-            for record in _as_list(summary.get("alternative_public_source_route_records"))
-            if isinstance(record, Mapping)
-        ),
+        )
+        or alternative_count > 0,
+        "alternative_public_source_route_count": alternative_count,
+        "alternative_public_source_route_target_type_counts": target_type_counts,
         "customer_visible_allowed": False,
         "query_miss_is_not_clearance": True,
     }
+
+
+def _gdcic_alternative_public_source_route_count(
+    *,
+    p13b_summary: Mapping[str, Any],
+    project_rows: list[Mapping[str, Any]],
+) -> int:
+    summary_count = _int(p13b_summary.get("gdcic_alternative_public_source_route_count"))
+    row_count = sum(_gdcic_alternative_public_source_route_count_for_row(row) for row in project_rows)
+    return max(summary_count, row_count)
+
+
+def _gdcic_alternative_public_source_route_count_for_row(row: Mapping[str, Any]) -> int:
+    count = 0
+    count += _int(row.get("p13b_bid_show_original_notice_url_count"))
+    count += _int(row.get("p13b_local_authority_source_task_count"))
+    count += _int(row.get("p13b_ygp_stage4_release_adapter_task_count")) or _int(
+        row.get("p13b_ygp_stage4_backfill_ready_count")
+    )
+    if str(row.get("p13b_original_notice_readback_state") or "").strip():
+        count += 1
+    if _int(row.get("design_survey_public_registry_readback_record_count")):
+        count += 1
+    return count
+
+
+def _gdcic_alternative_public_source_route_target_type_counts(
+    *,
+    p13b_summary: Mapping[str, Any],
+    project_rows: list[Mapping[str, Any]],
+) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    _bump(counts, "data_ggzy_bid_show", _int(p13b_summary.get("bid_show_record_count")))
+    _bump(counts, "local_authority_public_source", _int(p13b_summary.get("local_authority_source_task_count")))
+    _bump(counts, "original_notice_readback", _int(p13b_summary.get("original_notice_backtrace_required_count")))
+    row_counts: dict[str, int] = {}
+    for row in project_rows:
+        _bump(row_counts, "data_ggzy_bid_show", _int(row.get("p13b_bid_show_original_notice_url_count")))
+        _bump(row_counts, "local_authority_public_source", _int(row.get("p13b_local_authority_source_task_count")))
+        _bump(
+            row_counts,
+            "ygp_original_readback",
+            _int(row.get("p13b_ygp_stage4_release_adapter_task_count"))
+            or _int(row.get("p13b_ygp_stage4_backfill_ready_count")),
+        )
+        if str(row.get("p13b_original_notice_readback_state") or "").strip():
+            _bump(row_counts, "original_notice_readback", 1)
+        if _int(row.get("design_survey_public_registry_readback_record_count")):
+            _bump(row_counts, "design_survey_public_registry", 1)
+    for key, value in row_counts.items():
+        counts[key] = max(_int(counts.get(key)), _int(value))
+    return counts
+
+
+def _bump(counts: dict[str, int], key: str, amount: int) -> None:
+    if amount <= 0:
+        return
+    counts[key] = counts.get(key, 0) + amount
 
 
 def _p13b_public_source_readback_status(summary: Mapping[str, Any]) -> dict[str, Any]:
