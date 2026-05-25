@@ -43,6 +43,7 @@ def build_stage4_backfill_followup_queue(
         },
         "summary": _summary(records),
         "public_source_deepening_policy": deepening_policy,
+        "next_regression_execution_plan": _next_regression_execution_plan(records, deepening_policy),
         "records": records,
         "safety": {
             "customer_visible_allowed": False,
@@ -237,6 +238,78 @@ def _summary(records: list[Mapping[str, Any]]) -> dict[str, Any]:
     }
 
 
+def _next_regression_execution_plan(
+    records: list[Mapping[str, Any]],
+    deepening_policy: Mapping[str, Any],
+) -> dict[str, Any]:
+    high_count = sum(
+        1 for record in records if record.get("execution_priority") == "HIGH_PUBLIC_SOURCE_DEEPENING"
+    )
+    medium_count = sum(
+        1 for record in records if record.get("execution_priority") == "MEDIUM_LOCAL_AUTHORITY_FALLBACK"
+    )
+    target_project_ids = [
+        str(record.get("project_id") or "")
+        for record in records
+        if record.get("execution_priority")
+        in {"HIGH_PUBLIC_SOURCE_DEEPENING", "MEDIUM_LOCAL_AUTHORITY_FALLBACK"}
+    ]
+    if not records:
+        return {
+            "plan_state": "NO_FOLLOWUP_RECORDS",
+            "target_project_ids": [],
+            "recommended_parameter_overrides": {},
+            "runner_entrypoint": "scripts/run-stage1-6-sellable-rate-regression-v1.ps1",
+            "customer_visible_allowed": False,
+            "live_execution_enabled_by_default": False,
+            "query_miss_is_not_clearance": True,
+            "no_legal_conclusion": True,
+        }
+    plan_state = (
+        "PUBLIC_SOURCE_DEEPENING_RUN_RECOMMENDED"
+        if deepening_policy.get("public_source_deepening_recommended")
+        else "FOLLOWUP_SOURCE_PLAN_ONLY"
+    )
+    p13b_company_budget = max(8, high_count * 3 + medium_count)
+    original_notice_budget = max(12, high_count * 4 + medium_count * 2)
+    ygp_notice_budget = max(8, high_count * 3)
+    ygp_backfill_budget = max(8, high_count * 3)
+    return {
+        "plan_state": plan_state,
+        "runner_entrypoint": "scripts/run-stage1-6-sellable-rate-regression-v1.ps1",
+        "target_project_ids": target_project_ids,
+        "target_project_count": len(target_project_ids),
+        "recommended_switches": [
+            "RunP13BPublicSourceChain",
+            "RunYgpBackfillFieldQuery",
+            "RunStage6MergedProjection",
+        ],
+        "recommended_parameter_overrides": {
+            "MaxLiveP13BCompanies": p13b_company_budget,
+            "MaxBidRecordsPerCompany": 3,
+            "MaxBidListPagesPerCompany": 2,
+            "MaxLongTailBidShowsPerCompany": 1,
+            "MaxLiveOriginalNotices": original_notice_budget,
+            "MaxLiveYgpOriginalNotices": ygp_notice_budget,
+            "MaxLiveYgpBackfillTasks": ygp_backfill_budget,
+        },
+        "operator_live_public_query_decision_required": True,
+        "default_execution_mode": "PLAN_OR_EXISTING_ARTIFACT_REPLAY",
+        "live_execution_enabled_by_default": False,
+        "recommended_budget_focus": list(deepening_policy.get("recommended_budget_focus") or []),
+        "safety_invariants": {
+            "customer_visible_allowed": False,
+            "query_miss_is_not_clearance": True,
+            "no_legal_conclusion": True,
+            "gdcic_project_code_digit_guessing_allowed": False,
+            "external_send_enabled": False,
+            "payment_execution_enabled": False,
+            "delivery_execution_enabled": False,
+            "automatic_refund_enabled": False,
+        },
+    }
+
+
 def _counts(values: Any) -> dict[str, int]:
     counts: dict[str, int] = {}
     for value in values:
@@ -285,6 +358,7 @@ def _write_markdown(path: Path, payload: Mapping[str, Any]) -> None:
         f"- followup_route_counts: {json.dumps(summary.get('followup_route_counts', {}), ensure_ascii=False, sort_keys=True)}",
         f"- execution_priority_counts: {json.dumps(summary.get('execution_priority_counts', {}), ensure_ascii=False, sort_keys=True)}",
         f"- public_source_deepening_policy: {json.dumps(payload.get('public_source_deepening_policy', {}), ensure_ascii=False, sort_keys=True)}",
+        f"- next_regression_execution_plan: {json.dumps(payload.get('next_regression_execution_plan', {}), ensure_ascii=False, sort_keys=True)}",
         "",
         "customer_visible_allowed=false; live_execution_enabled=false; query_miss_is_not_clearance=true; no_legal_conclusion=true",
     ]

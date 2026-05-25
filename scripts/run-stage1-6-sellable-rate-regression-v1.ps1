@@ -9,6 +9,7 @@ param(
     [switch]$RunStage6MergedProjection,
     [string]$SupplementalFieldQueryRoot = "",
     [string]$SupplementalFieldQueryJson = "",
+    [string]$ScoreboardComparisonJson = "",
     [switch]$EnableLivePublicQuery,
     [switch]$EnableLiveBrowserExecution,
     [int]$CandidateLimit = 30,
@@ -348,6 +349,9 @@ if (Test-Path $scoreboardJson) {
         "-ScoreboardJson", $scoreboardJson,
         "-OutputRoot", $stage4BackfillFollowupQueueRoot
     )
+    if ($ScoreboardComparisonJson) {
+        $stage4BackfillFollowupArgs += @("-ScoreboardComparisonJson", $ScoreboardComparisonJson)
+    }
     if ($EmitJson) {
         $stage4BackfillFollowupArgs += "-EmitJson"
     }

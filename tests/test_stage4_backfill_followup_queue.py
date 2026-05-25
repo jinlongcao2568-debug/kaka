@@ -148,6 +148,23 @@ class Stage4BackfillFollowupQueueTests(unittest.TestCase):
                 "MEDIUM_LOCAL_AUTHORITY_FALLBACK": 1,
             },
         )
+        execution_plan = result["next_regression_execution_plan"]
+        self.assertEqual(execution_plan["plan_state"], "PUBLIC_SOURCE_DEEPENING_RUN_RECOMMENDED")
+        self.assertEqual(
+            execution_plan["recommended_switches"],
+            ["RunP13BPublicSourceChain", "RunYgpBackfillFieldQuery", "RunStage6MergedProjection"],
+        )
+        self.assertEqual(execution_plan["recommended_parameter_overrides"]["MaxLiveP13BCompanies"], 8)
+        self.assertEqual(execution_plan["recommended_parameter_overrides"]["MaxLiveOriginalNotices"], 12)
+        self.assertEqual(execution_plan["recommended_parameter_overrides"]["MaxLiveYgpOriginalNotices"], 8)
+        self.assertEqual(execution_plan["recommended_parameter_overrides"]["MaxLiveYgpBackfillTasks"], 8)
+        self.assertEqual(
+            execution_plan["target_project_ids"],
+            ["PROJ-PUBLIC-RETRY", "PROJ-LOCAL-FALLBACK"],
+        )
+        self.assertTrue(execution_plan["operator_live_public_query_decision_required"])
+        self.assertFalse(execution_plan["live_execution_enabled_by_default"])
+        self.assertFalse(execution_plan["safety_invariants"]["gdcic_project_code_digit_guessing_allowed"])
         records = {record["project_id"]: record for record in result["records"]}
         self.assertEqual(records["PROJ-PUBLIC-RETRY"]["execution_priority"], "HIGH_PUBLIC_SOURCE_DEEPENING")
         self.assertEqual(records["PROJ-LOCAL-FALLBACK"]["execution_priority"], "MEDIUM_LOCAL_AUTHORITY_FALLBACK")
@@ -163,6 +180,7 @@ class Stage4BackfillFollowupQueueTests(unittest.TestCase):
             self.assertTrue(record["query_miss_is_not_clearance"])
         self.assertIn("public_source_deepening_policy", markdown)
         self.assertIn("CONTINUE_PUBLIC_SOURCE_DEEPENING", markdown)
+        self.assertIn("next_regression_execution_plan", markdown)
 
 
 def _write_json(path: Path, payload: dict) -> None:
