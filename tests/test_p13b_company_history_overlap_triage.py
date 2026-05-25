@@ -434,6 +434,70 @@ class P13BCompanyHistoryOverlapTriageTests(unittest.TestCase):
         )
         self.assertFalse(local_authority_task["customer_visible_allowed"])
 
+    def test_stage4_followup_queue_emits_ygp_original_readback_inputs_from_official_context(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            queue_json = root / "followup" / "stage4-backfill-followup-queue-v1.json"
+            _write_json(
+                queue_json,
+                {
+                    "records": [
+                        {
+                            "followup_record_id": "FOLLOWUP-YGP",
+                            "project_id": "PROJ-CN-GD-JG2026-YGP-1",
+                            "project_name": "广州YGP回读项目中标候选人公示",
+                            "followup_route": "official_readback_public_identifier_bridge",
+                            "followup_queue_state": "FOLLOWUP_SOURCE_PLAN_REQUIRED",
+                            "candidate_notice_source_urls": ["https://ywtb.gzggzy.cn/jyfw/ygp.html"],
+                            "public_source_fallback_sequence": [
+                                {"source_kind": "data_ggzy_company_history_search"},
+                                {"source_kind": "ygp_original_notice_readback"},
+                            ],
+                            "stage4_official_readback_context": {
+                                "stage4_official_readback_context_state": "OFFICIAL_READBACK_READY_STAGE4_BRIDGE_FOLLOWUP_REQUIRED",
+                                "ygp_project_code_variants": ["E4413000835979563001"],
+                                "ygp_biz_code_variants": ["3C52"],
+                                "ygp_site_code_variants": ["441300"],
+                                "ygp_notice_id_variants": ["7fcdf98f7cd04bc5b2a0167b4f1c5733"],
+                                "gdcic_project_code_route_allowed": False,
+                                "must_not_extract_from_full_text_numbers": True,
+                                "customer_visible_allowed": False,
+                                "query_miss_is_not_clearance": True,
+                                "no_legal_conclusion": True,
+                            },
+                            "customer_visible_allowed": False,
+                            "query_miss_is_not_clearance": True,
+                            "no_legal_conclusion": True,
+                        }
+                    ]
+                },
+            )
+
+            result = build_p13b_company_history_overlap_triage(
+                stage4_backfill_followup_queue_json=queue_json,
+                output_root=root / "out",
+                created_at="2026-05-25T00:00:00+08:00",
+            )
+
+        summary = result["summary"]
+        self.assertEqual(summary["ygp_input_count"], 1)
+        self.assertEqual(summary["stage4_official_readback_input_count"], 1)
+        self.assertEqual(
+            summary["stage4_official_readback_input_state_counts"],
+            {"YGP_PUBLIC_IDENTIFIER_READY_FOR_ORIGINAL_READBACK": 1},
+        )
+        readback_input = result["manifest"]["stage4_official_readback_input_records"][0]
+        self.assertEqual(readback_input["source_kind"], "ygp_original_notice_readback")
+        self.assertEqual(readback_input["ygp_project_code"], "E4413000835979563001")
+        self.assertEqual(readback_input["ygp_biz_code"], "3C52")
+        self.assertEqual(readback_input["ygp_site_code"], "441300")
+        self.assertEqual(readback_input["ygp_notice_id"], "7fcdf98f7cd04bc5b2a0167b4f1c5733")
+        self.assertFalse(readback_input["gdcic_project_code_route_allowed"])
+        self.assertTrue(readback_input["must_not_extract_from_full_text_numbers"])
+        self.assertFalse(readback_input["customer_visible_allowed"])
+        self.assertTrue(readback_input["query_miss_is_not_clearance"])
+        self.assertTrue(readback_input["no_legal_conclusion"])
+
     def test_stage4_followup_queue_alternate_sources_expand_local_authority_tasks(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)

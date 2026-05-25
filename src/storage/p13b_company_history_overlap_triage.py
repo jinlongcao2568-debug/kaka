@@ -252,6 +252,12 @@ def build_p13b_company_history_overlap_triage(
         enable_live_public_query=enable_live_public_query,
         http_getter=http_getter,
     )
+    stage4_official_readback_input_records = _stage4_official_readback_input_records(
+        project_task_records,
+        created_at=created,
+    )
+    if not ygp_input_count:
+        ygp_input_count = len(stage4_official_readback_input_records)
     manual_original_url_backtrace_table = _manual_original_url_backtrace_table(bid_show_records, overlap_signal_records)
     summary = _summary(
         project_task_records=project_task_records,
@@ -260,6 +266,7 @@ def build_p13b_company_history_overlap_triage(
         overlap_signal_records=overlap_signal_records,
         local_authority_source_task_records=local_authority_source_task_records,
         local_authority_source_readback_records=local_authority_source_readback_records,
+        stage4_official_readback_input_records=stage4_official_readback_input_records,
         execution_mode=execution_mode,
         blocking_reasons=blocking_reasons,
         input_mode=input_mode,
@@ -313,6 +320,7 @@ def build_p13b_company_history_overlap_triage(
         "overlap_signal_records": overlap_signal_records,
         "local_authority_source_task_records": local_authority_source_task_records,
         "local_authority_source_readback_records": local_authority_source_readback_records,
+        "stage4_official_readback_input_records": stage4_official_readback_input_records,
         "manual_original_url_backtrace_table": manual_original_url_backtrace_table,
         "summary": summary,
         "safety": {
@@ -816,6 +824,72 @@ def _local_authority_source_task_records(
                 rows.append(_local_authority_source_task_record(project, created_at=created_at, alternate=alternate))
             continue
         rows.append(_local_authority_source_task_record(project, created_at=created_at))
+    return rows
+
+
+def _stage4_official_readback_input_records(
+    project_task_records: list[Mapping[str, Any]],
+    *,
+    created_at: str,
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for project in project_task_records:
+        project_id = str(project.get("project_id") or "").strip()
+        if not project_id:
+            continue
+        context = project.get("stage4_official_readback_context")
+        if not isinstance(context, Mapping):
+            continue
+        project_codes = [str(item).strip() for item in _list(context.get("ygp_project_code_variants")) if str(item or "").strip()]
+        biz_codes = [str(item).strip() for item in _list(context.get("ygp_biz_code_variants")) if str(item or "").strip()]
+        site_codes = [str(item).strip() for item in _list(context.get("ygp_site_code_variants")) if str(item or "").strip()]
+        notice_ids = [str(item).strip() for item in _list(context.get("ygp_notice_id_variants")) if str(item or "").strip()]
+        max_count = max(len(project_codes), len(biz_codes), len(site_codes), len(notice_ids), 0)
+        if not max_count:
+            continue
+        for index in range(max_count):
+            ygp_project_code = project_codes[index] if index < len(project_codes) else ""
+            ygp_biz_code = biz_codes[index] if index < len(biz_codes) else ""
+            ygp_site_code = site_codes[index] if index < len(site_codes) else ""
+            ygp_notice_id = notice_ids[index] if index < len(notice_ids) else ""
+            key = "|".join([project_id, ygp_project_code, ygp_biz_code, ygp_site_code, ygp_notice_id])
+            if key in seen:
+                continue
+            seen.add(key)
+            rows.append(
+                {
+                    "stage4_official_readback_input_record_id": _stable_id(
+                        "P13B-STAGE4-OFFICIAL-READBACK-INPUT",
+                        project_id,
+                        ygp_project_code,
+                        ygp_biz_code,
+                        ygp_site_code,
+                        ygp_notice_id,
+                    ),
+                    "project_id": project_id,
+                    "project_name": str(project.get("project_name") or context.get("project_name") or ""),
+                    "input_source": "stage4_official_readback_context",
+                    "source_kind": "ygp_original_notice_readback",
+                    "readback_input_state": "YGP_PUBLIC_IDENTIFIER_READY_FOR_ORIGINAL_READBACK",
+                    "ygp_project_code": ygp_project_code,
+                    "ygp_biz_code": ygp_biz_code,
+                    "ygp_site_code": ygp_site_code,
+                    "ygp_notice_id": ygp_notice_id,
+                    "candidate_notice_source_urls": _list(project.get("candidate_notice_source_urls")),
+                    "project_source_urls": _list(project.get("project_source_urls")),
+                    "candidate_companies": _list(project.get("candidate_companies")),
+                    "responsible_person_names": _list(project.get("responsible_person_names")),
+                    "recommended_next_action": "run_ygp_original_notice_readback_or_stage4_bridge_with_public_identifiers",
+                    "gdcic_project_code_route_allowed": False,
+                    "gdcic_project_code_route_policy": "YGP_OR_TRADE_IDENTIFIERS_NOT_SENT_TO_GDCIC_PROJECT_CODE",
+                    "must_not_extract_from_full_text_numbers": True,
+                    "customer_visible_allowed": False,
+                    "query_miss_is_not_clearance": True,
+                    "no_legal_conclusion": True,
+                    "created_at": created_at,
+                }
+            )
     return rows
 
 
@@ -1619,6 +1693,7 @@ def _summary(
     overlap_signal_records: list[Mapping[str, Any]],
     local_authority_source_task_records: list[Mapping[str, Any]],
     local_authority_source_readback_records: list[Mapping[str, Any]],
+    stage4_official_readback_input_records: list[Mapping[str, Any]],
     execution_mode: str,
     blocking_reasons: list[str],
     input_mode: str = "P12_VALUE_CLOSEOUT",
@@ -1666,6 +1741,10 @@ def _summary(
             1 for record in company_history_query_records if str(record.get("query_state") or "") == "COMPANY_HISTORY_RECORD_FOUND"
         ),
         "bid_show_record_count": len(bid_show_records),
+        "stage4_official_readback_input_count": len(stage4_official_readback_input_records),
+        "stage4_official_readback_input_state_counts": _counts(
+            record.get("readback_input_state") for record in stage4_official_readback_input_records
+        ),
         "local_authority_source_task_count": len(local_authority_source_task_records),
         "local_authority_source_task_state_counts": _counts(
             record.get("source_task_state") for record in local_authority_source_task_records
