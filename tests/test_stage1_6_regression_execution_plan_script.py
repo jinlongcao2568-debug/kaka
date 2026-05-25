@@ -58,6 +58,8 @@ class StageOneSixRegressionExecutionPlanScriptTests(unittest.TestCase):
                     str(ROOT / "scripts" / "run-stage1-6-sellable-rate-regression-v1.ps1"),
                     "-RunRoot",
                     str(root / "run"),
+                    "-SourceRegressionRunRoot",
+                    str(root / "source-run"),
                     "-Stage4BackfillFollowupQueueJson",
                     str(queue_json),
                     "-ApplyStage4FollowupExecutionPlan",
@@ -73,6 +75,7 @@ class StageOneSixRegressionExecutionPlanScriptTests(unittest.TestCase):
             )
 
         payload = _json_from_stdout(completed.stdout)
+        self.assertEqual(payload["source_regression_run_root"], str(root / "source-run"))
         self.assertTrue(payload["run_switches"]["RunP13BPublicSourceChain"])
         self.assertTrue(payload["run_switches"]["RunYgpBackfillFieldQuery"])
         self.assertTrue(payload["run_switches"]["RunStage6MergedProjection"])

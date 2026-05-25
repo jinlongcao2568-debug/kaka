@@ -1,5 +1,6 @@
 param(
     [string]$RunRoot = "",
+    [string]$SourceRegressionRunRoot = "",
     [switch]$RunPressure,
     [switch]$RunFieldQuery,
     [switch]$RunStage6Cycle,
@@ -55,6 +56,19 @@ $p13bYgpReadbackRoot = Join-Path $RunRoot "p13b-ygp-original-readback"
 $p13bCloseoutRoot = Join-Path $RunRoot "p13b-overlap-closeout"
 $scoreboardRoot = Join-Path $RunRoot "scoreboard"
 $stage4BackfillFollowupQueueRoot = Join-Path $RunRoot "stage4-backfill-followup-queue"
+
+$sourcePressureRoot = $pressureRoot
+$sourceFieldQueryRoot = $fieldQueryRoot
+$sourceGdcicReadbackRoot = $gdcicReadbackRoot
+$sourceStage6Root = $stage6Root
+$sourceStage6MergedRoot = $stage6MergedRoot
+if ($SourceRegressionRunRoot) {
+    $sourcePressureRoot = Join-Path $SourceRegressionRunRoot "pressure"
+    $sourceFieldQueryRoot = Join-Path $SourceRegressionRunRoot "field-query"
+    $sourceGdcicReadbackRoot = Join-Path $SourceRegressionRunRoot "gdcic-browser-authorized-readback"
+    $sourceStage6Root = Join-Path $SourceRegressionRunRoot "stage6-cycle"
+    $sourceStage6MergedRoot = Join-Path $SourceRegressionRunRoot "stage6-loop-merged"
+}
 
 New-Item -ItemType Directory -Force -Path $RunRoot | Out-Null
 $env:PYTHONPATH = "$repoRoot\src;$repoRoot\tests"
@@ -123,6 +137,7 @@ if ($ApplyStage4FollowupExecutionPlan) {
 if ($DescribeEffectivePlanAndExit) {
     $effectivePlan = [ordered]@{
         run_root = "$RunRoot"
+        source_regression_run_root = "$SourceRegressionRunRoot"
         run_switches = [ordered]@{
             RunPressure = [bool]$RunPressure
             RunFieldQuery = [bool]$RunFieldQuery
@@ -196,7 +211,8 @@ if ($RunPressure) {
     }
 }
 
-$releasePlanJson = Join-Path $pressureRoot "stage4-release-adapter-bridge-plan.json"
+$effectivePressureRoot = if ($RunPressure -or -not $SourceRegressionRunRoot) { $pressureRoot } else { $sourcePressureRoot }
+$releasePlanJson = Join-Path $effectivePressureRoot "stage4-release-adapter-bridge-plan.json"
 if ($RunFieldQuery) {
     $fieldArgs = @(
         "-NoProfile", "-ExecutionPolicy", "Bypass",
@@ -214,7 +230,8 @@ if ($RunFieldQuery) {
     }
 }
 
-$fieldQueryJson = Join-Path $fieldQueryRoot "guangdong-local-field-query-probe-v1.json"
+$effectiveFieldQueryRoot = if ($RunFieldQuery -or -not $SourceRegressionRunRoot) { $fieldQueryRoot } else { $sourceFieldQueryRoot }
+$fieldQueryJson = Join-Path $effectiveFieldQueryRoot "guangdong-local-field-query-probe-v1.json"
 if ($RunStage6Cycle) {
     if (-not (Test-Path $fieldQueryJson)) {
         Write-Error "RunStage6Cycle requires guangdong-local-field-query-probe-v1.json. Use -RunFieldQuery first or provide an existing run root."
@@ -228,7 +245,8 @@ if ($RunStage6Cycle) {
     }
 }
 
-$gdcicReadbackJson = Join-Path $gdcicReadbackRoot "gdcic-browser-authorized-readback-v1.json"
+$effectiveGdcicReadbackRoot = if ($RunGdcicAuthorizedReadback -or -not $SourceRegressionRunRoot) { $gdcicReadbackRoot } else { $sourceGdcicReadbackRoot }
+$gdcicReadbackJson = Join-Path $effectiveGdcicReadbackRoot "gdcic-browser-authorized-readback-v1.json"
 if ($RunGdcicAuthorizedReadback) {
     $gdcicArgs = @(
         "-NoProfile", "-ExecutionPolicy", "Bypass",
@@ -264,7 +282,7 @@ if ($RunP13BPublicSourceChain) {
     $p13bArgs = @(
         "-NoProfile", "-ExecutionPolicy", "Bypass",
         "-File", (Join-Path $repoRoot "scripts\build-p13b-company-history-overlap-triage-v1.ps1"),
-        "-GdcicBrowserReadbackRoot", $gdcicReadbackRoot,
+        "-GdcicBrowserReadbackRoot", $effectiveGdcicReadbackRoot,
         "-OutputRoot", $p13bCompanyHistoryRoot,
         "-MaxLiveCompanies", "$MaxLiveP13BCompanies",
         "-MaxBidRecordsPerCompany", "$MaxBidRecordsPerCompany",
@@ -405,9 +423,11 @@ if ($RunStage6MergedProjection) {
     }
 }
 
-$effectiveStage6Root = $stage6Root
+$effectiveStage6Root = if ($SourceRegressionRunRoot) { $sourceStage6Root } else { $stage6Root }
 if (Test-Path (Join-Path $stage6MergedRoot "stage6-review-loop-project-status-table.json")) {
     $effectiveStage6Root = $stage6MergedRoot
+} elseif ($SourceRegressionRunRoot -and (Test-Path (Join-Path $sourceStage6MergedRoot "stage6-review-loop-project-status-table.json"))) {
+    $effectiveStage6Root = $sourceStage6MergedRoot
 }
 
 $stage6StatusJson = Join-Path $effectiveStage6Root "stage6-review-loop-project-status-table.json"
@@ -418,9 +438,9 @@ if (-not (Test-Path $stage6StatusJson)) {
 $scoreboardArgs = @(
     "-NoProfile", "-ExecutionPolicy", "Bypass",
     "-File", (Join-Path $repoRoot "scripts\build-stage1-6-sellable-scoreboard-v1.ps1"),
-    "-PressureRoot", $pressureRoot,
-    "-FieldQueryRoot", $fieldQueryRoot,
-    "-GdcicBrowserReadbackRoot", $gdcicReadbackRoot,
+    "-PressureRoot", $effectivePressureRoot,
+    "-FieldQueryRoot", $effectiveFieldQueryRoot,
+    "-GdcicBrowserReadbackRoot", $effectiveGdcicReadbackRoot,
     "-P13BCompanyHistoryRoot", $p13bCompanyHistoryRoot,
     "-P13BOriginalNoticeBacktraceRoot", $p13bOriginalNoticeRoot,
     "-P13BYgpOriginalReadbackRoot", $p13bYgpReadbackRoot,
