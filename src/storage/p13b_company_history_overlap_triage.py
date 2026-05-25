@@ -62,6 +62,27 @@ LONG_TAIL_PROJECT_KEYWORDS = (
 )
 
 FORBIDDEN_TERMS = ("无风险", "无冲突", "在建冲突成立", "违法成立", "确认本人", "造假成立", "是不是本人")
+RESPONSIBLE_PERSON_NOISE_TERMS = {
+    "通过",
+    "公开",
+    "单元",
+    "达到国家",
+    "暂无",
+    "无",
+    "未填",
+    "空",
+    "合格",
+    "不合格",
+}
+RESPONSIBLE_PERSON_NOISE_FRAGMENTS = (
+    "国家",
+    "标准",
+    "要求",
+    "合格",
+    "通过",
+    "公开",
+    "单元",
+)
 
 HttpGetter = Callable[[str, Mapping[str, Any]], Mapping[str, Any]]
 
@@ -559,7 +580,11 @@ def _gdcic_alternative_route_project_task_records(
                 query_params.get("projectManagerName"),
             ]
         )
-        project["responsible_person_names"] = [str(person) for person in people if str(person or "").strip()]
+        project["responsible_person_names"] = [
+            str(person).strip()
+            for person in people
+            if _valid_gdcic_alternative_responsible_person_name(person)
+        ]
         urls = _dedupe(
             [
                 *_list(project.get("candidate_notice_source_urls")),
@@ -2515,6 +2540,22 @@ def _dedupe(values: Iterable[Any]) -> list[Any]:
         seen.add(key)
         out.append(value)
     return out
+
+
+def _valid_gdcic_alternative_responsible_person_name(value: Any) -> bool:
+    name = str(value or "").strip()
+    if not name or name in RESPONSIBLE_PERSON_NOISE_TERMS:
+        return False
+    if re.search(r"[0-9A-Za-z]", name):
+        return False
+    if any(ch in name for ch in "：:；;，,。/\\|()（）[]【】{}<>《》"):
+        return False
+    normalized = re.sub(r"[\s·•・]", "", name)
+    if normalized in RESPONSIBLE_PERSON_NOISE_TERMS:
+        return False
+    if any(fragment in normalized for fragment in RESPONSIBLE_PERSON_NOISE_FRAGMENTS):
+        return False
+    return bool(re.fullmatch(r"[\u4e00-\u9fff]{2,6}", normalized))
 
 
 def _norm(value: str) -> str:

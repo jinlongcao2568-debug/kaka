@@ -339,6 +339,57 @@ class P13BCompanyHistoryOverlapTriageTests(unittest.TestCase):
                 self.assertIn("张三", task["responsible_person_names"])
                 self.assertEqual(task["query_state"], "PLAN_ONLY_NOT_EXECUTED")
 
+    def test_gdcic_alternative_public_routes_filter_responsible_person_noise(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            readback_json = root / "gdcic" / "gdcic-browser-authorized-readback-v1.json"
+            _write_gdcic_alternative_readback(readback_json)
+            payload = json.loads(readback_json.read_text(encoding="utf-8"))
+            tasks = payload["manifest"]["browser_readback_task_records"]
+            routes = payload["summary"]["alternative_public_source_route_records"]
+            tasks[0]["person_name"] = "通过"
+            tasks[0]["query_params"]["personName"] = "公开"
+            tasks[0]["query_params"]["projectManagerName"] = "黄彤斌"
+            routes[0]["person_name"] = "单元"
+            tasks[1]["person_name"] = "洪伟彬"
+            tasks[1]["query_params"]["personName"] = "李升科"
+            tasks[1]["query_params"]["projectManagerName"] = "A123"
+            routes[1]["person_name"] = "公开"
+            tasks.append(
+                {
+                    **tasks[0],
+                    "gdcic_browser_readback_task_id": "GDCIC-ALT-NOISE",
+                    "person_name": "达到国家",
+                    "query_params": {
+                        **tasks[0]["query_params"],
+                        "personName": "达到国家",
+                        "projectManagerName": "工程合格",
+                    },
+                }
+            )
+            routes.append(
+                {
+                    **routes[0],
+                    "gdcic_browser_readback_task_id": "GDCIC-ALT-NOISE",
+                    "person_name": "达到国家",
+                    "release_evidence_target_type": "project_manager_change_notice",
+                }
+            )
+            readback_json.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+            result = build_p13b_company_history_overlap_triage(
+                gdcic_browser_readback_json=readback_json,
+                output_root=root / "out",
+                created_at="2026-05-25T00:00:00+08:00",
+            )
+
+            project = result["manifest"]["project_task_records"][0]
+            self.assertEqual(project["responsible_person_names"], ["黄彤斌", "洪伟彬", "李升科"])
+            for invalid_name in ["通过", "公开", "单元", "A123", "达到国家", "工程合格"]:
+                self.assertNotIn(invalid_name, project["responsible_person_names"])
+            for task in result["manifest"]["company_history_query_records"]:
+                self.assertEqual(task["responsible_person_names"], ["黄彤斌", "洪伟彬", "李升科"])
+
     def test_stage4_followup_queue_seeds_public_source_tasks_without_gdcic_readback(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
