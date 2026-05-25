@@ -276,15 +276,23 @@ if ($RunPressure) {
         "-DetailCaptureLimit", "$DetailCaptureLimit",
         "-AttachmentCaptureLimit", "$AttachmentCaptureLimit"
     )
+    $resolvedExcludeProjectIds = @()
     foreach ($projectId in $ExcludeProjectId) {
         if ($projectId) {
-            $pressureArgs += @("-ExcludeProjectId", $projectId)
+            $resolvedExcludeProjectIds += $projectId
         }
     }
+    if ($resolvedExcludeProjectIds.Count -gt 0) {
+        $pressureArgs += @("-ExcludeProjectId", ($resolvedExcludeProjectIds -join ","))
+    }
+    $resolvedExcludeScoreboards = @()
     foreach ($scoreboardJson in $ExcludeScoreboardJson) {
         if ($scoreboardJson) {
-            $pressureArgs += @("-ExcludeScoreboardJson", (Resolve-RepoPath "$scoreboardJson"))
+            $resolvedExcludeScoreboards += (Resolve-RepoPath "$scoreboardJson")
         }
+    }
+    if ($resolvedExcludeScoreboards.Count -gt 0) {
+        $pressureArgs += @("-ExcludeScoreboardJson", ($resolvedExcludeScoreboards -join ","))
     }
     if ($AttemptAllStage16Candidates) {
         $pressureArgs += "-AttemptAllStage16Candidates"
