@@ -1964,6 +1964,94 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
         self.assertFalse(row["customer_visible_allowed"])
         self.assertTrue(row["query_miss_is_not_clearance"])
 
+    def test_local_authority_region_resolution_required_is_explicit_stage5_queue(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            pressure = root / "pressure"
+            field_query = root / "field-query"
+            p13b_history = root / "p13b-history"
+            out = root / "out"
+            for path in (pressure, field_query, p13b_history, out):
+                path.mkdir(parents=True, exist_ok=True)
+
+            _write_json(pressure / "pressure-summary.json", {"candidate_count": 1})
+            _write_json(
+                pressure / "stage1-6-readiness-table.json",
+                {
+                    "records": [
+                        {
+                            "project_id": "PROJ-REGION-MISSING",
+                            "project_name": "地方源地区待解析样本",
+                            "stage5_rule_gate_status": "REVIEW",
+                        }
+                    ]
+                },
+            )
+            _write_json(pressure / "stage1-6-gap-summary-table.json", {"records": []})
+            _write_json(field_query / "guangdong-local-field-query-probe-v1.json", {"manifest": {"field_task_records": []}})
+            _write_json(
+                p13b_history / "company-history-overlap-triage-v1.json",
+                {
+                    "manifest": {
+                        "local_authority_source_task_records": [
+                            {
+                                "project_id": "PROJ-REGION-MISSING",
+                                "source_task_state": "LOCAL_AUTHORITY_SOURCE_PLAN_READY",
+                                "local_authority_readback_state": "PLAN_ONLY_NOT_EXECUTED",
+                                "local_authority_resolution_state": "LOCAL_AUTHORITY_REGION_RESOLUTION_REQUIRED",
+                                "local_authority_source_url_resolution_state": "SOURCE_URL_BLOCKED_BY_REGION_UNRESOLVED",
+                                "customer_visible_allowed": False,
+                                "query_miss_is_not_clearance": True,
+                            }
+                        ],
+                        "local_authority_source_readback_records": [
+                            {
+                                "project_id": "PROJ-REGION-MISSING",
+                                "local_authority_readback_state": "BLOCKED",
+                                "local_authority_resolution_state": "LOCAL_AUTHORITY_REGION_RESOLUTION_REQUIRED",
+                                "local_authority_source_url_resolution_state": "SOURCE_URL_BLOCKED_BY_REGION_UNRESOLVED",
+                                "recommended_next_action": "resolve_historical_project_jurisdiction_before_local_authority_readback",
+                                "blocker_taxonomy": ["local_authority_region_unresolved"],
+                                "customer_visible_allowed": False,
+                                "query_miss_is_not_clearance": True,
+                            }
+                        ],
+                    },
+                    "summary": {"local_authority_source_task_count": 1},
+                },
+            )
+
+            result = build_stage1_6_sellable_scoreboard(
+                pressure_root=pressure,
+                field_query_root=field_query,
+                p13b_company_history_root=p13b_history,
+                output_root=out,
+                created_at="2026-05-24T00:00:00+08:00",
+            )
+
+        row = result["project_rows"][0]
+        self.assertEqual(row["p13b_public_source_readback_state"], "LOCAL_AUTHORITY_BLOCKED_REVIEW")
+        self.assertEqual(
+            row["p13b_local_authority_resolution_state_counts"],
+            {"LOCAL_AUTHORITY_REGION_RESOLUTION_REQUIRED": 1},
+        )
+        self.assertEqual(
+            row["p13b_local_authority_source_url_resolution_state_counts"],
+            {"SOURCE_URL_BLOCKED_BY_REGION_UNRESOLVED": 1},
+        )
+        self.assertEqual(row["stage5_operational_review_bucket"], "LOCAL_AUTHORITY_REGION_RESOLUTION_REQUIRED_REVIEW")
+        self.assertIn("LOCAL_AUTHORITY_REGION_RESOLUTION_REQUIRED_REVIEW", row["stage5_operational_review_queues"])
+        self.assertIn("local_authority_region_resolution_required", row["stage5_operational_signal_flags"])
+        self.assertEqual(
+            row["stage5_operational_next_action"],
+            "resolve_historical_project_jurisdiction_before_local_authority_readback",
+        )
+        self.assertEqual(row["stage5_operational_primary_track"], "local_authority_region_resolution_required")
+        self.assertEqual(row["stage5_operational_priority_bucket"], "P1_BLOCKER_RETRY_OR_ALTERNATE_SOURCE")
+        self.assertEqual(row["blocking_bucket"], "local_authority_region_resolution_required_review")
+        self.assertFalse(row["customer_visible_allowed"])
+        self.assertTrue(row["query_miss_is_not_clearance"])
+
     def test_incremental_scoreboard_preserves_non_target_public_source_projection(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)

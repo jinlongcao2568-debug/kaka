@@ -942,6 +942,12 @@ def _local_authority_source_task_record(
         or alternate_source_id
         or ""
     )
+    resolution = _local_authority_resolution_state(
+        region_code=region_code,
+        source_url=source_url,
+        jurisdiction_adapter=jurisdiction_adapter,
+        alternate_source_id=alternate_source_id,
+    )
     return {
         "local_authority_source_task_id": _stable_id(
             "P13B-LOCAL-AUTHORITY-SOURCE",
@@ -966,6 +972,9 @@ def _local_authority_source_task_record(
         "project_source_urls": _list(project.get("project_source_urls")),
         "source_task_state": "LOCAL_AUTHORITY_SOURCE_PLAN_READY",
         "local_authority_readback_state": "PLAN_ONLY_NOT_EXECUTED",
+        "local_authority_resolution_state": resolution["local_authority_resolution_state"],
+        "local_authority_source_url_resolution_state": resolution["local_authority_source_url_resolution_state"],
+        "local_authority_resolution_blocker": resolution["local_authority_resolution_blocker"],
         "local_authority_region_code": region_code,
         "local_authority_region_basis": (
             "stage4_followup_alternate_candidate"
@@ -999,6 +1008,39 @@ def _local_authority_source_task_record(
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,
         "created_at": created_at,
+    }
+
+
+def _local_authority_resolution_state(
+    *,
+    region_code: str,
+    source_url: str,
+    jurisdiction_adapter: Mapping[str, Any],
+    alternate_source_id: str,
+) -> dict[str, str]:
+    if source_url:
+        return {
+            "local_authority_resolution_state": "LOCAL_AUTHORITY_SOURCE_READY",
+            "local_authority_source_url_resolution_state": "SOURCE_URL_RESOLVED",
+            "local_authority_resolution_blocker": "",
+        }
+    if not region_code:
+        return {
+            "local_authority_resolution_state": "LOCAL_AUTHORITY_REGION_RESOLUTION_REQUIRED",
+            "local_authority_source_url_resolution_state": "SOURCE_URL_BLOCKED_BY_REGION_UNRESOLVED",
+            "local_authority_resolution_blocker": "local_authority_region_unresolved",
+        }
+    adapter_state = str(jurisdiction_adapter.get("adapter_resolution_state") or "").strip()
+    if alternate_source_id:
+        return {
+            "local_authority_resolution_state": "LOCAL_AUTHORITY_ALTERNATE_SOURCE_URL_REQUIRED",
+            "local_authority_source_url_resolution_state": "ALTERNATE_SOURCE_CANDIDATE_WITHOUT_URL",
+            "local_authority_resolution_blocker": "alternate_local_authority_source_url_missing",
+        }
+    return {
+        "local_authority_resolution_state": "LOCAL_AUTHORITY_SOURCE_URL_RESOLUTION_REQUIRED",
+        "local_authority_source_url_resolution_state": adapter_state or "SOURCE_URL_UNRESOLVED_FOR_REGION",
+        "local_authority_resolution_blocker": "local_authority_source_url_unresolved_for_region",
     }
 
 
@@ -1073,14 +1115,27 @@ def _execute_local_authority_source_tasks(
             )
             continue
         if not source_url:
+            resolution_state = str(task.get("local_authority_resolution_state") or "")
+            resolution_blocker = str(task.get("local_authority_resolution_blocker") or "").strip()
+            blocker_taxonomy = [resolution_blocker] if resolution_blocker else ["local_authority_source_url_missing"]
+            if resolution_state == "LOCAL_AUTHORITY_REGION_RESOLUTION_REQUIRED":
+                recommended_next_action = "resolve_historical_project_jurisdiction_before_local_authority_readback"
+            elif resolution_state == "LOCAL_AUTHORITY_ALTERNATE_SOURCE_URL_REQUIRED":
+                recommended_next_action = "fill_alternate_project_local_authority_source_url_before_readback"
+            else:
+                recommended_next_action = "register_project_local_authority_source_url_before_readback"
             rows.append(
                 {
                     **base,
                     "local_authority_readback_state": "BLOCKED",
+                    "local_authority_resolution_state": resolution_state,
+                    "local_authority_source_url_resolution_state": str(
+                        task.get("local_authority_source_url_resolution_state") or ""
+                    ),
                     "http_status_code": 0,
                     "match_basis": "",
-                    "blocker_taxonomy": ["local_authority_source_url_missing"],
-                    "recommended_next_action": "register_project_local_authority_source_url_before_readback",
+                    "blocker_taxonomy": blocker_taxonomy,
+                    "recommended_next_action": recommended_next_action,
                 }
             )
             continue
@@ -1823,6 +1878,12 @@ def _summary(
         ),
         "local_authority_region_counts": _counts(
             record.get("local_authority_region_code") for record in local_authority_source_task_records
+        ),
+        "local_authority_resolution_state_counts": _counts(
+            record.get("local_authority_resolution_state") for record in local_authority_source_task_records
+        ),
+        "local_authority_source_url_resolution_state_counts": _counts(
+            record.get("local_authority_source_url_resolution_state") for record in local_authority_source_task_records
         ),
         "local_authority_adapter_resolution_state_counts": _counts(
             record.get("jurisdiction_adapter_resolution_state") for record in local_authority_source_task_records

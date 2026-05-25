@@ -774,6 +774,70 @@ class P13BCompanyHistoryOverlapTriageTests(unittest.TestCase):
             self.assertFalse(readback["customer_visible_allowed"])
             self.assertTrue(readback["query_miss_is_not_clearance"])
 
+    def test_stage4_followup_queue_unresolved_local_authority_region_is_machine_blocked(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            queue_json = root / "followup" / "stage4-backfill-followup-queue-v1.json"
+            queue_json.parent.mkdir(parents=True)
+            _write_json(
+                queue_json,
+                {
+                    "records": [
+                        {
+                            "followup_record_id": "FOLLOWUP-REGION-1",
+                            "project_id": "PROJ-REGION-MISSING",
+                            "project_name": "无城市标记项目中标候选人公示",
+                            "followup_route": "local_authority_not_found_specific_endpoint_or_manual_source",
+                            "followup_queue_state": "FOLLOWUP_SOURCE_PLAN_REQUIRED",
+                            "public_source_fallback_sequence": [
+                                {"source_kind": "project_local_authority_public_source"}
+                            ],
+                            "alternate_local_authority_source_candidates": [
+                                {
+                                    "candidate_source_id": "local_authority_region_resolution_required",
+                                    "source_name": "项目所在地住建或主管部门公开入口待识别",
+                                    "source_url": "",
+                                    "recommended_query_mode": "resolve_historical_project_jurisdiction_before_retry",
+                                }
+                            ],
+                            "customer_visible_allowed": False,
+                            "query_miss_is_not_clearance": True,
+                            "no_legal_conclusion": True,
+                        }
+                    ]
+                },
+            )
+
+            result = build_p13b_company_history_overlap_triage(
+                stage4_backfill_followup_queue_json=queue_json,
+                output_root=root / "out",
+                enable_live_public_query=True,
+                created_at="2026-05-25T00:00:00+08:00",
+            )
+
+            summary = result["summary"]
+            self.assertEqual(
+                summary["local_authority_resolution_state_counts"],
+                {"LOCAL_AUTHORITY_REGION_RESOLUTION_REQUIRED": 1},
+            )
+            self.assertEqual(
+                summary["local_authority_source_url_resolution_state_counts"],
+                {"SOURCE_URL_BLOCKED_BY_REGION_UNRESOLVED": 1},
+            )
+            readback = result["manifest"]["local_authority_source_readback_records"][0]
+            self.assertEqual(readback["local_authority_readback_state"], "BLOCKED")
+            self.assertEqual(
+                readback["local_authority_resolution_state"],
+                "LOCAL_AUTHORITY_REGION_RESOLUTION_REQUIRED",
+            )
+            self.assertIn("local_authority_region_unresolved", readback["blocker_taxonomy"])
+            self.assertEqual(
+                readback["recommended_next_action"],
+                "resolve_historical_project_jurisdiction_before_local_authority_readback",
+            )
+            self.assertFalse(readback["customer_visible_allowed"])
+            self.assertTrue(readback["query_miss_is_not_clearance"])
+
     def test_ygp_live_fake_query_extracts_overlap_and_backtrace_inputs(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)

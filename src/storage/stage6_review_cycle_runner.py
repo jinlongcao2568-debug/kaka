@@ -1120,10 +1120,24 @@ def _operator_projection_status_table(
             for record in scoreboard_alternative_route_by_project.values()
             if str(record.get("stage6_official_readback_internal_review_state") or "").strip()
         ),
+        "stage5_operational_review_bucket_counts_from_scoreboard": _counts(
+            record.get("stage5_operational_review_bucket")
+            for record in scoreboard_alternative_route_by_project.values()
+            if str(record.get("stage5_operational_review_bucket") or "").strip()
+        ),
+        "stage5_operational_primary_track_counts_from_scoreboard": _counts(
+            record.get("stage5_operational_primary_track")
+            for record in scoreboard_alternative_route_by_project.values()
+            if str(record.get("stage5_operational_primary_track") or "").strip()
+        ),
         "p13b_public_source_readback_state_counts_from_scoreboard": _counts(
             record.get("p13b_public_source_readback_state")
             for record in scoreboard_alternative_route_by_project.values()
             if str(record.get("p13b_public_source_readback_state") or "").strip()
+        ),
+        "p13b_local_authority_resolution_state_counts_from_scoreboard": _sum_count_maps(
+            record.get("p13b_local_authority_resolution_state_counts")
+            for record in scoreboard_alternative_route_by_project.values()
         ),
         "p13b_local_authority_executed_readback_state_counts_from_scoreboard": _sum_count_maps(
             record.get("p13b_local_authority_executed_readback_state_counts")
@@ -1458,6 +1472,12 @@ def _stage1_6_scoreboard_gdcic_alternative_route_projection_by_project(
             ),
             "p13b_local_authority_executed_readback_state_counts": dict(
                 row.get("p13b_local_authority_executed_readback_state_counts") or {}
+            ),
+            "p13b_local_authority_resolution_state_counts": dict(
+                row.get("p13b_local_authority_resolution_state_counts") or {}
+            ),
+            "p13b_local_authority_source_url_resolution_state_counts": dict(
+                row.get("p13b_local_authority_source_url_resolution_state_counts") or {}
             ),
             "limited_sellable_review_candidate_state": str(
                 row.get("limited_sellable_review_candidate_state") or ""

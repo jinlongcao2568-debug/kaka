@@ -1733,6 +1733,11 @@ class Stage6ReviewCycleRunnerTests(unittest.TestCase):
                             "p13b_local_authority_source_task_count": 1,
                             "p13b_local_authority_source_readback_count": 1,
                             "p13b_local_authority_executed_readback_state_counts": {"BLOCKED": 1},
+                            "p13b_local_authority_resolution_state_counts": {
+                                "LOCAL_AUTHORITY_REGION_RESOLUTION_REQUIRED": 1
+                            },
+                            "stage5_operational_primary_track": "local_authority_region_resolution_required",
+                            "stage5_operational_review_bucket": "LOCAL_AUTHORITY_REGION_RESOLUTION_REQUIRED_REVIEW",
                             "p13b_original_notice_readback_state": "BLOCKED",
                             "p13b_ygp_stage4_release_adapter_task_count": 1,
                             "p13b_ygp_project_code_variants": ["E4401002701500571001"],
@@ -1778,6 +1783,10 @@ class Stage6ReviewCycleRunnerTests(unittest.TestCase):
         self.assertEqual(row["p13b_local_authority_source_task_count"], 1)
         self.assertEqual(row["p13b_local_authority_source_readback_count"], 1)
         self.assertEqual(row["p13b_local_authority_executed_readback_state_counts"], {"BLOCKED": 1})
+        self.assertEqual(
+            row["p13b_local_authority_resolution_state_counts"],
+            {"LOCAL_AUTHORITY_REGION_RESOLUTION_REQUIRED": 1},
+        )
         self.assertFalse(row["stage4_gdcic_project_code_route_allowed"])
         self.assertEqual(
             row["stage4_gdcic_project_code_route_guardrail"],
@@ -1848,6 +1857,18 @@ class Stage6ReviewCycleRunnerTests(unittest.TestCase):
         self.assertEqual(
             table["summary"]["p13b_local_authority_executed_readback_state_counts_from_scoreboard"],
             {"BLOCKED": 1},
+        )
+        self.assertEqual(
+            table["summary"]["p13b_local_authority_resolution_state_counts_from_scoreboard"],
+            {"LOCAL_AUTHORITY_REGION_RESOLUTION_REQUIRED": 1},
+        )
+        self.assertEqual(
+            table["summary"]["stage5_operational_review_bucket_counts_from_scoreboard"],
+            {"LOCAL_AUTHORITY_REGION_RESOLUTION_REQUIRED_REVIEW": 1},
+        )
+        self.assertEqual(
+            table["summary"]["stage5_operational_primary_track_counts_from_scoreboard"],
+            {"local_authority_region_resolution_required": 1},
         )
         self.assertEqual(
             table["summary"]["stage4_ygp_backfill_bridge_projection_state_counts_from_scoreboard"],

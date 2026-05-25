@@ -640,6 +640,15 @@ def _project_scoreboard_row(
         "p13b_local_authority_executed_readback_state_counts": dict(
             p13b_project_signal.get("local_authority_executed_readback_state_counts") or {}
         ),
+        "p13b_local_authority_resolution_state_counts": dict(
+            p13b_project_signal.get("local_authority_resolution_state_counts") or {}
+        ),
+        "p13b_local_authority_source_url_resolution_state_counts": dict(
+            p13b_project_signal.get("local_authority_source_url_resolution_state_counts") or {}
+        ),
+        "p13b_local_authority_readback_next_action_counts": dict(
+            p13b_project_signal.get("local_authority_readback_next_action_counts") or {}
+        ),
         "p13b_local_authority_source_readback_count": _int(
             p13b_project_signal.get("local_authority_source_readback_count")
         ),
@@ -1424,6 +1433,7 @@ def _project_blocking_bucket(
         "LOCAL_AUTHORITY_SOURCE_PLAN_REVIEW": "local_authority_source_plan_review",
         "LOCAL_AUTHORITY_MATCHED_REVIEW": "local_authority_matched_review",
         "LOCAL_AUTHORITY_NOT_FOUND_REVIEW": "local_authority_not_found_review",
+        "LOCAL_AUTHORITY_REGION_RESOLUTION_REQUIRED_REVIEW": "local_authority_region_resolution_required_review",
         "LOCAL_AUTHORITY_BLOCKED_REVIEW": "local_authority_blocked_review",
     }.get(stage5_bucket)
     if stage5_blocking_bucket:
@@ -1615,6 +1625,12 @@ def _stage5_operational_review(
     has_local_authority_match = p13b_state == "LOCAL_AUTHORITY_MATCHED_REVIEW"
     has_local_authority_not_found = p13b_state == "LOCAL_AUTHORITY_NOT_FOUND_REVIEW"
     has_local_authority_blocked = p13b_state == "LOCAL_AUTHORITY_BLOCKED_REVIEW"
+    local_authority_resolution_counts = dict(
+        p13b_project_signal.get("local_authority_resolution_state_counts") or {}
+    )
+    has_local_authority_region_resolution_required = (
+        _int(local_authority_resolution_counts.get("LOCAL_AUTHORITY_REGION_RESOLUTION_REQUIRED")) > 0
+    )
     original_notice_state = str(p13b_original_notice_signal.get("p13b_original_notice_readback_state") or "")
     has_original_notice_match = original_notice_state == "MATCHED"
     has_original_notice_not_found = original_notice_state == "NOT_FOUND"
@@ -1737,6 +1753,8 @@ def _stage5_operational_review(
         signals.append("local_authority_not_found")
     if has_local_authority_blocked:
         signals.append("local_authority_blocked")
+    if has_local_authority_region_resolution_required:
+        signals.append("local_authority_region_resolution_required")
     if has_responsible_role_gap:
         signals.append("responsible_role_gap")
     if has_certificate_gap:
@@ -1769,6 +1787,8 @@ def _stage5_operational_review(
         queues.append("LOCAL_AUTHORITY_NOT_FOUND_REVIEW")
     if has_local_authority_blocked:
         queues.append("LOCAL_AUTHORITY_BLOCKED_REVIEW")
+    if has_local_authority_region_resolution_required:
+        queues.append("LOCAL_AUTHORITY_REGION_RESOLUTION_REQUIRED_REVIEW")
     if has_certificate_gap:
         queues.append("RESPONSIBLE_PERSON_CERTIFICATE_GAP_REVIEW")
     if has_responsible_role_gap:
@@ -1871,6 +1891,9 @@ def _stage5_operational_review(
     elif has_local_authority_match:
         bucket = "LOCAL_AUTHORITY_MATCHED_REVIEW"
         action = "manual_stage5_stage6_review_for_local_authority_keyword_match"
+    elif has_local_authority_region_resolution_required:
+        bucket = "LOCAL_AUTHORITY_REGION_RESOLUTION_REQUIRED_REVIEW"
+        action = "resolve_historical_project_jurisdiction_before_local_authority_readback"
     elif has_local_authority_blocked:
         bucket = "LOCAL_AUTHORITY_BLOCKED_REVIEW"
         action = "retry_project_local_authority_source_or_choose_alternate_official_entry"
@@ -1933,6 +1956,7 @@ def _stage5_operational_primary_track(bucket: str) -> str:
         "PUBLIC_SOURCE_BLOCKED_REVIEW": "public_source_blocked",
         "ORIGINAL_NOTICE_BLOCKED_REVIEW": "public_source_blocked",
         "YGP_READBACK_BLOCKED_REVIEW": "public_source_blocked",
+        "LOCAL_AUTHORITY_REGION_RESOLUTION_REQUIRED_REVIEW": "local_authority_region_resolution_required",
         "LOCAL_AUTHORITY_BLOCKED_REVIEW": "public_source_blocked",
         "SOURCE_NOT_FOUND_REVIEW": "source_not_found",
         "PUBLIC_SOURCE_NOT_FOUND_REVIEW": "source_not_found",
@@ -1967,6 +1991,7 @@ def _stage5_operational_priority(bucket: str, queues: list[str]) -> dict[str, in
         "PUBLIC_SOURCE_BLOCKED_REVIEW",
         "ORIGINAL_NOTICE_BLOCKED_REVIEW",
         "YGP_READBACK_BLOCKED_REVIEW",
+        "LOCAL_AUTHORITY_REGION_RESOLUTION_REQUIRED_REVIEW",
         "LOCAL_AUTHORITY_BLOCKED_REVIEW",
         "DESIGN_SURVEY_PUBLIC_REGISTRY_BLOCKED_REVIEW",
     }:
@@ -2027,6 +2052,7 @@ def _stage5_operational_bucket_family(bucket: str) -> str:
         "LOCAL_AUTHORITY_SOURCE_PLAN_REVIEW": "local_authority_source_planned",
         "LOCAL_AUTHORITY_MATCHED_REVIEW": "official_readback_ready",
         "LOCAL_AUTHORITY_NOT_FOUND_REVIEW": "source_not_found",
+        "LOCAL_AUTHORITY_REGION_RESOLUTION_REQUIRED_REVIEW": "local_authority_region_resolution_required",
         "LOCAL_AUTHORITY_BLOCKED_REVIEW": "public_source_blocked",
         "RESPONSIBLE_PERSON_CERTIFICATE_GAP_REVIEW": "responsible_person_certificate_gap",
         "RESPONSIBLE_ROLE_GAP_REVIEW": "responsible_role_gap",
@@ -2263,6 +2289,16 @@ def _p13b_project_signals(payload: Mapping[str, Any]) -> dict[str, dict[str, Any
         overlap_counts = _counts(record.get("overlap_signal_state") for record in project_overlaps)
         local_authority_task_counts = _counts(record.get("source_task_state") for record in project_local_authority)
         local_authority_readback_counts = _counts(record.get("local_authority_readback_state") for record in project_local_authority)
+        local_authority_resolution_source = project_local_authority_readbacks or project_local_authority
+        local_authority_resolution_counts = _counts(
+            record.get("local_authority_resolution_state") for record in local_authority_resolution_source
+        )
+        local_authority_source_url_resolution_counts = _counts(
+            record.get("local_authority_source_url_resolution_state") for record in local_authority_resolution_source
+        )
+        local_authority_next_action_counts = _counts(
+            record.get("recommended_next_action") for record in project_local_authority_readbacks
+        )
         local_authority_executed_readback_counts = _counts(
             record.get("local_authority_readback_state") for record in project_local_authority_readbacks
         )
@@ -2302,6 +2338,9 @@ def _p13b_project_signals(payload: Mapping[str, Any]) -> dict[str, dict[str, Any
             "local_authority_source_task_state_counts": local_authority_task_counts,
             "local_authority_readback_state_counts": local_authority_readback_counts,
             "local_authority_executed_readback_state_counts": local_authority_executed_readback_counts,
+            "local_authority_resolution_state_counts": local_authority_resolution_counts,
+            "local_authority_source_url_resolution_state_counts": local_authority_source_url_resolution_counts,
+            "local_authority_readback_next_action_counts": local_authority_next_action_counts,
             "local_authority_source_task_count": len(project_local_authority),
             "local_authority_source_readback_count": len(project_local_authority_readbacks),
             "stage4_official_readback_input_count": len(project_stage4_official_inputs),
