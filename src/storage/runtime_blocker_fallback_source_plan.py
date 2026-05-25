@@ -135,6 +135,15 @@ def _plan_record(
             "ygp_original_notice_readback_or_project_local_authority_source",
         ]
     )
+    if route == "local_authority_fallback_after_ygp_not_found":
+        required_input = _dedupe(
+            [
+                item
+                for item in required_input
+                if item != "ygp_original_notice_readback_or_project_local_authority_source"
+            ]
+            + ["project_local_authority_public_source_endpoint_or_alternate_official_source"]
+        )
     return {
         "followup_record_id": _stable_id("RUNTIME-BLOCKER-FALLBACK", project_id, task_id, route),
         "source_controller_queue_record_id": str(record.get("controller_queue_record_id") or ""),
@@ -163,7 +172,7 @@ def _plan_record(
         "public_source_fallback_sequence": fallback_sequence,
         "stage4_public_source_fallback_sequence": fallback_sequence,
         "required_input": required_input,
-        "recommended_next_action": "run_p13b_company_history_overlap_triage_with_stage4_followup_queue_then_stage6_projection",
+        "recommended_next_action": _recommended_next_action_for_route(route),
         "execution_priority": "MEDIUM_LOCAL_AUTHORITY_FALLBACK",
         "input_artifact_refs": [cycle_ref],
         "controller_consumable": True,
@@ -457,11 +466,22 @@ def _route(record: Mapping[str, Any], context: Mapping[str, Any] | None = None) 
     if context_route:
         return context_route
     task_type = str(record.get("task_type") or "")
+    if (
+        task_type == "ygp_original_readback_backfill"
+        and str(record.get("blocker_state") or "") == "NOT_FOUND_REVIEW_OR_FALLBACK_SOURCE_REQUIRED"
+    ):
+        return "local_authority_fallback_after_ygp_not_found"
     if task_type:
         return task_type
     if str(record.get("blocker_state") or "") == "NOT_FOUND_REVIEW_OR_FALLBACK_SOURCE_REQUIRED":
         return "local_authority_fallback_source_planning"
     return "public_source_retry_then_local_authority_fallback"
+
+
+def _recommended_next_action_for_route(route: str) -> str:
+    if route == "local_authority_fallback_after_ygp_not_found":
+        return "resolve_project_local_authority_public_source_endpoint_then_run_local_authority_readback_without_clearance_claim"
+    return "run_p13b_company_history_overlap_triage_with_stage4_followup_queue_then_stage6_projection"
 
 
 def _fallback_sequence(project_id: str) -> list[dict[str, Any]]:

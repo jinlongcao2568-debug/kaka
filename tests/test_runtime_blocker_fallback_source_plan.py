@@ -242,6 +242,41 @@ class RuntimeBlockerFallbackSourcePlanTests(unittest.TestCase):
         self.assertTrue(bridge_record["query_miss_is_not_clearance"])
         self.assertFalse(bridge_record["customer_visible_allowed"])
 
+    def test_ygp_backfill_not_found_routes_to_local_authority_without_repeating_ygp_bridge(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            field_query = root / "field-query.json"
+            cycle = root / "cycle.json"
+            stage4_queue = root / "missing-stage4-followup-queue.json"
+            out = root / "out"
+            _write_field_query_with_ygp_backfill_task(field_query)
+            _write_cycle_for_ygp_backfill_not_found(cycle, field_query, root / "missing-scoreboard.json", stage4_queue)
+
+            result = build_runtime_blocker_fallback_source_plan(
+                stage6_review_cycle_json=cycle,
+                output_root=out,
+                created_at="2026-05-25T00:00:00+08:00",
+            )
+
+        self.assertEqual(result["summary"]["stage4_release_adapter_bridge_task_count"], 0)
+        self.assertEqual(
+            result["summary"]["followup_route_counts"],
+            {"local_authority_fallback_after_ygp_not_found": 1},
+        )
+        record = result["records"][0]
+        self.assertEqual(record["followup_route"], "local_authority_fallback_after_ygp_not_found")
+        self.assertIn(
+            "project_local_authority_public_source_endpoint_or_alternate_official_source",
+            record["required_input"],
+        )
+        self.assertNotIn("ygp_original_notice_readback_or_project_local_authority_source", record["required_input"])
+        self.assertEqual(
+            record["recommended_next_action"],
+            "resolve_project_local_authority_public_source_endpoint_then_run_local_authority_readback_without_clearance_claim",
+        )
+        self.assertTrue(record["query_miss_is_not_clearance"])
+        self.assertFalse(record["customer_visible_allowed"])
+
 
 def _write_cycle(path: Path, field_query: Path, scoreboard: Path, stage4_queue: Path) -> None:
     _write_json(
@@ -268,6 +303,33 @@ def _write_cycle(path: Path, field_query: Path, scoreboard: Path, stage4_queue: 
                             "task_id": "TASK-BROWSER",
                             "subqueue_route": "browser_worker",
                         },
+                    ]
+                },
+            }
+        },
+    )
+
+
+def _write_cycle_for_ygp_backfill_not_found(path: Path, field_query: Path, scoreboard: Path, stage4_queue: Path) -> None:
+    _write_json(
+        path,
+        {
+            "manifest": {
+                "source_release_field_query_json": str(field_query),
+                "source_stage1_6_scoreboard_json": str(scoreboard),
+                "source_stage4_backfill_followup_queue_json": str(stage4_queue),
+                "runtime_blocker_subqueue_controller_table": {
+                    "records": [
+                        {
+                            "controller_queue_record_id": "QUEUE-YGP-NOT-FOUND",
+                            "source_next_subqueue_record_id": "SUBQUEUE-YGP-NOT-FOUND",
+                            "project_id": "PROJ-FALLBACK",
+                            "task_id": "TASK-YGP-BACKFILL",
+                            "task_type": "ygp_original_readback_backfill",
+                            "subqueue_route": "fallback_source",
+                            "blocker_state": "NOT_FOUND_REVIEW_OR_FALLBACK_SOURCE_REQUIRED",
+                            "required_input": ["fallback_source_or_project_local_authority_path"],
+                        }
                     ]
                 },
             }
@@ -378,6 +440,29 @@ def _write_field_query(path: Path) -> None:
                         "responsible_person_name": "张三",
                         "trigger_source_url": "https://ywtb.gzggzy.cn/sample.html",
                         "source_url": "https://zfcj.gz.gov.cn/sample",
+                        "query_params": {
+                            "ygpProjectCodeVariants": ["E4413000835979563001"],
+                            "ygpBizCodeVariants": ["3C52"],
+                            "ygpSiteCodeVariants": ["441300"],
+                            "ygpNoticeIdVariants": ["7fcdf98f7cd04bc5b2a0167b4f1c5733"],
+                            "gdcicProjectCodeVariants": [],
+                        },
+                    }
+                ]
+            }
+        },
+    )
+
+
+def _write_field_query_with_ygp_backfill_task(path: Path) -> None:
+    _write_json(
+        path,
+        {
+            "manifest": {
+                "field_task_records": [
+                    {
+                        "field_query_task_id": "TASK-YGP-BACKFILL",
+                        "project_id": "PROJ-FALLBACK",
                         "query_params": {
                             "ygpProjectCodeVariants": ["E4413000835979563001"],
                             "ygpBizCodeVariants": ["3C52"],
