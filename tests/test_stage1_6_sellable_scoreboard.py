@@ -598,6 +598,7 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
                 "provider_tasks_ready_project_count": 1,
                 "target_fields_missing_project_count": 0,
                 "certificate_resolved_project_count": 0,
+                "flow_08_targeted_parse_required_project_count": 0,
                 "stage4_input_count": 0,
                 "flow_08_targeted_parse_required_count": 0,
                 "stage4_execution_state_counts": {"QUEUED_NOT_EXECUTED": 1},
@@ -1598,6 +1599,98 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
         self.assertEqual(rows["PROJ-TARGET"]["incremental_scoreboard_merge_state"], "CURRENT_INCREMENTAL_TARGET")
         self.assertEqual(result["scoreboard"]["limited_sellable_review_candidate_count"], 1)
         self.assertEqual(result["scoreboard"]["stage5_operational_review_family_counts"]["strong_lead"], 1)
+        self.assertFalse(result["safety"]["customer_visible_allowed"])
+
+    def test_company_first_flow08_targeted_parse_required_is_stage5_operational_queue(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            pressure = root / "pressure"
+            field_query = root / "field-query"
+            company_first = root / "company-first"
+            out = root / "out"
+            for path in (pressure, field_query, company_first, out):
+                path.mkdir(parents=True, exist_ok=True)
+
+            _write_json(pressure / "pressure-summary.json", {"candidate_count": 1})
+            _write_json(
+                pressure / "stage1-6-readiness-table.json",
+                {
+                    "records": [
+                        {
+                            "project_id": "PROJ-FLOW08",
+                            "project_name": "flow08 candidate",
+                            "stage2_detail_capture_state": "FETCHED",
+                            "stage3_field_parse_state": "PARSED_FROM_FIELD_SIGNALS",
+                            "stage5_rule_gate_status": "REVIEW",
+                            "stage5_gate_state": "REVIEW_REQUIRED",
+                            "fail_closed_reasons": [
+                                "notice_has_company_and_project_manager_but_missing_certificate_no",
+                            ],
+                        }
+                    ]
+                },
+            )
+            _write_json(pressure / "stage1-6-gap-summary-table.json", {"records": []})
+            _write_json(field_query / "guangdong-local-field-query-probe-v1.json", {"manifest": {}})
+            _write_json(
+                company_first / "company-first-stage4-execution.json",
+                {
+                    "summary": {
+                        "project_count": 1,
+                        "job_count": 1,
+                        "stage4_execution_state_counts": {"FAIL_CLOSED": 1},
+                        "identity_resolution_state_counts": {"UNKNOWN": 1},
+                        "supplement_after_execution_state_counts": {
+                            "FLOW_08_TARGETED_PARSE_REQUIRED": 1,
+                        },
+                        "stage4_input_count": 0,
+                        "flow_08_targeted_parse_required_count": 1,
+                    },
+                    "manifest": {
+                        "items": [
+                            {
+                                "project_id": "PROJ-FLOW08",
+                                "stage4_execution_state": "FAIL_CLOSED",
+                                "identity_resolution_state": "",
+                                "supplement_after_execution_state": "FLOW_08_TARGETED_PARSE_REQUIRED",
+                                "stage4_readiness_state": (
+                                    "STAGE4_BLOCKED_COMPANY_FIRST_AND_NAME_ENUMERATION_NO_MATCH"
+                                ),
+                                "flow_08_targeted_parse_required": True,
+                                "next_actions": ["FLOW_08_TARGETED_PARSE", "DO_NOT_OUTPUT_FINAL_CONFLICT"],
+                                "customer_visible_allowed": False,
+                                "no_legal_conclusion": True,
+                            }
+                        ]
+                    },
+                },
+            )
+
+            result = build_stage1_6_sellable_scoreboard(
+                pressure_root=pressure,
+                field_query_root=field_query,
+                company_first_stage4_execution_root=company_first,
+                output_root=out,
+                created_at="2026-05-24T00:00:00+08:00",
+            )
+
+        row = result["project_rows"][0]
+        self.assertEqual(row["company_first_stage4_execution_state"], "FAIL_CLOSED")
+        self.assertEqual(row["company_first_supplement_after_execution_state"], "FLOW_08_TARGETED_PARSE_REQUIRED")
+        self.assertTrue(row["company_first_flow_08_targeted_parse_required"])
+        self.assertEqual(row["stage5_operational_review_bucket"], "COMPANY_FIRST_FLOW08_TARGETED_PARSE_REVIEW")
+        self.assertIn("COMPANY_FIRST_FLOW08_TARGETED_PARSE_REVIEW", row["stage5_operational_review_queues"])
+        self.assertIn("company_first_flow08_targeted_parse_required", row["stage5_operational_signal_flags"])
+        self.assertEqual(
+            result["scoreboard"]["company_first_stage4_execution_status"][
+                "flow_08_targeted_parse_required_project_count"
+            ],
+            1,
+        )
+        self.assertEqual(
+            result["scoreboard"]["company_first_stage4_execution_status"]["projected_stage5_queue_counts"],
+            {"COMPANY_FIRST_FLOW08_TARGETED_PARSE_REVIEW": 1},
+        )
         self.assertFalse(result["safety"]["customer_visible_allowed"])
 
 

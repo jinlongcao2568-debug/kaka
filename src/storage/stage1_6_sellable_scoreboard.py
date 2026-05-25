@@ -1098,6 +1098,7 @@ def _company_first_stage4_execution_status(
             "provider_tasks_ready_project_count": 0,
             "target_fields_missing_project_count": 0,
             "certificate_resolved_project_count": 0,
+            "flow_08_targeted_parse_required_project_count": 0,
             "stage4_execution_state_counts": {},
             "supplement_after_execution_state_counts": {},
             "customer_visible_allowed": False,
@@ -1112,6 +1113,9 @@ def _company_first_stage4_execution_status(
         "provider_tasks_ready_project_count": _int(supplement_counts.get("COMPANY_FIRST_PROVIDER_TASKS_READY")),
         "target_fields_missing_project_count": _int(supplement_counts.get("COMPANY_FIRST_TARGET_FIELDS_MISSING")),
         "certificate_resolved_project_count": _int(supplement_counts.get("COMPANY_FIRST_CERTIFICATE_RESOLVED")),
+        "flow_08_targeted_parse_required_project_count": _int(
+            supplement_counts.get("FLOW_08_TARGETED_PARSE_REQUIRED")
+        ),
         "stage4_input_count": _int(summary.get("stage4_input_count")),
         "flow_08_targeted_parse_required_count": _int(summary.get("flow_08_targeted_parse_required_count")),
         "stage4_execution_state_counts": execution_counts,
@@ -1351,6 +1355,10 @@ def _stage5_operational_review(
     has_company_first_provider_ready = company_first_supplement_state == "COMPANY_FIRST_PROVIDER_TASKS_READY"
     has_company_first_target_missing = company_first_supplement_state == "COMPANY_FIRST_TARGET_FIELDS_MISSING"
     has_company_first_resolved = company_first_supplement_state == "COMPANY_FIRST_CERTIFICATE_RESOLVED"
+    has_company_first_flow08_required = (
+        company_first_supplement_state == "FLOW_08_TARGETED_PARSE_REQUIRED"
+        or bool(company_first_stage4_execution_signal.get("flow_08_targeted_parse_required"))
+    )
     has_weak_official_signal = _int(adapter_counts.get("MATCHED")) > 0 and not has_official_b_or_c
     fail_closed_reasons = {str(item) for item in _as_list(readiness_record.get("fail_closed_reasons"))}
     remaining_gaps = {str(item) for item in _as_list(readiness_record.get("remaining_real_world_gaps"))}
@@ -1410,6 +1418,8 @@ def _stage5_operational_review(
         signals.append("company_first_provider_tasks_ready")
     if has_company_first_target_missing:
         signals.append("company_first_target_fields_missing")
+    if has_company_first_flow08_required:
+        signals.append("company_first_flow08_targeted_parse_required")
     if has_ygp_blocked:
         signals.append("ygp_readback_blocked")
     if has_source_not_found:
@@ -1478,6 +1488,8 @@ def _stage5_operational_review(
         queues.append("COMPANY_FIRST_PROVIDER_TASKS_READY_REVIEW")
     if has_company_first_target_missing:
         queues.append("COMPANY_FIRST_TARGET_FIELDS_MISSING_REVIEW")
+    if has_company_first_flow08_required:
+        queues.append("COMPANY_FIRST_FLOW08_TARGETED_PARSE_REVIEW")
     if has_ygp_ready:
         queues.append("YGP_READBACK_READY_REVIEW")
     if has_ygp_blocked:
@@ -1509,6 +1521,9 @@ def _stage5_operational_review(
     elif has_company_first_target_missing:
         bucket = "COMPANY_FIRST_TARGET_FIELDS_MISSING_REVIEW"
         action = "repair_responsible_person_or_role_inputs_before_company_first_provider_execution"
+    elif has_company_first_flow08_required:
+        bucket = "COMPANY_FIRST_FLOW08_TARGETED_PARSE_REVIEW"
+        action = "run_flow08_targeted_parse_without_treating_company_first_no_match_as_clearance"
     elif has_ygp_ready:
         bucket = "YGP_READBACK_READY_REVIEW"
         action = "feed_ygp_original_readback_into_p13b_original_backtrace"
@@ -1601,6 +1616,7 @@ def _stage5_operational_bucket_family(bucket: str) -> str:
         "COMPANY_FIRST_CERTIFICATE_RESOLVED_REVIEW": "responsible_person_certificate_resolved",
         "COMPANY_FIRST_PROVIDER_TASKS_READY_REVIEW": "responsible_person_certificate_gap",
         "COMPANY_FIRST_TARGET_FIELDS_MISSING_REVIEW": "responsible_person_certificate_gap",
+        "COMPANY_FIRST_FLOW08_TARGETED_PARSE_REVIEW": "responsible_person_certificate_gap",
         "LOCAL_AUTHORITY_SOURCE_PLAN_REVIEW": "local_authority_source_planned",
         "LOCAL_AUTHORITY_MATCHED_REVIEW": "official_readback_ready",
         "LOCAL_AUTHORITY_NOT_FOUND_REVIEW": "source_not_found",
