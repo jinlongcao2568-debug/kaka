@@ -61,6 +61,12 @@ def build_runtime_blocker_fallback_source_plan(
         )
         for record in source_records
     ]
+    stage4_bridge_records = _stage4_release_adapter_bridge_records(records, created_at=created_at)
+    stage4_bridge_plan = _stage4_release_adapter_bridge_plan(
+        records=stage4_bridge_records,
+        source_cycle_json=cycle_path,
+        created_at=created_at,
+    )
     result = {
         "plan_kind": PLAN_KIND,
         "plan_version": 1,
@@ -70,10 +76,12 @@ def build_runtime_blocker_fallback_source_plan(
             "release_field_query_json": ";".join(str(path) for path in field_query_paths),
         },
         "continuation_input_refs": continuation_input_refs,
-        "summary": _summary(records),
+        "summary": _summary(records, stage4_bridge_records=stage4_bridge_records),
         "records": records,
+        "stage4_release_adapter_bridge_plan": stage4_bridge_plan,
         "next_regression_execution_plan": _next_regression_execution_plan(
             records,
+            stage4_bridge_records=stage4_bridge_records,
             continuation_input_refs=continuation_input_refs,
         ),
         "stage4_backfill_followup_queue_compatibility": {
@@ -87,6 +95,7 @@ def build_runtime_blocker_fallback_source_plan(
     out_dir = Path(output_root)
     out_dir.mkdir(parents=True, exist_ok=True)
     _write_json(out_dir / "runtime-blocker-fallback-source-plan-v1.json", result)
+    _write_json(out_dir / "stage4-release-adapter-bridge-plan.json", stage4_bridge_plan)
     _write_markdown(out_dir / "runtime-blocker-fallback-source-plan-v1.md", result)
     return result
 
@@ -510,12 +519,17 @@ def _merge_fallback_sequence(
 def _next_regression_execution_plan(
     records: list[Mapping[str, Any]],
     *,
+    stage4_bridge_records: list[Mapping[str, Any]],
     continuation_input_refs: Mapping[str, Any],
 ) -> dict[str, Any]:
     project_ids = _dedupe(record.get("project_id") for record in records)
+    stage4_bridge_project_ids = _dedupe(record.get("project_id") for record in stage4_bridge_records)
     return {
         "plan_state": "FALLBACK_SOURCE_PLAN_READY_FOR_P13B" if records else "NO_FALLBACK_SOURCE_RECORDS",
         "runner_entrypoint": "scripts/run-stage1-6-sellable-rate-regression-v1.ps1",
+        "stage4_release_adapter_bridge_plan_json": "stage4-release-adapter-bridge-plan.json",
+        "stage4_release_adapter_bridge_project_ids": stage4_bridge_project_ids,
+        "stage4_release_adapter_bridge_project_count": len(stage4_bridge_project_ids),
         "continuation_input_refs": dict(continuation_input_refs),
         "target_project_ids": project_ids,
         "target_project_count": len(project_ids),
@@ -679,12 +693,29 @@ def _resolution_state(value: Any) -> str:
     return "RESOLVED_FROM_STAGE6_OR_SCOREBOARD_INPUT_REFS" if str(value or "").strip() else "UNRESOLVED"
 
 
-def _summary(records: list[Mapping[str, Any]]) -> dict[str, Any]:
+def _summary(
+    records: list[Mapping[str, Any]],
+    *,
+    stage4_bridge_records: list[Mapping[str, Any]],
+) -> dict[str, Any]:
     return {
         "fallback_source_plan_record_count": len(records),
         "project_count": len(set(_dedupe(record.get("project_id") for record in records))),
         "followup_route_counts": _counts(record.get("followup_route") for record in records),
         "task_type_counts": _counts(record.get("task_type") for record in records),
+        "stage4_release_adapter_bridge_task_count": len(stage4_bridge_records),
+        "stage4_release_adapter_bridge_project_count": len(
+            set(_dedupe(record.get("project_id") for record in stage4_bridge_records))
+        ),
+        "stage4_release_adapter_bridge_target_type_counts": _counts(
+            record.get("release_evidence_target_type") for record in stage4_bridge_records
+        ),
+        "stage4_release_adapter_bridge_execution_mode_counts": _counts(
+            record.get("execution_mode") for record in stage4_bridge_records
+        ),
+        "stage4_release_adapter_bridge_gdcic_route_allowed_count": sum(
+            1 for record in stage4_bridge_records if bool(record.get("gdcic_project_code_route_allowed"))
+        ),
         "candidate_company_present_count": sum(1 for record in records if _list(record.get("candidate_companies"))),
         "responsible_person_present_count": sum(1 for record in records if _list(record.get("responsible_person_names"))),
         "candidate_notice_url_present_count": sum(1 for record in records if _list(record.get("candidate_notice_source_urls"))),
@@ -712,6 +743,153 @@ def _has_public_identifier_context(record: Mapping[str, Any]) -> bool:
             "ygp_notice_id_variants",
         )
     )
+
+
+def _stage4_release_adapter_bridge_records(
+    records: list[Mapping[str, Any]],
+    *,
+    created_at: str | None,
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for record in records:
+        if str(record.get("followup_route") or "") != "official_readback_ready_stage4_bridge_followup":
+            continue
+        context = _mapping(record.get("stage4_official_readback_context"))
+        ygp_project_codes = _dedupe(context.get("ygp_project_code_variants"))
+        ygp_biz_codes = _dedupe(context.get("ygp_biz_code_variants"))
+        ygp_site_codes = _dedupe(context.get("ygp_site_code_variants"))
+        ygp_notice_ids = _dedupe(context.get("ygp_notice_id_variants"))
+        if not any([ygp_project_codes, ygp_biz_codes, ygp_site_codes, ygp_notice_ids]):
+            continue
+        project_id = str(record.get("project_id") or "")
+        ygp_project_code = str(ygp_project_codes[0] if ygp_project_codes else "")
+        source_url = _first_text(
+            [
+                *_list(record.get("candidate_notice_source_urls")),
+                *_list(record.get("project_source_urls")),
+            ]
+        )
+        rows.append(
+            {
+                "release_evidence_adapter_task_id": _stable_id(
+                    "REL-EVIDENCE-ADAPTER-TASK-RUNTIME-FALLBACK-YGP",
+                    project_id,
+                    ygp_project_code,
+                    ygp_notice_ids[0] if ygp_notice_ids else "",
+                ),
+                "source_release_evidence_probe_task_id": str(record.get("followup_record_id") or ""),
+                "source_release_evidence_probe_plan_id": "RUNTIME-BLOCKER-FALLBACK-SOURCE-PLAN",
+                "input_source_kind": "runtime_blocker_fallback_source_plan",
+                "project_id": project_id,
+                "project_name": str(record.get("project_name") or context.get("project_name") or ""),
+                "candidate_company_name": _first_text(record.get("candidate_companies")),
+                "matched_person_names": _dedupe(record.get("responsible_person_names")),
+                "release_evidence_target_type": "ygp_original_readback_backfill",
+                "release_evidence_grade_on_match": "D_INSUFFICIENT_OR_BLOCKED_READBACK",
+                "release_evidence_source_role": "source_identifier_backfill_not_release_evidence",
+                "initial_release_evidence_abcd_grade": "STAGE4_YGP_BACKFILL_READY_NOT_A_SIGNAL",
+                "release_evidence_query_region_code": "CN-GD-YGP",
+                "release_evidence_query_region_basis": "runtime_blocker_fallback_ygp_public_identifier",
+                "local_housing_authority_adapter_scope": "YGP_ORIGINAL_READBACK_BACKFILL_ONLY",
+                "local_housing_authority_adapter_region_code": "CN-GD-YGP",
+                "non_guangdong_release_adapter_rule": "",
+                "jurisdiction_local_housing_adapter": {},
+                "jurisdiction_adapter_resolution_state": "YGP_BACKFILL_POINTER_ONLY",
+                "no_fallback_to_guangdong_or_guangzhou": True,
+                "source_entry_id": "RUNTIME-BLOCKER-YGP-STAGE4-BACKFILL",
+                "subsource_id": "runtime_blocker_fallback_source_plan",
+                "source_profile_id": "GUANGDONG-YGP-RUNTIME-FALLBACK-BACKFILL",
+                "source_name": "运行阻断队列 YGP 原文回读回灌线索",
+                "source_family": "public_original_notice_readback_backfill",
+                "source_url": source_url,
+                "api_url": source_url,
+                "official_reference_url": source_url,
+                "trigger_source_url": source_url,
+                "query_params": {
+                    "projectId": project_id,
+                    "projectName": str(record.get("project_name") or context.get("project_name") or ""),
+                    "projectCode": "",
+                    "sourceProjectCode": "",
+                    "projectCodeVariants": ygp_project_codes,
+                    "gdcicProjectCodeVariants": [],
+                    "tradeProjectCode": "",
+                    "ygpProjectCodeVariants": ygp_project_codes,
+                    "ygpBizCodeVariants": ygp_biz_codes,
+                    "ygpSiteCodeVariants": ygp_site_codes,
+                    "ygpNoticeIdVariants": ygp_notice_ids,
+                    "candidateCompanyName": _first_text(record.get("candidate_companies")),
+                    "sourceProfileId": "GUANGDONG-YGP-RUNTIME-FALLBACK-BACKFILL",
+                    "targetSourceTypes": ["ygp_original_readback_backfill"],
+                    "triggerSourceUrl": source_url,
+                    "keywords": _dedupe(
+                        [
+                            record.get("project_name"),
+                            context.get("project_name"),
+                            *ygp_project_codes,
+                            *ygp_biz_codes,
+                            *ygp_site_codes,
+                            *ygp_notice_ids,
+                            *_list(record.get("candidate_companies")),
+                        ]
+                    ),
+                },
+                "next_adapter": "p13b_or_stage4_bridge_backfill",
+                "runtime_status": "PLAN_ONLY_BACKFILL_READY",
+                "bridge_readiness_state": "YGP_STAGE4_BACKFILL_READY_FOR_STAGE4_BRIDGE",
+                "adapter_result_state": "PLAN_ONLY_NOT_EXECUTED",
+                "allowed_adapter_result_states": ["MATCHED", "NOT_FOUND", "BLOCKED", "NEEDS_BROWSER"],
+                "matched_means": "ygp_backfill_can_support_followup_readback_not_legal_conclusion",
+                "not_found_means": "source_query_miss_or_no_public_match_not_clearance",
+                "blocked_means": "source_blocked_or_unavailable_needs_review",
+                "needs_browser_means": "browser_or_authorized_runtime_required_before_field_readback",
+                "execution_mode": "PLAN_ONLY_NOT_EXECUTED",
+                "readback_ready": False,
+                "gdcic_project_code_route_allowed": False,
+                "gdcic_route_block_reason": "YGP_OR_TRADE_IDENTIFIERS_NOT_SENT_TO_GDCIC_PROJECT_CODE",
+                "must_not_extract_from_full_text_numbers": True,
+                "recommended_next_action": "run_stage4_bridge_or_p13b_backfill_without_gdcic_project_code_route",
+                "query_miss_is_not_clearance": True,
+                "customer_visible_allowed": False,
+                "no_legal_conclusion": True,
+                "created_at": created_at or datetime.now(timezone.utc).isoformat(),
+            }
+        )
+    return [dict(record) for record in _dedupe_records(*rows)]
+
+
+def _stage4_release_adapter_bridge_plan(
+    *,
+    records: list[Mapping[str, Any]],
+    source_cycle_json: Path,
+    created_at: str | None,
+) -> dict[str, Any]:
+    return {
+        "manifest_version": 1,
+        "manifest_kind": "runtime_blocker_stage4_release_adapter_bridge_plan_v1_manifest",
+        "adapter_id": "runtime-blocker-fallback-source-stage4-bridge-plan-v1",
+        "pipeline_stage": "RuntimeBlockerFallbackSourceStage4BridgePlanV1",
+        "manifest_id": _stable_id("RUNTIME-BLOCKER-ST4-BRIDGE", records),
+        "created_at": created_at or datetime.now(timezone.utc).isoformat(),
+        "source_stage6_review_cycle_json": str(source_cycle_json),
+        "summary": {
+            "bridge_plan_state": "READY" if records else "NO_STAGE4_BRIDGE_READY_RECORDS",
+            "release_evidence_adapter_task_count": len(records),
+            "project_count": len(set(_dedupe(record.get("project_id") for record in records))),
+            "target_type_counts": _counts(record.get("release_evidence_target_type") for record in records),
+            "execution_mode_counts": _counts(record.get("execution_mode") for record in records),
+            "gdcic_project_code_route_allowed_count": sum(
+                1 for record in records if bool(record.get("gdcic_project_code_route_allowed"))
+            ),
+            "customer_visible_allowed": False,
+            "query_miss_is_not_clearance": True,
+            "no_legal_conclusion": True,
+        },
+        "release_evidence_adapter_task_records": [dict(record) for record in records],
+        "safety": _safety(),
+        "customer_visible_allowed": False,
+        "query_miss_is_not_clearance": True,
+        "no_legal_conclusion": True,
+    }
 
 
 def _safety() -> dict[str, Any]:
@@ -830,6 +1008,14 @@ def _counts(values: Iterable[Any]) -> dict[str, int]:
             continue
         counts[key] = counts.get(key, 0) + 1
     return counts
+
+
+def _first_text(values: Any) -> str:
+    for value in _list(values):
+        text = str(value or "").strip()
+        if text:
+            return text
+    return ""
 
 
 def _stable_id(prefix: str, *parts: Any) -> str:

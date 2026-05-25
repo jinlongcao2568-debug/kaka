@@ -424,7 +424,7 @@ def _followup_records(
             "output_root": str(followup_output),
             "next_action": "run_guangdong_local_field_query_probe_then_stage6_review_loop_backfill",
             "execution_mode": "PLAN_ONLY_NOT_EXECUTED",
-            "live_execution_enabled": False,
+            "live_execution_enabled": _argv_has_live_or_external_flag(argv),
             "recommended_command_live_or_external_flag_present": _argv_has_live_or_external_flag(argv),
             "requires_operator_action_before_live": True,
             "requires_operator_approval_before_execution": True,

@@ -45,12 +45,37 @@ class RuntimeBlockerFallbackSourcePlanTests(unittest.TestCase):
                 created_at="2026-05-25T00:00:00+08:00",
             )
             json_exists = (out / "runtime-blocker-fallback-source-plan-v1.json").exists()
+            bridge_json_exists = (out / "stage4-release-adapter-bridge-plan.json").exists()
             markdown_exists = (out / "runtime-blocker-fallback-source-plan-v1.md").exists()
 
         self.assertEqual(result["summary"]["fallback_source_plan_record_count"], 1)
         self.assertEqual(result["summary"]["project_count"], 1)
+        self.assertEqual(result["summary"]["stage4_release_adapter_bridge_task_count"], 1)
+        self.assertEqual(result["summary"]["stage4_release_adapter_bridge_project_count"], 1)
+        self.assertEqual(
+            result["summary"]["stage4_release_adapter_bridge_target_type_counts"],
+            {"ygp_original_readback_backfill": 1},
+        )
+        self.assertEqual(result["summary"]["stage4_release_adapter_bridge_gdcic_route_allowed_count"], 0)
         self.assertEqual(result["summary"]["candidate_company_present_count"], 1)
         self.assertTrue(result["summary"]["records_are_p13b_consumable"])
+        bridge_plan = result["stage4_release_adapter_bridge_plan"]
+        self.assertEqual(bridge_plan["summary"]["bridge_plan_state"], "READY")
+        self.assertEqual(bridge_plan["summary"]["release_evidence_adapter_task_count"], 1)
+        self.assertEqual(bridge_plan["summary"]["gdcic_project_code_route_allowed_count"], 0)
+        bridge_record = bridge_plan["release_evidence_adapter_task_records"][0]
+        self.assertEqual(bridge_record["input_source_kind"], "runtime_blocker_fallback_source_plan")
+        self.assertEqual(bridge_record["project_id"], "PROJ-FALLBACK")
+        self.assertEqual(bridge_record["release_evidence_target_type"], "ygp_original_readback_backfill")
+        self.assertEqual(
+            bridge_record["query_params"]["ygpProjectCodeVariants"],
+            ["E4413000835979563001"],
+        )
+        self.assertEqual(bridge_record["query_params"]["gdcicProjectCodeVariants"], [])
+        self.assertFalse(bridge_record["gdcic_project_code_route_allowed"])
+        self.assertTrue(bridge_record["must_not_extract_from_full_text_numbers"])
+        self.assertFalse(bridge_record["customer_visible_allowed"])
+        self.assertTrue(bridge_record["query_miss_is_not_clearance"])
         record = result["records"][0]
         self.assertEqual(record["project_id"], "PROJ-FALLBACK")
         self.assertEqual(record["candidate_companies"], ["广州样本工程有限公司"])
@@ -91,8 +116,17 @@ class RuntimeBlockerFallbackSourcePlanTests(unittest.TestCase):
             result["next_regression_execution_plan"]["runner_entrypoint"],
             "scripts/run-stage1-6-sellable-rate-regression-v1.ps1",
         )
+        self.assertEqual(
+            result["next_regression_execution_plan"]["stage4_release_adapter_bridge_plan_json"],
+            "stage4-release-adapter-bridge-plan.json",
+        )
+        self.assertEqual(
+            result["next_regression_execution_plan"]["stage4_release_adapter_bridge_project_ids"],
+            ["PROJ-FALLBACK"],
+        )
         self.assertFalse(result["next_regression_execution_plan"]["live_execution_enabled_by_default"])
         self.assertTrue(json_exists)
+        self.assertTrue(bridge_json_exists)
         self.assertTrue(markdown_exists)
 
     def test_field_query_ygp_identifiers_seed_stage4_official_backfill_context(self) -> None:

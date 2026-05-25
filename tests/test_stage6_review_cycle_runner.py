@@ -1361,7 +1361,8 @@ class Stage6ReviewCycleRunnerTests(unittest.TestCase):
             self.assertIn("-GdcicBrowserReadbackJson", followup["recommended_command_argv"])
             self.assertIn("-ReleaseEvidenceAdapterPlanJson", followup["recommended_command_argv"])
             self.assertEqual(followup["execution_mode"], "PLAN_ONLY_NOT_EXECUTED")
-            self.assertFalse(followup["live_execution_enabled"])
+            self.assertTrue(followup["live_execution_enabled"])
+            self.assertTrue(followup["requires_operator_approval_before_execution"])
             status_table_path = root / "out" / "stage6-review-loop-project-status-table.json"
             self.assertTrue(status_table_path.exists())
             status_table = json.loads(status_table_path.read_text(encoding="utf-8"))
@@ -1384,7 +1385,12 @@ class Stage6ReviewCycleRunnerTests(unittest.TestCase):
                 projected_row["runtime_blocker_worker_followup_records"][0]["formal_entrypoint_id"],
                 "guangdong_local_field_query_probe",
             )
-            self.assertFalse(projected_row["runtime_blocker_worker_followup_records"][0]["live_execution_enabled"])
+            self.assertTrue(projected_row["runtime_blocker_worker_followup_records"][0]["live_execution_enabled"])
+            self.assertTrue(
+                projected_row["runtime_blocker_worker_followup_records"][0][
+                    "requires_operator_approval_before_execution"
+                ]
+            )
 
     def test_gdcic_browser_readback_artifact_is_derived_into_field_query_status(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
