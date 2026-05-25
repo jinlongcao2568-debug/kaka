@@ -434,6 +434,97 @@ class StageOneSixScoreboardComparisonTests(unittest.TestCase):
         )
         self.assertFalse(recommendations[0]["safety_invariants"]["customer_visible_allowed"])
 
+    def test_same_candidate_public_identifier_backfill_effective_recommendation(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            run_a = root / "stage1-6-sellable-rate-regression-live15-r2"
+            run_b = root / "stage1-6-sellable-rate-regression-live15-r3"
+            out = root / "out"
+            _write_scoreboard(
+                run_a / "scoreboard" / "stage1-6-sellable-scoreboard-v1.json",
+                candidate_count=15,
+                limited_count=0,
+                rate=0.0,
+                stage4={},
+                stage5={"LOCAL_AUTHORITY_BLOCKED_REVIEW": 5, "LOCAL_AUTHORITY_NOT_FOUND_REVIEW": 10},
+                stage5_family={"public_source_blocked": 5, "source_not_found": 10},
+                stage5_primary={"public_source_blocked": 5, "source_not_found": 10},
+                stage5_priority={
+                    "P1_BLOCKER_RETRY_OR_ALTERNATE_SOURCE": 5,
+                    "P2_NOT_FOUND_NON_CLEARANCE_DEEPENING": 10,
+                },
+                stage5_safety={"INTERNAL_REVIEW_ONLY_NOT_CLEARANCE": 15},
+                long_tail={},
+                public_source_chain={},
+                public_readback_outcomes={"BLOCKED": 5, "NOT_FOUND": 10},
+                public_readback_channel_outcomes={
+                    "LOCAL_AUTHORITY:BLOCKED": 5,
+                    "LOCAL_AUTHORITY:NOT_FOUND": 10,
+                },
+                design_registry_status={},
+                code_backfill={"MISSING_PROJECT_CODE_BACKFILL_INPUT": 15},
+                code_backfill_gap_detail={"NO_PUBLIC_OVERLAP_SIGNAL_FALLBACK_LOCAL_AUTHORITY_REQUIRED": 15},
+                route_policy={"BACKFILL_NOTICE_DATA_GGZY_BID_SHOW_OR_LOCAL_SOURCE_WITHOUT_DIGIT_GUESSING": 15},
+            )
+            _write_scoreboard(
+                run_b / "scoreboard" / "stage1-6-sellable-scoreboard-v1.json",
+                candidate_count=15,
+                limited_count=0,
+                rate=0.0,
+                stage4={},
+                stage5={"YGP_STAGE4_BACKFILL_READY_REVIEW": 7, "LOCAL_AUTHORITY_NOT_FOUND_REVIEW": 5},
+                stage5_family={"official_readback_ready": 7, "source_not_found": 5},
+                stage5_primary={"official_readback_ready": 7, "source_not_found": 5},
+                stage5_priority={
+                    "P1_OFFICIAL_READBACK_DEEPENING": 7,
+                    "P2_NOT_FOUND_NON_CLEARANCE_DEEPENING": 5,
+                },
+                stage5_safety={"INTERNAL_REVIEW_ONLY_NOT_CLEARANCE": 15},
+                long_tail={},
+                public_source_chain={},
+                public_readback_outcomes={"READBACK_READY": 10, "BLOCKED": 3, "NOT_FOUND": 5},
+                public_readback_channel_outcomes={
+                    "YGP:YGP_READBACK_READY": 10,
+                    "ORIGINAL_NOTICE:BLOCKED": 1,
+                    "ORIGINAL_NOTICE:NOT_FOUND": 5,
+                },
+                design_registry_status={},
+                code_backfill={
+                    "DATA_GGZY_BID_SHOW_ORIGINAL_URL_BACKFILLED_FOR_P13B_OR_STAGE4_BRIDGE_ONLY": 5,
+                    "PUBLIC_SOURCE_IDENTIFIER_BACKFILLED_FOR_P13B_OR_STAGE4_BRIDGE_ONLY": 10,
+                },
+                code_backfill_gap_detail={},
+                route_policy={
+                    "DATA_GGZY_BID_SHOW_ORIGINAL_URL_NOT_SENT_TO_GDCIC_PROJECT_CODE": 5,
+                    "YGP_OR_TRADE_IDENTIFIERS_NOT_SENT_TO_GDCIC_PROJECT_CODE": 10,
+                },
+            )
+
+            result = build_stage1_6_scoreboard_comparison(
+                run_roots=[run_a, run_b],
+                output_root=out,
+                created_at="2026-05-25T00:00:00+08:00",
+            )
+
+        delta = result["delta_from_previous_row"][1]
+        self.assertEqual(delta["candidate_count_delta"], 0)
+        self.assertEqual(delta["limited_sellable_review_candidate_count_delta"], 0)
+        self.assertEqual(delta["stage4_public_identifier_backfilled_delta"], 10)
+        self.assertEqual(delta["stage4_project_code_missing_backfill_input_delta"], -15)
+        self.assertEqual(delta["stage4_public_readback_ready_delta"], 10)
+        self.assertEqual(
+            delta["public_source_deepening_effect_state"],
+            "PUBLIC_SOURCE_IDENTIFIER_BACKFILL_EFFECTIVE",
+        )
+        recommendations = result["public_source_deepening_recommendations"]
+        self.assertEqual(len(recommendations), 1)
+        self.assertEqual(recommendations[0]["effect_state"], "PUBLIC_SOURCE_IDENTIFIER_BACKFILL_EFFECTIVE")
+        self.assertIn(
+            "promote_only_b_or_c_official_release_readback_to_limited_sellable_review",
+            recommendations[0]["recommended_budget_focus"],
+        )
+        self.assertFalse(recommendations[0]["safety_invariants"]["customer_visible_allowed"])
+
 
 def _write_scoreboard(
     path: Path,

@@ -216,6 +216,12 @@ def _delta_row(row: Mapping[str, Any], baseline: Mapping[str, Any]) -> dict[str,
     missing_backfill_input_delta = _count_delta(
         row, baseline, "stage4_project_code_backfill_state_counts", "MISSING_PROJECT_CODE_BACKFILL_INPUT"
     )
+    public_identifier_backfilled_delta = _count_delta(
+        row,
+        baseline,
+        "stage4_project_code_backfill_state_counts",
+        "PUBLIC_SOURCE_IDENTIFIER_BACKFILLED_FOR_P13B_OR_STAGE4_BRIDGE_ONLY",
+    )
     public_readback_not_found_delta = _count_delta(
         row, baseline, "stage4_public_readback_outcome_counts", "NOT_FOUND"
     )
@@ -251,12 +257,7 @@ def _delta_row(row: Mapping[str, Any], baseline: Mapping[str, Any]) -> dict[str,
             baseline,
             "design_survey_public_registry_verification_result_counts",
         ),
-        "stage4_public_identifier_backfilled_delta": _count_delta(
-            row,
-            baseline,
-            "stage4_project_code_backfill_state_counts",
-            "PUBLIC_SOURCE_IDENTIFIER_BACKFILLED_FOR_P13B_OR_STAGE4_BRIDGE_ONLY",
-        ),
+        "stage4_public_identifier_backfilled_delta": public_identifier_backfilled_delta,
         "stage4_project_code_missing_backfill_input_delta": missing_backfill_input_delta,
         "stage6_ygp_original_readback_backfill_delta": ygp_delta,
         "stage5_operational_review_family_count_deltas": _map_delta(
@@ -288,6 +289,7 @@ def _delta_row(row: Mapping[str, Any], baseline: Mapping[str, Any]) -> dict[str,
             public_readback_blocked_delta=public_readback_blocked_delta,
             public_readback_not_found_delta=public_readback_not_found_delta,
             missing_backfill_input_delta=missing_backfill_input_delta,
+            public_identifier_backfilled_delta=public_identifier_backfilled_delta,
             ygp_delta=ygp_delta,
         ),
         "regression_flags": _regression_flags(
@@ -338,6 +340,7 @@ def _public_source_deepening_effect_state(
     public_readback_blocked_delta: int,
     public_readback_not_found_delta: int,
     missing_backfill_input_delta: int,
+    public_identifier_backfilled_delta: int,
     ygp_delta: int,
 ) -> str:
     if candidate_count_delta != 0:
@@ -357,6 +360,15 @@ def _public_source_deepening_effect_state(
         candidate_count_delta == 0
         and limited_delta == 0
         and matched_delta == 0
+        and public_identifier_backfilled_delta > 0
+        and public_readback_ready_delta > 0
+        and missing_backfill_input_delta < 0
+    ):
+        return "PUBLIC_SOURCE_IDENTIFIER_BACKFILL_EFFECTIVE"
+    if (
+        candidate_count_delta == 0
+        and limited_delta == 0
+        and matched_delta == 0
         and public_readback_ready_delta == 0
         and (public_readback_blocked_delta > 0 or public_readback_not_found_delta > 0)
         and missing_backfill_input_delta >= 0
@@ -371,6 +383,7 @@ def _public_source_deepening_recommendations(adjacent_deltas: list[Mapping[str, 
         effect_state = str(delta.get("public_source_deepening_effect_state") or "")
         if effect_state not in {
             "PUBLIC_SOURCE_DEEPENING_EFFECTIVE",
+            "PUBLIC_SOURCE_IDENTIFIER_BACKFILL_EFFECTIVE",
             "PUBLIC_SOURCE_FOLLOWUP_CLASSIFIED_NON_TERMINAL",
         }:
             continue
@@ -381,6 +394,14 @@ def _public_source_deepening_recommendations(adjacent_deltas: list[Mapping[str, 
                 "increase_original_notice_readback_budget",
                 "increase_ygp_original_readback_backfill_budget",
                 "continue_remaining_stage4_backfill_followup_queue_before_gdcic_project_code_guessing",
+            ]
+        elif effect_state == "PUBLIC_SOURCE_IDENTIFIER_BACKFILL_EFFECTIVE":
+            reason = "same_candidate_count_public_identifier_backfilled_and_readback_ready_without_limited_sellable_yet"
+            focus = [
+                "continue_original_notice_backtrace_for_backfilled_public_identifiers",
+                "feed_ygp_and_bid_show_identifiers_to_stage4_bridge_without_gdcic_digit_guessing",
+                "promote_only_b_or_c_official_release_readback_to_limited_sellable_review",
+                "keep_identifier_backfill_as_internal_review_not_customer_deliverable",
             ]
         else:
             reason = "same_candidate_count_public_source_followup_classified_blocked_or_not_found_without_clearance"
