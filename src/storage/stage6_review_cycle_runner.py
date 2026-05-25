@@ -19,6 +19,7 @@ from storage.runtime_blocker_controller_dispatch_runner import (
     run_runtime_blocker_controller_dispatch_runner,
 )
 from storage.guangdong_local_field_query_probe import build_guangdong_local_field_query_probe
+from storage.stage6_review_cycle_continuation_refs import build_stage6_review_cycle_continuation_input_refs
 from storage.stage6_review_action_dispatch import build_stage6_review_action_dispatch
 from storage.stage6_review_action_dispatch_runner import run_stage6_review_action_dispatch_runner
 
@@ -648,6 +649,9 @@ def run_stage6_review_cycle_runner(
         runtime_blocker_subqueue_controller_table=runtime_blocker_subqueue_controller_table,
         runtime_blocker_controller_dispatch_table=runtime_blocker_controller_dispatch_table,
         runtime_blocker_controller_dispatch_runner_result=runtime_blocker_controller_dispatch_runner_result,
+        output_root=out_dir,
+        source_release_field_query_path=release_field_query_path,
+        source_runtime_blocker_next_subqueue_path=effective_next_subqueue_path,
         source_stage6_review_loop_status_path=effective_stage6_review_loop_status_path,
         source_gdcic_browser_readback_path=gdcic_browser_readback_path,
         source_design_survey_public_registry_readback_path=design_survey_public_registry_readback_path,
@@ -931,6 +935,9 @@ def _operator_projection_status_table(
     source_gdcic_browser_readback_path: Path | None,
     source_design_survey_public_registry_readback_path: Path | None,
     source_stage1_6_scoreboard_path: Path | None = None,
+    output_root: Path = DEFAULT_OUTPUT_ROOT,
+    source_release_field_query_path: Path | None = None,
+    source_runtime_blocker_next_subqueue_path: Path | None = None,
 ) -> dict[str, Any]:
     followup_records = [
         dict(record)
@@ -1008,9 +1015,18 @@ def _operator_projection_status_table(
             project_records,
             scoreboard_alternative_route_by_project,
         )
+    continuation_input_refs = build_stage6_review_cycle_continuation_input_refs(
+        output_root=output_root,
+        release_field_query_json=source_release_field_query_path,
+        runtime_blocker_next_subqueue_json=source_runtime_blocker_next_subqueue_path,
+        stage6_review_loop_status_json=source_stage6_review_loop_status_path,
+        gdcic_browser_readback_json=source_gdcic_browser_readback_path,
+        stage1_6_scoreboard_json=source_stage1_6_scoreboard_path,
+    )
     projection_summary = {
         **dict(summary),
         "operator_projection_source": operator_projection_source,
+        "continuation_input_refs": continuation_input_refs,
         "project_status_record_count": len(project_records),
         "gdcic_browser_authorized_readback_project_count": len(gdcic_projection_by_project),
         "gdcic_browser_authorized_readback_state_counts": _counts(
@@ -1103,6 +1119,7 @@ def _operator_projection_status_table(
     }
     return {
         "summary": projection_summary,
+        "continuation_input_refs": continuation_input_refs,
         "records": project_records,
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,

@@ -20,6 +20,7 @@ from storage.stage6_review_action_dispatch_runner import (
 from storage.stage6_review_action_result_routing import build_stage6_review_action_result_routing
 from storage.stage6_review_action_result_runner import run_stage6_review_action_result_runner
 from storage.stage6_review_cycle_runner import run_stage6_review_cycle_runner
+from storage.stage6_review_cycle_continuation_refs import build_stage6_review_cycle_continuation_input_refs
 from storage.stage6_status_projection import (
     limited_sellable_review_projection,
     runtime_blocker_projection_fields,
@@ -309,6 +310,14 @@ def run_stage6_review_loop_runner(
     summary["runtime_blocker_next_subqueue_state_counts"] = dict(
         next_subqueue_summary.get("subqueue_state_counts") or {}
     )
+    continuation_input_refs = build_stage6_review_cycle_continuation_input_refs(
+        output_root=out_dir,
+        release_field_query_json=standalone_release_field_query_path,
+        supplemental_release_field_query_json=standalone_supplemental_release_field_query_path,
+        runtime_blocker_next_subqueue_json=out_dir / "stage6-review-loop-runtime-blocker-next-subqueues.json",
+        stage6_review_loop_status_json=project_status_table_path,
+    )
+    summary["continuation_input_refs"] = continuation_input_refs
     dispatch_path = Path(effective_dispatch_json) if effective_dispatch_json else Path(effective_dispatch_root) / "stage6-review-action-dispatch-v1.json"
     initial_dispatch_path = Path(dispatch_json) if dispatch_json else Path(dispatch_root) / "stage6-review-action-dispatch-v1.json"
     manifest = {
@@ -389,6 +398,7 @@ def run_stage6_review_loop_runner(
             standalone_stage5_calibration_status_records
         ),
         "runtime_blocker_next_subqueue_json": str(out_dir / "stage6-review-loop-runtime-blocker-next-subqueues.json"),
+        "continuation_input_refs": continuation_input_refs,
         "source_manifest_ids": {
             "bootstrap_stage6_fact_package": str(bootstrap.get("bootstrap_stage6_fact_package_manifest_id") or ""),
             "bootstrap_dispatch": str(bootstrap.get("bootstrap_dispatch_manifest_id") or ""),
@@ -3001,7 +3011,11 @@ def _finalize_and_write(out_dir: Path, result: dict[str, Any]) -> None:
         out_dir / "stage6-review-loop-project-status-table.json",
         {
             "summary": result["summary"],
+            "continuation_input_refs": result["manifest"].get("continuation_input_refs", {}),
             "records": result["manifest"]["project_status_table"]["records"],
+            "customer_visible_allowed": False,
+            "no_legal_conclusion": True,
+            "query_miss_is_not_clearance": True,
         },
     )
     _write_json(
