@@ -374,6 +374,15 @@ def _scoreboard_counts(
             for row in project_rows
             for queue in _as_list(row.get("stage5_operational_review_queues"))
         ),
+        "stage5_operational_primary_track_counts": _counts(
+            row.get("stage5_operational_primary_track") for row in project_rows
+        ),
+        "stage5_operational_priority_bucket_counts": _counts(
+            row.get("stage5_operational_priority_bucket") for row in project_rows
+        ),
+        "stage5_operational_safety_boundary_counts": _counts(
+            row.get("stage5_operational_safety_boundary") for row in project_rows
+        ),
         "stage6_fact_ready_count": stage6_fact_ready_count,
         "stage6_limited_sellable_review_candidate_count": _int(
             stage6_summary.get("limited_sellable_review_candidate_count")
@@ -1814,6 +1823,9 @@ def _stage5_operational_review(
         bucket = "UNCLASSIFIED_STAGE5_REVIEW"
         action = "review_stage5_inputs_and_classifier_coverage"
 
+    primary_track = _stage5_operational_primary_track(bucket)
+    priority = _stage5_operational_priority(bucket, queues or [bucket])
+    safety_boundary = _stage5_operational_safety_boundary(bucket)
     return {
         "stage5_operational_review_bucket": bucket,
         "stage5_operational_review_family": _stage5_operational_bucket_family(bucket),
@@ -1822,8 +1834,85 @@ def _stage5_operational_review(
         "stage5_operational_signal_flags": signals or ["unclassified_review_required"],
         "stage5_operational_review_reason": "|".join(signals) if signals else "stage5_review_requires_manual_triage",
         "stage5_operational_next_action": action,
+        "stage5_operational_primary_track": primary_track,
+        "stage5_operational_priority_bucket": priority["bucket"],
+        "stage5_operational_priority_rank": priority["rank"],
+        "stage5_operational_safety_boundary": safety_boundary,
         "stage5_query_miss_is_not_clearance": True,
     }
+
+
+def _stage5_operational_primary_track(bucket: str) -> str:
+    mapping = {
+        "STRONG_LEAD_INTERNAL_REVIEW": "strong_lead",
+        "WEAK_LEAD_OFFICIAL_SIGNAL_REVIEW": "weak_lead",
+        "AUTHORIZATION_BLOCKED_REVIEW": "authorization_blocked",
+        "AUTHORIZATION_AND_SOURCE_NOT_FOUND_REVIEW": "authorization_blocked_with_source_not_found",
+        "PUBLIC_SOURCE_BLOCKED_REVIEW": "public_source_blocked",
+        "ORIGINAL_NOTICE_BLOCKED_REVIEW": "public_source_blocked",
+        "YGP_READBACK_BLOCKED_REVIEW": "public_source_blocked",
+        "LOCAL_AUTHORITY_BLOCKED_REVIEW": "public_source_blocked",
+        "SOURCE_NOT_FOUND_REVIEW": "source_not_found",
+        "PUBLIC_SOURCE_NOT_FOUND_REVIEW": "source_not_found",
+        "ORIGINAL_NOTICE_NOT_FOUND_REVIEW": "source_not_found",
+        "LOCAL_AUTHORITY_NOT_FOUND_REVIEW": "source_not_found",
+        "DESIGN_SURVEY_PUBLIC_REGISTRY_NOT_FOUND_REVIEW": "source_not_found",
+        "RESPONSIBLE_PERSON_CERTIFICATE_GAP_REVIEW": "responsible_person_certificate_gap",
+        "RESPONSIBLE_ROLE_GAP_REVIEW": "responsible_role_gap",
+        "FIELD_AMBIGUITY_REVIEW": "field_ambiguity",
+        "PROJECT_CODE_BACKFILL_GAP_REVIEW": "project_code_backfill_gap",
+        "EVIDENCE_INSUFFICIENT_REVIEW": "evidence_insufficient",
+    }
+    return mapping.get(str(bucket or ""), _stage5_operational_bucket_family(bucket))
+
+
+def _stage5_operational_priority(bucket: str, queues: list[str]) -> dict[str, int | str]:
+    bucket_text = str(bucket or "")
+    queue_set = {str(queue or "") for queue in queues}
+    if bucket_text == "STRONG_LEAD_INTERNAL_REVIEW":
+        return {"bucket": "P0_LIMITED_SELLABLE_REVIEW", "rank": 0}
+    if bucket_text in {
+        "WEAK_LEAD_OFFICIAL_SIGNAL_REVIEW",
+        "YGP_READBACK_READY_REVIEW",
+        "YGP_STAGE4_BACKFILL_READY_REVIEW",
+        "LOCAL_AUTHORITY_MATCHED_REVIEW",
+        "DESIGN_SURVEY_PUBLIC_REGISTRY_MATCHED_REVIEW",
+    }:
+        return {"bucket": "P1_OFFICIAL_READBACK_DEEPENING", "rank": 1}
+    if queue_set & {
+        "AUTHORIZATION_BLOCKED_REVIEW",
+        "AUTHORIZATION_AND_SOURCE_NOT_FOUND_REVIEW",
+        "PUBLIC_SOURCE_BLOCKED_REVIEW",
+        "ORIGINAL_NOTICE_BLOCKED_REVIEW",
+        "YGP_READBACK_BLOCKED_REVIEW",
+        "LOCAL_AUTHORITY_BLOCKED_REVIEW",
+        "DESIGN_SURVEY_PUBLIC_REGISTRY_BLOCKED_REVIEW",
+    }:
+        return {"bucket": "P1_BLOCKER_RETRY_OR_ALTERNATE_SOURCE", "rank": 1}
+    if queue_set & {
+        "SOURCE_NOT_FOUND_REVIEW",
+        "PUBLIC_SOURCE_NOT_FOUND_REVIEW",
+        "ORIGINAL_NOTICE_NOT_FOUND_REVIEW",
+        "LOCAL_AUTHORITY_NOT_FOUND_REVIEW",
+        "DESIGN_SURVEY_PUBLIC_REGISTRY_NOT_FOUND_REVIEW",
+    }:
+        return {"bucket": "P2_NOT_FOUND_NON_CLEARANCE_DEEPENING", "rank": 2}
+    if queue_set & {
+        "RESPONSIBLE_PERSON_CERTIFICATE_GAP_REVIEW",
+        "RESPONSIBLE_ROLE_GAP_REVIEW",
+        "FIELD_AMBIGUITY_REVIEW",
+        "PROJECT_CODE_BACKFILL_GAP_REVIEW",
+    }:
+        return {"bucket": "P2_INPUT_REPAIR_AND_DISAMBIGUATION", "rank": 2}
+    if "EVIDENCE_INSUFFICIENT_REVIEW" in queue_set:
+        return {"bucket": "P3_EVIDENCE_INSUFFICIENT_PARK_OR_SAMPLE", "rank": 3}
+    return {"bucket": "P3_UNCLASSIFIED_MANUAL_TRIAGE", "rank": 3}
+
+
+def _stage5_operational_safety_boundary(bucket: str) -> str:
+    if bucket == "STRONG_LEAD_INTERNAL_REVIEW":
+        return "INTERNAL_LIMITED_SELLABLE_REVIEW_ONLY_NOT_CUSTOMER_DELIVERABLE"
+    return "INTERNAL_REVIEW_ONLY_NOT_CLEARANCE"
 
 
 def _stage5_operational_queue_families(queues: list[str]) -> list[str]:

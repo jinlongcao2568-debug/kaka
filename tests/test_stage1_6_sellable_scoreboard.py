@@ -671,6 +671,13 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
         rows = {row["project_id"]: row for row in result["project_rows"]}
         self.assertEqual(rows["PROJ-A"]["limited_sellable_review_candidate_state"], "REVIEW_CANDIDATE")
         self.assertEqual(rows["PROJ-A"]["stage5_operational_review_bucket"], "STRONG_LEAD_INTERNAL_REVIEW")
+        self.assertEqual(rows["PROJ-A"]["stage5_operational_primary_track"], "strong_lead")
+        self.assertEqual(rows["PROJ-A"]["stage5_operational_priority_bucket"], "P0_LIMITED_SELLABLE_REVIEW")
+        self.assertEqual(rows["PROJ-A"]["stage5_operational_priority_rank"], 0)
+        self.assertEqual(
+            rows["PROJ-A"]["stage5_operational_safety_boundary"],
+            "INTERNAL_LIMITED_SELLABLE_REVIEW_ONLY_NOT_CUSTOMER_DELIVERABLE",
+        )
         self.assertEqual(
             rows["PROJ-A"]["limited_sellable_review_reason"],
             "official_b_or_c_readback_requires_manual_stage5_stage6_review",
@@ -699,11 +706,14 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
         )
         self.assertIn("COMPANY_FIRST_PROVIDER_TASKS_READY_REVIEW", rows["PROJ-B"]["stage5_operational_review_queues"])
         self.assertEqual(rows["PROJ-C"]["stage5_operational_review_bucket"], "SOURCE_NOT_FOUND_REVIEW")
+        self.assertEqual(rows["PROJ-C"]["stage5_operational_primary_track"], "source_not_found")
+        self.assertEqual(rows["PROJ-C"]["stage5_operational_priority_bucket"], "P2_NOT_FOUND_NON_CLEARANCE_DEEPENING")
         self.assertEqual(rows["PROJ-D"]["stage5_operational_review_bucket"], "ORIGINAL_NOTICE_NOT_FOUND_REVIEW")
         self.assertEqual(rows["PROJ-D"]["p13b_public_source_readback_state"], "ORIGINAL_NOTICE_BACKTRACE_REQUIRED")
         self.assertEqual(rows["PROJ-D"]["p13b_original_notice_readback_state"], "NOT_FOUND")
         self.assertEqual(rows["PROJ-D"]["p13b_ygp_project_code_variants"], ["E4401002701500571001"])
         self.assertEqual(rows["PROJ-E"]["stage5_operational_review_bucket"], "WEAK_LEAD_OFFICIAL_SIGNAL_REVIEW")
+        self.assertEqual(rows["PROJ-E"]["stage5_operational_priority_bucket"], "P1_OFFICIAL_READBACK_DEEPENING")
         self.assertTrue(all(row["stage5_query_miss_is_not_clearance"] for row in rows.values()))
         self.assertEqual(
             result["blocker_summary"]["blocking_bucket_counts"],
@@ -852,6 +862,23 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
             },
         )
         self.assertEqual(
+            result["scoreboard"]["stage5_operational_primary_track_counts"],
+            {
+                "responsible_person_certificate_gap": 1,
+                "responsible_role_gap": 1,
+                "project_code_backfill_gap": 1,
+                "field_ambiguity": 1,
+            },
+        )
+        self.assertEqual(
+            result["scoreboard"]["stage5_operational_priority_bucket_counts"],
+            {"P2_INPUT_REPAIR_AND_DISAMBIGUATION": 4},
+        )
+        self.assertEqual(
+            result["scoreboard"]["stage5_operational_safety_boundary_counts"],
+            {"INTERNAL_REVIEW_ONLY_NOT_CLEARANCE": 4},
+        )
+        self.assertEqual(
             rows["PROJ-CERT"]["stage5_operational_review_queues"],
             [
                 "RESPONSIBLE_PERSON_CERTIFICATE_GAP_REVIEW",
@@ -868,6 +895,10 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
             rows["PROJ-CERT"]["stage5_operational_next_action"],
             "run_company_first_certificate_supplement_and_attachment_ocr_without_identity_confirmation",
         )
+        self.assertEqual(rows["PROJ-CERT"]["stage5_operational_primary_track"], "responsible_person_certificate_gap")
+        self.assertEqual(rows["PROJ-CERT"]["stage5_operational_priority_bucket"], "P2_INPUT_REPAIR_AND_DISAMBIGUATION")
+        self.assertEqual(rows["PROJ-CERT"]["stage5_operational_priority_rank"], 2)
+        self.assertEqual(rows["PROJ-CERT"]["stage5_operational_safety_boundary"], "INTERNAL_REVIEW_ONLY_NOT_CLEARANCE")
         self.assertEqual(
             rows["PROJ-CODE"]["stage5_operational_next_action"],
             "backfill_project_code_from_notice_data_ggzy_bid_show_or_local_source_without_digit_guessing",
