@@ -246,6 +246,12 @@ def build_p13b_company_history_overlap_triage(
         project_task_records,
         created_at=created,
     )
+    local_authority_source_readback_records = _execute_local_authority_source_tasks(
+        local_authority_source_task_records,
+        created_at=created,
+        enable_live_public_query=enable_live_public_query,
+        http_getter=http_getter,
+    )
     manual_original_url_backtrace_table = _manual_original_url_backtrace_table(bid_show_records, overlap_signal_records)
     summary = _summary(
         project_task_records=project_task_records,
@@ -253,6 +259,7 @@ def build_p13b_company_history_overlap_triage(
         bid_show_records=bid_show_records,
         overlap_signal_records=overlap_signal_records,
         local_authority_source_task_records=local_authority_source_task_records,
+        local_authority_source_readback_records=local_authority_source_readback_records,
         execution_mode=execution_mode,
         blocking_reasons=blocking_reasons,
         input_mode=input_mode,
@@ -265,7 +272,7 @@ def build_p13b_company_history_overlap_triage(
         "manifest_kind": P13B_COMPANY_HISTORY_OVERLAP_TRIAGE_KIND,
         "adapter_id": P13B_COMPANY_HISTORY_OVERLAP_TRIAGE_ADAPTER_ID,
         "pipeline_stage": "P13BCompanyHistoryOverlapTriageV1",
-        "manifest_id": f"P13B-COMPANY-HISTORY-OVERLAP-{_fingerprint({'summary': summary, 'tasks': company_history_query_records, 'local_authority': local_authority_source_task_records})[:16]}",
+        "manifest_id": f"P13B-COMPANY-HISTORY-OVERLAP-{_fingerprint({'summary': summary, 'tasks': company_history_query_records, 'local_authority': local_authority_source_task_records, 'local_authority_readback': local_authority_source_readback_records})[:16]}",
         "created_at": created,
         "source_input_root": str(in_dir),
         "source_ygp_expansion_root": str(ygp_expansion_dir or ""),
@@ -305,6 +312,7 @@ def build_p13b_company_history_overlap_triage(
         "bid_show_records": bid_show_records,
         "overlap_signal_records": overlap_signal_records,
         "local_authority_source_task_records": local_authority_source_task_records,
+        "local_authority_source_readback_records": local_authority_source_readback_records,
         "manual_original_url_backtrace_table": manual_original_url_backtrace_table,
         "summary": summary,
         "safety": {
@@ -812,6 +820,125 @@ def _local_authority_source_task_records(
             }
         )
     return rows
+
+
+def _execute_local_authority_source_tasks(
+    tasks: list[Mapping[str, Any]],
+    *,
+    created_at: str,
+    enable_live_public_query: bool,
+    http_getter: HttpGetter | None,
+) -> list[dict[str, Any]]:
+    getter = http_getter or _default_http_getter
+    rows: list[dict[str, Any]] = []
+    for task in tasks:
+        source_url = str(task.get("source_url") or "").strip()
+        project_id = str(task.get("project_id") or "").strip()
+        base = {
+            "local_authority_readback_record_id": _stable_id(
+                "P13B-LOCAL-AUTHORITY-READBACK",
+                task.get("local_authority_source_task_id"),
+                source_url,
+            ),
+            "local_authority_source_task_id": str(task.get("local_authority_source_task_id") or ""),
+            "project_id": project_id,
+            "project_name": str(task.get("project_name") or ""),
+            "local_authority_region_code": str(task.get("local_authority_region_code") or ""),
+            "source_profile_id": str(task.get("source_profile_id") or ""),
+            "source_name": str(task.get("source_name") or ""),
+            "source_url": source_url,
+            "candidate_companies": _list(task.get("candidate_companies")),
+            "responsible_person_names": _list(task.get("responsible_person_names")),
+            "execution_mode": "LIVE_PUBLIC_QUERY_ATTEMPTED" if enable_live_public_query else "PLAN_ONLY_NOT_EXECUTED",
+            "query_miss_is_not_clearance": True,
+            "customer_visible_allowed": False,
+            "no_legal_conclusion": True,
+            "created_at": created_at,
+        }
+        if not enable_live_public_query:
+            rows.append(
+                {
+                    **base,
+                    "local_authority_readback_state": "PLAN_ONLY_NOT_EXECUTED",
+                    "http_status_code": 0,
+                    "match_basis": "",
+                    "blocker_taxonomy": [],
+                    "recommended_next_action": "enable_live_public_query_or_keep_plan_only_without_clearance_claim",
+                }
+            )
+            continue
+        if not source_url:
+            rows.append(
+                {
+                    **base,
+                    "local_authority_readback_state": "BLOCKED",
+                    "http_status_code": 0,
+                    "match_basis": "",
+                    "blocker_taxonomy": ["local_authority_source_url_missing"],
+                    "recommended_next_action": "register_project_local_authority_source_url_before_readback",
+                }
+            )
+            continue
+        response = getter(source_url, {"task": task, "source_kind": "local_authority_public_source"})
+        status = _int(response.get("status_code"))
+        body = str(response.get("body") or "")
+        if status <= 0 or status >= 400:
+            rows.append(
+                {
+                    **base,
+                    "local_authority_readback_state": "BLOCKED",
+                    "http_status_code": status,
+                    "match_basis": "",
+                    "blocker_taxonomy": ["local_authority_source_http_blocked_or_unavailable"],
+                    "recommended_next_action": "retry_project_local_authority_source_or_choose_alternate_official_entry",
+                }
+            )
+            continue
+        match_basis = _local_authority_match_basis(task, body)
+        state = "MATCHED" if match_basis else "NOT_FOUND"
+        rows.append(
+            {
+                **base,
+                "local_authority_readback_state": state,
+                "http_status_code": status,
+                "content_type": str(response.get("content_type") or ""),
+                "match_basis": match_basis,
+                "blocker_taxonomy": [] if match_basis else ["local_authority_portal_reachable_no_project_keyword_match"],
+                "recommended_next_action": (
+                    "manual_stage5_stage6_review_for_local_authority_keyword_match"
+                    if match_basis
+                    else "keep_not_found_as_non_clearance_and_try_specific_search_endpoint_or_manual_source_path"
+                ),
+            }
+        )
+    return rows
+
+
+def _local_authority_match_basis(task: Mapping[str, Any], body: str) -> str:
+    text = _norm(body)
+    if not text:
+        return ""
+    project_name = str(task.get("project_name") or "").strip()
+    project_core = _project_name_core(project_name)
+    if _keyword_long_enough_for_local_authority_match(project_core) and _norm(project_core) in text:
+        return "project_name_core_keyword_present_in_local_authority_source"
+    for company in _list(task.get("candidate_companies")):
+        company_text = str(company or "").strip()
+        if len(_norm(company_text)) >= 8 and _norm(company_text) in text:
+            return "candidate_company_keyword_present_in_local_authority_source"
+    return ""
+
+
+def _keyword_long_enough_for_local_authority_match(value: str) -> bool:
+    normalized = _norm(value)
+    if re.search(r"[\u4e00-\u9fff]", value or ""):
+        return len(normalized) >= 6
+    return len(normalized) >= 12
+
+
+def _project_name_core(project_name: str) -> str:
+    text = re.sub(r"中标候选人公示|中标结果公告|招标公告|结果公告|公示", "", project_name or "")
+    return text.strip()
 
 
 def _needs_local_authority_source_task(project: Mapping[str, Any]) -> bool:
@@ -1371,6 +1498,7 @@ def _summary(
     bid_show_records: list[Mapping[str, Any]],
     overlap_signal_records: list[Mapping[str, Any]],
     local_authority_source_task_records: list[Mapping[str, Any]],
+    local_authority_source_readback_records: list[Mapping[str, Any]],
     execution_mode: str,
     blocking_reasons: list[str],
     input_mode: str = "P12_VALUE_CLOSEOUT",
@@ -1425,6 +1553,10 @@ def _summary(
         "local_authority_readback_state_counts": _counts(
             record.get("local_authority_readback_state") for record in local_authority_source_task_records
         ),
+        "local_authority_source_readback_count": len(local_authority_source_readback_records),
+        "local_authority_source_readback_state_counts": _counts(
+            record.get("local_authority_readback_state") for record in local_authority_source_readback_records
+        ),
         "local_authority_region_counts": _counts(
             record.get("local_authority_region_code") for record in local_authority_source_task_records
         ),
@@ -1449,7 +1581,7 @@ def _summary(
         "overlap_signal_state_counts": _counts(record.get("overlap_signal_state") for record in overlap_signal_records),
         "blocker_taxonomy_counts": _counts(
             blocker
-            for record in [*company_history_query_records, *bid_show_records]
+            for record in [*company_history_query_records, *bid_show_records, *local_authority_source_readback_records]
             for blocker in _list(record.get("blocker_taxonomy"))
         ),
         "blocking_reasons": blocking_reasons,

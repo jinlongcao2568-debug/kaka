@@ -368,10 +368,40 @@ class P13BCompanyHistoryOverlapTriageTests(unittest.TestCase):
             self.assertEqual(local_authority_task["local_authority_readback_state"], "PLAN_ONLY_NOT_EXECUTED")
             self.assertFalse(local_authority_task["customer_visible_allowed"])
             self.assertTrue(local_authority_task["query_miss_is_not_clearance"])
+            local_authority_readback = result["manifest"]["local_authority_source_readback_records"][0]
+            self.assertEqual(local_authority_readback["local_authority_readback_state"], "PLAN_ONLY_NOT_EXECUTED")
             task = result["manifest"]["company_history_query_records"][0]
             self.assertEqual(task["candidate_company_name"], "广东甲公司")
             self.assertIn("张三", task["responsible_person_names"])
             self.assertIn("https://ywtb.gzggzy.cn/jyfw/07-a.html", task["candidate_notice_source_urls"])
+
+    def test_stage4_followup_queue_live_local_authority_readback_emits_match_without_customer_claim(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            queue_json = root / "followup" / "stage4-backfill-followup-queue-v1.json"
+            field_json = root / "field-query" / "guangdong-local-field-query-probe-v1.json"
+            _write_stage4_followup_queue(queue_json)
+            _write_release_field_query(field_json)
+
+            result = build_p13b_company_history_overlap_triage(
+                stage4_backfill_followup_queue_json=queue_json,
+                release_field_query_json=field_json,
+                output_root=root / "out",
+                enable_live_public_query=True,
+                http_getter=_fake_http_getter,
+                created_at="2026-05-25T00:00:00+08:00",
+            )
+
+            summary = result["summary"]
+            self.assertEqual(summary["local_authority_source_readback_state_counts"], {"MATCHED": 1})
+            readback = result["manifest"]["local_authority_source_readback_records"][0]
+            self.assertEqual(readback["local_authority_readback_state"], "MATCHED")
+            self.assertEqual(
+                readback["match_basis"],
+                "project_name_core_keyword_present_in_local_authority_source",
+            )
+            self.assertFalse(readback["customer_visible_allowed"])
+            self.assertTrue(readback["query_miss_is_not_clearance"])
 
     def test_ygp_live_fake_query_extracts_overlap_and_backtrace_inputs(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -664,6 +694,8 @@ def _write_release_field_query(path: Path) -> None:
 def _fake_http_getter(url: str, context: Mapping[str, Any]) -> Mapping[str, Any]:
     parsed = urllib.parse.urlparse(url)
     query = urllib.parse.parse_qs(parsed.query)
+    if parsed.netloc == "zfcj.gz.gov.cn":
+        return _json_response({"title": "广州队列项目中标候选人公示", "content": "广州队列项目公开信息"})
     if parsed.path.endswith("/search"):
         keyword = query.get("keyword", [""])[0]
         if keyword == "阻断公司":

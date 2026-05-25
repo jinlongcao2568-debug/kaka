@@ -1391,6 +1391,14 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
                                 "customer_visible_allowed": False,
                                 "query_miss_is_not_clearance": True,
                             }
+                        ],
+                        "local_authority_source_readback_records": [
+                            {
+                                "project_id": "PROJ-LOCAL-AUTH",
+                                "local_authority_readback_state": "NOT_FOUND",
+                                "customer_visible_allowed": False,
+                                "query_miss_is_not_clearance": True,
+                            }
                         ]
                     },
                     "summary": {"local_authority_source_task_count": 1},
@@ -1406,13 +1414,15 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
             )
 
         row = result["project_rows"][0]
-        self.assertEqual(row["p13b_public_source_readback_state"], "LOCAL_AUTHORITY_SOURCE_PLAN_READY")
+        self.assertEqual(row["p13b_public_source_readback_state"], "LOCAL_AUTHORITY_NOT_FOUND_REVIEW")
         self.assertEqual(row["p13b_local_authority_source_task_count"], 1)
-        self.assertEqual(row["stage5_operational_review_bucket"], "LOCAL_AUTHORITY_SOURCE_PLAN_REVIEW")
+        self.assertEqual(row["p13b_local_authority_source_readback_count"], 1)
+        self.assertEqual(row["stage5_operational_review_bucket"], "LOCAL_AUTHORITY_NOT_FOUND_REVIEW")
         self.assertIn("local_authority_source_plan_ready", row["stage5_operational_signal_flags"])
+        self.assertIn("local_authority_not_found", row["stage5_operational_signal_flags"])
         self.assertEqual(
             result["scoreboard"]["stage4_public_readback_outcome_counts"],
-            {"LOCAL_AUTHORITY_PLAN_READY": 1},
+            {"LOCAL_AUTHORITY_PLAN_READY": 1, "NOT_FOUND": 1},
         )
         self.assertFalse(row["customer_visible_allowed"])
         self.assertTrue(row["query_miss_is_not_clearance"])
