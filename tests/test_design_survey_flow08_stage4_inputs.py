@@ -68,6 +68,40 @@ class DesignSurveyFlow08Stage4InputsTests(unittest.TestCase):
                 2,
             )
 
+    def test_extracted_noise_does_not_replace_original_responsible_person(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            parse_root = root / "parse"
+            _write_parse_manifest(parse_root, state="TARGET_ATTACHMENT_TEXT_FIELDS_EXTRACTED")
+            payload_path = parse_root / "design-survey-flow08-target-attachment-parse-v1.json"
+            payload = json.loads(payload_path.read_text(encoding="utf-8"))
+            record = payload["manifest"]["target_attachment_parse_table"]["records"][0]
+            record["responsible_person_name"] = "黄彤斌"
+            record["extracted_fields"] = {
+                "extraction_state": "FIELDS_EXTRACTED",
+                "primary_responsible_person_name": "资料",
+                "primary_responsible_role": "project_manager_name",
+                "primary_certificate_no_optional": "",
+                "responsible_person_candidates": [
+                    {"person_name": "资料"},
+                    {"person_name": "姓名"},
+                    {"person_name": "黄彤斌简历表"},
+                    {"person_name": "黄彤斌"},
+                ],
+            }
+            _write_json(payload_path, payload)
+
+            result = build_design_survey_flow08_stage4_inputs(
+                design_survey_flow08_attachment_parse_root=parse_root,
+                output_root=root / "out",
+                created_at="2026-05-18T21:30:00+08:00",
+            )
+
+            items = result["manifest"]["stage4_candidate_verification_inputs"]["items"]
+            self.assertEqual(items[0]["responsible_person_name"], "黄彤斌")
+            self.assertEqual(items[0]["project_manager_name"], "黄彤斌")
+            self.assertNotEqual(items[0]["responsible_person_name"], "资料")
+
 
 def _write_parse_manifest(root: Path, *, state: str) -> None:
     record: dict[str, Any] = {

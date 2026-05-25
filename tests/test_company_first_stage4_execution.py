@@ -605,6 +605,47 @@ class CompanyFirstStage4ExecutionTest(unittest.TestCase):
             item["next_actions"],
         )
 
+    def test_stage4_inputs_only_does_not_mix_default_provider_jobs(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            input_root = Path(temp_dir) / "input"
+            output_root = Path(temp_dir) / "out"
+            inputs_path = Path(temp_dir) / "flow08-inputs.json"
+            _write_jobs(input_root)
+            inputs_path.write_text(
+                json.dumps(
+                    {
+                        "items": [
+                            {
+                                "source_probe_adapter_id": "design-survey-flow08-stage4-inputs-v1",
+                                "project_id": "PROJ-CN-GD-JG2026-11327",
+                                "project_name": "规划测绘项目中标候选人公示",
+                                "candidate_company_name": "广州市城市规划勘测设计研究院有限公司",
+                                "responsible_person_name": "胡昌华",
+                                "responsible_role": "survey_design_project_lead",
+                                "source_flow08_attachment_snapshot_id": "SNAP-FLOW08",
+                            }
+                        ]
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+
+            result = build_company_first_stage4_execution(
+                input_root=input_root,
+                output_root=output_root,
+                stage4_inputs_json=inputs_path,
+                execute=False,
+                include_provider_jobs=False,
+            )
+
+        items = result["manifest"]["items"]
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0]["source_probe_adapter_id"], "design-survey-flow08-stage4-inputs-v1")
+        self.assertEqual(items[0]["project_id"], "PROJ-CN-GD-JG2026-11327")
+        self.assertEqual(result["manifest"]["source_stage4_provider_jobs_json"], "")
+        self.assertFalse(result["manifest"]["include_provider_jobs"])
+
     def test_stage4_inputs_can_be_executed_with_light_company_normalization(self) -> None:
         def fake_browser_runner(capture_plan: dict[str, object]) -> dict[str, object]:
             self.assertEqual(capture_plan["target"]["company_name"], "广东水电二局集团有限公司")

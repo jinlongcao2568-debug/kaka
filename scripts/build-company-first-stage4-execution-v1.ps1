@@ -10,6 +10,7 @@ param(
     [int]$PersonnelRetryAttempts = 2,
     [switch]$CapturePersonnelProjectRecords,
     [switch]$Execute,
+    [switch]$Stage4InputsOnly,
     [switch]$EmitJson
 )
 
@@ -59,6 +60,9 @@ if ($CapturePersonnelProjectRecords) {
 }
 if ($Execute) {
     $argsList += "--execute"
+}
+if ($Stage4InputsOnly) {
+    $argsList += "--stage4-inputs-only"
 }
 if ($EmitJson) {
     $argsList += "--json"

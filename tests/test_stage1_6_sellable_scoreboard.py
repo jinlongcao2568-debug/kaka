@@ -599,6 +599,7 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
                 "target_fields_missing_project_count": 0,
                 "certificate_resolved_project_count": 0,
                 "flow_08_targeted_parse_required_project_count": 0,
+                "design_survey_public_registry_fallback_required_project_count": 0,
                 "stage4_input_count": 0,
                 "flow_08_targeted_parse_required_count": 0,
                 "stage4_execution_state_counts": {"QUEUED_NOT_EXECUTED": 1},
@@ -1690,6 +1691,113 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
         self.assertEqual(
             result["scoreboard"]["company_first_stage4_execution_status"]["projected_stage5_queue_counts"],
             {"COMPANY_FIRST_FLOW08_TARGETED_PARSE_REVIEW": 1},
+        )
+        self.assertFalse(result["safety"]["customer_visible_allowed"])
+
+    def test_design_survey_public_registry_fallback_required_is_stage5_operational_queue(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            pressure = root / "pressure"
+            field_query = root / "field-query"
+            company_first = root / "company-first"
+            out = root / "out"
+            for path in (pressure, field_query, company_first, out):
+                path.mkdir(parents=True, exist_ok=True)
+
+            _write_json(pressure / "pressure-summary.json", {"candidate_count": 1})
+            _write_json(
+                pressure / "stage1-6-readiness-table.json",
+                {
+                    "records": [
+                        {
+                            "project_id": "PROJ-DESIGN-FALLBACK",
+                            "project_name": "design survey fallback candidate",
+                            "stage2_detail_capture_state": "FETCHED",
+                            "stage3_field_parse_state": "PARSED_FROM_FIELD_SIGNALS",
+                            "stage5_rule_gate_status": "REVIEW",
+                            "stage5_gate_state": "REVIEW_REQUIRED",
+                            "fail_closed_reasons": [
+                                "notice_has_company_and_project_manager_but_missing_certificate_no",
+                            ],
+                        }
+                    ]
+                },
+            )
+            _write_json(pressure / "stage1-6-gap-summary-table.json", {"records": []})
+            _write_json(field_query / "guangdong-local-field-query-probe-v1.json", {"manifest": {}})
+            _write_json(
+                company_first / "company-first-stage4-execution.json",
+                {
+                    "summary": {
+                        "project_count": 1,
+                        "job_count": 1,
+                        "stage4_execution_state_counts": {"FAIL_CLOSED": 1},
+                        "identity_resolution_state_counts": {"UNKNOWN": 1},
+                        "supplement_after_execution_state_counts": {
+                            "DESIGN_SURVEY_PUBLIC_REGISTRY_FALLBACK_REQUIRED": 1,
+                        },
+                        "stage4_input_count": 0,
+                    },
+                    "manifest": {
+                        "items": [
+                            {
+                                "project_id": "PROJ-DESIGN-FALLBACK",
+                                "stage4_execution_state": "FAIL_CLOSED",
+                                "identity_resolution_state": "",
+                                "supplement_after_execution_state": (
+                                    "DESIGN_SURVEY_PUBLIC_REGISTRY_FALLBACK_REQUIRED"
+                                ),
+                                "stage4_readiness_state": (
+                                    "STAGE4_BLOCKED_COMPANY_FIRST_AND_DESIGN_SURVEY_REGISTRY_REQUIRED"
+                                ),
+                                "next_actions": [
+                                    "DESIGN_SURVEY_PUBLIC_REGISTRY_FALLBACK",
+                                    "DO_NOT_OUTPUT_FINAL_CONFLICT",
+                                ],
+                                "customer_visible_allowed": False,
+                                "no_legal_conclusion": True,
+                            }
+                        ]
+                    },
+                },
+            )
+
+            result = build_stage1_6_sellable_scoreboard(
+                pressure_root=pressure,
+                field_query_root=field_query,
+                company_first_stage4_execution_root=company_first,
+                output_root=out,
+                created_at="2026-05-24T00:00:00+08:00",
+            )
+
+        row = result["project_rows"][0]
+        self.assertEqual(
+            row["company_first_supplement_after_execution_state"],
+            "DESIGN_SURVEY_PUBLIC_REGISTRY_FALLBACK_REQUIRED",
+        )
+        self.assertEqual(row["stage5_operational_review_bucket"], "DESIGN_SURVEY_PUBLIC_REGISTRY_FALLBACK_REVIEW")
+        self.assertEqual(row["blocking_bucket"], "design_survey_public_registry_fallback_review")
+        self.assertIn("DESIGN_SURVEY_PUBLIC_REGISTRY_FALLBACK_REVIEW", row["stage5_operational_review_queues"])
+        self.assertIn(
+            "design_survey_public_registry_fallback_required",
+            row["stage5_operational_signal_flags"],
+        )
+        self.assertEqual(row["stage5_operational_review_family"], "public_registration_fallback_required")
+        self.assertEqual(result["scoreboard"]["limited_sellable_review_candidate_count"], 0)
+        self.assertEqual(result["scoreboard"]["sellable_or_limited_review_candidate_count"], 0)
+        self.assertEqual(
+            result["scoreboard"]["stage5_operational_review_bucket_counts"],
+            {"DESIGN_SURVEY_PUBLIC_REGISTRY_FALLBACK_REVIEW": 1},
+        )
+        self.assertEqual(
+            result["scoreboard"]["company_first_stage4_execution_status"][
+                "design_survey_public_registry_fallback_required_project_count"
+            ],
+            1,
+        )
+        self.assertEqual(
+            result["scoreboard"]["company_first_stage4_execution_status"]["projected_stage5_queue_counts"],
+            {"DESIGN_SURVEY_PUBLIC_REGISTRY_FALLBACK_REVIEW": 1},
         )
         self.assertFalse(result["safety"]["customer_visible_allowed"])
 

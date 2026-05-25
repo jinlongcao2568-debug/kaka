@@ -302,12 +302,16 @@ def _target_companies(record: Mapping[str, Any]) -> list[dict[str, str]]:
 
 def _responsible_person_name(record: Mapping[str, Any]) -> str:
     fields = record.get("extracted_fields") if isinstance(record.get("extracted_fields"), Mapping) else {}
-    return str(
-        fields.get("primary_responsible_person_name")
-        or fields.get("project_manager_name")
-        or record.get("responsible_person_name")
-        or ""
-    ).strip()
+    source_person = _clean_person_name(record.get("responsible_person_name"))
+    extracted_candidates = _responsible_person_candidates(fields)
+    if source_person and source_person in extracted_candidates:
+        return source_person
+    primary = _clean_person_name(fields.get("primary_responsible_person_name") or fields.get("project_manager_name"))
+    if _is_valid_person_name(primary):
+        return primary
+    if source_person and _is_valid_person_name(source_person):
+        return source_person
+    return next((candidate for candidate in extracted_candidates if _is_valid_person_name(candidate)), "")
 
 
 def _responsible_role(record: Mapping[str, Any]) -> str:
@@ -323,6 +327,42 @@ def _certificate_no(record: Mapping[str, Any]) -> str:
         or fields.get("project_manager_certificate_no")
         or ""
     ).strip()
+
+
+def _responsible_person_candidates(fields: Mapping[str, Any]) -> list[str]:
+    candidates = [
+        _clean_person_name(fields.get("primary_responsible_person_name")),
+        _clean_person_name(fields.get("project_manager_name")),
+    ]
+    for item in _list(fields.get("responsible_person_candidates")):
+        if isinstance(item, Mapping):
+            candidates.append(_clean_person_name(item.get("person_name")))
+    return _dedupe(candidate for candidate in candidates if _is_valid_person_name(candidate))
+
+
+def _clean_person_name(value: Any) -> str:
+    text = re.sub(r"\s+", "", str(value or "")).strip()
+    text = re.sub(r"(?:简历表|履历表|资料|证明|证书)$", "", text)
+    return text.strip(" ：:;；,，、。")
+
+
+def _is_valid_person_name(value: Any) -> bool:
+    text = _clean_person_name(value)
+    if not re.fullmatch(r"[\u4e00-\u9fff]{2,4}", text):
+        return False
+    return text not in {
+        "资料",
+        "姓名",
+        "职称",
+        "简历",
+        "本企业",
+        "是本",
+        "是本企业",
+        "项目",
+        "负责人",
+        "项目负责人",
+        "拟派",
+    }
 
 
 def _dossier_evidence_page_refs(dossier: Mapping[str, Any]) -> list[dict[str, Any]]:
