@@ -478,12 +478,14 @@ def _scoreboard_counts(
         ),
         "stage4_ygp_backfill_ready_task_count": _int(
             p13b_overlap_closeout_summary.get("ygp_stage4_backfill_ready_count")
+            or p13b_ygp_summary.get("stage4_ygp_backfill_state_counts", {}).get("YGP_STAGE4_BACKFILL_READY")
         ),
         "stage4_ygp_release_adapter_task_count": _int(
             p13b_overlap_closeout_summary.get("ygp_stage4_release_adapter_task_count")
         ),
         "stage4_ygp_gdcic_route_allowed_count": _int(
             p13b_overlap_closeout_summary.get("ygp_stage4_gdcic_route_allowed_count")
+            or p13b_ygp_summary.get("stage4_ygp_gdcic_route_allowed_count")
         ),
         "stage4_project_code_backfill_state_counts": _counts(
             row.get("stage4_project_code_backfill_state") for row in project_rows
@@ -672,19 +674,24 @@ def _project_scoreboard_row(
             p13b_overlap_closeout_signal.get("p13b_overlap_triage_state") or ""
         ),
         "p13b_ygp_stage4_backfill_ready_count": _int(
-            p13b_overlap_closeout_signal.get("ygp_stage4_backfill_ready_count")
+            p13b_ygp_signal.get("ygp_stage4_backfill_ready_count")
+            or p13b_overlap_closeout_signal.get("ygp_stage4_backfill_ready_count")
         ),
         "p13b_ygp_stage4_backfill_state_counts": dict(
-            p13b_overlap_closeout_signal.get("ygp_stage4_backfill_state_counts") or {}
+            p13b_ygp_signal.get("ygp_stage4_backfill_state_counts")
+            or p13b_overlap_closeout_signal.get("ygp_stage4_backfill_state_counts")
+            or {}
         ),
         "p13b_ygp_stage4_release_adapter_task_count": _int(
             p13b_overlap_closeout_signal.get("ygp_stage4_release_adapter_task_count")
         ),
         "p13b_ygp_gdcic_route_allowed_count": _int(
-            p13b_overlap_closeout_signal.get("ygp_stage4_gdcic_route_allowed_count")
+            p13b_ygp_signal.get("ygp_stage4_gdcic_route_allowed_count")
+            or p13b_overlap_closeout_signal.get("ygp_stage4_gdcic_route_allowed_count")
         ),
         "p13b_ygp_stage4_backfill_recommended_next_actions": _as_list(
-            p13b_overlap_closeout_signal.get("ygp_stage4_backfill_recommended_next_actions")
+            p13b_ygp_signal.get("ygp_stage4_backfill_recommended_next_actions")
+            or p13b_overlap_closeout_signal.get("ygp_stage4_backfill_recommended_next_actions")
         ),
         "company_first_stage4_execution_state": str(
             company_first_stage4_execution_signal.get("stage4_execution_state") or ""
@@ -1438,6 +1445,7 @@ def _stage4_project_code_backfill_state(
         or _as_list(p13b_overlap_closeout_signal.get("ygp_site_code_variants"))
         or _as_list(p13b_ygp_signal.get("ygp_notice_id_variants"))
         or _as_list(p13b_overlap_closeout_signal.get("ygp_notice_id_variants"))
+        or _int(p13b_ygp_signal.get("ygp_stage4_backfill_ready_count")) > 0
         or _int(p13b_overlap_closeout_signal.get("ygp_stage4_backfill_ready_count")) > 0
         or _int(p13b_overlap_closeout_signal.get("ygp_stage4_release_adapter_task_count")) > 0
     ):
@@ -1506,7 +1514,10 @@ def _stage4_public_identifier_backfill_source(
         p13b_overlap_closeout_signal.get("ygp_notice_id_variants")
     ):
         sources.append("YGP_NOTICE_ID")
-    if _int(p13b_overlap_closeout_signal.get("ygp_stage4_backfill_ready_count")) > 0:
+    if (
+        _int(p13b_ygp_signal.get("ygp_stage4_backfill_ready_count")) > 0
+        or _int(p13b_overlap_closeout_signal.get("ygp_stage4_backfill_ready_count")) > 0
+    ):
         sources.append("P13B_YGP_STAGE4_BACKFILL")
     return "|".join(_dedupe(sources))
 
@@ -1584,7 +1595,8 @@ def _stage5_operational_review(
     has_ygp_ready = ygp_state == "YGP_READBACK_READY"
     has_ygp_blocked = ygp_state == "YGP_BLOCKED"
     has_ygp_stage4_backfill_ready = _int(
-        p13b_overlap_closeout_signal.get("ygp_stage4_backfill_ready_count")
+        p13b_ygp_signal.get("ygp_stage4_backfill_ready_count")
+        or p13b_overlap_closeout_signal.get("ygp_stage4_backfill_ready_count")
     ) > 0
     company_first_supplement_state = str(
         company_first_stage4_execution_signal.get("supplement_after_execution_state") or ""
@@ -2311,11 +2323,16 @@ def _p13b_ygp_project_signals(payload: Mapping[str, Any]) -> dict[str, dict[str,
     if not manifest:
         return {}
     readback_records = _manifest_records(manifest, "ygp_original_readback_records")
-    project_ids = _ordered_project_ids(readback_records)
+    backfill_records = _manifest_records(manifest, "stage4_ygp_project_code_backfill_records")
+    project_ids = _ordered_project_ids(readback_records, backfill_records)
     signals: dict[str, dict[str, Any]] = {}
     for project_id in project_ids:
         project_records = [record for record in readback_records if str(record.get("project_id") or "").strip() == project_id]
+        project_backfills = [
+            record for record in backfill_records if str(record.get("project_id") or "").strip() == project_id
+        ]
         state_counts = _counts(record.get("ygp_readback_state") for record in project_records)
+        backfill_state_counts = _counts(record.get("stage4_ygp_backfill_state") for record in project_backfills)
         ready_count = _int(state_counts.get("YGP_ORIGINAL_URL_READBACK_READY")) + _int(
             state_counts.get("YGP_BROWSER_NETWORK_READBACK_READY")
         )
@@ -2332,10 +2349,30 @@ def _p13b_ygp_project_signals(payload: Mapping[str, Any]) -> dict[str, dict[str,
             "project_id": project_id,
             "p13b_ygp_original_readback_state": readback_state,
             "ygp_readback_state_counts": state_counts,
-            "ygp_project_code_variants": _dedupe(record.get("ygp_project_code") for record in project_records),
-            "ygp_biz_code_variants": _dedupe(record.get("ygp_biz_code") for record in project_records),
-            "ygp_site_code_variants": _dedupe(record.get("ygp_site_code") for record in project_records),
-            "ygp_notice_id_variants": _dedupe(record.get("ygp_notice_id") for record in project_records),
+            "ygp_stage4_backfill_ready_count": sum(
+                1
+                for record in project_backfills
+                if str(record.get("stage4_ygp_backfill_state") or "") == "YGP_STAGE4_BACKFILL_READY"
+            ),
+            "ygp_stage4_backfill_state_counts": backfill_state_counts,
+            "ygp_stage4_gdcic_route_allowed_count": sum(
+                1 for record in project_backfills if bool(record.get("gdcic_project_code_route_allowed"))
+            ),
+            "ygp_stage4_backfill_recommended_next_actions": _dedupe(
+                record.get("recommended_next_action") for record in project_backfills
+            ),
+            "ygp_project_code_variants": _dedupe(
+                record.get("ygp_project_code") for record in [*project_records, *project_backfills]
+            ),
+            "ygp_biz_code_variants": _dedupe(
+                record.get("ygp_biz_code") for record in [*project_records, *project_backfills]
+            ),
+            "ygp_site_code_variants": _dedupe(
+                record.get("ygp_site_code") for record in [*project_records, *project_backfills]
+            ),
+            "ygp_notice_id_variants": _dedupe(
+                record.get("ygp_notice_id") for record in [*project_records, *project_backfills]
+            ),
             "query_miss_is_not_clearance": True,
             "customer_visible_allowed": False,
             "no_legal_conclusion": True,
