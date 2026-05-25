@@ -31,6 +31,8 @@ param(
     [string]$Stage123FrontChainOutputRoot = "",
     [string]$Stage5CalibrationSampleJson = "",
     [string]$Stage5CalibrationSampleRoot = "",
+    [string]$Stage4BackfillFollowupQueueJson = "",
+    [string]$Stage4BackfillFollowupQueueRoot = "",
     [string]$Stage45ReplaySamplesJson = "",
     [string]$Stage45ReplayOutputRoot = "",
     [string]$OutputJson = "",
@@ -142,6 +144,12 @@ if ($Stage5CalibrationSampleJson) {
 }
 if ($Stage5CalibrationSampleRoot) {
     $argsList += @("--stage5-calibration-sample-root", $Stage5CalibrationSampleRoot)
+}
+if ($Stage4BackfillFollowupQueueJson) {
+    $argsList += @("--stage4-backfill-followup-queue-json", $Stage4BackfillFollowupQueueJson)
+}
+if ($Stage4BackfillFollowupQueueRoot) {
+    $argsList += @("--stage4-backfill-followup-queue-root", $Stage4BackfillFollowupQueueRoot)
 }
 if ($Stage45ReplaySamplesJson) {
     $argsList += @("--stage45-replay-samples-json", $Stage45ReplaySamplesJson)

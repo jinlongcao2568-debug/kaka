@@ -2782,6 +2782,8 @@ class RuntimeArchitectureContractTests(unittest.TestCase, IsolatedStorageTestMix
         self.assertIn("--stage2-capture-json", text)
         self.assertIn("--stage3-parse-json", text)
         self.assertIn("--stage5-calibration-sample-json", text)
+        self.assertIn("--stage4-backfill-followup-queue-json", text)
+        self.assertIn("--stage4-backfill-followup-queue-root", text)
         self.assertIn("--stage45-replay-samples-json", text)
         self.assertNotIn("storage.stage6_review_loop_runner", text)
         self.assertNotIn("storage.evidence_orchestration_state_machine", text)
