@@ -45,6 +45,8 @@ def build_stage1_6_sellable_scoreboard(
     p13b_overlap_triage_closeout_json: str | Path | None = None,
     stage6_status_root: str | Path | None = None,
     stage6_status_json: str | Path | None = None,
+    prior_scoreboard_json: str | Path | None = None,
+    incremental_project_ids: list[str] | str | None = None,
     output_root: str | Path | None = None,
     created_at: str | None = None,
 ) -> dict[str, Any]:
@@ -111,6 +113,8 @@ def build_stage1_6_sellable_scoreboard(
     p13b_ygp_original_readback = _read_json_mapping(p13b_ygp_original_readback_path)
     p13b_overlap_triage_closeout = _read_json_mapping(p13b_overlap_triage_closeout_path)
     stage6_status = _read_json_mapping(stage6_status_path)
+    prior_scoreboard = _read_json_mapping(Path(prior_scoreboard_json)) if prior_scoreboard_json else {}
+    incremental_targets = _string_set(incremental_project_ids)
 
     readiness_records = _records(readiness)
     gap_records = _records(gap_summary)
@@ -154,6 +158,11 @@ def build_stage1_6_sellable_scoreboard(
         )
         for project_id in project_ids
     ]
+    project_rows = _merge_incremental_prior_project_rows(
+        project_rows,
+        prior_scoreboard=prior_scoreboard,
+        incremental_project_ids=incremental_targets,
+    )
     counts = _scoreboard_counts(
         pressure_summary,
         readiness_records,
@@ -201,6 +210,8 @@ def build_stage1_6_sellable_scoreboard(
             "p13b_ygp_original_readback_json": str(p13b_ygp_original_readback_path),
             "p13b_overlap_triage_closeout_json": str(p13b_overlap_triage_closeout_path),
             "stage6_status_json": str(stage6_status_path),
+            "prior_scoreboard_json": str(prior_scoreboard_json or ""),
+            "incremental_project_ids": sorted(incremental_targets),
         },
         "scoreboard": counts,
         "blocker_summary": blocker_summary,
@@ -1737,6 +1748,48 @@ def _ordered_project_ids(*record_groups: list[Mapping[str, Any]]) -> list[str]:
     return out
 
 
+def _merge_incremental_prior_project_rows(
+    project_rows: list[Mapping[str, Any]],
+    *,
+    prior_scoreboard: Mapping[str, Any],
+    incremental_project_ids: set[str],
+) -> list[dict[str, Any]]:
+    if not incremental_project_ids:
+        return [dict(row) for row in project_rows]
+    prior_rows = prior_scoreboard.get("project_rows")
+    if not isinstance(prior_rows, list):
+        return [dict(row) for row in project_rows]
+    prior_by_project = {
+        str(row.get("project_id") or "").strip(): dict(row)
+        for row in prior_rows
+        if isinstance(row, Mapping) and str(row.get("project_id") or "").strip()
+    }
+    current_by_project = {
+        str(row.get("project_id") or "").strip(): dict(row)
+        for row in project_rows
+        if str(row.get("project_id") or "").strip()
+    }
+    ordered_ids = [str(row.get("project_id") or "").strip() for row in project_rows if str(row.get("project_id") or "").strip()]
+    for project_id in prior_by_project:
+        if project_id not in ordered_ids:
+            ordered_ids.append(project_id)
+
+    merged: list[dict[str, Any]] = []
+    for project_id in ordered_ids:
+        if project_id and project_id not in incremental_project_ids and project_id in prior_by_project:
+            row = dict(prior_by_project[project_id])
+            row["incremental_scoreboard_merge_state"] = "PRESERVED_FROM_PRIOR_SCOREBOARD_NON_TARGET"
+            merged.append(row)
+            continue
+        row = dict(current_by_project.get(project_id) or prior_by_project.get(project_id) or {})
+        if row:
+            row["incremental_scoreboard_merge_state"] = (
+                "CURRENT_INCREMENTAL_TARGET" if project_id in incremental_project_ids else "CURRENT_FULL_OR_NO_PRIOR"
+            )
+            merged.append(row)
+    return merged
+
+
 def _stage5_review_count(summary: Mapping[str, Any], records: list[Mapping[str, Any]]) -> int:
     counts = summary.get("stage5_rule_gate_status_counts")
     if isinstance(counts, Mapping) and "REVIEW" in counts:
@@ -1834,6 +1887,19 @@ def _as_list(value: Any) -> list[Any]:
     return [value]
 
 
+def _string_set(value: list[str] | str | None) -> set[str]:
+    if value is None:
+        return set()
+    values = value if isinstance(value, list) else [value]
+    out: set[str] = set()
+    for item in values:
+        for part in str(item or "").replace(";", ",").split(","):
+            text = part.strip()
+            if text:
+                out.add(text)
+    return out
+
+
 def _dedupe(values: list[str]) -> list[str]:
     out: list[str] = []
     for value in values:
@@ -1923,6 +1989,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--p13b-overlap-triage-closeout-json", default="")
     parser.add_argument("--stage6-status-root", default=str(DEFAULT_STAGE6_STATUS_ROOT))
     parser.add_argument("--stage6-status-json", default="")
+    parser.add_argument("--prior-scoreboard-json", default="")
+    parser.add_argument("--incremental-project-ids", default="")
     parser.add_argument("--output-root", default=str(DEFAULT_OUTPUT_ROOT))
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
@@ -1947,6 +2015,8 @@ def main(argv: list[str] | None = None) -> int:
         p13b_overlap_triage_closeout_json=args.p13b_overlap_triage_closeout_json or None,
         stage6_status_root=args.stage6_status_root,
         stage6_status_json=args.stage6_status_json or None,
+        prior_scoreboard_json=args.prior_scoreboard_json or None,
+        incremental_project_ids=args.incremental_project_ids or None,
         output_root=args.output_root,
     )
     if args.json:

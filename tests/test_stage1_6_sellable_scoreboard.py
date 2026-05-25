@@ -1351,6 +1351,116 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
             {"DATA_GGZY_BID_SHOW_ORIGINAL_URL_NOT_SENT_TO_GDCIC_PROJECT_CODE": 1},
         )
 
+    def test_incremental_scoreboard_preserves_non_target_public_source_projection(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            pressure = root / "pressure"
+            field_query = root / "field-query"
+            p13b_ygp = root / "p13b-ygp"
+            prior = root / "prior-scoreboard.json"
+            out = root / "out"
+            for path in (pressure, field_query, p13b_ygp, out):
+                path.mkdir(parents=True, exist_ok=True)
+
+            _write_json(pressure / "pressure-summary.json", {"candidate_count": 2})
+            _write_json(
+                pressure / "stage1-6-readiness-table.json",
+                {
+                    "records": [
+                        {
+                            "project_id": "PROJ-KEEP",
+                            "stage2_detail_capture_state": "FETCHED",
+                            "stage3_field_parse_state": "PARSED_FROM_FIELD_SIGNALS",
+                            "stage5_rule_gate_status": "REVIEW",
+                            "fail_closed_reasons": ["gdcic_project_code_not_resolved"],
+                        },
+                        {
+                            "project_id": "PROJ-TARGET",
+                            "stage2_detail_capture_state": "FETCHED",
+                            "stage3_field_parse_state": "PARSED_FROM_FIELD_SIGNALS",
+                            "stage5_rule_gate_status": "REVIEW",
+                            "fail_closed_reasons": ["gdcic_project_code_not_resolved"],
+                        },
+                    ]
+                },
+            )
+            _write_json(pressure / "stage1-6-gap-summary-table.json", {"records": []})
+            _write_json(
+                field_query / "guangdong-local-field-query-probe-v1.json",
+                {
+                    "manifest": {
+                        "field_task_records": [
+                            {"project_id": "PROJ-KEEP", "adapter_result_state": "NEEDS_BROWSER"},
+                            {"project_id": "PROJ-TARGET", "adapter_result_state": "NEEDS_BROWSER"},
+                        ]
+                    }
+                },
+            )
+            _write_json(
+                p13b_ygp / "ygp-original-readback-v1.json",
+                {
+                    "manifest": {
+                        "ygp_original_readback_records": [
+                            {
+                                "project_id": "PROJ-TARGET",
+                                "ygp_readback_state": "YGP_ORIGINAL_URL_READBACK_READY",
+                                "ygp_project_code": "E4401002701502338001",
+                                "ygp_biz_code": "3C52",
+                                "ygp_site_code": "440100",
+                                "ygp_notice_id": "notice-target",
+                            }
+                        ]
+                    }
+                },
+            )
+            _write_json(
+                prior,
+                {
+                    "project_rows": [
+                        {
+                            "project_id": "PROJ-KEEP",
+                            "stage5_operational_review_bucket": "STRONG_LEAD_INTERNAL_REVIEW",
+                            "stage5_operational_review_families": ["strong_lead", "official_readback_ready"],
+                            "limited_sellable_review_candidate_state": "REVIEW_CANDIDATE",
+                            "strong_lead_candidate_state": "STRONG_LEAD_REVIEW_CANDIDATE",
+                            "p13b_public_source_readback_state": "ORIGINAL_NOTICE_BACKTRACE_REQUIRED",
+                            "p13b_ygp_original_readback_state": "YGP_READBACK_READY",
+                            "stage4_project_code_backfill_state": (
+                                "PUBLIC_SOURCE_IDENTIFIER_BACKFILLED_FOR_P13B_OR_STAGE4_BRIDGE_ONLY"
+                            ),
+                            "stage4_public_identifier_backfill_source": "YGP_PROJECT_CODE",
+                            "stage4_gdcic_project_code_route_policy": (
+                                "YGP_OR_TRADE_IDENTIFIERS_NOT_SENT_TO_GDCIC_PROJECT_CODE"
+                            ),
+                            "customer_visible_allowed": False,
+                            "query_miss_is_not_clearance": True,
+                            "no_legal_conclusion": True,
+                        }
+                    ]
+                },
+            )
+
+            result = build_stage1_6_sellable_scoreboard(
+                pressure_root=pressure,
+                field_query_root=field_query,
+                p13b_ygp_original_readback_root=p13b_ygp,
+                prior_scoreboard_json=prior,
+                incremental_project_ids=["PROJ-TARGET"],
+                output_root=out,
+                created_at="2026-05-24T00:00:00+08:00",
+            )
+
+        rows = {row["project_id"]: row for row in result["project_rows"]}
+        self.assertEqual(
+            rows["PROJ-KEEP"]["incremental_scoreboard_merge_state"],
+            "PRESERVED_FROM_PRIOR_SCOREBOARD_NON_TARGET",
+        )
+        self.assertEqual(rows["PROJ-KEEP"]["limited_sellable_review_candidate_state"], "REVIEW_CANDIDATE")
+        self.assertEqual(rows["PROJ-TARGET"]["incremental_scoreboard_merge_state"], "CURRENT_INCREMENTAL_TARGET")
+        self.assertEqual(result["scoreboard"]["limited_sellable_review_candidate_count"], 1)
+        self.assertEqual(result["scoreboard"]["stage5_operational_review_family_counts"]["strong_lead"], 1)
+        self.assertFalse(result["safety"]["customer_visible_allowed"])
+
 
 def _write_json(path: Path, payload: dict) -> None:
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")

@@ -73,6 +73,7 @@ if ($SourceRegressionRunRoot) {
 New-Item -ItemType Directory -Force -Path $RunRoot | Out-Null
 $env:PYTHONPATH = "$repoRoot\src;$repoRoot\tests"
 $env:PYTHONIOENCODING = "utf-8"
+$priorScoreboardJsonForIncrementalMerge = ""
 
 function Resolve-RepoPath {
     param([string]$Value)
@@ -150,6 +151,7 @@ if ($ApplyStage4FollowupExecutionPlan -and $SourceRegressionRunRoot) {
     if ($followupQueue -and $followupQueue.input_refs -and $followupQueue.input_refs.scoreboard_json) {
         $scoreboardPath = Resolve-RepoPath "$($followupQueue.input_refs.scoreboard_json)"
         if (Test-Path $scoreboardPath) {
+            $priorScoreboardJsonForIncrementalMerge = $scoreboardPath
             $scoreboardPayload = Get-Content -LiteralPath $scoreboardPath -Raw -Encoding UTF8 | ConvertFrom-Json -Depth 100
         }
     }
@@ -500,6 +502,10 @@ if ($SupplementalFieldQueryJson) {
 }
 if (Test-Path $stage6StatusJson) {
     $scoreboardArgs += @("-Stage6StatusJson", $stage6StatusJson)
+}
+if ($priorScoreboardJsonForIncrementalMerge -and $ProjectIds) {
+    $scoreboardArgs += @("-PriorScoreboardJson", $priorScoreboardJsonForIncrementalMerge)
+    $scoreboardArgs += @("-IncrementalProjectIds", $ProjectIds)
 }
 if (Test-Path $gdcicReadbackJson) {
     $scoreboardArgs += @("-GdcicBrowserReadbackJson", $gdcicReadbackJson)

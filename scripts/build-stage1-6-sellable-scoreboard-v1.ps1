@@ -19,6 +19,8 @@ param(
     [string]$P13BOverlapTriageCloseoutJson = "",
     [string]$Stage6StatusRoot = "",
     [string]$Stage6StatusJson = "",
+    [string]$PriorScoreboardJson = "",
+    [string]$IncrementalProjectIds = "",
     [string]$OutputRoot = "",
     [switch]$EmitJson
 )
@@ -111,6 +113,12 @@ if ($P13BOverlapTriageCloseoutJson) {
 }
 if ($Stage6StatusJson) {
     $argsList += @("--stage6-status-json", $Stage6StatusJson)
+}
+if ($PriorScoreboardJson) {
+    $argsList += @("--prior-scoreboard-json", $PriorScoreboardJson)
+}
+if ($IncrementalProjectIds) {
+    $argsList += @("--incremental-project-ids", $IncrementalProjectIds)
 }
 if ($EmitJson) {
     $argsList += "--json"
