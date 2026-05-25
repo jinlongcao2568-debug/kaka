@@ -164,6 +164,7 @@ formal_entrypoints:
       - release evidence adapter plan
       - original backtrace continuation
       - P13B continuation results
+      - Stage1-6 sellable scoreboard
     state_outputs:
       - Stage6 review cycle manifest
       - runtime blocker controller queue

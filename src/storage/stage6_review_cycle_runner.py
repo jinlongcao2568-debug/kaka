@@ -439,6 +439,7 @@ def run_stage6_review_cycle_runner(
     stage5_calibration_sample_root: str | Path | None = None,
     design_survey_public_registry_readback_json: str | Path | None = None,
     design_survey_public_registry_readback_root: str | Path | None = None,
+    stage1_6_scoreboard_json: str | Path | None = None,
     output_root: str | Path = DEFAULT_OUTPUT_ROOT,
     execute_dispatch: bool = False,
     dispatch_max_groups: int | None = None,
@@ -650,6 +651,7 @@ def run_stage6_review_cycle_runner(
         source_stage6_review_loop_status_path=effective_stage6_review_loop_status_path,
         source_gdcic_browser_readback_path=gdcic_browser_readback_path,
         source_design_survey_public_registry_readback_path=design_survey_public_registry_readback_path,
+        source_stage1_6_scoreboard_path=Path(stage1_6_scoreboard_json) if stage1_6_scoreboard_json else None,
     )
     stage5_calibration_summary = _stage5_calibration_projection_summary(
         operator_projection_status_table.get("records")
@@ -697,6 +699,7 @@ def run_stage6_review_cycle_runner(
         "source_design_survey_public_registry_readback_json": str(
             design_survey_public_registry_readback_path or ""
         ),
+        "source_stage1_6_scoreboard_json": str(stage1_6_scoreboard_json or ""),
         "runtime_blocker_next_subqueue_input_state": next_subqueue_input_state,
         "stage6_fact_package_root": str(stage6_root),
         "stage6_fact_package_json": str(stage6_root / "stage6-fact-package-v1.json"),
@@ -927,6 +930,7 @@ def _operator_projection_status_table(
     source_stage6_review_loop_status_path: Path | None,
     source_gdcic_browser_readback_path: Path | None,
     source_design_survey_public_registry_readback_path: Path | None,
+    source_stage1_6_scoreboard_path: Path | None = None,
 ) -> dict[str, Any]:
     followup_records = [
         dict(record)
@@ -996,6 +1000,14 @@ def _operator_projection_status_table(
             project_records,
             design_registry_projection_by_project,
         )
+    scoreboard_alternative_route_by_project = _stage1_6_scoreboard_gdcic_alternative_route_projection_by_project(
+        source_stage1_6_scoreboard_path
+    )
+    if scoreboard_alternative_route_by_project:
+        project_records = _merge_stage1_6_scoreboard_gdcic_alternative_route_projection(
+            project_records,
+            scoreboard_alternative_route_by_project,
+        )
     projection_summary = {
         **dict(summary),
         "operator_projection_source": operator_projection_source,
@@ -1012,6 +1024,21 @@ def _operator_projection_status_table(
         "gdcic_browser_target_real_readback_success_count": sum(
             int(record.get("gdcic_browser_target_real_readback_success_count") or 0)
             for record in gdcic_projection_by_project.values()
+        ),
+        "gdcic_authorization_alternative_public_route_project_count": len(
+            scoreboard_alternative_route_by_project
+        ),
+        "gdcic_authorization_alternative_public_route_count": sum(
+            int(record.get("gdcic_alternative_public_source_route_count") or 0)
+            for record in scoreboard_alternative_route_by_project.values()
+        ),
+        "gdcic_authorization_alternative_public_route_target_type_counts": _sum_count_maps(
+            record.get("gdcic_alternative_public_source_route_target_type_counts")
+            for record in scoreboard_alternative_route_by_project.values()
+        ),
+        "gdcic_authorization_readiness_state_counts_from_scoreboard": _counts(
+            record.get("gdcic_authorization_readiness_state")
+            for record in scoreboard_alternative_route_by_project.values()
         ),
         "design_survey_public_registry_readback_project_count": len(
             design_registry_projection_by_project
@@ -1297,6 +1324,143 @@ def _merge_design_survey_public_registry_readback_projection(
         else:
             out.append(dict(projection))
     return out
+
+
+def _stage1_6_scoreboard_gdcic_alternative_route_projection_by_project(
+    path: Path | None,
+) -> dict[str, dict[str, Any]]:
+    if not path or not path.exists():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    scoreboard = payload.get("scoreboard") if isinstance(payload.get("scoreboard"), Mapping) else {}
+    gdcic_status = (
+        scoreboard.get("gdcic_authorized_readback_status")
+        if isinstance(scoreboard.get("gdcic_authorized_readback_status"), Mapping)
+        else {}
+    )
+    project_rows = [
+        dict(record)
+        for record in _list(payload.get("project_rows"))
+        if isinstance(record, Mapping) and str(record.get("project_id") or "").strip()
+    ]
+    out: dict[str, dict[str, Any]] = {}
+    for row in project_rows:
+        project_id = str(row.get("project_id") or "").strip()
+        route_count = _scoreboard_gdcic_alternative_route_count_for_row(row)
+        target_type_counts = _scoreboard_gdcic_alternative_route_target_type_counts_for_row(row)
+        if route_count <= 0 and not target_type_counts:
+            continue
+        auth_state = str(gdcic_status.get("authorization_readiness_state") or "")
+        out[project_id] = {
+            "project_id": project_id,
+            "stage1_6_scoreboard_json": str(path),
+            "gdcic_authorization_readiness_state": auth_state,
+            "gdcic_authorized_session_input_ready": bool(
+                gdcic_status.get("authorized_session_input_ready")
+            ),
+            "gdcic_target_real_readback_success_count": int(
+                gdcic_status.get("target_real_readback_success_count") or 0
+            ),
+            "gdcic_real_readback_success_proof_state": str(
+                gdcic_status.get("real_readback_success_proof_state")
+                or "NO_REAL_AUTHORIZED_READBACK_SUCCESS"
+            ),
+            "gdcic_authorization_blocker_is_not_terminal_if_alternative_public_sources_exist": True,
+            "gdcic_alternative_public_source_route_count": route_count,
+            "gdcic_alternative_public_source_route_target_type_counts": target_type_counts,
+            "gdcic_alternative_public_source_route_next_action": (
+                "continue_alternative_public_source_release_evidence_readback_chain"
+            ),
+            "gdcic_alternative_public_source_route_customer_visible_allowed": False,
+            "gdcic_alternative_public_source_route_query_miss_is_not_clearance": True,
+            "customer_visible_allowed": False,
+            "query_miss_is_not_clearance": True,
+            "no_legal_conclusion": True,
+        }
+    return out
+
+
+def _scoreboard_gdcic_alternative_route_count_for_row(row: Mapping[str, Any]) -> int:
+    count = 0
+    count += int(row.get("p13b_bid_show_original_notice_url_count") or 0)
+    count += int(row.get("p13b_local_authority_source_task_count") or 0)
+    count += int(row.get("p13b_ygp_stage4_release_adapter_task_count") or 0) or int(
+        row.get("p13b_ygp_stage4_backfill_ready_count") or 0
+    )
+    if str(row.get("p13b_original_notice_readback_state") or "").strip():
+        count += 1
+    if int(row.get("design_survey_public_registry_readback_record_count") or 0):
+        count += 1
+    return count
+
+
+def _scoreboard_gdcic_alternative_route_target_type_counts_for_row(
+    row: Mapping[str, Any],
+) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    _add_count(counts, "data_ggzy_bid_show", int(row.get("p13b_bid_show_original_notice_url_count") or 0))
+    _add_count(
+        counts,
+        "local_authority_public_source",
+        int(row.get("p13b_local_authority_source_task_count") or 0),
+    )
+    _add_count(
+        counts,
+        "ygp_original_readback",
+        int(row.get("p13b_ygp_stage4_release_adapter_task_count") or 0)
+        or int(row.get("p13b_ygp_stage4_backfill_ready_count") or 0),
+    )
+    if str(row.get("p13b_original_notice_readback_state") or "").strip():
+        _add_count(counts, "original_notice_readback", 1)
+    if int(row.get("design_survey_public_registry_readback_record_count") or 0):
+        _add_count(counts, "design_survey_public_registry", 1)
+    return counts
+
+
+def _merge_stage1_6_scoreboard_gdcic_alternative_route_projection(
+    project_records: list[dict[str, Any]],
+    alternative_route_by_project: Mapping[str, Mapping[str, Any]],
+) -> list[dict[str, Any]]:
+    out = [dict(record) for record in project_records]
+    by_project_id = {
+        str(record.get("project_id") or "").strip(): record
+        for record in out
+        if str(record.get("project_id") or "").strip()
+    }
+    for project_id, projection in alternative_route_by_project.items():
+        if project_id in by_project_id:
+            target = by_project_id[project_id]
+            target.update({key: value for key, value in projection.items() if key != "project_id"})
+            refs = _dedupe(
+                [
+                    *_list(target.get("input_artifact_refs")),
+                    projection.get("stage1_6_scoreboard_json"),
+                ]
+            )
+            if refs:
+                target["input_artifact_refs"] = refs
+        else:
+            out.append(dict(projection))
+    return out
+
+
+def _sum_count_maps(values: Any) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for value in values or []:
+        if not isinstance(value, Mapping):
+            continue
+        for key, count in value.items():
+            _add_count(counts, str(key), int(count or 0))
+    return counts
+
+
+def _add_count(counts: dict[str, int], key: str, amount: int) -> None:
+    if not key or amount <= 0:
+        return
+    counts[key] = counts.get(key, 0) + amount
 
 
 def _dominant_count_key(counts: Mapping[str, int]) -> str:
@@ -2475,6 +2639,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--stage5-calibration-sample-root", default="")
     parser.add_argument("--design-survey-public-registry-readback-json", default="")
     parser.add_argument("--design-survey-public-registry-readback-root", default="")
+    parser.add_argument("--stage1-6-scoreboard-json", default="")
     parser.add_argument("--output-root", default=str(DEFAULT_OUTPUT_ROOT))
     parser.add_argument("--execute-dispatch", action="store_true")
     parser.add_argument("--dispatch-max-groups", type=int, default=None)
@@ -2513,6 +2678,7 @@ def main(argv: list[str] | None = None) -> int:
         stage5_calibration_sample_root=args.stage5_calibration_sample_root or None,
         design_survey_public_registry_readback_json=args.design_survey_public_registry_readback_json or None,
         design_survey_public_registry_readback_root=args.design_survey_public_registry_readback_root or None,
+        stage1_6_scoreboard_json=args.stage1_6_scoreboard_json or None,
         output_root=args.output_root,
         execute_dispatch=bool(args.execute_dispatch),
         dispatch_max_groups=args.dispatch_max_groups,

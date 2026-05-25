@@ -21,6 +21,7 @@ param(
     [string]$Stage5CalibrationSampleRoot = "",
     [string]$DesignSurveyPublicRegistryReadbackJson = "",
     [string]$DesignSurveyPublicRegistryReadbackRoot = "",
+    [string]$Stage1To6ScoreboardJson = "",
     [string]$OutputRoot = "",
     [string]$ProjectIds = "",
     [string]$BaselineEvidenceStateJson = "",
@@ -119,6 +120,9 @@ if ($DesignSurveyPublicRegistryReadbackJson) {
 }
 if ($DesignSurveyPublicRegistryReadbackRoot) {
     $argsList += @("--design-survey-public-registry-readback-root", $DesignSurveyPublicRegistryReadbackRoot)
+}
+if ($Stage1To6ScoreboardJson) {
+    $argsList += @("--stage1-6-scoreboard-json", $Stage1To6ScoreboardJson)
 }
 if ($ProjectIds) {
     $argsList += @("--project-ids", $ProjectIds)

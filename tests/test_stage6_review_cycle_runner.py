@@ -1519,6 +1519,101 @@ class Stage6ReviewCycleRunnerTests(unittest.TestCase):
         self.assertEqual(table["summary"]["design_survey_public_registry_not_found_review_count"], 1)
         self.assertEqual(table["summary"]["limited_sellable_review_candidate_count"], 0)
 
+    def test_operator_projection_merges_scoreboard_gdcic_alternative_public_routes(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            status_path = root / "status" / "stage6-review-loop-project-status-table.json"
+            scoreboard_path = root / "scoreboard" / "stage1-6-sellable-scoreboard-v1.json"
+            _write_json(
+                status_path,
+                {
+                    "records": [
+                        {
+                            "project_id": "PROJ-AUTH-ALT",
+                            "project_name": "GDCIC auth blocked with public routes",
+                            "loop_terminal_state": "RELEASE_FIELD_QUERY_GAP_OR_BLOCKER_REVIEW",
+                            "release_field_query_operator_next_actions": [
+                                "provide_gdcic_authorized_storage_state_or_user_data_dir_then_rerun",
+                            ],
+                            "customer_visible_allowed": False,
+                            "query_miss_is_not_clearance": True,
+                            "no_legal_conclusion": True,
+                        }
+                    ]
+                },
+            )
+            _write_json(
+                scoreboard_path,
+                {
+                    "scoreboard": {
+                        "gdcic_authorized_readback_status": {
+                            "artifact_state": "MISSING_OR_NOT_BUILT",
+                            "authorization_readiness_state": "LOGIN_OR_SSO_REQUIRED",
+                            "authorized_session_input_ready": False,
+                            "target_real_readback_success_count": 0,
+                            "real_readback_success_proof_state": "NO_REAL_AUTHORIZED_READBACK_SUCCESS",
+                            "authorization_blocker_is_not_terminal_if_alternative_public_sources_exist": True,
+                            "alternative_public_source_route_count": 4,
+                            "customer_visible_allowed": False,
+                            "query_miss_is_not_clearance": True,
+                        }
+                    },
+                    "project_rows": [
+                        {
+                            "project_id": "PROJ-AUTH-ALT",
+                            "p13b_bid_show_original_notice_url_count": 1,
+                            "p13b_local_authority_source_task_count": 1,
+                            "p13b_original_notice_readback_state": "BLOCKED",
+                            "p13b_ygp_stage4_release_adapter_task_count": 1,
+                            "stage4_gdcic_project_code_route_policy": (
+                                "YGP_OR_TRADE_IDENTIFIERS_NOT_SENT_TO_GDCIC_PROJECT_CODE"
+                            ),
+                            "customer_visible_allowed": False,
+                            "query_miss_is_not_clearance": True,
+                        }
+                    ],
+                },
+            )
+
+            table = cycle_runner._operator_projection_status_table(
+                summary={},
+                stage6_result={},
+                runtime_blocker_worker_followup_queue={"records": []},
+                runtime_blocker_subqueue_controller_table={},
+                runtime_blocker_controller_dispatch_table={},
+                runtime_blocker_controller_dispatch_runner_result={},
+                source_stage6_review_loop_status_path=status_path,
+                source_gdcic_browser_readback_path=None,
+                source_design_survey_public_registry_readback_path=None,
+                source_stage1_6_scoreboard_path=scoreboard_path,
+            )
+
+        row = table["records"][0]
+        self.assertEqual(row["project_id"], "PROJ-AUTH-ALT")
+        self.assertEqual(row["gdcic_authorization_readiness_state"], "LOGIN_OR_SSO_REQUIRED")
+        self.assertFalse(row["gdcic_authorized_session_input_ready"])
+        self.assertEqual(row["gdcic_target_real_readback_success_count"], 0)
+        self.assertEqual(row["gdcic_real_readback_success_proof_state"], "NO_REAL_AUTHORIZED_READBACK_SUCCESS")
+        self.assertTrue(row["gdcic_authorization_blocker_is_not_terminal_if_alternative_public_sources_exist"])
+        self.assertEqual(row["gdcic_alternative_public_source_route_count"], 4)
+        self.assertEqual(
+            row["gdcic_alternative_public_source_route_target_type_counts"],
+            {
+                "data_ggzy_bid_show": 1,
+                "local_authority_public_source": 1,
+                "original_notice_readback": 1,
+                "ygp_original_readback": 1,
+            },
+        )
+        self.assertFalse(row["customer_visible_allowed"])
+        self.assertTrue(row["query_miss_is_not_clearance"])
+        self.assertEqual(table["summary"]["gdcic_authorization_alternative_public_route_project_count"], 1)
+        self.assertEqual(table["summary"]["gdcic_authorization_alternative_public_route_count"], 4)
+        self.assertEqual(
+            table["summary"]["gdcic_authorization_readiness_state_counts_from_scoreboard"],
+            {"LOGIN_OR_SSO_REQUIRED": 1},
+        )
+
 
 def _write_evidence_state(root: Path) -> Path:
     path = root / "evidence-orchestration-state-v1.json"
