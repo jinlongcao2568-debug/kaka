@@ -146,18 +146,29 @@ if ($ApplyStage4FollowupExecutionPlan) {
 }
 
 if ($ApplyStage4FollowupExecutionPlan -and $SourceRegressionRunRoot) {
-    $sourceGdcicJson = Join-Path $sourceGdcicReadbackRoot "gdcic-browser-authorized-readback-v1.json"
-    if (-not (Test-Path $sourceGdcicJson) -and $followupQueue -and $followupQueue.input_refs -and $followupQueue.input_refs.scoreboard_json) {
+    $scoreboardPayload = $null
+    if ($followupQueue -and $followupQueue.input_refs -and $followupQueue.input_refs.scoreboard_json) {
         $scoreboardPath = Resolve-RepoPath "$($followupQueue.input_refs.scoreboard_json)"
         if (Test-Path $scoreboardPath) {
             $scoreboardPayload = Get-Content -LiteralPath $scoreboardPath -Raw -Encoding UTF8 | ConvertFrom-Json -Depth 100
-            if ($scoreboardPayload.input_refs -and $scoreboardPayload.input_refs.gdcic_browser_authorized_readback_json) {
-                $scoreboardGdcicJson = Resolve-RepoPath "$($scoreboardPayload.input_refs.gdcic_browser_authorized_readback_json)"
-                if (Test-Path $scoreboardGdcicJson) {
-                    $sourceGdcicReadbackRoot = Split-Path -Parent $scoreboardGdcicJson
-                    Write-Host "[stage1-6-regression] reused gdcic-browser-authorized-readback from scoreboard input_refs: $scoreboardGdcicJson"
-                }
-            }
+        }
+    }
+
+    $sourceFieldQueryJson = Join-Path $sourceFieldQueryRoot "guangdong-local-field-query-probe-v1.json"
+    if (-not (Test-Path $sourceFieldQueryJson) -and $scoreboardPayload -and $scoreboardPayload.input_refs -and $scoreboardPayload.input_refs.release_field_query_json) {
+        $scoreboardFieldQueryJson = Resolve-RepoPath "$($scoreboardPayload.input_refs.release_field_query_json)"
+        if (Test-Path $scoreboardFieldQueryJson) {
+            $sourceFieldQueryRoot = Split-Path -Parent $scoreboardFieldQueryJson
+            Write-Host "[stage1-6-regression] reused primary release field query from scoreboard input_refs: $scoreboardFieldQueryJson"
+        }
+    }
+
+    $sourceGdcicJson = Join-Path $sourceGdcicReadbackRoot "gdcic-browser-authorized-readback-v1.json"
+    if (-not (Test-Path $sourceGdcicJson) -and $scoreboardPayload -and $scoreboardPayload.input_refs -and $scoreboardPayload.input_refs.gdcic_browser_authorized_readback_json) {
+        $scoreboardGdcicJson = Resolve-RepoPath "$($scoreboardPayload.input_refs.gdcic_browser_authorized_readback_json)"
+        if (Test-Path $scoreboardGdcicJson) {
+            $sourceGdcicReadbackRoot = Split-Path -Parent $scoreboardGdcicJson
+            Write-Host "[stage1-6-regression] reused gdcic-browser-authorized-readback from scoreboard input_refs: $scoreboardGdcicJson"
         }
     }
 }
@@ -194,6 +205,7 @@ if ($DescribeEffectivePlanAndExit) {
         input_refs = [ordered]@{
             ScoreboardComparisonJson = "$ScoreboardComparisonJson"
             Stage4BackfillFollowupQueueJson = "$Stage4BackfillFollowupQueueJson"
+            EffectiveFieldQueryRoot = "$sourceFieldQueryRoot"
             EffectiveGdcicBrowserReadbackRoot = "$sourceGdcicReadbackRoot"
         }
         target = [ordered]@{

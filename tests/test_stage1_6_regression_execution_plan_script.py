@@ -98,7 +98,10 @@ class StageOneSixRegressionExecutionPlanScriptTests(unittest.TestCase):
             root = Path(tmp_dir)
             queue_json = root / "stage4-backfill-followup-queue-v1.json"
             scoreboard_json = root / "scoreboard" / "stage1-6-sellable-scoreboard-v1.json"
+            field_query_json = root / "reused-field-query" / "guangdong-local-field-query-probe-v1.json"
             gdcic_json = root / "reused-gdcic" / "gdcic-browser-authorized-readback-v1.json"
+            field_query_json.parent.mkdir(parents=True)
+            field_query_json.write_text(json.dumps({"summary": {"adapter_result_state_counts": {"NEEDS_BROWSER": 1}}}), encoding="utf-8")
             gdcic_json.parent.mkdir(parents=True)
             gdcic_json.write_text(json.dumps({"summary": {"authorized_session_input_state": "NO_AUTHORIZED_SESSION_INPUT"}}), encoding="utf-8")
             scoreboard_json.parent.mkdir(parents=True)
@@ -106,6 +109,7 @@ class StageOneSixRegressionExecutionPlanScriptTests(unittest.TestCase):
                 json.dumps(
                     {
                         "input_refs": {
+                            "release_field_query_json": str(field_query_json),
                             "gdcic_browser_authorized_readback_json": str(gdcic_json),
                         },
                         "scoreboard": {},
@@ -156,6 +160,7 @@ class StageOneSixRegressionExecutionPlanScriptTests(unittest.TestCase):
             )
 
         payload = _json_from_stdout(completed.stdout)
+        self.assertEqual(payload["input_refs"]["EffectiveFieldQueryRoot"], str(field_query_json.parent))
         self.assertEqual(payload["input_refs"]["EffectiveGdcicBrowserReadbackRoot"], str(gdcic_json.parent))
         self.assertTrue(payload["run_switches"]["RunP13BPublicSourceChain"])
 
