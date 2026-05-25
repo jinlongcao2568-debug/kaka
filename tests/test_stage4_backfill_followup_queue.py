@@ -16,6 +16,61 @@ from storage.stage4_backfill_followup_queue import build_stage4_backfill_followu
 
 
 class Stage4BackfillFollowupQueueTests(unittest.TestCase):
+    def test_emits_continuation_input_refs_from_scoreboard_input_refs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            pressure_root = root / "pressure"
+            field_root = root / "field-query"
+            gdcic_root = root / "gdcic-browser-authorized-readback"
+            stage6_root = root / "stage6-loop-merged"
+            scoreboard = root / "scoreboard" / "stage1-6-sellable-scoreboard-v1.json"
+            out = root / "out"
+            pressure_summary = pressure_root / "pressure-summary.json"
+            release_plan = pressure_root / "stage4-release-adapter-bridge-plan.json"
+            field_json = field_root / "guangdong-local-field-query-probe-v1.json"
+            gdcic_json = gdcic_root / "gdcic-browser-authorized-readback-v1.json"
+            stage6_json = stage6_root / "stage6-review-loop-project-status-table.json"
+            _write_json(pressure_summary, {"summary": {"candidate_count": 1}})
+            _write_json(release_plan, {"tasks": []})
+            _write_json(field_json, {"summary": {"adapter_result_state_counts": {"MATCHED": 1}}})
+            _write_json(gdcic_json, {"summary": {"authorization_readiness_state": "LOGIN_OR_SSO_REQUIRED"}})
+            _write_json(stage6_json, {"summary": {"project_status_record_count": 1}})
+            _write_json(
+                scoreboard,
+                {
+                    "input_refs": {
+                        "pressure_summary_json": str(pressure_summary),
+                        "release_field_query_json": str(field_json),
+                        "gdcic_browser_authorized_readback_json": str(gdcic_json),
+                        "stage6_status_json": str(stage6_json),
+                    },
+                    "project_rows": [
+                        {
+                            "project_id": "PROJ-GDCIC-UNRESOLVED",
+                            "stage4_project_code_backfill_state": "MISSING_PROJECT_CODE_BACKFILL_INPUT",
+                            "stage4_project_code_backfill_gap_detail": "GDCIC_IDENTIFIER_UNRESOLVED_AFTER_PUBLIC_BACKFILL_REQUIRED",
+                        }
+                    ],
+                },
+            )
+
+            result = build_stage4_backfill_followup_queue(
+                scoreboard_json=scoreboard,
+                output_root=out,
+                created_at="2026-05-25T00:00:00+00:00",
+            )
+
+        refs = result["continuation_input_refs"]
+        self.assertEqual(refs["prior_scoreboard_json"], str(scoreboard))
+        self.assertEqual(refs["effective_pressure_root"], str(pressure_root))
+        self.assertEqual(refs["effective_release_field_query_root"], str(field_root))
+        self.assertEqual(refs["effective_gdcic_browser_readback_root"], str(gdcic_root))
+        self.assertEqual(refs["effective_stage6_status_root"], str(stage6_root))
+        self.assertEqual(refs["pressure_root_resolution_state"], "RESOLVED_FROM_SCOREBOARD_INPUT_REFS")
+        self.assertFalse(refs["customer_visible_allowed"])
+        self.assertTrue(refs["query_miss_is_not_clearance"])
+        self.assertEqual(result["next_regression_execution_plan"]["continuation_input_refs"], refs)
+
     def test_builds_controller_consumable_followups_from_scoreboard_gap_details(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)

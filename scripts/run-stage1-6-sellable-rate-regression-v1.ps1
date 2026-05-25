@@ -88,6 +88,18 @@ function Resolve-RepoPath {
     return [System.IO.Path]::GetFullPath((Join-Path $repoRoot $Value))
 }
 
+function Resolve-ExistingDir {
+    param([string]$Value)
+    if (-not $Value) {
+        return ""
+    }
+    $resolved = Resolve-RepoPath "$Value"
+    if (Test-Path -Path $resolved -PathType Container) {
+        return $resolved
+    }
+    return ""
+}
+
 function Expand-StringList {
     param([string[]]$Values)
     $items = @()
@@ -190,6 +202,47 @@ if ($followupQueue -and $SourceRegressionRunRoot) {
         if (Test-Path $scoreboardPath) {
             $priorScoreboardJsonForIncrementalMerge = $scoreboardPath
             $scoreboardPayload = Get-Content -LiteralPath $scoreboardPath -Raw -Encoding UTF8 | ConvertFrom-Json -Depth 100
+        }
+    }
+
+    $continuationRefs = $null
+    if ($followupQueue.continuation_input_refs) {
+        $continuationRefs = $followupQueue.continuation_input_refs
+    } elseif ($executionPlan -and $executionPlan.continuation_input_refs) {
+        $continuationRefs = $executionPlan.continuation_input_refs
+    }
+    if ($continuationRefs) {
+        if (-not $priorScoreboardJsonForIncrementalMerge -and $continuationRefs.prior_scoreboard_json) {
+            $candidatePriorScoreboardJson = Resolve-RepoPath "$($continuationRefs.prior_scoreboard_json)"
+            if (Test-Path $candidatePriorScoreboardJson) {
+                $priorScoreboardJsonForIncrementalMerge = $candidatePriorScoreboardJson
+                if (-not $scoreboardPayload) {
+                    $scoreboardPayload = Get-Content -LiteralPath $candidatePriorScoreboardJson -Raw -Encoding UTF8 | ConvertFrom-Json -Depth 100
+                }
+            }
+        }
+        $continuationPressureRoot = Resolve-ExistingDir "$($continuationRefs.effective_pressure_root)"
+        if ($continuationPressureRoot -and (Test-Path (Join-Path $continuationPressureRoot "stage4-release-adapter-bridge-plan.json"))) {
+            $sourcePressureRoot = $continuationPressureRoot
+            Write-Host "[stage1-6-regression] reused pressure root from follow-up continuation_input_refs: $sourcePressureRoot"
+        }
+        $continuationFieldQueryRoot = Resolve-ExistingDir "$($continuationRefs.effective_release_field_query_root)"
+        if ($continuationFieldQueryRoot -and (Test-Path (Join-Path $continuationFieldQueryRoot "guangdong-local-field-query-probe-v1.json"))) {
+            $sourceFieldQueryRoot = $continuationFieldQueryRoot
+            Write-Host "[stage1-6-regression] reused field query root from follow-up continuation_input_refs: $sourceFieldQueryRoot"
+        }
+        $continuationGdcicRoot = Resolve-ExistingDir "$($continuationRefs.effective_gdcic_browser_readback_root)"
+        if ($continuationGdcicRoot -and (Test-Path (Join-Path $continuationGdcicRoot "gdcic-browser-authorized-readback-v1.json"))) {
+            $sourceGdcicReadbackRoot = $continuationGdcicRoot
+            Write-Host "[stage1-6-regression] reused gdcic-browser readback root from follow-up continuation_input_refs: $sourceGdcicReadbackRoot"
+        }
+        $continuationStage6Root = Resolve-ExistingDir "$($continuationRefs.effective_stage6_status_root)"
+        if ($continuationStage6Root -and (
+            (Test-Path (Join-Path $continuationStage6Root "stage6-review-loop-project-status-table.json")) -or
+            (Test-Path (Join-Path $continuationStage6Root "stage6-review-cycle-runner-v1.json"))
+        )) {
+            $sourceStage6MergedRoot = $continuationStage6Root
+            Write-Host "[stage1-6-regression] reused Stage6 status root from follow-up continuation_input_refs: $sourceStage6MergedRoot"
         }
     }
 

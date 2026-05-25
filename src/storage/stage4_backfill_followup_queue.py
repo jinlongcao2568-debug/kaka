@@ -24,6 +24,7 @@ def build_stage4_backfill_followup_queue(
     scoreboard_path = Path(scoreboard_json)
     payload = _read_json(scoreboard_path)
     rows = payload.get("project_rows") if isinstance(payload.get("project_rows"), list) else []
+    continuation_input_refs = _continuation_input_refs(payload, scoreboard_path)
     deepening_policy = _public_source_deepening_policy(
         scoreboard_path=scoreboard_path,
         comparison_json=scoreboard_comparison_json,
@@ -41,9 +42,14 @@ def build_stage4_backfill_followup_queue(
             "scoreboard_json": str(scoreboard_path),
             "scoreboard_comparison_json": str(scoreboard_comparison_json or ""),
         },
+        "continuation_input_refs": continuation_input_refs,
         "summary": _summary(records),
         "public_source_deepening_policy": deepening_policy,
-        "next_regression_execution_plan": _next_regression_execution_plan(records, deepening_policy),
+        "next_regression_execution_plan": _next_regression_execution_plan(
+            records,
+            deepening_policy,
+            continuation_input_refs=continuation_input_refs,
+        ),
         "records": records,
         "safety": {
             "customer_visible_allowed": False,
@@ -303,6 +309,53 @@ def _public_source_deepening_policy(
     return default
 
 
+def _continuation_input_refs(payload: Mapping[str, Any], scoreboard_path: Path) -> dict[str, Any]:
+    input_refs = payload.get("input_refs") if isinstance(payload.get("input_refs"), Mapping) else {}
+    pressure_root = _root_with_required_sibling(
+        input_refs,
+        keys=["pressure_summary_json", "stage1_6_readiness_json", "stage1_6_gap_summary_json"],
+        required_sibling="stage4-release-adapter-bridge-plan.json",
+    )
+    release_field_query_root = _parent_if_file_exists(input_refs.get("release_field_query_json"))
+    gdcic_readback_root = _parent_if_file_exists(input_refs.get("gdcic_browser_authorized_readback_json"))
+    stage6_status_root = _parent_if_file_exists(input_refs.get("stage6_status_json"))
+    return {
+        "prior_scoreboard_json": str(scoreboard_path),
+        "effective_pressure_root": pressure_root,
+        "effective_release_field_query_root": release_field_query_root,
+        "effective_gdcic_browser_readback_root": gdcic_readback_root,
+        "effective_stage6_status_root": stage6_status_root,
+        "pressure_root_resolution_state": "RESOLVED_FROM_SCOREBOARD_INPUT_REFS" if pressure_root else "UNRESOLVED",
+        "release_field_query_root_resolution_state": (
+            "RESOLVED_FROM_SCOREBOARD_INPUT_REFS" if release_field_query_root else "UNRESOLVED"
+        ),
+        "gdcic_browser_readback_root_resolution_state": (
+            "RESOLVED_FROM_SCOREBOARD_INPUT_REFS" if gdcic_readback_root else "UNRESOLVED"
+        ),
+        "customer_visible_allowed": False,
+        "query_miss_is_not_clearance": True,
+        "no_legal_conclusion": True,
+    }
+
+
+def _root_with_required_sibling(input_refs: Mapping[str, Any], *, keys: list[str], required_sibling: str) -> str:
+    for key in keys:
+        root = _parent_if_file_exists(input_refs.get(key))
+        if root and (Path(root) / required_sibling).exists():
+            return root
+    return ""
+
+
+def _parent_if_file_exists(value: Any) -> str:
+    path_text = str(value or "").strip()
+    if not path_text:
+        return ""
+    path = Path(path_text)
+    if path.exists() and path.is_file():
+        return str(path.parent)
+    return ""
+
+
 def _summary(records: list[Mapping[str, Any]]) -> dict[str, Any]:
     return {
         "followup_record_count": len(records),
@@ -325,6 +378,8 @@ def _summary(records: list[Mapping[str, Any]]) -> dict[str, Any]:
 def _next_regression_execution_plan(
     records: list[Mapping[str, Any]],
     deepening_policy: Mapping[str, Any],
+    *,
+    continuation_input_refs: Mapping[str, Any],
 ) -> dict[str, Any]:
     high_count = sum(
         1 for record in records if record.get("execution_priority") == "HIGH_PUBLIC_SOURCE_DEEPENING"
@@ -343,6 +398,7 @@ def _next_regression_execution_plan(
             "target_project_ids": [],
             "recommended_parameter_overrides": {},
             "runner_entrypoint": "scripts/run-stage1-6-sellable-rate-regression-v1.ps1",
+            "continuation_input_refs": dict(continuation_input_refs),
             "customer_visible_allowed": False,
             "live_execution_enabled_by_default": False,
             "query_miss_is_not_clearance": True,
@@ -360,6 +416,7 @@ def _next_regression_execution_plan(
     return {
         "plan_state": plan_state,
         "runner_entrypoint": "scripts/run-stage1-6-sellable-rate-regression-v1.ps1",
+        "continuation_input_refs": dict(continuation_input_refs),
         "target_project_ids": target_project_ids,
         "target_project_count": len(target_project_ids),
         "public_source_fallback_sequence": [
