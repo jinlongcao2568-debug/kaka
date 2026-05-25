@@ -162,7 +162,7 @@ def run_stage6_review_loop_runner(
         release_field_query_json=release_field_query_json,
         release_field_query_root=release_field_query_root,
     )
-    standalone_supplemental_release_field_query_path = _release_field_query_path(
+    standalone_supplemental_release_field_query_paths = _release_field_query_paths(
         release_field_query_json=supplemental_release_field_query_json,
         release_field_query_root=supplemental_release_field_query_root,
     )
@@ -184,7 +184,7 @@ def run_stage6_review_loop_runner(
     )
     standalone_release_field_query_results = _standalone_release_field_query_results_by_project(
         standalone_release_field_query_path,
-        supplemental_path=standalone_supplemental_release_field_query_path,
+        supplemental_paths=standalone_supplemental_release_field_query_paths,
     )
     standalone_release_evidence_adapter_plan_status_records = (
         []
@@ -313,7 +313,7 @@ def run_stage6_review_loop_runner(
     continuation_input_refs = build_stage6_review_cycle_continuation_input_refs(
         output_root=out_dir,
         release_field_query_json=standalone_release_field_query_path,
-        supplemental_release_field_query_json=standalone_supplemental_release_field_query_path,
+        supplemental_release_field_query_json=_joined_existing_paths(*standalone_supplemental_release_field_query_paths),
         runtime_blocker_next_subqueue_json=out_dir / "stage6-review-loop-runtime-blocker-next-subqueues.json",
         stage6_review_loop_status_json=project_status_table_path,
     )
@@ -370,7 +370,7 @@ def run_stage6_review_loop_runner(
         },
         "source_standalone_release_field_query_json": str(standalone_release_field_query_path or ""),
         "source_standalone_supplemental_release_field_query_json": str(
-            standalone_supplemental_release_field_query_path or ""
+            _joined_existing_paths(*standalone_supplemental_release_field_query_paths)
         ),
         "standalone_release_field_query_imported_project_count": len(standalone_release_field_query_results),
         "source_standalone_release_evidence_adapter_plan_json": str(
@@ -1061,6 +1061,22 @@ def _release_field_query_path(
     return None
 
 
+def _release_field_query_paths(
+    *,
+    release_field_query_json: str | Path | None,
+    release_field_query_root: str | Path | None,
+) -> list[Path]:
+    paths: list[Path] = []
+    if release_field_query_json:
+        for part in str(release_field_query_json).split(";"):
+            text = part.strip()
+            if text:
+                paths.append(Path(text))
+    elif release_field_query_root:
+        paths.append(Path(release_field_query_root) / DEFAULT_RELEASE_FIELD_QUERY_FILENAME)
+    return paths
+
+
 def _release_evidence_adapter_plan_path(
     *,
     release_evidence_adapter_plan_json: str | Path | None,
@@ -1112,14 +1128,16 @@ def _stage5_calibration_sample_path(
 def _standalone_release_field_query_results_by_project(
     path: Path | None,
     *,
-    supplemental_path: Path | None = None,
+    supplemental_paths: list[Path] | None = None,
 ) -> dict[str, dict[str, Any]]:
-    if (path is None or not path.exists()) and (supplemental_path is None or not supplemental_path.exists()):
+    supplemental_paths = supplemental_paths or []
+    existing_supplemental_paths = [item for item in supplemental_paths if item.exists()]
+    if (path is None or not path.exists()) and not existing_supplemental_paths:
         return {}
-    primary_path = path if path is not None else supplemental_path
+    primary_path = path if path is not None and path.exists() else existing_supplemental_paths[0] if existing_supplemental_paths else None
     if primary_path is None:
         return {}
-    field_tasks, manifest_by_path = _release_field_query_tasks_from_paths(primary_path, supplemental_path)
+    field_tasks, manifest_by_path = _release_field_query_tasks_from_paths(primary_path, *existing_supplemental_paths)
     manifest = manifest_by_path.get(str(primary_path), {})
     field_tasks = [
         task
@@ -1135,7 +1153,7 @@ def _standalone_release_field_query_results_by_project(
     return {
         project_id: _release_field_query_project_result(
             runner_record=runner_record,
-            result_path=_joined_existing_paths(path, supplemental_path),
+            result_path=_joined_existing_paths(path, *existing_supplemental_paths),
             result_manifest=manifest,
             tasks=tasks,
         )
@@ -1145,14 +1163,13 @@ def _standalone_release_field_query_results_by_project(
 
 def _release_field_query_tasks_from_paths(
     primary_path: Path,
-    supplemental_path: Path | None,
+    *supplemental_paths: Path,
 ) -> tuple[list[dict[str, Any]], dict[str, Mapping[str, Any]]]:
     out: list[dict[str, Any]] = []
     manifests: dict[str, Mapping[str, Any]] = {}
-    for source_label, candidate_path in (
-        ("primary", primary_path),
-        ("supplemental", supplemental_path),
-    ):
+    source_paths: list[tuple[str, Path | None]] = [("primary", primary_path)]
+    source_paths.extend((f"supplemental_{index}", path) for index, path in enumerate(supplemental_paths, start=1))
+    for source_label, candidate_path in source_paths:
         if candidate_path is None or not candidate_path.exists():
             continue
         payload = _load_json_if_exists(candidate_path)

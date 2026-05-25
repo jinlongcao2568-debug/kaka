@@ -118,6 +118,49 @@ function Expand-StringList {
     return $items
 }
 
+function Add-SupplementalFieldQueryJson {
+    param(
+        [string]$ExistingJson,
+        [string]$ExistingRoot,
+        [string]$NewJson
+    )
+    $items = @()
+    if ($ExistingJson) {
+        foreach ($part in ($ExistingJson -split ";")) {
+            $text = $part.Trim()
+            if ($text) {
+                $items += $text
+            }
+        }
+    } elseif ($ExistingRoot) {
+        $rootJson = Join-Path $ExistingRoot "guangdong-local-field-query-probe-v1.json"
+        if (Test-Path $rootJson) {
+            $items += $rootJson
+        }
+    }
+    if ($NewJson) {
+        foreach ($part in ($NewJson -split ";")) {
+            $text = $part.Trim()
+            if ($text -and (Test-Path (Resolve-RepoPath "$text"))) {
+                $items += $text
+            }
+        }
+    }
+    $seen = @{}
+    $out = @()
+    foreach ($item in $items) {
+        $resolved = Resolve-RepoPath "$item"
+        if (-not (Test-Path $resolved)) {
+            continue
+        }
+        if (-not $seen.ContainsKey($resolved)) {
+            $seen[$resolved] = $true
+            $out += $resolved
+        }
+    }
+    return ($out -join ";")
+}
+
 $ExcludeProjectId = Expand-StringList $ExcludeProjectId
 $ExcludeScoreboardJson = Expand-StringList $ExcludeScoreboardJson
 $followupQueue = $null
@@ -249,8 +292,11 @@ if ($followupQueue) {
             Write-Host "[stage1-6-regression] reused field query root from follow-up continuation_input_refs: $sourceFieldQueryRoot"
         }
         if (-not $SupplementalFieldQueryJson -and $continuationRefs.effective_supplemental_release_field_query_json) {
-            $continuationSupplementalFieldQueryJson = Resolve-RepoPath "$($continuationRefs.effective_supplemental_release_field_query_json)"
-            if (Test-Path $continuationSupplementalFieldQueryJson) {
+            $continuationSupplementalFieldQueryJson = Add-SupplementalFieldQueryJson `
+                -ExistingJson "" `
+                -ExistingRoot "" `
+                -NewJson "$($continuationRefs.effective_supplemental_release_field_query_json)"
+            if ($continuationSupplementalFieldQueryJson) {
                 $SupplementalFieldQueryJson = $continuationSupplementalFieldQueryJson
                 Write-Host "[stage1-6-regression] reused supplemental field query json from follow-up continuation_input_refs: $SupplementalFieldQueryJson"
             }
@@ -621,8 +667,11 @@ if ($RunYgpBackfillFieldQuery) {
 }
 
 if ($RunYgpBackfillFieldQuery -and (Test-Path $ygpBackfillFieldQueryJson)) {
-    $SupplementalFieldQueryRoot = $ygpBackfillFieldQueryRoot
-    $SupplementalFieldQueryJson = $ygpBackfillFieldQueryJson
+    $SupplementalFieldQueryJson = Add-SupplementalFieldQueryJson `
+        -ExistingJson $SupplementalFieldQueryJson `
+        -ExistingRoot $SupplementalFieldQueryRoot `
+        -NewJson $ygpBackfillFieldQueryJson
+    $SupplementalFieldQueryRoot = ""
 } elseif (-not $SupplementalFieldQueryRoot -and (Test-Path $ygpBackfillFieldQueryJson)) {
     $SupplementalFieldQueryRoot = $ygpBackfillFieldQueryRoot
 }

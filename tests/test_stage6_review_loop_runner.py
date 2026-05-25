@@ -382,6 +382,56 @@ class Stage6ReviewLoopRunnerTests(unittest.TestCase):
             self.assertFalse(records["PROJ-REL"]["customer_visible_allowed"])
             self.assertTrue(records["PROJ-REL"]["query_miss_is_not_clearance"])
 
+    def test_semicolon_supplemental_release_field_query_jsons_merge_into_stage6_projection(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_blocked_release_field_query_result(root / "field-query")
+            _write_release_field_query_result(root / "field-query-public-backfill-a")
+            _write_release_field_query_result(root / "field-query-public-backfill-b")
+            second_json = root / "field-query-public-backfill-b" / "guangdong-local-field-query-probe-v1.json"
+            second_payload = json.loads(second_json.read_text(encoding="utf-8"))
+            second_payload["manifest"]["manifest_id"] = "GD-FIELD-LIMITED-REVIEW-2"
+            second_payload["manifest"]["field_task_records"][0]["field_query_task_id"] = "GD-FIELD-C-GRADE"
+            second_payload["manifest"]["field_task_records"][0][
+                "downstream_release_evidence_abcd_grade"
+            ] = "C_REVERSE_EXPLANATION_OFFICIAL_READBACK"
+            second_json.write_text(json.dumps(second_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+            supplemental_jsons = ";".join(
+                [
+                    str(root / "field-query-public-backfill-a" / "guangdong-local-field-query-probe-v1.json"),
+                    str(second_json),
+                ]
+            )
+            result = run_stage6_review_loop_runner(
+                dispatch_root=root / "missing-dispatch",
+                batch_closeout_root=root / "missing-closeout",
+                release_field_query_root=root / "field-query",
+                supplemental_release_field_query_json=supplemental_jsons,
+                output_root=root / "out",
+                auto_discover_latest_batch_closeout=False,
+                created_at="2026-05-25T00:00:00+08:00",
+            )
+
+            self.assertTrue(result["safe_to_execute"])
+            self.assertIn(";", result["manifest"]["source_standalone_supplemental_release_field_query_json"])
+            records = {
+                record["project_id"]: record
+                for record in result["manifest"]["project_status_table"]["records"]
+            }
+            self.assertEqual(records["PROJ-REL"]["release_field_query_task_count"], 3)
+            self.assertEqual(
+                records["PROJ-REL"]["release_field_query_downstream_abcd_grade_counts"],
+                {
+                    "D_INSUFFICIENT_OR_BLOCKED_READBACK": 1,
+                    "B_ENHANCEMENT_OFFICIAL_READBACK": 1,
+                    "C_REVERSE_EXPLANATION_OFFICIAL_READBACK": 1,
+                },
+            )
+            self.assertEqual(records["PROJ-REL"]["limited_sellable_review_candidate_state"], "REVIEW_CANDIDATE")
+            self.assertEqual(records["PROJ-REL"]["limited_sellable_review_official_readback_task_count"], 2)
+            self.assertFalse(records["PROJ-REL"]["customer_visible_allowed"])
+
     def test_standalone_release_field_query_only_builds_status_projection(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
