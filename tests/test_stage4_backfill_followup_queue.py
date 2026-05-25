@@ -49,6 +49,15 @@ class Stage4BackfillFollowupQueueTests(unittest.TestCase):
                             "stage4_project_code_backfill_gap_detail": "",
                         },
                         {
+                            "project_id": "PROJ-SOURCE-BLOCKED-NO-CODE-GAP",
+                            "project_name": "source blocked after project code backfill",
+                            "stage4_project_code_backfill_state": "NOT_FLAGGED_FOR_PROJECT_CODE_BACKFILL",
+                            "stage4_project_code_backfill_gap_detail": "",
+                            "stage5_operational_review_bucket": "PUBLIC_SOURCE_BLOCKED_REVIEW",
+                            "p13b_public_source_readback_state": "PUBLIC_SOURCE_BLOCKED_REVIEW",
+                            "p13b_overlap_triage_state": "SOURCE_LIMIT_DEFERRED",
+                        },
+                        {
                             "project_id": "PROJ-GDCIC-UNRESOLVED",
                             "project_name": "GDCIC unresolved after public backfill",
                             "stage4_project_code_backfill_state": "MISSING_PROJECT_CODE_BACKFILL_INPUT",
@@ -68,18 +77,22 @@ class Stage4BackfillFollowupQueueTests(unittest.TestCase):
                 created_at="2026-05-25T00:00:00+00:00",
             )
 
-        self.assertEqual(result["summary"]["followup_record_count"], 3)
+        self.assertEqual(result["summary"]["followup_record_count"], 4)
         self.assertEqual(
             result["summary"]["gap_detail_counts"],
             {
                 "NO_PUBLIC_OVERLAP_SIGNAL_FALLBACK_LOCAL_AUTHORITY_REQUIRED": 1,
-                "PUBLIC_SOURCE_BLOCKED_RETRY_OR_LOCAL_AUTHORITY_REQUIRED": 1,
+                "PUBLIC_SOURCE_BLOCKED_RETRY_OR_LOCAL_AUTHORITY_REQUIRED": 2,
                 "GDCIC_IDENTIFIER_UNRESOLVED_AFTER_PUBLIC_BACKFILL_REQUIRED": 1,
             },
         )
         routes = {record["project_id"]: record["followup_route"] for record in result["records"]}
         self.assertEqual(routes["PROJ-NO-SIGNAL"], "local_authority_fallback_source_planning")
         self.assertEqual(routes["PROJ-BLOCKED"], "public_source_retry_then_local_authority_fallback")
+        self.assertEqual(
+            routes["PROJ-SOURCE-BLOCKED-NO-CODE-GAP"],
+            "public_source_retry_then_local_authority_fallback",
+        )
         self.assertEqual(routes["PROJ-GDCIC-UNRESOLVED"], "local_authority_fallback_source_planning")
         unresolved = next(record for record in result["records"] if record["project_id"] == "PROJ-GDCIC-UNRESOLVED")
         self.assertEqual(
@@ -99,7 +112,12 @@ class Stage4BackfillFollowupQueueTests(unittest.TestCase):
         self.assertIn("data_ggzy_bid_show_or_ygp_backfill_input", unresolved["required_input"])
         self.assertEqual(
             result["next_regression_execution_plan"]["target_project_ids"],
-            ["PROJ-NO-SIGNAL", "PROJ-BLOCKED", "PROJ-GDCIC-UNRESOLVED"],
+            [
+                "PROJ-NO-SIGNAL",
+                "PROJ-BLOCKED",
+                "PROJ-SOURCE-BLOCKED-NO-CODE-GAP",
+                "PROJ-GDCIC-UNRESOLVED",
+            ],
         )
         self.assertEqual(
             result["next_regression_execution_plan"]["public_source_fallback_sequence"],

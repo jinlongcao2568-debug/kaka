@@ -64,6 +64,12 @@ def build_stage4_backfill_followup_queue(
 
 
 def _needs_backfill_followup(row: Mapping[str, Any]) -> bool:
+    if str(row.get("stage5_operational_review_bucket") or "") in {
+        "PUBLIC_SOURCE_BLOCKED_REVIEW",
+        "ORIGINAL_NOTICE_BLOCKED_REVIEW",
+        "YGP_READBACK_BLOCKED_REVIEW",
+    }:
+        return True
     return (
         str(row.get("stage4_project_code_backfill_state") or "")
         == "MISSING_PROJECT_CODE_BACKFILL_INPUT"
@@ -78,7 +84,7 @@ def _followup_record(
     deepening_policy: Mapping[str, Any],
 ) -> dict[str, Any]:
     project_id = str(row.get("project_id") or "").strip()
-    detail = str(row.get("stage4_project_code_backfill_gap_detail") or "").strip()
+    detail = _followup_gap_detail(row)
     route = _followup_route(detail)
     deepening_recommended = bool(deepening_policy.get("public_source_deepening_recommended"))
     return {
@@ -110,9 +116,25 @@ def _followup_record(
     }
 
 
+def _followup_gap_detail(row: Mapping[str, Any]) -> str:
+    detail = str(row.get("stage4_project_code_backfill_gap_detail") or "").strip()
+    if detail:
+        return detail
+    bucket = str(row.get("stage5_operational_review_bucket") or "")
+    if bucket == "PUBLIC_SOURCE_BLOCKED_REVIEW":
+        return "PUBLIC_SOURCE_BLOCKED_RETRY_OR_LOCAL_AUTHORITY_REQUIRED"
+    if bucket == "ORIGINAL_NOTICE_BLOCKED_REVIEW":
+        return "ORIGINAL_NOTICE_OR_SOURCE_LIMIT_DEFERRED_RETRY_REQUIRED"
+    if bucket == "YGP_READBACK_BLOCKED_REVIEW":
+        return "YGP_READBACK_BLOCKED_RETRY_OR_LOCAL_AUTHORITY_REQUIRED"
+    return ""
+
+
 def _followup_route(detail: str) -> str:
     if detail == "PUBLIC_SOURCE_BLOCKED_RETRY_OR_LOCAL_AUTHORITY_REQUIRED":
         return "public_source_retry_then_local_authority_fallback"
+    if detail == "YGP_READBACK_BLOCKED_RETRY_OR_LOCAL_AUTHORITY_REQUIRED":
+        return "ygp_retry_then_local_authority_fallback"
     if detail in {
         "NO_PUBLIC_OVERLAP_SIGNAL_FALLBACK_LOCAL_AUTHORITY_REQUIRED",
         "ORIGINAL_NOTICE_NOT_FOUND_FALLBACK_LOCAL_AUTHORITY_REQUIRED",
@@ -141,6 +163,8 @@ def _worker_family(route: str) -> str:
 def _required_input(route: str) -> list[str]:
     if route == "public_source_retry_then_local_authority_fallback":
         return ["public_source_retry_budget_or_project_local_authority_adapter"]
+    if route == "ygp_retry_then_local_authority_fallback":
+        return ["ygp_retry_budget_or_project_local_authority_adapter"]
     if route == "original_notice_retry_then_local_authority_fallback":
         return ["original_notice_retry_budget_or_project_local_authority_adapter"]
     if route == "public_source_readback_required":
@@ -203,6 +227,7 @@ def _recommended_next_action(route: str) -> str:
         "public_source_retry_then_local_authority_fallback": "retry_public_source_or_route_to_project_local_authority_without_clearance_claim",
         "local_authority_fallback_source_planning": "plan_project_local_authority_readback_without_treating_not_found_as_clearance",
         "original_notice_retry_then_local_authority_fallback": "retry_original_notice_or_route_to_project_local_authority_without_clearance_claim",
+        "ygp_retry_then_local_authority_fallback": "retry_ygp_readback_or_route_to_project_local_authority_without_clearance_claim",
         "public_source_readback_required": "run_public_source_readback_before_any_clearance_claim",
         "operator_classify_backfill_gap": "operator_classifies_backfill_gap_before_retry",
     }
@@ -215,6 +240,7 @@ def _execution_priority(route: str, *, deepening_recommended: bool) -> str:
     if route in {
         "public_source_retry_then_local_authority_fallback",
         "original_notice_retry_then_local_authority_fallback",
+        "ygp_retry_then_local_authority_fallback",
         "public_source_readback_required",
     }:
         return "HIGH_PUBLIC_SOURCE_DEEPENING"
