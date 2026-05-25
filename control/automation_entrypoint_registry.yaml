@@ -373,6 +373,25 @@ formal_entrypoints:
     replaces_human_memory: true
     purpose: Convert Stage4 project-code/public-source backfill gaps into internal retry or local-authority fallback follow-up queues without executing live or customer-visible actions.
 
+  - entrypoint_id: release_evidence_promotion_bridge_builder
+    kind: script
+    script: scripts/build-release-evidence-promotion-bridge-v1.ps1
+    entrypoint_role: state_builder
+    status: FORMAL_CURRENT
+    automation_layer: release_evidence_promotion_bridge
+    module_or_command: storage.release_evidence_promotion_bridge
+    state_inputs:
+      - Stage1-6 latest scoreboard diagnostic release_evidence_promotion_queue
+      - public identifier backfill records
+    state_outputs:
+      - release evidence promotion bridge manifest
+      - Stage4 release adapter bridge plan
+      - release evidence adapter task table
+    manual_gate_required: false
+    external_customer_action_enabled: false
+    replaces_human_memory: true
+    purpose: Convert latest scoreboard public-identifier promotion records into B/C official readback tasks consumable by Stage4 field query without enabling customer-visible actions.
+
   - entrypoint_id: stage1_6_internal_http_orchestration_preview
     kind: http_route
     route: /internal/stage1-6/orchestrations
