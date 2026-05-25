@@ -81,6 +81,7 @@ def run_runtime_entrypoint(
         "safety": controller_result["run_state"]["safety"],
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,
+        "query_miss_is_not_clearance": True,
     }
 
 
@@ -130,6 +131,8 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--stage123-front-chain-output-root", default="")
     parser.add_argument("--stage5-calibration-sample-json", default="")
     parser.add_argument("--stage5-calibration-sample-root", default="")
+    parser.add_argument("--stage4-backfill-followup-queue-json", default="")
+    parser.add_argument("--stage4-backfill-followup-queue-root", default="")
     parser.add_argument("--stage45-replay-samples-json", default="")
     parser.add_argument("--stage45-replay-output-root", default="")
     parser.add_argument("--output-json", default="")
@@ -178,6 +181,8 @@ def _load_payload(args: argparse.Namespace) -> dict[str, Any]:
         "stage123_front_chain_output_root": args.stage123_front_chain_output_root,
         "stage5_calibration_sample_json": args.stage5_calibration_sample_json,
         "stage5_calibration_sample_root": args.stage5_calibration_sample_root,
+        "stage4_backfill_followup_queue_json": args.stage4_backfill_followup_queue_json,
+        "stage4_backfill_followup_queue_root": args.stage4_backfill_followup_queue_root,
         "stage45_replay_samples_json": args.stage45_replay_samples_json,
         "stage45_replay_output_root": args.stage45_replay_output_root,
     }

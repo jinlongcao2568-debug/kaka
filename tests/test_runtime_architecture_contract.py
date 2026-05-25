@@ -2577,6 +2577,86 @@ class RuntimeArchitectureContractTests(unittest.TestCase, IsolatedStorageTestMix
             self.assertFalse(written["safety"]["external_customer_action_enabled"])
             self.assertNotIn("无风险", str(written))
 
+    def test_entrypoint_cli_accepts_stage4_backfill_followup_queue_as_controller_input(self) -> None:
+        spec = importlib.util.find_spec("runtime.entrypoint_cli")
+        self.assertIsNotNone(spec, "runtime.entrypoint_cli module must exist")
+
+        from runtime.entrypoint_cli import main
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            payload_path = root / "payload.json"
+            output_path = root / "runtime-cycle-result.json"
+            followup_queue_json = root / "followup" / "stage4-backfill-followup-queue-v1.json"
+            followup_queue_json.parent.mkdir(parents=True)
+            followup_queue_json.write_text(
+                json.dumps(
+                    {
+                        "records": [
+                            {
+                                "followup_record_id": "STAGE4-FOLLOWUP-CLI-1",
+                                "project_id": "PROJ-RUNTIME-STAGE4-FOLLOWUP",
+                                "project_name": "Runtime Stage4 followup",
+                                "followup_route": "local_authority_not_found_specific_endpoint_or_manual_source",
+                                "followup_queue_state": "FOLLOWUP_SOURCE_PLAN_REQUIRED",
+                                "gap_detail": "LOCAL_AUTHORITY_NOT_FOUND_DEEPENING_REQUIRED",
+                                "required_input": ["specific_search_endpoint_or_manual_source_path"],
+                                "recommended_next_action": "deepen_not_found_with_specific_endpoint_without_clearance_claim",
+                                "customer_visible_allowed": False,
+                                "query_miss_is_not_clearance": True,
+                            }
+                        ],
+                        "customer_visible_allowed": False,
+                        "query_miss_is_not_clearance": True,
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                ),
+                encoding="utf-8",
+            )
+            payload_path.write_text(
+                json.dumps(
+                    {
+                        "project_id": "PROJ-RUNTIME-STAGE4-FOLLOWUP",
+                        "batch_closeout_root": str(root / "missing-closeout"),
+                        "output_root": str(root / "out"),
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+
+            exit_code = main(
+                [
+                    "--entrypoint-id",
+                    "stage6_review_cycle_runner",
+                    "--payload-json",
+                    str(payload_path),
+                    "--stage4-backfill-followup-queue-json",
+                    str(followup_queue_json),
+                    "--output-json",
+                    str(output_path),
+                    "--created-at",
+                    "2026-05-25T00:00:00+08:00",
+                ]
+            )
+
+            self.assertEqual(exit_code, 0)
+            written = json.loads(output_path.read_text(encoding="utf-8"))
+            run_state = written["controller_result"]["run_state"]
+            self.assertIn(str(followup_queue_json), run_state["input_refs"])
+            self.assertEqual(
+                run_state["stage6_cycle_summary"]["stage6_review_cycle_bootstrap_source_kind"],
+                "STAGE4_BACKFILL_FOLLOWUP_QUEUE_JSON",
+            )
+            self.assertEqual(
+                run_state["runtime_blocker_controller_summary"]["controller_queue_record_count"],
+                1,
+            )
+            self.assertFalse(written["customer_visible_allowed"])
+            self.assertTrue(written["query_miss_is_not_clearance"])
+            self.assertNotIn("无风险", str(written))
+
     def test_runtime_entrypoint_registry_loads_formal_transport_and_target(self) -> None:
         spec = importlib.util.find_spec("runtime.entrypoint_registry")
         self.assertIsNotNone(spec, "runtime.entrypoint_registry module must exist")

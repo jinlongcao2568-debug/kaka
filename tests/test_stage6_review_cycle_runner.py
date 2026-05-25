@@ -37,6 +37,68 @@ class Stage6ReviewCycleRunnerTests(unittest.TestCase):
             all(item["handler_kind"] in dispatch_map for item in source_registry)
         )
 
+    def test_stage4_followup_queue_enters_runtime_blocker_controller(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            queue_json = root / "followup" / "stage4-backfill-followup-queue-v1.json"
+            queue_json.parent.mkdir(parents=True)
+            queue_json.write_text(
+                json.dumps(
+                    {
+                        "records": [
+                            {
+                                "followup_record_id": "STAGE4-FOLLOWUP-1",
+                                "project_id": "PROJ-STAGE4-FOLLOWUP",
+                                "project_name": "Stage4 followup project",
+                                "followup_route": "local_authority_blocked_retry_or_alternate_source",
+                                "followup_queue_state": "FOLLOWUP_SOURCE_PLAN_REQUIRED",
+                                "gap_detail": "LOCAL_AUTHORITY_BLOCKED_RETRY_OR_ALTERNATE_SOURCE_REQUIRED",
+                                "required_input": ["specific_local_authority_public_source_endpoint"],
+                                "recommended_next_action": "resolve_local_authority_endpoint_then_retry_public_readback",
+                                "customer_visible_allowed": False,
+                                "query_miss_is_not_clearance": True,
+                            }
+                        ],
+                        "customer_visible_allowed": False,
+                        "query_miss_is_not_clearance": True,
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                ),
+                encoding="utf-8",
+            )
+
+            result = run_stage6_review_cycle_runner(
+                batch_closeout_root=root / "missing-closeout",
+                stage4_backfill_followup_queue_json=queue_json,
+                output_root=root / "out",
+                created_at="2026-05-25T00:00:00+08:00",
+            )
+
+        self.assertTrue(result["safe_to_execute"])
+        self.assertEqual(
+            result["summary"]["stage6_review_cycle_bootstrap_source_kind"],
+            "STAGE4_BACKFILL_FOLLOWUP_QUEUE_JSON",
+        )
+        self.assertEqual(
+            result["summary"]["runtime_blocker_next_subqueue_input_state"],
+            "DERIVED_FROM_STAGE4_BACKFILL_FOLLOWUP_QUEUE",
+        )
+        self.assertEqual(result["summary"]["runtime_blocker_controller_queue_record_count"], 1)
+        self.assertEqual(
+            result["summary"]["runtime_blocker_controller_dispatch_readiness_state_counts"],
+            {"FALLBACK_SOURCE_PLAN_REQUIRED": 1},
+        )
+        self.assertEqual(
+            result["manifest"]["source_stage4_backfill_followup_queue_json"],
+            str(queue_json),
+        )
+        controller_record = result["manifest"]["runtime_blocker_subqueue_controller_table"]["records"][0]
+        self.assertEqual(controller_record["subqueue_route"], "fallback_source")
+        self.assertEqual(controller_record["project_id"], "PROJ-STAGE4-FOLLOWUP")
+        self.assertFalse(result["manifest"]["customer_visible_allowed"])
+        self.assertTrue(result["manifest"]["query_miss_is_not_clearance"])
+
     def test_missing_bootstrap_registry_blocks_cycle_machine_readably(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -732,6 +794,7 @@ class Stage6ReviewCycleRunnerTests(unittest.TestCase):
                     "ORIGINAL_BACKTRACE_CONTINUATION_JSON",
                     "STAGE16_P13B_CONTINUATION_JSON",
                     "STAGE5_CALIBRATION_SAMPLE_JSON",
+                    "STAGE4_BACKFILL_FOLLOWUP_QUEUE_JSON",
                 ],
             )
             self.assertEqual(registry[0]["priority_order"], 1)

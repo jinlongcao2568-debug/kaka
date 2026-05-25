@@ -353,6 +353,7 @@ def _bootstrap_handler_dispatch_map() -> dict[str, Callable[..., tuple[dict[str,
         "status_table_json": _resolve_status_table_candidate,
         "loop_runner_bootstrap": _resolve_loop_bootstrap_candidate,
         "derived_release_field_query": _resolve_derived_release_field_query_candidate,
+        "stage4_followup_queue": _resolve_stage4_followup_queue_candidate,
     }
 
 
@@ -376,6 +377,8 @@ def _bootstrap_source_candidates(
     stage16_p13b_continuation_root: str | Path | None,
     stage5_calibration_sample_json: str | Path | None,
     stage5_calibration_sample_root: str | Path | None,
+    stage4_backfill_followup_queue_json: str | Path | None = None,
+    stage4_backfill_followup_queue_root: str | Path | None = None,
 ) -> list[dict[str, Any]]:
     explicit_jsons = {
         "RUNTIME_BLOCKER_NEXT_SUBQUEUE_JSON": runtime_blocker_next_subqueue_json,
@@ -387,6 +390,7 @@ def _bootstrap_source_candidates(
         "ORIGINAL_BACKTRACE_CONTINUATION_JSON": original_backtrace_continuation_json,
         "STAGE16_P13B_CONTINUATION_JSON": stage16_p13b_continuation_json,
         "STAGE5_CALIBRATION_SAMPLE_JSON": stage5_calibration_sample_json,
+        "STAGE4_BACKFILL_FOLLOWUP_QUEUE_JSON": stage4_backfill_followup_queue_json,
     }
     explicit_roots = {
         "RUNTIME_BLOCKER_NEXT_SUBQUEUE_JSON": runtime_blocker_next_subqueue_root,
@@ -398,6 +402,7 @@ def _bootstrap_source_candidates(
         "ORIGINAL_BACKTRACE_CONTINUATION_JSON": original_backtrace_continuation_root,
         "STAGE16_P13B_CONTINUATION_JSON": stage16_p13b_continuation_root,
         "STAGE5_CALIBRATION_SAMPLE_JSON": stage5_calibration_sample_root,
+        "STAGE4_BACKFILL_FOLLOWUP_QUEUE_JSON": stage4_backfill_followup_queue_root,
     }
     rows: list[dict[str, Any]] = []
     for index, item in enumerate(_bootstrap_source_registry(), start=1):
@@ -438,6 +443,8 @@ def run_stage6_review_cycle_runner(
     stage16_p13b_continuation_root: str | Path | None = None,
     stage5_calibration_sample_json: str | Path | None = None,
     stage5_calibration_sample_root: str | Path | None = None,
+    stage4_backfill_followup_queue_json: str | Path | None = None,
+    stage4_backfill_followup_queue_root: str | Path | None = None,
     design_survey_public_registry_readback_json: str | Path | None = None,
     design_survey_public_registry_readback_root: str | Path | None = None,
     stage1_6_scoreboard_json: str | Path | None = None,
@@ -490,6 +497,8 @@ def run_stage6_review_cycle_runner(
         stage16_p13b_continuation_root=stage16_p13b_continuation_root,
         stage5_calibration_sample_json=stage5_calibration_sample_json,
         stage5_calibration_sample_root=stage5_calibration_sample_root,
+        stage4_backfill_followup_queue_json=stage4_backfill_followup_queue_json,
+        stage4_backfill_followup_queue_root=stage4_backfill_followup_queue_root,
     )
     candidate_by_kind = {str(item["source_kind"]): item for item in bootstrap_candidates}
     next_subqueue_path = candidate_by_kind.get("RUNTIME_BLOCKER_NEXT_SUBQUEUE_JSON", {}).get("source_path")
@@ -515,6 +524,7 @@ def run_stage6_review_cycle_runner(
     original_backtrace_continuation_path = candidate_by_kind.get("ORIGINAL_BACKTRACE_CONTINUATION_JSON", {}).get("source_path")
     stage16_p13b_continuation_path = candidate_by_kind.get("STAGE16_P13B_CONTINUATION_JSON", {}).get("source_path")
     stage5_calibration_sample_path = candidate_by_kind.get("STAGE5_CALIBRATION_SAMPLE_JSON", {}).get("source_path")
+    stage4_backfill_followup_queue_path = candidate_by_kind.get("STAGE4_BACKFILL_FOLLOWUP_QUEUE_JSON", {}).get("source_path")
     design_survey_public_registry_readback_path = _optional_json_path(
         explicit_json=design_survey_public_registry_readback_json,
         root=design_survey_public_registry_readback_root or DEFAULT_DESIGN_SURVEY_PUBLIC_REGISTRY_READBACK_ROOT,
@@ -700,6 +710,7 @@ def run_stage6_review_cycle_runner(
         "source_original_backtrace_continuation_json": str(original_backtrace_continuation_path or ""),
         "source_stage16_p13b_continuation_json": str(stage16_p13b_continuation_path or ""),
         "source_stage5_calibration_sample_json": str(stage5_calibration_sample_path or ""),
+        "source_stage4_backfill_followup_queue_json": str(stage4_backfill_followup_queue_path or ""),
         "source_design_survey_public_registry_readback_json": str(
             design_survey_public_registry_readback_path or ""
         ),
@@ -2520,6 +2531,124 @@ def _resolve_derived_release_field_query_candidate(
     )
 
 
+def _resolve_stage4_followup_queue_candidate(
+    *,
+    candidate: Mapping[str, Any],
+    source_path: Path,
+    stage6_loop_output_root: Path,
+    derived_output_path: Path,
+) -> tuple[dict[str, Any], str, str, Path | None, Path | None, str]:
+    source_kind = str(candidate.get("source_kind") or "")
+    if not source_path.exists():
+        return (
+            _empty_runtime_blocker_next_subqueue_table(source_ref=str(derived_output_path)),
+            "MISSING_OR_INVALID",
+            str(candidate.get("missing_reason") or "stage4_backfill_followup_queue_json_missing_or_invalid"),
+            derived_output_path,
+            None,
+            source_kind,
+        )
+    try:
+        payload = json.loads(source_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return (
+            _empty_runtime_blocker_next_subqueue_table(source_ref=str(derived_output_path)),
+            "MISSING_OR_INVALID",
+            "stage4_backfill_followup_queue_json_missing_or_invalid",
+            derived_output_path,
+            source_path,
+            source_kind,
+        )
+    if not isinstance(payload, Mapping):
+        return (
+            _empty_runtime_blocker_next_subqueue_table(source_ref=str(derived_output_path)),
+            "MISSING_OR_INVALID",
+            "stage4_backfill_followup_queue_json_missing_or_invalid",
+            derived_output_path,
+            source_path,
+            source_kind,
+        )
+    records = [
+        _stage4_followup_next_subqueue_record(record, source_path=source_path)
+        for record in _list(payload.get("records") or payload.get("followup_records"))
+        if isinstance(record, Mapping)
+    ]
+    table = {
+        "table_kind": "runtime_blocker_next_subqueue_table_v1",
+        "source_next_subqueue_json": str(source_path),
+        "source_stage4_backfill_followup_queue_json": str(source_path),
+        "summary": {
+            "next_subqueue_record_count": len(records),
+            "subqueue_route_counts": _counts(record.get("subqueue_route") for record in records),
+            "subqueue_state_counts": _counts(record.get("subqueue_state") for record in records),
+            "runtime_layer_counts": _counts(record.get("runtime_layer") for record in records),
+            "required_input_counts": _counts(
+                required_input
+                for record in records
+                for required_input in _list(record.get("required_input"))
+            ),
+            "operator_next_action_counts": _counts(record.get("operator_next_action") for record in records),
+        },
+        "records": records,
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+        "query_miss_is_not_clearance": True,
+    }
+    _write_json(derived_output_path, table)
+    return table, "DERIVED_FROM_STAGE4_BACKFILL_FOLLOWUP_QUEUE", "", derived_output_path, source_path, source_kind
+
+
+def _stage4_followup_next_subqueue_record(record: Mapping[str, Any], *, source_path: Path) -> dict[str, Any]:
+    project_id = str(record.get("project_id") or "").strip()
+    route = "fallback_source"
+    required_input = _dedupe(record.get("required_input"))
+    operator_next_action = str(
+        record.get("recommended_next_action")
+        or record.get("operator_next_action")
+        or "run_stage4_followup_queue_through_public_source_chain"
+    )
+    source_record_id = str(record.get("followup_record_id") or record.get("record_id") or "")
+    if not source_record_id:
+        source_record_id = f"STAGE4-FOLLOWUP-{_fingerprint(record)[:16]}"
+    return {
+        "next_subqueue_record_id": f"RUNTIME-SUBQUEUE-STAGE4-FOLLOWUP-{_fingerprint([source_record_id, route])[:16]}",
+        "subqueue_route": route,
+        "subqueue_state": "WAITING_FOR_FALLBACK_SOURCE_ADAPTER_PLAN",
+        "project_id": project_id,
+        "project_name": str(record.get("project_name") or ""),
+        "assigned_owner": "",
+        "assigned_owner_role": "",
+        "owner_assignment_source_ref": "",
+        "loop_terminal_state": "STAGE4_BACKFILL_FOLLOWUP_QUEUE_REQUIRES_CONTROLLER_ROUTE",
+        "project_next_recommended_action": operator_next_action,
+        "release_field_query_state": "",
+        "blocker_ledger_id": source_record_id,
+        "blocker_state": str(record.get("gap_detail") or record.get("followup_queue_state") or "STAGE4_BACKFILL_FOLLOWUP_REQUIRED"),
+        "blocker_reason": str(record.get("followup_route") or ""),
+        "runtime_layer": "controller decision:stage4_backfill_followup_queue",
+        "ledger_scope": "stage4_backfill_followup_queue",
+        "source_ledger_scopes": ["stage4_backfill_followup_queue"],
+        "source_blocker_ledger_ids": [source_record_id],
+        "task_scope": "stage4_backfill_followup",
+        "task_type": str(record.get("followup_route") or "stage4_backfill_followup"),
+        "task_id": source_record_id,
+        "required_input": required_input,
+        "retry_policy": "manual_reopen_after_public_source_plan",
+        "reopen_conditions": _dedupe(record.get("required_input")),
+        "operator_next_action": operator_next_action,
+        "next_action": operator_next_action,
+        "input_artifact_refs": _dedupe([str(source_path), *[str(item) for item in _list(record.get("source_refs"))]]),
+        "source_status_table_ref": str(source_path),
+        "controller_consumable": True,
+        "stage4_followup_route": str(record.get("followup_route") or ""),
+        "stage4_followup_queue_state": str(record.get("followup_queue_state") or ""),
+        "stage4_followup_execution_priority": str(record.get("execution_priority") or ""),
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+        "query_miss_is_not_clearance": True,
+    }
+
+
 def _build_bootstrap_resolution_trace(
     *,
     candidates: list[Mapping[str, Any]],
@@ -2571,6 +2700,7 @@ def _standalone_runtime_blocker_queue_only_mode(
         "DERIVED_FROM_STAGE6_LOOP_RUNNER",
         "IMPORTED_FROM_STAGE6_LOOP_RUNNER_ARTIFACT",
         "DERIVED_FROM_STAGE6_LOOP_RUNNER_ARTIFACT",
+        "DERIVED_FROM_STAGE4_BACKFILL_FOLLOWUP_QUEUE",
     }:
         return False
     return str(bootstrap_source_kind or "") != "NOT_PROVIDED"
@@ -2735,6 +2865,8 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--stage16-p13b-continuation-root", default="")
     parser.add_argument("--stage5-calibration-sample-json", default="")
     parser.add_argument("--stage5-calibration-sample-root", default="")
+    parser.add_argument("--stage4-backfill-followup-queue-json", default="")
+    parser.add_argument("--stage4-backfill-followup-queue-root", default="")
     parser.add_argument("--design-survey-public-registry-readback-json", default="")
     parser.add_argument("--design-survey-public-registry-readback-root", default="")
     parser.add_argument("--stage1-6-scoreboard-json", default="")
@@ -2774,6 +2906,8 @@ def main(argv: list[str] | None = None) -> int:
         stage16_p13b_continuation_root=args.stage16_p13b_continuation_root or None,
         stage5_calibration_sample_json=args.stage5_calibration_sample_json or None,
         stage5_calibration_sample_root=args.stage5_calibration_sample_root or None,
+        stage4_backfill_followup_queue_json=args.stage4_backfill_followup_queue_json or None,
+        stage4_backfill_followup_queue_root=args.stage4_backfill_followup_queue_root or None,
         design_survey_public_registry_readback_json=args.design_survey_public_registry_readback_json or None,
         design_survey_public_registry_readback_root=args.design_survey_public_registry_readback_root or None,
         stage1_6_scoreboard_json=args.stage1_6_scoreboard_json or None,

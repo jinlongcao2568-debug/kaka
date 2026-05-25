@@ -63,3 +63,10 @@ sources:
     loop_runner_arg: stage5_calibration_sample_json
     missing_reason: stage5_calibration_sample_json_missing_or_invalid
     bootstrap_failure_reason: stage6_review_loop_bootstrap_from_stage5_calibration_sample_failed
+  - source_kind: STAGE4_BACKFILL_FOLLOWUP_QUEUE_JSON
+    source_ref_key: stage4_backfill_followup_queue_json
+    source_root_ref_key: stage4_backfill_followup_queue_root
+    default_filename: stage4-backfill-followup-queue-v1.json
+    handler_kind: stage4_followup_queue
+    missing_reason: stage4_backfill_followup_queue_json_missing_or_invalid
+    bootstrap_failure_reason: stage6_review_cycle_bootstrap_from_stage4_followup_queue_failed

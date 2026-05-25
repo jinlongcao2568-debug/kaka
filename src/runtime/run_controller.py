@@ -630,6 +630,8 @@ def _stage6_cycle_kwargs(payload: Mapping[str, Any], *, created_at: str) -> dict
         "stage16_p13b_continuation_root": "stage16_p13b_continuation_root",
         "stage5_calibration_sample_json": "stage5_calibration_sample_json",
         "stage5_calibration_sample_root": "stage5_calibration_sample_root",
+        "stage4_backfill_followup_queue_json": "stage4_backfill_followup_queue_json",
+        "stage4_backfill_followup_queue_root": "stage4_backfill_followup_queue_root",
         "output_root": "output_root",
         "baseline_evidence_state_json": "baseline_evidence_state_json",
         "cwd": "cwd",
@@ -1281,6 +1283,7 @@ def _stage6_cycle_input_refs(payload: Mapping[str, Any], *, focus_path: Path) ->
         "original_backtrace_continuation_json",
         "stage16_p13b_continuation_json",
         "stage5_calibration_sample_json",
+        "stage4_backfill_followup_queue_json",
         "stage45_replay_samples_json",
         "stage1_6_readiness_json",
         "stage1_6_gap_summary_json",
@@ -1458,6 +1461,7 @@ def _runtime_input_artifact_diagnostics(payload: Mapping[str, Any]) -> list[dict
         "stage1_6_readiness_json",
         "stage1_6_gap_summary_json",
         "stage1_6_real_public_pressure_report_json",
+        "stage4_backfill_followup_queue_json",
     ):
         diagnostic = _json_payload_diagnostic(payload.get(field_name), field_name=field_name)
         if diagnostic:
