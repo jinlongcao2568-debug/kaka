@@ -1351,6 +1351,72 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
             {"DATA_GGZY_BID_SHOW_ORIGINAL_URL_NOT_SENT_TO_GDCIC_PROJECT_CODE": 1},
         )
 
+    def test_local_authority_source_plan_enters_stage5_operational_bucket(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            pressure = root / "pressure"
+            field_query = root / "field-query"
+            p13b_history = root / "p13b-history"
+            out = root / "out"
+            for path in (pressure, field_query, p13b_history, out):
+                path.mkdir(parents=True, exist_ok=True)
+
+            _write_json(pressure / "pressure-summary.json", {"candidate_count": 1})
+            _write_json(
+                pressure / "stage1-6-readiness-table.json",
+                {
+                    "records": [
+                        {
+                            "project_id": "PROJ-LOCAL-AUTH",
+                            "project_name": "阳江市历史项目地方主管源补查样本",
+                            "stage2_detail_capture_state": "FETCHED",
+                            "stage3_field_parse_state": "PARSED_FROM_FIELD_SIGNALS",
+                            "stage5_rule_gate_status": "REVIEW",
+                            "fail_closed_reasons": ["gdcic_project_code_not_resolved"],
+                        }
+                    ]
+                },
+            )
+            _write_json(pressure / "stage1-6-gap-summary-table.json", {"records": []})
+            _write_json(field_query / "guangdong-local-field-query-probe-v1.json", {"manifest": {"field_task_records": []}})
+            _write_json(
+                p13b_history / "company-history-overlap-triage-v1.json",
+                {
+                    "manifest": {
+                        "local_authority_source_task_records": [
+                            {
+                                "project_id": "PROJ-LOCAL-AUTH",
+                                "source_task_state": "LOCAL_AUTHORITY_SOURCE_PLAN_READY",
+                                "local_authority_readback_state": "PLAN_ONLY_NOT_EXECUTED",
+                                "customer_visible_allowed": False,
+                                "query_miss_is_not_clearance": True,
+                            }
+                        ]
+                    },
+                    "summary": {"local_authority_source_task_count": 1},
+                },
+            )
+
+            result = build_stage1_6_sellable_scoreboard(
+                pressure_root=pressure,
+                field_query_root=field_query,
+                p13b_company_history_root=p13b_history,
+                output_root=out,
+                created_at="2026-05-24T00:00:00+08:00",
+            )
+
+        row = result["project_rows"][0]
+        self.assertEqual(row["p13b_public_source_readback_state"], "LOCAL_AUTHORITY_SOURCE_PLAN_READY")
+        self.assertEqual(row["p13b_local_authority_source_task_count"], 1)
+        self.assertEqual(row["stage5_operational_review_bucket"], "LOCAL_AUTHORITY_SOURCE_PLAN_REVIEW")
+        self.assertIn("local_authority_source_plan_ready", row["stage5_operational_signal_flags"])
+        self.assertEqual(
+            result["scoreboard"]["stage4_public_readback_outcome_counts"],
+            {"LOCAL_AUTHORITY_PLAN_READY": 1},
+        )
+        self.assertFalse(row["customer_visible_allowed"])
+        self.assertTrue(row["query_miss_is_not_clearance"])
+
     def test_incremental_scoreboard_preserves_non_target_public_source_projection(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)

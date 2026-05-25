@@ -509,6 +509,15 @@ def _project_scoreboard_row(
             p13b_project_signal.get("bid_show_responsible_person_present_count")
         ),
         "p13b_overlap_signal_state_counts": dict(p13b_project_signal.get("overlap_signal_state_counts") or {}),
+        "p13b_local_authority_source_task_count": _int(
+            p13b_project_signal.get("local_authority_source_task_count")
+        ),
+        "p13b_local_authority_source_task_state_counts": dict(
+            p13b_project_signal.get("local_authority_source_task_state_counts") or {}
+        ),
+        "p13b_local_authority_readback_state_counts": dict(
+            p13b_project_signal.get("local_authority_readback_state_counts") or {}
+        ),
         "p13b_original_notice_readback_state": str(
             p13b_original_notice_signal.get("p13b_original_notice_readback_state") or ""
         ),
@@ -1050,6 +1059,7 @@ def _project_blocking_bucket(
         "YGP_READBACK_READY_REVIEW": "ygp_readback_ready_review",
         "YGP_STAGE4_BACKFILL_READY_REVIEW": "ygp_stage4_backfill_ready_review",
         "YGP_READBACK_BLOCKED_REVIEW": "ygp_readback_blocked_review",
+        "LOCAL_AUTHORITY_SOURCE_PLAN_REVIEW": "local_authority_source_plan_review",
     }.get(stage5_bucket)
     if stage5_blocking_bucket:
         return stage5_blocking_bucket
@@ -1215,6 +1225,10 @@ def _stage5_operational_review(
         or _int(p13b_project_signal.get("original_notice_backtrace_required_count")) > 0
     )
     has_public_source_not_found = p13b_state == "NO_PUBLIC_OVERLAP_SIGNAL_REVIEW"
+    has_local_authority_plan_ready = (
+        p13b_state == "LOCAL_AUTHORITY_SOURCE_PLAN_READY"
+        or _int(p13b_project_signal.get("local_authority_source_task_count")) > 0
+    )
     original_notice_state = str(p13b_original_notice_signal.get("p13b_original_notice_readback_state") or "")
     has_original_notice_match = original_notice_state == "MATCHED"
     has_original_notice_not_found = original_notice_state == "NOT_FOUND"
@@ -1284,6 +1298,8 @@ def _stage5_operational_review(
         signals.append("source_not_found")
     if has_public_source_not_found:
         signals.append("public_source_not_found")
+    if has_local_authority_plan_ready:
+        signals.append("local_authority_source_plan_ready")
     if has_responsible_role_gap:
         signals.append("responsible_role_gap")
     if has_certificate_gap:
@@ -1308,6 +1324,8 @@ def _stage5_operational_review(
         queues.append("SOURCE_NOT_FOUND_REVIEW")
     if has_public_source_not_found:
         queues.append("PUBLIC_SOURCE_NOT_FOUND_REVIEW")
+    if has_local_authority_plan_ready:
+        queues.append("LOCAL_AUTHORITY_SOURCE_PLAN_REVIEW")
     if has_certificate_gap:
         queues.append("RESPONSIBLE_PERSON_CERTIFICATE_GAP_REVIEW")
     if has_responsible_role_gap:
@@ -1361,6 +1379,9 @@ def _stage5_operational_review(
     elif has_public_source_blocked:
         bucket = "PUBLIC_SOURCE_BLOCKED_REVIEW"
         action = "retry_public_source_or_route_to_local_authority_readback"
+    elif has_local_authority_plan_ready:
+        bucket = "LOCAL_AUTHORITY_SOURCE_PLAN_REVIEW"
+        action = "run_project_local_authority_adapter_or_keep_plan_only_without_clearance_claim"
     elif has_authorization_block and (has_source_not_found or has_public_source_not_found):
         bucket = "AUTHORIZATION_AND_SOURCE_NOT_FOUND_REVIEW"
         action = "provide_authorized_session_or_fallback_source_without_treating_not_found_as_clearance"
@@ -1423,6 +1444,7 @@ def _stage5_operational_bucket_family(bucket: str) -> str:
         "YGP_READBACK_BLOCKED_REVIEW": "public_source_blocked",
         "YGP_READBACK_READY_REVIEW": "official_readback_ready",
         "YGP_STAGE4_BACKFILL_READY_REVIEW": "official_readback_ready",
+        "LOCAL_AUTHORITY_SOURCE_PLAN_REVIEW": "local_authority_source_planned",
         "RESPONSIBLE_PERSON_CERTIFICATE_GAP_REVIEW": "responsible_person_certificate_gap",
         "RESPONSIBLE_ROLE_GAP_REVIEW": "responsible_role_gap",
         "FIELD_AMBIGUITY_REVIEW": "field_ambiguity",
@@ -1545,12 +1567,16 @@ def _p13b_project_signals(payload: Mapping[str, Any]) -> dict[str, dict[str, Any
     query_records = _manifest_records(manifest, "company_history_query_records")
     bid_show_records = _manifest_records(manifest, "bid_show_records")
     overlap_records = _manifest_records(manifest, "overlap_signal_records")
-    project_ids = _ordered_project_ids(project_records, query_records, bid_show_records, overlap_records)
+    local_authority_records = _manifest_records(manifest, "local_authority_source_task_records")
+    project_ids = _ordered_project_ids(project_records, query_records, bid_show_records, overlap_records, local_authority_records)
     signals: dict[str, dict[str, Any]] = {}
     for project_id in project_ids:
         project_queries = [record for record in query_records if str(record.get("project_id") or "").strip() == project_id]
         project_bid_shows = [record for record in bid_show_records if str(record.get("project_id") or "").strip() == project_id]
         project_overlaps = [record for record in overlap_records if str(record.get("project_id") or "").strip() == project_id]
+        project_local_authority = [
+            record for record in local_authority_records if str(record.get("project_id") or "").strip() == project_id
+        ]
         company_query_counts = _counts(record.get("query_state") for record in project_queries)
         bid_show_counts = _counts(record.get("bid_show_state") for record in project_bid_shows)
         bid_show_original_notice_url_count = sum(
@@ -1560,18 +1586,23 @@ def _p13b_project_signals(payload: Mapping[str, Any]) -> dict[str, dict[str, Any
             1 for record in project_bid_shows if _as_list(record.get("responsible_person_names"))
         )
         overlap_counts = _counts(record.get("overlap_signal_state") for record in project_overlaps)
+        local_authority_task_counts = _counts(record.get("source_task_state") for record in project_local_authority)
+        local_authority_readback_counts = _counts(record.get("local_authority_readback_state") for record in project_local_authority)
         original_backtrace_required = _int(overlap_counts.get("ORIGINAL_NOTICE_BACKTRACE_REQUIRED")) + _int(
             bid_show_counts.get("ORIGINAL_NOTICE_BACKTRACE_REQUIRED")
         )
         source_blocked = _int(company_query_counts.get("SOURCE_BLOCKED_RETRY_REQUIRED"))
         overlap_review_required = _int(overlap_counts.get("OVERLAP_SIGNAL_REVIEW_REQUIRED"))
         no_public_signal = _int(overlap_counts.get("NO_PUBLIC_OVERLAP_SIGNAL_REVIEW"))
+        local_authority_plan_ready = _int(local_authority_task_counts.get("LOCAL_AUTHORITY_SOURCE_PLAN_READY")) > 0
         if overlap_review_required:
             readback_state = "MATCHED_OVERLAP_SIGNAL_REVIEW_REQUIRED"
         elif original_backtrace_required:
             readback_state = "ORIGINAL_NOTICE_BACKTRACE_REQUIRED"
         elif source_blocked:
             readback_state = "PUBLIC_SOURCE_BLOCKED_REVIEW"
+        elif local_authority_plan_ready:
+            readback_state = "LOCAL_AUTHORITY_SOURCE_PLAN_READY"
         elif no_public_signal or _int(company_query_counts.get("NO_PUBLIC_OVERLAP_SIGNAL_REVIEW")):
             readback_state = "NO_PUBLIC_OVERLAP_SIGNAL_REVIEW"
         else:
@@ -1584,6 +1615,9 @@ def _p13b_project_signals(payload: Mapping[str, Any]) -> dict[str, dict[str, Any
             "bid_show_original_notice_url_count": bid_show_original_notice_url_count,
             "bid_show_responsible_person_present_count": bid_show_responsible_person_present_count,
             "overlap_signal_state_counts": overlap_counts,
+            "local_authority_source_task_state_counts": local_authority_task_counts,
+            "local_authority_readback_state_counts": local_authority_readback_counts,
+            "local_authority_source_task_count": len(project_local_authority),
             "original_notice_backtrace_required_count": original_backtrace_required,
             "source_blocked_count": source_blocked,
             "overlap_signal_review_required_count": overlap_review_required,
@@ -1864,6 +1898,7 @@ def _stage4_public_readback_outcome_counts(project_rows: list[Mapping[str, Any]]
     for row in project_rows:
         original_state = str(row.get("p13b_original_notice_readback_state") or "").strip().upper()
         ygp_state = str(row.get("p13b_ygp_original_readback_state") or "").strip().upper()
+        local_authority_count = _int(row.get("p13b_local_authority_source_task_count"))
         if original_state == "MATCHED":
             outcomes.append("MATCHED")
         elif original_state == "NOT_FOUND":
@@ -1874,6 +1909,8 @@ def _stage4_public_readback_outcome_counts(project_rows: list[Mapping[str, Any]]
             outcomes.append("READBACK_READY")
         elif ygp_state == "YGP_BLOCKED":
             outcomes.append("BLOCKED")
+        if local_authority_count:
+            outcomes.append("LOCAL_AUTHORITY_PLAN_READY")
     return _counts(outcomes)
 
 

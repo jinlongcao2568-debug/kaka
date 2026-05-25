@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping
 
 from shared.utils import utc_now_iso
+from stage4_verification.regional_hard_defect_sources import resolve_release_evidence_local_housing_adapter
 
 
 P13B_COMPANY_HISTORY_OVERLAP_TRIAGE_KIND = "p13b_company_history_overlap_triage_v1_manifest"
@@ -241,12 +242,17 @@ def build_p13b_company_history_overlap_triage(
         max_long_tail_bid_shows_per_company=max_long_tail_shows,
         http_getter=http_getter,
     )
+    local_authority_source_task_records = _local_authority_source_task_records(
+        project_task_records,
+        created_at=created,
+    )
     manual_original_url_backtrace_table = _manual_original_url_backtrace_table(bid_show_records, overlap_signal_records)
     summary = _summary(
         project_task_records=project_task_records,
         company_history_query_records=company_history_query_records,
         bid_show_records=bid_show_records,
         overlap_signal_records=overlap_signal_records,
+        local_authority_source_task_records=local_authority_source_task_records,
         execution_mode=execution_mode,
         blocking_reasons=blocking_reasons,
         input_mode=input_mode,
@@ -259,7 +265,7 @@ def build_p13b_company_history_overlap_triage(
         "manifest_kind": P13B_COMPANY_HISTORY_OVERLAP_TRIAGE_KIND,
         "adapter_id": P13B_COMPANY_HISTORY_OVERLAP_TRIAGE_ADAPTER_ID,
         "pipeline_stage": "P13BCompanyHistoryOverlapTriageV1",
-        "manifest_id": f"P13B-COMPANY-HISTORY-OVERLAP-{_fingerprint({'summary': summary, 'tasks': company_history_query_records})[:16]}",
+        "manifest_id": f"P13B-COMPANY-HISTORY-OVERLAP-{_fingerprint({'summary': summary, 'tasks': company_history_query_records, 'local_authority': local_authority_source_task_records})[:16]}",
         "created_at": created,
         "source_input_root": str(in_dir),
         "source_ygp_expansion_root": str(ygp_expansion_dir or ""),
@@ -298,6 +304,7 @@ def build_p13b_company_history_overlap_triage(
         "company_history_query_records": company_history_query_records,
         "bid_show_records": bid_show_records,
         "overlap_signal_records": overlap_signal_records,
+        "local_authority_source_task_records": local_authority_source_task_records,
         "manual_original_url_backtrace_table": manual_original_url_backtrace_table,
         "summary": summary,
         "safety": {
@@ -747,6 +754,108 @@ def _company_query_tasks(
                 by_company[key] = task
             tasks.append(task)
     return tasks
+
+
+def _local_authority_source_task_records(
+    project_task_records: list[Mapping[str, Any]],
+    *,
+    created_at: str,
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for project in project_task_records:
+        if not _needs_local_authority_source_task(project):
+            continue
+        project_id = str(project.get("project_id") or "").strip()
+        if not project_id:
+            continue
+        region_code = _infer_local_authority_region_code(project)
+        jurisdiction_adapter = resolve_release_evidence_local_housing_adapter(region_code) if region_code else {}
+        rows.append(
+            {
+                "local_authority_source_task_id": _stable_id(
+                    "P13B-LOCAL-AUTHORITY-SOURCE",
+                    project_id,
+                    region_code,
+                    project.get("stage4_followup_route"),
+                ),
+                "project_id": project_id,
+                "project_name": str(project.get("project_name") or ""),
+                "stage4_followup_route": str(project.get("stage4_followup_route") or ""),
+                "stage4_followup_queue_state": str(project.get("stage4_followup_queue_state") or ""),
+                "candidate_companies": _list(project.get("candidate_companies")),
+                "responsible_person_names": _list(project.get("responsible_person_names")),
+                "candidate_notice_source_urls": _list(project.get("candidate_notice_source_urls")),
+                "project_source_urls": _list(project.get("project_source_urls")),
+                "source_task_state": "LOCAL_AUTHORITY_SOURCE_PLAN_READY",
+                "local_authority_readback_state": "PLAN_ONLY_NOT_EXECUTED",
+                "local_authority_region_code": region_code,
+                "local_authority_region_basis": _local_authority_region_basis(project),
+                "local_authority_source_role": "historical_project_location_housing_or_supervisory_authority",
+                "jurisdiction_local_housing_adapter": jurisdiction_adapter,
+                "jurisdiction_adapter_resolution_state": str(
+                    jurisdiction_adapter.get("adapter_resolution_state") or "UNRESOLVED"
+                ),
+                "source_entry_id": str(jurisdiction_adapter.get("entry_id") or ""),
+                "source_profile_id": str(jurisdiction_adapter.get("source_profile_id") or ""),
+                "source_name": str(jurisdiction_adapter.get("source_name") or ""),
+                "source_url": str(jurisdiction_adapter.get("source_url") or ""),
+                "official_reference_url": str(jurisdiction_adapter.get("official_reference_url") or ""),
+                "no_fallback_to_guangdong_or_guangzhou": bool(
+                    jurisdiction_adapter.get("no_fallback_to_guangdong_or_guangzhou")
+                ),
+                "allowed_readback_states": ["MATCHED", "NOT_FOUND", "BLOCKED", "NEEDS_BROWSER"],
+                "recommended_next_action": "run_project_local_authority_adapter_or_keep_plan_only_without_clearance_claim",
+                "query_miss_is_not_clearance": True,
+                "customer_visible_allowed": False,
+                "no_legal_conclusion": True,
+                "created_at": created_at,
+            }
+        )
+    return rows
+
+
+def _needs_local_authority_source_task(project: Mapping[str, Any]) -> bool:
+    route = str(project.get("stage4_followup_route") or "")
+    if "local_authority" in route:
+        return True
+    for step in _list(project.get("stage4_public_source_fallback_sequence")):
+        if isinstance(step, Mapping) and str(step.get("source_kind") or "") == "project_local_authority_public_source":
+            return True
+    return False
+
+
+def _infer_local_authority_region_code(project: Mapping[str, Any]) -> str:
+    text = " ".join(
+        str(item or "")
+        for item in [
+            project.get("project_name"),
+            *_list(project.get("candidate_notice_source_urls")),
+            *_list(project.get("project_source_urls")),
+        ]
+    )
+    city_map = {
+        "广州": "CN-GD-GZ",
+        "黄埔": "CN-GD-GZ",
+        "南沙": "CN-GD-GZ",
+        "白云": "CN-GD-GZ",
+        "荔湾": "CN-GD-GZ",
+        "阳江": "CN-GD-YJ",
+        "阳东": "CN-GD-YJ",
+        "阳西": "CN-GD-YJ",
+        "中山": "CN-GD-ZS",
+    }
+    for marker, region_code in city_map.items():
+        if marker in text:
+            return region_code
+    if "广东" in text:
+        return "CN-GD"
+    return ""
+
+
+def _local_authority_region_basis(project: Mapping[str, Any]) -> str:
+    if _infer_local_authority_region_code(project):
+        return "project_name_or_source_url_city_marker"
+    return "region_unresolved_operator_source_selection_required"
 
 
 def _project_ref_for_company(project: Mapping[str, Any], company_name: str) -> dict[str, Any]:
@@ -1261,6 +1370,7 @@ def _summary(
     company_history_query_records: list[Mapping[str, Any]],
     bid_show_records: list[Mapping[str, Any]],
     overlap_signal_records: list[Mapping[str, Any]],
+    local_authority_source_task_records: list[Mapping[str, Any]],
     execution_mode: str,
     blocking_reasons: list[str],
     input_mode: str = "P12_VALUE_CLOSEOUT",
@@ -1308,6 +1418,19 @@ def _summary(
             1 for record in company_history_query_records if str(record.get("query_state") or "") == "COMPANY_HISTORY_RECORD_FOUND"
         ),
         "bid_show_record_count": len(bid_show_records),
+        "local_authority_source_task_count": len(local_authority_source_task_records),
+        "local_authority_source_task_state_counts": _counts(
+            record.get("source_task_state") for record in local_authority_source_task_records
+        ),
+        "local_authority_readback_state_counts": _counts(
+            record.get("local_authority_readback_state") for record in local_authority_source_task_records
+        ),
+        "local_authority_region_counts": _counts(
+            record.get("local_authority_region_code") for record in local_authority_source_task_records
+        ),
+        "local_authority_adapter_resolution_state_counts": _counts(
+            record.get("jurisdiction_adapter_resolution_state") for record in local_authority_source_task_records
+        ),
         "bid_show_person_and_period_extracted_count": sum(
             1 for record in bid_show_records if str(record.get("bid_show_state") or "") == "BID_SHOW_PERSON_AND_PERIOD_EXTRACTED"
         ),

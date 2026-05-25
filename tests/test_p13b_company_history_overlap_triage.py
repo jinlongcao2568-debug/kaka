@@ -359,9 +359,15 @@ class P13BCompanyHistoryOverlapTriageTests(unittest.TestCase):
             self.assertEqual(summary["input_mode"], "STAGE4_BACKFILL_FOLLOWUP_PUBLIC_SOURCE_ROUTES")
             self.assertEqual(summary["project_task_count"], 1)
             self.assertEqual(summary["company_history_query_task_count"], 1)
+            self.assertEqual(summary["local_authority_source_task_count"], 1)
             project = result["manifest"]["project_task_records"][0]
             self.assertFalse(project["stage4_gdcic_project_code_route_allowed"])
             self.assertIn("data_ggzy_company_history_search", json.dumps(project["stage4_public_source_fallback_sequence"]))
+            local_authority_task = result["manifest"]["local_authority_source_task_records"][0]
+            self.assertEqual(local_authority_task["source_task_state"], "LOCAL_AUTHORITY_SOURCE_PLAN_READY")
+            self.assertEqual(local_authority_task["local_authority_readback_state"], "PLAN_ONLY_NOT_EXECUTED")
+            self.assertFalse(local_authority_task["customer_visible_allowed"])
+            self.assertTrue(local_authority_task["query_miss_is_not_clearance"])
             task = result["manifest"]["company_history_query_records"][0]
             self.assertEqual(task["candidate_company_name"], "广东甲公司")
             self.assertIn("张三", task["responsible_person_names"])
