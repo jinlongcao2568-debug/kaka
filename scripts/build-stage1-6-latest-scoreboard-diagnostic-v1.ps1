@@ -3,6 +3,7 @@ param(
     [string]$PreviousScoreboardJson = "",
     [string]$ScoreboardComparisonJson = "",
     [string]$FollowupQueueJson = "",
+    [string]$SearchRoot = "",
     [string]$OutputRoot = "",
     [switch]$EmitJson
 )
@@ -14,12 +15,11 @@ $OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = Resolve-Path (Join-Path $scriptDir "..")
 
-if (-not $LatestScoreboardJson) {
-    Write-Error "LatestScoreboardJson is required."
-    exit 1
-}
 if (-not $OutputRoot) {
     $OutputRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\stage1-6-latest-scoreboard-diagnostic-v1"
+}
+if (-not $SearchRoot) {
+    $SearchRoot = Join-Path $repoRoot "tmp\evaluation-real-samples"
 }
 
 New-Item -ItemType Directory -Force -Path $OutputRoot | Out-Null
@@ -29,9 +29,12 @@ $env:PYTHONIOENCODING = "utf-8"
 
 $argsList = @(
     "-m", "storage.stage1_6_latest_scoreboard_diagnostic",
-    "--latest-scoreboard-json", $LatestScoreboardJson,
+    "--search-root", $SearchRoot,
     "--output-root", $OutputRoot
 )
+if ($LatestScoreboardJson) {
+    $argsList += @("--latest-scoreboard-json", $LatestScoreboardJson)
+}
 if ($PreviousScoreboardJson) {
     $argsList += @("--previous-scoreboard-json", $PreviousScoreboardJson)
 }

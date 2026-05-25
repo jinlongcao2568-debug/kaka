@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 import tempfile
 import unittest
@@ -12,7 +13,10 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from storage.stage1_6_latest_scoreboard_diagnostic import build_stage1_6_latest_scoreboard_diagnostic
+from storage.stage1_6_latest_scoreboard_diagnostic import (
+    build_stage1_6_latest_scoreboard_diagnostic,
+    discover_latest_scoreboard_context,
+)
 
 
 class StageOneSixLatestScoreboardDiagnosticTests(unittest.TestCase):
@@ -128,6 +132,78 @@ class StageOneSixLatestScoreboardDiagnosticTests(unittest.TestCase):
         self.assertFalse(result["safety"]["customer_visible_allowed"])
         self.assertTrue(json_exists)
         self.assertTrue(markdown_exists)
+
+    def test_diagnostic_auto_discovers_latest_scoreboard_context(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            previous = root / "run-previous" / "scoreboard" / "stage1-6-sellable-scoreboard-v1.json"
+            latest = root / "run-latest" / "scoreboard" / "stage1-6-sellable-scoreboard-v1.json"
+            comparison = root / "run-latest" / "comparison" / "stage1-6-scoreboard-comparison-v1.json"
+            followup = root / "run-latest" / "stage4-followup" / "stage4-backfill-followup-queue-v1.json"
+            out = root / "out"
+            _write_scoreboard(
+                previous,
+                missing_backfill=10,
+                public_identifier_backfilled=0,
+                official_ready=0,
+                public_blocked=4,
+                source_not_found=6,
+                limited=0,
+                rate=0.0,
+            )
+            _write_scoreboard(
+                latest,
+                missing_backfill=0,
+                public_identifier_backfilled=3,
+                official_ready=3,
+                public_blocked=1,
+                source_not_found=2,
+                limited=3,
+                rate=0.2,
+            )
+            _write_json(
+                comparison,
+                {
+                    "delta_from_previous_row": [
+                        {
+                            "public_source_deepening_effect_state": "LIMITED_SELLABLE_RATE_IMPROVED",
+                            "regression_flags": [],
+                        }
+                    ],
+                    "public_source_deepening_recommendations": [],
+                },
+            )
+            _write_json(
+                followup,
+                {
+                    "summary": {
+                        "followup_record_count": 1,
+                        "followup_route_counts": {"local_authority_not_found_specific_endpoint_or_manual_source": 1},
+                    },
+                    "next_regression_execution_plan": {"plan_state": "FOLLOWUP_CONTROLLER_CHAIN_READY"},
+                },
+            )
+            os.utime(previous, (1, 1))
+            os.utime(latest, (2, 2))
+            os.utime(comparison, (2, 2))
+            os.utime(followup, (2, 2))
+
+            discovered = discover_latest_scoreboard_context(search_root=root)
+            result = build_stage1_6_latest_scoreboard_diagnostic(
+                search_root=root,
+                output_root=out,
+                created_at="2026-05-25T00:00:00+08:00",
+            )
+
+        self.assertEqual(discovered["latest_scoreboard_json"], str(latest))
+        self.assertEqual(discovered["previous_scoreboard_json"], str(previous))
+        self.assertEqual(discovered["scoreboard_comparison_json"], str(comparison))
+        self.assertEqual(discovered["followup_queue_json"], str(followup))
+        self.assertEqual(result["discovery"]["discovery_state"], "AUTO_DISCOVERED_LATEST_SCOREBOARD")
+        self.assertEqual(result["input_refs"]["latest_scoreboard_json"], str(latest))
+        self.assertEqual(result["input_refs"]["previous_scoreboard_json"], str(previous))
+        self.assertEqual(result["p0_gap_summary"]["followup_queue_remaining_count"], 1)
+        self.assertEqual(result["stage5_diagnosis"]["diagnosis_state"], "LIMITED_SELLABLE_REVIEW_CANDIDATES_PRESENT")
 
 
 def _write_scoreboard(

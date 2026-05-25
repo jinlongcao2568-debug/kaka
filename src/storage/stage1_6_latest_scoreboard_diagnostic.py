@@ -9,6 +9,7 @@ from typing import Any, Mapping
 
 DIAGNOSTIC_KIND = "stage1_6_latest_scoreboard_diagnostic_v1"
 DEFAULT_OUTPUT_ROOT = Path("tmp/evaluation-real-samples/stage1-6-latest-scoreboard-diagnostic-v1")
+DEFAULT_SEARCH_ROOT = Path("tmp/evaluation-real-samples")
 DEFAULT_SCOREBOARD_FILENAME = "stage1-6-sellable-scoreboard-v1.json"
 DEFAULT_COMPARISON_FILENAME = "stage1-6-scoreboard-comparison-v1.json"
 DEFAULT_FOLLOWUP_QUEUE_FILENAME = "stage4-backfill-followup-queue-v1.json"
@@ -16,17 +17,37 @@ DEFAULT_FOLLOWUP_QUEUE_FILENAME = "stage4-backfill-followup-queue-v1.json"
 
 def build_stage1_6_latest_scoreboard_diagnostic(
     *,
-    latest_scoreboard_json: str | Path,
+    latest_scoreboard_json: str | Path | None = None,
     previous_scoreboard_json: str | Path | None = None,
     scoreboard_comparison_json: str | Path | None = None,
     followup_queue_json: str | Path | None = None,
+    search_root: str | Path = DEFAULT_SEARCH_ROOT,
     output_root: str | Path = DEFAULT_OUTPUT_ROOT,
     created_at: str | None = None,
 ) -> dict[str, Any]:
-    latest_path = Path(latest_scoreboard_json)
-    previous_path = Path(previous_scoreboard_json) if previous_scoreboard_json else None
-    comparison_path = Path(scoreboard_comparison_json) if scoreboard_comparison_json else None
-    followup_path = Path(followup_queue_json) if followup_queue_json else None
+    discovery = discover_latest_scoreboard_context(search_root=search_root)
+    latest_path = (
+        Path(latest_scoreboard_json)
+        if latest_scoreboard_json
+        else _path_or_none(discovery.get("latest_scoreboard_json"))
+    )
+    if latest_path is None:
+        raise ValueError("latest_scoreboard_json_required_or_discoverable")
+    previous_path = (
+        Path(previous_scoreboard_json)
+        if previous_scoreboard_json
+        else _path_or_none(discovery.get("previous_scoreboard_json"))
+    )
+    comparison_path = (
+        Path(scoreboard_comparison_json)
+        if scoreboard_comparison_json
+        else _path_or_none(discovery.get("scoreboard_comparison_json"))
+    )
+    followup_path = (
+        Path(followup_queue_json)
+        if followup_queue_json
+        else _path_or_none(discovery.get("followup_queue_json"))
+    )
     latest = _read_json(latest_path)
     previous = _read_json(previous_path) if previous_path else {}
     comparison = _read_json(comparison_path) if comparison_path else {}
@@ -43,6 +64,15 @@ def build_stage1_6_latest_scoreboard_diagnostic(
             "previous_scoreboard_json": str(previous_path or ""),
             "scoreboard_comparison_json": str(comparison_path or ""),
             "followup_queue_json": str(followup_path or ""),
+            "search_root": str(search_root),
+        },
+        "discovery": {
+            **discovery,
+            "discovery_state": (
+                "AUTO_DISCOVERED_LATEST_SCOREBOARD"
+                if latest_scoreboard_json is None
+                else "EXPLICIT_LATEST_SCOREBOARD"
+            ),
         },
         "latest_run": _run_summary(latest_board),
         "delta_from_previous": _delta_summary(latest_board, previous_board),
@@ -70,6 +100,39 @@ def build_stage1_6_latest_scoreboard_diagnostic(
     _write_json(out_dir / "stage1-6-latest-scoreboard-diagnostic-v1.json", result)
     _write_markdown(out_dir / "stage1-6-latest-scoreboard-diagnostic-v1.md", result)
     return result
+
+
+def discover_latest_scoreboard_context(
+    *,
+    search_root: str | Path = DEFAULT_SEARCH_ROOT,
+) -> dict[str, Any]:
+    root = Path(search_root)
+    scoreboard_paths = _latest_files(root, DEFAULT_SCOREBOARD_FILENAME)
+    latest_path = scoreboard_paths[0] if scoreboard_paths else None
+    previous_path = scoreboard_paths[1] if len(scoreboard_paths) > 1 else None
+    run_root = _scoreboard_run_root(latest_path)
+    comparison_paths = _latest_files(root, DEFAULT_COMPARISON_FILENAME)
+    followup_paths = _latest_files(root, DEFAULT_FOLLOWUP_QUEUE_FILENAME)
+    return {
+        "search_root": str(root),
+        "latest_scoreboard_json": str(latest_path or ""),
+        "previous_scoreboard_json": str(previous_path or ""),
+        "scoreboard_comparison_json": str(
+            _first_existing(
+                _find_newest_under(run_root, DEFAULT_COMPARISON_FILENAME),
+                comparison_paths[0] if comparison_paths else None,
+            )
+            or ""
+        ),
+        "followup_queue_json": str(
+            _first_existing(
+                _find_newest_under(run_root, DEFAULT_FOLLOWUP_QUEUE_FILENAME),
+                followup_paths[0] if followup_paths else None,
+            )
+            or ""
+        ),
+        "scoreboard_candidate_count": len(scoreboard_paths),
+    }
 
 
 def _run_summary(scoreboard: Mapping[str, Any]) -> dict[str, Any]:
@@ -400,6 +463,43 @@ def _read_json(path: Path | None) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def _path_or_none(value: Any) -> Path | None:
+    text = str(value or "").strip()
+    return Path(text) if text else None
+
+
+def _latest_files(root: Path, filename: str) -> list[Path]:
+    if not root.exists():
+        return []
+    return sorted(
+        [path for path in root.rglob(filename) if path.is_file()],
+        key=lambda path: (path.stat().st_mtime, str(path)),
+        reverse=True,
+    )
+
+
+def _scoreboard_run_root(path: Path | None) -> Path | None:
+    if path is None:
+        return None
+    if path.parent.name == "scoreboard":
+        return path.parent.parent
+    return path.parent
+
+
+def _find_newest_under(root: Path | None, filename: str) -> Path | None:
+    if root is None or not root.exists():
+        return None
+    matches = _latest_files(root, filename)
+    return matches[0] if matches else None
+
+
+def _first_existing(*paths: Path | None) -> Path | None:
+    for path in paths:
+        if path is not None and path.exists() and path.is_file():
+            return path
+    return None
+
+
 def _write_json(path: Path, payload: Mapping[str, Any]) -> None:
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
@@ -465,18 +565,20 @@ def _dedupe(values: Any) -> list[str]:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--latest-scoreboard-json", required=True)
+    parser.add_argument("--latest-scoreboard-json", default="")
     parser.add_argument("--previous-scoreboard-json", default="")
     parser.add_argument("--scoreboard-comparison-json", default="")
     parser.add_argument("--followup-queue-json", default="")
+    parser.add_argument("--search-root", default=str(DEFAULT_SEARCH_ROOT))
     parser.add_argument("--output-root", default=str(DEFAULT_OUTPUT_ROOT))
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
     result = build_stage1_6_latest_scoreboard_diagnostic(
-        latest_scoreboard_json=args.latest_scoreboard_json,
+        latest_scoreboard_json=args.latest_scoreboard_json or None,
         previous_scoreboard_json=args.previous_scoreboard_json or None,
         scoreboard_comparison_json=args.scoreboard_comparison_json or None,
         followup_queue_json=args.followup_queue_json or None,
+        search_root=args.search_root,
         output_root=args.output_root,
     )
     if args.json:
