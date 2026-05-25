@@ -511,6 +511,13 @@ def run_stage6_review_cycle_runner(
         release_field_query_json=supplemental_release_field_query_json,
         release_field_query_root=supplemental_release_field_query_root,
     )
+    if release_field_query_path is None and supplemental_release_field_query_path is not None:
+        release_field_query_path = supplemental_release_field_query_path
+        if "RELEASE_FIELD_QUERY_JSON" in candidate_by_kind:
+            candidate_by_kind["RELEASE_FIELD_QUERY_JSON"]["source_path"] = supplemental_release_field_query_path
+        for candidate in bootstrap_candidates:
+            if str(candidate.get("source_kind") or "") == "RELEASE_FIELD_QUERY_JSON":
+                candidate["source_path"] = supplemental_release_field_query_path
     release_evidence_adapter_plan_path = candidate_by_kind.get("RELEASE_EVIDENCE_ADAPTER_PLAN_JSON", {}).get("source_path")
     gdcic_browser_readback_path = candidate_by_kind.get("GDCIC_BROWSER_READBACK_JSON", {}).get("source_path")
     derived_release_field_query_path = _derive_release_field_query_from_gdcic_readback(
@@ -2602,6 +2609,7 @@ def _resolve_loop_bootstrap_candidate(
         source_kind == "RELEASE_FIELD_QUERY_JSON"
         and supplemental_release_field_query_path is not None
         and supplemental_release_field_query_path.exists()
+        and supplemental_release_field_query_path != source_path
     ):
         loop_kwargs["supplemental_release_field_query_json"] = supplemental_release_field_query_path
     loop_result = run_stage6_review_loop_runner(**loop_kwargs)
