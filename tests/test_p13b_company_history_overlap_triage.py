@@ -731,6 +731,46 @@ class P13BCompanyHistoryOverlapTriageTests(unittest.TestCase):
             readback = result["manifest"]["local_authority_source_readback_records"][0]
             self.assertEqual(readback["local_authority_readback_state"], "BLOCKED")
             self.assertIn("local_authority_source_http_timeout_or_unavailable", readback["blocker_taxonomy"])
+            self.assertEqual(readback["error_type"], "TimeoutError")
+            self.assertIn("read timed out", readback["error_message"])
+            self.assertFalse(readback["customer_visible_allowed"])
+            self.assertTrue(readback["query_miss_is_not_clearance"])
+
+    def test_stage4_followup_queue_local_authority_http_error_keeps_diagnostic_fields(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            queue_json = root / "followup" / "stage4-backfill-followup-queue-v1.json"
+            field_json = root / "field-query" / "guangdong-local-field-query-probe-v1.json"
+            _write_stage4_followup_queue(queue_json)
+            _write_release_field_query(field_json)
+
+            def blocked_getter(url: str, context: dict[str, object]) -> dict[str, object]:
+                return {
+                    "status_code": 0,
+                    "content_type": "",
+                    "body": "",
+                    "url": url,
+                    "error_type": "URLError",
+                    "error": "SSL connection could not be established",
+                }
+
+            result = build_p13b_company_history_overlap_triage(
+                stage4_backfill_followup_queue_json=queue_json,
+                release_field_query_json=field_json,
+                output_root=root / "out",
+                enable_live_public_query=True,
+                http_getter=blocked_getter,
+                created_at="2026-05-25T00:00:00+08:00",
+            )
+
+            summary = result["summary"]
+            self.assertEqual(summary["local_authority_source_readback_state_counts"], {"BLOCKED": 1})
+            readback = result["manifest"]["local_authority_source_readback_records"][0]
+            self.assertEqual(readback["local_authority_readback_state"], "BLOCKED")
+            self.assertIn("local_authority_source_http_blocked_or_unavailable", readback["blocker_taxonomy"])
+            self.assertEqual(readback["error_type"], "URLError")
+            self.assertEqual(readback["error_message"], "SSL connection could not be established")
+            self.assertEqual(readback["response_url"], readback["source_url"])
             self.assertFalse(readback["customer_visible_allowed"])
             self.assertTrue(readback["query_miss_is_not_clearance"])
 

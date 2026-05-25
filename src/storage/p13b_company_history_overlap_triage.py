@@ -1095,6 +1095,7 @@ def _execute_local_authority_source_tasks(
                     "match_basis": "",
                     "blocker_taxonomy": ["local_authority_source_http_timeout_or_unavailable"],
                     "error_type": type(exc).__name__,
+                    "error_message": str(exc),
                     "recommended_next_action": "retry_project_local_authority_source_or_choose_alternate_official_entry",
                 }
             )
@@ -1102,13 +1103,17 @@ def _execute_local_authority_source_tasks(
         status = _int(response.get("status_code"))
         body = str(response.get("body") or "")
         if status <= 0 or status >= 400:
+            response_error = _local_authority_response_error_fields(response)
             rows.append(
                 {
                     **base,
                     "local_authority_readback_state": "BLOCKED",
                     "http_status_code": status,
+                    "content_type": str(response.get("content_type") or ""),
+                    "response_url": str(response.get("url") or source_url),
                     "match_basis": "",
                     "blocker_taxonomy": ["local_authority_source_http_blocked_or_unavailable"],
+                    **response_error,
                     "recommended_next_action": "retry_project_local_authority_source_or_choose_alternate_official_entry",
                 }
             )
@@ -1131,6 +1136,17 @@ def _execute_local_authority_source_tasks(
             }
         )
     return rows
+
+
+def _local_authority_response_error_fields(response: Mapping[str, Any]) -> dict[str, str]:
+    error_message = str(response.get("error") or response.get("error_message") or "").strip()
+    error_type = str(response.get("error_type") or "").strip()
+    if not error_type and error_message:
+        error_type = "HTTP_RESPONSE_ERROR"
+    return {
+        "error_type": error_type,
+        "error_message": error_message,
+    }
 
 
 def _local_authority_match_basis(task: Mapping[str, Any], body: str) -> str:
@@ -1865,6 +1881,7 @@ def _default_http_getter(url: str, context: Mapping[str, Any]) -> Mapping[str, A
             "content_type": exc.headers.get("Content-Type", "") if exc.headers else "",
             "body": body,
             "url": url,
+            "error_type": type(exc).__name__,
             "error": str(exc),
         }
     except urllib.error.URLError as exc:
@@ -1873,6 +1890,7 @@ def _default_http_getter(url: str, context: Mapping[str, Any]) -> Mapping[str, A
             "content_type": "",
             "body": "",
             "url": url,
+            "error_type": type(exc).__name__,
             "error": str(exc.reason),
         }
 

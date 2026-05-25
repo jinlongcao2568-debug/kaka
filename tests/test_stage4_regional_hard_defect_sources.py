@@ -167,6 +167,8 @@ class Stage4RegionalHardDefectSourcePlanTests(unittest.TestCase):
         self.assertEqual(jiangmen["source_profile_id"], "JIANGMEN-ZJJ-OFFICIAL-PORTAL")
         self.assertEqual(maoming["source_profile_id"], "MAOMING-ZJJ-OFFICIAL-PORTAL")
         self.assertEqual(shanwei["source_profile_id"], "SHANWEI-ZJJ-OFFICIAL-PORTAL")
+        self.assertEqual(heyuan["source_url"], "http://www.heyuan.gov.cn/hyszjj/gkmlpt/index")
+        self.assertEqual(maoming["source_url"], "http://jianshe.maoming.gov.cn/")
         for city in (huizhou, heyuan, jiangmen, maoming, shanwei):
             self.assertEqual(city["adapter_resolution_state"], "JURISDICTION_LOCAL_HOUSING_ADAPTER_PLANNED")
             self.assertTrue(city["source_url"])
