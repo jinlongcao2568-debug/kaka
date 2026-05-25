@@ -93,6 +93,63 @@ class StageOneSixRegressionExecutionPlanScriptTests(unittest.TestCase):
         self.assertTrue(payload["safety"]["live_public_query_requires_explicit_switch"])
         self.assertTrue(payload["safety"]["query_miss_is_not_clearance"])
 
+    def test_applies_runtime_blocker_fallback_source_plan_alias(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            plan_json = root / "runtime-blocker-fallback-source-plan-v1.json"
+            plan_json.write_text(
+                json.dumps(
+                    {
+                        "plan_kind": "runtime_blocker_fallback_source_plan_v1",
+                        "next_regression_execution_plan": {
+                            "plan_state": "FALLBACK_SOURCE_PLAN_READY_FOR_P13B",
+                            "recommended_switches": ["RunP13BPublicSourceChain", "RunStage6MergedProjection"],
+                            "recommended_parameter_overrides": {
+                                "MaxLiveP13BCompanies": 6,
+                                "MaxBidRecordsPerCompany": 2,
+                            },
+                            "target_project_ids": ["PROJ-CN-GD-JG2026-11111"],
+                            "live_execution_enabled_by_default": False,
+                        },
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                ),
+                encoding="utf-8",
+            )
+
+            completed = subprocess.run(
+                [
+                    "pwsh",
+                    "-NoProfile",
+                    "-ExecutionPolicy",
+                    "Bypass",
+                    "-File",
+                    str(ROOT / "scripts" / "run-stage1-6-sellable-rate-regression-v1.ps1"),
+                    "-RunRoot",
+                    str(root / "run"),
+                    "-RuntimeBlockerFallbackSourcePlanJson",
+                    str(plan_json),
+                    "-ApplyStage4FollowupExecutionPlan",
+                    "-DescribeEffectivePlanAndExit",
+                ],
+                cwd=ROOT,
+                check=True,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+            )
+
+        payload = _json_from_stdout(completed.stdout)
+        self.assertTrue(payload["run_switches"]["RunP13BPublicSourceChain"])
+        self.assertTrue(payload["run_switches"]["RunStage6MergedProjection"])
+        self.assertFalse(payload["run_switches"]["EnableLivePublicQuery"])
+        self.assertEqual(payload["budget_parameters"]["MaxLiveP13BCompanies"], 6)
+        self.assertEqual(payload["budget_parameters"]["MaxBidRecordsPerCompany"], 2)
+        self.assertEqual(payload["target"]["ProjectIds"], "PROJ-CN-GD-JG2026-11111")
+        self.assertEqual(payload["input_refs"]["RuntimeBlockerFallbackSourcePlanJson"], str(plan_json))
+        self.assertEqual(payload["input_refs"]["Stage4BackfillFollowupQueueJson"], str(plan_json))
+
     def test_reuses_gdcic_readback_ref_from_scoreboard_when_source_run_lacks_artifact(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)

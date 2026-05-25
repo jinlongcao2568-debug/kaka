@@ -12,6 +12,7 @@ param(
     [string]$SupplementalFieldQueryJson = "",
     [string]$ScoreboardComparisonJson = "",
     [string]$Stage4BackfillFollowupQueueJson = "",
+    [string]$RuntimeBlockerFallbackSourcePlanJson = "",
     [switch]$ApplyStage4FollowupExecutionPlan,
     [string]$ProjectIds = "",
     [switch]$EnableLivePublicQuery,
@@ -121,10 +122,26 @@ $ExcludeProjectId = Expand-StringList $ExcludeProjectId
 $ExcludeScoreboardJson = Expand-StringList $ExcludeScoreboardJson
 $followupQueue = $null
 $executionPlan = $null
+$effectiveFollowupPlanJson = ""
+
+if ($RuntimeBlockerFallbackSourcePlanJson) {
+    $effectiveFollowupPlanJson = Resolve-RepoPath "$RuntimeBlockerFallbackSourcePlanJson"
+    if (-not (Test-Path $effectiveFollowupPlanJson)) {
+        Write-Error "RuntimeBlockerFallbackSourcePlanJson not found: $RuntimeBlockerFallbackSourcePlanJson"
+        exit 1
+    }
+    if ($Stage4BackfillFollowupQueueJson) {
+        Write-Error "Use either -Stage4BackfillFollowupQueueJson or -RuntimeBlockerFallbackSourcePlanJson, not both."
+        exit 1
+    }
+    $Stage4BackfillFollowupQueueJson = $effectiveFollowupPlanJson
+} elseif ($Stage4BackfillFollowupQueueJson) {
+    $effectiveFollowupPlanJson = Resolve-RepoPath "$Stage4BackfillFollowupQueueJson"
+}
 
 if ($ApplyStage4FollowupExecutionPlan) {
     if (-not $Stage4BackfillFollowupQueueJson) {
-        Write-Error "ApplyStage4FollowupExecutionPlan requires -Stage4BackfillFollowupQueueJson."
+        Write-Error "ApplyStage4FollowupExecutionPlan requires -Stage4BackfillFollowupQueueJson or -RuntimeBlockerFallbackSourcePlanJson."
         exit 1
     }
     if (-not (Test-Path $Stage4BackfillFollowupQueueJson)) {
@@ -347,6 +364,7 @@ if ($DescribeEffectivePlanAndExit) {
         input_refs = [ordered]@{
             ScoreboardComparisonJson = "$ScoreboardComparisonJson"
             Stage4BackfillFollowupQueueJson = "$Stage4BackfillFollowupQueueJson"
+            RuntimeBlockerFallbackSourcePlanJson = "$RuntimeBlockerFallbackSourcePlanJson"
             EffectivePressureRoot = "$sourcePressureRoot"
             EffectiveFieldQueryRoot = "$sourceFieldQueryRoot"
             EffectiveSupplementalFieldQueryRoot = "$SupplementalFieldQueryRoot"
@@ -486,7 +504,7 @@ if ($Stage4BackfillFollowupQueueJson) {
 }
 if ($RunP13BPublicSourceChain) {
     if (-not (Test-Path $gdcicReadbackJson) -and (-not $effectiveStage4BackfillFollowupQueueJson -or -not (Test-Path $effectiveStage4BackfillFollowupQueueJson))) {
-        Write-Error "RunP13BPublicSourceChain requires gdcic-browser-authorized-readback-v1.json or Stage4BackfillFollowupQueueJson."
+        Write-Error "RunP13BPublicSourceChain requires gdcic-browser-authorized-readback-v1.json, Stage4BackfillFollowupQueueJson, or RuntimeBlockerFallbackSourcePlanJson."
         exit 1
     }
     $p13bArgs = @(

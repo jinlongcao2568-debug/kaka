@@ -6,6 +6,7 @@ param(
     [string]$GdcicBrowserReadbackRoot = "",
     [string]$Stage4BackfillFollowupQueueJson = "",
     [string]$Stage4BackfillFollowupQueueRoot = "",
+    [string]$RuntimeBlockerFallbackSourcePlanJson = "",
     [string]$ReleaseFieldQueryJson = "",
     [string]$ReleaseFieldQueryRoot = "",
     [string]$OutputRoot = "",
@@ -41,6 +42,11 @@ New-Item -ItemType Directory -Force -Path $OutputRoot | Out-Null
 $env:PYTHONPATH = "$repoRoot\src;$repoRoot\tests"
 $env:PYTHONIOENCODING = "utf-8"
 
+if ($Stage4BackfillFollowupQueueJson -and $RuntimeBlockerFallbackSourcePlanJson) {
+    Write-Error "Use either -Stage4BackfillFollowupQueueJson or -RuntimeBlockerFallbackSourcePlanJson, not both."
+    exit 1
+}
+
 $argsList = @(
     "-m", "storage.p13b_company_history_overlap_triage",
     "--input-root", $InputRoot,
@@ -68,6 +74,9 @@ if ($GdcicBrowserReadbackRoot) {
 }
 if ($Stage4BackfillFollowupQueueJson) {
     $argsList += @("--stage4-backfill-followup-queue-json", $Stage4BackfillFollowupQueueJson)
+}
+if ($RuntimeBlockerFallbackSourcePlanJson) {
+    $argsList += @("--stage4-backfill-followup-queue-json", $RuntimeBlockerFallbackSourcePlanJson)
 }
 if ($Stage4BackfillFollowupQueueRoot) {
     $argsList += @("--stage4-backfill-followup-queue-root", $Stage4BackfillFollowupQueueRoot)
