@@ -99,6 +99,15 @@ class Stage6ReviewCycleRunnerTests(unittest.TestCase):
         self.assertFalse(result["manifest"]["customer_visible_allowed"])
         self.assertTrue(result["manifest"]["query_miss_is_not_clearance"])
 
+    def test_stage6_review_cycle_script_forwards_stage4_followup_queue_args(self) -> None:
+        script = ROOT / "scripts" / "run-stage6-review-cycle-v1.ps1"
+        text = script.read_text(encoding="utf-8")
+
+        self.assertIn("$Stage4BackfillFollowupQueueJson", text)
+        self.assertIn("$Stage4BackfillFollowupQueueRoot", text)
+        self.assertIn("--stage4-backfill-followup-queue-json", text)
+        self.assertIn("--stage4-backfill-followup-queue-root", text)
+
     def test_missing_bootstrap_registry_blocks_cycle_machine_readably(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
