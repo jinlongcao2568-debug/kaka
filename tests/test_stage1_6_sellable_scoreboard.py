@@ -16,6 +16,55 @@ from storage.stage1_6_sellable_scoreboard import build_stage1_6_sellable_scorebo
 
 
 class StageOneSixSellableScoreboardTests(unittest.TestCase):
+    def test_scoreboard_emits_continuation_input_refs_for_followup_runners(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            pressure = root / "pressure"
+            field_query = root / "field-query"
+            gdcic_readback = root / "gdcic-readback"
+            stage6 = root / "stage6"
+            out = root / "out"
+            pressure.mkdir()
+            field_query.mkdir()
+            gdcic_readback.mkdir()
+            stage6.mkdir()
+            _write_json(pressure / "pressure-summary.json", {"candidate_count": 1})
+            _write_json(pressure / "stage1-6-readiness-table.json", {"records": [{"project_id": "PROJ-A"}]})
+            _write_json(pressure / "stage1-6-gap-summary-table.json", {"records": []})
+            _write_json(pressure / "stage4-release-adapter-bridge-plan.json", {"tasks": []})
+            _write_json(
+                field_query / "guangdong-local-field-query-probe-v1.json",
+                {"manifest": {"field_task_records": [{"project_id": "PROJ-A", "adapter_result_state": "MATCHED"}]}},
+            )
+            _write_json(
+                gdcic_readback / "gdcic-browser-authorized-readback-v1.json",
+                {"summary": {"authorized_session_input_state": "NO_AUTHORIZED_SESSION_INPUT"}},
+            )
+            _write_json(
+                stage6 / "stage6-review-loop-project-status-table.json",
+                {"records": [{"project_id": "PROJ-A", "stage6_ready": False}]},
+            )
+
+            result = build_stage1_6_sellable_scoreboard(
+                pressure_root=pressure,
+                field_query_root=field_query,
+                gdcic_browser_readback_root=gdcic_readback,
+                stage6_status_root=stage6,
+                output_root=out,
+                created_at="2026-05-25T00:00:00+00:00",
+            )
+
+        refs = result["continuation_input_refs"]
+        self.assertEqual(refs["prior_scoreboard_json"], str(out / "stage1-6-sellable-scoreboard-v1.json"))
+        self.assertEqual(refs["effective_pressure_root"], str(pressure))
+        self.assertEqual(refs["effective_release_field_query_root"], str(field_query))
+        self.assertEqual(refs["effective_gdcic_browser_readback_root"], str(gdcic_readback))
+        self.assertEqual(refs["effective_stage6_status_root"], str(stage6))
+        self.assertEqual(refs["pressure_root_resolution_state"], "RESOLVED_FROM_SCOREBOARD_INPUT_REFS")
+        self.assertEqual(refs["stage6_status_root_resolution_state"], "RESOLVED_FROM_SCOREBOARD_INPUT_REFS")
+        self.assertFalse(refs["customer_visible_allowed"])
+        self.assertTrue(refs["query_miss_is_not_clearance"])
+
     def test_scoreboard_counts_sellable_funnel_and_blocker_buckets(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)

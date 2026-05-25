@@ -233,31 +233,31 @@ def build_stage1_6_sellable_scoreboard(
     )
     recommended_next_actions = _recommended_next_actions(blocker_summary, counts)
 
+    input_refs = {
+        "pressure_summary_json": str(pressure_summary_path),
+        "stage1_6_readiness_json": str(readiness_path),
+        "stage1_6_gap_summary_json": str(gap_summary_path),
+        "release_field_query_json": str(field_query_path),
+        "supplemental_release_field_query_json": str(supplemental_field_query_path)
+        if supplemental_field_query_path is not None
+        else "",
+        "gdcic_browser_authorized_readback_json": str(gdcic_browser_readback_path),
+        "p13b_company_history_json": str(p13b_company_history_path),
+        "p13b_original_notice_backtrace_json": str(p13b_original_notice_backtrace_path),
+        "p13b_ygp_original_readback_json": str(p13b_ygp_original_readback_path),
+        "p13b_overlap_triage_closeout_json": str(p13b_overlap_triage_closeout_path),
+        "company_first_stage4_execution_json": str(company_first_stage4_execution_path or ""),
+        "design_survey_public_registry_readback_json": str(design_survey_public_registry_readback_path or ""),
+        "stage6_status_json": str(stage6_status_path),
+        "prior_scoreboard_json": str(prior_scoreboard_json or ""),
+        "incremental_project_ids": sorted(incremental_targets),
+    }
     result = {
         "scoreboard_kind": SCOREBOARD_KIND,
         "scoreboard_version": SCOREBOARD_VERSION,
         "created_at": created,
-        "input_refs": {
-            "pressure_summary_json": str(pressure_summary_path),
-            "stage1_6_readiness_json": str(readiness_path),
-            "stage1_6_gap_summary_json": str(gap_summary_path),
-            "release_field_query_json": str(field_query_path),
-            "supplemental_release_field_query_json": str(supplemental_field_query_path)
-            if supplemental_field_query_path is not None
-            else "",
-            "gdcic_browser_authorized_readback_json": str(gdcic_browser_readback_path),
-            "p13b_company_history_json": str(p13b_company_history_path),
-            "p13b_original_notice_backtrace_json": str(p13b_original_notice_backtrace_path),
-            "p13b_ygp_original_readback_json": str(p13b_ygp_original_readback_path),
-            "p13b_overlap_triage_closeout_json": str(p13b_overlap_triage_closeout_path),
-            "company_first_stage4_execution_json": str(company_first_stage4_execution_path or ""),
-            "design_survey_public_registry_readback_json": str(
-                design_survey_public_registry_readback_path or ""
-            ),
-            "stage6_status_json": str(stage6_status_path),
-            "prior_scoreboard_json": str(prior_scoreboard_json or ""),
-            "incremental_project_ids": sorted(incremental_targets),
-        },
+        "input_refs": input_refs,
+        "continuation_input_refs": _scoreboard_continuation_input_refs(input_refs, out_dir),
         "scoreboard": counts,
         "blocker_summary": blocker_summary,
         "recommended_next_actions": recommended_next_actions,
@@ -1968,6 +1968,60 @@ def _resolve_stage6_status_path(value: str | Path | None, root: Path) -> Path:
         if candidate.exists():
             return candidate
     return candidates[0]
+
+
+def _scoreboard_continuation_input_refs(input_refs: Mapping[str, Any], out_dir: Path) -> dict[str, Any]:
+    pressure_root = _parent_with_required_sibling(
+        input_refs,
+        keys=("pressure_summary_json", "stage1_6_readiness_json", "stage1_6_gap_summary_json"),
+        required_sibling="stage4-release-adapter-bridge-plan.json",
+    )
+    release_field_query_root = _existing_file_parent(input_refs.get("release_field_query_json"))
+    gdcic_readback_root = _existing_file_parent(input_refs.get("gdcic_browser_authorized_readback_json"))
+    stage6_status_root = _existing_file_parent(input_refs.get("stage6_status_json"))
+    return {
+        "prior_scoreboard_json": str(out_dir / "stage1-6-sellable-scoreboard-v1.json"),
+        "effective_pressure_root": pressure_root,
+        "effective_release_field_query_root": release_field_query_root,
+        "effective_gdcic_browser_readback_root": gdcic_readback_root,
+        "effective_stage6_status_root": stage6_status_root,
+        "pressure_root_resolution_state": "RESOLVED_FROM_SCOREBOARD_INPUT_REFS" if pressure_root else "UNRESOLVED",
+        "release_field_query_root_resolution_state": (
+            "RESOLVED_FROM_SCOREBOARD_INPUT_REFS" if release_field_query_root else "UNRESOLVED"
+        ),
+        "gdcic_browser_readback_root_resolution_state": (
+            "RESOLVED_FROM_SCOREBOARD_INPUT_REFS" if gdcic_readback_root else "UNRESOLVED"
+        ),
+        "stage6_status_root_resolution_state": (
+            "RESOLVED_FROM_SCOREBOARD_INPUT_REFS" if stage6_status_root else "UNRESOLVED"
+        ),
+        "customer_visible_allowed": False,
+        "query_miss_is_not_clearance": True,
+        "no_legal_conclusion": True,
+    }
+
+
+def _parent_with_required_sibling(
+    input_refs: Mapping[str, Any],
+    *,
+    keys: tuple[str, ...],
+    required_sibling: str,
+) -> str:
+    for key in keys:
+        root = _existing_file_parent(input_refs.get(key))
+        if root and (Path(root) / required_sibling).exists():
+            return root
+    return ""
+
+
+def _existing_file_parent(value: Any) -> str:
+    path_text = str(value or "").strip()
+    if not path_text:
+        return ""
+    path = Path(path_text)
+    if path.exists() and path.is_file():
+        return str(path.parent)
+    return ""
 
 
 def _resolve_path(value: str | Path | None, default: Path) -> Path:
