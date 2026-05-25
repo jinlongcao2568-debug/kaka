@@ -32,12 +32,17 @@ def build_stage4_backfill_followup_queue(
         scoreboard_path=scoreboard_path,
         comparison_json=scoreboard_comparison_json,
     )
+    local_authority_context_by_project = _local_authority_readback_context_by_project(payload)
     records = [
         _followup_record(
             row,
             scoreboard_ref=str(scoreboard_path),
             deepening_policy=deepening_policy,
             pressure_context=pressure_context_by_project.get(str(row.get("project_id") or "").strip(), {}),
+            local_authority_context=local_authority_context_by_project.get(
+                str(row.get("project_id") or "").strip(),
+                {},
+            ),
         )
         for row in rows
         if isinstance(row, Mapping) and _needs_backfill_followup(row)
@@ -78,6 +83,9 @@ def build_stage4_backfill_followup_queue(
 
 
 def _needs_backfill_followup(row: Mapping[str, Any]) -> bool:
+    local_authority_counts = _local_authority_executed_counts(row)
+    if _int(local_authority_counts.get("BLOCKED")) or _int(local_authority_counts.get("NOT_FOUND")):
+        return True
     if str(row.get("p13b_original_notice_readback_state") or "").upper() == "BLOCKED":
         return True
     if str(row.get("p13b_ygp_original_readback_state") or "").upper() == "YGP_BLOCKED":
@@ -101,6 +109,7 @@ def _followup_record(
     scoreboard_ref: str,
     deepening_policy: Mapping[str, Any],
     pressure_context: Mapping[str, Any],
+    local_authority_context: Mapping[str, Any],
 ) -> dict[str, Any]:
     project_id = str(row.get("project_id") or "").strip()
     detail = _followup_gap_detail(row)
@@ -121,6 +130,11 @@ def _followup_record(
         "candidate_notice_source_urls": _dedupe(_list(pressure_context.get("candidate_notice_source_urls"))),
         "project_source_urls": _dedupe(_list(pressure_context.get("project_source_urls"))),
         "context_source": str(pressure_context.get("context_source") or ""),
+        "local_authority_readback_context": dict(local_authority_context),
+        "alternate_local_authority_source_candidates": _alternate_local_authority_source_candidates(
+            row,
+            local_authority_context,
+        ),
         "followup_route": route,
         "followup_queue_state": _followup_queue_state(route),
         "worker_family": _worker_family(route),
@@ -141,6 +155,11 @@ def _followup_record(
 
 
 def _followup_gap_detail(row: Mapping[str, Any]) -> str:
+    local_authority_counts = _local_authority_executed_counts(row)
+    if _int(local_authority_counts.get("BLOCKED")):
+        return "LOCAL_AUTHORITY_BLOCKED_RETRY_OR_ALTERNATE_SOURCE_REQUIRED"
+    if _int(local_authority_counts.get("NOT_FOUND")):
+        return "LOCAL_AUTHORITY_NOT_FOUND_DEEPENING_REQUIRED"
     public_readback_state = str(row.get("p13b_public_source_readback_state") or "")
     if public_readback_state == "LOCAL_AUTHORITY_BLOCKED_REVIEW":
         return "LOCAL_AUTHORITY_BLOCKED_RETRY_OR_ALTERNATE_SOURCE_REQUIRED"
@@ -161,6 +180,116 @@ def _followup_gap_detail(row: Mapping[str, Any]) -> str:
     if bucket == "YGP_READBACK_BLOCKED_REVIEW":
         return "YGP_READBACK_BLOCKED_RETRY_OR_LOCAL_AUTHORITY_REQUIRED"
     return ""
+
+
+def _local_authority_executed_counts(row: Mapping[str, Any]) -> Mapping[str, Any]:
+    value = row.get("p13b_local_authority_executed_readback_state_counts")
+    return value if isinstance(value, Mapping) else {}
+
+
+def _local_authority_readback_context_by_project(scoreboard_payload: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
+    input_refs = scoreboard_payload.get("input_refs") if isinstance(scoreboard_payload.get("input_refs"), Mapping) else {}
+    p13b_path = _first_existing_path(
+        input_refs.get("p13b_company_history_json"),
+        _prior_scoreboard_input_refs(input_refs).get("p13b_company_history_json"),
+    )
+    if not p13b_path:
+        return {}
+    payload = _read_json(p13b_path)
+    manifest = payload.get("manifest") if isinstance(payload.get("manifest"), Mapping) else {}
+    records = manifest.get("local_authority_source_readback_records")
+    by_project: dict[str, dict[str, Any]] = {}
+    for record in records if isinstance(records, list) else []:
+        if not isinstance(record, Mapping):
+            continue
+        project_id = str(record.get("project_id") or "").strip()
+        if not project_id:
+            continue
+        by_project[project_id] = {
+            "local_authority_region_code": str(record.get("local_authority_region_code") or ""),
+            "source_profile_id": str(record.get("source_profile_id") or ""),
+            "source_name": str(record.get("source_name") or ""),
+            "source_url": str(record.get("source_url") or ""),
+            "local_authority_readback_state": str(record.get("local_authority_readback_state") or ""),
+            "http_status_code": _int(record.get("http_status_code")),
+            "match_basis": str(record.get("match_basis") or ""),
+            "blocker_taxonomy": _list(record.get("blocker_taxonomy")),
+            "recommended_next_action": str(record.get("recommended_next_action") or ""),
+            "query_miss_is_not_clearance": True,
+            "customer_visible_allowed": False,
+            "no_legal_conclusion": True,
+        }
+    return by_project
+
+
+def _alternate_local_authority_source_candidates(
+    row: Mapping[str, Any],
+    context: Mapping[str, Any],
+) -> list[dict[str, Any]]:
+    region_code = str(context.get("local_authority_region_code") or "").upper()
+    project_id = str(row.get("project_id") or "")
+    common = {
+        "project_id": project_id,
+        "customer_visible_allowed": False,
+        "query_miss_is_not_clearance": True,
+        "no_legal_conclusion": True,
+    }
+    if region_code == "CN-GD-GZ":
+        return [
+            {
+                **common,
+                "candidate_source_id": "gz_zfcj_construction_permit_public_api",
+                "source_name": "广州市住房和城乡建设局 / 建筑工程施工许可证公示信息",
+                "source_url": "https://zfcj.gz.gov.cn/zfcj/gczlaq/constructionPermitInformation/",
+                "api_url": "https://zfcj.gz.gov.cn/ysqgk/Api/WebApi/sgxkxxlb.ashx",
+                "recommended_query_mode": "specific_project_or_company_keyword_search",
+            },
+            {
+                **common,
+                "candidate_source_id": "gz_zfcj_completion_acceptance_public_api",
+                "source_name": "广州市住房和城乡建设局 / 工程竣工验收信息",
+                "source_url": "https://zfcj.gz.gov.cn/zfcj/gczlaq/completionAcceptance/",
+                "api_url": "https://zfcj.gz.gov.cn/ysqgk/Api/WebApi/gcjgysxxlb.ashx",
+                "recommended_query_mode": "specific_project_or_company_keyword_search",
+            },
+            {
+                **common,
+                "candidate_source_id": "gz_zfcj_credit_double_publicity",
+                "source_name": "广州市住房和城乡建设局 / 信用信息双公示",
+                "source_url": "https://zfcj.gz.gov.cn/zfcj/xyxx/",
+                "api_url": "",
+                "recommended_query_mode": "specific_search_endpoint_or_manual_source_path",
+            },
+        ]
+    if region_code == "CN-GD-YJ":
+        return [
+            {
+                **common,
+                "candidate_source_id": "yj_zjj_govinfo_public_index",
+                "source_name": "阳江市住房和城乡建设局 / 政府信息公开",
+                "source_url": "https://www.yangjiang.gov.cn/yjzjj/gkmlpt/index",
+                "api_url": "",
+                "recommended_query_mode": "retry_official_index_or_choose_specific_column",
+            },
+            {
+                **common,
+                "candidate_source_id": "yj_zjj_official_site_search",
+                "source_name": "阳江市住房和城乡建设局 / 站内公开搜索",
+                "source_url": "https://www.yangjiang.gov.cn/yjzjj/",
+                "api_url": "",
+                "recommended_query_mode": "specific_project_or_company_keyword_search",
+            },
+        ]
+    return [
+        {
+            **common,
+            "candidate_source_id": "local_authority_region_resolution_required",
+            "source_name": "项目所在地住建或主管部门公开入口待识别",
+            "source_url": "",
+            "api_url": "",
+            "recommended_query_mode": "resolve_historical_project_jurisdiction_before_retry",
+        }
+    ]
 
 
 def _followup_route(detail: str) -> str:
@@ -407,16 +536,25 @@ def _public_source_deepening_policy(
 
 def _continuation_input_refs(payload: Mapping[str, Any], scoreboard_path: Path) -> dict[str, Any]:
     input_refs = payload.get("input_refs") if isinstance(payload.get("input_refs"), Mapping) else {}
+    prior_input_refs = _prior_scoreboard_input_refs(input_refs)
     pressure_root = _root_with_required_sibling(
         input_refs,
         keys=["pressure_summary_json", "stage1_6_readiness_json", "stage1_6_gap_summary_json"],
         required_sibling="stage4-release-adapter-bridge-plan.json",
+    ) or _root_with_required_sibling(
+        prior_input_refs,
+        keys=["pressure_summary_json", "stage1_6_readiness_json", "stage1_6_gap_summary_json"],
+        required_sibling="stage4-release-adapter-bridge-plan.json",
     )
-    release_field_query_root = _parent_if_file_exists(input_refs.get("release_field_query_json"))
+    release_field_query_root = _parent_if_file_exists(input_refs.get("release_field_query_json")) or _parent_if_file_exists(
+        prior_input_refs.get("release_field_query_json")
+    )
     supplemental_release_field_query_json = input_refs.get("supplemental_release_field_query_json")
     supplemental_release_field_query_root = _parent_if_file_exists(supplemental_release_field_query_json)
     gdcic_readback_root = _parent_if_file_exists(input_refs.get("gdcic_browser_authorized_readback_json"))
-    stage6_status_root = _parent_if_file_exists(input_refs.get("stage6_status_json"))
+    stage6_status_root = _parent_if_file_exists(input_refs.get("stage6_status_json")) or _parent_if_file_exists(
+        prior_input_refs.get("stage6_status_json")
+    )
     return {
         "prior_scoreboard_json": str(scoreboard_path),
         "effective_pressure_root": pressure_root,
@@ -441,6 +579,15 @@ def _continuation_input_refs(payload: Mapping[str, Any], scoreboard_path: Path) 
     }
 
 
+def _prior_scoreboard_input_refs(input_refs: Mapping[str, Any]) -> Mapping[str, Any]:
+    prior_scoreboard = str(input_refs.get("prior_scoreboard_json") or "").strip()
+    if not prior_scoreboard:
+        return {}
+    payload = _read_json(Path(prior_scoreboard))
+    refs = payload.get("input_refs") if isinstance(payload.get("input_refs"), Mapping) else {}
+    return refs
+
+
 def _root_with_required_sibling(input_refs: Mapping[str, Any], *, keys: list[str], required_sibling: str) -> str:
     for key in keys:
         root = _parent_if_file_exists(input_refs.get(key))
@@ -457,6 +604,17 @@ def _parent_if_file_exists(value: Any) -> str:
     if path.exists() and path.is_file():
         return str(path.parent)
     return ""
+
+
+def _first_existing_path(*values: Any) -> Path | None:
+    for value in values:
+        path_text = str(value or "").strip()
+        if not path_text:
+            continue
+        path = Path(path_text)
+        if path.exists() and path.is_file():
+            return path
+    return None
 
 
 def _summary(records: list[Mapping[str, Any]]) -> dict[str, Any]:
@@ -568,6 +726,13 @@ def _counts(values: Any) -> dict[str, int]:
             continue
         counts[key] = counts.get(key, 0) + 1
     return counts
+
+
+def _int(value: Any) -> int:
+    try:
+        return int(value or 0)
+    except (TypeError, ValueError):
+        return 0
 
 
 def _list(value: Any) -> list[Any]:

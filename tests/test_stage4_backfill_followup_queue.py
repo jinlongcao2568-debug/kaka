@@ -81,6 +81,53 @@ class Stage4BackfillFollowupQueueTests(unittest.TestCase):
         self.assertTrue(refs["query_miss_is_not_clearance"])
         self.assertEqual(result["next_regression_execution_plan"]["continuation_input_refs"], refs)
 
+    def test_continuation_input_refs_fall_back_to_prior_scoreboard_refs_for_incremental_runs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            prior_pressure = root / "prior-pressure"
+            prior_field = root / "prior-field-query"
+            prior_stage6 = root / "prior-stage6"
+            prior_scoreboard = root / "prior" / "stage1-6-sellable-scoreboard-v1.json"
+            scoreboard = root / "current" / "stage1-6-sellable-scoreboard-v1.json"
+            out = root / "out"
+            _write_json(prior_pressure / "pressure-summary.json", {"summary": {"candidate_count": 2}})
+            _write_json(prior_pressure / "stage4-release-adapter-bridge-plan.json", {"tasks": []})
+            _write_json(prior_field / "guangdong-local-field-query-probe-v1.json", {"summary": {}})
+            _write_json(prior_stage6 / "stage6-review-loop-project-status-table.json", {"summary": {}})
+            _write_json(
+                prior_scoreboard,
+                {
+                    "input_refs": {
+                        "pressure_summary_json": str(prior_pressure / "pressure-summary.json"),
+                        "release_field_query_json": str(prior_field / "guangdong-local-field-query-probe-v1.json"),
+                        "stage6_status_json": str(prior_stage6 / "stage6-review-loop-project-status-table.json"),
+                    }
+                },
+            )
+            _write_json(
+                scoreboard,
+                {
+                    "input_refs": {
+                        "pressure_summary_json": str(root / "missing" / "pressure-summary.json"),
+                        "release_field_query_json": str(root / "missing" / "guangdong-local-field-query-probe-v1.json"),
+                        "stage6_status_json": str(root / "missing" / "stage6-review-loop-project-status-table.json"),
+                        "prior_scoreboard_json": str(prior_scoreboard),
+                    },
+                    "project_rows": [],
+                },
+            )
+
+            result = build_stage4_backfill_followup_queue(
+                scoreboard_json=scoreboard,
+                output_root=out,
+                created_at="2026-05-25T00:00:00+00:00",
+            )
+
+        refs = result["continuation_input_refs"]
+        self.assertEqual(refs["effective_pressure_root"], str(prior_pressure))
+        self.assertEqual(refs["effective_release_field_query_root"], str(prior_field))
+        self.assertEqual(refs["effective_stage6_status_root"], str(prior_stage6))
+
     def test_builds_controller_consumable_followups_from_scoreboard_gap_details(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -353,11 +400,40 @@ class Stage4BackfillFollowupQueueTests(unittest.TestCase):
             root = Path(tmp_dir)
             run_root = root / "stage1-6-sellable-rate-regression-live15-r2"
             scoreboard = run_root / "scoreboard" / "stage1-6-sellable-scoreboard-v1.json"
+            p13b = run_root / "p13b-company-history" / "company-history-overlap-triage-v1.json"
             comparison = root / "comparison.json"
             out = root / "out"
             _write_json(
+                p13b,
+                {
+                    "manifest": {
+                        "local_authority_source_readback_records": [
+                            {
+                                "project_id": "PROJ-LOCAL-BLOCKED-SECONDARY",
+                                "local_authority_region_code": "CN-GD-YJ",
+                                "source_name": "阳江市住房和城乡建设局 / 政府信息公开",
+                                "source_url": "https://www.yangjiang.gov.cn/yjzjj/gkmlpt/index",
+                                "local_authority_readback_state": "BLOCKED",
+                                "http_status_code": 0,
+                                "blocker_taxonomy": ["local_authority_source_http_blocked_or_unavailable"],
+                            },
+                            {
+                                "project_id": "PROJ-LOCAL-NOT-FOUND-SECONDARY",
+                                "local_authority_region_code": "CN-GD-GZ",
+                                "source_name": "广州市住房和城乡建设局 / 信用信息双公示",
+                                "source_url": "https://zfcj.gz.gov.cn/zfcj/xyxx/",
+                                "local_authority_readback_state": "NOT_FOUND",
+                                "http_status_code": 200,
+                                "blocker_taxonomy": ["local_authority_portal_reachable_no_project_keyword_match"],
+                            },
+                        ]
+                    }
+                },
+            )
+            _write_json(
                 scoreboard,
                 {
+                    "input_refs": {"p13b_company_history_json": str(p13b)},
                     "project_rows": [
                         {
                             "project_id": "PROJ-LOCAL-BLOCKED",
@@ -376,6 +452,26 @@ class Stage4BackfillFollowupQueueTests(unittest.TestCase):
                             "stage5_operational_review_bucket": "LOCAL_AUTHORITY_NOT_FOUND_REVIEW",
                             "p13b_public_source_readback_state": "LOCAL_AUTHORITY_NOT_FOUND_REVIEW",
                             "p13b_overlap_triage_state": "NO_OVERLAP_SIGNAL_REVIEW",
+                        },
+                        {
+                            "project_id": "PROJ-LOCAL-BLOCKED-SECONDARY",
+                            "project_name": "Local authority blocked while main track stays YGP",
+                            "stage4_project_code_backfill_state": "PUBLIC_SOURCE_IDENTIFIER_BACKFILLED_FOR_P13B_OR_STAGE4_BRIDGE_ONLY",
+                            "stage4_project_code_backfill_gap_detail": "",
+                            "stage5_operational_review_bucket": "YGP_STAGE4_BACKFILL_READY_REVIEW",
+                            "p13b_public_source_readback_state": "ORIGINAL_NOTICE_BACKTRACE_REQUIRED",
+                            "p13b_local_authority_executed_readback_state_counts": {"BLOCKED": 1},
+                            "p13b_overlap_triage_state": "YGP_STAGE4_BACKFILL_READY_FOR_P13B_OR_STAGE4_BRIDGE",
+                        },
+                        {
+                            "project_id": "PROJ-LOCAL-NOT-FOUND-SECONDARY",
+                            "project_name": "Local authority not found while main track stays strong lead",
+                            "stage4_project_code_backfill_state": "PUBLIC_SOURCE_IDENTIFIER_BACKFILLED_FOR_P13B_OR_STAGE4_BRIDGE_ONLY",
+                            "stage4_project_code_backfill_gap_detail": "",
+                            "stage5_operational_review_bucket": "STRONG_LEAD_INTERNAL_REVIEW",
+                            "p13b_public_source_readback_state": "ORIGINAL_NOTICE_BACKTRACE_REQUIRED",
+                            "p13b_local_authority_executed_readback_state_counts": {"NOT_FOUND": 1},
+                            "p13b_overlap_triage_state": "YGP_STAGE4_BACKFILL_READY_FOR_P13B_OR_STAGE4_BRIDGE",
                         },
                     ]
                 },
@@ -423,10 +519,26 @@ class Stage4BackfillFollowupQueueTests(unittest.TestCase):
             records["PROJ-LOCAL-NOT-FOUND"]["followup_route"],
             "local_authority_not_found_specific_endpoint_or_manual_source",
         )
+        self.assertEqual(
+            records["PROJ-LOCAL-BLOCKED-SECONDARY"]["followup_route"],
+            "local_authority_blocked_retry_or_alternate_source",
+        )
+        self.assertEqual(
+            records["PROJ-LOCAL-NOT-FOUND-SECONDARY"]["followup_route"],
+            "local_authority_not_found_specific_endpoint_or_manual_source",
+        )
+        self.assertEqual(
+            records["PROJ-LOCAL-BLOCKED-SECONDARY"]["local_authority_readback_context"]["local_authority_region_code"],
+            "CN-GD-YJ",
+        )
+        self.assertEqual(
+            records["PROJ-LOCAL-NOT-FOUND-SECONDARY"]["alternate_local_authority_source_candidates"][0]["candidate_source_id"],
+            "gz_zfcj_construction_permit_public_api",
+        )
         self.assertEqual(records["PROJ-LOCAL-NOT-FOUND"]["execution_priority"], "MEDIUM_LOCAL_AUTHORITY_FALLBACK")
         self.assertEqual(
             result["summary"]["execution_priority_counts"],
-            {"HIGH_PUBLIC_SOURCE_DEEPENING": 1, "MEDIUM_LOCAL_AUTHORITY_FALLBACK": 1},
+            {"HIGH_PUBLIC_SOURCE_DEEPENING": 2, "MEDIUM_LOCAL_AUTHORITY_FALLBACK": 2},
         )
         for record in result["records"]:
             self.assertTrue(record["public_source_deepening_recommended"])
