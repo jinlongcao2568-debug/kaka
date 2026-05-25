@@ -231,6 +231,20 @@ if ($followupQueue -and $SourceRegressionRunRoot) {
             $sourceFieldQueryRoot = $continuationFieldQueryRoot
             Write-Host "[stage1-6-regression] reused field query root from follow-up continuation_input_refs: $sourceFieldQueryRoot"
         }
+        if (-not $SupplementalFieldQueryJson -and $continuationRefs.effective_supplemental_release_field_query_json) {
+            $continuationSupplementalFieldQueryJson = Resolve-RepoPath "$($continuationRefs.effective_supplemental_release_field_query_json)"
+            if (Test-Path $continuationSupplementalFieldQueryJson) {
+                $SupplementalFieldQueryJson = $continuationSupplementalFieldQueryJson
+                Write-Host "[stage1-6-regression] reused supplemental field query json from follow-up continuation_input_refs: $SupplementalFieldQueryJson"
+            }
+        }
+        if (-not $SupplementalFieldQueryRoot -and $continuationRefs.effective_supplemental_release_field_query_root) {
+            $continuationSupplementalFieldQueryRoot = Resolve-ExistingDir "$($continuationRefs.effective_supplemental_release_field_query_root)"
+            if ($continuationSupplementalFieldQueryRoot -and (Test-Path (Join-Path $continuationSupplementalFieldQueryRoot "guangdong-local-field-query-probe-v1.json"))) {
+                $SupplementalFieldQueryRoot = $continuationSupplementalFieldQueryRoot
+                Write-Host "[stage1-6-regression] reused supplemental field query root from follow-up continuation_input_refs: $SupplementalFieldQueryRoot"
+            }
+        }
         $continuationGdcicRoot = Resolve-ExistingDir "$($continuationRefs.effective_gdcic_browser_readback_root)"
         if ($continuationGdcicRoot -and (Test-Path (Join-Path $continuationGdcicRoot "gdcic-browser-authorized-readback-v1.json"))) {
             $sourceGdcicReadbackRoot = $continuationGdcicRoot
@@ -280,6 +294,15 @@ if ($followupQueue -and $SourceRegressionRunRoot) {
         }
     }
 
+    if (-not $SupplementalFieldQueryJson -and -not $SupplementalFieldQueryRoot -and $scoreboardPayload -and $scoreboardPayload.input_refs -and $scoreboardPayload.input_refs.supplemental_release_field_query_json) {
+        $scoreboardSupplementalFieldQueryJson = Resolve-RepoPath "$($scoreboardPayload.input_refs.supplemental_release_field_query_json)"
+        if (Test-Path $scoreboardSupplementalFieldQueryJson) {
+            $SupplementalFieldQueryJson = $scoreboardSupplementalFieldQueryJson
+            $SupplementalFieldQueryRoot = Split-Path -Parent $scoreboardSupplementalFieldQueryJson
+            Write-Host "[stage1-6-regression] reused supplemental release field query from scoreboard input_refs: $scoreboardSupplementalFieldQueryJson"
+        }
+    }
+
     $sourceGdcicJson = Join-Path $sourceGdcicReadbackRoot "gdcic-browser-authorized-readback-v1.json"
     if (-not (Test-Path $sourceGdcicJson) -and $scoreboardPayload -and $scoreboardPayload.input_refs -and $scoreboardPayload.input_refs.gdcic_browser_authorized_readback_json) {
         $scoreboardGdcicJson = Resolve-RepoPath "$($scoreboardPayload.input_refs.gdcic_browser_authorized_readback_json)"
@@ -326,6 +349,8 @@ if ($DescribeEffectivePlanAndExit) {
             Stage4BackfillFollowupQueueJson = "$Stage4BackfillFollowupQueueJson"
             EffectivePressureRoot = "$sourcePressureRoot"
             EffectiveFieldQueryRoot = "$sourceFieldQueryRoot"
+            EffectiveSupplementalFieldQueryRoot = "$SupplementalFieldQueryRoot"
+            EffectiveSupplementalFieldQueryJson = "$SupplementalFieldQueryJson"
             EffectiveGdcicBrowserReadbackRoot = "$sourceGdcicReadbackRoot"
         }
         target = [ordered]@{

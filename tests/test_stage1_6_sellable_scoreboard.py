@@ -21,11 +21,13 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
             root = Path(tmp_dir)
             pressure = root / "pressure"
             field_query = root / "field-query"
+            supplemental_field_query = root / "field-query-ygp-backfill"
             gdcic_readback = root / "gdcic-readback"
             stage6 = root / "stage6"
             out = root / "out"
             pressure.mkdir()
             field_query.mkdir()
+            supplemental_field_query.mkdir()
             gdcic_readback.mkdir()
             stage6.mkdir()
             _write_json(pressure / "pressure-summary.json", {"candidate_count": 1})
@@ -34,6 +36,10 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
             _write_json(pressure / "stage4-release-adapter-bridge-plan.json", {"tasks": []})
             _write_json(
                 field_query / "guangdong-local-field-query-probe-v1.json",
+                {"manifest": {"field_task_records": [{"project_id": "PROJ-A", "adapter_result_state": "MATCHED"}]}},
+            )
+            _write_json(
+                supplemental_field_query / "guangdong-local-field-query-probe-v1.json",
                 {"manifest": {"field_task_records": [{"project_id": "PROJ-A", "adapter_result_state": "MATCHED"}]}},
             )
             _write_json(
@@ -48,6 +54,7 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
             result = build_stage1_6_sellable_scoreboard(
                 pressure_root=pressure,
                 field_query_root=field_query,
+                supplemental_field_query_root=supplemental_field_query,
                 gdcic_browser_readback_root=gdcic_readback,
                 stage6_status_root=stage6,
                 output_root=out,
@@ -58,9 +65,18 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
         self.assertEqual(refs["prior_scoreboard_json"], str(out / "stage1-6-sellable-scoreboard-v1.json"))
         self.assertEqual(refs["effective_pressure_root"], str(pressure))
         self.assertEqual(refs["effective_release_field_query_root"], str(field_query))
+        self.assertEqual(
+            refs["effective_supplemental_release_field_query_json"],
+            str(supplemental_field_query / "guangdong-local-field-query-probe-v1.json"),
+        )
+        self.assertEqual(refs["effective_supplemental_release_field_query_root"], str(supplemental_field_query))
         self.assertEqual(refs["effective_gdcic_browser_readback_root"], str(gdcic_readback))
         self.assertEqual(refs["effective_stage6_status_root"], str(stage6))
         self.assertEqual(refs["pressure_root_resolution_state"], "RESOLVED_FROM_SCOREBOARD_INPUT_REFS")
+        self.assertEqual(
+            refs["supplemental_release_field_query_root_resolution_state"],
+            "RESOLVED_FROM_SCOREBOARD_INPUT_REFS",
+        )
         self.assertEqual(refs["stage6_status_root_resolution_state"], "RESOLVED_FROM_SCOREBOARD_INPUT_REFS")
         self.assertFalse(refs["customer_visible_allowed"])
         self.assertTrue(refs["query_miss_is_not_clearance"])

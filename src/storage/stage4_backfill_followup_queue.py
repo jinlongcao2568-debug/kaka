@@ -317,17 +317,24 @@ def _continuation_input_refs(payload: Mapping[str, Any], scoreboard_path: Path) 
         required_sibling="stage4-release-adapter-bridge-plan.json",
     )
     release_field_query_root = _parent_if_file_exists(input_refs.get("release_field_query_json"))
+    supplemental_release_field_query_json = input_refs.get("supplemental_release_field_query_json")
+    supplemental_release_field_query_root = _parent_if_file_exists(supplemental_release_field_query_json)
     gdcic_readback_root = _parent_if_file_exists(input_refs.get("gdcic_browser_authorized_readback_json"))
     stage6_status_root = _parent_if_file_exists(input_refs.get("stage6_status_json"))
     return {
         "prior_scoreboard_json": str(scoreboard_path),
         "effective_pressure_root": pressure_root,
         "effective_release_field_query_root": release_field_query_root,
+        "effective_supplemental_release_field_query_json": str(supplemental_release_field_query_json or ""),
+        "effective_supplemental_release_field_query_root": supplemental_release_field_query_root,
         "effective_gdcic_browser_readback_root": gdcic_readback_root,
         "effective_stage6_status_root": stage6_status_root,
         "pressure_root_resolution_state": "RESOLVED_FROM_SCOREBOARD_INPUT_REFS" if pressure_root else "UNRESOLVED",
         "release_field_query_root_resolution_state": (
             "RESOLVED_FROM_SCOREBOARD_INPUT_REFS" if release_field_query_root else "UNRESOLVED"
+        ),
+        "supplemental_release_field_query_root_resolution_state": (
+            "RESOLVED_FROM_SCOREBOARD_INPUT_REFS" if supplemental_release_field_query_root else "UNRESOLVED"
         ),
         "gdcic_browser_readback_root_resolution_state": (
             "RESOLVED_FROM_SCOREBOARD_INPUT_REFS" if gdcic_readback_root else "UNRESOLVED"

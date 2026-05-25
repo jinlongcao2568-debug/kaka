@@ -247,12 +247,17 @@ class StageOneSixRegressionExecutionPlanScriptTests(unittest.TestCase):
             root = Path(tmp_dir)
             pressure_root = root / "machine-refs" / "pressure"
             field_root = root / "machine-refs" / "field-query"
+            supplemental_field_root = root / "machine-refs" / "field-query-ygp-backfill"
             gdcic_root = root / "machine-refs" / "gdcic-browser-authorized-readback"
             scoreboard_json = root / "machine-refs" / "scoreboard" / "stage1-6-sellable-scoreboard-v1.json"
             queue_json = root / "queue" / "stage4-backfill-followup-queue-v1.json"
             _write_json(pressure_root / "pressure-summary.json", {"summary": {"candidate_count": 1}})
             _write_json(pressure_root / "stage4-release-adapter-bridge-plan.json", {"tasks": []})
             _write_json(field_root / "guangdong-local-field-query-probe-v1.json", {"summary": {"adapter": "ready"}})
+            _write_json(
+                supplemental_field_root / "guangdong-local-field-query-probe-v1.json",
+                {"summary": {"adapter": "supplemental-ready"}},
+            )
             _write_json(gdcic_root / "gdcic-browser-authorized-readback-v1.json", {"summary": {"auth": "missing"}})
             _write_json(scoreboard_json, {"scoreboard": {}})
             _write_json(
@@ -263,6 +268,10 @@ class StageOneSixRegressionExecutionPlanScriptTests(unittest.TestCase):
                         "prior_scoreboard_json": str(scoreboard_json),
                         "effective_pressure_root": str(pressure_root),
                         "effective_release_field_query_root": str(field_root),
+                        "effective_supplemental_release_field_query_root": str(supplemental_field_root),
+                        "effective_supplemental_release_field_query_json": str(
+                            supplemental_field_root / "guangdong-local-field-query-probe-v1.json"
+                        ),
                         "effective_gdcic_browser_readback_root": str(gdcic_root),
                         "customer_visible_allowed": False,
                         "query_miss_is_not_clearance": True,
@@ -303,6 +312,11 @@ class StageOneSixRegressionExecutionPlanScriptTests(unittest.TestCase):
         payload = _json_from_stdout(completed.stdout)
         self.assertEqual(payload["input_refs"]["EffectivePressureRoot"], str(pressure_root))
         self.assertEqual(payload["input_refs"]["EffectiveFieldQueryRoot"], str(field_root))
+        self.assertEqual(payload["input_refs"]["EffectiveSupplementalFieldQueryRoot"], str(supplemental_field_root))
+        self.assertEqual(
+            payload["input_refs"]["EffectiveSupplementalFieldQueryJson"],
+            str(supplemental_field_root / "guangdong-local-field-query-probe-v1.json"),
+        )
         self.assertEqual(payload["input_refs"]["EffectiveGdcicBrowserReadbackRoot"], str(gdcic_root))
         self.assertEqual(payload["target"]["ProjectIds"], "PROJ-CN-GD-JG2026-11463-002")
         self.assertFalse(payload["safety"]["customer_visible_allowed"])

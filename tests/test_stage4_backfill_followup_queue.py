@@ -21,6 +21,7 @@ class Stage4BackfillFollowupQueueTests(unittest.TestCase):
             root = Path(tmp_dir)
             pressure_root = root / "pressure"
             field_root = root / "field-query"
+            supplemental_field_root = root / "field-query-ygp-backfill"
             gdcic_root = root / "gdcic-browser-authorized-readback"
             stage6_root = root / "stage6-loop-merged"
             scoreboard = root / "scoreboard" / "stage1-6-sellable-scoreboard-v1.json"
@@ -28,11 +29,13 @@ class Stage4BackfillFollowupQueueTests(unittest.TestCase):
             pressure_summary = pressure_root / "pressure-summary.json"
             release_plan = pressure_root / "stage4-release-adapter-bridge-plan.json"
             field_json = field_root / "guangdong-local-field-query-probe-v1.json"
+            supplemental_field_json = supplemental_field_root / "guangdong-local-field-query-probe-v1.json"
             gdcic_json = gdcic_root / "gdcic-browser-authorized-readback-v1.json"
             stage6_json = stage6_root / "stage6-review-loop-project-status-table.json"
             _write_json(pressure_summary, {"summary": {"candidate_count": 1}})
             _write_json(release_plan, {"tasks": []})
             _write_json(field_json, {"summary": {"adapter_result_state_counts": {"MATCHED": 1}}})
+            _write_json(supplemental_field_json, {"summary": {"adapter_result_state_counts": {"MATCHED": 1}}})
             _write_json(gdcic_json, {"summary": {"authorization_readiness_state": "LOGIN_OR_SSO_REQUIRED"}})
             _write_json(stage6_json, {"summary": {"project_status_record_count": 1}})
             _write_json(
@@ -41,6 +44,7 @@ class Stage4BackfillFollowupQueueTests(unittest.TestCase):
                     "input_refs": {
                         "pressure_summary_json": str(pressure_summary),
                         "release_field_query_json": str(field_json),
+                        "supplemental_release_field_query_json": str(supplemental_field_json),
                         "gdcic_browser_authorized_readback_json": str(gdcic_json),
                         "stage6_status_json": str(stage6_json),
                     },
@@ -64,9 +68,15 @@ class Stage4BackfillFollowupQueueTests(unittest.TestCase):
         self.assertEqual(refs["prior_scoreboard_json"], str(scoreboard))
         self.assertEqual(refs["effective_pressure_root"], str(pressure_root))
         self.assertEqual(refs["effective_release_field_query_root"], str(field_root))
+        self.assertEqual(refs["effective_supplemental_release_field_query_root"], str(supplemental_field_root))
+        self.assertEqual(refs["effective_supplemental_release_field_query_json"], str(supplemental_field_json))
         self.assertEqual(refs["effective_gdcic_browser_readback_root"], str(gdcic_root))
         self.assertEqual(refs["effective_stage6_status_root"], str(stage6_root))
         self.assertEqual(refs["pressure_root_resolution_state"], "RESOLVED_FROM_SCOREBOARD_INPUT_REFS")
+        self.assertEqual(
+            refs["supplemental_release_field_query_root_resolution_state"],
+            "RESOLVED_FROM_SCOREBOARD_INPUT_REFS",
+        )
         self.assertFalse(refs["customer_visible_allowed"])
         self.assertTrue(refs["query_miss_is_not_clearance"])
         self.assertEqual(result["next_regression_execution_plan"]["continuation_input_refs"], refs)
