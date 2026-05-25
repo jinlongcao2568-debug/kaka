@@ -18,6 +18,31 @@ from storage.guangdong_local_field_query_probe import build_guangdong_local_fiel
 
 
 class GuangdongLocalFieldQueryProbeTests(unittest.TestCase):
+    def test_append_missing_query_params_does_not_duplicate_existing_ygp_detail_params(self) -> None:
+        url = (
+            "https://ygp.gdzwfw.gov.cn/ggzy-portal/center/apis/trading-notice/new/detail"
+            "?nodeId=1942830178172833793&version=v3&noticeId=notice-1"
+            "&bizCode=3C52&projectCode=E4401001123002315001&siteCode=440900"
+        )
+
+        request_url = field_query_probe._append_missing_query_params(
+            url,
+            {
+                "nodeId": "1942830178172833793",
+                "version": "v3",
+                "noticeId": "notice-1",
+                "bizCode": "3C52",
+                "projectCode": "E4401001123002315001",
+                "siteCode": "440900",
+                "extra": "keep",
+            },
+        )
+
+        self.assertEqual(request_url.count("?"), 1)
+        self.assertEqual(request_url.count("nodeId="), 1)
+        self.assertEqual(request_url.count("projectCode="), 1)
+        self.assertIn("&extra=keep", request_url)
+
     def test_default_getter_uses_scrapling_bridge_for_get_readback(self) -> None:
         class FakeResponse:
             url = "https://example.test/query?a=1"

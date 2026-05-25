@@ -3484,7 +3484,7 @@ def _default_http_getter(url: str, params: Mapping[str, Any]) -> Mapping[str, An
     elif method == "POST" and form_body:
         data = urllib.parse.urlencode(request_params).encode("utf-8")
     elif request_params:
-        request_url = f"{url}?{urllib.parse.urlencode(request_params)}"
+        request_url = _append_missing_query_params(url, request_params)
     if _should_use_stage4_scrapling_get_bridge(method, params, json_body=json_body, form_body=form_body):
         bridged = _stage4_scrapling_get(request_url)
         if bridged:
@@ -3533,6 +3533,20 @@ def _default_http_getter(url: str, params: Mapping[str, Any]) -> Mapping[str, An
             "text_probe": text,
             "json_payload": _loads_json_or_empty(text),
         }
+
+
+def _append_missing_query_params(url: str, params: Mapping[str, Any]) -> str:
+    request_params = {str(key): value for key, value in dict(params or {}).items() if str(value or "").strip()}
+    if not request_params:
+        return url
+    parsed = urllib.parse.urlsplit(url)
+    existing_keys = {str(key) for key, _value in urllib.parse.parse_qsl(parsed.query, keep_blank_values=True)}
+    missing_params = {key: value for key, value in request_params.items() if key not in existing_keys}
+    if not missing_params:
+        return url
+    encoded_missing = urllib.parse.urlencode(missing_params)
+    merged_query = f"{parsed.query}&{encoded_missing}" if parsed.query else encoded_missing
+    return urllib.parse.urlunsplit((parsed.scheme, parsed.netloc, parsed.path, merged_query, parsed.fragment))
 
 
 def _should_use_stage4_scrapling_get_bridge(
