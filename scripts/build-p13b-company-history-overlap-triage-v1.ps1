@@ -4,6 +4,10 @@ param(
     [string]$YgpCoverageCloseoutRoot = "",
     [string]$GdcicBrowserReadbackJson = "",
     [string]$GdcicBrowserReadbackRoot = "",
+    [string]$Stage4BackfillFollowupQueueJson = "",
+    [string]$Stage4BackfillFollowupQueueRoot = "",
+    [string]$ReleaseFieldQueryJson = "",
+    [string]$ReleaseFieldQueryRoot = "",
     [string]$OutputRoot = "",
     [switch]$EnableLivePublicQuery,
     [int]$MaxLiveCompanies = 0,
@@ -61,6 +65,18 @@ if ($GdcicBrowserReadbackJson) {
 }
 if ($GdcicBrowserReadbackRoot) {
     $argsList += @("--gdcic-browser-readback-root", $GdcicBrowserReadbackRoot)
+}
+if ($Stage4BackfillFollowupQueueJson) {
+    $argsList += @("--stage4-backfill-followup-queue-json", $Stage4BackfillFollowupQueueJson)
+}
+if ($Stage4BackfillFollowupQueueRoot) {
+    $argsList += @("--stage4-backfill-followup-queue-root", $Stage4BackfillFollowupQueueRoot)
+}
+if ($ReleaseFieldQueryJson) {
+    $argsList += @("--release-field-query-json", $ReleaseFieldQueryJson)
+}
+if ($ReleaseFieldQueryRoot) {
+    $argsList += @("--release-field-query-root", $ReleaseFieldQueryRoot)
 }
 if ($EnableLivePublicQuery) {
     $argsList += "--enable-live-public-query"

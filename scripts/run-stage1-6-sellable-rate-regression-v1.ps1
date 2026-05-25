@@ -351,21 +351,34 @@ $p13bCompanyHistoryJson = Join-Path $p13bCompanyHistoryRoot "company-history-ove
 $p13bOriginalNoticeJson = Join-Path $p13bOriginalNoticeRoot "original-notice-backtrace-v1.json"
 $p13bYgpReadbackJson = Join-Path $p13bYgpReadbackRoot "ygp-original-readback-v1.json"
 $p13bCloseoutJson = Join-Path $p13bCloseoutRoot "p13b-overlap-triage-closeout-v1.json"
+$effectiveStage4BackfillFollowupQueueJson = ""
+if ($Stage4BackfillFollowupQueueJson) {
+    $effectiveStage4BackfillFollowupQueueJson = Resolve-RepoPath "$Stage4BackfillFollowupQueueJson"
+} elseif (Test-Path (Join-Path $stage4BackfillFollowupQueueRoot "stage4-backfill-followup-queue-v1.json")) {
+    $effectiveStage4BackfillFollowupQueueJson = Join-Path $stage4BackfillFollowupQueueRoot "stage4-backfill-followup-queue-v1.json"
+}
 if ($RunP13BPublicSourceChain) {
-    if (-not (Test-Path $gdcicReadbackJson)) {
-        Write-Error "RunP13BPublicSourceChain requires gdcic-browser-authorized-readback-v1.json. Use -RunGdcicAuthorizedReadback first or provide an existing run root."
+    if (-not (Test-Path $gdcicReadbackJson) -and (-not $effectiveStage4BackfillFollowupQueueJson -or -not (Test-Path $effectiveStage4BackfillFollowupQueueJson))) {
+        Write-Error "RunP13BPublicSourceChain requires gdcic-browser-authorized-readback-v1.json or Stage4BackfillFollowupQueueJson."
         exit 1
     }
     $p13bArgs = @(
         "-NoProfile", "-ExecutionPolicy", "Bypass",
         "-File", (Join-Path $repoRoot "scripts\build-p13b-company-history-overlap-triage-v1.ps1"),
-        "-GdcicBrowserReadbackRoot", $effectiveGdcicReadbackRoot,
         "-OutputRoot", $p13bCompanyHistoryRoot,
         "-MaxLiveCompanies", "$MaxLiveP13BCompanies",
         "-MaxBidRecordsPerCompany", "$MaxBidRecordsPerCompany",
         "-MaxBidListPagesPerCompany", "$MaxBidListPagesPerCompany",
         "-MaxLongTailBidShowsPerCompany", "$MaxLongTailBidShowsPerCompany"
     )
+    if (Test-Path $gdcicReadbackJson) {
+        $p13bArgs += @("-GdcicBrowserReadbackRoot", $effectiveGdcicReadbackRoot)
+    } elseif ($effectiveStage4BackfillFollowupQueueJson) {
+        $p13bArgs += @("-Stage4BackfillFollowupQueueJson", $effectiveStage4BackfillFollowupQueueJson)
+        if (Test-Path $fieldQueryJson) {
+            $p13bArgs += @("-ReleaseFieldQueryJson", $fieldQueryJson)
+        }
+    }
     if ($ProjectIds) {
         $p13bArgs += @("-ProjectIds", $ProjectIds)
     }

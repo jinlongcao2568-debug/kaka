@@ -72,6 +72,10 @@ def build_p13b_company_history_overlap_triage(
     ygp_coverage_closeout_root: str | Path | None = None,
     gdcic_browser_readback_json: str | Path | None = None,
     gdcic_browser_readback_root: str | Path | None = None,
+    stage4_backfill_followup_queue_json: str | Path | None = None,
+    stage4_backfill_followup_queue_root: str | Path | None = None,
+    release_field_query_json: str | Path | None = None,
+    release_field_query_root: str | Path | None = None,
     output_root: str | Path = DEFAULT_OUTPUT_ROOT,
     enable_live_public_query: bool = False,
     max_live_companies: int | None = None,
@@ -101,6 +105,14 @@ def build_p13b_company_history_overlap_triage(
         gdcic_browser_readback_json=gdcic_browser_readback_json,
         gdcic_browser_readback_root=gdcic_browser_readback_root,
     )
+    followup_queue_path = _stage4_followup_queue_path(
+        stage4_backfill_followup_queue_json=stage4_backfill_followup_queue_json,
+        stage4_backfill_followup_queue_root=stage4_backfill_followup_queue_root,
+    )
+    release_field_query_path = _release_field_query_path(
+        release_field_query_json=release_field_query_json,
+        release_field_query_root=release_field_query_root,
+    )
     out_dir = Path(output_root)
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -108,6 +120,8 @@ def build_p13b_company_history_overlap_triage(
     input_mode = (
         "GDCIC_ALTERNATIVE_PUBLIC_SOURCE_ROUTES"
         if gdcic_readback_path
+        else "STAGE4_BACKFILL_FOLLOWUP_PUBLIC_SOURCE_ROUTES"
+        if followup_queue_path
         else "YGP_ORIGINAL_READBACK_EXPANSION"
         if ygp_expansion_dir
         else "P12_VALUE_CLOSEOUT"
@@ -131,6 +145,29 @@ def build_p13b_company_history_overlap_triage(
             _int(record.get("gdcic_alternative_public_source_route_count"))
             for record in project_task_records
         )
+        company_query_tasks = _company_query_tasks(project_task_records, created_at=created)
+    elif followup_queue_path:
+        followup_queue = _load_json(
+            followup_queue_path,
+            blocking_reasons,
+            "stage4_backfill_followup_queue_missing",
+        )
+        release_field_query = (
+            _load_json(
+                release_field_query_path,
+                blocking_reasons,
+                "release_field_query_missing_for_stage4_followup_queue",
+            )
+            if release_field_query_path
+            else {}
+        )
+        source_manifest = _source_manifest(release_field_query)
+        project_task_records = _stage4_followup_queue_project_task_records(
+            followup_queue,
+            source_manifest,
+            created_at=created,
+        )
+        project_task_records = _filter_project_task_records(project_task_records, selected_project_ids)
         company_query_tasks = _company_query_tasks(project_task_records, created_at=created)
     elif ygp_expansion_dir:
         ygp_input_table = _load_json(
@@ -228,6 +265,8 @@ def build_p13b_company_history_overlap_triage(
         "source_ygp_expansion_root": str(ygp_expansion_dir or ""),
         "source_ygp_coverage_closeout_root": str(ygp_coverage_dir or ""),
         "source_gdcic_browser_readback_json": str(gdcic_readback_path or ""),
+        "source_stage4_backfill_followup_queue_json": str(followup_queue_path or ""),
+        "source_release_field_query_json": str(release_field_query_path or ""),
         "source_project_value_table": str(in_dir / "project-value-table.json"),
         "source_candidate_group_verification_table": str(in_dir / "candidate-group-verification-table.json"),
         "source_profile_id": "NATIONAL-GGZY-DATA-SERVICE-COMPANY-AWARD-HISTORY",
@@ -518,6 +557,129 @@ def _gdcic_alternative_route_project_task_records(
             ]
         )
     return list(grouped.values())
+
+
+def _stage4_followup_queue_project_task_records(
+    followup_queue: Mapping[str, Any],
+    release_field_query_manifest: Mapping[str, Any],
+    *,
+    created_at: str,
+) -> list[dict[str, Any]]:
+    field_by_project = _release_field_query_context_by_project(release_field_query_manifest)
+    records = [
+        dict(record)
+        for record in _list(followup_queue.get("records") or followup_queue.get("followup_records"))
+        if isinstance(record, Mapping)
+        and str(record.get("followup_queue_state") or "") in {
+            "FOLLOWUP_SOURCE_PLAN_REQUIRED",
+            "FOLLOWUP_SOURCE_RETRY_REQUIRED",
+            "FOLLOWUP_SOURCE_READY",
+        }
+    ]
+    grouped: dict[str, dict[str, Any]] = {}
+    for record in records:
+        project_id = str(record.get("project_id") or "").strip()
+        if not project_id:
+            continue
+        context = field_by_project.get(project_id, {})
+        companies = _dedupe(
+            [
+                *_list(context.get("candidate_companies")),
+                *_candidate_company_members(str(context.get("candidate_company_name") or "")),
+            ]
+        )
+        people = _dedupe([*_list(context.get("responsible_person_names"))])
+        urls = _dedupe(
+            [
+                *_list(context.get("candidate_notice_source_urls")),
+                *_list(context.get("project_source_urls")),
+            ]
+        )
+        project = grouped.setdefault(
+            project_id,
+            {
+                "project_task_id": _stable_id("P13B-STAGE4-FOLLOWUP-PROJECT", project_id),
+                "project_id": project_id,
+                "project_name": str(record.get("project_name") or context.get("project_name") or ""),
+                "candidate_group_count": len(companies),
+                "candidate_group_ids": [],
+                "candidate_companies": [],
+                "candidate_company_input_counts": {},
+                "responsible_person_names": [],
+                "current_project_time_window": _current_project_time_window(record, [], created_at=created_at),
+                "candidate_notice_source_urls": [],
+                "project_source_urls": [],
+                "value_closeout_state": "STAGE4_AUTH_OR_SOURCE_BLOCKED_PUBLIC_FOLLOWUP_REQUIRED",
+                "p13b_triage_state": "P13B_COMPANY_HISTORY_TRIAGE_REQUIRED",
+                "stage4_followup_route": str(record.get("followup_route") or ""),
+                "stage4_followup_queue_state": str(record.get("followup_queue_state") or ""),
+                "stage4_public_source_fallback_sequence": _list(record.get("public_source_fallback_sequence")),
+                "stage4_gdcic_project_code_route_allowed": False,
+                "stage4_gdcic_project_code_route_policy": "PUBLIC_SOURCE_IDENTIFIER_NOT_SENT_TO_GDCIC_UNLESS_EXPLICIT_PROVINCIAL_CODE",
+                "customer_visible_allowed": False,
+                "query_miss_is_not_clearance": True,
+                "no_legal_conclusion": True,
+            },
+        )
+        project["candidate_companies"] = _dedupe([*project["candidate_companies"], *companies])
+        counts = dict(project.get("candidate_company_input_counts") or {})
+        for company in companies:
+            counts[company] = _int(counts.get(company)) + 1
+        project["candidate_company_input_counts"] = counts
+        project["responsible_person_names"] = _dedupe([*project["responsible_person_names"], *people])
+        project["candidate_notice_source_urls"] = _dedupe([*project["candidate_notice_source_urls"], *urls])
+        project["project_source_urls"] = _dedupe([*project["project_source_urls"], *urls])
+        project["candidate_group_count"] = len(project["candidate_companies"])
+    return list(grouped.values())
+
+
+def _release_field_query_context_by_project(manifest: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
+    out: dict[str, dict[str, Any]] = {}
+    for task in _list(manifest.get("field_task_records")):
+        if not isinstance(task, Mapping):
+            continue
+        project_id = str(task.get("project_id") or "").strip()
+        if not project_id:
+            continue
+        row = out.setdefault(
+            project_id,
+            {
+                "project_name": str(task.get("project_name") or ""),
+                "candidate_companies": [],
+                "responsible_person_names": [],
+                "candidate_notice_source_urls": [],
+                "project_source_urls": [],
+            },
+        )
+        row["project_name"] = row.get("project_name") or str(task.get("project_name") or "")
+        row["candidate_companies"] = _dedupe(
+            [
+                *row.get("candidate_companies", []),
+                *_list(task.get("candidate_group_members")),
+                *_list(task.get("matched_company_names")),
+                *_list(task.get("company_query_variants")),
+            ]
+        )
+        row["responsible_person_names"] = _dedupe(
+            [
+                *row.get("responsible_person_names", []),
+                task.get("responsible_person_name"),
+            ]
+        )
+        row["candidate_notice_source_urls"] = _dedupe(
+            [
+                *row.get("candidate_notice_source_urls", []),
+                task.get("trigger_source_url"),
+            ]
+        )
+        row["project_source_urls"] = _dedupe(
+            [
+                *row.get("project_source_urls", []),
+                task.get("trigger_source_url"),
+                task.get("source_url") if "ywtb.gzggzy.cn" in str(task.get("source_url") or "") else "",
+            ]
+        )
+    return out
 
 
 def _company_query_tasks(
@@ -1919,6 +2081,30 @@ def _gdcic_readback_path(
     return None
 
 
+def _stage4_followup_queue_path(
+    *,
+    stage4_backfill_followup_queue_json: str | Path | None,
+    stage4_backfill_followup_queue_root: str | Path | None,
+) -> Path | None:
+    if stage4_backfill_followup_queue_json:
+        return Path(stage4_backfill_followup_queue_json)
+    if stage4_backfill_followup_queue_root:
+        return Path(stage4_backfill_followup_queue_root) / "stage4-backfill-followup-queue-v1.json"
+    return None
+
+
+def _release_field_query_path(
+    *,
+    release_field_query_json: str | Path | None,
+    release_field_query_root: str | Path | None,
+) -> Path | None:
+    if release_field_query_json:
+        return Path(release_field_query_json)
+    if release_field_query_root:
+        return Path(release_field_query_root) / "guangdong-local-field-query-probe-v1.json"
+    return None
+
+
 def _int(value: Any) -> int:
     try:
         if isinstance(value, bool):
@@ -1968,6 +2154,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--ygp-coverage-closeout-root", default="")
     parser.add_argument("--gdcic-browser-readback-json", default="")
     parser.add_argument("--gdcic-browser-readback-root", default="")
+    parser.add_argument("--stage4-backfill-followup-queue-json", default="")
+    parser.add_argument("--stage4-backfill-followup-queue-root", default="")
+    parser.add_argument("--release-field-query-json", default="")
+    parser.add_argument("--release-field-query-root", default="")
     parser.add_argument("--output-root", default=str(DEFAULT_OUTPUT_ROOT))
     parser.add_argument("--enable-live-public-query", action="store_true")
     parser.add_argument("--max-live-companies", type=int, default=None)
@@ -1987,6 +2177,10 @@ def main(argv: list[str] | None = None) -> int:
         ygp_coverage_closeout_root=args.ygp_coverage_closeout_root or None,
         gdcic_browser_readback_json=args.gdcic_browser_readback_json or None,
         gdcic_browser_readback_root=args.gdcic_browser_readback_root or None,
+        stage4_backfill_followup_queue_json=args.stage4_backfill_followup_queue_json or None,
+        stage4_backfill_followup_queue_root=args.stage4_backfill_followup_queue_root or None,
+        release_field_query_json=args.release_field_query_json or None,
+        release_field_query_root=args.release_field_query_root or None,
         output_root=args.output_root,
         enable_live_public_query=args.enable_live_public_query,
         max_live_companies=args.max_live_companies,

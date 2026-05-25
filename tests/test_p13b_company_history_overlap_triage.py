@@ -339,6 +339,34 @@ class P13BCompanyHistoryOverlapTriageTests(unittest.TestCase):
                 self.assertIn("张三", task["responsible_person_names"])
                 self.assertEqual(task["query_state"], "PLAN_ONLY_NOT_EXECUTED")
 
+    def test_stage4_followup_queue_seeds_public_source_tasks_without_gdcic_readback(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            queue_json = root / "followup" / "stage4-backfill-followup-queue-v1.json"
+            field_json = root / "field-query" / "guangdong-local-field-query-probe-v1.json"
+            _write_stage4_followup_queue(queue_json)
+            _write_release_field_query(field_json)
+
+            result = build_p13b_company_history_overlap_triage(
+                stage4_backfill_followup_queue_json=queue_json,
+                release_field_query_json=field_json,
+                output_root=root / "out",
+                created_at="2026-05-25T00:00:00+08:00",
+            )
+
+            summary = result["summary"]
+            self.assertTrue(result["safe_to_execute"])
+            self.assertEqual(summary["input_mode"], "STAGE4_BACKFILL_FOLLOWUP_PUBLIC_SOURCE_ROUTES")
+            self.assertEqual(summary["project_task_count"], 1)
+            self.assertEqual(summary["company_history_query_task_count"], 1)
+            project = result["manifest"]["project_task_records"][0]
+            self.assertFalse(project["stage4_gdcic_project_code_route_allowed"])
+            self.assertIn("data_ggzy_company_history_search", json.dumps(project["stage4_public_source_fallback_sequence"]))
+            task = result["manifest"]["company_history_query_records"][0]
+            self.assertEqual(task["candidate_company_name"], "广东甲公司")
+            self.assertIn("张三", task["responsible_person_names"])
+            self.assertIn("https://ywtb.gzggzy.cn/jyfw/07-a.html", task["candidate_notice_source_urls"])
+
     def test_ygp_live_fake_query_extracts_overlap_and_backtrace_inputs(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -577,6 +605,54 @@ def _write_gdcic_alternative_readback(path: Path) -> None:
         },
     }
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _write_stage4_followup_queue(path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    _write_json(
+        path,
+        {
+            "records": [
+                {
+                    "followup_record_id": "FOLLOWUP-1",
+                    "project_id": "PROJ-CN-GD-JG2026-QUEUE-1",
+                    "project_name": "广州队列项目中标候选人公示",
+                    "followup_route": "local_authority_fallback_source_planning",
+                    "followup_queue_state": "FOLLOWUP_SOURCE_PLAN_REQUIRED",
+                    "public_source_fallback_sequence": [
+                        {"source_kind": "data_ggzy_company_history_search"},
+                        {"source_kind": "data_ggzy_bid_show_readback"},
+                        {"source_kind": "ygp_original_notice_readback"},
+                    ],
+                    "customer_visible_allowed": False,
+                    "query_miss_is_not_clearance": True,
+                    "no_legal_conclusion": True,
+                }
+            ]
+        },
+    )
+
+
+def _write_release_field_query(path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    _write_json(
+        path,
+        {
+            "manifest": {
+                "field_task_records": [
+                    {
+                        "project_id": "PROJ-CN-GD-JG2026-QUEUE-1",
+                        "project_name": "广州队列项目中标候选人公示",
+                        "candidate_group_members": ["广东甲公司"],
+                        "matched_company_names": ["广东甲公司"],
+                        "company_query_variants": ["广东甲公司"],
+                        "responsible_person_name": "张三",
+                        "trigger_source_url": "https://ywtb.gzggzy.cn/jyfw/07-a.html",
+                    }
+                ]
+            }
+        },
+    )
 
 
 def _fake_http_getter(url: str, context: Mapping[str, Any]) -> Mapping[str, Any]:
