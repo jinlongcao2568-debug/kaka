@@ -66,6 +66,9 @@ def test_stage19_l2_blueprint_locks_subfunnel_guardrails() -> None:
 
 def test_docs_default_read_order_downranks_historical_noise() -> None:
     readme = _read(ROOT / "README.md")
+    start_here = _read(ROOT / "START_HERE.md")
+    dev_mode = _read(ROOT / "DEV_MODE.md")
+    minimal_path = _read(ROOT / "MINIMAL_PRODUCT_PATH.md")
     status_board = _read(DOCS / "文档与资产状态板.md")
     sync_plan = _read(ARCHIVE_NON_CURRENT / "文档方向同步与合并治理计划.md")
     start_checklist = _read(ARCHIVE_NON_CURRENT / "开工前总清单.md")
@@ -73,8 +76,21 @@ def test_docs_default_read_order_downranks_historical_noise() -> None:
     task_packet_template = _read(ARCHIVE_NON_CURRENT / "自动开发任务包模板.md")
 
     assert "默认不要遍历 `docs/` 全部文件" in readme
+    assert "START_HERE.md" in readme
+    assert "DEV_MODE.md" in readme
+    assert "MINIMAL_PRODUCT_PATH.md" in readme
+    assert "普通开发默认是 `DEV_MODE`" in start_here
+    assert "生产门禁只管 `PROD_LIVE_MODE`" in start_here
+    assert "不要求 task packet" in dev_mode
+    assert "不因为没写 task packet 就停止普通开发" in dev_mode
+    assert "候选公示后证据包" in minimal_path
+    assert "mock / sandbox 模拟交付、支付和退款状态" in minimal_path
+    assert "这五项比继续扩写治理文档更重要" in minimal_path
     assert "原“专题_SKU重构收口清单.md”已退出现行引用面" in readme
     assert "当前默认读序与非默认入口" in status_board
+    assert "START_HERE.md" in status_board
+    assert "DEV_MODE.md" in status_board
+    assert "MINIMAL_PRODUCT_PATH.md" in status_board
     assert "HISTORICAL_PRE_START_REFERENCE" in status_board
     assert "HISTORICAL_CONDITIONAL_GO_SNAPSHOT" in status_board
     assert "MERGED_REFERENCE" in status_board
@@ -144,7 +160,7 @@ def test_stage19_gap_board_replaces_stage17_gap_board_and_tracks_dynamic_project
     assert "以 `docs/AX9S_Stage1-9_执行矩阵与子漏斗.md` 为目标模型" in text
     assert "对照代码 / tests / scripts / contracts 投射当前真实缺口" in text
     assert "Stage8" in text and "Stage9" in text
-    assert "自动退款执行继续 `EXCLUDED`" in text
+    assert "自动退款流程可做 sandbox/mock/dry-run/受控试点" in text
     assert not (DOCS / "专题_Stage1-7_缺口收口与优先级清单.md").exists()
 
 

@@ -3,41 +3,69 @@ id: automation_stop_conditions
 owner_docs:
   - D1
   - 自动化开发动作门禁表
+developer_entry_docs:
+  - START_HERE.md
+  - DEV_MODE.md
+  - MINIMAL_PRODUCT_PATH.md
+scope_semantics:
+  ordinary_direct_dev:
+    task_packet_required: false
+    missing_task_packet_is_failure: false
+    script_failure_action: diagnose_fix_or_report_blocker
+    final_gate_required_by_default: false
+  controlled_window:
+    applies_to:
+      - external release or customer-visible live action
+      - production outreach, payment, delivery, refund, or high-restriction field release
+      - approval/audit semantics changes
+      - release gate or readiness gate semantic changes
+      - schema/migration or cross-stage machine contract changes
+      - large-batch docs/contracts/handoff/control generation
+      - human explicitly requests task packet / scoped subpacket
+    task_packet_required: true
+    missing_task_packet_is_failure: true
+    script_failure_action: stop_fix_or_handoff
 script_failures:
   - script: scripts/validate-contracts.ps1
     severity: P0
     stop_on_fail: true
+    applies_to: controlled_window_required_script
   - script: scripts/run-governance-contracts.ps1
     severity: P0
     stop_on_fail: true
+    applies_to: controlled_window_required_script
   - script: scripts/run-golden.ps1
     severity: P0
     stop_on_fail: true
+    applies_to: controlled_window_required_script
   - script: scripts/check-final-gate.ps1
     severity: P0
     stop_on_fail: true
+    applies_to: controlled_window_required_script
   - script: scripts/lint-drift.ps1
     severity: P1
     stop_on_fail: true
+    applies_to: controlled_window_or_when_relevant_to_changed_paths
   - script: scripts/doctor.ps1
     severity: P1
     stop_on_fail: true
+    applies_to: controlled_window_or_environment_bootstrap
 risk_triggers:
   - trigger: external_facing_change
     severity: P0
-    action: require_dedicated_task_packet_and_handoff
+    action: require_scope_authorization_and_controlled_opening_for_production_live
   - trigger: payment_or_delivery_execution
-    severity: P0
-    action: require_dedicated_task_packet_and_handoff
+    severity: P1_OR_P0_BY_ENVIRONMENT
+    action: allow_sandbox_dry_run_or_authorized_pilot_require_controlled_opening_for_production
   - trigger: outreach_execution
-    severity: P0
-    action: require_dedicated_task_packet_and_handoff
+    severity: P1_OR_P0_BY_ENVIRONMENT
+    action: allow_sandbox_dry_run_or_authorized_pilot_require_controlled_opening_for_production
   - trigger: automated_refund_execution
-    severity: P0
-    action: stop_and_handoff
+    severity: P1_OR_P0_BY_ENVIRONMENT
+    action: allow_sandbox_dry_run_or_authorized_pilot_require_manual_approval_audit_operator_action_for_production
   - trigger: high_restriction_field_release
     severity: P0
-    action: stop_and_handoff
+    action: require_manual_approval_for_real_external_release_allow_masked_test
   - trigger: new_enum_or_object
     severity: P0
     action: stop_and_request_confirmation
@@ -51,9 +79,10 @@ review_gate_linkage:
   classification_source: control/review_gate_matrix.yaml
   mandatory_review_blocks_direct_batch: true
   stop_and_escalate_blocks_batch: true
+  fail_conditions_apply_to: controlled_window_or_high_risk_domain
   fail_when:
-    - missing_task_packet
-    - missing_declared_changed_paths
+    - missing_task_packet_in_controlled_window
+    - missing_declared_changed_paths_in_controlled_window
     - change_class_below_required
     - missing_human_review_declaration
     - missing_required_owner_review
@@ -61,10 +90,14 @@ review_gate_linkage:
   action_on_fail: stop_and_handoff
 consecutive_failure_rule:
   max_consecutive_failures: 2
-  scope: per-script
-  action: stop_and_handoff
+  scope: per-script-within-controlled-window
+  ordinary_direct_dev_action: diagnose_fix_or_report_blocker
+  controlled_window_action: stop_and_handoff
 notes:
-  - any P0 stop must transfer to human approval
-  - external release is controlled-opening and remains non-live until controlled-opening gate, release checklist, approval, audit, operator action, rollback, and regression gates pass
-  - automated refund execution remains excluded
+  - DEV_MODE and TEST_MODE are intentionally lightweight; PROD_LIVE_MODE is where production safety gates apply.
+  - P0 stop semantics apply to controlled windows, high-risk domains, live execution, or explicitly required gates; ordinary direct-dev should diagnose, fix, narrow validation, or report the blocker.
+  - missing task packet is not a failure for ordinary direct-dev.
+  - outreach, payment, delivery, refund, and automated refund flows may be developed and tested in sandbox, mock, dry-run, regression, or explicitly authorized pilot contexts.
+  - production live execution requires concrete target authorization, controlled-opening gate, release checklist, approval, audit, operator action, rollback/reconciliation, and regression evidence.
+  - automated refund execution is not permanently excluded, but production automatic refund requires manual approval or explicit pilot authorization plus audit, reconciliation, rollback/suspension, and operator action.
   - mandatory human review and stop/escalate classes must fail readiness/release checks when undeclared

@@ -3,10 +3,21 @@ id: automation_action_matrix
 owner_docs:
   - D1
   - 自动化开发动作门禁表
+developer_entry_docs:
+  - START_HERE.md
+  - DEV_MODE.md
+  - MINIMAL_PRODUCT_PATH.md
 notes:
   - external-facing changes are controlled-opening targets, not permanent development exclusions
-  - payment/delivery/outreach/high-restriction require manual approval, audit, operator action, and release/checklist gates before live use
-  - automated refund execution remains blocked and must stop/escalate
+  - payment/delivery/outreach/refund/high-restriction flows may be developed and tested in sandbox, mock, dry-run, regression, or explicitly authorized pilot contexts
+  - production live use requires concrete target authorization, manual approval where applicable, audit, operator action, release/checklist gates, rollback/reconciliation, and stop conditions
+  - automated refund execution is not permanently blocked; production automatic refund requires explicit pilot or manual approval authority plus audit, reconciliation, rollback/suspension, and operator action
+  - ordinary direct-dev is allowed for internal code, tests, scripts, docs, and consistency sync when the change does not enter live/release/approval-audit/schema-migration/cross-stage high-risk domains
+  - challenge/OCR/login-state/captcha-resolution/fingerprint/cookie/proxy/hidden-interface capabilities may be developed and tested for owned, sandbox, explicitly authorized, regression, or security-exercise contexts; real third-party live use still requires authorization, source policy, audit, operator action, and controlled-opening gates
+execution_mode_summary:
+  DEV_MODE: ordinary local development; direct edit and relevant tests are the default
+  TEST_MODE: sandbox/mock/dry-run/regression/authorized pilot; do not claim production live success
+  PROD_LIVE_MODE: real external/customer/money/delivery/refund/release effects; requires authorization, approval, audit, operator action, and rollback/reconciliation when relevant
 review_gate_matrix: control/review_gate_matrix.yaml
 task_packet_source: control/current_task.yaml#currentTask.task_packet
 action_classes:
@@ -58,12 +69,15 @@ actions:
     action_class: MANUAL_APPROVAL_REQUIRED
   - action_id: AUTOMATED_REFUND_EXECUTION
     scope: stage9 automated refund execution
-    action_class: BLOCKED
+    action_class: MANUAL_APPROVAL_REQUIRED
+    notes: sandbox/mock/dry-run is allowed for testing; production automatic refund requires explicit authorization, audit, reconciliation, rollback/suspension, and operator action
   - action_id: HIGH_RESTRICTION_FIELDS
     scope: natural person high restriction or governed supplement externalization
-    action_class: BLOCKED
+    action_class: MANUAL_APPROVAL_REQUIRED
+    notes: masked/simulated approval-flow tests are allowed; real external release requires manual approval chain
 enforcement_rules:
   - rule: all formal batches must declare change_class via review_gate_matrix
+  - rule: ordinary direct-dev does not require task-packet declaration unless it enters controlled-window criteria
   - rule: non-LOW_RISK_DIRECT batches must declare human_review_required=true
   - rule: STOP_AND_ESCALATE domains can never continue as direct or draft batch
   - rule: review gate classification is path/domain based; free-text intent cannot down-classify the batch
