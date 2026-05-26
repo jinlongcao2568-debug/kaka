@@ -1132,6 +1132,8 @@ def _runtime_blocker_controller_dispatch_record(record: Mapping[str, Any], *, ou
     blocking_reasons = _controller_dispatch_blocking_reasons(record, spec=spec)
     readiness_state = _controller_dispatch_readiness_state(record, spec=spec, blocking_reasons=blocking_reasons)
     output_dir = _controller_dispatch_output_root(record, route=route, output_root=output_root)
+    fallback_artifact = _fallback_source_plan_expected_artifact(route)
+    expected_artifact = str(spec.get("expected_output_artifact") or fallback_artifact)
     argv = (
         _controller_dispatch_argv(record, spec=spec, output_dir=output_dir)
         if readiness_state == "READY_FOR_CONTROLLED_INTERNAL_WORKER_DISPATCH"
@@ -1154,15 +1156,17 @@ def _runtime_blocker_controller_dispatch_record(record: Mapping[str, Any], *, ou
         "dispatch_worker_family": worker_family,
         "dispatch_readiness_state": readiness_state,
         "dispatch_blocking_reasons": blocking_reasons,
-        "recommended_script": str(spec.get("script") or ""),
+        "formal_entrypoint_id": _controller_dispatch_formal_entrypoint_id(route),
+        "recommended_script": str(spec.get("script") or _fallback_source_plan_recommended_script(route)),
         "recommended_command_argv": argv,
         "recommended_command": _powershell_command(argv),
-        "expected_output_artifact": str(spec.get("expected_output_artifact") or ""),
+        "expected_output_artifact": expected_artifact,
         "expected_output_artifact_path": (
-            str(Path(output_dir) / str(spec.get("expected_output_artifact") or ""))
-            if output_dir and spec.get("expected_output_artifact")
+            str(Path(output_dir) / expected_artifact)
+            if output_dir and expected_artifact
             else ""
         ),
+        "plan_artifact_kind": "runtime_blocker_fallback_source_plan_v1" if route == "fallback_source" else "",
         "output_root": output_dir,
         "input_artifact_refs": _dedupe(_list(record.get("input_artifact_refs"))),
         "required_input": _dedupe(_list(record.get("required_input"))),
@@ -1192,6 +1196,22 @@ def _controller_dispatch_spec(route: str) -> dict[str, str]:
             "artifact_arg": "ReleaseEvidenceAdapterPlanJson",
         }
     return {}
+
+
+def _controller_dispatch_formal_entrypoint_id(route: str) -> str:
+    if route == "browser_worker":
+        return "gdcic_browser_authorized_readback_builder"
+    if route == "fallback_source":
+        return "runtime_blocker_fallback_source_plan_builder"
+    return ""
+
+
+def _fallback_source_plan_expected_artifact(route: str) -> str:
+    return "runtime-blocker-fallback-source-plan-v1.json" if route == "fallback_source" else ""
+
+
+def _fallback_source_plan_recommended_script(route: str) -> str:
+    return "storage.runtime_blocker_fallback_source_plan" if route == "fallback_source" else ""
 
 
 def _controller_dispatch_requires_operator_approval(*, route: str, argv: list[str]) -> bool:

@@ -11,29 +11,38 @@ def limited_sellable_review_projection(
     stage7_commercial_input_allowed: bool,
     field_tasks: Iterable[Mapping[str, Any]] = (),
 ) -> dict[str, Any]:
+    field_task_list = [task for task in field_tasks if isinstance(task, Mapping)]
     detail_projection = limited_sellable_review_detail_projection(
         downstream_counts,
-        field_tasks=field_tasks,
+        field_tasks=field_task_list,
         stage7_commercial_input_allowed=stage7_commercial_input_allowed,
     )
     has_official_b_or_c = any(
         str(grade).startswith(("B_", "C_")) and _int(count) > 0
         for grade, count in downstream_counts.items()
     )
-    if has_official_b_or_c and not stage7_commercial_input_allowed:
+    stage7_gate = _stage7_governed_preview_gate(
+        requested=stage7_commercial_input_allowed,
+        has_official_b_or_c=has_official_b_or_c,
+        official_readback_records=detail_projection.get("limited_sellable_review_official_readback_records") or [],
+    )
+    stage7_governed_preview_allowed = bool(stage7_gate["stage7_governed_preview_allowed"])
+    if has_official_b_or_c and not stage7_governed_preview_allowed:
         return {
             "strong_lead_candidate_state": "STRONG_LEAD_REVIEW_CANDIDATE",
             "limited_sellable_review_candidate_state": "REVIEW_CANDIDATE",
             "limited_sellable_review_reason": "official_b_or_c_readback_requires_manual_stage5_stage6_review",
             "commercialization_boundary_state": "INTERNAL_REVIEW_ONLY_NOT_CUSTOMER_DELIVERABLE",
+            **stage7_gate,
             **detail_projection,
         }
     if has_official_b_or_c:
         return {
             "strong_lead_candidate_state": "STRONG_LEAD_REVIEW_CANDIDATE",
             "limited_sellable_review_candidate_state": "NOT_READY",
-            "limited_sellable_review_reason": "stage7_commercial_input_already_allowed_by_closeout_gate",
+            "limited_sellable_review_reason": "stage7_governed_preview_allowed_by_evidence_chain_gate",
             "commercialization_boundary_state": "CUSTOMER_DELIVERABLE_ONLY_AFTER_STAGE7_GATE",
+            **stage7_gate,
             **detail_projection,
         }
     return {
@@ -41,6 +50,7 @@ def limited_sellable_review_projection(
         "limited_sellable_review_candidate_state": "NOT_READY",
         "limited_sellable_review_reason": "",
         "commercialization_boundary_state": "INTERNAL_REVIEW_ONLY_NOT_CUSTOMER_DELIVERABLE",
+        **stage7_gate,
         **detail_projection,
     }
 
@@ -101,6 +111,72 @@ def limited_sellable_review_detail_projection(
         "limited_sellable_review_query_miss_is_not_clearance": True,
         "limited_sellable_review_no_legal_conclusion": True,
     }
+
+
+def _stage7_governed_preview_gate(
+    *,
+    requested: bool,
+    has_official_b_or_c: bool,
+    official_readback_records: Iterable[Mapping[str, Any]],
+) -> dict[str, Any]:
+    records = [record for record in official_readback_records if isinstance(record, Mapping)]
+    complete_records = [record for record in records if _stage7_evidence_record_complete(record)]
+    missing_reasons: list[str] = []
+    if not requested:
+        missing_reasons.append("stage7_commercial_input_not_requested")
+    if not has_official_b_or_c:
+        missing_reasons.append("abcd_b_or_c_grade_missing")
+    if not records:
+        missing_reasons.append("official_readback_record_missing")
+    elif not complete_records:
+        missing_reasons.extend(_stage7_evidence_missing_reasons(records))
+    allowed = requested and has_official_b_or_c and bool(complete_records)
+    return {
+        "stage7_governed_preview_gate_state": (
+            "ALLOWED_INTERNAL_GOVERNED_PREVIEW" if allowed else "BLOCKED_EVIDENCE_CHAIN_INCOMPLETE"
+        ),
+        "stage7_governed_preview_allowed": allowed,
+        "stage7_governed_preview_missing_reasons": _dedupe(missing_reasons),
+        "stage7_governed_preview_complete_record_count": len(complete_records),
+        "stage7_governed_preview_required_fields": [
+            "official_source_url_refs",
+            "official_source_text_sha256_refs",
+            "adapter_result_state=MATCHED",
+            "field_readback_state",
+            "downstream_release_evidence_abcd_grade=B_or_C",
+            "no_legal_conclusion=true",
+        ],
+        "stage7_governed_preview_customer_visible_allowed": False,
+    }
+
+
+def _stage7_evidence_record_complete(record: Mapping[str, Any]) -> bool:
+    return not _stage7_evidence_record_missing_reasons(record)
+
+
+def _stage7_evidence_missing_reasons(records: Iterable[Mapping[str, Any]]) -> list[str]:
+    reasons: list[str] = []
+    for record in records:
+        reasons.extend(_stage7_evidence_record_missing_reasons(record))
+    return _dedupe(reasons)
+
+
+def _stage7_evidence_record_missing_reasons(record: Mapping[str, Any]) -> list[str]:
+    reasons: list[str] = []
+    grade = str(record.get("downstream_release_evidence_abcd_grade") or "")
+    if not _list(record.get("official_source_url_refs")):
+        reasons.append("official_source_url_missing")
+    if not _list(record.get("official_source_text_sha256_refs")):
+        reasons.append("official_source_text_sha256_missing")
+    if str(record.get("adapter_result_state") or "") != "MATCHED":
+        reasons.append("adapter_result_state_not_matched")
+    if not str(record.get("field_readback_state") or "").strip():
+        reasons.append("field_readback_state_missing")
+    if not grade.startswith(("B_", "C_")):
+        reasons.append("abcd_b_or_c_grade_missing")
+    if not bool(record.get("no_legal_conclusion", True)):
+        reasons.append("no_legal_conclusion_false")
+    return reasons
 
 
 def _limited_sellable_official_readback_record(task: Mapping[str, Any]) -> dict[str, Any]:

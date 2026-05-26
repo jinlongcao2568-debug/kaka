@@ -1,7 +1,7 @@
 version: 1
 plan_id: STAGE1_6_PRIORITY_EXECUTION_PLAN
 status: ACTIVE
-updated_at: "2026-05-21"
+updated_at: "2026-05-26"
 owner_directive: "按 Stage1-6 完整缺口清单，先按影响实战判断的优先级推进，不先跳 Stage7。"
 execution_mode: DIRECT_DEV_DEFAULT
 live_external_actions_enabled: false
@@ -66,7 +66,10 @@ current_focus:
     HOME 入口仍跳 SSO；HTTP/Dynamic/Stealthy 不能替代登录态，只有项目经理变更等 HOME 登录壳继续走授权 storage_state/user_data_dir。
   latest_live_validation:
     run_id: "guangzhou-real-public-stage1-6-live30-attemptall-20260520-r2"
-    summary: "已新增显式全候选 Stage1-6 压测开关；广州近期 07 live30 复跑后 30/30 候选全部进入 Stage1-6，Stage1 未入选卡点清零。Stage2 详情快照 30/30，Stage3 parse 30/30，readiness 分布为 Stage3 字段/角色缺口 8、Stage4 公开源/释放证据链缺口 22，客户可售证据包仍为 0/30。"
+    summary: "广州近期 07 live30 attempt-all 仍作为 clean batch 基线：30/30 进入 Stage1-6，Stage2 详情快照 30/30，Stage3 parse 30/30，Stage4 公开源/释放证据链仍是主缺口，客户可见交付仍关闭。后续 r175 是 clean live15 YGP backfill 正向证据，r215/r217 是 follow-up/merged projection，不能当 clean batch 转化 KPI。"
+    r175_clean_backfill_evidence: "r175 clean live15 YGP backfill 证明 B 级官方 readback 路线可行：6/15 limited review candidates、28 MATCHED、28 B_ENHANCEMENT_OFFICIAL_READBACK；该结果只进入内部 Stage5/6 review，不代表客户可交付。"
+    r215_r217_projection_caveat: "r215/r217 最新 scoreboard/diagnostic 为 follow-up/projection 口径：23 projected rows、6 limited/strong review candidates，但 Stage2/Stage3 success count 为 0；必须用 input_mode/denominator_kind/clean_batch_comparable/projection_or_merge_state 区分，不能写成 clean live30 可售率。"
+    stage7_governed_preview_gate: "Stage7 governed preview 只接受 evidence chain 完整的内部输入：source URL、readback/snapshot、SHA/hash、B/C grade、no legal conclusion、安全 envelope 齐备。limited review 不直接客户可见；NOT_FOUND/BLOCKED/NEEDS_BROWSER/LOGIN_OR_SSO_REQUIRED 不得写成 clearance。"
     release_evidence_live16: "基于 120 条释放证据任务做 live16：广州住建施工许可 MATCHED/B 1 条、广州公开源 NOT_FOUND/D 7 条、GDCIC 合同履约/项目经理变更 NEEDS_BROWSER/D 8 条，剩余 104 条按预算延后；Stage6 回灌生成 30 个项目状态，1 个 RELEASE_FIELD_QUERY_REVIEW_READY，29 个 RELEASE_FIELD_QUERY_GAP_OR_BLOCKER_REVIEW，GDCIC 4 个项目明确 LOGIN_OR_SSO_REQUIRED。"
     stage2_ywtb_attachment_gap8: "广州 YWTB attachment challenge resolver 已通过 canary 和 gap8 实战：单附件 PDF 返回 FETCHED/application_pdf，gap8 同站附件 23/23 抓取为 RESOLVED_AND_SNAPSHOT_CAPTURED；cache-r2 全量复用回放确认 8/8 existing capture 复用、23/23 附件保留、8/8 缓存命中，11373 抽到 广东省建筑工程监理有限公司 + 谯锋 并清空 stale gap，11386 不再产出假姓名或错绑第二候选人，停在 广东华路交通科技有限公司 + B 类总监缺失补证。"
     gdcic_noauth_canary: "2026-05-20 小预算真实 GDCIC browser readback 复跑 1 条：无 storage_state/user_data_dir 时产物显式输出 NO_AUTHORIZED_SESSION_INPUT；浏览器回读落 LOGIN_OR_SSO_REQUIRED，字段查询回灌 BLOCKED/D，Stage6 项目状态表同步显示 release_field_query_authorized_session_input_state_counts={NO_AUTHORIZED_SESSION_INPUT:1}，不再只显示模糊 NEEDS_BROWSER。"
@@ -77,7 +80,7 @@ current_focus:
     gdcic_openplatform_contract_titlevariant_live5: "2026-05-21 live5 title-variants canary：合同履约前 5 条额外尝试去除初步设计、工程设计施工总承包、二次招标、监理、施工总价承包招标等后缀后的工程主体标题；真实请求已覆盖短标题，但 project/list 与 constructionPermit/list 仍未命中目标项目，结果为 NOT_FOUND/D 5、NEEDS_BROWSER/D 25。公司维度公开合同/招投标/参建记录可读回，继续只作 context。"
     gdcic_openplatform_projectcode_separation_live1: "2026-05-21 projectCode canary：真实请求 /openplatform/project|constructionPermit|projectBidding|projectContract 按 JG2026-11366 查询均为 0 行，确认 JG 是交易中心编号而非 GDCIC 省级项目编码。已改为 projectCodeVariants 保留全部编号、tradeProjectCode 保存 JG、gdcicProjectCodeVariants 只保存 12-22 位数字编码；live30 bridge 重建后合同任务 30/30 无 GDCIC projectCode，plan-only 字段查询 30 条合同任务无 projectCode 路由。"
     gdcic_openplatform_projectcode_recall_v56: "2026-05-21 安全召回补强：bridge 可从 regional readback/source_results/sample_records/source_refs 的项目代码字段和 URL projectCode 查询参数提取 GDCIC 编码，但屏蔽统一社会信用代码/证书号污染；Stage4 GDCIC openplatform 适配器不再把 JG2026-* 放入 project_codes，改为 trade_project_codes + 项目名 lookup。live30 重建确认现有产物无数字 GDCIC 编码且无误抽。"
-    next_best_task: "继续广东/广州：优先补 data.ggzy/bid_show 或 YGP 项目流程矩阵到 Stage4 readback/bridge 的字段回写，让真实公告里的项目代码、项目编号、projectCode 查询参数能进入 gdcicProjectCodeVariants；同时补 GDCIC 授权 storage_state/user_data_dir 的项目经理变更真实命中回放。"
+    next_best_task: "继续广东/广州：优先补 r216 runtime blocker fallback_source plan artifact、data.ggzy/bid_show/YGP 项目流程矩阵到 Stage4 readback/bridge 的字段回写，并复用 r175/r215/r217 scoreboard 口径持续对比 clean batch 与 projection；同时补 GDCIC 授权 storage_state/user_data_dir 的项目经理变更真实命中回放。"
 priorities:
   - priority_id: P0_STAGE6_OBSERVABILITY
     rank: 1

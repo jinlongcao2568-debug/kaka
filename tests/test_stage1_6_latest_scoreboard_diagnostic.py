@@ -133,6 +133,46 @@ class StageOneSixLatestScoreboardDiagnosticTests(unittest.TestCase):
         self.assertTrue(json_exists)
         self.assertTrue(markdown_exists)
 
+    def test_diagnostic_surfaces_projection_input_lineage(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            latest = root / "latest.json"
+            out = root / "out"
+            _write_json(
+                latest,
+                {
+                    "scoreboard": {
+                        "candidate_count": 23,
+                        "stage2_success_count": 0,
+                        "stage3_success_count": 0,
+                        "input_mode": "STAGE4_BACKFILL_FOLLOWUP_PUBLIC_SOURCE_ROUTES",
+                        "denominator_kind": "FOLLOWUP_PROJECT_ROWS",
+                        "clean_batch_comparable": False,
+                        "projection_or_merge_state": "FOLLOWUP_OR_MERGED_PROJECTION",
+                        "input_lineage_warning": "treat rate as follow-up/projection",
+                        "limited_sellable_review_candidate_count": 6,
+                        "real_public_sellable_pack_rate": 0.2609,
+                        "stage5_operational_primary_track_counts": {"strong_lead": 6},
+                        "stage5_operational_priority_bucket_counts": {"P0_LIMITED_SELLABLE_REVIEW": 6},
+                    },
+                    "project_rows": [],
+                },
+            )
+
+            result = build_stage1_6_latest_scoreboard_diagnostic(
+                latest_scoreboard_json=latest,
+                output_root=out,
+                created_at="2026-05-26T00:00:00+08:00",
+            )
+
+        self.assertEqual(result["latest_run"]["input_mode"], "STAGE4_BACKFILL_FOLLOWUP_PUBLIC_SOURCE_ROUTES")
+        self.assertEqual(result["latest_run"]["denominator_kind"], "FOLLOWUP_PROJECT_ROWS")
+        self.assertFalse(result["latest_run"]["clean_batch_comparable"])
+        self.assertEqual(result["latest_run"]["projection_or_merge_state"], "FOLLOWUP_OR_MERGED_PROJECTION")
+        self.assertEqual(result["p0_gap_summary"]["projection_or_merge_state"], "FOLLOWUP_OR_MERGED_PROJECTION")
+        self.assertFalse(result["p0_gap_summary"]["clean_batch_comparable"])
+        self.assertIn("follow-up/projection", result["p0_gap_summary"]["input_lineage_warning"])
+
     def test_diagnostic_auto_discovers_latest_scoreboard_context(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)

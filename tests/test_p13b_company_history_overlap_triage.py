@@ -838,6 +838,61 @@ class P13BCompanyHistoryOverlapTriageTests(unittest.TestCase):
             self.assertFalse(readback["customer_visible_allowed"])
             self.assertTrue(readback["query_miss_is_not_clearance"])
 
+    def test_stage4_followup_queue_guangzhou_trade_platform_url_resolves_local_authority_source(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            queue_json = root / "followup" / "stage4-backfill-followup-queue-v1.json"
+            queue_json.parent.mkdir(parents=True)
+            _write_json(
+                queue_json,
+                {
+                    "records": [
+                        {
+                            "followup_record_id": "FOLLOWUP-GZ-DOMAIN-1",
+                            "project_id": "PROJ-GZ-DOMAIN",
+                            "project_name": "无城市标记项目中标候选人公示",
+                            "followup_route": "local_authority_not_found_specific_endpoint_or_manual_source",
+                            "followup_queue_state": "FOLLOWUP_SOURCE_PLAN_REQUIRED",
+                            "candidate_notice_source_urls": [
+                                "https://ywtb.gzggzy.cn/jyfw/domain-only.html"
+                            ],
+                            "public_source_fallback_sequence": [
+                                {"source_kind": "project_local_authority_public_source"}
+                            ],
+                            "customer_visible_allowed": False,
+                            "query_miss_is_not_clearance": True,
+                            "no_legal_conclusion": True,
+                        }
+                    ]
+                },
+            )
+
+            def gz_domain_getter(url: str, context: Mapping[str, Any]) -> Mapping[str, Any]:
+                if "zfcj.gz.gov.cn" in url:
+                    return _json_response({"title": "无城市标记项目中标候选人公示", "content": "无城市标记项目公开信息"})
+                return _fake_http_getter(url, context)
+
+            result = build_p13b_company_history_overlap_triage(
+                stage4_backfill_followup_queue_json=queue_json,
+                output_root=root / "out",
+                enable_live_public_query=True,
+                http_getter=gz_domain_getter,
+                created_at="2026-05-26T00:00:00+08:00",
+            )
+
+        summary = result["summary"]
+        self.assertEqual(summary["local_authority_resolution_state_counts"], {"LOCAL_AUTHORITY_SOURCE_READY": 1})
+        self.assertEqual(summary["local_authority_source_readback_state_counts"], {"MATCHED": 1})
+        task = result["manifest"]["local_authority_source_task_records"][0]
+        self.assertEqual(task["local_authority_region_code"], "CN-GD-GZ")
+        self.assertEqual(task["local_authority_region_basis"], "current_candidate_trade_platform_domain")
+        self.assertEqual(task["source_profile_id"], "GUANGZHOU-ZFCJ-CREDIT-DOUBLE-PUBLICITY")
+        self.assertEqual(task["local_authority_source_url_resolution_state"], "SOURCE_URL_RESOLVED")
+        readback = result["manifest"]["local_authority_source_readback_records"][0]
+        self.assertEqual(readback["local_authority_readback_state"], "MATCHED")
+        self.assertFalse(readback["customer_visible_allowed"])
+        self.assertTrue(readback["query_miss_is_not_clearance"])
+
     def test_ygp_live_fake_query_extracts_overlap_and_backtrace_inputs(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)

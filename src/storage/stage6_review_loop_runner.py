@@ -893,6 +893,9 @@ def _project_status_records(
             stage7_commercial_input_allowed=stage7_commercial_input_allowed,
             field_tasks=release_field_query_result.get("field_query_tasks") or [],
         )
+        effective_stage7_commercial_input_allowed = bool(
+            limited_sellable_projection.get("stage7_governed_preview_allowed")
+        )
         runtime_blocker_projection = runtime_blocker_projection_fields(runtime_blockers)
         records.append(
             {
@@ -929,7 +932,8 @@ def _project_status_records(
                 "next_task_type": str(routing_record.get("next_task_type") or ""),
                 "stage6_fact_package_state": str(closeout_record.get("stage6_fact_package_state") or ""),
                 "stage6_ready": bool(closeout_record.get("stage6_ready", False)),
-                "stage7_commercial_input_allowed": stage7_commercial_input_allowed,
+                "stage7_commercial_input_requested": stage7_commercial_input_allowed,
+                "stage7_commercial_input_allowed": effective_stage7_commercial_input_allowed,
                 **limited_sellable_projection,
                 "result_runner_execution_state": str(runner_record.get("execution_state") or ""),
                 "result_runner_skip_reason": str(runner_record.get("skip_reason") or ""),

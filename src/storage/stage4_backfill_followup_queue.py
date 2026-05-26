@@ -129,6 +129,7 @@ def _followup_record(
     detail = _followup_gap_detail(row)
     route = _followup_route(detail)
     deepening_recommended = bool(deepening_policy.get("public_source_deepening_recommended"))
+    local_authority_context = _local_authority_region_context(row, pressure_context, local_authority_context)
     return {
         "followup_record_id": _stable_id("STAGE4-BACKFILL-FOLLOWUP", project_id, detail),
         "project_id": project_id,
@@ -167,6 +168,57 @@ def _followup_record(
         "query_miss_is_not_clearance": True,
         "no_legal_conclusion": True,
     }
+
+
+def _local_authority_region_context(
+    row: Mapping[str, Any],
+    pressure_context: Mapping[str, Any],
+    local_authority_context: Mapping[str, Any],
+) -> dict[str, Any]:
+    context = dict(local_authority_context)
+    if str(context.get("local_authority_region_code") or "").strip():
+        return context
+    inferred = _infer_local_authority_region_from_context(row, pressure_context)
+    if not inferred:
+        return context
+    context["local_authority_region_code"] = inferred["region_code"]
+    context["local_authority_region_basis"] = inferred["basis"]
+    context["local_authority_region_evidence"] = inferred["evidence"]
+    context["recommended_next_action"] = "run_project_local_authority_source_after_region_resolution"
+    context["customer_visible_allowed"] = False
+    context["query_miss_is_not_clearance"] = True
+    context["no_legal_conclusion"] = True
+    return context
+
+
+def _infer_local_authority_region_from_context(
+    row: Mapping[str, Any],
+    pressure_context: Mapping[str, Any],
+) -> dict[str, str]:
+    values = [
+        str(row.get("project_name") or ""),
+        *[str(item or "") for item in _list(pressure_context.get("candidate_notice_source_urls"))],
+        *[str(item or "") for item in _list(pressure_context.get("project_source_urls"))],
+    ]
+    marker_map = {
+        "ywtb.gzggzy.cn": ("CN-GD-GZ", "current_candidate_trade_platform_domain"),
+        "gzggzy.cn": ("CN-GD-GZ", "current_candidate_trade_platform_domain"),
+        "广州": ("CN-GD-GZ", "project_name_or_source_url_city_marker"),
+        "黄埔": ("CN-GD-GZ", "project_name_or_source_url_city_marker"),
+        "南沙": ("CN-GD-GZ", "project_name_or_source_url_city_marker"),
+        "白云": ("CN-GD-GZ", "project_name_or_source_url_city_marker"),
+        "荔湾": ("CN-GD-GZ", "project_name_or_source_url_city_marker"),
+        "阳江": ("CN-GD-YJ", "project_name_or_source_url_city_marker"),
+        "阳东": ("CN-GD-YJ", "project_name_or_source_url_city_marker"),
+        "阳西": ("CN-GD-YJ", "project_name_or_source_url_city_marker"),
+        "中山": ("CN-GD-ZS", "project_name_or_source_url_city_marker"),
+    }
+    for value in values:
+        lowered = value.lower()
+        for marker, (region_code, basis) in marker_map.items():
+            if marker.lower() in lowered:
+                return {"region_code": region_code, "basis": basis, "evidence": value}
+    return {}
 
 
 def _followup_gap_detail(row: Mapping[str, Any]) -> str:

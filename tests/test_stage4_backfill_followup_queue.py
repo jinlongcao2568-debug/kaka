@@ -668,6 +668,61 @@ class Stage4BackfillFollowupQueueTests(unittest.TestCase):
         self.assertEqual(record["context_source"], "stage4_release_adapter_bridge_plan")
         self.assertFalse(record["customer_visible_allowed"])
 
+    def test_followup_infers_local_authority_region_from_guangzhou_trade_platform_url(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            pressure_root = root / "pressure"
+            scoreboard = root / "scoreboard" / "stage1-6-sellable-scoreboard-v1.json"
+            out = root / "out"
+            pressure_summary = pressure_root / "pressure-summary.json"
+            release_plan = pressure_root / "stage4-release-adapter-bridge-plan.json"
+            _write_json(pressure_summary, {"summary": {"candidate_count": 1}})
+            _write_json(
+                release_plan,
+                {
+                    "release_evidence_adapter_task_records": [
+                        {
+                            "project_id": "PROJ-GZ-DOMAIN",
+                            "candidate_company_name": "广东乙公司",
+                            "trigger_source_url": "https://ywtb.gzggzy.cn/jyfw/domain-only.html",
+                        }
+                    ]
+                },
+            )
+            _write_json(
+                scoreboard,
+                {
+                    "input_refs": {"pressure_summary_json": str(pressure_summary)},
+                    "project_rows": [
+                        {
+                            "project_id": "PROJ-GZ-DOMAIN",
+                            "project_name": "无城市标记项目中标候选人公示",
+                            "stage4_project_code_backfill_state": "MISSING_PROJECT_CODE_BACKFILL_INPUT",
+                            "stage4_project_code_backfill_gap_detail": "NO_PUBLIC_OVERLAP_SIGNAL_FALLBACK_LOCAL_AUTHORITY_REQUIRED",
+                        }
+                    ],
+                },
+            )
+
+            result = build_stage4_backfill_followup_queue(
+                scoreboard_json=scoreboard,
+                output_root=out,
+                created_at="2026-05-26T00:00:00+08:00",
+            )
+
+        record = result["records"][0]
+        self.assertEqual(record["local_authority_readback_context"]["local_authority_region_code"], "CN-GD-GZ")
+        self.assertEqual(
+            record["local_authority_readback_context"]["local_authority_region_basis"],
+            "current_candidate_trade_platform_domain",
+        )
+        self.assertEqual(
+            record["alternate_local_authority_source_candidates"][0]["candidate_source_id"],
+            "gz_zfcj_construction_permit_public_api",
+        )
+        self.assertFalse(record["customer_visible_allowed"])
+        self.assertTrue(record["query_miss_is_not_clearance"])
+
 
 def _write_json(path: Path, payload: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)

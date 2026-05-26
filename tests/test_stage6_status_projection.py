@@ -30,18 +30,52 @@ class Stage6StatusProjectionTests(unittest.TestCase):
             "INTERNAL_REVIEW_ONLY_NOT_CUSTOMER_DELIVERABLE",
         )
 
-    def test_stage7_allowed_b_or_c_does_not_create_limited_review_candidate(self) -> None:
+    def test_stage7_requested_b_or_c_without_evidence_chain_stays_limited_review(self) -> None:
         projection = limited_sellable_review_projection(
             {"C_REVERSE_EXPLANATION_OFFICIAL_READBACK": 1},
             stage7_commercial_input_allowed=True,
         )
 
         self.assertEqual(projection["strong_lead_candidate_state"], "STRONG_LEAD_REVIEW_CANDIDATE")
-        self.assertEqual(projection["limited_sellable_review_candidate_state"], "NOT_READY")
+        self.assertEqual(projection["limited_sellable_review_candidate_state"], "REVIEW_CANDIDATE")
         self.assertEqual(
             projection["commercialization_boundary_state"],
-            "CUSTOMER_DELIVERABLE_ONLY_AFTER_STAGE7_GATE",
+            "INTERNAL_REVIEW_ONLY_NOT_CUSTOMER_DELIVERABLE",
         )
+        self.assertFalse(projection["stage7_governed_preview_allowed"])
+        self.assertEqual(projection["stage7_governed_preview_gate_state"], "BLOCKED_EVIDENCE_CHAIN_INCOMPLETE")
+        self.assertIn("official_readback_record_missing", projection["stage7_governed_preview_missing_reasons"])
+
+    def test_stage7_requested_b_or_c_with_complete_evidence_chain_enters_internal_preview_gate(self) -> None:
+        projection = limited_sellable_review_projection(
+            {"B_ENHANCEMENT_OFFICIAL_READBACK": 1},
+            stage7_commercial_input_allowed=True,
+            field_tasks=[
+                {
+                    "field_query_task_id": "FIELD-GATE",
+                    "project_id": "PROJ-GATE",
+                    "source_profile_id": "GUANGDONG-YGP-ORIGINAL-READBACK-BACKFILL",
+                    "source_specific_adapter_id": "guangdong_ygp_original_readback_backfill_adapter_v1",
+                    "adapter_result_state": "MATCHED",
+                    "field_readback_state": "YGP_ORIGINAL_NOTICE_READBACK_READY_REVIEW_REQUIRED",
+                    "downstream_release_evidence_abcd_grade": "B_ENHANCEMENT_OFFICIAL_READBACK",
+                    "field_match_summary": {
+                        "source_specific_records": [
+                            {
+                                "url": "https://ygp.example/detail?projectCode=E4401002701501867001",
+                                "source_text_sha256": "abc123",
+                            }
+                        ],
+                    },
+                }
+            ],
+        )
+
+        self.assertTrue(projection["stage7_governed_preview_allowed"])
+        self.assertEqual(projection["stage7_governed_preview_gate_state"], "ALLOWED_INTERNAL_GOVERNED_PREVIEW")
+        self.assertEqual(projection["stage7_governed_preview_missing_reasons"], [])
+        self.assertEqual(projection["limited_sellable_review_candidate_state"], "NOT_READY")
+        self.assertFalse(projection["stage7_governed_preview_customer_visible_allowed"])
 
     def test_limited_review_records_public_source_chain_and_gdcic_route_policy(self) -> None:
         projection = limited_sellable_review_projection(

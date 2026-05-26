@@ -74,6 +74,55 @@ class RuntimeBlockerControllerDispatchRunnerTests(unittest.TestCase):
             self.assertTrue(runner_records[0]["requires_operator_approval_before_execution"])
             self.assertTrue(runner_records[1]["requires_operator_approval_before_execution"])
 
+    def test_fallback_source_followup_has_plan_artifact_and_operator_inputs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            record = _controller_dispatch_record(
+                "PROJ-FALLBACK",
+                readiness="FALLBACK_SOURCE_PLAN_REQUIRED",
+                required_input=["fallback_source_or_project_local_authority_path"],
+                input_artifact_refs=[str(root / "stage4-followup" / "stage4-backfill-followup-queue-v1.json")],
+            )
+            record.update(
+                {
+                    "dispatch_route": "fallback_source",
+                    "dispatch_worker_family": "source_adapter",
+                    "dispatch_blocking_reasons": ["required_input_missing_or_operator_action_pending"],
+                    "recommended_script": "storage.runtime_blocker_fallback_source_plan",
+                    "recommended_command_argv": [],
+                    "expected_output_artifact": "runtime-blocker-fallback-source-plan-v1.json",
+                    "expected_output_artifact_path": str(
+                        root
+                        / "out"
+                        / "fallback_source"
+                        / "PROJ-FALLBACK"
+                        / "runtime-blocker-fallback-source-plan-v1.json"
+                    ),
+                    "operator_next_action": "record_not_found_without_clearance_claim_or_try_project_local_authority",
+                }
+            )
+
+            result = run_runtime_blocker_controller_dispatch_runner(
+                controller_dispatch_table={"records": [record]},
+                output_root=root / "out",
+                execute_commands=False,
+                created_at="2026-05-26T00:00:00+08:00",
+            )
+
+        self.assertTrue(result["safe_to_execute"])
+        self.assertEqual(result["summary"]["followup_task_count"], 1)
+        followup = result["manifest"]["runtime_blocker_worker_followup_queue"]["records"][0]
+        self.assertEqual(followup["formal_entrypoint_id"], "runtime_blocker_fallback_source_plan_builder")
+        self.assertEqual(followup["followup_task_type"], "BUILD_FALLBACK_SOURCE_ADAPTER_PLAN")
+        self.assertEqual(followup["expected_output_artifact"], "runtime-blocker-fallback-source-plan-v1.json")
+        self.assertTrue(followup["expected_output_artifact_path"].endswith("runtime-blocker-fallback-source-plan-v1.json"))
+        self.assertEqual(followup["plan_artifact_kind"], "runtime_blocker_fallback_source_plan_v1")
+        self.assertEqual(followup["recommended_command_argv"], [])
+        self.assertIn("fallback_source_or_project_local_authority_path", followup["recommended_source_path_or_query_terms"])
+        self.assertTrue(followup["requires_operator_action_before_live"])
+        self.assertFalse(followup["customer_visible_allowed"])
+        self.assertTrue(followup["query_miss_is_not_clearance"])
+
     def test_existing_browser_readback_output_creates_field_query_followup_queue(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)

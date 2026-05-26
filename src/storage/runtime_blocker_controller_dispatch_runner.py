@@ -448,11 +448,14 @@ def _route_followup_record(
         return {}
     spec = {
         "fallback_source": {
-            "formal_entrypoint_id": "stage4_release_evidence_bridge_builder",
+            "formal_entrypoint_id": "runtime_blocker_fallback_source_plan_builder",
             "followup_task_type": "BUILD_FALLBACK_SOURCE_ADAPTER_PLAN",
             "followup_readiness_state": "WAITING_FOR_FALLBACK_SOURCE_OR_MORE_PRECISE_QUERY_TERMS",
             "next_action": "build_fallback_source_adapter_plan_then_rerun_stage6_cycle",
             "operator_next_action": "choose_fallback_official_source_or_record_no_retry_scope_without_clearance_claim",
+            "expected_output_artifact": "runtime-blocker-fallback-source-plan-v1.json",
+            "recommended_script": "storage.runtime_blocker_fallback_source_plan",
+            "plan_artifact_kind": "runtime_blocker_fallback_source_plan_v1",
         },
         "retry": {
             "formal_entrypoint_id": "stage6_review_cycle_runner",
@@ -460,6 +463,9 @@ def _route_followup_record(
             "followup_readiness_state": "WAITING_FOR_RETRY_REOPEN_INPUT_OR_BUDGET",
             "next_action": "rerun_stage6_review_cycle_after_reopen_input_is_recorded",
             "operator_next_action": "record_retry_budget_or_new_machine_readable_input_before_rerun",
+            "expected_output_artifact": "",
+            "recommended_script": "",
+            "plan_artifact_kind": "",
         },
         "manual_hold": {
             "formal_entrypoint_id": "stage6_review_cycle_runner",
@@ -467,6 +473,9 @@ def _route_followup_record(
             "followup_readiness_state": "MANUAL_HOLD_RECORDED_NO_WORKER_DISPATCH",
             "next_action": "operator_reviews_manual_hold_then_records_reopen_or_closeout",
             "operator_next_action": "operator_reviews_manual_hold_without_clearance_claim",
+            "expected_output_artifact": "",
+            "recommended_script": "",
+            "plan_artifact_kind": "",
         },
         "suspend_dead_letter": {
             "formal_entrypoint_id": "stage6_review_cycle_runner",
@@ -474,10 +483,19 @@ def _route_followup_record(
             "followup_readiness_state": "SUSPEND_DEAD_LETTER_RECORDED_UNTIL_REOPEN_CONDITION",
             "next_action": "keep_suspended_until_reopen_condition_or_dead_letter_review",
             "operator_next_action": "operator_records_reopen_condition_or_keeps_dead_letter_hold",
+            "expected_output_artifact": "",
+            "recommended_script": "",
+            "plan_artifact_kind": "",
         },
     }[route]
     project_id = str(runner_record.get("project_id") or "project").strip() or "project"
     followup_output = output_root / "followup-runtime-blocker" / route / _safe_path_segment(project_id)
+    expected_output_artifact = str(spec.get("expected_output_artifact") or "")
+    expected_output_artifact_path = (
+        str(followup_output / expected_output_artifact) if expected_output_artifact else ""
+    )
+    required_input = _dedupe(_list(runner_record.get("required_input")))
+    input_artifact_refs = _dedupe(_list(runner_record.get("input_artifact_refs")))
     return {
         "runtime_blocker_followup_task_id": _stable_id(
             "RUNTIME-BLOCKER-FOLLOWUP",
@@ -496,7 +514,7 @@ def _route_followup_record(
         "formal_entrypoint_id": spec["formal_entrypoint_id"],
         "followup_task_type": spec["followup_task_type"],
         "followup_readiness_state": spec["followup_readiness_state"],
-        "recommended_script": "",
+        "recommended_script": str(spec.get("recommended_script") or ""),
         "recommended_command_argv": [],
         "recommended_command": "",
         "dispatch_route": route,
@@ -504,12 +522,20 @@ def _route_followup_record(
         "dispatch_readiness_state": str(runner_record.get("dispatch_readiness_state") or ""),
         "worker_readback_state": str(runner_record.get("worker_readback_state") or ""),
         "worker_closeout_state": str(runner_record.get("worker_closeout_state") or ""),
-        "input_artifact_refs": _dedupe(_list(runner_record.get("input_artifact_refs"))),
-        "required_input": _dedupe(_list(runner_record.get("required_input"))),
+        "input_artifact_refs": input_artifact_refs,
+        "required_input": required_input,
+        "recommended_source_path_or_query_terms": _recommended_source_path_or_query_terms(
+            required_input=required_input,
+            input_artifact_refs=input_artifact_refs,
+            project_id=project_id,
+            project_name=str(runner_record.get("project_name") or ""),
+        ),
         "retry_policy": str(runner_record.get("retry_policy") or ""),
         "reopen_conditions": _dedupe(_list(runner_record.get("reopen_conditions"))),
         "operator_next_action": str(runner_record.get("operator_next_action") or spec["operator_next_action"]),
-        "expected_output_artifact": "",
+        "expected_output_artifact": expected_output_artifact,
+        "expected_output_artifact_path": expected_output_artifact_path,
+        "plan_artifact_kind": str(spec.get("plan_artifact_kind") or ""),
         "output_root": str(followup_output),
         "next_action": spec["next_action"],
         "execution_mode": "PLAN_ONLY_NOT_EXECUTED",
@@ -522,6 +548,26 @@ def _route_followup_record(
         "query_miss_is_not_clearance": True,
         "created_at": created_at,
     }
+
+
+def _recommended_source_path_or_query_terms(
+    *,
+    required_input: list[Any],
+    input_artifact_refs: list[Any],
+    project_id: str,
+    project_name: str,
+) -> list[str]:
+    terms = [
+        str(item or "").strip()
+        for item in [
+            *required_input,
+            *input_artifact_refs,
+            project_id,
+            project_name,
+        ]
+        if str(item or "").strip()
+    ]
+    return _dedupe(terms)
 
 
 def _summary(

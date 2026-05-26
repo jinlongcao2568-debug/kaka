@@ -117,6 +117,64 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
         self.assertFalse(refs["customer_visible_allowed"])
         self.assertTrue(refs["query_miss_is_not_clearance"])
 
+    def test_scoreboard_marks_review_candidates_without_stage123_as_projection(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            pressure = root / "pressure"
+            p13b_history = root / "p13b-history"
+            stage6 = root / "stage6"
+            out = root / "out"
+            for path in (pressure, p13b_history, stage6, out):
+                path.mkdir(parents=True, exist_ok=True)
+            _write_json(pressure / "pressure-summary.json", {"candidate_count": 0})
+            _write_json(pressure / "stage1-6-readiness-table.json", {"records": []})
+            _write_json(pressure / "stage1-6-gap-summary-table.json", {"records": []})
+            _write_json(
+                p13b_history / "company-history-overlap-triage-v1.json",
+                {
+                    "summary": {
+                        "input_mode": "STAGE4_BACKFILL_FOLLOWUP_PUBLIC_SOURCE_ROUTES",
+                        "customer_visible_allowed": False,
+                        "query_miss_is_not_clearance": True,
+                        "no_legal_conclusion": True,
+                    }
+                },
+            )
+            _write_json(
+                stage6 / "stage6-review-loop-project-status-table.json",
+                {
+                    "summary": {"stage6_review_cycle_input_mode": "RUNTIME_BLOCKER_SUBQUEUE_ONLY"},
+                    "records": [
+                        {
+                            "project_id": "PROJ-PROJECTION",
+                            "limited_sellable_review_candidate_state": "REVIEW_CANDIDATE",
+                            "strong_lead_candidate_state": "STRONG_LEAD_REVIEW_CANDIDATE",
+                            "stage7_commercial_input_allowed": False,
+                        }
+                    ],
+                },
+            )
+
+            result = build_stage1_6_sellable_scoreboard(
+                pressure_root=pressure,
+                p13b_company_history_root=p13b_history,
+                stage6_status_root=stage6,
+                output_root=out,
+                created_at="2026-05-26T00:00:00+08:00",
+            )
+
+        scoreboard = result["scoreboard"]
+        self.assertEqual(scoreboard["candidate_count"], 1)
+        self.assertEqual(scoreboard["stage2_success_count"], 0)
+        self.assertEqual(scoreboard["stage3_success_count"], 0)
+        self.assertEqual(scoreboard["limited_sellable_review_candidate_count"], 1)
+        self.assertEqual(scoreboard["input_mode"], "STAGE4_BACKFILL_FOLLOWUP_PUBLIC_SOURCE_ROUTES")
+        self.assertEqual(scoreboard["denominator_kind"], "FOLLOWUP_PROJECT_ROWS")
+        self.assertFalse(scoreboard["clean_batch_comparable"])
+        self.assertEqual(scoreboard["projection_or_merge_state"], "FOLLOWUP_OR_MERGED_PROJECTION")
+        self.assertIn("not clean batch conversion KPI", scoreboard["input_lineage_warning"])
+        self.assertFalse(result["safety"]["customer_visible_allowed"])
+
     def test_scoreboard_counts_sellable_funnel_and_blocker_buckets(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)

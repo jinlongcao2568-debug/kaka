@@ -140,6 +140,11 @@ def _run_summary(scoreboard: Mapping[str, Any]) -> dict[str, Any]:
         "candidate_count": _int(scoreboard.get("candidate_count")),
         "stage2_success_count": _int(scoreboard.get("stage2_success_count")),
         "stage3_success_count": _int(scoreboard.get("stage3_success_count")),
+        "input_mode": str(scoreboard.get("input_mode") or ""),
+        "denominator_kind": str(scoreboard.get("denominator_kind") or ""),
+        "clean_batch_comparable": bool(scoreboard.get("clean_batch_comparable", True)),
+        "projection_or_merge_state": str(scoreboard.get("projection_or_merge_state") or ""),
+        "input_lineage_warning": str(scoreboard.get("input_lineage_warning") or ""),
         "limited_sellable_review_candidate_count": _int(
             scoreboard.get("limited_sellable_review_candidate_count")
         ),
@@ -415,6 +420,11 @@ def _p0_gap_summary(
         primary.get("local_authority_region_resolution_required")
     ) or _int(local_authority_resolution_counts.get("LOCAL_AUTHORITY_REGION_RESOLUTION_REQUIRED"))
     return {
+        "input_mode": str(scoreboard.get("input_mode") or ""),
+        "denominator_kind": str(scoreboard.get("denominator_kind") or ""),
+        "clean_batch_comparable": bool(scoreboard.get("clean_batch_comparable", True)),
+        "projection_or_merge_state": str(scoreboard.get("projection_or_merge_state") or ""),
+        "input_lineage_warning": str(scoreboard.get("input_lineage_warning") or ""),
         "local_source_blocked_or_not_found_remaining_count": _int(primary.get("public_source_blocked"))
         + _int(primary.get("source_not_found")),
         "local_authority_region_resolution_required_count": local_authority_region_resolution_required_count,

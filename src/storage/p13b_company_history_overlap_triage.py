@@ -1254,6 +1254,8 @@ def _infer_local_authority_region_code(project: Mapping[str, Any]) -> str:
         ]
     )
     city_map = {
+        "ywtb.gzggzy.cn": "CN-GD-GZ",
+        "gzggzy.cn": "CN-GD-GZ",
         "广州": "CN-GD-GZ",
         "黄埔": "CN-GD-GZ",
         "南沙": "CN-GD-GZ",
@@ -1295,6 +1297,16 @@ def _local_authority_region_basis(project: Mapping[str, Any]) -> str:
     if _infer_local_authority_region_code_from_ygp_site_code(project):
         return "ygp_site_code_public_identifier"
     if _infer_local_authority_region_code(project):
+        text = " ".join(
+            str(item or "")
+            for item in [
+                project.get("project_name"),
+                *_list(project.get("candidate_notice_source_urls")),
+                *_list(project.get("project_source_urls")),
+            ]
+        ).lower()
+        if "ywtb.gzggzy.cn" in text or "gzggzy.cn" in text:
+            return "current_candidate_trade_platform_domain"
         return "project_name_or_source_url_city_marker"
     return "region_unresolved_operator_source_selection_required"
 

@@ -302,6 +302,49 @@ def _preserve_incremental_prior_topline_counts(
     return out
 
 
+def _scoreboard_input_lineage_state(
+    *,
+    candidate_count: int,
+    stage2_success_count: int,
+    stage3_success_count: int,
+    project_rows: list[Mapping[str, Any]],
+    limited_sellable_review_candidate_count: int,
+    strong_lead_review_candidate_count: int,
+    p13b_summary: Mapping[str, Any],
+    stage6_summary: Mapping[str, Any],
+) -> dict[str, Any]:
+    input_modes = [
+        str(p13b_summary.get("input_mode") or "").strip(),
+        str(stage6_summary.get("stage6_review_cycle_input_mode") or "").strip(),
+    ]
+    input_modes = [mode for mode in input_modes if mode]
+    has_review_projection = bool(
+        project_rows
+        and stage2_success_count == 0
+        and stage3_success_count == 0
+        and (limited_sellable_review_candidate_count > 0 or strong_lead_review_candidate_count > 0)
+    )
+    if has_review_projection:
+        input_mode = input_modes[0] if input_modes else "FOLLOWUP_OR_MERGED_PROJECTION"
+        return {
+            "input_mode": input_mode,
+            "denominator_kind": "FOLLOWUP_PROJECT_ROWS",
+            "clean_batch_comparable": False,
+            "projection_or_merge_state": "FOLLOWUP_OR_MERGED_PROJECTION",
+            "input_lineage_warning": (
+                "stage2_success_count=0 and stage3_success_count=0 while review candidates are present; "
+                "treat rate as follow-up/projection, not clean batch conversion KPI"
+            ),
+        }
+    return {
+        "input_mode": input_modes[0] if input_modes else "CLEAN_BATCH_OR_DIRECT_STAGE1_6",
+        "denominator_kind": "REAL_PUBLIC_CANDIDATES" if candidate_count else "NO_CANDIDATES",
+        "clean_batch_comparable": True,
+        "projection_or_merge_state": "CLEAN_BATCH_OR_DIRECT_STAGE1_6",
+        "input_lineage_warning": "",
+    }
+
+
 def _scoreboard_counts(
     pressure_summary: Mapping[str, Any],
     readiness_records: list[Mapping[str, Any]],
@@ -383,10 +426,21 @@ def _scoreboard_counts(
     )
     denominator = candidate_count or 0
     sellable_or_limited_count = stage7_sellable_count + limited_sellable_review_candidate_count
+    input_lineage = _scoreboard_input_lineage_state(
+        candidate_count=candidate_count,
+        stage2_success_count=stage2_success_count,
+        stage3_success_count=stage3_success_count,
+        project_rows=project_rows,
+        limited_sellable_review_candidate_count=limited_sellable_review_candidate_count,
+        strong_lead_review_candidate_count=strong_lead_review_candidate_count,
+        p13b_summary=p13b_summary,
+        stage6_summary=stage6_summary,
+    )
     return {
         "candidate_count": candidate_count,
         "stage2_success_count": stage2_success_count,
         "stage3_success_count": stage3_success_count,
+        **input_lineage,
         "stage1_6_readiness_state_counts": dict(pressure_summary.get("stage1_6_readiness_state_counts") or {}),
         "stage1_6_bottleneck_stage_counts": dict(pressure_summary.get("stage1_6_bottleneck_stage_counts") or {}),
         "stage1_3_stability_summary": dict(pressure_summary.get("stage1_3_stability_summary") or {}),
@@ -2977,6 +3031,10 @@ def _write_markdown(path: Path, payload: Mapping[str, Any]) -> None:
         f"- candidate_count: {scoreboard.get('candidate_count', 0)}",
         f"- stage2_success_count: {scoreboard.get('stage2_success_count', 0)}",
         f"- stage3_success_count: {scoreboard.get('stage3_success_count', 0)}",
+        f"- input_mode: {scoreboard.get('input_mode', '')}",
+        f"- denominator_kind: {scoreboard.get('denominator_kind', '')}",
+        f"- clean_batch_comparable: {str(bool(scoreboard.get('clean_batch_comparable'))).lower()}",
+        f"- projection_or_merge_state: {scoreboard.get('projection_or_merge_state', '')}",
         f"- stage4_matched_task_count: {scoreboard.get('stage4_matched_task_count', 0)}",
         f"- stage4_needs_browser_task_count: {scoreboard.get('stage4_needs_browser_task_count', 0)}",
         f"- stage5_review_count: {scoreboard.get('stage5_review_count', 0)}",

@@ -14,6 +14,12 @@ Mainline Selection Ready: true
 C-group Enum Freeze: CONFIRMED
 Capability Adjudication Source: control/product_task_library.yaml#open_capability_policy and D13 能力总表与放行边界总表
 
+Current Stage1-6 Evidence Chain Status:
+- r175 clean live15 YGP backfill is a positive internal evidence-chain signal: 6/15 limited review candidates, 28 MATCHED, and 28 B_ENHANCEMENT_OFFICIAL_READBACK. It remains internal review evidence, not customer-visible delivery readiness.
+- r215/r217 are follow-up / merged projection scoreboards, not clean batch KPI runs. They currently show 23 projected rows and 6 limited/strong review candidates with Stage2/Stage3 counts at 0, so their rate must be read as projection coverage, not real_public clean-batch sellable conversion.
+- Stage7 governed preview remains closed unless the Stage6 evidence chain has source URL, readback/snapshot, SHA/hash, B/C grade, no-legal-conclusion boundary, and approval-safe envelope. limited review candidates do not imply customer-visible export, download, delivery, payment, refund, or clearance.
+- NOT_FOUND, BLOCKED, NEEDS_BROWSER, and LOGIN_OR_SSO_REQUIRED remain non-clearance states.
+
 Current Controlled Opening Boundaries:
 - External software release is a controlled-opening capability: it requires controlled-opening gate, release checklist, approval chain, audit chain, operator action, rollback/suspension path, and passing regression before any live/public action.
 - Stage 8 real execution is a controlled-opening capability: it requires provider config, sandbox pass, approval/audit, quiet-hours/frequency/opt-out enforcement, operator action, and acceptance before live execution.

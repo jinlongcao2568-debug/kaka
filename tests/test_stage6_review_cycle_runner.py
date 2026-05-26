@@ -96,6 +96,16 @@ class Stage6ReviewCycleRunnerTests(unittest.TestCase):
         controller_record = result["manifest"]["runtime_blocker_subqueue_controller_table"]["records"][0]
         self.assertEqual(controller_record["subqueue_route"], "fallback_source")
         self.assertEqual(controller_record["project_id"], "PROJ-STAGE4-FOLLOWUP")
+        dispatch_record = result["manifest"]["runtime_blocker_controller_dispatch_table"]["records"][0]
+        self.assertEqual(dispatch_record["formal_entrypoint_id"], "runtime_blocker_fallback_source_plan_builder")
+        self.assertEqual(dispatch_record["expected_output_artifact"], "runtime-blocker-fallback-source-plan-v1.json")
+        self.assertTrue(
+            dispatch_record["expected_output_artifact_path"].endswith("runtime-blocker-fallback-source-plan-v1.json")
+        )
+        followup_record = result["manifest"]["runtime_blocker_worker_followup_queue"]["records"][0]
+        self.assertEqual(followup_record["formal_entrypoint_id"], "runtime_blocker_fallback_source_plan_builder")
+        self.assertEqual(followup_record["expected_output_artifact"], "runtime-blocker-fallback-source-plan-v1.json")
+        self.assertEqual(followup_record["plan_artifact_kind"], "runtime_blocker_fallback_source_plan_v1")
         self.assertFalse(result["manifest"]["customer_visible_allowed"])
         self.assertTrue(result["manifest"]["query_miss_is_not_clearance"])
 
