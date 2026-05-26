@@ -99,22 +99,13 @@
     {
       "stage_range": "1-2",
       "vendor_role": "CONTACT_ENRICHMENT_SOURCE",
-      "usage_state": "review_only",
-      "current_capability_mode": "APPROVAL_REQUIRED",
+      "usage_state": "blocked",
+      "current_capability_mode": "PERMANENTLY_BLOCKED",
       "default_main_source": false,
-      "allowed_action_intents": [
-        "SANDBOX_DRY_RUN",
-        "AUTHORIZED_PILOT_READ"
-      ],
-      "allowed_actions": [
-        "sandbox_contact_enrichment_test",
-        "mock_contact_enrichment_test",
-        "approval_flow_test"
-      ],
+      "allowed_actions": [],
       "forbidden_actions": [
-        "production_contact_candidate_generation_without_approval",
-        "formal_main_source_override",
-        "live_outreach_execution"
+        "contact_candidate_generation",
+        "formal_main_source_override"
       ]
     },
     {
