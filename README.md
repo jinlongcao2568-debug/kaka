@@ -6,11 +6,12 @@
 
 - [`START_HERE.md`](START_HERE.md)：新手和 AI 代理先从这里开始。
 - [`DEV_MODE.md`](DEV_MODE.md)：唯一的 DEV / TEST / PROD_LIVE 边界说明。
+- [`CURRENT_PRODUCT_STATE.md`](CURRENT_PRODUCT_STATE.md)：当前产品开发程度和审计结论。
 - [`MINIMAL_PRODUCT_PATH.md`](MINIMAL_PRODUCT_PATH.md)：先做出最小可用产品的路线。
 - [`AGENTS.md`](AGENTS.md)：AI 代理默认工作规则。
 - [`ARCHITECTURE_NOTE.md`](ARCHITECTURE_NOTE.md)：架构补充，不是日常入口。
 
-默认不要遍历 `docs/` 全部文件。普通开发、补功能、修 bug 或跑验证，先读入口文件和当前要改的代码/测试。
+默认不要遍历 `docs/` 全部文件。普通开发、补功能、修 bug 或跑验证，先读入口文件、当前产品状态和当前要改的代码/测试。
 
 ## 目录
 

@@ -27,7 +27,7 @@
 
 1. `START_HERE.md`
 2. `DEV_MODE.md`
-3. `README.md`
+3. `CURRENT_PRODUCT_STATE.md`
 4. 当前要改的 `src/`、`tests/`、`scripts/` 文件
 
 按需再读：
