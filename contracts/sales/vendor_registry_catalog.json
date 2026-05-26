@@ -12,6 +12,10 @@
     "live_execution_enabled": false,
     "external_action_enabled": false,
     "direct_mutation_allowed": false,
+    "sandbox_mock_dry_run_allowed": true,
+    "authorized_pilot_allowed_with_approval_audit_operator_action": true,
+    "production_live_requires_release_gate": true,
+    "default_false_scope": "production_live_and_customer_visible_external_action_only",
     "trace_fields_required": [
       "vendor_id",
       "vendor_type",
@@ -53,7 +57,11 @@
       "execution_capable": false,
       "current_status": "INTERNAL_SUPPORT_ONLY",
       "current_capability_mode": "INTERNAL_ONLY",
-      "allowed_capability_modes": ["INTERNAL_ONLY", "INTERNAL_GOVERNED", "SHADOW_MODE"],
+      "allowed_capability_modes": [
+        "INTERNAL_ONLY",
+        "INTERNAL_GOVERNED",
+        "SHADOW_MODE"
+      ],
       "manual_review_default": false,
       "default_open": false,
       "live_execution_enabled": false,
@@ -73,7 +81,11 @@
       "execution_capable": false,
       "current_status": "INTERNAL_SUPPORT_ONLY",
       "current_capability_mode": "SHADOW_MODE",
-      "allowed_capability_modes": ["BUILDABLE_BUT_OFF_BY_DEFAULT", "SHADOW_MODE", "INTERNAL_GOVERNED"],
+      "allowed_capability_modes": [
+        "BUILDABLE_BUT_OFF_BY_DEFAULT",
+        "SHADOW_MODE",
+        "INTERNAL_GOVERNED"
+      ],
       "manual_review_default": true,
       "formal_merge_required": true,
       "direct_contact_projection_allowed": false,
@@ -95,7 +107,11 @@
       "execution_capable": false,
       "current_status": "INTERNAL_SUPPORT_ONLY",
       "current_capability_mode": "SHADOW_MODE",
-      "allowed_capability_modes": ["BUILDABLE_BUT_OFF_BY_DEFAULT", "SHADOW_MODE", "INTERNAL_GOVERNED"],
+      "allowed_capability_modes": [
+        "BUILDABLE_BUT_OFF_BY_DEFAULT",
+        "SHADOW_MODE",
+        "INTERNAL_GOVERNED"
+      ],
       "manual_review_default": true,
       "formal_merge_required": true,
       "direct_contact_projection_allowed": false,
@@ -117,7 +133,12 @@
       "execution_capable": false,
       "current_status": "INTERNAL_SUPPORT_ONLY",
       "current_capability_mode": "APPROVAL_REQUIRED",
-      "allowed_capability_modes": ["BUILDABLE_BUT_OFF_BY_DEFAULT", "APPROVAL_REQUIRED", "SHADOW_MODE", "DRY_RUN"],
+      "allowed_capability_modes": [
+        "BUILDABLE_BUT_OFF_BY_DEFAULT",
+        "APPROVAL_REQUIRED",
+        "SHADOW_MODE",
+        "DRY_RUN"
+      ],
       "manual_review_default": true,
       "formal_merge_required": true,
       "direct_contact_projection_allowed": false,
@@ -137,14 +158,22 @@
       },
       "audit_capable": true,
       "execution_capable": true,
-      "current_status": "BLOCKED",
+      "current_status": "APPROVAL_REQUIRED",
       "current_capability_mode": "BUILDABLE_BUT_OFF_BY_DEFAULT",
-      "allowed_capability_modes": ["BUILDABLE_BUT_OFF_BY_DEFAULT", "DRY_RUN", "APPROVAL_REQUIRED", "REAL_RUN_READY", "EMERGENCY_OFF"],
+      "allowed_capability_modes": [
+        "BUILDABLE_BUT_OFF_BY_DEFAULT",
+        "DRY_RUN",
+        "APPROVAL_REQUIRED",
+        "REAL_RUN_READY",
+        "EMERGENCY_OFF"
+      ],
       "manual_review_default": true,
       "default_open": false,
       "live_execution_enabled": false,
       "external_action_enabled": false,
-      "direct_mutation_allowed": false
+      "direct_mutation_allowed": false,
+      "sandbox_mock_dry_run_allowed": true,
+      "production_live_requires_approval_audit_operator_action": true
     },
     {
       "vendor_id": "EXEC-ALIYUN-CALL",
@@ -157,14 +186,22 @@
       },
       "audit_capable": true,
       "execution_capable": true,
-      "current_status": "BLOCKED",
+      "current_status": "APPROVAL_REQUIRED",
       "current_capability_mode": "BUILDABLE_BUT_OFF_BY_DEFAULT",
-      "allowed_capability_modes": ["BUILDABLE_BUT_OFF_BY_DEFAULT", "DRY_RUN", "APPROVAL_REQUIRED", "REAL_RUN_READY", "EMERGENCY_OFF"],
+      "allowed_capability_modes": [
+        "BUILDABLE_BUT_OFF_BY_DEFAULT",
+        "DRY_RUN",
+        "APPROVAL_REQUIRED",
+        "REAL_RUN_READY",
+        "EMERGENCY_OFF"
+      ],
       "manual_review_default": true,
       "default_open": false,
       "live_execution_enabled": false,
       "external_action_enabled": false,
-      "direct_mutation_allowed": false
+      "direct_mutation_allowed": false,
+      "sandbox_mock_dry_run_allowed": true,
+      "production_live_requires_approval_audit_operator_action": true
     },
     {
       "vendor_id": "EXEC-EMAIL-SERVICE",
@@ -179,7 +216,12 @@
       "execution_capable": true,
       "current_status": "APPROVAL_REQUIRED",
       "current_capability_mode": "APPROVAL_REQUIRED",
-      "allowed_capability_modes": ["DRY_RUN", "APPROVAL_REQUIRED", "REAL_RUN_READY", "EMERGENCY_OFF"],
+      "allowed_capability_modes": [
+        "DRY_RUN",
+        "APPROVAL_REQUIRED",
+        "REAL_RUN_READY",
+        "EMERGENCY_OFF"
+      ],
       "manual_review_default": true,
       "default_open": false,
       "live_execution_enabled": false,
@@ -197,19 +239,28 @@
       },
       "audit_capable": true,
       "execution_capable": true,
-      "current_status": "BLOCKED",
+      "current_status": "APPROVAL_REQUIRED",
       "current_capability_mode": "BUILDABLE_BUT_OFF_BY_DEFAULT",
-      "allowed_capability_modes": ["BUILDABLE_BUT_OFF_BY_DEFAULT", "DRY_RUN", "APPROVAL_REQUIRED", "REAL_RUN_READY", "EMERGENCY_OFF"],
+      "allowed_capability_modes": [
+        "BUILDABLE_BUT_OFF_BY_DEFAULT",
+        "DRY_RUN",
+        "APPROVAL_REQUIRED",
+        "REAL_RUN_READY",
+        "EMERGENCY_OFF"
+      ],
       "manual_review_default": true,
       "default_open": false,
       "live_execution_enabled": false,
       "external_action_enabled": false,
-      "direct_mutation_allowed": false
+      "direct_mutation_allowed": false,
+      "sandbox_mock_dry_run_allowed": true,
+      "production_live_requires_approval_audit_operator_action": true
     }
   ],
   "notes": [
     "capability_mode is runtime-only and does not weaken current_status or release controlled_opening_requirements.",
     "execution vendors may be buildable-but-off without being externally released.",
+    "live_execution_enabled=false, external_action_enabled=false and direct_mutation_allowed=false are production-live defaults; they must not be interpreted as a blanket ban on sandbox/mock/dry-run/regression tests or explicitly authorized pilot execution.",
     "Stage 8 source-side data must first materialize into formal carriers before final contact/outreach objects consume it."
   ]
 }

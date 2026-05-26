@@ -797,7 +797,7 @@ def build_leadpack_delivery_package_carrier(
             "external_software_release_controlled_opening_required",
             "real_provider_delivery_not_executed",
             "stage8_stage9_execution_not_triggered",
-            "automated_refund_program_excluded",
+            "automated_refund_program_controlled_test_and_pilot_required",
         ]
     else:
         blocked_reasons = [

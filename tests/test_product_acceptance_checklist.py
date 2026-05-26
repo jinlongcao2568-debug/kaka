@@ -137,8 +137,10 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
             self.assertTrue(entry["controlled_opening_requirement_checks"], task_id)
 
     def test_refund_boundary_is_manual_exception_only_everywhere_it_matters(self) -> None:
-        self.assertIn("automated refund execution is excluded", self.checklist["refund_boundary"])
-        self.assertIn("automated refund execution remains excluded", self.library["acceptance_checklist_policy"]["refund_boundary"])
+        self.assertIn("automated_refund_execution is controlled-test-and-pilot-required", self.checklist["refund_boundary"])
+        self.assertIn("sandbox/mock/dry-run or authorized pilots may exercise refund automation", self.checklist["refund_boundary"])
+        self.assertIn("automated refund flows are controlled-test-and-pilot-required", self.library["acceptance_checklist_policy"]["refund_boundary"])
+        self.assertIn("sandbox/mock/dry-run or authorized pilots may exercise refund automation", self.library["acceptance_checklist_policy"]["refund_boundary"])
 
         refund_sensitive_ids = {
             "PTL-I100-111-live-provider-adapters-no-auto-refund",
@@ -154,7 +156,7 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
             self.assertRegex(serialized, r"automated_refund|manual refund|refund handling", task_id)
 
         self.assertIn(
-            "automated_refund_absent",
+            "automated_refund_controlled_test_and_pilot_required",
             self.tasks_by_id["PTL-I100-118-full-product-operational-acceptance"]["acceptance_checks"],
         )
 

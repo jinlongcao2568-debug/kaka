@@ -472,7 +472,7 @@ def preview_operator_real_world_sellability(payload: Mapping[str, Any] | None = 
             lane_id="payment_delivery_writeback",
             title="支付交付与回写治理",
             status="PARTIAL" if not real_payment_ready else "PASS",
-            current_state="支付、交付、退款仍是受控开放读回；自动退款保持排除。",
+            current_state="支付、交付、退款仍是受控开放读回；自动退款为 controlled-test-and-pilot-required，sandbox/mock/dry-run/受控试点可做，生产启用需授权门禁。",
             evidence=["/go-live/readiness", "AGENTS.md#Automation Guardrails"],
             gaps=[] if real_payment_ready else ["真实支付、真实交付、真实退款异常处理和回写治理未接入 live provider。"],
             next_actions=["补支付/交付 sandbox、小样本 live pilot 状态和人工退款异常读回。"],
@@ -2444,7 +2444,7 @@ def _build_autonomous_runtime_flow(
                 "automated_refund_enabled": "false",
             },
             note="内部生成交付候选；真实下载、支付、退款不在本次自动执行。",
-            next_action="成交付款后进入受控邮件交付；自动退款不执行。",
+            next_action="成交付款后进入受控邮件交付；自动退款仅在 sandbox/mock/dry-run 或授权试点中执行，生产启用需门禁。",
         ),
         ])
     total_produced = sum(row["produced_count"] for row in stage_stats)

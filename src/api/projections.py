@@ -3212,7 +3212,7 @@ def build_go_live_readiness_surface(
         "provider_live_execution_requires_dedicated_live_packet",
         "stage8_real_execution_blocked_by_default",
         "stage9_real_payment_delivery_refund_blocked_by_default",
-        "automated_refund_execution_excluded",
+        "automated_refund_execution_controlled_test_and_pilot_required",
         "destructive_restore_or_rollback_requires_manual_approval_window",
     ]
     if bool(provider_adapter_bootstrap.get("provider_adapter_suspended", False)):

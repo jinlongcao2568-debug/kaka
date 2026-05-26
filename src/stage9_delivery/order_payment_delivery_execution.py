@@ -551,7 +551,7 @@ def _build_payment_delivery_live_pilot_carrier(
         "automated_refund_program": {
             "present": False,
             "enabled": False,
-            "state": "ABSENT_BLOCKED",
+            "state": "CONTROLLED_TEST_AND_PILOT_REQUIRED",
         },
         "payment_provider_result_readback": payment_provider_result,
         "delivery_provider_result_readback": delivery_provider_result,
@@ -824,7 +824,7 @@ def _build_approved_payment_delivery_execution_carrier(
         "automated_refund_program": {
             "present": False,
             "enabled": False,
-            "state": "ABSENT_BLOCKED",
+            "state": "CONTROLLED_TEST_AND_PILOT_REQUIRED",
         },
         "payment_provider_adapter_readiness": dict(payment_provider_readiness),
         "delivery_provider_adapter_readiness": dict(delivery_provider_readiness),
@@ -1099,7 +1099,7 @@ def attach_payment_sandbox_records(
         "automated_refund_program": {
             "present": False,
             "enabled": False,
-            "state": "ABSENT_BLOCKED",
+            "state": "CONTROLLED_TEST_AND_PILOT_REQUIRED",
         },
         "automated_refund_enabled": False,
         "real_refund_attempted": False,
@@ -1107,7 +1107,8 @@ def attach_payment_sandbox_records(
         "operator_can_record_manual_exception": True,
         "operator_can_execute_automated_refund": False,
         "blocked_reasons": [
-            "automated_refund_program_absent_blocked",
+            "automated_refund_program_controlled_test_and_pilot_required",
+            "production_automatic_refund_requires_authorization",
             "real_refund_attempted=false",
         ],
         "created_at": now,
@@ -1391,7 +1392,7 @@ def build_stage9_execution_ledger_readiness_summary(ledger: Mapping[str, Any]) -
         "automated_refund_program": {
             "present": False,
             "enabled": False,
-            "state": "ABSENT_BLOCKED",
+            "state": "CONTROLLED_TEST_AND_PILOT_REQUIRED",
         },
     }
 

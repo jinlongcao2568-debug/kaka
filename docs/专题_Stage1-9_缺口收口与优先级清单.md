@@ -125,7 +125,7 @@
 | Stage6 统一事实 | `project_fact` / report / review queue 可回放 | Stage6 聚合、internal orchestration、product package 基础已在 | 真实候选仍常被 Stage4 缺口卡住，formal real_public 链还需继续收紧 | P0 |
 | Stage7 商业钩子 | saleable / buyer_fit / offer 承接真实事实 | Stage7 runtime、hook、buyer fit、offer 已存在 | `real_public_sellable_gate_ready=false` 经常受 Stage4 缺口拖住；仍需继续控卖前泄露 | P1 |
 | Stage8 触达准备 | governed preview / draft / approval 边界清楚 | Stage8 internal/governed readback 已存在，真实发送默认关闭 | 不是当前主产品缺口，但 provider sandbox / live pilot 仍是后续 controlled opening 任务 | P2 |
-| Stage9 交付治理 | order / payment / delivery / refund 治理链可回放 | Stage9 ledger/readback 已存在；真实 payment / delivery 默认关闭；自动退款执行继续 EXCLUDED | 不是当前主产品缺口，但真实下载、真实支付、真实交付仍是后续 controlled opening 任务 | P2 |
+| Stage9 交付治理 | order / payment / delivery / refund 治理链可回放 | Stage9 ledger/readback 已存在；真实 payment / delivery 默认关闭；自动退款流程可做 sandbox/mock/dry-run/受控试点，生产自动退款需授权、审批、审计、operator action、对账和回滚/暂停机制 | 不是当前主产品缺口，但真实下载、真实支付、真实交付仍是后续 controlled opening 任务 | P2 |
 
 ## 5. 当前 P0 缺口
 
@@ -191,7 +191,7 @@
 
 - Stage8：governed readback 已有，但 provider sandbox / live pilot 仍是后续受控开放任务
 - Stage9：ledger/readback 已有，但真实 payment / delivery / refund live execution 仍默认关闭
-- 自动退款执行继续 `EXCLUDED`
+- 自动退款流程为 `CONTROLLED_TEST_AND_PILOT_REQUIRED`：可做 sandbox/mock/dry-run/受控试点，生产自动退款需授权、审批、审计、operator action、对账和回滚/暂停机制
 
 这两项属于**后续受控开放任务**，不是当前 Stage1-7 产品主链 bug，但也不能误判成“已经开放”。
 

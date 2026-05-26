@@ -113,7 +113,7 @@
     {
       "gateId": "AUTH-09-contact-and-delivery-governance",
       "title": "触达交付治理",
-      "requirement": "真实触达、支付、交付、退款必须满足审批、审计、operator action 和 provider/sandbox 状态；自动退款执行保持排除。",
+      "requirement": "真实触达、支付、交付、退款必须满足审批、审计、operator action 和 provider/sandbox 状态；自动退款执行为 controlled-test-and-pilot-required，sandbox/mock/dry-run/受控试点可做，生产启用需授权门禁。",
       "failSignal": "页面按钮或测试绕过 D9/D10 的审批审计，伪装成真实外发、真实支付、真实交付或自动退款已开放。",
       "sourceRefs": ["D9", "D10", "AGENTS.md#Automation Guardrails"]
     },
@@ -294,7 +294,7 @@
         "系统展示真实邮件、电话、支付、交付、退款服务商是否接入。",
         "内部测试可预览拟外发、模拟下载和交付候选。",
         "真实触达、真实支付、真实交付、真实退款必须显示审批、审计、operator action 和 provider sandbox 缺口。",
-        "自动退款执行保持排除。"
+        "自动退款执行为 controlled-test-and-pilot-required；sandbox/mock/dry-run/受控试点可做，生产启用需授权、审批、审计、operator action、对账和回滚/暂停。"
       ],
       "uiObligations": [
         "系统与放行页必须展示回归与受控放行状态和真实外部动作缺口。",

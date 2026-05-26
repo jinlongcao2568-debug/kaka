@@ -251,9 +251,10 @@ class TestOperatorFrontendPortal(unittest.TestCase, IsolatedStorageTestMixin):
             "Runtime 审计回放",
             "审计回放只用于内部复核",
             "Stage8/9 受控开放边界",
-            "自动退款排除",
+            "自动退款受控测试/试点",
             "放行前置门禁",
-            "阻断动作",
+            "生产未授权阻断动作",
+            "可测试动作",
             "回归与受控放行状态",
             "默认实战搜索已接真实公开列表页候选发现",
             "内部测试发布模拟已打开",
@@ -679,7 +680,7 @@ class TestOperatorFrontendPortal(unittest.TestCase, IsolatedStorageTestMixin):
                     "controlled_boundary": {
                         "stage8_outreach_boundary_state": "CONTROLLED_OPENING_PREREQUISITES_ONLY",
                         "stage9_payment_delivery_refund_boundary_state": "CONTROLLED_OPENING_PREREQUISITES_ONLY",
-                        "automatic_refund_policy_state": "EXCLUDED",
+                        "automatic_refund_policy_state": "CONTROLLED_TEST_AND_PILOT_REQUIRED",
                         "required_before_live_execution": [
                             "release_checklist_passed",
                             "approval_chain_passed",
@@ -1136,7 +1137,7 @@ class TestOperatorFrontendPortal(unittest.TestCase, IsolatedStorageTestMixin):
             surface["controlled_boundary"]["stage8_outreach_boundary_state"],
             "CONTROLLED_OPENING_PREREQUISITES_ONLY",
         )
-        self.assertEqual(surface["controlled_boundary"]["automatic_refund_policy_state"], "EXCLUDED")
+        self.assertEqual(surface["controlled_boundary"]["automatic_refund_policy_state"], "CONTROLLED_TEST_AND_PILOT_REQUIRED")
         self.assertEqual(
             surface["controlled_boundary"]["required_before_live_execution"],
             [

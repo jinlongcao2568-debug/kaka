@@ -140,7 +140,7 @@ currentTask:
     - 不要求 owner 读取 raw JSON；不把 source URL、raw snapshot、完整核验路径、完整身份组合、内部评分模型或未复核结论暴露到 owner 的销售/客户可见视图
     - 不新增业务对象、枚举、gate、exception 语义
     - 不新增正式对象、枚举、gate 或 exception 语义
-    - 不实现或启用自动退款，automated_refund_execution 继续 EXCLUDED
+    - 不启用未授权生产自动退款；automated_refund_execution 为 CONTROLLED_TEST_AND_PILOT_REQUIRED，可做 sandbox/mock/dry-run/受控试点
     - 不 push
     affected_stages:
     - api_transport
@@ -321,6 +321,6 @@ notes:
 - Formal Stage1-6/P0 entrypoint names must be read from control/automation_entrypoint_registry.yaml; do not infer product_autonomous_* entrypoints from conceptual wording.
 - control/product_runtime_agent_registry.yaml is not present in this repo and must not be treated as an existing required state source.
 - Authorization/login gaps should follow active contracts; if top-level NEEDS_AUTH is not supported, use BLOCKED/NEEDS_BROWSER plus authorization_readiness_state=LOGIN_OR_SSO_REQUIRED and operator_next_action.
-- This packet implements the real sample autonomous opportunity acceptance projection and route; automated refund execution remains excluded.
+- This packet implements the real sample autonomous opportunity acceptance projection and route; automated refund flows are controlled-test-and-pilot-required.
 - Owner deferred python tests/run_tests.py and check-final-gate.ps1 until PTL-I100-147, PTL-I100-148, and PTL-I100-149 were complete; both long gates passed after 149 completion.
 - No unapproved real external execution is performed by this packet.

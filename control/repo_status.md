@@ -24,14 +24,14 @@ Current Controlled Opening Boundaries:
 - External software release is a controlled-opening capability: it requires controlled-opening gate, release checklist, approval chain, audit chain, operator action, rollback/suspension path, and passing regression before any live/public action.
 - Stage 8 real execution is a controlled-opening capability: it requires provider config, sandbox pass, approval/audit, quiet-hours/frequency/opt-out enforcement, operator action, and acceptance before live execution.
 - Stage 9 real payment/delivery/refund is a controlled-opening capability: payment, delivery, and real refund require provider config, sandbox/live-pilot evidence, approval/audit, operator action, reconciliation/writeback, and acceptance before live execution.
-- Automated refund execution remains excluded; refund handling is manual exception record, manual approval/audit, and governed review only.
+- Automated refund flows may be developed and tested in sandbox/mock/dry-run or explicitly authorized pilots; production automatic refund requires manual approval or explicit pilot authorization, audit, reconciliation, rollback/suspension, operator action, and governed review.
 - PTL-I100-143G is completed and registered the public-web capture escalation, captcha automated challenge resolution/resume, and implementation order before runtime packets continue.
 - PTL-I100-144A synchronized controlled-opening semantics and is closed; PTL-I100-144, PTL-I100-145, PTL-I100-150, PTL-I100-151, PTL-I100-146, PTL-I100-147, PTL-I100-148, and PTL-I100-149 are internally ready. No current product mainline packet is active; unapproved live provider calls, outreach, payment, delivery, refund, customer download, or public release remain disallowed.
 
 Product Open Capability Baseline:
 - Policy id: PTL-I100-OPEN-CAPABILITY-BASELINE.
 - The sold product is evidence packs / lead packs; the software is owner-operated tooling and customer artifact access, not the sold software product itself.
-- Except automated refund execution, all business capabilities needed to sell evidence packs are target capabilities and must be implemented through staged controlled opening.
+- All business capabilities needed to sell evidence packs, including refund and automated-refund flows, are target capabilities; sandbox/mock/dry-run and authorized pilots may proceed, while production live execution requires staged controlled opening.
 - "Controlled opening" means not live until provider config, sandbox, approval, audit, operator action, field allowlist/masking, rollback/suspension, and the controlled-opening gate pass; it does not mean the capability is permanently out of product scope.
 
 Closed 149 Result:
@@ -66,7 +66,7 @@ Allowed Actions (current):
 
 Forbidden Actions (current):
 - Any path outside control/current_task.yaml declared scope when a task packet / scoped subpacket window is active.
-- Any automated refund implementation or automated refund enablement.
+- Any unauthorized production automated refund implementation or enablement without approval, audit, reconciliation, rollback/suspension, and operator action.
 - Any real provider call, real model provider call, real outreach, real CRM sync, real quote send, real payment/delivery/refund, real customer download, or public release during this sync.
 - Any schema/enum/gate/exception semantic addition.
 - Any push.

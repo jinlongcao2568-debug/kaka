@@ -1058,7 +1058,7 @@ def render_operator_console(payload: Any) -> HTMLResponse:
               <div class="stage-card"><strong>阶段6 产品包</strong><p>异议价值、可售判断、交付就绪。</p><span class="pill">产品包</span></div>
               <div class="stage-card"><strong>阶段7 销售</strong><p>真实竞争者、买家匹配、客户关系和报价。</p><span class="pill">销售闭环</span></div>
               <div class="stage-card"><strong>阶段8 触达</strong><p>模板、频控、退订、服务商执行读回。</p><span class="pill warn">门禁控制</span></div>
-              <div class="stage-card"><strong>阶段9 支付交付</strong><p>订单、收款、交付、对账、人工退款异常。</p><span class="pill warn">无自动退款</span></div>
+              <div class="stage-card"><strong>阶段9 支付交付</strong><p>订单、收款、交付、对账、人工退款异常。</p><span class="pill warn">退款受控测试/试点</span></div>
             </div>
             <h3>阶段对象流与失败分类</h3>
             <p class="muted-text">这里读取最新运行的阶段对象、输入输出、有效/无效分类和下一步动作，不再只是静态流程说明。</p>
@@ -1484,7 +1484,7 @@ const stateLabels = {
   "real_provider_call_blocked_readback_only": "真实服务商调用当前仅读回",
   "provider_adapters_readback_only": "服务商适配器只读回",
   "approval_and_audit_required_before_any_live_provider_use": "真实服务商使用前需要审批和审计",
-  "automated_refund_program_absent_blocked": "自动退款程序未开放",
+  "automated_refund_program_controlled_test_and_pilot_required": "自动退款受控测试/试点，生产需授权门禁",
   "province_platform_missing_detail_or_attachment": "省级平台详情或附件入口待补",
   "A_HIGH_CONSTRUCTION_EPC": "A类高优先：施工/EPC",
   "B_HIGH_SUPERVISION": "B类高优先：监理",
@@ -2346,8 +2346,8 @@ function renderProviderExecutionMatrix(readiness, scheduler, goLive) {
     ["真实触达", controlled.stage8_real_execution_enabled, "服务商沙箱 + 审批 + 审计 + 操作确认"],
     ["真实支付", controlled.real_payment_enabled, "支付 sandbox + 订单记录 + 审批 + 审计"],
     ["真实交付", controlled.real_delivery_enabled, "下载授权 + 交付审计 + 客户账号控制"],
-    ["真实退款异常", controlled.real_refund_enabled, "人工退款异常队列；自动退款继续排除"],
-    ["自动退款执行", controlled.automated_refund_enabled, "保持排除，不作为自动程序开放"]
+    ["真实退款异常", controlled.real_refund_enabled, "人工退款异常队列；自动退款 sandbox/mock/dry-run/受控试点可测"],
+    ["自动退款执行", controlled.automated_refund_enabled, "controlled-test-and-pilot-required；生产启用需授权、审批、审计、operator action、对账和回滚/暂停"]
   ];
   $("liveActionGateMatrix").innerHTML = `
     <div class="stage-card">
@@ -2494,7 +2494,7 @@ function renderRealWorldSellability(surface) {
     ["真实客户触达", boundary.real_customer_touch_enabled ? "已接入" : "未接入"],
     ["真实支付", boundary.real_payment_enabled ? "已接入" : "未接入"],
     ["真实交付", boundary.real_delivery_enabled ? "已接入" : "未接入"],
-    ["自动退款", boundary.automated_refund_enabled ? "已开放" : "排除"],
+    ["自动退款", boundary.automated_refund_enabled ? "生产已开放" : "测试/试点受控，生产关闭"],
   ]);
   $("sellabilityLaneList").innerHTML = lanes.length
     ? lanes.map((lane) => {
@@ -2677,11 +2677,12 @@ function renderRuntimeProjection(surface) {
     </div>`,
     `<div class="stage-card">
       <strong>Stage8/9 受控开放边界</strong>
-      ${badge(controlledBoundary.automatic_refund_policy_state === "EXCLUDED" ? "自动退款排除" : "边界待读取", "warn")}
+      ${badge(controlledBoundary.automatic_refund_policy_state === "CONTROLLED_TEST_AND_PILOT_REQUIRED" ? "自动退款受控测试/试点" : "边界待读取", "warn")}
       <p>触达：${safeText(controlledBoundary.stage8_outreach_boundary_state || "--")}</p>
       <p>支付/交付/退款：${safeText(controlledBoundary.stage9_payment_delivery_refund_boundary_state || "--")}</p>
       <p>放行前置门禁：${safeText(listText(controlledBoundary.required_before_live_execution || []))}</p>
-      <p>阻断动作：${safeText(listText(controlledBoundary.blocked_action_families || []))}</p>
+      <p>生产未授权阻断动作：${safeText(listText(controlledBoundary.blocked_action_families || controlledBoundary.production_live_blocked_without_authorization || []))}</p>
+      <p>可测试动作：${safeText(listText(controlledBoundary.testable_action_families || []))}</p>
       <p>下一步：${safeText(controlledBoundary.operator_next_action || "--")}</p>
     </div>`,
     `<div class="stage-card">

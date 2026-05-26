@@ -13,7 +13,7 @@ notes:
   - production live use requires concrete target authorization, manual approval where applicable, audit, operator action, release/checklist gates, rollback/reconciliation, and stop conditions
   - automated refund execution is not permanently blocked; production automatic refund requires explicit pilot or manual approval authority plus audit, reconciliation, rollback/suspension, and operator action
   - ordinary direct-dev is allowed for internal code, tests, scripts, docs, and consistency sync when the change does not enter live/release/approval-audit/schema-migration/cross-stage high-risk domains
-  - challenge/OCR/login-state/captcha-resolution/fingerprint/cookie/proxy/hidden-interface capabilities may be developed and tested for owned, sandbox, explicitly authorized, regression, or security-exercise contexts; real third-party live use still requires authorization, source policy, audit, operator action, and controlled-opening gates
+  - challenge/OCR/login-state/captcha-classification/browser-compatibility/cookie/proxy-rate-limit-governance/audited-public-interface-discovery capabilities may be developed and tested for owned, sandbox, explicitly authorized, regression, or security-exercise contexts; real third-party live use still requires authorization, source policy, audit, operator action, and controlled-opening gates
 execution_mode_summary:
   DEV_MODE: ordinary local development; direct edit and relevant tests are the default
   TEST_MODE: sandbox/mock/dry-run/regression/authorized pilot; do not claim production live success

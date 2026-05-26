@@ -152,7 +152,7 @@ class RuntimeArchitectureContractTests(unittest.TestCase, IsolatedStorageTestMix
             controlled_boundary["stage9_payment_delivery_refund_boundary_state"],
             "CONTROLLED_OPENING_PREREQUISITES_ONLY",
         )
-        self.assertEqual(controlled_boundary["automatic_refund_policy_state"], "EXCLUDED")
+        self.assertEqual(controlled_boundary["automatic_refund_policy_state"], "CONTROLLED_TEST_AND_PILOT_REQUIRED")
         self.assertEqual(
             controlled_boundary["required_before_live_execution"],
             [
@@ -354,7 +354,7 @@ class RuntimeArchitectureContractTests(unittest.TestCase, IsolatedStorageTestMix
             run_state["controlled_boundary"]["stage8_outreach_boundary_state"],
             "CONTROLLED_OPENING_PREREQUISITES_ONLY",
         )
-        self.assertEqual(run_state["controlled_boundary"]["automatic_refund_policy_state"], "EXCLUDED")
+        self.assertEqual(run_state["controlled_boundary"]["automatic_refund_policy_state"], "CONTROLLED_TEST_AND_PILOT_REQUIRED")
         self.assertFalse(result["customer_visible_allowed"])
         self.assertEqual(
             [event["event_type"] for event in result["audit_ledger"]["events"]],
@@ -1498,7 +1498,7 @@ class RuntimeArchitectureContractTests(unittest.TestCase, IsolatedStorageTestMix
             trace_refs["stage9_payment_delivery_refund_boundary_state"],
             "CONTROLLED_OPENING_PREREQUISITES_ONLY",
         )
-        self.assertEqual(trace_refs["automatic_refund_policy_state"], "EXCLUDED")
+        self.assertEqual(trace_refs["automatic_refund_policy_state"], "CONTROLLED_TEST_AND_PILOT_REQUIRED")
         self.assertIn("automatic_refund", trace_refs["controlled_boundary_blocked_action_families_json"])
         self.assertIn("approval_chain_passed", trace_refs["controlled_boundary_required_before_live_execution_json"])
         self.assertEqual(trace_refs["controlled_boundary_required_before_live_execution_count"], "4")
@@ -1608,7 +1608,7 @@ class RuntimeArchitectureContractTests(unittest.TestCase, IsolatedStorageTestMix
             projection_trace_refs["stage8_outreach_boundary_state"],
             "CONTROLLED_OPENING_PREREQUISITES_ONLY",
         )
-        self.assertEqual(projection_trace_refs["automatic_refund_policy_state"], "EXCLUDED")
+        self.assertEqual(projection_trace_refs["automatic_refund_policy_state"], "CONTROLLED_TEST_AND_PILOT_REQUIRED")
         self.assertIn(
             "operator_action_confirmed",
             projection_trace_refs["controlled_boundary_required_before_live_execution_json"],

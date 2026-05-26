@@ -15,7 +15,7 @@ PROVIDER_CONFIG_SOURCE_DEFAULT = "Settings.provider_adapter_config"
 PROVIDER_CONFIG_SOURCE_REF = "shared.provider_adapter_config"
 PROVIDER_BLOCKED_LIVE_REASON = "live_provider_mode_requested_but_blocked"
 PROVIDER_BLOCKED_REAL_CALL_REASON = "real_provider_call_blocked_readback_only"
-PROVIDER_BLOCKED_REFUND_REASON = "automated_refund_program_absent_blocked"
+PROVIDER_BLOCKED_REFUND_REASON = "automated_refund_program_controlled_test_and_pilot_required"
 PROVIDER_RELIABILITY_APPROVAL_READY = "APPROVAL_READY"
 PROVIDER_RELIABILITY_SUSPENDED = "SUSPENDED"
 LOCAL_CONTROLLED_FAKE_CRM_QUOTE_PROVIDER = "LOCAL_CONTROLLED_FAKE_CRM_QUOTE_PROVIDER"
@@ -1096,11 +1096,11 @@ def build_provider_adapter_readiness_summary(config: ProviderAdapterConfig) -> d
     automated_refund_program = {
         "present": False,
         "enabled": False,
-        "state": "ABSENT_BLOCKED",
+        "state": "CONTROLLED_TEST_AND_PILOT_REQUIRED",
         "automated_refund_enabled": False,
         "real_refund_enabled": False,
         "operator_can_execute_automated_refund": False,
-        "blocked_reasons": [PROVIDER_BLOCKED_REFUND_REASON, "automatic_refund_out_of_scope"],
+        "blocked_reasons": [PROVIDER_BLOCKED_REFUND_REASON, "production_automatic_refund_requires_authorization"],
     }
 
     summary: dict[str, Any] = {

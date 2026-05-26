@@ -44,8 +44,9 @@
     "fallbackReviewPathRule": "missing formal refs => review-required; unresolved approval/audit => governed-hold; explicit policy/release block => blocked",
     "controlled_opening_requirements": [
       "internal preview and draft surfaces must not be described as external-ready",
-      "Stage 8 and Stage 9 live_execution_enabled must remain false",
-      "Stage 8 and Stage 9 blocked_by_default must remain true unless a later approved batch changes the authority"
+      "Stage 8 and Stage 9 production live_execution_enabled must remain false until an approved production-live batch changes the authority",
+      "Stage 8 and Stage 9 blocked_by_default means production-live/customer-visible default blocked; it must not block sandbox/mock/dry-run/regression or explicitly authorized pilot execution",
+      "route code must use capability_envelope and semantic_envelope to distinguish preview, dry-run, authorized pilot, and production live instead of treating blocked_by_default as a blanket test blocker"
     ]
   },
   "sourceL0Refs": [

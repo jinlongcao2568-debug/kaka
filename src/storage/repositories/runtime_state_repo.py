@@ -405,7 +405,22 @@ def _empty_operator_projection() -> dict[str, Any]:
         "controlled_boundary_summary": {
             "stage8_outreach_boundary_state": "CONTROLLED_OPENING_PREREQUISITES_ONLY",
             "stage9_payment_delivery_refund_boundary_state": "CONTROLLED_OPENING_PREREQUISITES_ONLY",
-            "automatic_refund_policy_state": "EXCLUDED",
+            "automatic_refund_policy_state": "CONTROLLED_TEST_AND_PILOT_REQUIRED",
+            "blocked_action_families": [
+                "real_outreach",
+                "real_payment",
+                "real_delivery",
+                "real_refund",
+                "automatic_refund",
+            ],
+            "testable_action_families": [
+                "sandbox_outreach",
+                "sandbox_payment",
+                "sandbox_delivery",
+                "sandbox_refund",
+                "dry_run_automatic_refund",
+                "authorized_pilot_automatic_refund",
+            ],
             "external_customer_action_enabled": False,
             "real_outreach_enabled": False,
             "real_payment_enabled": False,
@@ -740,7 +755,9 @@ def _runtime_trace_refs(run_state: Mapping[str, Any], *, audit: Mapping[str, Any
         ),
         "automatic_refund_policy_state": str(controlled_boundary.get("automatic_refund_policy_state") or ""),
         "controlled_boundary_blocked_action_families_json": _json_string(
-            controlled_boundary.get("blocked_action_families") or []
+            controlled_boundary.get("blocked_action_families")
+            or controlled_boundary.get("production_live_blocked_without_authorization")
+            or []
         ),
         "controlled_boundary_required_before_live_execution_json": _json_string(
             controlled_boundary.get("required_before_live_execution") or []
@@ -974,7 +991,9 @@ def _operator_projection_trace_refs(projection: Mapping[str, Any]) -> dict[str, 
         ),
         "automatic_refund_policy_state": str(controlled_boundary.get("automatic_refund_policy_state") or ""),
         "controlled_boundary_blocked_action_families_json": _json_string(
-            controlled_boundary.get("blocked_action_families") or []
+            controlled_boundary.get("blocked_action_families")
+            or controlled_boundary.get("production_live_blocked_without_authorization")
+            or []
         ),
         "controlled_boundary_required_before_live_execution_json": _json_string(
             controlled_boundary.get("required_before_live_execution") or []

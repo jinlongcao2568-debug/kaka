@@ -74,7 +74,7 @@ class TestProviderAdapterConfig(unittest.TestCase):
 
         self.assertFalse(summary["automated_refund_program"]["present"])
         self.assertFalse(summary["automated_refund_program"]["enabled"])
-        self.assertEqual(summary["automated_refund_program"]["state"], "ABSENT_BLOCKED")
+        self.assertEqual(summary["automated_refund_program"]["state"], "CONTROLLED_TEST_AND_PILOT_REQUIRED")
 
     def test_credentials_are_presence_metadata_only(self) -> None:
         secret = "super-secret-provider-token"

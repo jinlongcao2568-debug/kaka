@@ -16,16 +16,19 @@
   "policyDefaults": {
     "allowed_action_intents": [
       "PREVIEW_ONLY",
-      "INTERNAL_SOURCE_READ"
+      "INTERNAL_SOURCE_READ",
+      "SANDBOX_DRY_RUN",
+      "AUTHORIZED_PILOT_READ"
     ],
     "blocked_action_intents": [
-      "APPROVAL_EXECUTION",
       "LIVE_EXECUTION"
     ],
     "default_main_source": false,
     "formal_main_source_override_allowed": false,
     "direct_contact_projection_allowed": false,
-    "direct_outreach_projection_allowed": false
+    "direct_outreach_projection_allowed": false,
+    "production_live_requires_approval_audit_operator_action": true,
+    "sandbox_mock_dry_run_not_blocked_by_default": true
   },
   "requiredTraceFields": [
     "vendor_id",
@@ -96,13 +99,22 @@
     {
       "stage_range": "1-2",
       "vendor_role": "CONTACT_ENRICHMENT_SOURCE",
-      "usage_state": "blocked",
-      "current_capability_mode": "PERMANENTLY_BLOCKED",
+      "usage_state": "review_only",
+      "current_capability_mode": "APPROVAL_REQUIRED",
       "default_main_source": false,
-      "allowed_actions": [],
+      "allowed_action_intents": [
+        "SANDBOX_DRY_RUN",
+        "AUTHORIZED_PILOT_READ"
+      ],
+      "allowed_actions": [
+        "sandbox_contact_enrichment_test",
+        "mock_contact_enrichment_test",
+        "approval_flow_test"
+      ],
       "forbidden_actions": [
-        "contact_candidate_generation",
-        "formal_main_source_override"
+        "production_contact_candidate_generation_without_approval",
+        "formal_main_source_override",
+        "live_outreach_execution"
       ]
     },
     {
@@ -343,6 +355,7 @@
   "notes": [
     "capability_mode refines runtime behavior and does not replace usage_state.",
     "CONTACT_ENRICHMENT_SOURCE remains blocked in stage 1-2 even though the family is buildable later.",
+    "blocked usage_state and LIVE_EXECUTION blocks apply to production-live or customer-visible mutation by default; sandbox/mock/dry-run/regression and explicitly authorized pilot reads may proceed when source policy, trace, approval and audit requirements are satisfied.",
     "Stage 8 public/third-party/contact-enrichment source inputs must first materialize into formal merge carriers before any contact_target/outreach consumption."
   ]
 }

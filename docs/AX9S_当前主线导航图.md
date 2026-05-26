@@ -44,4 +44,4 @@
 - 当前产品总图和全链验收口径：`docs/AX9S_产品主图与验收总则.md`
 - 历史 PTL 顺序、完成态和 committed refs：`control/product_task_library.yaml`、`control/product_module_registry.yaml` 和 `archive/non_current_docs/*`
 
-主线闭合提示：本文件只保留静态导航；不提供状态源、执行顺序源、完整 backlog 或 release 放行。`external release`、`Stage 8 real execution`、`Stage 9 real payment / delivery / refund` 受控开放要求不变；controlled-opening-required 只表示受控开放条件未满足前不能 live，不表示真实触达、支付或交付永久不做。自动退款执行不实现。
+主线闭合提示：本文件只保留静态导航；不提供状态源、执行顺序源、完整 backlog 或 release 放行。`external release`、`Stage 8 real execution`、`Stage 9 real payment / delivery / refund` 受控开放要求不变；controlled-opening-required 只表示受控开放条件未满足前不能生产 live，不表示真实触达、支付、交付或退款永久不做。自动退款流程为 controlled-test-and-pilot-required：可在 sandbox/mock/dry-run/受控试点中开发和验收，生产自动退款需授权、审批、审计、operator action、对账和回滚/暂停机制。

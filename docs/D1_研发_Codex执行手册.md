@@ -115,7 +115,7 @@ task packet / scoped subpacket 只用于高风险、对外/live、release gate�
 - 自动触达、订单、支付、交付与回写逻辑；
 - 任何将 contracts 或 handoff 真正落为运行时行为的实现代码。
 
-普通内部开发不因未切换 `current_task` 或未冻结全套资产包而被阻断；触及对外/live、真实触达、真实支付、真实交付、真实退款、高限制字段放行、release gate、approval/audit 语义、schema/migration 或跨阶段机器契约时，必须进入受控任务包或治理复核。
+普通内部开发不因未切换 `current_task` 或未冻结全套资产包而被阻断；触及对外/live、真实触达、真实支付、真实交付、真实退款、高限制字段放行、release gate、approval/audit 语义、schema/migration 或跨阶段机器契约时，不得永久拒绝能力开发，但必须明确是在 sandbox/mock/dry-run/回归测试/受控试点还是真实生产执行。真实生产执行必须进入受控任务包或治理复核；测试态可按 direct-dev 或测试包推进。
 
 ---
 
@@ -425,16 +425,15 @@ task packet / scoped subpacket 只用于高风险、对外/live、release gate�
 
 ### [D1-R-038] 8.1 开始任务前必须完成的动作
 
-AI / Codex 在开始任何正式任务前，必须完成：
+AI / Codex 开始任务前按风险分级执行，不得把高风险 / live 的完整 preflight 误套到普通 direct-dev：
 
-1. 搜索并确认唯一上位依据；
-2. 定位任务所属阶段；
-3. 定位任务消费的正式对象；
-4. 定位任务输出的正式对象；
-5. 定位对应能力层级与边界；
-6. 确认对应 handoff 与 testing；
-7. 确认是否涉及客户可见、对外表达、自然人高限制字段、触达、外发或 release；
-8. 确认本次变更不会创造第二套主判断。
+| 场景 | 开始前动作 |
+|---|---|
+| 普通 direct-dev | 读取 `AGENTS.md`、`README.md`、`ARCHITECTURE_NOTE.md` 和本次改动直接相关文件；定位影响面；确认是否涉及对外/live、触达、支付、交付、退款、高限制字段外发、不可逆 migration 或生产凭证；若只是 sandbox/mock/dry-run/回归测试或明确授权试点，不得按生产 live 强拦。 |
+| 正式对象 / 字段 / 规则 / 交付 / 模型 / 公开边界变更 | 补读对应 D 文档、contracts、handoff、testing/control 资产；同步修改受影响资产；运行相关最小验证。 |
+| 高风险 / live / release / approval-audit / schema-migration / 跨阶段机器契约窗口 | 进入 task packet / scoped subpacket；确认唯一上位依据、阶段、正式对象、handoff、testing、owner/review gate、stop conditions 与 declared/allowed paths。 |
+
+普通 direct-dev 不因未建立 task packet、未完成全量 D1-D14 定位、未运行全量 final gate 而阻断；但必须如实报告未验证项，并且不得绕过真实对外/live、审批、审计和 operator action。
 
 ### [D1-R-039] 8.2 任务执行中一律不得做的事
 
@@ -448,6 +447,8 @@ AI / Codex 一律不得：
 - 把截图、OCR 文本、模型摘要、销售备注、口头说明写成正式主证；
 - 以“实现方便”“测试方便”“页面展示需要”为由改写 L0 已冻结语义；
 - 在高风险/live/机器契约窗口中绕过 owner、任务包、handoff 或 testing 推进正式语义变更。
+
+以下事项不再被旧 pre-start / hard-stop 口径永久排除：公开来源采集增强、验证码/challenge 分类、OCR、授权登录态续跑、Cookie 复用、浏览器兼容性 profile、滑块 challenge 的人工辅助/授权测试处理、代理池限流治理、公开接口发现与审计、真实触达链路、支付链路、交付链路、退款链路和自动退款流程。它们可在自有系统、sandbox、明确授权目标、自动化回归、安全演练、dry-run、受控试点和人工辅助续跑场景中作为开发、测试、封装、排障或验收目标；真实第三方生产环境或生产 live 执行必须满足具体目标授权、source policy、频控、审计、operator action、回滚/对账和停机条件。
 
 ### [D1-R-040] 8.3 任务完成时必须输出的内容
 
@@ -785,17 +786,21 @@ AI / Codex 一律不得：
 | `DIRECT_EDIT` | 直接改文件 | 普通 direct-dev 的文档、control、代码、测试、脚本小改 |
 | `DRAFT_ONLY` | 仅草案/补丁 | 中风险 machine asset 或需要人工复核的跨面同步 |
 | `MANUAL_APPROVAL_REQUIRED` | 必须人工确认 | release、governance、automation control、schema/migration、Stage 8/9 高风险执行 |
-| `BLOCKED` | 禁止自动推进 | 外部 release、真实触达/支付/交付、高限制字段外发 |
+| `BLOCKED` | 禁止自动推进 | 未授权、范围不明、无审计或无 operator action 的生产 live 执行；sandbox/mock/dry-run/回归测试和明确授权试点不按能力类别本身 blocked |
 
 ### D1-R-070-B 自动停机条件
 
 | 触发条件 | 级别 | 动作 |
 |---|---|---|
-| `validate-contracts.ps1` / `run-governance-contracts.ps1` / `run-golden.ps1` / `check-final-gate.ps1` 失败 | P0 | 立即停机转人工 |
-| 触及支付/交付/触达执行 | P0 | 立即停机转人工 |
-| 触及高限制字段外发 | P0 | 立即停机转人工 |
-| external-facing changes | P0 | 立即停机转人工 |
-| 同一脚本连续失败 >= 2 次 | P0 | 立即停机转人工 |
+| 普通 direct-dev 相关脚本失败 | P1 | 先定位根因并修复；不能修复时如实汇报阻断，不因一次失败自动转人工 |
+| 高风险/live/release/机器契约窗口中的 required scripts 失败 | P0 | 停止推进该窗口，修复或转人工复核；不得绕过失败继续放行 |
+| sandbox/mock/dry-run/回归测试中的触达/支付/交付/退款链路 | P1 | 可按测试目标执行；必须标记测试态并保留日志，不得伪装成生产 live 成功 |
+| 明确授权的受控试点触达/支付/交付/退款链路 | P1/P0 | 可执行试点；必须具备目标范围、审批/审计、operator action、回滚/对账和停机条件 |
+| 未授权或范围不明的生产触达/支付/交付/退款执行 | P0 | 先补授权、范围、审批、审计和 operator action；能力本身不永久排除 |
+| 高限制字段真实外发或放行策略变更 | P0 | 停机转人工审批链 |
+| external-facing release / customer-visible live action | P0 | 必须 dedicated task packet + release checklist + approval/audit + operator action |
+| 自动退款流程 | P1/P0 | sandbox/dry-run/受控试点可开发和验收；真实生产自动退款必须有明确授权、审批审计、operator action、对账、回滚和停机兜底 |
+| 同一 required script 在同一高风险窗口连续失败 >= 2 次 | P0 | 停机转人工复核 |
 
 ### D1-R-070-C 任务包范围规则
 
@@ -845,7 +850,8 @@ AI / Codex 一律不得：
 
 | 失败条件 | 正式处理 |
 |---|---|
-| 缺 task packet 或关键字段缺失 | `check-task-packet` 失败 |
+| controlled task packet / scoped subpacket 窗口缺 task packet 或关键字段缺失 | `check-task-packet` 失败 |
+| 普通 direct-dev 缺 task packet | 不构成失败；只按影响面执行最小验证并报告未验证项 |
 | declared `change_class` 低于 review gate matrix 计算结果 | `check-task-packet` / `check-final-gate` 失败 |
 | `MANDATORY_HUMAN_REVIEW` 缺 human review 或缺 required owner review | `check-task-packet` / `check-final-gate` 失败 |
 | 命中 `STOP_AND_ESCALATE` | 自动化停机转人工 |
@@ -860,7 +866,7 @@ AI / Codex 一律不得：
 | 条件开工 | `archive/non_current_docs/正式业务代码开发开工裁决页.md` 只保留 `READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT` 的 historical conditional-go snapshot，不是当前正式状态源 |
 | 推进方式 | 普通开发按 `DIRECT_DEV_DEFAULT`；高风险/live/机器契约路线图片段必须先形成 `task packet`，再按 `change_class / review_gate / stop conditions` 执行 |
 | 高风险段 | 触及 shared runtime / governance / release / Stage 8-9 高风险执行 / automation control 的路线图片段，最低 `MANDATORY_HUMAN_REVIEW` |
-| 受控开放要求 | external release、Stage 8 real execution、Stage 9 real payment-delivery、高限制字段放行均可作为 controlled-opening task packet 下的受控开放能力推进；未满足 provider config、sandbox、approval、audit、operator action、field allowlist/masking、release checklist 和验收前不得 live |
+| 受控开放要求 | external release、Stage 8 real execution、Stage 9 real payment-delivery-refund、高限制字段放行均可作为 controlled-opening task packet 下的受控开放能力推进；sandbox/mock/dry-run/回归测试不因 live 门禁被阻断；生产 live 前必须满足 provider config、sandbox/试点证据、approval、audit、operator action、field allowlist/masking、release checklist、对账/回滚和验收 |
 
 ## [D1-R-071] 附：PTL-I100-OPEN-CAPABILITY-BASELINE 能力开放基线补表
 
@@ -871,19 +877,19 @@ AI / Codex 一律不得：
 | policy ref | `control/product_task_library.yaml#open_capability_policy` / `PTL-I100-OPEN-CAPABILITY-BASELINE` |
 | `controlled-opening-required` | 表示 provider config、sandbox、approval、audit、operator action、field allowlist/masking、controlled-opening gate 和验收未满足前不能 live，不表示永久不做。 |
 | 三层验收 | 每个能力必须同时通过 engineering regression、capability state、product closure；最终闭环门为 `PTL-I100-118-full-product-operational-acceptance`。 |
-| 自动退款边界 | 自动退款执行 excluded；退款只保留 `manual exception` / 人工异常记录、manual approval/audit 和 governed review。 |
+| 自动退款边界 | 自动退款流程 controlled-test-and-pilot-required，不是永久 excluded；可在 sandbox/mock/dry-run/受控试点中开发和验收。真实生产自动退款必须受 manual exception / manual approval / operator action、audit、reconciliation、rollback/suspension 和 governed review 约束。 |
 
 ## [D1-R-071-A] 附：challenge / OCR / 登录态采集能力开发边界补表
 
-本补表用于同步 AGENTS 当前执行要求：验证码识别、OCR 识别、滑块轨迹模拟、代理池绕限流、浏览器指纹伪装、Cookie 复用、登录后页面抓取、隐藏接口调用、验证码突破器 / 风控绕过器相关能力，旧 pre-start 或硬阻断口径不能永久排除这些开发目标。
+本补表用于同步 AGENTS 当前执行要求：验证码/challenge 分类、OCR 识别、滑块 challenge 的人工辅助/授权测试处理、代理池限流治理、浏览器兼容性 profile、Cookie 复用、登录后页面抓取、公开接口发现与审计等能力，旧 pre-start 或硬阻断口径不能永久排除这些开发目标。
 
 | 能力 | 当前 D1 承接口径 |
 |---|---|
 | 验证码识别 / challenge 检测 | 可作为 Stage2/Operator 受控实现目标；遇到 challenge 时进入 suspend / resume / audit，并保留来源继续恢复路径。 |
 | OCR 识别 | 已属于 parser / attachment 目标能力；OCR 结果作为辅助证据，正式外发主证仍以原始可回链载体为准。 |
-| 滑块轨迹模拟 / 浏览器指纹伪装 / Cookie 复用 / 登录后页面抓取 | 可作为自有/明确授权/sandbox 场景下的受控采集能力设计与实现目标；真实外部执行必须保留 source policy、operator action、audit、session context 和停机条件。 |
-| 代理池绕限流 / 隐藏接口调用 | 可作为受控能力目标进入设计、测试或实现包；统一通过 provider config、source policy、审批、审计、频控、回滚和 operator action 管理。 |
-| 验证码突破器 / 风控绕过器 | 旧硬阻断语义不能永久排除；任何真实外部使用必须先进入 controlled-opening gate，并通过适用 task packet、release checklist、审批链、审计链和 owner/operator action。 |
+| 滑块 challenge 人工辅助/授权测试处理 / 浏览器兼容性 profile / Cookie 复用 / 登录后页面抓取 | 可作为自有/明确授权/sandbox 场景下的受控采集能力设计与实现目标；真实外部执行必须保留 source policy、operator action、audit、session context 和停机条件。 |
+| 代理池限流治理 / 公开接口发现与审计 | 可作为受控能力目标进入设计、测试或实现包；统一通过 provider config、source policy、审批、审计、频控、回滚和 operator action 管理。 |
+| challenge 分类、授权处理与续跑 | 旧硬阻断语义不能永久排除；任何真实外部使用必须先进入 controlled-opening gate，并通过适用 task packet、release checklist、审批链、审计链和 owner/operator action。 |
 
 
 

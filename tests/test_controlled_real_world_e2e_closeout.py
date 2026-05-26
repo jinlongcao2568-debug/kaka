@@ -72,7 +72,7 @@ class TestControlledRealWorldE2ECloseout(unittest.TestCase):
         self.assertFalse(boundary["unapproved_live_capture_enabled"])
         self.assertFalse(boundary["real_refund_execution_enabled"])
         self.assertFalse(boundary["automated_refund_execution_enabled"])
-        self.assertIn("no automated refund execution", boundary["refund_boundary"])
+        self.assertIn("controlled-test-and-pilot", boundary["refund_boundary"])
 
     def test_gap_matrix_and_checklist_mark_131_as_final_closeout(self) -> None:
         final_118r = self.gap_matrix["final_118R_operational_reacceptance"]

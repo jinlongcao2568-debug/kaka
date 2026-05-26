@@ -771,7 +771,7 @@ class TestOperatorCustomerAccess(unittest.TestCase, IsolatedStorageTestMixin):
             "provider_live_execution_requires_dedicated_live_packet",
             "stage8_real_execution_blocked_by_default",
             "stage9_real_payment_delivery_refund_blocked_by_default",
-            "automated_refund_execution_excluded",
+            "automated_refund_execution_controlled_test_and_pilot_required",
         ):
             self.assertIn(blocker, payload["remaining_blockers"])
         for required in (

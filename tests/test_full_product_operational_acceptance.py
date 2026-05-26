@@ -68,7 +68,7 @@ class TestFullProductOperationalAcceptance(unittest.TestCase):
 
         for entry in capabilities:
             with self.subTest(capability=entry["capability_id"]):
-                if entry["state"] != "EXCLUDED":
+                if entry["state"] != "CONTROLLED_TEST_AND_PILOT_REQUIRED":
                     self.assertIn(entry["state"], policy_states)
                 self.assertFalse(entry["default_live_execution_enabled"])
 
@@ -79,7 +79,7 @@ class TestFullProductOperationalAcceptance(unittest.TestCase):
         )
         self.assertEqual(by_id["payment_delivery_live_pilot_no_auto_refund"]["state"], "LIVE_READY")
         self.assertEqual(by_id["production_slo_monitoring_incident"]["state"], "PRODUCTION_READY")
-        self.assertEqual(by_id["automated_refund_execution"]["state"], "EXCLUDED")
+        self.assertEqual(by_id["automated_refund_execution"]["state"], "CONTROLLED_TEST_AND_PILOT_REQUIRED")
 
     def test_internal_runtime_chain_reaches_sales_package_order_and_audit_readback(self) -> None:
         result = run_internal_chain(load_fixture("internal_chain_happy.json"))

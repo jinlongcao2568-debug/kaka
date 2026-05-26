@@ -38,12 +38,19 @@ class TransitionGuard:
         return {
             "stage8_outreach_boundary_state": "CONTROLLED_OPENING_PREREQUISITES_ONLY",
             "stage9_payment_delivery_refund_boundary_state": "CONTROLLED_OPENING_PREREQUISITES_ONLY",
-            "automatic_refund_policy_state": "EXCLUDED",
+            "automatic_refund_policy_state": "CONTROLLED_TEST_AND_PILOT_REQUIRED",
             "required_before_live_execution": [
                 "release_checklist_passed",
                 "approval_chain_passed",
                 "audit_chain_ready",
                 "operator_action_confirmed",
+            ],
+            "production_live_blocked_without_authorization": [
+                "real_outreach",
+                "real_payment",
+                "real_delivery",
+                "real_refund",
+                "automatic_refund",
             ],
             "blocked_action_families": [
                 "real_outreach",
@@ -51,6 +58,14 @@ class TransitionGuard:
                 "real_delivery",
                 "real_refund",
                 "automatic_refund",
+            ],
+            "testable_action_families": [
+                "sandbox_outreach",
+                "sandbox_payment",
+                "sandbox_delivery",
+                "sandbox_refund",
+                "dry_run_automatic_refund",
+                "authorized_pilot_automatic_refund",
             ],
             "operator_next_action": "complete_release_approval_audit_and_operator_action_before_live_execution",
             "external_customer_action_enabled": safety["external_customer_action_enabled"],

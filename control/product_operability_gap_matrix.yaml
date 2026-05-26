@@ -59,15 +59,15 @@ product_model:
       - payment_collection
       - charge_execution
       - delivery_fulfillment
-    excluded_capabilities:
+    controlled_test_and_pilot_capabilities:
       - automated_refund_execution
       - unauthorized_identity_or_social_security_query
       - unreviewed_legal_document_external_send
     completion_gate: PTL-I100-118-full-product-operational-acceptance
   refund_policy:
-    automated_refund_program: false
-    allowed_refund_handling: "manual_exception_record_and_governed_review_only"
-    disallowed_refund_handling: "automated_refund_execution"
+    automated_refund_program: CONTROLLED_TEST_AND_PILOT_REQUIRED
+    allowed_refund_handling: "manual_exception_governed_review_sandbox_dry_run_and_authorized_pilot_automation"
+    production_refund_requires_authorization: "automated_refund_execution_requires_approval_audit_operator_action_reconciliation_and_rollback"
 acceptance_model:
   engineering_regression:
     meaning: "Existing repo behavior remains valid."
@@ -89,7 +89,7 @@ acceptance_model:
   product_closure:
     meaning: "Capability is judged against the owner selling evidence/lead packs, not against internal preview alone."
     required_answer: "Can the owner actually use this capability to operate the evidence-pack business?"
-    refund_boundary: "automated refund execution remains excluded; refund handling is manual exception and governed review only."
+    refund_boundary: "automated refund flows are controlled-test-and-pilot-required; sandbox/mock/dry-run and explicitly authorized pilots may exercise automated refund paths; production automatic refund still requires approval, audit, operator action, reconciliation, rollback/suspension, and governed review."
 operability_state_vocabulary:
   - OPERABLE_NOW_INTERNAL
   - PREVIEW_OR_REVIEW_ONLY
@@ -180,7 +180,7 @@ final_118_operational_acceptance:
       current_state: LIVE_READY
       evidence: "approved payment/delivery live pilot carrier can reach LIVE_READY, but real_payment_capture_attempted=false, real_charge_attempted=false, real_delivery_fulfillment_attempted=false, and real_customer_download_attempted=false"
       minimum_followup_task_id: PTL-I100-123-approved-payment-delivery-provider-execution-no-auto-refund
-      refund_boundary: "manual exception/governed review only; no automated refund execution"
+      refund_boundary: "manual exception/governed review plus sandbox/mock/dry-run and authorized-pilot automated refund tests; production automatic refund requires approval/audit/operator-action/reconciliation/rollback"
       forbidden_in_118: true
     - blocker_id: B118_CUSTOMER_VISIBLE_LEADPACK_DELIVERY_LOCKED
       capability: leadpack_customer_visible_page_and_formal_export
@@ -205,7 +205,7 @@ final_118_operational_acceptance:
     unapproved_customer_delivery: CONTROLLED_OPENING
     unapproved_live_provider_call: CONTROLLED_OPENING
     real_refund_execution: CONTROLLED_OPENING
-    automated_refund_execution: EXCLUDED
+    automated_refund_execution: CONTROLLED_TEST_AND_PILOT_REQUIRED
 final_131_controlled_real_world_e2e_closeout:
   packet_ref: PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout
   acceptance_result: CONTROLLED_REAL_WORLD_E2E_ACCEPTED
@@ -218,7 +218,7 @@ final_131_controlled_real_world_e2e_closeout:
     unapproved_customer_delivery: CONTROLLED_OPENING
     unapproved_live_provider_call: CONTROLLED_OPENING
     real_refund_execution: CONTROLLED_OPENING
-    automated_refund_execution: EXCLUDED
+    automated_refund_execution: CONTROLLED_TEST_AND_PILOT_REQUIRED
 final_132_frontend_productization_workbench:
   packet_ref: PTL-I100-132-owner-operator-frontend-productization-workbench
   acceptance_result: OWNER_FRONTEND_PRODUCTIZED
@@ -230,7 +230,7 @@ final_132_frontend_productization_workbench:
   customer_portal_handles_missing_artifact_readback: true
   public_software_release_enabled: false
   live_execution_enabled_by_frontend: false
-  automated_refund_execution_enabled: false
+  production_automated_refund_execution_enabled: false
   frontend_surfaces:
     - stage1_to_stage9_operations_board
     - evidence_chain_sales_delivery_payment_audit_dashboard
@@ -575,9 +575,9 @@ source_strategy_pilot_portfolio_after_143D:
     - dedupe_cross_check
     - supplemental_query_surface
   beijing_policy:
-    status: EXCLUDED_FROM_FIRST_COMMERCIAL_PILOT
-    allowed_use: technical_regression_and_public_page_reachability_only
-    reason: high_sensitivity_high_interpretation_cost_high_external_claim_risk
+    status: NOT_DEFAULT_FIRST_COMMERCIAL_PILOT_AUTHORIZED_TEST_ALLOWED
+    allowed_use: technical_regression_public_page_reachability_sandbox_dry_run_and_explicitly_authorized_pilot
+    reason: high_sensitivity_high_interpretation_cost_high_external_claim_risk_requires_explicit_scope_not_permanent_exclusion
   first_batch_commercial_pilot_provinces:
     - 四川
     - 江苏
@@ -663,7 +663,7 @@ final_118R_operational_reacceptance:
     unapproved_customer_delivery: CONTROLLED_OPENING
     unapproved_live_provider_call: CONTROLLED_OPENING
     real_refund_execution: CONTROLLED_OPENING
-    automated_refund_execution: EXCLUDED
+    automated_refund_execution: CONTROLLED_TEST_AND_PILOT_REQUIRED
 current_gap_sync_2026_04_29:
   purpose: >
     Align this gap matrix with the current task-library status source so
@@ -684,7 +684,7 @@ current_gap_sync_2026_04_29:
     live_provider_call: CONTROLLED_OPENING
     real_customer_delivery: CONTROLLED_OPENING
     real_payment_or_refund: CONTROLLED_OPENING
-    automated_refund_execution: EXCLUDED
+    automated_refund_execution: CONTROLLED_TEST_AND_PILOT_REQUIRED
 production_gap_task_map:
   - gap_group: provider_config_sandbox_and_live_control
     packet_ref: PTL-I100-111A-provider-config-and-sandbox-seam
@@ -722,7 +722,7 @@ production_gap_task_map:
     status: COMPLETED
     completed_commit: 0ab2dba
     target_capability_state: SANDBOX_READY
-    refund_boundary: "manual exception/governed review only; no automated refund execution"
+    refund_boundary: "manual exception/governed review plus sandbox/mock/dry-run and authorized-pilot automated refund tests; production automatic refund requires approval/audit/operator-action/reconciliation/rollback"
     covered_capabilities:
       - payment_gateway_charge_status_callback
       - receipt_invoice_settlement_reconciliation
@@ -1173,7 +1173,7 @@ production_gap_task_map:
     status: COMPLETED
     completed_commit: c1515f5
     target_capability_state: LIVE_READY
-    refund_boundary: "manual exception/governed review only; no automated refund execution"
+    refund_boundary: "manual exception/governed review plus sandbox/mock/dry-run and authorized-pilot automated refund tests; production automatic refund requires approval/audit/operator-action/reconciliation/rollback"
     covered_capabilities:
       - approved_live_payment_collection
       - payment_callback
@@ -1233,7 +1233,7 @@ production_gap_task_map:
     packet_ref: PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund
     status: COMPLETED
     target_capability_state: PRODUCTION_READY
-    refund_boundary: "manual exception/governed review only; no automated refund execution"
+    refund_boundary: "manual exception/governed review plus sandbox/mock/dry-run and authorized-pilot automated refund tests; production automatic refund requires approval/audit/operator-action/reconciliation/rollback"
     covered_capabilities:
       - wecom_robot_provider_binding
       - email_sms_phone_provider_binding
@@ -1256,7 +1256,7 @@ production_gap_task_map:
     status: COMPLETED
     completed_commit: 106c4a1
     target_capability_state: PRODUCTION_READY
-    refund_boundary: "manual exception/governed review only; no automated refund execution"
+    refund_boundary: "manual exception/governed review plus sandbox/mock/dry-run and authorized-pilot automated refund tests; production automatic refund requires approval/audit/operator-action/reconciliation/rollback"
     covered_capabilities:
       - real_world_source_to_customer_delivery_e2e
       - owner_operator_workflow_e2e
@@ -1296,13 +1296,13 @@ recommended_execution_order_after_reassessment:
     - packet_ref: PTL-I100-111C-crm-quote-and-delivery-page-adapters
       reason: "CRM/quote/customer artifact adapters need validated saleable opportunities and product packages."
     - packet_ref: PTL-I100-111D-payment-collection-and-delivery-fulfillment-adapters-no-refund
-      reason: "Payment and delivery fulfillment should follow quote/customer artifact readiness; automated refund remains excluded."
+      reason: "Payment and delivery fulfillment should follow quote/customer artifact readiness; automated refund is controlled-test-and-pilot-required."
     - packet_ref: PTL-I100-120-operator-customer-access-and-go-live-readiness
       reason: "Operator/customer access, permissions, go-live checks, monitoring, and rollback are needed before approval/live readiness."
     - packet_ref: PTL-I100-121A-sales-outreach-live-pilot
       reason: "Approved small-sample sales outreach live pilot verifies real provider execution without broad live rollout."
     - packet_ref: PTL-I100-121B-payment-delivery-live-pilot-no-auto-refund
-      reason: "Approved payment/delivery live pilot verifies collection and fulfillment while automated refund remains excluded."
+      reason: "Approved payment/delivery live pilot verifies collection and fulfillment while automated refund is controlled-test-and-pilot-required."
     - packet_ref: PTL-I100-121C-production-slo-monitoring-incident-readiness
       reason: "Production SLO, alerting, incident, backup, and rollback readiness are required before production-ready acceptance."
     - packet_ref: PTL-I100-118-full-product-operational-acceptance
@@ -1356,10 +1356,10 @@ next_implementation_sequence:
     priority: 5
     implementation_status: COMPLETED
     completed_commit: 2fbe70d
-    objective: "Implement order/payment/delivery execution needed for selling evidence packs, while preserving refund as manual exception only and never automated refund execution."
+    objective: "Implement order/payment/delivery/refund execution needed for selling evidence packs, including sandbox/mock/dry-run and authorized-pilot automated refund flows; production automatic refund requires authorization, approval, audit, operator action, reconciliation, rollback/suspension, and governed review."
     unlocks:
       - STAGE9_LIVE_PAYMENT_DELIVERY_REFUND_EXECUTION
-    refund_boundary: "payment and delivery may be implemented; automated refund execution remains out of scope."
+    refund_boundary: "payment, delivery, and refund automation may be implemented for sandbox/mock/dry-run and authorized pilots; production automatic refund requires approval/audit/operator-action/reconciliation/rollback."
   - packet_ref: PTL-I100-111A-provider-config-and-sandbox-seam
     priority: 6
     implementation_status: COMPLETED
@@ -1458,7 +1458,7 @@ next_implementation_sequence:
     completed_commit: 0ab2dba
     objective: "Move Stage9 payment collection and delivery fulfillment from internal ledger to sandbox provider execution records and fulfillment readback, while keeping refund manual-exception only."
     target_capability_state: SANDBOX_READY
-    refund_boundary: "no automated refund execution"
+    refund_boundary: "no unauthorized production automated refund execution"
   - packet_ref: PTL-I100-120-operator-customer-access-and-go-live-readiness
     priority: 20
     implementation_status: COMPLETED
@@ -1477,7 +1477,7 @@ next_implementation_sequence:
     completed_commit: c1515f5
     objective: "Run approved payment and delivery live pilot with payment callback, receipt/invoice, delivery unlock, download audit, settlement reconciliation, and manual refund exception only."
     target_capability_state: LIVE_READY
-    refund_boundary: "no automated refund execution"
+    refund_boundary: "no unauthorized production automated refund execution"
   - packet_ref: PTL-I100-121C-production-slo-monitoring-incident-readiness
     priority: 23
     implementation_status: COMPLETED
@@ -1579,10 +1579,10 @@ capability_assessments:
   - capability_id: STAGE9_PAYMENT_DELIVERY_REFUND_EXCEPTION_REPLAY
     operability_state: OPERABLE_NOW_INTERNAL
     owner_usable_now: true
-    product_gap: "Manual exception and refund-request replay are usable as governance records; automated refund remains intentionally excluded."
+    product_gap: "Manual exception and refund-request replay remain usable governance records; automated refund is controlled-test-and-pilot-required and may be exercised in sandbox/mock/dry-run or authorized pilots."
     next_packet_ref: NONE_CURRENTLY_REQUIRED
     ready_for_live_execution: false
-    refund_boundary: "manual_exception_only"
+    refund_boundary: "manual_exception_governed_review_and_controlled_test_pilot_automation"
   - capability_id: STAGE9_WRITEBACK_IMPACT_EXECUTOR
     operability_state: OPERABLE_NOW_INTERNAL
     owner_usable_now: true
@@ -1592,10 +1592,10 @@ capability_assessments:
   - capability_id: STAGE9_LIVE_PAYMENT_DELIVERY_REFUND_EXECUTION
     operability_state: NEEDS_PRODUCT_IMPLEMENTATION
     owner_usable_now: false
-    product_gap: "Internal owner-operated payment/delivery ledger and provider seam are implemented, but real payment gateway, real charge, and real external delivery execution remain not live. Automated refund execution stays excluded by product policy."
+    product_gap: "Internal owner-operated payment/delivery ledger and provider seam are implemented, but real payment gateway, real charge, and real external delivery execution remain not live. Automated refund flows stay controlled-test-and-pilot-required by product policy."
     next_packet_ref: PTL-I100-111D-payment-collection-and-delivery-fulfillment-adapters-no-refund
     ready_for_live_execution: false
-    refund_boundary: "do_not_implement_automated_refund_program"
+    refund_boundary: "implement_automated_refund_only_for_sandbox_dry_run_or_authorized_pilot_until_production_approval"
   - capability_id: STORAGE_BOOTSTRAP_JSON_FILE_INTERNAL_BACKBONE
     operability_state: OPERABLE_NOW_INTERNAL
     owner_usable_now: true

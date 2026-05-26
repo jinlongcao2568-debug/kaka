@@ -94,8 +94,8 @@
         },
         {
           "capability_id": "automated_refund_execution",
-          "state": "EXCLUDED",
-          "owner_operability": "not_part_of_product",
+          "state": "CONTROLLED_TEST_AND_PILOT_REQUIRED",
+          "owner_operability": "sandbox_dry_run_and_authorized_pilot_only_until_production_approval",
           "default_live_execution_enabled": false
         }
       ]

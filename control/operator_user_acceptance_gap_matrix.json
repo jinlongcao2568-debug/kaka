@@ -42,7 +42,7 @@
       "rank": 5,
       "dimensionId": "UA-07-governed-outreach-and-delivery",
       "title": "真实 provider sandbox / live pilot",
-      "reason": "真实服务商状态已可观察，下一步是接 sandbox 凭证、健康检查、审批审计和小样本 live pilot；自动退款执行继续排除。"
+      "reason": "真实服务商状态已可观察，下一步是接 sandbox 凭证、健康检查、审批审计和小样本 live pilot；自动退款执行为 controlled-test-and-pilot-required，未授权生产自动退款仍关闭。"
     }
   ],
   "authorityFindings": [

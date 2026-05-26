@@ -963,7 +963,7 @@ GET /v1/contact-targets
 | API 开放原则 | 真实触达、CRM/Quote、客户可见包、支付与交付 endpoint 是目标能力，但默认只能 internal/readback/sandbox，live endpoint 必须 controlled-opening gate 放行。 |
 | `controlled-opening-required` | API 返回 controlled-opening-required 只表示 provider config、sandbox、approval、audit、operator action、field allowlist/masking、controlled-opening gate 和验收未满足前不能 live，不表示永久不做。 |
 | live endpoint 门禁 | 无 provider config、sandbox、approval、audit、operator action、字段白名单/脱敏和运行开关时，API 不得发起真实外部动作。 |
-| 自动退款边界 | 自动退款执行 endpoint excluded；退款 API 只允许 `manual exception` / 人工异常记录、manual approval/audit 和 governed review readback。 |
+| 自动退款边界 | 自动退款 endpoint 为 controlled-test-and-pilot-required，可在 sandbox/mock/dry-run/受控试点中开发和验收，生产启用需授权、审批、审计、operator action、对账和回滚/暂停机制；退款 API 必须支持 `manual exception` / 人工异常记录、manual approval/audit 和 governed review readback。 |
 
 
 

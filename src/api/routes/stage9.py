@@ -59,7 +59,7 @@ STAGE9_EXECUTION_LEDGER_ROUTE_READINESS = {
         "automated_refund_enabled": False,
         "blocked_reasons": [
             "real_payment_gateway_blocked_by_default",
-            "automated_refund_program_out_of_scope",
+            "automated_refund_program_controlled_test_and_pilot_required",
         ],
     },
     "order_payment_delivery_execution_summary": {

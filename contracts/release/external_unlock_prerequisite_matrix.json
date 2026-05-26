@@ -533,17 +533,17 @@
     {
       "capability_id": "personal_contact_channels",
       "default_tier": "PERMANENTLY_BLOCKED",
-      "reason": "personal phone/email/social/IM channels must never become default-open"
+      "reason": "personal phone/email/social/IM channels must never become default-open; sandbox/mock/dry-run approval-flow tests and explicitly authorized pilots are handled by contact/channel policy, not default-open release"
     },
     {
       "capability_id": "d_tier_or_governed_inputs_to_external_surfaces",
       "default_tier": "PERMANENTLY_BLOCKED",
-      "reason": "D-tier, governed supplement, or visibility-reviewed evidence must never enter default external surfaces"
+      "reason": "D-tier, governed supplement, or visibility-reviewed evidence must never enter default external surfaces; internal preview, redacted tests, and authorized review workflows remain allowed"
     },
     {
       "capability_id": "direct_stage8_stage9_object_export",
       "default_tier": "PERMANENTLY_BLOCKED",
-      "reason": "Stage 8/9 direct objects may not become default external deliverables"
+      "reason": "Stage 8/9 direct objects may not become default external deliverables; sandbox/mock/dry-run export tests and approved pilot artifacts must use governed envelopes"
     }
   ],
   "notes": [
