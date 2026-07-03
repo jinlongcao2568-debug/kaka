@@ -59,13 +59,27 @@ def build_controlled_live_public_batch_source_remediation_execution(
     queue_records = _records(_mapping(remediation_payload.get("source_remediation_queue")).get("records"))
     group_records = _records(_mapping(remediation_payload.get("source_remediation_groups")).get("records"))
     requested_target_ids = _queued_target_ids(queue_records=queue_records, group_records=group_records)
+    rerun_targets_json: str | Path | None = targets_json
+    same_source_precision_targets_json = ""
+    precision_target_ids: list[str] = []
+    if targets_json:
+        precision_target_file, precision_target_ids = _write_same_source_precision_target_files(
+            queue_records=queue_records,
+            targets_json=targets_json,
+            output_dir=output_dir / "same-source-precision",
+        )
+        if precision_target_ids:
+            rerun_targets_json = precision_target_file
+            same_source_precision_targets_json = str(precision_target_file)
+            requested_target_ids = precision_target_ids
     if target_limit is not None:
         requested_target_ids = requested_target_ids[: max(0, int(target_limit))]
+    precision_requested_target_ids = requested_target_ids if precision_target_ids else []
 
     rerun_result: dict[str, Any] | None = None
     if requested_target_ids:
         rerun_result = build_evaluation_real_sample_execution(
-            targets_json=targets_json,
+            targets_json=rerun_targets_json,
             seed_json=seed_json,
             database_url=database_url,
             target_backend=target_backend,
@@ -123,12 +137,15 @@ def build_controlled_live_public_batch_source_remediation_execution(
         "created_at": created,
         "source_remediation_json": str(remediation_path),
         "targets_json": str(targets_json or ""),
+        "rerun_targets_json": str(rerun_targets_json or ""),
+        "same_source_precision_targets_json": same_source_precision_targets_json,
         "seed_json": str(seed_json or ""),
         "target_backend": target_backend,
         "storage_path": str(storage),
         "object_storage_path": str(object_storage),
         "execute": execute,
         "requested_target_ids": requested_target_ids,
+        "same_source_precision_requested_target_ids": precision_requested_target_ids,
         "rerun_manifest_json": str(rerun_manifest_json if rerun_result else ""),
         "post_run_outputs": post_run_outputs,
         "alternate_public_source_run": alternate_run,
@@ -262,6 +279,122 @@ def _alternate_needed_after_rerun(
         and _int(rerun_summary.get("detail_snapshot_count")) <= 0
         and _int(source_remediation_post_run_outputs.get("post_run_source_remediation_record_count")) > 0
     )
+
+
+def _write_same_source_precision_target_files(
+    *,
+    queue_records: list[Mapping[str, Any]],
+    targets_json: str | Path,
+    output_dir: Path,
+) -> tuple[Path, list[str]]:
+    source_payload = _load_json(Path(targets_json))
+    source_targets = [
+        dict(item)
+        for item in list(source_payload.get("targets") or [])
+        if isinstance(item, Mapping)
+    ]
+    target_by_id = {str(item.get("target_id") or ""): item for item in source_targets}
+    precision_targets: list[dict[str, Any]] = []
+    target_ids: list[str] = []
+    for record in queue_records:
+        if not bool(record.get("same_source_retry_allowed")):
+            continue
+        parent_target_id = str(record.get("parent_target_id") or "")
+        parent = target_by_id.get(parent_target_id)
+        if not parent:
+            continue
+        filters = _same_source_precision_selection_filters(parent, record)
+        if not filters:
+            continue
+        target_fingerprint = _fingerprint(
+            {
+                "parent": parent_target_id,
+                "sample": record.get("sample_id"),
+                "project": record.get("project_match_key") or record.get("project_name"),
+                "filters": filters,
+            }
+        )
+        target_id = f"PREC-{parent_target_id}-{target_fingerprint[:12]}"
+        if target_id in target_ids:
+            continue
+        target_ids.append(target_id)
+        precision_targets.append(
+            {
+                **parent,
+                "target_id": target_id,
+                "source_parent_target_id": parent_target_id,
+                "source_remediation_record_id": str(record.get("remediation_record_id") or ""),
+                "source_remediation_sample_id": str(record.get("sample_id") or ""),
+                "source_remediation_project_id": str(record.get("project_id") or ""),
+                "document_kind": str(record.get("document_kind") or parent.get("document_kind") or ""),
+                "target_count": 1,
+                "selection_filters": filters,
+            }
+        )
+    target_file = output_dir / "same-source-precision-targets.json"
+    _write_json(
+        target_file,
+        {
+            "target_version": 1,
+            "target_set_id": "controlled-live-public-batch-same-source-precision-targets-v1",
+            "minimum_total_sample_goal": len(precision_targets),
+            "created_from": "controlled_live_public_batch_source_remediation_precision_rerun",
+            "targets": precision_targets,
+            "target_policy": {
+                "customer_visible_allowed": False,
+                "payment_execution_enabled": False,
+                "delivery_execution_enabled": False,
+                "query_miss_is_not_clearance": True,
+                "no_legal_conclusion": True,
+            },
+        },
+    )
+    return target_file, target_ids
+
+
+def _same_source_precision_selection_filters(
+    parent: Mapping[str, Any],
+    record: Mapping[str, Any],
+) -> list[str]:
+    source_profile_id = str(record.get("source_profile_id") or parent.get("required_fetch_profile_id_optional") or "")
+    project_match_key = str(record.get("project_match_key") or "").strip()
+    project_name = str(record.get("project_name") or "").strip()
+    if not _public_query_identifier(project_match_key):
+        return []
+    filters = _string_list(parent.get("selection_filters"))
+    if source_profile_id == "GUANGZHOU-YWTB-CONSTRUCTION-LIST":
+        filters.extend(
+            [
+                f"BACKTRACE_PROJECT_CODE:{project_match_key}",
+                f"BACKTRACE_QUERY_VARIANT:{project_match_key}",
+            ]
+        )
+        if project_name:
+            filters.extend(
+                [
+                    f"BACKTRACE_PROJECT_NAME:{project_name}",
+                    f"BACKTRACE_BASE_PROJECT_NAME:{project_name}",
+                ]
+            )
+    else:
+        filters.extend(_public_query_terms([project_match_key, project_name]))
+    precision_only = [
+        value
+        for value in filters
+        if str(value or "").startswith(("BACKTRACE_", "GGZY_", "FLOW_INTERFACE_"))
+        or str(value or "").strip() in _public_query_terms([project_match_key, project_name])
+    ]
+    if not precision_only:
+        return []
+    return _dedupe(filters)
+
+
+def _public_query_identifier(value: Any) -> bool:
+    text = str(value or "").strip()
+    if not text:
+        return False
+    upper = text.upper()
+    return not upper.startswith(("PROJ-", "REAL-", "ALT-", "CLPB-", "PREC-"))
 
 
 def _write_alternate_source_target_files(

@@ -188,6 +188,88 @@ class ControlledLivePublicBatchSourceRemediationExecutionTests(unittest.TestCase
         self.assertTrue(stage4_readback_exists)
         self.assertTrue(next_source_remediation_exists)
 
+    def test_execute_uses_same_source_precision_target_when_project_key_is_available(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            remediation_json = root / "source-remediation.json"
+            targets_json = root / "targets.json"
+            seed_json = root / "seed.json"
+            out = root / "out"
+            discovery = FakeDiscoveryService()
+            capture = FakeCaptureService()
+            _write_source_remediation(
+                remediation_json,
+                target_ids=["READY-CAND"],
+                project_match_key="JG2026-TEST",
+            )
+            _write_targets(targets_json)
+            _write_seed(seed_json)
+
+            result = build_controlled_live_public_batch_source_remediation_execution(
+                source_remediation_json=remediation_json,
+                targets_json=targets_json,
+                seed_json=seed_json,
+                target_backend="json-file",
+                output_root=out,
+                execute=True,
+                discovery_service=discovery,
+                capture_service=capture,
+            )
+            precision_targets_payload = json.loads(
+                (out / "same-source-precision" / "same-source-precision-targets.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+
+        summary = result["summary"]
+        self.assertEqual(len(discovery.calls), 1)
+        self.assertTrue(summary["requested_target_ids"][0].startswith("PREC-READY-CAND-"))
+        self.assertEqual(summary["selected_target_ids"], summary["requested_target_ids"])
+        self.assertTrue(result["same_source_precision_targets_json"])
+        self.assertEqual(len(result["same_source_precision_requested_target_ids"]), 1)
+        self.assertEqual(len(precision_targets_payload["targets"]), 1)
+        selection_filters = discovery.calls[0]["selection_filters"]
+        self.assertIn("BACKTRACE_PROJECT_CODE:JG2026-TEST", selection_filters)
+        self.assertIn("BACKTRACE_QUERY_VARIANT:JG2026-TEST", selection_filters)
+        self.assertTrue(
+            any(str(value).startswith("BACKTRACE_PROJECT_NAME:") for value in selection_filters)
+        )
+        self.assertNotIn("PROJ-", " ".join(selection_filters))
+
+    def test_execute_reports_precision_requested_ids_after_target_limit(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            remediation_json = root / "source-remediation.json"
+            targets_json = root / "targets.json"
+            seed_json = root / "seed.json"
+            out = root / "out"
+            discovery = FakeDiscoveryService()
+            capture = FakeCaptureService()
+            _write_source_remediation(
+                remediation_json,
+                target_ids=["READY-CAND"],
+                project_match_key="JG2026-TEST",
+            )
+            _write_targets(targets_json)
+            _write_seed(seed_json)
+
+            result = build_controlled_live_public_batch_source_remediation_execution(
+                source_remediation_json=remediation_json,
+                targets_json=targets_json,
+                seed_json=seed_json,
+                target_backend="json-file",
+                output_root=out,
+                execute=True,
+                target_limit=0,
+                discovery_service=discovery,
+                capture_service=capture,
+            )
+
+        self.assertEqual(result["requested_target_ids"], [])
+        self.assertEqual(result["same_source_precision_requested_target_ids"], [])
+        self.assertTrue(result["same_source_precision_targets_json"])
+        self.assertEqual(discovery.calls, [])
+
     def test_execute_can_continue_to_alternate_public_source_when_same_source_still_blocked(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -279,7 +361,7 @@ class ControlledLivePublicBatchSourceRemediationExecutionTests(unittest.TestCase
         self.assertIn("KAKA_STAGE2_ENABLE_ATTACHMENT_CHALLENGE_RESOLVER", script)
 
 
-def _write_source_remediation(path: Path, *, target_ids: list[str]) -> None:
+def _write_source_remediation(path: Path, *, target_ids: list[str], project_match_key: str = "") -> None:
     records = [
         {
             "remediation_record_id": f"SRCREM-{index}",
@@ -291,6 +373,7 @@ def _write_source_remediation(path: Path, *, target_ids: list[str]) -> None:
             "jurisdiction": "CN-SD",
             "project_id": f"PROJ-{index}",
             "project_name": "山东备用公开源测试项目",
+            "project_match_key": project_match_key,
             "document_kind": "candidate_notice",
             "alternate_public_source_route": {
                 "alternate_source_required": True,
@@ -298,6 +381,7 @@ def _write_source_remediation(path: Path, *, target_ids: list[str]) -> None:
                 "alternate_query_terms": ["山东备用公开源测试项目"],
                 "must_not_treat_no_match_as_clearance": True,
             },
+            "same_source_retry_allowed": True,
             "customer_visible_allowed": False,
             "query_miss_is_not_clearance": True,
             "no_legal_conclusion": True,
