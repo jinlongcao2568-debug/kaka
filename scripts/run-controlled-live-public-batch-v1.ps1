@@ -5,6 +5,7 @@ param(
     [int]$PerTargetCandidateLimit = 2,
     [switch]$ProfessionalSourceOnly,
     [switch]$Execute,
+    [switch]$AutoExecuteSourceRemediation,
     [switch]$EnableAttachmentChallengeResolver,
     [switch]$EmitJson
 )
@@ -33,6 +34,9 @@ $stage4ReadbackMarkdown = Join-Path $stage4ReadbackRoot "controlled-live-public-
 $sourceRemediationRoot = Join-Path $RunRoot "source-remediation"
 $sourceRemediationJson = Join-Path $sourceRemediationRoot "controlled-live-public-batch-source-remediation-v1.json"
 $sourceRemediationMarkdown = Join-Path $sourceRemediationRoot "controlled-live-public-batch-source-remediation-v1.md"
+$sourceRemediationExecutionRoot = Join-Path $RunRoot "source-remediation-execution"
+$sourceRemediationExecutionJson = Join-Path $sourceRemediationExecutionRoot "controlled-live-public-batch-source-remediation-execution-v1.json"
+$sourceRemediationExecutionMarkdown = Join-Path $sourceRemediationExecutionRoot "controlled-live-public-batch-source-remediation-execution-v1.md"
 $archiveAuditJson = Join-Path $RunRoot "project-file-audit.json"
 $closeoutJson = Join-Path $RunRoot "controlled-live-public-batch-closeout.json"
 
@@ -164,6 +168,45 @@ $sourceRemediationGroupCount = [int]$sourceRemediationSummary.source_remediation
 $sourceRemediationReadyCount = [int]$sourceRemediationSummary.source_remediation_ready_count
 $alternatePublicSourceRequiredCount = [int]$sourceRemediationSummary.alternate_public_source_required_count
 $sourceRemediationCloseoutState = [string]$sourceRemediationSummary.source_remediation_closeout_state
+$sourceRemediationExecutionState = ""
+$sourceRemediationExecutionNextRequiredStep = ""
+$sourceRemediationExecutionJsonForCloseout = ""
+$sourceRemediationExecutionMarkdownForCloseout = ""
+$postRunSourceRemediationRecordCount = 0
+$postRunStage4AllRequiredReadbacksReady = $false
+if ($AutoExecuteSourceRemediation -and $sourceRemediationRecordCount -gt 0) {
+    $sourceRemediationExecutionArgs = @(
+        "-NoProfile", "-ExecutionPolicy", "Bypass",
+        "-File", (Join-Path $scriptDir "run-controlled-live-public-batch-source-remediation-v1.ps1"),
+        "-SourceRemediationJson", $sourceRemediationJson,
+        "-OutputRoot", $sourceRemediationExecutionRoot,
+        "-PerTargetCandidateLimit", "$PerTargetCandidateLimit"
+    )
+    if ($Execute) {
+        $sourceRemediationExecutionArgs += "-Execute"
+    }
+    if ($ProfessionalSourceOnly) {
+        $sourceRemediationExecutionArgs += "-ProfessionalSourceOnly"
+    }
+    if ($EnableAttachmentChallengeResolver) {
+        $sourceRemediationExecutionArgs += "-EnableAttachmentChallengeResolver"
+    }
+    & pwsh @sourceRemediationExecutionArgs
+    if ($LASTEXITCODE -ne 0) {
+        exit $LASTEXITCODE
+    }
+    if (-not (Test-Path $sourceRemediationExecutionJson)) {
+        throw "controlled live batch source remediation execution was not generated: $sourceRemediationExecutionJson"
+    }
+    $sourceRemediationExecutionPayload = Get-Content -Raw -Path $sourceRemediationExecutionJson -Encoding UTF8 | ConvertFrom-Json
+    $sourceRemediationExecutionSummary = $sourceRemediationExecutionPayload.summary
+    $sourceRemediationExecutionState = [string]$sourceRemediationExecutionSummary.source_remediation_execution_state
+    $sourceRemediationExecutionNextRequiredStep = [string]$sourceRemediationExecutionSummary.next_required_step
+    $sourceRemediationExecutionJsonForCloseout = "$sourceRemediationExecutionJson"
+    $sourceRemediationExecutionMarkdownForCloseout = "$sourceRemediationExecutionMarkdown"
+    $postRunSourceRemediationRecordCount = [int]$sourceRemediationExecutionSummary.post_run_source_remediation_record_count
+    $postRunStage4AllRequiredReadbacksReady = [bool]$sourceRemediationExecutionSummary.post_run_stage4_all_required_readbacks_ready
+}
 $partialOrBlockedCount = [int]$summary.public_source_outcome_counts.PUBLIC_SOURCE_PARTIAL_OR_BLOCKED_REVIEW
 $noMatchCount = [int]$summary.public_source_outcome_counts.PUBLIC_SOURCE_NO_MATCH_REVIEW
 $hashedCount = [int]$summary.fixed_snapshot_sha256_count
@@ -178,7 +221,13 @@ if ($Execute -and $sampleCount -le 0) {
     $grayLaunchDecision = "NOT_READY_STAGE4_EVIDENCE_READBACK_REQUIRED"
     $nextRequiredStep = "run_stage4_evidence_readback_for_hashed_public_snapshots"
 } elseif ($Execute -and ($sourceRemediationRecordCount -gt 0 -or $partialOrBlockedCount -gt 0 -or $noMatchCount -gt 0)) {
-    if ($sourceRemediationCloseoutState -eq "SOURCE_REMEDIATION_QUEUE_READY") {
+    if ($AutoExecuteSourceRemediation -and $sourceRemediationExecutionState -eq "SOURCE_REMEDIATION_RERUN_EXECUTED_WITH_SNAPSHOTS" -and $postRunSourceRemediationRecordCount -eq 0 -and $postRunStage4AllRequiredReadbacksReady) {
+        $grayLaunchDecision = "ELIGIBLE_FOR_GRAY_LAUNCH_REVIEW"
+        $nextRequiredStep = "human_gray_launch_review"
+    } elseif ($AutoExecuteSourceRemediation -and $sourceRemediationExecutionState) {
+        $grayLaunchDecision = "NOT_READY_SOURCE_REMEDIATION_EXECUTION_REVIEW"
+        $nextRequiredStep = $sourceRemediationExecutionNextRequiredStep
+    } elseif ($sourceRemediationCloseoutState -eq "SOURCE_REMEDIATION_QUEUE_READY") {
         $grayLaunchDecision = "NOT_READY_SOURCE_REMEDIATION_QUEUE_READY"
         $nextRequiredStep = "execute_source_remediation_queue"
     } elseif ($sourceRemediationCloseoutState -eq "ALTERNATE_PUBLIC_SOURCE_REQUIRED") {
@@ -208,6 +257,8 @@ $closeout = [ordered]@{
     stage4_readback_markdown = "$stage4ReadbackMarkdown"
     source_remediation_json = "$sourceRemediationJson"
     source_remediation_markdown = "$sourceRemediationMarkdown"
+    source_remediation_execution_json = $sourceRemediationExecutionJsonForCloseout
+    source_remediation_execution_markdown = $sourceRemediationExecutionMarkdownForCloseout
     archive_audit_json = "$archiveAuditJson"
     closeout_json = "$closeoutJson"
     sample_count = $sampleCount
@@ -222,6 +273,10 @@ $closeout = [ordered]@{
     source_remediation_ready_count = $sourceRemediationReadyCount
     alternate_public_source_required_count = $alternatePublicSourceRequiredCount
     source_remediation_closeout_state = $sourceRemediationCloseoutState
+    source_remediation_execution_state = $sourceRemediationExecutionState
+    source_remediation_execution_next_required_step = $sourceRemediationExecutionNextRequiredStep
+    post_run_source_remediation_record_count = $postRunSourceRemediationRecordCount
+    post_run_stage4_all_required_readbacks_ready = $postRunStage4AllRequiredReadbacksReady
     partial_or_blocked_count = $partialOrBlockedCount
     no_match_count = $noMatchCount
     customer_visible_allowed = $false
@@ -240,10 +295,13 @@ $closeout | ConvertTo-Json -Depth 8 | Set-Content -Path $closeoutJson -Encoding 
 if ($EmitJson) {
     $closeout | ConvertTo-Json -Depth 8
 } else {
-    Write-Host "controlled live public batch closeout: sample_count=$sampleCount fixed_snapshot_sha256_count=$hashedCount stage4_required=$stage4RequiredCount stage4_ready=$stage4ReadbackReadySampleCount stage4_missing=$stage4ReadbackMissingSampleCount source_remediation=$sourceRemediationRecordCount partial_or_blocked=$partialOrBlockedCount gray_launch_decision=$grayLaunchDecision"
+    Write-Host "controlled live public batch closeout: sample_count=$sampleCount fixed_snapshot_sha256_count=$hashedCount stage4_required=$stage4RequiredCount stage4_ready=$stage4ReadbackReadySampleCount stage4_missing=$stage4ReadbackMissingSampleCount source_remediation=$sourceRemediationRecordCount source_remediation_execution=$sourceRemediationExecutionState partial_or_blocked=$partialOrBlockedCount gray_launch_decision=$grayLaunchDecision"
     Write-Host "evidence summary: $evidenceSummaryJson"
     Write-Host "evidence graph markdown: $evidenceSummaryMarkdown"
     Write-Host "stage4 readback: $stage4ReadbackJson"
     Write-Host "source remediation: $sourceRemediationJson"
+    if ($AutoExecuteSourceRemediation -and $sourceRemediationRecordCount -gt 0) {
+        Write-Host "source remediation execution: $sourceRemediationExecutionJson"
+    }
     Write-Host "archive audit: $archiveAuditJson"
 }
