@@ -18,6 +18,9 @@ from runtime.controlled_live_public_batch_evidence_summary import (  # noqa: E40
 from runtime.controlled_live_public_batch_stage4_readback import (  # noqa: E402
     build_controlled_live_public_batch_stage4_readback,
 )
+from runtime.controlled_live_public_batch_source_remediation import (  # noqa: E402
+    build_controlled_live_public_batch_source_remediation,
+)
 from storage.professional_clean_project_archive import _safe_path_part as safe_path_part  # noqa: E402
 
 
@@ -129,6 +132,56 @@ class ControlledLivePublicBatchEvidenceSummaryTests(unittest.TestCase):
         self.assertIn("readback_record_sha256", readback)
         self.assertIn("Stage4 Readback", markdown_text)
 
+    def test_source_remediation_builds_queue_for_partial_public_source_blockers(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            execution_json = root / "real-sample-execution.json"
+            storage_json = root / "storage.json"
+            evidence_out = root / "evidence"
+            stage4_out = root / "stage4"
+            remediation_out = root / "source-remediation"
+            _write_source_blocker_execution(execution_json)
+            _write_storage(storage_json)
+            build_controlled_live_public_batch_evidence_summary(
+                real_sample_execution_json=execution_json,
+                storage_json=storage_json,
+                output_root=evidence_out,
+                created_at="2026-07-03T00:00:00+00:00",
+            )
+            build_controlled_live_public_batch_stage4_readback(
+                evidence_summary_json=evidence_out / "controlled-live-public-batch-evidence-summary-v1.json",
+                real_sample_execution_json=execution_json,
+                storage_json=storage_json,
+                output_root=stage4_out,
+                created_at="2026-07-03T00:00:00+00:00",
+            )
+
+            result = build_controlled_live_public_batch_source_remediation(
+                evidence_summary_json=evidence_out / "controlled-live-public-batch-evidence-summary-v1.json",
+                real_sample_execution_json=execution_json,
+                stage4_readback_json=stage4_out / "controlled-live-public-batch-stage4-readback-v1.json",
+                output_root=remediation_out,
+                created_at="2026-07-03T00:00:00+00:00",
+            )
+            markdown_text = (
+                remediation_out / "controlled-live-public-batch-source-remediation-v1.md"
+            ).read_text(encoding="utf-8")
+
+        summary = result["summary"]
+        self.assertEqual(summary["source_remediation_record_count"], 1)
+        self.assertEqual(summary["source_remediation_group_count"], 1)
+        self.assertEqual(summary["source_remediation_ready_count"], 1)
+        self.assertEqual(summary["source_remediation_closeout_state"], "SOURCE_REMEDIATION_QUEUE_READY")
+        self.assertEqual(summary["next_required_step"], "execute_source_remediation_queue")
+        record = result["source_remediation_queue"]["records"][0]
+        self.assertEqual(record["blocker_class"], "DETAIL_TRANSPORT_RETRY_EXHAUSTED")
+        self.assertEqual(record["source_remediation_state"], "SOURCE_REMEDIATION_QUEUE_READY")
+        self.assertTrue(record["same_source_retry_allowed"])
+        self.assertTrue(record["alternate_source_required"])
+        self.assertEqual(record["alternate_public_source_route"]["alternate_source_profile_ids"], ["GGZY-DEAL-LIST"])
+        self.assertFalse(record["customer_visible_allowed"])
+        self.assertIn("Source Remediation", markdown_text)
+
     def test_professional_runner_autogenerates_controlled_live_evidence_summary(self) -> None:
         script = (ROOT / "scripts" / "run-professional-clean-v1-real-samples.ps1").read_text(
             encoding="utf-8"
@@ -149,14 +202,19 @@ class ControlledLivePublicBatchEvidenceSummaryTests(unittest.TestCase):
         self.assertIn("-UseAllTargets", script)
         self.assertIn("build-controlled-live-public-batch-evidence-summary-v1.ps1", script)
         self.assertIn("build-controlled-live-public-batch-stage4-readback-v1.ps1", script)
+        self.assertIn("build-controlled-live-public-batch-source-remediation-v1.ps1", script)
         self.assertIn("build-professional-clean-project-archive.ps1", script)
         self.assertIn("controlled-live-public-batch-evidence-summary-v1.json", script)
         self.assertIn("controlled-live-public-batch-stage4-readback-v1.json", script)
+        self.assertIn("controlled-live-public-batch-source-remediation-v1.json", script)
         self.assertIn("project-file-audit.json", script)
         self.assertIn("controlled-live-public-batch-closeout.json", script)
         self.assertIn("NOT_READY_REAL_PUBLIC_EXECUTION_REQUIRED", script)
         self.assertIn("NOT_READY_STAGE4_EVIDENCE_READBACK_REQUIRED", script)
+        self.assertIn("NOT_READY_SOURCE_REMEDIATION_QUEUE_READY", script)
+        self.assertIn("$stage4RequiredCount -gt 0 -and -not $stage4AllRequiredReadbacksReady", script)
         self.assertIn("stage4_all_required_readbacks_ready", script)
+        self.assertIn("source_remediation_closeout_state", script)
         self.assertIn("customer_visible_allowed = $false", script)
         self.assertIn("payment_execution_enabled = $false", script)
         self.assertIn("delivery_execution_enabled = $false", script)
@@ -228,6 +286,79 @@ def _write_execution(path: Path) -> None:
                         "attachment_snapshot_refs": [],
                     },
                 ],
+            }
+        },
+    )
+
+
+def _write_source_blocker_execution(path: Path) -> None:
+    blocker_sample = {
+        "sample_id": "SAMPLE-SD-BLOCKED",
+        "parent_target_id": "REAL-SD-TENDER-001",
+        "target_id": "REAL-SD-TENDER-001::blocked",
+        "project_id": "PROJ-SD-BLOCKED",
+        "project_name": "山东详情页阻断项目",
+        "project_match_key": "山东详情页阻断项目",
+        "document_kind": "tender_file",
+        "jurisdiction": "CN-SD",
+        "source_profile_id": "SHANDONG-GGZY-JYXXGK-LIST",
+        "source_url": "http://ggzyjy.shandong.gov.cn:80/jsgczbgg/14442079.jhtml",
+        "target_execution_state": "CAPTURE_PARTIAL_REVIEW",
+        "detail_capture_status": "DEGRADED",
+        "stage3_parse_state": "NOT_RUN",
+        "document_completeness_state": "DETAIL_SNAPSHOT_MISSING_REVIEW",
+        "detail_snapshot_refs": [],
+        "attachment_snapshot_refs": [],
+        "detail_url_retry_audit": {
+            "attempts": [
+                {
+                    "detail_url": "https://ggzyjy.shandong.gov.cn/jsgczbgg/14442079.jhtml",
+                    "status": "DEGRADED",
+                    "http_status": None,
+                    "degraded_reasons": ["fetch_failed"],
+                },
+                {
+                    "detail_url": "http://ggzyjy.shandong.gov.cn/jsgczbgg/14442079.jhtml",
+                    "status": "DEGRADED",
+                    "http_status": 502,
+                    "degraded_reasons": ["http_status:502", "detail_body_too_small", "detail_title_missing"],
+                },
+            ],
+            "variant_strategy": "shandong_https_without_explicit_80_first",
+        },
+        "parse_summary": {
+            "document_quality_reasons": ["detail_snapshot_missing", "capture_failure_or_blocker_present"],
+            "attachment_missing_review_count": 1,
+        },
+        "failure_taxonomy": [
+            "detail_url_retry_strategy:shandong_https_without_explicit_80_first",
+            "shandong_detail_url_variant_exhausted",
+            "detail_capture_failure:http_status:502:2",
+            "detail_capture_failure:detail_body_too_small:2",
+            "detail_capture_failure:detail_title_missing:2",
+        ],
+    }
+    _write_json(
+        path,
+        {
+            "manifest": {
+                "execution_mode": "EXECUTED",
+                "execute": True,
+                "items": [
+                    {
+                        "target_id": "REAL-SD-TENDER-001",
+                        "jurisdiction": "CN-SD",
+                        "platform_name": "山东省公共资源交易网",
+                        "document_kind": "tender_file",
+                        "source_profile_id": "SHANDONG-GGZY-JYXXGK-LIST",
+                        "target_execution_state": "CAPTURE_PARTIAL_REVIEW",
+                        "discovery_candidate_count": 1,
+                        "detail_snapshot_refs": [],
+                        "attachment_snapshot_refs": [],
+                        "failure_taxonomy": list(blocker_sample["failure_taxonomy"]),
+                    }
+                ],
+                "project_sample_items": [blocker_sample],
             }
         },
     )
