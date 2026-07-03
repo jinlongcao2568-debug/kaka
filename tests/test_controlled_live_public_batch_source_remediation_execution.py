@@ -225,18 +225,45 @@ class ControlledLivePublicBatchSourceRemediationExecutionTests(unittest.TestCase
             ).exists()
 
         summary = result["summary"]
-        self.assertEqual(len(discovery.calls), 2)
+        alternate_targets = alternate_targets_payload["targets"]
+        self.assertGreaterEqual(len(alternate_targets), 3)
+        self.assertEqual(len(discovery.calls), 1 + len(alternate_targets))
         self.assertEqual(discovery.calls[0]["source_profile_ids"], ["GUANGZHOU-YWTB-CONSTRUCTION-LIST"])
-        self.assertEqual(discovery.calls[1]["source_profile_ids"], ["GGZY-DEAL-LIST"])
+        self.assertTrue(
+            all(call["source_profile_ids"] == ["GGZY-DEAL-LIST"] for call in discovery.calls[1:])
+        )
         self.assertEqual(summary["source_remediation_execution_state"], "SOURCE_REMEDIATION_RERUN_EXECUTED_REVIEW_REQUIRED")
         self.assertEqual(summary["alternate_public_source_execution_state"], "ALTERNATE_PUBLIC_SOURCE_EXECUTED_WITH_SNAPSHOTS")
-        self.assertEqual(summary["alternate_detail_snapshot_count"], 1)
+        self.assertGreater(summary["alternate_detail_snapshot_count"], 1)
+        self.assertEqual(len(summary["alternate_requested_target_ids"]), len(alternate_targets))
         self.assertEqual(summary["next_required_step"], "review_alternate_public_source_evidence_before_gray_launch")
         self.assertTrue(alternate_targets_exists)
         self.assertTrue(alternate_manifest_exists)
+        self.assertTrue(all(target["alternate_query_variant"] for target in alternate_targets))
+        self.assertTrue(
+            any(
+                any(str(filter_value).startswith("GGZY_FINDTXT:") for filter_value in target["selection_filters"])
+                for target in alternate_targets
+            )
+        )
+        self.assertTrue(
+            any("GGZY_WINDOW_DAYS:30" in target["selection_filters"] for target in alternate_targets)
+        )
+        self.assertTrue(
+            any("GGZY_WINDOW_DAYS:90" in target["selection_filters"] for target in alternate_targets)
+        )
+        self.assertTrue(
+            any("GGZY_WINDOW_DAYS:365" in target["selection_filters"] for target in alternate_targets)
+        )
+        self.assertTrue(
+            any("GGZY_PROVINCE_CODE:0" in target["selection_filters"] for target in alternate_targets)
+        )
         self.assertNotIn(
             "PROJ-",
-            " ".join(alternate_targets_payload["targets"][0]["selection_filters"]),
+            " ".join(
+                " ".join(target["selection_filters"])
+                for target in alternate_targets
+            ),
         )
 
     def test_source_remediation_execution_script_invokes_runtime_runner(self) -> None:

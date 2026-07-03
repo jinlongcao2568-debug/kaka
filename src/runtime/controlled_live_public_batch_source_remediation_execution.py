@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
@@ -279,25 +280,37 @@ def _write_alternate_source_target_files(
             alternate_route = _mapping(record.get("alternate_public_source_route"))
             if profile_id not in _string_list(alternate_route.get("alternate_source_profile_ids")):
                 continue
-            target_id = f"ALT-{profile_id}-{_fingerprint({'parent': record.get('parent_target_id'), 'kind': record.get('document_kind'), 'project': record.get('project_id')})[:12]}"
-            if target_id in target_ids:
-                continue
-            target_ids.append(target_id)
-            targets.append(
-                {
-                    "target_id": target_id,
-                    "source_parent_target_id": str(record.get("parent_target_id") or ""),
-                    "jurisdiction": str(record.get("jurisdiction") or "CN"),
-                    "platform_name": "全国公共资源交易平台",
-                    "entry_seed_id": "ENTRY-GGZY-DEAL-LIST",
-                    "required_fetch_profile_id_optional": profile_id,
-                    "source_family": "local_public_resource_trading_center",
-                    "project_type": "construction",
-                    "document_kind": str(record.get("document_kind") or "tender_file"),
-                    "target_count": 1,
-                    "selection_filters": _alternate_selection_filters(record),
-                }
-            )
+            for variant in _alternate_query_variants(record):
+                variant_id = str(variant.get("variant_id") or "query")
+                target_fingerprint = _fingerprint(
+                    {
+                        "parent": record.get("parent_target_id"),
+                        "kind": record.get("document_kind"),
+                        "project": record.get("project_id"),
+                        "variant": variant_id,
+                    }
+                )
+                target_id = f"ALT-{profile_id}-{target_fingerprint[:12]}"
+                if target_id in target_ids:
+                    continue
+                target_ids.append(target_id)
+                targets.append(
+                    {
+                        "target_id": target_id,
+                        "source_parent_target_id": str(record.get("parent_target_id") or ""),
+                        "source_remediation_record_id": str(record.get("remediation_record_id") or ""),
+                        "alternate_query_variant": variant_id,
+                        "jurisdiction": str(record.get("jurisdiction") or "CN"),
+                        "platform_name": "全国公共资源交易平台",
+                        "entry_seed_id": "ENTRY-GGZY-DEAL-LIST",
+                        "required_fetch_profile_id_optional": profile_id,
+                        "source_family": "local_public_resource_trading_center",
+                        "project_type": "construction",
+                        "document_kind": str(record.get("document_kind") or "tender_file"),
+                        "target_count": 1,
+                        "selection_filters": _string_list(variant.get("selection_filters")),
+                    }
+                )
     target_file = output_dir / "alternate-public-source-targets.json"
     seed_file = output_dir / "alternate-public-source-seed.json"
     _write_json(
@@ -353,8 +366,171 @@ def _alternate_profiles(
 
 
 def _alternate_selection_filters(record: Mapping[str, Any]) -> list[str]:
+    route_terms = _string_list(_mapping(record.get("alternate_public_source_route")).get("alternate_query_terms"))
+    return _dedupe(
+        [
+            _region_term(record),
+            *_public_query_terms(route_terms),
+            *_public_query_terms([record.get("project_match_key"), record.get("project_name")]),
+            "工程建设",
+        ]
+    )
+
+
+def _alternate_query_variants(record: Mapping[str, Any]) -> list[dict[str, Any]]:
+    variants: list[dict[str, Any]] = [
+        {
+            "variant_id": "doc-kind-recent",
+            "selection_filters": _alternate_selection_filters(record),
+        }
+    ]
+    exact_terms = _alternate_find_text_terms(record)
+    if exact_terms:
+        title_term = exact_terms[0]
+        variants.extend(
+            [
+                {
+                    "variant_id": "title-30d",
+                    "selection_filters": _ggzy_find_text_filters(record, title_term, window_days=30),
+                },
+                {
+                    "variant_id": "title-90d",
+                    "selection_filters": _ggzy_find_text_filters(record, title_term, window_days=90),
+                },
+            ]
+        )
+    if len(exact_terms) > 1:
+        variants.append(
+            {
+                "variant_id": "core-title-90d",
+                "selection_filters": _ggzy_find_text_filters(record, exact_terms[1], window_days=90),
+            }
+        )
+    broad_terms = _broad_find_text_terms(exact_terms)
+    if broad_terms:
+        variants.extend(
+            [
+                {
+                    "variant_id": "keyword-365d",
+                    "selection_filters": _ggzy_find_text_filters(record, broad_terms[0], window_days=365),
+                },
+                {
+                    "variant_id": "national-keyword-365d",
+                    "selection_filters": _ggzy_find_text_filters(
+                        record,
+                        broad_terms[0],
+                        window_days=365,
+                        province_code="0",
+                    ),
+                },
+            ]
+        )
+    return _dedupe_query_variants(variants)
+
+
+def _ggzy_find_text_filters(
+    record: Mapping[str, Any],
+    find_text: str,
+    *,
+    window_days: int,
+    province_code: str | None = None,
+) -> list[str]:
+    return _dedupe(
+        [
+            _region_term(record) if province_code != "0" else "",
+            f"GGZY_FINDTXT:{find_text}",
+            f"GGZY_WINDOW_DAYS:{window_days}",
+            f"GGZY_PROVINCE_CODE:{province_code}" if province_code is not None else "",
+            "工程建设",
+        ]
+    )
+
+
+def _alternate_find_text_terms(record: Mapping[str, Any]) -> list[str]:
+    route_terms = _string_list(_mapping(record.get("alternate_public_source_route")).get("alternate_query_terms"))
+    raw_terms = [
+        *_public_query_terms(route_terms),
+        *_public_query_terms([record.get("project_match_key"), record.get("project_name")]),
+    ]
+    exact_terms: list[str] = []
+    core_terms: list[str] = []
+    for raw in raw_terms:
+        cleaned = _clean_public_find_text(raw)
+        if len(cleaned) >= 4:
+            exact_terms.append(cleaned)
+        core = _core_public_find_text(cleaned)
+        if len(core) >= 4 and core != cleaned:
+            core_terms.append(core)
+    terms: list[str] = []
+    for term in _dedupe(exact_terms[:1] + core_terms + exact_terms[1:]):
+        terms.append(term)
+        if len(terms) >= 2:
+            break
+    return terms
+
+
+def _broad_find_text_terms(exact_terms: Iterable[str]) -> list[str]:
+    broad_terms: list[str] = []
+    for term in exact_terms:
+        text = str(term or "").strip()
+        for pattern in (
+            r"^(.{4,}?)(?:\d+#)",
+            r"^(.{4,}?)(?:综合楼|地下车库|住宅楼|监理|施工|设计|采购|项目)",
+        ):
+            match = re.search(pattern, text)
+            if match:
+                broad_terms.append(match.group(1).strip(" ，,。；;：:、"))
+                break
+    return sorted(_dedupe(term for term in broad_terms if len(term) >= 4), key=len)[:1]
+
+
+def _clean_public_find_text(value: Any) -> str:
+    text = str(value or "").strip()
+    text = re.sub(r"^[【\[].*?[】\]]", "", text).strip()
+    text = re.sub(r"\s+", "", text)
+    return text.strip(" ，,。；;：:")
+
+
+def _core_public_find_text(value: str) -> str:
+    text = str(value or "").strip()
+    suffixes = (
+        "公开招标公告",
+        "招标公告",
+        "中标候选人公示",
+        "中标结果公告",
+        "成交结果公告",
+        "结果公告",
+        "候选人公示",
+        "公示",
+        "公告",
+    )
+    for suffix in suffixes:
+        if text.endswith(suffix):
+            return text[: -len(suffix)].strip(" ，,。；;：:")
+    return text
+
+
+def _dedupe_query_variants(variants: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    seen: set[tuple[str, ...]] = set()
+    out: list[dict[str, Any]] = []
+    for variant in variants:
+        filters = _string_list(variant.get("selection_filters"))
+        key = tuple(filters)
+        if not filters or key in seen:
+            continue
+        seen.add(key)
+        out.append(
+            {
+                "variant_id": str(variant.get("variant_id") or f"query-{len(out) + 1}"),
+                "selection_filters": filters,
+            }
+        )
+    return out
+
+
+def _region_term(record: Mapping[str, Any]) -> str:
     jurisdiction = str(record.get("jurisdiction") or "")
-    region_term = {
+    return {
         "CN-SD": "山东",
         "CN-SH": "上海",
         "CN-GD": "广东",
@@ -363,15 +539,6 @@ def _alternate_selection_filters(record: Mapping[str, Any]) -> list[str]:
         "CN-ZJ": "浙江",
         "CN-SC": "四川",
     }.get(jurisdiction, "")
-    route_terms = _string_list(_mapping(record.get("alternate_public_source_route")).get("alternate_query_terms"))
-    return _dedupe(
-        [
-            region_term,
-            *_public_query_terms(route_terms),
-            *_public_query_terms([record.get("project_match_key"), record.get("project_name")]),
-            "工程建设",
-        ]
-    )
 
 
 def _public_query_terms(values: Iterable[Any]) -> list[str]:

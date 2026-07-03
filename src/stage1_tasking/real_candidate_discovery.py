@@ -718,7 +718,11 @@ def _discover_ggzy_deal_api_link_items(
     context: Mapping[str, Any],
 ) -> dict[str, Any]:
     endpoint = "https://deal.ggzy.gov.cn/ds/deal/dealList_find.jsp"
-    start_date, end_date = _date_window_from_now(now)
+    window_days = _ggzy_window_days(context)
+    if window_days is None:
+        start_date, end_date = _date_window_from_now(now)
+    else:
+        start_date, end_date = _date_window_from_now(now, days=window_days)
     terms = _ggzy_find_terms(context)
     query_text = " ".join(terms[:4])
     province_code = _ggzy_province_code(context)
@@ -764,6 +768,7 @@ def _discover_ggzy_deal_api_link_items(
             "query_window": {"start_date": start_date, "end_date": end_date},
             "query_terms": terms,
             "province_code": province_code,
+            "query_window_days": window_days,
         }
     records = _ggzy_deal_records(data)
     return {
@@ -775,12 +780,16 @@ def _discover_ggzy_deal_api_link_items(
         "query_window": {"start_date": start_date, "end_date": end_date},
         "query_terms": terms,
         "province_code": province_code,
+        "query_window_days": window_days,
         "record_count": len(records),
     }
 
 
 def _ggzy_find_terms(context: Mapping[str, Any]) -> list[str]:
-    values = _as_string_list(context.get("selection_filters"), [])
+    overrides = _ggzy_find_text_overrides(context)
+    if overrides:
+        return overrides
+    values = _ggzy_selection_filter_values(context)
     document_kind = str(context.get("evaluation_document_kind") or "")
     if document_kind == "flow_or_re_tender_notice":
         values = ["流标", "重新招标", "终止公告", *values]
@@ -799,14 +808,84 @@ def _ggzy_find_terms(context: Mapping[str, Any]) -> list[str]:
     ]
 
 
+def _ggzy_selection_filter_values(context: Mapping[str, Any]) -> list[str]:
+    values: list[str] = []
+    for value in _as_string_list(context.get("selection_filters"), []):
+        text = str(value or "").strip()
+        if text.startswith(("GGZY_FINDTXT:", "GGZY_WINDOW_DAYS:", "GGZY_PROVINCE_CODE:")):
+            continue
+        values.append(text)
+    return values
+
+
+def _ggzy_find_text_overrides(context: Mapping[str, Any]) -> list[str]:
+    overrides: list[str] = []
+    for value in _as_string_list(context.get("selection_filters"), []):
+        text = str(value or "").strip()
+        if not text.startswith("GGZY_FINDTXT:"):
+            continue
+        find_text = text.split(":", 1)[1].strip()
+        if not find_text:
+            continue
+        upper = find_text.upper()
+        if upper.startswith(("PROJ-", "REAL-", "ALT-", "CLPB-")):
+            continue
+        overrides.append(find_text)
+    return _dedupe_texts(overrides)
+
+
+def _ggzy_window_days(context: Mapping[str, Any]) -> int | None:
+    for value in _as_string_list(context.get("selection_filters"), []):
+        text = str(value or "").strip()
+        if not text.startswith("GGZY_WINDOW_DAYS:"):
+            continue
+        parsed = _as_int(text.split(":", 1)[1].strip(), 0)
+        if parsed > 0:
+            return max(1, min(parsed, 365))
+    return None
+
+
 def _ggzy_province_code(context: Mapping[str, Any]) -> str:
+    province_override = _ggzy_province_code_override(context)
+    if province_override is not None:
+        return province_override
     region_code = str(context.get("requested_region_code") or "").strip()
-    if region_code == "CN-SH":
-        return "310000"
-    filters = " ".join(_as_string_list(context.get("selection_filters"), []))
-    if "上海" in filters:
-        return "310000"
+    code_by_region = {
+        "CN-SD": "370000",
+        "CN-SH": "310000",
+        "CN-GD": "440000",
+        "CN-JS": "320000",
+        "CN-HB": "420000",
+        "CN-ZJ": "330000",
+        "CN-SC": "510000",
+    }
+    if region_code in code_by_region:
+        return code_by_region[region_code]
+    filters = " ".join(_ggzy_selection_filter_values(context))
+    province_by_term = {
+        "山东": "370000",
+        "上海": "310000",
+        "广东": "440000",
+        "江苏": "320000",
+        "湖北": "420000",
+        "浙江": "330000",
+        "四川": "510000",
+    }
+    for term, code in province_by_term.items():
+        if term in filters:
+            return code
     return "0"
+
+
+def _ggzy_province_code_override(context: Mapping[str, Any]) -> str | None:
+    for value in _as_string_list(context.get("selection_filters"), []):
+        text = str(value or "").strip()
+        if not text.startswith("GGZY_PROVINCE_CODE:"):
+            continue
+        code = text.split(":", 1)[1].strip()
+        if code == "0" or (len(code) == 6 and code.isdigit()):
+            return code
+    return None
 
 
 def _ggzy_deal_records(data: Any) -> list[Any]:

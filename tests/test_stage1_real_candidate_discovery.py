@@ -6,6 +6,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
 from unittest.mock import patch
 
 
@@ -19,6 +20,7 @@ from stage1_tasking.real_candidate_discovery import (
     RealPublicCandidateDiscoveryService,
     RealPublicCandidateRepository,
     _date_window_from_now,
+    _discover_ggzy_deal_api_link_items,
     _discover_guangzhou_ywtb_api_link_items,
     _guangzhou_backtrace_query_variants,
     _guangzhou_ywtb_process_priority,
@@ -197,6 +199,17 @@ class FakeGuangzhouApiResponse:
     def read(self, size: int = -1) -> bytes:
         content = json.dumps(self.payload, ensure_ascii=False)
         return json.dumps({"content": content}, ensure_ascii=False).encode("utf-8")
+
+
+class FakeGgzyDealApiResponse:
+    def __enter__(self) -> "FakeGgzyDealApiResponse":
+        return self
+
+    def __exit__(self, exc_type, exc, tb) -> None:  # noqa: ANN001
+        return None
+
+    def read(self, size: int = -1) -> bytes:
+        return json.dumps({"data": []}, ensure_ascii=False).encode("utf-8")
 
 
 class FakeSichuanShellFetcher:
@@ -951,6 +964,65 @@ class RealCandidateDiscoveryTests(unittest.TestCase):
         candidate = result["candidates"][0]
         self.assertEqual(candidate["region_code"], "CN-SH")
         self.assertEqual(candidate["source_profile_id"], "GGZY-DEAL-LIST")
+
+    def test_ggzy_directives_override_find_text_window_and_province(self) -> None:
+        captured: dict[str, str] = {}
+
+        def fake_urlopen(request, timeout: int):  # noqa: ANN001
+            captured["url"] = request.get_full_url()
+            return FakeGgzyDealApiResponse()
+
+        with patch("stage1_tasking.real_candidate_discovery.urlopen", fake_urlopen):
+            result = _discover_ggzy_deal_api_link_items(
+                now="2026-07-03T00:00:00+00:00",
+                context={
+                    "requested_region_code": "CN-SD",
+                    "selection_filters": [
+                        "山东",
+                        "工程建设",
+                        "GGZY_FINDTXT:春景花园六期20#综合楼及地下车库24#住宅楼监理",
+                        "GGZY_WINDOW_DAYS:90",
+                        "PROJ-1",
+                    ],
+                    "evaluation_document_kind": "candidate_notice",
+                },
+            )
+
+        params = parse_qs(urlsplit(captured["url"]).query)
+        self.assertEqual(result["state"], "EMPTY")
+        self.assertEqual(result["query_window"], {"start_date": "2026-04-04", "end_date": "2026-07-03"})
+        self.assertEqual(result["query_terms"], ["春景花园六期20#综合楼及地下车库24#住宅楼监理"])
+        self.assertEqual(result["province_code"], "370000")
+        self.assertEqual(params["FINDTXT"], ["春景花园六期20#综合楼及地下车库24#住宅楼监理"])
+        self.assertEqual(params["DEAL_PROVINCE"], ["370000"])
+        self.assertEqual(params["TIMEBEGIN"], ["2026-04-04"])
+
+    def test_ggzy_province_code_directive_can_query_national_scope(self) -> None:
+        captured: dict[str, str] = {}
+
+        def fake_urlopen(request, timeout: int):  # noqa: ANN001
+            captured["url"] = request.get_full_url()
+            return FakeGgzyDealApiResponse()
+
+        with patch("stage1_tasking.real_candidate_discovery.urlopen", fake_urlopen):
+            result = _discover_ggzy_deal_api_link_items(
+                now="2026-07-03T00:00:00+00:00",
+                context={
+                    "requested_region_code": "CN-SD",
+                    "selection_filters": [
+                        "GGZY_FINDTXT:春景花园六期",
+                        "GGZY_WINDOW_DAYS:365",
+                        "GGZY_PROVINCE_CODE:0",
+                    ],
+                    "evaluation_document_kind": "tender_file",
+                },
+            )
+
+        params = parse_qs(urlsplit(captured["url"]).query)
+        self.assertEqual(result["province_code"], "0")
+        self.assertEqual(result["query_window"], {"start_date": "2025-07-03", "end_date": "2026-07-03"})
+        self.assertEqual(params["DEAL_PROVINCE"], ["0"])
+        self.assertEqual(params["FINDTXT"], ["春景花园六期"])
 
     def test_guangdong_default_discovery_uses_only_guangzhou_trading_group(self) -> None:
         service = RealPublicCandidateDiscoveryService(
