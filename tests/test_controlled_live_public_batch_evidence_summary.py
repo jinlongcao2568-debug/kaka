@@ -15,6 +15,9 @@ if str(SRC) not in sys.path:
 from runtime.controlled_live_public_batch_evidence_summary import (  # noqa: E402
     build_controlled_live_public_batch_evidence_summary,
 )
+from runtime.controlled_live_public_batch_stage4_readback import (  # noqa: E402
+    build_controlled_live_public_batch_stage4_readback,
+)
 from storage.professional_clean_project_archive import _safe_path_part as safe_path_part  # noqa: E402
 
 
@@ -78,6 +81,54 @@ class ControlledLivePublicBatchEvidenceSummaryTests(unittest.TestCase):
         self.assertLessEqual(len(safe), 48)
         self.assertRegex(safe, r"_[0-9a-f]{12}$")
 
+    def test_stage4_readback_generates_ready_public_evidence_records_from_hashes(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            execution_json = root / "real-sample-execution.json"
+            storage_json = root / "storage.json"
+            evidence_out = root / "evidence"
+            stage4_out = root / "stage4"
+            _write_execution(execution_json)
+            _write_storage(storage_json)
+            build_controlled_live_public_batch_evidence_summary(
+                real_sample_execution_json=execution_json,
+                storage_json=storage_json,
+                output_root=evidence_out,
+                created_at="2026-07-03T00:00:00+00:00",
+            )
+
+            result = build_controlled_live_public_batch_stage4_readback(
+                evidence_summary_json=evidence_out / "controlled-live-public-batch-evidence-summary-v1.json",
+                real_sample_execution_json=execution_json,
+                storage_json=storage_json,
+                output_root=stage4_out,
+                created_at="2026-07-03T00:00:00+00:00",
+            )
+            markdown_text = (stage4_out / "controlled-live-public-batch-stage4-readback-v1.md").read_text(
+                encoding="utf-8"
+            )
+
+        summary = result["summary"]
+        self.assertEqual(summary["stage4_readback_required_sample_count"], 1)
+        self.assertEqual(summary["stage4_readback_ready_sample_count"], 1)
+        self.assertEqual(summary["stage4_readback_missing_sample_count"], 0)
+        self.assertEqual(summary["stage4_public_evidence_readback_count"], 2)
+        self.assertTrue(summary["stage4_all_required_readbacks_ready"])
+        self.assertFalse(summary["customer_visible_allowed"])
+        records = {record["sample_id"]: record for record in result["stage4_readback_table"]["records"]}
+        self.assertEqual(records["SAMPLE-HIT"]["stage4_readback_state"], "STAGE4_PUBLIC_EVIDENCE_READBACK_READY")
+        self.assertEqual(
+            records["SAMPLE-NO-MATCH"]["stage4_readback_state"],
+            "STAGE4_PUBLIC_EVIDENCE_READBACK_NOT_REQUIRED",
+        )
+        readback = result["stage4_public_evidence_readbacks"][0]
+        self.assertEqual(readback["readback_state"], "READBACK_READY")
+        self.assertTrue(readback["replayable"])
+        self.assertFalse(readback["customer_visible"])
+        self.assertTrue(readback["no_legal_conclusion"])
+        self.assertIn("readback_record_sha256", readback)
+        self.assertIn("Stage4 Readback", markdown_text)
+
     def test_professional_runner_autogenerates_controlled_live_evidence_summary(self) -> None:
         script = (ROOT / "scripts" / "run-professional-clean-v1-real-samples.ps1").read_text(
             encoding="utf-8"
@@ -97,12 +148,15 @@ class ControlledLivePublicBatchEvidenceSummaryTests(unittest.TestCase):
         self.assertIn("run-evaluation-real-sample-execution.ps1", script)
         self.assertIn("-UseAllTargets", script)
         self.assertIn("build-controlled-live-public-batch-evidence-summary-v1.ps1", script)
+        self.assertIn("build-controlled-live-public-batch-stage4-readback-v1.ps1", script)
         self.assertIn("build-professional-clean-project-archive.ps1", script)
         self.assertIn("controlled-live-public-batch-evidence-summary-v1.json", script)
+        self.assertIn("controlled-live-public-batch-stage4-readback-v1.json", script)
         self.assertIn("project-file-audit.json", script)
         self.assertIn("controlled-live-public-batch-closeout.json", script)
         self.assertIn("NOT_READY_REAL_PUBLIC_EXECUTION_REQUIRED", script)
         self.assertIn("NOT_READY_STAGE4_EVIDENCE_READBACK_REQUIRED", script)
+        self.assertIn("stage4_all_required_readbacks_ready", script)
         self.assertIn("customer_visible_allowed = $false", script)
         self.assertIn("payment_execution_enabled = $false", script)
         self.assertIn("delivery_execution_enabled = $false", script)
