@@ -10,6 +10,7 @@ param(
     [int]$TargetLimit = 0,
     [int]$PerTargetCandidateLimit = 1,
     [switch]$ProfessionalSourceOnly,
+    [switch]$EnableAlternatePublicSource,
     [switch]$EnableAttachmentChallengeResolver,
     [switch]$Execute,
     [switch]$EmitJson
@@ -93,6 +94,10 @@ if ($Execute) {
 
 if ($ProfessionalSourceOnly) {
     $argsList += "--professional-source-only"
+}
+
+if ($EnableAlternatePublicSource) {
+    $argsList += "--enable-alternate-public-source"
 }
 
 if ($EmitJson) {

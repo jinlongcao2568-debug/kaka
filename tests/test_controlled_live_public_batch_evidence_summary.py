@@ -204,6 +204,7 @@ class ControlledLivePublicBatchEvidenceSummaryTests(unittest.TestCase):
         self.assertIn("build-controlled-live-public-batch-stage4-readback-v1.ps1", script)
         self.assertIn("build-controlled-live-public-batch-source-remediation-v1.ps1", script)
         self.assertIn("AutoExecuteSourceRemediation", script)
+        self.assertIn("EnableAlternatePublicSource", script)
         self.assertIn("run-controlled-live-public-batch-source-remediation-v1.ps1", script)
         self.assertIn("build-professional-clean-project-archive.ps1", script)
         self.assertIn("controlled-live-public-batch-evidence-summary-v1.json", script)

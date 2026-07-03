@@ -6,6 +6,7 @@ param(
     [switch]$ProfessionalSourceOnly,
     [switch]$Execute,
     [switch]$AutoExecuteSourceRemediation,
+    [switch]$EnableAlternatePublicSource,
     [switch]$EnableAttachmentChallengeResolver,
     [switch]$EmitJson
 )
@@ -187,6 +188,9 @@ if ($AutoExecuteSourceRemediation -and $sourceRemediationRecordCount -gt 0) {
     }
     if ($ProfessionalSourceOnly) {
         $sourceRemediationExecutionArgs += "-ProfessionalSourceOnly"
+    }
+    if ($EnableAlternatePublicSource) {
+        $sourceRemediationExecutionArgs += "-EnableAlternatePublicSource"
     }
     if ($EnableAttachmentChallengeResolver) {
         $sourceRemediationExecutionArgs += "-EnableAttachmentChallengeResolver"

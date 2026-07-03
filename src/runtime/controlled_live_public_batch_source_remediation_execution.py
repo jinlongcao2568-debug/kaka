@@ -43,6 +43,7 @@ def build_controlled_live_public_batch_source_remediation_execution(
     target_limit: int | None = None,
     per_target_candidate_limit: int = 1,
     professional_source_only: bool = False,
+    enable_alternate_public_source: bool = False,
     discovery_service: Any | None = None,
     capture_service: Any | None = None,
 ) -> dict[str, Any]:
@@ -86,6 +87,22 @@ def build_controlled_live_public_batch_source_remediation_execution(
         execute=execute,
         created_at=created,
     )
+    alternate_run = _maybe_run_alternate_public_sources(
+        queue_records=queue_records,
+        group_records=group_records,
+        rerun_result=rerun_result,
+        source_remediation_post_run_outputs=post_run_outputs,
+        output_dir=output_dir,
+        execute=execute,
+        enabled=enable_alternate_public_source,
+        target_backend=target_backend,
+        database_url=database_url,
+        per_target_candidate_limit=per_target_candidate_limit,
+        professional_source_only=professional_source_only,
+        created_at=created,
+        discovery_service=discovery_service,
+        capture_service=capture_service,
+    )
 
     summary = _summary(
         source_remediation_payload=remediation_payload,
@@ -94,6 +111,8 @@ def build_controlled_live_public_batch_source_remediation_execution(
         requested_target_ids=requested_target_ids,
         rerun_result=rerun_result,
         post_run_outputs=post_run_outputs,
+        alternate_run=alternate_run,
+        enable_alternate_public_source=enable_alternate_public_source,
         execute=execute,
     )
     result = {
@@ -111,8 +130,12 @@ def build_controlled_live_public_batch_source_remediation_execution(
         "requested_target_ids": requested_target_ids,
         "rerun_manifest_json": str(rerun_manifest_json if rerun_result else ""),
         "post_run_outputs": post_run_outputs,
+        "alternate_public_source_run": alternate_run,
         "summary": summary,
         "rerun_execution_manifest": _mapping(_mapping(rerun_result).get("manifest")),
+        "alternate_public_source_execution_manifest": _mapping(
+            _mapping(_mapping(alternate_run).get("execution_result")).get("manifest")
+        ),
         "safety": _safety(execute=execute),
         "customer_visible_allowed": False,
         "query_miss_is_not_clearance": True,
@@ -130,6 +153,238 @@ def build_controlled_live_public_batch_source_remediation_execution(
         encoding="utf-8",
     )
     return result
+
+
+def _maybe_run_alternate_public_sources(
+    *,
+    queue_records: list[Mapping[str, Any]],
+    group_records: list[Mapping[str, Any]],
+    rerun_result: Mapping[str, Any] | None,
+    source_remediation_post_run_outputs: Mapping[str, Any],
+    output_dir: Path,
+    execute: bool,
+    enabled: bool,
+    target_backend: str,
+    database_url: str | None,
+    per_target_candidate_limit: int,
+    professional_source_only: bool,
+    created_at: str,
+    discovery_service: Any | None,
+    capture_service: Any | None,
+) -> dict[str, Any]:
+    if not enabled:
+        return {
+            "alternate_public_source_enabled": False,
+            "alternate_public_source_execution_state": "NOT_ENABLED",
+        }
+    if not execute:
+        return {
+            "alternate_public_source_enabled": True,
+            "alternate_public_source_execution_state": "NOT_RUN_DRY_RUN_ONLY",
+        }
+    if not _alternate_needed_after_rerun(
+        rerun_result=rerun_result,
+        source_remediation_post_run_outputs=source_remediation_post_run_outputs,
+    ):
+        return {
+            "alternate_public_source_enabled": True,
+            "alternate_public_source_execution_state": "NOT_REQUIRED_AFTER_PRIMARY_RERUN",
+        }
+
+    alternate_root = output_dir / "alternate-public-source"
+    alternate_root.mkdir(parents=True, exist_ok=True)
+    target_file, seed_file, target_ids = _write_alternate_source_target_files(
+        queue_records=queue_records,
+        group_records=group_records,
+        output_dir=alternate_root,
+    )
+    if not target_ids:
+        return {
+            "alternate_public_source_enabled": True,
+            "alternate_public_source_execution_state": "NO_ALTERNATE_PUBLIC_SOURCE_TARGETS",
+        }
+    storage_path = alternate_root / "storage.json"
+    object_storage_path = alternate_root / "objects"
+    execution_result = build_evaluation_real_sample_execution(
+        targets_json=target_file,
+        seed_json=seed_file,
+        database_url=database_url,
+        target_backend=target_backend,
+        storage_path=storage_path,
+        object_storage_path=object_storage_path,
+        execute=True,
+        created_at=created_at,
+        target_ids=target_ids,
+        per_target_candidate_limit=per_target_candidate_limit,
+        professional_source_only=professional_source_only,
+        discovery_service=discovery_service,
+        capture_service=capture_service,
+    )
+    manifest_json = alternate_root / "controlled-live-public-batch-alternate-source-rerun-manifest.json"
+    post_run_outputs = _post_run_outputs(
+        rerun_result=execution_result,
+        rerun_manifest_json=manifest_json,
+        storage_path=storage_path,
+        output_dir=alternate_root,
+        execute=True,
+        created_at=created_at,
+    )
+    summary = _mapping(_mapping(execution_result).get("summary"))
+    state = (
+        "ALTERNATE_PUBLIC_SOURCE_EXECUTED_WITH_SNAPSHOTS"
+        if _int(summary.get("detail_snapshot_count")) > 0
+        else "ALTERNATE_PUBLIC_SOURCE_EXECUTED_REVIEW_REQUIRED"
+    )
+    return {
+        "alternate_public_source_enabled": True,
+        "alternate_public_source_execution_state": state,
+        "alternate_targets_json": str(target_file),
+        "alternate_seed_json": str(seed_file),
+        "alternate_requested_target_ids": target_ids,
+        "alternate_manifest_json": str(manifest_json),
+        "alternate_project_sample_count": _int(summary.get("project_sample_count")),
+        "alternate_detail_snapshot_count": _int(summary.get("detail_snapshot_count")),
+        "alternate_attachment_snapshot_count": _int(summary.get("attachment_snapshot_count")),
+        "alternate_post_run_outputs": post_run_outputs,
+        "execution_result": execution_result,
+    }
+
+
+def _alternate_needed_after_rerun(
+    *,
+    rerun_result: Mapping[str, Any] | None,
+    source_remediation_post_run_outputs: Mapping[str, Any],
+) -> bool:
+    rerun_summary = _mapping(_mapping(_mapping(rerun_result).get("manifest")).get("summary"))
+    return (
+        _int(rerun_summary.get("project_sample_count")) > 0
+        and _int(rerun_summary.get("detail_snapshot_count")) <= 0
+        and _int(source_remediation_post_run_outputs.get("post_run_source_remediation_record_count")) > 0
+    )
+
+
+def _write_alternate_source_target_files(
+    *,
+    queue_records: list[Mapping[str, Any]],
+    group_records: list[Mapping[str, Any]],
+    output_dir: Path,
+) -> tuple[Path, Path, list[str]]:
+    supported_profiles = _alternate_profiles(queue_records=queue_records, group_records=group_records)
+    targets: list[dict[str, Any]] = []
+    target_ids: list[str] = []
+    for profile_id in supported_profiles:
+        if profile_id != "GGZY-DEAL-LIST":
+            continue
+        for record in queue_records:
+            alternate_route = _mapping(record.get("alternate_public_source_route"))
+            if profile_id not in _string_list(alternate_route.get("alternate_source_profile_ids")):
+                continue
+            target_id = f"ALT-{profile_id}-{_fingerprint({'parent': record.get('parent_target_id'), 'kind': record.get('document_kind'), 'project': record.get('project_id')})[:12]}"
+            if target_id in target_ids:
+                continue
+            target_ids.append(target_id)
+            targets.append(
+                {
+                    "target_id": target_id,
+                    "source_parent_target_id": str(record.get("parent_target_id") or ""),
+                    "jurisdiction": str(record.get("jurisdiction") or "CN"),
+                    "platform_name": "全国公共资源交易平台",
+                    "entry_seed_id": "ENTRY-GGZY-DEAL-LIST",
+                    "required_fetch_profile_id_optional": profile_id,
+                    "source_family": "local_public_resource_trading_center",
+                    "project_type": "construction",
+                    "document_kind": str(record.get("document_kind") or "tender_file"),
+                    "target_count": 1,
+                    "selection_filters": _alternate_selection_filters(record),
+                }
+            )
+    target_file = output_dir / "alternate-public-source-targets.json"
+    seed_file = output_dir / "alternate-public-source-seed.json"
+    _write_json(
+        target_file,
+        {
+            "target_version": 1,
+            "target_set_id": "controlled-live-public-batch-alternate-public-source-targets-v1",
+            "minimum_total_sample_goal": len(targets),
+            "targets": targets,
+            "target_policy": {
+                "customer_visible_allowed": False,
+                "payment_execution_enabled": False,
+                "delivery_execution_enabled": False,
+                "query_miss_is_not_clearance": True,
+                "no_legal_conclusion": True,
+            },
+        },
+    )
+    _write_json(
+        seed_file,
+        {
+            "sources": [
+                {
+                    "seed_id": "ENTRY-GGZY-DEAL-LIST",
+                    "source_url": "https://www.ggzy.gov.cn/deal/dealList.html",
+                    "source_family": "local_public_resource_trading_center",
+                    "jurisdiction": "CN",
+                    "project_type": "construction",
+                    "document_kind": "tender_file",
+                    "source_title": "全国公共资源交易平台交易公开",
+                    "fetch_profile_id_optional": "GGZY-DEAL-LIST",
+                    "seed_tags": ["real_public_entry", "fetchable", "national_entry", "alternate_public_source"],
+                }
+            ]
+        },
+    )
+    return target_file, seed_file, target_ids
+
+
+def _alternate_profiles(
+    *,
+    queue_records: list[Mapping[str, Any]],
+    group_records: list[Mapping[str, Any]],
+) -> list[str]:
+    profiles: list[str] = []
+    for record in queue_records:
+        profiles.extend(
+            _string_list(_mapping(record.get("alternate_public_source_route")).get("alternate_source_profile_ids"))
+        )
+    for group in group_records:
+        profiles.extend(_string_list(_mapping(group.get("recommended_execution")).get("alternate_source_profile_ids")))
+    return _dedupe(profiles)
+
+
+def _alternate_selection_filters(record: Mapping[str, Any]) -> list[str]:
+    jurisdiction = str(record.get("jurisdiction") or "")
+    region_term = {
+        "CN-SD": "山东",
+        "CN-SH": "上海",
+        "CN-GD": "广东",
+        "CN-JS": "江苏",
+        "CN-HB": "湖北",
+        "CN-ZJ": "浙江",
+        "CN-SC": "四川",
+    }.get(jurisdiction, "")
+    route_terms = _string_list(_mapping(record.get("alternate_public_source_route")).get("alternate_query_terms"))
+    return _dedupe(
+        [
+            region_term,
+            *_public_query_terms(route_terms),
+            *_public_query_terms([record.get("project_match_key"), record.get("project_name")]),
+            "工程建设",
+        ]
+    )
+
+
+def _public_query_terms(values: Iterable[Any]) -> list[str]:
+    terms: list[str] = []
+    for value in values:
+        text = str(value or "").strip()
+        if not text:
+            continue
+        upper = text.upper()
+        if upper.startswith(("PROJ-", "REAL-", "ALT-", "CLPB-")):
+            continue
+        terms.append(text)
+    return terms
 
 
 def _post_run_outputs(
@@ -220,6 +475,8 @@ def _summary(
     requested_target_ids: list[str],
     rerun_result: Mapping[str, Any] | None,
     post_run_outputs: Mapping[str, Any],
+    alternate_run: Mapping[str, Any],
+    enable_alternate_public_source: bool,
     execute: bool,
 ) -> dict[str, Any]:
     rerun_manifest = _mapping(_mapping(rerun_result).get("manifest"))
@@ -269,7 +526,21 @@ def _summary(
         "post_run_source_remediation_closeout_state": str(
             post_run_outputs.get("post_run_source_remediation_closeout_state") or ""
         ),
-        "next_required_step": _next_required_step(state, post_run_outputs=post_run_outputs),
+        "alternate_public_source_enabled": bool(enable_alternate_public_source),
+        "alternate_public_source_execution_state": str(
+            alternate_run.get("alternate_public_source_execution_state") or ""
+        ),
+        "alternate_requested_target_ids": _string_list(alternate_run.get("alternate_requested_target_ids")),
+        "alternate_project_sample_count": _int(alternate_run.get("alternate_project_sample_count")),
+        "alternate_detail_snapshot_count": _int(alternate_run.get("alternate_detail_snapshot_count")),
+        "alternate_attachment_snapshot_count": _int(alternate_run.get("alternate_attachment_snapshot_count")),
+        "alternate_manifest_json": str(alternate_run.get("alternate_manifest_json") or ""),
+        "next_required_step": _next_required_step(
+            state,
+            post_run_outputs=post_run_outputs,
+            alternate_run=alternate_run,
+            enable_alternate_public_source=enable_alternate_public_source,
+        ),
         "customer_visible_allowed": False,
         "external_send_enabled": False,
         "payment_execution_enabled": False,
@@ -300,13 +571,30 @@ def _execution_state(
     return "SOURCE_REMEDIATION_RERUN_EXECUTED_NO_SAMPLES"
 
 
-def _next_required_step(state: str, *, post_run_outputs: Mapping[str, Any]) -> str:
+def _next_required_step(
+    state: str,
+    *,
+    post_run_outputs: Mapping[str, Any],
+    alternate_run: Mapping[str, Any],
+    enable_alternate_public_source: bool,
+) -> str:
+    alternate_state = str(alternate_run.get("alternate_public_source_execution_state") or "")
+    if alternate_state == "ALTERNATE_PUBLIC_SOURCE_EXECUTED_WITH_SNAPSHOTS":
+        return "review_alternate_public_source_evidence_before_gray_launch"
+    if alternate_state == "ALTERNATE_PUBLIC_SOURCE_EXECUTED_REVIEW_REQUIRED":
+        return "review_alternate_public_source_execution_result"
     if state == "NO_SOURCE_REMEDIATION_REQUIRED":
         return "gray_launch_review_if_other_gates_ready"
     if state == "SOURCE_REMEDIATION_RERUN_PLANNED":
         return "rerun_source_remediation_execution_with_execute"
     if state == "SOURCE_REMEDIATION_TARGETS_NOT_FOUND":
         return "repair_or_expand_evaluation_target_registry"
+    if (
+        state == "SOURCE_REMEDIATION_RERUN_EXECUTED_REVIEW_REQUIRED"
+        and _int(post_run_outputs.get("post_run_source_remediation_record_count")) > 0
+        and not enable_alternate_public_source
+    ):
+        return "execute_alternate_public_source_queries"
     if state == "SOURCE_REMEDIATION_RERUN_EXECUTED_WITH_SNAPSHOTS":
         if _int(post_run_outputs.get("post_run_source_remediation_record_count")) > 0:
             return "continue_source_remediation_queue"
@@ -347,6 +635,10 @@ def _markdown(result: Mapping[str, Any]) -> str:
         f"- rerun_project_sample_count: {summary.get('rerun_project_sample_count')}",
         f"- rerun_detail_snapshot_count: {summary.get('rerun_detail_snapshot_count')}",
         f"- source_remediation_execution_state: {summary.get('source_remediation_execution_state')}",
+        f"- alternate_public_source_enabled: {str(bool(summary.get('alternate_public_source_enabled'))).lower()}",
+        f"- alternate_public_source_execution_state: {summary.get('alternate_public_source_execution_state')}",
+        f"- alternate_project_sample_count: {summary.get('alternate_project_sample_count')}",
+        f"- alternate_detail_snapshot_count: {summary.get('alternate_detail_snapshot_count')}",
         f"- next_required_step: {summary.get('next_required_step')}",
         f"- customer_visible_allowed: {str(bool(summary.get('customer_visible_allowed'))).lower()}",
         f"- query_miss_is_not_clearance: {str(bool(summary.get('query_miss_is_not_clearance'))).lower()}",
@@ -428,6 +720,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--target-limit", type=int, default=None)
     parser.add_argument("--per-target-candidate-limit", type=int, default=1)
     parser.add_argument("--professional-source-only", action="store_true")
+    parser.add_argument("--enable-alternate-public-source", action="store_true")
     parser.add_argument("--execute", action="store_true")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
@@ -443,6 +736,7 @@ def main(argv: list[str] | None = None) -> int:
         target_limit=args.target_limit,
         per_target_candidate_limit=args.per_target_candidate_limit,
         professional_source_only=args.professional_source_only,
+        enable_alternate_public_source=args.enable_alternate_public_source,
         execute=args.execute,
     )
     if args.json:
