@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
@@ -44,6 +45,7 @@ def build_controlled_live_public_batch_evidence_summary(
         sample_records=sample_records,
         object_index=object_index,
     )
+    evidence_graph = _evidence_graph(summary=summary, sample_records=sample_records)
     result = {
         "manifest_kind": CONTROLLED_LIVE_PUBLIC_BATCH_EVIDENCE_SUMMARY_KIND,
         "manifest_version": CONTROLLED_LIVE_PUBLIC_BATCH_EVIDENCE_SUMMARY_VERSION,
@@ -52,6 +54,7 @@ def build_controlled_live_public_batch_evidence_summary(
         "source_real_sample_execution_json": str(execution_path),
         "source_storage_json": str(storage_path or ""),
         "summary": summary,
+        "evidence_graph": evidence_graph,
         "target_evidence_table": {"records": target_records, "summary": summary},
         "sample_evidence_table": {"records": sample_records, "summary": summary},
         "safety": _safety(),
@@ -267,8 +270,144 @@ def _safety() -> dict[str, Any]:
     }
 
 
+def _evidence_graph(*, summary: Mapping[str, Any], sample_records: list[Mapping[str, Any]]) -> dict[str, Any]:
+    outcome_counts = _mapping(summary.get("public_source_outcome_counts"))
+    decision_counts = _mapping(summary.get("machine_verification_decision_counts"))
+    hit_count = _int(outcome_counts.get("PUBLIC_SOURCE_HIT_WITH_HASHED_SNAPSHOT"))
+    partial_count = _int(outcome_counts.get("PUBLIC_SOURCE_PARTIAL_OR_BLOCKED_REVIEW"))
+    no_match_count = _int(outcome_counts.get("PUBLIC_SOURCE_NO_MATCH_REVIEW"))
+    stage4_count = _int(decision_counts.get("PUBLIC_SOURCE_SNAPSHOT_CAPTURED_REQUIRES_STAGE4_EVIDENCE_READBACK"))
+    partial_not_clearance_count = _int(decision_counts.get("PUBLIC_SOURCE_PARTIAL_OR_BLOCKED_NOT_CLEARANCE"))
+    no_match_not_clearance_count = _int(decision_counts.get("CURRENT_PUBLIC_SOURCE_RETURNED_NO_MATCH_NOT_CLEARANCE"))
+    nodes = [
+        _graph_node(
+            "batch",
+            "受控公开源批次",
+            f"样本 {summary.get('project_sample_count')} / 目标 {summary.get('target_execution_bucket_count')}",
+            "batch",
+        ),
+        _graph_node(
+            "public_sources",
+            "公开源执行",
+            f"候选 {summary.get('discovery_candidate_count')} / 来源 {len(_mapping(summary.get('source_profile_counts')))}",
+            "source",
+        ),
+        _graph_node(
+            "hashed_snapshots",
+            "证据 hash 固化",
+            f"快照 hash {summary.get('fixed_snapshot_sha256_count')}",
+            "evidence",
+        ),
+        _graph_node(
+            "hit_with_hash",
+            "命中且已固化",
+            f"{hit_count}",
+            "outcome",
+        ),
+        _graph_node(
+            "partial_or_blocked",
+            "部分阻断",
+            f"{partial_count}",
+            "outcome",
+        ),
+        _graph_node(
+            "no_match",
+            "未命中",
+            f"{no_match_count}",
+            "outcome",
+        ),
+        _graph_node(
+            "stage4_readback",
+            "下一步 Stage4 回读",
+            f"{stage4_count}",
+            "decision",
+        ),
+        _graph_node(
+            "not_clearance",
+            "不能当作放行",
+            f"{partial_not_clearance_count + no_match_not_clearance_count}",
+            "decision",
+        ),
+        _graph_node(
+            "safety_boundary",
+            "安全边界",
+            "不客户可见 / 不支付 / 不交付",
+            "gate",
+        ),
+    ]
+    edges = [
+        _graph_edge("batch", "public_sources", "execute"),
+        _graph_edge("public_sources", "hit_with_hash", "hit"),
+        _graph_edge("public_sources", "partial_or_blocked", "blocked"),
+        _graph_edge("public_sources", "no_match", "no_match"),
+        _graph_edge("hit_with_hash", "hashed_snapshots", "fix"),
+        _graph_edge("hashed_snapshots", "stage4_readback", "readback_required"),
+        _graph_edge("partial_or_blocked", "not_clearance", "review"),
+        _graph_edge("no_match", "not_clearance", "review"),
+        _graph_edge("batch", "safety_boundary", "guarded"),
+    ]
+    sample_graph_records = [
+        {
+            "sample_id": str(record.get("sample_id") or ""),
+            "project_id": str(record.get("project_id") or ""),
+            "project_name": str(record.get("project_name") or ""),
+            "source_profile_id": str(record.get("source_profile_id") or ""),
+            "document_kind": str(record.get("document_kind") or ""),
+            "evidence_fixation_state": str(record.get("evidence_fixation_state") or ""),
+            "fixed_snapshot_sha256_count": len(_string_list(record.get("fixed_snapshot_sha256s"))),
+            "public_source_outcome": str(record.get("public_source_outcome") or ""),
+            "machine_verification_decision": str(record.get("machine_verification_decision") or ""),
+            "requires_stage4_evidence_readback": bool(record.get("requires_stage4_evidence_readback")),
+        }
+        for record in sample_records
+    ]
+    graph = {
+        "graph_kind": "controlled_live_public_batch_evidence_graph_v1",
+        "nodes": nodes,
+        "edges": edges,
+        "sample_graph_records": sample_graph_records,
+    }
+    graph["mermaid"] = _mermaid_graph(nodes, edges)
+    return graph
+
+
+def _graph_node(node_id: str, label: str, detail: str, node_type: str) -> dict[str, str]:
+    return {"id": node_id, "label": label, "detail": detail, "type": node_type}
+
+
+def _graph_edge(source: str, target: str, label: str) -> dict[str, str]:
+    return {"source": source, "target": target, "label": label}
+
+
+def _mermaid_graph(nodes: list[Mapping[str, Any]], edges: list[Mapping[str, Any]]) -> str:
+    lines = ["flowchart LR"]
+    for node in nodes:
+        node_id = _mermaid_id(str(node.get("id") or "node"))
+        label = _mermaid_label(f"{node.get('label') or ''}\\n{node.get('detail') or ''}")
+        lines.append(f'  {node_id}["{label}"]')
+    for edge in edges:
+        source = _mermaid_id(str(edge.get("source") or "source"))
+        target = _mermaid_id(str(edge.get("target") or "target"))
+        label = _mermaid_label(str(edge.get("label") or ""))
+        lines.append(f"  {source} -- {label} --> {target}")
+    return "\n".join(lines)
+
+
+def _mermaid_id(value: str) -> str:
+    text = re.sub(r"[^A-Za-z0-9_]+", "_", value)
+    text = text.strip("_") or "node"
+    if text[0].isdigit():
+        text = f"n_{text}"
+    return text
+
+
+def _mermaid_label(value: str) -> str:
+    return str(value).replace("\\", "\\\\").replace('"', "'").replace("\n", "<br/>")
+
+
 def _markdown(result: Mapping[str, Any]) -> str:
     summary = _mapping(result.get("summary"))
+    graph = _mapping(result.get("evidence_graph"))
     lines = [
         "# Controlled Live Public Batch Evidence Summary",
         "",
@@ -289,6 +428,9 @@ def _markdown(result: Mapping[str, Any]) -> str:
     lines.extend(["", "## Machine Decisions"])
     for key, value in _mapping(summary.get("machine_verification_decision_counts")).items():
         lines.append(f"- {key}: {value}")
+    mermaid = str(graph.get("mermaid") or "").strip()
+    if mermaid:
+        lines.extend(["", "## Evidence Graph", "", "```mermaid", mermaid, "```"])
     return "\n".join(lines) + "\n"
 
 

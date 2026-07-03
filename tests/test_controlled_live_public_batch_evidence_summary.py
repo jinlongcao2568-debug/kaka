@@ -35,6 +35,9 @@ class ControlledLivePublicBatchEvidenceSummaryTests(unittest.TestCase):
                 created_at="2026-07-03T00:00:00+00:00",
             )
             output_exists = (out / "controlled-live-public-batch-evidence-summary-v1.json").exists()
+            markdown_text = (out / "controlled-live-public-batch-evidence-summary-v1.md").read_text(
+                encoding="utf-8"
+            )
 
         summary = result["summary"]
         self.assertEqual(summary["target_execution_bucket_count"], 2)
@@ -62,6 +65,10 @@ class ControlledLivePublicBatchEvidenceSummaryTests(unittest.TestCase):
         self.assertFalse(result["customer_visible_allowed"])
         self.assertTrue(result["query_miss_is_not_clearance"])
         self.assertTrue(output_exists)
+        self.assertIn("evidence_graph", result)
+        self.assertIn("flowchart LR", result["evidence_graph"]["mermaid"])
+        self.assertIn("## Evidence Graph", markdown_text)
+        self.assertEqual(len(result["evidence_graph"]["sample_graph_records"]), 2)
 
     def test_safe_path_part_truncates_long_titles_for_windows_archive_paths(self) -> None:
         long_title = "新建龙岩至龙川铁路武平至梅州段广东段新建漳州至汕头高速铁路广东段" * 3
@@ -70,6 +77,35 @@ class ControlledLivePublicBatchEvidenceSummaryTests(unittest.TestCase):
 
         self.assertLessEqual(len(safe), 48)
         self.assertRegex(safe, r"_[0-9a-f]{12}$")
+
+    def test_professional_runner_autogenerates_controlled_live_evidence_summary(self) -> None:
+        script = (ROOT / "scripts" / "run-professional-clean-v1-real-samples.ps1").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("build-controlled-live-public-batch-evidence-summary-v1.ps1", script)
+        self.assertIn("-RealSampleExecutionJson", script)
+        self.assertIn("-StorageJson", script)
+        self.assertIn("$EvidenceSummaryOutputRoot", script)
+        self.assertIn('"-OutputRoot", $EvidenceSummaryOutputRoot', script)
+
+    def test_controlled_live_entrypoint_runs_execution_summary_archive_and_closeout(self) -> None:
+        script = (ROOT / "scripts" / "run-controlled-live-public-batch-v1.ps1").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("run-evaluation-real-sample-execution.ps1", script)
+        self.assertIn("-UseAllTargets", script)
+        self.assertIn("build-controlled-live-public-batch-evidence-summary-v1.ps1", script)
+        self.assertIn("build-professional-clean-project-archive.ps1", script)
+        self.assertIn("controlled-live-public-batch-evidence-summary-v1.json", script)
+        self.assertIn("project-file-audit.json", script)
+        self.assertIn("controlled-live-public-batch-closeout.json", script)
+        self.assertIn("NOT_READY_REAL_PUBLIC_EXECUTION_REQUIRED", script)
+        self.assertIn("NOT_READY_STAGE4_EVIDENCE_READBACK_REQUIRED", script)
+        self.assertIn("customer_visible_allowed = $false", script)
+        self.assertIn("payment_execution_enabled = $false", script)
+        self.assertIn("delivery_execution_enabled = $false", script)
 
 
 def _write_execution(path: Path) -> None:
