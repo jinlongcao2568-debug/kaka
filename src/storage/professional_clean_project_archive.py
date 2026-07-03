@@ -1378,7 +1378,11 @@ def _is_html_pollution(content_type: str, extension: str) -> bool:
 def _safe_path_part(value: str) -> str:
     text = str(value or "").strip() or "UNKNOWN"
     text = re.sub(r"[^A-Za-z0-9\u4e00-\u9fff._-]+", "_", text)
-    return text.strip("._") or "UNKNOWN"
+    safe = text.strip("._") or "UNKNOWN"
+    if len(safe) <= 48:
+        return safe
+    digest = hashlib.sha256(safe.encode("utf-8")).hexdigest()[:12]
+    return f"{safe[:35].rstrip('._')}_{digest}"
 
 
 def _counts(values: Any) -> dict[str, int]:

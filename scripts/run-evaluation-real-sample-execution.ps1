@@ -78,6 +78,7 @@ New-Item -ItemType Directory -Force -Path $ObjectStoragePath | Out-Null
 New-Item -ItemType Directory -Force -Path (Split-Path -Parent $OutputJson) | Out-Null
 
 $env:PYTHONPATH = "$repoRoot\src;$repoRoot\tests"
+$env:PYTHONIOENCODING = "utf-8"
 
 $argsList = @(
     "-m", "storage.evaluation_real_sample_execution",
