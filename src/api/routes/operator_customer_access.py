@@ -8,6 +8,7 @@ from __future__ import annotations
 import hashlib
 import json
 import time
+from pathlib import Path
 from typing import Any, Mapping
 
 from api.deps import get_settings
@@ -23,6 +24,16 @@ from api.routes.stage1 import create_stage1_scheduler_task, read_stage1_schedule
 from shared.contracts_runtime import StageBundle
 from shared.pipeline import run_internal_chain, run_internal_chain_until_stage6
 from shared.utils import build_id, utc_now_iso
+from runtime.controlled_gray_public_batch_segments import (
+    build_controlled_gray_public_batch_segment_aggregate,
+    build_controlled_gray_public_batch_segments,
+)
+from runtime.controlled_gray_public_orchestrator import (
+    build_controlled_gray_public_orchestrator_manifest,
+)
+from runtime.controlled_gray_public_source_targets import (
+    build_controlled_gray_public_source_targets,
+)
 from stage1_tasking.market_scan import Stage1MarketScanEngine
 from stage1_tasking.region_adapters import (
     list_region_source_adapters,
@@ -107,6 +118,12 @@ DEFAULT_OPERATOR_TASK_PAYLOAD = {
     "external_release_enabled": False,
 }
 
+REPO_ROOT = Path(__file__).resolve().parents[3]
+CONTROLLED_GRAY_SOURCE_TARGETS_JSON = (
+    REPO_ROOT / "contracts" / "evaluation" / "evaluation_real_project_sample_targets.json"
+)
+CONTROLLED_GRAY_ORCHESTRATOR_SEARCH_ROOT = REPO_ROOT / "tmp" / "evaluation-real-samples"
+
 
 def _json_safe_snapshot_replay(replay: Mapping[str, Any]) -> dict[str, Any]:
     safe = dict(replay)
@@ -170,6 +187,9 @@ def _operator_operation_readback(routes: list[dict[str, Any]] | None = None) -> 
                 "real_sample_flow_visible",
                 "real_world_sellability_readiness",
                 "stage6_review_loop_status_readback",
+                "controlled_gray_public_orchestrator",
+                "controlled_gray_orchestrator_readback",
+                "controlled_gray_orchestrator_prepare",
             )
             if key in route
         }
@@ -4669,6 +4689,315 @@ def read_owner_real_public_source_capture(payload: Mapping[str, Any]) -> dict[st
     }
 
 
+def _controlled_gray_orchestrator_work_item_id() -> str:
+    return "operator-controlled-gray-public-orchestrator-runs"
+
+
+def _controlled_gray_orchestrator_output_root(payload: Mapping[str, Any]) -> Path:
+    explicit = str(payload.get("output_root") or "").strip()
+    if explicit:
+        return Path(explicit)
+    stamp = build_persisted_at().replace(":", "").replace("+", "").replace("-", "")
+    return CONTROLLED_GRAY_ORCHESTRATOR_SEARCH_ROOT / f"operator-console-controlled-gray-public-orchestrator-{stamp}"
+
+
+def _load_json_file(path: Path) -> dict[str, Any]:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8-sig"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return dict(payload) if isinstance(payload, Mapping) else {}
+
+
+def _latest_controlled_gray_orchestrator_manifest_path() -> Path | None:
+    actions = OperatorActionRepository().list(
+        work_item_id=_controlled_gray_orchestrator_work_item_id()
+    )
+    actions.sort(key=lambda action: str(action.completed_at or action.requested_at or ""), reverse=True)
+    for action in actions:
+        manifest_json = str(dict(action.object_refs).get("manifest_json") or "").strip()
+        if manifest_json:
+            path = Path(manifest_json)
+            if path.is_file():
+                return path
+    if not CONTROLLED_GRAY_ORCHESTRATOR_SEARCH_ROOT.exists():
+        return None
+    candidates = [
+        path
+        for path in CONTROLLED_GRAY_ORCHESTRATOR_SEARCH_ROOT.rglob(
+            "controlled-gray-public-orchestrator-v1.json"
+        )
+        if path.is_file()
+    ]
+    if not candidates:
+        return None
+    return max(candidates, key=lambda path: path.stat().st_mtime)
+
+
+def _controlled_gray_orchestrator_recommended_command(*, execute: bool = False) -> str:
+    parts = [
+        "powershell.exe",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "scripts\\run-controlled-gray-public-orchestrator-v1.ps1",
+        "-PerTargetSampleGoal",
+        "12",
+        "-GroupBy",
+        "target",
+        "-PerTargetCandidateLimit",
+        "12",
+        "-SegmentTimeoutSeconds",
+        "900",
+        "-ProfessionalSourceOnly",
+        "-AutoExecuteSourceRemediation",
+    ]
+    if execute:
+        parts.append("-Execute")
+    return " ".join(parts)
+
+
+def _controlled_gray_orchestrator_action_payload(action: PersistedOperatorAction) -> dict[str, Any]:
+    refs = dict(action.object_refs)
+    trace = dict(action.trace_refs)
+    return {
+        "run_id": action.action_event_id,
+        "action_state": action.action_state,
+        "orchestration_state": refs.get("orchestration_state"),
+        "aggregate_gray_review_state": refs.get("aggregate_gray_review_state"),
+        "output_root": refs.get("output_root"),
+        "manifest_json": refs.get("manifest_json"),
+        "manifest_sha256": refs.get("manifest_sha256"),
+        "project_sample_count": int(refs.get("project_sample_count") or 0),
+        "fixed_snapshot_sha256_count": int(refs.get("fixed_snapshot_sha256_count") or 0),
+        "stage4_readback_missing_sample_count": int(
+            refs.get("stage4_readback_missing_sample_count") or 0
+        ),
+        "source_remediation_final_record_count": int(
+            refs.get("source_remediation_final_record_count") or 0
+        ),
+        "recommended_execute_command": trace.get("recommended_execute_command"),
+        "requested_at": action.requested_at,
+        "completed_at": action.completed_at,
+        "repository_backed": True,
+        "internal_only": True,
+        "execute_enabled": False,
+        "customer_visible_allowed": False,
+        "payment_execution_enabled": False,
+        "delivery_execution_enabled": False,
+        "automatic_refund_enabled": False,
+    }
+
+
+def _controlled_gray_orchestrator_runs() -> list[dict[str, Any]]:
+    actions = OperatorActionRepository().list(
+        work_item_id=_controlled_gray_orchestrator_work_item_id()
+    )
+    runs = [_controlled_gray_orchestrator_action_payload(action) for action in actions]
+    runs.sort(key=lambda row: str(row.get("requested_at") or ""), reverse=True)
+    return runs
+
+
+def _record_controlled_gray_orchestrator_run(
+    manifest: Mapping[str, Any],
+    *,
+    output_root: Path,
+) -> dict[str, Any]:
+    requested_at = build_persisted_at()
+    summary = dict(manifest.get("summary") or {})
+    manifest_json = output_root / "controlled-gray-public-orchestrator-v1.json"
+    run_id = f"CONTROLLED-GRAY-ORCHESTRATOR-{requested_at}".replace(":", "").replace("+", "")
+    action = PersistedOperatorAction(
+        action_event_id=run_id,
+        work_item_id=_controlled_gray_orchestrator_work_item_id(),
+        stage_scope=6,
+        action_id="controlled_gray_public_orchestrator_prepare",
+        button_flow_id="owner_console_controlled_gray_public_orchestrator_prepare",
+        action_state=str(summary.get("orchestration_state") or "UNKNOWN"),
+        resulting_assignment_lifecycle_state=None,
+        requested_by_role="single_operator",
+        requested_by="卡卡罗特",
+        assigned_owner_role="single_operator",
+        assigned_owner="卡卡罗特",
+        reviewer_role="single_operator",
+        reviewer="卡卡罗特",
+        reason="owner_console_prepare_controlled_gray_public_orchestrator_manifest",
+        object_refs={
+            "output_root": str(output_root),
+            "manifest_json": str(manifest_json),
+            "manifest_sha256": str(manifest.get("manifest_sha256") or ""),
+            "orchestration_state": str(summary.get("orchestration_state") or ""),
+            "aggregate_gray_review_state": str(summary.get("aggregate_gray_review_state") or ""),
+            "project_sample_count": str(summary.get("project_sample_count") or 0),
+            "fixed_snapshot_sha256_count": str(summary.get("fixed_snapshot_sha256_count") or 0),
+            "stage4_readback_missing_sample_count": str(
+                summary.get("stage4_readback_missing_sample_count") or 0
+            ),
+            "source_remediation_final_record_count": str(
+                summary.get("source_remediation_final_record_count") or 0
+            ),
+        },
+        trace_refs={
+            "operator_console_route": "/operator-console/controlled-gray-orchestrator",
+            "prepare_path": "/operator-console/controlled-gray-orchestrator/prepare",
+            "recommended_execute_command": _controlled_gray_orchestrator_recommended_command(
+                execute=True
+            ),
+            "recommended_dry_run_command": _controlled_gray_orchestrator_recommended_command(
+                execute=False
+            ),
+        },
+        audit_refs={
+            "run_audit_ref": run_id,
+            "internal_only": "true",
+            "explicit_operator_action": "true",
+            "execute_enabled": "false",
+            "customer_visible_allowed": "false",
+            "payment_execution_enabled": "false",
+            "delivery_execution_enabled": "false",
+            "automatic_refund_enabled": "false",
+        },
+        requested_at=requested_at,
+        completed_at=requested_at,
+    )
+    OperatorActionRepository().append(action)
+    return _controlled_gray_orchestrator_action_payload(action)
+
+
+def preview_controlled_gray_public_orchestrator(
+    payload: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    del payload
+    latest_path = _latest_controlled_gray_orchestrator_manifest_path()
+    latest_manifest = _load_json_file(latest_path) if latest_path else {}
+    summary = dict(latest_manifest.get("summary") or {})
+    capability_matrix = dict(latest_manifest.get("automation_capability_matrix") or {})
+    runs = _controlled_gray_orchestrator_runs()
+    return {
+        "surface_id": "operator_controlled_gray_public_orchestrator",
+        "surface_mode": "internal-readback",
+        "internal_only": True,
+        "readiness_only": True,
+        "projection_only": True,
+        "repository_backed_readback": True,
+        "controlled_gray_public_orchestrator": True,
+        "latest_manifest_available": bool(latest_manifest),
+        "latest_manifest_json": str(latest_path or ""),
+        "latest_manifest": latest_manifest,
+        "summary": summary,
+        "automation_capability_matrix": capability_matrix,
+        "run_count": len(runs),
+        "runs": runs,
+        "recommended_dry_run_command": _controlled_gray_orchestrator_recommended_command(
+            execute=False
+        ),
+        "recommended_execute_command": _controlled_gray_orchestrator_recommended_command(
+            execute=True
+        ),
+        "owner_next_action": str(
+            summary.get("next_required_step")
+            or "prepare_controlled_gray_public_orchestrator_manifest"
+        ),
+        "workbench_trigger_ready": True,
+        "execute_from_workbench_enabled": False,
+        "safe_prepare_only": True,
+        "live_execution_enabled": False,
+        "external_release_enabled": False,
+        "customer_visible_allowed": False,
+        "payment_execution_enabled": False,
+        "delivery_execution_enabled": False,
+        "automatic_refund_enabled": False,
+        "query_miss_is_not_clearance": True,
+        "no_legal_conclusion": True,
+    }
+
+
+def prepare_controlled_gray_public_orchestrator(payload: Mapping[str, Any]) -> dict[str, Any]:
+    if bool(payload.get("execute")):
+        raise ValueError("execute is not allowed from operator console; use CLI with explicit approval")
+    output_root = _controlled_gray_orchestrator_output_root(payload)
+    source_targets_json = Path(
+        str(payload.get("source_targets_json") or CONTROLLED_GRAY_SOURCE_TARGETS_JSON)
+    )
+    per_target_sample_goal = int(payload.get("per_target_sample_goal") or 12)
+    per_target_candidate_limit = int(payload.get("per_target_candidate_limit") or 12)
+    target_limit = int(payload.get("target_limit") or 0)
+    group_by = str(payload.get("group_by") or "target")
+    source_targets_root = output_root / "source-targets"
+    segments_root = output_root / "segments"
+    aggregate_root = segments_root / "aggregate"
+
+    source_targets = build_controlled_gray_public_source_targets(
+        source_targets_json=source_targets_json,
+        output_root=source_targets_root,
+        per_target_sample_goal=per_target_sample_goal,
+    )
+    derived_targets_json = Path(str(source_targets.get("targets_json") or ""))
+    segment_plan = build_controlled_gray_public_batch_segments(
+        targets_json=derived_targets_json,
+        output_root=segments_root,
+        run_root_base=segments_root / "runs",
+        group_by=group_by,
+        per_target_candidate_limit=per_target_candidate_limit,
+        target_limit=target_limit,
+        professional_source_only=True,
+        execute=False,
+        auto_execute_source_remediation=True,
+    )
+    segments_json = segments_root / "controlled-gray-public-batch-segments-v1.json"
+    aggregate = build_controlled_gray_public_batch_segment_aggregate(
+        segment_plan_json=segments_json,
+        output_root=aggregate_root,
+    )
+    aggregate_json = aggregate_root / "controlled-gray-public-batch-segment-aggregate-v1.json"
+    manifest = build_controlled_gray_public_orchestrator_manifest(
+        output_root=output_root,
+        source_targets_json=source_targets_json,
+        derived_targets_json=derived_targets_json,
+        source_targets_summary_json=source_targets_root
+        / "controlled-gray-public-source-targets-summary-v1.json",
+        segments_json=segments_json,
+        aggregate_json=aggregate_json,
+        execute=False,
+        group_by=group_by,
+        per_target_sample_goal=per_target_sample_goal,
+        per_target_candidate_limit=per_target_candidate_limit,
+        target_limit=target_limit,
+        segment_timeout_seconds=int(payload.get("segment_timeout_seconds") or 900),
+        professional_source_only=True,
+        auto_execute_source_remediation=True,
+    )
+    run_record = _record_controlled_gray_orchestrator_run(manifest, output_root=output_root)
+    return {
+        "surface_id": "operator_controlled_gray_public_orchestrator_prepare",
+        "internal_only": True,
+        "repository_backed_readback": True,
+        "explicit_operator_action": True,
+        "controlled_gray_public_orchestrator": True,
+        "safe_prepare_only": True,
+        "execute_from_workbench_enabled": False,
+        "output_root": str(output_root),
+        "source_targets_summary": source_targets.get("summary", {}),
+        "segment_summary": segment_plan.get("summary", {}),
+        "aggregate_summary": aggregate.get("summary", {}),
+        "manifest": manifest,
+        "summary": manifest.get("summary", {}),
+        "run_record": run_record,
+        "recommended_execute_command": _controlled_gray_orchestrator_recommended_command(
+            execute=True
+        ),
+        "live_execution_enabled": False,
+        "external_release_enabled": False,
+        "customer_visible_allowed": False,
+        "payment_execution_enabled": False,
+        "delivery_execution_enabled": False,
+        "automatic_refund_enabled": False,
+        "query_miss_is_not_clearance": True,
+        "no_legal_conclusion": True,
+    }
+
+
 def preview_scheduler_status(payload: Mapping[str, Any] | None = None) -> dict[str, Any]:
     storage_bootstrap, _ = _settings_bootstrap()
     worker_queue = dict(storage_bootstrap.get("worker_queue_bootstrap", {}))
@@ -4889,6 +5218,29 @@ OPERATOR_CUSTOMER_ACCESS_ROUTES = [
         **OPERATOR_CUSTOMER_ACCESS_ROUTE_METADATA,
     },
     {
+        "operationId": "previewControlledGrayPublicOrchestrator",
+        "method": "GET",
+        "path": "/operator-console/controlled-gray-orchestrator",
+        "handler": preview_controlled_gray_public_orchestrator,
+        "controlled_gray_public_orchestrator": True,
+        "controlled_gray_orchestrator_readback": True,
+        "repository_backed_readback": True,
+        "raw_json_required": False,
+        **OPERATOR_CUSTOMER_ACCESS_ROUTE_METADATA,
+    },
+    {
+        "operationId": "prepareControlledGrayPublicOrchestrator",
+        "method": "POST",
+        "path": "/operator-console/controlled-gray-orchestrator/prepare",
+        "handler": prepare_controlled_gray_public_orchestrator,
+        "controlled_gray_public_orchestrator": True,
+        "controlled_gray_orchestrator_prepare": True,
+        "repository_backed_readback": True,
+        "explicit_operator_action": True,
+        "raw_json_required": False,
+        **OPERATOR_CUSTOMER_ACCESS_ROUTE_METADATA,
+    },
+    {
         "operationId": "readOperatorTask",
         "method": "GET",
         "path": "/operator-console/tasks/{queue_item_id}",
@@ -4958,7 +5310,9 @@ __all__ = [
     "list_operator_real_candidates",
     "list_operator_region_adapters",
     "list_real_public_source_profiles",
+    "prepare_controlled_gray_public_orchestrator",
     "preview_autonomous_operator_workbench",
+    "preview_controlled_gray_public_orchestrator",
     "preview_customer_artifact_access_candidate",
     "preview_go_live_readiness",
     "preview_operator_customer_access_readiness",

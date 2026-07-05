@@ -476,6 +476,7 @@ class ControlledLivePublicBatchEvidenceSummaryTests(unittest.TestCase):
         summary = result["summary"]
         self.assertEqual(summary["orchestration_state"], "CONTROLLED_GRAY_REVIEW_APPROVED")
         self.assertTrue(summary["can_enter_controlled_gray_execution"])
+        self.assertTrue(summary["workbench_trigger_ready"])
         self.assertEqual(summary["project_sample_count"], 105)
         self.assertEqual(summary["remaining_evidence_blocker_count"], 0)
         capabilities = {
@@ -485,6 +486,7 @@ class ControlledLivePublicBatchEvidenceSummaryTests(unittest.TestCase):
         self.assertEqual(capabilities["stage4_evidence_readback"]["state"], "AUTOMATED_IN_BATCH_CLOSEOUT")
         self.assertEqual(capabilities["source_remediation"]["state"], "AUTOMATED_WHEN_ENABLED")
         self.assertEqual(capabilities["operator_gray_launch_decision"]["state"], "HUMAN_DECISION_RECORDED")
+        self.assertEqual(capabilities["workbench_trigger"]["state"], "WORKBENCH_PREPARE_READY")
         self.assertEqual(capabilities["background_scheduler"]["state"], "NOT_IMPLEMENTED")
         self.assertFalse(result["safety"]["customer_visible_allowed"])
         self.assertTrue(result["query_miss_is_not_clearance"])

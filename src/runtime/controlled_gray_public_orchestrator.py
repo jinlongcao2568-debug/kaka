@@ -220,7 +220,7 @@ def _orchestrator_summary(
         "runtime_orchestration_manifest_ready": True,
         "pipeline_steps_automated_for_current_batch": bool(aggregate_summary),
         "unattended_recurring_run_ready": False,
-        "workbench_trigger_ready": False,
+        "workbench_trigger_ready": True,
         "customer_visible_allowed": False,
         "external_send_enabled": False,
         "payment_execution_enabled": False,
@@ -339,10 +339,10 @@ def _automation_capabilities(
         _capability(
             "workbench_trigger",
             "operator workbench trigger button",
-            "NOT_IMPLEMENTED",
+            "WORKBENCH_PREPARE_READY",
             False,
-            "",
-            next_required_step="wire_workbench_button_to_orchestrator_manifest",
+            "/operator-console/controlled-gray-orchestrator/prepare",
+            next_required_step="operator_can_prepare_manifest_from_workbench",
         ),
         _capability(
             "background_scheduler",

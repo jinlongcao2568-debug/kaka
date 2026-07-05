@@ -1020,6 +1020,7 @@ def render_operator_console(payload: Any) -> HTMLResponse:
     <button class="nav-link" type="button" data-view="search" aria-current="false">实战搜索</button>
     <button class="nav-link" type="button" data-view="autonomousWorkbench" aria-current="false">机会工作台</button>
     <button class="nav-link" type="button" data-view="run" aria-current="false">采集运行</button>
+    <button class="nav-link" type="button" data-view="grayOrchestrator" aria-current="false">灰度总控</button>
     <button class="nav-link" type="button" data-view="systemRelease" aria-current="false">系统与放行</button>
     <button class="nav-link" type="button" data-view="acceptanceContract" aria-current="false">验收契约</button>
     <a class="external" id="customerPortalLink" href="/customer-artifact-portal/OPP-HAPPY-001">证据包预览 · 样例</a>
@@ -1260,6 +1261,36 @@ def render_operator_console(payload: Any) -> HTMLResponse:
             </section>
           </div>
         </div>
+        <div class="view-panel" id="grayOrchestrator" data-view-panel="grayOrchestrator">
+          <section>
+            <h3>受控灰度总控</h3>
+            <p class="muted-text" id="grayOrchestratorNarrative">读取总控 manifest：源目标、分段、证据哈希、Stage4 回读、补救队列、人工灰度闸门和安全边界。</p>
+            <div class="rail" id="grayOrchestratorMetrics">
+              <div class="metric"><strong>--</strong><span>总控状态</span></div>
+              <div class="metric"><strong>--</strong><span>样本</span></div>
+              <div class="metric"><strong>--</strong><span>证据 hash</span></div>
+            </div>
+            <div id="grayOrchestratorSummary" class="empty-state">暂无总控读回。</div>
+            <div class="field-actions">
+              <button id="prepareGrayOrchestrator">生成总控计划</button>
+              <button class="secondary" id="refreshGrayOrchestrator">刷新总控状态</button>
+            </div>
+          </section>
+          <section>
+            <h3>自动化能力矩阵</h3>
+            <div id="grayOrchestratorCapabilities" class="compact-card-grid"></div>
+          </section>
+          <section>
+            <h3>总控运行记录</h3>
+            <p class="muted-text" id="grayOrchestratorRunMeta">运行记录由 OperatorActionRepository 持久化；页面刷新不会自动清空。</p>
+            <div id="grayOrchestratorRuns" class="empty-state">暂无总控运行记录。</div>
+          </section>
+          <section class="controlled_opening_requirement">
+            <h3>真实执行边界</h3>
+            <p>工作台按钮只生成受控计划和 manifest，不直接执行真实公开源批次。真实 `-Execute` 必须由 owner 在 CLI 明确运行，并继续保持客户可见、支付、交付、退款关闭。</p>
+            <pre id="grayOrchestratorExecuteCommand">等待总控读回...</pre>
+          </section>
+        </div>
         <div class="view-panel" id="systemRelease" data-view-panel="systemRelease">
           <section>
             <h3>服务商与调度状态</h3>
@@ -1452,6 +1483,28 @@ const stateLabels = {
   "FAIL": "未通过",
   "NOT_READY": "未就绪",
   "PERSISTED_UNTIL_EXPLICIT_OPERATOR_CLEAR": "持久保存，直到 owner 显式清空",
+  "CONTROLLED_GRAY_NOT_READY": "受控灰度未就绪",
+  "CONTROLLED_GRAY_REVIEW_APPROVED": "受控灰度复核已批准",
+  "CONTROLLED_GRAY_WAITING_OPERATOR_DECISION": "等待人工灰度决策",
+  "CONTROLLED_GRAY_REVIEW_REQUIRED": "需要灰度复核",
+  "CONTROLLED_GRAY_OPERATOR_HOLD": "人工暂缓",
+  "ORCHESTRATOR_BLOCKED_MISSING_AGGREGATE": "缺少聚合结果",
+  "READY_FOR_HUMAN_GRAY_LAUNCH_REVIEW": "可提交人工灰度复核",
+  "NOT_READY_SEGMENTS_INCOMPLETE": "分段未完成",
+  "NOT_READY_REAL_PUBLIC_EXECUTION_REQUIRED": "需要真实公开源执行",
+  "NOT_READY_STAGE4_EVIDENCE_READBACK_REQUIRED": "需要 Stage4 证据回读",
+  "NOT_READY_SOURCE_REMEDIATION_REQUIRED": "需要来源补救",
+  "WAITING_OPERATOR_APPROVAL": "等待人工审批",
+  "NOT_REQUESTABLE": "当前不可申请",
+  "AUTOMATED_BY_ORCHESTRATOR": "总控自动化",
+  "AUTOMATED_IN_BATCH_CLOSEOUT": "批次收口自动化",
+  "AUTOMATED_WHEN_ENABLED": "启用后自动化",
+  "HUMAN_GATE_REQUIRED": "需要人工闸门",
+  "HUMAN_DECISION_RECORDED": "人工决策已记录",
+  "WORKBENCH_PREPARE_READY": "工作台计划生成已接入",
+  "DISABLED_BY_SAFETY_BOUNDARY": "安全边界关闭",
+  "DRY_RUN_ONLY": "仅 dry-run",
+  "NOT_IMPLEMENTED": "未实现",
   "local_repository_operator_action_log": "本地仓库操作日志",
   "OperatorActionRepository": "操作动作仓库",
   "BLOCKED": "已拦截",
@@ -3080,6 +3133,98 @@ async function clearAutonomousSearchRuns() {
   await loadAutonomousSearchRuns();
   await loadRealWorldSellability();
 }
+function renderGrayOrchestrator(surface) {
+  const summary = surface?.summary || {};
+  const capabilities = surface?.automation_capability_matrix?.records || [];
+  const runs = Array.isArray(surface?.runs) ? surface.runs : [];
+  const state = summary.orchestration_state || "未生成";
+  const aggregateState = summary.aggregate_gray_review_state || "--";
+  const canEnter = Boolean(summary.can_enter_controlled_gray_execution);
+  $("grayOrchestratorNarrative").textContent = surface?.latest_manifest_available
+    ? `${labelOf(state)}：聚合状态 ${labelOf(aggregateState)}；下一步 ${labelOf(summary.next_required_step || "--")}。`
+    : "暂无总控 manifest；点击“生成总控计划”会创建源目标、分段计划、聚合读回和总控状态，不执行真实公开源。";
+  $("grayOrchestratorMetrics").innerHTML = [
+    `<div class="metric"><strong>${labelOf(state)}</strong><span>总控状态</span></div>`,
+    `<div class="metric"><strong>${summary.project_sample_count ?? 0}</strong><span>样本</span></div>`,
+    `<div class="metric"><strong>${summary.fixed_snapshot_sha256_count ?? 0}</strong><span>证据 hash</span></div>`
+  ].join("");
+  $("grayOrchestratorSummary").className = "";
+  $("grayOrchestratorSummary").innerHTML = renderRows([
+    ["总控 manifest", surface?.latest_manifest_json || "--"],
+    ["聚合状态", aggregateState],
+    ["人工灰度审批", summary.human_gray_launch_approval_state || "--"],
+    ["可进入受控灰度执行", canEnter ? "APPROVED" : "NOT_READY"],
+    ["计划分段", `${summary.completed_segment_count ?? 0}/${summary.segment_count ?? 0}`],
+    ["Stage4 缺失回读", summary.stage4_readback_missing_sample_count ?? 0],
+    ["来源补救剩余", summary.source_remediation_final_record_count ?? 0],
+    ["剩余证据阻断", summary.remaining_evidence_blocker_count ?? 0],
+    ["客户可见", summary.customer_visible_allowed ? "ALLOW" : "DISABLED_BY_SAFETY_BOUNDARY"],
+    ["支付/交付/退款", summary.payment_execution_enabled || summary.delivery_execution_enabled || summary.automatic_refund_enabled ? "ALLOW" : "DISABLED_BY_SAFETY_BOUNDARY"],
+    ["下一步", summary.next_required_step || surface?.owner_next_action || "--"],
+  ]);
+  $("grayOrchestratorCapabilities").innerHTML = capabilities.length
+    ? capabilities.map((item) => {
+      const stateText = item.state || "--";
+      const warn = stateText.includes("NOT_IMPLEMENTED") || stateText.includes("HUMAN") || stateText.includes("DRY_RUN");
+      return `<div class="stage-card">
+        <strong>${safeText(item.title || item.capability_id || "--")}</strong>
+        <p>${safeText(item.capability_id || "--")}</p>
+        ${badge(stateText, warn ? "warn" : "")}
+        ${badge(item.automated ? "已自动化" : "未自动化", item.automated ? "" : "warn")}
+        <p><strong>证据</strong> ${safeText(item.evidence || "--")}</p>
+        <p><strong>下一步</strong> ${safeText(item.next_required_step || "暂无")}</p>
+      </div>`;
+    }).join("")
+    : `<div class="empty-state">暂无能力矩阵；生成总控计划后显示。</div>`;
+  $("grayOrchestratorRunMeta").textContent = `总控运行记录 ${surface?.run_count ?? runs.length} 条；工作台只允许 prepare，不直接执行真实公开源。`;
+  $("grayOrchestratorRuns").className = runs.length ? "compact-card-grid" : "empty-state";
+  $("grayOrchestratorRuns").innerHTML = runs.length
+    ? runs.slice(0, 8).map((run) => `<div class="stage-card">
+        <strong>${safeText(run.run_id || "--")}</strong>
+        <p>${safeText(run.manifest_json || "--")}</p>
+        ${badge(run.orchestration_state || run.action_state || "--", String(run.orchestration_state || "").includes("NOT_READY") ? "warn" : "")}
+        ${badge(run.aggregate_gray_review_state || "--", String(run.aggregate_gray_review_state || "").includes("NOT_READY") ? "warn" : "")}
+        <p>样本 ${safeText(run.project_sample_count ?? 0)}；hash ${safeText(run.fixed_snapshot_sha256_count ?? 0)}；Stage4缺失 ${safeText(run.stage4_readback_missing_sample_count ?? 0)}</p>
+        <p>时间：${safeText(run.completed_at || run.requested_at || "--")}</p>
+      </div>`).join("")
+    : "暂无总控运行记录。";
+  $("grayOrchestratorExecuteCommand").textContent = surface?.recommended_execute_command || "等待总控读回...";
+}
+async function loadGrayOrchestrator(writeOutput = false) {
+  const surface = await json("GET", "/operator-console/controlled-gray-orchestrator");
+  renderGrayOrchestrator(surface);
+  if (writeOutput) { out(surface); }
+  return surface;
+}
+async function prepareGrayOrchestrator() {
+  const button = $("prepareGrayOrchestrator");
+  button.disabled = true;
+  button.textContent = "生成中...";
+  try {
+    const result = await json("POST", "/operator-console/controlled-gray-orchestrator/prepare", {
+      group_by: "target",
+      per_target_sample_goal: 12,
+      per_target_candidate_limit: 12,
+      segment_timeout_seconds: 900,
+      execute: false,
+      now: new Date().toISOString()
+    });
+    out({
+      orchestration_state: result.summary?.orchestration_state,
+      aggregate_gray_review_state: result.summary?.aggregate_gray_review_state,
+      next_required_step: result.summary?.next_required_step,
+      output_root: result.output_root,
+      manifest_sha256: result.manifest?.manifest_sha256,
+      execute_from_workbench_enabled: false,
+      recommended_execute_command: result.recommended_execute_command
+    });
+    await loadGrayOrchestrator(false);
+    return result;
+  } finally {
+    button.disabled = false;
+    button.textContent = "生成总控计划";
+  }
+}
 async function loadRealSourceProfiles() {
   const catalog = await json("GET", "/operator-console/real-source-profiles");
   fillSelect("entryProfile", catalog.entry_profiles || [], (item) => `${item.profile_id} | ${item.site_name}`);
@@ -3307,6 +3452,8 @@ $("runEntryCapture").addEventListener("click", runEntryCapture);
 $("runAttachmentCapture").addEventListener("click", runAttachmentCapture);
 $("readLatestSourceCapture").addEventListener("click", readLatestSourceCapture);
 $("refreshRealSourceRuns").addEventListener("click", async () => out(await loadRealSourceRuns()));
+$("prepareGrayOrchestrator").addEventListener("click", prepareGrayOrchestrator);
+$("refreshGrayOrchestrator").addEventListener("click", async () => out(await loadGrayOrchestrator()));
 $("previewRun").addEventListener("click", previewRun);
 $("runControlledSample").addEventListener("click", runControlledSample);
 $("refreshWorkbench").addEventListener("click", loadReadiness);
@@ -3333,7 +3480,7 @@ window.addEventListener("hashchange", () => showView((window.location.hash || "#
 showView((window.location.hash || "#overview").slice(1));
 renderStageOverviewTelemetry();
 renderSelectChoices("searchProjectType", "searchProjectTypeChoices");
-Promise.all([loadReadiness(false), loadAutonomousWorkbench(), loadRegionAdapters(), loadAutonomousSearchRuns(), loadRealCandidateDiscoveryDiagnostics(), loadRealCandidateCatalog(), loadRealCandidateStage2Captures(), loadRealSourceProfiles(), loadRealSourceRuns(), loadUserAcceptanceContract(), loadAcceptanceGapMatrix(), loadRealWorldSellability(), loadStage6ReviewLoopStatus(), loadRuntimeProjection()])
+Promise.all([loadReadiness(false), loadAutonomousWorkbench(), loadRegionAdapters(), loadAutonomousSearchRuns(), loadRealCandidateDiscoveryDiagnostics(), loadRealCandidateCatalog(), loadRealCandidateStage2Captures(), loadRealSourceProfiles(), loadRealSourceRuns(), loadGrayOrchestrator(), loadUserAcceptanceContract(), loadAcceptanceGapMatrix(), loadRealWorldSellability(), loadStage6ReviewLoopStatus(), loadRuntimeProjection()])
   .then(() => { $("output").textContent = "等待操作..."; })
   .catch(out);
 """
