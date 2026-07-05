@@ -38,6 +38,9 @@ $sourceRemediationMarkdown = Join-Path $sourceRemediationRoot "controlled-live-p
 $sourceRemediationExecutionRoot = Join-Path $RunRoot "source-remediation-execution"
 $sourceRemediationExecutionJson = Join-Path $sourceRemediationExecutionRoot "controlled-live-public-batch-source-remediation-execution-v1.json"
 $sourceRemediationExecutionMarkdown = Join-Path $sourceRemediationExecutionRoot "controlled-live-public-batch-source-remediation-execution-v1.md"
+$grayLaunchReviewRoot = Join-Path $RunRoot "gray-launch-review"
+$grayLaunchReviewJson = Join-Path $grayLaunchReviewRoot "controlled-live-public-batch-gray-launch-review-v1.json"
+$grayLaunchReviewMarkdown = Join-Path $grayLaunchReviewRoot "controlled-live-public-batch-gray-launch-review-v1.md"
 $archiveAuditJson = Join-Path $RunRoot "project-file-audit.json"
 $closeoutJson = Join-Path $RunRoot "controlled-live-public-batch-closeout.json"
 
@@ -263,6 +266,8 @@ $closeout = [ordered]@{
     source_remediation_markdown = "$sourceRemediationMarkdown"
     source_remediation_execution_json = $sourceRemediationExecutionJsonForCloseout
     source_remediation_execution_markdown = $sourceRemediationExecutionMarkdownForCloseout
+    gray_launch_review_json = "$grayLaunchReviewJson"
+    gray_launch_review_markdown = "$grayLaunchReviewMarkdown"
     archive_audit_json = "$archiveAuditJson"
     closeout_json = "$closeoutJson"
     sample_count = $sampleCount
@@ -296,6 +301,31 @@ $closeout = [ordered]@{
 
 $closeout | ConvertTo-Json -Depth 8 | Set-Content -Path $closeoutJson -Encoding UTF8
 
+$grayLaunchReviewArgs = @(
+    "-NoProfile", "-ExecutionPolicy", "Bypass",
+    "-File", (Join-Path $scriptDir "build-controlled-live-public-batch-gray-launch-review-v1.ps1"),
+    "-RunRoot", $RunRoot,
+    "-CloseoutJson", $closeoutJson,
+    "-EvidenceSummaryJson", $evidenceSummaryJson,
+    "-Stage4ReadbackJson", $stage4ReadbackJson,
+    "-SourceRemediationJson", $sourceRemediationJson,
+    "-RunManifestJson", $runManifestJson,
+    "-OutputRoot", $grayLaunchReviewRoot
+)
+
+if ($sourceRemediationExecutionJsonForCloseout) {
+    $grayLaunchReviewArgs += @("-SourceRemediationExecutionJson", $sourceRemediationExecutionJsonForCloseout)
+}
+
+& pwsh @grayLaunchReviewArgs
+if ($LASTEXITCODE -ne 0) {
+    exit $LASTEXITCODE
+}
+
+if (-not (Test-Path $grayLaunchReviewJson)) {
+    throw "controlled live batch gray launch review was not generated: $grayLaunchReviewJson"
+}
+
 if ($EmitJson) {
     $closeout | ConvertTo-Json -Depth 8
 } else {
@@ -307,5 +337,6 @@ if ($EmitJson) {
     if ($AutoExecuteSourceRemediation -and $sourceRemediationRecordCount -gt 0) {
         Write-Host "source remediation execution: $sourceRemediationExecutionJson"
     }
+    Write-Host "gray launch review: $grayLaunchReviewJson"
     Write-Host "archive audit: $archiveAuditJson"
 }

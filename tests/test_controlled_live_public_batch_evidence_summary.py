@@ -15,6 +15,9 @@ if str(SRC) not in sys.path:
 from runtime.controlled_live_public_batch_evidence_summary import (  # noqa: E402
     build_controlled_live_public_batch_evidence_summary,
 )
+from runtime.controlled_live_public_batch_gray_launch_review import (  # noqa: E402
+    build_controlled_live_public_batch_gray_launch_review,
+)
 from runtime.controlled_live_public_batch_stage4_readback import (  # noqa: E402
     build_controlled_live_public_batch_stage4_readback,
 )
@@ -182,6 +185,119 @@ class ControlledLivePublicBatchEvidenceSummaryTests(unittest.TestCase):
         self.assertFalse(record["customer_visible_allowed"])
         self.assertIn("Source Remediation", markdown_text)
 
+    def test_gray_launch_review_package_waits_for_operator_after_remediation_clears(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            evidence_json = root / "evidence.json"
+            stage4_json = root / "stage4.json"
+            remediation_json = root / "remediation.json"
+            remediation_execution_json = root / "remediation-execution.json"
+            out = root / "gray-review"
+            _write_json(
+                evidence_json,
+                {
+                    "summary": {
+                        "source_execute": True,
+                        "project_sample_count": 28,
+                        "fixed_snapshot_sha256_count": 38,
+                        "public_source_outcome_counts": {
+                            "PUBLIC_SOURCE_HIT_WITH_HASHED_SNAPSHOT": 27,
+                            "PUBLIC_SOURCE_REVIEW_REQUIRED": 1,
+                        },
+                        "customer_visible_allowed": False,
+                        "payment_execution_enabled": False,
+                        "delivery_execution_enabled": False,
+                        "query_miss_is_not_clearance": True,
+                        "no_legal_conclusion": True,
+                    }
+                },
+            )
+            _write_json(
+                stage4_json,
+                {
+                    "summary": {
+                        "stage4_all_required_readbacks_ready": True,
+                        "stage4_readback_required_sample_count": 27,
+                        "stage4_readback_ready_sample_count": 27,
+                        "stage4_readback_missing_sample_count": 0,
+                        "stage4_public_evidence_readback_count": 47,
+                        "customer_visible_allowed": False,
+                        "query_miss_is_not_clearance": True,
+                        "no_legal_conclusion": True,
+                    }
+                },
+            )
+            _write_json(
+                remediation_json,
+                {
+                    "summary": {
+                        "source_remediation_record_count": 1,
+                        "source_remediation_closeout_state": "SOURCE_REMEDIATION_QUEUE_READY",
+                        "customer_visible_allowed": False,
+                    }
+                },
+            )
+            _write_json(
+                remediation_execution_json,
+                {
+                    "summary": {
+                        "source_remediation_execution_state": "SOURCE_REMEDIATION_RERUN_EXECUTED_WITH_SNAPSHOTS",
+                        "post_run_source_remediation_record_count": 0,
+                        "post_run_stage4_all_required_readbacks_ready": True,
+                        "next_required_step": "human_gray_launch_review",
+                        "customer_visible_allowed": False,
+                        "payment_execution_enabled": False,
+                        "delivery_execution_enabled": False,
+                    }
+                },
+            )
+
+            result = build_controlled_live_public_batch_gray_launch_review(
+                evidence_summary_json=evidence_json,
+                stage4_readback_json=stage4_json,
+                source_remediation_json=remediation_json,
+                source_remediation_execution_json=remediation_execution_json,
+                output_root=out,
+                created_at="2026-07-03T00:00:00+00:00",
+            )
+            markdown_text = (
+                out / "controlled-live-public-batch-gray-launch-review-v1.md"
+            ).read_text(encoding="utf-8")
+            approved_result = build_controlled_live_public_batch_gray_launch_review(
+                evidence_summary_json=evidence_json,
+                stage4_readback_json=stage4_json,
+                source_remediation_json=remediation_json,
+                source_remediation_execution_json=remediation_execution_json,
+                output_root=root / "gray-review-approved",
+                operator_decision="APPROVED",
+                operator_name="chat-user",
+                operator_decision_note="continue controlled gray public-source execution",
+                created_at="2026-07-03T00:00:00+00:00",
+            )
+
+        summary = result["summary"]
+        self.assertEqual(summary["gray_launch_review_state"], "READY_FOR_HUMAN_GRAY_LAUNCH_REVIEW")
+        self.assertTrue(summary["eligible_for_human_gray_launch_review"])
+        self.assertEqual(summary["human_gray_launch_approval_state"], "WAITING_OPERATOR_APPROVAL")
+        self.assertFalse(summary["approved_for_controlled_gray_execution"])
+        self.assertEqual(summary["gray_sample_goal_state"], "CATALOG_LIMITED_BELOW_GRAY_SAMPLE_GOAL")
+        self.assertFalse(summary["gray_sample_goal_met"])
+        self.assertEqual(summary["source_remediation_final_record_count"], 0)
+        self.assertFalse(summary["customer_visible_allowed"])
+        self.assertEqual(result["gray_run_plan"]["plan_state"], "READY_AFTER_OPERATOR_APPROVAL")
+        checklist = {record["check_id"]: record for record in result["gray_launch_checklist"]["records"]}
+        self.assertEqual(checklist["gray_sample_goal_observed"]["state"], "WARN")
+        self.assertEqual(checklist["operator_gray_launch_approval"]["state"], "WAITING_OPERATOR_APPROVAL")
+        self.assertIn("Gray Run Plan", markdown_text)
+        approved_summary = approved_result["summary"]
+        self.assertEqual(approved_summary["human_gray_launch_approval_state"], "APPROVED")
+        self.assertTrue(approved_summary["approved_for_controlled_gray_execution"])
+        self.assertEqual(
+            approved_result["gray_run_plan"]["plan_state"],
+            "APPROVED_FOR_CONTROLLED_GRAY_EXECUTION",
+        )
+        self.assertTrue(approved_result["operator_decision_record"]["decision_record_sha256"])
+
     def test_professional_runner_autogenerates_controlled_live_evidence_summary(self) -> None:
         script = (ROOT / "scripts" / "run-professional-clean-v1-real-samples.ps1").read_text(
             encoding="utf-8"
@@ -206,10 +322,12 @@ class ControlledLivePublicBatchEvidenceSummaryTests(unittest.TestCase):
         self.assertIn("AutoExecuteSourceRemediation", script)
         self.assertIn("EnableAlternatePublicSource", script)
         self.assertIn("run-controlled-live-public-batch-source-remediation-v1.ps1", script)
+        self.assertIn("build-controlled-live-public-batch-gray-launch-review-v1.ps1", script)
         self.assertIn("build-professional-clean-project-archive.ps1", script)
         self.assertIn("controlled-live-public-batch-evidence-summary-v1.json", script)
         self.assertIn("controlled-live-public-batch-stage4-readback-v1.json", script)
         self.assertIn("controlled-live-public-batch-source-remediation-v1.json", script)
+        self.assertIn("controlled-live-public-batch-gray-launch-review-v1.json", script)
         self.assertIn("project-file-audit.json", script)
         self.assertIn("controlled-live-public-batch-closeout.json", script)
         self.assertIn("NOT_READY_REAL_PUBLIC_EXECUTION_REQUIRED", script)
