@@ -494,10 +494,10 @@ class ControlledLivePublicBatchEvidenceSummaryTests(unittest.TestCase):
             approved_result["gray_run_plan"]["plan_state"],
             "APPROVED_FOR_CONTROLLED_GRAY_EXECUTION",
         )
-        self.assertIn("build-controlled-gray-public-source-targets-v1.ps1", approved_result["gray_run_plan"]["recommended_command"])
-        self.assertIn("run-controlled-gray-public-batch-segments-v1.ps1", approved_result["gray_run_plan"]["recommended_command"])
+        self.assertIn("run-controlled-gray-public-orchestrator-v1.ps1", approved_result["gray_run_plan"]["recommended_command"])
         self.assertIn("-GroupBy target", approved_result["gray_run_plan"]["recommended_command"])
         self.assertIn("-PerTargetCandidateLimit 12", approved_result["gray_run_plan"]["recommended_command"])
+        self.assertIn("-SegmentTimeoutSeconds 900", approved_result["gray_run_plan"]["recommended_command"])
         self.assertTrue(approved_result["operator_decision_record"]["decision_record_sha256"])
 
     def test_professional_runner_autogenerates_controlled_live_evidence_summary(self) -> None:
@@ -559,6 +559,19 @@ class ControlledLivePublicBatchEvidenceSummaryTests(unittest.TestCase):
         self.assertIn("Start-Process", script)
         self.assertIn("Stop-ControlledSegmentProcesses", script)
         self.assertIn("already complete; skipping", script)
+
+    def test_controlled_gray_orchestrator_wires_targets_segments_approval_and_summary(self) -> None:
+        script = (ROOT / "scripts" / "run-controlled-gray-public-orchestrator-v1.ps1").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("build-controlled-gray-public-source-targets-v1.ps1", script)
+        self.assertIn("run-controlled-gray-public-batch-segments-v1.ps1", script)
+        self.assertIn("build-controlled-gray-public-batch-segment-aggregate-v1.ps1", script)
+        self.assertIn("SegmentTimeoutSeconds", script)
+        self.assertIn("OperatorDecision", script)
+        self.assertIn("controlled-gray-public-orchestrator-v1.json", script)
+        self.assertIn("customer_visible_allowed = $false", script)
 
 
 def _write_execution(path: Path) -> None:
