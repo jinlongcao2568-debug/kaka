@@ -1273,6 +1273,8 @@ def render_operator_console(payload: Any) -> HTMLResponse:
             <div id="grayOrchestratorSummary" class="empty-state">暂无总控读回。</div>
             <div class="field-actions">
               <button id="prepareGrayOrchestrator">生成总控计划</button>
+              <button id="enqueueGrayOrchestrator">加入后台队列</button>
+              <button id="runGrayOrchestratorWorker">运行一次 worker</button>
               <button class="secondary" id="refreshGrayOrchestrator">刷新总控状态</button>
             </div>
           </section>
@@ -1284,6 +1286,11 @@ def render_operator_console(payload: Any) -> HTMLResponse:
             <h3>总控运行记录</h3>
             <p class="muted-text" id="grayOrchestratorRunMeta">运行记录由 OperatorActionRepository 持久化；页面刷新不会自动清空。</p>
             <div id="grayOrchestratorRuns" class="empty-state">暂无总控运行记录。</div>
+          </section>
+          <section>
+            <h3>后台队列</h3>
+            <p class="muted-text" id="grayOrchestratorQueueMeta">后台队列由 WorkerQueueRepository 持久化；worker 只生成内部总控计划。</p>
+            <div id="grayOrchestratorQueue" class="empty-state">暂无后台队列任务。</div>
           </section>
           <section class="controlled_opening_requirement">
             <h3>真实执行边界</h3>
@@ -1502,6 +1509,10 @@ const stateLabels = {
   "HUMAN_GATE_REQUIRED": "需要人工闸门",
   "HUMAN_DECISION_RECORDED": "人工决策已记录",
   "WORKBENCH_PREPARE_READY": "工作台计划生成已接入",
+  "INTERNAL_WORKER_QUEUE_READY": "内部 worker 队列已接入",
+  "CONTROLLED_GRAY_ORCHESTRATOR_WORKER_SUCCEEDED": "灰度总控 worker 已完成",
+  "CONTROLLED_GRAY_ORCHESTRATOR_WORKER_FAILED_RETRY_SCHEDULED": "灰度总控 worker 失败，已排重试",
+  "NO_DUE_CONTROLLED_GRAY_ORCHESTRATOR_QUEUE_ITEM": "暂无到期灰度总控任务",
   "DISABLED_BY_SAFETY_BOUNDARY": "安全边界关闭",
   "DRY_RUN_ONLY": "仅 dry-run",
   "NOT_IMPLEMENTED": "未实现",
@@ -3137,6 +3148,8 @@ function renderGrayOrchestrator(surface) {
   const summary = surface?.summary || {};
   const capabilities = surface?.automation_capability_matrix?.records || [];
   const runs = Array.isArray(surface?.runs) ? surface.runs : [];
+  const queue = surface?.background_worker_queue || {};
+  const queueItems = Array.isArray(queue.latest_items) ? queue.latest_items : [];
   const state = summary.orchestration_state || "未生成";
   const aggregateState = summary.aggregate_gray_review_state || "--";
   const canEnter = Boolean(summary.can_enter_controlled_gray_execution);
@@ -3188,6 +3201,19 @@ function renderGrayOrchestrator(surface) {
         <p>时间：${safeText(run.completed_at || run.requested_at || "--")}</p>
       </div>`).join("")
     : "暂无总控运行记录。";
+  const queueCounts = queue.status_counts || {};
+  $("grayOrchestratorQueueMeta").textContent = `后台队列 ${queue.queue_item_count ?? queueItems.length} 条；queued ${queueCounts.queued || 0} / running ${queueCounts.running || 0} / succeeded ${queueCounts.succeeded || 0}。`;
+  $("grayOrchestratorQueue").className = queueItems.length ? "compact-card-grid" : "empty-state";
+  $("grayOrchestratorQueue").innerHTML = queueItems.length
+    ? queueItems.slice(0, 8).map((item) => `<div class="stage-card">
+        <strong>${safeText(item.queue_item_id || "--")}</strong>
+        <p>${safeText(item.output_root || "--")}</p>
+        ${badge(item.status || "--", ["failed", "retry", "dead-letter"].includes(String(item.status || "")) ? "warn" : "")}
+        ${badge(`尝试 ${item.attempt_count ?? 0}/${item.max_attempts ?? "--"}`, item.last_error ? "warn" : "")}
+        <p>下一次：${safeText(item.next_run_at || "--")}；完成：${safeText(item.completed_at || "--")}</p>
+        <p>${safeText(item.last_error || "暂无错误")}</p>
+      </div>`).join("")
+    : "暂无后台队列任务。";
   $("grayOrchestratorExecuteCommand").textContent = surface?.recommended_execute_command || "等待总控读回...";
 }
 async function loadGrayOrchestrator(writeOutput = false) {
@@ -3223,6 +3249,51 @@ async function prepareGrayOrchestrator() {
   } finally {
     button.disabled = false;
     button.textContent = "生成总控计划";
+  }
+}
+async function enqueueGrayOrchestrator() {
+  const button = $("enqueueGrayOrchestrator");
+  button.disabled = true;
+  button.textContent = "入队中...";
+  try {
+    const result = await json("POST", "/operator-console/controlled-gray-orchestrator/worker/enqueue", {
+      group_by: "target",
+      per_target_sample_goal: 12,
+      per_target_candidate_limit: 12,
+      segment_timeout_seconds: 900,
+      execute: false,
+      now: new Date().toISOString()
+    });
+    out(result);
+    await loadGrayOrchestrator(false);
+    return result;
+  } finally {
+    button.disabled = false;
+    button.textContent = "加入后台队列";
+  }
+}
+async function runGrayOrchestratorWorker() {
+  const button = $("runGrayOrchestratorWorker");
+  button.disabled = true;
+  button.textContent = "运行中...";
+  try {
+    const result = await json("POST", "/operator-console/controlled-gray-orchestrator/worker/run-once", {
+      execute: false,
+      now: new Date().toISOString()
+    });
+    out({
+      worker_state: result.worker_state,
+      queue_item_id: result.queue_item?.queue_item_id,
+      queue_status: result.queue_item?.status,
+      orchestration_state: result.summary?.orchestration_state,
+      aggregate_gray_review_state: result.summary?.aggregate_gray_review_state,
+      output_root: result.result?.output_root
+    });
+    await loadGrayOrchestrator(false);
+    return result;
+  } finally {
+    button.disabled = false;
+    button.textContent = "运行一次 worker";
   }
 }
 async function loadRealSourceProfiles() {
@@ -3453,6 +3524,8 @@ $("runAttachmentCapture").addEventListener("click", runAttachmentCapture);
 $("readLatestSourceCapture").addEventListener("click", readLatestSourceCapture);
 $("refreshRealSourceRuns").addEventListener("click", async () => out(await loadRealSourceRuns()));
 $("prepareGrayOrchestrator").addEventListener("click", prepareGrayOrchestrator);
+$("enqueueGrayOrchestrator").addEventListener("click", enqueueGrayOrchestrator);
+$("runGrayOrchestratorWorker").addEventListener("click", runGrayOrchestratorWorker);
 $("refreshGrayOrchestrator").addEventListener("click", async () => out(await loadGrayOrchestrator()));
 $("previewRun").addEventListener("click", previewRun);
 $("runControlledSample").addEventListener("click", runControlledSample);

@@ -7,6 +7,13 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from shared.utils import utc_now_iso
+from runtime.controlled_gray_public_batch_segments import (
+    build_controlled_gray_public_batch_segment_aggregate,
+    build_controlled_gray_public_batch_segments,
+)
+from runtime.controlled_gray_public_source_targets import (
+    build_controlled_gray_public_source_targets,
+)
 
 
 CONTROLLED_GRAY_PUBLIC_ORCHESTRATOR_KIND = "controlled_gray_public_orchestrator_v1"
@@ -14,6 +21,82 @@ CONTROLLED_GRAY_PUBLIC_ORCHESTRATOR_VERSION = 1
 DEFAULT_OUTPUT_ROOT = Path(
     "tmp/evaluation-real-samples/controlled-gray-public-orchestrator-v1"
 )
+
+
+def build_controlled_gray_public_orchestrator_prepare_bundle(
+    *,
+    output_root: str | Path = DEFAULT_OUTPUT_ROOT,
+    source_targets_json: str | Path,
+    per_target_sample_goal: int = 12,
+    per_target_candidate_limit: int = 12,
+    target_limit: int = 0,
+    group_by: str = "target",
+    segment_timeout_seconds: int = 900,
+    professional_source_only: bool = True,
+    execute: bool = False,
+    auto_execute_source_remediation: bool = True,
+    created_at: str | None = None,
+) -> dict[str, Any]:
+    output_dir = Path(output_root)
+    source_targets_root = output_dir / "source-targets"
+    segments_root = output_dir / "segments"
+    aggregate_root = segments_root / "aggregate"
+
+    source_targets = build_controlled_gray_public_source_targets(
+        source_targets_json=source_targets_json,
+        output_root=source_targets_root,
+        per_target_sample_goal=per_target_sample_goal,
+        created_at=created_at,
+    )
+    derived_targets_json = Path(str(source_targets.get("targets_json") or ""))
+    segment_plan = build_controlled_gray_public_batch_segments(
+        targets_json=derived_targets_json,
+        output_root=segments_root,
+        run_root_base=segments_root / "runs",
+        group_by=group_by,
+        per_target_candidate_limit=per_target_candidate_limit,
+        target_limit=target_limit,
+        professional_source_only=professional_source_only,
+        execute=execute,
+        auto_execute_source_remediation=auto_execute_source_remediation,
+        created_at=created_at,
+    )
+    segments_json = segments_root / "controlled-gray-public-batch-segments-v1.json"
+    aggregate = build_controlled_gray_public_batch_segment_aggregate(
+        segment_plan_json=segments_json,
+        output_root=aggregate_root,
+        created_at=created_at,
+    )
+    aggregate_json = aggregate_root / "controlled-gray-public-batch-segment-aggregate-v1.json"
+    manifest = build_controlled_gray_public_orchestrator_manifest(
+        output_root=output_dir,
+        source_targets_json=source_targets_json,
+        derived_targets_json=derived_targets_json,
+        source_targets_summary_json=source_targets_root
+        / "controlled-gray-public-source-targets-summary-v1.json",
+        segments_json=segments_json,
+        aggregate_json=aggregate_json,
+        execute=execute,
+        group_by=group_by,
+        per_target_sample_goal=per_target_sample_goal,
+        per_target_candidate_limit=per_target_candidate_limit,
+        target_limit=target_limit,
+        segment_timeout_seconds=segment_timeout_seconds,
+        professional_source_only=professional_source_only,
+        auto_execute_source_remediation=auto_execute_source_remediation,
+        created_at=created_at,
+    )
+    return {
+        "output_root": str(output_dir),
+        "source_targets_summary": source_targets.get("summary", {}),
+        "source_targets": source_targets,
+        "segment_summary": segment_plan.get("summary", {}),
+        "segment_plan": segment_plan,
+        "aggregate_summary": aggregate.get("summary", {}),
+        "aggregate": aggregate,
+        "manifest": manifest,
+        "summary": manifest.get("summary", {}),
+    }
 
 
 def build_controlled_gray_public_orchestrator_manifest(
@@ -346,11 +429,11 @@ def _automation_capabilities(
         ),
         _capability(
             "background_scheduler",
-            "unattended recurring controlled-batch runner",
-            "NOT_IMPLEMENTED",
-            False,
-            "",
-            next_required_step="add_scheduler_or_worker_for_recurring_batches",
+            "internal storage-backed controlled-batch worker queue",
+            "INTERNAL_WORKER_QUEUE_READY",
+            True,
+            "/operator-console/controlled-gray-orchestrator/worker/run-once",
+            next_required_step="start_worker_loop_or_os_scheduler_for_recurring_batches",
         ),
     ]
 

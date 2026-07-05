@@ -487,7 +487,7 @@ class ControlledLivePublicBatchEvidenceSummaryTests(unittest.TestCase):
         self.assertEqual(capabilities["source_remediation"]["state"], "AUTOMATED_WHEN_ENABLED")
         self.assertEqual(capabilities["operator_gray_launch_decision"]["state"], "HUMAN_DECISION_RECORDED")
         self.assertEqual(capabilities["workbench_trigger"]["state"], "WORKBENCH_PREPARE_READY")
-        self.assertEqual(capabilities["background_scheduler"]["state"], "NOT_IMPLEMENTED")
+        self.assertEqual(capabilities["background_scheduler"]["state"], "INTERNAL_WORKER_QUEUE_READY")
         self.assertFalse(result["safety"]["customer_visible_allowed"])
         self.assertTrue(result["query_miss_is_not_clearance"])
         self.assertIn("manifest_sha256", result)

@@ -24,15 +24,8 @@ from api.routes.stage1 import create_stage1_scheduler_task, read_stage1_schedule
 from shared.contracts_runtime import StageBundle
 from shared.pipeline import run_internal_chain, run_internal_chain_until_stage6
 from shared.utils import build_id, utc_now_iso
-from runtime.controlled_gray_public_batch_segments import (
-    build_controlled_gray_public_batch_segment_aggregate,
-    build_controlled_gray_public_batch_segments,
-)
 from runtime.controlled_gray_public_orchestrator import (
-    build_controlled_gray_public_orchestrator_manifest,
-)
-from runtime.controlled_gray_public_source_targets import (
-    build_controlled_gray_public_source_targets,
+    build_controlled_gray_public_orchestrator_prepare_bundle,
 )
 from stage1_tasking.market_scan import Stage1MarketScanEngine
 from stage1_tasking.region_adapters import (
@@ -123,6 +116,8 @@ CONTROLLED_GRAY_SOURCE_TARGETS_JSON = (
     REPO_ROOT / "contracts" / "evaluation" / "evaluation_real_project_sample_targets.json"
 )
 CONTROLLED_GRAY_ORCHESTRATOR_SEARCH_ROOT = REPO_ROOT / "tmp" / "evaluation-real-samples"
+CONTROLLED_GRAY_ORCHESTRATOR_QUEUE_NAME = "controlled_gray_public_orchestrator"
+CONTROLLED_GRAY_ORCHESTRATOR_WORKER_ID = "controlled-gray-public-orchestrator-worker-v1"
 
 
 def _json_safe_snapshot_replay(replay: Mapping[str, Any]) -> dict[str, Any]:
@@ -190,6 +185,8 @@ def _operator_operation_readback(routes: list[dict[str, Any]] | None = None) -> 
                 "controlled_gray_public_orchestrator",
                 "controlled_gray_orchestrator_readback",
                 "controlled_gray_orchestrator_prepare",
+                "controlled_gray_orchestrator_worker_enqueue",
+                "controlled_gray_orchestrator_worker_run_once",
             )
             if key in route
         }
@@ -4799,6 +4796,106 @@ def _controlled_gray_orchestrator_runs() -> list[dict[str, Any]]:
     return runs
 
 
+def _controlled_gray_orchestrator_queue_item_id(payload: Mapping[str, Any]) -> str:
+    explicit = str(payload.get("queue_item_id") or "").strip()
+    if explicit:
+        return explicit
+    stamp = build_persisted_at().replace(":", "").replace("+", "").replace("-", "")
+    return f"CONTROLLED-GRAY-ORCHESTRATOR-WQ-{stamp}"
+
+
+def _controlled_gray_orchestrator_worker_lease_id(payload: Mapping[str, Any]) -> str:
+    explicit = str(payload.get("lease_id") or "").strip()
+    if explicit:
+        return explicit
+    stamp = build_persisted_at().replace(":", "").replace("+", "").replace("-", "")
+    return f"CONTROLLED-GRAY-ORCHESTRATOR-LEASE-{stamp}"
+
+
+def _controlled_gray_orchestrator_job_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
+    if bool(payload.get("execute")):
+        raise ValueError("execute is not allowed from controlled gray orchestrator worker")
+    output_root = _controlled_gray_orchestrator_output_root(payload)
+    return {
+        "output_root": str(output_root),
+        "source_targets_json": str(payload.get("source_targets_json") or CONTROLLED_GRAY_SOURCE_TARGETS_JSON),
+        "per_target_sample_goal": int(payload.get("per_target_sample_goal") or 12),
+        "per_target_candidate_limit": int(payload.get("per_target_candidate_limit") or 12),
+        "target_limit": int(payload.get("target_limit") or 0),
+        "group_by": str(payload.get("group_by") or "target"),
+        "segment_timeout_seconds": int(payload.get("segment_timeout_seconds") or 900),
+        "professional_source_only": True,
+        "auto_execute_source_remediation": True,
+        "execute": False,
+        "requested_by": str(payload.get("requested_by") or "卡卡罗特"),
+        "requested_at": str(payload.get("now") or build_persisted_at()),
+        "internal_only": True,
+        "customer_visible_allowed": False,
+        "payment_execution_enabled": False,
+        "delivery_execution_enabled": False,
+        "automatic_refund_enabled": False,
+    }
+
+
+def _controlled_gray_queue_item_summary(item: Any) -> dict[str, Any]:
+    if item is None:
+        return {}
+    payload = dict(getattr(item, "payload", {}) or {})
+    trace_refs = dict(getattr(item, "trace_refs", {}) or {})
+    audit_refs = dict(getattr(item, "audit_refs", {}) or {})
+    return {
+        "queue_item_id": str(getattr(item, "queue_item_id", "") or ""),
+        "queue_name": str(getattr(item, "queue_name", "") or ""),
+        "status": str(getattr(item, "status", "") or ""),
+        "output_root": str(payload.get("output_root") or ""),
+        "group_by": str(payload.get("group_by") or ""),
+        "per_target_sample_goal": int(payload.get("per_target_sample_goal") or 0),
+        "per_target_candidate_limit": int(payload.get("per_target_candidate_limit") or 0),
+        "target_limit": int(payload.get("target_limit") or 0),
+        "priority": getattr(item, "priority", None),
+        "attempt_count": getattr(item, "attempt_count", None),
+        "max_attempts": getattr(item, "max_attempts", None),
+        "next_run_at": getattr(item, "next_run_at", None),
+        "created_at": getattr(item, "created_at", None),
+        "updated_at": getattr(item, "updated_at", None),
+        "completed_at": getattr(item, "completed_at", None),
+        "last_error": getattr(item, "last_error", None),
+        "worker_id": getattr(item, "worker_id", None),
+        "lease_id": getattr(item, "lease_id", None),
+        "trace_id": trace_refs.get("trace_id") or "",
+        "audit_ref": audit_refs.get("run_audit_ref") or "",
+        "execute_enabled": False,
+        "customer_visible_allowed": False,
+        "payment_execution_enabled": False,
+        "delivery_execution_enabled": False,
+        "automatic_refund_enabled": False,
+    }
+
+
+def _controlled_gray_orchestrator_queue_readback(limit: int = 8) -> dict[str, Any]:
+    items = WorkerQueueRepository().list(queue_name=CONTROLLED_GRAY_ORCHESTRATOR_QUEUE_NAME)
+    items.sort(key=lambda item: str(getattr(item, "updated_at", "") or ""), reverse=True)
+    status_counts: dict[str, int] = {}
+    for item in items:
+        status = str(getattr(item, "status", "") or "")
+        status_counts[status] = status_counts.get(status, 0) + 1
+    latest = [_controlled_gray_queue_item_summary(item) for item in items[:limit]]
+    return {
+        "queue_name": CONTROLLED_GRAY_ORCHESTRATOR_QUEUE_NAME,
+        "worker_id": CONTROLLED_GRAY_ORCHESTRATOR_WORKER_ID,
+        "queue_item_count": len(items),
+        "status_counts": dict(sorted(status_counts.items())),
+        "latest_items": latest,
+        "latest_item": (latest or [{}])[0],
+        "repository_backed": True,
+        "internal_storage_worker_ready": True,
+        "external_queue_connection_enabled": False,
+        "execute_from_workbench_enabled": False,
+        "live_execution_enabled": False,
+        "customer_visible_allowed": False,
+    }
+
+
 def _record_controlled_gray_orchestrator_run(
     manifest: Mapping[str, Any],
     *,
@@ -4874,6 +4971,7 @@ def preview_controlled_gray_public_orchestrator(
     summary = dict(latest_manifest.get("summary") or {})
     capability_matrix = dict(latest_manifest.get("automation_capability_matrix") or {})
     runs = _controlled_gray_orchestrator_runs()
+    queue_readback = _controlled_gray_orchestrator_queue_readback()
     return {
         "surface_id": "operator_controlled_gray_public_orchestrator",
         "surface_mode": "internal-readback",
@@ -4889,6 +4987,10 @@ def preview_controlled_gray_public_orchestrator(
         "automation_capability_matrix": capability_matrix,
         "run_count": len(runs),
         "runs": runs,
+        "background_worker_queue": queue_readback,
+        "background_worker_ready": True,
+        "background_scheduler_state": "INTERNAL_WORKER_QUEUE_READY",
+        "unattended_recurring_run_ready": False,
         "recommended_dry_run_command": _controlled_gray_orchestrator_recommended_command(
             execute=False
         ),
@@ -4924,50 +5026,19 @@ def prepare_controlled_gray_public_orchestrator(payload: Mapping[str, Any]) -> d
     per_target_candidate_limit = int(payload.get("per_target_candidate_limit") or 12)
     target_limit = int(payload.get("target_limit") or 0)
     group_by = str(payload.get("group_by") or "target")
-    source_targets_root = output_root / "source-targets"
-    segments_root = output_root / "segments"
-    aggregate_root = segments_root / "aggregate"
-
-    source_targets = build_controlled_gray_public_source_targets(
-        source_targets_json=source_targets_json,
-        output_root=source_targets_root,
-        per_target_sample_goal=per_target_sample_goal,
-    )
-    derived_targets_json = Path(str(source_targets.get("targets_json") or ""))
-    segment_plan = build_controlled_gray_public_batch_segments(
-        targets_json=derived_targets_json,
-        output_root=segments_root,
-        run_root_base=segments_root / "runs",
-        group_by=group_by,
-        per_target_candidate_limit=per_target_candidate_limit,
-        target_limit=target_limit,
-        professional_source_only=True,
-        execute=False,
-        auto_execute_source_remediation=True,
-    )
-    segments_json = segments_root / "controlled-gray-public-batch-segments-v1.json"
-    aggregate = build_controlled_gray_public_batch_segment_aggregate(
-        segment_plan_json=segments_json,
-        output_root=aggregate_root,
-    )
-    aggregate_json = aggregate_root / "controlled-gray-public-batch-segment-aggregate-v1.json"
-    manifest = build_controlled_gray_public_orchestrator_manifest(
+    bundle = build_controlled_gray_public_orchestrator_prepare_bundle(
         output_root=output_root,
         source_targets_json=source_targets_json,
-        derived_targets_json=derived_targets_json,
-        source_targets_summary_json=source_targets_root
-        / "controlled-gray-public-source-targets-summary-v1.json",
-        segments_json=segments_json,
-        aggregate_json=aggregate_json,
-        execute=False,
-        group_by=group_by,
         per_target_sample_goal=per_target_sample_goal,
         per_target_candidate_limit=per_target_candidate_limit,
         target_limit=target_limit,
+        group_by=group_by,
         segment_timeout_seconds=int(payload.get("segment_timeout_seconds") or 900),
         professional_source_only=True,
+        execute=False,
         auto_execute_source_remediation=True,
     )
+    manifest = dict(bundle.get("manifest") or {})
     run_record = _record_controlled_gray_orchestrator_run(manifest, output_root=output_root)
     return {
         "surface_id": "operator_controlled_gray_public_orchestrator_prepare",
@@ -4978,15 +5049,170 @@ def prepare_controlled_gray_public_orchestrator(payload: Mapping[str, Any]) -> d
         "safe_prepare_only": True,
         "execute_from_workbench_enabled": False,
         "output_root": str(output_root),
-        "source_targets_summary": source_targets.get("summary", {}),
-        "segment_summary": segment_plan.get("summary", {}),
-        "aggregate_summary": aggregate.get("summary", {}),
+        "source_targets_summary": bundle.get("source_targets_summary", {}),
+        "segment_summary": bundle.get("segment_summary", {}),
+        "aggregate_summary": bundle.get("aggregate_summary", {}),
         "manifest": manifest,
         "summary": manifest.get("summary", {}),
         "run_record": run_record,
         "recommended_execute_command": _controlled_gray_orchestrator_recommended_command(
             execute=True
         ),
+        "live_execution_enabled": False,
+        "external_release_enabled": False,
+        "customer_visible_allowed": False,
+        "payment_execution_enabled": False,
+        "delivery_execution_enabled": False,
+        "automatic_refund_enabled": False,
+        "query_miss_is_not_clearance": True,
+        "no_legal_conclusion": True,
+    }
+
+
+def enqueue_controlled_gray_public_orchestrator_worker(payload: Mapping[str, Any]) -> dict[str, Any]:
+    job_payload = _controlled_gray_orchestrator_job_payload(payload)
+    queue_item_id = _controlled_gray_orchestrator_queue_item_id(payload)
+    if WorkerQueueRepository().get(queue_item_id) is not None:
+        raise ValueError(f"controlled gray orchestrator queue item already exists: {queue_item_id}")
+    item = WorkerQueueRepository().enqueue(
+        queue_item_id=queue_item_id,
+        queue_name=CONTROLLED_GRAY_ORCHESTRATOR_QUEUE_NAME,
+        payload=job_payload,
+        priority=int(payload.get("priority") or 50),
+        max_attempts=int(payload.get("max_attempts") or 3),
+        next_run_at=str(payload.get("next_run_at") or job_payload["requested_at"]),
+        trace_refs={
+            "trace_id": queue_item_id,
+            "worker_entry": "/operator-console/controlled-gray-orchestrator/worker/run-once",
+            "prepare_path": "/operator-console/controlled-gray-orchestrator/prepare",
+            "output_root": str(job_payload.get("output_root") or ""),
+        },
+        audit_refs={
+            "run_audit_ref": queue_item_id,
+            "internal_only": "true",
+            "execute_enabled": "false",
+            "customer_visible_allowed": "false",
+            "payment_execution_enabled": "false",
+            "delivery_execution_enabled": "false",
+            "automatic_refund_enabled": "false",
+        },
+        now=str(payload.get("now") or job_payload["requested_at"]),
+    )
+    return {
+        "surface_id": "operator_controlled_gray_public_orchestrator_worker_enqueue",
+        "internal_only": True,
+        "repository_backed_readback": True,
+        "explicit_operator_action": True,
+        "controlled_gray_public_orchestrator": True,
+        "background_worker_ready": True,
+        "background_scheduler_state": "INTERNAL_WORKER_QUEUE_READY",
+        "queue_item": _controlled_gray_queue_item_summary(item),
+        "background_worker_queue": _controlled_gray_orchestrator_queue_readback(),
+        "execute_from_workbench_enabled": False,
+        "live_execution_enabled": False,
+        "external_release_enabled": False,
+        "customer_visible_allowed": False,
+        "payment_execution_enabled": False,
+        "delivery_execution_enabled": False,
+        "automatic_refund_enabled": False,
+        "query_miss_is_not_clearance": True,
+        "no_legal_conclusion": True,
+    }
+
+
+def run_controlled_gray_public_orchestrator_worker_once(payload: Mapping[str, Any]) -> dict[str, Any]:
+    if bool(payload.get("execute")):
+        raise ValueError("execute is not allowed from controlled gray orchestrator worker")
+    repo = WorkerQueueRepository()
+    worker_id = str(payload.get("worker_id") or CONTROLLED_GRAY_ORCHESTRATOR_WORKER_ID)
+    lease_id = _controlled_gray_orchestrator_worker_lease_id(payload)
+    queue_item_id = str(payload.get("queue_item_id") or "").strip()
+    if queue_item_id:
+        claimed = repo.claim(
+            queue_item_id=queue_item_id,
+            worker_id=worker_id,
+            lease_id=lease_id,
+            lease_seconds=int(payload.get("lease_seconds") or 900),
+            now=str(payload.get("now") or build_persisted_at()),
+        )
+    else:
+        claimed = repo.claim_next(
+            queue_name=CONTROLLED_GRAY_ORCHESTRATOR_QUEUE_NAME,
+            worker_id=worker_id,
+            lease_id=lease_id,
+            lease_seconds=int(payload.get("lease_seconds") or 900),
+            now=str(payload.get("now") or build_persisted_at()),
+        )
+    if claimed is None:
+        return {
+            "surface_id": "operator_controlled_gray_public_orchestrator_worker_run_once",
+            "worker_state": "NO_DUE_CONTROLLED_GRAY_ORCHESTRATOR_QUEUE_ITEM",
+            "internal_only": True,
+            "repository_backed_readback": True,
+            "background_worker_queue": _controlled_gray_orchestrator_queue_readback(),
+            "execute_from_workbench_enabled": False,
+            "live_execution_enabled": False,
+            "customer_visible_allowed": False,
+        }
+
+    try:
+        result = prepare_controlled_gray_public_orchestrator(
+            {
+                **dict(claimed.payload),
+                "execute": False,
+            }
+        )
+    except Exception as exc:  # noqa: BLE001 - worker must persist failures before returning readback.
+        retryable = bool(payload.get("retryable", True))
+        failed = repo.mark_failed(
+            queue_item_id=claimed.queue_item_id,
+            worker_id=worker_id,
+            lease_id=lease_id,
+            error=str(exc),
+            retryable=retryable,
+            retry_delay_seconds=int(payload.get("retry_delay_seconds") or 60),
+            now=str(payload.get("now") or build_persisted_at()),
+        )
+        return {
+            "surface_id": "operator_controlled_gray_public_orchestrator_worker_run_once",
+            "worker_state": "CONTROLLED_GRAY_ORCHESTRATOR_WORKER_FAILED_RETRY_SCHEDULED"
+            if failed.status == "retry"
+            else "CONTROLLED_GRAY_ORCHESTRATOR_WORKER_FAILED",
+            "queue_item": _controlled_gray_queue_item_summary(failed),
+            "error": str(exc),
+            "internal_only": True,
+            "repository_backed_readback": True,
+            "background_worker_queue": _controlled_gray_orchestrator_queue_readback(),
+            "execute_from_workbench_enabled": False,
+            "live_execution_enabled": False,
+            "customer_visible_allowed": False,
+        }
+
+    succeeded = repo.mark_succeeded(
+        queue_item_id=claimed.queue_item_id,
+        worker_id=worker_id,
+        lease_id=lease_id,
+        result={
+            "orchestration_state": result.get("summary", {}).get("orchestration_state"),
+            "aggregate_gray_review_state": result.get("summary", {}).get("aggregate_gray_review_state"),
+            "manifest_sha256": result.get("manifest", {}).get("manifest_sha256"),
+            "output_root": result.get("output_root"),
+        },
+        now=str(payload.get("now") or build_persisted_at()),
+    )
+    return {
+        "surface_id": "operator_controlled_gray_public_orchestrator_worker_run_once",
+        "worker_state": "CONTROLLED_GRAY_ORCHESTRATOR_WORKER_SUCCEEDED",
+        "internal_only": True,
+        "repository_backed_readback": True,
+        "controlled_gray_public_orchestrator": True,
+        "background_worker_ready": True,
+        "queue_item": _controlled_gray_queue_item_summary(succeeded),
+        "result": result,
+        "summary": result.get("summary", {}),
+        "manifest": result.get("manifest", {}),
+        "background_worker_queue": _controlled_gray_orchestrator_queue_readback(),
+        "execute_from_workbench_enabled": False,
         "live_execution_enabled": False,
         "external_release_enabled": False,
         "customer_visible_allowed": False,
@@ -5241,6 +5467,30 @@ OPERATOR_CUSTOMER_ACCESS_ROUTES = [
         **OPERATOR_CUSTOMER_ACCESS_ROUTE_METADATA,
     },
     {
+        "operationId": "enqueueControlledGrayPublicOrchestratorWorker",
+        "method": "POST",
+        "path": "/operator-console/controlled-gray-orchestrator/worker/enqueue",
+        "handler": enqueue_controlled_gray_public_orchestrator_worker,
+        "controlled_gray_public_orchestrator": True,
+        "controlled_gray_orchestrator_worker_enqueue": True,
+        "repository_backed_readback": True,
+        "explicit_operator_action": True,
+        "raw_json_required": False,
+        **OPERATOR_CUSTOMER_ACCESS_ROUTE_METADATA,
+    },
+    {
+        "operationId": "runControlledGrayPublicOrchestratorWorkerOnce",
+        "method": "POST",
+        "path": "/operator-console/controlled-gray-orchestrator/worker/run-once",
+        "handler": run_controlled_gray_public_orchestrator_worker_once,
+        "controlled_gray_public_orchestrator": True,
+        "controlled_gray_orchestrator_worker_run_once": True,
+        "repository_backed_readback": True,
+        "explicit_operator_action": True,
+        "raw_json_required": False,
+        **OPERATOR_CUSTOMER_ACCESS_ROUTE_METADATA,
+    },
+    {
         "operationId": "readOperatorTask",
         "method": "GET",
         "path": "/operator-console/tasks/{queue_item_id}",
@@ -5302,6 +5552,7 @@ __all__ = [
     "OPERATOR_CUSTOMER_ACCESS_ROUTES",
     "clear_operator_autonomous_search_runs",
     "create_operator_task",
+    "enqueue_controlled_gray_public_orchestrator_worker",
     "import_operator_project",
     "list_operator_autonomous_search_runs",
     "list_owner_real_public_source_task_runs",
@@ -5323,6 +5574,7 @@ __all__ = [
     "read_owner_real_public_source_capture",
     "read_operator_task",
     "register_operator_customer_access_routes",
+    "run_controlled_gray_public_orchestrator_worker_once",
     "run_operator_autonomous_opportunity_search",
     "run_owner_real_public_source_capture",
 ]

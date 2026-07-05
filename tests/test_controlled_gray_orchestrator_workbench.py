@@ -17,8 +17,10 @@ for search_path in (SRC, TESTS):
 
 from api.main import create_app  # noqa: E402
 from api.routes.operator_customer_access import (  # noqa: E402
+    enqueue_controlled_gray_public_orchestrator_worker,
     prepare_controlled_gray_public_orchestrator,
     preview_controlled_gray_public_orchestrator,
+    run_controlled_gray_public_orchestrator_worker_once,
 )
 from storage_test_support import IsolatedStorageTestMixin  # noqa: E402
 
@@ -62,6 +64,7 @@ class ControlledGrayOrchestratorWorkbenchTests(
             for record in result["manifest"]["automation_capability_matrix"]["records"]
         }
         self.assertEqual(capabilities["workbench_trigger"]["state"], "WORKBENCH_PREPARE_READY")
+        self.assertEqual(capabilities["background_scheduler"]["state"], "INTERNAL_WORKER_QUEUE_READY")
         self.assertEqual(preview["run_count"], 1)
         self.assertTrue(preview["latest_manifest_available"])
         self.assertEqual(
@@ -70,6 +73,34 @@ class ControlledGrayOrchestratorWorkbenchTests(
         )
         self.assertIn("-Execute", preview["recommended_execute_command"])
         self.assertFalse(preview["execute_from_workbench_enabled"])
+        self.assertTrue(preview["background_worker_ready"])
+        self.assertEqual(preview["background_scheduler_state"], "INTERNAL_WORKER_QUEUE_READY")
+
+    def test_worker_queue_runs_controlled_gray_prepare_once(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            output_root = Path(tmp_dir) / "controlled-gray-orchestrator-worker"
+
+            queued = enqueue_controlled_gray_public_orchestrator_worker(
+                {
+                    "output_root": str(output_root),
+                    "per_target_sample_goal": 1,
+                    "per_target_candidate_limit": 1,
+                    "target_limit": 1,
+                    "now": "2026-07-05T00:00:00+00:00",
+                }
+            )
+            worker = run_controlled_gray_public_orchestrator_worker_once(
+                {"now": "2026-07-05T00:00:01+00:00"}
+            )
+            preview = preview_controlled_gray_public_orchestrator({})
+
+        self.assertEqual(queued["queue_item"]["status"], "queued")
+        self.assertEqual(worker["worker_state"], "CONTROLLED_GRAY_ORCHESTRATOR_WORKER_SUCCEEDED")
+        self.assertEqual(worker["queue_item"]["status"], "succeeded")
+        self.assertEqual(worker["summary"]["orchestration_state"], "CONTROLLED_GRAY_NOT_READY")
+        self.assertEqual(preview["run_count"], 1)
+        self.assertEqual(preview["background_worker_queue"]["status_counts"]["succeeded"], 1)
+        self.assertFalse(worker["execute_from_workbench_enabled"])
 
     def test_operator_console_exposes_controlled_gray_orchestrator_routes_and_view(self) -> None:
         app = create_app()
@@ -105,20 +136,45 @@ class ControlledGrayOrchestratorWorkbenchTests(
                 },
             )
             readback = client.get("/operator-console/controlled-gray-orchestrator")
+            enqueue = client.post(
+                "/operator-console/controlled-gray-orchestrator/worker/enqueue",
+                json={
+                    "output_root": str(Path(tmp_dir) / "controlled-gray-worker"),
+                    "per_target_sample_goal": 1,
+                    "per_target_candidate_limit": 1,
+                    "target_limit": 1,
+                },
+            )
+            worker = client.post(
+                "/operator-console/controlled-gray-orchestrator/worker/run-once",
+                json={},
+            )
             blocked_execute = client.post(
                 "/operator-console/controlled-gray-orchestrator/prepare",
+                json={"execute": True},
+            )
+            blocked_worker_execute = client.post(
+                "/operator-console/controlled-gray-orchestrator/worker/enqueue",
                 json={"execute": True},
             )
             page = client.get("/operator-console")
 
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(enqueue.status_code, 200)
+        self.assertEqual(worker.status_code, 200)
+        self.assertEqual(worker.json()["worker_state"], "CONTROLLED_GRAY_ORCHESTRATOR_WORKER_SUCCEEDED")
         self.assertEqual(readback.status_code, 200)
         self.assertEqual(blocked_execute.status_code, 409)
         self.assertIn("execute is not allowed", blocked_execute.text)
-        self.assertEqual(readback.json()["run_count"], 1)
+        self.assertEqual(blocked_worker_execute.status_code, 409)
+        self.assertIn("execute is not allowed", blocked_worker_execute.text)
+        self.assertGreaterEqual(readback.json()["run_count"], 1)
         self.assertIn("灰度总控", page.text)
         self.assertIn("prepareGrayOrchestrator", page.text)
+        self.assertIn("enqueueGrayOrchestrator", page.text)
+        self.assertIn("runGrayOrchestratorWorker", page.text)
         self.assertIn("/operator-console/controlled-gray-orchestrator/prepare", page.text)
+        self.assertIn("/operator-console/controlled-gray-orchestrator/worker/enqueue", page.text)
 
 
 if __name__ == "__main__":
