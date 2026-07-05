@@ -109,6 +109,48 @@ class TestProfessionalCleanProjectArchive(unittest.TestCase):
             self.assertIn("verification_urls", parse_summary_payload)
             self.assertFalse(item["failure_reasons"])
 
+    def test_flow_url_meta_path_stays_short_under_long_run_root(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = _repo(tmp_dir)
+            _save_snapshot(
+                repo,
+                snapshot_id="SNAP-DETAIL-LONG-FLOW",
+                data=b"<html><body>candidate notice</body></html>",
+                content_type="text/html",
+                source_url="https://example.test/20260704/candidate.html",
+            )
+            execution_path = Path(tmp_dir) / "run-manifest.json"
+            output_root = (
+                Path(tmp_dir)
+                / "controlled-gray-public-batch-segments-20260705-v3"
+                / "runs"
+                / "03-zhejiang-ggzy-jyxxgk-list"
+            )
+            long_title = "浙江西建工程管理有限公司关于紫荆幼儿园2026年维修工程中标候选人公示" * 3
+            sample = _project_sample(
+                project_name=long_title,
+                detail_snapshot_id="SNAP-DETAIL-LONG-FLOW",
+                attachment_snapshot_id="SNAP-NOT-USED",
+            )
+            sample["jurisdiction"] = "CN-ZJ"
+            sample["source_profile_id"] = "ZHEJIANG-GGZY-JYXXGK-LIST"
+            sample["document_kind"] = "candidate_notice"
+            sample["source_url"] = "https://example.test/20260704/candidate.html"
+            sample["attachment_snapshot_refs"] = []
+            _write_execution_manifest(execution_path, [sample])
+
+            result = build_professional_clean_project_archive_manifest(
+                real_sample_execution_manifest_json=execution_path,
+                output_root=output_root,
+                object_repository=repo,
+                created_at="2026-07-05T00:00:00+08:00",
+            )
+
+            item = result["manifest"]["items"][0]
+            meta_paths = list(Path(item["project_dir"]).rglob("detail/*.meta.json"))
+            self.assertTrue(meta_paths)
+            self.assertTrue(all(len(str(path)) < 260 for path in meta_paths))
+
     def test_flags_stage_pollution_and_html_attachment_pollution(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             repo = _repo(tmp_dir)

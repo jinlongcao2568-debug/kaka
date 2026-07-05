@@ -450,9 +450,15 @@ def _gray_run_plan(
         "sample_goal_max": max(max(1, int(gray_sample_goal_min)), int(gray_sample_goal_max)),
         "recommended_command": (
             "powershell.exe -NoProfile -ExecutionPolicy Bypass -File "
-            "scripts\\run-controlled-live-public-batch-v1.ps1 "
-            "-RunRoot tmp\\evaluation-real-samples\\controlled-gray-public-batch-<yyyymmdd-HHMMSS> "
-            "-TargetLimit 0 -PerTargetCandidateLimit 4 -ProfessionalSourceOnly "
+            "scripts\\build-controlled-gray-public-source-targets-v1.ps1 "
+            "-OutputRoot tmp\\evaluation-real-samples\\controlled-gray-public-source-targets-<yyyymmdd-HHMMSS> "
+            "-PerTargetSampleGoal 12; "
+            "powershell.exe -NoProfile -ExecutionPolicy Bypass -File "
+            "scripts\\run-controlled-gray-public-batch-segments-v1.ps1 "
+            "-OutputRoot tmp\\evaluation-real-samples\\controlled-gray-public-batch-segments-<yyyymmdd-HHMMSS> "
+            "-TargetsJson tmp\\evaluation-real-samples\\controlled-gray-public-source-targets-<yyyymmdd-HHMMSS>"
+            "\\controlled-gray-public-source-targets-v1.json "
+            "-GroupBy target -TargetLimit 0 -PerTargetCandidateLimit 12 -ProfessionalSourceOnly "
             "-Execute -AutoExecuteSourceRemediation"
         ),
         "stop_conditions": [

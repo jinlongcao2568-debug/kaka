@@ -43,7 +43,7 @@ $runArgs = @(
 
 if ($TargetIds -and $TargetIds.Count -gt 0) {
     $runArgs += "-TargetIds"
-    $runArgs += $TargetIds
+    $runArgs += ($TargetIds -join ",")
 } else {
     $runArgs += "-UseAllTargets"
 }

@@ -1,5 +1,7 @@
 param(
     [string]$RunRoot = "",
+    [string]$TargetsJson = "",
+    [string]$SeedJson = "",
     [string[]]$TargetIds = @(),
     [int]$TargetLimit = 25,
     [int]$PerTargetCandidateLimit = 2,
@@ -18,9 +20,33 @@ $OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = Resolve-Path (Join-Path $scriptDir "..")
 
+function Resolve-RepoPath([string]$PathValue) {
+    if (-not $PathValue) {
+        return ""
+    }
+    if ([System.IO.Path]::IsPathRooted($PathValue)) {
+        return $PathValue
+    }
+    return Join-Path $repoRoot $PathValue
+}
+
 if (-not $RunRoot) {
     $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
     $RunRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\controlled-live-public-batch-$stamp"
+} else {
+    $RunRoot = Resolve-RepoPath $RunRoot
+}
+
+if (-not $TargetsJson) {
+    $TargetsJson = Join-Path $repoRoot "contracts\evaluation\evaluation_real_project_sample_targets.json"
+} else {
+    $TargetsJson = Resolve-RepoPath $TargetsJson
+}
+
+if (-not $SeedJson) {
+    $SeedJson = Join-Path $repoRoot "contracts\evaluation\evaluation_corpus_seed.json"
+} else {
+    $SeedJson = Resolve-RepoPath $SeedJson
 }
 
 $runManifestJson = Join-Path $RunRoot "run-manifest.json"
@@ -49,6 +75,8 @@ New-Item -ItemType Directory -Force -Path $RunRoot | Out-Null
 $runArgs = @(
     "-NoProfile", "-ExecutionPolicy", "Bypass",
     "-File", (Join-Path $scriptDir "run-evaluation-real-sample-execution.ps1"),
+    "-TargetsJson", $TargetsJson,
+    "-SeedJson", $SeedJson,
     "-PerTargetCandidateLimit", "$PerTargetCandidateLimit",
     "-TargetBackend", "json-file",
     "-StoragePath", $storagePath,
@@ -58,7 +86,7 @@ $runArgs = @(
 
 if ($TargetIds -and $TargetIds.Count -gt 0) {
     $runArgs += "-TargetIds"
-    $runArgs += $TargetIds
+    $runArgs += ($TargetIds -join ",")
 } else {
     $runArgs += "-UseAllTargets"
 }
@@ -183,6 +211,8 @@ if ($AutoExecuteSourceRemediation -and $sourceRemediationRecordCount -gt 0) {
         "-NoProfile", "-ExecutionPolicy", "Bypass",
         "-File", (Join-Path $scriptDir "run-controlled-live-public-batch-source-remediation-v1.ps1"),
         "-SourceRemediationJson", $sourceRemediationJson,
+        "-TargetsJson", $TargetsJson,
+        "-SeedJson", $SeedJson,
         "-OutputRoot", $sourceRemediationExecutionRoot,
         "-PerTargetCandidateLimit", "$PerTargetCandidateLimit"
     )
@@ -252,6 +282,8 @@ if ($Execute -and $sampleCount -le 0) {
 $closeout = [ordered]@{
     manifest_kind = "controlled_live_public_batch_closeout_v1"
     run_root = "$RunRoot"
+    targets_json = "$TargetsJson"
+    seed_json = "$SeedJson"
     execute = [bool]$Execute
     target_limit = $TargetLimit
     per_target_candidate_limit = $PerTargetCandidateLimit

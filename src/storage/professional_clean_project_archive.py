@@ -828,10 +828,10 @@ def _flow_notice_directory(
     publish_date: str,
     title: str,
 ) -> Path:
-    flow_dir = project_dir / _safe_path_part(f"{flow_no}_{flow_title}")
-    title_part = _safe_path_part(str(title or "流程页面"))[:80]
-    date_part = _safe_path_part(publish_date or "unknown-date")
-    return flow_dir / _safe_path_part(f"{date_part}_{title_part}")
+    flow_dir = project_dir / _safe_path_part(f"{flow_no}_{flow_title}", max_length=32)
+    title_part = _safe_path_part(str(title or "流程页面"), max_length=28)
+    date_part = _safe_path_part(publish_date or "unknown-date", max_length=10)
+    return flow_dir / _safe_path_part(f"{date_part}_{title_part}", max_length=28)
 
 
 def _backtrace_completeness_state(missing_stage_kinds: list[str]) -> str:
@@ -1375,14 +1375,16 @@ def _is_html_pollution(content_type: str, extension: str) -> bool:
     return "html" in content_type.lower() or extension.lower() in {".html", ".htm"}
 
 
-def _safe_path_part(value: str) -> str:
+def _safe_path_part(value: str, *, max_length: int = 48) -> str:
     text = str(value or "").strip() or "UNKNOWN"
     text = re.sub(r"[^A-Za-z0-9\u4e00-\u9fff._-]+", "_", text)
     safe = text.strip("._") or "UNKNOWN"
-    if len(safe) <= 48:
+    limit = max(16, int(max_length))
+    if len(safe) <= limit:
         return safe
     digest = hashlib.sha256(safe.encode("utf-8")).hexdigest()[:12]
-    return f"{safe[:35].rstrip('._')}_{digest}"
+    prefix_len = max(3, limit - 13)
+    return f"{safe[:prefix_len].rstrip('._')}_{digest}"
 
 
 def _counts(values: Any) -> dict[str, int]:

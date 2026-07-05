@@ -15,6 +15,13 @@ if str(SRC) not in sys.path:
 from runtime.controlled_live_public_batch_evidence_summary import (  # noqa: E402
     build_controlled_live_public_batch_evidence_summary,
 )
+from runtime.controlled_gray_public_source_targets import (  # noqa: E402
+    build_controlled_gray_public_source_targets,
+)
+from runtime.controlled_gray_public_batch_segments import (  # noqa: E402
+    build_controlled_gray_public_batch_segment_aggregate,
+    build_controlled_gray_public_batch_segments,
+)
 from runtime.controlled_live_public_batch_gray_launch_review import (  # noqa: E402
     build_controlled_live_public_batch_gray_launch_review,
 )
@@ -185,6 +192,197 @@ class ControlledLivePublicBatchEvidenceSummaryTests(unittest.TestCase):
         self.assertFalse(record["customer_visible_allowed"])
         self.assertIn("Source Remediation", markdown_text)
 
+    def test_controlled_gray_targets_expand_only_primary_friendly_sources(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            source_targets_json = root / "targets.json"
+            out = root / "gray-targets"
+            _write_json(
+                source_targets_json,
+                {
+                    "target_version": 1,
+                    "target_set_id": "test-targets",
+                    "targets": [
+                        {
+                            "target_id": "REAL-GD-CANDIDATE-001",
+                            "jurisdiction": "CN-GD",
+                            "platform_name": "广州交易集团",
+                            "entry_seed_id": "ENTRY-GUANGZHOU-YWTB",
+                            "required_fetch_profile_id_optional": "GUANGZHOU-YWTB-CONSTRUCTION-LIST",
+                            "source_family": "local_public_resource_trading_center",
+                            "project_type": "construction",
+                            "document_kind": "candidate_notice",
+                            "target_count": 4,
+                            "selection_filters": ["工程建设", "中标候选人公示"],
+                        },
+                        {
+                            "target_id": "REAL-HB-CANDIDATE-001",
+                            "jurisdiction": "CN-HB",
+                            "platform_name": "湖北公共资源",
+                            "entry_seed_id": "ENTRY-HUBEI-BIDCLOUD",
+                            "required_fetch_profile_id_optional": "HUBEI-BIDCLOUD-JYXX-LIST",
+                            "source_family": "local_public_resource_trading_center",
+                            "project_type": "construction",
+                            "document_kind": "candidate_notice",
+                            "target_count": 4,
+                            "selection_filters": ["工程建设", "评标结果公示"],
+                        },
+                    ],
+                },
+            )
+
+            result = build_controlled_gray_public_source_targets(
+                source_targets_json=source_targets_json,
+                output_root=out,
+                per_target_sample_goal=12,
+                created_at="2026-07-05T00:00:00+00:00",
+            )
+            derived = json.loads(
+                (out / "controlled-gray-public-source-targets-v1.json").read_text(encoding="utf-8")
+            )
+
+        summary = result["summary"]
+        self.assertEqual(summary["derived_target_count"], 1)
+        self.assertEqual(summary["minimum_total_sample_goal"], 12)
+        self.assertEqual(summary["source_profile_counts"], {"GUANGZHOU-YWTB-CONSTRUCTION-LIST": 1})
+        target = derived["targets"][0]
+        self.assertEqual(target["target_id"], "REAL-GD-CANDIDATE-001")
+        self.assertEqual(target["target_count"], 12)
+        self.assertIn("CONTROLLED_GRAY_SAMPLE_EXPANSION", target["selection_filters"])
+        self.assertIn("GRAY_SAMPLE_TARGET_COUNT:12", target["selection_filters"])
+        self.assertFalse(result["safety"]["customer_visible_allowed"])
+        self.assertTrue(result["safety"]["query_miss_is_not_clearance"])
+
+    def test_controlled_gray_segment_plan_groups_targets_by_source_profile(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            targets_json = root / "targets.json"
+            out = root / "segments"
+            _write_json(
+                targets_json,
+                {
+                    "target_set_id": "controlled-gray-test-targets",
+                    "targets": [
+                        _gray_target("REAL-GD-TENDER-001", "CN-GD", "GUANGZHOU-YWTB-CONSTRUCTION-LIST", "tender_file", 12),
+                        _gray_target("REAL-GD-AWARD-001", "CN-GD", "GUANGZHOU-YWTB-CONSTRUCTION-LIST", "award_result", 12),
+                        _gray_target("REAL-ZJ-CANDIDATE-001", "CN-ZJ", "ZHEJIANG-GGZY-JYXXGK-LIST", "candidate_notice", 12),
+                    ],
+                },
+            )
+
+            result = build_controlled_gray_public_batch_segments(
+                targets_json=targets_json,
+                output_root=out,
+                run_root_base=root / "runs",
+                per_target_candidate_limit=12,
+                target_limit=0,
+                professional_source_only=True,
+                execute=True,
+                auto_execute_source_remediation=True,
+                created_at="2026-07-05T00:00:00+00:00",
+            )
+
+        summary = result["summary"]
+        records = result["segment_table"]["records"]
+        self.assertEqual(summary["segment_count"], 2)
+        self.assertEqual(summary["target_count"], 3)
+        self.assertEqual(summary["minimum_total_sample_goal"], 36)
+        self.assertEqual(records[0]["target_count"], 2)
+        self.assertIn("run-controlled-live-public-batch-v1.ps1", records[0]["recommended_command"])
+        self.assertIn("-TargetIds", records[0]["recommended_command"])
+        self.assertIn("REAL-GD-TENDER-001,REAL-GD-AWARD-001", records[0]["recommended_command"])
+        self.assertIn("REAL-GD-TENDER-001", records[0]["recommended_command"])
+        self.assertIn("build-controlled-gray-public-batch-segment-aggregate-v1.ps1", result["aggregate_command"])
+        self.assertIn("-SegmentRoots", result["aggregate_command"])
+        segment_roots_arg = result["aggregate_command"].split("-SegmentRoots", 1)[1].split(" -OutputRoot", 1)[0]
+        self.assertIn(",", segment_roots_arg)
+        self.assertFalse(result["safety"]["customer_visible_allowed"])
+
+    def test_controlled_gray_segment_plan_can_split_by_target_for_retry_isolation(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            targets_json = root / "targets.json"
+            out = root / "segments"
+            _write_json(
+                targets_json,
+                {
+                    "target_set_id": "controlled-gray-test-targets",
+                    "targets": [
+                        _gray_target("REAL-GD-TENDER-001", "CN-GD", "GUANGZHOU-YWTB-CONSTRUCTION-LIST", "tender_file", 12),
+                        _gray_target("REAL-GD-AWARD-001", "CN-GD", "GUANGZHOU-YWTB-CONSTRUCTION-LIST", "award_result", 12),
+                    ],
+                },
+            )
+
+            result = build_controlled_gray_public_batch_segments(
+                targets_json=targets_json,
+                output_root=out,
+                run_root_base=root / "runs",
+                group_by="target",
+                per_target_candidate_limit=12,
+                target_limit=0,
+                professional_source_only=True,
+                execute=True,
+                auto_execute_source_remediation=True,
+                created_at="2026-07-05T00:00:00+00:00",
+            )
+
+        records = result["segment_table"]["records"]
+        self.assertEqual(result["summary"]["group_by"], "target")
+        self.assertEqual(result["summary"]["segment_count"], 2)
+        self.assertEqual(records[0]["target_ids"], ["REAL-GD-AWARD-001"])
+        self.assertEqual(records[1]["target_ids"], ["REAL-GD-TENDER-001"])
+
+    def test_controlled_gray_segment_aggregate_combines_closeouts_for_review(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            segment_a = root / "seg-a"
+            segment_b = root / "seg-b"
+            out = root / "aggregate"
+            _write_segment_closeout(segment_a, sample_count=60, fixed_count=60, readback_count=80)
+            _write_segment_closeout(segment_b, sample_count=45, fixed_count=45, readback_count=54)
+
+            result = build_controlled_gray_public_batch_segment_aggregate(
+                segment_roots=[segment_a, segment_b],
+                output_root=out,
+                gray_sample_goal_min=100,
+                gray_sample_goal_max=200,
+                created_at="2026-07-05T00:00:00+00:00",
+            )
+
+        summary = result["summary"]
+        self.assertEqual(summary["aggregate_gray_review_state"], "READY_FOR_HUMAN_GRAY_LAUNCH_REVIEW")
+        self.assertTrue(summary["eligible_for_human_gray_launch_review"])
+        self.assertEqual(summary["human_gray_launch_approval_state"], "WAITING_OPERATOR_APPROVAL")
+        self.assertEqual(summary["completed_segment_count"], 2)
+        self.assertEqual(summary["project_sample_count"], 105)
+        self.assertEqual(summary["fixed_snapshot_sha256_count"], 105)
+        self.assertEqual(summary["gray_sample_goal_state"], "MEETS_GRAY_SAMPLE_MINIMUM_GOAL")
+        self.assertTrue(summary["stage4_all_required_readbacks_ready"])
+        self.assertEqual(summary["source_remediation_final_record_count"], 0)
+        self.assertTrue(summary["safety_boundary_closed"])
+        self.assertFalse(result["safety"]["payment_execution_enabled"])
+
+    def test_controlled_gray_segment_aggregate_accepts_comma_joined_segment_roots(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            segment_a = root / "seg-a"
+            segment_b = root / "seg-b"
+            out = root / "aggregate"
+            _write_segment_closeout(segment_a, sample_count=10, fixed_count=10, readback_count=10)
+            _write_segment_closeout(segment_b, sample_count=11, fixed_count=11, readback_count=11)
+
+            result = build_controlled_gray_public_batch_segment_aggregate(
+                segment_roots=[f"{segment_a},{segment_b}"],
+                output_root=out,
+                created_at="2026-07-05T00:00:00+00:00",
+            )
+
+        summary = result["summary"]
+        self.assertEqual(summary["segment_count"], 2)
+        self.assertEqual(summary["completed_segment_count"], 2)
+        self.assertEqual(summary["project_sample_count"], 21)
+
     def test_gray_launch_review_package_waits_for_operator_after_remediation_clears(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -296,6 +494,10 @@ class ControlledLivePublicBatchEvidenceSummaryTests(unittest.TestCase):
             approved_result["gray_run_plan"]["plan_state"],
             "APPROVED_FOR_CONTROLLED_GRAY_EXECUTION",
         )
+        self.assertIn("build-controlled-gray-public-source-targets-v1.ps1", approved_result["gray_run_plan"]["recommended_command"])
+        self.assertIn("run-controlled-gray-public-batch-segments-v1.ps1", approved_result["gray_run_plan"]["recommended_command"])
+        self.assertIn("-GroupBy target", approved_result["gray_run_plan"]["recommended_command"])
+        self.assertIn("-PerTargetCandidateLimit 12", approved_result["gray_run_plan"]["recommended_command"])
         self.assertTrue(approved_result["operator_decision_record"]["decision_record_sha256"])
 
     def test_professional_runner_autogenerates_controlled_live_evidence_summary(self) -> None:
@@ -315,6 +517,8 @@ class ControlledLivePublicBatchEvidenceSummaryTests(unittest.TestCase):
         )
 
         self.assertIn("run-evaluation-real-sample-execution.ps1", script)
+        self.assertIn("TargetsJson", script)
+        self.assertIn("SeedJson", script)
         self.assertIn("-UseAllTargets", script)
         self.assertIn("build-controlled-live-public-batch-evidence-summary-v1.ps1", script)
         self.assertIn("build-controlled-live-public-batch-stage4-readback-v1.ps1", script)
@@ -337,9 +541,20 @@ class ControlledLivePublicBatchEvidenceSummaryTests(unittest.TestCase):
         self.assertIn("stage4_all_required_readbacks_ready", script)
         self.assertIn("source_remediation_closeout_state", script)
         self.assertIn("source_remediation_execution_state", script)
+        self.assertIn('$runArgs += ($TargetIds -join ",")', script)
         self.assertIn("customer_visible_allowed = $false", script)
         self.assertIn("payment_execution_enabled = $false", script)
         self.assertIn("delivery_execution_enabled = $false", script)
+
+    def test_controlled_gray_segment_runner_wires_plan_segment_runs_and_aggregate(self) -> None:
+        script = (ROOT / "scripts" / "run-controlled-gray-public-batch-segments-v1.ps1").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("build-controlled-gray-public-batch-segments-v1.ps1", script)
+        self.assertIn("run-controlled-live-public-batch-v1.ps1", script)
+        self.assertIn("build-controlled-gray-public-batch-segment-aggregate-v1.ps1", script)
+        self.assertIn("controlled-gray-public-batch-segment-aggregate-v1.json", script)
 
 
 def _write_execution(path: Path) -> None:
@@ -408,6 +623,82 @@ def _write_execution(path: Path) -> None:
                         "attachment_snapshot_refs": [],
                     },
                 ],
+            }
+        },
+    )
+
+
+def _gray_target(
+    target_id: str,
+    jurisdiction: str,
+    source_profile_id: str,
+    document_kind: str,
+    target_count: int,
+) -> dict:
+    return {
+        "target_id": target_id,
+        "jurisdiction": jurisdiction,
+        "platform_name": "公开平台",
+        "entry_seed_id": "ENTRY-PUBLIC",
+        "required_fetch_profile_id_optional": source_profile_id,
+        "source_family": "local_public_resource_trading_center",
+        "project_type": "construction",
+        "document_kind": document_kind,
+        "target_count": target_count,
+        "selection_filters": ["工程建设"],
+    }
+
+
+def _write_segment_closeout(
+    root: Path,
+    *,
+    sample_count: int,
+    fixed_count: int,
+    readback_count: int,
+) -> None:
+    _write_json(
+        root / "controlled-live-public-batch-closeout.json",
+        {
+            "manifest_kind": "controlled_live_public_batch_closeout_v1",
+            "run_root": str(root),
+            "execute": True,
+            "sample_count": sample_count,
+            "fixed_snapshot_sha256_count": fixed_count,
+            "stage4_evidence_readback_required_count": sample_count,
+            "stage4_readback_ready_sample_count": sample_count,
+            "stage4_readback_missing_sample_count": 0,
+            "stage4_public_evidence_readback_count": readback_count,
+            "stage4_all_required_readbacks_ready": True,
+            "source_remediation_record_count": 0,
+            "source_remediation_group_count": 0,
+            "source_remediation_ready_count": 0,
+            "alternate_public_source_required_count": 0,
+            "source_remediation_closeout_state": "NO_SOURCE_REMEDIATION_REQUIRED",
+            "source_remediation_execution_state": "",
+            "post_run_source_remediation_record_count": 0,
+            "post_run_stage4_all_required_readbacks_ready": False,
+            "partial_or_blocked_count": 0,
+            "no_match_count": 0,
+            "customer_visible_allowed": False,
+            "external_send_enabled": False,
+            "payment_execution_enabled": False,
+            "delivery_execution_enabled": False,
+            "automatic_refund_enabled": False,
+            "query_miss_is_not_clearance": True,
+            "no_legal_conclusion": True,
+            "gray_launch_decision": "ELIGIBLE_FOR_GRAY_LAUNCH_REVIEW",
+            "next_required_step": "human_gray_launch_review",
+        },
+    )
+    _write_json(
+        root / "gray-launch-review" / "controlled-live-public-batch-gray-launch-review-v1.json",
+        {
+            "summary": {
+                "gray_launch_review_state": "READY_FOR_HUMAN_GRAY_LAUNCH_REVIEW",
+                "project_sample_count": sample_count,
+                "fixed_snapshot_sha256_count": fixed_count,
+                "stage4_all_required_readbacks_ready": True,
+                "source_remediation_final_record_count": 0,
             }
         },
     )
