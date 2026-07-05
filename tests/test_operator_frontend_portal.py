@@ -219,13 +219,13 @@ class TestOperatorFrontendPortal(unittest.TestCase, IsolatedStorageTestMixin):
             "/operator-console/stage6-review-loop-status",
             "/operator-console/runtime-projection",
             "/operator-console/stage6-review-loop",
-            "Runtime Controller 投影",
-            "统一 RunController 状态",
+            "运行控制器投影",
+            "统一运行控制器状态",
             "runtimeProjectionMetrics",
             "runtimeProjectionBoundary",
             "runtimeProjectionDetails",
-            "controller 派生任务",
-            "Controller 派生任务明细",
+            "控制器派生任务",
+            "控制器派生任务明细",
             "派生入口",
             "人工复核族",
             "Stage4 释放证据下一步",
@@ -248,7 +248,7 @@ class TestOperatorFrontendPortal(unittest.TestCase, IsolatedStorageTestMixin):
             "Stage4/5 样本回放",
             "阻断账本",
             "阻断路由",
-            "Runtime 审计回放",
+            "运行审计回放",
             "审计回放只用于内部复核",
             "Stage8/9 受控开放边界",
             "自动退款受控测试/试点",
@@ -447,7 +447,7 @@ class TestOperatorFrontendPortal(unittest.TestCase, IsolatedStorageTestMixin):
         client = TestClient(create_app())
         html = client.request("GET", "/operator-console").text
         self.assertIn(
-            'Promise.all([loadReadiness(false), loadAutonomousWorkbench(), loadRegionAdapters(), loadAutonomousSearchRuns(), loadRealCandidateDiscoveryDiagnostics(), loadRealCandidateCatalog(), loadRealCandidateStage2Captures(), loadRealSourceProfiles(), loadRealSourceRuns(), loadUserAcceptanceContract(), loadAcceptanceGapMatrix(), loadRealWorldSellability(), loadStage6ReviewLoopStatus(), loadRuntimeProjection()])',
+            'Promise.all([loadReadiness(false), loadAutonomousWorkbench(), loadRegionAdapters(), loadAutonomousSearchRuns(), loadRealCandidateDiscoveryDiagnostics(), loadRealCandidateCatalog(), loadRealCandidateStage2Captures(), loadRealSourceProfiles(), loadRealSourceRuns(), loadGrayOrchestrator(), loadUserAcceptanceContract(), loadAcceptanceGapMatrix(), loadRealWorldSellability(), loadStage6ReviewLoopStatus(), loadRuntimeProjection()])',
             html,
         )
         self.assertIn('"/operator-console/region-adapters"', html)
@@ -461,6 +461,7 @@ class TestOperatorFrontendPortal(unittest.TestCase, IsolatedStorageTestMixin):
         self.assertIn('"/operator-console/real-world-sellability"', html)
         self.assertIn('"/operator-console/stage6-review-loop-status"', html)
         self.assertIn('"/operator-console/runtime-projection"', html)
+        self.assertIn('"/operator-console/controlled-gray-orchestrator"', html)
         self.assertIn('href="/operator-console/stage6-review-loop"', html)
         self.assertIn('href="#autonomousWorkbench"', html)
         self.assertIn('data-workbench-opportunity', html)

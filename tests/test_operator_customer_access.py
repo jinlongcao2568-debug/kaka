@@ -89,6 +89,10 @@ class TestOperatorCustomerAccess(unittest.TestCase, IsolatedStorageTestMixin):
             "previewCustomerArtifactAccessCandidate",
             "previewGoLiveReadiness",
             "previewOperatorSchedulerStatus",
+            "previewControlledGrayPublicOrchestrator",
+            "prepareControlledGrayPublicOrchestrator",
+            "enqueueControlledGrayPublicOrchestratorWorker",
+            "runControlledGrayPublicOrchestratorWorkerOnce",
         }
         self.assertEqual(set(app.state.operator_customer_access_operations), expected_operations)
         self.assertEqual(set(mounted_operations), expected_operations)

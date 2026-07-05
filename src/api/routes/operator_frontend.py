@@ -545,12 +545,15 @@ def _page(title: str, body: str, script: str) -> HTMLResponse:
       --warn: #b54708;
       --danger: #b42318;
       --ok: #157347;
+      --blue: #255a77;
+      --ink-strong: #101820;
+      --surface-alt: #f8fafc;
     }}
     * {{ box-sizing: border-box; }}
     body {{
       margin: 0;
-      font-family: Arial, "Microsoft YaHei", sans-serif;
-      background: var(--soft);
+      font-family: "Segoe UI", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+      background: #edf2f6;
       color: var(--ink);
     }}
     html {{
@@ -559,7 +562,7 @@ def _page(title: str, body: str, script: str) -> HTMLResponse:
     .layout {{
       min-height: 100vh;
       display: grid;
-      grid-template-columns: 248px minmax(0, 1fr);
+      grid-template-columns: 236px minmax(0, 1fr);
     }}
     .operator-shell {{
       height: 100vh;
@@ -568,7 +571,7 @@ def _page(title: str, body: str, script: str) -> HTMLResponse:
     nav {{
       background: var(--nav);
       color: #eef5f2;
-      padding: 24px 18px;
+      padding: 22px 16px;
     }}
     .operator-shell nav {{
       position: sticky;
@@ -583,8 +586,8 @@ def _page(title: str, body: str, script: str) -> HTMLResponse:
       overflow: auto;
     }}
     nav h1 {{
-      margin: 0 0 18px;
-      font-size: 22px;
+      margin: 0 0 16px;
+      font-size: 20px;
       line-height: 1.2;
       letter-spacing: 0;
     }}
@@ -594,7 +597,7 @@ def _page(title: str, body: str, script: str) -> HTMLResponse:
       width: 100%;
       color: #d7e6e1;
       text-decoration: none;
-      padding: 10px 0;
+      padding: 9px 0;
       border-bottom: 1px solid rgba(255,255,255,.12);
       font-size: 14px;
       text-align: left;
@@ -612,7 +615,7 @@ def _page(title: str, body: str, script: str) -> HTMLResponse:
       color: #fff;
       background: rgba(255,255,255,.08);
     }}
-    main {{ padding: 28px; }}
+    main {{ padding: 24px; }}
     .operator-shell main {{
       height: 100vh;
       overflow: hidden;
@@ -659,8 +662,12 @@ def _page(title: str, body: str, script: str) -> HTMLResponse:
       flex: 1 1 auto;
       min-height: 0;
       display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
+      grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
       gap: 16px;
+      transition: grid-template-columns .18s ease;
+    }}
+    .workspace.result-collapsed {{
+      grid-template-columns: minmax(0, 1fr) 48px;
     }}
     .panelStack {{
       min-height: 0;
@@ -689,6 +696,24 @@ def _page(title: str, body: str, script: str) -> HTMLResponse:
       padding: 18px;
       min-width: 0;
       scroll-margin-top: 18px;
+    }}
+    .section-head {{
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+      align-items: flex-start;
+      margin-bottom: 12px;
+    }}
+    .section-head h3 {{
+      margin-bottom: 4px;
+    }}
+    .section-kicker {{
+      margin: 0 0 4px;
+      color: var(--blue);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .04em;
+      text-transform: uppercase;
     }}
     section h3 {{
       margin: 0 0 12px;
@@ -735,6 +760,19 @@ def _page(title: str, body: str, script: str) -> HTMLResponse:
       background: rgba(255,255,255,.08);
     }}
     button.secondary {{ background: #31546b; }}
+    button.primary {{ background: var(--accent); }}
+    button.ghost {{
+      color: var(--ink);
+      background: #fff;
+      border: 1px solid var(--line);
+    }}
+    button.controlled {{
+      background: var(--blue);
+    }}
+    button:disabled {{
+      cursor: not-allowed;
+      opacity: .62;
+    }}
     button:focus, input:focus, textarea:focus, a:focus {{
       outline: 3px solid rgba(15,123,104,.24);
       outline-offset: 2px;
@@ -836,6 +874,10 @@ def _page(title: str, body: str, script: str) -> HTMLResponse:
       padding: 7px 10px;
       font-size: 13px;
     }}
+    .field-actions.command-actions {{
+      align-items: center;
+      padding-top: 4px;
+    }}
     .opportunity-actions {{
       display: flex;
       flex-wrap: wrap;
@@ -909,6 +951,66 @@ def _page(title: str, body: str, script: str) -> HTMLResponse:
       word-break: break-word;
       font-size: 14px;
     }}
+    .decision-panel {{
+      border: 1px solid #bfd8d1;
+      border-left: 4px solid var(--accent);
+      border-radius: 8px;
+      background: linear-gradient(180deg, #fbfefd, #f4faf8);
+      padding: 16px;
+      margin: 10px 0 14px;
+    }}
+    .decision-panel.blocked {{
+      border-color: #f1c18c;
+      border-left-color: var(--warn);
+      background: linear-gradient(180deg, #fffcf7, #fff6e8);
+    }}
+    .decision-panel.ready {{
+      border-color: #9fceb6;
+      border-left-color: var(--ok);
+      background: linear-gradient(180deg, #fbfffd, #effaf3);
+    }}
+    .decision-title {{
+      display: block;
+      color: var(--ink-strong);
+      font-size: 20px;
+      line-height: 1.25;
+      margin-bottom: 6px;
+    }}
+    .decision-grid {{
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 12px;
+    }}
+    .decision-card {{
+      border: 1px solid rgba(188, 202, 212, .9);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, .82);
+      padding: 11px 12px;
+      min-height: 88px;
+    }}
+    .decision-card strong {{
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 6px;
+    }}
+    .decision-card span {{
+      display: block;
+      color: var(--ink);
+      font-size: 14px;
+      line-height: 1.35;
+      word-break: break-word;
+    }}
+    .operator-next-action {{
+      color: var(--ink-strong);
+      font-weight: 700;
+    }}
+    .technical-muted {{
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }}
     .timeline {{
       display: grid;
       gap: 8px;
@@ -963,6 +1065,38 @@ def _page(title: str, body: str, script: str) -> HTMLResponse:
       min-height: 0;
       display: flex;
       flex-direction: column;
+      padding: 14px;
+    }}
+    .resultPaneHeader {{
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 10px;
+    }}
+    .resultPaneHeader h3 {{
+      margin: 0;
+    }}
+    .pane-toggle {{
+      margin: 0;
+      padding: 5px 8px;
+      color: var(--ink);
+      background: #fff;
+      border: 1px solid var(--line);
+      font-size: 12px;
+    }}
+    .workspace.result-collapsed .resultPane {{
+      padding: 10px 8px;
+      align-items: center;
+    }}
+    .workspace.result-collapsed .resultPaneHeader {{
+      writing-mode: vertical-rl;
+      gap: 8px;
+      margin: 0;
+    }}
+    .workspace.result-collapsed .resultPane h3,
+    .workspace.result-collapsed .resultPane pre {{
+      display: none;
     }}
     .resultPane pre {{
       flex: 1 1 auto;
@@ -986,7 +1120,7 @@ def _page(title: str, body: str, script: str) -> HTMLResponse:
       .workspace {{ display: block; }}
       .panelStack {{ overflow: visible; padding-right: 0; }}
       .resultPane pre {{ max-height: 260px; }}
-      .grid, .rail, .stage-grid, .workflow, .compact-card-grid, .check-grid, .detail-table {{ grid-template-columns: 1fr; }}
+      .grid, .rail, .stage-grid, .workflow, .compact-card-grid, .check-grid, .detail-table, .decision-grid {{ grid-template-columns: 1fr; }}
       .view-grid {{ grid-template-columns: 1fr; }}
       .field-row {{ grid-template-columns: 1fr; }}
       main {{ padding: 18px; }}
@@ -1076,8 +1210,8 @@ def render_operator_console(payload: Any) -> HTMLResponse:
             <div id="taskRunOverviewList" class="empty-state">暂无任务运行记录；在“采集运行”里创建内部任务后显示。</div>
           </section>
           <section>
-            <h3>Runtime Controller 投影</h3>
-            <p class="muted-text" id="runtimeProjectionNarrative">正在读取统一 RunController 状态、阻断队列、worker follow-up、operator action 和安全边界。</p>
+            <h3>运行控制器投影</h3>
+            <p class="muted-text" id="runtimeProjectionNarrative">正在读取统一运行控制器状态、阻断队列、后台续跑、操作动作和安全边界。</p>
             <div class="rail" id="runtimeProjectionMetrics">
               <div class="metric"><strong>--</strong><span>运行状态</span></div>
               <div class="metric"><strong>--</strong><span>当前阶段</span></div>
@@ -1263,19 +1397,34 @@ def render_operator_console(payload: Any) -> HTMLResponse:
         </div>
         <div class="view-panel" id="grayOrchestrator" data-view-panel="grayOrchestrator">
           <section>
-            <h3>受控灰度总控</h3>
-            <p class="muted-text" id="grayOrchestratorNarrative">读取总控 manifest：源目标、分段、证据哈希、Stage4 回读、补救队列、人工灰度闸门和安全边界。</p>
+            <div class="section-head">
+              <div>
+                <p class="section-kicker">受控灰度指挥</p>
+                <h3>受控灰度总控</h3>
+                <p class="muted-text" id="grayOrchestratorNarrative">正在读取批次计划、公开源分段、证据固定、Stage4 回读、补救队列和人工放行状态。</p>
+              </div>
+              <span class="pill warn" id="graySafetyBadge">客户/支付/交付关闭</span>
+            </div>
+            <div class="decision-panel blocked" id="grayDecisionPanel">
+              <strong class="decision-title" id="grayDecisionTitle">正在读取灰度判断...</strong>
+              <p class="muted-text" id="grayDecisionReason">读取完成后会直接显示是否可灰度、卡在哪里、下一步做什么。</p>
+              <div class="decision-grid">
+                <div class="decision-card"><strong>当前结论</strong><span id="grayDecisionState">--</span></div>
+                <div class="decision-card"><strong>主要阻断</strong><span id="grayDecisionBlocker">--</span></div>
+                <div class="decision-card"><strong>推荐动作</strong><span class="operator-next-action" id="grayDecisionAction">--</span></div>
+              </div>
+            </div>
             <div class="rail" id="grayOrchestratorMetrics">
               <div class="metric"><strong>--</strong><span>总控状态</span></div>
               <div class="metric"><strong>--</strong><span>样本</span></div>
-              <div class="metric"><strong>--</strong><span>证据 hash</span></div>
+              <div class="metric"><strong>--</strong><span>证据哈希</span></div>
             </div>
             <div id="grayOrchestratorSummary" class="empty-state">暂无总控读回。</div>
-            <div class="field-actions">
-              <button id="prepareGrayOrchestrator">生成总控计划</button>
-              <button id="enqueueGrayOrchestrator">加入后台队列</button>
-              <button id="runGrayOrchestratorWorker">运行一次 worker</button>
-              <button class="secondary" id="refreshGrayOrchestrator">刷新总控状态</button>
+            <div class="field-actions command-actions">
+              <button class="primary" type="button" id="prepareGrayOrchestrator">生成总控计划</button>
+              <button class="secondary" type="button" id="enqueueGrayOrchestrator">加入后台队列</button>
+              <button class="controlled" type="button" id="runGrayOrchestratorWorker">执行一次后台处理</button>
+              <button class="ghost" type="button" id="refreshGrayOrchestrator">刷新状态</button>
             </div>
           </section>
           <section>
@@ -1289,12 +1438,12 @@ def render_operator_console(payload: Any) -> HTMLResponse:
           </section>
           <section>
             <h3>后台队列</h3>
-            <p class="muted-text" id="grayOrchestratorQueueMeta">后台队列由 WorkerQueueRepository 持久化；worker 只生成内部总控计划。</p>
+            <p class="muted-text" id="grayOrchestratorQueueMeta">后台队列会持久保存；后台处理只生成内部总控计划。</p>
             <div id="grayOrchestratorQueue" class="empty-state">暂无后台队列任务。</div>
           </section>
           <section class="controlled_opening_requirement">
             <h3>真实执行边界</h3>
-            <p>工作台按钮只生成受控计划和 manifest，不直接执行真实公开源批次。真实 `-Execute` 必须由 owner 在 CLI 明确运行，并继续保持客户可见、支付、交付、退款关闭。</p>
+            <p>工作台按钮只生成受控计划文件，不直接执行真实公开源批次。真实执行命令必须由负责人在命令行明确运行，并继续保持客户可见、支付、交付、退款关闭。</p>
             <pre id="grayOrchestratorExecuteCommand">等待总控读回...</pre>
           </section>
         </div>
@@ -1353,7 +1502,10 @@ def render_operator_console(payload: Any) -> HTMLResponse:
         </div>
       </div>
       <section class="resultPane" aria-label="操作结果">
-        <h3>操作结果</h3>
+        <div class="resultPaneHeader">
+          <h3>操作结果</h3>
+          <button class="pane-toggle" type="button" id="toggleResultPane" aria-expanded="true" aria-controls="output">收起</button>
+        </div>
         <pre id="output">等待操作...</pre>
       </section>
     </div>
@@ -1382,7 +1534,17 @@ function formatOperatorSummary(value) {
 const out = (value) => {
   const summary = formatOperatorSummary(value);
   $("output").textContent = summary || JSON.stringify(value, null, 2);
+  setResultPaneCollapsed(false);
 };
+function setResultPaneCollapsed(collapsed) {
+  const workspace = document.querySelector(".workspace");
+  const toggle = $("toggleResultPane");
+  if (!workspace || !toggle) { return; }
+  workspace.classList.toggle("result-collapsed", collapsed);
+  toggle.textContent = collapsed ? "展开" : "收起";
+  toggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
+  toggle.title = collapsed ? "展开操作结果" : "收起操作结果";
+}
 const views = new Set(Array.from(document.querySelectorAll("[data-view-panel]")).map((panel) => panel.dataset.viewPanel));
 function updateCustomerPortalLink(opportunityId) {
   const link = $("customerPortalLink");
@@ -1509,9 +1671,9 @@ const stateLabels = {
   "HUMAN_GATE_REQUIRED": "需要人工闸门",
   "HUMAN_DECISION_RECORDED": "人工决策已记录",
   "WORKBENCH_PREPARE_READY": "工作台计划生成已接入",
-  "INTERNAL_WORKER_QUEUE_READY": "内部 worker 队列已接入",
-  "CONTROLLED_GRAY_ORCHESTRATOR_WORKER_SUCCEEDED": "灰度总控 worker 已完成",
-  "CONTROLLED_GRAY_ORCHESTRATOR_WORKER_FAILED_RETRY_SCHEDULED": "灰度总控 worker 失败，已排重试",
+  "INTERNAL_WORKER_QUEUE_READY": "内部后台队列已接入",
+  "CONTROLLED_GRAY_ORCHESTRATOR_WORKER_SUCCEEDED": "灰度总控后台处理已完成",
+  "CONTROLLED_GRAY_ORCHESTRATOR_WORKER_FAILED_RETRY_SCHEDULED": "灰度总控后台处理失败，已排重试",
   "NO_DUE_CONTROLLED_GRAY_ORCHESTRATOR_QUEUE_ITEM": "暂无到期灰度总控任务",
   "DISABLED_BY_SAFETY_BOUNDARY": "安全边界关闭",
   "DRY_RUN_ONLY": "仅 dry-run",
@@ -1654,6 +1816,100 @@ const projectTypeLabels = {
 function labelOf(value) {
   const text = String(value ?? "--");
   return stateLabels[text] || projectTypeLabels[text] || text;
+}
+const grayActionLabels = {
+  "prepare_controlled_gray_public_orchestrator_manifest": "生成总控计划，固定公开源目标和分段",
+  "run_missing_controlled_gray_public_segments": "运行缺失分段，补齐公开源批次",
+  "rerun_orchestrator_with_execute_for_real_public_source_batch": "按授权运行真实公开源批次",
+  "read_stage4_evidence_back": "自动回读 Stage4 证据",
+  "run_source_remediation": "执行来源补救并重新聚合",
+  "review_aggregate": "复核批次聚合结果",
+  "record_operator_gray_launch_decision": "记录人工灰度放行决定",
+  "wait_for_operator_gray_launch_decision": "等待人工灰度放行确认",
+};
+const grayCapabilityLabels = {
+  "source_target_generation": "公开来源目标生成",
+  "segment_planning": "批次分段计划",
+  "segment_execution": "公开源分段执行",
+  "segment_timeout_cleanup": "超时清理与续跑",
+  "evidence_hash_fixation": "证据哈希固定",
+  "stage4_evidence_readback": "Stage4 证据回读",
+  "source_remediation": "来源补救",
+  "aggregate_review": "聚合复核",
+  "operator_gray_launch_decision": "人工灰度放行",
+  "customer_visibility": "客户可见边界",
+  "payment_delivery_refund": "支付交付退款边界",
+  "workbench_trigger": "工作台触发",
+  "background_scheduler": "后台队列处理",
+};
+function operatorActionLabel(value) {
+  const text = String(value ?? "--");
+  return grayActionLabels[text] || labelOf(text);
+}
+function compactPath(value) {
+  if (!value) { return "--"; }
+  const text = String(value);
+  const slash = Math.max(text.lastIndexOf("/"), text.lastIndexOf("\\\\"));
+  const name = slash >= 0 ? text.slice(slash + 1) : text;
+  if (name.length <= 72) { return name; }
+  return `${name.slice(0, 32)}...${name.slice(-24)}`;
+}
+function grayCapabilityTitle(item) {
+  const key = String(item?.capability_id || "");
+  return grayCapabilityLabels[key] || item?.title || labelOf(key || "--");
+}
+function grayBlockerText(summary) {
+  const blockers = [];
+  const segmentCount = Number(summary.segment_count ?? 0);
+  const completedSegments = Number(summary.completed_segment_count ?? 0);
+  const stage4Missing = Number(summary.stage4_readback_missing_sample_count ?? 0);
+  const remediation = Number(summary.source_remediation_final_record_count ?? 0);
+  const evidenceBlockers = Number(summary.remaining_evidence_blocker_count ?? 0);
+  if (segmentCount && completedSegments < segmentCount) {
+    blockers.push(`公开源分段未完成 ${completedSegments}/${segmentCount}`);
+  }
+  if (stage4Missing) { blockers.push(`Stage4 缺失回读 ${stage4Missing}`); }
+  if (remediation) { blockers.push(`来源补救剩余 ${remediation}`); }
+  if (evidenceBlockers) { blockers.push(`证据阻断 ${evidenceBlockers}`); }
+  if (!blockers.length && !summary.can_enter_controlled_gray_execution) {
+    blockers.push(labelOf(summary.human_gray_launch_approval_state || summary.aggregate_gray_review_state || summary.orchestration_state || "NOT_READY"));
+  }
+  return blockers.filter(Boolean).join("；") || "未发现阻断";
+}
+function grayDecisionFor(surface) {
+  const summary = surface?.summary || {};
+  const action = operatorActionLabel(summary.next_required_step || surface?.owner_next_action || "--");
+  if (!surface?.latest_manifest_available) {
+    return {
+      kind: "blocked",
+      title: "尚未生成灰度计划",
+      state: "待生成计划",
+      blocker: "缺少可回读的灰度计划文件",
+      action: "生成总控计划",
+      reason: "当前不会触达客户、支付或交付；先生成内部计划，让系统固化样本、来源、分段和证据哈希。"
+    };
+  }
+  const blocker = grayBlockerText(summary);
+  if (summary.can_enter_controlled_gray_execution) {
+    return {
+      kind: "ready",
+      title: "已具备受控灰度放行条件",
+      state: labelOf(summary.aggregate_gray_review_state || summary.orchestration_state || "READY"),
+      blocker,
+      action,
+      reason: "机器聚合已通过受控灰度条件；仍保持客户可见、支付、交付、退款边界关闭，等待 owner 最终放行。"
+    };
+  }
+  const waitingApproval = String(summary.human_gray_launch_approval_state || "").includes("WAITING")
+    || String(summary.aggregate_gray_review_state || "").includes("WAITING");
+  return {
+    kind: waitingApproval ? "" : "blocked",
+    title: waitingApproval ? "等待人工放行确认" : "暂不能进入灰度",
+    state: labelOf(summary.orchestration_state || summary.aggregate_gray_review_state || "NOT_READY"),
+    blocker,
+    action,
+    reason: "系统已经自动读回灰度状态，但仍有未完成项；必须先补齐证据和聚合结果，再判断是否灰度。"
+  };
 }
 const topicLabels = {
   "TOPIC-CERT-REG-TIME": "证书/注册单位/时间异常",
@@ -2127,7 +2383,7 @@ function renderCommercialBoundary(hook, buyer, next, delivery, safeDisplay) {
     </div>
     <div class="stage-card">
       <strong>真实外发状态</strong>
-      <p>当前为内部复核和拟发送包预览；真实邮件/电话/CRM 发送需要服务商、审批、审计和 operator action。</p>
+      <p>当前为内部复核和拟发送包预览；真实邮件/电话/CRM 发送需要服务商、审批、审计和操作确认。</p>
       ${badge(hook.customer_visible_enabled ? "客户可见" : "客户不可见", hook.customer_visible_enabled ? "" : "warn")}
       ${badge(hook.external_send_enabled ? "真实外发已开" : "真实外发未开", hook.external_send_enabled ? "" : "warn")}
     </div>
@@ -2402,7 +2658,7 @@ function renderProviderExecutionMatrix(readiness, scheduler, goLive) {
       ${badge(provider.mode || "--", provider.readback_only ? "warn" : "")}
       ${badge(credentialState, credential.credential_present ? "" : "warn")}
       ${badge(liveEnabled ? "真实执行已开" : "真实执行未开", liveEnabled ? "" : "warn")}
-      <p><strong>下一步</strong> 接入 sandbox 凭证、健康检查、审批链、审计链和 operator action 后再做 live pilot。</p>
+      <p><strong>下一步</strong> 接入沙箱凭证、健康检查、审批链、审计链和操作确认后再做受控试点。</p>
     </div>`;
   }).join("");
   const blocked = provider.summary?.blocked_reasons || [];
@@ -2411,7 +2667,7 @@ function renderProviderExecutionMatrix(readiness, scheduler, goLive) {
     ["真实支付", controlled.real_payment_enabled, "支付 sandbox + 订单记录 + 审批 + 审计"],
     ["真实交付", controlled.real_delivery_enabled, "下载授权 + 交付审计 + 客户账号控制"],
     ["真实退款异常", controlled.real_refund_enabled, "人工退款异常队列；自动退款 sandbox/mock/dry-run/受控试点可测"],
-    ["自动退款执行", controlled.automated_refund_enabled, "controlled-test-and-pilot-required；生产启用需授权、审批、审计、operator action、对账和回滚/暂停"]
+    ["自动退款执行", controlled.automated_refund_enabled, "受控测试和试点后才允许；生产启用需授权、审批、审计、操作确认、对账和回滚/暂停"]
   ];
   $("liveActionGateMatrix").innerHTML = `
     <div class="stage-card">
@@ -2633,7 +2889,7 @@ function renderRuntimeProjection(surface) {
   const safety = surface?.safety || {};
   $("runtimeProjectionNarrative").textContent = projection.run_id
     ? `最新 run ${projection.run_id}：${projection.run_state || "--"}，当前阶段 ${projection.current_stage_id || "--"}。`
-    : "暂无 RunController 持久化投影；运行统一 runtime 入口后这里会显示最新 run graph 状态。";
+    : "暂无运行控制器持久化投影；运行统一入口后这里会显示最新运行图状态。";
   $("runtimeProjectionMetrics").innerHTML = [
     `<div class="metric"><strong>${projection.run_state || "待运行"}</strong><span>运行状态</span></div>`,
     `<div class="metric"><strong>${projection.current_stage_id || "--"}</strong><span>当前阶段</span></div>`,
@@ -2663,7 +2919,7 @@ function renderRuntimeProjection(surface) {
       <p>OCR 待处理：${safeText(stage16Stability.stage3_attachment_ocr_pending_count ?? 0)}；负责人角色缺口：${safeText(stage16Stability.stage3_responsible_role_gap_count ?? 0)}</p>
       <p>解析阻断：${safeText(stage16Stability.stage3_parse_blocker_count ?? 0)}</p>
       <p>repair 任务：${safeText(stage13Repair.stage1_3_repair_task_count ?? 0)}；指标：${safeText(countMapText(stage13Repair.stage1_3_repair_metric_counts))}</p>
-      <p>repair worker：${safeText(stage13RepairWorker.repair_worker_state || "未运行")}；计划 ${safeText(stage13RepairWorker.repair_task_count ?? 0)}；worker ${safeText(countMapText(stage13RepairWorker.repair_worker_family_counts))}</p>
+      <p>修复后台处理：${safeText(stage13RepairWorker.repair_worker_state || "未运行")}；计划 ${safeText(stage13RepairWorker.repair_task_count ?? 0)}；处理族 ${safeText(countMapText(stage13RepairWorker.repair_worker_family_counts))}</p>
       <p>推荐动作：${safeText(countMapText(stage16Readiness.stage1_6_next_action_counts))}</p>
       <p>缺口动作：${safeText(countMapText(stage16Readiness.stage1_6_gap_next_action_counts))}</p>
     </div>`,
@@ -2671,19 +2927,19 @@ function renderRuntimeProjection(surface) {
       <strong>Runtime Blocker Queue</strong>
       ${badge(blocker.next_subqueue_input_state || "待读取")}
       <p>controller dispatch：${safeText(blocker.controller_dispatch_task_count ?? 0)}；ready：${safeText(blocker.dispatch_ready_count ?? 0)}</p>
-      <p>controller 派生任务：${safeText(blocker.controller_derived_dispatch_task_count ?? 0)}；ready：${safeText(blocker.controller_derived_dispatch_ready_count ?? 0)}</p>
+      <p>控制器派生任务：${safeText(blocker.controller_derived_dispatch_task_count ?? 0)}；就绪：${safeText(blocker.controller_derived_dispatch_ready_count ?? 0)}</p>
       <p>派生入口：${safeText(countMapText(blocker.controller_derived_dispatch_entrypoint_counts))}</p>
       <p>人工复核族：${safeText(countMapText(blocker.controller_derived_dispatch_review_family_counts))}</p>
       <p>Stage1-3 repair：${safeText(blocker.stage1_3_repair_task_count ?? 0)}；${safeText(countMapText(blocker.stage1_3_repair_metric_counts))}</p>
     </div>`,
     `<div class="stage-card">
-      <strong>Controller 派生任务明细</strong>
+      <strong>控制器派生任务明细</strong>
       ${badge(dispatchRecords.length ? String(dispatchRecords.length) + " 个内部任务" : "暂无派生任务", dispatchRecords.length ? "" : "warn")}
-      ${dispatchRecords.length ? `<ul>${dispatchRecords.slice(0, 8).map((task) => `<li>${safeText(task.dispatch_task_id || task.task_id || "--")} · ${safeText(task.dispatch_state || "--")} · ${safeText(task.entrypoint_id || task.review_family || "--")} · ${task.source_metric ? `指标 ${safeText(task.source_metric)}=${safeText(task.metric_count ?? 0)} · ` : ""}客户动作：${task.external_customer_action_enabled ? "开启" : "关闭"}</li>`).join("")}</ul>` : `<p>等待 RunController 生成 dispatch queue。</p>`}
+      ${dispatchRecords.length ? `<ul>${dispatchRecords.slice(0, 8).map((task) => `<li>${safeText(task.dispatch_task_id || task.task_id || "--")} · ${safeText(task.dispatch_state || "--")} · ${safeText(task.entrypoint_id || task.review_family || "--")} · ${task.source_metric ? `指标 ${safeText(task.source_metric)}=${safeText(task.metric_count ?? 0)} · ` : ""}客户动作：${task.external_customer_action_enabled ? "开启" : "关闭"}</li>`).join("")}</ul>` : `<p>等待运行控制器生成派发队列。</p>`}
     </div>`,
     `<div class="stage-card">
       <strong>Worker Follow-up</strong>
-      ${badge(String(followup.dispatch_runner_followup_task_count ?? 0) + " 个 follow-up")}
+      ${badge(String(followup.dispatch_runner_followup_task_count ?? 0) + " 个后续任务")}
       <p>runner tasks：${safeText(followup.dispatch_runner_task_count ?? 0)}</p>
     </div>`,
     `<div class="stage-card">
@@ -2707,7 +2963,7 @@ function renderRuntimeProjection(surface) {
       ${badge(Number(stage4GdcicAuthorized.project_manager_change_ready_count || 0) ? "项目经理变更命中" : "待读回", Number(stage4GdcicAuthorized.project_manager_change_ready_count || 0) ? "" : "warn")}
       <p>授权状态：${safeText(stage4GdcicAuthorized.authorized_session_input_state || stage4GdcicAuthorized.gdcic_authorized_session_overall_state || "--")}</p>
       <p>读回 ready：${safeText(stage4GdcicAuthorized.gdcic_browser_readback_ready_count ?? 0)}；项目经理变更 ready：${safeText(stage4GdcicAuthorized.project_manager_change_ready_count ?? 0)}</p>
-      <p>runtime ledger：${safeText(stage4GdcicWorker.worker_result_state || "未持久化")}；worker ready ${safeText(stage4GdcicWorker.gdcic_browser_readback_ready_count ?? 0)}；项目经理变更 ${safeText(stage4GdcicWorker.project_manager_change_ready_count ?? 0)}</p>
+      <p>运行账本：${safeText(stage4GdcicWorker.worker_result_state || "未持久化")}；授权回读就绪 ${safeText(stage4GdcicWorker.gdcic_browser_readback_ready_count ?? 0)}；项目经理变更 ${safeText(stage4GdcicWorker.project_manager_change_ready_count ?? 0)}</p>
       <p>Stage5 校准样本：${safeText(stage4GdcicWorker.stage5_calibration_sample_count ?? 0)}；A/B/C/D ${safeText(countMapText(stage4GdcicWorker.stage5_abcd_calibration_counts))}</p>
       <p>窗口解释：${safeText(countMapText(stage4GdcicAuthorized.project_manager_change_interpretation_counts))}</p>
       <p>来源：${safeText(stage4GdcicAuthorized.source_gdcic_browser_readback_json || "--")}</p>
@@ -2731,7 +2987,7 @@ function renderRuntimeProjection(surface) {
       <p>Stage5 回放校准：样本 ${safeText(stage45Replay.stage5_calibration_sample_count ?? 0)}；真值待标注 ${safeText(stage45Replay.stage5_calibration_truth_label_required_count ?? 0)}；A/B/C/D ${safeText(countMapText(stage45Replay.stage5_abcd_calibration_counts))}</p>
     </div>`,
     `<div class="stage-card">
-      <strong>Runtime 审计回放</strong>
+      <strong>运行审计回放</strong>
       ${badge(auditReplay.replay_state || "待读取", auditReplay.replay_state === "REPLAY_READY" ? "" : "warn")}
       <p>事件数：${safeText(auditReplay.event_count ?? 0)}；Run：${safeText(auditReplay.run_id || "--")}</p>
       <p>事件类型：${safeText(countMapText(auditReplay.event_type_counts))}</p>
@@ -2790,7 +3046,7 @@ function taskOverviewTelemetryFromQueueItem(item) {
           route_policy_id: item.route_policy_id,
         },
         failure_reasons: item.last_error ? [item.last_error] : [],
-        next_action: "等待内部 worker 或后续采集运行消费；当前不会真实外部抓取。",
+        next_action: "等待内部后台处理或后续采集运行消费；当前不会真实外部抓取。",
       },
       {
         stage: 2,
@@ -2850,7 +3106,7 @@ function renderTaskRunOverview(scheduler) {
       <p>队列编号：${safeText(item.queue_item_id || "--")}</p>
       <p>来源：${safeText(item.source_registry_id || "--")}；路由：${safeText(item.route_policy_id || "--")}</p>
       <p>尝试：${safeText(item.attempt_count ?? 0)} / ${safeText(item.max_attempts ?? "--")}；下一次运行：${safeText(item.next_run_at || "--")}</p>
-      <p><strong>下一步</strong> ${status === "queued" ? "等待内部 worker/后续链路消费；当前不会真实外部抓取。" : "查看队列状态、错误和审计读回。"}</p>
+      <p><strong>下一步</strong> ${status === "queued" ? "等待内部后台处理/后续链路消费；当前不会真实外部抓取。" : "查看队列状态、错误和审计读回。"}</p>
     </div>`;
   }).join("");
   if (!selectedAutonomousOpportunityId) {
@@ -3153,61 +3409,75 @@ function renderGrayOrchestrator(surface) {
   const state = summary.orchestration_state || "未生成";
   const aggregateState = summary.aggregate_gray_review_state || "--";
   const canEnter = Boolean(summary.can_enter_controlled_gray_execution);
+  const decision = grayDecisionFor(surface);
+  const decisionPanel = $("grayDecisionPanel");
+  decisionPanel.className = `decision-panel ${decision.kind || ""}`.trim();
+  $("grayDecisionTitle").textContent = decision.title;
+  $("grayDecisionReason").textContent = decision.reason;
+  $("grayDecisionState").textContent = decision.state;
+  $("grayDecisionBlocker").textContent = decision.blocker;
+  $("grayDecisionAction").textContent = decision.action;
+  const safetyClosed = !summary.customer_visible_allowed
+    && !summary.payment_execution_enabled
+    && !summary.delivery_execution_enabled
+    && !summary.automatic_refund_enabled;
+  $("graySafetyBadge").className = safetyClosed ? "pill warn" : "pill danger";
+  $("graySafetyBadge").textContent = safetyClosed ? "客户/支付/交付关闭" : "外部动作需复核";
   $("grayOrchestratorNarrative").textContent = surface?.latest_manifest_available
-    ? `${labelOf(state)}：聚合状态 ${labelOf(aggregateState)}；下一步 ${labelOf(summary.next_required_step || "--")}。`
-    : "暂无总控 manifest；点击“生成总控计划”会创建源目标、分段计划、聚合读回和总控状态，不执行真实公开源。";
+    ? `${decision.title}：${decision.blocker}。推荐动作：${decision.action}。`
+    : "还没有灰度计划；点击“生成总控计划”只做内部计划和读回，不执行真实公开源。";
   $("grayOrchestratorMetrics").innerHTML = [
-    `<div class="metric"><strong>${labelOf(state)}</strong><span>总控状态</span></div>`,
-    `<div class="metric"><strong>${summary.project_sample_count ?? 0}</strong><span>样本</span></div>`,
-    `<div class="metric"><strong>${summary.fixed_snapshot_sha256_count ?? 0}</strong><span>证据 hash</span></div>`
+    `<div class="metric"><strong>${labelOf(state)}</strong><span>计划状态</span></div>`,
+    `<div class="metric"><strong>${summary.completed_segment_count ?? 0}/${summary.segment_count ?? 0}</strong><span>分段完成</span></div>`,
+    `<div class="metric"><strong>${summary.fixed_snapshot_sha256_count ?? 0}</strong><span>证据哈希</span></div>`
   ].join("");
   $("grayOrchestratorSummary").className = "";
   $("grayOrchestratorSummary").innerHTML = renderRows([
-    ["总控 manifest", surface?.latest_manifest_json || "--"],
-    ["聚合状态", aggregateState],
-    ["人工灰度审批", summary.human_gray_launch_approval_state || "--"],
-    ["可进入受控灰度执行", canEnter ? "APPROVED" : "NOT_READY"],
-    ["计划分段", `${summary.completed_segment_count ?? 0}/${summary.segment_count ?? 0}`],
+    ["计划文件", surface?.latest_manifest_available ? compactPath(surface?.latest_manifest_json) : "未生成"],
+    ["批次完成状态", aggregateState],
+    ["人工放行", summary.human_gray_launch_approval_state || "--"],
+    ["是否可灰度", canEnter ? "APPROVED" : "NOT_READY"],
+    ["样本数量", summary.project_sample_count ?? 0],
     ["Stage4 缺失回读", summary.stage4_readback_missing_sample_count ?? 0],
     ["来源补救剩余", summary.source_remediation_final_record_count ?? 0],
     ["剩余证据阻断", summary.remaining_evidence_blocker_count ?? 0],
-    ["客户可见", summary.customer_visible_allowed ? "ALLOW" : "DISABLED_BY_SAFETY_BOUNDARY"],
-    ["支付/交付/退款", summary.payment_execution_enabled || summary.delivery_execution_enabled || summary.automatic_refund_enabled ? "ALLOW" : "DISABLED_BY_SAFETY_BOUNDARY"],
-    ["下一步", summary.next_required_step || surface?.owner_next_action || "--"],
+    ["客户可见边界", summary.customer_visible_allowed ? "ALLOW" : "DISABLED_BY_SAFETY_BOUNDARY"],
+    ["支付/交付/退款边界", summary.payment_execution_enabled || summary.delivery_execution_enabled || summary.automatic_refund_enabled ? "ALLOW" : "DISABLED_BY_SAFETY_BOUNDARY"],
+    ["推荐下一步", operatorActionLabel(summary.next_required_step || surface?.owner_next_action || "--")],
   ]);
   $("grayOrchestratorCapabilities").innerHTML = capabilities.length
     ? capabilities.map((item) => {
       const stateText = item.state || "--";
       const warn = stateText.includes("NOT_IMPLEMENTED") || stateText.includes("HUMAN") || stateText.includes("DRY_RUN");
       return `<div class="stage-card">
-        <strong>${safeText(item.title || item.capability_id || "--")}</strong>
-        <p>${safeText(item.capability_id || "--")}</p>
+        <strong>${safeText(grayCapabilityTitle(item))}</strong>
+        <p class="technical-muted">${safeText(item.capability_id || "--")}</p>
         ${badge(stateText, warn ? "warn" : "")}
         ${badge(item.automated ? "已自动化" : "未自动化", item.automated ? "" : "warn")}
-        <p><strong>证据</strong> ${safeText(item.evidence || "--")}</p>
-        <p><strong>下一步</strong> ${safeText(item.next_required_step || "暂无")}</p>
+        <p><strong>证据</strong> ${safeText(compactPath(item.evidence || "--"))}</p>
+        <p><strong>下一步</strong> ${safeText(operatorActionLabel(item.next_required_step || "暂无"))}</p>
       </div>`;
     }).join("")
     : `<div class="empty-state">暂无能力矩阵；生成总控计划后显示。</div>`;
-  $("grayOrchestratorRunMeta").textContent = `总控运行记录 ${surface?.run_count ?? runs.length} 条；工作台只允许 prepare，不直接执行真实公开源。`;
+  $("grayOrchestratorRunMeta").textContent = `总控运行记录 ${surface?.run_count ?? runs.length} 条；本页只生成内部计划和读回，不直接执行真实公开源。`;
   $("grayOrchestratorRuns").className = runs.length ? "compact-card-grid" : "empty-state";
   $("grayOrchestratorRuns").innerHTML = runs.length
     ? runs.slice(0, 8).map((run) => `<div class="stage-card">
-        <strong>${safeText(run.run_id || "--")}</strong>
-        <p>${safeText(run.manifest_json || "--")}</p>
+        <strong>${safeText(run.run_id || "灰度计划运行")}</strong>
+        <p class="technical-muted">${safeText(compactPath(run.manifest_json || "--"))}</p>
         ${badge(run.orchestration_state || run.action_state || "--", String(run.orchestration_state || "").includes("NOT_READY") ? "warn" : "")}
         ${badge(run.aggregate_gray_review_state || "--", String(run.aggregate_gray_review_state || "").includes("NOT_READY") ? "warn" : "")}
-        <p>样本 ${safeText(run.project_sample_count ?? 0)}；hash ${safeText(run.fixed_snapshot_sha256_count ?? 0)}；Stage4缺失 ${safeText(run.stage4_readback_missing_sample_count ?? 0)}</p>
+        <p>样本 ${safeText(run.project_sample_count ?? 0)}；证据哈希 ${safeText(run.fixed_snapshot_sha256_count ?? 0)}；Stage4 缺失 ${safeText(run.stage4_readback_missing_sample_count ?? 0)}</p>
         <p>时间：${safeText(run.completed_at || run.requested_at || "--")}</p>
       </div>`).join("")
     : "暂无总控运行记录。";
   const queueCounts = queue.status_counts || {};
-  $("grayOrchestratorQueueMeta").textContent = `后台队列 ${queue.queue_item_count ?? queueItems.length} 条；queued ${queueCounts.queued || 0} / running ${queueCounts.running || 0} / succeeded ${queueCounts.succeeded || 0}。`;
+  $("grayOrchestratorQueueMeta").textContent = `后台队列 ${queue.queue_item_count ?? queueItems.length} 条；排队 ${queueCounts.queued || 0} / 运行中 ${queueCounts.running || 0} / 已完成 ${queueCounts.succeeded || 0}。`;
   $("grayOrchestratorQueue").className = queueItems.length ? "compact-card-grid" : "empty-state";
   $("grayOrchestratorQueue").innerHTML = queueItems.length
     ? queueItems.slice(0, 8).map((item) => `<div class="stage-card">
-        <strong>${safeText(item.queue_item_id || "--")}</strong>
-        <p>${safeText(item.output_root || "--")}</p>
+        <strong>${safeText(item.queue_item_id || "后台任务")}</strong>
+        <p class="technical-muted">${safeText(compactPath(item.output_root || "--"))}</p>
         ${badge(item.status || "--", ["failed", "retry", "dead-letter"].includes(String(item.status || "")) ? "warn" : "")}
         ${badge(`尝试 ${item.attempt_count ?? 0}/${item.max_attempts ?? "--"}`, item.last_error ? "warn" : "")}
         <p>下一次：${safeText(item.next_run_at || "--")}；完成：${safeText(item.completed_at || "--")}</p>
@@ -3293,7 +3563,7 @@ async function runGrayOrchestratorWorker() {
     return result;
   } finally {
     button.disabled = false;
-    button.textContent = "运行一次 worker";
+    button.textContent = "执行一次后台处理";
   }
 }
 async function loadRealSourceProfiles() {
@@ -3328,7 +3598,7 @@ async function createTask() {
           route_policy_id: result.scheduler_task?.route_policy_id,
         },
         failure_reasons: result.scheduler_task?.conflict_reasons || [],
-        next_action: "等待内部 worker 或后续采集运行消费；当前不会真实外部抓取。",
+        next_action: "等待内部后台处理或后续采集运行消费；当前不会真实外部抓取。",
       },
       {
         stage: 2,
@@ -3532,6 +3802,10 @@ $("runControlledSample").addEventListener("click", runControlledSample);
 $("refreshWorkbench").addEventListener("click", loadReadiness);
 $("refreshAutonomousWorkbench").addEventListener("click", async () => out(await loadAutonomousWorkbench()));
 $("refreshSystemRelease").addEventListener("click", loadReadiness);
+$("toggleResultPane").addEventListener("click", () => {
+  const workspace = document.querySelector(".workspace");
+  setResultPaneCollapsed(!workspace?.classList.contains("result-collapsed"));
+});
 document.addEventListener("click", async (event) => {
   const target = event.target.closest("[data-workbench-opportunity]");
   if (!target) { return; }
@@ -3551,6 +3825,7 @@ document.querySelectorAll("[data-view]").forEach((item) => {
 });
 window.addEventListener("hashchange", () => showView((window.location.hash || "#overview").slice(1)));
 showView((window.location.hash || "#overview").slice(1));
+setResultPaneCollapsed(true);
 renderStageOverviewTelemetry();
 renderSelectChoices("searchProjectType", "searchProjectTypeChoices");
 Promise.all([loadReadiness(false), loadAutonomousWorkbench(), loadRegionAdapters(), loadAutonomousSearchRuns(), loadRealCandidateDiscoveryDiagnostics(), loadRealCandidateCatalog(), loadRealCandidateStage2Captures(), loadRealSourceProfiles(), loadRealSourceRuns(), loadGrayOrchestrator(), loadUserAcceptanceContract(), loadAcceptanceGapMatrix(), loadRealWorldSellability(), loadStage6ReviewLoopStatus(), loadRuntimeProjection()])
