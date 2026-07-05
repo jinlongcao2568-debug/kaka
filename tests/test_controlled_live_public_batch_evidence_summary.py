@@ -555,6 +555,10 @@ class ControlledLivePublicBatchEvidenceSummaryTests(unittest.TestCase):
         self.assertIn("run-controlled-live-public-batch-v1.ps1", script)
         self.assertIn("build-controlled-gray-public-batch-segment-aggregate-v1.ps1", script)
         self.assertIn("controlled-gray-public-batch-segment-aggregate-v1.json", script)
+        self.assertIn("SegmentTimeoutSeconds", script)
+        self.assertIn("Start-Process", script)
+        self.assertIn("Stop-ControlledSegmentProcesses", script)
+        self.assertIn("already complete; skipping", script)
 
 
 def _write_execution(path: Path) -> None:

@@ -5,9 +5,11 @@ param(
     [string]$GroupBy = "source_profile",
     [int]$PerTargetCandidateLimit = 12,
     [int]$TargetLimit = 0,
+    [int]$SegmentTimeoutSeconds = 900,
     [switch]$ProfessionalSourceOnly,
     [switch]$Execute,
     [switch]$AutoExecuteSourceRemediation,
+    [switch]$ForceRerun,
     [switch]$EmitJson
 )
 
@@ -17,6 +19,37 @@ $OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = Resolve-Path (Join-Path $scriptDir "..")
+
+function Stop-ControlledSegmentProcesses([string]$RunRoot) {
+    if (-not $RunRoot) {
+        return
+    }
+    $escapedRunRoot = $RunRoot.Replace("[", "`[").Replace("]", "`]")
+    Get-CimInstance Win32_Process |
+        Where-Object { $_.CommandLine -like "*$escapedRunRoot*" } |
+        ForEach-Object {
+            try {
+                Stop-Process -Id $_.ProcessId -Force -ErrorAction Stop
+            } catch {
+                Write-Warning "failed to stop process $($_.ProcessId) for segment run root ${RunRoot}: $($_.Exception.Message)"
+            }
+        }
+}
+
+function Invoke-ControlledSegmentRun([array]$RunArgs, [string]$RunRoot, [int]$TimeoutSeconds) {
+    $process = Start-Process -FilePath "pwsh" -ArgumentList $RunArgs -WindowStyle Hidden -PassThru
+    if ($TimeoutSeconds -gt 0) {
+        $completed = $process.WaitForExit($TimeoutSeconds * 1000)
+        if (-not $completed) {
+            Write-Warning "controlled gray public batch segment timed out after $TimeoutSeconds seconds: $RunRoot"
+            Stop-ControlledSegmentProcesses -RunRoot $RunRoot
+            return 124
+        }
+    } else {
+        $process.WaitForExit()
+    }
+    return [int]$process.ExitCode
+}
 
 if (-not $TargetsJson) {
     $TargetsJson = Join-Path $repoRoot "tmp\evaluation-real-samples\controlled-gray-public-source-targets-v1\controlled-gray-public-source-targets-v1.json"
@@ -78,6 +111,11 @@ foreach ($segment in $segments) {
     if ($targetIds.Count -eq 0) {
         throw "controlled gray public batch segment has no target ids: $($segment.segment_id)"
     }
+    $closeoutPath = [string]$segment.closeout_json
+    if ((Test-Path $closeoutPath) -and -not $ForceRerun) {
+        Write-Host "controlled gray public batch segment already complete; skipping: $($segment.segment_id)"
+        continue
+    }
     $runArgs = @(
         "-NoProfile", "-ExecutionPolicy", "Bypass",
         "-File", (Join-Path $scriptDir "run-controlled-live-public-batch-v1.ps1"),
@@ -96,9 +134,9 @@ foreach ($segment in $segments) {
     if ($AutoExecuteSourceRemediation) {
         $runArgs += "-AutoExecuteSourceRemediation"
     }
-    & pwsh @runArgs
-    if ($LASTEXITCODE -ne 0) {
-        exit $LASTEXITCODE
+    $exitCode = Invoke-ControlledSegmentRun -RunArgs $runArgs -RunRoot ([string]$segment.run_root) -TimeoutSeconds $SegmentTimeoutSeconds
+    if ($exitCode -ne 0) {
+        Write-Warning "controlled gray public batch segment did not complete: $($segment.segment_id) exit_code=$exitCode"
     }
 }
 
