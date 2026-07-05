@@ -22,6 +22,9 @@ from runtime.controlled_gray_public_batch_segments import (  # noqa: E402
     build_controlled_gray_public_batch_segment_aggregate,
     build_controlled_gray_public_batch_segments,
 )
+from runtime.controlled_gray_public_orchestrator import (  # noqa: E402
+    build_controlled_gray_public_orchestrator_manifest,
+)
 from runtime.controlled_live_public_batch_gray_launch_review import (  # noqa: E402
     build_controlled_live_public_batch_gray_launch_review,
 )
@@ -383,6 +386,112 @@ class ControlledLivePublicBatchEvidenceSummaryTests(unittest.TestCase):
         self.assertEqual(summary["completed_segment_count"], 2)
         self.assertEqual(summary["project_sample_count"], 21)
 
+    def test_controlled_gray_orchestrator_manifest_reports_automation_matrix(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            source_summary_json = root / "source-targets-summary.json"
+            segments_json = root / "segments.json"
+            aggregate_json = root / "aggregate.json"
+            out = root / "orchestrator"
+            _write_json(
+                source_summary_json,
+                {
+                    "summary": {
+                        "source_target_count": 8,
+                        "derived_target_count": 5,
+                        "minimum_total_sample_goal": 100,
+                        "customer_visible_allowed": False,
+                        "query_miss_is_not_clearance": True,
+                        "no_legal_conclusion": True,
+                    }
+                },
+            )
+            _write_json(
+                segments_json,
+                {
+                    "summary": {
+                        "segment_count": 5,
+                        "target_count": 5,
+                        "execute": True,
+                        "customer_visible_allowed": False,
+                    }
+                },
+            )
+            _write_json(
+                aggregate_json,
+                {
+                    "summary": {
+                        "aggregate_gray_review_state": "READY_FOR_HUMAN_GRAY_LAUNCH_REVIEW",
+                        "eligible_for_human_gray_launch_review": True,
+                        "human_gray_launch_approval_state": "APPROVED",
+                        "approved_for_controlled_gray_execution": True,
+                        "next_required_step": "controlled_gray_batch_review_complete",
+                        "segment_count": 5,
+                        "completed_segment_count": 5,
+                        "missing_segment_count": 0,
+                        "source_execute_all_completed": True,
+                        "project_sample_count": 105,
+                        "gray_sample_goal_min": 100,
+                        "gray_sample_goal_max": 200,
+                        "gray_sample_goal_state": "MEETS_GRAY_SAMPLE_MINIMUM_GOAL",
+                        "gray_sample_goal_met": True,
+                        "fixed_snapshot_sha256_count": 105,
+                        "stage4_readback_required_sample_count": 105,
+                        "stage4_readback_ready_sample_count": 105,
+                        "stage4_readback_missing_sample_count": 0,
+                        "stage4_public_evidence_readback_count": 130,
+                        "stage4_all_required_readbacks_ready": True,
+                        "source_remediation_initial_record_count": 2,
+                        "source_remediation_final_record_count": 0,
+                        "partial_or_blocked_count": 2,
+                        "no_match_count": 0,
+                        "safety_boundary_closed": True,
+                        "customer_visible_allowed": False,
+                        "external_send_enabled": False,
+                        "payment_execution_enabled": False,
+                        "delivery_execution_enabled": False,
+                        "automatic_refund_enabled": False,
+                        "query_miss_is_not_clearance": True,
+                        "no_legal_conclusion": True,
+                    }
+                },
+            )
+
+            result = build_controlled_gray_public_orchestrator_manifest(
+                output_root=out,
+                source_targets_json=root / "source-targets.json",
+                derived_targets_json=root / "derived-targets.json",
+                source_targets_summary_json=source_summary_json,
+                segments_json=segments_json,
+                aggregate_json=aggregate_json,
+                execute=True,
+                professional_source_only=True,
+                auto_execute_source_remediation=True,
+                operator_decision="APPROVED",
+                created_at="2026-07-05T00:00:00+00:00",
+            )
+            orchestrator_json_exists = (out / "controlled-gray-public-orchestrator-v1.json").exists()
+            orchestrator_markdown_exists = (out / "controlled-gray-public-orchestrator-v1.md").exists()
+
+        summary = result["summary"]
+        self.assertEqual(summary["orchestration_state"], "CONTROLLED_GRAY_REVIEW_APPROVED")
+        self.assertTrue(summary["can_enter_controlled_gray_execution"])
+        self.assertEqual(summary["project_sample_count"], 105)
+        self.assertEqual(summary["remaining_evidence_blocker_count"], 0)
+        capabilities = {
+            record["capability_id"]: record
+            for record in result["automation_capability_matrix"]["records"]
+        }
+        self.assertEqual(capabilities["stage4_evidence_readback"]["state"], "AUTOMATED_IN_BATCH_CLOSEOUT")
+        self.assertEqual(capabilities["source_remediation"]["state"], "AUTOMATED_WHEN_ENABLED")
+        self.assertEqual(capabilities["operator_gray_launch_decision"]["state"], "HUMAN_DECISION_RECORDED")
+        self.assertEqual(capabilities["background_scheduler"]["state"], "NOT_IMPLEMENTED")
+        self.assertFalse(result["safety"]["customer_visible_allowed"])
+        self.assertTrue(result["query_miss_is_not_clearance"])
+        self.assertIn("manifest_sha256", result)
+        self.assertTrue(orchestrator_json_exists)
+        self.assertTrue(orchestrator_markdown_exists)
+
     def test_gray_launch_review_package_waits_for_operator_after_remediation_clears(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -571,7 +680,10 @@ class ControlledLivePublicBatchEvidenceSummaryTests(unittest.TestCase):
         self.assertIn("SegmentTimeoutSeconds", script)
         self.assertIn("OperatorDecision", script)
         self.assertIn("controlled-gray-public-orchestrator-v1.json", script)
-        self.assertIn("customer_visible_allowed = $false", script)
+        self.assertIn("controlled-gray-public-source-targets-summary-v1.json", script)
+        self.assertIn("runtime.controlled_gray_public_orchestrator", script)
+        self.assertIn("--aggregate-json", script)
+        self.assertIn("--auto-execute-source-remediation", script)
 
 
 def _write_execution(path: Path) -> None:
