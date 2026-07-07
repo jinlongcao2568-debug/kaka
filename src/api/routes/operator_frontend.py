@@ -1002,6 +1002,101 @@ def _page(title: str, body: str, script: str) -> HTMLResponse:
       line-height: 1.35;
       word-break: break-word;
     }}
+    .command-panel {{
+      border: 1px solid #c6d4df;
+      border-left: 4px solid var(--blue);
+      border-radius: 8px;
+      background: var(--surface-alt);
+      padding: 14px;
+      margin: 10px 0 14px;
+    }}
+    .command-panel.warn {{
+      border-color: #f1c18c;
+      border-left-color: var(--warn);
+      background: #fff8ec;
+    }}
+    .search-control-grid {{
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px 16px;
+    }}
+    .control-block {{
+      min-width: 0;
+    }}
+    .control-block.wide {{
+      grid-column: 1 / -1;
+    }}
+    .result-stack {{
+      display: grid;
+      gap: 12px;
+    }}
+    .result-headline {{
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr);
+      gap: 12px;
+    }}
+    .workbench-shell {{
+      display: grid;
+      grid-template-columns: minmax(260px, 380px) minmax(0, 1fr);
+      gap: 14px;
+      align-items: start;
+    }}
+    .opportunity-list {{
+      display: grid;
+      gap: 10px;
+      max-height: 520px;
+      overflow: auto;
+      padding-right: 4px;
+    }}
+    .opportunity-card {{
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfcfe;
+      padding: 12px;
+    }}
+    .opportunity-card.active {{
+      border-color: #8bbfb2;
+      box-shadow: inset 3px 0 0 var(--accent);
+    }}
+    .opportunity-summary {{
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+      margin: 0 0 12px;
+    }}
+    .opportunity-summary div {{
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfcfe;
+      padding: 10px;
+      min-width: 0;
+    }}
+    .opportunity-summary span {{
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 4px;
+    }}
+    .opportunity-summary strong {{
+      display: block;
+      font-size: 14px;
+      word-break: break-word;
+    }}
+    .empty-actions {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }}
+    .empty-actions a {{
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 7px 10px;
+      text-decoration: none;
+      color: var(--accent);
+      background: #fff;
+      font-size: 13px;
+    }}
     .operator-next-action {{
       color: var(--ink-strong);
       font-weight: 700;
@@ -1120,7 +1215,7 @@ def _page(title: str, body: str, script: str) -> HTMLResponse:
       .workspace {{ display: block; }}
       .panelStack {{ overflow: visible; padding-right: 0; }}
       .resultPane pre {{ max-height: 260px; }}
-      .grid, .rail, .stage-grid, .workflow, .compact-card-grid, .check-grid, .detail-table, .decision-grid {{ grid-template-columns: 1fr; }}
+      .grid, .rail, .stage-grid, .workflow, .compact-card-grid, .check-grid, .detail-table, .decision-grid, .search-control-grid, .result-headline, .workbench-shell, .opportunity-summary {{ grid-template-columns: 1fr; }}
       .view-grid {{ grid-template-columns: 1fr; }}
       .field-row {{ grid-template-columns: 1fr; }}
       main {{ padding: 18px; }}
@@ -1258,38 +1353,68 @@ def render_operator_console(payload: Any) -> HTMLResponse:
         <div class="view-panel" id="search" data-view-panel="search">
           <div class="view-grid">
             <section>
-              <h3>实战项目搜索</h3>
-              <label for="searchRegion">地区适配器（可多选）</label>
-              <select id="searchRegion" class="select-fallback" multiple size="5"></select>
-              <div id="searchRegionChoices" class="check-grid"></div>
-              <div class="field-actions">
-                <button class="secondary" type="button" id="selectAllRegions">全选地区</button>
-                <button class="secondary" type="button" id="clearRegions">清空地区</button>
+              <div class="section-head">
+                <div>
+                  <p class="section-kicker">实战搜索指挥</p>
+                  <h3>实战项目搜索</h3>
+                  <p class="muted-text">先确定地区、类型、金额和搜索模式，再生成候选、详情快照、机会闭环和证据包候选。</p>
+                </div>
+                <span class="pill" id="searchModePill">真实公开源优先</span>
               </div>
-              <label for="searchKeyword">关键词</label>
-              <input id="searchKeyword" value="公共建筑工程" />
-              <label for="searchProjectType">项目类型（可多选）</label>
-              <select id="searchProjectType" class="select-fallback" multiple size="4">
-                <option value="construction" selected>房建工程</option>
-                <option value="municipal">市政工程</option>
-                <option value="highway">公路交通</option>
-                <option value="water_conservancy">水利工程</option>
-              </select>
-              <div id="searchProjectTypeChoices" class="check-grid"></div>
-              <div class="field-actions">
-                <button class="secondary" type="button" id="selectAllProjectTypes">全选类型</button>
-                <button class="secondary" type="button" id="clearProjectTypes">清空类型</button>
+              <div class="command-panel" id="searchPlanPanel">
+                <strong class="decision-title" id="searchPlanTitle">准备公开源搜索</strong>
+                <p class="muted-text" id="searchPlanNarrative">当前会优先调用真实公开列表页候选发现器；离线样本只用于验证后续链路。</p>
+                <div class="decision-grid">
+                  <div class="decision-card"><strong>地区范围</strong><span id="searchPlanRegions">--</span></div>
+                  <div class="decision-card"><strong>项目类型</strong><span id="searchPlanProjectTypes">--</span></div>
+                  <div class="decision-card"><strong>金额窗口</strong><span id="searchPlanAmount">--</span></div>
+                </div>
               </div>
-              <label>金额区间（万元）</label>
-              <div class="field-row">
-                <input id="searchAmountMinWan" type="number" value="800" aria-label="最低金额（万元）" />
-                <input id="searchAmountMaxWan" type="number" value="3000" aria-label="最高金额（万元）" />
+              <div class="search-control-grid">
+                <div class="control-block">
+                  <label for="searchRegion">地区适配器（可多选）</label>
+                  <select id="searchRegion" class="select-fallback" multiple size="5"></select>
+                  <div id="searchRegionChoices" class="check-grid"></div>
+                  <div class="field-actions">
+                    <button class="secondary" type="button" id="selectAllRegions">全选地区</button>
+                    <button class="secondary" type="button" id="clearRegions">清空地区</button>
+                  </div>
+                </div>
+                <div class="control-block">
+                  <label for="searchProjectType">项目类型（可多选）</label>
+                  <select id="searchProjectType" class="select-fallback" multiple size="4">
+                    <option value="construction" selected>房建工程</option>
+                    <option value="municipal">市政工程</option>
+                    <option value="highway">公路交通</option>
+                    <option value="water_conservancy">水利工程</option>
+                  </select>
+                  <div id="searchProjectTypeChoices" class="check-grid"></div>
+                  <div class="field-actions">
+                    <button class="secondary" type="button" id="selectAllProjectTypes">全选类型</button>
+                    <button class="secondary" type="button" id="clearProjectTypes">清空类型</button>
+                  </div>
+                </div>
+                <div class="control-block">
+                  <label for="searchKeyword">关键词</label>
+                  <input id="searchKeyword" value="公共建筑工程" />
+                </div>
+                <div class="control-block">
+                  <label>金额区间（万元）</label>
+                  <div class="field-row">
+                    <input id="searchAmountMinWan" type="number" value="800" aria-label="最低金额（万元）" />
+                    <input id="searchAmountMaxWan" type="number" value="3000" aria-label="最高金额（万元）" />
+                  </div>
+                </div>
+                <div class="control-block wide">
+                  <label class="check-option">
+                    <input id="offlineSampleCandidates" type="checkbox" />
+                    <span>使用离线样本验证后续链路（不代表真实市场发现）</span>
+                  </label>
+                </div>
               </div>
-              <label class="check-option">
-                <input id="offlineSampleCandidates" type="checkbox" />
-                <span>使用离线样本验证后续链路（不代表真实市场发现）</span>
-              </label>
-              <button id="runAutonomousSearch">搜索并生成机会闭环</button>
+              <div class="field-actions command-actions">
+                <button class="primary" id="runAutonomousSearch">搜索并生成机会闭环</button>
+              </div>
             </section>
             <section>
               <h3>地区适配器状态</h3>
@@ -1343,16 +1468,35 @@ def render_operator_console(payload: Any) -> HTMLResponse:
         </div>
         <div class="view-panel" id="autonomousWorkbench" data-view-panel="autonomousWorkbench">
           <section>
-            <h3>机会工作台</h3>
+            <div class="section-head">
+              <div>
+                <p class="section-kicker">机会运营</p>
+                <h3>机会工作台</h3>
+                <p class="muted-text">这里按“机会队列 -> 卖前边界 -> 证据风险 -> 买家与报价 -> 交付状态”读回，不需要看原始 JSON。</p>
+              </div>
+              <button class="ghost" type="button" id="refreshAutonomousWorkbench">刷新机会工作台</button>
+            </div>
+            <div class="decision-panel blocked" id="workbenchDecisionPanel">
+              <strong class="decision-title" id="workbenchDecisionTitle">正在读取机会队列...</strong>
+              <p class="muted-text" id="workbenchDecisionReason">读取后会显示当前是否有可运营机会、证据强度和下一步动作。</p>
+              <div class="decision-grid">
+                <div class="decision-card"><strong>机会数量</strong><span id="workbenchDecisionQueue">--</span></div>
+                <div class="decision-card"><strong>证据状态</strong><span id="workbenchDecisionEvidence">--</span></div>
+                <div class="decision-card"><strong>下一步</strong><span class="operator-next-action" id="workbenchDecisionAction">--</span></div>
+              </div>
+            </div>
             <div class="rail" id="autonomousMetrics">
               <div class="metric"><strong>--</strong><span>机会队列</span></div>
               <div class="metric"><strong>--</strong><span>商业钩子</span></div>
               <div class="metric"><strong>--</strong><span>下一步动作</span></div>
             </div>
-            <div id="autonomousQueue" class="empty-state">暂无已持久化机会队列。</div>
-            <div id="opportunityDetail" class="empty-state">点击机会后显示等级、评分、证据强度、报价和证据包明细。</div>
-            <div id="autonomousDetailPanels" class="stage-grid"></div>
-            <button id="refreshAutonomousWorkbench">刷新机会工作台</button>
+            <div class="workbench-shell">
+              <div id="autonomousQueue" class="empty-state">暂无已持久化机会队列。</div>
+              <div>
+                <div id="opportunityDetail" class="empty-state">点击机会后显示等级、评分、证据强度、报价和证据包明细。</div>
+                <div id="autonomousDetailPanels" class="stage-grid"></div>
+              </div>
+            </div>
           </section>
           <section>
             <h3>阶段6-9读回</h3>
@@ -2032,12 +2176,14 @@ function setAllSelected(id, selected) {
   if (!select) { return; }
   Array.from(select.options).forEach((option) => { option.selected = selected; });
   document.querySelectorAll(`[data-select-target="${id}"]`).forEach((item) => { item.checked = selected; });
+  renderSearchPlanSummary();
 }
 function syncSelectFromChecks(id) {
   const select = $(id);
   if (!select) { return; }
   const checkedValues = new Set(selectedValues(id));
   Array.from(select.options).forEach((option) => { option.selected = checkedValues.has(option.value); });
+  renderSearchPlanSummary();
 }
 function renderSelectChoices(selectId, containerId) {
   const select = $(selectId);
@@ -2059,6 +2205,38 @@ function renderSelectChoices(selectId, containerId) {
     container.appendChild(label);
   });
   syncSelectFromChecks(selectId);
+}
+function selectedLabelText(selectId, emptyText) {
+  const values = selectedValues(selectId);
+  if (!values.length) { return emptyText; }
+  return values.map((value) => labelOf(value)).join("、");
+}
+function searchAmountWanText() {
+  const min = Number($("searchAmountMinWan")?.value || 0);
+  const max = Number($("searchAmountMaxWan")?.value || 0);
+  if (!Number.isFinite(min) || !Number.isFinite(max) || (!min && !max)) { return "--"; }
+  return `${Math.min(min, max)} 万 - ${Math.max(min, max)} 万`;
+}
+function renderSearchPlanSummary() {
+  if (!$("searchPlanPanel")) { return; }
+  const offline = Boolean($("offlineSampleCandidates")?.checked);
+  const keyword = $("searchKeyword")?.value || "公共建筑工程";
+  const regions = selectedValues("searchRegion");
+  const types = selectedValues("searchProjectType");
+  $("searchPlanPanel").className = offline ? "command-panel warn" : "command-panel";
+  $("searchModePill").className = offline ? "pill warn" : "pill";
+  $("searchModePill").textContent = offline ? "离线样本验证" : "真实公开源优先";
+  $("searchPlanTitle").textContent = offline ? "准备样本链路验证" : "准备公开源实战搜索";
+  $("searchPlanNarrative").textContent = offline
+    ? `关键词“${keyword}”将只用于离线样本链路验证；结果不能作为真实市场发现或客户可售证据。`
+    : `关键词“${keyword}”将进入公开列表页候选发现、详情快照、解析和机会闭环；客户可见、支付和交付仍关闭。`;
+  $("searchPlanRegions").textContent = regions.length
+    ? `${regions.length} 个地区：${selectedLabelText("searchRegion", "未选择地区")}`
+    : "未选择地区";
+  $("searchPlanProjectTypes").textContent = types.length
+    ? `${types.length} 类：${selectedLabelText("searchProjectType", "未选择类型")}`
+    : "未选择类型";
+  $("searchPlanAmount").textContent = searchAmountWanText();
 }
 function renderRows(rows) {
   return `<div class="detail-table">${rows
@@ -2312,24 +2490,26 @@ function renderSearchResultFromRun(run) {
     : run.opportunity_id
     ? (sampleMode ? `样本机会闭环：${run.opportunity_id}` : run.opportunity_id)
     : "未生成机会";
-  $("searchResult").className = "";
+  $("searchResult").className = "result-stack";
   $("searchResult").innerHTML = `
-    <div class="stage-card ${boundary.kind === "warn" ? "controlled_opening_requirement" : ""}">
-      <strong>${safeText(boundary.title)}</strong>
-      <p>${safeText(boundary.body)}</p>
-      ${badge(sourceModeOf(run) || scope.source_candidate_mode || run.search_state || "--", boundary.kind)}
-      ${sampleMode ? badge("样本不可客户交付", "warn") : ""}
-    </div>
-    <div class="stage-card">
-      <strong>${safeText(opportunityTitle)}</strong>
-      <p>${run.project_name || run.query || "--"}</p>
-      ${badge(run.search_state || "--", run.search_state === "AUTONOMOUS_SEARCH_ACCEPTED" ? "" : "warn")}
-      ${badge(run.region_code || "--")}
-      ${badge(run.project_type_label || run.project_type || "--")}
-      <p>金额区间：${amountRangeText(run.amount_range || {minimum: run.amount_min, maximum: run.amount_max})}</p>
-      <p>候选对象：${scope.candidate_count ?? (run.candidate_options || []).length ?? 0}；进入闭环：${scope.selected_candidate_count ?? "--"}；生成闭环：${closedCount}</p>
-      <p class="muted-text">${safeText(scope.stage1_policy || "Stage1 不是单选代表，而是按中标候选公示/异议窗口分流候选；未进入闭环者保留原因。")}</p>
-      ${opportunityActions(run.opportunity_id, sampleMode)}
+    <div class="result-headline">
+      <div class="stage-card ${boundary.kind === "warn" ? "controlled_opening_requirement" : ""}">
+        <strong>${safeText(boundary.title)}</strong>
+        <p>${safeText(boundary.body)}</p>
+        ${badge(sourceModeOf(run) || scope.source_candidate_mode || run.search_state || "--", boundary.kind)}
+        ${sampleMode ? badge("样本不可客户交付", "warn") : ""}
+      </div>
+      <div class="stage-card">
+        <strong>${safeText(opportunityTitle)}</strong>
+        <p>${run.project_name || run.query || "--"}</p>
+        ${badge(run.search_state || "--", run.search_state === "AUTONOMOUS_SEARCH_ACCEPTED" ? "" : "warn")}
+        ${badge(run.region_code || "--")}
+        ${badge(run.project_type_label || run.project_type || "--")}
+        <p>金额区间：${amountRangeText(run.amount_range || {minimum: run.amount_min, maximum: run.amount_max})}</p>
+        <p>候选对象：${scope.candidate_count ?? (run.candidate_options || []).length ?? 0}；进入闭环：${scope.selected_candidate_count ?? "--"}；生成闭环：${closedCount}</p>
+        <p class="muted-text">${safeText(scope.stage1_policy || "Stage1 不是单选代表，而是按中标候选公示/异议窗口分流候选；未进入闭环者保留原因。")}</p>
+        ${opportunityActions(run.opportunity_id, sampleMode)}
+      </div>
     </div>
     <h3>广东 Stage1-6 验收账本</h3>
     ${renderStage16ValidationLedger(run)}
@@ -2399,6 +2579,12 @@ function renderOpportunityDetail(first, panels) {
   $("opportunityDetail").className = "";
   $("opportunityDetail").innerHTML = `
     <h3>机会详情</h3>
+    <div class="opportunity-summary">
+      <div><span>机会编号</span><strong>${safeText(first.opportunity_id || "--")}</strong></div>
+      <div><span>可售状态</span><strong>${safeText(labelOf(first.saleability_status || "--"))}</strong></div>
+      <div><span>证据强度</span><strong>${safeText(labelOf(first.evidence_strength_label || risk.evidence_strength_label || "--"))}</strong></div>
+      <div><span>推荐动作</span><strong>${safeText(labelOf(next.next_action || first.next_action || "--"))}</strong></div>
+    </div>
     ${renderRows([
       ["机会编号", first.opportunity_id],
       ["机会级别", first.opportunity_grade],
@@ -2435,6 +2621,21 @@ function renderOpportunityDetail(first, panels) {
     </div>
     ${opportunityActions(first.opportunity_id || "")}
   `;
+}
+function renderWorkbenchDecision(payload, first, queue) {
+  if (!$("workbenchDecisionPanel")) { return; }
+  const count = queue.length;
+  const hasOpportunity = count > 0;
+  const next = first?.next_action || "--";
+  const evidence = first?.evidence_strength_label || "--";
+  $("workbenchDecisionPanel").className = hasOpportunity ? "decision-panel ready" : "decision-panel blocked";
+  $("workbenchDecisionTitle").textContent = hasOpportunity ? "已有可复核机会" : "还没有机会队列";
+  $("workbenchDecisionReason").textContent = hasOpportunity
+    ? "机会已持久化，可以复核卖前话术、证据强度、买家排序、报价草稿和交付边界。"
+    : "先在“实战搜索”运行公开源搜索，或使用离线样本验证链路；没有队列时工作台不会生成客户可见材料。";
+  $("workbenchDecisionQueue").textContent = `${count} 个机会`;
+  $("workbenchDecisionEvidence").textContent = hasOpportunity ? labelOf(evidence) : "待生成";
+  $("workbenchDecisionAction").textContent = hasOpportunity ? labelOf(next) : "先运行实战搜索";
 }
 function stageObjectRefLabel(key) {
   const labels = {
@@ -3154,6 +3355,7 @@ async function loadAutonomousWorkbench(opportunityId = selectedAutonomousOpportu
   const payload = await json("GET", `/operator-console/autonomous-workbench${query}`);
   const queue = payload.opportunity_queue || [];
   const first = queue[0] || {};
+  renderWorkbenchDecision(payload, first, queue);
   $("autonomousMetrics").innerHTML = [
     `<div class="metric"><strong>${payload.productized_operator_workbench?.opportunity_queue_count ?? 0}</strong><span>机会队列</span></div>`,
     `<div class="metric"><strong>${first.commercial_hook_teaser ? "可读" : "待生成"}</strong><span>商业钩子</span></div>`,
@@ -3161,21 +3363,31 @@ async function loadAutonomousWorkbench(opportunityId = selectedAutonomousOpportu
   ].join("");
   if (!queue.length) {
     $("autonomousQueue").className = "empty-state";
-    $("autonomousQueue").textContent = "暂无已持久化机会队列。";
+    $("autonomousQueue").innerHTML = `
+      <strong>暂无已持久化机会队列</strong>
+      <p>先运行一次实战搜索，系统会把可进入闭环的候选写入这里；离线样本只用于验证链路。</p>
+      <div class="empty-actions">
+        <a href="#search" data-view="search">去实战搜索</a>
+      </div>
+    `;
     $("opportunityDetail").className = "empty-state";
-    $("opportunityDetail").textContent = "点击机会后显示等级、评分、证据强度、报价和证据包明细。";
+    $("opportunityDetail").innerHTML = `
+      <strong>等待机会读回</strong>
+      <p>有机会后这里会显示卖前可讲内容、暂不外泄字段、买家排序、报价草稿和交付边界。</p>
+    `;
     $("autonomousDetailPanels").innerHTML = "";
     return payload;
   }
-  $("autonomousQueue").className = "";
+  $("autonomousQueue").className = "opportunity-list";
   $("autonomousQueue").innerHTML = queue.map((item) => {
+    const active = item.opportunity_id === (selectedAutonomousOpportunityId || first.opportunity_id);
     const tags = [
       badge(item.saleability_status || "--"),
       badge(item.evidence_strength_label || "--"),
       badge(item.conversion_priority || "--"),
       badge(item.delivery_state || "--", item.customer_visible_enabled ? "" : "warn")
     ].join("");
-    return `<div class="stage-card">
+    return `<div class="opportunity-card ${active ? "active" : ""}">
       <strong>${item.opportunity_id || "--"}</strong>
       <p>${item.commercial_hook_teaser || "商业钩子待生成"}</p>
       <p>${topicLabel(item.primary_evidence_topic_code || "--")} / ${labelOf(item.recommended_sku || "--")} / ${serviceTierLabel(item.service_tier_code || "--")} / ${packageTemplateLabel(item.package_template_code || "--")}</p>
@@ -3784,6 +3996,10 @@ $("selectAllRegions").addEventListener("click", () => setAllSelected("searchRegi
 $("clearRegions").addEventListener("click", () => setAllSelected("searchRegion", false));
 $("selectAllProjectTypes").addEventListener("click", () => setAllSelected("searchProjectType", true));
 $("clearProjectTypes").addEventListener("click", () => setAllSelected("searchProjectType", false));
+$("searchKeyword").addEventListener("input", renderSearchPlanSummary);
+$("searchAmountMinWan").addEventListener("input", renderSearchPlanSummary);
+$("searchAmountMaxWan").addEventListener("input", renderSearchPlanSummary);
+$("offlineSampleCandidates").addEventListener("change", renderSearchPlanSummary);
 $("refreshAutonomousSearchRuns").addEventListener("click", async () => out(await loadAutonomousSearchRuns()));
 $("clearAutonomousSearchRuns").addEventListener("click", clearAutonomousSearchRuns);
 $("refreshRealCandidateDiscoveryDiagnostics").addEventListener("click", async () => out(await loadRealCandidateDiscoveryDiagnostics()));
@@ -3828,6 +4044,7 @@ showView((window.location.hash || "#overview").slice(1));
 setResultPaneCollapsed(true);
 renderStageOverviewTelemetry();
 renderSelectChoices("searchProjectType", "searchProjectTypeChoices");
+renderSearchPlanSummary();
 Promise.all([loadReadiness(false), loadAutonomousWorkbench(), loadRegionAdapters(), loadAutonomousSearchRuns(), loadRealCandidateDiscoveryDiagnostics(), loadRealCandidateCatalog(), loadRealCandidateStage2Captures(), loadRealSourceProfiles(), loadRealSourceRuns(), loadGrayOrchestrator(), loadUserAcceptanceContract(), loadAcceptanceGapMatrix(), loadRealWorldSellability(), loadStage6ReviewLoopStatus(), loadRuntimeProjection()])
   .then(() => { $("output").textContent = "等待操作..."; })
   .catch(out);
