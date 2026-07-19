@@ -470,8 +470,8 @@ def _login_redirect(request: Request) -> RedirectResponse:
 
 
 def _internal_login_page() -> HTMLResponse:
-    response = HTMLResponse(
-        """<!doctype html>
+    nonce = secrets.token_urlsafe(24)
+    content = """<!doctype html>
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8" />
@@ -479,7 +479,7 @@ def _internal_login_page() -> HTMLResponse:
   <meta name="referrer" content="no-referrer" />
   <link rel="icon" href="data:," />
   <title>Kaka 内部操作员登录</title>
-  <style>
+  <style nonce="__KAKA_CSP_NONCE__">
     :root { color-scheme: light; font-family: "Segoe UI", "Microsoft YaHei", sans-serif; }
     body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #edf2f6; color: #17202a; }
     main { width: min(420px, calc(100vw - 32px)); background: white; border: 1px solid #d8dee6; border-radius: 12px; padding: 28px; box-shadow: 0 14px 40px rgba(16, 32, 45, .12); }
@@ -506,7 +506,7 @@ def _internal_login_page() -> HTMLResponse:
   </form>
   <p class="boundary">仅限内部预览。客户可见、支付、触达、交付和退款能力仍受正式门禁控制。</p>
 </main>
-<script>
+<script nonce="__KAKA_CSP_NONCE__">
 const csrfStorageKey = "kaka.internal.csrf";
 function safeNextPath() {
   const candidate = new URLSearchParams(window.location.search).get("next") || "/operator-console";
@@ -541,11 +541,30 @@ document.getElementById("loginForm").addEventListener("submit", async (event) =>
 });
 </script>
 </body>
-</html>""",
+</html>""".replace("__KAKA_CSP_NONCE__", nonce)
+    response = HTMLResponse(
+        content,
         media_type="text/html; charset=utf-8",
     )
     response.headers["Cache-Control"] = "no-store"
     response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'none'; "
+        "base-uri 'none'; "
+        "connect-src 'self'; "
+        "form-action 'self'; "
+        "frame-ancestors 'none'; "
+        "img-src data:; "
+        "object-src 'none'; "
+        f"script-src 'nonce-{nonce}'; "
+        "script-src-attr 'none'; "
+        f"style-src 'nonce-{nonce}'; "
+        "style-src-attr 'none'"
+    )
+    response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
+    response.headers["Cross-Origin-Resource-Policy"] = "same-origin"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+    response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     return response
 

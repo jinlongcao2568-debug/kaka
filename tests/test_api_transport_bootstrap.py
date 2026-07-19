@@ -300,6 +300,12 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertEqual(responses["login"].status_code, 200)
         self.assertIn('type="password"', responses["login"].text)
         self.assertNotIn("test-internal-token", responses["login"].text)
+        login_csp = responses["login"].headers["content-security-policy"]
+        self.assertIn("frame-ancestors 'none'", login_csp)
+        self.assertIn("script-src 'nonce-", login_csp)
+        self.assertNotIn("'unsafe-inline'", login_csp)
+        self.assertEqual(responses["login"].headers["x-frame-options"], "DENY")
+        self.assertEqual(responses["login"].headers["x-content-type-options"], "nosniff")
         self.assertEqual(responses["invalid"].status_code, 401)
 
         created = responses["created"]

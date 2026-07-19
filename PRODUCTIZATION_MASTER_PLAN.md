@@ -71,7 +71,8 @@
 |---|---|---|---|---|---|
 | REL-001 | 当前修复没有形成可发布基线 | 工作树有大量未提交修改，CI、迁移和最小依赖文件未跟踪；从 Git 构建可能缺少当前修复 | 修复 | 审核 diff；关键回归通过；全部预期文件进入一个可追踪提交；生成版本号和变更说明；工作树只剩已确认的无关修改 | VALIDATED |
 | SEC-001 | 标准浏览器认证链不可用 | `src/api/main.py` 要求 Bearer；`src/api/routes/operator_frontend.py` 的 `fetch()` 不携带 Bearer；TestClient 旁路掩盖真实浏览器 401 | 修复 | 选择 OIDC/SSO 或服务端 HttpOnly session；页面导航和异步请求都可认证；写请求有 CSRF 防护；未认证、过期、越权测试齐全；不把 token 放 URL/localStorage | VALIDATED |
-| SEC-002 | 操作台存在 DOM XSS 面 | `operator_frontend.py` 大量 `innerHTML`；项目名、商业摘要、badge 等路径存在未统一转义的 API/公开来源数据 | 修复 | 不可信字段全部使用 `textContent`/安全 DOM 构造；剩余 HTML sink 有集中审计；加入恶意项目名回归；部署 CSP、frame 防护和必要安全头 | OPEN |
+| SEC-002 | 操作台存在 DOM XSS 面 | `operator_frontend.py` 大量 `innerHTML`；项目名、商业摘要、badge 等路径存在未统一转义的 API/公开来源数据 | 修复 | 不可信字段全部使用 `textContent`/安全 DOM 构造；剩余 HTML sink 有集中审计；加入恶意项目名回归；部署 CSP、frame 防护和必要安全头 | VALIDATED |
+| TST-001 | 顶层文档同步测试与现行导航规则冲突 | `test_docs_business_direction_sync.py` 仍要求 README/AGENTS 复制几十条业务策略，但 `74f20a49` 已明确把顶层文件收敛为导航，且 AGENTS 禁止在此保存业务状态 | 修复测试 | 顶层测试只验证最小入口和职责边界；正式策略继续由业务方向文档和机器契约承载；定向与全量回归通过 | VALIDATED |
 | SEC-003 | 认证、角色、审批被混为一体 | 单个共享 token 获得多项权限，认证后直接投影 `approval_audit_confirmed=true`；没有用户、角色、对象所有权 | 修复 | 身份认证与业务审批分离；至少有 owner/operator/reviewer/admin 角色；敏感动作逐对象授权；审批记录不可由普通认证自动满足 | OPEN |
 | SEC-004 | 没有租户/客户数据隔离边界 | 所有已认证调用者可访问同一内部数据和产物；不适合客户共享部署 | 变通后修复 | 当前 MVP 明确为单租户私有部署；用部署级隔离阻断跨客户访问；进入 SaaS 前实现 tenant_id、对象级授权、存储隔离和越权测试 | OPEN |
 | API-001 | 大部分写接口不是严格契约 | 26 个写操作只有 5 个正式创建接口使用严格 Schema，其余依赖 `extra="allow"` 通用请求模型；响应普遍是 `dict[str, Any]` | 修复 | 所有对产品状态有写入的接口有明确 Pydantic 请求/响应模型；拒绝未知字段；敏感字段分离内部/外部响应；OpenAPI 与运行读回一致 | OPEN |
@@ -273,3 +274,18 @@
 - 回归：API/operator console 定向 `37 passed`，另有 `5 subtests passed`；完整隔离回归 `1943 passed, 9 skipped`。
 - 容器：未认证页面 `303`、登录页 `200`、会话后页面 `200`、缺 CSRF `403`、退出 `200`、退出后页面 `303`；Cookie 属性、非 root 用户 `kaka` 和 `pip check` 均通过。
 - 剩余边界：当前仍是单租户内部共享凭据的会话交换，不等同于 OIDC、真实用户目录、角色授权或业务审批；这些分别由 `SEC-003`、`SEC-004` 继续处理。
+
+### SEC-002：DOM XSS、CSP 与页面安全头
+
+- 关闭日期：`2026-07-19`
+- 状态：`VALIDATED`
+- DOM 边界：所有动态结构化 HTML 写入统一经过 `safeHtml()`；其内部只在脱离文档的 `template` 上解析，并以标签、属性和链接协议白名单清洗后通过 `replaceChildren()` 进入页面。契约测试保证除这一审计点外没有直接 `innerHTML` sink。
+- 字段转义：项目名、地区、运行日志、商业摘要、买家排序、badge、来源诊断、状态卡和证据包字段统一使用 `safeText()`/`textContent`；badge 样式只允许空值、`warn` 和 `danger`。
+- 链接策略：动态公开来源只允许绝对 `http/https`；站内链接必须解析后仍为同源；`javascript:`、协议相对 URL 和反斜杠 host 绕过均被清空；新窗口链接自动收口为 `noopener noreferrer`。
+- 浏览器策略：登录页和全部操作台页面使用逐响应 nonce 的 CSP；禁止 `unsafe-inline`、脚本/样式属性、对象和 framing，并部署 `X-Frame-Options=DENY`、`nosniff`、`Referrer-Policy=no-referrer`、`Permissions-Policy`、COOP/CORP 与 `Cache-Control=no-store`。
+- 恶意数据回归：服务端恶意商机编号不会形成标签；静态契约锁定唯一审计 sink；真实 Chromium 注入 `img onerror`、`svg onload`、`script`、事件属性、内联样式和危险链接后，XSS 哨兵为 `0`，危险节点/属性为 `0`，CSP 对攻击样式产生预期阻断。
+- 真实浏览器：本机与容器内均完成登录、操作台异步加载、攻击注入和退出；正常页面控制台/页面错误为 `0`；`390x844` 下 `scrollWidth=innerWidth=390`。
+- 回归：操作台与认证定向回归 `39 passed`，另有 `5 subtests passed`；正式隔离全量回归 `1957 passed, 9 skipped`，另有 `608 subtests passed`。
+- 容器：`kaka-sec002-api:local` 构建成功；`/healthz=200`；容器以非 root 用户 `kaka` 运行；`pip check` 无冲突；容器内登录、Cookie、CSP nonce、恶意 DOM/URL、窄屏和退出验证全部通过；一次性验证容器已删除。
+- 测试治理：修正 `TST-001` 陈旧断言，README/AGENTS 保持轻量导航，业务策略继续由 `docs/业务方向_候选公示后证据包与投前预测双线契约.md` 和 `contracts/evaluation/business_direction_strategy_contract.json` 承载。
+- 剩余边界：本项只关闭操作台 DOM XSS 与页面防御纵深，不代表公网或多租户可部署；真实身份/角色/审批、租户隔离、Host/TLS/可信代理仍分别由 `SEC-003`、`SEC-004`、`SEC-006` 关闭。

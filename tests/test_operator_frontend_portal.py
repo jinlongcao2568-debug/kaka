@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import re
 import sys
 import unittest
 from pathlib import Path
@@ -29,6 +30,49 @@ class TestOperatorFrontendPortal(unittest.TestCase, IsolatedStorageTestMixin):
 
     def tearDown(self) -> None:
         self.tearDown_storage_test_env()
+
+    def test_html_security_boundary_uses_nonce_csp_and_centralized_markup_audit(self) -> None:
+        client = TestClient(create_app())
+
+        response = client.get("/operator-console")
+
+        self.assertEqual(response.status_code, 200)
+        csp = response.headers["content-security-policy"]
+        nonce_match = re.search(r"script-src 'nonce-([^']+)'", csp)
+        self.assertIsNotNone(nonce_match)
+        nonce = nonce_match.group(1)
+        self.assertIn(f'<script nonce="{nonce}">', response.text)
+        self.assertIn(f'<style nonce="{nonce}">', response.text)
+        self.assertIn("frame-ancestors 'none'", csp)
+        self.assertIn("script-src-attr 'none'", csp)
+        self.assertIn("style-src-attr 'none'", csp)
+        self.assertNotIn("'unsafe-inline'", csp)
+        self.assertEqual(response.headers["x-frame-options"], "DENY")
+        self.assertEqual(response.headers["x-content-type-options"], "nosniff")
+        self.assertEqual(response.headers["referrer-policy"], "no-referrer")
+        self.assertIn("payment=()", response.headers["permissions-policy"])
+        self.assertEqual(response.headers["cache-control"], "no-store")
+
+        frontend_source = (SRC / "api" / "routes" / "operator_frontend.py").read_text(encoding="utf-8")
+        direct_sinks = [
+            line.strip()
+            for line in frontend_source.splitlines()
+            if ".innerHTML =" in line and "safeHtml(" not in line
+        ]
+        self.assertEqual(direct_sinks, ['template.innerHTML = String(markup ?? "");'])
+        self.assertIn("kakaAllowedMarkupTags", frontend_source)
+        self.assertIn("kakaSafeHref", frontend_source)
+        self.assertIn('element.replaceChildren(kakaAuditedMarkup(markup))', frontend_source)
+
+    def test_malicious_opportunity_identifier_is_rendered_as_text_not_markup(self) -> None:
+        client = TestClient(create_app())
+        payload = '%3Cimg%20src%3Dx%20onerror%3Dwindow.__kaka_xss%3D1%3E'
+
+        response = client.get(f"/customer-artifact-portal/{payload}")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn('<img src=x onerror=window.__kaka_xss=1>', response.text)
+        self.assertIn("&lt;img", response.text)
 
     def test_owner_console_frontend_is_mounted_and_exposes_operator_workflow(self) -> None:
         app = create_app()

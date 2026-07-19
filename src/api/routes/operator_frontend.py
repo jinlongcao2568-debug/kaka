@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import json
+import secrets
 from html import escape
 from pathlib import Path
 from typing import Any, Mapping
@@ -42,6 +43,67 @@ OPERATOR_FRONTEND_ROUTE_METADATA = {
     "approval_audit_readback_required": True,
 }
 BROWSER_SESSION_FETCH_SCRIPT = r"""
+// Security boundary for the few structured fragments this server-rendered UI still builds.
+// All live DOM HTML writes must go through safeHtml(); untrusted scalar text is escaped
+// separately at the template call site. The detached template never enters the document
+// until this strict element/attribute and URL allowlist has been applied.
+const kakaAllowedMarkupTags = new Set([
+  "A", "BR", "CODE", "DIV", "H3", "LI", "OL", "OPTION", "P", "SMALL", "SPAN", "STRONG", "UL"
+]);
+function kakaSafeHref(value) {
+  const text = String(value ?? "").trim();
+  if (!text) { return ""; }
+  if (text.startsWith("#")) { return text; }
+  try {
+    const parsed = new URL(text, window.location.origin);
+    if (text.startsWith("/")) {
+      return !text.startsWith("//") && parsed.origin === window.location.origin
+        ? `${parsed.pathname}${parsed.search}${parsed.hash}`
+        : "";
+    }
+    return /^https?:\/\//i.test(text)
+      && (parsed.protocol === "http:" || parsed.protocol === "https:")
+      ? parsed.href
+      : "";
+  } catch {
+    return "";
+  }
+}
+function kakaAuditedMarkup(markup) {
+  const template = document.createElement("template");
+  template.innerHTML = String(markup ?? "");
+  template.content.querySelectorAll("*").forEach((element) => {
+    if (!kakaAllowedMarkupTags.has(element.tagName)) {
+      element.remove();
+      return;
+    }
+    Array.from(element.attributes).forEach((attribute) => {
+      const name = attribute.name.toLowerCase();
+      const allowed = name === "class"
+        || (element.tagName === "A" && ["href", "target", "rel", "data-workbench-opportunity"].includes(name))
+        || (element.tagName === "OPTION" && ["value", "selected"].includes(name));
+      if (!allowed) { element.removeAttribute(attribute.name); }
+    });
+    if (element.tagName === "A") {
+      const href = kakaSafeHref(element.getAttribute("href"));
+      if (href) { element.setAttribute("href", href); }
+      else { element.removeAttribute("href"); }
+      if (element.getAttribute("target") === "_blank") {
+        element.setAttribute("rel", "noopener noreferrer");
+      } else {
+        element.removeAttribute("target");
+        element.removeAttribute("rel");
+      }
+    }
+  });
+  return template.content;
+}
+function safeHtml(element) {
+  if (!(element instanceof Element)) { throw new TypeError("safeHtml target must be an Element"); }
+  return {
+    set innerHTML(markup) { element.replaceChildren(kakaAuditedMarkup(markup)); }
+  };
+}
 const kakaCsrfStorageKey = "kaka.internal.csrf";
 if (!window.__kakaAuthenticatedFetchInstalled) {
   window.__kakaAuthenticatedFetchInstalled = true;
@@ -605,7 +667,8 @@ CONTROLLED_SAMPLE_PAYLOAD = {
 
 
 def _page(title: str, body: str, script: str) -> HTMLResponse:
-    return HTMLResponse(
+    nonce = secrets.token_urlsafe(24)
+    response = HTMLResponse(
         f"""<!doctype html>
 <html lang="zh-CN">
 <head>
@@ -613,7 +676,7 @@ def _page(title: str, body: str, script: str) -> HTMLResponse:
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" href="data:," />
   <title>{escape(title)}</title>
-  <style>
+  <style nonce="{nonce}">
     :root {{
       color-scheme: light;
       --ink: #17202a;
@@ -1325,7 +1388,7 @@ def _page(title: str, body: str, script: str) -> HTMLResponse:
 </head>
 <body>
   {body}
-  <script>
+  <script nonce="{nonce}">
   {BROWSER_SESSION_FETCH_SCRIPT}
   {script}
   </script>
@@ -1333,6 +1396,27 @@ def _page(title: str, body: str, script: str) -> HTMLResponse:
 </html>""",
         media_type="text/html; charset=utf-8",
     )
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'none'; "
+        "base-uri 'none'; "
+        "connect-src 'self'; "
+        "form-action 'self'; "
+        "frame-ancestors 'none'; "
+        "img-src 'self' data:; "
+        "object-src 'none'; "
+        f"script-src 'nonce-{nonce}'; "
+        "script-src-attr 'none'; "
+        f"style-src 'nonce-{nonce}'; "
+        "style-src-attr 'none'"
+    )
+    response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
+    response.headers["Cross-Origin-Resource-Policy"] = "same-origin"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    return response
 
 
 def render_operator_console(payload: Any) -> HTMLResponse:
@@ -2241,7 +2325,6 @@ function reasonLabel(value) {
 function reasonListText(values) {
   return (values || []).map(reasonLabel).filter(Boolean).join("、");
 }
-function badge(text, kind="") { return `<span class="pill ${kind}">${labelOf(text)}</span>`; }
 function safeText(value) {
   return String(value ?? "--")
     .replaceAll("&", "&amp;")
@@ -2249,6 +2332,16 @@ function safeText(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
+}
+function safeBadgeKind(kind) {
+  return ["", "warn", "danger"].includes(String(kind || "")) ? String(kind || "") : "";
+}
+function badge(text, kind="") {
+  return `<span class="pill ${safeBadgeKind(kind)}">${safeText(labelOf(text))}</span>`;
+}
+function safeSourceHref(value) {
+  const href = kakaSafeHref(value);
+  return href.startsWith("http://") || href.startsWith("https://") ? href : "";
 }
 function amountWanToYuan(value, fallback) {
   const parsed = Number(value);
@@ -2342,7 +2435,7 @@ function renderSearchPlanSummary() {
 function renderRows(rows) {
   return `<div class="detail-table">${rows
     .filter(([, value]) => value !== undefined && value !== null && String(value).length)
-    .map(([label, value]) => `<div class="detail-row"><strong>${label}</strong><span>${labelOf(value)}</span></div>`)
+    .map(([label, value]) => `<div class="detail-row"><strong>${safeText(label)}</strong><span>${safeText(labelOf(value))}</span></div>`)
     .join("")}</div>`;
 }
 function countMapText(counts, emptyText="暂无") {
@@ -2422,7 +2515,7 @@ function searchBoundaryMessage(run) {
 function opportunityActions(opportunityId, sampleMode=false) {
   if (!opportunityId) { return ""; }
   return `<div class="opportunity-actions">
-    <a href="#autonomousWorkbench" data-workbench-opportunity="${opportunityId}">${sampleMode ? "查看样本机会" : "查看机会"}</a>
+    <a href="#autonomousWorkbench" data-workbench-opportunity="${safeText(opportunityId)}">${sampleMode ? "查看样本机会" : "查看机会"}</a>
     <a href="/customer-artifact-portal/${encodeURIComponent(opportunityId)}">证据包预览</a>
     <a href="/customer-artifact-portal-download/${encodeURIComponent(opportunityId)}">${sampleMode ? "下载内部样本证据包" : "下载证据包"}</a>
   </div>`;
@@ -2438,8 +2531,8 @@ function renderCandidateCards(candidates, activeOpportunityId="", selectedProjec
   }
   return `<div class="compact-card-grid">${rows.map((candidate) => `
     <div class="stage-card">
-      <strong>${candidate.project_name || candidate.project_id || "--"}</strong>
-      <p>${candidate.region_name || candidate.region_code || "--"} · ${labelOf(candidate.project_type || "--")} · ${amountRangeText(candidateRange(candidate))}</p>
+      <strong>${safeText(candidate.project_name || candidate.project_id || "--")}</strong>
+      <p>${safeText(candidate.region_name || candidate.region_code || "--")} · ${safeText(labelOf(candidate.project_type || "--"))} · ${safeText(amountRangeText(candidateRange(candidate)))}</p>
       ${badge(candidate.analysis_decision || "--", candidate.selected_for_capture_plan ? "" : "warn")}
       ${badge(candidate.analysis_priority || "--")}
       ${isOfflineSample(candidate) ? badge("离线样本，不可客户交付", "warn") : badge(candidate.source_candidate_mode || "真实候选待核验")}
@@ -2453,17 +2546,17 @@ function renderCandidateCards(candidates, activeOpportunityId="", selectedProjec
       ${candidate.opportunity_priority_class ? badge(candidate.opportunity_priority_class, candidate.responsible_role_gap_review_required ? "warn" : "") : ""}
       ${candidate.responsible_role_gap_code ? badge(candidate.responsible_role_gap_code, "warn") : ""}
       ${candidate.publication_window_state ? badge(labelOf(candidate.publication_window_state)) : ""}
-      <p>${candidate.source_site_name || candidate.source_profile_id || candidate.source_url || "来源待读回"}</p>
+      <p>${safeText(candidate.source_site_name || candidate.source_profile_id || candidate.source_url || "来源待读回")}</p>
       ${candidate.opportunity_priority_class || candidate.verification_focus || candidate.expected_responsible_role_field ? `<p><strong>分级核验</strong> 等级：${safeText(labelOf(candidate.opportunity_priority_class || "--"))}；核验链：${safeText(labelOf(candidate.verification_focus || "--"))}；预期角色：${safeText(labelOf(candidate.expected_responsible_role_field || "--"))}；角色状态：${candidate.expected_responsible_role_present ? "已满足" : "待企业优先补全"}</p>` : ""}
       ${candidate.responsible_role_gap_root_cause || candidate.stage4_identity_completion_route ? `<p><strong>角色缺口根因</strong> ${safeText(labelOf(candidate.responsible_role_gap_root_cause || "--"))}；证据：${safeText(labelOf(candidate.responsible_role_gap_source_evidence || "--"))}；下一步：${safeText(labelOf(candidate.stage4_identity_completion_route || "--"))}；阻塞：${safeText(labelOf(candidate.stage4_identity_completion_blocker || "--"))}</p>` : ""}
       ${Array.isArray(candidate.responsible_role_gap_token_hits) && candidate.responsible_role_gap_token_hits.length ? `<p><strong>角色词命中</strong> ${safeText(candidate.responsible_role_gap_token_hits.join(" / "))}</p>` : ""}
       ${candidate.candidate_company || candidate.primary_responsible_person_name || candidate.project_manager_certificate_no ? `<p><strong>核验对象</strong> 企业：${safeText(candidate.candidate_company || "待解析")}；主负责人：${safeText(candidate.primary_responsible_person_name || "待解析")}；项目经理：${safeText(candidate.project_manager_name || "待解析")}；总监：${safeText(candidate.chief_supervision_engineer_name || "待解析")}；设计负责人：${safeText(candidate.design_lead_name || "待解析")}；勘察负责人：${safeText(candidate.survey_lead_name || "待解析")}；证书：${safeText(candidate.project_manager_certificate_no || "待解析")}</p>` : ""}
       ${candidate.candidate_company_parse_state || candidate.project_manager_name_parse_state || candidate.project_manager_certificate_no_parse_state ? `<p><strong>核验字段解析</strong> 企业：${safeText(labelOf(candidate.candidate_company_parse_state || "--"))}；主负责人：${safeText(labelOf(candidate.primary_responsible_person_name_parse_state || "--"))}；项目经理：${safeText(labelOf(candidate.project_manager_name_parse_state || "--"))}；证书：${safeText(labelOf(candidate.project_manager_certificate_no_parse_state || "--"))}；类型：${safeText(labelOf(candidate.project_manager_certificate_type_parse_state || "--"))}；专业：${safeText(labelOf(candidate.project_manager_cert_specialty_parse_state || "--"))}；职称：${safeText(labelOf(candidate.project_manager_professional_title_parse_state || "--"))}</p>` : ""}
-      ${candidate.source_url ? `<p><strong>来源网址</strong> <a href="${safeText(candidate.source_url)}" target="_blank" rel="noopener">${safeText(candidate.source_url)}</a></p>` : ""}
+      ${safeSourceHref(candidate.source_url) ? `<p><strong>来源网址</strong> <a href="${safeText(safeSourceHref(candidate.source_url))}" target="_blank" rel="noopener noreferrer">${safeText(candidate.source_url)}</a></p>` : ""}
       ${candidate.published_at_optional ? `<p><strong>发布时间</strong> ${safeText(candidate.published_at_optional)}</p>` : ""}
       ${candidate.amount_parse_state || candidate.region_parse_state ? `<p><strong>解析状态</strong> 金额：${safeText(labelOf(candidate.amount_parse_state || "--"))}；地区：${safeText(labelOf(candidate.region_parse_state || "--"))}</p>` : ""}
       ${candidate.stage2_detail_snapshot_id_optional ? `<p><strong>详情快照</strong> ${safeText(candidate.stage2_detail_snapshot_id_optional)} · 附件线索 ${safeText(candidate.stage2_attachment_link_count ?? 0)} · 附件快照 ${safeText(candidate.stage2_attachment_snapshot_count ?? 0)}</p>` : ""}
-      <p><strong>${candidate.selected_for_capture_plan ? "入选理由" : "未入选原因"}</strong> ${candidateDecisionReason(candidate, selectedProjectId)}</p>
+      <p><strong>${candidate.selected_for_capture_plan ? "入选理由" : "未入选原因"}</strong> ${safeText(candidateDecisionReason(candidate, selectedProjectId))}</p>
       ${candidateOpportunityActions(candidate, activeOpportunityId, selectedProjectId)}
     </div>
   `).join("")}</div>`;
@@ -2533,7 +2626,7 @@ function renderCandidateBatchReview(run) {
         ${badge(candidateFailureCategory(candidate, selectedProjectId), candidate.selected_for_capture_plan ? "" : "warn")}
         ${badge(candidate.source_profile_id || "来源待补", candidate.source_profile_id ? "" : "warn")}
         <p><strong>判断</strong> ${safeText(candidateDecisionReason(candidate, selectedProjectId))}</p>
-        <p><strong>来源</strong> ${candidate.source_url ? `<a href="${safeText(candidate.source_url)}">${safeText(candidate.source_site_name || candidate.source_url)}</a>` : "来源网址待补"}</p>
+        <p><strong>来源</strong> ${safeSourceHref(candidate.source_url) ? `<a href="${safeText(safeSourceHref(candidate.source_url))}" target="_blank" rel="noopener noreferrer">${safeText(candidate.source_site_name || candidate.source_url)}</a>` : "来源网址待补"}</p>
       </div>
     `).join("")}</div>
   `;
@@ -2592,7 +2685,7 @@ function renderSearchResultFromRun(run) {
     ? (sampleMode ? `样本机会闭环：${run.opportunity_id}` : run.opportunity_id)
     : "未生成机会";
   $("searchResult").className = "result-stack";
-  $("searchResult").innerHTML = `
+  safeHtml($("searchResult")).innerHTML = `
     <div class="result-headline">
       <div class="stage-card ${boundary.kind === "warn" ? "controlled_opening_requirement" : ""}">
         <strong>${safeText(boundary.title)}</strong>
@@ -2602,12 +2695,12 @@ function renderSearchResultFromRun(run) {
       </div>
       <div class="stage-card">
         <strong>${safeText(opportunityTitle)}</strong>
-        <p>${run.project_name || run.query || "--"}</p>
+        <p>${safeText(run.project_name || run.query || "--")}</p>
         ${badge(run.search_state || "--", run.search_state === "AUTONOMOUS_SEARCH_ACCEPTED" ? "" : "warn")}
         ${badge(run.region_code || "--")}
         ${badge(run.project_type_label || run.project_type || "--")}
         <p>金额区间：${amountRangeText(run.amount_range || {minimum: run.amount_min, maximum: run.amount_max})}</p>
-        <p>候选对象：${scope.candidate_count ?? (run.candidate_options || []).length ?? 0}；进入闭环：${scope.selected_candidate_count ?? "--"}；生成闭环：${closedCount}</p>
+        <p>候选对象：${safeText(scope.candidate_count ?? (run.candidate_options || []).length ?? 0)}；进入闭环：${safeText(scope.selected_candidate_count ?? "--")}；生成闭环：${safeText(closedCount)}</p>
         <p class="muted-text">${safeText(scope.stage1_policy || "Stage1 不是单选代表，而是按中标候选公示/异议窗口分流候选；未进入闭环者保留原因。")}</p>
         ${opportunityActions(run.opportunity_id, sampleMode)}
       </div>
@@ -2637,7 +2730,7 @@ function renderCommercialBoundary(hook, buyer, next, delivery, safeDisplay) {
   return `<div class="stage-grid">
     <div class="stage-card">
       <strong>卖前价值摘要</strong>
-      <p>${hook.redacted_claim_summary || hook.teaser_copy || "--"}</p>
+      <p>${safeText(hook.redacted_claim_summary || hook.teaser_copy || "--")}</p>
       ${badge(hook.hook_eligibility_state || "--")}
       ${badge(hook.disclosure_level || "--")}
       ${badge(hook.leakage_risk_level || "--", hook.leakage_risk_level === "LOW" ? "" : "warn")}
@@ -2658,7 +2751,7 @@ function renderCommercialBoundary(hook, buyer, next, delivery, safeDisplay) {
     </div>
     <div class="stage-card">
       <strong>买家与报价支撑</strong>
-      <p>${labelOf(topBuyer.buyer_type || "--")} · 买家匹配 ${buyer.buyer_fit_score || topBuyer.buyer_fit_score || "--"} · 报价 ${next.quote_draft_id || "--"}</p>
+      <p>${safeText(labelOf(topBuyer.buyer_type || "--"))} · 买家匹配 ${safeText(buyer.buyer_fit_score || topBuyer.buyer_fit_score || "--")} · 报价 ${safeText(next.quote_draft_id || "--")}</p>
       ${badge(next.quote_surface_state || "--")}
       ${badge(next.provider_execution_state || "--", next.provider_execution_state === "BLOCKED" ? "warn" : "")}
     </div>
@@ -2678,7 +2771,7 @@ function renderOpportunityDetail(first, panels) {
   const risk = panels.evidence_risk_panel || {};
   const safeDisplay = panels.safe_display_contract || {};
   $("opportunityDetail").className = "";
-  $("opportunityDetail").innerHTML = `
+  safeHtml($("opportunityDetail")).innerHTML = `
     <h3>机会详情</h3>
     <div class="opportunity-summary">
       <div><span>机会编号</span><strong>${safeText(first.opportunity_id || "--")}</strong></div>
@@ -2713,12 +2806,12 @@ function renderOpportunityDetail(first, panels) {
     <h3>卖前/交付后边界</h3>
     ${renderCommercialBoundary(hook, buyer, next, delivery, safeDisplay)}
     <div class="stage-grid">
-      <div class="stage-card"><strong>商业钩子</strong><p>${hook.teaser_copy || first.commercial_hook_teaser || "--"}</p>${badge(hook.disclosure_level || "--")}${badge(hook.leakage_risk_level || "--")}</div>
-      <div class="stage-card"><strong>可讲卖点</strong><p>${listText(hook.allowed_sales_talking_points || [])}</p></div>
-      <div class="stage-card"><strong>暂不外泄字段</strong><p>${listText(hook.withheld_fields || [])}</p>${badge(`数量 ${hook.withheld_field_count ?? 0}`, "warn")}</div>
-      <div class="stage-card"><strong>复核项</strong><p>${listText(risk.review_items || first.review_items || [])}</p></div>
-      <div class="stage-card"><strong>买家排序</strong><p>${(buyer.buyer_rankings || first.buyer_rankings || []).map((row) => `${row.rank}.${labelOf(row.buyer_type || "--")} ${row.buyer_fit_score || row.actionability_state || row.reachable_state || ""}`).join(" / ") || "--"}</p></div>
-      <div class="stage-card"><strong>下一步</strong><p>${labelOf(next.next_action || first.next_action || "--")}</p>${badge(next.provider_execution_state || "--", next.provider_execution_state === "BLOCKED" ? "warn" : "")}</div>
+      <div class="stage-card"><strong>商业钩子</strong><p>${safeText(hook.teaser_copy || first.commercial_hook_teaser || "--")}</p>${badge(hook.disclosure_level || "--")}${badge(hook.leakage_risk_level || "--")}</div>
+      <div class="stage-card"><strong>可讲卖点</strong><p>${safeText(listText(hook.allowed_sales_talking_points || []))}</p></div>
+      <div class="stage-card"><strong>暂不外泄字段</strong><p>${safeText(listText(hook.withheld_fields || []))}</p>${badge(`数量 ${hook.withheld_field_count ?? 0}`, "warn")}</div>
+      <div class="stage-card"><strong>复核项</strong><p>${safeText(listText(risk.review_items || first.review_items || []))}</p></div>
+      <div class="stage-card"><strong>买家排序</strong><p>${safeText((buyer.buyer_rankings || first.buyer_rankings || []).map((row) => `${row.rank}.${labelOf(row.buyer_type || "--")} ${row.buyer_fit_score || row.actionability_state || row.reachable_state || ""}`).join(" / ") || "--")}</p></div>
+      <div class="stage-card"><strong>下一步</strong><p>${safeText(labelOf(next.next_action || first.next_action || "--"))}</p>${badge(next.provider_execution_state || "--", next.provider_execution_state === "BLOCKED" ? "warn" : "")}</div>
     </div>
     ${opportunityActions(first.opportunity_id || "")}
   `;
@@ -2774,10 +2867,10 @@ function renderStageObjectFlow(stages) {
   if (!$("stageObjectFlow")) { return; }
   const rows = Array.isArray(stages) ? stages : [];
   if (!rows.length) {
-    $("stageObjectFlow").innerHTML = `<div class="empty-state">暂无阶段对象流；运行实战搜索后显示。</div>`;
+    safeHtml($("stageObjectFlow")).innerHTML = `<div class="empty-state">暂无阶段对象流；运行实战搜索后显示。</div>`;
     return;
   }
-  $("stageObjectFlow").innerHTML = rows.map((stage) => {
+  safeHtml($("stageObjectFlow")).innerHTML = rows.map((stage) => {
     const refs = Object.entries(stage.object_refs || {})
       .filter(([, value]) => value !== undefined && value !== null && String(value).length)
       .slice(0, 6);
@@ -2791,7 +2884,7 @@ function renderStageObjectFlow(stages) {
     const invalid = Number(stage.invalid_count || 0);
     return `<div class="stage-card">
       <strong>阶段${safeText(stage.stage)} ${safeText(stage.name)}</strong>
-      <p>输入 ${stage.input_count ?? stage.produced_count ?? 0} · 输出 ${stage.output_count ?? stage.effective_count ?? 0} · 有效 ${stage.effective_count ?? 0} · 无效 ${stage.invalid_count ?? 0}</p>
+      <p>输入 ${safeText(stage.input_count ?? stage.produced_count ?? 0)} · 输出 ${safeText(stage.output_count ?? stage.effective_count ?? 0)} · 有效 ${safeText(stage.effective_count ?? 0)} · 无效 ${safeText(stage.invalid_count ?? 0)}</p>
       ${badge(stage.state || "等待运行", invalid ? "warn" : "")}
       <p><strong>对象流</strong></p>
       <ul>${refList}</ul>
@@ -2840,7 +2933,7 @@ function renderStageRunBoundary(telemetry) {
   const boundary = $("stageRunBoundary");
   if (!boundary) { return; }
   boundary.className = `status ${offlineSample || noRealCandidate || !customerReady ? "warn" : ""}`;
-  boundary.innerHTML = `${safeText(parts.join(" "))} ${
+  safeHtml(boundary).innerHTML = `${safeText(parts.join(" "))} ${
     [
       sourceMode ? badge(sourceMode, offlineSample || noRealCandidate ? "warn" : "") : "",
       offlineSample ? badge("离线样本", "warn") : "",
@@ -2901,17 +2994,17 @@ function renderStageOverviewTelemetry(telemetry) {
     ? `${telemetry.direction}。内部/样本链路只算回归；真实候选进料和对外交付门禁必须单独验收。`
     : "系统方向：市场扫描 -> 来源蓝图 -> 阶段1-9内部链路 -> 工作台 -> 证据包预览。运行后显示每阶段产出。";
   renderStageRunBoundary(telemetry);
-  $("stageMetrics").innerHTML = [
+  safeHtml($("stageMetrics")).innerHTML = [
     `<div class="metric"><strong>9</strong><span>阶段数</span></div>`,
-    `<div class="metric"><strong>${totals.produced_count || 0}</strong><span>产出对象</span></div>`,
-    `<div class="metric"><strong>${totals.effective_count || 0}</strong><span>有效数据</span></div>`
+    `<div class="metric"><strong>${safeText(totals.produced_count || 0)}</strong><span>产出对象</span></div>`,
+    `<div class="metric"><strong>${safeText(totals.effective_count || 0)}</strong><span>有效数据</span></div>`
   ].join("");
   const logs = telemetry?.logs || ["等待运行。这里会记录搜索、选源、阶段1-9产出和交付候选生成过程。"];
-  $("stageRunLog").innerHTML = logs.map((item, index) => `<div>${index + 1}. ${item}</div>`).join("");
-  $("stageBoard").innerHTML = stages.map((stage) => `
+  safeHtml($("stageRunLog")).innerHTML = logs.map((item, index) => `<div>${index + 1}. ${safeText(item)}</div>`).join("");
+  safeHtml($("stageBoard")).innerHTML = stages.map((stage) => `
     <div class="stage-card">
-      <strong>阶段${stage.stage} ${stage.name}</strong>
-      <p>${stage.note || "等待运行。"}</p>
+      <strong>阶段${safeText(stage.stage)} ${safeText(stage.name)}</strong>
+      <p>${safeText(stage.note || "等待运行。")}</p>
       ${badge(stage.state || "等待运行", stage.invalid_count ? "warn" : "")}
       ${badge(`产出 ${stage.produced_count ?? 0}`)}
       ${badge(`有效 ${stage.effective_count ?? 0}`)}
@@ -2936,9 +3029,9 @@ function renderCapabilityExposure(readiness, scheduler, goLive) {
     ["订单交付/退款异常", "未接入", "支付交付阶段已在流程中可见；真实订单、交付和退款异常处理还需要服务商与审计链接入。"],
     ["批量商机运营", "待补强", "当前可看单商机详情和最近运行记录，批量筛选、排序、标记和复盘还不够产品化。"],
   ];
-  $("capabilityExposure").innerHTML = items.map(([name, state, detail]) => {
+  safeHtml($("capabilityExposure")).innerHTML = items.map(([name, state, detail]) => {
     const warn = state.includes("未接入") || state.includes("待接") || state.includes("待补");
-    return `<div class="stage-card"><strong>${name}</strong><p>${detail}</p>${badge(state, warn ? "warn" : "")}</div>`;
+    return `<div class="stage-card"><strong>${safeText(name)}</strong><p>${safeText(detail)}</p>${badge(state, warn ? "warn" : "")}</div>`;
   }).join("");
 }
 function renderProviderExecutionMatrix(readiness, scheduler, goLive) {
@@ -2951,12 +3044,12 @@ function renderProviderExecutionMatrix(readiness, scheduler, goLive) {
     ["leadpack_page_delivery", "线索包页面交付", controlled.real_delivery_enabled, "证据包页面、下载授权和交付审计"],
     ["payment_collection", "收款/支付", controlled.real_payment_enabled, "收款、支付记录和交付联动"]
   ];
-  $("providerExecutionMatrix").innerHTML = providerRows.map(([family, title, liveEnabled, purpose]) => {
+  safeHtml($("providerExecutionMatrix")).innerHTML = providerRows.map(([family, title, liveEnabled, purpose]) => {
     const credential = families[family] || {};
     const credentialState = credential.credential_present ? "凭证已配置" : "凭证未配置";
     return `<div class="stage-card">
-      <strong>${title}</strong>
-      <p>${purpose}</p>
+      <strong>${safeText(title)}</strong>
+      <p>${safeText(purpose)}</p>
       ${badge(provider.mode || "--", provider.readback_only ? "warn" : "")}
       ${badge(credentialState, credential.credential_present ? "" : "warn")}
       ${badge(liveEnabled ? "真实执行已开" : "真实执行未开", liveEnabled ? "" : "warn")}
@@ -2971,14 +3064,14 @@ function renderProviderExecutionMatrix(readiness, scheduler, goLive) {
     ["真实退款异常", controlled.real_refund_enabled, "人工退款异常队列；自动退款 sandbox/mock/dry-run/受控试点可测"],
     ["自动退款执行", controlled.automated_refund_enabled, "受控测试和试点后才允许；生产启用需授权、审批、审计、操作确认、对账和回滚/暂停"]
   ];
-  $("liveActionGateMatrix").innerHTML = `
+  safeHtml($("liveActionGateMatrix")).innerHTML = `
     <div class="stage-card">
       <strong>当前阻断原因</strong>
       <ul>${renderInlineList(blocked, "暂无阻断原因")}</ul>
     </div>
     ${gateRows.map(([name, enabled, prerequisite]) => `<div class="stage-card">
-      <strong>${name}</strong>
-      <p>${prerequisite}</p>
+      <strong>${safeText(name)}</strong>
+      <p>${safeText(prerequisite)}</p>
       ${badge(enabled ? "已放行" : "未放行", enabled ? "" : "warn")}
     </div>`).join("")}
   `;
@@ -2990,7 +3083,7 @@ function renderUserAcceptanceContract(contract) {
   const hardGates = Array.isArray(contract?.authoritativeHardGates) ? contract.authoritativeHardGates : [];
   const acceptanceStates = Array.isArray(contract?.realWorldAcceptanceStates) ? contract.realWorldAcceptanceStates : [];
   const priorities = Array.isArray(contract?.currentOptimizationPriorities) ? contract.currentOptimizationPriorities : [];
-  $("acceptanceContractSummary").innerHTML = renderRows([
+  safeHtml($("acceptanceContractSummary")).innerHTML = renderRows([
     ["契约编号", contract?.contractId],
     ["状态", contract?.status],
     ["权威来源", authority.l0AndDSeriesAreAuthoritative ? "L0/D2-D14 为验收硬门" : "未声明"],
@@ -3002,7 +3095,7 @@ function renderUserAcceptanceContract(contract) {
     ["验收前置", authority.userAcceptancePrecedesUiRewrite ? "先验收契约，再改 UI/系统" : "未声明"],
     ["脚本绿灯", authority.scriptsPassingIsNotEnough ? "不等于产品验收通过" : "未声明"],
   ]);
-  $("acceptanceDimensionList").innerHTML = dimensions.map((item) => {
+  safeHtml($("acceptanceDimensionList")).innerHTML = dimensions.map((item) => {
     const pass = (item.passCriteria || []).slice(0, 3).map((text) => `<li>${safeText(text)}</li>`).join("");
     const fail = (item.failSignals || []).slice(0, 2).map((text) => `<li>${safeText(text)}</li>`).join("");
     return `<div class="stage-card">
@@ -3031,7 +3124,7 @@ function renderUserAcceptanceContract(contract) {
         <ul>${renderListItems(state.minimumEvidence)}</ul>
       </div>`).join("")}</div>`
     : "";
-  $("acceptancePriorityList").innerHTML = priorities.length
+  safeHtml($("acceptancePriorityList")).innerHTML = priorities.length
     ? `${gateHtml}${stateHtml}<h3>当前优化优先级</h3>` + priorities.map((item, index) => `<div>${index + 1}. ${safeText(item)}</div>`).join("")
     : `<div>暂无优化优先级。</div>`;
 }
@@ -3056,7 +3149,7 @@ function renderAcceptanceGapMatrix(matrix) {
   const priorities = Array.isArray(matrix?.topPriorities) ? matrix.topPriorities : [];
   const authorityFindings = Array.isArray(matrix?.authorityFindings) ? matrix.authorityFindings : [];
   const dimensions = Array.isArray(matrix?.dimensions) ? matrix.dimensions : [];
-  $("acceptanceGapSummary").innerHTML = renderRows([
+  safeHtml($("acceptanceGapSummary")).innerHTML = renderRows([
     ["矩阵编号", matrix?.matrixId],
     ["契约引用", matrix?.contractRef],
     ["维度总数", summary.totalDimensions],
@@ -3075,7 +3168,7 @@ function renderAcceptanceGapMatrix(matrix) {
       ? authorityFindings.map((item) => `<div>${safeText(item.severity)} · ${safeText(item.title)}：${safeText(item.impact)}</div>`).join("")
       : `<div>暂无权威复核发现。</div>`
   }</div>`;
-  $("acceptanceGapMatrix").innerHTML = dimensions.length
+  safeHtml($("acceptanceGapMatrix")).innerHTML = dimensions.length
     ? dimensions.map((item) => {
       const status = item.status || "--";
       return `<div class="stage-card">
@@ -3103,12 +3196,12 @@ function renderRealWorldSellability(surface) {
   const lanes = Array.isArray(surface?.lanes) ? surface.lanes : [];
   const externalReady = summary.external_sellable_now ? "已闭合" : "待接入";
   $("sellabilityDecision").textContent = `${summary.sellability_level || "真实可卖性待读取"}：${summary.owner_decision || "等待系统读回。"} `;
-  $("sellabilityMetrics").innerHTML = [
-    `<div class="metric"><strong>${summary.sellability_level || "--"}</strong><span>可卖性等级</span></div>`,
-    `<div class="metric"><strong>${summary.latest_opportunity_id || "待运行"}</strong><span>最新商机</span></div>`,
+  safeHtml($("sellabilityMetrics")).innerHTML = [
+    `<div class="metric"><strong>${safeText(summary.sellability_level || "--")}</strong><span>可卖性等级</span></div>`,
+    `<div class="metric"><strong>${safeText(summary.latest_opportunity_id || "待运行")}</strong><span>最新商机</span></div>`,
     `<div class="metric"><strong>${externalReady}</strong><span>真实外部动作</span></div>`
   ].join("");
-  $("sellabilityBoundary").innerHTML = renderRows([
+  safeHtml($("sellabilityBoundary")).innerHTML = renderRows([
     ["回归搜索与证据包验收", boundary.regression_search_and_evidence_package_review ? "可用" : "待运行"],
     ["真实市场候选进料", boundary.real_market_candidate_feed_ready ? "已接入" : "未接入"],
     ["客户可售证据", boundary.customer_sellable_evidence_ready ? "已就绪" : "未就绪"],
@@ -3118,7 +3211,7 @@ function renderRealWorldSellability(surface) {
     ["真实交付", boundary.real_delivery_enabled ? "已接入" : "未接入"],
     ["自动退款", boundary.automated_refund_enabled ? "生产已开放" : "测试/试点受控，生产关闭"],
   ]);
-  $("sellabilityLaneList").innerHTML = lanes.length
+  safeHtml($("sellabilityLaneList")).innerHTML = lanes.length
     ? lanes.map((lane) => {
       const status = lane.status || "--";
       return `<div class="stage-card">
@@ -3142,12 +3235,12 @@ function renderStage6ReviewLoopStatus(surface) {
   const summary = surface?.summary || {};
   const rows = Array.isArray(surface?.project_status_rows) ? surface.project_status_rows : [];
   $("stage6ReviewLoopNarrative").textContent = `${summary.operator_batch_state_label || "第六阶段批次状态待读取"}：${surface?.operator_decision?.decision_label || "等待读回。"} `;
-  $("stage6ReviewLoopMetrics").innerHTML = [
+  safeHtml($("stage6ReviewLoopMetrics")).innerHTML = [
     `<div class="metric"><strong>${summary.project_count ?? 0}</strong><span>项目数</span></div>`,
     `<div class="metric"><strong>${summary.automated_dispatch_available_count ?? 0}</strong><span>可续跑</span></div>`,
     `<div class="metric"><strong>${summary.manual_hold_count ?? 0}</strong><span>人工停机</span></div>`
   ].join("");
-  $("stage6ReviewLoopProjectList").innerHTML = rows.length
+  safeHtml($("stage6ReviewLoopProjectList")).innerHTML = rows.length
     ? rows.map((row) => `<div class="stage-card">
         <strong>${safeText(row.project_id || "--")} ${safeText(row.project_name || "")}</strong>
         <p>${safeText(row.owner_status_label || row.loop_terminal_state || "--")}</p>
@@ -3192,12 +3285,12 @@ function renderRuntimeProjection(surface) {
   $("runtimeProjectionNarrative").textContent = projection.run_id
     ? `最新 run ${projection.run_id}：${projection.run_state || "--"}，当前阶段 ${projection.current_stage_id || "--"}。`
     : "暂无运行控制器持久化投影；运行统一入口后这里会显示最新运行图状态。";
-  $("runtimeProjectionMetrics").innerHTML = [
-    `<div class="metric"><strong>${projection.run_state || "待运行"}</strong><span>运行状态</span></div>`,
-    `<div class="metric"><strong>${projection.current_stage_id || "--"}</strong><span>当前阶段</span></div>`,
-    `<div class="metric"><strong>${action.next_action_type || "--"}</strong><span>下一动作</span></div>`
+  safeHtml($("runtimeProjectionMetrics")).innerHTML = [
+    `<div class="metric"><strong>${safeText(projection.run_state || "待运行")}</strong><span>运行状态</span></div>`,
+    `<div class="metric"><strong>${safeText(projection.current_stage_id || "--")}</strong><span>当前阶段</span></div>`,
+    `<div class="metric"><strong>${safeText(action.next_action_type || "--")}</strong><span>下一动作</span></div>`
   ].join("");
-  $("runtimeProjectionBoundary").innerHTML = renderRows([
+  safeHtml($("runtimeProjectionBoundary")).innerHTML = renderRows([
     ["投影来源", surface?.projection_source || "--"],
     ["Run ID", projection.run_id || "--"],
     ["项目", projection.project_id || "--"],
@@ -3207,7 +3300,7 @@ function renderRuntimeProjection(surface) {
     ["真实交付", safety.real_delivery_enabled ? "已开放" : "关闭"],
     ["自动退款", safety.automatic_refund_enabled ? "已开放" : "关闭"],
   ]);
-  $("runtimeProjectionDetails").innerHTML = [
+  safeHtml($("runtimeProjectionDetails")).innerHTML = [
     `<div class="stage-card">
       <strong>Stage1-3 前置链路</strong>
       ${badge(projection.stage123_front_chain_summary?.stage123_front_chain_state || "待读取")}
@@ -3383,10 +3476,10 @@ function renderTaskRunOverview(scheduler) {
   const latest = items[0] || scheduler?.latest_queue_item || {};
   const total = queueStatusTotal(counts) || items.length;
   const queued = Number(counts.queued || 0);
-  $("taskRunMetrics").innerHTML = [
+  safeHtml($("taskRunMetrics")).innerHTML = [
     `<div class="metric"><strong>${total}</strong><span>队列任务</span></div>`,
     `<div class="metric"><strong>${queued}</strong><span>排队中</span></div>`,
-    `<div class="metric"><strong>${latest.task_id || "待创建"}</strong><span>最新任务</span></div>`
+    `<div class="metric"><strong>${safeText(latest.task_id || "待创建")}</strong><span>最新任务</span></div>`
   ].join("");
   if (!items.length) {
     $("taskRunOverviewNarrative").textContent = "暂无任务运行记录；创建内部任务后会显示队列状态、任务编号、项目编号和阶段2交接状态。";
@@ -3396,7 +3489,7 @@ function renderTaskRunOverview(scheduler) {
   }
   $("taskRunOverviewNarrative").textContent = `已读回 ${items.length} 条最近任务；最新任务 ${latest.task_id || "--"} 当前为${labelOf(latest.status || "--")}，不会触发真实外部抓取。`;
   $("taskRunOverviewList").className = "compact-card-grid";
-  $("taskRunOverviewList").innerHTML = items.map((item) => {
+  safeHtml($("taskRunOverviewList")).innerHTML = items.map((item) => {
     const status = item.status || "--";
     const warn = status !== "queued" && status !== "completed";
     return `<div class="stage-card">
@@ -3424,20 +3517,20 @@ async function loadReadiness(writeOutput = true) {
   $("provider").textContent = readiness.provider_status?.mode ? "读回模式" : "读回";
   $("scheduler").textContent = labelOf(scheduler.readiness_state || "--");
   $("summary").textContent = "运营操作台已就绪。默认实战搜索已接真实公开列表页候选发现、去重入库和详情页快照读回；真实附件原文、Stage1-6 正式消费、真实邮件/电话/支付/退款服务商仍未接入。";
-  $("workbenchStatus").innerHTML = [
+  safeHtml($("workbenchStatus")).innerHTML = [
     badge("阶段6 产品包"),
     badge("阶段7 客户关系/报价"),
     badge("阶段8 销售触达"),
     badge("阶段9 支付交付"),
     badge(`测试上线模拟 ${goLive.go_live_enabled ? "已开放" : "可预览"}`)
   ].join("");
-  $("providerStatus").innerHTML = [
+  safeHtml($("providerStatus")).innerHTML = [
     badge(`服务商 ${readiness.provider_status?.mode ? "读回模式" : "读回"}`),
     badge(`调度 ${labelOf(scheduler.readiness_state || "未知")}`),
     badge("内部服务商模拟读回可用"),
     badge("真实邮件/电话未接入", "warn")
   ].join("");
-  $("auditStatus").innerHTML = [
+  safeHtml($("auditStatus")).innerHTML = [
     badge("内部测试不等客户账号"),
     badge("证据包预览可打开"),
     badge("真实外发审计未接入", "warn")
@@ -3457,14 +3550,14 @@ async function loadAutonomousWorkbench(opportunityId = selectedAutonomousOpportu
   const queue = payload.opportunity_queue || [];
   const first = queue[0] || {};
   renderWorkbenchDecision(payload, first, queue);
-  $("autonomousMetrics").innerHTML = [
+  safeHtml($("autonomousMetrics")).innerHTML = [
     `<div class="metric"><strong>${payload.productized_operator_workbench?.opportunity_queue_count ?? 0}</strong><span>机会队列</span></div>`,
     `<div class="metric"><strong>${first.commercial_hook_teaser ? "可读" : "待生成"}</strong><span>商业钩子</span></div>`,
-    `<div class="metric"><strong>${labelOf(first.next_action || "--")}</strong><span>下一步动作</span></div>`
+    `<div class="metric"><strong>${safeText(labelOf(first.next_action || "--"))}</strong><span>下一步动作</span></div>`
   ].join("");
   if (!queue.length) {
     $("autonomousQueue").className = "empty-state";
-    $("autonomousQueue").innerHTML = `
+    safeHtml($("autonomousQueue")).innerHTML = `
       <strong>暂无已持久化机会队列</strong>
       <p>先运行一次实战搜索，系统会把可进入闭环的候选写入这里；离线样本只用于验证链路。</p>
       <div class="empty-actions">
@@ -3472,15 +3565,15 @@ async function loadAutonomousWorkbench(opportunityId = selectedAutonomousOpportu
       </div>
     `;
     $("opportunityDetail").className = "empty-state";
-    $("opportunityDetail").innerHTML = `
+    safeHtml($("opportunityDetail")).innerHTML = `
       <strong>等待机会读回</strong>
       <p>有机会后这里会显示卖前可讲内容、暂不外泄字段、买家排序、报价草稿和交付边界。</p>
     `;
-    $("autonomousDetailPanels").innerHTML = "";
+    safeHtml($("autonomousDetailPanels")).innerHTML = "";
     return payload;
   }
   $("autonomousQueue").className = "opportunity-list";
-  $("autonomousQueue").innerHTML = queue.map((item) => {
+  safeHtml($("autonomousQueue")).innerHTML = queue.map((item) => {
     const active = item.opportunity_id === (selectedAutonomousOpportunityId || first.opportunity_id);
     const tags = [
       badge(item.saleability_status || "--"),
@@ -3489,30 +3582,30 @@ async function loadAutonomousWorkbench(opportunityId = selectedAutonomousOpportu
       badge(item.delivery_state || "--", item.customer_visible_enabled ? "" : "warn")
     ].join("");
     return `<div class="opportunity-card ${active ? "active" : ""}">
-      <strong>${item.opportunity_id || "--"}</strong>
-      <p>${item.commercial_hook_teaser || "商业钩子待生成"}</p>
-      <p>${topicLabel(item.primary_evidence_topic_code || "--")} / ${labelOf(item.recommended_sku || "--")} / ${serviceTierLabel(item.service_tier_code || "--")} / ${packageTemplateLabel(item.package_template_code || "--")}</p>
+      <strong>${safeText(item.opportunity_id || "--")}</strong>
+      <p>${safeText(item.commercial_hook_teaser || "商业钩子待生成")}</p>
+      <p>${safeText(topicLabel(item.primary_evidence_topic_code || "--"))} / ${safeText(labelOf(item.recommended_sku || "--"))} / ${safeText(serviceTierLabel(item.service_tier_code || "--"))} / ${safeText(packageTemplateLabel(item.package_template_code || "--"))}</p>
       ${tags}
-      <p>${labelOf(item.next_action || "--")}</p>
+      <p>${safeText(labelOf(item.next_action || "--"))}</p>
       ${opportunityActions(item.opportunity_id || "")}
     </div>`;
   }).join("");
   const panels = payload.panels || {};
   panels.safe_display_contract = payload.safe_display_contract || payload.productized_operator_workbench?.safe_display_contract || {};
   renderOpportunityDetail(first, panels);
-  $("autonomousDetailPanels").innerHTML = [
-    `<div class="stage-card"><strong>证据风险</strong><p>${labelOf(panels.evidence_risk_panel?.evidence_strength_label || "--")} / ${labelOf(panels.evidence_risk_panel?.hard_defect_public_label || "--")}</p>${badge((panels.evidence_risk_panel?.review_items || []).length + " 项复核")}</div>`,
-    `<div class="stage-card"><strong>商业钩子</strong><p>${panels.commercial_hook_panel?.teaser_copy || first.commercial_hook_teaser || "--"}</p>${badge(panels.commercial_hook_panel?.disclosure_level || "--")}</div>`,
-    `<div class="stage-card"><strong>买家排序</strong><p>${(panels.buyer_ranking_panel?.buyer_rankings || []).map((row) => `${row.rank}.${labelOf(row.buyer_type || "--")}`).join(" / ") || "--"}</p>${badge("匹配分 " + (panels.buyer_ranking_panel?.buyer_fit_score || "--"))}</div>`,
-    `<div class="stage-card"><strong>交付状态</strong><p>${labelOf(panels.delivery_state_panel?.delivery_state || "--")} / ${panels.delivery_state_panel?.page_draft_id || "--"}</p>${badge(panels.delivery_state_panel?.delivery_ready ? "可交付" : "待审批", panels.delivery_state_panel?.delivery_ready ? "" : "warn")}</div>`,
-    `<div class="stage-card"><strong>下一步动作</strong><p>${labelOf(panels.sales_next_action_panel?.next_action || first.next_action || "--")}</p>${badge(panels.sales_next_action_panel?.quote_surface_state || "--")}</div>`
+  safeHtml($("autonomousDetailPanels")).innerHTML = [
+    `<div class="stage-card"><strong>证据风险</strong><p>${safeText(labelOf(panels.evidence_risk_panel?.evidence_strength_label || "--"))} / ${safeText(labelOf(panels.evidence_risk_panel?.hard_defect_public_label || "--"))}</p>${badge((panels.evidence_risk_panel?.review_items || []).length + " 项复核")}</div>`,
+    `<div class="stage-card"><strong>商业钩子</strong><p>${safeText(panels.commercial_hook_panel?.teaser_copy || first.commercial_hook_teaser || "--")}</p>${badge(panels.commercial_hook_panel?.disclosure_level || "--")}</div>`,
+    `<div class="stage-card"><strong>买家排序</strong><p>${safeText((panels.buyer_ranking_panel?.buyer_rankings || []).map((row) => `${row.rank}.${labelOf(row.buyer_type || "--")}`).join(" / ") || "--")}</p>${badge("匹配分 " + (panels.buyer_ranking_panel?.buyer_fit_score || "--"))}</div>`,
+    `<div class="stage-card"><strong>交付状态</strong><p>${safeText(labelOf(panels.delivery_state_panel?.delivery_state || "--"))} / ${safeText(panels.delivery_state_panel?.page_draft_id || "--")}</p>${badge(panels.delivery_state_panel?.delivery_ready ? "可交付" : "待审批", panels.delivery_state_panel?.delivery_ready ? "" : "warn")}</div>`,
+    `<div class="stage-card"><strong>下一步动作</strong><p>${safeText(labelOf(panels.sales_next_action_panel?.next_action || first.next_action || "--"))}</p>${badge(panels.sales_next_action_panel?.quote_surface_state || "--")}</div>`
   ].join("");
   return payload;
 }
 let lastRealSourceSnapshotId = "";
 function fillSelect(id, items, labelBuilder) {
   const select = $(id);
-  select.innerHTML = "";
+  safeHtml(select).innerHTML = "";
   for (const item of items) {
     const option = document.createElement("option");
     option.value = item.profile_id;
@@ -3524,7 +3617,7 @@ async function loadRegionAdapters() {
   const catalog = await json("GET", "/operator-console/region-adapters");
   const adapters = catalog.region_adapters || [];
   const select = $("searchRegion");
-  select.innerHTML = "";
+  safeHtml(select).innerHTML = "";
   for (const adapter of adapters) {
     const option = document.createElement("option");
     option.value = adapter.region_code;
@@ -3539,7 +3632,7 @@ async function loadRegionAdapters() {
   const searchableCount = (catalog.searchable_region_codes || []).length;
   const dedicatedCount = (catalog.dedicated_local_profile_region_codes || []).length;
   const localGap = adapters.filter((adapter) => adapter.onboarding_required && adapter.commercial_pilot_region);
-  $("regionCoverageSummary").innerHTML = [
+  safeHtml($("regionCoverageSummary")).innerHTML = [
     `<div class="metric"><strong>${searchableCount}</strong><span>可搜索地区</span></div>`,
     `<div class="metric"><strong>${dedicatedCount}</strong><span>本地专用入口</span></div>`,
     `<div class="metric"><strong>${localGap.length}</strong><span>商业试点待补</span></div>`
@@ -3554,15 +3647,15 @@ async function loadRegionAdapters() {
       badge(gaps.length ? `覆盖缺口 ${gaps.length}` : "无覆盖缺口", gaps.length ? "warn" : "")
     ].join("");
     return `<div class="stage-card">
-      <strong>${adapter.region_code} ${adapter.region_name}</strong>
-      <p>主入口：${adapter.primary_entry_profile_id || "--"}；备用入口：${(adapter.fallback_entry_profile_ids || []).join(" / ") || "无"}</p>
+      <strong>${safeText(adapter.region_code)} ${safeText(adapter.region_name)}</strong>
+      <p>主入口：${safeText(adapter.primary_entry_profile_id || "--")}；备用入口：${safeText((adapter.fallback_entry_profile_ids || []).join(" / ") || "无")}</p>
       ${flags}
-      <p><strong>失败分类</strong> ${gaps.length ? gaps.map(labelOf).join(" / ") : "当前无登记缺口"}</p>
+      <p><strong>失败分类</strong> ${safeText(gaps.length ? gaps.map(labelOf).join(" / ") : "当前无登记缺口")}</p>
       <p><strong>下一步</strong> ${adapter.onboarding_required ? "先验真本省官网是否有实时公告列表，再登记 profile、详情页和附件入口。" : "保持真实源诊断和后续详情页抓取验证。"}</p>
     </div>`;
   }).join("");
   $("regionAdapterSummary").className = rows ? "compact-card-grid" : "empty-state";
-  $("regionAdapterSummary").innerHTML = rows || "暂无地区适配器。";
+  safeHtml($("regionAdapterSummary")).innerHTML = rows || "暂无地区适配器。";
   return catalog;
 }
 async function loadAutonomousSearchRuns() {
@@ -3590,21 +3683,21 @@ async function loadAutonomousSearchRuns() {
     renderStageOverviewTelemetry(payload.latest_runtime_flow?.stage_stats ? payload.latest_runtime_flow : latestRun.runtime_flow);
   }
   $("autonomousSearchRuns").className = "compact-card-grid";
-  $("autonomousSearchRuns").innerHTML = runs.slice(0, 8).map((run) => {
+  safeHtml($("autonomousSearchRuns")).innerHTML = runs.slice(0, 8).map((run) => {
     const sampleMode = isOfflineSample(run);
     const links = [
-      run.opportunity_id ? `<a href="#autonomousWorkbench" data-workbench-opportunity="${run.opportunity_id}">工作台</a>` : "",
+      run.opportunity_id ? `<a href="#autonomousWorkbench" data-workbench-opportunity="${safeText(run.opportunity_id)}">工作台</a>` : "",
       run.opportunity_id ? `<a href="/customer-artifact-portal/${encodeURIComponent(run.opportunity_id)}">证据包预览</a>` : ""
     ].filter(Boolean).join(" · ");
     return `<div class="stage-card">
-      <strong>${sampleMode && run.opportunity_id ? "样本闭环 " + run.opportunity_id : (run.opportunity_id || "--")}</strong>
-      <p>${run.project_name || run.query || "--"}</p>
+      <strong>${safeText(sampleMode && run.opportunity_id ? "样本闭环 " + run.opportunity_id : (run.opportunity_id || "--"))}</strong>
+      <p>${safeText(run.project_name || run.query || "--")}</p>
       ${badge(run.search_state || "--", run.search_state === "AUTONOMOUS_SEARCH_ACCEPTED" ? "" : "warn")}
       ${badge(sourceModeOf(run) || "--", sampleMode ? "warn" : "")}
       ${badge(run.region_code || "--")}
       ${badge(run.entry_profile_id || "--")}
-      <p>${labelOf(run.project_type_label || run.project_type)} · ${amountRangeText(run.amount_range || {minimum: run.amount_min, maximum: run.amount_max})}</p>
-      <p>候选 ${run.search_scope?.candidate_count ?? (run.candidate_options || []).length ?? 0} · 闭环 ${run.search_scope?.closed_loop_generated_count ?? (run.opportunity_id ? 1 : 0)}</p>
+      <p>${safeText(labelOf(run.project_type_label || run.project_type))} · ${safeText(amountRangeText(run.amount_range || {minimum: run.amount_min, maximum: run.amount_max}))}</p>
+      <p>候选 ${safeText(run.search_scope?.candidate_count ?? (run.candidate_options || []).length ?? 0)} · 闭环 ${safeText(run.search_scope?.closed_loop_generated_count ?? (run.opportunity_id ? 1 : 0))}</p>
       <p>${links || "读回路径待生成"}</p>
     </div>`;
   }).join("");
@@ -3630,21 +3723,21 @@ async function loadRealCandidateDiscoveryDiagnostics() {
     return payload;
   }
   $("realCandidateDiscoveryDiagnostics").className = "compact-card-grid";
-  $("realCandidateDiscoveryDiagnostics").innerHTML = reports.map((report) => {
+  safeHtml($("realCandidateDiscoveryDiagnostics")).innerHTML = reports.map((report) => {
     const diagnostics = report.candidate_diagnostics || {};
     const diagnosis = diagnostics.operator_diagnosis || report.operator_diagnosis || [];
     const rejectedSamples = diagnostics.rejected_samples || [];
     const sampleText = rejectedSamples.slice(0, 3).map((sample) => {
       const title = safeText(sample.title || sample.url || "--");
-      return `${reasonLabel(sample.reason)}：${title}`;
+      return `${safeText(reasonLabel(sample.reason))}：${title}`;
     }).join("<br>");
     return `<div class="stage-card">
       <strong>${safeText(report.profile_id || "--")}</strong>
       ${badge(report.status || "--", report.status === "FETCHED" ? "" : "warn")}
       ${badge(`链接 ${diagnostics.link_item_count ?? report.same_site_detail_link_count ?? 0}`)}
       ${badge(`候选 ${report.candidate_count ?? 0}`, (report.candidate_count ?? 0) ? "" : "warn")}
-      <p><strong>来源</strong> ${report.entry_url ? `<a href="${safeText(report.entry_url)}" target="_blank" rel="noopener">${safeText(report.entry_url)}</a>` : "--"}</p>
-      <p><strong>诊断</strong> ${(diagnosis || []).map(reasonLabel).join(" / ") || "暂无诊断"}</p>
+      <p><strong>来源</strong> ${safeSourceHref(report.entry_url) ? `<a href="${safeText(safeSourceHref(report.entry_url))}" target="_blank" rel="noopener noreferrer">${safeText(report.entry_url)}</a>` : "--"}</p>
+      <p><strong>诊断</strong> ${safeText((diagnosis || []).map(reasonLabel).join(" / ") || "暂无诊断")}</p>
       <p><strong>剔除统计</strong> ${safeText(rejectedCountsText(diagnostics.rejected_counts || report.rejected_counts || {}))}</p>
       <p><strong>下一步</strong> ${safeText(report.next_action || diagnostics.next_action || "查看来源快照和列表链接样本。")}</p>
       ${sampleText ? `<p><strong>样例</strong><br>${sampleText}</p>` : ""}
@@ -3662,7 +3755,7 @@ async function loadRealCandidateCatalog() {
     return payload;
   }
   $("realCandidateCatalog").className = "compact-card-grid";
-  $("realCandidateCatalog").innerHTML = rows.slice(0, 12).map((candidate) => `
+  safeHtml($("realCandidateCatalog")).innerHTML = rows.slice(0, 12).map((candidate) => `
     <div class="stage-card">
       <strong>${safeText(candidate.project_name || candidate.project_id || "--")}</strong>
       <p>${safeText(candidate.region_name || candidate.region_code || "--")} · ${safeText(labelOf(candidate.project_type || "--"))} · ${safeText(amountRangeText(candidateRange(candidate)))}</p>
@@ -3670,7 +3763,7 @@ async function loadRealCandidateCatalog() {
       ${badge(candidate.source_profile_id || "来源待补", candidate.source_profile_id ? "" : "warn")}
       ${badge(candidate.snapshot_id_optional ? "列表页快照已绑定" : "列表页快照待绑定", candidate.snapshot_id_optional ? "" : "warn")}
       ${candidate.stage2_detail_snapshot_id_optional ? badge("详情快照已绑定") : ""}
-      <p><strong>来源</strong> ${candidate.source_url ? `<a href="${safeText(candidate.source_url)}" target="_blank" rel="noopener">${safeText(candidate.source_site_name || candidate.source_url)}</a>` : "来源网址待补"}</p>
+      <p><strong>来源</strong> ${safeSourceHref(candidate.source_url) ? `<a href="${safeText(safeSourceHref(candidate.source_url))}" target="_blank" rel="noopener noreferrer">${safeText(candidate.source_site_name || candidate.source_url)}</a>` : "来源网址待补"}</p>
       <p><strong>下一步</strong> 查看详情快照读回，把真实详情字段和附件线索送入后续证据回链。</p>
     </div>
   `).join("");
@@ -3686,14 +3779,14 @@ async function loadRealCandidateStage2Captures() {
     return payload;
   }
   $("realCandidateStage2Captures").className = "compact-card-grid";
-  $("realCandidateStage2Captures").innerHTML = rows.slice(0, 12).map((capture) => `
+  safeHtml($("realCandidateStage2Captures")).innerHTML = rows.slice(0, 12).map((capture) => `
     <div class="stage-card">
       <strong>${safeText(capture.project_name || capture.project_id || "--")}</strong>
       ${badge(capture.detail_capture_status || "--", capture.detail_snapshot_id_optional ? "" : "warn")}
       ${badge(capture.stage3_parse_state || "--", String(capture.stage3_parse_state || "").startsWith("PARSED") ? "" : "warn")}
       ${badge(`附件线索 ${capture.attachment_link_count ?? 0}`)}
       ${badge(`附件快照 ${capture.attachment_snapshot_count ?? 0}`, (capture.attachment_snapshot_count ?? 0) ? "" : "warn")}
-      <p><strong>来源</strong> ${capture.source_url ? `<a href="${safeText(capture.source_url)}" target="_blank" rel="noopener">${safeText(capture.source_url)}</a>` : "来源网址待补"}</p>
+      <p><strong>来源</strong> ${safeSourceHref(capture.source_url) ? `<a href="${safeText(safeSourceHref(capture.source_url))}" target="_blank" rel="noopener noreferrer">${safeText(capture.source_url)}</a>` : "来源网址待补"}</p>
       <p><strong>快照</strong> ${capture.detail_snapshot_id_optional ? `<a href="/operator-console/real-source-runs/${encodeURIComponent(capture.detail_snapshot_id_optional)}" target="_blank" rel="noopener">${safeText(capture.detail_snapshot_id_optional)}</a>` : "未生成快照"}</p>
       ${capture.attachment_captures && capture.attachment_captures.length ? `<p><strong>附件原文</strong> ${capture.attachment_captures.map((item) => item.attachment_snapshot_id_optional ? `<a href="/operator-console/real-source-runs/${encodeURIComponent(item.attachment_snapshot_id_optional)}" target="_blank" rel="noopener">${safeText(item.attachment_filename || item.attachment_snapshot_id_optional)}</a>` : safeText(item.attachment_capture_status || "未生成附件快照")).join("、")}</p>` : ""}
       <p><strong>解析字段</strong> ${safeText((capture.detail_fields && capture.detail_fields.project_name) || capture.detail_title || "--")}</p>
@@ -3739,13 +3832,13 @@ function renderGrayOrchestrator(surface) {
   $("grayOrchestratorNarrative").textContent = surface?.latest_manifest_available
     ? `${decision.title}：${decision.blocker}。推荐动作：${decision.action}。`
     : "还没有灰度计划；点击“生成总控计划”只做内部计划和读回，不执行真实公开源。";
-  $("grayOrchestratorMetrics").innerHTML = [
-    `<div class="metric"><strong>${labelOf(state)}</strong><span>计划状态</span></div>`,
-    `<div class="metric"><strong>${summary.completed_segment_count ?? 0}/${summary.segment_count ?? 0}</strong><span>分段完成</span></div>`,
-    `<div class="metric"><strong>${summary.fixed_snapshot_sha256_count ?? 0}</strong><span>证据哈希</span></div>`
+  safeHtml($("grayOrchestratorMetrics")).innerHTML = [
+    `<div class="metric"><strong>${safeText(labelOf(state))}</strong><span>计划状态</span></div>`,
+    `<div class="metric"><strong>${safeText(summary.completed_segment_count ?? 0)}/${safeText(summary.segment_count ?? 0)}</strong><span>分段完成</span></div>`,
+    `<div class="metric"><strong>${safeText(summary.fixed_snapshot_sha256_count ?? 0)}</strong><span>证据哈希</span></div>`
   ].join("");
   $("grayOrchestratorSummary").className = "";
-  $("grayOrchestratorSummary").innerHTML = renderRows([
+  safeHtml($("grayOrchestratorSummary")).innerHTML = renderRows([
     ["计划文件", surface?.latest_manifest_available ? compactPath(surface?.latest_manifest_json) : "未生成"],
     ["批次完成状态", aggregateState],
     ["人工放行", summary.human_gray_launch_approval_state || "--"],
@@ -3758,7 +3851,7 @@ function renderGrayOrchestrator(surface) {
     ["支付/交付/退款边界", summary.payment_execution_enabled || summary.delivery_execution_enabled || summary.automatic_refund_enabled ? "ALLOW" : "DISABLED_BY_SAFETY_BOUNDARY"],
     ["推荐下一步", operatorActionLabel(summary.next_required_step || surface?.owner_next_action || "--")],
   ]);
-  $("grayOrchestratorCapabilities").innerHTML = capabilities.length
+  safeHtml($("grayOrchestratorCapabilities")).innerHTML = capabilities.length
     ? capabilities.map((item) => {
       const stateText = item.state || "--";
       const warn = stateText.includes("NOT_IMPLEMENTED") || stateText.includes("HUMAN") || stateText.includes("DRY_RUN");
@@ -3774,7 +3867,7 @@ function renderGrayOrchestrator(surface) {
     : `<div class="empty-state">暂无能力矩阵；生成总控计划后显示。</div>`;
   $("grayOrchestratorRunMeta").textContent = `总控运行记录 ${surface?.run_count ?? runs.length} 条；本页只生成内部计划和读回，不直接执行真实公开源。`;
   $("grayOrchestratorRuns").className = runs.length ? "compact-card-grid" : "empty-state";
-  $("grayOrchestratorRuns").innerHTML = runs.length
+  safeHtml($("grayOrchestratorRuns")).innerHTML = runs.length
     ? runs.slice(0, 8).map((run) => `<div class="stage-card">
         <strong>${safeText(run.run_id || "灰度计划运行")}</strong>
         <p class="technical-muted">${safeText(compactPath(run.manifest_json || "--"))}</p>
@@ -3787,7 +3880,7 @@ function renderGrayOrchestrator(surface) {
   const queueCounts = queue.status_counts || {};
   $("grayOrchestratorQueueMeta").textContent = `后台队列 ${queue.queue_item_count ?? queueItems.length} 条；排队 ${queueCounts.queued || 0} / 运行中 ${queueCounts.running || 0} / 已完成 ${queueCounts.succeeded || 0}。`;
   $("grayOrchestratorQueue").className = queueItems.length ? "compact-card-grid" : "empty-state";
-  $("grayOrchestratorQueue").innerHTML = queueItems.length
+  safeHtml($("grayOrchestratorQueue")).innerHTML = queueItems.length
     ? queueItems.slice(0, 8).map((item) => `<div class="stage-card">
         <strong>${safeText(item.queue_item_id || "后台任务")}</strong>
         <p class="technical-muted">${safeText(compactPath(item.output_root || "--"))}</p>
@@ -4039,7 +4132,7 @@ async function runControlledSample() {
   payload.run_mode = payload.run_mode || "DRY_RUN";
   payload.live_execution_enabled = false;
   const result = await json("POST", "/internal/stage1-6/orchestrations", payload);
-  $("workbenchStatus").innerHTML = [
+  safeHtml($("workbenchStatus")).innerHTML = [
     badge(`阶段6 已持久化 ${result.stage6_persisted ? "是" : "否"}`),
     badge(`项目 ${result.stage6_project_id || "--"}`),
     badge("真实执行已关闭", "warn")
@@ -4084,9 +4177,9 @@ async function loadRealSourceRuns() {
     return payload;
   }
   $("realSourceRunList").className = "";
-  $("realSourceRunList").innerHTML = runs.slice(0, 8).map((run) => {
+  safeHtml($("realSourceRunList")).innerHTML = runs.slice(0, 8).map((run) => {
     const snapshot = run.snapshot_id_optional || "--";
-    return `<div class="metric"><strong>${run.profile_id || "--"}</strong><span>${run.capture_kind || "--"} | ${run.status || "--"} | ${snapshot}</span></div>`;
+    return `<div class="metric"><strong>${safeText(run.profile_id || "--")}</strong><span>${safeText(run.capture_kind || "--")} | ${safeText(run.status || "--")} | ${safeText(snapshot)}</span></div>`;
   }).join("");
   return payload;
 }
@@ -4216,7 +4309,8 @@ function safeText(value) {
     .replaceAll("'", "&#39;");
 }
 function badge(text, kind="") {
-  return `<span class="pill ${kind}">${safeText(text || "--")}</span>`;
+  const safeKind = ["", "warn", "danger"].includes(String(kind || "")) ? String(kind || "") : "";
+  return `<span class="pill ${safeKind}">${safeText(text || "--")}</span>`;
 }
 function listHtml(items, emptyText="暂无") {
   const rows = Array.isArray(items) ? items.filter(Boolean) : [];
@@ -4259,7 +4353,7 @@ function renderBatchSource(surface) {
   const selectedLabel = surface?.selected_batch_index >= 0
     ? batchOptionLabel(surface.batch_options[surface.selected_batch_index], surface.selected_batch_index)
     : "当前来源不在批次列表中";
-  $("batchSource").innerHTML = [
+  safeHtml($("batchSource")).innerHTML = [
     `<div class="summary-row"><strong>当前读取</strong><span>${safeText(selectedLabel)}</span></div>`,
     `<div class="summary-row"><strong>默认策略</strong><span>${safeText(surface?.batch_default_selection_label || "按 owner 总览策略选择批次")}</span></div>`,
     `<div class="summary-row"><strong>状态表</strong><span>${safeText(surface?.source_path || "未读到")}</span></div>`,
@@ -4269,7 +4363,7 @@ function renderBatchSource(surface) {
 function renderBatchSelector(surface) {
   const options = Array.isArray(surface?.batch_options) ? surface.batch_options : [];
   const selector = $("batchSelector");
-  selector.innerHTML = options.length
+  safeHtml(selector).innerHTML = options.length
     ? options.map((option, index) => {
       const selected = index === surface.selected_batch_index ? " selected" : "";
       return `<option value="${safeText(option.status_table_path)}"${selected}>${safeText(batchOptionLabel(option, index))}</option>`;
@@ -4277,7 +4371,7 @@ function renderBatchSelector(surface) {
     : `<option value="">暂无可选批次</option>`;
   selector.disabled = !options.length;
   selector.onchange = (event) => loadBatch(event.target.value);
-  $("batchOptionsList").innerHTML = options.length
+  safeHtml($("batchOptionsList")).innerHTML = options.length
     ? options.map((option, index) => {
       const selected = index === surface.selected_batch_index;
       const projects = (option.project_ids || []).join("、") || "项目编号待读取";
@@ -4295,18 +4389,18 @@ function render(surface) {
   const summary = surface?.summary || {};
   const rows = Array.isArray(surface?.project_status_rows) ? surface.project_status_rows : [];
   $("batchPlainDecision").textContent = plainDecision(surface);
-  $("batchMetrics").innerHTML = [
+  safeHtml($("batchMetrics")).innerHTML = [
     `<div class="metric"><strong>${summary.project_count ?? 0}</strong><span>项目数</span></div>`,
     `<div class="metric"><strong>${summary.automated_dispatch_available_count ?? 0}</strong><span>可继续自动/受控续跑</span></div>`,
     `<div class="metric"><strong>${summary.manual_hold_count ?? 0}</strong><span>人工停机</span></div>`
   ].join("");
   const nextActions = surface?.operator_decision?.next_action_labels || surface?.operator_decision?.next_actions || [];
-  $("batchNextActions").innerHTML = nextActions.length
+  safeHtml($("batchNextActions")).innerHTML = nextActions.length
     ? nextActions.map((item) => `<div>${safeText(item)}</div>`).join("")
     : `<div>暂无下一步动作。</div>`;
   renderBatchSource(surface);
   renderBatchSelector(surface);
-  $("projectCards").innerHTML = rows.length
+  safeHtml($("projectCards")).innerHTML = rows.length
     ? rows.map((row) => {
       const kind = cardKind(row);
       const why = row.blocker_reason_label || row.manual_hold_reason || row.lineage?.dispatch_closeout_state || row.lineage?.dispatch_readback_state || "暂无明确阻断原因";
@@ -4344,7 +4438,7 @@ function loadBatch(statusTablePath="") {
   .then(render)
   .catch((error) => {
     $("batchPlainDecision").textContent = `读取失败：${error}`;
-    $("projectCards").innerHTML = `<div class="empty-state">读取失败，请查看本地服务日志。</div>`;
+    safeHtml($("projectCards")).innerHTML = `<div class="empty-state">读取失败，请查看本地服务日志。</div>`;
   });
 }
 loadBatch();
@@ -4501,7 +4595,6 @@ function labelOf(value) {{
   const text = String(value ?? "--");
   return portalLabels[text] || text;
 }}
-function badge(text, kind="") {{ return `<span class="pill ${{kind}}">${{labelOf(text)}}</span>`; }}
 function safeText(value) {{
   return String(value ?? "--")
     .replaceAll("&", "&amp;")
@@ -4509,6 +4602,14 @@ function safeText(value) {{
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
+}}
+function badge(text, kind="") {{
+  const safeKind = ["", "warn", "danger"].includes(String(kind || "")) ? String(kind || "") : "";
+  return `<span class="pill ${{safeKind}}">${{safeText(labelOf(text))}}</span>`;
+}}
+function safeSourceHref(value) {{
+  const href = kakaSafeHref(value);
+  return href.startsWith("http://") || href.startsWith("https://") ? href : "";
 }}
 function scalarText(value) {{
   if (value === undefined || value === null || value === "") {{ return "--"; }}
@@ -4530,15 +4631,16 @@ function valueText(value) {{
 }}
 function valueHtml(value) {{
   const text = valueText(value);
-  if (/^https?:\/\//.test(text)) {{
-    return `<a href="${{safeText(text)}}" target="_blank" rel="noopener">${{safeText(text)}}</a>`;
+  const href = safeSourceHref(text);
+  if (href) {{
+    return `<a href="${{safeText(href)}}" target="_blank" rel="noopener noreferrer">${{safeText(text)}}</a>`;
   }}
   return safeText(text);
 }}
 function rowsHtml(rows) {{
   return `<div class="detail-table">${{rows
     .filter(([, value]) => value !== undefined && value !== null && String(value).length)
-    .map(([label, value]) => `<div class="detail-row"><strong>${{label}}</strong><span>${{valueHtml(value)}}</span></div>`)
+    .map(([label, value]) => `<div class="detail-row"><strong>${{safeText(label)}}</strong><span>${{valueHtml(value)}}</span></div>`)
     .join("")}}</div>`;
 }}
 function evidenceItemsHtml(items, sampleMode=false, customerJudgement="") {{
@@ -4546,16 +4648,16 @@ function evidenceItemsHtml(items, sampleMode=false, customerJudgement="") {{
   if (!rows.length) {{ return `<div class="empty-state">暂无证据项读回。</div>`; }}
   return `<div class="compact-card-grid">${{rows.map((item) => `
     <div class="stage-card">
-      <strong>${{labelOf(item.item_id || item.source_object || "--")}}</strong>
-      <p>证据类型：${{labelOf(item.item_id || "--")}}</p>
-      <p>线索类型：${{labelOf(item.source_object || "--")}}</p>
+      <strong>${{safeText(labelOf(item.item_id || item.source_object || "--"))}}</strong>
+      <p>证据类型：${{safeText(labelOf(item.item_id || "--"))}}</p>
+      <p>线索类型：${{safeText(labelOf(item.source_object || "--"))}}</p>
       ${{sampleMode ? badge("样本证据项，非客户交付", "warn") : ""}}
-      <p>来源对象：${{valueText(item.source_id)}}</p>
+      <p>来源对象：${{safeText(valueText(item.source_id))}}</p>
       ${{badge(item.manifest_state || item.status || "--", item.present === false ? "warn" : "")}}
       ${{badge(item.masking_policy || "--")}}
       <p>客户交付判断：${{safeText(customerJudgement || "客户交付前需要完成真实来源核验。")}}</p>
-      <p>来源引用：${{valueText(item.source_refs)}}</p>
-      <p>公开来源：${{item.source_url ? `<a href="${{safeText(item.source_url)}}" target="_blank" rel="noopener">${{safeText(item.source_site_name || item.source_profile_id || item.source_url)}}</a>` : "来源网址待读回"}}</p>
+      <p>来源引用：${{safeText(valueText(item.source_refs))}}</p>
+      <p>公开来源：${{safeSourceHref(item.source_url) ? `<a href="${{safeText(safeSourceHref(item.source_url))}}" target="_blank" rel="noopener noreferrer">${{safeText(item.source_site_name || item.source_profile_id || item.source_url)}}</a>` : "来源网址待读回"}}</p>
     </div>
   `).join("")}}</div>`;
 }}
@@ -4578,11 +4680,11 @@ function renderEvidencePackage(payload, missing=false) {{
   const watermark = readback.watermark || formal.watermark || {{}};
   const hash = readback.artifact_version_hash || formal.artifact_version_hash || "--";
   if (missing) {{
-    document.getElementById("mailPackagePreview").innerHTML = `<div class="empty-state">还没有可预览的拟邮件证据包。</div>`;
-    document.getElementById("evidencePackagePreview").innerHTML = `<div class="empty-state">还没有证据项清单。</div>`;
+    safeHtml(document.getElementById("mailPackagePreview")).innerHTML = `<div class="empty-state">还没有可预览的拟邮件证据包。</div>`;
+    safeHtml(document.getElementById("evidencePackagePreview")).innerHTML = `<div class="empty-state">还没有证据项清单。</div>`;
     return;
   }}
-  document.getElementById("artifactState").innerHTML = rowsHtml([
+  safeHtml(document.getElementById("artifactState")).innerHTML = rowsHtml([
     ["证据包", readback.evidence_pack_id],
     ["交付包", readback.package_id],
     ["清单", readback.artifact_manifest_id],
@@ -4597,7 +4699,7 @@ function renderEvidencePackage(payload, missing=false) {{
     ["客户交付判断", dataBoundary["客户可交付判断"]],
     ["来源网址精度", dataBoundary["来源网址精度"]],
   ]);
-  document.getElementById("mailPackagePreview").innerHTML = `
+  safeHtml(document.getElementById("mailPackagePreview")).innerHTML = `
     <div class="stage-card">
       <strong>邮件发送包预览</strong>
       <p>主题：证据包交付 - ${{opportunityId}}</p>
@@ -4615,7 +4717,7 @@ function renderEvidencePackage(payload, missing=false) {{
       ["数据真实性", dataBoundary["客户可交付判断"]],
     ])}}
   `;
-  document.getElementById("evidencePackagePreview").innerHTML = evidenceItemsHtml(evidenceItems, sampleMode, customerJudgement);
+  safeHtml(document.getElementById("evidencePackagePreview")).innerHTML = evidenceItemsHtml(evidenceItems, sampleMode, customerJudgement);
 }}
 function blockedReasonLabel(reason) {{
   const labels = {{
@@ -4678,47 +4780,47 @@ async function loadPortal() {{
   document.getElementById("portalSummary").textContent =
     "内部证据包预览已读取；真实邮件、电话、支付、退款服务商未接入，不会触达外部。";
   renderEvidencePackage(payload, false);
-  document.getElementById("accessState").innerHTML = [
+  safeHtml(document.getElementById("accessState")).innerHTML = [
     badge("内部预览可打开"),
     badge("客户账号不作为测试前置"),
     badge("真实邮件未接入", "warn")
   ].join("");
-  document.getElementById("fieldState").innerHTML = [
+  safeHtml(document.getElementById("fieldState")).innerHTML = [
     badge("字段白名单已执行"),
     badge("脱敏必需"),
     badge("内部黑箱已隐藏")
   ].join("");
-  document.getElementById("auditState").innerHTML = [
+  safeHtml(document.getElementById("auditState")).innerHTML = [
     badge("内部读回可审计"),
     badge("模拟下载读回可见"),
     badge("真实下载未执行", "warn")
   ].join("");
-  document.getElementById("previewState").innerHTML =
+  safeHtml(document.getElementById("previewState")).innerHTML =
     `<div class="stage-card"><strong>内部验收可用</strong><p>可验收证据项清单、字段白名单、脱敏、水印、版本哈希、拟邮件附件和审计读回；真实发送能力等邮件服务商接入后再验收。</p><p>${{safeText(payload?.data_boundary?.["客户可交付判断"] || "客户交付前需要完成真实来源核验。")}}</p>${{badge("内部预览")}} ${{badge("拟邮件包可看")}} ${{badge("真实邮件未接入", "warn")}}</div>`;
   renderReadbackSummary(payload, false);
 }}
 function renderMissingArtifact(payload) {{
   document.getElementById("portalSummary").textContent =
     "暂无证据包读回：请先在运营操作台完成实战搜索并生成机会闭环。";
-  document.getElementById("artifactState").innerHTML =
+  safeHtml(document.getElementById("artifactState")).innerHTML =
     `<div class="empty-state"><strong>暂无证据包</strong><p>当前商机还没有可回放的证据包候选。先运行实战搜索生成机会闭环。</p></div>`;
   renderEvidencePackage(payload || {{}}, true);
-  document.getElementById("accessState").innerHTML = [
+  safeHtml(document.getElementById("accessState")).innerHTML = [
     badge("内部预览待生成", "warn"),
     badge("客户账号不作为测试前置"),
     badge("真实邮件未接入", "warn")
   ].join("");
-  document.getElementById("fieldState").innerHTML = [
+  safeHtml(document.getElementById("fieldState")).innerHTML = [
     badge("字段白名单已执行"),
     badge("脱敏必需"),
     badge("内部黑箱已隐藏")
   ].join("");
-  document.getElementById("auditState").innerHTML = [
+  safeHtml(document.getElementById("auditState")).innerHTML = [
     badge("内部读回待生成", "warn"),
     badge("真实下载未执行", "warn"),
     badge("客户自助发布不是当前路径")
   ].join("");
-  document.getElementById("previewState").innerHTML =
+  safeHtml(document.getElementById("previewState")).innerHTML =
     `<div class="empty-state"><strong>内部预览未形成</strong><p>当前商机缺少阶段7证据包读回。先从实战搜索生成机会闭环，再回到本页验收证据包、字段白名单和模拟下载审计状态。</p></div>`;
   renderReadbackSummary(payload || {{}}, true);
 }}
