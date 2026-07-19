@@ -6,6 +6,8 @@ psycopg[binary]==3.1.19
 uvicorn==0.29.0
 httpx==0.27.0
 PyYAML==6.0.1
+# Stage4 PDF forensics imports fitz at module load; keep the wheel explicit for clean CI/test environments.
+PyMuPDF==1.26.7
 markitdown[all]==0.1.5
 # Stage1/2 parser/adaptive selector enrichment plus gated HTTP/browser transports.
 # Fetcher/browser extras stay non-default and must run behind our allowlist/audit/snapshot boundary.

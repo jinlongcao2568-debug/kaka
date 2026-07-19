@@ -224,6 +224,62 @@ class SQLAlchemyStorageBackend:
                 )
             return entry
 
+    def commit_worker_queue_transition(
+        self,
+        *,
+        item: Any,
+        event: Any,
+        expected_status: str | None,
+    ) -> bool:
+        """Atomically persist a queue state change and its audit event."""
+        values = {
+            "queue_item_id": item.queue_item_id,
+            "queue_name": item.queue_name,
+            "status": item.status,
+            "priority": item.priority,
+            "next_run_at": item.next_run_at,
+            "payload": self._to_json(item),
+        }
+        with self._lock:
+            with self._engine.begin() as connection:
+                existing_event = connection.execute(
+                    select(worker_queue_events.c.id).where(
+                        worker_queue_events.c.queue_item_id == event.queue_item_id,
+                        worker_queue_events.c.event_id == event.event_id,
+                    )
+                ).first()
+                if existing_event is not None:
+                    return False
+                if expected_status is None:
+                    existing = connection.execute(
+                        select(worker_queue_items.c.id).where(
+                            worker_queue_items.c.queue_item_id == item.queue_item_id
+                        )
+                    ).first()
+                    if existing is not None:
+                        return False
+                    connection.execute(insert(worker_queue_items).values(**values))
+                else:
+                    result = connection.execute(
+                        update(worker_queue_items)
+                        .where(
+                            worker_queue_items.c.queue_item_id == item.queue_item_id,
+                            worker_queue_items.c.status == expected_status,
+                        )
+                        .values(**{key: value for key, value in values.items() if key != "queue_item_id"})
+                    )
+                    if int(result.rowcount or 0) != 1:
+                        return False
+                connection.execute(
+                    insert(worker_queue_events).values(
+                        queue_item_id=event.queue_item_id,
+                        event_id=event.event_id,
+                        event_type=event.event_type,
+                        payload=self._to_json(event),
+                    )
+                )
+        return True
+
     def list_worker_queue_events(self, queue_item_id: str) -> list[Any]:
         rows = self._fetch_payloads(
             select(worker_queue_events.c.payload)

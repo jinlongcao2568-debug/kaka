@@ -13,6 +13,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from importlib.util import find_spec
 from pathlib import Path
+from threading import Barrier
 from unittest.mock import patch
 
 from alembic import command
@@ -667,10 +668,25 @@ class TestStorageConcurrency(unittest.TestCase):
 
         dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
         self.assertIn("requirements.txt", dockerfile)
-        self.assertIn("-r /app/requirements.txt", dockerfile)
+        self.assertIn("requirements-api.txt", dockerfile)
+        self.assertIn("ARG KAKA_REQUIREMENTS_FILE=requirements-api.txt", dockerfile)
+        self.assertIn('requirements-api.txt|requirements.txt', dockerfile)
+        self.assertIn("USER kaka", dockerfile)
+        self.assertIn("HEALTHCHECK", dockerfile)
+        self.assertIn('"uvicorn", "api.main:create_app", "--factory"', dockerfile)
+        self.assertNotIn("local runtime bootstrap ready", dockerfile)
 
         dockerignore = (ROOT / ".dockerignore").read_text(encoding="utf-8")
-        for ignored_path in (".git", "__pycache__/", ".pytest_cache/", "object-storage/", "minio-data/"):
+        for ignored_path in (
+            ".git",
+            "__pycache__/",
+            ".pytest_cache/",
+            ".auth/",
+            "tmp/",
+            "**/*storage-state*.json",
+            "object-storage/",
+            "minio-data/",
+        ):
             self.assertIn(ignored_path, dockerignore)
 
         compose = (ROOT / "docker-compose.yml").read_text(encoding="utf-8")
@@ -682,6 +698,9 @@ class TestStorageConcurrency(unittest.TestCase):
         self.assertIn("compose_runtime_enabled: false", compose)
         self.assertIn("container_execution_enabled: false", compose)
         self.assertIn("docker_compose_up_executed: false", compose)
+        self.assertIn('KAKA_INTERNAL_API_TOKEN: ${KAKA_INTERNAL_API_TOKEN:-}', compose)
+        self.assertIn('"127.0.0.1:8000:8000"', compose)
+        self.assertNotIn("local runtime bootstrap ready", compose)
 
     def test_alembic_initial_migration_creates_storage_envelope_tables(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -696,6 +715,28 @@ class TestStorageConcurrency(unittest.TestCase):
         tables = {row[0] for row in rows}
         self.assertTrue(set(SQLAlchemyStorageBackend.required_table_names()).issubset(tables))
         self.assertIn("alembic_version", tables)
+
+    def test_audit_uniqueness_migration_rejects_legacy_duplicates_fail_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            database_path = Path(tmp_dir) / "duplicate-audit-migration.sqlite"
+            config = alembic_config(sqlalchemy_sqlite_url(database_path))
+            command.upgrade(config, "20260506_0001")
+            connection = sqlite3.connect(database_path)
+            try:
+                connection.executemany(
+                    "INSERT INTO operator_actions "
+                    "(work_item_id, action_event_id, payload) VALUES (?, ?, ?)",
+                    [
+                        ("WORK-1", "ACTION-1", "{}"),
+                        ("WORK-1", "ACTION-1", "{}"),
+                    ],
+                )
+                connection.commit()
+            finally:
+                connection.close()
+
+            with self.assertRaisesRegex(RuntimeError, "legacy duplicate.*preserve and reconcile"):
+                command.upgrade(config, "head")
 
     def test_sqlalchemy_backend_requires_migrated_schema_for_non_sqlite_session(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -1240,6 +1281,102 @@ class TestStorageConcurrency(unittest.TestCase):
             stage_state = reloaded.get_stage_state(8, "outreach_workbench", "TOUCH-1")
             self.assertIsNotNone(stage_state)
             self.assertIn(stage_state.inputs.get("writer"), {"A", "B"})
+
+    def test_json_sessions_merge_distinct_records_instead_of_losing_the_first_write(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            shared_path = Path(tmp_dir) / "shared-store.json"
+            session_a = DatabaseSession(storage_path=shared_path)
+            session_b = DatabaseSession(storage_path=shared_path)
+            record, _, _, _ = build_envelope_entries("2026-07-17T00:00:00+00:00")
+
+            session_a.upsert_record(replace(record, record_id="REC-A", payload={"record_id": "REC-A"}))
+            session_b.upsert_record(replace(record, record_id="REC-B", payload={"record_id": "REC-B"}))
+
+            reloaded = DatabaseSession(storage_path=shared_path)
+            self.assertEqual(
+                {entry.record_id for entry in reloaded.list_records("test_record")},
+                {"REC-A", "REC-B"},
+            )
+
+    def test_queue_claim_is_atomic_across_independent_sessions(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            cases = (
+                (
+                    "json-file",
+                    Settings(
+                        storage_backend="json-file",
+                        storage_path_optional=str(root / "queue.json"),
+                        storage_scope="shared",
+                        storage_runtime_mode="explicit-path",
+                    ),
+                ),
+                (
+                    "sqlite",
+                    Settings(
+                        storage_backend="sqlite",
+                        storage_path_optional=str(root / "queue-sqlite.json"),
+                        storage_scope="shared",
+                        storage_runtime_mode="explicit-path",
+                    ),
+                ),
+                (
+                    "sqlalchemy",
+                    Settings(
+                        storage_backend="sqlalchemy",
+                        storage_database_url_optional=sqlalchemy_sqlite_url(root / "queue-sqlalchemy.sqlite"),
+                        storage_scope="shared",
+                        storage_runtime_mode="explicit-path",
+                    ),
+                ),
+            )
+            for label, settings in cases:
+                with self.subTest(backend=label):
+                    session_a = DatabaseSession(settings=settings)
+                    repo_a = WorkerQueueRepository(session=session_a)
+                    repo_a.enqueue(queue_item_id=f"WQ-RACE-{label}", now="2026-07-17T00:00:00+00:00")
+                    session_b = DatabaseSession(settings=settings)
+                    repo_b = WorkerQueueRepository(session=session_b)
+                    barrier = Barrier(2)
+
+                    original_a = session_a.commit_worker_queue_transition
+                    original_b = session_b.commit_worker_queue_transition
+
+                    def gated_a(**kwargs):
+                        barrier.wait()
+                        return original_a(**kwargs)
+
+                    def gated_b(**kwargs):
+                        barrier.wait()
+                        return original_b(**kwargs)
+
+                    session_a.commit_worker_queue_transition = gated_a
+                    session_b.commit_worker_queue_transition = gated_b
+
+                    with ThreadPoolExecutor(max_workers=2) as executor:
+                        future_a = executor.submit(
+                            repo_a.claim_next,
+                            worker_id="worker-a",
+                            lease_id="lease-a",
+                            now="2026-07-17T00:00:01+00:00",
+                        )
+                        future_b = executor.submit(
+                            repo_b.claim_next,
+                            worker_id="worker-b",
+                            lease_id="lease-b",
+                            now="2026-07-17T00:00:01+00:00",
+                        )
+                        claims = [future_a.result(), future_b.result()]
+
+                    self.assertEqual(sum(claim is not None for claim in claims), 1)
+                    reloaded_repo = WorkerQueueRepository(session=DatabaseSession(settings=settings))
+                    events = reloaded_repo.list_events(f"WQ-RACE-{label}")
+                    self.assertEqual([event.event_type for event in events], ["queued", "claimed"])
+                    self.assertEqual(len({event.event_id for event in events}), 2)
+                    self.assertIn(reloaded_repo.get(f"WQ-RACE-{label}").worker_id, {"worker-a", "worker-b"})
+                    reloaded_repo.session.close()
+                    session_a.close()
+                    session_b.close()
 
     def test_worker_queue_repo_persists_lease_retry_suspend_dead_letter_with_json_file(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

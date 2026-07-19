@@ -41,6 +41,19 @@ def _read_env_optional(name: str) -> str | None:
     return stripped or None
 
 
+def _read_env_positive_int(name: str, default: int) -> int:
+    value = _read_env_optional(name)
+    if value is None:
+        return default
+    try:
+        parsed = int(value)
+    except ValueError as exc:
+        raise ValueError(f"{name} must be a positive integer") from exc
+    if parsed <= 0:
+        raise ValueError(f"{name} must be a positive integer")
+    return parsed
+
+
 def _resolve_storage_scope(storage_scope_value: str | None, storage_test_isolation_value: str | None) -> str:
     if (storage_scope_value or "").lower() == _PROCESS_STORAGE_SCOPE:
         return _PROCESS_STORAGE_SCOPE
@@ -70,6 +83,11 @@ class Settings:
     worker_runtime: str = _DEFAULT_WORKER_RUNTIME
     object_storage_backend: str = _DEFAULT_OBJECT_STORAGE_BACKEND
     object_storage_path_optional: Optional[str] = None
+    internal_api_token_optional: Optional[str] = None
+    internal_api_role: str = "internal_operator"
+    operator_artifact_root_optional: Optional[str] = None
+    operator_input_root_optional: Optional[str] = None
+    api_max_request_body_bytes: int = 2 * 1024 * 1024
     provider_adapter_config: ProviderAdapterConfig | None = None
     production_live_dependency_drill_inputs: dict[str, Any] | None = None
 
@@ -100,8 +118,26 @@ class Settings:
                 or _DEFAULT_OBJECT_STORAGE_BACKEND
             ),
             object_storage_path_optional=_read_env_optional("KAKA_OBJECT_STORAGE_PATH"),
+            internal_api_token_optional=_read_env_optional("KAKA_INTERNAL_API_TOKEN"),
+            internal_api_role=_read_env_optional("KAKA_INTERNAL_API_ROLE") or "internal_operator",
+            operator_artifact_root_optional=_read_env_optional("KAKA_OPERATOR_ARTIFACT_ROOT"),
+            operator_input_root_optional=_read_env_optional("KAKA_OPERATOR_INPUT_ROOT"),
+            api_max_request_body_bytes=_read_env_positive_int(
+                "KAKA_API_MAX_REQUEST_BODY_BYTES",
+                2 * 1024 * 1024,
+            ),
             provider_adapter_config=build_provider_adapter_config_from_env(),
         )
+
+    def internal_api_auth_readiness(self) -> dict[str, Any]:
+        return {
+            "auth_required": True,
+            "auth_scheme": "bearer",
+            "token_configured": bool(self.internal_api_token_optional),
+            "role": self.internal_api_role,
+            "network_request_without_configured_token_state": "SERVICE_UNAVAILABLE_FAIL_CLOSED",
+            "request_boolean_auth_allowed": False,
+        }
 
     def resolved_storage_path(self) -> Path:
         if self.storage_path_optional:

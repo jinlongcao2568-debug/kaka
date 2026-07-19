@@ -13,11 +13,19 @@ venv/
 env/
 ENV/
 
+# Local credentials, browser sessions, and operator-only state
+.auth/
+local/
+.kaka-local/
+.playwright-mcp/
+**/*storage-state*.json
+**/user-data/
+
 报告*.md
 *.tmp
 *.log
+tmp/
 
-.kaka-local/
 local-storage/
 object-storage/
 minio-data/

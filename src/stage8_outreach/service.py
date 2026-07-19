@@ -819,7 +819,6 @@ class Stage8Service:
             ),
             "live_execution_enabled": bool(outbox.get("live_execution_enabled", False)),
             "real_send_attempted": bool(outbox.get("real_send_attempted", False)),
-            "external_delivery_enabled": bool(outbox.get("external_delivery_enabled", False)),
             "provider_call_executed": bool(
                 dict(outbox.get("provider_result_readback", {})).get("provider_call_executed", False)
             ),

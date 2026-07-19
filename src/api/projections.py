@@ -1445,11 +1445,31 @@ def build_stage8_preview_surface(payload: Any) -> dict[str, Any]:
 def build_stage9_preview_surface(payload: Any) -> dict[str, Any]:
     bundle = _resolve_bundle(payload, "stage9")
     surface_defaults = get_surface_runtime_defaults("order_delivery_workbench")
-    order = _record_data(bundle.record("order_record"))
-    payment = _record_data(bundle.record("payment_record"))
-    delivery = _record_data(bundle.record("delivery_record"))
-    outcome = _record_data(bundle.record("opportunity_outcome_event"))
-    governance = _record_data(bundle.record("governance_feedback_event"))
+    order = (
+        _record_data(bundle.records["order_record"])
+        if "order_record" in bundle.records
+        else {}
+    )
+    payment = (
+        _record_data(bundle.records["payment_record"])
+        if "payment_record" in bundle.records
+        else {}
+    )
+    delivery = (
+        _record_data(bundle.records["delivery_record"])
+        if "delivery_record" in bundle.records
+        else {}
+    )
+    outcome = (
+        _record_data(bundle.records["opportunity_outcome_event"])
+        if "opportunity_outcome_event" in bundle.records
+        else {}
+    )
+    governance = (
+        _record_data(bundle.records["governance_feedback_event"])
+        if "governance_feedback_event" in bundle.records
+        else {}
+    )
     execution_ledger = bundle.inputs.get(STAGE9_EXECUTION_LEDGER_INPUT_KEY)
     execution_ledger = dict(execution_ledger) if isinstance(execution_ledger, Mapping) else {}
     execution_ledger_readiness = bundle.inputs.get(STAGE9_EXECUTION_LEDGER_READINESS_INPUT_KEY)
@@ -1508,12 +1528,14 @@ def build_stage9_preview_surface(payload: Any) -> dict[str, Any]:
         "opportunity_outcome_event": outcome,
         "governance_feedback_event": governance,
     }
+    formal_records = {
+        object_type: record
+        for object_type, record in formal_records.items()
+        if record
+    }
     formal_objects = {
-        "order_record": _formal_object_ref(bundle, "order_record", order),
-        "payment_record": _formal_object_ref(bundle, "payment_record", payment),
-        "delivery_record": _formal_object_ref(bundle, "delivery_record", delivery),
-        "opportunity_outcome_event": _formal_object_ref(bundle, "opportunity_outcome_event", outcome),
-        "governance_feedback_event": _formal_object_ref(bundle, "governance_feedback_event", governance),
+        object_type: _formal_object_ref(bundle, object_type, record)
+        for object_type, record in formal_records.items()
     }
     preview_projection = {
         "order_draft_preview": {
@@ -1596,6 +1618,10 @@ def build_stage9_preview_surface(payload: Any) -> dict[str, Any]:
     envelope[MANUAL_REFUND_EXCEPTION_RECORD_INPUT_KEY] = manual_refund_exception_record
     envelope[PAYMENT_DELIVERY_LIVE_PILOT_INPUT_KEY] = payment_delivery_live_pilot
     envelope[APPROVED_PAYMENT_DELIVERY_EXECUTION_INPUT_KEY] = approved_payment_delivery_execution
+    if bool(bundle.inputs.get("http_create_operation")):
+        envelope["operational_loop_persisted"] = False
+        envelope["operational_context_status"] = "http_record_create"
+        return envelope
     return _attach_operational_context(envelope, bundle)
 
 
@@ -2249,8 +2275,6 @@ def build_leadpack_activation_design_implementation_prep_surface(
     release_checklist = load_contract("contracts/testing/release_checklist.json")
     regression_manifest = load_contract("contracts/testing/regression_manifest.json")
 
-    formal_refs = dict(activation_prep.get("formal_object_refs", {}))
-    opportunity_id = str(formal_refs.get("saleable_opportunity", {}).get("object_id", "UNKNOWN"))
     prep_status = str(
         activation_prep.get("readiness_transition", {}).get("current_prep_status", "ACTIVATION_PREP_HELD")
     )

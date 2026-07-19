@@ -2676,7 +2676,7 @@ class RealCandidateStage2CaptureService:
                 refreshed = dict(capture)
                 state = str(replay.get("readback_state") or "READBACK_NOT_REPLAYABLE")
                 refreshed["detail_capture_status"] = "STALE_DETAIL_SNAPSHOT_REVIEW"
-                refreshed["detail_capture_failure_reasons"] = _dedupe_strings(
+                refreshed["detail_capture_failure_reasons"] = _dedupe_texts(
                     list(refreshed.get("detail_capture_failure_reasons") or [])
                     + [f"detail_snapshot_readback_missing:{state}"]
                 )

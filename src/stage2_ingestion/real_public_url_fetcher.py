@@ -1,21 +1,22 @@
 from __future__ import annotations
 
 import hashlib
+import ipaddress
 import json
 import os
 import re
 import shlex
 import shutil
+import socket
 import subprocess
 import tempfile
-import time
 from dataclasses import dataclass
-from html import escape, unescape
+from html import unescape
 from pathlib import Path
 from typing import Any, Mapping, Protocol
 from urllib.error import HTTPError
 from urllib.parse import parse_qs, quote, unquote, urlencode, urljoin, urlsplit, urlunsplit
-from urllib.request import Request, urlopen
+from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 from shared.utils import utc_now_iso
 from stage2_ingestion.scrapling_snapshot_parser import (
@@ -34,6 +35,10 @@ REAL_PUBLIC_ATTACHMENT_SNAPSHOT_KIND = "real_public_attachment_original_file"
 REAL_PUBLIC_ENTRY_USER_AGENT = (
     "AX9S-RealPublicEntryFetcher/0.1 (+public-readonly-validation)"
 )
+REAL_PUBLIC_TRANSPORT_MAX_RESPONSE_BYTES = 64 * 1024 * 1024
+REAL_PUBLIC_ENTRY_MAX_RESPONSE_BYTES = 8 * 1024 * 1024
+REAL_PUBLIC_DETAIL_MAX_RESPONSE_BYTES = 16 * 1024 * 1024
+REAL_PUBLIC_ATTACHMENT_MAX_RESPONSE_BYTES = 64 * 1024 * 1024
 SCRAPLING_BOTTOM_LAYER_OWNER_APPROVAL_ID = "OWNER_APPROVED_NEEDS_BASED_SCRAPLING_BOTTOM_LAYER_USE_2026_05_20"
 SCRAPLING_BOTTOM_LAYER_ESCALATION_POLICY_ID = "stage2.scrapling_bottom_layer_escalation_policy.v1"
 SCRAPLING_BOTTOM_LAYER_ESCALATION_ENABLED_BY_DEFAULT = True
@@ -74,6 +79,154 @@ PROVINCE_REALTIME_DETAIL_PROFILE_IDS = {
     "HUBEI-BIDCLOUD-JYXX-LIST",
     "SICHUAN-GGZY-TRANSACTION-INFO",
 }
+
+
+def _normalized_url_host(url: str) -> str:
+    hostname = urlsplit(str(url or "").strip()).hostname or ""
+    return hostname.rstrip(".").lower()
+
+
+def _effective_url_port(url: str) -> int:
+    parsed = urlsplit(str(url or "").strip())
+    try:
+        explicit_port = parsed.port
+    except ValueError as exc:
+        raise RuntimeError(f"invalid_url_port:{exc}") from exc
+    if explicit_port is not None:
+        return explicit_port
+    return 443 if parsed.scheme.lower() == "https" else 80
+
+
+def _validate_public_network_url(url: str, *, resolve_dns: bool) -> None:
+    parsed = urlsplit(str(url or "").strip())
+    scheme = parsed.scheme.lower()
+    if scheme not in {"http", "https"}:
+        raise RuntimeError(f"unsupported_url_scheme:{scheme or 'missing'}")
+    if parsed.username is not None or parsed.password is not None:
+        raise RuntimeError("url_userinfo_not_allowed")
+    host = _normalized_url_host(url)
+    if not host:
+        raise RuntimeError("url_hostname_missing")
+    if host == "localhost" or host.endswith(".localhost"):
+        raise RuntimeError("non_public_url_host:localhost")
+    port = _effective_url_port(url)
+    if port not in {80, 443}:
+        raise RuntimeError(f"non_standard_url_port:{port}")
+
+    addresses: set[str] = set()
+    try:
+        addresses.add(str(ipaddress.ip_address(host)))
+    except ValueError:
+        if resolve_dns:
+            try:
+                addresses.update(
+                    str(item[4][0])
+                    for item in socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
+                )
+            except OSError as exc:
+                raise RuntimeError(f"url_dns_resolution_failed:{host}:{exc}") from exc
+
+    for address in addresses:
+        parsed_address = ipaddress.ip_address(address)
+        if not parsed_address.is_global:
+            raise RuntimeError(f"non_public_url_address:{parsed_address.compressed}")
+
+
+def _validate_same_origin_redirect(source_url: str, target_url: str) -> None:
+    _validate_public_network_url(target_url, resolve_dns=True)
+    source = urlsplit(source_url)
+    target = urlsplit(target_url)
+    if _normalized_url_host(source_url) != _normalized_url_host(target_url):
+        raise RuntimeError("cross_host_redirect_blocked")
+    if source.scheme.lower() == "https" and target.scheme.lower() != "https":
+        raise RuntimeError("https_downgrade_redirect_blocked")
+    source_port = _effective_url_port(source_url)
+    target_port = _effective_url_port(target_url)
+    if source_port != target_port and not (
+        source.scheme.lower() == "http"
+        and source_port == 80
+        and target.scheme.lower() == "https"
+        and target_port == 443
+    ):
+        raise RuntimeError("redirect_port_change_blocked")
+
+
+def _read_limited(response: Any, max_bytes: int) -> bytes:
+    content = response.read(max_bytes + 1)
+    if len(content) > max_bytes:
+        raise RuntimeError(f"response_body_too_large:{len(content)}>{max_bytes}")
+    return content
+
+
+class _SameOriginPublicRedirectHandler(HTTPRedirectHandler):
+    def redirect_request(
+        self,
+        req: Request,
+        fp: Any,
+        code: int,
+        msg: str,
+        headers: Any,
+        newurl: str,
+    ) -> Request | None:
+        target_url = urljoin(req.full_url, newurl)
+        _validate_same_origin_redirect(req.full_url, target_url)
+        return super().redirect_request(req, fp, code, msg, headers, target_url)
+
+
+def _browser_public_boundary_setup(origin_url: str) -> Any:
+    """Build a Playwright page setup hook that blocks unsafe subrequests/redirects."""
+
+    def setup(page: Any) -> None:
+        def handle_route(route: Any) -> None:
+            request_url = str(route.request.url or "")
+            if request_url.startswith(("about:", "blob:", "data:")):
+                route.continue_()
+                return
+            try:
+                _validate_same_origin_redirect(origin_url, request_url)
+            except RuntimeError:
+                route.abort("blockedbyclient")
+                return
+            route.continue_()
+
+        page.route("**/*", handle_route)
+
+    return setup
+
+
+def _response_boundary_error(
+    requested_url: str,
+    response: "RealPublicFetchResponse",
+    *,
+    max_bytes: int,
+) -> tuple[str, str] | None:
+    content_size = len(response.content or b"")
+    if content_size > max_bytes:
+        return (
+            "response_body_too_large",
+            f"response body exceeds limit:{content_size}>{max_bytes}",
+        )
+    final_url = str(response.final_url or requested_url).strip()
+    try:
+        _validate_public_network_url(final_url, resolve_dns=False)
+    except RuntimeError as exc:
+        return "response_url_boundary_blocked", str(exc)
+    if _normalized_url_host(requested_url) != _normalized_url_host(final_url):
+        return "response_url_boundary_blocked", "cross_host_final_url"
+    requested = urlsplit(requested_url)
+    final = urlsplit(final_url)
+    if requested.scheme.lower() == "https" and final.scheme.lower() != "https":
+        return "response_url_boundary_blocked", "https_downgrade_final_url"
+    requested_port = _effective_url_port(requested_url)
+    final_port = _effective_url_port(final_url)
+    if requested_port != final_port and not (
+        requested.scheme.lower() == "http"
+        and requested_port == 80
+        and final.scheme.lower() == "https"
+        and final_port == 443
+    ):
+        return "response_url_boundary_blocked", "final_url_port_change"
+    return None
 
 
 @dataclass(frozen=True)
@@ -937,6 +1090,13 @@ class RealPublicAttachmentChallengeResolver(Protocol):
 
 
 class UrlLibRealPublicFetchTransport:
+    def __init__(
+        self,
+        *,
+        max_response_bytes: int = REAL_PUBLIC_TRANSPORT_MAX_RESPONSE_BYTES,
+    ) -> None:
+        self.max_response_bytes = max(1, int(max_response_bytes))
+
     def fetch(
         self,
         url: str,
@@ -944,11 +1104,13 @@ class UrlLibRealPublicFetchTransport:
         timeout_seconds: float,
         user_agent: str,
     ) -> RealPublicFetchResponse:
+        _validate_public_network_url(url, resolve_dns=True)
         request = Request(url, headers={"User-Agent": user_agent})
+        opener = build_opener(_SameOriginPublicRedirectHandler())
         try:
-            response_context = urlopen(request, timeout=timeout_seconds)  # noqa: S310
+            response_context = opener.open(request, timeout=timeout_seconds)  # noqa: S310
         except HTTPError as exc:
-            content = exc.read()
+            content = _read_limited(exc, self.max_response_bytes)
             headers = dict(exc.headers.items()) if exc.headers else {}
             headers["x-ax9s-fetch-transport"] = "urllib"
             return RealPublicFetchResponse(
@@ -961,7 +1123,7 @@ class UrlLibRealPublicFetchTransport:
             )
 
         with response_context as response:
-            content = response.read()
+            content = _read_limited(response, self.max_response_bytes)
             content_type = response.headers.get("Content-Type", "text/html")
             headers = dict(response.headers.items())
             headers["x-ax9s-fetch-transport"] = "urllib"
@@ -976,8 +1138,14 @@ class UrlLibRealPublicFetchTransport:
 
 
 class CurlCommandRealPublicFetchTransport:
-    def __init__(self, *, curl_binary: str | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        curl_binary: str | None = None,
+        max_response_bytes: int = REAL_PUBLIC_TRANSPORT_MAX_RESPONSE_BYTES,
+    ) -> None:
         self.curl_binary = curl_binary or shutil.which("curl.exe") or shutil.which("curl")
+        self.max_response_bytes = max(1, int(max_response_bytes))
 
     def fetch(
         self,
@@ -988,6 +1156,7 @@ class CurlCommandRealPublicFetchTransport:
     ) -> RealPublicFetchResponse:
         if not self.curl_binary:
             raise RuntimeError("curl transport unavailable")
+        _validate_public_network_url(url, resolve_dns=True)
 
         timeout_value = max(1, int(timeout_seconds))
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -995,13 +1164,14 @@ class CurlCommandRealPublicFetchTransport:
             body_path = Path(tmp_dir) / "body.bin"
             command = [
                 self.curl_binary,
-                "--location",
                 "--silent",
                 "--show-error",
                 "--http1.1",
                 "--compressed",
                 "--max-time",
                 str(timeout_value),
+                "--max-filesize",
+                str(self.max_response_bytes),
                 "--user-agent",
                 user_agent,
                 "--header",
@@ -1037,6 +1207,10 @@ class CurlCommandRealPublicFetchTransport:
             status_code = int(write_out[-3])
             final_url = write_out[-2].strip() or url
             content_type = write_out[-1].strip() or "application/octet-stream"
+            if body_path.exists() and body_path.stat().st_size > self.max_response_bytes:
+                raise RuntimeError(
+                    f"response_body_too_large:{body_path.stat().st_size}>{self.max_response_bytes}"
+                )
             content = body_path.read_bytes() if body_path.exists() else b""
             headers = _parse_curl_headers(
                 header_path.read_text(encoding="iso-8859-1", errors="replace")
@@ -1068,10 +1242,12 @@ class ScraplingRealPublicFetchTransport:
         fetcher_factory: Any | None = None,
         stealthy_headers: bool = False,
         impersonate: str | None = None,
+        max_response_bytes: int = REAL_PUBLIC_TRANSPORT_MAX_RESPONSE_BYTES,
     ) -> None:
         self.fetcher_factory = fetcher_factory
         self.stealthy_headers = stealthy_headers
         self.impersonate = impersonate
+        self.max_response_bytes = max(1, int(max_response_bytes))
 
     def fetch(
         self,
@@ -1082,6 +1258,7 @@ class ScraplingRealPublicFetchTransport:
     ) -> RealPublicFetchResponse:
         fetcher = self.fetcher_factory
         if fetcher is None:
+            _validate_public_network_url(url, resolve_dns=True)
             try:
                 from scrapling.fetchers import Fetcher  # type: ignore
 
@@ -1100,7 +1277,7 @@ class ScraplingRealPublicFetchTransport:
             headers=request_headers,
             stealthy_headers=self.stealthy_headers,
             impersonate=self.impersonate,
-            follow_redirects=True,
+            follow_redirects=False,
         )
         headers = {
             str(key): str(value)
@@ -1109,10 +1286,15 @@ class ScraplingRealPublicFetchTransport:
         headers["x-ax9s-fetch-transport"] = "scrapling_fetcher"
         headers["x-ax9s-scrapling-stealthy-headers"] = str(self.stealthy_headers).lower()
         headers["x-ax9s-scrapling-impersonate"] = str(self.impersonate or "none")
+        content = _scrapling_response_body(response)
+        if len(content) > self.max_response_bytes:
+            raise RuntimeError(
+                f"response_body_too_large:{len(content)}>{self.max_response_bytes}"
+            )
         return RealPublicFetchResponse(
             url=url,
             status_code=int(getattr(response, "status", getattr(response, "status_code", 0)) or 0),
-            content=_scrapling_response_body(response),
+            content=content,
             content_type=headers.get("Content-Type", headers.get("content-type", "text/html")),
             final_url=str(getattr(response, "url", "") or url),
             headers=headers,
@@ -1146,6 +1328,7 @@ class ScraplingRealPublicBrowserFetchTransport:
         hide_canvas: bool = False,
         block_webrtc: bool = True,
         allow_webgl: bool = True,
+        max_response_bytes: int = REAL_PUBLIC_TRANSPORT_MAX_RESPONSE_BYTES,
     ) -> None:
         normalized_mode = str(mode or "").strip().lower()
         if normalized_mode not in {"dynamic", "stealthy"}:
@@ -1166,6 +1349,7 @@ class ScraplingRealPublicBrowserFetchTransport:
         self.hide_canvas = hide_canvas
         self.block_webrtc = block_webrtc
         self.allow_webgl = allow_webgl
+        self.max_response_bytes = max(1, int(max_response_bytes))
 
     def fetch(
         self,
@@ -1176,9 +1360,12 @@ class ScraplingRealPublicBrowserFetchTransport:
     ) -> RealPublicFetchResponse:
         if not self.operator_authorized:
             raise RuntimeError(f"scrapling_{self.mode}_fetcher_requires_operator_authorization")
+        if self.fetcher_factory is None:
+            _validate_public_network_url(url, resolve_dns=True)
 
         fetcher = self.fetcher_factory or self._load_fetcher()
         request_kwargs = self._request_kwargs(
+            url=url,
             timeout_seconds=timeout_seconds,
             user_agent=user_agent,
         )
@@ -1198,10 +1385,15 @@ class ScraplingRealPublicBrowserFetchTransport:
             headers["x-ax9s-scrapling-solve-cloudflare"] = str(self.solve_cloudflare).lower()
             headers["x-ax9s-scrapling-hide-canvas"] = str(self.hide_canvas).lower()
             headers["x-ax9s-scrapling-block-webrtc"] = str(self.block_webrtc).lower()
+        content = _scrapling_response_body(response)
+        if len(content) > self.max_response_bytes:
+            raise RuntimeError(
+                f"response_body_too_large:{len(content)}>{self.max_response_bytes}"
+            )
         return RealPublicFetchResponse(
             url=url,
             status_code=int(getattr(response, "status", getattr(response, "status_code", 0)) or 0),
-            content=_scrapling_response_body(response),
+            content=content,
             content_type=headers.get("Content-Type", headers.get("content-type", "text/html")),
             final_url=str(getattr(response, "url", "") or url),
             headers=headers,
@@ -1219,7 +1411,13 @@ class ScraplingRealPublicBrowserFetchTransport:
         except Exception as exc:
             raise RuntimeError(f"scrapling_{self.mode}_fetcher_unavailable:{type(exc).__name__}") from exc
 
-    def _request_kwargs(self, *, timeout_seconds: float, user_agent: str) -> dict[str, Any]:
+    def _request_kwargs(
+        self,
+        *,
+        url: str,
+        timeout_seconds: float,
+        user_agent: str,
+    ) -> dict[str, Any]:
         timeout_ms = max(1000, int(float(timeout_seconds) * 1000))
         kwargs: dict[str, Any] = {
             "headless": self.headless,
@@ -1230,6 +1428,7 @@ class ScraplingRealPublicBrowserFetchTransport:
             "wait": self.wait_ms,
             "useragent": user_agent,
             "google_search": False,
+            "page_setup": _browser_public_boundary_setup(url),
             "extra_headers": {
                 "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.6",
             },
@@ -1696,6 +1895,9 @@ class RealPublicEntryFetcher:
         user_agent: str = REAL_PUBLIC_ENTRY_USER_AGENT,
         attachment_challenge_resolver: RealPublicAttachmentChallengeResolver | None = None,
         automated_challenge_resolution_enabled: bool = False,
+        entry_max_response_bytes: int = REAL_PUBLIC_ENTRY_MAX_RESPONSE_BYTES,
+        detail_max_response_bytes: int = REAL_PUBLIC_DETAIL_MAX_RESPONSE_BYTES,
+        attachment_max_response_bytes: int = REAL_PUBLIC_ATTACHMENT_MAX_RESPONSE_BYTES,
     ) -> None:
         self.transport = transport or ScraplingEscalatingRealPublicFetchTransport()
         self.repository = repository
@@ -1703,6 +1905,9 @@ class RealPublicEntryFetcher:
         self.user_agent = user_agent
         self.attachment_challenge_resolver = attachment_challenge_resolver
         self.automated_challenge_resolution_enabled = automated_challenge_resolution_enabled
+        self.entry_max_response_bytes = max(1, int(entry_max_response_bytes))
+        self.detail_max_response_bytes = max(1, int(detail_max_response_bytes))
+        self.attachment_max_response_bytes = max(1, int(attachment_max_response_bytes))
 
     def fetch_entry_url(
         self,
@@ -2394,6 +2599,21 @@ class RealPublicEntryFetcher:
         now: str,
         lineage_refs: Mapping[str, str] | None,
     ) -> dict[str, Any]:
+        boundary_error = _response_boundary_error(
+            profile.url,
+            response,
+            max_bytes=self.entry_max_response_bytes,
+        )
+        if boundary_error is not None:
+            reason, detail = boundary_error
+            return self._degraded_carrier(
+                profile,
+                now=now,
+                reason=reason,
+                detail=detail,
+                lineage_refs=lineage_refs,
+                fetch_attempted=True,
+            )
         content = response.content or b""
         text = _decode_html(content)
         title = _extract_title(text)
@@ -2610,6 +2830,22 @@ class RealPublicEntryFetcher:
         now: str,
         lineage_refs: Mapping[str, str] | None,
     ) -> dict[str, Any]:
+        boundary_error = _response_boundary_error(
+            detail_url,
+            response,
+            max_bytes=self.detail_max_response_bytes,
+        )
+        if boundary_error is not None:
+            reason, detail = boundary_error
+            return self._degraded_detail_carrier(
+                profile,
+                detail_url=detail_url,
+                now=now,
+                reason=reason,
+                detail=detail,
+                lineage_refs=lineage_refs,
+                fetch_attempted=True,
+            )
         content = response.content or b""
         text = _decode_html(content)
         title = _extract_title(text)
@@ -2982,6 +3218,22 @@ class RealPublicEntryFetcher:
         detail_page_url: str | None,
         challenge_resume_audit: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
+        boundary_error = _response_boundary_error(
+            profile.url,
+            response,
+            max_bytes=self.attachment_max_response_bytes,
+        )
+        if boundary_error is not None:
+            reason, detail = boundary_error
+            return self._degraded_attachment_carrier(
+                profile,
+                now=now,
+                reason=reason,
+                detail=detail,
+                lineage_refs=lineage_refs,
+                detail_page_url=detail_page_url,
+                fetch_attempted=True,
+            )
         content = response.content or b""
         content_type = response.content_type or "application/octet-stream"
         filename = _attachment_filename_from_response(profile, response)

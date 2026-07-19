@@ -8,7 +8,9 @@ from __future__ import annotations
 import hashlib
 import json
 import time
+from uuid import uuid4
 from pathlib import Path
+from tempfile import gettempdir
 from typing import Any, Mapping
 
 from api.deps import get_settings
@@ -1659,7 +1661,7 @@ def _build_review_required_real_public_stage1_6_summary(
     return {
         "surface_id": "operator_real_public_stage1_6_readback",
         "readback_state": "REVIEW_REQUIRED",
-        "real_public_stage1_6_chain_state": "REVIEW_REQUIRED",
+        "real_public_chain_state": "REVIEW_REQUIRED",
         "real_public_stage1_6_chain_state": "REVIEW_REQUIRED",
         "stage1_6_closed_loop_ready": False,
         "stage_scope": "STAGE1_6_ONLY",
@@ -1984,7 +1986,7 @@ def _build_real_public_stage1_6_readback_from_candidate(
         "surface_id": "operator_real_public_stage1_6_readback",
         "stage_scope": stage_scope,
         "readback_state": "READBACK_READY" if final_chain_state == "INTERNAL_READY" else "REVIEW_REQUIRED",
-        "real_public_stage1_6_chain_state": final_chain_state,
+        "real_public_chain_state": final_chain_state,
         "real_public_stage1_6_chain_state": formal_chain_state,
         "stage1_6_closed_loop_ready": formal_chain_state == "INTERNAL_READY",
         "stage4_public_verification_run_id": stage4_verification.get("verification_run_id"),
@@ -3708,7 +3710,7 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
                 loop_real_public_stage1_6_readback.update(
                     {
                         "readback_state": "PENDING_STAGE2_DETAIL_CAPTURE",
-                        "real_public_stage1_6_chain_state": "PENDING_STAGE2_DETAIL_CAPTURE",
+                        "real_public_chain_state": "PENDING_STAGE2_DETAIL_CAPTURE",
                         "real_public_stage1_6_chain_state": "PENDING_STAGE2_DETAIL_CAPTURE",
                         "stage2_detail_capture_pending": True,
                     }
@@ -3729,7 +3731,7 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
                         "stage1_6_time_budget_pending": False,
                         "stage2_detail_capture_pending": True,
                         "real_public_stage1_6_readback": loop_real_public_stage1_6_readback,
-                        "real_public_stage1_6_chain_state": "PENDING_STAGE2_DETAIL_CAPTURE",
+                        "real_public_chain_state": "PENDING_STAGE2_DETAIL_CAPTURE",
                         "real_public_stage1_6_chain_state": "PENDING_STAGE2_DETAIL_CAPTURE",
                         "real_world_hard_defect_gate_state": loop_real_public_stage1_6_readback.get(
                             "real_world_hard_defect_gate_state"
@@ -3763,7 +3765,7 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
                 loop_real_public_stage1_6_readback.update(
                     {
                         "readback_state": "PENDING_TIME_BUDGET",
-                        "real_public_stage1_6_chain_state": "PENDING_TIME_BUDGET",
+                        "real_public_chain_state": "PENDING_TIME_BUDGET",
                         "real_public_stage1_6_chain_state": "PENDING_TIME_BUDGET",
                         "stage1_6_time_budget_pending": True,
                     }
@@ -3784,7 +3786,7 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
                         "stage1_6_time_budget_pending": True,
                         "stage2_detail_capture_pending": False,
                         "real_public_stage1_6_readback": loop_real_public_stage1_6_readback,
-                        "real_public_stage1_6_chain_state": "PENDING_TIME_BUDGET",
+                        "real_public_chain_state": "PENDING_TIME_BUDGET",
                         "real_public_stage1_6_chain_state": "PENDING_TIME_BUDGET",
                         "real_world_hard_defect_gate_state": loop_real_public_stage1_6_readback.get(
                             "real_world_hard_defect_gate_state"
@@ -3900,7 +3902,7 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
                         loop_real_public_stage1_6_readback.get("stage2_detail_capture_pending")
                     ),
                     "real_public_stage1_6_readback": loop_real_public_stage1_6_readback,
-                    "real_public_stage1_6_chain_state": loop_real_public_chain_state,
+                    "real_public_chain_state": loop_real_public_chain_state,
                     "real_public_stage1_6_chain_state": loop_real_public_stage1_6_readback.get(
                         "real_public_stage1_6_chain_state"
                     ),
@@ -4082,7 +4084,7 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
             "real_candidate_discovery_attempted": bool(real_candidate_discovery),
             "offline_sample_candidates_enabled": offline_sample_mode,
             "stage1_6_validation_ledger": validation_ledger,
-            "real_public_stage1_6_chain_state": primary_real_public_chain_state,
+            "real_public_chain_state": primary_real_public_chain_state,
             "real_public_stage1_6_chain_state": primary_real_public_stage1_6_chain_state,
             "real_world_hard_defect_gate_state": primary_real_public_stage1_6_readback.get(
                 "real_world_hard_defect_gate_state"
@@ -4094,7 +4096,7 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
             "real_candidate_discovery_attempted": bool(real_candidate_discovery),
             "offline_sample_validation": offline_sample_mode,
             "customer_sellable_evidence_ready": customer_sellable_evidence_ready,
-            "real_public_stage1_6_chain_state": primary_real_public_chain_state,
+            "real_public_chain_state": primary_real_public_chain_state,
             "real_public_stage1_6_chain_state": primary_real_public_stage1_6_chain_state,
             "stage1_6_loop_candidate_count": len(selected_ranked),
             "stage1_6_attempt_all_candidates_enabled": stage1_6_attempt_all_candidates_enabled,
@@ -4691,11 +4693,52 @@ def _controlled_gray_orchestrator_work_item_id() -> str:
 
 
 def _controlled_gray_orchestrator_output_root(payload: Mapping[str, Any]) -> Path:
+    settings = get_settings()
+    configured_root = Path(
+        settings.operator_artifact_root_optional or CONTROLLED_GRAY_ORCHESTRATOR_SEARCH_ROOT
+    )
+    allowed_roots = [configured_root]
+    if settings.storage_scope == "process":
+        allowed_roots.append(Path(gettempdir()))
     explicit = str(payload.get("output_root") or "").strip()
     if explicit:
-        return Path(explicit)
+        return _resolve_operator_path(
+            Path(explicit),
+            allowed_roots=allowed_roots,
+            field_name="output_root",
+        )
     stamp = build_persisted_at().replace(":", "").replace("+", "").replace("-", "")
-    return CONTROLLED_GRAY_ORCHESTRATOR_SEARCH_ROOT / f"operator-console-controlled-gray-public-orchestrator-{stamp}"
+    return configured_root.resolve() / f"operator-console-controlled-gray-public-orchestrator-{stamp}"
+
+
+def _controlled_gray_source_targets_path(payload: Mapping[str, Any]) -> Path:
+    settings = get_settings()
+    allowed_root = Path(
+        settings.operator_input_root_optional or (REPO_ROOT / "contracts" / "evaluation")
+    )
+    candidate = Path(str(payload.get("source_targets_json") or CONTROLLED_GRAY_SOURCE_TARGETS_JSON))
+    return _resolve_operator_path(
+        candidate,
+        allowed_roots=[allowed_root],
+        field_name="source_targets_json",
+    )
+
+
+def _resolve_operator_path(
+    candidate: Path,
+    *,
+    allowed_roots: list[Path],
+    field_name: str,
+) -> Path:
+    resolved = candidate.resolve(strict=False)
+    for root in allowed_roots:
+        allowed = root.resolve(strict=False)
+        try:
+            resolved.relative_to(allowed)
+            return resolved
+        except ValueError:
+            continue
+    raise ValueError(f"{field_name} must stay within a configured operator-controlled root")
 
 
 def _load_json_file(path: Path) -> dict[str, Any]:
@@ -4801,7 +4844,7 @@ def _controlled_gray_orchestrator_queue_item_id(payload: Mapping[str, Any]) -> s
     if explicit:
         return explicit
     stamp = build_persisted_at().replace(":", "").replace("+", "").replace("-", "")
-    return f"CONTROLLED-GRAY-ORCHESTRATOR-WQ-{stamp}"
+    return f"CONTROLLED-GRAY-ORCHESTRATOR-WQ-{stamp}-{uuid4().hex[:12]}"
 
 
 def _controlled_gray_orchestrator_worker_lease_id(payload: Mapping[str, Any]) -> str:
@@ -4809,7 +4852,7 @@ def _controlled_gray_orchestrator_worker_lease_id(payload: Mapping[str, Any]) ->
     if explicit:
         return explicit
     stamp = build_persisted_at().replace(":", "").replace("+", "").replace("-", "")
-    return f"CONTROLLED-GRAY-ORCHESTRATOR-LEASE-{stamp}"
+    return f"CONTROLLED-GRAY-ORCHESTRATOR-LEASE-{stamp}-{uuid4().hex[:12]}"
 
 
 def _controlled_gray_orchestrator_job_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
@@ -4904,7 +4947,11 @@ def _record_controlled_gray_orchestrator_run(
     requested_at = build_persisted_at()
     summary = dict(manifest.get("summary") or {})
     manifest_json = output_root / "controlled-gray-public-orchestrator-v1.json"
-    run_id = f"CONTROLLED-GRAY-ORCHESTRATOR-{requested_at}".replace(":", "").replace("+", "")
+    run_id = (
+        f"CONTROLLED-GRAY-ORCHESTRATOR-{requested_at}-{uuid4().hex[:12]}"
+        .replace(":", "")
+        .replace("+", "")
+    )
     action = PersistedOperatorAction(
         action_event_id=run_id,
         work_item_id=_controlled_gray_orchestrator_work_item_id(),
@@ -5019,9 +5066,7 @@ def prepare_controlled_gray_public_orchestrator(payload: Mapping[str, Any]) -> d
     if bool(payload.get("execute")):
         raise ValueError("execute is not allowed from operator console; use CLI with explicit approval")
     output_root = _controlled_gray_orchestrator_output_root(payload)
-    source_targets_json = Path(
-        str(payload.get("source_targets_json") or CONTROLLED_GRAY_SOURCE_TARGETS_JSON)
-    )
+    source_targets_json = _controlled_gray_source_targets_path(payload)
     per_target_sample_goal = int(payload.get("per_target_sample_goal") or 12)
     per_target_candidate_limit = int(payload.get("per_target_candidate_limit") or 12)
     target_limit = int(payload.get("target_limit") or 0)

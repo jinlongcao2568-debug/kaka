@@ -694,6 +694,29 @@ def _build_html_qualification_bytes() -> bytes:
 
 
 class RealCandidateStage2CaptureTests(unittest.TestCase):
+    def test_stale_snapshot_replay_records_deduplicated_failure_reason(self) -> None:
+        class MissingReplayRepository:
+            def replay_snapshot(self, snapshot_id: str) -> dict[str, object]:
+                self.snapshot_id = snapshot_id
+                return {"replayable": False, "readback_state": "OBJECT_BYTES_MISSING"}
+
+        service = object.__new__(RealCandidateStage2CaptureService)
+        service.object_repository = MissingReplayRepository()
+        refreshed = service._refresh_capture_fields_from_snapshot(
+            {},
+            {
+                "detail_snapshot_id_optional": "SNAPSHOT-MISSING",
+                "detail_capture_failure_reasons": [
+                    "detail_snapshot_readback_missing:OBJECT_BYTES_MISSING"
+                ],
+            },
+        )
+
+        self.assertEqual(
+            refreshed["detail_capture_failure_reasons"],
+            ["detail_snapshot_readback_missing:OBJECT_BYTES_MISSING"],
+        )
+
     def setUp(self) -> None:
         self._tmp_dir = tempfile.TemporaryDirectory()
         self._old_env = {

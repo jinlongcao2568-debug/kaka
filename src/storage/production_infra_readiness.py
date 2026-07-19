@@ -534,7 +534,6 @@ def _backup_restore_readiness(
         "safe_to_restore": False,
         "destructive_restore_enabled": False,
         "restore_execution_enabled": False,
-        "active_storage_mutation_enabled": False,
         "approval_required": True,
         "audit_required": True,
         "source_storage_backend": active_backend,

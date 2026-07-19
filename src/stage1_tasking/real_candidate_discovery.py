@@ -8,6 +8,7 @@ from html import unescape
 from typing import Any, Mapping
 from urllib.parse import urlencode, urljoin, urlsplit
 from urllib.request import Request, urlopen
+from uuid import uuid4
 
 from shared.utils import build_id, utc_now_iso
 from stage1_tasking.region_adapters import (
@@ -2613,7 +2614,13 @@ class RealPublicCandidateDiscoveryService:
                 [],
             )
         )
-        run_id = str(payload.get("candidate_discovery_run_id") or build_id("REAL-CANDIDATE-DISCOVERY", _hash_text(discovered_at, 12)))
+        run_id = str(
+            payload.get("candidate_discovery_run_id")
+            or build_id(
+                "REAL-CANDIDATE-DISCOVERY",
+                f"{_hash_text(discovered_at, 12)}-{uuid4().hex[:8]}",
+            )
+        )
         per_region_candidate_limit = (
             None
             if candidate_limit is None

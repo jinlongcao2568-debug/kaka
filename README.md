@@ -31,7 +31,43 @@
 - `scripts/*.ps1` 是薄入口和运维按钮，脚本不是状态机本体。
 - Stage1-6 direct-dev 当前 focus 以 `control/stage1_6_priority_execution_plan.yaml#current_focus` 为准。
 - Stage1-6/P0 常用入口：`stage1_6_real_public_pressure_runner`、`stage4_release_evidence_bridge_builder`、`stage6_review_cycle_runner`。
-- 授权/登录态缺失：优先用 `NEEDS_AUTH`；若顶层没有该枚举，用 `authorization_readiness_state=LOGIN_OR_SSO_REQUIRED` 和 `operator_next_action` 表达。
+- 业务来源授权/登录态缺失：优先用 `NEEDS_AUTH`；若顶层没有该枚举，用 `authorization_readiness_state=LOGIN_OR_SSO_REQUIRED` 和 `operator_next_action` 表达。这个业务状态不替代内部 HTTP API 鉴权。
+
+## 内部 API
+
+网络访问默认 fail-closed。除 `/healthz` 外，所有接口都要求配置 `KAKA_INTERNAL_API_TOKEN` 并发送 `Authorization: Bearer <token>`；没有配置 token 时，网络请求返回 `503`，不会静默开放。不要把 token 写入仓库、Compose 文件、浏览器状态或镜像层。
+
+建议在独立虚拟环境中运行，避免污染系统 Python 或其他工具的共享环境：
+
+```powershell
+py -3.12 -m venv .venv
+.\.venv\Scripts\python -m pip install -r requirements.txt
+$env:KAKA_INTERNAL_API_TOKEN = '<由本机密钥管理生成的随机 token>'
+$env:PYTHONPATH = (Resolve-Path .\src).Path
+.\.venv\Scripts\python -m uvicorn api.main:create_app --factory --host 127.0.0.1 --port 8000 --no-server-header
+```
+
+需要运行 operator 文件输入/输出能力时，应显式收紧目录：
+
+```powershell
+$env:KAKA_OPERATOR_INPUT_ROOT = 'D:\受控输入目录'
+$env:KAKA_OPERATOR_ARTIFACT_ROOT = 'D:\受控产物目录'
+```
+
+容器入口会真正启动 Uvicorn，并以非 root 用户运行；Compose 默认只映射到本机回环地址：
+
+```powershell
+$env:KAKA_INTERNAL_API_TOKEN = '<由本机密钥管理生成的随机 token>'
+docker compose up --build app
+```
+
+默认镜像使用 `requirements-api.txt`，适合内部 HTTP/API、JSON/SQLite/PostgreSQL 存储与队列读写；Scrapling 浏览器、MarkItDown 和富文档解析属于 worker/browser 可选能力，不会默认塞进 API 镜像。确需构建全量能力镜像时显式执行：
+
+```powershell
+docker build --build-arg KAKA_REQUIREMENTS_FILE=requirements.txt -t kaka-worker-full:dev .
+```
+
+`/healthz` 仅报告进程健康和鉴权是否已配置，不返回 token，也不代表生产 live、外部交付或真实支付已开放。
 
 ## 本地验证
 

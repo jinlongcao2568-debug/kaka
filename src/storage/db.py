@@ -28,6 +28,10 @@ _SQLITE_STORAGE_BACKEND = SQLITE_STORAGE_BACKEND
 _SUPPORTED_STORAGE_BACKENDS = frozenset(EXECUTABLE_STORAGE_BACKENDS)
 
 
+class StorageConcurrencyError(RuntimeError):
+    """Raised when a persisted state changed before an atomic transition committed."""
+
+
 @dataclass(frozen=True)
 class PersistedRecord:
     object_type: str
@@ -416,16 +420,17 @@ class DatabaseSession:
             if self._backend is not None:
                 self._backend.clear(remove_storage=remove_storage)
                 return
-            self._tables.clear()
-            self._stage_states.clear()
-            self._work_items.clear()
-            self._operator_actions.clear()
-            self._worker_queue_items.clear()
-            self._worker_queue_events.clear()
-            if remove_storage and self._storage_path.exists():
-                self._storage_path.unlink(missing_ok=True)
-            elif not remove_storage:
-                self._flush()
+            with self._json_file_lock():
+                self._tables.clear()
+                self._stage_states.clear()
+                self._work_items.clear()
+                self._operator_actions.clear()
+                self._worker_queue_items.clear()
+                self._worker_queue_events.clear()
+                if remove_storage and self._storage_path.exists():
+                    self._storage_path.unlink(missing_ok=True)
+                elif not remove_storage:
+                    self._flush()
 
     def close(self) -> None:
         with self._lock:
@@ -438,46 +443,65 @@ class DatabaseSession:
         if self._backend is not None:
             yield self
             return
-        with self._lock:
+        with self._lock, self._json_file_lock():
+            self._load()
             self._flush_depth += 1
-        try:
-            yield self
-        finally:
-            with self._lock:
+            try:
+                yield self
+            except Exception:
+                self._flush_depth -= 1
+                self._dirty = False
+                self._load()
+                raise
+            else:
                 self._flush_depth -= 1
                 if self._flush_depth == 0 and self._dirty:
                     self._dirty = False
                     self._flush()
 
-    def _flush_or_mark_dirty(self) -> None:
+    @contextmanager
+    def _json_mutation(self) -> Any:
         if self._flush_depth > 0:
+            yield
             self._dirty = True
             return
-        self._flush()
+        with self._json_file_lock():
+            self._load()
+            yield
+            self._flush()
+
+    def _refresh_json_for_read(self) -> None:
+        if self._backend is not None or self._flush_depth > 0:
+            return
+        with self._json_file_lock():
+            self._load()
 
     def upsert_record(self, entry: PersistedRecord) -> PersistedRecord:
         with self._lock:
             if self._backend is not None:
                 return self._backend.upsert_record(entry)
-            self._tables.setdefault(entry.object_type, {})[entry.record_id] = entry
-            self._flush_or_mark_dirty()
+            with self._json_mutation():
+                self._tables.setdefault(entry.object_type, {})[entry.record_id] = entry
             return entry
 
     def get_record(self, object_type: str, record_id: str) -> PersistedRecord | None:
         with self._lock:
             if self._backend is not None:
                 return self._backend.get_record(object_type, record_id)
+            self._refresh_json_for_read()
             return self._tables.get(object_type, {}).get(record_id)
 
     def list_records(self, object_type: str) -> list[PersistedRecord]:
         with self._lock:
             if self._backend is not None:
                 return self._backend.list_records(object_type)
+            self._refresh_json_for_read()
             return list(self._tables.get(object_type, {}).values())
 
     def list_record_object_types(self) -> list[str]:
         with self._lock:
             if self._backend is None:
+                self._refresh_json_for_read()
                 return sorted(self._tables)
             if hasattr(self._backend, "_fetchall"):
                 rows = self._backend._fetchall(
@@ -522,8 +546,8 @@ class DatabaseSession:
             stage_key = self._stage_key(entry.stage_scope, entry.surface_id, entry.root_record_id)
             if self._backend is not None:
                 return self._backend.upsert_stage_state(stage_key, entry)
-            self._stage_states[stage_key] = entry
-            self._flush_or_mark_dirty()
+            with self._json_mutation():
+                self._stage_states[stage_key] = entry
             return entry
 
     def get_stage_state(self, stage_scope: int, surface_id: str, root_record_id: str) -> PersistedStageState | None:
@@ -531,6 +555,7 @@ class DatabaseSession:
             stage_key = self._stage_key(stage_scope, surface_id, root_record_id)
             if self._backend is not None:
                 return self._backend.get_stage_state(stage_key)
+            self._refresh_json_for_read()
             return self._stage_states.get(stage_key)
 
     def list_stage_states(
@@ -540,6 +565,8 @@ class DatabaseSession:
         surface_id: str | None = None,
     ) -> list[PersistedStageState]:
         with self._lock:
+            if self._backend is None:
+                self._refresh_json_for_read()
             rows = (
                 self._backend.list_stage_states()
                 if self._backend is not None
@@ -569,8 +596,8 @@ class DatabaseSession:
         with self._lock:
             if self._backend is not None:
                 return self._backend.upsert_work_item(entry)
-            self._work_items[entry.work_item_id] = entry
-            self._flush_or_mark_dirty()
+            with self._json_mutation():
+                self._work_items[entry.work_item_id] = entry
             return entry
 
     def find_work_item(
@@ -582,6 +609,8 @@ class DatabaseSession:
         primary_record_id: str,
     ) -> PersistedWorkItem | None:
         with self._lock:
+            if self._backend is None:
+                self._refresh_json_for_read()
             rows = (
                 self._backend.list_work_items()
                 if self._backend is not None
@@ -599,6 +628,8 @@ class DatabaseSession:
 
     def list_work_items(self, stage_scope: int | None = None) -> list[PersistedWorkItem]:
         with self._lock:
+            if self._backend is None:
+                self._refresh_json_for_read()
             rows = (
                 self._backend.list_work_items()
                 if self._backend is not None
@@ -612,14 +643,20 @@ class DatabaseSession:
         with self._lock:
             if self._backend is not None:
                 return self._backend.append_operator_action(entry)
-            self._operator_actions.setdefault(entry.work_item_id, []).append(entry)
-            self._flush_or_mark_dirty()
+            with self._json_mutation():
+                events = self._operator_actions.setdefault(entry.work_item_id, [])
+                if any(existing.action_event_id == entry.action_event_id for existing in events):
+                    raise ValueError(
+                        f"duplicate operator action event {entry.action_event_id!r} for {entry.work_item_id!r}"
+                    )
+                events.append(entry)
             return entry
 
     def list_operator_actions(self, work_item_id: str) -> list[PersistedOperatorAction]:
         with self._lock:
             if self._backend is not None:
                 return self._backend.list_operator_actions(work_item_id)
+            self._refresh_json_for_read()
             return list(self._operator_actions.get(work_item_id, []))
 
     def clear_operator_actions(self, work_item_id: str) -> int:
@@ -628,15 +665,16 @@ class DatabaseSession:
                 if hasattr(self._backend, "clear_operator_actions"):
                     return int(self._backend.clear_operator_actions(work_item_id))
                 return 0
-            cleared_count = len(self._operator_actions.get(work_item_id, []))
-            if cleared_count:
-                self._operator_actions.pop(work_item_id, None)
-                self._flush_or_mark_dirty()
+            with self._json_mutation():
+                cleared_count = len(self._operator_actions.get(work_item_id, []))
+                if cleared_count:
+                    self._operator_actions.pop(work_item_id, None)
             return cleared_count
 
     def list_all_operator_actions(self) -> list[PersistedOperatorAction]:
         with self._lock:
             if self._backend is None:
+                self._refresh_json_for_read()
                 rows = [
                     entry
                     for entries in self._operator_actions.values()
@@ -674,14 +712,15 @@ class DatabaseSession:
         with self._lock:
             if self._backend is not None:
                 return self._backend.upsert_worker_queue_item(entry)
-            self._worker_queue_items[entry.queue_item_id] = entry
-            self._flush_or_mark_dirty()
+            with self._json_mutation():
+                self._worker_queue_items[entry.queue_item_id] = entry
             return entry
 
     def get_worker_queue_item(self, queue_item_id: str) -> PersistedWorkerQueueItem | None:
         with self._lock:
             if self._backend is not None:
                 return self._backend.get_worker_queue_item(queue_item_id)
+            self._refresh_json_for_read()
             return self._worker_queue_items.get(queue_item_id)
 
     def list_worker_queue_items(
@@ -691,6 +730,8 @@ class DatabaseSession:
         status: str | None = None,
     ) -> list[PersistedWorkerQueueItem]:
         with self._lock:
+            if self._backend is None:
+                self._refresh_json_for_read()
             rows = (
                 self._backend.list_worker_queue_items()
                 if self._backend is not None
@@ -706,19 +747,71 @@ class DatabaseSession:
         with self._lock:
             if self._backend is not None:
                 return self._backend.append_worker_queue_event(entry)
-            self._worker_queue_events.setdefault(entry.queue_item_id, []).append(entry)
-            self._flush_or_mark_dirty()
+            with self._json_mutation():
+                events = self._worker_queue_events.setdefault(entry.queue_item_id, [])
+                if any(existing.event_id == entry.event_id for existing in events):
+                    raise ValueError(
+                        f"duplicate worker queue event {entry.event_id!r} for {entry.queue_item_id!r}"
+                    )
+                events.append(entry)
             return entry
+
+    def commit_worker_queue_transition(
+        self,
+        *,
+        item: PersistedWorkerQueueItem,
+        event: PersistedWorkerQueueEvent,
+        expected_status: str | None,
+    ) -> PersistedWorkerQueueItem:
+        """Persist a queue item and its event as one conflict-checked transition."""
+        with self._lock:
+            if self._backend is not None:
+                committed = bool(
+                    self._backend.commit_worker_queue_transition(
+                        item=item,
+                        event=event,
+                        expected_status=expected_status,
+                    )
+                )
+                if not committed:
+                    raise StorageConcurrencyError(
+                        f"queue item {item.queue_item_id!r} changed before transition from "
+                        f"{expected_status!r}; retry with fresh state"
+                    )
+                return item
+
+            with self._json_file_lock():
+                self._load()
+                current = self._worker_queue_items.get(item.queue_item_id)
+                if expected_status is None:
+                    transition_allowed = current is None
+                else:
+                    transition_allowed = current is not None and current.status == expected_status
+                existing_event_ids = {
+                    existing.event_id
+                    for existing in self._worker_queue_events.get(item.queue_item_id, [])
+                }
+                if not transition_allowed or event.event_id in existing_event_ids:
+                    raise StorageConcurrencyError(
+                        f"queue item {item.queue_item_id!r} changed before transition from "
+                        f"{expected_status!r}; retry with fresh state"
+                    )
+                self._worker_queue_items[item.queue_item_id] = item
+                self._worker_queue_events.setdefault(item.queue_item_id, []).append(event)
+                self._flush()
+                return item
 
     def list_worker_queue_events(self, queue_item_id: str) -> list[PersistedWorkerQueueEvent]:
         with self._lock:
             if self._backend is not None:
                 return self._backend.list_worker_queue_events(queue_item_id)
+            self._refresh_json_for_read()
             return list(self._worker_queue_events.get(queue_item_id, []))
 
     def list_all_worker_queue_events(self) -> list[PersistedWorkerQueueEvent]:
         with self._lock:
             if self._backend is None:
+                self._refresh_json_for_read()
                 rows = [
                     entry
                     for entries in self._worker_queue_events.values()
@@ -771,6 +864,12 @@ class DatabaseSession:
 
     def _load(self) -> None:
         if not self._storage_path.exists():
+            self._tables = {}
+            self._stage_states = {}
+            self._work_items = {}
+            self._operator_actions = {}
+            self._worker_queue_items = {}
+            self._worker_queue_events = {}
             return
         raw = json.loads(self._storage_path.read_text(encoding="utf-8"))
         self._tables = {
@@ -800,6 +899,38 @@ class DatabaseSession:
             queue_item_id: [PersistedWorkerQueueEvent(**entry) for entry in rows]
             for queue_item_id, rows in raw.get("worker_queue_events", {}).items()
         }
+
+    @contextmanager
+    def _json_file_lock(self) -> Any:
+        """Serialize JSON snapshot writes across processes and session instances."""
+        lock_path = self._storage_path.with_name(f"{self._storage_path.name}.lock")
+        lock_path.parent.mkdir(parents=True, exist_ok=True)
+        with lock_path.open("a+b") as lock_file:
+            lock_file.seek(0, os.SEEK_END)
+            if lock_file.tell() == 0:
+                lock_file.write(b"\0")
+                lock_file.flush()
+            lock_file.seek(0)
+            if os.name == "nt":
+                import msvcrt
+
+                msvcrt.locking(lock_file.fileno(), msvcrt.LK_LOCK, 1)
+            else:
+                import fcntl
+
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                lock_file.seek(0)
+                if os.name == "nt":
+                    import msvcrt
+
+                    msvcrt.locking(lock_file.fileno(), msvcrt.LK_UNLCK, 1)
+                else:
+                    import fcntl
+
+                    fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
 
     def _flush(self) -> None:
         self._storage_path.parent.mkdir(parents=True, exist_ok=True)
@@ -905,5 +1036,6 @@ __all__ = [
     "PersistedWorkItem",
     "PersistedWorkerQueueEvent",
     "PersistedWorkerQueueItem",
+    "StorageConcurrencyError",
     "build_persisted_at",
 ]

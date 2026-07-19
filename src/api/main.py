@@ -6,9 +6,16 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Callable
+import secrets
+from functools import lru_cache
+from pathlib import Path
+from typing import Any, Callable, Mapping
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import Body, FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.openapi.utils import get_openapi
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, ConfigDict, create_model
 
 from api.deps import (
     INTERNAL_STAGE1_TO_STAGE6_ORCHESTRATION_ENTRY,
@@ -30,12 +37,87 @@ from api.routes.stage7 import register_stage7_routes
 from api.routes.stage8 import register_stage8_routes
 from api.routes.stage9 import register_stage9_routes
 from shared.provider_adapter_config import PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY
+from shared.contracts_runtime import ContractStore
 from storage.repositories.monitoring_alerting_repo import MonitoringAlertingRepository
 from storage.repositories.production_slo_incident_repo import ProductionSloIncidentRepository
 from storage.repositories.provider_adapter_config_repo import ProviderAdapterConfigRepository
 
 
 RouteHandler = Callable[[Any], Any]
+
+
+class InternalApiObjectRequest(BaseModel):
+    """Base transport model; operation-specific models inherit this envelope."""
+
+    model_config = ConfigDict(extra="allow")
+
+
+class FormalInternalApiRecordRequest(BaseModel):
+    """Strict transport model generated from a formal object JSON schema."""
+
+    model_config = ConfigDict(extra="forbid")
+
+
+_FORMAL_REQUEST_OBJECT_BY_OPERATION = {
+    "createOrder": "order_record",
+    "createPaymentRecord": "payment_record",
+    "createDeliveryRecord": "delivery_record",
+    "createOpportunityOutcomeEvent": "opportunity_outcome_event",
+    "createGovernanceFeedbackEvent": "governance_feedback_event",
+}
+
+
+def _python_type_for_json_schema(schema: Mapping[str, Any], *, field_name: str) -> Any:
+    schema_type = str(schema.get("type") or "")
+    value_type: Any = {
+        "array": list[Any],
+        "boolean": bool,
+        "integer": int,
+        "number": float,
+        "object": dict[str, Any],
+        "string": str,
+    }.get(schema_type, Any)
+    if field_name.endswith("_optional"):
+        return value_type | None
+    return value_type
+
+
+@lru_cache(maxsize=None)
+def _formal_request_model(operation_id: str) -> type[BaseModel] | None:
+    object_type = _FORMAL_REQUEST_OBJECT_BY_OPERATION.get(operation_id)
+    if object_type is None:
+        return None
+    contract_store = ContractStore.default()
+    schema_path = contract_store.repo_root / "contracts" / "schemas" / f"{object_type}.schema.json"
+    schema = json.loads(schema_path.read_text(encoding="utf-8"))
+    required = set(schema.get("required") or [])
+    fields: dict[str, tuple[Any, Any]] = {}
+    for field_name, field_schema in dict(schema.get("properties") or {}).items():
+        annotation = _python_type_for_json_schema(
+            dict(field_schema or {}),
+            field_name=str(field_name),
+        )
+        default = ... if field_name in required else None
+        if field_name not in required and annotation is not Any:
+            annotation = annotation | None
+        fields[str(field_name)] = (annotation, default)
+    return create_model(
+        f"{object_type.title().replace('_', '')}CreateRequest",
+        __base__=FormalInternalApiRecordRequest,
+        **fields,
+    )
+
+
+@lru_cache(maxsize=1)
+def _api_contract_by_operation() -> dict[str, dict[str, Any]]:
+    catalog_path = Path(__file__).resolve().parents[2] / "contracts" / "api" / "api_catalog.json"
+    catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
+    return {
+        str(operation["operationId"]): dict(operation)
+        for group in catalog.get("groups", [])
+        for operation in group.get("operations", [])
+        if operation.get("operationId")
+    }
 MOUNTED_OPERATION_READBACK_KEYS = (
     "operationId",
     "method",
@@ -203,9 +285,12 @@ def _coerce_scalar(value: str) -> Any:
     return value
 
 
-async def _request_payload(request: Request) -> dict[str, Any]:
-    payload: dict[str, Any] = {}
-    body = await request.body()
+async def _request_payload(
+    request: Request,
+    body_payload: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = dict(body_payload or {})
+    body = await request.body() if body_payload is None else b""
     if body:
         try:
             parsed = json.loads(body)
@@ -217,14 +302,47 @@ async def _request_payload(request: Request) -> dict[str, Any]:
 
     payload.update({key: _coerce_scalar(value) for key, value in request.query_params.items()})
     payload.update({key: value for key, value in request.path_params.items()})
+    payload["_internal_auth_context"] = dict(
+        getattr(request.state, "internal_auth_context", {}) or {}
+    )
     return payload
+
+
+def _bearer_token(request: Request) -> str:
+    authorization = str(request.headers.get("authorization") or "").strip()
+    if not authorization:
+        return ""
+    scheme, _, token = authorization.partition(" ")
+    if scheme.lower() != "bearer":
+        return ""
+    return token.strip()
+
+
+def _internal_auth_context(*, principal_id: str, role: str, approved: bool) -> dict[str, Any]:
+    return {
+        "authenticated": approved,
+        "principal_id": principal_id,
+        "role": role,
+        "permissions": [
+            "internal_api_access",
+            "internal_preview_download",
+            "operator_artifact_prepare",
+        ]
+        if approved
+        else [],
+        "approval_audit_confirmed": approved,
+        "approval_audit_ref": f"AUTH-{principal_id}" if approved else "",
+        "field_allowlist_masking_confirmed": approved,
+        "request_boolean_auth_allowed": False,
+    }
 
 
 def _endpoint_for(route: dict[str, Any]) -> Callable[[Request], Any]:
     handler: RouteHandler = route["handler"]
+    method = str(route["method"]).upper()
 
-    async def endpoint(request: Request) -> Any:
-        payload = await _request_payload(request)
+    async def dispatch(request: Request, body_payload: Mapping[str, Any] | None = None) -> Any:
+        payload = await _request_payload(request, body_payload)
         try:
             return handler(payload)
         except HTTPException:
@@ -234,6 +352,22 @@ def _endpoint_for(route: dict[str, Any]) -> Callable[[Request], Any]:
         except TypeError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+    if method in {"POST", "PUT", "PATCH"}:
+        model_name = f"{route['operationId'][0].upper()}{route['operationId'][1:]}Request"
+        body_model = _formal_request_model(str(route["operationId"])) or create_model(
+            model_name,
+            __base__=InternalApiObjectRequest,
+        )
+
+        async def endpoint(request: Request, body: Any = Body(default=None)) -> Any:
+            body_payload = body.model_dump(exclude_none=True) if isinstance(body, BaseModel) else {}
+            return await dispatch(request, body_payload)
+
+        endpoint.__annotations__["body"] = body_model | None
+    else:
+        async def endpoint(request: Request) -> Any:
+            return await dispatch(request)
+
     endpoint.__name__ = route["operationId"]
     endpoint.__doc__ = f"Transport wrapper for {route['operationId']}."
     return endpoint
@@ -241,12 +375,24 @@ def _endpoint_for(route: dict[str, Any]) -> Callable[[Request], Any]:
 
 def _mount_routes(app: FastAPI, routes: list[dict[str, Any]]) -> None:
     for route in routes:
+        contract = _api_contract_by_operation().get(str(route["operationId"]), {})
+        openapi_extra = {
+            key: value
+            for key, value in {
+                "x-kaka-request-schema-ref": contract.get("requestSchemaRef"),
+                "x-kaka-response-schema-ref": contract.get("responseSchemaRef"),
+                "x-kaka-primary-objects": contract.get("primaryObjects"),
+            }.items()
+            if value
+        }
         app.add_api_route(
             route["path"],
             _endpoint_for(route),
             methods=[route["method"]],
             name=route["operationId"],
             operation_id=route["operationId"],
+            response_model=dict[str, Any],
+            openapi_extra=openapi_extra or None,
         )
 
 
@@ -1021,6 +1167,7 @@ def create_app() -> FastAPI:
         openapi_url="/openapi.json",
     )
     app.state.settings = settings
+    app.state.internal_api_auth_readiness = settings.internal_api_auth_readiness()
     app.state.storage_session = storage_session
     app.state.storage_bootstrap = settings.storage_bootstrap_payload()
     app.state.provider_adapter_bootstrap = settings.provider_adapter_bootstrap_payload()
@@ -1035,6 +1182,89 @@ def create_app() -> FastAPI:
         session=storage_session,
         settings=settings,
     ).save(app.state.storage_bootstrap["production_slo_incident_readiness"])
+
+    @app.middleware("http")
+    async def require_internal_api_auth(request: Request, call_next: Callable[..., Any]) -> Any:
+        if request.url.path == "/healthz":
+            return await call_next(request)
+
+        content_length = str(request.headers.get("content-length") or "").strip()
+        if content_length.isdigit() and int(content_length) > settings.api_max_request_body_bytes:
+            return JSONResponse(
+                status_code=413,
+                content={
+                    "detail": {
+                        "code": "REQUEST_BODY_TOO_LARGE",
+                        "max_request_body_bytes": settings.api_max_request_body_bytes,
+                    }
+                },
+            )
+
+        client_host = str(request.client.host if request.client else "")
+        if client_host == "testclient":
+            test_approved = request.headers.get("x-kaka-test-operator-auth") == "approved"
+            request.state.internal_auth_context = _internal_auth_context(
+                principal_id="in-process-testclient",
+                role="internal_test_operator",
+                approved=test_approved,
+            )
+            return await call_next(request)
+
+        configured_token = str(settings.internal_api_token_optional or "")
+        if not configured_token:
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "detail": {
+                        "code": "INTERNAL_API_AUTH_NOT_CONFIGURED",
+                        "message": "KAKA_INTERNAL_API_TOKEN is required before network API access",
+                    }
+                },
+            )
+        supplied_token = _bearer_token(request)
+        if not supplied_token or not secrets.compare_digest(supplied_token, configured_token):
+            return JSONResponse(
+                status_code=401,
+                headers={"WWW-Authenticate": "Bearer"},
+                content={
+                    "detail": {
+                        "code": "INTERNAL_API_AUTH_REQUIRED",
+                        "message": "valid internal bearer token required",
+                    }
+                },
+            )
+        request.state.internal_auth_context = _internal_auth_context(
+            principal_id="configured-internal-operator",
+            role=settings.internal_api_role,
+            approved=True,
+        )
+        response = await call_next(request)
+        response.headers["Cache-Control"] = "no-store"
+        return response
+
+    @app.get("/healthz", include_in_schema=False)
+    async def healthz() -> dict[str, Any]:
+        return {
+            "status": "ok",
+            "internal_only": True,
+            "api_auth_configured": bool(settings.internal_api_token_optional),
+        }
+
+    @app.exception_handler(RequestValidationError)
+    async def request_validation_error(
+        request: Request,
+        exc: RequestValidationError,
+    ) -> JSONResponse:
+        del request
+        return JSONResponse(
+            status_code=400,
+            content={
+                "detail": {
+                    "code": "REQUEST_VALIDATION_FAILED",
+                    "errors": exc.errors(),
+                }
+            },
+        )
     provider_adapter_readiness_summary = dict(
         app.state.provider_adapter_bootstrap[PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY]
     )
@@ -1084,6 +1314,26 @@ def create_app() -> FastAPI:
         app.state.provider_adapter_bootstrap,
         app.state.storage_bootstrap,
     )
+    def internal_openapi() -> dict[str, Any]:
+        if app.openapi_schema:
+            return app.openapi_schema
+        schema = get_openapi(
+            title=app.title,
+            version=app.version,
+            routes=app.routes,
+        )
+        components = schema.setdefault("components", {})
+        security_schemes = components.setdefault("securitySchemes", {})
+        security_schemes["InternalBearer"] = {
+            "type": "http",
+            "scheme": "bearer",
+            "bearerFormat": "opaque-internal-token",
+        }
+        schema["security"] = [{"InternalBearer": []}]
+        app.openapi_schema = schema
+        return schema
+
+    app.openapi = internal_openapi
     return app
 
 

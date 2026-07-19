@@ -210,6 +210,83 @@ class SQLiteStorageBackend:
             self._connection.commit()
             return entry
 
+    def commit_worker_queue_transition(
+        self,
+        *,
+        item: Any,
+        event: Any,
+        expected_status: str | None,
+    ) -> bool:
+        """Atomically persist a queue state change and its audit event."""
+        with self._lock:
+            self._connection.execute("BEGIN IMMEDIATE")
+            try:
+                existing_event = self._connection.execute(
+                    """
+                    SELECT 1 FROM worker_queue_events
+                    WHERE queue_item_id = ? AND event_id = ?
+                    """,
+                    (event.queue_item_id, event.event_id),
+                ).fetchone()
+                if existing_event is not None:
+                    self._connection.rollback()
+                    return False
+                if expected_status is None:
+                    existing = self._connection.execute(
+                        "SELECT 1 FROM worker_queue_items WHERE queue_item_id = ?",
+                        (item.queue_item_id,),
+                    ).fetchone()
+                    if existing is not None:
+                        self._connection.rollback()
+                        return False
+                    self._connection.execute(
+                        """
+                        INSERT INTO worker_queue_items
+                            (queue_item_id, queue_name, status, priority, next_run_at, payload)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            item.queue_item_id,
+                            item.queue_name,
+                            item.status,
+                            item.priority,
+                            item.next_run_at,
+                            self._to_json(item),
+                        ),
+                    )
+                else:
+                    cursor = self._connection.execute(
+                        """
+                        UPDATE worker_queue_items
+                        SET queue_name = ?, status = ?, priority = ?, next_run_at = ?, payload = ?
+                        WHERE queue_item_id = ? AND status = ?
+                        """,
+                        (
+                            item.queue_name,
+                            item.status,
+                            item.priority,
+                            item.next_run_at,
+                            self._to_json(item),
+                            item.queue_item_id,
+                            expected_status,
+                        ),
+                    )
+                    if int(cursor.rowcount or 0) != 1:
+                        self._connection.rollback()
+                        return False
+                self._connection.execute(
+                    """
+                    INSERT INTO worker_queue_events (queue_item_id, event_id, event_type, payload)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    (event.queue_item_id, event.event_id, event.event_type, self._to_json(event)),
+                )
+                self._connection.commit()
+            except Exception:
+                self._connection.rollback()
+                raise
+        return True
+
     def list_worker_queue_events(self, queue_item_id: str) -> list[Any]:
         rows = self._fetchall(
             "SELECT payload FROM worker_queue_events WHERE queue_item_id = ? ORDER BY id",
@@ -252,7 +329,8 @@ class SQLiteStorageBackend:
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     work_item_id TEXT NOT NULL,
                     action_event_id TEXT NOT NULL,
-                    payload TEXT NOT NULL
+                    payload TEXT NOT NULL,
+                    UNIQUE (work_item_id, action_event_id)
                 );
                 CREATE TABLE IF NOT EXISTS worker_queue_items (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -268,8 +346,13 @@ class SQLiteStorageBackend:
                     queue_item_id TEXT NOT NULL,
                     event_id TEXT NOT NULL,
                     event_type TEXT NOT NULL,
-                    payload TEXT NOT NULL
+                    payload TEXT NOT NULL,
+                    UNIQUE (queue_item_id, event_id)
                 );
+                CREATE UNIQUE INDEX IF NOT EXISTS uq_operator_actions_work_item_event
+                    ON operator_actions (work_item_id, action_event_id);
+                CREATE UNIQUE INDEX IF NOT EXISTS uq_worker_queue_events_item_event
+                    ON worker_queue_events (queue_item_id, event_id);
                 """
             )
             self._connection.commit()

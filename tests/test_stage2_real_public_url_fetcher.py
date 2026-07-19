@@ -38,6 +38,7 @@ from stage2_ingestion.real_public_url_fetcher import (
     ScraplingRealPublicDynamicFetchTransport,
     ScraplingRealPublicFetchTransport,
     ScraplingRealPublicStealthyFetchTransport,
+    UrlLibRealPublicFetchTransport,
     _discover_same_site_attachment_link_items,
 )
 from stage2_ingestion.scrapling_snapshot_parser import SCRAPLING_SNAPSHOT_PARSER_ADAPTER_ID
@@ -579,6 +580,7 @@ class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
         self.assertEqual(FakeScraplingFetcher.calls[0]["timeout"], 5.0)
         self.assertEqual(FakeScraplingFetcher.calls[0]["stealthy_headers"], False)
         self.assertIsNone(FakeScraplingFetcher.calls[0]["impersonate"])
+        self.assertFalse(FakeScraplingFetcher.calls[0]["follow_redirects"])
         self.assertEqual(
             FakeScraplingFetcher.calls[0]["headers"]["User-Agent"],
             "AX9S-Test/0.1",
@@ -618,6 +620,50 @@ class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
         self.assertEqual(FakeScraplingBrowserFetcher.calls[0]["useragent"], "AX9S-Test/0.1")
         self.assertEqual(FakeScraplingBrowserFetcher.calls[0]["wait_selector"], "body")
         self.assertFalse(FakeScraplingBrowserFetcher.calls[0]["google_search"])
+        self.assertTrue(callable(FakeScraplingBrowserFetcher.calls[0]["page_setup"]))
+
+    def test_scrapling_browser_route_aborts_private_redirect_or_subrequest(self) -> None:
+        FakeScraplingBrowserFetcher.calls = []
+        transport = ScraplingRealPublicDynamicFetchTransport(
+            fetcher_factory=FakeScraplingBrowserFetcher,
+            operator_authorized=True,
+        )
+        transport.fetch(
+            CCGP_DETAIL_URL,
+            timeout_seconds=5,
+            user_agent="AX9S-Test/0.1",
+        )
+
+        class FakePage:
+            route_handler: object | None = None
+
+            def route(self, pattern: str, handler: object) -> None:
+                self.pattern = pattern
+                self.route_handler = handler
+
+        class FakeRequest:
+            url = "http://169.254.169.254/latest/meta-data/"
+
+        class FakeRoute:
+            request = FakeRequest()
+            aborted = False
+            continued = False
+
+            def abort(self, reason: str) -> None:
+                self.aborted = reason == "blockedbyclient"
+
+            def continue_(self) -> None:
+                self.continued = True
+
+        page = FakePage()
+        page_setup = FakeScraplingBrowserFetcher.calls[0]["page_setup"]
+        page_setup(page)
+        route = FakeRoute()
+        page.route_handler(route)
+
+        self.assertEqual(page.pattern, "**/*")
+        self.assertTrue(route.aborted)
+        self.assertFalse(route.continued)
 
     def test_scrapling_stealthy_transport_wraps_authorized_browser_fetcher(self) -> None:
         FakeScraplingBrowserFetcher.calls = []
@@ -1858,6 +1904,62 @@ class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
         self.assertFalse(raised.exception.carrier["fetch_attempted"])
         self.assertTrue(raised.exception.carrier["fail_closed"])
         self.assertEqual(transport.call_log, [])
+
+    def test_final_url_crosses_to_private_host_and_is_rejected_before_parsing(self) -> None:
+        transport = FakeRealPublicFetchTransport(
+            {
+                GGZY_ENTRY_URL: RealPublicFetchResponse(
+                    url=GGZY_ENTRY_URL,
+                    status_code=200,
+                    content=_ggzy_entry_html(),
+                    content_type="text/html; charset=utf-8",
+                    final_url="http://127.0.0.1/admin",
+                )
+            }
+        )
+
+        carrier = RealPublicEntryFetcher(transport=transport, repository=None).fetch_entry_url(
+            GGZY_ENTRY_URL,
+            profile_id="GGZY-DEAL-LIST",
+        )
+
+        self.assertEqual(carrier["status"], "DEGRADED")
+        self.assertEqual(carrier["degraded_reasons"], ["response_url_boundary_blocked"])
+        self.assertTrue(carrier["fail_closed"])
+        self.assertIsNone(carrier["snapshot_id_optional"])
+        self.assertIn("non_public_url_address", carrier["failure_detail_optional"])
+
+    def test_oversized_entry_response_is_rejected_without_snapshot(self) -> None:
+        transport = FakeRealPublicFetchTransport(
+            {
+                GGZY_ENTRY_URL: RealPublicFetchResponse(
+                    url=GGZY_ENTRY_URL,
+                    status_code=200,
+                    content=b"x" * 129,
+                    content_type="text/html; charset=utf-8",
+                    final_url=GGZY_ENTRY_URL,
+                )
+            }
+        )
+
+        carrier = RealPublicEntryFetcher(
+            transport=transport,
+            repository=None,
+            entry_max_response_bytes=128,
+        ).fetch_entry_url(GGZY_ENTRY_URL, profile_id="GGZY-DEAL-LIST")
+
+        self.assertEqual(carrier["status"], "DEGRADED")
+        self.assertEqual(carrier["degraded_reasons"], ["response_body_too_large"])
+        self.assertTrue(carrier["fail_closed"])
+        self.assertIsNone(carrier["snapshot_id_optional"])
+
+    def test_urllib_transport_rejects_private_address_before_request(self) -> None:
+        with self.assertRaisesRegex(RuntimeError, "non_public_url_address"):
+            UrlLibRealPublicFetchTransport().fetch(
+                "http://127.0.0.1/metadata",
+                timeout_seconds=1,
+                user_agent="AX9S-Test/0.1",
+            )
 
     def test_error_login_captcha_or_empty_shell_prepares_automated_resume(self) -> None:
         challenge_body = (

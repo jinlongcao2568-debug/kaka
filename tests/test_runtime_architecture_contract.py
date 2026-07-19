@@ -5,6 +5,7 @@ import json
 import sys
 import tempfile
 import unittest
+from contextlib import nullcontext
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -934,14 +935,13 @@ class RuntimeArchitectureContractTests(unittest.TestCase, IsolatedStorageTestMix
         from runtime.run_controller import RunController
         from storage.db import DatabaseSession
         from storage.repositories.runtime_state_repo import (
-            RUNTIME_AUDIT_EVENT_OBJECT_TYPE,
-            RUNTIME_OPERATOR_PROJECTION_OBJECT_TYPE,
             RUNTIME_RUN_STATE_OBJECT_TYPE,
-            RUNTIME_WORKER_RESULT_OBJECT_TYPE,
             RuntimeStateRepository,
         )
 
-        with tempfile.TemporaryDirectory() as tmp_dir:
+        temp_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(temp_dir.cleanup)
+        with nullcontext(temp_dir.name) as tmp_dir:
             root = Path(tmp_dir)
             session = DatabaseSession(storage_path=root / "runtime-state.json")
             repository = RuntimeStateRepository(session=session)
@@ -1201,7 +1201,9 @@ class RuntimeArchitectureContractTests(unittest.TestCase, IsolatedStorageTestMix
                 },
             }
 
-        with tempfile.TemporaryDirectory() as tmp_dir:
+        temp_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(temp_dir.cleanup)
+        with nullcontext(temp_dir.name) as tmp_dir:
             root = Path(tmp_dir)
             session = DatabaseSession(storage_path=root / "runtime-state.json")
             repository = RuntimeStateRepository(session=session)
@@ -2464,7 +2466,6 @@ class RuntimeArchitectureContractTests(unittest.TestCase, IsolatedStorageTestMix
             self.assertFalse(gdcic_summary["customer_visible_allowed"])
             projection = written["controller_result"]["runtime_persistence"]
             self.assertEqual(projection["runtime_persistence_state"], "PERSISTED")
-            latest_projection = written["controller_result"]["runtime_persistence"]
             text = json.dumps(written, ensure_ascii=False)
             self.assertIn("C_REVERSE_EXPLANATION_OFFICIAL_READBACK", text)
             self.assertIn("stage4_gdcic_authorized_readback_summary", text)

@@ -3,7 +3,12 @@ from __future__ import annotations
 from dataclasses import replace
 from typing import Any, Mapping
 
-from storage.db import DatabaseSession, PersistedWorkerQueueEvent, PersistedWorkerQueueItem
+from storage.db import (
+    DatabaseSession,
+    PersistedWorkerQueueEvent,
+    PersistedWorkerQueueItem,
+    StorageConcurrencyError,
+)
 from storage.worker_queue import (
     CLAIMABLE_QUEUE_STATUSES,
     DEFAULT_LEASE_SECONDS,
@@ -88,13 +93,16 @@ class WorkerQueueRepository:
                 continue
             if not iso_lte(item.next_run_at, effective_now):
                 continue
-            return self.claim(
-                queue_item_id=item.queue_item_id,
-                worker_id=worker_id,
-                lease_id=lease_id,
-                lease_seconds=lease_seconds,
-                now=effective_now,
-            )
+            try:
+                return self.claim(
+                    queue_item_id=item.queue_item_id,
+                    worker_id=worker_id,
+                    lease_id=lease_id,
+                    lease_seconds=lease_seconds,
+                    now=effective_now,
+                )
+            except StorageConcurrencyError:
+                continue
         return None
 
     def claim(
@@ -419,9 +427,11 @@ class WorkerQueueRepository:
             event_index=len(existing_events) + 1,
         )
         item_with_trace = append_audit_trace(item, event)
-        self.session.upsert_worker_queue_item(item_with_trace)
-        self.session.append_worker_queue_event(event)
-        return item_with_trace
+        return self.session.commit_worker_queue_transition(
+            item=item_with_trace,
+            event=event,
+            expected_status=previous_status,
+        )
 
     def _sort_items(self, items: list[PersistedWorkerQueueItem]) -> list[PersistedWorkerQueueItem]:
         return sorted(

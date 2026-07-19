@@ -1443,6 +1443,13 @@ class TestOperatorFrontendPortal(unittest.TestCase, IsolatedStorageTestMixin):
                 "field_allowlist_masking_confirmed": "true",
             },
         )
+        self.assertEqual(download_response.status_code, 403)
+
+        download_response = client.request(
+            "GET",
+            f"/customer-artifact-portal-download/{opportunity_id}",
+            headers={"X-Kaka-Test-Operator-Auth": "approved"},
+        )
         self.assertEqual(download_response.status_code, 200)
         self.assertIn("application/json", download_response.headers["content-type"])
         self.assertIn(
@@ -1518,6 +1525,13 @@ class TestOperatorFrontendPortal(unittest.TestCase, IsolatedStorageTestMixin):
                 "approval_audit_confirmed": "true",
                 "field_allowlist_masking_confirmed": "true",
             },
+        )
+        self.assertEqual(download_response.status_code, 403)
+
+        download_response = client.request(
+            "GET",
+            f"/customer-artifact-portal-download/{opportunity_id}",
+            headers={"X-Kaka-Test-Operator-Auth": "approved"},
         )
         self.assertEqual(download_response.status_code, 200)
         package = download_response.json()

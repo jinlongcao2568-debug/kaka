@@ -162,7 +162,11 @@ class ControlledGrayOrchestratorWorkbenchTests(
         self.assertEqual(response.status_code, 200)
         self.assertEqual(enqueue.status_code, 200)
         self.assertEqual(worker.status_code, 200)
-        self.assertEqual(worker.json()["worker_state"], "CONTROLLED_GRAY_ORCHESTRATOR_WORKER_SUCCEEDED")
+        self.assertEqual(
+            worker.json()["worker_state"],
+            "CONTROLLED_GRAY_ORCHESTRATOR_WORKER_SUCCEEDED",
+            worker.json(),
+        )
         self.assertEqual(readback.status_code, 200)
         self.assertEqual(blocked_execute.status_code, 409)
         self.assertIn("execute is not allowed", blocked_execute.text)
@@ -175,6 +179,16 @@ class ControlledGrayOrchestratorWorkbenchTests(
         self.assertIn("runGrayOrchestratorWorker", page.text)
         self.assertIn("/operator-console/controlled-gray-orchestrator/prepare", page.text)
         self.assertIn("/operator-console/controlled-gray-orchestrator/worker/enqueue", page.text)
+
+    def test_prepare_rejects_paths_outside_operator_controlled_roots(self) -> None:
+        with self.assertRaisesRegex(ValueError, "output_root must stay within"):
+            prepare_controlled_gray_public_orchestrator(
+                {"output_root": str(ROOT / "README.md" / "not-an-artifact-root")}
+            )
+        with self.assertRaisesRegex(ValueError, "source_targets_json must stay within"):
+            prepare_controlled_gray_public_orchestrator(
+                {"source_targets_json": str(ROOT / "README.md")}
+            )
 
 
 if __name__ == "__main__":

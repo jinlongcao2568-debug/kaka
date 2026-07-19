@@ -2,6 +2,7 @@ name: kaka-local
 
 x-kaka-boundary:
   runtime_scope: local_stack_definition_only
+  api_process_definition_runnable: true
   docker_compose_up_executed: false
   compose_runtime_enabled: false
   container_execution_enabled: false
@@ -31,9 +32,17 @@ services:
     image: kaka-local-runtime:dev
     command:
       - python
-      - -c
-      - "from api.main import create_app; create_app(); print('kaka local runtime bootstrap ready')"
+      - -m
+      - uvicorn
+      - api.main:create_app
+      - --factory
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --no-server-header
     environment:
+      KAKA_INTERNAL_API_TOKEN: ${KAKA_INTERNAL_API_TOKEN:-}
       KAKA_STORAGE_BACKEND: json-file
       KAKA_STORAGE_SCOPE: process
       KAKA_STORAGE_PATH: /app/.kaka-local/storage/internal_operator_loop_store.json
@@ -42,12 +51,15 @@ services:
       KAKA_QUEUE_BACKEND: storage
       KAKA_WORKER_RUNTIME: internal-storage-worker
       KAKA_PROVIDER_MODE: SANDBOX_DRY_RUN_READBACK
+    ports:
+      - "127.0.0.1:8000:8000"
     volumes:
       - kaka-local-storage:/app/.kaka-local
     networks:
       - kaka-local
     restart: "no"
     labels:
+      kaka.api_process_definition_runnable: "true"
       kaka.runtime_scope: local_stack_definition_only
       kaka.compose_runtime_enabled: "false"
       kaka.container_execution_enabled: "false"
@@ -68,9 +80,17 @@ services:
       - postgres
     command:
       - python
-      - -c
-      - "from api.main import create_app; create_app(); print('kaka local postgres runtime bootstrap ready')"
+      - -m
+      - uvicorn
+      - api.main:create_app
+      - --factory
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --no-server-header
     environment:
+      KAKA_INTERNAL_API_TOKEN: ${KAKA_INTERNAL_API_TOKEN:-}
       KAKA_STORAGE_BACKEND: postgresql
       KAKA_STORAGE_DATABASE_URL: postgresql+psycopg://kaka_local:local_dev_placeholder_not_secret@postgres:5432/kaka_local
       KAKA_STORAGE_SCOPE: process
@@ -79,12 +99,15 @@ services:
       KAKA_QUEUE_BACKEND: storage
       KAKA_WORKER_RUNTIME: internal-storage-worker
       KAKA_PROVIDER_MODE: SANDBOX_DRY_RUN_READBACK
+    ports:
+      - "127.0.0.1:8001:8000"
     volumes:
       - kaka-local-storage:/app/.kaka-local
     networks:
       - kaka-local
     restart: "no"
     labels:
+      kaka.api_process_definition_runnable: "true"
       kaka.runtime_scope: local_postgres_opt_in_only
       kaka.local_stack_only: "true"
       kaka.migration_required_before_bootstrap: "true"

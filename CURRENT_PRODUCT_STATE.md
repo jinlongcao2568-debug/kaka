@@ -1,15 +1,17 @@
 # CURRENT PRODUCT STATE
 
-本文件是 2026-05-26 全息审计后的当前产品状态摘要。它只回答“现在开发到什么程度”，不作为新门禁。
+本文件是 2026-07-17 全面评审、连续修复和全量回归后的当前产品状态摘要。它只回答“现在开发到什么程度”，不作为新门禁。
 
 ## 审计证据
 
-- 当前审计范围：`src/`、`tests/`、`scripts/`、`contracts/`、`control/`、`docs/`、`handoff/`、`fixtures/`、`migrations/` 和根入口文件。
-- 机器逐行遍历结果：930 个文件，433181 行，19892717 bytes，读取错误 0。
-- Python 代码规模：521 个 Python 文件，580 个 class，9567 个函数，其中 1924 个测试函数。
-- 运行路由读回：FastAPI 当前挂载 63 条路由，其中 Stage6-9 transport operations 32 个，operator/customer access operations 22 个，operator frontend operations 8 个。
-- 全量本地回归：`python tests/run_tests.py` 通过 1903 个测试，跳过 1 个可选 PostgreSQL 集成测试。
-- 契约与状态检查：`validate-contracts.ps1`、`check-state-alignment.ps1`、`git diff --check` 通过。
+- 当前审计范围：`src/`、`tests/`、`scripts/`、`contracts/`、`control/`、`docs/`、`handoff/`、`fixtures/`、`migrations/`、容器/Compose、CI 和根入口文件。
+- Python 测试规模：195 个测试文件、1962 个 `test*` 函数。
+- 运行路由读回：FastAPI 当前挂载 68 条应用路由；排除框架文档和健康检查后有 66 个业务操作，其中 26 个写操作全部有请求体契约。
+- 全量隔离回归：`python tests/run_tests.py` 通过 1941 个测试，跳过 9 个可选能力测试，失败 0。
+- 关键相关回归：核心修复组合 214 项通过；全量暴露问题修复后的定向组合 75 项通过、跳过 1 项可选 PostgreSQL 集成测试。
+- 容器实跑：默认 API 镜像约 223 MB，以非 root UID 100 运行，Docker health 为 `healthy`；未鉴权/错误 token 均返回 401，正确 token 可读回 66 个操作。
+- 依赖与静态检查：默认 API 镜像 `pip check` 通过；生产代码 E9、未定义符号和重复字典键检查通过。
+- 契约与状态检查：`validate-contracts.ps1`、`check-state-alignment.ps1`、`docker compose config --quiet`、`git diff --check` 通过。
 
 审计机器资产在 `tmp/full_product_audit/`，其中：
 
@@ -17,7 +19,7 @@
 - `current_runtime_route_readback.json`
 - `current_product_degree_summary.json`
 
-这些资产用于证明文件遍历、路由读回和产品状态聚合；它们不是产品运行状态源。
+这些 2026-05-26 资产只保留为历史审计证据；当前数字以上述 2026-07-17 实际读回和回归结果为准，它们都不是产品运行状态源。
 
 ## 当前结论
 
@@ -28,23 +30,26 @@
 3. Stage8 已有联系人合规、触达 outbox、sandbox/provider readiness、审批审计和失败回放。
 4. Stage9 已有订单、支付、交付、结果回写、治理反馈、退款异常和受控自动退款测试边界。
 5. Operator console 和 customer artifact portal 已经存在，能展示 owner 工作台、客户 artifact 读回、下载门禁和运行投影。
-6. PTL-I100-149 真实公开样本自主机会验收已完成，当前状态是 `READY_FOR_POST-REPAIR_MAINLINE_SELECTION`。
+6. 内部 HTTP API 已有服务端 bearer 鉴权、受控文件根、请求/响应契约和 Stage9 正式对象持久化；请求布尔值不能冒充 operator 授权。
+7. Worker 队列领取/审计提交已原子化，JSON 后端具备跨进程锁和写前重载；公共 URL 获取具备私网/重定向/子请求/响应体大小 fail-closed 边界。
+8. PTL-I100-149 真实公开样本自主机会验收已完成，当前状态是 `READY_FOR_POST-REPAIR_MAINLINE_SELECTION`。
 
 ## 仍不能误写成已经完成的事
 
 - 不能说已经开放 public software release。
 - 不能说真实客户下载、真实触达、真实支付、真实交付、真实退款已经默认 live。
 - 不能把 approved/live-pilot/readback 当成无门禁生产执行。
+- 不能把内部 API 可运行、容器健康或鉴权通过写成 public software release / 客户可用。
 - 不能把 `control/current_task.yaml` 当成当前 active packet；它现在是已完成历史 packet carrier。
 - 不能把 Stage1-5 direct HTTP transport 当成已开放 live transport；当前正式入口仍是 Stage1-6 internal orchestration 和 operator surfaces。
 
 ## 开发程度判断
 
 - 产品骨架：高完成度，已经不是“只写文档”。
-- 内部 owner 操作闭环：可用，但仍以 governed/readback/approval/sandbox 为主。
+- 内部 owner 操作闭环：可用，HTTP 与容器入口已经硬化，但仍以 governed/readback/approval/sandbox 为主。
 - 自主机会发现到商业 hook：已完成真实样本验收，但仍需要继续做稳定性、样本覆盖、操作效率和真实运营硬化。
 - 外部触达、支付、交付、退款：目标能力存在，测试态和受控试点可开发；生产 live 必须有授权、审批、审计、operator action、对账和回滚/暂停。
-- 当前最现实的下一步：不要继续扩文档；围绕 Stage1-6 当前 focus `P0_STAGE4_RELEASE_EVIDENCE_CHAIN` 和 owner console 的真实样本操作效率做小步功能开发。
+- 当前最现实的下一步：围绕 Stage1-6 当前 focus `P0_STAGE4_RELEASE_EVIDENCE_CHAIN` 和 owner console 的真实样本操作效率做小步功能开发；多实例持久运行优先采用已迁移 SQL 后端，不把 JSON 文件后端当成生产数据库。
 
 ## 入口使用建议
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import os
 import sys
 import tempfile
@@ -8,6 +9,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
+import httpx
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -187,6 +189,98 @@ class TestApiTransportBootstrap(unittest.TestCase):
             resolved_storage_path,
             Path(tmp_dir) / "kaka" / "internal_operator_loop_store.json",
         )
+
+    def test_network_client_requires_configured_bearer_token(self) -> None:
+        async def exercise(app: object) -> tuple[httpx.Response, ...]:
+            transport = httpx.ASGITransport(
+                app=app,
+                client=("127.0.0.1", 12345),
+            )
+            async with httpx.AsyncClient(
+                transport=transport,
+                base_url="http://kaka.internal",
+            ) as client:
+                health = await client.get("/healthz")
+                missing = await client.get("/openapi.json")
+                wrong = await client.get(
+                    "/openapi.json",
+                    headers={"Authorization": "Bearer wrong-token"},
+                )
+                accepted = await client.get(
+                    "/openapi.json",
+                    headers={"Authorization": "Bearer test-internal-token"},
+                )
+            return health, missing, wrong, accepted
+
+        with patch.dict(
+            os.environ,
+            {"KAKA_INTERNAL_API_TOKEN": "test-internal-token"},
+            clear=False,
+        ):
+            get_settings.cache_clear()
+            health, missing, wrong, accepted = asyncio.run(exercise(create_app()))
+
+        self.assertEqual(health.status_code, 200)
+        self.assertEqual(missing.status_code, 401)
+        self.assertEqual(wrong.status_code, 401)
+        self.assertEqual(missing.json()["detail"]["code"], "INTERNAL_API_AUTH_REQUIRED")
+        self.assertEqual(accepted.status_code, 200)
+        self.assertEqual(accepted.headers["cache-control"], "no-store")
+
+    def test_stage9_http_create_uses_formal_schema_and_persists_idempotently(self) -> None:
+        stage9 = run_internal_chain(load_fixture("internal_chain_happy.json"))["stage9"]
+        client = TestClient(create_app())
+        schema = client.get("/openapi.json").json()
+        cases = (
+            ("order_record", "/orders", "order_id", "order_create_request", "order_create_response"),
+            ("payment_record", "/payments", "payment_id", "payment_create_request", "payment_create_response"),
+            ("delivery_record", "/deliveries", "delivery_id", "delivery_create_request", "delivery_create_response"),
+            (
+                "opportunity_outcome_event",
+                "/opportunity-outcomes",
+                "outcome_event_id",
+                "opportunity_outcome_create_request",
+                "opportunity_outcome_create_response",
+            ),
+            (
+                "governance_feedback_event",
+                "/governance-feedback-events",
+                "governance_feedback_event_id",
+                "governance_feedback_create_request",
+                "governance_feedback_create_response",
+            ),
+        )
+        for object_type, path, id_field, request_ref, response_ref in cases:
+            with self.subTest(object_type=object_type):
+                operation = schema["paths"][path]["post"]
+                request_schema_ref = operation["requestBody"]["content"]["application/json"]["schema"]
+                model_name = request_schema_ref["anyOf"][0]["$ref"].rsplit("/", 1)[-1]
+                formal_schema = schema["components"]["schemas"][model_name]
+                payload = {
+                    key: value
+                    for key, value in dict(stage9.record(object_type).data).items()
+                    if key in formal_schema["properties"]
+                }
+
+                self.assertEqual(operation["x-kaka-request-schema-ref"], request_ref)
+                self.assertEqual(operation["x-kaka-response-schema-ref"], response_ref)
+                self.assertTrue(set(formal_schema["required"]).issubset(payload))
+                self.assertFalse(formal_schema["additionalProperties"])
+
+                invalid = client.post(path, json={id_field: f"{object_type}-INCOMPLETE"})
+                created = client.post(path, json=payload)
+                replayed = client.post(path, json=payload)
+
+                self.assertEqual(invalid.status_code, 400)
+                self.assertEqual(invalid.json()["detail"]["code"], "REQUEST_VALIDATION_FAILED")
+                self.assertEqual(created.status_code, 200, created.text)
+                self.assertTrue(created.json()["persistence"]["created"])
+                self.assertEqual(
+                    created.json()["persistence"]["persistence_state"],
+                    "PERSISTED_CREATED",
+                )
+                self.assertEqual(replayed.status_code, 200, replayed.text)
+                self.assertTrue(replayed.json()["persistence"]["idempotent_replay"])
 
     def test_get_settings_consumes_storage_backend_from_env(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

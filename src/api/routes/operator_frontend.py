@@ -4686,11 +4686,15 @@ def _assert_internal_evidence_package_download_allowed(
 ) -> None:
     download_auth = dict(surface.get("download_auth") or {})
     field_policy = dict(surface.get("field_allowlist_masking") or {})
+    auth_context = dict(payload.get("_internal_auth_context") or {})
+    permissions = {str(permission) for permission in auth_context.get("permissions") or []}
     required_flags = {
-        "operator_authenticated": bool(payload.get("operator_authenticated")),
-        "internal_preview_download_authorized": bool(payload.get("internal_preview_download_authorized")),
-        "approval_audit_confirmed": bool(payload.get("approval_audit_confirmed")),
-        "field_allowlist_masking_confirmed": bool(payload.get("field_allowlist_masking_confirmed")),
+        "operator_authenticated": bool(auth_context.get("authenticated")),
+        "internal_preview_download_authorized": "internal_preview_download" in permissions,
+        "approval_audit_confirmed": bool(auth_context.get("approval_audit_confirmed")),
+        "field_allowlist_masking_confirmed": bool(
+            auth_context.get("field_allowlist_masking_confirmed")
+        ),
     }
     field_policy_ready = bool(field_policy.get("allowlist_enforced")) and bool(field_policy.get("masking_required"))
     blocked_reasons = [

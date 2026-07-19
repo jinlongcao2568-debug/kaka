@@ -58,54 +58,96 @@ def build_stage1_6_sellable_scoreboard(
     created_at: str | None = None,
 ) -> dict[str, Any]:
     created = created_at or utc_now_iso()
-    pressure_dir = Path(pressure_root or DEFAULT_PRESSURE_ROOT)
-    field_dir = Path(field_query_root or DEFAULT_FIELD_QUERY_ROOT)
+    explicit_input_mode = any(
+        value
+        for value in (
+            pressure_root,
+            pressure_summary_json,
+            readiness_json,
+            gap_summary_json,
+            field_query_root,
+            field_query_json,
+            supplemental_field_query_root,
+            supplemental_field_query_json,
+            gdcic_browser_readback_root,
+            gdcic_browser_readback_json,
+            p13b_company_history_root,
+            p13b_company_history_json,
+            p13b_original_notice_backtrace_root,
+            p13b_original_notice_backtrace_json,
+            p13b_ygp_original_readback_root,
+            p13b_ygp_original_readback_json,
+            p13b_overlap_triage_closeout_root,
+            p13b_overlap_triage_closeout_json,
+            company_first_stage4_execution_root,
+            company_first_stage4_execution_json,
+            design_survey_public_registry_readback_root,
+            design_survey_public_registry_readback_json,
+            stage6_status_root,
+            stage6_status_json,
+        )
+    )
+    use_default_input_bundle = not explicit_input_mode
+    pressure_dir = _input_root(pressure_root, DEFAULT_PRESSURE_ROOT, use_default_input_bundle)
+    field_dir = _input_root(field_query_root, DEFAULT_FIELD_QUERY_ROOT, use_default_input_bundle)
     supplemental_field_dir = Path(supplemental_field_query_root) if supplemental_field_query_root else None
-    gdcic_readback_dir = Path(gdcic_browser_readback_root or DEFAULT_GDCIC_BROWSER_READBACK_ROOT)
-    p13b_company_history_dir = Path(p13b_company_history_root or DEFAULT_P13B_COMPANY_HISTORY_ROOT)
-    p13b_original_notice_dir = Path(
-        p13b_original_notice_backtrace_root or DEFAULT_P13B_ORIGINAL_NOTICE_BACKTRACE_ROOT
+    gdcic_readback_dir = _input_root(
+        gdcic_browser_readback_root, DEFAULT_GDCIC_BROWSER_READBACK_ROOT, use_default_input_bundle
     )
-    p13b_ygp_original_dir = Path(p13b_ygp_original_readback_root or DEFAULT_P13B_YGP_ORIGINAL_READBACK_ROOT)
-    p13b_overlap_closeout_dir = Path(p13b_overlap_triage_closeout_root or DEFAULT_P13B_OVERLAP_TRIAGE_CLOSEOUT_ROOT)
-    design_survey_public_registry_readback_dir = Path(
-        design_survey_public_registry_readback_root or DEFAULT_DESIGN_SURVEY_PUBLIC_REGISTRY_READBACK_ROOT
+    p13b_company_history_dir = _input_root(
+        p13b_company_history_root, DEFAULT_P13B_COMPANY_HISTORY_ROOT, use_default_input_bundle
     )
-    stage6_dir = Path(stage6_status_root or DEFAULT_STAGE6_STATUS_ROOT)
+    p13b_original_notice_dir = _input_root(
+        p13b_original_notice_backtrace_root,
+        DEFAULT_P13B_ORIGINAL_NOTICE_BACKTRACE_ROOT,
+        use_default_input_bundle,
+    )
+    p13b_ygp_original_dir = _input_root(
+        p13b_ygp_original_readback_root, DEFAULT_P13B_YGP_ORIGINAL_READBACK_ROOT, use_default_input_bundle
+    )
+    p13b_overlap_closeout_dir = _input_root(
+        p13b_overlap_triage_closeout_root, DEFAULT_P13B_OVERLAP_TRIAGE_CLOSEOUT_ROOT, use_default_input_bundle
+    )
+    design_survey_public_registry_readback_dir = _input_root(
+        design_survey_public_registry_readback_root,
+        DEFAULT_DESIGN_SURVEY_PUBLIC_REGISTRY_READBACK_ROOT,
+        use_default_input_bundle,
+    )
+    stage6_dir = _input_root(stage6_status_root, DEFAULT_STAGE6_STATUS_ROOT, use_default_input_bundle)
     out_dir = Path(output_root or DEFAULT_OUTPUT_ROOT)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    pressure_summary_path = _resolve_path(pressure_summary_json, pressure_dir / "pressure-summary.json")
-    readiness_path = _resolve_path(readiness_json, pressure_dir / "stage1-6-readiness-table.json")
-    gap_summary_path = _resolve_path(gap_summary_json, pressure_dir / "stage1-6-gap-summary-table.json")
-    field_query_path = _resolve_path(field_query_json, field_dir / "guangdong-local-field-query-probe-v1.json")
+    pressure_summary_path = _resolve_input_path(pressure_summary_json, pressure_dir, "pressure-summary.json")
+    readiness_path = _resolve_input_path(readiness_json, pressure_dir, "stage1-6-readiness-table.json")
+    gap_summary_path = _resolve_input_path(gap_summary_json, pressure_dir, "stage1-6-gap-summary-table.json")
+    field_query_path = _resolve_input_path(
+        field_query_json, field_dir, "guangdong-local-field-query-probe-v1.json"
+    )
     supplemental_field_query_path = (
-        _resolve_path(
+        _resolve_input_path(
             supplemental_field_query_json,
-            (supplemental_field_dir or field_dir) / "guangdong-local-field-query-probe-v1.json",
+            supplemental_field_dir or field_dir,
+            "guangdong-local-field-query-probe-v1.json",
         )
         if supplemental_field_query_root or supplemental_field_query_json
         else None
     )
-    gdcic_browser_readback_path = _resolve_path(
-        gdcic_browser_readback_json,
-        gdcic_readback_dir / "gdcic-browser-authorized-readback-v1.json",
+    gdcic_browser_readback_path = _resolve_input_path(
+        gdcic_browser_readback_json, gdcic_readback_dir, "gdcic-browser-authorized-readback-v1.json"
     )
-    p13b_company_history_path = _resolve_path(
-        p13b_company_history_json,
-        p13b_company_history_dir / "company-history-overlap-triage-v1.json",
+    p13b_company_history_path = _resolve_input_path(
+        p13b_company_history_json, p13b_company_history_dir, "company-history-overlap-triage-v1.json"
     )
-    p13b_original_notice_backtrace_path = _resolve_path(
-        p13b_original_notice_backtrace_json,
-        p13b_original_notice_dir / "original-notice-backtrace-v1.json",
+    p13b_original_notice_backtrace_path = _resolve_input_path(
+        p13b_original_notice_backtrace_json, p13b_original_notice_dir, "original-notice-backtrace-v1.json"
     )
-    p13b_ygp_original_readback_path = _resolve_path(
-        p13b_ygp_original_readback_json,
-        p13b_ygp_original_dir / "ygp-original-readback-v1.json",
+    p13b_ygp_original_readback_path = _resolve_input_path(
+        p13b_ygp_original_readback_json, p13b_ygp_original_dir, "ygp-original-readback-v1.json"
     )
-    p13b_overlap_triage_closeout_path = _resolve_path(
+    p13b_overlap_triage_closeout_path = _resolve_input_path(
         p13b_overlap_triage_closeout_json,
-        p13b_overlap_closeout_dir / "p13b-overlap-triage-closeout-v1.json",
+        p13b_overlap_closeout_dir,
+        "p13b-overlap-triage-closeout-v1.json",
     )
     company_first_stage4_execution_path = _resolve_optional_artifact_path(
         artifact_json=company_first_stage4_execution_json,
@@ -239,21 +281,22 @@ def build_stage1_6_sellable_scoreboard(
     recommended_next_actions = _recommended_next_actions(blocker_summary, counts)
 
     input_refs = {
-        "pressure_summary_json": str(pressure_summary_path),
-        "stage1_6_readiness_json": str(readiness_path),
-        "stage1_6_gap_summary_json": str(gap_summary_path),
-        "release_field_query_json": str(field_query_path),
+        "input_resolution_mode": "EXPLICIT_ONLY" if explicit_input_mode else "DEFAULT_BUNDLE",
+        "pressure_summary_json": str(pressure_summary_path or ""),
+        "stage1_6_readiness_json": str(readiness_path or ""),
+        "stage1_6_gap_summary_json": str(gap_summary_path or ""),
+        "release_field_query_json": str(field_query_path or ""),
         "supplemental_release_field_query_json": str(supplemental_field_query_path)
         if supplemental_field_query_path is not None
         else "",
-        "gdcic_browser_authorized_readback_json": str(gdcic_browser_readback_path),
-        "p13b_company_history_json": str(p13b_company_history_path),
-        "p13b_original_notice_backtrace_json": str(p13b_original_notice_backtrace_path),
-        "p13b_ygp_original_readback_json": str(p13b_ygp_original_readback_path),
-        "p13b_overlap_triage_closeout_json": str(p13b_overlap_triage_closeout_path),
+        "gdcic_browser_authorized_readback_json": str(gdcic_browser_readback_path or ""),
+        "p13b_company_history_json": str(p13b_company_history_path or ""),
+        "p13b_original_notice_backtrace_json": str(p13b_original_notice_backtrace_path or ""),
+        "p13b_ygp_original_readback_json": str(p13b_ygp_original_readback_path or ""),
+        "p13b_overlap_triage_closeout_json": str(p13b_overlap_triage_closeout_path or ""),
         "company_first_stage4_execution_json": str(company_first_stage4_execution_path or ""),
         "design_survey_public_registry_readback_json": str(design_survey_public_registry_readback_path or ""),
-        "stage6_status_json": str(stage6_status_path),
+        "stage6_status_json": str(stage6_status_path or ""),
         "prior_scoreboard_json": str(prior_scoreboard_json or ""),
         "incremental_project_ids": sorted(incremental_targets),
     }
@@ -2118,9 +2161,11 @@ def _stage5_operational_bucket_family(bucket: str) -> str:
     return mapping.get(str(bucket or ""), "unclassified_review_required")
 
 
-def _resolve_stage6_status_path(value: str | Path | None, root: Path) -> Path:
+def _resolve_stage6_status_path(value: str | Path | None, root: Path | None) -> Path | None:
     if value:
         return Path(value)
+    if root is None:
+        return None
     candidates = (
         root / "stage6-review-loop-project-status-table.json",
         root / "stage6-review-cycle-project-status-table.json",
@@ -2197,6 +2242,22 @@ def _resolve_path(value: str | Path | None, default: Path) -> Path:
     return Path(value) if value else default
 
 
+def _input_root(value: str | Path | None, default: Path, use_default: bool) -> Path | None:
+    if value:
+        return Path(value)
+    return default if use_default else None
+
+
+def _resolve_input_path(
+    value: str | Path | None,
+    root: Path | None,
+    artifact_name: str,
+) -> Path | None:
+    if value:
+        return Path(value)
+    return root / artifact_name if root is not None else None
+
+
 def _resolve_optional_artifact_path(
     *,
     artifact_json: str | Path | None,
@@ -2210,7 +2271,9 @@ def _resolve_optional_artifact_path(
     return None
 
 
-def _read_json_mapping(path: Path) -> dict[str, Any]:
+def _read_json_mapping(path: Path | None) -> dict[str, Any]:
+    if path is None:
+        return {}
     try:
         loaded = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
