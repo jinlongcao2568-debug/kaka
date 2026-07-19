@@ -54,6 +54,18 @@ def _read_env_positive_int(name: str, default: int) -> int:
     return parsed
 
 
+def _read_env_bool(name: str, default: bool) -> bool:
+    value = _read_env_optional(name)
+    if value is None:
+        return default
+    normalized = value.lower()
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+    raise ValueError(f"{name} must be a boolean")
+
+
 def _resolve_storage_scope(storage_scope_value: str | None, storage_test_isolation_value: str | None) -> str:
     if (storage_scope_value or "").lower() == _PROCESS_STORAGE_SCOPE:
         return _PROCESS_STORAGE_SCOPE
@@ -88,6 +100,8 @@ class Settings:
     operator_artifact_root_optional: Optional[str] = None
     operator_input_root_optional: Optional[str] = None
     api_max_request_body_bytes: int = 2 * 1024 * 1024
+    internal_api_session_ttl_seconds: int = 60 * 60
+    internal_api_cookie_secure: bool = True
     provider_adapter_config: ProviderAdapterConfig | None = None
     production_live_dependency_drill_inputs: dict[str, Any] | None = None
 
@@ -126,6 +140,14 @@ class Settings:
                 "KAKA_API_MAX_REQUEST_BODY_BYTES",
                 2 * 1024 * 1024,
             ),
+            internal_api_session_ttl_seconds=_read_env_positive_int(
+                "KAKA_INTERNAL_API_SESSION_TTL_SECONDS",
+                60 * 60,
+            ),
+            internal_api_cookie_secure=_read_env_bool(
+                "KAKA_INTERNAL_API_COOKIE_SECURE",
+                True,
+            ),
             provider_adapter_config=build_provider_adapter_config_from_env(),
         )
 
@@ -137,6 +159,12 @@ class Settings:
             "role": self.internal_api_role,
             "network_request_without_configured_token_state": "SERVICE_UNAVAILABLE_FAIL_CLOSED",
             "request_boolean_auth_allowed": False,
+            "browser_session_enabled": True,
+            "browser_session_ttl_seconds": self.internal_api_session_ttl_seconds,
+            "browser_session_cookie_http_only": True,
+            "browser_session_cookie_same_site": "strict",
+            "browser_session_cookie_secure": self.internal_api_cookie_secure,
+            "browser_session_csrf_required_for_unsafe_methods": True,
         }
 
     def resolved_storage_path(self) -> Path:

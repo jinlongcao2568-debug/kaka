@@ -5,16 +5,21 @@
 
 from __future__ import annotations
 
+import base64
+import hashlib
+import hmac
 import json
 import secrets
+import time
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Callable, Mapping
+from urllib.parse import quote
 
 from fastapi import Body, FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.openapi.utils import get_openapi
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel, ConfigDict, create_model
 
 from api.deps import (
@@ -44,6 +49,16 @@ from storage.repositories.provider_adapter_config_repo import ProviderAdapterCon
 
 
 RouteHandler = Callable[[Any], Any]
+INTERNAL_BROWSER_SESSION_COOKIE = "kaka_internal_session"
+INTERNAL_BROWSER_CSRF_HEADER = "x-kaka-csrf-token"
+INTERNAL_BROWSER_SESSION_VERSION = 1
+_UNSAFE_HTTP_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
+_BROWSER_PAGE_PATHS = frozenset(
+    {
+        "/operator-console",
+        "/operator-console/stage6-review-loop",
+    }
+)
 
 
 class InternalApiObjectRequest(BaseModel):
@@ -318,11 +333,20 @@ def _bearer_token(request: Request) -> str:
     return token.strip()
 
 
-def _internal_auth_context(*, principal_id: str, role: str, approved: bool) -> dict[str, Any]:
+def _internal_auth_context(
+    *,
+    principal_id: str,
+    role: str,
+    approved: bool,
+    auth_method: str = "none",
+    session_csrf_token: str = "",
+    session_expires_at: int = 0,
+) -> dict[str, Any]:
     return {
         "authenticated": approved,
         "principal_id": principal_id,
         "role": role,
+        "auth_method": auth_method,
         "permissions": [
             "internal_api_access",
             "internal_preview_download",
@@ -334,7 +358,196 @@ def _internal_auth_context(*, principal_id: str, role: str, approved: bool) -> d
         "approval_audit_ref": f"AUTH-{principal_id}" if approved else "",
         "field_allowlist_masking_confirmed": approved,
         "request_boolean_auth_allowed": False,
+        "session_csrf_token": session_csrf_token,
+        "session_expires_at": session_expires_at,
     }
+
+
+def _browser_session_signing_key(configured_token: str) -> bytes:
+    return hashlib.sha256(
+        b"kaka-internal-browser-session-v1\0" + configured_token.encode("utf-8")
+    ).digest()
+
+
+def _base64url_encode(value: bytes) -> str:
+    return base64.urlsafe_b64encode(value).rstrip(b"=").decode("ascii")
+
+
+def _base64url_decode(value: str) -> bytes:
+    padding = "=" * (-len(value) % 4)
+    return base64.urlsafe_b64decode(value + padding)
+
+
+def _encode_browser_session(
+    *,
+    configured_token: str,
+    principal_id: str,
+    role: str,
+    ttl_seconds: int,
+) -> tuple[str, dict[str, Any]]:
+    issued_at = int(time.time())
+    payload = {
+        "version": INTERNAL_BROWSER_SESSION_VERSION,
+        "principal_id": principal_id,
+        "role": role,
+        "issued_at": issued_at,
+        "expires_at": issued_at + int(ttl_seconds),
+        "csrf_token": secrets.token_urlsafe(32),
+        "nonce": secrets.token_urlsafe(16),
+    }
+    encoded_payload = _base64url_encode(
+        json.dumps(payload, ensure_ascii=True, separators=(",", ":"), sort_keys=True).encode(
+            "utf-8"
+        )
+    )
+    signature = hmac.new(
+        _browser_session_signing_key(configured_token),
+        encoded_payload.encode("ascii"),
+        hashlib.sha256,
+    ).digest()
+    return f"{encoded_payload}.{_base64url_encode(signature)}", payload
+
+
+def _decode_browser_session(
+    session_cookie: str,
+    *,
+    configured_token: str,
+    max_ttl_seconds: int,
+) -> dict[str, Any] | None:
+    if not session_cookie or len(session_cookie) > 4096:
+        return None
+    try:
+        encoded_payload, encoded_signature = session_cookie.split(".", 1)
+        supplied_signature = _base64url_decode(encoded_signature)
+        expected_signature = hmac.new(
+            _browser_session_signing_key(configured_token),
+            encoded_payload.encode("ascii"),
+            hashlib.sha256,
+        ).digest()
+        if not hmac.compare_digest(supplied_signature, expected_signature):
+            return None
+        payload = json.loads(_base64url_decode(encoded_payload).decode("utf-8"))
+    except (ValueError, TypeError, UnicodeDecodeError, json.JSONDecodeError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    try:
+        version = int(payload.get("version") or 0)
+        issued_at = int(payload.get("issued_at") or 0)
+        expires_at = int(payload.get("expires_at") or 0)
+    except (TypeError, ValueError):
+        return None
+    now = int(time.time())
+    if version != INTERNAL_BROWSER_SESSION_VERSION:
+        return None
+    if issued_at > now + 60 or expires_at <= now:
+        return None
+    if expires_at - issued_at <= 0 or expires_at - issued_at > int(max_ttl_seconds):
+        return None
+    if not str(payload.get("principal_id") or "").strip():
+        return None
+    if not str(payload.get("role") or "").strip():
+        return None
+    if len(str(payload.get("csrf_token") or "")) < 32:
+        return None
+    return payload
+
+
+def _is_browser_page_path(path: str) -> bool:
+    return path in _BROWSER_PAGE_PATHS or path.startswith("/customer-artifact-portal/")
+
+
+def _login_redirect(request: Request) -> RedirectResponse:
+    next_target = request.url.path
+    if request.url.query:
+        next_target = f"{next_target}?{request.url.query}"
+    response = RedirectResponse(
+        url=f"/internal/login?next={quote(next_target, safe='')}",
+        status_code=303,
+    )
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
+def _internal_login_page() -> HTMLResponse:
+    response = HTMLResponse(
+        """<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="referrer" content="no-referrer" />
+  <link rel="icon" href="data:," />
+  <title>Kaka 内部操作员登录</title>
+  <style>
+    :root { color-scheme: light; font-family: "Segoe UI", "Microsoft YaHei", sans-serif; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #edf2f6; color: #17202a; }
+    main { width: min(420px, calc(100vw - 32px)); background: white; border: 1px solid #d8dee6; border-radius: 12px; padding: 28px; box-shadow: 0 14px 40px rgba(16, 32, 45, .12); }
+    h1 { margin: 0 0 8px; font-size: 22px; }
+    p { color: #5e6b78; line-height: 1.6; }
+    label { display: block; margin: 22px 0 8px; font-weight: 700; }
+    input, button { width: 100%; min-height: 44px; border-radius: 8px; font: inherit; }
+    input { border: 1px solid #aeb8c4; padding: 0 12px; }
+    button { margin-top: 14px; border: 0; background: #0f6f61; color: white; font-weight: 700; cursor: pointer; }
+    button:disabled { opacity: .6; cursor: wait; }
+    #status { min-height: 24px; margin: 12px 0 0; color: #b42318; }
+    .boundary { margin-top: 20px; padding-top: 16px; border-top: 1px solid #e5e9ef; font-size: 13px; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>内部操作员登录</h1>
+  <p>输入部署方提供的内部访问凭据。凭据只用于本次服务端会话交换，不写入 URL、localStorage 或页面。</p>
+  <form id="loginForm">
+    <label for="token">内部访问凭据</label>
+    <input id="token" name="token" type="password" autocomplete="current-password" required autofocus />
+    <button id="submitButton" type="submit">进入内部操作台</button>
+    <p id="status" role="alert" aria-live="polite"></p>
+  </form>
+  <p class="boundary">仅限内部预览。客户可见、支付、触达、交付和退款能力仍受正式门禁控制。</p>
+</main>
+<script>
+const csrfStorageKey = "kaka.internal.csrf";
+function safeNextPath() {
+  const candidate = new URLSearchParams(window.location.search).get("next") || "/operator-console";
+  return candidate.startsWith("/") && !candidate.startsWith("//") ? candidate : "/operator-console";
+}
+document.getElementById("loginForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const input = document.getElementById("token");
+  const button = document.getElementById("submitButton");
+  const status = document.getElementById("status");
+  const token = input.value;
+  input.value = "";
+  button.disabled = true;
+  status.textContent = "正在建立短时会话…";
+  try {
+    const response = await fetch("/internal/auth/session", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "accept": "application/json", "authorization": `Bearer ${token}` }
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || !payload.csrf_token) {
+      throw new Error(response.status === 503 ? "服务端尚未配置内部认证" : "凭据无效或会话建立失败");
+    }
+    sessionStorage.setItem(csrfStorageKey, payload.csrf_token);
+    window.location.replace(safeNextPath());
+  } catch (error) {
+    status.textContent = error instanceof Error ? error.message : "登录失败";
+    button.disabled = false;
+    input.focus();
+  }
+});
+</script>
+</body>
+</html>""",
+        media_type="text/html; charset=utf-8",
+    )
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["X-Frame-Options"] = "DENY"
+    return response
 
 
 def _endpoint_for(route: dict[str, Any]) -> Callable[[Request], Any]:
@@ -1185,8 +1398,11 @@ def create_app() -> FastAPI:
 
     @app.middleware("http")
     async def require_internal_api_auth(request: Request, call_next: Callable[..., Any]) -> Any:
-        if request.url.path == "/healthz":
-            return await call_next(request)
+        if request.url.path in {"/healthz", "/internal/login"}:
+            response = await call_next(request)
+            if request.url.path == "/internal/login":
+                response.headers["Cache-Control"] = "no-store"
+            return response
 
         content_length = str(request.headers.get("content-length") or "").strip()
         if content_length.isdigit() and int(content_length) > settings.api_max_request_body_bytes:
@@ -1207,12 +1423,13 @@ def create_app() -> FastAPI:
                 principal_id="in-process-testclient",
                 role="internal_test_operator",
                 approved=test_approved,
+                auth_method="testclient",
             )
             return await call_next(request)
 
         configured_token = str(settings.internal_api_token_optional or "")
         if not configured_token:
-            return JSONResponse(
+            response = JSONResponse(
                 status_code=503,
                 content={
                     "detail": {
@@ -1221,24 +1438,149 @@ def create_app() -> FastAPI:
                     }
                 },
             )
+            response.headers["Cache-Control"] = "no-store"
+            return response
+
         supplied_token = _bearer_token(request)
-        if not supplied_token or not secrets.compare_digest(supplied_token, configured_token):
+        if supplied_token:
+            if not secrets.compare_digest(supplied_token, configured_token):
+                response = JSONResponse(
+                    status_code=401,
+                    headers={"WWW-Authenticate": "Bearer"},
+                    content={
+                        "detail": {
+                            "code": "INTERNAL_API_AUTH_REQUIRED",
+                            "message": "valid internal bearer token required",
+                        }
+                    },
+                )
+                response.headers["Cache-Control"] = "no-store"
+                return response
+            request.state.internal_auth_context = _internal_auth_context(
+                principal_id="configured-internal-operator",
+                role=settings.internal_api_role,
+                approved=True,
+                auth_method="bearer",
+            )
+        else:
+            session_payload = _decode_browser_session(
+                str(request.cookies.get(INTERNAL_BROWSER_SESSION_COOKIE) or ""),
+                configured_token=configured_token,
+                max_ttl_seconds=settings.internal_api_session_ttl_seconds,
+            )
+            if session_payload is None:
+                if request.method in {"GET", "HEAD"} and _is_browser_page_path(request.url.path):
+                    return _login_redirect(request)
+                response = JSONResponse(
+                    status_code=401,
+                    headers={"WWW-Authenticate": "Bearer"},
+                    content={
+                        "detail": {
+                            "code": "INTERNAL_API_AUTH_REQUIRED",
+                            "message": "valid internal bearer token or browser session required",
+                        }
+                    },
+                )
+                response.headers["Cache-Control"] = "no-store"
+                return response
+            csrf_token = str(session_payload["csrf_token"])
+            if request.method.upper() in _UNSAFE_HTTP_METHODS:
+                supplied_csrf = str(request.headers.get(INTERNAL_BROWSER_CSRF_HEADER) or "")
+                if not supplied_csrf or not secrets.compare_digest(supplied_csrf, csrf_token):
+                    response = JSONResponse(
+                        status_code=403,
+                        content={
+                            "detail": {
+                                "code": "BROWSER_SESSION_CSRF_REQUIRED",
+                                "message": f"valid {INTERNAL_BROWSER_CSRF_HEADER} header required",
+                            }
+                        },
+                    )
+                    response.headers["Cache-Control"] = "no-store"
+                    return response
+            request.state.internal_auth_context = _internal_auth_context(
+                principal_id=str(session_payload["principal_id"]),
+                role=str(session_payload["role"]),
+                approved=True,
+                auth_method="browser_session",
+                session_csrf_token=csrf_token,
+                session_expires_at=int(session_payload["expires_at"]),
+            )
+
+        response = await call_next(request)
+        response.headers["Cache-Control"] = "no-store"
+        response.headers["Vary"] = "Authorization, Cookie"
+        return response
+
+    @app.get("/internal/login", include_in_schema=False)
+    async def internal_login() -> HTMLResponse:
+        return _internal_login_page()
+
+    @app.post("/internal/auth/session", include_in_schema=False)
+    async def create_internal_browser_session(request: Request) -> JSONResponse:
+        auth_context = dict(getattr(request.state, "internal_auth_context", {}) or {})
+        if auth_context.get("auth_method") != "bearer":
             return JSONResponse(
-                status_code=401,
-                headers={"WWW-Authenticate": "Bearer"},
+                status_code=403,
                 content={
                     "detail": {
-                        "code": "INTERNAL_API_AUTH_REQUIRED",
-                        "message": "valid internal bearer token required",
+                        "code": "BROWSER_SESSION_EXCHANGE_REQUIRES_BEARER",
+                        "message": "browser sessions can only be created from valid bearer authentication",
                     }
                 },
             )
-        request.state.internal_auth_context = _internal_auth_context(
-            principal_id="configured-internal-operator",
-            role=settings.internal_api_role,
-            approved=True,
+        session_cookie, session_payload = _encode_browser_session(
+            configured_token=str(settings.internal_api_token_optional or ""),
+            principal_id=str(auth_context["principal_id"]),
+            role=str(auth_context["role"]),
+            ttl_seconds=settings.internal_api_session_ttl_seconds,
         )
-        response = await call_next(request)
+        response = JSONResponse(
+            {
+                "authenticated": True,
+                "auth_method": "browser_session",
+                "principal_id": session_payload["principal_id"],
+                "role": session_payload["role"],
+                "expires_at": session_payload["expires_at"],
+                "csrf_token": session_payload["csrf_token"],
+            }
+        )
+        response.set_cookie(
+            key=INTERNAL_BROWSER_SESSION_COOKIE,
+            value=session_cookie,
+            max_age=settings.internal_api_session_ttl_seconds,
+            path="/",
+            secure=settings.internal_api_cookie_secure,
+            httponly=True,
+            samesite="strict",
+        )
+        response.headers["Cache-Control"] = "no-store"
+        return response
+
+    @app.get("/internal/auth/session", include_in_schema=False)
+    async def read_internal_browser_session(request: Request) -> JSONResponse:
+        auth_context = dict(getattr(request.state, "internal_auth_context", {}) or {})
+        return JSONResponse(
+            {
+                "authenticated": bool(auth_context.get("authenticated")),
+                "auth_method": auth_context.get("auth_method"),
+                "principal_id": auth_context.get("principal_id"),
+                "role": auth_context.get("role"),
+                "expires_at": auth_context.get("session_expires_at") or None,
+                "csrf_token": auth_context.get("session_csrf_token") or None,
+            }
+        )
+
+    @app.delete("/internal/auth/session", include_in_schema=False)
+    async def delete_internal_browser_session() -> JSONResponse:
+        response = JSONResponse({"authenticated": False, "session_deleted": True})
+        response.delete_cookie(
+            key=INTERNAL_BROWSER_SESSION_COOKIE,
+            path="/",
+            secure=settings.internal_api_cookie_secure,
+            httponly=True,
+            samesite="strict",
+        )
         response.headers["Cache-Control"] = "no-store"
         return response
 
@@ -1248,6 +1590,7 @@ def create_app() -> FastAPI:
             "status": "ok",
             "internal_only": True,
             "api_auth_configured": bool(settings.internal_api_token_optional),
+            "browser_session_enabled": True,
         }
 
     @app.exception_handler(RequestValidationError)

@@ -500,6 +500,12 @@ class TestOperatorFrontendPortal(unittest.TestCase, IsolatedStorageTestMixin):
         self.assertIn('"/operator-console/real-source-runs"', html)
         self.assertIn('"/operator-console/real-source-task-runs"', html)
         self.assertIn("请先执行入口页或附件抓取。", html)
+        self.assertIn('credentials: "same-origin"', html)
+        self.assertIn('headers.set("x-kaka-csrf-token", csrfToken)', html)
+        self.assertIn("退出内部会话", html)
+        self.assertIn('window.location.replace(loginPath())', html)
+        self.assertNotIn("localStorage", html)
+        self.assertNotIn("Bearer test-internal-token", html)
 
     def test_runtime_projection_readback_uses_repository_and_keeps_safety_closed(self) -> None:
         from storage.repositories.runtime_state_repo import RuntimeStateRepository

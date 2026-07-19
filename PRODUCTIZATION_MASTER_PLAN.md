@@ -70,7 +70,7 @@
 | ID | 问题 | 当前证据/影响 | 默认决策 | 关闭标准 | 状态 |
 |---|---|---|---|---|---|
 | REL-001 | 当前修复没有形成可发布基线 | 工作树有大量未提交修改，CI、迁移和最小依赖文件未跟踪；从 Git 构建可能缺少当前修复 | 修复 | 审核 diff；关键回归通过；全部预期文件进入一个可追踪提交；生成版本号和变更说明；工作树只剩已确认的无关修改 | VALIDATED |
-| SEC-001 | 标准浏览器认证链不可用 | `src/api/main.py` 要求 Bearer；`src/api/routes/operator_frontend.py` 的 `fetch()` 不携带 Bearer；TestClient 旁路掩盖真实浏览器 401 | 修复 | 选择 OIDC/SSO 或服务端 HttpOnly session；页面导航和异步请求都可认证；写请求有 CSRF 防护；未认证、过期、越权测试齐全；不把 token 放 URL/localStorage | OPEN |
+| SEC-001 | 标准浏览器认证链不可用 | `src/api/main.py` 要求 Bearer；`src/api/routes/operator_frontend.py` 的 `fetch()` 不携带 Bearer；TestClient 旁路掩盖真实浏览器 401 | 修复 | 选择 OIDC/SSO 或服务端 HttpOnly session；页面导航和异步请求都可认证；写请求有 CSRF 防护；未认证、过期、越权测试齐全；不把 token 放 URL/localStorage | VALIDATED |
 | SEC-002 | 操作台存在 DOM XSS 面 | `operator_frontend.py` 大量 `innerHTML`；项目名、商业摘要、badge 等路径存在未统一转义的 API/公开来源数据 | 修复 | 不可信字段全部使用 `textContent`/安全 DOM 构造；剩余 HTML sink 有集中审计；加入恶意项目名回归；部署 CSP、frame 防护和必要安全头 | OPEN |
 | SEC-003 | 认证、角色、审批被混为一体 | 单个共享 token 获得多项权限，认证后直接投影 `approval_audit_confirmed=true`；没有用户、角色、对象所有权 | 修复 | 身份认证与业务审批分离；至少有 owner/operator/reviewer/admin 角色；敏感动作逐对象授权；审批记录不可由普通认证自动满足 | OPEN |
 | SEC-004 | 没有租户/客户数据隔离边界 | 所有已认证调用者可访问同一内部数据和产物；不适合客户共享部署 | 变通后修复 | 当前 MVP 明确为单租户私有部署；用部署级隔离阻断跨客户访问；进入 SaaS 前实现 tenant_id、对象级授权、存储隔离和越权测试 | OPEN |
@@ -260,3 +260,16 @@
 - 容器闸门：镜像构建成功；`/healthz=200`；未鉴权 `/openapi.json=401`；正确 Bearer Token 后为 `200`；容器以非 root 用户 `kaka` 运行；容器内 `pip check` 无冲突。
 - 回滚方式：以包含本记录的 Git 提交和同名本地 tag 为基线；需要回看时使用 `git show internal-baseline-2026.07.19.1`，不执行破坏性重置。
 - 发布说明：这是“可重复构建、可测试、可回滚”的内部基线，不代表公网、客户交付或生产 live readiness。`SEC-001`、`SEC-002`、`SEC-003`、`SEC-004`、`DEP-001` 等后续 P0 仍必须逐项关闭。
+
+### SEC-001：标准浏览器认证链
+
+- 关闭日期：`2026-07-19`
+- 状态：`VALIDATED`
+- 实现：Bearer 仅用于一次性交换服务端签名的一小时浏览器会话；Cookie 为 `HttpOnly`、`SameSite=Strict`，非本机部署默认 `Secure=true`；签名校验覆盖版本、签发时间、到期时间和最大 TTL，部署 Token 轮换会使旧会话失效。
+- 浏览器边界：页面不把 Bearer 写入 URL、localStorage、sessionStorage、Cookie 或生成 HTML；`sessionStorage` 只保存与会话绑定、不能单独完成认证的 CSRF Token。
+- CSRF：同源 `POST/PUT/PATCH/DELETE` 必须携带 `x-kaka-csrf-token`；缺失或错误返回 `403 BROWSER_SESSION_CSRF_REQUIRED`；Bearer API 客户端保持兼容。
+- 网络测试：未认证页面 `303` 到同源登录页，JSON API 保持 `401`；Cookie 篡改、过期、Token 轮换、CSRF 缺失/错误和退出后失效测试通过。
+- 真实浏览器：Playwright 在 `1440x900` 与 `390x844` 完成登录、15 组异步读回、创建内部任务和退出；控制台零错误，窄屏无横向溢出。
+- 回归：API/operator console 定向 `37 passed`，另有 `5 subtests passed`；完整隔离回归 `1943 passed, 9 skipped`。
+- 容器：未认证页面 `303`、登录页 `200`、会话后页面 `200`、缺 CSRF `403`、退出 `200`、退出后页面 `303`；Cookie 属性、非 root 用户 `kaka` 和 `pip check` 均通过。
+- 剩余边界：当前仍是单租户内部共享凭据的会话交换，不等同于 OIDC、真实用户目录、角色授权或业务审批；这些分别由 `SEC-003`、`SEC-004` 继续处理。

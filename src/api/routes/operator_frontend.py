@@ -41,6 +41,87 @@ OPERATOR_FRONTEND_ROUTE_METADATA = {
     "field_allowlist_masking_required": True,
     "approval_audit_readback_required": True,
 }
+BROWSER_SESSION_FETCH_SCRIPT = r"""
+const kakaCsrfStorageKey = "kaka.internal.csrf";
+if (!window.__kakaAuthenticatedFetchInstalled) {
+  window.__kakaAuthenticatedFetchInstalled = true;
+  const nativeFetch = window.fetch.bind(window);
+  function readStoredCsrf() {
+    try { return sessionStorage.getItem(kakaCsrfStorageKey) || ""; } catch { return ""; }
+  }
+  function storeCsrf(value) {
+    try {
+      if (value) { sessionStorage.setItem(kakaCsrfStorageKey, value); }
+      else { sessionStorage.removeItem(kakaCsrfStorageKey); }
+    } catch { /* sessionStorage may be unavailable; the request will fail closed. */ }
+  }
+  function loginPath() {
+    const next = `${window.location.pathname}${window.location.search}`;
+    return `/internal/login?next=${encodeURIComponent(next)}`;
+  }
+  function redirectToLogin() {
+    storeCsrf("");
+    if (!window.location.pathname.startsWith("/internal/login")) {
+      window.location.replace(loginPath());
+    }
+  }
+  async function refreshCsrf() {
+    const response = await nativeFetch("/internal/auth/session", {
+      method: "GET",
+      credentials: "same-origin",
+      headers: { "accept": "application/json" }
+    });
+    if (!response.ok) {
+      redirectToLogin();
+      return "";
+    }
+    const payload = await response.json().catch(() => ({}));
+    const csrfToken = typeof payload.csrf_token === "string" ? payload.csrf_token : "";
+    storeCsrf(csrfToken);
+    return csrfToken;
+  }
+  window.fetch = async function authenticatedFetch(input, init = {}) {
+    const inputUrl = typeof input === "string" || input instanceof URL ? String(input) : input.url;
+    const url = new URL(inputUrl, window.location.href);
+    if (url.origin !== window.location.origin) {
+      return nativeFetch(input, init);
+    }
+    const method = String(init.method || (input instanceof Request ? input.method : "GET")).toUpperCase();
+    const sourceHeaders = init.headers || (input instanceof Request ? input.headers : undefined);
+    const headers = new Headers(sourceHeaders);
+    if (["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
+      const csrfToken = readStoredCsrf() || await refreshCsrf();
+      if (!csrfToken) {
+        throw new Error("内部会话已失效，请重新登录");
+      }
+      headers.set("x-kaka-csrf-token", csrfToken);
+    }
+    const response = await nativeFetch(input, {
+      ...init,
+      method,
+      headers,
+      credentials: "same-origin"
+    });
+    if (response.status === 401) { redirectToLogin(); }
+    return response;
+  };
+  const logoutButton = document.createElement("button");
+  logoutButton.type = "button";
+  logoutButton.className = "internal-session-logout";
+  logoutButton.textContent = "退出内部会话";
+  logoutButton.title = "清除当前浏览器的短时内部会话";
+  logoutButton.addEventListener("click", async () => {
+    logoutButton.disabled = true;
+    try {
+      await window.fetch("/internal/auth/session", { method: "DELETE" });
+    } finally {
+      storeCsrf("");
+      window.location.replace("/internal/login?next=%2Foperator-console");
+    }
+  });
+  (document.querySelector("nav") || document.body).appendChild(logoutButton);
+}
+"""
 
 AUTONOMOUS_SEARCH_WORK_ITEM_ID = "operator-autonomous-opportunity-search-runs"
 USER_ACCEPTANCE_CONTRACT_PATH = (
@@ -1205,8 +1286,27 @@ def _page(title: str, body: str, script: str) -> HTMLResponse:
       background: #fff7f6;
       color: #5c1f1a;
     }}
+    .internal-session-logout {{
+      width: 100%;
+      min-height: 34px;
+      margin-top: 16px;
+      padding: 6px 10px;
+      border: 1px solid rgba(255,255,255,.32);
+      border-radius: 7px;
+      background: rgba(255,255,255,.08);
+      color: #eef5f2;
+      font-size: 12px;
+      cursor: pointer;
+    }}
+    .internal-session-logout:disabled {{ opacity: .6; cursor: wait; }}
     @media (max-width: 840px) {{
-      .layout {{ grid-template-columns: 1fr; }}
+      body {{ overflow-x: hidden; }}
+      .layout {{ grid-template-columns: minmax(0, 1fr); width: 100%; min-width: 0; }}
+      .layout > nav,
+      .layout > main,
+      .workspace,
+      .panelStack,
+      .resultPane {{ width: 100%; min-width: 0; max-width: 100%; }}
       nav {{ position: static; }}
       .operator-shell {{ height: auto; overflow: visible; }}
       .operator-shell nav {{ height: auto; }}
@@ -1214,7 +1314,7 @@ def _page(title: str, body: str, script: str) -> HTMLResponse:
       .operator-shell main {{ height: auto; overflow: visible; display: block; }}
       .workspace {{ display: block; }}
       .panelStack {{ overflow: visible; padding-right: 0; }}
-      .resultPane pre {{ max-height: 260px; }}
+      .resultPane pre {{ max-width: 100%; max-height: 260px; overflow: auto; }}
       .grid, .rail, .stage-grid, .workflow, .compact-card-grid, .check-grid, .detail-table, .decision-grid, .search-control-grid, .result-headline, .workbench-shell, .opportunity-summary {{ grid-template-columns: 1fr; }}
       .view-grid {{ grid-template-columns: 1fr; }}
       .field-row {{ grid-template-columns: 1fr; }}
@@ -1226,6 +1326,7 @@ def _page(title: str, body: str, script: str) -> HTMLResponse:
 <body>
   {body}
   <script>
+  {BROWSER_SESSION_FETCH_SCRIPT}
   {script}
   </script>
 </body>

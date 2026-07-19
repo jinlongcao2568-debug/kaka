@@ -1,15 +1,15 @@
 # CURRENT PRODUCT STATE
 
-本文件是 2026-07-17 全面评审、连续修复和全量回归后的当前产品状态摘要。它只回答“现在开发到什么程度”，不作为新门禁。
+本文件是 2026-07-19 全面评审、连续修复和全量回归后的当前产品状态摘要。它只回答“现在开发到什么程度”，不作为新门禁。
 
 ## 审计证据
 
 - 当前审计范围：`src/`、`tests/`、`scripts/`、`contracts/`、`control/`、`docs/`、`handoff/`、`fixtures/`、`migrations/`、容器/Compose、CI 和根入口文件。
 - Python 测试规模：195 个测试文件、1962 个 `test*` 函数。
-- 运行路由读回：FastAPI 当前挂载 68 条应用路由；排除框架文档和健康检查后有 66 个业务操作，其中 26 个写操作全部有请求体契约。
-- 全量隔离回归：`python tests/run_tests.py` 通过 1941 个测试，跳过 9 个可选能力测试，失败 0。
-- 关键相关回归：核心修复组合 214 项通过；全量暴露问题修复后的定向组合 75 项通过、跳过 1 项可选 PostgreSQL 集成测试。
-- 容器实跑：默认 API 镜像约 223 MB，以非 root UID 100 运行，Docker health 为 `healthy`；未鉴权/错误 token 均返回 401，正确 token 可读回 66 个操作。
+- 运行路由读回：FastAPI 当前挂载 72 条应用路由；业务操作登记读回为 66 个，其中 26 个写操作全部有请求体契约；另有内部登录页和浏览器 session 的 POST/GET/DELETE 共 4 条认证路由。
+- 全量隔离回归：`python tests/run_tests.py` 通过 1943 个测试，跳过 9 个可选能力测试，失败 0。
+- 关键相关回归：API 与 operator console 定向组合 37 项通过，另有 5 个 subtests；真实浏览器登录、异步读回、CSRF 写请求和退出流程通过。
+- 容器实跑：默认 API 镜像以非 root 用户 `kaka` 运行；未认证页面跳转内部登录页，签名 `HttpOnly`/`SameSite=Strict` Cookie 可进入操作台，无 CSRF 写请求返回 403，退出后页面重新跳转登录；容器 `pip check` 通过。
 - 依赖与静态检查：默认 API 镜像 `pip check` 通过；生产代码 E9、未定义符号和重复字典键检查通过。
 - 契约与状态检查：`validate-contracts.ps1`、`check-state-alignment.ps1`、`docker compose config --quiet`、`git diff --check` 通过。
 
@@ -30,7 +30,7 @@
 3. Stage8 已有联系人合规、触达 outbox、sandbox/provider readiness、审批审计和失败回放。
 4. Stage9 已有订单、支付、交付、结果回写、治理反馈、退款异常和受控自动退款测试边界。
 5. Operator console 和 customer artifact portal 已经存在，能展示 owner 工作台、客户 artifact 读回、下载门禁和运行投影。
-6. 内部 HTTP API 已有服务端 bearer 鉴权、受控文件根、请求/响应契约和 Stage9 正式对象持久化；请求布尔值不能冒充 operator 授权。
+6. 内部 HTTP API 已有服务端 bearer 鉴权；标准浏览器可用签名 `HttpOnly` 短时会话和 CSRF 进入 operator console，Bearer 不进入 URL 或浏览器存储；受控文件根、请求/响应契约和 Stage9 正式对象持久化已接入，请求布尔值不能冒充 operator 授权。
 7. Worker 队列领取/审计提交已原子化，JSON 后端具备跨进程锁和写前重载；公共 URL 获取具备私网/重定向/子请求/响应体大小 fail-closed 边界。
 8. PTL-I100-149 真实公开样本自主机会验收已完成，当前状态是 `READY_FOR_POST-REPAIR_MAINLINE_SELECTION`。
 

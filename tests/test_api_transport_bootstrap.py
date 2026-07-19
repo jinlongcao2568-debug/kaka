@@ -21,7 +21,12 @@ if str(TESTS) not in sys.path:
     sys.path.insert(0, str(TESTS))
 
 from api.deps import get_settings
-from api.main import create_app
+from api.main import (
+    INTERNAL_BROWSER_SESSION_COOKIE,
+    _decode_browser_session,
+    _encode_browser_session,
+    create_app,
+)
 from api.routes.stage1 import register_stage1_routes
 from api.routes.stage2 import register_stage2_routes
 from api.routes.stage3 import register_stage3_routes
@@ -226,6 +231,145 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertEqual(missing.json()["detail"]["code"], "INTERNAL_API_AUTH_REQUIRED")
         self.assertEqual(accepted.status_code, 200)
         self.assertEqual(accepted.headers["cache-control"], "no-store")
+
+    def test_browser_session_supports_navigation_csrf_and_logout(self) -> None:
+        async def exercise(app: object) -> dict[str, httpx.Response]:
+            transport = httpx.ASGITransport(
+                app=app,
+                client=("127.0.0.1", 12345),
+            )
+            async with httpx.AsyncClient(
+                transport=transport,
+                base_url="https://kaka.internal",
+                follow_redirects=False,
+            ) as client:
+                missing_page = await client.get("/operator-console")
+                missing_api = await client.get("/operator-console/readiness")
+                login = await client.get(missing_page.headers["location"])
+                invalid = await client.post(
+                    "/internal/auth/session",
+                    headers={"Authorization": "Bearer wrong-token"},
+                )
+                created = await client.post(
+                    "/internal/auth/session",
+                    headers={"Authorization": "Bearer test-internal-token"},
+                )
+                csrf_token = str(created.json()["csrf_token"])
+                session_readback = await client.get("/internal/auth/session")
+                operator_page = await client.get("/operator-console")
+                missing_csrf = await client.delete("/internal/auth/session")
+                wrong_csrf = await client.delete(
+                    "/internal/auth/session",
+                    headers={"x-kaka-csrf-token": "wrong-csrf"},
+                )
+                logout = await client.delete(
+                    "/internal/auth/session",
+                    headers={"x-kaka-csrf-token": csrf_token},
+                )
+                after_logout = await client.get("/operator-console")
+            return {
+                "missing_page": missing_page,
+                "missing_api": missing_api,
+                "login": login,
+                "invalid": invalid,
+                "created": created,
+                "session_readback": session_readback,
+                "operator_page": operator_page,
+                "missing_csrf": missing_csrf,
+                "wrong_csrf": wrong_csrf,
+                "logout": logout,
+                "after_logout": after_logout,
+            }
+
+        with patch.dict(
+            os.environ,
+            {
+                "KAKA_INTERNAL_API_TOKEN": "test-internal-token",
+                "KAKA_INTERNAL_API_COOKIE_SECURE": "true",
+                "KAKA_INTERNAL_API_SESSION_TTL_SECONDS": "3600",
+            },
+            clear=False,
+        ):
+            get_settings.cache_clear()
+            responses = asyncio.run(exercise(create_app()))
+
+        self.assertEqual(responses["missing_page"].status_code, 303)
+        self.assertTrue(responses["missing_page"].headers["location"].startswith("/internal/login?next="))
+        self.assertNotIn("test-internal-token", responses["missing_page"].headers["location"])
+        self.assertEqual(responses["missing_api"].status_code, 401)
+        self.assertEqual(responses["login"].status_code, 200)
+        self.assertIn('type="password"', responses["login"].text)
+        self.assertNotIn("test-internal-token", responses["login"].text)
+        self.assertEqual(responses["invalid"].status_code, 401)
+
+        created = responses["created"]
+        self.assertEqual(created.status_code, 200)
+        self.assertNotIn("test-internal-token", created.text)
+        set_cookie = created.headers["set-cookie"].lower()
+        self.assertIn(f"{INTERNAL_BROWSER_SESSION_COOKIE}=", set_cookie)
+        self.assertIn("httponly", set_cookie)
+        self.assertIn("secure", set_cookie)
+        self.assertIn("samesite=strict", set_cookie)
+        self.assertIn("max-age=3600", set_cookie)
+
+        session_readback = responses["session_readback"].json()
+        self.assertEqual(responses["session_readback"].status_code, 200)
+        self.assertEqual(session_readback["auth_method"], "browser_session")
+        self.assertEqual(session_readback["csrf_token"], created.json()["csrf_token"])
+        self.assertEqual(responses["operator_page"].status_code, 200)
+        self.assertIn("x-kaka-csrf-token", responses["operator_page"].text)
+        self.assertIn("退出内部会话", responses["operator_page"].text)
+        self.assertNotIn("test-internal-token", responses["operator_page"].text)
+
+        self.assertEqual(responses["missing_csrf"].status_code, 403)
+        self.assertEqual(
+            responses["missing_csrf"].json()["detail"]["code"],
+            "BROWSER_SESSION_CSRF_REQUIRED",
+        )
+        self.assertEqual(responses["wrong_csrf"].status_code, 403)
+        self.assertEqual(responses["logout"].status_code, 200)
+        self.assertTrue(responses["logout"].json()["session_deleted"])
+        self.assertEqual(responses["after_logout"].status_code, 303)
+
+    def test_browser_session_rejects_tampering_and_expiry(self) -> None:
+        with patch("api.main.time.time", return_value=1_000):
+            cookie, payload = _encode_browser_session(
+                configured_token="test-internal-token",
+                principal_id="operator-1",
+                role="internal_operator",
+                ttl_seconds=60,
+            )
+        with patch("api.main.time.time", return_value=1_030):
+            self.assertEqual(
+                _decode_browser_session(
+                    cookie,
+                    configured_token="test-internal-token",
+                    max_ttl_seconds=60,
+                )["csrf_token"],
+                payload["csrf_token"],
+            )
+            self.assertIsNone(
+                _decode_browser_session(
+                    f"{cookie}tampered",
+                    configured_token="test-internal-token",
+                    max_ttl_seconds=60,
+                )
+            )
+            self.assertIsNone(
+                _decode_browser_session(
+                    cookie,
+                    configured_token="rotated-token",
+                    max_ttl_seconds=60,
+                )
+            )
+        with patch("api.main.time.time", return_value=1_061):
+            self.assertIsNone(
+                _decode_browser_session(
+                    cookie,
+                    configured_token="test-internal-token",
+                    max_ttl_seconds=60,
+                )
+            )
 
     def test_stage9_http_create_uses_formal_schema_and_persists_idempotently(self) -> None:
         stage9 = run_internal_chain(load_fixture("internal_chain_happy.json"))["stage9"]

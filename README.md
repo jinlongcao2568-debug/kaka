@@ -35,7 +35,7 @@
 
 ## 内部 API
 
-网络访问默认 fail-closed。除 `/healthz` 外，所有接口都要求配置 `KAKA_INTERNAL_API_TOKEN` 并发送 `Authorization: Bearer <token>`；没有配置 token 时，网络请求返回 `503`，不会静默开放。不要把 token 写入仓库、Compose 文件、浏览器状态或镜像层。
+网络访问默认 fail-closed。除 `/healthz` 和内部登录页外，API 客户端都应配置 `KAKA_INTERNAL_API_TOKEN` 并发送 `Authorization: Bearer <token>`；没有配置 token 时，网络请求返回 `503`，不会静默开放。标准浏览器从 `/internal/login` 用 Bearer 凭据交换一小时的服务端签名 `HttpOnly` 会话 Cookie；同源写请求还必须携带会话绑定的 CSRF Token。Bearer 不写入 URL、localStorage、sessionStorage、Cookie 或镜像层；浏览器只在 `sessionStorage` 保存非认证用途的 CSRF Token。
 
 建议在独立虚拟环境中运行，避免污染系统 Python 或其他工具的共享环境：
 
@@ -43,9 +43,12 @@
 py -3.12 -m venv .venv
 .\.venv\Scripts\python -m pip install -r requirements.txt
 $env:KAKA_INTERNAL_API_TOKEN = '<由本机密钥管理生成的随机 token>'
+$env:KAKA_INTERNAL_API_COOKIE_SECURE = 'false' # 仅限 127.0.0.1 明文 HTTP 开发
 $env:PYTHONPATH = (Resolve-Path .\src).Path
 .\.venv\Scripts\python -m uvicorn api.main:create_app --factory --host 127.0.0.1 --port 8000 --no-server-header
 ```
+
+非本机部署必须保持 `KAKA_INTERNAL_API_COOKIE_SECURE=true`（默认值）并由 HTTPS 反向代理提供 TLS；可用 `KAKA_INTERNAL_API_SESSION_TTL_SECONDS` 调整短时会话寿命。退出按钮会删除当前浏览器 Cookie，Bearer 轮换会立即使既有签名会话失效。
 
 需要运行 operator 文件输入/输出能力时，应显式收紧目录：
 

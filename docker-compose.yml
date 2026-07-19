@@ -43,6 +43,7 @@ services:
       - --no-server-header
     environment:
       KAKA_INTERNAL_API_TOKEN: ${KAKA_INTERNAL_API_TOKEN:-}
+      KAKA_INTERNAL_API_COOKIE_SECURE: "false"
       KAKA_STORAGE_BACKEND: json-file
       KAKA_STORAGE_SCOPE: process
       KAKA_STORAGE_PATH: /app/.kaka-local/storage/internal_operator_loop_store.json
@@ -91,6 +92,7 @@ services:
       - --no-server-header
     environment:
       KAKA_INTERNAL_API_TOKEN: ${KAKA_INTERNAL_API_TOKEN:-}
+      KAKA_INTERNAL_API_COOKIE_SECURE: "false"
       KAKA_STORAGE_BACKEND: postgresql
       KAKA_STORAGE_DATABASE_URL: postgresql+psycopg://kaka_local:local_dev_placeholder_not_secret@postgres:5432/kaka_local
       KAKA_STORAGE_SCOPE: process

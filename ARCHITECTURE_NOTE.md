@@ -12,7 +12,7 @@
 
 ## 运行边界补充
 
-- 内部 API 的网络边界是 bearer token；健康检查公开，其他路径在 token 未配置时 fail-closed。请求体中的布尔字段不能充当 operator 身份、审批或下载授权。
+- 内部 API 的机器访问边界是 bearer token；标准浏览器通过内部登录页把 Bearer 一次性交换为服务端签名的短时 `HttpOnly` / `SameSite=Strict` 会话 Cookie，写请求还必须提供会话绑定的 CSRF Token。生产默认只发送 `Secure` Cookie，本机明文 HTTP 必须显式降级；健康检查和登录页公开，其他路径在 token 未配置时 fail-closed。请求体中的布尔字段不能充当 operator 身份、审批或下载授权。
 - Operator 文件路径只能落在 `KAKA_OPERATOR_INPUT_ROOT` / `KAKA_OPERATOR_ARTIFACT_ROOT` 控制的目录中；HTTP 请求不能指定任意宿主机路径。
 - 公共 URL 读取在传输前拒绝私网、回环、链路本地、保留地址和非标准端口；重定向/浏览器子请求保持同主机，最终 URL 与响应大小在持久化前再次校验。
 - Worker 队列状态变更和审计事件是一个原子提交；审计事件具有数据库唯一约束。JSON 文件后端通过跨进程锁和写前重载避免多 session 丢写，但生产多实例仍优先使用迁移后的 SQL 后端。
