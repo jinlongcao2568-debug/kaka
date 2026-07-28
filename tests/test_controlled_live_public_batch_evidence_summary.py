@@ -195,6 +195,51 @@ class ControlledLivePublicBatchEvidenceSummaryTests(unittest.TestCase):
         self.assertFalse(record["customer_visible_allowed"])
         self.assertIn("Source Remediation", markdown_text)
 
+    def test_source_remediation_routes_guangzhou_challenge_to_public_alternate_index(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            execution_json = root / "real-sample-execution.json"
+            storage_json = root / "storage.json"
+            evidence_out = root / "evidence"
+            stage4_out = root / "stage4"
+            remediation_out = root / "source-remediation"
+            _write_guangzhou_challenge_execution(execution_json)
+            _write_storage(storage_json)
+            build_controlled_live_public_batch_evidence_summary(
+                real_sample_execution_json=execution_json,
+                storage_json=storage_json,
+                output_root=evidence_out,
+                created_at="2026-07-03T00:00:00+00:00",
+            )
+            build_controlled_live_public_batch_stage4_readback(
+                evidence_summary_json=evidence_out / "controlled-live-public-batch-evidence-summary-v1.json",
+                real_sample_execution_json=execution_json,
+                storage_json=storage_json,
+                output_root=stage4_out,
+                created_at="2026-07-03T00:00:00+00:00",
+            )
+
+            result = build_controlled_live_public_batch_source_remediation(
+                evidence_summary_json=evidence_out / "controlled-live-public-batch-evidence-summary-v1.json",
+                real_sample_execution_json=execution_json,
+                stage4_readback_json=stage4_out / "controlled-live-public-batch-stage4-readback-v1.json",
+                output_root=remediation_out,
+                created_at="2026-07-03T00:00:00+00:00",
+            )
+
+        summary = result["summary"]
+        record = result["source_remediation_queue"]["records"][0]
+        route = record["alternate_public_source_route"]
+        self.assertEqual(record["blocker_class"], "PUBLIC_SOURCE_CHALLENGE_OR_MANUAL_BLOCKER")
+        self.assertEqual(record["source_remediation_state"], "ALTERNATE_PUBLIC_SOURCE_REQUIRED")
+        self.assertEqual(summary["source_remediation_closeout_state"], "ALTERNATE_PUBLIC_SOURCE_REQUIRED")
+        self.assertEqual(summary["next_required_step"], "execute_alternate_public_source_queries")
+        self.assertTrue(record["alternate_source_required"])
+        self.assertEqual(route["alternate_source_profile_ids"], ["GGZY-DEAL-LIST"])
+        self.assertIn("JG2026-12846", route["alternate_query_terms"])
+        self.assertIn("primary_public_source_challenge", route["route_reason"])
+        self.assertTrue(route["must_not_treat_no_match_as_clearance"])
+
     def test_controlled_gray_targets_expand_only_primary_friendly_sources(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -282,6 +327,7 @@ class ControlledLivePublicBatchEvidenceSummaryTests(unittest.TestCase):
                 professional_source_only=True,
                 execute=True,
                 auto_execute_source_remediation=True,
+                enable_alternate_public_source=True,
                 created_at="2026-07-05T00:00:00+00:00",
             )
 
@@ -293,6 +339,9 @@ class ControlledLivePublicBatchEvidenceSummaryTests(unittest.TestCase):
         self.assertEqual(records[0]["target_count"], 2)
         self.assertIn("run-controlled-live-public-batch-v1.ps1", records[0]["recommended_command"])
         self.assertIn("-TargetIds", records[0]["recommended_command"])
+        self.assertIn("-EnableAlternatePublicSource", records[0]["recommended_command"])
+        self.assertTrue(records[0]["enable_alternate_public_source"])
+        self.assertTrue(summary["enable_alternate_public_source"])
         self.assertIn("REAL-GD-TENDER-001,REAL-GD-AWARD-001", records[0]["recommended_command"])
         self.assertIn("REAL-GD-TENDER-001", records[0]["recommended_command"])
         self.assertIn("build-controlled-gray-public-batch-segment-aggregate-v1.ps1", result["aggregate_command"])
@@ -467,6 +516,7 @@ class ControlledLivePublicBatchEvidenceSummaryTests(unittest.TestCase):
                 execute=True,
                 professional_source_only=True,
                 auto_execute_source_remediation=True,
+                enable_alternate_public_source=True,
                 operator_decision="APPROVED",
                 created_at="2026-07-05T00:00:00+00:00",
             )
@@ -493,6 +543,7 @@ class ControlledLivePublicBatchEvidenceSummaryTests(unittest.TestCase):
         )
         self.assertFalse(result["safety"]["customer_visible_allowed"])
         self.assertTrue(result["query_miss_is_not_clearance"])
+        self.assertTrue(result["inputs"]["command_config"]["enable_alternate_public_source"])
         self.assertIn("manifest_sha256", result)
         self.assertTrue(orchestrator_json_exists)
         self.assertTrue(orchestrator_markdown_exists)
@@ -614,6 +665,94 @@ class ControlledLivePublicBatchEvidenceSummaryTests(unittest.TestCase):
         self.assertIn("-SegmentTimeoutSeconds 900", approved_result["gray_run_plan"]["recommended_command"])
         self.assertTrue(approved_result["operator_decision_record"]["decision_record_sha256"])
 
+    def test_gray_launch_review_ignores_legacy_post_run_defaults_without_remediation_execution(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            closeout_json = root / "closeout.json"
+            evidence_json = root / "evidence.json"
+            stage4_json = root / "stage4.json"
+            remediation_json = root / "remediation.json"
+            out = root / "gray-review"
+            _write_json(
+                closeout_json,
+                {
+                    "execute": True,
+                    "sample_count": 16,
+                    "fixed_snapshot_sha256_count": 14,
+                    "stage4_evidence_readback_required_count": 16,
+                    "stage4_readback_ready_sample_count": 16,
+                    "stage4_readback_missing_sample_count": 0,
+                    "stage4_public_evidence_readback_count": 19,
+                    "stage4_all_required_readbacks_ready": True,
+                    "source_remediation_record_count": 0,
+                    "source_remediation_execution_state": "",
+                    "source_remediation_execution_json": "",
+                    "post_run_source_remediation_record_count": 0,
+                    "post_run_stage4_all_required_readbacks_ready": False,
+                    "customer_visible_allowed": False,
+                    "payment_execution_enabled": False,
+                    "delivery_execution_enabled": False,
+                    "query_miss_is_not_clearance": True,
+                    "no_legal_conclusion": True,
+                },
+            )
+            _write_json(
+                evidence_json,
+                {
+                    "summary": {
+                        "source_execute": True,
+                        "project_sample_count": 16,
+                        "fixed_snapshot_sha256_count": 14,
+                        "customer_visible_allowed": False,
+                        "payment_execution_enabled": False,
+                        "delivery_execution_enabled": False,
+                        "query_miss_is_not_clearance": True,
+                        "no_legal_conclusion": True,
+                    }
+                },
+            )
+            _write_json(
+                stage4_json,
+                {
+                    "summary": {
+                        "stage4_all_required_readbacks_ready": True,
+                        "stage4_readback_required_sample_count": 16,
+                        "stage4_readback_ready_sample_count": 16,
+                        "stage4_readback_missing_sample_count": 0,
+                        "stage4_public_evidence_readback_count": 19,
+                        "customer_visible_allowed": False,
+                        "query_miss_is_not_clearance": True,
+                        "no_legal_conclusion": True,
+                    }
+                },
+            )
+            _write_json(
+                remediation_json,
+                {
+                    "summary": {
+                        "source_remediation_record_count": 0,
+                        "source_remediation_closeout_state": "NO_SOURCE_REMEDIATION_REQUIRED",
+                        "customer_visible_allowed": False,
+                    }
+                },
+            )
+
+            result = build_controlled_live_public_batch_gray_launch_review(
+                closeout_json=closeout_json,
+                evidence_summary_json=evidence_json,
+                stage4_readback_json=stage4_json,
+                source_remediation_json=remediation_json,
+                output_root=out,
+                created_at="2026-07-28T00:00:00+00:00",
+            )
+
+        summary = result["summary"]
+        self.assertEqual(summary["gray_launch_review_state"], "READY_FOR_HUMAN_GRAY_LAUNCH_REVIEW")
+        self.assertTrue(summary["stage4_all_required_readbacks_ready"])
+        self.assertTrue(summary["base_stage4_all_required_readbacks_ready"])
+        self.assertFalse(summary["post_run_stage4_all_required_readbacks_ready"])
+        self.assertEqual(summary["source_remediation_final_record_count"], 0)
+
     def test_professional_runner_autogenerates_controlled_live_evidence_summary(self) -> None:
         script = (ROOT / "scripts" / "run-professional-clean-v1-real-samples.ps1").read_text(
             encoding="utf-8"
@@ -639,6 +778,7 @@ class ControlledLivePublicBatchEvidenceSummaryTests(unittest.TestCase):
         self.assertIn("build-controlled-live-public-batch-source-remediation-v1.ps1", script)
         self.assertIn("AutoExecuteSourceRemediation", script)
         self.assertIn("EnableAlternatePublicSource", script)
+        self.assertIn('$sourceRemediationExecutionArgs += "-EnableAlternatePublicSource"', script)
         self.assertIn("run-controlled-live-public-batch-source-remediation-v1.ps1", script)
         self.assertIn("build-controlled-live-public-batch-gray-launch-review-v1.ps1", script)
         self.assertIn("build-professional-clean-project-archive.ps1", script)
@@ -652,9 +792,11 @@ class ControlledLivePublicBatchEvidenceSummaryTests(unittest.TestCase):
         self.assertIn("NOT_READY_STAGE4_EVIDENCE_READBACK_REQUIRED", script)
         self.assertIn("NOT_READY_SOURCE_REMEDIATION_QUEUE_READY", script)
         self.assertIn("$stage4RequiredCount -gt 0 -and -not $stage4AllRequiredReadbacksReady", script)
+        self.assertIn("$postRunStage4AllRequiredReadbacksReady = $stage4AllRequiredReadbacksReady", script)
         self.assertIn("stage4_all_required_readbacks_ready", script)
         self.assertIn("source_remediation_closeout_state", script)
         self.assertIn("source_remediation_execution_state", script)
+        self.assertIn("quarantined_source_remediation_record_count", script)
         self.assertIn('$runArgs += ($TargetIds -join ",")', script)
         self.assertIn("customer_visible_allowed = $false", script)
         self.assertIn("payment_execution_enabled = $false", script)
@@ -673,12 +815,14 @@ class ControlledLivePublicBatchEvidenceSummaryTests(unittest.TestCase):
         self.assertIn("Start-Process", script)
         self.assertIn("Stop-ControlledSegmentProcesses", script)
         self.assertIn("already complete; skipping", script)
+        self.assertIn("EnableAlternatePublicSource", script)
 
     def test_controlled_gray_orchestrator_wires_targets_segments_approval_and_summary(self) -> None:
         script = (ROOT / "scripts" / "run-controlled-gray-public-orchestrator-v1.ps1").read_text(
             encoding="utf-8"
         )
 
+        self.assertIn("[CmdletBinding(PositionalBinding=$false)]", script)
         self.assertIn("build-controlled-gray-public-source-targets-v1.ps1", script)
         self.assertIn("run-controlled-gray-public-batch-segments-v1.ps1", script)
         self.assertIn("build-controlled-gray-public-batch-segment-aggregate-v1.ps1", script)
@@ -689,6 +833,14 @@ class ControlledLivePublicBatchEvidenceSummaryTests(unittest.TestCase):
         self.assertIn("runtime.controlled_gray_public_orchestrator", script)
         self.assertIn("--aggregate-json", script)
         self.assertIn("--auto-execute-source-remediation", script)
+        self.assertIn("--enable-alternate-public-source", script)
+
+    def test_controlled_gray_source_target_script_rejects_positional_argument_drift(self) -> None:
+        script = (ROOT / "scripts" / "build-controlled-gray-public-source-targets-v1.ps1").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("[CmdletBinding(PositionalBinding=$false)]", script)
 
 
 def _write_execution(path: Path) -> None:
@@ -898,6 +1050,66 @@ def _write_source_blocker_execution(path: Path) -> None:
                         "platform_name": "山东省公共资源交易网",
                         "document_kind": "tender_file",
                         "source_profile_id": "SHANDONG-GGZY-JYXXGK-LIST",
+                        "target_execution_state": "CAPTURE_PARTIAL_REVIEW",
+                        "discovery_candidate_count": 1,
+                        "detail_snapshot_refs": [],
+                        "attachment_snapshot_refs": [],
+                        "failure_taxonomy": list(blocker_sample["failure_taxonomy"]),
+                    }
+                ],
+                "project_sample_items": [blocker_sample],
+            }
+        },
+    )
+
+
+def _write_guangzhou_challenge_execution(path: Path) -> None:
+    blocker_sample = {
+        "sample_id": "REAL-GD-TENDER-001::285a2cbc4dc0",
+        "parent_target_id": "REAL-GD-TENDER-001",
+        "target_id": "REAL-GD-TENDER-001::285a2cbc4dc0",
+        "project_id": "PROJ-CN-GD-JG2026-12846",
+        "project_name": "广东绿帝桂荔农业科技有限公司高州市城东工业园绿帝桂圆荔枝全链产业园区项目工程总承包（第二次）招标公告【电子标】",
+        "project_match_key": "JG2026-12846",
+        "document_kind": "tender_file",
+        "jurisdiction": "CN-GD",
+        "source_profile_id": "GUANGZHOU-YWTB-CONSTRUCTION-LIST",
+        "source_url": "https://ywtb.gzggzy.cn/jyfw/002001/002001001/20260727/00f96348-4c8d-4b07-98f5-2a2faf3f0417.html",
+        "target_execution_state": "CAPTURE_PARTIAL_REVIEW",
+        "detail_capture_status": "AUTOMATED_CHALLENGE_RESOLUTION_PENDING",
+        "stage3_parse_state": "NOT_RUN",
+        "document_completeness_state": "DETAIL_SNAPSHOT_MISSING_REVIEW",
+        "detail_snapshot_refs": [],
+        "attachment_snapshot_refs": [],
+        "parse_summary": {
+            "document_quality_reasons": [
+                "detail_snapshot_missing",
+                "capture_failure_or_blocker_present",
+            ],
+            "attachment_missing_review_count": 1,
+        },
+        "failure_taxonomy": [
+            "CAPTCHA_MANUAL_REQUIRED",
+            "detail_capture_failure:controlled_challenge_body_pattern:请登录:1",
+            "detail_snapshot_missing",
+            "capture_failure_or_blocker_present",
+        ],
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
+    _write_json(
+        path,
+        {
+            "manifest": {
+                "execution_mode": "EXECUTED",
+                "execute": True,
+                "items": [
+                    {
+                        "target_id": "REAL-GD-TENDER-001",
+                        "jurisdiction": "CN-GD",
+                        "platform_name": "广州交易集团",
+                        "document_kind": "tender_file",
+                        "source_profile_id": "GUANGZHOU-YWTB-CONSTRUCTION-LIST",
                         "target_execution_state": "CAPTURE_PARTIAL_REVIEW",
                         "discovery_candidate_count": 1,
                         "detail_snapshot_refs": [],

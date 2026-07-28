@@ -119,24 +119,33 @@ class TestProfessionalCleanProjectArchive(unittest.TestCase):
                 content_type="text/html",
                 source_url="https://example.test/20260704/candidate.html",
             )
+            _save_snapshot(
+                repo,
+                snapshot_id="SNAP-ATTACH-LONG-FLOW",
+                data=b"%PDF-1.4 candidate attachment",
+                content_type="application/pdf",
+                source_url="https://example.test/20260704/candidate.pdf",
+            )
             execution_path = Path(tmp_dir) / "run-manifest.json"
             output_root = (
                 Path(tmp_dir)
-                / "controlled-gray-public-batch-segments-20260705-v3"
+                / "controlled-gray-public-orchestrator-20260728-140918"
+                / "segments"
                 / "runs"
-                / "03-zhejiang-ggzy-jyxxgk-list"
+                / "05-real-sc-candidate-001"
             )
-            long_title = "浙江西建工程管理有限公司关于紫荆幼儿园2026年维修工程中标候选人公示" * 3
+            long_title = "四川省成都市公共资源交易服务中心关于重点工程项目中标候选人公示" * 3
             sample = _project_sample(
                 project_name=long_title,
                 detail_snapshot_id="SNAP-DETAIL-LONG-FLOW",
-                attachment_snapshot_id="SNAP-NOT-USED",
+                attachment_snapshot_id="SNAP-ATTACH-LONG-FLOW",
+                attachment_role_type="CANDIDATE_NOTICE_ATTACHMENT",
+                attachment_source_url="https://example.test/20260704/candidate.pdf",
             )
-            sample["jurisdiction"] = "CN-ZJ"
-            sample["source_profile_id"] = "ZHEJIANG-GGZY-JYXXGK-LIST"
+            sample["jurisdiction"] = "CN-SC"
+            sample["source_profile_id"] = "SICHUAN-GGZY-CANDIDATE-LIST"
             sample["document_kind"] = "candidate_notice"
             sample["source_url"] = "https://example.test/20260704/candidate.html"
-            sample["attachment_snapshot_refs"] = []
             _write_execution_manifest(execution_path, [sample])
 
             result = build_professional_clean_project_archive_manifest(
@@ -148,6 +157,7 @@ class TestProfessionalCleanProjectArchive(unittest.TestCase):
 
             item = result["manifest"]["items"][0]
             meta_paths = list(Path(item["project_dir"]).rglob("detail/*.meta.json"))
+            meta_paths.extend(Path(item["project_dir"]).rglob("attachments/*.meta.json"))
             self.assertTrue(meta_paths)
             self.assertTrue(all(len(str(path)) < 260 for path in meta_paths))
 

@@ -142,10 +142,16 @@ def _summary(
         closeout.get("stage4_all_required_readbacks_ready"),
         stage4_summary.get("stage4_all_required_readbacks_ready"),
     )
-    post_run_stage4_all_ready = _first_known_bool(
-        remediation_execution_summary.get("post_run_stage4_all_required_readbacks_ready"),
-        closeout.get("post_run_stage4_all_required_readbacks_ready"),
+    has_remediation_execution = bool(remediation_execution_summary) or bool(
+        closeout.get("source_remediation_execution_json")
+        or closeout.get("source_remediation_execution_state")
     )
+    post_run_stage4_all_ready = None
+    if has_remediation_execution:
+        post_run_stage4_all_ready = _first_known_bool(
+            remediation_execution_summary.get("post_run_stage4_all_required_readbacks_ready"),
+            closeout.get("post_run_stage4_all_required_readbacks_ready"),
+        )
     final_stage4_all_ready = (
         post_run_stage4_all_ready if post_run_stage4_all_ready is not None else base_stage4_all_ready
     )
@@ -153,14 +159,21 @@ def _summary(
         closeout.get("source_remediation_record_count"),
         remediation_summary.get("source_remediation_record_count"),
     )
-    post_run_source_remediation_count = _first_known_int(
-        remediation_execution_summary.get("post_run_source_remediation_record_count"),
-        closeout.get("post_run_source_remediation_record_count"),
-    )
+    post_run_source_remediation_count = None
+    if has_remediation_execution:
+        post_run_source_remediation_count = _first_known_int(
+            remediation_execution_summary.get("effective_post_run_source_remediation_record_count"),
+            remediation_execution_summary.get("post_run_source_remediation_record_count"),
+            closeout.get("post_run_source_remediation_record_count"),
+        )
     final_source_remediation_count = (
         post_run_source_remediation_count
         if post_run_source_remediation_count is not None
         else source_remediation_initial_count
+    )
+    quarantined_source_remediation_count = _first_int(
+        remediation_execution_summary.get("quarantined_source_remediation_record_count"),
+        closeout.get("quarantined_source_remediation_record_count"),
     )
     safety_boundary_closed = _safety_boundary_closed(closeout, evidence_summary, stage4_summary, remediation_summary)
     no_legal_conclusion = _first_bool(
@@ -244,6 +257,7 @@ def _summary(
         else False,
         "source_remediation_initial_record_count": source_remediation_initial_count,
         "source_remediation_final_record_count": final_source_remediation_count,
+        "quarantined_source_remediation_record_count": quarantined_source_remediation_count,
         "source_remediation_execution_state": str(
             remediation_execution_summary.get("source_remediation_execution_state")
             or closeout.get("source_remediation_execution_state")
@@ -367,7 +381,10 @@ def _checklist(summary: Mapping[str, Any]) -> list[dict[str, Any]]:
             "source_remediation_cleared",
             "Source remediation queue is cleared",
             _int(summary.get("source_remediation_final_record_count")) == 0,
-            f"final_source_remediation_count={summary.get('source_remediation_final_record_count')}",
+            (
+                f"final_source_remediation_count={summary.get('source_remediation_final_record_count')} "
+                f"quarantined={summary.get('quarantined_source_remediation_record_count')}"
+            ),
         ),
         _item(
             "customer_payment_delivery_closed",

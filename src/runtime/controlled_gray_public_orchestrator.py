@@ -35,6 +35,7 @@ def build_controlled_gray_public_orchestrator_prepare_bundle(
     professional_source_only: bool = True,
     execute: bool = False,
     auto_execute_source_remediation: bool = True,
+    enable_alternate_public_source: bool = False,
     created_at: str | None = None,
     progress_callback: Callable[[str, int, int, str], None] | None = None,
     cancellation_checkpoint: Callable[[], None] | None = None,
@@ -78,6 +79,7 @@ def build_controlled_gray_public_orchestrator_prepare_bundle(
         professional_source_only=professional_source_only,
         execute=execute,
         auto_execute_source_remediation=auto_execute_source_remediation,
+        enable_alternate_public_source=enable_alternate_public_source,
         created_at=created_at,
     )
     _runtime_checkpoint(
@@ -119,6 +121,7 @@ def build_controlled_gray_public_orchestrator_prepare_bundle(
         segment_timeout_seconds=segment_timeout_seconds,
         professional_source_only=professional_source_only,
         auto_execute_source_remediation=auto_execute_source_remediation,
+        enable_alternate_public_source=enable_alternate_public_source,
         created_at=created_at,
     )
     _runtime_checkpoint(
@@ -173,6 +176,7 @@ def build_controlled_gray_public_orchestrator_manifest(
     segment_timeout_seconds: int = 900,
     professional_source_only: bool = False,
     auto_execute_source_remediation: bool = False,
+    enable_alternate_public_source: bool = False,
     force_rerun: bool = False,
     operator_decision: str = "",
     operator_name: str = "",
@@ -199,6 +203,7 @@ def build_controlled_gray_public_orchestrator_manifest(
         "segment_timeout_seconds": max(0, int(segment_timeout_seconds)),
         "professional_source_only": bool(professional_source_only),
         "auto_execute_source_remediation": bool(auto_execute_source_remediation),
+        "enable_alternate_public_source": bool(enable_alternate_public_source),
         "force_rerun": bool(force_rerun),
         "operator_decision": str(operator_decision or ""),
         "operator_name": str(operator_name or ""),
@@ -354,6 +359,9 @@ def _orchestrator_summary(
             aggregate_summary.get("source_remediation_initial_record_count")
         ),
         "source_remediation_final_record_count": source_remediation_final,
+        "quarantined_source_remediation_record_count": _int(
+            aggregate_summary.get("quarantined_source_remediation_record_count")
+        ),
         "partial_or_blocked_count": _int(aggregate_summary.get("partial_or_blocked_count")),
         "no_match_count": _int(aggregate_summary.get("no_match_count")),
         "remaining_evidence_blocker_count": stage4_missing + source_remediation_final,
@@ -658,6 +666,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--execute", action="store_true")
     parser.add_argument("--professional-source-only", action="store_true")
     parser.add_argument("--auto-execute-source-remediation", action="store_true")
+    parser.add_argument("--enable-alternate-public-source", action="store_true")
     parser.add_argument("--force-rerun", action="store_true")
     parser.add_argument("--operator-decision", default="")
     parser.add_argument("--operator-name", default="")
@@ -680,6 +689,7 @@ def main(argv: list[str] | None = None) -> int:
         segment_timeout_seconds=args.segment_timeout_seconds,
         professional_source_only=args.professional_source_only,
         auto_execute_source_remediation=args.auto_execute_source_remediation,
+        enable_alternate_public_source=args.enable_alternate_public_source,
         force_rerun=args.force_rerun,
         operator_decision=args.operator_decision,
         operator_name=args.operator_name,

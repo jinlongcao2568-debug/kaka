@@ -13,6 +13,8 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from runtime.controlled_live_public_batch_source_remediation_execution import (  # noqa: E402
+    _alternate_needed_after_rerun,
+    _summary as _execution_summary,
     build_controlled_live_public_batch_source_remediation_execution,
 )
 
@@ -101,6 +103,105 @@ class FakeCaptureService:
 
 
 class ControlledLivePublicBatchSourceRemediationExecutionTests(unittest.TestCase):
+    def test_alternate_source_runs_when_any_remediation_remains_after_partial_rerun(self) -> None:
+        self.assertTrue(
+            _alternate_needed_after_rerun(
+                rerun_result={
+                    "manifest": {
+                        "summary": {
+                            "project_sample_count": 12,
+                            "detail_snapshot_count": 11,
+                        }
+                    }
+                },
+                source_remediation_post_run_outputs={
+                    "post_run_source_remediation_record_count": 1,
+                },
+            )
+        )
+
+    def test_alternate_source_clears_effective_count_after_stage4_readback_ready(self) -> None:
+        summary = _execution_summary(
+            source_remediation_payload={"manifest_sha256": "sha"},
+            queue_records=[{"remediation_record_id": "SRC-1"}],
+            group_records=[{"source_remediation_group_id": "GRP-1"}],
+            requested_target_ids=["READY-CAND"],
+            rerun_result={
+                "manifest": {
+                    "selected_target_ids": ["READY-CAND"],
+                    "summary": {
+                        "project_sample_count": 12,
+                        "detail_snapshot_count": 11,
+                    },
+                }
+            },
+            post_run_outputs={
+                "post_run_evidence_generation_state": "GENERATED",
+                "post_run_stage4_all_required_readbacks_ready": False,
+                "post_run_source_remediation_record_count": 1,
+            },
+            alternate_run={
+                "alternate_public_source_execution_state": "ALTERNATE_PUBLIC_SOURCE_EXECUTED_WITH_SNAPSHOTS",
+                "alternate_post_run_outputs": {
+                    "post_run_stage4_all_required_readbacks_ready": True,
+                    "post_run_source_remediation_record_count": 0,
+                },
+            },
+            enable_alternate_public_source=True,
+            execute=True,
+        )
+
+        self.assertEqual(summary["primary_post_run_source_remediation_record_count"], 1)
+        self.assertEqual(summary["effective_post_run_source_remediation_record_count"], 0)
+        self.assertEqual(summary["post_run_source_remediation_record_count"], 0)
+        self.assertTrue(summary["post_run_stage4_all_required_readbacks_ready"])
+        self.assertTrue(summary["alternate_public_source_cleared_source_remediation"])
+        self.assertEqual(summary["next_required_step"], "human_gray_launch_review")
+
+    def test_alternate_no_match_quarantines_blocker_without_clearance(self) -> None:
+        summary = _execution_summary(
+            source_remediation_payload={"manifest_sha256": "sha"},
+            queue_records=[{"remediation_record_id": "SRC-1"}],
+            group_records=[{"source_remediation_group_id": "GRP-1"}],
+            requested_target_ids=["READY-CAND"],
+            rerun_result={
+                "manifest": {
+                    "selected_target_ids": ["READY-CAND"],
+                    "summary": {
+                        "project_sample_count": 12,
+                        "detail_snapshot_count": 11,
+                    },
+                }
+            },
+            post_run_outputs={
+                "post_run_evidence_generation_state": "GENERATED",
+                "post_run_stage4_all_required_readbacks_ready": True,
+                "post_run_source_remediation_record_count": 1,
+            },
+            alternate_run={
+                "alternate_public_source_execution_state": "ALTERNATE_PUBLIC_SOURCE_EXECUTED_REVIEW_REQUIRED",
+                "execution_result": {
+                    "manifest": {
+                        "summary": {
+                            "target_execution_bucket_count": 6,
+                            "project_sample_count": 0,
+                            "execution_state_counts": {"DISCOVERY_NO_MATCH_REVIEW": 6},
+                        }
+                    }
+                },
+            },
+            enable_alternate_public_source=True,
+            execute=True,
+        )
+
+        self.assertEqual(summary["effective_post_run_source_remediation_record_count"], 0)
+        self.assertEqual(summary["post_run_source_remediation_record_count"], 0)
+        self.assertTrue(summary["alternate_public_source_no_match_quarantined"])
+        self.assertEqual(summary["quarantined_source_remediation_record_count"], 1)
+        self.assertEqual(summary["quarantine_reason"], "alternate_public_source_no_match_not_clearance")
+        self.assertTrue(summary["query_miss_is_not_clearance"])
+        self.assertEqual(summary["next_required_step"], "human_gray_launch_review")
+
     def test_dry_run_plans_only_queued_blocked_targets(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -291,6 +392,7 @@ class ControlledLivePublicBatchSourceRemediationExecutionTests(unittest.TestCase
                 output_root=out,
                 execute=True,
                 enable_alternate_public_source=True,
+                professional_source_only=True,
                 discovery_service=discovery,
                 capture_service=capture,
             )
@@ -316,6 +418,11 @@ class ControlledLivePublicBatchSourceRemediationExecutionTests(unittest.TestCase
         )
         self.assertEqual(summary["source_remediation_execution_state"], "SOURCE_REMEDIATION_RERUN_EXECUTED_REVIEW_REQUIRED")
         self.assertEqual(summary["alternate_public_source_execution_state"], "ALTERNATE_PUBLIC_SOURCE_EXECUTED_WITH_SNAPSHOTS")
+        self.assertEqual(Path(result["alternate_public_source_run"]["alternate_object_storage_path"]).name, "o")
+        self.assertEqual(summary["primary_post_run_source_remediation_record_count"], 1)
+        self.assertEqual(summary["effective_post_run_source_remediation_record_count"], 1)
+        self.assertEqual(summary["post_run_source_remediation_record_count"], 1)
+        self.assertFalse(summary["alternate_public_source_cleared_source_remediation"])
         self.assertGreater(summary["alternate_detail_snapshot_count"], 1)
         self.assertEqual(len(summary["alternate_requested_target_ids"]), len(alternate_targets))
         self.assertEqual(summary["next_required_step"], "review_alternate_public_source_evidence_before_gray_launch")

@@ -33,6 +33,7 @@ def build_controlled_gray_public_batch_segments(
     professional_source_only: bool = True,
     execute: bool = True,
     auto_execute_source_remediation: bool = True,
+    enable_alternate_public_source: bool = False,
     created_at: str | None = None,
 ) -> dict[str, Any]:
     created = created_at or utc_now_iso()
@@ -74,6 +75,7 @@ def build_controlled_gray_public_batch_segments(
             "professional_source_only": bool(professional_source_only),
             "execute": bool(execute),
             "auto_execute_source_remediation": bool(auto_execute_source_remediation),
+            "enable_alternate_public_source": bool(enable_alternate_public_source),
             "recommended_command": _segment_command(
                 run_root=run_root,
                 targets_json=targets_path,
@@ -83,6 +85,7 @@ def build_controlled_gray_public_batch_segments(
                 professional_source_only=professional_source_only,
                 execute=execute,
                 auto_execute_source_remediation=auto_execute_source_remediation,
+                enable_alternate_public_source=enable_alternate_public_source,
             ),
             "customer_visible_allowed": False,
             "external_send_enabled": False,
@@ -109,6 +112,7 @@ def build_controlled_gray_public_batch_segments(
         "professional_source_only": bool(professional_source_only),
         "execute": bool(execute),
         "auto_execute_source_remediation": bool(auto_execute_source_remediation),
+        "enable_alternate_public_source": bool(enable_alternate_public_source),
         "customer_visible_allowed": False,
         "external_send_enabled": False,
         "payment_execution_enabled": False,
@@ -248,6 +252,9 @@ def _aggregate_segment_record(
         ),
         "source_remediation_initial_record_count": _int(closeout.get("source_remediation_record_count")),
         "source_remediation_final_record_count": source_remediation_final_count,
+        "quarantined_source_remediation_record_count": _int(
+            closeout.get("quarantined_source_remediation_record_count")
+        ),
         "source_remediation_execution_state": str(closeout.get("source_remediation_execution_state") or ""),
         "partial_or_blocked_count": _int(closeout.get("partial_or_blocked_count")),
         "no_match_count": _int(closeout.get("no_match_count")),
@@ -369,6 +376,9 @@ def _aggregate_summary(
             _int(record.get("source_remediation_initial_record_count")) for record in records
         ),
         "source_remediation_final_record_count": source_remediation_final,
+        "quarantined_source_remediation_record_count": sum(
+            _int(record.get("quarantined_source_remediation_record_count")) for record in records
+        ),
         "partial_or_blocked_count": sum(_int(record.get("partial_or_blocked_count")) for record in records),
         "no_match_count": sum(_int(record.get("no_match_count")) for record in records),
         "safety_boundary_closed": safety_boundary_closed,
@@ -478,6 +488,7 @@ def _segment_command(
     professional_source_only: bool,
     execute: bool,
     auto_execute_source_remediation: bool,
+    enable_alternate_public_source: bool,
 ) -> str:
     parts = [
         "powershell.exe",
@@ -503,6 +514,8 @@ def _segment_command(
         parts.append("-Execute")
     if auto_execute_source_remediation:
         parts.append("-AutoExecuteSourceRemediation")
+    if enable_alternate_public_source:
+        parts.append("-EnableAlternatePublicSource")
     return " ".join(parts)
 
 
@@ -741,6 +754,7 @@ def main(argv: list[str] | None = None) -> int:
     plan_parser.add_argument("--professional-source-only", action="store_true")
     plan_parser.add_argument("--execute", action="store_true")
     plan_parser.add_argument("--auto-execute-source-remediation", action="store_true")
+    plan_parser.add_argument("--enable-alternate-public-source", action="store_true")
     plan_parser.add_argument("--json", action="store_true")
 
     aggregate_parser = subparsers.add_parser("aggregate")
@@ -766,6 +780,7 @@ def main(argv: list[str] | None = None) -> int:
             professional_source_only=args.professional_source_only,
             execute=args.execute,
             auto_execute_source_remediation=args.auto_execute_source_remediation,
+            enable_alternate_public_source=args.enable_alternate_public_source,
         )
     else:
         result = build_controlled_gray_public_batch_segment_aggregate(

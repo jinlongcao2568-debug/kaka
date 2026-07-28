@@ -9,6 +9,7 @@ param(
     [switch]$ProfessionalSourceOnly,
     [switch]$Execute,
     [switch]$AutoExecuteSourceRemediation,
+    [switch]$EnableAlternatePublicSource,
     [switch]$ForceRerun,
     [switch]$EmitJson
 )
@@ -91,6 +92,10 @@ if ($AutoExecuteSourceRemediation) {
     $planArgs += "-AutoExecuteSourceRemediation"
 }
 
+if ($EnableAlternatePublicSource) {
+    $planArgs += "-EnableAlternatePublicSource"
+}
+
 & pwsh @planArgs
 if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
@@ -133,6 +138,9 @@ foreach ($segment in $segments) {
     }
     if ($AutoExecuteSourceRemediation) {
         $runArgs += "-AutoExecuteSourceRemediation"
+    }
+    if ($EnableAlternatePublicSource) {
+        $runArgs += "-EnableAlternatePublicSource"
     }
     $exitCode = Invoke-ControlledSegmentRun -RunArgs $runArgs -RunRoot ([string]$segment.run_root) -TimeoutSeconds $SegmentTimeoutSeconds
     if ($exitCode -ne 0) {

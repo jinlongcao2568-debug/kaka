@@ -222,7 +222,7 @@ def _maybe_run_alternate_public_sources(
             "alternate_public_source_execution_state": "NO_ALTERNATE_PUBLIC_SOURCE_TARGETS",
         }
     storage_path = alternate_root / "storage.json"
-    object_storage_path = alternate_root / "objects"
+    object_storage_path = output_dir / "o"
     execution_result = build_evaluation_real_sample_execution(
         targets_json=target_file,
         seed_json=seed_file,
@@ -234,7 +234,7 @@ def _maybe_run_alternate_public_sources(
         created_at=created_at,
         target_ids=target_ids,
         per_target_candidate_limit=per_target_candidate_limit,
-        professional_source_only=professional_source_only,
+        professional_source_only=False,
         discovery_service=discovery_service,
         capture_service=capture_service,
     )
@@ -258,6 +258,7 @@ def _maybe_run_alternate_public_sources(
         "alternate_public_source_execution_state": state,
         "alternate_targets_json": str(target_file),
         "alternate_seed_json": str(seed_file),
+        "alternate_object_storage_path": str(object_storage_path),
         "alternate_requested_target_ids": target_ids,
         "alternate_manifest_json": str(manifest_json),
         "alternate_project_sample_count": _int(summary.get("project_sample_count")),
@@ -273,12 +274,7 @@ def _alternate_needed_after_rerun(
     rerun_result: Mapping[str, Any] | None,
     source_remediation_post_run_outputs: Mapping[str, Any],
 ) -> bool:
-    rerun_summary = _mapping(_mapping(_mapping(rerun_result).get("manifest")).get("summary"))
-    return (
-        _int(rerun_summary.get("project_sample_count")) > 0
-        and _int(rerun_summary.get("detail_snapshot_count")) <= 0
-        and _int(source_remediation_post_run_outputs.get("post_run_source_remediation_record_count")) > 0
-    )
+    return _int(source_remediation_post_run_outputs.get("post_run_source_remediation_record_count")) > 0
 
 
 def _write_same_source_precision_target_files(
@@ -789,6 +785,39 @@ def _summary(
         rerun_summary=rerun_summary,
         execute=execute,
     )
+    primary_post_run_source_remediation_count = _int(
+        post_run_outputs.get("post_run_source_remediation_record_count")
+    )
+    primary_post_run_stage4_ready = bool(post_run_outputs.get("post_run_stage4_all_required_readbacks_ready"))
+    alternate_post_run_outputs = _mapping(alternate_run.get("alternate_post_run_outputs"))
+    alternate_post_run_source_remediation_count = _int(
+        alternate_post_run_outputs.get("post_run_source_remediation_record_count")
+    )
+    alternate_post_run_stage4_ready = bool(
+        alternate_post_run_outputs.get("post_run_stage4_all_required_readbacks_ready")
+    )
+    alternate_state = str(alternate_run.get("alternate_public_source_execution_state") or "")
+    alternate_cleared_source_remediation = (
+        alternate_state == "ALTERNATE_PUBLIC_SOURCE_EXECUTED_WITH_SNAPSHOTS"
+        and alternate_post_run_source_remediation_count == 0
+        and alternate_post_run_stage4_ready
+    )
+    alternate_no_match_quarantine = (
+        _alternate_public_source_no_match_only(alternate_run)
+        and primary_post_run_source_remediation_count > 0
+        and primary_post_run_stage4_ready
+    )
+    quarantined_source_remediation_record_count = len(queue_records) if alternate_no_match_quarantine else 0
+    effective_post_run_source_remediation_count = (
+        0
+        if alternate_cleared_source_remediation or alternate_no_match_quarantine
+        else primary_post_run_source_remediation_count
+    )
+    effective_post_run_stage4_ready = (
+        alternate_post_run_stage4_ready
+        if alternate_cleared_source_remediation
+        else primary_post_run_stage4_ready
+    )
     return {
         "source_remediation_execution_mode": "EXECUTED" if execute else "DRY_RUN",
         "execute": execute,
@@ -818,11 +847,21 @@ def _summary(
             post_run_outputs.get("post_run_fixed_snapshot_sha256_count")
         ),
         "post_run_stage4_all_required_readbacks_ready": bool(
-            post_run_outputs.get("post_run_stage4_all_required_readbacks_ready")
+            effective_post_run_stage4_ready
         ),
         "post_run_source_remediation_record_count": _int(
-            post_run_outputs.get("post_run_source_remediation_record_count")
+            effective_post_run_source_remediation_count
         ),
+        "effective_post_run_source_remediation_record_count": effective_post_run_source_remediation_count,
+        "primary_post_run_source_remediation_record_count": primary_post_run_source_remediation_count,
+        "alternate_post_run_source_remediation_record_count": alternate_post_run_source_remediation_count,
+        "alternate_post_run_stage4_all_required_readbacks_ready": alternate_post_run_stage4_ready,
+        "alternate_public_source_cleared_source_remediation": alternate_cleared_source_remediation,
+        "alternate_public_source_no_match_quarantined": alternate_no_match_quarantine,
+        "quarantined_source_remediation_record_count": quarantined_source_remediation_record_count,
+        "quarantine_reason": "alternate_public_source_no_match_not_clearance"
+        if alternate_no_match_quarantine
+        else "",
         "post_run_source_remediation_closeout_state": str(
             post_run_outputs.get("post_run_source_remediation_closeout_state") or ""
         ),
@@ -880,7 +919,19 @@ def _next_required_step(
 ) -> str:
     alternate_state = str(alternate_run.get("alternate_public_source_execution_state") or "")
     if alternate_state == "ALTERNATE_PUBLIC_SOURCE_EXECUTED_WITH_SNAPSHOTS":
+        alternate_post_run_outputs = _mapping(alternate_run.get("alternate_post_run_outputs"))
+        if (
+            _int(alternate_post_run_outputs.get("post_run_source_remediation_record_count")) == 0
+            and bool(alternate_post_run_outputs.get("post_run_stage4_all_required_readbacks_ready"))
+        ):
+            return "human_gray_launch_review"
         return "review_alternate_public_source_evidence_before_gray_launch"
+    if (
+        _alternate_public_source_no_match_only(alternate_run)
+        and _int(post_run_outputs.get("post_run_source_remediation_record_count")) > 0
+        and bool(post_run_outputs.get("post_run_stage4_all_required_readbacks_ready"))
+    ):
+        return "human_gray_launch_review"
     if alternate_state == "ALTERNATE_PUBLIC_SOURCE_EXECUTED_REVIEW_REQUIRED":
         return "review_alternate_public_source_execution_result"
     if state == "NO_SOURCE_REMEDIATION_REQUIRED":
@@ -902,6 +953,23 @@ def _next_required_step(
             return "human_gray_launch_review"
         return "rebuild_evidence_summary_stage4_and_source_remediation"
     return "review_source_remediation_execution_result"
+
+
+def _alternate_public_source_no_match_only(alternate_run: Mapping[str, Any]) -> bool:
+    if str(alternate_run.get("alternate_public_source_execution_state") or "") != (
+        "ALTERNATE_PUBLIC_SOURCE_EXECUTED_REVIEW_REQUIRED"
+    ):
+        return False
+    manifest_summary = _mapping(
+        _mapping(_mapping(alternate_run.get("execution_result")).get("manifest")).get("summary")
+    )
+    target_count = _int(manifest_summary.get("target_execution_bucket_count"))
+    state_counts = _mapping(manifest_summary.get("execution_state_counts"))
+    return (
+        target_count > 0
+        and _int(manifest_summary.get("project_sample_count")) == 0
+        and _int(state_counts.get("DISCOVERY_NO_MATCH_REVIEW")) == target_count
+    )
 
 
 def _safety(*, execute: bool) -> dict[str, Any]:

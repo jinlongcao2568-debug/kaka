@@ -8,6 +8,7 @@ param(
     [switch]$ProfessionalSourceOnly,
     [switch]$Execute,
     [switch]$AutoExecuteSourceRemediation,
+    [switch]$EnableAlternatePublicSource,
     [switch]$EmitJson
 )
 
@@ -54,6 +55,10 @@ if ($Execute) {
 
 if ($AutoExecuteSourceRemediation) {
     $argsList += "--auto-execute-source-remediation"
+}
+
+if ($EnableAlternatePublicSource) {
+    $argsList += "--enable-alternate-public-source"
 }
 
 if ($EmitJson) {

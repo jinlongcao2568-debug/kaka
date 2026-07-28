@@ -1,3 +1,4 @@
+[CmdletBinding(PositionalBinding=$false)]
 param(
     [string]$SourceTargetsJson = "",
     [string]$OutputRoot = "",
@@ -12,6 +13,7 @@ param(
     [switch]$ProfessionalSourceOnly,
     [switch]$Execute,
     [switch]$AutoExecuteSourceRemediation,
+    [switch]$EnableAlternatePublicSource,
     [switch]$ForceRerun,
     [switch]$EmitJson
 )
@@ -92,6 +94,10 @@ if ($AutoExecuteSourceRemediation) {
     $segmentArgs += "-AutoExecuteSourceRemediation"
 }
 
+if ($EnableAlternatePublicSource) {
+    $segmentArgs += "-EnableAlternatePublicSource"
+}
+
 if ($ForceRerun) {
     $segmentArgs += "-ForceRerun"
 }
@@ -160,6 +166,10 @@ if ($Execute) {
 
 if ($AutoExecuteSourceRemediation) {
     $orchestratorArgs += "--auto-execute-source-remediation"
+}
+
+if ($EnableAlternatePublicSource) {
+    $orchestratorArgs += "--enable-alternate-public-source"
 }
 
 if ($ForceRerun) {

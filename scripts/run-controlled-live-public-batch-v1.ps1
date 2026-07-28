@@ -201,11 +201,13 @@ $sourceRemediationReadyCount = [int]$sourceRemediationSummary.source_remediation
 $alternatePublicSourceRequiredCount = [int]$sourceRemediationSummary.alternate_public_source_required_count
 $sourceRemediationCloseoutState = [string]$sourceRemediationSummary.source_remediation_closeout_state
 $sourceRemediationExecutionState = ""
+$sourceRemediationExecutionAlternatePublicSourceState = ""
 $sourceRemediationExecutionNextRequiredStep = ""
+$quarantinedSourceRemediationRecordCount = 0
 $sourceRemediationExecutionJsonForCloseout = ""
 $sourceRemediationExecutionMarkdownForCloseout = ""
-$postRunSourceRemediationRecordCount = 0
-$postRunStage4AllRequiredReadbacksReady = $false
+$postRunSourceRemediationRecordCount = $sourceRemediationRecordCount
+$postRunStage4AllRequiredReadbacksReady = $stage4AllRequiredReadbacksReady
 if ($AutoExecuteSourceRemediation -and $sourceRemediationRecordCount -gt 0) {
     $sourceRemediationExecutionArgs = @(
         "-NoProfile", "-ExecutionPolicy", "Bypass",
@@ -238,7 +240,9 @@ if ($AutoExecuteSourceRemediation -and $sourceRemediationRecordCount -gt 0) {
     $sourceRemediationExecutionPayload = Get-Content -Raw -Path $sourceRemediationExecutionJson -Encoding UTF8 | ConvertFrom-Json
     $sourceRemediationExecutionSummary = $sourceRemediationExecutionPayload.summary
     $sourceRemediationExecutionState = [string]$sourceRemediationExecutionSummary.source_remediation_execution_state
+    $sourceRemediationExecutionAlternatePublicSourceState = [string]$sourceRemediationExecutionSummary.alternate_public_source_execution_state
     $sourceRemediationExecutionNextRequiredStep = [string]$sourceRemediationExecutionSummary.next_required_step
+    $quarantinedSourceRemediationRecordCount = [int]$sourceRemediationExecutionSummary.quarantined_source_remediation_record_count
     $sourceRemediationExecutionJsonForCloseout = "$sourceRemediationExecutionJson"
     $sourceRemediationExecutionMarkdownForCloseout = "$sourceRemediationExecutionMarkdown"
     $postRunSourceRemediationRecordCount = [int]$sourceRemediationExecutionSummary.post_run_source_remediation_record_count
@@ -258,7 +262,8 @@ if ($Execute -and $sampleCount -le 0) {
     $grayLaunchDecision = "NOT_READY_STAGE4_EVIDENCE_READBACK_REQUIRED"
     $nextRequiredStep = "run_stage4_evidence_readback_for_hashed_public_snapshots"
 } elseif ($Execute -and ($sourceRemediationRecordCount -gt 0 -or $partialOrBlockedCount -gt 0 -or $noMatchCount -gt 0)) {
-    if ($AutoExecuteSourceRemediation -and $sourceRemediationExecutionState -eq "SOURCE_REMEDIATION_RERUN_EXECUTED_WITH_SNAPSHOTS" -and $postRunSourceRemediationRecordCount -eq 0 -and $postRunStage4AllRequiredReadbacksReady) {
+    $sourceRemediationExecutionCleared = $sourceRemediationExecutionState -eq "SOURCE_REMEDIATION_RERUN_EXECUTED_WITH_SNAPSHOTS" -or $sourceRemediationExecutionAlternatePublicSourceState -eq "ALTERNATE_PUBLIC_SOURCE_EXECUTED_WITH_SNAPSHOTS" -or $quarantinedSourceRemediationRecordCount -gt 0
+    if ($AutoExecuteSourceRemediation -and $sourceRemediationExecutionCleared -and $postRunSourceRemediationRecordCount -eq 0 -and $postRunStage4AllRequiredReadbacksReady) {
         $grayLaunchDecision = "ELIGIBLE_FOR_GRAY_LAUNCH_REVIEW"
         $nextRequiredStep = "human_gray_launch_review"
     } elseif ($AutoExecuteSourceRemediation -and $sourceRemediationExecutionState) {
@@ -315,7 +320,9 @@ $closeout = [ordered]@{
     alternate_public_source_required_count = $alternatePublicSourceRequiredCount
     source_remediation_closeout_state = $sourceRemediationCloseoutState
     source_remediation_execution_state = $sourceRemediationExecutionState
+    source_remediation_execution_alternate_public_source_state = $sourceRemediationExecutionAlternatePublicSourceState
     source_remediation_execution_next_required_step = $sourceRemediationExecutionNextRequiredStep
+    quarantined_source_remediation_record_count = $quarantinedSourceRemediationRecordCount
     post_run_source_remediation_record_count = $postRunSourceRemediationRecordCount
     post_run_stage4_all_required_readbacks_ready = $postRunStage4AllRequiredReadbacksReady
     partial_or_blocked_count = $partialOrBlockedCount

@@ -431,7 +431,7 @@ def _materialize_guangzhou_flow_view(
     legacy_flow_root = project_dir / "flow"
     inventory: list[dict[str, Any]] = []
     materialized_url_keys: set[tuple[str, str]] = set()
-    for sample in samples:
+    for source_index, sample in enumerate(samples, start=1):
         flow_no = _sample_flow_no(sample)
         flow_title = _sample_flow_title(sample)
         source_url = str(sample.get("source_url") or "").strip()
@@ -468,12 +468,12 @@ def _materialize_guangzhou_flow_view(
             "customer_visible_allowed": False,
             "no_legal_conclusion": True,
         }
-        (destination_dir / "detail" / f"{_safe_path_part(str(meta['file_id']))}.meta.json").write_text(
-            json.dumps(meta, ensure_ascii=False, indent=2),
-            encoding="utf-8",
+        _write_json_file(
+            destination_dir / "detail" / _flow_meta_file_name(meta, index=source_index),
+            meta,
         )
         inventory.append(meta)
-    for item in [*detail_files, *attachment_files]:
+    for file_index, item in enumerate([*detail_files, *attachment_files], start=1):
         flow_no = str(item.get("guangzhou_flow_no") or "").strip()
         flow_title = str(item.get("guangzhou_flow_title") or "").strip()
         if not flow_no:
@@ -494,7 +494,7 @@ def _materialize_guangzhou_flow_view(
             (destination_dir / child).mkdir(parents=True, exist_ok=True)
         role_dir = "detail" if str(item.get("file_role") or "") == "detail" else "attachments"
         file_destination_dir = destination_dir / role_dir
-        destination_dir.mkdir(parents=True, exist_ok=True)
+        file_destination_dir.mkdir(parents=True, exist_ok=True)
         source_path = Path(str(item.get("file_path") or ""))
         copied_path = ""
         if source_path.exists() and bool(item.get("replayable")):
@@ -518,9 +518,9 @@ def _materialize_guangzhou_flow_view(
             "customer_visible_allowed": False,
             "no_legal_conclusion": True,
         }
-        (file_destination_dir / f"{_safe_path_part(str(item.get('file_id') or 'file'))}.meta.json").write_text(
-            json.dumps(meta, ensure_ascii=False, indent=2),
-            encoding="utf-8",
+        _write_json_file(
+            file_destination_dir / _flow_meta_file_name(meta, index=file_index),
+            meta,
         )
         inventory.append(meta)
     if inventory:
@@ -534,6 +534,20 @@ def _materialize_guangzhou_flow_view(
             encoding="utf-8",
         )
     return inventory
+
+
+def _flow_meta_file_name(item: Mapping[str, Any], *, index: int) -> str:
+    role = str(item.get("file_role") or "").lower()
+    prefix = "DET" if role.startswith("detail") else "ATT"
+    snapshot_id = str(item.get("snapshot_id") or "").strip()
+    file_id = str(item.get("file_id") or "file").strip()
+    source = snapshot_id[-12:] if snapshot_id else _fingerprint(file_id)[:12]
+    return f"{prefix}-{int(index):03d}-{_safe_path_part(source, max_length=16)}.meta.json"
+
+
+def _write_json_file(path: Path, payload: Mapping[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def _summary(items: list[Mapping[str, Any]]) -> dict[str, Any]:

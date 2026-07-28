@@ -231,6 +231,24 @@ def _alternate_public_source_route(
             "route_reason": "same_source_detail_transport_degraded_use_national_public_resource_index",
             "must_not_treat_no_match_as_clearance": True,
         }
+    if (
+        blocker_class == "PUBLIC_SOURCE_CHALLENGE_OR_MANUAL_BLOCKER"
+        and source_profile_id
+        and source_profile_id != "GGZY-DEAL-LIST"
+    ):
+        return {
+            "alternate_source_required": True,
+            "alternate_source_profile_ids": ["GGZY-DEAL-LIST"],
+            "alternate_query_terms": _dedupe(
+                [
+                    execution_sample.get("project_match_key"),
+                    sample.get("project_name"),
+                    sample.get("project_id"),
+                ]
+            ),
+            "route_reason": "primary_public_source_challenge_use_national_public_resource_index",
+            "must_not_treat_no_match_as_clearance": True,
+        }
     if blocker_class == "PUBLIC_SOURCE_NO_MATCH_REVIEW":
         return {
             "alternate_source_required": True,
