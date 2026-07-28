@@ -64,7 +64,10 @@ class ControlledGrayOrchestratorWorkbenchTests(
             for record in result["manifest"]["automation_capability_matrix"]["records"]
         }
         self.assertEqual(capabilities["workbench_trigger"]["state"], "WORKBENCH_PREPARE_READY")
-        self.assertEqual(capabilities["background_scheduler"]["state"], "INTERNAL_WORKER_QUEUE_READY")
+        self.assertEqual(
+            capabilities["background_scheduler"]["state"],
+            "DEDICATED_SCHEDULER_WORKER_READY",
+        )
         self.assertEqual(preview["run_count"], 1)
         self.assertTrue(preview["latest_manifest_available"])
         self.assertEqual(
@@ -74,9 +77,18 @@ class ControlledGrayOrchestratorWorkbenchTests(
         self.assertIn("-Execute", preview["recommended_execute_command"])
         self.assertFalse(preview["execute_from_workbench_enabled"])
         self.assertTrue(preview["background_worker_ready"])
-        self.assertEqual(preview["background_scheduler_state"], "INTERNAL_WORKER_QUEUE_READY")
+        self.assertEqual(
+            preview["background_scheduler_state"],
+            "DEDICATED_SCHEDULER_WORKER_READY",
+        )
+        self.assertTrue(preview["unattended_recurring_run_ready"])
+        self.assertEqual(
+            preview["unattended_recurring_scope"], "INTERNAL_PREPARE_ONLY"
+        )
+        self.assertFalse(preview["unattended_live_execution_ready"])
+        self.assertFalse(preview["web_request_execution_enabled"])
 
-    def test_worker_queue_runs_controlled_gray_prepare_once(self) -> None:
+    def test_web_worker_endpoint_never_executes_long_chain_inline(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             output_root = Path(tmp_dir) / "controlled-gray-orchestrator-worker"
 
@@ -95,11 +107,15 @@ class ControlledGrayOrchestratorWorkbenchTests(
             preview = preview_controlled_gray_public_orchestrator({})
 
         self.assertEqual(queued["queue_item"]["status"], "queued")
-        self.assertEqual(worker["worker_state"], "CONTROLLED_GRAY_ORCHESTRATOR_WORKER_SUCCEEDED")
-        self.assertEqual(worker["queue_item"]["status"], "succeeded")
-        self.assertEqual(worker["summary"]["orchestration_state"], "CONTROLLED_GRAY_NOT_READY")
-        self.assertEqual(preview["run_count"], 1)
-        self.assertEqual(preview["background_worker_queue"]["status_counts"]["succeeded"], 1)
+        self.assertEqual(
+            queued["unattended_recurring_scope"], "INTERNAL_PREPARE_ONLY"
+        )
+        self.assertFalse(queued["unattended_live_execution_ready"])
+        self.assertEqual(worker["worker_state"], "INLINE_WEB_WORKER_EXECUTION_DISABLED")
+        self.assertTrue(worker["dedicated_process_required"])
+        self.assertFalse(worker["web_request_execution_enabled"])
+        self.assertEqual(preview["run_count"], 0)
+        self.assertEqual(preview["background_worker_queue"]["status_counts"]["queued"], 1)
         self.assertFalse(worker["execute_from_workbench_enabled"])
 
     def test_operator_console_exposes_controlled_gray_orchestrator_routes_and_view(self) -> None:
@@ -145,6 +161,13 @@ class ControlledGrayOrchestratorWorkbenchTests(
                     "target_limit": 1,
                 },
             )
+            cancel = client.post(
+                "/operator-console/controlled-gray-orchestrator/worker/cancel",
+                json={
+                    "queue_item_id": enqueue.json()["queue_item"]["queue_item_id"],
+                    "reason": "workbench contract test",
+                },
+            )
             worker = client.post(
                 "/operator-console/controlled-gray-orchestrator/worker/run-once",
                 json={},
@@ -161,24 +184,34 @@ class ControlledGrayOrchestratorWorkbenchTests(
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(enqueue.status_code, 200)
+        self.assertEqual(cancel.status_code, 200)
+        self.assertTrue(cancel.json()["cancel_request_accepted"])
+        self.assertEqual(cancel.json()["queue_item"]["status"], "cancelled")
+        self.assertEqual(enqueue.json()["queue_item"]["time_budget_seconds"], 1800)
         self.assertEqual(worker.status_code, 200)
         self.assertEqual(
             worker.json()["worker_state"],
-            "CONTROLLED_GRAY_ORCHESTRATOR_WORKER_SUCCEEDED",
+            "INLINE_WEB_WORKER_EXECUTION_DISABLED",
             worker.json(),
         )
+        self.assertTrue(worker.json()["dedicated_process_required"])
+        self.assertFalse(worker.json()["web_request_execution_enabled"])
         self.assertEqual(readback.status_code, 200)
-        self.assertEqual(blocked_execute.status_code, 409)
-        self.assertIn("execute is not allowed", blocked_execute.text)
-        self.assertEqual(blocked_worker_execute.status_code, 409)
-        self.assertIn("execute is not allowed", blocked_worker_execute.text)
+        self.assertEqual(blocked_execute.status_code, 400)
+        self.assertIn("literal_error", blocked_execute.text)
+        self.assertEqual(blocked_worker_execute.status_code, 400)
+        self.assertIn("literal_error", blocked_worker_execute.text)
         self.assertGreaterEqual(readback.json()["run_count"], 1)
         self.assertIn("灰度总控", page.text)
         self.assertIn("prepareGrayOrchestrator", page.text)
         self.assertIn("enqueueGrayOrchestrator", page.text)
         self.assertIn("runGrayOrchestratorWorker", page.text)
+        self.assertIn("检查独立 Worker", page.text)
+        self.assertIn("取消任务", page.text)
+        self.assertIn("progress_percent", page.text)
         self.assertIn("/operator-console/controlled-gray-orchestrator/prepare", page.text)
         self.assertIn("/operator-console/controlled-gray-orchestrator/worker/enqueue", page.text)
+        self.assertIn("/operator-console/controlled-gray-orchestrator/worker/cancel", page.text)
 
     def test_prepare_rejects_paths_outside_operator_controlled_roots(self) -> None:
         with self.assertRaisesRegex(ValueError, "output_root must stay within"):

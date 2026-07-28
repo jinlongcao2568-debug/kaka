@@ -35,6 +35,7 @@ DEFAULT_DESIGN_SURVEY_PUBLIC_REGISTRY_READBACK_ROOT = Path(
 )
 DEFAULT_RUNTIME_BLOCKER_NEXT_SUBQUEUE_FILENAME = "stage6-review-loop-runtime-blocker-next-subqueues.json"
 DEFAULT_STAGE6_REVIEW_LOOP_STATUS_FILENAME = "stage6-review-loop-project-status-table.json"
+DEFAULT_STAGE5_CALIBRATION_SAMPLE_FILENAME = "stage5-calibration-sample-table.json"
 DEFAULT_STAGE6_REVIEW_CYCLE_BOOTSTRAP_REGISTRY_PATH = Path("control") / "stage6_review_cycle_bootstrap_registry.yaml"
 
 FORBIDDEN_TERMS = ("无风险", "无冲突", "在建冲突成立", "违法成立", "确认本人", "造假成立", "是不是本人")
@@ -118,7 +119,7 @@ DEFAULT_BOOTSTRAP_SOURCE_REGISTRY = [
         "source_kind": "STAGE5_CALIBRATION_SAMPLE_JSON",
         "source_ref_key": "stage5_calibration_sample_json",
         "source_root_ref_key": "stage5_calibration_sample_root",
-        "default_filename": "stage5-calibration-sample-table.json",
+        "default_filename": DEFAULT_STAGE5_CALIBRATION_SAMPLE_FILENAME,
         "handler_kind": "loop_runner_bootstrap",
         "loop_runner_arg": "stage5_calibration_sample_json",
         "missing_reason": "stage5_calibration_sample_json_missing_or_invalid",
@@ -537,6 +538,16 @@ def run_stage6_review_cycle_runner(
     original_backtrace_continuation_path = candidate_by_kind.get("ORIGINAL_BACKTRACE_CONTINUATION_JSON", {}).get("source_path")
     stage16_p13b_continuation_path = candidate_by_kind.get("STAGE16_P13B_CONTINUATION_JSON", {}).get("source_path")
     stage5_calibration_sample_path = candidate_by_kind.get("STAGE5_CALIBRATION_SAMPLE_JSON", {}).get("source_path")
+    if stage5_calibration_sample_path is None:
+        stage5_calibration_sample_path = _stage5_calibration_sample_path_from_release_field_query(
+            release_field_query_path
+        )
+        if stage5_calibration_sample_path is not None:
+            if "STAGE5_CALIBRATION_SAMPLE_JSON" in candidate_by_kind:
+                candidate_by_kind["STAGE5_CALIBRATION_SAMPLE_JSON"]["source_path"] = stage5_calibration_sample_path
+            for candidate in bootstrap_candidates:
+                if str(candidate.get("source_kind") or "") == "STAGE5_CALIBRATION_SAMPLE_JSON":
+                    candidate["source_path"] = stage5_calibration_sample_path
     stage4_backfill_followup_queue_path = candidate_by_kind.get("STAGE4_BACKFILL_FOLLOWUP_QUEUE_JSON", {}).get("source_path")
     design_survey_public_registry_readback_path = _optional_json_path(
         explicit_json=design_survey_public_registry_readback_json,
@@ -1236,6 +1247,14 @@ def _stage5_calibration_projection_summary(records: list[Any]) -> dict[str, Any]
         ),
         "stage5_calibration_suggested_action_counts": _counts(
             record.get("suggested_calibration_action") for record in rows
+        ),
+        "stage5_calibration_input_state_counts": _counts(
+            record.get("stage5_calibration_input_state") for record in rows
+        ),
+        "stage5_calibration_failure_route_target_counts": _counts(
+            route
+            for record in rows
+            for route in _list(record.get("stage5_calibration_failure_route_targets"))
         ),
     }
 
@@ -2409,6 +2428,23 @@ def _release_field_query_path(
         explicit_json=release_field_query_json,
         explicit_root=release_field_query_root,
     )
+
+
+def _stage5_calibration_sample_path_from_release_field_query(path: Path | None) -> Path | None:
+    if path is None or not path.exists():
+        return None
+    sibling = path.parent / DEFAULT_STAGE5_CALIBRATION_SAMPLE_FILENAME
+    if sibling.exists():
+        return sibling
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    manifest = payload.get("manifest") if isinstance(payload, Mapping) else {}
+    records = manifest.get("stage5_calibration_sample_records") if isinstance(manifest, Mapping) else []
+    if isinstance(records, list) and any(isinstance(record, Mapping) for record in records):
+        return path
+    return None
 
 
 def _release_evidence_adapter_plan_path(

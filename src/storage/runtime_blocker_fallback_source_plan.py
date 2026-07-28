@@ -174,7 +174,20 @@ def _plan_record(
         "required_input": required_input,
         "recommended_next_action": _recommended_next_action_for_route(route),
         "execution_priority": "MEDIUM_LOCAL_AUTHORITY_FALLBACK",
-        "input_artifact_refs": [cycle_ref],
+        "source_refs": _dedupe(
+            [
+                *_list(context.get("source_refs")),
+                *_list(context.get("candidate_notice_source_urls")),
+                *_list(context.get("project_source_urls")),
+                *_list(
+                    _mapping(context.get("stage4_official_readback_context")).get(
+                        "ygp_source_urls"
+                    )
+                ),
+            ]
+        ),
+        "artifact_refs": _dedupe([cycle_ref, *_list(context.get("artifact_refs"))]),
+        "input_artifact_refs": _dedupe([cycle_ref, *_list(context.get("artifact_refs"))]),
         "controller_consumable": True,
         "created_at": created_at or datetime.now(timezone.utc).isoformat(),
         **_safety(),
@@ -382,6 +395,13 @@ def _stage4_followup_context(manifest: Mapping[str, Any]) -> dict[str, dict[str,
             "alternate_local_authority_source_candidates": _records(record.get("alternate_local_authority_source_candidates")),
             "public_source_fallback_sequence": _list(record.get("public_source_fallback_sequence")),
             "required_input": _list(record.get("required_input")),
+            "source_refs": _dedupe(_list(record.get("source_refs"))),
+            "artifact_refs": _dedupe(
+                [
+                    *_list(record.get("artifact_refs")),
+                    *_list(record.get("input_artifact_refs")),
+                ]
+            ),
         }
         for key in _dedupe([record.get("followup_record_id"), record.get("project_id")]):
             by_key[key] = _merge_context(by_key.get(key, {}), context)
@@ -418,6 +438,12 @@ def _merge_context(left: Mapping[str, Any], right: Mapping[str, Any]) -> dict[st
             *_list(right.get("public_source_fallback_sequence")),
         ],
         "required_input": _dedupe([*_list(left.get("required_input")), *_list(right.get("required_input"))]),
+        "source_refs": _dedupe(
+            [*_list(left.get("source_refs")), *_list(right.get("source_refs"))]
+        ),
+        "artifact_refs": _dedupe(
+            [*_list(left.get("artifact_refs")), *_list(right.get("artifact_refs"))]
+        ),
     }
 
 
@@ -812,6 +838,7 @@ def _stage4_release_adapter_bridge_records(
         ygp_project_code = str(ygp_project_codes[0] if ygp_project_codes else "")
         source_url = _first_text(
             [
+                *_list(context.get("ygp_source_urls")),
                 *_list(record.get("candidate_notice_source_urls")),
                 *_list(record.get("project_source_urls")),
             ]
@@ -909,6 +936,15 @@ def _stage4_release_adapter_bridge_records(
                 "readback_ready": False,
                 "gdcic_project_code_route_allowed": False,
                 "gdcic_route_block_reason": "YGP_OR_TRADE_IDENTIFIERS_NOT_SENT_TO_GDCIC_PROJECT_CODE",
+                "source_readback_sha256s": _dedupe(
+                    context.get("ygp_readback_payload_sha256s")
+                ),
+                "source_artifact_refs": _dedupe(
+                    [
+                        *_list(record.get("artifact_refs")),
+                        *_list(record.get("input_artifact_refs")),
+                    ]
+                ),
                 "must_not_extract_from_full_text_numbers": True,
                 "recommended_next_action": (
                     "run_ygp_retry_public_readback_then_project_local_authority_fallback_without_gdcic_project_code_route"
@@ -1009,6 +1045,14 @@ def _merge_official_readback_context(*values: Any) -> Mapping[str, Any]:
         "ygp_biz_code_variants",
         "ygp_site_code_variants",
         "ygp_notice_id_variants",
+        "ygp_source_urls",
+        "ygp_readback_payload_sha256s",
+        "ygp_node_id_variants",
+        "data_ggzy_bid_show_urls",
+        "data_ggzy_original_notice_urls",
+        "data_ggzy_bid_show_record_ids",
+        "data_ggzy_readback_payload_sha256s",
+        "data_ggzy_extracted_responsible_person_names",
     ):
         out[key] = _dedupe(item for value in values for item in _list(_mapping(value).get(key)))
     if any(out.get(key) for key in ("ygp_project_code_variants", "ygp_biz_code_variants", "ygp_site_code_variants", "ygp_notice_id_variants")):

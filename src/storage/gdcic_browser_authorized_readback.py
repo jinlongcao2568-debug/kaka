@@ -7,6 +7,7 @@ import re
 from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping
 
+from shared.controlled_egress import playwright_proxy_settings
 from shared.utils import utc_now_iso
 from storage.repositories.runtime_state_repo import RuntimeStateRepository
 
@@ -66,7 +67,6 @@ def build_gdcic_browser_authorized_readback(
     source_plan_manifest_id = str(source_manifest.get("manifest_id") or "")
     source_plan_manifest_sha256 = str(source_manifest.get("manifest_sha256") or "")
     task_records = _task_records_from_release_plan(source_manifest, created_at=created)
-    execution_mode = "LIVE_BROWSER_EXECUTION_ATTEMPTED" if enable_live_browser_execution else "PLAN_ONLY_NOT_EXECUTED"
     authorized_session_input_state = _authorized_session_input_state(
         storage_state_json=storage_state_json,
         user_data_dir=user_data_dir,
@@ -77,8 +77,15 @@ def build_gdcic_browser_authorized_readback(
         storage_state_json=storage_state_json,
         user_data_dir=user_data_dir,
     )
+    authorized_session_input_ready = _authorized_session_input_ready(authorized_session_input_state)
+    if not enable_live_browser_execution:
+        execution_mode = "PLAN_ONLY_NOT_EXECUTED"
+    elif not authorized_session_input_ready:
+        execution_mode = "LIVE_BROWSER_EXECUTION_SKIPPED_NO_AUTHORIZED_SESSION"
+    else:
+        execution_mode = "LIVE_BROWSER_EXECUTION_ATTEMPTED"
     active_runner = browser_runner
-    if active_runner is None and enable_live_browser_execution:
+    if active_runner is None and enable_live_browser_execution and authorized_session_input_ready:
         active_runner = _make_playwright_browser_runner(
             storage_state_json=storage_state_json,
             user_data_dir=user_data_dir,
@@ -91,6 +98,7 @@ def build_gdcic_browser_authorized_readback(
         enable_live_browser_execution=enable_live_browser_execution,
         max_live_browser_tasks=max_live_browser_tasks,
         browser_runner=active_runner,
+        authorized_session_input_ready=authorized_session_input_ready,
     )
     summary = _summary(
         task_records=task_records,
@@ -122,7 +130,8 @@ def build_gdcic_browser_authorized_readback(
         "source_release_evidence_adapter_plan_manifest_id": source_plan_manifest_id,
         "source_release_evidence_adapter_plan_manifest_sha256": source_plan_manifest_sha256,
         "execution_mode": execution_mode,
-        "live_browser_execution_enabled": bool(enable_live_browser_execution),
+        "live_browser_execution_requested": bool(enable_live_browser_execution),
+        "live_browser_execution_enabled": bool(enable_live_browser_execution and authorized_session_input_ready),
         "max_live_browser_tasks": max_live_browser_tasks,
         "storage_state_json_used": str(storage_state_json or ""),
         "user_data_dir_used": str(user_data_dir or ""),
@@ -134,8 +143,11 @@ def build_gdcic_browser_authorized_readback(
         "stage5_calibration_sample_records": stage5_calibration_sample_records,
         "summary": summary,
         "safety": {
-            "network_enabled": bool(enable_live_browser_execution),
-            "browser_execution_enabled": bool(enable_live_browser_execution),
+            "network_enabled": bool(enable_live_browser_execution and authorized_session_input_ready),
+            "browser_execution_enabled": bool(enable_live_browser_execution and authorized_session_input_ready),
+            "protected_source_skipped_without_authorized_session": bool(
+                enable_live_browser_execution and not authorized_session_input_ready
+            ),
             "customer_visible_allowed": False,
             "no_legal_conclusion": True,
             "query_miss_is_not_clearance": True,
@@ -520,9 +532,21 @@ def _execute_tasks(
     enable_live_browser_execution: bool,
     max_live_browser_tasks: int | None,
     browser_runner: BrowserRunner | None,
+    authorized_session_input_ready: bool,
 ) -> list[dict[str, Any]]:
     if not enable_live_browser_execution:
         return []
+    if not authorized_session_input_ready:
+        return [
+            _blocked_record(
+                task,
+                created_at=created_at,
+                blockers=["gdcic_authorized_session_input_missing_login_or_sso_required"],
+                readback_state="LOGIN_OR_SSO_REQUIRED_BLOCKED",
+                network_attempted=False,
+            )
+            for task in task_records
+        ]
     if browser_runner is None:
         return [
             _blocked_record(
@@ -578,6 +602,7 @@ def _readback_one(
             final_url=final_url,
             text=text,
             error=error,
+            network_attempted=True,
         )
     matched = _matched_record_from_text(task, text=text, final_url=final_url, captured_at=created_at)
     if matched:
@@ -595,6 +620,7 @@ def _readback_one(
             "text_probe_sha256": _sha256(_text_probe(text)),
             "records": [matched],
             "record_count": 1,
+            "network_attempted": True,
             "blocker_taxonomy": [],
             "query_miss_is_not_clearance": True,
             "customer_visible_allowed": False,
@@ -614,6 +640,7 @@ def _readback_one(
         "text_probe_sha256": _sha256(_text_probe(text)),
         "records": [],
         "record_count": 0,
+        "network_attempted": True,
         "blocker_taxonomy": ["gdcic_browser_authorized_readback_no_target_field_match_review"],
         "query_miss_is_not_clearance": True,
         "customer_visible_allowed": False,
@@ -631,6 +658,7 @@ def _blocked_record(
     final_url: str = "",
     text: str = "",
     error: str = "",
+    network_attempted: bool = False,
 ) -> dict[str, Any]:
     authorization_state = _authorization_state_from_blockers(blockers, readback_state)
     return {
@@ -648,6 +676,7 @@ def _blocked_record(
         "text_probe_sha256": _sha256(_text_probe(text)),
         "records": [],
         "record_count": 0,
+        "network_attempted": bool(network_attempted),
         "blocker_taxonomy": _dedupe(blockers),
         "error": error,
         "query_miss_is_not_clearance": True,
@@ -793,16 +822,24 @@ def _playwright_browser_runner(
         context = None
         browser = None
         try:
+            proxy = playwright_proxy_settings()
             if user_data_dir:
+                persistent_options: dict[str, Any] = {
+                    "headless": not headed,
+                    "ignore_https_errors": True,
+                    "locale": "zh-CN",
+                    "timezone_id": "Asia/Shanghai",
+                }
+                if proxy:
+                    persistent_options["proxy"] = proxy
                 context = playwright.chromium.launch_persistent_context(
-                    str(user_data_dir),
-                    headless=not headed,
-                    ignore_https_errors=True,
-                    locale="zh-CN",
-                    timezone_id="Asia/Shanghai",
+                    str(user_data_dir), **persistent_options
                 )
             else:
-                browser = playwright.chromium.launch(headless=not headed)
+                launch_options: dict[str, Any] = {"headless": not headed}
+                if proxy:
+                    launch_options["proxy"] = proxy
+                browser = playwright.chromium.launch(**launch_options)
                 context_kwargs: dict[str, Any] = {
                     "ignore_https_errors": True,
                     "locale": "zh-CN",
@@ -1111,6 +1148,15 @@ def _summary(
         "requires_authorized_session_for_login_protected_pages": True,
         "http_dynamic_stealthy_can_replace_login_state": False,
         "target_real_readback_success_count": ready_count,
+        "browser_network_attempt_count": sum(
+            1 for record in readback_records if bool(record.get("network_attempted"))
+        ),
+        "protected_source_skipped_without_authorized_session_count": sum(
+            1
+            for record in readback_records
+            if "gdcic_authorized_session_input_missing_login_or_sso_required"
+            in _list(record.get("blocker_taxonomy"))
+        ),
         "target_project_manager_change_real_readback_success_count": sum(
             1
             for record in project_manager_change_records

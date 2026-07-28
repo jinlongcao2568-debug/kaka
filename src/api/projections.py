@@ -27,6 +27,7 @@ from stage7_sales.crm_quote_workbench import (
     CRM_QUOTE_WORKBENCH_READINESS_INPUT_KEY,
     build_crm_quote_workbench_readiness_summary,
 )
+from stage7_sales.customer_delivery_boundary import customer_delivery_boundary
 from stage7_sales.commercial_hook import (
     COMMERCIAL_HOOK_LEAD_INPUT_KEY,
     COMMERCIAL_HOOK_READINESS_INPUT_KEY,
@@ -3171,6 +3172,7 @@ def build_customer_artifact_access_candidate_surface(payload: Any) -> dict[str, 
         },
         "customer_artifact_readback": {
             "package_id": leadpack_package.get("package_id"),
+            "project_id": leadpack_package.get("project_id"),
             "evidence_pack_id": leadpack_package.get("evidence_pack_id"),
             "artifact_manifest_id": leadpack_package.get("artifact_manifest_id"),
             "artifact_version_hash": formal_readiness.get("artifact_version_hash"),
@@ -3179,6 +3181,7 @@ def build_customer_artifact_access_candidate_surface(payload: Any) -> dict[str, 
             "download_audit": download_audit,
             "readback_replayable": True,
         },
+        "customer_delivery_boundary": customer_delivery_boundary(),
         "blocked_reasons": blocked_reasons,
         "why_not_live": _dedupe_preserve_order(
             list(formal_readiness.get("why_not_live", []))

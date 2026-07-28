@@ -18,6 +18,26 @@ from storage.responsible_person_early_probe import build_responsible_person_earl
 
 
 class ResponsiblePersonEarlyProbeTests(unittest.TestCase):
+    def test_non_person_requirement_token_is_rejected_as_responsible_person(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            input_root = root / "download"
+            _write_project(
+                input_root,
+                project_id="PROJ-CN-GD-JG2026-11279",
+                project_name="勘察设计中标候选人公示",
+                detail_text="第一中标候选人：测试设计院有限公司\n项目负责人：达到",
+            )
+            result = build_responsible_person_early_probe(
+                input_root=input_root,
+                output_root=root / "out",
+                created_at="2026-05-11T00:00:00+08:00",
+            )
+
+            item = result["manifest"]["items"][0]
+            self.assertEqual(item["responsible_person_candidates"], [])
+            self.assertEqual(item["verification_targets"], [])
+            self.assertEqual(item["stage4_readiness_state"], "STAGE4_BLOCKED_RESPONSIBLE_PERSON_NOT_FOUND")
     def test_detail_html_with_company_person_and_certificate_builds_stage4_input(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)

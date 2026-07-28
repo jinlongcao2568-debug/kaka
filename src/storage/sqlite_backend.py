@@ -215,7 +215,7 @@ class SQLiteStorageBackend:
         *,
         item: Any,
         event: Any,
-        expected_status: str | None,
+        expected_item: Any | None,
     ) -> bool:
         """Atomically persist a queue state change and its audit event."""
         with self._lock:
@@ -231,7 +231,7 @@ class SQLiteStorageBackend:
                 if existing_event is not None:
                     self._connection.rollback()
                     return False
-                if expected_status is None:
+                if expected_item is None:
                     existing = self._connection.execute(
                         "SELECT 1 FROM worker_queue_items WHERE queue_item_id = ?",
                         (item.queue_item_id,),
@@ -259,7 +259,7 @@ class SQLiteStorageBackend:
                         """
                         UPDATE worker_queue_items
                         SET queue_name = ?, status = ?, priority = ?, next_run_at = ?, payload = ?
-                        WHERE queue_item_id = ? AND status = ?
+                        WHERE queue_item_id = ? AND status = ? AND payload = ?
                         """,
                         (
                             item.queue_name,
@@ -268,7 +268,8 @@ class SQLiteStorageBackend:
                             item.next_run_at,
                             self._to_json(item),
                             item.queue_item_id,
-                            expected_status,
+                            expected_item.status,
+                            self._to_json(expected_item),
                         ),
                     )
                     if int(cursor.rowcount or 0) != 1:

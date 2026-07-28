@@ -1,0 +1,70 @@
+{
+  "contract_id": "conversational_task_entry_contract",
+  "contract_version": "1.1.0",
+  "status": "ACTIVE_INTERNAL_ONLY",
+  "surface": {
+    "path": "/operator-console/agent/turns",
+    "internal_only": true,
+    "customer_visible": false,
+    "conversation_memory_persisted": false,
+    "governed_principal_project_memory_enabled": true,
+    "memory_contract_ref": "contracts/agent/agent_memory_governance_contract.json",
+    "model_provider_required": false,
+    "model_provider_called_by_default": false
+  },
+  "supported_intents": [
+    "CREATE_INTERNAL_TASK",
+    "TASK_STATUS",
+    "EVIDENCE_QUERY",
+    "NEXT_STEP_QUERY",
+    "HELP"
+  ],
+  "task_creation_boundary": {
+    "explicit_confirmation_required": true,
+    "created_task_mode": "SANITIZED_OFFLINE_INTERNAL",
+    "source_mode": "INTERNAL_OPERATOR_TASK",
+    "stage2_fetch_enabled": false,
+    "real_external_fetch_enabled": false,
+    "live_execution_enabled": false,
+    "idempotency_required": true,
+    "operator_audit_required": true
+  },
+  "grounding": {
+    "formal_objects_or_registered_sources_required_for_factual_answer": true,
+    "insufficient_context_must_be_explicit": true,
+    "query_miss_is_not_clearance": true,
+    "model_or_memory_is_not_evidence": true,
+    "memory_cannot_satisfy_citation_or_gate": true,
+    "citation_required_for_supported_claims": true
+  },
+  "blocked_action_families": [
+    "LIVE_SOURCE_EXECUTION",
+    "EXTERNAL_CONTACT",
+    "PAYMENT",
+    "REFUND",
+    "CUSTOMER_DELIVERY",
+    "CUSTOMER_PUBLICATION",
+    "TOOL_CALLING"
+  ],
+  "input_boundary": {
+    "max_message_characters": 4000,
+    "credentials_or_secrets_allowed": false,
+    "private_personal_data_allowed": false,
+    "raw_governed_document_allowed": false
+  },
+  "response_required_fields": [
+    "intent",
+    "answer_state",
+    "answer",
+    "facts",
+    "citations",
+    "required_inputs",
+    "suggested_actions",
+    "governance"
+  ],
+  "policy_refs": [
+    "contracts/model/model_usage_policy.json",
+    "contracts/release/runtime_policy_catalog.json",
+    "DEV_MODE.md"
+  ]
+}

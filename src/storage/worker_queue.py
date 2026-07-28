@@ -15,6 +15,7 @@ QUEUE_STATUS_FAILED = "failed"
 QUEUE_STATUS_SUSPENDED = "suspended"
 QUEUE_STATUS_RETRY = "retry"
 QUEUE_STATUS_DEAD_LETTER = "dead-letter"
+QUEUE_STATUS_CANCELLED = "cancelled"
 INTERNAL_QUEUE_STATUSES = (
     QUEUE_STATUS_QUEUED,
     QUEUE_STATUS_RUNNING,
@@ -23,12 +24,14 @@ INTERNAL_QUEUE_STATUSES = (
     QUEUE_STATUS_SUSPENDED,
     QUEUE_STATUS_RETRY,
     QUEUE_STATUS_DEAD_LETTER,
+    QUEUE_STATUS_CANCELLED,
 )
 CLAIMABLE_QUEUE_STATUSES = (QUEUE_STATUS_QUEUED, QUEUE_STATUS_RETRY)
 TERMINAL_QUEUE_STATUSES = (
     QUEUE_STATUS_SUCCEEDED,
     QUEUE_STATUS_FAILED,
     QUEUE_STATUS_DEAD_LETTER,
+    QUEUE_STATUS_CANCELLED,
 )
 DEFAULT_QUEUE_NAME = "internal_worker_queue"
 DEFAULT_MAX_ATTEMPTS = 3
@@ -74,6 +77,7 @@ def new_queue_item(
     next_run_at: str | None = None,
     trace_refs: Mapping[str, str] | None = None,
     audit_refs: Mapping[str, str] | None = None,
+    time_budget_seconds: int | None = None,
     now: str | None = None,
 ) -> PersistedWorkerQueueItem:
     created_at = now or utc_now()
@@ -103,6 +107,11 @@ def new_queue_item(
         audit_trace=[],
         created_at=created_at,
         updated_at=created_at,
+        time_budget_seconds=(
+            max(1, int(time_budget_seconds))
+            if time_budget_seconds is not None
+            else None
+        ),
     )
 
 
@@ -178,14 +187,21 @@ def worker_queue_bootstrap_summary(
         "timeout_recovery_enabled": True,
         "suspend_resume_enabled": True,
         "audit_replay_enabled": True,
+        "progress_reporting_enabled": True,
+        "cooperative_cancellation_enabled": True,
+        "execution_budget_enabled": True,
         "status_values": list(INTERNAL_QUEUE_STATUSES),
         "external_queue_backend_configured": external_backend_configured,
         "external_queue_connection_enabled": False,
         "redis_connection_enabled": False,
         "dramatiq_worker_enabled": False,
         "stage1_scheduler_enabled": False,
+        "dedicated_controlled_gray_scheduler_worker_available": True,
+        "unattended_internal_prepare_recurring_ready": True,
+        "unattended_live_execution_ready": False,
+        "web_request_worker_execution_enabled": False,
         "real_provider_execution_enabled": False,
-        "why_not_live": "Redis/external queue and Stage1 scheduler remain reserved; current worker queue runs through existing storage only.",
+        "why_not_live": "The dedicated worker is limited to internal prepare jobs; real source, browser, customer delivery and external queue execution remain disabled.",
     }
 
 
@@ -196,6 +212,7 @@ __all__ = [
     "DEFAULT_QUEUE_NAME",
     "INTERNAL_QUEUE_STATUSES",
     "QUEUE_STATUS_DEAD_LETTER",
+    "QUEUE_STATUS_CANCELLED",
     "QUEUE_STATUS_FAILED",
     "QUEUE_STATUS_QUEUED",
     "QUEUE_STATUS_RETRY",

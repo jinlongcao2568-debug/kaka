@@ -41,7 +41,7 @@
 
 ```powershell
 py -3.12 -m venv .venv
-.\.venv\Scripts\python -m pip install -r requirements.txt
+.\.venv\Scripts\python -m pip install --require-hashes -r requirements.lock.txt
 $env:KAKA_INTERNAL_API_TOKEN = '<由本机密钥管理生成的随机 token>'
 $env:KAKA_INTERNAL_API_COOKIE_SECURE = 'false' # 仅限 127.0.0.1 明文 HTTP 开发
 $env:PYTHONPATH = (Resolve-Path .\src).Path
@@ -64,15 +64,21 @@ $env:KAKA_INTERNAL_API_TOKEN = '<由本机密钥管理生成的随机 token>'
 docker compose up --build app
 ```
 
-默认镜像使用 `requirements-api.txt`，适合内部 HTTP/API、JSON/SQLite/PostgreSQL 存储与队列读写；Scrapling 浏览器、MarkItDown 和富文档解析属于 worker/browser 可选能力，不会默认塞进 API 镜像。确需构建全量能力镜像时显式执行：
+`requirements-api.txt` 与 `requirements.txt` 是直接依赖输入，部署安装只使用对应的 `requirements-api.lock.txt` 与 `requirements.lock.txt` 全传递哈希锁。默认镜像使用 API 锁，适合内部 HTTP/API、JSON/SQLite/PostgreSQL 存储与队列读写；Scrapling 浏览器、MarkItDown 和富文档解析属于 worker/browser 可选能力，不会默认塞进 API 镜像。确需构建全量能力镜像时显式执行：
 
 ```powershell
-docker build --build-arg KAKA_REQUIREMENTS_FILE=requirements.txt -t kaka-worker-full:dev .
+docker build --target worker --build-arg KAKA_REQUIREMENTS_FILE=requirements.lock.txt -t kaka-worker-full:dev .
 ```
 
 `/healthz` 仅报告进程健康和鉴权是否已配置，不返回 token，也不代表生产 live、外部交付或真实支付已开放。
 
 ## 本地验证
+
+依赖输入或锁有变化时先验证锁策略；正式环境必须使用哈希锁安装：
+
+```powershell
+python scripts/validate_dependency_locks.py
+```
 
 默认用隔离的 json-file 测试环境，避免被本机数据库环境变量污染：
 

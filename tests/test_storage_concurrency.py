@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import io
 import os
 import sqlite3
 import subprocess
@@ -10,6 +11,7 @@ import tempfile
 import unittest
 import zipfile
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import redirect_stdout
 from dataclasses import replace
 from importlib.util import find_spec
 from pathlib import Path
@@ -42,7 +44,10 @@ from storage.production_infra_readiness import (
     storage_database_url_dialect,
     storage_database_url_driver,
 )
-from storage.sqlalchemy_backend import SQLAlchemyStorageBackend
+from storage.sqlalchemy_backend import (
+    REQUIRED_STORAGE_SCHEMA_REVISION,
+    SQLAlchemyStorageBackend,
+)
 from storage.repositories import (
     MonitoringAlertingRepository,
     ProductionSloIncidentRepository,
@@ -111,6 +116,11 @@ STORAGE_ENV_KEYS = (
     "KAKA_STORAGE_BACKEND",
     "KAKA_STORAGE_PATH",
     "KAKA_STORAGE_DATABASE_URL",
+    "KAKA_STORAGE_DATABASE_PASSWORD_FILE",
+    "KAKA_STORAGE_DATABASE_HOST",
+    "KAKA_STORAGE_DATABASE_PORT",
+    "KAKA_STORAGE_DATABASE_USER",
+    "KAKA_STORAGE_DATABASE_NAME",
     "KAKA_STORAGE_SCOPE",
     "KAKA_STORAGE_TEST_ISOLATION",
     "KAKA_OBJECT_STORAGE_BACKEND",
@@ -669,8 +679,11 @@ class TestStorageConcurrency(unittest.TestCase):
         dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
         self.assertIn("requirements.txt", dockerfile)
         self.assertIn("requirements-api.txt", dockerfile)
-        self.assertIn("ARG KAKA_REQUIREMENTS_FILE=requirements-api.txt", dockerfile)
-        self.assertIn('requirements-api.txt|requirements.txt', dockerfile)
+        self.assertIn("requirements.lock.txt", dockerfile)
+        self.assertIn("requirements-api.lock.txt", dockerfile)
+        self.assertIn("ARG KAKA_REQUIREMENTS_FILE=requirements-api.lock.txt", dockerfile)
+        self.assertIn('requirements-api.lock.txt|requirements.lock.txt', dockerfile)
+        self.assertIn("--require-hashes", dockerfile)
         self.assertIn("USER kaka", dockerfile)
         self.assertIn("HEALTHCHECK", dockerfile)
         self.assertIn('"uvicorn", "api.main:create_app", "--factory"', dockerfile)
@@ -701,6 +714,10 @@ class TestStorageConcurrency(unittest.TestCase):
         self.assertIn('KAKA_INTERNAL_API_TOKEN: ${KAKA_INTERNAL_API_TOKEN:-}', compose)
         self.assertIn('"127.0.0.1:8000:8000"', compose)
         self.assertNotIn("local runtime bootstrap ready", compose)
+        migration_script = (ROOT / "scripts" / "run-storage-migrations.ps1").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("KAKA_STORAGE_DATABASE_PASSWORD_FILE", migration_script)
 
     def test_alembic_initial_migration_creates_storage_envelope_tables(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -711,10 +728,35 @@ class TestStorageConcurrency(unittest.TestCase):
                 rows = connection.execute("select name from sqlite_master where type='table'").fetchall()
             finally:
                 connection.close()
+            engine = create_engine(sqlalchemy_sqlite_url(database_path), future=True)
+            try:
+                self.assertEqual(
+                    SQLAlchemyStorageBackend.validate_required_schema(
+                        engine,
+                        storage_backend="postgresql",
+                    ),
+                    REQUIRED_STORAGE_SCHEMA_REVISION,
+                )
+            finally:
+                engine.dispose()
 
         tables = {row[0] for row in rows}
         self.assertTrue(set(SQLAlchemyStorageBackend.required_table_names()).issubset(tables))
         self.assertIn("alembic_version", tables)
+
+    def test_postgres_offline_migration_sql_keeps_duplicate_audit_fail_closed(self) -> None:
+        output = io.StringIO()
+        config = alembic_config(
+            "postgresql+psycopg://kaka:redacted@postgres:5432/customer-primary"
+        )
+        with redirect_stdout(output):
+            command.upgrade(config, "head", sql=True)
+
+        sql = output.getvalue()
+        self.assertIn("DO $$", sql)
+        self.assertIn("legacy duplicates require reconciliation", sql)
+        self.assertIn("uq_operator_actions_work_item_event", sql)
+        self.assertIn("uq_worker_queue_events_item_event", sql)
 
     def test_audit_uniqueness_migration_rejects_legacy_duplicates_fail_closed(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -762,6 +804,24 @@ class TestStorageConcurrency(unittest.TestCase):
             finally:
                 migrated_engine.dispose()
 
+    def test_sqlalchemy_backend_rejects_database_behind_required_schema_revision(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            database_path = Path(tmp_dir) / "old-schema.sqlite"
+            database_url = sqlalchemy_sqlite_url(database_path)
+            command.upgrade(alembic_config(database_url), "20260506_0001")
+            engine = create_engine(database_url, future=True)
+            try:
+                with self.assertRaisesRegex(
+                    RuntimeError,
+                    "schema revision.*required.*run storage migrations to head",
+                ):
+                    SQLAlchemyStorageBackend.validate_required_schema(
+                        engine,
+                        storage_backend="postgresql",
+                    )
+            finally:
+                engine.dispose()
+
     @unittest.skipUnless(
         os.getenv("KAKA_TEST_POSTGRES_DATABASE_URL"),
         "set KAKA_TEST_POSTGRES_DATABASE_URL to run the PostgreSQL migration integration test",
@@ -784,6 +844,10 @@ class TestStorageConcurrency(unittest.TestCase):
             payload={"record_id": "REC-POSTGRES-INTEGRATION", "project_id": "P-POSTGRES", "status": "READY"},
         )
         try:
+            self.assertEqual(
+                session.storage_schema_revision,
+                REQUIRED_STORAGE_SCHEMA_REVISION,
+            )
             session.upsert_record(record)
             loaded = session.get_record("test_record", "REC-POSTGRES-INTEGRATION")
         finally:

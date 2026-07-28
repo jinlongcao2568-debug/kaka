@@ -10,6 +10,7 @@ from typing import Any, Mapping
 from shared.utils import utc_now_iso
 from stage2_ingestion.service import Stage2Service
 from stage3_parsing.ocr_text import extract_pdf_text_with_ocr
+from stage3_parsing.responsible_person_identity import assess_responsible_person_name
 from stage3_parsing.service import Stage3Service
 from storage.db import PersistedOperatorAction
 from storage.repositories.object_storage_repo import ObjectStorageRepository
@@ -1521,7 +1522,7 @@ def _extract_candidate_summary_table(text: str) -> dict[str, str]:
 
 def _looks_like_person_name(value: str) -> bool:
     name = _clean_text(value).strip(" ：:，,；;。")
-    if _is_placeholder_responsible_person_value(name):
+    if not assess_responsible_person_name(name, confidence=1.0).accepted:
         return False
     if "·" in name:
         if not re.fullmatch(r"[\u4e00-\u9fff·]{2,8}", name):

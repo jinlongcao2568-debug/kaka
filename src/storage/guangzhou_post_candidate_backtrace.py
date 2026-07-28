@@ -10,6 +10,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin
 from urllib.request import Request, urlopen
 
+from shared.controlled_egress import playwright_proxy_settings
 from shared.settings import Settings
 from shared.utils import utc_now_iso
 from stage1_tasking.real_candidate_discovery import (
@@ -1487,7 +1488,11 @@ def _playwright_interface_probe(source_url: str) -> dict[str, Any]:
     endpoints: list[dict[str, str]] = []
     try:
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
+            launch_options: dict[str, Any] = {"headless": True}
+            proxy = playwright_proxy_settings()
+            if proxy:
+                launch_options["proxy"] = proxy
+            browser = p.chromium.launch(**launch_options)
             page = browser.new_page()
             page.on(
                 "request",

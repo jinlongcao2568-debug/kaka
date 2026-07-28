@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from shared.utils import utc_now_iso
+from stage3_parsing.responsible_person_identity import assess_responsible_person_name
 from storage.company_first_certificate_supplement_probe import (
     build_company_first_certificate_supplement_probe,
 )
@@ -158,6 +159,7 @@ def _bridge_item_from_candidate(candidate: Mapping[str, Any], *, readback: Mappi
         return {}
     group_id = _candidate_group_id(project_id, companies) if len(companies) > 1 else ""
     group_members = [company["company_name"] for company in companies]
+    person_quality = assess_responsible_person_name(person, confidence=0.72)
     targets = [
         {
             "candidate_group_id": group_id,
@@ -168,6 +170,10 @@ def _bridge_item_from_candidate(candidate: Mapping[str, Any], *, readback: Mappi
             "consortium_member_role": company["consortium_member_role"],
             "responsible_person_name": person,
             "certificate_no": "",
+            "critical_identity_confidence": 0.72,
+            "critical_identity_quality_state": person_quality.quality_state,
+            "review_required": person_quality.review_required,
+            "review_reasons": list(person_quality.review_reasons),
             "customer_visible_allowed": False,
             "no_legal_conclusion": True,
         }
@@ -196,6 +202,9 @@ def _bridge_item_from_candidate(candidate: Mapping[str, Any], *, readback: Mappi
         if group_id
         else [],
         "verification_targets": targets,
+        "critical_identity_confidence": 0.72,
+        "critical_identity_quality_state": person_quality.quality_state,
+        "critical_identity_review_required": person_quality.review_required,
         "responsible_role": _responsible_role(candidate),
         "early_probe_state": "COMPANY_FIRST_CERTIFICATE_SUPPLEMENT_REQUIRED",
         "stage4_readiness_state": "SUPPLEMENT_REQUIRED_COMPANY_FIRST",
@@ -228,6 +237,9 @@ def _needs_company_first(candidate: Mapping[str, Any], readback: Mapping[str, An
 
 
 def _skip_reason(candidate: Mapping[str, Any], readback: Mapping[str, Any]) -> str:
+    raw_person = _raw_responsible_person(candidate)
+    if raw_person and not assess_responsible_person_name(raw_person, confidence=0.72).accepted:
+        return "responsible_person_rejected_by_identity_quality_gate"
     if not _needs_company_first(candidate, readback):
         return "company_first_not_required"
     if not str(candidate.get("candidate_company") or "").strip():
@@ -238,6 +250,12 @@ def _skip_reason(candidate: Mapping[str, Any], readback: Mapping[str, Any]) -> s
 
 
 def _responsible_person(candidate: Mapping[str, Any]) -> str:
+    value = _raw_responsible_person(candidate)
+    quality = assess_responsible_person_name(value, confidence=0.72)
+    return quality.normalized_value if quality.accepted else ""
+
+
+def _raw_responsible_person(candidate: Mapping[str, Any]) -> str:
     for key in (
         "project_manager_name",
         "primary_responsible_person_name",
@@ -322,10 +340,14 @@ def _clean_company_name(value: Any) -> str:
 
 
 def _candidate_value(value: str, source: str) -> dict[str, Any]:
+    quality = assess_responsible_person_name(value, confidence=0.72)
     return {
         "value": value,
         "source": source,
         "confidence": 0.72,
+        "critical_identity_quality_state": quality.quality_state,
+        "review_required": quality.review_required,
+        "review_reasons": list(quality.review_reasons),
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,
     }
@@ -375,6 +397,14 @@ def _summary(
     return {
         "bridge_item_count": len(items),
         "skipped_item_count": len(skipped),
+        "rejected_responsible_person_count": sum(
+            1
+            for item in skipped
+            if item.get("skip_reason") == "responsible_person_rejected_by_identity_quality_gate"
+        ),
+        "critical_identity_review_required_count": sum(
+            1 for item in items if item.get("critical_identity_review_required")
+        ),
         "project_count": len({item.get("project_id") for item in items}),
         "verification_target_count": sum(len(item.get("verification_targets") or []) for item in items),
         "company_first_provider_job_count": int(supplement_summary.get("provider_job_count") or 0),

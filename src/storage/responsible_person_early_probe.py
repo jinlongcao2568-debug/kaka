@@ -11,6 +11,10 @@ from typing import Any, Mapping
 
 from shared.utils import utc_now_iso
 from stage3_parsing import markitdown_adapter
+from stage3_parsing.responsible_person_identity import (
+    CRITICAL_IDENTITY_REVIEW_THRESHOLD,
+    assess_responsible_person_name,
+)
 
 
 RESPONSIBLE_PERSON_EARLY_PROBE_MANIFEST_KIND = "responsible_person_early_probe_manifest"
@@ -38,6 +42,18 @@ PLACEHOLDER_PERSON_VALUES = {
     "按合同约定",
     "无",
     "不适用",
+}
+
+CANDIDATE_SOURCE_CONFIDENCE = {
+    "responsible_certificate_pair": 0.88,
+    "responsible_role_label": 0.84,
+    "candidate_table_person_column": 0.8,
+    "certificate_context_name": 0.78,
+    "certificate_pattern": 0.84,
+    "candidate_group_responsible_person": 0.9,
+    "candidate_group_certificate": 0.9,
+    "candidate_group_member": 0.88,
+    "company_pattern": 0.76,
 }
 
 
@@ -362,6 +378,15 @@ def _build_stage4_inputs(*, project_items: list[Mapping[str, Any]], created_at: 
             certificate = str(target.get("certificate_no") or "").strip()
             if not (company and person and certificate):
                 continue
+            identity_confidence = float(target.get("critical_identity_confidence") or 0.0)
+            identity_quality = assess_responsible_person_name(
+                person,
+                confidence=identity_confidence,
+            )
+            review_reasons = list(target.get("review_reasons") or [])
+            if identity_confidence < CRITICAL_IDENTITY_REVIEW_THRESHOLD:
+                review_reasons.append("critical_identity_confidence_below_review_threshold")
+            review_required = bool(target.get("review_required")) or identity_quality.review_required
             item = {
                 "stage4_input_id": f"STAGE4-RESP-PERSON-{_fingerprint({'p': project.get('project_id'), 'group': target.get('candidate_group_id'), 'c': company, 'n': person, 'cert': certificate})[:16]}",
                 "source_probe_adapter_id": RESPONSIBLE_PERSON_EARLY_PROBE_ADAPTER_ID,
@@ -382,11 +407,14 @@ def _build_stage4_inputs(*, project_items: list[Mapping[str, Any]], created_at: 
                 "project_manager_name": person,
                 "project_manager_certificate_no": certificate,
                 "certificate_no": certificate,
+                "critical_identity_confidence": identity_confidence,
+                "critical_identity_quality_state": identity_quality.quality_state,
                 "bid_price_candidates": project.get("bid_price_candidates", []),
                 "rank_candidates": project.get("rank_candidates", []),
                 "recommended_stage4_route": "JZSC_COMPANY_FIRST_PROJECT_MANAGER",
                 "stage4_live_provider_enabled": False,
-                "review_required": False,
+                "review_required": review_required,
+                "review_reasons": list(dict.fromkeys(review_reasons)),
                 "created_at": created_at,
                 "customer_visible_allowed": False,
                 "no_legal_conclusion": True,
@@ -402,6 +430,7 @@ def _build_stage4_inputs(*, project_items: list[Mapping[str, Any]], created_at: 
             "project_count": len({item.get("project_id") for item in items}),
             "with_responsible_person_count": sum(1 for item in items if item.get("responsible_person_name")),
             "with_certificate_count": sum(1 for item in items if item.get("certificate_no")),
+            "review_required_count": sum(1 for item in items if item.get("review_required")),
             "stage4_live_provider_enabled": False,
             "customer_visible_allowed": False,
             "no_legal_conclusion": True,
@@ -418,6 +447,29 @@ def _extract_profile(text: str) -> dict[str, list[dict[str, Any]]]:
         "certificate_no_candidates": _certificate_candidates(text),
         "bid_price_candidates": _bid_price_candidates(text),
         "rank_candidates": _rank_candidates(text),
+    }
+
+
+def extract_responsible_person_profile(text: str) -> dict[str, Any]:
+    """Replay the production text/table extractor without filesystem or network I/O."""
+    normalized_text = _normalize_text(text)
+    profile = _extract_profile(normalized_text)
+    candidate_groups = _candidate_groups(normalized_text)
+    if candidate_groups:
+        profile = _profile_from_candidate_groups(candidate_groups, fallback_profile=profile)
+    verification_targets = _verification_targets(candidate_groups, fallback_profile=profile)
+    return {
+        **profile,
+        "candidate_groups": candidate_groups,
+        "verification_targets": verification_targets,
+        "critical_identity_review_required": any(
+            bool(target.get("review_required")) for target in verification_targets
+        ),
+        "critical_identity_review_required": any(
+            bool(target.get("review_required")) for target in verification_targets
+        ),
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
     }
 
 
@@ -534,6 +586,8 @@ def _candidate_group_from_segment(segment: list[str], *, group_order: int) -> di
         if person and not certificate and _line_mentions_person_certificate(line):
             certificate = _certificate_from_line(line)
     group_id = f"CANDIDATE-GROUP-{_fingerprint({'order': group_order, 'company': company_raw, 'person': person, 'cert': certificate})[:12]}"
+    identity_confidence = 0.9 if person and certificate else (0.78 if person else 0.0)
+    identity_quality = assess_responsible_person_name(person, confidence=identity_confidence) if person else None
     return {
         "candidate_group_id": group_id,
         "candidate_group_order": group_order,
@@ -545,7 +599,11 @@ def _candidate_group_from_segment(segment: list[str], *, group_order: int) -> di
         "certificate_no": certificate,
         "bid_price_optional": bid_price,
         "source": "flow_07_candidate_table",
-        "confidence": 0.82 if person and certificate else 0.7,
+        "confidence": 0.9 if person and certificate else 0.7,
+        "critical_identity_confidence": identity_confidence,
+        "critical_identity_quality_state": identity_quality.quality_state if identity_quality else "MISSING",
+        "review_required": bool(identity_quality.review_required) if identity_quality else True,
+        "review_reasons": list(identity_quality.review_reasons) if identity_quality else ["responsible_person_missing"],
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,
     }
@@ -668,7 +726,13 @@ def _profile_from_candidate_groups(
         for member in list(group.get("consortium_members") or []):
             companies.append(_candidate(member.get("company_name"), "candidate_group_member"))
         if group.get("responsible_person_name"):
-            persons.append(_candidate(group.get("responsible_person_name"), "candidate_group_responsible_person"))
+            persons.append(
+                _responsible_person_candidate(
+                    group.get("responsible_person_name"),
+                    "candidate_group_responsible_person",
+                    confidence=float(group.get("critical_identity_confidence") or 0.0),
+                )
+            )
         if group.get("certificate_no"):
             certificates.append(_candidate(group.get("certificate_no"), "candidate_group_certificate"))
         if group.get("bid_price_optional"):
@@ -710,6 +774,10 @@ def _verification_targets(
                     "consortium_member_role": member.get("consortium_role", ""),
                     "responsible_person_name": person,
                     "certificate_no": group.get("certificate_no", ""),
+                    "critical_identity_confidence": group.get("critical_identity_confidence", 0.0),
+                    "critical_identity_quality_state": group.get("critical_identity_quality_state", ""),
+                    "review_required": bool(group.get("review_required")),
+                    "review_reasons": list(group.get("review_reasons") or []),
                     "source": "candidate_group_member_target",
                     "customer_visible_allowed": False,
                     "no_legal_conclusion": True,
@@ -717,10 +785,18 @@ def _verification_targets(
             )
     if targets:
         return targets
-    company = _first_value(fallback_profile.get("candidate_company_candidates"))
-    person = _first_value(fallback_profile.get("responsible_person_candidates"))
-    cert = _first_value(fallback_profile.get("certificate_no_candidates"))
+    company_candidate = _first_candidate(fallback_profile.get("candidate_company_candidates"))
+    person_candidate = _first_candidate(fallback_profile.get("responsible_person_candidates"))
+    certificate_candidate = _first_candidate(fallback_profile.get("certificate_no_candidates"))
+    company = str(company_candidate.get("value") or "")
+    person = str(person_candidate.get("value") or "")
+    cert = str(certificate_candidate.get("value") or "")
     if company and person:
+        identity_confidence = min(
+            float(person_candidate.get("confidence") or 0.0),
+            float(certificate_candidate.get("confidence") or 0.0) if cert else 0.0,
+        )
+        identity_quality = assess_responsible_person_name(person, confidence=identity_confidence)
         return [
             {
                 "candidate_group_id": "",
@@ -732,6 +808,10 @@ def _verification_targets(
                 "consortium_member_role": "unknown",
                 "responsible_person_name": person,
                 "certificate_no": cert,
+                "critical_identity_confidence": identity_confidence,
+                "critical_identity_quality_state": identity_quality.quality_state,
+                "review_required": identity_quality.review_required,
+                "review_reasons": list(identity_quality.review_reasons),
                 "source": "fallback_project_level_target",
                 "customer_visible_allowed": False,
                 "no_legal_conclusion": True,
@@ -757,7 +837,7 @@ def _company_candidates(text: str) -> list[dict[str, Any]]:
 def _responsible_person_candidates(text: str) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for pair in _responsible_certificate_pairs(text):
-        rows.append(_candidate(pair["person"], "responsible_certificate_pair"))
+        rows.append(_responsible_person_candidate(pair["person"], "responsible_certificate_pair"))
     table_person_pattern = (
         r"(?:详见投标文件公开|满足招标文件要求，具体详见投标文件公开|/)\s*\n"
         r"([\u4e00-\u9fff·]{2,6})\s*\n"
@@ -766,7 +846,7 @@ def _responsible_person_candidates(text: str) -> list[dict[str, Any]]:
     for match in re.finditer(table_person_pattern, text):
         value = _clean_person(match.group(1))
         if value:
-            rows.append(_candidate(value, "candidate_table_person_column"))
+            rows.append(_responsible_person_candidate(value, "candidate_table_person_column"))
     role_pattern = (
         r"(?:项目经理|项目负责人|项目总负责人|总监理工程师|总监|设计负责人|勘察负责人|负责人)"
         r"(?:姓名)?(?:[：:\s]+|为)([\u4e00-\u9fff·]{2,6})"
@@ -774,7 +854,7 @@ def _responsible_person_candidates(text: str) -> list[dict[str, Any]]:
     for match in re.finditer(role_pattern, text):
         value = _clean_person(match.group(1))
         if value:
-            rows.append(_candidate(value, "responsible_role_label"))
+            rows.append(_responsible_person_candidate(value, "responsible_role_label"))
     cert_context = (
         r"([\u4e00-\u9fff·]{2,6})\s*(?:（[^）]{0,30}）|\([^)]{0,30}\))?\s*"
         r"(?:一级注册建造师|二级注册建造师|注册建造师|注册监理工程师|监理工程师|注册建筑师|注册结构工程师)"
@@ -782,7 +862,7 @@ def _responsible_person_candidates(text: str) -> list[dict[str, Any]]:
     for match in re.finditer(cert_context, text):
         value = _clean_person(match.group(1))
         if value:
-            rows.append(_candidate(value, "certificate_context_name"))
+            rows.append(_responsible_person_candidate(value, "certificate_context_name"))
     return _dedupe(rows, limit=12)
 
 
@@ -1042,6 +1122,9 @@ def _summary(
         "flow_08_targeted_parse_required_count": sum(1 for item in project_items if item.get("flow_08_targeted_parse_required")),
         "ocr_required_count": sum(1 for item in project_items if item.get("ocr_required")),
         "stage4_input_count": len(stage4_inputs.get("items") or []),
+        "critical_identity_review_required_count": sum(
+            1 for item in project_items if item.get("critical_identity_review_required")
+        ),
         "blocking_reasons": list(blocking_reasons),
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,
@@ -1075,7 +1158,31 @@ def _candidate(value: Any, source: str) -> dict[str, Any]:
     return {
         "value": _clean_token(value),
         "source": source,
-        "confidence": 0.64,
+        "confidence": CANDIDATE_SOURCE_CONFIDENCE.get(source, 0.64),
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
+
+
+def _responsible_person_candidate(
+    value: Any,
+    source: str,
+    *,
+    confidence: float | None = None,
+) -> dict[str, Any]:
+    resolved_confidence = (
+        CANDIDATE_SOURCE_CONFIDENCE.get(source, 0.64)
+        if confidence is None
+        else float(confidence)
+    )
+    quality = assess_responsible_person_name(value, confidence=resolved_confidence)
+    return {
+        "value": quality.normalized_value if quality.accepted else "",
+        "source": source,
+        "confidence": resolved_confidence,
+        "critical_identity_quality_state": quality.quality_state,
+        "review_required": quality.review_required,
+        "review_reasons": list(quality.review_reasons),
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,
     }
@@ -1121,38 +1228,8 @@ def _clean_company(value: Any) -> str:
 
 def _clean_person(value: Any) -> str:
     text = _clean_token(value)
-    if _is_placeholder_person(text):
-        return ""
-    if not re.fullmatch(r"[\u4e00-\u9fff·]{2,6}", text):
-        return ""
-    if text in {"项目负责人", "总监理", "总监理工程师", "工程师", "候选人", "负责人"}:
-        return ""
-    if any(
-        token in text
-        for token in (
-            "项目",
-            "负责",
-            "资质",
-            "业绩",
-            "投标",
-            "报价",
-            "候选",
-            "证书",
-            "代码",
-            "合同",
-            "约定",
-            "行业",
-            "甲级",
-            "乙级",
-            "资信",
-            "资格",
-            "建筑",
-            "工程",
-            "等级",
-        )
-    ):
-        return ""
-    return text
+    quality = assess_responsible_person_name(text, confidence=1.0)
+    return quality.normalized_value if quality.accepted else ""
 
 
 def _is_placeholder_person(value: Any) -> bool:
@@ -1173,6 +1250,12 @@ def _first_value(values: Any) -> str:
         if isinstance(first, Mapping):
             return str(first.get("value") or "")
     return ""
+
+
+def _first_candidate(values: Any) -> dict[str, Any]:
+    if isinstance(values, list) and values and isinstance(values[0], Mapping):
+        return dict(values[0])
+    return {}
 
 
 def _project_name_from_flow(flow07_dirs: list[Path]) -> str:
@@ -1284,4 +1367,5 @@ if __name__ == "__main__":
 __all__ = [
     "RESPONSIBLE_PERSON_EARLY_PROBE_MANIFEST_KIND",
     "build_responsible_person_early_probe",
+    "extract_responsible_person_profile",
 ]

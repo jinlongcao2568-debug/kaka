@@ -1,0 +1,77 @@
+{
+  "contract_id": "product_onboarding_config_contract",
+  "contract_version": "1.0.0",
+  "status": "ACTIVE_PRIVATE_SINGLE_TENANT",
+  "product_scope": {
+    "deployment_mode": "PRIVATE_SINGLE_TENANT",
+    "customer_self_service_enabled": false,
+    "operator_surface": "OWNER_OR_ADMIN_ONLY",
+    "industry_codes": ["CONSTRUCTION_PUBLIC_EVIDENCE"],
+    "evidence_template_ids": ["SKU_B_PUBLIC_SOURCE_FOUR_FIELD_RISK_REVIEW"]
+  },
+  "configuration_fields": {
+    "region_codes": {
+      "source_of_truth": "src/stage1_tasking/region_adapters.py#REGION_SOURCE_ADAPTERS",
+      "maximum_items": 3,
+      "rule": "Only searchable national or commercial-pilot adapters may be selected."
+    },
+    "source_profile_ids": {
+      "source_of_truth": "selected region adapters entry/fallback profiles",
+      "maximum_items": 8,
+      "caller_may_add_unregistered_source": false,
+      "each_region_requires_selected_profile": true
+    },
+    "budgets": {
+      "discovery_candidate_limit": {"minimum": 1, "maximum": 30, "default": 10},
+      "detail_capture_limit": {"minimum": 0, "maximum": 10, "default": 3},
+      "attachment_capture_limit": {"minimum": 0, "maximum": 20, "default": 6},
+      "job_time_budget_seconds": {"minimum": 60, "maximum": 1800, "default": 600}
+    }
+  },
+  "lifecycle": {
+    "actions": ["UPSERT_DRAFT", "ACTIVATE", "ROLLBACK"],
+    "states": ["DRAFT_VALIDATED", "ACTIVE", "ACTIVE_ROLLBACK"],
+    "expected_version_required_after_create": true,
+    "activation_requires_latest_offline_test_pass": true,
+    "rollback_target_must_be_previously_active": true,
+    "rollback_creates_new_version": true,
+    "historical_version_mutation_allowed": false,
+    "active_pointer_per_tenant": 1
+  },
+  "offline_test_run": {
+    "mode": "OFFLINE_VALIDATION",
+    "persists_report": true,
+    "creates_task_or_fetch": false,
+    "provider_call_enabled": false,
+    "external_network_enabled": false,
+    "formal_fact_write_enabled": false,
+    "customer_visible_enabled": false,
+    "approval_or_release_gate_change_enabled": false
+  },
+  "fixed_execution_boundary": {
+    "payload_boundary": "SANITIZED_OFFLINE_INTERNAL",
+    "source_mode": "OFFLINE_SANITIZED",
+    "run_mode": "PREVIEW",
+    "live_source_enabled": false,
+    "real_external_fetch_enabled": false,
+    "external_contact_enabled": false,
+    "payment_enabled": false,
+    "refund_enabled": false,
+    "customer_delivery_enabled": false,
+    "customer_publication_enabled": false,
+    "source_allowlist_override_enabled": false,
+    "approval_bypass_enabled": false
+  },
+  "formal_objects": [
+    "product_onboarding_profile_version",
+    "product_onboarding_active_pointer",
+    "product_onboarding_test_run",
+    "product_onboarding_audit"
+  ],
+  "saas_boundary": {
+    "shared_multi_tenant_acl_claimed": false,
+    "tenant_scope_injected_by_authenticated_transport": true,
+    "caller_supplied_tenant_id_allowed": false,
+    "saas_onboarding_complete": false
+  }
+}

@@ -4,7 +4,7 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Callable, Mapping, Sequence
 
 from shared.utils import utc_now_iso
 from runtime.controlled_gray_public_batch_segments import (
@@ -36,17 +36,36 @@ def build_controlled_gray_public_orchestrator_prepare_bundle(
     execute: bool = False,
     auto_execute_source_remediation: bool = True,
     created_at: str | None = None,
+    progress_callback: Callable[[str, int, int, str], None] | None = None,
+    cancellation_checkpoint: Callable[[], None] | None = None,
 ) -> dict[str, Any]:
     output_dir = Path(output_root)
     source_targets_root = output_dir / "source-targets"
     segments_root = output_dir / "segments"
     aggregate_root = segments_root / "aggregate"
 
+    _runtime_checkpoint(
+        cancellation_checkpoint,
+        progress_callback,
+        stage="SOURCE_TARGETS",
+        completed_units=0,
+        total_units=4,
+        message="building controlled-gray source targets",
+    )
+
     source_targets = build_controlled_gray_public_source_targets(
         source_targets_json=source_targets_json,
         output_root=source_targets_root,
         per_target_sample_goal=per_target_sample_goal,
         created_at=created_at,
+    )
+    _runtime_checkpoint(
+        cancellation_checkpoint,
+        progress_callback,
+        stage="SEGMENT_PLAN",
+        completed_units=1,
+        total_units=4,
+        message="source targets ready; building segment plan",
     )
     derived_targets_json = Path(str(source_targets.get("targets_json") or ""))
     segment_plan = build_controlled_gray_public_batch_segments(
@@ -61,11 +80,27 @@ def build_controlled_gray_public_orchestrator_prepare_bundle(
         auto_execute_source_remediation=auto_execute_source_remediation,
         created_at=created_at,
     )
+    _runtime_checkpoint(
+        cancellation_checkpoint,
+        progress_callback,
+        stage="AGGREGATE",
+        completed_units=2,
+        total_units=4,
+        message="segment plan ready; building aggregate",
+    )
     segments_json = segments_root / "controlled-gray-public-batch-segments-v1.json"
     aggregate = build_controlled_gray_public_batch_segment_aggregate(
         segment_plan_json=segments_json,
         output_root=aggregate_root,
         created_at=created_at,
+    )
+    _runtime_checkpoint(
+        cancellation_checkpoint,
+        progress_callback,
+        stage="MANIFEST",
+        completed_units=3,
+        total_units=4,
+        message="aggregate ready; building manifest",
     )
     aggregate_json = aggregate_root / "controlled-gray-public-batch-segment-aggregate-v1.json"
     manifest = build_controlled_gray_public_orchestrator_manifest(
@@ -86,6 +121,14 @@ def build_controlled_gray_public_orchestrator_prepare_bundle(
         auto_execute_source_remediation=auto_execute_source_remediation,
         created_at=created_at,
     )
+    _runtime_checkpoint(
+        cancellation_checkpoint,
+        progress_callback,
+        stage="PREPARE_COMPLETE",
+        completed_units=4,
+        total_units=4,
+        message="controlled-gray prepare bundle complete",
+    )
     return {
         "output_root": str(output_dir),
         "source_targets_summary": source_targets.get("summary", {}),
@@ -97,6 +140,21 @@ def build_controlled_gray_public_orchestrator_prepare_bundle(
         "manifest": manifest,
         "summary": manifest.get("summary", {}),
     }
+
+
+def _runtime_checkpoint(
+    cancellation_checkpoint: Callable[[], None] | None,
+    progress_callback: Callable[[str, int, int, str], None] | None,
+    *,
+    stage: str,
+    completed_units: int,
+    total_units: int,
+    message: str,
+) -> None:
+    if cancellation_checkpoint is not None:
+        cancellation_checkpoint()
+    if progress_callback is not None:
+        progress_callback(stage, completed_units, total_units, message)
 
 
 def build_controlled_gray_public_orchestrator_manifest(
@@ -302,7 +360,11 @@ def _orchestrator_summary(
         "safety_boundary_closed": safety_closed,
         "runtime_orchestration_manifest_ready": True,
         "pipeline_steps_automated_for_current_batch": bool(aggregate_summary),
-        "unattended_recurring_run_ready": False,
+        "unattended_recurring_run_ready": True,
+        "unattended_recurring_scope": "INTERNAL_PREPARE_ONLY",
+        "unattended_live_execution_ready": False,
+        "dedicated_scheduler_worker_ready": True,
+        "web_request_execution_enabled": False,
         "workbench_trigger_ready": True,
         "customer_visible_allowed": False,
         "external_send_enabled": False,
@@ -429,11 +491,11 @@ def _automation_capabilities(
         ),
         _capability(
             "background_scheduler",
-            "internal storage-backed controlled-batch worker queue",
-            "INTERNAL_WORKER_QUEUE_READY",
+            "dedicated storage-backed controlled-batch scheduler worker",
+            "DEDICATED_SCHEDULER_WORKER_READY",
             True,
-            "/operator-console/controlled-gray-orchestrator/worker/run-once",
-            next_required_step="start_worker_loop_or_os_scheduler_for_recurring_batches",
+            "python -m runtime.controlled_gray_scheduler_worker --serve",
+            next_required_step="enqueue_internal_prepare_job_or_recurring_schedule",
         ),
     ]
 

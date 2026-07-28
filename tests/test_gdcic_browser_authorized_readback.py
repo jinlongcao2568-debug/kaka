@@ -168,6 +168,49 @@ class GDCICBrowserAuthorizedReadbackTests(unittest.TestCase, IsolatedStorageTest
                 "fix_gdcic_authorized_session_input_path_then_rerun",
             )
 
+    def test_live_request_without_authorized_session_skips_protected_source_without_network(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            plan_root = root / "release-plan"
+            out_root = root / "gdcic-readback"
+            _write_release_evidence_adapter_plan(plan_root)
+
+            result = build_gdcic_browser_authorized_readback(
+                release_evidence_adapter_plan_root=plan_root,
+                output_root=out_root,
+                enable_live_browser_execution=True,
+                created_at="2026-07-19T12:00:00+08:00",
+            )
+
+            summary = result["summary"]
+            records = result["manifest"]["browser_readback_records"]
+            self.assertEqual(
+                summary["execution_mode"],
+                "LIVE_BROWSER_EXECUTION_SKIPPED_NO_AUTHORIZED_SESSION",
+            )
+            self.assertEqual(summary["browser_network_attempt_count"], 0)
+            self.assertEqual(
+                summary["protected_source_skipped_without_authorized_session_count"],
+                len(records),
+            )
+            self.assertEqual(summary["gdcic_authorized_session_overall_state"], "LOGIN_OR_SSO_REQUIRED")
+            self.assertTrue(result["manifest"]["live_browser_execution_requested"])
+            self.assertFalse(result["manifest"]["live_browser_execution_enabled"])
+            self.assertFalse(result["manifest"]["safety"]["network_enabled"])
+            self.assertTrue(
+                result["manifest"]["safety"]["protected_source_skipped_without_authorized_session"]
+            )
+            self.assertTrue(records)
+            self.assertTrue(
+                all(record["readback_state"] == "LOGIN_OR_SSO_REQUIRED_BLOCKED" for record in records)
+            )
+            self.assertTrue(all(not record["network_attempted"] for record in records))
+            self.assertGreater(summary["alternative_public_source_route_count"], 0)
+            self.assertEqual(
+                summary["authorization_blocker_alternative_operator_next_action"],
+                "run_alternative_public_source_release_evidence_readback_chain",
+            )
+
     def test_field_query_artifact_can_seed_live30_authorized_readback_tasks_without_release_plan(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)

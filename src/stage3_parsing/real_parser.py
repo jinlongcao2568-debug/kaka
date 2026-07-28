@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+import time
 import zipfile
 from dataclasses import asdict, dataclass, field
 from html.parser import HTMLParser
@@ -16,6 +17,10 @@ from shared.model_assist_governance import (
     build_parser_model_assist,
 )
 from shared.utils import utc_now_iso
+from runtime.operational_observability import (
+    get_operational_event_sink,
+    record_operational_event_safely,
+)
 from stage3_parsing import markitdown_adapter
 from stage3_parsing.ocr_text import (
     OCR_REQUIRED,
@@ -23,6 +28,7 @@ from stage3_parsing.ocr_text import (
     extract_image_text_with_ocr,
     extract_pdf_text_with_ocr,
 )
+from stage3_parsing.responsible_person_identity import assess_responsible_person_name
 from storage.repositories.object_storage_repo import ObjectStorageRepository
 
 
@@ -39,6 +45,8 @@ WORD_PARSE_FAILED = "WORD_PARSE_FAILED"
 EXCEL_SHEET_AMBIGUOUS = "EXCEL_SHEET_AMBIGUOUS"
 ATTACHMENT_TYPE_UNKNOWN = "ATTACHMENT_TYPE_UNKNOWN"
 MARKITDOWN_PARSE_REVIEW = "MARKITDOWN_PARSE_REVIEW"
+CRITICAL_IDENTITY_VALUE_REJECTED = "CRITICAL_IDENTITY_VALUE_REJECTED"
+CRITICAL_IDENTITY_REVIEW_REQUIRED = "CRITICAL_IDENTITY_REVIEW_REQUIRED"
 
 FIELD_LABELS: dict[str, tuple[str, ...]] = {
     "project_name": ("项目名称", "工程名称", "工程项目名称", "项目名"),
@@ -142,10 +150,76 @@ class Stage3RealParser:
         repository: ObjectStorageRepository | None = None,
     ) -> dict[str, Any]:
         resolved_repository = repository or self.repository or ObjectStorageRepository()
-        readback = resolved_repository.replay_snapshot(snapshot_id)
+        try:
+            readback = resolved_repository.replay_snapshot(snapshot_id)
+        except Exception as exc:
+            record_operational_event_safely(
+                get_operational_event_sink("worker"),
+                component="parse",
+                operation="snapshot_readback",
+                outcome="error",
+                severity="ERROR",
+                trace_id=snapshot_id,
+                error_category=type(exc).__name__,
+            )
+            raise
         return self.parse_readback(readback)
 
     def parse_readback(self, readback: Mapping[str, Any]) -> dict[str, Any]:
+        started = time.perf_counter()
+        manifest = _manifest(readback)
+        raw_snapshot_metadata = _mapping(manifest.get("raw_snapshot_metadata"))
+        snapshot_id = str(
+            readback.get("snapshot_id")
+            or manifest.get("snapshot_id")
+            or raw_snapshot_metadata.get("snapshot_id")
+            or "UNKNOWN_SNAPSHOT"
+        )
+        sink = get_operational_event_sink("worker")
+        try:
+            carrier = self._parse_readback(readback)
+        except Exception as exc:
+            record_operational_event_safely(
+                sink,
+                component="parse",
+                operation="snapshot_parse",
+                outcome="error",
+                severity="ERROR",
+                duration_ms=(time.perf_counter() - started) * 1000,
+                trace_id=snapshot_id,
+                error_category=type(exc).__name__,
+            )
+            raise
+        parse_state = str(carrier.get("parse_state") or "UNKNOWN").strip().upper()
+        taxonomy = [str(item) for item in list(carrier.get("parse_error_taxonomy") or [])]
+        if parse_state == "PARSED":
+            outcome, severity, error_category = "success", "INFO", None
+        elif parse_state == "REVIEW_REQUIRED":
+            outcome, severity = "blocked", "WARNING"
+            error_category = taxonomy[0] if taxonomy else parse_state
+        else:
+            outcome, severity = "degraded", "WARNING"
+            error_category = taxonomy[0] if taxonomy else parse_state
+        record_operational_event_safely(
+            sink,
+            component="parse",
+            operation="snapshot_parse",
+            outcome=outcome,
+            severity=severity,
+            duration_ms=(time.perf_counter() - started) * 1000,
+            trace_id=snapshot_id,
+            error_category=error_category,
+            attributes={
+                "parse_state": parse_state,
+                "attachment_type": carrier.get("attachment_type"),
+                "parser_family": carrier.get("parser_family"),
+                "parsed_field_count": len(list(carrier.get("parsed_fields") or [])),
+                "review_required": bool(carrier.get("review_required")),
+            },
+        )
+        return carrier
+
+    def _parse_readback(self, readback: Mapping[str, Any]) -> dict[str, Any]:
         started_at = utc_now_iso()
         parser_steps: list[str] = ["read_stage2_snapshot_readback"]
         fallback_steps: list[str] = []
@@ -910,6 +984,27 @@ def _merge_fields(*field_groups: list[ParsedField]) -> list[ParsedField]:
                 continue
             if existing.field_value_optional == field.field_value_optional:
                 continue
+            if existing.field_value_optional is None and field.field_value_optional is not None:
+                warnings = _unique(
+                    existing.parse_warnings
+                    + field.parse_warnings
+                    + [TABLE_EXTRACTION_AMBIGUOUS]
+                )
+                by_name[field.field_name] = ParsedField(
+                    field_name=field.field_name,
+                    field_value_optional=field.field_value_optional,
+                    source_page_optional=field.source_page_optional,
+                    source_file_ref=field.source_file_ref,
+                    source_slice=field.source_slice,
+                    source_slice_sha256=field.source_slice_sha256,
+                    raw_text=field.raw_text,
+                    locator=field.locator,
+                    confidence=min(field.confidence, 0.55),
+                    parser_version=field.parser_version,
+                    review_required=True,
+                    parse_warnings=warnings,
+                )
+                continue
             warnings = _unique(existing.parse_warnings + [TABLE_EXTRACTION_AMBIGUOUS])
             by_name[field.field_name] = ParsedField(
                 field_name=existing.field_name,
@@ -941,18 +1036,41 @@ def _build_field(
     parse_warnings: list[str] | None = None,
 ) -> ParsedField:
     normalized_slice = _normalize_text(source_slice)
+    normalized_value: str | None = _normalize_text(value)
+    normalized_confidence = round(float(confidence), 4)
+    normalized_review_required = bool(review_required)
+    normalized_warnings = list(parse_warnings or [])
+    if field_name == "project_manager_name":
+        identity_quality = assess_responsible_person_name(
+            normalized_value,
+            confidence=normalized_confidence,
+        )
+        if not identity_quality.accepted:
+            normalized_value = None
+            normalized_confidence = min(normalized_confidence, 0.2)
+            normalized_review_required = True
+            normalized_warnings = _unique(
+                normalized_warnings
+                + [CRITICAL_IDENTITY_VALUE_REJECTED, identity_quality.quality_state]
+            )
+        elif identity_quality.review_required:
+            normalized_review_required = True
+            normalized_warnings = _unique(
+                normalized_warnings
+                + [CRITICAL_IDENTITY_REVIEW_REQUIRED, *identity_quality.review_reasons]
+            )
     return ParsedField(
         field_name=field_name,
-        field_value_optional=_normalize_text(value),
+        field_value_optional=normalized_value,
         source_page_optional=source_page_optional,
         source_file_ref=source_file_ref,
         source_slice=normalized_slice,
         source_slice_sha256=hashlib.sha256(normalized_slice.encode("utf-8")).hexdigest(),
         raw_text=normalized_slice,
         locator=dict(locator),
-        confidence=round(float(confidence), 4),
-        review_required=review_required,
-        parse_warnings=list(parse_warnings or []),
+        confidence=normalized_confidence,
+        review_required=normalized_review_required,
+        parse_warnings=normalized_warnings,
     )
 
 

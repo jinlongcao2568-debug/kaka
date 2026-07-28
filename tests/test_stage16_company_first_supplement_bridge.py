@@ -18,6 +18,46 @@ from storage.stage16_company_first_supplement_bridge import (  # noqa: E402
 
 
 class Stage16CompanyFirstSupplementBridgeTests(unittest.TestCase):
+    def test_rejects_non_person_stage16_project_manager_before_supplement_jobs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            storage_json = root / "storage.json"
+            _write_storage(
+                storage_json,
+                candidate_options=[
+                    {
+                        "project_id": "PROJ-CN-GD-JG2026-11279",
+                        "project_name": "勘察设计中标候选人公示",
+                        "source_url": "https://example.test/11279.html",
+                        "candidate_company": "测试设计院有限公司",
+                        "project_manager_name": "达到",
+                        "project_manager_certificate_no": "",
+                    }
+                ],
+                closed_loop_results=[
+                    {
+                        "project_id": "PROJ-CN-GD-JG2026-11279",
+                        "real_public_stage1_6_readback": {
+                            "jzsc_company_first_identity_resolution_required": True,
+                            "project_manager_identifier_resolution_state": "JZSC_COMPANY_FIRST_REQUIRED",
+                        },
+                    }
+                ],
+            )
+
+            result = build_stage16_company_first_supplement_bridge(
+                storage_json=storage_json,
+                output_root=root / "out",
+                created_at="2026-05-18T00:00:00+08:00",
+            )
+
+            self.assertEqual(result["summary"]["bridge_item_count"], 0)
+            self.assertEqual(result["summary"]["rejected_responsible_person_count"], 1)
+            self.assertEqual(result["summary"]["company_first_provider_job_count"], 0)
+            self.assertEqual(
+                result["manifest"]["skipped_items"][0]["skip_reason"],
+                "responsible_person_rejected_by_identity_quality_gate",
+            )
     def test_bridges_stage16_storage_to_company_first_jobs_and_splits_consortium(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)

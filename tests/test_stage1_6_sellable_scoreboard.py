@@ -19,6 +19,47 @@ from storage.stage1_6_sellable_scoreboard import (
 
 
 class StageOneSixSellableScoreboardTests(unittest.TestCase):
+    def test_sellable_rate_excludes_limited_review_candidates(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            pressure = root / "pressure"
+            stage6 = root / "stage6"
+            out = root / "out"
+            for path in (pressure, stage6, out):
+                path.mkdir(parents=True, exist_ok=True)
+            _write_json(
+                pressure / "pressure-summary.json",
+                {"candidate_count": 5, "customer_sellable_evidence_ready_count": 2},
+            )
+            _write_json(pressure / "stage1-6-readiness-table.json", {"records": []})
+            _write_json(pressure / "stage1-6-gap-summary-table.json", {"records": []})
+            _write_json(
+                stage6 / "stage6-review-loop-project-status-table.json",
+                {
+                    "records": [
+                        {
+                            "project_id": "PROJ-LIMITED",
+                            "limited_sellable_review_candidate_state": "REVIEW_CANDIDATE",
+                            "stage7_commercial_input_allowed": False,
+                        }
+                    ]
+                },
+            )
+
+            result = build_stage1_6_sellable_scoreboard(
+                pressure_root=pressure,
+                stage6_status_root=stage6,
+                output_root=out,
+                created_at="2026-07-19T00:00:00+08:00",
+            )
+
+        scoreboard = result["scoreboard"]
+        self.assertEqual(scoreboard["stage7_sellable_count"], 2)
+        self.assertEqual(scoreboard["limited_sellable_review_candidate_count"], 1)
+        self.assertEqual(scoreboard["real_public_sellable_pack_rate"], 0.4)
+        self.assertEqual(scoreboard["limited_sellable_review_candidate_rate"], 0.2)
+        self.assertEqual(scoreboard["real_public_sellable_or_limited_review_rate"], 0.6)
+
     def test_incremental_public_source_preservation_does_not_overwrite_limited_projection(self) -> None:
         current = {
             "project_id": "PROJ-A",
@@ -174,6 +215,92 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
         self.assertEqual(scoreboard["projection_or_merge_state"], "FOLLOWUP_OR_MERGED_PROJECTION")
         self.assertIn("not clean batch conversion KPI", scoreboard["input_lineage_warning"])
         self.assertFalse(result["safety"]["customer_visible_allowed"])
+
+    def test_scoreboard_marks_followup_input_as_projection_without_review_candidates(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            pressure = root / "pressure"
+            p13b_history = root / "p13b-history"
+            out = root / "out"
+            for path in (pressure, p13b_history, out):
+                path.mkdir(parents=True, exist_ok=True)
+            _write_json(pressure / "pressure-summary.json", {"candidate_count": 0})
+            _write_json(pressure / "stage1-6-readiness-table.json", {"records": []})
+            _write_json(pressure / "stage1-6-gap-summary-table.json", {"records": []})
+            _write_json(
+                p13b_history / "company-history-overlap-triage-v1.json",
+                {
+                    "manifest": {
+                        "project_task_records": [
+                            {
+                                "project_id": "PROJ-FOLLOWUP-NOT-READY",
+                                "project_name": "follow-up row without review candidate",
+                            }
+                        ]
+                    },
+                    "summary": {
+                        "input_mode": "STAGE4_BACKFILL_FOLLOWUP_PUBLIC_SOURCE_ROUTES",
+                        "customer_visible_allowed": False,
+                        "query_miss_is_not_clearance": True,
+                        "no_legal_conclusion": True,
+                    },
+                },
+            )
+
+            result = build_stage1_6_sellable_scoreboard(
+                pressure_root=pressure,
+                p13b_company_history_root=p13b_history,
+                output_root=out,
+                created_at="2026-05-26T00:00:00+08:00",
+            )
+
+        scoreboard = result["scoreboard"]
+        self.assertEqual(scoreboard["candidate_count"], 1)
+        self.assertEqual(scoreboard["limited_sellable_review_candidate_count"], 0)
+        self.assertEqual(scoreboard["denominator_kind"], "FOLLOWUP_PROJECT_ROWS")
+        self.assertFalse(scoreboard["clean_batch_comparable"])
+        self.assertEqual(scoreboard["projection_or_merge_state"], "FOLLOWUP_OR_MERGED_PROJECTION")
+        self.assertIn("input_mode identifies follow-up", scoreboard["input_lineage_warning"])
+
+    def test_scoreboard_marks_ygp_only_followup_as_projection_without_explicit_input_mode(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            pressure = root / "pressure"
+            p13b_ygp = root / "p13b-ygp"
+            out = root / "out"
+            for path in (pressure, p13b_ygp, out):
+                path.mkdir(parents=True, exist_ok=True)
+            _write_json(pressure / "pressure-summary.json", {"candidate_count": 0})
+            _write_json(pressure / "stage1-6-readiness-table.json", {"records": []})
+            _write_json(pressure / "stage1-6-gap-summary-table.json", {"records": []})
+            _write_json(
+                p13b_ygp / "ygp-original-readback-v1.json",
+                {
+                    "manifest": {
+                        "ygp_original_readback_records": [
+                            {
+                                "project_id": "PROJ-YGP-FOLLOWUP-ONLY",
+                                "ygp_readback_state": "YGP_ORIGINAL_URL_READBACK_READY",
+                                "source_url": "https://ygp.gdzwfw.gov.cn/detail-followup",
+                            }
+                        ]
+                    },
+                    "summary": {"ygp_readback_ready_count": 1},
+                },
+            )
+
+            result = build_stage1_6_sellable_scoreboard(
+                pressure_root=pressure,
+                p13b_ygp_original_readback_root=p13b_ygp,
+                output_root=out,
+                created_at="2026-05-26T00:00:00+08:00",
+            )
+
+        scoreboard = result["scoreboard"]
+        self.assertEqual(scoreboard["input_mode"], "FOLLOWUP_OR_MERGED_PROJECTION")
+        self.assertEqual(scoreboard["denominator_kind"], "FOLLOWUP_PROJECT_ROWS")
+        self.assertFalse(scoreboard["clean_batch_comparable"])
+        self.assertIn("public-source follow-up evidence rows", scoreboard["input_lineage_warning"])
 
     def test_scoreboard_counts_sellable_funnel_and_blocker_buckets(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -687,7 +814,10 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
         )
         self.assertEqual(scoreboard["stage7_sellable_count"], 0)
         self.assertEqual(scoreboard["limited_sellable_review_candidate_count"], 1)
-        self.assertEqual(scoreboard["real_public_sellable_pack_rate"], 0.2)
+        self.assertEqual(scoreboard["sellable_rate_metric_semantics"], "SELLABLE_SEPARATED_FROM_LIMITED_REVIEW_V2")
+        self.assertEqual(scoreboard["real_public_sellable_pack_rate"], 0.0)
+        self.assertEqual(scoreboard["limited_sellable_review_candidate_rate"], 0.2)
+        self.assertEqual(scoreboard["real_public_sellable_or_limited_review_rate"], 0.2)
         self.assertEqual(
             scoreboard["gdcic_authorized_readback_status"],
             {
@@ -1689,6 +1819,17 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
                                 "ygp_biz_code": "3C52",
                                 "ygp_site_code": "441300",
                                 "ygp_notice_id": "notice-ready",
+                                "ygp_node_id": "node-ready",
+                                "source_url": "https://ygp.gdzwfw.gov.cn/detail-ready",
+                                "original_notice_url": "https://ygp.gdzwfw.gov.cn/original-ready",
+                                "readback_payload_sha256": "c" * 64,
+                                "record_payload_sha256": "d" * 64,
+                                "candidate_notice_source_urls": [
+                                    "https://ywtb.gzggzy.cn/jyfw/current-ygp.html"
+                                ],
+                                "project_source_urls": [
+                                    "https://ywtb.gzggzy.cn/jyfw/current-ygp.html"
+                                ],
                                 "customer_visible_allowed": False,
                                 "query_miss_is_not_clearance": True,
                             }
@@ -1731,6 +1872,18 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
         self.assertIn("ygp_stage4_backfill_ready", row["stage5_operational_signal_flags"])
         self.assertEqual(row["p13b_ygp_stage4_backfill_ready_count"], 1)
         self.assertEqual(row["p13b_ygp_stage4_backfill_state_counts"], {"YGP_STAGE4_BACKFILL_READY": 1})
+        self.assertEqual(row["p13b_ygp_source_urls"], ["https://ygp.gdzwfw.gov.cn/detail-ready"])
+        self.assertEqual(
+            row["p13b_ygp_original_notice_urls"],
+            ["https://ygp.gdzwfw.gov.cn/original-ready"],
+        )
+        self.assertEqual(row["p13b_ygp_readback_payload_sha256s"], ["c" * 64])
+        self.assertEqual(row["p13b_ygp_record_payload_sha256s"], ["d" * 64])
+        self.assertEqual(row["p13b_ygp_node_id_variants"], ["node-ready"])
+        self.assertEqual(
+            row["p13b_ygp_candidate_notice_source_urls"],
+            ["https://ywtb.gzggzy.cn/jyfw/current-ygp.html"],
+        )
         self.assertFalse(row["stage4_gdcic_project_code_route_allowed"])
         self.assertEqual(result["scoreboard"]["stage4_ygp_backfill_ready_project_count"], 1)
         self.assertEqual(result["scoreboard"]["stage4_ygp_backfill_ready_task_count"], 1)
@@ -1854,12 +2007,30 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
                 p13b_history / "company-history-overlap-triage-v1.json",
                 {
                     "manifest": {
+                        "project_task_records": [
+                            {
+                                "project_id": "PROJ-BIDSHOW",
+                                "project_name": "bid show candidate",
+                                "candidate_companies": ["广东甲公司"],
+                                "responsible_person_names": ["张三"],
+                                "candidate_notice_source_urls": [
+                                    "https://ywtb.gzggzy.cn/jyfw/current-candidate.html"
+                                ],
+                                "project_source_urls": [
+                                    "https://ywtb.gzggzy.cn/jyfw/current-candidate.html"
+                                ],
+                            }
+                        ],
                         "bid_show_records": [
                             {
                                 "project_id": "PROJ-BIDSHOW",
+                                "bid_show_record_id": "P13B-BID-SHOW-1",
                                 "bid_show_state": "ORIGINAL_NOTICE_BACKTRACE_REQUIRED",
+                                "bid_show_url": "https://data.ggzy.gov.cn/yjcx/index/bid_show?id=1",
                                 "original_notice_url": "https://example.gov.cn/original-notice.html",
                                 "responsible_person_names": ["张三"],
+                                "extracted_responsible_person_names": ["李四"],
+                                "record_payload_sha256": "a" * 64,
                             }
                         ],
                         "overlap_signal_records": [
@@ -1884,6 +2055,23 @@ class StageOneSixSellableScoreboardTests(unittest.TestCase):
         row = result["project_rows"][0]
         self.assertEqual(row["p13b_bid_show_original_notice_url_count"], 1)
         self.assertEqual(row["p13b_bid_show_responsible_person_present_count"], 1)
+        self.assertEqual(row["p13b_candidate_companies"], ["广东甲公司"])
+        self.assertEqual(row["p13b_responsible_person_names"], ["张三"])
+        self.assertEqual(
+            row["p13b_candidate_notice_source_urls"],
+            ["https://ywtb.gzggzy.cn/jyfw/current-candidate.html"],
+        )
+        self.assertEqual(
+            row["p13b_data_ggzy_bid_show_urls"],
+            ["https://data.ggzy.gov.cn/yjcx/index/bid_show?id=1"],
+        )
+        self.assertEqual(
+            row["p13b_data_ggzy_original_notice_urls"],
+            ["https://example.gov.cn/original-notice.html"],
+        )
+        self.assertEqual(row["p13b_data_ggzy_bid_show_record_ids"], ["P13B-BID-SHOW-1"])
+        self.assertEqual(row["p13b_data_ggzy_readback_payload_sha256s"], ["a" * 64])
+        self.assertEqual(row["p13b_data_ggzy_extracted_responsible_person_names"], ["李四"])
         self.assertEqual(
             row["stage4_project_code_backfill_state"],
             "DATA_GGZY_BID_SHOW_ORIGINAL_URL_BACKFILLED_FOR_P13B_OR_STAGE4_BRIDGE_ONLY",

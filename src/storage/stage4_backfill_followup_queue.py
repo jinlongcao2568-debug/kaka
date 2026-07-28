@@ -33,6 +33,7 @@ def build_stage4_backfill_followup_queue(
         comparison_json=scoreboard_comparison_json,
     )
     local_authority_context_by_project = _local_authority_readback_context_by_project(payload)
+    source_artifact_refs = _source_artifact_refs(payload, scoreboard_path)
     records = [
         _followup_record(
             row,
@@ -43,6 +44,7 @@ def build_stage4_backfill_followup_queue(
                 str(row.get("project_id") or "").strip(),
                 {},
             ),
+            source_artifact_refs=source_artifact_refs,
         )
         for row in rows
         if isinstance(row, Mapping) and _needs_backfill_followup(row)
@@ -124,12 +126,40 @@ def _followup_record(
     deepening_policy: Mapping[str, Any],
     pressure_context: Mapping[str, Any],
     local_authority_context: Mapping[str, Any],
+    source_artifact_refs: list[str],
 ) -> dict[str, Any]:
     project_id = str(row.get("project_id") or "").strip()
     detail = _followup_gap_detail(row)
     route = _followup_route(detail)
     deepening_recommended = bool(deepening_policy.get("public_source_deepening_recommended"))
+    pressure_context = _merge_scoreboard_source_context(row, pressure_context)
     local_authority_context = _local_authority_region_context(row, pressure_context, local_authority_context)
+    data_ggzy_bid_show_urls = _dedupe(_list(row.get("p13b_data_ggzy_bid_show_urls")))
+    data_ggzy_original_notice_urls = _dedupe(_list(row.get("p13b_data_ggzy_original_notice_urls")))
+    data_ggzy_readback_payload_sha256s = _dedupe(
+        _list(row.get("p13b_data_ggzy_readback_payload_sha256s"))
+    )
+    ygp_source_urls = _dedupe(
+        [
+            *_list(row.get("p13b_ygp_source_urls")),
+            *_list(row.get("p13b_ygp_original_notice_urls")),
+        ]
+    )
+    ygp_readback_payload_sha256s = _dedupe(
+        [
+            *_list(row.get("p13b_ygp_readback_payload_sha256s")),
+            *_list(row.get("p13b_ygp_record_payload_sha256s")),
+        ]
+    )
+    source_refs = _dedupe(
+        [
+            *_list(pressure_context.get("candidate_notice_source_urls")),
+            *_list(pressure_context.get("project_source_urls")),
+            *data_ggzy_bid_show_urls,
+            *data_ggzy_original_notice_urls,
+            *ygp_source_urls,
+        ]
+    )
     return {
         "followup_record_id": _stable_id("STAGE4-BACKFILL-FOLLOWUP", project_id, detail),
         "project_id": project_id,
@@ -144,6 +174,20 @@ def _followup_record(
         "responsible_person_names": _dedupe(_list(pressure_context.get("responsible_person_names"))),
         "candidate_notice_source_urls": _dedupe(_list(pressure_context.get("candidate_notice_source_urls"))),
         "project_source_urls": _dedupe(_list(pressure_context.get("project_source_urls"))),
+        "data_ggzy_bid_show_urls": data_ggzy_bid_show_urls,
+        "data_ggzy_original_notice_urls": data_ggzy_original_notice_urls,
+        "data_ggzy_bid_show_record_ids": _dedupe(
+            _list(row.get("p13b_data_ggzy_bid_show_record_ids"))
+        ),
+        "data_ggzy_readback_payload_sha256s": data_ggzy_readback_payload_sha256s,
+        "data_ggzy_extracted_responsible_person_names": _dedupe(
+            _list(row.get("p13b_data_ggzy_extracted_responsible_person_names"))
+        ),
+        "ygp_source_urls": ygp_source_urls,
+        "ygp_readback_payload_sha256s": ygp_readback_payload_sha256s,
+        "ygp_node_id_variants": _dedupe(_list(row.get("p13b_ygp_node_id_variants"))),
+        "source_refs": source_refs,
+        "artifact_refs": source_artifact_refs,
         "context_source": str(pressure_context.get("context_source") or ""),
         "local_authority_readback_context": dict(local_authority_context),
         "stage4_official_readback_context": _stage4_official_readback_context(row),
@@ -161,7 +205,7 @@ def _followup_record(
         "public_source_deepening_recommended": deepening_recommended,
         "public_source_deepening_decision": str(deepening_policy.get("decision") or ""),
         "recommended_budget_focus": list(deepening_policy.get("recommended_budget_focus") or []),
-        "input_artifact_refs": [scoreboard_ref],
+        "input_artifact_refs": source_artifact_refs or [scoreboard_ref],
         "controller_consumable": True,
         "customer_visible_allowed": False,
         "live_execution_enabled": False,
@@ -257,10 +301,29 @@ def _local_authority_executed_counts(row: Mapping[str, Any]) -> Mapping[str, Any
 
 
 def _stage4_official_readback_context(row: Mapping[str, Any]) -> dict[str, Any]:
+    data_ggzy_bid_show_urls = _dedupe(_list(row.get("p13b_data_ggzy_bid_show_urls")))
+    data_ggzy_original_notice_urls = _dedupe(_list(row.get("p13b_data_ggzy_original_notice_urls")))
+    data_ggzy_readback_payload_sha256s = _dedupe(
+        _list(row.get("p13b_data_ggzy_readback_payload_sha256s"))
+    )
+    ygp_source_urls = _dedupe(
+        [
+            *_list(row.get("p13b_ygp_source_urls")),
+            *_list(row.get("p13b_ygp_original_notice_urls")),
+        ]
+    )
+    ygp_readback_payload_sha256s = _dedupe(
+        [
+            *_list(row.get("p13b_ygp_readback_payload_sha256s")),
+            *_list(row.get("p13b_ygp_record_payload_sha256s")),
+        ]
+    )
     return {
         "stage4_official_readback_context_state": (
             "OFFICIAL_READBACK_READY_STAGE4_BRIDGE_FOLLOWUP_REQUIRED"
             if _needs_official_readback_stage4_bridge_followup(row)
+            else "DATA_GGZY_READBACK_FIXED_STAGE4_BACKFILL_INPUT_READY"
+            if data_ggzy_bid_show_urls or data_ggzy_original_notice_urls
             else ""
         ),
         "project_id": str(row.get("project_id") or ""),
@@ -292,6 +355,18 @@ def _stage4_official_readback_context(row: Mapping[str, Any]) -> dict[str, Any]:
                 *_list(row.get("p13b_overlap_ygp_notice_id_variants")),
             ]
         ),
+        "data_ggzy_bid_show_urls": data_ggzy_bid_show_urls,
+        "data_ggzy_original_notice_urls": data_ggzy_original_notice_urls,
+        "data_ggzy_bid_show_record_ids": _dedupe(
+            _list(row.get("p13b_data_ggzy_bid_show_record_ids"))
+        ),
+        "data_ggzy_readback_payload_sha256s": data_ggzy_readback_payload_sha256s,
+        "data_ggzy_extracted_responsible_person_names": _dedupe(
+            _list(row.get("p13b_data_ggzy_extracted_responsible_person_names"))
+        ),
+        "ygp_source_urls": ygp_source_urls,
+        "ygp_readback_payload_sha256s": ygp_readback_payload_sha256s,
+        "ygp_node_id_variants": _dedupe(_list(row.get("p13b_ygp_node_id_variants"))),
         "stage4_public_identifier_backfill_source": str(row.get("stage4_public_identifier_backfill_source") or ""),
         "gdcic_project_code_route_allowed": False,
         "gdcic_route_block_reason": "YGP_OR_TRADE_IDENTIFIERS_NOT_SENT_TO_GDCIC_PROJECT_CODE",
@@ -300,6 +375,64 @@ def _stage4_official_readback_context(row: Mapping[str, Any]) -> dict[str, Any]:
         "query_miss_is_not_clearance": True,
         "no_legal_conclusion": True,
     }
+
+
+def _merge_scoreboard_source_context(
+    row: Mapping[str, Any],
+    pressure_context: Mapping[str, Any],
+) -> dict[str, Any]:
+    context = dict(pressure_context)
+    context["candidate_companies"] = _dedupe(
+        [
+            *_list(context.get("candidate_companies")),
+            *_list(row.get("p13b_candidate_companies")),
+        ]
+    )
+    context["responsible_person_names"] = _dedupe(
+        [
+            *_list(context.get("responsible_person_names")),
+            *_list(row.get("p13b_responsible_person_names")),
+        ]
+    )
+    context["candidate_notice_source_urls"] = _dedupe(
+        [
+            *_list(context.get("candidate_notice_source_urls")),
+            *_list(row.get("p13b_candidate_notice_source_urls")),
+            *_list(row.get("p13b_ygp_candidate_notice_source_urls")),
+        ]
+    )
+    context["project_source_urls"] = _dedupe(
+        [
+            *_list(context.get("project_source_urls")),
+            *_list(row.get("p13b_project_source_urls")),
+            *_list(row.get("p13b_ygp_project_source_urls")),
+        ]
+    )
+    if not str(context.get("context_source") or "") and any(
+        context.get(key)
+        for key in (
+            "candidate_companies",
+            "responsible_person_names",
+            "candidate_notice_source_urls",
+            "project_source_urls",
+        )
+    ):
+        context["context_source"] = "stage1_6_scoreboard_p13b_public_source_readback"
+    return context
+
+
+def _source_artifact_refs(payload: Mapping[str, Any], scoreboard_path: Path) -> list[str]:
+    input_refs = payload.get("input_refs") if isinstance(payload.get("input_refs"), Mapping) else {}
+    return _dedupe(
+        [
+            str(scoreboard_path),
+            input_refs.get("release_field_query_json"),
+            input_refs.get("p13b_company_history_json"),
+            input_refs.get("p13b_original_notice_backtrace_json"),
+            input_refs.get("p13b_ygp_original_readback_json"),
+            input_refs.get("p13b_overlap_triage_closeout_json"),
+        ]
+    )
 
 
 def _local_authority_readback_context_by_project(scoreboard_payload: Mapping[str, Any]) -> dict[str, dict[str, Any]]:

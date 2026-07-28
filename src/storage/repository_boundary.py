@@ -605,8 +605,21 @@ def record_operator_action(payload: Any, *, stage_scope: int) -> dict[str, Any]:
     now = build_persisted_at()
     next_state = str(action_spec.resulting_operational_state or work_item.current_operational_state)
     reason = str(action_payload.get("reason", "")).strip()
-    requested_by_role = str(action_payload.get("requested_by_role", work_item.assigned_owner_role or "single_operator"))
-    requested_by = str(action_payload.get("requested_by", work_item.assigned_owner or ""))
+    auth_context = (
+        dict(action_payload.get("_internal_auth_context") or {})
+        if isinstance(action_payload.get("_internal_auth_context"), Mapping)
+        else {}
+    )
+    if auth_context.get("authenticated"):
+        requested_by_role = str(auth_context.get("role") or "").strip()
+        requested_by = str(auth_context.get("principal_id") or "").strip()
+        if not requested_by_role or not requested_by:
+            raise ValueError("authenticated operator action actor context is incomplete")
+    else:
+        requested_by_role = str(
+            action_payload.get("requested_by_role", work_item.assigned_owner_role or "single_operator")
+        )
+        requested_by = str(action_payload.get("requested_by", work_item.assigned_owner or ""))
     effective_trace_refs = dict(work_item.trace_refs)
     if not effective_trace_refs:
         effective_trace_refs["operator_action_trace_ref"] = f"TRACE-S{stage_scope}-{work_item.primary_record_id}"

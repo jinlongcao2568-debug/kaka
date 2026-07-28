@@ -81,6 +81,11 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
         self._storage_env.start()
         for key in (
             "KAKA_STORAGE_DATABASE_URL",
+            "KAKA_STORAGE_DATABASE_PASSWORD_FILE",
+            "KAKA_STORAGE_DATABASE_HOST",
+            "KAKA_STORAGE_DATABASE_PORT",
+            "KAKA_STORAGE_DATABASE_USER",
+            "KAKA_STORAGE_DATABASE_NAME",
             "KAKA_STORAGE_SCOPE",
             "KAKA_STORAGE_TEST_ISOLATION",
         ):

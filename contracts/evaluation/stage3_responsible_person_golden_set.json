@@ -1,0 +1,109 @@
+{
+  "contract_id": "stage3_responsible_person_golden_set",
+  "contract_version": 1,
+  "scope": "Stage3 responsible-person, certificate, candidate-row and consortium binding regression",
+  "label_review_state": "INTERNAL_CURATED_REPLAYABLE_GOLDEN_PENDING_EXTERNAL_SECOND_REVIEW",
+  "label_policy": {
+    "real_public_structure_cases": "Curated from repository-preserved Guangzhou public-result structures and project identifiers.",
+    "controlled_cases": "Used only for deterministic negative and OCR-review assertions.",
+    "external_benchmark_claimed": false,
+    "customer_visible_allowed": false,
+    "no_legal_conclusion": true
+  },
+  "metric_thresholds": {
+    "candidate_company": {"precision": 1.0, "recall": 1.0},
+    "responsible_person": {"precision": 1.0, "recall": 1.0},
+    "certificate_no": {"precision": 1.0, "recall": 1.0},
+    "candidate_row_binding": {"precision": 1.0, "recall": 1.0},
+    "consortium_member": {"precision": 1.0, "recall": 1.0}
+  },
+  "cases": [
+    {
+      "case_id": "JG2026-11215-DESIGN-THREE-ROWS",
+      "sample_class": "REAL_PUBLIC_STRUCTURE_REPLAY",
+      "project_id": "PROJ-CN-GD-JG2026-11215",
+      "source_ref": "tests/test_responsible_person_early_probe.py::test_design_candidate_table_stops_before_score_table_and_rejects_qualification_as_person",
+      "source_modality": "html_table_text",
+      "source_confidence": 0.9,
+      "input_text": "序号\n中标候选人名称\n候选人代码\n排名\n投标报价\n质量标准\n设计服务期限\n候选人资格情况\n候选人业绩情况\n拟派项目负责人\n项目负责人资质\n项目负责人业绩\n1\n广东南海国际建筑设计有限公司\n91440605719241964G\n1\n2409500.00元\n按招标文件要求\n按招标文件要求\n建筑行业（建筑工程）甲级\n详见投标文件公开。\n李献义\n一级注册建筑师（注册编号:20034401248）\n详见投标文件公开。\n2\n广州市设计院集团有限公司\n91440101455351798Q\n2\n2349300.00元\n按招标文件要求\n按招标文件要求\n建筑行业甲级\n详见投标文件公开。\n高东\n一级注册建筑师（注册编号:20034401105）\n详见投标文件公开。\n3\n浙江恒欣设计集团股份有限公司\n91330400727195881W\n3\n2350000.00元\n按招标文件要求\n按招标文件要求\n建筑行业（建筑工程）甲级\n详见投标文件公开。\n袁晓忠\n一级注册建筑师（注册编号:20093301403）\n详见投标文件公开。\n异议受理部门\n广东省代建项目管理局",
+      "expected": {
+        "candidate_company": ["广东南海国际建筑设计有限公司", "广州市设计院集团有限公司", "浙江恒欣设计集团股份有限公司"],
+        "responsible_person": ["李献义", "高东", "袁晓忠"],
+        "certificate_no": ["20034401248", "20034401105", "20093301403"],
+        "candidate_row_binding": ["1|广东南海国际建筑设计有限公司|李献义|20034401248", "2|广州市设计院集团有限公司|高东|20034401105", "3|浙江恒欣设计集团股份有限公司|袁晓忠|20093301403"],
+        "consortium_member": ["1|广东南海国际建筑设计有限公司", "2|广州市设计院集团有限公司", "3|浙江恒欣设计集团股份有限公司"],
+        "critical_identity_review_required": false
+      }
+    },
+    {
+      "case_id": "JG2026-11260-CONSORTIUM-TWO-ROWS",
+      "sample_class": "REAL_PUBLIC_STRUCTURE_REPLAY",
+      "project_id": "PROJ-CN-GD-JG2026-11260",
+      "source_ref": "tests/test_responsible_person_early_probe.py::test_candidate_groups_bind_person_certificate_to_same_consortium_row",
+      "source_modality": "html_table_text",
+      "source_confidence": 0.9,
+      "input_text": "序号\n中标候选人名称\n候选人代码\n排名\n投标报价\n质量承诺\n工期（交货期）\n候选人资格情况\n候选人业绩情况\n拟派项目负责人\n项目负责人资质\n项目负责人业绩\n1\n(主)云浮市易安停科技有限公司;(成)中裕工程集团有限公司;(成)北京神州新桥科技有限公司\n91445323MAKBQRUQ2J\n1\n100740664.10元\n按招标文件约定\n365个日历天\n满足招标文件要求\n/\n王立亮\n通信与广电工程、建筑工程、机电工程一级注册建造师（注册编号：京1112017201745983）\n/\n2\n(主)云浮市锐宝投资有限公司;(成)山东鸿典建设有限公司;(成)中联合创设计有限公司\n91445302698130201R\n2\n101585088.60元\n按招标文件约定\n365个日历天\n满足招标文件要求\n/\n侯延强\n机电工程、建筑工程一级注册建造师（注册编号：鲁1372021202201811）\n/",
+      "expected": {
+        "candidate_company": ["云浮市易安停科技有限公司", "中裕工程集团有限公司", "北京神州新桥科技有限公司", "云浮市锐宝投资有限公司", "山东鸿典建设有限公司", "中联合创设计有限公司"],
+        "responsible_person": ["王立亮", "侯延强"],
+        "certificate_no": ["京1112017201745983", "鲁1372021202201811"],
+        "candidate_row_binding": ["1|云浮市易安停科技有限公司|王立亮|京1112017201745983", "2|云浮市锐宝投资有限公司|侯延强|鲁1372021202201811"],
+        "consortium_member": ["1|云浮市易安停科技有限公司", "1|中裕工程集团有限公司", "1|北京神州新桥科技有限公司", "2|云浮市锐宝投资有限公司", "2|山东鸿典建设有限公司", "2|中联合创设计有限公司"],
+        "critical_identity_review_required": false
+      }
+    },
+    {
+      "case_id": "JG2026-11021-MULTI-ROW-NO-CERT",
+      "sample_class": "REAL_PUBLIC_STRUCTURE_REPLAY",
+      "project_id": "PROJ-CN-GD-JG2026-11021",
+      "source_ref": "tests/test_responsible_person_early_probe.py::test_candidate_table_person_without_certificate_keeps_all_candidate_rows",
+      "source_modality": "html_table_text",
+      "source_confidence": 0.78,
+      "input_text": "序号\n合格中标候选人名称\n合格中标候选人代码\n投标报价\n质量承诺\n工期（交货期）\n候选人资格情况\n候选人业绩情况\n拟派项目负责人\n项目负责人资质\n项目负责人业绩\n1\n(主)广州市第三建筑工程有限公司;(成)广州市建工设计院有限公司\n914401012312499892；91440101190552120A\n5982050.83元\n按招标文件要求\n按招标文件要求\n详见投标文件公开\n详见投标文件公开\n邓富根\n详见投标文件公开\n详见投标文件公开\n2\n(主)广州市第四建筑工程有限公司;(成)广州建筑产业开发有限公司\n91440101190435127K；91440101712487099G\n5913417.82元\n按招标文件要求\n按招标文件要求\n详见投标文件公开\n详见投标文件公开\n莫剑斌\n详见投标文件公开\n详见投标文件公开\n3\n广东省第一建筑工程有限公司\n914400001903237820\n6042103.59元\n按招标文件要求\n按招标文件要求\n详见投标文件公开\n详见投标文件公开\n唐名龙\n详见投标文件公开\n详见投标文件公开",
+      "expected": {
+        "candidate_company": ["广州市第三建筑工程有限公司", "广州市建工设计院有限公司", "广州市第四建筑工程有限公司", "广州建筑产业开发有限公司", "广东省第一建筑工程有限公司"],
+        "responsible_person": ["邓富根", "莫剑斌", "唐名龙"],
+        "certificate_no": [],
+        "candidate_row_binding": ["1|广州市第三建筑工程有限公司|邓富根|", "2|广州市第四建筑工程有限公司|莫剑斌|", "3|广东省第一建筑工程有限公司|唐名龙|"],
+        "consortium_member": ["1|广州市第三建筑工程有限公司", "1|广州市建工设计院有限公司", "2|广州市第四建筑工程有限公司", "2|广州建筑产业开发有限公司", "3|广东省第一建筑工程有限公司"],
+        "critical_identity_review_required": false
+      }
+    },
+    {
+      "case_id": "JG2026-11279-FALSE-PERSON-REPLAY",
+      "sample_class": "REAL_PUBLIC_ACTIVE_BATCH_ERROR_REPLAY",
+      "project_id": "PROJ-CN-GD-JG2026-11279",
+      "source_url": "https://ywtb.gzggzy.cn/jyfw/002001/002001001/20260527/514a30b8-ed7d-49cb-979a-c6e6f42e1bfb.html",
+      "source_ref": "tmp/evaluation-real-samples/guangzhou-stage1-6-real-public-pressure-p3-20260529-015305/company-first-supplement-v3/responsible-person-early-probe.json",
+      "source_modality": "stage16_identity_value",
+      "source_confidence": 0.72,
+      "input_value": "达到",
+      "expected": {
+        "candidate_company": [],
+        "responsible_person": [],
+        "certificate_no": [],
+        "candidate_row_binding": [],
+        "consortium_member": [],
+        "critical_identity_review_required": true,
+        "rejected_quality_state": "REJECTED_NON_PERSON_TOKEN"
+      }
+    },
+    {
+      "case_id": "OCR-CONTROLLED-CRITICAL-IDENTITY-REVIEW",
+      "sample_class": "CONTROLLED_OCR_TEXT_REPLAY",
+      "project_id": "CONTROLLED-OCR-001",
+      "source_ref": "tests/test_stage3_real_parser.py::test_empty_pdf_can_use_ocr_fallback_but_keeps_review_state",
+      "source_modality": "ocr_text_replay",
+      "source_confidence": 0.62,
+      "input_text": "第一中标候选人：广东省机电建设有限公司\n项目负责人：张建明\n证书编号：粤1442024123450001",
+      "expected": {
+        "candidate_company": ["广东省机电建设有限公司"],
+        "responsible_person": ["张建明"],
+        "certificate_no": ["粤1442024123450001"],
+        "candidate_row_binding": ["|广东省机电建设有限公司|张建明|粤1442024123450001"],
+        "consortium_member": [],
+        "critical_identity_review_required": true
+      }
+    }
+  ]
+}

@@ -202,6 +202,20 @@ class PersistedWorkerQueueItem:
     audit_trace: List[Dict[str, Any]]
     created_at: str
     updated_at: str
+    progress_stage: str | None = None
+    progress_message: str | None = None
+    progress_completed_units: int = 0
+    progress_total_units: int | None = None
+    progress_percent: float | None = None
+    time_budget_seconds: int | None = None
+    budget_started_at: str | None = None
+    budget_deadline_at: str | None = None
+    budget_exhausted_at: str | None = None
+    cancel_requested_at: str | None = None
+    cancel_requested_by: str | None = None
+    cancel_reason: str | None = None
+    cancelled_at: str | None = None
+    last_error_category: str | None = None
 
     def as_payload(self) -> Dict[str, Any]:
         return {
@@ -230,6 +244,20 @@ class PersistedWorkerQueueItem:
             "audit_trace": [dict(entry) for entry in self.audit_trace],
             "created_at": self.created_at,
             "updated_at": self.updated_at,
+            "progress_stage": self.progress_stage,
+            "progress_message": self.progress_message,
+            "progress_completed_units": self.progress_completed_units,
+            "progress_total_units": self.progress_total_units,
+            "progress_percent": self.progress_percent,
+            "time_budget_seconds": self.time_budget_seconds,
+            "budget_started_at": self.budget_started_at,
+            "budget_deadline_at": self.budget_deadline_at,
+            "budget_exhausted_at": self.budget_exhausted_at,
+            "cancel_requested_at": self.cancel_requested_at,
+            "cancel_requested_by": self.cancel_requested_by,
+            "cancel_reason": self.cancel_reason,
+            "cancelled_at": self.cancelled_at,
+            "last_error_category": self.last_error_category,
         }
 
 
@@ -303,6 +331,7 @@ class DatabaseSession:
         self._worker_queue_events: Dict[str, List[PersistedWorkerQueueEvent]] = {}
         self._flush_depth = 0
         self._dirty = False
+        self._json_snapshot_signature: tuple[int, int] | None = None
         if self._backend is None:
             self._load()
 
@@ -324,6 +353,12 @@ class DatabaseSession:
                 cls._default.close()
             cls._default = cls(settings=resolved_settings)
         return cls._default
+
+    @classmethod
+    def close_default(cls) -> None:
+        if cls._default is not None:
+            cls._default.close()
+            cls._default = None
 
     @classmethod
     def default_settings(cls, *, settings: Settings | None = None) -> Settings:
@@ -359,12 +394,14 @@ class DatabaseSession:
         database_url = settings.storage_database_url_optional
         if not database_url:
             raise ValueError(
-                f"storage backend {backend!r} requires KAKA_STORAGE_DATABASE_URL config; "
+                f"storage backend {backend!r} requires KAKA_STORAGE_DATABASE_URL or "
+                "KAKA_STORAGE_DATABASE_PASSWORD_FILE connection config; "
                 "no_silent_fallback"
             )
         if backend == POSTGRESQL_STORAGE_BACKEND and not is_postgresql_database_url(database_url):
             raise ValueError(
-                "storage backend 'postgresql' requires a postgresql KAKA_STORAGE_DATABASE_URL config; "
+                "storage backend 'postgresql' requires a PostgreSQL "
+                "KAKA_STORAGE_DATABASE_URL or password-file connection config; "
                 "no_silent_fallback"
             )
 
@@ -414,6 +451,10 @@ class DatabaseSession:
     @property
     def storage_database_url(self) -> str | None:
         return self._storage_database_url
+
+    @property
+    def storage_schema_revision(self) -> str | None:
+        return getattr(self._backend, "schema_revision", None)
 
     def clear(self, *, remove_storage: bool = True) -> None:
         with self._lock:
@@ -761,7 +802,7 @@ class DatabaseSession:
         *,
         item: PersistedWorkerQueueItem,
         event: PersistedWorkerQueueEvent,
-        expected_status: str | None,
+        expected_item: PersistedWorkerQueueItem | None,
     ) -> PersistedWorkerQueueItem:
         """Persist a queue item and its event as one conflict-checked transition."""
         with self._lock:
@@ -770,23 +811,23 @@ class DatabaseSession:
                     self._backend.commit_worker_queue_transition(
                         item=item,
                         event=event,
-                        expected_status=expected_status,
+                        expected_item=expected_item,
                     )
                 )
                 if not committed:
                     raise StorageConcurrencyError(
                         f"queue item {item.queue_item_id!r} changed before transition from "
-                        f"{expected_status!r}; retry with fresh state"
+                        f"{getattr(expected_item, 'status', None)!r}; retry with fresh state"
                     )
                 return item
 
             with self._json_file_lock():
                 self._load()
                 current = self._worker_queue_items.get(item.queue_item_id)
-                if expected_status is None:
+                if expected_item is None:
                     transition_allowed = current is None
                 else:
-                    transition_allowed = current is not None and current.status == expected_status
+                    transition_allowed = current == expected_item
                 existing_event_ids = {
                     existing.event_id
                     for existing in self._worker_queue_events.get(item.queue_item_id, [])
@@ -794,7 +835,7 @@ class DatabaseSession:
                 if not transition_allowed or event.event_id in existing_event_ids:
                     raise StorageConcurrencyError(
                         f"queue item {item.queue_item_id!r} changed before transition from "
-                        f"{expected_status!r}; retry with fresh state"
+                        f"{getattr(expected_item, 'status', None)!r}; retry with fresh state"
                     )
                 self._worker_queue_items[item.queue_item_id] = item
                 self._worker_queue_events.setdefault(item.queue_item_id, []).append(event)
@@ -870,6 +911,10 @@ class DatabaseSession:
             self._operator_actions = {}
             self._worker_queue_items = {}
             self._worker_queue_events = {}
+            self._json_snapshot_signature = None
+            return
+        current_signature = self._json_file_signature()
+        if current_signature == self._json_snapshot_signature:
             return
         raw = json.loads(self._storage_path.read_text(encoding="utf-8"))
         self._tables = {
@@ -899,6 +944,13 @@ class DatabaseSession:
             queue_item_id: [PersistedWorkerQueueEvent(**entry) for entry in rows]
             for queue_item_id, rows in raw.get("worker_queue_events", {}).items()
         }
+        self._json_snapshot_signature = current_signature
+
+    def _json_file_signature(self) -> tuple[int, int] | None:
+        if not self._storage_path.exists():
+            return None
+        stat = self._storage_path.stat()
+        return (stat.st_mtime_ns, stat.st_size)
 
     @contextmanager
     def _json_file_lock(self) -> Any:
@@ -979,6 +1031,7 @@ class DatabaseSession:
             raise
         try:
             self._replace_with_retry(temp_path, self._storage_path)
+            self._json_snapshot_signature = self._json_file_signature()
         finally:
             if temp_path.exists():
                 temp_path.unlink(missing_ok=True)

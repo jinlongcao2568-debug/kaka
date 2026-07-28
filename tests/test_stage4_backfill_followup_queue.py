@@ -16,6 +16,84 @@ from storage.stage4_backfill_followup_queue import build_stage4_backfill_followu
 
 
 class Stage4BackfillFollowupQueueTests(unittest.TestCase):
+    def test_preserves_data_ggzy_urls_hashes_and_project_context_for_stage4_followup(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            scoreboard = root / "scoreboard" / "stage1-6-sellable-scoreboard-v1.json"
+            out = root / "out"
+            p13b_history = root / "p13b" / "company-history-overlap-triage-v1.json"
+            original = root / "original" / "original-notice-backtrace-v1.json"
+            _write_json(
+                scoreboard,
+                {
+                    "input_refs": {
+                        "p13b_company_history_json": str(p13b_history),
+                        "p13b_original_notice_backtrace_json": str(original),
+                    },
+                    "project_rows": [
+                        {
+                            "project_id": "PROJ-DATA-GGZY-CONTEXT",
+                            "project_name": "data ggzy context project",
+                            "stage4_project_code_backfill_state": (
+                                "DATA_GGZY_BID_SHOW_ORIGINAL_URL_BACKFILLED_FOR_P13B_OR_STAGE4_BRIDGE_ONLY"
+                            ),
+                            "stage5_operational_review_bucket": "ORIGINAL_NOTICE_NOT_FOUND_REVIEW",
+                            "p13b_local_authority_executed_readback_state_counts": {"NOT_FOUND": 1},
+                            "p13b_candidate_companies": ["广东甲公司"],
+                            "p13b_responsible_person_names": ["张三"],
+                            "p13b_candidate_notice_source_urls": [
+                                "https://ywtb.gzggzy.cn/jyfw/current.html"
+                            ],
+                            "p13b_project_source_urls": [
+                                "https://ywtb.gzggzy.cn/jyfw/current.html"
+                            ],
+                            "p13b_data_ggzy_bid_show_urls": [
+                                "https://data.ggzy.gov.cn/yjcx/index/bid_show?id=1"
+                            ],
+                            "p13b_data_ggzy_original_notice_urls": [
+                                "https://example.gov.cn/original.html"
+                            ],
+                            "p13b_data_ggzy_bid_show_record_ids": ["P13B-BID-SHOW-1"],
+                            "p13b_data_ggzy_readback_payload_sha256s": ["b" * 64],
+                            "p13b_data_ggzy_extracted_responsible_person_names": ["李四"],
+                            "stage4_public_identifier_backfill_source": (
+                                "DATA_GGZY_BID_SHOW_ORIGINAL_URL|DATA_GGZY_BID_SHOW_RESPONSIBLE_PERSON"
+                            ),
+                        }
+                    ],
+                },
+            )
+
+            result = build_stage4_backfill_followup_queue(
+                scoreboard_json=scoreboard,
+                output_root=out,
+                created_at="2026-05-25T00:00:00+00:00",
+            )
+
+        record = result["records"][0]
+        self.assertEqual(record["candidate_companies"], ["广东甲公司"])
+        self.assertEqual(record["responsible_person_names"], ["张三"])
+        self.assertEqual(
+            record["candidate_notice_source_urls"],
+            ["https://ywtb.gzggzy.cn/jyfw/current.html"],
+        )
+        self.assertIn("https://data.ggzy.gov.cn/yjcx/index/bid_show?id=1", record["source_refs"])
+        self.assertIn("https://example.gov.cn/original.html", record["source_refs"])
+        self.assertEqual(record["data_ggzy_readback_payload_sha256s"], ["b" * 64])
+        self.assertIn(str(p13b_history), record["artifact_refs"])
+        self.assertIn(str(original), record["artifact_refs"])
+        context = record["stage4_official_readback_context"]
+        self.assertEqual(
+            context["stage4_official_readback_context_state"],
+            "DATA_GGZY_READBACK_FIXED_STAGE4_BACKFILL_INPUT_READY",
+        )
+        self.assertEqual(
+            context["data_ggzy_bid_show_urls"],
+            ["https://data.ggzy.gov.cn/yjcx/index/bid_show?id=1"],
+        )
+        self.assertEqual(context["data_ggzy_readback_payload_sha256s"], ["b" * 64])
+        self.assertFalse(context["gdcic_project_code_route_allowed"])
+
     def test_emits_continuation_input_refs_from_scoreboard_input_refs(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -563,6 +641,13 @@ class Stage4BackfillFollowupQueueTests(unittest.TestCase):
                             "p13b_ygp_original_readback_state": "YGP_READBACK_READY",
                             "p13b_ygp_stage4_backfill_ready_count": 1,
                             "p13b_ygp_stage4_release_adapter_task_count": 1,
+                            "p13b_ygp_source_urls": ["https://ygp.gdzwfw.gov.cn/detail-ready"],
+                            "p13b_ygp_original_notice_urls": [
+                                "https://ygp.gdzwfw.gov.cn/original-ready"
+                            ],
+                            "p13b_ygp_readback_payload_sha256s": ["c" * 64],
+                            "p13b_ygp_record_payload_sha256s": ["d" * 64],
+                            "p13b_ygp_node_id_variants": ["node-ready"],
                             "stage4_project_code_backfill_state": "PUBLIC_SOURCE_IDENTIFIER_BACKFILLED_FOR_P13B_OR_STAGE4_BRIDGE_ONLY",
                             "stage4_project_code_backfill_gap_detail": "",
                             "p13b_overlap_triage_state": "YGP_STAGE4_BACKFILL_READY_FOR_P13B_OR_STAGE4_BRIDGE",
@@ -595,6 +680,13 @@ class Stage4BackfillFollowupQueueTests(unittest.TestCase):
         self.assertEqual(
             record["recommended_next_action"],
             "feed_public_identifier_to_release_evidence_adapter_before_limited_review",
+        )
+        self.assertIn("https://ygp.gdzwfw.gov.cn/detail-ready", record["source_refs"])
+        self.assertEqual(record["ygp_readback_payload_sha256s"], ["c" * 64, "d" * 64])
+        self.assertEqual(record["ygp_node_id_variants"], ["node-ready"])
+        self.assertEqual(
+            record["stage4_official_readback_context"]["ygp_source_urls"],
+            ["https://ygp.gdzwfw.gov.cn/detail-ready", "https://ygp.gdzwfw.gov.cn/original-ready"],
         )
         self.assertEqual(
             [step["source_kind"] for step in record["public_source_fallback_sequence"]],

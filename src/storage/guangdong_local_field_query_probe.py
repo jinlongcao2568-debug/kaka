@@ -12,6 +12,7 @@ import urllib.request
 from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping
 
+from shared.controlled_egress import playwright_proxy_settings
 from shared.utils import utc_now_iso
 from storage.guangdong_gdcic_query_probe import (
     GDCIC_API_BASE_URL,
@@ -49,6 +50,7 @@ DEFAULT_GDCIC_BROWSER_AUTHORIZED_READBACK_ROOT = Path(
     "tmp/evaluation-real-samples/gdcic-browser-authorized-readback-v1"
 )
 DEFAULT_OUTPUT_ROOT = Path("tmp/evaluation-real-samples/guangdong-local-field-query-probe-v1")
+STAGE5_CALIBRATION_SAMPLE_FILENAME = "stage5-calibration-sample-table.json"
 
 GUANGDONG_GDCIC_SKYPT_OPENPLATFORM_PROFILE_ID = "GUANGDONG-GDCIC-SKYPT-OPENPLATFORM"
 GUANGDONG_GDCIC_SKYPT_OPENPLATFORM_ADAPTER_ID = "guangdong_gdcic_openplatform_public_api_query_v1"
@@ -357,12 +359,18 @@ def build_guangdong_local_field_query_probe(
     )
     project_task_records = _project_task_records(field_task_records)
     manual_check_table = _manual_check_table(field_task_records)
+    stage5_calibration_sample_records = _stage5_calibration_samples_from_field_query(
+        field_task_records,
+        created_at=created,
+    )
     summary = _summary(
         field_task_records=field_task_records,
         project_task_records=project_task_records,
         execution_mode=execution_mode,
         blocking_reasons=blocking_reasons,
     )
+    summary.update(_stage5_calibration_summary(stage5_calibration_sample_records))
+    stage5_calibration_sample_path = out_dir / STAGE5_CALIBRATION_SAMPLE_FILENAME
     manifest = {
         "manifest_version": GUANGDONG_LOCAL_FIELD_QUERY_PROBE_VERSION,
         "manifest_kind": GUANGDONG_LOCAL_FIELD_QUERY_PROBE_KIND,
@@ -388,6 +396,8 @@ def build_guangdong_local_field_query_probe(
         "project_task_records": project_task_records,
         "field_task_records": field_task_records,
         "manual_check_table": manual_check_table,
+        "stage5_calibration_sample_table_json": str(stage5_calibration_sample_path),
+        "stage5_calibration_sample_records": stage5_calibration_sample_records,
         "summary": summary,
         "safety": {
             "download_enabled": False,
@@ -425,6 +435,23 @@ def build_guangdong_local_field_query_probe(
         result["summary"]["forbidden_term_hits"] = forbidden_hits
         text = json.dumps(result, ensure_ascii=False, indent=2)
     (out_dir / "guangdong-local-field-query-probe-v1.json").write_text(text, encoding="utf-8")
+    stage5_calibration_sample_path.write_text(
+        json.dumps(
+            {
+                "table_kind": "stage5_calibration_sample_table_v1",
+                "created_at": created,
+                "source_field_query_json": str(out_dir / "guangdong-local-field-query-probe-v1.json"),
+                "summary": _stage5_calibration_summary(stage5_calibration_sample_records),
+                "records": stage5_calibration_sample_records,
+                "customer_visible_allowed": False,
+                "no_legal_conclusion": True,
+                "query_miss_is_not_clearance": True,
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
     return result
 
 
@@ -6261,7 +6288,11 @@ def _default_credit_gd_session_getter(session_routes: list[Mapping[str, Any]]) -
     rendered_texts: list[str] = []
     cookie_header = ""
     with sync_playwright() as playwright:  # pragma: no cover - browser runtime varies by host.
-        browser = playwright.chromium.launch(headless=True)
+        launch_options: dict[str, Any] = {"headless": True}
+        proxy = playwright_proxy_settings()
+        if proxy:
+            launch_options["proxy"] = proxy
+        browser = playwright.chromium.launch(**launch_options)
         context = browser.new_context(
             user_agent=(
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -8003,6 +8034,217 @@ def _first_mapping(records: Iterable[Mapping[str, Any]]) -> Mapping[str, Any]:
 def _looks_like_captcha_or_login(text: str) -> bool:
     lowered = text.lower()
     return any(pattern in lowered for pattern in ("captcha", "验证码", "滑块", "请登录", "用户登录", "统一身份认证"))
+
+
+def _stage5_calibration_samples_from_field_query(
+    field_task_records: list[Mapping[str, Any]],
+    *,
+    created_at: str,
+) -> list[dict[str, Any]]:
+    grouped: dict[str, list[Mapping[str, Any]]] = {}
+    terminal_grades = {
+        "B_ENHANCEMENT_OFFICIAL_READBACK",
+        "C_REVERSE_EXPLANATION_OFFICIAL_READBACK",
+        "D_INSUFFICIENT_OR_BLOCKED_READBACK",
+    }
+    for task in field_task_records:
+        if str(task.get("input_source_kind") or "") not in RELEASE_EVIDENCE_INPUT_SOURCE_KINDS:
+            continue
+        if str(task.get("downstream_release_evidence_abcd_grade") or "") not in terminal_grades:
+            continue
+        project_id = str(task.get("project_id") or "").strip()
+        if project_id:
+            grouped.setdefault(project_id, []).append(task)
+
+    samples: list[dict[str, Any]] = []
+    for project_id, tasks in grouped.items():
+        adapter_counts = _counts(task.get("adapter_result_state") for task in tasks)
+        grade_counts = _counts(task.get("downstream_release_evidence_abcd_grade") for task in tasks)
+        needs_region_adapter = any(
+            str(task.get("field_query_probe_state") or "") == "LIVE_FIELD_QUERY_NEEDS_REGION_ADAPTER"
+            for task in tasks
+        )
+        review_bucket, abcd_bucket, evidence_strength, review_family = _stage5_field_query_calibration_bucket(
+            adapter_counts=adapter_counts,
+            grade_counts=grade_counts,
+            needs_region_adapter=needs_region_adapter,
+        )
+        blocker_taxonomy = _dedupe(
+            blocker
+            for task in tasks
+            for blocker in _list(task.get("blocker_taxonomy"))
+        )
+        operator_next_actions = _dedupe(
+            action
+            for task in tasks
+            for action in [
+                task.get("next_action"),
+                (task.get("release_evidence_adapter_state") or {}).get("next_action")
+                if isinstance(task.get("release_evidence_adapter_state"), Mapping)
+                else "",
+                *(
+                    _list((task.get("field_summary") or {}).get("operator_next_actions"))
+                    if isinstance(task.get("field_summary"), Mapping)
+                    else []
+                ),
+            ]
+        )
+        source_snapshot_sha256s = _dedupe(
+            source_record.get("body_sha256")
+            for task in tasks
+            for source_record in _list(
+                (task.get("field_match_summary") or {}).get("source_specific_records")
+                if isinstance(task.get("field_match_summary"), Mapping)
+                else []
+            )
+            if isinstance(source_record, Mapping)
+        )
+        failure_route_targets = _stage5_field_query_failure_route_targets(
+            tasks,
+            adapter_counts,
+            needs_region_adapter=needs_region_adapter,
+        )
+        review_reasons = _dedupe(
+            [
+                "stage5_gate_status_missing_or_incomplete",
+                *(f"field_query_adapter_result:{state}" for state in adapter_counts),
+                *(f"release_evidence_downstream_grade:{grade}" for grade in grade_counts),
+                *(f"field_query_blocker:{blocker}" for blocker in blocker_taxonomy),
+            ]
+        )
+        samples.append(
+            {
+                "stage5_calibration_sample_id": _stable_id(
+                    "STAGE5-FIELD-QUERY-CAL",
+                    project_id,
+                    review_bucket,
+                    *sorted(adapter_counts),
+                    *sorted(grade_counts),
+                ),
+                "source_worker_id": GUANGDONG_LOCAL_FIELD_QUERY_PROBE_ADAPTER_ID,
+                "source_field_query_task_ids": [str(task.get("field_query_task_id") or "") for task in tasks],
+                "project_id": project_id,
+                "project_name": _first_text(task.get("project_name") for task in tasks),
+                "source_urls": _dedupe(task.get("source_url") for task in tasks),
+                "source_profile_ids": _dedupe(task.get("source_profile_id") for task in tasks),
+                "source_snapshot_sha256s": source_snapshot_sha256s,
+                "release_evidence_target_types": _dedupe(
+                    task.get("release_evidence_target_type") for task in tasks
+                ),
+                "field_query_adapter_result_state_counts": adapter_counts,
+                "field_query_downstream_abcd_grade_counts": grade_counts,
+                "field_query_blocker_taxonomy": blocker_taxonomy,
+                "field_query_operator_next_actions": operator_next_actions,
+                "stage5_gate_result_state": "STAGE5_GATE_NOT_RUN_FIELD_QUERY_OUTCOME_READY",
+                "stage5_rule_gate_status": "",
+                "stage5_evidence_gate_status": "",
+                "stage5_calibration_input_state": "FIELD_QUERY_TERMINAL_OUTCOME_READY_STAGE5_GATE_NOT_RUN",
+                "stage5_calibration_review_bucket": review_bucket,
+                "stage5_abcd_calibration_bucket": abcd_bucket,
+                "stage5_calibration_evidence_strength": evidence_strength,
+                "stage5_calibration_review_family": review_family,
+                "stage5_calibration_review_reasons": review_reasons,
+                "stage5_calibration_failure_route_targets": failure_route_targets,
+                "calibration_truth_label_required": True,
+                "suggested_calibration_action": "rerun_or_backfill_stage5_gate_status_before_calibration",
+                "created_at": created_at,
+                "query_miss_is_not_clearance": True,
+                "customer_visible_allowed": False,
+                "no_legal_conclusion": True,
+            }
+        )
+    return samples
+
+
+def _stage5_field_query_calibration_bucket(
+    *,
+    adapter_counts: Mapping[str, int],
+    grade_counts: Mapping[str, int],
+    needs_region_adapter: bool,
+) -> tuple[str, str, str, str]:
+    has_match = int(adapter_counts.get("MATCHED") or 0) > 0
+    has_missing = int(adapter_counts.get("NOT_FOUND") or 0) > 0
+    has_blocked = int(adapter_counts.get("BLOCKED") or 0) > 0
+    has_browser = int(adapter_counts.get("NEEDS_BROWSER") or 0) > 0
+    has_d_grade = int(grade_counts.get("D_INSUFFICIENT_OR_BLOCKED_READBACK") or 0) > 0
+    if has_blocked or has_browser or needs_region_adapter:
+        return (
+            "BLOCKED_OR_AUTHORIZATION_REQUIRED",
+            "D_BLOCKED_OR_AUTHORIZATION_REQUIRED",
+            "SOURCE_ADAPTER_REQUIRED" if needs_region_adapter else "SOURCE_BLOCKED_OR_AUTHORIZATION_REQUIRED",
+            "region_source_adapter_required" if needs_region_adapter else "authorization_or_source_blocked",
+        )
+    if has_missing or has_d_grade:
+        return (
+            "INSUFFICIENT_PUBLIC_READBACK" if has_match else "MISSING_RELEVANT_PUBLIC_READBACK",
+            "C_MISSING_RELEVANT_PUBLIC_READBACK",
+            "QUERY_MISS_NOT_CLEARANCE",
+            "missing_relevant_public_readback",
+        )
+    return (
+        "RULE_THRESHOLD_REVIEW",
+        "B_PUBLIC_READBACK_REVIEW_REQUIRED",
+        "PUBLIC_READBACK_PRESENT_REVIEW_REQUIRED",
+        "manual_public_readback_review",
+    )
+
+
+def _stage5_field_query_failure_route_targets(
+    tasks: list[Mapping[str, Any]],
+    adapter_counts: Mapping[str, int],
+    *,
+    needs_region_adapter: bool,
+) -> list[str]:
+    authorization_states = _dedupe(
+        state
+        for task in tasks
+        for state in [
+            task.get("authorization_readiness_state"),
+            (task.get("field_summary") or {}).get("authorization_readiness_state")
+            if isinstance(task.get("field_summary"), Mapping)
+            else "",
+        ]
+    )
+    routes = ["operator_truth_label_review"]
+    needs_actual_browser = any(
+        str(task.get("field_query_probe_state") or "") == "LIVE_FIELD_QUERY_NEEDS_BROWSER"
+        for task in tasks
+    )
+    if needs_actual_browser or any(
+        state in {"LOGIN_OR_SSO_REQUIRED", "BROWSER_EXECUTION_BLOCKED_REVIEW_REQUIRED"}
+        for state in authorization_states
+    ):
+        routes.append("browser_worker")
+    if needs_region_adapter or any(int(adapter_counts.get(state) or 0) for state in ("NOT_FOUND", "BLOCKED")):
+        routes.append("source_adapter")
+    return routes
+
+
+def _stage5_calibration_summary(samples: list[Mapping[str, Any]]) -> dict[str, Any]:
+    return {
+        "stage5_calibration_sample_count": len(samples),
+        "stage5_calibration_truth_label_required_count": sum(
+            1 for sample in samples if bool(sample.get("calibration_truth_label_required"))
+        ),
+        "stage5_calibration_review_bucket_counts": _counts(
+            sample.get("stage5_calibration_review_bucket") for sample in samples
+        ),
+        "stage5_abcd_calibration_counts": _counts(
+            sample.get("stage5_abcd_calibration_bucket") for sample in samples
+        ),
+        "stage5_calibration_evidence_strength_counts": _counts(
+            sample.get("stage5_calibration_evidence_strength") for sample in samples
+        ),
+        "stage5_calibration_review_family_counts": _counts(
+            sample.get("stage5_calibration_review_family") for sample in samples
+        ),
+        "stage5_calibration_failure_route_target_counts": _counts(
+            route for sample in samples for route in _list(sample.get("stage5_calibration_failure_route_targets"))
+        ),
+        "stage5_calibration_input_state_counts": _counts(
+            sample.get("stage5_calibration_input_state") for sample in samples
+        ),
+    }
 
 
 def _project_task_records(field_task_records: list[Mapping[str, Any]]) -> list[dict[str, Any]]:

@@ -78,6 +78,22 @@ class TestAutomationEntrypointAudit(unittest.TestCase):
         self.assertTrue(route["route_exists"])
         self.assertFalse(route["external_customer_action_enabled"])
 
+    def test_operator_long_task_browser_worker_is_formal(self) -> None:
+        result = build_automation_entrypoint_audit(repo_root=ROOT)
+        entrypoints = {
+            item["entrypoint_id"]: item
+            for item in result["manifest"]["formal_entrypoints"]
+        }
+        worker = entrypoints["operator_long_task_browser_worker"]
+
+        self.assertEqual(worker["kind"], "script")
+        self.assertEqual(worker["status"], "FORMAL_CURRENT")
+        self.assertEqual(worker["entrypoint_role"], "orchestrator")
+        self.assertTrue(worker["script_exists"])
+        self.assertEqual(worker["module_or_command"], "runtime.operator_long_task_worker")
+        self.assertTrue(worker["module_exists"])
+        self.assertFalse(worker["external_customer_action_enabled"])
+
     def test_runtime_controller_entrypoint_transport_is_formal_supporting_tool(self) -> None:
         result = build_automation_entrypoint_audit(repo_root=ROOT)
         entrypoints = {

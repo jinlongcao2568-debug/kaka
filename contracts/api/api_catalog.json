@@ -1,5 +1,5 @@
 {
-  "catalogVersion": "1.0.3",
+  "catalogVersion": "1.0.8",
   "ownerDoc": "D4",
   "stage7To9EnvelopeAuthority": {
     "scope": "Stage7-9 API preview/draft/writeback envelope authority",
@@ -1285,6 +1285,220 @@
         }
       ],
       "business_chain_stage": "商务交付与反馈链",
+      "consumer_surface": "INTERNAL_ANALYSIS",
+      "release_layer": "INTERNAL_OPERABLE"
+    },
+    {
+      "groupId": "internal_operator_support",
+      "title": "私有单租户运营支持工作台",
+      "surfaceState": "internal_only",
+      "formalizationScope": "PRIVATE_SINGLE_TENANT_OWNER_ADMIN",
+      "operations": [
+        {
+          "operationId": "readOperatorSupportOverview",
+          "method": "GET",
+          "path": "/operator-console/support/overview",
+          "primaryObjects": [
+            "persisted_worker_queue_item",
+            "persisted_worker_queue_event"
+          ],
+          "requestSchemaRef": "contracts/governance/operator_support_workbench_contract.json#read_model",
+          "responseSchemaRef": "contracts/governance/operator_support_workbench_contract.json#read_model",
+          "resultLevel": "INTERNAL_OPERABLE",
+          "repositoryBacked": true,
+          "internalOnly": true,
+          "ownerAdminOnly": true,
+          "customerSelfService": false,
+          "rawTaskPayloadExposed": false,
+          "rawErrorExposed": false,
+          "factLayerEditEnabled": false,
+          "liveExecutionEnabled": false,
+          "notes": "汇总当前私有实例的任务、阻断、队列审计和版本读回；只显示当前部署租户，不提供跨租户查询或原始 payload 编辑。"
+        },
+        {
+          "operationId": "retryOperatorSupportTask",
+          "method": "POST",
+          "path": "/operator-console/support/task-actions",
+          "primaryObjects": [
+            "persisted_worker_queue_item",
+            "persisted_worker_queue_event"
+          ],
+          "requestSchemaRef": "contracts/governance/operator_support_workbench_contract.json#task_actions",
+          "responseSchemaRef": "contracts/governance/operator_support_workbench_contract.json#task_actions",
+          "resultLevel": "INTERNAL_OPERABLE",
+          "repositoryBacked": true,
+          "internalOnly": true,
+          "ownerAdminOnly": true,
+          "exactConfirmationRequired": true,
+          "expectedVersionRequired": true,
+          "payloadMutationAllowed": false,
+          "factLayerEditEnabled": false,
+          "liveExecutionEnabled": false,
+          "notes": "只允许对 failed/dead-letter 内部队列项执行一次受治理重试；要求状态/更新时间并发锁、明确原因和精确二次确认，完整记录队列审计事件。"
+        }
+      ],
+      "business_chain_stage": "内部运营支持与故障恢复",
+      "consumer_surface": "INTERNAL_OWNER_ADMIN",
+      "release_layer": "INTERNAL_OPERABLE"
+    },
+    {
+      "groupId": "internal_product_onboarding",
+      "title": "私有单租户产品配置",
+      "surfaceState": "internal_only",
+      "formalizationScope": "PRIVATE_SINGLE_TENANT_OWNER_ADMIN",
+      "operations": [
+        {
+          "operationId": "listProductOnboardingConfigs",
+          "method": "GET",
+          "path": "/operator-console/onboarding/configs",
+          "primaryObjects": [
+            "product_onboarding_profile_version",
+            "product_onboarding_active_pointer"
+          ],
+          "requestSchemaRef": "contracts/governance/product_onboarding_config_contract.json#query_boundary",
+          "responseSchemaRef": "contracts/governance/product_onboarding_config_contract.json#formal_objects",
+          "resultLevel": "INTERNAL_OPERABLE",
+          "repositoryBacked": true,
+          "internalOnly": true,
+          "customerSelfService": false,
+          "liveExecutionEnabled": false,
+          "notes": "只读当前租户的不可变配置版本、活动指针和登记目录；不代表多租户 SaaS 或客户自助能力。"
+        },
+        {
+          "operationId": "mutateProductOnboardingConfig",
+          "method": "POST",
+          "path": "/operator-console/onboarding/configs",
+          "primaryObjects": [
+            "product_onboarding_profile_version",
+            "product_onboarding_active_pointer",
+            "product_onboarding_audit"
+          ],
+          "requestSchemaRef": "contracts/governance/product_onboarding_config_contract.json#mutation_protocol",
+          "responseSchemaRef": "contracts/governance/product_onboarding_config_contract.json#formal_objects",
+          "resultLevel": "INTERNAL_OPERABLE",
+          "repositoryBacked": true,
+          "internalOnly": true,
+          "customerSelfService": false,
+          "ownerAdminOnly": true,
+          "sourceAllowlistOverrideEnabled": false,
+          "approvalBypassEnabled": false,
+          "liveExecutionEnabled": false,
+          "notes": "仅允许登记地区、来源、固定行业和模板；激活必须通过同一配置哈希的离线试跑，回滚生成新版本。"
+        },
+        {
+          "operationId": "runProductOnboardingConfigTest",
+          "method": "POST",
+          "path": "/operator-console/onboarding/config-test-runs",
+          "primaryObjects": [
+            "product_onboarding_test_run"
+          ],
+          "requestSchemaRef": "contracts/governance/product_onboarding_config_contract.json#offline_test_protocol",
+          "responseSchemaRef": "contracts/governance/product_onboarding_config_contract.json#offline_test_protocol",
+          "resultLevel": "INTERNAL_OPERABLE",
+          "repositoryBacked": true,
+          "internalOnly": true,
+          "ownerAdminOnly": true,
+          "offlineValidationOnly": true,
+          "taskCreated": false,
+          "fetchExecuted": false,
+          "providerCallExecuted": false,
+          "liveExecutionEnabled": false,
+          "notes": "只做确定性离线边界与目录校验，不创建任务、不抓取来源、不调用模型，也不触发客户动作。"
+        }
+      ],
+      "business_chain_stage": "私有试点产品配置与变更治理",
+      "consumer_surface": "INTERNAL_OWNER_ADMIN",
+      "release_layer": "INTERNAL_OPERABLE"
+    },
+    {
+      "groupId": "internal_conversational_agent",
+      "title": "内部智能体对话入口",
+      "surfaceState": "internal_only",
+      "formalizationScope": "INTERNAL_GOVERNED",
+      "operations": [
+        {
+          "operationId": "createOperatorAgentTurn",
+          "method": "POST",
+          "path": "/operator-console/agent/turns",
+          "primaryObjects": [
+            "task",
+            "project_fact",
+            "evidence",
+            "report_record",
+            "saleable_opportunity"
+          ],
+          "requestSchemaRef": "contracts/agent/conversational_task_entry_contract.json#input_boundary",
+          "responseSchemaRef": "contracts/agent/conversational_task_entry_contract.json#response_required_fields",
+          "resultLevel": "INTERNAL_OPERABLE",
+          "surfaceModeRef": "internal-governed-conversation",
+          "repositoryBacked": true,
+          "internalOnly": true,
+          "requiresReview": true,
+          "liveExecutionEnabled": false,
+          "externalDeliveryEnabled": false,
+          "notes": "创建任务需显式确认且只进入 Stage1 内部队列；证据与下一步回答必须回链正式对象/登记来源，不执行任何真实外部动作。"
+        },
+        {
+          "operationId": "createOperatorAgentToolPlan",
+          "method": "POST",
+          "path": "/operator-console/agent/plans",
+          "primaryObjects": [
+            "agent_tool_plan",
+            "agent_tool_step"
+          ],
+          "requestSchemaRef": "contracts/agent/agent_tool_plan_contract.json#input_boundary",
+          "responseSchemaRef": "contracts/agent/agent_tool_plan_contract.json#plan_states",
+          "resultLevel": "INTERNAL_OPERABLE",
+          "surfaceModeRef": "internal-governed-conversation",
+          "repositoryBacked": true,
+          "internalOnly": true,
+          "requiresReview": true,
+          "strictToolRegistry": true,
+          "parallelToolCalls": false,
+          "mutatingToolExecutionEnabled": false,
+          "liveExecutionEnabled": false,
+          "externalDeliveryEnabled": false,
+          "notes": "只执行登记的确定性只读工具；完整计划先校验、参数拒绝额外字段、call_id 全程审计，写操作仅暂停并交给认证操作员显式确认。"
+        },
+        {
+          "operationId": "listOperatorAgentMemories",
+          "method": "GET",
+          "path": "/operator-console/agent/memories",
+          "primaryObjects": [
+            "agent_memory_record"
+          ],
+          "requestSchemaRef": "contracts/agent/agent_memory_governance_contract.json#surfaces/list",
+          "responseSchemaRef": "contracts/agent/agent_memory_governance_contract.json#model_context_boundary",
+          "resultLevel": "INTERNAL_OPERABLE",
+          "surfaceModeRef": "internal-governed-conversation",
+          "repositoryBacked": true,
+          "internalOnly": true,
+          "requiresReview": false,
+          "liveExecutionEnabled": false,
+          "externalDeliveryEnabled": false,
+          "notes": "只返回认证 principal 的个人偏好和显式项目范围内的未过期工作上下文；默认隐藏删除和过期项，记忆不能形成事实、证据、引用或 gate。"
+        },
+        {
+          "operationId": "mutateOperatorAgentMemory",
+          "method": "POST",
+          "path": "/operator-console/agent/memories",
+          "primaryObjects": [
+            "agent_memory_record",
+            "agent_memory_audit"
+          ],
+          "requestSchemaRef": "contracts/agent/agent_memory_governance_contract.json#mutation_protocol",
+          "responseSchemaRef": "contracts/agent/agent_memory_governance_contract.json#formal_objects",
+          "resultLevel": "INTERNAL_OPERABLE",
+          "surfaceModeRef": "internal-governed-conversation",
+          "repositoryBacked": true,
+          "internalOnly": true,
+          "requiresReview": false,
+          "liveExecutionEnabled": false,
+          "externalDeliveryEnabled": false,
+          "notes": "仅允许登记键；纠正和删除要求 expected_version，删除立即清空 raw value，审计只保留 hash，租户和 actor 由认证 transport 注入。"
+        }
+      ],
+      "business_chain_stage": "内部任务与证据问答入口",
       "consumer_surface": "INTERNAL_ANALYSIS",
       "release_layer": "INTERNAL_OPERABLE"
     }

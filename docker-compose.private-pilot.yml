@@ -1,0 +1,688 @@
+name: "kaka-pilot-${KAKA_DEPLOYMENT_TENANT_ID:?set KAKA_DEPLOYMENT_TENANT_ID}-${KAKA_DEPLOYMENT_INSTANCE_ID:?set KAKA_DEPLOYMENT_INSTANCE_ID}"
+
+x-kaka-boundary:
+  runtime_scope: private_pilot_edge_definition
+  single_customer_per_deployment: true
+  tls_termination: caddy_internal_ca
+  reverse_proxy_required: true
+  backend_host_port_published: false
+  host_allowlist_required: true
+  principal_secret_file_required: true
+  database_password_secret_required: true
+  storage_backend: postgresql
+  database_migration_before_app: true
+  required_storage_schema_revision: "20260717_0002"
+  trusted_proxy_boundary: private_edge_network_only
+  private_pilot_edge_ready: true
+  private_pilot_postgresql_ready: true
+  api_worker_browser_worker_split_ready: true
+  worker_capability_routing: payload_required_worker_capability
+  api_browser_runtime_installed: false
+  unattended_worker_scope: internal_prepare_only
+  private_pilot_full_product_ready: false
+  public_internet_deployment_ready: false
+  multi_tenant_saas_ready: false
+  blocked_by_open_items:
+    - OPS-002
+    - OPS-003
+    - RUN-003
+    - SEC-008
+    - OPS-004
+    - OPS-005
+
+services:
+  postgres:
+    image: postgres:18.4-alpine3.24
+    environment:
+      POSTGRES_USER: kaka
+      POSTGRES_DB: "${KAKA_DEPLOYMENT_TENANT_ID:?set KAKA_DEPLOYMENT_TENANT_ID}-${KAKA_DEPLOYMENT_INSTANCE_ID:?set KAKA_DEPLOYMENT_INSTANCE_ID}"
+      POSTGRES_PASSWORD_FILE: /run/secrets/kaka_postgres_password
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
+    secrets:
+      - kaka_postgres_password
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    networks:
+      - private-backend
+    shm_size: 128m
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    stop_grace_period: 30s
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"
+      interval: 5s
+      timeout: 5s
+      start_period: 20s
+      retries: 12
+    labels:
+      kaka.storage_backend: postgresql
+      kaka.database_host_port_published: "false"
+      kaka.database_password_secret_required: "true"
+      kaka.production_live_enabled: "false"
+
+  migrate:
+    image: "kaka-private-pilot-api:${KAKA_IMAGE_TAG:-local}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command:
+      - python
+      - -m
+      - alembic
+      - upgrade
+      - head
+    environment:
+      KAKA_STORAGE_BACKEND: postgresql
+      KAKA_STORAGE_DATABASE_HOST: postgres
+      KAKA_STORAGE_DATABASE_PORT: "5432"
+      KAKA_STORAGE_DATABASE_USER: kaka
+      KAKA_STORAGE_DATABASE_NAME: "${KAKA_DEPLOYMENT_TENANT_ID}-${KAKA_DEPLOYMENT_INSTANCE_ID}"
+      KAKA_STORAGE_DATABASE_PASSWORD_FILE: /run/secrets/kaka_postgres_password
+    secrets:
+      - kaka_postgres_password
+    networks:
+      - private-backend
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=64m
+    security_opt:
+      - no-new-privileges:true
+    restart: "no"
+    labels:
+      kaka.migration_before_app: "true"
+      kaka.required_storage_schema_revision: "20260717_0002"
+      kaka.production_live_enabled: "false"
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: api
+    image: "kaka-private-pilot-api:${KAKA_IMAGE_TAG:-local}"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    command:
+      - python
+      - -m
+      - uvicorn
+      - api.main:create_app
+      - --factory
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --no-server-header
+      - --proxy-headers
+      - "--forwarded-allow-ips=${KAKA_PRIVATE_EDGE_PROXY_IP:-172.31.252.254}"
+    environment:
+      KAKA_DEPLOYMENT_TENANCY_MODE: PRIVATE_SINGLE_TENANT
+      KAKA_DEPLOYMENT_TENANT_ID: "${KAKA_DEPLOYMENT_TENANT_ID:?set KAKA_DEPLOYMENT_TENANT_ID}"
+      KAKA_DEPLOYMENT_INSTANCE_ID: "${KAKA_DEPLOYMENT_INSTANCE_ID:?set KAKA_DEPLOYMENT_INSTANCE_ID}"
+      KAKA_PRIVATE_EDGE_REQUIRED: "true"
+      KAKA_PRIVATE_HOSTNAME: "${KAKA_PRIVATE_HOSTNAME:?set KAKA_PRIVATE_HOSTNAME}"
+      KAKA_API_ALLOWED_HOSTS: "${KAKA_PRIVATE_HOSTNAME},localhost,127.0.0.1,app"
+      KAKA_API_TRUSTED_PROXY_BOUNDARY: PRIVATE_EDGE_NETWORK_ONLY
+      KAKA_API_TRUSTED_PROXY_IPS: "${KAKA_PRIVATE_EDGE_PROXY_IP:-172.31.252.254}"
+      KAKA_INTERNAL_API_PRINCIPALS_FILE: /run/secrets/kaka_internal_api_principals
+      KAKA_INTERNAL_API_COOKIE_SECURE: "true"
+      KAKA_STORAGE_BACKEND: postgresql
+      KAKA_STORAGE_SCOPE: shared
+      KAKA_STORAGE_DATABASE_HOST: postgres
+      KAKA_STORAGE_DATABASE_PORT: "5432"
+      KAKA_STORAGE_DATABASE_USER: kaka
+      KAKA_STORAGE_DATABASE_NAME: "${KAKA_DEPLOYMENT_TENANT_ID}-${KAKA_DEPLOYMENT_INSTANCE_ID}"
+      KAKA_STORAGE_DATABASE_PASSWORD_FILE: /run/secrets/kaka_postgres_password
+      KAKA_OBJECT_STORAGE_BACKEND: local-filesystem
+      KAKA_OBJECT_STORAGE_PATH: "/app/.kaka-local/private/${KAKA_DEPLOYMENT_TENANT_ID}-${KAKA_DEPLOYMENT_INSTANCE_ID}/object-storage"
+      KAKA_OPERATOR_ARTIFACT_ROOT: "/app/.kaka-local/private/${KAKA_DEPLOYMENT_TENANT_ID}-${KAKA_DEPLOYMENT_INSTANCE_ID}/operator-artifacts"
+      KAKA_QUEUE_BACKEND: storage
+      KAKA_API_MAX_REQUEST_BODY_BYTES: "2097152"
+      KAKA_API_EXPENSIVE_REQUESTS_PER_MINUTE: "20"
+      KAKA_API_EXPENSIVE_CONCURRENCY_PER_PRINCIPAL: "2"
+      KAKA_WORKER_RUNTIME: internal-storage-worker
+      KAKA_PROVIDER_MODE: SANDBOX_DRY_RUN_READBACK
+      KAKA_OBSERVABILITY_ENABLED: "true"
+      KAKA_OBSERVABILITY_SERVICE_NAME: api
+      KAKA_OBSERVABILITY_EVENT_PATH: /app/.kaka-local/runtime/operational-events-v1.jsonl
+      KAKA_OBSERVABILITY_STDOUT_ENABLED: "true"
+      KAKA_OBSERVABILITY_MAX_FILE_BYTES: "67108864"
+    expose:
+      - "8000"
+    volumes:
+      - pilot-data:/app/.kaka-local
+    secrets:
+      - kaka_internal_api_principals
+      - kaka_postgres_password
+    networks:
+      - private-backend
+      - private-edge
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=128m
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          python -c "from urllib.request import Request,urlopen;
+          r=urlopen(Request('http://127.0.0.1:8000/healthz',headers={'Host':'$${KAKA_PRIVATE_HOSTNAME}'}),timeout=3);
+          raise SystemExit(0 if r.status==200 else 1)"
+      interval: 10s
+      timeout: 5s
+      start_period: 20s
+      retries: 6
+    labels:
+      kaka.single_customer_per_deployment: "true"
+      kaka.backend_host_port_published: "false"
+      kaka.host_allowlist_required: "true"
+      kaka.principal_secret_file_required: "true"
+      kaka.database_password_secret_required: "true"
+      kaka.storage_backend: postgresql
+      kaka.migration_before_app: "true"
+      kaka.required_storage_schema_revision: "20260717_0002"
+      kaka.trusted_proxy_boundary: private_edge_network_only
+      kaka.private_pilot_edge_ready: "true"
+      kaka.private_pilot_full_product_ready: "false"
+      kaka.multi_tenant_saas_ready: "false"
+      kaka.production_live_enabled: "false"
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: worker
+    image: "kaka-private-pilot-worker:${KAKA_IMAGE_TAG:-local}"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    command:
+      - python
+      - -m
+      - runtime.controlled_gray_scheduler_worker
+      - --serve
+      - --worker-capability
+      - core
+      - --worker-id
+      - controlled-gray-core-worker-v1
+      - --status-json
+      - /app/.kaka-local/runtime/controlled-gray-core-worker-status-v1.json
+    environment:
+      KAKA_DEPLOYMENT_TENANCY_MODE: PRIVATE_SINGLE_TENANT
+      KAKA_DEPLOYMENT_TENANT_ID: "${KAKA_DEPLOYMENT_TENANT_ID:?set KAKA_DEPLOYMENT_TENANT_ID}"
+      KAKA_DEPLOYMENT_INSTANCE_ID: "${KAKA_DEPLOYMENT_INSTANCE_ID:?set KAKA_DEPLOYMENT_INSTANCE_ID}"
+      KAKA_PRIVATE_EDGE_REQUIRED: "true"
+      KAKA_PRIVATE_HOSTNAME: "${KAKA_PRIVATE_HOSTNAME:?set KAKA_PRIVATE_HOSTNAME}"
+      KAKA_API_ALLOWED_HOSTS: "${KAKA_PRIVATE_HOSTNAME},localhost,127.0.0.1,app"
+      KAKA_API_TRUSTED_PROXY_BOUNDARY: PRIVATE_EDGE_NETWORK_ONLY
+      KAKA_API_TRUSTED_PROXY_IPS: "${KAKA_PRIVATE_EDGE_PROXY_IP:-172.31.252.254}"
+      KAKA_INTERNAL_API_PRINCIPALS_FILE: /run/secrets/kaka_internal_api_principals
+      KAKA_INTERNAL_API_COOKIE_SECURE: "true"
+      KAKA_STORAGE_BACKEND: postgresql
+      KAKA_STORAGE_SCOPE: shared
+      KAKA_STORAGE_DATABASE_HOST: postgres
+      KAKA_STORAGE_DATABASE_PORT: "5432"
+      KAKA_STORAGE_DATABASE_USER: kaka
+      KAKA_STORAGE_DATABASE_NAME: "${KAKA_DEPLOYMENT_TENANT_ID}-${KAKA_DEPLOYMENT_INSTANCE_ID}"
+      KAKA_STORAGE_DATABASE_PASSWORD_FILE: /run/secrets/kaka_postgres_password
+      KAKA_OBJECT_STORAGE_BACKEND: local-filesystem
+      KAKA_OBJECT_STORAGE_PATH: "/app/.kaka-local/private/${KAKA_DEPLOYMENT_TENANT_ID}-${KAKA_DEPLOYMENT_INSTANCE_ID}/object-storage"
+      KAKA_OPERATOR_ARTIFACT_ROOT: "/app/.kaka-local/private/${KAKA_DEPLOYMENT_TENANT_ID}-${KAKA_DEPLOYMENT_INSTANCE_ID}/operator-artifacts"
+      KAKA_QUEUE_BACKEND: storage
+      KAKA_WORKER_RUNTIME: dedicated-core-worker
+      KAKA_PROVIDER_MODE: SANDBOX_DRY_RUN_READBACK
+      KAKA_OBSERVABILITY_ENABLED: "true"
+      KAKA_OBSERVABILITY_SERVICE_NAME: core-worker
+      KAKA_OBSERVABILITY_EVENT_PATH: /app/.kaka-local/runtime/operational-events-v1.jsonl
+      KAKA_OBSERVABILITY_STDOUT_ENABLED: "true"
+      KAKA_OBSERVABILITY_MAX_FILE_BYTES: "67108864"
+    volumes:
+      - pilot-data:/app/.kaka-local
+    secrets:
+      - kaka_internal_api_principals
+      - kaka_postgres_password
+    networks:
+      - private-backend
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=128m
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "from pathlib import Path; raise SystemExit(0 if Path('/app/.kaka-local/runtime/controlled-gray-core-worker-status-v1.json').is_file() else 1)"
+      interval: 10s
+      timeout: 5s
+      start_period: 20s
+      retries: 6
+    labels:
+      kaka.runtime_role: worker
+      kaka.worker_capability: core
+      kaka.long_work_in_api_process: "false"
+      kaka.browser_runtime_installed: "false"
+      kaka.unattended_scope: internal_prepare_only
+      kaka.production_live_enabled: "false"
+
+  egress-proxy:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: api
+    image: "kaka-private-pilot-api:${KAKA_IMAGE_TAG:-local}"
+    command:
+      - python
+      - -m
+      - runtime.public_egress_proxy
+      - --host
+      - 0.0.0.0
+      - --port
+      - "18080"
+    environment:
+      KAKA_EGRESS_CONNECT_TIMEOUT_SECONDS: "10"
+      KAKA_EGRESS_TUNNEL_IDLE_TIMEOUT_SECONDS: "60"
+      KAKA_EGRESS_MAX_CONCURRENT_CONNECTIONS: "32"
+      KAKA_EGRESS_ADDITIONAL_ALLOWED_HOSTS: >-
+        data.ggzy.gov.cn,deal.ggzy.gov.cn,search.gd.gov.cn,ygp.gdzwfw.gov.cn,zfcj.gz.gov.cn,
+        jianshe.maoming.gov.cn,jsj.zs.gov.cn,www.heyuan.gov.cn,www.jiangmen.gov.cn,
+        www.maoming.gov.cn,www.shanwei.gov.cn,www.yangjiang.gov.cn,zjj.huizhou.gov.cn,
+        ${KAKA_ALERT_ALLOWED_HOSTS:-}
+    networks:
+      - private-backend
+      - public-egress
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=32m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import socket; connection=socket.create_connection(('127.0.0.1', 18080), 2); connection.close()"
+      interval: 10s
+      timeout: 5s
+      start_period: 10s
+      retries: 6
+    labels:
+      kaka.runtime_role: controlled-public-egress-proxy
+      kaka.destination_policy: registered_and_deployment_explicit_hosts_only
+      kaka.public_ip_pinning_required: "true"
+      kaka.host_port_published: "false"
+      kaka.production_live_enabled: "false"
+
+  browser-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: browser-worker
+    image: "kaka-private-pilot-browser-worker:${KAKA_IMAGE_TAG:-local}"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      egress-proxy:
+        condition: service_healthy
+    command:
+      - python
+      - -m
+      - runtime.operator_long_task_worker
+      - --serve
+      - --worker-capability
+      - browser
+      - --worker-id
+      - operator-long-task-browser-worker-v1
+      - --status-json
+      - /app/.kaka-local/runtime/operator-long-task-browser-worker-status-v1.json
+    environment:
+      KAKA_DEPLOYMENT_TENANCY_MODE: PRIVATE_SINGLE_TENANT
+      KAKA_DEPLOYMENT_TENANT_ID: "${KAKA_DEPLOYMENT_TENANT_ID:?set KAKA_DEPLOYMENT_TENANT_ID}"
+      KAKA_DEPLOYMENT_INSTANCE_ID: "${KAKA_DEPLOYMENT_INSTANCE_ID:?set KAKA_DEPLOYMENT_INSTANCE_ID}"
+      KAKA_PRIVATE_EDGE_REQUIRED: "true"
+      KAKA_PRIVATE_HOSTNAME: "${KAKA_PRIVATE_HOSTNAME:?set KAKA_PRIVATE_HOSTNAME}"
+      KAKA_API_ALLOWED_HOSTS: "${KAKA_PRIVATE_HOSTNAME},localhost,127.0.0.1,app"
+      KAKA_API_TRUSTED_PROXY_BOUNDARY: PRIVATE_EDGE_NETWORK_ONLY
+      KAKA_API_TRUSTED_PROXY_IPS: "${KAKA_PRIVATE_EDGE_PROXY_IP:-172.31.252.254}"
+      KAKA_INTERNAL_API_PRINCIPALS_FILE: /run/secrets/kaka_internal_api_principals
+      KAKA_INTERNAL_API_COOKIE_SECURE: "true"
+      KAKA_STORAGE_BACKEND: postgresql
+      KAKA_STORAGE_SCOPE: shared
+      KAKA_STORAGE_DATABASE_HOST: postgres
+      KAKA_STORAGE_DATABASE_PORT: "5432"
+      KAKA_STORAGE_DATABASE_USER: kaka
+      KAKA_STORAGE_DATABASE_NAME: "${KAKA_DEPLOYMENT_TENANT_ID}-${KAKA_DEPLOYMENT_INSTANCE_ID}"
+      KAKA_STORAGE_DATABASE_PASSWORD_FILE: /run/secrets/kaka_postgres_password
+      KAKA_OBJECT_STORAGE_BACKEND: local-filesystem
+      KAKA_OBJECT_STORAGE_PATH: "/app/.kaka-local/private/${KAKA_DEPLOYMENT_TENANT_ID}-${KAKA_DEPLOYMENT_INSTANCE_ID}/object-storage"
+      KAKA_OPERATOR_ARTIFACT_ROOT: "/app/.kaka-local/private/${KAKA_DEPLOYMENT_TENANT_ID}-${KAKA_DEPLOYMENT_INSTANCE_ID}/operator-artifacts"
+      KAKA_QUEUE_BACKEND: storage
+      KAKA_WORKER_RUNTIME: dedicated-browser-worker
+      KAKA_PROVIDER_MODE: SANDBOX_DRY_RUN_READBACK
+      KAKA_OBSERVABILITY_ENABLED: "true"
+      KAKA_OBSERVABILITY_SERVICE_NAME: browser-worker
+      KAKA_OBSERVABILITY_EVENT_PATH: /app/.kaka-local/runtime/operational-events-v1.jsonl
+      KAKA_OBSERVABILITY_STDOUT_ENABLED: "true"
+      KAKA_OBSERVABILITY_MAX_FILE_BYTES: "67108864"
+      KAKA_CONTROLLED_EGRESS_PROXY_URL: http://egress-proxy:18080
+      HTTP_PROXY: http://egress-proxy:18080
+      HTTPS_PROXY: http://egress-proxy:18080
+      NO_PROXY: postgres,app,egress-proxy,localhost,127.0.0.1
+    volumes:
+      - pilot-data:/app/.kaka-local
+    secrets:
+      - kaka_internal_api_principals
+      - kaka_postgres_password
+    networks:
+      - private-backend
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=128m
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "from pathlib import Path; raise SystemExit(0 if Path('/app/.kaka-local/runtime/operator-long-task-browser-worker-status-v1.json').is_file() else 1)"
+      interval: 10s
+      timeout: 5s
+      start_period: 20s
+      retries: 6
+    labels:
+      kaka.runtime_role: browser-worker
+      kaka.worker_capability: browser
+      kaka.long_work_in_api_process: "false"
+      kaka.browser_runtime_installed: "true"
+      kaka.unattended_scope: internal_prepare_only
+      kaka.production_live_enabled: "false"
+
+  backup-tools:
+    profiles:
+      - backup
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: backup-tools
+    image: "kaka-private-pilot-backup-tools:${KAKA_IMAGE_TAG:-local}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command:
+      - backup
+    environment:
+      KAKA_DEPLOYMENT_TENANT_ID: "${KAKA_DEPLOYMENT_TENANT_ID:?set KAKA_DEPLOYMENT_TENANT_ID}"
+      KAKA_DEPLOYMENT_INSTANCE_ID: "${KAKA_DEPLOYMENT_INSTANCE_ID:?set KAKA_DEPLOYMENT_INSTANCE_ID}"
+      KAKA_STORAGE_DATABASE_HOST: postgres
+      KAKA_STORAGE_DATABASE_PORT: "5432"
+      KAKA_STORAGE_DATABASE_USER: kaka
+      KAKA_STORAGE_DATABASE_NAME: "${KAKA_DEPLOYMENT_TENANT_ID}-${KAKA_DEPLOYMENT_INSTANCE_ID}"
+      KAKA_STORAGE_DATABASE_PASSWORD_FILE: /run/secrets/kaka_postgres_password
+      KAKA_BACKUP_OBJECT_STORAGE_ROOT: "/source-data/private/${KAKA_DEPLOYMENT_TENANT_ID}-${KAKA_DEPLOYMENT_INSTANCE_ID}/object-storage"
+      KAKA_BACKUP_ROOT: /backups
+      KAKA_BACKUP_ID: "${KAKA_BACKUP_ID:-}"
+      KAKA_BACKUP_WRITERS_PAUSED_ACK: "${KAKA_BACKUP_WRITERS_PAUSED_ACK:-}"
+      KAKA_BACKUP_SCHEDULE_INTERVAL_SECONDS: "${KAKA_BACKUP_SCHEDULE_INTERVAL_SECONDS:-21600}"
+      KAKA_BACKUP_RPO_TARGET_SECONDS: "${KAKA_BACKUP_RPO_TARGET_SECONDS:-28800}"
+    volumes:
+      - pilot-data:/source-data:ro
+      - "${KAKA_PRIVATE_BACKUP_ROOT:-./output/private-pilot-backups}:/backups"
+    secrets:
+      - kaka_postgres_password
+    networks:
+      - private-backend
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=64m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: "no"
+    labels:
+      kaka.runtime_role: private-pilot-backup
+      kaka.database_dump_format: postgresql-custom
+      kaka.object_backup_format: tar-gzip-with-sha256-inventory
+      kaka.active_storage_mutation_enabled: "false"
+      kaka.production_live_enabled: "false"
+
+  restore-postgres:
+    profiles:
+      - restore-drill
+    image: postgres:18.4-alpine3.24
+    environment:
+      POSTGRES_USER: kaka
+      POSTGRES_DB: "${KAKA_DEPLOYMENT_TENANT_ID}-${KAKA_DEPLOYMENT_INSTANCE_ID}-restore-drill"
+      POSTGRES_PASSWORD_FILE: /run/secrets/kaka_postgres_password
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
+    secrets:
+      - kaka_postgres_password
+    volumes:
+      - restore-postgres-data:/var/lib/postgresql
+    networks:
+      - restore-isolated
+    shm_size: 128m
+    security_opt:
+      - no-new-privileges:true
+    restart: "no"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"
+      interval: 5s
+      timeout: 5s
+      start_period: 20s
+      retries: 12
+    labels:
+      kaka.runtime_role: isolated-restore-database
+      kaka.active_database: "false"
+      kaka.host_port_published: "false"
+      kaka.production_live_enabled: "false"
+
+  restore-tools:
+    profiles:
+      - restore-drill
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: backup-tools
+    image: "kaka-private-pilot-backup-tools:${KAKA_IMAGE_TAG:-local}"
+    depends_on:
+      restore-postgres:
+        condition: service_healthy
+    command:
+      - restore-isolated
+    environment:
+      KAKA_BACKUP_ROOT: /backups
+      KAKA_BACKUP_ID: "${KAKA_BACKUP_ID:-}"
+      KAKA_RESTORE_SOURCE_DATABASE_NAME: "${KAKA_DEPLOYMENT_TENANT_ID}-${KAKA_DEPLOYMENT_INSTANCE_ID}"
+      KAKA_RESTORE_TARGET_DATABASE_HOST: restore-postgres
+      KAKA_RESTORE_TARGET_DATABASE_PORT: "5432"
+      KAKA_RESTORE_TARGET_DATABASE_USER: kaka
+      KAKA_RESTORE_TARGET_DATABASE_NAME: "${KAKA_DEPLOYMENT_TENANT_ID}-${KAKA_DEPLOYMENT_INSTANCE_ID}-restore-drill"
+      KAKA_RESTORE_TARGET_DATABASE_PASSWORD_FILE: /run/secrets/kaka_postgres_password
+      KAKA_RESTORE_TARGET_OBJECT_PARENT: /restore-objects
+      KAKA_RESTORE_REPORT_ROOT: /restore-reports
+      KAKA_RESTORE_ISOLATED_ACK: "${KAKA_RESTORE_ISOLATED_ACK:-}"
+      KAKA_RESTORE_RTO_TARGET_SECONDS: "${KAKA_RESTORE_RTO_TARGET_SECONDS:-3600}"
+    volumes:
+      - "${KAKA_PRIVATE_BACKUP_ROOT:-./output/private-pilot-backups}:/backups:ro"
+      - restore-object-data:/restore-objects
+      - "${KAKA_PRIVATE_RESTORE_REPORT_ROOT:-./output/private-pilot-restore-reports}:/restore-reports"
+    secrets:
+      - kaka_postgres_password
+    networks:
+      - restore-isolated
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=64m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: "no"
+    labels:
+      kaka.runtime_role: isolated-restore-validator
+      kaka.active_database_mutation_enabled: "false"
+      kaka.active_object_storage_mutation_enabled: "false"
+      kaka.production_live_enabled: "false"
+
+  alert-dispatcher:
+    profiles:
+      - alerting
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: api
+    image: "kaka-private-pilot-api:${KAKA_IMAGE_TAG:-local}"
+    depends_on:
+      egress-proxy:
+        condition: service_healthy
+    command:
+      - python
+      - -m
+      - runtime.operational_alert_dispatcher
+      - --serve
+      - --poll-seconds
+      - "15"
+      - --status-json
+      - /app/.kaka-local/runtime/operational-alert-dispatcher-status-v1.json
+    environment:
+      KAKA_PRIVATE_EDGE_REQUIRED: "true"
+      KAKA_ALERT_WEBHOOK_URL: "${KAKA_ALERT_WEBHOOK_URL:-}"
+      KAKA_ALERT_ALLOWED_HOSTS: "${KAKA_ALERT_ALLOWED_HOSTS:-}"
+      KAKA_ALERT_SIGNING_SECRET_FILE: /run/secrets/kaka_alert_signing_secret
+      KAKA_ALERT_STATE_PATH: /app/.kaka-local/runtime/operational-alert-state-v1.json
+      KAKA_ALERT_DEAD_LETTER_PATH: /app/.kaka-local/runtime/operational-alert-dead-letter-v1.jsonl
+      KAKA_ALERT_MAX_ATTEMPTS: "5"
+      KAKA_ALERT_REQUEST_TIMEOUT_SECONDS: "10"
+      KAKA_ALERT_BATCH_SIZE: "50"
+      KAKA_CONTROLLED_EGRESS_PROXY_URL: http://egress-proxy:18080
+      HTTP_PROXY: http://egress-proxy:18080
+      HTTPS_PROXY: http://egress-proxy:18080
+      NO_PROXY: egress-proxy,localhost,127.0.0.1
+      KAKA_OBSERVABILITY_ENABLED: "true"
+      KAKA_OBSERVABILITY_SERVICE_NAME: alert-dispatcher
+      KAKA_OBSERVABILITY_EVENT_PATH: /app/.kaka-local/runtime/operational-events-v1.jsonl
+      KAKA_OBSERVABILITY_STDOUT_ENABLED: "true"
+      KAKA_OBSERVABILITY_MAX_FILE_BYTES: "67108864"
+    volumes:
+      - pilot-data:/app/.kaka-local
+    secrets:
+      - kaka_alert_signing_secret
+    networks:
+      - private-backend
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=32m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "from pathlib import Path; raise SystemExit(0 if Path('/app/.kaka-local/runtime/operational-alert-dispatcher-status-v1.json').is_file() else 1)"
+      interval: 15s
+      timeout: 5s
+      start_period: 20s
+      retries: 6
+    labels:
+      kaka.runtime_role: operational-alert-dispatcher
+      kaka.alert_destination_required: "true"
+      kaka.alert_retry_and_dead_letter_enabled: "true"
+      kaka.production_live_enabled: "false"
+
+  edge:
+    image: caddy:2.11.4-alpine
+    depends_on:
+      app:
+        condition: service_healthy
+    environment:
+      KAKA_PRIVATE_HOSTNAME: "${KAKA_PRIVATE_HOSTNAME:?set KAKA_PRIVATE_HOSTNAME}"
+    ports:
+      - "127.0.0.1:${KAKA_PRIVATE_TLS_PORT:-18443}:443"
+    volumes:
+      - ./deploy/private-pilot/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      private-edge:
+        ipv4_address: "${KAKA_PRIVATE_EDGE_PROXY_IP:-172.31.252.254}"
+      public-ingress:
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=64m
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    labels:
+      kaka.tls_termination: caddy_internal_ca
+      kaka.reverse_proxy_required: "true"
+      kaka.loopback_bind_only: "true"
+      kaka.caddy_admin_api_enabled: "false"
+      kaka.production_live_enabled: "false"
+
+networks:
+  private-edge:
+    name: "kaka-pilot-${KAKA_DEPLOYMENT_TENANT_ID}-${KAKA_DEPLOYMENT_INSTANCE_ID}-edge"
+    driver: bridge
+    internal: true
+    ipam:
+      config:
+        - subnet: "${KAKA_PRIVATE_EDGE_SUBNET:-172.31.252.0/24}"
+  private-backend:
+    name: "kaka-pilot-${KAKA_DEPLOYMENT_TENANT_ID}-${KAKA_DEPLOYMENT_INSTANCE_ID}-backend"
+    driver: bridge
+    internal: true
+  public-egress:
+    name: "kaka-pilot-${KAKA_DEPLOYMENT_TENANT_ID}-${KAKA_DEPLOYMENT_INSTANCE_ID}-public-egress"
+    driver: bridge
+  public-ingress:
+    name: "kaka-pilot-${KAKA_DEPLOYMENT_TENANT_ID}-${KAKA_DEPLOYMENT_INSTANCE_ID}-public-ingress"
+    driver: bridge
+  restore-isolated:
+    name: "kaka-pilot-${KAKA_DEPLOYMENT_TENANT_ID}-${KAKA_DEPLOYMENT_INSTANCE_ID}-restore-isolated"
+    driver: bridge
+    internal: true
+
+volumes:
+  pilot-data:
+    name: "kaka-pilot-${KAKA_DEPLOYMENT_TENANT_ID}-${KAKA_DEPLOYMENT_INSTANCE_ID}-data"
+  caddy-data:
+    name: "kaka-pilot-${KAKA_DEPLOYMENT_TENANT_ID}-${KAKA_DEPLOYMENT_INSTANCE_ID}-caddy-data"
+  caddy-config:
+    name: "kaka-pilot-${KAKA_DEPLOYMENT_TENANT_ID}-${KAKA_DEPLOYMENT_INSTANCE_ID}-caddy-config"
+  postgres-data:
+    name: "kaka-pilot-${KAKA_DEPLOYMENT_TENANT_ID}-${KAKA_DEPLOYMENT_INSTANCE_ID}-postgres-data"
+  restore-postgres-data:
+    name: "kaka-pilot-${KAKA_DEPLOYMENT_TENANT_ID}-${KAKA_DEPLOYMENT_INSTANCE_ID}-restore-postgres-data"
+  restore-object-data:
+    name: "kaka-pilot-${KAKA_DEPLOYMENT_TENANT_ID}-${KAKA_DEPLOYMENT_INSTANCE_ID}-restore-object-data"
+
+secrets:
+  kaka_internal_api_principals:
+    file: "${KAKA_PRIVATE_PRINCIPALS_FILE:?set KAKA_PRIVATE_PRINCIPALS_FILE}"
+  kaka_postgres_password:
+    file: "${KAKA_PRIVATE_POSTGRES_PASSWORD_FILE:?set KAKA_PRIVATE_POSTGRES_PASSWORD_FILE}"
+  kaka_alert_signing_secret:
+    file: "${KAKA_ALERT_SIGNING_SECRET_FILE:-./deploy/private-pilot/alert-signing-secret.example}"

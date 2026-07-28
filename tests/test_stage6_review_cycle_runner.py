@@ -1467,8 +1467,14 @@ class Stage6ReviewCycleRunnerTests(unittest.TestCase):
 
             self.assertTrue(result["safe_to_execute"])
             self.assertEqual(result["summary"]["stage6_review_cycle_bootstrap_source_kind"], "RELEASE_FIELD_QUERY_JSON")
+            self.assertEqual(result["summary"]["stage5_calibration_sample_count"], 1)
+            self.assertEqual(result["summary"]["stage5_calibration_truth_label_required_count"], 1)
             derived_path = Path(result["manifest"]["derived_release_field_query_from_gdcic_browser_readback_json"])
             self.assertTrue(derived_path.exists())
+            self.assertEqual(
+                Path(result["manifest"]["source_stage5_calibration_sample_json"]),
+                derived_path.parent / "stage5-calibration-sample-table.json",
+            )
             self.assertEqual(result["manifest"]["source_gdcic_browser_readback_json"], str(gdcic_readback_json))
             rows = {
                 record["project_id"]: record
@@ -1488,6 +1494,11 @@ class Stage6ReviewCycleRunnerTests(unittest.TestCase):
             self.assertTrue(row["gdcic_browser_authorized_session_input_ready"])
             self.assertEqual(row["gdcic_browser_target_real_readback_success_count"], 1)
             self.assertTrue(row["gdcic_browser_real_readback_success_not_faked"])
+            self.assertEqual(
+                row["stage5_calibration_input_state"],
+                "FIELD_QUERY_TERMINAL_OUTCOME_READY_STAGE5_GATE_NOT_RUN",
+            )
+            self.assertEqual(row["stage5_calibration_failure_route_targets"], ["operator_truth_label_review"])
             self.assertEqual(
                 row["gdcic_browser_real_readback_success_proof_state"],
                 "PROVEN_BY_BROWSER_AUTHORIZED_READBACK_READY_RECORDS",

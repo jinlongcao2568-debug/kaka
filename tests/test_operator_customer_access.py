@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import sys
 import unittest
+from dataclasses import replace
 from pathlib import Path
 from unittest.mock import patch
 
@@ -17,6 +18,7 @@ for search_path in (SRC, TESTS):
         sys.path.insert(0, str(search_path))
 
 from api.main import create_app
+from api.deps import get_settings
 from api.routes.operator_customer_access import _internal_chain_payload_from_search
 from helpers import load_fixture
 from shared.pipeline import run_internal_chain
@@ -58,6 +60,35 @@ class TestOperatorCustomerAccess(unittest.TestCase, IsolatedStorageTestMixin):
         )
         return payload
 
+    def test_private_edge_forces_long_http_operations_to_async_queue(self) -> None:
+        app = create_app()
+        private_settings = replace(get_settings(), private_edge_required=True)
+        with patch("api.main.get_settings", return_value=private_settings):
+            client = TestClient(app)
+            search = client.post(
+                "/operator-console/autonomous-opportunity-search",
+                json={
+                    "region_code": "CN-NATIONAL",
+                    "async_execution": False,
+                },
+            )
+            capture = client.post(
+                "/operator-console/real-source-runs",
+                json={
+                    "capture_kind": "entry",
+                    "profile_id": "private-edge-enqueue-only",
+                    "async_execution": False,
+                },
+            )
+
+        self.assertEqual(search.status_code, 200, search.text)
+        self.assertEqual(capture.status_code, 200, capture.text)
+        self.assertTrue(search.json()["async_execution"])
+        self.assertTrue(capture.json()["async_execution"])
+        self.assertEqual(search.json()["required_worker_capability"], "browser")
+        self.assertEqual(capture.json()["required_worker_capability"], "browser")
+        app.state.storage_session.close()
+
     def test_bootstrap_and_readiness_surface_expose_operator_customer_go_live_entries(self) -> None:
         app = create_app()
         bootstrap = app.state.transport_bootstrap
@@ -82,6 +113,8 @@ class TestOperatorCustomerAccess(unittest.TestCase, IsolatedStorageTestMixin):
             "listOperatorAutonomousSearchRuns",
             "clearOperatorAutonomousSearchRuns",
             "runOwnerRealPublicSourceCapture",
+            "previewOperatorLongTaskStatus",
+            "cancelOperatorLongTask",
             "listOwnerRealPublicSourceTaskRuns",
             "readOwnerRealPublicSourceCapture",
             "readOperatorTask",
@@ -93,6 +126,7 @@ class TestOperatorCustomerAccess(unittest.TestCase, IsolatedStorageTestMixin):
             "prepareControlledGrayPublicOrchestrator",
             "enqueueControlledGrayPublicOrchestratorWorker",
             "runControlledGrayPublicOrchestratorWorkerOnce",
+            "cancelControlledGrayPublicOrchestratorWorkerJob",
         }
         self.assertEqual(set(app.state.operator_customer_access_operations), expected_operations)
         self.assertEqual(set(mounted_operations), expected_operations)

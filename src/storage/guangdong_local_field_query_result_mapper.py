@@ -28,6 +28,8 @@ def adapter_result_state(readback: Mapping[str, Any]) -> str:
         return "MATCHED"
     if state == "NO_FIELD_MATCH_REVIEW_REQUIRED":
         return "NOT_FOUND"
+    if state == "LIVE_FIELD_QUERY_NEEDS_REGION_ADAPTER":
+        return "BLOCKED"
     if state.startswith("FAIL_CLOSED"):
         return "BLOCKED"
     return "NEEDS_BROWSER"

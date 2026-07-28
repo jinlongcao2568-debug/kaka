@@ -1,0 +1,126 @@
+{
+  "contract_id": "customer_delivery_boundary_contract",
+  "contract_version": "1.0.0",
+  "status": "ACTIVE",
+  "title": "客户交付与责任边界",
+  "scope": {
+    "product": "SKU-B 单项目公开来源履约风险证据核验包",
+    "required_surfaces": [
+      "operator_portal_readback",
+      "internal_preview_json",
+      "customer_manifest_json",
+      "customer_html",
+      "customer_pdf",
+      "customer_zip_readme"
+    ],
+    "source_policy": "仅限报告中逐项列明的公开来源或合法授权来源",
+    "field_policy_ref": "contracts/governance/field_policy_dictionary.json"
+  },
+  "delivery_policy": {
+    "delivery_mode": "MANUAL_CONTROLLED_HANDOFF_AFTER_SIGNOFF",
+    "human_signoff_required": true,
+    "recipient_channel_and_time_record_required": true,
+    "automatic_email_delivery_enabled": false,
+    "customer_self_service_download_enabled": false,
+    "bundle_generation_authorizes_customer_release": false,
+    "current_delivery_statement": "人工签发后，通过与客户约定的受控渠道交付；系统当前不自动发送邮件，也未开放客户自助下载。"
+  },
+  "required_clauses": [
+    {
+      "code": "PUBLIC_SOURCE_SCOPE",
+      "title": "公开来源范围",
+      "text": "本报告只汇总报告中逐项列明的公开来源或合法授权来源，不覆盖未列明来源。"
+    },
+    {
+      "code": "QUERY_TIME_BOUNDARY",
+      "title": "查询时点",
+      "text": "报告内容以各证据项标注的查询时点和固定快照为准，来源在该时点之后可能发生变化。"
+    },
+    {
+      "code": "SOURCE_INCOMPLETENESS",
+      "title": "完整性限制",
+      "text": "公开来源可能存在延迟、缺页、访问限制或遗漏，本报告不承诺信息绝对完整、实时或零遗漏。"
+    },
+    {
+      "code": "QUERY_STATE_NOT_CLEARANCE",
+      "title": "查询状态不等于排除",
+      "text": "NOT_FOUND、BLOCKED、NEEDS_BROWSER、LOGIN_OR_SSO_REQUIRED 只表示本次查询状态，不构成无风险、排除、合规或不存在相关事实的结论。"
+    },
+    {
+      "code": "NO_LEGAL_CONCLUSION",
+      "title": "非法律结论",
+      "text": "证据等级只表示来源与回放强度，不是法律意见、合规认定或最终事实结论，也不能替代律师、招投标专家或其他专业人员的判断。"
+    },
+    {
+      "code": "HUMAN_REVIEW_REQUIRED",
+      "title": "人工复核",
+      "text": "任何客户交付都必须经过人工复核和签发；未签发的内部复核稿不得作为客户决策材料。"
+    },
+    {
+      "code": "CUSTOMER_DECISION_RESPONSIBILITY",
+      "title": "客户责任",
+      "text": "客户应在投标、异议、投诉、签约、付款或其他决策前复核原始公告、附件及主管部门记录，并自行承担最终决策责任。"
+    }
+  ],
+  "customer_visible_field_allowlist": [
+    "schema_version",
+    "sku",
+    "project_id",
+    "opportunity_id",
+    "generated_at",
+    "artifact_ids",
+    "watermark",
+    "source_verification",
+    "verification_coverage",
+    "evidence_items",
+    "data_boundary",
+    "customer_delivery_boundary",
+    "disclaimers",
+    "issuance_control",
+    "delivery_audit",
+    "field_policy",
+    "file_hashes"
+  ],
+  "forbidden_field_keys": [
+    "prompt",
+    "raw_prompt",
+    "model_input",
+    "model_output",
+    "chain_of_thought",
+    "reasoning_trace",
+    "policy_trace",
+    "semantic_trace",
+    "governance_trace",
+    "internal_score_raw",
+    "provider_credential",
+    "provider_config",
+    "token",
+    "secret",
+    "password",
+    "cookie",
+    "authorization",
+    "session",
+    "requested_by",
+    "reviewer",
+    "principal_id",
+    "operator_id",
+    "identity_id",
+    "提示词",
+    "模型输入",
+    "模型输出",
+    "内部推理",
+    "供应商凭据",
+    "申请人",
+    "复核人",
+    "身份编号",
+    "下载执行人"
+  ],
+  "disallowed_claims": [
+    "系统已经或必然自动邮件交付",
+    "客户已经可以自助下载",
+    "包生成即代表客户发布已获授权",
+    "公开数据绝对完整、实时或零遗漏",
+    "查询未命中代表无风险或已排除",
+    "证据等级等于法律、合规或最终事实结论"
+  ]
+}

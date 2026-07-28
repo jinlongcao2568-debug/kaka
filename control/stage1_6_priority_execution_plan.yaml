@@ -1,7 +1,7 @@
 version: 1
 plan_id: STAGE1_6_PRIORITY_EXECUTION_PLAN
 status: ACTIVE
-updated_at: "2026-05-26"
+updated_at: "2026-07-20"
 owner_directive: "按 Stage1-6 完整缺口清单，先按影响实战判断的优先级推进，不先跳 Stage7。"
 execution_mode: DIRECT_DEV_DEFAULT
 live_external_actions_enabled: false
@@ -18,6 +18,7 @@ agent_execution_guardrails:
     - guangdong_gdcic_openplatform_query_probe
     - stage6_review_cycle_runner
     - stage16_p13b_continuation_runner
+    - controlled_gray_dedicated_scheduler_worker
   supporting_compat_entrypoints:
     - stage6_review_loop_runner
   absent_state_sources:
@@ -43,6 +44,95 @@ current_focus:
     Stage2 附件文本缓存已把 gap8 全量 reparse 缩到约 5 秒，11373 已抽到 广东省建筑工程监理有限公司 + 谯锋，11386 停在 广东华路交通科技有限公司 + B 类总监缺失补证。
     当前最大缺口是广东/广州 GDCIC 授权会话后的真实字段命中样本、P13B 结果回灌、广东 Stage1-6 闭环稳定性，以及 Stage3 负责人/OCR/人员材料页继续压测。
   reason_delta: >
+    2026-07-20 RUN-001: controlled-gray orchestration 已复用现有持久队列接入独立 scheduler worker，
+    支持租约、心跳、有限重试、暂停/恢复、死信、重启恢复和周期续排；Web run-once 不再执行长任务。
+    当前无人值守范围严格限定为 INTERNAL_PREPARE_ONLY，真实公开源执行、客户可见、支付、交付和退款仍关闭，
+    生产 worker/browser-worker 编排继续由 RUN-003 处理，通用进度/取消/预算继续由 RUN-002 处理。
+    2026-07-20 RUN-002/003 增量：持久队列已增加进度、协作取消、执行预算和错误分类，操作台灰度任务已接入；
+    Dockerfile/private-pilot 已拆为 API、core worker、browser worker，并按 payload capability 精确领取。
+    自主机会搜索和白名单真实公开源采集已登记到 browser capability 队列，操作台默认异步，private-edge HTTP 强制异步，
+    并有 job_id、进度、心跳、预算、取消、重试、错误分类和业务读回；RUN-002 已完成代码侧闭环。
+    真实镜像 build/up 仍受 Docker daemon 锁阻断，因此 RUN-003 记为 BLOCKED_EXTERNAL，不把静态编排写成生产可用。
+    2026-07-20 SEC-005/006 增量：private-pilot 已形成 Caddy + 应用实际流式 body 双层上限，
+    昂贵写操作按 tenant+principal 执行单 API 速率/并发门禁；Host 白名单、nonce CSP 和安全响应头已有真实响应测试。
+    Uvicorn 已删除通配代理信任，Caddy 固定私网 IP 与 backend/edge 双网络完成隔离，缺失或通配可信代理 IP 会启动失败关闭。
+    该闭环只覆盖单宿主/单 API 私有试点；多 API 副本共享 limiter 和真实镜像 build/up/health 仍不虚报完成。
+    2026-07-20 SEC-007 增量：urllib/curl 已把 DNS 校验结果绑定到实际连接；Scrapling/Playwright 在 private-pilot 中强制走受控 egress proxy。
+    代理只允许正式 Stage2 来源与部署显式登记的广东主线精确域名，拒绝通配、非 80/443、任一非 global DNS 答案和云元数据地址，
+    并直接连接验证后的数值 IP。app/DB/workers 只接内部网络，只有 egress proxy 接公网出口，Caddy 单独接 ingress。
+    GDCIC 历史 210.76.80.152:8008 继续失败关闭并沿用 EVD-002 变通，不为恢复该受保护来源放宽 SSRF 边界。
+    2026-07-20 SEC-008 增量：API/Worker Python 依赖已升级并分别生成 Python 3.12 全传递 SHA-256 锁，
+    Docker 与 CI 强制 --require-hashes，CI 增加锁输入一致性门禁和 API/Worker 双锁漏洞审计。
+    旧 Starlette 0.37.2 的 9 条审计命中已消除；独立 API/Worker 环境 pip check、直接导入、请求边界、
+    PDF/文档解析、公网连接、Stage2-9 和存储分段回归通过。pypdf 已从偶然传递依赖提升为显式依赖，
+    urllib HTTPSHandler 的标准库兼容差异已修复；真实容器 build/up 仍归 RUN-003/OPS-002/OPS-003 外部阻断。
+    Docker client 可用但 Linux engine pipe 当前不存在，故 SEC-008 不把 clean venv 冒充镜像内 pip check，状态保持 BLOCKED_EXTERNAL。
+    2026-07-20 OPS-004 增量：API、queue、Stage2 fetch、Stage3 parse、SQLAlchemy DB、固定 SKU bundle 和 Stage9 delivery record
+    已接入实际结构化事件、持久 JSONL、trace/error 分类及认证 Prometheus 指标；观测写失败不会污染业务结果。
+    独立 alert dispatcher 已具备精确 HTTPS host、受控出口代理、secret-file HMAC、持久去重、退避重试和死信，
+    本地实际 HTTP 受控演练验证了签名送达、不重复、500/503 重试/死信和自身事件防递归。
+    private-pilot 以显式 alerting profile 编排；客户真实 webhook/paging 目的地、轮值联系人和容器内实发证据无法由代码生成，
+    因而 OPS-004 为 CODE_AND_CONTROLLED_ALERT_DRILL_VALIDATED / BLOCKED_EXTERNAL，不冒充真实生产告警已上线。
+    2026-07-20 OPS-005 增量：新增 PostgreSQL 18 custom dump + 本地 object storage tar/SHA-256 inventory 的原子备份，
+    密码仅经临时 PGPASSFILE，要求 writer pause 精确确认并拒绝 active/backup 路径重叠、符号链接和对象变化。
+    restore-drill 使用独立 PostgreSQL、对象卷和 internal network，核对 manifest/artifact、Alembic revision、核心表计数和逐对象 hash，
+    实际记录 RTO；RPO 记录调度周期加本次备份耗时，并明确仍需真实周期观察。
+    所有项目服务镜像支持显式 KAKA_IMAGE_TAG，previous-image rollback 有 backup manifest、人工确认、--no-build --wait 健康门和失败前向恢复，
+    不自动 downgrade schema 或覆盖 active data。Docker Linux engine、仓库外备份故障域和外部 scheduler 仍不可用，
+    故 OPS-005 为 CODE_AND_LOCAL_ISOLATED_DRILL_VALIDATED / BLOCKED_EXTERNAL，不虚报真实容器灾备演练完成。
+    2026-07-20 PROD-002 增量：新增 clean-batch 产品价值验收契约和可回放报告，严格拒绝旧 lineage、follow-up、
+    alternative、projection、merged、重复项目及任务数/项目数混除；固定 SKU/LeadPack/产物读回已补 project_id 以绑定 cohort。
+    现有 clean live30 重放得到列表项 88、限额前候选 50、固定 cohort 30，入组发现率 30/88，Stage4 ready 1/30、
+    可复核 1/30；证据包、人工分钟、真实客户采用和退款因没有完整 pilot 观察窗而明确 WITHHELD，不写成零。
+    outcome/payment 只有真实客户确认、正式 audit ref 且非 preview/dry-run/sandbox/fixture/sample 才可计入。
+    因真实客户行为不能由仓库制造，PROD-002 为 CODE_AND_EXISTING_CLEAN_BATCH_BASELINE_VALIDATED / BLOCKED_EXTERNAL，
+    不把 1/30 内部复核候选冒充客户价值已经通过。
+    2026-07-20 PROD-003 增量：客户交付边界已收敛到单一正式合同，门户读回、内部预览 JSON、SKU-B manifest、
+    HTML、PDF 和 ZIP README 统一显示公开来源范围、查询时点、来源不完整性、查询状态不等于排除、非法律结论、
+    人工复核签发和客户最终决策责任。旧“成交付款后系统自动邮件发送”文案已删除，当前只承诺人工签发后的受控渠道交付，
+    自动邮件和客户自助下载保持关闭。正式包不再带出申请人、复核人、principal 或内部黑名单字段名，递归字段扫描失败关闭；
+    字段白名单、脱敏或黑箱隐藏任一未满足都会阻断签发。该项只确认材料边界一致，不替代外部法务确认或真实客户交付验收。
+    2026-07-20 AGENT-001 增量：已实现默认 OFF、仅显式 INTERNAL_SHADOW 的 OpenAI Responses-compatible provider adapter，
+    只允许候选提取、证据摘要、复核解释和内部文案草稿；工具、正式事实写入、客户可见输出和法律结论均关闭。
+    请求强制公开/内部脱敏输入、敏感键归一化拦截、strict JSON Schema、store=false、来源引用回链、有限重试和 hash/token/延迟审计；
+    API key 只读仓库外 secret file，外部 HTTPS host/443、proxy 或明确直连批准、owner approval、audit ref 和 PASSED eval 均为硬门。
+    本地真实 loopback HTTP Responses 协议及联合治理回归已通过；private-pilot 未注入模型 secret 或开放模型出口，
+    真实 provider key/审批/eval/受控出口/canary 不能由仓库生成，故 AGENT-001 为 CODE_AND_LOCAL_RESPONSES_PROTOCOL_VALIDATED / BLOCKED_EXTERNAL，
+    不冒充真实模型已上线，也不改变 Stage1-7 确定性事实、证据门和审批门。
+    2026-07-20 AGENT-002 增量：运营操作台已增加独立受控对话路由和自然语言入口，模型 OFF 时走确定性正式对象读回；
+    支持显式确认后幂等创建 Stage1 内部预览任务、查询任务、追问证据和读取下一步，每项事实必须带正式 citation。
+    未确认时零队列写入，确认后真实抓取/live 仍关闭；未命中明确写为证据不足且不形成无风险结论，敏感输入和外部动作失败关闭。
+    真实 Chromium 登录/交互验收发现并修复中文意图误判及任务成功后 UI 事实渲染误报，定向、严格契约、架构和 capability 回归通过。
+    对话入口本身不自动调用工具或保存长期对话历史；受控 planner/tool 协议由下一条 AGENT-003 增量独立登记，登记偏好/项目上下文由 AGENT-004 增量治理。
+    2026-07-20 AGENT-003 增量：新增独立 strict tool registry 与两阶段 plan API，只登记确定性任务/证据/下一步读取和内部任务方案；
+    完整计划在执行前校验 allowed tool、参数额外字段、专属权限、call_id、步数/单工具/输出/时间预算，parallel=false、零重试。
+    每个 plan/step 持久化 call_id、输入/输出 hash、权限、风险、时间和安全结果；同 plan hash 幂等回放，不同 hash 冲突拒绝。
+    创建任务工具只返回认证操作员确认交接且不写队列，邮件/触达/支付/退款/交付/发布/任意 HTTP-shell/事实写回均不可调用；
+    真实模型 provider 继续 tools=false，当前只完成可回放协议和只读执行器，不冒充真实模型 planner 或生产自主执行已上线。
+    2026-07-20 AGENT-004 增量：新增认证 transport 注入租户作用域下的 principal 偏好与显式项目工作上下文，
+    支持查看、带版本纠正、删除/过期清值和 hash-only 审计；敏感内容、原始对话历史和受治理原文拒绝进入记忆或模型安全投影。
+    对话与 planner 只读取 ACTIVE/未过期登记值并标为 UNVERIFIED_CONTEXT_ONLY，记忆不进入 facts/evidence/citation/gate/approval；
+    reviewer 无读写权限，当前仍是单客户一实例，不把作用域设计写成共享 SaaS 已完成，也不虚报墓碑/历史备份已自动物理清除。
+    2026-07-20 AGENT-005 增量：新增独立模型质量合同、10 例离线协议金标和 12 例真实质量金标，
+    精确记录 provider/model、prompt 版本、token、延迟、失败分类、执行证据类型及受核准价格约束的费用。
+    超时/网络/认证/限流/5xx、拒绝、非法 Schema、虚构来源和不安全输出只会进入无模型内容的确定性人工复核降级；
+    受限输入、非法请求和 Provider 未启用继续 transport 前失败关闭，本地/注入 transport 不再误报外部调用。
+    离线协议报告 10/10 通过但外部调用数为 0；真实 canary、12 例人工标注、核准价格和 baseline 均不存在，
+    因此状态为 CODE_VALIDATED / BLOCKED_EXTERNAL，不能宣称模型质量、成本或版本回归已经完成真实验收。
+    2026-07-20 PROD-005 增量：新增 owner/admin 私有单租户产品配置向导和正式版本对象，
+    只允许登记地区/来源、固定行业/证据模板和有界预算；自由 URL、未登记来源、敏感名称、live/gate override 与越界预算失败关闭。
+    草稿、离线试跑、激活和回滚均版本化，激活要求同一 config hash 的最新草稿离线通过，回滚生成新活动版本而不改写历史；
+    离线试跑不创建任务、不抓取来源、不调用模型，也不触发触达、支付、退款、客户交付或发布。
+    真实 Chromium 已完成 v1-v5 创建/激活/更新/回滚及窄屏验收；该项只证明私有试点负责人配置治理，不代表客户自助或多租户 SaaS 已完成。
+    2026-07-20 PROD-007 增量：新增 owner/admin 私有单租户运营支持工作台，统一读取当前租户的持久任务、阻断、队列审计和版本；
+    任务只暴露 allowlist 摘要，不返回 raw payload、raw error 或 audit detail，跨租户查询和事实层编辑关闭。
+    failed/dead-letter 任务只有在 expected status/updated_at 并发锁、安全原因、精确确认和页面二次确认全部满足时才可进入一次手工 retry；
+    原 payload 保持不变并写 manual_retry_queued 审计，任一 live/客户/支付/交付/自动退款边界已打开则拒绝。
+    真实 Chromium 已完成失败任务读回、二次确认、重试和审计回读，窄屏/控制台通过；该项不等于跨租户客服、自动修复或 production live 已上线。
+    2026-07-20 最终处置刷新：产品化总表已无 OPEN/IN_PROGRESS；所有当前可由代码单独解决的条目均已关闭。
+    OPS-002/OPS-003/RUN-003 的代码与静态编排通过，但等待 Docker Linux daemon 恢复后的真实容器、PostgreSQL 迁移和三类服务健康演练；
+    EVD-001 等待合法 GDCIC 授权会话与真实来源命中，RULE-001 等待至少 50 个去重真实项目的人工真值标注。
+    这五项统一标记 BLOCKED_EXTERNAL，不等于 VALIDATED，也不授权 production live、客户可见、支付、交付或退款。
     2026-05-21 v56: projectCode 召回从“只分离 JG/数字编码”推进到“安全召回明确项目编码字段”：
     StageOneSixRealPublicPressureReport bridge 会从 regional readback、source_results、sample_records、source_refs 中明确标注的项目代码/项目编号字段，
     以及 URL 查询参数 projectCode 类字段提取编码；不做全文数字抓取，避免统一社会信用代码、证书号、URL 路径号污染。
@@ -80,7 +170,7 @@ current_focus:
     gdcic_openplatform_contract_titlevariant_live5: "2026-05-21 live5 title-variants canary：合同履约前 5 条额外尝试去除初步设计、工程设计施工总承包、二次招标、监理、施工总价承包招标等后缀后的工程主体标题；真实请求已覆盖短标题，但 project/list 与 constructionPermit/list 仍未命中目标项目，结果为 NOT_FOUND/D 5、NEEDS_BROWSER/D 25。公司维度公开合同/招投标/参建记录可读回，继续只作 context。"
     gdcic_openplatform_projectcode_separation_live1: "2026-05-21 projectCode canary：真实请求 /openplatform/project|constructionPermit|projectBidding|projectContract 按 JG2026-11366 查询均为 0 行，确认 JG 是交易中心编号而非 GDCIC 省级项目编码。已改为 projectCodeVariants 保留全部编号、tradeProjectCode 保存 JG、gdcicProjectCodeVariants 只保存 12-22 位数字编码；live30 bridge 重建后合同任务 30/30 无 GDCIC projectCode，plan-only 字段查询 30 条合同任务无 projectCode 路由。"
     gdcic_openplatform_projectcode_recall_v56: "2026-05-21 安全召回补强：bridge 可从 regional readback/source_results/sample_records/source_refs 的项目代码字段和 URL projectCode 查询参数提取 GDCIC 编码，但屏蔽统一社会信用代码/证书号污染；Stage4 GDCIC openplatform 适配器不再把 JG2026-* 放入 project_codes，改为 trade_project_codes + 项目名 lookup。live30 重建确认现有产物无数字 GDCIC 编码且无误抽。"
-    next_best_task: "继续广东/广州：优先补 r216 runtime blocker fallback_source plan artifact、data.ggzy/bid_show/YGP 项目流程矩阵到 Stage4 readback/bridge 的字段回写，并复用 r175/r215/r217 scoreboard 口径持续对比 clean batch 与 projection；同时补 GDCIC 授权 storage_state/user_data_dir 的项目经理变更真实命中回放。"
+    next_best_task: "继续广东/广州：r216 fallback plan、data.ggzy/bid_show/YGP 到 Stage4 queue/official context 的 URL、hash、标识符回写及 clean/projection 分母隔离已完成；下一步以 clean live30 固定分母重放对照。GDCIC 未提供合法 storage_state/user_data_dir 时必须保持 LOGIN_OR_SSO_REQUIRED，不伪造命中；取得授权后补项目经理变更真实回放，否则按 EVD-002 变通并削减来源承诺。"
 priorities:
   - priority_id: P0_STAGE6_OBSERVABILITY
     rank: 1
@@ -156,6 +246,8 @@ priorities:
       - "Stage3 负责人误抽第一轮硬化已完成：新增非自然人 token 质量门和候选表行后文上下文拦截，live20 无网络回放确认“厦门重、质量目标、幢游泳馆、投资、年以上、国电电力、万千瓦、陕西榆林”等不再产出，同时保留曾凡伟、胡昌华等正样本"
       - "Stage3 负责人误抽第二轮硬化已完成：广州 YWTB challenge resolver 实战下载 gap8 附件 23/23 后，补充阻断 姓名/工期/按要/对应/总监/平方米 等 OCR/表格/工程规模碎片；`详见投标文件` 占位表格已能抽到 11373 的 广东省建筑工程监理有限公司 + 谯锋；`_enrich_candidate` 已改为用本轮 detail_fields 覆盖旧 gap，避免 stale responsible_role_gap_code 残留"
       - "Stage2 附件文本缓存已完成：新 capture 写入 attachment_text_cache_records；复用 capture 会先校验附件 snapshot 可回放，再使用缓存/旧 probes/qualification blocks 重建解析输入，不重复跑 PDF/OCR；gap8 cache-r2 全量回放 8/8 复用、23/23 附件保留、耗时约 5 秒"
+      - "Stage2 内容支持边界 v1 已完成：入口/详情/附件上限为 8/16/64 MiB；登记来源内输出 READY/REVIEW/RETRYABLE/BLOCKED/UNSUPPORTED，只有可回放 snapshot 可进入下游；SPA/挑战页明确 BLOCKED，超大和不支持 MIME 明确 UNSUPPORTED；浏览器默认关闭且单附件最多升级 1 次，OCR/滑块/详情 route/代理池均有硬上限；离线矩阵 12/12 和 Stage2 联合 187 tests 通过"
+      - "真实来源覆盖/新鲜度 v1 已完成：23 个登记入口逐源记录最后列表/详情/附件成功时间、观察窗口、覆盖率、阻断率和 FRESH/AGING/STALE/UNKNOWN；dry-run 不形成覆盖，NO_MATCH 只表示观察查询范围内无匹配。2026-07-20 对 2026-07-03 live batch 回放为观察 8/23、详情 32/38、附件目标桶 2/13、阻断 8/25，8 个已观察来源全部 STALE、对外新鲜声明资格 0"
       - "广州附件挑战解析压力脚本开关已新增：run-guangzhou-stage1-6-real-public-pressure-v1.ps1 支持 -EnableAttachmentChallengeResolver / -ChallengeTimeoutMs / -ChallengeBrowserHeaded，默认不启用，实战需要时显式开启"
       - "Scrapling parser 边界修正已完成：scrapling_snapshot_parser_attachment_candidates 只作为审计/发现信号，不触发 document_completeness 降级；广州 YWTB 普通投标文件公开 HTML 导航不再被算成附件下载，真实 downloadZtbAttach 等下载端点仍保留"
       - "PDF/OCR/人员材料页定位，含人员简历、身份证、职称、社保、学位证书"
@@ -170,9 +262,11 @@ priorities:
       - "固化 A/B/C/D 证据等级"
       - "增强反向解释：已竣工、已变更、已退出、来源阻断"
       - "记录误判样本，区分强线索、弱线索、证据不足"
+      - "Stage5 真实项目金标包与规则前后评估器已完成：12 份真实执行清单、246 条观察去重为 116 个项目；当前 0/116 有人工真值，误报/漏报指标保持 withheld，等待人工续标后复跑"
     done_when:
       - "不会把查不到写成没问题"
       - "不会把线索写成法律定性"
+    current_state: "RULE001_CODE_SIDE_CALIBRATION_WORKFLOW_DONE; 116_UNIQUE_REAL_PROJECTS_READY; BLOCKED_TRUTH_LABELS_PENDING_0_OF_116; NO_AUTOMATIC_THRESHOLD_MUTATION"
   - priority_id: P1_STAGE1_6_BATCH_REGRESSION
     rank: 5
     stage_scope: [Stage1, Stage2, Stage3, Stage4, Stage5, Stage6]

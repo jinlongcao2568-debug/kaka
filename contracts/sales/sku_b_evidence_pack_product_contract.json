@@ -1,0 +1,71 @@
+{
+  "contract_id": "sku_b_evidence_pack_product_contract",
+  "contract_version": "1.1.0",
+  "sku_code": "SKU-B",
+  "sku_name": "单项目公开来源履约风险证据核验包",
+  "service_tier_code": "EVIDENCE_PACK",
+  "package_template_code": "EVIDENCE_PACK",
+  "source_policy_ref": "contracts/sales/sku_recommendation_policy_catalog.json#SKU-RECOMMEND-001",
+  "customer_delivery_boundary_contract_ref": "contracts/sales/customer_delivery_boundary_contract.json",
+  "supported_scope": {
+    "project_count": 1,
+    "verification_types": [
+      "施工许可",
+      "竣工验收",
+      "项目经理变更",
+      "合同履约"
+    ],
+    "source_scope": "已登记的公开来源和合法授权来源",
+    "delivery_formats": ["PDF", "HTML", "JSON_MANIFEST", "ZIP"],
+    "delivery_mode": "MANUAL_CONTROLLED_HANDOFF_AFTER_SIGNOFF"
+  },
+  "required_customer_visible_fields": [
+    "sku_code",
+    "sku_version",
+    "project_id",
+    "project_name",
+    "source_url",
+    "source_site_name",
+    "query_time",
+    "snapshot_sha256",
+    "verification_type",
+    "verification_state",
+    "evidence_grade",
+    "blocking_reason",
+    "next_step",
+    "customer_delivery_boundary",
+    "disclaimer",
+    "watermark",
+    "artifact_version_hash"
+  ],
+  "required_controls": [
+    "field_allowlist",
+    "masking",
+    "object_approval",
+    "separation_of_duties",
+    "human_signoff",
+    "watermark",
+    "file_sha256",
+    "delivery_audit"
+  ],
+  "issuance_policy": {
+    "internal_review_bundle_may_be_generated": true,
+    "human_signoff_required": true,
+    "customer_release_authorized_by_bundle_generation": false,
+    "customer_self_service_download_enabled": false,
+    "automatic_email_delivery_enabled": false,
+    "external_delivery_executed_by_bundle_generation": false,
+    "customer_delivery_boundary_required_on_all_formats": true,
+    "internal_blackbox_field_names_may_be_embedded": false,
+    "query_miss_is_not_clearance": true,
+    "no_legal_conclusion": true
+  },
+  "disallowed_claims": [
+    "公开数据绝对完整或绝对实时",
+    "NOT_FOUND 表示无风险或已排除",
+    "证据等级等同法律结论",
+    "未人工签发的内部复核包已经交付客户",
+    "系统已经或必然自动邮件交付",
+    "客户已经可以自助下载"
+  ]
+}

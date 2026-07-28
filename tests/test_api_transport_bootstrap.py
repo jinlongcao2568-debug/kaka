@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+import copy
+import json
 import os
 import sys
 import tempfile
@@ -23,8 +25,13 @@ if str(TESTS) not in sys.path:
 from api.deps import get_settings
 from api.main import (
     INTERNAL_BROWSER_SESSION_COOKIE,
+    _ExpensiveRequestLimiter,
+    _audit_internal_write_request_contract_policy,
+    _audit_internal_write_permission_policy,
+    _audit_internal_write_response_contract_policy,
     _decode_browser_session,
     _encode_browser_session,
+    _request_model_for_operation,
     create_app,
 )
 from api.routes.stage1 import register_stage1_routes
@@ -44,6 +51,9 @@ from shared.provider_adapter_config import (
 from shared.pipeline import run_internal_chain
 from storage import persist_stage_bundle, reset_default_storage
 from storage.db import DatabaseSession
+from storage.repositories.leadpack_delivery_package_repo import LeadpackDeliveryPackageRepository
+from storage.repositories.operator_action_repo import OperatorActionRepository
+from storage.repositories.saleable_opportunity_repo import SaleableOpportunityRepository
 
 
 RESERVED_ENTRY_PLAN_READBACK_KEYS = (
@@ -112,6 +122,11 @@ STORAGE_ENV_KEYS = (
     "KAKA_STORAGE_BACKEND",
     "KAKA_STORAGE_PATH",
     "KAKA_STORAGE_DATABASE_URL",
+    "KAKA_STORAGE_DATABASE_PASSWORD_FILE",
+    "KAKA_STORAGE_DATABASE_HOST",
+    "KAKA_STORAGE_DATABASE_PORT",
+    "KAKA_STORAGE_DATABASE_USER",
+    "KAKA_STORAGE_DATABASE_NAME",
     "KAKA_STORAGE_SCOPE",
     "KAKA_STORAGE_TEST_ISOLATION",
     "KAKA_OBJECT_STORAGE_BACKEND",
@@ -161,6 +176,11 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self._storage_env.start()
         for key in (
             "KAKA_STORAGE_DATABASE_URL",
+            "KAKA_STORAGE_DATABASE_PASSWORD_FILE",
+            "KAKA_STORAGE_DATABASE_HOST",
+            "KAKA_STORAGE_DATABASE_PORT",
+            "KAKA_STORAGE_DATABASE_USER",
+            "KAKA_STORAGE_DATABASE_NAME",
             "KAKA_STORAGE_SCOPE",
             "KAKA_STORAGE_TEST_ISOLATION",
         ):
@@ -170,7 +190,7 @@ class TestApiTransportBootstrap(unittest.TestCase):
 
     def tearDown(self) -> None:
         get_settings.cache_clear()
-        DatabaseSession.default().close()
+        DatabaseSession.close_default()
         self._storage_env.stop()
         self._storage_tmp.cleanup()
 
@@ -231,6 +251,646 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertEqual(missing.json()["detail"]["code"], "INTERNAL_API_AUTH_REQUIRED")
         self.assertEqual(accepted.status_code, 200)
         self.assertEqual(accepted.headers["cache-control"], "no-store")
+        self.assertFalse(health.json()["object_approval_workflow_ready"])
+
+    def test_unclassified_write_route_fails_the_central_permission_audit(self) -> None:
+        app = create_app()
+        try:
+            policy = app.state.internal_write_permission_policy
+            permissions_by_operation = {
+                entry["operation_id"]: entry["permission"]
+                for entry in policy["classified_operations"]
+            }
+            self.assertTrue(policy["all_unsafe_routes_classified"])
+            self.assertFalse(policy["production_live_actions_enabled"])
+            self.assertEqual(
+                permissions_by_operation["createPaymentRecord"],
+                "internal_sandbox_finance_write",
+            )
+            self.assertEqual(
+                permissions_by_operation["submitStage8OperatorAction"],
+                "internal_draft_write",
+            )
+            self.assertEqual(
+                permissions_by_operation["runOwnerRealPublicSourceCapture"],
+                "owner_source_capture",
+            )
+            self.assertEqual(
+                permissions_by_operation["createOperatorAgentToolPlan"],
+                "internal_agent_plan",
+            )
+            self.assertEqual(
+                permissions_by_operation["mutateOperatorAgentMemory"],
+                "internal_agent_memory",
+            )
+            app.add_api_route(
+                "/test-only-unclassified-write",
+                lambda: {"ok": True},
+                methods=["POST"],
+                operation_id="testOnlyUnclassifiedWrite",
+            )
+            with self.assertRaisesRegex(RuntimeError, "missing an explicit internal write"):
+                _audit_internal_write_permission_policy(app)
+        finally:
+            app.state.storage_session.close()
+
+    def test_all_internal_write_contracts_reject_unknown_fields(self) -> None:
+        cases = {
+            "runStage1ToStage6InternalOrchestration": "/internal/stage1-6/orchestrations",
+            "submitStage6OperatorAction": "/review-report-workbench/PF-STRICT/operator-actions",
+            "refreshSaleableOpportunity": "/saleable-opportunities/OPP-STRICT/refresh",
+            "submitStage7OperatorAction": "/saleable-opportunities/OPP-STRICT/operator-actions",
+            "requestLeadpackExternalDeliveryCandidateReview": (
+                "/leadpack-external-delivery-candidates/OPP-STRICT/review-requests"
+            ),
+            "simulateLeadpackExternalDeliveryExport": (
+                "/leadpack-external-delivery-candidates/OPP-STRICT/export-simulations"
+            ),
+            "requestLeadpackActivationPrepReview": (
+                "/leadpack-external-delivery-candidates/OPP-STRICT/activation-prep-review-requests"
+            ),
+            "requestLeadpackActivationDesignImplementationPrepReview": (
+                "/leadpack-external-delivery-candidates/OPP-STRICT/"
+                "activation-design-implementation-prep-review-requests"
+            ),
+            "checkContactCompliance": "/contact-targets/compliance-check",
+            "createOutreachPlan": "/outreach-plans",
+            "createTouchRecord": "/touch-records",
+            "submitStage8OperatorAction": "/outreach-workbench/OPP-STRICT/operator-actions",
+            "submitStage9OperatorAction": (
+                "/order-delivery-workbench/OPP-STRICT/operator-actions"
+            ),
+            "createOrder": "/orders",
+            "createPaymentRecord": "/payments",
+            "createDeliveryRecord": "/deliveries",
+            "createOpportunityOutcomeEvent": "/opportunity-outcomes",
+            "createGovernanceFeedbackEvent": "/governance-feedback-events",
+            "createOperatorTask": "/operator-console/tasks",
+            "createOperatorAgentTurn": "/operator-console/agent/turns",
+            "createOperatorAgentToolPlan": "/operator-console/agent/plans",
+            "mutateOperatorAgentMemory": "/operator-console/agent/memories",
+            "mutateProductOnboardingConfig": "/operator-console/onboarding/configs",
+            "runProductOnboardingConfigTest": (
+                "/operator-console/onboarding/config-test-runs"
+            ),
+            "retryOperatorSupportTask": "/operator-console/support/task-actions",
+            "runOperatorAutonomousOpportunitySearch": (
+                "/operator-console/autonomous-opportunity-search"
+            ),
+            "clearOperatorAutonomousSearchRuns": (
+                "/operator-console/autonomous-search-runs/clear"
+            ),
+            "runOwnerRealPublicSourceCapture": "/operator-console/real-source-runs",
+            "prepareControlledGrayPublicOrchestrator": (
+                "/operator-console/controlled-gray-orchestrator/prepare"
+            ),
+            "enqueueControlledGrayPublicOrchestratorWorker": (
+                "/operator-console/controlled-gray-orchestrator/worker/enqueue"
+            ),
+            "runControlledGrayPublicOrchestratorWorkerOnce": (
+                "/operator-console/controlled-gray-orchestrator/worker/run-once"
+            ),
+            "cancelControlledGrayPublicOrchestratorWorkerJob": (
+                "/operator-console/controlled-gray-orchestrator/worker/cancel"
+            ),
+            "cancelOperatorLongTask": "/operator-console/long-tasks/cancel",
+            "importOperatorProject": "/operator-console/project-imports",
+        }
+        client = TestClient(create_app())
+        try:
+            self.assertEqual(len(cases), 34)
+            policy = _audit_internal_write_request_contract_policy(client.app)
+            self.assertTrue(policy["all_unsafe_operations_strict"])
+            self.assertTrue(policy["actor_identity_transport_controlled"])
+            self.assertEqual(policy["strict_operation_count"], 34)
+            response_policy = _audit_internal_write_response_contract_policy(client.app)
+            self.assertTrue(response_policy["all_unsafe_operations_strict"])
+            self.assertEqual(response_policy["strict_operation_count"], 34)
+            for operation_id, path in cases.items():
+                with self.subTest(operation_id=operation_id):
+                    model = _request_model_for_operation(operation_id)
+                    self.assertIsNotNone(model)
+                    self.assertFalse(model.model_json_schema()["additionalProperties"])
+                    response = client.post(path, json={"unexpected_field": "must be rejected"})
+                    self.assertEqual(response.status_code, 400)
+                    errors = response.json()["detail"]["errors"]
+                    self.assertTrue(
+                        any(
+                            error.get("type") == "extra_forbidden"
+                            and error.get("loc", [])[-1] == "unexpected_field"
+                            for error in errors
+                        )
+                    )
+                    route_schema = client.app.openapi()["paths"][path.replace(
+                        "PF-STRICT", "{project_fact_id}"
+                    ).replace(
+                        "OPP-STRICT", "{opportunity_id}"
+                    )]["post"]
+                    request_schema = route_schema["requestBody"]["content"][
+                        "application/json"
+                    ]["schema"]
+                    request_ref = request_schema.get("$ref") or request_schema.get(
+                        "anyOf", [{}]
+                    )[0].get("$ref")
+                    response_ref = route_schema["responses"]["200"]["content"][
+                        "application/json"
+                    ]["schema"]["$ref"]
+                    components = client.app.openapi()["components"]["schemas"]
+                    self.assertFalse(
+                        components[request_ref.rsplit("/", 1)[-1]]["additionalProperties"]
+                    )
+                    self.assertFalse(
+                        components[response_ref.rsplit("/", 1)[-1]]["additionalProperties"]
+                    )
+            query_response = client.post(
+                "/operator-console/autonomous-search-runs/clear?requested_by=forged-admin",
+                json={},
+            )
+            self.assertEqual(query_response.status_code, 400)
+            self.assertEqual(
+                query_response.json()["detail"]["code"],
+                "WRITE_QUERY_PARAMETERS_NOT_ALLOWED",
+            )
+        finally:
+            client.app.state.storage_session.close()
+
+    def test_streaming_body_limit_and_principal_expensive_rate_limit_fail_closed(self) -> None:
+        with patch.dict(
+            os.environ,
+            {
+                "KAKA_API_MAX_REQUEST_BODY_BYTES": "256",
+                "KAKA_API_EXPENSIVE_REQUESTS_PER_MINUTE": "2",
+                "KAKA_API_EXPENSIVE_CONCURRENCY_PER_PRINCIPAL": "1",
+            },
+            clear=False,
+        ):
+            get_settings.cache_clear()
+            reset_default_storage()
+            app = create_app()
+            client = TestClient(app)
+            headers = {
+                "content-type": "application/json",
+                "x-kaka-test-operator-auth": "approved",
+                "x-kaka-test-role": "admin",
+                "x-kaka-test-principal-id": "sec005-principal",
+            }
+            oversized = client.post(
+                "/operator-console/autonomous-opportunity-search",
+                headers=headers,
+                content=iter([b'{"query":"', b"x" * 300, b'"}']),
+            )
+            accepted_one = client.post(
+                "/operator-console/autonomous-opportunity-search",
+                headers=headers,
+                json={"async_execution": True},
+            )
+            accepted_two = client.post(
+                "/operator-console/autonomous-opportunity-search",
+                headers=headers,
+                json={"async_execution": True},
+            )
+            limited = client.post(
+                "/operator-console/autonomous-opportunity-search",
+                headers=headers,
+                json={"async_execution": True},
+            )
+            health = client.get("/healthz")
+
+            self.assertEqual(oversized.status_code, 413, oversized.text)
+            self.assertTrue(oversized.json()["detail"]["streaming_count_enforced"])
+            self.assertEqual(accepted_one.status_code, 200, accepted_one.text)
+            self.assertEqual(accepted_two.status_code, 200, accepted_two.text)
+            self.assertEqual(accepted_one.headers["x-kaka-ratelimit-limit"], "2")
+            self.assertEqual(limited.status_code, 429, limited.text)
+            self.assertEqual(
+                limited.json()["detail"]["code"],
+                "EXPENSIVE_REQUEST_RATE_LIMITED",
+            )
+            self.assertIn("retry-after", limited.headers)
+            self.assertTrue(health.json()["streaming_request_body_limit_ready"])
+            self.assertTrue(health.json()["expensive_request_rate_limit_ready"])
+            app.state.storage_session.close()
+        get_settings.cache_clear()
+        reset_default_storage()
+
+    def test_expensive_request_limiter_rejects_concurrent_work_without_consuming_rate(self) -> None:
+        limiter = _ExpensiveRequestLimiter(
+            requests_per_minute=3,
+            concurrency_per_principal=1,
+            time_factory=lambda: 100.0,
+        )
+
+        first = limiter.acquire("tenant:principal:expensive-write")
+        concurrent = limiter.acquire("tenant:principal:expensive-write")
+        limiter.release("tenant:principal:expensive-write")
+        after_release = limiter.acquire("tenant:principal:expensive-write")
+
+        self.assertTrue(first["accepted"])
+        self.assertFalse(concurrent["accepted"])
+        self.assertEqual(
+            concurrent["reason"],
+            "EXPENSIVE_REQUEST_CONCURRENCY_LIMITED",
+        )
+        self.assertTrue(after_release["accepted"])
+
+    def test_network_roles_and_object_approval_are_separate_from_authentication(self) -> None:
+        chain = run_internal_chain(load_fixture("internal_chain_happy.json"))
+        stage6 = chain["stage6"]
+        stage7 = chain["stage7"]
+        persist_stage_bundle(stage6)
+        persist_stage_bundle(stage7)
+        project_id = str(stage6.record("project_fact").get("project_id"))
+        project_fact_id = str(stage6.record("project_fact").get("project_fact_id"))
+        opportunity_id = str(stage7.record("saleable_opportunity").get("opportunity_id"))
+        leadpack_package = copy.deepcopy(stage7.inputs["leadpack_delivery_package"])
+        principals = [
+            {"principal_id": "owner-1", "role": "owner", "token": "owner-token-00000001"},
+            {"principal_id": "operator-1", "role": "operator", "token": "operator-token-0001"},
+            {"principal_id": "operator-2", "role": "operator", "token": "operator-token-0002"},
+            {"principal_id": "reviewer-1", "role": "reviewer", "token": "reviewer-token-0001"},
+            {"principal_id": "admin-1", "role": "admin", "token": "admin-token-0000001"},
+        ]
+
+        async def exercise(app: object) -> dict[str, httpx.Response]:
+            transport = httpx.ASGITransport(app=app, client=("127.0.0.1", 12345))
+            async with httpx.AsyncClient(
+                transport=transport,
+                base_url="https://kaka.internal",
+            ) as client:
+                operator_headers = {"Authorization": "Bearer operator-token-0001"}
+                other_operator_headers = {"Authorization": "Bearer operator-token-0002"}
+                owner_headers = {"Authorization": "Bearer owner-token-00000001"}
+                reviewer_headers = {"Authorization": "Bearer reviewer-token-0001"}
+                admin_headers = {"Authorization": "Bearer admin-token-0000001"}
+                health = await client.get("/healthz")
+                session = await client.get("/internal/auth/session", headers=operator_headers)
+                owner_session = await client.get("/internal/auth/session", headers=owner_headers)
+                operator_source_capture = await client.post(
+                    "/operator-console/real-source-runs",
+                    headers=operator_headers,
+                    json={},
+                )
+                bound_operator_action = await client.post(
+                    f"/review-report-workbench/{project_fact_id}/operator-actions",
+                    headers=operator_headers,
+                    json={
+                        "project_id": project_id,
+                        "action_id": "stage6_return_for_revision",
+                        "button_flow_id": "submit_stage6_return_for_revision",
+                        "reason": "authenticated actor must own the audit event",
+                    },
+                )
+                forged_operator_action = await client.post(
+                    f"/review-report-workbench/{project_fact_id}/operator-actions",
+                    headers=operator_headers,
+                    json={
+                        "project_id": project_id,
+                        "action_id": "stage6_return_for_revision",
+                        "button_flow_id": "submit_stage6_return_for_revision",
+                        "reason": "request identity fields must be rejected",
+                        "requested_by_role": "admin",
+                        "requested_by": "forged-admin",
+                    },
+                )
+                bound_clear_action = await client.post(
+                    "/operator-console/autonomous-search-runs/clear",
+                    headers=operator_headers,
+                    json={
+                        "clear_scope": "local_test_autonomous_search_runs_only",
+                        "explicit_operator_action": True,
+                    },
+                )
+                forged_clear_action = await client.post(
+                    "/operator-console/autonomous-search-runs/clear",
+                    headers=operator_headers,
+                    json={
+                        "requested_by_role": "admin",
+                        "requested_by": "forged-admin",
+                    },
+                )
+                before_approval = await client.get(
+                    f"/customer-artifact-portal-download/{opportunity_id}",
+                    headers=operator_headers,
+                )
+                reviewer_write = await client.post(
+                    "/operator-console/autonomous-opportunity-search",
+                    headers=reviewer_headers,
+                    json={},
+                )
+                reviewer_stage8_write = await client.post(
+                    "/contact-targets/compliance-check",
+                    headers=reviewer_headers,
+                    json={},
+                )
+                reviewer_stage9_write = await client.post(
+                    "/orders",
+                    headers=reviewer_headers,
+                    json={},
+                )
+                reviewer_request = await client.post(
+                    "/internal/approvals/requests",
+                    headers=reviewer_headers,
+                    json={
+                        "resource_type": "opportunity",
+                        "resource_id": opportunity_id,
+                        "action": "internal_preview_download",
+                        "reason": "reviewer must not request",
+                    },
+                )
+                requested = await client.post(
+                    "/internal/approvals/requests",
+                    headers=operator_headers,
+                    json={
+                        "resource_type": "opportunity",
+                        "resource_id": opportunity_id,
+                        "action": "internal_preview_download",
+                        "reason": "internal acceptance download",
+                    },
+                )
+                request_id = str(requested.json()["request_id"])
+                operator_decision = await client.post(
+                    f"/internal/approvals/requests/{request_id}/decision",
+                    headers=operator_headers,
+                    json={"decision": "APPROVED", "reason": "cannot self approve"},
+                )
+                decided = await client.post(
+                    f"/internal/approvals/requests/{request_id}/decision",
+                    headers=reviewer_headers,
+                    json={"decision": "APPROVED", "reason": "reviewed masking policy"},
+                )
+                replayed_decision = await client.post(
+                    f"/internal/approvals/requests/{request_id}/decision",
+                    headers=reviewer_headers,
+                    json={"decision": "REJECTED", "reason": "decision replay must fail"},
+                )
+                duplicate_active_request = await client.post(
+                    "/internal/approvals/requests",
+                    headers=operator_headers,
+                    json={
+                        "resource_type": "opportunity",
+                        "resource_id": opportunity_id,
+                        "action": "internal_preview_download",
+                        "reason": "active approval must not be replaced",
+                    },
+                )
+                missing_resource_request = await client.post(
+                    "/internal/approvals/requests",
+                    headers=operator_headers,
+                    json={
+                        "resource_type": "opportunity",
+                        "resource_id": "OPP-DOES-NOT-EXIST",
+                        "action": "internal_preview_download",
+                        "reason": "missing objects cannot be pre-approved",
+                    },
+                )
+                reviewer_download = await client.get(
+                    f"/customer-artifact-portal-download/{opportunity_id}",
+                    headers=reviewer_headers,
+                )
+                other_operator_download = await client.get(
+                    f"/customer-artifact-portal-download/{opportunity_id}",
+                    headers=other_operator_headers,
+                )
+                operator_download = await client.get(
+                    f"/customer-artifact-portal-download/{opportunity_id}",
+                    headers=operator_headers,
+                )
+                readback = await client.get(
+                    f"/internal/approvals/requests/{request_id}",
+                    headers=operator_headers,
+                )
+                changed_package = copy.deepcopy(leadpack_package)
+                changed_package["package_manifest"]["evidence_items"][0][
+                    "masking_policy"
+                ] = "blocked_after_approval"
+                LeadpackDeliveryPackageRepository().save(changed_package)
+                stale_package_download = await client.get(
+                    f"/customer-artifact-portal-download/{opportunity_id}",
+                    headers=operator_headers,
+                )
+                LeadpackDeliveryPackageRepository().save(leadpack_package)
+                revoked = await client.post(
+                    f"/internal/approvals/requests/{request_id}/revoke",
+                    headers=reviewer_headers,
+                    json={"reason": "revoke before masking policy re-review"},
+                )
+                after_revoke_download = await client.get(
+                    f"/customer-artifact-portal-download/{opportunity_id}",
+                    headers=operator_headers,
+                )
+                requested_again = await client.post(
+                    "/internal/approvals/requests",
+                    headers=operator_headers,
+                    json={
+                        "resource_type": "opportunity",
+                        "resource_id": opportunity_id,
+                        "action": "internal_preview_download",
+                        "reason": "request again after explicit revocation",
+                    },
+                )
+                approved_again = await client.post(
+                    f"/internal/approvals/requests/{requested_again.json()['request_id']}/decision",
+                    headers=admin_headers,
+                    json={"decision": "APPROVED", "reason": "admin independently re-reviewed"},
+                )
+                changed_opportunity = dict(stage7.record("saleable_opportunity").data)
+                changed_opportunity["crm_owner_state"] = "ASSIGNED"
+                SaleableOpportunityRepository().save(changed_opportunity)
+                stale_download = await client.get(
+                    f"/customer-artifact-portal-download/{opportunity_id}",
+                    headers=operator_headers,
+                )
+                admin_request = await client.post(
+                    "/internal/approvals/requests",
+                    headers=admin_headers,
+                    json={
+                        "resource_type": "opportunity",
+                        "resource_id": opportunity_id,
+                        "action": "internal_preview_download",
+                        "reason": "separation test request",
+                    },
+                )
+                admin_self_decision = await client.post(
+                    f"/internal/approvals/requests/{admin_request.json()['request_id']}/decision",
+                    headers=admin_headers,
+                    json={"decision": "APPROVED", "reason": "self decision must fail"},
+                )
+                admin_rejected = await client.post(
+                    f"/internal/approvals/requests/{admin_request.json()['request_id']}/decision",
+                    headers=reviewer_headers,
+                    json={"decision": "REJECTED", "reason": "target needs revision"},
+                )
+                admin_retry_same_target = await client.post(
+                    "/internal/approvals/requests",
+                    headers=admin_headers,
+                    json={
+                        "resource_type": "opportunity",
+                        "resource_id": opportunity_id,
+                        "action": "internal_preview_download",
+                        "reason": "unchanged rejected target cannot be resubmitted",
+                    },
+                )
+            return {
+                "health": health,
+                "session": session,
+                "owner_session": owner_session,
+                "operator_source_capture": operator_source_capture,
+                "bound_operator_action": bound_operator_action,
+                "forged_operator_action": forged_operator_action,
+                "bound_clear_action": bound_clear_action,
+                "forged_clear_action": forged_clear_action,
+                "before_approval": before_approval,
+                "reviewer_write": reviewer_write,
+                "reviewer_stage8_write": reviewer_stage8_write,
+                "reviewer_stage9_write": reviewer_stage9_write,
+                "reviewer_request": reviewer_request,
+                "requested": requested,
+                "operator_decision": operator_decision,
+                "decided": decided,
+                "replayed_decision": replayed_decision,
+                "duplicate_active_request": duplicate_active_request,
+                "missing_resource_request": missing_resource_request,
+                "reviewer_download": reviewer_download,
+                "other_operator_download": other_operator_download,
+                "operator_download": operator_download,
+                "readback": readback,
+                "stale_package_download": stale_package_download,
+                "revoked": revoked,
+                "after_revoke_download": after_revoke_download,
+                "requested_again": requested_again,
+                "approved_again": approved_again,
+                "stale_download": stale_download,
+                "admin_self_decision": admin_self_decision,
+                "admin_rejected": admin_rejected,
+                "admin_retry_same_target": admin_retry_same_target,
+            }
+
+        with patch.dict(
+            os.environ,
+            {
+                "KAKA_INTERNAL_API_PRINCIPALS_JSON": json.dumps(principals),
+                "KAKA_INTERNAL_API_TOKEN": "",
+            },
+            clear=False,
+        ):
+            get_settings.cache_clear()
+            responses = asyncio.run(exercise(create_app()))
+
+        session = responses["session"].json()
+        self.assertTrue(responses["health"].json()["object_approval_workflow_ready"])
+        self.assertTrue(responses["health"].json()["internal_write_policy_ready"])
+        self.assertTrue(
+            responses["health"].json()["internal_write_request_contracts_ready"]
+        )
+        self.assertTrue(
+            responses["health"].json()["internal_write_response_contracts_ready"]
+        )
+        self.assertEqual(
+            responses["health"].json()["classified_write_operation_count"],
+            34,
+        )
+        self.assertEqual(
+            responses["health"].json()["strict_write_request_operation_count"],
+            34,
+        )
+        self.assertEqual(
+            responses["health"].json()["strict_write_response_operation_count"],
+            34,
+        )
+        self.assertEqual(session["role"], "operator")
+        self.assertIn("object_approval_request", session["permissions"])
+        self.assertFalse(session["approval_audit_confirmed"])
+        self.assertFalse(session["authentication_implies_object_approval"])
+        self.assertEqual(responses["owner_session"].json()["role"], "owner")
+        self.assertIn("owner_source_capture", responses["owner_session"].json()["permissions"])
+        self.assertNotIn("owner_source_capture", session["permissions"])
+        self.assertEqual(responses["operator_source_capture"].status_code, 403)
+        self.assertEqual(
+            responses["operator_source_capture"].json()["detail"]["required_permission"],
+            "owner_source_capture",
+        )
+        self.assertEqual(responses["bound_operator_action"].status_code, 200)
+        bound_action = responses["bound_operator_action"].json()["action_result"]
+        self.assertEqual(bound_action["requested_by"], "operator-1")
+        self.assertEqual(bound_action["requested_by_role"], "operator")
+        self.assertEqual(responses["forged_operator_action"].status_code, 400)
+        self.assertEqual(responses["bound_clear_action"].status_code, 200)
+        self.assertEqual(responses["forged_clear_action"].status_code, 400)
+        clear_events = OperatorActionRepository().list(
+            work_item_id="operator-autonomous-opportunity-search-run-clears"
+        )
+        self.assertEqual(clear_events[-1].requested_by, "operator-1")
+        self.assertEqual(clear_events[-1].requested_by_role, "operator")
+        self.assertEqual(responses["before_approval"].status_code, 403)
+        self.assertEqual(
+            responses["before_approval"].json()["detail"]["object_approval"]["state"],
+            "NOT_REQUESTED",
+        )
+        self.assertEqual(responses["reviewer_write"].status_code, 403)
+        self.assertEqual(responses["reviewer_stage8_write"].status_code, 403)
+        self.assertEqual(
+            responses["reviewer_stage8_write"].json()["detail"]["required_permission"],
+            "internal_draft_write",
+        )
+        self.assertEqual(responses["reviewer_stage9_write"].status_code, 403)
+        self.assertEqual(
+            responses["reviewer_stage9_write"].json()["detail"]["required_permission"],
+            "internal_sandbox_finance_write",
+        )
+        self.assertEqual(responses["reviewer_request"].status_code, 403)
+        self.assertEqual(responses["requested"].status_code, 201)
+        self.assertEqual(responses["operator_decision"].status_code, 403)
+        self.assertEqual(responses["decided"].status_code, 200)
+        self.assertTrue(responses["decided"].json()["approval_satisfied"])
+        self.assertTrue(responses["decided"].json()["resource_version_matches"])
+        self.assertTrue(responses["decided"].json()["approval_scope_matches"])
+        self.assertEqual(responses["replayed_decision"].status_code, 409)
+        self.assertEqual(responses["duplicate_active_request"].status_code, 409)
+        self.assertEqual(responses["missing_resource_request"].status_code, 404)
+        self.assertEqual(responses["reviewer_download"].status_code, 403)
+        self.assertEqual(responses["other_operator_download"].status_code, 403)
+        self.assertIn(
+            "approval_subject_matches",
+            responses["other_operator_download"].json()["detail"]["blocked_reasons"],
+        )
+        self.assertEqual(responses["operator_download"].status_code, 200)
+        self.assertEqual(responses["readback"].status_code, 200)
+        self.assertEqual(responses["readback"].json()["state"], "APPROVED")
+        self.assertNotEqual(
+            responses["readback"].json()["requested_by"],
+            responses["readback"].json()["reviewer"],
+        )
+        self.assertEqual(responses["stale_package_download"].status_code, 403)
+        self.assertIn(
+            "object_approval_confirmed",
+            responses["stale_package_download"].json()["detail"]["blocked_reasons"],
+        )
+        self.assertEqual(responses["revoked"].status_code, 200)
+        self.assertEqual(responses["revoked"].json()["state"], "REVOKED")
+        self.assertFalse(responses["revoked"].json()["approval_satisfied"])
+        self.assertEqual(responses["after_revoke_download"].status_code, 403)
+        self.assertEqual(responses["requested_again"].status_code, 201)
+        self.assertNotEqual(
+            responses["requested_again"].json()["request_id"],
+            responses["requested"].json()["request_id"],
+        )
+        self.assertEqual(responses["approved_again"].status_code, 200)
+        self.assertTrue(responses["approved_again"].json()["approval_satisfied"])
+        self.assertEqual(responses["approved_again"].json()["reviewer"], "admin-1")
+        self.assertEqual(responses["stale_download"].status_code, 403)
+        self.assertFalse(
+            responses["stale_download"].json()["detail"]["object_approval"][
+                "authentication_implies_approval"
+            ]
+        )
+        self.assertEqual(responses["admin_self_decision"].status_code, 403)
+        self.assertEqual(
+            responses["admin_self_decision"].json()["detail"]["code"],
+            "APPROVAL_SEPARATION_OF_DUTIES_REQUIRED",
+        )
+        self.assertEqual(responses["admin_rejected"].status_code, 200)
+        self.assertEqual(responses["admin_rejected"].json()["state"], "REJECTED")
+        self.assertEqual(responses["admin_retry_same_target"].status_code, 409)
 
     def test_browser_session_supports_navigation_csrf_and_logout(self) -> None:
         async def exercise(app: object) -> dict[str, httpx.Response]:
@@ -492,6 +1152,12 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertEqual(storage_bootstrap["storage_path"], str(explicit_path))
         self.assertEqual(storage_bootstrap["storage_path_optional"], str(explicit_path))
         self.assertFalse(storage_bootstrap["storage_database_url_configured"])
+        self.assertIsNone(storage_bootstrap["storage_schema_revision"])
+        self.assertEqual(
+            storage_bootstrap["required_storage_schema_revision"],
+            "20260717_0002",
+        )
+        self.assertTrue(storage_bootstrap["storage_schema_revision_ready"])
         self.assertIsNone(storage_bootstrap["storage_database_url_redacted"])
         self.assertEqual(storage_bootstrap["storage_scope"], "process")
         self.assertEqual(storage_bootstrap["storage_runtime_mode"], "explicit-path")
@@ -1619,8 +2285,14 @@ class TestApiTransportBootstrap(unittest.TestCase):
         client = TestClient(create_app())
         response = client.post("/internal/stage1-6/orchestrations", json=payload)
 
-        self.assertEqual(response.status_code, 409)
-        self.assertIn("run_mode", response.json()["detail"])
+        self.assertEqual(response.status_code, 400)
+        self.assertTrue(
+            any(
+                error.get("type") == "literal_error"
+                and error.get("loc", [])[-1] == "run_mode"
+                for error in response.json()["detail"]["errors"]
+            )
+        )
 
     def test_stage6_http_transport_reads_repository_backed_preview(self) -> None:
         result = run_internal_chain(load_fixture("internal_chain_happy.json"))
@@ -1680,8 +2352,6 @@ class TestApiTransportBootstrap(unittest.TestCase):
                 "action_id": "stage6_return_for_revision",
                 "button_flow_id": "submit_stage6_return_for_revision",
                 "reason": "transport-level stage6 revision return",
-                "requested_by_role": "single_operator",
-                "requested_by": "卡卡罗特",
             },
         )
 
@@ -1697,6 +2367,91 @@ class TestApiTransportBootstrap(unittest.TestCase):
             "action_returned_for_revision",
         )
         self.assertEqual(action_payload["persisted_operational_context"]["pending_actions"], ["stage6_mark_reviewed"])
+
+    def test_stage7_to_stage9_write_responses_match_explicit_contracts(self) -> None:
+        chain = run_internal_chain(load_fixture("internal_chain_happy.json"))
+        for stage_scope in range(6, 10):
+            persist_stage_bundle(chain[f"stage{stage_scope}"])
+        opportunity_id = str(
+            chain["stage7"].record("saleable_opportunity").get("opportunity_id")
+        )
+        contact_target_id = str(
+            chain["stage8"].record("contact_target").get("contact_target_id")
+        )
+        cases = (
+            (
+                "/saleable-opportunities/{opportunity_id}/refresh",
+                {"opportunity_id": opportunity_id, "refresh_reason": "contract regression"},
+            ),
+            (
+                "/saleable-opportunities/{opportunity_id}/operator-actions",
+                {
+                    "opportunity_id": opportunity_id,
+                    "action_id": "stage7_mark_reviewed",
+                    "button_flow_id": "submit_stage7_mark_reviewed",
+                    "reason": "contract regression",
+                },
+            ),
+            (
+                "/leadpack-external-delivery-candidates/{opportunity_id}/review-requests",
+                {"opportunity_id": opportunity_id},
+            ),
+            (
+                "/leadpack-external-delivery-candidates/{opportunity_id}/export-simulations",
+                {"opportunity_id": opportunity_id},
+            ),
+            (
+                "/leadpack-external-delivery-candidates/{opportunity_id}/activation-prep-review-requests",
+                {"opportunity_id": opportunity_id},
+            ),
+            (
+                "/leadpack-external-delivery-candidates/{opportunity_id}/activation-design-implementation-prep-review-requests",
+                {"opportunity_id": opportunity_id},
+            ),
+            (
+                "/contact-targets/compliance-check",
+                {
+                    "opportunity_id": opportunity_id,
+                    "contact_target_id": contact_target_id,
+                },
+            ),
+            (
+                "/outreach-plans",
+                {"opportunity_id": opportunity_id, "plan_status": "DRAFT"},
+            ),
+            (
+                "/touch-records",
+                {"opportunity_id": opportunity_id, "response_status": "NO_RESPONSE"},
+            ),
+            (
+                "/outreach-workbench/{opportunity_id}/operator-actions",
+                {
+                    "opportunity_id": opportunity_id,
+                    "action_id": "stage8_request_governed_review",
+                    "button_flow_id": "submit_stage8_request_governed_review",
+                    "reason": "contract regression",
+                },
+            ),
+            (
+                "/order-delivery-workbench/{opportunity_id}/operator-actions",
+                {
+                    "opportunity_id": opportunity_id,
+                    "action_id": "stage9_submit_draft_writeback",
+                    "button_flow_id": "submit_stage9_draft_writeback",
+                    "reason": "contract regression",
+                },
+            ),
+        )
+        client = TestClient(create_app())
+        try:
+            for path_template, payload in cases:
+                with self.subTest(path=path_template):
+                    path = path_template.format(opportunity_id=opportunity_id)
+                    response = client.post(path, json=payload)
+                    self.assertEqual(response.status_code, 200, response.text)
+                    self.assertIn("surface_id", response.json())
+        finally:
+            client.app.state.storage_session.close()
 
     def test_stage7_http_transport_reads_repository_backed_preview(self) -> None:
         result = run_internal_chain(load_fixture("internal_chain_happy.json"))

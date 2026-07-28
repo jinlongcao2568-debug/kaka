@@ -129,6 +129,9 @@ class Stage8Response(TypedDict, total=False):
     decision_states: dict[str, str]
     formal_object_refs: dict[str, FormalObjectRef]
     preview_projection: Stage8PreviewProjection
+    capability_envelope: dict[str, Any]
+    governance_envelope: dict[str, Any]
+    semantic_envelope: dict[str, Any]
     trace_refs: dict[str, Any]
     outreach_execution_outbox: dict[str, Any]
     outbox_readiness_summary: dict[str, Any]
@@ -138,8 +141,13 @@ class Stage8Response(TypedDict, total=False):
     provider_adapter_readiness_summary: dict[str, Any]
     provider_adapter_config_source: str
     provider_adapter_mode: str
+    provider_adapter_readback_only: bool
+    provider_adapter_provider_call_enabled: bool
+    provider_adapter_real_provider_call_enabled: bool
     provider_adapter_blocked_reasons: list[str]
     provider_adapter_approval_audit_prerequisites: dict[str, Any]
+    operator_loop_projection: dict[str, Any]
+    workbench_replay: dict[str, Any]
     operational_loop_persisted: bool
     operational_context_status: str
     persisted_operational_context: OperationalContext

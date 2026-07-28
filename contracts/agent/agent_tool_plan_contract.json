@@ -1,0 +1,87 @@
+{
+  "contract_id": "agent-tool-plan-contract",
+  "version": "1.0.0",
+  "status": "ACTIVE_INTERNAL_ONLY",
+  "authority": "AGENT-003",
+  "registry_ref": "contracts/agent/agent_tool_registry.json",
+  "input_boundary": {
+    "proposal_sources": ["DETERMINISTIC_REQUEST", "MODEL_SHADOW_PROPOSAL"],
+    "plan_id_required": true,
+    "structured_calls_only": true,
+    "raw_prompt_accepted": false,
+    "raw_model_reasoning_accepted": false,
+    "actor_identity_transport_injected": true,
+    "unknown_top_level_fields_rejected": true,
+    "unknown_tool_arguments_rejected": true
+  },
+  "two_phase_protocol": [
+    "VALIDATE_COMPLETE_PLAN",
+    "RESOLVE_TOOL_AND_PERMISSION",
+    "CHECK_PLAN_AND_TOOL_BUDGETS",
+    "EXECUTE_SEQUENTIAL_READ_ONLY_STEPS",
+    "PAUSE_BEFORE_HUMAN_OR_MUTATING_STEP",
+    "PERSIST_PLAN_AND_STEP_AUDIT"
+  ],
+  "plan_states": [
+    "REJECTED",
+    "VALIDATED_NOT_EXECUTED",
+    "COMPLETED_READ_ONLY",
+    "PAUSED_HUMAN_ACTION",
+    "PARTIAL_PAUSED_HUMAN_ACTION",
+    "FAILED_READ_ONLY_STEP",
+    "REPLAYED_IDEMPOTENT"
+  ],
+  "step_states": [
+    "VALIDATED",
+    "COMPLETED_READ_ONLY",
+    "PAUSED_HUMAN_ACTION",
+    "REJECTED",
+    "FAILED"
+  ],
+  "audit_requirements": {
+    "persist_plan_record": true,
+    "persist_step_record": true,
+    "preserve_call_id": true,
+    "required_plan_fields": [
+      "plan_id",
+      "plan_request_sha256",
+      "proposal_source",
+      "plan_state",
+      "actor_principal_id",
+      "actor_role",
+      "registry_version",
+      "created_at"
+    ],
+    "required_step_fields": [
+      "plan_id",
+      "call_id",
+      "tool_name",
+      "arguments_sha256",
+      "output_sha256",
+      "step_state",
+      "required_permission",
+      "risk_class",
+      "started_at",
+      "completed_at"
+    ],
+    "raw_model_prompt_persisted": false,
+    "raw_model_reasoning_persisted": false,
+    "credentials_persisted": false
+  },
+  "execution_boundary": {
+    "read_only_execution_requires_explicit_request_flag": true,
+    "mutating_tool_execution_by_planner_enabled": false,
+    "human_handoff_does_not_equal_approval": true,
+    "human_handoff_does_not_equal_execution": true,
+    "live_execution_enabled": false,
+    "external_action_enabled": false,
+    "model_provider_call_enabled": false,
+    "query_miss_is_not_clearance": true
+  },
+  "idempotency": {
+    "key": "plan_id",
+    "same_plan_id_same_hash_returns_original_without_reexecution": true,
+    "same_plan_id_different_hash_rejected": true,
+    "step_key": "plan_id+call_id"
+  }
+}

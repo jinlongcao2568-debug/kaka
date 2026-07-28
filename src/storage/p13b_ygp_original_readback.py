@@ -12,6 +12,7 @@ import urllib.request
 from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping
 
+from shared.controlled_egress import playwright_proxy_settings
 from shared.utils import utc_now_iso
 
 
@@ -963,7 +964,11 @@ def _playwright_network_readback(url: str, context: Mapping[str, Any]) -> Mappin
     captures: list[dict[str, Any]] = []
     try:
         with sync_playwright() as playwright:
-            browser = playwright.chromium.launch(headless=True)
+            launch_options: dict[str, Any] = {"headless": True}
+            proxy = playwright_proxy_settings()
+            if proxy:
+                launch_options["proxy"] = proxy
+            browser = playwright.chromium.launch(**launch_options)
             page_context = browser.new_context(ignore_https_errors=True, locale="zh-CN")
             page = page_context.new_page()
 

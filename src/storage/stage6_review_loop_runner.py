@@ -182,6 +182,10 @@ def run_stage6_review_loop_runner(
         stage5_calibration_sample_json=stage5_calibration_sample_json,
         stage5_calibration_sample_root=stage5_calibration_sample_root,
     )
+    if standalone_stage5_calibration_sample_path is None:
+        standalone_stage5_calibration_sample_path = _stage5_calibration_sample_path_from_release_field_query(
+            standalone_release_field_query_path
+        )
     standalone_release_field_query_results = _standalone_release_field_query_results_by_project(
         standalone_release_field_query_path,
         supplemental_paths=standalone_supplemental_release_field_query_paths,
@@ -1129,6 +1133,22 @@ def _stage5_calibration_sample_path(
     return None
 
 
+def _stage5_calibration_sample_path_from_release_field_query(path: Path | None) -> Path | None:
+    if path is None or not path.exists():
+        return None
+    sibling = path.parent / DEFAULT_STAGE5_CALIBRATION_SAMPLE_FILENAME
+    if sibling.exists():
+        return sibling
+    payload = _load_json_if_exists(path)
+    manifest = _source_manifest(payload)
+    if any(
+        isinstance(record, Mapping)
+        for record in _list(manifest.get("stage5_calibration_sample_records"))
+    ):
+        return path
+    return None
+
+
 def _standalone_release_field_query_results_by_project(
     path: Path | None,
     *,
@@ -1199,7 +1219,14 @@ def _standalone_stage5_calibration_status_records(path: Path | None) -> list[dic
     if path is None or not path.exists():
         return []
     payload = _load_json_if_exists(path)
+    manifest = _source_manifest(payload)
     records = [record for record in _list(payload.get("records")) if isinstance(record, Mapping)]
+    if not records:
+        records = [
+            record
+            for record in _list(manifest.get("stage5_calibration_sample_records"))
+            if isinstance(record, Mapping)
+        ]
     out: list[dict[str, Any]] = []
     for record in records:
         project_id = str(record.get("project_id") or "").strip()
@@ -1230,6 +1257,17 @@ def _standalone_stage5_calibration_status_records(path: Path | None) -> list[dic
                 "stage5_rule_gate_status": str(record.get("stage5_rule_gate_status") or ""),
                 "stage5_evidence_gate_status": str(record.get("stage5_evidence_gate_status") or ""),
                 "stage5_gate_result_state": str(record.get("stage5_gate_result_state") or ""),
+                "stage5_calibration_input_state": str(record.get("stage5_calibration_input_state") or ""),
+                "stage5_calibration_failure_route_targets": _list(
+                    record.get("stage5_calibration_failure_route_targets")
+                ),
+                "field_query_adapter_result_state_counts": dict(
+                    record.get("field_query_adapter_result_state_counts") or {}
+                ) if isinstance(record.get("field_query_adapter_result_state_counts"), Mapping) else {},
+                "field_query_downstream_abcd_grade_counts": dict(
+                    record.get("field_query_downstream_abcd_grade_counts") or {}
+                ) if isinstance(record.get("field_query_downstream_abcd_grade_counts"), Mapping) else {},
+                "field_query_operator_next_actions": _list(record.get("field_query_operator_next_actions")),
                 "stage5_calibration_source_json": str(path),
                 "loop_terminal_state": "STAGE5_CALIBRATION_REVIEW_READY",
                 "next_recommended_action": (
@@ -1268,6 +1306,8 @@ def _merge_stage5_calibration_status_records(
         existing = dict(merged[index_by_project[project_id]])
         for key, value in calibration_record.items():
             if key in {"project_id", "project_name"} and existing.get(key):
+                continue
+            if key in {"loop_terminal_state", "next_recommended_action"} and existing.get(key):
                 continue
             existing[key] = value
         if str(existing.get("loop_terminal_state") or "") == "NO_PROJECT_STATUS_RECORD":
@@ -1710,6 +1750,7 @@ def _field_query_synthesized_blocker_ledger(task: Mapping[str, Any], *, result_p
         adapter_state=adapter_state,
         downstream_grade=downstream_grade,
         authorization_state=authorization_state,
+        field_query_probe_state=str(task.get("field_query_probe_state") or ""),
     )
     operator_next_action = _first_text(
         *_list(field_summary.get("operator_next_actions") if isinstance(field_summary, Mapping) else []),
@@ -1736,6 +1777,7 @@ def _field_query_synthesized_blocker_ledger(task: Mapping[str, Any], *, result_p
             adapter_state=adapter_state,
             downstream_grade=downstream_grade,
             authorization_state=authorization_state,
+            field_query_probe_state=str(task.get("field_query_probe_state") or ""),
         ),
         "runtime_layer": runtime_layer,
         "required_input": _field_query_required_input(blocker_state),
@@ -1759,7 +1801,10 @@ def _field_query_blocker_state_and_layer(
     adapter_state: str,
     downstream_grade: str,
     authorization_state: str,
+    field_query_probe_state: str = "",
 ) -> tuple[str, str]:
+    if field_query_probe_state == "LIVE_FIELD_QUERY_NEEDS_REGION_ADAPTER":
+        return "SOURCE_BLOCKED_RETRY_OR_FALLBACK_REQUIRED", "source adapter"
     if authorization_state == "LOGIN_OR_SSO_REQUIRED":
         return "AUTHORIZATION_HOLD_NEEDS_BROWSER_WORKER_OR_OPERATOR_SESSION", "browser worker"
     if adapter_state == "NEEDS_BROWSER":
@@ -1773,7 +1818,15 @@ def _field_query_blocker_state_and_layer(
     return "RELEASE_FIELD_QUERY_REVIEW_REQUIRED", "closeout"
 
 
-def _field_query_blocker_reason(*, adapter_state: str, downstream_grade: str, authorization_state: str) -> str:
+def _field_query_blocker_reason(
+    *,
+    adapter_state: str,
+    downstream_grade: str,
+    authorization_state: str,
+    field_query_probe_state: str = "",
+) -> str:
+    if field_query_probe_state == "LIVE_FIELD_QUERY_NEEDS_REGION_ADAPTER":
+        return "jurisdiction_region_source_adapter_required_for_release_field_query"
     if authorization_state == "LOGIN_OR_SSO_REQUIRED":
         return "login_or_sso_required_for_release_field_query"
     if adapter_state == "NEEDS_BROWSER":
@@ -2809,6 +2862,14 @@ def _summary(
         ),
         "stage5_calibration_suggested_action_counts": _counts(
             record.get("suggested_calibration_action") for record in project_status_records
+        ),
+        "stage5_calibration_input_state_counts": _counts(
+            record.get("stage5_calibration_input_state") for record in project_status_records
+        ),
+        "stage5_calibration_failure_route_target_counts": _counts(
+            route
+            for record in project_status_records
+            for route in _list(record.get("stage5_calibration_failure_route_targets"))
         ),
         "limited_sellable_review_candidate_count": sum(
             1

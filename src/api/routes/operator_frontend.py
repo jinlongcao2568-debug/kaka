@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import secrets
 from html import escape
@@ -15,8 +16,18 @@ from fastapi import HTTPException
 from fastapi.responses import HTMLResponse, Response
 
 from api.projections import build_customer_artifact_access_candidate_surface, register_route_table
+from storage.internal_object_approval import (
+    approval_context_for_download,
+    record_approved_object_action,
+)
 from storage.repositories.operator_action_repo import OperatorActionRepository
+from storage.repositories.object_storage_repo import ObjectStorageRepository
 from storage.repositories.runtime_state_repo import RuntimeStateRepository
+from stage7_sales.customer_delivery_boundary import (
+    assert_customer_delivery_payload_safe,
+    customer_delivery_boundary,
+)
+from stage7_sales.fixed_sku_evidence_bundle import build_fixed_sku_evidence_bundle
 
 
 OPERATOR_FRONTEND_ROUTE_METADATA = {
@@ -34,6 +45,10 @@ OPERATOR_FRONTEND_ROUTE_METADATA = {
     "automated_refund_enabled": False,
     "owner_operable_frontend": True,
     "productized_owner_workbench": True,
+    "conversational_agent_frontend": True,
+    "conversation_memory_persisted": False,
+    "agent_memory_governance": True,
+    "governed_principal_project_memory": True,
     "stage1_to_stage9_operations_board": True,
     "business_closure_dashboard": True,
     "customer_artifact_portal": True,
@@ -245,6 +260,24 @@ def _search_run_metadata_for_opportunity(opportunity_id: str) -> dict[str, Any]:
             or refs.get("entry_profile_id")
             or ""
         )
+        source_snapshot_id = str(
+            selected_candidate.get("stage2_detail_snapshot_id_optional")
+            or selected_candidate.get("snapshot_id_optional")
+            or refs.get("source_snapshot_id")
+            or ""
+        )
+        source_snapshot_sha256 = ""
+        source_snapshot_captured_at = ""
+        if source_snapshot_id:
+            manifest = ObjectStorageRepository().get_manifest(source_snapshot_id)
+            if manifest is not None:
+                source_snapshot_sha256 = str(manifest.sha256 or "")
+                source_snapshot_captured_at = str(
+                    manifest.captured_at_optional
+                    or manifest.fetched_at_optional
+                    or manifest.created_at
+                    or ""
+                )
         return {
             "opportunity_id": opportunity_id,
             "search_run_id": action.action_event_id,
@@ -258,6 +291,9 @@ def _search_run_metadata_for_opportunity(opportunity_id: str) -> dict[str, Any]:
             "source_url": source_url,
             "source_site_name": source_site_name,
             "source_profile_id": source_profile_id,
+            "source_snapshot_id": source_snapshot_id,
+            "source_snapshot_sha256": source_snapshot_sha256,
+            "source_snapshot_captured_at": source_snapshot_captured_at,
             "analysis_score": refs.get("analysis_score"),
             "analysis_decision": refs.get("analysis_decision"),
             "analysis_priority": refs.get("analysis_priority"),
@@ -291,6 +327,13 @@ def _source_verification_from_metadata(metadata: Mapping[str, Any]) -> dict[str,
         "project_name": str(metadata.get("project_name") or ""),
         "region_name": str(metadata.get("region_name") or metadata.get("region_code") or ""),
         "project_type_label": str(metadata.get("project_type_label") or metadata.get("project_type") or ""),
+        "query_time": str(
+            metadata.get("source_snapshot_captured_at")
+            or metadata.get("requested_at")
+            or ""
+        ),
+        "snapshot_id": str(metadata.get("source_snapshot_id") or ""),
+        "snapshot_sha256": str(metadata.get("source_snapshot_sha256") or ""),
         "verification_hint": "公开来源验证：打开公开来源网址，核对项目名称、候选/中标信息、金额区间和公告阶段。",
     }
 
@@ -342,6 +385,7 @@ def _customer_artifact_surface_with_search_context(payload: dict[str, Any]) -> d
     surface["search_run_metadata"] = metadata
     surface["source_verification"] = _source_verification_from_metadata(metadata)
     surface["data_boundary"] = _localized_data_boundary(surface, metadata)
+    surface.setdefault("customer_delivery_boundary", customer_delivery_boundary())
     return surface
 
 
@@ -469,14 +513,14 @@ OWNER_VISIBLE_LABELS = {
 OWNER_BLOCKED_REASON_LABELS = {
     "stage7_artifact_readback_missing": "阶段7证据包尚未生成",
     "stage8_stage9_delivery_context_not_required_for_access_candidate_readback": "阶段8/9真实交付上下文未进入内部预览；不影响内部证据包检查",
-    "customer_visible_export_enabled=false": "客户自助页面未开放；当前按内部预览和邮件交付路线处理",
+    "customer_visible_export_enabled=false": "客户自助页面未开放；当前仅支持内部预览和人工受控交付准备",
     "client_page_release_enabled=false": "客户自助页面未发布；当前不是客户工作台交付",
     "external_release_enabled=false": "真实外发未接入；内部测试不触达外部",
     "external_delivery_enabled=false": "真实交付未接入；内部测试不触达外部",
     "direct_export_enabled=false": "直接导出未接入；当前使用内部证据包下载",
     "approval_audit_and_implementation_decision_required_before_live": "真实外发前需要审批、审计和执行决策",
     "customer_account_access_control_required": "客户账号不作为当前内部测试前置",
-    "download_auth_required": "客户自助下载不是当前交付路径；未来成交付款后邮件发送",
+    "download_auth_required": "客户自助下载不是当前交付路径；签发后须通过客户约定的受控渠道人工交付",
     "approval_audit_required_before_customer_download": "客户真实下载前需要审批和审计",
     "public_software_release_not_approved": "不交付客户软件平台；内部预览不受影响",
 }
@@ -519,17 +563,21 @@ def _localized_source_verification(source_verification: Mapping[str, Any]) -> di
         "项目名称": str(source_verification.get("project_name") or ""),
         "地区": str(source_verification.get("region_name") or ""),
         "项目类型": str(source_verification.get("project_type_label") or ""),
+        "查询时点": str(source_verification.get("query_time") or ""),
+        "快照编号": str(source_verification.get("snapshot_id") or ""),
+        "快照SHA256": str(source_verification.get("snapshot_sha256") or ""),
         "验证口径": str(source_verification.get("verification_hint") or ""),
     }
 
 
 def _localized_field_policy(policy: Mapping[str, Any]) -> dict[str, Any]:
+    allowed_fields = list(policy.get("allowed_fields") or policy.get("allowlist") or [])
     return {
         "字段白名单已执行": bool(policy.get("allowlist_enforced", True)),
         "脱敏必需": bool(policy.get("masking_required", True)),
         "内部黑箱字段已隐藏": not bool(policy.get("internal_blackbox_fields_exposed", False)),
-        "允许字段": _owner_visible_value(policy.get("allowed_fields") or policy.get("allowlist") or []),
-        "屏蔽字段": _owner_visible_value(policy.get("blocked_fields") or policy.get("blocked") or []),
+        "客户可见字段数量": len(allowed_fields),
+        "内部字段名称已嵌入": False,
     }
 
 
@@ -540,8 +588,50 @@ def _localized_download_auth(download_auth: Mapping[str, Any]) -> dict[str, Any]
         "客户自助下载已开放": customer_download_enabled,
         "客户下载需要授权": bool(download_auth.get("auth_required", True)),
         "真实客户下载已执行": False,
-        "授权状态说明": "当前只允许运营方下载内部预览包；客户未来通过成交付款后的邮件证据包接收。",
+        "授权状态说明": "当前只允许运营方下载内部预览包；人工签发后须通过与客户约定的受控渠道交付。",
     }
+
+
+def _localized_customer_delivery_boundary(boundary: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "合同编号": str(boundary.get("contract_id") or ""),
+        "合同版本": str(boundary.get("contract_version") or ""),
+        "当前交付说明": str(boundary.get("current_delivery_statement") or ""),
+        "必须人工复核签发": bool(boundary.get("human_signoff_required")),
+        "自动邮件交付已开放": bool(boundary.get("automatic_email_delivery_enabled")),
+        "客户自助下载已开放": bool(boundary.get("customer_self_service_download_enabled")),
+        "限制条款": [
+            {
+                "条款编号": str(item.get("code") or ""),
+                "条款标题": str(item.get("title") or ""),
+                "条款内容": str(item.get("text") or ""),
+            }
+            for item in boundary.get("clauses") or []
+            if isinstance(item, Mapping)
+        ],
+    }
+
+
+def _localized_page_draft(page_draft: Mapping[str, Any]) -> dict[str, Any]:
+    watermark = dict(page_draft.get("watermark") or {})
+    return {
+        "页面草稿编号": str(page_draft.get("page_draft_id") or ""),
+        "页面状态": _owner_visible_label(page_draft.get("page_state") or ""),
+        "仅草稿": bool(page_draft.get("draft_only", True)),
+        "客户页面已发布": bool(page_draft.get("page_publication_enabled", False)),
+        "版本哈希": str(page_draft.get("artifact_version_hash") or ""),
+        "水印文字": _owner_visible_label(watermark.get("watermark_text") or ""),
+    }
+
+
+def _safe_owner_reference_list(value: Any) -> list[str]:
+    if not isinstance(value, (list, tuple)):
+        return []
+    return [
+        _owner_visible_label(item)
+        for item in value
+        if isinstance(item, (str, int, float)) and str(item).strip()
+    ]
 
 
 def _localized_evidence_item(
@@ -559,10 +649,47 @@ def _localized_evidence_item(
         "来源对象编号": str(item.get("source_id") or ""),
         "清单状态": _owner_visible_label(item.get("manifest_state") or item.get("status") or ""),
         "脱敏策略": _owner_visible_label(item.get("masking_policy") or ""),
-        "来源引用": _owner_visible_value(item.get("source_refs") or []),
+        "来源引用": _safe_owner_reference_list(item.get("source_refs")),
         "公开来源网址": str(item.get("source_url") or source_verification.get("source_url") or ""),
         "公开来源名称": str(item.get("source_site_name") or source_verification.get("source_site_name") or ""),
         "来源配置编号": str(item.get("source_profile_id") or source_verification.get("source_profile_id") or ""),
+    }
+
+
+def _localized_stage4_release_evidence_item(
+    item: Mapping[str, Any],
+    source_verification: Mapping[str, Any],
+    data_boundary: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    boundary = dict(data_boundary or {})
+    source_url = str(item.get("source_url") or source_verification.get("source_url") or "")
+    return {
+        "证据项编号": str(item.get("item_id") or ""),
+        "证据类型": str(item.get("evidence_type") or ""),
+        "线索类型": str(item.get("target_type") or ""),
+        "证据等级": str(item.get("evidence_grade") or ""),
+        "核验状态": str(item.get("verification_state") or ""),
+        "证据说明": str(item.get("description") or "公开来源核验记录"),
+        "客户交付判断": str(
+            boundary.get("客户可交付判断")
+            or "查询未命中不等于无风险；客户交付前必须人工复核。"
+        ),
+        "阻断原因": str(item.get("blocking_reason") or ""),
+        "下一步": str(item.get("next_step") or ""),
+        "清单状态": str(item.get("verification_state") or ""),
+        "脱敏策略": str(item.get("masking_policy") or "allowed_public_projection"),
+        "来源引用": _safe_owner_reference_list(item.get("source_refs")),
+        "公开来源网址": source_url,
+        "公开来源名称": str(
+            item.get("source_site_name") or source_verification.get("source_site_name") or ""
+        ),
+        "来源配置编号": str(
+            item.get("source_profile_id") or source_verification.get("source_profile_id") or ""
+        ),
+        "查询时点": str(item.get("query_time") or source_verification.get("query_time") or ""),
+        "快照SHA256": str(
+            item.get("snapshot_sha256") or source_verification.get("snapshot_sha256") or ""
+        ),
     }
 
 
@@ -575,20 +702,37 @@ def _internal_evidence_package_download_payload(
     formal = dict(surface.get("source_formal_client_export_page_layer_readiness", {}) or {})
     artifact = dict(surface.get("customer_artifact_readback", {}) or {})
     manifest = dict(formal.get("package_manifest", {}) or {})
+    leadpack_package = dict(formal.get("leadpack_delivery_package", {}) or {})
     source_verification = dict(surface.get("source_verification", {}) or {})
     data_boundary = dict(surface.get("data_boundary", {}) or {})
-    evidence_items = []
-    for item in list(manifest.get("evidence_items", []) or []):
-        row = dict(item)
-        row.setdefault("source_url", source_verification.get("source_url"))
-        row.setdefault("source_site_name", source_verification.get("source_site_name"))
-        row.setdefault("source_profile_id", source_verification.get("source_profile_id"))
-        evidence_items.append(_localized_evidence_item(row, source_verification, data_boundary))
+    evidence_items = [
+        _localized_stage4_release_evidence_item(dict(item), source_verification, data_boundary)
+        for item in list(manifest.get("stage4_release_evidence_items", []) or [])
+        if isinstance(item, Mapping)
+    ]
+    if not evidence_items:
+        for item in list(manifest.get("evidence_items", []) or []):
+            row = dict(item)
+            row.setdefault("source_url", source_verification.get("source_url"))
+            row.setdefault("source_site_name", source_verification.get("source_site_name"))
+            row.setdefault("source_profile_id", source_verification.get("source_profile_id"))
+            evidence_items.append(_localized_evidence_item(row, source_verification, data_boundary))
     field_policy = dict(surface.get("field_allowlist_masking", {}) or {})
     download_auth = dict(surface.get("download_auth", {}) or {})
-    return {
+    boundary_contract = dict(
+        surface.get("customer_delivery_boundary") or customer_delivery_boundary()
+    )
+    page_draft = dict(formal.get("page_draft", {}) or {})
+    watermark = dict(artifact.get("watermark", {}) or {})
+    package = {
         "说明": "内部证据包预览文件；用于运营方验收，不会真实发送给客户。",
-        "未来交付方式": "成交付款后由系统通过邮件发送证据包。",
+        "未来交付方式": str(boundary_contract.get("current_delivery_statement") or ""),
+        "项目编号": str(
+            leadpack_package.get("project_id")
+            or artifact.get("project_id")
+            or formal.get("project_id")
+            or ""
+        ),
         "商机编号": str(payload.get("opportunity_id") or ""),
         "数据真实性边界": data_boundary,
         "公开来源验证": _localized_source_verification(source_verification),
@@ -597,21 +741,26 @@ def _internal_evidence_package_download_payload(
             "交付包编号": artifact.get("package_id"),
             "清单编号": artifact.get("artifact_manifest_id"),
             "版本哈希": artifact.get("artifact_version_hash"),
-            "水印": _owner_visible_value(dict(artifact.get("watermark", {}) or {})),
-            "页面草稿": _owner_visible_value(dict(formal.get("page_draft", {}) or {})),
+            "水印": {
+                "水印文字": _owner_visible_label(watermark.get("watermark_text") or ""),
+                "水印状态": _owner_visible_label(watermark.get("watermark_state") or ""),
+            },
+            "页面草稿": _localized_page_draft(page_draft),
         },
-        "拟邮件发送包": {
-            "邮件主题": f"证据包交付 - {payload.get('opportunity_id') or ''}",
-            "附件": [
+        "人工交付包预览": {
+            "交付状态": "待人工复核签发",
+            "附件候选": [
                 artifact.get("evidence_pack_id"),
                 artifact.get("artifact_manifest_id"),
-                dict(formal.get("page_draft", {}) or {}).get("page_draft_id"),
+                page_draft.get("page_draft_id"),
             ],
-            "真实邮件已发送": False,
-            "真实邮件服务商已接入": False,
+            "自动邮件交付已开放": False,
+            "客户自助下载已开放": False,
+            "真实客户交付已执行": False,
         },
         "证据项清单": evidence_items,
         "字段策略": _localized_field_policy(field_policy),
+        "交付与责任边界": _localized_customer_delivery_boundary(boundary_contract),
         "模拟下载审计": _localized_download_auth(download_auth),
         "读回摘要": {
             "候选状态": "可内部预览" if not surface.get("empty_state") else "暂无证据包读回",
@@ -620,6 +769,26 @@ def _internal_evidence_package_download_payload(
             "待接或受控原因": _owner_visible_blocked_reasons(list(surface.get("blocked_reasons", []) or [])),
         },
     }
+    assert_customer_delivery_payload_safe(package)
+    return package
+
+
+def _internal_evidence_package_scope_sha256(package: Mapping[str, Any]) -> str:
+    canonical = json.dumps(
+        dict(package),
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+    return hashlib.sha256(canonical).hexdigest()
+
+
+def internal_evidence_package_approval_scope_sha256(opportunity_id: str) -> str:
+    payload = {"opportunity_id": opportunity_id}
+    surface = _customer_artifact_surface_with_search_context(payload)
+    package = _internal_evidence_package_download_payload(payload, surface=surface)
+    return _internal_evidence_package_scope_sha256(package)
+
 
 CONTROLLED_SAMPLE_PAYLOAD = {
     "now": "2026-04-14T00:00:00Z",
@@ -1022,6 +1191,36 @@ def _page(title: str, body: str, script: str) -> HTMLResponse:
       align-items: center;
       padding-top: 4px;
     }}
+    .agent-memory-section {{
+      grid-column: 1 / -1;
+    }}
+    .agent-memory-layout {{
+      display: grid;
+      grid-template-columns: minmax(260px, .8fr) minmax(0, 1.2fr);
+      gap: 16px;
+      align-items: start;
+    }}
+    .agent-memory-list {{
+      display: grid;
+      gap: 8px;
+      max-height: 360px;
+      overflow: auto;
+    }}
+    .agent-memory-item {{
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      padding: 10px;
+      background: var(--surface-alt);
+    }}
+    .agent-memory-item strong {{
+      display: block;
+      margin-bottom: 4px;
+    }}
+    .agent-memory-item p {{
+      margin: 3px 0;
+      color: var(--muted);
+      overflow-wrap: anywhere;
+    }}
     .opportunity-actions {{
       display: flex;
       flex-wrap: wrap;
@@ -1378,7 +1577,7 @@ def _page(title: str, body: str, script: str) -> HTMLResponse:
       .workspace {{ display: block; }}
       .panelStack {{ overflow: visible; padding-right: 0; }}
       .resultPane pre {{ max-width: 100%; max-height: 260px; overflow: auto; }}
-      .grid, .rail, .stage-grid, .workflow, .compact-card-grid, .check-grid, .detail-table, .decision-grid, .search-control-grid, .result-headline, .workbench-shell, .opportunity-summary {{ grid-template-columns: 1fr; }}
+      .grid, .rail, .stage-grid, .workflow, .compact-card-grid, .check-grid, .detail-table, .decision-grid, .search-control-grid, .result-headline, .workbench-shell, .opportunity-summary, .agent-memory-layout {{ grid-template-columns: 1fr; }}
       .view-grid {{ grid-template-columns: 1fr; }}
       .field-row {{ grid-template-columns: 1fr; }}
       main {{ padding: 18px; }}
@@ -1431,10 +1630,13 @@ def render_operator_console(payload: Any) -> HTMLResponse:
     <h1>AX9S 运营操作台</h1>
     <a class="external" href="/operator-console/stage6-review-loop">第六阶段批次复核 · 极简版</a>
     <button class="nav-link active" type="button" data-view="overview" aria-current="page">阶段1-9 运营总览</button>
+    <button class="nav-link" type="button" data-view="agent" aria-current="false">智能体对话</button>
     <button class="nav-link" type="button" data-view="search" aria-current="false">实战搜索</button>
     <button class="nav-link" type="button" data-view="autonomousWorkbench" aria-current="false">机会工作台</button>
     <button class="nav-link" type="button" data-view="run" aria-current="false">采集运行</button>
     <button class="nav-link" type="button" data-view="grayOrchestrator" aria-current="false">灰度总控</button>
+    <button class="nav-link" type="button" data-view="onboarding" aria-current="false">产品配置</button>
+    <button class="nav-link" type="button" data-view="support" aria-current="false">运营支持</button>
     <button class="nav-link" type="button" data-view="systemRelease" aria-current="false">系统与放行</button>
     <button class="nav-link" type="button" data-view="acceptanceContract" aria-current="false">验收契约</button>
     <a class="external" id="customerPortalLink" href="/customer-artifact-portal/OPP-HAPPY-001">证据包预览 · 样例</a>
@@ -1534,6 +1736,104 @@ def render_operator_console(payload: Any) -> HTMLResponse:
               <div><strong>支付交付</strong><p>订单、支付、收据、发票、结算、交付、回滚。</p></div>
             </div>
           </section>
+        </div>
+        <div class="view-panel" id="agent" data-view-panel="agent">
+          <div class="view-grid">
+            <section>
+              <div class="section-head">
+                <div>
+                  <p class="section-kicker">受限自然语言入口</p>
+                  <h3>智能体对话</h3>
+                  <p class="muted-text">可以创建内部任务、查进度、追问证据和查看下一步。事实回答必须回链正式对象或登记来源；模型关闭时仍可使用。</p>
+                </div>
+                <span class="pill">内部、确定性、有引用</span>
+              </div>
+              <label for="agentMessage">你想处理什么</label>
+              <textarea id="agentMessage" maxlength="4000" placeholder="例如：项目ID：PROJ-001，这个项目有哪些证据？"></textarea>
+              <div class="field-row">
+                <div>
+                  <label for="agentProjectId">项目 ID（查证据/下一步时建议填写）</label>
+                  <input id="agentProjectId" maxlength="128" autocomplete="off" placeholder="PROJ-001" />
+                </div>
+                <div>
+                  <label for="agentQueueItemId">队列编号（查任务进度时填写）</label>
+                  <input id="agentQueueItemId" maxlength="256" autocomplete="off" placeholder="S1Q-..." />
+                </div>
+              </div>
+              <label class="check-option">
+                <input id="agentConfirmInternalTask" type="checkbox" />
+                <span>确认创建内部预览任务（只入 Stage1 队列，不启动真实外部抓取）</span>
+              </label>
+              <div class="field-actions command-actions">
+                <button class="primary" type="button" id="sendAgentTurn">发送</button>
+                <button class="secondary" type="button" data-agent-example="这个项目有哪些证据？">示例：追问证据</button>
+                <button class="secondary" type="button" data-agent-example="下一步该做什么？">示例：查看下一步</button>
+              </div>
+              <p class="muted-text">不要粘贴密码、Token、Cookie、身份证、银行卡或未脱敏原文。对话不会执行触达、支付、退款、客户交付或发布。</p>
+            </section>
+            <section>
+              <h3>回答</h3>
+              <div id="agentResponse" class="empty-state" role="status" aria-live="polite">等待提问。回答会显示状态、事实和引用，不展示模型内部推理。</div>
+            </section>
+            <section class="agent-memory-section">
+              <div class="section-head">
+                <div>
+                  <p class="section-kicker">未验证上下文</p>
+                  <h3>偏好与项目记忆</h3>
+                  <p class="muted-text">只保存登记偏好和项目工作备注。记忆不会成为事实、证据、引用、放行或审批依据；不保存对话历史。</p>
+                </div>
+                <span class="pill warn">内部、可过期、非证据</span>
+              </div>
+              <div class="agent-memory-layout">
+                <div>
+                  <div class="field-row">
+                    <div>
+                      <label for="agentMemoryScope">作用域</label>
+                      <select id="agentMemoryScope">
+                        <option value="PRINCIPAL">我的偏好</option>
+                        <option value="PROJECT">项目上下文</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label for="agentMemoryProjectId">项目 ID</label>
+                      <input id="agentMemoryProjectId" maxlength="128" autocomplete="off" placeholder="项目作用域必填" disabled />
+                    </div>
+                  </div>
+                  <label for="agentMemoryKey">记忆类型</label>
+                  <select id="agentMemoryKey">
+                    <option value="response_language">回复语言</option>
+                    <option value="response_detail">回复详细度</option>
+                    <option value="preferred_output_format">输出格式</option>
+                    <option value="default_region_code">默认地区代码</option>
+                  </select>
+                  <label for="agentMemoryValue">值</label>
+                  <textarea id="agentMemoryValue" maxlength="500" placeholder="例如 concise、table 或 CN-GD"></textarea>
+                  <div class="field-row">
+                    <div>
+                      <label for="agentMemoryTtlDays">保留天数</label>
+                      <input id="agentMemoryTtlDays" type="number" min="1" max="365" value="30" />
+                    </div>
+                    <div>
+                      <label for="agentMemoryVersion">当前版本</label>
+                      <input id="agentMemoryVersion" value="--" readonly />
+                    </div>
+                  </div>
+                  <div class="field-actions command-actions">
+                    <button class="primary" type="button" id="saveAgentMemory">首次保存 / 纠正</button>
+                    <button class="ghost" type="button" id="deleteAgentMemory" disabled>删除所选</button>
+                    <button class="secondary" type="button" id="refreshAgentMemories">刷新</button>
+                  </div>
+                  <p id="agentMemoryStatus" class="muted-text" role="status" aria-live="polite">未加载。</p>
+                </div>
+                <div>
+                  <h3>当前可见记忆</h3>
+                  <div id="agentMemoryList" class="agent-memory-list">
+                    <div class="empty-state">正在等待加载。</div>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
         </div>
         <div class="view-panel" id="search" data-view-panel="search">
           <div class="view-grid">
@@ -1752,7 +2052,7 @@ def render_operator_console(payload: Any) -> HTMLResponse:
             <div class="field-actions command-actions">
               <button class="primary" type="button" id="prepareGrayOrchestrator">生成总控计划</button>
               <button class="secondary" type="button" id="enqueueGrayOrchestrator">加入后台队列</button>
-              <button class="controlled" type="button" id="runGrayOrchestratorWorker">执行一次后台处理</button>
+              <button class="controlled" type="button" id="runGrayOrchestratorWorker">检查独立 Worker</button>
               <button class="ghost" type="button" id="refreshGrayOrchestrator">刷新状态</button>
             </div>
           </section>
@@ -1774,6 +2074,158 @@ def render_operator_console(payload: Any) -> HTMLResponse:
             <h3>真实执行边界</h3>
             <p>工作台按钮只生成受控计划文件，不直接执行真实公开源批次。真实执行命令必须由负责人在命令行明确运行，并继续保持客户可见、支付、交付、退款关闭。</p>
             <pre id="grayOrchestratorExecuteCommand">等待总控读回...</pre>
+          </section>
+        </div>
+        <div class="view-panel" id="onboarding" data-view-panel="onboarding">
+          <section class="wide">
+            <div class="section-head">
+              <div>
+                <p class="section-kicker">私有单租户 · owner/admin</p>
+                <h3>产品配置与受控入驻</h3>
+                <p class="muted-text">这是内部负责人配置入口，不是客户自助 SaaS。配置只能收窄到登记地区与来源，不能扩展来源白名单、绕过审批或打开真实外部执行。</p>
+              </div>
+              <span class="pill warn" id="onboardingStatePill">正在读取</span>
+            </div>
+            <div class="decision-panel" id="onboardingDecisionPanel">
+              <strong class="decision-title" id="onboardingDecisionTitle">正在读取活动配置...</strong>
+              <p class="muted-text" id="onboardingDecisionReason">新版本必须先保存草稿并通过同一配置哈希的离线试跑，之后才能激活。</p>
+              <div class="decision-grid">
+                <div class="decision-card"><strong>最新版本</strong><span id="onboardingLatestVersion">--</span></div>
+                <div class="decision-card"><strong>活动版本</strong><span id="onboardingActiveVersion">--</span></div>
+                <div class="decision-card"><strong>部署边界</strong><span>私有单租户</span></div>
+              </div>
+            </div>
+          </section>
+          <section>
+            <h3>配置草稿</h3>
+            <div class="field-row">
+              <div>
+                <label for="onboardingProfileId">配置 ID</label>
+                <input id="onboardingProfileId" maxlength="128" value="default-pilot" autocomplete="off" />
+              </div>
+              <div>
+                <label for="onboardingProfileName">配置名称</label>
+                <input id="onboardingProfileName" maxlength="100" value="广东私有试点默认配置" autocomplete="off" />
+              </div>
+            </div>
+            <label>登记地区（最多 3 个）</label>
+            <div id="onboardingRegionChoices" class="check-grid"></div>
+            <div class="field-row">
+              <div>
+                <label for="onboardingIndustry">固定行业</label>
+                <input id="onboardingIndustry" value="CONSTRUCTION_PUBLIC_EVIDENCE" readonly />
+              </div>
+              <div>
+                <label for="onboardingTemplate">固定证据模板</label>
+                <input id="onboardingTemplate" value="SKU_B_PUBLIC_SOURCE_FOUR_FIELD_RISK_REVIEW" readonly />
+              </div>
+            </div>
+            <h3>运行预算</h3>
+            <div class="field-row">
+              <div><label for="onboardingCandidateLimit">候选数（1-30）</label><input id="onboardingCandidateLimit" type="number" min="1" max="30" value="10" /></div>
+              <div><label for="onboardingDetailLimit">详情数（0-10）</label><input id="onboardingDetailLimit" type="number" min="0" max="10" value="3" /></div>
+              <div><label for="onboardingAttachmentLimit">附件数（0-20）</label><input id="onboardingAttachmentLimit" type="number" min="0" max="20" value="6" /></div>
+              <div><label for="onboardingTimeBudget">任务秒数（60-1800）</label><input id="onboardingTimeBudget" type="number" min="60" max="1800" value="600" /></div>
+            </div>
+            <div class="field-actions command-actions">
+              <button class="primary" type="button" id="saveOnboardingDraft" disabled>保存新草稿版本</button>
+              <button class="secondary" type="button" id="testOnboardingConfig" disabled>离线试跑最新版本</button>
+              <button class="controlled" type="button" id="activateOnboardingConfig" disabled>激活已试跑草稿</button>
+              <button class="ghost" type="button" id="refreshOnboardingConfig">刷新</button>
+            </div>
+            <p id="onboardingStatus" class="muted-text" role="status" aria-live="polite">尚未加载。</p>
+          </section>
+          <section>
+            <h3>登记来源投影</h3>
+            <p class="muted-text">来源由所选地区的登记目录自动导出，页面不接受自定义网址或来源 ID。</p>
+            <div id="onboardingSourcePreview" class="compact-card-grid"></div>
+            <h3>回滚</h3>
+            <label for="onboardingRollbackVersion">历史活动版本</label>
+            <select id="onboardingRollbackVersion"></select>
+            <button class="secondary" type="button" id="rollbackOnboardingConfig">回滚并生成新活动版本</button>
+          </section>
+          <section class="wide controlled_opening_requirement">
+            <h3>固定安全边界</h3>
+            <p>离线试跑不会创建任务、抓取来源或调用模型。配置不能开启真实来源、触达、支付、退款、客户交付、公开发布，也不能覆盖来源白名单、审批和放行门禁。</p>
+            <span class="pill">版本不可变</span>
+            <span class="pill">离线试跑前置</span>
+            <span class="pill">回滚生成新版本</span>
+            <span class="pill warn">非客户自助</span>
+            <span class="pill warn">非多租户 SaaS</span>
+          </section>
+          <section class="wide">
+            <h3>版本历史</h3>
+            <div id="onboardingHistory" class="compact-card-grid"></div>
+          </section>
+        </div>
+        <div class="view-panel" id="support" data-view-panel="support">
+          <section class="wide">
+            <div class="section-head">
+              <div>
+                <p class="section-kicker">私有单租户 · owner/admin</p>
+                <h3>运营支持工作台</h3>
+                <p class="muted-text">统一查看当前实例的任务、阻断、队列审计和版本。这里只能做受治理的失败任务重试，不提供原始 payload、原始错误或事实层编辑。</p>
+              </div>
+              <span class="pill warn" id="supportStatePill">正在读取</span>
+            </div>
+            <div class="rail" id="supportMetrics">
+              <div class="metric"><strong>--</strong><span>任务</span></div>
+              <div class="metric"><strong>--</strong><span>阻断</span></div>
+              <div class="metric"><strong>--</strong><span>审计事件</span></div>
+            </div>
+            <p id="supportStatus" class="muted-text" role="status" aria-live="polite">尚未加载。</p>
+          </section>
+          <section>
+            <h3>查询范围</h3>
+            <div class="field-row">
+              <div>
+                <label for="supportStatusFilter">任务状态</label>
+                <select id="supportStatusFilter">
+                  <option value="">全部状态</option>
+                  <option value="queued">排队中</option>
+                  <option value="running">运行中</option>
+                  <option value="retry">等待重试</option>
+                  <option value="failed">失败</option>
+                  <option value="dead-letter">死信</option>
+                  <option value="suspended">已暂停</option>
+                  <option value="succeeded">已完成</option>
+                  <option value="cancelled">已取消</option>
+                </select>
+              </div>
+              <div>
+                <label for="supportQueueFilter">队列名称（可选）</label>
+                <input id="supportQueueFilter" maxlength="256" autocomplete="off" placeholder="operator_long_tasks" />
+              </div>
+            </div>
+            <button class="secondary" type="button" id="refreshSupportOverview">刷新支持读回</button>
+            <h3>重试说明</h3>
+            <label for="supportRetryReason">负责人原因（10-500 字）</label>
+            <input id="supportRetryReason" maxlength="500" value="负责人确认内部失败任务可以安全重试" autocomplete="off" />
+          </section>
+          <section>
+            <h3>当前实例与版本</h3>
+            <div id="supportTenantVersion" class="compact-card-grid"></div>
+          </section>
+          <section class="wide">
+            <h3>任务与恢复动作</h3>
+            <p class="muted-text">失败/死信任务可显示“受控重试”；点击后仍需二次确认。重试不修改任务参数，running 任务取消继续从“当前任务运行总览”执行。</p>
+            <div id="supportTaskList" class="compact-card-grid"></div>
+          </section>
+          <section class="wide">
+            <h3>当前阻断</h3>
+            <div id="supportBlockerList" class="compact-card-grid"></div>
+          </section>
+          <section class="wide">
+            <h3>队列审计</h3>
+            <div id="supportAuditList" class="timeline"></div>
+          </section>
+          <section class="wide controlled_opening_requirement">
+            <h3>支持边界</h3>
+            <p>只显示当前部署租户，不能跨租户检索；不展示原始任务 payload、原始错误详情或审计 detail；不直接修改正式事实、证据、规则门、审批门和交付对象。</p>
+            <span class="pill">当前租户只读</span>
+            <span class="pill">审计可回放</span>
+            <span class="pill warn">重试需二次确认</span>
+            <span class="pill warn">事实层不可编辑</span>
           </section>
         </div>
         <div class="view-panel" id="systemRelease" data-view-panel="systemRelease">
@@ -1843,6 +2295,9 @@ def render_operator_console(payload: Any) -> HTMLResponse:
 """.replace("__CONTROLLED_SAMPLE_PAYLOAD__", controlled_sample_payload)
     script = """
 const $ = (id) => document.getElementById(id);
+let agentMemories = [];
+let onboardingPayload = null;
+let supportPayload = null;
 function formatOperatorSummary(value) {
   if (!value || typeof value !== "object" || value.raw_json_required !== false) {
     return "";
@@ -1905,7 +2360,7 @@ function showView(view) {
   window.scrollTo({ top: 0, left: 0, behavior: "auto" });
 }
 async function json(method, url, body) {
-  const options = { method, headers: { "accept": "application/json" } };
+  const options = { method, cache: "no-store", headers: { "accept": "application/json" } };
   if (body) { options.headers["content-type"] = "application/json"; options.body = JSON.stringify(body); }
   const response = await fetch(url, options);
   const text = await response.text();
@@ -1932,6 +2387,7 @@ const stateLabels = {
   "WAIT_REAL_SOURCE_CANDIDATES": "等待真实来源候选",
   "queued": "排队中",
   "running": "运行中",
+  "retry": "等待重试",
   "completed": "已完成",
   "failed": "失败",
   "paused": "已暂停",
@@ -2001,6 +2457,7 @@ const stateLabels = {
   "HUMAN_DECISION_RECORDED": "人工决策已记录",
   "WORKBENCH_PREPARE_READY": "工作台计划生成已接入",
   "INTERNAL_WORKER_QUEUE_READY": "内部后台队列已接入",
+  "DEDICATED_SCHEDULER_WORKER_READY": "独立调度 Worker 已接入",
   "CONTROLLED_GRAY_ORCHESTRATOR_WORKER_SUCCEEDED": "灰度总控后台处理已完成",
   "CONTROLLED_GRAY_ORCHESTRATOR_WORKER_FAILED_RETRY_SCHEDULED": "灰度总控后台处理失败，已排重试",
   "NO_DUE_CONTROLLED_GRAY_ORCHESTRATOR_QUEUE_ITEM": "暂无到期灰度总控任务",
@@ -3020,7 +3477,7 @@ function renderCapabilityExposure(readiness, scheduler, goLive) {
     ["详情页/附件快照读回", "最小接入", "真实候选会自动尝试抓取同站详情页和同站附件原文，保存 Stage2 快照并运行 Stage3 parser；Stage1-6 正式消费仍需继续补。"],
     ["实战搜索与地区适配器", "部分接入", "UI 支持地区多选、项目类型多选、金额区间、搜索运行记录和真实候选读回；部分地区本省实时源仍待补，全国平台只用于全国搜索。"],
     ["机会评分与商业钩子", "已展示", "机会工作台可查看等级、评分、证据强度、报价、买家排序和下一步动作。"],
-    ["证据包清单/下载预览", "已展示", "内部证据包预览页可看拟邮件包、证据项、字段策略，并可下载内部证据包文件。"],
+    ["证据包清单/下载预览", "已展示", "内部证据包预览页可看人工交付包、证据项、统一责任边界和字段策略，并可下载内部证据包文件。"],
     ["公开来源网址校验", "已展示", "证据包读回会补充来源站点、来源网址和验证口径，方便运营方回查。"],
     ["字段白名单/脱敏/水印/版本哈希", "已展示", "内部预览页显示字段策略、脱敏、水印、版本哈希和模拟下载审计。"],
     ["服务商读回/调度", "已展示", `服务商状态：${readiness?.provider_status?.mode ? "读回模式" : "读回"}；调度：${labelOf(scheduler?.readiness_state || "未知")}。`],
@@ -3497,10 +3954,16 @@ function renderTaskRunOverview(scheduler) {
       <p>项目：${safeText(item.project_id || "--")} · 地区：${safeText(item.region_code || "--")}</p>
       ${badge(status, warn ? "warn" : "")}
       ${badge(item.queue_name || "--")}
+      ${item.runtime_job_kind ? badge(item.runtime_job_kind) : ""}
       ${badge(item.stage2_handoff_intent_state || "阶段2交接待读取")}
       <p>队列编号：${safeText(item.queue_item_id || "--")}</p>
       <p>来源：${safeText(item.source_registry_id || "--")}；路由：${safeText(item.route_policy_id || "--")}</p>
+      <p>进度：${safeText(item.progress_stage || "WAITING")} · ${safeText(item.progress_percent ?? 0)}% · ${safeText(item.progress_message || "等待 Worker")}</p>
+      <p>心跳：${safeText(item.heartbeat_at || "--")}；预算截止：${safeText(item.budget_deadline_at || "--")}</p>
       <p>尝试：${safeText(item.attempt_count ?? 0)} / ${safeText(item.max_attempts ?? "--")}；下一次运行：${safeText(item.next_run_at || "--")}</p>
+      ${item.queue_name === "operator_long_tasks" && ["queued", "retry", "running", "suspended"].includes(String(status))
+        ? `<button class="secondary" type="button" data-cancel-long-job="${safeText(item.queue_item_id || "")}">取消长任务</button>`
+        : ""}
       <p><strong>下一步</strong> ${status === "queued" ? "等待内部后台处理/后续链路消费；当前不会真实外部抓取。" : "查看队列状态、错误和审计读回。"}</p>
     </div>`;
   }).join("");
@@ -3878,7 +4341,7 @@ function renderGrayOrchestrator(surface) {
       </div>`).join("")
     : "暂无总控运行记录。";
   const queueCounts = queue.status_counts || {};
-  $("grayOrchestratorQueueMeta").textContent = `后台队列 ${queue.queue_item_count ?? queueItems.length} 条；排队 ${queueCounts.queued || 0} / 运行中 ${queueCounts.running || 0} / 已完成 ${queueCounts.succeeded || 0}。`;
+  $("grayOrchestratorQueueMeta").textContent = `后台队列 ${queue.queue_item_count ?? queueItems.length} 条；排队 ${queueCounts.queued || 0} / 运行中 ${queueCounts.running || 0} / 已完成 ${queueCounts.succeeded || 0} / 已取消 ${queueCounts.cancelled || 0}。`;
   $("grayOrchestratorQueue").className = queueItems.length ? "compact-card-grid" : "empty-state";
   safeHtml($("grayOrchestratorQueue")).innerHTML = queueItems.length
     ? queueItems.slice(0, 8).map((item) => `<div class="stage-card">
@@ -3886,8 +4349,15 @@ function renderGrayOrchestrator(surface) {
         <p class="technical-muted">${safeText(compactPath(item.output_root || "--"))}</p>
         ${badge(item.status || "--", ["failed", "retry", "dead-letter"].includes(String(item.status || "")) ? "warn" : "")}
         ${badge(`尝试 ${item.attempt_count ?? 0}/${item.max_attempts ?? "--"}`, item.last_error ? "warn" : "")}
+        <p><strong>阶段</strong> ${safeText(item.progress_stage || "WAITING")}；进度 ${safeText(item.progress_percent ?? 0)}%</p>
+        <progress max="100" value="${safeText(item.progress_percent ?? 0)}">${safeText(item.progress_percent ?? 0)}%</progress>
+        <p>${safeText(item.progress_message || "等待后台 Worker")}</p>
+        <p>最近心跳：${safeText(item.heartbeat_at || "--")}；预算截止：${safeText(item.budget_deadline_at || "--")}</p>
         <p>下一次：${safeText(item.next_run_at || "--")}；完成：${safeText(item.completed_at || "--")}</p>
-        <p>${safeText(item.last_error || "暂无错误")}</p>
+        <p>${safeText(item.last_error_category || "NO_ERROR")}：${safeText(item.last_error || "暂无错误")}</p>
+        ${["queued", "retry", "running", "suspended"].includes(String(item.status || ""))
+          ? `<button class="secondary" type="button" data-cancel-gray-job="${safeText(item.queue_item_id || "")}">取消任务</button>`
+          : ""}
       </div>`).join("")
     : "暂无后台队列任务。";
   $("grayOrchestratorExecuteCommand").textContent = surface?.recommended_execute_command || "等待总控读回...";
@@ -3937,6 +4407,7 @@ async function enqueueGrayOrchestrator() {
       per_target_sample_goal: 12,
       per_target_candidate_limit: 12,
       segment_timeout_seconds: 900,
+      time_budget_seconds: 1800,
       execute: false,
       now: new Date().toISOString()
     });
@@ -3948,10 +4419,32 @@ async function enqueueGrayOrchestrator() {
     button.textContent = "加入后台队列";
   }
 }
+async function cancelGrayOrchestratorJob(queueItemId, button) {
+  if (!queueItemId) { return null; }
+  if (button) {
+    button.disabled = true;
+    button.textContent = "取消中...";
+  }
+  try {
+    const result = await json("POST", "/operator-console/controlled-gray-orchestrator/worker/cancel", {
+      queue_item_id: queueItemId,
+      reason: "operator_console_cancel_request",
+      now: new Date().toISOString()
+    });
+    out(result);
+    await loadGrayOrchestrator(false);
+    return result;
+  } finally {
+    if (button?.isConnected) {
+      button.disabled = false;
+      button.textContent = "取消任务";
+    }
+  }
+}
 async function runGrayOrchestratorWorker() {
   const button = $("runGrayOrchestratorWorker");
   button.disabled = true;
-  button.textContent = "运行中...";
+  button.textContent = "检查中...";
   try {
     const result = await json("POST", "/operator-console/controlled-gray-orchestrator/worker/run-once", {
       execute: false,
@@ -3959,17 +4452,16 @@ async function runGrayOrchestratorWorker() {
     });
     out({
       worker_state: result.worker_state,
-      queue_item_id: result.queue_item?.queue_item_id,
-      queue_status: result.queue_item?.status,
-      orchestration_state: result.summary?.orchestration_state,
-      aggregate_gray_review_state: result.summary?.aggregate_gray_review_state,
-      output_root: result.result?.output_root
+      dedicated_process_required: result.dedicated_process_required,
+      dedicated_process_command: result.dedicated_process_command,
+      web_request_execution_enabled: result.web_request_execution_enabled,
+      queue_status_counts: result.background_worker_queue?.status_counts
     });
     await loadGrayOrchestrator(false);
     return result;
   } finally {
     button.disabled = false;
-    button.textContent = "执行一次后台处理";
+    button.textContent = "检查独立 Worker";
   }
 }
 async function loadRealSourceProfiles() {
@@ -4034,6 +4526,635 @@ async function createTask() {
   showView("overview");
   history.replaceState(null, "", "#overview");
 }
+function appendAgentText(parent, tagName, text, className="") {
+  const element = document.createElement(tagName);
+  element.textContent = String(text ?? "");
+  if (className) { element.className = className; }
+  parent.appendChild(element);
+  return element;
+}
+function agentValueText(value) {
+  if (value === undefined || value === null || value === "") { return "--"; }
+  if (Array.isArray(value)) { return value.length ? value.map(agentValueText).join(" / ") : "--"; }
+  if (value && typeof value === "object") {
+    try { return JSON.stringify(value); } catch { return "[无法显示的结构化值]"; }
+  }
+  return String(value);
+}
+const agentMemoryKeysByScope = {
+  PRINCIPAL: [
+    ["response_language", "回复语言（zh-CN / en-US）"],
+    ["response_detail", "回复详细度（concise / standard / detailed）"],
+    ["preferred_output_format", "输出格式（text / checklist / table）"],
+    ["default_region_code", "默认地区代码（例如 CN-GD）"],
+  ],
+  PROJECT: [
+    ["preferred_output_format", "项目输出格式（text / checklist / table）"],
+    ["default_region_code", "项目默认地区代码（例如 CN-GD）"],
+    ["project_workflow_note", "项目工作备注（未验证、非证据）"],
+  ],
+};
+function selectedAgentMemory() {
+  const scope = $("agentMemoryScope").value;
+  const projectId = scope === "PROJECT" ? $("agentMemoryProjectId").value.trim() : "";
+  const key = $("agentMemoryKey").value;
+  return agentMemories.find((item) => item.scope === scope
+    && (item.project_id || "") === projectId
+    && item.memory_key === key
+    && item.state === "ACTIVE") || null;
+}
+function syncAgentMemoryForm({ keepValue = false } = {}) {
+  const scope = $("agentMemoryScope").value;
+  const projectInput = $("agentMemoryProjectId");
+  projectInput.disabled = scope !== "PROJECT";
+  if (scope !== "PROJECT") { projectInput.value = ""; }
+  if (scope === "PROJECT" && !projectInput.value.trim()) {
+    projectInput.value = $("agentProjectId").value.trim();
+  }
+  const keySelect = $("agentMemoryKey");
+  const previousKey = keySelect.value;
+  keySelect.replaceChildren();
+  (agentMemoryKeysByScope[scope] || []).forEach(([value, label]) => {
+    const option = document.createElement("option");
+    option.value = value;
+    option.textContent = label;
+    keySelect.appendChild(option);
+  });
+  if (Array.from(keySelect.options).some((option) => option.value === previousKey)) {
+    keySelect.value = previousKey;
+  }
+  if (!keepValue) { $("agentMemoryValue").value = ""; }
+  const current = selectedAgentMemory();
+  $("agentMemoryVersion").value = current?.version || "--";
+  $("deleteAgentMemory").disabled = !current;
+}
+function renderAgentMemories(payload) {
+  agentMemories = Array.isArray(payload.memories) ? payload.memories : [];
+  const container = $("agentMemoryList");
+  container.replaceChildren();
+  if (!agentMemories.length) {
+    container.className = "agent-memory-list";
+    appendAgentText(container, "div", "当前作用域没有活动记忆。", "empty-state");
+    syncAgentMemoryForm({ keepValue: true });
+    return;
+  }
+  agentMemories.forEach((memory) => {
+    const card = document.createElement("div");
+    card.className = "agent-memory-item";
+    appendAgentText(card, "strong", `${memory.memory_key || "未命名"} · v${memory.version || "--"}`);
+    appendAgentText(card, "p", memory.value || "已清除");
+    appendAgentText(card, "p", `作用域：${memory.scope || "--"}${memory.project_id ? ` / ${memory.project_id}` : ""}；到期：${memory.expires_at || "--"}`);
+    const edit = document.createElement("button");
+    edit.type = "button";
+    edit.className = "ghost";
+    edit.textContent = "选择并纠正";
+    edit.addEventListener("click", () => {
+      $("agentMemoryScope").value = memory.scope;
+      if (memory.project_id) { $("agentMemoryProjectId").value = memory.project_id; }
+      syncAgentMemoryForm({ keepValue: true });
+      $("agentMemoryKey").value = memory.memory_key;
+      $("agentMemoryValue").value = memory.value || "";
+      $("agentMemoryVersion").value = memory.version || "--";
+      $("deleteAgentMemory").disabled = memory.state !== "ACTIVE";
+    });
+    card.appendChild(edit);
+    container.appendChild(card);
+  });
+  syncAgentMemoryForm({ keepValue: true });
+}
+function clearAgentAnswerAfterMemoryMutation(message) {
+  const response = $("agentResponse");
+  response.className = "empty-state";
+  response.replaceChildren();
+  response.textContent = `${message} 旧回答已从页面清除；再次发送问题后才会读取当前活动记忆。`;
+}
+async function loadAgentMemories() {
+  const scope = $("agentMemoryScope").value;
+  const projectId = scope === "PROJECT" ? $("agentMemoryProjectId").value.trim() : "";
+  if (scope === "PROJECT" && !projectId) {
+    $("agentMemoryStatus").textContent = "项目作用域需要项目 ID。";
+    agentMemories = [];
+    renderAgentMemories({ memories: [] });
+    return null;
+  }
+  $("agentMemoryStatus").textContent = "正在读取受治理记忆...";
+  const query = new URLSearchParams({ scope });
+  if (projectId) { query.set("project_id", projectId); }
+  try {
+    const result = await json("GET", `/operator-console/agent/memories?${query.toString()}`);
+    renderAgentMemories(result);
+    $("agentMemoryStatus").textContent = `已加载 ${result.count || 0} 条活动记忆。记忆不是事实或证据。`;
+    return result;
+  } catch (error) {
+    $("agentMemoryStatus").textContent = "读取失败。请检查项目 ID、登录角色和服务状态。";
+    out(error);
+    return null;
+  }
+}
+async function saveAgentMemory() {
+  const scope = $("agentMemoryScope").value;
+  const projectId = scope === "PROJECT" ? $("agentMemoryProjectId").value.trim() : "";
+  const value = $("agentMemoryValue").value.trim();
+  const ttlDays = Number.parseInt($("agentMemoryTtlDays").value, 10);
+  const current = selectedAgentMemory();
+  if (scope === "PROJECT" && !projectId) {
+    $("agentMemoryStatus").textContent = "项目作用域需要项目 ID。";
+    return;
+  }
+  if (!value || !Number.isInteger(ttlDays)) {
+    $("agentMemoryStatus").textContent = "请填写记忆值和有效保留天数。";
+    return;
+  }
+  $("saveAgentMemory").disabled = true;
+  $("agentMemoryStatus").textContent = current ? "正在提交带版本纠正..." : "正在首次保存...";
+  try {
+    const result = await json("POST", "/operator-console/agent/memories", {
+      action: current ? "CORRECT" : "UPSERT",
+      scope,
+      project_id: projectId || null,
+      memory_key: $("agentMemoryKey").value,
+      value,
+      ttl_days: ttlDays,
+      expected_version: current?.version || null,
+    });
+    $("agentMemoryStatus").textContent = result.operation_state === "CORRECTED"
+      ? "纠正已保存并记录 hash 审计。"
+      : "记忆已保存。";
+    clearAgentAnswerAfterMemoryMutation("记忆已变化。");
+    await loadAgentMemories();
+  } catch (error) {
+    $("agentMemoryStatus").textContent = "保存失败。敏感内容、无效枚举或版本冲突都会被拒绝。";
+    out(error);
+  } finally {
+    $("saveAgentMemory").disabled = false;
+  }
+}
+async function deleteAgentMemory() {
+  const current = selectedAgentMemory();
+  if (!current) {
+    $("agentMemoryStatus").textContent = "请先选择一条活动记忆。";
+    return;
+  }
+  if (!window.confirm("确认删除这条记忆？原值会立即清空，仅保留无原值审计。")) { return; }
+  $("deleteAgentMemory").disabled = true;
+  $("agentMemoryStatus").textContent = "正在删除并清空原值...";
+  try {
+    await json("POST", "/operator-console/agent/memories", {
+      action: "DELETE",
+      scope: current.scope,
+      project_id: current.project_id || null,
+      memory_key: current.memory_key,
+      value: null,
+      ttl_days: null,
+      expected_version: current.version,
+    });
+    $("agentMemoryValue").value = "";
+    $("agentMemoryStatus").textContent = "已删除；原值已清空。";
+    clearAgentAnswerAfterMemoryMutation("记忆已删除且原值已清空。");
+    await loadAgentMemories();
+  } catch (error) {
+    $("agentMemoryStatus").textContent = "删除失败，可能是版本已变化；请刷新后重试。";
+    out(error);
+  }
+}
+function onboardingCurrentProfile() {
+  return onboardingPayload?.profiles?.find((item) => item.profile_id === $("onboardingProfileId").value.trim())
+    || onboardingPayload?.profiles?.[0]
+    || null;
+}
+function onboardingSelectedRegions() {
+  return Array.from(document.querySelectorAll("#onboardingRegionChoices input[type=checkbox]:checked"))
+    .map((input) => input.value);
+}
+function onboardingSourcesForRegions(regionCodes) {
+  const catalogRegions = onboardingPayload?.catalog?.regions || [];
+  return regionCodes.map((code) => catalogRegions.find((item) => item.region_code === code)?.default_source_profile_id)
+    .filter(Boolean);
+}
+function onboardingErrorText(error) {
+  return error?.detail?.message || error?.detail?.code || error?.detail || error?.message || "操作失败";
+}
+function renderOnboardingSources() {
+  const regionCodes = onboardingSelectedRegions();
+  const catalogRegions = onboardingPayload?.catalog?.regions || [];
+  const container = $("onboardingSourcePreview");
+  container.replaceChildren();
+  regionCodes.forEach((code) => {
+    const region = catalogRegions.find((item) => item.region_code === code);
+    const card = document.createElement("div");
+    card.className = "stage-card";
+    appendAgentText(card, "strong", region?.region_name || code);
+    appendAgentText(card, "p", region?.default_source_profile_id || "没有登记默认来源");
+    appendAgentText(card, "p", `来源质量：${region?.source_quality_state || "--"}；只能使用登记目录。`);
+    container.appendChild(card);
+  });
+  if (!regionCodes.length) {
+    appendAgentText(container, "div", "至少选择一个登记地区。", "empty-state");
+  }
+}
+function setOnboardingForm(config) {
+  if (!config) { return; }
+  if (config.profile_name) { $("onboardingProfileName").value = config.profile_name; }
+  $("onboardingIndustry").value = config.industry_code || "CONSTRUCTION_PUBLIC_EVIDENCE";
+  $("onboardingTemplate").value = config.evidence_template_id || "SKU_B_PUBLIC_SOURCE_FOUR_FIELD_RISK_REVIEW";
+  $("onboardingCandidateLimit").value = config.budgets?.discovery_candidate_limit ?? 10;
+  $("onboardingDetailLimit").value = config.budgets?.detail_capture_limit ?? 3;
+  $("onboardingAttachmentLimit").value = config.budgets?.attachment_capture_limit ?? 6;
+  $("onboardingTimeBudget").value = config.budgets?.job_time_budget_seconds ?? 600;
+  const selected = new Set(config.region_codes || ["CN-GD"]);
+  document.querySelectorAll("#onboardingRegionChoices input[type=checkbox]").forEach((input) => {
+    input.checked = selected.has(input.value);
+  });
+  renderOnboardingSources();
+}
+function renderOnboardingConfig(payload) {
+  onboardingPayload = payload;
+  const current = onboardingCurrentProfile();
+  const latest = current?.latest || null;
+  if (current?.profile_id) { $("onboardingProfileId").value = current.profile_id; }
+  const catalogRegions = payload?.catalog?.regions || [];
+  const selectedCodes = new Set(latest?.config?.region_codes || payload?.catalog?.safe_default?.region_codes || ["CN-GD"]);
+  const regionContainer = $("onboardingRegionChoices");
+  regionContainer.replaceChildren();
+  catalogRegions.forEach((region) => {
+    const label = document.createElement("label");
+    label.className = "check-option";
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.value = region.region_code;
+    input.checked = selectedCodes.has(region.region_code);
+    input.addEventListener("change", () => {
+      if (onboardingSelectedRegions().length > 3) {
+        input.checked = false;
+        $("onboardingStatus").textContent = "最多选择 3 个登记地区。";
+      }
+      renderOnboardingSources();
+    });
+    label.appendChild(input);
+    appendAgentText(label, "span", `${region.region_name || region.region_code} · ${region.region_code}`);
+    regionContainer.appendChild(label);
+  });
+  setOnboardingForm(latest?.config || payload?.catalog?.safe_default);
+  $("onboardingLatestVersion").textContent = latest ? `v${latest.version} · ${latest.state}` : "尚未创建";
+  $("onboardingActiveVersion").textContent = payload?.active_profile ? `v${payload.active_profile.active_version}` : "尚未激活";
+  $("onboardingStatePill").textContent = latest?.state || "未配置";
+  $("onboardingStatePill").className = latest?.state === "ACTIVE" || latest?.state === "ACTIVE_ROLLBACK" ? "pill" : "pill warn";
+  $("onboardingDecisionTitle").textContent = payload?.active_profile
+    ? `活动配置 v${payload.active_profile.active_version} 已锁定到当前租户`
+    : "尚无活动产品配置";
+  $("onboardingDecisionReason").textContent = latest?.state === "DRAFT_VALIDATED"
+    ? "最新版本是已校验草稿：先离线试跑，再激活。"
+    : "修改配置会生成新草稿；当前活动版本保持不变，直到新草稿通过离线试跑并显式激活。";
+  $("saveOnboardingDraft").disabled = false;
+  $("testOnboardingConfig").disabled = !latest;
+  $("activateOnboardingConfig").disabled = latest?.state !== "DRAFT_VALIDATED";
+  const rollback = $("onboardingRollbackVersion");
+  rollback.replaceChildren();
+  (current?.history || []).filter((item) => ["ACTIVE", "ACTIVE_ROLLBACK"].includes(item.state)
+    && item.version < (latest?.version || 0)).forEach((item) => {
+      const option = document.createElement("option");
+      option.value = String(item.version);
+      option.textContent = `v${item.version} · ${item.state} · ${item.config?.profile_name || "未命名"}`;
+      rollback.appendChild(option);
+    });
+  $("rollbackOnboardingConfig").disabled = !rollback.options.length;
+  const history = $("onboardingHistory");
+  history.replaceChildren();
+  (current?.history || []).forEach((item) => {
+    const card = document.createElement("div");
+    card.className = "stage-card";
+    appendAgentText(card, "strong", `v${item.version} · ${item.state}`);
+    appendAgentText(card, "p", `${item.config?.profile_name || "未命名"}；地区 ${(item.config?.region_codes || []).join(" / ") || "--"}`);
+    appendAgentText(card, "p", `哈希 ${String(item.config_sha256 || "--").slice(0, 16)}…；前序 v${item.previous_version || "--"}`);
+    history.appendChild(card);
+  });
+  if (!(current?.history || []).length) {
+    appendAgentText(history, "div", "尚无版本。保存草稿会创建 v1。", "empty-state");
+  }
+}
+async function loadOnboardingConfigs() {
+  $("onboardingStatus").textContent = "正在读取产品配置...";
+  try {
+    const payload = await json("GET", "/operator-console/onboarding/configs?include_history=true");
+    renderOnboardingConfig(payload);
+    $("onboardingStatus").textContent = payload.count
+      ? "配置已加载。更改会生成不可变的新版本。"
+      : "尚无配置；可从登记目录创建第一版草稿。";
+    return payload;
+  } catch (error) {
+    $("onboardingStatus").textContent = `配置不可用：${onboardingErrorText(error)}。仅 owner/admin 可访问。`;
+    $("onboardingStatePill").textContent = "无权限或不可用";
+    $("saveOnboardingDraft").disabled = true;
+    $("testOnboardingConfig").disabled = true;
+    $("activateOnboardingConfig").disabled = true;
+    $("rollbackOnboardingConfig").disabled = true;
+    return null;
+  }
+}
+function onboardingDraftPayload() {
+  const regionCodes = onboardingSelectedRegions();
+  return {
+    action: "UPSERT_DRAFT",
+    profile_id: $("onboardingProfileId").value.trim(),
+    expected_version: onboardingCurrentProfile()?.latest_version || null,
+    profile_name: $("onboardingProfileName").value.trim(),
+    region_codes: regionCodes,
+    industry_code: "CONSTRUCTION_PUBLIC_EVIDENCE",
+    evidence_template_id: "SKU_B_PUBLIC_SOURCE_FOUR_FIELD_RISK_REVIEW",
+    source_profile_ids: onboardingSourcesForRegions(regionCodes),
+    budgets: {
+      discovery_candidate_limit: Number.parseInt($("onboardingCandidateLimit").value, 10),
+      detail_capture_limit: Number.parseInt($("onboardingDetailLimit").value, 10),
+      attachment_capture_limit: Number.parseInt($("onboardingAttachmentLimit").value, 10),
+      job_time_budget_seconds: Number.parseInt($("onboardingTimeBudget").value, 10),
+    },
+  };
+}
+async function mutateOnboarding(action) {
+  const current = onboardingCurrentProfile();
+  const latestVersion = current?.latest_version || null;
+  const body = action === "UPSERT_DRAFT" ? onboardingDraftPayload() : {
+    action,
+    profile_id: $("onboardingProfileId").value.trim(),
+    expected_version: latestVersion,
+    target_version: action === "ROLLBACK" ? Number.parseInt($("onboardingRollbackVersion").value, 10) : null,
+  };
+  $("onboardingStatus").textContent = action === "UPSERT_DRAFT" ? "正在保存新草稿版本..." : action === "ACTIVATE" ? "正在校验并激活..." : "正在生成回滚活动版本...";
+  try {
+    const result = await json("POST", "/operator-console/onboarding/configs", body);
+    out(result);
+    await loadOnboardingConfigs();
+    $("onboardingStatus").textContent = `${result.operation_state}：v${result.profile?.version || "--"}。`;
+  } catch (error) {
+    $("onboardingStatus").textContent = `操作被拒绝：${onboardingErrorText(error)}`;
+    out(error);
+  }
+}
+async function testOnboardingConfig() {
+  const current = onboardingCurrentProfile();
+  if (!current) { $("onboardingStatus").textContent = "请先保存草稿。"; return; }
+  $("onboardingStatus").textContent = "正在执行不创建任务、不抓取来源的离线试跑...";
+  try {
+    const result = await json("POST", "/operator-console/onboarding/config-test-runs", {
+      profile_id: current.profile_id,
+      version: current.latest_version,
+      mode: "OFFLINE_VALIDATION",
+    });
+    $("onboardingStatus").textContent = `离线试跑 ${result.test_state}；未创建任务、抓取或模型调用。`;
+    out(result);
+  } catch (error) {
+    $("onboardingStatus").textContent = `离线试跑失败：${onboardingErrorText(error)}`;
+    out(error);
+  }
+}
+function supportTaskCard(task, { allowAction = true } = {}) {
+  const card = document.createElement("div");
+  card.className = "stage-card";
+  appendAgentText(card, "strong", `${task.queue_item_id || "未命名任务"} · ${labelOf(task.status || "--")}`);
+  appendAgentText(card, "p", `队列：${task.queue_name || "--"}；类型：${task.runtime_job_kind || "内部任务"}；能力：${task.required_worker_capability || "--"}`);
+  appendAgentText(card, "p", `任务：${task.task_id || "--"}；项目：${task.project_id || "--"}；尝试 ${task.attempt_count ?? 0}/${task.max_attempts ?? 0}`);
+  appendAgentText(card, "p", `进度：${task.progress_stage || "--"} / ${task.progress_percent ?? 0}%；错误分类：${task.error_category || "无"}`);
+  appendAgentText(card, "p", `更新：${task.updated_at || "--"}；原始 payload/错误：不展示`);
+  if (allowAction && task.support_retry_available) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "controlled";
+    button.textContent = "受控重试";
+    button.dataset.supportRetryTask = task.queue_item_id;
+    button.dataset.expectedStatus = task.status;
+    button.dataset.expectedUpdatedAt = task.updated_at;
+    card.appendChild(button);
+  }
+  return card;
+}
+function renderSupportOverview(payload) {
+  supportPayload = payload;
+  const metrics = payload?.metrics || {};
+  const metricsContainer = $("supportMetrics");
+  metricsContainer.replaceChildren();
+  [
+    [metrics.returned_task_count ?? 0, "返回任务"],
+    [metrics.blocker_count ?? 0, "当前阻断"],
+    [metrics.audit_event_count ?? 0, "审计事件"],
+  ].forEach(([value, label]) => {
+    const card = document.createElement("div");
+    card.className = "metric";
+    appendAgentText(card, "strong", value);
+    appendAgentText(card, "span", label);
+    metricsContainer.appendChild(card);
+  });
+  $("supportStatePill").textContent = metrics.blocker_count ? `${metrics.blocker_count} 个阻断` : "无队列阻断";
+  $("supportStatePill").className = metrics.blocker_count ? "pill warn" : "pill";
+
+  const tenantVersion = $("supportTenantVersion");
+  tenantVersion.replaceChildren();
+  const context = payload?.context || {};
+  const versions = payload?.versions || {};
+  const tenantCard = document.createElement("div");
+  tenantCard.className = "stage-card";
+  appendAgentText(tenantCard, "strong", "当前部署租户");
+  appendAgentText(tenantCard, "p", context.deployment_tenant_id || "--");
+  appendAgentText(tenantCard, "p", `${context.deployment_mode || "--"}；可见租户 ${context.visible_tenant_count ?? 0}；跨租户查询关闭`);
+  tenantVersion.appendChild(tenantCard);
+  const versionCard = document.createElement("div");
+  versionCard.className = "stage-card";
+  appendAgentText(versionCard, "strong", `API ${versions.application_api_version || "--"} · Catalog ${versions.api_catalog_version || "--"}`);
+  appendAgentText(versionCard, "p", `支持合同 ${versions.support_contract_version || "--"}；产品配置合同 ${versions.product_onboarding_contract_version || "--"}`);
+  appendAgentText(versionCard, "p", `存储 ${versions.storage_backend || "--"}；Schema ${versions.storage_schema_revision || "非 SQL"} / ${versions.required_storage_schema_revision || "--"}`);
+  tenantVersion.appendChild(versionCard);
+
+  const tasks = $("supportTaskList");
+  tasks.replaceChildren();
+  (payload?.tasks || []).forEach((task) => tasks.appendChild(supportTaskCard(task)));
+  if (!(payload?.tasks || []).length) { appendAgentText(tasks, "div", "当前筛选没有任务。", "empty-state"); }
+
+  const blockers = $("supportBlockerList");
+  blockers.replaceChildren();
+  (payload?.blockers || []).forEach((task) => blockers.appendChild(supportTaskCard(task, { allowAction: false })));
+  if (!(payload?.blockers || []).length) { appendAgentText(blockers, "div", "当前没有队列阻断。", "empty-state"); }
+
+  const audits = $("supportAuditList");
+  audits.replaceChildren();
+  (payload?.audit_events || []).slice(0, 30).forEach((event) => {
+    const item = document.createElement("div");
+    appendAgentText(item, "strong", `${event.event_type || "事件"} · ${event.queue_item_id || "--"}`);
+    appendAgentText(item, "p", `${event.previous_status || "--"} → ${event.next_status || "--"}；尝试 ${event.attempt_count ?? 0}；${event.occurred_at || "--"}`);
+    audits.appendChild(item);
+  });
+  if (!(payload?.audit_events || []).length) { appendAgentText(audits, "div", "当前筛选没有审计事件。", "empty-state"); }
+}
+async function loadSupportOverview() {
+  $("supportStatus").textContent = "正在读取任务、阻断、审计和版本...";
+  const query = new URLSearchParams({ limit: "50" });
+  const status = $("supportStatusFilter").value;
+  const queueName = $("supportQueueFilter").value.trim();
+  if (status) { query.set("status", status); }
+  if (queueName) { query.set("queue_name", queueName); }
+  try {
+    const result = await json("GET", `/operator-console/support/overview?${query.toString()}`);
+    renderSupportOverview(result);
+    $("supportStatus").textContent = `已读取 ${result.metrics?.returned_task_count || 0} 个任务；只显示当前部署租户。`;
+    return result;
+  } catch (error) {
+    $("supportStatus").textContent = `支持工作台不可用：${onboardingErrorText(error)}。仅 owner/admin 可访问。`;
+    $("supportStatePill").textContent = "无权限或不可用";
+    return null;
+  }
+}
+async function retrySupportTask(button) {
+  const queueItemId = button.dataset.supportRetryTask || "";
+  const reason = $("supportRetryReason").value.trim();
+  if (reason.length < 10) {
+    $("supportStatus").textContent = "重试原因至少 10 个字符。";
+    return;
+  }
+  if (!window.confirm(`确认对内部失败任务 ${queueItemId} 排队一次受治理重试？任务参数和事实层不会修改。`)) { return; }
+  button.disabled = true;
+  button.textContent = "正在重试...";
+  try {
+    const result = await json("POST", "/operator-console/support/task-actions", {
+      action: "RETRY",
+      queue_item_id: queueItemId,
+      expected_status: button.dataset.expectedStatus,
+      expected_updated_at: button.dataset.expectedUpdatedAt,
+      confirmation: "RETRY_FAILED_INTERNAL_TASK",
+      reason,
+    });
+    out(result);
+    await loadSupportOverview();
+    $("supportStatus").textContent = `${queueItemId} 已进入受治理重试队列；原任务参数未修改。`;
+  } catch (error) {
+    $("supportStatus").textContent = `重试被拒绝：${onboardingErrorText(error)}`;
+    out(error);
+  } finally {
+    button.disabled = false;
+    button.textContent = "受控重试";
+  }
+}
+function renderAgentTurn(result) {
+  const container = $("agentResponse");
+  container.className = "";
+  container.replaceChildren();
+  const header = document.createElement("div");
+  header.className = "stage-card";
+  appendAgentText(header, "strong", result.answer_state || "UNKNOWN");
+  appendAgentText(header, "p", result.answer || "没有可显示的回答。");
+  const boundary = document.createElement("p");
+  boundary.className = "muted-text";
+  boundary.textContent = `意图：${result.intent || "--"}；模型调用：${result.runtime?.model_provider_call_executed ? "已执行" : "未执行"}；对话历史：不保存；治理记忆：${result.memory_context?.items?.length || 0} 条未验证上下文`;
+  header.appendChild(boundary);
+  container.appendChild(header);
+
+  const requiredInputs = Array.isArray(result.required_inputs) ? result.required_inputs : [];
+  if (requiredInputs.length) {
+    const block = document.createElement("div");
+    block.className = "stage-card";
+    appendAgentText(block, "strong", "还需要");
+    const list = document.createElement("ul");
+    requiredInputs.forEach((item) => appendAgentText(list, "li", item));
+    block.appendChild(list);
+    container.appendChild(block);
+  }
+
+  const facts = Array.isArray(result.facts) ? result.facts : [];
+  if (facts.length) {
+    const block = document.createElement("div");
+    block.className = "stage-card";
+    appendAgentText(block, "strong", "有引用的事实");
+    const list = document.createElement("ul");
+    facts.slice(0, 20).forEach((fact) => {
+      appendAgentText(list, "li", `${fact.object_type || "对象"} / ${fact.object_id || "--"} / ${fact.field || "状态"}：${agentValueText(fact.value)} [${fact.supported_by || "无引用"}]`);
+    });
+    block.appendChild(list);
+    container.appendChild(block);
+  }
+
+  const memoryItems = Array.isArray(result.memory_context?.items) ? result.memory_context.items : [];
+  if (memoryItems.length) {
+    const memoryBlock = document.createElement("div");
+    memoryBlock.className = "stage-card";
+    appendAgentText(memoryBlock, "strong", "本轮未验证上下文（不是事实或证据）");
+    const memoryList = document.createElement("ul");
+    memoryItems.forEach((item) => {
+      appendAgentText(memoryList, "li", `${item.memory_key || "记忆"}：${item.value || "--"}`);
+    });
+    memoryBlock.appendChild(memoryList);
+    container.appendChild(memoryBlock);
+  }
+
+  const citations = Array.isArray(result.citations) ? result.citations : [];
+  const citationBlock = document.createElement("div");
+  citationBlock.className = "stage-card";
+  appendAgentText(citationBlock, "strong", "引用");
+  const citationList = document.createElement("ul");
+  citations.forEach((citation) => {
+    const item = document.createElement("li");
+    const href = kakaSafeHref(citation.href || "");
+    if (href) {
+      const link = document.createElement("a");
+      link.href = href;
+      link.textContent = `${citation.label || citation.object_id || "引用"} [${citation.citation_id || "--"}]`;
+      if (href.startsWith("http://") || href.startsWith("https://")) {
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+      }
+      item.appendChild(link);
+    } else {
+      item.textContent = `${citation.label || citation.object_id || "引用"} [${citation.citation_id || "--"}]`;
+    }
+    citationList.appendChild(item);
+  });
+  citationBlock.appendChild(citationList);
+  container.appendChild(citationBlock);
+
+  const task = result.task || {};
+  if (task.queue_item_id) {
+    $("agentQueueItemId").value = task.queue_item_id;
+  }
+  out({
+    conversational_agent: {
+      intent: result.intent,
+      answer_state: result.answer_state,
+      conversation_id: result.conversation_id,
+      turn_id: result.turn_id,
+      task: result.task,
+      citations: result.citations,
+      governance: result.governance,
+    }
+  });
+}
+async function sendAgentTurn() {
+  const button = $("sendAgentTurn");
+  const message = $("agentMessage").value.trim();
+  if (!message) {
+    $("agentResponse").textContent = "请先输入问题。";
+    return;
+  }
+  button.disabled = true;
+  button.textContent = "处理中...";
+  $("agentResponse").className = "empty-state";
+  $("agentResponse").textContent = "正在读取正式对象和来源...";
+  const payload = {
+    message,
+    project_id: $("agentProjectId").value.trim() || undefined,
+    queue_item_id: $("agentQueueItemId").value.trim() || undefined,
+    confirm_internal_task: Boolean($("agentConfirmInternalTask").checked),
+  };
+  try {
+    const result = await json("POST", "/operator-console/agent/turns", payload);
+    renderAgentTurn(result);
+    if (["TASK_CREATED", "TASK_EXISTS"].includes(result.answer_state)) {
+      await loadReadiness(false);
+    }
+  } catch (error) {
+    $("agentResponse").className = "empty-state";
+    $("agentResponse").textContent = "对话请求失败。请检查输入边界、登录权限和服务状态。";
+    out(error);
+  } finally {
+    button.disabled = false;
+    button.textContent = "发送";
+  }
+}
 async function importProject() {
   const payload = { project_id: $("projectId").value, source_mode: "INTERNAL_PROJECT_IMPORT", now: new Date().toISOString() };
   const result = await json("POST", "/operator-console/project-imports", payload);
@@ -4041,6 +5162,58 @@ async function importProject() {
   await loadReadiness(false);
   showView("overview");
   history.replaceState(null, "", "#overview");
+}
+async function cancelOperatorLongTask(queueItemId, button = null) {
+  if (!queueItemId) { return null; }
+  if (button) {
+    button.disabled = true;
+    button.textContent = "取消中...";
+  }
+  try {
+    const result = await json("POST", "/operator-console/long-tasks/cancel", {
+      queue_item_id: queueItemId,
+      reason: "operator_console_cancel_request",
+      now: new Date().toISOString()
+    });
+    out(result);
+    await loadReadiness(false);
+    return result;
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = "取消长任务";
+    }
+  }
+}
+async function monitorOperatorLongTask(queueItemId, kind) {
+  const terminal = new Set(["completed", "failed", "dead-letter", "cancelled"]);
+  for (let poll = 0; poll < 360; poll += 1) {
+    const surface = await json("GET", "/operator-console/long-tasks");
+    const items = surface?.background_worker_queue?.latest_items || [];
+    const item = items.find((candidate) => candidate.queue_item_id === queueItemId);
+    if (item) {
+      const message = `${labelOf(item.status || "queued")} · ${item.progress_percent ?? 0}% · ${item.progress_message || "等待 Worker"}`;
+      if (kind === "search") {
+        $("searchResult").textContent = message;
+      }
+      if (terminal.has(String(item.status || ""))) {
+        out({ operator_long_task: item });
+        await loadReadiness(false);
+        if (kind === "search") {
+          await loadRealCandidateDiscoveryDiagnostics();
+          await loadRealCandidateCatalog();
+          await loadRealCandidateStage2Captures();
+          await loadAutonomousSearchRuns();
+        } else {
+          await loadRealSourceRuns();
+        }
+        return item;
+      }
+    }
+    await new Promise((resolve) => window.setTimeout(resolve, 2500));
+  }
+  out({ queue_item_id: queueItemId, state: "MONITOR_TIMEOUT", detail: "任务仍在后台运行，可从任务总览继续查看。" });
+  return null;
 }
 async function runAutonomousSearch() {
   const button = $("runAutonomousSearch");
@@ -4062,6 +5235,8 @@ async function runAutonomousSearch() {
     minimum_amount: normalizedMin,
     maximum_amount: normalizedMax,
     allow_offline_sample_candidates: Boolean($("offlineSampleCandidates")?.checked),
+    async_execution: true,
+    job_time_budget_seconds: 1800,
     now: new Date().toISOString()
   };
   button.disabled = true;
@@ -4070,6 +5245,14 @@ async function runAutonomousSearch() {
   $("searchResult").textContent = "正在生成机会、工作台和客户材料候选...";
   try {
     const result = await json("POST", "/operator-console/autonomous-opportunity-search", payload);
+    if (result.async_execution) {
+      $("searchResult").className = "empty-state";
+      $("searchResult").textContent = `后台任务已入队：${result.job_id}；浏览器 Worker 将持续处理，可在任务总览查看进度或取消。`;
+      out(result);
+      monitorOperatorLongTask(result.job_id, "search").catch((error) => out({ error: String(error) }));
+      await loadReadiness(false);
+      return result;
+    }
     selectedAutonomousOpportunityId = result.opportunity_id || "";
     updateCustomerPortalLink(selectedAutonomousOpportunityId);
     $("searchResult").className = "";
@@ -4144,22 +5327,26 @@ async function runEntryCapture() {
     capture_kind: "entry",
     profile_id: $("entryProfile").value,
     task_id: $("taskId").value,
-    project_id: $("projectId").value
+    project_id: $("projectId").value,
+    async_execution: true,
+    job_time_budget_seconds: 900
   });
-  lastRealSourceSnapshotId = result.snapshot_id_optional || "";
-  await loadRealSourceRuns();
   out(result);
+  monitorOperatorLongTask(result.job_id, "capture").catch((error) => out({ error: String(error) }));
+  await loadReadiness(false);
 }
 async function runAttachmentCapture() {
   const result = await json("POST", "/operator-console/real-source-runs", {
     capture_kind: "attachment",
     profile_id: $("attachmentProfile").value,
     task_id: $("taskId").value,
-    project_id: $("projectId").value
+    project_id: $("projectId").value,
+    async_execution: true,
+    job_time_budget_seconds: 900
   });
-  lastRealSourceSnapshotId = result.snapshot_id_optional || "";
-  await loadRealSourceRuns();
   out(result);
+  monitorOperatorLongTask(result.job_id, "capture").catch((error) => out({ error: String(error) }));
+  await loadReadiness(false);
 }
 async function readLatestSourceCapture() {
   if (!lastRealSourceSnapshotId) {
@@ -4171,6 +5358,9 @@ async function readLatestSourceCapture() {
 async function loadRealSourceRuns() {
   const payload = await json("GET", "/operator-console/real-source-task-runs");
   const runs = payload.runs || [];
+  if (runs[0]?.snapshot_id_optional) {
+    lastRealSourceSnapshotId = runs[0].snapshot_id_optional;
+  }
   if (!runs.length) {
     $("realSourceRunList").className = "empty-state";
     $("realSourceRunList").textContent = "暂无真实源任务运行记录。";
@@ -4184,8 +5374,43 @@ async function loadRealSourceRuns() {
   return payload;
 }
 $("createTask").addEventListener("click", createTask);
+$("sendAgentTurn").addEventListener("click", sendAgentTurn);
+$("agentMemoryScope").addEventListener("change", () => {
+  syncAgentMemoryForm();
+  loadAgentMemories().catch((error) => out({ error: String(error) }));
+});
+$("agentMemoryKey").addEventListener("change", () => syncAgentMemoryForm({ keepValue: false }));
+$("agentMemoryProjectId").addEventListener("change", () => {
+  loadAgentMemories().catch((error) => out({ error: String(error) }));
+});
+$("saveAgentMemory").addEventListener("click", saveAgentMemory);
+$("deleteAgentMemory").addEventListener("click", deleteAgentMemory);
+$("refreshAgentMemories").addEventListener("click", () => loadAgentMemories());
+$("saveOnboardingDraft").addEventListener("click", () => mutateOnboarding("UPSERT_DRAFT"));
+$("testOnboardingConfig").addEventListener("click", testOnboardingConfig);
+$("activateOnboardingConfig").addEventListener("click", () => mutateOnboarding("ACTIVATE"));
+$("rollbackOnboardingConfig").addEventListener("click", () => mutateOnboarding("ROLLBACK"));
+$("refreshOnboardingConfig").addEventListener("click", () => loadOnboardingConfigs());
+$("refreshSupportOverview").addEventListener("click", () => loadSupportOverview());
+$("supportStatusFilter").addEventListener("change", () => loadSupportOverview());
+$("supportTaskList").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-support-retry-task]");
+  if (!button) { return; }
+  retrySupportTask(button).catch((error) => out({ error: String(error) }));
+});
+document.querySelectorAll("[data-agent-example]").forEach((button) => {
+  button.addEventListener("click", () => {
+    $("agentMessage").value = button.dataset.agentExample || "";
+    $("agentMessage").focus();
+  });
+});
 $("importProject").addEventListener("click", importProject);
 $("runAutonomousSearch").addEventListener("click", runAutonomousSearch);
+$("taskRunOverviewList").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-cancel-long-job]");
+  if (!button) { return; }
+  cancelOperatorLongTask(button.dataset.cancelLongJob, button).catch((error) => out({ error: String(error) }));
+});
 $("selectAllRegions").addEventListener("click", () => setAllSelected("searchRegion", true));
 $("clearRegions").addEventListener("click", () => setAllSelected("searchRegion", false));
 $("selectAllProjectTypes").addEventListener("click", () => setAllSelected("searchProjectType", true));
@@ -4205,6 +5430,11 @@ $("readLatestSourceCapture").addEventListener("click", readLatestSourceCapture);
 $("refreshRealSourceRuns").addEventListener("click", async () => out(await loadRealSourceRuns()));
 $("prepareGrayOrchestrator").addEventListener("click", prepareGrayOrchestrator);
 $("enqueueGrayOrchestrator").addEventListener("click", enqueueGrayOrchestrator);
+$("grayOrchestratorQueue").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-cancel-gray-job]");
+  if (!button) { return; }
+  cancelGrayOrchestratorJob(button.dataset.cancelGrayJob, button).catch((error) => out({ error: String(error) }));
+});
 $("runGrayOrchestratorWorker").addEventListener("click", runGrayOrchestratorWorker);
 $("refreshGrayOrchestrator").addEventListener("click", async () => out(await loadGrayOrchestrator()));
 $("previewRun").addEventListener("click", previewRun);
@@ -4235,11 +5465,12 @@ document.querySelectorAll("[data-view]").forEach((item) => {
 });
 window.addEventListener("hashchange", () => showView((window.location.hash || "#overview").slice(1)));
 showView((window.location.hash || "#overview").slice(1));
+syncAgentMemoryForm();
 setResultPaneCollapsed(true);
 renderStageOverviewTelemetry();
 renderSelectChoices("searchProjectType", "searchProjectTypeChoices");
 renderSearchPlanSummary();
-Promise.all([loadReadiness(false), loadAutonomousWorkbench(), loadRegionAdapters(), loadAutonomousSearchRuns(), loadRealCandidateDiscoveryDiagnostics(), loadRealCandidateCatalog(), loadRealCandidateStage2Captures(), loadRealSourceProfiles(), loadRealSourceRuns(), loadGrayOrchestrator(), loadUserAcceptanceContract(), loadAcceptanceGapMatrix(), loadRealWorldSellability(), loadStage6ReviewLoopStatus(), loadRuntimeProjection()])
+Promise.all([loadReadiness(false), loadAutonomousWorkbench(), loadRegionAdapters(), loadAutonomousSearchRuns(), loadRealCandidateDiscoveryDiagnostics(), loadRealCandidateCatalog(), loadRealCandidateStage2Captures(), loadRealSourceProfiles(), loadRealSourceRuns(), loadGrayOrchestrator(), loadUserAcceptanceContract(), loadAcceptanceGapMatrix(), loadRealWorldSellability(), loadStage6ReviewLoopStatus(), loadRuntimeProjection(), loadAgentMemories(), loadOnboardingConfigs(), loadSupportOverview()])
   .then(() => { $("output").textContent = "等待操作..."; })
   .catch(out);
 """
@@ -4454,8 +5685,10 @@ def render_customer_artifact_portal(payload: dict[str, Any]) -> HTMLResponse:
     <h1>AX9S 内部证据包预览</h1>
     <a href="/operator-console">运营操作台</a>
     <a href="#artifact">证据包</a>
-    <a href="#mail">拟邮件包</a>
+    <a href="#handoff">人工交付包</a>
+    <a href="#boundary">交付与责任边界</a>
     <a href="#access">访问控制</a>
+    <a href="#approval">逐对象审批</a>
     <a href="#audit">下载审计</a>
   </nav>
   <main>
@@ -4471,8 +5704,8 @@ def render_customer_artifact_portal(payload: dict[str, Any]) -> HTMLResponse:
         <h3>证据包状态</h3>
         <div id="artifactState"></div>
       </section>
-      <section id="mail">
-        <h3>拟邮件发送包</h3>
+      <section id="handoff">
+        <h3>人工交付包预览</h3>
         <div id="mailPackagePreview"></div>
       </section>
       <section id="access">
@@ -4482,6 +5715,24 @@ def render_customer_artifact_portal(payload: dict[str, Any]) -> HTMLResponse:
       <section>
         <h3>字段策略</h3>
         <div id="fieldState"></div>
+      </section>
+      <section id="approval" class="wide">
+        <h3>逐对象下载审批</h3>
+        <div id="approvalState" class="summary-list">正在读取审批状态...</div>
+        <div class="field-actions">
+          <label>审批说明
+            <input id="approvalReason" maxlength="500" value="内部证据包验收需要" />
+          </label>
+          <button class="primary" type="button" id="requestDownloadApproval" disabled>发起下载审批</button>
+          <button type="button" id="approveDownloadApproval" disabled>批准</button>
+          <button class="secondary" type="button" id="rejectDownloadApproval" disabled>拒绝</button>
+          <button class="secondary" type="button" id="revokeDownloadApproval" disabled>撤销批准</button>
+        </div>
+        <div class="opportunity-actions">
+          <a id="approvedDownloadLink" href="#" aria-disabled="true">审批通过后下载内部证据包</a>
+          <a id="formalBundleLink" href="#" aria-disabled="true">审批通过后下载 SKU-B PDF/HTML/ZIP 复核包</a>
+        </div>
+        <p id="approvalMessage" class="muted-text" aria-live="polite"></p>
       </section>
       <section id="audit">
         <h3>下载审计</h3>
@@ -4495,9 +5746,13 @@ def render_customer_artifact_portal(payload: dict[str, Any]) -> HTMLResponse:
         <h3>内部预览验收</h3>
         <div id="previewState"></div>
       </section>
+      <section id="boundary" class="wide" aria-labelledby="boundaryHeading">
+        <h3 id="boundaryHeading">交付与责任边界</h3>
+        <div id="boundaryState" aria-live="polite">正在读取统一边界条款...</div>
+      </section>
       <section class="controlled_opening_requirement wide">
         <h3>测试阶段说明</h3>
-        <p>客户未来不使用工作台；成交付款后由系统生成证据包，通过邮件发送。当前页面只给运营方验收证据包内容，不会真实发邮件、打电话、扣款或退款。</p>
+        <p>客户不使用本内部工作台。当前仅生成复核材料；人工签发后须通过与客户约定的受控渠道交付。系统不会自动发邮件，也未开放客户自助下载、自动扣款或自动退款。</p>
       </section>
       <section class="wide">
         <h3>读回摘要</h3>
@@ -4603,6 +5858,151 @@ function safeText(value) {{
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
 }}
+let currentApproval = null;
+let currentSession = null;
+function approvalStatusText(approval) {{
+  const state = String(approval?.state || "NOT_REQUESTED");
+  return {{
+    "NOT_REQUESTED": "尚未申请",
+    "PENDING_REVIEW": "等待独立复核人审批",
+    "APPROVED": "已批准",
+    "REJECTED": "已拒绝",
+    "REVOKED": "已撤销",
+  }}[state] || state;
+}}
+function showApprovalMessage(message, isError=false) {{
+  const element = document.getElementById("approvalMessage");
+  element.textContent = String(message || "");
+  element.style.color = isError ? "#9f2d2d" : "";
+}}
+function renderApprovalState() {{
+  const approval = currentApproval || {{ state: "NOT_REQUESTED" }};
+  const permissions = new Set(currentSession?.permissions || []);
+  const pending = approval.state === "PENDING_REVIEW";
+  const approved = approval.approval_satisfied === true;
+  const currentTargetChanged = approval.resource_version_matches === false
+    || approval.approval_scope_matches === false;
+  const approvalExpired = approval.approval_expired === true;
+  const canRequest = permissions.has("object_approval_request")
+    && !pending
+    && (approval.state === "NOT_REQUESTED" || approval.state === "REVOKED" || approvalExpired || currentTargetChanged);
+  const canDecide = permissions.has("object_approval_decision") && pending;
+  const canRevoke = permissions.has("object_approval_decision") && approved;
+  const canDownload = permissions.has("internal_preview_download") && approved;
+  safeHtml(document.getElementById("approvalState")).innerHTML = rowsHtml([
+    ["当前角色", currentSession?.role || "未读取"],
+    ["审批状态", approvalStatusText(approval)],
+    ["审批请求编号", approval.request_id || "--"],
+    ["申请人", approval.requested_by || "--"],
+    ["复核人", approval.reviewer || "--"],
+    ["有效期至", approval.valid_until || "--"],
+    ["是否过期", approvalExpired ? "已过期" : "未过期"],
+    ["职责分离", approval.separation_of_duties_satisfied ? "已满足" : "尚未满足"],
+    ["重新申请", approval.state === "REJECTED" && !currentTargetChanged ? "请先修改证据包后再申请" : "目标变化后可重新申请"],
+    ["认证与审批", "登录成功不会自动批准该对象"],
+  ]);
+  document.getElementById("requestDownloadApproval").disabled = !canRequest;
+  document.getElementById("approveDownloadApproval").disabled = !canDecide;
+  document.getElementById("rejectDownloadApproval").disabled = !canDecide;
+  document.getElementById("revokeDownloadApproval").disabled = !canRevoke;
+  const downloadLink = document.getElementById("approvedDownloadLink");
+  downloadLink.href = canDownload
+    ? `/customer-artifact-portal-download/${{encodeURIComponent(opportunityId)}}`
+    : "#approval";
+  downloadLink.setAttribute("aria-disabled", canDownload ? "false" : "true");
+  downloadLink.textContent = canDownload
+    ? "下载已审批的内部证据包"
+    : "审批通过后下载内部证据包";
+  const formalBundleLink = document.getElementById("formalBundleLink");
+  formalBundleLink.href = canDownload
+    ? `/customer-artifact-portal-download/${{encodeURIComponent(opportunityId)}}?format=zip`
+    : "#approval";
+  formalBundleLink.setAttribute("aria-disabled", canDownload ? "false" : "true");
+  formalBundleLink.textContent = canDownload
+    ? "下载 SKU-B PDF/HTML/ZIP 人工签发复核包"
+    : "审批通过后下载 SKU-B PDF/HTML/ZIP 复核包";
+}}
+async function loadApprovalState() {{
+  const [sessionResponse, approvalResponse] = await Promise.all([
+    fetch("/internal/auth/session"),
+    fetch(`/internal/approvals/resources/opportunity/${{encodeURIComponent(opportunityId)}}/internal_preview_download`),
+  ]);
+  currentSession = sessionResponse.ok ? await sessionResponse.json() : {{}};
+  currentApproval = approvalResponse.ok
+    ? await approvalResponse.json()
+    : {{ state: "NOT_REQUESTED", approval_satisfied: false }};
+  renderApprovalState();
+}}
+async function submitApprovalRequest() {{
+  showApprovalMessage("正在提交审批申请...");
+  const response = await fetch("/internal/approvals/requests", {{
+    method: "POST",
+    headers: {{ "content-type": "application/json" }},
+    body: JSON.stringify({{
+      resource_type: "opportunity",
+      resource_id: opportunityId,
+      action: "internal_preview_download",
+      reason: document.getElementById("approvalReason").value.trim() || "内部证据包验收需要",
+    }}),
+  }});
+  const payload = await response.json().catch(() => ({{}}));
+  if (!response.ok) {{
+    showApprovalMessage(`申请失败（${{response.status}}），请确认当前角色与待审批状态。`, true);
+    return;
+  }}
+  currentApproval = payload;
+  showApprovalMessage("审批申请已提交，等待独立 reviewer 处理。");
+  renderApprovalState();
+}}
+async function submitApprovalDecision(decision) {{
+  if (!currentApproval?.request_id) {{ return; }}
+  showApprovalMessage("正在提交审批决定...");
+  const response = await fetch(
+    `/internal/approvals/requests/${{encodeURIComponent(currentApproval.request_id)}}/decision`,
+    {{
+      method: "POST",
+      headers: {{ "content-type": "application/json" }},
+      body: JSON.stringify({{
+        decision,
+        reason: document.getElementById("approvalReason").value.trim() || "已完成独立复核",
+      }}),
+    }},
+  );
+  const payload = await response.json().catch(() => ({{}}));
+  if (!response.ok) {{
+    const separationRequired = payload?.detail?.code === "APPROVAL_SEPARATION_OF_DUTIES_REQUIRED";
+    showApprovalMessage(
+      separationRequired ? "申请人不能审批自己的申请，请切换到独立 reviewer。" : `审批失败（${{response.status}}）。`,
+      true,
+    );
+    return;
+  }}
+  currentApproval = payload;
+  showApprovalMessage(decision === "APPROVED" ? "审批已通过，下载入口已按角色启用。" : "审批已拒绝。");
+  renderApprovalState();
+}}
+async function revokeApproval() {{
+  if (!currentApproval?.request_id) {{ return; }}
+  showApprovalMessage("正在撤销审批...");
+  const response = await fetch(
+    `/internal/approvals/requests/${{encodeURIComponent(currentApproval.request_id)}}/revoke`,
+    {{
+      method: "POST",
+      headers: {{ "content-type": "application/json" }},
+      body: JSON.stringify({{
+        reason: document.getElementById("approvalReason").value.trim() || "复核人撤销内部预览授权",
+      }}),
+    }},
+  );
+  const payload = await response.json().catch(() => ({{}}));
+  if (!response.ok) {{
+    showApprovalMessage(`撤销失败（${{response.status}}），请确认当前角色和审批状态。`, true);
+    return;
+  }}
+  currentApproval = payload;
+  showApprovalMessage("审批已撤销；原下载授权立即失效。", false);
+  renderApprovalState();
+}}
 function badge(text, kind="") {{
   const safeKind = ["", "warn", "danger"].includes(String(kind || "")) ? String(kind || "") : "";
   return `<span class="pill ${{safeKind}}">${{safeText(labelOf(text))}}</span>`;
@@ -4648,18 +6048,37 @@ function evidenceItemsHtml(items, sampleMode=false, customerJudgement="") {{
   if (!rows.length) {{ return `<div class="empty-state">暂无证据项读回。</div>`; }}
   return `<div class="compact-card-grid">${{rows.map((item) => `
     <div class="stage-card">
-      <strong>${{safeText(labelOf(item.item_id || item.source_object || "--"))}}</strong>
-      <p>证据类型：${{safeText(labelOf(item.item_id || "--"))}}</p>
-      <p>线索类型：${{safeText(labelOf(item.source_object || "--"))}}</p>
+      <strong>${{safeText(labelOf(item.evidence_type || item.item_id || item.source_object || "--"))}}</strong>
+      <p>证据类型：${{safeText(labelOf(item.evidence_type || item.item_id || "--"))}}</p>
+      <p>线索类型：${{safeText(labelOf(item.target_type || item.source_object || "--"))}}</p>
       ${{sampleMode ? badge("样本证据项，非客户交付", "warn") : ""}}
       <p>来源对象：${{safeText(valueText(item.source_id))}}</p>
-      ${{badge(item.manifest_state || item.status || "--", item.present === false ? "warn" : "")}}
+      ${{badge(item.verification_state || item.manifest_state || item.status || "--", item.present === false ? "warn" : "")}}
+      ${{item.evidence_grade ? badge(`证据等级 ${{item.evidence_grade}}`) : ""}}
       ${{badge(item.masking_policy || "--")}}
       <p>客户交付判断：${{safeText(customerJudgement || "客户交付前需要完成真实来源核验。")}}</p>
       <p>来源引用：${{safeText(valueText(item.source_refs))}}</p>
+      ${{item.blocking_reason ? `<p>阻断原因：${{safeText(item.blocking_reason)}}</p>` : ""}}
+      ${{item.next_step ? `<p>下一步：${{safeText(item.next_step)}}</p>` : ""}}
       <p>公开来源：${{safeSourceHref(item.source_url) ? `<a href="${{safeText(safeSourceHref(item.source_url))}}" target="_blank" rel="noopener noreferrer">${{safeText(item.source_site_name || item.source_profile_id || item.source_url)}}</a>` : "来源网址待读回"}}</p>
     </div>
   `).join("")}}</div>`;
+}}
+function renderDeliveryBoundary(boundary) {{
+  const clauses = Array.isArray(boundary?.clauses) ? boundary.clauses : [];
+  const clauseHtml = clauses.length
+    ? `<ol>${{clauses.map((item) => `<li><strong>${{safeText(item.title || item.code || "边界条款")}}</strong>：${{safeText(item.text || "")}}</li>`).join("")}}</ol>`
+    : `<p>统一边界条款未读取，禁止将本材料签发给客户。</p>`;
+  safeHtml(document.getElementById("boundaryState")).innerHTML = `
+    ${{rowsHtml([
+      ["边界合同", `${{boundary?.contract_id || "未读取"}} / ${{boundary?.contract_version || "--"}}`],
+      ["当前交付方式", boundary?.current_delivery_statement || "未读取"],
+      ["人工复核签发", boundary?.human_signoff_required ? "必须" : "未确认"],
+      ["自动邮件交付", boundary?.automatic_email_delivery_enabled ? "已开放" : "未开放"],
+      ["客户自助下载", boundary?.customer_self_service_download_enabled ? "已开放" : "未开放"],
+    ])}}
+    <p><strong>统一限制条款</strong></p>${{clauseHtml}}
+  `;
 }}
 function renderEvidencePackage(payload, missing=false) {{
   const formal = payload?.source_formal_client_export_page_layer_readiness || {{}};
@@ -4671,7 +6090,10 @@ function renderEvidencePackage(payload, missing=false) {{
   const sourceUrl = sourceVerification.source_url || "";
   const sampleMode = dataBoundary["是否离线样本"] === true;
   const customerJudgement = dataBoundary["客户可交付判断"] || "";
-  const evidenceItems = (manifest.evidence_items || []).map((item) => ({{
+  const stage4EvidenceItems = Array.isArray(manifest.stage4_release_evidence_items)
+    ? manifest.stage4_release_evidence_items
+    : [];
+  const evidenceItems = (stage4EvidenceItems.length ? stage4EvidenceItems : (manifest.evidence_items || [])).map((item) => ({{
     ...item,
     source_url: item.source_url || sourceUrl,
     source_site_name: item.source_site_name || sourceVerification.source_site_name,
@@ -4679,8 +6101,9 @@ function renderEvidencePackage(payload, missing=false) {{
   }}));
   const watermark = readback.watermark || formal.watermark || {{}};
   const hash = readback.artifact_version_hash || formal.artifact_version_hash || "--";
+  renderDeliveryBoundary(payload?.customer_delivery_boundary || {{}});
   if (missing) {{
-    safeHtml(document.getElementById("mailPackagePreview")).innerHTML = `<div class="empty-state">还没有可预览的拟邮件证据包。</div>`;
+    safeHtml(document.getElementById("mailPackagePreview")).innerHTML = `<div class="empty-state">还没有可预览的人工交付包。</div>`;
     safeHtml(document.getElementById("evidencePackagePreview")).innerHTML = `<div class="empty-state">还没有证据项清单。</div>`;
     return;
   }}
@@ -4701,12 +6124,12 @@ function renderEvidencePackage(payload, missing=false) {{
   ]);
   safeHtml(document.getElementById("mailPackagePreview")).innerHTML = `
     <div class="stage-card">
-      <strong>邮件发送包预览</strong>
-      <p>主题：证据包交付 - ${{opportunityId}}</p>
+      <strong>人工交付包预览</strong>
+      <p>对象：证据包交付 - ${{opportunityId}}</p>
       ${{badge("仅内部预览")}}
-      ${{badge("真实邮件未接入", "warn")}}
-      ${{badge("付款后发送")}}
-      <div class="opportunity-actions"><a href="/customer-artifact-portal-download/${{encodeURIComponent(opportunityId)}}">下载内部证据包文件</a></div>
+      ${{badge("待人工复核签发", "warn")}}
+      ${{badge("自动邮件未开放")}}
+      <div class="opportunity-actions"><a href="#approval">前往逐对象审批与下载</a></div>
     </div>
     ${{rowsHtml([
       ["附件1", readback.evidence_pack_id || "证据包清单"],
@@ -4724,13 +6147,13 @@ function blockedReasonLabel(reason) {{
     "stage7_artifact_readback_missing": "阶段7证据包尚未生成",
     "stage8_stage9_delivery_context_not_required_for_access_candidate_readback": "阶段8/9真实交付上下文未进入内部预览",
     "customer_visible_export_enabled=false": "客户自助页面未开放；内部预览不受影响",
-    "client_page_release_enabled=false": "客户自助页面未发布；未来改邮件发送",
+    "client_page_release_enabled=false": "客户自助页面未发布；签发后走人工受控交付",
     "external_release_enabled=false": "真实外发未接入；内部测试不阻塞",
     "external_delivery_enabled=false": "真实交付未接入；内部测试不阻塞",
     "direct_export_enabled=false": "直接导出未接入；内部预览可看",
     "approval_audit_and_implementation_decision_required_before_live": "真实外发前再做审批审计",
     "customer_account_access_control_required": "客户账号不作为当前内部测试前置",
-    "download_auth_required": "客户下载不是当前交付路径；未来走邮件发送",
+    "download_auth_required": "客户下载不是当前交付路径；签发后走人工受控交付",
     "approval_audit_required_before_customer_download": "客户下载不是当前交付路径",
     "public_software_release_not_approved": "不做客户软件发布；内部预览不阻塞",
   }};
@@ -4796,7 +6219,7 @@ async function loadPortal() {{
     badge("真实下载未执行", "warn")
   ].join("");
   safeHtml(document.getElementById("previewState")).innerHTML =
-    `<div class="stage-card"><strong>内部验收可用</strong><p>可验收证据项清单、字段白名单、脱敏、水印、版本哈希、拟邮件附件和审计读回；真实发送能力等邮件服务商接入后再验收。</p><p>${{safeText(payload?.data_boundary?.["客户可交付判断"] || "客户交付前需要完成真实来源核验。")}}</p>${{badge("内部预览")}} ${{badge("拟邮件包可看")}} ${{badge("真实邮件未接入", "warn")}}</div>`;
+    `<div class="stage-card"><strong>内部验收可用</strong><p>可验收证据项清单、字段白名单、脱敏、水印、版本哈希、人工交付附件、统一责任边界和审计读回。</p><p>${{safeText(payload?.data_boundary?.["客户可交付判断"] || "客户交付前需要完成真实来源核验。")}}</p>${{badge("内部预览")}} ${{badge("人工交付包可看")}} ${{badge("自动邮件未开放", "warn")}}</div>`;
   renderReadbackSummary(payload, false);
 }}
 function renderMissingArtifact(payload) {{
@@ -4836,7 +6259,22 @@ document.querySelectorAll('nav a[href^="#"]').forEach((link) => {{
     navigateArtifactSection(link.getAttribute("href"));
   }});
 }});
+document.getElementById("requestDownloadApproval").addEventListener("click", submitApprovalRequest);
+document.getElementById("approveDownloadApproval").addEventListener("click", () => submitApprovalDecision("APPROVED"));
+document.getElementById("rejectDownloadApproval").addEventListener("click", () => submitApprovalDecision("REJECTED"));
+document.getElementById("revokeDownloadApproval").addEventListener("click", revokeApproval);
+document.getElementById("approvedDownloadLink").addEventListener("click", (event) => {{
+  if (event.currentTarget.getAttribute("aria-disabled") !== "false") {{
+    event.preventDefault();
+    navigateArtifactSection("#approval");
+    showApprovalMessage("需要先完成该商机的独立审批。", true);
+  }}
+}});
 loadPortal().catch(renderMissingArtifact);
+loadApprovalState().catch(() => {{
+  showApprovalMessage("审批状态读取失败，请刷新页面或检查内部会话。", true);
+  renderApprovalState();
+}});
 """
     return _page("AX9S 内部证据包预览", body, script)
 
@@ -4867,14 +6305,78 @@ def render_customer_artifact_portal_readback(payload: dict[str, Any]) -> dict[st
             "search_run_metadata": metadata,
             "source_verification": source_verification,
             "data_boundary": _localized_data_boundary(fallback_surface, metadata),
+            "customer_delivery_boundary": customer_delivery_boundary(),
         }
 
 
 def render_customer_artifact_portal_download(payload: dict[str, Any]) -> Response:
     opportunity_id = str(payload.get("opportunity_id") or "")
+    download_format = str(payload.get("format") or "json").strip().lower()
+    if download_format not in {"json", "zip"}:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "UNSUPPORTED_EVIDENCE_PACKAGE_FORMAT",
+                "supported_formats": ["json", "zip"],
+            },
+        )
     surface = _customer_artifact_surface_with_search_context(payload)
-    _assert_internal_evidence_package_download_allowed(payload, surface)
     package = _internal_evidence_package_download_payload(payload, surface=surface)
+    approval_scope_sha256 = _internal_evidence_package_scope_sha256(package)
+    approval = _assert_internal_evidence_package_download_allowed(
+        payload,
+        surface,
+        approval_scope_sha256=approval_scope_sha256,
+    )
+    auth_context = dict(payload.get("_internal_auth_context") or {})
+    try:
+        approval = record_approved_object_action(
+            resource_type="opportunity",
+            resource_id=opportunity_id,
+            action="internal_preview_download",
+            performed_by=str(auth_context.get("principal_id") or ""),
+            performed_by_role=str(auth_context.get("role") or ""),
+            current_approval_scope_sha256=approval_scope_sha256,
+        )
+    except PermissionError as exc:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "code": "ACTIVE_OBJECT_APPROVAL_REQUIRED",
+                "message": str(exc),
+            },
+        ) from exc
+    package["模拟下载审计"]["逐对象审批"] = {
+        "审批请求编号": approval.get("request_id"),
+        "审批决定事件编号": approval.get("decision_event_id"),
+        "下载执行审计编号": approval.get("execution_event_id"),
+        "审批动作": approval.get("action"),
+        "审批状态": approval.get("state"),
+        "审批对象版本哈希": approval.get("resource_version_sha256"),
+        "审批对象版本一致": bool(approval.get("resource_version_matches")),
+        "审批交付包哈希": approval.get("approval_scope_sha256"),
+        "审批交付包一致": bool(approval.get("approval_scope_matches")),
+        "职责分离已满足": bool(approval.get("separation_of_duties_satisfied")),
+        "审批身份信息已写入后台审计": True,
+        "认证不会自动满足审批": True,
+    }
+    assert_customer_delivery_payload_safe(package)
+    if download_format == "zip":
+        bundle = build_fixed_sku_evidence_bundle(
+            package,
+            approval_audit=dict(package["模拟下载审计"]["逐对象审批"]),
+            generated_at=str(approval.get("executed_at") or approval.get("updated_at") or "") or None,
+        )
+        return Response(
+            bundle["bytes"],
+            media_type=bundle["media_type"],
+            headers={
+                "Content-Disposition": f'attachment; filename="{bundle["filename"]}"',
+                "X-Kaka-Bundle-SHA256": str(bundle["bundle_sha256"]),
+                "X-Kaka-SKU-Code": "SKU-B",
+                "Cache-Control": "no-store",
+            },
+        )
     filename = f"internal-evidence-package-{_safe_filename_token(opportunity_id)}.json"
     return Response(
         json.dumps(package, ensure_ascii=False, indent=2),
@@ -4886,17 +6388,27 @@ def render_customer_artifact_portal_download(payload: dict[str, Any]) -> Respons
 def _assert_internal_evidence_package_download_allowed(
     payload: Mapping[str, Any],
     surface: Mapping[str, Any],
-) -> None:
+    *,
+    approval_scope_sha256: str,
+) -> dict[str, Any]:
     download_auth = dict(surface.get("download_auth") or {})
     field_policy = dict(surface.get("field_allowlist_masking") or {})
     auth_context = dict(payload.get("_internal_auth_context") or {})
     permissions = {str(permission) for permission in auth_context.get("permissions") or []}
+    approval = approval_context_for_download(
+        payload,
+        current_approval_scope_sha256=approval_scope_sha256,
+    )
     required_flags = {
         "operator_authenticated": bool(auth_context.get("authenticated")),
         "internal_preview_download_authorized": "internal_preview_download" in permissions,
-        "approval_audit_confirmed": bool(auth_context.get("approval_audit_confirmed")),
-        "field_allowlist_masking_confirmed": bool(
-            auth_context.get("field_allowlist_masking_confirmed")
+        "object_approval_confirmed": bool(approval.get("approval_satisfied")),
+        "separation_of_duties_satisfied": bool(
+            approval.get("separation_of_duties_satisfied")
+        ),
+        "approval_subject_matches": (
+            str(auth_context.get("principal_id") or "")
+            == str(approval.get("approval_subject") or "")
         ),
     }
     field_policy_ready = bool(field_policy.get("allowlist_enforced")) and bool(field_policy.get("masking_required"))
@@ -4923,6 +6435,14 @@ def _assert_internal_evidence_package_download_allowed(
                     "audit_required": True,
                     "customer_download_enabled": False,
                 },
+                "object_approval": {
+                    "resource_type": approval.get("resource_type"),
+                    "resource_id": approval.get("resource_id"),
+                    "action": approval.get("action"),
+                    "state": approval.get("state"),
+                    "request_id": approval.get("request_id"),
+                    "authentication_implies_approval": False,
+                },
                 "field_allowlist_masking": {
                     "allowlist_enforced": bool(field_policy.get("allowlist_enforced")),
                     "masking_required": bool(field_policy.get("masking_required")),
@@ -4932,6 +6452,7 @@ def _assert_internal_evidence_package_download_allowed(
                 },
             },
         )
+    return approval
 
 
 def render_operator_user_acceptance_contract(payload: Any) -> dict[str, Any]:

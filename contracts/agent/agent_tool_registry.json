@@ -1,0 +1,221 @@
+{
+  "catalog_id": "agent-tool-registry",
+  "version": "1.1.0",
+  "status": "ACTIVE_INTERNAL_ONLY",
+  "authority": "AGENT-003+AGENT-004",
+  "provider_runtime_binding": "NONE_REQUIRED_DETERMINISTIC_ONLY",
+  "openai_responses_profile": {
+    "tool_type": "function",
+    "strict": true,
+    "parallel_tool_calls": false,
+    "tool_choice_mode": "allowed_tools",
+    "call_id_must_be_preserved": true,
+    "raw_model_reasoning_persisted": false,
+    "model_provider_call_required": false
+  },
+  "execution_budget": {
+    "max_plan_steps": 4,
+    "max_executable_read_calls": 3,
+    "max_calls_per_tool": 2,
+    "max_output_bytes_per_step": 32768,
+    "time_budget_milliseconds": 5000,
+    "retry_count": 0,
+    "sequential_execution_only": true,
+    "stop_on_first_failure": true
+  },
+  "default_governance": {
+    "internal_only": true,
+    "default_open": false,
+    "direct_mutation_allowed": false,
+    "live_execution_enabled": false,
+    "external_contact_enabled": false,
+    "payment_enabled": false,
+    "refund_enabled": false,
+    "customer_delivery_enabled": false,
+    "customer_publication_enabled": false,
+    "unregistered_tool_calls_rejected": true,
+    "unknown_arguments_rejected": true,
+    "plan_validation_before_execution": true
+  },
+  "tools": [
+    {
+      "name": "agent_memory_context_read",
+      "description": "Read the authenticated principal preferences and optional project working context as unverified, non-evidentiary memory.",
+      "strict": true,
+      "action_intent": "INTERNAL_CONTEXT_READ",
+      "required_permission": "internal_agent_memory",
+      "risk_class": "READ_ONLY_CONTEXT",
+      "execution_mode": "DETERMINISTIC_READ_ONLY",
+      "mutation_allowed": false,
+      "live_execution_enabled": false,
+      "requires_human_action": false,
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": ["string", "null"],
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+          }
+        },
+        "required": ["project_id"],
+        "additionalProperties": false
+      },
+      "governance": {
+        "memory_is_fact_or_evidence": false,
+        "memory_can_satisfy_citation": false,
+        "memory_can_change_gate_or_approval": false,
+        "sensitive_data_allowed": false
+      }
+    },
+    {
+      "name": "task_status_read",
+      "description": "Read one persisted internal task by queue item ID, or the latest persisted task for a project.",
+      "strict": true,
+      "action_intent": "INTERNAL_SOURCE_READ",
+      "required_permission": "internal_agent_plan",
+      "risk_class": "READ_ONLY_LOW",
+      "execution_mode": "DETERMINISTIC_READ_ONLY",
+      "mutation_allowed": false,
+      "live_execution_enabled": false,
+      "requires_human_action": false,
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": ["string", "null"],
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+          },
+          "queue_item_id": {
+            "type": ["string", "null"],
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$"
+          }
+        },
+        "required": ["project_id", "queue_item_id"],
+        "additionalProperties": false
+      },
+      "runtime_requirements": ["project_id_or_queue_item_id_required"]
+    },
+    {
+      "name": "project_evidence_read",
+      "description": "Read allowlisted facts and citations from persisted formal evidence objects for one project.",
+      "strict": true,
+      "action_intent": "INTERNAL_SOURCE_READ",
+      "required_permission": "internal_agent_plan",
+      "risk_class": "READ_ONLY_LOW",
+      "execution_mode": "DETERMINISTIC_READ_ONLY",
+      "mutation_allowed": false,
+      "live_execution_enabled": false,
+      "requires_human_action": false,
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+          }
+        },
+        "required": ["project_id"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "project_next_step_read",
+      "description": "Read the next action from persisted work items and formal project gate state without executing it.",
+      "strict": true,
+      "action_intent": "INTERNAL_SOURCE_READ",
+      "required_permission": "internal_agent_plan",
+      "risk_class": "READ_ONLY_LOW",
+      "execution_mode": "DETERMINISTIC_READ_ONLY",
+      "mutation_allowed": false,
+      "live_execution_enabled": false,
+      "requires_human_action": false,
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+          }
+        },
+        "required": ["project_id"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "internal_stage1_task_proposal",
+      "description": "Build a non-mutating Stage1 internal task proposal. It never confirms or writes the task.",
+      "strict": true,
+      "action_intent": "PREVIEW_ONLY",
+      "required_permission": "internal_agent_plan",
+      "risk_class": "PREVIEW_ONLY_LOW",
+      "execution_mode": "DETERMINISTIC_PREVIEW_ONLY",
+      "mutation_allowed": false,
+      "live_execution_enabled": false,
+      "requires_human_action": false,
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+          },
+          "region_code": {
+            "type": ["string", "null"],
+            "pattern": "^CN-[A-Z0-9-]{2,29}$"
+          }
+        },
+        "required": ["project_id", "region_code"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "internal_stage1_task_create_handoff",
+      "description": "Pause and hand the proposed internal task to the authenticated operator for explicit confirmation in the conversational entry.",
+      "strict": true,
+      "action_intent": "INTERNAL_WRITEBACK",
+      "required_permission": "internal_agent_plan",
+      "risk_class": "MUTATING_REQUIRES_HUMAN",
+      "execution_mode": "HUMAN_HANDOFF_ONLY",
+      "mutation_allowed": false,
+      "live_execution_enabled": false,
+      "requires_human_action": true,
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+          },
+          "region_code": {
+            "type": ["string", "null"],
+            "pattern": "^CN-[A-Z0-9-]{2,29}$"
+          }
+        },
+        "required": ["project_id", "region_code"],
+        "additionalProperties": false
+      },
+      "human_handoff": {
+        "surface": "/operator-console#agent",
+        "confirmation_field": "confirm_internal_task",
+        "planner_execution_after_approval_enabled": false,
+        "real_external_fetch_enabled": false,
+        "live_execution_enabled": false
+      }
+    }
+  ],
+  "permanently_unavailable_actions": [
+    "external_contact",
+    "send_email",
+    "send_sms",
+    "place_phone_call",
+    "charge_payment",
+    "issue_refund",
+    "customer_delivery",
+    "customer_publication",
+    "arbitrary_shell",
+    "arbitrary_http_request",
+    "formal_fact_writeback",
+    "evidence_gate_override",
+    "approval_gate_override"
+  ]
+}

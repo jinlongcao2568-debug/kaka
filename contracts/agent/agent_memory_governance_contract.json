@@ -1,0 +1,115 @@
+{
+  "contract_id": "agent-memory-governance-contract",
+  "version": "1.0.0",
+  "status": "ACTIVE_INTERNAL_ONLY",
+  "authority": "AGENT-004",
+  "deployment_boundary": {
+    "current_product_mode": "PRIVATE_SINGLE_TENANT",
+    "shared_multi_customer_saas_claimed": false,
+    "tenant_scope_source": "AUTHENTICATED_TRANSPORT_DEPLOYMENT_CONTEXT",
+    "caller_supplied_tenant_id_allowed": false,
+    "principal_memory_subject": "AUTHENTICATED_PRINCIPAL",
+    "project_memory_subject": "DEPLOYMENT_TENANT_PLUS_EXPLICIT_PROJECT_ID",
+    "project_memory_shared_with_authorized_operators_in_same_deployment": true,
+    "cross_tenant_or_cross_project_implicit_lookup_allowed": false
+  },
+  "registered_memory_keys": {
+    "response_language": {
+      "allowed_scopes": ["PRINCIPAL"],
+      "value_mode": "ALLOWLIST",
+      "default_ttl_days": 180,
+      "max_ttl_days": 365
+    },
+    "response_detail": {
+      "allowed_scopes": ["PRINCIPAL"],
+      "value_mode": "ALLOWLIST",
+      "default_ttl_days": 180,
+      "max_ttl_days": 365
+    },
+    "preferred_output_format": {
+      "allowed_scopes": ["PRINCIPAL", "PROJECT"],
+      "value_mode": "ALLOWLIST",
+      "default_ttl_days": 90,
+      "max_ttl_days": 365
+    },
+    "default_region_code": {
+      "allowed_scopes": ["PRINCIPAL", "PROJECT"],
+      "value_mode": "REGION_CODE",
+      "default_ttl_days": 90,
+      "max_ttl_days": 180
+    },
+    "project_workflow_note": {
+      "allowed_scopes": ["PROJECT"],
+      "value_mode": "SANITIZED_UNVERIFIED_TEXT",
+      "max_characters": 500,
+      "default_ttl_days": 30,
+      "max_ttl_days": 90
+    }
+  },
+  "mutation_protocol": {
+    "actions": ["UPSERT", "CORRECT", "DELETE"],
+    "active_value_change_requires_correct": true,
+    "correct_requires_expected_version": true,
+    "delete_requires_expected_version": true,
+    "same_active_value_is_idempotent": true,
+    "delete_clears_raw_value_immediately": true,
+    "correction_and_deletion_audit_required": true,
+    "audit_contains_value_hashes_not_raw_values": true,
+    "actor_identity_transport_injected": true,
+    "caller_actor_or_tenant_spoofing_rejected": true
+  },
+  "retention": {
+    "active_value_has_required_expiry": true,
+    "expired_value_cleared_on_sweep_or_next_memory_access": true,
+    "deleted_or_expired_tombstone_purge_eligible_after_days": 30,
+    "tombstone_contains_raw_value": false,
+    "automatic_physical_tombstone_purge_enabled": false,
+    "backup_media_follows_private_pilot_backup_retention": true,
+    "cryptographic_erasure_from_historical_backups_claimed": false,
+    "multi_api_transactional_compare_and_swap_claimed": false
+  },
+  "prohibited_content": [
+    "CREDENTIALS",
+    "API_KEYS",
+    "AUTHORIZATION_HEADERS",
+    "COOKIES_OR_SESSION_TOKENS",
+    "PASSWORDS_OR_PRIVATE_KEYS",
+    "PRIVATE_EMAIL_OR_PHONE",
+    "NATIONAL_ID_OR_BANK_DATA",
+    "RAW_CONVERSATION_HISTORY",
+    "RAW_MODEL_REASONING",
+    "RAW_GOVERNED_DOCUMENTS"
+  ],
+  "model_context_boundary": {
+    "only_registered_active_unexpired_values_projected": true,
+    "sensitive_scan_repeated_before_projection": true,
+    "trust_class": "UNVERIFIED_CONTEXT_ONLY",
+    "memory_is_formal_fact": false,
+    "memory_is_evidence": false,
+    "memory_can_satisfy_citation": false,
+    "memory_can_change_rule_or_evidence_gate": false,
+    "memory_can_satisfy_approval": false,
+    "memory_can_form_legal_conclusion": false,
+    "raw_conversation_history_projected": false,
+    "model_provider_call_required": false
+  },
+  "surfaces": {
+    "list": {
+      "operation_id": "listOperatorAgentMemories",
+      "method": "GET",
+      "path": "/operator-console/agent/memories",
+      "required_permission": "internal_agent_memory"
+    },
+    "mutate": {
+      "operation_id": "mutateOperatorAgentMemory",
+      "method": "POST",
+      "path": "/operator-console/agent/memories",
+      "required_permission": "internal_agent_memory",
+      "strict_request_response": true
+    }
+  },
+  "formal_objects": [
+    "agent_memory_record",
+    "agent_memory_audit"
+  ]
+}

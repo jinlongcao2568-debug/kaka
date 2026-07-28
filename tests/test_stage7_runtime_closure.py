@@ -45,6 +45,52 @@ class TestStage7RuntimeClosure(unittest.TestCase):
         self.assertFalse(workbench["provider_adapter_readiness"]["real_provider_call_enabled"])
         self.assertFalse(package["provider_adapter_readiness"]["real_provider_call_enabled"])
 
+    def test_stage4_release_evidence_items_flow_through_stage6_into_stage7_package(self) -> None:
+        payload = load_fixture("internal_chain_happy.json")
+        payload["stage4_release_evidence_items"] = [
+            {
+                "item_id": f"EVD-STAGE4-{index}",
+                "target_type": target_type,
+                "result_state": "NOT_FOUND",
+                "evidence_grade": "D",
+                "source_url": "https://example.gov.cn/project/real-source",
+                "source_site_name": "公开官方来源",
+                "source_profile_id": "CN-TEST-OFFICIAL",
+                "query_time": "2026-07-19T10:00:00+08:00",
+                "source_snapshot_sha256": str(index) * 64,
+                "machine_verification_decision": "CURRENT_PUBLIC_SOURCE_DOES_NOT_VERIFY_TARGET",
+                "required_next_input": ["alternate_public_source_or_more_precise_project_identifier"],
+                "source_refs": [f"SNAP-STAGE4-{index}"],
+                "query_miss_is_not_clearance": True,
+                "no_legal_conclusion": True,
+            }
+            for index, target_type in enumerate(
+                (
+                    "construction_permit",
+                    "completion_acceptance",
+                    "project_manager_change_notice",
+                    "contract_performance",
+                ),
+                start=1,
+            )
+        ]
+
+        stage7 = run_internal_chain_to_stage7(payload)["stage7"]
+        package = stage7.inputs["leadpack_delivery_package"]
+        manifest = package["stage4_release_evidence_manifest"]
+        evidence_items = package["package_manifest"]["stage4_release_evidence_items"]
+
+        self.assertEqual(len(evidence_items), 4)
+        self.assertEqual(
+            {item["evidence_type"] for item in evidence_items},
+            {"施工许可", "竣工验收", "项目经理变更", "合同履约"},
+        )
+        self.assertTrue(manifest["coverage_complete"])
+        self.assertTrue(manifest["ready_for_sku_b_bundle"])
+        self.assertFalse(manifest["placeholder_records_generated"])
+        self.assertTrue(all(item["blocking_reason"] for item in evidence_items))
+        self.assertTrue(all(item["next_step"] for item in evidence_items))
+
     def test_stage7_runtime_consumes_buyer_fit_scorecard(self) -> None:
         stage7 = run_internal_chain_to_stage7(load_fixture("internal_chain_happy.json"))["stage7"]
         trace = stage7.inputs["stage7_resolution_trace"]["buyer_fit_scorecard"]

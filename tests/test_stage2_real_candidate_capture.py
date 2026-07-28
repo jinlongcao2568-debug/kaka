@@ -744,7 +744,7 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
         self._tmp_dir.cleanup()
 
     def test_person_name_quality_gate_rejects_live20_false_positive_tokens(self) -> None:
-        false_positive_tokens = ["厦门重", "质量目标", "幢游泳馆", "投资", "年以上", "国电电力", "万千瓦", "陕西榆林"]
+        false_positive_tokens = ["厦门重", "质量目标", "幢游泳馆", "投资", "年以上", "国电电力", "万千瓦", "陕西榆林", "达到", "满足", "符合"]
         for value in false_positive_tokens:
             with self.subTest(value=value):
                 self.assertFalse(_looks_like_person_name(value))

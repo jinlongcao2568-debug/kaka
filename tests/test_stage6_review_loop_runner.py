@@ -311,6 +311,31 @@ class Stage6ReviewLoopRunnerTests(unittest.TestCase):
                 "manual_review_release_evidence_b_or_c_readback_before_stage7_preview",
             )
 
+    def test_region_adapter_gap_routes_to_source_adapter_not_browser_worker(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_blocked_release_field_query_result(root / "field-query")
+            field_query_json = root / "field-query" / "guangdong-local-field-query-probe-v1.json"
+            payload = json.loads(field_query_json.read_text(encoding="utf-8"))
+            task = payload["manifest"]["field_task_records"][0]
+            task["field_query_probe_state"] = "LIVE_FIELD_QUERY_NEEDS_REGION_ADAPTER"
+            task["authorization_readiness_state"] = ""
+            task["blocker_taxonomy"] = ["non_guangdong_release_evidence_requires_jurisdiction_adapter"]
+            field_query_json.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+            result = run_stage6_review_loop_runner(
+                dispatch_root=root / "missing-dispatch",
+                batch_closeout_root=root / "missing-closeout",
+                release_field_query_json=field_query_json,
+                output_root=root / "out",
+                auto_discover_latest_batch_closeout=False,
+                created_at="2026-05-19T00:00:00+08:00",
+            )
+
+            record = result["manifest"]["project_status_table"]["records"][0]
+            self.assertIn("fallback_source", record["runtime_blocker_subqueue_routes"])
+            self.assertNotIn("browser_worker", record["runtime_blocker_subqueue_routes"])
+
     def test_supplemental_release_field_query_merges_into_stage6_limited_sellable_projection(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -465,6 +490,57 @@ class Stage6ReviewLoopRunnerTests(unittest.TestCase):
             self.assertEqual(record["loop_terminal_state"], "RELEASE_FIELD_QUERY_REVIEW_READY")
             self.assertEqual(record["release_field_query_result_json"], str(root / "field-query" / "guangdong-local-field-query-probe-v1.json"))
             self.assertEqual(record["release_field_query_source_hit_summaries"][0]["source_label"], "广东建设信息网三库一平台匿名公开源")
+
+    def test_release_field_query_embedded_stage5_sample_is_auto_replayed_without_extra_path(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_release_field_query_result(root / "field-query")
+            field_query_json = root / "field-query" / "guangdong-local-field-query-probe-v1.json"
+            payload = json.loads(field_query_json.read_text(encoding="utf-8"))
+            payload["manifest"]["stage5_calibration_sample_records"] = [
+                {
+                    "stage5_calibration_sample_id": "STAGE5-FIELD-QUERY-CAL-1",
+                    "project_id": "PROJ-REL",
+                    "project_name": "Release project",
+                    "stage5_gate_result_state": "STAGE5_GATE_NOT_RUN_FIELD_QUERY_OUTCOME_READY",
+                    "stage5_calibration_input_state": "FIELD_QUERY_TERMINAL_OUTCOME_READY_STAGE5_GATE_NOT_RUN",
+                    "stage5_calibration_review_bucket": "RULE_THRESHOLD_REVIEW",
+                    "stage5_abcd_calibration_bucket": "B_PUBLIC_READBACK_REVIEW_REQUIRED",
+                    "stage5_calibration_evidence_strength": "PUBLIC_READBACK_PRESENT_REVIEW_REQUIRED",
+                    "stage5_calibration_review_family": "manual_public_readback_review",
+                    "stage5_calibration_review_reasons": ["stage5_gate_status_missing_or_incomplete"],
+                    "stage5_calibration_failure_route_targets": ["operator_truth_label_review"],
+                    "calibration_truth_label_required": True,
+                    "suggested_calibration_action": "rerun_or_backfill_stage5_gate_status_before_calibration",
+                    "customer_visible_allowed": False,
+                    "no_legal_conclusion": True,
+                }
+            ]
+            field_query_json.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+            result = run_stage6_review_loop_runner(
+                dispatch_root=root / "missing-dispatch",
+                batch_closeout_root=root / "missing-closeout",
+                release_field_query_json=field_query_json,
+                output_root=root / "out",
+                auto_discover_latest_batch_closeout=False,
+                created_at="2026-05-19T00:00:00+08:00",
+            )
+
+            self.assertTrue(result["safe_to_execute"])
+            self.assertEqual(result["summary"]["stage5_calibration_sample_count"], 1)
+            self.assertEqual(
+                result["summary"]["stage5_calibration_input_state_counts"],
+                {"FIELD_QUERY_TERMINAL_OUTCOME_READY_STAGE5_GATE_NOT_RUN": 1},
+            )
+            self.assertEqual(
+                result["manifest"]["source_standalone_stage5_calibration_sample_json"],
+                str(field_query_json),
+            )
+            record = result["manifest"]["project_status_table"]["records"][0]
+            self.assertEqual(record["loop_terminal_state"], "RELEASE_FIELD_QUERY_REVIEW_READY")
+            self.assertEqual(record["stage5_gate_result_state"], "STAGE5_GATE_NOT_RUN_FIELD_QUERY_OUTCOME_READY")
+            self.assertEqual(record["stage5_calibration_failure_route_targets"], ["operator_truth_label_review"])
 
     def test_standalone_stage5_calibration_samples_feed_status_and_owner_projection(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -877,6 +953,8 @@ class Stage6ReviewLoopRunnerTests(unittest.TestCase):
                     "do_not_treat_http_dynamic_stealthy_as_login_state_replacement",
                 ],
             )
+            self.assertIn("browser_worker", record["runtime_blocker_subqueue_routes"])
+            self.assertIn("operator_action", record["runtime_blocker_subqueue_routes"])
 
     def test_bootstraps_dispatch_from_batch_closeout_when_dispatch_is_missing(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

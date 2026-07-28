@@ -1,7 +1,7 @@
 {
   "catalog_id": "eval-suite-catalog",
-  "version": "0.1.1",
-  "status": "DRAFT",
+  "version": "1.0.0",
+  "status": "ACTIVE_INTERNAL_GOVERNANCE",
   "metadata": {
     "package_name": "model governance round 1",
     "generated_at": "2026-04-14",
@@ -18,7 +18,7 @@
       "metrics": ["accuracy", "hallucination_rate", "boundary_leak"],
       "risk_level": "LOW",
       "output_targets": ["internal_note", "review_request"],
-      "golden_case_ref": "model_golden_cases.json"
+      "golden_case_ref": "contracts/testing/model_golden_cases.json"
     },
     {
       "suite_id": "EVAL-REVIEW-ASSIST",
@@ -26,7 +26,7 @@
       "metrics": ["accuracy", "traceability", "boundary_leak"],
       "risk_level": "MEDIUM",
       "output_targets": ["review_request", "governance_feedback_event"],
-      "golden_case_ref": "model_golden_cases.json"
+      "golden_case_ref": "contracts/testing/model_golden_cases.json"
     },
     {
       "suite_id": "EVAL-EXTERNAL-SHADOW",
@@ -34,7 +34,7 @@
       "metrics": ["accuracy", "boundary_leak", "audit_trace_completeness"],
       "risk_level": "HIGH",
       "output_targets": ["review_request", "governance_feedback_event"],
-      "golden_case_ref": "model_golden_cases.json",
+      "golden_case_ref": "contracts/testing/model_golden_cases.json",
       "prerequisite_for_domains": ["model_provider_externalized_usage"]
     },
     {
@@ -43,7 +43,7 @@
       "metrics": ["boundary_leak", "restricted_field_leak", "prompt_injection_resistance"],
       "risk_level": "HIGH",
       "output_targets": ["review_request", "governance_feedback_event"],
-      "golden_case_ref": "model_golden_cases.json",
+      "golden_case_ref": "contracts/testing/model_golden_cases.json",
       "prerequisite_for_domains": [
         "model_provider_externalized_usage",
         "tool_provider_externalized_usage"
@@ -55,8 +55,44 @@
       "metrics": ["accuracy", "rollback_recovery", "canary_error_budget"],
       "risk_level": "HIGH",
       "output_targets": ["review_request", "governance_feedback_event"],
-      "golden_case_ref": "model_golden_cases.json",
+      "golden_case_ref": "contracts/testing/model_golden_cases.json",
       "prerequisite_for_domains": ["model_provider_externalized_usage"]
+    },
+    {
+      "suite_id": "EVAL-AGENT005-OFFLINE-PROTOCOL",
+      "scope": "OFFLINE_PROTOCOL_REPLAY",
+      "metrics": [
+        "strict_schema_rejection",
+        "untraceable_source_rejection",
+        "unsafe_output_rejection",
+        "failure_taxonomy",
+        "deterministic_fallback",
+        "restricted_input_fail_closed"
+      ],
+      "risk_level": "HIGH",
+      "golden_case_ref": "contracts/testing/model_provider_quality_golden_cases.json#offline_protocol_cases",
+      "evaluation_contract_ref": "contracts/model/model_quality_evaluation_contract.json",
+      "real_provider_evidence": false
+    },
+    {
+      "suite_id": "EVAL-AGENT005-REAL-SHADOW",
+      "scope": "REAL_PROVIDER_SHADOW",
+      "metrics": [
+        "manual_acceptance_rate",
+        "hallucination_rate",
+        "boundary_leak_rate",
+        "trace_completeness_rate",
+        "provider_failure_rate",
+        "p95_latency_ms",
+        "token_usage",
+        "verified_cost",
+        "version_regression"
+      ],
+      "risk_level": "HIGH",
+      "golden_case_ref": "contracts/testing/model_provider_quality_golden_cases.json#real_quality_cases",
+      "evaluation_contract_ref": "contracts/model/model_quality_evaluation_contract.json",
+      "real_provider_evidence": true,
+      "current_state": "BLOCKED_EXTERNAL_NO_REAL_PROVIDER_RESULTS"
     }
   ]
 }

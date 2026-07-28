@@ -30,6 +30,31 @@ def _reject_legacy_duplicates() -> None:
             "event_id",
         ),
     )
+    migration_context = op.get_context()
+    if migration_context.as_sql:
+        if migration_context.dialect.name != "postgresql":
+            raise RuntimeError(
+                "offline duplicate-audit validation is only supported for PostgreSQL"
+            )
+        for table_name, parent_field, event_field in checks:
+            op.execute(
+                f"""
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM {table_name}
+        GROUP BY {parent_field}, {event_field}
+        HAVING COUNT(*) > 1
+    ) THEN
+        RAISE EXCEPTION 'cannot add audit uniqueness to {table_name}: legacy duplicates require reconciliation';
+    END IF;
+END
+$$
+"""
+            )
+        return
+
     connection = op.get_bind()
     for table_name, parent_field, event_field in checks:
         duplicate = connection.execute(

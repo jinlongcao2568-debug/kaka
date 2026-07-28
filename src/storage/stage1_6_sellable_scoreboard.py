@@ -340,8 +340,12 @@ def _preserve_incremental_prior_topline_counts(
     for key in ("candidate_count", "stage2_success_count", "stage3_success_count"):
         out[key] = max(_int(out.get(key)), _int(prior_counts.get(key)))
     denominator = _int(out.get("candidate_count"))
+    sellable = _int(out.get("stage7_sellable_count"))
+    limited = _int(out.get("limited_sellable_review_candidate_count"))
     sellable_or_limited = _int(out.get("sellable_or_limited_review_candidate_count"))
-    out["real_public_sellable_pack_rate"] = _ratio(sellable_or_limited, denominator)
+    out["real_public_sellable_pack_rate"] = _ratio(sellable, denominator)
+    out["limited_sellable_review_candidate_rate"] = _ratio(limited, denominator)
+    out["real_public_sellable_or_limited_review_rate"] = _ratio(sellable_or_limited, denominator)
     return out
 
 
@@ -361,23 +365,47 @@ def _scoreboard_input_lineage_state(
         str(stage6_summary.get("stage6_review_cycle_input_mode") or "").strip(),
     ]
     input_modes = [mode for mode in input_modes if mode]
+    has_followup_or_projection_lineage = any(
+        _is_followup_or_projection_input_mode(mode) for mode in input_modes
+    )
     has_review_projection = bool(
         project_rows
         and stage2_success_count == 0
         and stage3_success_count == 0
         and (limited_sellable_review_candidate_count > 0 or strong_lead_review_candidate_count > 0)
     )
-    if has_review_projection:
+    has_followup_evidence_without_stage123_lineage = bool(
+        project_rows
+        and stage2_success_count == 0
+        and stage3_success_count == 0
+        and any(_row_has_followup_evidence(row) for row in project_rows)
+    )
+    if (
+        has_followup_or_projection_lineage
+        or has_review_projection
+        or has_followup_evidence_without_stage123_lineage
+    ):
         input_mode = input_modes[0] if input_modes else "FOLLOWUP_OR_MERGED_PROJECTION"
+        warning = (
+            "input_mode identifies follow-up, alternative-source, expansion, subqueue, or merged projection input; "
+            "treat rate as follow-up/projection, not clean batch conversion KPI"
+            if has_followup_or_projection_lineage
+            else (
+                "stage2_success_count=0 and stage3_success_count=0 while review candidates are present; "
+                "treat rate as follow-up/projection, not clean batch conversion KPI"
+                if has_review_projection
+                else (
+                    "stage2_success_count=0 and stage3_success_count=0 while public-source follow-up evidence rows "
+                    "are present; treat rate as follow-up/projection, not clean batch conversion KPI"
+                )
+            )
+        )
         return {
             "input_mode": input_mode,
             "denominator_kind": "FOLLOWUP_PROJECT_ROWS",
             "clean_batch_comparable": False,
             "projection_or_merge_state": "FOLLOWUP_OR_MERGED_PROJECTION",
-            "input_lineage_warning": (
-                "stage2_success_count=0 and stage3_success_count=0 while review candidates are present; "
-                "treat rate as follow-up/projection, not clean batch conversion KPI"
-            ),
+            "input_lineage_warning": warning,
         }
     return {
         "input_mode": input_modes[0] if input_modes else "CLEAN_BATCH_OR_DIRECT_STAGE1_6",
@@ -385,6 +413,51 @@ def _scoreboard_input_lineage_state(
         "clean_batch_comparable": True,
         "projection_or_merge_state": "CLEAN_BATCH_OR_DIRECT_STAGE1_6",
         "input_lineage_warning": "",
+    }
+
+
+def _is_followup_or_projection_input_mode(value: Any) -> bool:
+    mode = str(value or "").strip().upper()
+    if not mode:
+        return False
+    return any(
+        token in mode
+        for token in (
+            "FOLLOWUP",
+            "ALTERNATIVE",
+            "EXPANSION",
+            "SUBQUEUE",
+            "PROJECTION",
+            "MERGED",
+        )
+    )
+
+
+def _row_has_followup_evidence(row: Mapping[str, Any]) -> bool:
+    if str(row.get("p13b_public_source_readback_state") or "").strip() not in {
+        "",
+        "PUBLIC_SOURCE_READBACK_PENDING_OR_NOT_RUN",
+    }:
+        return True
+    if str(row.get("p13b_original_notice_readback_state") or "").strip() not in {
+        "",
+        "PENDING_OR_NOT_RUN",
+    }:
+        return True
+    if str(row.get("p13b_ygp_original_readback_state") or "").strip() not in {
+        "",
+        "YGP_PENDING_OR_NOT_RUN",
+    }:
+        return True
+    if _int(row.get("p13b_ygp_stage4_backfill_ready_count")) > 0:
+        return True
+    if _as_list(row.get("p13b_data_ggzy_bid_show_urls")) or _as_list(
+        row.get("p13b_ygp_source_urls")
+    ):
+        return True
+    return str(row.get("stage4_project_code_backfill_state") or "") in {
+        "PUBLIC_SOURCE_IDENTIFIER_BACKFILLED_FOR_P13B_OR_STAGE4_BRIDGE_ONLY",
+        "DATA_GGZY_BID_SHOW_ORIGINAL_URL_BACKFILLED_FOR_P13B_OR_STAGE4_BRIDGE_ONLY",
     }
 
 
@@ -545,7 +618,13 @@ def _scoreboard_counts(
         "limited_sellable_review_candidate_count": limited_sellable_review_candidate_count,
         "strong_lead_review_candidate_count": strong_lead_review_candidate_count,
         "sellable_or_limited_review_candidate_count": sellable_or_limited_count,
-        "real_public_sellable_pack_rate": _ratio(sellable_or_limited_count, denominator),
+        "sellable_rate_metric_semantics": "SELLABLE_SEPARATED_FROM_LIMITED_REVIEW_V2",
+        "real_public_sellable_pack_rate": _ratio(stage7_sellable_count, denominator),
+        "limited_sellable_review_candidate_rate": _ratio(
+            limited_sellable_review_candidate_count,
+            denominator,
+        ),
+        "real_public_sellable_or_limited_review_rate": _ratio(sellable_or_limited_count, denominator),
         "stage4_release_field_query_project_count": _int(stage6_summary.get("release_field_query_project_count")) or _distinct_count(field_records, "project_id"),
         "stage4_release_field_query_state_counts": dict(stage6_summary.get("release_field_query_state_counts") or {})
         or _counts(record.get("release_field_query_state") for record in stage6_records),
@@ -696,7 +775,12 @@ def _project_scoreboard_row(
     )
     return {
         "project_id": project_id,
-        "project_name": str(readiness_record.get("project_name") or stage6_record.get("project_name") or ""),
+        "project_name": str(
+            readiness_record.get("project_name")
+            or stage6_record.get("project_name")
+            or p13b_project_signal.get("project_name")
+            or ""
+        ),
         "stage2_detail_capture_state": str(readiness_record.get("stage2_detail_capture_state") or ""),
         "stage3_field_parse_state": str(readiness_record.get("stage3_field_parse_state") or ""),
         "stage5_gate_state": str(readiness_record.get("stage5_gate_state") or ""),
@@ -723,6 +807,29 @@ def _project_scoreboard_row(
         ),
         "p13b_bid_show_responsible_person_present_count": _int(
             p13b_project_signal.get("bid_show_responsible_person_present_count")
+        ),
+        "p13b_candidate_companies": _as_list(p13b_project_signal.get("candidate_companies")),
+        "p13b_responsible_person_names": _as_list(
+            p13b_project_signal.get("responsible_person_names")
+        ),
+        "p13b_candidate_notice_source_urls": _as_list(
+            p13b_project_signal.get("candidate_notice_source_urls")
+        ),
+        "p13b_project_source_urls": _as_list(p13b_project_signal.get("project_source_urls")),
+        "p13b_data_ggzy_bid_show_urls": _as_list(
+            p13b_project_signal.get("data_ggzy_bid_show_urls")
+        ),
+        "p13b_data_ggzy_original_notice_urls": _as_list(
+            p13b_project_signal.get("data_ggzy_original_notice_urls")
+        ),
+        "p13b_data_ggzy_bid_show_record_ids": _as_list(
+            p13b_project_signal.get("data_ggzy_bid_show_record_ids")
+        ),
+        "p13b_data_ggzy_readback_payload_sha256s": _as_list(
+            p13b_project_signal.get("data_ggzy_readback_payload_sha256s")
+        ),
+        "p13b_data_ggzy_extracted_responsible_person_names": _as_list(
+            p13b_project_signal.get("data_ggzy_extracted_responsible_person_names")
         ),
         "p13b_overlap_signal_state_counts": dict(p13b_project_signal.get("overlap_signal_state_counts") or {}),
         "p13b_local_authority_source_task_count": _int(
@@ -775,6 +882,25 @@ def _project_scoreboard_row(
         "p13b_ygp_notice_id_variants": _as_list(
             p13b_ygp_signal.get("ygp_notice_id_variants")
             or p13b_project_signal.get("ygp_notice_id_variants")
+        ),
+        "p13b_ygp_source_urls": _as_list(p13b_ygp_signal.get("ygp_source_urls")),
+        "p13b_ygp_original_notice_urls": _as_list(
+            p13b_ygp_signal.get("ygp_original_notice_urls")
+        ),
+        "p13b_ygp_readback_payload_sha256s": _as_list(
+            p13b_ygp_signal.get("ygp_readback_payload_sha256s")
+        ),
+        "p13b_ygp_record_payload_sha256s": _as_list(
+            p13b_ygp_signal.get("ygp_record_payload_sha256s")
+        ),
+        "p13b_ygp_node_id_variants": _as_list(
+            p13b_ygp_signal.get("ygp_node_id_variants")
+        ),
+        "p13b_ygp_candidate_notice_source_urls": _as_list(
+            p13b_ygp_signal.get("candidate_notice_source_urls")
+        ),
+        "p13b_ygp_project_source_urls": _as_list(
+            p13b_ygp_signal.get("project_source_urls")
         ),
         "p13b_overlap_ygp_project_code_variants": _as_list(
             p13b_overlap_closeout_signal.get("ygp_project_code_variants")
@@ -2381,6 +2507,10 @@ def _p13b_project_signals(payload: Mapping[str, Any]) -> dict[str, dict[str, Any
     )
     signals: dict[str, dict[str, Any]] = {}
     for project_id in project_ids:
+        project_context_records = [
+            record for record in project_records if str(record.get("project_id") or "").strip() == project_id
+        ]
+        project_context = project_context_records[0] if project_context_records else {}
         project_queries = [record for record in query_records if str(record.get("project_id") or "").strip() == project_id]
         project_bid_shows = [record for record in bid_show_records if str(record.get("project_id") or "").strip() == project_id]
         project_overlaps = [record for record in overlap_records if str(record.get("project_id") or "").strip() == project_id]
@@ -2402,6 +2532,63 @@ def _p13b_project_signals(payload: Mapping[str, Any]) -> dict[str, dict[str, Any
         )
         bid_show_responsible_person_present_count = sum(
             1 for record in project_bid_shows if _as_list(record.get("responsible_person_names"))
+        )
+        candidate_companies = _dedupe(
+            [
+                *_as_list(project_context.get("candidate_companies")),
+                *[record.get("candidate_company_name") for record in project_queries],
+                *[record.get("candidate_company_name") for record in project_bid_shows],
+            ]
+        )
+        responsible_person_names = _dedupe(
+            [
+                *_as_list(project_context.get("responsible_person_names")),
+                *[
+                    person
+                    for record in project_queries
+                    for person in _as_list(record.get("responsible_person_names"))
+                ],
+                *[
+                    person
+                    for record in project_bid_shows
+                    for person in _as_list(record.get("responsible_person_names"))
+                ],
+            ]
+        )
+        candidate_notice_source_urls = _dedupe(
+            [
+                *_as_list(project_context.get("candidate_notice_source_urls")),
+                *[
+                    url
+                    for record in project_queries
+                    for url in _as_list(record.get("candidate_notice_source_urls"))
+                ],
+            ]
+        )
+        project_source_urls = _dedupe(_as_list(project_context.get("project_source_urls")))
+        data_ggzy_bid_show_urls = _dedupe(
+            [record.get("bid_show_url") for record in project_bid_shows]
+        )
+        data_ggzy_original_notice_urls = _dedupe(
+            [record.get("original_notice_url") for record in project_bid_shows]
+        )
+        data_ggzy_bid_show_record_ids = _dedupe(
+            [record.get("bid_show_record_id") for record in project_bid_shows]
+        )
+        data_ggzy_readback_payload_sha256s = _dedupe(
+            [
+                record.get("record_payload_sha256")
+                or (record.get("route_attempt") or {}).get("body_sha256")
+                for record in project_bid_shows
+                if isinstance(record.get("route_attempt"), Mapping) or record.get("record_payload_sha256")
+            ]
+        )
+        data_ggzy_extracted_responsible_person_names = _dedupe(
+            [
+                person
+                for record in project_bid_shows
+                for person in _as_list(record.get("extracted_responsible_person_names"))
+            ]
         )
         overlap_counts = _counts(record.get("overlap_signal_state") for record in project_overlaps)
         local_authority_task_counts = _counts(record.get("source_task_state") for record in project_local_authority)
@@ -2446,7 +2633,23 @@ def _p13b_project_signals(payload: Mapping[str, Any]) -> dict[str, dict[str, Any
             readback_state = "PUBLIC_SOURCE_READBACK_PENDING_OR_NOT_RUN"
         signals[project_id] = {
             "project_id": project_id,
+            "project_name": str(
+                project_context.get("project_name")
+                or (project_queries[0].get("project_name") if project_queries else "")
+                or ""
+            ),
             "p13b_public_source_readback_state": readback_state,
+            "candidate_companies": candidate_companies,
+            "responsible_person_names": responsible_person_names,
+            "candidate_notice_source_urls": candidate_notice_source_urls,
+            "project_source_urls": project_source_urls,
+            "data_ggzy_bid_show_urls": data_ggzy_bid_show_urls,
+            "data_ggzy_original_notice_urls": data_ggzy_original_notice_urls,
+            "data_ggzy_bid_show_record_ids": data_ggzy_bid_show_record_ids,
+            "data_ggzy_readback_payload_sha256s": data_ggzy_readback_payload_sha256s,
+            "data_ggzy_extracted_responsible_person_names": (
+                data_ggzy_extracted_responsible_person_names
+            ),
             "company_query_state_counts": company_query_counts,
             "bid_show_state_counts": bid_show_counts,
             "bid_show_original_notice_url_count": bid_show_original_notice_url_count,
@@ -2579,6 +2782,31 @@ def _p13b_ygp_project_signals(payload: Mapping[str, Any]) -> dict[str, dict[str,
             ),
             "ygp_notice_id_variants": _dedupe(
                 record.get("ygp_notice_id") for record in [*project_records, *project_backfills]
+            ),
+            "ygp_source_urls": _dedupe(
+                record.get("source_url") for record in [*project_records, *project_backfills]
+            ),
+            "ygp_original_notice_urls": _dedupe(
+                record.get("original_notice_url") for record in project_records
+            ),
+            "ygp_readback_payload_sha256s": _dedupe(
+                record.get("readback_payload_sha256") for record in project_records
+            ),
+            "ygp_record_payload_sha256s": _dedupe(
+                record.get("record_payload_sha256") for record in project_records
+            ),
+            "ygp_node_id_variants": _dedupe(
+                record.get("ygp_node_id") for record in [*project_records, *project_backfills]
+            ),
+            "candidate_notice_source_urls": _dedupe(
+                url
+                for record in project_records
+                for url in _as_list(record.get("candidate_notice_source_urls"))
+            ),
+            "project_source_urls": _dedupe(
+                url
+                for record in project_records
+                for url in _as_list(record.get("project_source_urls"))
             ),
             "query_miss_is_not_clearance": True,
             "customer_visible_allowed": False,
@@ -3108,6 +3336,8 @@ def _write_markdown(path: Path, payload: Mapping[str, Any]) -> None:
         f"- stage7_sellable_count: {scoreboard.get('stage7_sellable_count', 0)}",
         f"- limited_sellable_review_candidate_count: {scoreboard.get('limited_sellable_review_candidate_count', 0)}",
         f"- real_public_sellable_pack_rate: {scoreboard.get('real_public_sellable_pack_rate', 0)}",
+        f"- limited_sellable_review_candidate_rate: {scoreboard.get('limited_sellable_review_candidate_rate', 0)}",
+        f"- real_public_sellable_or_limited_review_rate: {scoreboard.get('real_public_sellable_or_limited_review_rate', 0)}",
         f"- gdcic_authorized_readback_status: {json.dumps(scoreboard.get('gdcic_authorized_readback_status', {}), ensure_ascii=False, sort_keys=True)}",
         f"- p13b_public_source_readback_status: {json.dumps(scoreboard.get('p13b_public_source_readback_status', {}), ensure_ascii=False, sort_keys=True)}",
         f"- p13b_original_notice_readback_status: {json.dumps(scoreboard.get('p13b_original_notice_readback_status', {}), ensure_ascii=False, sort_keys=True)}",

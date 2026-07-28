@@ -273,6 +273,25 @@ formal_entrypoints:
     replaces_human_memory: true
     purpose: Build and persist GDCIC authorized browser readback state for Stage4 release evidence without enabling customer-visible actions.
 
+  - entrypoint_id: p13b_browser_original_readback_builder
+    kind: script
+    script: scripts/build-p13b-browser-original-readback-v1.ps1
+    entrypoint_role: state_builder
+    status: FORMAL_CURRENT
+    automation_layer: p13b_browser_original_readback
+    module_or_command: storage.p13b_browser_original_readback
+    state_inputs:
+      - P13B original notice backtrace artifact with browser-required records
+      - bounded public browser readback budget
+    state_outputs:
+      - browser original readback task records
+      - fixed public source URL and payload hash records
+      - extracted company/person/period fields and blocker taxonomy
+    manual_gate_required: false
+    external_customer_action_enabled: false
+    replaces_human_memory: true
+    purpose: Resolve JavaScript redirect or shell-only public original notices through a bounded browser worker and persist replayable internal evidence without customer-visible actions.
+
   - entrypoint_id: stage1_6_scoreboard_comparison_builder
     kind: script
     script: scripts/build-stage1-6-scoreboard-comparison-v1.ps1
@@ -413,6 +432,56 @@ formal_entrypoints:
       - External live transport remains disabled.
       - Payload boundary must stay SANITIZED_OFFLINE_INTERNAL.
     purpose: Provide internal preview orchestration without implying external live automation is enabled.
+
+  - entrypoint_id: controlled_gray_dedicated_scheduler_worker
+    kind: script
+    script: scripts/run-controlled-gray-scheduler-worker.ps1
+    entrypoint_role: orchestrator
+    status: FORMAL_CURRENT
+    automation_layer: controlled_gray_scheduler_worker
+    module_or_command: runtime.controlled_gray_scheduler_worker
+    state_inputs:
+      - existing storage-backed controlled_gray_public_orchestrator worker queue
+      - internal prepare-only job payload
+      - optional bounded recurring interval
+    state_outputs:
+      - durable queue lease and heartbeat events
+      - retry, suspend, dead-letter, success, cancellation, and recurrence readback
+      - stage progress, execution budget, timeout category, and process heartbeat readback
+      - controlled gray prepare artifacts
+      - worker process status JSON
+    manual_gate_required: false
+    external_customer_action_enabled: false
+    replaces_human_memory: true
+    limitations:
+      - Runs as a dedicated process; the HTTP run-once compatibility route never executes the long chain.
+      - Only internal prepare-only jobs are accepted; live execution, release, payment, delivery, and refund remain disabled.
+      - Core capability only; browser jobs are routed to operator_long_task_browser_worker.
+    purpose: Poll the existing durable worker queue, renew leases, recover expired work after restart, apply bounded retries/dead-letter, and enqueue future recurring occurrences without running long work inside Web requests.
+
+  - entrypoint_id: operator_long_task_browser_worker
+    kind: script
+    script: scripts/run-operator-long-task-worker.ps1
+    entrypoint_role: orchestrator
+    status: FORMAL_CURRENT
+    automation_layer: operator_long_task_browser_worker
+    module_or_command: runtime.operator_long_task_worker
+    state_inputs:
+      - storage-backed operator_long_tasks queue
+      - autonomous opportunity search jobs requiring browser capability
+      - allowlisted real public source capture jobs requiring browser capability
+    state_outputs:
+      - durable progress, heartbeat, execution budget, cancellation, retry, and terminal readback
+      - repository-backed autonomous search or public source capture business readback
+      - browser worker process status JSON
+    manual_gate_required: false
+    external_customer_action_enabled: false
+    replaces_human_memory: true
+    limitations:
+      - Internal-only source acquisition and analysis; customer touch, release, payment, delivery, and refund remain disabled.
+      - Cancellation is cooperative at declared checkpoints; a blocking third-party fetch cannot be force-killed inside its Python thread.
+      - Private-pilot image build/up/health still requires an available Docker daemon.
+    purpose: Keep browser-capable search and allowlisted public-source capture out of the API process while preserving durable capability routing, progress, cancellation, budgets, retries, and readback.
 
 script_classification_rules:
   exact:

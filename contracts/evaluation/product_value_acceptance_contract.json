@@ -1,0 +1,76 @@
+{
+  "contract_id": "product_value_acceptance_contract",
+  "contract_version": "1.0.0",
+  "report_kind": "PRODUCT_VALUE_ACCEPTANCE_V1",
+  "purpose": "Measure a single clean real-public candidate cohort without mixing follow-up or projection denominators.",
+  "cohort_gate": {
+    "required_scoreboard_kind": "stage1_6_sellable_scoreboard_v1",
+    "required_denominator_kind": "REAL_PUBLIC_CANDIDATES when candidate_count > 0; NO_CANDIDATES when candidate_count = 0",
+    "required_clean_batch_comparable": true,
+    "required_projection_or_merge_state": "CLEAN_BATCH_OR_DIRECT_STAGE1_6",
+    "legacy_scoreboards_without_explicit_lineage_are_not_accepted": true
+  },
+  "fixed_denominator": {
+    "field": "scoreboard.candidate_count",
+    "unit": "unique_project",
+    "rule": "Every cohort rate uses the same candidate_count denominator; task counts must never be divided by project counts."
+  },
+  "metric_states": [
+    "OBSERVED",
+    "WITHHELD_MISSING_INPUT",
+    "WITHHELD_INCOMPLETE_WINDOW",
+    "WITHHELD_INVALID_COHORT",
+    "NOT_APPLICABLE_NO_CANDIDATES"
+  ],
+  "metrics": {
+    "discovery_rate": {
+      "numerator": "discovered_candidate_count",
+      "denominator": "source_item_count",
+      "additional_gate": "discovered_candidate_count must equal clean cohort candidate_count and discovery_observation_complete must be true",
+      "candidate_limit_rule": "When source discovery accepted more candidates than the fixed cohort cap, also report prelimit_accepted_candidate_count, prelimit_candidate_discovery_rate and candidate_limit_truncated_count."
+    },
+    "stage4_ready_rate": {
+      "numerator": "unique project_rows with at least one MATCHED Stage4 task",
+      "denominator": "clean cohort candidate_count"
+    },
+    "reviewable_rate": {
+      "numerator": "unique project_rows allowed into Stage7 or marked limited sellable REVIEW_CANDIDATE",
+      "denominator": "clean cohort candidate_count"
+    },
+    "evidence_bundle_rate": {
+      "numerator": "unique cohort projects with a generated, traceable SKU-B bundle or formal leadpack package",
+      "denominator": "clean cohort candidate_count"
+    },
+    "human_review_minutes": {
+      "source": "non-overlapping HUMAN_REVIEW work logs with project_id, pseudonymous operator_id, started_at and ended_at",
+      "zero_rule": "Zero is observable only when human_review_observation_window_complete is explicitly true"
+    },
+    "final_adoption": {
+      "source": "formal opportunity_outcome_event records confirmed as real customer observations",
+      "adopted_family": "WON",
+      "zero_rule": "Zero is observable only when outcome_observation_window_complete is explicitly true"
+    },
+    "refund": {
+      "source": "formal payment_record refund states confirmed as real customer observations",
+      "refund_states": ["REQUESTED", "APPROVED", "COMPLETED"],
+      "zero_rule": "Zero is observable only when payment_observation_window_complete is explicitly true"
+    }
+  },
+  "observation_confirmation": {
+    "required_observation_window": {
+      "fields": ["batch_id", "started_at", "ended_at"],
+      "rule": "Any metric marked observation-window complete must be bounded by one timezone-aware cohort window."
+    },
+    "required_for_customer_outcomes_and_payments": {
+      "real_customer_confirmed": true,
+      "confirmation_ref": "non-empty audit or evidence reference"
+    },
+    "preview_dry_run_sandbox_fixture_records_are_excluded": true
+  },
+  "safety": {
+    "internal_only": true,
+    "customer_visible_allowed": false,
+    "missing_data_must_not_be_reported_as_zero": true,
+    "report_is_not_a_legal_or_financial_conclusion": true
+  }
+}

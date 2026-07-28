@@ -24,11 +24,13 @@ class GuangdongLocalFieldQueryResultMapperTests(unittest.TestCase):
         missed = {"field_query_probe_state": "NO_FIELD_MATCH_REVIEW_REQUIRED"}
         blocked = {"field_query_probe_state": "FAIL_CLOSED_PUBLIC_SOURCE_BLOCKED", "blocker_taxonomy": ["http_403"]}
         browser = {"field_query_probe_state": "LIVE_FIELD_QUERY_NEEDS_BROWSER"}
+        region_adapter = {"field_query_probe_state": "LIVE_FIELD_QUERY_NEEDS_REGION_ADAPTER"}
 
         self.assertEqual(adapter_result_state(matched), "MATCHED")
         self.assertEqual(adapter_result_state(missed), "NOT_FOUND")
         self.assertEqual(adapter_result_state(blocked), "BLOCKED")
         self.assertEqual(adapter_result_state(browser), "NEEDS_BROWSER")
+        self.assertEqual(adapter_result_state(region_adapter), "BLOCKED")
         self.assertIn("public_source_queried_no_field_match_not_clearance", adapter_result_state_basis("NOT_FOUND", missed))
         self.assertIn("http_403", adapter_result_state_basis("BLOCKED", blocked))
 

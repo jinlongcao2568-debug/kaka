@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import copy
+import io
+import json
 import re
 import sys
 import unittest
+import zipfile
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -30,6 +33,43 @@ class TestOperatorFrontendPortal(unittest.TestCase, IsolatedStorageTestMixin):
 
     def tearDown(self) -> None:
         self.tearDown_storage_test_env()
+
+    def _approve_internal_preview_download(
+        self,
+        client: TestClient,
+        opportunity_id: str,
+    ) -> str:
+        requested = client.post(
+            "/internal/approvals/requests",
+            headers={
+                "X-Kaka-Test-Operator-Auth": "approved",
+                "X-Kaka-Test-Principal-Id": "operator-portal-test",
+                "X-Kaka-Test-Role": "operator",
+            },
+            json={
+                "resource_type": "opportunity",
+                "resource_id": opportunity_id,
+                "action": "internal_preview_download",
+                "reason": "内部证据包验收需要",
+            },
+        )
+        self.assertEqual(requested.status_code, 201, requested.text)
+        request_id = str(requested.json()["request_id"])
+        decided = client.post(
+            f"/internal/approvals/requests/{request_id}/decision",
+            headers={
+                "X-Kaka-Test-Operator-Auth": "approved",
+                "X-Kaka-Test-Principal-Id": "reviewer-portal-test",
+                "X-Kaka-Test-Role": "reviewer",
+            },
+            json={
+                "decision": "APPROVED",
+                "reason": "字段脱敏与内部用途均已复核",
+            },
+        )
+        self.assertEqual(decided.status_code, 200, decided.text)
+        self.assertTrue(decided.json()["approval_satisfied"])
+        return request_id
 
     def test_html_security_boundary_uses_nonce_csp_and_centralized_markup_audit(self) -> None:
         client = TestClient(create_app())
@@ -229,6 +269,19 @@ class TestOperatorFrontendPortal(unittest.TestCase, IsolatedStorageTestMixin):
             "搜索运行中",
             "机会工作台",
             "采集运行",
+            "产品配置",
+            "产品配置与受控入驻",
+            "配置只能收窄到登记地区与来源",
+            "保存新草稿版本",
+            "离线试跑最新版本",
+            "回滚并生成新活动版本",
+            "非多租户 SaaS",
+            "运营支持",
+            "运营支持工作台",
+            "任务与恢复动作",
+            "受控重试",
+            "重试需二次确认",
+            "事实层不可编辑",
             "系统与放行",
             "验收契约",
             "任务与项目",
@@ -328,6 +381,10 @@ class TestOperatorFrontendPortal(unittest.TestCase, IsolatedStorageTestMixin):
         for expected in (
             'class="layout operator-shell"',
             'data-view="systemRelease"',
+            'data-view="onboarding"',
+            'data-view-panel="onboarding"',
+            'data-view="support"',
+            'data-view-panel="support"',
             'data-view-panel="systemRelease"',
             'class="resultPane"',
             "function formatOperatorSummary(value)",
@@ -346,6 +403,7 @@ class TestOperatorFrontendPortal(unittest.TestCase, IsolatedStorageTestMixin):
             "async function loadRuntimeProjection()",
             "renderStage6ReviewLoopStatus",
             "function showView(view)",
+            'cache: "no-store"',
             "id=\"sellabilityDecision\"",
             "id=\"sellabilityMetrics\"",
             "id=\"sellabilityBoundary\"",
@@ -372,6 +430,11 @@ class TestOperatorFrontendPortal(unittest.TestCase, IsolatedStorageTestMixin):
             "id=\"acceptanceDimensionList\"",
             "id=\"realCandidateStage2Captures\"",
             "async function loadRealCandidateStage2Captures()",
+            "async function loadOnboardingConfigs()",
+            'if (config.profile_name) { $("onboardingProfileName").value = config.profile_name; }',
+            "async function loadSupportOverview()",
+            "async function retrySupportTask(button)",
+            'confirmation: "RETRY_FAILED_INTERNAL_TASK"',
         ):
             self.assertIn(expected, html)
         for removed_duplicate in (
@@ -490,10 +553,25 @@ class TestOperatorFrontendPortal(unittest.TestCase, IsolatedStorageTestMixin):
     def test_owner_console_real_source_runner_uses_internal_only_routes(self) -> None:
         client = TestClient(create_app())
         html = client.request("GET", "/operator-console").text
-        self.assertIn(
-            'Promise.all([loadReadiness(false), loadAutonomousWorkbench(), loadRegionAdapters(), loadAutonomousSearchRuns(), loadRealCandidateDiscoveryDiagnostics(), loadRealCandidateCatalog(), loadRealCandidateStage2Captures(), loadRealSourceProfiles(), loadRealSourceRuns(), loadGrayOrchestrator(), loadUserAcceptanceContract(), loadAcceptanceGapMatrix(), loadRealWorldSellability(), loadStage6ReviewLoopStatus(), loadRuntimeProjection()])',
-            html,
-        )
+        self.assertIn("Promise.all([", html)
+        for loader in (
+            "loadReadiness(false)",
+            "loadAutonomousWorkbench()",
+            "loadRegionAdapters()",
+            "loadAutonomousSearchRuns()",
+            "loadRealCandidateDiscoveryDiagnostics()",
+            "loadRealCandidateCatalog()",
+            "loadRealCandidateStage2Captures()",
+            "loadRealSourceProfiles()",
+            "loadRealSourceRuns()",
+            "loadGrayOrchestrator()",
+            "loadUserAcceptanceContract()",
+            "loadAcceptanceGapMatrix()",
+            "loadRealWorldSellability()",
+            "loadStage6ReviewLoopStatus()",
+            "loadRuntimeProjection()",
+        ):
+            self.assertIn(loader, html)
         self.assertIn('"/operator-console/region-adapters"', html)
         self.assertIn('"/operator-console/autonomous-opportunity-search"', html)
         self.assertIn('"/operator-console/autonomous-search-runs"', html)
@@ -1413,6 +1491,7 @@ class TestOperatorFrontendPortal(unittest.TestCase, IsolatedStorageTestMixin):
         stage7 = result["stage7"]
         persist_stage_bundle(stage7)
         opportunity_id = stage7.record("saleable_opportunity").get("opportunity_id")
+        project_id = stage7.record("saleable_opportunity").get("project_id")
 
         client = TestClient(create_app())
         page_response = client.request("GET", f"/customer-artifact-portal/{opportunity_id}")
@@ -1427,7 +1506,8 @@ class TestOperatorFrontendPortal(unittest.TestCase, IsolatedStorageTestMixin):
             "字段策略",
             "下载审计",
             "证据包内容",
-            "拟邮件发送包",
+            "人工交付包预览",
+            "交付与责任边界",
             "内部预览验收",
             "字段白名单已执行",
             "脱敏必需",
@@ -1440,8 +1520,10 @@ class TestOperatorFrontendPortal(unittest.TestCase, IsolatedStorageTestMixin):
             "/customer-artifact-portal-readback/",
             "内部验收可用",
             "renderEvidencePackage",
-            "邮件发送包预览",
-            "下载内部证据包文件",
+            "renderDeliveryBoundary",
+            "自动邮件未开放",
+            "审批通过后下载内部证据包",
+            "SKU-B PDF/HTML/ZIP 复核包",
             "/customer-artifact-portal-download/",
             "公开来源",
             "来源网址",
@@ -1451,6 +1533,7 @@ class TestOperatorFrontendPortal(unittest.TestCase, IsolatedStorageTestMixin):
         ):
             self.assertIn(expected, html)
         self.assertNotIn("signed download url enabled", html.lower())
+        self.assertNotIn("成交付款后由系统通过邮件发送", html)
         self.assertNotIn("JSON.stringify(value, null, 2)", html)
         self.assertIn("暂无证据包读回", html)
         self.assertIn("暂无证据包", html)
@@ -1469,6 +1552,20 @@ class TestOperatorFrontendPortal(unittest.TestCase, IsolatedStorageTestMixin):
         self.assertFalse(candidate["field_allowlist_masking"]["internal_blackbox_fields_exposed"])
         self.assertFalse(candidate["external_release_enabled"])
         self.assertFalse(candidate["public_software_release"])
+        boundary = candidate["customer_delivery_boundary"]
+        self.assertEqual(boundary["contract_id"], "customer_delivery_boundary_contract")
+        self.assertEqual(
+            [item["code"] for item in boundary["clauses"]],
+            [
+                "PUBLIC_SOURCE_SCOPE",
+                "QUERY_TIME_BOUNDARY",
+                "SOURCE_INCOMPLETENESS",
+                "QUERY_STATE_NOT_CLEARANCE",
+                "NO_LEGAL_CONCLUSION",
+                "HUMAN_REVIEW_REQUIRED",
+                "CUSTOMER_DECISION_RESPONSIBILITY",
+            ],
+        )
 
         download_response = client.request(
             "GET",
@@ -1498,7 +1595,24 @@ class TestOperatorFrontendPortal(unittest.TestCase, IsolatedStorageTestMixin):
         download_response = client.request(
             "GET",
             f"/customer-artifact-portal-download/{opportunity_id}",
-            headers={"X-Kaka-Test-Operator-Auth": "approved"},
+            headers={
+                "X-Kaka-Test-Operator-Auth": "approved",
+                "X-Kaka-Test-Principal-Id": "operator-portal-test",
+                "X-Kaka-Test-Role": "operator",
+            },
+        )
+        self.assertEqual(download_response.status_code, 403)
+        self.assertIn("object_approval_confirmed", download_response.json()["detail"]["blocked_reasons"])
+
+        approval_request_id = self._approve_internal_preview_download(client, opportunity_id)
+        download_response = client.request(
+            "GET",
+            f"/customer-artifact-portal-download/{opportunity_id}",
+            headers={
+                "X-Kaka-Test-Operator-Auth": "approved",
+                "X-Kaka-Test-Principal-Id": "operator-portal-test",
+                "X-Kaka-Test-Role": "operator",
+            },
         )
         self.assertEqual(download_response.status_code, 200)
         self.assertIn("application/json", download_response.headers["content-type"])
@@ -1514,18 +1628,80 @@ class TestOperatorFrontendPortal(unittest.TestCase, IsolatedStorageTestMixin):
             "数据真实性边界",
             "公开来源验证",
             "证据包",
-            "拟邮件发送包",
+            "人工交付包预览",
             "证据项清单",
             "字段策略",
+            "交付与责任边界",
             "模拟下载审计",
             "读回摘要",
         ):
             self.assertIn(expected, package)
-        self.assertFalse(package["拟邮件发送包"]["真实邮件已发送"])
+        self.assertFalse(package["人工交付包预览"]["自动邮件交付已开放"])
+        self.assertFalse(package["人工交付包预览"]["客户自助下载已开放"])
+        self.assertFalse(package["人工交付包预览"]["真实客户交付已执行"])
+        self.assertIn("人工签发后", package["未来交付方式"])
+        self.assertEqual(
+            package["交付与责任边界"]["合同编号"],
+            "customer_delivery_boundary_contract",
+        )
+        self.assertGreaterEqual(len(package["交付与责任边界"]["限制条款"]), 7)
+        self.assertEqual(
+            [item["条款内容"] for item in package["交付与责任边界"]["限制条款"]],
+            [item["text"] for item in boundary["clauses"]],
+        )
         self.assertIn("客户可交付判断", package["数据真实性边界"])
         self.assertIsInstance(package["证据项清单"], list)
         self.assertNotIn("原始读回", package)
         self.assertNotIn("原始授权状态摘要", package["模拟下载审计"])
+        self.assertEqual(
+            package["模拟下载审计"]["逐对象审批"]["审批请求编号"],
+            approval_request_id,
+        )
+        self.assertTrue(
+            str(package["模拟下载审计"]["逐对象审批"]["下载执行审计编号"]).startswith(
+                "APREXEC-"
+            )
+        )
+        self.assertEqual(
+            len(package["模拟下载审计"]["逐对象审批"]["审批对象版本哈希"]),
+            64,
+        )
+        self.assertTrue(package["模拟下载审计"]["逐对象审批"]["审批对象版本一致"])
+        self.assertTrue(package["模拟下载审计"]["逐对象审批"]["职责分离已满足"])
+        serialized_package = json.dumps(package, ensure_ascii=False)
+        for forbidden in ("申请人", "复核人", "下载执行人", "身份编号"):
+            self.assertNotIn(forbidden, serialized_package)
+
+        bundle_response = client.request(
+            "GET",
+            f"/customer-artifact-portal-download/{opportunity_id}",
+            params={"format": "zip"},
+            headers={
+                "X-Kaka-Test-Operator-Auth": "approved",
+                "X-Kaka-Test-Principal-Id": "operator-portal-test",
+                "X-Kaka-Test-Role": "operator",
+            },
+        )
+        self.assertEqual(bundle_response.status_code, 200)
+        self.assertIn("application/zip", bundle_response.headers["content-type"])
+        self.assertEqual(bundle_response.headers["x-kaka-sku-code"], "SKU-B")
+        self.assertEqual(len(bundle_response.headers["x-kaka-bundle-sha256"]), 64)
+        with zipfile.ZipFile(io.BytesIO(bundle_response.content)) as archive:
+            manifest = json.loads(archive.read("manifest.json"))
+            self.assertIn("evidence-pack.pdf", archive.namelist())
+            self.assertIn("evidence-pack.html", archive.namelist())
+        self.assertEqual(manifest["sku"]["sku_code"], "SKU-B")
+        self.assertEqual(manifest["project_id"], project_id)
+        self.assertTrue(manifest["issuance_control"]["manual_signoff_required"])
+        self.assertFalse(manifest["issuance_control"]["customer_release_authorized"])
+        self.assertFalse(manifest["delivery_audit"]["external_delivery_executed"])
+        self.assertEqual(
+            manifest["customer_delivery_boundary"]["contract_id"],
+            "customer_delivery_boundary_contract",
+        )
+        self.assertFalse(
+            manifest["customer_delivery_boundary"]["automatic_email_delivery_enabled"]
+        )
 
     def test_customer_artifact_portal_download_includes_search_source_context(self) -> None:
         client = TestClient(create_app())
@@ -1581,7 +1757,23 @@ class TestOperatorFrontendPortal(unittest.TestCase, IsolatedStorageTestMixin):
         download_response = client.request(
             "GET",
             f"/customer-artifact-portal-download/{opportunity_id}",
-            headers={"X-Kaka-Test-Operator-Auth": "approved"},
+            headers={
+                "X-Kaka-Test-Operator-Auth": "approved",
+                "X-Kaka-Test-Principal-Id": "operator-portal-test",
+                "X-Kaka-Test-Role": "operator",
+            },
+        )
+        self.assertEqual(download_response.status_code, 403)
+
+        self._approve_internal_preview_download(client, opportunity_id)
+        download_response = client.request(
+            "GET",
+            f"/customer-artifact-portal-download/{opportunity_id}",
+            headers={
+                "X-Kaka-Test-Operator-Auth": "approved",
+                "X-Kaka-Test-Principal-Id": "operator-portal-test",
+                "X-Kaka-Test-Role": "operator",
+            },
         )
         self.assertEqual(download_response.status_code, 200)
         package = download_response.json()
@@ -1608,7 +1800,7 @@ class TestOperatorFrontendPortal(unittest.TestCase, IsolatedStorageTestMixin):
             "客户自助发布不是当前路径",
             "内部黑箱已隐藏",
             "内部预览未形成",
-            "还没有可预览的拟邮件证据包",
+            "还没有可预览的人工交付包",
         ):
             self.assertIn(expected, html)
 

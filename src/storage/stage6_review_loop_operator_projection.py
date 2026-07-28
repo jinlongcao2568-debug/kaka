@@ -269,6 +269,14 @@ def build_stage6_review_loop_operator_projection(
         "stage5_calibration_suggested_action_counts": _counts(
             row.get("stage5_calibration_suggested_action") for row in project_rows
         ),
+        "stage5_calibration_input_state_counts": _counts(
+            row.get("stage5_calibration_input_state") for row in project_rows
+        ),
+        "stage5_calibration_failure_route_target_counts": _counts(
+            target
+            for row in project_rows
+            for target in _list(row.get("stage5_calibration_failure_route_targets"))
+        ),
         "next_cycle_dispatch_ready_count": sum(
             1 for row in project_rows if row["loop_terminal_state"] == "NEXT_CYCLE_DISPATCH_READY"
         ),
@@ -715,6 +723,13 @@ def _project_row(record: Mapping[str, Any], *, owner_context: Mapping[str, Any] 
             for reason in _list(record.get("stage5_calibration_review_reasons"))
         ],
         "stage5_calibration_truth_label_required": bool(record.get("calibration_truth_label_required")),
+        "stage5_abcd_calibration_bucket": str(record.get("stage5_abcd_calibration_bucket") or ""),
+        "stage5_calibration_evidence_strength": str(record.get("stage5_calibration_evidence_strength") or ""),
+        "stage5_calibration_review_family": str(record.get("stage5_calibration_review_family") or ""),
+        "stage5_calibration_input_state": str(record.get("stage5_calibration_input_state") or ""),
+        "stage5_calibration_failure_route_targets": _list(
+            record.get("stage5_calibration_failure_route_targets")
+        ),
         "stage5_calibration_suggested_action": str(record.get("suggested_calibration_action") or ""),
         "stage5_calibration_suggested_action_label": _stage5_calibration_action_label(
             str(record.get("suggested_calibration_action") or "")
@@ -1576,6 +1591,18 @@ def _stage5_calibration_bucket_label(bucket: str) -> str:
         ),
         "STAGE5_CALIBRATION_INPUT_INCOMPLETE": (
             "Stage5 校准输入不完整，需先补 gate 状态或重跑。"
+        ),
+        "RULE_THRESHOLD_REVIEW": (
+            "公开字段已读回，但 Stage5 gate 尚未回放；需补 gate 状态和人工真值后再调整规则。"
+        ),
+        "MISSING_RELEVANT_PUBLIC_READBACK": (
+            "公开字段查询未命中；这不是排除性结论，需补 Stage5 gate 状态并复核替代来源。"
+        ),
+        "INSUFFICIENT_PUBLIC_READBACK": (
+            "公开字段仅部分命中或仍有缺口；需补 Stage5 gate 状态和人工真值。"
+        ),
+        "BLOCKED_OR_AUTHORIZATION_REQUIRED": (
+            "公开字段读回受来源或授权阻断；需先转 adapter/browser，再补 Stage5 gate 状态。"
         ),
     }.get(bucket, bucket)
 

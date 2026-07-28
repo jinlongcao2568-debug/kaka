@@ -28,8 +28,8 @@ function Find-PythonCommand {
 }
 
 $root = Resolve-RepoRoot -Provided $RepoRoot
-if (-not $env:KAKA_STORAGE_DATABASE_URL) {
-    throw 'KAKA_STORAGE_DATABASE_URL is required; storage migrations never use a default database URL.'
+if (-not $env:KAKA_STORAGE_DATABASE_URL -and -not $env:KAKA_STORAGE_DATABASE_PASSWORD_FILE) {
+    throw 'KAKA_STORAGE_DATABASE_URL or KAKA_STORAGE_DATABASE_PASSWORD_FILE connection config is required; storage migrations never use a default database URL.'
 }
 
 $pythonCommand = Find-PythonCommand

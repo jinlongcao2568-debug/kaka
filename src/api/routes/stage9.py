@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import time
 from typing import Any
 
 from api.projections import build_stage9_preview_surface, get_surface_runtime_defaults, register_route_table
@@ -32,6 +33,10 @@ from shared.provider_adapter_config import (
     PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY,
     provider_adapter_bootstrap_payload,
     provider_readiness_for_family,
+)
+from runtime.operational_observability import (
+    get_operational_event_sink,
+    record_operational_event_safely,
 )
 from stage9_delivery.order_payment_delivery_execution import (
     APPROVED_PAYMENT_DELIVERY_EXECUTION_INPUT_KEY,
@@ -269,6 +274,45 @@ def create_payment_record(payload: Any) -> PaymentCreateResponse:
 
 
 def create_delivery_record(payload: Any) -> DeliveryCreateResponse:
+    started = time.perf_counter()
+    delivery_id = str(payload.get("delivery_id") or "") if isinstance(payload, dict) else ""
+    try:
+        response = _create_delivery_record(payload)
+    except Exception as exc:
+        record_operational_event_safely(
+            get_operational_event_sink("api"),
+            component="delivery",
+            operation="delivery_record_persist",
+            outcome="error",
+            severity="ERROR",
+            duration_ms=(time.perf_counter() - started) * 1000,
+            trace_id=delivery_id or None,
+            error_category=type(exc).__name__,
+            attributes={"external_delivery_executed": False},
+        )
+        raise
+    record_created = bool(response.get("record_created", True))
+    record_operational_event_safely(
+        get_operational_event_sink("api"),
+        component="delivery",
+        operation="delivery_record_persist",
+        outcome="success" if record_created else "degraded",
+        severity="INFO" if record_created else "WARNING",
+        duration_ms=(time.perf_counter() - started) * 1000,
+        trace_id=delivery_id or None,
+        error_category=None if record_created else "record_not_created",
+        attributes={
+            "delivery_status": (
+                payload.get("delivery_status") if isinstance(payload, dict) else None
+            ),
+            "record_created": record_created,
+            "external_delivery_executed": False,
+        },
+    )
+    return response
+
+
+def _create_delivery_record(payload: Any) -> DeliveryCreateResponse:
     if not isinstance(payload, dict):
         persist_stage_bundle(payload)
         persistence = None

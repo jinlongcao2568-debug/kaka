@@ -21,9 +21,7 @@ def _clear_settings_cache() -> None:
 
 
 def _close_default_database_session() -> None:
-    if DatabaseSession._default is not None:
-        DatabaseSession._default.close()
-        DatabaseSession._default = None
+    DatabaseSession.close_default()
 
 
 class IsolatedStorageTestMixin:
@@ -46,7 +44,15 @@ class IsolatedStorageTestMixin:
             clear=False,
         )
         self._storage_test_env_patcher.start()
-        for key in ("KAKA_STORAGE_DATABASE_URL", "KAKA_STORAGE_TEST_ISOLATION"):
+        for key in (
+            "KAKA_STORAGE_DATABASE_URL",
+            "KAKA_STORAGE_DATABASE_PASSWORD_FILE",
+            "KAKA_STORAGE_DATABASE_HOST",
+            "KAKA_STORAGE_DATABASE_PORT",
+            "KAKA_STORAGE_DATABASE_USER",
+            "KAKA_STORAGE_DATABASE_NAME",
+            "KAKA_STORAGE_TEST_ISOLATION",
+        ):
             os.environ.pop(key, None)
         _clear_settings_cache()
         _close_default_database_session()

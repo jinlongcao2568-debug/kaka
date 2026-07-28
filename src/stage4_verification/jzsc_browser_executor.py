@@ -12,6 +12,7 @@ from pathlib import Path
 from urllib.parse import quote
 from typing import Any, Callable, Mapping
 
+from shared.controlled_egress import playwright_proxy_settings
 from shared.utils import utc_now_iso
 from storage.repositories.object_storage_repo import ObjectStorageRepository
 
@@ -131,7 +132,11 @@ def diagnose_jzsc_company_search_health(
         snapshot_root.mkdir(parents=True, exist_ok=True)
     company_results: list[dict[str, Any]] = []
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
+        launch_options: dict[str, Any] = {"headless": True}
+        proxy = playwright_proxy_settings()
+        if proxy:
+            launch_options["proxy"] = proxy
+        browser = p.chromium.launch(**launch_options)
         page = browser.new_page(
             locale="zh-CN",
             user_agent=(
@@ -429,7 +434,11 @@ def _playwright_browser_runner(capture_plan: Mapping[str, Any]) -> dict[str, Any
     nonfatal_diagnostics: list[str] = []
     browser_attempts: list[dict[str, Any]] = []
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
+        launch_options: dict[str, Any] = {"headless": True}
+        proxy = playwright_proxy_settings()
+        if proxy:
+            launch_options["proxy"] = proxy
+        browser = p.chromium.launch(**launch_options)
         page = browser.new_page(
             locale="zh-CN",
             user_agent=(

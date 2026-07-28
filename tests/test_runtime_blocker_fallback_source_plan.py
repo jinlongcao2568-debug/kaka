@@ -77,6 +77,9 @@ class RuntimeBlockerFallbackSourcePlanTests(unittest.TestCase):
             bridge_record["query_params"]["sourceProfileId"],
             "GUANGDONG-YGP-ORIGINAL-READBACK-BACKFILL",
         )
+        self.assertEqual(bridge_record["source_url"], "https://ygp.gdzwfw.gov.cn/detail-ready")
+        self.assertEqual(bridge_record["source_readback_sha256s"], ["e" * 64])
+        self.assertIn("p13b-ygp-original-readback-v1.json", bridge_record["source_artifact_refs"])
         self.assertFalse(bridge_record["gdcic_project_code_route_allowed"])
         self.assertTrue(bridge_record["must_not_extract_from_full_text_numbers"])
         self.assertFalse(bridge_record["customer_visible_allowed"])
@@ -382,8 +385,11 @@ def _write_stage4_queue(path: Path) -> None:
                     "required_input": ["p13b_ygp_or_public_identifier_backfill_task"],
                     "stage4_official_readback_context": {
                         "ygp_project_code_variants": ["E4413000835979563001"],
+                        "ygp_source_urls": ["https://ygp.gdzwfw.gov.cn/detail-ready"],
+                        "ygp_readback_payload_sha256s": ["e" * 64],
                         "gdcic_project_code_route_allowed": False,
                     },
+                    "artifact_refs": ["p13b-ygp-original-readback-v1.json"],
                     "public_source_fallback_sequence": [
                         {
                             "source_kind": "ygp_original_notice_readback",

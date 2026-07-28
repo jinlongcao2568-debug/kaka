@@ -11,6 +11,7 @@ from typing import Any, Callable, Iterable, Mapping
 
 from api.routes.operator_customer_access import run_operator_autonomous_opportunity_search
 from shared.utils import build_id, utc_now_iso
+from stage3_parsing.responsible_person_identity import assess_responsible_person_name
 from stage4_verification.regional_hard_defect_sources import resolve_release_evidence_local_housing_adapter
 from storage.guangdong_local_field_query_probe import (
     ALLOWED_ADAPTER_RESULT_STATES,
@@ -1270,29 +1271,14 @@ NON_PERSON_RESPONSIBLE_TOKENS = {
 
 
 def _responsible_person_name_quality(value: str) -> dict[str, Any]:
-    text = str(value or "").strip()
-    if not text:
+    quality = assess_responsible_person_name(value, confidence=1.0)
+    if not str(value or "").strip():
         return {"accepted": False, "quality_state": "MISSING", "reject_reason": "person_name_missing"}
-    compact = re.sub(r"\s+", "", text)
-    if compact in NON_PERSON_RESPONSIBLE_TOKENS:
-        return {
-            "accepted": False,
-            "quality_state": "REJECTED_NON_PERSON_TOKEN",
-            "reject_reason": "stage3_non_person_token_must_not_be_used_as_responsible_person",
-        }
-    if not re.fullmatch(r"[\u4e00-\u9fa5·]{2,6}", compact):
-        return {
-            "accepted": False,
-            "quality_state": "REJECTED_PERSON_NAME_SHAPE",
-            "reject_reason": "responsible_person_name_shape_invalid",
-        }
-    if any(token in compact for token in ("国家", "工程", "项目", "投标", "招标", "公开", "通过", "质量", "单元")):
-        return {
-            "accepted": False,
-            "quality_state": "REJECTED_NON_PERSON_PHRASE",
-            "reject_reason": "responsible_person_name_contains_business_phrase",
-        }
-    return {"accepted": True, "quality_state": "ACCEPTED_PERSON_NAME_SHAPE", "reject_reason": ""}
+    return {
+        "accepted": quality.accepted,
+        "quality_state": quality.quality_state,
+        "reject_reason": quality.reject_reason,
+    }
 
 
 def _notice_core_project_name(value: str) -> str:

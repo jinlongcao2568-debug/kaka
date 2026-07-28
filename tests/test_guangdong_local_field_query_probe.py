@@ -1264,11 +1264,17 @@ class GuangdongLocalFieldQueryProbeTests(unittest.TestCase):
             task = result["manifest"]["field_task_records"][0]
             self.assertEqual(task["field_query_probe_state"], "LIVE_FIELD_QUERY_NEEDS_REGION_ADAPTER")
             self.assertEqual(task["field_readback_state"], "FIELD_READBACK_REGION_ADAPTER_REQUIRED")
-            self.assertEqual(task["adapter_result_state"], "NEEDS_BROWSER")
+            self.assertEqual(task["adapter_result_state"], "BLOCKED")
             self.assertTrue(task["field_match_summary"]["entry_portal_reachability_is_not_field_verification"])
             self.assertIn(
                 "non_guangdong_release_evidence_requires_jurisdiction_adapter",
                 task["blocker_taxonomy"],
+            )
+            sample = result["manifest"]["stage5_calibration_sample_records"][0]
+            self.assertEqual(sample["stage5_calibration_review_family"], "region_source_adapter_required")
+            self.assertEqual(
+                sample["stage5_calibration_failure_route_targets"],
+                ["operator_truth_label_review", "source_adapter"],
             )
 
     def test_hunan_release_plan_live_uses_public_service_adapter_without_homepage_match(self) -> None:
@@ -3308,6 +3314,18 @@ class GuangdongLocalFieldQueryProbeTests(unittest.TestCase):
                 record["runtime_blocker_ledger_record"]["blocker_state"],
                 "TERMINAL_CLOSEOUT_SUPPRESSED_DUPLICATE_DISPATCH",
             )
+            self.assertEqual(summary["stage5_calibration_sample_count"], 1)
+            self.assertEqual(summary["stage5_calibration_truth_label_required_count"], 1)
+            sample = result["manifest"]["stage5_calibration_sample_records"][0]
+            self.assertEqual(sample["project_id"], "PROJ-P13B-1")
+            self.assertEqual(sample["stage5_gate_result_state"], "STAGE5_GATE_NOT_RUN_FIELD_QUERY_OUTCOME_READY")
+            self.assertEqual(sample["stage5_calibration_review_bucket"], "MISSING_RELEVANT_PUBLIC_READBACK")
+            self.assertEqual(sample["stage5_abcd_calibration_bucket"], "C_MISSING_RELEVANT_PUBLIC_READBACK")
+            self.assertEqual(
+                sample["stage5_calibration_failure_route_targets"],
+                ["operator_truth_label_review", "source_adapter"],
+            )
+            self.assertTrue((root / "out" / "stage5-calibration-sample-table.json").exists())
 
     def test_missing_local_verification_fails_closed(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
