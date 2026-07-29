@@ -4,9 +4,12 @@ import io
 import json
 import unittest
 import zipfile
+from unittest.mock import patch
 
 from pypdf import PdfReader
+from reportlab.pdfbase.ttfonts import TTFError
 
+import stage7_sales.fixed_sku_evidence_bundle as bundle_module
 from stage7_sales.customer_delivery_boundary import (
     assert_customer_delivery_payload_safe,
     customer_delivery_disclaimer_texts,
@@ -20,6 +23,27 @@ from stage7_sales.fixed_sku_evidence_bundle import (
 
 
 class FixedSkuEvidenceBundleTests(unittest.TestCase):
+    def test_pdf_font_registration_skips_incompatible_candidates(self) -> None:
+        compatible_font = object()
+        with (
+            patch.object(bundle_module.pdfmetrics, "getRegisteredFontNames", return_value=[]),
+            patch.object(bundle_module.Path, "is_file", return_value=True),
+            patch.object(
+                bundle_module,
+                "TTFont",
+                side_effect=[TTFError("unsupported outlines"), compatible_font],
+            ) as font_factory,
+            patch.object(bundle_module.pdfmetrics, "registerFont") as register_font,
+            patch.dict(
+                bundle_module.os.environ,
+                {"KAKA_EVIDENCE_PDF_FONT_FILE": ""},
+            ),
+        ):
+            bundle_module._register_pdf_font()
+
+        self.assertEqual(font_factory.call_count, 2)
+        register_font.assert_called_once_with(compatible_font)
+
     def test_bundle_contains_pdf_html_manifest_hashes_and_fail_closed_issuance_controls(self) -> None:
         package = {
             "项目编号": "PROJ-PROD-001",

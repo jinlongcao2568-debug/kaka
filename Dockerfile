@@ -14,7 +14,7 @@ ENV KAKA_WORKER_RUNTIME=internal-storage-worker
 WORKDIR /app
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends fonts-noto-cjk \
+    && apt-get install -y --no-install-recommends fonts-wqy-zenhei \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt requirements-api.txt requirements.lock.txt requirements-api.lock.txt /app/

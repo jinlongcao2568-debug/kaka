@@ -5,9 +5,9 @@
 ## 审计证据
 
 - 当前审计范围：`src/`、`tests/`、`scripts/`、`contracts/`、`control/`、`docs/`、`handoff/`、`fixtures/`、`migrations/`、容器/Compose、CI 和根入口文件。
-- Python 测试规模：219 个测试文件、2149 个 `test*` 函数。
+- Python 测试规模：220 个测试文件、2150 个 `test*` 函数。
 - 运行路由读回：FastAPI 当前挂载 107 条应用路由；业务操作登记读回为 88 个，其中 42 个写操作全部经过中央权限/请求/响应契约审计；另有 7 条不进入公开 OpenAPI 的支付回调和客户访问路由。
-- 全量隔离回归：`python tests/run_tests.py` 通过 2122 个测试，跳过 1 个需要外部 PostgreSQL 测试库的可选集成测试，失败 0。
+- 全量隔离回归：Linux Python 3.12 环境执行 `python tests/run_tests.py` 通过 2129 个测试，跳过 1 个需要外部 PostgreSQL 测试库的可选集成测试，失败 0。
 - 关键相关回归：生产发布、鉴权边界、供应商证据、支付/对账、退款、交付、告警、恢复和部署工具 93 项跨模块测试通过；Unicode 路径、PDF 取证和运行架构合同 42 项定向复核通过。
 - 容器实跑：默认 API 镜像以非 root 用户 `kaka` 运行；未认证页面跳转内部登录页，签名 `HttpOnly`/`SameSite=Strict` Cookie 可进入操作台，无 CSRF 写请求返回 403，退出后页面重新跳转登录；容器 `pip check` 通过。
 - 依赖与静态检查：默认 API 镜像 `pip check` 通过；生产代码 E9、未定义符号和重复字典键检查通过。

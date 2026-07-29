@@ -17,7 +17,7 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
 from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.pdfbase.ttfonts import TTFError, TTFont
 from reportlab.platypus import (
     KeepTogether,
     Paragraph,
@@ -546,10 +546,15 @@ def _register_pdf_font() -> None:
     for candidate in candidates:
         if not candidate or not Path(candidate).is_file():
             continue
-        pdfmetrics.registerFont(TTFont(PDF_FONT_NAME, candidate, subfontIndex=0))
+        try:
+            font = TTFont(PDF_FONT_NAME, candidate, subfontIndex=0)
+        except TTFError:
+            continue
+        pdfmetrics.registerFont(font)
         return
     raise RuntimeError(
-        "CJK PDF font missing; install fonts-noto-cjk or set KAKA_EVIDENCE_PDF_FONT_FILE"
+        "compatible CJK PDF font missing; install fonts-wqy-zenhei or set "
+        "KAKA_EVIDENCE_PDF_FONT_FILE to a TrueType-outline font"
     )
 
 
