@@ -480,9 +480,22 @@ class DatabaseSession:
             self._closed = True
 
     @contextmanager
+    def serialized_key(self, lock_key: str) -> Any:
+        normalized = str(lock_key or "").strip()
+        if not normalized or len(normalized) > 512:
+            raise ValueError("serialized storage lock key must be 1-512 characters")
+        with self._lock:
+            if self._backend is not None and hasattr(self._backend, "advisory_lock"):
+                with self._backend.advisory_lock(normalized):
+                    yield self
+                return
+            yield self
+
+    @contextmanager
     def bulk_write(self) -> Any:
         if self._backend is not None:
-            yield self
+            with self._lock:
+                yield self
             return
         with self._lock, self._json_file_lock():
             self._load()

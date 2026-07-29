@@ -50,6 +50,16 @@ _EXPENSIVE_WRITE_PATHS = frozenset(
         "/operator-console/agent/plans",
     }
 )
+_PUBLIC_PRODUCTION_EXACT_PATHS = frozenset(
+    {
+        "/production/webhooks/payments/stripe",
+        "/customer/access",
+        "/customer/payment/complete",
+        "/customer/payment/cancelled",
+        "/customer/session",
+    }
+)
+_PUBLIC_PRODUCTION_PATH_PREFIXES = ("/customer/artifacts/",)
 
 
 class _ExpensiveRequestLimiter:
@@ -205,6 +215,7 @@ from api.routes.operator_customer_access import register_operator_customer_acces
 from api.routes.operator_agent import register_operator_agent_routes
 from api.routes.operator_onboarding import register_operator_onboarding_routes
 from api.routes.operator_support import register_operator_support_routes
+from api.routes.production import register_production_release_routes
 from api.routes.operator_frontend import (
     internal_evidence_package_approval_scope_sha256,
     register_operator_frontend_routes,
@@ -311,6 +322,11 @@ _INTERNAL_ROLE_PERMISSIONS = {
             "owner_source_capture",
             "internal_product_config",
             "internal_support_admin",
+            "production_release_request",
+            "production_release_suspend",
+            "production_payment_execute",
+            "production_refund_request",
+            "production_delivery_issue",
         }
     ),
     "operator": frozenset(
@@ -330,6 +346,9 @@ _INTERNAL_ROLE_PERMISSIONS = {
         {
             "internal_api_access",
             "object_approval_decision",
+            "production_release_approve",
+            "production_release_suspend",
+            "production_refund_approve",
         }
     ),
     "admin": frozenset(
@@ -347,6 +366,11 @@ _INTERNAL_ROLE_PERMISSIONS = {
             "owner_source_capture",
             "internal_product_config",
             "internal_support_admin",
+            "production_release_request",
+            "production_release_suspend",
+            "production_payment_execute",
+            "production_refund_request",
+            "production_delivery_issue",
         }
     ),
 }
@@ -357,6 +381,17 @@ _WRITE_POLICY_EXEMPT_ROUTE_NAMES = frozenset(
         "create_internal_object_approval_request",
         "decide_internal_object_approval_request",
         "revoke_internal_object_approval_request",
+        "create_production_release_request",
+        "approve_production_release_request",
+        "suspend_production_release_request",
+        "create_production_payment_request",
+        "create_production_refund_request",
+        "approve_production_refund_request",
+        "issue_production_customer_delivery",
+        "revoke_production_customer_delivery",
+        "receive_stripe_payment_webhook",
+        "create_customer_session",
+        "delete_customer_session",
     }
 )
 _WRITE_PERMISSION_BY_OPERATION = {
@@ -1488,6 +1523,12 @@ def _is_browser_page_path(path: str) -> bool:
     return path in _BROWSER_PAGE_PATHS or path.startswith("/customer-artifact-portal/")
 
 
+def _is_public_production_path(path: str) -> bool:
+    return path in _PUBLIC_PRODUCTION_EXACT_PATHS or path.startswith(
+        _PUBLIC_PRODUCTION_PATH_PREFIXES
+    )
+
+
 def _observability_route_template(request: Request) -> str:
     route = request.scope.get("route")
     template = str(getattr(route, "path", "") or "").strip()
@@ -2523,6 +2564,11 @@ def create_app() -> FastAPI:
         concurrency_per_principal=settings.api_expensive_concurrency_per_principal,
     )
     app.state.expensive_request_limiter = expensive_request_limiter
+    public_request_limiter = _ExpensiveRequestLimiter(
+        requests_per_minute=settings.api_public_requests_per_minute,
+        concurrency_per_principal=settings.api_public_concurrency_per_client,
+    )
+    app.state.public_request_limiter = public_request_limiter
     operational_observability = get_operational_event_sink("api")
     app.state.operational_observability = operational_observability
 
@@ -2542,6 +2588,57 @@ def create_app() -> FastAPI:
             return body_limit_response
 
         client_host = str(request.client.host if request.client else "")
+        if _is_public_production_path(request.url.path):
+            request.state.internal_auth_context = _internal_auth_context(
+                principal_id="",
+                role="",
+                authenticated=False,
+                auth_method="customer_grant_or_provider_signature",
+                deployment_tenant_id=str(
+                    settings.deployment_tenant_id_optional or "local-development"
+                ),
+            )
+            path_scope = (
+                "/customer/artifacts/*"
+                if request.url.path.startswith("/customer/artifacts/")
+                else request.url.path
+            )
+            decision = public_request_limiter.acquire(
+                f"public:{client_host or 'unknown'}:{path_scope}"
+            )
+            if not decision["accepted"]:
+                response = JSONResponse(
+                    status_code=429,
+                    content={
+                        "detail": {
+                            "code": decision["reason"],
+                            "scope": "public_client_endpoint",
+                            "retry_after_seconds": decision[
+                                "retry_after_seconds"
+                            ],
+                        }
+                    },
+                )
+                response.headers["Retry-After"] = str(
+                    decision["retry_after_seconds"]
+                )
+                response.headers["Cache-Control"] = "no-store"
+                return response
+            try:
+                response = await call_next(request)
+                response.headers["Cache-Control"] = "no-store"
+                response.headers["X-Kaka-RateLimit-Limit"] = str(
+                    decision["limit"]
+                )
+                response.headers["X-Kaka-RateLimit-Remaining"] = str(
+                    decision["remaining"]
+                )
+                return response
+            finally:
+                public_request_limiter.release(
+                    f"public:{client_host or 'unknown'}:{path_scope}"
+                )
+
         if client_host == "testclient":
             test_authenticated = request.headers.get("x-kaka-test-operator-auth") == "approved"
             test_role = request.headers.get("x-kaka-test-role") or "internal_test_operator"
@@ -3018,7 +3115,8 @@ def create_app() -> FastAPI:
     async def healthz() -> dict[str, Any]:
         return {
             "status": "ok",
-            "internal_only": True,
+            "internal_only": str(settings.environment or "") != "PROD_LIVE_MODE",
+            "customer_public_routes_mounted": True,
             "api_auth_configured": bool(configured_principals),
             "streaming_request_body_limit_ready": True,
             "max_request_body_bytes": settings.api_max_request_body_bytes,
@@ -3028,6 +3126,10 @@ def create_app() -> FastAPI:
             "expensive_concurrency_per_principal": (
                 settings.api_expensive_concurrency_per_principal
             ),
+            "public_request_rate_limit_ready": True,
+            "public_request_concurrency_limit_ready": True,
+            "public_requests_per_minute": settings.api_public_requests_per_minute,
+            "public_concurrency_per_client": settings.api_public_concurrency_per_client,
             "configured_principal_count": len(configured_principals),
             "operational_observability": operational_observability.readiness(),
             "object_approval_workflow_ready": bool(
@@ -3211,6 +3313,12 @@ def create_app() -> FastAPI:
     _mount_routes(app, operator_onboarding_routes)
     _mount_routes(app, operator_support_routes)
     _mount_routes(app, operator_frontend_routes)
+    app.state.production_release_operations = register_production_release_routes(
+        app,
+        settings=settings,
+        session=storage_session,
+        provider_summary=provider_adapter_readiness_summary,
+    )
     app.state.internal_write_permission_policy = _audit_internal_write_permission_policy(app)
     app.state.internal_write_request_contract_policy = (
         _audit_internal_write_request_contract_policy(app)
@@ -3247,6 +3355,28 @@ def create_app() -> FastAPI:
         operator_frontend_routes,
         app.state.provider_adapter_bootstrap,
         app.state.storage_bootstrap,
+    )
+    production_config = app.state.production_release_config
+    app.state.production_release_bootstrap = {
+        "orchestrator_id": "runtime.production_release_orchestrator.v1",
+        "configured": bool(production_config.enabled),
+        "mode": production_config.mode,
+        "release_id": production_config.release_id,
+        "release_version": production_config.release_version,
+        "tenant_id": production_config.tenant_id,
+        "capabilities": production_config.capability_flags(),
+        "readiness_path": "/production/readiness",
+        "management_operations": list(app.state.production_release_operations),
+        "public_customer_path_prefix": "/customer/",
+        "payment_webhook_path": "/production/webhooks/payments/stripe",
+        "distinct_requester_reviewer_required": True,
+        "approval_hash_bound": True,
+        "fail_closed_until_active_approval": True,
+        "automated_refund_enabled": False,
+        "public_software_release_allowed": False,
+    }
+    app.state.transport_bootstrap["production_release"] = dict(
+        app.state.production_release_bootstrap
     )
     def internal_openapi() -> dict[str, Any]:
         if app.openapi_schema:

@@ -6320,6 +6320,33 @@ def render_customer_artifact_portal_download(payload: dict[str, Any]) -> Respons
                 "supported_formats": ["json", "zip"],
             },
         )
+    approved = build_approved_evidence_package_artifact(payload)
+    package = dict(approved["package"])
+    approval = dict(approved["approval"])
+    bundle = dict(approved["bundle"])
+    if download_format == "zip":
+        return Response(
+            bundle["bytes"],
+            media_type=bundle["media_type"],
+            headers={
+                "Content-Disposition": f'attachment; filename="{bundle["filename"]}"',
+                "X-Kaka-Bundle-SHA256": str(bundle["bundle_sha256"]),
+                "X-Kaka-SKU-Code": "SKU-B",
+                "Cache-Control": "no-store",
+            },
+        )
+    filename = f"internal-evidence-package-{_safe_filename_token(opportunity_id)}.json"
+    return Response(
+        json.dumps(package, ensure_ascii=False, indent=2),
+        media_type="application/json; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+def build_approved_evidence_package_artifact(
+    payload: Mapping[str, Any],
+) -> dict[str, Any]:
+    opportunity_id = str(payload.get("opportunity_id") or "")
     surface = _customer_artifact_surface_with_search_context(payload)
     package = _internal_evidence_package_download_payload(payload, surface=surface)
     approval_scope_sha256 = _internal_evidence_package_scope_sha256(package)
@@ -6361,28 +6388,20 @@ def render_customer_artifact_portal_download(payload: dict[str, Any]) -> Respons
         "认证不会自动满足审批": True,
     }
     assert_customer_delivery_payload_safe(package)
-    if download_format == "zip":
-        bundle = build_fixed_sku_evidence_bundle(
-            package,
-            approval_audit=dict(package["模拟下载审计"]["逐对象审批"]),
-            generated_at=str(approval.get("executed_at") or approval.get("updated_at") or "") or None,
-        )
-        return Response(
-            bundle["bytes"],
-            media_type=bundle["media_type"],
-            headers={
-                "Content-Disposition": f'attachment; filename="{bundle["filename"]}"',
-                "X-Kaka-Bundle-SHA256": str(bundle["bundle_sha256"]),
-                "X-Kaka-SKU-Code": "SKU-B",
-                "Cache-Control": "no-store",
-            },
-        )
-    filename = f"internal-evidence-package-{_safe_filename_token(opportunity_id)}.json"
-    return Response(
-        json.dumps(package, ensure_ascii=False, indent=2),
-        media_type="application/json; charset=utf-8",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    bundle = build_fixed_sku_evidence_bundle(
+        package,
+        approval_audit=dict(package["模拟下载审计"]["逐对象审批"]),
+        generated_at=str(approval.get("executed_at") or approval.get("updated_at") or "")
+        or None,
     )
+    return {
+        "opportunity_id": opportunity_id,
+        "package": package,
+        "approval": approval,
+        "bundle": bundle,
+        "bundle_sha256": bundle["bundle_sha256"],
+        "customer_delivery_payload_safe": True,
+    }
 
 
 def _assert_internal_evidence_package_download_allowed(
@@ -7007,6 +7026,7 @@ def register_operator_frontend_routes(router: object | None = None) -> list[dict
 
 
 __all__ = [
+    "build_approved_evidence_package_artifact",
     "OPERATOR_FRONTEND_ROUTES",
     "register_operator_frontend_routes",
     "render_customer_artifact_portal",

@@ -9,12 +9,30 @@ param(
     [Parameter(Mandatory = $true)][ValidatePattern('^[A-Za-z0-9][A-Za-z0-9_.-]{2,127}$')][string]$BackupId,
     [Parameter(Mandatory = $true)][string]$RestoreReportRoot,
     [Parameter(Mandatory = $true)][switch]$ConfirmIsolatedRestore,
-    [ValidateRange(60, 86400)][int]$RtoTargetSeconds = 3600
+    [ValidateRange(60, 86400)][int]$RtoTargetSeconds = 3600,
+    [string]$ComposeEnvironmentFile = '',
+    [string]$ProductionOverlayFile = '',
+    [switch]$RequireProductionOverlay
 )
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $composeFile = Join-Path $repoRoot 'docker-compose.private-pilot.yml'
+$composeArgs = @()
+if ($ComposeEnvironmentFile) {
+    $resolvedComposeEnvironment = (Resolve-Path -LiteralPath $ComposeEnvironmentFile).Path
+    $composeArgs += @('--env-file', $resolvedComposeEnvironment)
+}
+$composeArgs += @('-f', $composeFile)
+$productionOverlayUsed = $false
+if ($ProductionOverlayFile) {
+    $resolvedProductionOverlay = (Resolve-Path -LiteralPath $ProductionOverlayFile).Path
+    $composeArgs += @('-f', $resolvedProductionOverlay)
+    $productionOverlayUsed = $true
+}
+if ($RequireProductionOverlay -and -not $productionOverlayUsed) {
+    throw 'Production restore drill requires an explicit production Compose overlay.'
+}
 $resolvedPrincipals = (Resolve-Path -LiteralPath $PrincipalsFile).Path
 $resolvedPassword = (Resolve-Path -LiteralPath $PostgresPasswordFile).Path
 $resolvedBackupRoot = (Resolve-Path -LiteralPath $BackupRoot).Path
@@ -44,19 +62,25 @@ $env:KAKA_BACKUP_ID = $BackupId
 $env:KAKA_RESTORE_ISOLATED_ACK = "RESTORE_ISOLATED:$targetDatabase"
 $env:KAKA_RESTORE_RTO_TARGET_SECONDS = [string]$RtoTargetSeconds
 
-docker compose --profile restore-drill -f $composeFile build restore-tools
-if ($LASTEXITCODE -ne 0) { throw 'Failed to build the pinned PostgreSQL 18 restore-tools image.' }
+if ($productionOverlayUsed) {
+    docker compose @composeArgs --profile restore-drill pull restore-postgres restore-tools
+    if ($LASTEXITCODE -ne 0) { throw 'Failed to pull immutable production restore images.' }
+}
+else {
+    docker compose @composeArgs --profile restore-drill build restore-tools
+    if ($LASTEXITCODE -ne 0) { throw 'Failed to build the pinned PostgreSQL 18 restore-tools image.' }
+}
 
 try {
-    docker compose --profile restore-drill -f $composeFile up --no-build --abort-on-container-exit --exit-code-from restore-tools restore-tools
+    docker compose @composeArgs --profile restore-drill up --no-build --abort-on-container-exit --exit-code-from restore-tools restore-tools
     if ($LASTEXITCODE -ne 0) { throw 'Isolated private-pilot restore drill failed closed.' }
 }
 finally {
-    docker compose --profile restore-drill -f $composeFile stop --timeout 30 restore-postgres restore-tools | Out-Null
+    docker compose @composeArgs --profile restore-drill stop --timeout 30 restore-postgres restore-tools | Out-Null
 }
 
 $reportPath = Join-Path $resolvedReportRoot "$BackupId-restore-report.json"
 if (-not (Test-Path -LiteralPath $reportPath -PathType Leaf)) {
     throw "Restore process exited without the required RTO report: $reportPath"
 }
-Write-Output "Validated isolated restore report: $reportPath"
+Write-Output "Validated isolated restore report (production_overlay_used=$productionOverlayUsed): $reportPath"

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import hashlib
 import json
+from contextlib import contextmanager
 from dataclasses import asdict
 from pathlib import Path
 from threading import RLock
@@ -96,6 +98,30 @@ class SQLAlchemyStorageBackend:
     def close(self) -> None:
         with self._lock:
             self._engine.dispose()
+
+    @contextmanager
+    def advisory_lock(self, lock_key: str) -> Any:
+        if self.database_dialect != "postgresql":
+            with self._lock:
+                yield
+            return
+        lock_id = int.from_bytes(
+            hashlib.sha256(lock_key.encode("utf-8")).digest()[:8],
+            byteorder="big",
+            signed=True,
+        )
+        with self._engine.connect() as connection:
+            connection.execute(
+                text("SELECT pg_advisory_lock(:lock_id)"),
+                {"lock_id": lock_id},
+            )
+            try:
+                yield
+            finally:
+                connection.execute(
+                    text("SELECT pg_advisory_unlock(:lock_id)"),
+                    {"lock_id": lock_id},
+                )
 
     @property
     def schema_revision(self) -> str | None:

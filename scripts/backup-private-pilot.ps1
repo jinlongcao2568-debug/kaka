@@ -10,12 +10,30 @@ param(
     [Parameter(Mandatory = $true)][switch]$PauseWriters,
     [ValidateRange(300, 604800)][int]$ScheduleIntervalSeconds = 21600,
     [ValidateRange(300, 1209600)][int]$RpoTargetSeconds = 28800,
-    [switch]$LeaveWritersStopped
+    [switch]$LeaveWritersStopped,
+    [string]$ComposeEnvironmentFile = '',
+    [string]$ProductionOverlayFile = '',
+    [switch]$RequireProductionOverlay
 )
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $composeFile = Join-Path $repoRoot 'docker-compose.private-pilot.yml'
+$composeArgs = @()
+if ($ComposeEnvironmentFile) {
+    $resolvedComposeEnvironment = (Resolve-Path -LiteralPath $ComposeEnvironmentFile).Path
+    $composeArgs += @('--env-file', $resolvedComposeEnvironment)
+}
+$composeArgs += @('-f', $composeFile)
+$productionOverlayUsed = $false
+if ($ProductionOverlayFile) {
+    $resolvedProductionOverlay = (Resolve-Path -LiteralPath $ProductionOverlayFile).Path
+    $composeArgs += @('-f', $resolvedProductionOverlay)
+    $productionOverlayUsed = $true
+}
+if ($RequireProductionOverlay -and -not $productionOverlayUsed) {
+    throw 'Production backup requires an explicit production Compose overlay.'
+}
 $resolvedPrincipals = (Resolve-Path -LiteralPath $PrincipalsFile).Path
 $resolvedPassword = (Resolve-Path -LiteralPath $PostgresPasswordFile).Path
 $resolvedBackupRoot = [IO.Path]::GetFullPath($BackupRoot)
@@ -43,33 +61,39 @@ $env:KAKA_BACKUP_SCHEDULE_INTERVAL_SECONDS = [string]$ScheduleIntervalSeconds
 $env:KAKA_BACKUP_RPO_TARGET_SECONDS = [string]$RpoTargetSeconds
 
 $runningServices = @(
-    docker compose -f $composeFile ps --services --status running
+    docker compose @composeArgs ps --services --status running
     if ($LASTEXITCODE -ne 0) { throw 'Unable to read private-pilot running services.' }
 )
 $writerServices = @('app', 'worker', 'browser-worker') | Where-Object { $runningServices -contains $_ }
 
 try {
     if ($writerServices.Count -gt 0) {
-        docker compose -f $composeFile stop --timeout 60 @writerServices
+        docker compose @composeArgs stop --timeout 60 @writerServices
         if ($LASTEXITCODE -ne 0) { throw 'Failed to stop all private-pilot writers.' }
     }
 
-    docker compose --profile backup -f $composeFile build backup-tools
-    if ($LASTEXITCODE -ne 0) { throw 'Failed to build the pinned PostgreSQL 18 backup-tools image.' }
+    if ($productionOverlayUsed) {
+        docker compose @composeArgs --profile backup pull backup-tools
+        if ($LASTEXITCODE -ne 0) { throw 'Failed to pull the immutable production backup-tools image.' }
+    }
+    else {
+        docker compose @composeArgs --profile backup build backup-tools
+        if ($LASTEXITCODE -ne 0) { throw 'Failed to build the pinned PostgreSQL 18 backup-tools image.' }
+    }
 
-    docker compose --profile backup -f $composeFile run --rm backup-tools backup
+    docker compose @composeArgs --profile backup run --rm backup-tools backup
     if ($LASTEXITCODE -ne 0) { throw 'Private-pilot backup failed closed.' }
 
-    docker compose --profile backup -f $composeFile run --rm backup-tools validate
+    docker compose @composeArgs --profile backup run --rm backup-tools validate
     if ($LASTEXITCODE -ne 0) { throw 'Private-pilot backup artifact validation failed.' }
 }
 finally {
     if (-not $LeaveWritersStopped -and $writerServices.Count -gt 0) {
-        docker compose -f $composeFile up -d --no-build @writerServices
+        docker compose @composeArgs up -d --no-build @writerServices
         if ($LASTEXITCODE -ne 0) {
             Write-Error 'Backup finished or failed, but one or more previously running writers did not resume.'
         }
     }
 }
 
-Write-Output "Validated private-pilot backup: $resolvedBackupRoot\$BackupId"
+Write-Output "Validated backup (production_overlay_used=$productionOverlayUsed): $resolvedBackupRoot\$BackupId"

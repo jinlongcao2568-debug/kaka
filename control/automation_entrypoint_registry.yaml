@@ -1,6 +1,6 @@
 registry_id: automation-entrypoint-registry-v1
 registry_version: 1
-updated_at: "2026-05-23"
+updated_at: "2026-07-29"
 purpose: >
   Machine-readable registry for automation entrypoints. Scripts are treated as
   thin launchers; durable workflow decisions must live in src runners,
@@ -411,6 +411,127 @@ formal_entrypoints:
     replaces_human_memory: true
     purpose: Convert latest scoreboard public-identifier promotion records into B/C official readback tasks consumable by Stage4 field query without enabling customer-visible actions.
 
+  - entrypoint_id: production_provider_live_evidence_generator
+    kind: script
+    script: scripts/create-provider-live-evidence.ps1
+    entrypoint_role: validation
+    status: FORMAL_CURRENT
+    automation_layer: production_provider_live_evidence
+    module_or_command: runtime.provider_live_evidence
+    state_inputs:
+      - provider sandbox execution reference
+      - callback validation reference
+      - requester approval, audit, and operator action references
+      - file-backed evidence signing key
+    state_outputs:
+      - immutable signed provider-live evidence JSON
+      - evidence SHA256 without secret material
+    manual_gate_required: true
+    external_customer_action_enabled: false
+    replaces_human_memory: true
+    purpose: Bind actual provider sandbox, callback, approval, audit, and operator evidence into a signed production gate artifact.
+
+  - entrypoint_id: production_release_backup
+    kind: script
+    script: scripts/backup-production-release.ps1
+    entrypoint_role: orchestrator
+    status: FORMAL_CURRENT
+    automation_layer: production_recovery
+    module_or_command: runtime.private_pilot_backup
+    state_inputs:
+      - exact production tenant and instance
+      - immutable production Compose environment
+      - writer pause acknowledgement
+    state_outputs:
+      - content-addressed PostgreSQL and object-storage backup
+      - validated backup manifest
+    manual_gate_required: true
+    external_customer_action_enabled: false
+    replaces_human_memory: true
+    purpose: Create and validate a writer-quiesced backup through the production Compose overlay.
+
+  - entrypoint_id: production_release_isolated_restore
+    kind: script
+    script: scripts/restore-production-release-isolated.ps1
+    entrypoint_role: validation
+    status: FORMAL_CURRENT
+    automation_layer: production_recovery
+    module_or_command: runtime.private_pilot_backup
+    state_inputs:
+      - validated production backup
+      - immutable production Compose environment
+      - isolated restore acknowledgement and RTO target
+    state_outputs:
+      - isolated restore report
+      - schema, database count, object inventory, and RTO validation
+    manual_gate_required: true
+    external_customer_action_enabled: false
+    replaces_human_memory: true
+    purpose: Prove the exact production backup can restore without mutating active storage.
+
+  - entrypoint_id: production_release_rollback_drill
+    kind: script
+    script: scripts/rollback-production-release.ps1
+    entrypoint_role: orchestrator
+    status: FORMAL_CURRENT
+    automation_layer: production_recovery
+    module_or_command: scripts/rollback-production-release.ps1
+    state_inputs:
+      - current and previous immutable production environments
+      - validated production backup
+      - explicit rollback drill confirmation
+    state_outputs:
+      - health-gated rollback report
+      - current-release forward recovery evidence
+    manual_gate_required: true
+    external_customer_action_enabled: false
+    replaces_human_memory: true
+    purpose: Close customer ingress, prove the previous release starts against the current schema, and restore the current release.
+
+  - entrypoint_id: production_release_preflight
+    kind: script
+    script: scripts/run-production-release-preflight.ps1
+    entrypoint_role: validation
+    status: FORMAL_CURRENT
+    automation_layer: production_release
+    module_or_command: runtime.production_release_preflight
+    state_inputs:
+      - running production services
+      - signed provider evidence
+      - backup, restore, and rollback evidence
+      - actual alert delivery state
+    state_outputs:
+      - hash-bound release readiness
+      - technical blocker list
+    manual_gate_required: false
+    external_customer_action_enabled: false
+    replaces_human_memory: true
+    purpose: Fail closed unless every technical production gate is ready; active release validation additionally checks independent approval.
+
+  - entrypoint_id: production_release_deployer
+    kind: script
+    script: scripts/deploy-production-release.ps1
+    entrypoint_role: orchestrator
+    status: FORMAL_CURRENT
+    automation_layer: production_release
+    module_or_command: runtime.production_release_preflight
+    state_inputs:
+      - immutable production image digests
+      - production secret-file references
+      - recovery evidence
+      - explicit deployment confirmation
+    state_outputs:
+      - health-gated production services
+      - actual delivered alert probe
+      - technical readiness for separate release approval
+    manual_gate_required: true
+    external_customer_action_enabled: false
+    replaces_human_memory: true
+    limitations:
+      - Does not approve or activate a customer-visible release.
+      - Owner release request and distinct reviewer approval remain mandatory.
+    purpose: Deploy the fail-closed production stack, prove alert delivery, and stop at READY_FOR_APPROVAL.
+
   - entrypoint_id: stage1_6_internal_http_orchestration_preview
     kind: http_route
     route: /internal/stage1-6/orchestrations
@@ -485,10 +606,18 @@ formal_entrypoints:
 
 script_classification_rules:
   exact:
+    backup-private-pilot.ps1: orchestrator
+    backup-production-release.ps1: orchestrator
+    create-provider-live-evidence.ps1: validation
+    deploy-production-release.ps1: orchestrator
     run-golden.ps1: validation
     run-governance-contracts.ps1: validation
     run-storage-migrations.ps1: migration
     run-runtime-entrypoint.ps1: orchestrator
+    restore-private-pilot-isolated.ps1: validation
+    restore-production-release-isolated.ps1: validation
+    rollback-private-pilot-release.ps1: orchestrator
+    rollback-production-release.ps1: orchestrator
     invoke-local-json-test-env.ps1: validation
     clean-python-cache.ps1: utility
     cleanup-local-artifacts.ps1: utility

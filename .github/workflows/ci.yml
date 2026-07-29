@@ -56,7 +56,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Validate Compose definition
-        run: docker compose config --quiet
+        run: |
+          docker compose config --quiet
+          docker compose \
+            --env-file deploy/production/production.env.example \
+            -f docker-compose.private-pilot.yml \
+            -f docker-compose.production.yml \
+            config --quiet
       - name: Build API image
         run: docker build --tag kaka-ci:${{ github.sha }} .
       - name: Start API container

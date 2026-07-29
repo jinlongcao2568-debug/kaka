@@ -352,6 +352,8 @@ class Settings:
     api_max_request_body_bytes: int = 2 * 1024 * 1024
     api_expensive_requests_per_minute: int = 20
     api_expensive_concurrency_per_principal: int = 2
+    api_public_requests_per_minute: int = 120
+    api_public_concurrency_per_client: int = 8
     internal_api_session_ttl_seconds: int = 60 * 60
     internal_object_approval_ttl_seconds: int = 15 * 60
     internal_api_cookie_secure: bool = True
@@ -424,6 +426,14 @@ class Settings:
             api_expensive_concurrency_per_principal=_read_env_positive_int(
                 "KAKA_API_EXPENSIVE_CONCURRENCY_PER_PRINCIPAL",
                 2,
+            ),
+            api_public_requests_per_minute=_read_env_positive_int(
+                "KAKA_API_PUBLIC_REQUESTS_PER_MINUTE",
+                120,
+            ),
+            api_public_concurrency_per_client=_read_env_positive_int(
+                "KAKA_API_PUBLIC_CONCURRENCY_PER_CLIENT",
+                8,
             ),
             internal_api_session_ttl_seconds=_read_env_positive_int(
                 "KAKA_INTERNAL_API_SESSION_TTL_SECONDS",

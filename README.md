@@ -32,6 +32,7 @@
 - Stage1-6 direct-dev 当前 focus 以 `control/stage1_6_priority_execution_plan.yaml#current_focus` 为准。
 - Stage1-6/P0 常用入口：`stage1_6_real_public_pressure_runner`、`stage4_release_evidence_bridge_builder`、`stage6_review_cycle_runner`。
 - 业务来源授权/登录态缺失：优先用 `NEEDS_AUTH`；若顶层没有该枚举，用 `authorization_readiness_state=LOGIN_OR_SSO_REQUIRED` 和 `operator_next_action` 表达。这个业务状态不替代内部 HTTP API 鉴权。
+- 客户证据包生产发布：按 [`deploy/production/README.md`](deploy/production/README.md) 执行。该入口覆盖生产部署、支付、交付、退款、告警和灾备，默认失败关闭，且不会绕过独立复核。
 
 ## 内部 API
 
