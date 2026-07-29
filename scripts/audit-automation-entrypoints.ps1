@@ -23,7 +23,10 @@ if (-not $OutputRoot) {
     $OutputRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\automation-entrypoint-audit-v1"
 }
 
-$env:PYTHONPATH = "$repoRoot\src;$repoRoot\tests"
+$env:PYTHONPATH = @(
+    (Join-Path $repoRoot "src"),
+    (Join-Path $repoRoot "tests")
+) -join [System.IO.Path]::PathSeparator
 $env:PYTHONIOENCODING = "utf-8"
 
 $argsList = @(

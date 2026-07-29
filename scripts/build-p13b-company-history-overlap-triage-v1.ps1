@@ -39,7 +39,10 @@ if (-not $OutputRoot) {
 
 New-Item -ItemType Directory -Force -Path $OutputRoot | Out-Null
 
-$env:PYTHONPATH = "$repoRoot\src;$repoRoot\tests"
+$env:PYTHONPATH = @(
+    (Join-Path $repoRoot "src"),
+    (Join-Path $repoRoot "tests")
+) -join [System.IO.Path]::PathSeparator
 $env:PYTHONIOENCODING = "utf-8"
 
 if ($Stage4BackfillFollowupQueueJson -and $RuntimeBlockerFallbackSourcePlanJson) {

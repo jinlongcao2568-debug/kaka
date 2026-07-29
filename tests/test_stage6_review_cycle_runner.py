@@ -778,9 +778,12 @@ class Stage6ReviewCycleRunnerTests(unittest.TestCase):
                 result["manifest"]["stage6_review_cycle_bootstrap_registry_version"],
                 1,
             )
+            registry_path = str(
+                result["manifest"]["stage6_review_cycle_bootstrap_registry_path"]
+            ).replace("\\", "/")
             self.assertTrue(
-                str(result["manifest"]["stage6_review_cycle_bootstrap_registry_path"]).endswith(
-                    "control\\stage6_review_cycle_bootstrap_registry.yaml"
+                registry_path.endswith(
+                    "control/stage6_review_cycle_bootstrap_registry.yaml"
                 )
             )
             trace = result["manifest"]["stage6_review_cycle_bootstrap_resolution_trace"]

@@ -8,12 +8,12 @@ from pathlib import Path
 from threading import RLock
 from time import perf_counter
 from typing import Any
-from urllib.parse import unquote, urlsplit
+from urllib.parse import urlsplit
 
 from sqlalchemy import create_engine, delete, event, inspect, insert, select, text, update
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
-from sqlalchemy.engine import Engine
+from sqlalchemy.engine import Engine, make_url
 from runtime.operational_observability import (
     get_operational_event_sink,
     record_operational_event_safely,
@@ -67,12 +67,13 @@ class SQLAlchemyStorageBackend:
 
     @staticmethod
     def effective_storage_path(database_url: str) -> Path | None:
-        parsed = urlsplit(database_url)
-        if parsed.scheme != "sqlite":
+        parsed = make_url(database_url)
+        if parsed.get_backend_name() != "sqlite":
             return None
-        if parsed.path in ("", "/:memory:"):
+        database = str(parsed.database or "")
+        if database in ("", ":memory:"):
             return None
-        return Path(unquote(parsed.path.lstrip("/")))
+        return Path(database)
 
     @staticmethod
     def _database_dialect(database_url: str) -> str:
