@@ -1,0 +1,62 @@
+(kaka_public_routes) {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "no-referrer"
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+		-Server
+	}
+
+	request_body {
+		max_size 2MB
+	}
+
+	@public_customer path /customer/*
+	@payment_webhook {
+		method POST
+		path /production/webhooks/payments/stripe
+	}
+	@health {
+		method GET HEAD
+		path /healthz
+	}
+
+	handle @public_customer {
+		reverse_proxy app:8000 {
+			transport http {
+				dial_timeout 3s
+				response_header_timeout 2m
+			}
+		}
+	}
+
+	handle @payment_webhook {
+		reverse_proxy app:8000 {
+			transport http {
+				dial_timeout 3s
+				response_header_timeout 30s
+			}
+		}
+	}
+
+	handle @health {
+		reverse_proxy app:8000 {
+			transport http {
+				dial_timeout 3s
+				response_header_timeout 10s
+			}
+		}
+	}
+
+	handle {
+		respond "Not Found" 404
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}

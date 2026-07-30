@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)][string]$EnvironmentFile,
+    [switch]$ExternalHostCaddy,
     [switch]$RequireActive
 )
 
@@ -8,12 +9,16 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $baseCompose = Join-Path $repoRoot 'docker-compose.private-pilot.yml'
 $productionCompose = Join-Path $repoRoot 'docker-compose.production.yml'
+$externalHostCaddyCompose = Join-Path $repoRoot 'docker-compose.production.external-host-caddy.yml'
 $resolvedEnvironment = (Resolve-Path -LiteralPath $EnvironmentFile).Path
 $composeArgs = @(
     '--env-file', $resolvedEnvironment,
     '-f', $baseCompose,
     '-f', $productionCompose
 )
+if ($ExternalHostCaddy) {
+    $composeArgs += @('-f', $externalHostCaddyCompose)
+}
 
 docker compose @composeArgs config --quiet
 if ($LASTEXITCODE -ne 0) {

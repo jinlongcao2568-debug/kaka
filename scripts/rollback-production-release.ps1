@@ -9,6 +9,7 @@ param(
     [Parameter(Mandatory = $true)][string]$ValidatedBackupManifest,
     [Parameter(Mandatory = $true)][string]$RollbackReportFile,
     [Parameter(Mandatory = $true)][switch]$ConfirmProductionRollbackDrill,
+    [switch]$ExternalHostCaddy,
     [ValidateRange(60, 900)][int]$WaitTimeoutSeconds = 300
 )
 
@@ -16,12 +17,17 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $baseCompose = Join-Path $repoRoot 'docker-compose.private-pilot.yml'
 $productionCompose = Join-Path $repoRoot 'docker-compose.production.yml'
+$externalHostCaddyCompose = Join-Path $repoRoot 'docker-compose.production.external-host-caddy.yml'
 $currentEnv = (Resolve-Path -LiteralPath $CurrentEnvironmentFile).Path
 $previousEnv = (Resolve-Path -LiteralPath $PreviousEnvironmentFile).Path
 $manifestPath = (Resolve-Path -LiteralPath $ValidatedBackupManifest).Path
 $reportPath = [IO.Path]::GetFullPath($RollbackReportFile)
 $currentArgs = @('--env-file', $currentEnv, '-f', $baseCompose, '-f', $productionCompose)
 $previousArgs = @('--env-file', $previousEnv, '-f', $baseCompose, '-f', $productionCompose)
+if ($ExternalHostCaddy) {
+    $currentArgs += @('-f', $externalHostCaddyCompose)
+    $previousArgs += @('-f', $externalHostCaddyCompose)
+}
 
 if (-not $ConfirmProductionRollbackDrill) {
     throw 'Production rollback drill requires -ConfirmProductionRollbackDrill.'

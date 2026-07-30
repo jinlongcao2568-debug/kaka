@@ -67,6 +67,12 @@ jobs:
             -f docker-compose.private-pilot.yml \
             -f docker-compose.production.yml \
             config --quiet
+          docker compose \
+            --env-file deploy/production/production.env.example \
+            -f docker-compose.private-pilot.yml \
+            -f docker-compose.production.yml \
+            -f docker-compose.production.external-host-caddy.yml \
+            config --quiet
       - name: Build API image
         run: docker build --tag kaka-ci:${{ github.sha }} .
       - name: Start API container

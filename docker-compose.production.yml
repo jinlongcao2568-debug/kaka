@@ -179,6 +179,7 @@ services:
       - "443:443"
     volumes: !override
       - ./deploy/production/Caddyfile.public:/etc/caddy/Caddyfile:ro
+      - ./deploy/production/Caddyfile.public-routes:/etc/caddy/KakaPublicRoutes:ro
       - caddy-data:/data
       - caddy-config:/config
     networks:

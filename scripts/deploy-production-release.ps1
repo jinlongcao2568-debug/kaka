@@ -2,6 +2,7 @@
 param(
     [Parameter(Mandatory = $true)][string]$EnvironmentFile,
     [Parameter(Mandatory = $true)][switch]$ConfirmProductionDeployment,
+    [switch]$ExternalHostCaddy,
     [ValidateRange(30, 600)][int]$AlertProbeWaitSeconds = 120,
     [ValidateRange(60, 900)][int]$WaitTimeoutSeconds = 300
 )
@@ -10,12 +11,16 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $baseCompose = Join-Path $repoRoot 'docker-compose.private-pilot.yml'
 $productionCompose = Join-Path $repoRoot 'docker-compose.production.yml'
+$externalHostCaddyCompose = Join-Path $repoRoot 'docker-compose.production.external-host-caddy.yml'
 $resolvedEnvironment = (Resolve-Path -LiteralPath $EnvironmentFile).Path
 $composeArgs = @(
     '--env-file', $resolvedEnvironment,
     '-f', $baseCompose,
     '-f', $productionCompose
 )
+if ($ExternalHostCaddy) {
+    $composeArgs += @('-f', $externalHostCaddyCompose)
+}
 
 if (-not $ConfirmProductionDeployment) {
     throw 'Production deployment requires -ConfirmProductionDeployment.'

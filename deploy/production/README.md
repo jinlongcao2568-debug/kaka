@@ -25,6 +25,33 @@
 
 Docker Compose 必须支持本项目使用的 `!reset` 和 `!override` 合并标签。所有生产脚本都会先运行 `docker compose config --quiet`，不支持或配置不完整时会失败关闭。
 
+## 与服务器现有 Caddy 共存
+
+服务器的 80/443 已由其他站点使用时，生产栈必须增加
+`docker-compose.production.external-host-caddy.yml`。该覆盖文件只把项目公开入口绑定到
+`127.0.0.1:${KAKA_PUBLIC_UPSTREAM_PORT:-18080}`，TLS 继续由服务器现有 Caddy 终止；
+项目内层 Caddy 仍执行公开路由白名单、请求体限制和安全响应头。
+
+服务器现有 Caddy 增加：
+
+```caddyfile
+kaka.example.com {
+	reverse_proxy 127.0.0.1:18080
+}
+```
+
+部署、回读和回滚演练分别增加 `-ExternalHostCaddy`：
+
+```powershell
+scripts/deploy-production-release.ps1 -EnvironmentFile <绝对路径> -ConfirmProductionDeployment -ExternalHostCaddy
+scripts/run-production-release-preflight.ps1 -EnvironmentFile <绝对路径> -ExternalHostCaddy
+scripts/rollback-production-release.ps1 <其他必需参数> -ConfirmProductionRollbackDrill -ExternalHostCaddy
+```
+
+外层 Caddy 生效前先确认 `127.0.0.1:18080/healthz` 返回成功；生效后再确认
+`https://kaka.example.com/healthz` 成功且非白名单路径返回 404。操作入口仍只监听本机
+`KAKA_OPERATOR_TLS_PORT`，不得通过该子域名代理。
+
 ## 不能由代码代填的资料
 
 正式域名和 DNS、可信镜像仓库及摘要、Stripe 正式账号和回调端点、真实告警接收端、客户/操作员身份、供应商沙箱与回调证据、发布窗口，以及备份恢复和回滚演练产物必须来自实际运营环境。缺少任一项时，预检保持阻断，不能把内部测试结果写成已上线。
