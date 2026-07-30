@@ -211,5 +211,5 @@ validation_rules:
   fail_if_forbidden_path_declared_or_changed: true
   fail_if_stop_and_escalate_domain_present: true
 notes:
-  - "This matrix keeps blocked/live lines intact while allowing ordinary direct-dev changes without task-packet prework."
+  - "This matrix keeps unauthorized production-live blocking intact while allowing ordinary direct-dev, sandbox/mock/dry-run/regression, and explicitly authorized pilot work without unnecessary task-packet prework."
   - "Task packet source is control/current_task.yaml -> currentTask.task_packet for controlled windows."

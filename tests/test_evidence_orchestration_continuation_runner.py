@@ -260,10 +260,29 @@ class EvidenceOrchestrationContinuationRunnerTests(unittest.TestCase):
                 summary["final_original_backtrace_continuation_state_counts"],
                 {"RELEASE_EVIDENCE_READY": 1},
             )
+            self.assertEqual(summary["final_original_backtrace_next_queue_counts"], {"release_evidence_query": 1})
+            self.assertEqual(summary["final_original_backtrace_closeout_precedence_suppressed_count"], 1)
+            self.assertEqual(summary["final_original_backtrace_terminal_marker_count"], 1)
+            self.assertEqual(summary["final_original_backtrace_runtime_blocker_ledger_count"], 1)
             self.assertEqual(
                 summary["state_after_evidence_state_counts"],
                 {"A_STRONG_TIME_OVERLAP_SIGNAL_READY": 1},
             )
+            final_continuation = json.loads(
+                (
+                    root
+                    / "run"
+                    / "01ab-original-backtrace-continuation-final"
+                    / "p13b-original-backtrace-continuation-controller-v2.json"
+                ).read_text(encoding="utf-8")
+            )
+            record = final_continuation["manifest"]["continuation_plan_records"][0]
+            self.assertEqual(record["next_queue"], "release_evidence_query")
+            self.assertEqual(
+                record["operator_projection"]["projection_state"],
+                "RELEASE_EVIDENCE_QUERY_READY_FROM_ORIGINAL_READBACK",
+            )
+            self.assertTrue(record["terminal_closeout_markers"])
 
     def test_existing_targeted_person_not_found_is_parked_without_clearance_claim(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -466,7 +485,7 @@ def _write_stage16_storage(path: Path) -> None:
         {
             "project_id": "PROJ-CN-GD-JG2026-20001",
             "real_world_hard_defect_gate_state": "PARTIAL_SOURCE_COVERAGE",
-            "real_public_stage4_9_readback": {
+            "real_public_stage1_6_readback": {
                 "jzsc_company_first_identity_resolution_required": False,
                 "stage5_rule_gate_status": "REVIEW",
                 "stage5_evidence_gate_status": "PASS",
@@ -523,7 +542,7 @@ def _write_two_project_stage16_storage(path: Path) -> None:
         {
             "project_id": candidate["project_id"],
             "real_world_hard_defect_gate_state": "PARTIAL_SOURCE_COVERAGE",
-            "real_public_stage4_9_readback": {
+            "real_public_stage1_6_readback": {
                 "jzsc_company_first_identity_resolution_required": False,
                 "stage5_rule_gate_status": "REVIEW",
                 "stage5_evidence_gate_status": "PASS",
@@ -959,7 +978,7 @@ def _write_design_stage16_storage(path: Path) -> None:
         {
             "project_id": project_id,
             "real_world_hard_defect_gate_state": "PARTIAL_SOURCE_COVERAGE",
-            "real_public_stage4_9_readback": {
+            "real_public_stage1_6_readback": {
                 "jzsc_company_first_identity_resolution_required": False,
                 "stage5_rule_gate_status": "REVIEW",
                 "stage5_evidence_gate_status": "PASS",

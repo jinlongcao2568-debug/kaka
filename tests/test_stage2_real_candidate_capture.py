@@ -22,6 +22,7 @@ from stage2_ingestion.real_candidate_capture import (
     RealCandidateStage2CaptureService,
     _guangzhou_ywtb_attachment_challenge_state,
     _infer_attachment_role_type,
+    _looks_like_person_name,
     list_real_candidate_stage2_captures,
 )
 from stage2_ingestion.real_public_url_fetcher import (
@@ -106,6 +107,7 @@ def _capture_single_candidate_from_html(
     html: bytes,
     source_profile_id: str = "GUANGZHOU-YWTB-CONSTRUCTION-LIST",
     document_kind: str = "",
+    candidate_overrides: dict | None = None,
 ) -> dict:
     transport = FakeRealPublicFetchTransport(
         {
@@ -134,6 +136,8 @@ def _capture_single_candidate_from_html(
         "key_fields_present": ["project_name", "notice_stage"],
         "candidate_count": 0,
     }
+    if candidate_overrides:
+        candidate.update(candidate_overrides)
     with tempfile.TemporaryDirectory() as tmp_dir:
         service = RealCandidateStage2CaptureService(
             stage2_service=FakeStage2Service(transport),
@@ -690,6 +694,29 @@ def _build_html_qualification_bytes() -> bytes:
 
 
 class RealCandidateStage2CaptureTests(unittest.TestCase):
+    def test_stale_snapshot_replay_records_deduplicated_failure_reason(self) -> None:
+        class MissingReplayRepository:
+            def replay_snapshot(self, snapshot_id: str) -> dict[str, object]:
+                self.snapshot_id = snapshot_id
+                return {"replayable": False, "readback_state": "OBJECT_BYTES_MISSING"}
+
+        service = object.__new__(RealCandidateStage2CaptureService)
+        service.object_repository = MissingReplayRepository()
+        refreshed = service._refresh_capture_fields_from_snapshot(
+            {},
+            {
+                "detail_snapshot_id_optional": "SNAPSHOT-MISSING",
+                "detail_capture_failure_reasons": [
+                    "detail_snapshot_readback_missing:OBJECT_BYTES_MISSING"
+                ],
+            },
+        )
+
+        self.assertEqual(
+            refreshed["detail_capture_failure_reasons"],
+            ["detail_snapshot_readback_missing:OBJECT_BYTES_MISSING"],
+        )
+
     def setUp(self) -> None:
         self._tmp_dir = tempfile.TemporaryDirectory()
         self._old_env = {
@@ -715,6 +742,16 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
             else:
                 os.environ[key] = value
         self._tmp_dir.cleanup()
+
+    def test_person_name_quality_gate_rejects_live20_false_positive_tokens(self) -> None:
+        false_positive_tokens = ["厦门重", "质量目标", "幢游泳馆", "投资", "年以上", "国电电力", "万千瓦", "陕西榆林", "达到", "满足", "符合"]
+        for value in false_positive_tokens:
+            with self.subTest(value=value):
+                self.assertFalse(_looks_like_person_name(value))
+
+        for value in ["谯锋", "张合力", "陈丽丽", "曾凡伟", "颜健"]:
+            with self.subTest(value=value):
+                self.assertTrue(_looks_like_person_name(value))
 
     def test_captures_detail_snapshot_parses_fields_enriches_candidate_and_persists_readback(self) -> None:
         transport = FakeRealPublicFetchTransport(
@@ -1020,6 +1057,95 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
         self.assertIn(
             "attachment_snapshot_readback_missing",
             second["captures"][0]["document_completeness_summary"]["failure_reasons"],
+        )
+
+    def test_capture_reuse_uses_cached_attachment_text_without_reparsing_pdf(self) -> None:
+        detail_url = "https://ywtb.gzggzy.cn/notice/cached-attachment-text-001.html"
+        attachment_url = "https://ywtb.gzggzy.cn/files/cached-attachment-text-001.pdf"
+        detail_html = f"""
+        <html>
+          <head><title>广东学校扩建工程监理中标候选人公示</title></head>
+          <body>
+            <h1>广东学校扩建工程监理中标候选人公示</h1>
+            <p>第一中标候选人 广东省工程监理有限公司 投标报价 980000.00 元</p>
+            <p><a href="{attachment_url}">中标候选人公示.pdf</a></p>
+          </body>
+        </html>
+        """.encode("utf-8")
+        transport = FakeRealPublicFetchTransport(
+            {
+                detail_url: RealPublicFetchResponse(
+                    url=detail_url,
+                    status_code=200,
+                    content=detail_html,
+                    content_type="text/html; charset=utf-8",
+                    final_url=detail_url,
+                ),
+                attachment_url: RealPublicFetchResponse(
+                    url=attachment_url,
+                    status_code=200,
+                    content=b"%PDF-1.4\ncached attachment text\n",
+                    content_type="application/pdf",
+                    final_url=attachment_url,
+                ),
+            }
+        )
+        candidate = {
+            "candidate_key": "real-candidate-cached-attachment-text-001",
+            "notice_id": "NOTICE-CACHED-ATTACHMENT-TEXT-001",
+            "project_id": "PROJ-CACHED-ATTACHMENT-TEXT-001",
+            "project_name": "广东学校扩建工程监理中标候选人公示",
+            "region_code": "CN-GD",
+            "project_type": "construction",
+            "notice_stage": "candidate_notice",
+            "source_url": detail_url,
+            "source_profile_id": "GUANGZHOU-YWTB-CONSTRUCTION-LIST",
+            "source_candidate_mode": "REAL_PUBLIC_SOURCE_CANDIDATES",
+            "key_fields_present": ["project_name", "notice_stage"],
+            "candidate_count": 0,
+        }
+        attachment_text = "总监理工程师：李明 注册监理工程师 注册号: 44030186 职称：高级工程师"
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = _repo(tmp_dir)
+            with patch(
+                "stage2_ingestion.real_candidate_capture.extract_pdf_text_with_ocr",
+                return_value=ExtractedText(
+                    text=attachment_text,
+                    state=PDF_TEXT_OCR_EXTRACTED,
+                    extractor="test",
+                    confidence=0.9,
+                    warnings=[OCR_REQUIRED],
+                ),
+            ):
+                first = RealCandidateStage2CaptureService(
+                    stage2_service=FakeStage2Service(transport),
+                    object_repository=repo,
+                    repository=RealCandidateStage2CaptureRepository(),
+                ).capture_candidates([candidate], now="2026-05-01T00:00:00+00:00")
+
+            with patch(
+                "stage2_ingestion.real_candidate_capture.extract_pdf_text_with_ocr",
+                side_effect=AssertionError("cached attachment text should avoid PDF reparse"),
+            ):
+                second = RealCandidateStage2CaptureService(
+                    stage2_service=FakeStage2Service(FakeRealPublicFetchTransport({})),
+                    object_repository=repo,
+                    repository=RealCandidateStage2CaptureRepository(),
+                ).capture_candidates([candidate], now="2026-05-01T00:05:00+00:00")
+
+        self.assertTrue(first["captures"][0]["detail_fields"]["attachment_text_cache_records"])
+        self.assertEqual(second["existing_capture_reused_count"], 1)
+        self.assertEqual(second["new_detail_capture_attempted_count"], 0)
+        enriched = second["enriched_candidates"][0]
+        self.assertEqual(enriched["primary_responsible_person_name"], "李明")
+        self.assertEqual(enriched["chief_supervision_engineer_name"], "李明")
+        self.assertEqual(enriched["project_manager_certificate_no"], "44030186")
+        self.assertTrue(
+            any(
+                "ATTACHMENT_TEXT_CACHE_REUSED" in state
+                for state in second["captures"][0]["detail_fields"]["attachment_text_parse_states"]
+            )
         )
 
     def test_candidate_table_detail_extracts_clean_company_and_project_manager(self) -> None:
@@ -2265,6 +2391,37 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
         self.assertNotEqual(enriched["primary_responsible_person_name"], "按招标文件的要求")
         self.assertNotEqual(enriched.get("project_manager_certificate_no", ""), "详见投标文件公开")
 
+    def test_guangzhou_publicity_table_extracts_plain_tender_file_placeholder_name(self) -> None:
+        title = "茂名临空经济区标准化厂房二期建设项目监理中标候选人公示"
+        enriched = _capture_single_candidate_from_html(
+            detail_url="https://ywtb.gzggzy.cn/notice/gz-publicity-plain-placeholder-001.html",
+            title=title,
+            html=_guangzhou_publicity_table_html(
+                title,
+                first_row=(
+                    "广东省建筑工程监理有限公司 914400001903464231 1 2134907.20元 "
+                    "按招标文件要求 按招标文件要求 详见投标文件 "
+                    "详见投标文件 谯锋 详见投标文件 详见投标文件"
+                ),
+            ),
+            candidate_overrides={
+                "responsible_role_gap_code": "B_CHIEF_SUPERVISION_ENGINEER_MISSING_REQUIRES_COMPANY_FIRST_IDENTITY",
+                "responsible_role_gap_review_required": True,
+                "stage4_identity_completion_required": True,
+            },
+        )
+
+        self.assertEqual(enriched["engineering_work_lane"], "supervision")
+        self.assertEqual(enriched["candidate_company"], "广东省建筑工程监理有限公司")
+        self.assertEqual(enriched["primary_responsible_role"], "chief_supervision_engineer")
+        self.assertEqual(enriched["primary_responsible_person_name"], "谯锋")
+        self.assertEqual(enriched["chief_supervision_engineer_name"], "谯锋")
+        self.assertEqual(enriched.get("project_manager_certificate_no", ""), "")
+        self.assertEqual(enriched["responsible_role_gap_code"], "")
+        self.assertFalse(enriched["responsible_role_gap_review_required"])
+        self.assertFalse(enriched["stage4_identity_completion_required"])
+        self.assertNotEqual(enriched["primary_responsible_person_name"], "栋宿舍楼")
+
     def test_guangzhou_publicity_table_binds_first_candidate_when_short_attachment_placeholders(self) -> None:
         title = "燃气管道迁改工程设计施工总承包RQSG2标段中标候选人公示"
         enriched = _capture_single_candidate_from_html(
@@ -3012,6 +3169,11 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
         self.assertEqual(enriched.get("project_manager_name", ""), "")
         self.assertEqual(enriched.get("project_manager_certificate_no", ""), "")
         self.assertEqual(enriched["project_manager_certificate_no_parse_state"], "DETAIL_TEXT_NOT_FOUND")
+
+    def test_ocr_table_header_and_commitment_fragments_are_not_person_names(self) -> None:
+        for value in ("姓名", "工期", "按要", "按要求", "对应", "总监", "总工", "万元", "平方米", "公里", "附表", "值抽取", "年养护"):
+            with self.subTest(value=value):
+                self.assertFalse(_looks_like_person_name(value))
 
     def test_company_fragment_after_manager_label_is_not_project_manager_name(self) -> None:
         detail_url = "https://ywtb.gzggzy.cn/notice/company-fragment-manager-001.html"

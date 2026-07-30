@@ -17,6 +17,7 @@ from stage4_verification.hard_defect_strategy import (
     build_evidence_risk_hard_defect_strategy as build_hard_defect_strategy,
     build_evidence_risk_hard_defect_strategy_readback as build_hard_defect_strategy_readback,
 )
+from stage4_verification.blocker_taxonomy import classify_stage4_probe_result
 from stage4_verification.jzsc_personnel import (
     build_jzsc_company_first_capture_plan,
     build_jzsc_company_personnel_resolution_carrier,
@@ -29,6 +30,67 @@ from storage.repositories.object_storage_repo import ObjectStorageRepository
 def _record_mapping(record: Any) -> Mapping[str, Any]:
     data = getattr(record, "data", None)
     return data if isinstance(data, Mapping) else {}
+
+
+def _build_stage4_blocker_taxonomy_projection(
+    *,
+    inputs: Mapping[str, Any],
+    verification_state: str,
+    missing_h03_fields: list[str],
+    review_reasons: list[str],
+) -> dict[str, Any]:
+    explicit_probe = inputs.get("stage4_probe_result")
+    if isinstance(explicit_probe, Mapping):
+        return classify_stage4_probe_result(explicit_probe)
+
+    blocking_reasons = [
+        *[f"missing_h03_field:{field_name}" for field_name in missing_h03_fields],
+        *review_reasons,
+    ]
+    if verification_state == "BLOCK":
+        return classify_stage4_probe_result(
+            {
+                "probe_status": "BLOCKED",
+                "blocking_reasons": blocking_reasons or ["stage4_verification_blocked"],
+            }
+        )
+    if verification_state == "REVIEW":
+        outcome = classify_stage4_probe_result(
+            {
+                "probe_status": "REVIEW_REQUIRED",
+                "blocking_reasons": blocking_reasons or ["stage4_verification_review_required"],
+            }
+        )
+        outcome["blocker_ids"] = list(
+            dict.fromkeys(
+                [
+                    *outcome.get("blocker_ids", []),
+                    "stage4_verification_review_required",
+                ]
+            )
+        )
+        return outcome
+    return {
+        "classifier_id": "stage4-verification-blocker-taxonomy-v1",
+        "stage_id": "stage4_verification",
+        "verification_state": "PASS",
+        "run_state": "READY",
+        "blocker_ids": [],
+        "blocking_reasons": [],
+        "authorization_readiness_state": "",
+        "operator_next_action": "NONE",
+        "query_miss_is_not_clearance": True,
+        "clearance_allowed": False,
+        "legal_conclusion_allowed": False,
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+        "readback_required": False,
+        "verification_target_type": "",
+        "source_url": "",
+        "source_snapshot_id": "",
+        "snapshot_hash": "",
+        "evidence_refs": [],
+    }
 
 
 class Stage4Service:
@@ -409,6 +471,12 @@ class Stage4Service:
         inputs_out["conflict_state"] = conflict_state
         inputs_out["pseudo_competitor_signal_set_id"] = pseudo_competitor_signal_set.get("signal_set_id")
         inputs_out["confidence_band"] = pseudo_competitor_signal_set.get("confidence_band")
+        inputs_out["stage4_blocker_taxonomy_projection"] = _build_stage4_blocker_taxonomy_projection(
+            inputs=inputs,
+            verification_state=verification_state,
+            missing_h03_fields=missing_h03_fields,
+            review_reasons=review_reasons,
+        )
 
         return StageBundle(
             stage=4,

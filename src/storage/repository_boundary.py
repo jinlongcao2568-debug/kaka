@@ -385,6 +385,59 @@ def persist_stage_bundle(payload: Any) -> Any:
     return payload
 
 
+def persist_stage9_http_record(
+    *,
+    object_type: str,
+    id_field: str,
+    payload: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Validate and persist a complete Stage9 record command from HTTP transport."""
+    allowed = {
+        "order_record": "order_id",
+        "payment_record": "payment_id",
+        "delivery_record": "delivery_id",
+        "opportunity_outcome_event": "outcome_event_id",
+        "governance_feedback_event": "governance_feedback_event_id",
+    }
+    if allowed.get(object_type) != id_field:
+        raise ValueError(f"unsupported Stage9 HTTP record type {object_type!r}")
+    record_payload = {
+        key: value
+        for key, value in dict(payload).items()
+        if not str(key).startswith("_")
+    }
+    record_id = str(record_payload.get(id_field) or "").strip()
+    if not record_id:
+        raise ValueError(f"{id_field} is required for persisted {object_type}")
+    ContractStore.default().validate_record(object_type, record_payload)
+    existing = DatabaseSession.default().get_record(object_type, record_id)
+    if existing is not None:
+        if existing.payload != record_payload:
+            raise ValueError(
+                f"{object_type} {record_id!r} already exists with a different payload"
+            )
+        return {
+            "record": existing.as_payload(),
+            "record_id": record_id,
+            "created": False,
+            "idempotent_replay": True,
+            "persistence_state": "PERSISTED_IDEMPOTENT_REPLAY",
+        }
+    persisted = _persist_auxiliary_record(
+        object_type=object_type,
+        id_field=id_field,
+        stage_scope=9,
+        payload=record_payload,
+    )
+    return {
+        "record": persisted.as_payload(),
+        "record_id": record_id,
+        "created": True,
+        "idempotent_replay": False,
+        "persistence_state": "PERSISTED_CREATED",
+    }
+
+
 def hydrate_stage6_bundle(payload: Mapping[str, Any]) -> StageBundle | None:
     return _hydrate_stage6_bundle(payload)
 
@@ -552,8 +605,21 @@ def record_operator_action(payload: Any, *, stage_scope: int) -> dict[str, Any]:
     now = build_persisted_at()
     next_state = str(action_spec.resulting_operational_state or work_item.current_operational_state)
     reason = str(action_payload.get("reason", "")).strip()
-    requested_by_role = str(action_payload.get("requested_by_role", work_item.assigned_owner_role or "single_operator"))
-    requested_by = str(action_payload.get("requested_by", work_item.assigned_owner or ""))
+    auth_context = (
+        dict(action_payload.get("_internal_auth_context") or {})
+        if isinstance(action_payload.get("_internal_auth_context"), Mapping)
+        else {}
+    )
+    if auth_context.get("authenticated"):
+        requested_by_role = str(auth_context.get("role") or "").strip()
+        requested_by = str(auth_context.get("principal_id") or "").strip()
+        if not requested_by_role or not requested_by:
+            raise ValueError("authenticated operator action actor context is incomplete")
+    else:
+        requested_by_role = str(
+            action_payload.get("requested_by_role", work_item.assigned_owner_role or "single_operator")
+        )
+        requested_by = str(action_payload.get("requested_by", work_item.assigned_owner or ""))
     effective_trace_refs = dict(work_item.trace_refs)
     if not effective_trace_refs:
         effective_trace_refs["operator_action_trace_ref"] = f"TRACE-S{stage_scope}-{work_item.primary_record_id}"
@@ -1715,6 +1781,7 @@ __all__ = [
     "list_stage_work_items",
     "persist_stage6_bundle",
     "persist_stage_bundle",
+    "persist_stage9_http_record",
     "reopen_default_storage",
     "record_operator_action",
     "reset_default_storage",

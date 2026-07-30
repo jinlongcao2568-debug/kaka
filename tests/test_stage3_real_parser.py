@@ -26,6 +26,7 @@ from stage2_ingestion.service import Stage2Service
 from stage3_parsing import markitdown_adapter
 from stage3_parsing.real_parser import (
     ATTACHMENT_TYPE_UNKNOWN,
+    CRITICAL_IDENTITY_VALUE_REJECTED,
     OCR_LOW_CONFIDENCE,
     OCR_REQUIRED,
     PDF_TEXT_UNAVAILABLE,
@@ -203,6 +204,30 @@ class Stage3RealParserTests(unittest.TestCase):
         self.assertTrue(audit["completed_at"])
         self.assertEqual(audit["parser_errors"], [])
 
+    def test_non_person_project_manager_token_is_not_propagated_and_requires_review(self) -> None:
+        carrier = self._parse(
+            data=(
+                "<html><body><table>"
+                "<tr><th>项目名称</th><td>测试道路工程</td></tr>"
+                "<tr><th>项目负责人</th><td>达到</td></tr>"
+                "</table></body></html>"
+            ).encode("utf-8"),
+            snapshot_id="SNAP-STAGE3-IDENTITY-NOISE-1",
+            content_type="text/html; charset=utf-8",
+            source_url="sandbox://local-public-resource-trading-centers/notices/noise.html",
+            snapshot_kind="raw_html",
+        )
+
+        fields = {field["field_name"]: field for field in carrier["parsed_fields"]}
+        self.assertIn("project_manager_name", fields)
+        self.assertIsNone(fields["project_manager_name"]["field_value_optional"])
+        self.assertTrue(fields["project_manager_name"]["review_required"])
+        self.assertIn(
+            CRITICAL_IDENTITY_VALUE_REJECTED,
+            fields["project_manager_name"]["parse_warnings"],
+        )
+        self.assertTrue(carrier["review_required"])
+
     def test_real_public_html_snapshot_profiles_enter_stage3_parser_readback(self) -> None:
         responses = {
             REAL_PUBLIC_ENTRY_PROFILE_BY_ID[profile_id].url: RealPublicFetchResponse(
@@ -348,12 +373,13 @@ class Stage3RealParserTests(unittest.TestCase):
 
         self._assert_unverified_internal_carrier(carrier)
         self.assertEqual(carrier["attachment_type"], "PDF")
-        self.assertEqual(carrier["parse_state"], "PARSED")
-        self.assertFalse(carrier["review_required"])
+        self.assertEqual(carrier["parse_state"], "PARSED_WITH_REVIEW")
+        self.assertTrue(carrier["review_required"])
         self.assertIn("extract_pdf_text", carrier["parser_audit"]["parser_steps"])
         fields = {field["field_name"]: field for field in carrier["parsed_fields"]}
         self.assertEqual(fields["project_name"]["field_value_optional"], "广东机电安装工程")
         self.assertEqual(fields["project_manager_name"]["field_value_optional"], "张建明")
+        self.assertTrue(fields["project_manager_name"]["review_required"])
         self.assertEqual(
             fields["project_manager_public_identifier_optional"]["field_value_optional"],
             "144202412345",

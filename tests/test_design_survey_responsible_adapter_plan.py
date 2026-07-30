@@ -135,7 +135,7 @@ def _write_stage16_storage(path: Path) -> None:
         {
             "project_id": "PROJ-CN-GD-JG2026-11327",
             "real_world_hard_defect_gate_state": "PARTIAL_SOURCE_COVERAGE",
-            "real_public_stage4_9_readback": {
+            "real_public_stage1_6_readback": {
                 "stage5_rule_gate_status": "REVIEW",
                 "stage5_evidence_gate_status": "PASS",
             },

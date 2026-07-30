@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import copy
+import hashlib
+import hmac
 import json
 import sys
 import tempfile
@@ -54,6 +56,63 @@ def _provider_env() -> dict[str, str]:
         "KAKA_PROVIDER_BINDING_CREDENTIAL_ROTATED_AT": "2026-04-27T00:00:00Z",
         "KAKA_PROVIDER_BINDING_CREDENTIAL_ROTATION_DUE_AT": "2026-07-27T00:00:00Z",
     }
+
+
+def _attach_live_evidence(env: dict[str, str], root: Path) -> dict[str, str]:
+    key_file = root / "provider-evidence-signing-key"
+    key = b"provider-evidence-signing-key-32-bytes-value"
+    key_file.write_bytes(key)
+    env["KAKA_PROVIDER_LIVE_EVIDENCE_SIGNING_KEY_FILE"] = str(key_file)
+    for family, provider_id, env_name in (
+        (
+            "sales_outreach",
+            "wecom_robot",
+            "KAKA_SALES_OUTREACH_PROVIDER_LIVE_EVIDENCE_FILE",
+        ),
+        (
+            "crm_quote",
+            "hubspot_crm",
+            "KAKA_CRM_QUOTE_PROVIDER_LIVE_EVIDENCE_FILE",
+        ),
+        (
+            "leadpack_page_delivery",
+            "customer_portal_delivery",
+            "KAKA_LEADPACK_DELIVERY_PROVIDER_LIVE_EVIDENCE_FILE",
+        ),
+        (
+            "payment_collection",
+            "stripe_payment",
+            "KAKA_PAYMENT_COLLECTION_PROVIDER_LIVE_EVIDENCE_FILE",
+        ),
+    ):
+        payload = {
+            "evidence_version": 1,
+            "family": family,
+            "provider_id": provider_id,
+            "sandbox_pass_state": "PASSED",
+            "callback_validation_state": "VALIDATED",
+            "sandbox_execution_ref": f"sandbox:{family}:001",
+            "callback_event_ref": f"callback:{family}:001",
+            "approval_ref": f"approval:{family}:001",
+            "audit_ref": f"audit:{family}:001",
+            "operator_action_ref": f"operator:{family}:001",
+            "expires_at": "2099-01-01T00:00:00Z",
+        }
+        canonical = json.dumps(
+            payload,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        payload["signature_sha256"] = hmac.new(
+            key,
+            canonical,
+            hashlib.sha256,
+        ).hexdigest()
+        path = root / f"{family}.json"
+        path.write_text(json.dumps(payload), encoding="utf-8")
+        env[env_name] = str(path)
+    return env
 
 
 class TestRealProviderBinding(unittest.TestCase):
@@ -133,6 +192,81 @@ class TestRealProviderBinding(unittest.TestCase):
             self.assertTrue(entry["kill_switch"]["kill_switch_enabled"])
             self.assertIn("provider_kill_switch_enabled", entry["live_binding_gate"]["blocked_reasons"])
             self.assertFalse(entry["live_binding_gate"]["real_provider_call_enabled"])
+
+    def test_explicit_live_mode_enables_only_fully_gated_selected_bindings(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            env = _attach_live_evidence(
+                {
+                    **_provider_env(),
+                    "KAKA_PROVIDER_ADAPTER_MODE": "LIVE",
+                },
+                Path(tmp_dir),
+            )
+            summary = build_provider_adapter_readiness_summary(
+                build_provider_adapter_config_from_env(env)
+            )
+
+        self.assertTrue(summary["requested_live_mode"])
+        self.assertTrue(summary["provider_call_enabled"])
+        self.assertTrue(summary["real_provider_call_enabled"])
+        self.assertTrue(summary["live_execution_enabled"])
+        self.assertFalse(summary["live_request_blocked"])
+        self.assertFalse(summary["readback_only"])
+        self.assertTrue(
+            summary["provider_binding_summary"]["all_required_product_provider_bindings_registered"]
+        )
+        for entry in summary["provider_binding_summary"]["selected_provider_bindings"]:
+            with self.subTest(provider=entry["provider_id"]):
+                self.assertEqual(
+                    entry["live_binding_gate"]["live_binding_readiness_state"],
+                    "LIVE_READY",
+                )
+                self.assertTrue(entry["live_binding_gate"]["real_provider_call_enabled"])
+                self.assertEqual(entry["live_binding_gate"]["blocked_reasons"], [])
+
+        bootstrap = provider_adapter_bootstrap_payload(summary)
+        self.assertTrue(bootstrap["provider_adapter_live_execution_enabled"])
+        self.assertTrue(bootstrap["provider_adapter_real_provider_call_enabled"])
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            settings = Settings(
+                storage_path_optional=str(Path(tmp_dir) / "provider-live.json"),
+                storage_scope="process",
+                storage_runtime_mode="explicit-path",
+            )
+            session = DatabaseSession(settings=settings)
+            try:
+                record = ProviderAdapterConfigRepository(session=session).save(
+                    bootstrap
+                )
+            finally:
+                session.close()
+        self.assertTrue(record.governed_state["live_execution_enabled"])
+        self.assertTrue(record.governed_state["provider_call_enabled"])
+        self.assertTrue(record.governed_state["real_provider_call_enabled"])
+        self.assertFalse(record.governed_state["automated_refund_enabled"])
+
+    def test_live_mode_fails_closed_when_callback_validation_is_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            env = _attach_live_evidence(
+                {
+                    **_provider_env(),
+                    "KAKA_PROVIDER_ADAPTER_MODE": "LIVE",
+                    "KAKA_PAYMENT_COLLECTION_PROVIDER_CALLBACK_VALIDATION_STATE": "NOT_VALIDATED",
+                },
+                Path(tmp_dir),
+            )
+            summary = build_provider_adapter_readiness_summary(
+                build_provider_adapter_config_from_env(env)
+            )
+        payment = summary["families"]["payment_collection"]
+
+        self.assertFalse(summary["real_provider_call_enabled"])
+        self.assertTrue(summary["live_request_blocked"])
+        self.assertFalse(payment["real_provider_call_enabled"])
+        self.assertIn(
+            "callback_validation_state=NOT_VALIDATED",
+            payment["selected_provider_bindings"][0]["live_binding_gate"]["blocked_reasons"],
+        )
 
     def test_repository_persists_sanitized_binding_readback(self) -> None:
         env = _provider_env()

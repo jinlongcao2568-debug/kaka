@@ -22,7 +22,7 @@ GUANGZHOU_STAGE4_SOURCE_GAP_PROBE_KIND = "guangzhou_stage4_source_gap_probe_v1_m
 GUANGZHOU_STAGE4_SOURCE_GAP_PROBE_VERSION = 1
 GUANGZHOU_STAGE4_SOURCE_GAP_PROBE_ADAPTER_ID = "guangzhou-stage4-source-gap-probe-v1-builder"
 
-DEFAULT_PRESSURE_ROOT = Path("tmp/evaluation-real-samples/guangzhou-real-public-stage4-9-pressure-v1")
+DEFAULT_PRESSURE_ROOT = Path("tmp/evaluation-real-samples/guangzhou-stage1-6-real-public-pressure-v1")
 DEFAULT_RUN_RESULT_JSON = DEFAULT_PRESSURE_ROOT / "run-result.json"
 DEFAULT_CANDIDATE_PRESSURE_JSON = DEFAULT_PRESSURE_ROOT / "candidate-pressure-table.json"
 DEFAULT_OUTPUT_ROOT = Path("tmp/evaluation-real-samples/guangzhou-stage4-source-gap-probe-v1")

@@ -6,6 +6,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
 from unittest.mock import patch
 
 
@@ -19,6 +20,7 @@ from stage1_tasking.real_candidate_discovery import (
     RealPublicCandidateDiscoveryService,
     RealPublicCandidateRepository,
     _date_window_from_now,
+    _discover_ggzy_deal_api_link_items,
     _discover_guangzhou_ywtb_api_link_items,
     _guangzhou_backtrace_query_variants,
     _guangzhou_ywtb_process_priority,
@@ -197,6 +199,17 @@ class FakeGuangzhouApiResponse:
     def read(self, size: int = -1) -> bytes:
         content = json.dumps(self.payload, ensure_ascii=False)
         return json.dumps({"content": content}, ensure_ascii=False).encode("utf-8")
+
+
+class FakeGgzyDealApiResponse:
+    def __enter__(self) -> "FakeGgzyDealApiResponse":
+        return self
+
+    def __exit__(self, exc_type, exc, tb) -> None:  # noqa: ANN001
+        return None
+
+    def read(self, size: int = -1) -> bytes:
+        return json.dumps({"data": []}, ensure_ascii=False).encode("utf-8")
 
 
 class FakeSichuanShellFetcher:
@@ -952,6 +965,65 @@ class RealCandidateDiscoveryTests(unittest.TestCase):
         self.assertEqual(candidate["region_code"], "CN-SH")
         self.assertEqual(candidate["source_profile_id"], "GGZY-DEAL-LIST")
 
+    def test_ggzy_directives_override_find_text_window_and_province(self) -> None:
+        captured: dict[str, str] = {}
+
+        def fake_urlopen(request, timeout: int):  # noqa: ANN001
+            captured["url"] = request.get_full_url()
+            return FakeGgzyDealApiResponse()
+
+        with patch("stage1_tasking.real_candidate_discovery.urlopen", fake_urlopen):
+            result = _discover_ggzy_deal_api_link_items(
+                now="2026-07-03T00:00:00+00:00",
+                context={
+                    "requested_region_code": "CN-SD",
+                    "selection_filters": [
+                        "山东",
+                        "工程建设",
+                        "GGZY_FINDTXT:春景花园六期20#综合楼及地下车库24#住宅楼监理",
+                        "GGZY_WINDOW_DAYS:90",
+                        "PROJ-1",
+                    ],
+                    "evaluation_document_kind": "candidate_notice",
+                },
+            )
+
+        params = parse_qs(urlsplit(captured["url"]).query)
+        self.assertEqual(result["state"], "EMPTY")
+        self.assertEqual(result["query_window"], {"start_date": "2026-04-04", "end_date": "2026-07-03"})
+        self.assertEqual(result["query_terms"], ["春景花园六期20#综合楼及地下车库24#住宅楼监理"])
+        self.assertEqual(result["province_code"], "370000")
+        self.assertEqual(params["FINDTXT"], ["春景花园六期20#综合楼及地下车库24#住宅楼监理"])
+        self.assertEqual(params["DEAL_PROVINCE"], ["370000"])
+        self.assertEqual(params["TIMEBEGIN"], ["2026-04-04"])
+
+    def test_ggzy_province_code_directive_can_query_national_scope(self) -> None:
+        captured: dict[str, str] = {}
+
+        def fake_urlopen(request, timeout: int):  # noqa: ANN001
+            captured["url"] = request.get_full_url()
+            return FakeGgzyDealApiResponse()
+
+        with patch("stage1_tasking.real_candidate_discovery.urlopen", fake_urlopen):
+            result = _discover_ggzy_deal_api_link_items(
+                now="2026-07-03T00:00:00+00:00",
+                context={
+                    "requested_region_code": "CN-SD",
+                    "selection_filters": [
+                        "GGZY_FINDTXT:春景花园六期",
+                        "GGZY_WINDOW_DAYS:365",
+                        "GGZY_PROVINCE_CODE:0",
+                    ],
+                    "evaluation_document_kind": "tender_file",
+                },
+            )
+
+        params = parse_qs(urlsplit(captured["url"]).query)
+        self.assertEqual(result["province_code"], "0")
+        self.assertEqual(result["query_window"], {"start_date": "2025-07-03", "end_date": "2026-07-03"})
+        self.assertEqual(params["DEAL_PROVINCE"], ["0"])
+        self.assertEqual(params["FINDTXT"], ["春景花园六期"])
+
     def test_guangdong_default_discovery_uses_only_guangzhou_trading_group(self) -> None:
         service = RealPublicCandidateDiscoveryService(
             fetcher=FakeGuangdongShellFetcher(),
@@ -1523,6 +1595,41 @@ class RealCandidateDiscoveryTests(unittest.TestCase):
             result["candidate_discovery_diagnostics"]["candidate_limit_truncated_count"],
             5,
         )
+
+    def test_excluded_project_ids_do_not_consume_discovery_candidate_limit(self) -> None:
+        service = RealPublicCandidateDiscoveryService(
+            fetcher=FakeGuangdongShellFetcher(),
+            repository=RealPublicCandidateRepository(),
+            profile_api_link_discoverer=fake_guangzhou_many_candidate_publicity_api_link_discoverer,
+        )
+
+        result = service.discover(
+            {
+                "region_codes": ["CN-GD"],
+                "project_types": ["municipal"],
+                "amount_min": 0,
+                "amount_max": 200_000_000,
+                "discovery_profile_limit_per_region": 1,
+                "discovery_candidate_limit": 3,
+                "exclude_project_ids": [
+                    "PROJ-CN-GD-JG2026-11000",
+                    "PROJ-CN-GD-JG2026-11001",
+                ],
+                "now": "2026-05-01T00:00:00+00:00",
+            },
+            now="2026-05-01T00:00:00+00:00",
+        )
+
+        self.assertEqual(result["candidate_count"], 3)
+        self.assertEqual(result["excluded_project_id_count"], 2)
+        self.assertEqual(result["stage1_6_validation_caps"]["excluded_project_filtered_count"], 2)
+        project_ids = {row["project_id"] for row in result["candidates"]}
+        self.assertNotIn("PROJ-CN-GD-JG2026-11000", project_ids)
+        self.assertNotIn("PROJ-CN-GD-JG2026-11001", project_ids)
+        self.assertIn("PROJ-CN-GD-JG2026-11002", project_ids)
+        report = result["profile_reports"][0]
+        self.assertEqual(report["excluded_project_filtered_count"], 2)
+        self.assertEqual(report["candidate_count"], 3)
 
     def test_real_candidate_discovery_preserves_old_publish_time_for_review(self) -> None:
         service = RealPublicCandidateDiscoveryService(

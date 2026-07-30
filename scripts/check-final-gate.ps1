@@ -81,6 +81,7 @@ $steps = @(
     'check-task-packet.ps1',
     'validate-contracts.ps1',
     'check-state-alignment.ps1',
+    'audit-automation-entrypoints.ps1',
     'run-golden.ps1',
     'run-governance-contracts.ps1',
     'lint-drift.ps1'

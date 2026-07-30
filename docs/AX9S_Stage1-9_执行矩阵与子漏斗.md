@@ -204,7 +204,7 @@ Stage4/5 的更细操作规程见：`docs/AX9S_Stage4-5_核验双闸门SOP.md`�
 | 分支 | 具体动作 | 正式对象 | PASS | REVIEW/BLOCK | 当前状态 | 可信等级 |
 | --- | --- | --- | --- | --- | --- | --- |
 | 订单记录 | 由 Stage8 touch outcome 和机会状态生成订单候选 | `order_record` | 关联 opportunity/touch | 不得从 raw note 造订单 | `PARTIAL` | `AUTHORITY` |
-| 支付记录 | 支付意向、收款、异常、退款状态 | `payment_record` | provider/sandbox/审批状态明确 | 自动退款执行 excluded | `PARTIAL` | `AUTHORITY` |
+| 支付记录 | 支付意向、收款、异常、退款状态 | `payment_record` | provider/sandbox/审批状态明确 | 自动退款流程 controlled-test-and-pilot-required | `PARTIAL` | `AUTHORITY` |
 | 证据包交付 | 按 D6/D7 字段策略、水印、版本、release checklist 交付 | `delivery_record` | 字段 allowlist、watermark、audit 完整 | 内部预览不得客户交付 | `PARTIAL` | `AUTHORITY` |
 | 下载审计 | 记录下载、访问控制、版本 hash | delivery/audit refs | 可追溯 | 无账号/审批不得真实客户下载 | `PARTIAL` | `AUTHORITY` |
 | 结果回写 | 成交、拒绝、补证、退款、复购等治理反馈 | `opportunity_outcome_event`, `governance_feedback_event` | 回写不重算上游事实，只触发复核/再评分 | 不得绕过正式对象 | `PARTIAL` | `AUTHORITY` |
@@ -434,7 +434,7 @@ Stage4/5 细节单源见 `docs/AX9S_Stage4-5_核验双闸门SOP.md`。L2 这里�
 - 未支付：不交付客户证据包。
 - 支付异常：进入 payment exception。
 - 客户下载未授权：block。
-- 退款：自动退款执行保持排除。
+- 退款：自动退款执行为 controlled-test-and-pilot-required；sandbox/mock/dry-run/受控试点可做，生产启用需授权、审批、审计、operator action、对账和回滚/暂停。
 
 **补救路线**
 - 交付被拒收：记录原因，回 Stage6/7 修证据包或商业说明。

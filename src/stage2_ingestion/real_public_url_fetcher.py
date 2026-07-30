@@ -1,23 +1,38 @@
 from __future__ import annotations
 
 import hashlib
+import http.client as http_client
+import ipaddress
 import json
 import os
 import re
 import shlex
 import shutil
+import socket
 import subprocess
 import tempfile
 import time
 from dataclasses import dataclass
-from html import escape, unescape
+from html import unescape
 from pathlib import Path
-from typing import Any, Mapping, Protocol
+from typing import Any, Callable, Mapping, Protocol
 from urllib.error import HTTPError
 from urllib.parse import parse_qs, quote, unquote, urlencode, urljoin, urlsplit, urlunsplit
-from urllib.request import Request, urlopen
+from urllib.request import (
+    HTTPHandler,
+    HTTPRedirectHandler,
+    HTTPSHandler,
+    ProxyHandler,
+    Request,
+    build_opener,
+)
 
 from shared.utils import utc_now_iso
+from shared.controlled_egress import controlled_egress_proxy_url
+from runtime.operational_observability import (
+    get_operational_event_sink,
+    record_operational_event_safely,
+)
 from stage2_ingestion.scrapling_snapshot_parser import (
     build_scrapling_snapshot_parser_summary,
     parse_snapshot_html_with_scrapling,
@@ -34,6 +49,12 @@ REAL_PUBLIC_ATTACHMENT_SNAPSHOT_KIND = "real_public_attachment_original_file"
 REAL_PUBLIC_ENTRY_USER_AGENT = (
     "AX9S-RealPublicEntryFetcher/0.1 (+public-readonly-validation)"
 )
+REAL_PUBLIC_TRANSPORT_MAX_RESPONSE_BYTES = 64 * 1024 * 1024
+REAL_PUBLIC_ENTRY_MAX_RESPONSE_BYTES = 8 * 1024 * 1024
+REAL_PUBLIC_DETAIL_MAX_RESPONSE_BYTES = 16 * 1024 * 1024
+REAL_PUBLIC_ATTACHMENT_MAX_RESPONSE_BYTES = 64 * 1024 * 1024
+REAL_PUBLIC_CAPTURE_SUPPORT_POLICY_ID = "stage2.real_public_capture_support_policy.v1"
+ATTACHMENT_BROWSER_MAX_RESOLUTION_ATTEMPTS_PER_FETCH = 1
 SCRAPLING_BOTTOM_LAYER_OWNER_APPROVAL_ID = "OWNER_APPROVED_NEEDS_BASED_SCRAPLING_BOTTOM_LAYER_USE_2026_05_20"
 SCRAPLING_BOTTOM_LAYER_ESCALATION_POLICY_ID = "stage2.scrapling_bottom_layer_escalation_policy.v1"
 SCRAPLING_BOTTOM_LAYER_ESCALATION_ENABLED_BY_DEFAULT = True
@@ -74,6 +95,267 @@ PROVINCE_REALTIME_DETAIL_PROFILE_IDS = {
     "HUBEI-BIDCLOUD-JYXX-LIST",
     "SICHUAN-GGZY-TRANSACTION-INFO",
 }
+
+
+def _normalized_url_host(url: str) -> str:
+    hostname = urlsplit(str(url or "").strip()).hostname or ""
+    return hostname.rstrip(".").lower()
+
+
+def _observability_url_host(url: str) -> str:
+    try:
+        return _normalized_url_host(url) or "unknown"
+    except ValueError:
+        return "invalid"
+
+
+def _effective_url_port(url: str) -> int:
+    parsed = urlsplit(str(url or "").strip())
+    try:
+        explicit_port = parsed.port
+    except ValueError as exc:
+        raise RuntimeError(f"invalid_url_port:{exc}") from exc
+    if explicit_port is not None:
+        return explicit_port
+    return 443 if parsed.scheme.lower() == "https" else 80
+
+
+def _validate_public_network_url(url: str, *, resolve_dns: bool) -> tuple[str, ...]:
+    parsed = urlsplit(str(url or "").strip())
+    scheme = parsed.scheme.lower()
+    if scheme not in {"http", "https"}:
+        raise RuntimeError(f"unsupported_url_scheme:{scheme or 'missing'}")
+    if parsed.username is not None or parsed.password is not None:
+        raise RuntimeError("url_userinfo_not_allowed")
+    host = _normalized_url_host(url)
+    if not host:
+        raise RuntimeError("url_hostname_missing")
+    if host == "localhost" or host.endswith(".localhost"):
+        raise RuntimeError("non_public_url_host:localhost")
+    port = _effective_url_port(url)
+    if port not in {80, 443}:
+        raise RuntimeError(f"non_standard_url_port:{port}")
+
+    addresses: list[str] = []
+    try:
+        addresses.append(str(ipaddress.ip_address(host)))
+    except ValueError:
+        if resolve_dns:
+            try:
+                for item in socket.getaddrinfo(host, port, type=socket.SOCK_STREAM):
+                    address = str(ipaddress.ip_address(item[4][0]))
+                    if address not in addresses:
+                        addresses.append(address)
+            except OSError as exc:
+                raise RuntimeError(f"url_dns_resolution_failed:{host}:{exc}") from exc
+
+    for address in addresses:
+        parsed_address = ipaddress.ip_address(address)
+        if not parsed_address.is_global:
+            raise RuntimeError(f"non_public_url_address:{parsed_address.compressed}")
+    return tuple(addresses)
+
+
+def _connect_to_pinned_public_addresses(
+    addresses: tuple[str, ...],
+    port: int,
+    timeout: Any,
+    source_address: tuple[str, int] | None = None,
+) -> socket.socket:
+    """Open a socket to the already-validated numeric addresses without DNS re-resolution."""
+
+    if not addresses:
+        raise OSError("no validated public address available")
+    last_error: OSError | None = None
+    for address in addresses:
+        parsed_address = ipaddress.ip_address(address)
+        family = socket.AF_INET6 if parsed_address.version == 6 else socket.AF_INET
+        destination: tuple[Any, ...]
+        if family == socket.AF_INET6:
+            destination = (parsed_address.compressed, port, 0, 0)
+        else:
+            destination = (parsed_address.compressed, port)
+        sock = socket.socket(family, socket.SOCK_STREAM)
+        try:
+            if isinstance(timeout, (int, float)):
+                sock.settimeout(timeout)
+            if source_address is not None:
+                sock.bind(source_address)
+            sock.connect(destination)
+            return sock
+        except OSError as exc:
+            last_error = exc
+            sock.close()
+    if last_error is not None:
+        raise last_error
+    raise OSError("validated public address connection failed")
+
+
+def _pinned_connection_factory(
+    connection_type: type[http_client.HTTPConnection],
+    *,
+    addresses: tuple[str, ...],
+    port: int,
+) -> Any:
+    def factory(host: str, **kwargs: Any) -> http_client.HTTPConnection:
+        connection = connection_type(host, **kwargs)
+
+        def create_connection(
+            requested_address: tuple[str, int],
+            timeout: Any,
+            source_address: tuple[str, int] | None,
+        ) -> socket.socket:
+            if int(requested_address[1]) != port:
+                raise OSError("pinned public connection port changed")
+            return _connect_to_pinned_public_addresses(
+                addresses,
+                port,
+                timeout,
+                source_address,
+            )
+
+        connection._create_connection = create_connection
+        return connection
+
+    return factory
+
+
+class _PinnedPublicHTTPHandler(HTTPHandler):
+    def http_open(self, req: Request) -> Any:
+        addresses = _validate_public_network_url(req.full_url, resolve_dns=True)
+        return self.do_open(
+            _pinned_connection_factory(
+                http_client.HTTPConnection,
+                addresses=addresses,
+                port=_effective_url_port(req.full_url),
+            ),
+            req,
+        )
+
+
+class _PinnedPublicHTTPSHandler(HTTPSHandler):
+    def https_open(self, req: Request) -> Any:
+        addresses = _validate_public_network_url(req.full_url, resolve_dns=True)
+        connection_options: dict[str, Any] = {"context": self._context}
+        check_hostname = getattr(self, "_check_hostname", None)
+        if check_hostname is not None:
+            connection_options["check_hostname"] = check_hostname
+        return self.do_open(
+            _pinned_connection_factory(
+                http_client.HTTPSConnection,
+                addresses=addresses,
+                port=_effective_url_port(req.full_url),
+            ),
+            req,
+            **connection_options,
+        )
+
+
+def _controlled_egress_proxy_url() -> str:
+    value = controlled_egress_proxy_url(required=True)
+    assert value is not None
+    return value
+
+
+def _optional_controlled_egress_proxy_url() -> str | None:
+    return controlled_egress_proxy_url(required=False)
+
+
+def _validate_same_origin_redirect(source_url: str, target_url: str) -> None:
+    _validate_public_network_url(target_url, resolve_dns=True)
+    source = urlsplit(source_url)
+    target = urlsplit(target_url)
+    if _normalized_url_host(source_url) != _normalized_url_host(target_url):
+        raise RuntimeError("cross_host_redirect_blocked")
+    if source.scheme.lower() == "https" and target.scheme.lower() != "https":
+        raise RuntimeError("https_downgrade_redirect_blocked")
+    source_port = _effective_url_port(source_url)
+    target_port = _effective_url_port(target_url)
+    if source_port != target_port and not (
+        source.scheme.lower() == "http"
+        and source_port == 80
+        and target.scheme.lower() == "https"
+        and target_port == 443
+    ):
+        raise RuntimeError("redirect_port_change_blocked")
+
+
+def _read_limited(response: Any, max_bytes: int) -> bytes:
+    content = response.read(max_bytes + 1)
+    if len(content) > max_bytes:
+        raise RuntimeError(f"response_body_too_large:{len(content)}>{max_bytes}")
+    return content
+
+
+class _SameOriginPublicRedirectHandler(HTTPRedirectHandler):
+    def redirect_request(
+        self,
+        req: Request,
+        fp: Any,
+        code: int,
+        msg: str,
+        headers: Any,
+        newurl: str,
+    ) -> Request | None:
+        target_url = urljoin(req.full_url, newurl)
+        _validate_same_origin_redirect(req.full_url, target_url)
+        return super().redirect_request(req, fp, code, msg, headers, target_url)
+
+
+def _browser_public_boundary_setup(origin_url: str) -> Any:
+    """Build a Playwright page setup hook that blocks unsafe subrequests/redirects."""
+
+    def setup(page: Any) -> None:
+        def handle_route(route: Any) -> None:
+            request_url = str(route.request.url or "")
+            if request_url.startswith(("about:", "blob:", "data:")):
+                route.continue_()
+                return
+            try:
+                _validate_same_origin_redirect(origin_url, request_url)
+            except RuntimeError:
+                route.abort("blockedbyclient")
+                return
+            route.continue_()
+
+        page.route("**/*", handle_route)
+
+    return setup
+
+
+def _response_boundary_error(
+    requested_url: str,
+    response: "RealPublicFetchResponse",
+    *,
+    max_bytes: int,
+) -> tuple[str, str] | None:
+    content_size = len(response.content or b"")
+    if content_size > max_bytes:
+        return (
+            "response_body_too_large",
+            f"response body exceeds limit:{content_size}>{max_bytes}",
+        )
+    final_url = str(response.final_url or requested_url).strip()
+    try:
+        _validate_public_network_url(final_url, resolve_dns=False)
+    except RuntimeError as exc:
+        return "response_url_boundary_blocked", str(exc)
+    if _normalized_url_host(requested_url) != _normalized_url_host(final_url):
+        return "response_url_boundary_blocked", "cross_host_final_url"
+    requested = urlsplit(requested_url)
+    final = urlsplit(final_url)
+    if requested.scheme.lower() == "https" and final.scheme.lower() != "https":
+        return "response_url_boundary_blocked", "https_downgrade_final_url"
+    requested_port = _effective_url_port(requested_url)
+    final_port = _effective_url_port(final_url)
+    if requested_port != final_port and not (
+        requested.scheme.lower() == "http"
+        and requested_port == 80
+        and final.scheme.lower() == "https"
+        and final_port == 443
+    ):
+        return "response_url_boundary_blocked", "final_url_port_change"
+    return None
 
 
 @dataclass(frozen=True)
@@ -453,6 +735,21 @@ REAL_PUBLIC_ATTACHMENT_PROFILE_BY_ID = {
     profile.profile_id: profile for profile in REAL_PUBLIC_ATTACHMENT_PROFILES
 }
 
+
+def registered_public_source_hosts() -> tuple[str, ...]:
+    hosts: set[str] = set()
+    for profile in REAL_PUBLIC_ENTRY_PROFILES:
+        for url in (profile.url, profile.sample_detail_url):
+            host = _normalized_url_host(url)
+            if host:
+                hosts.add(host)
+    for profile in REAL_PUBLIC_ATTACHMENT_PROFILES:
+        for url in (profile.url, profile.detail_page_url_optional):
+            host = _normalized_url_host(str(url or ""))
+            if host:
+                hosts.add(host)
+    return tuple(sorted(hosts))
+
 _ENTRY_UNAVAILABLE_BODY_PATTERNS = (
     "错误页面",
     "页面不存在",
@@ -489,6 +786,39 @@ _SUPPORTED_ATTACHMENT_CONTENT_TYPE_TOKENS = (
     "rar",
     "octet-stream",
 )
+
+
+def real_public_capture_support_policy() -> dict[str, Any]:
+    return {
+        "policy_id": REAL_PUBLIC_CAPTURE_SUPPORT_POLICY_ID,
+        "entry_max_response_bytes": REAL_PUBLIC_ENTRY_MAX_RESPONSE_BYTES,
+        "detail_max_response_bytes": REAL_PUBLIC_DETAIL_MAX_RESPONSE_BYTES,
+        "attachment_max_response_bytes": REAL_PUBLIC_ATTACHMENT_MAX_RESPONSE_BYTES,
+        "supported_attachment_extensions": list(_SUPPORTED_ATTACHMENT_EXTENSIONS),
+        "supported_html_attachment_extensions": list(_SUPPORTED_HTML_ATTACHMENT_EXTENSIONS),
+        "supported_attachment_content_type_tokens": list(
+            _SUPPORTED_ATTACHMENT_CONTENT_TYPE_TOKENS
+        ),
+        "registered_entry_profile_ids": sorted(REAL_PUBLIC_ENTRY_PROFILE_BY_ID),
+        "registered_attachment_profile_ids": sorted(REAL_PUBLIC_ATTACHMENT_PROFILE_BY_ID),
+        "same_site_attachment_scope": "registered_parent_profile_and_validated_same-site-download-signal-only",
+        "registered_source_meaning": (
+            "Allowlisted for bounded capture attempts; registration does not guarantee "
+            "that the source is currently reachable or parseable."
+        ),
+        "content_validation_policy": (
+            "Known file signatures or compatible declared MIME are accepted; an explicit "
+            "unsupported MIME cannot be overridden by a misleading filename extension."
+        ),
+        "terminal_states": ["READY", "REVIEW", "RETRYABLE", "BLOCKED", "UNSUPPORTED"],
+        "ready_requires_replayable_snapshot": True,
+        "browser_resolution_enabled_by_default": False,
+        "browser_resolution_attempts_per_fetch": ATTACHMENT_BROWSER_MAX_RESOLUTION_ATTEMPTS_PER_FETCH,
+        "unsupported_content_or_size_browser_escalation_allowed": False,
+        "challenge_or_session_resolution_requires_explicit_runtime_opt_in": True,
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
 _DOWNLOAD_ENDPOINT_TOKENS = (
     "/download",
     "/downfile",
@@ -792,13 +1122,22 @@ def _attachment_content_is_supported(
         return False
     if content.startswith(b"%PDF") or content.startswith(b"PK\x03\x04") or content.startswith(b"\xd0\xcf\x11\xe0") or content.startswith(b"Rar!"):
         return True
-    if filename_lower.endswith((*_SUPPORTED_ATTACHMENT_EXTENSIONS, *_SUPPORTED_HTML_ATTACHMENT_EXTENSIONS)):
-        return True
+    if stripped.startswith((b"<html", b"<!doctype html")):
+        return allow_plain_html_attachment and filename_lower.endswith(
+            _SUPPORTED_HTML_ATTACHMENT_EXTENSIONS
+        )
+    explicitly_unsupported_content_type = bool(lowered_content_type) and not any(
+        token in lowered_content_type
+        for token in _SUPPORTED_ATTACHMENT_CONTENT_TYPE_TOKENS
+    )
+    if explicitly_unsupported_content_type:
+        return False
     if any(token in lowered_content_type for token in _SUPPORTED_ATTACHMENT_CONTENT_TYPE_TOKENS if token != "octet-stream"):
         return True
-    if stripped.startswith((b"<html", b"<!doctype html")) and allow_plain_html_attachment:
-        return True
-    return False
+    return (
+        filename_lower.endswith(_SUPPORTED_ATTACHMENT_EXTENSIONS)
+        and (not lowered_content_type or "octet-stream" in lowered_content_type)
+    )
 
 
 def _normalized_attachment_failure_taxonomy(
@@ -831,6 +1170,186 @@ def _normalized_attachment_failure_taxonomy(
         elif value.startswith("attachment_html_blocker:captcha_or_manual_verification"):
             taxonomy.append("attachment_captcha_required")
     return list(dict.fromkeys(taxonomy))
+
+
+def _attachment_support_decision(
+    *,
+    status: str,
+    degraded_reasons: list[str],
+    attachment_failure_taxonomy: list[str],
+    attachment_blocker_class: str,
+    snapshot_replayable: bool,
+) -> dict[str, Any]:
+    reasons = [str(value or "") for value in degraded_reasons]
+    taxonomy = [str(value or "") for value in attachment_failure_taxonomy]
+    blocker_class = str(attachment_blocker_class or "")
+    if "response_body_too_large" in reasons or any(
+        "response_body_too_large" in value for value in taxonomy
+    ):
+        return {
+            "support_state": "UNSUPPORTED_RESPONSE_SIZE",
+            "terminal_state": "UNSUPPORTED",
+            "downstream_use_allowed": False,
+            "retry_allowed": False,
+            "browser_escalation_allowed": False,
+            "next_action": "record_unsupported_size_and_do_not_retry_or_escalate_browser",
+        }
+    if blocker_class:
+        return {
+            "support_state": "BLOCKED_ATTACHMENT_CHALLENGE",
+            "terminal_state": "BLOCKED",
+            "downstream_use_allowed": False,
+            "retry_allowed": False,
+            "browser_escalation_allowed": blocker_class
+            in {
+                "CAPTCHA_MANUAL_REQUIRED",
+                "SESSION_OR_LOGIN_REQUIRED",
+                "REFERER_OR_HOTLINK_REQUIRED",
+                "UNKNOWN_HTML_ATTACHMENT_RESPONSE",
+                "ATTACHMENT_INTERFACE_ERROR",
+            },
+            "next_action": "use_at_most_one_opt_in_same_capture_plan_browser_resolution_then_stop",
+        }
+    if "unsupported_attachment_content_type" in reasons or (
+        "attachment_unsupported_content_type" in taxonomy
+    ):
+        return {
+            "support_state": "UNSUPPORTED_CONTENT_TYPE",
+            "terminal_state": "UNSUPPORTED",
+            "downstream_use_allowed": False,
+            "retry_allowed": False,
+            "browser_escalation_allowed": False,
+            "next_action": "record_unsupported_content_type_and_do_not_escalate_browser",
+        }
+    if status == "FETCHED" and snapshot_replayable:
+        return {
+            "support_state": "SUPPORTED_REPLAYABLE",
+            "terminal_state": "READY",
+            "downstream_use_allowed": True,
+            "retry_allowed": False,
+            "browser_escalation_allowed": False,
+            "next_action": "continue_to_parser_from_replayable_snapshot",
+        }
+    if status == "FETCHED":
+        return {
+            "support_state": "SUPPORTED_CAPTURED_NOT_PERSISTED",
+            "terminal_state": "REVIEW",
+            "downstream_use_allowed": False,
+            "retry_allowed": False,
+            "browser_escalation_allowed": False,
+            "next_action": "persist_and_replay_snapshot_before_downstream_use",
+        }
+    failure_class = ""
+    for value in taxonomy:
+        if value in {"TLS_HANDSHAKE_FAILED", "TIMEOUT", "FETCH_FAILED"}:
+            failure_class = value
+            break
+    if "fetch_failed" in reasons and failure_class in {
+        "TLS_HANDSHAKE_FAILED",
+        "TIMEOUT",
+        "FETCH_FAILED",
+    }:
+        return {
+            "support_state": "RETRYABLE_FETCH_FAILURE",
+            "terminal_state": "RETRYABLE",
+            "downstream_use_allowed": False,
+            "retry_allowed": True,
+            "browser_escalation_allowed": False,
+            "next_action": "retry_with_bounded_transport_policy",
+        }
+    return {
+        "support_state": "BLOCKED_OR_DEGRADED",
+        "terminal_state": "BLOCKED",
+        "downstream_use_allowed": False,
+        "retry_allowed": False,
+        "browser_escalation_allowed": False,
+        "next_action": "record_blocker_and_require_operator_or_adapter_review",
+    }
+
+
+def _document_capture_support_decision(
+    *,
+    status: str,
+    degraded_reasons: list[str],
+    failure_taxonomy: Mapping[str, Any] | None,
+    snapshot_replayable: bool,
+    browser_resolution_available: bool,
+) -> dict[str, Any]:
+    reasons = [str(value or "") for value in degraded_reasons]
+    taxonomy = dict(failure_taxonomy or {})
+    failure_class = str(taxonomy.get("failure_class") or "")
+    if "response_body_too_large" in reasons:
+        return {
+            "support_state": "UNSUPPORTED_RESPONSE_SIZE",
+            "terminal_state": "UNSUPPORTED",
+            "downstream_use_allowed": False,
+            "retry_allowed": False,
+            "browser_escalation_allowed": False,
+            "next_action": "record_unsupported_size_and_do_not_retry_or_escalate_browser",
+        }
+    if status == "FETCHED" and snapshot_replayable:
+        return {
+            "support_state": "SUPPORTED_REPLAYABLE",
+            "terminal_state": "READY",
+            "downstream_use_allowed": True,
+            "retry_allowed": False,
+            "browser_escalation_allowed": False,
+            "next_action": "continue_from_replayable_snapshot",
+        }
+    if status == "FETCHED":
+        return {
+            "support_state": "SUPPORTED_CAPTURED_NOT_PERSISTED",
+            "terminal_state": "REVIEW",
+            "downstream_use_allowed": False,
+            "retry_allowed": False,
+            "browser_escalation_allowed": False,
+            "next_action": "persist_and_replay_snapshot_before_downstream_use",
+        }
+    if status == "AUTOMATED_CHALLENGE_RESOLUTION_PENDING":
+        return {
+            "support_state": "BLOCKED_CHALLENGE_OR_SESSION",
+            "terminal_state": "BLOCKED",
+            "downstream_use_allowed": False,
+            "retry_allowed": False,
+            "browser_escalation_allowed": bool(browser_resolution_available),
+            "next_action": (
+                "use_one_explicit_same_capture_plan_browser_attempt_then_stop"
+                if browser_resolution_available
+                else "record_blocker_without_browser_escalation"
+            ),
+        }
+    if failure_class == "PUBLIC_ENTRY_MARKERS_MISSING_OR_SPA_SHELL":
+        return {
+            "support_state": "BLOCKED_DYNAMIC_OR_SPA_SHELL",
+            "terminal_state": "BLOCKED",
+            "downstream_use_allowed": False,
+            "retry_allowed": False,
+            "browser_escalation_allowed": False,
+            "next_action": "require_a_registered_source_adapter_or_record_blocked",
+        }
+    if bool(taxonomy.get("retryable")) and failure_class in {
+        "TLS_HANDSHAKE_FAILED",
+        "TIMEOUT",
+        "FETCH_FAILED",
+        "UPSTREAM_HTTP_STATUS_NOT_OK",
+        "PUBLIC_ENTRY_DEGRADED",
+    }:
+        return {
+            "support_state": "RETRYABLE_FETCH_FAILURE",
+            "terminal_state": "RETRYABLE",
+            "downstream_use_allowed": False,
+            "retry_allowed": True,
+            "browser_escalation_allowed": False,
+            "next_action": "retry_with_bounded_transport_policy",
+        }
+    return {
+        "support_state": "BLOCKED_OR_DEGRADED",
+        "terminal_state": "BLOCKED",
+        "downstream_use_allowed": False,
+        "retry_allowed": False,
+        "browser_escalation_allowed": False,
+        "next_action": "record_blocker_and_require_operator_or_adapter_review",
+    }
 
 
 def _attachment_challenge_family(profile: "RealPublicAttachmentProfile") -> str:
@@ -937,6 +1456,13 @@ class RealPublicAttachmentChallengeResolver(Protocol):
 
 
 class UrlLibRealPublicFetchTransport:
+    def __init__(
+        self,
+        *,
+        max_response_bytes: int = REAL_PUBLIC_TRANSPORT_MAX_RESPONSE_BYTES,
+    ) -> None:
+        self.max_response_bytes = max(1, int(max_response_bytes))
+
     def fetch(
         self,
         url: str,
@@ -944,11 +1470,26 @@ class UrlLibRealPublicFetchTransport:
         timeout_seconds: float,
         user_agent: str,
     ) -> RealPublicFetchResponse:
+        controlled_proxy = _optional_controlled_egress_proxy_url()
+        if controlled_proxy:
+            _validate_public_network_url(url, resolve_dns=True)
         request = Request(url, headers={"User-Agent": user_agent})
+        if controlled_proxy:
+            opener = build_opener(
+                ProxyHandler({"http": controlled_proxy, "https": controlled_proxy}),
+                _SameOriginPublicRedirectHandler(),
+            )
+        else:
+            opener = build_opener(
+                ProxyHandler({}),
+                _PinnedPublicHTTPHandler(),
+                _PinnedPublicHTTPSHandler(),
+                _SameOriginPublicRedirectHandler(),
+            )
         try:
-            response_context = urlopen(request, timeout=timeout_seconds)  # noqa: S310
+            response_context = opener.open(request, timeout=timeout_seconds)  # noqa: S310
         except HTTPError as exc:
-            content = exc.read()
+            content = _read_limited(exc, self.max_response_bytes)
             headers = dict(exc.headers.items()) if exc.headers else {}
             headers["x-ax9s-fetch-transport"] = "urllib"
             return RealPublicFetchResponse(
@@ -961,7 +1502,7 @@ class UrlLibRealPublicFetchTransport:
             )
 
         with response_context as response:
-            content = response.read()
+            content = _read_limited(response, self.max_response_bytes)
             content_type = response.headers.get("Content-Type", "text/html")
             headers = dict(response.headers.items())
             headers["x-ax9s-fetch-transport"] = "urllib"
@@ -976,8 +1517,14 @@ class UrlLibRealPublicFetchTransport:
 
 
 class CurlCommandRealPublicFetchTransport:
-    def __init__(self, *, curl_binary: str | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        curl_binary: str | None = None,
+        max_response_bytes: int = REAL_PUBLIC_TRANSPORT_MAX_RESPONSE_BYTES,
+    ) -> None:
         self.curl_binary = curl_binary or shutil.which("curl.exe") or shutil.which("curl")
+        self.max_response_bytes = max(1, int(max_response_bytes))
 
     def fetch(
         self,
@@ -988,6 +1535,19 @@ class CurlCommandRealPublicFetchTransport:
     ) -> RealPublicFetchResponse:
         if not self.curl_binary:
             raise RuntimeError("curl transport unavailable")
+        addresses = _validate_public_network_url(url, resolve_dns=True)
+        controlled_proxy = _optional_controlled_egress_proxy_url()
+        host = _normalized_url_host(url)
+        port = _effective_url_port(url)
+        pinned_resolutions: list[str] = []
+        for address in addresses:
+            rendered_address = f"[{address}]" if ipaddress.ip_address(address).version == 6 else address
+            pinned_resolutions.extend(["--resolve", f"{host}:{port}:{rendered_address}"])
+        proxy_args = (
+            ["--proxy", controlled_proxy, "--noproxy", ""]
+            if controlled_proxy
+            else ["--noproxy", "*"]
+        )
 
         timeout_value = max(1, int(timeout_seconds))
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -995,13 +1555,20 @@ class CurlCommandRealPublicFetchTransport:
             body_path = Path(tmp_dir) / "body.bin"
             command = [
                 self.curl_binary,
-                "--location",
                 "--silent",
                 "--show-error",
                 "--http1.1",
+                "--proto",
+                "=http,https",
+                "--proto-redir",
+                "=https",
+                *proxy_args,
+                *pinned_resolutions,
                 "--compressed",
                 "--max-time",
                 str(timeout_value),
+                "--max-filesize",
+                str(self.max_response_bytes),
                 "--user-agent",
                 user_agent,
                 "--header",
@@ -1037,6 +1604,10 @@ class CurlCommandRealPublicFetchTransport:
             status_code = int(write_out[-3])
             final_url = write_out[-2].strip() or url
             content_type = write_out[-1].strip() or "application/octet-stream"
+            if body_path.exists() and body_path.stat().st_size > self.max_response_bytes:
+                raise RuntimeError(
+                    f"response_body_too_large:{body_path.stat().st_size}>{self.max_response_bytes}"
+                )
             content = body_path.read_bytes() if body_path.exists() else b""
             headers = _parse_curl_headers(
                 header_path.read_text(encoding="iso-8859-1", errors="replace")
@@ -1068,10 +1639,12 @@ class ScraplingRealPublicFetchTransport:
         fetcher_factory: Any | None = None,
         stealthy_headers: bool = False,
         impersonate: str | None = None,
+        max_response_bytes: int = REAL_PUBLIC_TRANSPORT_MAX_RESPONSE_BYTES,
     ) -> None:
         self.fetcher_factory = fetcher_factory
         self.stealthy_headers = stealthy_headers
         self.impersonate = impersonate
+        self.max_response_bytes = max(1, int(max_response_bytes))
 
     def fetch(
         self,
@@ -1081,7 +1654,10 @@ class ScraplingRealPublicFetchTransport:
         user_agent: str,
     ) -> RealPublicFetchResponse:
         fetcher = self.fetcher_factory
+        controlled_proxy: str | None = None
         if fetcher is None:
+            _validate_public_network_url(url, resolve_dns=True)
+            controlled_proxy = _controlled_egress_proxy_url()
             try:
                 from scrapling.fetchers import Fetcher  # type: ignore
 
@@ -1094,14 +1670,16 @@ class ScraplingRealPublicFetchTransport:
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
             "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.6",
         }
-        response = fetcher.get(
-            url,
-            timeout=max(1, float(timeout_seconds)),
-            headers=request_headers,
-            stealthy_headers=self.stealthy_headers,
-            impersonate=self.impersonate,
-            follow_redirects=True,
-        )
+        request_kwargs: dict[str, Any] = {
+            "timeout": max(1, float(timeout_seconds)),
+            "headers": request_headers,
+            "stealthy_headers": self.stealthy_headers,
+            "impersonate": self.impersonate,
+            "follow_redirects": False,
+        }
+        if controlled_proxy:
+            request_kwargs["proxy"] = controlled_proxy
+        response = fetcher.get(url, **request_kwargs)
         headers = {
             str(key): str(value)
             for key, value in dict(getattr(response, "headers", {}) or {}).items()
@@ -1109,10 +1687,16 @@ class ScraplingRealPublicFetchTransport:
         headers["x-ax9s-fetch-transport"] = "scrapling_fetcher"
         headers["x-ax9s-scrapling-stealthy-headers"] = str(self.stealthy_headers).lower()
         headers["x-ax9s-scrapling-impersonate"] = str(self.impersonate or "none")
+        headers["x-ax9s-controlled-egress-proxy"] = str(bool(controlled_proxy)).lower()
+        content = _scrapling_response_body(response)
+        if len(content) > self.max_response_bytes:
+            raise RuntimeError(
+                f"response_body_too_large:{len(content)}>{self.max_response_bytes}"
+            )
         return RealPublicFetchResponse(
             url=url,
             status_code=int(getattr(response, "status", getattr(response, "status_code", 0)) or 0),
-            content=_scrapling_response_body(response),
+            content=content,
             content_type=headers.get("Content-Type", headers.get("content-type", "text/html")),
             final_url=str(getattr(response, "url", "") or url),
             headers=headers,
@@ -1146,6 +1730,7 @@ class ScraplingRealPublicBrowserFetchTransport:
         hide_canvas: bool = False,
         block_webrtc: bool = True,
         allow_webgl: bool = True,
+        max_response_bytes: int = REAL_PUBLIC_TRANSPORT_MAX_RESPONSE_BYTES,
     ) -> None:
         normalized_mode = str(mode or "").strip().lower()
         if normalized_mode not in {"dynamic", "stealthy"}:
@@ -1166,6 +1751,7 @@ class ScraplingRealPublicBrowserFetchTransport:
         self.hide_canvas = hide_canvas
         self.block_webrtc = block_webrtc
         self.allow_webgl = allow_webgl
+        self.max_response_bytes = max(1, int(max_response_bytes))
 
     def fetch(
         self,
@@ -1176,12 +1762,19 @@ class ScraplingRealPublicBrowserFetchTransport:
     ) -> RealPublicFetchResponse:
         if not self.operator_authorized:
             raise RuntimeError(f"scrapling_{self.mode}_fetcher_requires_operator_authorization")
+        controlled_proxy: str | None = None
+        if self.fetcher_factory is None:
+            _validate_public_network_url(url, resolve_dns=True)
+            controlled_proxy = _controlled_egress_proxy_url()
 
         fetcher = self.fetcher_factory or self._load_fetcher()
         request_kwargs = self._request_kwargs(
+            url=url,
             timeout_seconds=timeout_seconds,
             user_agent=user_agent,
         )
+        if controlled_proxy:
+            request_kwargs["proxy"] = controlled_proxy
         response = fetcher.fetch(url, **request_kwargs)
         headers = {
             str(key): str(value)
@@ -1194,14 +1787,20 @@ class ScraplingRealPublicBrowserFetchTransport:
         headers["x-ax9s-scrapling-real-chrome"] = str(self.real_chrome).lower()
         headers["x-ax9s-scrapling-cdp-url"] = "present" if self.cdp_url else "none"
         headers["x-ax9s-scrapling-user-data-dir"] = "present" if self.user_data_dir else "none"
+        headers["x-ax9s-controlled-egress-proxy"] = str(bool(controlled_proxy)).lower()
         if self.mode == "stealthy":
             headers["x-ax9s-scrapling-solve-cloudflare"] = str(self.solve_cloudflare).lower()
             headers["x-ax9s-scrapling-hide-canvas"] = str(self.hide_canvas).lower()
             headers["x-ax9s-scrapling-block-webrtc"] = str(self.block_webrtc).lower()
+        content = _scrapling_response_body(response)
+        if len(content) > self.max_response_bytes:
+            raise RuntimeError(
+                f"response_body_too_large:{len(content)}>{self.max_response_bytes}"
+            )
         return RealPublicFetchResponse(
             url=url,
             status_code=int(getattr(response, "status", getattr(response, "status_code", 0)) or 0),
-            content=_scrapling_response_body(response),
+            content=content,
             content_type=headers.get("Content-Type", headers.get("content-type", "text/html")),
             final_url=str(getattr(response, "url", "") or url),
             headers=headers,
@@ -1219,7 +1818,13 @@ class ScraplingRealPublicBrowserFetchTransport:
         except Exception as exc:
             raise RuntimeError(f"scrapling_{self.mode}_fetcher_unavailable:{type(exc).__name__}") from exc
 
-    def _request_kwargs(self, *, timeout_seconds: float, user_agent: str) -> dict[str, Any]:
+    def _request_kwargs(
+        self,
+        *,
+        url: str,
+        timeout_seconds: float,
+        user_agent: str,
+    ) -> dict[str, Any]:
         timeout_ms = max(1000, int(float(timeout_seconds) * 1000))
         kwargs: dict[str, Any] = {
             "headless": self.headless,
@@ -1230,6 +1835,7 @@ class ScraplingRealPublicBrowserFetchTransport:
             "wait": self.wait_ms,
             "useragent": user_agent,
             "google_search": False,
+            "page_setup": _browser_public_boundary_setup(url),
             "extra_headers": {
                 "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.6",
             },
@@ -1696,6 +2302,9 @@ class RealPublicEntryFetcher:
         user_agent: str = REAL_PUBLIC_ENTRY_USER_AGENT,
         attachment_challenge_resolver: RealPublicAttachmentChallengeResolver | None = None,
         automated_challenge_resolution_enabled: bool = False,
+        entry_max_response_bytes: int = REAL_PUBLIC_ENTRY_MAX_RESPONSE_BYTES,
+        detail_max_response_bytes: int = REAL_PUBLIC_DETAIL_MAX_RESPONSE_BYTES,
+        attachment_max_response_bytes: int = REAL_PUBLIC_ATTACHMENT_MAX_RESPONSE_BYTES,
     ) -> None:
         self.transport = transport or ScraplingEscalatingRealPublicFetchTransport()
         self.repository = repository
@@ -1703,8 +2312,85 @@ class RealPublicEntryFetcher:
         self.user_agent = user_agent
         self.attachment_challenge_resolver = attachment_challenge_resolver
         self.automated_challenge_resolution_enabled = automated_challenge_resolution_enabled
+        self.entry_max_response_bytes = max(1, int(entry_max_response_bytes))
+        self.detail_max_response_bytes = max(1, int(detail_max_response_bytes))
+        self.attachment_max_response_bytes = max(1, int(attachment_max_response_bytes))
+
+    def _observed_fetch(
+        self,
+        *,
+        operation: str,
+        url: str,
+        profile_id: str | None,
+        fetch_call: Callable[[], dict[str, Any]],
+    ) -> dict[str, Any]:
+        started = time.perf_counter()
+        sink = get_operational_event_sink("worker")
+        try:
+            carrier = fetch_call()
+        except Exception as exc:
+            record_operational_event_safely(
+                sink,
+                component="fetch",
+                operation=operation,
+                outcome="error",
+                severity="ERROR",
+                duration_ms=(time.perf_counter() - started) * 1000,
+                error_category=type(exc).__name__,
+                attributes={
+                    "url_host": _observability_url_host(url),
+                    "profile_id": profile_id,
+                },
+            )
+            raise
+
+        status = str(carrier.get("status") or "UNKNOWN").strip().upper()
+        reasons = [str(item) for item in list(carrier.get("degraded_reasons") or [])]
+        if status == "FETCHED":
+            outcome, severity, error_category = "success", "INFO", None
+        elif status == "BLOCKED" or status.endswith("_PENDING"):
+            outcome, severity, error_category = "blocked", "WARNING", status
+        elif any(reason.startswith("fetch_failed") for reason in reasons):
+            outcome, severity, error_category = "error", "ERROR", "fetch_failed"
+        else:
+            outcome, severity = "degraded", "WARNING"
+            error_category = reasons[0] if reasons else status
+        record_operational_event_safely(
+            sink,
+            component="fetch",
+            operation=operation,
+            outcome=outcome,
+            severity=severity,
+            duration_ms=(time.perf_counter() - started) * 1000,
+            error_category=error_category,
+            attributes={
+                "url_host": _observability_url_host(url),
+                "profile_id": profile_id or carrier.get("profile_id"),
+                "carrier_status": status,
+                "http_status": carrier.get("http_status"),
+            },
+        )
+        return carrier
 
     def fetch_entry_url(
+        self,
+        url: str,
+        *,
+        profile_id: str | None = None,
+        lineage_refs: Mapping[str, str] | None = None,
+    ) -> dict[str, Any]:
+        return self._observed_fetch(
+            operation="entry_url",
+            url=url,
+            profile_id=profile_id,
+            fetch_call=lambda: self._fetch_entry_url(
+                url,
+                profile_id=profile_id,
+                lineage_refs=lineage_refs,
+            ),
+        )
+
+    def _fetch_entry_url(
         self,
         url: str,
         *,
@@ -1737,6 +2423,24 @@ class RealPublicEntryFetcher:
         )
 
     def fetch_candidate_detail_url(
+        self,
+        url: str,
+        *,
+        profile_id: str,
+        lineage_refs: Mapping[str, str] | None = None,
+    ) -> dict[str, Any]:
+        return self._observed_fetch(
+            operation="candidate_detail_url",
+            url=url,
+            profile_id=profile_id,
+            fetch_call=lambda: self._fetch_candidate_detail_url(
+                url,
+                profile_id=profile_id,
+                lineage_refs=lineage_refs,
+            ),
+        )
+
+    def _fetch_candidate_detail_url(
         self,
         url: str,
         *,
@@ -1855,6 +2559,26 @@ class RealPublicEntryFetcher:
         lineage_refs: Mapping[str, str] | None = None,
         detail_page_url: str | None = None,
     ) -> dict[str, Any]:
+        return self._observed_fetch(
+            operation="attachment_original_link",
+            url=url,
+            profile_id=profile_id,
+            fetch_call=lambda: self._fetch_attachment_original_link(
+                url,
+                profile_id=profile_id,
+                lineage_refs=lineage_refs,
+                detail_page_url=detail_page_url,
+            ),
+        )
+
+    def _fetch_attachment_original_link(
+        self,
+        url: str,
+        *,
+        profile_id: str | None = None,
+        lineage_refs: Mapping[str, str] | None = None,
+        detail_page_url: str | None = None,
+    ) -> dict[str, Any]:
         profile = self._resolve_attachment_profile(url, profile_id=profile_id)
         now = utc_now_iso()
         try:
@@ -1883,6 +2607,26 @@ class RealPublicEntryFetcher:
         )
 
     def fetch_same_site_attachment_url(
+        self,
+        url: str,
+        *,
+        parent_profile_id: str,
+        lineage_refs: Mapping[str, str] | None = None,
+        detail_page_url: str | None = None,
+    ) -> dict[str, Any]:
+        return self._observed_fetch(
+            operation="same_site_attachment_url",
+            url=url,
+            profile_id=parent_profile_id,
+            fetch_call=lambda: self._fetch_same_site_attachment_url(
+                url,
+                parent_profile_id=parent_profile_id,
+                lineage_refs=lineage_refs,
+                detail_page_url=detail_page_url,
+            ),
+        )
+
+    def _fetch_same_site_attachment_url(
         self,
         url: str,
         *,
@@ -1993,6 +2737,12 @@ class RealPublicEntryFetcher:
             {
                 "status": "BLOCKED",
                 "blocked_reason": reason,
+                "capture_support_policy_id": REAL_PUBLIC_CAPTURE_SUPPORT_POLICY_ID,
+                "capture_support_state": "BLOCKED_SOURCE_BOUNDARY",
+                "capture_terminal_state": "BLOCKED",
+                "downstream_use_allowed": False,
+                "retry_allowed": False,
+                "browser_escalation_allowed": False,
                 "entry_url": url,
                 "fetch_attempted": False,
                 "fail_closed": True,
@@ -2087,6 +2837,10 @@ class RealPublicEntryFetcher:
         carrier: Mapping[str, Any],
     ) -> bool:
         if not self.automated_challenge_resolution_enabled or self.attachment_challenge_resolver is None:
+            return False
+        if str(carrier.get("attachment_terminal_state") or "") == "UNSUPPORTED":
+            return False
+        if carrier.get("browser_escalation_allowed") is False:
             return False
         blocker_class = str(carrier.get("attachment_blocker_class") or "")
         blocker_reason = str(carrier.get("attachment_blocker_reason") or "")
@@ -2394,6 +3148,21 @@ class RealPublicEntryFetcher:
         now: str,
         lineage_refs: Mapping[str, str] | None,
     ) -> dict[str, Any]:
+        boundary_error = _response_boundary_error(
+            profile.url,
+            response,
+            max_bytes=self.entry_max_response_bytes,
+        )
+        if boundary_error is not None:
+            reason, detail = boundary_error
+            return self._degraded_carrier(
+                profile,
+                now=now,
+                reason=reason,
+                detail=detail,
+                lineage_refs=lineage_refs,
+                fetch_attempted=True,
+            )
         content = response.content or b""
         text = _decode_html(content)
         title = _extract_title(text)
@@ -2559,6 +3328,14 @@ class RealPublicEntryFetcher:
             )
             manifest_payload = manifest.as_payload()
 
+        capture_support = _document_capture_support_decision(
+            status=status,
+            degraded_reasons=degraded_reasons,
+            failure_taxonomy=failure_taxonomy,
+            snapshot_replayable=bool(manifest_payload),
+            browser_resolution_available=False,
+        )
+
         return {
             "entry_fetch_id": snapshot_id,
             "status": status,
@@ -2586,6 +3363,13 @@ class RealPublicEntryFetcher:
             "snapshot_id_optional": snapshot_id if manifest_payload else None,
             "manifest_optional": manifest_payload,
             "degraded_reasons": degraded_reasons,
+            "capture_support_policy_id": REAL_PUBLIC_CAPTURE_SUPPORT_POLICY_ID,
+            "capture_support": capture_support,
+            "capture_support_state": capture_support["support_state"],
+            "capture_terminal_state": capture_support["terminal_state"],
+            "downstream_use_allowed": capture_support["downstream_use_allowed"],
+            "retry_allowed": capture_support["retry_allowed"],
+            "browser_escalation_allowed": capture_support["browser_escalation_allowed"],
             "review_required": bool(degraded_reasons) and not controlled_challenge_detected,
             "automated_challenge_resolution_pending": controlled_challenge_detected,
             "automated_challenge_resolution_first": controlled_challenge_detected,
@@ -2610,6 +3394,22 @@ class RealPublicEntryFetcher:
         now: str,
         lineage_refs: Mapping[str, str] | None,
     ) -> dict[str, Any]:
+        boundary_error = _response_boundary_error(
+            detail_url,
+            response,
+            max_bytes=self.detail_max_response_bytes,
+        )
+        if boundary_error is not None:
+            reason, detail = boundary_error
+            return self._degraded_detail_carrier(
+                profile,
+                detail_url=detail_url,
+                now=now,
+                reason=reason,
+                detail=detail,
+                lineage_refs=lineage_refs,
+                fetch_attempted=True,
+            )
         content = response.content or b""
         text = _decode_html(content)
         title = _extract_title(text)
@@ -2643,6 +3443,7 @@ class RealPublicEntryFetcher:
             "attachment_link_records": list(snapshot_parser_readback.get("attachment_link_records") or [])[:20],
         }
         if profile.profile_id == "GUANGZHOU-YWTB-CONSTRUCTION-LIST":
+            attachment_link_items = _guangzhou_ywtb_actionable_attachment_link_items(attachment_link_items)
             guangzhou_static_diagnosis = _guangzhou_ywtb_download_discovery_from_html(
                 text,
                 detail_url=final_url,
@@ -2673,6 +3474,7 @@ class RealPublicEntryFetcher:
                             for item in list(rendered_diagnosis.get("same_site_attachment_link_items") or [])
                             if isinstance(item, Mapping) and str(item.get("url") or "").strip()
                         ]
+                        rendered_items = _guangzhou_ywtb_actionable_attachment_link_items(rendered_items)
                         attachment_link_items = _merge_link_items(rendered_items, attachment_link_items)
                         attachment_discovery_diagnostics["guangzhou_ywtb_rendered"] = dict(rendered_diagnosis)
                         rendered_state = str(
@@ -2851,6 +3653,20 @@ class RealPublicEntryFetcher:
             )
             manifest_payload = manifest.as_payload()
 
+        detail_browser_resolution_available = bool(
+            self.automated_challenge_resolution_enabled
+            and self.attachment_challenge_resolver is not None
+            and hasattr(self.attachment_challenge_resolver, "resolve_candidate_detail")
+            and profile.profile_id == "JIANGSU-GGZY-HOME"
+        )
+        capture_support = _document_capture_support_decision(
+            status=status,
+            degraded_reasons=degraded_reasons,
+            failure_taxonomy=failure_taxonomy,
+            snapshot_replayable=bool(manifest_payload),
+            browser_resolution_available=detail_browser_resolution_available,
+        )
+
         return {
             "detail_fetch_id": snapshot_id,
             "status": status,
@@ -2875,6 +3691,13 @@ class RealPublicEntryFetcher:
             "snapshot_id_optional": snapshot_id if manifest_payload else None,
             "manifest_optional": manifest_payload,
             "degraded_reasons": degraded_reasons,
+            "capture_support_policy_id": REAL_PUBLIC_CAPTURE_SUPPORT_POLICY_ID,
+            "capture_support": capture_support,
+            "capture_support_state": capture_support["support_state"],
+            "capture_terminal_state": capture_support["terminal_state"],
+            "downstream_use_allowed": capture_support["downstream_use_allowed"],
+            "retry_allowed": capture_support["retry_allowed"],
+            "browser_escalation_allowed": capture_support["browser_escalation_allowed"],
             "review_required": bool(degraded_reasons) and not controlled_challenge_detected,
             "automated_challenge_resolution_pending": controlled_challenge_detected,
             "automated_challenge_resolution_first": controlled_challenge_detected,
@@ -2898,6 +3721,14 @@ class RealPublicEntryFetcher:
         lineage_refs: Mapping[str, str] | None,
         fetch_attempted: bool,
     ) -> dict[str, Any]:
+        failure_taxonomy = _fetch_failure_taxonomy(detail)
+        capture_support = _document_capture_support_decision(
+            status="DEGRADED",
+            degraded_reasons=[reason],
+            failure_taxonomy=failure_taxonomy,
+            snapshot_replayable=False,
+            browser_resolution_available=False,
+        )
         return {
             "detail_fetch_id": f"REAL-DETAIL-{profile.profile_id}-DEGRADED",
             "status": "DEGRADED",
@@ -2908,18 +3739,25 @@ class RealPublicEntryFetcher:
             "source_family": profile.source_family,
             "snapshot_id_optional": None,
             "degraded_reasons": [reason],
+            "capture_support_policy_id": REAL_PUBLIC_CAPTURE_SUPPORT_POLICY_ID,
+            "capture_support": capture_support,
+            "capture_support_state": capture_support["support_state"],
+            "capture_terminal_state": capture_support["terminal_state"],
+            "downstream_use_allowed": capture_support["downstream_use_allowed"],
+            "retry_allowed": capture_support["retry_allowed"],
+            "browser_escalation_allowed": capture_support["browser_escalation_allowed"],
             "failure_detail_optional": detail,
             "review_required": True,
             "fail_closed": True,
             "no_broad_fallback": True,
             "lineage_refs": dict(lineage_refs or {}),
-            "failure_taxonomy": _fetch_failure_taxonomy(detail),
+            "failure_taxonomy": failure_taxonomy,
             "fetch_audit": {
                 "fetcher_id": REAL_PUBLIC_ENTRY_FETCHER_ID,
                 "fetch_mode": "REAL_PUBLIC_DETAIL_SAME_SITE",
                 "fetch_attempted": fetch_attempted,
                 "fetched_at": now,
-                "failure_taxonomy": _fetch_failure_taxonomy(detail),
+                "failure_taxonomy": failure_taxonomy,
                 "parent_entry_profile_id": profile.profile_id,
                 "parent_entry_url": profile.url,
                 "list_to_detail_capture_enabled": True,
@@ -2940,6 +3778,14 @@ class RealPublicEntryFetcher:
         lineage_refs: Mapping[str, str] | None,
         fetch_attempted: bool,
     ) -> dict[str, Any]:
+        failure_taxonomy = _fetch_failure_taxonomy(detail)
+        capture_support = _document_capture_support_decision(
+            status="DEGRADED",
+            degraded_reasons=[reason],
+            failure_taxonomy=failure_taxonomy,
+            snapshot_replayable=False,
+            browser_resolution_available=False,
+        )
         return {
             "entry_fetch_id": f"REAL-ENTRY-{profile.profile_id}-DEGRADED",
             "status": "DEGRADED",
@@ -2952,6 +3798,13 @@ class RealPublicEntryFetcher:
             "browser_verified_evidence": profile.browser_verified_evidence,
             "snapshot_id_optional": None,
             "degraded_reasons": [reason],
+            "capture_support_policy_id": REAL_PUBLIC_CAPTURE_SUPPORT_POLICY_ID,
+            "capture_support": capture_support,
+            "capture_support_state": capture_support["support_state"],
+            "capture_terminal_state": capture_support["terminal_state"],
+            "downstream_use_allowed": capture_support["downstream_use_allowed"],
+            "retry_allowed": capture_support["retry_allowed"],
+            "browser_escalation_allowed": capture_support["browser_escalation_allowed"],
             "failure_detail_optional": detail,
             "review_required": True,
             "fail_closed": True,
@@ -2962,7 +3815,7 @@ class RealPublicEntryFetcher:
                 "fetch_mode": REAL_PUBLIC_ENTRY_FETCH_MODE,
                 "fetch_attempted": fetch_attempted,
                 "fetched_at": now,
-                "failure_taxonomy": _fetch_failure_taxonomy(detail),
+                "failure_taxonomy": failure_taxonomy,
                 "unapproved_capture_enabled": False,
                 "deep_capture_enabled": False,
                 "real_provider_call_executed": False,
@@ -2980,6 +3833,22 @@ class RealPublicEntryFetcher:
         detail_page_url: str | None,
         challenge_resume_audit: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
+        boundary_error = _response_boundary_error(
+            profile.url,
+            response,
+            max_bytes=self.attachment_max_response_bytes,
+        )
+        if boundary_error is not None:
+            reason, detail = boundary_error
+            return self._degraded_attachment_carrier(
+                profile,
+                now=now,
+                reason=reason,
+                detail=detail,
+                lineage_refs=lineage_refs,
+                detail_page_url=detail_page_url,
+                fetch_attempted=True,
+            )
         content = response.content or b""
         content_type = response.content_type or "application/octet-stream"
         filename = _attachment_filename_from_response(profile, response)
@@ -3103,6 +3972,13 @@ class RealPublicEntryFetcher:
             degraded_reasons=degraded_reasons,
             attachment_blocker=attachment_blocker,
         )
+        attachment_support = _attachment_support_decision(
+            status=status,
+            degraded_reasons=degraded_reasons,
+            attachment_failure_taxonomy=attachment_failure_taxonomy,
+            attachment_blocker_class=str(attachment_blocker.get("attachment_blocker_class") or ""),
+            snapshot_replayable=bool(manifest_payload),
+        )
 
         return {
             "attachment_fetch_id": snapshot_id,
@@ -3125,6 +4001,16 @@ class RealPublicEntryFetcher:
             "no_broad_fallback": True,
             **attachment_blocker,
             "attachment_failure_taxonomy": attachment_failure_taxonomy,
+            "capture_support_policy_id": REAL_PUBLIC_CAPTURE_SUPPORT_POLICY_ID,
+            "attachment_support": attachment_support,
+            "attachment_support_state": attachment_support["support_state"],
+            "attachment_terminal_state": attachment_support["terminal_state"],
+            "capture_support_state": attachment_support["support_state"],
+            "capture_terminal_state": attachment_support["terminal_state"],
+            "downstream_use_allowed": attachment_support["downstream_use_allowed"],
+            "retry_allowed": attachment_support["retry_allowed"],
+            "browser_escalation_allowed": attachment_support["browser_escalation_allowed"],
+            "browser_resolution_attempt_budget": ATTACHMENT_BROWSER_MAX_RESOLUTION_ATTEMPTS_PER_FETCH,
             "fetch_audit": fetch_audit,
             "transport": fetch_audit["transport"],
             "controlled_opening_requirements": _controlled_opening_requirements(),
@@ -3156,9 +4042,19 @@ class RealPublicEntryFetcher:
             "attachment_resolution_route": "",
             "attachment_browser_replay_steps": [],
         }
-        failure_taxonomy = _fetch_failure_taxonomy(detail)
+        failure = _fetch_failure_taxonomy(detail)
+        failure_taxonomy = [str(failure.get("failure_class") or "FETCH_FAILED")]
         if reason == "fetch_failed":
             failure_taxonomy.append("attachment_fetch_failed")
+        if reason == "response_body_too_large":
+            failure_taxonomy.append("response_body_too_large")
+        attachment_support = _attachment_support_decision(
+            status="DEGRADED",
+            degraded_reasons=[reason],
+            attachment_failure_taxonomy=failure_taxonomy,
+            attachment_blocker_class="",
+            snapshot_replayable=False,
+        )
         return {
             "attachment_fetch_id": f"REAL-ATTACH-{profile.profile_id}-DEGRADED",
             "status": "DEGRADED",
@@ -3169,19 +4065,29 @@ class RealPublicEntryFetcher:
             "detail_page_url_optional": detail_page_url or profile.detail_page_url_optional,
             "snapshot_id_optional": None,
             "degraded_reasons": [reason],
+            **attachment_blocker,
             "attachment_failure_taxonomy": list(dict.fromkeys(failure_taxonomy)),
+            "capture_support_policy_id": REAL_PUBLIC_CAPTURE_SUPPORT_POLICY_ID,
+            "attachment_support": attachment_support,
+            "attachment_support_state": attachment_support["support_state"],
+            "attachment_terminal_state": attachment_support["terminal_state"],
+            "capture_support_state": attachment_support["support_state"],
+            "capture_terminal_state": attachment_support["terminal_state"],
+            "downstream_use_allowed": attachment_support["downstream_use_allowed"],
+            "retry_allowed": attachment_support["retry_allowed"],
+            "browser_escalation_allowed": attachment_support["browser_escalation_allowed"],
+            "browser_resolution_attempt_budget": ATTACHMENT_BROWSER_MAX_RESOLUTION_ATTEMPTS_PER_FETCH,
             "failure_detail_optional": detail,
             "review_required": True,
             "fail_closed": True,
             "no_broad_fallback": True,
-            **attachment_blocker,
             "lineage_refs": dict(lineage_refs or {}),
             "fetch_audit": {
                 "fetcher_id": REAL_PUBLIC_ENTRY_FETCHER_ID,
                 "fetch_mode": REAL_PUBLIC_ATTACHMENT_FETCH_MODE,
                 "fetch_attempted": fetch_attempted,
                 "fetched_at": now,
-                "failure_taxonomy": _fetch_failure_taxonomy(detail),
+                "failure_taxonomy": failure,
                 "unapproved_capture_enabled": False,
                 "deep_capture_enabled": False,
                 "real_provider_call_executed": False,
@@ -3466,6 +4372,39 @@ def _merge_link_items(primary: list[Mapping[str, Any]], secondary: list[Mapping[
         seen.add(url)
         merged.append({"url": url, "text": str(item.get("text") or "")})
     return merged[:50]
+
+
+def _guangzhou_ywtb_actionable_attachment_link_items(items: list[Mapping[str, Any]]) -> list[dict[str, str]]:
+    actionable: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for item in items:
+        if not isinstance(item, Mapping):
+            continue
+        url = str(item.get("url") or "").strip()
+        if not url:
+            continue
+        parsed = urlsplit(url)
+        path = unquote(parsed.path or "").lower()
+        query_keys = {str(key).lower() for key in parse_qs(parsed.query)}
+        link_text = str(item.get("text") or "")
+        if path.endswith(_SUPPORTED_ATTACHMENT_EXTENSIONS):
+            keep = True
+        elif "downloadztbattach" in path or "guangzhoutempdownattach4webaction/download" in path:
+            keep = True
+        elif {"attachguid", "appurlflag"} & query_keys and any(token in path for token in ("download", "attach")):
+            keep = True
+        elif path.endswith(_SUPPORTED_HTML_ATTACHMENT_EXTENSIONS):
+            keep = False
+        else:
+            keep = _attachment_url_has_resumable_download_signal(url)
+        if not keep or _is_non_attachment_navigation_link(url, link_text=link_text):
+            continue
+        clean = url.split("#", 1)[0]
+        if clean in seen:
+            continue
+        seen.add(clean)
+        actionable.append({"url": clean, "text": link_text})
+    return actionable[:10]
 
 
 def _has_template_placeholder(*values: Any) -> bool:
@@ -3801,12 +4740,64 @@ def _should_try_fetch_fallback(exc: Exception) -> bool:
 
 
 def _curl_extra_args_for_url(url: str) -> list[str]:
-    args: list[str] = []
+    raw_args: list[str] = []
     parsed = urlsplit(str(url or ""))
     if (parsed.hostname or "").lower().endswith("gzggzy.cn"):
-        args.extend(shlex.split(os.environ.get("KAKA_GUANGZHOU_CURL_EXTRA_ARGS") or ""))
-    args.extend(shlex.split(os.environ.get("KAKA_CURL_EXTRA_ARGS") or ""))
-    return args
+        raw_args.extend(shlex.split(os.environ.get("KAKA_GUANGZHOU_CURL_EXTRA_ARGS") or ""))
+    raw_args.extend(shlex.split(os.environ.get("KAKA_CURL_EXTRA_ARGS") or ""))
+    return _validated_curl_extra_args(raw_args)
+
+
+_SAFE_CURL_FLAG_ARGS = frozenset(
+    {
+        "--compressed",
+        "--http1.0",
+        "--http1.1",
+        "--http2",
+        "--ipv4",
+        "--ipv6",
+        "--tlsv1.2",
+        "--tlsv1.3",
+    }
+)
+_SAFE_CURL_VALUE_ARGS = frozenset(
+    {
+        "--ciphers",
+        "--connect-timeout",
+        "--curves",
+        "--retry",
+        "--retry-delay",
+        "--retry-max-time",
+        "--tls-max",
+    }
+)
+
+
+def _validated_curl_extra_args(args: list[str]) -> list[str]:
+    """Keep operator TLS/retry tuning while rejecting URL, proxy, header, or socket overrides."""
+
+    validated: list[str] = []
+    index = 0
+    while index < len(args):
+        item = str(args[index])
+        if item in _SAFE_CURL_FLAG_ARGS:
+            validated.append(item)
+            index += 1
+            continue
+        option, separator, inline_value = item.partition("=")
+        if option not in _SAFE_CURL_VALUE_ARGS:
+            raise RuntimeError(f"unsafe_curl_extra_arg:{option or item}")
+        if separator:
+            if not inline_value:
+                raise RuntimeError(f"curl_extra_arg_value_missing:{option}")
+            validated.append(item)
+            index += 1
+            continue
+        if index + 1 >= len(args):
+            raise RuntimeError(f"curl_extra_arg_value_missing:{option}")
+        validated.extend([option, str(args[index + 1])])
+        index += 2
+    return validated
 
 
 def _fetch_failure_taxonomy(detail: str) -> dict[str, Any]:
@@ -3993,14 +4984,20 @@ def _controlled_opening_requirements() -> dict[str, bool]:
 
 
 __all__ = [
+    "ATTACHMENT_BROWSER_MAX_RESOLUTION_ATTEMPTS_PER_FETCH",
     "DEGRADED_ENTRY_PROFILE_IDS_AFTER_136",
     "PUBLIC_ATTACHMENT_PROFILE_IDS",
+    "REAL_PUBLIC_ATTACHMENT_MAX_RESPONSE_BYTES",
     "REAL_PUBLIC_ATTACHMENT_FETCH_MODE",
     "REAL_PUBLIC_ATTACHMENT_PROFILES",
+    "registered_public_source_hosts",
     "REAL_PUBLIC_ATTACHMENT_PROFILE_BY_ID",
     "REAL_PUBLIC_ATTACHMENT_PROFILE_BY_URL",
     "REAL_PUBLIC_ATTACHMENT_SNAPSHOT_KIND",
     "REAL_PUBLIC_DETAIL_SNAPSHOT_KIND",
+    "REAL_PUBLIC_DETAIL_MAX_RESPONSE_BYTES",
+    "REAL_PUBLIC_CAPTURE_SUPPORT_POLICY_ID",
+    "REAL_PUBLIC_ENTRY_MAX_RESPONSE_BYTES",
     "REAL_PUBLIC_ENTRY_FETCHER_ID",
     "REAL_PUBLIC_ENTRY_FETCH_MODE",
     "REAL_PUBLIC_ENTRY_PROFILES",
@@ -4017,4 +5014,5 @@ __all__ = [
     "RealPublicFetchTransport",
     "RealPublicUrlBoundaryError",
     "UrlLibRealPublicFetchTransport",
+    "real_public_capture_support_policy",
 ]

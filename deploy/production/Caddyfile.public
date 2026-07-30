@@ -1,0 +1,12 @@
+{
+	admin off
+	servers {
+		strict_sni_host on
+	}
+}
+
+import /etc/caddy/KakaPublicRoutes
+
+{$KAKA_PUBLIC_HOSTNAME} {
+	import kaka_public_routes
+}

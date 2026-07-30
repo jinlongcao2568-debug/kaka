@@ -206,14 +206,29 @@ def _query_params(task: Mapping[str, Any]) -> dict[str, Any]:
     certificate_no = str(task.get("certificate_no") or "").strip()
     companies = _list(task.get("company_query_variants"))
     company_variants = _dedupe([*companies, *_list(task.get("candidate_group_members")), *_list(task.get("matched_company_names"))])
+    project_name_variants = _project_title_variants(project_name)
+    project_code_variants = _project_code_variants(
+        [
+            task.get("project_id"),
+            task.get("project_code"),
+            task.get("source_project_code"),
+            task.get("trade_project_code"),
+        ]
+    )
+    gdcic_project_code_variants = _gdcic_project_code_variants(project_code_variants)
     return {
         "projectId": str(task.get("project_id") or ""),
         "projectName": project_name,
+        "projectNameVariants": project_name_variants,
+        "projectCode": _first_text(gdcic_project_code_variants),
+        "projectCodeVariants": project_code_variants,
+        "gdcicProjectCodeVariants": gdcic_project_code_variants,
+        "tradeProjectCode": _first_text(code for code in project_code_variants if code.upper().startswith("JG")),
         "companyName": _first_text(companies),
         "companyVariants": company_variants,
         "personName": person,
         "certificateNo": certificate_no,
-        "keywords": _dedupe([project_name, *company_variants, person, certificate_no]),
+        "keywords": _dedupe([*project_name_variants, *project_code_variants, *company_variants, person, certificate_no]),
     }
 
 
@@ -255,17 +270,21 @@ def _execute_live_query(
     aggregate_records: list[Mapping[str, Any]] = []
     seen_route_keys: set[str] = set()
 
-    def run_route(route: Mapping[str, Any]) -> None:
+    def run_route(route: Mapping[str, Any]) -> list[Mapping[str, Any]]:
         key = _route_key(route)
         if key in seen_route_keys:
-            return
+            return []
         seen_route_keys.add(key)
         attempt, records = _execute_gdcic_route(route, getter=getter)
         route_attempts.append(attempt)
         aggregate_records.extend(records)
+        return records
 
     for route in _initial_route_specs(query_params):
-        run_route(route)
+        records = run_route(route)
+        if str(route.get("route_id") or "") == "project_lookup_by_title":
+            for followup_route in _project_publicity_followup_route_specs(records):
+                run_route(followup_route)
 
     for id_card in _id_card_values(aggregate_records)[:MAX_ID_CARD_FOLLOWUPS]:
         for route in _id_card_followup_route_specs(id_card):
@@ -318,6 +337,7 @@ def _execute_live_query(
 
 def _default_http_getter(query_url: str, query_params: Mapping[str, Any]) -> Mapping[str, Any]:
     params = {str(key): value for key, value in dict(query_params).items() if str(value or "").strip()}
+    method = str(params.pop("__method", "GET") or "GET").upper()
     url = query_url
     if params:
         separator = "&" if "?" in url else "?"
@@ -329,7 +349,7 @@ def _default_http_getter(query_url: str, query_params: Mapping[str, Any]) -> Map
             "Accept": "application/json,text/plain,*/*",
             "Accept-Language": "zh-CN,zh;q=0.9",
         },
-        method="GET",
+        method=method,
     )
     try:
         with urllib.request.urlopen(request, timeout=_http_timeout_seconds()) as response:
@@ -389,40 +409,51 @@ def _records_from_response(response: Mapping[str, Any]) -> list[Mapping[str, Any
 def _field_summary(records: list[Mapping[str, Any]]) -> dict[str, Any]:
     return {
         "record_count": len(records),
-        "sample_project_names": _dedupe(
-            _first_field(record, ("projectName", "project_name", "prjName", "工程名称", "项目名称"))
-            for record in records[:5]
-        )[:5],
-        "sample_company_names": _dedupe(
-            _first_field(
-                record,
-                (
-                    "companyName",
-                    "corpName",
-                    "企业名称",
-                    "单位名称",
-                    "contractorName",
-                    "contractOrgName",
-                    "biddingOrgName",
-                    "orgName",
-                    "entName",
-                    "biddingUnit.orgName",
-                ),
-            )
-            for record in records[:5]
-        )[:5],
-        "sample_person_names": _dedupe(
-            _first_field(record, ("personName", "managerName", "memberName", "项目经理", "负责人", "name"))
-            for record in records[:5]
-        )[:5],
-        "sample_certificate_nos": _dedupe(
-            _first_field(record, ("certificateNo", "certNo", "certNum", "regCertNo", "注册证书号", "证书编号"))
-            for record in records[:5]
-        )[:5],
-        "sample_id_card_hashes": _dedupe(
-            _first_field(record, ("idCard", "idNum", "idCardHash", "personId"))
-            for record in records[:5]
-        )[:5],
+        "sample_project_names": _sample_field_values(
+            records,
+            ("projectName", "project_name", "prjName", "工程名称", "项目名称"),
+        ),
+        "sample_company_names": _sample_field_values(
+            records,
+            (
+                "companyName",
+                "corpName",
+                "企业名称",
+                "单位名称",
+                "contractorName",
+                "contractOrgName",
+                "biddingOrgName",
+                "orgName",
+                "entName",
+                "biddingUnit.orgName",
+            ),
+        ),
+        "sample_person_names": _sample_field_values(
+            records,
+            ("personName", "managerName", "memberName", "项目经理", "负责人", "name"),
+        ),
+        "sample_certificate_nos": _sample_field_values(
+            records,
+            ("certificateNo", "certNo", "regCertNo", "regCertNum", "certNum", "注册证书号", "证书编号"),
+        ),
+        "sample_permit_codes": _sample_field_values(
+            records,
+            ("permitCode", "constructionPermitNo", "certNum", "施工许可证编号"),
+        ),
+        "sample_contract_windows": _dedupe(_contract_window_text(record) for record in records)[:5],
+        "sample_completion_dates": _sample_field_values(
+            records,
+            (
+                "finishDate",
+                "finishProjectDate",
+                "actualFinishDate",
+                "actualCompletionDate",
+                "realEndDate",
+                "竣工验收日期",
+                "实际竣工验收日期",
+            ),
+        ),
+        "sample_id_card_hashes": _sample_id_card_hash_values(records),
     }
 
 
@@ -434,6 +465,17 @@ def _first_field(record: Mapping[str, Any], names: tuple[str, ...]) -> str:
     return ""
 
 
+def _sample_field_values(records: Iterable[Mapping[str, Any]], names: tuple[str, ...]) -> list[str]:
+    return _dedupe(_first_field(record, names) for record in records)[:5]
+
+
+def _sample_id_card_hash_values(records: Iterable[Mapping[str, Any]]) -> list[str]:
+    return _dedupe(
+        _sensitive_value_hash_probe(_first_field(record, ("idCard", "idNum", "idCardHash", "personId")))
+        for record in records
+    )[:5]
+
+
 def _field_summary_has_useful_fields(summary: Mapping[str, Any]) -> bool:
     return any(
         summary.get(key)
@@ -442,6 +484,9 @@ def _field_summary_has_useful_fields(summary: Mapping[str, Any]) -> bool:
             "sample_company_names",
             "sample_person_names",
             "sample_certificate_nos",
+            "sample_permit_codes",
+            "sample_contract_windows",
+            "sample_completion_dates",
             "sample_id_card_hashes",
         )
     )
@@ -454,6 +499,11 @@ def _route_plan_preview() -> list[dict[str, str]]:
         {"route_id": "project_bidding_by_company", "endpoint": "/openplatform/projectBidding/list"},
         {"route_id": "member_involved_project_by_company", "endpoint": "/openplatform/memberInvolvedProject/list"},
         {"route_id": "project_lookup_by_title", "endpoint": "/openplatform/project/list"},
+        {"route_id": "publicity_period_base_info_by_project_id", "endpoint": "/openplatform/publicityPeriod/getBaseInfo"},
+        {"route_id": "publicity_period_contract_by_project_id", "endpoint": "/openplatform/publicityPeriod/getContract"},
+        {"route_id": "publicity_period_construction_permit_by_project_id", "endpoint": "/openplatform/publicityPeriod/getConstructPermitInfo"},
+        {"route_id": "publicity_period_completion_by_project_id", "endpoint": "/openplatform/publicityPeriod/getFinishProjectInfo"},
+        {"route_id": "publicity_period_project_person_by_project_id", "endpoint": "/openplatform/publicityPeriod/listApplyProjectPerson"},
         {"route_id": "person_cert_reg_by_id_card", "endpoint": "/openplatform/personCertReg/list"},
         {"route_id": "person_cert_spec_by_id_card", "endpoint": "/openplatform/personCertSpec/list"},
         {"route_id": "project_member_by_id_card", "endpoint": "/openplatform/projectMember/list"},
@@ -462,7 +512,23 @@ def _route_plan_preview() -> list[dict[str, str]]:
 
 def _initial_route_specs(query_params: Mapping[str, Any]) -> list[dict[str, Any]]:
     person = str(query_params.get("personName") or "").strip()
-    project_name = str(query_params.get("projectName") or "").strip()
+    project_names = _dedupe(
+        [
+            *_list(query_params.get("projectNameVariants")),
+            str(query_params.get("projectName") or "").strip(),
+        ]
+    )
+    project_codes = _gdcic_project_code_variants(
+        [
+            *_list(query_params.get("gdcicProjectCodeVariants")),
+            *_list(query_params.get("projectCodeVariants")),
+            *_list(query_params.get("projectCodes")),
+            query_params.get("projectCode"),
+            query_params.get("sourceProjectCode"),
+            query_params.get("tradeProjectCode"),
+            query_params.get("projectId"),
+        ]
+    )
     companies = _dedupe(_list(query_params.get("companyVariants")) or [query_params.get("companyName")])
     routes: list[dict[str, Any]] = []
     if person:
@@ -506,24 +572,114 @@ def _initial_route_specs(query_params: Mapping[str, Any]) -> list[dict[str, Any]
                 ),
             ]
         )
-    if project_name:
+    for project_name in project_names[:4]:
+        clean_project_name = _clean_project_title(project_name)
+        if not clean_project_name:
+            continue
         routes.extend(
             [
                 _route_spec(
                     "project_lookup_by_title",
                     "/openplatform/project/list",
-                    {"projectName": _clean_project_title(project_name)},
+                    {"projectName": clean_project_name},
                     route_group="project_public_record",
                 ),
                 _route_spec(
                     "construction_permit_by_project_title",
                     "/openplatform/constructionPermit/list",
-                    {"projectName": _clean_project_title(project_name)},
+                    {"projectName": clean_project_name},
+                    route_group="project_public_record",
+                ),
+            ]
+        )
+    for project_code in project_codes[:2]:
+        routes.extend(
+            [
+                _route_spec(
+                    "project_lookup_by_project_code",
+                    "/openplatform/project/list",
+                    {"projectCode": project_code},
+                    route_group="project_public_record",
+                ),
+                _route_spec(
+                    "construction_permit_by_project_code",
+                    "/openplatform/constructionPermit/list",
+                    {"projectCode": project_code},
+                    route_group="project_public_record",
+                ),
+                _route_spec(
+                    "project_bidding_by_project_code",
+                    "/openplatform/projectBidding/list",
+                    {"projectCode": project_code},
+                    route_group="project_public_record",
+                ),
+                _route_spec(
+                    "project_contract_by_project_code",
+                    "/openplatform/projectContract/list",
+                    {"projectCode": project_code},
                     route_group="project_public_record",
                 ),
             ]
         )
     return routes
+
+
+def _project_publicity_followup_route_specs(records: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    routes: list[dict[str, Any]] = []
+    for project_id in _project_publicity_ids(records)[:DEFAULT_PAGE_SIZE]:
+        routes.extend(
+            [
+                _route_spec(
+                    "publicity_period_base_info_by_project_id",
+                    "/openplatform/publicityPeriod/getBaseInfo",
+                    {"id": project_id},
+                    route_group="project_publicity_period",
+                    method="POST",
+                    include_pagination=False,
+                ),
+                _route_spec(
+                    "publicity_period_contract_by_project_id",
+                    "/openplatform/publicityPeriod/getContract",
+                    {"id": project_id},
+                    route_group="project_publicity_period",
+                    method="POST",
+                    include_pagination=False,
+                ),
+                _route_spec(
+                    "publicity_period_construction_permit_by_project_id",
+                    "/openplatform/publicityPeriod/getConstructPermitInfo",
+                    {"id": project_id},
+                    route_group="project_publicity_period",
+                    include_pagination=False,
+                ),
+                _route_spec(
+                    "publicity_period_completion_by_project_id",
+                    "/openplatform/publicityPeriod/getFinishProjectInfo",
+                    {"id": project_id},
+                    route_group="project_publicity_period",
+                    include_pagination=False,
+                ),
+                _route_spec(
+                    "publicity_period_project_person_by_project_id",
+                    "/openplatform/publicityPeriod/listApplyProjectPerson",
+                    {"id": project_id},
+                    route_group="project_publicity_period",
+                    include_pagination=False,
+                ),
+            ]
+        )
+    return routes
+
+
+def _project_publicity_ids(records: Iterable[Mapping[str, Any]]) -> list[str]:
+    ids: list[str] = []
+    for record in records:
+        project_id = str(record.get("id") or "").strip()
+        project_code = str(record.get("projectCode") or "").strip()
+        project_name = str(record.get("projectName") or "").strip()
+        if project_id and project_code and project_name:
+            ids.append(project_id)
+    return _dedupe(ids)
 
 
 def _id_card_followup_route_specs(id_card: str) -> list[dict[str, Any]]:
@@ -562,12 +718,22 @@ def _id_card_followup_route_specs(id_card: str) -> list[dict[str, Any]]:
     ]
 
 
-def _route_spec(route_id: str, endpoint: str, params: Mapping[str, Any], *, route_group: str) -> dict[str, Any]:
-    clean_params = {
-        "pageNum": "1",
-        "pageSize": str(DEFAULT_PAGE_SIZE),
-        **{str(key): str(value) for key, value in params.items() if str(value or "").strip()},
-    }
+def _route_spec(
+    route_id: str,
+    endpoint: str,
+    params: Mapping[str, Any],
+    *,
+    route_group: str,
+    method: str = "GET",
+    include_pagination: bool = True,
+) -> dict[str, Any]:
+    clean_params = {str(key): str(value) for key, value in params.items() if str(value or "").strip()}
+    if include_pagination:
+        clean_params = {
+            "pageNum": "1",
+            "pageSize": str(DEFAULT_PAGE_SIZE),
+            **clean_params,
+        }
     if "getByIdNum" in endpoint:
         clean_params.pop("pageNum", None)
         clean_params.pop("pageSize", None)
@@ -577,6 +743,7 @@ def _route_spec(route_id: str, endpoint: str, params: Mapping[str, Any], *, rout
         "endpoint": endpoint,
         "url": f"{GDCIC_API_BASE_URL}{endpoint}",
         "params": clean_params,
+        "method": method.upper(),
     }
 
 
@@ -597,8 +764,9 @@ def _execute_gdcic_route(
 ) -> tuple[dict[str, Any], list[Mapping[str, Any]]]:
     url = str(route.get("url") or "")
     params = dict(route.get("params") or {})
+    getter_params = {"__method": str(route.get("method") or "GET"), **params}
     try:
-        response = dict(getter(url, params))
+        response = dict(getter(url, getter_params))
     except Exception as exc:  # pragma: no cover - defensive guard for external routes.
         return (
             _route_attempt(
@@ -701,9 +869,10 @@ def _route_attempt(
     return {
         "route_id": str(route.get("route_id") or ""),
         "route_group": str(route.get("route_group") or ""),
-        "endpoint": str(route.get("endpoint") or ""),
-        "api_url": _url_with_query(str(route.get("url") or ""), dict(route.get("params") or {})),
-        "params": dict(route.get("params") or {}),
+        "endpoint": _redact_sensitive_text(str(route.get("endpoint") or "")),
+        "method": str(route.get("method") or "GET"),
+        "api_url": _redact_sensitive_text(_url_with_query(str(route.get("url") or ""), dict(route.get("params") or {}))),
+        "params": _redact_sensitive_mapping(dict(route.get("params") or {})),
         "route_state": route_state,
         "http_status": status,
         "content_type_probe": content_type,
@@ -720,9 +889,18 @@ def _id_card_values(records: list[Mapping[str, Any]]) -> list[str]:
     for record in records:
         for key in ("idCard", "idNum", "idCardHash", "personId"):
             text = str(record.get(key) or "").strip()
-            if text:
+            if text and _usable_id_card_followup_value(text):
                 values.append(text)
     return _dedupe(values)
+
+
+def _usable_id_card_followup_value(value: str) -> bool:
+    text = str(value or "").strip()
+    if not text or "*" in text:
+        return False
+    if _looks_like_raw_id_card(text):
+        return False
+    return True
 
 
 def _record_probe(record: Mapping[str, Any]) -> dict[str, Any]:
@@ -742,12 +920,22 @@ def _record_probe(record: Mapping[str, Any]) -> dict[str, Any]:
         "certificateNo",
         "certNo",
         "certNum",
-        "idCard",
-        "idNum",
+        "regCertNum",
+        "permitCode",
+        "contractBeginDate",
+        "contractEndDate",
+        "actualBeginDate",
+        "actualFinishDate",
         "position",
         "role",
+        "post",
     )
-    return {key: str(record.get(key) or "")[:120] for key in allowed if str(record.get(key) or "").strip()}
+    probe = {key: str(record.get(key) or "")[:120] for key in allowed if str(record.get(key) or "").strip()}
+    id_probe = _sensitive_value_hash_probe(_first_field(record, ("idCard", "idNum", "idCardHash", "personId")))
+    if id_probe:
+        probe["id_card_sha256_probe"] = id_probe
+        probe["id_card_redacted"] = True
+    return probe
 
 
 def _looks_like_record(value: Any) -> bool:
@@ -763,8 +951,60 @@ def _looks_like_record(value: Any) -> bool:
             "idNum",
             "certificateNo",
             "certNo",
+            "permitCode",
+            "regCertNum",
         )
     )
+
+
+def _looks_like_raw_id_card(value: str) -> bool:
+    text = str(value or "").strip()
+    return bool(re.fullmatch(r"\d{15}|\d{17}[\dXx]", text))
+
+
+def _redact_sensitive_mapping(value: Mapping[str, Any]) -> dict[str, Any]:
+    return {str(key): _redact_sensitive_text(str(item)) for key, item in dict(value).items()}
+
+
+def _redact_sensitive_text(value: str) -> str:
+    return re.sub(r"\d{17}[\dXx]|\d{15}", "[REDACTED_ID_CARD]", str(value or ""))
+
+
+def _sensitive_value_hash_probe(value: str) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    return f"sha256:{hashlib.sha256(text.encode('utf-8')).hexdigest()[:16]}"
+
+
+def _contract_window_text(record: Mapping[str, Any]) -> str:
+    begin = _first_field(
+        record,
+        (
+            "contractBeginDate",
+            "contractStartDate",
+            "beginDate",
+            "startDate",
+            "planBeginDate",
+            "actualBeginDate",
+            "合同开工日期",
+        ),
+    )
+    end = _first_field(
+        record,
+        (
+            "contractEndDate",
+            "contractFinishDate",
+            "endDate",
+            "finishDate",
+            "planEndDate",
+            "actualFinishDate",
+            "合同竣工日期",
+        ),
+    )
+    if begin or end:
+        return f"{begin} 至 {end}".strip()
+    return ""
 
 
 def _nested_text(record: Mapping[str, Any], name: str) -> str:
@@ -796,6 +1036,82 @@ def _clean_project_title(value: Any) -> str:
         text = text.replace(suffix, "")
     text = re.sub(r"\s+", " ", text).strip(" -_，,。")
     return text
+
+
+def _project_title_variants(value: Any) -> list[str]:
+    text = _clean_project_title(value)
+    if not text:
+        return []
+    variants = [text]
+    without_rebid_marker = re.sub(
+        r"[（(](?:第?[一二三四五六七八九十\d]+次|重新招标|重招|二次)[）)]$",
+        "",
+        text,
+    ).strip()
+    if without_rebid_marker and without_rebid_marker != text and len(without_rebid_marker) >= 6:
+        variants.append(_clean_project_title(without_rebid_marker))
+    for separator in ("、", "，", ",", "；", ";", "及"):
+        if separator in text:
+            head = _clean_project_title(text.split(separator, 1)[0])
+            if len(head) >= 6:
+                variants.append(head)
+    for suffix in (
+        "工程设计施工总承包",
+        "设计施工总承包",
+        "勘察设计施工总承包",
+        "设计采购施工总承包",
+        "工程总承包（EPC）",
+        "工程总承包(EPC)",
+        "工程总承包",
+        "施工总承包",
+        "施工总价承包招标",
+        "施工总价承包",
+        "施工监理",
+        "初步设计",
+        "施工图设计",
+        "勘察设计",
+        "设计",
+        "监理",
+        "施工",
+        "招标",
+    ):
+        source = without_rebid_marker or text
+        if source.endswith(suffix) and len(source) - len(suffix) >= 6:
+            variants.append(_clean_project_title(source[: -len(suffix)]))
+            break
+    for suffix in ("生产建设项目", "建设项目", "项目"):
+        if text.endswith(suffix) and len(text) - len(suffix) >= 6:
+            variants.append(_clean_project_title(text[: -len(suffix)]))
+    return _dedupe(variants)
+
+
+def _project_code_variants(values: Iterable[Any]) -> list[str]:
+    out: list[str] = []
+    for value in values:
+        text = str(value or "").strip()
+        if not text:
+            continue
+        for match in re.findall(r"\b[A-Z]{1,8}\d{4}-\d{3,8}(?:-\d{3})?\b", text, flags=re.IGNORECASE):
+            out.append(match.upper())
+        for match in re.findall(r"\bE\d{12,22}\b", text, flags=re.IGNORECASE):
+            out.append(match.upper())
+        for match in re.findall(r"\b\d{6,12}-\d{4}-\d{3,8}(?:-\d{1,8})?\b", text):
+            out.append(match)
+        for match in re.findall(r"\b\d{4}-\d{6}-\d{2}-\d{2}-\d{6}\b", text):
+            out.append(match)
+        for match in re.findall(r"\b\d{12,22}\b", text):
+            out.append(match)
+    return _dedupe(out)
+
+
+def _gdcic_project_code_variants(values: Iterable[Any]) -> list[str]:
+    return _dedupe(
+        code
+        for code in _project_code_variants(values)
+        if re.fullmatch(r"\d{12,22}", code)
+        or re.fullmatch(r"E\d{12,22}", code, flags=re.IGNORECASE)
+        or re.fullmatch(r"\d{6,12}-\d{4}-\d{3,8}(?:-\d{1,8})?", code)
+    )
 
 
 def _url_with_query(url: str, params: Mapping[str, Any]) -> str:
@@ -929,6 +1245,9 @@ def _summary(
         ),
         "gdcic_company_project_readback_ready_count": sum(
             1 for task in query_task_records if _task_has_ready_route_group(task, {"company_project_evidence", "project_public_record"})
+        ),
+        "gdcic_publicity_period_readback_ready_count": sum(
+            1 for task in query_task_records if _task_has_ready_route_group(task, {"project_publicity_period"})
         ),
         "gdcic_certificate_route_readback_ready_count": sum(
             1 for task in query_task_records if _task_has_ready_route_group(task, {"person_certificate_followup"})

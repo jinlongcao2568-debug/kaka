@@ -1,7 +1,13 @@
 from __future__ import annotations
 
+import hashlib
+import hmac
+import json
 import os
+import re
+from datetime import datetime, timezone
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Mapping
 
 
@@ -15,7 +21,7 @@ PROVIDER_CONFIG_SOURCE_DEFAULT = "Settings.provider_adapter_config"
 PROVIDER_CONFIG_SOURCE_REF = "shared.provider_adapter_config"
 PROVIDER_BLOCKED_LIVE_REASON = "live_provider_mode_requested_but_blocked"
 PROVIDER_BLOCKED_REAL_CALL_REASON = "real_provider_call_blocked_readback_only"
-PROVIDER_BLOCKED_REFUND_REASON = "automated_refund_program_absent_blocked"
+PROVIDER_BLOCKED_REFUND_REASON = "automated_refund_program_controlled_test_and_pilot_required"
 PROVIDER_RELIABILITY_APPROVAL_READY = "APPROVAL_READY"
 PROVIDER_RELIABILITY_SUSPENDED = "SUSPENDED"
 LOCAL_CONTROLLED_FAKE_CRM_QUOTE_PROVIDER = "LOCAL_CONTROLLED_FAKE_CRM_QUOTE_PROVIDER"
@@ -214,7 +220,20 @@ _PROVIDER_BINDING_DEFINITIONS: dict[str, tuple[dict[str, Any], ...]] = {
             "provider_kind": "delivery",
             "display_name": "Customer portal delivery",
             "credential_envs": ("KAKA_CUSTOMER_PORTAL_SIGNING_KEY", "KAKA_DELIVERY_BASE_URL"),
+            "credential_groups": (
+                (
+                    "KAKA_CUSTOMER_PORTAL_SIGNING_KEY",
+                    "KAKA_CUSTOMER_PORTAL_SIGNING_KEY_FILE",
+                ),
+                ("KAKA_DELIVERY_BASE_URL",),
+            ),
             "callback_secret_envs": ("KAKA_DELIVERY_WEBHOOK_SECRET",),
+            "callback_secret_groups": (
+                (
+                    "KAKA_DELIVERY_WEBHOOK_SECRET",
+                    "KAKA_DELIVERY_WEBHOOK_SECRET_FILE",
+                ),
+            ),
         },
         {
             "binding_id": "leadpack_page_delivery.signed_url_delivery",
@@ -234,7 +253,13 @@ _PROVIDER_BINDING_DEFINITIONS: dict[str, tuple[dict[str, Any], ...]] = {
             "provider_kind": "payment",
             "display_name": "Stripe payment",
             "credential_envs": ("KAKA_STRIPE_SECRET_KEY",),
+            "credential_groups": (
+                ("KAKA_STRIPE_SECRET_KEY", "KAKA_STRIPE_SECRET_KEY_FILE"),
+            ),
             "callback_secret_envs": ("KAKA_STRIPE_WEBHOOK_SECRET",),
+            "callback_secret_groups": (
+                ("KAKA_STRIPE_WEBHOOK_SECRET", "KAKA_STRIPE_WEBHOOK_SECRET_FILE"),
+            ),
         },
         {
             "binding_id": "payment_collection.manual_bank_transfer",
@@ -256,6 +281,7 @@ _NO_FAILURE_STATES = frozenset({"", "NONE", "OK", "NO_FAILURE"})
 _DEFAULT_TIMEOUT_MS = 30_000
 _DEFAULT_RETRY_MAX_ATTEMPTS = 0
 _DEFAULT_RETRY_BACKOFF_MS = 0
+_MAX_PROVIDER_EVIDENCE_BYTES = 1024 * 1024
 
 _PROVIDER_RELIABILITY_ENV_PREFIX_BY_FAMILY = {
     "sales_outreach": "KAKA_SALES_OUTREACH_PROVIDER",
@@ -349,7 +375,117 @@ def _read_family_int(
     return max(parsed, 0), env_name
 
 
-def _build_family_binding_controls(environ: Mapping[str, str], family: str) -> dict[str, Any]:
+def _provider_live_evidence_readiness(
+    environ: Mapping[str, str],
+    *,
+    family: str,
+    provider_id: str,
+) -> dict[str, Any]:
+    prefix = _PROVIDER_RELIABILITY_ENV_PREFIX_BY_FAMILY[family]
+    evidence_env = f"{prefix}_LIVE_EVIDENCE_FILE"
+    evidence_path_value = _read_optional(environ, evidence_env)
+    signing_key_path_value = _read_optional(
+        environ,
+        "KAKA_PROVIDER_LIVE_EVIDENCE_SIGNING_KEY_FILE",
+    )
+    blocked_reasons: list[str] = []
+    payload: dict[str, Any] = {}
+    signature_verified = False
+    evidence_sha256 = ""
+    if not evidence_path_value:
+        blocked_reasons.append("provider_live_evidence_file_missing")
+    if not signing_key_path_value:
+        blocked_reasons.append("provider_live_evidence_signing_key_file_missing")
+    if not blocked_reasons:
+        evidence_path = Path(str(evidence_path_value))
+        signing_key_path = Path(str(signing_key_path_value))
+        try:
+            if (
+                not evidence_path.is_absolute()
+                or not evidence_path.is_file()
+                or evidence_path.is_symlink()
+                or evidence_path.stat().st_size <= 0
+                or evidence_path.stat().st_size > _MAX_PROVIDER_EVIDENCE_BYTES
+            ):
+                raise ValueError("invalid evidence file")
+            raw = evidence_path.read_bytes()
+            payload_value = json.loads(raw)
+            if not isinstance(payload_value, dict):
+                raise ValueError("invalid evidence payload")
+            payload = dict(payload_value)
+            key = signing_key_path.read_bytes().strip()
+            if len(key) < 32 or len(key) > 4096:
+                raise ValueError("invalid signing key")
+            supplied_signature = str(payload.pop("signature_sha256") or "")
+            canonical = json.dumps(
+                payload,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
+            expected_signature = hmac.new(key, canonical, hashlib.sha256).hexdigest()
+            signature_verified = bool(
+                re.fullmatch(r"[a-f0-9]{64}", supplied_signature)
+                and hmac.compare_digest(expected_signature, supplied_signature)
+            )
+            evidence_sha256 = hashlib.sha256(raw).hexdigest()
+        except (OSError, UnicodeDecodeError, ValueError, json.JSONDecodeError):
+            blocked_reasons.append("provider_live_evidence_unreadable")
+    if payload:
+        if int(payload.get("evidence_version") or 0) != 1:
+            blocked_reasons.append("provider_live_evidence_version_invalid")
+        if str(payload.get("family") or "") != family:
+            blocked_reasons.append("provider_live_evidence_family_mismatch")
+        if str(payload.get("provider_id") or "") != provider_id:
+            blocked_reasons.append("provider_live_evidence_provider_mismatch")
+        required_refs = (
+            "sandbox_execution_ref",
+            "callback_event_ref",
+            "approval_ref",
+            "audit_ref",
+            "operator_action_ref",
+        )
+        if any(not str(payload.get(name) or "").strip() for name in required_refs):
+            blocked_reasons.append("provider_live_evidence_refs_incomplete")
+        if str(payload.get("sandbox_pass_state") or "") != "PASSED":
+            blocked_reasons.append("provider_live_evidence_sandbox_not_passed")
+        if str(payload.get("callback_validation_state") or "") != "VALIDATED":
+            blocked_reasons.append("provider_live_evidence_callback_not_validated")
+        try:
+            expires_at = datetime.fromisoformat(
+                str(payload.get("expires_at") or "").replace("Z", "+00:00")
+            )
+            if expires_at.tzinfo is None or expires_at.astimezone(timezone.utc) <= datetime.now(
+                timezone.utc
+            ):
+                raise ValueError("expired")
+        except ValueError:
+            blocked_reasons.append("provider_live_evidence_expired_or_invalid")
+    if not signature_verified:
+        blocked_reasons.append("provider_live_evidence_signature_invalid")
+    blocked_reasons = _dedupe(blocked_reasons)
+    return {
+        "ready": not blocked_reasons,
+        "state": "VALIDATED" if not blocked_reasons else "BLOCKED",
+        "blocked_reasons": blocked_reasons,
+        "evidence_env": evidence_env,
+        "evidence_sha256": evidence_sha256 or None,
+        "signature_verified": signature_verified,
+        "sandbox_execution_ref_present": bool(payload.get("sandbox_execution_ref")),
+        "callback_event_ref_present": bool(payload.get("callback_event_ref")),
+        "approval_ref_present": bool(payload.get("approval_ref")),
+        "audit_ref_present": bool(payload.get("audit_ref")),
+        "operator_action_ref_present": bool(payload.get("operator_action_ref")),
+        "expires_at": payload.get("expires_at"),
+        "plaintext_evidence_persisted": False,
+    }
+
+
+def _build_family_binding_controls(
+    environ: Mapping[str, str],
+    family: str,
+    provider_id: str,
+) -> dict[str, Any]:
     approval_state, approval_env = _read_family_or_global(
         environ,
         family=family,
@@ -430,6 +566,11 @@ def _build_family_binding_controls(environ: Mapping[str, str], family: str) -> d
             "credential_rotation_due_at_optional": credential_rotation_due_at,
             "plaintext_persisted": False,
         },
+        "live_evidence": _provider_live_evidence_readiness(
+            environ,
+            family=family,
+            provider_id=provider_id,
+        ),
         "env_refs": {
             "approval_state": approval_env,
             "audit_state": audit_env,
@@ -451,15 +592,51 @@ def _build_family_binding_statuses(environ: Mapping[str, str], family: str) -> d
         binding_id = str(definition["binding_id"])
         credential_envs = tuple(str(name) for name in definition.get("credential_envs", ()))
         callback_secret_envs = tuple(str(name) for name in definition.get("callback_secret_envs", ()))
-        present_credential_envs = tuple(name for name in credential_envs if _read_optional(environ, name))
-        present_callback_secret_envs = tuple(name for name in callback_secret_envs if _read_optional(environ, name))
+        credential_groups = tuple(
+            tuple(str(name) for name in group)
+            for group in definition.get(
+                "credential_groups",
+                tuple((name,) for name in credential_envs),
+            )
+        )
+        callback_secret_groups = tuple(
+            tuple(str(name) for name in group)
+            for group in definition.get(
+                "callback_secret_groups",
+                tuple((name,) for name in callback_secret_envs),
+            )
+        )
+        checked_credential_envs = tuple(
+            dict.fromkeys(name for group in credential_groups for name in group)
+        )
+        checked_callback_secret_envs = tuple(
+            dict.fromkeys(name for group in callback_secret_groups for name in group)
+        )
+        present_credential_envs = tuple(
+            name for name in checked_credential_envs if _read_optional(environ, name)
+        )
+        present_callback_secret_envs = tuple(
+            name for name in checked_callback_secret_envs if _read_optional(environ, name)
+        )
+        missing_credential_groups = [
+            list(group)
+            for group in credential_groups
+            if not any(_read_optional(environ, name) for name in group)
+        ]
+        missing_callback_secret_groups = [
+            list(group)
+            for group in callback_secret_groups
+            if not any(_read_optional(environ, name) for name in group)
+        ]
         statuses[binding_id] = {
-            "credential_envs": list(credential_envs),
+            "credential_envs": list(checked_credential_envs),
             "present_credential_envs": list(present_credential_envs),
-            "callback_secret_envs": list(callback_secret_envs),
+            "missing_credential_groups": missing_credential_groups,
+            "callback_secret_envs": list(checked_callback_secret_envs),
             "present_callback_secret_envs": list(present_callback_secret_envs),
-            "credential_present": bool(present_credential_envs),
-            "callback_secret_present": bool(present_callback_secret_envs) or not callback_secret_envs,
+            "missing_callback_secret_groups": missing_callback_secret_groups,
+            "credential_present": bool(credential_groups) and not missing_credential_groups,
+            "callback_secret_present": not missing_callback_secret_groups,
             "redaction": "present-redacted" if present_credential_envs else "absent",
             "callback_secret_redaction": (
                 "present-redacted"
@@ -615,7 +792,11 @@ def build_provider_adapter_config_from_env(
                 credential_envs=credential_envs,
                 present_credential_envs=present_credential_envs,
                 reliability=_build_family_reliability_config(env, family),
-                binding_controls=_build_family_binding_controls(env, family),
+                binding_controls=_build_family_binding_controls(
+                    env,
+                    family,
+                    provider_id,
+                ),
                 binding_statuses=_build_family_binding_statuses(env, family),
             )
         )
@@ -800,6 +981,8 @@ def _provider_binding_matrix(
     sandbox_pass_state = str(controls.get("sandbox_pass_state", "NOT_RUN"))
     callback_validation_state = str(controls.get("callback_validation_state", "NOT_VALIDATED"))
     operator_action_ref_present = bool(controls.get("operator_action_ref_present", False))
+    live_evidence = dict(controls.get("live_evidence") or {})
+    live_evidence_ready = bool(live_evidence.get("ready"))
     kill_switch_enabled = bool(controls.get("kill_switch_enabled", False))
     family_binding_rows: list[dict[str, Any]] = []
     selected_bindings: list[dict[str, Any]] = []
@@ -833,6 +1016,7 @@ def _provider_binding_matrix(
             and approval_state in {"APPROVED", "APPROVAL_READY", "SATISFIED"}
             and audit_state in {"APPROVED", "AUDITED", "PRESENT", "SATISFIED"}
             and operator_action_ref_present
+            and live_evidence_ready
         )
         if provider_suspended or kill_switch_enabled:
             binding_state = PROVIDER_BINDING_STATE_SUSPENDED
@@ -845,9 +1029,16 @@ def _provider_binding_matrix(
         else:
             binding_state = "AVAILABLE_NOT_SELECTED"
         live_binding_readiness_state = (
-            "LIVE_READY_GATED"
+            "LIVE_READY"
             if requested_live_mode and live_prerequisites_satisfied
             else PROVIDER_BINDING_STATE_APPROVAL_REQUIRED
+        )
+        live_provider_call_enabled = bool(
+            selected
+            and requested_live_mode
+            and live_prerequisites_satisfied
+            and not provider_suspended
+            and not kill_switch_enabled
         )
         blocked_reasons: list[str] = []
         if selected and not credential_present:
@@ -864,6 +1055,11 @@ def _provider_binding_matrix(
             blocked_reasons.append("audit_required")
         if selected and not operator_action_ref_present:
             blocked_reasons.append("operator_action_required")
+        if selected and not live_evidence_ready:
+            blocked_reasons.extend(
+                list(live_evidence.get("blocked_reasons") or [])
+                or ["provider_live_evidence_required"]
+            )
         if selected and provider_suspended:
             blocked_reasons.append("provider_reliability_suspended")
         if selected and kill_switch_enabled:
@@ -891,7 +1087,7 @@ def _provider_binding_matrix(
             "sandbox_call_evidence": {
                 "sandbox_call_verified": sandbox_verified,
                 "sandbox_pass_state": sandbox_pass_state,
-                "provider_network_call_executed": False,
+                "provider_network_call_executed": live_evidence_ready,
                 "controlled_local_handshake_recorded": bool(selected),
                 "evidence_id": f"SANDBOX-EVIDENCE-{binding_id.upper().replace('.', '-')}",
                 "replayable": True,
@@ -902,17 +1098,20 @@ def _provider_binding_matrix(
                 "present_env_vars": list(status.get("present_callback_secret_envs", [])),
                 "checked_env_vars": callback_secret_envs,
                 "redaction": status.get("callback_secret_redaction", "absent"),
-                "provider_network_callback_received": False,
+                "provider_network_callback_received": live_evidence_ready,
                 "validation_replayable": True,
             },
+            "provider_live_evidence": dict(live_evidence),
             "live_binding_gate": {
                 "requested_live_mode": requested_live_mode,
                 "live_binding_readiness_state": live_binding_readiness_state,
                 "approval_state": approval_state,
                 "audit_state": audit_state,
                 "operator_action_ref_present": operator_action_ref_present,
-                "live_provider_call_enabled": False,
-                "real_provider_call_enabled": False,
+                "provider_live_evidence_ready": live_evidence_ready,
+                "provider_live_evidence_sha256": live_evidence.get("evidence_sha256"),
+                "live_provider_call_enabled": live_provider_call_enabled,
+                "real_provider_call_enabled": live_provider_call_enabled,
                 "no_silent_fallback": True,
                 "blocked_reasons": _dedupe(blocked_reasons),
             },
@@ -966,8 +1165,14 @@ def _provider_binding_matrix(
             "suspension_state": controls.get("suspension_state", "ACTIVE"),
             "env_refs": dict(controls.get("env_refs", {})),
         },
-        "provider_call_enabled": False,
-        "real_provider_call_enabled": False,
+        "provider_call_enabled": any(
+            bool(dict(row.get("live_binding_gate", {})).get("live_provider_call_enabled"))
+            for row in selected_bindings
+        ),
+        "real_provider_call_enabled": any(
+            bool(dict(row.get("live_binding_gate", {})).get("real_provider_call_enabled"))
+            for row in selected_bindings
+        ),
         "live_fallback_allowed": False,
         "automated_refund_enabled": False,
     }
@@ -984,13 +1189,20 @@ def _family_summary(
         requested_live_mode=requested_live_mode,
         provider_suspended=bool(reliability.get("provider_adapter_suspended", False)),
     )
-    blocked_reasons = [
-        f"{family_config.family}_sandbox_dry_run_readback_only",
-        PROVIDER_BLOCKED_REAL_CALL_REASON,
-        "approval_and_audit_required_before_any_live_provider_use",
-    ] + reliability_blocked_reasons
-    if requested_live_mode:
-        blocked_reasons.append(PROVIDER_BLOCKED_LIVE_REASON)
+    live_provider_call_enabled = bool(
+        provider_binding_matrix.get("real_provider_call_enabled", False)
+    )
+    blocked_reasons = list(reliability_blocked_reasons)
+    if not live_provider_call_enabled:
+        blocked_reasons.extend(
+            [
+                f"{family_config.family}_sandbox_dry_run_readback_only",
+                PROVIDER_BLOCKED_REAL_CALL_REASON,
+                "approval_and_audit_required_before_any_live_provider_use",
+            ]
+        )
+        if requested_live_mode:
+            blocked_reasons.append(PROVIDER_BLOCKED_LIVE_REASON)
     blocked_reasons = _dedupe(blocked_reasons)
 
     suspended = bool(reliability.get("provider_adapter_suspended", False))
@@ -1000,18 +1212,24 @@ def _family_summary(
         "provider_id": family_config.provider_id,
         "configured_provider_id": family_config.configured_provider_id,
         "provider_env": family_config.provider_env,
-        "readiness_state": PROVIDER_RELIABILITY_SUSPENDED if suspended else "SANDBOX_DRY_RUN_READY",
+        "readiness_state": (
+            PROVIDER_RELIABILITY_SUSPENDED
+            if suspended
+            else "LIVE_READY"
+            if live_provider_call_enabled
+            else "SANDBOX_DRY_RUN_READY"
+        ),
         "provider_reliability_state": reliability["reliability_state"],
         "provider_adapter_suspended": suspended,
         "mode": PROVIDER_MODE,
         "sandbox_enabled": True,
         "dry_run_enabled": True,
-        "readback_only": True,
+        "readback_only": not live_provider_call_enabled,
         "provider_adapter_configured": True,
-        "provider_call_enabled": False,
-        "real_provider_call_enabled": False,
-        "live_execution_enabled": False,
-        "live_request_blocked": True,
+        "provider_call_enabled": live_provider_call_enabled,
+        "real_provider_call_enabled": live_provider_call_enabled,
+        "live_execution_enabled": live_provider_call_enabled,
+        "live_request_blocked": bool(requested_live_mode and not live_provider_call_enabled),
         "credential_metadata": _credential_metadata(family_config),
         "credential_redaction_audit": _credential_redaction_audit(family_config),
         "provider_reliability": reliability,
@@ -1026,8 +1244,8 @@ def _family_summary(
             "approval_required_before_live_provider_use": True,
             "audit_required_before_live_provider_use": True,
             "human_review_required_before_live_provider_use": True,
-            "current_approval_satisfied": False,
-            "current_audit_satisfied": False,
+            "current_approval_satisfied": live_provider_call_enabled,
+            "current_audit_satisfied": live_provider_call_enabled,
         },
         "blocked_reasons": blocked_reasons,
     }
@@ -1072,6 +1290,10 @@ def build_provider_adapter_readiness_summary(config: ProviderAdapterConfig) -> d
     reliability_state = (
         PROVIDER_RELIABILITY_SUSPENDED if suspended_families else PROVIDER_RELIABILITY_APPROVAL_READY
     )
+    all_selected_bindings_live_ready = bool(selected_provider_bindings) and all(
+        bool(dict(entry.get("live_binding_gate", {})).get("real_provider_call_enabled"))
+        for entry in selected_provider_bindings
+    )
     circuit_breaker_state = (
         "OPEN"
         if any(
@@ -1081,26 +1303,29 @@ def build_provider_adapter_readiness_summary(config: ProviderAdapterConfig) -> d
         else "CLOSED"
     )
 
-    blocked_reasons = [
-        PROVIDER_BLOCKED_REAL_CALL_REASON,
-        "provider_adapters_readback_only",
-        "approval_and_audit_required_before_any_live_provider_use",
-        PROVIDER_BLOCKED_REFUND_REASON,
-    ] + family_blocked_reasons
+    blocked_reasons = [PROVIDER_BLOCKED_REFUND_REASON] + family_blocked_reasons
+    if not all_selected_bindings_live_ready:
+        blocked_reasons.extend(
+            [
+                PROVIDER_BLOCKED_REAL_CALL_REASON,
+                "provider_adapters_readback_only",
+                "approval_and_audit_required_before_any_live_provider_use",
+            ]
+        )
     if suspended_families:
         blocked_reasons.append("provider_reliability_suspended_fail_closed")
-    if config.requested_live_mode:
+    if config.requested_live_mode and not all_selected_bindings_live_ready:
         blocked_reasons.append(PROVIDER_BLOCKED_LIVE_REASON)
     blocked_reasons = _dedupe(blocked_reasons)
 
     automated_refund_program = {
         "present": False,
         "enabled": False,
-        "state": "ABSENT_BLOCKED",
+        "state": "CONTROLLED_TEST_AND_PILOT_REQUIRED",
         "automated_refund_enabled": False,
         "real_refund_enabled": False,
         "operator_can_execute_automated_refund": False,
-        "blocked_reasons": [PROVIDER_BLOCKED_REFUND_REASON, "automatic_refund_out_of_scope"],
+        "blocked_reasons": [PROVIDER_BLOCKED_REFUND_REASON, "production_automatic_refund_requires_authorization"],
     }
 
     summary: dict[str, Any] = {
@@ -1125,28 +1350,34 @@ def build_provider_adapter_readiness_summary(config: ProviderAdapterConfig) -> d
             "webhook_callback_validation_replayable": True,
             "credential_redaction_and_rotation_visible": True,
             "kill_switch_and_suspension_visible": True,
-            "provider_call_enabled": False,
-            "real_provider_call_enabled": False,
+            "provider_call_enabled": all_selected_bindings_live_ready,
+            "real_provider_call_enabled": all_selected_bindings_live_ready,
             "live_fallback_allowed": False,
             "automated_refund_enabled": False,
         },
-        "readback_only": True,
+        "readback_only": not all_selected_bindings_live_ready,
         "sandbox_enabled": True,
         "dry_run_enabled": True,
-        "provider_call_enabled": False,
-        "real_provider_call_enabled": False,
-        "live_execution_enabled": False,
-        "live_request_blocked": True,
+        "provider_call_enabled": all_selected_bindings_live_ready,
+        "real_provider_call_enabled": all_selected_bindings_live_ready,
+        "live_execution_enabled": all_selected_bindings_live_ready,
+        "live_request_blocked": bool(
+            config.requested_live_mode and not all_selected_bindings_live_ready
+        ),
         "blocked_reasons": blocked_reasons,
         "approval_audit_prerequisites": {
             "approval_required_before_live_provider_use": True,
             "audit_required_before_live_provider_use": True,
             "human_review_required_before_live_provider_use": True,
-            "missing_prerequisites": [
-                "live_provider_approval_chain",
-                "live_provider_audit_chain",
-                "human_provider_activation_review",
-            ],
+            "missing_prerequisites": (
+                []
+                if all_selected_bindings_live_ready
+                else [
+                    "live_provider_approval_chain",
+                    "live_provider_audit_chain",
+                    "human_provider_activation_review",
+                ]
+            ),
         },
         "families": family_summaries,
         "provider_reliability_summary": {
@@ -1160,9 +1391,9 @@ def build_provider_adapter_readiness_summary(config: ProviderAdapterConfig) -> d
             "circuit_breaker_visible": True,
             "credential_redaction_audit_visible": True,
             "replayable_provider_status": True,
-            "readback_only": True,
-            "provider_call_enabled": False,
-            "real_provider_call_enabled": False,
+            "readback_only": not all_selected_bindings_live_ready,
+            "provider_call_enabled": all_selected_bindings_live_ready,
+            "real_provider_call_enabled": all_selected_bindings_live_ready,
             "live_fallback_allowed": False,
             "no_silent_live_fallback": True,
             "suspended": bool(suspended_families),
@@ -1173,7 +1404,7 @@ def build_provider_adapter_readiness_summary(config: ProviderAdapterConfig) -> d
         "provider_status_readback": {
             "readback_state": reliability_state,
             "replayable": True,
-            "readback_only": True,
+            "readback_only": not all_selected_bindings_live_ready,
             "provider_call_executed": False,
             "families": {
                 family: dict(family_summary.get("provider_status_readback", {}))
@@ -1215,6 +1446,7 @@ def provider_adapter_bootstrap_payload(
     readiness_summary: Mapping[str, Any],
 ) -> dict[str, Any]:
     summary = dict(readiness_summary)
+    live_execution_enabled = bool(summary.get("live_execution_enabled", False))
     return {
         "provider_adapter_config_source": summary.get("config_source"),
         "provider_adapter_config_source_ref": summary.get("config_source_ref"),
@@ -1223,9 +1455,13 @@ def provider_adapter_bootstrap_payload(
         "provider_adapter_readback_only": bool(summary.get("readback_only", True)),
         "provider_adapter_sandbox_enabled": bool(summary.get("sandbox_enabled", True)),
         "provider_adapter_dry_run_enabled": bool(summary.get("dry_run_enabled", True)),
-        "provider_adapter_live_execution_enabled": False,
-        "provider_adapter_provider_call_enabled": False,
-        "provider_adapter_real_provider_call_enabled": False,
+        "provider_adapter_live_execution_enabled": live_execution_enabled,
+        "provider_adapter_provider_call_enabled": bool(
+            summary.get("provider_call_enabled", False)
+        ),
+        "provider_adapter_real_provider_call_enabled": bool(
+            summary.get("real_provider_call_enabled", False)
+        ),
         "provider_reliability_state": summary.get("provider_reliability_state"),
         "provider_circuit_breaker_state": summary.get("provider_circuit_breaker_state"),
         "provider_adapter_suspended": bool(summary.get("provider_adapter_suspended", False)),

@@ -23,6 +23,7 @@ DEFAULT_INPUT_ROOT = Path("tmp/evaluation-real-samples/guangzhou-responsible-per
 DEFAULT_OUTPUT_ROOT = Path("tmp/evaluation-real-samples/guangzhou-company-first-supplement-v1")
 SUPPLEMENT_REQUIRED_STATES = {
     "COMPANY_FIRST_CERTIFICATE_SUPPLEMENT_REQUIRED",
+    "COMPANY_FIRST_RESPONSIBLE_ROLE_RESOLUTION_REQUIRED",
     "NAME_ENUMERATION_FALLBACK_REQUIRED",
     "FLOW_08_TARGETED_PARSE_REQUIRED",
 }
@@ -37,6 +38,8 @@ def build_company_first_certificate_supplement_probe(
     company_first_result_state: str = "NOT_RUN",
     name_enumeration_result_state: str = "NOT_RUN",
     source_stage4_records_json: str | Path | None = None,
+    stage1_3_long_tail_json: str | Path | None = None,
+    stage4_bridge_table_json: str | Path | None = None,
     created_at: str | None = None,
 ) -> dict[str, Any]:
     created = created_at or utc_now_iso()
@@ -46,6 +49,12 @@ def build_company_first_certificate_supplement_probe(
     early_path = Path(early_probe_json) if early_probe_json else in_root / "responsible-person-early-probe.json"
     blocking_reasons: list[str] = []
     early_payload = _load_json(early_path)
+    if not early_payload and stage1_3_long_tail_json:
+        early_payload = _early_probe_payload_from_stage1_3_long_tail(
+            stage1_3_long_tail_json=stage1_3_long_tail_json,
+            stage4_bridge_table_json=stage4_bridge_table_json,
+            created_at=created,
+        )
     if not early_payload:
         blocking_reasons.append("responsible_person_early_probe_missing")
     source_records = _load_source_records(source_stage4_records_json)
@@ -78,6 +87,8 @@ def build_company_first_certificate_supplement_probe(
         "source_input_root": str(in_root),
         "source_responsible_person_early_probe_json": str(early_path),
         "source_stage4_records_json_optional": str(source_stage4_records_json or ""),
+        "source_stage1_3_long_tail_json_optional": str(stage1_3_long_tail_json or ""),
+        "source_stage4_bridge_table_json_optional": str(stage4_bridge_table_json or ""),
         "company_first_result_state": _normalize_result_state(company_first_result_state),
         "name_enumeration_result_state": _normalize_result_state(name_enumeration_result_state),
         "items": supplement_items,
@@ -536,6 +547,136 @@ def _early_items(payload: Mapping[str, Any]) -> list[Mapping[str, Any]]:
     return [item for item in (manifest.get("items") or []) if isinstance(item, Mapping)] if isinstance(manifest, Mapping) else []
 
 
+def _early_probe_payload_from_stage1_3_long_tail(
+    *,
+    stage1_3_long_tail_json: str | Path,
+    stage4_bridge_table_json: str | Path | None,
+    created_at: str,
+) -> dict[str, Any]:
+    long_tail_payload = _load_json(Path(stage1_3_long_tail_json))
+    bridge_people = _person_names_by_project_from_stage4_bridge(stage4_bridge_table_json)
+    records = long_tail_payload.get("records") if isinstance(long_tail_payload.get("records"), list) else []
+    items: list[dict[str, Any]] = []
+    seen: set[tuple[str, str]] = set()
+    for record in records:
+        if not isinstance(record, Mapping):
+            continue
+        bucket = str(record.get("stage1_3_long_tail_bucket") or "").strip()
+        if bucket not in {
+            "COMPANY_FIRST_CERTIFICATE_SUPPLEMENT_REQUIRED",
+            "COMPANY_FIRST_RESPONSIBLE_ROLE_RESOLUTION_REQUIRED",
+        }:
+            continue
+        project_id = str(record.get("project_id") or "").strip()
+        company = str(record.get("candidate_company") or "").strip()
+        if not (project_id and company):
+            continue
+        key = (project_id, company)
+        if key in seen:
+            continue
+        seen.add(key)
+        persons = bridge_people.get(project_id, [])
+        role = _responsible_role_from_gap_code(record.get("responsible_role_gap_code"))
+        early_state = bucket
+        stage4_state = (
+            "RESPONSIBLE_ROLE_RESOLUTION_REQUIRED_COMPANY_FIRST"
+            if bucket == "COMPANY_FIRST_RESPONSIBLE_ROLE_RESOLUTION_REQUIRED"
+            else "SUPPLEMENT_REQUIRED_COMPANY_FIRST"
+        )
+        targets = [
+            {
+                "candidate_group_id": "",
+                "candidate_group_members": [company],
+                "candidate_company_name": company,
+                "consortium_member_role": "unknown",
+                "responsible_person_name": person,
+                "certificate_no": "",
+                "source": "stage1_3_long_tail_plus_stage4_bridge",
+            }
+            for person in persons
+        ]
+        items.append(
+            {
+                "project_id": project_id,
+                "project_name": str(record.get("project_name") or ""),
+                "source_07_detail_path": str(record.get("source_url") or ""),
+                "candidate_company_candidates": [{"value": company}],
+                "responsible_person_candidates": [{"value": person} for person in persons],
+                "certificate_no_candidates": [],
+                "verification_targets": targets,
+                "responsible_role": role,
+                "early_probe_state": early_state,
+                "stage4_readiness_state": stage4_state,
+                "source_stage1_3_long_tail_record_id": str(record.get("stage1_3_long_tail_record_id") or ""),
+                "identity_confirmation_state": "REVIEW_REQUIRED_NOT_CONFIRMED",
+                "same_name_only_accepted": False,
+                "missing_certificate_confirms_identity": False,
+                "customer_visible_allowed": False,
+                "no_legal_conclusion": True,
+            }
+        )
+    return {
+        "manifest": {
+            "manifest_kind": "responsible_person_early_probe_manifest",
+            "source_adapter_id": "stage1-3-long-tail-to-company-first-certificate-supplement-v1",
+            "created_at": created_at,
+            "source_stage1_3_long_tail_json": str(stage1_3_long_tail_json),
+            "source_stage4_bridge_table_json": str(stage4_bridge_table_json or ""),
+            "items": items,
+            "summary": {
+                "item_count": len(items),
+                "with_responsible_person_count": sum(1 for item in items if item.get("responsible_person_candidates")),
+                "customer_visible_allowed": False,
+                "no_legal_conclusion": True,
+            },
+            "customer_visible_allowed": False,
+            "no_legal_conclusion": True,
+        }
+    }
+
+
+def _person_names_by_project_from_stage4_bridge(path: str | Path | None) -> dict[str, list[str]]:
+    if not path:
+        return {}
+    payload = _load_json(Path(path))
+    records = payload.get("records") if isinstance(payload.get("records"), list) else []
+    out: dict[str, list[str]] = {}
+    for record in records:
+        if not isinstance(record, Mapping):
+            continue
+        project_id = str(record.get("project_id") or "").strip()
+        if not project_id:
+            continue
+        values = list(record.get("matched_person_names") or [])
+        if str(record.get("person_name_quality_state") or "").strip() == "ACCEPTED_PERSON_NAME_SHAPE":
+            query_params = record.get("query_params") if isinstance(record.get("query_params"), Mapping) else {}
+            values.extend(
+                [
+                    record.get("raw_person_name"),
+                    query_params.get("personName"),
+                    query_params.get("projectManagerName"),
+                ]
+            )
+        for name in _candidate_values(values, limit=20):
+            out.setdefault(project_id, [])
+            if name not in out[project_id]:
+                out[project_id].append(name)
+    return out
+
+
+def _responsible_role_from_gap_code(value: Any) -> str:
+    text = str(value or "").upper()
+    if "SUPERVISION" in text:
+        return "chief_supervision_engineer"
+    if "DESIGN_SURVEY" in text:
+        return "survey_design_project_lead"
+    if "DESIGN" in text:
+        return "design_lead"
+    if "SURVEY" in text:
+        return "survey_lead"
+    return "project_manager"
+
+
 def _candidate_values(values: Any, *, limit: int) -> list[str]:
     rows: list[str] = []
     seen: set[str] = set()
@@ -635,6 +776,8 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--company-first-result-state", default="NOT_RUN")
     parser.add_argument("--name-enumeration-result-state", default="NOT_RUN")
     parser.add_argument("--source-stage4-records-json")
+    parser.add_argument("--stage1-3-long-tail-json")
+    parser.add_argument("--stage4-bridge-table-json")
     parser.add_argument("--output-json")
     parser.add_argument("--json", action="store_true", dest="emit_json")
     return parser.parse_args(argv)
@@ -650,6 +793,8 @@ def main(argv: list[str] | None = None) -> int:
         company_first_result_state=args.company_first_result_state,
         name_enumeration_result_state=args.name_enumeration_result_state,
         source_stage4_records_json=args.source_stage4_records_json,
+        stage1_3_long_tail_json=args.stage1_3_long_tail_json,
+        stage4_bridge_table_json=args.stage4_bridge_table_json,
     )
     output_json = Path(args.output_json) if args.output_json else Path(args.output_root) / "company-first-certificate-supplement.json"
     output_json.parent.mkdir(parents=True, exist_ok=True)

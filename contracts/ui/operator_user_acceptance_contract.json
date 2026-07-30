@@ -1,5 +1,5 @@
 {
-  "contractVersion": "1.1.0",
+  "contractVersion": "1.3.0",
   "contractId": "AX9S-OPERATOR-USER-ACCEPTANCE-CONTRACT",
   "status": "ACTIVE",
   "ownerDocs": [
@@ -29,7 +29,7 @@
     "platformType": "真实公开市场机会发现 + 证据包商业化运营系统",
     "soldProduct": "证据包 / 线索包 / 机会包 / 情报包 / 销售推进结果",
     "primaryUser": "单人 owner operator",
-    "customerExperience": "客户不使用工作台；成交付款后通过邮件或受控交付链收到证据包。",
+    "customerExperience": "客户不使用内部工作台；人工复核签发后，通过双方约定的受控渠道收到证据包；系统当前不自动发送邮件。",
     "primaryOperatingLoop": "市场扫描 -> 来源蓝图 -> 公开采集 -> 解析 -> 核验 -> 规则证据 -> 统一事实 -> 可售机会 -> 买家适配 -> 商业钩子 -> 证据包预览 -> 触达/支付/交付治理回写",
     "completionStandard": "真实公开来源候选自动进料并形成可验证证据包和商业钩子；内部/样本链路只算开发回归，不算实战完成。",
     "regressionBoundary": "内部、离线样本、显式候选和受控沙箱用于证明链路、UI、审计和治理，不得替代真实市场候选发现验收。",
@@ -93,7 +93,7 @@
       "gateId": "AUTH-06-public-verification-before-rules",
       "title": "公开核验进入规则证据",
       "requirement": "Stage4 的 public_attack_surface、focus_bidder_verification_profile、evidence_grade_profile 必须进入 Stage5/6，不能只停留在页面展示。",
-      "failSignal": "真实详情页和附件已经抓取，但 Stage4-9 仍跑内部样本或通用链路，没有消费真实快照。",
+      "failSignal": "真实详情页和附件已经抓取，但 Stage1-6 仍跑内部样本或通用链路，没有消费真实快照。",
       "sourceRefs": ["L0 13.3", "D13 A-04/A-07/A-08", "D11 P4"]
     },
     {
@@ -113,7 +113,7 @@
     {
       "gateId": "AUTH-09-contact-and-delivery-governance",
       "title": "触达交付治理",
-      "requirement": "真实触达、支付、交付、退款必须满足审批、审计、operator action 和 provider/sandbox 状态；自动退款执行保持排除。",
+      "requirement": "真实触达、支付、交付、退款必须满足审批、审计、operator action 和 provider/sandbox 状态；自动退款执行为 controlled-test-and-pilot-required，sandbox/mock/dry-run/受控试点可做，生产启用需授权门禁。",
       "failSignal": "页面按钮或测试绕过 D9/D10 的审批审计，伪装成真实外发、真实支付、真实交付或自动退款已开放。",
       "sourceRefs": ["D9", "D10", "AGENTS.md#Automation Guardrails"]
     },
@@ -252,7 +252,7 @@
         "证据包预览页可从机会进入。",
         "证据包显示证据包编号、清单编号、版本哈希、水印、公开来源和来源网址。",
         "证据项显示证据类型、线索类型、来源对象、来源引用和公开来源。",
-        "内部证据包文件可下载，内容包含公开来源验证、拟邮件包、证据项清单、字段策略和模拟下载审计。"
+        "内部证据包文件可下载，内容包含公开来源验证、人工交付包预览、证据项清单、统一责任边界、字段策略和模拟下载审计。"
       ],
       "uiObligations": [
         "证据包页导航必须固定或可持续访问，锚点跳转不应把 owner 带丢。",
@@ -277,7 +277,7 @@
       ],
       "uiObligations": [
         "机会详情必须展示可讲卖点和暂不外泄字段。",
-        "证据包预览必须区分内部验收、拟邮件包和真实外发状态。"
+        "证据包预览必须区分内部验收、人工交付包和真实外发状态，不得暗示自动邮件能力已经开放。"
       ],
       "failSignals": [
         "销售前泄露可复现完整证据链。",
@@ -294,7 +294,7 @@
         "系统展示真实邮件、电话、支付、交付、退款服务商是否接入。",
         "内部测试可预览拟外发、模拟下载和交付候选。",
         "真实触达、真实支付、真实交付、真实退款必须显示审批、审计、operator action 和 provider sandbox 缺口。",
-        "自动退款执行保持排除。"
+        "自动退款执行为 controlled-test-and-pilot-required；sandbox/mock/dry-run/受控试点可做，生产启用需授权、审批、审计、operator action、对账和回滚/暂停。"
       ],
       "uiObligations": [
         "系统与放行页必须展示回归与受控放行状态和真实外部动作缺口。",
@@ -390,11 +390,38 @@
         "剩余缺口散落在文档里，UI 没有可见状态。"
       ],
       "sourceRefs": ["D11-R-007", "D11-A", "control/product_acceptance_checklist.yaml#PTL-I100-149", "control/product_operability_gap_matrix.yaml"]
+    },
+    {
+      "dimensionId": "UA-12-grounded-conversational-agent",
+      "title": "对话入口有依据且不越权",
+      "userQuestion": "我能不能直接用自然语言创建内部任务、追问证据和查看下一步，同时知道回答依据是什么？",
+      "passCriteria": [
+        "自然语言入口支持创建受限内部任务、查询任务进度、追问证据和查看下一步。",
+        "创建任务必须显式确认，写入现有 Stage1 持久队列，并保持 Stage2 真实抓取关闭。",
+        "事实回答逐项回链正式对象或登记来源；没有证据时明确说明不足，未命中不等于无风险。",
+        "对话入口不执行真实抓取、触达、支付、退款、客户交付或发布，也不把模型或对话记忆当证据。",
+        "凭据、密钥和受限个人信息在处理前失败关闭，消息正文不进入任务创建审计。"
+      ],
+      "uiObligations": [
+        "操作台提供独立中文对话入口、项目 ID、任务编号和显式确认控件。",
+        "回答同时显示状态、事实、引用和治理边界，不显示模型内部推理。"
+      ],
+      "failSignals": [
+        "对话回答没有正式对象或来源引用却给出事实结论。",
+        "一句自然语言命令直接触发外部动作或跳过审批。",
+        "对话跨项目猜测上下文，或把长期记忆当正式事实。",
+        "任务确认前就写入队列或启动真实抓取。"
+      ],
+      "sourceRefs": [
+        "contracts/agent/conversational_task_entry_contract.json",
+        "contracts/model/model_usage_policy.json",
+        "contracts/ui/workbench_catalog.json#conversational_agent_entry"
+      ]
     }
   ],
   "currentOptimizationPriorities": [
     "先按 L0/D2-D14 权威硬门复核 UI、API、测试和证据包，不再让临时 UI 矩阵升级 readiness。",
-    "把真实候选详情页、附件原文和 parser readback 接入 Stage4-9 real_public readback，不再用内部样本链路代表实战完成。",
+    "把真实候选详情页、附件原文和 parser readback 接入 Stage1-6 real_public readback，不再用内部样本链路代表实战完成。",
     "修正公告日期、发布时间、截止时间、异议窗口等时钟字段解析，避免真实机会被误选或误淘汰。",
     "按 D13 首批地区继续补强 SC/JS/ZJ/SD/GD/HB 的本地公开源 profile、详情页、附件入口和失败诊断。",
     "把 Stage6 project_fact、Stage5 双门、Stage7 saleable_opportunity 与证据包预览显式关联，避免 Stage1 选中候选直接看起来像正式可售。",
@@ -407,7 +434,7 @@
     "owner 需要 raw JSON 才能完成日常运营判断。",
     "客户被引导使用工作台而不是接收成交后的证据包。",
     "证据包无法查看、无法下载或无法回到公开来源验证。",
-    "真实候选没有进入 Stage4-9 real_public readback，却被展示成正式可售机会。",
+    "真实候选没有进入 Stage1-6 real_public readback，却被展示成正式可售机会。",
     "公告发布日期、项目编号或模型推断被当成异议截止时间。",
     "缺少 project_fact、rule_gate_decision 或 evidence_gate_decision 时生成正式机会或客户交付结论。",
     "真实外部触达、支付、交付或退款绕过审批、审计和 operator action。",

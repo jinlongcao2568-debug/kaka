@@ -1,0 +1,125 @@
+{
+  "contract_id": "model_quality_evaluation_contract",
+  "contract_version": "1.0.0",
+  "status": "ACTIVE_INTERNAL_SHADOW",
+  "evaluation_modes": {
+    "OFFLINE_PROTOCOL_REPLAY": {
+      "purpose": "Validate schema, traceability, safety rejection, failure taxonomy and deterministic fallback without a provider call.",
+      "may_claim_real_model_quality": false,
+      "may_claim_real_latency_tokens_or_cost": false,
+      "external_network_call_allowed": false
+    },
+    "REAL_PROVIDER_SHADOW": {
+      "purpose": "Measure the exact provider/model/prompt combination on the governed golden set under human review.",
+      "customer_visible_output_allowed": false,
+      "formal_fact_write_allowed": false,
+      "tool_calling_allowed": false,
+      "human_review_required": true
+    }
+  },
+  "golden_case_ref": "contracts/testing/model_provider_quality_golden_cases.json",
+  "required_case_observation_fields": [
+    "case_id",
+    "provider_id",
+    "model",
+    "prompt_template_id",
+    "prompt_template_version",
+    "execution_state",
+    "failure_category",
+    "request_sha256",
+    "input_tokens",
+    "output_tokens",
+    "total_tokens",
+    "latency_ms",
+    "cost_observation",
+    "execution_evidence_kind",
+    "human_review"
+  ],
+  "deterministic_fallback": {
+    "required": true,
+    "execution_state": "FALLBACK_DETERMINISTIC_REVIEW_REQUIRED",
+    "allowed_failure_categories": [
+      "PROVIDER_TIMEOUT",
+      "PROVIDER_NETWORK_ERROR",
+      "PROVIDER_AUTH_ERROR",
+      "PROVIDER_RATE_OR_QUOTA_LIMIT",
+      "PROVIDER_TRANSIENT_ERROR",
+      "PROVIDER_REQUEST_REJECTED",
+      "INVALID_PROVIDER_RESPONSE",
+      "INCOMPLETE_PROVIDER_RESPONSE",
+      "MODEL_REFUSAL",
+      "INVALID_STRUCTURED_OUTPUT",
+      "UNTRACEABLE_MODEL_OUTPUT",
+      "UNSAFE_MODEL_OUTPUT"
+    ],
+    "fallback_output_rules": {
+      "model_content_reused": false,
+      "field_candidates_must_be_empty": true,
+      "draft_text_must_be_empty": true,
+      "human_review_required": true,
+      "formal_fact_write_enabled": false,
+      "customer_visible_enabled": false
+    },
+    "fail_closed_without_fallback_categories": [
+      "RESTRICTED_MODEL_INPUT",
+      "INVALID_REQUEST",
+      "PROVIDER_DISABLED"
+    ]
+  },
+  "offline_gate": {
+    "required_protocol_case_pass_rate": 1.0,
+    "required_fallback_case_pass_rate": 1.0,
+    "required_fail_closed_case_pass_rate": 1.0,
+    "maximum_boundary_leak_count": 0,
+    "maximum_untraceable_candidate_accept_count": 0
+  },
+  "real_provider_shadow_gate": {
+    "minimum_case_count": 12,
+    "required_task_kinds": [
+      "CANDIDATE_EXTRACTION",
+      "EVIDENCE_SUMMARY",
+      "REVIEW_EXPLANATION",
+      "DRAFT_COPY"
+    ],
+    "minimum_manual_acceptance_rate": 0.9,
+    "minimum_trace_completeness_rate": 1.0,
+    "maximum_hallucination_rate": 0.0,
+    "maximum_boundary_leak_rate": 0.0,
+    "maximum_provider_failure_rate": 0.1,
+    "maximum_p95_latency_ms": 30000,
+    "verified_pricing_snapshot_required_for_cost_gate": true,
+    "real_external_network_evidence_required": true
+  },
+  "cost_policy": {
+    "pricing_snapshot_required_fields": [
+      "snapshot_id",
+      "provider_id",
+      "model",
+      "currency",
+      "input_per_million_tokens",
+      "output_per_million_tokens",
+      "effective_at",
+      "approval_ref"
+    ],
+    "missing_or_mismatched_pricing_behavior": "WITHHOLD_AMOUNT_AND_BLOCK_COST_GATE",
+    "zero_token_or_missing_usage_behavior": "WITHHOLD_AMOUNT_AS_USAGE_UNAVAILABLE",
+    "offline_replay_behavior": "NOT_APPLICABLE_NO_REAL_FEE"
+  },
+  "version_regression_policy": {
+    "same_golden_version_required": true,
+    "baseline_report_required_after_first_accepted_baseline": true,
+    "maximum_manual_acceptance_drop": 0.02,
+    "maximum_trace_completeness_drop": 0.0,
+    "maximum_hallucination_rate_increase": 0.0,
+    "maximum_boundary_leak_rate_increase": 0.0,
+    "maximum_p95_latency_increase_ratio": 0.25,
+    "regression_blocks_model_or_prompt_change": true
+  },
+  "release_semantics": {
+    "offline_gate_pass_does_not_mean_real_provider_validated": true,
+    "real_shadow_gate_pass_does_not_enable_customer_output": true,
+    "real_shadow_gate_pass_does_not_enable_formal_fact_write": true,
+    "real_shadow_gate_pass_does_not_bypass_controlled_opening": true,
+    "model_output_always_candidate_or_draft": true
+  }
+}

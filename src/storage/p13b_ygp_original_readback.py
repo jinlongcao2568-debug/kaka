@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import http.client
 import html
 import json
 import re
@@ -11,6 +12,7 @@ import urllib.request
 from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping
 
+from shared.controlled_egress import playwright_proxy_settings
 from shared.utils import utc_now_iso
 
 
@@ -58,9 +60,14 @@ def build_p13b_ygp_original_readback(
         http_getter=http_getter,
         browser_readback_getter=browser_readback_getter,
     )
+    stage4_ygp_project_code_backfill_records = _stage4_ygp_project_code_backfill_records(
+        readback_records,
+        created_at=created,
+    )
     summary = _summary(
         task_records=task_records,
         readback_records=readback_records,
+        stage4_ygp_project_code_backfill_records=stage4_ygp_project_code_backfill_records,
         execution_mode=execution_mode,
         blocking_reasons=blocking_reasons,
     )
@@ -78,6 +85,7 @@ def build_p13b_ygp_original_readback(
         "max_live_original_notices": max_live_original_notices,
         "ygp_original_readback_task_records": task_records,
         "ygp_original_readback_records": readback_records,
+        "stage4_ygp_project_code_backfill_records": stage4_ygp_project_code_backfill_records,
         "summary": summary,
         "safety": {
             "download_enabled": False,
@@ -127,6 +135,9 @@ def build_p13b_ygp_original_readback(
 
 
 def _task_records_from_original_backtrace(source_manifest: Mapping[str, Any], *, created_at: str) -> list[dict[str, Any]]:
+    stage4_tasks = _task_records_from_stage4_official_readback_inputs(source_manifest, created_at=created_at)
+    if stage4_tasks:
+        return stage4_tasks
     tasks: list[dict[str, Any]] = []
     seen: set[str] = set()
     for record in _list(source_manifest.get("original_notice_extraction_records")):
@@ -155,6 +166,115 @@ def _task_records_from_original_backtrace(source_manifest: Mapping[str, Any], *,
         seen.add(key)
         tasks.append(_ygp_task_from_original_task(task, original_url=original_url, created_at=created_at))
     return tasks
+
+
+def _task_records_from_stage4_official_readback_inputs(
+    source_manifest: Mapping[str, Any],
+    *,
+    created_at: str,
+) -> list[dict[str, Any]]:
+    tasks: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for record in _list(source_manifest.get("stage4_official_readback_input_records")):
+        if not isinstance(record, Mapping):
+            continue
+        if str(record.get("source_kind") or "") != "ygp_original_notice_readback":
+            continue
+        project_id = str(record.get("project_id") or "").strip()
+        project_code = str(record.get("ygp_project_code") or "").strip()
+        biz_code = str(record.get("ygp_biz_code") or "").strip()
+        site_code = str(record.get("ygp_site_code") or "").strip()
+        notice_id = str(record.get("ygp_notice_id") or "").strip()
+        if not project_id or not project_code or not biz_code or not site_code:
+            continue
+        key = "|".join([project_id, project_code, biz_code, site_code, notice_id])
+        if key in seen:
+            continue
+        seen.add(key)
+        tasks.append(_ygp_task_from_stage4_official_readback_input(record, created_at=created_at))
+    return tasks
+
+
+def _ygp_task_from_stage4_official_readback_input(record: Mapping[str, Any], *, created_at: str) -> dict[str, Any]:
+    project_id = str(record.get("project_id") or "")
+    project_code = str(record.get("ygp_project_code") or "")
+    biz_code = str(record.get("ygp_biz_code") or "")
+    site_code = str(record.get("ygp_site_code") or "")
+    notice_id = str(record.get("ygp_notice_id") or "")
+    trading_type = str(record.get("ygp_trading_type") or _infer_ygp_trading_type(biz_code) or "")
+    original_url = _stage4_ygp_hash_url(
+        site_code=site_code,
+        project_code=project_code,
+        biz_code=biz_code,
+        notice_id=notice_id,
+        trading_type=trading_type,
+    )
+    return {
+        "ygp_original_readback_task_id": _stable_id(
+            "P13B-YGP-STAGE4-OFFICIAL",
+            project_id,
+            project_code,
+            biz_code,
+            site_code,
+            notice_id,
+        ),
+        "original_notice_task_id": str(record.get("stage4_official_readback_input_record_id") or ""),
+        "project_id": project_id,
+        "candidate_company_name": "",
+        "responsible_person_names": _list(record.get("responsible_person_names")),
+        "bid_project_name": str(record.get("project_name") or ""),
+        "original_notice_url": original_url,
+        "ygp_url_mapping_parts": {},
+        "stage4_official_readback_input_record_id": str(record.get("stage4_official_readback_input_record_id") or ""),
+        "input_source": "stage4_official_readback_input_records",
+        "ygp_project_code": project_code,
+        "ygp_biz_code": biz_code,
+        "ygp_site_code": site_code,
+        "ygp_notice_id": notice_id,
+        "ygp_trading_type": trading_type,
+        "candidate_notice_source_urls": _list(record.get("candidate_notice_source_urls")),
+        "project_source_urls": _list(record.get("project_source_urls")),
+        "execution_mode": "PLAN_ONLY_NOT_EXECUTED",
+        "ygp_readback_state": "PLAN_ONLY_NOT_EXECUTED",
+        "gdcic_project_code_route_allowed": False,
+        "gdcic_project_code_route_policy": "YGP_OR_TRADE_IDENTIFIERS_NOT_SENT_TO_GDCIC_PROJECT_CODE",
+        "must_not_extract_from_full_text_numbers": True,
+        "created_at": created_at,
+        "customer_visible_allowed": False,
+        "query_miss_is_not_clearance": True,
+        "no_legal_conclusion": True,
+    }
+
+
+def _stage4_ygp_hash_url(
+    *,
+    site_code: str,
+    project_code: str,
+    biz_code: str,
+    notice_id: str,
+    trading_type: str,
+) -> str:
+    query = urllib.parse.urlencode(
+        {
+            "siteCode": site_code,
+            "projectCode": project_code,
+            "bizCode": biz_code,
+            "noticeId": notice_id,
+            "tradingType": trading_type,
+        }
+    )
+    return f"https://{YGP_HOST}/ggzy-portal/#/44/new/jygg/v3/{urllib.parse.quote(trading_type or biz_code)}?{query}"
+
+
+def _infer_ygp_trading_type(biz_code: str) -> str:
+    code = str(biz_code or "").strip()
+    if code in {"3C52", "3B42"}:
+        return "A"
+    if code in {"3C14", "3C15", "3C16", "3C17", "3C31", "3C51", "3C53", "3C54", "3C71", "3C72", "3C73", "3C81", "3C82"}:
+        return "A"
+    if code in {"3871", "3831", "3822"}:
+        return "D"
+    return ""
 
 
 def _ygp_task_from_original_task(task: Mapping[str, Any], *, original_url: str, created_at: str) -> dict[str, Any]:
@@ -341,7 +461,17 @@ def _fetch_url(
     task: Mapping[str, Any],
     no_redirect: bool = False,
 ) -> dict[str, Any]:
-    response = dict(getter(url, {"route": route, "task": dict(task), "no_redirect": no_redirect}))
+    try:
+        response = dict(getter(url, {"route": route, "task": dict(task), "no_redirect": no_redirect}))
+    except (TimeoutError, OSError, urllib.error.URLError, http.client.HTTPException) as exc:
+        response = {
+            "status_code": 0,
+            "content_type": "",
+            "headers": {},
+            "body": "",
+            "url": url,
+            "error": f"{type(exc).__name__}:{exc}",
+        }
     status_code = int(response.get("status_code") or response.get("status") or 0)
     body = str(response.get("body") or response.get("content") or response.get("text") or "")
     headers = response.get("headers") if isinstance(response.get("headers"), Mapping) else {}
@@ -386,6 +516,9 @@ def _resolve_ygp_project_route(
     task: Mapping[str, Any],
     route_attempts: list[dict[str, Any]],
 ) -> dict[str, str] | None:
+    task_route = _route_from_stage4_task(task)
+    if task_route:
+        return task_route
     parsed = urllib.parse.urlparse(source_url)
     if parsed.fragment:
         return _route_from_hash_url(source_url)
@@ -399,6 +532,27 @@ def _resolve_ygp_project_route(
     if response["url"] != source_url and urllib.parse.urlparse(response["url"]).fragment:
         return _route_from_hash_url(response["url"])
     return None
+
+
+def _route_from_stage4_task(task: Mapping[str, Any]) -> dict[str, str] | None:
+    project_code = str(task.get("ygp_project_code") or "").strip()
+    site_code = str(task.get("ygp_site_code") or "").strip()
+    biz_code = str(task.get("ygp_biz_code") or "").strip()
+    if not all((project_code, site_code, biz_code)):
+        return None
+    return {
+        "source_hash_url": str(task.get("original_notice_url") or ""),
+        "siteCode": site_code,
+        "projectCode": project_code,
+        "bizCode": biz_code,
+        "noticeId": str(task.get("ygp_notice_id") or ""),
+        "nodeId": str(task.get("ygp_node_id") or ""),
+        "publishDate": str(task.get("ygp_publish_date") or ""),
+        "tradingType": str(task.get("ygp_trading_type") or ""),
+        "version": str(task.get("ygp_version") or "v3"),
+        "source": str(task.get("ygp_source") or ""),
+        "titleDetails": str(task.get("ygp_title_details") or ""),
+    }
 
 
 def _route_from_hash_url(url: str) -> dict[str, str] | None:
@@ -597,6 +751,7 @@ def _ready_record(
         extraction_state = "YGP_ORIGINAL_NOTICE_PERSON_PERIOD_EXTRACTED"
     else:
         extraction_state = "YGP_ORIGINAL_URL_READBACK_READY"
+    ygp_detail_params = _ygp_detail_query_params(source_url)
     return {
         **dict(task),
         "execution_mode": "LIVE_PUBLIC_QUERY_ATTEMPTED",
@@ -604,6 +759,12 @@ def _ready_record(
         "ygp_api_discovery_state": api_discovery_state,
         "ygp_extraction_state": extraction_state,
         "source_url": source_url,
+        "ygp_detail_query_params": ygp_detail_params,
+        "ygp_notice_id": str(ygp_detail_params.get("noticeId") or ""),
+        "ygp_project_code": str(ygp_detail_params.get("projectCode") or ""),
+        "ygp_biz_code": str(ygp_detail_params.get("bizCode") or ""),
+        "ygp_site_code": str(ygp_detail_params.get("siteCode") or ""),
+        "ygp_node_id": str(ygp_detail_params.get("nodeId") or ""),
         "status_code": status_code,
         "content_type": content_type,
         "readback_payload_sha256": _sha256(payload) if payload else "",
@@ -618,6 +779,7 @@ def _ready_record(
         "record_payload_sha256": _fingerprint(
             {
                 "source_url": source_url,
+                "ygp_detail_query_params": ygp_detail_params,
                 "title": extraction.get("extracted_notice_title"),
                 "project": extraction.get("extracted_project_name"),
                 "people": extraction.get("extracted_responsible_person_names"),
@@ -632,6 +794,95 @@ def _ready_record(
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,
     }
+
+
+def _ygp_detail_query_params(source_url: str) -> dict[str, str]:
+    parsed = urllib.parse.urlparse(str(source_url or ""))
+    query = urllib.parse.parse_qs(parsed.query, keep_blank_values=True)
+    return {
+        key: str(values[0] if values else "")
+        for key, values in query.items()
+        if key in {"noticeId", "projectCode", "bizCode", "siteCode", "nodeId", "version", "tradingType"}
+    }
+
+
+def _stage4_ygp_project_code_backfill_records(
+    readback_records: list[Mapping[str, Any]],
+    *,
+    created_at: str,
+) -> list[dict[str, Any]]:
+    records: list[dict[str, Any]] = []
+    for record in readback_records:
+        project_id = str(record.get("project_id") or "").strip()
+        if not project_id:
+            continue
+        ygp_project_code = str(record.get("ygp_project_code") or "").strip()
+        ygp_biz_code = str(record.get("ygp_biz_code") or "").strip()
+        ygp_site_code = str(record.get("ygp_site_code") or "").strip()
+        ygp_notice_id = str(record.get("ygp_notice_id") or "").strip()
+        readback_state = str(record.get("ygp_readback_state") or "").strip()
+        ready = readback_state in {"YGP_ORIGINAL_URL_READBACK_READY", "YGP_BROWSER_NETWORK_READBACK_READY"}
+        has_route_identifiers = bool(ygp_project_code and ygp_biz_code and ygp_site_code)
+        if ready and has_route_identifiers:
+            backfill_state = "YGP_STAGE4_BACKFILL_READY"
+            next_action = "feed_ygp_identifiers_to_p13b_or_stage4_bridge_without_gdcic_route_claim"
+        elif ready:
+            backfill_state = "YGP_STAGE4_BACKFILL_IDENTIFIER_GAP"
+            next_action = "continue_ygp_detail_route_discovery_before_stage4_bridge_backfill"
+        else:
+            backfill_state = "YGP_STAGE4_BACKFILL_BLOCKED"
+            next_action = "route_to_city_source_or_retry_ygp_readback_without_clearance_claim"
+        records.append(
+            {
+                "stage4_ygp_project_code_backfill_record_id": _stable_id(
+                    "STAGE4-YGP-PROJECT-CODE-BACKFILL",
+                    project_id,
+                    ygp_project_code,
+                    ygp_notice_id,
+                    readback_state,
+                ),
+                "project_id": project_id,
+                "candidate_company_name": str(record.get("candidate_company_name") or ""),
+                "bid_project_name": str(record.get("bid_project_name") or ""),
+                "source_url": str(record.get("source_url") or record.get("original_notice_url") or ""),
+                "ygp_readback_state": readback_state,
+                "ygp_api_discovery_state": str(record.get("ygp_api_discovery_state") or ""),
+                "ygp_project_code": ygp_project_code,
+                "ygp_biz_code": ygp_biz_code,
+                "ygp_site_code": ygp_site_code,
+                "ygp_notice_id": ygp_notice_id,
+                "ygp_node_id": str(record.get("ygp_node_id") or ""),
+                "ygp_detail_query_params": dict(record.get("ygp_detail_query_params") or {}),
+                "stage4_ygp_backfill_state": backfill_state,
+                "target_p13b_fields": [
+                    "ygp_project_code",
+                    "ygp_biz_code",
+                    "ygp_site_code",
+                    "ygp_notice_id",
+                    "ygp_original_url",
+                    "ygp_detail_query_params",
+                ],
+                "target_stage4_bridge_fields": [
+                    "projectCodeVariants",
+                    "triggerSourceUrl",
+                    "sourceProfileId",
+                    "keywords",
+                ],
+                "gdcic_project_code_route_allowed": False,
+                "gdcic_route_block_reason": (
+                    "YGP identifiers are local YGP/P13B backfill hints only; do not send to GDCIC projectCode "
+                    "unless an explicit provincial or GDCIC projectCode field is later read back."
+                ),
+                "jg_trade_code_not_sent_to_gdcic_project_code_route": True,
+                "must_not_extract_from_full_text_numbers": True,
+                "recommended_next_action": next_action,
+                "query_miss_is_not_clearance": True,
+                "customer_visible_allowed": False,
+                "no_legal_conclusion": True,
+                "created_at": created_at,
+            }
+        )
+    return _dedupe_records(records, ("stage4_ygp_project_code_backfill_record_id",))
 
 
 def _discover_api_candidates(
@@ -713,7 +964,11 @@ def _playwright_network_readback(url: str, context: Mapping[str, Any]) -> Mappin
     captures: list[dict[str, Any]] = []
     try:
         with sync_playwright() as playwright:
-            browser = playwright.chromium.launch(headless=True)
+            launch_options: dict[str, Any] = {"headless": True}
+            proxy = playwright_proxy_settings()
+            if proxy:
+                launch_options["proxy"] = proxy
+            browser = playwright.chromium.launch(**launch_options)
             page_context = browser.new_context(ignore_https_errors=True, locale="zh-CN")
             page = page_context.new_page()
 
@@ -1039,6 +1294,7 @@ def _summary(
     *,
     task_records: list[Mapping[str, Any]],
     readback_records: list[Mapping[str, Any]],
+    stage4_ygp_project_code_backfill_records: list[Mapping[str, Any]],
     execution_mode: str,
     blocking_reasons: list[str],
 ) -> dict[str, Any]:
@@ -1057,8 +1313,23 @@ def _summary(
             for record in readback_records
             if str(record.get("ygp_extraction_state") or "") == "YGP_ORIGINAL_NOTICE_PERSON_PERIOD_EXTRACTED"
         ),
+        "ygp_blocked_count": sum(
+            1
+            for record in readback_records
+            if str(record.get("ygp_readback_state") or "") == "YGP_ORIGINAL_URL_BLOCKED"
+        ),
         "ygp_readback_state_counts": _counts(record.get("ygp_readback_state") for record in readback_records),
         "ygp_api_discovery_state_counts": _counts(record.get("ygp_api_discovery_state") for record in readback_records),
+        "stage4_ygp_project_code_backfill_record_count": len(stage4_ygp_project_code_backfill_records),
+        "stage4_ygp_backfill_state_counts": _counts(
+            record.get("stage4_ygp_backfill_state")
+            for record in stage4_ygp_project_code_backfill_records
+        ),
+        "stage4_ygp_gdcic_route_allowed_count": sum(
+            1
+            for record in stage4_ygp_project_code_backfill_records
+            if bool(record.get("gdcic_project_code_route_allowed"))
+        ),
         "blocker_taxonomy_counts": _counts(
             blocker for record in readback_records for blocker in _list(record.get("blocker_taxonomy"))
         ),
@@ -1101,6 +1372,18 @@ def _counts(values: Iterable[Any]) -> dict[str, int]:
             continue
         counts[key] = counts.get(key, 0) + 1
     return dict(sorted(counts.items()))
+
+
+def _dedupe_records(records: Iterable[Mapping[str, Any]], key_fields: tuple[str, ...]) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for record in records:
+        key = "|".join(str(record.get(field) or "") for field in key_fields)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(dict(record))
+    return out
 
 
 def _stable_id(prefix: str, *parts: Any) -> str:

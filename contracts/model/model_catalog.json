@@ -1,6 +1,6 @@
 {
   "catalog_id": "model-catalog",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "status": "DRAFT",
   "metadata": {
     "package_name": "model governance boundary freeze",
@@ -27,9 +27,44 @@
       "fallback_provider_id",
       "requires_manual_review"
     ],
-    "binding_policy": "Provider identities remain unbound in the current phase."
+    "binding_policy": "Product-live provider identity remains unbound. The OpenAI Responses-compatible adapter is implemented for explicitly approved internal shadow use and stays off by default."
   },
   "providers": [
+    {
+      "provider_id": "OPENAI_RESPONSES_API_INTERNAL_SHADOW",
+      "provider_name": "OpenAI Responses-compatible internal shadow provider",
+      "provider_type": "MODEL_PROVIDER",
+      "provider_role": "GENERAL_ASSIST_MODEL",
+      "binding_state": "IMPLEMENTED_OFF_BY_DEFAULT",
+      "runtime_contract_ref": "contracts/model/model_provider_runtime_contract.json",
+      "adapter_implementation_ref": "src/shared/model_provider_runtime.py",
+      "current_capability_mode": "BUILDABLE_BUT_OFF_BY_DEFAULT",
+      "allowed_capability_modes": [
+        "BUILDABLE_BUT_OFF_BY_DEFAULT",
+        "SHADOW_MODE",
+        "INTERNAL_GOVERNED",
+        "EMERGENCY_OFF"
+      ],
+      "supported_usage_scopes": [
+        "INTERNAL_ASSIST",
+        "REVIEW_ASSIST"
+      ],
+      "supported_tasks": [
+        "CANDIDATE_EXTRACTION",
+        "EVIDENCE_SUMMARY",
+        "REVIEW_EXPLANATION",
+        "DRAFT_COPY"
+      ],
+      "protocol": "OPENAI_RESPONSES_COMPATIBLE",
+      "credential_source": "SECRET_FILE_ONLY",
+      "store": false,
+      "strict_structured_output": true,
+      "tool_calling_enabled": false,
+      "formal_fact_write_enabled": false,
+      "customer_visible_enabled": false,
+      "current_status": "ADAPTER_IMPLEMENTED_NOT_ACTIVATED",
+      "manual_review_default": true
+    },
     {
       "provider_id": "MODEL_PROVIDER_UNBOUND_GENERIC",
       "provider_name": "未绑定通用大模型供应方",
@@ -74,6 +109,29 @@
     }
   ],
   "models": [
+    {
+      "model_id": "OPENAI_RESPONSES_CONFIGURED_MODEL",
+      "model_family": "REASONING_OR_GENERAL_LLM",
+      "provider": "CONFIGURED_AT_DEPLOY_TIME",
+      "provider_id": "OPENAI_RESPONSES_API_INTERNAL_SHADOW",
+      "provider_type": "MODEL_PROVIDER",
+      "provider_role": "GENERAL_ASSIST_MODEL",
+      "model_provider_adapter": "src/shared/model_provider_runtime.py",
+      "provider_binding_state": "IMPLEMENTED_OFF_BY_DEFAULT",
+      "current_capability_mode": "BUILDABLE_BUT_OFF_BY_DEFAULT",
+      "allowed_capability_modes": [
+        "BUILDABLE_BUT_OFF_BY_DEFAULT",
+        "SHADOW_MODE",
+        "INTERNAL_GOVERNED",
+        "EMERGENCY_OFF"
+      ],
+      "fallback_provider_id": "MODEL_PROVIDER_UNBOUND_FALLBACK",
+      "version": "CONFIGURED_BY_KAKA_MODEL_PROVIDER_MODEL",
+      "usage_scope": "INTERNAL_ASSIST",
+      "enabled": false,
+      "trace_required": true,
+      "notes": "No model name is hard-coded as a product promise. Activation requires the runtime contract, passed eval, explicit internal-shadow approval, audit reference and secret-file credential."
+    },
     {
       "model_id": "GENERIC_LLM",
       "model_family": "LLM",

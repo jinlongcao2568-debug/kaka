@@ -6,6 +6,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -15,10 +16,12 @@ if str(SRC) not in sys.path:
 
 from shared.settings import Settings
 from stage2_ingestion.real_public_url_fetcher import (
+    ATTACHMENT_BROWSER_MAX_RESOLUTION_ATTEMPTS_PER_FETCH,
     DEGRADED_ENTRY_PROFILE_IDS_AFTER_136,
     NATIONAL_VERIFICATION_ENTRY_PROFILE_IDS,
     PUBLIC_ATTACHMENT_PROFILE_IDS,
     REAL_PUBLIC_ATTACHMENT_FETCH_MODE,
+    REAL_PUBLIC_ATTACHMENT_MAX_RESPONSE_BYTES,
     REAL_PUBLIC_ATTACHMENT_SNAPSHOT_KIND,
     REAL_PUBLIC_DETAIL_SNAPSHOT_KIND,
     REAL_PUBLIC_ENTRY_FETCH_MODE,
@@ -29,6 +32,7 @@ from stage2_ingestion.real_public_url_fetcher import (
     SCRAPLING_BOTTOM_LAYER_DEFAULT_CALL_STRATEGY,
     SCRAPLING_BOTTOM_LAYER_OWNER_APPROVAL_ID,
     SCRAPLING_BOTTOM_LAYER_ESCALATION_POLICY_ID,
+    CurlCommandRealPublicFetchTransport,
     HybridRealPublicFetchTransport,
     RealPublicEntryFetcher,
     RealPublicFetchResponse,
@@ -38,8 +42,11 @@ from stage2_ingestion.real_public_url_fetcher import (
     ScraplingRealPublicDynamicFetchTransport,
     ScraplingRealPublicFetchTransport,
     ScraplingRealPublicStealthyFetchTransport,
+    UrlLibRealPublicFetchTransport,
     _discover_same_site_attachment_link_items,
+    real_public_capture_support_policy,
 )
+import stage2_ingestion.real_public_url_fetcher as fetcher_module
 from stage2_ingestion.scrapling_snapshot_parser import SCRAPLING_SNAPSHOT_PARSER_ADAPTER_ID
 from stage2_ingestion.service import Stage2Service
 from storage.db import DatabaseSession
@@ -579,6 +586,7 @@ class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
         self.assertEqual(FakeScraplingFetcher.calls[0]["timeout"], 5.0)
         self.assertEqual(FakeScraplingFetcher.calls[0]["stealthy_headers"], False)
         self.assertIsNone(FakeScraplingFetcher.calls[0]["impersonate"])
+        self.assertFalse(FakeScraplingFetcher.calls[0]["follow_redirects"])
         self.assertEqual(
             FakeScraplingFetcher.calls[0]["headers"]["User-Agent"],
             "AX9S-Test/0.1",
@@ -618,6 +626,50 @@ class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
         self.assertEqual(FakeScraplingBrowserFetcher.calls[0]["useragent"], "AX9S-Test/0.1")
         self.assertEqual(FakeScraplingBrowserFetcher.calls[0]["wait_selector"], "body")
         self.assertFalse(FakeScraplingBrowserFetcher.calls[0]["google_search"])
+        self.assertTrue(callable(FakeScraplingBrowserFetcher.calls[0]["page_setup"]))
+
+    def test_scrapling_browser_route_aborts_private_redirect_or_subrequest(self) -> None:
+        FakeScraplingBrowserFetcher.calls = []
+        transport = ScraplingRealPublicDynamicFetchTransport(
+            fetcher_factory=FakeScraplingBrowserFetcher,
+            operator_authorized=True,
+        )
+        transport.fetch(
+            CCGP_DETAIL_URL,
+            timeout_seconds=5,
+            user_agent="AX9S-Test/0.1",
+        )
+
+        class FakePage:
+            route_handler: object | None = None
+
+            def route(self, pattern: str, handler: object) -> None:
+                self.pattern = pattern
+                self.route_handler = handler
+
+        class FakeRequest:
+            url = "http://169.254.169.254/latest/meta-data/"
+
+        class FakeRoute:
+            request = FakeRequest()
+            aborted = False
+            continued = False
+
+            def abort(self, reason: str) -> None:
+                self.aborted = reason == "blockedbyclient"
+
+            def continue_(self) -> None:
+                self.continued = True
+
+        page = FakePage()
+        page_setup = FakeScraplingBrowserFetcher.calls[0]["page_setup"]
+        page_setup(page)
+        route = FakeRoute()
+        page.route_handler(route)
+
+        self.assertEqual(page.pattern, "**/*")
+        self.assertTrue(route.aborted)
+        self.assertFalse(route.continued)
 
     def test_scrapling_stealthy_transport_wraps_authorized_browser_fetcher(self) -> None:
         FakeScraplingBrowserFetcher.calls = []
@@ -1529,8 +1581,103 @@ class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
 
         self.assertEqual(attachment["status"], "DEGRADED")
         self.assertEqual(attachment["attachment_blocker_class"], "CAPTCHA_MANUAL_REQUIRED")
+        self.assertEqual(attachment["capture_terminal_state"], "BLOCKED")
+        self.assertFalse(attachment["downstream_use_allowed"])
+        self.assertEqual(
+            attachment["browser_resolution_attempt_budget"],
+            ATTACHMENT_BROWSER_MAX_RESOLUTION_ATTEMPTS_PER_FETCH,
+        )
         self.assertTrue(attachment["fail_closed"])
         self.assertNotIn("automated_challenge_resolution_state", attachment)
+
+    def test_explicitly_unsupported_attachment_mime_cannot_be_overridden_by_pdf_filename_or_browser(self) -> None:
+        resolver = FakeAttachmentChallengeResolver(_pdf_like_bytes())
+        transport = FakeRealPublicFetchTransport(
+            {
+                CCGP_ATTACHMENT_URL: RealPublicFetchResponse(
+                    url=CCGP_ATTACHMENT_URL,
+                    status_code=200,
+                    content=b"\x89PNG\r\n\x1a\nnot-a-pdf",
+                    content_type="image/png",
+                    final_url=CCGP_ATTACHMENT_URL,
+                )
+            }
+        )
+
+        attachment = RealPublicEntryFetcher(
+            transport=transport,
+            repository=None,
+            attachment_challenge_resolver=resolver,
+            automated_challenge_resolution_enabled=True,
+        ).fetch_same_site_attachment_url(
+            CCGP_ATTACHMENT_URL,
+            parent_profile_id="CCGP-CENTRAL-NOTICES",
+            detail_page_url=CCGP_DETAIL_URL,
+        )
+
+        self.assertEqual(attachment["attachment_support_state"], "UNSUPPORTED_CONTENT_TYPE")
+        self.assertEqual(attachment["capture_terminal_state"], "UNSUPPORTED")
+        self.assertFalse(attachment["browser_escalation_allowed"])
+        self.assertFalse(attachment["retry_allowed"])
+        self.assertFalse(attachment["downstream_use_allowed"])
+        self.assertEqual(resolver.requests, [])
+
+    def test_oversized_attachment_is_terminal_unsupported_without_browser_escalation(self) -> None:
+        resolver = FakeAttachmentChallengeResolver(_pdf_like_bytes())
+        transport = FakeRealPublicFetchTransport(
+            {
+                CCGP_ATTACHMENT_URL: RealPublicFetchResponse(
+                    url=CCGP_ATTACHMENT_URL,
+                    status_code=200,
+                    content=b"%PDF" + (b"x" * 129),
+                    content_type="application/pdf",
+                    final_url=CCGP_ATTACHMENT_URL,
+                )
+            }
+        )
+
+        attachment = RealPublicEntryFetcher(
+            transport=transport,
+            repository=None,
+            attachment_max_response_bytes=128,
+            attachment_challenge_resolver=resolver,
+            automated_challenge_resolution_enabled=True,
+        ).fetch_same_site_attachment_url(
+            CCGP_ATTACHMENT_URL,
+            parent_profile_id="CCGP-CENTRAL-NOTICES",
+            detail_page_url=CCGP_DETAIL_URL,
+        )
+
+        self.assertEqual(attachment["attachment_support_state"], "UNSUPPORTED_RESPONSE_SIZE")
+        self.assertEqual(attachment["capture_terminal_state"], "UNSUPPORTED")
+        self.assertFalse(attachment["browser_escalation_allowed"])
+        self.assertEqual(resolver.requests, [])
+
+    def test_attachment_transport_failure_is_retryable_and_does_not_crash_or_open_browser(self) -> None:
+        resolver = FakeAttachmentChallengeResolver(_pdf_like_bytes())
+        transport = FakeRealPublicFetchTransport(
+            {CCGP_ATTACHMENT_URL: TimeoutError("attachment request timed out")}
+        )
+
+        attachment = RealPublicEntryFetcher(
+            transport=transport,
+            repository=None,
+            attachment_challenge_resolver=resolver,
+            automated_challenge_resolution_enabled=True,
+        ).fetch_same_site_attachment_url(
+            CCGP_ATTACHMENT_URL,
+            parent_profile_id="CCGP-CENTRAL-NOTICES",
+            detail_page_url=CCGP_DETAIL_URL,
+        )
+
+        self.assertEqual(attachment["status"], "DEGRADED")
+        self.assertEqual(attachment["attachment_support_state"], "RETRYABLE_FETCH_FAILURE")
+        self.assertEqual(attachment["capture_terminal_state"], "RETRYABLE")
+        self.assertIn("TIMEOUT", attachment["attachment_failure_taxonomy"])
+        self.assertIn("attachment_fetch_failed", attachment["attachment_failure_taxonomy"])
+        self.assertTrue(attachment["retry_allowed"])
+        self.assertFalse(attachment["browser_escalation_allowed"])
+        self.assertEqual(resolver.requests, [])
 
     def test_same_site_attachment_json_interface_error_is_not_saved_as_snapshot(self) -> None:
         json_error = (
@@ -1857,7 +2004,228 @@ class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
         self.assertEqual(raised.exception.reason, "url_not_in_real_public_entry_allowlist")
         self.assertFalse(raised.exception.carrier["fetch_attempted"])
         self.assertTrue(raised.exception.carrier["fail_closed"])
+        self.assertEqual(raised.exception.carrier["capture_terminal_state"], "BLOCKED")
+        self.assertFalse(raised.exception.carrier["browser_escalation_allowed"])
         self.assertEqual(transport.call_log, [])
+
+    def test_capture_support_policy_fixes_size_type_source_and_browser_boundaries(self) -> None:
+        policy = real_public_capture_support_policy()
+
+        self.assertEqual(
+            policy["attachment_max_response_bytes"],
+            REAL_PUBLIC_ATTACHMENT_MAX_RESPONSE_BYTES,
+        )
+        self.assertIn(".pdf", policy["supported_attachment_extensions"])
+        self.assertIn(".zip", policy["supported_attachment_extensions"])
+        self.assertIn("CCGP-CENTRAL-NOTICES", policy["registered_entry_profile_ids"])
+        self.assertEqual(
+            policy["terminal_states"],
+            ["READY", "REVIEW", "RETRYABLE", "BLOCKED", "UNSUPPORTED"],
+        )
+        self.assertTrue(policy["ready_requires_replayable_snapshot"])
+        self.assertFalse(policy["browser_resolution_enabled_by_default"])
+        self.assertEqual(policy["browser_resolution_attempts_per_fetch"], 1)
+        self.assertFalse(policy["unsupported_content_or_size_browser_escalation_allowed"])
+
+    def test_final_url_crosses_to_private_host_and_is_rejected_before_parsing(self) -> None:
+        transport = FakeRealPublicFetchTransport(
+            {
+                GGZY_ENTRY_URL: RealPublicFetchResponse(
+                    url=GGZY_ENTRY_URL,
+                    status_code=200,
+                    content=_ggzy_entry_html(),
+                    content_type="text/html; charset=utf-8",
+                    final_url="http://127.0.0.1/admin",
+                )
+            }
+        )
+
+        carrier = RealPublicEntryFetcher(transport=transport, repository=None).fetch_entry_url(
+            GGZY_ENTRY_URL,
+            profile_id="GGZY-DEAL-LIST",
+        )
+
+        self.assertEqual(carrier["status"], "DEGRADED")
+        self.assertEqual(carrier["degraded_reasons"], ["response_url_boundary_blocked"])
+        self.assertTrue(carrier["fail_closed"])
+        self.assertIsNone(carrier["snapshot_id_optional"])
+        self.assertIn("non_public_url_address", carrier["failure_detail_optional"])
+
+    def test_oversized_entry_response_is_rejected_without_snapshot(self) -> None:
+        transport = FakeRealPublicFetchTransport(
+            {
+                GGZY_ENTRY_URL: RealPublicFetchResponse(
+                    url=GGZY_ENTRY_URL,
+                    status_code=200,
+                    content=b"x" * 129,
+                    content_type="text/html; charset=utf-8",
+                    final_url=GGZY_ENTRY_URL,
+                )
+            }
+        )
+
+        carrier = RealPublicEntryFetcher(
+            transport=transport,
+            repository=None,
+            entry_max_response_bytes=128,
+        ).fetch_entry_url(GGZY_ENTRY_URL, profile_id="GGZY-DEAL-LIST")
+
+        self.assertEqual(carrier["status"], "DEGRADED")
+        self.assertEqual(carrier["degraded_reasons"], ["response_body_too_large"])
+        self.assertTrue(carrier["fail_closed"])
+        self.assertIsNone(carrier["snapshot_id_optional"])
+
+    def test_urllib_transport_rejects_private_address_before_request(self) -> None:
+        with self.assertRaisesRegex(RuntimeError, "non_public_url_address"):
+            UrlLibRealPublicFetchTransport().fetch(
+                "http://127.0.0.1/metadata",
+                timeout_seconds=1,
+                user_agent="AX9S-Test/0.1",
+            )
+
+    def test_urllib_transport_connects_only_to_the_validated_numeric_address(self) -> None:
+        dns_result = [
+            (
+                fetcher_module.socket.AF_INET,
+                fetcher_module.socket.SOCK_STREAM,
+                fetcher_module.socket.IPPROTO_TCP,
+                "",
+                ("93.184.216.34", 443),
+            )
+        ]
+        with patch.object(
+            fetcher_module.socket,
+            "getaddrinfo",
+            return_value=dns_result,
+        ) as resolver, patch.object(
+            fetcher_module,
+            "_connect_to_pinned_public_addresses",
+            side_effect=OSError("controlled stop after pinned connect selection"),
+        ) as connector:
+            with self.assertRaisesRegex(Exception, "controlled stop after pinned connect selection"):
+                UrlLibRealPublicFetchTransport().fetch(
+                    "https://example.com/public",
+                    timeout_seconds=1,
+                    user_agent="AX9S-Test/0.1",
+                )
+
+        self.assertEqual(resolver.call_count, 1)
+        self.assertEqual(connector.call_args.args[0], ("93.184.216.34",))
+        self.assertEqual(connector.call_args.args[1], 443)
+
+    def test_urllib_transport_rejects_mixed_public_private_dns_before_connect(self) -> None:
+        dns_result = [
+            (
+                fetcher_module.socket.AF_INET,
+                fetcher_module.socket.SOCK_STREAM,
+                fetcher_module.socket.IPPROTO_TCP,
+                "",
+                (address, 443),
+            )
+            for address in ("93.184.216.34", "127.0.0.1")
+        ]
+        with patch.object(
+            fetcher_module.socket,
+            "getaddrinfo",
+            return_value=dns_result,
+        ), patch.object(
+            fetcher_module,
+            "_connect_to_pinned_public_addresses",
+        ) as connector:
+            with self.assertRaisesRegex(RuntimeError, "non_public_url_address"):
+                UrlLibRealPublicFetchTransport().fetch(
+                    "https://example.com/public",
+                    timeout_seconds=1,
+                    user_agent="AX9S-Test/0.1",
+                )
+        connector.assert_not_called()
+
+    def test_curl_transport_pins_dns_and_rejects_routing_overrides(self) -> None:
+        dns_result = [
+            (
+                fetcher_module.socket.AF_INET,
+                fetcher_module.socket.SOCK_STREAM,
+                fetcher_module.socket.IPPROTO_TCP,
+                "",
+                ("93.184.216.34", 443),
+            )
+        ]
+        captured_command: list[str] = []
+
+        def fake_run(command: list[str], **_: object) -> object:
+            captured_command.extend(command)
+            Path(command[command.index("--dump-header") + 1]).write_text(
+                "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n",
+                encoding="iso-8859-1",
+            )
+            Path(command[command.index("--output") + 1]).write_bytes(b"ok")
+            return fetcher_module.subprocess.CompletedProcess(
+                command,
+                0,
+                stdout="\n200\nhttps://example.com/public\ntext/html",
+                stderr="",
+            )
+
+        with patch.object(
+            fetcher_module.socket,
+            "getaddrinfo",
+            return_value=dns_result,
+        ), patch.object(fetcher_module.subprocess, "run", side_effect=fake_run):
+            response = CurlCommandRealPublicFetchTransport(curl_binary="curl").fetch(
+                "https://example.com/public",
+                timeout_seconds=2,
+                user_agent="AX9S-Test/0.1",
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("--resolve", captured_command)
+        self.assertIn("example.com:443:93.184.216.34", captured_command)
+        self.assertEqual(captured_command[captured_command.index("--noproxy") + 1], "*")
+
+        with patch.object(
+            fetcher_module.socket,
+            "getaddrinfo",
+            return_value=dns_result,
+        ), patch.dict(
+            os.environ,
+            {"KAKA_CURL_EXTRA_ARGS": "--proxy http://127.0.0.1:8080"},
+            clear=False,
+        ), patch.object(fetcher_module.subprocess, "run") as run:
+            with self.assertRaisesRegex(RuntimeError, "unsafe_curl_extra_arg"):
+                CurlCommandRealPublicFetchTransport(curl_binary="curl").fetch(
+                    "https://example.com/public",
+                    timeout_seconds=2,
+                    user_agent="AX9S-Test/0.1",
+                )
+        run.assert_not_called()
+
+    def test_unpinned_scrapling_transports_require_controlled_egress_proxy(self) -> None:
+        dns_result = [
+            (
+                fetcher_module.socket.AF_INET,
+                fetcher_module.socket.SOCK_STREAM,
+                fetcher_module.socket.IPPROTO_TCP,
+                "",
+                ("93.184.216.34", 443),
+            )
+        ]
+        with patch.object(
+            fetcher_module.socket,
+            "getaddrinfo",
+            return_value=dns_result,
+        ), patch.dict(os.environ, {"KAKA_CONTROLLED_EGRESS_PROXY_URL": ""}, clear=False):
+            with self.assertRaisesRegex(RuntimeError, "controlled_egress_proxy_required"):
+                ScraplingRealPublicFetchTransport().fetch(
+                    "https://example.com/public",
+                    timeout_seconds=2,
+                    user_agent="AX9S-Test/0.1",
+                )
+            with self.assertRaisesRegex(RuntimeError, "controlled_egress_proxy_required"):
+                ScraplingRealPublicDynamicFetchTransport(operator_authorized=True).fetch(
+                    "https://example.com/public",
+                    timeout_seconds=2,
+                    user_agent="AX9S-Test/0.1",
+                )
 
     def test_error_login_captcha_or_empty_shell_prepares_automated_resume(self) -> None:
         challenge_body = (
@@ -1903,6 +2271,9 @@ class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
             carrier["failure_taxonomy"]["failure_class"],
             "CONTROLLED_CHALLENGE_BODY_PATTERN",
         )
+        self.assertEqual(carrier["capture_terminal_state"], "BLOCKED")
+        self.assertFalse(carrier["downstream_use_allowed"])
+        self.assertFalse(carrier["browser_escalation_allowed"])
 
     def test_profiles_are_total_entry_urls_not_detail_pages(self) -> None:
         for profile in REAL_PUBLIC_ENTRY_PROFILES:
@@ -2001,6 +2372,9 @@ class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
         )
         self.assertEqual(carrier["snapshot_id_optional"], None)
         self.assertEqual(carrier["same_site_detail_links"], [])
+        self.assertEqual(carrier["capture_support_state"], "BLOCKED_DYNAMIC_OR_SPA_SHELL")
+        self.assertEqual(carrier["capture_terminal_state"], "BLOCKED")
+        self.assertFalse(carrier["browser_escalation_allowed"])
 
     def test_jzsc_home_lightweight_public_entry_snapshot_is_allowed_without_unregistered_capture(self) -> None:
         public_home_body = (

@@ -1,5 +1,5 @@
 version: 1
-updated_at: "2026-04-19"
+updated_at: "2026-07-20"
 model_release_state: "INTERNAL_ONLY"
 external_release_status: "CONTROLLED_OPENING_REQUIRED"
 capability_mode_vocabulary_ref: "contracts/release/runtime_policy_catalog.json#capability_mode_vocabulary"
@@ -52,9 +52,29 @@ runtime_permission_layer:
     - "EMERGENCY_OFF"
     - "PERMANENTLY_BLOCKED"
 eval_summary:
-  latest_suite: "EVAL-INTERNAL-ASSIST"
-  status: "PENDING"
-  notes: "No active models registered; evals pending."
+  latest_suite: "EVAL-AGENT005-OFFLINE-PROTOCOL"
+  status: "OFFLINE_PROTOCOL_PASSED_REAL_PROVIDER_BLOCKED_EXTERNAL"
+  offline_protocol_report_ref: "output/model-evaluation/agent005-offline-quality-report.json"
+  offline_protocol_case_count: 10
+  offline_protocol_passed_count: 10
+  real_provider_result_count: 0
+  real_provider_latency_token_cost_observed: false
+  notes: "Offline replay validates protocol, safety and deterministic degradation only; no real-provider quality claim is allowed."
+internal_shadow_runtime:
+  implementation_state: "ADAPTER_IMPLEMENTED_OFF_BY_DEFAULT"
+  runtime_contract_ref: "contracts/model/model_provider_runtime_contract.json"
+  implementation_ref: "src/shared/model_provider_runtime.py"
+  protocol_validation_state: "LOCAL_HTTP_RESPONSES_COMPATIBLE_PASSED"
+  real_provider_canary_executed: false
+  offline_protocol_quality_gate: "PASSED"
+  real_provider_shadow_quality_gate: "BLOCKED_EXTERNAL_NO_REAL_PROVIDER_RESULTS"
+  model_quality_evaluation_contract_ref: "contracts/model/model_quality_evaluation_contract.json"
+  model_quality_golden_ref: "contracts/testing/model_provider_quality_golden_cases.json"
+  model_quality_evaluator_ref: "src/shared/model_quality_evaluation.py"
+  activation_authority_granted: false
+  customer_visible_enabled: false
+  formal_fact_write_enabled: false
+  tool_calling_enabled: false
 internal_only: true
 models: []
 provider_family_projection:

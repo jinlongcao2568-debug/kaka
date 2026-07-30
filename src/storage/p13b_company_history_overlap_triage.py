@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping
 
 from shared.utils import utc_now_iso
+from stage4_verification.regional_hard_defect_sources import resolve_release_evidence_local_housing_adapter
 
 
 P13B_COMPANY_HISTORY_OVERLAP_TRIAGE_KIND = "p13b_company_history_overlap_triage_v1_manifest"
@@ -61,6 +62,27 @@ LONG_TAIL_PROJECT_KEYWORDS = (
 )
 
 FORBIDDEN_TERMS = ("无风险", "无冲突", "在建冲突成立", "违法成立", "确认本人", "造假成立", "是不是本人")
+RESPONSIBLE_PERSON_NOISE_TERMS = {
+    "通过",
+    "公开",
+    "单元",
+    "达到国家",
+    "暂无",
+    "无",
+    "未填",
+    "空",
+    "合格",
+    "不合格",
+}
+RESPONSIBLE_PERSON_NOISE_FRAGMENTS = (
+    "国家",
+    "标准",
+    "要求",
+    "合格",
+    "通过",
+    "公开",
+    "单元",
+)
 
 HttpGetter = Callable[[str, Mapping[str, Any]], Mapping[str, Any]]
 
@@ -70,6 +92,12 @@ def build_p13b_company_history_overlap_triage(
     input_root: str | Path = DEFAULT_INPUT_ROOT,
     ygp_expansion_root: str | Path | None = None,
     ygp_coverage_closeout_root: str | Path | None = None,
+    gdcic_browser_readback_json: str | Path | None = None,
+    gdcic_browser_readback_root: str | Path | None = None,
+    stage4_backfill_followup_queue_json: str | Path | None = None,
+    stage4_backfill_followup_queue_root: str | Path | None = None,
+    release_field_query_json: str | Path | None = None,
+    release_field_query_root: str | Path | None = None,
     output_root: str | Path = DEFAULT_OUTPUT_ROOT,
     enable_live_public_query: bool = False,
     max_live_companies: int | None = None,
@@ -80,10 +108,12 @@ def build_p13b_company_history_overlap_triage(
     max_bid_list_pages_per_company: int = DEFAULT_MAX_BID_LIST_PAGES_PER_COMPANY,
     long_tail_cutoff_year: int = DEFAULT_LONG_TAIL_CUTOFF_YEAR,
     max_long_tail_bid_shows_per_company: int = DEFAULT_MAX_LONG_TAIL_BID_SHOWS_PER_COMPANY,
+    project_ids: list[str] | tuple[str, ...] = (),
     http_getter: HttpGetter | None = None,
     created_at: str | None = None,
 ) -> dict[str, Any]:
     created = created_at or utc_now_iso()
+    selected_project_ids = _project_id_set(project_ids)
     history_years = tuple(sorted({int(item) for item in history_window_years if int(item) > 0})) or DEFAULT_HISTORY_WINDOW_YEARS
     history_months = _positive_int(history_window_months, max(history_years) * 12)
     bid_page_size = _positive_int(bid_list_page_size, DEFAULT_BID_LIST_PAGE_SIZE)
@@ -93,13 +123,75 @@ def build_p13b_company_history_overlap_triage(
     in_dir = Path(input_root)
     ygp_expansion_dir = Path(ygp_expansion_root) if ygp_expansion_root else None
     ygp_coverage_dir = Path(ygp_coverage_closeout_root) if ygp_coverage_closeout_root else None
+    gdcic_readback_path = _gdcic_readback_path(
+        gdcic_browser_readback_json=gdcic_browser_readback_json,
+        gdcic_browser_readback_root=gdcic_browser_readback_root,
+    )
+    followup_queue_path = _stage4_followup_queue_path(
+        stage4_backfill_followup_queue_json=stage4_backfill_followup_queue_json,
+        stage4_backfill_followup_queue_root=stage4_backfill_followup_queue_root,
+    )
+    release_field_query_path = _release_field_query_path(
+        release_field_query_json=release_field_query_json,
+        release_field_query_root=release_field_query_root,
+    )
     out_dir = Path(output_root)
     out_dir.mkdir(parents=True, exist_ok=True)
 
     blocking_reasons: list[str] = []
-    input_mode = "YGP_ORIGINAL_READBACK_EXPANSION" if ygp_expansion_dir else "P12_VALUE_CLOSEOUT"
+    input_mode = (
+        "GDCIC_ALTERNATIVE_PUBLIC_SOURCE_ROUTES"
+        if gdcic_readback_path
+        else "STAGE4_BACKFILL_FOLLOWUP_PUBLIC_SOURCE_ROUTES"
+        if followup_queue_path
+        else "YGP_ORIGINAL_READBACK_EXPANSION"
+        if ygp_expansion_dir
+        else "P12_VALUE_CLOSEOUT"
+    )
     ygp_input_count = 0
-    if ygp_expansion_dir:
+    gdcic_alternative_route_count = 0
+    if gdcic_readback_path:
+        gdcic_readback = _load_json(
+            gdcic_readback_path,
+            blocking_reasons,
+            "gdcic_browser_authorized_readback_missing",
+        )
+        source_manifest = _source_manifest(gdcic_readback)
+        project_task_records = _gdcic_alternative_route_project_task_records(
+            gdcic_readback,
+            source_manifest,
+            created_at=created,
+        )
+        project_task_records = _filter_project_task_records(project_task_records, selected_project_ids)
+        gdcic_alternative_route_count = sum(
+            _int(record.get("gdcic_alternative_public_source_route_count"))
+            for record in project_task_records
+        )
+        company_query_tasks = _company_query_tasks(project_task_records, created_at=created)
+    elif followup_queue_path:
+        followup_queue = _load_json(
+            followup_queue_path,
+            blocking_reasons,
+            "stage4_backfill_followup_queue_missing",
+        )
+        release_field_query = (
+            _load_json(
+                release_field_query_path,
+                blocking_reasons,
+                "release_field_query_missing_for_stage4_followup_queue",
+            )
+            if release_field_query_path
+            else {}
+        )
+        source_manifest = _source_manifest(release_field_query)
+        project_task_records = _stage4_followup_queue_project_task_records(
+            followup_queue,
+            source_manifest,
+            created_at=created,
+        )
+        project_task_records = _filter_project_task_records(project_task_records, selected_project_ids)
+        company_query_tasks = _company_query_tasks(project_task_records, created_at=created)
+    elif ygp_expansion_dir:
         ygp_input_table = _load_json(
             ygp_expansion_dir / "p13b-ygp-overlap-triage-input-table.json",
             blocking_reasons,
@@ -126,6 +218,7 @@ def build_p13b_company_history_overlap_triage(
             _coverage_by_project(_source_manifest(ygp_coverage)),
             created_at=created,
         )
+        project_task_records = _filter_project_task_records(project_task_records, selected_project_ids)
         company_query_tasks = _company_query_tasks(project_task_records, created_at=created, dedupe_by_company=True)
     else:
         project_table = _load_json(in_dir / "project-value-table.json", blocking_reasons, "project_value_table_missing")
@@ -145,13 +238,14 @@ def build_p13b_company_history_overlap_triage(
             for record in _list(candidate_table.get("records"))
             if isinstance(record, Mapping)
         ]
-        selected_project_ids = {str(record.get("project_id") or "") for record in selected_projects}
+        available_project_ids = {str(record.get("project_id") or "") for record in selected_projects}
         candidates_by_project: dict[str, list[dict[str, Any]]] = {}
         for record in candidate_records:
             project_id = str(record.get("project_id") or "")
-            if project_id in selected_project_ids:
+            if project_id in available_project_ids:
                 candidates_by_project.setdefault(project_id, []).append(record)
         project_task_records = _project_task_records(selected_projects, candidates_by_project, created_at=created)
+        project_task_records = _filter_project_task_records(project_task_records, selected_project_ids)
         company_query_tasks = _company_query_tasks(project_task_records, created_at=created)
 
     execution_mode = "LIVE_PUBLIC_QUERY_ATTEMPTED" if enable_live_public_query else "PLAN_ONLY_NOT_EXECUTED"
@@ -169,30 +263,55 @@ def build_p13b_company_history_overlap_triage(
         max_long_tail_bid_shows_per_company=max_long_tail_shows,
         http_getter=http_getter,
     )
+    local_authority_source_task_records = _local_authority_source_task_records(
+        project_task_records,
+        created_at=created,
+    )
+    local_authority_source_readback_records = _execute_local_authority_source_tasks(
+        local_authority_source_task_records,
+        created_at=created,
+        enable_live_public_query=enable_live_public_query,
+        http_getter=http_getter,
+    )
+    stage4_official_readback_input_records = _stage4_official_readback_input_records(
+        project_task_records,
+        created_at=created,
+    )
+    if not ygp_input_count:
+        ygp_input_count = len(stage4_official_readback_input_records)
     manual_original_url_backtrace_table = _manual_original_url_backtrace_table(bid_show_records, overlap_signal_records)
     summary = _summary(
         project_task_records=project_task_records,
         company_history_query_records=company_history_query_records,
         bid_show_records=bid_show_records,
         overlap_signal_records=overlap_signal_records,
+        local_authority_source_task_records=local_authority_source_task_records,
+        local_authority_source_readback_records=local_authority_source_readback_records,
+        stage4_official_readback_input_records=stage4_official_readback_input_records,
         execution_mode=execution_mode,
         blocking_reasons=blocking_reasons,
         input_mode=input_mode,
         ygp_input_count=ygp_input_count,
+        gdcic_alternative_route_count=gdcic_alternative_route_count,
+        selected_project_ids=sorted(selected_project_ids),
     )
     manifest = {
         "manifest_version": P13B_COMPANY_HISTORY_OVERLAP_TRIAGE_VERSION,
         "manifest_kind": P13B_COMPANY_HISTORY_OVERLAP_TRIAGE_KIND,
         "adapter_id": P13B_COMPANY_HISTORY_OVERLAP_TRIAGE_ADAPTER_ID,
         "pipeline_stage": "P13BCompanyHistoryOverlapTriageV1",
-        "manifest_id": f"P13B-COMPANY-HISTORY-OVERLAP-{_fingerprint({'summary': summary, 'tasks': company_history_query_records})[:16]}",
+        "manifest_id": f"P13B-COMPANY-HISTORY-OVERLAP-{_fingerprint({'summary': summary, 'tasks': company_history_query_records, 'local_authority': local_authority_source_task_records, 'local_authority_readback': local_authority_source_readback_records})[:16]}",
         "created_at": created,
         "source_input_root": str(in_dir),
         "source_ygp_expansion_root": str(ygp_expansion_dir or ""),
         "source_ygp_coverage_closeout_root": str(ygp_coverage_dir or ""),
+        "source_gdcic_browser_readback_json": str(gdcic_readback_path or ""),
+        "source_stage4_backfill_followup_queue_json": str(followup_queue_path or ""),
+        "source_release_field_query_json": str(release_field_query_path or ""),
         "source_project_value_table": str(in_dir / "project-value-table.json"),
         "source_candidate_group_verification_table": str(in_dir / "candidate-group-verification-table.json"),
         "source_profile_id": "NATIONAL-GGZY-DATA-SERVICE-COMPANY-AWARD-HISTORY",
+        "selected_project_ids": sorted(selected_project_ids),
         "input_mode": input_mode,
         "source_base_url": DATA_GGZY_BASE_URL,
         "execution_mode": execution_mode,
@@ -220,6 +339,9 @@ def build_p13b_company_history_overlap_triage(
         "company_history_query_records": company_history_query_records,
         "bid_show_records": bid_show_records,
         "overlap_signal_records": overlap_signal_records,
+        "local_authority_source_task_records": local_authority_source_task_records,
+        "local_authority_source_readback_records": local_authority_source_readback_records,
+        "stage4_official_readback_input_records": stage4_official_readback_input_records,
         "manual_original_url_backtrace_table": manual_original_url_backtrace_table,
         "summary": summary,
         "safety": {
@@ -393,6 +515,253 @@ def _ygp_project_task_records(
     return list(grouped.values())
 
 
+def _gdcic_alternative_route_project_task_records(
+    gdcic_readback: Mapping[str, Any],
+    source_manifest: Mapping[str, Any],
+    *,
+    created_at: str,
+) -> list[dict[str, Any]]:
+    summary = gdcic_readback.get("summary") if isinstance(gdcic_readback.get("summary"), Mapping) else {}
+    route_records = [
+        dict(record)
+        for record in _list(summary.get("alternative_public_source_route_records"))
+        if isinstance(record, Mapping)
+        and str(record.get("route_state") or "") == "ALTERNATIVE_PUBLIC_SOURCE_ROUTE_READY"
+    ]
+    tasks_by_id = {
+        str(task.get("gdcic_browser_readback_task_id") or ""): dict(task)
+        for task in _list(source_manifest.get("browser_readback_task_records"))
+        if isinstance(task, Mapping)
+    }
+    grouped: dict[str, dict[str, Any]] = {}
+    for route in route_records:
+        task = tasks_by_id.get(str(route.get("gdcic_browser_readback_task_id") or ""), {})
+        project_id = str(route.get("project_id") or task.get("project_id") or "").strip()
+        if not project_id:
+            continue
+        query_params = task.get("query_params") if isinstance(task.get("query_params"), Mapping) else {}
+        project = grouped.setdefault(
+            project_id,
+            {
+                "project_task_id": _stable_id("P13B-GDCIC-ALT-PROJECT", project_id),
+                "project_id": project_id,
+                "project_name": str(route.get("project_name") or task.get("project_name") or ""),
+                "candidate_group_count": 0,
+                "candidate_group_ids": [],
+                "candidate_companies": [],
+                "candidate_company_input_counts": {},
+                "responsible_person_names": [],
+                "current_project_time_window": _current_project_time_window(task or route, [], created_at=created_at),
+                "candidate_notice_source_urls": [],
+                "project_source_urls": [],
+                "value_closeout_state": "GDCIC_AUTH_BLOCKED_ALTERNATIVE_PUBLIC_SOURCE_REQUIRED",
+                "p13b_triage_state": "P13B_COMPANY_HISTORY_TRIAGE_REQUIRED",
+                "gdcic_alternative_public_source_route_count": 0,
+                "gdcic_alternative_target_types": [],
+                "gdcic_alternative_route_policy": "data_ggzy_bid_show_then_ygp_or_local_authority_public_readback",
+                "customer_visible_allowed": False,
+                "no_legal_conclusion": True,
+            },
+        )
+        companies = _candidate_company_members(
+            str(route.get("candidate_company_name") or task.get("candidate_company_name") or "")
+        )
+        for company in companies:
+            project["candidate_companies"] = _dedupe([*project["candidate_companies"], company])
+            counts = dict(project.get("candidate_company_input_counts") or {})
+            counts[company] = _int(counts.get(company)) + 1
+            project["candidate_company_input_counts"] = counts
+        people = _dedupe(
+            [
+                *_list(project.get("responsible_person_names")),
+                route.get("person_name"),
+                task.get("person_name"),
+                query_params.get("personName"),
+                query_params.get("projectManagerName"),
+            ]
+        )
+        project["responsible_person_names"] = [
+            str(person).strip()
+            for person in people
+            if _valid_gdcic_alternative_responsible_person_name(person)
+        ]
+        urls = _dedupe(
+            [
+                *_list(project.get("candidate_notice_source_urls")),
+                query_params.get("triggerSourceUrl"),
+                task.get("trigger_source_url"),
+                task.get("source_url") if "ywtb.gzggzy.cn" in str(task.get("source_url") or "") else "",
+            ]
+        )
+        project["candidate_notice_source_urls"] = urls
+        project["project_source_urls"] = urls
+        project["gdcic_alternative_public_source_route_count"] = _int(
+            project.get("gdcic_alternative_public_source_route_count")
+        ) + 1
+        project["gdcic_alternative_target_types"] = _dedupe(
+            [
+                *_list(project.get("gdcic_alternative_target_types")),
+                route.get("release_evidence_target_type"),
+            ]
+        )
+    return list(grouped.values())
+
+
+def _stage4_followup_queue_project_task_records(
+    followup_queue: Mapping[str, Any],
+    release_field_query_manifest: Mapping[str, Any],
+    *,
+    created_at: str,
+) -> list[dict[str, Any]]:
+    field_by_project = _release_field_query_context_by_project(release_field_query_manifest)
+    records = [
+        dict(record)
+        for record in _list(followup_queue.get("records") or followup_queue.get("followup_records"))
+        if isinstance(record, Mapping)
+        and str(record.get("followup_queue_state") or "") in {
+            "FOLLOWUP_SOURCE_PLAN_REQUIRED",
+            "FOLLOWUP_SOURCE_RETRY_REQUIRED",
+            "FOLLOWUP_SOURCE_READY",
+        }
+    ]
+    grouped: dict[str, dict[str, Any]] = {}
+    for record in records:
+        project_id = str(record.get("project_id") or "").strip()
+        if not project_id:
+            continue
+        context = field_by_project.get(project_id, {})
+        companies = _dedupe(
+            [
+                *_list(record.get("candidate_companies")),
+                *_list(context.get("candidate_companies")),
+                record.get("candidate_company_name"),
+                *_candidate_company_members(str(context.get("candidate_company_name") or "")),
+            ]
+        )
+        people = _dedupe(
+            [
+                *_list(record.get("responsible_person_names")),
+                *_list(context.get("responsible_person_names")),
+            ]
+        )
+        urls = _dedupe(
+            [
+                *_list(record.get("candidate_notice_source_urls")),
+                *_list(record.get("project_source_urls")),
+                *_list(context.get("candidate_notice_source_urls")),
+                *_list(context.get("project_source_urls")),
+            ]
+        )
+        project = grouped.setdefault(
+            project_id,
+            {
+                "project_task_id": _stable_id("P13B-STAGE4-FOLLOWUP-PROJECT", project_id),
+                "project_id": project_id,
+                "project_name": str(record.get("project_name") or context.get("project_name") or ""),
+                "candidate_group_count": len(companies),
+                "candidate_group_ids": [],
+                "candidate_companies": [],
+                "candidate_company_input_counts": {},
+                "responsible_person_names": [],
+                "current_project_time_window": _current_project_time_window(record, [], created_at=created_at),
+                "candidate_notice_source_urls": [],
+                "project_source_urls": [],
+                "value_closeout_state": "STAGE4_AUTH_OR_SOURCE_BLOCKED_PUBLIC_FOLLOWUP_REQUIRED",
+                "p13b_triage_state": "P13B_COMPANY_HISTORY_TRIAGE_REQUIRED",
+                "stage4_followup_route": str(record.get("followup_route") or ""),
+                "stage4_followup_queue_state": str(record.get("followup_queue_state") or ""),
+                "stage4_followup_execution_priority": str(record.get("execution_priority") or ""),
+                "stage4_followup_required_input": _list(record.get("required_input")),
+                "stage4_followup_recommended_next_action": str(record.get("recommended_next_action") or ""),
+                "stage4_followup_context_source": str(record.get("context_source") or ""),
+                "stage4_public_source_fallback_sequence": _list(record.get("public_source_fallback_sequence")),
+                "local_authority_readback_context": {},
+                "stage4_official_readback_context": {},
+                "alternate_local_authority_source_candidates": [],
+                "stage4_gdcic_project_code_route_allowed": False,
+                "stage4_gdcic_project_code_route_policy": "PUBLIC_SOURCE_IDENTIFIER_NOT_SENT_TO_GDCIC_UNLESS_EXPLICIT_PROVINCIAL_CODE",
+                "customer_visible_allowed": False,
+                "query_miss_is_not_clearance": True,
+                "no_legal_conclusion": True,
+            },
+        )
+        project["candidate_companies"] = _dedupe([*project["candidate_companies"], *companies])
+        counts = dict(project.get("candidate_company_input_counts") or {})
+        for company in companies:
+            counts[company] = _int(counts.get(company)) + 1
+        project["candidate_company_input_counts"] = counts
+        project["responsible_person_names"] = _dedupe([*project["responsible_person_names"], *people])
+        project["candidate_notice_source_urls"] = _dedupe([*project["candidate_notice_source_urls"], *urls])
+        project["project_source_urls"] = _dedupe([*project["project_source_urls"], *urls])
+        if isinstance(record.get("local_authority_readback_context"), Mapping):
+            project["local_authority_readback_context"] = {
+                **dict(project.get("local_authority_readback_context") or {}),
+                **dict(record.get("local_authority_readback_context") or {}),
+            }
+        if isinstance(record.get("stage4_official_readback_context"), Mapping):
+            project["stage4_official_readback_context"] = {
+                **dict(project.get("stage4_official_readback_context") or {}),
+                **dict(record.get("stage4_official_readback_context") or {}),
+            }
+        project["alternate_local_authority_source_candidates"] = _dedupe_local_authority_alternate_candidates(
+            [
+                *_list(project.get("alternate_local_authority_source_candidates")),
+                *_list(record.get("alternate_local_authority_source_candidates")),
+            ]
+        )
+        project["candidate_group_count"] = len(project["candidate_companies"])
+    return list(grouped.values())
+
+
+def _release_field_query_context_by_project(manifest: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
+    out: dict[str, dict[str, Any]] = {}
+    for task in _list(manifest.get("field_task_records")):
+        if not isinstance(task, Mapping):
+            continue
+        project_id = str(task.get("project_id") or "").strip()
+        if not project_id:
+            continue
+        row = out.setdefault(
+            project_id,
+            {
+                "project_name": str(task.get("project_name") or ""),
+                "candidate_companies": [],
+                "responsible_person_names": [],
+                "candidate_notice_source_urls": [],
+                "project_source_urls": [],
+            },
+        )
+        row["project_name"] = row.get("project_name") or str(task.get("project_name") or "")
+        row["candidate_companies"] = _dedupe(
+            [
+                *row.get("candidate_companies", []),
+                *_list(task.get("candidate_group_members")),
+                *_list(task.get("matched_company_names")),
+                *_list(task.get("company_query_variants")),
+            ]
+        )
+        row["responsible_person_names"] = _dedupe(
+            [
+                *row.get("responsible_person_names", []),
+                task.get("responsible_person_name"),
+            ]
+        )
+        row["candidate_notice_source_urls"] = _dedupe(
+            [
+                *row.get("candidate_notice_source_urls", []),
+                task.get("trigger_source_url"),
+            ]
+        )
+        row["project_source_urls"] = _dedupe(
+            [
+                *row.get("project_source_urls", []),
+                task.get("trigger_source_url"),
+                task.get("source_url") if "ywtb.gzggzy.cn" in str(task.get("source_url") or "") else "",
+            ]
+        )
+    return out
+
+
 def _company_query_tasks(
     project_task_records: list[dict[str, Any]],
     *,
@@ -458,6 +827,488 @@ def _company_query_tasks(
                 by_company[key] = task
             tasks.append(task)
     return tasks
+
+
+def _local_authority_source_task_records(
+    project_task_records: list[Mapping[str, Any]],
+    *,
+    created_at: str,
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for project in project_task_records:
+        if not _needs_local_authority_source_task(project):
+            continue
+        project_id = str(project.get("project_id") or "").strip()
+        if not project_id:
+            continue
+        alternates = _dedupe_local_authority_alternate_candidates(
+            _list(project.get("alternate_local_authority_source_candidates"))
+        )
+        if alternates:
+            for alternate in alternates:
+                rows.append(_local_authority_source_task_record(project, created_at=created_at, alternate=alternate))
+            continue
+        rows.append(_local_authority_source_task_record(project, created_at=created_at))
+    return rows
+
+
+def _stage4_official_readback_input_records(
+    project_task_records: list[Mapping[str, Any]],
+    *,
+    created_at: str,
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for project in project_task_records:
+        project_id = str(project.get("project_id") or "").strip()
+        if not project_id:
+            continue
+        context = project.get("stage4_official_readback_context")
+        if not isinstance(context, Mapping):
+            continue
+        project_codes = [str(item).strip() for item in _list(context.get("ygp_project_code_variants")) if str(item or "").strip()]
+        biz_codes = [str(item).strip() for item in _list(context.get("ygp_biz_code_variants")) if str(item or "").strip()]
+        site_codes = [str(item).strip() for item in _list(context.get("ygp_site_code_variants")) if str(item or "").strip()]
+        notice_ids = [str(item).strip() for item in _list(context.get("ygp_notice_id_variants")) if str(item or "").strip()]
+        max_count = max(len(project_codes), len(biz_codes), len(site_codes), len(notice_ids), 0)
+        if not max_count:
+            continue
+        for index in range(max_count):
+            ygp_project_code = project_codes[index] if index < len(project_codes) else ""
+            ygp_biz_code = biz_codes[index] if index < len(biz_codes) else ""
+            ygp_site_code = site_codes[index] if index < len(site_codes) else ""
+            ygp_notice_id = notice_ids[index] if index < len(notice_ids) else ""
+            key = "|".join([project_id, ygp_project_code, ygp_biz_code, ygp_site_code, ygp_notice_id])
+            if key in seen:
+                continue
+            seen.add(key)
+            rows.append(
+                {
+                    "stage4_official_readback_input_record_id": _stable_id(
+                        "P13B-STAGE4-OFFICIAL-READBACK-INPUT",
+                        project_id,
+                        ygp_project_code,
+                        ygp_biz_code,
+                        ygp_site_code,
+                        ygp_notice_id,
+                    ),
+                    "project_id": project_id,
+                    "project_name": str(project.get("project_name") or context.get("project_name") or ""),
+                    "input_source": "stage4_official_readback_context",
+                    "source_kind": "ygp_original_notice_readback",
+                    "readback_input_state": "YGP_PUBLIC_IDENTIFIER_READY_FOR_ORIGINAL_READBACK",
+                    "ygp_project_code": ygp_project_code,
+                    "ygp_biz_code": ygp_biz_code,
+                    "ygp_site_code": ygp_site_code,
+                    "ygp_notice_id": ygp_notice_id,
+                    "candidate_notice_source_urls": _list(project.get("candidate_notice_source_urls")),
+                    "project_source_urls": _list(project.get("project_source_urls")),
+                    "candidate_companies": _list(project.get("candidate_companies")),
+                    "responsible_person_names": _list(project.get("responsible_person_names")),
+                    "recommended_next_action": "run_ygp_original_notice_readback_or_stage4_bridge_with_public_identifiers",
+                    "gdcic_project_code_route_allowed": False,
+                    "gdcic_project_code_route_policy": "YGP_OR_TRADE_IDENTIFIERS_NOT_SENT_TO_GDCIC_PROJECT_CODE",
+                    "must_not_extract_from_full_text_numbers": True,
+                    "customer_visible_allowed": False,
+                    "query_miss_is_not_clearance": True,
+                    "no_legal_conclusion": True,
+                    "created_at": created_at,
+                }
+            )
+    return rows
+
+
+def _local_authority_source_task_record(
+    project: Mapping[str, Any],
+    *,
+    created_at: str,
+    alternate: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    project_id = str(project.get("project_id") or "").strip()
+    readback_context = project.get("local_authority_readback_context")
+    if not isinstance(readback_context, Mapping):
+        readback_context = {}
+    alternate_source_id = str((alternate or {}).get("candidate_source_id") or "").strip()
+    alternate_region_code = str((alternate or {}).get("local_authority_region_code") or "").strip()
+    context_region_code = str(readback_context.get("local_authority_region_code") or "").strip()
+    region_code = alternate_region_code or context_region_code or _infer_local_authority_region_code(project)
+    jurisdiction_adapter = resolve_release_evidence_local_housing_adapter(region_code) if region_code else {}
+    source_url = str((alternate or {}).get("source_url") or jurisdiction_adapter.get("source_url") or "").strip()
+    api_url = str((alternate or {}).get("api_url") or "").strip()
+    source_name = str((alternate or {}).get("source_name") or jurisdiction_adapter.get("source_name") or "").strip()
+    source_profile_id = str(
+        (alternate or {}).get("source_profile_id")
+        or jurisdiction_adapter.get("source_profile_id")
+        or alternate_source_id
+        or ""
+    )
+    resolution = _local_authority_resolution_state(
+        region_code=region_code,
+        source_url=source_url,
+        jurisdiction_adapter=jurisdiction_adapter,
+        alternate_source_id=alternate_source_id,
+    )
+    return {
+        "local_authority_source_task_id": _stable_id(
+            "P13B-LOCAL-AUTHORITY-SOURCE",
+            project_id,
+            region_code,
+            project.get("stage4_followup_route"),
+            alternate_source_id,
+            source_url,
+            api_url,
+        ),
+        "project_id": project_id,
+        "project_name": str(project.get("project_name") or ""),
+        "stage4_followup_route": str(project.get("stage4_followup_route") or ""),
+        "stage4_followup_queue_state": str(project.get("stage4_followup_queue_state") or ""),
+        "stage4_followup_execution_priority": str(project.get("stage4_followup_execution_priority") or ""),
+        "stage4_followup_required_input": _list(project.get("stage4_followup_required_input")),
+        "stage4_followup_recommended_next_action": str(project.get("stage4_followup_recommended_next_action") or ""),
+        "stage4_followup_context_source": str(project.get("stage4_followup_context_source") or ""),
+        "candidate_companies": _list(project.get("candidate_companies")),
+        "responsible_person_names": _list(project.get("responsible_person_names")),
+        "candidate_notice_source_urls": _list(project.get("candidate_notice_source_urls")),
+        "project_source_urls": _list(project.get("project_source_urls")),
+        "source_task_state": "LOCAL_AUTHORITY_SOURCE_PLAN_READY",
+        "local_authority_readback_state": "PLAN_ONLY_NOT_EXECUTED",
+        "local_authority_resolution_state": resolution["local_authority_resolution_state"],
+        "local_authority_source_url_resolution_state": resolution["local_authority_source_url_resolution_state"],
+        "local_authority_resolution_blocker": resolution["local_authority_resolution_blocker"],
+        "local_authority_region_code": region_code,
+        "local_authority_region_basis": (
+            "stage4_followup_alternate_candidate"
+            if alternate_source_id
+            else _local_authority_region_basis(project)
+        ),
+        "local_authority_readback_context": dict(readback_context),
+        "local_authority_source_role": "historical_project_location_housing_or_supervisory_authority",
+        "alternate_source_candidate_id": alternate_source_id,
+        "alternate_source_candidate": dict(alternate or {}),
+        "recommended_query_mode": str((alternate or {}).get("recommended_query_mode") or ""),
+        "jurisdiction_local_housing_adapter": jurisdiction_adapter,
+        "jurisdiction_adapter_resolution_state": str(
+            jurisdiction_adapter.get("adapter_resolution_state") or ("ALTERNATE_CANDIDATE_PROVIDED" if alternate_source_id else "UNRESOLVED")
+        ),
+        "source_entry_id": str(jurisdiction_adapter.get("entry_id") or ""),
+        "source_profile_id": source_profile_id,
+        "source_name": source_name,
+        "source_url": source_url,
+        "api_url": api_url,
+        "official_reference_url": str(jurisdiction_adapter.get("official_reference_url") or ""),
+        "no_fallback_to_guangdong_or_guangzhou": bool(
+            jurisdiction_adapter.get("no_fallback_to_guangdong_or_guangzhou")
+        ),
+        "allowed_readback_states": ["MATCHED", "NOT_FOUND", "BLOCKED", "NEEDS_BROWSER"],
+        "recommended_next_action": str(
+            (alternate or {}).get("recommended_query_mode")
+            or "run_project_local_authority_adapter_or_keep_plan_only_without_clearance_claim"
+        ),
+        "query_miss_is_not_clearance": True,
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+        "created_at": created_at,
+    }
+
+
+def _local_authority_resolution_state(
+    *,
+    region_code: str,
+    source_url: str,
+    jurisdiction_adapter: Mapping[str, Any],
+    alternate_source_id: str,
+) -> dict[str, str]:
+    if source_url:
+        return {
+            "local_authority_resolution_state": "LOCAL_AUTHORITY_SOURCE_READY",
+            "local_authority_source_url_resolution_state": "SOURCE_URL_RESOLVED",
+            "local_authority_resolution_blocker": "",
+        }
+    if not region_code:
+        return {
+            "local_authority_resolution_state": "LOCAL_AUTHORITY_REGION_RESOLUTION_REQUIRED",
+            "local_authority_source_url_resolution_state": "SOURCE_URL_BLOCKED_BY_REGION_UNRESOLVED",
+            "local_authority_resolution_blocker": "local_authority_region_unresolved",
+        }
+    adapter_state = str(jurisdiction_adapter.get("adapter_resolution_state") or "").strip()
+    if alternate_source_id:
+        return {
+            "local_authority_resolution_state": "LOCAL_AUTHORITY_ALTERNATE_SOURCE_URL_REQUIRED",
+            "local_authority_source_url_resolution_state": "ALTERNATE_SOURCE_CANDIDATE_WITHOUT_URL",
+            "local_authority_resolution_blocker": "alternate_local_authority_source_url_missing",
+        }
+    return {
+        "local_authority_resolution_state": "LOCAL_AUTHORITY_SOURCE_URL_RESOLUTION_REQUIRED",
+        "local_authority_source_url_resolution_state": adapter_state or "SOURCE_URL_UNRESOLVED_FOR_REGION",
+        "local_authority_resolution_blocker": "local_authority_source_url_unresolved_for_region",
+    }
+
+
+def _dedupe_local_authority_alternate_candidates(values: Iterable[Any]) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for value in values:
+        if not isinstance(value, Mapping):
+            continue
+        row = dict(value)
+        key = "|".join(
+            [
+                str(row.get("candidate_source_id") or "").strip(),
+                str(row.get("source_url") or "").strip(),
+                str(row.get("api_url") or "").strip(),
+                str(row.get("recommended_query_mode") or "").strip(),
+            ]
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        row["customer_visible_allowed"] = False
+        row["query_miss_is_not_clearance"] = True
+        row["no_legal_conclusion"] = True
+        out.append(row)
+    return out
+
+
+def _execute_local_authority_source_tasks(
+    tasks: list[Mapping[str, Any]],
+    *,
+    created_at: str,
+    enable_live_public_query: bool,
+    http_getter: HttpGetter | None,
+) -> list[dict[str, Any]]:
+    getter = http_getter or _default_http_getter
+    rows: list[dict[str, Any]] = []
+    for task in tasks:
+        source_url = str(task.get("source_url") or "").strip()
+        project_id = str(task.get("project_id") or "").strip()
+        base = {
+            "local_authority_readback_record_id": _stable_id(
+                "P13B-LOCAL-AUTHORITY-READBACK",
+                task.get("local_authority_source_task_id"),
+                source_url,
+            ),
+            "local_authority_source_task_id": str(task.get("local_authority_source_task_id") or ""),
+            "project_id": project_id,
+            "project_name": str(task.get("project_name") or ""),
+            "local_authority_region_code": str(task.get("local_authority_region_code") or ""),
+            "source_profile_id": str(task.get("source_profile_id") or ""),
+            "source_name": str(task.get("source_name") or ""),
+            "source_url": source_url,
+            "candidate_companies": _list(task.get("candidate_companies")),
+            "responsible_person_names": _list(task.get("responsible_person_names")),
+            "execution_mode": "LIVE_PUBLIC_QUERY_ATTEMPTED" if enable_live_public_query else "PLAN_ONLY_NOT_EXECUTED",
+            "query_miss_is_not_clearance": True,
+            "customer_visible_allowed": False,
+            "no_legal_conclusion": True,
+            "created_at": created_at,
+        }
+        if not enable_live_public_query:
+            rows.append(
+                {
+                    **base,
+                    "local_authority_readback_state": "PLAN_ONLY_NOT_EXECUTED",
+                    "http_status_code": 0,
+                    "match_basis": "",
+                    "blocker_taxonomy": [],
+                    "recommended_next_action": "enable_live_public_query_or_keep_plan_only_without_clearance_claim",
+                }
+            )
+            continue
+        if not source_url:
+            resolution_state = str(task.get("local_authority_resolution_state") or "")
+            resolution_blocker = str(task.get("local_authority_resolution_blocker") or "").strip()
+            blocker_taxonomy = [resolution_blocker] if resolution_blocker else ["local_authority_source_url_missing"]
+            if resolution_state == "LOCAL_AUTHORITY_REGION_RESOLUTION_REQUIRED":
+                recommended_next_action = "resolve_historical_project_jurisdiction_before_local_authority_readback"
+            elif resolution_state == "LOCAL_AUTHORITY_ALTERNATE_SOURCE_URL_REQUIRED":
+                recommended_next_action = "fill_alternate_project_local_authority_source_url_before_readback"
+            else:
+                recommended_next_action = "register_project_local_authority_source_url_before_readback"
+            rows.append(
+                {
+                    **base,
+                    "local_authority_readback_state": "BLOCKED",
+                    "local_authority_resolution_state": resolution_state,
+                    "local_authority_source_url_resolution_state": str(
+                        task.get("local_authority_source_url_resolution_state") or ""
+                    ),
+                    "http_status_code": 0,
+                    "match_basis": "",
+                    "blocker_taxonomy": blocker_taxonomy,
+                    "recommended_next_action": recommended_next_action,
+                }
+            )
+            continue
+        try:
+            response = getter(source_url, {"task": task, "source_kind": "local_authority_public_source"})
+        except (TimeoutError, OSError, urllib.error.URLError) as exc:
+            rows.append(
+                {
+                    **base,
+                    "local_authority_readback_state": "BLOCKED",
+                    "http_status_code": 0,
+                    "match_basis": "",
+                    "blocker_taxonomy": ["local_authority_source_http_timeout_or_unavailable"],
+                    "error_type": type(exc).__name__,
+                    "error_message": str(exc),
+                    "recommended_next_action": "retry_project_local_authority_source_or_choose_alternate_official_entry",
+                }
+            )
+            continue
+        status = _int(response.get("status_code"))
+        body = str(response.get("body") or "")
+        if status <= 0 or status >= 400:
+            response_error = _local_authority_response_error_fields(response)
+            rows.append(
+                {
+                    **base,
+                    "local_authority_readback_state": "BLOCKED",
+                    "http_status_code": status,
+                    "content_type": str(response.get("content_type") or ""),
+                    "response_url": str(response.get("url") or source_url),
+                    "match_basis": "",
+                    "blocker_taxonomy": ["local_authority_source_http_blocked_or_unavailable"],
+                    **response_error,
+                    "recommended_next_action": "retry_project_local_authority_source_or_choose_alternate_official_entry",
+                }
+            )
+            continue
+        match_basis = _local_authority_match_basis(task, body)
+        state = "MATCHED" if match_basis else "NOT_FOUND"
+        rows.append(
+            {
+                **base,
+                "local_authority_readback_state": state,
+                "http_status_code": status,
+                "content_type": str(response.get("content_type") or ""),
+                "match_basis": match_basis,
+                "blocker_taxonomy": [] if match_basis else ["local_authority_portal_reachable_no_project_keyword_match"],
+                "recommended_next_action": (
+                    "manual_stage5_stage6_review_for_local_authority_keyword_match"
+                    if match_basis
+                    else "keep_not_found_as_non_clearance_and_try_specific_search_endpoint_or_manual_source_path"
+                ),
+            }
+        )
+    return rows
+
+
+def _local_authority_response_error_fields(response: Mapping[str, Any]) -> dict[str, str]:
+    error_message = str(response.get("error") or response.get("error_message") or "").strip()
+    error_type = str(response.get("error_type") or "").strip()
+    if not error_type and error_message:
+        error_type = "HTTP_RESPONSE_ERROR"
+    return {
+        "error_type": error_type,
+        "error_message": error_message,
+    }
+
+
+def _local_authority_match_basis(task: Mapping[str, Any], body: str) -> str:
+    text = _norm(body)
+    if not text:
+        return ""
+    project_name = str(task.get("project_name") or "").strip()
+    project_core = _project_name_core(project_name)
+    if _keyword_long_enough_for_local_authority_match(project_core) and _norm(project_core) in text:
+        return "project_name_core_keyword_present_in_local_authority_source"
+    for company in _list(task.get("candidate_companies")):
+        company_text = str(company or "").strip()
+        if len(_norm(company_text)) >= 8 and _norm(company_text) in text:
+            return "candidate_company_keyword_present_in_local_authority_source"
+    return ""
+
+
+def _keyword_long_enough_for_local_authority_match(value: str) -> bool:
+    normalized = _norm(value)
+    if re.search(r"[\u4e00-\u9fff]", value or ""):
+        return len(normalized) >= 6
+    return len(normalized) >= 12
+
+
+def _project_name_core(project_name: str) -> str:
+    text = re.sub(r"中标候选人公示|中标结果公告|招标公告|结果公告|公示", "", project_name or "")
+    return text.strip()
+
+
+def _needs_local_authority_source_task(project: Mapping[str, Any]) -> bool:
+    route = str(project.get("stage4_followup_route") or "")
+    if "local_authority" in route:
+        return True
+    for step in _list(project.get("stage4_public_source_fallback_sequence")):
+        if isinstance(step, Mapping) and str(step.get("source_kind") or "") == "project_local_authority_public_source":
+            return True
+    return False
+
+
+def _infer_local_authority_region_code(project: Mapping[str, Any]) -> str:
+    from_ygp_site_code = _infer_local_authority_region_code_from_ygp_site_code(project)
+    if from_ygp_site_code:
+        return from_ygp_site_code
+    text = " ".join(
+        str(item or "")
+        for item in [
+            project.get("project_name"),
+            *_list(project.get("candidate_notice_source_urls")),
+            *_list(project.get("project_source_urls")),
+        ]
+    )
+    city_map = {
+        "ywtb.gzggzy.cn": "CN-GD-GZ",
+        "gzggzy.cn": "CN-GD-GZ",
+        "广州": "CN-GD-GZ",
+        "黄埔": "CN-GD-GZ",
+        "南沙": "CN-GD-GZ",
+        "白云": "CN-GD-GZ",
+        "荔湾": "CN-GD-GZ",
+        "阳江": "CN-GD-YJ",
+        "阳东": "CN-GD-YJ",
+        "阳西": "CN-GD-YJ",
+        "中山": "CN-GD-ZS",
+    }
+    for marker, region_code in city_map.items():
+        if marker in text:
+            return region_code
+    if "广东" in text:
+        return "CN-GD"
+    return ""
+
+
+def _infer_local_authority_region_code_from_ygp_site_code(project: Mapping[str, Any]) -> str:
+    context = project.get("stage4_official_readback_context")
+    if not isinstance(context, Mapping):
+        return ""
+    site_codes = [str(item or "").strip() for item in _list(context.get("ygp_site_code_variants"))]
+    site_code_map = {
+        "440100": "CN-GD-GZ",
+        "440700": "CN-GD-JM",
+        "440900": "CN-GD-MM",
+        "441300": "CN-GD-HZ",
+        "441500": "CN-GD-SW",
+        "441600": "CN-GD-HY",
+    }
+    for site_code in site_codes:
+        if site_code in site_code_map:
+            return site_code_map[site_code]
+    return ""
+
+
+def _local_authority_region_basis(project: Mapping[str, Any]) -> str:
+    if _infer_local_authority_region_code_from_ygp_site_code(project):
+        return "ygp_site_code_public_identifier"
+    if _infer_local_authority_region_code(project):
+        text = " ".join(
+            str(item or "")
+            for item in [
+                project.get("project_name"),
+                *_list(project.get("candidate_notice_source_urls")),
+                *_list(project.get("project_source_urls")),
+            ]
+        ).lower()
+        if "ywtb.gzggzy.cn" in text or "gzggzy.cn" in text:
+            return "current_candidate_trade_platform_domain"
+        return "project_name_or_source_url_city_marker"
+    return "region_unresolved_operator_source_selection_required"
 
 
 def _project_ref_for_company(project: Mapping[str, Any], company_name: str) -> dict[str, Any]:
@@ -972,10 +1823,15 @@ def _summary(
     company_history_query_records: list[Mapping[str, Any]],
     bid_show_records: list[Mapping[str, Any]],
     overlap_signal_records: list[Mapping[str, Any]],
+    local_authority_source_task_records: list[Mapping[str, Any]],
+    local_authority_source_readback_records: list[Mapping[str, Any]],
+    stage4_official_readback_input_records: list[Mapping[str, Any]],
     execution_mode: str,
     blocking_reasons: list[str],
     input_mode: str = "P12_VALUE_CLOSEOUT",
     ygp_input_count: int = 0,
+    gdcic_alternative_route_count: int = 0,
+    selected_project_ids: list[str] | tuple[str, ...] = (),
 ) -> dict[str, Any]:
     queried_company_count = sum(
         1
@@ -995,6 +1851,9 @@ def _summary(
         "input_mode": input_mode,
         "execution_mode": execution_mode,
         "ygp_input_count": ygp_input_count,
+        "gdcic_alternative_public_source_route_count": gdcic_alternative_route_count,
+        "selected_project_ids": list(selected_project_ids),
+        "selected_project_count": len(selected_project_ids),
         "unique_company_count": len(company_history_query_records),
         "queried_company_count": queried_company_count,
         "company_search_hit_count": company_search_hit_count,
@@ -1014,6 +1873,33 @@ def _summary(
             1 for record in company_history_query_records if str(record.get("query_state") or "") == "COMPANY_HISTORY_RECORD_FOUND"
         ),
         "bid_show_record_count": len(bid_show_records),
+        "stage4_official_readback_input_count": len(stage4_official_readback_input_records),
+        "stage4_official_readback_input_state_counts": _counts(
+            record.get("readback_input_state") for record in stage4_official_readback_input_records
+        ),
+        "local_authority_source_task_count": len(local_authority_source_task_records),
+        "local_authority_source_task_state_counts": _counts(
+            record.get("source_task_state") for record in local_authority_source_task_records
+        ),
+        "local_authority_readback_state_counts": _counts(
+            record.get("local_authority_readback_state") for record in local_authority_source_task_records
+        ),
+        "local_authority_source_readback_count": len(local_authority_source_readback_records),
+        "local_authority_source_readback_state_counts": _counts(
+            record.get("local_authority_readback_state") for record in local_authority_source_readback_records
+        ),
+        "local_authority_region_counts": _counts(
+            record.get("local_authority_region_code") for record in local_authority_source_task_records
+        ),
+        "local_authority_resolution_state_counts": _counts(
+            record.get("local_authority_resolution_state") for record in local_authority_source_task_records
+        ),
+        "local_authority_source_url_resolution_state_counts": _counts(
+            record.get("local_authority_source_url_resolution_state") for record in local_authority_source_task_records
+        ),
+        "local_authority_adapter_resolution_state_counts": _counts(
+            record.get("jurisdiction_adapter_resolution_state") for record in local_authority_source_task_records
+        ),
         "bid_show_person_and_period_extracted_count": sum(
             1 for record in bid_show_records if str(record.get("bid_show_state") or "") == "BID_SHOW_PERSON_AND_PERIOD_EXTRACTED"
         ),
@@ -1032,7 +1918,7 @@ def _summary(
         "overlap_signal_state_counts": _counts(record.get("overlap_signal_state") for record in overlap_signal_records),
         "blocker_taxonomy_counts": _counts(
             blocker
-            for record in [*company_history_query_records, *bid_show_records]
+            for record in [*company_history_query_records, *bid_show_records, *local_authority_source_readback_records]
             for blocker in _list(record.get("blocker_taxonomy"))
         ),
         "blocking_reasons": blocking_reasons,
@@ -1068,6 +1954,7 @@ def _default_http_getter(url: str, context: Mapping[str, Any]) -> Mapping[str, A
             "content_type": exc.headers.get("Content-Type", "") if exc.headers else "",
             "body": body,
             "url": url,
+            "error_type": type(exc).__name__,
             "error": str(exc),
         }
     except urllib.error.URLError as exc:
@@ -1076,12 +1963,26 @@ def _default_http_getter(url: str, context: Mapping[str, Any]) -> Mapping[str, A
             "content_type": "",
             "body": "",
             "url": url,
+            "error_type": type(exc).__name__,
             "error": str(exc.reason),
         }
 
 
 def _http_json(url: str, getter: HttpGetter, *, route: str, task: Mapping[str, Any]) -> dict[str, Any]:
-    response = dict(getter(url, {"route": route, "task": dict(task)}))
+    try:
+        response = dict(getter(url, {"route": route, "task": dict(task)}))
+    except (TimeoutError, OSError, urllib.error.URLError) as exc:
+        return {
+            "route": route,
+            "url": url,
+            "status_code": 0,
+            "content_type": "",
+            "body_sha256": "",
+            "body_probe": "",
+            "json_payload": {},
+            "json_parse_error": "",
+            "error": f"{type(exc).__name__}: {exc}",
+        }
     status = int(response.get("status_code") or response.get("status") or 0)
     body = str(response.get("body") or response.get("content") or response.get("text") or "")
     parsed: Any = {}
@@ -1218,6 +2119,23 @@ def _company_search_variants(company_name: str) -> list[str]:
             if len(current) >= 6:
                 variants.append(current)
     return _dedupe(variants)
+
+
+def _candidate_company_members(company_name: str) -> list[str]:
+    text = str(company_name or "").strip()
+    if not text:
+        return []
+    cleaned = re.sub(r"[（(]\s*(?:主|成|联合体成员|牵头人)\s*[)）]", "", text)
+    parts = [
+        part.strip()
+        for part in re.split(r"[;；、，,]\s*", cleaned)
+        if part.strip()
+    ]
+    return [
+        part
+        for part in _dedupe(parts or [cleaned])
+        if part and not re.fullmatch(r"[（(]?\s*(?:主|成)\s*[)）]?", part)
+    ]
 
 
 def _current_project_time_window(
@@ -1698,6 +2616,23 @@ def _load_json(path: Path, blocking_reasons: list[str], missing_reason: str) -> 
     return data if isinstance(data, dict) else {}
 
 
+def _project_id_set(project_ids: list[str] | tuple[str, ...]) -> set[str]:
+    return {str(item or "").strip() for item in project_ids if str(item or "").strip()}
+
+
+def _filter_project_task_records(
+    project_task_records: list[dict[str, Any]],
+    selected_project_ids: set[str],
+) -> list[dict[str, Any]]:
+    if not selected_project_ids:
+        return project_task_records
+    return [
+        record
+        for record in project_task_records
+        if str(record.get("project_id") or "").strip() in selected_project_ids
+    ]
+
+
 def _list(value: Any) -> list[Any]:
     if value is None:
         return []
@@ -1722,6 +2657,22 @@ def _dedupe(values: Iterable[Any]) -> list[Any]:
     return out
 
 
+def _valid_gdcic_alternative_responsible_person_name(value: Any) -> bool:
+    name = str(value or "").strip()
+    if not name or name in RESPONSIBLE_PERSON_NOISE_TERMS:
+        return False
+    if re.search(r"[0-9A-Za-z]", name):
+        return False
+    if any(ch in name for ch in "：:；;，,。/\\|()（）[]【】{}<>《》"):
+        return False
+    normalized = re.sub(r"[\s·•・]", "", name)
+    if normalized in RESPONSIBLE_PERSON_NOISE_TERMS:
+        return False
+    if any(fragment in normalized for fragment in RESPONSIBLE_PERSON_NOISE_FRAGMENTS):
+        return False
+    return bool(re.fullmatch(r"[\u4e00-\u9fff]{2,6}", normalized))
+
+
 def _norm(value: str) -> str:
     return re.sub(r"[\s（）()；;，,、·\-—_]+", "", value or "").lower()
 
@@ -1739,6 +2690,42 @@ def _counts(values: Iterable[Any]) -> dict[str, int]:
 def _source_manifest(payload: Mapping[str, Any]) -> Mapping[str, Any]:
     manifest = payload.get("manifest") if isinstance(payload, Mapping) else {}
     return manifest if isinstance(manifest, Mapping) else payload
+
+
+def _gdcic_readback_path(
+    *,
+    gdcic_browser_readback_json: str | Path | None,
+    gdcic_browser_readback_root: str | Path | None,
+) -> Path | None:
+    if gdcic_browser_readback_json:
+        return Path(gdcic_browser_readback_json)
+    if gdcic_browser_readback_root:
+        return Path(gdcic_browser_readback_root) / "gdcic-browser-authorized-readback-v1.json"
+    return None
+
+
+def _stage4_followup_queue_path(
+    *,
+    stage4_backfill_followup_queue_json: str | Path | None,
+    stage4_backfill_followup_queue_root: str | Path | None,
+) -> Path | None:
+    if stage4_backfill_followup_queue_json:
+        return Path(stage4_backfill_followup_queue_json)
+    if stage4_backfill_followup_queue_root:
+        return Path(stage4_backfill_followup_queue_root) / "stage4-backfill-followup-queue-v1.json"
+    return None
+
+
+def _release_field_query_path(
+    *,
+    release_field_query_json: str | Path | None,
+    release_field_query_root: str | Path | None,
+) -> Path | None:
+    if release_field_query_json:
+        return Path(release_field_query_json)
+    if release_field_query_root:
+        return Path(release_field_query_root) / "guangdong-local-field-query-probe-v1.json"
+    return None
 
 
 def _int(value: Any) -> int:
@@ -1779,11 +2766,21 @@ def _parse_history_window_years(value: str) -> list[int]:
     return years or list(DEFAULT_HISTORY_WINDOW_YEARS)
 
 
+def _parse_csv(value: str) -> list[str]:
+    return [part.strip() for part in re.split(r"[,，\s]+", str(value or "")) if part.strip()]
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Build P13B company history overlap triage manifest.")
     parser.add_argument("--input-root", default=str(DEFAULT_INPUT_ROOT))
     parser.add_argument("--ygp-expansion-root", default="")
     parser.add_argument("--ygp-coverage-closeout-root", default="")
+    parser.add_argument("--gdcic-browser-readback-json", default="")
+    parser.add_argument("--gdcic-browser-readback-root", default="")
+    parser.add_argument("--stage4-backfill-followup-queue-json", default="")
+    parser.add_argument("--stage4-backfill-followup-queue-root", default="")
+    parser.add_argument("--release-field-query-json", default="")
+    parser.add_argument("--release-field-query-root", default="")
     parser.add_argument("--output-root", default=str(DEFAULT_OUTPUT_ROOT))
     parser.add_argument("--enable-live-public-query", action="store_true")
     parser.add_argument("--max-live-companies", type=int, default=None)
@@ -1794,12 +2791,19 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--max-bid-list-pages-per-company", type=int, default=DEFAULT_MAX_BID_LIST_PAGES_PER_COMPANY)
     parser.add_argument("--long-tail-cutoff-year", type=int, default=DEFAULT_LONG_TAIL_CUTOFF_YEAR)
     parser.add_argument("--max-long-tail-bid-shows-per-company", type=int, default=DEFAULT_MAX_LONG_TAIL_BID_SHOWS_PER_COMPANY)
+    parser.add_argument("--project-ids", default="")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
     result = build_p13b_company_history_overlap_triage(
         input_root=args.input_root,
         ygp_expansion_root=args.ygp_expansion_root or None,
         ygp_coverage_closeout_root=args.ygp_coverage_closeout_root or None,
+        gdcic_browser_readback_json=args.gdcic_browser_readback_json or None,
+        gdcic_browser_readback_root=args.gdcic_browser_readback_root or None,
+        stage4_backfill_followup_queue_json=args.stage4_backfill_followup_queue_json or None,
+        stage4_backfill_followup_queue_root=args.stage4_backfill_followup_queue_root or None,
+        release_field_query_json=args.release_field_query_json or None,
+        release_field_query_root=args.release_field_query_root or None,
         output_root=args.output_root,
         enable_live_public_query=args.enable_live_public_query,
         max_live_companies=args.max_live_companies,
@@ -1810,6 +2814,7 @@ def main(argv: list[str] | None = None) -> int:
         max_bid_list_pages_per_company=args.max_bid_list_pages_per_company,
         long_tail_cutoff_year=args.long_tail_cutoff_year,
         max_long_tail_bid_shows_per_company=args.max_long_tail_bid_shows_per_company,
+        project_ids=_parse_csv(args.project_ids),
     )
     if args.json:
         print(json.dumps(result, ensure_ascii=False, indent=2))

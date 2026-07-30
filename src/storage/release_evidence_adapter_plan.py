@@ -3,11 +3,24 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
+import urllib.parse
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
 from shared.utils import utc_now_iso
+from storage.runtime_closeout_precedence import (
+    blocker_ledger_record,
+    closeout_precedence_decision,
+    closeout_precedence_summary,
+)
 from stage4_verification.regional_hard_defect_sources import resolve_release_evidence_local_housing_adapter
+from stage4_verification.verification_scope_policy import (
+    CROSS_REGION_INFORMATION_SOURCE_TYPES,
+    CURRENT_PROJECT_MAINLINE_PRIORITY_MODE,
+    CURRENT_PROJECT_MAINLINE_PRIORITY_REGION_CODE,
+    RELEASE_EVIDENCE_QUERY_REGION_RULE,
+)
 
 
 RELEASE_EVIDENCE_ADAPTER_PLAN_KIND = "release_evidence_adapter_plan_v1_manifest"
@@ -20,6 +33,44 @@ DEFAULT_OUTPUT_ROOT = Path("tmp/evaluation-real-samples/release-evidence-adapter
 
 FORBIDDEN_TERMS = ("无风险", "无冲突", "在建冲突成立", "违法成立", "确认本人", "造假成立", "是不是本人")
 ALLOWED_ADAPTER_RESULT_STATES = ["MATCHED", "NOT_FOUND", "BLOCKED", "NEEDS_BROWSER"]
+PROJECT_CODE_FIELD_KEYS = {
+    "projectcode",
+    "projectcodes",
+    "projectno",
+    "projectnum",
+    "projectid",
+    "projectpubliccode",
+    "prooforserialcode",
+    "proofcode",
+    "sourceprojectcode",
+    "gdcicprojectcode",
+    "gdcicprojectcodes",
+    "gdcicprojectcodevariants",
+    "projectcodevariants",
+    "tradeprojectcode",
+    "prjnum",
+    "prjcode",
+    "tenderprojectcode",
+    "sectioncode",
+    "bidsectioncode",
+}
+PROJECT_CODE_URL_QUERY_KEYS = {
+    "projectcode",
+    "project_code",
+    "projectno",
+    "projectnum",
+    "projectid",
+    "project_id",
+    "project_public_code",
+    "source_project_code",
+    "gdcic_project_code",
+    "trade_project_code",
+    "prjnum",
+    "prjcode",
+    "tenderprojectcode",
+    "sectioncode",
+    "bidsectioncode",
+}
 
 SOURCE_TARGET_ALIASES = {
     "construction_permit": "construction_permit",
@@ -54,6 +105,21 @@ TARGET_POLICY = {
         "evidence_family": "C_REVERSE_EXPLANATION_OFFICIAL_READBACK",
         "source_role": "project_manager_change_or_responsibility_window_split",
     },
+}
+
+EXECUTION_PRIORITY_POLICY = {
+    "policy_id": "RELEASE-EVIDENCE-QUERY-REGION-PRIORITY-V1",
+    "current_project_mainline_priority_mode": CURRENT_PROJECT_MAINLINE_PRIORITY_MODE,
+    "current_project_mainline_priority_region_code": CURRENT_PROJECT_MAINLINE_PRIORITY_REGION_CODE,
+    "current_project_mainline_priority_note": "Guangdong priority applies to current candidate project live closeout, not to forcing historical release evidence into Guangdong sources.",
+    "release_evidence_query_region_rule": RELEASE_EVIDENCE_QUERY_REGION_RULE,
+    "release_evidence_follows_historical_overlap_project_jurisdiction": True,
+    "do_not_force_release_evidence_to_current_project_region": True,
+    "cross_region_information_checks_allowed": True,
+    "cross_region_information_source_types": list(CROSS_REGION_INFORMATION_SOURCE_TYPES),
+    "query_miss_is_not_clearance": True,
+    "customer_visible_allowed": False,
+    "no_legal_conclusion": True,
 }
 
 
@@ -109,6 +175,7 @@ def build_release_evidence_adapter_plan(
         )
         for record in closeout_records
     ]
+    project_plan_lookup = _records_by_project(project_plan_records)
     adapter_task_records = [
         task
         for closeout in closeout_records
@@ -116,6 +183,7 @@ def build_release_evidence_adapter_plan(
             closeout=closeout,
             source_tasks=source_tasks_by_project.get(str(closeout.get("project_id") or ""), []),
             source_plan=source_plans_by_project.get(str(closeout.get("project_id") or ""), {}),
+            project_plan=project_plan_lookup.get(str(closeout.get("project_id") or ""), {}),
             created_at=created,
         )
     ]
@@ -138,6 +206,7 @@ def build_release_evidence_adapter_plan(
         "source_p13b_operational_closeout_manifest_id": str(operational_manifest.get("manifest_id") or ""),
         "allowed_adapter_result_states": list(ALLOWED_ADAPTER_RESULT_STATES),
         "target_policy": TARGET_POLICY,
+        "execution_priority_policy": EXECUTION_PRIORITY_POLICY,
         "project_release_evidence_plan_records": project_plan_records,
         "release_evidence_adapter_task_records": adapter_task_records,
         "summary": summary,
@@ -175,11 +244,30 @@ def _project_plan_record(
 ) -> dict[str, Any]:
     project_id = str(closeout.get("project_id") or "")
     closeout_state = str(closeout.get("closeout_state") or "")
+    closeout_precedence = closeout_precedence_decision(
+        closeout,
+        task_family="release_evidence_query",
+        runtime_layer="controller decision:release_evidence_adapter_plan",
+    )
+    suppressed = bool(closeout_precedence.get("suppressed_dispatch") or closeout_precedence.get("should_suppress_dispatch"))
+    projection_only_terminal = _release_evidence_projection_only_terminal(closeout_precedence)
+    blocker_record = (
+        blocker_ledger_record(closeout, closeout_precedence, ledger_scope="stage4_release_evidence_query")
+        if suppressed and not projection_only_terminal
+        else {}
+    )
     is_a_signal = closeout_state == "PROMOTE_STAGE6_STAGE7_INTERNAL_PREVIEW" or str(
         closeout.get("evidence_grade") or ""
     ).startswith("A_")
     normalized_targets = _task_target_types(source_tasks)
-    if is_a_signal and source_tasks:
+    if suppressed:
+        plan_state = "RELEASE_EVIDENCE_TERMINAL_CLOSEOUT_SUPPRESSED"
+        next_action = str(
+            closeout_precedence.get("operator_next_action")
+            or closeout_precedence.get("next_action")
+            or "project_to_review_ready_status_projection_without_duplicate_dispatch"
+        )
+    elif is_a_signal and source_tasks:
         plan_state = "RELEASE_EVIDENCE_ADAPTER_TASKS_PLANNED"
         next_action = "run_release_evidence_adapters_when_live_approved"
     elif is_a_signal:
@@ -226,7 +314,19 @@ def _project_plan_record(
             jurisdiction_adapter.get("no_fallback_to_guangdong_or_guangzhou")
         ),
         "allowed_adapter_result_states": list(ALLOWED_ADAPTER_RESULT_STATES),
+        "execution_priority_policy": EXECUTION_PRIORITY_POLICY,
         "recommended_next_action": next_action,
+        "closeout_precedence": closeout_precedence,
+        "closeout_precedence_state": str(closeout_precedence.get("closeout_precedence_state") or ""),
+        "closeout_precedence_suppressed": suppressed,
+        "runtime_blocker_ledger_record": blocker_record,
+        "runtime_blocker_ledger_records": [blocker_record] if blocker_record else [],
+        "operator_projection": _project_plan_operator_projection(
+            closeout=closeout,
+            closeout_precedence=closeout_precedence,
+            plan_state=plan_state,
+            next_action=next_action,
+        ),
         "query_miss_is_not_clearance": True,
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,
@@ -234,13 +334,40 @@ def _project_plan_record(
     }
 
 
+def _release_evidence_projection_only_terminal(closeout_precedence: Mapping[str, Any]) -> bool:
+    task_scope = str(closeout_precedence.get("task_scope") or "")
+    terminal_marker = (
+        closeout_precedence.get("terminal_marker")
+        if isinstance(closeout_precedence.get("terminal_marker"), Mapping)
+        else {}
+    )
+    terminal_state = str(
+        terminal_marker.get("terminal_state") or terminal_marker.get("terminal_grade") or ""
+    ).strip()
+    return bool(
+        task_scope == "release_evidence_query"
+        and (
+            terminal_state in {
+                "MATCHED",
+                "REVIEW_READY",
+                "RELEASE_FIELD_QUERY_REVIEW_READY",
+                "RELEASE_FIELD_QUERY_PUBLIC_READBACK_REVIEW_READY",
+            }
+            or terminal_state.startswith(("B_", "C_"))
+        )
+    )
+
+
 def _adapter_tasks_for_project(
     *,
     closeout: Mapping[str, Any],
     source_tasks: list[Mapping[str, Any]],
     source_plan: Mapping[str, Any],
+    project_plan: Mapping[str, Any],
     created_at: str,
 ) -> list[dict[str, Any]]:
+    if bool(project_plan.get("closeout_precedence_suppressed")):
+        return []
     if str(closeout.get("closeout_state") or "") != "PROMOTE_STAGE6_STAGE7_INTERNAL_PREVIEW" and not str(
         closeout.get("evidence_grade") or ""
     ).startswith("A_"):
@@ -258,6 +385,7 @@ def _adapter_tasks_for_project(
             policy = TARGET_POLICY.get(target_type)
             if not policy:
                 continue
+            query_params = _release_adapter_task_query_params(source_task)
             rows.append(
                 {
                     "release_evidence_adapter_task_id": _stable_id(
@@ -279,6 +407,13 @@ def _adapter_tasks_for_project(
                     ),
                     "release_evidence_query_region_code": str(source_task.get("release_evidence_query_region_code") or ""),
                     "release_evidence_query_region_basis": str(source_task.get("release_evidence_query_region_basis") or ""),
+                    "release_evidence_query_region_rule": RELEASE_EVIDENCE_QUERY_REGION_RULE,
+                    "release_evidence_follows_historical_overlap_project_jurisdiction": True,
+                    "do_not_force_release_evidence_to_current_project_region": True,
+                    "current_project_mainline_priority_mode": CURRENT_PROJECT_MAINLINE_PRIORITY_MODE,
+                    "current_project_mainline_priority_region_code": CURRENT_PROJECT_MAINLINE_PRIORITY_REGION_CODE,
+                    "cross_region_information_checks_allowed": True,
+                    "cross_region_information_source_types": list(CROSS_REGION_INFORMATION_SOURCE_TYPES),
                     "local_housing_authority_adapter_scope": str(source_task.get("local_housing_authority_adapter_scope") or ""),
                     "local_housing_authority_adapter_region_code": str(
                         source_task.get("local_housing_authority_adapter_region_code") or ""
@@ -319,7 +454,7 @@ def _adapter_tasks_for_project(
                         or ""
                     ),
                     "trigger_source_url": str(source_task.get("trigger_source_url") or ""),
-                    "query_params": dict(source_task.get("query_params") or {}),
+                    "query_params": query_params,
                     "next_adapter": str(
                         source_task.get("next_adapter")
                         or jurisdiction_adapter.get("next_adapter")
@@ -362,6 +497,52 @@ def _normalized_target_types(task: Mapping[str, Any]) -> list[str]:
     return _dedupe(SOURCE_TARGET_ALIASES.get(str(value or ""), str(value or "")) for value in raw_values)
 
 
+def _release_adapter_task_query_params(source_task: Mapping[str, Any]) -> dict[str, Any]:
+    raw_params = dict(source_task.get("query_params") or {})
+    project_code_variants = _project_code_variants(
+        [
+            *_list(raw_params.get("projectCodeVariants")),
+            *_list(raw_params.get("gdcicProjectCodeVariants")),
+            *_list(raw_params.get("projectCodes")),
+            raw_params.get("projectCode"),
+            raw_params.get("sourceProjectCode"),
+            raw_params.get("tradeProjectCode"),
+            source_task.get("project_code_candidates"),
+            source_task.get("gdcic_project_code_candidates"),
+            source_task.get("project_codes"),
+            source_task.get("gdcic_project_codes"),
+            source_task.get("project_code"),
+            source_task.get("source_project_code"),
+            source_task.get("project_public_code"),
+            source_task.get("gdcic_project_code"),
+            source_task.get("trade_project_code"),
+            source_task.get("source_results"),
+            source_task.get("bid_show_records"),
+            source_task.get("data_ggzy_bid_show_records"),
+            source_task.get("ygp_project_records"),
+            source_task.get("ygp_flow_matrix_records"),
+            source_task.get("ygp_flow_bucket_records"),
+            source_task.get("ygp_flow_item_records"),
+            source_task.get("ygp_detail_readback_records"),
+            source_task.get("guangdong_ygp_flow_matrix"),
+            source_task.get("ygp_flow_matrix"),
+            source_task.get("source_refs"),
+            source_task.get("trigger_source_url"),
+        ]
+    )
+    gdcic_project_code_variants = _gdcic_project_code_variants(project_code_variants)
+    merged = dict(raw_params)
+    if project_code_variants:
+        merged["projectCodeVariants"] = project_code_variants
+    if gdcic_project_code_variants:
+        merged["gdcicProjectCodeVariants"] = gdcic_project_code_variants
+        merged["projectCode"] = _first_non_empty(gdcic_project_code_variants)
+    trade_project_code = _first_non_empty(code for code in project_code_variants if code.upper().startswith("JG"))
+    if trade_project_code:
+        merged["tradeProjectCode"] = trade_project_code
+    return merged
+
+
 def _summary(
     *,
     project_plan_records: list[Mapping[str, Any]],
@@ -369,6 +550,18 @@ def _summary(
     blocking_reasons: list[str],
     operational_supplied: bool,
 ) -> dict[str, Any]:
+    precedence = closeout_precedence_summary(
+        record.get("closeout_precedence")
+        for record in project_plan_records
+        if isinstance(record.get("closeout_precedence"), Mapping)
+    )
+    blocker_records = [
+        record.get("runtime_blocker_ledger_record")
+        for record in project_plan_records
+        if isinstance(record.get("runtime_blocker_ledger_record"), Mapping)
+        and record.get("runtime_blocker_ledger_record")
+    ]
+    project_code_recall = _project_code_recall_summary(adapter_task_records)
     return {
         "release_evidence_adapter_plan_state": "RELEASE_EVIDENCE_ADAPTER_PLAN_READY"
         if not blocking_reasons
@@ -378,17 +571,83 @@ def _summary(
         "adapter_task_count": len(adapter_task_records),
         "adapter_task_target_type_counts": _counts(record.get("release_evidence_target_type") for record in adapter_task_records),
         "adapter_task_grade_on_match_counts": _counts(record.get("release_evidence_grade_on_match") for record in adapter_task_records),
+        "stage4_release_adapter_plan_project_code_recall_summary": project_code_recall,
         "local_housing_region_counts": _counts(record.get("local_housing_authority_adapter_region_code") for record in adapter_task_records),
         "jurisdiction_adapter_resolution_state_counts": _counts(
             record.get("jurisdiction_adapter_resolution_state") for record in adapter_task_records
         ),
+        "runtime_blocker_ledger_count": len(blocker_records),
+        "runtime_blocker_ledger_state_counts": _counts(
+            record.get("blocker_state") for record in blocker_records if isinstance(record, Mapping)
+        ),
+        "runtime_blocker_ledger_layer_counts": _counts(
+            record.get("runtime_layer") for record in blocker_records if isinstance(record, Mapping)
+        ),
+        "runtime_blocker_ledger_scope_counts": _counts(
+            record.get("ledger_scope") for record in blocker_records if isinstance(record, Mapping)
+        ),
+        "runtime_blocker_ledger_operator_next_action_counts": _counts(
+            record.get("operator_next_action") or record.get("next_action")
+            for record in blocker_records
+            if isinstance(record, Mapping)
+        ),
         "operational_closeout_supplied": operational_supplied,
         "allowed_adapter_result_states": list(ALLOWED_ADAPTER_RESULT_STATES),
+        "execution_priority_policy": EXECUTION_PRIORITY_POLICY,
+        **precedence,
         "blocking_reasons": blocking_reasons,
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,
         "query_miss_is_not_clearance": True,
         "forbidden_term_scan_state": "PENDING",
+    }
+
+
+def _project_code_recall_summary(adapter_task_records: list[Mapping[str, Any]]) -> dict[str, Any]:
+    with_gdcic = 0
+    missing_gdcic = 0
+    with_trade = 0
+    code_only = 0
+    gdcic_variants: list[str] = []
+    trade_codes: list[str] = []
+    for record in adapter_task_records:
+        query_params = dict(record.get("query_params") or {})
+        gdcic_codes = _gdcic_project_code_variants(
+            [
+                query_params.get("gdcicProjectCodeVariants"),
+                query_params.get("projectCode"),
+            ]
+        )
+        trade_code = str(query_params.get("tradeProjectCode") or "").strip()
+        if gdcic_codes:
+            with_gdcic += 1
+            gdcic_variants.extend(gdcic_codes)
+        else:
+            missing_gdcic += 1
+        if trade_code:
+            with_trade += 1
+            trade_codes.append(trade_code)
+        if gdcic_codes and not str(record.get("project_name") or "").strip():
+            code_only += 1
+    return {
+        "project_code_recall_state": (
+            "GDCIC_PROJECT_CODE_VARIANTS_PRESENT"
+            if with_gdcic
+            else "NO_GDCIC_PROJECT_CODE_VARIANTS"
+        ),
+        "adapter_task_count": len(adapter_task_records),
+        "with_gdcic_project_code_variant_task_count": with_gdcic,
+        "missing_gdcic_project_code_variant_task_count": missing_gdcic,
+        "trade_project_code_only_task_count": max(with_trade - with_gdcic, 0),
+        "with_trade_project_code_task_count": with_trade,
+        "code_only_project_code_task_count": code_only,
+        "sample_gdcic_project_code_variants": _dedupe(gdcic_variants)[:10],
+        "sample_trade_project_codes": _dedupe(trade_codes)[:10],
+        "gdcic_project_code_route_ready": bool(with_gdcic),
+        "jg_trade_code_not_sent_to_gdcic_project_code": True,
+        "query_miss_is_not_clearance": True,
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
     }
 
 
@@ -418,6 +677,38 @@ def _finalize_and_write(
     _write_json(out_dir / "release-evidence-project-plan-table.json", {"summary": result["summary"], "records": project_plan_records})
     _write_json(out_dir / "release-evidence-adapter-task-table.json", {"summary": result["summary"], "records": adapter_task_records})
     _write_json(out_dir / "release-evidence-adapter-plan-v1.json", result)
+
+
+def _project_plan_operator_projection(
+    *,
+    closeout: Mapping[str, Any],
+    closeout_precedence: Mapping[str, Any],
+    plan_state: str,
+    next_action: str,
+) -> dict[str, Any]:
+    suppressed = bool(closeout_precedence.get("suppressed_dispatch") or closeout_precedence.get("should_suppress_dispatch"))
+    return {
+        "projection_state": (
+            "RELEASE_EVIDENCE_TERMINAL_STATUS_PROJECTION"
+            if suppressed
+            else "RELEASE_EVIDENCE_QUEUE_READY"
+        ),
+        "current_state": plan_state,
+        "owner_status": plan_state,
+        "evidence_level": str(closeout.get("evidence_grade") or ""),
+        "blocker_reason": str(
+            closeout_precedence.get("suppression_reason")
+            or closeout.get("next_action_label")
+            or ""
+        ),
+        "next_action": next_action,
+        "input_refs": dict(closeout.get("source_refs") or {}),
+        "output_artifact": "release-evidence-adapter-plan-v1.json",
+        "raw_json_required_for_next_step": False,
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+        "query_miss_is_not_clearance": True,
+    }
 
 
 def _resolve_optional_json(*, explicit_json: str | Path | None, root: str | Path | None, default_file_name: str) -> Path | None:
@@ -522,6 +813,173 @@ def _first_non_empty(values: Iterable[Any]) -> str:
     return ""
 
 
+def _project_code_variants(values: Iterable[Any]) -> list[str]:
+    out: list[str] = []
+    for value in values:
+        for raw in _collect_project_code_values(value):
+            text = str(raw or "").strip()
+            if not text:
+                continue
+            if _looks_like_explicit_project_code(text):
+                out.append(text.upper() if re.search(r"[A-Za-z]", text) else text)
+                continue
+            for match in re.findall(r"\b[A-Z]{1,8}\d{4}-\d{3,8}(?:-\d{3})?\b", text, flags=re.IGNORECASE):
+                out.append(match.upper())
+            for match in re.findall(r"\bE\d{12,22}\b", text, flags=re.IGNORECASE):
+                out.append(match.upper())
+            for match in re.findall(r"\b\d{6,12}-\d{4}-\d{3,8}(?:-\d{1,8})?\b", text):
+                out.append(match)
+            for match in re.findall(r"\b\d{4}-\d{6}-\d{2}-\d{2}-\d{6}\b", text):
+                out.append(match)
+            for match in re.findall(r"\b\d{12,22}\b", text):
+                out.append(match)
+    return _dedupe(out)
+
+
+def _gdcic_project_code_variants(values: Iterable[Any]) -> list[str]:
+    return _dedupe(
+        code for code in _project_code_variants(values) if _looks_like_gdcic_project_code_variant(code)
+    )
+
+
+def _collect_project_code_values(value: Any) -> list[str]:
+    out: list[str] = []
+    if value is None:
+        return out
+    if isinstance(value, Mapping):
+        field_name = _first_non_empty(
+            [
+                value.get("field_name"),
+                value.get("fieldName"),
+                value.get("field_key"),
+                value.get("fieldKey"),
+                value.get("label"),
+                value.get("name"),
+            ]
+        )
+        if _looks_like_project_code_field(field_name):
+            for key in ("field_value", "fieldValue", "field_value_optional", "value", "raw_value", "text"):
+                out.extend(_collect_project_code_values(value.get(key)))
+        for raw_key, nested_value in value.items():
+            key = _normalize_key(raw_key)
+            if key in PROJECT_CODE_FIELD_KEYS:
+                out.extend(_flatten_project_code_values(nested_value))
+                continue
+            if key in {"sourceurl", "triggerurl", "url", "apiurl", "officialreferenceurl"}:
+                out.extend(_project_code_values_from_url(nested_value))
+                continue
+            if key in {
+                "querycontext",
+                "queryinput",
+                "source_results",
+                "sourceresults",
+                "samplerecords",
+                "limitedreadback",
+                "bidshowrecords",
+                "dataggzybidshowrecords",
+                "ygpprojectrecords",
+                "ygpflowmatrixrecords",
+                "ygpflowbucketrecords",
+                "ygpflowitemrecords",
+                "ygpdetailreadbackrecords",
+                "guangdongygpflowmatrix",
+                "ygpflowmatrix",
+                "nodelist",
+                "dslist",
+                "detail",
+                "manifest",
+                "sourcerefs",
+            }:
+                out.extend(_collect_project_code_values(nested_value))
+                continue
+            if isinstance(nested_value, Mapping) or (
+                isinstance(nested_value, (list, tuple))
+                and any(isinstance(item, Mapping) for item in nested_value)
+            ):
+                out.extend(_collect_project_code_values(nested_value))
+        return _dedupe(out)
+    if isinstance(value, (list, tuple, set)):
+        for item in value:
+            out.extend(_collect_project_code_values(item))
+        return _dedupe(out)
+    text = str(value or "").strip()
+    return [text] if text else []
+
+
+def _flatten_project_code_values(value: Any) -> list[str]:
+    if isinstance(value, Mapping):
+        out: list[str] = []
+        for nested_value in value.values():
+            out.extend(_flatten_project_code_values(nested_value))
+        return _dedupe(out)
+    if isinstance(value, (list, tuple, set)):
+        out: list[str] = []
+        for item in value:
+            out.extend(_flatten_project_code_values(item))
+        return _dedupe(out)
+    text = str(value or "").strip()
+    return [text] if text else []
+
+
+def _project_code_values_from_url(value: Any) -> list[str]:
+    text = str(value or "").strip()
+    if not text:
+        return []
+    parsed = urllib.parse.urlparse(text)
+    query_texts = [parsed.query]
+    if "?" in parsed.fragment:
+        query_texts.append(parsed.fragment.split("?", 1)[1])
+    out: list[str] = []
+    for query_text in query_texts:
+        for key, items in urllib.parse.parse_qs(query_text).items():
+            if key in PROJECT_CODE_URL_QUERY_KEYS or _normalize_key(key) in PROJECT_CODE_FIELD_KEYS:
+                out.extend(items)
+    return _dedupe(out)
+
+
+def _looks_like_project_code_field(value: Any) -> bool:
+    text = str(value or "").strip()
+    if not text:
+        return False
+    normalized = _normalize_key(text)
+    if normalized in PROJECT_CODE_FIELD_KEYS:
+        return True
+    return any(
+        marker in text
+        for marker in ("项目代码", "项目编号", "项目编码", "工程代码", "工程编号", "工程编码", "招标项目编号", "招标编号", "标段编号")
+    )
+
+
+def _looks_like_explicit_project_code(value: Any) -> bool:
+    text = str(value or "").strip()
+    if not text or len(text) > 48:
+        return False
+    if re.fullmatch(r"JG\d{4}-\d{3,8}(?:-\d{3})?", text, flags=re.IGNORECASE):
+        return True
+    if re.fullmatch(r"\d{12,22}", text):
+        return True
+    if re.fullmatch(r"E\d{12,22}", text, flags=re.IGNORECASE):
+        return True
+    if re.fullmatch(r"\d{6,12}-\d{4}-\d{3,8}(?:-\d{1,8})?", text):
+        return True
+    if re.fullmatch(r"\d{4}-\d{6}-\d{2}-\d{2}-\d{6}", text):
+        return True
+    return False
+
+
+def _looks_like_gdcic_project_code_variant(value: Any) -> bool:
+    text = str(value or "").strip()
+    return bool(
+        re.fullmatch(r"\d{12,22}", text)
+        or re.fullmatch(r"E\d{12,22}", text, flags=re.IGNORECASE)
+        or re.fullmatch(r"\d{6,12}-\d{4}-\d{3,8}(?:-\d{1,8})?", text)
+    )
+
+
+def _normalize_key(value: Any) -> str:
+    return re.sub(r"[^a-z0-9]+", "", str(value or "").lower())
+
+
 def _stable_id(prefix: str, *parts: Any) -> str:
     return f"{prefix}-{_fingerprint('|'.join(str(part or '') for part in parts))[:12]}"
 
@@ -566,6 +1024,7 @@ if __name__ == "__main__":
 
 
 __all__ = [
+    "EXECUTION_PRIORITY_POLICY",
     "RELEASE_EVIDENCE_ADAPTER_PLAN_KIND",
     "build_release_evidence_adapter_plan",
 ]

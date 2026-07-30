@@ -16,6 +16,7 @@ from shared.model_assist_governance import (
 )
 from stage5_rules_evidence.evidence_builder import EvidenceBuilder
 from stage5_rules_evidence.gate_evaluator import GateEvaluator
+from stage5_rules_evidence.rule_bundle_executor import RuleBundleExecutor
 from stage5_rules_evidence.rule_runner import RuleRunner
 
 
@@ -195,6 +196,22 @@ class RuleEvidenceEngine:
             rule_coverage_summary["review_target_object_type"] = gate_artifacts.review_target_object_type
             rule_coverage_summary["review_target_object_id"] = gate_artifacts.review_target_object_id
         inputs_out["stage5_rule_coverage_summary"] = rule_coverage_summary
+        rule_bundle_codes = list(
+            dict.fromkeys(
+                [
+                    *[str(code) for code in rule_coverage_summary.get("selected_rule_codes", []) if code],
+                    *[str(code) for code in rule_coverage_summary.get("skipped_rule_codes", []) if code],
+                ]
+            )
+        )
+        stage5_rule_bundle_execution = RuleBundleExecutor(rule_codes=rule_bundle_codes).execute(
+            bundle_id=f"STAGE5-RULE-BUNDLE-{project_id}",
+            readbacks=inputs.get("stage4_public_evidence_readbacks", []),
+            rule_execution_trace=stage5_rule_execution_trace,
+            rule_selection_trace=rule_artifacts.rule_selection_trace,
+            coverage_summary=rule_coverage_summary,
+        )
+        inputs_out["stage5_rule_bundle_execution"] = stage5_rule_bundle_execution
         stage5_rule_readback_summary = {
             "catalog_id": rule_coverage_summary.get("catalog_id"),
             "catalog_version": rule_coverage_summary.get("catalog_version"),
@@ -219,6 +236,39 @@ class RuleEvidenceEngine:
             "stage4_public_verification_refs": list(inputs.get("stage4_public_verification_refs", [])),
             "stage4_public_evidence_refs": list(inputs.get("stage4_public_evidence_refs", [])),
             "source_object_refs": list(inputs.get("source_object_refs", [])),
+            "rule_bundle_execution": {
+                "executor_id": stage5_rule_bundle_execution.get("executor_id"),
+                "bundle_id": stage5_rule_bundle_execution.get("bundle_id"),
+                "executed_rule_codes": list(stage5_rule_bundle_execution.get("executed_rule_codes", [])),
+                "skipped_rule_codes": list(stage5_rule_bundle_execution.get("skipped_rule_codes", [])),
+                "stage5_abcd_calibration_counts": dict(
+                    dict(stage5_rule_bundle_execution.get("summary") or {}).get(
+                        "stage5_abcd_calibration_counts",
+                        {},
+                    )
+                    or {}
+                ),
+                "truth_label_required_count": int(
+                    dict(stage5_rule_bundle_execution.get("summary") or {}).get(
+                        "truth_label_required_count",
+                        0,
+                    )
+                    or 0
+                ),
+                "non_clearance_rule_count": int(
+                    dict(stage5_rule_bundle_execution.get("summary") or {}).get(
+                        "non_clearance_rule_count",
+                        0,
+                    )
+                    or 0
+                ),
+                "missing_readback_reasons": dict(
+                    stage5_rule_bundle_execution.get("missing_readback_reasons", {})
+                ),
+            },
+            "stage5_abcd_calibration": dict(
+                stage5_rule_bundle_execution.get("stage5_abcd_calibration", {})
+            ),
         }
         model_assist = build_rule_model_assist(
             stage5_readback_summary=stage5_rule_readback_summary,

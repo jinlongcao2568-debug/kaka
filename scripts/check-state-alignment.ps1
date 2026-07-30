@@ -167,7 +167,7 @@ foreach ($token in @(
     'External software release is a controlled-opening capability',
     'Stage 8 real execution is a controlled-opening capability',
     'Stage 9 real payment/delivery/refund is a controlled-opening capability',
-    'Automated refund execution remains excluded'
+    'Automated refund flows may be developed and tested in sandbox/mock/dry-run or explicitly authorized pilots'
 )) {
     if (-not $repoStatusText.Contains($token)) {
         Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'CONTROLLED_OPENING_BOUNDARY_DRIFT' -Message "repo_status.md must keep token: $token" -Path 'control/repo_status.md'

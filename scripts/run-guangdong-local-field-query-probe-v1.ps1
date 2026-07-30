@@ -30,7 +30,10 @@ if (-not $OutputRoot) {
 
 New-Item -ItemType Directory -Force -Path $OutputRoot | Out-Null
 
-$env:PYTHONPATH = "$repoRoot\src;$repoRoot\tests"
+$env:PYTHONPATH = @(
+    (Join-Path $repoRoot "src"),
+    (Join-Path $repoRoot "tests")
+) -join [System.IO.Path]::PathSeparator
 
 $argsList = @(
     "-m", "storage.guangdong_local_field_query_probe",
@@ -49,6 +52,12 @@ if ($P13BOperationalCloseoutJson) {
 }
 if ($ReleaseEvidenceAdapterPlanRoot) {
     $argsList += @("--release-evidence-adapter-plan-root", $ReleaseEvidenceAdapterPlanRoot)
+    if (-not $ReleaseEvidenceAdapterPlanJson) {
+        $stage4BridgePlan = Join-Path $ReleaseEvidenceAdapterPlanRoot "stage4-release-adapter-bridge-plan.json"
+        if (Test-Path -LiteralPath $stage4BridgePlan) {
+            $argsList += @("--release-evidence-adapter-plan-json", $stage4BridgePlan)
+        }
+    }
 }
 if ($ReleaseEvidenceAdapterPlanJson) {
     $argsList += @("--release-evidence-adapter-plan-json", $ReleaseEvidenceAdapterPlanJson)

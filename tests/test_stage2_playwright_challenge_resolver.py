@@ -14,6 +14,12 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from stage2_ingestion.playwright_challenge_resolver import (
+    CHALLENGE_DETAIL_BROWSER_MAX_ROUTE_ATTEMPTS,
+    CHALLENGE_JIGSAW_MAX_ATTEMPTS,
+    CHALLENGE_MAX_DOWNLOAD_BYTES,
+    CHALLENGE_OCR_MAX_ATTEMPTS,
+    CHALLENGE_PROXY_POOL_MAX_SIZE,
+    PlaywrightAttachmentChallengeResolver,
     _build_blockpuzzle_track,
     _epoint_attachment_action_url,
     _epoint_jigsaw_captcha_url,
@@ -48,6 +54,24 @@ def _png_base64(image: object) -> str:
 
 
 class PlaywrightChallengeResolverHelperTests(unittest.TestCase):
+    def test_runtime_configuration_is_clamped_to_finite_browser_and_download_budgets(self) -> None:
+        resolver = PlaywrightAttachmentChallengeResolver(
+            proxy_pool=[f"http://proxy-{index}:8080" for index in range(20)],
+            ocr_attempts=99,
+            jigsaw_attempts=99,
+            max_detail_route_attempts=999,
+            max_download_bytes=CHALLENGE_MAX_DOWNLOAD_BYTES * 2,
+        )
+
+        self.assertEqual(resolver.ocr_attempts, CHALLENGE_OCR_MAX_ATTEMPTS)
+        self.assertEqual(resolver.jigsaw_attempts, CHALLENGE_JIGSAW_MAX_ATTEMPTS)
+        self.assertEqual(
+            resolver.max_detail_route_attempts,
+            CHALLENGE_DETAIL_BROWSER_MAX_ROUTE_ATTEMPTS,
+        )
+        self.assertEqual(len(resolver.proxy_pool), CHALLENGE_PROXY_POOL_MAX_SIZE)
+        self.assertEqual(resolver.max_download_bytes, CHALLENGE_MAX_DOWNLOAD_BYTES)
+
     def test_epoint_jigsaw_urls_target_same_public_site_context(self) -> None:
         action_url = _epoint_attachment_action_url(
             GZ_ATTACHMENT_URL,

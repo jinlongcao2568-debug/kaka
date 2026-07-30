@@ -21,10 +21,10 @@ if (-not $OutputRoot) {
     $OutputRoot = Join-Path $repoRoot "tmp\evaluation-real-samples\guangzhou-stage4-query-quality-smoke-v1"
 }
 if (-not $BaselineRunResultJson) {
-    $BaselineRunResultJson = Join-Path $repoRoot "tmp\evaluation-real-samples\guangzhou-real-public-stage4-9-pressure-v1\run-result.json"
+    $BaselineRunResultJson = Join-Path $repoRoot "tmp\evaluation-real-samples\guangzhou-stage1-6-real-public-pressure-v1\run-result.json"
 }
 if (-not $BaselineCandidatePressureJson) {
-    $BaselineCandidatePressureJson = Join-Path $repoRoot "tmp\evaluation-real-samples\guangzhou-real-public-stage4-9-pressure-v1\candidate-pressure-table.json"
+    $BaselineCandidatePressureJson = Join-Path $repoRoot "tmp\evaluation-real-samples\guangzhou-stage1-6-real-public-pressure-v1\candidate-pressure-table.json"
 }
 if (-not $CompanyFirstRemediationJson) {
     $CompanyFirstRemediationJson = Join-Path $repoRoot "tmp\evaluation-real-samples\guangzhou-stage4-company-first-remediation-v1\company-first-remediation-v1.json"

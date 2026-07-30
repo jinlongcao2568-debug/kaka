@@ -1,5 +1,5 @@
 {
-  "catalogVersion": "1.0.3",
+  "catalogVersion": "1.0.4",
   "ownerDoc": "D5",
   "stage7To9WorkbenchEnvelopeAuthority": {
     "scope": "Stage7-9 workbench envelope bindings",
@@ -42,6 +42,37 @@
       ],
       "valuePriority": "P0",
       "release_layer": "DEV_ALLOWED"
+    },
+    {
+      "workbenchId": "conversational_agent_entry",
+      "title": "智能体对话 / 受限任务入口",
+      "surfaceState": "ACTIVE_INTERNAL_ONLY",
+      "primaryObjects": [
+        "task",
+        "project_fact",
+        "evidence",
+        "report_record",
+        "saleable_opportunity"
+      ],
+      "sections": [
+        "natural_language_request",
+        "grounded_answer",
+        "formal_object_citations",
+        "registered_source_citations",
+        "explicit_task_confirmation",
+        "governance_boundary"
+      ],
+      "notes": "只创建 Stage1 内部任务意图并读取正式对象；不调用工具，不执行真实抓取、触达、支付、退款、交付或发布。长期对话记忆未启用。",
+      "visibilityLevels": [
+        "INTERNAL_ANALYSIS"
+      ],
+      "exposure": "INTERNAL_ONLY",
+      "consumerSurfaces": [
+        "INTERNAL_ANALYSIS"
+      ],
+      "valuePriority": "P2",
+      "release_layer": "INTERNAL_OPERABLE",
+      "contractRef": "contracts/agent/conversational_task_entry_contract.json"
     },
     {
       "workbenchId": "project_fact_workbench",

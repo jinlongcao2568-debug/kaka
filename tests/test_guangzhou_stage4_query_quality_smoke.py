@@ -88,10 +88,10 @@ def _baseline_run_result() -> dict:
         "closed_loop_results": [
             {
                 "project_id": "PROJ-1",
-                "real_public_stage4_9_chain_state": "REVIEW_REQUIRED",
+                "real_public_stage1_6_chain_state": "REVIEW_REQUIRED",
                 "real_public_stage1_6_chain_state": "REVIEW_REQUIRED",
                 "real_world_hard_defect_gate_state": "PARTIAL_SOURCE_COVERAGE",
-                "real_public_stage4_9_readback": {
+                "real_public_stage1_6_readback": {
                     "stage5_rule_gate_status": "REVIEW",
                     "stage5_evidence_gate_status": "REVIEW",
                     "jzsc_company_first_identity_resolution_required": True,
@@ -113,7 +113,7 @@ def _replay_run_result() -> dict:
                 "source_url": "https://example.invalid/1?projectCode=GC001",
                 "notice_stage": "candidate_notice",
                 "candidate_company": "广州甲公司",
-                "real_public_stage4_9_chain_state": "REVIEW_REQUIRED",
+                "real_public_stage1_6_chain_state": "REVIEW_REQUIRED",
                 "real_public_stage1_6_chain_state": "REVIEW_REQUIRED",
                 "real_world_hard_defect_gate_state": "PARTIAL_SOURCE_COVERAGE",
                 "jzsc_company_first_identity_resolution_required": False,
@@ -124,10 +124,10 @@ def _replay_run_result() -> dict:
         "closed_loop_results": [
             {
                 "project_id": "PROJ-1",
-                "real_public_stage4_9_chain_state": "REVIEW_REQUIRED",
+                "real_public_stage1_6_chain_state": "REVIEW_REQUIRED",
                 "real_public_stage1_6_chain_state": "REVIEW_REQUIRED",
                 "real_world_hard_defect_gate_state": "PARTIAL_SOURCE_COVERAGE",
-                "real_public_stage4_9_readback": {
+                "real_public_stage1_6_readback": {
                     "stage5_rule_gate_status": "REVIEW",
                     "stage5_evidence_gate_status": "PASS",
                     "jzsc_company_first_identity_resolution_required": False,

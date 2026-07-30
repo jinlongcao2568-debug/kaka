@@ -18,6 +18,7 @@ REVIEW_REQUIRED = "REVIEW_REQUIRED"
 PENDING_IMPLEMENTATION_REVIEW = "PENDING_IMPLEMENTATION_REVIEW"
 
 TextGetter = Callable[[str, Mapping[str, str]], str]
+FormPoster = Callable[[str, Mapping[str, str], Mapping[str, str]], str]
 
 
 def run_natural_resource_registered_surveyor_provider_task(
@@ -28,6 +29,7 @@ def run_natural_resource_registered_surveyor_provider_task(
     snapshot_ref: str = "",
     enable_live_entry_readback: bool = False,
     http_get_text: TextGetter | None = None,
+    http_post_form: FormPoster | None = None,
 ) -> dict[str, Any]:
     """Verify a design/survey responsible person against a public registered surveyor snapshot.
 
@@ -66,6 +68,7 @@ def run_natural_resource_registered_surveyor_provider_task(
             target=target,
             source_entry=source_entry,
             http_get_text=http_get_text,
+            http_post_form=http_post_form,
         )
 
     return _pending_result(
@@ -176,6 +179,7 @@ def _entry_readback_only_result(
     target: Mapping[str, Any],
     source_entry: Mapping[str, Any],
     http_get_text: TextGetter | None,
+    http_post_form: FormPoster | None,
 ) -> dict[str, Any]:
     entry_url = _clean_text(source_entry.get("entry_url")) or REGISTERED_SURVEYOR_REGISTRY_URL
     if http_get_text is None:
@@ -195,6 +199,18 @@ def _entry_readback_only_result(
             source_entry=source_entry,
             reason=f"registered_surveyor_entry_readback_error:{type(exc).__name__}",
         )
+    person_query = _live_person_query_result(
+        task,
+        target=target,
+        source_entry=source_entry,
+        http_post_form=http_post_form,
+    )
+    if person_query:
+        person_query["public_registry_readback"]["entry_html_sha256"] = _sha256(text)
+        person_query["public_registry_readback"]["entry_redacted_text_probe"] = _clip(
+            _redact_sensitive(_html_or_json_to_text(text)), 600
+        )
+        return person_query
     return {
         "provider_id": NATURAL_RESOURCE_REGISTERED_SURVEYOR,
         "provider_role": task.get("provider_role") or "registered_surveyor_person_company_certificate_identity",
@@ -215,6 +231,123 @@ def _entry_readback_only_result(
         "failure_reasons": [],
         "review_reasons": ["entry_reachability_is_not_field_success", "registered_surveyor_person_search_runtime_not_executed"],
         "next_action": "provide_person_result_public_snapshot_or_wire_authorized_browser_adapter",
+        "policy": _policy(),
+        "customer_sellable_evidence_ready": False,
+    }
+
+
+def _live_person_query_result(
+    task: Mapping[str, Any],
+    *,
+    target: Mapping[str, Any],
+    source_entry: Mapping[str, Any],
+    http_post_form: FormPoster | None,
+) -> dict[str, Any] | None:
+    person = _clean_text(target.get("responsible_person_name"))
+    if not person or http_post_form is None:
+        return None
+    query_url = REGISTERED_SURVEYOR_REGISTRY_BASE_URL + "login.ered?reqCode=checkchszz"
+    try:
+        raw = str(
+            http_post_form(
+                query_url,
+                {"Accept": "application/json,text/plain,*/*"},
+                {"username": person, "cardtype": "", "registernum": ""},
+            )
+        )
+    except Exception as exc:  # pragma: no cover - defensive boundary
+        return _fail_closed_result(
+            task,
+            target=target,
+            source_entry=source_entry,
+            reason=f"registered_surveyor_person_query_error:{type(exc).__name__}",
+        )
+    payload = _json_object(raw)
+    if not payload:
+        return _fail_closed_result(
+            task,
+            target=target,
+            source_entry=source_entry,
+            reason="registered_surveyor_person_query_non_json_response",
+        )
+    return _result_from_live_person_query(
+        task,
+        target=target,
+        source_entry=source_entry,
+        query_url=query_url,
+        payload=payload,
+        raw=raw,
+    )
+
+
+def _result_from_live_person_query(
+    task: Mapping[str, Any],
+    *,
+    target: Mapping[str, Any],
+    source_entry: Mapping[str, Any],
+    query_url: str,
+    payload: Mapping[str, Any],
+    raw: str,
+) -> dict[str, Any]:
+    person = _clean_text(target.get("responsible_person_name"))
+    companies = _target_companies(target)
+    zhige = _clean_text(payload.get("zhige"))
+    company = _clean_text(payload.get("company_name"))
+    certificate_no = _clean_text(payload.get("zsnumber") or payload.get("zyyznumber"))
+    status = _clean_text(payload.get("zczt"))
+    company_matched = any(value and value in company for value in companies)
+    has_registration = bool(zhige and zhige != "无")
+    matched = bool(has_registration and company_matched)
+    identity_fields = {
+        "person_name": _clean_text(payload.get("username")) or person,
+        "registered_unit_name": company,
+        "certificate_no_or_registration_no": certificate_no,
+        "certificate_type": zhige,
+        "registration_status": status,
+        "source_url_or_snapshot_id": query_url,
+    }
+    review_reasons: list[str] = []
+    if not has_registration:
+        review_reasons.append("registered_surveyor_public_query_returned_no_qualification")
+    if has_registration and not company_matched:
+        review_reasons.append("registered_surveyor_registered_unit_not_matched_to_candidate_company")
+    review_reasons.append("public_query_not_found_is_review_not_clearance")
+    return {
+        "provider_id": NATURAL_RESOURCE_REGISTERED_SURVEYOR,
+        "provider_role": task.get("provider_role") or "registered_surveyor_person_company_certificate_identity",
+        "adapter_id": NATURAL_RESOURCE_REGISTERED_SURVEYOR_ADAPTER_ID,
+        "provider_result_state": "READBACK_READY",
+        "readback_state": "MATCHED" if matched else "NOT_FOUND",
+        "verification_result": MATCHED if matched else REVIEW_REQUIRED,
+        "identity_resolution_state": "MATCHED_PERSON_COMPANY" if matched else REVIEW_REQUIRED,
+        "target": target,
+        "identity_fields": identity_fields,
+        "public_registry_readback": {
+            "source_entry": dict(source_entry),
+            "source_url": query_url,
+            "snapshot_type": "LIVE_PUBLIC_REGISTRY_PERSON_QUERY_JSON",
+            "query_payload_sha256": _sha256(json.dumps(payload, ensure_ascii=False, sort_keys=True)),
+            "raw_response_sha256": _sha256(raw),
+            "redacted_text_probe": _clip(_redact_sensitive(json.dumps(payload, ensure_ascii=False, sort_keys=True)), 600),
+            "best_record": {
+                "person_name": identity_fields["person_name"],
+                "registered_unit_name": company,
+                "certificate_no_or_registration_no": certificate_no,
+                "certificate_type": zhige,
+                "registration_status": status,
+                "customer_visible_allowed": False,
+                "no_legal_conclusion": True,
+            },
+        },
+        "source_refs": [
+            {
+                "source_url": query_url,
+                "source_role": "registered_surveyor_public_person_query",
+                "public_visible": True,
+            }
+        ],
+        "failure_reasons": [],
+        "review_reasons": _dedupe_strings(review_reasons),
         "policy": _policy(),
         "customer_sellable_evidence_ready": False,
     }
@@ -470,6 +603,14 @@ def _dedupe_strings(values: Any) -> list[str]:
 
 def _clean_text(value: Any) -> str:
     return " ".join(str(value or "").split())
+
+
+def _json_object(value: str) -> dict[str, Any]:
+    try:
+        payload = json.loads(value)
+    except json.JSONDecodeError:
+        return {}
+    return dict(payload) if isinstance(payload, Mapping) else {}
 
 
 def _redact_sensitive(text: str) -> str:

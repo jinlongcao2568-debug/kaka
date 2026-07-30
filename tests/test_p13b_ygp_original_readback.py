@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import http.client
 import json
 import sys
 import tempfile
@@ -85,6 +86,7 @@ class P13BYgpOriginalReadbackTests(unittest.TestCase):
             self.assertEqual(record["extracted_responsible_person_names"], ["李四"])
             self.assertIn("365日历天", record["extracted_period_text"])
             self.assertEqual(record["extracted_award_date"], "2025年10月15日")
+            self.assertIn("ygp_detail_query_params", record)
 
     def test_url_mapping_redirect_uses_flow_matrix_node_list_and_detail(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -107,12 +109,82 @@ class P13BYgpOriginalReadbackTests(unittest.TestCase):
             self.assertEqual(record["ygp_readback_state"], "YGP_ORIGINAL_URL_READBACK_READY")
             self.assertEqual(record["ygp_api_discovery_state"], "YGP_DETAIL_API_DISCOVERED")
             self.assertIn("trading-notice/new/detail", record["source_url"])
+            self.assertEqual(record["ygp_notice_id"], "notice-123-3C52")
+            self.assertEqual(record["ygp_project_code"], "A4406010001000001")
+            self.assertEqual(record["ygp_biz_code"], "3C52")
+            self.assertEqual(record["ygp_site_code"], "440600")
             self.assertEqual(record["extracted_responsible_person_names"], ["李四"])
             self.assertIn("180日历天", record["extracted_period_text"])
+            backfill = result["manifest"]["stage4_ygp_project_code_backfill_records"][0]
+            self.assertEqual(backfill["stage4_ygp_backfill_state"], "YGP_STAGE4_BACKFILL_READY")
+            self.assertEqual(backfill["ygp_project_code"], "A4406010001000001")
+            self.assertFalse(backfill["gdcic_project_code_route_allowed"])
+            self.assertTrue(backfill["must_not_extract_from_full_text_numbers"])
+            self.assertEqual(summary["stage4_ygp_project_code_backfill_record_count"], 1)
+            self.assertEqual(summary["stage4_ygp_backfill_state_counts"], {"YGP_STAGE4_BACKFILL_READY": 1})
+            self.assertEqual(summary["stage4_ygp_gdcic_route_allowed_count"], 0)
             self.assertEqual(
                 [attempt["route"] for attempt in record["route_attempts"]],
                 ["ygp_url_mapping_no_redirect", "ygp_node_list_fetch", "ygp_flow_matrix_detail_fetch"],
             )
+
+    def test_stage4_official_readback_inputs_feed_ygp_flow_matrix_readback(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            input_json = root / "p13b" / "company-history-overlap-triage-v1.json"
+            _write_json(
+                input_json,
+                {
+                    "manifest": {
+                        "stage4_official_readback_input_records": [
+                            {
+                                "stage4_official_readback_input_record_id": "P13B-STAGE4-OFFICIAL-READBACK-INPUT-1",
+                                "project_id": "PROJ-CN-GD-JG2026-YGP-1",
+                                "project_name": "广州YGP回读项目中标候选人公示",
+                                "source_kind": "ygp_original_notice_readback",
+                                "readback_input_state": "YGP_PUBLIC_IDENTIFIER_READY_FOR_ORIGINAL_READBACK",
+                                "ygp_project_code": "A4406010001000001",
+                                "ygp_biz_code": "3C52",
+                                "ygp_site_code": "440600",
+                                "ygp_notice_id": "notice-123-3C52",
+                                "responsible_person_names": ["李四"],
+                                "gdcic_project_code_route_allowed": False,
+                                "must_not_extract_from_full_text_numbers": True,
+                                "customer_visible_allowed": False,
+                                "query_miss_is_not_clearance": True,
+                                "no_legal_conclusion": True,
+                            }
+                        ]
+                    }
+                },
+            )
+
+            result = build_p13b_ygp_original_readback(
+                input_json=input_json,
+                output_root=root / "ygp",
+                enable_live_public_query=True,
+                max_live_original_notices=1,
+                http_getter=_fake_ygp_redirect_flow_getter,
+                created_at="2026-05-15T00:00:00+08:00",
+            )
+
+            summary = result["summary"]
+            self.assertEqual(summary["ygp_original_readback_task_count"], 1)
+            self.assertEqual(summary["ygp_readback_ready_count"], 1)
+            task = result["manifest"]["ygp_original_readback_task_records"][0]
+            self.assertEqual(task["input_source"], "stage4_official_readback_input_records")
+            self.assertEqual(task["ygp_project_code"], "A4406010001000001")
+            self.assertFalse(task["gdcic_project_code_route_allowed"])
+            self.assertTrue(task["must_not_extract_from_full_text_numbers"])
+            record = result["manifest"]["ygp_original_readback_records"][0]
+            self.assertEqual(record["ygp_readback_state"], "YGP_ORIGINAL_URL_READBACK_READY")
+            self.assertEqual(record["project_id"], "PROJ-CN-GD-JG2026-YGP-1")
+            self.assertEqual(record["ygp_project_code"], "A4406010001000001")
+            self.assertFalse(record["customer_visible_allowed"])
+            self.assertTrue(record["query_miss_is_not_clearance"])
+            backfill = result["manifest"]["stage4_ygp_project_code_backfill_records"][0]
+            self.assertEqual(backfill["stage4_ygp_backfill_state"], "YGP_STAGE4_BACKFILL_READY")
+            self.assertFalse(backfill["gdcic_project_code_route_allowed"])
 
     def test_browser_network_fallback_can_supply_public_detail_payload(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -132,6 +204,26 @@ class P13BYgpOriginalReadbackTests(unittest.TestCase):
             record = result["manifest"]["ygp_original_readback_records"][0]
             self.assertEqual(record["ygp_readback_state"], "YGP_BROWSER_NETWORK_READBACK_READY")
             self.assertEqual(record["extracted_responsible_person_names"], ["李四"])
+
+    def test_transport_disconnect_is_taxonomized_without_crashing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_original_backtrace_input(root)
+
+            result = build_p13b_ygp_original_readback(
+                input_root=root,
+                output_root=root / "ygp",
+                enable_live_public_query=True,
+                max_live_original_notices=1,
+                http_getter=_disconnecting_ygp_http_getter,
+                created_at="2026-05-15T00:00:00+08:00",
+            )
+
+            self.assertTrue(result["safe_to_execute"])
+            self.assertEqual(result["summary"]["ygp_blocked_count"], 1)
+            record = result["manifest"]["ygp_original_readback_records"][0]
+            self.assertEqual(record["ygp_readback_state"], "YGP_ORIGINAL_URL_BLOCKED")
+            self.assertIn("ygp_original_transport_error_retry_required", record["blocker_taxonomy"])
 
     def test_p13b_original_notice_backtrace_consumes_ygp_readback(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -420,6 +512,10 @@ def _fake_browser_readback_getter(url: str, context: Mapping[str, Any]) -> Mappi
         ),
         "url": "https://ygp.gdzwfw.gov.cn/ggzy-portal/center/apis/browser/detail",
     }
+
+
+def _disconnecting_ygp_http_getter(url: str, context: Mapping[str, Any]) -> Mapping[str, Any]:
+    raise http.client.RemoteDisconnected("remote end closed connection without response")
 
 
 def _fake_spa_shell_original_getter(url: str, context: Mapping[str, Any]) -> Mapping[str, Any]:

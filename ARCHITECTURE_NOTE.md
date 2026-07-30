@@ -1,20 +1,22 @@
-# 标准仓库架构说明
+# ARCHITECTURE NOTE
 
-本总包已经按统一正式路径整理完成。
+本文件只保留架构补充说明，不作为日常入口。普通开发先看 `START_HERE.md`。
 
-## 现行正式路径
+## 当前原则
 
-- `docs/L0.md`
-- `docs/D1_研发_Codex执行手册.md` ~ `docs/D14_AI模型治理规范.md`
-- `docs/裁决总表.md`
-- `contracts/*`
-- `handoff/*`
-- `scripts/*`
-- `control/*`
+- `scripts/*.ps1` 是薄入口和运维按钮，不是状态机本体。
+- 正式自动化入口登记在 `control/automation_entrypoint_registry.yaml`。
+- 业务状态机、证据门、匹配门、调度和投影逻辑应落在 `src/`、`contracts/`、`handoff/`、`control/`。
+- 普通 direct-dev 不要求先切 `control/current_task.yaml`。
+- 当前没有 `control/product_runtime_agent_registry.yaml`；除非先明确建立，否则不要把它当成必须维护的状态源。
 
-## archive 说明
+## 运行边界补充
 
-`archive/generated_rounds/` 仅用于保留此前交付给你的历史生成稿、round 包和 zip 导出，
-不作为现行正式引用面。
+- 内部 API 的机器访问边界是 bearer token；标准浏览器通过内部登录页把 Bearer 一次性交换为服务端签名的短时 `HttpOnly` / `SameSite=Strict` 会话 Cookie，写请求还必须提供会话绑定的 CSRF Token。生产默认只发送 `Secure` Cookie，本机明文 HTTP 必须显式降级；健康检查和登录页公开，其他路径在 token 未配置时 fail-closed。请求体中的布尔字段不能充当 operator 身份、审批或下载授权。
+- Operator 文件路径只能落在 `KAKA_OPERATOR_INPUT_ROOT` / `KAKA_OPERATOR_ARTIFACT_ROOT` 控制的目录中；HTTP 请求不能指定任意宿主机路径。
+- 公共 URL 读取在传输前拒绝私网、回环、链路本地、保留地址和非标准端口；重定向/浏览器子请求保持同主机，最终 URL 与响应大小在持久化前再次校验。
+- Worker 队列状态变更和审计事件是一个原子提交；审计事件具有数据库唯一约束。JSON 文件后端通过跨进程锁和写前重载避免多 session 丢写，但生产多实例仍优先使用迁移后的 SQL 后端。
+- HTTP 创建类接口必须先通过正式对象 Schema，再持久化并返回 created / idempotent replay 状态；preview 字样不能替代持久化语义。
+- Docker/Compose 是本地可运行的内部 API 载体，不改变 `DEV_MODE.md` 中生产 live、真实触达、支付、交付和退款的门禁。
 
-
+更多路线和执行方式见 `START_HERE.md`、`DEV_MODE.md`、`MINIMAL_PRODUCT_PATH.md`。

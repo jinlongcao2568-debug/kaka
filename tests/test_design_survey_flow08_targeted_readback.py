@@ -44,6 +44,33 @@ class DesignSurveyFlow08TargetedReadbackTests(unittest.TestCase):
             self.assertFalse(result["manifest"]["safety"]["download_enabled"])
             self.assertTrue(result["manifest"]["scope_guardrails"]["do_not_parse_all_flow_08_by_default"])
 
+    def test_missing_plan_uses_stage4_flow08_fields_without_global_blocker(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            stage4_root = root / "stage4"
+            _write_stage4_flow08_required(stage4_root)
+
+            result = build_design_survey_flow08_targeted_readback(
+                design_survey_stage4_execution_root=stage4_root,
+                output_root=root / "out",
+                created_at="2026-05-18T20:00:00+08:00",
+            )
+
+            self.assertTrue(result["safe_to_execute"])
+            self.assertEqual(result["blocking_reasons"], [])
+            self.assertEqual(
+                result["summary"]["flow08_readback_state_counts"],
+                {"FLOW08_TARGETED_READBACK_READY_NOT_EXECUTED": 1},
+            )
+            self.assertEqual(result["summary"]["plan_missing_but_stage4_flow08_fields_available_count"], 1)
+            record = result["manifest"]["flow08_targeted_readback_table"]["records"][0]
+            self.assertEqual(record["project_name"], "广州南沙经济技术开发区建设中心2026-2029年度规划测绘项目中标候选人公示")
+            self.assertEqual(record["responsible_person_name"], "胡昌华")
+            self.assertEqual(
+                set(record["target_company_names"]),
+                {"广州市城市规划勘测设计研究院有限公司", "广州湾区规划勘测设计院有限公司"},
+            )
+
     def test_execute_binds_only_target_consortium_attachment_without_default_download(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

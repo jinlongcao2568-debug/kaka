@@ -92,6 +92,129 @@ class Stage6ReviewActionDispatchReadbackTests(unittest.TestCase):
             )
             self.assertIn("evidence_orchestration_state_root_or_json", records["PROJ-D"]["next_required_input_refs"])
 
+    def test_same_task_type_reads_back_per_task_runner_output_not_shared_result(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            records = [
+                _dispatch_task(
+                    project_id="PROJ-O1",
+                    dispatch_task_type="RUN_ORIGINAL_NOTICE_BACKTRACE_RETRY_OR_MANUAL_REVIEW",
+                    expected_output_artifact="evidence-orchestration-continuation-run-v1.json",
+                    required_input_refs=["evidence_orchestration_state_root_or_json"],
+                ),
+                _dispatch_task(
+                    project_id="PROJ-O2",
+                    dispatch_task_type="RUN_ORIGINAL_NOTICE_BACKTRACE_RETRY_OR_MANUAL_REVIEW",
+                    expected_output_artifact="evidence-orchestration-continuation-run-v1.json",
+                    required_input_refs=["evidence_orchestration_state_root_or_json"],
+                ),
+            ]
+            _write_json(
+                root / "dispatch" / "stage6-review-action-dispatch-v1.json",
+                {
+                    "manifest": {
+                        "manifest_id": "DISPATCH-DUP-TYPE",
+                        "dispatch_task_table": {"records": records},
+                        "summary": {"dispatch_task_count": len(records)},
+                    },
+                    "summary": {"dispatch_task_count": len(records)},
+                },
+            )
+            _write_json(
+                root / "dispatch-run" / "stage6-review-action-dispatch-runner-v1.json",
+                {
+                    "manifest": {
+                        "dispatch_runner_task_table": {
+                            "records": [
+                                {
+                                    "dispatch_task_id": "DISPATCH-PROJ-O1",
+                                    "project_id": "PROJ-O1",
+                                    "expected_output_artifact_path": str(
+                                        root / "r1" / "evidence-orchestration-continuation-run-v1.json"
+                                    ),
+                                },
+                                {
+                                    "dispatch_task_id": "DISPATCH-PROJ-O2",
+                                    "project_id": "PROJ-O2",
+                                    "expected_output_artifact_path": str(
+                                        root / "r2" / "evidence-orchestration-continuation-run-v1.json"
+                                    ),
+                                },
+                            ]
+                        }
+                    }
+                },
+            )
+            _write_result(
+                root / "r1" / "evidence-orchestration-continuation-run-v1.json",
+                manifest_id="CONT-O1",
+                safe_to_execute=True,
+            )
+
+            result = build_stage6_review_action_dispatch_readback(
+                dispatch_root=root / "dispatch",
+                dispatch_runner_root=root / "dispatch-run",
+                output_root=root / "out",
+                created_at="2026-05-23T00:00:00+08:00",
+            )
+
+            records_by_project = _records_by_project(result["manifest"]["dispatch_readback_table"]["records"])
+            self.assertEqual(records_by_project["PROJ-O1"]["dispatch_readback_state"], "EXECUTION_OUTPUT_READY")
+            self.assertEqual(records_by_project["PROJ-O1"]["result_manifest_id"], "CONT-O1")
+            self.assertEqual(records_by_project["PROJ-O2"]["dispatch_readback_state"], "WAITING_FOR_CONTROLLED_EXECUTION")
+            self.assertEqual(records_by_project["PROJ-O2"]["result_manifest_id"], "")
+
+    def test_same_task_type_without_runner_index_does_not_treat_shared_result_as_ready(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            records = [
+                _dispatch_task(
+                    project_id="PROJ-O1",
+                    dispatch_task_type="RUN_ORIGINAL_NOTICE_BACKTRACE_RETRY_OR_MANUAL_REVIEW",
+                    expected_output_artifact="evidence-orchestration-continuation-run-v1.json",
+                    required_input_refs=["evidence_orchestration_state_root_or_json"],
+                ),
+                _dispatch_task(
+                    project_id="PROJ-O2",
+                    dispatch_task_type="RUN_ORIGINAL_NOTICE_BACKTRACE_RETRY_OR_MANUAL_REVIEW",
+                    expected_output_artifact="evidence-orchestration-continuation-run-v1.json",
+                    required_input_refs=["evidence_orchestration_state_root_or_json"],
+                ),
+            ]
+            _write_json(
+                root / "dispatch" / "stage6-review-action-dispatch-v1.json",
+                {
+                    "manifest": {
+                        "manifest_id": "DISPATCH-DUP-TYPE-NO-RUNNER",
+                        "dispatch_task_table": {"records": records},
+                        "summary": {"dispatch_task_count": len(records)},
+                    },
+                    "summary": {"dispatch_task_count": len(records)},
+                },
+            )
+            _write_result(
+                root / "continuation" / "evidence-orchestration-continuation-run-v1.json",
+                manifest_id="CONT-SHARED",
+                safe_to_execute=True,
+            )
+
+            result = build_stage6_review_action_dispatch_readback(
+                dispatch_root=root / "dispatch",
+                evidence_orchestration_continuation_root=root / "continuation",
+                output_root=root / "out",
+                created_at="2026-05-23T00:00:00+08:00",
+            )
+
+            records_by_project = _records_by_project(result["manifest"]["dispatch_readback_table"]["records"])
+            self.assertEqual(
+                records_by_project["PROJ-O1"]["dispatch_readback_state"],
+                "EXECUTION_OUTPUT_BLOCKED_OR_REVIEW_REQUIRED",
+            )
+            self.assertEqual(
+                records_by_project["PROJ-O2"]["dispatch_readback_state"],
+                "EXECUTION_OUTPUT_BLOCKED_OR_REVIEW_REQUIRED",
+            )
+
     def test_missing_dispatch_blocks_readback(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)

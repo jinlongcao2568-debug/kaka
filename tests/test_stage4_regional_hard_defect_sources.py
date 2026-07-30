@@ -142,10 +142,44 @@ class Stage4RegionalHardDefectSourcePlanTests(unittest.TestCase):
         self.assertEqual(entry["source_profile_id"], "")
         self.assertTrue(entry["no_fallback_to_guangdong_or_guangzhou"])
 
+    def test_release_evidence_registry_resolves_guangdong_city_local_authorities(self) -> None:
+        yangjiang = resolve_release_evidence_local_housing_adapter("CN-GD-YJ")
+        zhongshan = resolve_release_evidence_local_housing_adapter("CN-GD-ZS")
+        guangzhou = resolve_release_evidence_local_housing_adapter("CN-GD-GZ")
+        huizhou = resolve_release_evidence_local_housing_adapter("CN-GD-HZ")
+        heyuan = resolve_release_evidence_local_housing_adapter("CN-GD-HY")
+        jiangmen = resolve_release_evidence_local_housing_adapter("CN-GD-JM")
+        maoming = resolve_release_evidence_local_housing_adapter("CN-GD-MM")
+        shanwei = resolve_release_evidence_local_housing_adapter("CN-GD-SW")
+
+        self.assertEqual(yangjiang["adapter_resolution_state"], "JURISDICTION_LOCAL_HOUSING_ADAPTER_PLANNED")
+        self.assertEqual(yangjiang["source_profile_id"], "YANGJIANG-ZJJ-GOVINFO-PUBLIC")
+        self.assertEqual(yangjiang["next_adapter"], "yangjiang_local_housing_authority_public_readback_adapter")
+        self.assertTrue(yangjiang["no_fallback_to_guangdong_or_guangzhou"])
+        self.assertEqual(zhongshan["source_profile_id"], "ZHONGSHAN-JSJ-GOVINFO-PUBLIC")
+        self.assertEqual(zhongshan["next_adapter"], "zhongshan_local_housing_authority_public_readback_adapter")
+        self.assertTrue(zhongshan["no_fallback_to_guangdong_or_guangzhou"])
+        self.assertEqual(guangzhou["adapter_resolution_state"], "GUANGDONG_CITY_LOCAL_FIELD_ADAPTER_AVAILABLE")
+        self.assertEqual(guangzhou["next_adapter"], "guangdong_local_field_query_probe_v1")
+        self.assertFalse(guangzhou["no_fallback_to_guangdong_or_guangzhou"])
+        self.assertEqual(huizhou["source_profile_id"], "HUIZHOU-ZJJ-OFFICIAL-PORTAL")
+        self.assertEqual(heyuan["source_profile_id"], "HEYUAN-ZJJ-OFFICIAL-PORTAL")
+        self.assertEqual(jiangmen["source_profile_id"], "JIANGMEN-ZJJ-OFFICIAL-PORTAL")
+        self.assertEqual(maoming["source_profile_id"], "MAOMING-ZJJ-OFFICIAL-PORTAL")
+        self.assertEqual(shanwei["source_profile_id"], "SHANWEI-ZJJ-OFFICIAL-PORTAL")
+        self.assertEqual(heyuan["source_url"], "http://www.heyuan.gov.cn/hyszjj/gkmlpt/index")
+        self.assertEqual(maoming["source_url"], "http://jianshe.maoming.gov.cn/")
+        for city in (huizhou, heyuan, jiangmen, maoming, shanwei):
+            self.assertEqual(city["adapter_resolution_state"], "JURISDICTION_LOCAL_HOUSING_ADAPTER_PLANNED")
+            self.assertTrue(city["source_url"])
+            self.assertTrue(city["no_fallback_to_guangdong_or_guangzhou"])
+
     def test_release_evidence_registry_lists_major_non_guangdong_regions(self) -> None:
         registry = list_release_evidence_local_housing_adapter_registry()
         regions = {entry["region_code"] for entry in registry}
 
+        for region_code in ("CN-GD-GZ", "CN-GD-YJ", "CN-GD-ZS", "CN-GD-HZ", "CN-GD-HY", "CN-GD-JM", "CN-GD-MM", "CN-GD-SW"):
+            self.assertIn(region_code, regions)
         for region_code in ("CN-ZJ", "CN-SC", "CN-JS", "CN-HB", "CN-SD", "CN-HN", "CN-HA"):
             self.assertIn(region_code, regions)
 

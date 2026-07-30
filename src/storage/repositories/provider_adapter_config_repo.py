@@ -42,9 +42,15 @@ class ProviderAdapterConfigRepository:
                     "provider_status_replayable": bool(payload_dict.get("provider_status_replayable", True)),
                     "provider_binding_mode": payload_dict.get("provider_binding_mode"),
                     "provider_binding_summary": dict(payload_dict.get("provider_binding_summary", {})),
-                    "live_execution_enabled": False,
-                    "provider_call_enabled": False,
-                    "real_provider_call_enabled": False,
+                    "live_execution_enabled": bool(
+                        payload_dict.get("live_execution_enabled", False)
+                    ),
+                    "provider_call_enabled": bool(
+                        payload_dict.get("provider_call_enabled", False)
+                    ),
+                    "real_provider_call_enabled": bool(
+                        payload_dict.get("real_provider_call_enabled", False)
+                    ),
                     "automated_refund_enabled": False,
                 },
                 writeback_state={},

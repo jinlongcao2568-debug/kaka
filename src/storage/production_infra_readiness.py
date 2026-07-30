@@ -128,6 +128,7 @@ def build_platform_infra_readiness(
     object_storage_backend: str = LOCAL_OBJECT_STORAGE_BACKEND,
     object_storage_path_optional: str | None = None,
     repo_root: str | None = None,
+    private_pilot_deployment: bool = False,
 ) -> dict[str, Any]:
     active_backend = normalize_storage_backend_name(storage_backend)
     active_object_storage_backend = normalize_object_storage_backend_name(object_storage_backend)
@@ -173,6 +174,13 @@ def build_platform_infra_readiness(
         active_object_storage_backend=active_object_storage_backend,
         reserved_by_backend=reserved_by_backend,
     )
+    migration_readiness = _migration_readiness(
+        repo_root=repo_root,
+        active_backend=active_backend,
+        alembic_available=alembic_available,
+        database_url_configured=database_url_configured,
+        private_pilot_deployment=private_pilot_deployment,
+    )
 
     return {
         "active_backend": active_backend,
@@ -190,7 +198,9 @@ def build_platform_infra_readiness(
             "unsupported_backend_fast_fail": True,
             "missing_database_url_fast_fail": True,
             "no_silent_fallback": True,
-            "no_migration_execution": True,
+            "no_migration_execution": not migration_readiness[
+                "migration_execution_enabled"
+            ],
             "no_external_service_connection": True,
             "internal_durable_queue_enabled": True,
             "local_object_storage_enabled": active_object_storage_backend == LOCAL_OBJECT_STORAGE_BACKEND,
@@ -205,12 +215,7 @@ def build_platform_infra_readiness(
         },
         "sqlalchemy_readiness": sqlalchemy_readiness,
         "postgresql_readiness": postgresql_readiness,
-        "migration_readiness": _migration_readiness(
-            repo_root=repo_root,
-            active_backend=active_backend,
-            alembic_available=alembic_available,
-            database_url_configured=database_url_configured,
-        ),
+        "migration_readiness": migration_readiness,
         "queue_readiness": {
             "queue_backend": worker_queue_bootstrap["queue_backend"],
             "effective_queue_backend": worker_queue_bootstrap["effective_queue_backend"],
@@ -407,6 +412,7 @@ def _migration_readiness(
     active_backend: str,
     alembic_available: bool,
     database_url_configured: bool,
+    private_pilot_deployment: bool,
 ) -> dict[str, Any]:
     root = _repo_root(repo_root)
     alembic_ini_present = (root / "alembic.ini").is_file()
@@ -415,11 +421,46 @@ def _migration_readiness(
     configured = alembic_ini_present and env_present and versions_dir_present
     cli_available = configured and alembic_available
     migration_required = active_backend in {SQLALCHEMY_STORAGE_BACKEND, POSTGRESQL_STORAGE_BACKEND}
+    private_compose_path = root / "docker-compose.private-pilot.yml"
+    private_compose_present = private_compose_path.is_file()
+    private_compose_text = (
+        private_compose_path.read_text(encoding="utf-8")
+        if private_compose_present
+        else ""
+    )
+    deployment_migration_job_defined = all(
+        token in private_compose_text
+        for token in (
+            "  migrate:",
+            "condition: service_healthy",
+            "condition: service_completed_successfully",
+            "- alembic",
+            "- head",
+        )
+    )
+    schema_gate_source = root / "src" / "storage" / "sqlalchemy_backend.py"
+    schema_revision_gate_defined = (
+        schema_gate_source.is_file()
+        and "REQUIRED_STORAGE_SCHEMA_REVISION" in schema_gate_source.read_text(encoding="utf-8")
+        and "schema revision" in schema_gate_source.read_text(encoding="utf-8")
+    )
+    migration_execution_enabled = bool(
+        private_pilot_deployment
+        and active_backend == POSTGRESQL_STORAGE_BACKEND
+        and cli_available
+        and database_url_configured
+        and deployment_migration_job_defined
+        and schema_revision_gate_defined
+    )
     readiness_state = READINESS_CLI_AVAILABLE if cli_available else READINESS_NOT_CONFIGURED
     if migration_required and not database_url_configured:
         readiness_state = READINESS_CONFIG_REQUIRED
     if configured and not alembic_available:
         readiness_state = READINESS_DRIVER_MISSING
+    if migration_execution_enabled:
+        readiness_state = READINESS_EXECUTABLE
+    from storage.sqlalchemy_backend import REQUIRED_STORAGE_SCHEMA_REVISION
+
     return {
         "backend": "alembic",
         "readiness_state": readiness_state,
@@ -433,10 +474,22 @@ def _migration_readiness(
         "database_url_configured": database_url_configured,
         "migration_required": migration_required,
         "manual_migration_cli_available": cli_available,
-        "migration_execution_enabled": False,
+        "migration_execution_enabled": migration_execution_enabled,
         "app_bootstrap_auto_migration_enabled": False,
+        "private_pilot_deployment": private_pilot_deployment,
+        "private_pilot_compose_present": private_compose_present,
+        "deployment_migration_job_defined": deployment_migration_job_defined,
+        "migration_before_app_defined": deployment_migration_job_defined,
+        "schema_revision_gate_defined": schema_revision_gate_defined,
+        "required_storage_schema_revision": REQUIRED_STORAGE_SCHEMA_REVISION,
         "schema_metadata_defined": True,
-        "why_not_live": "manual migration CLI is available for explicit operator action; app bootstrap never auto-runs migrations",
+        "why_not_live": (
+            "private-pilot runs an explicit migration job before app bootstrap and the app "
+            "fails closed unless the schema revision equals repository head; upgrade/rollback "
+            "drills and the remaining product gates still block production live"
+            if migration_execution_enabled
+            else "manual migration CLI is available for explicit operator action; app bootstrap never auto-runs migrations"
+        ),
     }
 
 
@@ -534,7 +587,6 @@ def _backup_restore_readiness(
         "safe_to_restore": False,
         "destructive_restore_enabled": False,
         "restore_execution_enabled": False,
-        "active_storage_mutation_enabled": False,
         "approval_required": True,
         "audit_required": True,
         "source_storage_backend": active_backend,
@@ -778,7 +830,10 @@ def _worker_queue_bootstrap_readiness(
         "suspend_resume_enabled": True,
         "dead_letter_enabled": True,
         "audit_replay_enabled": True,
-        "status_values": ["queued", "running", "succeeded", "failed", "suspended", "retry", "dead-letter"],
+        "progress_reporting_enabled": True,
+        "cooperative_cancellation_enabled": True,
+        "execution_budget_enabled": True,
+        "status_values": ["queued", "running", "succeeded", "failed", "suspended", "retry", "dead-letter", "cancelled"],
         "redis_reserved_state": reserved_by_backend["redis"]["readiness_state"],
         "dramatiq_reserved_state": reserved_by_backend["dramatiq"]["readiness_state"],
         "external_queue_backend_configured": configured_external_queue,
@@ -786,8 +841,15 @@ def _worker_queue_bootstrap_readiness(
         "redis_connection_enabled": False,
         "dramatiq_worker_enabled": False,
         "stage1_scheduler_enabled": False,
+        "dedicated_controlled_gray_scheduler_worker_available": True,
+        "worker_capability_routing_enabled": True,
+        "worker_capabilities": ["core", "browser"],
+        "api_worker_browser_worker_split_defined": True,
+        "unattended_internal_prepare_recurring_ready": True,
+        "unattended_live_execution_ready": False,
+        "web_request_worker_execution_enabled": False,
         "real_provider_execution_enabled": False,
-        "why_not_live": "queue/worker durability uses existing storage only; Redis/Dramatiq, Stage1 scheduler, and provider execution remain reserved/not connected",
+        "why_not_live": "dedicated capability-routed workers are limited to internal prepare jobs; real source, browser-authorized and customer/live execution remain disabled",
     }
 
 

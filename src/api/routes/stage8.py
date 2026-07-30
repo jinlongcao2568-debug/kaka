@@ -177,14 +177,22 @@ def submit_stage8_operator_action(payload: Any) -> Stage8OperatorActionResponse:
     except OperationalContractError as exc:
         try:
             response = build_stage8_preview_surface(payload)
-        except Exception:
+        except Exception as secondary_exc:
             response = {
                 "surface_id": "outreach_workbench",
                 "internal_only": True,
                 "live_execution_enabled": False,
                 "blocked_by_default": True,
             }
-        response["error"] = exc.as_payload()
+            error = exc.as_payload()
+            error["secondary_error"] = {
+                "type": type(secondary_exc).__name__,
+                "detail": str(secondary_exc),
+            }
+            error["fail_closed"] = True
+            response["error"] = error
+        else:
+            response["error"] = exc.as_payload()
     return response
 
 

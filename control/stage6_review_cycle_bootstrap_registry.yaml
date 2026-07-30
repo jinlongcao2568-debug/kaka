@@ -1,0 +1,72 @@
+registry_id: stage6-review-cycle-bootstrap-registry-v1
+registry_version: 1
+sources:
+  - source_kind: RELEASE_FIELD_QUERY_JSON
+    source_ref_key: release_field_query_json
+    source_root_ref_key: release_field_query_root
+    default_filename: guangdong-local-field-query-probe-v1.json
+    handler_kind: loop_runner_bootstrap
+    loop_runner_arg: release_field_query_json
+    missing_reason: release_field_query_json_missing_or_invalid
+    bootstrap_failure_reason: stage6_review_loop_bootstrap_from_release_field_query_failed
+  - source_kind: RUNTIME_BLOCKER_NEXT_SUBQUEUE_JSON
+    source_ref_key: runtime_blocker_next_subqueue_json
+    source_root_ref_key: runtime_blocker_next_subqueue_root
+    default_filename: stage6-review-loop-runtime-blocker-next-subqueues.json
+    handler_kind: next_subqueue_json
+  - source_kind: STAGE6_REVIEW_LOOP_JSON
+    source_ref_key: stage6_review_loop_json
+    source_root_ref_key: stage6_review_loop_root
+    default_filename: stage6-review-loop-runner-v1.json
+    handler_kind: stage6_loop_runner_artifact
+  - source_kind: STAGE6_REVIEW_LOOP_STATUS_JSON
+    source_ref_key: stage6_review_loop_status_json
+    source_root_ref_key: stage6_review_loop_status_root
+    default_filename: stage6-review-loop-project-status-table.json
+    handler_kind: status_table_json
+  - source_kind: RELEASE_EVIDENCE_ADAPTER_PLAN_JSON
+    source_ref_key: release_evidence_adapter_plan_json
+    source_root_ref_key: release_evidence_adapter_plan_root
+    default_filename: release-evidence-adapter-plan-v1.json
+    handler_kind: loop_runner_bootstrap
+    loop_runner_arg: release_evidence_adapter_plan_json
+    missing_reason: release_evidence_adapter_plan_json_missing_or_invalid
+    bootstrap_failure_reason: stage6_review_loop_bootstrap_from_release_evidence_plan_failed
+  - source_kind: GDCIC_BROWSER_READBACK_JSON
+    source_ref_key: gdcic_browser_readback_json
+    source_root_ref_key: gdcic_browser_readback_root
+    default_filename: gdcic-browser-authorized-readback-v1.json
+    handler_kind: derived_release_field_query
+    missing_reason: gdcic_browser_readback_json_missing_or_invalid
+    bootstrap_failure_reason: stage6_review_cycle_derive_release_field_query_from_gdcic_readback_failed
+  - source_kind: ORIGINAL_BACKTRACE_CONTINUATION_JSON
+    source_ref_key: original_backtrace_continuation_json
+    source_root_ref_key: original_backtrace_continuation_root
+    default_filename: p13b-original-backtrace-continuation-controller-v2.json
+    handler_kind: loop_runner_bootstrap
+    loop_runner_arg: original_backtrace_continuation_json
+    missing_reason: original_backtrace_continuation_json_missing_or_invalid
+    bootstrap_failure_reason: stage6_review_loop_bootstrap_from_original_backtrace_continuation_failed
+  - source_kind: STAGE16_P13B_CONTINUATION_JSON
+    source_ref_key: stage16_p13b_continuation_json
+    source_root_ref_key: stage16_p13b_continuation_root
+    default_filename: stage16-p13b-continuation-controller-v1.json
+    handler_kind: loop_runner_bootstrap
+    loop_runner_arg: stage16_p13b_continuation_json
+    missing_reason: stage16_p13b_continuation_json_missing_or_invalid
+    bootstrap_failure_reason: stage6_review_loop_bootstrap_from_stage16_p13b_continuation_failed
+  - source_kind: STAGE5_CALIBRATION_SAMPLE_JSON
+    source_ref_key: stage5_calibration_sample_json
+    source_root_ref_key: stage5_calibration_sample_root
+    default_filename: stage5-calibration-sample-table.json
+    handler_kind: loop_runner_bootstrap
+    loop_runner_arg: stage5_calibration_sample_json
+    missing_reason: stage5_calibration_sample_json_missing_or_invalid
+    bootstrap_failure_reason: stage6_review_loop_bootstrap_from_stage5_calibration_sample_failed
+  - source_kind: STAGE4_BACKFILL_FOLLOWUP_QUEUE_JSON
+    source_ref_key: stage4_backfill_followup_queue_json
+    source_root_ref_key: stage4_backfill_followup_queue_root
+    default_filename: stage4-backfill-followup-queue-v1.json
+    handler_kind: stage4_followup_queue
+    missing_reason: stage4_backfill_followup_queue_json_missing_or_invalid
+    bootstrap_failure_reason: stage6_review_cycle_bootstrap_from_stage4_followup_queue_failed

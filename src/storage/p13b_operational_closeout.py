@@ -3,6 +3,8 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
+import urllib.parse
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
@@ -541,6 +543,11 @@ def _task_row_from_source(
     candidate_company = str(trigger.get("candidate_company_name") or "")
     project_name = str(trigger.get("project_name") or project.get("project_name") or "")
     task_source_url = str(source.get("source_url") or parent_entry.get("source_url") or "")
+    project_code_variants = _release_evidence_project_code_variants(
+        trigger=trigger,
+        project=project,
+        plan=plan,
+    )
     task_id = _stable_id(
         "P13B-RELEASE-PROBE-TASK",
         trigger.get("release_evidence_trigger_id"),
@@ -626,6 +633,7 @@ def _task_row_from_source(
             source_target_types=matched_target_types,
             trigger_source_url=str(trigger.get("source_url") or ""),
             region_context=region_context,
+            project_code_variants=project_code_variants,
         ),
         "runtime_status": str(source.get("runtime_status") or parent_entry.get("runtime_status") or ""),
         "next_adapter": str(source.get("next_adapter") or parent_entry.get("next_adapter") or ""),
@@ -650,11 +658,19 @@ def _release_evidence_query_params(
     source_target_types: list[str],
     trigger_source_url: str,
     region_context: Mapping[str, Any],
+    project_code_variants: list[str],
 ) -> dict[str, Any]:
     primary_person_name = str(person_names[0] if person_names else "")
+    gdcic_project_code_variants = _gdcic_project_code_variants(project_code_variants)
+    trade_project_code = _first_text(code for code in project_code_variants if code.upper().startswith("JG"))
     return {
         "projectId": project_id,
         "projectName": project_name,
+        "projectCode": _first_text(gdcic_project_code_variants),
+        "sourceProjectCode": _first_text(gdcic_project_code_variants),
+        "projectCodeVariants": project_code_variants,
+        "gdcicProjectCodeVariants": gdcic_project_code_variants,
+        "tradeProjectCode": trade_project_code,
         "candidateCompanyName": candidate_company,
         "projectManagerName": primary_person_name,
         "projectManagerNameVariants": _dedupe([str(item) for item in person_names if str(item)]),
@@ -667,8 +683,98 @@ def _release_evidence_query_params(
         "historicalProjectRegionCode": str(region_context.get("historical_project_region_code") or ""),
         "releaseEvidenceQueryRegionCode": str(region_context.get("release_evidence_query_region_code") or ""),
         "releaseEvidenceQueryRegionBasis": str(region_context.get("release_evidence_query_region_basis") or ""),
-        "keywords": _dedupe([project_name, candidate_company, primary_person_name]),
+        "keywords": _dedupe([project_name, *project_code_variants, candidate_company, primary_person_name]),
     }
+
+
+def _release_evidence_project_code_variants(
+    *,
+    trigger: Mapping[str, Any],
+    project: Mapping[str, Any],
+    plan: Mapping[str, Any],
+) -> list[str]:
+    values: list[Any] = []
+    for source in (trigger, project, plan):
+        values.extend(_project_code_candidate_values(source))
+    return _project_code_variants(values)
+
+
+PROJECT_CODE_FIELD_NAMES = (
+    "project_id",
+    "projectId",
+    "project_code",
+    "source_project_code",
+    "bid_project_code",
+    "trade_project_code",
+    "projectCode",
+    "sourceProjectCode",
+    "bidProjectCode",
+    "tradeProjectCode",
+    "bizCode",
+)
+PROJECT_CODE_URL_FIELD_NAMES = (
+    "source_url",
+    "trigger_source_url",
+    "bid_show_url",
+    "original_notice_url",
+    "originalNoticeUrl",
+)
+PROJECT_CODE_REF_FIELD_NAMES = (
+    "source_refs",
+    "sourceRefs",
+    "query_params",
+    "queryParams",
+)
+
+
+def _project_code_candidate_values(source: Mapping[str, Any]) -> list[Any]:
+    values: list[Any] = []
+    for field in PROJECT_CODE_FIELD_NAMES:
+        values.append(source.get(field))
+    for field in PROJECT_CODE_URL_FIELD_NAMES:
+        values.extend(_project_code_values_from_url(source.get(field)))
+    for field in PROJECT_CODE_REF_FIELD_NAMES:
+        refs = source.get(field)
+        if not isinstance(refs, Mapping):
+            continue
+        for ref_field in PROJECT_CODE_FIELD_NAMES:
+            values.append(refs.get(ref_field))
+        for ref_url_field in PROJECT_CODE_URL_FIELD_NAMES:
+            values.extend(_project_code_values_from_url(refs.get(ref_url_field)))
+    return values
+
+
+def _project_code_values_from_url(value: Any) -> list[str]:
+    text = str(value or "").strip()
+    if not text:
+        return []
+    values = [text]
+    parsed = urllib.parse.urlsplit(text)
+    query = urllib.parse.parse_qs(parsed.query)
+    for name in ("projectCode", "project_code", "sourceProjectCode", "tradeProjectCode", "bizCode"):
+        values.extend(query.get(name, []))
+    return values
+
+
+def _project_code_variants(values: Iterable[Any]) -> list[str]:
+    out: list[str] = []
+    for value in values:
+        text = str(value or "").strip()
+        if not text:
+            continue
+        for match in re.findall(r"\b[A-Z]{1,8}\d{4}-\d{3,8}(?:-\d{3})?\b", text, flags=re.IGNORECASE):
+            out.append(match.upper())
+        for match in re.findall(r"\b\d{12,22}\b", text):
+            out.append(match)
+    return _dedupe(out)
+
+
+def _gdcic_project_code_variants(values: Iterable[Any]) -> list[str]:
+    return _dedupe(
+        code
+        for code in _project_code_variants(values)
+        if re.fullmatch(r"\d{12,22}", code)
+    )
 
 
 def _canonical_source_targets(values: list[Any]) -> list[str]:
@@ -1003,6 +1109,14 @@ def _dedupe(values: Iterable[Any]) -> list[str]:
         seen.add(text)
         result.append(text)
     return result
+
+
+def _first_text(values: Iterable[Any]) -> str:
+    for value in values:
+        text = str(value or "").strip()
+        if text:
+            return text
+    return ""
 
 
 def _counts(values: Iterable[Any]) -> dict[str, int]:

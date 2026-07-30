@@ -67,7 +67,7 @@ def test_product_module_registry_exists_and_is_not_status_source() -> None:
     )
     assert registry["open_capability_policy_ref"] == "control/product_task_library.yaml#open_capability_policy"
     assert registry["open_capability_policy_id"] == "PTL-I100-OPEN-CAPABILITY-BASELINE"
-    assert "automated_refund_execution" in registry["open_capability_policy_summary"]["excluded_capabilities"]
+    assert "automated_refund_execution" in registry["open_capability_policy_summary"]["controlled_test_and_pilot_capabilities"]
     assert registry["registry_rules"]["not_a_status_source"] is True
     assert registry["registry_rules"]["not_a_release_gate"] is True
     assert registry["registry_rules"]["not_a_second_product_direction_source"] is True

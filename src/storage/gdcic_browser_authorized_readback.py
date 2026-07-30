@@ -7,12 +7,15 @@ import re
 from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping
 
+from shared.controlled_egress import playwright_proxy_settings
 from shared.utils import utc_now_iso
+from storage.repositories.runtime_state_repo import RuntimeStateRepository
 
 
 GDCIC_BROWSER_AUTHORIZED_READBACK_KIND = "gdcic_browser_authorized_readback_v1_manifest"
 GDCIC_BROWSER_AUTHORIZED_READBACK_VERSION = 1
 GDCIC_BROWSER_AUTHORIZED_READBACK_ADAPTER_ID = "gdcic-browser-authorized-readback-v1-builder"
+GDCIC_BROWSER_AUTHORIZED_READBACK_WORKER_ID = "gdcic_browser_authorized_readback_worker"
 
 DEFAULT_RELEASE_EVIDENCE_ADAPTER_PLAN_ROOT = Path("tmp/evaluation-real-samples/release-evidence-adapter-plan-v1")
 DEFAULT_OUTPUT_ROOT = Path("tmp/evaluation-real-samples/gdcic-browser-authorized-readback-v1")
@@ -31,6 +34,7 @@ def build_gdcic_browser_authorized_readback(
     *,
     release_evidence_adapter_plan_root: str | Path = DEFAULT_RELEASE_EVIDENCE_ADAPTER_PLAN_ROOT,
     release_evidence_adapter_plan_json: str | Path | None = None,
+    field_query_json: str | Path | None = None,
     output_root: str | Path = DEFAULT_OUTPUT_ROOT,
     enable_live_browser_execution: bool = False,
     max_live_browser_tasks: int | None = None,
@@ -53,10 +57,35 @@ def build_gdcic_browser_authorized_readback(
     blocking_reasons: list[str] = []
     payload = _load_json(source_path, blocking_reasons, "release_evidence_adapter_plan_missing")
     source_manifest = _source_manifest(payload)
+    field_query_path = Path(field_query_json) if field_query_json else None
+    field_query_payload = _load_json(field_query_path, blocking_reasons, "field_query_json_missing") if field_query_path else {}
+    if field_query_payload:
+        blocking_reasons = [
+            reason for reason in blocking_reasons if reason != "release_evidence_adapter_plan_missing"
+        ]
+        source_manifest = _source_manifest_with_field_query_records(source_manifest, field_query_payload)
+    source_plan_manifest_id = str(source_manifest.get("manifest_id") or "")
+    source_plan_manifest_sha256 = str(source_manifest.get("manifest_sha256") or "")
     task_records = _task_records_from_release_plan(source_manifest, created_at=created)
-    execution_mode = "LIVE_BROWSER_EXECUTION_ATTEMPTED" if enable_live_browser_execution else "PLAN_ONLY_NOT_EXECUTED"
+    authorized_session_input_state = _authorized_session_input_state(
+        storage_state_json=storage_state_json,
+        user_data_dir=user_data_dir,
+        browser_runner_supplied=browser_runner is not None,
+    )
+    authorized_session_preflight = _authorized_session_preflight(
+        authorized_session_input_state=authorized_session_input_state,
+        storage_state_json=storage_state_json,
+        user_data_dir=user_data_dir,
+    )
+    authorized_session_input_ready = _authorized_session_input_ready(authorized_session_input_state)
+    if not enable_live_browser_execution:
+        execution_mode = "PLAN_ONLY_NOT_EXECUTED"
+    elif not authorized_session_input_ready:
+        execution_mode = "LIVE_BROWSER_EXECUTION_SKIPPED_NO_AUTHORIZED_SESSION"
+    else:
+        execution_mode = "LIVE_BROWSER_EXECUTION_ATTEMPTED"
     active_runner = browser_runner
-    if active_runner is None and enable_live_browser_execution:
+    if active_runner is None and enable_live_browser_execution and authorized_session_input_ready:
         active_runner = _make_playwright_browser_runner(
             storage_state_json=storage_state_json,
             user_data_dir=user_data_dir,
@@ -69,13 +98,25 @@ def build_gdcic_browser_authorized_readback(
         enable_live_browser_execution=enable_live_browser_execution,
         max_live_browser_tasks=max_live_browser_tasks,
         browser_runner=active_runner,
+        authorized_session_input_ready=authorized_session_input_ready,
     )
     summary = _summary(
         task_records=task_records,
         readback_records=readback_records,
         execution_mode=execution_mode,
         blocking_reasons=blocking_reasons,
+        authorized_session_input_state=authorized_session_input_state,
+        authorized_session_preflight=authorized_session_preflight,
     )
+    stage5_calibration_sample_records = _stage5_calibration_samples_from_readback(
+        readback_records,
+        created_at=created,
+    )
+    stage5_calibration_summary = _stage5_calibration_summary(stage5_calibration_sample_records)
+    summary = {
+        **summary,
+        **stage5_calibration_summary,
+    }
     manifest = {
         "manifest_version": GDCIC_BROWSER_AUTHORIZED_READBACK_VERSION,
         "manifest_kind": GDCIC_BROWSER_AUTHORIZED_READBACK_KIND,
@@ -85,18 +126,28 @@ def build_gdcic_browser_authorized_readback(
         "created_at": created,
         "source_release_evidence_adapter_plan_root": str(plan_dir),
         "source_release_evidence_adapter_plan_json": str(source_path),
+        "source_field_query_json": str(field_query_path or ""),
+        "source_release_evidence_adapter_plan_manifest_id": source_plan_manifest_id,
+        "source_release_evidence_adapter_plan_manifest_sha256": source_plan_manifest_sha256,
         "execution_mode": execution_mode,
-        "live_browser_execution_enabled": bool(enable_live_browser_execution),
+        "live_browser_execution_requested": bool(enable_live_browser_execution),
+        "live_browser_execution_enabled": bool(enable_live_browser_execution and authorized_session_input_ready),
         "max_live_browser_tasks": max_live_browser_tasks,
         "storage_state_json_used": str(storage_state_json or ""),
         "user_data_dir_used": str(user_data_dir or ""),
+        "authorized_session_input_state": authorized_session_input_state,
+        "authorized_session_preflight": authorized_session_preflight,
         "headed_browser_requested": bool(headed),
         "browser_readback_task_records": task_records,
         "browser_readback_records": readback_records,
+        "stage5_calibration_sample_records": stage5_calibration_sample_records,
         "summary": summary,
         "safety": {
-            "network_enabled": bool(enable_live_browser_execution),
-            "browser_execution_enabled": bool(enable_live_browser_execution),
+            "network_enabled": bool(enable_live_browser_execution and authorized_session_input_ready),
+            "browser_execution_enabled": bool(enable_live_browser_execution and authorized_session_input_ready),
+            "protected_source_skipped_without_authorized_session": bool(
+                enable_live_browser_execution and not authorized_session_input_ready
+            ),
             "customer_visible_allowed": False,
             "no_legal_conclusion": True,
             "query_miss_is_not_clearance": True,
@@ -124,6 +175,10 @@ def build_gdcic_browser_authorized_readback(
         ]
         result["summary"]["forbidden_term_hits"] = forbidden_hits
         text = json.dumps(result, ensure_ascii=False, indent=2)
+    result["runtime_persistence"] = RuntimeStateRepository().save_worker_result(
+        _runtime_worker_result_from_readback(result, created_at=created)
+    )
+    text = json.dumps(result, ensure_ascii=False, indent=2)
     (out_dir / "gdcic-browser-authorized-readback-v1.json").write_text(text, encoding="utf-8")
     (out_dir / "gdcic-browser-authorized-readback-tasks.json").write_text(
         json.dumps(task_records, ensure_ascii=False, indent=2),
@@ -134,6 +189,266 @@ def build_gdcic_browser_authorized_readback(
         encoding="utf-8",
     )
     return result
+
+
+def _runtime_worker_result_from_readback(result: Mapping[str, Any], *, created_at: str) -> dict[str, Any]:
+    manifest = result.get("manifest") if isinstance(result.get("manifest"), Mapping) else {}
+    summary = result.get("summary") if isinstance(result.get("summary"), Mapping) else {}
+    records = [
+        dict(record)
+        for record in _list(manifest.get("browser_readback_records"))
+        if isinstance(record, Mapping)
+    ]
+    return {
+        "worker_id": GDCIC_BROWSER_AUTHORIZED_READBACK_WORKER_ID,
+        "worker_mode": str(manifest.get("execution_mode") or ""),
+        "repair_worker_state": str(summary.get("gdcic_authorized_session_overall_state") or ""),
+        "worker_result_state": str(summary.get("gdcic_authorized_session_overall_state") or ""),
+        "worker_result_id": str(manifest.get("manifest_id") or ""),
+        "created_at": created_at,
+        "project_id": _first_text(record.get("project_id") for record in records),
+        "source_release_evidence_adapter_plan_json": str(
+            manifest.get("source_release_evidence_adapter_plan_json") or ""
+        ),
+        "gdcic_browser_readback_task_count": int(summary.get("gdcic_browser_readback_task_count") or 0),
+        "gdcic_browser_readback_record_count": int(summary.get("gdcic_browser_readback_record_count") or 0),
+        "gdcic_browser_readback_ready_count": int(summary.get("gdcic_browser_readback_ready_count") or 0),
+        "project_manager_change_ready_count": int(summary.get("project_manager_change_ready_count") or 0),
+        "project_manager_change_interpretation_counts": dict(
+            summary.get("project_manager_change_interpretation_counts")
+            if isinstance(summary.get("project_manager_change_interpretation_counts"), Mapping)
+            else {}
+        ),
+        "stage5_calibration_sample_count": int(summary.get("stage5_calibration_sample_count") or 0),
+        "stage5_calibration_truth_label_required_count": int(
+            summary.get("stage5_calibration_truth_label_required_count") or 0
+        ),
+        "stage5_abcd_calibration_counts": dict(
+            summary.get("stage5_abcd_calibration_counts")
+            if isinstance(summary.get("stage5_abcd_calibration_counts"), Mapping)
+            else {}
+        ),
+        "stage5_calibration_review_bucket_counts": dict(
+            summary.get("stage5_calibration_review_bucket_counts")
+            if isinstance(summary.get("stage5_calibration_review_bucket_counts"), Mapping)
+            else {}
+        ),
+        "stage5_calibration_evidence_strength_counts": dict(
+            summary.get("stage5_calibration_evidence_strength_counts")
+            if isinstance(summary.get("stage5_calibration_evidence_strength_counts"), Mapping)
+            else {}
+        ),
+        "stage5_calibration_review_family_counts": dict(
+            summary.get("stage5_calibration_review_family_counts")
+            if isinstance(summary.get("stage5_calibration_review_family_counts"), Mapping)
+            else {}
+        ),
+        "authorization_readiness_state": str(summary.get("gdcic_authorized_session_overall_state") or ""),
+        "authorized_session_input_state": str(summary.get("authorized_session_input_state") or ""),
+        "authorized_session_preflight_state": str(summary.get("authorized_session_preflight_state") or ""),
+        "authorized_session_required_input": _list(summary.get("authorized_session_required_input")),
+        "operator_next_action_counts": dict(
+            summary.get("operator_next_action_counts")
+            if isinstance(summary.get("operator_next_action_counts"), Mapping)
+            else {}
+        ),
+        "readback_record_count": len(records),
+        "readback_records": records,
+        "live_execution_enabled": bool(manifest.get("live_browser_execution_enabled")),
+        "customer_visible_allowed": False,
+        "external_customer_action_enabled": False,
+        "real_payment_enabled": False,
+        "real_delivery_enabled": False,
+        "automatic_refund_enabled": False,
+        "no_legal_conclusion": True,
+        "query_miss_is_not_clearance": True,
+    }
+
+
+def _stage5_calibration_samples_from_readback(
+    readback_records: list[Mapping[str, Any]],
+    *,
+    created_at: str,
+) -> list[dict[str, Any]]:
+    samples: list[dict[str, Any]] = []
+    for record in readback_records:
+        if str(record.get("release_evidence_target_type") or "") != "project_manager_change_notice":
+            continue
+        if str(record.get("adapter_result_state") or "") != "MATCHED":
+            continue
+        source_records = [item for item in _list(record.get("records")) if isinstance(item, Mapping)]
+        for index, source_record in enumerate(source_records, start=1):
+            interpretation = str(
+                source_record.get("project_manager_change_release_window_interpretation") or ""
+            ).strip()
+            if not interpretation:
+                continue
+            bucket = _stage5_bucket_for_project_manager_change(interpretation)
+            samples.append(
+                {
+                    "stage5_calibration_sample_id": _stable_id(
+                        "GDCIC-STAGE5-CAL",
+                        record.get("gdcic_browser_readback_task_id"),
+                        interpretation,
+                        index,
+                    ),
+                    "source_worker_id": GDCIC_BROWSER_AUTHORIZED_READBACK_WORKER_ID,
+                    "source_readback_id": str(record.get("gdcic_browser_readback_task_id") or ""),
+                    "release_evidence_target_type": "project_manager_change_notice",
+                    "rule_code": "P13B_PROJECT_MANAGER_CHANGE_READBACK",
+                    "stage5_rule_gate_status": "REVIEW",
+                    "stage5_evidence_gate_status": "REVIEW",
+                    "stage5_calibration_review_bucket": bucket,
+                    "stage5_abcd_calibration_bucket": bucket,
+                    "stage5_calibration_evidence_strength": _stage5_evidence_strength(bucket),
+                    "stage5_calibration_review_family": _stage5_review_family(bucket),
+                    "stage5_calibration_review_reasons": [interpretation],
+                    "calibration_truth_label_required": True,
+                    "suggested_calibration_action": "manual_review_gdcic_project_manager_change_readback_before_stage5_rule_change",
+                    "project_id": str(record.get("project_id") or ""),
+                    "project_name": str(record.get("project_name") or ""),
+                    "candidate_company_name": str(record.get("candidate_company_name") or ""),
+                    "person_name": str(record.get("person_name") or ""),
+                    "original_project_manager_name": str(source_record.get("original_project_manager_name") or ""),
+                    "new_project_manager_name": str(source_record.get("new_project_manager_name") or ""),
+                    "change_date": str(source_record.get("change_date") or ""),
+                    "query_miss_is_not_clearance": True,
+                    "customer_visible_allowed": False,
+                    "no_legal_conclusion": True,
+                    "created_at": created_at,
+                }
+            )
+    return samples
+
+
+def _stage5_calibration_summary(samples: list[Mapping[str, Any]]) -> dict[str, Any]:
+    return {
+        "stage5_calibration_sample_count": len(samples),
+        "stage5_calibration_truth_label_required_count": sum(
+            1 for sample in samples if bool(sample.get("calibration_truth_label_required"))
+        ),
+        "stage5_abcd_calibration_counts": _counts(
+            sample.get("stage5_abcd_calibration_bucket") for sample in samples
+        ),
+        "stage5_calibration_review_bucket_counts": _counts(
+            sample.get("stage5_calibration_review_bucket") for sample in samples
+        ),
+        "stage5_calibration_evidence_strength_counts": _counts(
+            sample.get("stage5_calibration_evidence_strength") for sample in samples
+        ),
+        "stage5_calibration_review_family_counts": _counts(
+            sample.get("stage5_calibration_review_family") for sample in samples
+        ),
+        "stage5_calibration_suggested_action_counts": _counts(
+            sample.get("suggested_calibration_action") for sample in samples
+        ),
+    }
+
+
+def _stage5_bucket_for_project_manager_change(interpretation: str) -> str:
+    if interpretation == "ORIGINAL_MANAGER_CHANGED_OUT_REVIEW_REQUIRED":
+        return "C_REVERSE_EXPLANATION_OFFICIAL_READBACK"
+    return "B_PUBLIC_READBACK_REVIEW_REQUIRED"
+
+
+def _stage5_evidence_strength(bucket: str) -> str:
+    if bucket.startswith("C_"):
+        return "OFFICIAL_REVERSE_EXPLANATION_REVIEW_REQUIRED"
+    if bucket.startswith("B_"):
+        return "PUBLIC_READBACK_PRESENT_REVIEW_REQUIRED"
+    return "BLOCKED_OR_INSUFFICIENT_REVIEW_REQUIRED"
+
+
+def _stage5_review_family(bucket: str) -> str:
+    if bucket.startswith("C_"):
+        return "gdcic_project_manager_change_reverse_explanation_review"
+    return "gdcic_project_manager_change_public_readback_review"
+
+
+def _authorized_session_input_state(
+    *,
+    storage_state_json: str | Path | None,
+    user_data_dir: str | Path | None,
+    browser_runner_supplied: bool,
+) -> str:
+    if browser_runner_supplied:
+        return "INJECTED_BROWSER_RUNNER"
+    storage_path = Path(storage_state_json) if storage_state_json else None
+    user_data_path = Path(user_data_dir) if user_data_dir else None
+    storage_ready = bool(storage_path and storage_path.exists() and storage_path.is_file())
+    user_data_ready = bool(user_data_path and user_data_path.exists() and user_data_path.is_dir())
+    if storage_path and user_data_path:
+        if storage_ready and user_data_ready:
+            return "USER_DATA_DIR_AND_STORAGE_STATE_JSON_SUPPLIED"
+        if user_data_ready:
+            return "USER_DATA_DIR_SUPPLIED_STORAGE_STATE_JSON_MISSING"
+        if storage_ready:
+            return "STORAGE_STATE_JSON_SUPPLIED_USER_DATA_DIR_MISSING"
+        return "AUTHORIZED_SESSION_INPUT_SUPPLIED_BUT_MISSING"
+    if user_data_path:
+        return "USER_DATA_DIR_SUPPLIED" if user_data_ready else "USER_DATA_DIR_SUPPLIED_BUT_MISSING"
+    if storage_path:
+        return "STORAGE_STATE_JSON_SUPPLIED" if storage_ready else "STORAGE_STATE_JSON_SUPPLIED_BUT_MISSING"
+    return "NO_AUTHORIZED_SESSION_INPUT"
+
+
+def _authorized_session_input_ready(state: str) -> bool:
+    return state in {
+        "INJECTED_BROWSER_RUNNER",
+        "STORAGE_STATE_JSON_SUPPLIED",
+        "USER_DATA_DIR_SUPPLIED",
+        "USER_DATA_DIR_AND_STORAGE_STATE_JSON_SUPPLIED",
+        "USER_DATA_DIR_SUPPLIED_STORAGE_STATE_JSON_MISSING",
+        "STORAGE_STATE_JSON_SUPPLIED_USER_DATA_DIR_MISSING",
+    }
+
+
+def _authorized_session_preflight(
+    *,
+    authorized_session_input_state: str,
+    storage_state_json: str | Path | None,
+    user_data_dir: str | Path | None,
+) -> dict[str, Any]:
+    ready = _authorized_session_input_ready(authorized_session_input_state)
+    storage_path = Path(storage_state_json) if storage_state_json else None
+    user_data_path = Path(user_data_dir) if user_data_dir else None
+    if ready:
+        preflight_state = "AUTHORIZED_SESSION_INPUT_READY"
+        operator_next_action = ""
+    elif authorized_session_input_state == "NO_AUTHORIZED_SESSION_INPUT":
+        preflight_state = "NO_AUTHORIZED_SESSION_INPUT"
+        operator_next_action = "provide_gdcic_authorized_storage_state_or_user_data_dir_then_rerun"
+    else:
+        preflight_state = "AUTHORIZED_SESSION_INPUT_SUPPLIED_BUT_NOT_READABLE"
+        operator_next_action = "fix_gdcic_authorized_session_input_path_then_rerun"
+    return {
+        "preflight_state": preflight_state,
+        "authorized_session_input_state": authorized_session_input_state,
+        "authorized_session_input_ready": ready,
+        "storage_state_json_path": str(storage_path or ""),
+        "storage_state_json_exists": bool(storage_path and storage_path.exists() and storage_path.is_file()),
+        "user_data_dir_path": str(user_data_path or ""),
+        "user_data_dir_exists": bool(user_data_path and user_data_path.exists() and user_data_path.is_dir()),
+        "required_input": [] if ready else ["authorized_browser_storage_state_or_user_data_dir"],
+        "operator_next_action": operator_next_action,
+        "discovery_env_names": [
+            "KAKA_GDCIC_STORAGE_STATE_JSON",
+            "GDCIC_STORAGE_STATE_JSON",
+            "KAKA_GDCIC_USER_DATA_DIR",
+            "GDCIC_USER_DATA_DIR",
+        ],
+        "default_discovery_paths": [
+            ".auth/gdcic-storage-state.json",
+            "local/auth/gdcic-storage-state.json",
+            "tmp/auth/gdcic-storage-state.json",
+            ".auth/gdcic-user-data",
+            "local/auth/gdcic-user-data",
+            "tmp/auth/gdcic-user-data",
+        ],
+        "http_dynamic_stealthy_can_replace_login_state": False,
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
 
 
 def _task_records_from_release_plan(source_manifest: Mapping[str, Any], *, created_at: str) -> list[dict[str, Any]]:
@@ -217,9 +532,21 @@ def _execute_tasks(
     enable_live_browser_execution: bool,
     max_live_browser_tasks: int | None,
     browser_runner: BrowserRunner | None,
+    authorized_session_input_ready: bool,
 ) -> list[dict[str, Any]]:
     if not enable_live_browser_execution:
         return []
+    if not authorized_session_input_ready:
+        return [
+            _blocked_record(
+                task,
+                created_at=created_at,
+                blockers=["gdcic_authorized_session_input_missing_login_or_sso_required"],
+                readback_state="LOGIN_OR_SSO_REQUIRED_BLOCKED",
+                network_attempted=False,
+            )
+            for task in task_records
+        ]
     if browser_runner is None:
         return [
             _blocked_record(
@@ -275,6 +602,7 @@ def _readback_one(
             final_url=final_url,
             text=text,
             error=error,
+            network_attempted=True,
         )
     matched = _matched_record_from_text(task, text=text, final_url=final_url, captured_at=created_at)
     if matched:
@@ -292,6 +620,7 @@ def _readback_one(
             "text_probe_sha256": _sha256(_text_probe(text)),
             "records": [matched],
             "record_count": 1,
+            "network_attempted": True,
             "blocker_taxonomy": [],
             "query_miss_is_not_clearance": True,
             "customer_visible_allowed": False,
@@ -311,6 +640,7 @@ def _readback_one(
         "text_probe_sha256": _sha256(_text_probe(text)),
         "records": [],
         "record_count": 0,
+        "network_attempted": True,
         "blocker_taxonomy": ["gdcic_browser_authorized_readback_no_target_field_match_review"],
         "query_miss_is_not_clearance": True,
         "customer_visible_allowed": False,
@@ -328,6 +658,7 @@ def _blocked_record(
     final_url: str = "",
     text: str = "",
     error: str = "",
+    network_attempted: bool = False,
 ) -> dict[str, Any]:
     authorization_state = _authorization_state_from_blockers(blockers, readback_state)
     return {
@@ -336,6 +667,7 @@ def _blocked_record(
         "adapter_result_state": "BLOCKED" if readback_state != "LIVE_BROWSER_EXECUTION_DEFERRED_BY_LIMIT" else "NEEDS_BROWSER",
         "authorization_readiness_state": authorization_state,
         "field_surface_state": _field_surface_state_from_authorization_state(authorization_state),
+        "browser_capability_assessment": _browser_capability_assessment(authorization_state),
         "operator_next_actions": _operator_next_actions_for_authorization_state(authorization_state),
         "source_url": str(task.get("source_url") or ""),
         "final_url": final_url or str(task.get("source_url") or ""),
@@ -344,6 +676,7 @@ def _blocked_record(
         "text_probe_sha256": _sha256(_text_probe(text)),
         "records": [],
         "record_count": 0,
+        "network_attempted": bool(network_attempted),
         "blocker_taxonomy": _dedupe(blockers),
         "error": error,
         "query_miss_is_not_clearance": True,
@@ -393,7 +726,7 @@ def _matched_record_from_text(
     if identity_hits <= 0 or not any(token in text for token in target_tokens):
         return None
     selected_text = _selected_record_text(text, keywords=[*keywords, *target_tokens])
-    return {
+    record = {
         "source_url": str(task.get("source_url") or ""),
         "browser_url": final_url,
         "captured_at": captured_at,
@@ -405,6 +738,51 @@ def _matched_record_from_text(
         "matched_keywords": [keyword for keyword in keywords if keyword and keyword in text][:10],
         "query_miss_is_not_clearance": True,
         "readback_is_line_clue_not_final_conclusion": True,
+    }
+    if target_type == "project_manager_change_notice":
+        record.update(_project_manager_change_fields_from_text(text, person_name=person_name))
+    return record
+
+
+def _project_manager_change_fields_from_text(text: str, *, person_name: str) -> dict[str, Any]:
+    original = _first_text(
+        (
+            _match_text(r"(?:原|变更前)(?:项目经理|项目负责人)[:：\s]*([\u4e00-\u9fa5]{2,6})", text),
+            _match_text(r"(?:项目经理|项目负责人)[:：\s]*([\u4e00-\u9fa5]{2,6})\s*(?:变更为|调整为|更换为)", text),
+        )
+    )
+    new = _first_text(
+        (
+            _match_text(r"(?:新|现|变更后)(?:项目经理|项目负责人)[:：\s]*([\u4e00-\u9fa5]{2,6})", text),
+            _match_text(r"(?:变更为|调整为|更换为)\s*([\u4e00-\u9fa5]{2,6})", text),
+        )
+    )
+    change_date = _first_text(
+        (
+            _match_text(r"(?:变更日期|批准日期|审批日期|公示日期)[:：\s]*(\d{4}[-年]\d{1,2}[-月]\d{1,2}日?)", text),
+            _match_text(r"(\d{4}[-年]\d{1,2}[-月]\d{1,2}日?).{0,30}(?:项目经理|项目负责人).{0,20}变更", text),
+        )
+    )
+    reason = _match_text(r"变更原因[:：\s]*(.{2,120}?)(?=原项目经理|新项目经理|变更日期|公示日期|$)", text)
+    original_matches = bool(person_name and original == person_name)
+    new_matches = bool(person_name and new == person_name)
+    if original_matches and new and change_date:
+        interpretation = "ORIGINAL_MANAGER_CHANGED_OUT_REVIEW_REQUIRED"
+    elif new_matches and original and change_date:
+        interpretation = "CANDIDATE_MANAGER_CHANGED_IN_REVIEW_REQUIRED"
+    elif original or new or change_date:
+        interpretation = "PROJECT_MANAGER_CHANGE_NOTICE_FIELDS_EXTRACTED_REVIEW_REQUIRED"
+    else:
+        interpretation = "PROJECT_MANAGER_CHANGE_NOTICE_TEXT_ONLY_REVIEW_REQUIRED"
+    return {
+        "original_project_manager_name": original,
+        "new_project_manager_name": new,
+        "change_date": change_date,
+        "change_reason_probe": reason[:300],
+        "project_manager_change_release_evidence_role": "project_manager_responsibility_window_split",
+        "project_manager_change_release_window_interpretation": interpretation,
+        "original_project_manager_matches_query_person": original_matches,
+        "new_project_manager_matches_query_person": new_matches,
     }
 
 
@@ -444,16 +822,24 @@ def _playwright_browser_runner(
         context = None
         browser = None
         try:
+            proxy = playwright_proxy_settings()
             if user_data_dir:
+                persistent_options: dict[str, Any] = {
+                    "headless": not headed,
+                    "ignore_https_errors": True,
+                    "locale": "zh-CN",
+                    "timezone_id": "Asia/Shanghai",
+                }
+                if proxy:
+                    persistent_options["proxy"] = proxy
                 context = playwright.chromium.launch_persistent_context(
-                    str(user_data_dir),
-                    headless=not headed,
-                    ignore_https_errors=True,
-                    locale="zh-CN",
-                    timezone_id="Asia/Shanghai",
+                    str(user_data_dir), **persistent_options
                 )
             else:
-                browser = playwright.chromium.launch(headless=not headed)
+                launch_options: dict[str, Any] = {"headless": not headed}
+                if proxy:
+                    launch_options["proxy"] = proxy
+                browser = playwright.chromium.launch(**launch_options)
                 context_kwargs: dict[str, Any] = {
                     "ignore_https_errors": True,
                     "locale": "zh-CN",
@@ -575,7 +961,11 @@ def _field_surface_state_from_authorization_state(authorization_state: str) -> s
 
 def _operator_next_actions_for_authorization_state(authorization_state: str) -> list[str]:
     if authorization_state == "LOGIN_OR_SSO_REQUIRED":
-        return ["provide_gdcic_authorized_storage_state_or_user_data_dir_then_rerun"]
+        return [
+            "provide_gdcic_authorized_storage_state_or_user_data_dir_then_rerun",
+            "run_alternative_public_source_release_evidence_readback_chain",
+            "do_not_treat_http_dynamic_stealthy_as_login_state_replacement",
+        ]
     if authorization_state == "LOCAL_BROWSER_RUNTIME_UNAVAILABLE":
         return ["install_or_enable_playwright_browser_runtime_then_rerun"]
     if authorization_state == "NOT_EXECUTED_DEFERRED_BY_LIMIT":
@@ -583,6 +973,35 @@ def _operator_next_actions_for_authorization_state(authorization_state: str) -> 
     if authorization_state == "BROWSER_PAYLOAD_EMPTY_REVIEW_REQUIRED":
         return ["rerun_with_headed_browser_or_longer_wait_budget"]
     return ["review_gdcic_browser_execution_blocker_then_rerun"]
+
+
+def _browser_capability_assessment(authorization_state: str) -> dict[str, Any]:
+    if authorization_state == "LOGIN_OR_SSO_REQUIRED":
+        return {
+            "required_capability": "AUTHORIZED_SESSION_STORAGE_STATE_OR_USER_DATA_DIR",
+            "http_fetcher_applicable": False,
+            "dynamic_fetcher_applicable": False,
+            "stealthy_fetcher_applicable": False,
+            "http_dynamic_stealthy_can_replace_login_state": False,
+            "reason": "login_or_sso_gate_requires_valid_authorized_session_cookie_or_user_profile",
+        }
+    if authorization_state in {"BROWSER_PAYLOAD_EMPTY_REVIEW_REQUIRED", "BROWSER_EXECUTION_BLOCKED_REVIEW_REQUIRED"}:
+        return {
+            "required_capability": "BROWSER_RENDERING_OR_CHALLENGE_REVIEW",
+            "http_fetcher_applicable": True,
+            "dynamic_fetcher_applicable": True,
+            "stealthy_fetcher_applicable": True,
+            "http_dynamic_stealthy_can_replace_login_state": False,
+            "reason": "browser_or_challenge_issue_may_be_helped_by_scrapling_but_does_not_bypass_login",
+        }
+    return {
+        "required_capability": "REVIEW_RUNTIME_STATE",
+        "http_fetcher_applicable": True,
+        "dynamic_fetcher_applicable": True,
+        "stealthy_fetcher_applicable": False,
+        "http_dynamic_stealthy_can_replace_login_state": False,
+        "reason": "scrapling_capabilities_improve_fetch_or_rendering_not_account_authorization",
+    }
 
 
 def _looks_like_login_or_challenge(text: str, url: str) -> bool:
@@ -632,6 +1051,13 @@ def _html_to_text(value: str) -> str:
     return " ".join(text.replace("&nbsp;", " ").split())
 
 
+def _match_text(pattern: str, text: str) -> str:
+    match = re.search(pattern, str(text or ""), flags=re.I | re.S)
+    if not match:
+        return ""
+    return " ".join(str(match.group(1) or "").split())
+
+
 def _selected_record_text(text: str, *, keywords: list[Any]) -> str:
     lines = [" ".join(line.split()) for line in str(text or "").splitlines()]
     selected = [
@@ -654,35 +1080,147 @@ def _summary(
     readback_records: list[Mapping[str, Any]],
     execution_mode: str,
     blocking_reasons: list[str],
+    authorized_session_input_state: str,
+    authorized_session_preflight: Mapping[str, Any],
 ) -> dict[str, Any]:
     authorization_state_counts = _counts(record.get("authorization_readiness_state") for record in readback_records)
+    project_manager_change_records = [
+        record
+        for record in readback_records
+        if str(record.get("release_evidence_target_type") or "") == "project_manager_change_notice"
+    ]
+    project_manager_change_source_records = [
+        source_record
+        for record in project_manager_change_records
+        for source_record in _list(record.get("records"))
+        if isinstance(source_record, Mapping)
+    ]
+    authorized_session_input_ready = _authorized_session_input_ready(authorized_session_input_state)
+    ready_count = sum(
+        1 for record in readback_records if str(record.get("readback_state") or "") == "BROWSER_AUTHORIZED_READBACK_READY"
+    )
+    login_or_sso_required_count = sum(
+        1 for record in readback_records if str(record.get("readback_state") or "") == "LOGIN_OR_SSO_REQUIRED_BLOCKED"
+    )
+    no_field_match_count = sum(
+        1 for record in readback_records if str(record.get("readback_state") or "") == "NO_FIELD_MATCH_REVIEW_REQUIRED"
+    )
+    alternative_route_records = _alternative_public_source_route_records(task_records)
+    operator_next_action_counts = _counts(
+        action
+        for record in readback_records
+        for action in _list(record.get("operator_next_actions"))
+    )
+    if not authorized_session_input_ready:
+        operator_next_action_counts = {
+            **operator_next_action_counts,
+            "provide_gdcic_authorized_storage_state_or_user_data_dir_then_rerun": max(
+                int(operator_next_action_counts.get("provide_gdcic_authorized_storage_state_or_user_data_dir_then_rerun") or 0),
+                1,
+            ),
+        }
+    if alternative_route_records and (
+        not authorized_session_input_ready
+        or login_or_sso_required_count
+        or execution_mode == "PLAN_ONLY_NOT_EXECUTED"
+    ):
+        operator_next_action_counts = {
+            **operator_next_action_counts,
+            "run_alternative_public_source_release_evidence_readback_chain": max(
+                int(operator_next_action_counts.get("run_alternative_public_source_release_evidence_readback_chain") or 0),
+                len(alternative_route_records),
+            ),
+        }
+    overall_state = _overall_authorization_state(
+        execution_mode=execution_mode,
+        readback_records=readback_records,
+        authorization_state_counts=authorization_state_counts,
+    )
+    if not authorized_session_input_ready and ready_count == 0:
+        overall_state = "LOGIN_OR_SSO_REQUIRED"
     return {
         "execution_mode": execution_mode,
+        "authorized_session_input_state": authorized_session_input_state,
+        "authorized_session_input_ready": authorized_session_input_ready,
+        "authorized_session_preflight_state": str(authorized_session_preflight.get("preflight_state") or ""),
+        "authorized_session_preflight": dict(authorized_session_preflight),
+        "authorized_session_required_input": _list(authorized_session_preflight.get("required_input")),
+        "requires_authorized_session_for_login_protected_pages": True,
+        "http_dynamic_stealthy_can_replace_login_state": False,
+        "target_real_readback_success_count": ready_count,
+        "browser_network_attempt_count": sum(
+            1 for record in readback_records if bool(record.get("network_attempted"))
+        ),
+        "protected_source_skipped_without_authorized_session_count": sum(
+            1
+            for record in readback_records
+            if "gdcic_authorized_session_input_missing_login_or_sso_required"
+            in _list(record.get("blocker_taxonomy"))
+        ),
+        "target_project_manager_change_real_readback_success_count": sum(
+            1
+            for record in project_manager_change_records
+            if str(record.get("readback_state") or "") == "BROWSER_AUTHORIZED_READBACK_READY"
+        ),
+        "real_readback_success_not_faked": True,
+        "real_readback_success_proof_state": "PROVEN_BY_BROWSER_AUTHORIZED_READBACK_READY_RECORDS"
+        if ready_count
+        else "NO_REAL_AUTHORIZED_READBACK_SUCCESS",
+        "authorization_blocker_operator_next_action": "provide_gdcic_authorized_storage_state_or_user_data_dir_then_rerun"
+        if (not authorized_session_input_ready or overall_state == "LOGIN_OR_SSO_REQUIRED")
+        else "",
+        "authorization_blocker_alternative_operator_next_action": (
+            "run_alternative_public_source_release_evidence_readback_chain"
+            if alternative_route_records
+            and (not authorized_session_input_ready or overall_state in {"LOGIN_OR_SSO_REQUIRED", "NOT_ATTEMPTED_PLAN_ONLY"})
+            else ""
+        ),
+        "authorization_blocker_is_not_terminal_if_alternative_public_sources_exist": bool(alternative_route_records),
+        "alternative_public_source_route_count": len(alternative_route_records),
+        "alternative_public_source_route_records": alternative_route_records,
         "gdcic_browser_readback_task_count": len(task_records),
         "gdcic_browser_readback_record_count": len(readback_records),
-        "gdcic_browser_readback_ready_count": sum(
-            1 for record in readback_records if str(record.get("readback_state") or "") == "BROWSER_AUTHORIZED_READBACK_READY"
-        ),
-        "gdcic_browser_login_or_sso_required_count": sum(
-            1 for record in readback_records if str(record.get("readback_state") or "") == "LOGIN_OR_SSO_REQUIRED_BLOCKED"
-        ),
-        "gdcic_browser_no_field_match_count": sum(
-            1 for record in readback_records if str(record.get("readback_state") or "") == "NO_FIELD_MATCH_REVIEW_REQUIRED"
-        ),
+        "gdcic_browser_readback_ready_count": ready_count,
+        "gdcic_browser_login_or_sso_required_count": login_or_sso_required_count,
+        "gdcic_browser_no_field_match_count": no_field_match_count,
         "readback_state_counts": _counts(record.get("readback_state") for record in readback_records),
         "adapter_result_state_counts": _counts(record.get("adapter_result_state") for record in readback_records),
         "authorization_readiness_state_counts": authorization_state_counts,
-        "gdcic_authorized_session_overall_state": _overall_authorization_state(
-            execution_mode=execution_mode,
-            readback_records=readback_records,
-            authorization_state_counts=authorization_state_counts,
-        ),
-        "operator_next_action_counts": _counts(
-            action
-            for record in readback_records
-            for action in _list(record.get("operator_next_actions"))
-        ),
+        "gdcic_authorized_session_overall_state": overall_state,
+        "operator_next_action_counts": operator_next_action_counts,
         "release_evidence_target_type_counts": _counts(task.get("release_evidence_target_type") for task in task_records),
+        "project_manager_change_readback_task_count": sum(
+            1 for task in task_records if str(task.get("release_evidence_target_type") or "") == "project_manager_change_notice"
+        ),
+        "project_manager_change_readback_record_count": len(project_manager_change_records),
+        "project_manager_change_ready_count": sum(
+            1
+            for record in project_manager_change_records
+            if str(record.get("readback_state") or "") == "BROWSER_AUTHORIZED_READBACK_READY"
+        ),
+        "project_manager_change_not_found_count": sum(
+            1
+            for record in project_manager_change_records
+            if str(record.get("readback_state") or "") == "NO_FIELD_MATCH_REVIEW_REQUIRED"
+        ),
+        "project_manager_change_login_or_sso_required_count": sum(
+            1
+            for record in project_manager_change_records
+            if str(record.get("readback_state") or "") == "LOGIN_OR_SSO_REQUIRED_BLOCKED"
+        ),
+        "project_manager_change_interpretation_counts": _counts(
+            source_record.get("project_manager_change_release_window_interpretation")
+            for source_record in project_manager_change_source_records
+        ),
+        "project_manager_change_date_count": sum(
+            1 for source_record in project_manager_change_source_records if str(source_record.get("change_date") or "").strip()
+        ),
+        "project_manager_change_original_manager_matches_query_count": sum(
+            1 for source_record in project_manager_change_source_records if bool(source_record.get("original_project_manager_matches_query_person"))
+        ),
+        "project_manager_change_new_manager_matches_query_count": sum(
+            1 for source_record in project_manager_change_source_records if bool(source_record.get("new_project_manager_matches_query_person"))
+        ),
         "blocker_taxonomy_counts": _counts(
             blocker
             for record in readback_records
@@ -693,6 +1231,59 @@ def _summary(
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,
     }
+
+
+def _alternative_public_source_route_records(task_records: list[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    records: list[dict[str, Any]] = []
+    for task in task_records:
+        target_type = str(task.get("release_evidence_target_type") or "")
+        if target_type not in TARGET_TYPES:
+            continue
+        records.append(
+            {
+                "gdcic_browser_readback_task_id": str(task.get("gdcic_browser_readback_task_id") or ""),
+                "release_evidence_adapter_task_id": str(task.get("release_evidence_adapter_task_id") or ""),
+                "project_id": str(task.get("project_id") or ""),
+                "project_name": str(task.get("project_name") or ""),
+                "candidate_company_name": str(task.get("candidate_company_name") or ""),
+                "person_name": str(task.get("person_name") or ""),
+                "release_evidence_target_type": target_type,
+                "route_state": "ALTERNATIVE_PUBLIC_SOURCE_ROUTE_READY",
+                "route_reason": "gdcic_authorized_login_absent_or_blocked_is_not_terminal_for_evidence_search",
+                "route_policy": "try_public_original_notice_and_local_authority_sources_before_suspending",
+                "recommended_source_chain": _alternative_source_chain_for_target(target_type),
+                "recommended_entrypoints": [
+                    "stage16_p13b_continuation_runner",
+                    "stage4_release_evidence_bridge_builder",
+                    "guangdong_local_field_query_probe",
+                    "stage6_review_cycle_runner",
+                ],
+                "operator_next_action": "run_alternative_public_source_release_evidence_readback_chain",
+                "query_miss_is_not_clearance": True,
+                "customer_visible_allowed": False,
+                "no_legal_conclusion": True,
+            }
+        )
+    return records
+
+
+def _alternative_source_chain_for_target(target_type: str) -> list[str]:
+    common = [
+        "data_ggzy_company_award_history_search_by_company_or_uniscid",
+        "data_ggzy_bid_show_notice_content_and_original_url",
+        "ygp_original_url_readback_from_data_ggzy_pointer",
+    ]
+    if target_type == "project_manager_change_notice":
+        return [
+            *common,
+            "historical_overlap_project_region_local_housing_authority_project_manager_change_public_source",
+            "current_project_region_local_housing_authority_project_manager_change_public_source_if_historical_region_unknown",
+        ]
+    return [
+        *common,
+        "historical_overlap_project_region_local_housing_authority_contract_performance_public_source",
+        "current_project_region_local_housing_authority_contract_performance_public_source_if_historical_region_unknown",
+    ]
 
 
 def _overall_authorization_state(
@@ -719,6 +1310,41 @@ def _overall_authorization_state(
 def _source_manifest(payload: Mapping[str, Any]) -> dict[str, Any]:
     manifest = payload.get("manifest") if isinstance(payload, Mapping) else {}
     return dict(manifest) if isinstance(manifest, Mapping) else dict(payload)
+
+
+def _source_manifest_with_field_query_records(
+    source_manifest: Mapping[str, Any],
+    field_query_payload: Mapping[str, Any],
+) -> dict[str, Any]:
+    field_manifest = field_query_payload.get("manifest") if isinstance(field_query_payload.get("manifest"), Mapping) else {}
+    field_records = field_manifest.get("field_task_records") if isinstance(field_manifest, Mapping) else []
+    if not isinstance(field_records, list):
+        return dict(source_manifest)
+    existing_records = _list(source_manifest.get("release_evidence_adapter_task_records"))
+    merged_records: list[dict[str, Any]] = [
+        dict(record) for record in existing_records if isinstance(record, Mapping)
+    ]
+    seen = {
+        str(record.get("release_evidence_adapter_task_id") or record.get("query_task_id") or "")
+        for record in merged_records
+        if str(record.get("release_evidence_adapter_task_id") or record.get("query_task_id") or "").strip()
+    }
+    for record in field_records:
+        if not isinstance(record, Mapping):
+            continue
+        record_id = str(record.get("release_evidence_adapter_task_id") or record.get("query_task_id") or "").strip()
+        if record_id and record_id in seen:
+            continue
+        merged_records.append(dict(record))
+        if record_id:
+            seen.add(record_id)
+    return {
+        **dict(source_manifest),
+        "release_evidence_adapter_task_records": merged_records,
+        "field_query_task_records_consumed": len(field_records),
+        "field_query_manifest_id": str(field_manifest.get("manifest_id") or ""),
+        "field_query_manifest_sha256": str(field_manifest.get("manifest_sha256") or ""),
+    }
 
 
 def _load_json(path: Path, blocking_reasons: list[str], missing_reason: str) -> dict[str, Any]:
@@ -797,6 +1423,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Build GDCIC browser authorized readback v1.")
     parser.add_argument("--release-evidence-adapter-plan-root", default=str(DEFAULT_RELEASE_EVIDENCE_ADAPTER_PLAN_ROOT))
     parser.add_argument("--release-evidence-adapter-plan-json")
+    parser.add_argument("--field-query-json")
     parser.add_argument("--output-root", default=str(DEFAULT_OUTPUT_ROOT))
     parser.add_argument("--enable-live-browser-execution", action="store_true")
     parser.add_argument("--max-live-browser-tasks", type=int)
@@ -814,6 +1441,7 @@ def main(argv: list[str] | None = None) -> int:
     result = build_gdcic_browser_authorized_readback(
         release_evidence_adapter_plan_root=args.release_evidence_adapter_plan_root,
         release_evidence_adapter_plan_json=args.release_evidence_adapter_plan_json,
+        field_query_json=args.field_query_json,
         output_root=args.output_root,
         enable_live_browser_execution=args.enable_live_browser_execution,
         max_live_browser_tasks=args.max_live_browser_tasks,

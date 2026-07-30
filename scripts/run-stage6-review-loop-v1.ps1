@@ -5,6 +5,18 @@ param(
     [string]$BatchCloseoutRoot = "",
     [string]$BaselineEvidenceStateJson = "",
     [string]$BaselineEvidenceStateRoot = "",
+    [string]$ReleaseFieldQueryJson = "",
+    [string]$ReleaseFieldQueryRoot = "",
+    [string]$SupplementalReleaseFieldQueryJson = "",
+    [string]$SupplementalReleaseFieldQueryRoot = "",
+    [string]$ReleaseEvidenceAdapterPlanJson = "",
+    [string]$ReleaseEvidenceAdapterPlanRoot = "",
+    [string]$OriginalBacktraceContinuationJson = "",
+    [string]$OriginalBacktraceContinuationRoot = "",
+    [string]$Stage16P13bContinuationJson = "",
+    [string]$Stage16P13bContinuationRoot = "",
+    [string]$Stage5CalibrationSampleJson = "",
+    [string]$Stage5CalibrationSampleRoot = "",
     [string]$OutputRoot = "",
     [string]$ProjectIds = "",
     [int]$DispatchMaxGroups = -1,
@@ -57,6 +69,42 @@ if ($BaselineEvidenceStateJson) {
 }
 if ($BaselineEvidenceStateRoot) {
     $argsList += @("--baseline-evidence-state-root", $BaselineEvidenceStateRoot)
+}
+if ($ReleaseFieldQueryJson) {
+    $argsList += @("--release-field-query-json", $ReleaseFieldQueryJson)
+}
+if ($ReleaseFieldQueryRoot) {
+    $argsList += @("--release-field-query-root", $ReleaseFieldQueryRoot)
+}
+if ($SupplementalReleaseFieldQueryJson) {
+    $argsList += @("--supplemental-release-field-query-json", $SupplementalReleaseFieldQueryJson)
+}
+if ($SupplementalReleaseFieldQueryRoot) {
+    $argsList += @("--supplemental-release-field-query-root", $SupplementalReleaseFieldQueryRoot)
+}
+if ($ReleaseEvidenceAdapterPlanJson) {
+    $argsList += @("--release-evidence-adapter-plan-json", $ReleaseEvidenceAdapterPlanJson)
+}
+if ($ReleaseEvidenceAdapterPlanRoot) {
+    $argsList += @("--release-evidence-adapter-plan-root", $ReleaseEvidenceAdapterPlanRoot)
+}
+if ($OriginalBacktraceContinuationJson) {
+    $argsList += @("--original-backtrace-continuation-json", $OriginalBacktraceContinuationJson)
+}
+if ($OriginalBacktraceContinuationRoot) {
+    $argsList += @("--original-backtrace-continuation-root", $OriginalBacktraceContinuationRoot)
+}
+if ($Stage16P13bContinuationJson) {
+    $argsList += @("--stage16-p13b-continuation-json", $Stage16P13bContinuationJson)
+}
+if ($Stage16P13bContinuationRoot) {
+    $argsList += @("--stage16-p13b-continuation-root", $Stage16P13bContinuationRoot)
+}
+if ($Stage5CalibrationSampleJson) {
+    $argsList += @("--stage5-calibration-sample-json", $Stage5CalibrationSampleJson)
+}
+if ($Stage5CalibrationSampleRoot) {
+    $argsList += @("--stage5-calibration-sample-root", $Stage5CalibrationSampleRoot)
 }
 if ($ProjectIds) {
     $argsList += @("--project-ids", $ProjectIds)

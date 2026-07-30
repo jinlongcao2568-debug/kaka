@@ -46,7 +46,7 @@ class TestOpenCapabilityDocSync(unittest.TestCase):
         )
         self.assertEqual(registry["open_capability_policy_id"], POLICY_ID)
         self.assertEqual(registry["open_capability_policy_summary"]["sold_product"], "evidence_pack_and_leadpack")
-        self.assertIn("automated_refund_execution", registry["open_capability_policy_summary"]["excluded_capabilities"])
+        self.assertIn("automated_refund_execution", registry["open_capability_policy_summary"]["controlled_test_and_pilot_capabilities"])
         self.assertIn("PTL-I100-118-full-product-operational-acceptance", registry["open_capability_policy_summary"]["required_gates"])
 
         for path in D_DOCS.values():
@@ -59,7 +59,7 @@ class TestOpenCapabilityDocSync(unittest.TestCase):
         self.assertIn("PTL-I100-111F-open-capability-registry-route-doc-sync", route_map)
         self.assertIn("PTL-I100-112-production-platform-infrastructure", route_map)
         self.assertIn("controlled-opening-required", route_map)
-        self.assertIn("自动退款执行不实现", route_map)
+        self.assertIn("自动退款流程为 controlled-test-and-pilot-required", route_map)
         self.assertIn("candidate navigation asset", route_map)
         self.assertIn("候选导航资产", route_map)
         self.assertIn("control/current_task.yaml", route_map)
@@ -68,14 +68,16 @@ class TestOpenCapabilityDocSync(unittest.TestCase):
         self.assertNotIn("当前 active packet：`PTL-GOV-122", route_map)
         self.assertNotIn("当前推荐方向仅作导航建议，不是已激活任务：`Stage8 governed touch 深化`", route_map)
 
-    def test_d_docs_all_contain_open_capability_appendix_and_refund_exclusion(self) -> None:
+    def test_d_docs_all_contain_open_capability_appendix_and_refund_controlled_test_boundary(self) -> None:
         for doc_id, path in D_DOCS.items():
             with self.subTest(doc_id=doc_id):
                 text = read_text(path)
                 self.assertIn(POLICY_ID, text)
                 self.assertIn("controlled-opening-required", text)
-                self.assertIn("自动退款执行", text)
-                self.assertIn("excluded", text)
+                self.assertIn("自动退款", text)
+                self.assertIn("controlled-test-and-pilot-required", text)
+                self.assertIn("sandbox", text)
+                self.assertIn("dry-run", text)
                 self.assertIn("manual exception", text)
                 self.assertIn("governed review", text)
 
@@ -158,8 +160,8 @@ class TestOpenCapabilityDocSync(unittest.TestCase):
         ):
             self.assertIn(token, combined)
 
-        self.assertIn("automated_refund_execution is excluded", combined)
-        self.assertIn("manual exception record", combined)
+        self.assertIn("automated_refund_execution is controlled-test-and-pilot-required", combined)
+        self.assertIn("sandbox/mock/dry-run", combined)
         self.assertNotIn("真实触达是永久不做", combined)
         self.assertNotIn("支付是永久不做", combined)
         self.assertNotIn("交付是永久不做", combined)

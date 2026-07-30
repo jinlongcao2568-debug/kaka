@@ -19,6 +19,7 @@ from shared.contracts_runtime import StageBundle
 from shared.pipeline import run_internal_chain, run_internal_chain_until_stage6
 from shared.policy_executor import PolicyExecutor
 from shared.state_packet import StatePacket
+from stage4_verification.service import Stage4Service
 from stage5_rules_evidence.engine import RuleEvidenceEngine
 from stage5_rules_evidence.service import Stage5Service
 from stage6_fact_review.fact_aggregator import ProjectFactAggregator
@@ -160,6 +161,21 @@ class TestStage56Evaluators(unittest.TestCase):
         self.assertEqual(coverage.get("review_count"), 0)
         self.assertEqual(coverage.get("block_count"), 0)
         self.assertTrue(coverage.get("golden_case_refs"))
+        bundle_execution = service_result.inputs.get("stage5_rule_bundle_execution", {})
+        self.assertEqual(
+            bundle_execution,
+            engine_result.inputs.get("stage5_rule_bundle_execution"),
+        )
+        self.assertEqual(bundle_execution.get("executor_id"), "stage5-rule-bundle-executor-v1")
+        self.assertEqual(bundle_execution.get("executed_rule_codes"), ["PROC-001", "PROC-002", "DOC-001"])
+        self.assertIn("PROC-003", bundle_execution.get("skipped_rule_codes", []))
+        self.assertEqual(bundle_execution.get("summary", {}).get("executed_count"), 3)
+        self.assertEqual(
+            bundle_execution.get("summary", {}).get("skipped_count"),
+            coverage.get("skipped_count"),
+        )
+        self.assertFalse(bundle_execution.get("customer_visible_allowed"))
+        self.assertTrue(bundle_execution.get("no_legal_conclusion"))
         self.assertGreaterEqual(len(service_result.inputs.get("stage5_rule_hits", [])), 2)
         self.assertEqual(
             service_result.record("rule_gate_decision").get("passed_rule_hits"),
@@ -200,6 +216,38 @@ class TestStage56Evaluators(unittest.TestCase):
             service_result.record("review_queue_profile").get("review_lane"),
             aggregated.record("review_queue_profile").get("review_lane"),
         )
+
+    def test_stage4_runtime_blocker_taxonomy_projection_enters_stage5_inputs(self) -> None:
+        stage3 = run_internal_chain(load_fixture("internal_chain_happy.json"))["stage3"]
+        stage3_with_probe = StageBundle(
+            stage=3,
+            records=dict(stage3.records),
+            handoff=dict(stage3.handoff),
+            trace_rules=list(stage3.trace_rules),
+            inputs={
+                **stage3.inputs,
+                "stage4_probe_result": {
+                    "probe_status": "NOT_FOUND",
+                    "source_url": "https://example.test/stage4-public-source",
+                    "source_snapshot_id": "SNAP-STAGE4-NOT-FOUND",
+                    "query_terms": {"company_name": "测试公司"},
+                },
+            },
+        )
+
+        stage4 = Stage4Service().run(stage3_with_probe)
+        projection = stage4.inputs.get("stage4_blocker_taxonomy_projection")
+
+        self.assertEqual(projection["classifier_id"], "stage4-verification-blocker-taxonomy-v1")
+        self.assertEqual(projection["verification_state"], "NOT_FOUND")
+        self.assertEqual(projection["run_state"], "REVIEW_REQUIRED")
+        self.assertIn("source_not_found_not_clearance", projection["blocker_ids"])
+        self.assertTrue(projection["query_miss_is_not_clearance"])
+        self.assertFalse(projection["clearance_allowed"])
+        self.assertFalse(projection["customer_visible_allowed"])
+
+        stage5 = Stage5Service().run(stage4)
+        self.assertEqual(stage5.inputs.get("stage4_blocker_taxonomy_projection"), projection)
 
     def test_stage6_run_attaches_real_public_summary_and_b6_closure_profile(self) -> None:
         result = run_internal_chain(load_fixture("internal_chain_happy.json"))

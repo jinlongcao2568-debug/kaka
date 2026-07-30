@@ -106,19 +106,19 @@ Stage4/5 不得把四库一平台当成唯一核验源。四库/JZSC 更适合�
 
 ## 1.2 广东首批可执行核验入口
 
-当前代码已把广东 Stage4/5 后续硬伤源注册为 `regional_hard_defect_source_plan`，并在操作台运行边界中显示。广东建设信息网三库一平台公开 API 已接入第一版项目级只读查询：先用项目名解析省级项目编号，再查施工许可、合同、竣工、关键岗位人员，并按企业名查处罚、欠薪投诉、黑名单。未命中的来源仍保持缺口，不得推断“无风险”。
+当前代码已把广东 Stage4/5 后续硬伤源注册为 `regional_hard_defect_source_plan`，并在操作台运行边界中显示。广东建设信息网三库一平台公开 API 已接入第一版项目级只读查询：先用项目名解析省级项目编号，再查施工许可、合同、竣工、关键岗位人员，并按企业名查处罚、欠薪投诉、黑名单。2026-05-20 已实测 `skypt.gdcic.net/openplatform` 的匿名 `/api/openplatform/publicityPeriod/*` 详情接口可在项目列表命中后回读项目人员、施工许可证号、注册证书号等字段，并已接入 `GuangdongLocalFieldQueryProbe v1` live 字段查询回灌；项目名会生成短标题变体，联合体企业名会拆分成独立公司变体。合同履约默认优先走 openplatform 匿名公开接口，但合同/施工许可/竣工等项目级证据必须匹配目标项目名或项目名变体；只按公司查到的其他项目合同只能作为上下文，不得形成 B 级增强证据。真实 r2 canary 已把长标题补查到 `publicityPeriod` 详情，live3 project-strict 验证公司其他项目合同不会被误算成本项目合同；2026-05-21 live5 title-variants canary 已确认 `初步设计/监理/施工总承包/工程设计施工总承包/施工总价承包招标/二次招标` 等后缀会被剥离成工程主体标题并真实请求 openplatform，但前 5 条仍未命中目标项目，只能保持 D/证据不足；同日 projectCode canary 已确认 `JG2026-*` 属于广州交易中心编号，不能作为 GDCIC 省级项目编码查询，代码已将其保留为 `tradeProjectCode/trade_project_codes` 追踪字段，GDCIC `projectCode` 路由只接受明确项目编码字段中的数字省级/工程项目编码或官方连续编码。Bridge 编码召回只读明确项目编码字段和 URL 查询参数，不做全文数字抓取，避免统一社会信用代码、证书号、URL 路径号污染查询键。Stage6 状态表会把 openplatform `MATCHED` 显示为公开源读回摘要、来源标签和 PII 脱敏状态，并优先使用项目详情记录；只有公开源读回但还没有 B/C/D 等级时使用 `RELEASE_FIELD_QUERY_PUBLIC_READBACK_REVIEW_READY`。身份证类字段只保留 hash/脱敏探针。`210.76.80.152:8008/JG/home/Indexht` 合同履约/项目经理变更系统入口仍会跳 SSO，不得把 HTTP/Dynamic/Stealthy 当作登录态替代。未命中的来源仍保持缺口，不得推断“无风险”。
 
 | 入口 | 目标证据类型 | 查询键 | 当前运行状态 |
 | --- | --- | --- | --- |
-| 广东建设信息网 / 三库一平台项目信息 `GUANGDONG-GDCIC-SKYPT-OPENPLATFORM` | `construction_permit`, `contract_public_info`, `completion_filing`, `personnel_public_record`, `administrative_penalty_public_record`, `complaint_or_supervision_decision`, `credit_penalty_blacklist` | 项目名、候选企业、项目经理、证书号、施工许可证号 | `guangdong_gdcic_openplatform_public_api_query` 已实现公开 API 只读查询和快照；项目经理变更仍待专源 |
-| 广东建设信息网 / 招投标及合同履约监管系统 `GUANGDONG-GDCIC-HOME` | `contract_public_info`, `project_manager_change_notice` | 项目名、候选企业、项目代码、合同备案号 | 已注册入口；项目级查询 adapter 待补 |
+| 广东建设信息网 / 三库一平台项目信息 `GUANGDONG-GDCIC-SKYPT-OPENPLATFORM` | `construction_permit`, `contract_public_info`, `completion_filing`, `personnel_public_record`, `administrative_penalty_public_record`, `complaint_or_supervision_decision`, `credit_penalty_blacklist` | 项目名、候选企业、项目经理、证书号、施工许可证号、GDCIC 数字项目编码 | `guangdong_gdcic_openplatform_public_api_query` 已实现公开 API 只读查询和快照；项目列表命中后会自动补跑 `publicityPeriod/getBaseInfo|getContract|getConstructPermitInfo|getFinishProjectInfo|listApplyProjectPerson`，真实 canary 已回读项目经理、注册证书号和施工许可证号，并可在字段查询层输出 `MATCHED` 回灌 Stage6；合同履约 bridge 默认走该匿名公开源，但项目级记录必须匹配目标项目名或 GDCIC 数字项目编码，不能把同公司其他项目合同当成本项目证据；`JG2026-*` 只作交易中心编号/人工回溯线索，不投给 GDCIC `projectCode`；项目经理变更仍待专源 |
+| 广东建设信息网 / 招投标及合同履约监管系统 `GUANGDONG-GDCIC-HOME` | `project_manager_change_notice` | 项目名、候选企业、项目代码、合同备案号 | 保留为项目经理变更/授权浏览器路径；未提供 storage_state/user_data_dir 时会跳 SSO 并收口为 `LOGIN_OR_SSO_REQUIRED` / D，不再作为合同履约默认入口 |
 | 广东省投资项目在线审批监管平台 `GUANGDONG-TZXM-HOME` | `construction_permit`, `completion_filing` | 项目名、项目代码、审批回执号 | 已接入 `guangdong_tzxm_project_approval_publicity_api_v1`，可回放备案、核准、审批和节能审查公开接口字段；未命中不得推断无风险 |
 | 广东省住建厅行政处罚公示 `GUANGDONG-ZFCXJST-PENALTY-PUBLICITY` | `credit_penalty_blacklist`, `administrative_penalty_public_record`, `complaint_or_supervision_decision` | 候选企业、项目经理、统一社会信用代码 | 已接入 `guangdong_zfcxjst_penalty_publicity_page_v1`，可从公示公告列表和详情页回放处罚/监管决定线索 |
 | 信用广东 `GUANGDONG-CREDIT-GD-HOME` | `credit_penalty_blacklist`、`administrative_license_public_record`、`administrative_penalty_public_record` | 候选企业、统一社会信用代码 | 已接入 `guangdong_credit_gd_public_credit_query_v1` 和 `credit_gd_session_readback_v1`，先预热行政处罚/行政许可页面并发现 `/gdcreditwebApi2//company/web/booleanQueryListByPageSimple`，再优先回放公开列表；旧接口 404 归类为 stale endpoint，精准 `jsonArgs` 查询 403/503/验证码/繁忙只进入 review/blocker taxonomy 并停止轰炸，不阻断已成功的列表回放能力；未命中不得推断无风险 |
 | 广州市住房和城乡建设局信用信息双公示 `GUANGZHOU-ZFCJ-CREDIT-DOUBLE-PUBLICITY` | `construction_permit`, `contract_public_info`, `completion_filing`, `administrative_license_public_record`, `administrative_penalty_public_record`, `complaint_or_supervision_decision` | 候选企业、项目经理、统一社会信用代码、项目名 | 已接入 `guangzhou_zfcj_xyxx_api_query_v1`、`guangzhou_zfcj_construction_permit_public_api_v1`、`guangzhou_zfcj_completion_acceptance_public_api_v1`，作为广东省级源之外的城市级线索补充 |
 
 **当前验收口径**
-- 公共资源详情页能进入 Stage4-9 真实读回，只能证明公告/详情快照已被正式消费。
+- 公共资源详情页能进入 Stage1-6 真实读回，只能证明公告/详情快照已被正式消费。
 - 以上任一硬伤源未完成项目级查询、快照、parser 和 readback 前，顶层状态必须保持 `REVIEW_REQUIRED`；广东三库一平台已命中的来源可以减少对应缺口，但查不到不能变成无风险结论。
 - `GuangdongLocalVerificationProbe v1` 负责把上述广东省级源和广州城市补强源转成任务和可达性诊断；入口可达不等于字段级核验成功，字段级 adapter 仍需逐源实现。
 - 不允许把 `run_internal_chain` 或公告详情快照 `MATCHED` 当作客户可售证据闭合。

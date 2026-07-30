@@ -1,0 +1,14 @@
+services:
+  edge:
+    ports: !override
+      - "127.0.0.1:${KAKA_PUBLIC_UPSTREAM_PORT:-18080}:80"
+    volumes: !override
+      - ./deploy/production/Caddyfile.external-host-upstream:/etc/caddy/Caddyfile:ro
+      - ./deploy/production/Caddyfile.public-routes:/etc/caddy/KakaPublicRoutes:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    labels:
+      kaka.tls_termination: external_host_caddy
+      kaka.loopback_bind_only: "true"
+      kaka.public_customer_routes_only: "true"
+      kaka.production_live_enabled: "true"

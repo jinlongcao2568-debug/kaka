@@ -4,7 +4,11 @@ Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
 Current Workstream: NO_ACTIVE_PRODUCT_MAINLINE_PACKET (PTL-I100-149-real-sample-autonomous-opportunity-acceptance completed locally through 53e0d1b; post-149 direct-dev practical operator hardening completed through e6286b0. No next product mainline packet is auto-activated. Follow-up ordinary development uses AGENTS direct-dev unless live/release/high-risk controlled semantics require a task packet.)
+Current Stage1-6 Direct-Dev Focus: control/stage1_6_priority_execution_plan.yaml#current_focus = P0_STAGE4_RELEASE_EVIDENCE_CHAIN
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY
+Current Customer-Visible Production Code Path: IMPLEMENTED_FAIL_CLOSED_PENDING_EXTERNAL_CONFIGURATION
+Current Customer-Visible Production Deployment: NOT_DEPLOYED
+Current Customer-Visible Release Approval: NOT_REQUESTED
 Candidate Gap Active: false
 Strategic Branch Active: false
 Closure Review Active: false
@@ -13,18 +17,26 @@ Mainline Selection Ready: true
 C-group Enum Freeze: CONFIRMED
 Capability Adjudication Source: control/product_task_library.yaml#open_capability_policy and D13 能力总表与放行边界总表
 
+Current Stage1-6 Evidence Chain Status:
+- r175 clean live15 YGP backfill is a positive internal evidence-chain signal: 6/15 limited review candidates, 28 MATCHED, and 28 B_ENHANCEMENT_OFFICIAL_READBACK. It remains internal review evidence, not customer-visible delivery readiness.
+- r215/r217 are follow-up / merged projection scoreboards, not clean batch KPI runs. They currently show 23 projected rows and 6 limited/strong review candidates with Stage2/Stage3 counts at 0, so their rate must be read as projection coverage, not real_public clean-batch sellable conversion.
+- Stage7 governed preview remains closed unless the Stage6 evidence chain has source URL, readback/snapshot, SHA/hash, B/C grade, no-legal-conclusion boundary, and approval-safe envelope. limited review candidates do not imply customer-visible export, download, delivery, payment, refund, or clearance.
+- NOT_FOUND, BLOCKED, NEEDS_BROWSER, and LOGIN_OR_SSO_REQUIRED remain non-clearance states.
+
 Current Controlled Opening Boundaries:
+- Customer-visible production evidence-pack release now has a fail-closed implementation: immutable production Compose overlay, separated public/operator edges, signed provider evidence, Stripe account/payment/refund reconciliation, two-factor customer artifact access, actual alert probe, backup/restore/rollback evidence validation, hash-bound owner request plus distinct reviewer approval, suspension, and canary limits.
+- The implementation does not equal an active launch. No repository-local secret, fake report, sandbox-only result, or placeholder environment file satisfies production readiness. Actual domain/DNS, immutable image digests, external provider credentials/evidence, alert receiver, backup/restore/rollback artifacts, release window, owner request, and reviewer approval remain deployment inputs.
 - External software release is a controlled-opening capability: it requires controlled-opening gate, release checklist, approval chain, audit chain, operator action, rollback/suspension path, and passing regression before any live/public action.
 - Stage 8 real execution is a controlled-opening capability: it requires provider config, sandbox pass, approval/audit, quiet-hours/frequency/opt-out enforcement, operator action, and acceptance before live execution.
 - Stage 9 real payment/delivery/refund is a controlled-opening capability: payment, delivery, and real refund require provider config, sandbox/live-pilot evidence, approval/audit, operator action, reconciliation/writeback, and acceptance before live execution.
-- Automated refund execution remains excluded; refund handling is manual exception record, manual approval/audit, and governed review only.
+- Automated refund flows may be developed and tested in sandbox/mock/dry-run or explicitly authorized pilots; production automatic refund requires manual approval or explicit pilot authorization, audit, reconciliation, rollback/suspension, operator action, and governed review.
 - PTL-I100-143G is completed and registered the public-web capture escalation, captcha automated challenge resolution/resume, and implementation order before runtime packets continue.
-- PTL-I100-144A synchronized controlled-opening semantics and is closed; PTL-I100-144, PTL-I100-145, PTL-I100-150, PTL-I100-151, PTL-I100-146, PTL-I100-147, PTL-I100-148, and PTL-I100-149 are internally ready. No current product mainline packet is active; unapproved live provider calls, outreach, payment, delivery, refund, customer download, or public release remain disallowed.
+- PTL-I100-144A synchronized controlled-opening semantics and is closed; PTL-I100-144, PTL-I100-145, PTL-I100-150, PTL-I100-151, PTL-I100-146, PTL-I100-147, PTL-I100-148, and PTL-I100-149 are internally ready. No current product mainline packet is active; the production release code path is available, while unapproved live provider calls, outreach, payment, delivery, refund, customer download, or public release remain disallowed.
 
 Product Open Capability Baseline:
 - Policy id: PTL-I100-OPEN-CAPABILITY-BASELINE.
 - The sold product is evidence packs / lead packs; the software is owner-operated tooling and customer artifact access, not the sold software product itself.
-- Except automated refund execution, all business capabilities needed to sell evidence packs are target capabilities and must be implemented through staged controlled opening.
+- All business capabilities needed to sell evidence packs, including refund and automated-refund flows, are target capabilities; sandbox/mock/dry-run and authorized pilots may proceed, while production live execution requires staged controlled opening.
 - "Controlled opening" means not live until provider config, sandbox, approval, audit, operator action, field allowlist/masking, rollback/suspension, and the controlled-opening gate pass; it does not mean the capability is permanently out of product scope.
 
 Closed 149 Result:
@@ -59,10 +71,10 @@ Allowed Actions (current):
 
 Forbidden Actions (current):
 - Any path outside control/current_task.yaml declared scope when a task packet / scoped subpacket window is active.
-- Any automated refund implementation or automated refund enablement.
-- Any real provider call, real model provider call, real outreach, real CRM sync, real quote send, real payment/delivery/refund, real customer download, or public release during this sync.
+- Any unauthorized production automated refund implementation or enablement without approval, audit, reconciliation, rollback/suspension, and operator action.
+- Any real provider call, real model provider call, real outreach, real CRM sync, real quote send, real payment/delivery/refund, real customer download, or public release outside an active hash-bound production release window and its scoped operator action.
 - Any schema/enum/gate/exception semantic addition.
-- Any push.
+- Any unreviewed or failing push. A human-requested, fully checked direct-dev change may be committed and pushed to its current branch.
 
 State Semantics:
 - READY_FOR_POST-REPAIR_MAINLINE_SELECTION means the repo can enter formal mainline selection; it does not by itself execute external release, Stage8, or Stage9 live actions.
@@ -70,9 +82,15 @@ State Semantics:
 - current_task -> product_task_library -> repo_status is the active-source priority for task packet / scoped subpacket windows.
 - DIRECT_DEV_DEFAULT is the default for ordinary internal development and does not require switching control/current_task.yaml before work.
 - control/current_task.yaml is the active execution source only when a task packet / scoped subpacket window is active.
+- When Current Workstream is NO_ACTIVE_PRODUCT_MAINLINE_PACKET, control/current_task.yaml is a historical completed packet carrier, not an active ordinary direct-dev target.
+- Ordinary Stage1-6 direct-dev must use control/stage1_6_priority_execution_plan.yaml#current_focus as the current product runtime focus unless a new controlled task packet is explicitly activated.
 - control/product_task_library.yaml remains the product mainline task pool and candidate source; it does not replace control/current_task.yaml inside task packet windows and does not block ordinary direct-dev.
 - docs/AX9S_当前主线导航图.md is a pure route-map candidate navigation asset; it does not act as current task source, state source, execution log, full backlog, or execution-order authority.
 - Execution-level management and reporting should use the P1 -> P8 ladder in control/product_task_library.yaml rather than direction labels such as Stage8 governed touch 深化 / Stage9 governed delivery 深化.
+- Stage1-6/P0 formal entrypoint names come from control/automation_entrypoint_registry.yaml. Current relevant FORMAL_CURRENT entrypoints are stage1_6_real_public_pressure_runner, stage4_release_evidence_bridge_builder, guangdong_local_field_query_probe, guangdong_gdcic_openplatform_query_probe, stage6_review_cycle_runner, and stage16_p13b_continuation_runner. stage6_review_loop_runner is retained only as a SUPPORTING_TOOL for compatibility and sample replay; new continuation should enter through stage6_review_cycle_runner or runtime_controller_entrypoint_transport.
+- Production formal entrypoints are production_provider_live_evidence_generator, production_release_backup, production_release_isolated_restore, production_release_rollback_drill, production_release_preflight, and production_release_deployer. The deployer stops at READY_FOR_APPROVAL; it never substitutes for owner request and distinct reviewer approval.
+- control/product_runtime_agent_registry.yaml is not present in this repo; do not treat it as a required state source unless a future change explicitly creates it.
+- Authorization gaps should follow existing Stage4 contract fields. If NEEDS_AUTH is not part of the active enum/schema, represent login or SSO gaps with BLOCKED/NEEDS_BROWSER plus authorization_readiness_state=LOGIN_OR_SSO_REQUIRED and operator_next_action.
 
 Current Scoped-Execution Required Checks:
 - git status --short --untracked-files=all
@@ -104,6 +122,7 @@ Automation Guardrails:
 
 Navigation Assets:
 - Execution routing map (candidate navigation asset, not status source): docs/AX9S_当前主线导航图.md
+- Stage1-6 priority execution plan (ordinary direct-dev current focus): control/stage1_6_priority_execution_plan.yaml
 - Product mainline task pool: control/product_task_library.yaml
 - Product module registry (execution map, not status source): control/product_module_registry.yaml
 - Product operability gap matrix: control/product_operability_gap_matrix.yaml

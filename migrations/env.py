@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import sys
 from pathlib import Path
 
@@ -13,6 +12,7 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from storage.sqlalchemy_schema import metadata  # noqa: E402
+from shared.settings import resolve_storage_database_url_from_env  # noqa: E402
 
 
 config = context.config
@@ -21,10 +21,12 @@ target_metadata = metadata
 
 def _database_url() -> str:
     x_args = context.get_x_argument(as_dictionary=True)
-    database_url = x_args.get("database_url") or os.getenv("KAKA_STORAGE_DATABASE_URL")
+    database_url = x_args.get("database_url")
+    if not database_url:
+        database_url, _ = resolve_storage_database_url_from_env()
     if not database_url:
         raise RuntimeError(
-            "KAKA_STORAGE_DATABASE_URL or alembic -x database_url=... is required for storage migrations"
+            "database URL config or alembic -x database_url=... is required for storage migrations"
         )
     return database_url
 

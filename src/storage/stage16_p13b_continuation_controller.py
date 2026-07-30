@@ -8,6 +8,11 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from shared.utils import utc_now_iso
+from storage.runtime_closeout_precedence import (
+    blocker_ledger_record,
+    closeout_precedence_decision,
+    closeout_precedence_summary,
+)
 
 
 STAGE16_P13B_CONTINUATION_KIND = "stage16_p13b_continuation_controller_v1_manifest"
@@ -140,7 +145,7 @@ def _project_continuation_record(
 ) -> dict[str, Any]:
     project_id = str(candidate.get("project_id") or "").strip()
     project_name = str(candidate.get("project_name") or "").strip()
-    readback = closed.get("real_public_stage4_9_readback") if isinstance(closed.get("real_public_stage4_9_readback"), Mapping) else {}
+    readback = closed.get("real_public_stage1_6_readback") if isinstance(closed.get("real_public_stage1_6_readback"), Mapping) else {}
     priority_class = str(candidate.get("opportunity_priority_class") or "").strip()
     lane = str(candidate.get("engineering_work_lane") or "").strip()
     source_url = str(candidate.get("source_url") or "").strip()
@@ -163,6 +168,20 @@ def _project_continuation_record(
         priority_class=priority_class,
         lane=lane,
     )
+    precedence = closeout_precedence_decision(
+        _p13b_closeout_precedence_input(candidate=candidate, closed=closed, readback=readback, supplement=supplement),
+        task_family="p13b_followup",
+        runtime_layer="controller decision:stage16_p13b_continuation",
+    )
+    blocker_record = (
+        blocker_ledger_record(candidate, precedence, ledger_scope="p13b_continuation")
+        if precedence.get("suppressed_dispatch")
+        else {}
+    )
+    if precedence.get("suppressed_dispatch"):
+        state = "P13B_TERMINAL_CLOSEOUT_SUPPRESSED"
+        next_action = str(precedence.get("operator_next_action") or "project_to_status_projection_or_manual_hold_without_duplicate_p13b")
+        reasons = _dedupe([*reasons, *_list(precedence.get("blocker_taxonomy"))])
     return {
         "project_id": project_id,
         "project_name": project_name,
@@ -188,6 +207,12 @@ def _project_continuation_record(
         "continuation_state": state,
         "recommended_next_action": next_action,
         "review_reasons": reasons,
+        "closeout_precedence": precedence,
+        "closeout_precedence_state": str(precedence.get("closeout_precedence_state") or ""),
+        "closeout_precedence_suppressed": bool(precedence.get("suppressed_dispatch")),
+        "runtime_blocker_ledger_record": blocker_record,
+        "runtime_blocker_ledger_records": [blocker_record] if blocker_record else [],
+        "operator_projection": _operator_projection(state=state, next_action=next_action, reasons=reasons),
         "created_at": created_at,
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,
@@ -271,6 +296,52 @@ def _p13b_candidate_group_record(record: Mapping[str, Any]) -> dict[str, Any]:
         "source_stage16_continuation_state": record.get("continuation_state"),
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,
+    }
+
+
+def _p13b_closeout_precedence_input(
+    *,
+    candidate: Mapping[str, Any],
+    closed: Mapping[str, Any],
+    readback: Mapping[str, Any],
+    supplement: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    markers: list[Any] = []
+    for source in (candidate, closed, readback, supplement or {}):
+        if not isinstance(source, Mapping):
+            continue
+        for key in (
+            "runtime_closeout_markers",
+            "terminal_closeout_markers",
+            "closeout_backfill_markers",
+            "terminal_backfill_markers",
+        ):
+            markers.extend(_list(source.get(key)))
+    return {
+        "action_family": "P13B_RELEASE_EVIDENCE_TARGETED_REVIEW",
+        "runtime_task_family": "p13b_followup",
+        "runtime_closeout_markers": markers,
+        "p13b_followup_terminal_state": _first_text(
+            candidate,
+            (
+                "p13b_followup_terminal_state",
+                "p13b_terminal_closeout_state",
+            ),
+        )
+        or _first_text(
+            closed,
+            (
+                "p13b_followup_terminal_state",
+                "p13b_terminal_closeout_state",
+            ),
+        )
+        or _first_text(
+            readback,
+            (
+                "p13b_followup_terminal_state",
+                "p13b_terminal_closeout_state",
+            ),
+        ),
     }
 
 
@@ -385,6 +456,14 @@ def _first_text(source: Mapping[str, Any], keys: tuple[str, ...]) -> str:
     return ""
 
 
+def _first_list_text(values: list[str]) -> str:
+    for value in values:
+        text = str(value or "").strip()
+        if text:
+            return text
+    return ""
+
+
 def _group_members(candidate_companies: list[str], supplement: Mapping[str, Any] | None) -> list[str]:
     if supplement:
         members = _dedupe(str(item or "").strip() for item in list(supplement.get("candidate_group_members") or []))
@@ -445,15 +524,50 @@ def _summary(
     p13b_candidates: list[Mapping[str, Any]],
     blocking_reasons: list[str],
 ) -> dict[str, Any]:
+    precedence = closeout_precedence_summary(
+        record.get("closeout_precedence") for record in records if isinstance(record.get("closeout_precedence"), Mapping)
+    )
+    blocker_records = [
+        record.get("runtime_blocker_ledger_record")
+        for record in records
+        if isinstance(record.get("runtime_blocker_ledger_record"), Mapping)
+        and record.get("runtime_blocker_ledger_record")
+    ]
     return {
         "source_project_count": len(records),
         "ready_for_p13b_count": len(p13b_projects),
         "p13b_candidate_group_count": len(p13b_candidates),
         "continuation_state_counts": _counts(record.get("continuation_state") for record in records),
         "recommended_next_action_counts": _counts(record.get("recommended_next_action") for record in records),
+        "runtime_blocker_ledger_count": len(blocker_records),
+        "runtime_blocker_ledger_state_counts": _counts(
+            record.get("blocker_state") for record in blocker_records if isinstance(record, Mapping)
+        ),
+        "operator_projection_state_counts": _counts(
+            (record.get("operator_projection") or {}).get("projection_state")
+            if isinstance(record.get("operator_projection"), Mapping)
+            else ""
+            for record in records
+        ),
+        **precedence,
         "blocking_reasons": list(blocking_reasons),
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,
+    }
+
+
+def _operator_projection(*, state: str, next_action: str, reasons: list[str]) -> dict[str, Any]:
+    projection_state = "P13B_CONTINUATION_READY" if state == "READY_FOR_P13B_DATA_GGZY" else "P13B_CONTINUATION_OPERATOR_HOLD"
+    return {
+        "projection_state": projection_state,
+        "current_state": state,
+        "owner_status": state,
+        "blocker_reason": _first_list_text(reasons),
+        "next_action": next_action,
+        "raw_json_required_for_next_step": False,
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+        "query_miss_is_not_clearance": True,
     }
 
 
@@ -528,6 +642,16 @@ def _dedupe(values: Any) -> list[str]:
         seen.add(text)
         rows.append(text)
     return rows
+
+
+def _list(value: Any) -> list[Any]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return value
+    if isinstance(value, tuple):
+        return list(value)
+    return [value]
 
 
 def _fingerprint(payload: Any) -> str:

@@ -86,11 +86,11 @@
         "ORG_EMAIL": "PREVIEW_ONLY",
         "PUBLIC_FORM": "PREVIEW_ONLY",
         "CRM_APPROVED_DIRECT": "APPROVAL_REQUIRED",
-        "AUTHORIZED_PERSON_DIRECT": "BLOCKED",
-        "SOCIAL_DM": "BLOCKED",
-        "IM_DIRECT": "BLOCKED",
-        "PERSONAL_PHONE": "BLOCKED",
-        "PERSONAL_EMAIL": "BLOCKED"
+        "AUTHORIZED_PERSON_DIRECT": "APPROVAL_REQUIRED",
+        "SOCIAL_DM": "APPROVAL_REQUIRED",
+        "IM_DIRECT": "APPROVAL_REQUIRED",
+        "PERSONAL_PHONE": "APPROVAL_REQUIRED",
+        "PERSONAL_EMAIL": "APPROVAL_REQUIRED"
       },
       "channelWeights": {
         "ORG_PHONE": 10,
@@ -108,13 +108,13 @@
         "ORG_EMAIL": "DRY_RUN",
         "PUBLIC_FORM": "DRY_RUN",
         "CRM_APPROVED_DIRECT": "APPROVAL_REQUIRED",
-        "AUTHORIZED_PERSON_DIRECT": "PERMANENTLY_BLOCKED",
-        "SOCIAL_DM": "PERMANENTLY_BLOCKED",
-        "IM_DIRECT": "PERMANENTLY_BLOCKED",
-        "PERSONAL_PHONE": "PERMANENTLY_BLOCKED",
-        "PERSONAL_EMAIL": "PERMANENTLY_BLOCKED"
+        "AUTHORIZED_PERSON_DIRECT": "APPROVAL_REQUIRED",
+        "SOCIAL_DM": "APPROVAL_REQUIRED",
+        "IM_DIRECT": "APPROVAL_REQUIRED",
+        "PERSONAL_PHONE": "APPROVAL_REQUIRED",
+        "PERSONAL_EMAIL": "APPROVAL_REQUIRED"
       },
-      "notes": "渠道家族与执行 vendor 策略解耦；当前 phase 只允许 preview/dry_run/approval 语义，不默认真实触达。"
+      "notes": "渠道家族与执行 vendor 策略解耦；当前 phase 只允许 preview/dry_run/approval 语义，不默认生产真实触达。高限制或个人直达渠道可做 sandbox/mock/dry-run/审批流测试和明确授权试点；生产触达必须具备 lawful basis、审批、审计、operator action、频控、退订和停机机制。"
     }
   ]
 }

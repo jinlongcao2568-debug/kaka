@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 import copy
+import io
+import json
+import re
 import sys
 import unittest
+import zipfile
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -30,6 +34,86 @@ class TestOperatorFrontendPortal(unittest.TestCase, IsolatedStorageTestMixin):
     def tearDown(self) -> None:
         self.tearDown_storage_test_env()
 
+    def _approve_internal_preview_download(
+        self,
+        client: TestClient,
+        opportunity_id: str,
+    ) -> str:
+        requested = client.post(
+            "/internal/approvals/requests",
+            headers={
+                "X-Kaka-Test-Operator-Auth": "approved",
+                "X-Kaka-Test-Principal-Id": "operator-portal-test",
+                "X-Kaka-Test-Role": "operator",
+            },
+            json={
+                "resource_type": "opportunity",
+                "resource_id": opportunity_id,
+                "action": "internal_preview_download",
+                "reason": "内部证据包验收需要",
+            },
+        )
+        self.assertEqual(requested.status_code, 201, requested.text)
+        request_id = str(requested.json()["request_id"])
+        decided = client.post(
+            f"/internal/approvals/requests/{request_id}/decision",
+            headers={
+                "X-Kaka-Test-Operator-Auth": "approved",
+                "X-Kaka-Test-Principal-Id": "reviewer-portal-test",
+                "X-Kaka-Test-Role": "reviewer",
+            },
+            json={
+                "decision": "APPROVED",
+                "reason": "字段脱敏与内部用途均已复核",
+            },
+        )
+        self.assertEqual(decided.status_code, 200, decided.text)
+        self.assertTrue(decided.json()["approval_satisfied"])
+        return request_id
+
+    def test_html_security_boundary_uses_nonce_csp_and_centralized_markup_audit(self) -> None:
+        client = TestClient(create_app())
+
+        response = client.get("/operator-console")
+
+        self.assertEqual(response.status_code, 200)
+        csp = response.headers["content-security-policy"]
+        nonce_match = re.search(r"script-src 'nonce-([^']+)'", csp)
+        self.assertIsNotNone(nonce_match)
+        nonce = nonce_match.group(1)
+        self.assertIn(f'<script nonce="{nonce}">', response.text)
+        self.assertIn(f'<style nonce="{nonce}">', response.text)
+        self.assertIn("frame-ancestors 'none'", csp)
+        self.assertIn("script-src-attr 'none'", csp)
+        self.assertIn("style-src-attr 'none'", csp)
+        self.assertNotIn("'unsafe-inline'", csp)
+        self.assertEqual(response.headers["x-frame-options"], "DENY")
+        self.assertEqual(response.headers["x-content-type-options"], "nosniff")
+        self.assertEqual(response.headers["referrer-policy"], "no-referrer")
+        self.assertIn("payment=()", response.headers["permissions-policy"])
+        self.assertEqual(response.headers["cache-control"], "no-store")
+
+        frontend_source = (SRC / "api" / "routes" / "operator_frontend.py").read_text(encoding="utf-8")
+        direct_sinks = [
+            line.strip()
+            for line in frontend_source.splitlines()
+            if ".innerHTML =" in line and "safeHtml(" not in line
+        ]
+        self.assertEqual(direct_sinks, ['template.innerHTML = String(markup ?? "");'])
+        self.assertIn("kakaAllowedMarkupTags", frontend_source)
+        self.assertIn("kakaSafeHref", frontend_source)
+        self.assertIn('element.replaceChildren(kakaAuditedMarkup(markup))', frontend_source)
+
+    def test_malicious_opportunity_identifier_is_rendered_as_text_not_markup(self) -> None:
+        client = TestClient(create_app())
+        payload = '%3Cimg%20src%3Dx%20onerror%3Dwindow.__kaka_xss%3D1%3E'
+
+        response = client.get(f"/customer-artifact-portal/{payload}")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn('<img src=x onerror=window.__kaka_xss=1>', response.text)
+        self.assertIn("&lt;img", response.text)
+
     def test_owner_console_frontend_is_mounted_and_exposes_operator_workflow(self) -> None:
         app = create_app()
         client = TestClient(app)
@@ -44,6 +128,7 @@ class TestOperatorFrontendPortal(unittest.TestCase, IsolatedStorageTestMixin):
                 "renderCustomerArtifactPortalDownload",
                 "renderOperatorUserAcceptanceContract",
                 "renderOperatorUserAcceptanceGapMatrix",
+                "renderRuntimeProjectionReadback",
             },
         )
         route_metadata = {
@@ -77,6 +162,8 @@ class TestOperatorFrontendPortal(unittest.TestCase, IsolatedStorageTestMixin):
             ]
         )
         self.assertTrue(route_metadata["renderOperatorUserAcceptanceGapMatrix"]["ui_acceptance_status"])
+        self.assertTrue(route_metadata["renderRuntimeProjectionReadback"]["runtime_projection_frontend"])
+        self.assertTrue(route_metadata["renderRuntimeProjectionReadback"]["repository_backed_readback"])
         bootstrap = app.state.transport_bootstrap
         frontend_ops = {
             operation["operationId"]: operation
@@ -182,6 +269,19 @@ class TestOperatorFrontendPortal(unittest.TestCase, IsolatedStorageTestMixin):
             "搜索运行中",
             "机会工作台",
             "采集运行",
+            "产品配置",
+            "产品配置与受控入驻",
+            "配置只能收窄到登记地区与来源",
+            "保存新草稿版本",
+            "离线试跑最新版本",
+            "回滚并生成新活动版本",
+            "非多租户 SaaS",
+            "运营支持",
+            "运营支持工作台",
+            "任务与恢复动作",
+            "受控重试",
+            "重试需二次确认",
+            "事实层不可编辑",
             "系统与放行",
             "验收契约",
             "任务与项目",
@@ -214,7 +314,44 @@ class TestOperatorFrontendPortal(unittest.TestCase, IsolatedStorageTestMixin):
             "/go-live/readiness",
             "/operator-console/real-world-sellability",
             "/operator-console/stage6-review-loop-status",
+            "/operator-console/runtime-projection",
             "/operator-console/stage6-review-loop",
+            "运行控制器投影",
+            "统一运行控制器状态",
+            "runtimeProjectionMetrics",
+            "runtimeProjectionBoundary",
+            "runtimeProjectionDetails",
+            "控制器派生任务",
+            "控制器派生任务明细",
+            "派生入口",
+            "人工复核族",
+            "Stage4 释放证据下一步",
+            "Stage4 项目码召回",
+            "需要授权浏览器",
+            "项目经理变更命中",
+            "解析阻断",
+            "field_query_operator_next_action_counts",
+            "release_chain_next_action_counts",
+            "release_chain_manual_action_family_counts",
+            "Stage1-6 批量稳定性",
+            "附件快照缺口",
+            "推荐动作",
+            "缺口动作",
+            "Stage5 规则门校准",
+            "证据强度",
+            "复核桶",
+            "复核族",
+            "建议动作",
+            "Stage4/5 样本回放",
+            "阻断账本",
+            "阻断路由",
+            "运行审计回放",
+            "审计回放只用于内部复核",
+            "Stage8/9 受控开放边界",
+            "自动退款受控测试/试点",
+            "放行前置门禁",
+            "生产未授权阻断动作",
+            "可测试动作",
             "回归与受控放行状态",
             "默认实战搜索已接真实公开列表页候选发现",
             "内部测试发布模拟已打开",
@@ -244,6 +381,10 @@ class TestOperatorFrontendPortal(unittest.TestCase, IsolatedStorageTestMixin):
         for expected in (
             'class="layout operator-shell"',
             'data-view="systemRelease"',
+            'data-view="onboarding"',
+            'data-view-panel="onboarding"',
+            'data-view="support"',
+            'data-view-panel="support"',
             'data-view-panel="systemRelease"',
             'class="resultPane"',
             "function formatOperatorSummary(value)",
@@ -258,14 +399,21 @@ class TestOperatorFrontendPortal(unittest.TestCase, IsolatedStorageTestMixin):
             "function renderRealWorldSellability(surface)",
             "async function loadRealWorldSellability()",
             "async function loadStage6ReviewLoopStatus()",
+            "function renderRuntimeProjection(surface)",
+            "async function loadRuntimeProjection()",
             "renderStage6ReviewLoopStatus",
             "function showView(view)",
+            'cache: "no-store"',
             "id=\"sellabilityDecision\"",
             "id=\"sellabilityMetrics\"",
             "id=\"sellabilityBoundary\"",
             "id=\"sellabilityLaneList\"",
             "id=\"stageObjectFlow\"",
             "id=\"stageRunBoundary\"",
+            "id=\"runtimeProjectionNarrative\"",
+            "id=\"runtimeProjectionMetrics\"",
+            "id=\"runtimeProjectionBoundary\"",
+            "id=\"runtimeProjectionDetails\"",
             "id=\"autonomousSearchPersistence\"",
             "id=\"clearAutonomousSearchRuns\"",
             "id=\"searchRegionChoices\"",
@@ -282,6 +430,11 @@ class TestOperatorFrontendPortal(unittest.TestCase, IsolatedStorageTestMixin):
             "id=\"acceptanceDimensionList\"",
             "id=\"realCandidateStage2Captures\"",
             "async function loadRealCandidateStage2Captures()",
+            "async function loadOnboardingConfigs()",
+            'if (config.profile_name) { $("onboardingProfileName").value = config.profile_name; }',
+            "async function loadSupportOverview()",
+            "async function retrySupportTask(button)",
+            'confirmation: "RETRY_FAILED_INTERNAL_TASK"',
         ):
             self.assertIn(expected, html)
         for removed_duplicate in (
@@ -400,10 +553,25 @@ class TestOperatorFrontendPortal(unittest.TestCase, IsolatedStorageTestMixin):
     def test_owner_console_real_source_runner_uses_internal_only_routes(self) -> None:
         client = TestClient(create_app())
         html = client.request("GET", "/operator-console").text
-        self.assertIn(
-            'Promise.all([loadReadiness(false), loadAutonomousWorkbench(), loadRegionAdapters(), loadAutonomousSearchRuns(), loadRealCandidateDiscoveryDiagnostics(), loadRealCandidateCatalog(), loadRealCandidateStage2Captures(), loadRealSourceProfiles(), loadRealSourceRuns(), loadUserAcceptanceContract(), loadAcceptanceGapMatrix(), loadRealWorldSellability(), loadStage6ReviewLoopStatus()])',
-            html,
-        )
+        self.assertIn("Promise.all([", html)
+        for loader in (
+            "loadReadiness(false)",
+            "loadAutonomousWorkbench()",
+            "loadRegionAdapters()",
+            "loadAutonomousSearchRuns()",
+            "loadRealCandidateDiscoveryDiagnostics()",
+            "loadRealCandidateCatalog()",
+            "loadRealCandidateStage2Captures()",
+            "loadRealSourceProfiles()",
+            "loadRealSourceRuns()",
+            "loadGrayOrchestrator()",
+            "loadUserAcceptanceContract()",
+            "loadAcceptanceGapMatrix()",
+            "loadRealWorldSellability()",
+            "loadStage6ReviewLoopStatus()",
+            "loadRuntimeProjection()",
+        ):
+            self.assertIn(loader, html)
         self.assertIn('"/operator-console/region-adapters"', html)
         self.assertIn('"/operator-console/autonomous-opportunity-search"', html)
         self.assertIn('"/operator-console/autonomous-search-runs"', html)
@@ -414,6 +582,8 @@ class TestOperatorFrontendPortal(unittest.TestCase, IsolatedStorageTestMixin):
         self.assertIn('"/operator-console/user-acceptance-gap-matrix"', html)
         self.assertIn('"/operator-console/real-world-sellability"', html)
         self.assertIn('"/operator-console/stage6-review-loop-status"', html)
+        self.assertIn('"/operator-console/runtime-projection"', html)
+        self.assertIn('"/operator-console/controlled-gray-orchestrator"', html)
         self.assertIn('href="/operator-console/stage6-review-loop"', html)
         self.assertIn('href="#autonomousWorkbench"', html)
         self.assertIn('data-workbench-opportunity', html)
@@ -452,6 +622,676 @@ class TestOperatorFrontendPortal(unittest.TestCase, IsolatedStorageTestMixin):
         self.assertIn('"/operator-console/real-source-runs"', html)
         self.assertIn('"/operator-console/real-source-task-runs"', html)
         self.assertIn("请先执行入口页或附件抓取。", html)
+        self.assertIn('credentials: "same-origin"', html)
+        self.assertIn('headers.set("x-kaka-csrf-token", csrfToken)', html)
+        self.assertIn("退出内部会话", html)
+        self.assertIn('window.location.replace(loginPath())', html)
+        self.assertNotIn("localStorage", html)
+        self.assertNotIn("Bearer test-internal-token", html)
+
+    def test_runtime_projection_readback_uses_repository_and_keeps_safety_closed(self) -> None:
+        from storage.repositories.runtime_state_repo import RuntimeStateRepository
+
+        repository = RuntimeStateRepository()
+        repository.save_controller_result(
+            {
+                "runtime_controller_mode": "STAGE1_6_RUNTIME_CYCLE",
+                "run_state": {
+                    "run_id": "RUN-FRONTEND-RUNTIME-PROJECTION",
+                    "entrypoint_id": "stage6_review_cycle_runner",
+                    "project_id": "PROJ-FRONTEND-RUNTIME-PROJECTION",
+                    "current_stage_id": "stage6_fact_review",
+                    "run_state": "REVIEW_REQUIRED",
+                    "next_action": {
+                        "action_type": "ENTRYPOINT",
+                        "entrypoint_id": "stage6_review_cycle_runner",
+                        "reason": "runtime_blocker_queue_ready",
+                    },
+                    "stage123_front_chain_summary": {
+                        "stage123_front_chain_state": "READY",
+                        "stage1_selected_candidate_count": 1,
+                        "stage2_capture_record_count": 1,
+                        "stage3_parse_record_count": 1,
+                        "stage123_stability_summary": {
+                            "stage2_attachment_snapshot_missing_count": 1,
+                            "attachment_snapshot_readback_missing_count": 1,
+                            "stage3_attachment_ocr_pending_count": 1,
+                            "stage3_responsible_role_gap_count": 1,
+                            "query_miss_is_not_clearance": True,
+                        },
+                    },
+                    "stage1_6_readiness_summary": {
+                        "stage1_6_batch_regression_ledger_state": "READY",
+                        "stage1_6_pressure_coverage_state": "PARTIAL_SOURCE_COVERAGE",
+                        "stage1_6_pressure_candidate_count": 3,
+                        "stage1_6_pressure_closed_loop_results_count": 2,
+                        "stage1_6_pressure_stage5_calibration_sample_count": 1,
+                        "stage1_6_readiness_record_count": 3,
+                        "stage1_6_review_or_blocked_count": 2,
+                        "stage1_3_stability_summary": {
+                            "stage2_attachment_snapshot_missing_count": 2,
+                            "attachment_snapshot_readback_missing_count": 1,
+                            "stage3_attachment_ocr_pending_count": 2,
+                            "stage3_responsible_role_gap_count": 2,
+                            "stage3_parse_blocker_count": 1,
+                        },
+                        "stage1_6_next_action_counts": {
+                            "run_stage4_release_evidence_bridge_builder": 1,
+                        },
+                        "stage1_6_gap_next_action_counts": {
+                            "review_stage3_parse_fields": 1,
+                        },
+                        "stage4_release_adapter_bridge_project_code_recall_summary": {
+                            "project_code_recall_state": "GDCIC_PROJECT_CODE_VARIANTS_PRESENT",
+                            "bridge_task_count": 3,
+                            "with_gdcic_project_code_variant_task_count": 2,
+                            "missing_gdcic_project_code_variant_task_count": 1,
+                            "trade_project_code_only_task_count": 1,
+                            "query_miss_is_not_clearance": True,
+                        },
+                    },
+                    "stage4_release_field_query_summary": {
+                        "release_field_query_project_count": 1,
+                        "release_field_query_authorization_state_counts": {
+                            "LOGIN_OR_SSO_REQUIRED": 1,
+                        },
+                        "release_field_query_authorized_session_input_state_counts": {
+                            "NO_AUTHORIZED_SESSION_INPUT": 1,
+                        },
+                        "release_field_query_operator_next_action_counts": {
+                            "provide_gdcic_authorized_storage_state_or_user_data_dir_then_rerun": 1,
+                        },
+                        "release_field_query_project_manager_change_ready_count": 1,
+                        "release_field_query_project_manager_change_interpretation_counts": {
+                            "ORIGINAL_MANAGER_CHANGED_OUT_REVIEW_REQUIRED": 1,
+                        },
+                        "query_miss_is_not_clearance": True,
+                    },
+                    "stage4_release_chain_bootstrap_summary": {
+                        "stage4_release_chain_bootstrap_source_kind": "STAGE16_P13B_CONTINUATION_JSON",
+                        "stage4_release_chain_input_refs": {
+                            "source_stage16_p13b_continuation_json": "memory://stage16/frontend-runtime-projection",
+                            "source_gdcic_browser_readback_json": "memory://gdcic/frontend-runtime-readback",
+                        },
+                        "stage4_gdcic_authorized_readback_summary": {
+                            "source_gdcic_browser_readback_json": "memory://gdcic/frontend-runtime-readback",
+                            "authorized_session_input_state": "INJECTED_BROWSER_RUNNER",
+                            "gdcic_authorized_session_overall_state": "FIELD_SURFACE_REACHED_REVIEW_REQUIRED",
+                            "gdcic_browser_readback_ready_count": 1,
+                            "project_manager_change_ready_count": 1,
+                            "project_manager_change_interpretation_counts": {
+                                "ORIGINAL_MANAGER_CHANGED_OUT_REVIEW_REQUIRED": 1,
+                            },
+                            "query_miss_is_not_clearance": True,
+                            "customer_visible_allowed": False,
+                            "no_legal_conclusion": True,
+                        },
+                        "stage4_release_chain_project_count": 1,
+                        "stage4_release_chain_runtime_blocker_ledger_count": 1,
+                        "stage4_release_chain_runtime_blocker_state_counts": {
+                            "TERMINAL_CLOSEOUT_SUPPRESSED_DUPLICATE_DISPATCH": 1,
+                        },
+                        "stage4_release_chain_next_action_counts": {
+                            "rerun_stage6_review_cycle_after_reopen_input_is_recorded": 1,
+                        },
+                        "stage4_release_chain_manual_action_family_counts": {
+                            "P13B_RELEASE_EVIDENCE_TARGETED_REVIEW": 1,
+                        },
+                        "query_miss_is_not_clearance": True,
+                    },
+                    "stage6_cycle_summary": {
+                        "stage5_calibration_sample_count": 1,
+                        "stage5_calibration_truth_label_required_count": 1,
+                        "stage5_abcd_calibration_counts": {
+                            "B_PUBLIC_READBACK_REVIEW_REQUIRED": 1,
+                        },
+                        "stage5_calibration_review_bucket_counts": {
+                            "POTENTIAL_FALSE_POSITIVE_REVIEW": 1,
+                        },
+                        "stage5_calibration_evidence_strength_counts": {
+                            "PUBLIC_READBACK_PRESENT_REVIEW_REQUIRED": 1,
+                        },
+                        "stage5_calibration_review_family_counts": {
+                            "manual_public_readback_review": 1,
+                        },
+                        "stage5_calibration_suggested_action_counts": {
+                            "review_truth_label_before_rule_relaxation_or_tightening": 1,
+                        },
+                    },
+                    "stage45_replay_summary": {
+                        "stage4_probe_replay_count": 2,
+                        "stage4_blocker_ledger_count": 2,
+                        "operator_action_count": 2,
+                        "runtime_blocker_subqueue_route_counts": {
+                            "browser_worker": 1,
+                            "fallback_source": 1,
+                        },
+                        "stage5_executed_rule_codes": ["CREDIT-001"],
+                        "stage5_skipped_rule_codes": ["REL-001"],
+                        "stage5_missing_readback_count": 1,
+                        "stage5_calibration_sample_count": 2,
+                        "stage5_calibration_truth_label_required_count": 1,
+                        "stage5_abcd_calibration_counts": {
+                            "A_OFFICIAL_PUBLIC_READBACK_PASS": 1,
+                            "C_MISSING_RELEVANT_PUBLIC_READBACK": 1,
+                        },
+                        "stage5_calibration_evidence_strength_counts": {
+                            "OFFICIAL_PUBLIC_READBACK_PASS": 1,
+                            "PUBLIC_READBACK_MISSING_OR_INSUFFICIENT": 1,
+                        },
+                        "query_miss_is_not_clearance": True,
+                        "customer_visible_allowed": False,
+                        "no_legal_conclusion": True,
+                    },
+                    "runtime_blocker_controller_summary": {
+                        "next_subqueue_input_state": "READY",
+                        "controller_dispatch_task_count": 2,
+                        "dispatch_ready_count": 1,
+                        "dispatch_runner_task_count": 1,
+                        "dispatch_runner_followup_task_count": 1,
+                        "controller_derived_dispatch_task_count": 1,
+                        "controller_derived_dispatch_ready_count": 1,
+                        "controller_derived_dispatch_entrypoint_counts": {
+                            "guangdong_local_field_query_probe": 1,
+                        },
+                        "controller_derived_dispatch_review_family_counts": {
+                            "manual_public_readback_review": 1,
+                            "stage1_3_attachment_ocr_repair": 1,
+                        },
+                        "stage1_3_repair_task_count": 1,
+                        "stage1_3_repair_metric_counts": {
+                            "stage3_attachment_ocr_pending_count": 2,
+                        },
+                        "stage1_3_repair_review_family_counts": {
+                            "stage1_3_attachment_ocr_repair": 1,
+                        },
+                    },
+                    "controlled_boundary": {
+                        "stage8_outreach_boundary_state": "CONTROLLED_OPENING_PREREQUISITES_ONLY",
+                        "stage9_payment_delivery_refund_boundary_state": "CONTROLLED_OPENING_PREREQUISITES_ONLY",
+                        "automatic_refund_policy_state": "CONTROLLED_TEST_AND_PILOT_REQUIRED",
+                        "required_before_live_execution": [
+                            "release_checklist_passed",
+                            "approval_chain_passed",
+                            "audit_chain_ready",
+                            "operator_action_confirmed",
+                        ],
+                        "blocked_action_families": [
+                            "real_outreach",
+                            "real_payment",
+                            "real_delivery",
+                            "real_refund",
+                            "automatic_refund",
+                        ],
+                        "operator_next_action": "complete_release_approval_audit_and_operator_action_before_live_execution",
+                        "external_customer_action_enabled": False,
+                        "real_payment_enabled": False,
+                        "real_delivery_enabled": False,
+                        "automatic_refund_enabled": False,
+                        "customer_visible_allowed": False,
+                    },
+                    "safety": {
+                        "external_customer_action_enabled": False,
+                        "real_payment_enabled": False,
+                        "real_delivery_enabled": False,
+                        "automatic_refund_enabled": False,
+                    },
+                },
+                "audit_ledger": {
+                    "events": [
+                        {
+                            "event_id": "AUD-FRONTEND-RUNTIME-PROJECTION-1",
+                            "event_type": "RUN_STARTED",
+                            "run_id": "RUN-FRONTEND-RUNTIME-PROJECTION",
+                            "stage_id": "stage1_tasking",
+                        }
+                    ]
+                },
+                "dispatch_queue": {
+                    "records": [
+                        {
+                            "dispatch_task_id": "RUN-FRONTEND-RUNTIME-PROJECTION:guangdong-local-field-query",
+                            "action_type": "ENTRYPOINT",
+                            "entrypoint_id": "guangdong_local_field_query_probe",
+                            "dispatch_state": "READY_FOR_INTERNAL_DISPATCH",
+                            "reason": "stage4_release_field_query_authorization_gap",
+                            "external_customer_action_enabled": False,
+                        },
+                        {
+                            "dispatch_task_id": "RUN-FRONTEND-RUNTIME-PROJECTION:stage5-calibration-truth-label-review",
+                            "action_type": "REVIEW",
+                            "review_family": "stage1_3_attachment_ocr_repair",
+                            "review_state": "WAITING_FOR_STAGE3_ATTACHMENT_OCR_REPAIR",
+                            "dispatch_state": "WAITING_FOR_REVIEW",
+                            "reason": "stage3_attachment_ocr_pending_count",
+                            "source_metric": "stage3_attachment_ocr_pending_count",
+                            "metric_count": 2,
+                            "operator_next_action": "对待处理附件执行 OCR/结构化回读，并回灌解析字段与审计链。",
+                            "external_customer_action_enabled": False,
+                        },
+                    ]
+                },
+                "customer_visible_allowed": False,
+            }
+        )
+        repository.save_worker_result(
+            {
+                "worker_id": "stage1_3_repair_worker",
+                "worker_mode": "INTERNAL_REPAIR_PLAN_ONLY",
+                "repair_worker_state": "REPAIR_PLAN_READY",
+                "created_at": "2026-05-24T00:00:01+08:00",
+                "repair_task_count": 1,
+                "repair_metric_counts": {"stage3_attachment_ocr_pending_count": 2},
+                "repair_worker_family_counts": {"stage3_attachment_ocr_repair_worker": 1},
+                "repair_review_family_counts": {"stage1_3_attachment_ocr_repair": 1},
+                "repair_tasks": [
+                    {
+                        "repair_task_id": "REPAIR-RUN-FRONTEND-RUNTIME-PROJECTION:stage3-ocr",
+                        "source_dispatch_task_id": "RUN-FRONTEND-RUNTIME-PROJECTION:stage5-calibration-truth-label-review",
+                        "review_family": "stage1_3_attachment_ocr_repair",
+                        "source_metric": "stage3_attachment_ocr_pending_count",
+                        "metric_count": 2,
+                        "worker_family": "stage3_attachment_ocr_repair_worker",
+                        "execution_state": "PLAN_READY_INTERNAL_REPAIR_NOT_EXECUTED",
+                        "external_customer_action_enabled": False,
+                        "customer_visible_allowed": False,
+                    }
+                ],
+                "live_execution_enabled": False,
+                "customer_visible_allowed": False,
+                "external_customer_action_enabled": False,
+                "real_payment_enabled": False,
+                "real_delivery_enabled": False,
+                "automatic_refund_enabled": False,
+                "no_legal_conclusion": True,
+                "query_miss_is_not_clearance": True,
+            }
+        )
+        repository.save_worker_result(
+            {
+                "worker_id": "gdcic_browser_authorized_readback_worker",
+                "worker_mode": "LIVE_BROWSER_EXECUTION_ATTEMPTED",
+                "worker_result_state": "FIELD_SURFACE_REACHED_REVIEW_REQUIRED",
+                "repair_worker_state": "FIELD_SURFACE_REACHED_REVIEW_REQUIRED",
+                "created_at": "2026-05-24T00:00:02+08:00",
+                "gdcic_browser_readback_task_count": 2,
+                "gdcic_browser_readback_record_count": 1,
+                "gdcic_browser_readback_ready_count": 1,
+                "project_manager_change_ready_count": 1,
+                "project_manager_change_interpretation_counts": {
+                    "ORIGINAL_MANAGER_CHANGED_OUT_REVIEW_REQUIRED": 1,
+                },
+                "stage5_calibration_sample_count": 1,
+                "stage5_calibration_truth_label_required_count": 1,
+                "stage5_abcd_calibration_counts": {
+                    "C_REVERSE_EXPLANATION_OFFICIAL_READBACK": 1,
+                },
+                "stage5_calibration_review_family_counts": {
+                    "gdcic_project_manager_change_reverse_explanation_review": 1,
+                },
+                "stage5_calibration_evidence_strength_counts": {
+                    "OFFICIAL_REVERSE_EXPLANATION_REVIEW_REQUIRED": 1,
+                },
+                "stage5_calibration_suggested_action_counts": {
+                    "manual_review_gdcic_project_manager_change_readback_before_stage5_rule_change": 1,
+                },
+                "authorized_session_input_state": "INJECTED_BROWSER_RUNNER",
+                "live_execution_enabled": True,
+                "customer_visible_allowed": False,
+                "external_customer_action_enabled": False,
+                "real_payment_enabled": False,
+                "real_delivery_enabled": False,
+                "automatic_refund_enabled": False,
+                "no_legal_conclusion": True,
+                "query_miss_is_not_clearance": True,
+            }
+        )
+
+        client = TestClient(create_app())
+        response = client.request("GET", "/operator-console/runtime-projection")
+
+        self.assertEqual(response.status_code, 200)
+        surface = response.json()
+        self.assertEqual(surface["surface_id"], "runtime_controller_operator_projection")
+        self.assertTrue(surface["runtime_projection_frontend"])
+        self.assertEqual(surface["latest_projection"]["run_id"], "RUN-FRONTEND-RUNTIME-PROJECTION")
+        self.assertEqual(surface["projection_object_refs"]["run_id"], "RUN-FRONTEND-RUNTIME-PROJECTION")
+        self.assertEqual(surface["projection_object_refs"]["entrypoint_id"], "stage6_review_cycle_runner")
+        self.assertEqual(surface["runtime_audit_replay"]["replay_state"], "REPLAY_READY")
+        self.assertEqual(surface["runtime_audit_replay"]["run_id"], "RUN-FRONTEND-RUNTIME-PROJECTION")
+        self.assertEqual(surface["runtime_audit_replay"]["event_count"], 1)
+        self.assertEqual(surface["runtime_audit_replay"]["event_type_counts"]["RUN_STARTED"], 1)
+        self.assertFalse(surface["runtime_audit_replay"]["external_customer_action_enabled"])
+        self.assertFalse(surface["runtime_audit_replay"]["automatic_refund_enabled"])
+        self.assertTrue(surface["runtime_audit_replay"]["query_miss_is_not_clearance"])
+        self.assertEqual(surface["projection_trace_refs"]["stage4_release_chain_project_count"], "1")
+        self.assertIn(
+            "memory://stage16/frontend-runtime-projection",
+            surface["projection_trace_refs"]["stage4_release_chain_input_refs_json"],
+        )
+        self.assertEqual(surface["projection_history"][0]["run_id"], "RUN-FRONTEND-RUNTIME-PROJECTION")
+        self.assertEqual(surface["projection_history"][0]["trace_refs"]["stage5_calibration_sample_count"], "2")
+        self.assertIn(
+            "B_PUBLIC_READBACK_REVIEW_REQUIRED",
+            surface["projection_history"][0]["trace_refs"]["stage5_abcd_calibration_counts_json"],
+        )
+        self.assertIn(
+            "C_REVERSE_EXPLANATION_OFFICIAL_READBACK",
+            surface["projection_history"][0]["trace_refs"]["stage5_abcd_calibration_counts_json"],
+        )
+        self.assertEqual(
+            surface["projection_history"][0]["trace_refs"]["stage5_calibration_merged_source_count"],
+            "2",
+        )
+        self.assertEqual(surface["latest_projection"]["stage123_front_chain_summary"]["stage123_front_chain_state"], "READY")
+        self.assertEqual(surface["stage123_stability"]["stage2_attachment_snapshot_missing_count"], 1)
+        self.assertEqual(surface["stage123_stability"]["stage3_attachment_ocr_pending_count"], 1)
+        self.assertEqual(surface["stage123_stability"]["stage3_responsible_role_gap_count"], 1)
+        self.assertEqual(
+            surface["projection_trace_refs"]["stage123_attachment_snapshot_missing_count"],
+            "1",
+        )
+        self.assertEqual(surface["stage1_6_readiness"]["stage1_6_review_or_blocked_count"], 2)
+        self.assertEqual(surface["stage1_6_readiness"]["stage1_6_pressure_coverage_state"], "PARTIAL_SOURCE_COVERAGE")
+        self.assertEqual(surface["projection_trace_refs"]["stage1_6_pressure_candidate_count"], "3")
+        self.assertEqual(surface["projection_trace_refs"]["stage1_6_pressure_closed_loop_results_count"], "2")
+        self.assertEqual(surface["projection_trace_refs"]["stage1_6_pressure_stage5_calibration_sample_count"], "1")
+        self.assertEqual(surface["stage1_6_stability"]["stage2_attachment_snapshot_missing_count"], 2)
+        self.assertEqual(surface["stage1_6_stability"]["attachment_snapshot_readback_missing_count"], 1)
+        self.assertEqual(surface["stage1_6_stability"]["stage3_attachment_ocr_pending_count"], 2)
+        self.assertEqual(surface["stage1_6_stability"]["stage3_parse_blocker_count"], 1)
+        self.assertEqual(
+            surface["stage1_6_readiness"]["stage1_6_next_action_counts"],
+            {"run_stage4_release_evidence_bridge_builder": 1},
+        )
+        self.assertEqual(
+            surface["stage1_6_readiness"]["stage1_6_gap_next_action_counts"],
+            {"review_stage3_parse_fields": 1},
+        )
+        self.assertEqual(surface["projection_trace_refs"]["stage1_6_attachment_snapshot_missing_count"], "2")
+        self.assertEqual(surface["projection_trace_refs"]["stage1_6_attachment_ocr_pending_count"], "2")
+        self.assertIn(
+            "run_stage4_release_evidence_bridge_builder",
+            surface["projection_trace_refs"]["stage1_6_next_action_counts_json"],
+        )
+        self.assertIn(
+            "review_stage3_parse_fields",
+            surface["projection_trace_refs"]["stage1_6_gap_next_action_counts_json"],
+        )
+        self.assertEqual(
+            surface["stage4_project_code_recall"]["project_code_recall_state"],
+            "GDCIC_PROJECT_CODE_VARIANTS_PRESENT",
+        )
+        self.assertEqual(
+            surface["stage4_project_code_recall"]["with_gdcic_project_code_variant_task_count"],
+            2,
+        )
+        self.assertEqual(
+            surface["stage4_project_code_recall"]["missing_gdcic_project_code_variant_task_count"],
+            1,
+        )
+        self.assertEqual(
+            surface["stage4_project_code_recall"]["trade_project_code_only_task_count"],
+            1,
+        )
+        self.assertFalse(surface["stage4_project_code_recall"]["customer_visible_allowed"])
+        self.assertTrue(surface["stage4_project_code_recall"]["no_legal_conclusion"])
+        self.assertTrue(surface["stage4_project_code_recall"]["query_miss_is_not_clearance"])
+        self.assertEqual(
+            surface["projection_trace_refs"]["stage4_release_adapter_bridge_project_code_recall_state"],
+            "GDCIC_PROJECT_CODE_VARIANTS_PRESENT",
+        )
+        self.assertIn(
+            "GDCIC_PROJECT_CODE_VARIANTS_PRESENT",
+            surface["projection_trace_refs"][
+                "stage4_release_adapter_bridge_project_code_recall_summary_json"
+            ],
+        )
+        self.assertEqual(surface["stage4_release_field_query"]["release_field_query_project_count"], 1)
+        self.assertEqual(
+            surface["stage4_release_field_query"]["release_field_query_authorization_state_counts"],
+            {"LOGIN_OR_SSO_REQUIRED": 1},
+        )
+        self.assertEqual(
+            surface["stage4_release_field_query"]["release_field_query_project_manager_change_ready_count"],
+            1,
+        )
+        self.assertEqual(
+            surface["stage4_release_field_query"][
+                "release_field_query_project_manager_change_interpretation_counts"
+            ],
+            {"ORIGINAL_MANAGER_CHANGED_OUT_REVIEW_REQUIRED": 1},
+        )
+        self.assertIn(
+            "ORIGINAL_MANAGER_CHANGED_OUT_REVIEW_REQUIRED",
+            surface["projection_trace_refs"][
+                "stage4_release_field_query_project_manager_change_interpretation_counts_json"
+            ],
+        )
+        self.assertTrue(surface["stage4_next_actions"]["requires_authorized_browser_session"])
+        self.assertEqual(
+            surface["stage4_next_actions"]["field_query_operator_next_action_counts"],
+            {"provide_gdcic_authorized_storage_state_or_user_data_dir_then_rerun": 1},
+        )
+        self.assertEqual(
+            surface["stage4_next_actions"]["release_chain_next_action_counts"],
+            {"rerun_stage6_review_cycle_after_reopen_input_is_recorded": 1},
+        )
+        self.assertEqual(
+            surface["stage4_next_actions"]["release_chain_manual_action_family_counts"],
+            {"P13B_RELEASE_EVIDENCE_TARGETED_REVIEW": 1},
+        )
+        self.assertEqual(
+            surface["stage4_next_actions"]["release_chain_runtime_blocker_state_counts"],
+            {"TERMINAL_CLOSEOUT_SUPPRESSED_DUPLICATE_DISPATCH": 1},
+        )
+        self.assertTrue(surface["stage4_next_actions"]["query_miss_is_not_clearance"])
+        self.assertEqual(
+            surface["stage4_release_chain_bootstrap"]["stage4_release_chain_bootstrap_source_kind"],
+            "STAGE16_P13B_CONTINUATION_JSON",
+        )
+        self.assertEqual(surface["stage4_release_chain_bootstrap"]["stage4_release_chain_project_count"], 1)
+        self.assertEqual(
+            surface["stage4_gdcic_authorized_readback"]["source_gdcic_browser_readback_json"],
+            "memory://gdcic/frontend-runtime-readback",
+        )
+        self.assertEqual(surface["stage4_gdcic_authorized_readback"]["gdcic_browser_readback_ready_count"], 1)
+        self.assertEqual(surface["stage4_gdcic_authorized_readback"]["project_manager_change_ready_count"], 1)
+        self.assertEqual(
+            surface["stage4_gdcic_authorized_readback_worker_result"]["worker_id"],
+            "gdcic_browser_authorized_readback_worker",
+        )
+        self.assertEqual(
+            surface["stage4_gdcic_authorized_readback_worker_result"]["worker_result_state"],
+            "FIELD_SURFACE_REACHED_REVIEW_REQUIRED",
+        )
+        self.assertEqual(
+            surface["stage4_gdcic_authorized_readback_worker_result"]["project_manager_change_ready_count"],
+            1,
+        )
+        self.assertEqual(
+            surface["stage4_gdcic_authorized_readback_worker_result"]["stage5_calibration_sample_count"],
+            1,
+        )
+        self.assertEqual(
+            surface["stage4_gdcic_authorized_readback_worker_result"]["stage5_abcd_calibration_counts"],
+            {"C_REVERSE_EXPLANATION_OFFICIAL_READBACK": 1},
+        )
+        self.assertFalse(
+            surface["stage4_gdcic_authorized_readback_worker_result"]["external_customer_action_enabled"]
+        )
+        self.assertEqual(
+            surface["stage4_gdcic_authorized_readback"]["project_manager_change_interpretation_counts"],
+            {"ORIGINAL_MANAGER_CHANGED_OUT_REVIEW_REQUIRED": 1},
+        )
+        self.assertIn(
+            "ORIGINAL_MANAGER_CHANGED_OUT_REVIEW_REQUIRED",
+            surface["projection_trace_refs"][
+                "stage4_gdcic_authorized_readback_project_manager_change_interpretation_counts_json"
+            ],
+        )
+        self.assertFalse(surface["stage4_gdcic_authorized_readback"]["customer_visible_allowed"])
+        self.assertEqual(surface["stage5_calibration"]["stage5_calibration_sample_count"], 2)
+        self.assertEqual(surface["stage5_calibration"]["stage5_calibration_truth_label_required_count"], 2)
+        self.assertEqual(
+            surface["stage5_calibration"]["stage5_abcd_calibration_counts"],
+            {
+                "B_PUBLIC_READBACK_REVIEW_REQUIRED": 1,
+                "C_REVERSE_EXPLANATION_OFFICIAL_READBACK": 1,
+            },
+        )
+        self.assertEqual(
+            surface["stage5_calibration"]["stage5_calibration_evidence_strength_counts"],
+            {
+                "PUBLIC_READBACK_PRESENT_REVIEW_REQUIRED": 1,
+                "OFFICIAL_REVERSE_EXPLANATION_REVIEW_REQUIRED": 1,
+            },
+        )
+        self.assertEqual(
+            surface["stage5_calibration"]["stage5_calibration_review_bucket_counts"],
+            {
+                "POTENTIAL_FALSE_POSITIVE_REVIEW": 1,
+                "C_REVERSE_EXPLANATION_OFFICIAL_READBACK": 1,
+            },
+        )
+        self.assertEqual(
+            surface["stage5_calibration"]["stage5_calibration_review_family_counts"],
+            {
+                "manual_public_readback_review": 1,
+                "gdcic_project_manager_change_reverse_explanation_review": 1,
+            },
+        )
+        self.assertEqual(
+            surface["stage5_calibration"]["stage5_calibration_suggested_action_counts"],
+            {
+                "review_truth_label_before_rule_relaxation_or_tightening": 1,
+                "manual_review_gdcic_project_manager_change_readback_before_stage5_rule_change": 1,
+            },
+        )
+        self.assertEqual(surface["stage5_calibration"]["merged_source_count"], 2)
+        self.assertEqual(
+            surface["stage5_calibration_source_summaries"]["gdcic_authorized_readback_worker"][
+                "stage5_abcd_calibration_counts"
+            ],
+            {"C_REVERSE_EXPLANATION_OFFICIAL_READBACK": 1},
+        )
+        self.assertIn(
+            "POTENTIAL_FALSE_POSITIVE_REVIEW",
+            surface["projection_trace_refs"]["stage5_calibration_review_bucket_counts_json"],
+        )
+        self.assertIn(
+            "review_truth_label_before_rule_relaxation_or_tightening",
+            surface["projection_trace_refs"]["stage5_calibration_suggested_action_counts_json"],
+        )
+        self.assertEqual(surface["stage45_replay"]["stage4_probe_replay_count"], 2)
+        self.assertEqual(surface["stage45_replay"]["stage4_blocker_ledger_count"], 2)
+        self.assertEqual(
+            surface["stage45_replay"]["runtime_blocker_subqueue_route_counts"],
+            {"browser_worker": 1, "fallback_source": 1},
+        )
+        self.assertEqual(surface["stage45_replay"]["stage5_missing_readback_count"], 1)
+        self.assertEqual(surface["stage45_replay"]["stage5_calibration_sample_count"], 2)
+        self.assertEqual(surface["stage45_replay"]["stage5_calibration_truth_label_required_count"], 1)
+        self.assertEqual(
+            surface["stage45_replay"]["stage5_abcd_calibration_counts"],
+            {
+                "A_OFFICIAL_PUBLIC_READBACK_PASS": 1,
+                "C_MISSING_RELEVANT_PUBLIC_READBACK": 1,
+            },
+        )
+        self.assertIn(
+            "C_MISSING_RELEVANT_PUBLIC_READBACK",
+            surface["projection_trace_refs"]["stage45_replay_stage5_abcd_calibration_counts_json"],
+        )
+        self.assertFalse(surface["stage45_replay"]["customer_visible_allowed"])
+        self.assertTrue(surface["stage45_replay"]["query_miss_is_not_clearance"])
+        self.assertEqual(surface["runtime_blocker_queue"]["next_subqueue_input_state"], "READY")
+        self.assertEqual(surface["runtime_blocker_queue"]["controller_derived_dispatch_task_count"], 1)
+        self.assertEqual(surface["controller_dispatch_queue"]["summary"]["dispatch_record_count"], 2)
+        self.assertEqual(
+            surface["controller_dispatch_queue"]["records"][0]["entrypoint_id"],
+            "guangdong_local_field_query_probe",
+        )
+        self.assertEqual(
+            surface["controller_dispatch_queue"]["records"][1]["review_family"],
+            "stage1_3_attachment_ocr_repair",
+        )
+        self.assertEqual(
+            surface["controller_dispatch_queue"]["records"][1]["source_metric"],
+            "stage3_attachment_ocr_pending_count",
+        )
+        self.assertEqual(surface["controller_dispatch_queue"]["records"][1]["metric_count"], 2)
+        self.assertFalse(surface["controller_dispatch_queue"]["records"][0]["external_customer_action_enabled"])
+        self.assertFalse(surface["controller_dispatch_queue"]["external_customer_action_enabled"])
+        self.assertEqual(surface["controller_dispatch_queue"]["summary"]["stage1_3_repair_task_count"], 1)
+        self.assertEqual(
+            surface["controller_dispatch_queue"]["summary"]["stage1_3_repair_metric_counts"],
+            {"stage3_attachment_ocr_pending_count": 2},
+        )
+        self.assertEqual(surface["stage1_3_repair_tasks"]["stage1_3_repair_task_count"], 1)
+        self.assertEqual(
+            surface["stage1_3_repair_tasks"]["stage1_3_repair_metric_counts"],
+            {"stage3_attachment_ocr_pending_count": 2},
+        )
+        self.assertEqual(surface["stage1_3_repair_worker_result"]["worker_id"], "stage1_3_repair_worker")
+        self.assertEqual(surface["stage1_3_repair_worker_result"]["repair_worker_state"], "REPAIR_PLAN_READY")
+        self.assertEqual(surface["stage1_3_repair_worker_result"]["repair_task_count"], 1)
+        self.assertEqual(
+            surface["stage1_3_repair_worker_result"]["repair_worker_family_counts"],
+            {"stage3_attachment_ocr_repair_worker": 1},
+        )
+        self.assertFalse(surface["stage1_3_repair_worker_result"]["external_customer_action_enabled"])
+        self.assertFalse(surface["stage1_3_repair_worker_result"]["live_execution_enabled"])
+        self.assertEqual(
+            surface["runtime_blocker_queue"]["controller_derived_dispatch_entrypoint_counts"],
+            {"guangdong_local_field_query_probe": 1},
+        )
+        self.assertEqual(
+            surface["runtime_blocker_queue"]["controller_derived_dispatch_review_family_counts"],
+            {"manual_public_readback_review": 1, "stage1_3_attachment_ocr_repair": 1},
+        )
+        self.assertIn(
+            "guangdong_local_field_query_probe",
+            surface["projection_trace_refs"]["runtime_controller_derived_dispatch_entrypoint_counts_json"],
+        )
+        self.assertIn(
+            "manual_public_readback_review",
+            surface["projection_trace_refs"]["runtime_controller_derived_dispatch_review_family_counts_json"],
+        )
+        self.assertIn(
+            "stage1_3_attachment_ocr_repair",
+            surface["projection_trace_refs"]["runtime_controller_derived_dispatch_review_family_counts_json"],
+        )
+        self.assertEqual(
+            surface["controlled_boundary"]["stage8_outreach_boundary_state"],
+            "CONTROLLED_OPENING_PREREQUISITES_ONLY",
+        )
+        self.assertEqual(surface["controlled_boundary"]["automatic_refund_policy_state"], "CONTROLLED_TEST_AND_PILOT_REQUIRED")
+        self.assertEqual(
+            surface["controlled_boundary"]["required_before_live_execution"],
+            [
+                "release_checklist_passed",
+                "approval_chain_passed",
+                "audit_chain_ready",
+                "operator_action_confirmed",
+            ],
+        )
+        self.assertIn("real_payment", surface["controlled_boundary"]["blocked_action_families"])
+        self.assertIn(
+            "approval_chain_passed",
+            surface["projection_trace_refs"]["controlled_boundary_required_before_live_execution_json"],
+        )
+        self.assertEqual(
+            surface["projection_trace_refs"]["controlled_boundary_required_before_live_execution_count"],
+            "4",
+        )
+        self.assertEqual(surface["worker_followup"]["dispatch_runner_followup_task_count"], 1)
+        self.assertEqual(surface["operator_action"]["next_action_entrypoint_id"], "stage6_review_cycle_runner")
+        self.assertFalse(surface["customer_visible_allowed"])
+        self.assertFalse(surface["external_customer_action_enabled"])
+        self.assertFalse(surface["real_payment_enabled"])
+        self.assertFalse(surface["real_delivery_enabled"])
+        self.assertFalse(surface["automatic_refund_enabled"])
 
     def test_stage6_review_loop_page_is_plain_owner_readback(self) -> None:
         client = TestClient(create_app())
@@ -642,7 +1482,7 @@ class TestOperatorFrontendPortal(unittest.TestCase, IsolatedStorageTestMixin):
             "PASS",
         )
         self.assertIn(
-            "真实候选 Stage4-9 formal 回链",
+            "真实候选 Stage1-6 formal 回链",
             [item["title"] for item in matrix["topPriorities"]],
         )
 
@@ -651,6 +1491,7 @@ class TestOperatorFrontendPortal(unittest.TestCase, IsolatedStorageTestMixin):
         stage7 = result["stage7"]
         persist_stage_bundle(stage7)
         opportunity_id = stage7.record("saleable_opportunity").get("opportunity_id")
+        project_id = stage7.record("saleable_opportunity").get("project_id")
 
         client = TestClient(create_app())
         page_response = client.request("GET", f"/customer-artifact-portal/{opportunity_id}")
@@ -665,7 +1506,8 @@ class TestOperatorFrontendPortal(unittest.TestCase, IsolatedStorageTestMixin):
             "字段策略",
             "下载审计",
             "证据包内容",
-            "拟邮件发送包",
+            "人工交付包预览",
+            "交付与责任边界",
             "内部预览验收",
             "字段白名单已执行",
             "脱敏必需",
@@ -678,8 +1520,10 @@ class TestOperatorFrontendPortal(unittest.TestCase, IsolatedStorageTestMixin):
             "/customer-artifact-portal-readback/",
             "内部验收可用",
             "renderEvidencePackage",
-            "邮件发送包预览",
-            "下载内部证据包文件",
+            "renderDeliveryBoundary",
+            "自动邮件未开放",
+            "审批通过后下载内部证据包",
+            "SKU-B PDF/HTML/ZIP 复核包",
             "/customer-artifact-portal-download/",
             "公开来源",
             "来源网址",
@@ -689,6 +1533,7 @@ class TestOperatorFrontendPortal(unittest.TestCase, IsolatedStorageTestMixin):
         ):
             self.assertIn(expected, html)
         self.assertNotIn("signed download url enabled", html.lower())
+        self.assertNotIn("成交付款后由系统通过邮件发送", html)
         self.assertNotIn("JSON.stringify(value, null, 2)", html)
         self.assertIn("暂无证据包读回", html)
         self.assertIn("暂无证据包", html)
@@ -707,10 +1552,67 @@ class TestOperatorFrontendPortal(unittest.TestCase, IsolatedStorageTestMixin):
         self.assertFalse(candidate["field_allowlist_masking"]["internal_blackbox_fields_exposed"])
         self.assertFalse(candidate["external_release_enabled"])
         self.assertFalse(candidate["public_software_release"])
+        boundary = candidate["customer_delivery_boundary"]
+        self.assertEqual(boundary["contract_id"], "customer_delivery_boundary_contract")
+        self.assertEqual(
+            [item["code"] for item in boundary["clauses"]],
+            [
+                "PUBLIC_SOURCE_SCOPE",
+                "QUERY_TIME_BOUNDARY",
+                "SOURCE_INCOMPLETENESS",
+                "QUERY_STATE_NOT_CLEARANCE",
+                "NO_LEGAL_CONCLUSION",
+                "HUMAN_REVIEW_REQUIRED",
+                "CUSTOMER_DECISION_RESPONSIBILITY",
+            ],
+        )
 
         download_response = client.request(
             "GET",
             f"/customer-artifact-portal-download/{opportunity_id}",
+        )
+        self.assertEqual(download_response.status_code, 403)
+        blocked = download_response.json()["detail"]
+        self.assertEqual(
+            blocked["download_state"],
+            "BLOCKED_INTERNAL_PREVIEW_DOWNLOAD_REQUIRES_OPERATOR_AUTH_APPROVAL_AUDIT_AND_MASKING",
+        )
+        self.assertFalse(blocked["customer_download_enabled"])
+        self.assertIn("operator_authenticated", blocked["blocked_reasons"])
+
+        download_response = client.request(
+            "GET",
+            f"/customer-artifact-portal-download/{opportunity_id}",
+            params={
+                "operator_authenticated": "true",
+                "internal_preview_download_authorized": "true",
+                "approval_audit_confirmed": "true",
+                "field_allowlist_masking_confirmed": "true",
+            },
+        )
+        self.assertEqual(download_response.status_code, 403)
+
+        download_response = client.request(
+            "GET",
+            f"/customer-artifact-portal-download/{opportunity_id}",
+            headers={
+                "X-Kaka-Test-Operator-Auth": "approved",
+                "X-Kaka-Test-Principal-Id": "operator-portal-test",
+                "X-Kaka-Test-Role": "operator",
+            },
+        )
+        self.assertEqual(download_response.status_code, 403)
+        self.assertIn("object_approval_confirmed", download_response.json()["detail"]["blocked_reasons"])
+
+        approval_request_id = self._approve_internal_preview_download(client, opportunity_id)
+        download_response = client.request(
+            "GET",
+            f"/customer-artifact-portal-download/{opportunity_id}",
+            headers={
+                "X-Kaka-Test-Operator-Auth": "approved",
+                "X-Kaka-Test-Principal-Id": "operator-portal-test",
+                "X-Kaka-Test-Role": "operator",
+            },
         )
         self.assertEqual(download_response.status_code, 200)
         self.assertIn("application/json", download_response.headers["content-type"])
@@ -726,18 +1628,80 @@ class TestOperatorFrontendPortal(unittest.TestCase, IsolatedStorageTestMixin):
             "数据真实性边界",
             "公开来源验证",
             "证据包",
-            "拟邮件发送包",
+            "人工交付包预览",
             "证据项清单",
             "字段策略",
+            "交付与责任边界",
             "模拟下载审计",
             "读回摘要",
         ):
             self.assertIn(expected, package)
-        self.assertFalse(package["拟邮件发送包"]["真实邮件已发送"])
+        self.assertFalse(package["人工交付包预览"]["自动邮件交付已开放"])
+        self.assertFalse(package["人工交付包预览"]["客户自助下载已开放"])
+        self.assertFalse(package["人工交付包预览"]["真实客户交付已执行"])
+        self.assertIn("人工签发后", package["未来交付方式"])
+        self.assertEqual(
+            package["交付与责任边界"]["合同编号"],
+            "customer_delivery_boundary_contract",
+        )
+        self.assertGreaterEqual(len(package["交付与责任边界"]["限制条款"]), 7)
+        self.assertEqual(
+            [item["条款内容"] for item in package["交付与责任边界"]["限制条款"]],
+            [item["text"] for item in boundary["clauses"]],
+        )
         self.assertIn("客户可交付判断", package["数据真实性边界"])
         self.assertIsInstance(package["证据项清单"], list)
         self.assertNotIn("原始读回", package)
         self.assertNotIn("原始授权状态摘要", package["模拟下载审计"])
+        self.assertEqual(
+            package["模拟下载审计"]["逐对象审批"]["审批请求编号"],
+            approval_request_id,
+        )
+        self.assertTrue(
+            str(package["模拟下载审计"]["逐对象审批"]["下载执行审计编号"]).startswith(
+                "APREXEC-"
+            )
+        )
+        self.assertEqual(
+            len(package["模拟下载审计"]["逐对象审批"]["审批对象版本哈希"]),
+            64,
+        )
+        self.assertTrue(package["模拟下载审计"]["逐对象审批"]["审批对象版本一致"])
+        self.assertTrue(package["模拟下载审计"]["逐对象审批"]["职责分离已满足"])
+        serialized_package = json.dumps(package, ensure_ascii=False)
+        for forbidden in ("申请人", "复核人", "下载执行人", "身份编号"):
+            self.assertNotIn(forbidden, serialized_package)
+
+        bundle_response = client.request(
+            "GET",
+            f"/customer-artifact-portal-download/{opportunity_id}",
+            params={"format": "zip"},
+            headers={
+                "X-Kaka-Test-Operator-Auth": "approved",
+                "X-Kaka-Test-Principal-Id": "operator-portal-test",
+                "X-Kaka-Test-Role": "operator",
+            },
+        )
+        self.assertEqual(bundle_response.status_code, 200)
+        self.assertIn("application/zip", bundle_response.headers["content-type"])
+        self.assertEqual(bundle_response.headers["x-kaka-sku-code"], "SKU-B")
+        self.assertEqual(len(bundle_response.headers["x-kaka-bundle-sha256"]), 64)
+        with zipfile.ZipFile(io.BytesIO(bundle_response.content)) as archive:
+            manifest = json.loads(archive.read("manifest.json"))
+            self.assertIn("evidence-pack.pdf", archive.namelist())
+            self.assertIn("evidence-pack.html", archive.namelist())
+        self.assertEqual(manifest["sku"]["sku_code"], "SKU-B")
+        self.assertEqual(manifest["project_id"], project_id)
+        self.assertTrue(manifest["issuance_control"]["manual_signoff_required"])
+        self.assertFalse(manifest["issuance_control"]["customer_release_authorized"])
+        self.assertFalse(manifest["delivery_audit"]["external_delivery_executed"])
+        self.assertEqual(
+            manifest["customer_delivery_boundary"]["contract_id"],
+            "customer_delivery_boundary_contract",
+        )
+        self.assertFalse(
+            manifest["customer_delivery_boundary"]["automatic_email_delivery_enabled"]
+        )
 
     def test_customer_artifact_portal_download_includes_search_source_context(self) -> None:
         client = TestClient(create_app())
@@ -775,6 +1739,42 @@ class TestOperatorFrontendPortal(unittest.TestCase, IsolatedStorageTestMixin):
             "GET",
             f"/customer-artifact-portal-download/{opportunity_id}",
         )
+        self.assertEqual(download_response.status_code, 403)
+        self.assertFalse(download_response.json()["detail"]["customer_download_enabled"])
+
+        download_response = client.request(
+            "GET",
+            f"/customer-artifact-portal-download/{opportunity_id}",
+            params={
+                "operator_authenticated": "true",
+                "internal_preview_download_authorized": "true",
+                "approval_audit_confirmed": "true",
+                "field_allowlist_masking_confirmed": "true",
+            },
+        )
+        self.assertEqual(download_response.status_code, 403)
+
+        download_response = client.request(
+            "GET",
+            f"/customer-artifact-portal-download/{opportunity_id}",
+            headers={
+                "X-Kaka-Test-Operator-Auth": "approved",
+                "X-Kaka-Test-Principal-Id": "operator-portal-test",
+                "X-Kaka-Test-Role": "operator",
+            },
+        )
+        self.assertEqual(download_response.status_code, 403)
+
+        self._approve_internal_preview_download(client, opportunity_id)
+        download_response = client.request(
+            "GET",
+            f"/customer-artifact-portal-download/{opportunity_id}",
+            headers={
+                "X-Kaka-Test-Operator-Auth": "approved",
+                "X-Kaka-Test-Principal-Id": "operator-portal-test",
+                "X-Kaka-Test-Role": "operator",
+            },
+        )
         self.assertEqual(download_response.status_code, 200)
         package = download_response.json()
         self.assertEqual(
@@ -800,7 +1800,7 @@ class TestOperatorFrontendPortal(unittest.TestCase, IsolatedStorageTestMixin):
             "客户自助发布不是当前路径",
             "内部黑箱已隐藏",
             "内部预览未形成",
-            "还没有可预览的拟邮件证据包",
+            "还没有可预览的人工交付包",
         ):
             self.assertIn(expected, html)
 

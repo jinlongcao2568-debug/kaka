@@ -70,13 +70,13 @@ def build_design_survey_flow08_targeted_readback(
         root=design_survey_stage4_execution_root,
         default_file_name="company-first-stage4-execution.json",
     )
-    if not plan_manifest:
-        blocking_reasons.append("design_survey_adapter_plan_missing")
     if not stage4_manifest:
         blocking_reasons.append("design_survey_stage4_execution_missing")
 
     plan_index = _design_survey_plan_index_by_project(plan_manifest)
     stage4_index = _flow08_required_stage4_index_by_project(stage4_manifest)
+    if not plan_manifest and not stage4_index:
+        blocking_reasons.append("design_survey_adapter_plan_missing")
     selected_projects = {_project_key(value) for value in project_ids if _project_key(value)}
     project_keys = sorted(set(stage4_index) | (selected_projects if selected_projects else set()))
     if selected_projects:
@@ -143,6 +143,13 @@ def build_design_survey_flow08_targeted_readback(
         "no_legal_conclusion": True,
     }
     summary = dict(readback_table["summary"])
+    summary["plan_missing_but_stage4_flow08_fields_available_count"] = sum(
+        1
+        for record in records
+        if not plan_manifest
+        and int(record.get("stage4_flow08_required_item_count") or 0) > 0
+        and str(record.get("flow08_readback_state") or "") != FLOW08_TARGET_FIELDS_MISSING
+    )
     manifest = {
         "manifest_version": DESIGN_SURVEY_FLOW08_READBACK_VERSION,
         "manifest_kind": DESIGN_SURVEY_FLOW08_READBACK_KIND,

@@ -38,6 +38,7 @@ operator_actions = Table(
     Column("work_item_id", String, nullable=False),
     Column("action_event_id", String, nullable=False),
     Column("payload", Text, nullable=False),
+    UniqueConstraint("work_item_id", "action_event_id", name="uq_operator_actions_work_item_event"),
 )
 
 worker_queue_items = Table(
@@ -60,6 +61,7 @@ worker_queue_events = Table(
     Column("event_id", String, nullable=False),
     Column("event_type", String, nullable=False),
     Column("payload", Text, nullable=False),
+    UniqueConstraint("queue_item_id", "event_id", name="uq_worker_queue_events_item_event"),
 )
 
 ENVELOPE_TABLES = {

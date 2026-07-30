@@ -12,12 +12,36 @@ import urllib.request
 from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping
 
+from shared.controlled_egress import playwright_proxy_settings
 from shared.utils import utc_now_iso
+from storage.guangdong_gdcic_query_probe import (
+    GDCIC_API_BASE_URL,
+    GDCIC_OPENPLATFORM_PAGE_URL,
+    _execute_live_query as _execute_gdcic_openplatform_live_query,
+)
+from storage.guangdong_local_field_query_result_mapper import (
+    ALLOWED_ADAPTER_RESULT_STATES,
+    adapter_result_state as _adapter_result_state,
+    adapter_result_state_basis as _adapter_result_state_basis,
+    downstream_release_evidence_abcd_basis as _downstream_release_evidence_abcd_basis,
+    downstream_release_evidence_abcd_grade as _downstream_release_evidence_abcd_grade,
+)
+from storage.runtime_closeout_precedence import (
+    blocker_ledger_record,
+    closeout_precedence_decision,
+    closeout_precedence_summary,
+)
 
 
 GUANGDONG_LOCAL_FIELD_QUERY_PROBE_KIND = "guangdong_local_field_query_probe_v1_manifest"
 GUANGDONG_LOCAL_FIELD_QUERY_PROBE_VERSION = 1
 GUANGDONG_LOCAL_FIELD_QUERY_PROBE_ADAPTER_ID = "guangdong-local-field-query-probe-v1-builder"
+STAGE4_SCRAPLING_GET_BRIDGE_ID = "stage4.scrapling_get_transport_bridge.v1"
+STAGE4_SCRAPLING_GET_BRIDGE_ENABLED = True
+STAGE4_SCRAPLING_GET_BRIDGE_SCOPE = (
+    "GET/readback routes only; POST JSON/form APIs and cookie/session routes keep the legacy urllib path."
+)
+_STAGE4_SCRAPLING_GET_TRANSPORT: Any | None = None
 
 DEFAULT_LOCAL_VERIFICATION_ROOT = Path("tmp/evaluation-real-samples/guangdong-local-verification-probe-v1")
 DEFAULT_P13B_OPERATIONAL_CLOSEOUT_ROOT = Path("tmp/evaluation-real-samples/p13b-operational-closeout-v1")
@@ -26,10 +50,18 @@ DEFAULT_GDCIC_BROWSER_AUTHORIZED_READBACK_ROOT = Path(
     "tmp/evaluation-real-samples/gdcic-browser-authorized-readback-v1"
 )
 DEFAULT_OUTPUT_ROOT = Path("tmp/evaluation-real-samples/guangdong-local-field-query-probe-v1")
+STAGE5_CALIBRATION_SAMPLE_FILENAME = "stage5-calibration-sample-table.json"
 
+GUANGDONG_GDCIC_SKYPT_OPENPLATFORM_PROFILE_ID = "GUANGDONG-GDCIC-SKYPT-OPENPLATFORM"
+GUANGDONG_GDCIC_SKYPT_OPENPLATFORM_ADAPTER_ID = "guangdong_gdcic_openplatform_public_api_query_v1"
 DELEGATED_PROFILE_ADAPTERS = {
-    "GUANGDONG-GDCIC-SKYPT-OPENPLATFORM": "guangdong_gdcic_query_probe_v1",
+    GUANGDONG_GDCIC_SKYPT_OPENPLATFORM_PROFILE_ID: "guangdong_gdcic_query_probe_v1",
 }
+GUANGDONG_YGP_ORIGINAL_READBACK_BACKFILL_PROFILE_ID = "GUANGDONG-YGP-ORIGINAL-READBACK-BACKFILL"
+GUANGDONG_YGP_ORIGINAL_READBACK_BACKFILL_ADAPTER_ID = "guangdong_ygp_original_readback_backfill_adapter_v1"
+GUANGDONG_YGP_TRADING_NOTICE_DETAIL_API_URL = (
+    "https://ygp.gdzwfw.gov.cn/ggzy-portal/center/apis/trading-notice/new/detail"
+)
 
 GUANGZHOU_ZFCJ_PROFILE_ID = "GUANGZHOU-ZFCJ-CREDIT-DOUBLE-PUBLICITY"
 GUANGZHOU_ZFCJ_XYXX_API_URL = "https://zfcj.gz.gov.cn/ysqgk/Api/WebApi/xyxxzhlb.ashx"
@@ -101,25 +133,79 @@ SICHUAN_JZSC_FIELD_ADAPTER_ID = "sichuan_construction_market_public_service_quer
 SICHUAN_JZSC_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID = (
     "sichuan_project_manager_change_notice_browser_required_v1"
 )
+JIANGSU_JZSC_PROFILE_ID = "JIANGSU-JZSC-INTEGRATED-PLATFORM"
+JIANGSU_JZSC_HOME_URL = "https://jsszfhcxjst.jiangsu.gov.cn/"
+JIANGSU_JZSC_FIELD_ADAPTER_ID = "jiangsu_construction_market_integrated_platform_query_adapter_v1"
+JIANGSU_JZSC_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID = (
+    "jiangsu_project_manager_change_notice_browser_required_v1"
+)
+HUBEI_JZSC_PROFILE_ID = "HUBEI-JZSC-INTEGRITY-PLATFORM"
+HUBEI_JZSC_HOME_URL = "https://hbjz.hbcic.net.cn/"
+HUBEI_JZSC_FIELD_ADAPTER_ID = "hubei_construction_market_integrity_platform_query_adapter_v1"
+HUBEI_JZSC_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID = (
+    "hubei_project_manager_change_notice_browser_required_v1"
+)
+SHANDONG_JZSC_PROFILE_ID = "SHANDONG-JZSC-CREDIT-SUPERVISION-PLATFORM"
+SHANDONG_JZSC_HOME_URL = "https://zjt.shandong.gov.cn/"
+SHANDONG_JZSC_FIELD_ADAPTER_ID = "shandong_construction_market_credit_supervision_query_adapter_v1"
+SHANDONG_JZSC_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID = (
+    "shandong_project_manager_change_notice_browser_required_v1"
+)
+HUNAN_JZSC_PROFILE_ID = "HUNAN-JZSC-PUBLIC-SERVICE"
+HUNAN_JZSC_HOME_URL = "https://www.hunanjs.gov.cn/"
+HUNAN_JZSC_FIELD_ADAPTER_ID = "hunan_construction_market_public_service_query_adapter_v1"
+HUNAN_JZSC_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID = (
+    "hunan_project_manager_change_notice_browser_required_v1"
+)
+HENAN_JZSC_PROFILE_ID = "HENAN-JZSC-PUBLIC-SERVICE"
+HENAN_JZSC_HOME_URL = "https://hngcjs.hnjs.henan.gov.cn/site/"
+HENAN_JZSC_ELECTRONIC_LICENSE_URL = "https://hngcjs.hnjs.henan.gov.cn/electronic/electronicInfo"
+HENAN_JZSC_PROJECT_DATA_URL = "https://hngcjs.hnjs.henan.gov.cn/newTBProjectInfo/projectData"
+HENAN_JZSC_FIELD_ADAPTER_ID = "henan_construction_market_public_service_query_adapter_v1"
+HENAN_JZSC_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID = (
+    "henan_project_manager_change_notice_browser_required_v1"
+)
 BROWSER_REQUIRED_FIELD_ADAPTER_IDS = {
     GUANGZHOU_ZFCJ_CONTRACT_CREDIT_BROWSER_ADAPTER_ID,
     GUANGZHOU_ZFCJ_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID,
     GUANGDONG_GDCIC_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID,
     ZHEJIANG_JZSC_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID,
     SICHUAN_JZSC_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID,
+    JIANGSU_JZSC_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID,
+    HUBEI_JZSC_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID,
+    SHANDONG_JZSC_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID,
+    HUNAN_JZSC_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID,
+    HENAN_JZSC_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID,
 }
-SUPPORTED_REGION_FIELD_ADAPTER_PROFILE_IDS = {ZHEJIANG_JZSC_PROFILE_ID, SICHUAN_JZSC_PROFILE_ID}
+SUPPORTED_REGION_FIELD_ADAPTER_PROFILE_IDS = {
+    GUANGDONG_YGP_ORIGINAL_READBACK_BACKFILL_PROFILE_ID,
+    ZHEJIANG_JZSC_PROFILE_ID,
+    SICHUAN_JZSC_PROFILE_ID,
+    JIANGSU_JZSC_PROFILE_ID,
+    HUBEI_JZSC_PROFILE_ID,
+    SHANDONG_JZSC_PROFILE_ID,
+    HUNAN_JZSC_PROFILE_ID,
+    HENAN_JZSC_PROFILE_ID,
+}
 SUPPORTED_REGION_FIELD_ADAPTER_IDS = {
     "zhejiang_construction_market_public_service_query_adapter",
     ZHEJIANG_JZSC_FIELD_ADAPTER_ID,
     "sichuan_construction_market_public_service_query_adapter",
     SICHUAN_JZSC_FIELD_ADAPTER_ID,
+    "jiangsu_construction_market_integrated_platform_query_adapter",
+    JIANGSU_JZSC_FIELD_ADAPTER_ID,
+    "hubei_construction_market_integrity_platform_query_adapter",
+    HUBEI_JZSC_FIELD_ADAPTER_ID,
+    "shandong_construction_market_credit_supervision_query_adapter",
+    SHANDONG_JZSC_FIELD_ADAPTER_ID,
+    "hunan_construction_market_public_service_query_adapter",
+    HUNAN_JZSC_FIELD_ADAPTER_ID,
+    "henan_construction_market_public_service_query_adapter",
+    HENAN_JZSC_FIELD_ADAPTER_ID,
 }
 
 FORBIDDEN_TERMS = ("在建冲突成立", "无在建", "无风险", "无冲突", "造假成立", "违法成立", "确认本人", "是不是本人")
-ALLOWED_ADAPTER_RESULT_STATES = ["MATCHED", "NOT_FOUND", "BLOCKED", "NEEDS_BROWSER"]
 INITIAL_RELEASE_EVIDENCE_ABCD_GRADE = "A_STRONG_TIME_OVERLAP_SIGNAL"
-DOWNSTREAM_PENDING_RELEASE_EVIDENCE_ABCD_GRADE = "PENDING_NOT_EXECUTED"
 RELEASE_EVIDENCE_INPUT_SOURCE_KINDS = {
     "p13b_release_evidence_probe_task",
     "release_evidence_adapter_plan_task",
@@ -154,14 +240,15 @@ GUANGDONG_RELEASE_TARGET_SOURCE_OVERRIDES = {
         "runtime_status": "PUBLIC_POST_JSON_API_VERIFIED",
     },
     "contract_performance": {
-        "source_profile_id": GUANGDONG_GDCIC_HOME_PROFILE_ID,
-        "source_name": "广东建设信息网 / 招投标及合同履约监管系统",
-        "source_url": GUANGDONG_GDCIC_HOME_BASE_URL,
-        "source_family": "industry_authority_filing_page",
-        "source_entry_id": "GD-GDCIC-CONTRACT-PERFORMANCE",
-        "subsource_id": "gd_gdcic_contract_performance_public_page",
-        "next_adapter": "guangdong_gdcic_contract_performance_public_page_v1",
-        "runtime_status": "PUBLIC_PAGE_QUERY_WITH_CONTRACT_SYSTEM_SSO_CHECK",
+        "source_profile_id": GUANGDONG_GDCIC_SKYPT_OPENPLATFORM_PROFILE_ID,
+        "source_name": "广东建设信息网 / 三库一平台项目合同公开信息",
+        "source_url": GDCIC_OPENPLATFORM_PAGE_URL,
+        "api_url": GDCIC_API_BASE_URL,
+        "source_family": "provincial_construction_openplatform_public_api",
+        "source_entry_id": "GD-GDCIC-SKYPT-OPENPLATFORM",
+        "subsource_id": "gd_gdcic_openplatform_publicity_contract_public_api",
+        "next_adapter": GUANGDONG_GDCIC_SKYPT_OPENPLATFORM_ADAPTER_ID,
+        "runtime_status": "PUBLIC_API_VERIFIED_ANONYMOUS_READBACK",
     },
     "project_manager_change_notice": {
         "source_profile_id": GUANGDONG_GDCIC_HOME_PROFILE_ID,
@@ -174,21 +261,6 @@ GUANGDONG_RELEASE_TARGET_SOURCE_OVERRIDES = {
         "runtime_status": "BROWSER_OR_AUTHORIZED_RUNTIME_REQUIRED",
     },
 }
-ENHANCEMENT_RELEASE_EVIDENCE_SOURCE_TYPES = {
-    "construction_permit",
-    "contract_public_info",
-    "performance_public_record",
-    "personnel_public_record",
-    "administrative_license_public_record",
-}
-REVERSE_RELEASE_EVIDENCE_SOURCE_TYPES = {
-    "completion_filing",
-    "project_manager_change_notice",
-    "completion_acceptance_or_completion_filing",
-    "owner_approved_non_contractor_shutdown_over_120_days",
-    "same_project_adjacent_section_or_phase_exception",
-}
-
 HttpGetter = Callable[[str, Mapping[str, Any]], Mapping[str, Any]]
 CreditGdSessionGetter = Callable[[list[Mapping[str, Any]]], Mapping[str, Any]]
 
@@ -287,12 +359,18 @@ def build_guangdong_local_field_query_probe(
     )
     project_task_records = _project_task_records(field_task_records)
     manual_check_table = _manual_check_table(field_task_records)
+    stage5_calibration_sample_records = _stage5_calibration_samples_from_field_query(
+        field_task_records,
+        created_at=created,
+    )
     summary = _summary(
         field_task_records=field_task_records,
         project_task_records=project_task_records,
         execution_mode=execution_mode,
         blocking_reasons=blocking_reasons,
     )
+    summary.update(_stage5_calibration_summary(stage5_calibration_sample_records))
+    stage5_calibration_sample_path = out_dir / STAGE5_CALIBRATION_SAMPLE_FILENAME
     manifest = {
         "manifest_version": GUANGDONG_LOCAL_FIELD_QUERY_PROBE_VERSION,
         "manifest_kind": GUANGDONG_LOCAL_FIELD_QUERY_PROBE_KIND,
@@ -318,6 +396,8 @@ def build_guangdong_local_field_query_probe(
         "project_task_records": project_task_records,
         "field_task_records": field_task_records,
         "manual_check_table": manual_check_table,
+        "stage5_calibration_sample_table_json": str(stage5_calibration_sample_path),
+        "stage5_calibration_sample_records": stage5_calibration_sample_records,
         "summary": summary,
         "safety": {
             "download_enabled": False,
@@ -355,6 +435,23 @@ def build_guangdong_local_field_query_probe(
         result["summary"]["forbidden_term_hits"] = forbidden_hits
         text = json.dumps(result, ensure_ascii=False, indent=2)
     (out_dir / "guangdong-local-field-query-probe-v1.json").write_text(text, encoding="utf-8")
+    stage5_calibration_sample_path.write_text(
+        json.dumps(
+            {
+                "table_kind": "stage5_calibration_sample_table_v1",
+                "created_at": created,
+                "source_field_query_json": str(out_dir / "guangdong-local-field-query-probe-v1.json"),
+                "summary": _stage5_calibration_summary(stage5_calibration_sample_records),
+                "records": stage5_calibration_sample_records,
+                "customer_visible_allowed": False,
+                "no_legal_conclusion": True,
+                "query_miss_is_not_clearance": True,
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
     return result
 
 
@@ -421,6 +518,10 @@ def _query_task_records_from_p13b_release_evidence_tasks(p13b_manifest: Mapping[
                 "target_source_types": _list(task.get("matched_target_source_types")) or _list(task.get("source_target_source_types")),
                 "query_params": query_params,
                 "field_adapter_status": _field_adapter_status_for_profile(source_profile_id),
+                "runtime_closeout_markers": _list(task.get("runtime_closeout_markers")),
+                "terminal_closeout_markers": _list(task.get("terminal_closeout_markers")),
+                "closeout_backfill_markers": _list(task.get("closeout_backfill_markers")),
+                "terminal_backfill_markers": _list(task.get("terminal_backfill_markers")),
                 "customer_visible_allowed": False,
                 "no_legal_conclusion": True,
             }
@@ -513,6 +614,10 @@ def _query_task_records_from_release_evidence_adapter_tasks(release_plan_manifes
                 "target_source_types": target_source_types,
                 "query_params": query_params,
                 "field_adapter_status": _field_adapter_status_for_profile(source_profile_id),
+                "runtime_closeout_markers": _list(task.get("runtime_closeout_markers")),
+                "terminal_closeout_markers": _list(task.get("terminal_closeout_markers")),
+                "closeout_backfill_markers": _list(task.get("closeout_backfill_markers")),
+                "terminal_backfill_markers": _list(task.get("terminal_backfill_markers")),
                 "customer_visible_allowed": False,
                 "no_legal_conclusion": True,
             }
@@ -570,12 +675,12 @@ def _p13b_query_params(task: Mapping[str, Any]) -> dict[str, Any]:
     certificate_no = str(raw_params.get("certificateNo") or "")
     company_variants = _dedupe([
         *_list(raw_params.get("companyVariants")),
-        company_name,
+        *_company_name_variants(company_name),
     ])
     keywords = _dedupe(
         [
             project_name,
-            company_name,
+            *company_variants,
             person_name,
             certificate_no,
             *_list(raw_params.get("keywords")),
@@ -612,6 +717,32 @@ def _release_plan_query_params(task: Mapping[str, Any]) -> dict[str, Any]:
         or ""
     )
     certificate_no = str(raw_params.get("certificateNo") or task.get("certificate_no") or "")
+    company_variants = _dedupe([
+        *_list(raw_params.get("companyVariants")),
+        *_company_name_variants(company_name),
+    ])
+    project_code_variants = _project_code_variants(
+        [
+            *_list(raw_params.get("projectCodeVariants")),
+            *_list(raw_params.get("gdcicProjectCodeVariants")),
+            *_list(raw_params.get("projectCodes")),
+            raw_params.get("projectCode"),
+            raw_params.get("sourceProjectCode"),
+            raw_params.get("tradeProjectCode"),
+            project_id,
+            task.get("project_code"),
+            task.get("source_project_code"),
+            task.get("trade_project_code"),
+        ]
+    )
+    gdcic_route_allowed = bool(task.get("gdcic_project_code_route_allowed", True))
+    if "gdcic_project_code_route_allowed" in raw_params:
+        gdcic_route_allowed = bool(raw_params.get("gdcic_project_code_route_allowed"))
+    gdcic_project_code_variants = (
+        _gdcic_project_code_variants(project_code_variants)
+        if gdcic_route_allowed
+        else []
+    )
     target_source_types = RELEASE_TARGET_TO_FIELD_SOURCE_TYPES.get(
         str(task.get("release_evidence_target_type") or ""),
         [str(task.get("release_evidence_target_type") or "")] if task.get("release_evidence_target_type") else [],
@@ -620,26 +751,82 @@ def _release_plan_query_params(task: Mapping[str, Any]) -> dict[str, Any]:
         **raw_params,
         "projectId": project_id,
         "projectName": project_name,
+        "projectCode": _first_text(gdcic_project_code_variants),
+        "projectCodeVariants": project_code_variants,
+        "gdcicProjectCodeVariants": gdcic_project_code_variants,
+        "tradeProjectCode": _first_text(code for code in project_code_variants if code.upper().startswith("JG")),
         "companyName": company_name,
-        "companyVariants": _dedupe([*_list(raw_params.get("companyVariants")), company_name]),
+        "companyVariants": company_variants,
         "personName": person_name,
         "certificateNo": certificate_no,
         "sourceProfileId": str(task.get("source_profile_id") or raw_params.get("sourceProfileId") or ""),
         "targetSourceTypes": target_source_types,
         "releaseEvidenceTargetType": str(task.get("release_evidence_target_type") or ""),
+        "gdcicProjectCodeRouteAllowed": gdcic_route_allowed,
         "triggerSourceUrl": str(raw_params.get("triggerSourceUrl") or task.get("trigger_source_url") or ""),
-        "keywords": _dedupe([project_name, company_name, person_name, certificate_no, *_list(raw_params.get("keywords"))]),
+        "keywords": _dedupe([
+            project_name,
+            *project_code_variants,
+            *company_variants,
+            person_name,
+            certificate_no,
+            *_list(raw_params.get("keywords")),
+        ]),
     }
+
+
+def _company_name_variants(value: Any) -> list[str]:
+    text = str(value or "").strip()
+    if not text:
+        return []
+    normalized = (
+        text.replace("（", "(")
+        .replace("）", ")")
+        .replace("；", ";")
+        .replace("，", ";")
+        .replace(",", ";")
+        .replace("、", ";")
+    )
+    variants = [text]
+    for part in normalized.split(";"):
+        item = part.strip()
+        for marker in (
+            "(主)",
+            "(成)",
+            "(牵头)",
+            "(联合体成员)",
+            "主:",
+            "成:",
+            "主：",
+            "成：",
+        ):
+            item = item.replace(marker, "")
+        item = item.strip(" -_，,。；;")
+        if len(item) >= 4:
+            variants.append(item)
+    return _dedupe(variants)
 
 
 def _field_adapter_status_for_profile(source_profile_id: str) -> str:
     profile_id = str(source_profile_id or "").upper()
     if profile_id in DELEGATED_PROFILE_ADAPTERS:
         return f"IMPLEMENTED_SEPARATE:{DELEGATED_PROFILE_ADAPTERS[profile_id]}"
+    if profile_id == GUANGDONG_YGP_ORIGINAL_READBACK_BACKFILL_PROFILE_ID:
+        return f"IMPLEMENTED_INLINE:{GUANGDONG_YGP_ORIGINAL_READBACK_BACKFILL_ADAPTER_ID}"
     if profile_id == ZHEJIANG_JZSC_PROFILE_ID:
         return f"IMPLEMENTED_INLINE:{ZHEJIANG_JZSC_FIELD_ADAPTER_ID}"
     if profile_id == SICHUAN_JZSC_PROFILE_ID:
         return f"IMPLEMENTED_INLINE:{SICHUAN_JZSC_FIELD_ADAPTER_ID}"
+    if profile_id == JIANGSU_JZSC_PROFILE_ID:
+        return f"IMPLEMENTED_INLINE:{JIANGSU_JZSC_FIELD_ADAPTER_ID}"
+    if profile_id == HUBEI_JZSC_PROFILE_ID:
+        return f"IMPLEMENTED_INLINE:{HUBEI_JZSC_FIELD_ADAPTER_ID}"
+    if profile_id == SHANDONG_JZSC_PROFILE_ID:
+        return f"IMPLEMENTED_INLINE:{SHANDONG_JZSC_FIELD_ADAPTER_ID}"
+    if profile_id == HUNAN_JZSC_PROFILE_ID:
+        return f"IMPLEMENTED_INLINE:{HUNAN_JZSC_FIELD_ADAPTER_ID}"
+    if profile_id == HENAN_JZSC_PROFILE_ID:
+        return f"IMPLEMENTED_INLINE:{HENAN_JZSC_FIELD_ADAPTER_ID}"
     return "FIELD_ADAPTER_PENDING"
 
 
@@ -667,8 +854,32 @@ def _field_task_records_from_local_verification(
             continue
         query_params = dict(task.get("query_params") or {})
         route_plan = _route_plan_for_task(task, query_params)
-        if profile_id in DELEGATED_PROFILE_ADAPTERS:
-            readback = _delegated_readback(profile_id, route_plan)
+        closeout_precedence = closeout_precedence_decision(
+            task,
+            task_family="release_evidence_query",
+            runtime_layer="controller decision:guangdong_local_field_query_probe",
+        )
+        if closeout_precedence.get("suppressed_dispatch"):
+            readback = _terminal_closeout_suppressed_readback(task, route_plan, closeout_precedence)
+        elif profile_id in DELEGATED_PROFILE_ADAPTERS:
+            if enable_live_public_query and profile_id == GUANGDONG_GDCIC_SKYPT_OPENPLATFORM_PROFILE_ID:
+                cache_key = _cache_key(task, route_plan)
+                if cache_key in cache:
+                    readback = _copy_jsonable(cache[cache_key])
+                    readback["field_query_cache_hit"] = True
+                elif max_live_tasks is not None and live_attempted >= max_live_tasks:
+                    readback = _live_deferred_readback(max_live_tasks, route_plan)
+                    cache[cache_key] = _copy_jsonable(readback)
+                else:
+                    live_attempted += 1
+                    readback = _execute_guangdong_gdcic_openplatform_delegated_field_query(
+                        task,
+                        route_plan,
+                        http_getter=http_getter,
+                    )
+                    cache[cache_key] = _copy_jsonable(readback)
+            else:
+                readback = _delegated_readback(profile_id, route_plan)
         elif enable_live_public_query:
             cache_key = _cache_key(task, route_plan)
             if cache_key in cache:
@@ -693,6 +904,11 @@ def _field_task_records_from_local_verification(
             readback = _plan_only_readback(route_plan)
         release_evidence_abcd = _release_evidence_abcd_fields(task, readback)
         adapter_result_state = _adapter_result_state(readback)
+        runtime_blocker = (
+            blocker_ledger_record(task, closeout_precedence, ledger_scope="stage4_release_evidence_query")
+            if closeout_precedence.get("suppressed_dispatch")
+            else {}
+        )
         records.append(
             {
                 "field_query_task_id": _stable_id(
@@ -766,6 +982,10 @@ def _field_task_records_from_local_verification(
                 "allowed_adapter_result_states": list(ALLOWED_ADAPTER_RESULT_STATES),
                 **readback,
                 **release_evidence_abcd,
+                "closeout_precedence": closeout_precedence,
+                "closeout_precedence_state": str(closeout_precedence.get("closeout_precedence_state") or ""),
+                "closeout_precedence_suppressed": bool(closeout_precedence.get("suppressed_dispatch")),
+                "runtime_blocker_ledger_record": runtime_blocker,
                 "created_at": created_at,
                 "customer_visible_allowed": False,
                 "no_legal_conclusion": True,
@@ -816,72 +1036,6 @@ def _release_evidence_abcd_fields(task: Mapping[str, Any], readback: Mapping[str
     }
 
 
-def _downstream_release_evidence_abcd_grade(
-    target_source_types: list[Any],
-    *,
-    field_query_probe_state: str,
-    readback_ready: bool,
-) -> str:
-    state = str(field_query_probe_state or "")
-    if state in {"PLAN_ONLY_NOT_EXECUTED", "DELEGATED_TO_SEPARATE_FIELD_ADAPTER"}:
-        return DOWNSTREAM_PENDING_RELEASE_EVIDENCE_ABCD_GRADE
-    if state in {
-        "LIVE_FIELD_QUERY_DEFERRED_BY_LIMIT",
-        "LIVE_FIELD_QUERY_NEEDS_BROWSER",
-        "LIVE_FIELD_QUERY_NEEDS_REGION_ADAPTER",
-    } or state.startswith("FAIL_CLOSED"):
-        return "D_INSUFFICIENT_OR_BLOCKED_READBACK"
-    if state == "NO_FIELD_MATCH_REVIEW_REQUIRED":
-        return "D_INSUFFICIENT_OR_BLOCKED_READBACK"
-    if readback_ready or state in {"FIELD_READBACK_KEYWORD_HIT_PUBLIC_SOURCE", "FIELD_READBACK_READY_PUBLIC_SOURCE"}:
-        normalized = {str(item) for item in target_source_types if str(item).strip()}
-        if normalized & REVERSE_RELEASE_EVIDENCE_SOURCE_TYPES:
-            return "C_REVERSE_EXPLANATION_OFFICIAL_READBACK"
-        if normalized & ENHANCEMENT_RELEASE_EVIDENCE_SOURCE_TYPES:
-            return "B_ENHANCEMENT_OFFICIAL_READBACK"
-        return "B_ENHANCEMENT_OFFICIAL_READBACK"
-    return DOWNSTREAM_PENDING_RELEASE_EVIDENCE_ABCD_GRADE
-
-
-def _adapter_result_state(readback: Mapping[str, Any]) -> str:
-    state = str(readback.get("field_query_probe_state") or "")
-    if state in {"FIELD_READBACK_KEYWORD_HIT_PUBLIC_SOURCE", "FIELD_READBACK_READY_PUBLIC_SOURCE"}:
-        return "MATCHED"
-    if state == "NO_FIELD_MATCH_REVIEW_REQUIRED":
-        return "NOT_FOUND"
-    if state.startswith("FAIL_CLOSED"):
-        return "BLOCKED"
-    return "NEEDS_BROWSER"
-
-
-def _adapter_result_state_basis(adapter_result_state: str, readback: Mapping[str, Any]) -> list[str]:
-    state = str(readback.get("field_query_probe_state") or "")
-    if adapter_result_state == "MATCHED":
-        return ["public_source_readback_has_keyword_or_structured_record", f"field_query_probe_state:{state}"]
-    if adapter_result_state == "NOT_FOUND":
-        return ["public_source_queried_no_field_match_not_clearance", f"field_query_probe_state:{state}"]
-    if adapter_result_state == "BLOCKED":
-        blockers = _list(readback.get("blocker_taxonomy"))
-        return ["public_source_blocked_or_transport_failed", f"field_query_probe_state:{state}", *blockers]
-    return ["browser_authorized_runtime_or_followup_adapter_required", f"field_query_probe_state:{state}"]
-
-
-def _downstream_release_evidence_abcd_basis(
-    grade: str,
-    target_source_types: list[Any],
-    *,
-    field_query_probe_state: str,
-) -> list[str]:
-    normalized = sorted({str(item) for item in target_source_types if str(item).strip()})
-    if grade == DOWNSTREAM_PENDING_RELEASE_EVIDENCE_ABCD_GRADE:
-        return ["downstream_probe_not_executed_in_this_run", f"field_query_probe_state:{field_query_probe_state}"]
-    if grade == "D_INSUFFICIENT_OR_BLOCKED_READBACK":
-        return ["targeted_source_no_hit_blocked_or_deferred_review", f"field_query_probe_state:{field_query_probe_state}"]
-    if grade == "C_REVERSE_EXPLANATION_OFFICIAL_READBACK":
-        return ["reverse_explanation_source_type_hit", *[f"target_source_type:{item}" for item in normalized]]
-    return ["enhancement_source_type_hit", *[f"target_source_type:{item}" for item in normalized]]
-
-
 def _route_plan_for_task(task: Mapping[str, Any], query_params: Mapping[str, Any]) -> list[dict[str, Any]]:
     profile_id = str(task.get("source_profile_id") or "").upper()
     source_url = str(task.get("source_url") or "")
@@ -890,7 +1044,9 @@ def _route_plan_for_task(task: Mapping[str, Any], query_params: Mapping[str, Any
     primary_keyword = _first_text(keywords)
     encoded = urllib.parse.quote(primary_keyword)
     routes: list[dict[str, Any]] = []
-    if profile_id == GUANGZHOU_ZFCJ_PROFILE_ID:
+    if profile_id == GUANGDONG_YGP_ORIGINAL_READBACK_BACKFILL_PROFILE_ID:
+        routes.append(_ygp_original_readback_backfill_route(source_url, query_params, keywords))
+    elif profile_id == GUANGZHOU_ZFCJ_PROFILE_ID:
         company_keyword = str(query_params.get("companyName") or "").strip()
         project_keyword = _clean_project_title(query_params.get("projectName"))
         person_keyword = str(query_params.get("personName") or "").strip()
@@ -1113,6 +1269,131 @@ def _route_plan_for_task(task: Mapping[str, Any], query_params: Mapping[str, Any
                 _guangdong_tzxm_publicity_list_route("jn", "13", "energy_saving_review_notice", keywords),
             ]
         )
+    elif profile_id == GUANGDONG_GDCIC_SKYPT_OPENPLATFORM_PROFILE_ID:
+        project_keyword = _clean_project_title(query_params.get("projectName"))
+        project_code_keywords = _gdcic_project_code_variants(
+            [
+                *_list(query_params.get("gdcicProjectCodeVariants")),
+                *_list(query_params.get("projectCodeVariants")),
+                *_list(query_params.get("projectCodes")),
+                query_params.get("projectCode"),
+                query_params.get("sourceProjectCode"),
+                query_params.get("tradeProjectCode"),
+                query_params.get("projectId"),
+            ]
+        )[:2]
+        company_keywords = _dedupe(
+            [
+                *_list(query_params.get("companyVariants")),
+                str(query_params.get("companyName") or "").strip(),
+            ]
+        )[:3]
+        person_keyword = str(query_params.get("personName") or "").strip()
+        wants_all = not target_source_types
+        wants_construction = wants_all or "construction_permit" in target_source_types
+        wants_contract = wants_all or bool(target_source_types & {"contract_public_info", "contract_performance"})
+        wants_completion = wants_all or bool(
+            target_source_types
+            & {"completion_filing", "completion_acceptance", "completion_acceptance_or_completion_filing"}
+        )
+        routes.extend(
+            [
+                _route("source_home", source_url or GDCIC_OPENPLATFORM_PAGE_URL, "source_home_probe", keywords),
+                _guangdong_gdcic_openplatform_route(
+                    "gd_gdcic_openplatform_project_lookup",
+                    "/openplatform/project/list",
+                    {"projectName": project_keyword},
+                    keywords,
+                    route_group="gd_gdcic_openplatform_project_lookup",
+                ),
+                _guangdong_gdcic_openplatform_route(
+                    "gd_gdcic_openplatform_person_by_name",
+                    "/openplatform/personInGd/list",
+                    {"name": person_keyword},
+                    keywords,
+                    route_group="gd_gdcic_openplatform_person_directory",
+                ),
+            ]
+        )
+        for idx, company_keyword in enumerate(company_keywords):
+            routes.append(
+                _guangdong_gdcic_openplatform_route(
+                    "gd_gdcic_openplatform_project_by_company"
+                    if idx == 0
+                    else f"gd_gdcic_openplatform_project_by_company_variant_{idx + 1}",
+                    "/openplatform/project/list",
+                    {"projectName": company_keyword},
+                    keywords,
+                    route_group="gd_gdcic_openplatform_project_lookup",
+                )
+            )
+        for idx, project_code in enumerate(project_code_keywords):
+            routes.extend(
+                [
+                    _guangdong_gdcic_openplatform_route(
+                        "gd_gdcic_openplatform_project_by_project_code"
+                        if idx == 0
+                        else f"gd_gdcic_openplatform_project_by_project_code_variant_{idx + 1}",
+                        "/openplatform/project/list",
+                        {"projectCode": project_code},
+                        keywords,
+                        route_group="gd_gdcic_openplatform_project_lookup",
+                    ),
+                    _guangdong_gdcic_openplatform_route(
+                        "gd_gdcic_openplatform_contract_by_project_code"
+                        if idx == 0
+                        else f"gd_gdcic_openplatform_contract_by_project_code_variant_{idx + 1}",
+                        "/openplatform/projectContract/list",
+                        {"projectCode": project_code},
+                        keywords,
+                        route_group="gd_gdcic_openplatform_project_lookup",
+                    ),
+                ]
+            )
+        if wants_contract:
+            routes.append(
+                _guangdong_gdcic_openplatform_route(
+                    "gd_gdcic_openplatform_publicity_contract_followup",
+                    "/openplatform/publicityPeriod/getContract",
+                    {"id": "{project_id_from_project_lookup}"},
+                    keywords,
+                    route_group="gd_gdcic_openplatform_publicity_period",
+                    method="POST",
+                    plan_only_template=True,
+                )
+            )
+        if wants_construction:
+            routes.append(
+                _guangdong_gdcic_openplatform_route(
+                    "gd_gdcic_openplatform_publicity_construction_permit_followup",
+                    "/openplatform/publicityPeriod/getConstructPermitInfo",
+                    {"id": "{project_id_from_project_lookup}"},
+                    keywords,
+                    route_group="gd_gdcic_openplatform_publicity_period",
+                    plan_only_template=True,
+                )
+            )
+        if wants_completion:
+            routes.append(
+                _guangdong_gdcic_openplatform_route(
+                    "gd_gdcic_openplatform_publicity_completion_followup",
+                    "/openplatform/publicityPeriod/getFinishProjectInfo",
+                    {"id": "{project_id_from_project_lookup}"},
+                    keywords,
+                    route_group="gd_gdcic_openplatform_publicity_period",
+                    plan_only_template=True,
+                )
+            )
+        routes.append(
+            _guangdong_gdcic_openplatform_route(
+                "gd_gdcic_openplatform_publicity_project_person_followup",
+                "/openplatform/publicityPeriod/listApplyProjectPerson",
+                {"id": "{project_id_from_project_lookup}"},
+                keywords,
+                route_group="gd_gdcic_openplatform_publicity_period",
+                plan_only_template=True,
+            )
+        )
     elif profile_id == GUANGDONG_GDCIC_HOME_PROFILE_ID:
         company_keyword = str(query_params.get("companyName") or "").strip()
         project_keyword = _clean_project_title(query_params.get("projectName"))
@@ -1276,6 +1557,336 @@ def _route_plan_for_task(task: Mapping[str, Any], query_params: Mapping[str, Any
                     "sichuan_project_manager_change_notice_requires_browser_or_authorized_runtime",
                 )
             )
+    elif profile_id == JIANGSU_JZSC_PROFILE_ID:
+        company_keyword = str(query_params.get("companyName") or "").strip()
+        project_keyword = _clean_project_title(query_params.get("projectName"))
+        person_keyword = str(query_params.get("personName") or "").strip()
+        target_source_types = _target_source_type_set(task, query_params)
+        wants_all = not target_source_types
+        wants_construction = wants_all or "construction_permit" in target_source_types
+        wants_contract = wants_all or bool(target_source_types & {"contract_public_info", "contract_performance"})
+        wants_completion = wants_all or bool(
+            target_source_types
+            & {"completion_filing", "completion_acceptance", "completion_acceptance_or_completion_filing"}
+        )
+        wants_project_manager_change = "project_manager_change_notice" in target_source_types
+        routes.extend(
+            [
+                _jiangsu_jzsc_public_page_route("js_jzsc_integrated_platform_home", source_url or JIANGSU_JZSC_HOME_URL, keywords),
+            ]
+        )
+        if wants_construction:
+            routes.append(
+                _jiangsu_jzsc_structured_query_route(
+                    "js_jzsc_construction_permit_query",
+                    "construction_permit",
+                    company_keyword=company_keyword,
+                    project_keyword=project_keyword,
+                    person_keyword=person_keyword,
+                    query_keywords=keywords,
+                    source_url=source_url,
+                )
+            )
+        if wants_contract:
+            routes.append(
+                _jiangsu_jzsc_structured_query_route(
+                    "js_jzsc_contract_filing_query",
+                    "contract_public_info",
+                    company_keyword=company_keyword,
+                    project_keyword=project_keyword,
+                    person_keyword=person_keyword,
+                    query_keywords=keywords,
+                    source_url=source_url,
+                )
+            )
+        if wants_completion:
+            routes.append(
+                _jiangsu_jzsc_structured_query_route(
+                    "js_jzsc_completion_acceptance_query",
+                    "completion_filing",
+                    company_keyword=company_keyword,
+                    project_keyword=project_keyword,
+                    person_keyword=person_keyword,
+                    query_keywords=keywords,
+                    source_url=source_url,
+                )
+            )
+        if wants_project_manager_change:
+            routes.append(
+                _browser_required_route(
+                    "js_jzsc_project_manager_change_browser_required",
+                    source_url or JIANGSU_JZSC_HOME_URL,
+                    "js_jzsc_project_manager_change_browser_required",
+                    keywords,
+                    JIANGSU_JZSC_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID,
+                    "jiangsu_project_manager_change_notice_requires_browser_or_authorized_runtime",
+                )
+            )
+    elif profile_id == HUBEI_JZSC_PROFILE_ID:
+        company_keyword = str(query_params.get("companyName") or "").strip()
+        project_keyword = _clean_project_title(query_params.get("projectName"))
+        person_keyword = str(query_params.get("personName") or "").strip()
+        target_source_types = _target_source_type_set(task, query_params)
+        wants_all = not target_source_types
+        wants_construction = wants_all or "construction_permit" in target_source_types
+        wants_contract = wants_all or bool(target_source_types & {"contract_public_info", "contract_performance"})
+        wants_completion = wants_all or bool(
+            target_source_types
+            & {"completion_filing", "completion_acceptance", "completion_acceptance_or_completion_filing"}
+        )
+        wants_project_manager_change = "project_manager_change_notice" in target_source_types
+        routes.append(
+            _hubei_jzsc_public_page_route("hb_jzsc_integrity_platform_home", source_url or HUBEI_JZSC_HOME_URL, keywords)
+        )
+        if wants_construction:
+            routes.append(
+                _hubei_jzsc_structured_query_route(
+                    "hb_jzsc_construction_permit_query",
+                    "construction_permit",
+                    company_keyword=company_keyword,
+                    project_keyword=project_keyword,
+                    person_keyword=person_keyword,
+                    query_keywords=keywords,
+                    source_url=source_url,
+                )
+            )
+        if wants_contract:
+            routes.append(
+                _hubei_jzsc_structured_query_route(
+                    "hb_jzsc_contract_filing_query",
+                    "contract_public_info",
+                    company_keyword=company_keyword,
+                    project_keyword=project_keyword,
+                    person_keyword=person_keyword,
+                    query_keywords=keywords,
+                    source_url=source_url,
+                )
+            )
+        if wants_completion:
+            routes.append(
+                _hubei_jzsc_structured_query_route(
+                    "hb_jzsc_completion_acceptance_query",
+                    "completion_filing",
+                    company_keyword=company_keyword,
+                    project_keyword=project_keyword,
+                    person_keyword=person_keyword,
+                    query_keywords=keywords,
+                    source_url=source_url,
+                )
+            )
+        if wants_project_manager_change:
+            routes.append(
+                _browser_required_route(
+                    "hb_jzsc_project_manager_change_browser_required",
+                    source_url or HUBEI_JZSC_HOME_URL,
+                    "hb_jzsc_project_manager_change_browser_required",
+                    keywords,
+                    HUBEI_JZSC_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID,
+                    "hubei_project_manager_change_notice_requires_browser_or_authorized_runtime",
+                )
+            )
+    elif profile_id == SHANDONG_JZSC_PROFILE_ID:
+        company_keyword = str(query_params.get("companyName") or "").strip()
+        project_keyword = _clean_project_title(query_params.get("projectName"))
+        person_keyword = str(query_params.get("personName") or "").strip()
+        shandong_source_urls = _shandong_jzsc_source_urls(source_url)
+        target_source_types = _target_source_type_set(task, query_params)
+        wants_all = not target_source_types
+        wants_construction = wants_all or "construction_permit" in target_source_types
+        wants_contract = wants_all or bool(target_source_types & {"contract_public_info", "contract_performance"})
+        wants_completion = wants_all or bool(
+            target_source_types
+            & {"completion_filing", "completion_acceptance", "completion_acceptance_or_completion_filing"}
+        )
+        wants_project_manager_change = "project_manager_change_notice" in target_source_types
+        for index, shandong_url in enumerate(shandong_source_urls):
+            suffix = "" if index == 0 else "_http_fallback"
+            routes.append(
+                _shandong_jzsc_public_page_route(
+                    f"sd_jzsc_credit_supervision_platform_home{suffix}",
+                    shandong_url,
+                    keywords,
+                )
+            )
+        if wants_construction:
+            for index, shandong_url in enumerate(shandong_source_urls):
+                suffix = "" if index == 0 else "_http_fallback"
+                routes.append(
+                    _shandong_jzsc_structured_query_route(
+                        f"sd_jzsc_construction_permit_query{suffix}",
+                        "construction_permit",
+                        company_keyword=company_keyword,
+                        project_keyword=project_keyword,
+                        person_keyword=person_keyword,
+                        query_keywords=keywords,
+                        source_url=shandong_url,
+                    )
+                )
+        if wants_contract:
+            for index, shandong_url in enumerate(shandong_source_urls):
+                suffix = "" if index == 0 else "_http_fallback"
+                routes.append(
+                    _shandong_jzsc_structured_query_route(
+                        f"sd_jzsc_contract_filing_query{suffix}",
+                        "contract_public_info",
+                        company_keyword=company_keyword,
+                        project_keyword=project_keyword,
+                        person_keyword=person_keyword,
+                        query_keywords=keywords,
+                        source_url=shandong_url,
+                    )
+                )
+        if wants_completion:
+            for index, shandong_url in enumerate(shandong_source_urls):
+                suffix = "" if index == 0 else "_http_fallback"
+                routes.append(
+                    _shandong_jzsc_structured_query_route(
+                        f"sd_jzsc_completion_acceptance_query{suffix}",
+                        "completion_filing",
+                        company_keyword=company_keyword,
+                        project_keyword=project_keyword,
+                        person_keyword=person_keyword,
+                        query_keywords=keywords,
+                        source_url=shandong_url,
+                    )
+                )
+        if wants_project_manager_change:
+            routes.append(
+                _browser_required_route(
+                    "sd_jzsc_project_manager_change_browser_required",
+                    shandong_source_urls[0] if shandong_source_urls else SHANDONG_JZSC_HOME_URL,
+                    "sd_jzsc_project_manager_change_browser_required",
+                    keywords,
+                    SHANDONG_JZSC_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID,
+                    "shandong_project_manager_change_notice_requires_browser_or_authorized_runtime",
+                )
+            )
+    elif profile_id == HUNAN_JZSC_PROFILE_ID:
+        company_keyword = str(query_params.get("companyName") or "").strip()
+        project_keyword = _clean_project_title(query_params.get("projectName"))
+        person_keyword = str(query_params.get("personName") or "").strip()
+        source_url = source_url or HUNAN_JZSC_HOME_URL
+        target_source_types = _target_source_type_set(task, query_params)
+        wants_all = not target_source_types
+        wants_construction = wants_all or "construction_permit" in target_source_types
+        wants_contract = wants_all or bool(target_source_types & {"contract_public_info", "contract_performance"})
+        wants_completion = wants_all or bool(
+            target_source_types
+            & {"completion_filing", "completion_acceptance", "completion_acceptance_or_completion_filing"}
+        )
+        wants_project_manager_change = "project_manager_change_notice" in target_source_types
+        routes.append(
+            _hunan_jzsc_public_page_route("hn_jzsc_public_service_home", source_url, keywords)
+        )
+        if wants_construction:
+            routes.append(
+                _hunan_jzsc_structured_query_route(
+                    "hn_jzsc_construction_permit_query",
+                    "construction_permit",
+                    company_keyword=company_keyword,
+                    project_keyword=project_keyword,
+                    person_keyword=person_keyword,
+                    query_keywords=keywords,
+                    source_url=source_url,
+                )
+            )
+        if wants_contract:
+            routes.append(
+                _hunan_jzsc_structured_query_route(
+                    "hn_jzsc_contract_filing_query",
+                    "contract_public_info",
+                    company_keyword=company_keyword,
+                    project_keyword=project_keyword,
+                    person_keyword=person_keyword,
+                    query_keywords=keywords,
+                    source_url=source_url,
+                )
+            )
+        if wants_completion:
+            routes.append(
+                _hunan_jzsc_structured_query_route(
+                    "hn_jzsc_completion_acceptance_query",
+                    "completion_filing",
+                    company_keyword=company_keyword,
+                    project_keyword=project_keyword,
+                    person_keyword=person_keyword,
+                    query_keywords=keywords,
+                    source_url=source_url,
+                )
+            )
+        if wants_project_manager_change:
+            routes.append(
+                _browser_required_route(
+                    "hn_jzsc_project_manager_change_browser_required",
+                    source_url,
+                    "hn_jzsc_project_manager_change_browser_required",
+                    keywords,
+                    HUNAN_JZSC_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID,
+                    "hunan_project_manager_change_notice_requires_browser_or_authorized_runtime",
+                )
+            )
+    elif profile_id == HENAN_JZSC_PROFILE_ID:
+        company_keyword = str(query_params.get("companyName") or "").strip()
+        project_keyword = _clean_project_title(query_params.get("projectName"))
+        person_keyword = str(query_params.get("personName") or "").strip()
+        source_url = source_url or HENAN_JZSC_HOME_URL
+        target_source_types = _target_source_type_set(task, query_params)
+        wants_all = not target_source_types
+        wants_construction = wants_all or "construction_permit" in target_source_types
+        wants_contract = wants_all or bool(target_source_types & {"contract_public_info", "contract_performance"})
+        wants_completion = wants_all or bool(
+            target_source_types
+            & {"completion_filing", "completion_acceptance", "completion_acceptance_or_completion_filing"}
+        )
+        wants_project_manager_change = "project_manager_change_notice" in target_source_types
+        routes.append(_henan_jzsc_public_page_route("ha_jzsc_public_service_home", source_url, keywords))
+        if wants_construction:
+            routes.append(
+                _henan_jzsc_structured_query_route(
+                    "ha_jzsc_construction_permit_electronic_license_query",
+                    "construction_permit",
+                    company_keyword=company_keyword,
+                    project_keyword=project_keyword,
+                    person_keyword=person_keyword,
+                    query_keywords=keywords,
+                    source_url=HENAN_JZSC_ELECTRONIC_LICENSE_URL,
+                )
+            )
+        if wants_contract:
+            routes.append(
+                _henan_jzsc_structured_query_route(
+                    "ha_jzsc_contract_filing_project_data_query",
+                    "contract_public_info",
+                    company_keyword=company_keyword,
+                    project_keyword=project_keyword,
+                    person_keyword=person_keyword,
+                    query_keywords=keywords,
+                    source_url=HENAN_JZSC_PROJECT_DATA_URL,
+                )
+            )
+        if wants_completion:
+            routes.append(
+                _henan_jzsc_structured_query_route(
+                    "ha_jzsc_completion_acceptance_project_data_query",
+                    "completion_filing",
+                    company_keyword=company_keyword,
+                    project_keyword=project_keyword,
+                    person_keyword=person_keyword,
+                    query_keywords=keywords,
+                    source_url=HENAN_JZSC_PROJECT_DATA_URL,
+                )
+            )
+        if wants_project_manager_change:
+            routes.append(
+                _browser_required_route(
+                    "ha_jzsc_project_manager_change_browser_required",
+                    source_url,
+                    "ha_jzsc_project_manager_change_browser_required",
+                    keywords,
+                    HENAN_JZSC_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID,
+                    "henan_project_manager_change_notice_requires_browser_or_authorized_runtime",
+                )
+            )
     else:
         routes.append(_route("source_home", source_url, "source_home_probe", keywords))
     return [route for route in routes if route["url"]]
@@ -1288,6 +1899,70 @@ def _route(route_id: str, url: str, route_group: str, keywords: list[str]) -> di
         "url": url,
         "keyword_count": len(keywords),
         "query_keyword_probe": keywords[:5],
+    }
+
+
+def _ygp_original_readback_backfill_route(
+    source_url: str,
+    query_params: Mapping[str, Any],
+    keywords: list[str],
+) -> dict[str, Any]:
+    project_code = _first_text(
+        [
+            *_list(query_params.get("ygpProjectCodeVariants")),
+            *_list(query_params.get("projectCodeVariants")),
+            query_params.get("ygpProjectCode"),
+            query_params.get("projectCode"),
+        ]
+    )
+    params = {
+        "nodeId": _first_text([*_list(query_params.get("ygpNodeIdVariants")), query_params.get("ygpNodeId")]),
+        "version": str(query_params.get("ygpVersion") or query_params.get("version") or "v3"),
+        "tradingType": str(query_params.get("ygpTradingType") or query_params.get("tradingType") or ""),
+        "noticeId": _first_text([*_list(query_params.get("ygpNoticeIdVariants")), query_params.get("ygpNoticeId")]),
+        "bizCode": _first_text([*_list(query_params.get("ygpBizCodeVariants")), query_params.get("ygpBizCode")]),
+        "projectCode": project_code,
+        "siteCode": _first_text([*_list(query_params.get("ygpSiteCodeVariants")), query_params.get("ygpSiteCode")]),
+    }
+    url = (
+        source_url
+        if "ygp.gdzwfw.gov.cn" in str(source_url or "")
+        else GUANGDONG_YGP_TRADING_NOTICE_DETAIL_API_URL
+    )
+    return {
+        "route_id": "ygp_original_readback_backfill_detail",
+        "route_group": "ygp_original_readback_backfill",
+        "url": url,
+        "method": "GET",
+        "params": {key: value for key, value in params.items() if str(value or "").strip()},
+        "keyword_count": len(keywords),
+        "query_keyword_probe": keywords[:5],
+        "source_specific_adapter_id": GUANGDONG_YGP_ORIGINAL_READBACK_BACKFILL_ADAPTER_ID,
+        "gdcic_project_code_route_allowed": False,
+    }
+
+
+def _guangdong_gdcic_openplatform_route(
+    route_id: str,
+    endpoint: str,
+    params: Mapping[str, Any],
+    query_keywords: list[str],
+    *,
+    route_group: str,
+    method: str = "GET",
+    plan_only_template: bool = False,
+) -> dict[str, Any]:
+    return {
+        "route_id": route_id,
+        "route_group": route_group,
+        "url": f"{GDCIC_API_BASE_URL}{endpoint}",
+        "method": method,
+        "params": {str(key): str(value) for key, value in params.items() if str(value or "").strip()},
+        "keyword_count": len(query_keywords),
+        "query_keyword_probe": query_keywords[:5],
+        "source_specific_adapter_id": GUANGDONG_GDCIC_SKYPT_OPENPLATFORM_ADAPTER_ID,
+        "delegated_adapter_id": DELEGATED_PROFILE_ADAPTERS[GUANGDONG_GDCIC_SKYPT_OPENPLATFORM_PROFILE_ID],
+        "plan_only_template": bool(plan_only_template),
     }
 
 
@@ -1599,6 +2274,204 @@ def _sichuan_jzsc_detail_route(
     }
 
 
+def _jiangsu_jzsc_public_page_route(route_id: str, url: str, query_keywords: list[str]) -> dict[str, Any]:
+    route = _route(route_id, url or JIANGSU_JZSC_HOME_URL, "js_jzsc_public_page_probe", query_keywords)
+    route["source_specific_adapter_id"] = JIANGSU_JZSC_FIELD_ADAPTER_ID
+    route["referer"] = JIANGSU_JZSC_HOME_URL
+    route["field_verification_role"] = "reachability_only_not_field_match"
+    return route
+
+
+def _jiangsu_jzsc_structured_query_route(
+    route_id: str,
+    target_source_type: str,
+    *,
+    company_keyword: str,
+    project_keyword: str,
+    person_keyword: str,
+    query_keywords: list[str],
+    source_url: str,
+) -> dict[str, Any]:
+    return {
+        "route_id": route_id,
+        "route_group": "js_jzsc_integrated_platform_structured_query",
+        "url": source_url or JIANGSU_JZSC_HOME_URL,
+        "method": "GET",
+        "params": {
+            "projectName": project_keyword,
+            "companyName": company_keyword,
+            "personName": person_keyword,
+            "targetSourceType": target_source_type,
+        },
+        "keyword_count": len(query_keywords),
+        "query_keyword_probe": query_keywords[:5],
+        "source_specific_adapter_id": JIANGSU_JZSC_FIELD_ADAPTER_ID,
+        "jiangsu_target_source_type": target_source_type,
+        "referer": JIANGSU_JZSC_HOME_URL,
+        "public_endpoint_verification_state": "OFFICIAL_PLATFORM_REFERENCED_ROUTE_DISCOVERY_PENDING",
+    }
+
+
+def _hubei_jzsc_public_page_route(route_id: str, url: str, query_keywords: list[str]) -> dict[str, Any]:
+    route = _route(route_id, url or HUBEI_JZSC_HOME_URL, "hb_jzsc_public_page_probe", query_keywords)
+    route["source_specific_adapter_id"] = HUBEI_JZSC_FIELD_ADAPTER_ID
+    route["referer"] = HUBEI_JZSC_HOME_URL
+    route["field_verification_role"] = "reachability_only_not_field_match"
+    return route
+
+
+def _hubei_jzsc_structured_query_route(
+    route_id: str,
+    target_source_type: str,
+    *,
+    company_keyword: str,
+    project_keyword: str,
+    person_keyword: str,
+    query_keywords: list[str],
+    source_url: str,
+) -> dict[str, Any]:
+    return {
+        "route_id": route_id,
+        "route_group": "hb_jzsc_integrity_platform_structured_query",
+        "url": source_url or HUBEI_JZSC_HOME_URL,
+        "method": "GET",
+        "params": {
+            "projectName": project_keyword,
+            "companyName": company_keyword,
+            "personName": person_keyword,
+            "targetSourceType": target_source_type,
+        },
+        "keyword_count": len(query_keywords),
+        "query_keyword_probe": query_keywords[:5],
+        "source_specific_adapter_id": HUBEI_JZSC_FIELD_ADAPTER_ID,
+        "hubei_target_source_type": target_source_type,
+        "referer": HUBEI_JZSC_HOME_URL,
+        "public_endpoint_verification_state": "OFFICIAL_PLATFORM_REFERENCED_ROUTE_DISCOVERY_PENDING",
+    }
+
+
+def _shandong_jzsc_public_page_route(route_id: str, url: str, query_keywords: list[str]) -> dict[str, Any]:
+    route = _route(route_id, url or SHANDONG_JZSC_HOME_URL, "sd_jzsc_public_page_probe", query_keywords)
+    route["source_specific_adapter_id"] = SHANDONG_JZSC_FIELD_ADAPTER_ID
+    route["referer"] = SHANDONG_JZSC_HOME_URL
+    route["field_verification_role"] = "reachability_only_not_field_match"
+    return route
+
+
+def _shandong_jzsc_source_urls(source_url: str) -> list[str]:
+    primary = str(source_url or SHANDONG_JZSC_HOME_URL).strip() or SHANDONG_JZSC_HOME_URL
+    urls = [primary]
+    if primary.startswith("https://zjt.shandong.gov.cn"):
+        urls.append(primary.replace("https://", "http://", 1))
+    return _dedupe(urls)
+
+
+def _shandong_jzsc_structured_query_route(
+    route_id: str,
+    target_source_type: str,
+    *,
+    company_keyword: str,
+    project_keyword: str,
+    person_keyword: str,
+    query_keywords: list[str],
+    source_url: str,
+) -> dict[str, Any]:
+    return {
+        "route_id": route_id,
+        "route_group": "sd_jzsc_credit_supervision_structured_query",
+        "url": source_url or SHANDONG_JZSC_HOME_URL,
+        "method": "GET",
+        "params": {
+            "projectName": project_keyword,
+            "companyName": company_keyword,
+            "personName": person_keyword,
+            "targetSourceType": target_source_type,
+        },
+        "keyword_count": len(query_keywords),
+        "query_keyword_probe": query_keywords[:5],
+        "source_specific_adapter_id": SHANDONG_JZSC_FIELD_ADAPTER_ID,
+        "shandong_target_source_type": target_source_type,
+        "referer": SHANDONG_JZSC_HOME_URL,
+        "public_endpoint_verification_state": "OFFICIAL_PLATFORM_REFERENCED_ROUTE_DISCOVERY_PENDING",
+    }
+
+
+def _hunan_jzsc_public_page_route(route_id: str, url: str, query_keywords: list[str]) -> dict[str, Any]:
+    route = _route(route_id, url or HUNAN_JZSC_HOME_URL, "hn_jzsc_public_page_probe", query_keywords)
+    route["source_specific_adapter_id"] = HUNAN_JZSC_FIELD_ADAPTER_ID
+    route["referer"] = HUNAN_JZSC_HOME_URL
+    route["field_verification_role"] = "reachability_only_not_field_match"
+    return route
+
+
+def _hunan_jzsc_structured_query_route(
+    route_id: str,
+    target_source_type: str,
+    *,
+    company_keyword: str,
+    project_keyword: str,
+    person_keyword: str,
+    query_keywords: list[str],
+    source_url: str,
+) -> dict[str, Any]:
+    return {
+        "route_id": route_id,
+        "route_group": "hn_jzsc_public_service_structured_query",
+        "url": source_url or HUNAN_JZSC_HOME_URL,
+        "method": "GET",
+        "params": {
+            "projectName": project_keyword,
+            "companyName": company_keyword,
+            "personName": person_keyword,
+            "targetSourceType": target_source_type,
+        },
+        "keyword_count": len(query_keywords),
+        "query_keyword_probe": query_keywords[:5],
+        "source_specific_adapter_id": HUNAN_JZSC_FIELD_ADAPTER_ID,
+        "hunan_target_source_type": target_source_type,
+        "referer": HUNAN_JZSC_HOME_URL,
+        "public_endpoint_verification_state": "OFFICIAL_PLATFORM_REFERENCED_ROUTE_DISCOVERY_PENDING",
+    }
+
+
+def _henan_jzsc_public_page_route(route_id: str, url: str, query_keywords: list[str]) -> dict[str, Any]:
+    route = _route(route_id, url or HENAN_JZSC_HOME_URL, "ha_jzsc_public_page_probe", query_keywords)
+    route["source_specific_adapter_id"] = HENAN_JZSC_FIELD_ADAPTER_ID
+    route["referer"] = HENAN_JZSC_HOME_URL
+    route["field_verification_role"] = "reachability_only_not_field_match"
+    return route
+
+
+def _henan_jzsc_structured_query_route(
+    route_id: str,
+    target_source_type: str,
+    *,
+    company_keyword: str,
+    project_keyword: str,
+    person_keyword: str,
+    query_keywords: list[str],
+    source_url: str,
+) -> dict[str, Any]:
+    return {
+        "route_id": route_id,
+        "route_group": "ha_jzsc_public_service_structured_query",
+        "url": source_url or HENAN_JZSC_HOME_URL,
+        "method": "GET",
+        "params": {
+            "projectName": project_keyword,
+            "companyName": company_keyword,
+            "personName": person_keyword,
+            "targetSourceType": target_source_type,
+        },
+        "keyword_count": len(query_keywords),
+        "query_keyword_probe": query_keywords[:5],
+        "source_specific_adapter_id": HENAN_JZSC_FIELD_ADAPTER_ID,
+        "henan_target_source_type": target_source_type,
+        "referer": HENAN_JZSC_HOME_URL,
+        "public_endpoint_verification_state": "OFFICIAL_PLATFORM_REFERENCED_ROUTE_DISCOVERY_PENDING",
+    }
+
+
 def _guangdong_zfcxjst_penalty_list_route(page: int, query_keywords: list[str]) -> dict[str, Any]:
     suffix = "index.html" if page <= 1 else f"index_{page}.html"
     return {
@@ -1774,6 +2647,364 @@ def _delegated_readback(profile_id: str, route_plan: list[Mapping[str, Any]]) ->
     }
 
 
+def _execute_guangdong_gdcic_openplatform_delegated_field_query(
+    task: Mapping[str, Any],
+    route_plan: list[Mapping[str, Any]],
+    *,
+    http_getter: HttpGetter | None,
+) -> dict[str, Any]:
+    getter = _gdcic_openplatform_http_getter(http_getter or _default_http_getter)
+    query_params = _gdcic_openplatform_query_params(task)
+    gdcic_result = _execute_gdcic_openplatform_live_query(
+        str(task.get("source_url") or GDCIC_OPENPLATFORM_PAGE_URL),
+        query_params,
+        http_getter=getter,
+    )
+    gdcic_state = str(gdcic_result.get("query_probe_state") or "")
+    route_attempts = _gdcic_openplatform_route_attempts(gdcic_result)
+    source_specific_records = _gdcic_openplatform_source_specific_records(route_attempts)
+    target_source_types = _target_source_type_set(task, query_params) if _is_release_evidence_task(task) else set()
+    target_specific_records = _gdcic_openplatform_target_specific_records(
+        source_specific_records,
+        target_source_types,
+        query_params,
+    )
+    field_summary = {
+        **dict(gdcic_result.get("field_summary") or {}),
+        "source_specific_adapter_id": GUANGDONG_GDCIC_SKYPT_OPENPLATFORM_ADAPTER_ID,
+        "delegated_adapter_id": DELEGATED_PROFILE_ADAPTERS[GUANGDONG_GDCIC_SKYPT_OPENPLATFORM_PROFILE_ID],
+        "gdcic_query_probe_state": gdcic_state,
+        "gdcic_publicity_period_readback_ready_count": sum(
+            1
+            for route in route_attempts
+            if str(route.get("route_group") or "") == "project_publicity_period"
+            and str(route.get("route_state") or "") == "READBACK_READY_PUBLIC_SOURCE"
+        ),
+        "gdcic_target_specific_record_count": len(target_specific_records),
+    }
+    field_match_summary = {
+        "source_specific_records": target_specific_records[:10],
+        "context_source_specific_records": source_specific_records[:10],
+        "query_miss_is_not_clearance": True,
+        "delegated_adapter_id": DELEGATED_PROFILE_ADAPTERS[GUANGDONG_GDCIC_SKYPT_OPENPLATFORM_PROFILE_ID],
+        "gdcic_reachability_diagnostic_state": str(gdcic_result.get("reachability_diagnostic_state") or ""),
+        "target_source_types": sorted(target_source_types),
+        "target_specific_record_required": bool(target_source_types),
+    }
+    status_code = _int(gdcic_result.get("readback_status_code")) or None
+    if gdcic_state == "READBACK_READY_PUBLIC_SOURCE" and (not target_source_types or target_specific_records):
+        return {
+            "field_query_probe_state": "FIELD_READBACK_READY_PUBLIC_SOURCE",
+            "field_readback_state": "PUBLIC_SOURCE_STRUCTURED_READBACK_READY",
+            "readback_ready": True,
+            "readback_status_code": status_code or 200,
+            "field_summary": field_summary,
+            "field_match_summary": field_match_summary,
+            "route_plan": list(route_plan),
+            "route_attempts": route_attempts,
+            "blocker_taxonomy": _list(gdcic_result.get("blocker_taxonomy")),
+            "delegated_adapter_id": DELEGATED_PROFILE_ADAPTERS[GUANGDONG_GDCIC_SKYPT_OPENPLATFORM_PROFILE_ID],
+        }
+    if gdcic_state in {"READBACK_READY_PUBLIC_SOURCE", "REVIEW_REQUIRED"}:
+        return {
+            "field_query_probe_state": "NO_FIELD_MATCH_REVIEW_REQUIRED",
+            "field_readback_state": "PUBLIC_SOURCE_QUERIED_NO_STRUCTURED_FIELD_MATCH",
+            "readback_ready": False,
+            "readback_status_code": status_code,
+            "field_summary": field_summary,
+            "field_match_summary": field_match_summary,
+            "route_plan": list(route_plan),
+            "route_attempts": route_attempts,
+            "blocker_taxonomy": _list(gdcic_result.get("blocker_taxonomy"))
+            or ["gdcic_openplatform_target_source_type_no_match_review"],
+            "delegated_adapter_id": DELEGATED_PROFILE_ADAPTERS[GUANGDONG_GDCIC_SKYPT_OPENPLATFORM_PROFILE_ID],
+        }
+    if gdcic_state == "LIVE_PUBLIC_QUERY_DEFERRED_BY_LIMIT":
+        return _live_deferred_readback(0, route_plan)
+    return {
+        "field_query_probe_state": (
+            gdcic_state if gdcic_state.startswith("FAIL_CLOSED") else "FAIL_CLOSED_PUBLIC_SOURCE_BLOCKED"
+        ),
+        "field_readback_state": "FIELD_READBACK_BLOCKED",
+        "readback_ready": False,
+        "readback_status_code": status_code,
+        "field_summary": field_summary,
+        "field_match_summary": field_match_summary,
+        "route_plan": list(route_plan),
+        "route_attempts": route_attempts,
+        "blocker_taxonomy": _list(gdcic_result.get("blocker_taxonomy"))
+        or ["gdcic_openplatform_public_source_blocked"],
+        "delegated_adapter_id": DELEGATED_PROFILE_ADAPTERS[GUANGDONG_GDCIC_SKYPT_OPENPLATFORM_PROFILE_ID],
+    }
+
+
+def _gdcic_openplatform_query_params(task: Mapping[str, Any]) -> dict[str, Any]:
+    query_params = dict(task.get("query_params") or {})
+    project_name = _first_text(
+        [
+            query_params.get("projectName"),
+            task.get("project_name"),
+        ]
+    )
+    variants = _dedupe(
+        [
+            *_list(query_params.get("projectNameVariants")),
+            *_gdcic_openplatform_project_title_variants(project_name),
+        ]
+    )
+    if project_name and not query_params.get("projectName"):
+        query_params["projectName"] = project_name
+    if variants:
+        query_params["projectNameVariants"] = variants
+    return query_params
+
+
+def _gdcic_openplatform_project_title_variants(value: Any) -> list[str]:
+    text = _clean_project_title(value)
+    if not text:
+        return []
+    variants = [text]
+    without_rebid_marker = re.sub(
+        r"[（(](?:第?[一二三四五六七八九十\d]+次|重新招标|重招|二次)[）)]$",
+        "",
+        text,
+    ).strip()
+    if without_rebid_marker and without_rebid_marker != text and len(without_rebid_marker) >= 6:
+        variants.append(_clean_project_title(without_rebid_marker))
+    for separator in ("、", "，", ",", "；", ";", "及"):
+        if separator in text:
+            head = _clean_project_title(text.split(separator, 1)[0])
+            if len(head) >= 6:
+                variants.append(head)
+    for suffix in (
+        "工程设计施工总承包",
+        "设计施工总承包",
+        "勘察设计施工总承包",
+        "设计采购施工总承包",
+        "工程总承包（EPC）",
+        "工程总承包(EPC)",
+        "工程总承包",
+        "施工总承包",
+        "施工总价承包招标",
+        "施工总价承包",
+        "施工监理",
+        "初步设计",
+        "施工图设计",
+        "勘察设计",
+        "设计",
+        "监理",
+        "施工",
+        "招标",
+    ):
+        source = without_rebid_marker or text
+        if source.endswith(suffix) and len(source) - len(suffix) >= 6:
+            variants.append(_clean_project_title(source[: -len(suffix)]))
+            break
+    for suffix in ("生产建设项目", "建设项目", "项目"):
+        if text.endswith(suffix) and len(text) - len(suffix) >= 6:
+            variants.append(_clean_project_title(text[: -len(suffix)]))
+    return _dedupe(variants)
+
+
+def _project_code_variants(values: Iterable[Any]) -> list[str]:
+    out: list[str] = []
+    for value in values:
+        text = str(value or "").strip()
+        if not text:
+            continue
+        for match in re.findall(r"\b[A-Z]{1,8}\d{4}-\d{3,8}(?:-\d{3})?\b", text, flags=re.IGNORECASE):
+            out.append(match.upper())
+        for match in re.findall(r"\bE\d{12,22}\b", text, flags=re.IGNORECASE):
+            out.append(match.upper())
+        for match in re.findall(r"\b\d{6,12}-\d{4}-\d{3,8}(?:-\d{1,8})?\b", text):
+            out.append(match)
+        for match in re.findall(r"\b\d{4}-\d{6}-\d{2}-\d{2}-\d{6}\b", text):
+            out.append(match)
+        for match in re.findall(r"\b\d{12,22}\b", text):
+            out.append(match)
+    return _dedupe(out)
+
+
+def _gdcic_project_code_variants(values: Iterable[Any]) -> list[str]:
+    return _dedupe(
+        code
+        for code in _project_code_variants(values)
+        if re.fullmatch(r"\d{12,22}", code)
+        or re.fullmatch(r"E\d{12,22}", code, flags=re.IGNORECASE)
+        or re.fullmatch(r"\d{6,12}-\d{4}-\d{3,8}(?:-\d{1,8})?", code)
+    )
+
+
+def _gdcic_openplatform_http_getter(getter: HttpGetter) -> HttpGetter:
+    def wrapped(url: str, params: Mapping[str, Any]) -> Mapping[str, Any]:
+        translated = dict(params or {})
+        if "__method" in translated and "_method" not in translated:
+            translated["_method"] = translated.pop("__method")
+        response = dict(getter(url, translated))
+        if "payload" not in response and "json_payload" in response:
+            response["payload"] = response.get("json_payload")
+        return response
+
+    return wrapped
+
+
+def _gdcic_openplatform_route_attempts(gdcic_result: Mapping[str, Any]) -> list[dict[str, Any]]:
+    attempts: list[dict[str, Any]] = []
+    for route in _list(gdcic_result.get("route_attempts")):
+        if not isinstance(route, Mapping):
+            continue
+        attempt = dict(route)
+        attempt.setdefault("source_specific_adapter_id", GUANGDONG_GDCIC_SKYPT_OPENPLATFORM_ADAPTER_ID)
+        attempt.setdefault("delegated_adapter_id", DELEGATED_PROFILE_ADAPTERS[GUANGDONG_GDCIC_SKYPT_OPENPLATFORM_PROFILE_ID])
+        if "url" not in attempt and attempt.get("api_url"):
+            attempt["url"] = str(attempt.get("api_url") or "")
+        attempts.append(attempt)
+    return attempts
+
+
+def _gdcic_openplatform_source_specific_records(route_attempts: list[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    records: list[dict[str, Any]] = []
+    for attempt in route_attempts:
+        for record in _list(attempt.get("sample_records")):
+            if not isinstance(record, Mapping):
+                continue
+            records.append(
+                {
+                    **dict(record),
+                    "route_id": str(attempt.get("route_id") or ""),
+                    "record_type": _gdcic_openplatform_record_type(attempt),
+                    "source_specific_adapter_id": GUANGDONG_GDCIC_SKYPT_OPENPLATFORM_ADAPTER_ID,
+                    "source_profile_id": GUANGDONG_GDCIC_SKYPT_OPENPLATFORM_PROFILE_ID,
+                    "source_url": str(attempt.get("api_url") or attempt.get("url") or ""),
+                }
+            )
+    return records
+
+
+def _gdcic_openplatform_target_specific_records(
+    records: list[Mapping[str, Any]],
+    target_source_types: set[str],
+    query_params: Mapping[str, Any],
+) -> list[dict[str, Any]]:
+    if not target_source_types:
+        return [dict(record) for record in records]
+    allowed_record_types: set[str] = set()
+    if target_source_types & {"contract_public_info", "contract_performance"}:
+        allowed_record_types.add("contract_public_record")
+    if "construction_permit" in target_source_types:
+        allowed_record_types.add("construction_permit_public_record")
+    if target_source_types & {"completion_filing", "completion_acceptance", "completion_acceptance_or_completion_filing"}:
+        allowed_record_types.add("completion_filing_public_record")
+    if "personnel_public_record" in target_source_types:
+        allowed_record_types.add("personnel_public_record")
+    if "performance_public_record" in target_source_types:
+        allowed_record_types.update({"project_public_record", "contract_public_record"})
+    if not allowed_record_types:
+        return []
+    project_names = _gdcic_openplatform_target_project_names(query_params)
+    project_codes = _gdcic_openplatform_target_project_codes(query_params)
+    out: list[dict[str, Any]] = []
+    for record in records:
+        record_type = str(record.get("record_type") or "")
+        if record_type not in allowed_record_types:
+            continue
+        if record_type in {
+            "contract_public_record",
+            "construction_permit_public_record",
+            "completion_filing_public_record",
+        } and not _gdcic_openplatform_record_project_matches(record, project_names, project_codes):
+            continue
+        out.append(dict(record))
+    return out
+
+
+def _gdcic_openplatform_target_project_names(query_params: Mapping[str, Any]) -> list[str]:
+    return _dedupe(
+        [
+            *_list(query_params.get("projectNameVariants")),
+            *_gdcic_openplatform_project_title_variants(query_params.get("projectName")),
+        ]
+    )
+
+
+def _gdcic_openplatform_target_project_codes(query_params: Mapping[str, Any]) -> list[str]:
+    return _gdcic_project_code_variants(
+        [
+            *_list(query_params.get("gdcicProjectCodeVariants")),
+            *_list(query_params.get("projectCodeVariants")),
+            *_list(query_params.get("projectCodes")),
+            query_params.get("projectCode"),
+            query_params.get("sourceProjectCode"),
+            query_params.get("tradeProjectCode"),
+            query_params.get("projectId"),
+        ]
+    )
+
+
+def _gdcic_openplatform_record_project_matches(
+    record: Mapping[str, Any],
+    project_names: list[str],
+    project_codes: list[str],
+) -> bool:
+    record_project_codes = _gdcic_project_code_variants(
+        [
+            record.get("projectCode"),
+            record.get("project_code"),
+            record.get("prjNum"),
+            record.get("prjCode"),
+            record.get("itemCode"),
+            record.get("bdCode"),
+            record.get("proofOrSerialCode"),
+        ]
+    )
+    if record_project_codes and set(record_project_codes) & set(project_codes):
+        return True
+    record_project = _clean_project_title(
+        _first_text(
+            [
+                record.get("projectName"),
+                record.get("project_name"),
+                record.get("prjName"),
+                record.get("工程名称"),
+                record.get("项目名称"),
+            ]
+        )
+    )
+    record_compact = _compact_project_name(record_project)
+    if not record_compact:
+        return False
+    for project_name in project_names:
+        target_compact = _compact_project_name(project_name)
+        if not target_compact:
+            continue
+        if record_compact == target_compact:
+            return True
+        if len(record_compact) >= 8 and len(target_compact) >= 8 and (
+            record_compact in target_compact or target_compact in record_compact
+        ):
+            return True
+    return False
+
+
+def _compact_project_name(value: Any) -> str:
+    return re.sub(r"[\s\-_—（）()，,。；;、:：]+", "", _clean_project_title(value))
+
+
+def _gdcic_openplatform_record_type(attempt: Mapping[str, Any]) -> str:
+    route_id = str(attempt.get("route_id") or "")
+    if "project_person" in route_id or "person" in route_id:
+        return "personnel_public_record"
+    if "construction_permit" in route_id:
+        return "construction_permit_public_record"
+    if "completion" in route_id or "finish" in route_id:
+        return "completion_filing_public_record"
+    if "contract" in route_id:
+        return "contract_public_record"
+    if "project" in route_id:
+        return "project_public_record"
+    return "gdcic_openplatform_public_record"
+
+
 def _plan_only_readback(route_plan: list[Mapping[str, Any]]) -> dict[str, Any]:
     return {
         "field_query_probe_state": "PLAN_ONLY_NOT_EXECUTED",
@@ -1786,6 +3017,82 @@ def _plan_only_readback(route_plan: list[Mapping[str, Any]]) -> dict[str, Any]:
         "route_attempts": [],
         "blocker_taxonomy": [],
     }
+
+
+def _terminal_closeout_suppressed_readback(
+    task: Mapping[str, Any],
+    route_plan: list[Mapping[str, Any]],
+    closeout_precedence: Mapping[str, Any],
+) -> dict[str, Any]:
+    marker = dict(closeout_precedence.get("terminal_marker") or {})
+    terminal_state = str(
+        marker.get("terminal_state")
+        or marker.get("marker_state")
+        or marker.get("terminal_grade")
+        or closeout_precedence.get("closeout_precedence_state")
+        or ""
+    ).strip()
+    adapter_state = _suppressed_terminal_adapter_result_state(terminal_state)
+    authorization_state = "LOGIN_OR_SSO_REQUIRED" if adapter_state == "NEEDS_BROWSER" else ""
+    operator_next_action = str(closeout_precedence.get("operator_next_action") or "")
+    blocker_taxonomy = _dedupe(
+        [
+            *_list(closeout_precedence.get("blocker_taxonomy")),
+            closeout_precedence.get("suppression_reason"),
+            "terminal_closeout_or_backfill_marker_present",
+        ]
+    )
+    return {
+        "field_query_probe_state": _suppressed_terminal_probe_state(adapter_state),
+        "field_readback_state": "FIELD_READBACK_SUPPRESSED_BY_TERMINAL_CLOSEOUT",
+        "readback_ready": adapter_state == "MATCHED",
+        "readback_status_code": None,
+        "field_summary": {
+            "source_specific_adapter_id": str(task.get("next_adapter") or task.get("source_profile_id") or ""),
+            "record_count": 0,
+            "terminal_closeout_suppressed_duplicate_dispatch": True,
+            "terminal_state": terminal_state,
+            "closeout_precedence_state": str(closeout_precedence.get("closeout_precedence_state") or ""),
+            "terminal_marker": marker,
+            "operator_next_actions": [operator_next_action] if operator_next_action else [],
+            "authorization_readiness_state": authorization_state,
+            "authorization_readiness_state_counts": {authorization_state: 1} if authorization_state else {},
+        },
+        "field_match_summary": {
+            "query_miss_is_not_clearance": True,
+            "terminal_closeout_suppressed_duplicate_dispatch": True,
+            "terminal_state": terminal_state,
+            "terminal_marker": marker,
+            "release_evidence_query_not_reexecuted": True,
+        },
+        "route_plan": list(route_plan),
+        "route_attempts": [],
+        "blocker_taxonomy": blocker_taxonomy,
+        "authorization_readiness_state": authorization_state,
+        "operator_next_actions": [operator_next_action] if operator_next_action else [],
+        "execution_mode": "TERMINAL_CLOSEOUT_SUPPRESSED_NO_WORKER_DISPATCH",
+    }
+
+
+def _suppressed_terminal_adapter_result_state(terminal_state: str) -> str:
+    state = str(terminal_state or "").strip()
+    if state in {"MATCHED", "REVIEW_READY", "RELEASE_FIELD_QUERY_REVIEW_READY"} or state.startswith(("B_", "C_")):
+        return "MATCHED"
+    if state == "NOT_FOUND":
+        return "NOT_FOUND"
+    if state in {"NEEDS_BROWSER", "RELEASE_FIELD_QUERY_AUTHORIZATION_HOLD"}:
+        return "NEEDS_BROWSER"
+    return "BLOCKED"
+
+
+def _suppressed_terminal_probe_state(adapter_state: str) -> str:
+    if adapter_state == "MATCHED":
+        return "FIELD_READBACK_READY_PUBLIC_SOURCE"
+    if adapter_state == "NOT_FOUND":
+        return "NO_FIELD_MATCH_REVIEW_REQUIRED"
+    if adapter_state == "NEEDS_BROWSER":
+        return "LIVE_FIELD_QUERY_NEEDS_BROWSER"
+    return "FAIL_CLOSED_TERMINAL_CLOSEOUT_SUPPRESSED"
 
 
 def _live_deferred_readback(max_live_tasks: int, route_plan: list[Mapping[str, Any]]) -> dict[str, Any]:
@@ -1897,6 +3204,8 @@ def _execute_live_field_query(
         if browser_readback:
             return browser_readback
         return _browser_required_readback(browser_required_adapter_id, route_plan)
+    if str(task.get("source_profile_id") or "").upper() == GUANGDONG_YGP_ORIGINAL_READBACK_BACKFILL_PROFILE_ID:
+        return _execute_ygp_original_readback_backfill_field_query(task, route_plan, http_getter=http_getter)
     if any(
         str(route.get("source_specific_adapter_id") or "")
         in {
@@ -1928,6 +3237,31 @@ def _execute_live_field_query(
         for route in route_plan
     ):
         return _execute_sichuan_jzsc_public_service_field_query(task, route_plan, http_getter=http_getter)
+    if any(
+        str(route.get("source_specific_adapter_id") or "") == JIANGSU_JZSC_FIELD_ADAPTER_ID
+        for route in route_plan
+    ):
+        return _execute_jiangsu_jzsc_integrated_platform_field_query(task, route_plan, http_getter=http_getter)
+    if any(
+        str(route.get("source_specific_adapter_id") or "") == HUBEI_JZSC_FIELD_ADAPTER_ID
+        for route in route_plan
+    ):
+        return _execute_hubei_jzsc_integrity_platform_field_query(task, route_plan, http_getter=http_getter)
+    if any(
+        str(route.get("source_specific_adapter_id") or "") == SHANDONG_JZSC_FIELD_ADAPTER_ID
+        for route in route_plan
+    ):
+        return _execute_shandong_jzsc_credit_supervision_field_query(task, route_plan, http_getter=http_getter)
+    if any(
+        str(route.get("source_specific_adapter_id") or "") == HUNAN_JZSC_FIELD_ADAPTER_ID
+        for route in route_plan
+    ):
+        return _execute_hunan_jzsc_public_service_field_query(task, route_plan, http_getter=http_getter)
+    if any(
+        str(route.get("source_specific_adapter_id") or "") == HENAN_JZSC_FIELD_ADAPTER_ID
+        for route in route_plan
+    ):
+        return _execute_henan_jzsc_public_service_field_query(task, route_plan, http_getter=http_getter)
     if any(
         str(route.get("source_specific_adapter_id") or "")
         == "guangdong_zfcxjst_penalty_publicity_page_v1"
@@ -2020,6 +3354,118 @@ def _execute_live_field_query(
     }
 
 
+def _execute_ygp_original_readback_backfill_field_query(
+    task: Mapping[str, Any],
+    route_plan: list[Mapping[str, Any]],
+    *,
+    http_getter: HttpGetter | None,
+) -> dict[str, Any]:
+    getter = http_getter or _default_http_getter
+    query_params = dict(task.get("query_params") or {})
+    keywords = _query_keywords(query_params)
+    identifiers = _dedupe(
+        [
+            *_list(query_params.get("ygpProjectCodeVariants")),
+            *_list(query_params.get("ygpBizCodeVariants")),
+            *_list(query_params.get("ygpSiteCodeVariants")),
+            *_list(query_params.get("ygpNoticeIdVariants")),
+            *_list(query_params.get("ygpNodeIdVariants")),
+            query_params.get("ygpBizCode"),
+            query_params.get("ygpSiteCode"),
+            query_params.get("ygpNoticeId"),
+            query_params.get("ygpNodeId"),
+            *_list(query_params.get("projectCodeVariants")),
+        ]
+    )
+    attempts: list[dict[str, Any]] = []
+    match_records: list[dict[str, Any]] = []
+    for route in route_plan:
+        response = _safe_get(route, getter=getter)
+        attempt = _route_attempt(route, response, _dedupe([*keywords, *identifiers]))
+        attempts.append(attempt)
+        if attempt["keyword_hit_count"]:
+            match_records.append(
+                {
+                    "route_id": attempt["route_id"],
+                    "url": attempt["url"],
+                    "matched_keywords": attempt["matched_keywords"],
+                    "source_text_sha256": attempt["text_probe_sha256"],
+                    "record_type": "ygp_original_notice_readback",
+                    "ygp_project_code_variants": _list(query_params.get("ygpProjectCodeVariants")),
+                    "ygp_biz_code": _first_text([*_list(query_params.get("ygpBizCodeVariants")), query_params.get("ygpBizCode")]),
+                    "ygp_site_code": _first_text([*_list(query_params.get("ygpSiteCodeVariants")), query_params.get("ygpSiteCode")]),
+                    "ygp_notice_id": _first_text([*_list(query_params.get("ygpNoticeIdVariants")), query_params.get("ygpNoticeId")]),
+                    "ygp_node_id": _first_text([*_list(query_params.get("ygpNodeIdVariants")), query_params.get("ygpNodeId")]),
+                }
+            )
+    blockers = _dedupe(blocker for attempt in attempts for blocker in _list(attempt.get("blocker_taxonomy")))
+    status_codes = [_int(attempt.get("http_status")) for attempt in attempts if _int(attempt.get("http_status"))]
+    if match_records:
+        return {
+            "field_query_probe_state": "FIELD_READBACK_READY_PUBLIC_SOURCE",
+            "field_readback_state": "YGP_ORIGINAL_NOTICE_READBACK_READY_REVIEW_REQUIRED",
+            "readback_ready": True,
+            "readback_status_code": status_codes[0] if status_codes else 200,
+            "field_summary": {
+                "source_specific_adapter_id": GUANGDONG_YGP_ORIGINAL_READBACK_BACKFILL_ADAPTER_ID,
+                "record_count": len(match_records),
+                "ygp_original_readback_ready": True,
+                "keyword_hit_route_count": len(match_records),
+                "matched_keyword_count": len(
+                    _dedupe(keyword for row in match_records for keyword in row["matched_keywords"])
+                ),
+                "gdcic_project_code_route_allowed": bool(query_params.get("gdcicProjectCodeRouteAllowed")),
+                "gdcic_project_code_variants": _list(query_params.get("gdcicProjectCodeVariants")),
+            },
+            "field_match_summary": {
+                "source_specific_records": match_records[:10],
+                "query_miss_is_not_clearance": True,
+                "ygp_original_readback_is_official_source_backfill": True,
+                "not_gdcic_project_code_route": not bool(query_params.get("gdcicProjectCodeRouteAllowed")),
+            },
+            "route_plan": list(route_plan),
+            "route_attempts": attempts,
+            "blocker_taxonomy": blockers,
+        }
+    if attempts and all(str(attempt.get("route_state") or "").startswith("FAIL_CLOSED") for attempt in attempts):
+        return {
+            "field_query_probe_state": "FAIL_CLOSED_PUBLIC_SOURCE_BLOCKED",
+            "field_readback_state": "YGP_ORIGINAL_NOTICE_READBACK_BLOCKED",
+            "readback_ready": False,
+            "readback_status_code": status_codes[0] if status_codes else None,
+            "field_summary": {
+                "source_specific_adapter_id": GUANGDONG_YGP_ORIGINAL_READBACK_BACKFILL_ADAPTER_ID,
+                "record_count": 0,
+                "ygp_original_readback_ready": False,
+            },
+            "field_match_summary": {
+                "query_miss_is_not_clearance": True,
+                "ygp_original_readback_blocked_before_match": True,
+            },
+            "route_plan": list(route_plan),
+            "route_attempts": attempts,
+            "blocker_taxonomy": blockers or ["ygp_original_readback_public_source_blocked"],
+        }
+    return {
+        "field_query_probe_state": "NO_FIELD_MATCH_REVIEW_REQUIRED",
+        "field_readback_state": "YGP_ORIGINAL_NOTICE_QUERIED_NO_KEYWORD_MATCH",
+        "readback_ready": False,
+        "readback_status_code": status_codes[0] if status_codes else None,
+        "field_summary": {
+            "source_specific_adapter_id": GUANGDONG_YGP_ORIGINAL_READBACK_BACKFILL_ADAPTER_ID,
+            "record_count": 0,
+            "ygp_original_readback_ready": False,
+        },
+        "field_match_summary": {
+            "query_miss_is_not_clearance": True,
+            "ygp_original_readback_no_keyword_match": True,
+        },
+        "route_plan": list(route_plan),
+        "route_attempts": attempts,
+        "blocker_taxonomy": blockers or ["ygp_original_readback_no_keyword_hit_review"],
+    }
+
+
 def _safe_get(route: Mapping[str, Any], *, getter: HttpGetter) -> Mapping[str, Any]:
     try:
         return dict(getter(str(route.get("url") or ""), _request_params_for_route(route)))
@@ -2065,7 +3511,11 @@ def _default_http_getter(url: str, params: Mapping[str, Any]) -> Mapping[str, An
     elif method == "POST" and form_body:
         data = urllib.parse.urlencode(request_params).encode("utf-8")
     elif request_params:
-        request_url = f"{url}?{urllib.parse.urlencode(request_params)}"
+        request_url = _append_missing_query_params(url, request_params)
+    if _should_use_stage4_scrapling_get_bridge(method, params, json_body=json_body, form_body=form_body):
+        bridged = _stage4_scrapling_get(request_url)
+        if bridged:
+            return bridged
     if method == "POST" and data is None:
         data = b""
     request = urllib.request.Request(
@@ -2110,6 +3560,90 @@ def _default_http_getter(url: str, params: Mapping[str, Any]) -> Mapping[str, An
             "text_probe": text,
             "json_payload": _loads_json_or_empty(text),
         }
+
+
+def _append_missing_query_params(url: str, params: Mapping[str, Any]) -> str:
+    request_params = {str(key): value for key, value in dict(params or {}).items() if str(value or "").strip()}
+    if not request_params:
+        return url
+    parsed = urllib.parse.urlsplit(url)
+    existing_keys = {str(key) for key, _value in urllib.parse.parse_qsl(parsed.query, keep_blank_values=True)}
+    missing_params = {key: value for key, value in request_params.items() if key not in existing_keys}
+    if not missing_params:
+        return url
+    encoded_missing = urllib.parse.urlencode(missing_params)
+    merged_query = f"{parsed.query}&{encoded_missing}" if parsed.query else encoded_missing
+    return urllib.parse.urlunsplit((parsed.scheme, parsed.netloc, parsed.path, merged_query, parsed.fragment))
+
+
+def _should_use_stage4_scrapling_get_bridge(
+    method: str,
+    params: Mapping[str, Any],
+    *,
+    json_body: bool,
+    form_body: bool,
+) -> bool:
+    if not STAGE4_SCRAPLING_GET_BRIDGE_ENABLED:
+        return False
+    if str(method or "").upper() != "GET":
+        return False
+    if json_body or form_body:
+        return False
+    if params.get("_cookie_header") or params.get("_credit_gd_repair_action"):
+        return False
+    return True
+
+
+def _stage4_scrapling_get(request_url: str) -> dict[str, Any]:
+    try:
+        transport = _stage4_scrapling_get_transport()
+        response = transport.fetch(
+            request_url,
+            timeout_seconds=_http_timeout_seconds(),
+            user_agent=(
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
+            ),
+        )
+    except Exception:
+        return {}
+    body = bytes(getattr(response, "content", b"") or b"")[:80_000]
+    content_type = str(getattr(response, "content_type", "") or "")
+    text = _decode_probe(body, content_type)
+    headers = dict(getattr(response, "headers", {}) or {})
+    return {
+        "http_status": _int(getattr(response, "status_code", None)),
+        "content_type": content_type,
+        "text_probe": text,
+        "json_payload": _loads_json_or_empty(text),
+        "headers": headers,
+        "final_url": str(getattr(response, "final_url", "") or getattr(response, "url", "") or request_url),
+        "fetch_transport": str(headers.get("x-ax9s-fetch-transport") or ""),
+        "stage4_scrapling_get_bridge_id": STAGE4_SCRAPLING_GET_BRIDGE_ID,
+        "stage4_scrapling_get_bridge_used": True,
+        "stage4_scrapling_get_bridge_scope": STAGE4_SCRAPLING_GET_BRIDGE_SCOPE,
+    }
+
+
+def _stage4_scrapling_get_transport() -> Any:
+    global _STAGE4_SCRAPLING_GET_TRANSPORT
+    if _STAGE4_SCRAPLING_GET_TRANSPORT is None:
+        from stage2_ingestion.real_public_url_fetcher import ScraplingEscalatingRealPublicFetchTransport
+
+        _STAGE4_SCRAPLING_GET_TRANSPORT = ScraplingEscalatingRealPublicFetchTransport()
+    return _STAGE4_SCRAPLING_GET_TRANSPORT
+
+
+def _login_required_capability_assessment() -> dict[str, Any]:
+    return {
+        "required_capability": "AUTHORIZED_SESSION_STORAGE_STATE_OR_USER_DATA_DIR",
+        "http_fetcher_applicable": False,
+        "dynamic_fetcher_applicable": False,
+        "stealthy_fetcher_applicable": False,
+        "http_dynamic_stealthy_can_replace_login_state": False,
+        "reason": "login_or_sso_gate_requires_valid_authorized_session_cookie_or_user_profile",
+        "scrapling_can_reuse_authorized_browser_profile_if_provided": True,
+    }
 
 
 def _execute_guangzhou_zfcj_field_query(
@@ -2331,6 +3865,7 @@ def _execute_guangdong_gdcic_home_field_query(
     if browser_readback:
         return browser_readback
     if "gd_gdcic_contract_system_sso_login_required" in blockers:
+        auth_capability = _login_required_capability_assessment()
         return {
             "field_query_probe_state": "LIVE_FIELD_QUERY_NEEDS_BROWSER",
             "field_readback_state": "FIELD_READBACK_BROWSER_OR_AUTHORIZED_RUNTIME_REQUIRED",
@@ -2343,10 +3878,20 @@ def _execute_guangdong_gdcic_home_field_query(
                 "source_profile_id": GUANGDONG_GDCIC_HOME_PROFILE_ID,
                 "contract_system_sso_route_seen": sso_route_seen,
                 "browser_or_authorized_runtime_required": True,
+                "authorization_readiness_state": "LOGIN_OR_SSO_REQUIRED",
+                "field_surface_state": "LOGIN_OR_SSO_BLOCKED_BEFORE_FIELD_SURFACE",
+                "required_runtime_capability": "AUTHORIZED_SESSION_STORAGE_STATE_OR_USER_DATA_DIR",
+                "browser_capability_assessment": auth_capability,
+                "operator_next_actions": [
+                    "provide_gdcic_authorized_storage_state_or_user_data_dir_then_rerun",
+                    "do_not_treat_http_dynamic_stealthy_as_login_state_replacement",
+                ],
             },
             "field_match_summary": {
                 "query_miss_is_not_clearance": True,
                 "browser_or_authorized_runtime_required_before_readback": True,
+                "login_or_sso_required_before_field_surface": True,
+                "http_dynamic_stealthy_can_replace_login_state": False,
                 "readback_is_line_clue_not_final_conclusion": True,
             },
             "route_plan": list(route_plan),
@@ -2426,6 +3971,13 @@ def _gdcic_browser_authorized_readback_for_task(
     ) or GUANGDONG_GDCIC_CONTRACT_SYSTEM_URL
     manifest_kind = str(manifest.get("manifest_kind") or GUANGDONG_GDCIC_BROWSER_AUTHORIZED_READBACK_KIND)
     manifest_id = str(manifest.get("manifest_id") or "")
+    manifest_summary = manifest.get("summary") if isinstance(manifest.get("summary"), Mapping) else {}
+    authorized_session_input_state = str(
+        manifest.get("authorized_session_input_state")
+        or manifest_summary.get("authorized_session_input_state")
+        or ""
+    )
+    authorized_session_input_ready = bool(manifest_summary.get("authorized_session_input_ready"))
     status_codes = [
         _int(artifact.get("http_status") or artifact.get("status_code"))
         for artifact in artifacts
@@ -2435,6 +3987,7 @@ def _gdcic_browser_authorized_readback_for_task(
     raw_records: list[Mapping[str, Any]] = []
     blocked_artifacts: list[Mapping[str, Any]] = []
     no_record_artifacts: list[Mapping[str, Any]] = []
+    pending_artifacts: list[Mapping[str, Any]] = []
     authorization_states = _dedupe(
         str(artifact.get("authorization_readiness_state") or "")
         for artifact in artifacts
@@ -2446,8 +3999,17 @@ def _gdcic_browser_authorized_readback_for_task(
         if isinstance(artifact, Mapping)
         for action in _list(artifact.get("operator_next_actions"))
     )
+    browser_capability_assessments = [
+        dict(artifact.get("browser_capability_assessment") or {})
+        for artifact in artifacts
+        if isinstance(artifact, Mapping) and isinstance(artifact.get("browser_capability_assessment"), Mapping)
+    ]
+    login_or_sso_required = "LOGIN_OR_SSO_REQUIRED" in authorization_states
     for artifact in artifacts:
         state = _gdcic_browser_artifact_state(artifact)
+        if _gdcic_browser_state_is_pending_or_not_executed(state):
+            pending_artifacts.append(artifact)
+            continue
         if _gdcic_browser_state_is_blocked(state):
             blocked_artifacts.append(artifact)
         records = _gdcic_browser_records_from_artifact(artifact)
@@ -2481,6 +4043,8 @@ def _gdcic_browser_authorized_readback_for_task(
             if compact_records
             else "BROWSER_AUTHORIZED_READBACK_NO_FIELD_RECORD"
             if no_record_artifacts
+            else "BROWSER_AUTHORIZED_READBACK_PENDING_OR_NOT_EXECUTED"
+            if pending_artifacts
             else "FAIL_CLOSED_BROWSER_AUTHORIZED_READBACK_BLOCKED"
             if blocked_artifacts
             else "BROWSER_AUTHORIZED_READBACK_NO_APPLICABLE_RECORD"
@@ -2493,6 +4057,8 @@ def _gdcic_browser_authorized_readback_for_task(
         )[:10],
         "source_manifest_kind": manifest_kind,
         "source_manifest_id": manifest_id,
+        "authorized_session_input_state": authorized_session_input_state,
+        "authorized_session_input_ready": authorized_session_input_ready,
         "authorization_readiness_states": authorization_states,
         "operator_next_actions": operator_next_actions,
         "blocker_taxonomy": [],
@@ -2509,19 +4075,31 @@ def _gdcic_browser_authorized_readback_for_task(
         "browser_authorized_readback_state_counts": _counts(
             _gdcic_browser_artifact_state(artifact) for artifact in artifacts
         ),
+        "authorized_session_input_state": authorized_session_input_state,
+        "authorized_session_input_ready": authorized_session_input_ready,
         "authorization_readiness_state_counts": _counts(authorization_states),
         "operator_next_actions": operator_next_actions,
+        "browser_capability_assessments": browser_capability_assessments[:5],
+        "required_runtime_capability": (
+            "AUTHORIZED_SESSION_STORAGE_STATE_OR_USER_DATA_DIR" if login_or_sso_required else ""
+        ),
+        "http_dynamic_stealthy_can_replace_login_state": False,
     }
     common_match_summary = {
         "query_miss_is_not_clearance": True,
         "browser_authorized_readback_consumed": True,
         "authorization_readiness_state": _first_text(authorization_states),
+        "login_or_sso_required_before_field_surface": login_or_sso_required,
+        "http_dynamic_stealthy_can_replace_login_state": False,
         "readback_is_line_clue_not_final_conclusion": True,
     }
     blocker_taxonomy = _dedupe(
         [
             *(blockers or []),
             "gd_gdcic_browser_authorized_readback_consumed" if compact_records or no_record_artifacts else "",
+            "gd_gdcic_browser_authorized_readback_pending_or_not_executed"
+            if pending_artifacts and not compact_records
+            else "",
             "gd_gdcic_browser_authorized_readback_blocked" if blocked_artifacts and not compact_records else "",
         ]
     )
@@ -2561,6 +4139,28 @@ def _gdcic_browser_authorized_readback_for_task(
             "route_attempts": [*prior_attempts, artifact_attempt],
             "blocker_taxonomy": blocker_taxonomy
             or ["gd_gdcic_browser_authorized_readback_no_record_review"],
+        }
+    if pending_artifacts:
+        artifact_attempt["blocker_taxonomy"] = ["gd_gdcic_browser_authorized_readback_pending_or_not_executed"]
+        return {
+            "field_query_probe_state": "LIVE_FIELD_QUERY_NEEDS_BROWSER",
+            "field_readback_state": "FIELD_READBACK_BROWSER_OR_AUTHORIZED_RUNTIME_REQUIRED",
+            "readback_ready": False,
+            "readback_status_code": status_code,
+            "field_summary": {
+                **common_summary,
+                "record_count": 0,
+                "source_profile_keyword_hit": False,
+                "browser_or_authorized_runtime_required": True,
+            },
+            "field_match_summary": {
+                **common_match_summary,
+                "browser_authorized_readback_pending_or_not_executed": True,
+            },
+            "route_plan": list(route_plan),
+            "route_attempts": [*prior_attempts, artifact_attempt],
+            "blocker_taxonomy": blocker_taxonomy
+            or ["gd_gdcic_browser_authorized_readback_pending_or_not_executed"],
         }
     if blocked_artifacts:
         artifact_attempt["blocker_taxonomy"] = ["gd_gdcic_browser_authorized_readback_blocked"]
@@ -2750,6 +4350,20 @@ def _gdcic_browser_state_is_blocked(state: str) -> bool:
     return any(token in state for token in ("BLOCK", "CAPTCHA", "LOGIN_REQUIRED", "SSO_REQUIRED", "ERROR", "FAILED"))
 
 
+def _gdcic_browser_state_is_pending_or_not_executed(state: str) -> bool:
+    return any(
+        token in state
+        for token in (
+            "DEFERRED",
+            "NOT_EXECUTED",
+            "PLAN_ONLY",
+            "NEEDS_BROWSER",
+            "NOT_ATTEMPTED",
+            "PENDING",
+        )
+    )
+
+
 def _gdcic_browser_records_from_artifact(artifact: Mapping[str, Any]) -> list[Mapping[str, Any]]:
     records: list[Mapping[str, Any]] = []
     for key in ("records", "source_specific_records", "field_records", "readback_records", "browser_records"):
@@ -2757,6 +4371,8 @@ def _gdcic_browser_records_from_artifact(artifact: Mapping[str, Any]) -> list[Ma
             if isinstance(record, Mapping):
                 records.append({**artifact, **record})
     state = _gdcic_browser_artifact_state(artifact)
+    if _gdcic_browser_state_is_pending_or_not_executed(state):
+        return []
     if records:
         return records
     if _gdcic_browser_state_is_no_record(state) or _gdcic_browser_state_is_blocked(state):
@@ -2841,6 +4457,17 @@ def _compact_gdcic_browser_authorized_record(
             (record.get("contract_end_date"), record.get("end_date"), record.get("completion_date"))
         )[:80],
         "change_date_probe": _first_text((record.get("change_date"), record.get("approval_date")))[:80],
+        "change_reason_probe": _first_text((record.get("change_reason"), record.get("change_reason_probe")))[:300],
+        "project_manager_change_release_evidence_role": str(
+            record.get("project_manager_change_release_evidence_role") or ""
+        ),
+        "project_manager_change_release_window_interpretation": str(
+            record.get("project_manager_change_release_window_interpretation") or ""
+        ),
+        "original_project_manager_matches_query_person": bool(
+            record.get("original_project_manager_matches_query_person")
+        ),
+        "new_project_manager_matches_query_person": bool(record.get("new_project_manager_matches_query_person")),
         "record_sha256": _sha256_text(record_text),
         "matched_keywords": matched_keywords,
         "query_miss_is_not_clearance": True,
@@ -3232,6 +4859,892 @@ def _execute_sichuan_jzsc_public_service_field_query(
         "route_plan": list(route_plan),
         "route_attempts": attempts,
         "blocker_taxonomy": blockers or ["sichuan_jzsc_public_service_no_structured_record_review"],
+    }
+
+
+def _execute_jiangsu_jzsc_integrated_platform_field_query(
+    task: Mapping[str, Any],
+    route_plan: list[Mapping[str, Any]],
+    *,
+    http_getter: HttpGetter | None,
+) -> dict[str, Any]:
+    target_source_types = _target_source_type_set(task, dict(task.get("query_params") or {}))
+    wants_all = not target_source_types
+    wants_construction = wants_all or "construction_permit" in target_source_types
+    wants_contract = wants_all or bool(target_source_types & {"contract_public_info", "contract_performance"})
+    wants_completion = wants_all or bool(
+        target_source_types
+        & {"completion_filing", "completion_acceptance", "completion_acceptance_or_completion_filing"}
+    )
+    wants_project_manager_change_only = "project_manager_change_notice" in target_source_types and not (
+        wants_construction or wants_contract or wants_completion
+    )
+    if wants_project_manager_change_only:
+        return _browser_required_readback(JIANGSU_JZSC_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID, route_plan)
+
+    getter = http_getter or _default_http_getter
+    query_params = dict(task.get("query_params") or {})
+    keywords = _query_keywords(query_params)
+    attempts: list[dict[str, Any]] = []
+    source_records: list[dict[str, Any]] = []
+    structured_attempts: list[dict[str, Any]] = []
+    public_page_reachable = False
+    browser_required_seen = False
+    non_structured_shell_count = 0
+
+    for route in route_plan:
+        route_group = str(route.get("route_group") or "")
+        if route_group == "js_jzsc_project_manager_change_browser_required":
+            browser_required_seen = True
+            continue
+        response = _safe_get(route, getter=getter)
+        attempt = _route_attempt(route, response, keywords)
+        if route_group == "js_jzsc_public_page_probe" and attempt["route_state"] == "PUBLIC_SOURCE_QUERIED":
+            public_page_reachable = True
+            attempt["field_verification_role"] = "reachability_only_not_field_match"
+        attempts.append(attempt)
+        if route_group != "js_jzsc_integrated_platform_structured_query":
+            continue
+        structured_attempts.append(attempt)
+        records = _jiangsu_jzsc_records_from_response(response)
+        attempt["structured_record_count"] = len(records)
+        content_type = str(response.get("content_type") or "").lower()
+        raw_text = str(response.get("text_probe") or response.get("body_probe") or "").strip()
+        if not records and _int(response.get("http_status") or response.get("status_code")) == 200:
+            if "json" not in content_type and (not raw_text or raw_text[0] not in "[{"):
+                non_structured_shell_count += 1
+        for record in records[:20]:
+            compact = _compact_jiangsu_jzsc_record(record, route, keywords)
+            if compact.get("matched_keywords"):
+                source_records.append(compact)
+
+    blockers = _dedupe(blocker for attempt in attempts for blocker in _list(attempt.get("blocker_taxonomy")))
+    status_codes = [_int(attempt.get("http_status")) for attempt in attempts if _int(attempt.get("http_status"))]
+    matched_keyword_count = len(
+        _dedupe(keyword for record in source_records for keyword in _list(record.get("matched_keywords")))
+    )
+    if source_records:
+        return {
+            "field_query_probe_state": "FIELD_READBACK_READY_PUBLIC_SOURCE",
+            "field_readback_state": "PUBLIC_SOURCE_FIELD_READBACK_READY_REVIEW_REQUIRED",
+            "readback_ready": True,
+            "readback_status_code": status_codes[0] if status_codes else 200,
+            "field_summary": {
+                "source_specific_adapter_id": JIANGSU_JZSC_FIELD_ADAPTER_ID,
+                "record_count": len(source_records),
+                "matched_keyword_count": matched_keyword_count,
+                "source_profile_keyword_hit": bool(matched_keyword_count),
+                "source_profile_id": JIANGSU_JZSC_PROFILE_ID,
+                "structured_route_count": len(structured_attempts),
+                "public_page_reachable": public_page_reachable,
+            },
+            "field_match_summary": {
+                "source_specific_records": source_records[:10],
+                "query_miss_is_not_clearance": True,
+                "readback_is_line_clue_not_final_conclusion": True,
+                "entry_portal_reachability_is_not_field_verification": True,
+            },
+            "route_plan": list(route_plan),
+            "route_attempts": attempts,
+            "blocker_taxonomy": blockers,
+        }
+    if structured_attempts and all(
+        str(attempt.get("route_state") or "").startswith("FAIL_CLOSED") for attempt in structured_attempts
+    ):
+        return {
+            "field_query_probe_state": "FAIL_CLOSED_PUBLIC_SOURCE_BLOCKED",
+            "field_readback_state": "FIELD_READBACK_BLOCKED",
+            "readback_ready": False,
+            "readback_status_code": status_codes[0] if status_codes else None,
+            "field_summary": {
+                "source_specific_adapter_id": JIANGSU_JZSC_FIELD_ADAPTER_ID,
+                "record_count": 0,
+                "structured_route_count": len(structured_attempts),
+                "public_page_reachable": public_page_reachable,
+            },
+            "field_match_summary": {
+                "query_miss_is_not_clearance": True,
+                "entry_portal_reachability_is_not_field_verification": True,
+            },
+            "route_plan": list(route_plan),
+            "route_attempts": attempts,
+            "blocker_taxonomy": blockers or ["jiangsu_jzsc_integrated_platform_structured_query_blocked_or_unavailable"],
+        }
+    reachable_structured_count = sum(
+        1 for attempt in structured_attempts if str(attempt.get("route_state") or "") == "PUBLIC_SOURCE_QUERIED"
+    )
+    if (
+        structured_attempts
+        and reachable_structured_count
+        and non_structured_shell_count >= reachable_structured_count
+        and public_page_reachable
+    ):
+        return {
+            "field_query_probe_state": "LIVE_FIELD_QUERY_NEEDS_BROWSER",
+            "field_readback_state": "FIELD_READBACK_BROWSER_OR_AUTHORIZED_RUNTIME_REQUIRED",
+            "readback_ready": False,
+            "readback_status_code": status_codes[0] if status_codes else None,
+            "field_summary": {
+                "source_specific_adapter_id": JIANGSU_JZSC_FIELD_ADAPTER_ID,
+                "record_count": 0,
+                "source_profile_id": JIANGSU_JZSC_PROFILE_ID,
+                "structured_route_count": len(structured_attempts),
+                "public_page_reachable": public_page_reachable,
+                "browser_or_authorized_runtime_required": True,
+            },
+            "field_match_summary": {
+                "query_miss_is_not_clearance": True,
+                "entry_portal_reachability_is_not_field_verification": True,
+                "browser_or_authorized_runtime_required_before_readback": True,
+            },
+            "route_plan": list(route_plan),
+            "route_attempts": attempts,
+            "blocker_taxonomy": _dedupe(
+                [
+                    *blockers,
+                    "jiangsu_jzsc_integrated_platform_returned_html_shell_without_field_rows",
+                    "jiangsu_jzsc_requires_browser_or_authorized_runtime_context",
+                ]
+            ),
+        }
+    if browser_required_seen:
+        return _browser_required_readback(JIANGSU_JZSC_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID, route_plan)
+    return {
+        "field_query_probe_state": "NO_FIELD_MATCH_REVIEW_REQUIRED",
+        "field_readback_state": "PUBLIC_SOURCE_QUERIED_NO_FIELD_RECORD",
+        "readback_ready": False,
+        "readback_status_code": status_codes[0] if status_codes else None,
+        "field_summary": {
+            "source_specific_adapter_id": JIANGSU_JZSC_FIELD_ADAPTER_ID,
+            "record_count": 0,
+            "source_profile_keyword_hit": False,
+            "source_profile_id": JIANGSU_JZSC_PROFILE_ID,
+            "structured_route_count": len(structured_attempts),
+            "public_page_reachable": public_page_reachable,
+        },
+        "field_match_summary": {
+            "query_miss_is_not_clearance": True,
+            "entry_portal_reachability_is_not_field_verification": True,
+            "readback_is_line_clue_not_final_conclusion": True,
+        },
+        "route_plan": list(route_plan),
+        "route_attempts": attempts,
+        "blocker_taxonomy": blockers or ["jiangsu_jzsc_integrated_platform_no_structured_record_review"],
+    }
+
+
+def _execute_hubei_jzsc_integrity_platform_field_query(
+    task: Mapping[str, Any],
+    route_plan: list[Mapping[str, Any]],
+    *,
+    http_getter: HttpGetter | None,
+) -> dict[str, Any]:
+    target_source_types = _target_source_type_set(task, dict(task.get("query_params") or {}))
+    wants_all = not target_source_types
+    wants_construction = wants_all or "construction_permit" in target_source_types
+    wants_contract = wants_all or bool(target_source_types & {"contract_public_info", "contract_performance"})
+    wants_completion = wants_all or bool(
+        target_source_types
+        & {"completion_filing", "completion_acceptance", "completion_acceptance_or_completion_filing"}
+    )
+    wants_project_manager_change_only = "project_manager_change_notice" in target_source_types and not (
+        wants_construction or wants_contract or wants_completion
+    )
+    if wants_project_manager_change_only:
+        return _browser_required_readback(HUBEI_JZSC_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID, route_plan)
+
+    getter = http_getter or _default_http_getter
+    query_params = dict(task.get("query_params") or {})
+    keywords = _query_keywords(query_params)
+    attempts: list[dict[str, Any]] = []
+    source_records: list[dict[str, Any]] = []
+    structured_attempts: list[dict[str, Any]] = []
+    public_page_reachable = False
+    browser_required_seen = False
+    non_structured_shell_count = 0
+
+    for route in route_plan:
+        route_group = str(route.get("route_group") or "")
+        if route_group == "hb_jzsc_project_manager_change_browser_required":
+            browser_required_seen = True
+            continue
+        response = _safe_get(route, getter=getter)
+        attempt = _route_attempt(route, response, keywords)
+        if route_group == "hb_jzsc_public_page_probe":
+            if _int(attempt.get("http_status")) == 200 and attempt.get("blocker_taxonomy") == [
+                "guangdong_local_field_query_captcha_or_login_required"
+            ]:
+                attempt["route_state"] = "PUBLIC_SOURCE_QUERIED"
+                attempt["blocker_taxonomy"] = []
+                attempt["navigation_login_text_suppressed"] = True
+            if attempt["route_state"] == "PUBLIC_SOURCE_QUERIED":
+                public_page_reachable = True
+                attempt["field_verification_role"] = "reachability_only_not_field_match"
+        attempts.append(attempt)
+        if route_group != "hb_jzsc_integrity_platform_structured_query":
+            continue
+        structured_attempts.append(attempt)
+        records = _hubei_jzsc_records_from_response(response)
+        attempt["structured_record_count"] = len(records)
+        content_type = str(response.get("content_type") or "").lower()
+        raw_text = str(response.get("text_probe") or response.get("body_probe") or "").strip()
+        if not records and _int(response.get("http_status") or response.get("status_code")) == 200:
+            if "json" not in content_type and (not raw_text or raw_text[0] not in "[{"):
+                non_structured_shell_count += 1
+        for record in records[:20]:
+            compact = _compact_hubei_jzsc_record(record, route, keywords)
+            if compact.get("matched_keywords"):
+                source_records.append(compact)
+
+    blockers = _dedupe(blocker for attempt in attempts for blocker in _list(attempt.get("blocker_taxonomy")))
+    status_codes = [_int(attempt.get("http_status")) for attempt in attempts if _int(attempt.get("http_status"))]
+    matched_keyword_count = len(
+        _dedupe(keyword for record in source_records for keyword in _list(record.get("matched_keywords")))
+    )
+    if source_records:
+        return {
+            "field_query_probe_state": "FIELD_READBACK_READY_PUBLIC_SOURCE",
+            "field_readback_state": "PUBLIC_SOURCE_FIELD_READBACK_READY_REVIEW_REQUIRED",
+            "readback_ready": True,
+            "readback_status_code": status_codes[0] if status_codes else 200,
+            "field_summary": {
+                "source_specific_adapter_id": HUBEI_JZSC_FIELD_ADAPTER_ID,
+                "record_count": len(source_records),
+                "matched_keyword_count": matched_keyword_count,
+                "source_profile_keyword_hit": bool(matched_keyword_count),
+                "source_profile_id": HUBEI_JZSC_PROFILE_ID,
+                "structured_route_count": len(structured_attempts),
+                "public_page_reachable": public_page_reachable,
+            },
+            "field_match_summary": {
+                "source_specific_records": source_records[:10],
+                "query_miss_is_not_clearance": True,
+                "readback_is_line_clue_not_final_conclusion": True,
+                "entry_portal_reachability_is_not_field_verification": True,
+            },
+            "route_plan": list(route_plan),
+            "route_attempts": attempts,
+            "blocker_taxonomy": blockers,
+        }
+    if structured_attempts and all(
+        str(attempt.get("route_state") or "").startswith("FAIL_CLOSED") for attempt in structured_attempts
+    ):
+        return {
+            "field_query_probe_state": "FAIL_CLOSED_PUBLIC_SOURCE_BLOCKED",
+            "field_readback_state": "FIELD_READBACK_BLOCKED",
+            "readback_ready": False,
+            "readback_status_code": status_codes[0] if status_codes else None,
+            "field_summary": {
+                "source_specific_adapter_id": HUBEI_JZSC_FIELD_ADAPTER_ID,
+                "record_count": 0,
+                "structured_route_count": len(structured_attempts),
+                "public_page_reachable": public_page_reachable,
+            },
+            "field_match_summary": {
+                "query_miss_is_not_clearance": True,
+                "entry_portal_reachability_is_not_field_verification": True,
+            },
+            "route_plan": list(route_plan),
+            "route_attempts": attempts,
+            "blocker_taxonomy": blockers or ["hubei_jzsc_integrity_platform_structured_query_blocked_or_unavailable"],
+        }
+    reachable_structured_count = sum(
+        1 for attempt in structured_attempts if str(attempt.get("route_state") or "") == "PUBLIC_SOURCE_QUERIED"
+    )
+    if (
+        structured_attempts
+        and reachable_structured_count
+        and non_structured_shell_count >= reachable_structured_count
+        and public_page_reachable
+    ):
+        return {
+            "field_query_probe_state": "LIVE_FIELD_QUERY_NEEDS_BROWSER",
+            "field_readback_state": "FIELD_READBACK_BROWSER_OR_AUTHORIZED_RUNTIME_REQUIRED",
+            "readback_ready": False,
+            "readback_status_code": status_codes[0] if status_codes else None,
+            "field_summary": {
+                "source_specific_adapter_id": HUBEI_JZSC_FIELD_ADAPTER_ID,
+                "record_count": 0,
+                "source_profile_id": HUBEI_JZSC_PROFILE_ID,
+                "structured_route_count": len(structured_attempts),
+                "public_page_reachable": public_page_reachable,
+                "browser_or_authorized_runtime_required": True,
+            },
+            "field_match_summary": {
+                "query_miss_is_not_clearance": True,
+                "entry_portal_reachability_is_not_field_verification": True,
+                "browser_or_authorized_runtime_required_before_readback": True,
+            },
+            "route_plan": list(route_plan),
+            "route_attempts": attempts,
+            "blocker_taxonomy": _dedupe(
+                [
+                    *blockers,
+                    "hubei_jzsc_integrity_platform_returned_html_shell_without_field_rows",
+                    "hubei_jzsc_requires_browser_or_authorized_runtime_context",
+                ]
+            ),
+        }
+    if browser_required_seen:
+        return _browser_required_readback(HUBEI_JZSC_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID, route_plan)
+    return {
+        "field_query_probe_state": "NO_FIELD_MATCH_REVIEW_REQUIRED",
+        "field_readback_state": "PUBLIC_SOURCE_QUERIED_NO_FIELD_RECORD",
+        "readback_ready": False,
+        "readback_status_code": status_codes[0] if status_codes else None,
+        "field_summary": {
+            "source_specific_adapter_id": HUBEI_JZSC_FIELD_ADAPTER_ID,
+            "record_count": 0,
+            "source_profile_keyword_hit": False,
+            "source_profile_id": HUBEI_JZSC_PROFILE_ID,
+            "structured_route_count": len(structured_attempts),
+            "public_page_reachable": public_page_reachable,
+        },
+        "field_match_summary": {
+            "query_miss_is_not_clearance": True,
+            "entry_portal_reachability_is_not_field_verification": True,
+            "readback_is_line_clue_not_final_conclusion": True,
+        },
+        "route_plan": list(route_plan),
+        "route_attempts": attempts,
+        "blocker_taxonomy": blockers or ["hubei_jzsc_integrity_platform_no_structured_record_review"],
+    }
+
+
+def _execute_shandong_jzsc_credit_supervision_field_query(
+    task: Mapping[str, Any],
+    route_plan: list[Mapping[str, Any]],
+    *,
+    http_getter: HttpGetter | None,
+) -> dict[str, Any]:
+    target_source_types = _target_source_type_set(task, dict(task.get("query_params") or {}))
+    wants_all = not target_source_types
+    wants_construction = wants_all or "construction_permit" in target_source_types
+    wants_contract = wants_all or bool(target_source_types & {"contract_public_info", "contract_performance"})
+    wants_completion = wants_all or bool(
+        target_source_types
+        & {"completion_filing", "completion_acceptance", "completion_acceptance_or_completion_filing"}
+    )
+    wants_project_manager_change_only = "project_manager_change_notice" in target_source_types and not (
+        wants_construction or wants_contract or wants_completion
+    )
+    if wants_project_manager_change_only:
+        return _browser_required_readback(SHANDONG_JZSC_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID, route_plan)
+
+    getter = http_getter or _default_http_getter
+    query_params = dict(task.get("query_params") or {})
+    keywords = _query_keywords(query_params)
+    attempts: list[dict[str, Any]] = []
+    source_records: list[dict[str, Any]] = []
+    structured_attempts: list[dict[str, Any]] = []
+    public_page_reachable = False
+    browser_required_seen = False
+    non_structured_shell_count = 0
+
+    for route in route_plan:
+        route_group = str(route.get("route_group") or "")
+        if route_group == "sd_jzsc_project_manager_change_browser_required":
+            browser_required_seen = True
+            continue
+        response = _safe_get(route, getter=getter)
+        attempt = _route_attempt(route, response, keywords)
+        if route_group == "sd_jzsc_public_page_probe":
+            if _int(attempt.get("http_status")) == 200 and attempt.get("blocker_taxonomy") == [
+                "guangdong_local_field_query_captcha_or_login_required"
+            ]:
+                attempt["route_state"] = "PUBLIC_SOURCE_QUERIED"
+                attempt["blocker_taxonomy"] = []
+                attempt["navigation_login_text_suppressed"] = True
+            if attempt["route_state"] == "PUBLIC_SOURCE_QUERIED":
+                public_page_reachable = True
+                attempt["field_verification_role"] = "reachability_only_not_field_match"
+        attempts.append(attempt)
+        if route_group != "sd_jzsc_credit_supervision_structured_query":
+            continue
+        structured_attempts.append(attempt)
+        records = _shandong_jzsc_records_from_response(response)
+        attempt["structured_record_count"] = len(records)
+        content_type = str(response.get("content_type") or "").lower()
+        raw_text = str(response.get("text_probe") or response.get("body_probe") or "").strip()
+        if not records and _int(response.get("http_status") or response.get("status_code")) == 200:
+            if "json" not in content_type and (not raw_text or raw_text[0] not in "[{"):
+                non_structured_shell_count += 1
+        for record in records[:20]:
+            compact = _compact_shandong_jzsc_record(record, route, keywords)
+            if compact.get("matched_keywords"):
+                source_records.append(compact)
+
+    blockers = _dedupe(blocker for attempt in attempts for blocker in _list(attempt.get("blocker_taxonomy")))
+    status_codes = [_int(attempt.get("http_status")) for attempt in attempts if _int(attempt.get("http_status"))]
+    matched_keyword_count = len(
+        _dedupe(keyword for record in source_records for keyword in _list(record.get("matched_keywords")))
+    )
+    if source_records:
+        return {
+            "field_query_probe_state": "FIELD_READBACK_READY_PUBLIC_SOURCE",
+            "field_readback_state": "PUBLIC_SOURCE_FIELD_READBACK_READY_REVIEW_REQUIRED",
+            "readback_ready": True,
+            "readback_status_code": status_codes[0] if status_codes else 200,
+            "field_summary": {
+                "source_specific_adapter_id": SHANDONG_JZSC_FIELD_ADAPTER_ID,
+                "record_count": len(source_records),
+                "matched_keyword_count": matched_keyword_count,
+                "source_profile_keyword_hit": bool(matched_keyword_count),
+                "source_profile_id": SHANDONG_JZSC_PROFILE_ID,
+                "structured_route_count": len(structured_attempts),
+                "public_page_reachable": public_page_reachable,
+            },
+            "field_match_summary": {
+                "source_specific_records": source_records[:10],
+                "query_miss_is_not_clearance": True,
+                "readback_is_line_clue_not_final_conclusion": True,
+                "entry_portal_reachability_is_not_field_verification": True,
+            },
+            "route_plan": list(route_plan),
+            "route_attempts": attempts,
+            "blocker_taxonomy": blockers,
+        }
+    if structured_attempts and all(
+        str(attempt.get("route_state") or "").startswith("FAIL_CLOSED") for attempt in structured_attempts
+    ):
+        return {
+            "field_query_probe_state": "FAIL_CLOSED_PUBLIC_SOURCE_BLOCKED",
+            "field_readback_state": "FIELD_READBACK_BLOCKED",
+            "readback_ready": False,
+            "readback_status_code": status_codes[0] if status_codes else None,
+            "field_summary": {
+                "source_specific_adapter_id": SHANDONG_JZSC_FIELD_ADAPTER_ID,
+                "record_count": 0,
+                "structured_route_count": len(structured_attempts),
+                "public_page_reachable": public_page_reachable,
+            },
+            "field_match_summary": {
+                "query_miss_is_not_clearance": True,
+                "entry_portal_reachability_is_not_field_verification": True,
+            },
+            "route_plan": list(route_plan),
+            "route_attempts": attempts,
+            "blocker_taxonomy": blockers or ["shandong_jzsc_credit_supervision_structured_query_blocked_or_unavailable"],
+        }
+    reachable_structured_count = sum(
+        1 for attempt in structured_attempts if str(attempt.get("route_state") or "") == "PUBLIC_SOURCE_QUERIED"
+    )
+    if (
+        structured_attempts
+        and reachable_structured_count
+        and non_structured_shell_count >= reachable_structured_count
+        and public_page_reachable
+    ):
+        return {
+            "field_query_probe_state": "LIVE_FIELD_QUERY_NEEDS_BROWSER",
+            "field_readback_state": "FIELD_READBACK_BROWSER_OR_AUTHORIZED_RUNTIME_REQUIRED",
+            "readback_ready": False,
+            "readback_status_code": status_codes[0] if status_codes else None,
+            "field_summary": {
+                "source_specific_adapter_id": SHANDONG_JZSC_FIELD_ADAPTER_ID,
+                "record_count": 0,
+                "source_profile_id": SHANDONG_JZSC_PROFILE_ID,
+                "structured_route_count": len(structured_attempts),
+                "reachable_structured_route_count": reachable_structured_count,
+                "public_page_reachable": public_page_reachable,
+                "browser_or_authorized_runtime_required": True,
+            },
+            "field_match_summary": {
+                "query_miss_is_not_clearance": True,
+                "entry_portal_reachability_is_not_field_verification": True,
+                "browser_or_authorized_runtime_required_before_readback": True,
+            },
+            "route_plan": list(route_plan),
+            "route_attempts": attempts,
+            "blocker_taxonomy": _dedupe(
+                [
+                    *blockers,
+                    "shandong_jzsc_credit_supervision_returned_html_shell_without_field_rows",
+                    "shandong_jzsc_requires_browser_or_authorized_runtime_context",
+                ]
+            ),
+        }
+    if browser_required_seen:
+        return _browser_required_readback(SHANDONG_JZSC_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID, route_plan)
+    return {
+        "field_query_probe_state": "NO_FIELD_MATCH_REVIEW_REQUIRED",
+        "field_readback_state": "PUBLIC_SOURCE_QUERIED_NO_FIELD_RECORD",
+        "readback_ready": False,
+        "readback_status_code": status_codes[0] if status_codes else None,
+        "field_summary": {
+            "source_specific_adapter_id": SHANDONG_JZSC_FIELD_ADAPTER_ID,
+            "record_count": 0,
+            "source_profile_keyword_hit": False,
+            "source_profile_id": SHANDONG_JZSC_PROFILE_ID,
+            "structured_route_count": len(structured_attempts),
+            "public_page_reachable": public_page_reachable,
+        },
+        "field_match_summary": {
+            "query_miss_is_not_clearance": True,
+            "entry_portal_reachability_is_not_field_verification": True,
+            "readback_is_line_clue_not_final_conclusion": True,
+        },
+        "route_plan": list(route_plan),
+        "route_attempts": attempts,
+        "blocker_taxonomy": blockers or ["shandong_jzsc_credit_supervision_no_structured_record_review"],
+    }
+
+
+def _execute_hunan_jzsc_public_service_field_query(
+    task: Mapping[str, Any],
+    route_plan: list[Mapping[str, Any]],
+    *,
+    http_getter: HttpGetter | None,
+) -> dict[str, Any]:
+    target_source_types = _target_source_type_set(task, dict(task.get("query_params") or {}))
+    wants_all = not target_source_types
+    wants_construction = wants_all or "construction_permit" in target_source_types
+    wants_contract = wants_all or bool(target_source_types & {"contract_public_info", "contract_performance"})
+    wants_completion = wants_all or bool(
+        target_source_types
+        & {"completion_filing", "completion_acceptance", "completion_acceptance_or_completion_filing"}
+    )
+    wants_project_manager_change_only = "project_manager_change_notice" in target_source_types and not (
+        wants_construction or wants_contract or wants_completion
+    )
+    if wants_project_manager_change_only:
+        return _browser_required_readback(HUNAN_JZSC_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID, route_plan)
+
+    getter = http_getter or _default_http_getter
+    query_params = dict(task.get("query_params") or {})
+    keywords = _query_keywords(query_params)
+    attempts: list[dict[str, Any]] = []
+    source_records: list[dict[str, Any]] = []
+    structured_attempts: list[dict[str, Any]] = []
+    public_page_reachable = False
+    browser_required_seen = False
+    non_structured_shell_count = 0
+
+    for route in route_plan:
+        route_group = str(route.get("route_group") or "")
+        if route_group == "hn_jzsc_project_manager_change_browser_required":
+            browser_required_seen = True
+            continue
+        response = _safe_get(route, getter=getter)
+        attempt = _route_attempt(route, response, keywords)
+        if route_group in {"hn_jzsc_public_page_probe", "hn_jzsc_public_service_structured_query"}:
+            if _int(attempt.get("http_status")) == 200 and attempt.get("blocker_taxonomy") == [
+                "guangdong_local_field_query_captcha_or_login_required"
+            ]:
+                attempt["route_state"] = "PUBLIC_SOURCE_QUERIED"
+                attempt["blocker_taxonomy"] = []
+                attempt["navigation_login_text_suppressed"] = True
+        if route_group == "hn_jzsc_public_page_probe" and attempt["route_state"] == "PUBLIC_SOURCE_QUERIED":
+            public_page_reachable = True
+            attempt["field_verification_role"] = "reachability_only_not_field_match"
+        attempts.append(attempt)
+        if route_group != "hn_jzsc_public_service_structured_query":
+            continue
+        structured_attempts.append(attempt)
+        records = _hunan_jzsc_records_from_response(response)
+        attempt["structured_record_count"] = len(records)
+        content_type = str(response.get("content_type") or "").lower()
+        raw_text = str(response.get("text_probe") or response.get("body_probe") or "").strip()
+        if not records and _int(response.get("http_status") or response.get("status_code")) == 200:
+            if "json" not in content_type and (not raw_text or raw_text[0] not in "[{"):
+                non_structured_shell_count += 1
+        for record in records[:20]:
+            compact = _compact_hunan_jzsc_record(record, route, keywords)
+            if compact.get("matched_keywords"):
+                source_records.append(compact)
+
+    blockers = _dedupe(blocker for attempt in attempts for blocker in _list(attempt.get("blocker_taxonomy")))
+    status_codes = [_int(attempt.get("http_status")) for attempt in attempts if _int(attempt.get("http_status"))]
+    matched_keyword_count = len(
+        _dedupe(keyword for record in source_records for keyword in _list(record.get("matched_keywords")))
+    )
+    if source_records:
+        return {
+            "field_query_probe_state": "FIELD_READBACK_READY_PUBLIC_SOURCE",
+            "field_readback_state": "PUBLIC_SOURCE_FIELD_READBACK_READY_REVIEW_REQUIRED",
+            "readback_ready": True,
+            "readback_status_code": status_codes[0] if status_codes else 200,
+            "field_summary": {
+                "source_specific_adapter_id": HUNAN_JZSC_FIELD_ADAPTER_ID,
+                "record_count": len(source_records),
+                "matched_keyword_count": matched_keyword_count,
+                "source_profile_keyword_hit": bool(matched_keyword_count),
+                "source_profile_id": HUNAN_JZSC_PROFILE_ID,
+                "structured_route_count": len(structured_attempts),
+                "public_page_reachable": public_page_reachable,
+            },
+            "field_match_summary": {
+                "source_specific_records": source_records[:10],
+                "query_miss_is_not_clearance": True,
+                "readback_is_line_clue_not_final_conclusion": True,
+                "entry_portal_reachability_is_not_field_verification": True,
+            },
+            "route_plan": list(route_plan),
+            "route_attempts": attempts,
+            "blocker_taxonomy": blockers,
+        }
+    if structured_attempts and all(
+        str(attempt.get("route_state") or "").startswith("FAIL_CLOSED") for attempt in structured_attempts
+    ):
+        return {
+            "field_query_probe_state": "FAIL_CLOSED_PUBLIC_SOURCE_BLOCKED",
+            "field_readback_state": "FIELD_READBACK_BLOCKED",
+            "readback_ready": False,
+            "readback_status_code": status_codes[0] if status_codes else None,
+            "field_summary": {
+                "source_specific_adapter_id": HUNAN_JZSC_FIELD_ADAPTER_ID,
+                "record_count": 0,
+                "structured_route_count": len(structured_attempts),
+                "public_page_reachable": public_page_reachable,
+            },
+            "field_match_summary": {
+                "query_miss_is_not_clearance": True,
+                "entry_portal_reachability_is_not_field_verification": True,
+            },
+            "route_plan": list(route_plan),
+            "route_attempts": attempts,
+            "blocker_taxonomy": blockers or ["hunan_jzsc_public_service_structured_query_blocked_or_unavailable"],
+        }
+    reachable_structured_count = sum(
+        1 for attempt in structured_attempts if str(attempt.get("route_state") or "") == "PUBLIC_SOURCE_QUERIED"
+    )
+    if (
+        structured_attempts
+        and reachable_structured_count
+        and non_structured_shell_count >= reachable_structured_count
+        and public_page_reachable
+    ):
+        return {
+            "field_query_probe_state": "LIVE_FIELD_QUERY_NEEDS_BROWSER",
+            "field_readback_state": "FIELD_READBACK_BROWSER_OR_AUTHORIZED_RUNTIME_REQUIRED",
+            "readback_ready": False,
+            "readback_status_code": status_codes[0] if status_codes else None,
+            "field_summary": {
+                "source_specific_adapter_id": HUNAN_JZSC_FIELD_ADAPTER_ID,
+                "record_count": 0,
+                "source_profile_id": HUNAN_JZSC_PROFILE_ID,
+                "structured_route_count": len(structured_attempts),
+                "reachable_structured_route_count": reachable_structured_count,
+                "public_page_reachable": public_page_reachable,
+                "browser_or_authorized_runtime_required": True,
+            },
+            "field_match_summary": {
+                "query_miss_is_not_clearance": True,
+                "entry_portal_reachability_is_not_field_verification": True,
+                "browser_or_authorized_runtime_required_before_readback": True,
+            },
+            "route_plan": list(route_plan),
+            "route_attempts": attempts,
+            "blocker_taxonomy": _dedupe(
+                [
+                    *blockers,
+                    "hunan_jzsc_public_service_returned_html_shell_without_field_rows",
+                    "hunan_jzsc_requires_browser_or_authorized_runtime_context",
+                ]
+            ),
+        }
+    if browser_required_seen:
+        return _browser_required_readback(HUNAN_JZSC_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID, route_plan)
+    return {
+        "field_query_probe_state": "NO_FIELD_MATCH_REVIEW_REQUIRED",
+        "field_readback_state": "PUBLIC_SOURCE_QUERIED_NO_FIELD_RECORD",
+        "readback_ready": False,
+        "readback_status_code": status_codes[0] if status_codes else None,
+        "field_summary": {
+            "source_specific_adapter_id": HUNAN_JZSC_FIELD_ADAPTER_ID,
+            "record_count": 0,
+            "source_profile_keyword_hit": False,
+            "source_profile_id": HUNAN_JZSC_PROFILE_ID,
+            "structured_route_count": len(structured_attempts),
+            "public_page_reachable": public_page_reachable,
+        },
+        "field_match_summary": {
+            "query_miss_is_not_clearance": True,
+            "entry_portal_reachability_is_not_field_verification": True,
+            "readback_is_line_clue_not_final_conclusion": True,
+        },
+        "route_plan": list(route_plan),
+        "route_attempts": attempts,
+        "blocker_taxonomy": blockers or ["hunan_jzsc_public_service_no_structured_record_review"],
+    }
+
+
+def _execute_henan_jzsc_public_service_field_query(
+    task: Mapping[str, Any],
+    route_plan: list[Mapping[str, Any]],
+    *,
+    http_getter: HttpGetter | None,
+) -> dict[str, Any]:
+    target_source_types = _target_source_type_set(task, dict(task.get("query_params") or {}))
+    wants_all = not target_source_types
+    wants_construction = wants_all or "construction_permit" in target_source_types
+    wants_contract = wants_all or bool(target_source_types & {"contract_public_info", "contract_performance"})
+    wants_completion = wants_all or bool(
+        target_source_types
+        & {"completion_filing", "completion_acceptance", "completion_acceptance_or_completion_filing"}
+    )
+    wants_project_manager_change_only = "project_manager_change_notice" in target_source_types and not (
+        wants_construction or wants_contract or wants_completion
+    )
+    if wants_project_manager_change_only:
+        return _browser_required_readback(HENAN_JZSC_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID, route_plan)
+
+    getter = http_getter or _default_http_getter
+    query_params = dict(task.get("query_params") or {})
+    keywords = _query_keywords(query_params)
+    attempts: list[dict[str, Any]] = []
+    source_records: list[dict[str, Any]] = []
+    structured_attempts: list[dict[str, Any]] = []
+    public_page_reachable = False
+    browser_required_seen = False
+    non_structured_shell_count = 0
+
+    for route in route_plan:
+        route_group = str(route.get("route_group") or "")
+        if route_group == "ha_jzsc_project_manager_change_browser_required":
+            browser_required_seen = True
+            continue
+        response = _safe_get(route, getter=getter)
+        attempt = _route_attempt(route, response, keywords)
+        if route_group in {"ha_jzsc_public_page_probe", "ha_jzsc_public_service_structured_query"}:
+            if _int(attempt.get("http_status")) == 200 and attempt.get("blocker_taxonomy") == [
+                "guangdong_local_field_query_captcha_or_login_required"
+            ]:
+                attempt["route_state"] = "PUBLIC_SOURCE_QUERIED"
+                attempt["blocker_taxonomy"] = []
+                attempt["navigation_login_text_suppressed"] = True
+        if route_group == "ha_jzsc_public_page_probe" and attempt["route_state"] == "PUBLIC_SOURCE_QUERIED":
+            public_page_reachable = True
+            attempt["field_verification_role"] = "reachability_only_not_field_match"
+        attempts.append(attempt)
+        if route_group != "ha_jzsc_public_service_structured_query":
+            continue
+        structured_attempts.append(attempt)
+        records = _henan_jzsc_records_from_response(response)
+        attempt["structured_record_count"] = len(records)
+        content_type = str(response.get("content_type") or "").lower()
+        raw_text = str(response.get("text_probe") or response.get("body_probe") or "").strip()
+        if not records and _int(response.get("http_status") or response.get("status_code")) == 200:
+            if "json" not in content_type and (not raw_text or raw_text[0] not in "[{"):
+                non_structured_shell_count += 1
+        for record in records[:20]:
+            compact = _compact_henan_jzsc_record(record, route, keywords)
+            if compact.get("matched_keywords"):
+                source_records.append(compact)
+
+    blockers = _dedupe(blocker for attempt in attempts for blocker in _list(attempt.get("blocker_taxonomy")))
+    status_codes = [_int(attempt.get("http_status")) for attempt in attempts if _int(attempt.get("http_status"))]
+    matched_keyword_count = len(
+        _dedupe(keyword for record in source_records for keyword in _list(record.get("matched_keywords")))
+    )
+    if source_records:
+        return {
+            "field_query_probe_state": "FIELD_READBACK_READY_PUBLIC_SOURCE",
+            "field_readback_state": "PUBLIC_SOURCE_FIELD_READBACK_READY_REVIEW_REQUIRED",
+            "readback_ready": True,
+            "readback_status_code": status_codes[0] if status_codes else 200,
+            "field_summary": {
+                "source_specific_adapter_id": HENAN_JZSC_FIELD_ADAPTER_ID,
+                "record_count": len(source_records),
+                "matched_keyword_count": matched_keyword_count,
+                "source_profile_keyword_hit": bool(matched_keyword_count),
+                "source_profile_id": HENAN_JZSC_PROFILE_ID,
+                "structured_route_count": len(structured_attempts),
+                "public_page_reachable": public_page_reachable,
+            },
+            "field_match_summary": {
+                "source_specific_records": source_records[:10],
+                "query_miss_is_not_clearance": True,
+                "readback_is_line_clue_not_final_conclusion": True,
+                "entry_portal_reachability_is_not_field_verification": True,
+            },
+            "route_plan": list(route_plan),
+            "route_attempts": attempts,
+            "blocker_taxonomy": blockers,
+        }
+    if structured_attempts and all(
+        str(attempt.get("route_state") or "").startswith("FAIL_CLOSED") for attempt in structured_attempts
+    ):
+        return {
+            "field_query_probe_state": "FAIL_CLOSED_PUBLIC_SOURCE_BLOCKED",
+            "field_readback_state": "FIELD_READBACK_BLOCKED",
+            "readback_ready": False,
+            "readback_status_code": status_codes[0] if status_codes else None,
+            "field_summary": {
+                "source_specific_adapter_id": HENAN_JZSC_FIELD_ADAPTER_ID,
+                "record_count": 0,
+                "structured_route_count": len(structured_attempts),
+                "public_page_reachable": public_page_reachable,
+            },
+            "field_match_summary": {
+                "query_miss_is_not_clearance": True,
+                "entry_portal_reachability_is_not_field_verification": True,
+            },
+            "route_plan": list(route_plan),
+            "route_attempts": attempts,
+            "blocker_taxonomy": blockers or ["henan_jzsc_public_service_structured_query_blocked_or_unavailable"],
+        }
+    reachable_structured_count = sum(
+        1 for attempt in structured_attempts if str(attempt.get("route_state") or "") == "PUBLIC_SOURCE_QUERIED"
+    )
+    if (
+        structured_attempts
+        and reachable_structured_count
+        and non_structured_shell_count >= reachable_structured_count
+        and public_page_reachable
+    ):
+        return {
+            "field_query_probe_state": "LIVE_FIELD_QUERY_NEEDS_BROWSER",
+            "field_readback_state": "FIELD_READBACK_BROWSER_OR_AUTHORIZED_RUNTIME_REQUIRED",
+            "readback_ready": False,
+            "readback_status_code": status_codes[0] if status_codes else None,
+            "field_summary": {
+                "source_specific_adapter_id": HENAN_JZSC_FIELD_ADAPTER_ID,
+                "record_count": 0,
+                "source_profile_id": HENAN_JZSC_PROFILE_ID,
+                "structured_route_count": len(structured_attempts),
+                "reachable_structured_route_count": reachable_structured_count,
+                "public_page_reachable": public_page_reachable,
+                "browser_or_authorized_runtime_required": True,
+            },
+            "field_match_summary": {
+                "query_miss_is_not_clearance": True,
+                "entry_portal_reachability_is_not_field_verification": True,
+                "browser_or_authorized_runtime_required_before_readback": True,
+            },
+            "route_plan": list(route_plan),
+            "route_attempts": attempts,
+            "blocker_taxonomy": _dedupe(
+                [
+                    *blockers,
+                    "henan_jzsc_public_service_returned_html_shell_without_field_rows",
+                    "henan_jzsc_requires_browser_or_authorized_runtime_context",
+                ]
+            ),
+        }
+    if browser_required_seen:
+        return _browser_required_readback(HENAN_JZSC_PROJECT_MANAGER_CHANGE_BROWSER_ADAPTER_ID, route_plan)
+    return {
+        "field_query_probe_state": "NO_FIELD_MATCH_REVIEW_REQUIRED",
+        "field_readback_state": "PUBLIC_SOURCE_QUERIED_NO_FIELD_RECORD",
+        "readback_ready": False,
+        "readback_status_code": status_codes[0] if status_codes else None,
+        "field_summary": {
+            "source_specific_adapter_id": HENAN_JZSC_FIELD_ADAPTER_ID,
+            "record_count": 0,
+            "source_profile_keyword_hit": False,
+            "source_profile_id": HENAN_JZSC_PROFILE_ID,
+            "structured_route_count": len(structured_attempts),
+            "public_page_reachable": public_page_reachable,
+        },
+        "field_match_summary": {
+            "query_miss_is_not_clearance": True,
+            "entry_portal_reachability_is_not_field_verification": True,
+            "readback_is_line_clue_not_final_conclusion": True,
+        },
+        "route_plan": list(route_plan),
+        "route_attempts": attempts,
+        "blocker_taxonomy": blockers or ["henan_jzsc_public_service_no_structured_record_review"],
     }
 
 
@@ -3775,7 +6288,11 @@ def _default_credit_gd_session_getter(session_routes: list[Mapping[str, Any]]) -
     rendered_texts: list[str] = []
     cookie_header = ""
     with sync_playwright() as playwright:  # pragma: no cover - browser runtime varies by host.
-        browser = playwright.chromium.launch(headless=True)
+        launch_options: dict[str, Any] = {"headless": True}
+        proxy = playwright_proxy_settings()
+        if proxy:
+            launch_options["proxy"] = proxy
+        browser = playwright.chromium.launch(**launch_options)
         context = browser.new_context(
             user_agent=(
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -4085,6 +6602,28 @@ def _route_attempt(route: Mapping[str, Any], response: Mapping[str, Any], keywor
         "text_probe_sha256": _sha256_text(text),
         "text_probe_length": len(text),
         "blocker_taxonomy": blockers,
+        **_stage4_scrapling_attempt_audit(response),
+    }
+
+
+def _stage4_scrapling_attempt_audit(response: Mapping[str, Any]) -> dict[str, Any]:
+    if not response.get("stage4_scrapling_get_bridge_used"):
+        return {}
+    headers = dict(response.get("headers") or {})
+    return {
+        "stage4_scrapling_get_bridge_id": str(
+            response.get("stage4_scrapling_get_bridge_id") or STAGE4_SCRAPLING_GET_BRIDGE_ID
+        ),
+        "stage4_scrapling_get_bridge_used": True,
+        "stage4_scrapling_get_bridge_scope": str(
+            response.get("stage4_scrapling_get_bridge_scope") or STAGE4_SCRAPLING_GET_BRIDGE_SCOPE
+        ),
+        "fetch_transport": str(response.get("fetch_transport") or headers.get("x-ax9s-fetch-transport") or ""),
+        "scrapling_escalation_target": str(headers.get("x-ax9s-scrapling-escalation-target") or ""),
+        "scrapling_escalation_trigger": str(headers.get("x-ax9s-scrapling-escalation-trigger") or ""),
+        "scrapling_escalation_reasons": str(headers.get("x-ax9s-scrapling-escalation-reasons") or ""),
+        "scrapling_escalation_skipped": str(headers.get("x-ax9s-scrapling-escalation-skipped") or ""),
+        "final_url": str(response.get("final_url") or ""),
     }
 
 
@@ -4429,6 +6968,576 @@ def _compact_sichuan_jzsc_record(
         "project_end_date_probe": _record_text(record, "Edate", "SJEndDate", "HTJGRQ")[:80],
         "project_region_probe": _record_text(record, "XMSDMC")[:200],
         "data_level_probe": _record_text(record, "DataLevel")[:80],
+        "matched_keywords": matched,
+        "detail_keys": sorted(str(key) for key in record.keys())[:24],
+        "record_sha256": _sha256_text(text),
+        "query_miss_is_not_clearance": True,
+        "readback_is_line_clue_not_final_conclusion": True,
+    }
+
+
+def _jiangsu_jzsc_records_from_response(response: Mapping[str, Any]) -> list[Mapping[str, Any]]:
+    payload = _json_payload(response)
+    json_records = _records_from_nested_payload(payload)
+    if json_records:
+        return json_records
+    return _jiangsu_jzsc_records_from_html(str(response.get("text_probe") or response.get("body_probe") or ""))
+
+
+def _records_from_nested_payload(payload: Any) -> list[Mapping[str, Any]]:
+    if isinstance(payload, list):
+        return [row for row in payload if isinstance(row, Mapping)]
+    if not isinstance(payload, Mapping):
+        return []
+    direct_record_keys = {
+        "projectName",
+        "PrjName",
+        "xmmc",
+        "companyName",
+        "CorpName",
+        "sgdw",
+        "permitNo",
+        "sgxkzh",
+        "contractNo",
+        "completionNo",
+    }
+    if direct_record_keys & {str(key) for key in payload.keys()}:
+        return [payload]
+    for key in ("data", "Data", "rows", "list", "items", "records", "result", "Result"):
+        candidate = payload.get(key)
+        if isinstance(candidate, list):
+            return [row for row in candidate if isinstance(row, Mapping)]
+        if isinstance(candidate, Mapping):
+            nested = _records_from_nested_payload(candidate)
+            if nested:
+                return nested
+    return []
+
+
+def _jiangsu_jzsc_records_from_html(text: str) -> list[Mapping[str, Any]]:
+    records: list[Mapping[str, Any]] = []
+    for match in re.finditer(r"<tr\b[^>]*>(.*?)</tr>", str(text or ""), flags=re.I | re.S):
+        row_html = match.group(1)
+        cells = [
+            _strip_html(cell_match.group(1))
+            for cell_match in re.finditer(r"<t[dh]\b[^>]*>(.*?)</t[dh]>", row_html, flags=re.I | re.S)
+        ]
+        cells = [cell for cell in cells if cell]
+        if not cells:
+            continue
+        row_text = " ".join(cells)
+        if not any(token in row_text for token in ("项目", "施工", "合同", "竣工", "许可证", "备案", "企业")):
+            continue
+        records.append({"raw_row_text": row_text, "cells": cells})
+    return records
+
+
+def _compact_jiangsu_jzsc_record(
+    record: Mapping[str, Any],
+    route: Mapping[str, Any],
+    keywords: list[str],
+) -> dict[str, Any]:
+    text = _compact_mapping_text(record)
+    matched = [keyword for keyword in keywords if keyword and keyword in text][:10]
+    target_source_type = str(route.get("jiangsu_target_source_type") or "")
+    if target_source_type == "construction_permit":
+        record_type = "construction_permit_public_record"
+    elif target_source_type == "completion_filing":
+        record_type = "completion_acceptance_public_record"
+    elif target_source_type == "contract_public_info":
+        record_type = "contract_public_record"
+    else:
+        record_type = "regional_project_public_record"
+    project_name = _record_text(
+        record,
+        "projectName",
+        "ProjectName",
+        "PrjName",
+        "PRJNAME",
+        "xmmc",
+        "XMMC",
+        "gcmc",
+        "GCMC",
+        "raw_row_text",
+    )
+    company_name = _record_text(
+        record,
+        "companyName",
+        "CorpName",
+        "CORPNAME",
+        "BuildCorpName",
+        "BUILDCORPNAME",
+        "constructionCompany",
+        "constructorName",
+        "sgdw",
+        "SGDW",
+        "contractor",
+        "contractorName",
+        "raw_row_text",
+    )
+    record_no = _record_text(
+        record,
+        "permitNo",
+        "constructionPermitNo",
+        "sgxkzh",
+        "SGXKZH",
+        "licenseNo",
+        "contractNo",
+        "contractRecordNo",
+        "completionNo",
+        "filingNo",
+        "recordNo",
+        "raw_row_text",
+    )
+    return {
+        "source_profile_id": JIANGSU_JZSC_PROFILE_ID,
+        "source_specific_adapter_id": JIANGSU_JZSC_FIELD_ADAPTER_ID,
+        "source_page_url": str(route.get("url") or JIANGSU_JZSC_HOME_URL),
+        "route_id": str(route.get("route_id") or ""),
+        "target_source_type": target_source_type,
+        "record_type": record_type,
+        "project_name_probe": project_name[:500],
+        "company_name_probe": company_name[:300],
+        "project_manager_name_probe": _record_text(
+            record,
+            "projectManagerName",
+            "project_manager_name",
+            "managerName",
+            "personName",
+            "FHumanName",
+        )[:120],
+        "permit_or_record_no": record_no[:200],
+        "contract_start_date_probe": _record_text(record, "contractStartDate", "startDate", "Bdate")[:80],
+        "contract_end_date_probe": _record_text(record, "contractEndDate", "endDate", "Edate")[:80],
+        "permit_issue_date_probe": _record_text(record, "permitDate", "issueDate", "fzrq", "FZRQ")[:80],
+        "completion_acceptance_date_probe": _record_text(
+            record,
+            "completionDate",
+            "acceptanceDate",
+            "filingDate",
+            "jgrq",
+            "JGYSRQ",
+        )[:80],
+        "matched_keywords": matched,
+        "detail_keys": sorted(str(key) for key in record.keys())[:24],
+        "record_sha256": _sha256_text(text),
+        "query_miss_is_not_clearance": True,
+        "readback_is_line_clue_not_final_conclusion": True,
+    }
+
+
+def _hubei_jzsc_records_from_response(response: Mapping[str, Any]) -> list[Mapping[str, Any]]:
+    payload = _json_payload(response)
+    json_records = _records_from_nested_payload(payload)
+    if json_records:
+        return json_records
+    return _jiangsu_jzsc_records_from_html(str(response.get("text_probe") or response.get("body_probe") or ""))
+
+
+def _compact_hubei_jzsc_record(
+    record: Mapping[str, Any],
+    route: Mapping[str, Any],
+    keywords: list[str],
+) -> dict[str, Any]:
+    text = _compact_mapping_text(record)
+    matched = [keyword for keyword in keywords if keyword and keyword in text][:10]
+    target_source_type = str(route.get("hubei_target_source_type") or "")
+    if target_source_type == "construction_permit":
+        record_type = "construction_permit_public_record"
+    elif target_source_type == "completion_filing":
+        record_type = "completion_acceptance_public_record"
+    elif target_source_type == "contract_public_info":
+        record_type = "contract_public_record"
+    else:
+        record_type = "regional_project_public_record"
+    project_name = _record_text(
+        record,
+        "projectName",
+        "ProjectName",
+        "PrjName",
+        "PRJNAME",
+        "xmmc",
+        "XMMC",
+        "gcmc",
+        "GCMC",
+        "project_name",
+        "raw_row_text",
+    )
+    company_name = _record_text(
+        record,
+        "companyName",
+        "CorpName",
+        "CORPNAME",
+        "BuildCorpName",
+        "BUILDCORPNAME",
+        "constructionCompany",
+        "constructorName",
+        "sgdw",
+        "SGDW",
+        "contractor",
+        "contractorName",
+        "company_name",
+        "raw_row_text",
+    )
+    record_no = _record_text(
+        record,
+        "permitNo",
+        "constructionPermitNo",
+        "sgxkzh",
+        "SGXKZH",
+        "licenseNo",
+        "contractNo",
+        "contractRecordNo",
+        "completionNo",
+        "filingNo",
+        "recordNo",
+        "raw_row_text",
+    )
+    return {
+        "source_profile_id": HUBEI_JZSC_PROFILE_ID,
+        "source_specific_adapter_id": HUBEI_JZSC_FIELD_ADAPTER_ID,
+        "source_page_url": str(route.get("url") or HUBEI_JZSC_HOME_URL),
+        "route_id": str(route.get("route_id") or ""),
+        "target_source_type": target_source_type,
+        "record_type": record_type,
+        "project_name_probe": project_name[:500],
+        "company_name_probe": company_name[:300],
+        "project_manager_name_probe": _record_text(
+            record,
+            "projectManagerName",
+            "project_manager_name",
+            "managerName",
+            "personName",
+            "FHumanName",
+            "pmName",
+        )[:120],
+        "permit_or_record_no": record_no[:200],
+        "contract_start_date_probe": _record_text(record, "contractStartDate", "startDate", "Bdate")[:80],
+        "contract_end_date_probe": _record_text(record, "contractEndDate", "endDate", "Edate")[:80],
+        "permit_issue_date_probe": _record_text(record, "permitDate", "issueDate", "fzrq", "FZRQ")[:80],
+        "completion_acceptance_date_probe": _record_text(
+            record,
+            "completionDate",
+            "acceptanceDate",
+            "filingDate",
+            "jgrq",
+            "JGYSRQ",
+        )[:80],
+        "matched_keywords": matched,
+        "detail_keys": sorted(str(key) for key in record.keys())[:24],
+        "record_sha256": _sha256_text(text),
+        "query_miss_is_not_clearance": True,
+        "readback_is_line_clue_not_final_conclusion": True,
+    }
+
+
+def _shandong_jzsc_records_from_response(response: Mapping[str, Any]) -> list[Mapping[str, Any]]:
+    payload = _json_payload(response)
+    json_records = _records_from_nested_payload(payload)
+    if json_records:
+        return json_records
+    return _jiangsu_jzsc_records_from_html(str(response.get("text_probe") or response.get("body_probe") or ""))
+
+
+def _compact_shandong_jzsc_record(
+    record: Mapping[str, Any],
+    route: Mapping[str, Any],
+    keywords: list[str],
+) -> dict[str, Any]:
+    text = _compact_mapping_text(record)
+    matched = [keyword for keyword in keywords if keyword and keyword in text][:10]
+    target_source_type = str(route.get("shandong_target_source_type") or "")
+    if target_source_type == "construction_permit":
+        record_type = "construction_permit_public_record"
+    elif target_source_type == "completion_filing":
+        record_type = "completion_acceptance_public_record"
+    elif target_source_type == "contract_public_info":
+        record_type = "contract_public_record"
+    else:
+        record_type = "regional_project_public_record"
+    project_name = _record_text(
+        record,
+        "projectName",
+        "ProjectName",
+        "PrjName",
+        "PRJNAME",
+        "xmmc",
+        "XMMC",
+        "gcmc",
+        "GCMC",
+        "project_name",
+        "raw_row_text",
+    )
+    company_name = _record_text(
+        record,
+        "companyName",
+        "CorpName",
+        "CORPNAME",
+        "BuildCorpName",
+        "BUILDCORPNAME",
+        "constructionCompany",
+        "constructorName",
+        "sgdw",
+        "SGDW",
+        "contractor",
+        "contractorName",
+        "company_name",
+        "raw_row_text",
+    )
+    record_no = _record_text(
+        record,
+        "permitNo",
+        "constructionPermitNo",
+        "sgxkzh",
+        "SGXKZH",
+        "licenseNo",
+        "contractNo",
+        "contractRecordNo",
+        "completionNo",
+        "filingNo",
+        "recordNo",
+        "raw_row_text",
+    )
+    return {
+        "source_profile_id": SHANDONG_JZSC_PROFILE_ID,
+        "source_specific_adapter_id": SHANDONG_JZSC_FIELD_ADAPTER_ID,
+        "source_page_url": str(route.get("url") or SHANDONG_JZSC_HOME_URL),
+        "route_id": str(route.get("route_id") or ""),
+        "target_source_type": target_source_type,
+        "record_type": record_type,
+        "project_name_probe": project_name[:500],
+        "company_name_probe": company_name[:300],
+        "project_manager_name_probe": _record_text(
+            record,
+            "projectManagerName",
+            "project_manager_name",
+            "managerName",
+            "personName",
+            "FHumanName",
+            "pmName",
+        )[:120],
+        "permit_or_record_no": record_no[:200],
+        "contract_start_date_probe": _record_text(record, "contractStartDate", "startDate", "Bdate")[:80],
+        "contract_end_date_probe": _record_text(record, "contractEndDate", "endDate", "Edate")[:80],
+        "permit_issue_date_probe": _record_text(record, "permitDate", "issueDate", "fzrq", "FZRQ")[:80],
+        "completion_acceptance_date_probe": _record_text(
+            record,
+            "completionDate",
+            "acceptanceDate",
+            "filingDate",
+            "jgrq",
+            "JGYSRQ",
+        )[:80],
+        "matched_keywords": matched,
+        "detail_keys": sorted(str(key) for key in record.keys())[:24],
+        "record_sha256": _sha256_text(text),
+        "query_miss_is_not_clearance": True,
+        "readback_is_line_clue_not_final_conclusion": True,
+    }
+
+
+def _hunan_jzsc_records_from_response(response: Mapping[str, Any]) -> list[Mapping[str, Any]]:
+    payload = _json_payload(response)
+    json_records = _records_from_nested_payload(payload)
+    if json_records:
+        return json_records
+    return _jiangsu_jzsc_records_from_html(str(response.get("text_probe") or response.get("body_probe") or ""))
+
+
+def _compact_hunan_jzsc_record(
+    record: Mapping[str, Any],
+    route: Mapping[str, Any],
+    keywords: list[str],
+) -> dict[str, Any]:
+    text = _compact_mapping_text(record)
+    matched = [keyword for keyword in keywords if keyword and keyword in text][:10]
+    target_source_type = str(route.get("hunan_target_source_type") or "")
+    if target_source_type == "construction_permit":
+        record_type = "construction_permit_public_record"
+    elif target_source_type == "completion_filing":
+        record_type = "completion_acceptance_public_record"
+    elif target_source_type == "contract_public_info":
+        record_type = "contract_public_record"
+    else:
+        record_type = "regional_project_public_record"
+    project_name = _record_text(
+        record,
+        "projectName",
+        "ProjectName",
+        "PrjName",
+        "PRJNAME",
+        "xmmc",
+        "XMMC",
+        "gcmc",
+        "GCMC",
+        "project_name",
+        "raw_row_text",
+    )
+    company_name = _record_text(
+        record,
+        "companyName",
+        "CorpName",
+        "CORPNAME",
+        "BuildCorpName",
+        "BUILDCORPNAME",
+        "constructionCompany",
+        "constructorName",
+        "sgdw",
+        "SGDW",
+        "contractor",
+        "contractorName",
+        "company_name",
+        "raw_row_text",
+    )
+    record_no = _record_text(
+        record,
+        "permitNo",
+        "constructionPermitNo",
+        "sgxkzh",
+        "SGXKZH",
+        "licenseNo",
+        "contractNo",
+        "contractRecordNo",
+        "completionNo",
+        "filingNo",
+        "recordNo",
+        "raw_row_text",
+    )
+    return {
+        "source_profile_id": HUNAN_JZSC_PROFILE_ID,
+        "source_specific_adapter_id": HUNAN_JZSC_FIELD_ADAPTER_ID,
+        "source_page_url": str(route.get("url") or HUNAN_JZSC_HOME_URL),
+        "route_id": str(route.get("route_id") or ""),
+        "target_source_type": target_source_type,
+        "record_type": record_type,
+        "project_name_probe": project_name[:500],
+        "company_name_probe": company_name[:300],
+        "project_manager_name_probe": _record_text(
+            record,
+            "projectManagerName",
+            "project_manager_name",
+            "managerName",
+            "personName",
+            "FHumanName",
+            "pmName",
+        )[:120],
+        "permit_or_record_no": record_no[:200],
+        "contract_start_date_probe": _record_text(record, "contractStartDate", "startDate", "Bdate")[:80],
+        "contract_end_date_probe": _record_text(record, "contractEndDate", "endDate", "Edate")[:80],
+        "permit_issue_date_probe": _record_text(record, "permitDate", "issueDate", "fzrq", "FZRQ")[:80],
+        "completion_acceptance_date_probe": _record_text(
+            record,
+            "completionDate",
+            "acceptanceDate",
+            "filingDate",
+            "jgrq",
+            "JGYSRQ",
+        )[:80],
+        "matched_keywords": matched,
+        "detail_keys": sorted(str(key) for key in record.keys())[:24],
+        "record_sha256": _sha256_text(text),
+        "query_miss_is_not_clearance": True,
+        "readback_is_line_clue_not_final_conclusion": True,
+    }
+
+
+def _henan_jzsc_records_from_response(response: Mapping[str, Any]) -> list[Mapping[str, Any]]:
+    payload = _json_payload(response)
+    json_records = _records_from_nested_payload(payload)
+    if json_records:
+        return json_records
+    return _jiangsu_jzsc_records_from_html(str(response.get("text_probe") or response.get("body_probe") or ""))
+
+
+def _compact_henan_jzsc_record(
+    record: Mapping[str, Any],
+    route: Mapping[str, Any],
+    keywords: list[str],
+) -> dict[str, Any]:
+    text = _compact_mapping_text(record)
+    matched = [keyword for keyword in keywords if keyword and keyword in text][:10]
+    target_source_type = str(route.get("henan_target_source_type") or "")
+    if target_source_type == "construction_permit":
+        record_type = "construction_permit_public_record"
+    elif target_source_type == "completion_filing":
+        record_type = "completion_acceptance_public_record"
+    elif target_source_type == "contract_public_info":
+        record_type = "contract_public_record"
+    else:
+        record_type = "regional_project_public_record"
+    project_name = _record_text(
+        record,
+        "projectName",
+        "ProjectName",
+        "PrjName",
+        "PRJNAME",
+        "xmmc",
+        "XMMC",
+        "gcmc",
+        "GCMC",
+        "project_name",
+        "raw_row_text",
+    )
+    company_name = _record_text(
+        record,
+        "companyName",
+        "CorpName",
+        "CORPNAME",
+        "BuildCorpName",
+        "BUILDCORPNAME",
+        "constructionCompany",
+        "constructorName",
+        "sgdw",
+        "SGDW",
+        "contractor",
+        "contractorName",
+        "company_name",
+        "raw_row_text",
+    )
+    record_no = _record_text(
+        record,
+        "permitNo",
+        "constructionPermitNo",
+        "sgxkzh",
+        "SGXKZH",
+        "licenseNo",
+        "contractNo",
+        "contractRecordNo",
+        "completionNo",
+        "filingNo",
+        "recordNo",
+        "raw_row_text",
+    )
+    return {
+        "source_profile_id": HENAN_JZSC_PROFILE_ID,
+        "source_specific_adapter_id": HENAN_JZSC_FIELD_ADAPTER_ID,
+        "source_page_url": str(route.get("url") or HENAN_JZSC_HOME_URL),
+        "route_id": str(route.get("route_id") or ""),
+        "target_source_type": target_source_type,
+        "record_type": record_type,
+        "project_name_probe": project_name[:500],
+        "company_name_probe": company_name[:300],
+        "project_manager_name_probe": _record_text(
+            record,
+            "projectManagerName",
+            "project_manager_name",
+            "managerName",
+            "personName",
+            "FHumanName",
+            "pmName",
+        )[:120],
+        "permit_or_record_no": record_no[:200],
+        "contract_start_date_probe": _record_text(record, "contractStartDate", "startDate", "Bdate")[:80],
+        "contract_end_date_probe": _record_text(record, "contractEndDate", "endDate", "Edate")[:80],
+        "permit_issue_date_probe": _record_text(record, "permitDate", "issueDate", "fzrq", "FZRQ")[:80],
+        "completion_acceptance_date_probe": _record_text(
+            record,
+            "completionDate",
+            "acceptanceDate",
+            "filingDate",
+            "jgrq",
+            "JGYSRQ",
+        )[:80],
         "matched_keywords": matched,
         "detail_keys": sorted(str(key) for key in record.keys())[:24],
         "record_sha256": _sha256_text(text),
@@ -4927,6 +8036,217 @@ def _looks_like_captcha_or_login(text: str) -> bool:
     return any(pattern in lowered for pattern in ("captcha", "验证码", "滑块", "请登录", "用户登录", "统一身份认证"))
 
 
+def _stage5_calibration_samples_from_field_query(
+    field_task_records: list[Mapping[str, Any]],
+    *,
+    created_at: str,
+) -> list[dict[str, Any]]:
+    grouped: dict[str, list[Mapping[str, Any]]] = {}
+    terminal_grades = {
+        "B_ENHANCEMENT_OFFICIAL_READBACK",
+        "C_REVERSE_EXPLANATION_OFFICIAL_READBACK",
+        "D_INSUFFICIENT_OR_BLOCKED_READBACK",
+    }
+    for task in field_task_records:
+        if str(task.get("input_source_kind") or "") not in RELEASE_EVIDENCE_INPUT_SOURCE_KINDS:
+            continue
+        if str(task.get("downstream_release_evidence_abcd_grade") or "") not in terminal_grades:
+            continue
+        project_id = str(task.get("project_id") or "").strip()
+        if project_id:
+            grouped.setdefault(project_id, []).append(task)
+
+    samples: list[dict[str, Any]] = []
+    for project_id, tasks in grouped.items():
+        adapter_counts = _counts(task.get("adapter_result_state") for task in tasks)
+        grade_counts = _counts(task.get("downstream_release_evidence_abcd_grade") for task in tasks)
+        needs_region_adapter = any(
+            str(task.get("field_query_probe_state") or "") == "LIVE_FIELD_QUERY_NEEDS_REGION_ADAPTER"
+            for task in tasks
+        )
+        review_bucket, abcd_bucket, evidence_strength, review_family = _stage5_field_query_calibration_bucket(
+            adapter_counts=adapter_counts,
+            grade_counts=grade_counts,
+            needs_region_adapter=needs_region_adapter,
+        )
+        blocker_taxonomy = _dedupe(
+            blocker
+            for task in tasks
+            for blocker in _list(task.get("blocker_taxonomy"))
+        )
+        operator_next_actions = _dedupe(
+            action
+            for task in tasks
+            for action in [
+                task.get("next_action"),
+                (task.get("release_evidence_adapter_state") or {}).get("next_action")
+                if isinstance(task.get("release_evidence_adapter_state"), Mapping)
+                else "",
+                *(
+                    _list((task.get("field_summary") or {}).get("operator_next_actions"))
+                    if isinstance(task.get("field_summary"), Mapping)
+                    else []
+                ),
+            ]
+        )
+        source_snapshot_sha256s = _dedupe(
+            source_record.get("body_sha256")
+            for task in tasks
+            for source_record in _list(
+                (task.get("field_match_summary") or {}).get("source_specific_records")
+                if isinstance(task.get("field_match_summary"), Mapping)
+                else []
+            )
+            if isinstance(source_record, Mapping)
+        )
+        failure_route_targets = _stage5_field_query_failure_route_targets(
+            tasks,
+            adapter_counts,
+            needs_region_adapter=needs_region_adapter,
+        )
+        review_reasons = _dedupe(
+            [
+                "stage5_gate_status_missing_or_incomplete",
+                *(f"field_query_adapter_result:{state}" for state in adapter_counts),
+                *(f"release_evidence_downstream_grade:{grade}" for grade in grade_counts),
+                *(f"field_query_blocker:{blocker}" for blocker in blocker_taxonomy),
+            ]
+        )
+        samples.append(
+            {
+                "stage5_calibration_sample_id": _stable_id(
+                    "STAGE5-FIELD-QUERY-CAL",
+                    project_id,
+                    review_bucket,
+                    *sorted(adapter_counts),
+                    *sorted(grade_counts),
+                ),
+                "source_worker_id": GUANGDONG_LOCAL_FIELD_QUERY_PROBE_ADAPTER_ID,
+                "source_field_query_task_ids": [str(task.get("field_query_task_id") or "") for task in tasks],
+                "project_id": project_id,
+                "project_name": _first_text(task.get("project_name") for task in tasks),
+                "source_urls": _dedupe(task.get("source_url") for task in tasks),
+                "source_profile_ids": _dedupe(task.get("source_profile_id") for task in tasks),
+                "source_snapshot_sha256s": source_snapshot_sha256s,
+                "release_evidence_target_types": _dedupe(
+                    task.get("release_evidence_target_type") for task in tasks
+                ),
+                "field_query_adapter_result_state_counts": adapter_counts,
+                "field_query_downstream_abcd_grade_counts": grade_counts,
+                "field_query_blocker_taxonomy": blocker_taxonomy,
+                "field_query_operator_next_actions": operator_next_actions,
+                "stage5_gate_result_state": "STAGE5_GATE_NOT_RUN_FIELD_QUERY_OUTCOME_READY",
+                "stage5_rule_gate_status": "",
+                "stage5_evidence_gate_status": "",
+                "stage5_calibration_input_state": "FIELD_QUERY_TERMINAL_OUTCOME_READY_STAGE5_GATE_NOT_RUN",
+                "stage5_calibration_review_bucket": review_bucket,
+                "stage5_abcd_calibration_bucket": abcd_bucket,
+                "stage5_calibration_evidence_strength": evidence_strength,
+                "stage5_calibration_review_family": review_family,
+                "stage5_calibration_review_reasons": review_reasons,
+                "stage5_calibration_failure_route_targets": failure_route_targets,
+                "calibration_truth_label_required": True,
+                "suggested_calibration_action": "rerun_or_backfill_stage5_gate_status_before_calibration",
+                "created_at": created_at,
+                "query_miss_is_not_clearance": True,
+                "customer_visible_allowed": False,
+                "no_legal_conclusion": True,
+            }
+        )
+    return samples
+
+
+def _stage5_field_query_calibration_bucket(
+    *,
+    adapter_counts: Mapping[str, int],
+    grade_counts: Mapping[str, int],
+    needs_region_adapter: bool,
+) -> tuple[str, str, str, str]:
+    has_match = int(adapter_counts.get("MATCHED") or 0) > 0
+    has_missing = int(adapter_counts.get("NOT_FOUND") or 0) > 0
+    has_blocked = int(adapter_counts.get("BLOCKED") or 0) > 0
+    has_browser = int(adapter_counts.get("NEEDS_BROWSER") or 0) > 0
+    has_d_grade = int(grade_counts.get("D_INSUFFICIENT_OR_BLOCKED_READBACK") or 0) > 0
+    if has_blocked or has_browser or needs_region_adapter:
+        return (
+            "BLOCKED_OR_AUTHORIZATION_REQUIRED",
+            "D_BLOCKED_OR_AUTHORIZATION_REQUIRED",
+            "SOURCE_ADAPTER_REQUIRED" if needs_region_adapter else "SOURCE_BLOCKED_OR_AUTHORIZATION_REQUIRED",
+            "region_source_adapter_required" if needs_region_adapter else "authorization_or_source_blocked",
+        )
+    if has_missing or has_d_grade:
+        return (
+            "INSUFFICIENT_PUBLIC_READBACK" if has_match else "MISSING_RELEVANT_PUBLIC_READBACK",
+            "C_MISSING_RELEVANT_PUBLIC_READBACK",
+            "QUERY_MISS_NOT_CLEARANCE",
+            "missing_relevant_public_readback",
+        )
+    return (
+        "RULE_THRESHOLD_REVIEW",
+        "B_PUBLIC_READBACK_REVIEW_REQUIRED",
+        "PUBLIC_READBACK_PRESENT_REVIEW_REQUIRED",
+        "manual_public_readback_review",
+    )
+
+
+def _stage5_field_query_failure_route_targets(
+    tasks: list[Mapping[str, Any]],
+    adapter_counts: Mapping[str, int],
+    *,
+    needs_region_adapter: bool,
+) -> list[str]:
+    authorization_states = _dedupe(
+        state
+        for task in tasks
+        for state in [
+            task.get("authorization_readiness_state"),
+            (task.get("field_summary") or {}).get("authorization_readiness_state")
+            if isinstance(task.get("field_summary"), Mapping)
+            else "",
+        ]
+    )
+    routes = ["operator_truth_label_review"]
+    needs_actual_browser = any(
+        str(task.get("field_query_probe_state") or "") == "LIVE_FIELD_QUERY_NEEDS_BROWSER"
+        for task in tasks
+    )
+    if needs_actual_browser or any(
+        state in {"LOGIN_OR_SSO_REQUIRED", "BROWSER_EXECUTION_BLOCKED_REVIEW_REQUIRED"}
+        for state in authorization_states
+    ):
+        routes.append("browser_worker")
+    if needs_region_adapter or any(int(adapter_counts.get(state) or 0) for state in ("NOT_FOUND", "BLOCKED")):
+        routes.append("source_adapter")
+    return routes
+
+
+def _stage5_calibration_summary(samples: list[Mapping[str, Any]]) -> dict[str, Any]:
+    return {
+        "stage5_calibration_sample_count": len(samples),
+        "stage5_calibration_truth_label_required_count": sum(
+            1 for sample in samples if bool(sample.get("calibration_truth_label_required"))
+        ),
+        "stage5_calibration_review_bucket_counts": _counts(
+            sample.get("stage5_calibration_review_bucket") for sample in samples
+        ),
+        "stage5_abcd_calibration_counts": _counts(
+            sample.get("stage5_abcd_calibration_bucket") for sample in samples
+        ),
+        "stage5_calibration_evidence_strength_counts": _counts(
+            sample.get("stage5_calibration_evidence_strength") for sample in samples
+        ),
+        "stage5_calibration_review_family_counts": _counts(
+            sample.get("stage5_calibration_review_family") for sample in samples
+        ),
+        "stage5_calibration_failure_route_target_counts": _counts(
+            route for sample in samples for route in _list(sample.get("stage5_calibration_failure_route_targets"))
+        ),
+        "stage5_calibration_input_state_counts": _counts(
+            sample.get("stage5_calibration_input_state") for sample in samples
+        ),
+    }
+
+
 def _project_task_records(field_task_records: list[Mapping[str, Any]]) -> list[dict[str, Any]]:
     grouped: dict[str, list[Mapping[str, Any]]] = {}
     for task in field_task_records:
@@ -4955,6 +8275,9 @@ def _project_task_records(field_task_records: list[Mapping[str, Any]]) -> list[d
                     blocker for task in tasks for blocker in _list(task.get("blocker_taxonomy"))
                 ),
                 "adapter_result_state_counts": _counts(task.get("adapter_result_state") for task in tasks),
+                "authorization_readiness_state_counts": _field_task_authorization_readiness_state_counts(tasks),
+                "operator_next_action_counts": _field_task_operator_next_action_counts(tasks),
+                "operator_next_actions": _field_task_operator_next_actions(tasks),
                 "probe_state": "READY" if tasks else "NO_GUANGDONG_LOCAL_FIELD_TASKS",
                 "customer_visible_allowed": False,
                 "no_legal_conclusion": True,
@@ -4995,6 +8318,17 @@ def _summary(
     execution_mode: str,
     blocking_reasons: list[str],
 ) -> dict[str, Any]:
+    precedence = closeout_precedence_summary(
+        task.get("closeout_precedence")
+        for task in field_task_records
+        if isinstance(task.get("closeout_precedence"), Mapping)
+    )
+    blocker_ledger_records = [
+        task.get("runtime_blocker_ledger_record")
+        for task in field_task_records
+        if isinstance(task.get("runtime_blocker_ledger_record"), Mapping)
+        and task.get("runtime_blocker_ledger_record")
+    ]
     return {
         "probe_state": "READY" if not blocking_reasons else "INPUT_BLOCKED",
         "execution_mode": execution_mode,
@@ -5122,6 +8456,18 @@ def _summary(
             if str(task.get("source_profile_id") or "").upper() == GUANGDONG_GDCIC_HOME_PROFILE_ID
             and str(task.get("field_query_probe_state") or "") == "FIELD_READBACK_READY_PUBLIC_SOURCE"
         ),
+        "guangdong_gdcic_openplatform_readback_ready_count": sum(
+            1
+            for task in field_task_records
+            if str(task.get("source_profile_id") or "").upper() == GUANGDONG_GDCIC_SKYPT_OPENPLATFORM_PROFILE_ID
+            and str(task.get("field_query_probe_state") or "") == "FIELD_READBACK_READY_PUBLIC_SOURCE"
+        ),
+        "guangdong_gdcic_openplatform_publicity_period_readback_ready_count": sum(
+            _int((task.get("field_summary") or {}).get("gdcic_publicity_period_readback_ready_count"))
+            for task in field_task_records
+            if str(task.get("source_profile_id") or "").upper() == GUANGDONG_GDCIC_SKYPT_OPENPLATFORM_PROFILE_ID
+            and isinstance(task.get("field_summary"), Mapping)
+        ),
         "guangdong_gdcic_browser_authorized_readback_ready_count": sum(
             1
             for task in field_task_records
@@ -5129,6 +8475,25 @@ def _summary(
             and str((task.get("field_summary") or {}).get("source_specific_adapter_id") or "")
             == GUANGDONG_GDCIC_BROWSER_AUTHORIZED_READBACK_ADAPTER_ID
             and str(task.get("field_query_probe_state") or "") == "FIELD_READBACK_READY_PUBLIC_SOURCE"
+        ),
+        "guangdong_gdcic_browser_authorized_project_manager_change_ready_count": sum(
+            1
+            for task in field_task_records
+            if str(task.get("source_profile_id") or "").upper() == GUANGDONG_GDCIC_HOME_PROFILE_ID
+            and str(task.get("release_evidence_target_type") or "") == "project_manager_change_notice"
+            and str((task.get("field_summary") or {}).get("source_specific_adapter_id") or "")
+            == GUANGDONG_GDCIC_BROWSER_AUTHORIZED_READBACK_ADAPTER_ID
+            and str(task.get("field_query_probe_state") or "") == "FIELD_READBACK_READY_PUBLIC_SOURCE"
+        ),
+        "guangdong_gdcic_browser_authorized_project_manager_change_interpretation_counts": _counts(
+            record.get("project_manager_change_release_window_interpretation")
+            for task in field_task_records
+            if str(task.get("source_profile_id") or "").upper() == GUANGDONG_GDCIC_HOME_PROFILE_ID
+            and str(task.get("release_evidence_target_type") or "") == "project_manager_change_notice"
+            and str((task.get("field_summary") or {}).get("source_specific_adapter_id") or "")
+            == GUANGDONG_GDCIC_BROWSER_AUTHORIZED_READBACK_ADAPTER_ID
+            for record in _list((task.get("field_match_summary") or {}).get("source_specific_records"))
+            if isinstance(record, Mapping)
         ),
         "guangdong_gdcic_browser_authorized_not_found_count": sum(
             1
@@ -5168,6 +8533,66 @@ def _summary(
             if str(task.get("source_profile_id") or "").upper() == SICHUAN_JZSC_PROFILE_ID
             and str(task.get("field_query_probe_state") or "") == "LIVE_FIELD_QUERY_NEEDS_BROWSER"
         ),
+        "jiangsu_jzsc_readback_ready_count": sum(
+            1
+            for task in field_task_records
+            if str(task.get("source_profile_id") or "").upper() == JIANGSU_JZSC_PROFILE_ID
+            and str(task.get("field_query_probe_state") or "") == "FIELD_READBACK_READY_PUBLIC_SOURCE"
+        ),
+        "jiangsu_jzsc_browser_or_authorized_runtime_required_count": sum(
+            1
+            for task in field_task_records
+            if str(task.get("source_profile_id") or "").upper() == JIANGSU_JZSC_PROFILE_ID
+            and str(task.get("field_query_probe_state") or "") == "LIVE_FIELD_QUERY_NEEDS_BROWSER"
+        ),
+        "hubei_jzsc_readback_ready_count": sum(
+            1
+            for task in field_task_records
+            if str(task.get("source_profile_id") or "").upper() == HUBEI_JZSC_PROFILE_ID
+            and str(task.get("field_query_probe_state") or "") == "FIELD_READBACK_READY_PUBLIC_SOURCE"
+        ),
+        "hubei_jzsc_browser_or_authorized_runtime_required_count": sum(
+            1
+            for task in field_task_records
+            if str(task.get("source_profile_id") or "").upper() == HUBEI_JZSC_PROFILE_ID
+            and str(task.get("field_query_probe_state") or "") == "LIVE_FIELD_QUERY_NEEDS_BROWSER"
+        ),
+        "shandong_jzsc_readback_ready_count": sum(
+            1
+            for task in field_task_records
+            if str(task.get("source_profile_id") or "").upper() == SHANDONG_JZSC_PROFILE_ID
+            and str(task.get("field_query_probe_state") or "") == "FIELD_READBACK_READY_PUBLIC_SOURCE"
+        ),
+        "shandong_jzsc_browser_or_authorized_runtime_required_count": sum(
+            1
+            for task in field_task_records
+            if str(task.get("source_profile_id") or "").upper() == SHANDONG_JZSC_PROFILE_ID
+            and str(task.get("field_query_probe_state") or "") == "LIVE_FIELD_QUERY_NEEDS_BROWSER"
+        ),
+        "hunan_jzsc_readback_ready_count": sum(
+            1
+            for task in field_task_records
+            if str(task.get("source_profile_id") or "").upper() == HUNAN_JZSC_PROFILE_ID
+            and str(task.get("field_query_probe_state") or "") == "FIELD_READBACK_READY_PUBLIC_SOURCE"
+        ),
+        "hunan_jzsc_browser_or_authorized_runtime_required_count": sum(
+            1
+            for task in field_task_records
+            if str(task.get("source_profile_id") or "").upper() == HUNAN_JZSC_PROFILE_ID
+            and str(task.get("field_query_probe_state") or "") == "LIVE_FIELD_QUERY_NEEDS_BROWSER"
+        ),
+        "henan_jzsc_readback_ready_count": sum(
+            1
+            for task in field_task_records
+            if str(task.get("source_profile_id") or "").upper() == HENAN_JZSC_PROFILE_ID
+            and str(task.get("field_query_probe_state") or "") == "FIELD_READBACK_READY_PUBLIC_SOURCE"
+        ),
+        "henan_jzsc_browser_or_authorized_runtime_required_count": sum(
+            1
+            for task in field_task_records
+            if str(task.get("source_profile_id") or "").upper() == HENAN_JZSC_PROFILE_ID
+            and str(task.get("field_query_probe_state") or "") == "LIVE_FIELD_QUERY_NEEDS_BROWSER"
+        ),
         "guangdong_zfcxjst_penalty_readback_ready_count": sum(
             1
             for task in field_task_records
@@ -5202,14 +8627,93 @@ def _summary(
         ),
         "field_query_probe_state_counts": _counts(task.get("field_query_probe_state") for task in field_task_records),
         "field_readback_state_counts": _counts(task.get("field_readback_state") for task in field_task_records),
+        "authorized_session_input_state_counts": _field_task_authorized_session_input_state_counts(field_task_records),
+        "authorization_readiness_state_counts": _field_task_authorization_readiness_state_counts(field_task_records),
+        "operator_next_action_counts": _field_task_operator_next_action_counts(field_task_records),
+        "operator_next_actions": _field_task_operator_next_actions(field_task_records),
         "blocker_taxonomy_counts": _counts(
             blocker for task in field_task_records for blocker in _list(task.get("blocker_taxonomy"))
+        ),
+        **precedence,
+        "runtime_blocker_ledger_count": len(blocker_ledger_records),
+        "runtime_blocker_ledger_state_counts": _counts(
+            record.get("blocker_state") for record in blocker_ledger_records if isinstance(record, Mapping)
+        ),
+        "runtime_blocker_ledger_layer_counts": _counts(
+            record.get("runtime_layer") for record in blocker_ledger_records if isinstance(record, Mapping)
         ),
         "delegated_adapter_counts": _counts(task.get("delegated_adapter_id") for task in field_task_records),
         "blocking_reasons": list(blocking_reasons),
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,
     }
+
+
+def _field_task_authorization_readiness_state_counts(tasks: list[Mapping[str, Any]] | list[Any]) -> dict[str, int]:
+    merged: dict[str, int] = {}
+    for task in tasks:
+        if not isinstance(task, Mapping):
+            continue
+        task_counts: dict[str, int] = {}
+        field_summary = task.get("field_summary") if isinstance(task.get("field_summary"), Mapping) else {}
+        summary_counts = field_summary.get("authorization_readiness_state_counts") if isinstance(field_summary, Mapping) else {}
+        if isinstance(summary_counts, Mapping):
+            for key, value in summary_counts.items():
+                text = str(key or "").strip()
+                if text:
+                    task_counts[text] = task_counts.get(text, 0) + _int(value)
+        if not task_counts:
+            field_match_summary = (
+                task.get("field_match_summary") if isinstance(task.get("field_match_summary"), Mapping) else {}
+            )
+            task_counts = _counts(
+                [
+                    task.get("authorization_readiness_state"),
+                    field_summary.get("authorization_readiness_state") if isinstance(field_summary, Mapping) else "",
+                    field_match_summary.get("authorization_readiness_state")
+                    if isinstance(field_match_summary, Mapping)
+                    else "",
+                ]
+            )
+        for key, value in task_counts.items():
+            merged[key] = merged.get(key, 0) + value
+    return dict(sorted(merged.items()))
+
+
+def _field_task_authorized_session_input_state_counts(tasks: list[Mapping[str, Any]] | list[Any]) -> dict[str, int]:
+    return _counts(
+        (task.get("field_summary") if isinstance(task.get("field_summary"), Mapping) else {}).get(
+            "authorized_session_input_state"
+        )
+        for task in tasks
+        if isinstance(task, Mapping)
+    )
+
+
+def _field_task_operator_next_actions(tasks: list[Mapping[str, Any]] | list[Any]) -> list[str]:
+    return _dedupe(
+        action
+        for task in tasks
+        if isinstance(task, Mapping)
+        for action in _list(
+            (task.get("field_summary") if isinstance(task.get("field_summary"), Mapping) else {}).get(
+                "operator_next_actions"
+            )
+        )
+    )
+
+
+def _field_task_operator_next_action_counts(tasks: list[Mapping[str, Any]] | list[Any]) -> dict[str, int]:
+    return _counts(
+        action
+        for task in tasks
+        if isinstance(task, Mapping)
+        for action in _list(
+            (task.get("field_summary") if isinstance(task.get("field_summary"), Mapping) else {}).get(
+                "operator_next_actions"
+            )
+        )
+    )
 
 
 def _load_json(path: Path, blocking_reasons: list[str], missing_reason: str) -> dict[str, Any]:

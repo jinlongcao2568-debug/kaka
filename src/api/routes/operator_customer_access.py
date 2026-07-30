@@ -8,6 +8,9 @@ from __future__ import annotations
 import hashlib
 import json
 import time
+from uuid import uuid4
+from pathlib import Path
+from tempfile import gettempdir
 from typing import Any, Mapping
 
 from api.deps import get_settings
@@ -23,6 +26,22 @@ from api.routes.stage1 import create_stage1_scheduler_task, read_stage1_schedule
 from shared.contracts_runtime import StageBundle
 from shared.pipeline import run_internal_chain, run_internal_chain_until_stage6
 from shared.utils import build_id, utc_now_iso
+from runtime.controlled_gray_public_orchestrator import (
+    build_controlled_gray_public_orchestrator_prepare_bundle,
+)
+from runtime.controlled_gray_scheduler_worker import (
+    CONTROLLED_GRAY_ORCHESTRATOR_QUEUE_NAME,
+    CONTROLLED_GRAY_ORCHESTRATOR_WORKER_ID,
+    controlled_gray_scheduler_status,
+    enqueue_controlled_gray_orchestrator_job,
+)
+from runtime.operator_long_task_worker import (
+    AUTONOMOUS_SEARCH_JOB_KIND,
+    OPERATOR_LONG_TASK_QUEUE_NAME,
+    REAL_SOURCE_CAPTURE_JOB_KIND,
+    enqueue_operator_long_task,
+    operator_long_task_status,
+)
 from stage1_tasking.market_scan import Stage1MarketScanEngine
 from stage1_tasking.region_adapters import (
     list_region_source_adapters,
@@ -108,6 +127,31 @@ DEFAULT_OPERATOR_TASK_PAYLOAD = {
 }
 
 
+def _operator_actor(payload: Mapping[str, Any] | None) -> tuple[str, str]:
+    source = dict(payload or {})
+    auth_context = (
+        dict(source.get("_internal_auth_context") or {})
+        if isinstance(source.get("_internal_auth_context"), Mapping)
+        else {}
+    )
+    if auth_context.get("authenticated"):
+        principal_id = str(auth_context.get("principal_id") or "").strip()
+        role = str(auth_context.get("role") or "").strip()
+        if not principal_id or not role:
+            raise ValueError("authenticated operator actor context is incomplete")
+        return principal_id, role
+    return (
+        str(source.get("requested_by") or "卡卡罗特"),
+        str(source.get("requested_by_role") or "single_operator"),
+    )
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
+CONTROLLED_GRAY_SOURCE_TARGETS_JSON = (
+    REPO_ROOT / "contracts" / "evaluation" / "evaluation_real_project_sample_targets.json"
+)
+CONTROLLED_GRAY_ORCHESTRATOR_SEARCH_ROOT = REPO_ROOT / "tmp" / "evaluation-real-samples"
+
+
 def _json_safe_snapshot_replay(replay: Mapping[str, Any]) -> dict[str, Any]:
     safe = dict(replay)
     raw_bytes = safe.pop("bytes", None)
@@ -170,6 +214,11 @@ def _operator_operation_readback(routes: list[dict[str, Any]] | None = None) -> 
                 "real_sample_flow_visible",
                 "real_world_sellability_readiness",
                 "stage6_review_loop_status_readback",
+                "controlled_gray_public_orchestrator",
+                "controlled_gray_orchestrator_readback",
+                "controlled_gray_orchestrator_prepare",
+                "controlled_gray_orchestrator_worker_enqueue",
+                "controlled_gray_orchestrator_worker_run_once",
             )
             if key in route
         }
@@ -423,10 +472,10 @@ def preview_operator_real_world_sellability(payload: Mapping[str, Any] | None = 
                 "/customer-artifact-portal-download/{opportunity_id}",
             ],
             gaps=[] if customer_sellable_ready_count else [
-                "需要真实详情页/附件快照正式进入 Stage4-9 解析、核验、证据包链路。",
+                "需要真实详情页/附件快照正式进入 Stage1-6 解析、核验、证据包链路。",
                 "需要来源网址、快照哈希、字段策略和可售判断同时就绪。"
             ],
-            next_actions=["把真实公开来源快照接入 Stage4-9，再核对来源网址、字段策略和下载审计。"],
+            next_actions=["把真实公开来源快照接入 Stage1-6，再核对来源网址、字段策略和下载审计。"],
         ),
         _sellability_lane(
             lane_id="commercial_hook",
@@ -472,7 +521,7 @@ def preview_operator_real_world_sellability(payload: Mapping[str, Any] | None = 
             lane_id="payment_delivery_writeback",
             title="支付交付与回写治理",
             status="PARTIAL" if not real_payment_ready else "PASS",
-            current_state="支付、交付、退款仍是受控开放读回；自动退款保持排除。",
+            current_state="支付、交付、退款仍是受控开放读回；自动退款为 controlled-test-and-pilot-required，sandbox/mock/dry-run/受控试点可做，生产启用需授权门禁。",
             evidence=["/go-live/readiness", "AGENTS.md#Automation Guardrails"],
             gaps=[] if real_payment_ready else ["真实支付、真实交付、真实退款异常处理和回写治理未接入 live provider。"],
             next_actions=["补支付/交付 sandbox、小样本 live pilot 状态和人工退款异常读回。"],
@@ -513,7 +562,7 @@ def preview_operator_real_world_sellability(payload: Mapping[str, Any] | None = 
             else "真实实战未完成：缺真实市场候选进料",
             "owner_decision": (
                 "内部/样本链路可用于回归、观察和证据包预览；"
-                "真实列表页候选发现、详情快照读回和同站附件原文快照已进入最小闭环，但客户可售前仍需 Stage4-9 证据回链。"
+                "真实列表页候选发现、详情快照读回和同站附件原文快照已进入最小闭环，但客户可售前仍需 Stage1-6 证据回链。"
                 if real_market_run_count or stage2_detail_snapshot_count
                 else "默认实战搜索尚未命中真实公开来源候选，不能宣称真实可售。"
             ),
@@ -542,7 +591,7 @@ def preview_operator_real_world_sellability(payload: Mapping[str, Any] | None = 
         "lanes": lanes,
         "remaining_real_world_closures": [
             "真实公开来源候选发现器硬化：更多列表页搜索、公告解析、候选去重入库",
-            "真实详情页/附件快照已接首段；继续补 Stage4-9 正式消费",
+            "真实详情页/附件快照已接首段；继续补 Stage1-6 正式消费",
             "重点地区本地适配器覆盖",
             "真实触达 provider sandbox 与审批审计",
             "真实支付/交付 provider sandbox 与回写治理",
@@ -584,6 +633,7 @@ def _queue_item_summary(item: Any) -> dict[str, Any]:
     if item is None:
         return {}
     payload = dict(getattr(item, "payload", {}) or {})
+    task_payload = dict(payload.get("task_payload", {}) or {})
     scheduler_task = dict(payload.get("scheduler_task", {}) or {})
     stage1_inputs = dict(payload.get("stage1_inputs", {}) or {})
     handoff = dict(
@@ -598,11 +648,34 @@ def _queue_item_summary(item: Any) -> dict[str, Any]:
         "queue_item_id": str(getattr(item, "queue_item_id", "") or ""),
         "queue_name": str(getattr(item, "queue_name", "") or ""),
         "status": str(getattr(item, "status", "") or ""),
-        "task_id": str(scheduler_task.get("task_id") or trace_refs.get("task_id") or ""),
-        "project_id": str(scheduler_task.get("project_id") or trace_refs.get("project_id") or ""),
-        "region_code": str(stage1_inputs.get("region_code") or handoff_payload.get("region_code") or ""),
-        "source_registry_id": str(scheduler_task.get("source_registry_id") or trace_refs.get("source_registry_id") or ""),
-        "route_policy_id": str(scheduler_task.get("route_policy_id") or trace_refs.get("route_policy_id") or ""),
+        "task_id": str(
+            scheduler_task.get("task_id")
+            or task_payload.get("task_id")
+            or trace_refs.get("task_id")
+            or ""
+        ),
+        "project_id": str(
+            scheduler_task.get("project_id")
+            or task_payload.get("project_id")
+            or trace_refs.get("project_id")
+            or ""
+        ),
+        "region_code": str(
+            stage1_inputs.get("region_code")
+            or handoff_payload.get("region_code")
+            or task_payload.get("region_code")
+            or ""
+        ),
+        "source_registry_id": str(
+            scheduler_task.get("source_registry_id")
+            or trace_refs.get("source_registry_id")
+            or ""
+        ),
+        "route_policy_id": str(
+            scheduler_task.get("route_policy_id")
+            or trace_refs.get("route_policy_id")
+            or ""
+        ),
         "stage2_handoff_intent_state": str(handoff.get("intent_state") or ""),
         "priority": getattr(item, "priority", None),
         "attempt_count": getattr(item, "attempt_count", None),
@@ -611,7 +684,30 @@ def _queue_item_summary(item: Any) -> dict[str, Any]:
         "created_at": getattr(item, "created_at", None),
         "updated_at": getattr(item, "updated_at", None),
         "last_error": getattr(item, "last_error", None),
-        "audit_ref": audit_refs.get("scheduling_audit_id") or audit_refs.get("run_audit_ref") or "",
+        "last_error_category": getattr(item, "last_error_category", None),
+        "progress_stage": getattr(item, "progress_stage", None),
+        "progress_message": getattr(item, "progress_message", None),
+        "progress_completed_units": getattr(item, "progress_completed_units", 0),
+        "progress_total_units": getattr(item, "progress_total_units", None),
+        "progress_percent": getattr(item, "progress_percent", None),
+        "time_budget_seconds": getattr(item, "time_budget_seconds", None),
+        "budget_started_at": getattr(item, "budget_started_at", None),
+        "budget_deadline_at": getattr(item, "budget_deadline_at", None),
+        "budget_exhausted_at": getattr(item, "budget_exhausted_at", None),
+        "cancel_requested_at": getattr(item, "cancel_requested_at", None),
+        "cancel_requested_by": getattr(item, "cancel_requested_by", None),
+        "cancel_reason": getattr(item, "cancel_reason", None),
+        "cancelled_at": getattr(item, "cancelled_at", None),
+        "heartbeat_at": getattr(item, "heartbeat_at", None),
+        "runtime_job_kind": str(payload.get("runtime_job_kind") or ""),
+        "required_worker_capability": str(
+            payload.get("required_worker_capability") or "core"
+        ),
+        "audit_ref": (
+            audit_refs.get("scheduling_audit_id")
+            or audit_refs.get("run_audit_ref")
+            or ""
+        ),
     }
 
 
@@ -822,7 +918,7 @@ def _overlay_stage2_capture_on_candidate(
         else row.get("sellability_evidence_state")
     )
     row["truth_boundary"] = (
-        "真实候选库已合并最新详情/附件快照读回；客户可售前仍需 Stage4-9 正式消费快照并完成证据回链。"
+        "真实候选库已合并最新详情/附件快照读回；客户可售前仍需 Stage1-6 正式消费快照并完成证据回链。"
         if detail_snapshot_id
         else row.get("truth_boundary")
     )
@@ -1632,7 +1728,7 @@ def _stage5_with_public_verification_refs(
     )
 
 
-def _build_review_required_real_public_stage4_9_summary(
+def _build_review_required_real_public_stage1_6_summary(
     *,
     snapshot_id: str,
     source_url: str,
@@ -1640,9 +1736,9 @@ def _build_review_required_real_public_stage4_9_summary(
 ) -> dict[str, Any]:
     reasons = [str(reason) for reason in fail_closed_reasons if str(reason).strip()]
     return {
-        "surface_id": "operator_real_public_stage4_9_readback",
+        "surface_id": "operator_real_public_stage1_6_readback",
         "readback_state": "REVIEW_REQUIRED",
-        "real_public_stage4_9_chain_state": "REVIEW_REQUIRED",
+        "real_public_chain_state": "REVIEW_REQUIRED",
         "real_public_stage1_6_chain_state": "REVIEW_REQUIRED",
         "stage1_6_closed_loop_ready": False,
         "stage_scope": "STAGE1_6_ONLY",
@@ -1670,7 +1766,7 @@ def _build_review_required_real_public_stage4_9_summary(
     }
 
 
-def _build_real_public_stage4_9_readback_from_candidate(
+def _build_real_public_stage1_6_readback_from_candidate(
     *,
     candidate: Mapping[str, Any],
     chain: Mapping[str, Any],
@@ -1686,7 +1782,7 @@ def _build_real_public_stage4_9_readback_from_candidate(
     ).strip()
     source_url = str(candidate.get("source_url") or "").strip()
     if not snapshot_id:
-        return _build_review_required_real_public_stage4_9_summary(
+        return _build_review_required_real_public_stage1_6_summary(
             snapshot_id="",
             source_url=source_url,
             fail_closed_reasons=["stage2_detail_snapshot_missing"],
@@ -1695,7 +1791,7 @@ def _build_real_public_stage4_9_readback_from_candidate(
     repository = object_repository or ObjectStorageRepository()
     snapshot_readback = dict(repository.replay_snapshot(snapshot_id))
     if not bool(snapshot_readback.get("replayable")):
-        return _build_review_required_real_public_stage4_9_summary(
+        return _build_review_required_real_public_stage1_6_summary(
             snapshot_id=snapshot_id,
             source_url=source_url,
             fail_closed_reasons=[
@@ -1705,7 +1801,7 @@ def _build_real_public_stage4_9_readback_from_candidate(
 
     base_stage4 = chain.get("stage4")
     if base_stage4 is None:
-        return _build_review_required_real_public_stage4_9_summary(
+        return _build_review_required_real_public_stage1_6_summary(
             snapshot_id=snapshot_id,
             source_url=source_url,
             fail_closed_reasons=["base_stage4_bundle_missing"],
@@ -1723,7 +1819,7 @@ def _build_real_public_stage4_9_readback_from_candidate(
             or str(candidate.get("project_name") or "").strip()
         )
         if not target_identifier:
-            return _build_review_required_real_public_stage4_9_summary(
+            return _build_review_required_real_public_stage1_6_summary(
                 snapshot_id=snapshot_id,
                 source_url=source_url,
                 fail_closed_reasons=["stage4_verification_target_identifier_missing"],
@@ -1768,7 +1864,7 @@ def _build_real_public_stage4_9_readback_from_candidate(
         stage6 = Stage6Service().run_real_public_rule_evidence_readback(stage5)
         persist_stage_bundle(stage6)
     except Exception as exc:
-        return _build_review_required_real_public_stage4_9_summary(
+        return _build_review_required_real_public_stage1_6_summary(
             snapshot_id=snapshot_id,
             source_url=source_url,
             fail_closed_reasons=[f"real_public_stage1_6_exception:{exc}"],
@@ -1964,10 +2060,10 @@ def _build_real_public_stage4_9_readback_from_candidate(
     elif formal_chain_state == "INTERNAL_READY":
         final_chain_state = "REVIEW_REQUIRED"
     return {
-        "surface_id": "operator_real_public_stage4_9_readback",
+        "surface_id": "operator_real_public_stage1_6_readback",
         "stage_scope": stage_scope,
         "readback_state": "READBACK_READY" if final_chain_state == "INTERNAL_READY" else "REVIEW_REQUIRED",
-        "real_public_stage4_9_chain_state": final_chain_state,
+        "real_public_chain_state": final_chain_state,
         "real_public_stage1_6_chain_state": formal_chain_state,
         "stage1_6_closed_loop_ready": formal_chain_state == "INTERNAL_READY",
         "stage4_public_verification_run_id": stage4_verification.get("verification_run_id"),
@@ -2129,7 +2225,7 @@ def _build_autonomous_runtime_flow(
     source_blueprint: Mapping[str, Any],
     chain: Mapping[str, Any],
     acceptance: Mapping[str, Any],
-    real_public_stage4_9_readback: Mapping[str, Any] | None = None,
+    real_public_stage1_6_readback: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     capture_plan = dict(source_blueprint.get("stage2_capture_plan", {}) or {})
     capture_steps = list(capture_plan.get("capture_steps", []) or [])
@@ -2162,8 +2258,8 @@ def _build_autonomous_runtime_flow(
     source_profile_id = str(candidate.get("source_profile_id") or "")
     source_candidate_mode = str(candidate.get("source_candidate_mode") or "EXPLICIT_CANDIDATES")
     offline_sample_validation = bool(candidate.get("is_offline_sample_candidate")) or source_candidate_mode == "OFFLINE_SAMPLE_CANDIDATES"
-    real_public_readback = dict(real_public_stage4_9_readback or {})
-    real_public_chain_state = str(real_public_readback.get("real_public_stage4_9_chain_state") or "")
+    real_public_readback = dict(real_public_stage1_6_readback or {})
+    real_public_chain_state = str(real_public_readback.get("real_public_stage1_6_chain_state") or "")
     real_public_stage7_chain_state = str(
         real_public_readback.get("stage7_real_public_sales_package_chain_state") or ""
     )
@@ -2444,7 +2540,7 @@ def _build_autonomous_runtime_flow(
                 "automated_refund_enabled": "false",
             },
             note="内部生成交付候选；真实下载、支付、退款不在本次自动执行。",
-            next_action="成交付款后进入受控邮件交付；自动退款不执行。",
+            next_action="人工签发后通过客户约定的受控渠道交付；系统当前不自动发送邮件。自动退款仅在 sandbox/mock/dry-run 或授权试点中执行，生产启用需门禁。",
         ),
         ])
     total_produced = sum(row["produced_count"] for row in stage_stats)
@@ -2465,7 +2561,7 @@ def _build_autonomous_runtime_flow(
         "surface_id": "autonomous_search_runtime_flow",
         "flow_mode": "真实候选内部闭环" if source_candidate_mode == REAL_PUBLIC_SOURCE_CANDIDATE_MODE else "内部实战测试闭环",
         "direction": (
-            "地区机会扫描 -> 真实详情快照 -> Stage4-9正式readback"
+            "地区机会扫描 -> 真实详情快照 -> Stage1-6正式readback"
             if customer_sellable_evidence_ready
             else "地区机会扫描 -> 真实详情快照 -> Stage4-6核验与产品包读回"
             if real_public_readback
@@ -2476,7 +2572,7 @@ def _build_autonomous_runtime_flow(
         "real_candidate_discovery_attempted": source_candidate_mode == REAL_PUBLIC_SOURCE_CANDIDATE_MODE,
         "offline_sample_validation": offline_sample_validation,
         "customer_sellable_evidence_ready": customer_sellable_evidence_ready,
-        "real_public_stage4_9_readback": real_public_readback,
+        "real_public_stage1_6_readback": real_public_readback,
         "data_boundary_message": data_boundary_message,
         "test_path_unblocked": True,
         "live_delivery_gates_preserved": True,
@@ -2682,16 +2778,33 @@ def _merge_selected_candidate(
 def _candidate_options_with_closed_loop_results(
     options: list[dict[str, Any]],
     closed_loop_results: list[dict[str, Any]],
+    *,
+    stage1_6_loop_project_ids: set[str] | None = None,
+    stage1_6_selection_reason_by_project_id: Mapping[str, str] | None = None,
 ) -> list[dict[str, Any]]:
     by_project_id = {
         str(result.get("project_id") or ""): result
         for result in closed_loop_results
         if str(result.get("project_id") or "").strip()
     }
+    loop_ids = stage1_6_loop_project_ids or set()
+    reason_by_project_id = dict(stage1_6_selection_reason_by_project_id or {})
     enriched: list[dict[str, Any]] = []
     for option in options:
         row = dict(option)
-        result = by_project_id.get(str(row.get("project_id") or ""))
+        project_id = str(row.get("project_id") or "")
+        result = by_project_id.get(project_id)
+        selected_for_stage1_6_loop = project_id in loop_ids or bool(result)
+        row["stage1_6_selected_for_loop"] = selected_for_stage1_6_loop
+        if selected_for_stage1_6_loop:
+            row["stage1_6_selection_state"] = "SELECTED_FOR_STAGE1_6_LOOP"
+            row["stage1_6_selection_reason"] = reason_by_project_id.get(
+                project_id,
+                "closed_loop_result_present" if result else "market_scan_opportunity_candidate_selected",
+            )
+        else:
+            row["stage1_6_selection_state"] = "NOT_SELECTED_FOR_STAGE1_6_LOOP"
+            row["stage1_6_selection_reason"] = "not_selected_by_stage1_market_scan_threshold_or_budget"
         if result:
             row["opportunity_id"] = result.get("opportunity_id")
             row["operator_workbench_readback_path"] = result.get("operator_workbench_readback_path")
@@ -2701,7 +2814,7 @@ def _candidate_options_with_closed_loop_results(
             row["stage1_6_time_budget_pending"] = bool(result.get("stage1_6_time_budget_pending"))
             row["stage2_detail_capture_pending"] = bool(result.get("stage2_detail_capture_pending"))
             row["closed_loop_state"] = result.get("search_state")
-            row["real_public_stage4_9_chain_state"] = result.get("real_public_stage4_9_chain_state")
+            row["real_public_stage1_6_chain_state"] = result.get("real_public_stage1_6_chain_state")
             row["real_public_stage1_6_chain_state"] = result.get("real_public_stage1_6_chain_state")
             row["real_world_hard_defect_gate_state"] = result.get("real_world_hard_defect_gate_state")
             row["customer_sellable_evidence_ready"] = bool(result.get("customer_sellable_evidence_ready"))
@@ -2815,6 +2928,7 @@ def _stage1_6_validation_ledger(
     real_candidate_stage2_capture: Mapping[str, Any],
     raw_candidates: list[dict[str, Any]],
     selected_candidate_count: int,
+    stage1_6_loop_input_count: int,
     closed_loop_results: list[dict[str, Any]],
     stage1_6_attempted_count: int,
     stage1_6_pending_count: int,
@@ -2831,7 +2945,7 @@ def _stage1_6_validation_ledger(
         if isinstance(item, Mapping)
     ]
     readbacks = [
-        dict(item.get("real_public_stage4_9_readback", {}) or {})
+        dict(item.get("real_public_stage1_6_readback", {}) or {})
         for item in closed_loop_results
         if isinstance(item, Mapping)
     ]
@@ -2963,7 +3077,7 @@ def _stage1_6_validation_ledger(
             {
                 "stage": 4,
                 "name": "公开核验与项目经理身份补全",
-                "input_count": selected_candidate_count,
+                "input_count": stage1_6_loop_input_count,
                 "effective_count": stage1_6_attempted_count,
                 "invalid_count": sum(stage4_fail_reason_counts.values()),
                 "pending_count": stage1_6_pending_count,
@@ -3001,7 +3115,68 @@ def _stage1_6_validation_ledger(
     }
 
 
+def _operator_runtime_checkpoint(
+    payload: Mapping[str, Any],
+    stage: str,
+    completed_units: int,
+    total_units: int,
+    message: str,
+) -> None:
+    control = payload.get("_runtime_execution_control")
+    if control is None:
+        return
+    control.report_progress(stage, completed_units, total_units, message)
+    control.raise_if_cancelled()
+
+
+def _enqueue_operator_long_task_response(
+    payload: Mapping[str, Any],
+    *,
+    job_kind: str,
+) -> dict[str, Any]:
+    task_payload = dict(payload)
+    task_payload["async_execution"] = False
+    item = enqueue_operator_long_task(
+        job_kind=job_kind,
+        task_payload=task_payload,
+        priority=int(payload.get("job_priority") or 50),
+        max_attempts=int(payload.get("job_max_attempts") or 3),
+        time_budget_seconds=int(payload.get("job_time_budget_seconds") or 1_800),
+        now=str(payload.get("now") or utc_now_iso()),
+    )
+    return {
+        "surface_id": "operator_long_task_enqueue",
+        "async_execution": True,
+        "job_id": item.queue_item_id,
+        "job_kind": job_kind,
+        "required_worker_capability": "browser",
+        "queue_item": _controlled_gray_queue_item_summary(item),
+        "background_worker_queue": operator_long_task_status(limit=8),
+        "repository_backed_readback": True,
+        "internal_only": True,
+        "web_request_execution_enabled": False,
+        "live_execution_enabled": False,
+        "external_release_enabled": False,
+        "customer_visible_allowed": False,
+        "payment_execution_enabled": False,
+        "delivery_execution_enabled": False,
+        "automatic_refund_enabled": False,
+    }
+
+
 def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> dict[str, Any]:
+    if _truthy(payload.get("async_execution")):
+        return _enqueue_operator_long_task_response(
+            payload,
+            job_kind=AUTONOMOUS_SEARCH_JOB_KIND,
+        )
+    _operator_runtime_checkpoint(
+        payload,
+        "SEARCH_INPUT",
+        0,
+        4,
+        "normalizing autonomous search input",
+    )
     now = str(payload.get("now") or utc_now_iso())
     all_region_codes = [
         str(adapter.get("region_code") or "").strip()
@@ -3026,8 +3201,20 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
     offline_sample_candidates_enabled = _truthy(payload.get("allow_offline_sample_candidates")) or _truthy(
         payload.get("offline_sample_candidates_enabled")
     )
+    excluded_project_ids = set(
+        _as_string_list(
+            _first_present(
+                payload.get("exclude_project_ids"),
+                payload.get("excluded_project_ids"),
+                payload.get("stage1_6_exclude_project_ids"),
+            ),
+            [],
+        )
+    )
     resolved_by_region: dict[str, dict[str, Any]] = {}
     raw_candidates: list[dict[str, Any]] = []
+    raw_candidate_count_before_project_exclusion = 0
+    excluded_project_filtered_count = 0
     real_candidate_discovery: dict[str, Any] = {}
     real_candidate_stage2_capture: dict[str, Any] = {}
     for requested_region_code in requested_region_codes:
@@ -3080,6 +3267,13 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
                     }
                 )
     else:
+        _operator_runtime_checkpoint(
+            payload,
+            "PUBLIC_CANDIDATE_DISCOVERY",
+            1,
+            4,
+            "discovering candidates from registered public sources",
+        )
         real_candidate_discovery = RealPublicCandidateDiscoveryService().discover(
             {
                 **dict(payload),
@@ -3100,6 +3294,13 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
             if isinstance(candidate, Mapping)
         ]
         if raw_candidates and not _truthy(payload.get("disable_real_candidate_stage2_capture")):
+            _operator_runtime_checkpoint(
+                payload,
+                "STAGE2_CAPTURE",
+                2,
+                4,
+                "capturing candidate detail and attachments within budget",
+            )
             real_candidate_stage2_capture = RealCandidateStage2CaptureService().capture_candidates(
                 raw_candidates,
                 now=now,
@@ -3131,6 +3332,14 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
                 for candidate in list(real_candidate_stage2_capture.get("enriched_candidates", []) or raw_candidates)
                 if isinstance(candidate, Mapping)
             ]
+    raw_candidate_count_before_project_exclusion = len(raw_candidates)
+    if excluded_project_ids and raw_candidates:
+        raw_candidates = [
+            candidate
+            for candidate in raw_candidates
+            if str(candidate.get("project_id") or "").strip() not in excluded_project_ids
+        ]
+        excluded_project_filtered_count = raw_candidate_count_before_project_exclusion - len(raw_candidates)
     if not raw_candidates:
         discovery_attempted = bool(real_candidate_discovery)
         no_candidate_mode = REAL_PUBLIC_SOURCE_CANDIDATE_MODE if discovery_attempted else "REAL_SOURCE_REQUIRED"
@@ -3153,6 +3362,7 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
             real_candidate_stage2_capture=real_candidate_stage2_capture,
             raw_candidates=[],
             selected_candidate_count=0,
+            stage1_6_loop_input_count=0,
             closed_loop_results=[],
             stage1_6_attempted_count=0,
             stage1_6_pending_count=0,
@@ -3177,6 +3387,9 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
                 "region_codes": requested_region_codes,
                 "project_types": requested_project_types,
                 "candidate_count": 0,
+                "candidate_count_before_project_exclusion": raw_candidate_count_before_project_exclusion,
+                "excluded_project_id_count": len(excluded_project_ids),
+                "excluded_project_filtered_count": excluded_project_filtered_count,
                 "selected_candidate_count": 0,
                 "closed_loop_generated_count": 0,
                 "selection_semantics": "CANDIDATE_PUBLICITY_WINDOW_LAYER_NOT_SINGLE_PICK",
@@ -3271,8 +3484,22 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
             "customer_download_enabled": False,
             "automated_refund_enabled": False,
         }
+        _operator_runtime_checkpoint(
+            payload,
+            "PERSIST_SEARCH_READBACK",
+            3,
+            4,
+            "persisting no-candidate search readback",
+        )
         result["search_run_record"] = _record_autonomous_search_run(payload=payload, result=result)
         result["search_run_id"] = result["search_run_record"]["run_id"]
+        _operator_runtime_checkpoint(
+            payload,
+            "COMPLETED",
+            4,
+            4,
+            "no-candidate search readback persisted",
+        )
         return result
     primary_candidate_seed = raw_candidates[0]
     primary_resolved = resolved_by_region.get(str(primary_candidate_seed.get("region_code") or "")) or next(
@@ -3317,11 +3544,47 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
         }
     )
     selected = list(market_scan.get("opportunity_candidates", []))
+    market_scan_candidates = [
+        dict(item)
+        for item in list(market_scan.get("market_scan_candidates", []) or [])
+        if isinstance(item, Mapping)
+    ]
     raw_by_project_id = {str(item.get("project_id") or ""): item for item in raw_candidates}
     region_rank = {region: index for index, region in enumerate(requested_region_codes)}
     project_type_rank = {project_type_item: index for index, project_type_item in enumerate(requested_project_types)}
+    source_candidate_mode = (
+        "EXPLICIT_CANDIDATES"
+        if explicit_candidate_list
+        else "OFFLINE_SAMPLE_CANDIDATES"
+        if offline_sample_candidates_enabled
+        else REAL_PUBLIC_SOURCE_CANDIDATE_MODE
+    )
+    stage1_6_attempt_all_candidates_enabled = (
+        source_candidate_mode == REAL_PUBLIC_SOURCE_CANDIDATE_MODE
+        and _truthy(
+            _first_present(
+                payload.get("attempt_all_stage1_6_candidates"),
+                payload.get("attempt_all_candidates_for_stage1_6"),
+                payload.get("attempt_all_real_public_candidates_for_stage1_6"),
+            )
+        )
+    )
+    stage1_6_loop_candidates = [
+        dict(item)
+        for item in (market_scan_candidates if stage1_6_attempt_all_candidates_enabled else selected)
+    ]
+    stage1_6_selection_reason = (
+        "attempt_all_real_public_candidates_for_stage1_6_enabled"
+        if stage1_6_attempt_all_candidates_enabled
+        else "market_scan_opportunity_candidate_selected"
+    )
+    stage1_6_selection_reason_by_project_id = {
+        str(item.get("project_id") or ""): stage1_6_selection_reason
+        for item in stage1_6_loop_candidates
+        if str(item.get("project_id") or "").strip()
+    }
     selected_ranked = sorted(
-        [dict(item) for item in selected],
+        stage1_6_loop_candidates,
         key=lambda item: _candidate_selection_key(
             item,
             region_rank=region_rank,
@@ -3329,14 +3592,12 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
         ),
         reverse=True,
     )
+    selected_ranked_project_ids = {
+        str(item.get("project_id") or "")
+        for item in selected_ranked
+        if str(item.get("project_id") or "").strip()
+    }
     if not selected_ranked:
-        source_candidate_mode = (
-            "EXPLICIT_CANDIDATES"
-            if explicit_candidate_list
-            else "OFFLINE_SAMPLE_CANDIDATES"
-            if offline_sample_candidates_enabled
-            else REAL_PUBLIC_SOURCE_CANDIDATE_MODE
-        )
         offline_sample_mode = source_candidate_mode == "OFFLINE_SAMPLE_CANDIDATES"
         review_response = {
             "surface_id": "operator_autonomous_opportunity_search",
@@ -3351,7 +3612,16 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
                 "region_codes": requested_region_codes,
                 "project_types": requested_project_types,
                 "candidate_count": len(raw_candidates),
+                "candidate_count_before_project_exclusion": raw_candidate_count_before_project_exclusion,
+                "excluded_project_id_count": len(excluded_project_ids),
+                "excluded_project_filtered_count": excluded_project_filtered_count,
                 "selected_candidate_count": len(selected),
+                "stage1_6_loop_candidate_count": len(selected_ranked),
+                "stage1_6_attempt_all_candidates_enabled": stage1_6_attempt_all_candidates_enabled,
+                "stage1_6_candidate_selection_source": "ALL_REAL_PUBLIC_CANDIDATES_EXPLICIT_OPT_IN"
+                if stage1_6_attempt_all_candidates_enabled
+                else "MARKET_SCAN_OPPORTUNITY_CANDIDATES",
+                "stage1_6_not_selected_candidate_count": max(len(raw_candidates) - len(selected_ranked), 0),
                 "closed_loop_generated_count": 0,
                 "selection_semantics": "CANDIDATE_PUBLICITY_WINDOW_LAYER_NOT_SINGLE_PICK",
                 "stage1_policy": "所有候选先入池，真实候选优先保留；Stage1 以中标候选公示/异议窗口作第一层分流，金额、项目类型、证据字段只作为复核/优先级标签；明确无效链接才跳过。",
@@ -3409,9 +3679,14 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
                 if source_candidate_mode == REAL_PUBLIC_SOURCE_CANDIDATE_MODE
                 else "候选进入 Stage1 评分，但未入选闭环生成。",
             },
-            "candidate_options": _candidate_option_surface(
-                market_scan=market_scan,
-                raw_candidates=raw_candidates,
+            "candidate_options": _candidate_options_with_closed_loop_results(
+                _candidate_option_surface(
+                    market_scan=market_scan,
+                    raw_candidates=raw_candidates,
+                ),
+                [],
+                stage1_6_loop_project_ids=selected_ranked_project_ids,
+                stage1_6_selection_reason_by_project_id=stage1_6_selection_reason_by_project_id,
             ),
             "selected_candidate_count": 0,
             "reason": "market_scan_did_not_select_candidate",
@@ -3426,7 +3701,7 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
                 "real_candidate_discovery_attempted": bool(real_candidate_discovery),
                 "offline_sample_validation": offline_sample_mode,
                 "customer_sellable_evidence_ready": False,
-                "data_boundary_message": "已发现真实列表页候选并尝试 Stage2 详情页快照；客户可售前还要完成真实详情字段、附件和 Stage4-9 证据回链。"
+                "data_boundary_message": "已发现真实列表页候选并尝试 Stage2 详情页快照；客户可售前还要完成真实详情字段、附件和 Stage1-6 证据回链。"
                 if source_candidate_mode == REAL_PUBLIC_SOURCE_CANDIDATE_MODE
                 else "候选未入选闭环生成。",
                 "test_path_unblocked": bool(raw_candidates),
@@ -3441,7 +3716,7 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
                         state="候选待复核",
                         note="真实候选已送入 Stage1，但未满足自动闭环阈值。",
                         failure_reasons=["candidate_fields_need_detail_capture"],
-                        next_action="把真实详情/附件快照送入 Stage4-9，并继续补字段解析硬化。",
+                        next_action="把真实详情/附件快照送入 Stage1-6，并继续补字段解析硬化。",
                     ),
                     _runtime_stage(
                         stage=2,
@@ -3496,7 +3771,7 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
                             dict(real_candidate_stage2_capture.get("detail_capture_failure_summary", {}) or {}).keys()
                         )
                         or ["detail_snapshot_missing_or_degraded"],
-                        next_action="把 detail/attachment snapshot 的解析字段作为 Stage4-9 正式输入。",
+                        next_action="把 detail/attachment snapshot 的解析字段作为 Stage1-6 正式输入。",
                     )
                 ],
                 "totals": {
@@ -3529,11 +3804,25 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
             "customer_download_enabled": False,
             "automated_refund_enabled": False,
         }
+        _operator_runtime_checkpoint(
+            payload,
+            "PERSIST_SEARCH_READBACK",
+            3,
+            4,
+            "persisting review-required search readback",
+        )
         review_response["search_run_record"] = _record_autonomous_search_run(
             payload=payload,
             result=review_response,
         )
         review_response["search_run_id"] = review_response["search_run_record"]["run_id"]
+        _operator_runtime_checkpoint(
+            payload,
+            "COMPLETED",
+            4,
+            4,
+            "review-required search readback persisted",
+        )
         return review_response
 
     closed_loop_results: list[dict[str, Any]] = []
@@ -3543,7 +3832,7 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
     primary_region_adapter: dict[str, Any] = {}
     primary_entry_profile: dict[str, Any] = {}
     primary_candidate: dict[str, Any] = {}
-    primary_real_public_stage4_9_readback: dict[str, Any] = {}
+    primary_real_public_stage1_6_readback: dict[str, Any] = {}
     stage1_6_time_budget_seconds = (
         _as_float(
             _first_present(
@@ -3563,7 +3852,14 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
     stage2_detail_pending_for_stage1_6_count = 0
     stage1_6_time_budget_exhausted = False
     with DatabaseSession.default().bulk_write():
-        for selected_candidate in selected_ranked:
+        for candidate_index, selected_candidate in enumerate(selected_ranked, start=1):
+            _operator_runtime_checkpoint(
+                payload,
+                "STAGE1_6_CHAIN",
+                2,
+                4,
+                f"processing candidate {candidate_index}/{len(selected_ranked)}",
+            )
             loop_candidate = _merge_selected_candidate(
                 selected_candidate,
                 raw_by_project_id=raw_by_project_id,
@@ -3593,15 +3889,15 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
             if loop_real_public_mode and not loop_snapshot_id:
                 stage1_6_pending_count += 1
                 stage2_detail_pending_for_stage1_6_count += 1
-                loop_real_public_stage4_9_readback = _build_review_required_real_public_stage4_9_summary(
+                loop_real_public_stage1_6_readback = _build_review_required_real_public_stage1_6_summary(
                     snapshot_id="",
                     source_url=str(loop_candidate.get("source_url") or ""),
                     fail_closed_reasons=["stage2_detail_capture_pending"],
                 )
-                loop_real_public_stage4_9_readback.update(
+                loop_real_public_stage1_6_readback.update(
                     {
                         "readback_state": "PENDING_STAGE2_DETAIL_CAPTURE",
-                        "real_public_stage4_9_chain_state": "PENDING_STAGE2_DETAIL_CAPTURE",
+                        "real_public_chain_state": "PENDING_STAGE2_DETAIL_CAPTURE",
                         "real_public_stage1_6_chain_state": "PENDING_STAGE2_DETAIL_CAPTURE",
                         "stage2_detail_capture_pending": True,
                     }
@@ -3621,10 +3917,10 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
                         "stage1_6_closed_loop_ready": False,
                         "stage1_6_time_budget_pending": False,
                         "stage2_detail_capture_pending": True,
-                        "real_public_stage4_9_readback": loop_real_public_stage4_9_readback,
-                        "real_public_stage4_9_chain_state": "PENDING_STAGE2_DETAIL_CAPTURE",
+                        "real_public_stage1_6_readback": loop_real_public_stage1_6_readback,
+                        "real_public_chain_state": "PENDING_STAGE2_DETAIL_CAPTURE",
                         "real_public_stage1_6_chain_state": "PENDING_STAGE2_DETAIL_CAPTURE",
-                        "real_world_hard_defect_gate_state": loop_real_public_stage4_9_readback.get(
+                        "real_world_hard_defect_gate_state": loop_real_public_stage1_6_readback.get(
                             "real_world_hard_defect_gate_state"
                         ),
                         "customer_sellable_evidence_ready": False,
@@ -3638,7 +3934,7 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
                     primary_source_blueprint = loop_source_blueprint
                     primary_chain = {}
                     primary_acceptance = {}
-                    primary_real_public_stage4_9_readback = loop_real_public_stage4_9_readback
+                    primary_real_public_stage1_6_readback = loop_real_public_stage1_6_readback
                 continue
             if (
                 loop_real_public_mode
@@ -3648,15 +3944,15 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
             ):
                 stage1_6_time_budget_exhausted = True
                 stage1_6_pending_count += 1
-                loop_real_public_stage4_9_readback = _build_review_required_real_public_stage4_9_summary(
+                loop_real_public_stage1_6_readback = _build_review_required_real_public_stage1_6_summary(
                     snapshot_id=loop_snapshot_id,
                     source_url=str(loop_candidate.get("source_url") or ""),
                     fail_closed_reasons=["stage1_6_loop_time_budget_pending"],
                 )
-                loop_real_public_stage4_9_readback.update(
+                loop_real_public_stage1_6_readback.update(
                     {
                         "readback_state": "PENDING_TIME_BUDGET",
-                        "real_public_stage4_9_chain_state": "PENDING_TIME_BUDGET",
+                        "real_public_chain_state": "PENDING_TIME_BUDGET",
                         "real_public_stage1_6_chain_state": "PENDING_TIME_BUDGET",
                         "stage1_6_time_budget_pending": True,
                     }
@@ -3676,10 +3972,10 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
                         "stage1_6_closed_loop_ready": False,
                         "stage1_6_time_budget_pending": True,
                         "stage2_detail_capture_pending": False,
-                        "real_public_stage4_9_readback": loop_real_public_stage4_9_readback,
-                        "real_public_stage4_9_chain_state": "PENDING_TIME_BUDGET",
+                        "real_public_stage1_6_readback": loop_real_public_stage1_6_readback,
+                        "real_public_chain_state": "PENDING_TIME_BUDGET",
                         "real_public_stage1_6_chain_state": "PENDING_TIME_BUDGET",
-                        "real_world_hard_defect_gate_state": loop_real_public_stage4_9_readback.get(
+                        "real_world_hard_defect_gate_state": loop_real_public_stage1_6_readback.get(
                             "real_world_hard_defect_gate_state"
                         ),
                         "customer_sellable_evidence_ready": False,
@@ -3703,13 +3999,13 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
                     stage1_6_attempted_count += 1
                     loop_chain = run_internal_chain_until_stage6(chain_payload)
                     persist_stage_bundle(loop_chain["stage6"])
-                    loop_real_public_stage4_9_readback = _build_real_public_stage4_9_readback_from_candidate(
+                    loop_real_public_stage1_6_readback = _build_real_public_stage1_6_readback_from_candidate(
                         candidate=loop_candidate,
                         chain=loop_chain,
                     )
                     loop_acceptance = _build_real_public_stage1_6_acceptance_surface(
                         chain=loop_chain,
-                        readback=loop_real_public_stage4_9_readback,
+                        readback=loop_real_public_stage1_6_readback,
                     )
                     opportunity_ref = dict(
                         loop_acceptance.get("stage_refs", {}).get(
@@ -3722,7 +4018,7 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
                     loop_chain = run_internal_chain(chain_payload)
                     for stage_key in ("stage6", "stage7", "stage8", "stage9"):
                         persist_stage_bundle(loop_chain[stage_key])
-                    loop_real_public_stage4_9_readback = _build_real_public_stage4_9_readback_from_candidate(
+                    loop_real_public_stage1_6_readback = _build_real_public_stage1_6_readback_from_candidate(
                         candidate=loop_candidate,
                         chain=loop_chain,
                     )
@@ -3739,7 +4035,7 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
                 loop_chain = {}
                 loop_acceptance = {}
                 loop_opportunity_id = ""
-                loop_real_public_stage4_9_readback = _build_review_required_real_public_stage4_9_summary(
+                loop_real_public_stage1_6_readback = _build_review_required_real_public_stage1_6_summary(
                     snapshot_id=str(
                         loop_candidate.get("stage2_detail_snapshot_id_optional")
                         or loop_candidate.get("source_document_ref")
@@ -3749,10 +4045,10 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
                     fail_closed_reasons=[f"stage1_6_candidate_chain_exception:{exc}"],
                 )
             loop_real_public_chain_state = str(
-                loop_real_public_stage4_9_readback.get("real_public_stage4_9_chain_state") or ""
+                loop_real_public_stage1_6_readback.get("real_public_stage1_6_chain_state") or ""
             )
             loop_real_public_sellable_gate_ready = bool(
-                loop_real_public_stage4_9_readback.get("real_public_sellable_gate_ready")
+                loop_real_public_stage1_6_readback.get("real_public_sellable_gate_ready")
             )
             loop_search_state = (
                 "AUTONOMOUS_SEARCH_ACCEPTED"
@@ -3780,30 +4076,30 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
                     if loop_opportunity_id
                     else "",
                     "stage1_6_closed_loop_ready": bool(
-                        loop_real_public_stage4_9_readback.get("stage1_6_closed_loop_ready")
-                        or loop_real_public_stage4_9_readback.get("real_public_stage1_6_chain_state") == "INTERNAL_READY"
-                        or loop_real_public_stage4_9_readback.get("real_public_stage4_9_chain_state") == "INTERNAL_READY"
+                        loop_real_public_stage1_6_readback.get("stage1_6_closed_loop_ready")
+                        or loop_real_public_stage1_6_readback.get("real_public_stage1_6_chain_state") == "INTERNAL_READY"
+                        or loop_real_public_stage1_6_readback.get("real_public_stage1_6_chain_state") == "INTERNAL_READY"
                     )
                     if loop_real_public_mode
                     else bool(loop_opportunity_id),
                     "stage1_6_time_budget_pending": bool(
-                        loop_real_public_stage4_9_readback.get("stage1_6_time_budget_pending")
+                        loop_real_public_stage1_6_readback.get("stage1_6_time_budget_pending")
                     ),
                     "stage2_detail_capture_pending": bool(
-                        loop_real_public_stage4_9_readback.get("stage2_detail_capture_pending")
+                        loop_real_public_stage1_6_readback.get("stage2_detail_capture_pending")
                     ),
-                    "real_public_stage4_9_readback": loop_real_public_stage4_9_readback,
-                    "real_public_stage4_9_chain_state": loop_real_public_chain_state,
-                    "real_public_stage1_6_chain_state": loop_real_public_stage4_9_readback.get(
+                    "real_public_stage1_6_readback": loop_real_public_stage1_6_readback,
+                    "real_public_chain_state": loop_real_public_chain_state,
+                    "real_public_stage1_6_chain_state": loop_real_public_stage1_6_readback.get(
                         "real_public_stage1_6_chain_state"
                     ),
-                    "real_world_hard_defect_gate_state": loop_real_public_stage4_9_readback.get(
+                    "real_world_hard_defect_gate_state": loop_real_public_stage1_6_readback.get(
                         "real_world_hard_defect_gate_state"
                     ),
                     "customer_sellable_evidence_ready": bool(
-                        loop_real_public_stage4_9_readback.get("customer_sellable_evidence_ready")
+                        loop_real_public_stage1_6_readback.get("customer_sellable_evidence_ready")
                     ),
-                    "fail_closed_reasons": list(loop_real_public_stage4_9_readback.get("fail_closed_reasons", []) or []),
+                    "fail_closed_reasons": list(loop_real_public_stage1_6_readback.get("fail_closed_reasons", []) or []),
                 }
             )
             if not primary_candidate:
@@ -3813,7 +4109,7 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
                 primary_source_blueprint = loop_source_blueprint
                 primary_chain = loop_chain
                 primary_acceptance = loop_acceptance
-                primary_real_public_stage4_9_readback = loop_real_public_stage4_9_readback
+                primary_real_public_stage1_6_readback = loop_real_public_stage1_6_readback
     closed_loop_generated_count = sum(1 for item in closed_loop_results if item.get("opportunity_id"))
     stage1_6_closed_loop_count = sum(1 for item in closed_loop_results if item.get("stage1_6_closed_loop_ready"))
     candidate = primary_candidate or primary_candidate_seed
@@ -3833,18 +4129,18 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
     offline_sample_mode = source_candidate_mode == "OFFLINE_SAMPLE_CANDIDATES"
     primary_real_public_mode = source_candidate_mode == REAL_PUBLIC_SOURCE_CANDIDATE_MODE
     primary_real_public_chain_state = str(
-        primary_real_public_stage4_9_readback.get("real_public_stage4_9_chain_state") or ""
+        primary_real_public_stage1_6_readback.get("real_public_stage1_6_chain_state") or ""
     )
     primary_real_public_stage1_6_chain_state = str(
-        primary_real_public_stage4_9_readback.get("real_public_stage1_6_chain_state")
+        primary_real_public_stage1_6_readback.get("real_public_stage1_6_chain_state")
         or primary_real_public_chain_state
         or ""
     )
     primary_real_public_sellable_gate_ready = bool(
-        primary_real_public_stage4_9_readback.get("real_public_sellable_gate_ready")
+        primary_real_public_stage1_6_readback.get("real_public_sellable_gate_ready")
     )
     customer_sellable_evidence_ready = bool(
-        primary_real_public_stage4_9_readback.get("customer_sellable_evidence_ready")
+        primary_real_public_stage1_6_readback.get("customer_sellable_evidence_ready")
     )
     search_state = (
         "AUTONOMOUS_SEARCH_ACCEPTED"
@@ -3861,6 +4157,8 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
             raw_candidates=raw_candidates,
         ),
         closed_loop_results,
+        stage1_6_loop_project_ids=selected_ranked_project_ids,
+        stage1_6_selection_reason_by_project_id=stage1_6_selection_reason_by_project_id,
     )
     capability_state = str(acceptance.get("capability_state") or "")
     if primary_real_public_mode:
@@ -3876,6 +4174,7 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
         real_candidate_stage2_capture=real_candidate_stage2_capture,
         raw_candidates=raw_candidates,
         selected_candidate_count=len(selected),
+        stage1_6_loop_input_count=len(selected_ranked),
         closed_loop_results=closed_loop_results,
         stage1_6_attempted_count=stage1_6_attempted_count,
         stage1_6_pending_count=stage1_6_pending_count,
@@ -3906,7 +4205,16 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
             "region_codes": requested_region_codes,
             "project_types": requested_project_types,
             "candidate_count": len(raw_candidates),
+            "candidate_count_before_project_exclusion": raw_candidate_count_before_project_exclusion,
+            "excluded_project_id_count": len(excluded_project_ids),
+            "excluded_project_filtered_count": excluded_project_filtered_count,
             "selected_candidate_count": len(selected),
+            "stage1_6_loop_candidate_count": len(selected_ranked),
+            "stage1_6_attempt_all_candidates_enabled": stage1_6_attempt_all_candidates_enabled,
+            "stage1_6_candidate_selection_source": "ALL_REAL_PUBLIC_CANDIDATES_EXPLICIT_OPT_IN"
+            if stage1_6_attempt_all_candidates_enabled
+            else "MARKET_SCAN_OPPORTUNITY_CANDIDATES",
+            "stage1_6_not_selected_candidate_count": max(len(raw_candidates) - len(selected_ranked), 0),
             "closed_loop_generated_count": closed_loop_generated_count,
             "stage1_6_closed_loop_count": stage1_6_closed_loop_count,
             "stage1_6_attempted_count": stage1_6_attempted_count,
@@ -3963,9 +4271,9 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
             "real_candidate_discovery_attempted": bool(real_candidate_discovery),
             "offline_sample_candidates_enabled": offline_sample_mode,
             "stage1_6_validation_ledger": validation_ledger,
-            "real_public_stage4_9_chain_state": primary_real_public_chain_state,
+            "real_public_chain_state": primary_real_public_chain_state,
             "real_public_stage1_6_chain_state": primary_real_public_stage1_6_chain_state,
-            "real_world_hard_defect_gate_state": primary_real_public_stage4_9_readback.get(
+            "real_world_hard_defect_gate_state": primary_real_public_stage1_6_readback.get(
                 "real_world_hard_defect_gate_state"
             ),
         },
@@ -3975,33 +4283,38 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
             "real_candidate_discovery_attempted": bool(real_candidate_discovery),
             "offline_sample_validation": offline_sample_mode,
             "customer_sellable_evidence_ready": customer_sellable_evidence_ready,
-            "real_public_stage4_9_chain_state": primary_real_public_chain_state,
+            "real_public_chain_state": primary_real_public_chain_state,
             "real_public_stage1_6_chain_state": primary_real_public_stage1_6_chain_state,
+            "stage1_6_loop_candidate_count": len(selected_ranked),
+            "stage1_6_attempt_all_candidates_enabled": stage1_6_attempt_all_candidates_enabled,
+            "stage1_6_candidate_selection_source": "ALL_REAL_PUBLIC_CANDIDATES_EXPLICIT_OPT_IN"
+            if stage1_6_attempt_all_candidates_enabled
+            else "MARKET_SCAN_OPPORTUNITY_CANDIDATES",
             "stage1_6_attempted_count": stage1_6_attempted_count,
             "stage1_6_pending_count": stage1_6_pending_count,
             "stage2_detail_pending_for_stage1_6_count": stage2_detail_pending_for_stage1_6_count,
             "stage1_6_time_budget_exhausted": stage1_6_time_budget_exhausted,
             "stage1_6_validation_ledger": validation_ledger,
-            "real_world_hard_defect_gate_state": primary_real_public_stage4_9_readback.get(
+            "real_world_hard_defect_gate_state": primary_real_public_stage1_6_readback.get(
                 "real_world_hard_defect_gate_state"
             ),
             "remaining_real_world_gaps": list(
-                primary_real_public_stage4_9_readback.get("remaining_real_world_gaps", []) or []
+                primary_real_public_stage1_6_readback.get("remaining_real_world_gaps", []) or []
             ),
-            "project_manager_identifier_resolution_state": primary_real_public_stage4_9_readback.get(
+            "project_manager_identifier_resolution_state": primary_real_public_stage1_6_readback.get(
                 "project_manager_identifier_resolution_state"
             ),
-            "project_manager_identifier_resolution_next_action": primary_real_public_stage4_9_readback.get(
+            "project_manager_identifier_resolution_next_action": primary_real_public_stage1_6_readback.get(
                 "project_manager_identifier_resolution_next_action"
             ),
-            "jzsc_company_first_identity_resolution_required": primary_real_public_stage4_9_readback.get(
+            "jzsc_company_first_identity_resolution_required": primary_real_public_stage1_6_readback.get(
                 "jzsc_company_first_identity_resolution_required"
             ),
             "jzsc_company_first_identity_resolution_plan": dict(
-                primary_real_public_stage4_9_readback.get("jzsc_company_first_identity_resolution_plan", {}) or {}
+                primary_real_public_stage1_6_readback.get("jzsc_company_first_identity_resolution_plan", {}) or {}
             ),
             "regional_hard_defect_source_plan": dict(
-                primary_real_public_stage4_9_readback.get("regional_hard_defect_source_plan", {}) or {}
+                primary_real_public_stage1_6_readback.get("regional_hard_defect_source_plan", {}) or {}
             ),
             "display_message": (
                 "离线样本只验证 Stage1-9、工作台和证据包链路；不能当作真实市场发现或客户可售证据。"
@@ -4019,7 +4332,7 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
         "market_scan": market_scan,
         "source_blueprint_plan": source_blueprint,
         "acceptance": acceptance,
-        "real_public_stage4_9_readback": primary_real_public_stage4_9_readback,
+        "real_public_stage1_6_readback": primary_real_public_stage1_6_readback,
         "runtime_flow": _build_autonomous_runtime_flow(
             payload=payload,
             candidate=candidate,
@@ -4027,7 +4340,7 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
             source_blueprint=source_blueprint,
             chain=chain,
             acceptance=acceptance,
-            real_public_stage4_9_readback=primary_real_public_stage4_9_readback,
+            real_public_stage1_6_readback=primary_real_public_stage1_6_readback,
         ),
         "opportunity_id": opportunity_id,
         "source_candidate_mode": source_candidate_mode,
@@ -4055,6 +4368,13 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
         result=response,
     )
     response["search_run_id"] = response["search_run_record"]["run_id"]
+    _operator_runtime_checkpoint(
+        payload,
+        "COMPLETED",
+        4,
+        4,
+        "autonomous search readback persisted",
+    )
     return response
 
 
@@ -4071,6 +4391,7 @@ def _record_autonomous_search_run(
     payload: Mapping[str, Any],
     result: Mapping[str, Any],
 ) -> dict[str, Any]:
+    requested_by, requested_by_role = _operator_actor(payload)
     requested_at = build_persisted_at()
     region_adapter = dict(result.get("region_adapter", {}) or {})
     entry_profile = dict(result.get("entry_profile", {}) or {})
@@ -4116,6 +4437,11 @@ def _record_autonomous_search_run(
         "source_url": str(candidate.get("source_url") or ""),
         "source_profile_id": str(candidate.get("source_profile_id") or entry_profile.get("profile_id") or ""),
         "source_site_name": str(candidate.get("source_site_name") or entry_profile.get("site_name") or ""),
+        "source_snapshot_id": str(
+            candidate.get("stage2_detail_snapshot_id_optional")
+            or candidate.get("snapshot_id_optional")
+            or ""
+        ),
         "analysis_score": str(candidate.get("analysis_score") or ""),
         "analysis_decision": str(candidate.get("analysis_decision") or ""),
         "analysis_priority": str(candidate.get("analysis_priority") or ""),
@@ -4146,12 +4472,12 @@ def _record_autonomous_search_run(
         button_flow_id="owner_console_autonomous_opportunity_search",
         action_state=action_state,
         resulting_assignment_lifecycle_state=None,
-        requested_by_role="single_operator",
-        requested_by="卡卡罗特",
-        assigned_owner_role="single_operator",
-        assigned_owner="卡卡罗特",
-        reviewer_role="single_operator",
-        reviewer="卡卡罗特",
+        requested_by_role=requested_by_role,
+        requested_by=requested_by,
+        assigned_owner_role=requested_by_role,
+        assigned_owner=requested_by,
+        reviewer_role="",
+        reviewer="",
         reason="region_adapter_to_autonomous_opportunity_closed_loop",
         object_refs=object_refs,
         trace_refs={
@@ -4203,6 +4529,7 @@ def _autonomous_search_action_payload(action: PersistedOperatorAction) -> dict[s
         "source_url": refs.get("source_url"),
         "source_profile_id": refs.get("source_profile_id"),
         "source_site_name": refs.get("source_site_name"),
+        "source_snapshot_id": refs.get("source_snapshot_id"),
         "analysis_score": refs.get("analysis_score"),
         "analysis_decision": refs.get("analysis_decision"),
         "analysis_priority": refs.get("analysis_priority"),
@@ -4288,7 +4615,7 @@ def list_operator_autonomous_search_runs(payload: Mapping[str, Any] | None = Non
 
 
 def clear_operator_autonomous_search_runs(payload: Mapping[str, Any] | None = None) -> dict[str, Any]:
-    del payload
+    requested_by, requested_by_role = _operator_actor(payload)
     repo = OperatorActionRepository()
     work_item_id = _autonomous_search_work_item_id()
     clear_audit_work_item_id = _autonomous_search_clear_work_item_id()
@@ -4304,12 +4631,12 @@ def clear_operator_autonomous_search_runs(payload: Mapping[str, Any] | None = No
         button_flow_id="owner_console_clear_autonomous_search_runs",
         action_state="CLEARED",
         resulting_assignment_lifecycle_state=None,
-        requested_by_role="single_operator",
-        requested_by="卡卡罗特",
-        assigned_owner_role="single_operator",
-        assigned_owner="卡卡罗特",
-        reviewer_role="single_operator",
-        reviewer="卡卡罗特",
+        requested_by_role=requested_by_role,
+        requested_by=requested_by,
+        assigned_owner_role=requested_by_role,
+        assigned_owner=requested_by,
+        reviewer_role="",
+        reviewer="",
         reason="explicit_owner_clear_local_test_autonomous_search_records",
         object_refs={
             "cleared_work_item_id": work_item_id,
@@ -4391,6 +4718,7 @@ def _record_real_source_run(
     result: Mapping[str, Any],
     payload: Mapping[str, Any],
 ) -> dict[str, Any]:
+    requested_by, requested_by_role = _operator_actor(payload)
     requested_at = build_persisted_at()
     snapshot_id = str(result.get("snapshot_id_optional") or result.get("snapshot_id") or "").strip()
     status = str(result.get("status") or result.get("readback_state") or "UNKNOWN")
@@ -4416,12 +4744,12 @@ def _record_real_source_run(
         button_flow_id="owner_console_real_source_runner",
         action_state=action_state,
         resulting_assignment_lifecycle_state=None,
-        requested_by_role="single_operator",
-        requested_by="卡卡罗特",
-        assigned_owner_role="single_operator",
-        assigned_owner="卡卡罗特",
-        reviewer_role="single_operator",
-        reviewer="卡卡罗特",
+        requested_by_role=requested_by_role,
+        requested_by=requested_by,
+        assigned_owner_role=requested_by_role,
+        assigned_owner=requested_by,
+        reviewer_role="",
+        reviewer="",
         reason="owner_console_allowlisted_real_public_source_capture",
         object_refs=object_refs,
         trace_refs={
@@ -4488,6 +4816,18 @@ def list_owner_real_public_source_task_runs(payload: Mapping[str, Any] | None = 
 
 
 def run_owner_real_public_source_capture(payload: Mapping[str, Any]) -> dict[str, Any]:
+    if _truthy(payload.get("async_execution")):
+        return _enqueue_operator_long_task_response(
+            payload,
+            job_kind=REAL_SOURCE_CAPTURE_JOB_KIND,
+        )
+    _operator_runtime_checkpoint(
+        payload,
+        "CAPTURE_INPUT",
+        0,
+        3,
+        "validating allowlisted public source capture",
+    )
     capture_kind = str(payload.get("capture_kind", "")).strip().lower()
     profile_id = str(payload.get("profile_id", "")).strip()
     if not profile_id:
@@ -4495,6 +4835,13 @@ def run_owner_real_public_source_capture(payload: Mapping[str, Any]) -> dict[str
 
     service = Stage2Service()
     lineage_refs = _lineage_refs_from_payload(payload)
+    _operator_runtime_checkpoint(
+        payload,
+        "PUBLIC_SOURCE_CAPTURE",
+        1,
+        3,
+        f"capturing allowlisted {capture_kind} source",
+    )
     if capture_kind == "entry":
         profile = next((item for item in REAL_PUBLIC_ENTRY_PROFILES if item.profile_id == profile_id), None)
         if profile is None:
@@ -4517,7 +4864,14 @@ def run_owner_real_public_source_capture(payload: Mapping[str, Any]) -> dict[str
     else:
         raise ValueError("capture_kind must be entry or attachment")
 
-    return {
+    _operator_runtime_checkpoint(
+        payload,
+        "PERSIST_CAPTURE_READBACK",
+        2,
+        3,
+        "persisting capture readback",
+    )
+    response = {
         "surface_id": "operator_real_public_source_run",
         "capture_kind": capture_kind,
         "profile_id": profile_id,
@@ -4539,6 +4893,14 @@ def run_owner_real_public_source_capture(payload: Mapping[str, Any]) -> dict[str
         "external_release_enabled": False,
         "customer_download_enabled": False,
     }
+    _operator_runtime_checkpoint(
+        payload,
+        "COMPLETED",
+        3,
+        3,
+        "capture readback persisted",
+    )
+    return response
 
 
 def read_owner_real_public_source_capture(payload: Mapping[str, Any]) -> dict[str, Any]:
@@ -4559,6 +4921,688 @@ def read_owner_real_public_source_capture(payload: Mapping[str, Any]) -> dict[st
         "live_execution_enabled": False,
         "external_release_enabled": False,
         "customer_download_enabled": False,
+    }
+
+
+def preview_operator_long_task_status(
+    payload: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    limit = _as_int(dict(payload or {}).get("limit"), 20)
+    return {
+        "surface_id": "operator_long_task_status",
+        "internal_only": True,
+        "repository_backed_readback": True,
+        "background_worker_queue": operator_long_task_status(
+            limit=max(1, min(limit, 100))
+        ),
+        "web_request_execution_enabled": False,
+        "live_execution_enabled": False,
+        "external_release_enabled": False,
+        "customer_visible_allowed": False,
+    }
+
+
+def cancel_operator_long_task(payload: Mapping[str, Any]) -> dict[str, Any]:
+    queue_item_id = str(payload.get("queue_item_id") or "").strip()
+    if not queue_item_id:
+        raise ValueError("queue_item_id is required")
+    repository = WorkerQueueRepository()
+    current = repository.get(queue_item_id)
+    if current is None or current.queue_name != OPERATOR_LONG_TASK_QUEUE_NAME:
+        raise ValueError(f"operator long task queue item not found: {queue_item_id}")
+    requested_by, requested_by_role = _operator_actor(payload)
+    cancelled = repository.request_cancel(
+        queue_item_id=queue_item_id,
+        requested_by=requested_by,
+        reason=str(payload.get("reason") or "operator_requested_cancel"),
+        now=str(payload.get("now") or build_persisted_at()),
+    )
+    return {
+        "surface_id": "operator_long_task_cancel",
+        "internal_only": True,
+        "repository_backed_readback": True,
+        "explicit_operator_action": True,
+        "cancel_request_accepted": True,
+        "cancellation_mode": (
+            "COOPERATIVE_RUNNING_TASK"
+            if cancelled.status == "running"
+            else "IMMEDIATE_BEFORE_EXECUTION"
+        ),
+        "requested_by": requested_by,
+        "requested_by_role": requested_by_role,
+        "queue_item": _controlled_gray_queue_item_summary(cancelled),
+        "background_worker_queue": operator_long_task_status(limit=20),
+        "web_request_execution_enabled": False,
+        "live_execution_enabled": False,
+        "external_release_enabled": False,
+        "customer_visible_allowed": False,
+        "payment_execution_enabled": False,
+        "delivery_execution_enabled": False,
+        "automatic_refund_enabled": False,
+    }
+
+
+def _controlled_gray_orchestrator_work_item_id() -> str:
+    return "operator-controlled-gray-public-orchestrator-runs"
+
+
+def _controlled_gray_orchestrator_output_root(payload: Mapping[str, Any]) -> Path:
+    settings = get_settings()
+    configured_root = Path(
+        settings.operator_artifact_root_optional or CONTROLLED_GRAY_ORCHESTRATOR_SEARCH_ROOT
+    )
+    allowed_roots = [configured_root]
+    if settings.storage_scope == "process":
+        allowed_roots.append(Path(gettempdir()))
+    explicit = str(payload.get("output_root") or "").strip()
+    if explicit:
+        return _resolve_operator_path(
+            Path(explicit),
+            allowed_roots=allowed_roots,
+            field_name="output_root",
+        )
+    stamp = build_persisted_at().replace(":", "").replace("+", "").replace("-", "")
+    return configured_root.resolve() / f"operator-console-controlled-gray-public-orchestrator-{stamp}"
+
+
+def _controlled_gray_source_targets_path(payload: Mapping[str, Any]) -> Path:
+    settings = get_settings()
+    allowed_root = Path(
+        settings.operator_input_root_optional or (REPO_ROOT / "contracts" / "evaluation")
+    )
+    candidate = Path(str(payload.get("source_targets_json") or CONTROLLED_GRAY_SOURCE_TARGETS_JSON))
+    return _resolve_operator_path(
+        candidate,
+        allowed_roots=[allowed_root],
+        field_name="source_targets_json",
+    )
+
+
+def _resolve_operator_path(
+    candidate: Path,
+    *,
+    allowed_roots: list[Path],
+    field_name: str,
+) -> Path:
+    resolved = candidate.resolve(strict=False)
+    for root in allowed_roots:
+        allowed = root.resolve(strict=False)
+        try:
+            resolved.relative_to(allowed)
+            return resolved
+        except ValueError:
+            continue
+    raise ValueError(f"{field_name} must stay within a configured operator-controlled root")
+
+
+def _load_json_file(path: Path) -> dict[str, Any]:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8-sig"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return dict(payload) if isinstance(payload, Mapping) else {}
+
+
+def _latest_controlled_gray_orchestrator_manifest_path() -> Path | None:
+    actions = OperatorActionRepository().list(
+        work_item_id=_controlled_gray_orchestrator_work_item_id()
+    )
+    actions.sort(key=lambda action: str(action.completed_at or action.requested_at or ""), reverse=True)
+    for action in actions:
+        manifest_json = str(dict(action.object_refs).get("manifest_json") or "").strip()
+        if manifest_json:
+            path = Path(manifest_json)
+            if path.is_file():
+                return path
+    if not CONTROLLED_GRAY_ORCHESTRATOR_SEARCH_ROOT.exists():
+        return None
+    candidates = [
+        path
+        for path in CONTROLLED_GRAY_ORCHESTRATOR_SEARCH_ROOT.rglob(
+            "controlled-gray-public-orchestrator-v1.json"
+        )
+        if path.is_file()
+    ]
+    if not candidates:
+        return None
+    return max(candidates, key=lambda path: path.stat().st_mtime)
+
+
+def _controlled_gray_orchestrator_recommended_command(*, execute: bool = False) -> str:
+    parts = [
+        "powershell.exe",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "scripts\\run-controlled-gray-public-orchestrator-v1.ps1",
+        "-PerTargetSampleGoal",
+        "12",
+        "-GroupBy",
+        "target",
+        "-PerTargetCandidateLimit",
+        "12",
+        "-SegmentTimeoutSeconds",
+        "900",
+        "-ProfessionalSourceOnly",
+        "-AutoExecuteSourceRemediation",
+    ]
+    if execute:
+        parts.append("-Execute")
+    return " ".join(parts)
+
+
+def _controlled_gray_orchestrator_action_payload(action: PersistedOperatorAction) -> dict[str, Any]:
+    refs = dict(action.object_refs)
+    trace = dict(action.trace_refs)
+    return {
+        "run_id": action.action_event_id,
+        "action_state": action.action_state,
+        "orchestration_state": refs.get("orchestration_state"),
+        "aggregate_gray_review_state": refs.get("aggregate_gray_review_state"),
+        "output_root": refs.get("output_root"),
+        "manifest_json": refs.get("manifest_json"),
+        "manifest_sha256": refs.get("manifest_sha256"),
+        "project_sample_count": int(refs.get("project_sample_count") or 0),
+        "fixed_snapshot_sha256_count": int(refs.get("fixed_snapshot_sha256_count") or 0),
+        "stage4_readback_missing_sample_count": int(
+            refs.get("stage4_readback_missing_sample_count") or 0
+        ),
+        "source_remediation_final_record_count": int(
+            refs.get("source_remediation_final_record_count") or 0
+        ),
+        "recommended_execute_command": trace.get("recommended_execute_command"),
+        "requested_at": action.requested_at,
+        "completed_at": action.completed_at,
+        "repository_backed": True,
+        "internal_only": True,
+        "execute_enabled": False,
+        "customer_visible_allowed": False,
+        "payment_execution_enabled": False,
+        "delivery_execution_enabled": False,
+        "automatic_refund_enabled": False,
+    }
+
+
+def _controlled_gray_orchestrator_runs() -> list[dict[str, Any]]:
+    actions = OperatorActionRepository().list(
+        work_item_id=_controlled_gray_orchestrator_work_item_id()
+    )
+    runs = [_controlled_gray_orchestrator_action_payload(action) for action in actions]
+    runs.sort(key=lambda row: str(row.get("requested_at") or ""), reverse=True)
+    return runs
+
+
+def _controlled_gray_orchestrator_queue_item_id(payload: Mapping[str, Any]) -> str:
+    explicit = str(payload.get("queue_item_id") or "").strip()
+    if explicit:
+        return explicit
+    stamp = build_persisted_at().replace(":", "").replace("+", "").replace("-", "")
+    return f"CONTROLLED-GRAY-ORCHESTRATOR-WQ-{stamp}-{uuid4().hex[:12]}"
+
+
+def _controlled_gray_orchestrator_worker_lease_id(payload: Mapping[str, Any]) -> str:
+    explicit = str(payload.get("lease_id") or "").strip()
+    if explicit:
+        return explicit
+    stamp = build_persisted_at().replace(":", "").replace("+", "").replace("-", "")
+    return f"CONTROLLED-GRAY-ORCHESTRATOR-LEASE-{stamp}-{uuid4().hex[:12]}"
+
+
+def _controlled_gray_orchestrator_job_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
+    if bool(payload.get("execute")):
+        raise ValueError("execute is not allowed from controlled gray orchestrator worker")
+    requested_by, requested_by_role = _operator_actor(payload)
+    output_root = _controlled_gray_orchestrator_output_root(payload)
+    return {
+        "output_root": str(output_root),
+        "source_targets_json": str(_controlled_gray_source_targets_path(payload)),
+        "per_target_sample_goal": int(payload.get("per_target_sample_goal") or 12),
+        "per_target_candidate_limit": int(payload.get("per_target_candidate_limit") or 12),
+        "target_limit": int(payload.get("target_limit") or 0),
+        "group_by": str(payload.get("group_by") or "target"),
+        "segment_timeout_seconds": int(payload.get("segment_timeout_seconds") or 900),
+        "professional_source_only": True,
+        "auto_execute_source_remediation": True,
+        "execute": False,
+        "requested_by": requested_by,
+        "requested_by_role": requested_by_role,
+        "requested_at": str(payload.get("now") or build_persisted_at()),
+        "internal_only": True,
+        "customer_visible_allowed": False,
+        "payment_execution_enabled": False,
+        "delivery_execution_enabled": False,
+        "automatic_refund_enabled": False,
+    }
+
+
+def _controlled_gray_queue_item_summary(item: Any) -> dict[str, Any]:
+    if item is None:
+        return {}
+    payload = dict(getattr(item, "payload", {}) or {})
+    trace_refs = dict(getattr(item, "trace_refs", {}) or {})
+    audit_refs = dict(getattr(item, "audit_refs", {}) or {})
+    schedule = (
+        dict(payload.get("runtime_schedule") or {})
+        if isinstance(payload.get("runtime_schedule"), Mapping)
+        else {}
+    )
+    return {
+        "queue_item_id": str(getattr(item, "queue_item_id", "") or ""),
+        "queue_name": str(getattr(item, "queue_name", "") or ""),
+        "status": str(getattr(item, "status", "") or ""),
+        "output_root": str(payload.get("output_root") or ""),
+        "group_by": str(payload.get("group_by") or ""),
+        "per_target_sample_goal": int(payload.get("per_target_sample_goal") or 0),
+        "per_target_candidate_limit": int(payload.get("per_target_candidate_limit") or 0),
+        "target_limit": int(payload.get("target_limit") or 0),
+        "priority": getattr(item, "priority", None),
+        "attempt_count": getattr(item, "attempt_count", None),
+        "max_attempts": getattr(item, "max_attempts", None),
+        "next_run_at": getattr(item, "next_run_at", None),
+        "created_at": getattr(item, "created_at", None),
+        "updated_at": getattr(item, "updated_at", None),
+        "completed_at": getattr(item, "completed_at", None),
+        "claimed_at": getattr(item, "claimed_at", None),
+        "heartbeat_at": getattr(item, "heartbeat_at", None),
+        "expires_at": getattr(item, "expires_at", None),
+        "dead_letter_at": getattr(item, "dead_letter_at", None),
+        "suspended_at": getattr(item, "suspended_at", None),
+        "suspended_by": getattr(item, "suspended_by", None),
+        "suspend_reason": getattr(item, "suspend_reason", None),
+        "last_error": getattr(item, "last_error", None),
+        "last_error_category": getattr(item, "last_error_category", None),
+        "progress_stage": getattr(item, "progress_stage", None),
+        "progress_message": getattr(item, "progress_message", None),
+        "progress_completed_units": getattr(item, "progress_completed_units", 0),
+        "progress_total_units": getattr(item, "progress_total_units", None),
+        "progress_percent": getattr(item, "progress_percent", None),
+        "time_budget_seconds": getattr(item, "time_budget_seconds", None),
+        "budget_started_at": getattr(item, "budget_started_at", None),
+        "budget_deadline_at": getattr(item, "budget_deadline_at", None),
+        "budget_exhausted_at": getattr(item, "budget_exhausted_at", None),
+        "cancel_requested_at": getattr(item, "cancel_requested_at", None),
+        "cancel_requested_by": getattr(item, "cancel_requested_by", None),
+        "cancel_reason": getattr(item, "cancel_reason", None),
+        "cancelled_at": getattr(item, "cancelled_at", None),
+        "worker_id": getattr(item, "worker_id", None),
+        "lease_id": getattr(item, "lease_id", None),
+        "trace_id": trace_refs.get("trace_id") or "",
+        "audit_ref": audit_refs.get("run_audit_ref") or "",
+        "runtime_job_kind": str(payload.get("runtime_job_kind") or ""),
+        "required_worker_capability": str(
+            payload.get("required_worker_capability") or "core"
+        ),
+        "schedule_id": str(schedule.get("schedule_id") or ""),
+        "recurring": bool(schedule.get("recurring")),
+        "recurring_interval_seconds": int(schedule.get("interval_seconds") or 0),
+        "occurrence": int(schedule.get("occurrence") or 0),
+        "scheduled_for": str(schedule.get("scheduled_for") or ""),
+        "dedicated_worker_required": True,
+        "web_request_execution_enabled": False,
+        "execute_enabled": False,
+        "customer_visible_allowed": False,
+        "payment_execution_enabled": False,
+        "delivery_execution_enabled": False,
+        "automatic_refund_enabled": False,
+    }
+
+
+def _controlled_gray_orchestrator_queue_readback(limit: int = 8) -> dict[str, Any]:
+    items = WorkerQueueRepository().list(queue_name=CONTROLLED_GRAY_ORCHESTRATOR_QUEUE_NAME)
+    items.sort(key=lambda item: str(getattr(item, "updated_at", "") or ""), reverse=True)
+    status_counts: dict[str, int] = {}
+    for item in items:
+        status = str(getattr(item, "status", "") or "")
+        status_counts[status] = status_counts.get(status, 0) + 1
+    latest = [_controlled_gray_queue_item_summary(item) for item in items[:limit]]
+    scheduler_status = controlled_gray_scheduler_status(
+        WorkerQueueRepository(),
+        limit=limit,
+    )
+    return {
+        "queue_name": CONTROLLED_GRAY_ORCHESTRATOR_QUEUE_NAME,
+        "worker_id": CONTROLLED_GRAY_ORCHESTRATOR_WORKER_ID,
+        "queue_item_count": len(items),
+        "status_counts": dict(sorted(status_counts.items())),
+        "latest_items": latest,
+        "latest_item": (latest or [{}])[0],
+        "repository_backed": True,
+        "internal_storage_worker_ready": True,
+        "leases_enabled": scheduler_status["leases_enabled"],
+        "heartbeats_enabled": scheduler_status["heartbeats_enabled"],
+        "retry_enabled": scheduler_status["retry_enabled"],
+        "pause_resume_enabled": scheduler_status["pause_resume_enabled"],
+        "dead_letter_enabled": scheduler_status["dead_letter_enabled"],
+        "progress_reporting_enabled": scheduler_status[
+            "progress_reporting_enabled"
+        ],
+        "cooperative_cancellation_enabled": scheduler_status[
+            "cooperative_cancellation_enabled"
+        ],
+        "execution_budget_enabled": scheduler_status["execution_budget_enabled"],
+        "restart_recovery_enabled": scheduler_status["restart_recovery_enabled"],
+        "recurring_schedule_enabled": scheduler_status["recurring_schedule_enabled"],
+        "unattended_recurring_run_ready": scheduler_status[
+            "unattended_recurring_run_ready"
+        ],
+        "unattended_recurring_scope": scheduler_status[
+            "unattended_recurring_scope"
+        ],
+        "unattended_live_execution_ready": scheduler_status[
+            "unattended_live_execution_ready"
+        ],
+        "dedicated_process_command": scheduler_status["dedicated_process_command"],
+        "web_request_execution_enabled": False,
+        "external_queue_connection_enabled": False,
+        "execute_from_workbench_enabled": False,
+        "live_execution_enabled": False,
+        "customer_visible_allowed": False,
+    }
+
+
+def _record_controlled_gray_orchestrator_run(
+    manifest: Mapping[str, Any],
+    *,
+    output_root: Path,
+    payload: Mapping[str, Any],
+) -> dict[str, Any]:
+    requested_by, requested_by_role = _operator_actor(payload)
+    requested_at = build_persisted_at()
+    summary = dict(manifest.get("summary") or {})
+    manifest_json = output_root / "controlled-gray-public-orchestrator-v1.json"
+    run_id = (
+        f"CONTROLLED-GRAY-ORCHESTRATOR-{requested_at}-{uuid4().hex[:12]}"
+        .replace(":", "")
+        .replace("+", "")
+    )
+    action = PersistedOperatorAction(
+        action_event_id=run_id,
+        work_item_id=_controlled_gray_orchestrator_work_item_id(),
+        stage_scope=6,
+        action_id="controlled_gray_public_orchestrator_prepare",
+        button_flow_id="owner_console_controlled_gray_public_orchestrator_prepare",
+        action_state=str(summary.get("orchestration_state") or "UNKNOWN"),
+        resulting_assignment_lifecycle_state=None,
+        requested_by_role=requested_by_role,
+        requested_by=requested_by,
+        assigned_owner_role=requested_by_role,
+        assigned_owner=requested_by,
+        reviewer_role="",
+        reviewer="",
+        reason="owner_console_prepare_controlled_gray_public_orchestrator_manifest",
+        object_refs={
+            "output_root": str(output_root),
+            "manifest_json": str(manifest_json),
+            "manifest_sha256": str(manifest.get("manifest_sha256") or ""),
+            "orchestration_state": str(summary.get("orchestration_state") or ""),
+            "aggregate_gray_review_state": str(summary.get("aggregate_gray_review_state") or ""),
+            "project_sample_count": str(summary.get("project_sample_count") or 0),
+            "fixed_snapshot_sha256_count": str(summary.get("fixed_snapshot_sha256_count") or 0),
+            "stage4_readback_missing_sample_count": str(
+                summary.get("stage4_readback_missing_sample_count") or 0
+            ),
+            "source_remediation_final_record_count": str(
+                summary.get("source_remediation_final_record_count") or 0
+            ),
+        },
+        trace_refs={
+            "operator_console_route": "/operator-console/controlled-gray-orchestrator",
+            "prepare_path": "/operator-console/controlled-gray-orchestrator/prepare",
+            "recommended_execute_command": _controlled_gray_orchestrator_recommended_command(
+                execute=True
+            ),
+            "recommended_dry_run_command": _controlled_gray_orchestrator_recommended_command(
+                execute=False
+            ),
+        },
+        audit_refs={
+            "run_audit_ref": run_id,
+            "internal_only": "true",
+            "explicit_operator_action": "true",
+            "execute_enabled": "false",
+            "customer_visible_allowed": "false",
+            "payment_execution_enabled": "false",
+            "delivery_execution_enabled": "false",
+            "automatic_refund_enabled": "false",
+        },
+        requested_at=requested_at,
+        completed_at=requested_at,
+    )
+    OperatorActionRepository().append(action)
+    return _controlled_gray_orchestrator_action_payload(action)
+
+
+def preview_controlled_gray_public_orchestrator(
+    payload: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    del payload
+    latest_path = _latest_controlled_gray_orchestrator_manifest_path()
+    latest_manifest = _load_json_file(latest_path) if latest_path else {}
+    summary = dict(latest_manifest.get("summary") or {})
+    capability_matrix = dict(latest_manifest.get("automation_capability_matrix") or {})
+    runs = _controlled_gray_orchestrator_runs()
+    queue_readback = _controlled_gray_orchestrator_queue_readback()
+    return {
+        "surface_id": "operator_controlled_gray_public_orchestrator",
+        "surface_mode": "internal-readback",
+        "internal_only": True,
+        "readiness_only": True,
+        "projection_only": True,
+        "repository_backed_readback": True,
+        "controlled_gray_public_orchestrator": True,
+        "latest_manifest_available": bool(latest_manifest),
+        "latest_manifest_json": str(latest_path or ""),
+        "latest_manifest": latest_manifest,
+        "summary": summary,
+        "automation_capability_matrix": capability_matrix,
+        "run_count": len(runs),
+        "runs": runs,
+        "background_worker_queue": queue_readback,
+        "background_worker_ready": True,
+        "background_scheduler_state": "DEDICATED_SCHEDULER_WORKER_READY",
+        "unattended_recurring_run_ready": True,
+        "unattended_recurring_scope": "INTERNAL_PREPARE_ONLY",
+        "unattended_live_execution_ready": False,
+        "web_request_execution_enabled": False,
+        "recommended_dry_run_command": _controlled_gray_orchestrator_recommended_command(
+            execute=False
+        ),
+        "recommended_execute_command": _controlled_gray_orchestrator_recommended_command(
+            execute=True
+        ),
+        "owner_next_action": str(
+            summary.get("next_required_step")
+            or "prepare_controlled_gray_public_orchestrator_manifest"
+        ),
+        "workbench_trigger_ready": True,
+        "execute_from_workbench_enabled": False,
+        "safe_prepare_only": True,
+        "live_execution_enabled": False,
+        "external_release_enabled": False,
+        "customer_visible_allowed": False,
+        "payment_execution_enabled": False,
+        "delivery_execution_enabled": False,
+        "automatic_refund_enabled": False,
+        "query_miss_is_not_clearance": True,
+        "no_legal_conclusion": True,
+    }
+
+
+def prepare_controlled_gray_public_orchestrator(payload: Mapping[str, Any]) -> dict[str, Any]:
+    if bool(payload.get("execute")):
+        raise ValueError("execute is not allowed from operator console; use CLI with explicit approval")
+    output_root = _controlled_gray_orchestrator_output_root(payload)
+    source_targets_json = _controlled_gray_source_targets_path(payload)
+    per_target_sample_goal = int(payload.get("per_target_sample_goal") or 12)
+    per_target_candidate_limit = int(payload.get("per_target_candidate_limit") or 12)
+    target_limit = int(payload.get("target_limit") or 0)
+    group_by = str(payload.get("group_by") or "target")
+    bundle = build_controlled_gray_public_orchestrator_prepare_bundle(
+        output_root=output_root,
+        source_targets_json=source_targets_json,
+        per_target_sample_goal=per_target_sample_goal,
+        per_target_candidate_limit=per_target_candidate_limit,
+        target_limit=target_limit,
+        group_by=group_by,
+        segment_timeout_seconds=int(payload.get("segment_timeout_seconds") or 900),
+        professional_source_only=True,
+        execute=False,
+        auto_execute_source_remediation=True,
+    )
+    manifest = dict(bundle.get("manifest") or {})
+    run_record = _record_controlled_gray_orchestrator_run(
+        manifest,
+        output_root=output_root,
+        payload=payload,
+    )
+    return {
+        "surface_id": "operator_controlled_gray_public_orchestrator_prepare",
+        "internal_only": True,
+        "repository_backed_readback": True,
+        "explicit_operator_action": True,
+        "controlled_gray_public_orchestrator": True,
+        "safe_prepare_only": True,
+        "execute_from_workbench_enabled": False,
+        "output_root": str(output_root),
+        "source_targets_summary": bundle.get("source_targets_summary", {}),
+        "segment_summary": bundle.get("segment_summary", {}),
+        "aggregate_summary": bundle.get("aggregate_summary", {}),
+        "manifest": manifest,
+        "summary": manifest.get("summary", {}),
+        "run_record": run_record,
+        "recommended_execute_command": _controlled_gray_orchestrator_recommended_command(
+            execute=True
+        ),
+        "live_execution_enabled": False,
+        "external_release_enabled": False,
+        "customer_visible_allowed": False,
+        "payment_execution_enabled": False,
+        "delivery_execution_enabled": False,
+        "automatic_refund_enabled": False,
+        "query_miss_is_not_clearance": True,
+        "no_legal_conclusion": True,
+    }
+
+
+def enqueue_controlled_gray_public_orchestrator_worker(payload: Mapping[str, Any]) -> dict[str, Any]:
+    job_payload = _controlled_gray_orchestrator_job_payload(payload)
+    queue_item_id = _controlled_gray_orchestrator_queue_item_id(payload)
+    if WorkerQueueRepository().get(queue_item_id) is not None:
+        raise ValueError(f"controlled gray orchestrator queue item already exists: {queue_item_id}")
+    item = enqueue_controlled_gray_orchestrator_job(
+        job_payload,
+        repository=WorkerQueueRepository(),
+        queue_item_id=queue_item_id,
+        priority=int(payload.get("priority") or 50),
+        max_attempts=int(payload.get("max_attempts") or 3),
+        next_run_at=str(payload.get("next_run_at") or job_payload["requested_at"]),
+        recurring_interval_seconds=int(
+            payload.get("recurring_interval_seconds") or 0
+        ),
+        schedule_id=str(payload.get("schedule_id") or queue_item_id),
+        time_budget_seconds=int(payload.get("time_budget_seconds") or 1_800),
+        now=str(payload.get("now") or job_payload["requested_at"]),
+    )
+    return {
+        "surface_id": "operator_controlled_gray_public_orchestrator_worker_enqueue",
+        "internal_only": True,
+        "repository_backed_readback": True,
+        "explicit_operator_action": True,
+        "controlled_gray_public_orchestrator": True,
+        "background_worker_ready": True,
+        "background_scheduler_state": "DEDICATED_SCHEDULER_WORKER_READY",
+        "unattended_recurring_run_ready": True,
+        "unattended_recurring_scope": "INTERNAL_PREPARE_ONLY",
+        "unattended_live_execution_ready": False,
+        "dedicated_process_command": (
+            "python -m runtime.controlled_gray_scheduler_worker --serve"
+        ),
+        "web_request_execution_enabled": False,
+        "queue_item": _controlled_gray_queue_item_summary(item),
+        "background_worker_queue": _controlled_gray_orchestrator_queue_readback(),
+        "execute_from_workbench_enabled": False,
+        "live_execution_enabled": False,
+        "external_release_enabled": False,
+        "customer_visible_allowed": False,
+        "payment_execution_enabled": False,
+        "delivery_execution_enabled": False,
+        "automatic_refund_enabled": False,
+        "query_miss_is_not_clearance": True,
+        "no_legal_conclusion": True,
+    }
+
+
+def cancel_controlled_gray_public_orchestrator_worker_job(
+    payload: Mapping[str, Any],
+) -> dict[str, Any]:
+    queue_item_id = str(payload.get("queue_item_id") or "").strip()
+    if not queue_item_id:
+        raise ValueError("queue_item_id is required")
+    repository = WorkerQueueRepository()
+    current = repository.get(queue_item_id)
+    if current is None or current.queue_name != CONTROLLED_GRAY_ORCHESTRATOR_QUEUE_NAME:
+        raise ValueError(f"controlled gray orchestrator queue item not found: {queue_item_id}")
+    requested_by, requested_by_role = _operator_actor(payload)
+    cancelled = repository.request_cancel(
+        queue_item_id=queue_item_id,
+        requested_by=requested_by,
+        reason=str(payload.get("reason") or "operator_requested_cancel"),
+        now=str(payload.get("now") or build_persisted_at()),
+    )
+    return {
+        "surface_id": "operator_controlled_gray_public_orchestrator_worker_cancel",
+        "internal_only": True,
+        "repository_backed_readback": True,
+        "explicit_operator_action": True,
+        "controlled_gray_public_orchestrator": True,
+        "cancel_request_accepted": True,
+        "cancellation_mode": (
+            "COOPERATIVE_RUNNING_TASK"
+            if cancelled.status == "running"
+            else "IMMEDIATE_BEFORE_EXECUTION"
+        ),
+        "requested_by": requested_by,
+        "requested_by_role": requested_by_role,
+        "queue_item": _controlled_gray_queue_item_summary(cancelled),
+        "background_worker_queue": _controlled_gray_orchestrator_queue_readback(),
+        "web_request_execution_enabled": False,
+        "live_execution_enabled": False,
+        "external_release_enabled": False,
+        "customer_visible_allowed": False,
+        "payment_execution_enabled": False,
+        "delivery_execution_enabled": False,
+        "automatic_refund_enabled": False,
+        "query_miss_is_not_clearance": True,
+        "no_legal_conclusion": True,
+    }
+
+
+def run_controlled_gray_public_orchestrator_worker_once(payload: Mapping[str, Any]) -> dict[str, Any]:
+    if bool(payload.get("execute")):
+        raise ValueError("execute is not allowed from controlled gray orchestrator worker")
+    return {
+        "surface_id": "operator_controlled_gray_public_orchestrator_worker_run_once",
+        "worker_state": "INLINE_WEB_WORKER_EXECUTION_DISABLED",
+        "internal_only": True,
+        "repository_backed_readback": True,
+        "controlled_gray_public_orchestrator": True,
+        "background_worker_ready": True,
+        "background_worker_queue": _controlled_gray_orchestrator_queue_readback(),
+        "dedicated_process_required": True,
+        "dedicated_process_command": (
+            "python -m runtime.controlled_gray_scheduler_worker --serve"
+        ),
+        "web_request_execution_enabled": False,
+        "execute_from_workbench_enabled": False,
+        "live_execution_enabled": False,
+        "external_release_enabled": False,
+        "customer_visible_allowed": False,
+        "payment_execution_enabled": False,
+        "delivery_execution_enabled": False,
+        "automatic_refund_enabled": False,
+        "query_miss_is_not_clearance": True,
+        "no_legal_conclusion": True,
     }
 
 
@@ -4782,6 +5826,89 @@ OPERATOR_CUSTOMER_ACCESS_ROUTES = [
         **OPERATOR_CUSTOMER_ACCESS_ROUTE_METADATA,
     },
     {
+        "operationId": "previewOperatorLongTaskStatus",
+        "method": "GET",
+        "path": "/operator-console/long-tasks",
+        "handler": preview_operator_long_task_status,
+        "operator_long_task_status": True,
+        "repository_backed_readback": True,
+        **OPERATOR_CUSTOMER_ACCESS_ROUTE_METADATA,
+    },
+    {
+        "operationId": "cancelOperatorLongTask",
+        "method": "POST",
+        "path": "/operator-console/long-tasks/cancel",
+        "handler": cancel_operator_long_task,
+        "operator_long_task_cancel": True,
+        "cooperative_cancellation": True,
+        "repository_backed_readback": True,
+        "explicit_operator_action": True,
+        "raw_json_required": False,
+        **OPERATOR_CUSTOMER_ACCESS_ROUTE_METADATA,
+    },
+    {
+        "operationId": "previewControlledGrayPublicOrchestrator",
+        "method": "GET",
+        "path": "/operator-console/controlled-gray-orchestrator",
+        "handler": preview_controlled_gray_public_orchestrator,
+        "controlled_gray_public_orchestrator": True,
+        "controlled_gray_orchestrator_readback": True,
+        "repository_backed_readback": True,
+        "raw_json_required": False,
+        **OPERATOR_CUSTOMER_ACCESS_ROUTE_METADATA,
+    },
+    {
+        "operationId": "prepareControlledGrayPublicOrchestrator",
+        "method": "POST",
+        "path": "/operator-console/controlled-gray-orchestrator/prepare",
+        "handler": prepare_controlled_gray_public_orchestrator,
+        "controlled_gray_public_orchestrator": True,
+        "controlled_gray_orchestrator_prepare": True,
+        "repository_backed_readback": True,
+        "explicit_operator_action": True,
+        "raw_json_required": False,
+        **OPERATOR_CUSTOMER_ACCESS_ROUTE_METADATA,
+    },
+    {
+        "operationId": "enqueueControlledGrayPublicOrchestratorWorker",
+        "method": "POST",
+        "path": "/operator-console/controlled-gray-orchestrator/worker/enqueue",
+        "handler": enqueue_controlled_gray_public_orchestrator_worker,
+        "controlled_gray_public_orchestrator": True,
+        "controlled_gray_orchestrator_worker_enqueue": True,
+        "repository_backed_readback": True,
+        "explicit_operator_action": True,
+        "raw_json_required": False,
+        **OPERATOR_CUSTOMER_ACCESS_ROUTE_METADATA,
+    },
+    {
+        "operationId": "runControlledGrayPublicOrchestratorWorkerOnce",
+        "method": "POST",
+        "path": "/operator-console/controlled-gray-orchestrator/worker/run-once",
+        "handler": run_controlled_gray_public_orchestrator_worker_once,
+        "controlled_gray_public_orchestrator": True,
+        "controlled_gray_orchestrator_worker_run_once": True,
+        "inline_web_execution_disabled": True,
+        "dedicated_worker_process_required": True,
+        "repository_backed_readback": True,
+        "explicit_operator_action": True,
+        "raw_json_required": False,
+        **OPERATOR_CUSTOMER_ACCESS_ROUTE_METADATA,
+    },
+    {
+        "operationId": "cancelControlledGrayPublicOrchestratorWorkerJob",
+        "method": "POST",
+        "path": "/operator-console/controlled-gray-orchestrator/worker/cancel",
+        "handler": cancel_controlled_gray_public_orchestrator_worker_job,
+        "controlled_gray_public_orchestrator": True,
+        "controlled_gray_orchestrator_worker_cancel": True,
+        "cooperative_cancellation": True,
+        "repository_backed_readback": True,
+        "explicit_operator_action": True,
+        "raw_json_required": False,
+        **OPERATOR_CUSTOMER_ACCESS_ROUTE_METADATA,
+    },
+    {
         "operationId": "readOperatorTask",
         "method": "GET",
         "path": "/operator-console/tasks/{queue_item_id}",
@@ -4836,13 +5963,15 @@ OPERATOR_CUSTOMER_ACCESS_ROUTES = [
 def register_operator_customer_access_routes(
     router: object | None = None,
 ) -> list[dict[str, Any]]:
-    return register_route_table(router, list(OPERATOR_CUSTOMER_ACCESS_ROUTES))
+    return register_route_table(router, OPERATOR_CUSTOMER_ACCESS_ROUTES)
 
 
 __all__ = [
     "OPERATOR_CUSTOMER_ACCESS_ROUTES",
+    "cancel_operator_long_task",
     "clear_operator_autonomous_search_runs",
     "create_operator_task",
+    "enqueue_controlled_gray_public_orchestrator_worker",
     "import_operator_project",
     "list_operator_autonomous_search_runs",
     "list_owner_real_public_source_task_runs",
@@ -4851,10 +5980,13 @@ __all__ = [
     "list_operator_real_candidates",
     "list_operator_region_adapters",
     "list_real_public_source_profiles",
+    "prepare_controlled_gray_public_orchestrator",
     "preview_autonomous_operator_workbench",
+    "preview_controlled_gray_public_orchestrator",
     "preview_customer_artifact_access_candidate",
     "preview_go_live_readiness",
     "preview_operator_customer_access_readiness",
+    "preview_operator_long_task_status",
     "preview_operator_real_world_sellability",
     "preview_operator_stage6_review_loop_status",
     "preview_real_sample_autonomous_opportunity_acceptance",
@@ -4862,6 +5994,7 @@ __all__ = [
     "read_owner_real_public_source_capture",
     "read_operator_task",
     "register_operator_customer_access_routes",
+    "run_controlled_gray_public_orchestrator_worker_once",
     "run_operator_autonomous_opportunity_search",
     "run_owner_real_public_source_capture",
 ]

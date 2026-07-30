@@ -1,6 +1,6 @@
 {
   "catalog_id": "prompt-policy-catalog",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "status": "DRAFT",
   "metadata": {
     "package_name": "model governance round 1",
@@ -11,6 +11,42 @@
     ]
   },
   "policies": [
+    {
+      "prompt_id": "PROMPT_GOVERNED_PROVIDER_SHADOW_V1",
+      "prompt_version": "1",
+      "usage_scope": "INTERNAL_ASSIST_AND_REVIEW_ASSIST",
+      "runtime_contract_ref": "contracts/model/model_provider_runtime_contract.json",
+      "allowed_tasks": [
+        "CANDIDATE_EXTRACTION",
+        "EVIDENCE_SUMMARY",
+        "REVIEW_EXPLANATION",
+        "DRAFT_COPY"
+      ],
+      "allowed_outputs": [
+        "internal_candidate_buffer",
+        "internal_review_summary",
+        "internal_explanation_draft",
+        "internal_copy_draft"
+      ],
+      "forbidden_outputs": [
+        "formal_fact",
+        "legal_conclusion",
+        "customer_visible_claim",
+        "saleable_opportunity_final_decision",
+        "contact_target_release_decision",
+        "outreach_execution",
+        "order_or_payment_decision",
+        "delivery_execution"
+      ],
+      "required_controls": [
+        "strict_json_schema",
+        "store_false",
+        "source_ref_validation",
+        "human_review",
+        "no_tool_calling"
+      ],
+      "notes": "可替换 Responses-compatible provider 的唯一运行时提示词入口；仅内部影子候选和草稿，不得直达事实、客户结论或执行动作。"
+    },
     {
       "prompt_id": "PROMPT_INTERNAL_EXTRACT",
       "usage_scope": "INTERNAL_ASSIST",

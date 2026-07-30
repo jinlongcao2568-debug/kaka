@@ -5,6 +5,11 @@ __pycache__/
 
 # Local runtime/debug artifacts
 .playwright-mcp/
+.playwright-cli/
+.auth/
+local/
+.kaka-local/
+output/
 tmp/
 handoff/runlogs/
 *.log

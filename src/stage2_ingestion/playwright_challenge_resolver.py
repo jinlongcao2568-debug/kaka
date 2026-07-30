@@ -14,6 +14,15 @@ from typing import Any, Mapping
 from urllib.parse import parse_qs, urljoin, urlsplit, unquote
 from urllib.parse import urlencode, urlunsplit
 
+from shared.controlled_egress import controlled_egress_proxy_url
+
+
+CHALLENGE_OCR_MAX_ATTEMPTS = 3
+CHALLENGE_JIGSAW_MAX_ATTEMPTS = 3
+CHALLENGE_DETAIL_BROWSER_MAX_ROUTE_ATTEMPTS = 12
+CHALLENGE_PROXY_POOL_MAX_SIZE = 4
+CHALLENGE_MAX_DOWNLOAD_BYTES = 64 * 1024 * 1024
+
 
 class PlaywrightAttachmentChallengeResolver:
     """Controlled browser resolver for public attachment challenge pages.
@@ -35,25 +44,38 @@ class PlaywrightAttachmentChallengeResolver:
         user_agent: str | None = None,
         ocr_attempts: int = 3,
         jigsaw_attempts: int = 3,
+        max_detail_route_attempts: int = CHALLENGE_DETAIL_BROWSER_MAX_ROUTE_ATTEMPTS,
+        max_download_bytes: int = CHALLENGE_MAX_DOWNLOAD_BYTES,
     ) -> None:
         self.headless = headless
         self.storage_state_path = storage_state_path
         self.proxy_server = proxy_server
-        self.proxy_pool = _dedupe([item.strip() for item in list(proxy_pool or []) if item.strip()])
+        self.proxy_pool = _dedupe(
+            [item.strip() for item in list(proxy_pool or []) if item.strip()]
+        )[:CHALLENGE_PROXY_POOL_MAX_SIZE]
         self.browser_channel = browser_channel
         self.guangzhou_prewarm_url = guangzhou_prewarm_url or "https://ywtb.gzggzy.cn/jyfw/002001/002001001/trade_purchasetoplen6.html"
         self.timeout_ms = timeout_ms
         self.user_agent = user_agent
-        self.ocr_attempts = max(1, ocr_attempts)
-        self.jigsaw_attempts = max(1, jigsaw_attempts)
+        self.ocr_attempts = min(CHALLENGE_OCR_MAX_ATTEMPTS, max(1, ocr_attempts))
+        self.jigsaw_attempts = min(CHALLENGE_JIGSAW_MAX_ATTEMPTS, max(1, jigsaw_attempts))
+        self.max_detail_route_attempts = min(
+            CHALLENGE_DETAIL_BROWSER_MAX_ROUTE_ATTEMPTS,
+            max(1, max_detail_route_attempts),
+        )
+        self.max_download_bytes = min(
+            CHALLENGE_MAX_DOWNLOAD_BYTES,
+            max(1, max_download_bytes),
+        )
         self._last_browser_diagnostics: dict[str, Any] = {}
 
     @classmethod
     def from_environment(cls) -> "PlaywrightAttachmentChallengeResolver":
+        controlled_proxy = controlled_egress_proxy_url(required=False)
         return cls(
             headless=(os.environ.get("KAKA_CHALLENGE_BROWSER_HEADLESS") or "1") != "0",
             storage_state_path=os.environ.get("KAKA_CHALLENGE_STORAGE_STATE") or None,
-            proxy_server=os.environ.get("KAKA_CHALLENGE_PROXY_SERVER") or None,
+            proxy_server=os.environ.get("KAKA_CHALLENGE_PROXY_SERVER") or controlled_proxy,
             proxy_pool=_split_env_list(os.environ.get("KAKA_GUANGZHOU_PROXY_POOL") or ""),
             browser_channel=os.environ.get("KAKA_CHALLENGE_BROWSER_CHANNEL") or None,
             guangzhou_prewarm_url=os.environ.get("KAKA_GUANGZHOU_PREWARM_URL") or None,
@@ -61,6 +83,13 @@ class PlaywrightAttachmentChallengeResolver:
             user_agent=os.environ.get("KAKA_CHALLENGE_USER_AGENT") or None,
             ocr_attempts=int(os.environ.get("KAKA_CHALLENGE_OCR_ATTEMPTS") or "3"),
             jigsaw_attempts=int(os.environ.get("KAKA_CHALLENGE_JIGSAW_ATTEMPTS") or "3"),
+            max_detail_route_attempts=int(
+                os.environ.get("KAKA_CHALLENGE_DETAIL_MAX_ROUTE_ATTEMPTS") or "12"
+            ),
+            max_download_bytes=int(
+                os.environ.get("KAKA_CHALLENGE_MAX_DOWNLOAD_BYTES")
+                or str(CHALLENGE_MAX_DOWNLOAD_BYTES)
+            ),
         )
 
     def resolve_same_site_attachment(self, request: Mapping[str, Any]) -> Mapping[str, Any]:
@@ -115,6 +144,11 @@ class PlaywrightAttachmentChallengeResolver:
                     raise RuntimeError(
                         "automated_challenge_download_not_resolved:"
                         + json.dumps(diagnostics, ensure_ascii=False, sort_keys=True)[:1200]
+                    )
+                download_size = Path(download_path).stat().st_size
+                if download_size > self.max_download_bytes:
+                    raise RuntimeError(
+                        f"challenge_download_too_large:{download_size}>{self.max_download_bytes}"
                     )
                 content = Path(download_path).read_bytes()
                 content_type = _content_type_from_file(download_path)
@@ -306,9 +340,8 @@ class PlaywrightAttachmentChallengeResolver:
         detail_url = str(request.get("detail_url") or "").strip()
         route_attempts: list[dict[str, Any]] = []
         variants = _guangzhou_detail_url_variants(detail_url)
-        proxy_candidates: list[str | None] = [None]
-        for proxy in _dedupe([self.proxy_server or "", *self.proxy_pool]):
-            proxy_candidates.append(proxy)
+        configured_proxies = _dedupe([self.proxy_server or "", *self.proxy_pool])
+        proxy_candidates: list[str | None] = list(configured_proxies) if configured_proxies else [None]
         browser_channels: list[str | None] = [None]
         if self.browser_channel:
             browser_channels.append(self.browser_channel)
@@ -318,6 +351,8 @@ class PlaywrightAttachmentChallengeResolver:
             for proxy_server in proxy_candidates:
                 for browser_channel in browser_channels:
                     for variant in variants:
+                        if len(route_attempts) >= self.max_detail_route_attempts:
+                            break
                         route_name = _guangzhou_route_name(
                             url=variant,
                             proxy_server=proxy_server,
@@ -356,6 +391,9 @@ class PlaywrightAttachmentChallengeResolver:
                             )
         payload = {
             "detail_transport_attempts": route_attempts,
+            "detail_transport_attempt_budget": self.max_detail_route_attempts,
+            "detail_transport_attempt_budget_exhausted": len(route_attempts)
+            >= self.max_detail_route_attempts,
             "proxy_pool_configured": bool([item for item in proxy_candidates if item]),
             "proxy_pool_not_configured": not bool([item for item in proxy_candidates if item]),
         }
@@ -1167,6 +1205,8 @@ def _save_download_response_if_file(response: Any, *, tmp_dir: str, fallback_fil
         return None
     body = response.body()
     if not body:
+        return None
+    if len(body) > CHALLENGE_MAX_DOWNLOAD_BYTES:
         return None
     content_type = (response.headers.get("content-type") or "").lower()
     if "html" in content_type and not body.lstrip().startswith((b"%PDF", b"PK\x03\x04")):

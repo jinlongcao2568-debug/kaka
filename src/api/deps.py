@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import os
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -33,7 +34,7 @@ def _repo_root() -> Path:
 def get_settings() -> Settings:
     return Settings.from_env(
         repo_root=str(_repo_root()),
-        environment="INTERNAL_ONLY",
+        environment=str(os.getenv("KAKA_ENVIRONMENT") or "INTERNAL_ONLY"),
     )
 
 

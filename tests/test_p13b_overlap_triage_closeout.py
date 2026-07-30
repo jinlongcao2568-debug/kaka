@@ -36,10 +36,26 @@ class P13BOverlapTriageCloseoutTests(unittest.TestCase):
             self.assertEqual(summary["project_count"], 2)
             self.assertEqual(summary["company_history_record_found_count"], 2)
             self.assertEqual(summary["ygp_readback_ready_count"], 0)
+            self.assertEqual(summary["ygp_stage4_backfill_candidate_count"], 1)
+            self.assertEqual(summary["ygp_stage4_backfill_ready_count"], 1)
+            self.assertEqual(summary["ygp_stage4_release_adapter_task_count"], 1)
+            self.assertEqual(summary["ygp_stage4_gdcic_route_allowed_count"], 0)
             self.assertEqual(summary["release_evidence_trigger_count"], 0)
+            self.assertEqual(summary["project_state_counts"]["YGP_STAGE4_BACKFILL_READY_FOR_P13B_OR_STAGE4_BRIDGE"], 1)
             self.assertEqual(summary["project_state_counts"]["YGP_READBACK_BLOCKED_OR_UNSUPPORTED"], 1)
             self.assertTrue((root / "out" / "project-overlap-triage-table.json").exists())
+            self.assertTrue((root / "out" / "ygp-stage4-backfill-candidate-table.json").exists())
+            self.assertTrue((root / "out" / "release-evidence-adapter-task-table.json").exists())
             self.assertTrue((root / "out" / "release-evidence-trigger-table.json").exists())
+            backfill = result["manifest"]["ygp_stage4_backfill_candidate_records"][0]
+            self.assertEqual(backfill["p13b_backfill_state"], "P13B_YGP_STAGE4_BACKFILL_READY")
+            self.assertFalse(backfill["gdcic_project_code_route_allowed"])
+            self.assertTrue(backfill["must_not_extract_from_full_text_numbers"])
+            adapter_task = result["manifest"]["release_evidence_adapter_task_records"][0]
+            self.assertEqual(adapter_task["release_evidence_target_type"], "ygp_original_readback_backfill")
+            self.assertEqual(adapter_task["query_params"]["gdcicProjectCodeVariants"], [])
+            self.assertFalse(adapter_task["gdcic_project_code_route_allowed"])
+            self.assertTrue(adapter_task["must_not_extract_from_full_text_numbers"])
 
     def test_overlap_signal_generates_release_trigger(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -103,6 +119,53 @@ class P13BOverlapTriageCloseoutTests(unittest.TestCase):
             project = next(item for item in project_rows if item["project_id"] == "PROJ-1")
             self.assertEqual(project["original_notice_different_person_with_period_count"], 1)
 
+    def test_followup_official_readback_context_generates_stage4_backfill_tasks(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_inputs(root, overlap=False)
+            company_json = root / "company" / "company-history-overlap-triage-v1.json"
+            payload = json.loads(company_json.read_text(encoding="utf-8"))
+            payload["manifest"]["project_task_records"] = [
+                {
+                    "project_id": "PROJ-FOLLOWUP",
+                    "project_name": "公开标识回灌项目",
+                    "candidate_companies": ["广东甲公司"],
+                    "candidate_notice_source_urls": ["https://ywtb.gzggzy.cn/jyfw/followup.html"],
+                    "stage4_official_readback_context": {
+                        "stage4_official_readback_context_state": "OFFICIAL_READBACK_READY_STAGE4_BRIDGE_FOLLOWUP_REQUIRED",
+                        "project_id": "PROJ-FOLLOWUP",
+                        "project_name": "公开标识回灌项目",
+                        "ygp_project_code_variants": ["E4401000000000001"],
+                        "ygp_biz_code_variants": ["3C52"],
+                        "ygp_site_code_variants": ["440100"],
+                        "ygp_notice_id_variants": ["notice-followup"],
+                    },
+                }
+            ]
+            payload["manifest"]["company_history_query_records"] = []
+            payload["manifest"]["overlap_signal_records"] = []
+            company_json.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+            result = build_p13b_overlap_triage_closeout(
+                company_history_triage_root=root / "company",
+                original_notice_backtrace_root=root / "original",
+                output_root=root / "out",
+                created_at="2026-05-15T00:00:00+08:00",
+            )
+
+        summary = result["summary"]
+        self.assertEqual(summary["ygp_stage4_backfill_candidate_count"], 1)
+        self.assertEqual(summary["ygp_stage4_release_adapter_task_count"], 1)
+        backfill = result["manifest"]["ygp_stage4_backfill_candidate_records"][0]
+        self.assertEqual(backfill["project_id"], "PROJ-FOLLOWUP")
+        self.assertEqual(backfill["ygp_project_code"], "E4401000000000001")
+        self.assertFalse(backfill["gdcic_project_code_route_allowed"])
+        adapter = result["manifest"]["release_evidence_adapter_task_records"][0]
+        self.assertEqual(adapter["query_params"]["ygpProjectCodeVariants"], ["E4401000000000001"])
+        self.assertEqual(adapter["query_params"]["gdcicProjectCodeVariants"], [])
+        self.assertTrue(adapter["must_not_extract_from_full_text_numbers"])
+        self.assertFalse(adapter["customer_visible_allowed"])
+
     def test_ygp_defaults_closed_when_not_explicitly_supplied(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -120,6 +183,33 @@ class P13BOverlapTriageCloseoutTests(unittest.TestCase):
             self.assertEqual(result["summary"]["ygp_readback_blocked_or_unsupported_count"], 0)
             self.assertEqual(result["manifest"]["source_ygp_readback_root"], "")
             self.assertEqual(result["manifest"]["source_ygp_coverage_closeout_root"], "")
+
+    def test_ygp_readback_can_drive_bridge_when_original_notice_artifact_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_company_history(root / "company", overlap=False, include_deferred=False)
+            _write_ygp_readback(root / "ygp")
+
+            result = build_p13b_overlap_triage_closeout(
+                company_history_triage_root=root / "company",
+                original_notice_backtrace_root=root / "missing-original",
+                ygp_readback_root=root / "ygp",
+                output_root=root / "out",
+                created_at="2026-05-15T00:00:00+08:00",
+            )
+
+            summary = result["summary"]
+            self.assertTrue(result["safe_to_execute"])
+            self.assertEqual(result["blocking_reasons"], [])
+            self.assertEqual(summary["blocking_reasons"], [])
+            self.assertEqual(summary["p13b_overlap_triage_closeout_state"], "P13B_OVERLAP_TRIAGE_CLOSEOUT_READY")
+            self.assertEqual(summary["ygp_stage4_backfill_ready_count"], 1)
+            self.assertEqual(summary["ygp_stage4_release_adapter_task_count"], 1)
+            adapter_task = result["manifest"]["release_evidence_adapter_task_records"][0]
+            self.assertEqual(adapter_task["release_evidence_target_type"], "ygp_original_readback_backfill")
+            self.assertFalse(adapter_task["gdcic_project_code_route_allowed"])
+            self.assertFalse(adapter_task["customer_visible_allowed"])
+            self.assertTrue(adapter_task["query_miss_is_not_clearance"])
 
     def test_report_never_contains_forbidden_terms(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -341,6 +431,23 @@ def _write_ygp_readback(root: Path) -> None:
                     "source_url": "https://ygp.gdzwfw.gov.cn/detail/123",
                     "ygp_readback_state": "YGP_ORIGINAL_URL_UNSUPPORTED",
                     "blocker_taxonomy": ["ygp_original_detail_payload_not_discovered"],
+                }
+            ],
+            "stage4_ygp_project_code_backfill_records": [
+                {
+                    "project_id": "PROJ-1",
+                    "candidate_company_name": "广东甲公司",
+                    "source_url": "https://ygp.gdzwfw.gov.cn/detail/ready",
+                    "ygp_readback_state": "YGP_ORIGINAL_URL_READBACK_READY",
+                    "ygp_project_code": "E4401002701500571001",
+                    "ygp_biz_code": "3C52",
+                    "ygp_site_code": "440100",
+                    "ygp_notice_id": "notice-ready",
+                    "stage4_ygp_backfill_state": "YGP_STAGE4_BACKFILL_READY",
+                    "target_p13b_fields": ["ygp_project_code", "ygp_notice_id"],
+                    "target_stage4_bridge_fields": ["projectCodeVariants", "triggerSourceUrl"],
+                    "gdcic_project_code_route_allowed": False,
+                    "must_not_extract_from_full_text_numbers": True,
                 }
             ],
             "summary": {"ygp_readback_ready_count": 0},

@@ -30,7 +30,10 @@
     "live_execution_enabled": false,
     "external_action_enabled": false,
     "direct_mutation_allowed": false,
-    "live_execution_requires_separate_release_gate": true
+    "live_execution_requires_separate_release_gate": true,
+    "sandbox_mock_dry_run_allowed": true,
+    "authorized_pilot_allowed_with_approval_audit_operator_action": true,
+    "default_false_scope": "production_live_and_customer_visible_external_action_only"
   },
   "requiredTraceFields": [
     "vendor_id",
@@ -174,6 +177,7 @@
   "notes": [
     "capability_mode refines execution runtime state and does not replace execution_policy_state.",
     "REAL_RUN_READY is reserved and still requires approval plus release gates.",
+    "live_execution_enabled=false, external_action_enabled=false and direct_mutation_allowed=false are production-live defaults; PREVIEW_ONLY, DRY_RUN, sandbox/mock/regression tests and explicitly authorized pilots remain valid execution modes when trace, approval and audit requirements are satisfied.",
     "Stage 8 execution vendors remain controlled-opening-required and only project into outreach_plan/touch_record."
   ]
 }

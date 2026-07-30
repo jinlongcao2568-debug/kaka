@@ -6,6 +6,7 @@ import time
 from pathlib import Path
 from typing import Any, Mapping
 
+from shared.controlled_egress import playwright_proxy_settings
 from shared.utils import utc_now_iso
 
 
@@ -92,7 +93,11 @@ def _execute_targets(targets: list[dict[str, Any]], *, max_name_only_pages: int)
 
     items: list[dict[str, Any]] = []
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
+        launch_options: dict[str, Any] = {"headless": True}
+        proxy = playwright_proxy_settings()
+        if proxy:
+            launch_options["proxy"] = proxy
+        browser = p.chromium.launch(**launch_options)
         page = browser.new_page(
             locale="zh-CN",
             user_agent=(

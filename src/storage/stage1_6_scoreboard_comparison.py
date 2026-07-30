@@ -1,0 +1,733 @@
+from __future__ import annotations
+
+import argparse
+import json
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Mapping
+
+
+COMPARISON_KIND = "stage1_6_scoreboard_comparison_v1"
+DEFAULT_OUTPUT_ROOT = Path("tmp/evaluation-real-samples/stage1-6-scoreboard-comparison-v1")
+DEFAULT_SCOREBOARD_FILENAME = "stage1-6-sellable-scoreboard-v1.json"
+
+
+def build_stage1_6_scoreboard_comparison(
+    *,
+    scoreboard_jsons: list[str | Path] | None = None,
+    run_roots: list[str | Path] | None = None,
+    output_root: str | Path = DEFAULT_OUTPUT_ROOT,
+    created_at: str | None = None,
+) -> dict[str, Any]:
+    inputs = _resolve_scoreboard_inputs(scoreboard_jsons or [], run_roots or [])
+    rows = [_comparison_row(path) for path in inputs]
+    baseline = rows[0] if rows else {}
+    deltas = [_delta_row(row, baseline) for row in rows]
+    adjacent_deltas = _adjacent_delta_rows(rows)
+    public_source_deepening_recommendations = _public_source_deepening_recommendations(adjacent_deltas)
+    result = {
+        "comparison_kind": COMPARISON_KIND,
+        "comparison_version": 1,
+        "created_at": created_at or datetime.now(timezone.utc).isoformat(),
+        "input_refs": [str(path) for path in inputs],
+        "comparison_rows": rows,
+        "delta_from_first_row": deltas,
+        "delta_from_previous_row": adjacent_deltas,
+        "public_source_deepening_recommendations": public_source_deepening_recommendations,
+        "summary": _summary(rows),
+        "safety": {
+            "customer_visible_allowed": False,
+            "external_send_enabled": False,
+            "payment_execution_enabled": False,
+            "delivery_execution_enabled": False,
+            "automatic_refund_enabled": False,
+            "query_miss_is_not_clearance": True,
+            "no_legal_conclusion": True,
+        },
+    }
+    out_dir = Path(output_root)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    _write_json(out_dir / "stage1-6-scoreboard-comparison-v1.json", result)
+    _write_markdown(out_dir / "stage1-6-scoreboard-comparison-v1.md", result)
+    return result
+
+
+def _resolve_scoreboard_inputs(
+    scoreboard_jsons: list[str | Path],
+    run_roots: list[str | Path],
+) -> list[Path]:
+    paths: list[Path] = []
+    for value in scoreboard_jsons:
+        path = Path(value)
+        if path.exists() and path.is_file():
+            paths.append(path)
+    for value in run_roots:
+        root = Path(value)
+        candidates = [
+            root / "scoreboard" / DEFAULT_SCOREBOARD_FILENAME,
+            root / DEFAULT_SCOREBOARD_FILENAME,
+        ]
+        for candidate in candidates:
+            if candidate.exists() and candidate.is_file():
+                paths.append(candidate)
+                break
+    deduped: list[Path] = []
+    for path in paths:
+        resolved = path.resolve()
+        if resolved not in deduped:
+            deduped.append(resolved)
+    return deduped
+
+
+def _comparison_row(path: Path) -> dict[str, Any]:
+    payload = _read_json(path)
+    scoreboard = payload.get("scoreboard") if isinstance(payload.get("scoreboard"), Mapping) else {}
+    blocker_summary = payload.get("blocker_summary") if isinstance(payload.get("blocker_summary"), Mapping) else {}
+    run_label = _run_label(path)
+    return {
+        "run_label": run_label,
+        "scoreboard_json": str(path),
+        "candidate_count": _int(scoreboard.get("candidate_count")),
+        "stage2_success_count": _int(scoreboard.get("stage2_success_count")),
+        "stage3_success_count": _int(scoreboard.get("stage3_success_count")),
+        "stage2_success_rate": _ratio(scoreboard.get("stage2_success_count"), scoreboard.get("candidate_count")),
+        "stage3_success_rate": _ratio(scoreboard.get("stage3_success_count"), scoreboard.get("candidate_count")),
+        "limited_sellable_review_candidate_count": _int(
+            scoreboard.get("limited_sellable_review_candidate_count")
+        ),
+        "strong_lead_review_candidate_count": _int(scoreboard.get("strong_lead_review_candidate_count")),
+        "real_public_sellable_pack_rate": float(scoreboard.get("real_public_sellable_pack_rate") or 0),
+        "stage4_adapter_result_state_counts": dict(scoreboard.get("stage4_adapter_result_state_counts") or {}),
+        "stage4_public_source_readback_state_counts": dict(
+            scoreboard.get("stage4_public_source_readback_state_counts") or {}
+        ),
+        "stage4_original_notice_readback_state_counts": dict(
+            scoreboard.get("stage4_original_notice_readback_state_counts") or {}
+        ),
+        "stage4_ygp_original_readback_state_counts": dict(
+            scoreboard.get("stage4_ygp_original_readback_state_counts") or {}
+        ),
+        "stage4_public_readback_outcome_counts": dict(
+            scoreboard.get("stage4_public_readback_outcome_counts") or {}
+        ),
+        "stage4_public_readback_channel_outcome_counts": dict(
+            scoreboard.get("stage4_public_readback_channel_outcome_counts") or {}
+        ),
+        "design_survey_public_registry_readback_status": dict(
+            scoreboard.get("design_survey_public_registry_readback_status") or {}
+        ),
+        "design_survey_public_registry_readback_state_counts": _nested_counts(
+            scoreboard.get("design_survey_public_registry_readback_status"),
+            "readback_state_counts",
+        ),
+        "design_survey_public_registry_verification_result_counts": _nested_counts(
+            scoreboard.get("design_survey_public_registry_readback_status"),
+            "verification_result_counts",
+        ),
+        "design_survey_public_registry_projected_stage5_queue_counts": _nested_counts(
+            scoreboard.get("design_survey_public_registry_readback_status"),
+            "projected_stage5_queue_counts",
+        ),
+        "stage5_operational_review_bucket_counts": dict(
+            scoreboard.get("stage5_operational_review_bucket_counts") or {}
+        ),
+        "stage5_operational_review_family_counts": _stage5_family_counts_from_scoreboard(scoreboard),
+        "stage5_operational_review_queue_counts": dict(
+            scoreboard.get("stage5_operational_review_queue_counts") or {}
+        ),
+        "stage5_operational_primary_track_counts": dict(
+            scoreboard.get("stage5_operational_primary_track_counts") or {}
+        ),
+        "stage5_operational_priority_bucket_counts": dict(
+            scoreboard.get("stage5_operational_priority_bucket_counts") or {}
+        ),
+        "stage5_operational_safety_boundary_counts": dict(
+            scoreboard.get("stage5_operational_safety_boundary_counts") or {}
+        ),
+        "stage1_3_long_tail_bucket_counts": dict(scoreboard.get("stage1_3_long_tail_bucket_counts") or {}),
+        "stage1_3_long_tail_signal_counts": dict(scoreboard.get("stage1_3_long_tail_signal_counts") or {}),
+        "stage1_3_identity_confirmation_state_counts": dict(
+            scoreboard.get("stage1_3_identity_confirmation_state_counts") or {}
+        ),
+        "stage4_project_code_backfill_state_counts": dict(
+            scoreboard.get("stage4_project_code_backfill_state_counts") or {}
+        ),
+        "stage4_project_code_backfill_gap_detail_counts": dict(
+            scoreboard.get("stage4_project_code_backfill_gap_detail_counts") or {}
+        ),
+        "stage4_public_identifier_backfill_source_counts": dict(
+            scoreboard.get("stage4_public_identifier_backfill_source_counts") or {}
+        ),
+        "stage4_gdcic_project_code_route_policy_counts": dict(
+            scoreboard.get("stage4_gdcic_project_code_route_policy_counts") or {}
+        ),
+        "stage6_limited_sellable_review_public_source_chain_counts": dict(
+            scoreboard.get("stage6_limited_sellable_review_public_source_chain_counts") or {}
+        ),
+        "stage6_limited_sellable_review_gdcic_project_code_route_policy_counts": dict(
+            scoreboard.get("stage6_limited_sellable_review_gdcic_project_code_route_policy_counts") or {}
+        ),
+        "gdcic_authorized_readback_status": dict(scoreboard.get("gdcic_authorized_readback_status") or {}),
+        "customer_visible_allowed": False,
+        "query_miss_is_not_clearance": True,
+        "no_legal_conclusion": True,
+        "active_fail_closed_reason_counts": dict(blocker_summary.get("active_fail_closed_reason_counts") or {}),
+    }
+
+
+def _delta_row(row: Mapping[str, Any], baseline: Mapping[str, Any]) -> dict[str, Any]:
+    rate_delta = round(
+        float(row.get("real_public_sellable_pack_rate") or 0)
+        - float(baseline.get("real_public_sellable_pack_rate") or 0),
+        4,
+    )
+    limited_delta = _int(row.get("limited_sellable_review_candidate_count")) - _int(
+        baseline.get("limited_sellable_review_candidate_count")
+    )
+    matched_delta = _count_delta(row, baseline, "stage4_adapter_result_state_counts", "MATCHED")
+    ygp_delta = _count_delta(
+        row,
+        baseline,
+        "stage6_limited_sellable_review_public_source_chain_counts",
+        "YGP_ORIGINAL_READBACK_BACKFILL",
+    )
+    public_readback_ready_delta = _count_delta(
+        row, baseline, "stage4_public_readback_outcome_counts", "READBACK_READY"
+    )
+    public_readback_blocked_delta = _count_delta(row, baseline, "stage4_public_readback_outcome_counts", "BLOCKED")
+    design_registry_not_found_delta = _count_delta(
+        row,
+        baseline,
+        "stage4_public_readback_channel_outcome_counts",
+        "DESIGN_SURVEY_PUBLIC_REGISTRY:NOT_FOUND",
+    )
+    design_registry_matched_delta = _count_delta(
+        row,
+        baseline,
+        "stage4_public_readback_channel_outcome_counts",
+        "DESIGN_SURVEY_PUBLIC_REGISTRY:MATCHED",
+    )
+    design_registry_blocked_delta = _count_delta(
+        row,
+        baseline,
+        "stage4_public_readback_channel_outcome_counts",
+        "DESIGN_SURVEY_PUBLIC_REGISTRY:BLOCKED",
+    )
+    missing_backfill_input_delta = _count_delta(
+        row, baseline, "stage4_project_code_backfill_state_counts", "MISSING_PROJECT_CODE_BACKFILL_INPUT"
+    )
+    public_identifier_backfilled_delta = _count_delta(
+        row,
+        baseline,
+        "stage4_project_code_backfill_state_counts",
+        "PUBLIC_SOURCE_IDENTIFIER_BACKFILLED_FOR_P13B_OR_STAGE4_BRIDGE_ONLY",
+    )
+    public_readback_not_found_delta = _count_delta(
+        row, baseline, "stage4_public_readback_outcome_counts", "NOT_FOUND"
+    )
+    return {
+        "run_label": str(row.get("run_label") or ""),
+        "previous_run_label": str(baseline.get("run_label") or ""),
+        "candidate_count_delta": _int(row.get("candidate_count")) - _int(baseline.get("candidate_count")),
+        "limited_sellable_review_candidate_count_delta": limited_delta,
+        "real_public_sellable_pack_rate_delta": rate_delta,
+        "stage4_matched_delta": matched_delta,
+        "stage4_needs_browser_delta": _count_delta(
+            row, baseline, "stage4_adapter_result_state_counts", "NEEDS_BROWSER"
+        ),
+        "stage4_not_found_delta": _count_delta(row, baseline, "stage4_adapter_result_state_counts", "NOT_FOUND"),
+        "stage4_public_readback_not_found_delta": public_readback_not_found_delta,
+        "stage4_public_readback_blocked_delta": public_readback_blocked_delta,
+        "stage4_public_readback_ready_delta": public_readback_ready_delta,
+        "stage4_public_readback_channel_outcome_count_deltas": _map_delta(
+            row,
+            baseline,
+            "stage4_public_readback_channel_outcome_counts",
+        ),
+        "design_survey_public_registry_not_found_delta": design_registry_not_found_delta,
+        "design_survey_public_registry_matched_delta": design_registry_matched_delta,
+        "design_survey_public_registry_blocked_delta": design_registry_blocked_delta,
+        "design_survey_public_registry_readback_state_count_deltas": _map_delta(
+            row,
+            baseline,
+            "design_survey_public_registry_readback_state_counts",
+        ),
+        "design_survey_public_registry_verification_result_count_deltas": _map_delta(
+            row,
+            baseline,
+            "design_survey_public_registry_verification_result_counts",
+        ),
+        "stage4_public_identifier_backfilled_delta": public_identifier_backfilled_delta,
+        "stage4_project_code_missing_backfill_input_delta": missing_backfill_input_delta,
+        "stage6_ygp_original_readback_backfill_delta": ygp_delta,
+        "stage5_operational_review_family_count_deltas": _map_delta(
+            row,
+            baseline,
+            "stage5_operational_review_family_counts",
+        ),
+        "stage5_operational_primary_track_count_deltas": _map_delta(
+            row,
+            baseline,
+            "stage5_operational_primary_track_counts",
+        ),
+        "stage5_operational_priority_bucket_count_deltas": _map_delta(
+            row,
+            baseline,
+            "stage5_operational_priority_bucket_counts",
+        ),
+        "stage5_operational_safety_boundary_count_deltas": _map_delta(
+            row,
+            baseline,
+            "stage5_operational_safety_boundary_counts",
+        ),
+        "public_source_deepening_effect_state": _public_source_deepening_effect_state(
+            candidate_count_delta=_int(row.get("candidate_count")) - _int(baseline.get("candidate_count")),
+            rate_delta=rate_delta,
+            limited_delta=limited_delta,
+            matched_delta=matched_delta,
+            public_readback_ready_delta=public_readback_ready_delta,
+            public_readback_blocked_delta=public_readback_blocked_delta,
+            public_readback_not_found_delta=public_readback_not_found_delta,
+            missing_backfill_input_delta=missing_backfill_input_delta,
+            public_identifier_backfilled_delta=public_identifier_backfilled_delta,
+            ygp_delta=ygp_delta,
+        ),
+        "regression_flags": _regression_flags(
+            rate_delta=rate_delta,
+            limited_delta=limited_delta,
+            matched_delta=matched_delta,
+            ygp_delta=ygp_delta,
+        ),
+    }
+
+
+def _adjacent_delta_rows(rows: list[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    deltas: list[dict[str, Any]] = []
+    for idx, row in enumerate(rows):
+        previous = rows[idx - 1] if idx > 0 else row
+        delta = _delta_row(row, previous)
+        delta["previous_run_label"] = str(previous.get("run_label") or "")
+        deltas.append(delta)
+    return deltas
+
+
+def _regression_flags(
+    *,
+    rate_delta: float,
+    limited_delta: int,
+    matched_delta: int,
+    ygp_delta: int,
+) -> list[str]:
+    flags: list[str] = []
+    if rate_delta < 0:
+        flags.append("SELLABLE_RATE_DECREASED")
+    if limited_delta < 0:
+        flags.append("LIMITED_SELLABLE_COUNT_DECREASED")
+    if matched_delta < 0:
+        flags.append("STAGE4_MATCHED_COUNT_DECREASED")
+    if ygp_delta < 0:
+        flags.append("YGP_BACKFILL_COUNT_DECREASED")
+    return flags
+
+
+def _public_source_deepening_effect_state(
+    *,
+    candidate_count_delta: int,
+    rate_delta: float,
+    limited_delta: int,
+    matched_delta: int,
+    public_readback_ready_delta: int,
+    public_readback_blocked_delta: int,
+    public_readback_not_found_delta: int,
+    missing_backfill_input_delta: int,
+    public_identifier_backfilled_delta: int,
+    ygp_delta: int,
+) -> str:
+    if candidate_count_delta != 0:
+        return "NOT_COMPARABLE_CANDIDATE_COUNT_CHANGED"
+    if (
+        rate_delta > 0
+        and limited_delta > 0
+        and matched_delta > 0
+        and public_readback_ready_delta > 0
+        and ygp_delta > 0
+        and public_readback_blocked_delta <= 0
+    ):
+        return "PUBLIC_SOURCE_DEEPENING_EFFECTIVE"
+    if rate_delta < 0 or limited_delta < 0 or matched_delta < 0:
+        return "PUBLIC_SOURCE_DEEPENING_REGRESSED"
+    if (
+        candidate_count_delta == 0
+        and limited_delta == 0
+        and matched_delta == 0
+        and public_identifier_backfilled_delta > 0
+        and public_readback_ready_delta > 0
+        and missing_backfill_input_delta < 0
+    ):
+        return "PUBLIC_SOURCE_IDENTIFIER_BACKFILL_EFFECTIVE"
+    if (
+        candidate_count_delta == 0
+        and limited_delta == 0
+        and matched_delta == 0
+        and public_readback_ready_delta > 0
+        and public_readback_blocked_delta < 0
+    ):
+        return "PUBLIC_SOURCE_BLOCKER_REDUCED_READBACK_READY_INCREASED"
+    if (
+        candidate_count_delta == 0
+        and limited_delta == 0
+        and matched_delta == 0
+        and public_readback_ready_delta == 0
+        and (public_readback_blocked_delta > 0 or public_readback_not_found_delta > 0)
+        and missing_backfill_input_delta >= 0
+    ):
+        return "PUBLIC_SOURCE_FOLLOWUP_CLASSIFIED_NON_TERMINAL"
+    return "PUBLIC_SOURCE_DEEPENING_INCONCLUSIVE"
+
+
+def _public_source_deepening_recommendations(adjacent_deltas: list[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    recommendations: list[dict[str, Any]] = []
+    for delta in adjacent_deltas:
+        effect_state = str(delta.get("public_source_deepening_effect_state") or "")
+        if effect_state not in {
+            "PUBLIC_SOURCE_DEEPENING_EFFECTIVE",
+            "PUBLIC_SOURCE_IDENTIFIER_BACKFILL_EFFECTIVE",
+            "PUBLIC_SOURCE_BLOCKER_REDUCED_READBACK_READY_INCREASED",
+            "PUBLIC_SOURCE_FOLLOWUP_CLASSIFIED_NON_TERMINAL",
+        }:
+            continue
+        if effect_state == "PUBLIC_SOURCE_DEEPENING_EFFECTIVE":
+            reason = "same_candidate_count_improved_rate_limited_stage4_matched_readback_ready_and_ygp_backfill"
+            focus = [
+                "increase_p13b_prior_award_and_candidate_overlap_budget",
+                "increase_original_notice_readback_budget",
+                "increase_ygp_original_readback_backfill_budget",
+                "continue_remaining_stage4_backfill_followup_queue_before_gdcic_project_code_guessing",
+            ]
+        elif effect_state == "PUBLIC_SOURCE_IDENTIFIER_BACKFILL_EFFECTIVE":
+            reason = "same_candidate_count_public_identifier_backfilled_and_readback_ready_without_limited_sellable_yet"
+            focus = [
+                "continue_original_notice_backtrace_for_backfilled_public_identifiers",
+                "feed_ygp_and_bid_show_identifiers_to_stage4_bridge_without_gdcic_digit_guessing",
+                "promote_only_b_or_c_official_release_readback_to_limited_sellable_review",
+                "keep_identifier_backfill_as_internal_review_not_customer_deliverable",
+            ]
+        elif effect_state == "PUBLIC_SOURCE_BLOCKER_REDUCED_READBACK_READY_INCREASED":
+            reason = "same_candidate_count_public_source_blockers_reduced_and_readback_ready_increased"
+            focus = [
+                "continue_remaining_blocked_original_notice_or_ygp_retry_queue",
+                "review_new_readback_ready_rows_for_b_or_c_release_evidence_only",
+                "keep_not_found_blocked_as_internal_review_not_clearance",
+                "do_not_expand_customer_delivery_until_limited_sellable_review_candidates_exist",
+            ]
+        else:
+            reason = "same_candidate_count_public_source_followup_classified_blocked_or_not_found_without_clearance"
+            focus = [
+                "retry_blocked_local_authority_sources_with_alternate_official_entries",
+                "deepen_not_found_with_specific_search_endpoint_or_manual_source_path",
+                "continue_data_ggzy_bid_show_ygp_then_local_authority_sequence_without_digit_guessing",
+                "keep_not_found_blocked_as_internal_review_not_clearance",
+            ]
+        recommendations.append(
+            {
+                "run_label": str(delta.get("run_label") or ""),
+                "previous_run_label": str(delta.get("previous_run_label") or ""),
+                "decision": "CONTINUE_PUBLIC_SOURCE_DEEPENING",
+                "effect_state": effect_state,
+                "reason": reason,
+                "recommended_budget_focus": focus,
+                "safety_invariants": {
+                    "customer_visible_allowed": False,
+                    "query_miss_is_not_clearance": True,
+                    "no_legal_conclusion": True,
+                    "gdcic_project_code_digit_guessing_allowed": False,
+                },
+            }
+        )
+    return recommendations
+
+
+def _summary(rows: list[Mapping[str, Any]]) -> dict[str, Any]:
+    best = max(rows, key=lambda row: float(row.get("real_public_sellable_pack_rate") or 0), default={})
+    latest = rows[-1] if rows else {}
+    return {
+        "run_count": len(rows),
+        "total_candidate_count": sum(_int(row.get("candidate_count")) for row in rows),
+        "total_limited_sellable_review_candidate_count": sum(
+            _int(row.get("limited_sellable_review_candidate_count")) for row in rows
+        ),
+        "best_rate_run_label": str(best.get("run_label") or ""),
+        "best_real_public_sellable_pack_rate": float(best.get("real_public_sellable_pack_rate") or 0),
+        "latest_run_label": str(latest.get("run_label") or ""),
+        "latest_real_public_sellable_pack_rate": float(latest.get("real_public_sellable_pack_rate") or 0),
+        "latest_limited_sellable_review_candidate_count": _int(
+            latest.get("limited_sellable_review_candidate_count")
+        ),
+        "latest_stage5_operational_review_family_counts": dict(
+            latest.get("stage5_operational_review_family_counts") or {}
+        ),
+        "latest_stage5_operational_primary_track_counts": dict(
+            latest.get("stage5_operational_primary_track_counts") or {}
+        ),
+        "latest_stage5_operational_priority_bucket_counts": dict(
+            latest.get("stage5_operational_priority_bucket_counts") or {}
+        ),
+        "latest_stage5_operational_safety_boundary_counts": dict(
+            latest.get("stage5_operational_safety_boundary_counts") or {}
+        ),
+        "latest_stage4_public_readback_channel_outcome_counts": dict(
+            latest.get("stage4_public_readback_channel_outcome_counts") or {}
+        ),
+        "latest_design_survey_public_registry_readback_state_counts": dict(
+            latest.get("design_survey_public_registry_readback_state_counts") or {}
+        ),
+        "latest_design_survey_public_registry_verification_result_counts": dict(
+            latest.get("design_survey_public_registry_verification_result_counts") or {}
+        ),
+        "customer_visible_allowed": False,
+        "query_miss_is_not_clearance": True,
+        "no_legal_conclusion": True,
+    }
+
+
+def _count_delta(
+    row: Mapping[str, Any],
+    baseline: Mapping[str, Any],
+    field: str,
+    key: str,
+) -> int:
+    current = row.get(field) if isinstance(row.get(field), Mapping) else {}
+    base = baseline.get(field) if isinstance(baseline.get(field), Mapping) else {}
+    return _int(current.get(key)) - _int(base.get(key))
+
+
+def _map_delta(row: Mapping[str, Any], baseline: Mapping[str, Any], field: str) -> dict[str, int]:
+    current = row.get(field) if isinstance(row.get(field), Mapping) else {}
+    base = baseline.get(field) if isinstance(baseline.get(field), Mapping) else {}
+    keys = sorted({str(key) for key in current.keys()} | {str(key) for key in base.keys()})
+    return {key: _int(current.get(key)) - _int(base.get(key)) for key in keys}
+
+
+def _nested_counts(value: Any, key: str) -> dict[str, int]:
+    if not isinstance(value, Mapping):
+        return {}
+    nested = value.get(key)
+    if not isinstance(nested, Mapping):
+        return {}
+    return {str(nested_key): _int(nested_value) for nested_key, nested_value in nested.items()}
+
+
+def _stage5_family_counts_from_scoreboard(scoreboard: Mapping[str, Any]) -> dict[str, int]:
+    existing = scoreboard.get("stage5_operational_review_family_counts")
+    if isinstance(existing, Mapping) and existing:
+        return {str(key): _int(value) for key, value in existing.items()}
+    queue_counts = scoreboard.get("stage5_operational_review_queue_counts")
+    if not isinstance(queue_counts, Mapping):
+        return {}
+    counts: dict[str, int] = {}
+    for queue, count in queue_counts.items():
+        family = _stage5_queue_family(str(queue or ""))
+        counts[family] = counts.get(family, 0) + _int(count)
+    return counts
+
+
+def _stage5_queue_family(queue: str) -> str:
+    mapping = {
+        "STRONG_LEAD_INTERNAL_REVIEW": "strong_lead",
+        "WEAK_LEAD_OFFICIAL_SIGNAL_REVIEW": "weak_lead",
+        "AUTHORIZATION_BLOCKED_REVIEW": "authorization_blocked",
+        "AUTHORIZATION_AND_SOURCE_NOT_FOUND_REVIEW": "authorization_blocked",
+        "PUBLIC_SOURCE_BLOCKED_REVIEW": "public_source_blocked",
+        "SOURCE_NOT_FOUND_REVIEW": "source_not_found",
+        "PUBLIC_SOURCE_NOT_FOUND_REVIEW": "source_not_found",
+        "ORIGINAL_NOTICE_NOT_FOUND_REVIEW": "source_not_found",
+        "ORIGINAL_NOTICE_BACKTRACE_REQUIRED_REVIEW": "original_notice_backtrace_required",
+        "ORIGINAL_NOTICE_BLOCKED_REVIEW": "public_source_blocked",
+        "YGP_READBACK_BLOCKED_REVIEW": "public_source_blocked",
+        "YGP_READBACK_READY_REVIEW": "official_readback_ready",
+        "YGP_STAGE4_BACKFILL_READY_REVIEW": "official_readback_ready",
+        "RESPONSIBLE_PERSON_CERTIFICATE_GAP_REVIEW": "responsible_person_certificate_gap",
+        "RESPONSIBLE_ROLE_GAP_REVIEW": "responsible_role_gap",
+        "FIELD_AMBIGUITY_REVIEW": "field_ambiguity",
+        "PROJECT_CODE_BACKFILL_GAP_REVIEW": "project_code_backfill_gap",
+        "EVIDENCE_INSUFFICIENT_REVIEW": "evidence_insufficient",
+        "UNCLASSIFIED_STAGE5_REVIEW": "unclassified_review_required",
+    }
+    return mapping.get(queue, "unclassified_review_required")
+
+
+def _run_label(path: Path) -> str:
+    parts = list(path.parts)
+    if "tmp" in parts and "evaluation-real-samples" in parts:
+        idx = parts.index("evaluation-real-samples")
+        if len(parts) > idx + 1:
+            return parts[idx + 1]
+    if path.parent.name == "scoreboard":
+        return path.parent.parent.name
+    return path.parent.name
+
+
+def _write_markdown(path: Path, payload: Mapping[str, Any]) -> None:
+    rows = payload.get("comparison_rows") if isinstance(payload.get("comparison_rows"), list) else []
+    lines = [
+        "# Stage1-6 Scoreboard Comparison v1",
+        "",
+        "| run | candidates | limited | rate | stage4 | public readback outcomes | channel outcomes | design registry | code backfill | code route policy | stage5 family | stage5 primary | stage5 priority | stage5 safety | stage5 queues | stage1-3 long tail | stage6 public source chain | auth state |",
+        "| --- | ---: | ---: | ---: | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+    ]
+    for row in rows:
+        auth_status = row.get("gdcic_authorized_readback_status")
+        auth_state = ""
+        if isinstance(auth_status, Mapping):
+            auth_state = str(auth_status.get("authorization_readiness_state") or "")
+        lines.append(
+            "| {run} | {candidates} | {limited} | {rate} | `{stage4}` | `{readback}` | `{channel}` | `{design_registry}` | `{code_backfill}` gap_detail=`{gap_detail}` | `{route_policy}` | `{stage5_family}` | `{stage5_primary}` | `{stage5_priority}` | `{stage5_safety}` | `{stage5}` | `{tail}` | `{chain}` | {auth_state} |".format(
+                run=str(row.get("run_label") or ""),
+                candidates=_int(row.get("candidate_count")),
+                limited=_int(row.get("limited_sellable_review_candidate_count")),
+                rate=float(row.get("real_public_sellable_pack_rate") or 0),
+                stage4=json.dumps(row.get("stage4_adapter_result_state_counts") or {}, ensure_ascii=False, sort_keys=True),
+                readback=json.dumps(
+                    row.get("stage4_public_readback_outcome_counts") or {},
+                    ensure_ascii=False,
+                    sort_keys=True,
+                ),
+                channel=json.dumps(
+                    row.get("stage4_public_readback_channel_outcome_counts") or {},
+                    ensure_ascii=False,
+                    sort_keys=True,
+                ),
+                design_registry=json.dumps(
+                    {
+                        "readback": row.get("design_survey_public_registry_readback_state_counts") or {},
+                        "verification": row.get(
+                            "design_survey_public_registry_verification_result_counts"
+                        )
+                        or {},
+                        "stage5": row.get(
+                            "design_survey_public_registry_projected_stage5_queue_counts"
+                        )
+                        or {},
+                    },
+                    ensure_ascii=False,
+                    sort_keys=True,
+                ),
+                code_backfill=json.dumps(
+                    row.get("stage4_project_code_backfill_state_counts") or {},
+                    ensure_ascii=False,
+                    sort_keys=True,
+                ),
+                gap_detail=json.dumps(
+                    row.get("stage4_project_code_backfill_gap_detail_counts") or {},
+                    ensure_ascii=False,
+                    sort_keys=True,
+                ),
+                route_policy=json.dumps(
+                    row.get("stage4_gdcic_project_code_route_policy_counts") or {},
+                    ensure_ascii=False,
+                    sort_keys=True,
+                ),
+                stage5_family=json.dumps(
+                    row.get("stage5_operational_review_family_counts") or {},
+                    ensure_ascii=False,
+                    sort_keys=True,
+                ),
+                stage5_primary=json.dumps(
+                    row.get("stage5_operational_primary_track_counts") or {},
+                    ensure_ascii=False,
+                    sort_keys=True,
+                ),
+                stage5_priority=json.dumps(
+                    row.get("stage5_operational_priority_bucket_counts") or {},
+                    ensure_ascii=False,
+                    sort_keys=True,
+                ),
+                stage5_safety=json.dumps(
+                    row.get("stage5_operational_safety_boundary_counts") or {},
+                    ensure_ascii=False,
+                    sort_keys=True,
+                ),
+                stage5=json.dumps(row.get("stage5_operational_review_queue_counts") or {}, ensure_ascii=False, sort_keys=True),
+                tail=json.dumps(row.get("stage1_3_long_tail_bucket_counts") or {}, ensure_ascii=False, sort_keys=True),
+                chain=json.dumps(
+                    row.get("stage6_limited_sellable_review_public_source_chain_counts") or {},
+                    ensure_ascii=False,
+                    sort_keys=True,
+                ),
+                auth_state=auth_state,
+            )
+        )
+    lines.extend(
+        [
+            "",
+            "## Public Source Deepening Recommendations",
+            "",
+        ]
+    )
+    recommendations = payload.get("public_source_deepening_recommendations")
+    if isinstance(recommendations, list) and recommendations:
+        for item in recommendations:
+            lines.append(
+                "- {run}: {decision}; focus=`{focus}`".format(
+                    run=str(item.get("run_label") or ""),
+                    decision=str(item.get("decision") or ""),
+                    focus=json.dumps(item.get("recommended_budget_focus") or [], ensure_ascii=False),
+                )
+            )
+    else:
+        lines.append("- none")
+    lines.extend(
+        [
+            "",
+            "customer_visible_allowed=false; query_miss_is_not_clearance=true; no_legal_conclusion=true",
+        ]
+    )
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def _read_json(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {}
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _write_json(path: Path, payload: Mapping[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def _ratio(numerator: Any, denominator: Any) -> float:
+    den = _int(denominator)
+    if den <= 0:
+        return 0.0
+    return round(_int(numerator) / den, 4)
+
+
+def _int(value: Any) -> int:
+    try:
+        return int(value or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--scoreboard-json", action="append", default=[])
+    parser.add_argument("--run-root", action="append", default=[])
+    parser.add_argument("--output-root", default=str(DEFAULT_OUTPUT_ROOT))
+    parser.add_argument("--json", action="store_true")
+    args = parser.parse_args(argv)
+    result = build_stage1_6_scoreboard_comparison(
+        scoreboard_jsons=args.scoreboard_json,
+        run_roots=args.run_root,
+        output_root=args.output_root,
+    )
+    if args.json:
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+    else:
+        print(json.dumps(result["summary"], ensure_ascii=False, indent=2))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

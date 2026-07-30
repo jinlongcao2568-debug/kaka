@@ -39,7 +39,7 @@
 这意味着：
 
 1. SKU 是能力验收方向，不是当前必须立即外发销售的动作。
-2. 没有 Stage2/3 的可回放采集、下载、解析和字段血缘，后续 Stage4-9 都不能产生稳定价值。
+2. 没有 Stage2/3 的可回放采集、下载、解析和字段血缘，后续 Stage1-6 都不能产生稳定价值。
 3. 查不到、源阻断、字段缺失、同名未消歧、附件失败，都只能进入 taxonomy / review，不能写成“无风险”或“已排除”。
 4. 对外触达、真实交付、收款、客户下载和 release 仍属于受控开放能力，必须走审批、审计、operator action 和对应 gate。
 
@@ -117,7 +117,7 @@ AX9S 是 owner 内部使用的真实公开市场机会发现和证据包商业�
 | Stage3 字段血缘 | 能否抽出可核验字段 | project_base、bidder_candidate、field_lineage_record | 继续强化 08 定向解析、OCR 和复杂表格 |
 | Stage4 公开核验 | 字段是否与公开记录匹配 | public verification carrier、source readback | 多省地方 source adapter 与释放证据补查仍弱 |
 | Stage5 双闸门 | 规则是否命中、证据是否足够 | rule_gate_decision、evidence_gate_decision、review_request | 真实 PASS/REVIEW/BLOCK 样本还不够 |
-| Stage6 project_fact | 哪些线索能进入统一事实和复核队列 | project_fact、report_record、review_queue | 继续把真实候选 formal real_public 链强制回 Stage4-9 |
+| Stage6 project_fact | 哪些线索能进入统一事实和复核队列 | project_fact、report_record、review_queue | 继续把真实候选 formal real_public 链强制回 Stage1-6 |
 | Stage7 商业钩子 | 这条线索未来卖给谁、卖什么版本 | saleable_opportunity、buyer_fit、offer_recommendation | 继续限制卖前泄露和“说过头” |
 | Stage8 触达准备 | 未来如何合规触达但不泄密 | contact candidate、outreach plan、touch record | 真实发送仍 gated |
 | Stage9 交付治理 | 成交后如何交付可复核证据并回写 | order / payment / delivery / feedback | 当前不放开真实支付、真实下载、自动退款 |
@@ -194,7 +194,7 @@ AX9S 是 owner 内部使用的真实公开市场机会发现和证据包商业�
 
 当前最值得继续做的，不是泛 UI 优化，也不是重写路线，而是：
 
-- 用真实候选继续压测 Stage4-9 formal readback
+- 用真实候选继续压测 Stage1-6 formal readback
 - 补强 Stage4 公开核验源和释放证据链
 - 按业务证据专题持续补 Stage5 规则 / 证据双闸门样本
 - 在保证受控边界的前提下，把这些能力稳定收成可回放、可复核、可销售承接的内部产品链

@@ -3,9 +3,46 @@ id: automation_task_packet_rules
 owner_docs:
   - D1
   - 自动化开发动作门禁表
+developer_entry_docs:
+  - START_HERE.md
+  - DEV_MODE.md
+  - MINIMAL_PRODUCT_PATH.md
+execution_modes:
+  DEV_MODE:
+    purpose: local feature development, ordinary code/test/script/docs work, mock data, fixtures, UI, and repository-backed internal behavior
+    requires_task_packet: false
+    required_read_order:
+      - START_HERE.md
+      - DEV_MODE.md
+      - MINIMAL_PRODUCT_PATH.md
+      - AGENTS.md
+      - README.md
+      - directly_related_code_tests_scripts
+    validation_default: relevant_tests_only
+  TEST_MODE:
+    purpose: sandbox, mock, dry-run, regression, controlled samples, and explicitly authorized pilots
+    requires_task_packet: false
+    requires_test_marking_and_audit_trace: true
+    production_live_claim_allowed: false
+  PROD_LIVE_MODE:
+    purpose: real customer-visible state, real third-party production systems, real outreach, real payment, real delivery, real refund, or external release
+    requires_task_packet: true
+    requires_authorization_approval_audit_operator_action: true
+    requires_reconciliation_or_rollback_when_payment_delivery_refund: true
 task_packet_source:
   file: control/current_task.yaml
   path: currentTask.task_packet
+scope_semantics:
+  ordinary_direct_dev:
+    requires_task_packet: false
+    current_task_yaml_role: historical_or_controlled_window_source_only
+    missing_declared_changed_paths_is_failure: false
+    planned_target_paths_preflight_required: false
+  controlled_window:
+    requires_task_packet: true
+    current_task_yaml_role: active_machine_readable_packet_source
+    missing_declared_changed_paths_is_failure: true
+    planned_target_paths_preflight_required: true
 source_blueprint_registry_source:
   file: control/source_blueprint_registry.yaml
   path: registered_blueprints
@@ -19,13 +56,14 @@ single_focus:
   rule: one stage or one theme per batch
 split_required_when:
   - cross_stage_changes
-  - payment_or_delivery_or_outreach_execution
+  - production_payment_or_delivery_or_outreach_or_refund_execution
   - external_facing_changes
 ordering_rules:
   - docs_first_then_machine_assets
   - control_updates_require_stop_and_report
 stop_rules_alignment:
-  - batch_stop_rules_from_agents: true
+  - batch_stop_rules_from_agents_apply_to_controlled_windows: true
+  - ordinary_direct_dev_not_blocked_by_missing_task_packet: true
 classification_source: control/review_gate_matrix.yaml
 required_fields:
   - source_blueprint_batch_id
@@ -65,7 +103,8 @@ field_rules:
   owner_reviews_required: array
 requires_task_packet_for:
   - "external release or live external execution"
-  - "real outreach, real payment, real delivery, real refund, or high-restriction field release"
+  - "production outreach, payment, delivery, refund, automated refund, or high-restriction field release"
+  - "authorized pilot outreach, payment, delivery, refund, or automated refund when real users, money, delivery assets, or customer-visible state may be affected"
   - "approval/audit semantics changes"
   - "release gate or readiness gate semantic changes"
   - "schema/migration or cross-stage machine contract changes"
@@ -96,10 +135,13 @@ preflight_checks:
   required_rule: strict packet windows should pass planned target paths / intended changed files; direct-dev default only checks task-packet shape, source registration, roster alignment, and forbidden paths
   compatibility_note: scripts/check-task-packet.ps1 对单字符串逗号拼接形式有兼容处理，仅作工具链兜底，不是首选写法
 notes:
+  - START_HERE.md and DEV_MODE.md are the default human-friendly entrypoints for ordinary development; this machine file must not be used to expand ordinary development into a controlled packet unless PROD_LIVE_MODE or another controlled-window criterion applies
   - there is no single repository-wide max_files, max_docs, max_control, or max_machine_assets hard cap
   - whether a task should split is decided by single_focus, declared/allowed/forbidden paths, review gate, and stop conditions
   - high-risk domains must be isolated in their own batch
   - task packet cannot be replaced by conversational summary inside controlled windows; control/current_task.yaml is the formal machine-readable packet source for those windows
+  - ordinary direct-dev uses the human current goal plus localized impact analysis as scope; task-packet field failures do not block ordinary direct-dev unless the change enters a controlled/high-risk domain
+  - sandbox/mock/dry-run/regression tests for outreach, payment, delivery, refund, automated refund, or high-restriction approval flows do not require production-live task-packet treatment when no real user, money, delivery asset, or customer-visible state is affected
   - source_blueprint_batch_id is validated against control/source_blueprint_registry.yaml
   - stage7/stage8/stage9 roster defaults come from control/operator_assignment_roster_defaults.yaml
   - generated Python cache artifacts under __pycache__ and .pytest_cache are not treated as business-scope actual changed paths by task-packet validation

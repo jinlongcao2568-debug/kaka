@@ -3,6 +3,14 @@ from __future__ import annotations
 import hashlib
 from typing import Any, Mapping
 
+from shared.model_provider_runtime import (
+    ModelAssistRequest,
+    ModelProviderConfig,
+    ModelProviderExecutionError,
+    ModelProviderTransport,
+    execute_governed_model_assist_with_fallback,
+    model_provider_readiness,
+)
 from shared.utils import build_id, ensure_list, utc_now_iso
 
 
@@ -11,6 +19,7 @@ MODEL_ASSIST_SUMMARY_INPUT_KEY = "model_assist_governance_summary"
 MODEL_ASSIST_MODE = "GOVERNED_ASSIST_READBACK"
 MODEL_ASSIST_PROVIDER_SURFACE = "LOCAL_DETERMINISTIC_ASSIST"
 MODEL_ASSIST_POLICY_REF = "contracts/model/model_usage_policy.json#governed_model_assist"
+MODEL_ASSIST_PROMPT_ID = "PROMPT_GOVERNED_PROVIDER_SHADOW_V1"
 MODEL_ASSIST_GOLDEN_CASE_REFS = [
     "MODEL-GOLDEN-FIELD-EXTRACTION-CANDIDATE",
     "MODEL-GOLDEN-EVIDENCE-SUMMARY-REVIEW",
@@ -44,13 +53,19 @@ def build_model_assist_governance_summary(
     normalized_evidence_refs = [ref for ref in ensure_list(evidence_refs) if not _is_empty(ref)]
     normalized_source_refs = dict(source_refs or {})
     normalized_sales_refs = dict(sales_context_refs or {})
+    provider_readiness = model_provider_readiness()
     prompt_trace = {
         "prompt_trace_id": _stable_id("MA-PROMPT", assist_scope, prompt_purpose, normalized_source_refs),
         "prompt_purpose": prompt_purpose,
         "input_boundary": "PUBLIC_OR_INTERNAL_SANITIZED_ONLY",
         "restricted_input_requested": bool(restricted_input_requested),
         "customer_visible_requested": bool(customer_visible_requested),
-        "prompt_template_ref": "contracts/model/model_usage_policy.json#prompt_templates.governed_assist",
+        "prompt_template_ref": (
+            "contracts/model/prompt_policy_catalog.json#"
+            "policies.PROMPT_GOVERNED_PROVIDER_SHADOW_V1"
+        ),
+        "prompt_template_id": MODEL_ASSIST_PROMPT_ID,
+        "prompt_template_version": "1",
         "source_refs": normalized_source_refs,
         "evidence_refs": list(normalized_evidence_refs),
         "sales_context_refs": normalized_sales_refs,
@@ -87,7 +102,8 @@ def build_model_assist_governance_summary(
         "model_assist_mode": MODEL_ASSIST_MODE,
         "model_provider_execution_surface": MODEL_ASSIST_PROVIDER_SURFACE,
         "policy_ref": MODEL_ASSIST_POLICY_REF,
-        "model_provider_configured": False,
+        "model_provider_configured": bool(provider_readiness.get("configured")),
+        "model_provider_runtime_readiness": provider_readiness,
         "real_model_provider_call_enabled": False,
         "real_model_provider_call_executed": False,
         "external_network_call_executed": False,
@@ -144,6 +160,10 @@ def build_model_assist_summary(carrier: Mapping[str, Any]) -> dict[str, Any]:
         "customer_visible": bool(carrier.get("customer_visible", False)),
         "formal_fact_write_enabled": bool(carrier.get("formal_fact_write_enabled", False)),
         "real_model_provider_call_executed": bool(carrier.get("real_model_provider_call_executed", False)),
+        "model_provider_configured": bool(carrier.get("model_provider_configured", False)),
+        "model_provider_runtime_state": dict(
+            carrier.get("model_provider_runtime_readiness", {})
+        ).get("state"),
         "model_output_not_final_fact": bool(controlled_opening_requirements.get("model_output_not_final_fact", True)),
         "model_output_not_customer_conclusion": bool(
             controlled_opening_requirements.get("model_output_not_customer_conclusion", True)
@@ -275,6 +295,65 @@ def build_sales_talk_track_model_assist(
     )
 
 
+def execute_model_assist_shadow(
+    carrier: Mapping[str, Any],
+    *,
+    input_data_classification: str,
+    config: ModelProviderConfig | None = None,
+    transport: ModelProviderTransport | None = None,
+) -> dict[str, Any]:
+    if not bool(carrier.get("model_input_governance_policy_enforced", False)):
+        raise ModelProviderExecutionError(
+            "INPUT_GOVERNANCE_BLOCKED",
+            "model assist carrier did not pass input governance",
+        )
+    if bool(carrier.get("formal_fact_write_enabled")) or bool(
+        carrier.get("customer_visible_claim_enabled")
+    ):
+        raise ModelProviderExecutionError(
+            "OUTPUT_BOUNDARY_BLOCKED",
+            "model assist carrier requests a forbidden output boundary",
+        )
+    output_kind = str(dict(carrier.get("output_trace") or {}).get("output_kind") or "")
+    task_kind = {
+        "llm_assisted_field_extraction_candidate": "CANDIDATE_EXTRACTION",
+        "llm_assisted_evidence_summary": "EVIDENCE_SUMMARY",
+        "llm_assisted_review_triage": "REVIEW_EXPLANATION",
+        "llm_assisted_sales_talk_track_draft": "DRAFT_COPY",
+    }.get(output_kind)
+    if not task_kind:
+        raise ModelProviderExecutionError(
+            "TASK_KIND_BLOCKED", "model assist output kind has no governed provider task"
+        )
+    source_refs = _provider_source_refs(carrier)
+    request = ModelAssistRequest(
+        request_id=str(carrier.get("assist_id") or ""),
+        task_kind=task_kind,
+        input_data_classification=input_data_classification,
+        sanitized_input={
+            "assist_scope": carrier.get("assist_scope"),
+            "output_kind": output_kind,
+            "field_candidates": list(carrier.get("field_extraction_candidates") or []),
+            "source_refs": dict(carrier.get("source_refs") or {}),
+            "evidence_refs": list(carrier.get("evidence_refs") or []),
+            "sales_context_refs": dict(carrier.get("sales_context_refs") or {}),
+        },
+        source_refs=source_refs,
+        prompt_template_id=str(
+            dict(carrier.get("prompt_trace") or {}).get("prompt_template_id")
+            or MODEL_ASSIST_PROMPT_ID
+        ),
+        prompt_template_version=str(
+            dict(carrier.get("prompt_trace") or {}).get("prompt_template_version") or "1"
+        ),
+    )
+    return execute_governed_model_assist_with_fallback(
+        request,
+        config=config,
+        transport=transport,
+    )
+
+
 def _field_candidate_payload(field: Mapping[str, Any]) -> dict[str, Any]:
     return {
         "field_name": field.get("field_name"),
@@ -328,6 +407,17 @@ def _stable_id(prefix: str, *parts: Any) -> str:
     return build_id(prefix, digest)
 
 
+def _provider_source_refs(carrier: Mapping[str, Any]) -> tuple[str, ...]:
+    values: list[str] = []
+    for value in dict(carrier.get("source_refs") or {}).values():
+        if isinstance(value, (str, int, float)) and str(value).strip():
+            values.append(str(value).strip())
+    for value in ensure_list(carrier.get("evidence_refs")):
+        if isinstance(value, (str, int, float)) and str(value).strip():
+            values.append(str(value).strip())
+    return tuple(dict.fromkeys(values))
+
+
 def _is_empty(value: Any) -> bool:
     if isinstance(value, (dict, list, tuple, set)):
         return len(value) == 0
@@ -346,4 +436,5 @@ __all__ = [
     "build_rule_model_assist",
     "build_sales_talk_track_model_assist",
     "build_verification_model_assist",
+    "execute_model_assist_shadow",
 ]

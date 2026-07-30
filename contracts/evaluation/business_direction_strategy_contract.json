@@ -1,6 +1,6 @@
 {
   "contract_id": "BUSINESS-DIRECTION-STRATEGY-CONTRACT",
-  "contract_version": 12,
+  "contract_version": 13,
   "purpose": "固定招投标分析产品的双线业务方向，避免后续开发把招标公告文件链路验证误当成核心商业主线。",
   "primary_commercial_line": "POST_CANDIDATE_EVIDENCE_PACK",
   "default_when_ambiguous": "POST_CANDIDATE_EVIDENCE_PACK",
@@ -109,7 +109,30 @@
         "notes": "四川独立适配。"
       }
     ],
-    "observation_policy": "除广东广州、浙江、四川以外的省市，默认先做省源/市源完整性分析，再决定独立适配。"
+    "observation_policy": "除广东广州、浙江、四川以外的省市，默认先做省源/市源完整性分析，再决定独立适配。",
+    "current_execution_priority_policy": {
+      "policy_id": "GUANGDONG-CURRENT-PROJECT-MAINLINE-FIRST-V1",
+      "current_candidate_project_mainline_first_region_code": "CN-GD",
+      "current_candidate_project_mainline_first_meaning": "当前候选项目实战入口、Stage1-6 闭环、广州/广东附件和字段稳定性优先在广东跑通。",
+      "does_not_mean_release_evidence_limited_to_guangdong": true,
+      "release_evidence_query_region_rule": "historical_overlap_project_region_first_then_current_project_region_fallback",
+      "release_evidence_region_basis": "P13B 命中同人和时间窗口重叠后，施工许可、合同履约、竣工验收、项目经理变更等 B/C/D 释放证据按历史重叠项目所在地公开源查询。",
+      "cross_region_information_checks_allowed": true,
+      "cross_region_information_source_types": [
+        "performance_public_record",
+        "administrative_penalty_public_record",
+        "credit_penalty_blacklist",
+        "complaint_or_supervision_decision",
+        "personnel_public_record",
+        "enterprise_public_record"
+      ],
+      "non_guangdong_current_candidate_project_priority": "SECONDARY_UNTIL_GUANGDONG_MAINLINE_STABLE",
+      "must_not": [
+        "do_not_force_historical_overlap_release_evidence_to_guangdong_sources",
+        "do_not_switch_current_candidate_project_mainline_to_other_provinces_before_guangdong_stage1_6_stabilizes",
+        "do_not_block_cross_region_performance_penalty_or_credit_information_checks"
+      ]
+    }
   },
   "routing_rules": [
     {

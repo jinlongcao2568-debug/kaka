@@ -116,6 +116,7 @@ class TestStage1Scheduler(unittest.TestCase):
             task.queue_item_id,
             worker_id="worker-1",
             lease_id="lease-1",
+            lease_seconds=120,
             now="2026-04-25T03:00:00+00:00",
         )
         self.assertEqual(leased.status, "running")
@@ -136,6 +137,7 @@ class TestStage1Scheduler(unittest.TestCase):
             task.queue_item_id,
             worker_id="worker-1",
             lease_id="lease-2",
+            lease_seconds=120,
             now="2026-04-25T03:02:00+00:00",
         )
         self.assertEqual(leased_again.retry_state.attempt_count, 2)

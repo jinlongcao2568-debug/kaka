@@ -6,6 +6,8 @@ param(
     [string]$CompanyFirstResultState = "NOT_RUN",
     [string]$NameEnumerationResultState = "NOT_RUN",
     [string]$SourceStage4RecordsJson = "",
+    [string]$Stage13LongTailJson = "",
+    [string]$Stage4BridgeTableJson = "",
     [switch]$EmitJson
 )
 
@@ -45,6 +47,12 @@ if ($ProjectIds) {
 }
 if ($SourceStage4RecordsJson) {
     $argsList += @("--source-stage4-records-json", $SourceStage4RecordsJson)
+}
+if ($Stage13LongTailJson) {
+    $argsList += @("--stage1-3-long-tail-json", $Stage13LongTailJson)
+}
+if ($Stage4BridgeTableJson) {
+    $argsList += @("--stage4-bridge-table-json", $Stage4BridgeTableJson)
 }
 if ($EmitJson) {
     $argsList += "--json"

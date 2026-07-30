@@ -92,6 +92,46 @@ class Stage6ReviewActionResultRoutingTests(unittest.TestCase):
             self.assertEqual(result["stage6_review_action_result_routing_mode"], "INPUT_BLOCKED")
             self.assertIn("stage6_review_action_dispatch_closeout_missing_or_invalid", result["blocking_reasons"])
 
+    def test_terminal_release_field_query_marker_becomes_status_projection_not_blocker_route(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            records = [
+                _closeout_record(
+                    "PROJ-REL-TERM",
+                    dispatch_task_type="BUILD_RELEASE_EVIDENCE_ADAPTER_PLAN",
+                    closeout_state="READY_FOR_RELEASE_EVIDENCE_FIELD_QUERY",
+                    result_json_path="tmp/release-adapter-plan.json",
+                    result_json_exists=True,
+                    terminal_closeout_markers=[
+                        {
+                            "task_family": "release_evidence_query",
+                            "marker_state": "MATCHED",
+                            "artifact_ref": "tmp/field-query/review-ready.json",
+                        }
+                    ],
+                )
+            ]
+            _write_closeout(root / "closeout", records=records)
+
+            result = build_stage6_review_action_result_routing(
+                dispatch_closeout_root=root / "closeout",
+                release_evidence_field_query_output_root=root / "field-query",
+                output_root=root / "out",
+            )
+
+            self.assertTrue(result["safe_to_execute"])
+            self.assertEqual(result["summary"]["release_evidence_field_query_ready_count"], 0)
+            self.assertEqual(result["summary"]["recommended_command_ready_count"], 0)
+            self.assertEqual(result["summary"]["closeout_precedence_suppressed_count"], 1)
+            record = result["manifest"]["result_routing_table"]["records"][0]
+            self.assertEqual(record["result_routing_state"], "READY_FOR_RELEASE_EVIDENCE_STATUS_PROJECTION")
+            self.assertEqual(record["next_task_type"], "STATUS_PROJECTION_ONLY")
+            self.assertEqual(record["recommended_command_argv"], [])
+            self.assertEqual(
+                record["next_recommended_action"],
+                "project_to_review_ready_status_projection_without_duplicate_dispatch",
+            )
+
     def test_output_keeps_internal_safety_contract(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -113,7 +153,7 @@ class Stage6ReviewActionResultRoutingTests(unittest.TestCase):
             self.assertEqual(manifest["manifest_sha256"], _fingerprint_without_manifest_sha(manifest))
 
 
-def _write_closeout(root: Path) -> None:
+def _write_closeout(root: Path, records: list[Mapping[str, Any]] | None = None) -> None:
     continuation_path = root.parent / "continuation" / "evidence-orchestration-continuation-run-v1.json"
     _write_json(
         continuation_path,
@@ -125,7 +165,7 @@ def _write_closeout(root: Path) -> None:
             "summary": {},
         },
     )
-    records = [
+    records = records or [
         _closeout_record(
             "PROJ-ORIG",
             dispatch_task_type="RUN_ORIGINAL_NOTICE_BACKTRACE_RETRY_OR_MANUAL_REVIEW",
@@ -192,6 +232,7 @@ def _closeout_record(
     result_json_path: str = "",
     result_json_exists: bool = False,
     next_required_input_refs: list[str] | None = None,
+    terminal_closeout_markers: list[Mapping[str, Any]] | None = None,
 ) -> dict[str, Any]:
     return {
         "dispatch_closeout_id": f"CLOSEOUT-{project_id}",
@@ -205,6 +246,7 @@ def _closeout_record(
         "result_json_exists": result_json_exists,
         "result_manifest_id": f"RESULT-{project_id}" if result_json_exists else "",
         "next_required_input_refs": next_required_input_refs or [],
+        "terminal_closeout_markers": list(terminal_closeout_markers or []),
         "ready_to_feed_back_to_evidence_state": closeout_state == "READY_TO_FEED_RESULT_BACK_TO_EVIDENCE_STATE",
         "ready_for_release_evidence_field_query": closeout_state == "READY_FOR_RELEASE_EVIDENCE_FIELD_QUERY",
         "customer_visible_allowed": False,

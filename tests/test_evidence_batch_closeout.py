@@ -58,6 +58,14 @@ class EvidenceBatchCloseoutTests(unittest.TestCase):
                 "PARK_OR_MANUAL_REVIEW_WITHOUT_CLEARANCE_CLAIM",
             )
             self.assertEqual(
+                by_project["PROJ-D"]["terminal_closeout_markers"][0]["task_family"],
+                "original_readback",
+            )
+            self.assertEqual(
+                by_project["PROJ-D"]["original_readback_operator_projections"][0]["raw_json_required_for_next_step"],
+                False,
+            )
+            self.assertEqual(
                 by_project["PROJ-D"]["evidence_artifacts"][0]["evidence_artifact_type"],
                 "DESIGN_SURVEY_PUBLIC_REGISTRY_READBACK",
             )
@@ -87,6 +95,15 @@ class EvidenceBatchCloseoutTests(unittest.TestCase):
             self.assertEqual(
                 record["continuation_lineage"]["final_original_backtrace_continuation_recommended_next_action"],
                 "PARK_OR_MANUAL_REVIEW_WITHOUT_CLEARANCE_CLAIM",
+            )
+            self.assertEqual(
+                record["continuation_lineage"]["final_original_backtrace_next_queue_counts"],
+                {"manual_hold": 1},
+            )
+            self.assertEqual(record["continuation_lineage"]["final_original_backtrace_terminal_marker_count"], 1)
+            self.assertEqual(
+                record["continuation_lineage"]["final_original_backtrace_runtime_blocker_ledger_count"],
+                1,
             )
 
     def test_overlay_state_replaces_scoped_project_and_clears_stale_jobs(self) -> None:
@@ -186,6 +203,37 @@ def _write_evidence_state(root: Path) -> None:
             "recommended_next_action": "manual_review_or_retry_blocked_original_notice_backtrace_without_clearance_claim",
             "stage6_fact_package_state": "NOT_READY",
             "review_reasons": ["source_blocked_or_fields_missing"],
+            "original_readback_next_queue_counts": {"manual_hold": 1},
+            "original_readback_closeout_state_counts": {"TERMINAL_ORIGINAL_READBACK_CLOSEOUT": 1},
+            "original_readback_operator_projections": [
+                {
+                    "projection_state": "ORIGINAL_READBACK_MANUAL_HOLD",
+                    "raw_json_required_for_next_step": False,
+                    "output_artifact": "p13b-original-backtrace-continuation-controller-v2.json",
+                }
+            ],
+            "runtime_blocker_ledger_records": [
+                {
+                    "ledger_scope": "p13b_original_readback",
+                    "blocker_state": "TERMINAL_CLOSEOUT_SUPPRESSED_DUPLICATE_DISPATCH",
+                }
+            ],
+            "terminal_closeout_markers": [
+                {
+                    "task_family": "original_readback",
+                    "terminal": True,
+                    "marker_state": "PARK_LOW_VALUE_REVIEW",
+                    "artifact_ref": "p13b-original-backtrace-continuation-controller-v2.json",
+                }
+            ],
+            "terminal_backfill_markers": [
+                {
+                    "task_family": "original_readback",
+                    "terminal": True,
+                    "marker_state": "PARK_LOW_VALUE_REVIEW",
+                    "artifact_ref": "p13b-original-backtrace-continuation-controller-v2.json",
+                }
+            ],
             "evidence_artifacts": [
                 {
                     "evidence_artifact_type": "DESIGN_SURVEY_PUBLIC_REGISTRY_READBACK",
@@ -274,6 +322,10 @@ def _write_continuation(root: Path) -> None:
                     "final_original_backtrace_continuation_recommended_next_action": (
                         "PARK_OR_MANUAL_REVIEW_WITHOUT_CLEARANCE_CLAIM"
                     ),
+                    "final_original_backtrace_next_queue_counts": {"manual_hold": 1},
+                    "final_original_backtrace_closeout_precedence_suppressed_count": 1,
+                    "final_original_backtrace_terminal_marker_count": 1,
+                    "final_original_backtrace_runtime_blocker_ledger_count": 1,
                 },
             },
             "summary": {"state_after_adapter_job_count": 0},

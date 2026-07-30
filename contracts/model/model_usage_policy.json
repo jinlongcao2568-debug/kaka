@@ -1,6 +1,6 @@
 {
   "policy_id": "model-usage-policy",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "status": "DRAFT",
   "stage_signature_matrix_ref": "contracts/model/model_stage_signature_matrix.json",
   "tool_usage_policy_ref": "contracts/model/tool_usage_policy_catalog.json",
@@ -47,6 +47,11 @@
     "initial_tier": "M0_INTERNAL_ASSIST",
     "final_decision_prohibited_all_stages": true,
     "live_external_provider_prohibited": true,
+    "internal_shadow_provider_allowed_with_runtime_contract": true,
+    "internal_shadow_provider_runtime_contract_ref": "contracts/model/model_provider_runtime_contract.json",
+    "internal_shadow_provider_default_enabled": false,
+    "customer_visible_model_output_enabled": false,
+    "formal_fact_write_enabled": false,
     "allowed_usage_modes": [
       "internal_assist",
       "review_assist",

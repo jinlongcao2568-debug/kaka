@@ -13,7 +13,7 @@ scope_boundary:
   unapproved_live_capture_enabled: false
   real_refund_execution_enabled: false
   automated_refund_execution_enabled: false
-  refund_boundary: manual exception/governed review only; no automated refund execution
+  refund_boundary: controlled-test-and-pilot-required automated refund boundary; manual exception/governed review plus sandbox/mock/dry-run and authorized-pilot automated refund tests are allowed; production automatic refund requires approval, audit, operator action, reconciliation, rollback/suspension, and governed review
 source_of_truth_refs:
   product_task_library: control/product_task_library.yaml
   acceptance_checklist: control/product_acceptance_checklist.yaml
@@ -73,7 +73,7 @@ e2e_flow:
   stage: Stage9
   state: PRODUCTION_READY
   evidence_ref: tests/test_stage9_impact_executor.py
-  automated_refund_absent: true
+  automated_refund_controlled_test_and_pilot_required: true
 - step_id: writeback_audit
   stage: Stage9
   state: PRODUCTION_READY
@@ -90,7 +90,7 @@ twelve_dimension_acceptance:
   evidence: 127-131 completed; final 118R real_world_gaps empty
 - dimension: product_doc_alignment
   result: PASS
-  evidence: open capability baseline remains authoritative; automatic refund excluded
+  evidence: open capability baseline remains authoritative; automatic refund controlled-test-and-pilot-required
 - dimension: stage1_to_stage9_operational_loop
   result: PASS
   evidence: e2e_flow covers source through writeback/audit

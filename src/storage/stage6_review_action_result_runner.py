@@ -245,6 +245,10 @@ def _runner_record(
         "execution_mode": "CONTROLLED_INTERNAL_EXECUTED" if execution_state.startswith("EXECUTED_") else "PLAN_OR_SKIP_ONLY",
         "live_execution_enabled": False,
         "requires_operator_action_before_live": True,
+        "requires_operator_approval_before_execution": bool(
+            record.get("requires_operator_approval_before_execution", False)
+        )
+        or any(_is_live_or_external_flag(token) for token in argv),
         "customer_visible_allowed": False,
         "external_send_enabled": False,
         "no_legal_conclusion": True,

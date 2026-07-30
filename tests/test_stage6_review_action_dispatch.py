@@ -114,6 +114,48 @@ class Stage6ReviewActionDispatchTests(unittest.TestCase):
             self.assertEqual(manual["project_id"], "PROJ-MANUAL")
             self.assertEqual(manual["dispatch_block_reason"], "terminal_source_gap_no_delta_manual_review_only")
 
+    def test_terminal_closeout_marker_suppresses_duplicate_dispatch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            records = [
+                _action_plan(
+                    project_id="PROJ-TERM",
+                    action_family="P13B_RELEASE_EVIDENCE_TARGETED_REVIEW",
+                    target_adapter_scope="ReleaseEvidenceAdapterPlanV1 + jurisdiction_release_adapter_registry",
+                    action_label="query_release_evidence_only_in_historical_overlap_project_local_public_source",
+                    source_refs={
+                        "evidence_batch_closeout_json": "tmp/evidence-batch-closeout-v1.json",
+                        "p13b_operational_closeout_root": "tmp/p13b-operational-closeout-v1",
+                    },
+                    terminal_closeout_markers=[
+                        {
+                            "task_family": "release_evidence_query",
+                            "marker_state": "MATCHED",
+                            "artifact_ref": "tmp/field-query/guangdong-local-field-query-probe-v1.json",
+                        }
+                    ],
+                )
+            ]
+            _write_stage6_fact_package(root / "stage6", records=records)
+
+            result = build_stage6_review_action_dispatch(
+                stage6_fact_package_root=root / "stage6",
+                output_root=root / "out",
+            )
+
+            self.assertTrue(result["safe_to_execute"])
+            self.assertEqual(result["summary"]["dispatch_task_count"], 0)
+            self.assertEqual(result["summary"]["manual_only_action_plan_count"], 1)
+            self.assertEqual(result["summary"]["closeout_precedence_suppressed_count"], 1)
+            manual = result["manifest"]["manual_only_action_plan_table"]["records"][0]
+            self.assertEqual(manual["project_id"], "PROJ-TERM")
+            self.assertEqual(manual["dispatch_block_reason"], "terminal_closeout_or_backfill_marker_present")
+            self.assertTrue(manual["closeout_precedence"]["suppressed_dispatch"])
+            self.assertEqual(
+                manual["operator_next_action"],
+                "project_to_review_ready_status_projection_without_duplicate_dispatch",
+            )
+
     def test_release_evidence_dispatch_blocks_when_required_source_refs_missing(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -217,6 +259,7 @@ def _action_plan(
     automated_dispatch_allowed: bool = True,
     dispatch_block_reason: str = "",
     source_refs: Mapping[str, Any] | None = None,
+    terminal_closeout_markers: list[Mapping[str, Any]] | None = None,
 ) -> dict[str, Any]:
     return {
         "review_action_plan_id": f"PLAN-{project_id}",
@@ -243,6 +286,7 @@ def _action_plan(
                 "query_miss_is_not_clearance": True,
             }
         ],
+        "terminal_closeout_markers": list(terminal_closeout_markers or []),
         "source_refs": dict(source_refs or {"stage6": "stage6-fact-package-v1.json"}),
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,

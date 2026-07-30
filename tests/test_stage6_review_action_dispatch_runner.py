@@ -102,6 +102,56 @@ class Stage6ReviewActionDispatchRunnerTests(unittest.TestCase):
                 "design_survey_public_registry_fallback_json_missing",
             )
 
+    def test_same_task_type_with_different_baseline_sources_builds_separate_groups(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            state_a = _write_evidence_state(root / "state-a")
+            state_b = _write_evidence_state(root / "state-b")
+            records = [
+                _dispatch_task(
+                    "PROJ-O1",
+                    task_type="RUN_ORIGINAL_NOTICE_BACKTRACE_RETRY_OR_MANUAL_REVIEW",
+                    evidence_state_json=state_a,
+                ),
+                _dispatch_task(
+                    "PROJ-O2",
+                    task_type="RUN_ORIGINAL_NOTICE_BACKTRACE_RETRY_OR_MANUAL_REVIEW",
+                    evidence_state_json=state_b,
+                ),
+            ]
+            _write_json(
+                root / "dispatch" / "stage6-review-action-dispatch-v1.json",
+                {
+                    "manifest": {
+                        "manifest_id": "DISPATCH-MULTI-BASELINE",
+                        "dispatch_task_table": {"records": records, "summary": {}},
+                    },
+                    "summary": {},
+                },
+            )
+
+            result = run_stage6_review_action_dispatch_runner(
+                dispatch_root=root / "dispatch",
+                output_root=root / "out",
+                execute_commands=False,
+                created_at="2026-05-23T00:00:00+08:00",
+            )
+
+            self.assertTrue(result["safe_to_execute"])
+            self.assertEqual(result["summary"]["dispatch_runner_group_count"], 2)
+            self.assertEqual(result["summary"]["blocked_missing_inputs_group_count"], 0)
+            groups = result["manifest"]["dispatch_runner_group_table"]["records"]
+            self.assertEqual(
+                {group["source_evidence_state_json"] for group in groups},
+                {str(state_a), str(state_b)},
+            )
+            self.assertTrue(
+                all(
+                    group["group_readiness_state"] == "READY_FOR_CONTROLLED_INTERNAL_DISPATCH_RUN"
+                    for group in groups
+                )
+            )
+
     def test_release_plan_group_blocks_when_source_refs_are_missing(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)

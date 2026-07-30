@@ -42,9 +42,9 @@ open_capability_policy_summary:
     - payment_collection_and_charge
     - delivery_fulfillment
     - receipt_invoice_and_settlement
-  excluded_capabilities:
+  controlled_test_and_pilot_capabilities:
     - automated_refund_execution
-  refund_boundary: "automated_refund_execution is excluded; refund handling remains manual exception record, manual approval/audit, and governed review only"
+  refund_boundary: "automated_refund_execution is controlled-test-and-pilot-required; sandbox/mock/dry-run or authorized pilots may exercise refund automation, while production automatic refund requires manual approval or explicit pilot authorization, audit, reconciliation, rollback/suspension, operator action, and governed review"
   required_gates:
     - provider_config
     - sandbox_pass
@@ -945,7 +945,7 @@ stage_module_inventory:
         deferred_gaps: []
   - stage_id: stage9_delivery
     stage_name: "Stage9 订单支付交付与治理反馈"
-    business_summary: "在 governed/internal 边界内记录订单、支付、交付、结果回写和治理反馈；真实收款、扣款、交付、发票/收据和对账是目标能力但 controlled-opening-required，自动退款执行 excluded/manual exception only。"
+    business_summary: "在 governed/internal 边界内记录订单、支付、交付、结果回写和治理反馈；真实收款、扣款、交付、发票/收据和对账是目标能力但 controlled-opening-required，自动退款流程为 controlled-test-and-pilot-required，可做 sandbox/mock/dry-run/受控试点，生产自动退款需授权、审批、审计、operator action、对账和回滚/暂停机制。"
     implementation_state: GOVERNANCE_BLOCKED_LIVE_EXECUTION
     current_runtime_state: HEAVY_RUNTIME
     customer_visibility: INTERNAL_GOVERNED
@@ -956,7 +956,7 @@ stage_module_inventory:
       - PTL-S9-102-p6-feedback-writeback-productization
     current_blockers:
       - "Stage9 real payment / charge / delivery 是目标能力但默认阻断；controlled-opening-required 表示未满足 provider config、sandbox、approval、audit、operator action、field allowlist/masking 和验收前不能 live。"
-      - "自动退款执行不作为目标能力；退款只保留 manual exception record、manual approval/audit 和 governed review。"
+      - "自动退款流程为 controlled-test-and-pilot-required；sandbox/mock/dry-run/受控试点可开发和验收，生产启用必须有授权、审批、审计、operator action、对账和回滚/暂停。"
     exit_criteria:
       - "order/payment/delivery/outcome/feedback 均保持 typed governed record。"
       - "任何 writeback 不得反向改写 Stage6 真相层。"
@@ -1111,12 +1111,14 @@ cross_cutting_surfaces:
       - src/storage/repositories/worker_queue_repo.py
       - src/storage/repositories/monitoring_alerting_repo.py
       - src/storage/repositories/production_slo_incident_repo.py
+      - src/storage/repositories/runtime_state_repo.py
     test_files:
       - tests/test_production_slo_incident_readiness.py
       - tests/test_stage1_scheduler.py
       - tests/test_internal_repository_boundary.py
       - tests/test_storage_concurrency.py
       - tests/test_real_provider_binding.py
+      - tests/test_runtime_architecture_contract.py
     completed_packets:
       - PTL-INT-internal-preview-surface-envelope
       - PTL-INT-102-p4-repository-boundary-hardening
@@ -1488,7 +1490,7 @@ modules:
       - "P6 feedback/writeback productization completed in local commit edff5af and src/stage9_delivery/feedback_writeback.py is now part of the formal Stage9 current files ledger."
       - "Stage9 remains internal governed only; external/live payment, delivery, refund, and writeback mutation remain blocked/governed."
       - "PTL-I100-OPEN-CAPABILITY-BASELINE treats payment collection, charge execution, delivery fulfillment, receipt/invoice, and settlement as gated target capabilities."
-      - "automated_refund_execution is excluded; refund handling remains manual exception record, manual approval/audit, and governed review only."
+      - "automated_refund_execution is controlled-test-and-pilot-required; sandbox/mock/dry-run or authorized pilots may exercise refund automation, while production automatic refund requires manual approval or explicit pilot authorization, audit, reconciliation, rollback/suspension, operator action, and governed review."
   - module_id: SURFACE-API-TRANSPORT
     stage_scope:
       - stage1_to_stage9

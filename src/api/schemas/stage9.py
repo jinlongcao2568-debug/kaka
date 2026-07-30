@@ -137,6 +137,9 @@ class Stage9Response(TypedDict, total=False):
     decision_states: dict[str, str]
     formal_object_refs: dict[str, FormalObjectRef]
     preview_projection: Stage9PreviewProjection
+    capability_envelope: dict[str, Any]
+    governance_envelope: dict[str, Any]
+    semantic_envelope: dict[str, Any]
     stage9_execution_ledger: dict[str, Any]
     stage9_execution_ledger_readiness: dict[str, Any]
     order_payment_delivery_execution_summary: dict[str, Any]
@@ -148,14 +151,21 @@ class Stage9Response(TypedDict, total=False):
     provider_adapter_readiness_summary: dict[str, Any]
     provider_adapter_config_source: str
     provider_adapter_mode: str
+    provider_adapter_readback_only: bool
+    provider_adapter_provider_call_enabled: bool
+    provider_adapter_real_provider_call_enabled: bool
     provider_adapter_blocked_reasons: list[str]
     provider_adapter_approval_audit_prerequisites: dict[str, Any]
+    operator_loop_projection: dict[str, Any]
+    workbench_replay: dict[str, Any]
     trace_refs: dict[str, Any]
     operational_loop_persisted: bool
     operational_context_status: str
     persisted_operational_context: OperationalContext
     transient_preview_context: TransientPreviewContext
     action_result: OperatorActionResult
+    record_created: bool
+    persistence: dict[str, Any]
     error: ErrorEnvelope
 
 

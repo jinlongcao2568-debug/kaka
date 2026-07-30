@@ -105,7 +105,10 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
         self.assertEqual(live_row["operability_state"], "NEEDS_PRODUCT_IMPLEMENTATION")
         self.assertFalse(live_row["owner_usable_now"])
         self.assertFalse(live_row["ready_for_live_execution"])
-        self.assertEqual(live_row["refund_boundary"], "do_not_implement_automated_refund_program")
+        self.assertEqual(
+            live_row["refund_boundary"],
+            "implement_automated_refund_only_for_sandbox_dry_run_or_authorized_pilot_until_production_approval",
+        )
 
     def test_business_model_separates_internal_software_from_sold_evidence_pack(self) -> None:
         product_model = self.matrix["product_model"]
@@ -122,13 +125,16 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
 
     def test_refund_policy_remains_manual_exception_only(self) -> None:
         refund_policy = self.matrix["product_model"]["refund_policy"]
-        self.assertFalse(refund_policy["automated_refund_program"])
-        self.assertEqual(refund_policy["allowed_refund_handling"], "manual_exception_record_and_governed_review_only")
+        self.assertEqual(refund_policy["automated_refund_program"], "CONTROLLED_TEST_AND_PILOT_REQUIRED")
+        self.assertEqual(
+            refund_policy["allowed_refund_handling"],
+            "manual_exception_governed_review_sandbox_dry_run_and_authorized_pilot_automation",
+        )
 
         matrix_by_id = {row["capability_id"]: row for row in self.matrix["capability_assessments"]}
         self.assertEqual(
             matrix_by_id["STAGE9_LIVE_PAYMENT_DELIVERY_REFUND_EXECUTION"]["refund_boundary"],
-            "do_not_implement_automated_refund_program",
+            "implement_automated_refund_only_for_sandbox_dry_run_or_authorized_pilot_until_production_approval",
         )
 
     def test_open_capability_policy_targets_business_functions_except_automated_refund(self) -> None:
@@ -164,7 +170,7 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
             required_targets.issubset(set(task_policy["target_capabilities_to_open_under_control"]))
         )
 
-        excluded = set(matrix_policy["excluded_capabilities"]) | set(task_policy["excluded_capabilities"])
+        excluded = set(matrix_policy["controlled_test_and_pilot_capabilities"]) | set(task_policy["controlled_test_and_pilot_capabilities"])
         self.assertIn("automated_refund_execution", excluded)
         self.assertNotIn("automated_refund_execution", matrix_policy["target_capabilities_to_open_under_control"])
         self.assertNotIn("automated_refund_execution", task_policy["target_capabilities_to_open_under_control"])
@@ -270,11 +276,11 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
         self.assertIn("first_level_discovery", section["national_aggregator_role"])
         self.assertEqual(
             section["beijing_policy"]["status"],
-            "EXCLUDED_FROM_FIRST_COMMERCIAL_PILOT",
+            "NOT_DEFAULT_FIRST_COMMERCIAL_PILOT_AUTHORIZED_TEST_ALLOWED",
         )
         self.assertEqual(
             section["beijing_policy"]["allowed_use"],
-            "technical_regression_and_public_page_reachability_only",
+            "technical_regression_public_page_reachability_sandbox_dry_run_and_explicitly_authorized_pilot",
         )
         self.assertEqual(
             set(section["first_batch_commercial_pilot_provinces"]),
@@ -723,7 +729,7 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
             subpackets["PTL-I100-111D-payment-collection-and-delivery-fulfillment-adapters-no-refund"][
                 "refund_boundary"
             ],
-            "manual exception/governed review only; no automated refund execution",
+            "manual exception/governed review plus sandbox/mock/dry-run and authorized-pilot automated refund tests; production automatic refund requires approval/audit/operator-action/reconciliation/rollback",
         )
 
         for task_id in (
@@ -859,7 +865,7 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
         self.assertIn("SANDBOX_READY", acceptance_model["capability_state"]["state_order"])
         self.assertEqual(
             acceptance_model["product_closure"]["refund_boundary"],
-            "automated refund execution remains excluded; refund handling is manual exception and governed review only.",
+            "automated refund flows are controlled-test-and-pilot-required; sandbox/mock/dry-run and explicitly authorized pilots may exercise automated refund paths; production automatic refund still requires approval, audit, operator action, reconciliation, rollback/suspension, and governed review.",
         )
 
     def test_118_final_acceptance_records_operational_blockers_not_closeout(self) -> None:
@@ -892,9 +898,9 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
         self.assertEqual(blockers["B118_STAGE8_REAL_SEND_NOT_EXECUTABLE"]["current_state"], "LIVE_READY")
         self.assertEqual(
             blockers["B118_STAGE9_REAL_PAYMENT_DELIVERY_NOT_EXECUTABLE"]["refund_boundary"],
-            "manual exception/governed review only; no automated refund execution",
+            "manual exception/governed review plus sandbox/mock/dry-run and authorized-pilot automated refund tests; production automatic refund requires approval/audit/operator-action/reconciliation/rollback",
         )
-        self.assertEqual(final["controlled_opening_requirements_preserved"]["automated_refund_execution"], "EXCLUDED")
+        self.assertEqual(final["controlled_opening_requirements_preserved"]["automated_refund_execution"], "CONTROLLED_TEST_AND_PILOT_REQUIRED")
 
     def test_118r_reacceptance_is_closed_by_131_real_world_e2e_pilot(self) -> None:
         final = self.matrix["final_118R_operational_reacceptance"]
@@ -982,7 +988,7 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
         self.assertNotIn("B118R_REAL_PROVIDER_BINDING_NOT_DONE", gaps)
         self.assertNotIn("B118R_LLM_ASSIST_NOT_PRODUCTIZED", gaps)
         self.assertNotIn("B118R_REAL_WORLD_E2E_PILOT_NOT_DONE", gaps)
-        self.assertEqual(final["controlled_opening_requirements_preserved"]["automated_refund_execution"], "EXCLUDED")
+        self.assertEqual(final["controlled_opening_requirements_preserved"]["automated_refund_execution"], "CONTROLLED_TEST_AND_PILOT_REQUIRED")
 
     def task_library_task_ids(self) -> set[str]:
         return {row["task_id"] for row in self.task_library["tasks"]}

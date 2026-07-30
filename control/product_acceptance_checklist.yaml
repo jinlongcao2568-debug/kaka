@@ -6,7 +6,7 @@ policy_ref: control/product_task_library.yaml#open_capability_policy
 scope: "PTL-I100 remaining product-operability tasks"
 source_priority: "current_task -> product_task_library -> repo_status"
 final_product_closure_gate: PTL-I100-118-full-product-operational-acceptance
-refund_boundary: "automated refund execution is excluded; refund handling is manual exception record, manual approval/audit, and governed review only"
+refund_boundary: "automated_refund_execution is controlled-test-and-pilot-required; sandbox/mock/dry-run or authorized pilots may exercise refund automation; production automatic refund requires approval, audit, reconciliation, rollback/suspension, operator action, and governed review"
 state_order:
   - NOT_IMPLEMENTED
   - INTERNAL_READY
@@ -85,7 +85,7 @@ tasks:
     completion_must_prove:
       - "所有非 automated_refund_execution 的 hard boundary 断言都已迁移为 controlled opening / 受控开放能力口径。"
       - "docs/control/contracts/scripts/runtime/tests 同批同步，不再保留非自动退款的硬边界 命名或永久阻断语义。"
-      - "automated_refund_execution 继续 EXCLUDED，且没有自动退款程序、自动退款 endpoint 或自动退款 provider action。"
+      - "automated_refund_execution 为 CONTROLLED_TEST_AND_PILOT_REQUIRED；sandbox/mock/dry-run/受控试点可有自动退款程序、endpoint 或 provider action，生产启用需授权、审批、审计、operator action、对账和回滚/暂停机制。"
       - "本包不执行真实 provider、真实触达、真实支付、真实交付、真实退款、客户下载或 public software release。"
     targeted_test_expectations:
       - product_acceptance_checklist
@@ -98,7 +98,7 @@ tasks:
     controlled_opening_requirement_checks:
       - controlled_opening_semantics_synced
       - non_refund_hard_boundaries_removed
-      - automated_refund_execution_excluded
+      - automated_refund_execution_controlled_test_and_pilot_required
       - no_real_external_action_executed
     live_or_external_gate_requirements:
       - provider_config
@@ -108,7 +108,7 @@ tasks:
       - operator_action_record
       - field_allowlist_and_masking
       - suspension_and_rollback_path
-    refund_boundary: "automated refund execution remains excluded; real refund remains controlled opening with manual exception, approval, audit, and governed review."
+    refund_boundary: "automated refund flows are controlled-test-and-pilot-required; real refund remains controlled opening with manual exception, approval, audit, and governed review."
   PTL-I100-111-live-provider-adapters-no-auto-refund:
     target_capability_state: SANDBOX_READY
     required_acceptance_layers: [engineering_regression, capability_state, product_closure]
@@ -116,7 +116,7 @@ tasks:
       - "111B/111C/111D adapter paths share provider config/readiness and do not bypass it"
       - "sandbox/dry-run execution records are repository-backed and replayable"
       - "live defaults remain controlled-off until controlled-opening prerequisites and acceptance gates pass"
-      - "automated refund program remains absent"
+      - "automated refund program remains disabled for unauthorized production live execution, but sandbox/mock/dry-run and explicitly authorized pilots may implement and test refund automation with audit/readback"
     targeted_test_expectations:
       - provider_adapter_config
       - stage7_crm_quote_or_page_readback
@@ -125,7 +125,7 @@ tasks:
       - runtime_governance_guards
     controlled_opening_requirement_checks:
       - no_unapproved_live_provider_call
-      - no_automated_refund_execution
+      - no_unauthorized_production_automated_refund_execution
   PTL-I100-111B-sales-outreach-adapter-execution:
     target_capability_state: SANDBOX_READY
     required_acceptance_layers: [engineering_regression, capability_state, product_closure]
@@ -162,7 +162,7 @@ tasks:
     completion_must_prove:
       - "payment, charge, receipt/invoice, delivery artifact, download audit, settlement, and reconciliation records are sandbox-backed and replayable"
       - "payment callback and delivery unlock are auditable and do not silently fallback"
-      - "refund handling is manual exception/governed review only"
+      - "refund handling supports manual exception/governed review plus sandbox/mock/dry-run and explicitly authorized pilot automated refund tests"
     targeted_test_expectations:
       - stage9_impact_executor
       - internal_repository_boundary
@@ -171,7 +171,7 @@ tasks:
     controlled_opening_requirement_checks:
       - no_unapproved_charge
       - no_unapproved_delivery
-      - automated_refund_absent
+      - automated_refund_controlled_test_and_pilot_required
   PTL-I100-111E-provider-reliability-and-circuit-breaker:
     target_capability_state: APPROVAL_READY
     required_acceptance_layers: [engineering_regression, capability_state, product_closure]
@@ -199,7 +199,7 @@ tasks:
     completion_must_prove:
       - "Postgres/SQLAlchemy, migration path, queue/worker, object storage, Docker/Compose, health/readiness, audit persistence, backup, rollback, monitoring, and alerting are represented by executable or explicitly reserved seams"
       - "production backend misconfiguration fast-fails without silent fallback"
-      - "real provider/touch/payment/delivery/refund remains controlled-off until provider config, sandbox/live-pilot, approval, audit, operator action, and acceptance gates pass; automated refund remains excluded"
+      - "real provider/touch/payment/delivery/refund remains controlled-off until provider config, sandbox/live-pilot, approval, audit, operator action, and acceptance gates pass; automated refund is controlled-test-and-pilot-required"
     targeted_test_expectations:
       - storage_concurrency
       - api_transport_bootstrap
@@ -365,7 +365,7 @@ tasks:
       - settlement_reconciliation
     controlled_opening_requirement_checks:
       - payment_delivery_audit_persistent
-      - automated_refund_absent
+      - automated_refund_controlled_test_and_pilot_required
       - rollback_path_works
   PTL-I100-121C-production-slo-monitoring-incident-readiness:
     target_capability_state: PRODUCTION_READY
@@ -399,7 +399,7 @@ tasks:
       - engineering_regression_pass
       - capability_states_verified
       - evidence_pack_business_closure_verified
-      - automated_refund_absent
+      - automated_refund_controlled_test_and_pilot_required
     current_118_acceptance_result:
       acceptance_result: BLOCKED_BY_PRODUCT_OPERATIONAL_GAPS
       engineering_regression_result: PASS_REQUIRED_BY_CURRENT_WINDOW_CHECKS
@@ -433,7 +433,7 @@ tasks:
   PTL-I100-123-approved-payment-delivery-provider-execution-no-auto-refund:
     target_capability_state: LIVE_READY
     required_acceptance_layers: [engineering_regression, capability_state, product_closure]
-    refund_boundary: "manual refund exception/governed review only; automated refund execution remains excluded"
+    refund_boundary: "manual refund exception/governed review only; automated refund flows are controlled-test-and-pilot-required"
     completion_must_prove:
       - "approved payment capture/charge executes only after sandbox pass, payment approval, delivery approval, finance review, operator action audit, provider reliability, callback verification, and settlement/reconciliation gates pass"
       - "approved delivery fulfillment executes only for locked/versioned artifacts with download auth, hash, delivery audit, and rollback path"
@@ -445,7 +445,7 @@ tasks:
       - runtime_governance_guards
     controlled_opening_requirement_checks:
       - payment_delivery_requires_approval_audit
-      - automated_refund_absent
+      - automated_refund_controlled_test_and_pilot_required
       - rollback_path_works
   PTL-I100-124-customer-visible-leadpack-delivery-approval-unlock:
     target_capability_state: LIVE_READY
@@ -500,7 +500,7 @@ tasks:
       - "122-126 后的能力状态必须重新验证，不能沿用旧 118 失败结论或把旧 blocker 当作仍未处理。"
       - "LOCAL_CONTROLLED_FAKE_PROVIDER、readback、dry-run、sandbox、approved drill 必须与真实外部 provider / 真实客户操作严格区分。"
       - "必须回答前端页面、操作入口、实站 source adapter 验证、企业微信机器人、LLM 辅助和预设网站抓取是否已达到 owner 可运营。"
-      - "如仍未达到真实可运营，必须登记最小 127+ 后续任务；自动退款仍保持 excluded。"
+      - "如仍未达到真实可运营，必须登记最小 127+ 后续任务；自动退款仍保持 controlled-test-and-pilot-required。"
     targeted_test_expectations:
       - full_product_operational_reacceptance
       - product_operability_gap_matrix
@@ -509,7 +509,7 @@ tasks:
     controlled_opening_requirement_checks:
       - fake_provider_not_misclassified_as_real_provider
       - no_unapproved_live_execution
-      - automated_refund_absent
+      - automated_refund_controlled_test_and_pilot_required
       - remaining_real_world_gaps_registered
   PTL-I100-127-owner-operator-frontend-and-customer-portal:
     target_capability_state: PRODUCTION_READY
@@ -542,12 +542,12 @@ tasks:
       - weak_or_failed_sources_degrade_to_review
   PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund:
     target_capability_state: PRODUCTION_READY
-    refund_boundary: "manual exception/governed review only; no automated refund execution"
+    refund_boundary: "manual exception/governed review plus sandbox/mock/dry-run and explicitly authorized pilot automated refund tests; production automatic refund requires approval, audit, operator action, reconciliation, and rollback/suspension"
     required_acceptance_layers: [engineering_regression, capability_state, product_closure]
     completion_must_prove:
       - "企业微信机器人、邮件、短信/电话、CRM、报价、支付、交付 provider 必须通过统一 provider config、credential redaction、sandbox pass、approval/audit、operator action、reliability/circuit breaker 接入。"
       - "真实 provider sandbox/live 结果、webhook/callback、bounce/failure/complaint、settlement/reconciliation 和 delivery download audit 必须可持久化、可回放。"
-      - "自动退款程序保持 absent；退款只允许 manual exception / approval-audit / governed review。"
+      - "自动退款程序不得无授权生产 live 启用；sandbox/mock/dry-run/受控试点可实现和验收，退款生产启用需 manual approval / audit / operator action / reconciliation / rollback-suspension / governed review。"
     targeted_test_expectations:
       - real_provider_config_binding
       - wecom_robot_provider_path
@@ -556,7 +556,7 @@ tasks:
     controlled_opening_requirement_checks:
       - provider_live_requires_approval_audit
       - no_silent_live_fallback
-      - automated_refund_absent
+      - automated_refund_controlled_test_and_pilot_required
   PTL-I100-130-llm-assisted-parsing-review-and-sales-governance:
     target_capability_state: APPROVAL_READY
     required_acceptance_layers: [engineering_regression, capability_state, product_closure]
@@ -576,12 +576,12 @@ tasks:
   PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout:
     target_capability_state: PRODUCTION_READY
     final_product_closeout_candidate: true
-    refund_boundary: "manual exception/governed review only; no automated refund execution"
+    refund_boundary: "manual exception/governed review plus sandbox/mock/dry-run and explicitly authorized pilot automated refund tests; production automatic refund requires approval, audit, operator action, reconciliation, and rollback/suspension"
     required_acceptance_layers: [engineering_regression, capability_state, product_closure]
     completion_must_prove:
       - "owner 能用真实公开样本完成 source -> parser -> verification -> rules -> product package -> challenger -> CRM/quote -> outreach -> payment -> delivery -> audit/writeback 的受控端到端试点。"
       - "客户可见 artifact 必须经过字段策略、脱敏、水印、approval/audit、download auth、版本 hash 和下载审计。"
-      - "真实 provider 路径必须至少通过 sandbox 或审批后小样本 live；自动退款保持 excluded。"
+      - "真实 provider 路径必须至少通过 sandbox 或审批后小样本 live；自动退款保持 controlled-test-and-pilot-required。"
     targeted_test_expectations:
       - real_world_e2e_pilot
       - customer_artifact_delivery_audit
@@ -589,7 +589,7 @@ tasks:
       - runtime_governance_guards
     controlled_opening_requirement_checks:
       - owner_can_complete_e2e_business_flow
-      - automated_refund_absent
+      - automated_refund_controlled_test_and_pilot_required
       - no_public_software_release_default
     current_131_closeout_result:
       acceptance_result: CONTROLLED_REAL_WORLD_E2E_ACCEPTED
@@ -626,7 +626,7 @@ tasks:
       customer_portal_empty_state_supported: true
       public_software_release_enabled: false
       live_execution_enabled_by_frontend: false
-      automated_refund_execution_enabled: false
+      production_automated_refund_execution_enabled: false
   PTL-I100-133A-real-public-entry-url-fetcher-and-allowlist:
     target_capability_state: INTERNAL_READY
     required_acceptance_layers: [engineering_regression, capability_state, product_closure]
@@ -715,7 +715,7 @@ tasks:
       - "owner console 必须直接展示 allowlisted 真实公开入口 profile 和公开附件 profile，并默认中文可操作。"
       - "operator/customer access API 必须提供 internal-only 的真实来源 profile catalog、capture 触发和 repository-backed readback。"
       - "页面必须能回显 capture 结果、snapshot_id、fetch/readback 状态；missing snapshot 或弱正文仍要 fail closed。"
-      - "仍不做真实 provider 调用、客户下载、真实支付交付、真实退款或自动退款。"
+      - "仍不做真实 provider 调用、客户下载、真实支付交付、真实退款或未授权生产自动退款。"
     targeted_test_expectations:
       - operator_customer_access
       - operator_frontend_portal
@@ -737,7 +737,7 @@ tasks:
       - "owner console 必须展示 repository-backed 的真实公开源 run list，而不是只保留浏览器内存里的最近 snapshot。"
       - "每次 entry/attachment capture 必须生成 operator-action backed run record，记录 profile、capture kind、状态、snapshot_id 和 readback path。"
       - "页面必须能刷新最近运行、展示状态和 snapshot/readback 入口，失败关闭也必须可见。"
-      - "仍不做客户下载、真实支付交付、真实退款或自动退款。"
+      - "仍不做客户下载、真实支付交付、真实退款或未授权生产自动退款。"
     targeted_test_expectations:
       - operator_customer_access
       - operator_frontend_portal

@@ -9,12 +9,19 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping
 
 from shared.utils import utc_now_iso
+from storage.runtime_closeout_precedence import (
+    blocker_ledger_record,
+    closeout_precedence_decision,
+    closeout_precedence_summary,
+    is_original_readback_projection_only_terminal_state,
+)
 
 
 P13B_ORIGINAL_BACKTRACE_CONTINUATION_KIND = "p13b_original_backtrace_continuation_controller_v2_manifest"
 P13B_ORIGINAL_BACKTRACE_CONTINUATION_VERSION = 2
 P13B_ORIGINAL_BACKTRACE_CONTINUATION_ADAPTER_ID = "p13b-original-backtrace-continuation-controller-v2"
 DEFAULT_OUTPUT_ROOT = Path("tmp/evaluation-real-samples/p13b-original-backtrace-continuation-controller-v2")
+ORIGINAL_READBACK_NON_TERMINAL_STATES = {"CONTINUE_ORIGINAL_BACKTRACE_WITH_BUDGET_LIMIT"}
 
 
 def build_p13b_original_backtrace_continuation_controller(
@@ -210,7 +217,7 @@ def _plan_record(
             *[str(item) for item in _list(targeted_person_readback.get("review_reasons"))],
         ],
     )
-    return {
+    record = {
         "original_notice_task_id": str(base.get("original_notice_task_id") or ""),
         "project_id": str(base.get("project_id") or ""),
         "project_name": str(base.get("project_name") or ""),
@@ -248,6 +255,182 @@ def _plan_record(
         "query_miss_is_not_clearance": True,
         "no_legal_conclusion": True,
     }
+    _apply_original_readback_runtime_closeout(record)
+    return record
+
+
+def _apply_original_readback_runtime_closeout(record: dict[str, Any]) -> None:
+    marker = _original_readback_terminal_marker(record)
+    if marker:
+        record["terminal_closeout_markers"] = [marker]
+        record["terminal_backfill_markers"] = [marker]
+    precedence = closeout_precedence_decision(
+        record,
+        task_family="original_readback",
+        runtime_layer="controller decision:p13b_original_backtrace_continuation",
+    )
+    projection_only_terminal = _original_readback_projection_only_terminal(record, precedence)
+    ledger = (
+        blocker_ledger_record(record, precedence, ledger_scope="p13b_original_readback")
+        if precedence.get("suppressed_dispatch")
+        and (not projection_only_terminal or _should_audit_projection_only_original_readback(record))
+        else _original_readback_retry_ledger_record(record)
+    )
+    record["closeout_precedence"] = precedence
+    record["closeout_precedence_state"] = str(precedence.get("closeout_precedence_state") or "")
+    record["closeout_precedence_suppressed"] = bool(precedence.get("suppressed_dispatch"))
+    record["runtime_blocker_ledger_record"] = ledger
+    record["runtime_blocker_ledger_records"] = [ledger] if ledger else []
+    record["original_readback_closeout_state"] = (
+        "TERMINAL_ORIGINAL_READBACK_CLOSEOUT"
+        if precedence.get("suppressed_dispatch")
+        else "ORIGINAL_READBACK_RETRY_OR_CONTINUATION_OPEN"
+    )
+    record["next_queue"] = _original_readback_next_queue(record)
+    record["operator_projection"] = _original_readback_operator_projection(record)
+
+
+def _original_readback_projection_only_terminal(
+    record: Mapping[str, Any],
+    precedence: Mapping[str, Any],
+) -> bool:
+    terminal_marker = (
+        precedence.get("terminal_marker") if isinstance(precedence.get("terminal_marker"), Mapping) else {}
+    )
+    terminal_state = str(
+        terminal_marker.get("terminal_state") or terminal_marker.get("marker_state") or ""
+    ).strip()
+    return bool(
+        precedence.get("suppressed_dispatch")
+        and str(precedence.get("task_scope") or "") == "original_readback"
+        and is_original_readback_projection_only_terminal_state(terminal_state)
+    )
+
+
+def _should_audit_projection_only_original_readback(record: Mapping[str, Any]) -> bool:
+    return str(record.get("continuation_state") or "").strip() == "RELEASE_EVIDENCE_READY"
+
+
+def _original_readback_terminal_marker(record: Mapping[str, Any]) -> dict[str, Any]:
+    state = str(record.get("continuation_state") or "").strip()
+    if not state or state in ORIGINAL_READBACK_NON_TERMINAL_STATES:
+        return {}
+    next_queue = _original_readback_next_queue(record)
+    return {
+        "task_family": "original_readback",
+        "terminal": True,
+        "marker_state": state,
+        "terminal_state": state,
+        "terminal_marker_type": "p13b_original_backtrace_continuation_terminal_state",
+        "runtime_layer": "closeout",
+        "project_id": str(record.get("project_id") or ""),
+        "project_name": str(record.get("project_name") or ""),
+        "task_id": str(record.get("original_notice_task_id") or ""),
+        "original_notice_task_id": str(record.get("original_notice_task_id") or ""),
+        "artifact_ref": "p13b-original-backtrace-continuation-controller-v2.json",
+        "next_queue": next_queue,
+        "recommended_next_action": str(record.get("recommended_next_action") or ""),
+        "blocker_taxonomy": _list(record.get("review_reasons")) or _list(record.get("blocker_taxonomy")),
+        "query_miss_is_not_clearance": True,
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
+
+
+def _original_readback_retry_ledger_record(record: Mapping[str, Any]) -> dict[str, Any]:
+    state = str(record.get("continuation_state") or "")
+    if state not in ORIGINAL_READBACK_NON_TERMINAL_STATES:
+        return {}
+    reason = _first_text([*_list(record.get("review_reasons")), *_list(record.get("blocker_taxonomy"))])
+    return {
+        "blocker_ledger_id": _stable_id(
+            "RUNTIME-BLOCKER",
+            "p13b_original_readback",
+            record.get("project_id"),
+            record.get("original_notice_task_id"),
+            state,
+        ),
+        "ledger_scope": "p13b_original_readback",
+        "project_id": str(record.get("project_id") or ""),
+        "project_name": str(record.get("project_name") or ""),
+        "task_id": str(record.get("original_notice_task_id") or ""),
+        "task_scope": "original_readback",
+        "task_type": "p13b_original_notice_backtrace",
+        "blocker_state": "ORIGINAL_READBACK_RETRY_OR_CONTINUATION_QUEUED",
+        "blocker_reason": reason or "original_notice_backtrace_budget_deferred_or_incomplete",
+        "runtime_layer": "retry policy",
+        "required_input": ["next_original_notice_backtrace_budget_or_new_source_snapshot"],
+        "retry_policy": "retry_next_original_backtrace_batch_with_bounded_budget",
+        "reopen_conditions": [
+            "bounded_original_notice_backtrace_budget_available",
+            "new_machine_readable_original_notice_source_available",
+        ],
+        "operator_next_action": "operator_reviews_retry_budget_or_keeps_original_readback_suspended",
+        "next_action": str(record.get("recommended_next_action") or ""),
+        "terminal_marker": {},
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+        "query_miss_is_not_clearance": True,
+    }
+
+
+def _original_readback_next_queue(record: Mapping[str, Any]) -> str:
+    state = str(record.get("continuation_state") or "")
+    if state == "RELEASE_EVIDENCE_READY":
+        return "release_evidence_query"
+    if state == "TARGETED_PERSON_READBACK_REQUIRED":
+        return "targeted_person_readback"
+    if state in {"TARGETED_YGP_READBACK_REQUIRED", "ROUTE_SPECIFIC_READBACK_REQUIRED"}:
+        return "route_specific_original_readback"
+    if state == "CONTINUE_ORIGINAL_BACKTRACE_WITH_BUDGET_LIMIT":
+        return "original_readback_retry"
+    if state == "BLOCKED_OR_SOURCE_UNSUPPORTED":
+        return "manual_hold"
+    if state:
+        return "manual_hold"
+    return ""
+
+
+def _original_readback_operator_projection(record: Mapping[str, Any]) -> dict[str, Any]:
+    next_queue = str(record.get("next_queue") or _original_readback_next_queue(record))
+    state = str(record.get("continuation_state") or "")
+    return {
+        "projection_state": _original_readback_projection_state(state, next_queue),
+        "owner_status": state,
+        "current_state": state,
+        "evidence_level": _original_readback_evidence_level(state),
+        "blocker_reason": _first_text([*_list(record.get("review_reasons")), *_list(record.get("blocker_taxonomy"))]),
+        "next_action": str(record.get("recommended_next_action") or ""),
+        "next_queue": next_queue,
+        "input_refs": {
+            "original_notice_task_id": str(record.get("original_notice_task_id") or ""),
+            "original_notice_url": str(record.get("original_notice_url") or ""),
+            "bid_show_url": str(record.get("bid_show_url") or ""),
+        },
+        "output_artifact": "p13b-original-backtrace-continuation-controller-v2.json",
+        "raw_json_required_for_next_step": False,
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+        "query_miss_is_not_clearance": True,
+    }
+
+
+def _original_readback_projection_state(state: str, next_queue: str) -> str:
+    if next_queue == "release_evidence_query":
+        return "RELEASE_EVIDENCE_QUERY_READY_FROM_ORIGINAL_READBACK"
+    if next_queue in {"targeted_person_readback", "route_specific_original_readback", "original_readback_retry"}:
+        return "NEXT_ORIGINAL_READBACK_SUBQUEUE_READY"
+    if state == "BLOCKED_OR_SOURCE_UNSUPPORTED":
+        return "ORIGINAL_READBACK_BLOCKER_LEDGER_REVIEW"
+    return "ORIGINAL_READBACK_MANUAL_HOLD"
+
+
+def _original_readback_evidence_level(state: str) -> str:
+    if state == "RELEASE_EVIDENCE_READY":
+        return "A_STRONG_SIGNAL"
+    if state in {"CONTINUE_ORIGINAL_BACKTRACE_WITH_BUDGET_LIMIT", "TARGETED_PERSON_READBACK_REQUIRED"}:
+        return "PENDING_ORIGINAL_READBACK"
+    return "D_EVIDENCE_INSUFFICIENT_OR_BLOCKED"
 
 
 def _continuation_decision(
@@ -403,6 +586,17 @@ def _summary(
     blocking_reasons: list[str],
 ) -> dict[str, Any]:
     state_counts = _counts(record.get("continuation_state") for record in plan_records)
+    precedence = closeout_precedence_summary(
+        record.get("closeout_precedence")
+        for record in plan_records
+        if isinstance(record.get("closeout_precedence"), Mapping)
+    )
+    blocker_ledger_records = [
+        record.get("runtime_blocker_ledger_record")
+        for record in plan_records
+        if isinstance(record.get("runtime_blocker_ledger_record"), Mapping)
+        and record.get("runtime_blocker_ledger_record")
+    ]
     next_action = "NO_CONTINUATION_ACTION"
     if continuation_input_rows:
         next_action = "RUN_NEXT_ORIGINAL_BACKTRACE_BATCH"
@@ -424,6 +618,27 @@ def _summary(
             if state.startswith("PARK_") or state.startswith("LOW_VALUE_")
         ),
         "continuation_state_counts": state_counts,
+        "next_queue_counts": _counts(record.get("next_queue") for record in plan_records),
+        "original_readback_closeout_state_counts": _counts(
+            record.get("original_readback_closeout_state") for record in plan_records
+        ),
+        "operator_projection_state_counts": _counts(
+            (record.get("operator_projection") or {}).get("projection_state")
+            if isinstance(record.get("operator_projection"), Mapping)
+            else ""
+            for record in plan_records
+        ),
+        "original_readback_terminal_marker_count": sum(
+            1 for record in plan_records if _list(record.get("terminal_closeout_markers"))
+        ),
+        "runtime_blocker_ledger_count": len(blocker_ledger_records),
+        "runtime_blocker_ledger_state_counts": _counts(
+            record.get("blocker_state") for record in blocker_ledger_records if isinstance(record, Mapping)
+        ),
+        "runtime_blocker_ledger_layer_counts": _counts(
+            record.get("runtime_layer") for record in blocker_ledger_records if isinstance(record, Mapping)
+        ),
+        **precedence,
         "recommended_next_action": next_action,
         "blocking_reasons": blocking_reasons,
         "query_miss_is_not_clearance": True,
@@ -604,6 +819,14 @@ def _dedupe(values: Iterable[Any]) -> list[str]:
     return out
 
 
+def _first_text(values: Iterable[Any]) -> str:
+    for value in values:
+        text = str(value or "").strip()
+        if text:
+            return text
+    return ""
+
+
 def _list(value: Any) -> list[Any]:
     if value is None:
         return []
@@ -612,6 +835,10 @@ def _list(value: Any) -> list[Any]:
     if isinstance(value, tuple):
         return list(value)
     return [value]
+
+
+def _stable_id(prefix: str, *parts: Any) -> str:
+    return f"{prefix}-{_fingerprint('|'.join(str(part or '') for part in parts))[:12]}"
 
 
 def _fingerprint(payload: Any) -> str:

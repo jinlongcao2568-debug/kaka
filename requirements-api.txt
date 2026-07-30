@@ -1,0 +1,13 @@
+# Minimal dependency set for the internal HTTP API image.
+# Browser automation, MarkItDown and rich document parsers remain in requirements.txt
+# and must be selected explicitly for worker/browser-capable images.
+fastapi==0.139.2
+pydantic==2.13.4
+sqlalchemy==2.0.51
+alembic==1.18.5
+psycopg[binary]==3.3.4
+uvicorn==0.51.0
+httpx==0.28.1
+PyYAML==6.0.3
+# Operator-approved fixed SKU evidence bundle PDF generation.
+reportlab==5.0.0

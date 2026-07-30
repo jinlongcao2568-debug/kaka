@@ -59,6 +59,19 @@ class ReleaseEvidenceAdapterPlanTests(unittest.TestCase):
             self.assertEqual(task_by_type["contract_performance"]["release_evidence_grade_on_match"], "B_ENHANCEMENT_OFFICIAL_READBACK")
             self.assertEqual(task_by_type["completion_acceptance"]["release_evidence_grade_on_match"], "C_REVERSE_EXPLANATION_OFFICIAL_READBACK")
             self.assertEqual(task_by_type["project_manager_change_notice"]["release_evidence_grade_on_match"], "C_REVERSE_EXPLANATION_OFFICIAL_READBACK")
+            self.assertEqual(
+                result["manifest"]["execution_priority_policy"]["release_evidence_query_region_rule"],
+                "HISTORICAL_OVERLAP_PROJECT_JURISDICTION_FIRST",
+            )
+            self.assertTrue(
+                result["manifest"]["execution_priority_policy"][
+                    "release_evidence_follows_historical_overlap_project_jurisdiction"
+                ]
+            )
+            self.assertEqual(
+                result["manifest"]["execution_priority_policy"]["current_project_mainline_priority_region_code"],
+                "CN-GD",
+            )
             self.assertTrue(
                 all(
                     task["allowed_adapter_result_states"] == ["MATCHED", "NOT_FOUND", "BLOCKED", "NEEDS_BROWSER"]
@@ -88,6 +101,45 @@ class ReleaseEvidenceAdapterPlanTests(unittest.TestCase):
                 {task["project_id"] for task in result["manifest"]["release_evidence_adapter_task_records"]},
             )
 
+    def test_terminal_release_marker_suppresses_duplicate_release_evidence_dispatch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_batch_closeout(root / "batch", include_release_terminal_marker=True)
+            _write_p13b_operational(root / "p13b")
+
+            result = build_release_evidence_adapter_plan(
+                batch_closeout_root=root / "batch",
+                p13b_operational_closeout_root=root / "p13b",
+                output_root=root / "out",
+            )
+
+            self.assertTrue(result["safe_to_execute"])
+            self.assertEqual(result["summary"]["adapter_task_count"], 0)
+            self.assertEqual(result["summary"]["runtime_blocker_ledger_count"], 0)
+            self.assertEqual(result["summary"]["runtime_blocker_ledger_state_counts"], {})
+            plan = _records_by_project(result["manifest"]["project_release_evidence_plan_records"])["PROJ-A"]
+            self.assertEqual(
+                plan["release_evidence_project_plan_state"],
+                "RELEASE_EVIDENCE_TERMINAL_CLOSEOUT_SUPPRESSED",
+            )
+            self.assertTrue(plan["closeout_precedence_suppressed"])
+            self.assertEqual(plan["closeout_precedence_state"], "SUPPRESS_TERMINAL_CLOSEOUT")
+            self.assertEqual(
+                plan["recommended_next_action"],
+                "project_to_review_ready_status_projection_without_duplicate_dispatch",
+            )
+            self.assertEqual(plan["runtime_blocker_ledger_record"], {})
+            self.assertEqual(plan["runtime_blocker_ledger_records"], [])
+            self.assertEqual(
+                plan["operator_projection"]["projection_state"],
+                "RELEASE_EVIDENCE_TERMINAL_STATUS_PROJECTION",
+            )
+            self.assertEqual(
+                plan["operator_projection"]["next_action"],
+                "project_to_review_ready_status_projection_without_duplicate_dispatch",
+            )
+            self.assertFalse(result["manifest"]["release_evidence_adapter_task_records"])
+
     def test_non_guangdong_region_and_local_housing_scope_are_preserved(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -103,6 +155,13 @@ class ReleaseEvidenceAdapterPlanTests(unittest.TestCase):
             task = result["manifest"]["release_evidence_adapter_task_records"][0]
             self.assertEqual(task["local_housing_authority_adapter_scope"], "HISTORICAL_PROJECT_JURISDICTION")
             self.assertEqual(task["local_housing_authority_adapter_region_code"], "CN-ZJ")
+            self.assertEqual(task["release_evidence_query_region_rule"], "HISTORICAL_OVERLAP_PROJECT_JURISDICTION_FIRST")
+            self.assertTrue(task["release_evidence_follows_historical_overlap_project_jurisdiction"])
+            self.assertTrue(task["do_not_force_release_evidence_to_current_project_region"])
+            self.assertEqual(task["current_project_mainline_priority_region_code"], "CN-GD")
+            self.assertTrue(task["cross_region_information_checks_allowed"])
+            self.assertIn("performance_public_record", task["cross_region_information_source_types"])
+            self.assertIn("administrative_penalty_public_record", task["cross_region_information_source_types"])
             self.assertEqual(
                 task["non_guangdong_release_adapter_rule"],
                 "NON_GUANGDONG_HISTORY_PROJECT_USE_JURISDICTION_LOCAL_HOUSING_AUTHORITY_ADAPTER",
@@ -136,6 +195,114 @@ class ReleaseEvidenceAdapterPlanTests(unittest.TestCase):
                 task["jurisdiction_local_housing_adapter"]["source_selection_scope"],
                 "HISTORICAL_PROJECT_JURISDICTION",
             )
+
+    def test_project_code_candidates_from_p13b_task_top_level_are_preserved_in_query_params(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            numeric_project_code = "440100202605190001"
+            ygp_project_code = "441900029-2025-00741"
+            bucket_project_code = "E4401002701502243001"
+            investment_project_code = "2605-440100-04-01-000001"
+            enterprise_credit_code = "914400001903237820"
+            certificate_no = "粤1332006200810171"
+            _write_batch_closeout(root / "batch")
+            _write_p13b_operational(root / "p13b")
+            p13b_path = root / "p13b" / "p13b-operational-closeout-v1.json"
+            payload = json.loads(p13b_path.read_text(encoding="utf-8"))
+            task = payload["manifest"]["release_evidence_probe_task_records"][0]
+            task["project_code_candidates"] = ["JG2026-11337"]
+            task["data_ggzy_bid_show_records"] = [
+                {
+                    "source_url": f"https://data.ggzy.gov.cn/yjcx/index/bid_show?id=abc&projectCode={numeric_project_code}",
+                    "project_no": ygp_project_code,
+                    "detail": {"proofOrSerialCode": investment_project_code},
+                    "unifiedSocialCreditCode": enterprise_credit_code,
+                    "certificateNo": certificate_no,
+                }
+            ]
+            task["guangdong_ygp_flow_matrix"] = {
+                "manifest": {
+                    "ygp_flow_bucket_records": [
+                        {
+                            "limited_readback": {
+                                "nodeList": [
+                                    {
+                                        "detail": {
+                                            "projectCode": bucket_project_code,
+                                            "projectName": "广州历史重叠项目",
+                                        },
+                                        "dsList": [
+                                            {
+                                                "项目编号": ygp_project_code,
+                                                "项目代码": investment_project_code,
+                                                "统一社会信用代码": enterprise_credit_code,
+                                                "证书编号": certificate_no,
+                                            }
+                                        ],
+                                    }
+                                ]
+                            }
+                        }
+                    ],
+                    "ygp_flow_item_records": [
+                        {
+                            "resolved_project_route": {
+                                "projectCode": ygp_project_code,
+                                "siteCode": "441900",
+                                "bizCode": "3871",
+                            }
+                        }
+                    ],
+                }
+            }
+            task["source_refs"] = {
+                "stage6": {
+                    "parsed_field_refs": [
+                        {"field_name": "项目代码", "field_value_optional": numeric_project_code},
+                        {"field_name": "统一社会信用代码", "field_value_optional": enterprise_credit_code},
+                    ]
+                }
+            }
+            p13b_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+            result = build_release_evidence_adapter_plan(
+                batch_closeout_root=root / "batch",
+                p13b_operational_closeout_root=root / "p13b",
+                output_root=root / "out",
+            )
+
+            task = result["manifest"]["release_evidence_adapter_task_records"][0]
+            params = task["query_params"]
+            self.assertEqual(params["projectCode"], numeric_project_code)
+            self.assertEqual(
+                params["projectCodeVariants"],
+                [
+                    "JG2026-11337",
+                    numeric_project_code,
+                    ygp_project_code,
+                    investment_project_code,
+                    bucket_project_code,
+                ],
+            )
+            self.assertEqual(
+                params["gdcicProjectCodeVariants"],
+                [numeric_project_code, ygp_project_code, bucket_project_code],
+            )
+            self.assertEqual(params["tradeProjectCode"], "JG2026-11337")
+            self.assertNotIn(enterprise_credit_code, params["projectCodeVariants"])
+            self.assertNotIn(certificate_no, params["projectCodeVariants"])
+            self.assertNotIn(enterprise_credit_code, params["gdcicProjectCodeVariants"])
+            self.assertNotIn(certificate_no, params["gdcicProjectCodeVariants"])
+            recall = result["summary"]["stage4_release_adapter_plan_project_code_recall_summary"]
+            self.assertEqual(recall["project_code_recall_state"], "GDCIC_PROJECT_CODE_VARIANTS_PRESENT")
+            self.assertEqual(recall["adapter_task_count"], 4)
+            self.assertEqual(recall["with_gdcic_project_code_variant_task_count"], 2)
+            self.assertEqual(recall["missing_gdcic_project_code_variant_task_count"], 2)
+            self.assertEqual(recall["with_trade_project_code_task_count"], 2)
+            self.assertTrue(recall["gdcic_project_code_route_ready"])
+            self.assertTrue(recall["jg_trade_code_not_sent_to_gdcic_project_code"])
+            self.assertIn(numeric_project_code, recall["sample_gdcic_project_code_variants"])
+            self.assertIn("JG2026-11337", recall["sample_trade_project_codes"])
 
     def test_a_signal_without_source_tasks_is_explicitly_plan_required_not_success(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -175,7 +342,7 @@ class ReleaseEvidenceAdapterPlanTests(unittest.TestCase):
             self.assertEqual(manifest["manifest_sha256"], _fingerprint_without_manifest_sha(manifest))
 
 
-def _write_batch_closeout(root: Path) -> None:
+def _write_batch_closeout(root: Path, *, include_release_terminal_marker: bool = False) -> None:
     records = [
         {
             "project_id": "PROJ-A",
@@ -187,6 +354,19 @@ def _write_batch_closeout(root: Path) -> None:
             "customer_visible_allowed": False,
             "no_legal_conclusion": True,
             "query_miss_is_not_clearance": True,
+            **(
+                {
+                    "terminal_closeout_markers": [
+                        {
+                            "task_family": "release_evidence_query",
+                            "marker_state": "MATCHED",
+                            "artifact_ref": "tmp/field-query/guangdong-local-field-query-probe-v1.json",
+                        }
+                    ]
+                }
+                if include_release_terminal_marker
+                else {}
+            ),
         },
         {
             "project_id": "PROJ-D",

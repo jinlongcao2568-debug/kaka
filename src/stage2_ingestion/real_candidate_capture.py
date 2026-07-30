@@ -10,6 +10,7 @@ from typing import Any, Mapping
 from shared.utils import utc_now_iso
 from stage2_ingestion.service import Stage2Service
 from stage3_parsing.ocr_text import extract_pdf_text_with_ocr
+from stage3_parsing.responsible_person_identity import assess_responsible_person_name
 from stage3_parsing.service import Stage3Service
 from storage.db import PersistedOperatorAction
 from storage.repositories.object_storage_repo import ObjectStorageRepository
@@ -21,6 +22,7 @@ REAL_CANDIDATE_STAGE2_CAPTURE_MODE = "REAL_PUBLIC_CANDIDATE_DETAIL_CAPTURE"
 DEFAULT_DETAIL_CAPTURE_LIMIT: int | None = None
 DEFAULT_ATTACHMENT_CAPTURE_LIMIT: int | None = None
 DEFAULT_DETAIL_CAPTURE_TIME_BUDGET_SECONDS = 90.0
+DEFAULT_ATTACHMENT_TEXT_CACHE_CHAR_LIMIT = 20000
 SECTION_MARKERS = {
     "qualification_section_found": ("资格条件", "资格要求", "投标人资格", "供应商资格", "投标人资格要求"),
     "scoring_section_found": ("评分办法", "评标办法", "评分标准", "综合评分", "综合评估法"),
@@ -119,6 +121,23 @@ def _guangzhou_ywtb_failure_from_state(state: str) -> str:
     return mapping.get(str(state or ""), "")
 
 
+def _attachment_discovery_taxonomy_values(
+    capture: Mapping[str, Any],
+    fields: Mapping[str, Any],
+) -> list[str]:
+    return [
+        str(item)
+        for item in list(capture.get("detail_attachment_discovery_taxonomy") or fields.get("attachment_discovery_taxonomy") or [])
+        if str(item or "").strip()
+    ]
+
+
+def _is_blocking_attachment_discovery_taxonomy(value: str) -> bool:
+    return str(value or "").strip() not in {
+        "scrapling_snapshot_parser_attachment_candidates",
+    }
+
+
 def _guangzhou_ywtb_attachment_challenge_state(attachment_captures: list[Mapping[str, Any]]) -> tuple[str, list[str]]:
     attempted = False
     failed = False
@@ -193,6 +212,33 @@ def _file_parse_attribution(
         "section_flags": _section_flags_for_text(cleaned),
         "text_sha256": hashlib.sha256(cleaned.encode("utf-8")).hexdigest() if cleaned else "",
         "text_probe": _clip_text(cleaned),
+        "customer_visible_allowed": False,
+        "no_legal_conclusion": True,
+    }
+
+
+def _attachment_text_cache_record(
+    *,
+    project_id: str,
+    snapshot_id: str,
+    source_url: str,
+    file_role: str,
+    parse_state: str,
+    text: str,
+) -> dict[str, Any]:
+    cleaned = _clean_text(text)
+    cached_text = _clip_text(cleaned, limit=DEFAULT_ATTACHMENT_TEXT_CACHE_CHAR_LIMIT)
+    return {
+        "project_id": str(project_id or ""),
+        "snapshot_id": str(snapshot_id or ""),
+        "source_url": str(source_url or ""),
+        "file_role": str(file_role or ""),
+        "parse_state": str(parse_state or ""),
+        "text_sha256": hashlib.sha256(cleaned.encode("utf-8")).hexdigest() if cleaned else "",
+        "text_char_count": len(cleaned),
+        "text_cache_char_limit": DEFAULT_ATTACHMENT_TEXT_CACHE_CHAR_LIMIT,
+        "text_cache_truncated": len(cleaned) > DEFAULT_ATTACHMENT_TEXT_CACHE_CHAR_LIMIT,
+        "text_cache": cached_text,
         "customer_visible_allowed": False,
         "no_legal_conclusion": True,
     }
@@ -1072,7 +1118,7 @@ def _extract_guangzhou_candidate_publicity_row_role(row_text: str) -> dict[str, 
             }
 
     filler = (
-        r"(?:见附件|详见(?:投标文件公开|中标候选人公示|附件)|满足招标文件要求|完全响应|"
+        r"(?:见附件|详见(?:投标文件公开|投标文件|中标候选人公示|附件)|满足招标文件要求|完全响应|"
         r"无业绩要求|按招标文件要求|/)"
     )
     role_only_pattern = (
@@ -1151,6 +1197,7 @@ def _candidate_role_amount_person_pattern() -> str:
     return (
         r"(?:\d[\d,.]*\s*(?:元|%)?(?:[/／]\s*\d[\d,.]*\s*(?:元)?)?[\s，,、]*){1,6}"
         r"(?P<name>[\u4e00-\u9fff·]{2,8})"
+        r"(?![\u4e00-\u9fff·]{0,16}(?:公司|集团|项目|工程|电厂|能源|电力|机组|扩建|合同|服务))"
         r"(?:(?:\s*/\s*|\s+)(?P<cert>[\u4e00-\u9fff]{0,4}[A-Za-z0-9][A-Za-z0-9\-]{3,39}))?"
     )
 
@@ -1475,7 +1522,7 @@ def _extract_candidate_summary_table(text: str) -> dict[str, str]:
 
 def _looks_like_person_name(value: str) -> bool:
     name = _clean_text(value).strip(" ：:，,；;。")
-    if _is_placeholder_responsible_person_value(name):
+    if not assess_responsible_person_name(name, confidence=1.0).accepted:
         return False
     if "·" in name:
         if not re.fullmatch(r"[\u4e00-\u9fff·]{2,8}", name):
@@ -1490,14 +1537,23 @@ def _looks_like_person_name(value: str) -> bool:
         "候选",
         "公示",
         "公告",
+        "名称",
+        "姓名",
+        "代码",
+        "排名",
         "结束",
         "时间",
+        "工期",
         "日历",
         "日历天",
         "日内",
         "年度",
         "年版",
         "合格",
+        "质量",
+        "目标",
+        "标准",
+        "承诺",
         "书面",
         "答复",
         "答疑",
@@ -1517,18 +1573,34 @@ def _looks_like_person_name(value: str) -> bool:
         "变更",
         "下浮",
         "报价",
+        "万元",
+        "亿元",
+        "平方",
+        "平方米",
+        "公里",
         "投标",
         "开标",
         "评标",
         "情况",
         "采购",
+        "投资",
         "序号",
         "招标",
         "按招",
+        "按要",
+        "按要求",
+        "对应",
+        "抽取",
+        "养护",
         "联系",
         "地址",
+        "部门",
+        "电话",
         "广场",
         "广州",
+        "厦门",
+        "陕西",
+        "榆林",
         "建造师",
         "工程师",
         "文件",
@@ -1545,10 +1617,16 @@ def _looks_like_person_name(value: str) -> bool:
         "建设",
         "工程",
         "建筑",
+        "电力",
+        "能源",
+        "国电",
         "装修",
         "咨询",
         "管理",
         "有限",
+        "设备",
+        "机电",
+        "港机",
         "注册",
         "证书",
         "资格",
@@ -1558,8 +1636,16 @@ def _looks_like_person_name(value: str) -> bool:
         "标段",
         "施工",
         "监理",
+        "总监",
+        "总工",
         "附件",
+        "附表",
+        "以上",
+        "以下",
+        "不少于",
+        "游泳",
         "千伏",
+        "千瓦",
         "电厂",
         "号",
         "号楼",
@@ -2112,9 +2198,9 @@ def _document_completeness_summary(capture: Mapping[str, Any]) -> dict[str, Any]
         if str(item or "").strip()
     )
     failure_reasons.extend(
-        str(item)
-        for item in list(capture.get("detail_attachment_discovery_taxonomy") or fields.get("attachment_discovery_taxonomy") or [])
-        if str(item or "").strip()
+        item
+        for item in _attachment_discovery_taxonomy_values(capture, fields)
+        if _is_blocking_attachment_discovery_taxonomy(item)
     )
     for attachment in attachment_captures:
         if not isinstance(attachment, Mapping):
@@ -2198,10 +2284,7 @@ def _document_completeness_summary(capture: Mapping[str, Any]) -> dict[str, Any]
         failure_reasons = [reason for reason in failure_reasons if reason not in stale_guangzhou_failures]
         review_reasons = [reason for reason in review_reasons if reason not in stale_guangzhou_failures]
     if source_profile_id == "SICHUAN-GGZY-TRANSACTION-INFO":
-        for reason in list(capture.get("detail_attachment_discovery_taxonomy") or fields.get("attachment_discovery_taxonomy") or []):
-            text_reason = str(reason or "").strip()
-            if text_reason:
-                review_reasons.append(text_reason)
+        review_reasons.extend(_attachment_discovery_taxonomy_values(capture, fields))
     if readback_failure_states:
         review_reasons.append("attachment_snapshot_readback_missing")
     if attachment_parse_errors:
@@ -2594,7 +2677,7 @@ class RealCandidateStage2CaptureService:
                 refreshed = dict(capture)
                 state = str(replay.get("readback_state") or "READBACK_NOT_REPLAYABLE")
                 refreshed["detail_capture_status"] = "STALE_DETAIL_SNAPSHOT_REVIEW"
-                refreshed["detail_capture_failure_reasons"] = _dedupe_strings(
+                refreshed["detail_capture_failure_reasons"] = _dedupe_texts(
                     list(refreshed.get("detail_capture_failure_reasons") or [])
                     + [f"detail_snapshot_readback_missing:{state}"]
                 )
@@ -2614,8 +2697,9 @@ class RealCandidateStage2CaptureService:
             qualification_text_candidate_blocks,
             attachment_text_probes,
             attachment_file_attributions,
-        ) = self._attachment_text_bundle(
-            list(capture.get("attachment_captures", []) or []),
+            attachment_text_cache_records,
+        ) = self._cached_or_extract_attachment_text_bundle(
+            capture,
             project_id=str(candidate.get("project_id") or capture.get("project_id") or ""),
         )
         combined_readback_text = "\n".join(
@@ -2651,6 +2735,7 @@ class RealCandidateStage2CaptureService:
             *attachment_file_attributions,
         ]
         refreshed["detail_fields"]["attachment_text_probes"] = attachment_text_probes
+        refreshed["detail_fields"]["attachment_text_cache_records"] = attachment_text_cache_records
         if attachment_text_states:
             refreshed["detail_fields"]["attachment_text_parse_states"] = attachment_text_states
             refreshed["detail_fields"]["attachment_text_merge_state"] = (
@@ -2671,6 +2756,122 @@ class RealCandidateStage2CaptureService:
         refreshed["parsed_field_count"] = len(parser_carrier.get("parsed_fields", []) or [])
         refreshed["attachment_snapshot_count"] = len(attachment_snapshot_refs)
         return _with_document_completeness(refreshed)
+
+    def _cached_or_extract_attachment_text_bundle(
+        self,
+        capture: Mapping[str, Any],
+        *,
+        project_id: str,
+    ) -> tuple[str, list[str], list[dict[str, Any]], list[str], list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
+        cached = self._cached_attachment_text_bundle(capture, project_id=project_id)
+        if cached is not None:
+            return cached
+        return self._attachment_text_bundle(
+            list(capture.get("attachment_captures", []) or []),
+            project_id=project_id,
+        )
+
+    def _cached_attachment_text_bundle(
+        self,
+        capture: Mapping[str, Any],
+        *,
+        project_id: str,
+    ) -> tuple[str, list[str], list[dict[str, Any]], list[str], list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]] | None:
+        fields = dict(capture.get("detail_fields") or {})
+        snapshot_refs = [
+            dict(ref)
+            for ref in list(fields.get("attachment_snapshot_refs") or [])
+            if isinstance(ref, Mapping) and str(ref.get("snapshot_id") or "").strip()
+        ]
+        if not snapshot_refs:
+            return None
+        for ref in snapshot_refs:
+            snapshot_id = str(ref.get("snapshot_id") or "").strip()
+            try:
+                replay = self.object_repository.replay_snapshot(snapshot_id)
+            except Exception:
+                return None
+            if not bool(replay.get("replayable")):
+                return None
+
+        cache_records = [
+            dict(item)
+            for item in list(fields.get("attachment_text_cache_records") or [])
+            if isinstance(item, Mapping) and str(item.get("snapshot_id") or "").strip()
+        ]
+        texts = [
+            _clean_text(item.get("text_cache"))
+            for item in cache_records
+            if str(item.get("file_role") or "") == "attachment" and _clean_text(item.get("text_cache"))
+        ]
+        if not texts:
+            probe_records = [
+                dict(item)
+                for item in list(fields.get("attachment_text_probes") or [])
+                if isinstance(item, Mapping) and str(item.get("snapshot_id") or "").strip()
+            ]
+            texts = [
+                _clean_text(item.get("text_probe"))
+                for item in probe_records
+                if str(item.get("file_role") or "") == "attachment" and _clean_text(item.get("text_probe"))
+            ]
+            cache_records = [
+                _attachment_text_cache_record(
+                    project_id=str(item.get("project_id") or project_id),
+                    snapshot_id=str(item.get("snapshot_id") or ""),
+                    source_url=str(item.get("source_url") or ""),
+                    file_role="attachment",
+                    parse_state=str(item.get("parse_state") or "ATTACHMENT_TEXT_PROBE_CACHE_REUSED"),
+                    text=str(item.get("text_probe") or ""),
+                )
+                for item in probe_records
+                if _clean_text(item.get("text_probe"))
+            ]
+
+        qualification_blocks = [
+            _clean_text(item)
+            for item in list(fields.get("qualification_text_candidate_blocks") or [])
+            if _clean_text(item)
+        ]
+        combined_texts = _dedupe_texts([*texts, *qualification_blocks])
+        if not combined_texts:
+            return None
+
+        states = [
+            state if "ATTACHMENT_TEXT_CACHE_REUSED" in state else f"{state}:ATTACHMENT_TEXT_CACHE_REUSED"
+            for state in [
+                str(item)
+                for item in list(fields.get("attachment_text_parse_states") or [])
+                if str(item or "").strip()
+            ]
+        ]
+        if not states:
+            states = [
+                f"{str(ref.get('snapshot_id') or '')}:ATTACHMENT_TEXT_CACHE_REUSED"
+                for ref in snapshot_refs
+                if str(ref.get("snapshot_id") or "").strip()
+            ]
+        attributions = [
+            _file_parse_attribution(
+                project_id=str(item.get("project_id") or project_id),
+                snapshot_id=str(item.get("snapshot_id") or ""),
+                source_url=str(item.get("source_url") or ""),
+                file_role="attachment",
+                parse_state=str(item.get("parse_state") or "ATTACHMENT_TEXT_CACHE_REUSED"),
+                text=str(item.get("text_cache") or item.get("text_probe") or ""),
+            )
+            for item in cache_records
+            if str(item.get("snapshot_id") or "").strip()
+        ]
+        return (
+            "\n".join(combined_texts),
+            states,
+            snapshot_refs,
+            _dedupe_texts(qualification_blocks)[:20],
+            attributions[:20],
+            attributions[:30],
+            cache_records[:30],
+        )
 
     def capture_candidate(
         self,
@@ -2767,6 +2968,7 @@ class RealCandidateStage2CaptureService:
             qualification_text_candidate_blocks,
             attachment_text_probes,
             attachment_file_attributions,
+            attachment_text_cache_records,
         ) = self._attachment_text_bundle(
             attachment_captures,
             project_id=str(candidate.get("project_id") or ""),
@@ -2792,6 +2994,7 @@ class RealCandidateStage2CaptureService:
             *attachment_file_attributions,
         ]
         detail_fields["attachment_text_probes"] = attachment_text_probes
+        detail_fields["attachment_text_cache_records"] = attachment_text_cache_records
         attachment_discovery_taxonomy = [
             str(item)
             for item in list(detail_carrier.get("attachment_discovery_taxonomy") or [])
@@ -2878,13 +3081,14 @@ class RealCandidateStage2CaptureService:
         attachment_captures: list[Mapping[str, Any]],
         *,
         project_id: str,
-    ) -> tuple[str, list[str], list[dict[str, Any]], list[str], list[dict[str, Any]], list[dict[str, Any]]]:
+    ) -> tuple[str, list[str], list[dict[str, Any]], list[str], list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
         texts: list[str] = []
         states: list[str] = []
         snapshot_refs: list[dict[str, Any]] = []
         qualification_blocks: list[str] = []
         text_probes: list[dict[str, Any]] = []
         file_attributions: list[dict[str, Any]] = []
+        text_cache_records: list[dict[str, Any]] = []
         for attachment in attachment_captures:
             snapshot_id = str(attachment.get("attachment_snapshot_id_optional") or "").strip()
             if not snapshot_id:
@@ -2963,6 +3167,16 @@ class RealCandidateStage2CaptureService:
                     )
                     text_probes.append(attribution)
                     file_attributions.append(attribution)
+                    text_cache_records.append(
+                        _attachment_text_cache_record(
+                            project_id=project_id,
+                            snapshot_id=snapshot_id,
+                            source_url=str(attachment.get("attachment_url") or ""),
+                            file_role="attachment",
+                            parse_state=parse_state,
+                            text=text,
+                        )
+                    )
                     qualification_blocks.extend(_qualification_text_candidate_blocks(text))
                 continue
             parser_carrier: dict[str, Any] = {}
@@ -3017,6 +3231,16 @@ class RealCandidateStage2CaptureService:
                 )
                 text_probes.append(attribution)
                 file_attributions.append(attribution)
+                text_cache_records.append(
+                    _attachment_text_cache_record(
+                        project_id=project_id,
+                        snapshot_id=snapshot_id,
+                        source_url=str(attachment.get("attachment_url") or ""),
+                        file_role="attachment",
+                        parse_state=parse_state,
+                        text=parsed_text,
+                    )
+                )
                 qualification_blocks.extend(_qualification_text_candidate_blocks(parsed_text))
                 continue
             decoded_text = _decode_snapshot_text(readback)
@@ -3034,6 +3258,16 @@ class RealCandidateStage2CaptureService:
                 )
                 text_probes.append(attribution)
                 file_attributions.append(attribution)
+                text_cache_records.append(
+                    _attachment_text_cache_record(
+                        project_id=project_id,
+                        snapshot_id=snapshot_id,
+                        source_url=str(attachment.get("attachment_url") or ""),
+                        file_role="attachment",
+                        parse_state=decoded_state,
+                        text=decoded_text,
+                    )
+                )
                 qualification_blocks.extend(_qualification_text_candidate_blocks(decoded_text))
         return (
             "\n".join(texts),
@@ -3042,6 +3276,7 @@ class RealCandidateStage2CaptureService:
             _dedupe_texts(qualification_blocks)[:20],
             text_probes[:20],
             file_attributions[:30],
+            text_cache_records[:30],
         )
 
     def _capture_same_site_attachments(
@@ -3369,20 +3604,20 @@ class RealCandidateStage2CaptureService:
             "survey_lead_name",
             "survey_lead_name_parse_state",
         ):
-            if fields.get(key):
-                row[key] = str(fields[key])
+            if key in fields:
+                row[key] = str(fields.get(key) or "")
         row["responsible_role_gap_token_hits"] = list(fields.get("responsible_role_gap_token_hits") or [])
         row["stage4_identity_completion_targets"] = list(fields.get("stage4_identity_completion_targets") or [])
         row["expected_responsible_role_present"] = bool(fields.get("expected_responsible_role_present"))
         row["responsible_role_gap_review_required"] = bool(fields.get("responsible_role_gap_review_required"))
         row["stage4_identity_completion_required"] = bool(fields.get("stage4_identity_completion_required"))
-        if fields.get("project_manager_name"):
-            row["project_manager_name"] = str(fields["project_manager_name"])
+        if "project_manager_name" in fields:
+            row["project_manager_name"] = str(fields.get("project_manager_name") or "")
             row["project_manager_name_parse_state"] = fields.get("project_manager_name_parse_state") or "DETAIL_TEXT"
         else:
             row["project_manager_name_parse_state"] = fields.get("project_manager_name_parse_state") or "DETAIL_TEXT_NOT_FOUND"
-        if fields.get("project_manager_certificate_no"):
-            row["project_manager_certificate_no"] = str(fields["project_manager_certificate_no"])
+        if "project_manager_certificate_no" in fields:
+            row["project_manager_certificate_no"] = str(fields.get("project_manager_certificate_no") or "")
             row["project_manager_certificate_no_parse_state"] = (
                 fields.get("project_manager_certificate_no_parse_state") or "DETAIL_TEXT"
             )
@@ -3390,8 +3625,8 @@ class RealCandidateStage2CaptureService:
             row["project_manager_certificate_no_parse_state"] = (
                 fields.get("project_manager_certificate_no_parse_state") or "DETAIL_TEXT_NOT_FOUND"
             )
-        if fields.get("project_manager_certificate_type"):
-            row["project_manager_certificate_type"] = str(fields["project_manager_certificate_type"])
+        if "project_manager_certificate_type" in fields:
+            row["project_manager_certificate_type"] = str(fields.get("project_manager_certificate_type") or "")
             row["project_manager_certificate_type_parse_state"] = (
                 fields.get("project_manager_certificate_type_parse_state") or "DETAIL_TEXT"
             )
@@ -3399,8 +3634,8 @@ class RealCandidateStage2CaptureService:
             row["project_manager_certificate_type_parse_state"] = (
                 fields.get("project_manager_certificate_type_parse_state") or "DETAIL_TEXT_NOT_FOUND"
             )
-        if fields.get("project_manager_cert_specialty"):
-            row["project_manager_cert_specialty"] = str(fields["project_manager_cert_specialty"])
+        if "project_manager_cert_specialty" in fields:
+            row["project_manager_cert_specialty"] = str(fields.get("project_manager_cert_specialty") or "")
             row["project_manager_cert_specialty_parse_state"] = (
                 fields.get("project_manager_cert_specialty_parse_state") or "DETAIL_TEXT"
             )
@@ -3408,8 +3643,8 @@ class RealCandidateStage2CaptureService:
             row["project_manager_cert_specialty_parse_state"] = (
                 fields.get("project_manager_cert_specialty_parse_state") or "DETAIL_TEXT_NOT_FOUND"
             )
-        if fields.get("project_manager_professional_title"):
-            row["project_manager_professional_title"] = str(fields["project_manager_professional_title"])
+        if "project_manager_professional_title" in fields:
+            row["project_manager_professional_title"] = str(fields.get("project_manager_professional_title") or "")
             row["project_manager_professional_title_parse_state"] = (
                 fields.get("project_manager_professional_title_parse_state") or "DETAIL_TEXT"
             )
@@ -3443,10 +3678,10 @@ class RealCandidateStage2CaptureService:
             else "REAL_LIST_PAGE_CANDIDATE_NEEDS_DETAIL_CAPTURE"
         )
         row["truth_boundary"] = (
-            "真实详情页和同站附件快照已保存；客户可售前仍需 Stage4-9 消费快照并完成证据回链。"
+            "真实详情页和同站附件快照已保存；客户可售前仍需 Stage1-6 消费快照并完成证据回链。"
             if detail_snapshot_id and attachment_snapshot_ids
             else
-            "真实详情页快照已保存并完成 Stage3 读回；客户可售前仍需 Stage4-9 消费该快照并完成证据回链。"
+            "真实详情页快照已保存并完成 Stage3 读回；客户可售前仍需 Stage1-6 消费该快照并完成证据回链。"
             if detail_snapshot_id
             else "真实列表页候选已入库；详情页快照未完成，不能形成客户可售证据。"
         )

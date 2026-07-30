@@ -40,6 +40,7 @@ def build_company_first_stage4_execution(
     project_ids: list[str] | tuple[str, ...] = (),
     candidate_group_ids: list[str] | tuple[str, ...] = (),
     execute: bool = False,
+    include_provider_jobs: bool = True,
     max_personnel_pages: int = 12,
     max_project_pages: int = 3,
     personnel_retry_attempts: int = 2,
@@ -53,7 +54,7 @@ def build_company_first_stage4_execution(
     out_root = Path(output_root)
     out_root.mkdir(parents=True, exist_ok=True)
     jobs_path = Path(provider_jobs_json) if provider_jobs_json else in_root / "stage4_provider_jobs.json"
-    jobs_payload = _load_json(jobs_path)
+    jobs_payload = _load_json(jobs_path) if include_provider_jobs else {}
     blocking_reasons: list[str] = []
     stage4_inputs_path = Path(stage4_inputs_json) if stage4_inputs_json else None
     stage4_inputs_payload = _load_json(stage4_inputs_path) if stage4_inputs_path else {}
@@ -109,8 +110,9 @@ def build_company_first_stage4_execution(
         "manifest_id": f"COMPANY-FIRST-STAGE4-{_fingerprint({'items': items, 'summary': summary})[:16]}",
         "created_at": created,
         "source_input_root": str(in_root),
-        "source_stage4_provider_jobs_json": str(jobs_path),
+        "source_stage4_provider_jobs_json": str(jobs_path if include_provider_jobs else ""),
         "source_stage4_inputs_json_optional": str(stage4_inputs_path or ""),
+        "include_provider_jobs": bool(include_provider_jobs),
         "execute_enabled": bool(execute),
         "max_personnel_pages": max_personnel_pages,
         "max_project_pages": max_project_pages,
@@ -1049,6 +1051,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--project-ids", default="")
     parser.add_argument("--candidate-group-ids", default="")
     parser.add_argument("--execute", action="store_true")
+    parser.add_argument("--stage4-inputs-only", action="store_true")
     parser.add_argument("--max-personnel-pages", type=int, default=12)
     parser.add_argument("--max-project-pages", type=int, default=3)
     parser.add_argument("--personnel-retry-attempts", type=int, default=2)
@@ -1068,6 +1071,7 @@ def main(argv: list[str] | None = None) -> int:
         project_ids=_split_csv(args.project_ids),
         candidate_group_ids=_split_csv(args.candidate_group_ids),
         execute=bool(args.execute),
+        include_provider_jobs=not bool(args.stage4_inputs_only),
         max_personnel_pages=args.max_personnel_pages,
         max_project_pages=args.max_project_pages,
         personnel_retry_attempts=args.personnel_retry_attempts,

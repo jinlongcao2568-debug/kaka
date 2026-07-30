@@ -1,0 +1,246 @@
+name: "kaka-production-${KAKA_DEPLOYMENT_TENANT_ID:?set KAKA_DEPLOYMENT_TENANT_ID}-${KAKA_DEPLOYMENT_INSTANCE_ID:?set KAKA_DEPLOYMENT_INSTANCE_ID}"
+
+x-kaka-boundary:
+  runtime_scope: customer_visible_production_canary
+  single_customer_per_deployment: true
+  public_customer_routes_only: true
+  private_operator_edge_separate: true
+  immutable_images_required: true
+  production_live_enabled: true
+  automated_refund_enabled: false
+
+services:
+  postgres:
+    image: "${KAKA_POSTGRES_IMAGE_REPOSITORY:?set KAKA_POSTGRES_IMAGE_REPOSITORY}@${KAKA_POSTGRES_IMAGE_DIGEST:?set KAKA_POSTGRES_IMAGE_DIGEST}"
+    labels:
+      kaka.production_live_enabled: "true"
+
+  migrate:
+    build: !reset null
+    image: "${KAKA_API_IMAGE_REPOSITORY:?set KAKA_API_IMAGE_REPOSITORY}@${KAKA_API_IMAGE_DIGEST:?set KAKA_API_IMAGE_DIGEST}"
+    labels:
+      kaka.production_live_enabled: "true"
+
+  app:
+    build: !reset null
+    image: "${KAKA_API_IMAGE_REPOSITORY:?set KAKA_API_IMAGE_REPOSITORY}@${KAKA_API_IMAGE_DIGEST:?set KAKA_API_IMAGE_DIGEST}"
+    command: !override
+      - python
+      - -m
+      - uvicorn
+      - api.main:create_app
+      - --factory
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --no-server-header
+      - --proxy-headers
+      - "--forwarded-allow-ips=${KAKA_PUBLIC_EDGE_PROXY_IP:-172.31.252.254},${KAKA_OPERATOR_EDGE_PROXY_IP:-172.31.252.253}"
+    environment:
+      KAKA_ENVIRONMENT: PROD_LIVE_MODE
+      KAKA_PRIVATE_HOSTNAME: "${KAKA_PUBLIC_HOSTNAME:?set KAKA_PUBLIC_HOSTNAME}"
+      KAKA_API_ALLOWED_HOSTS: "${KAKA_PUBLIC_HOSTNAME},${KAKA_OPERATOR_HOSTNAME},localhost,127.0.0.1,app"
+      KAKA_API_TRUSTED_PROXY_IPS: "${KAKA_PUBLIC_EDGE_PROXY_IP:-172.31.252.254},${KAKA_OPERATOR_EDGE_PROXY_IP:-172.31.252.253}"
+      KAKA_API_PUBLIC_REQUESTS_PER_MINUTE: "${KAKA_API_PUBLIC_REQUESTS_PER_MINUTE:-600}"
+      KAKA_API_PUBLIC_CONCURRENCY_PER_CLIENT: "${KAKA_API_PUBLIC_CONCURRENCY_PER_CLIENT:-8}"
+      KAKA_PROVIDER_ADAPTER_MODE: LIVE
+      KAKA_LEADPACK_DELIVERY_PROVIDER: customer_portal_delivery
+      KAKA_CUSTOMER_PORTAL_SIGNING_KEY_FILE: /run/secrets/kaka_customer_portal_signing_key
+      KAKA_DELIVERY_BASE_URL: "https://${KAKA_PUBLIC_HOSTNAME}"
+      KAKA_DELIVERY_WEBHOOK_SECRET_FILE: /run/secrets/kaka_delivery_webhook_secret
+      KAKA_LEADPACK_DELIVERY_PROVIDER_SANDBOX_PASS_STATE: PASSED
+      KAKA_LEADPACK_DELIVERY_PROVIDER_CALLBACK_VALIDATION_STATE: VALIDATED
+      KAKA_LEADPACK_DELIVERY_PROVIDER_APPROVAL_STATE: APPROVED
+      KAKA_LEADPACK_DELIVERY_PROVIDER_AUDIT_STATE: AUDITED
+      KAKA_LEADPACK_DELIVERY_PROVIDER_OPERATOR_ACTION_REF: "${KAKA_DELIVERY_PROVIDER_OPERATOR_ACTION_REF:?set KAKA_DELIVERY_PROVIDER_OPERATOR_ACTION_REF}"
+      KAKA_LEADPACK_DELIVERY_PROVIDER_LIVE_EVIDENCE_FILE: /run/secrets/kaka_delivery_provider_live_evidence
+      KAKA_PAYMENT_COLLECTION_PROVIDER: stripe_payment
+      KAKA_STRIPE_SECRET_KEY_FILE: /run/secrets/kaka_stripe_secret_key
+      KAKA_STRIPE_WEBHOOK_SECRET_FILE: /run/secrets/kaka_stripe_webhook_secret
+      KAKA_STRIPE_API_BASE_URL: https://api.stripe.com/v1
+      KAKA_STRIPE_ACCOUNT_ID: "${KAKA_STRIPE_ACCOUNT_ID:?set KAKA_STRIPE_ACCOUNT_ID}"
+      KAKA_PAYMENT_PROVIDER_ALLOWED_HOSTS: api.stripe.com
+      KAKA_PAYMENT_PROVIDER_DIRECT_HTTPS_APPROVED: "false"
+      KAKA_PAYMENT_COLLECTION_PROVIDER_SANDBOX_PASS_STATE: PASSED
+      KAKA_PAYMENT_COLLECTION_PROVIDER_CALLBACK_VALIDATION_STATE: VALIDATED
+      KAKA_PAYMENT_COLLECTION_PROVIDER_APPROVAL_STATE: APPROVED
+      KAKA_PAYMENT_COLLECTION_PROVIDER_AUDIT_STATE: AUDITED
+      KAKA_PAYMENT_COLLECTION_PROVIDER_OPERATOR_ACTION_REF: "${KAKA_PAYMENT_PROVIDER_OPERATOR_ACTION_REF:?set KAKA_PAYMENT_PROVIDER_OPERATOR_ACTION_REF}"
+      KAKA_PAYMENT_COLLECTION_PROVIDER_LIVE_EVIDENCE_FILE: /run/secrets/kaka_payment_provider_live_evidence
+      KAKA_PROVIDER_LIVE_EVIDENCE_SIGNING_KEY_FILE: /run/secrets/kaka_provider_evidence_signing_key
+      KAKA_PRODUCTION_PAYMENT_PROVIDER_PROBE_FILE: /app/.kaka-local/runtime/production-payment-provider-probe-v1.json
+      KAKA_CONTROLLED_EGRESS_PROXY_URL: http://egress-proxy:18080
+      HTTPS_PROXY: http://egress-proxy:18080
+      NO_PROXY: postgres,app,egress-proxy,localhost,127.0.0.1
+      KAKA_PRODUCTION_RELEASE_ENABLED: "true"
+      KAKA_PRODUCTION_RELEASE_MODE: "${KAKA_PRODUCTION_RELEASE_MODE:-CANARY}"
+      KAKA_PRODUCTION_RELEASE_ID: "${KAKA_PRODUCTION_RELEASE_ID:?set KAKA_PRODUCTION_RELEASE_ID}"
+      KAKA_PRODUCTION_RELEASE_VERSION: "${KAKA_RELEASE_VERSION:?set KAKA_RELEASE_VERSION}"
+      KAKA_PRODUCTION_RELEASE_TENANT_ID: "${KAKA_DEPLOYMENT_TENANT_ID}"
+      KAKA_PUBLIC_BASE_URL: "https://${KAKA_PUBLIC_HOSTNAME}"
+      KAKA_PRODUCTION_RELEASE_WINDOW_START_AT: "${KAKA_PRODUCTION_RELEASE_WINDOW_START_AT:?set KAKA_PRODUCTION_RELEASE_WINDOW_START_AT}"
+      KAKA_PRODUCTION_RELEASE_WINDOW_END_AT: "${KAKA_PRODUCTION_RELEASE_WINDOW_END_AT:?set KAKA_PRODUCTION_RELEASE_WINDOW_END_AT}"
+      KAKA_PRODUCTION_CANARY_CUSTOMER_LIMIT: "${KAKA_PRODUCTION_CANARY_CUSTOMER_LIMIT:-3}"
+      KAKA_PRODUCTION_CUSTOMER_VISIBLE_ENABLED: "true"
+      KAKA_PRODUCTION_PAYMENT_ENABLED: "true"
+      KAKA_PRODUCTION_DELIVERY_ENABLED: "true"
+      KAKA_PRODUCTION_REFUND_ENABLED: "true"
+      KAKA_PRODUCTION_AUTOMATED_REFUND_ENABLED: "false"
+      KAKA_PRODUCTION_KILL_SWITCH: "${KAKA_PRODUCTION_KILL_SWITCH:?set KAKA_PRODUCTION_KILL_SWITCH to false only for an approved window}"
+      KAKA_PRODUCTION_BACKUP_MANIFEST_REF: /run/production-evidence/backup/manifest.json
+      KAKA_PRODUCTION_RESTORE_REPORT_REF: /run/production-evidence/restore-report.json
+      KAKA_PRODUCTION_ROLLBACK_REF: /run/production-evidence/rollback-report.json
+      KAKA_PRODUCTION_ALERT_DISPATCH_REQUIRED: "true"
+      KAKA_PRODUCTION_ALERT_TEST_EVIDENCE_FILE: /app/.kaka-local/runtime/production-alert-test-evidence-v1.json
+      KAKA_ALERT_DISPATCHER_STATUS_PATH: /app/.kaka-local/runtime/operational-alert-dispatcher-status-v1.json
+      KAKA_ALERT_DISPATCHER_STATUS_MAX_AGE_SECONDS: "120"
+      KAKA_ALERT_WEBHOOK_URL: "${KAKA_ALERT_WEBHOOK_URL:?set KAKA_ALERT_WEBHOOK_URL}"
+      KAKA_ALERT_ALLOWED_HOSTS: "${KAKA_ALERT_ALLOWED_HOSTS:?set KAKA_ALERT_ALLOWED_HOSTS}"
+      KAKA_ALERT_SIGNING_SECRET_FILE: /run/secrets/kaka_alert_signing_secret
+      KAKA_ALERT_STATE_PATH: /app/.kaka-local/runtime/operational-alert-state-v1.json
+      KAKA_ALERT_DEAD_LETTER_PATH: /app/.kaka-local/runtime/operational-alert-dead-letter-v1.jsonl
+    volumes:
+      - "${KAKA_PRODUCTION_BACKUP_DIRECTORY:?set KAKA_PRODUCTION_BACKUP_DIRECTORY}:/run/production-evidence/backup:ro"
+      - "${KAKA_PRODUCTION_RESTORE_REPORT_FILE:?set KAKA_PRODUCTION_RESTORE_REPORT_FILE}:/run/production-evidence/restore-report.json:ro"
+      - "${KAKA_PRODUCTION_ROLLBACK_REPORT_FILE:?set KAKA_PRODUCTION_ROLLBACK_REPORT_FILE}:/run/production-evidence/rollback-report.json:ro"
+    secrets:
+      - kaka_customer_portal_signing_key
+      - kaka_delivery_webhook_secret
+      - kaka_stripe_secret_key
+      - kaka_stripe_webhook_secret
+      - kaka_provider_evidence_signing_key
+      - kaka_delivery_provider_live_evidence
+      - kaka_payment_provider_live_evidence
+      - kaka_alert_signing_secret
+    labels:
+      kaka.production_live_enabled: "true"
+      kaka.customer_visible_release_gated: "true"
+      kaka.automated_refund_enabled: "false"
+      kaka.multi_instance_advisory_locks_enabled: "true"
+
+  worker:
+    build: !reset null
+    image: "${KAKA_WORKER_IMAGE_REPOSITORY:?set KAKA_WORKER_IMAGE_REPOSITORY}@${KAKA_WORKER_IMAGE_DIGEST:?set KAKA_WORKER_IMAGE_DIGEST}"
+    labels:
+      kaka.production_live_enabled: "true"
+
+  browser-worker:
+    build: !reset null
+    image: "${KAKA_BROWSER_WORKER_IMAGE_REPOSITORY:?set KAKA_BROWSER_WORKER_IMAGE_REPOSITORY}@${KAKA_BROWSER_WORKER_IMAGE_DIGEST:?set KAKA_BROWSER_WORKER_IMAGE_DIGEST}"
+    labels:
+      kaka.production_live_enabled: "true"
+
+  backup-tools:
+    build: !reset null
+    image: "${KAKA_BACKUP_TOOLS_IMAGE_REPOSITORY:?set KAKA_BACKUP_TOOLS_IMAGE_REPOSITORY}@${KAKA_BACKUP_TOOLS_IMAGE_DIGEST:?set KAKA_BACKUP_TOOLS_IMAGE_DIGEST}"
+
+  restore-postgres:
+    image: "${KAKA_POSTGRES_IMAGE_REPOSITORY:?set KAKA_POSTGRES_IMAGE_REPOSITORY}@${KAKA_POSTGRES_IMAGE_DIGEST:?set KAKA_POSTGRES_IMAGE_DIGEST}"
+
+  restore-tools:
+    build: !reset null
+    image: "${KAKA_BACKUP_TOOLS_IMAGE_REPOSITORY:?set KAKA_BACKUP_TOOLS_IMAGE_REPOSITORY}@${KAKA_BACKUP_TOOLS_IMAGE_DIGEST:?set KAKA_BACKUP_TOOLS_IMAGE_DIGEST}"
+
+  egress-proxy:
+    build: !reset null
+    image: "${KAKA_API_IMAGE_REPOSITORY:?set KAKA_API_IMAGE_REPOSITORY}@${KAKA_API_IMAGE_DIGEST:?set KAKA_API_IMAGE_DIGEST}"
+    environment:
+      KAKA_EGRESS_ADDITIONAL_ALLOWED_HOSTS: >-
+        data.ggzy.gov.cn,deal.ggzy.gov.cn,search.gd.gov.cn,ygp.gdzwfw.gov.cn,zfcj.gz.gov.cn,
+        jianshe.maoming.gov.cn,jsj.zs.gov.cn,www.heyuan.gov.cn,www.jiangmen.gov.cn,
+        www.maoming.gov.cn,www.shanwei.gov.cn,www.yangjiang.gov.cn,zjj.huizhou.gov.cn,
+        api.stripe.com,${KAKA_ALERT_ALLOWED_HOSTS}
+    labels:
+      kaka.production_live_enabled: "true"
+      kaka.stripe_exact_host_allowed: "true"
+
+  alert-dispatcher:
+    profiles: !reset []
+    build: !reset null
+    image: "${KAKA_API_IMAGE_REPOSITORY:?set KAKA_API_IMAGE_REPOSITORY}@${KAKA_API_IMAGE_DIGEST:?set KAKA_API_IMAGE_DIGEST}"
+    environment:
+      KAKA_ALERT_WEBHOOK_URL: "${KAKA_ALERT_WEBHOOK_URL:?set KAKA_ALERT_WEBHOOK_URL}"
+      KAKA_ALERT_ALLOWED_HOSTS: "${KAKA_ALERT_ALLOWED_HOSTS:?set KAKA_ALERT_ALLOWED_HOSTS}"
+      KAKA_ALERT_SIGNING_SECRET_FILE: /run/secrets/kaka_alert_signing_secret
+      KAKA_CONTROLLED_EGRESS_PROXY_URL: http://egress-proxy:18080
+    secrets:
+      - kaka_alert_signing_secret
+    labels:
+      kaka.production_live_enabled: "true"
+      kaka.production_alert_dispatch_required: "true"
+
+  edge:
+    image: "${KAKA_CADDY_IMAGE_REPOSITORY:?set KAKA_CADDY_IMAGE_REPOSITORY}@${KAKA_CADDY_IMAGE_DIGEST:?set KAKA_CADDY_IMAGE_DIGEST}"
+    environment:
+      KAKA_PUBLIC_HOSTNAME: "${KAKA_PUBLIC_HOSTNAME:?set KAKA_PUBLIC_HOSTNAME}"
+    ports: !override
+      - "80:80"
+      - "443:443"
+    volumes: !override
+      - ./deploy/production/Caddyfile.public:/etc/caddy/Caddyfile:ro
+      - ./deploy/production/Caddyfile.public-routes:/etc/caddy/KakaPublicRoutes:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      private-edge:
+        ipv4_address: "${KAKA_PUBLIC_EDGE_PROXY_IP:-172.31.252.254}"
+      public-ingress:
+    labels:
+      kaka.tls_termination: public_acme
+      kaka.loopback_bind_only: "false"
+      kaka.public_customer_routes_only: "true"
+      kaka.production_live_enabled: "true"
+
+  operator-edge:
+    image: "${KAKA_CADDY_IMAGE_REPOSITORY:?set KAKA_CADDY_IMAGE_REPOSITORY}@${KAKA_CADDY_IMAGE_DIGEST:?set KAKA_CADDY_IMAGE_DIGEST}"
+    depends_on:
+      app:
+        condition: service_healthy
+    environment:
+      KAKA_OPERATOR_HOSTNAME: "${KAKA_OPERATOR_HOSTNAME:?set KAKA_OPERATOR_HOSTNAME}"
+    ports:
+      - "127.0.0.1:${KAKA_OPERATOR_TLS_PORT:-18443}:443"
+    volumes:
+      - ./deploy/production/Caddyfile.operator:/etc/caddy/Caddyfile:ro
+      - operator-caddy-data:/data
+      - operator-caddy-config:/config
+    networks:
+      private-edge:
+        ipv4_address: "${KAKA_OPERATOR_EDGE_PROXY_IP:-172.31.252.253}"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=64m
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    labels:
+      kaka.runtime_role: private-operator-edge
+      kaka.loopback_bind_only: "true"
+      kaka.production_live_enabled: "true"
+
+volumes:
+  operator-caddy-data:
+  operator-caddy-config:
+
+secrets:
+  kaka_customer_portal_signing_key:
+    file: "${KAKA_CUSTOMER_PORTAL_SIGNING_KEY_FILE:?set KAKA_CUSTOMER_PORTAL_SIGNING_KEY_FILE}"
+  kaka_delivery_webhook_secret:
+    file: "${KAKA_DELIVERY_WEBHOOK_SECRET_FILE:?set KAKA_DELIVERY_WEBHOOK_SECRET_FILE}"
+  kaka_stripe_secret_key:
+    file: "${KAKA_STRIPE_SECRET_KEY_FILE:?set KAKA_STRIPE_SECRET_KEY_FILE}"
+  kaka_stripe_webhook_secret:
+    file: "${KAKA_STRIPE_WEBHOOK_SECRET_FILE:?set KAKA_STRIPE_WEBHOOK_SECRET_FILE}"
+  kaka_provider_evidence_signing_key:
+    file: "${KAKA_PROVIDER_EVIDENCE_SIGNING_KEY_FILE:?set KAKA_PROVIDER_EVIDENCE_SIGNING_KEY_FILE}"
+  kaka_delivery_provider_live_evidence:
+    file: "${KAKA_DELIVERY_PROVIDER_LIVE_EVIDENCE_FILE:?set KAKA_DELIVERY_PROVIDER_LIVE_EVIDENCE_FILE}"
+  kaka_payment_provider_live_evidence:
+    file: "${KAKA_PAYMENT_PROVIDER_LIVE_EVIDENCE_FILE:?set KAKA_PAYMENT_PROVIDER_LIVE_EVIDENCE_FILE}"
+  kaka_alert_signing_secret:
+    file: "${KAKA_ALERT_SIGNING_SECRET_FILE:?set KAKA_ALERT_SIGNING_SECRET_FILE}"

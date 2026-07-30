@@ -8,6 +8,7 @@ from html import unescape
 from typing import Any, Mapping
 from urllib.parse import urlencode, urljoin, urlsplit
 from urllib.request import Request, urlopen
+from uuid import uuid4
 
 from shared.utils import build_id, utc_now_iso
 from stage1_tasking.region_adapters import (
@@ -718,7 +719,11 @@ def _discover_ggzy_deal_api_link_items(
     context: Mapping[str, Any],
 ) -> dict[str, Any]:
     endpoint = "https://deal.ggzy.gov.cn/ds/deal/dealList_find.jsp"
-    start_date, end_date = _date_window_from_now(now)
+    window_days = _ggzy_window_days(context)
+    if window_days is None:
+        start_date, end_date = _date_window_from_now(now)
+    else:
+        start_date, end_date = _date_window_from_now(now, days=window_days)
     terms = _ggzy_find_terms(context)
     query_text = " ".join(terms[:4])
     province_code = _ggzy_province_code(context)
@@ -764,6 +769,7 @@ def _discover_ggzy_deal_api_link_items(
             "query_window": {"start_date": start_date, "end_date": end_date},
             "query_terms": terms,
             "province_code": province_code,
+            "query_window_days": window_days,
         }
     records = _ggzy_deal_records(data)
     return {
@@ -775,12 +781,16 @@ def _discover_ggzy_deal_api_link_items(
         "query_window": {"start_date": start_date, "end_date": end_date},
         "query_terms": terms,
         "province_code": province_code,
+        "query_window_days": window_days,
         "record_count": len(records),
     }
 
 
 def _ggzy_find_terms(context: Mapping[str, Any]) -> list[str]:
-    values = _as_string_list(context.get("selection_filters"), [])
+    overrides = _ggzy_find_text_overrides(context)
+    if overrides:
+        return overrides
+    values = _ggzy_selection_filter_values(context)
     document_kind = str(context.get("evaluation_document_kind") or "")
     if document_kind == "flow_or_re_tender_notice":
         values = ["流标", "重新招标", "终止公告", *values]
@@ -799,14 +809,84 @@ def _ggzy_find_terms(context: Mapping[str, Any]) -> list[str]:
     ]
 
 
+def _ggzy_selection_filter_values(context: Mapping[str, Any]) -> list[str]:
+    values: list[str] = []
+    for value in _as_string_list(context.get("selection_filters"), []):
+        text = str(value or "").strip()
+        if text.startswith(("GGZY_FINDTXT:", "GGZY_WINDOW_DAYS:", "GGZY_PROVINCE_CODE:")):
+            continue
+        values.append(text)
+    return values
+
+
+def _ggzy_find_text_overrides(context: Mapping[str, Any]) -> list[str]:
+    overrides: list[str] = []
+    for value in _as_string_list(context.get("selection_filters"), []):
+        text = str(value or "").strip()
+        if not text.startswith("GGZY_FINDTXT:"):
+            continue
+        find_text = text.split(":", 1)[1].strip()
+        if not find_text:
+            continue
+        upper = find_text.upper()
+        if upper.startswith(("PROJ-", "REAL-", "ALT-", "CLPB-")):
+            continue
+        overrides.append(find_text)
+    return _dedupe_texts(overrides)
+
+
+def _ggzy_window_days(context: Mapping[str, Any]) -> int | None:
+    for value in _as_string_list(context.get("selection_filters"), []):
+        text = str(value or "").strip()
+        if not text.startswith("GGZY_WINDOW_DAYS:"):
+            continue
+        parsed = _as_int(text.split(":", 1)[1].strip(), 0)
+        if parsed > 0:
+            return max(1, min(parsed, 365))
+    return None
+
+
 def _ggzy_province_code(context: Mapping[str, Any]) -> str:
+    province_override = _ggzy_province_code_override(context)
+    if province_override is not None:
+        return province_override
     region_code = str(context.get("requested_region_code") or "").strip()
-    if region_code == "CN-SH":
-        return "310000"
-    filters = " ".join(_as_string_list(context.get("selection_filters"), []))
-    if "上海" in filters:
-        return "310000"
+    code_by_region = {
+        "CN-SD": "370000",
+        "CN-SH": "310000",
+        "CN-GD": "440000",
+        "CN-JS": "320000",
+        "CN-HB": "420000",
+        "CN-ZJ": "330000",
+        "CN-SC": "510000",
+    }
+    if region_code in code_by_region:
+        return code_by_region[region_code]
+    filters = " ".join(_ggzy_selection_filter_values(context))
+    province_by_term = {
+        "山东": "370000",
+        "上海": "310000",
+        "广东": "440000",
+        "江苏": "320000",
+        "湖北": "420000",
+        "浙江": "330000",
+        "四川": "510000",
+    }
+    for term, code in province_by_term.items():
+        if term in filters:
+            return code
     return "0"
+
+
+def _ggzy_province_code_override(context: Mapping[str, Any]) -> str | None:
+    for value in _as_string_list(context.get("selection_filters"), []):
+        text = str(value or "").strip()
+        if not text.startswith("GGZY_PROVINCE_CODE:"):
+            continue
+        code = text.split(":", 1)[1].strip()
+        if code == "0" or (len(code) == 6 and code.isdigit()):
+            return code
+    return None
 
 
 def _ggzy_deal_records(data: Any) -> list[Any]:
@@ -2056,6 +2136,15 @@ def _candidate_key(candidate: Mapping[str, Any]) -> str:
     return _hash_text(basis.lower(), 24)
 
 
+def _candidate_project_id(candidate: Mapping[str, Any]) -> str:
+    return str(
+        candidate.get("project_id")
+        or candidate.get("opportunity_project_id")
+        or candidate.get("source_project_id")
+        or ""
+    ).strip()
+
+
 def _profile_ids_for_region(region_code: str) -> list[str]:
     adapter = resolve_region_source_adapter(region_code)
     profile_ids = list(adapter.get("entry_profile_ids", []) or [])
@@ -2515,7 +2604,23 @@ class RealPublicCandidateDiscoveryService:
         profile_limit = max(1, _as_int(payload.get("discovery_profile_limit_per_region"), DEFAULT_DISCOVERY_PROFILE_LIMIT_PER_REGION))
         query = str(payload.get("query") or payload.get("project_keyword") or payload.get("keyword") or "").strip()
         selection_filters = _as_string_list(payload.get("selection_filters"), [])
-        run_id = str(payload.get("candidate_discovery_run_id") or build_id("REAL-CANDIDATE-DISCOVERY", _hash_text(discovered_at, 12)))
+        excluded_project_ids = set(
+            _as_string_list(
+                _first_present(
+                    payload.get("exclude_project_ids"),
+                    payload.get("excluded_project_ids"),
+                    payload.get("stage1_6_exclude_project_ids"),
+                ),
+                [],
+            )
+        )
+        run_id = str(
+            payload.get("candidate_discovery_run_id")
+            or build_id(
+                "REAL-CANDIDATE-DISCOVERY",
+                f"{_hash_text(discovered_at, 12)}-{uuid4().hex[:8]}",
+            )
+        )
         per_region_candidate_limit = (
             None
             if candidate_limit is None
@@ -2621,6 +2726,7 @@ class RealPublicCandidateDiscoveryService:
                 diagnostics = dict(parsed_result["diagnostics"])
                 new_rows: list[dict[str, Any]] = []
                 candidate_limit_truncated_count = 0
+                excluded_project_count = 0
                 for index, row in enumerate(parsed):
                     if (
                         (candidate_limit is not None and len(candidates) >= candidate_limit)
@@ -2631,6 +2737,9 @@ class RealPublicCandidateDiscoveryService:
                     ):
                         candidate_limit_truncated_count = max(len(parsed) - index, 0)
                         break
+                    if excluded_project_ids and _candidate_project_id(row) in excluded_project_ids:
+                        excluded_project_count += 1
+                        continue
                     key = str(row.get("candidate_key") or _candidate_key(row))
                     if key in seen_candidate_keys:
                         continue
@@ -2663,6 +2772,10 @@ class RealPublicCandidateDiscoveryService:
                         ),
                         "public_api_state": diagnostics.get("public_api_state"),
                         "public_api_url": diagnostics.get("public_api_url"),
+                        "profile_api_url": diagnostics.get("profile_api_url"),
+                        "profile_api_query_window": diagnostics.get("profile_api_query_window"),
+                        "profile_api_query_terms": diagnostics.get("profile_api_query_terms"),
+                        "profile_api_province_code": diagnostics.get("profile_api_province_code"),
                         "public_api_total": diagnostics.get("public_api_total"),
                         "public_api_row_count": diagnostics.get("public_api_row_count"),
                         "public_api_page_size": diagnostics.get("public_api_page_size"),
@@ -2688,8 +2801,9 @@ class RealPublicCandidateDiscoveryService:
                         "candidate_count": len(new_rows),
                         "accepted_candidate_count": len(parsed),
                         "candidate_limit_truncated_count": candidate_limit_truncated_count,
+                        "excluded_project_filtered_count": excluded_project_count,
                         "duplicate_filtered_count": max(
-                            len(parsed) - len(new_rows) - candidate_limit_truncated_count,
+                            len(parsed) - len(new_rows) - candidate_limit_truncated_count - excluded_project_count,
                             0,
                         ),
                     }
@@ -2722,6 +2836,7 @@ class RealPublicCandidateDiscoveryService:
             if candidate_limit is not None
             else "ALL_FETCHED_WINDOW_CANDIDATES",
             "stage1_6_validation_mode": guangdong_stage1_6_validation_scope,
+            "excluded_project_id_count": len(excluded_project_ids),
             "stage1_6_validation_caps": {
                 "candidate_limit": candidate_limit
                 if candidate_limit is not None
@@ -2735,6 +2850,10 @@ class RealPublicCandidateDiscoveryService:
                 else "",
                 "candidate_limit_truncated_count": sum(
                     _as_int(row.get("candidate_limit_truncated_count"), 0)
+                    for row in profile_reports
+                ),
+                "excluded_project_filtered_count": sum(
+                    _as_int(row.get("excluded_project_filtered_count"), 0)
                     for row in profile_reports
                 ),
             },
@@ -2855,6 +2974,10 @@ class RealPublicCandidateDiscoveryService:
             "same_site_detail_link_count": len(carrier.get("same_site_detail_links", []) or []),
             "profile_api_discovery_state": str(api_discovery.get("state") or "UNSUPPORTED"),
             "profile_api_endpoint": str(api_discovery.get("endpoint") or ""),
+            "profile_api_url": str(api_discovery.get("url") or ""),
+            "profile_api_query_window": dict(api_discovery.get("query_window") or {}),
+            "profile_api_query_terms": list(api_discovery.get("query_terms", []) or []),
+            "profile_api_province_code": str(api_discovery.get("province_code") or ""),
             "profile_api_link_count": len(api_link_items),
             "profile_api_error_optional": str(api_discovery.get("error_optional") or ""),
             "public_api_total": api_discovery.get("total"),

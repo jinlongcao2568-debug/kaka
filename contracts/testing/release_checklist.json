@@ -687,7 +687,7 @@
         },
         {
           "itemId": "REL-092",
-          "text": "EMERGENCY_OFF and PERMANENTLY_BLOCKED short-circuit Stage 8/9 runtime paths with BLOCK semantics.",
+          "text": "EMERGENCY_OFF and PERMANENTLY_BLOCKED short-circuit Stage 8/9 production live / external mutation paths with BLOCK semantics, without blocking sandbox/mock/dry-run/regression or explicitly authorized pilot tests.",
           "blocking": true,
           "sourceRefs": [
             "D11-R-052-A"

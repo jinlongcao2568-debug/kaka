@@ -1,6 +1,6 @@
 version: 1
-updated_at: "2026-04-14"
-status: "NO_ACTIVE_MODELS_REGISTERED"
+updated_at: "2026-07-20"
+status: "MODEL_PROVIDER_ADAPTER_IMPLEMENTED_OFF_BY_DEFAULT"
 current_state: "ACTIVE"
 single_operator_mode: true
 responsible_role: "model_governance_owner"
@@ -19,6 +19,21 @@ eval_suite_catalog_ref: "contracts/model/eval_suite_catalog.json"
 output_target_matrix_ref: "contracts/model/output_target_matrix.json"
 model_release_gates_ref: "contracts/model/model_release_gates.json"
 model_golden_cases_ref: "contracts/testing/model_golden_cases.json"
+model_provider_runtime_contract_ref: "contracts/model/model_provider_runtime_contract.json"
+model_quality_evaluation_contract_ref: "contracts/model/model_quality_evaluation_contract.json"
+model_provider_quality_golden_cases_ref: "contracts/testing/model_provider_quality_golden_cases.json"
+model_quality_evaluator_ref: "src/shared/model_quality_evaluation.py"
+runtime_adapter:
+  provider_id: "OPENAI_RESPONSES_API_INTERNAL_SHADOW"
+  implementation_ref: "src/shared/model_provider_runtime.py"
+  activation_state: "OFF_BY_DEFAULT"
+  permitted_runtime_mode: "INTERNAL_SHADOW"
+  real_provider_canary_executed: false
+  offline_protocol_quality_gate: "PASSED_10_OF_10"
+  real_provider_quality_gate: "BLOCKED_EXTERNAL_NO_REAL_PROVIDER_RESULTS"
+  customer_visible_enabled: false
+  formal_fact_write_enabled: false
+  tool_calling_enabled: false
 release_states:
   - "DRAFT"
   - "VALIDATING"
@@ -27,7 +42,9 @@ release_states:
   - "SUSPENDED"
 models: []
 notes:
-  - "Registry intentionally empty until model catalog, eval suites, and release gates are confirmed."
+  - "No active model is registered; the replaceable Responses-compatible adapter is implemented but remains off by default."
+  - "AGENT005 offline protocol goldens pass 10/10; this validates fallback and safety code only, not real model quality, latency, tokens, or cost."
+  - "A real-provider canary still requires credential, controlled egress, passed eval and explicit owner approval."
   - "Models are internal-assist only; not allowed to decide external delivery."
 external_delivery_decision_allowed: false
 internal_assist_only: true

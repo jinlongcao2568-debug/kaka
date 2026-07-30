@@ -40,6 +40,11 @@ class FakeDiscoveryService:
                     "profile_id": (payload.get("source_profile_ids") or [""])[0],
                     "entry_url": "https://example.test/list",
                     "status": self.profile_status,
+                    "profile_api_url": "https://example.test/api?kw=demo",
+                    "profile_api_query_window": {"start_date": "2026-04-28", "end_date": "2026-05-01"},
+                    "profile_api_query_terms": ["demo", "candidate"],
+                    "profile_api_province_code": "440000",
+                    "public_api_row_count": len(self.candidates),
                     "candidate_count": len(self.candidates),
                 }
             ],
@@ -295,6 +300,14 @@ class TestEvaluationRealSampleExecution(unittest.TestCase):
             self.assertEqual(item["target_execution_state"], CAPTURED_WITH_SNAPSHOTS)
             self.assertEqual(item["candidate_refs"][0]["candidate_key"], "CAND-001")
             self.assertEqual(item["candidate_refs"][0]["source_project_code"], "JG2026-TEST")
+            self.assertEqual(
+                item["discovery_profile_reports"][0]["profile_api_url"],
+                "https://example.test/api?kw=demo",
+            )
+            self.assertEqual(
+                item["discovery_profile_reports"][0]["profile_api_query_terms"],
+                ["demo", "candidate"],
+            )
             self.assertIn("JG2026-TEST", item["candidate_refs"][0]["matched_project_keys"])
             self.assertEqual(item["detail_snapshot_refs"][0]["snapshot_id"], "SNAP-DETAIL-001")
             self.assertEqual(item["attachment_snapshot_refs"][0]["snapshot_id"], "SNAP-ATT-001")

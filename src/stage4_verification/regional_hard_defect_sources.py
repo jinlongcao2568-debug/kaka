@@ -69,7 +69,7 @@ MAJOR_TARGET_REGION_SOURCE_CATALOG = (
         "source_name": "江苏省建筑市场监管与诚信管理一体化平台",
         "source_url": "https://jsszfhcxjst.jiangsu.gov.cn/",
         "official_reference_url": "https://jsszfhcxjst.jiangsu.gov.cn/art/2025/2/20/art_49384_11496246.html",
-        "runtime_status": "OFFICIAL_PLATFORM_REFERENCED_ADAPTER_PENDING",
+        "runtime_status": "OFFICIAL_PLATFORM_REFERENCED_STRUCTURED_READBACK_MINIMUM_LOOP",
         "next_adapter": "jiangsu_construction_market_integrated_platform_query_adapter",
     },
     {
@@ -80,7 +80,7 @@ MAJOR_TARGET_REGION_SOURCE_CATALOG = (
         "source_name": "湖北省建筑市场监督与诚信一体化平台",
         "source_url": "https://hbjz.hbcic.net.cn/",
         "official_reference_url": "https://hbjz.hbcic.net.cn/",
-        "runtime_status": "ENTRY_PORTAL_VERIFIED_ADAPTER_PENDING",
+        "runtime_status": "ENTRY_PORTAL_VERIFIED_STRUCTURED_READBACK_MINIMUM_LOOP",
         "next_adapter": "hubei_construction_market_integrity_platform_query_adapter",
     },
     {
@@ -91,7 +91,7 @@ MAJOR_TARGET_REGION_SOURCE_CATALOG = (
         "source_name": "山东省住房城乡建设服务监管与信用信息综合平台 / 建筑市场监管与诚信信息一体化平台",
         "source_url": "https://zjt.shandong.gov.cn/",
         "official_reference_url": "https://zwfwzx.jining.gov.cn/art/2022/5/26/art_32745_2707826.html",
-        "runtime_status": "SOURCE_ANALYSIS_REQUIRED_ADAPTER_PENDING",
+        "runtime_status": "SOURCE_REFERENCED_STRUCTURED_READBACK_MINIMUM_LOOP",
         "next_adapter": "shandong_construction_market_credit_supervision_query_adapter",
     },
     {
@@ -102,7 +102,7 @@ MAJOR_TARGET_REGION_SOURCE_CATALOG = (
         "source_name": "湖南省建筑市场监管公共服务平台 / 智慧住建云",
         "source_url": "https://www.hunanjs.gov.cn/",
         "official_reference_url": "https://zjt.hunan.gov.cn/xxgk/xinxigongkaimulu/tzgg/tzgg2jzgl/201906/t20190614_5357245.html",
-        "runtime_status": "ENTRY_PORTAL_VERIFIED_ADAPTER_PENDING",
+        "runtime_status": "OFFICIAL_PLATFORM_REFERENCED_STRUCTURED_READBACK_MINIMUM_LOOP",
         "next_adapter": "hunan_construction_market_public_service_query_adapter",
     },
     {
@@ -113,10 +113,101 @@ MAJOR_TARGET_REGION_SOURCE_CATALOG = (
         "source_name": "河南省建筑市场监管公共服务平台",
         "source_url": "https://hngcjs.hnjs.henan.gov.cn/site/",
         "official_reference_url": "https://hngcjs.hnjs.henan.gov.cn/site/",
-        "runtime_status": "ENTRY_PORTAL_VERIFIED_ADAPTER_PENDING",
+        "runtime_status": "OFFICIAL_PLATFORM_REFERENCED_STRUCTURED_READBACK_MINIMUM_LOOP",
         "next_adapter": "henan_construction_market_public_service_query_adapter",
     },
 )
+
+GUANGDONG_CITY_RELEASE_EVIDENCE_SOURCE_CATALOG = {
+    "CN-GD-GZ": {
+        "region_name": "广州",
+        "entry_id": "GZ-ZFCJ-CREDIT-DOUBLE-PUBLICITY",
+        "source_profile_id": "GUANGZHOU-ZFCJ-CREDIT-DOUBLE-PUBLICITY",
+        "source_name": "广州市住房和城乡建设局 / 信用信息双公示与项目信息公开",
+        "source_url": "https://zfcj.gz.gov.cn/zfcj/xyxx/",
+        "official_reference_url": "https://zfcj.gz.gov.cn/",
+        "runtime_status": "CITY_PUBLIC_API_QUERY_ADAPTER_AVAILABLE_WITH_VERIFIED_SUBSOURCES",
+        "next_adapter": "guangdong_local_field_query_probe_v1",
+        "adapter_resolution_state": "GUANGDONG_CITY_LOCAL_FIELD_ADAPTER_AVAILABLE",
+    },
+    "CN-GD-YJ": {
+        "region_name": "阳江",
+        "entry_id": "YJ-ZJJ-GOVINFO-PUBLIC",
+        "source_profile_id": "YANGJIANG-ZJJ-GOVINFO-PUBLIC",
+        "source_name": "阳江市住房和城乡建设局 / 政府信息公开",
+        "source_url": "https://www.yangjiang.gov.cn/yjzjj/gkmlpt/index",
+        "official_reference_url": "https://www.yangjiang.gov.cn/yjzjj/",
+        "runtime_status": "CITY_OFFICIAL_PORTAL_VERIFIED_ADAPTER_PENDING",
+        "next_adapter": "yangjiang_local_housing_authority_public_readback_adapter",
+        "adapter_resolution_state": "JURISDICTION_LOCAL_HOUSING_ADAPTER_PLANNED",
+    },
+    "CN-GD-HZ": {
+        "region_name": "惠州",
+        "entry_id": "HZ-ZJJ-OFFICIAL-PORTAL",
+        "source_profile_id": "HUIZHOU-ZJJ-OFFICIAL-PORTAL",
+        "source_name": "惠州市住房和城乡建设局 / 政务公开与建设工程信息入口",
+        "source_url": "https://zjj.huizhou.gov.cn/",
+        "official_reference_url": "https://zjj.huizhou.gov.cn/",
+        "runtime_status": "CITY_OFFICIAL_PORTAL_VERIFIED_ADAPTER_PENDING",
+        "next_adapter": "huizhou_local_housing_authority_public_readback_adapter",
+        "adapter_resolution_state": "JURISDICTION_LOCAL_HOUSING_ADAPTER_PLANNED",
+    },
+    "CN-GD-HY": {
+        "region_name": "河源",
+        "entry_id": "HY-ZJJ-OFFICIAL-PORTAL",
+        "source_profile_id": "HEYUAN-ZJJ-OFFICIAL-PORTAL",
+        "source_name": "河源市住房和城乡建设局 / 政务公开入口",
+        "source_url": "http://www.heyuan.gov.cn/hyszjj/gkmlpt/index",
+        "official_reference_url": "http://www.heyuan.gov.cn/bmjy/hyszfhcxjsj/",
+        "runtime_status": "CITY_OFFICIAL_PORTAL_VERIFIED_ADAPTER_PENDING",
+        "next_adapter": "heyuan_local_housing_authority_public_readback_adapter",
+        "adapter_resolution_state": "JURISDICTION_LOCAL_HOUSING_ADAPTER_PLANNED",
+    },
+    "CN-GD-JM": {
+        "region_name": "江门",
+        "entry_id": "JM-ZJJ-OFFICIAL-PORTAL",
+        "source_profile_id": "JIANGMEN-ZJJ-OFFICIAL-PORTAL",
+        "source_name": "江门市住房和城乡建设局 / 政务公开入口",
+        "source_url": "https://www.jiangmen.gov.cn/bmpd/jmszfhcxjsj/",
+        "official_reference_url": "https://www.jiangmen.gov.cn/",
+        "runtime_status": "CITY_OFFICIAL_PORTAL_VERIFIED_ADAPTER_PENDING",
+        "next_adapter": "jiangmen_local_housing_authority_public_readback_adapter",
+        "adapter_resolution_state": "JURISDICTION_LOCAL_HOUSING_ADAPTER_PLANNED",
+    },
+    "CN-GD-MM": {
+        "region_name": "茂名",
+        "entry_id": "MM-ZJJ-OFFICIAL-PORTAL",
+        "source_profile_id": "MAOMING-ZJJ-OFFICIAL-PORTAL",
+        "source_name": "茂名市住房和城乡建设局 / 政务公开入口",
+        "source_url": "http://jianshe.maoming.gov.cn/",
+        "official_reference_url": "http://www.maoming.gov.cn/zwgk/",
+        "runtime_status": "CITY_OFFICIAL_PORTAL_VERIFIED_ADAPTER_PENDING",
+        "next_adapter": "maoming_local_housing_authority_public_readback_adapter",
+        "adapter_resolution_state": "JURISDICTION_LOCAL_HOUSING_ADAPTER_PLANNED",
+    },
+    "CN-GD-SW": {
+        "region_name": "汕尾",
+        "entry_id": "SW-ZJJ-OFFICIAL-PORTAL",
+        "source_profile_id": "SHANWEI-ZJJ-OFFICIAL-PORTAL",
+        "source_name": "汕尾市住房和城乡建设局 / 政务公开入口",
+        "source_url": "https://www.shanwei.gov.cn/swzfjs/",
+        "official_reference_url": "https://www.shanwei.gov.cn/",
+        "runtime_status": "CITY_OFFICIAL_PORTAL_VERIFIED_ADAPTER_PENDING",
+        "next_adapter": "shanwei_local_housing_authority_public_readback_adapter",
+        "adapter_resolution_state": "JURISDICTION_LOCAL_HOUSING_ADAPTER_PLANNED",
+    },
+    "CN-GD-ZS": {
+        "region_name": "中山",
+        "entry_id": "ZS-JSJ-GOVINFO-PUBLIC",
+        "source_profile_id": "ZHONGSHAN-JSJ-GOVINFO-PUBLIC",
+        "source_name": "中山市住房和城乡建设局 / 政务网站与建设工程对外服务系统",
+        "source_url": "https://jsj.zs.gov.cn/index.html",
+        "official_reference_url": "https://jsj.zs.gov.cn/dwfwxt/index.html",
+        "runtime_status": "CITY_OFFICIAL_PORTAL_VERIFIED_ADAPTER_PENDING",
+        "next_adapter": "zhongshan_local_housing_authority_public_readback_adapter",
+        "adapter_resolution_state": "JURISDICTION_LOCAL_HOUSING_ADAPTER_PLANNED",
+    },
+}
 
 
 def build_regional_hard_defect_source_plan(
@@ -485,8 +576,14 @@ def _major_target_region_next_adapters() -> list[str]:
 
 def list_release_evidence_local_housing_adapter_registry() -> list[dict[str, Any]]:
     return [
-        resolve_release_evidence_local_housing_adapter(str(item["region_code"]))
-        for item in MAJOR_TARGET_REGION_SOURCE_CATALOG
+        *[
+            resolve_release_evidence_local_housing_adapter(region_code)
+            for region_code in GUANGDONG_CITY_RELEASE_EVIDENCE_SOURCE_CATALOG
+        ],
+        *[
+            resolve_release_evidence_local_housing_adapter(str(item["region_code"]))
+            for item in MAJOR_TARGET_REGION_SOURCE_CATALOG
+        ],
     ]
 
 
@@ -514,6 +611,30 @@ def resolve_release_evidence_local_housing_adapter(region_code: str | None) -> d
             "next_adapter": "guangdong_local_field_query_probe_v1",
             "non_guangdong_release_adapter_rule": "",
             "no_fallback_to_guangdong_or_guangzhou": False,
+            "default_adapter_result_state_until_runtime": "NEEDS_BROWSER",
+            "query_miss_is_not_clearance": True,
+            "customer_visible_allowed": False,
+            "no_legal_conclusion": True,
+        }
+    city_entry = GUANGDONG_CITY_RELEASE_EVIDENCE_SOURCE_CATALOG.get(normalized)
+    if city_entry:
+        return {
+            "requested_region_code": normalized,
+            "region_code": normalized,
+            "region_name": str(city_entry["region_name"]),
+            "adapter_resolution_state": str(city_entry["adapter_resolution_state"]),
+            "source_selection_scope": "HISTORICAL_PROJECT_JURISDICTION",
+            "entry_id": str(city_entry["entry_id"]),
+            "source_profile_id": str(city_entry["source_profile_id"]),
+            "source_name": str(city_entry["source_name"]),
+            "source_url": str(city_entry["source_url"]),
+            "official_reference_url": str(city_entry["official_reference_url"]),
+            "source_family": "guangdong_city_local_housing_authority_public_source",
+            "target_source_types": list(RELEASE_EVIDENCE_LOCAL_HOUSING_SOURCE_TYPES),
+            "runtime_status": str(city_entry["runtime_status"]),
+            "next_adapter": str(city_entry["next_adapter"]),
+            "non_guangdong_release_adapter_rule": "",
+            "no_fallback_to_guangdong_or_guangzhou": normalized != "CN-GD-GZ",
             "default_adapter_result_state_until_runtime": "NEEDS_BROWSER",
             "query_miss_is_not_clearance": True,
             "customer_visible_allowed": False,
@@ -580,6 +701,7 @@ def _normalized_source_types(values: list[str] | tuple[str, ...] | set[str] | No
 
 __all__ = [
     "GUANGDONG_HARD_DEFECT_REQUIRED_SOURCE_TYPES",
+    "GUANGDONG_CITY_RELEASE_EVIDENCE_SOURCE_CATALOG",
     "MAJOR_TARGET_REGION_SOURCE_CATALOG",
     "RELEASE_EVIDENCE_LOCAL_HOUSING_SOURCE_TYPES",
     "build_regional_hard_defect_source_plan",

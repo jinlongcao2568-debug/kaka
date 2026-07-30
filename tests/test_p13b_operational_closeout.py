@@ -165,6 +165,35 @@ class P13BOperationalCloseoutTests(unittest.TestCase):
             )
             self.assertTrue(all(task["local_housing_authority_adapter_region_code"] == "CN-ZJ" for task in release_tasks))
 
+    def test_release_probe_carries_project_code_variants_for_gdcic_followup(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_company_history(root / "company")
+            _write_original_notice(root / "original")
+            _write_closeout(root / "closeout", project_id="PROJ-CN-GD-JG2026-11366")
+
+            result = build_p13b_operational_closeout(
+                company_history_triage_root=root / "company",
+                original_notice_backtrace_root=root / "original",
+                overlap_triage_closeout_root=root / "closeout",
+                output_root=root / "out",
+                created_at="2026-05-17T00:00:00+08:00",
+            )
+
+            self.assertTrue(result["safe_to_execute"])
+            release_tasks = result["manifest"]["release_evidence_probe_task_records"]
+            self.assertGreater(len(release_tasks), 0)
+            params = release_tasks[0]["query_params"]
+            self.assertIn("440100202605190001", params["projectCodeVariants"])
+            self.assertIn("440100202605190002", params["projectCodeVariants"])
+            self.assertIn("JG2026-11366", params["projectCodeVariants"])
+            self.assertEqual(params["gdcicProjectCodeVariants"], ["440100202605190001", "440100202605190002"])
+            self.assertEqual(params["projectCode"], "440100202605190001")
+            self.assertEqual(params["sourceProjectCode"], "440100202605190001")
+            self.assertEqual(params["tradeProjectCode"], "JG2026-11366")
+            self.assertNotIn("91440101MA9TEST001", params["projectCodeVariants"])
+            self.assertNotIn("粤1442020202100001", params["projectCodeVariants"])
+
     def test_release_probe_does_not_fallback_to_guangzhou_for_non_guangzhou_history(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -310,6 +339,7 @@ def _write_original_notice(root: Path) -> None:
 def _write_closeout(
     root: Path,
     *,
+    project_id: str = "PROJ-1",
     project_name: str = "项目一",
     historical_project_area_code: str = "广州市",
     historical_project_region_code: str = "CN-GD",
@@ -318,7 +348,7 @@ def _write_closeout(
         "manifest": {
             "project_overlap_triage_records": [
                 {
-                    "project_id": "PROJ-1",
+                    "project_id": project_id,
                     "project_name": project_name,
                     "city_code": "440100",
                     "project_overlap_triage_state": "OVERLAP_SIGNAL_REVIEW_REQUIRED",
@@ -393,10 +423,18 @@ def _write_closeout(
                 {
                     "release_evidence_trigger_id": "TRIGGER-1",
                     "source_stage": "DATA_GGZY_BID_SHOW",
-                    "project_id": "PROJ-1",
+                    "project_id": project_id,
                     "project_name": "项目一",
                     "candidate_company_name": "广东甲公司",
                     "matched_person_names": ["张三"],
+                    "project_code": "440100202605190001",
+                    "source_project_code": "440100202605190001",
+                    "source_refs": {
+                        "projectCode": "440100202605190002",
+                        "uniscid": "91440101MA9TEST001",
+                        "certificateNo": "粤1442020202100001",
+                        "originalNoticeUrl": "https://ygp.gdzwfw.gov.cn/#/440100/jygg?projectCode=440100202605190002",
+                    },
                     "historical_project_area_code": historical_project_area_code,
                     "historical_project_region_code": historical_project_region_code,
                     "source_url": "https://data.ggzy.gov.cn/yjcx/index/bid_show?id=1",

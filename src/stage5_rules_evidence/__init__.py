@@ -4,5 +4,6 @@
 # Dependent schema/contracts: handoff/stage_handoff_catalog.json, contracts/schemas/schema_catalog.json, contracts/enums/enum_catalog.json, contracts/rules/rule_catalog.json, contracts/gates/gate_policies.json
 
 from stage5_rules_evidence.service import Stage5Service
+from stage5_rules_evidence.rule_bundle_executor import RuleBundleExecutor
 
-__all__ = ["Stage5Service"]
+__all__ = ["RuleBundleExecutor", "Stage5Service"]

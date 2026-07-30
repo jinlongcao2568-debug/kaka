@@ -258,6 +258,43 @@ class GuangdongGdcicOpenplatformAdapterTests(unittest.TestCase):
             readback["failure_reasons"],
         )
 
+    def test_trade_project_code_candidate_uses_project_name_lookup_not_project_code_route(self) -> None:
+        requested: list[tuple[str, Mapping[str, str]]] = []
+
+        def fake_get_json(url: str, params: Mapping[str, str]) -> Mapping[str, Any]:
+            requested.append((url.replace("https://skypt.gdcic.net/api", ""), dict(params)))
+            if url.endswith("/openplatform/project/list") and params.get("projectName"):
+                return {
+                    "msg": "success",
+                    "code": 0,
+                    "total": 1,
+                    "rows": [
+                        {
+                            "projectName": "广州候选项目",
+                            "projectCode": "440100202605210001",
+                        }
+                    ],
+                }
+            return {"msg": "success", "code": 0, "total": 0, "rows": []}
+
+        readback = query_guangdong_gdcic_openplatform_hard_defect_sources(
+            {
+                "project_id": "PROJ-CN-GD-JG2026-11366",
+                "project_name": "广州候选项目中标候选人公示",
+                "candidate_company": "广东测试建设有限公司",
+                "region_code": "CN-GD",
+                "project_code_candidates": ["JG2026-11366"],
+            },
+            http_get_json=fake_get_json,
+            now="2026-05-21T10:00:00+08:00",
+        )
+
+        self.assertEqual(readback["project_code_candidates"], ["JG2026-11366"])
+        self.assertEqual(readback["trade_project_codes"], ["JG2026-11366"])
+        self.assertEqual(readback["project_codes"], ["440100202605210001"])
+        self.assertTrue(any(endpoint == "/openplatform/project/list" and params.get("projectName") for endpoint, params in requested))
+        self.assertFalse(any(params.get("projectCode") == "JG2026-11366" for _endpoint, params in requested))
+
     def test_remote_disconnected_is_recorded_as_query_error(self) -> None:
         def fake_get_json(url: str, params: Mapping[str, str]) -> Mapping[str, Any]:
             endpoint = url.replace("https://skypt.gdcic.net/api", "")

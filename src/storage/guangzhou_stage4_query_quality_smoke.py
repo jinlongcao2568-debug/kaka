@@ -7,12 +7,12 @@ from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping
 
 from shared.utils import utc_now_iso
-from storage.guangzhou_stage4_9_remediation_delta_report import (
+from storage.guangzhou_stage1_6_remediation_delta_report import (
     DEFAULT_BASELINE_CANDIDATE_PRESSURE_JSON,
     DEFAULT_BASELINE_RUN_RESULT_JSON,
     DEFAULT_COMPANY_FIRST_REMEDIATION_JSON,
     DEFAULT_SOURCE_GAP_PROBE_JSON,
-    run_guangzhou_stage4_9_remediation_replay,
+    run_guangzhou_stage1_6_remediation_replay,
 )
 from storage.guangzhou_stage4_source_gap_probe import (
     build_guangzhou_stage4_source_gap_probe,
@@ -61,7 +61,7 @@ def build_guangzhou_stage4_query_quality_smoke(
         created_at=created,
     )
     after_source_gap_path = source_gap_root / "stage4-source-gap-probe-v1.json"
-    replay_result = run_guangzhou_stage4_9_remediation_replay(
+    replay_result = run_guangzhou_stage1_6_remediation_replay(
         baseline_run_result_json=baseline_run_result_json,
         baseline_candidate_pressure_json=baseline_candidate_pressure_json,
         company_first_remediation_json=company_first_remediation_json,

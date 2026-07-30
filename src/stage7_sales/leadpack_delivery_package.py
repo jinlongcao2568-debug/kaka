@@ -19,6 +19,24 @@ LEADPACK_PACKAGE_ID_INPUT_KEY = "leadpack_package_id_optional"
 LEADPACK_EVIDENCE_PACK_ID_INPUT_KEY = "leadpack_evidence_pack_id_optional"
 LEADPACK_PAGE_DRAFT_ID_INPUT_KEY = "leadpack_page_draft_id_optional"
 LEADPACK_ARTIFACT_MANIFEST_ID_INPUT_KEY = "leadpack_artifact_manifest_id_optional"
+STAGE4_RELEASE_EVIDENCE_ITEMS_INPUT_KEY = "stage4_release_evidence_items"
+
+_STAGE4_RELEASE_EVIDENCE_TYPE_LABELS = {
+    "construction_permit": "施工许可",
+    "completion_acceptance": "竣工验收",
+    "completion_filing": "竣工验收",
+    "completion_acceptance_or_completion_filing": "竣工验收",
+    "project_manager_change": "项目经理变更",
+    "project_manager_change_notice": "项目经理变更",
+    "contract_performance": "合同履约",
+    "contract_public_info": "合同履约",
+}
+_REQUIRED_STAGE4_RELEASE_EVIDENCE_TYPES = (
+    "施工许可",
+    "竣工验收",
+    "项目经理变更",
+    "合同履约",
+)
 
 _EMPTY_VALUES = {None, "", "UNKNOWN", "None"}
 _REQUIRED_APPROVALS = [
@@ -95,6 +113,140 @@ def _truthy(value: Any) -> bool:
 
 def _clean_list(values: list[Any]) -> list[str]:
     return dedupe_strings([value for value in values if value not in _EMPTY_VALUES])
+
+
+def _stage4_release_evidence_items(inputs: Mapping[str, Any]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    raw_items = ensure_list(inputs.get(STAGE4_RELEASE_EVIDENCE_ITEMS_INPUT_KEY))
+    normalized: list[dict[str, Any]] = []
+    rejected_count = 0
+    for index, raw_item in enumerate(raw_items):
+        if not isinstance(raw_item, Mapping):
+            rejected_count += 1
+            continue
+        target_type = str(
+            raw_item.get("target_type")
+            or raw_item.get("release_evidence_target_type")
+            or raw_item.get("verification_target_type")
+            or ""
+        ).strip()
+        evidence_type = str(
+            raw_item.get("evidence_type")
+            or raw_item.get("verification_type")
+            or _STAGE4_RELEASE_EVIDENCE_TYPE_LABELS.get(target_type, "")
+        ).strip()
+        if evidence_type not in _REQUIRED_STAGE4_RELEASE_EVIDENCE_TYPES:
+            rejected_count += 1
+            continue
+        source_refs = ensure_list(raw_item.get("source_refs"))
+        source_refs.extend(
+            value
+            for value in (
+                raw_item.get("readback_ref"),
+                raw_item.get("source_release_evidence_state_json"),
+                raw_item.get("source_snapshot_id"),
+            )
+            if value not in _EMPTY_VALUES
+        )
+        blocking_reason = raw_item.get("blocking_reason") or raw_item.get("blocker")
+        if not blocking_reason:
+            blocking_reasons = _clean_list(ensure_list(raw_item.get("blocking_reasons")))
+            blocking_reason = "; ".join(blocking_reasons)
+        if not blocking_reason and str(raw_item.get("result_state") or "").upper() not in {
+            "FOUND",
+            "MATCHED",
+            "VERIFIED",
+        }:
+            blocking_reason = raw_item.get("machine_verification_decision")
+        next_step = raw_item.get("next_step") or raw_item.get("recommended_next_action")
+        if not next_step:
+            next_step = "; ".join(_clean_list(ensure_list(raw_item.get("required_next_input"))))
+        normalized.append(
+            {
+                "item_id": str(
+                    raw_item.get("item_id")
+                    or raw_item.get("evidence_item_id")
+                    or f"stage4_release_evidence_{target_type or index + 1}"
+                ),
+                "target_type": target_type,
+                "evidence_type": evidence_type,
+                "verification_state": str(
+                    raw_item.get("verification_state")
+                    or raw_item.get("result_state")
+                    or raw_item.get("field_query_result_state")
+                    or ""
+                ),
+                "evidence_grade": str(
+                    raw_item.get("evidence_grade")
+                    or raw_item.get("downstream_release_evidence_abcd_grade")
+                    or raw_item.get("downstream_evidence_grade")
+                    or ""
+                ),
+                "description": str(
+                    raw_item.get("description")
+                    or raw_item.get("machine_verification_decision")
+                    or ""
+                ),
+                "blocking_reason": str(blocking_reason or ""),
+                "next_step": str(next_step or ""),
+                "source_url": str(raw_item.get("source_url") or ""),
+                "source_site_name": str(raw_item.get("source_site_name") or ""),
+                "source_profile_id": str(raw_item.get("source_profile_id") or ""),
+                "query_time": str(
+                    raw_item.get("query_time")
+                    or raw_item.get("queried_at")
+                    or raw_item.get("captured_at")
+                    or ""
+                ),
+                "snapshot_sha256": str(
+                    raw_item.get("snapshot_sha256")
+                    or raw_item.get("source_snapshot_sha256")
+                    or raw_item.get("readback_file_sha256")
+                    or ""
+                ),
+                "source_refs": _clean_list(source_refs),
+                "masking_policy": str(raw_item.get("masking_policy") or "allowed_public_projection"),
+                "customer_visible": False,
+                "query_miss_is_not_clearance": bool(raw_item.get("query_miss_is_not_clearance", True)),
+                "no_legal_conclusion": bool(raw_item.get("no_legal_conclusion", True)),
+            }
+        )
+
+    covered_types = _clean_list([item["evidence_type"] for item in normalized])
+    missing_types = [
+        evidence_type
+        for evidence_type in _REQUIRED_STAGE4_RELEASE_EVIDENCE_TYPES
+        if evidence_type not in covered_types
+    ]
+    required_fields = (
+        "verification_state",
+        "evidence_grade",
+        "source_url",
+        "query_time",
+        "snapshot_sha256",
+        "blocking_reason",
+        "next_step",
+    )
+    item_gaps = {
+        item["item_id"]: [field for field in required_fields if not str(item.get(field) or "").strip()]
+        for item in normalized
+    }
+    item_gaps = {item_id: gaps for item_id, gaps in item_gaps.items() if gaps}
+    return normalized, {
+        "manifest_version": "stage4_release_evidence_manifest_v1",
+        "source_input_key": STAGE4_RELEASE_EVIDENCE_ITEMS_INPUT_KEY,
+        "input_count": len(raw_items),
+        "accepted_count": len(normalized),
+        "rejected_count": rejected_count,
+        "required_types": list(_REQUIRED_STAGE4_RELEASE_EVIDENCE_TYPES),
+        "covered_types": covered_types,
+        "missing_types": missing_types,
+        "item_required_field_gaps": item_gaps,
+        "coverage_complete": not missing_types,
+        "ready_for_sku_b_bundle": bool(normalized) and not missing_types and not item_gaps,
+        "placeholder_records_generated": False,
+        "query_miss_is_not_clearance": True,
+        "no_legal_conclusion": True,
+    }
 
 
 def _approval_state(inputs: Mapping[str, Any]) -> tuple[str, list[str]]:
@@ -496,6 +648,7 @@ def build_leadpack_delivery_readiness_summary(carrier: Mapping[str, Any]) -> dic
     return {
         "package_id": carrier.get("package_id"),
         "opportunity_id": carrier.get("opportunity_id"),
+        "project_id": carrier.get("project_id"),
         "evidence_pack_id": carrier.get("evidence_pack_id"),
         "page_draft_id": carrier.get("page_draft_id"),
         "artifact_manifest_id": carrier.get("artifact_manifest_id"),
@@ -685,6 +838,7 @@ def build_leadpack_delivery_package_carrier(
         "held_count": sum(1 for item in evidence_items if item["manifest_state"] != "READY"),
         "items": evidence_items,
     }
+    stage4_release_evidence_items, stage4_release_evidence_manifest = _stage4_release_evidence_items(inputs)
     field_masking_summary = {
         "masking_state": masking_state,
         "masking_required": True,
@@ -797,7 +951,7 @@ def build_leadpack_delivery_package_carrier(
             "external_software_release_controlled_opening_required",
             "real_provider_delivery_not_executed",
             "stage8_stage9_execution_not_triggered",
-            "automated_refund_program_excluded",
+            "automated_refund_program_controlled_test_and_pilot_required",
         ]
     else:
         blocked_reasons = [
@@ -901,6 +1055,8 @@ def build_leadpack_delivery_package_carrier(
         "package_id": package_id,
         "evidence_pack_id": evidence_pack_id,
         "evidence_items": evidence_items,
+        "stage4_release_evidence_items": stage4_release_evidence_items,
+        "stage4_release_evidence_manifest": stage4_release_evidence_manifest,
         "source_refs": {
             "source_object_refs": source_object_refs,
             "trace_refs": [
@@ -957,6 +1113,8 @@ def build_leadpack_delivery_package_carrier(
         "real_provider_call_enabled": False,
         "package_manifest": package_manifest,
         "evidence_item_manifest": evidence_item_manifest,
+        "stage4_release_evidence_items": stage4_release_evidence_items,
+        "stage4_release_evidence_manifest": stage4_release_evidence_manifest,
         "field_masking_summary": field_masking_summary,
         "field_policy": artifact_controls["field_policy"],
         "watermark": artifact_controls["watermark"],
@@ -1056,6 +1214,7 @@ __all__ = [
     "LEADPACK_EVIDENCE_PACK_ID_INPUT_KEY",
     "LEADPACK_PACKAGE_ID_INPUT_KEY",
     "LEADPACK_PAGE_DRAFT_ID_INPUT_KEY",
+    "STAGE4_RELEASE_EVIDENCE_ITEMS_INPUT_KEY",
     "build_leadpack_delivery_package_carrier",
     "build_leadpack_delivery_readiness_summary",
     "leadpack_delivery_package_summary",

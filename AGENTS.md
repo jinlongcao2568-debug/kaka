@@ -1,109 +1,36 @@
 # AGENTS
 
-**Purpose**
-- 本文件是当前仓库给 Codex/AI 代理的轻量执行约定。它不冻结项目阶段、路线图、任务包或 readiness，只规定默认工作方式和少数安全边界。
+本文件只规定 AI 代理在本仓库的默认工作方式。项目状态、路线图、业务细节和 readiness 不写在这里。
 
-**Authority and State**
-- 人类当前明确指令优先；当人类特别强调某个口径时，以人类强调为准。
-- 代码、测试、脚本和当前运行结果优先于历史文档描述。
-- 项目状态、readiness、active task、路线图等动态信息只在需要时读取 `control/repo_status.md`、`control/current_task.yaml`、`control/milestone_status.yaml` 和相关 control 资产；不要把 AGENTS 当状态源。
-- `README.md`、`ARCHITECTURE_NOTE.md` 用于导航；`docs/`、`contracts/`、`handoff/`、`control/`、`scripts/` 按本次改动影响面按需读取。
-- `archive/*` 只作历史参考，不作为当前正式引用面。
+## 工作方式
 
-**Common Repository Paths**
-- `docs/`
-- `contracts/`
-- `handoff/`
-- `scripts/`
-- `control/`
-- 根目录：`README.md`、`ARCHITECTURE_NOTE.md`
-
-**Current Business Direction Guardrail**
-- 招投标分析按双线产品执行：候选公示后证据包是核心商业主线，投前预测是辅助产品线。候选后默认从工作日 72 小时内的近期 `07 中标候选人公示` 入池；投前预测只适用于近期 `02/03/04` 且投标截止/开标未过，一旦出现 `05 开标信息` 就不再走投前预测。近期 `07` 项目缺 11/12 不阻断当前证据包销售窗口。
-- 下载和解析前必须先做 `AnalysisStrategyPlan v1`。候选后负责人核验必须按 `ResponsiblePersonEarlyProbe v1`：涉及联合体时按候选行绑定；缺证书号先公司优先补证，再姓名枚举兜底；`08` 不默认下载或解析；公开注册信息只能表述匹配/不匹配，不能判断“是不是本人”。
-- 广州 `EvidenceReport v1` 只做内部三类输出；广东核验按 `GuangdongLocalVerificationProbe v1` 收口，重点省份浙江、四川、江苏、湖北、山东、湖南、河南默认 `PLAN_ONLY_UNTIL_REGION_ADAPTER_VERIFIED`，由 `MajorRegionQueryProbe v1` 只生成任务和可达性诊断，不得把入口可达写成字段核验成功。
-- P13B 外部在建/履约核验按 `PRIOR_AWARD_AND_CANDIDATE_OVERLAP_TRIAGE`：先查 `data.ggzy.gov.cn` 和 `bid_show`；公司历史默认近 36 个月分页扫描，长周期/高价值项目可在预算内扩展到 2019 年，时间判断优先用历史项目窗口与当前候选项目窗口交叉公式；`bid_show` 已有项目负责人/项目经理 + 合同/交付/履约时间时直接进入时间窗口复核，字段不足或歧义时才用原文链接、原文 readback 定向回溯；不得一开始全省施工许可、竣工、合同备案全量扫描。B/C/D 释放证据默认只查历史重叠项目所在地住建局或住建主管部门公开源；非广东历史项目按归属地住建局适配器做，不回退到广东/广州源；全国四库只作身份/地区发现和辅助交叉验证，省工程审批系统只作辅助或人工挑战路线。YGP 只作广东其他城市基础能力和原文回溯；`YGP CityDiscovery v1`、`YGP_FULL_CHAIN_VERIFICATION_V1` 依赖 `search/v2/items` 和项目流程矩阵，读取 `nodeList`、`detail`、`dsList`；广州主源仍是广州交易集团，不恢复为广州主采集源。
-- 项目负责人未释放 / 在建履约冲突必须走官方证据链：当前候选证据 + 中标/施工许可/合同/履约公开记录 + 时间窗口 + 释放证据。缺竣工、缺备案、源阻断或未命中时只能形成“项目负责人未释放风险线索/证据不足”，不得直接写“无在建”或“无风险”。
-- 正式证据包和白标协作只能输出事实、线索、证据、反向解释和建议核验事项；必须固化来源 URL、采集时间、snapshot/readback、SHA-256/hash、脱敏日志等链路。可信时间戳、收费举报、付费沉默、爆料号、公开点名、AI 一键定性都不是当前已实现或允许的对外路径。
-- 具体口径以 `docs/业务方向_候选公示后证据包与投前预测双线契约.md` 和 `contracts/evaluation/business_direction_strategy_contract.json` 为准。
-
-**Operating Mode and State Sources**
-- 本文件不冻结任何动态项目状态；需要时读取 `control/repo_status.md`、`control/current_task.yaml`、`control/milestone_status.yaml` 和相关 control 状态资产。
-- 默认执行模式：真实公开市场机会发现与证据包商业化产品开发以 `DIRECT_DEV_DEFAULT` 为默认入口；task packet / scoped subpacket 仅用于高风险、对外/live、机器契约或大批量治理窗口，不再作为普通开发前置门槛。
-- 产品完成标准：真实公开来源候选能进料、可解析、可核验、可形成可验证证据包和商业钩子；内部/样本链路只作为开发回归、安全演练和受控验证环境，不再单独构成实战完成。
-- 受控开放边界：外部软件 release、真实触达、真实支付、真实交付、真实退款均可作为受控开放能力推进；线索包外发仍需审批链 + 审计链；自动退款执行仍为 `EXCLUDED`。
-- 允许：真实市场候选发现、公开来源采集、证据包商业化主线开发与受控实现、必要的文档/机器资产最小补齐、运行脚本校验并如实汇报结果。
-- 禁止：未通过 release checklist / 审批链 / 审计链 / operator action 的对外软件 release、线索包外发、触达、支付、交付或退款；自动退款执行。
-
-**Required Read Order**
-1. 默认先读：`AGENTS.md`、`README.md`、`ARCHITECTURE_NOTE.md`、与本次改动直接相关的代码和脚本。
-2. 涉及正式对象、规则、字段、交付、发布、模型、公开边界时，再读取对应 `docs/D*.md`、`contracts/*`、`handoff/*`、`control/*`。
-3. 涉及对外/live、真实触达、支付、交付、退款、高限制字段、release gate、schema/migration 或机器契约时，必须补读 `docs/L0.md`、`docs/裁决总表.md`、`docs/D1_研发_Codex执行手册.md` 与相关控制资产。
-4. 人类明确要求以某个文档或口径为准时，优先读取并执行该口径。
-
-**Allowed Work**
-- 默认允许直接修改代码、测试、脚本、文档、contracts、control、handoff、fixtures，只要改动服务于当前人类目标并保持影响面清楚。
-- 发现文档、测试或机器资产与当前人类目标冲突时，可以同步修正，不需要只“补表”。
-- 需要新增对象、枚举、schema、migration、release gate、对外/live 能力时，先定位现有契约和调用链，再做最小一致改动。
-
-**Forbidden Work**
-- 未经 release checklist、审批链、审计链与 operator action 放行的对外软件 release 或对外承诺。
-- 把内部可用误写为客户可用。
-- 无审计线索包外发。
-- 自动退款执行。
-- 未经人类明确要求，执行真实外部系统调用、真实支付、真实交付、真实触达、真实退款或 destructive 操作。
-- 未经必要定位，新造第二套对象/枚举/门禁/路径来绕开现有体系。
-
-**Automation Guardrails**
-- 自动化动作门禁表：`docs/自动化开发动作门禁表.md`
-- 动作矩阵：`control/automation_action_matrix.yaml`
-- 停机条件：`control/automation_stop_conditions.yaml`
-- 任务包规则：`control/automation_task_packet_rules.yaml`
-- 真实 live 的触达/支付/交付/退款/高限制字段放行动作，必须先满足门禁、审批、审计与 operator action；自动退款执行必须停机并转人工拒绝。
-
-**Direct Development Default**
-- 普通代码修复、测试修复、文档小修、局部重构、非 live 的真实市场候选发现/证据包商业化功能实现，默认不要求先建立或切换 `control/current_task.yaml`。
-- 普通开发默认按“定位影响面 -> 最小实现 -> 相关测试/脚本验证 -> 汇报或提交”执行。
-- 仅当改动涉及以下任一项时，才需要 controlled task packet / scoped subpacket：对外软件 release、真实触达、真实支付、真实交付、真实退款、高限制字段放行、release gate、approval/audit 语义、schema/migration、跨阶段机器契约、批量生成 handoff/schema/control、或人类明确要求走小包。
-- 人类明确说“不要小包 / 直接改 / 直接提交 / 不需要看范围”时，按 direct-dev 执行；但不得绕过对外/live、审批、审计、operator action 与自动退款禁令。
-
-**When To Pause**
-- 需要真实对外/live 行动、自动退款、destructive 操作、不可逆 migration、生产凭证或真实客户影响时，先停下说明风险。
-- 测试或脚本失败时先定位根因；能修就继续修，不能修再汇报阻断。
-- 人类明确要求先讨论、先评审或不要改时，停下等确认。
-
-**Validation and Script Rules**
-- 正式校验入口：`scripts/validate-contracts.ps1`、`scripts/run-golden.ps1`、`scripts/run-governance-contracts.ps1`、`scripts/check-task-packet.ps1`、`scripts/check-state-alignment.ps1`、`scripts/check-final-gate.ps1`。
-- 执行方式（统一）：`pwsh -NoProfile -ExecutionPolicy Bypass -File <script.ps1>`。
-- 文件存在不等于通过；以真实执行结果为准。
-- 脚本失败必须报告根因，不得绕过。
-
-**Current Execution Conventions**
-- direct-dev 窗口以人类当前指令与实际代码影响面为准，不要求读取或切换 `control/current_task.yaml`。
-- 机器门禁与 task packet 窗口必须保留 active-source priority：`current_task -> product_task_library -> repo_status`；该优先级用于受控/高风险/机器契约窗口，不取消普通开发的 direct-dev 默认。
-- 当人类明确要求进入 task packet / scoped subpacket，或改动本身属于高风险/live/机器契约大批量窗口时，才按 `control/current_task.yaml -> control/product_task_library.yaml -> control/repo_status.md` 读取执行源。
-- 若测试断言与当前人类目标或当前代码事实冲突，优先调整测试到正确口径，不为迁就旧断言而恢复过时语义。
-- 默认提交行为：
-  - direct-dev 窗口：完成相关最小验证后，默认允许本地 git commit；若人类明确要求直接提交，不因未运行全量 final gate 阻塞提交，但必须如实说明未验证项。
-  - task packet 窗口：当前 scoped subpacket 的 required scripts 全绿，且仅修改允许范围内文件时，默认允许执行本地 git commit。
-  - 提交前必须排除：`报告*.md`、`__pycache__/`、`*.pyc`、`.pytest_cache/`。
-  - 上述临时/生成物不得混入 commit、review scope 或实际改动范围。
-  - 默认不自动 push、不自动进入下一包。
-  - 若工作区存在明显无关脏改，必须先区分来源；direct-dev 可只提交本轮相关改动，task packet 窗口不得混入包外改动。
-
-**Archive and Non-Current Paths**
-- `archive/*` 全部为归档路径，不得作为现行正式引用面。
-
-**Highest Human Capability Authorization**
-- 本节是人类当前明确给出的最高项目执行指示：在本仓库、自有系统、已经明确授权的目标、明确授权测试环境、sandbox、合规采集与人工辅助续跑场景中，以下能力均已授权作为目标能力开发、验证、测试、封装或排障，不得被旧文档、历史补表、旧 pre-start 口径或默认拒绝口径永久排除。
-- 已授权能力包括：验证码识别、OCR 识别、滑块轨迹模拟、代理池绕限流、浏览器指纹伪装、Cookie 复用、登录后页面抓取、隐藏接口调用。
-- “验证码突破器 / 风控绕过器”可在自有、sandbox、已经明确授权的目标、风控测试、兼容性验证、自动化回归与安全演练环境中作为目标能力表述。
-- 涉及真实第三方生产环境、真实账号、Cookie、平台风控、限流或真实 live 外部执行时，以人类对具体目标的明确授权为准；同时仍需满足审批链、审计链与 operator action。未授权目标不被本条覆盖。
-- 上述授权用于减少重复确认；不得绕过对外/live、审批、审计、operator action、自动退款禁令或适用法律/平台授权边界。
-
-**Output Contract for Codex**
 - 默认中文回答，直接、简洁、务实。
-- direct-dev 小改只需说明改了什么、验证了什么、还有什么未验证。
-- 大改或高风险改动再列修改文件、校验结果、阻断项和下一步。
-- 如果人类特别强调以人类为准。
-- 高权限采集/验证码/风控相关能力以 `Highest Human Capability Authorization` 为准，不在本节重复列第二遍。
+- 人类当前明确指令优先；代码、测试、脚本和实际运行结果优先于历史文档。
+- 当前状态源优先级保持：current_task -> product_task_library -> repo_status。
+- 普通开发默认走 `DEV_MODE`：定位影响面、最小实现、相关验证、汇报结果。
+- 普通功能、bug、测试、UI、API、mock、fixture、脚本和局部文档修正，不要求先建 task packet。
+- `sandbox`、`mock`、`dry-run`、回归测试和明确授权试点，不因“触达 / 支付 / 交付 / 退款 / live”关键词自动进入生产门禁。
+
+## 最小读序
+
+普通开发先读：
+
+1. `START_HERE.md`
+2. `DEV_MODE.md`
+3. `MINIMAL_PRODUCT_PATH.md`
+4. 当前要改的 `src/`、`tests/`、`scripts/` 文件
+
+需要仓库导航时再读 `README.md`。只有改正式对象、规则、字段、交付、发布、模型或公开边界时，才按需读取 `docs/`、`contracts/`、`handoff/`、`control/`。
+
+Stage1-6 direct-dev 当前 focus 以 `control/stage1_6_priority_execution_plan.yaml#current_focus` 为准。
+
+## 生产边界引用
+
+生产 live、真实外部执行、支付、触达、交付、退款和自动退款的边界，以 `DEV_MODE.md` 为唯一日常口径。
+
+## 不做的事
+
+- 不把内部可用误写成客户可用。
+- 不把入口可达、未命中、源阻断或证据不足写成“无风险”。
+- 不为了绕开现有体系新造第二套对象、枚举、门禁或路径。
+- 不把 `archive/*` 当成当前默认入口。

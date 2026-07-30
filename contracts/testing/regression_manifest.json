@@ -1581,7 +1581,7 @@
         "runtime permission resolver exists and consumes runtime_inventory/runtime_policy/model_release_manifest",
         "stage8 risky path resolves source/execution/stage8_execution before policy execution",
         "stage9 risky path resolves stage9_execution before internal writeback",
-        "EMERGENCY_OFF and PERMANENTLY_BLOCKED short-circuit before downstream policy execution",
+        "EMERGENCY_OFF and PERMANENTLY_BLOCKED short-circuit production live / external mutation before downstream policy execution while sandbox/mock/dry-run/regression and explicitly authorized pilots remain separately testable",
         "REAL_RUN_READY does not override EXTERNAL_CONTROLLED_OPENING",
         "permission_trace and additive governance data are emitted for stage8/stage9 runtime paths"
       ],

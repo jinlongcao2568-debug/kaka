@@ -392,7 +392,6 @@ def run_evidence_orchestration_continuation(
         "targeted_person_backtrace_continuation_root": str(targeted_person_continuation_root)
         if targeted_person_continuation_result
         else "",
-        "p13b_targeted_person_readback_root": str(targeted_person_out_root) if targeted_person_result else "",
         "final_original_backtrace_continuation_root": str(final_original_continuation_source_root or ""),
         "source_design_survey_adapter_plan_json": str(design_survey_adapter_plan_json or ""),
         "source_design_survey_adapter_plan_root": str(design_survey_adapter_plan_root or ""),
@@ -550,6 +549,16 @@ def _run_summary(
         ),
         "final_original_backtrace_continuation_state_counts": dict(
             final_original_continuation.get("continuation_state_counts") or {}
+        ),
+        "final_original_backtrace_next_queue_counts": dict(final_original_continuation.get("next_queue_counts") or {}),
+        "final_original_backtrace_closeout_precedence_suppressed_count": int(
+            final_original_continuation.get("closeout_precedence_suppressed_count") or 0
+        ),
+        "final_original_backtrace_terminal_marker_count": int(
+            final_original_continuation.get("original_readback_terminal_marker_count") or 0
+        ),
+        "final_original_backtrace_runtime_blocker_ledger_count": int(
+            final_original_continuation.get("runtime_blocker_ledger_count") or 0
         ),
         "final_original_backtrace_continuation_recommended_next_action": str(
             final_original_continuation.get("recommended_next_action") or ""

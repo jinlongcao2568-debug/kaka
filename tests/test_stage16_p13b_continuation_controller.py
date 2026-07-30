@@ -72,6 +72,101 @@ class Stage16P13BContinuationControllerTests(unittest.TestCase):
                 "2027-02-01",
             )
 
+    def test_terminal_p13b_closeout_marker_suppresses_duplicate_followup(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            storage_json = root / "storage.json"
+            _write_stage16_storage_with_terminal_p13b_marker(storage_json)
+
+            result = build_stage16_p13b_continuation_controller(
+                stage16_storage_json=storage_json,
+                output_root=root / "out",
+                created_at="2026-05-18T00:00:00+08:00",
+            )
+
+            self.assertTrue(result["safe_to_execute"])
+            summary = result["summary"]
+            self.assertEqual(summary["source_project_count"], 1)
+            self.assertEqual(summary["ready_for_p13b_count"], 0)
+            self.assertEqual(summary["closeout_precedence_suppressed_count"], 1)
+            self.assertEqual(
+                summary["continuation_state_counts"],
+                {"P13B_TERMINAL_CLOSEOUT_SUPPRESSED": 1},
+            )
+            record = result["manifest"]["project_continuation_records"][0]
+            self.assertTrue(record["closeout_precedence_suppressed"])
+            self.assertEqual(
+                record["recommended_next_action"],
+                "project_to_review_ready_status_projection_without_duplicate_dispatch",
+            )
+            project_table = json.loads((root / "out" / "project-value-table.json").read_text(encoding="utf-8"))
+            self.assertEqual(project_table["records"], [])
+
+    def test_artifact_backed_p13b_combo_routes_ready_and_operator_hold(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            storage_json = root / "storage.json"
+            _write_stage16_storage_with_ready_and_hold(storage_json)
+
+            result = build_stage16_p13b_continuation_controller(
+                stage16_storage_json=storage_json,
+                output_root=root / "out",
+                created_at="2026-05-18T00:00:00+08:00",
+            )
+
+            self.assertTrue(result["safe_to_execute"])
+            summary = result["summary"]
+            self.assertEqual(summary["source_project_count"], 2)
+            self.assertEqual(summary["ready_for_p13b_count"], 1)
+            self.assertEqual(summary["closeout_precedence_suppressed_count"], 1)
+            self.assertEqual(
+                summary["continuation_state_counts"],
+                {
+                    "P13B_TERMINAL_CLOSEOUT_SUPPRESSED": 1,
+                    "READY_FOR_P13B_DATA_GGZY": 1,
+                },
+            )
+            records = {
+                record["project_id"]: record
+                for record in result["manifest"]["project_continuation_records"]
+            }
+            self.assertEqual(records["PROJ-P13B-READY"]["continuation_state"], "READY_FOR_P13B_DATA_GGZY")
+            self.assertEqual(records["PROJ-P13B-READY"]["recommended_next_action"], "run_data_ggzy_company_history_overlap_triage")
+            self.assertEqual(
+                records["PROJ-P13B-READY"]["operator_projection"]["projection_state"],
+                "P13B_CONTINUATION_READY",
+            )
+            self.assertEqual(records["PROJ-P13B-HOLD"]["continuation_state"], "P13B_TERMINAL_CLOSEOUT_SUPPRESSED")
+            self.assertTrue(records["PROJ-P13B-HOLD"]["closeout_precedence_suppressed"])
+            self.assertEqual(
+                records["PROJ-P13B-HOLD"]["recommended_next_action"],
+                "operator_confirms_higher_budget_before_retry",
+            )
+            self.assertEqual(
+                records["PROJ-P13B-HOLD"]["runtime_blocker_ledger_record"]["blocker_state"],
+                "TERMINAL_CLOSEOUT_SUPPRESSED_DUPLICATE_DISPATCH",
+            )
+            self.assertEqual(
+                records["PROJ-P13B-HOLD"]["runtime_blocker_ledger_record"]["ledger_scope"],
+                "p13b_continuation",
+            )
+            self.assertEqual(
+                records["PROJ-P13B-HOLD"]["operator_projection"]["projection_state"],
+                "P13B_CONTINUATION_OPERATOR_HOLD",
+            )
+            self.assertEqual(
+                records["PROJ-P13B-HOLD"]["operator_projection"]["next_action"],
+                "operator_confirms_higher_budget_before_retry",
+            )
+            self.assertEqual(summary["runtime_blocker_ledger_count"], 1)
+            self.assertEqual(
+                summary["runtime_blocker_ledger_state_counts"],
+                {"TERMINAL_CLOSEOUT_SUPPRESSED_DUPLICATE_DISPATCH": 1},
+            )
+
+            project_table = json.loads((root / "out" / "project-value-table.json").read_text(encoding="utf-8"))
+            self.assertEqual([record["project_id"] for record in project_table["records"]], ["PROJ-P13B-READY"])
+
 
 def _write_stage16_storage(path: Path) -> None:
     candidates = [
@@ -120,7 +215,7 @@ def _write_stage16_storage(path: Path) -> None:
         {
             "project_id": "PROJ-CN-GD-JG2026-11398-002",
             "real_world_hard_defect_gate_state": "PARTIAL_SOURCE_COVERAGE",
-            "real_public_stage4_9_readback": {
+            "real_public_stage1_6_readback": {
                 "jzsc_company_first_identity_resolution_required": True,
                 "stage5_rule_gate_status": "REVIEW",
                 "stage5_evidence_gate_status": "REVIEW",
@@ -129,7 +224,7 @@ def _write_stage16_storage(path: Path) -> None:
         {
             "project_id": "PROJ-CN-GD-JG2026-11398-001",
             "real_world_hard_defect_gate_state": "PARTIAL_SOURCE_COVERAGE",
-            "real_public_stage4_9_readback": {
+            "real_public_stage1_6_readback": {
                 "jzsc_company_first_identity_resolution_required": False,
                 "stage5_rule_gate_status": "REVIEW",
                 "stage5_evidence_gate_status": "PASS",
@@ -138,10 +233,121 @@ def _write_stage16_storage(path: Path) -> None:
         {
             "project_id": "PROJ-CN-GD-JG2026-11327",
             "real_world_hard_defect_gate_state": "PARTIAL_SOURCE_COVERAGE",
-            "real_public_stage4_9_readback": {
+            "real_public_stage1_6_readback": {
                 "jzsc_company_first_identity_resolution_required": False,
                 "stage5_rule_gate_status": "REVIEW",
                 "stage5_evidence_gate_status": "PASS",
+            },
+        },
+    ]
+    payload = {
+        "operator_actions": {
+            "operator-autonomous-opportunity-search-runs": [
+                {
+                    "object_refs": {
+                        "candidate_options_json": json.dumps(candidates, ensure_ascii=False),
+                        "closed_loop_results_json": json.dumps(closed, ensure_ascii=False),
+                    }
+                }
+            ]
+        }
+    }
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _write_stage16_storage_with_terminal_p13b_marker(path: Path) -> None:
+    candidates = [
+        {
+            "project_id": "PROJ-CN-GD-JG2026-TERMINAL",
+            "project_name": "已终态回灌项目中标候选人公示",
+            "source_url": "https://example.test/terminal.html",
+            "candidate_company": "广东示例建设有限公司",
+            "project_manager_name": "张三",
+            "project_manager_certificate_no": "粤1442020202100001",
+            "engineering_work_lane": "construction_or_epc",
+            "opportunity_priority_class": "A_HIGH_CONSTRUCTION_EPC",
+            "stage2_detail_capture_state": "FETCHED",
+            "stage3_detail_parse_state": "PARSED_WITH_REVIEW",
+        }
+    ]
+    closed = [
+        {
+            "project_id": "PROJ-CN-GD-JG2026-TERMINAL",
+            "real_world_hard_defect_gate_state": "PARTIAL_SOURCE_COVERAGE",
+            "real_public_stage1_6_readback": {
+                "jzsc_company_first_identity_resolution_required": False,
+                "stage5_rule_gate_status": "REVIEW",
+                "stage5_evidence_gate_status": "REVIEW",
+            },
+            "terminal_closeout_markers": [
+                {
+                    "task_family": "p13b_followup",
+                    "marker_state": "MATCHED",
+                    "artifact_ref": "tmp/p13b-operational-closeout-v1/p13b-operational-closeout-v1.json",
+                }
+            ],
+        }
+    ]
+    payload = {
+        "operator_actions": {
+            "operator-autonomous-opportunity-search-runs": [
+                {
+                    "object_refs": {
+                        "candidate_options_json": json.dumps(candidates, ensure_ascii=False),
+                        "closed_loop_results_json": json.dumps(closed, ensure_ascii=False),
+                    }
+                }
+            ]
+        }
+    }
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _write_stage16_storage_with_ready_and_hold(path: Path) -> None:
+    candidates = [
+        {
+            "project_id": "PROJ-P13B-READY",
+            "project_name": "P13B 可续跑项目中标候选人公示",
+            "source_url": "https://example.test/p13b-ready.html",
+            "candidate_company": "广东续跑建设有限公司",
+            "project_manager_name": "李四",
+            "project_manager_certificate_no": "粤1442020202100002",
+            "engineering_work_lane": "construction_or_epc",
+            "opportunity_priority_class": "A_HIGH_CONSTRUCTION_EPC",
+            "stage2_detail_capture_state": "FETCHED",
+            "stage3_detail_parse_state": "PARSED_WITH_REVIEW",
+        },
+        {
+            "project_id": "PROJ-P13B-HOLD",
+            "project_name": "P13B 预算挂起项目中标候选人公示",
+            "source_url": "https://example.test/p13b-hold.html",
+            "candidate_company": "广东预算建设有限公司",
+            "project_manager_name": "王五",
+            "project_manager_certificate_no": "粤1442020202100003",
+            "engineering_work_lane": "construction_or_epc",
+            "opportunity_priority_class": "A_HIGH_CONSTRUCTION_EPC",
+            "stage2_detail_capture_state": "FETCHED",
+            "stage3_detail_parse_state": "PARSED_WITH_REVIEW",
+        },
+    ]
+    closed = [
+        {
+            "project_id": "PROJ-P13B-READY",
+            "real_world_hard_defect_gate_state": "PARTIAL_SOURCE_COVERAGE",
+            "real_public_stage1_6_readback": {
+                "jzsc_company_first_identity_resolution_required": False,
+                "stage5_rule_gate_status": "REVIEW",
+                "stage5_evidence_gate_status": "REVIEW",
+            },
+        },
+        {
+            "project_id": "PROJ-P13B-HOLD",
+            "real_world_hard_defect_gate_state": "PARTIAL_SOURCE_COVERAGE",
+            "p13b_followup_terminal_state": "SOURCE_LIMIT_DEFERRED",
+            "real_public_stage1_6_readback": {
+                "jzsc_company_first_identity_resolution_required": False,
+                "stage5_rule_gate_status": "REVIEW",
+                "stage5_evidence_gate_status": "REVIEW",
             },
         },
     ]

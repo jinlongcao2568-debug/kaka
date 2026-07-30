@@ -66,6 +66,9 @@ def test_stage19_l2_blueprint_locks_subfunnel_guardrails() -> None:
 
 def test_docs_default_read_order_downranks_historical_noise() -> None:
     readme = _read(ROOT / "README.md")
+    start_here = _read(ROOT / "START_HERE.md")
+    dev_mode = _read(ROOT / "DEV_MODE.md")
+    minimal_path = _read(ROOT / "MINIMAL_PRODUCT_PATH.md")
     status_board = _read(DOCS / "文档与资产状态板.md")
     sync_plan = _read(ARCHIVE_NON_CURRENT / "文档方向同步与合并治理计划.md")
     start_checklist = _read(ARCHIVE_NON_CURRENT / "开工前总清单.md")
@@ -73,8 +76,21 @@ def test_docs_default_read_order_downranks_historical_noise() -> None:
     task_packet_template = _read(ARCHIVE_NON_CURRENT / "自动开发任务包模板.md")
 
     assert "默认不要遍历 `docs/` 全部文件" in readme
+    assert "START_HERE.md" in readme
+    assert "DEV_MODE.md" in readme
+    assert "MINIMAL_PRODUCT_PATH.md" in readme
+    assert "普通开发默认是 `DEV_MODE`" in start_here
+    assert "生产门禁只管 `PROD_LIVE_MODE`" in start_here
+    assert "不要求 task packet" in dev_mode
+    assert "不因为没写 task packet 就停止普通开发" in dev_mode
+    assert "候选公示后证据包" in minimal_path
+    assert "mock / sandbox 模拟交付、支付和退款状态" in minimal_path
+    assert "这五项比继续扩写治理文档更重要" in minimal_path
     assert "原“专题_SKU重构收口清单.md”已退出现行引用面" in readme
     assert "当前默认读序与非默认入口" in status_board
+    assert "START_HERE.md" in status_board
+    assert "DEV_MODE.md" in status_board
+    assert "MINIMAL_PRODUCT_PATH.md" in status_board
     assert "HISTORICAL_PRE_START_REFERENCE" in status_board
     assert "HISTORICAL_CONDITIONAL_GO_SNAPSHOT" in status_board
     assert "MERGED_REFERENCE" in status_board
@@ -144,7 +160,7 @@ def test_stage19_gap_board_replaces_stage17_gap_board_and_tracks_dynamic_project
     assert "以 `docs/AX9S_Stage1-9_执行矩阵与子漏斗.md` 为目标模型" in text
     assert "对照代码 / tests / scripts / contracts 投射当前真实缺口" in text
     assert "Stage8" in text and "Stage9" in text
-    assert "自动退款执行继续 `EXCLUDED`" in text
+    assert "自动退款流程可做 sandbox/mock/dry-run/受控试点" in text
     assert not (DOCS / "专题_Stage1-7_缺口收口与优先级清单.md").exists()
 
 
@@ -356,57 +372,34 @@ def test_business_direction_doc_contains_final_analysis_strategy_rules() -> None
     assert "广州 01-12 流程扫描是“适配器和接口形态验证”" in text
 
 
-def test_top_level_docs_contain_final_strategy_guardrails() -> None:
+def test_top_level_docs_route_strategy_guardrails_to_authoritative_sources() -> None:
     readme = _read(ROOT / "README.md")
     agents = _read(ROOT / "AGENTS.md")
+    strategy = _read(DOCS / "业务方向_候选公示后证据包与投前预测双线契约.md")
+    strategy_contract = _read(ROOT / "contracts" / "evaluation" / "business_direction_strategy_contract.json")
 
-    for text in (readme, agents):
-        assert "AnalysisStrategyPlan v1" in text
-        assert "ResponsiblePersonEarlyProbe v1" in text
-        assert "联合体" in text
-        assert "公司优先补证" in text
-        assert "姓名枚举兜底" in text
-        assert "工作日 72 小时内" in text
-        assert "05 开标信息" in text
-        assert "投前预测" in text
-        assert "候选公示后证据包" in text
-        assert "近期 `07 中标候选人公示`" in text or "近期 07 中标候选人公示" in text
-        assert "缺 11/12 不阻断当前证据包销售窗口" in text
-        assert "公开注册信息" in text
-        assert "是不是本人" in text
-        assert "08" in text and ("不默认下载" in text or "不默认下载或解析" in text)
-        assert "浙江、四川、江苏、湖北、山东、湖南、河南" in text
-        assert "PLAN_ONLY_UNTIL_REGION_ADAPTER_VERIFIED" in text
-        assert "MajorRegionQueryProbe v1" in text
-        assert "GuangdongLocalVerificationProbe v1" in text
-        assert "PRIOR_AWARD_AND_CANDIDATE_OVERLAP_TRIAGE" in text
-        assert "data.ggzy.gov.cn" in text
-        assert "YGP" in text
-        assert "原文 readback" in text
-        assert "YGP CityDiscovery v1" in text
-        assert "YGP_FULL_CHAIN_VERIFICATION_V1" in text
-        assert "search/v2/items" in text
-        assert "广州主源仍" in text or "不恢复为广州主采集源" in text
-        assert "项目流程矩阵" in text
-        assert "nodeList" in text
-        assert "detail" in text
-        assert "dsList" in text
-        assert "广东其他城市" in text
-        assert "bid_show" in text
-        assert "原文链接" in text
-        assert "不得一开始全省施工许可、竣工、合同备案全量扫描" in text
-        assert "项目负责人未释放" in text
-        assert "缺竣工" in text
-        assert "无在建" in text
-        assert "无风险" in text
-        assert "来源 URL" in text
-        assert "采集时间" in text
-        assert "SHA-256/hash" in text
-        assert "脱敏日志" in text
-        assert "可信时间戳" in text
-        assert "收费举报" in text
-        assert "付费沉默" in text
-        assert "AI 一键定性" in text
+    for entrypoint in (
+        "START_HERE.md",
+        "DEV_MODE.md",
+        "CURRENT_PRODUCT_STATE.md",
+        "MINIMAL_PRODUCT_PATH.md",
+        "AGENTS.md",
+    ):
+        assert entrypoint in readme
+    assert "默认不要遍历 `docs/` 全部文件" in readme
+    assert "项目状态、路线图、业务细节和 readiness 不写在这里" in agents
+    assert "只有改正式对象、规则、字段、交付、发布、模型或公开边界时" in agents
+    assert "业务方向摘要" not in agents
+
+    assert "AnalysisStrategyPlan v1" in strategy
+    assert "ResponsiblePersonEarlyProbe v1" in strategy
+    assert "候选公示后证据包" in strategy
+    assert "投前预测" in strategy
+    assert "PLAN_ONLY_UNTIL_REGION_ADAPTER_VERIFIED" in strategy
+    assert "BUSINESS-DIRECTION-STRATEGY-CONTRACT" in strategy_contract
+    assert "候选公示后证据包" in strategy_contract
+    assert "投前预测" in strategy_contract
+    assert "PLAN_ONLY_UNTIL_REGION_ADAPTER_VERIFIED" in strategy_contract
 
 
 def test_stage45_runbook_contains_responsible_person_early_probe_decision_tree() -> None:

@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import time
 from typing import Any
 
 from api.projections import build_stage9_preview_surface, get_surface_runtime_defaults, register_route_table
@@ -24,12 +25,18 @@ from storage.repository_boundary import (
     OperationalContractError,
     list_stage_work_items,
     persist_stage_bundle,
+    persist_stage9_http_record,
     record_operator_action,
 )
+from shared.contracts_runtime import ContractRecord, StageBundle
 from shared.provider_adapter_config import (
     PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY,
     provider_adapter_bootstrap_payload,
     provider_readiness_for_family,
+)
+from runtime.operational_observability import (
+    get_operational_event_sink,
+    record_operational_event_safely,
 )
 from stage9_delivery.order_payment_delivery_execution import (
     APPROVED_PAYMENT_DELIVERY_EXECUTION_INPUT_KEY,
@@ -59,7 +66,7 @@ STAGE9_EXECUTION_LEDGER_ROUTE_READINESS = {
         "automated_refund_enabled": False,
         "blocked_reasons": [
             "real_payment_gateway_blocked_by_default",
-            "automated_refund_program_out_of_scope",
+            "automated_refund_program_controlled_test_and_pilot_required",
         ],
     },
     "order_payment_delivery_execution_summary": {
@@ -167,6 +174,29 @@ STAGE9_EXECUTION_LEDGER_ROUTE_READINESS = {
 }
 
 
+def _build_http_record_surface(object_type: str, payload: dict[str, Any]) -> dict[str, Any]:
+    record_types = (
+        "order_record",
+        "payment_record",
+        "delivery_record",
+        "opportunity_outcome_event",
+        "governance_feedback_event",
+    )
+    bundle = StageBundle(
+        stage=9,
+        records={
+            record_type: ContractRecord(
+                object_type=record_type,
+                data=dict(payload) if record_type == object_type else {},
+            )
+            for record_type in record_types
+        },
+        handoff={"handoff_id": "HTTP-STAGE9-CREATE"},
+        inputs={"http_create_operation": True},
+    )
+    return build_stage9_preview_surface(bundle)
+
+
 def _provider_adapter_route_metadata(provider_adapter_readiness_summary: Any) -> dict[str, Any]:
     if not isinstance(provider_adapter_readiness_summary, dict):
         return {}
@@ -194,23 +224,113 @@ def list_orders(payload: Any) -> OrdersListResponse:
 
 
 def create_order(payload: Any) -> OrderCreateResponse:
-    persist_stage_bundle(payload)
-    response = build_stage9_preview_surface(payload)
-    response["draft_created"] = response["governance_envelope"]["action_availability"]["createOrder"]["allowed"]
+    if not isinstance(payload, dict):
+        persist_stage_bundle(payload)
+        persistence = None
+    else:
+        persistence = persist_stage9_http_record(
+            object_type="order_record",
+            id_field="order_id",
+            payload=payload,
+        )
+    response = (
+        build_stage9_preview_surface(payload)
+        if not isinstance(payload, dict)
+        else _build_http_record_surface("order_record", payload)
+    )
+    response["draft_created"] = bool(
+        persistence["created"]
+        if persistence is not None
+        else response["governance_envelope"]["action_availability"]["createOrder"]["allowed"]
+    )
+    if persistence is not None:
+        response["persistence"] = persistence
     return response
 
 
 def create_payment_record(payload: Any) -> PaymentCreateResponse:
-    persist_stage_bundle(payload)
-    response = build_stage9_preview_surface(payload)
-    response["draft_created"] = response["governance_envelope"]["action_availability"]["createPaymentRecord"]["allowed"]
+    if not isinstance(payload, dict):
+        persist_stage_bundle(payload)
+        persistence = None
+    else:
+        persistence = persist_stage9_http_record(
+            object_type="payment_record",
+            id_field="payment_id",
+            payload=payload,
+        )
+    response = (
+        build_stage9_preview_surface(payload)
+        if not isinstance(payload, dict)
+        else _build_http_record_surface("payment_record", payload)
+    )
+    response["draft_created"] = bool(
+        persistence["created"]
+        if persistence is not None
+        else response["governance_envelope"]["action_availability"]["createPaymentRecord"]["allowed"]
+    )
+    if persistence is not None:
+        response["persistence"] = persistence
     return response
 
 
 def create_delivery_record(payload: Any) -> DeliveryCreateResponse:
-    persist_stage_bundle(payload)
-    response = build_stage9_preview_surface(payload)
-    response["preview_generated"] = response["governance_envelope"]["action_availability"]["createDeliveryRecord"]["allowed"]
+    started = time.perf_counter()
+    delivery_id = str(payload.get("delivery_id") or "") if isinstance(payload, dict) else ""
+    try:
+        response = _create_delivery_record(payload)
+    except Exception as exc:
+        record_operational_event_safely(
+            get_operational_event_sink("api"),
+            component="delivery",
+            operation="delivery_record_persist",
+            outcome="error",
+            severity="ERROR",
+            duration_ms=(time.perf_counter() - started) * 1000,
+            trace_id=delivery_id or None,
+            error_category=type(exc).__name__,
+            attributes={"external_delivery_executed": False},
+        )
+        raise
+    record_created = bool(response.get("record_created", True))
+    record_operational_event_safely(
+        get_operational_event_sink("api"),
+        component="delivery",
+        operation="delivery_record_persist",
+        outcome="success" if record_created else "degraded",
+        severity="INFO" if record_created else "WARNING",
+        duration_ms=(time.perf_counter() - started) * 1000,
+        trace_id=delivery_id or None,
+        error_category=None if record_created else "record_not_created",
+        attributes={
+            "delivery_status": (
+                payload.get("delivery_status") if isinstance(payload, dict) else None
+            ),
+            "record_created": record_created,
+            "external_delivery_executed": False,
+        },
+    )
+    return response
+
+
+def _create_delivery_record(payload: Any) -> DeliveryCreateResponse:
+    if not isinstance(payload, dict):
+        persist_stage_bundle(payload)
+        persistence = None
+    else:
+        persistence = persist_stage9_http_record(
+            object_type="delivery_record",
+            id_field="delivery_id",
+            payload=payload,
+        )
+    response = (
+        build_stage9_preview_surface(payload)
+        if not isinstance(payload, dict)
+        else _build_http_record_surface("delivery_record", payload)
+    )
+    response["preview_generated"] = True
+    if persistence is not None:
+        response["record_created"] = bool(persistence["created"])
+        response["persistence"] = persistence
     return response
 
 
@@ -219,9 +339,21 @@ def list_opportunity_outcomes(payload: Any) -> OpportunityOutcomeListResponse:
 
 
 def create_opportunity_outcome_event(payload: Any) -> OpportunityOutcomeCreateResponse:
-    persist_stage_bundle(payload)
-    response = build_stage9_preview_surface(payload)
-    response["writeback_ready"] = response["governance_envelope"]["action_availability"]["createOpportunityOutcomeEvent"]["allowed"]
+    if not isinstance(payload, dict):
+        persist_stage_bundle(payload)
+        persistence = None
+        response = build_stage9_preview_surface(payload)
+    else:
+        persistence = persist_stage9_http_record(
+            object_type="opportunity_outcome_event",
+            id_field="outcome_event_id",
+            payload=payload,
+        )
+        response = _build_http_record_surface("opportunity_outcome_event", payload)
+    response["writeback_ready"] = True
+    if persistence is not None:
+        response["record_created"] = bool(persistence["created"])
+        response["persistence"] = persistence
     return response
 
 
@@ -230,9 +362,21 @@ def list_governance_feedback_events(payload: Any) -> GovernanceFeedbackListRespo
 
 
 def create_governance_feedback_event(payload: Any) -> GovernanceFeedbackCreateResponse:
-    persist_stage_bundle(payload)
-    response = build_stage9_preview_surface(payload)
-    response["writeback_ready"] = response["governance_envelope"]["action_availability"]["createGovernanceFeedbackEvent"]["allowed"]
+    if not isinstance(payload, dict):
+        persist_stage_bundle(payload)
+        persistence = None
+        response = build_stage9_preview_surface(payload)
+    else:
+        persistence = persist_stage9_http_record(
+            object_type="governance_feedback_event",
+            id_field="governance_feedback_event_id",
+            payload=payload,
+        )
+        response = _build_http_record_surface("governance_feedback_event", payload)
+    response["writeback_ready"] = True
+    if persistence is not None:
+        response["record_created"] = bool(persistence["created"])
+        response["persistence"] = persistence
     return response
 
 
@@ -259,14 +403,22 @@ def submit_stage9_operator_action(payload: Any) -> Stage9OperatorActionResponse:
     except OperationalContractError as exc:
         try:
             response = build_stage9_preview_surface(payload)
-        except Exception:
+        except Exception as secondary_exc:
             response = {
                 "surface_id": "order_delivery_workbench",
                 "internal_only": True,
                 "live_execution_enabled": False,
                 "blocked_by_default": True,
             }
-        response["error"] = exc.as_payload()
+            error = exc.as_payload()
+            error["secondary_error"] = {
+                "type": type(secondary_exc).__name__,
+                "detail": str(secondary_exc),
+            }
+            error["fail_closed"] = True
+            response["error"] = error
+        else:
+            response["error"] = exc.as_payload()
     return response
 
 

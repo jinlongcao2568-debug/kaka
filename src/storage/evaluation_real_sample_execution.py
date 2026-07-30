@@ -1174,6 +1174,11 @@ def _profile_report_refs(profile_reports: list[Mapping[str, Any]]) -> list[dict[
             "entry_url": str(row.get("entry_url") or ""),
             "status": str(row.get("status") or ""),
             "failure_reason": str(row.get("failure_reason") or ""),
+            "profile_api_url": str(row.get("profile_api_url") or row.get("public_api_url") or ""),
+            "profile_api_query_window": dict(row.get("profile_api_query_window") or {}),
+            "profile_api_query_terms": _string_list(row.get("profile_api_query_terms")),
+            "profile_api_province_code": str(row.get("profile_api_province_code") or ""),
+            "profile_api_row_count": _int_value(row.get("public_api_row_count"), default=0),
             "candidate_count": _int_value(row.get("candidate_count"), default=0),
         }
         for row in profile_reports

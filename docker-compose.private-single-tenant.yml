@@ -1,0 +1,71 @@
+name: "kaka-private-${KAKA_DEPLOYMENT_TENANT_ID:?set KAKA_DEPLOYMENT_TENANT_ID}-${KAKA_DEPLOYMENT_INSTANCE_ID:?set KAKA_DEPLOYMENT_INSTANCE_ID}"
+
+x-kaka-boundary:
+  runtime_scope: private_single_tenant_isolation_only
+  single_customer_per_deployment: true
+  deployment_boundary_seal_required: true
+  shared_cross_customer_storage_allowed: false
+  cross_tenant_routing_enabled: false
+  per_customer_network_namespace: true
+  network_egress_restriction_ready: false
+  multi_tenant_saas_ready: false
+  public_internet_deployment_ready: false
+  private_pilot_deployment_ready: false
+  blocked_by_open_items:
+    - OPS-001
+    - OPS-002
+    - OPS-003
+    - SEC-005
+    - SEC-006
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: kaka-private-single-tenant:local
+    environment:
+      KAKA_DEPLOYMENT_TENANCY_MODE: PRIVATE_SINGLE_TENANT
+      KAKA_DEPLOYMENT_TENANT_ID: "${KAKA_DEPLOYMENT_TENANT_ID:?set KAKA_DEPLOYMENT_TENANT_ID}"
+      KAKA_DEPLOYMENT_INSTANCE_ID: "${KAKA_DEPLOYMENT_INSTANCE_ID:?set KAKA_DEPLOYMENT_INSTANCE_ID}"
+      KAKA_INTERNAL_API_PRINCIPALS_JSON: "${KAKA_INTERNAL_API_PRINCIPALS_JSON:?set KAKA_INTERNAL_API_PRINCIPALS_JSON}"
+      KAKA_INTERNAL_API_COOKIE_SECURE: "true"
+      KAKA_STORAGE_BACKEND: json-file
+      KAKA_STORAGE_SCOPE: shared
+      KAKA_STORAGE_PATH: "/app/.kaka-local/private/${KAKA_DEPLOYMENT_TENANT_ID}-${KAKA_DEPLOYMENT_INSTANCE_ID}/storage/internal_operator_loop_store.json"
+      KAKA_OBJECT_STORAGE_BACKEND: local-filesystem
+      KAKA_OBJECT_STORAGE_PATH: "/app/.kaka-local/private/${KAKA_DEPLOYMENT_TENANT_ID}-${KAKA_DEPLOYMENT_INSTANCE_ID}/object-storage"
+      KAKA_OPERATOR_ARTIFACT_ROOT: "/app/.kaka-local/private/${KAKA_DEPLOYMENT_TENANT_ID}-${KAKA_DEPLOYMENT_INSTANCE_ID}/operator-artifacts"
+      KAKA_QUEUE_BACKEND: storage
+      KAKA_WORKER_RUNTIME: internal-storage-worker
+      KAKA_PROVIDER_MODE: SANDBOX_DRY_RUN_READBACK
+    ports:
+      - "127.0.0.1:${KAKA_PRIVATE_BIND_PORT:-18000}:8000"
+    volumes:
+      - private-data:/app/.kaka-local
+    networks:
+      - private-boundary
+    restart: "no"
+    labels:
+      kaka.single_customer_per_deployment: "true"
+      kaka.deployment_boundary_seal_required: "true"
+      kaka.shared_cross_customer_storage_allowed: "false"
+      kaka.cross_tenant_routing_enabled: "false"
+      kaka.per_customer_network_namespace: "true"
+      kaka.network_egress_restriction_ready: "false"
+      kaka.multi_tenant_saas_ready: "false"
+      kaka.private_pilot_deployment_ready: "false"
+      kaka.production_release_enabled: "false"
+
+networks:
+  private-boundary:
+    name: "kaka-private-${KAKA_DEPLOYMENT_TENANT_ID}-${KAKA_DEPLOYMENT_INSTANCE_ID}-network"
+    driver: bridge
+
+volumes:
+  private-data:
+    name: "kaka-private-${KAKA_DEPLOYMENT_TENANT_ID}-${KAKA_DEPLOYMENT_INSTANCE_ID}-data"
+    labels:
+      kaka.single_customer_per_deployment: "true"
+      kaka.tenant_id: "${KAKA_DEPLOYMENT_TENANT_ID}"
+      kaka.instance_id: "${KAKA_DEPLOYMENT_INSTANCE_ID}"

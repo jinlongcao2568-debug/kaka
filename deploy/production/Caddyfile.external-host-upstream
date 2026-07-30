@@ -1,0 +1,10 @@
+{
+	admin off
+	auto_https off
+}
+
+import /etc/caddy/KakaPublicRoutes
+
+http://:80 {
+	import kaka_public_routes
+}

@@ -10,14 +10,14 @@
     "partialCount": 8,
     "notExposedCount": 0,
     "failCount": 0,
-    "operatorConclusion": "按 L0/D2-D14 权威硬门复核后，当前系统只能判定为 owner 内部可观察、内部预览和真实候选最小进料可用；默认实战搜索已接入真实公开列表页候选发现、候选解析、去重入库、Stage1 进料、同站详情页 Stage2 快照、Stage3 parser 读回和同站公开附件原文 Stage2 快照，但真实候选仍通过通用内部链路闭环，Stage4-9 尚未 formal real_public readback 消费真实快照，因此不能宣称正式可售或客户交付就绪。",
-    "nextDecision": "下一轮先修真实候选 Stage4-9 real_public 回链、截止时间解析和正式对象读回；内部/样本链路仅保留为回归模式，UI PASS 不得升级产品 readiness。"
+    "operatorConclusion": "按 L0/D2-D14 权威硬门复核后，当前系统只能判定为 owner 内部可观察、内部预览和真实候选最小进料可用；默认实战搜索已接入真实公开列表页候选发现、候选解析、去重入库、Stage1 进料、同站详情页 Stage2 快照、Stage3 parser 读回和同站公开附件原文 Stage2 快照，但真实候选仍通过通用内部链路闭环，Stage1-6 尚未 formal real_public readback 消费真实快照，因此不能宣称正式可售或客户交付就绪。",
+    "nextDecision": "下一轮先修真实候选 Stage1-6 real_public 回链、截止时间解析和正式对象读回；内部/样本链路仅保留为回归模式，UI PASS 不得升级产品 readiness。"
   },
   "topPriorities": [
     {
       "rank": 1,
       "dimensionId": "UA-11-real-world-sellability",
-      "title": "真实候选 Stage4-9 formal 回链",
+      "title": "真实候选 Stage1-6 formal 回链",
       "reason": "真实候选已能进 Stage1-3，但仍走通用内部链路闭环；必须让真实详情/附件快照进入 Stage4 公开核验、Stage5 双门、Stage6 project_fact、Stage7 saleable_opportunity 和 Stage8/9 受控读回。"
     },
     {
@@ -42,7 +42,7 @@
       "rank": 5,
       "dimensionId": "UA-07-governed-outreach-and-delivery",
       "title": "真实 provider sandbox / live pilot",
-      "reason": "真实服务商状态已可观察，下一步是接 sandbox 凭证、健康检查、审批审计和小样本 live pilot；自动退款执行继续排除。"
+      "reason": "真实服务商状态已可观察，下一步是接 sandbox 凭证、健康检查、审批审计和小样本 live pilot；自动退款执行为 controlled-test-and-pilot-required，未授权生产自动退款仍关闭。"
     }
   ],
   "authorityFindings": [
@@ -50,12 +50,12 @@
       "findingId": "AF-01",
       "severity": "HIGH",
       "title": "旧矩阵把 UI 可用误升级为正式验收通过",
-      "impact": "机会、证据包和商业钩子虽然可见，但按 L0/D2/D3/D8/D11 必须先证明真实快照进入 Stage4-9 formal readback，才能算真实可售。"
+      "impact": "机会、证据包和商业钩子虽然可见，但按 L0/D2/D3/D8/D11 必须先证明真实快照进入 Stage1-6 formal readback，才能算真实可售。"
     },
     {
       "findingId": "AF-02",
       "severity": "HIGH",
-      "title": "真实候选仍缺 Stage4-9 formal real_public 消费",
+      "title": "真实候选仍缺 Stage1-6 formal real_public 消费",
       "impact": "Stage1-3 已能进料，但 Stage5 双门、Stage6 project_fact、Stage7 saleable_opportunity 和 Stage8/9 读回还不能直接以真实快照为依据。"
     },
     {
@@ -99,7 +99,7 @@
       "dimensionId": "UA-02-autonomous-market-to-opportunity-loop",
       "title": "市场到机会闭环成立",
       "status": "PARTIAL",
-      "currentUiState": "实战搜索支持地区多选、项目类型多选、金额区间、真实列表页候选发现、候选对象明细、入选理由、来源站点、运行记录、地区覆盖缺口和批量候选复盘；当前已能把真实列表页候选去重入库并送入 Stage1，并自动尝试同站详情页 Stage2 快照、同站附件原文 Stage2 快照与 Stage3 parser 读回，但客户可售前仍缺 Stage4-9 正式证据回链。",
+      "currentUiState": "实战搜索支持地区多选、项目类型多选、金额区间、真实列表页候选发现、候选对象明细、入选理由、来源站点、运行记录、地区覆盖缺口和批量候选复盘；当前已能把真实列表页候选去重入库并送入 Stage1，并自动尝试同站详情页 Stage2 快照、同站附件原文 Stage2 快照与 Stage3 parser 读回，但客户可售前仍缺 Stage1-6 正式证据回链。",
       "evidenceRefs": [
         "src/api/routes/operator_frontend.py#renderSearchResultFromRun",
         "src/api/routes/operator_frontend.py#renderCandidateCards",
@@ -109,13 +109,13 @@
       ],
       "gaps": [
         "真实列表页候选发现器仍是最小闭环，需要继续补更多列表页解析和失败诊断。",
-        "真实详情和附件快照尚未绑定到 Stage4-9 正式证据链。",
+        "真实详情和附件快照尚未绑定到 Stage1-6 正式证据链。",
         "公告发布日期、发布时间、异议截止、投标截止等时钟字段还需要按 L0/D13 分清，避免 Stage1 误选或误淘汰。",
         "山东、湖北目前主要是入口 profile 登记，缺专门候选发现实现和解析回归。",
         "商业试点地区仍需要继续补本地公开源 profile、详情页和附件入口。"
       ],
       "nextActions": [
-        "把真实候选详情/附件快照喂给 Stage4-9，并继续硬化字段解析。",
+        "把真实候选详情/附件快照喂给 Stage1-6，并继续硬化字段解析。",
         "修正时钟字段解析测试，禁止把公告发布日期或项目编号当成异议截止。",
         "补山东、湖北候选发现器，并用真实列表返回结构补解析测试。",
         "按地区覆盖缺口继续补本地 profile 和公开源诊断。",
@@ -135,7 +135,7 @@
         "control/product_runtime_architecture_map.yaml#primary_operating_loop"
       ],
       "gaps": [
-        "真实候选 Stage4-9 formal readback 尚未独立显示，owner 可能把内部回归 Stage1-9 误判成真实证据链完成。",
+        "真实候选 Stage1-6 formal readback 尚未独立显示，owner 可能把内部回归 Stage1-9 误判成真实证据链完成。",
         "对象引用已可见，但后续仍需把 public_chain、field_lineage、dual gates、project_fact 和 evidence package 做成点击式深读回。"
       ],
       "nextActions": [
@@ -173,7 +173,7 @@
         "tests/test_operator_frontend_portal.py#test_customer_artifact_portal_download_returns_internal_evidence_package"
       ],
       "gaps": [
-        "真实详情/附件快照尚未稳定进入 Stage4-9 formal readback，证据包还缺 field_lineage、dual gates、project_fact 的强绑定。",
+        "真实详情/附件快照尚未稳定进入 Stage1-6 formal readback，证据包还缺 field_lineage、dual gates、project_fact 的强绑定。",
         "后续仍可按真实客户模板继续增强证据包排版，但客户交付前必须补 D6/D7 字段策略和 release checklist。"
       ],
       "nextActions": [
@@ -229,7 +229,7 @@
         "tests/test_operator_frontend_portal.py#test_owner_console_frontend_is_mounted_and_exposes_operator_workflow"
       ],
       "gaps": [
-        "Stage4-9 real_public readback、截止时间解析风险、D6/D7 客户交付门、D14 模型治理等硬门需要在能力清单中显式暴露。",
+        "Stage1-6 real_public readback、截止时间解析风险、D6/D7 客户交付门、D14 模型治理等硬门需要在能力清单中显式暴露。",
         "部分待接能力还缺可点击详情。"
       ],
       "nextActions": [
@@ -277,7 +277,7 @@
       "dimensionId": "UA-11-real-world-sellability",
       "title": "真实可卖性可判断",
       "status": "PARTIAL",
-      "currentUiState": "操作台首页已展示真实可卖性判断和运行边界；当前能证明内部/样本链路、证据包预览、工作台可观察、真实市场候选进料、同站详情快照读回和同站附件原文快照，但 Stage4-9 消费真实快照和客户可售证据尚未完成。",
+      "currentUiState": "操作台首页已展示真实可卖性判断和运行边界；当前能证明内部/样本链路、证据包预览、工作台可观察、真实市场候选进料、同站详情快照读回和同站附件原文快照，但 Stage1-6 消费真实快照和客户可售证据尚未完成。",
       "evidenceRefs": [
         "contracts/ui/operator_user_acceptance_contract.json#UA-11-real-world-sellability",
         "src/api/routes/operator_customer_access.py#preview_operator_real_world_sellability",
@@ -285,12 +285,12 @@
       ],
       "gaps": [
         "默认实战搜索仍需更多真实候选来源和失败诊断硬化，不能把离线样本闭环当成可售完成。",
-        "真实详情页和同站附件原文已接 Stage2 首段，但 Stage4-9 正式消费尚未稳定进入。",
+        "真实详情页和同站附件原文已接 Stage2 首段，但 Stage1-6 正式消费尚未稳定进入。",
         "真实候选当前仍可能被 UI 呈现为机会闭环成功，需要按 realWorldAcceptanceStates 拆分状态。",
         "真实赚钱交付仍依赖后续真实服务商、重点地区适配器和 live pilot 闭合，不因可卖性面板展示而自动完成。"
       ],
       "nextActions": [
-        "优先补真实快照 Stage4-9 入链、字段解析硬化和更多真实公开来源候选发现器。",
+        "优先补真实快照 Stage1-6 入链、字段解析硬化和更多真实公开来源候选发现器。",
         "把实战搜索状态从 sample acceptance 改成真实候选分层状态：候选已进料、需复核、内部可售、客户交付就绪。",
         "在后续轮次把阶段遥测、地区适配、数据控制和真实 provider 状态持续接入该面板。"
       ]

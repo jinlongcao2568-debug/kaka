@@ -157,7 +157,7 @@ class ProductRuntimeArchitectureMapTests(unittest.TestCase):
         checks = set(assessment["non_negotiable_checks"])
         self.assertIn("no_codex_required_for_next_step_decision", checks)
         self.assertIn("no_presale_full_evidence_leak", checks)
-        self.assertIn("automated_refund_execution_excluded", checks)
+        self.assertIn("automated_refund_execution_controlled_test_and_pilot_required", checks)
 
     def test_source_strategy_pilot_policy_excludes_beijing_commercial_pilot(self) -> None:
         policy = self.architecture["source_strategy_pilot_policy"]
@@ -168,11 +168,11 @@ class ProductRuntimeArchitectureMapTests(unittest.TestCase):
         self.assertIn("realtime_sync", policy["national_aggregator_not_assumed"])
         self.assertEqual(
             policy["beijing_policy"]["status"],
-            "EXCLUDED_FROM_FIRST_COMMERCIAL_PILOT",
+            "NOT_DEFAULT_FIRST_COMMERCIAL_PILOT_AUTHORIZED_TEST_ALLOWED",
         )
         self.assertEqual(
             policy["beijing_policy"]["allowed_use"],
-            "technical_regression_and_public_page_reachability_only",
+            "technical_regression_public_page_reachability_sandbox_dry_run_and_explicitly_authorized_pilot",
         )
         provinces = {row["province"] for row in policy["first_batch_commercial_pilot_provinces"]}
         self.assertEqual(provinces, {"四川", "江苏", "浙江", "山东", "广东", "湖北"})
@@ -276,7 +276,7 @@ class ProductRuntimeArchitectureMapTests(unittest.TestCase):
         self.assertEqual(controlled_opening_requirements["external_software_release"], "CONTROLLED_OPENING")
         self.assertEqual(controlled_opening_requirements["unregistered_capture_path"], "CONTROLLED_OPENING")
         self.assertEqual(controlled_opening_requirements["unapproved_provider_call"], "CONTROLLED_OPENING")
-        self.assertEqual(controlled_opening_requirements["automated_refund_execution"], "EXCLUDED")
+        self.assertEqual(controlled_opening_requirements["automated_refund_execution"], "CONTROLLED_TEST_AND_PILOT_REQUIRED")
 
 
 if __name__ == "__main__":

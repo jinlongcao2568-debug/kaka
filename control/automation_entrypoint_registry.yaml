@@ -1,0 +1,640 @@
+registry_id: automation-entrypoint-registry-v1
+registry_version: 1
+updated_at: "2026-07-29"
+purpose: >
+  Machine-readable registry for automation entrypoints. Scripts are treated as
+  thin launchers; durable workflow decisions must live in src runners,
+  contracts, handoff assets, and control state.
+
+architecture_decision:
+  scripts_are_thin_launchers: true
+  scripts_are_not_the_system_brain: true
+  system_brain_layers:
+    - src/runtime controller, state machine, dispatcher, transition guard, and audit ledger
+    - src/storage state builders and runners
+    - src/api internal orchestration routes
+    - contracts and handoff schemas
+    - control registries and gates
+  direct_dev_default_allowed: true
+  live_customer_actions_require_release_gate: true
+  external_touch_payment_delivery_refund_auto_execution_allowed: false
+  human_memory_replacement_policy: >
+    Formal workflow continuation must be discoverable from this registry and
+    from generated state artifacts, not from an operator remembering which
+    script to run next.
+
+required_audit:
+  script: scripts/audit-automation-entrypoints.ps1
+  module_or_command: storage.automation_entrypoint_audit
+  output_root: tmp/evaluation-real-samples/automation-entrypoint-audit-v1
+  expected_state: PASS
+
+allowed_entrypoint_roles:
+  - orchestrator
+  - controlled_live_runner
+  - state_builder
+  - field_query
+  - readback
+  - dispatch_runner
+  - validation
+  - diagnostic
+  - migration
+  - planning
+  - utility
+
+allowed_status_values:
+  - FORMAL_CURRENT
+  - INTERNAL_PREVIEW_ONLY
+  - SUPPORTING_TOOL
+  - DIAGNOSTIC_ONLY
+
+formal_entrypoints:
+  - entrypoint_id: stage1_6_real_public_pressure_runner
+    kind: script
+    script: scripts/run-guangzhou-stage1-6-real-public-pressure-v1.ps1
+    entrypoint_role: controlled_live_runner
+    status: FORMAL_CURRENT
+    automation_layer: stage1_6_public_source_pressure_loop
+    module_or_command: storage.real_public_stage1_6_pressure_report
+    state_inputs:
+      - public source candidate windows
+      - analysis strategy plan outputs
+      - bounded execution budget
+    state_outputs:
+      - Stage1-6 real public pressure run result
+      - bridgeable release evidence task candidates
+    manual_gate_required: false
+    external_customer_action_enabled: false
+    replaces_human_memory: true
+    purpose: Run controlled public-source Guangzhou pressure batches and emit machine-readable state.
+
+  - entrypoint_id: stage4_release_evidence_bridge_builder
+    kind: script
+    script: scripts/build-stage4-release-evidence-bridge-v1.ps1
+    entrypoint_role: state_builder
+    status: FORMAL_CURRENT
+    automation_layer: stage4_release_evidence_bridge
+    module_or_command: storage.real_public_stage1_6_pressure_report
+    state_inputs:
+      - Stage1-6 real public pressure run result
+      - Stage6 review loop policy
+    state_outputs:
+      - bridge plan
+      - release evidence query task queue
+      - review-ready report
+    manual_gate_required: false
+    external_customer_action_enabled: false
+    replaces_human_memory: true
+    purpose: Convert pressure run results into reviewable release evidence bridge tasks.
+
+  - entrypoint_id: guangdong_local_field_query_probe
+    kind: script
+    script: scripts/run-guangdong-local-field-query-probe-v1.ps1
+    entrypoint_role: field_query
+    status: FORMAL_CURRENT
+    automation_layer: stage4_release_field_query
+    module_or_command: storage.guangdong_local_field_query_probe
+    state_inputs:
+      - release evidence bridge tasks
+      - project/company/person identifiers
+      - source-specific query budgets
+    state_outputs:
+      - local public source field query results
+      - matched/not_found/review_required source states
+    manual_gate_required: false
+    external_customer_action_enabled: false
+    replaces_human_memory: true
+    purpose: Query Guangdong local public sources with evidence-grade matching gates.
+
+  - entrypoint_id: guangdong_gdcic_openplatform_query_probe
+    kind: script
+    script: scripts/run-guangdong-gdcic-query-probe-v1.ps1
+    entrypoint_role: field_query
+    status: FORMAL_CURRENT
+    automation_layer: stage4_gdcic_openplatform_query
+    module_or_command: storage.guangdong_gdcic_query_probe
+    state_inputs:
+      - company identifiers
+      - project identifiers and title variants
+      - bounded public-source query budget
+    state_outputs:
+      - GDCIC openplatform readback
+      - source-specific evidence candidates
+    manual_gate_required: false
+    external_customer_action_enabled: false
+    replaces_human_memory: true
+    purpose: Query anonymous GDCIC openplatform sources without treating unrelated company records as project evidence.
+
+  - entrypoint_id: stage6_review_loop_runner
+    kind: script
+    script: scripts/run-stage6-review-loop-v1.ps1
+    entrypoint_role: orchestrator
+    status: SUPPORTING_TOOL
+    automation_layer: stage6_review_loop
+    module_or_command: storage.stage6_review_loop_runner
+    superseded_by_entrypoint_id: stage6_review_cycle_runner
+    cleanup_state: retained_for_compatibility_and_sample_replay_only
+    state_inputs:
+      - review action dispatch
+      - batch closeout
+      - release field query results
+      - baseline evidence state
+    state_outputs:
+      - Stage6 review loop manifest
+      - operator projection
+      - next-cycle dispatch tasks
+    manual_gate_required: false
+    external_customer_action_enabled: false
+    replaces_human_memory: true
+    purpose: Compatibility runner for older Stage6 review-loop artifacts; new continuation should use stage6_review_cycle_runner or runtime_controller_entrypoint_transport.
+
+  - entrypoint_id: stage6_review_cycle_runner
+    kind: script
+    script: scripts/run-stage6-review-cycle-v1.ps1
+    entrypoint_role: orchestrator
+    status: FORMAL_CURRENT
+    automation_layer: stage6_review_cycle
+    module_or_command: storage.stage6_review_cycle_runner
+    state_inputs:
+      - evidence batch closeout
+      - runtime blocker next subqueue
+      - Stage6 review loop runner artifact
+      - Stage6 review loop status artifact
+      - release field query results
+      - release evidence adapter plan
+      - original backtrace continuation
+      - P13B continuation results
+      - Stage1-6 sellable scoreboard
+    state_outputs:
+      - Stage6 review cycle manifest
+      - runtime blocker controller queue
+      - runtime blocker controller dispatch tasks
+      - runtime blocker worker follow-up queue
+      - operator projection status table
+    manual_gate_required: false
+    external_customer_action_enabled: false
+    replaces_human_memory: true
+    purpose: Continue Stage6 controller/subqueue routing from formal or standalone machine-readable artifacts instead of manual runner chaining.
+
+  - entrypoint_id: stage16_p13b_continuation_runner
+    kind: script
+    script: scripts/run-stage16-p13b-continuation-v1.ps1
+    entrypoint_role: orchestrator
+    status: FORMAL_CURRENT
+    automation_layer: stage16_p13b_continuation
+    module_or_command: storage.stage16_p13b_continuation_controller
+    state_inputs:
+      - P13B overlap triage state
+      - original readback targets
+      - bounded continuation budget
+    state_outputs:
+      - P13B continuation results
+      - next readback task candidates
+    manual_gate_required: false
+    external_customer_action_enabled: false
+    replaces_human_memory: true
+    purpose: Continue P13B overlap/readback work from persisted state and budgets.
+
+  - entrypoint_id: runtime_controller_entrypoint_transport
+    kind: script
+    script: scripts/run-runtime-entrypoint.ps1
+    entrypoint_role: orchestrator
+    status: SUPPORTING_TOOL
+    automation_layer: runtime_controller_entrypoint_transport
+    module_or_command: runtime.entrypoint_cli
+    state_inputs:
+      - entrypoint_id
+      - structured runtime payload JSON
+      - optional Stage1 market scan/source blueprint payload
+      - optional Stage2 capture records/readbacks
+      - optional Stage3 parse records/readbacks
+      - optional evidence batch closeout artifact
+      - optional runtime blocker next subqueue artifact
+      - optional Stage6 review loop artifact
+      - optional Stage6 review loop status artifact
+      - optional release field query artifact
+      - optional release evidence adapter plan artifact
+      - optional original backtrace continuation artifact
+      - optional Stage16 P13B continuation artifact
+      - optional Stage1-6 readiness table artifact
+      - optional Stage1-6 gap summary artifact
+      - optional Stage5 calibration sample artifact
+      - optional output JSON path
+    state_outputs:
+      - controller-owned run state
+      - internal dispatch queue
+      - audit replay ledger
+      - runtime_run_state repository record
+      - runtime_audit_event repository records
+      - runtime_operator_projection repository record
+    manual_gate_required: false
+    external_customer_action_enabled: false
+    replaces_human_memory: true
+    purpose: Route generic entrypoint_id payloads, including Stage1-3 front-chain inputs, through the runtime controller instead of script-owned business flow.
+
+  - entrypoint_id: stage1_3_repair_worker
+    kind: script
+    script: scripts/run-runtime-entrypoint.ps1
+    entrypoint_role: dispatch_runner
+    status: FORMAL_CURRENT
+    automation_layer: stage1_3_repair_worker
+    module_or_command: runtime.stage13_repair_worker
+    state_inputs:
+      - controller dispatch queue records
+      - Stage1-3 repair review tasks
+      - source metric counts
+      - input artifact refs
+    state_outputs:
+      - internal Stage1-3 repair workplan
+      - repair metric counts
+      - worker family routing summary
+    manual_gate_required: false
+    external_customer_action_enabled: false
+    replaces_human_memory: true
+    purpose: Convert controller-derived Stage1-3 repair review tasks into internal repair workplans without executing live external actions.
+
+  - entrypoint_id: gdcic_browser_authorized_readback_builder
+    kind: script
+    script: scripts/build-gdcic-browser-authorized-readback-v1.ps1
+    entrypoint_role: state_builder
+    status: FORMAL_CURRENT
+    automation_layer: stage4_gdcic_browser_authorized_readback
+    module_or_command: storage.gdcic_browser_authorized_readback
+    state_inputs:
+      - release evidence adapter plan
+      - optional authorized browser storage state
+      - bounded browser readback budget
+    state_outputs:
+      - GDCIC browser authorized readback manifest
+      - runtime worker result ledger
+      - project manager change readback summary
+    manual_gate_required: false
+    external_customer_action_enabled: false
+    replaces_human_memory: true
+    purpose: Build and persist GDCIC authorized browser readback state for Stage4 release evidence without enabling customer-visible actions.
+
+  - entrypoint_id: p13b_browser_original_readback_builder
+    kind: script
+    script: scripts/build-p13b-browser-original-readback-v1.ps1
+    entrypoint_role: state_builder
+    status: FORMAL_CURRENT
+    automation_layer: p13b_browser_original_readback
+    module_or_command: storage.p13b_browser_original_readback
+    state_inputs:
+      - P13B original notice backtrace artifact with browser-required records
+      - bounded public browser readback budget
+    state_outputs:
+      - browser original readback task records
+      - fixed public source URL and payload hash records
+      - extracted company/person/period fields and blocker taxonomy
+    manual_gate_required: false
+    external_customer_action_enabled: false
+    replaces_human_memory: true
+    purpose: Resolve JavaScript redirect or shell-only public original notices through a bounded browser worker and persist replayable internal evidence without customer-visible actions.
+
+  - entrypoint_id: stage1_6_scoreboard_comparison_builder
+    kind: script
+    script: scripts/build-stage1-6-scoreboard-comparison-v1.ps1
+    entrypoint_role: state_builder
+    status: FORMAL_CURRENT
+    automation_layer: stage1_6_scoreboard_comparison
+    module_or_command: storage.stage1_6_scoreboard_comparison
+    state_inputs:
+      - Stage1-6 sellable scoreboard artifacts
+      - optional Stage1-6 regression run roots
+    state_outputs:
+      - cross-run sellable rate comparison table
+      - Stage4 readback state comparison table
+      - Stage5 operational queue comparison table
+      - Stage1-3 long-tail comparison table
+    manual_gate_required: false
+    external_customer_action_enabled: false
+    replaces_human_memory: true
+    purpose: Compare live12/live15/live30/live50 Stage1-6 scoreboard artifacts without executing live or customer-visible actions.
+
+  - entrypoint_id: stage1_6_limited_success_attribution_builder
+    kind: script
+    script: scripts/build-stage1-6-limited-success-attribution-v1.ps1
+    entrypoint_role: state_builder
+    status: FORMAL_CURRENT
+    automation_layer: stage1_6_limited_success_attribution
+    module_or_command: storage.stage1_6_limited_success_attribution
+    state_inputs:
+      - successful limited-sellable Stage1-6 scoreboard artifact
+      - target Stage1-6 scoreboard artifact needing attribution
+    state_outputs:
+      - limited success path attribution table
+      - target not-limited blocker table
+      - B/C release evidence versus public identifier only gap summary
+    manual_gate_required: false
+    external_customer_action_enabled: false
+    replaces_human_memory: true
+    purpose: Explain why one real sample batch produced limited-sellable review candidates while another batch only reached public identifier readback, without executing live or customer-visible actions.
+
+  - entrypoint_id: runtime_blocker_controller_diagnostic_builder
+    kind: script
+    script: scripts/build-runtime-blocker-controller-diagnostic-v1.ps1
+    entrypoint_role: diagnostic
+    status: FORMAL_CURRENT
+    automation_layer: runtime_blocker_controller_diagnostic
+    module_or_command: storage.runtime_blocker_controller_diagnostic
+    state_inputs:
+      - Stage6 review cycle runner artifact
+      - runtime blocker controller queue
+      - runtime blocker controller dispatch tasks
+      - runtime blocker worker follow-up queue
+      - operator projection status table
+    state_outputs:
+      - compact runtime blocker controller diagnostic
+      - route/readiness/follow-up/safety summary
+      - owner next-action work queues
+    manual_gate_required: false
+    external_customer_action_enabled: false
+    replaces_human_memory: true
+    purpose: Summarize Stage4/Stage6 runtime blocker controller routing and remaining P0 queues without relying on huge raw JSON artifacts.
+
+  - entrypoint_id: runtime_blocker_fallback_source_plan_builder
+    kind: script
+    script: scripts/build-runtime-blocker-fallback-source-plan-v1.ps1
+    entrypoint_role: state_builder
+    status: FORMAL_CURRENT
+    automation_layer: runtime_blocker_fallback_source_plan
+    module_or_command: storage.runtime_blocker_fallback_source_plan
+    state_inputs:
+      - Stage6 review cycle runner artifact
+      - runtime blocker controller fallback_source records
+      - release field query task context
+    state_outputs:
+      - P13B-consumable fallback source plan
+      - data.ggzy/bid_show/YGP/local-authority fallback sequence
+      - Stage4 follow-up queue compatible records
+    manual_gate_required: false
+    external_customer_action_enabled: false
+    replaces_human_memory: true
+    purpose: Convert runtime blocker fallback_source dispatch records into public-source follow-up plans that can feed P13B and Stage6 projection without customer-visible actions.
+
+  - entrypoint_id: stage4_backfill_followup_queue_builder
+    kind: script
+    script: scripts/build-stage4-backfill-followup-queue-v1.ps1
+    entrypoint_role: state_builder
+    status: FORMAL_CURRENT
+    automation_layer: stage4_backfill_followup_queue
+    module_or_command: storage.stage4_backfill_followup_queue
+    state_inputs:
+      - Stage1-6 sellable scoreboard artifact
+      - Stage4 project code backfill gap details
+    state_outputs:
+      - Stage4 backfill follow-up queue
+      - public source retry and local authority fallback routing summary
+      - controller-consumable internal follow-up records
+    manual_gate_required: false
+    external_customer_action_enabled: false
+    replaces_human_memory: true
+    purpose: Convert Stage4 project-code/public-source backfill gaps into internal retry or local-authority fallback follow-up queues without executing live or customer-visible actions.
+
+  - entrypoint_id: release_evidence_promotion_bridge_builder
+    kind: script
+    script: scripts/build-release-evidence-promotion-bridge-v1.ps1
+    entrypoint_role: state_builder
+    status: FORMAL_CURRENT
+    automation_layer: release_evidence_promotion_bridge
+    module_or_command: storage.release_evidence_promotion_bridge
+    state_inputs:
+      - Stage1-6 latest scoreboard diagnostic release_evidence_promotion_queue
+      - public identifier backfill records
+    state_outputs:
+      - release evidence promotion bridge manifest
+      - Stage4 release adapter bridge plan
+      - release evidence adapter task table
+    manual_gate_required: false
+    external_customer_action_enabled: false
+    replaces_human_memory: true
+    purpose: Convert latest scoreboard public-identifier promotion records into B/C official readback tasks consumable by Stage4 field query without enabling customer-visible actions.
+
+  - entrypoint_id: production_provider_live_evidence_generator
+    kind: script
+    script: scripts/create-provider-live-evidence.ps1
+    entrypoint_role: validation
+    status: FORMAL_CURRENT
+    automation_layer: production_provider_live_evidence
+    module_or_command: runtime.provider_live_evidence
+    state_inputs:
+      - provider sandbox execution reference
+      - callback validation reference
+      - requester approval, audit, and operator action references
+      - file-backed evidence signing key
+    state_outputs:
+      - immutable signed provider-live evidence JSON
+      - evidence SHA256 without secret material
+    manual_gate_required: true
+    external_customer_action_enabled: false
+    replaces_human_memory: true
+    purpose: Bind actual provider sandbox, callback, approval, audit, and operator evidence into a signed production gate artifact.
+
+  - entrypoint_id: production_release_backup
+    kind: script
+    script: scripts/backup-production-release.ps1
+    entrypoint_role: orchestrator
+    status: FORMAL_CURRENT
+    automation_layer: production_recovery
+    module_or_command: runtime.private_pilot_backup
+    state_inputs:
+      - exact production tenant and instance
+      - immutable production Compose environment
+      - writer pause acknowledgement
+    state_outputs:
+      - content-addressed PostgreSQL and object-storage backup
+      - validated backup manifest
+    manual_gate_required: true
+    external_customer_action_enabled: false
+    replaces_human_memory: true
+    purpose: Create and validate a writer-quiesced backup through the production Compose overlay.
+
+  - entrypoint_id: production_release_isolated_restore
+    kind: script
+    script: scripts/restore-production-release-isolated.ps1
+    entrypoint_role: validation
+    status: FORMAL_CURRENT
+    automation_layer: production_recovery
+    module_or_command: runtime.private_pilot_backup
+    state_inputs:
+      - validated production backup
+      - immutable production Compose environment
+      - isolated restore acknowledgement and RTO target
+    state_outputs:
+      - isolated restore report
+      - schema, database count, object inventory, and RTO validation
+    manual_gate_required: true
+    external_customer_action_enabled: false
+    replaces_human_memory: true
+    purpose: Prove the exact production backup can restore without mutating active storage.
+
+  - entrypoint_id: production_release_rollback_drill
+    kind: script
+    script: scripts/rollback-production-release.ps1
+    entrypoint_role: orchestrator
+    status: FORMAL_CURRENT
+    automation_layer: production_recovery
+    module_or_command: scripts/rollback-production-release.ps1
+    state_inputs:
+      - current and previous immutable production environments
+      - validated production backup
+      - explicit rollback drill confirmation
+    state_outputs:
+      - health-gated rollback report
+      - current-release forward recovery evidence
+    manual_gate_required: true
+    external_customer_action_enabled: false
+    replaces_human_memory: true
+    purpose: Close customer ingress, prove the previous release starts against the current schema, and restore the current release.
+
+  - entrypoint_id: production_release_preflight
+    kind: script
+    script: scripts/run-production-release-preflight.ps1
+    entrypoint_role: validation
+    status: FORMAL_CURRENT
+    automation_layer: production_release
+    module_or_command: runtime.production_release_preflight
+    state_inputs:
+      - running production services
+      - signed provider evidence
+      - backup, restore, and rollback evidence
+      - actual alert delivery state
+    state_outputs:
+      - hash-bound release readiness
+      - technical blocker list
+    manual_gate_required: false
+    external_customer_action_enabled: false
+    replaces_human_memory: true
+    purpose: Fail closed unless every technical production gate is ready; active release validation additionally checks independent approval.
+
+  - entrypoint_id: production_release_deployer
+    kind: script
+    script: scripts/deploy-production-release.ps1
+    entrypoint_role: orchestrator
+    status: FORMAL_CURRENT
+    automation_layer: production_release
+    module_or_command: runtime.production_release_preflight
+    state_inputs:
+      - immutable production image digests
+      - production secret-file references
+      - recovery evidence
+      - explicit deployment confirmation
+    state_outputs:
+      - health-gated production services
+      - actual delivered alert probe
+      - technical readiness for separate release approval
+    manual_gate_required: true
+    external_customer_action_enabled: false
+    replaces_human_memory: true
+    limitations:
+      - Does not approve or activate a customer-visible release.
+      - Owner release request and distinct reviewer approval remain mandatory.
+    purpose: Deploy the fail-closed production stack, prove alert delivery, and stop at READY_FOR_APPROVAL.
+
+  - entrypoint_id: stage1_6_internal_http_orchestration_preview
+    kind: http_route
+    route: /internal/stage1-6/orchestrations
+    entrypoint_role: orchestrator
+    status: INTERNAL_PREVIEW_ONLY
+    automation_layer: stage1_6_internal_preview
+    module_or_command: src/api/routes/stage6.py
+    state_inputs:
+      - sanitized offline internal payload
+      - repository-backed Stage6 preview inputs
+    state_outputs:
+      - internal orchestration preview result
+      - blocked transport state for Stage1-5 real execution
+    manual_gate_required: false
+    external_customer_action_enabled: false
+    replaces_human_memory: true
+    limitations:
+      - Does not execute real Stage1-5 transport.
+      - External live transport remains disabled.
+      - Payload boundary must stay SANITIZED_OFFLINE_INTERNAL.
+    purpose: Provide internal preview orchestration without implying external live automation is enabled.
+
+  - entrypoint_id: controlled_gray_dedicated_scheduler_worker
+    kind: script
+    script: scripts/run-controlled-gray-scheduler-worker.ps1
+    entrypoint_role: orchestrator
+    status: FORMAL_CURRENT
+    automation_layer: controlled_gray_scheduler_worker
+    module_or_command: runtime.controlled_gray_scheduler_worker
+    state_inputs:
+      - existing storage-backed controlled_gray_public_orchestrator worker queue
+      - internal prepare-only job payload
+      - optional bounded recurring interval
+    state_outputs:
+      - durable queue lease and heartbeat events
+      - retry, suspend, dead-letter, success, cancellation, and recurrence readback
+      - stage progress, execution budget, timeout category, and process heartbeat readback
+      - controlled gray prepare artifacts
+      - worker process status JSON
+    manual_gate_required: false
+    external_customer_action_enabled: false
+    replaces_human_memory: true
+    limitations:
+      - Runs as a dedicated process; the HTTP run-once compatibility route never executes the long chain.
+      - Only internal prepare-only jobs are accepted; live execution, release, payment, delivery, and refund remain disabled.
+      - Core capability only; browser jobs are routed to operator_long_task_browser_worker.
+    purpose: Poll the existing durable worker queue, renew leases, recover expired work after restart, apply bounded retries/dead-letter, and enqueue future recurring occurrences without running long work inside Web requests.
+
+  - entrypoint_id: operator_long_task_browser_worker
+    kind: script
+    script: scripts/run-operator-long-task-worker.ps1
+    entrypoint_role: orchestrator
+    status: FORMAL_CURRENT
+    automation_layer: operator_long_task_browser_worker
+    module_or_command: runtime.operator_long_task_worker
+    state_inputs:
+      - storage-backed operator_long_tasks queue
+      - autonomous opportunity search jobs requiring browser capability
+      - allowlisted real public source capture jobs requiring browser capability
+    state_outputs:
+      - durable progress, heartbeat, execution budget, cancellation, retry, and terminal readback
+      - repository-backed autonomous search or public source capture business readback
+      - browser worker process status JSON
+    manual_gate_required: false
+    external_customer_action_enabled: false
+    replaces_human_memory: true
+    limitations:
+      - Internal-only source acquisition and analysis; customer touch, release, payment, delivery, and refund remain disabled.
+      - Cancellation is cooperative at declared checkpoints; a blocking third-party fetch cannot be force-killed inside its Python thread.
+      - Private-pilot image build/up/health still requires an available Docker daemon.
+    purpose: Keep browser-capable search and allowlisted public-source capture out of the API process while preserving durable capability routing, progress, cancellation, budgets, retries, and readback.
+
+script_classification_rules:
+  exact:
+    backup-private-pilot.ps1: orchestrator
+    backup-production-release.ps1: orchestrator
+    create-provider-live-evidence.ps1: validation
+    deploy-production-release.ps1: orchestrator
+    run-golden.ps1: validation
+    run-governance-contracts.ps1: validation
+    run-storage-migrations.ps1: migration
+    run-runtime-entrypoint.ps1: orchestrator
+    restore-private-pilot-isolated.ps1: validation
+    restore-production-release-isolated.ps1: validation
+    rollback-private-pilot-release.ps1: orchestrator
+    rollback-production-release.ps1: orchestrator
+    invoke-local-json-test-env.ps1: validation
+    clean-python-cache.ps1: utility
+    cleanup-local-artifacts.ps1: utility
+  prefixes:
+    analyze-: diagnostic
+    audit-: diagnostic
+    build-: state_builder
+    check-: validation
+    diagnose-: diagnostic
+    doctor: validation
+    extract-: utility
+    lint-: validation
+    migrate-: migration
+    parse-: utility
+    plan-: planning
+    qa-: diagnostic
+    run-: controlled_live_runner
+    trace-: diagnostic
+    triage-: diagnostic
+    validate-: validation

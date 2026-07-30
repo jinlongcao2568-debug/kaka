@@ -1,0 +1,43 @@
+{
+  "contract_id": "operator_support_workbench_contract",
+  "contract_version": "1.0.0",
+  "status": "internal_operable_private_single_tenant",
+  "access_boundary": {
+    "allowed_roles": ["owner", "admin"],
+    "required_permission": "internal_support_admin",
+    "customer_self_service": false,
+    "cross_tenant_query_enabled": false
+  },
+  "read_model": {
+    "sources": [
+      "persisted_worker_queue_item",
+      "persisted_worker_queue_event",
+      "deployment_tenant_context",
+      "versioned_contract_catalog"
+    ],
+    "raw_task_payload_exposed": false,
+    "raw_error_exposed": false,
+    "fact_layer_edit_enabled": false
+  },
+  "task_actions": {
+    "supported": ["RETRY"],
+    "retryable_states": ["failed", "dead-letter"],
+    "requires_exact_confirmation": "RETRY_FAILED_INTERNAL_TASK",
+    "requires_expected_status": true,
+    "requires_expected_updated_at": true,
+    "reason_required": true,
+    "payload_mutation_allowed": false,
+    "live_or_external_boundary_expansion_allowed": false,
+    "audit_event_required": true
+  },
+  "fixed_boundaries": {
+    "internal_only": true,
+    "private_single_tenant": true,
+    "customer_visible": false,
+    "live_execution_enabled": false,
+    "payment_execution_enabled": false,
+    "delivery_execution_enabled": false,
+    "automatic_refund_enabled": false,
+    "formal_fact_write_enabled": false
+  }
+}

@@ -38,6 +38,32 @@ class P13BCompanyHistoryOverlapTriageTests(unittest.TestCase):
             self.assertEqual(states, {"PLAN_ONLY_NOT_EXECUTED"})
             self.assertTrue((root / "out" / "company-history-overlap-triage-v1.json").exists())
 
+    def test_project_ids_filter_limits_project_and_company_tasks(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_p12_tables(root)
+
+            result = build_p13b_company_history_overlap_triage(
+                input_root=root,
+                output_root=root / "out",
+                project_ids=["PROJ-CN-GD-JG2026-20002"],
+                created_at="2026-05-15T00:00:00+08:00",
+            )
+
+            summary = result["summary"]
+            self.assertEqual(summary["selected_project_ids"], ["PROJ-CN-GD-JG2026-20002"])
+            self.assertEqual(summary["selected_project_count"], 1)
+            self.assertEqual(summary["project_task_count"], 1)
+            self.assertEqual(summary["company_history_query_task_count"], 2)
+            self.assertEqual(
+                [record["project_id"] for record in result["manifest"]["project_task_records"]],
+                ["PROJ-CN-GD-JG2026-20002"],
+            )
+            self.assertEqual(
+                {record["project_id"] for record in result["manifest"]["company_history_query_records"]},
+                {"PROJ-CN-GD-JG2026-20002"},
+            )
+
     def test_live_fake_query_extracts_person_period_and_overlap_signal(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -286,6 +312,587 @@ class P13BCompanyHistoryOverlapTriageTests(unittest.TestCase):
             tasks = result["manifest"]["company_history_query_records"]
             self.assertEqual(len([task for task in tasks if task["candidate_company_name"] == "广东甲公司"]), 1)
 
+    def test_gdcic_alternative_public_routes_seed_company_history_tasks(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            readback_json = root / "gdcic" / "gdcic-browser-authorized-readback-v1.json"
+            _write_gdcic_alternative_readback(readback_json)
+
+            result = build_p13b_company_history_overlap_triage(
+                gdcic_browser_readback_json=readback_json,
+                output_root=root / "out",
+                created_at="2026-05-25T00:00:00+08:00",
+            )
+
+            summary = result["summary"]
+            self.assertTrue(result["safe_to_execute"])
+            self.assertEqual(summary["input_mode"], "GDCIC_ALTERNATIVE_PUBLIC_SOURCE_ROUTES")
+            self.assertEqual(summary["gdcic_alternative_public_source_route_count"], 2)
+            self.assertEqual(summary["project_task_count"], 1)
+            self.assertEqual(summary["company_history_query_task_count"], 2)
+            project = result["manifest"]["project_task_records"][0]
+            self.assertEqual(project["gdcic_alternative_target_types"], ["contract_performance", "project_manager_change_notice"])
+            self.assertIn("https://ywtb.gzggzy.cn/jyfw/07-a.html", project["candidate_notice_source_urls"])
+            companies = {task["candidate_company_name"] for task in result["manifest"]["company_history_query_records"]}
+            self.assertEqual(companies, {"广东甲公司", "广东乙公司"})
+            for task in result["manifest"]["company_history_query_records"]:
+                self.assertIn("张三", task["responsible_person_names"])
+                self.assertEqual(task["query_state"], "PLAN_ONLY_NOT_EXECUTED")
+
+    def test_gdcic_alternative_public_routes_filter_responsible_person_noise(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            readback_json = root / "gdcic" / "gdcic-browser-authorized-readback-v1.json"
+            _write_gdcic_alternative_readback(readback_json)
+            payload = json.loads(readback_json.read_text(encoding="utf-8"))
+            tasks = payload["manifest"]["browser_readback_task_records"]
+            routes = payload["summary"]["alternative_public_source_route_records"]
+            tasks[0]["person_name"] = "通过"
+            tasks[0]["query_params"]["personName"] = "公开"
+            tasks[0]["query_params"]["projectManagerName"] = "黄彤斌"
+            routes[0]["person_name"] = "单元"
+            tasks[1]["person_name"] = "洪伟彬"
+            tasks[1]["query_params"]["personName"] = "李升科"
+            tasks[1]["query_params"]["projectManagerName"] = "A123"
+            routes[1]["person_name"] = "公开"
+            tasks.append(
+                {
+                    **tasks[0],
+                    "gdcic_browser_readback_task_id": "GDCIC-ALT-NOISE",
+                    "person_name": "达到国家",
+                    "query_params": {
+                        **tasks[0]["query_params"],
+                        "personName": "达到国家",
+                        "projectManagerName": "工程合格",
+                    },
+                }
+            )
+            routes.append(
+                {
+                    **routes[0],
+                    "gdcic_browser_readback_task_id": "GDCIC-ALT-NOISE",
+                    "person_name": "达到国家",
+                    "release_evidence_target_type": "project_manager_change_notice",
+                }
+            )
+            readback_json.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+            result = build_p13b_company_history_overlap_triage(
+                gdcic_browser_readback_json=readback_json,
+                output_root=root / "out",
+                created_at="2026-05-25T00:00:00+08:00",
+            )
+
+            project = result["manifest"]["project_task_records"][0]
+            self.assertEqual(project["responsible_person_names"], ["黄彤斌", "洪伟彬", "李升科"])
+            for invalid_name in ["通过", "公开", "单元", "A123", "达到国家", "工程合格"]:
+                self.assertNotIn(invalid_name, project["responsible_person_names"])
+            for task in result["manifest"]["company_history_query_records"]:
+                self.assertEqual(task["responsible_person_names"], ["黄彤斌", "洪伟彬", "李升科"])
+
+    def test_stage4_followup_queue_seeds_public_source_tasks_without_gdcic_readback(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            queue_json = root / "followup" / "stage4-backfill-followup-queue-v1.json"
+            field_json = root / "field-query" / "guangdong-local-field-query-probe-v1.json"
+            _write_stage4_followup_queue(queue_json)
+            _write_release_field_query(field_json)
+
+            result = build_p13b_company_history_overlap_triage(
+                stage4_backfill_followup_queue_json=queue_json,
+                release_field_query_json=field_json,
+                output_root=root / "out",
+                created_at="2026-05-25T00:00:00+08:00",
+            )
+
+            summary = result["summary"]
+            self.assertTrue(result["safe_to_execute"])
+            self.assertEqual(summary["input_mode"], "STAGE4_BACKFILL_FOLLOWUP_PUBLIC_SOURCE_ROUTES")
+            self.assertEqual(summary["project_task_count"], 1)
+            self.assertEqual(summary["company_history_query_task_count"], 1)
+            self.assertEqual(summary["local_authority_source_task_count"], 1)
+            project = result["manifest"]["project_task_records"][0]
+            self.assertFalse(project["stage4_gdcic_project_code_route_allowed"])
+            self.assertIn("data_ggzy_company_history_search", json.dumps(project["stage4_public_source_fallback_sequence"]))
+            local_authority_task = result["manifest"]["local_authority_source_task_records"][0]
+            self.assertEqual(local_authority_task["source_task_state"], "LOCAL_AUTHORITY_SOURCE_PLAN_READY")
+            self.assertEqual(local_authority_task["local_authority_readback_state"], "PLAN_ONLY_NOT_EXECUTED")
+            self.assertFalse(local_authority_task["customer_visible_allowed"])
+            self.assertTrue(local_authority_task["query_miss_is_not_clearance"])
+            local_authority_readback = result["manifest"]["local_authority_source_readback_records"][0]
+            self.assertEqual(local_authority_readback["local_authority_readback_state"], "PLAN_ONLY_NOT_EXECUTED")
+            task = result["manifest"]["company_history_query_records"][0]
+            self.assertEqual(task["candidate_company_name"], "广东甲公司")
+            self.assertIn("张三", task["responsible_person_names"])
+            self.assertIn("https://ywtb.gzggzy.cn/jyfw/07-a.html", task["candidate_notice_source_urls"])
+
+    def test_stage4_followup_queue_embedded_context_seeds_company_tasks_without_field_query(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            queue_json = root / "followup" / "stage4-backfill-followup-queue-v1.json"
+            _write_json(
+                queue_json,
+                {
+                    "records": [
+                        {
+                            "followup_record_id": "FOLLOWUP-CONTEXT",
+                            "project_id": "PROJ-CN-GD-JG2026-QUEUE-CONTEXT",
+                            "project_name": "广州队列上下文项目中标候选人公示",
+                            "followup_route": "local_authority_blocked_retry_or_alternate_source",
+                            "followup_queue_state": "FOLLOWUP_SOURCE_PLAN_REQUIRED",
+                            "execution_priority": "HIGH_PUBLIC_SOURCE_DEEPENING",
+                            "required_input": ["alternate_project_local_authority_source_url_or_adapter"],
+                            "recommended_next_action": "retry_blocked_local_authority_source_or_choose_alternate_official_entry_without_clearance_claim",
+                            "candidate_companies": ["广东甲公司"],
+                            "responsible_person_names": ["张三"],
+                            "candidate_notice_source_urls": ["https://ywtb.gzggzy.cn/jyfw/context.html"],
+                            "project_source_urls": ["https://ywtb.gzggzy.cn/jyfw/context.html"],
+                            "context_source": "stage4_release_adapter_bridge_plan",
+                            "public_source_fallback_sequence": [
+                                {"source_kind": "data_ggzy_company_history_search"},
+                                {"source_kind": "project_local_authority_public_source"},
+                            ],
+                            "customer_visible_allowed": False,
+                            "query_miss_is_not_clearance": True,
+                            "no_legal_conclusion": True,
+                        }
+                    ]
+                },
+            )
+
+            result = build_p13b_company_history_overlap_triage(
+                stage4_backfill_followup_queue_json=queue_json,
+                output_root=root / "out",
+                created_at="2026-05-25T00:00:00+08:00",
+            )
+
+        summary = result["summary"]
+        self.assertTrue(result["safe_to_execute"])
+        self.assertEqual(summary["company_history_query_task_count"], 1)
+        self.assertEqual(summary["local_authority_source_task_count"], 1)
+        project = result["manifest"]["project_task_records"][0]
+        self.assertEqual(project["stage4_followup_execution_priority"], "HIGH_PUBLIC_SOURCE_DEEPENING")
+        self.assertEqual(project["stage4_followup_context_source"], "stage4_release_adapter_bridge_plan")
+        task = result["manifest"]["company_history_query_records"][0]
+        self.assertEqual(task["candidate_company_name"], "广东甲公司")
+        self.assertIn("张三", task["responsible_person_names"])
+        self.assertIn("https://ywtb.gzggzy.cn/jyfw/context.html", task["candidate_notice_source_urls"])
+        local_authority_task = result["manifest"]["local_authority_source_task_records"][0]
+        self.assertEqual(local_authority_task["stage4_followup_execution_priority"], "HIGH_PUBLIC_SOURCE_DEEPENING")
+        self.assertIn(
+            "alternate_project_local_authority_source_url_or_adapter",
+            local_authority_task["stage4_followup_required_input"],
+        )
+        self.assertFalse(local_authority_task["customer_visible_allowed"])
+
+    def test_stage4_followup_queue_emits_ygp_original_readback_inputs_from_official_context(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            queue_json = root / "followup" / "stage4-backfill-followup-queue-v1.json"
+            _write_json(
+                queue_json,
+                {
+                    "records": [
+                        {
+                            "followup_record_id": "FOLLOWUP-YGP",
+                            "project_id": "PROJ-CN-GD-JG2026-YGP-1",
+                            "project_name": "广州YGP回读项目中标候选人公示",
+                            "followup_route": "official_readback_public_identifier_bridge",
+                            "followup_queue_state": "FOLLOWUP_SOURCE_PLAN_REQUIRED",
+                            "candidate_notice_source_urls": ["https://ywtb.gzggzy.cn/jyfw/ygp.html"],
+                            "public_source_fallback_sequence": [
+                                {"source_kind": "data_ggzy_company_history_search"},
+                                {"source_kind": "ygp_original_notice_readback"},
+                            ],
+                            "stage4_official_readback_context": {
+                                "stage4_official_readback_context_state": "OFFICIAL_READBACK_READY_STAGE4_BRIDGE_FOLLOWUP_REQUIRED",
+                                "ygp_project_code_variants": ["E4413000835979563001"],
+                                "ygp_biz_code_variants": ["3C52"],
+                                "ygp_site_code_variants": ["441300"],
+                                "ygp_notice_id_variants": ["7fcdf98f7cd04bc5b2a0167b4f1c5733"],
+                                "gdcic_project_code_route_allowed": False,
+                                "must_not_extract_from_full_text_numbers": True,
+                                "customer_visible_allowed": False,
+                                "query_miss_is_not_clearance": True,
+                                "no_legal_conclusion": True,
+                            },
+                            "customer_visible_allowed": False,
+                            "query_miss_is_not_clearance": True,
+                            "no_legal_conclusion": True,
+                        }
+                    ]
+                },
+            )
+
+            result = build_p13b_company_history_overlap_triage(
+                stage4_backfill_followup_queue_json=queue_json,
+                output_root=root / "out",
+                created_at="2026-05-25T00:00:00+08:00",
+            )
+
+        summary = result["summary"]
+        self.assertEqual(summary["ygp_input_count"], 1)
+        self.assertEqual(summary["stage4_official_readback_input_count"], 1)
+        self.assertEqual(
+            summary["stage4_official_readback_input_state_counts"],
+            {"YGP_PUBLIC_IDENTIFIER_READY_FOR_ORIGINAL_READBACK": 1},
+        )
+        readback_input = result["manifest"]["stage4_official_readback_input_records"][0]
+        self.assertEqual(readback_input["source_kind"], "ygp_original_notice_readback")
+        self.assertEqual(readback_input["ygp_project_code"], "E4413000835979563001")
+        self.assertEqual(readback_input["ygp_biz_code"], "3C52")
+        self.assertEqual(readback_input["ygp_site_code"], "441300")
+        self.assertEqual(readback_input["ygp_notice_id"], "7fcdf98f7cd04bc5b2a0167b4f1c5733")
+        self.assertFalse(readback_input["gdcic_project_code_route_allowed"])
+        self.assertTrue(readback_input["must_not_extract_from_full_text_numbers"])
+        self.assertFalse(readback_input["customer_visible_allowed"])
+        self.assertTrue(readback_input["query_miss_is_not_clearance"])
+        self.assertTrue(readback_input["no_legal_conclusion"])
+
+    def test_stage4_followup_queue_alternate_sources_expand_local_authority_tasks(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            queue_json = root / "followup" / "stage4-backfill-followup-queue-v1.json"
+            _write_json(
+                queue_json,
+                {
+                    "records": [
+                        {
+                            "followup_record_id": "FOLLOWUP-ALTERNATES",
+                            "project_id": "PROJ-CN-GD-JG2026-QUEUE-ALT",
+                            "project_name": "广州备用入口队列项目中标候选人公示",
+                            "followup_route": "local_authority_not_found_specific_endpoint_or_manual_source",
+                            "followup_queue_state": "FOLLOWUP_SOURCE_PLAN_REQUIRED",
+                            "candidate_companies": ["广东甲公司"],
+                            "responsible_person_names": ["张三"],
+                            "candidate_notice_source_urls": ["https://ywtb.gzggzy.cn/jyfw/alt.html"],
+                            "project_source_urls": ["https://ywtb.gzggzy.cn/jyfw/alt.html"],
+                            "local_authority_readback_context": {
+                                "local_authority_region_code": "CN-GD-GZ",
+                                "local_authority_readback_state": "NOT_FOUND",
+                                "query_miss_is_not_clearance": True,
+                                "customer_visible_allowed": False,
+                                "no_legal_conclusion": True,
+                            },
+                            "alternate_local_authority_source_candidates": [
+                                {
+                                    "candidate_source_id": "gz_zfcj_construction_permit_public_api",
+                                    "source_name": "广州市住房和城乡建设局 / 建筑工程施工许可证公示信息",
+                                    "source_url": "https://zfcj.gz.gov.cn/zfcj/gczlaq/constructionPermitInformation/",
+                                    "api_url": "https://zfcj.gz.gov.cn/ysqgk/Api/WebApi/sgxkxxlb.ashx",
+                                    "recommended_query_mode": "specific_project_or_company_keyword_search",
+                                },
+                                {
+                                    "candidate_source_id": "gz_zfcj_completion_acceptance_public_api",
+                                    "source_name": "广州市住房和城乡建设局 / 工程竣工验收信息",
+                                    "source_url": "https://zfcj.gz.gov.cn/zfcj/gczlaq/completionAcceptance/",
+                                    "api_url": "https://zfcj.gz.gov.cn/ysqgk/Api/WebApi/gcjgysxxlb.ashx",
+                                    "recommended_query_mode": "specific_project_or_company_keyword_search",
+                                },
+                                {
+                                    "candidate_source_id": "gz_zfcj_credit_double_publicity",
+                                    "source_name": "广州市住房和城乡建设局 / 信用信息双公示",
+                                    "source_url": "https://zfcj.gz.gov.cn/zfcj/xyxx/",
+                                    "api_url": "",
+                                    "recommended_query_mode": "specific_search_endpoint_or_manual_source_path",
+                                },
+                            ],
+                            "customer_visible_allowed": False,
+                            "query_miss_is_not_clearance": True,
+                            "no_legal_conclusion": True,
+                        }
+                    ]
+                },
+            )
+
+            result = build_p13b_company_history_overlap_triage(
+                stage4_backfill_followup_queue_json=queue_json,
+                output_root=root / "out",
+                created_at="2026-05-25T00:00:00+08:00",
+            )
+
+        summary = result["summary"]
+        self.assertEqual(summary["local_authority_source_task_count"], 3)
+        self.assertEqual(summary["local_authority_source_readback_count"], 3)
+        tasks = result["manifest"]["local_authority_source_task_records"]
+        self.assertEqual(
+            {task["alternate_source_candidate_id"] for task in tasks},
+            {
+                "gz_zfcj_construction_permit_public_api",
+                "gz_zfcj_completion_acceptance_public_api",
+                "gz_zfcj_credit_double_publicity",
+            },
+        )
+        for task in tasks:
+            self.assertEqual(task["local_authority_region_code"], "CN-GD-GZ")
+            self.assertEqual(task["local_authority_region_basis"], "stage4_followup_alternate_candidate")
+            self.assertEqual(task["local_authority_readback_state"], "PLAN_ONLY_NOT_EXECUTED")
+            self.assertFalse(task["customer_visible_allowed"])
+            self.assertTrue(task["query_miss_is_not_clearance"])
+            self.assertIn("source_url", task)
+            self.assertIn("api_url", task)
+        readbacks = result["manifest"]["local_authority_source_readback_records"]
+        self.assertEqual({record["local_authority_readback_state"] for record in readbacks}, {"PLAN_ONLY_NOT_EXECUTED"})
+
+    def test_stage4_followup_ygp_site_code_infers_city_local_authority_source(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            queue_json = root / "followup" / "stage4-backfill-followup-queue-v1.json"
+            _write_json(
+                queue_json,
+                {
+                    "records": [
+                        {
+                            "followup_record_id": "FOLLOWUP-YGP-SITE",
+                            "project_id": "PROJ-CN-GD-JG2026-HZ",
+                            "followup_route": "local_authority_fallback_after_ygp_not_found",
+                            "followup_queue_state": "FOLLOWUP_SOURCE_PLAN_REQUIRED",
+                            "stage4_official_readback_context": {
+                                "ygp_project_code_variants": ["E4413000835979563001"],
+                                "ygp_site_code_variants": ["441300"],
+                                "ygp_notice_id_variants": ["notice-hz"],
+                                "gdcic_project_code_route_allowed": False,
+                                "must_not_extract_from_full_text_numbers": True,
+                            },
+                            "customer_visible_allowed": False,
+                            "query_miss_is_not_clearance": True,
+                            "no_legal_conclusion": True,
+                        }
+                    ]
+                },
+            )
+
+            result = build_p13b_company_history_overlap_triage(
+                stage4_backfill_followup_queue_json=queue_json,
+                output_root=root / "out",
+                created_at="2026-05-25T00:00:00+08:00",
+            )
+
+        task = result["manifest"]["local_authority_source_task_records"][0]
+        self.assertEqual(task["local_authority_region_code"], "CN-GD-HZ")
+        self.assertEqual(task["local_authority_region_basis"], "ygp_site_code_public_identifier")
+        self.assertEqual(task["source_profile_id"], "HUIZHOU-ZJJ-OFFICIAL-PORTAL")
+        self.assertEqual(task["source_url"], "https://zjj.huizhou.gov.cn/")
+        self.assertEqual(task["jurisdiction_adapter_resolution_state"], "JURISDICTION_LOCAL_HOUSING_ADAPTER_PLANNED")
+        self.assertTrue(task["no_fallback_to_guangdong_or_guangzhou"])
+        self.assertFalse(task["customer_visible_allowed"])
+        self.assertTrue(task["query_miss_is_not_clearance"])
+
+    def test_stage4_followup_queue_live_local_authority_readback_emits_match_without_customer_claim(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            queue_json = root / "followup" / "stage4-backfill-followup-queue-v1.json"
+            field_json = root / "field-query" / "guangdong-local-field-query-probe-v1.json"
+            _write_stage4_followup_queue(queue_json)
+            _write_release_field_query(field_json)
+
+            result = build_p13b_company_history_overlap_triage(
+                stage4_backfill_followup_queue_json=queue_json,
+                release_field_query_json=field_json,
+                output_root=root / "out",
+                enable_live_public_query=True,
+                http_getter=_fake_http_getter,
+                created_at="2026-05-25T00:00:00+08:00",
+            )
+
+            summary = result["summary"]
+            self.assertEqual(summary["local_authority_source_readback_state_counts"], {"MATCHED": 1})
+            readback = result["manifest"]["local_authority_source_readback_records"][0]
+            self.assertEqual(readback["local_authority_readback_state"], "MATCHED")
+            self.assertEqual(
+                readback["match_basis"],
+                "project_name_core_keyword_present_in_local_authority_source",
+            )
+            self.assertFalse(readback["customer_visible_allowed"])
+            self.assertTrue(readback["query_miss_is_not_clearance"])
+
+    def test_stage4_followup_queue_local_authority_timeout_is_blocked_not_crash(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            queue_json = root / "followup" / "stage4-backfill-followup-queue-v1.json"
+            field_json = root / "field-query" / "guangdong-local-field-query-probe-v1.json"
+            _write_stage4_followup_queue(queue_json)
+            _write_release_field_query(field_json)
+
+            def timeout_getter(url: str, context: dict[str, object]) -> dict[str, object]:
+                raise TimeoutError("read timed out")
+
+            result = build_p13b_company_history_overlap_triage(
+                stage4_backfill_followup_queue_json=queue_json,
+                release_field_query_json=field_json,
+                output_root=root / "out",
+                enable_live_public_query=True,
+                http_getter=timeout_getter,
+                created_at="2026-05-25T00:00:00+08:00",
+            )
+
+            summary = result["summary"]
+            self.assertEqual(summary["local_authority_source_readback_state_counts"], {"BLOCKED": 1})
+            readback = result["manifest"]["local_authority_source_readback_records"][0]
+            self.assertEqual(readback["local_authority_readback_state"], "BLOCKED")
+            self.assertIn("local_authority_source_http_timeout_or_unavailable", readback["blocker_taxonomy"])
+            self.assertEqual(readback["error_type"], "TimeoutError")
+            self.assertIn("read timed out", readback["error_message"])
+            self.assertFalse(readback["customer_visible_allowed"])
+            self.assertTrue(readback["query_miss_is_not_clearance"])
+
+    def test_stage4_followup_queue_local_authority_http_error_keeps_diagnostic_fields(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            queue_json = root / "followup" / "stage4-backfill-followup-queue-v1.json"
+            field_json = root / "field-query" / "guangdong-local-field-query-probe-v1.json"
+            _write_stage4_followup_queue(queue_json)
+            _write_release_field_query(field_json)
+
+            def blocked_getter(url: str, context: dict[str, object]) -> dict[str, object]:
+                return {
+                    "status_code": 0,
+                    "content_type": "",
+                    "body": "",
+                    "url": url,
+                    "error_type": "URLError",
+                    "error": "SSL connection could not be established",
+                }
+
+            result = build_p13b_company_history_overlap_triage(
+                stage4_backfill_followup_queue_json=queue_json,
+                release_field_query_json=field_json,
+                output_root=root / "out",
+                enable_live_public_query=True,
+                http_getter=blocked_getter,
+                created_at="2026-05-25T00:00:00+08:00",
+            )
+
+            summary = result["summary"]
+            self.assertEqual(summary["local_authority_source_readback_state_counts"], {"BLOCKED": 1})
+            readback = result["manifest"]["local_authority_source_readback_records"][0]
+            self.assertEqual(readback["local_authority_readback_state"], "BLOCKED")
+            self.assertIn("local_authority_source_http_blocked_or_unavailable", readback["blocker_taxonomy"])
+            self.assertEqual(readback["error_type"], "URLError")
+            self.assertEqual(readback["error_message"], "SSL connection could not be established")
+            self.assertEqual(readback["response_url"], readback["source_url"])
+            self.assertFalse(readback["customer_visible_allowed"])
+            self.assertTrue(readback["query_miss_is_not_clearance"])
+
+    def test_stage4_followup_queue_unresolved_local_authority_region_is_machine_blocked(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            queue_json = root / "followup" / "stage4-backfill-followup-queue-v1.json"
+            queue_json.parent.mkdir(parents=True)
+            _write_json(
+                queue_json,
+                {
+                    "records": [
+                        {
+                            "followup_record_id": "FOLLOWUP-REGION-1",
+                            "project_id": "PROJ-REGION-MISSING",
+                            "project_name": "无城市标记项目中标候选人公示",
+                            "followup_route": "local_authority_not_found_specific_endpoint_or_manual_source",
+                            "followup_queue_state": "FOLLOWUP_SOURCE_PLAN_REQUIRED",
+                            "public_source_fallback_sequence": [
+                                {"source_kind": "project_local_authority_public_source"}
+                            ],
+                            "alternate_local_authority_source_candidates": [
+                                {
+                                    "candidate_source_id": "local_authority_region_resolution_required",
+                                    "source_name": "项目所在地住建或主管部门公开入口待识别",
+                                    "source_url": "",
+                                    "recommended_query_mode": "resolve_historical_project_jurisdiction_before_retry",
+                                }
+                            ],
+                            "customer_visible_allowed": False,
+                            "query_miss_is_not_clearance": True,
+                            "no_legal_conclusion": True,
+                        }
+                    ]
+                },
+            )
+
+            result = build_p13b_company_history_overlap_triage(
+                stage4_backfill_followup_queue_json=queue_json,
+                output_root=root / "out",
+                enable_live_public_query=True,
+                created_at="2026-05-25T00:00:00+08:00",
+            )
+
+            summary = result["summary"]
+            self.assertEqual(
+                summary["local_authority_resolution_state_counts"],
+                {"LOCAL_AUTHORITY_REGION_RESOLUTION_REQUIRED": 1},
+            )
+            self.assertEqual(
+                summary["local_authority_source_url_resolution_state_counts"],
+                {"SOURCE_URL_BLOCKED_BY_REGION_UNRESOLVED": 1},
+            )
+            readback = result["manifest"]["local_authority_source_readback_records"][0]
+            self.assertEqual(readback["local_authority_readback_state"], "BLOCKED")
+            self.assertEqual(
+                readback["local_authority_resolution_state"],
+                "LOCAL_AUTHORITY_REGION_RESOLUTION_REQUIRED",
+            )
+            self.assertIn("local_authority_region_unresolved", readback["blocker_taxonomy"])
+            self.assertEqual(
+                readback["recommended_next_action"],
+                "resolve_historical_project_jurisdiction_before_local_authority_readback",
+            )
+            self.assertFalse(readback["customer_visible_allowed"])
+            self.assertTrue(readback["query_miss_is_not_clearance"])
+
+    def test_stage4_followup_queue_guangzhou_trade_platform_url_resolves_local_authority_source(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            queue_json = root / "followup" / "stage4-backfill-followup-queue-v1.json"
+            queue_json.parent.mkdir(parents=True)
+            _write_json(
+                queue_json,
+                {
+                    "records": [
+                        {
+                            "followup_record_id": "FOLLOWUP-GZ-DOMAIN-1",
+                            "project_id": "PROJ-GZ-DOMAIN",
+                            "project_name": "无城市标记项目中标候选人公示",
+                            "followup_route": "local_authority_not_found_specific_endpoint_or_manual_source",
+                            "followup_queue_state": "FOLLOWUP_SOURCE_PLAN_REQUIRED",
+                            "candidate_notice_source_urls": [
+                                "https://ywtb.gzggzy.cn/jyfw/domain-only.html"
+                            ],
+                            "public_source_fallback_sequence": [
+                                {"source_kind": "project_local_authority_public_source"}
+                            ],
+                            "customer_visible_allowed": False,
+                            "query_miss_is_not_clearance": True,
+                            "no_legal_conclusion": True,
+                        }
+                    ]
+                },
+            )
+
+            def gz_domain_getter(url: str, context: Mapping[str, Any]) -> Mapping[str, Any]:
+                if "zfcj.gz.gov.cn" in url:
+                    return _json_response({"title": "无城市标记项目中标候选人公示", "content": "无城市标记项目公开信息"})
+                return _fake_http_getter(url, context)
+
+            result = build_p13b_company_history_overlap_triage(
+                stage4_backfill_followup_queue_json=queue_json,
+                output_root=root / "out",
+                enable_live_public_query=True,
+                http_getter=gz_domain_getter,
+                created_at="2026-05-26T00:00:00+08:00",
+            )
+
+        summary = result["summary"]
+        self.assertEqual(summary["local_authority_resolution_state_counts"], {"LOCAL_AUTHORITY_SOURCE_READY": 1})
+        self.assertEqual(summary["local_authority_source_readback_state_counts"], {"MATCHED": 1})
+        task = result["manifest"]["local_authority_source_task_records"][0]
+        self.assertEqual(task["local_authority_region_code"], "CN-GD-GZ")
+        self.assertEqual(task["local_authority_region_basis"], "current_candidate_trade_platform_domain")
+        self.assertEqual(task["source_profile_id"], "GUANGZHOU-ZFCJ-CREDIT-DOUBLE-PUBLICITY")
+        self.assertEqual(task["local_authority_source_url_resolution_state"], "SOURCE_URL_RESOLVED")
+        readback = result["manifest"]["local_authority_source_readback_records"][0]
+        self.assertEqual(readback["local_authority_readback_state"], "MATCHED")
+        self.assertFalse(readback["customer_visible_allowed"])
+        self.assertTrue(readback["query_miss_is_not_clearance"])
+
     def test_ygp_live_fake_query_extracts_overlap_and_backtrace_inputs(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -469,9 +1076,116 @@ def _coverage_record(project_suffix: str, city_code: str, state: str, *, oversiz
     }
 
 
+def _write_gdcic_alternative_readback(path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    task_base = {
+        "project_id": "PROJ-GDCIC-ALT-1",
+        "project_name": "广州测试项目中标候选人公示",
+        "candidate_company_name": "(主)广东甲公司;(成)广东乙公司",
+        "person_name": "张三",
+        "query_params": {
+            "triggerSourceUrl": "https://ywtb.gzggzy.cn/jyfw/07-a.html",
+            "personName": "张三",
+            "projectManagerName": "张三",
+        },
+        "source_url": "http://210.76.80.152:8008/JG/home/Indexht",
+    }
+    payload = {
+        "manifest": {
+            "manifest_kind": "gdcic_browser_authorized_readback_v1_manifest",
+            "browser_readback_task_records": [
+                {
+                    **task_base,
+                    "gdcic_browser_readback_task_id": "GDCIC-ALT-CONTRACT",
+                    "release_evidence_target_type": "contract_performance",
+                },
+                {
+                    **task_base,
+                    "gdcic_browser_readback_task_id": "GDCIC-ALT-PM",
+                    "release_evidence_target_type": "project_manager_change_notice",
+                },
+            ],
+        },
+        "summary": {
+            "alternative_public_source_route_count": 2,
+            "alternative_public_source_route_records": [
+                {
+                    "gdcic_browser_readback_task_id": "GDCIC-ALT-CONTRACT",
+                    "project_id": "PROJ-GDCIC-ALT-1",
+                    "project_name": "广州测试项目中标候选人公示",
+                    "candidate_company_name": "(主)广东甲公司;(成)广东乙公司",
+                    "person_name": "张三",
+                    "release_evidence_target_type": "contract_performance",
+                    "route_state": "ALTERNATIVE_PUBLIC_SOURCE_ROUTE_READY",
+                },
+                {
+                    "gdcic_browser_readback_task_id": "GDCIC-ALT-PM",
+                    "project_id": "PROJ-GDCIC-ALT-1",
+                    "project_name": "广州测试项目中标候选人公示",
+                    "candidate_company_name": "(主)广东甲公司;(成)广东乙公司",
+                    "person_name": "张三",
+                    "release_evidence_target_type": "project_manager_change_notice",
+                    "route_state": "ALTERNATIVE_PUBLIC_SOURCE_ROUTE_READY",
+                },
+            ],
+        },
+    }
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _write_stage4_followup_queue(path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    _write_json(
+        path,
+        {
+            "records": [
+                {
+                    "followup_record_id": "FOLLOWUP-1",
+                    "project_id": "PROJ-CN-GD-JG2026-QUEUE-1",
+                    "project_name": "广州队列项目中标候选人公示",
+                    "followup_route": "local_authority_fallback_source_planning",
+                    "followup_queue_state": "FOLLOWUP_SOURCE_PLAN_REQUIRED",
+                    "public_source_fallback_sequence": [
+                        {"source_kind": "data_ggzy_company_history_search"},
+                        {"source_kind": "data_ggzy_bid_show_readback"},
+                        {"source_kind": "ygp_original_notice_readback"},
+                    ],
+                    "customer_visible_allowed": False,
+                    "query_miss_is_not_clearance": True,
+                    "no_legal_conclusion": True,
+                }
+            ]
+        },
+    )
+
+
+def _write_release_field_query(path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    _write_json(
+        path,
+        {
+            "manifest": {
+                "field_task_records": [
+                    {
+                        "project_id": "PROJ-CN-GD-JG2026-QUEUE-1",
+                        "project_name": "广州队列项目中标候选人公示",
+                        "candidate_group_members": ["广东甲公司"],
+                        "matched_company_names": ["广东甲公司"],
+                        "company_query_variants": ["广东甲公司"],
+                        "responsible_person_name": "张三",
+                        "trigger_source_url": "https://ywtb.gzggzy.cn/jyfw/07-a.html",
+                    }
+                ]
+            }
+        },
+    )
+
+
 def _fake_http_getter(url: str, context: Mapping[str, Any]) -> Mapping[str, Any]:
     parsed = urllib.parse.urlparse(url)
     query = urllib.parse.parse_qs(parsed.query)
+    if parsed.netloc == "zfcj.gz.gov.cn":
+        return _json_response({"title": "广州队列项目中标候选人公示", "content": "广州队列项目公开信息"})
     if parsed.path.endswith("/search"):
         keyword = query.get("keyword", [""])[0]
         if keyword == "阻断公司":

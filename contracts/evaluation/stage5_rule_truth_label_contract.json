@@ -1,0 +1,54 @@
+{
+  "contract_id": "stage5_real_project_rule_truth_label_contract",
+  "contract_version": 1,
+  "minimum_deduplicated_real_project_count": 50,
+  "allowed_truth_labels": [
+    "PASS",
+    "REVIEW_REQUIRED",
+    "EXCLUDE_NOT_EVALUABLE"
+  ],
+  "evaluation_labels": [
+    "PASS",
+    "REVIEW_REQUIRED"
+  ],
+  "required_label_fields": [
+    "truth_label",
+    "truth_label_state",
+    "reviewer_id",
+    "reviewed_at",
+    "truth_evidence_refs",
+    "review_note"
+  ],
+  "accepted_truth_label_state": "HUMAN_REVIEWED",
+  "prohibited_label_sources": [
+    "same_rule_prediction_reused_as_truth",
+    "ai_self_label_without_human_review",
+    "not_found_treated_as_pass_or_clearance",
+    "blocked_source_treated_as_negative_truth"
+  ],
+  "required_metrics": [
+    "true_positive",
+    "true_negative",
+    "false_positive",
+    "false_negative",
+    "precision",
+    "recall",
+    "review_share",
+    "false_positive_rate",
+    "false_negative_rate"
+  ],
+  "comparison_contract": {
+    "baseline_rule_version_required": true,
+    "current_rule_version_required": true,
+    "before_after_confusion_metrics_required": true,
+    "changed_prediction_samples_required": true,
+    "automatic_threshold_mutation_allowed": false
+  },
+  "review_policy": {
+    "minimum_truth_evidence_ref_count": 1,
+    "review_note_required": true,
+    "external_second_review_required_before_public_benchmark_claim": true,
+    "customer_visible_allowed": false,
+    "no_legal_conclusion": true
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "request_id": "MA-CANARY-REPLACE-ME",
+  "task_kind": "EVIDENCE_SUMMARY",
+  "input_data_classification": "PUBLIC",
+  "sanitized_input": {
+    "text": "只放已经脱敏的公开来源测试文本。"
+  },
+  "source_refs": [
+    "PUBLIC-SNAPSHOT-REPLACE-ME"
+  ],
+  "prompt_template_id": "PROMPT_GOVERNED_PROVIDER_SHADOW_V1",
+  "prompt_template_version": "1"
+}
