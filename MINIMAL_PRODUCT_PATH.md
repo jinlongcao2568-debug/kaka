@@ -65,4 +65,3 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1
 5. Stage6 证据包能不能展示。
 
 这五项比继续扩写治理文档更重要。
-
