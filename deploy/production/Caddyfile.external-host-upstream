@@ -5,6 +5,6 @@
 
 import /etc/caddy/KakaPublicRoutes
 
-http://{$KAKA_PUBLIC_HOSTNAME} {
+http://:80 {
 	import kaka_public_routes
 }

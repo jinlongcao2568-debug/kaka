@@ -1,4 +1,9 @@
 (kaka_public_routes) {
+	@invalid_host not host {$KAKA_PUBLIC_HOSTNAME}
+	handle @invalid_host {
+		respond "Misdirected Request" 421
+	}
+
 	encode zstd gzip
 
 	header {
