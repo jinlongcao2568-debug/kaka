@@ -504,6 +504,7 @@ def register_production_release_routes(
     h1 {{ font-size: 24px; margin: 0 0 12px; }}
     p {{ color: #52606d; line-height: 1.7; }}
     form {{ display: grid; gap: 12px; margin-top: 24px; }}
+    form[hidden] {{ display: none; }}
     label {{ font-size: 14px; font-weight: 700; }}
     input {{ height: 44px; padding: 0 12px; border: 1px solid #9aa5b1; border-radius: 4px; font-size: 18px; letter-spacing: 0; }}
     button {{ height: 44px; border: 0; border-radius: 4px; background: #176b4d; color: #fff; font-weight: 700; cursor: pointer; }}

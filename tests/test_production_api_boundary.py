@@ -68,6 +68,7 @@ class TestProductionApiBoundary(unittest.TestCase):
         self.assertEqual(access.status_code, 200)
         self.assertIn("客户交付验证", access.text)
         self.assertIn('window.location.hash.slice(1)', access.text)
+        self.assertIn("form[hidden] { display: none; }", access.text)
         self.assertNotIn("?token=", access.text)
         self.assertEqual(access.headers["cache-control"], "no-store")
         self.assertEqual(access.headers["referrer-policy"], "no-referrer")

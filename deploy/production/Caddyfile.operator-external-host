@@ -12,3 +12,7 @@ import /etc/caddy/KakaOperatorRoutes
 
 	import kaka_operator_routes
 }
+
+http://{$KAKA_OPERATOR_HOSTNAME} {
+	import kaka_operator_routes
+}

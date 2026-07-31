@@ -1,0 +1,49 @@
+(kaka_operator_routes) {
+	@invalid_host not host {$KAKA_OPERATOR_HOSTNAME}
+	handle @invalid_host {
+		respond "Misdirected Request" 421
+	}
+
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "no-referrer"
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+		-Server
+	}
+
+	request_body {
+		max_size 2MB
+	}
+
+	@operator_entry {
+		method GET HEAD
+		path /
+	}
+	@customer_only path /customer/* /production/webhooks/*
+
+	handle @operator_entry {
+		redir * /operator-console 302
+	}
+
+	handle @customer_only {
+		respond "Not Found" 404
+	}
+
+	handle {
+		reverse_proxy app:8000 {
+			transport http {
+				dial_timeout 3s
+				response_header_timeout 10m
+			}
+		}
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}

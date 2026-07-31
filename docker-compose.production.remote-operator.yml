@@ -1,0 +1,21 @@
+services:
+  operator-edge:
+    volumes: !override
+      - ./deploy/production/Caddyfile.operator-external-host:/etc/caddy/Caddyfile:ro
+      - ./deploy/production/Caddyfile.operator-routes:/etc/caddy/KakaOperatorRoutes:ro
+      - operator-caddy-data:/data
+      - operator-caddy-config:/config
+    networks:
+      private-edge:
+        ipv4_address: "${KAKA_OPERATOR_EDGE_PROXY_IP:-172.31.252.253}"
+      operator-ingress:
+        aliases:
+          - kaka-operator-edge
+    labels:
+      kaka.remote_operator_access: dedicated_gateway_network
+      kaka.public_operator_host_port_published: "false"
+
+networks:
+  operator-ingress:
+    name: "${KAKA_OPERATOR_INGRESS_NETWORK:-kaka-operator-ingress}"
+    external: true

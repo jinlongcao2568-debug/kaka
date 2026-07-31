@@ -203,6 +203,7 @@ services:
       - "127.0.0.1:${KAKA_OPERATOR_TLS_PORT:-18443}:443"
     volumes:
       - ./deploy/production/Caddyfile.operator:/etc/caddy/Caddyfile:ro
+      - ./deploy/production/Caddyfile.operator-routes:/etc/caddy/KakaOperatorRoutes:ro
       - operator-caddy-data:/data
       - operator-caddy-config:/config
     networks:

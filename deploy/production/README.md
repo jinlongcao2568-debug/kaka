@@ -57,6 +57,45 @@ scripts/rollback-production-release.ps1 <其他必需参数> -ConfirmProductionR
 成功且非白名单路径返回 404。操作入口仍只监听本机 `KAKA_OPERATOR_TLS_PORT`，
 不得通过该子域名代理。
 
+## 独立远程工作台
+
+需要从受信任电脑远程使用运营工作台时，必须使用不同于客户交付域名的专用子域名，
+并增加 `docker-compose.production.remote-operator.yml`。该覆盖文件不会给应用或
+工作台网关发布公网主机端口，只会把工作台网关接入一个由服务器外层 Caddy 共享的
+专用 Docker 网络。登录继续使用应用内的独立主体密钥、短时会话 Cookie、CSRF 和
+角色权限控制。
+
+先创建专用网络：
+
+```bash
+docker network create kaka-operator-ingress
+```
+
+服务器外层 Caddy 服务接入同一个外部网络后，增加独立站点：
+
+```caddyfile
+ops-kaka.example.com {
+	reverse_proxy kaka-operator-edge:80
+}
+```
+
+生产环境文件必须把 `KAKA_OPERATOR_HOSTNAME` 设置为该工作台域名，并用以下覆盖文件
+启动或重建 `operator-edge`：
+
+```powershell
+docker compose --env-file <生产环境文件> `
+  -f docker-compose.yml `
+  -f docker-compose.production.yml `
+  -f docker-compose.production.external-host-caddy.yml `
+  -f docker-compose.production.remote-operator.yml `
+  up -d --no-deps --force-recreate operator-edge
+```
+
+工作台域名根路径会跳转到 `/operator-console`，未登录访问再跳转到
+`/internal/login`。客户下载和支付回调路径在该工作台网关上返回 404；客户域名也
+继续默认拒绝登录和操作台路径。不得把数据库、应用、worker 或 `private-edge`
+网络接入服务器外层 Caddy。
+
 ## 不能由代码代填的资料
 
 正式域名和 DNS、可信镜像仓库及摘要、Stripe 正式账号和回调端点、真实告警接收端、客户/操作员身份、供应商沙箱与回调证据、发布窗口，以及备份恢复和回滚演练产物必须来自实际运营环境。缺少任一项时，预检保持阻断，不能把内部测试结果写成已上线。

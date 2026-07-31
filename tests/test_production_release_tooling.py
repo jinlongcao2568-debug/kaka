@@ -45,6 +45,35 @@ class TestProductionReleaseTooling(unittest.TestCase):
         self.assertNotIn("/operator-console", routes)
         self.assertNotIn("/internal/login", routes)
 
+    def test_remote_operator_gateway_is_separate_and_default_protected(self) -> None:
+        routes = (
+            ROOT / "deploy" / "production" / "Caddyfile.operator-routes"
+        ).read_text(encoding="utf-8")
+        external_caddyfile = (
+            ROOT / "deploy" / "production" / "Caddyfile.operator-external-host"
+        ).read_text(encoding="utf-8")
+        override = (
+            ROOT / "docker-compose.production.remote-operator.yml"
+        ).read_text(encoding="utf-8")
+        public_routes = (
+            ROOT / "deploy" / "production" / "Caddyfile.public-routes"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("@invalid_host not host {$KAKA_OPERATOR_HOSTNAME}", routes)
+        self.assertIn("redir * /operator-console 302", routes)
+        self.assertIn("@customer_only path /customer/* /production/webhooks/*", routes)
+        self.assertIn('respond "Not Found" 404', routes)
+        self.assertIn(
+            "import /etc/caddy/KakaOperatorRoutes",
+            external_caddyfile,
+        )
+        self.assertIn("http://{$KAKA_OPERATOR_HOSTNAME}", external_caddyfile)
+        self.assertIn("import kaka_operator_routes", external_caddyfile)
+        self.assertIn("kaka-operator-edge", override)
+        self.assertIn("external: true", override)
+        self.assertNotIn("  app:", override)
+        self.assertNotIn("operator-ingress", public_routes)
+
     def test_payment_provider_probe_binds_expected_live_account(self) -> None:
         class StripeAccountStub:
             def retrieve_account(self) -> dict[str, object]:
