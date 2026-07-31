@@ -19,6 +19,10 @@
 		max_size 2MB
 	}
 
+	@customer_entry {
+		method GET HEAD
+		path /
+	}
 	@public_customer path /customer/*
 	@payment_webhook {
 		method POST
@@ -27,6 +31,10 @@
 	@health {
 		method GET HEAD
 		path /healthz
+	}
+
+	handle @customer_entry {
+		redir * /customer/access 302
 	}
 
 	handle @public_customer {

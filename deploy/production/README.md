@@ -40,6 +40,10 @@ kaka.example.com {
 }
 ```
 
+外层 Caddy 必须把该子域名的完整请求交给项目内层 Caddy，不得只放行
+`/healthz`。项目内层 Caddy 会把根路径跳转到 `/customer/access`，并继续负责客户
+路由白名单、支付回调、健康检查和默认拒绝；操作工作台不会进入该公网子域名。
+
 部署、回读和回滚演练分别增加 `-ExternalHostCaddy`：
 
 ```powershell
@@ -49,8 +53,9 @@ scripts/rollback-production-release.ps1 <其他必需参数> -ConfirmProductionR
 ```
 
 外层 Caddy 生效前先确认 `127.0.0.1:18080/healthz` 返回成功；生效后再确认
-`https://kaka.example.com/healthz` 成功且非白名单路径返回 404。操作入口仍只监听本机
-`KAKA_OPERATOR_TLS_PORT`，不得通过该子域名代理。
+`https://kaka.example.com/` 跳转到客户入口、`https://kaka.example.com/healthz`
+成功且非白名单路径返回 404。操作入口仍只监听本机 `KAKA_OPERATOR_TLS_PORT`，
+不得通过该子域名代理。
 
 ## 不能由代码代填的资料
 

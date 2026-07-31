@@ -33,6 +33,18 @@ from shared.provider_adapter_config import (
 
 
 class TestProductionReleaseTooling(unittest.TestCase):
+    def test_public_caddy_routes_root_to_customer_entry_and_keeps_default_deny(self) -> None:
+        routes = (
+            ROOT / "deploy" / "production" / "Caddyfile.public-routes"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("path /", routes)
+        self.assertIn("redir * /customer/access 302", routes)
+        self.assertIn("@public_customer path /customer/*", routes)
+        self.assertIn('respond "Not Found" 404', routes)
+        self.assertNotIn("/operator-console", routes)
+        self.assertNotIn("/internal/login", routes)
+
     def test_payment_provider_probe_binds_expected_live_account(self) -> None:
         class StripeAccountStub:
             def retrieve_account(self) -> dict[str, object]:
